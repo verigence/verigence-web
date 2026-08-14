@@ -1,0 +1,19 @@
+:root {
+  --verigence-blue-900: #003a82;
+  --verigence-blue-700: #0057b8;
+  --verigence-teal-600: #00afa8;
+  --verigence-mint-500: #00d3a7;
+  --verigence-slate-700: #31506e;
+  --verigence-mist-50: #f4f8fb;
+  --verigence-white: #ffffff;
+
+  --verigence-brand-gradient: linear-gradient(
+    135deg,
+    #003a82 0%,
+    #0057b8 42%,
+    #00afa8 72%,
+    #00d3a7 100%
+  );
+
+  --verigence-font-sans: Inter, Arial, Helvetica, sans-serif;
+}

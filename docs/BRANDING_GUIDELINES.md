@@ -24,9 +24,11 @@ Preferred order:
 2. `public/brand/svg/verigence-logo-tagline.svg` — use when the descriptor is helpful.
 3. `public/brand/svg/verigence-mark.svg` — compact navigation, avatar and product-mark usage.
 4. `public/brand/svg/verigence-logo-mono.svg` / `verigence-mark-mono.svg` — monochrome fallback.
-5. `public/brand/icons/favicon.svg` — browser/favicon use.
+5. `public/brand/svg/verigence-hero-lockup.svg` — dark/hero brand treatment.
+6. `public/brand/icons/app-icon.svg` — application/PWA icon source.
+7. `public/brand/icons/favicon.svg` — browser/favicon source.
 
-The original user-approved PNG artwork is retained as the visual reference for fidelity. The SVG files are clean web implementation reconstructions of that approved system.
+The user-approved PNG artwork remains the visual reference for fidelity. The checked-in SVG files are the Web implementation baseline reconstructed from that approved artwork.
 
 ## 3. Color palette
 
@@ -77,7 +79,7 @@ Recommended digital minimums:
 - Horizontal logo: **160 px** wide
 - Mark: **24 px** square-equivalent
 - Favicon: **16 px**
-- App icon: use the provided 192 / 512 PNG assets
+- App icon: render from `public/brand/icons/app-icon.svg`
 
 Do not stretch the logo. Preserve aspect ratio.
 
@@ -87,7 +89,7 @@ Do not stretch the logo. Preserve aspect ratio.
 Use the default full-color logo on white or Mist.
 
 ### Dark surfaces
-Prefer the supplied dark hero artwork or place the default mark on a sufficiently dark navy surface with adequate contrast.
+Use `verigence-hero-lockup.svg` for intentional branded hero treatments, or place the default mark/logo on a sufficiently dark navy surface with adequate contrast.
 
 ### Monochrome
 Use the monochrome SVG only where printing, accessibility, technical constraints or low-color environments require it.
@@ -104,30 +106,24 @@ Do **not**:
 - place the logo on visually noisy imagery without a contrast treatment;
 - recreate the wordmark with an unrelated font.
 
-## 8. Web asset inventory
+## 8. Checked-in Web asset inventory
 
-### SVG
+### Logos and marks
 - `public/brand/svg/verigence-logo.svg`
 - `public/brand/svg/verigence-logo-tagline.svg`
 - `public/brand/svg/verigence-logo-mono.svg`
 - `public/brand/svg/verigence-mark.svg`
 - `public/brand/svg/verigence-mark-mono.svg`
-- `public/brand/icons/favicon.svg`
-
-### PNG
-- `public/brand/png/verigence-wordmark-navy.png`
-- `public/brand/png/verigence-mark-gradient.png`
-- `public/brand/png/verigence-wordmark-gradient.png`
-- `public/brand/png/verigence-hero-lockup.png`
+- `public/brand/svg/verigence-hero-lockup.svg`
 
 ### App/browser icons
-- `public/brand/icons/app-icon-512.png`
-- `public/brand/icons/app-icon-192.png`
-- `public/brand/icons/apple-touch-icon-180.png`
-- `public/brand/icons/icon-64.png`
-- `public/brand/icons/favicon-32.png`
-- `public/brand/icons/favicon-16.png`
+- `public/brand/icons/app-icon.svg`
 - `public/brand/icons/favicon.svg`
+
+### Design tokens
+- `public/brand/brand-tokens.css`
+
+Raster exports should be generated from these SVG assets only when a target platform specifically requires PNG/ICO sizes. The Web application should prefer SVG at runtime.
 
 ## 9. UI implementation rules
 
@@ -139,4 +135,4 @@ Security, warning, error and success semantic colors are **not** defined by the 
 
 ## 10. Change control
 
-Treat these assets as the Web brand baseline. Any material change to the Verigence mark, wordmark, palette or naming should update this document and the source assets together.
+Treat these assets as the Web brand baseline. Any material change to the Verigence mark, wordmark, palette or naming should update this document and the brand assets together.

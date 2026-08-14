@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 540" role="img" aria-labelledby="title desc">
+<title id="title">Verigence brand mark</title>
+<desc id="desc">Shield, intelligence waveform and rising check arrow.</desc>
+<defs>
+  <linearGradient id="brandGradient" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#003A82"/><stop offset="42%" stop-color="#0057B8"/><stop offset="72%" stop-color="#00AFA8"/><stop offset="100%" stop-color="#00D3A7"/></linearGradient>
+  <linearGradient id="tealGradient" x1="0%" y1="100%" x2="100%" y2="0%"><stop offset="0%" stop-color="#007F9E"/><stop offset="55%" stop-color="#00B7A8"/><stop offset="100%" stop-color="#00D3A7"/></linearGradient>
+  <linearGradient id="blueGradient" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#0057B8"/><stop offset="100%" stop-color="#003A82"/></linearGradient>
+</defs>
+<path d="M64 136 C136 119 196 91 256 52 L256 126 C205 159 151 178 83 191 Z" fill="url(#blueGradient)"/>
+<path d="M256 52 C318 91 378 118 448 136 L424 191 C357 178 305 159 256 126 Z" fill="url(#tealGradient)"/>
+<path d="M82 191 L137 218 C140 325 176 398 256 447 L256 505 C138 454 80 368 68 258 L68 188 Z" fill="url(#blueGradient)"/>
+<path d="M443 190 L443 264 C433 368 371 454 256 505 L256 447 C332 401 377 330 389 254 L345 294 L315 260 Z" fill="url(#tealGradient)"/>
+<path d="M148 258 L255 371 L392 230 L430 267 L255 443 L116 298 Z" fill="url(#brandGradient)"/>
+<g fill="url(#brandGradient)"><rect x="170" y="205" width="31" height="106" rx="15.5"/><rect x="211" y="177" width="31" height="164" rx="15.5"/><rect x="252" y="151" width="31" height="216" rx="15.5"/><rect x="293" y="177" width="31" height="164" rx="15.5"/><rect x="334" y="205" width="31" height="106" rx="15.5"/></g>
+</svg>

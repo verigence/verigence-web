@@ -1,14 +1,20 @@
-import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server'
+import { NextResponse } from 'next/server'
+import type { NextRequest } from 'next/server'
 
-const isPublic = createRouteMatcher(['/sign-in(.*)'])
+const PUBLIC_PATHS = ['/sign-in', '/sign-up', '/registration-received']
 
-export default clerkMiddleware(async (auth, req) => {
-  if (!isPublic(req)) await auth.protect()
-})
+export function middleware(req: NextRequest) {
+  const { pathname } = req.nextUrl
+  if (PUBLIC_PATHS.some(p => pathname.startsWith(p))) return NextResponse.next()
+
+  // Check for Verigence session token (httpOnly cookie set after login)
+  const token = req.cookies.get('vg_session')?.value
+  if (!token) {
+    return NextResponse.redirect(new URL('/sign-in', req.url))
+  }
+  return NextResponse.next()
+}
 
 export const config = {
-  matcher: [
-    '/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|webmanifest)).*)',
-    '/(api|trpc)(.*)',
-  ],
+  matcher: ['/((?!_next|[^?]*\\.(?:ico|svg|png|jpg|css|js|woff2?)).*)', '/(api|trpc)(.*)'],
 }

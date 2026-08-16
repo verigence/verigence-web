@@ -7,9 +7,7 @@ function Shell({ children }: { children: React.ReactNode }) {
   if (loading) return (
     <div style={{ minHeight:'100dvh', display:'flex', alignItems:'center',
       justifyContent:'center', background:'#F4F8FB', fontSize:13, color:'#31506E',
-      fontFamily:'Inter,Arial,Helvetica,sans-serif' }}>
-      Loading Verigence…
-    </div>
+      fontFamily:'Inter,Arial,Helvetica,sans-serif' }}>Loading Verigence…</div>
   )
   if (error) return (
     <div style={{ minHeight:'100dvh', display:'flex', flexDirection:'column',
@@ -17,7 +15,6 @@ function Shell({ children }: { children: React.ReactNode }) {
       fontFamily:'Inter,Arial,Helvetica,sans-serif', gap:8 }}>
       <p style={{ fontWeight:700, color:'#DC2626' }}>Session error</p>
       <p style={{ fontSize:12, color:'#31506E' }}>{error}</p>
-      <p style={{ fontSize:12, color:'#31506E' }}>Please contact your administrator.</p>
     </div>
   )
   return (

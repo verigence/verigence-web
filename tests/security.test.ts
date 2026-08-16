@@ -29,7 +29,7 @@ const MOCK_JWT = makeJwt({
   exp: Math.floor(Date.now()/1000) + 300,
 })
 
-const MOCK_CLERK_JWT = 'clerk.eyJ.jwt'
+const MOCK_USER_JWT = makeJwt({ sub:"user-123", tenant_id:"tenant-abc", actor_type:"USER", roles:["PC"], permissions:MOCK_PERMISSIONS, iat:0, exp:9999999999 })
 
 const opts = { securityUrl:'https://sec.test', clientId:'verigence-web', clientSecret:'secret123' }
 
@@ -41,7 +41,7 @@ describe('exchangeToken', () => {
       new Response(JSON.stringify({ access_token: MOCK_JWT, expires_in: 300, scope:'audit.project.read' }), { status:200 }),
     )
 
-    await exchangeToken(MOCK_CLERK_JWT, opts)
+    await exchangeToken(MOCK_USER_JWT, opts)
 
     expect(fetchSpy).toHaveBeenCalledOnce()
     const [url, init] = fetchSpy.mock.calls[0] as [string, RequestInit]
@@ -50,7 +50,7 @@ describe('exchangeToken', () => {
 
     const body = new URLSearchParams(init.body as string)
     expect(body.get('grant_type')).toBe(TOKEN_EXCHANGE_GRANT)
-    expect(body.get('subject_token')).toBe(MOCK_CLERK_JWT)
+    expect(body.get('subject_token')).toBe(MOCK_USER_JWT)
     expect(body.get('subject_token_type')).toBe(ACCESS_TOKEN_TYPE)
     expect(body.get('scope')).toBe(WEB_CLIENT_SCOPE)
   })
@@ -60,7 +60,7 @@ describe('exchangeToken', () => {
       new Response(JSON.stringify({ access_token: MOCK_JWT, expires_in: 300, scope:'' }), { status:200 }),
     )
 
-    await exchangeToken(MOCK_CLERK_JWT, opts)
+    await exchangeToken(MOCK_USER_JWT, opts)
 
     const [, init] = fetchSpy.mock.calls[0] as [string, RequestInit]
     const headers = init.headers as Record<string, string>
@@ -73,7 +73,7 @@ describe('exchangeToken', () => {
       new Response(JSON.stringify({ access_token: MOCK_JWT, expires_in: 300, scope:'' }), { status:200 }),
     )
 
-    const result = await exchangeToken(MOCK_CLERK_JWT, opts)
+    const result = await exchangeToken(MOCK_USER_JWT, opts)
     expect(result.permissions).toEqual(MOCK_PERMISSIONS)
   })
 
@@ -82,7 +82,7 @@ describe('exchangeToken', () => {
       new Response(JSON.stringify({ access_token: 'bad.token', expires_in: 300, scope:'' }), { status:200 }),
     )
 
-    const result = await exchangeToken(MOCK_CLERK_JWT, opts)
+    const result = await exchangeToken(MOCK_USER_JWT, opts)
     expect(result.permissions).toEqual([])
   })
 
@@ -94,7 +94,7 @@ describe('exchangeToken', () => {
       ),
     )
 
-    await expect(exchangeToken(MOCK_CLERK_JWT, opts)).rejects.toThrow('invalid_client')
+    await expect(exchangeToken(MOCK_USER_JWT, opts)).rejects.toThrow('invalid_client')
   })
 
   it('throws when security responds 400 invalid_grant', async () => {
@@ -105,7 +105,7 @@ describe('exchangeToken', () => {
       ),
     )
 
-    await expect(exchangeToken(MOCK_CLERK_JWT, opts)).rejects.toThrow('invalid_grant')
+    await expect(exchangeToken(MOCK_USER_JWT, opts)).rejects.toThrow('invalid_grant')
   })
 
   it('throws when security responds 400 invalid_scope (permission denied)', async () => {
@@ -116,12 +116,12 @@ describe('exchangeToken', () => {
       ),
     )
 
-    await expect(exchangeToken(MOCK_CLERK_JWT, opts)).rejects.toThrow('invalid_scope')
+    await expect(exchangeToken(MOCK_USER_JWT, opts)).rejects.toThrow('invalid_scope')
   })
 
   it('throws when env vars are missing', async () => {
     await expect(
-      exchangeToken(MOCK_CLERK_JWT, { securityUrl:'', clientId:'', clientSecret:'' }),
+      exchangeToken(MOCK_USER_JWT, { securityUrl:'', clientId:'', clientSecret:'' }),
     ).rejects.toThrow('env vars missing')
   })
 })

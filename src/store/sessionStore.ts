@@ -2,35 +2,52 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
 import type { UserRole } from '../domain/models';
-import { DEMO_TENANT_ID } from '../data/demoData';
 
-interface SessionState {
+interface BusinessContext {
+  tenantId: string;
+  dealerId: string;
+  outletId: string;
+}
+
+interface SessionState extends BusinessContext {
   signedIn: boolean;
   email: string;
   displayName: string;
   role: UserRole;
-  tenantId: string;
   accessToken?: string;
   signInPreview: (email: string, role?: UserRole) => void;
   signOut: () => void;
   setRolePreview: (role: UserRole) => void;
   setAccessToken: (token?: string) => void;
+  setBusinessContext: (context: Partial<BusinessContext>) => void;
 }
 
 export const useSessionStore = create<SessionState>()(
   persist(
     (set) => ({
       signedIn: false,
-      email: 'pc@verigence.example',
-      displayName: 'Demo User',
+      email: '',
+      displayName: '',
       role: 'PC',
-      tenantId: DEMO_TENANT_ID,
+      tenantId: '',
+      dealerId: '',
+      outletId: '',
       accessToken: undefined,
       signInPreview: (email, role = 'PC') =>
-        set({ signedIn: true, email, displayName: email.split('@')[0] || 'Demo User', role }),
-      signOut: () => set({ signedIn: false, accessToken: undefined }),
+        set({ signedIn: true, email, displayName: email.split('@')[0] || email, role }),
+      signOut: () =>
+        set({
+          signedIn: false,
+          email: '',
+          displayName: '',
+          tenantId: '',
+          dealerId: '',
+          outletId: '',
+          accessToken: undefined,
+        }),
       setRolePreview: (role) => set({ role }),
       setAccessToken: (accessToken) => set({ accessToken }),
+      setBusinessContext: (context) => set(context),
     }),
     {
       name: 'verigence-web-session',
@@ -40,6 +57,8 @@ export const useSessionStore = create<SessionState>()(
         displayName: state.displayName,
         role: state.role,
         tenantId: state.tenantId,
+        dealerId: state.dealerId,
+        outletId: state.outletId,
       }),
     },
   ),

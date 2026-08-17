@@ -9,8 +9,10 @@ import { useSessionStore } from '../store/sessionStore';
 export default function LoginPage() {
   const navigate = useNavigate();
   const signInPreview = useSessionStore((state) => state.signInPreview);
+  const setAccessToken = useSessionStore((state) => state.setAccessToken);
   const [email, setEmail] = useState('pc@verigence.example');
   const [role, setRole] = useState<UserRole>('PC');
+  const [accessToken, setDevelopmentToken] = useState('');
 
   return (
     <main className="auth-page">
@@ -28,7 +30,7 @@ export default function LoginPage() {
           <img className="auth-card__logo" src={assetUrl('brand/svg/verigence-logo.svg')} alt="Verigence" />
           <span className="eyebrow">Development access</span>
           <h2>Sign in</h2>
-          <p>The authentication bridge is temporary during Web development. After entry, every supported business screen calls Audit Core directly.</p>
+          <p>Use the current development identity bridge while Web is being completed. Supported business screens call Audit Core directly.</p>
 
           <label className="plain-field">
             <span>Work email</span>
@@ -47,11 +49,24 @@ export default function LoginPage() {
             </select>
           </label>
 
+          <label className="plain-field">
+            <span>Development Security token</span>
+            <input
+              type="password"
+              value={accessToken}
+              onChange={(event) => setDevelopmentToken(event.target.value)}
+              autoComplete="off"
+              placeholder="Paste current Bearer JWT for end-to-end testing"
+            />
+            <small>The token is kept only in the current Web session and is sent to Audit Core as a Bearer token.</small>
+          </label>
+
           <VerigenceButton
             expand="block"
             disabled={!email.includes('@')}
             onClick={() => {
               signInPreview(email, role);
+              setAccessToken(accessToken.trim() || undefined);
               navigate('/dashboard');
             }}
           >
@@ -62,8 +77,8 @@ export default function LoginPage() {
           <Link className="secondary-link-button" to="/signup">Request access</Link>
 
           <div className="auth-card__security">
-            <strong>Approval is mandatory.</strong>
-            <span>Signing up never grants a role. Production authentication and Security activation will replace this temporary development bridge when those backend APIs are implemented.</span>
+            <strong>Development only.</strong>
+            <span>The temporary email/role/token bridge will be removed when the production authentication flow is connected. It does not change Audit Core authorization.</span>
           </div>
         </div>
       </section>

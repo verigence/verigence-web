@@ -4,18 +4,33 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import AppShell from './layout/AppShell';
 import DashboardPage from './pages/DashboardPage';
 import EvidencePage from './pages/EvidencePage';
+import SignupPage from './pages/SignupPage';
 
 export default function App() {
   return (
     <IonApp>
       <BrowserRouter>
-        <AppShell>
-          <Routes>
-            <Route path="/" element={<DashboardPage />} />
-            <Route path="/evidence" element={<EvidencePage />} />
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
-        </AppShell>
+        <Routes>
+          <Route path="/signup" element={<SignupPage />} />
+          <Route
+            path="/workspace"
+            element={
+              <AppShell>
+                <DashboardPage />
+              </AppShell>
+            }
+          />
+          <Route
+            path="/evidence"
+            element={
+              <AppShell>
+                <EvidencePage />
+              </AppShell>
+            }
+          />
+          <Route path="/" element={<Navigate to="/signup" replace />} />
+          <Route path="*" element={<Navigate to="/signup" replace />} />
+        </Routes>
       </BrowserRouter>
     </IonApp>
   );

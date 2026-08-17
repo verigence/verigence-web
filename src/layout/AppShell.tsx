@@ -2,7 +2,7 @@ import type { PropsWithChildren } from 'react';
 import { NavLink } from 'react-router-dom';
 
 const navItems = [
-  { to: '/', label: 'Workspace' },
+  { to: '/workspace', label: 'Workspace' },
   { to: '/evidence', label: 'Evidence' },
 ];
 
@@ -19,7 +19,6 @@ export default function AppShell({ children }: PropsWithChildren) {
             <NavLink
               key={item.to}
               to={item.to}
-              end={item.to === '/'}
               className={({ isActive }) =>
                 `app-shell__nav-link${isActive ? ' app-shell__nav-link--active' : ''}`
               }

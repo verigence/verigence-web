@@ -1,6 +1,5 @@
 import type {
   AccessRequest,
-  AccessRequestListResponse,
   CreateAccessRequestInput,
   OperationalRoleKey,
 } from '../../features/onboarding/types';
@@ -10,46 +9,24 @@ import {
   demoListPendingAccessRequests,
   demoRejectAccessRequest,
 } from '../demo/onboardingDemo';
-import { isDemoMode } from '../runtime';
-import { auditCoreRequest } from './client';
 
+// Audit Core does not expose onboarding/approval endpoints yet.
+// Keep this fallback local to onboarding only; the rest of the Web app uses Audit Core directly.
 export function createAccessRequest(input: CreateAccessRequestInput): Promise<AccessRequest> {
-  if (isDemoMode()) return demoCreateAccessRequest(input);
-  return auditCoreRequest<AccessRequest>('/v1/onboarding/access-requests', {
-    method: 'POST',
-    body: JSON.stringify(input),
-  });
+  return demoCreateAccessRequest(input);
 }
 
-export async function listPendingAccessRequests(): Promise<AccessRequest[]> {
-  if (isDemoMode()) return demoListPendingAccessRequests();
-  const response = await auditCoreRequest<AccessRequestListResponse>(
-    '/v1/onboarding/access-requests?status=PENDING',
-  );
-  return response.items;
+export function listPendingAccessRequests(): Promise<AccessRequest[]> {
+  return demoListPendingAccessRequests();
 }
 
 export function approveAccessRequest(
   requestId: string,
   roleKey: OperationalRoleKey,
 ): Promise<AccessRequest> {
-  if (isDemoMode()) return demoApproveAccessRequest(requestId, roleKey);
-  return auditCoreRequest<AccessRequest>(
-    `/v1/onboarding/access-requests/${encodeURIComponent(requestId)}/approve`,
-    {
-      method: 'POST',
-      body: JSON.stringify({ roleKey }),
-    },
-  );
+  return demoApproveAccessRequest(requestId, roleKey);
 }
 
 export function rejectAccessRequest(requestId: string, reason: string): Promise<AccessRequest> {
-  if (isDemoMode()) return demoRejectAccessRequest(requestId, reason);
-  return auditCoreRequest<AccessRequest>(
-    `/v1/onboarding/access-requests/${encodeURIComponent(requestId)}/reject`,
-    {
-      method: 'POST',
-      body: JSON.stringify({ reason }),
-    },
-  );
+  return demoRejectAccessRequest(requestId, reason);
 }

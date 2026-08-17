@@ -3,6 +3,7 @@ import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 
 import RolePreview from '../components/RolePreview';
 import type { UserRole } from '../domain/models';
+import { assetUrl } from '../services/assets';
 import { runtimeConfig } from '../services/runtime';
 import { useSessionStore } from '../store/sessionStore';
 
@@ -74,7 +75,7 @@ export default function AppShell({ children }: PropsWithChildren) {
   return (
     <div className="enterprise-shell">
       <aside className="enterprise-sidebar">
-        <NavLink className="enterprise-brand" to="/dashboard" aria-label="Verigence home"><img src="/brand/svg/verigence-logo.svg" alt="Verigence" /></NavLink>
+        <NavLink className="enterprise-brand" to="/dashboard" aria-label="Verigence home"><img src={assetUrl('brand/svg/verigence-logo.svg')} alt="Verigence" /></NavLink>
         <div className="enterprise-sidebar__context"><span>Workspace</span><strong>{runtimeConfig.tenantId}</strong></div>
         <nav className="enterprise-nav" aria-label="Primary navigation">
           {groups.map((group) => {

@@ -52,7 +52,7 @@ export default function AppShell({ children }: PropsWithChildren) {
     <div className="enterprise-shell">
       <aside className="enterprise-sidebar">
         <NavLink className="enterprise-brand" to="/dashboard" aria-label="Verigence home">
-          <img src={assetUrl('brand/approved/verigence-lockup.svg')} alt="Verigence" />
+          <img src={assetUrl('brand/approved/verigence-lockup.png')} alt="Verigence" />
         </NavLink>
         <nav className="enterprise-nav" aria-label="Primary navigation">
           {groups.map((group) => {

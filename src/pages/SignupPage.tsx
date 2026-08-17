@@ -51,7 +51,7 @@ export default function SignupPage() {
       <section className="signup-brand-panel">
         <img
           className="signup-brand-panel__logo"
-          src={assetUrl('brand/approved/verigence-lockup.svg')}
+          src={assetUrl('brand/approved/verigence-lockup.png')}
           alt="Verigence — evidence, verify, everywhere."
         />
         <div className="signup-brand-panel__message">
@@ -88,7 +88,7 @@ export default function SignupPage() {
       <section className="signup-form-panel">
         <div className="signup-form-card">
           <div className="signup-form-card__heading">
-            <img src={assetUrl('brand/approved/verigence-lockup.svg')} alt="Verigence" />
+            <img src={assetUrl('brand/approved/verigence-lockup.png')} alt="Verigence" />
             <div>
               <span className="eyebrow">New user</span>
               <h2>Create account</h2>
@@ -164,7 +164,7 @@ function SignupPending({ request }: { request: AccessRequest }) {
       <section className="signup-brand-panel">
         <img
           className="signup-brand-panel__logo"
-          src={assetUrl('brand/approved/verigence-lockup.svg')}
+          src={assetUrl('brand/approved/verigence-lockup.png')}
           alt="Verigence"
         />
         <div className="signup-brand-panel__message">

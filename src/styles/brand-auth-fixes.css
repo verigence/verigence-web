@@ -5,7 +5,7 @@
   --brand-mint: #00d3a7;
   --brand-mist: #f4f8fb;
   --brand-slate: #1f2937;
-  --brand-line: #dbe6ee;
+  --brand-line: #d7e4ee;
 }
 
 .auth-page,
@@ -17,9 +17,9 @@
 .signup-brand-panel {
   color: var(--brand-deep-blue);
   background:
-    radial-gradient(circle at 82% 16%, rgba(0, 175, 168, 0.13), transparent 28%),
-    radial-gradient(circle at 14% 86%, rgba(0, 211, 167, 0.08), transparent 30%),
-    linear-gradient(145deg, #ffffff 0%, var(--brand-mist) 100%);
+    radial-gradient(circle at 82% 18%, rgba(0, 175, 168, 0.16), transparent 30%),
+    radial-gradient(circle at 12% 88%, rgba(0, 211, 167, 0.10), transparent 32%),
+    linear-gradient(145deg, #ffffff 0%, #eef6ff 58%, var(--brand-mist) 100%);
   border-right: 1px solid var(--brand-line);
 }
 
@@ -119,15 +119,15 @@
 
 .auth-page .verigence-button,
 .signup-layout .verigence-button {
-  --background: var(--brand-deep-blue);
-  --background-hover: var(--brand-electric-blue);
-  --border-color: var(--brand-deep-blue);
+  --background: var(--brand-electric-blue);
+  --background-hover: var(--brand-deep-blue);
+  --border-color: var(--brand-electric-blue);
   --color: #ffffff;
 }
 
 .auth-page .secondary-link-button,
 .signup-layout .secondary-link-button {
-  border-color: #bfd1df;
+  border-color: var(--brand-electric-blue);
   color: var(--brand-electric-blue);
 }
 
@@ -137,12 +137,12 @@
 }
 
 .signup-form__security-note {
-  border-color: #cae8e5;
+  border-color: #bce3dd;
   background: #f3fbfa;
 }
 
 .signup-form__security-note strong {
-  color: #006e6a;
+  color: #00766f;
 }
 
 .pending-card__icon {
@@ -153,6 +153,23 @@
   width: 190px;
   height: auto;
   object-fit: contain;
+}
+
+.enterprise-nav__item--active {
+  background: #eaf3ff;
+  color: var(--brand-deep-blue);
+  box-shadow: inset 3px 0 var(--brand-electric-blue);
+}
+
+.enterprise-nav__item--active .enterprise-nav__mark {
+  border-color: var(--brand-electric-blue);
+  background: var(--brand-electric-blue);
+  color: #ffffff;
+}
+
+.enterprise-topbar__trail > span:first-child {
+  color: var(--brand-electric-blue);
+  font-weight: 750;
 }
 
 @media (max-width: 900px) {

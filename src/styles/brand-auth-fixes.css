@@ -1,0 +1,163 @@
+:root {
+  --brand-navy: #0b1d3a;
+  --brand-navy-2: #12264d;
+  --brand-blue: #1f3a8a;
+  --brand-gold: #f5a623;
+  --brand-gold-soft: #ffb84d;
+  --brand-surface: #f7f8fb;
+  --brand-line: #e6e8ee;
+}
+
+.auth-page,
+.signup-layout {
+  background: #ffffff;
+}
+
+.auth-page__brand,
+.signup-brand-panel {
+  color: var(--brand-navy);
+  background:
+    radial-gradient(circle at 82% 16%, rgba(245, 166, 35, 0.10), transparent 28%),
+    linear-gradient(145deg, #ffffff 0%, #f7f8fb 62%, #f2f4f7 100%);
+  border-right: 1px solid var(--brand-line);
+}
+
+.auth-page__brand > img,
+.signup-brand-panel__logo {
+  width: min(300px, 78%);
+  height: auto;
+  object-fit: contain;
+}
+
+.auth-page__kicker,
+.signup-brand-panel__kicker {
+  color: #b77700;
+}
+
+.auth-page__brand h1,
+.signup-brand-panel h1 {
+  color: var(--brand-navy);
+}
+
+.auth-page__brand p,
+.signup-brand-panel p {
+  color: #52606d;
+}
+
+.signup-brand-panel__rule {
+  border-top-color: #dde1e7;
+}
+
+.signup-brand-panel__rule > span {
+  color: #b77700;
+}
+
+.signup-brand-panel__rule strong {
+  color: var(--brand-navy-2);
+}
+
+.signup-brand-panel__rule small {
+  color: #6b7280;
+}
+
+.auth-page__form-wrap,
+.signup-form-panel {
+  background: #ffffff;
+}
+
+.auth-card,
+.signup-form-card,
+.pending-card {
+  border-color: var(--brand-line);
+  box-shadow: 0 20px 60px rgba(11, 29, 58, 0.08);
+}
+
+.auth-card__logo,
+.signup-form-card__heading img {
+  width: 206px;
+  height: auto;
+  object-fit: contain;
+}
+
+.auth-form {
+  gap: 18px;
+}
+
+.auth-form__heading {
+  display: grid;
+  gap: 5px;
+}
+
+.auth-form__heading h2 {
+  margin: 0;
+  color: var(--brand-navy);
+  font-size: 30px;
+}
+
+.auth-form__heading p {
+  margin: 0;
+  color: #6b7280;
+  font-size: 12px;
+}
+
+.auth-form__utility {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: -8px;
+}
+
+.auth-text-link {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--brand-blue);
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.auth-page .verigence-button,
+.signup-layout .verigence-button {
+  --background: var(--brand-navy-2);
+  --background-hover: var(--brand-blue);
+  --border-color: var(--brand-navy-2);
+  --color: #ffffff;
+}
+
+.auth-page .secondary-link-button,
+.signup-layout .secondary-link-button {
+  border-color: #cdd3dc;
+  color: var(--brand-navy-2);
+}
+
+.signup-form-card__heading h2,
+.pending-card h2 {
+  color: var(--brand-navy);
+}
+
+.signup-form__security-note {
+  border-color: #f0d9ae;
+  background: #fffaf0;
+}
+
+.signup-form__security-note strong {
+  color: #8a5a00;
+}
+
+.pending-card__icon {
+  background: var(--brand-navy-2);
+}
+
+.enterprise-brand img {
+  width: 190px;
+  height: auto;
+  object-fit: contain;
+}
+
+@media (max-width: 900px) {
+  .auth-page__brand,
+  .signup-brand-panel {
+    border-right: 0;
+    border-bottom: 1px solid var(--brand-line);
+  }
+}

@@ -4,14 +4,14 @@ import type {
   OperationalRoleKey,
 } from '../../features/onboarding/types';
 
-const STORAGE_KEY = 'verigence-demo-access-requests';
+const STORAGE_KEY = 'verigence-web-access-requests-v2';
 
 function readRequests(): AccessRequest[] {
   try {
     const parsed = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
     if (Array.isArray(parsed)) return parsed as AccessRequest[];
   } catch {
-    // Demo data can safely reset if local storage has been manually corrupted.
+    // Web-only onboarding data can reset if local storage has been manually corrupted.
   }
   return [];
 }
@@ -25,21 +25,19 @@ function seedIfEmpty(): AccessRequest[] {
   if (current.length > 0) return current;
   const seeded: AccessRequest[] = [
     {
-      requestId: 'AR-DEMO-1001',
+      requestId: 'AR-WEB-1001',
       fullName: 'Riya Malhotra',
       workEmail: 'riya.malhotra@example.test',
-      tenantCode: 'TENANT-DEMO',
-      employeeId: 'EMP-3104',
+      verigenceKey: 'VG-NORTH-01',
       mobileNumber: '+91 98000 01001',
       status: 'PENDING',
       submittedAt: '2026-08-17T07:05:00Z',
     },
     {
-      requestId: 'AR-DEMO-1002',
+      requestId: 'AR-WEB-1002',
       fullName: 'Nikhil Arora',
       workEmail: 'nikhil.arora@example.test',
-      tenantCode: 'TENANT-DEMO',
-      employeeId: 'EMP-3112',
+      verigenceKey: 'VG-NORTH-01',
       mobileNumber: '+91 98000 01002',
       status: 'PENDING',
       submittedAt: '2026-08-17T07:42:00Z',
@@ -54,12 +52,13 @@ export async function demoCreateAccessRequest(input: CreateAccessRequestInput): 
   const duplicate = items.find(
     (item) =>
       item.workEmail.toLowerCase() === input.workEmail.toLowerCase() &&
-      item.tenantCode.toLowerCase() === input.tenantCode.toLowerCase() &&
+      item.verigenceKey.toLowerCase() === input.verigenceKey.toLowerCase() &&
       item.status === 'PENDING',
   );
   if (duplicate) return duplicate;
+
   const request: AccessRequest = {
-    requestId: `AR-DEMO-${Date.now().toString().slice(-6)}`,
+    requestId: `AR-WEB-${Date.now().toString().slice(-6)}`,
     ...input,
     status: 'PENDING',
     submittedAt: new Date().toISOString(),
@@ -84,7 +83,7 @@ export async function demoApproveAccessRequest(
     status: 'APPROVED',
     assignedRole: roleKey,
     decidedAt: new Date().toISOString(),
-    decidedBy: 'demo-admin',
+    decidedBy: 'web-review-admin',
   };
   items[index] = updated;
   writeRequests(items);
@@ -103,7 +102,7 @@ export async function demoRejectAccessRequest(
     status: 'REJECTED',
     decisionReason: reason,
     decidedAt: new Date().toISOString(),
-    decidedBy: 'demo-admin',
+    decidedBy: 'web-review-admin',
   };
   items[index] = updated;
   writeRequests(items);

@@ -1,138 +1,44 @@
-# Verigence Brand Guidelines
+# Verigence Brand Baseline
 
-**Status:** Web implementation baseline  
-**Scope:** `verigence/verigence-web`  
-**Brand source:** User-approved Verigence PNG artwork supplied on 2026-08-15.
+## Status
 
-## 1. Brand idea
+The product identity must follow the previously approved Verigence design reference. **Do not reconstruct, reinterpret or redraw the logo from memory.**
 
-Verigence brings together **Audit • Governance • Intelligence**.
+## Source of truth
 
-The mark combines three visual ideas:
+The visual source used for the Web implementation is the approved design board:
 
-- **Shield:** trust, assurance, governance and controlled execution.
-- **Intelligence waveform:** analytics, AI and evidence-driven insight.
-- **Rising check / arrow:** validated outcomes, improvement and forward progress.
+- `VERIGENCE Evidence-First UI Blueprint.png`
 
-Use the mark and wordmark as a single system. Do not redraw individual elements in product UI.
+The approved lockup contains:
 
-## 2. Primary logo system
+- the stylized Verigence `V` mark in navy and gold;
+- the `VERIGENCE` wordmark in navy;
+- the tagline `evidence, verify, everywhere.` in gold/amber.
 
-Preferred order:
+Exact cropped assets from that approved reference are checked into:
 
-1. `public/brand/svg/verigence-logo.svg` — default horizontal logo.
-2. `public/brand/svg/verigence-logo-tagline.svg` — use when the descriptor is helpful.
-3. `public/brand/svg/verigence-mark.svg` — compact navigation, avatar and product-mark usage.
-4. `public/brand/svg/verigence-logo-mono.svg` / `verigence-mark-mono.svg` — monochrome fallback.
-5. `public/brand/svg/verigence-hero-lockup.svg` — dark/hero brand treatment.
-6. `public/brand/icons/app-icon.svg` — application/PWA icon source.
-7. `public/brand/icons/favicon.svg` — browser/favicon source.
+- `public/brand/approved/verigence-lockup.png`
+- `public/brand/approved/verigence-mark.png`
 
-The user-approved PNG artwork remains the visual reference for fidelity. The checked-in SVG files are the Web implementation baseline reconstructed from that approved artwork.
+These assets should be used directly. They must not be replaced by a newly generated shield, waveform, checkmark or other interpretation.
 
-## 3. Color palette
+## Identity palette
 
-| Token | Hex | Use |
-|---|---:|---|
-| Verigence Deep Blue | `#003A82` | Primary wordmark, headings, trusted/controlled states |
-| Verigence Electric Blue | `#0057B8` | Gradient, links, active states |
-| Verigence Teal | `#00AFA8` | Intelligence and analytics accent |
-| Verigence Mint | `#00D3A7` | Improvement accent, gradient endpoint |
-| Verigence Slate | `#31506E` | Secondary text and descriptor |
-| Verigence Mist | `#F4F8FB` | Light surfaces/backgrounds |
-| White | `#FFFFFF` | Primary light surface |
+The approved reference uses the following core identity palette:
 
-### Primary brand gradient
+| Token | Value |
+|---|---|
+| Navy | `#0B1D3A` |
+| Navy 2 | `#12264D` |
+| Blue | `#1F3A8A` |
+| Gold | `#F5A623` |
+| Gold Light | `#FFB84D` |
+| Surface | `#F2F4F7` |
+| Border | `#E6E8EE` |
 
-```css
-linear-gradient(135deg, #003A82 0%, #0057B8 42%, #00AFA8 72%, #00D3A7 100%)
-```
+Typography: **Inter**.
 
-Use the gradient inside the mark and selected brand accents. Do not use it as a large decorative background behind dense application content.
+## Product rule
 
-## 4. Typography
-
-Primary UI and brand-support typeface: **Inter**.
-
-Fallback stack:
-
-```css
-font-family: Inter, Arial, Helvetica, sans-serif;
-```
-
-Recommended UI weights:
-
-- 800 — logo-support / major display only
-- 700 — page titles
-- 600 — section headings, navigation, buttons
-- 500 — labels
-- 400 — body text
-
-Product UI should prioritize readability over decorative typography.
-
-## 5. Clear space and sizing
-
-Use a minimum clear space around the logo equal to roughly **25% of the mark width**.
-
-Recommended digital minimums:
-
-- Horizontal logo: **160 px** wide
-- Mark: **24 px** square-equivalent
-- Favicon: **16 px**
-- App icon: render from `public/brand/icons/app-icon.svg`
-
-Do not stretch the logo. Preserve aspect ratio.
-
-## 6. Background usage
-
-### Light surfaces
-Use the default full-color logo on white or Mist.
-
-### Dark surfaces
-Use `verigence-hero-lockup.svg` for intentional branded hero treatments, or place the default mark/logo on a sufficiently dark navy surface with adequate contrast.
-
-### Monochrome
-Use the monochrome SVG only where printing, accessibility, technical constraints or low-color environments require it.
-
-## 7. Logo misuse
-
-Do **not**:
-
-- change the logo proportions;
-- rotate, skew or stretch it;
-- change individual mark colors outside the approved color/mono variants;
-- add drop shadows, outlines, glows or 3D effects to the standard UI logo;
-- separate the waveform, shield or arrow and present them as a different logo;
-- place the logo on visually noisy imagery without a contrast treatment;
-- recreate the wordmark with an unrelated font.
-
-## 8. Checked-in Web asset inventory
-
-### Logos and marks
-- `public/brand/svg/verigence-logo.svg`
-- `public/brand/svg/verigence-logo-tagline.svg`
-- `public/brand/svg/verigence-logo-mono.svg`
-- `public/brand/svg/verigence-mark.svg`
-- `public/brand/svg/verigence-mark-mono.svg`
-- `public/brand/svg/verigence-hero-lockup.svg`
-
-### App/browser icons
-- `public/brand/icons/app-icon.svg`
-- `public/brand/icons/favicon.svg`
-
-### Design tokens
-- `public/brand/brand-tokens.css`
-
-Raster exports should be generated from these SVG assets only when a target platform specifically requires PNG/ICO sizes. The Web application should prefer SVG at runtime.
-
-## 9. UI implementation rules
-
-The Web application should consume the shared tokens from `public/brand/brand-tokens.css` rather than scattering raw brand hex values throughout components.
-
-Use Deep Blue for primary shell/navigation hierarchy, Teal/Mint for intelligence and improvement accents, and keep operational content surfaces predominantly neutral/light.
-
-Security, warning, error and success semantic colors are **not** defined by the logo palette; they should remain distinct accessible semantic tokens in the application design system.
-
-## 10. Change control
-
-Treat these assets as the Web brand baseline. Any material change to the Verigence mark, wordmark, palette or naming should update this document and the brand assets together.
+Internal implementation terminology must not leak into end-user branding or authentication screens. Tenant IDs, Dealer IDs, Outlet IDs, JWTs and development role selectors are not user-facing identity concepts.

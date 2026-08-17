@@ -3,12 +3,11 @@ import { z } from 'zod';
 export const signupSchema = z.object({
   fullName: z.string().trim().min(2, 'Enter your full name.'),
   workEmail: z.string().trim().email('Enter a valid work email address.'),
-  tenantCode: z
+  verigenceKey: z
     .string()
     .trim()
-    .min(2, 'Enter the organization / Tenant code provided by your administrator.')
-    .max(80, 'Tenant code is too long.'),
-  employeeId: z.string().trim().max(80, 'Employee ID is too long.').optional(),
+    .min(4, 'Enter the Verigence Key provided to you.')
+    .max(100, 'Verigence Key is too long.'),
   mobileNumber: z
     .string()
     .trim()

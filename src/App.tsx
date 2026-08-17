@@ -38,7 +38,7 @@ function PrivatePage({ children }: { children: ReactNode }) {
 }
 
 function Loading() {
-  return <div className="app-loading"><img src={assetUrl('brand/svg/verigence-mark.svg')} alt="" /><span>Loading Verigence…</span></div>;
+  return <div className="app-loading"><img src={assetUrl('brand/approved/verigence-mark.png')} alt="" /><span>Loading Verigence…</span></div>;
 }
 
 export default function App() {

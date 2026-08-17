@@ -14,6 +14,7 @@ import './styles/global.css';
 import './styles/approval.css';
 import './styles/workspace.css';
 import './styles/extended.css';
+import './styles/brand-auth-fixes.css';
 
 import App from './App';
 

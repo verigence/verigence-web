@@ -3,6 +3,7 @@ import { IonApp } from '@ionic/react';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 
 import AppShell from './layout/AppShell';
+import { assetUrl } from './services/assets';
 import { runtimeConfig } from './services/runtime';
 import { useSessionStore } from './store/sessionStore';
 
@@ -29,6 +30,8 @@ const TeamAssignmentsPage = lazy(() => import('./pages/TeamAssignmentsPage'));
 const MasterDataPage = lazy(() => import('./pages/MasterDataPage'));
 const ProfilePage = lazy(() => import('./pages/ProfilePage'));
 
+const routerBase = import.meta.env.BASE_URL === '/' ? undefined : import.meta.env.BASE_URL.replace(/\/$/, '');
+
 function PrivatePage({ children }: { children: ReactNode }) {
   const signedIn = useSessionStore((state) => state.signedIn);
   if (!signedIn && runtimeConfig.mode === 'demo') return <Navigate to="/login" replace />;
@@ -36,13 +39,13 @@ function PrivatePage({ children }: { children: ReactNode }) {
 }
 
 function Loading() {
-  return <div className="app-loading"><img src="/brand/svg/verigence-mark.svg" alt="" /><span>Loading Verigence…</span></div>;
+  return <div className="app-loading"><img src={assetUrl('brand/svg/verigence-mark.svg')} alt="" /><span>Loading Verigence…</span></div>;
 }
 
 export default function App() {
   return (
     <IonApp>
-      <BrowserRouter>
+      <BrowserRouter basename={routerBase}>
         <Suspense fallback={<Loading />}>
           <Routes>
             <Route path="/login" element={<LoginPage />} />

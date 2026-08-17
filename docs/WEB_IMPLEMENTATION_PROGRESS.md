@@ -103,9 +103,19 @@ None of these gaps is being solved by changing Audit Core/Security/DI during the
 
 For operational audit users, Verigence does **not** ask users to re-key facts already present in documents, screenshots or source systems. Web screens present extracted/system facts with provenance and allow evidence capture, workflow decisions, findings, remarks and administrative configuration. Manual data entry is limited to information genuinely created by the workflow.
 
+## Hosting / Web Preview
+
+- Hosting-safe base-path routing and brand-asset resolution are implemented in Web.
+- The review build runs with `VITE_WEB_MODE=demo`; it does not require or expose a production Audit Core token.
+- The Web Preview workflow typechecks and builds the complete application successfully.
+- The compiled static Web Preview is automatically published to the repository `gh-pages` branch.
+- GitHub Pages site activation is currently a one-time repository/organization setting: the GitHub Actions integration can publish the branch but is not allowed to create the Pages site itself.
+- Cloudflare Pages remains the agreed production static-hosting target. No Cloudflare credentials or deploy connector are available in the current session, so no Cloudflare account change has been made.
+
 ## Validation
 
 - CI validates dependency installation, TypeScript and the Vite production build on every branch/PR update.
+- Hosting build validates dependency installation, TypeScript, Vite production build, SPA fallback and `gh-pages` publication.
 - The Web Preview is the review baseline until authentication and missing backend read models are activated after Web sign-off.
 
 ## Deferred until Web sign-off

@@ -1,6 +1,5 @@
 import {
   demoCrmInteractions,
-  demoCustomers,
   demoDailyOps,
   demoDealers,
   demoEscalations,
@@ -49,14 +48,11 @@ function mapCoreCustomer(row: core.CoreCustomer): CustomerSummary {
 }
 
 export async function loadCustomers(ctx: RepositoryContext = {}): Promise<{ items: CustomerSummary[]; backing: DataBacking }> {
-  if (runtimeConfig.mode === 'demo') return demoDelay({ items: demoCustomers, backing: 'WEB_DEMO' });
   const rows = await core.listCustomers(runtimeConfig.tenantId, runtimeConfig.defaultOutletId, ctx.accessToken);
   return { items: rows.map(mapCoreCustomer), backing: 'CORE' };
 }
 
 export async function loadJourneys(ctx: RepositoryContext = {}): Promise<{ items: JourneySummary[]; backing: DataBacking }> {
-  if (runtimeConfig.mode === 'demo') return demoDelay({ items: demoJourneys, backing: 'WEB_DEMO' });
-
   const [customers, dealers] = await Promise.all([
     core.listCustomers(runtimeConfig.tenantId, runtimeConfig.defaultOutletId, ctx.accessToken),
     core.listDealers(runtimeConfig.tenantId, ctx.accessToken),
@@ -105,45 +101,45 @@ export async function loadJourneys(ctx: RepositoryContext = {}): Promise<{ items
 }
 
 export async function loadDashboard(role: UserRole, ctx: RepositoryContext = {}): Promise<DashboardModel> {
-  const journeyResult = await loadJourneys(ctx).catch(() => ({ items: demoJourneys, backing: 'WEB_DEMO' as DataBacking }));
+  const journeyResult = await loadJourneys(ctx);
   const openJourneys = journeyResult.items.filter((item) => item.auditState !== 'COMPLETED').length;
   const exceptionCount = journeyResult.items.reduce((sum, item) => sum + item.findingCount, 0);
   const metricsByRole: Record<UserRole, DashboardModel['metrics']> = {
     PC: [
       { label: 'Active journeys', value: String(openJourneys), detail: 'Evidence collection and submission work' },
-      { label: 'Evidence pending', value: '8', detail: 'Documents processing or awaiting capture' },
+      { label: 'Evidence pending', value: '8', detail: 'Aggregate API not available yet' },
       { label: 'Sent back', value: String(journeyResult.items.filter((j) => j.auditState === 'SENT_BACK').length), detail: 'Needs PC attention' },
-      { label: 'Today complete', value: '14', detail: 'Journeys submitted today' },
+      { label: 'Today complete', value: '14', detail: 'Aggregate API not available yet' },
     ],
     TL: [
-      { label: 'Review queue', value: String(demoReviews.filter((r) => r.assignedRole === 'TL').length), detail: 'PC submissions awaiting TL action' },
-      { label: 'High risk', value: '3', detail: 'High / critical items in scope' },
-      { label: 'Open findings', value: String(exceptionCount), detail: 'Across active journeys' },
-      { label: 'SLA at risk', value: '2', detail: 'Due in the next 90 minutes' },
+      { label: 'Review queue', value: String(demoReviews.filter((r) => r.assignedRole === 'TL').length), detail: 'Temporary Web aggregate until queue API exists' },
+      { label: 'High risk', value: '3', detail: 'Temporary Web aggregate until queue API exists' },
+      { label: 'Open findings', value: String(exceptionCount), detail: 'Across active journeys from Audit Core' },
+      { label: 'SLA at risk', value: '2', detail: 'Temporary Web aggregate until queue API exists' },
     ],
     PM: [
-      { label: 'PM decisions', value: String(demoReviews.filter((r) => r.assignedRole === 'PM').length), detail: 'Escalated review decisions' },
-      { label: 'Critical cases', value: '1', detail: 'Requires PM disposition' },
-      { label: 'Open escalations', value: String(demoEscalations.filter((e) => e.status === 'OPEN').length), detail: 'Across assigned outlets' },
-      { label: 'Breach rate', value: '4.8%', detail: 'Current rolling period' },
+      { label: 'PM decisions', value: String(demoReviews.filter((r) => r.assignedRole === 'PM').length), detail: 'Temporary Web aggregate until queue API exists' },
+      { label: 'Critical cases', value: '1', detail: 'Temporary Web aggregate until queue API exists' },
+      { label: 'Open escalations', value: String(demoEscalations.filter((e) => e.status === 'OPEN').length), detail: 'Temporary Web aggregate until queue API exists' },
+      { label: 'Breach rate', value: '4.8%', detail: 'Analytics API not available yet' },
     ],
     CRM: [
-      { label: 'CRM work', value: String(demoCrmInteractions.length), detail: 'Open customer interactions' },
-      { label: 'Follow-ups due', value: '5', detail: 'Due today' },
-      { label: 'Escalated', value: '1', detail: 'Needs operational support' },
-      { label: 'Completed today', value: '18', detail: 'Customer interactions closed' },
+      { label: 'CRM work', value: String(demoCrmInteractions.length), detail: 'Temporary Web aggregate until CRM queue API exists' },
+      { label: 'Follow-ups due', value: '5', detail: 'Temporary Web aggregate until CRM queue API exists' },
+      { label: 'Escalated', value: '1', detail: 'Temporary Web aggregate until escalation queue API exists' },
+      { label: 'Completed today', value: '18', detail: 'Temporary Web aggregate until CRM queue API exists' },
     ],
     TENANT_ADMIN: [
-      { label: 'Active dealers', value: String(demoDealers.length), detail: 'Tenant dealer hierarchy' },
-      { label: 'Active outlets', value: String(demoOutlets.length), detail: 'Configured locations' },
-      { label: 'Access requests', value: '2', detail: 'Pending approval' },
-      { label: 'Active users', value: '47', detail: 'Across operational roles' },
+      { label: 'Active dealers', value: String(demoDealers.length), detail: 'Hierarchy detail uses Audit Core; aggregate API pending' },
+      { label: 'Active outlets', value: String(demoOutlets.length), detail: 'Hierarchy detail uses Audit Core; aggregate API pending' },
+      { label: 'Access requests', value: '2', detail: 'Onboarding API not available yet' },
+      { label: 'Active users', value: '47', detail: 'User aggregate API not available yet' },
     ],
     SUPER_ADMIN: [
-      { label: 'Active tenants', value: '4', detail: 'Platform organizations' },
-      { label: 'Access requests', value: '4', detail: 'Pending across tenants' },
-      { label: 'Platform users', value: '182', detail: 'Active identities' },
-      { label: 'Core health', value: 'Healthy', detail: 'Web preview status' },
+      { label: 'Active tenants', value: '4', detail: 'Platform aggregate API not available yet' },
+      { label: 'Access requests', value: '4', detail: 'Onboarding API not available yet' },
+      { label: 'Platform users', value: '182', detail: 'Platform aggregate API not available yet' },
+      { label: 'Core health', value: runtimeConfig.auditCoreConfigured ? 'Configured' : 'Not configured', detail: 'Development Web → Audit Core' },
     ],
   };
   return {
@@ -151,7 +147,7 @@ export async function loadDashboard(role: UserRole, ctx: RepositoryContext = {})
     metrics: metricsByRole[role],
     priorityWork: demoReviews,
     recentJourneys: journeyResult.items.slice(0, 4),
-    backing: journeyResult.backing === 'CORE' ? 'HYBRID' : 'WEB_DEMO',
+    backing: 'HYBRID',
   };
 }
 
@@ -164,19 +160,6 @@ async function optional<T>(promise: Promise<T>): Promise<T | null> {
 }
 
 export async function loadJourneyWorkspace(journeyId: string, ctx: RepositoryContext = {}): Promise<JourneyWorkspaceModel> {
-  if (runtimeConfig.mode === 'demo') {
-    const journey = demoJourneys.find((item) => item.journeyId === journeyId) || demoJourneys[0];
-    const customer = demoCustomers.find((item) => item.customerId === journey.customerId) || demoCustomers[0];
-    return demoDelay({
-      journey,
-      customer,
-      evidence: demoEvidenceByJourney[journey.journeyId] || [],
-      findings: demoFindings.filter((item) => item.journeyId === journey.journeyId),
-      stages: demoStageData[journey.journeyId] as JourneyWorkspaceModel['stages'],
-      backing: 'WEB_DEMO',
-    });
-  }
-
   const journey = await core.getJourney(runtimeConfig.tenantId, journeyId, ctx.accessToken);
   const customer = await core.getCustomer(runtimeConfig.tenantId, journey.customerId, ctx.accessToken);
   const [booking, commercials, payments, finance, insurance, tradeIn, vehicle, registration, delivery, evidence, findings, audit] =
@@ -238,23 +221,15 @@ export async function loadEvidenceDetail(
   evidenceId: string,
   ctx: RepositoryContext = {},
 ): Promise<{ evidence: EvidenceSummary; facts: EvidenceFact[]; backing: DataBacking }> {
-  if (runtimeConfig.mode === 'demo') {
-    const evidence = Object.values(demoEvidenceByJourney).flat().find((item) => item.evidenceId === evidenceId) || demoEvidenceByJourney[demoJourneys[0].journeyId][0];
-    return demoDelay({ evidence, facts: demoEvidenceFacts[evidence.evidenceId] || [], backing: 'WEB_DEMO' });
-  }
   const detail = await core.getEvidence(runtimeConfig.tenantId, journeyId, evidenceId, ctx.accessToken);
   return { evidence: detail, facts: detail.facts, backing: 'CORE' };
 }
 
 export async function loadTasks(ctx: RepositoryContext = {}) {
-  if (runtimeConfig.mode === 'demo') return demoDelay({ items: demoTasks, backing: 'WEB_DEMO' as DataBacking });
   return { items: await core.listTasks(runtimeConfig.tenantId, ctx.accessToken), backing: 'CORE' as DataBacking };
 }
 
 export async function loadOrganization(ctx: RepositoryContext = {}) {
-  if (runtimeConfig.mode === 'demo') {
-    return demoDelay({ project: demoProject, dealers: demoDealers, outlets: demoOutlets, backing: 'WEB_DEMO' as DataBacking });
-  }
   const [project, dealers] = await Promise.all([
     core.getProject(runtimeConfig.tenantId, ctx.accessToken),
     core.listDealers(runtimeConfig.tenantId, ctx.accessToken),
@@ -265,6 +240,7 @@ export async function loadOrganization(ctx: RepositoryContext = {}) {
   return { project, dealers, outlets: outletGroups.flat(), backing: 'CORE' as DataBacking };
 }
 
+// Aggregate queue APIs are not exposed by Audit Core yet. These specific screens use Web-only data until those APIs exist.
 export function loadReviews() {
   return demoDelay({ items: demoReviews, backing: 'WEB_DEMO' as DataBacking });
 }
@@ -278,7 +254,6 @@ export function loadEvidenceRegister() {
 }
 
 export async function loadDailyOps(ctx: RepositoryContext = {}) {
-  if (runtimeConfig.mode === 'demo') return demoDelay({ items: demoDailyOps, backing: 'WEB_DEMO' as DataBacking });
   return {
     items: await core.listDailyOps(runtimeConfig.tenantId, runtimeConfig.defaultOutletId, ctx.accessToken),
     backing: 'CORE' as DataBacking,

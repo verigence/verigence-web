@@ -89,7 +89,7 @@ export default function AppShell({ children }: PropsWithChildren) {
       <div className="enterprise-main">
         <header className="enterprise-topbar">
           <div className="enterprise-topbar__trail"><span>Verigence</span><span>/</span><strong>{location.pathname.split('/').filter(Boolean).at(-1)?.replaceAll('-', ' ') || 'overview'}</strong></div>
-          <div className="enterprise-topbar__actions"><span className={`runtime-chip runtime-chip--${runtimeConfig.mode}`}>{runtimeConfig.mode === 'demo' ? 'Web preview' : 'Audit Core live'}</span><RolePreview /><button type="button" className="user-menu-button" title={email} onClick={() => { signOut(); navigate('/login'); }}>Sign out</button></div>
+          <div className="enterprise-topbar__actions"><span className="runtime-chip runtime-chip--core">{runtimeConfig.auditCoreConfigured ? 'Development · Audit Core' : 'Audit Core URL missing'}</span><RolePreview /><button type="button" className="user-menu-button" title={email} onClick={() => { signOut(); navigate('/login'); }}>Sign out</button></div>
         </header>
         <main className="enterprise-content">{children}</main>
       </div>

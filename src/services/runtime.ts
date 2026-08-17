@@ -19,4 +19,11 @@ export const runtimeConfig = {
   get outletId(): string {
     return requiredScope(useSessionStore.getState().outletId, 'Outlet');
   },
+  // Compatibility names used by existing screens. These are runtime session values, never build-time defaults.
+  get defaultDealerId(): string {
+    return this.dealerId;
+  },
+  get defaultOutletId(): string {
+    return this.outletId;
+  },
 };

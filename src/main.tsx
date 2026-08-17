@@ -12,6 +12,7 @@ import '@ionic/react/css/flex-utils.css';
 import './theme/variables.css';
 import './styles/global.css';
 import './styles/approval.css';
+import './styles/workspace.css';
 
 import App from './App';
 
@@ -19,18 +20,12 @@ setupIonicReact({ mode: 'md' });
 
 const queryClient = new QueryClient({
   defaultOptions: {
-    queries: {
-      staleTime: 30_000,
-      retry: 1,
-      refetchOnWindowFocus: false,
-    },
+    queries: { staleTime: 30_000, retry: 1, refetchOnWindowFocus: false },
   },
 });
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <QueryClientProvider client={queryClient}>
-      <App />
-    </QueryClientProvider>
+    <QueryClientProvider client={queryClient}><App /></QueryClientProvider>
   </React.StrictMode>,
 );

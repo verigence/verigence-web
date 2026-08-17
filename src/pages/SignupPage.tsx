@@ -6,6 +6,7 @@ import VerigenceInput from '../components/VerigenceInput';
 import { signupSchema, type SignupFormValues } from '../features/onboarding/signupSchema';
 import type { AccessRequest } from '../features/onboarding/types';
 import { createAccessRequest } from '../services/audit-core/onboarding';
+import { assetUrl } from '../services/assets';
 
 const emptyValues: SignupFormValues = {
   fullName: '',
@@ -55,7 +56,7 @@ export default function SignupPage() {
       <section className="signup-brand-panel">
         <img
           className="signup-brand-panel__logo"
-          src="/brand/svg/verigence-hero-lockup.svg"
+          src={assetUrl('brand/svg/verigence-hero-lockup.svg')}
           alt="Verigence"
         />
         <div className="signup-brand-panel__message">
@@ -93,7 +94,7 @@ export default function SignupPage() {
       <section className="signup-form-panel">
         <div className="signup-form-card">
           <div className="signup-form-card__heading">
-            <img src="/brand/svg/verigence-logo.svg" alt="Verigence" />
+            <img src={assetUrl('brand/svg/verigence-logo.svg')} alt="Verigence" />
             <div>
               <span className="eyebrow">New user</span>
               <h2>Sign up</h2>
@@ -187,7 +188,7 @@ function SignupPending({ request }: { request: AccessRequest }) {
       <section className="signup-brand-panel">
         <img
           className="signup-brand-panel__logo"
-          src="/brand/svg/verigence-hero-lockup.svg"
+          src={assetUrl('brand/svg/verigence-hero-lockup.svg')}
           alt="Verigence"
         />
         <div className="signup-brand-panel__message">

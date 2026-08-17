@@ -1,5 +1,4 @@
 import type { UserRole } from '../domain/models';
-import { runtimeConfig } from '../services/runtime';
 import { useSessionStore } from '../store/sessionStore';
 
 const roles: Array<{ value: UserRole; label: string }> = [
@@ -14,10 +13,9 @@ const roles: Array<{ value: UserRole; label: string }> = [
 export default function RolePreview() {
   const role = useSessionStore((state) => state.role);
   const setRole = useSessionStore((state) => state.setRolePreview);
-  if (runtimeConfig.mode !== 'demo') return null;
   return (
     <label className="role-preview">
-      <span>Preview as</span>
+      <span>Development role</span>
       <select value={role} onChange={(event) => setRole(event.target.value as UserRole)}>
         {roles.map((item) => (
           <option key={item.value} value={item.value}>{item.label}</option>

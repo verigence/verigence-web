@@ -25,7 +25,7 @@ export default function LoginPage() {
     <main className="auth-page">
       <section className="auth-page__brand">
         <img
-          src={assetUrl('brand/approved/verigence-lockup.png')}
+          src={assetUrl('brand/approved/verigence-lockup.svg')}
           alt="Verigence — evidence, verify, everywhere."
         />
         <div>
@@ -42,7 +42,7 @@ export default function LoginPage() {
         <form className="auth-card auth-form" onSubmit={submit}>
           <img
             className="auth-card__logo"
-            src={assetUrl('brand/approved/verigence-lockup.png')}
+            src={assetUrl('brand/approved/verigence-lockup.svg')}
             alt="Verigence"
           />
           <div className="auth-form__heading">

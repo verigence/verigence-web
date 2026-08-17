@@ -1,44 +1,30 @@
 # Verigence Brand Baseline
 
-## Status
-
-The product identity must follow the previously approved Verigence design reference. **Do not reconstruct, reinterpret or redraw the logo from memory.**
-
 ## Source of truth
 
-The visual source used for the Web implementation is the approved design board:
+The approved Verigence Web & Mobile wireframes shared on 17 Aug 2026 are the visual branding baseline for the Web application.
 
-- `VERIGENCE Evidence-First UI Blueprint.png`
+The approved identity uses:
 
-The approved lockup contains:
+- the blue/teal stylized `V` mark shown in the wireframes;
+- the `VERIGENCE` wordmark in Deep Blue;
+- Deep Blue `#003A82`;
+- Electric Blue `#0057B8`;
+- Teal `#00AFA8`;
+- Mint `#00D3A7`;
+- Mist `#F4F8FB`;
+- White `#FFFFFF`;
+- Slate Text `#1F2937`.
 
-- the stylized Verigence `V` mark in navy and gold;
-- the `VERIGENCE` wordmark in navy;
-- the tagline `evidence, verify, everywhere.` in gold/amber.
+## Approved Web assets
 
-Exact cropped assets from that approved reference are checked into:
+The Web implementation uses branding assets derived directly from the approved wireframe reference:
 
-- `public/brand/approved/verigence-lockup.png`
-- `public/brand/approved/verigence-mark.png`
+- `public/brand/approved/verigence-lockup.svg`
+- `public/brand/approved/verigence-mark.svg`
 
-These assets should be used directly. They must not be replaced by a newly generated shield, waveform, checkmark or other interpretation.
+Do not substitute a reconstructed shield, waveform, navy/gold identity, or another logo treatment.
 
-## Identity palette
+## Change-control rule
 
-The approved reference uses the following core identity palette:
-
-| Token | Value |
-|---|---|
-| Navy | `#0B1D3A` |
-| Navy 2 | `#12264D` |
-| Blue | `#1F3A8A` |
-| Gold | `#F5A623` |
-| Gold Light | `#FFB84D` |
-| Surface | `#F2F4F7` |
-| Border | `#E6E8EE` |
-
-Typography: **Inter**.
-
-## Product rule
-
-Internal implementation terminology must not leak into end-user branding or authentication screens. Tenant IDs, Dealer IDs, Outlet IDs, JWTs and development role selectors are not user-facing identity concepts.
+Branding changes must not alter screen fields, flow, typography sizing, layout, spacing, or functional behavior unless those changes are separately approved. The current Web screen structure remains unchanged; branding is applied as a visual skin only.

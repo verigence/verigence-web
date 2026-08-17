@@ -1,0 +1,1 @@
+import{t as e}from"./jsx-runtime-Cx0BB4qO.js";import{V as t}from"./index-CockxQdy.js";var n=e();function r({className:e=``,...r}){return(0,n.jsx)(t,{className:`verigence-button ${e}`.trim(),...r})}export{r as t};

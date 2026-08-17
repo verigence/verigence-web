@@ -1,0 +1,1 @@
+async function e(e,t={}){throw Error(`VITE_AUDIT_CORE_BASE_URL is not configured.`)}export{e as t};

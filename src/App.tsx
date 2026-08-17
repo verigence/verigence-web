@@ -18,11 +18,15 @@ const EvidenceDetailPage = lazy(() => import('./pages/EvidenceDetailPage'));
 const ReviewQueuePage = lazy(() => import('./pages/ReviewQueuePage'));
 const FindingsPage = lazy(() => import('./pages/FindingsPage'));
 const TasksPage = lazy(() => import('./pages/TasksPage'));
+const PaymentTrackerPage = lazy(() => import('./pages/PaymentTrackerPage'));
 const DailyOpsPage = lazy(() => import('./pages/DailyOpsPage'));
+const ActivityTrackerPage = lazy(() => import('./pages/ActivityTrackerPage'));
 const CrmPage = lazy(() => import('./pages/CrmPage'));
 const EscalationsPage = lazy(() => import('./pages/EscalationsPage'));
 const AnalyticsPage = lazy(() => import('./pages/AnalyticsPage'));
 const OrganizationAdminPage = lazy(() => import('./pages/OrganizationAdminPage'));
+const TeamAssignmentsPage = lazy(() => import('./pages/TeamAssignmentsPage'));
+const MasterDataPage = lazy(() => import('./pages/MasterDataPage'));
 const ProfilePage = lazy(() => import('./pages/ProfilePage'));
 
 function PrivatePage({ children }: { children: ReactNode }) {
@@ -50,14 +54,18 @@ export default function App() {
             <Route path="/journeys/:journeyId/evidence/:evidenceId" element={<PrivatePage><EvidenceDetailPage /></PrivatePage>} />
             <Route path="/reviews" element={<PrivatePage><ReviewQueuePage /></PrivatePage>} />
             <Route path="/evidence" element={<PrivatePage><EvidencePage /></PrivatePage>} />
+            <Route path="/payments" element={<PrivatePage><PaymentTrackerPage /></PrivatePage>} />
             <Route path="/findings" element={<PrivatePage><FindingsPage /></PrivatePage>} />
             <Route path="/tasks" element={<PrivatePage><TasksPage /></PrivatePage>} />
             <Route path="/daily-ops" element={<PrivatePage><DailyOpsPage /></PrivatePage>} />
+            <Route path="/activity" element={<PrivatePage><ActivityTrackerPage /></PrivatePage>} />
             <Route path="/crm" element={<PrivatePage><CrmPage /></PrivatePage>} />
             <Route path="/escalations" element={<PrivatePage><EscalationsPage /></PrivatePage>} />
             <Route path="/analytics" element={<PrivatePage><AnalyticsPage /></PrivatePage>} />
             <Route path="/approvals" element={<PrivatePage><ApprovalQueuePage /></PrivatePage>} />
             <Route path="/admin/organization" element={<PrivatePage><OrganizationAdminPage /></PrivatePage>} />
+            <Route path="/admin/team" element={<PrivatePage><TeamAssignmentsPage /></PrivatePage>} />
+            <Route path="/admin/masters" element={<PrivatePage><MasterDataPage /></PrivatePage>} />
             <Route path="/profile" element={<PrivatePage><ProfilePage /></PrivatePage>} />
             <Route path="/workspace" element={<Navigate to="/dashboard" replace />} />
             <Route path="/" element={<Navigate to="/login" replace />} />

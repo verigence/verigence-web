@@ -6,56 +6,108 @@
 
 ## Status legend
 
-- **DONE** — screen/flow implemented in Web and build validated.
-- **CORE** — Web client is wired to an existing Audit Core endpoint.
-- **WEB DEMO** — Web-only working adapter/data used because the required aggregate/backend capability does not yet exist.
-- **BLOCKED-BACKEND** — UX can be completed, but production activation requires a later backend capability.
+- **DONE** — screen/flow implemented in Web.
+- **CORE** — Web client is wired to an existing Audit Core endpoint/action.
+- **WEB DEMO** — isolated Web-only working adapter/data is used because the required aggregate/backend capability is not available yet.
+- **HYBRID** — existing Core contracts are used for authoritative detail while Web supplies an aggregate/read-model projection.
+- **BACKEND LATER** — production persistence/auth/aggregate capability is intentionally deferred until after Web sign-off.
 
 ## Screen and integration tracker
 
-| Area | Web screen / flow | Web status | Data / action backing | Backend follow-up later |
+| Area | Web screen / flow | Web | Backing today | Backend after Web? |
 |---|---|---|---|---|
 | Foundation | React/Vite/Ionic/Capacitor shell | DONE | Web | No |
-| Foundation | Role-aware responsive navigation | IN PROGRESS | Web | No |
+| Foundation | Responsive role-aware navigation | DONE | Web | No |
 | Foundation | Demo/Core runtime switch | DONE | Web | No |
-| Authentication | Sign-up / access request | DONE | WEB DEMO; Core contract reserved | Yes — onboarding API |
-| Authentication | Pending approval confirmation | DONE | WEB DEMO | Yes |
-| Authentication | Approval queue + approve/reject | DONE | WEB DEMO; Core contract reserved | Yes — onboarding API |
-| Authentication | Sign-in screen | PLANNED | WEB DEMO initially | Yes — auth bridge |
-| PC | Dashboard | PLANNED | Hybrid aggregate | Aggregate API optional |
-| PC | Customer search/list | PLANNED | CORE (`/outlets/{outlet}/customers`) | No |
-| PC | Journey list | PLANNED | CORE via customer journeys | Cross-customer list optional |
-| PC | Journey workspace | PLANNED | CORE | No |
-| PC | Booking evidence view | PLANNED | CORE booking + evidence | No |
-| PC | Commercials/discount view | PLANNED | CORE | No |
-| PC | Payments/finance view | PLANNED | CORE | No |
-| PC | Insurance/trade-in view | PLANNED | CORE | No |
-| PC | Vehicle/registration/delivery view | PLANNED | CORE | No |
-| PC | Evidence upload/capture | FOUNDATION DONE | CORE upload contract | Auth token needed |
-| PC | Audit start/submit | PLANNED | CORE | No |
-| TL | Review queue | PLANNED | WEB DEMO aggregate + CORE journey review | Queue projection later |
-| TL | Evidence comparison | PLANNED | CORE evidence facts | No |
-| TL | Review decision | PLANNED | CORE | No |
-| PM | PM review / disposition | PLANNED | CORE | No |
-| Shared | Findings register | PLANNED | WEB DEMO aggregate + CORE per journey | Aggregate endpoint optional |
-| Shared | Tasks / work queue | PLANNED | CORE | No |
-| Shared | Evidence register | PLANNED | WEB DEMO aggregate + CORE per journey | Aggregate endpoint optional |
-| Operations | Daily operations | PLANNED | CORE | No |
-| Operations | CRM workspace | PLANNED | WEB DEMO aggregate + CORE per journey | Aggregate endpoint optional |
-| Operations | Escalations | PLANNED | WEB DEMO aggregate + CORE per journey | Aggregate endpoint optional |
-| Insights | Analytics dashboard | PLANNED | WEB DEMO aggregate | Yes — analytics API later |
-| Admin | Project / dealer / outlet configuration | PLANNED | CORE | No |
-| Admin | Access administration | DONE baseline | WEB DEMO | Yes — Security onboarding |
-| Shared | Profile / session | PLANNED | Web | Auth later |
+| Foundation | Lazy route/code splitting | DONE | Web | No |
+| Authentication | Sign-in | DONE | WEB DEMO | BACKEND LATER — Security auth bridge |
+| Authentication | Sign-up / access request | DONE | WEB DEMO | BACKEND LATER — onboarding API |
+| Authentication | Pending approval confirmation | DONE | WEB DEMO | BACKEND LATER |
+| Administration | Access approval queue + role decision | DONE | WEB DEMO | BACKEND LATER — Security onboarding |
+| PC/Shared | Role overview/dashboard | DONE | HYBRID | Aggregate read model later |
+| PC/Shared | Customer search/list | DONE | CORE | No |
+| PC/Shared | Journey list | DONE | CORE assembled client-side | Optional aggregate later |
+| PC/Shared | Journey workspace | DONE | CORE | No |
+| PC | Booking evidence view | DONE | CORE booking + evidence | No |
+| PC | Commercials/discount view | DONE | CORE | No |
+| PC/TL | Payment/finance stage view | DONE | CORE | No |
+| PC/TL/PM | Payment verification tracker | DONE | WEB DEMO aggregate; CORE per journey | Aggregate endpoint later |
+| PC | Insurance/trade-in view | DONE | CORE | No |
+| PC | Vehicle/registration/delivery view | DONE | CORE | No |
+| PC | Evidence upload/capture | DONE | CORE upload contract in Core mode | Authentication token later |
+| Shared | Evidence register | DONE | WEB DEMO aggregate; CORE per journey | Aggregate endpoint later |
+| Shared | Evidence detail / extracted facts | DONE | CORE | No |
+| PC | Audit start/submit | DONE | CORE | Authentication token later |
+| TL/PM | Review queue | DONE | WEB DEMO aggregate; CORE decision/detail | Queue projection later |
+| TL/PM | Review decision | DONE | CORE | Authentication token later |
+| Shared | Findings register | DONE | WEB DEMO aggregate; CORE per journey | Aggregate endpoint later |
+| Shared | Tasks / My Work | DONE | CORE | Authentication token later |
+| Operations | Daily operations runs | DONE | CORE | Authentication token later |
+| Operations | Daily PC/TL activity tracker | DONE | WEB DEMO | BACKEND LATER — activity read/write model |
+| Operations | PC daily notepad | DONE | WEB DEMO/local persistence | BACKEND LATER — notepad persistence |
+| Operations | CRM workspace | DONE | WEB DEMO aggregate; CORE per journey | Aggregate queue later |
+| Operations | Escalations | DONE | WEB DEMO aggregate; CORE per journey | Aggregate queue later |
+| Insights | Analytics dashboard | DONE | WEB DEMO | BACKEND LATER — analytics/read model |
+| Admin | Project / dealer / outlet hierarchy | DONE | CORE | No |
+| Admin | Team & business-scope assignments | DONE | WEB DEMO | BACKEND LATER — public assignment contract |
+| Admin | Dealership participant references | DONE | WEB DEMO | BACKEND LATER — participant master contract |
+| Admin | Product catalogue | DONE | WEB DEMO | BACKEND LATER — public master lifecycle API |
+| Admin | Price-list versions | DONE | WEB DEMO | BACKEND LATER — public master lifecycle API |
+| Admin | Discount schemes | DONE | WEB DEMO | BACKEND LATER — public master lifecycle API |
+| Admin | Supporting controls/document requirements | DONE | WEB DEMO | BACKEND LATER — configuration API |
+| Shared | Profile / runtime/session context | DONE | Web | Security session later |
+
+## Existing Audit Core contracts already integrated in Web
+
+The Web integration layer maps the current public Audit Core routes for:
+
+- Project
+- Dealers and outlets
+- Customers
+- Journeys
+- Booking
+- Commercials
+- Payments
+- Finance
+- Insurance
+- Trade-in
+- Vehicle
+- Registration
+- Delivery
+- Evidence upload/read/refresh and extracted facts
+- Findings
+- Audit state/start/submit
+- Review decisions
+- Workflow tasks
+- Daily operations
+- CRM interactions
+- Escalations
+
+## Web-only gaps deliberately isolated
+
+The following capabilities remain inside Web Preview until the backend phase begins:
+
+- sign-up/pending approval/approval persistence;
+- production sign-in/session/token acquisition;
+- cross-journey review/evidence/findings/payment/CRM/escalation aggregate read models;
+- analytics read model;
+- Daily PC/TL Activity Tracker persistence;
+- PC Daily Activity Notepad persistence;
+- Project team/business-scope assignment administration;
+- dealership participant master/reference administration;
+- full product/price/discount/supporting-master lifecycle APIs.
+
+None of these gaps is being solved by changing Audit Core/Security/DI during the Web phase.
 
 ## Audit UX rule
 
-For operational audit users, Verigence does **not** ask the user to re-key facts already present in documents, screenshots or source systems. Web screens should present extracted/system facts with provenance and allow evidence capture, workflow decisions, findings and review actions. Manual data entry is limited to genuine new workflow information such as remarks, findings, decisions or administrative configuration.
+For operational audit users, Verigence does **not** ask users to re-key facts already present in documents, screenshots or source systems. Web screens present extracted/system facts with provenance and allow evidence capture, workflow decisions, findings, remarks and administrative configuration. Manual data entry is limited to information genuinely created by the workflow.
 
-## Audit Core routes already mapped for Web
+## Validation
 
-The Web integration layer includes existing Core contracts for project, dealers/outlets, customers, journeys, booking, commercials, payments, finance, insurance, trade-in, vehicle, registration, delivery, evidence upload/read/refresh, findings, audit state/submission, review decisions, tasks, daily operations, CRM interactions and escalations.
+- CI validates dependency installation, TypeScript and the Vite production build on every branch/PR update.
+- The Web Preview is the review baseline until authentication and missing backend read models are activated after Web sign-off.
 
 ## Deferred until Web sign-off
 
-Do not modify other modules to close any gap during Web implementation. Record the gap here, use a clearly isolated Web demo adapter where required, and only after Web sign-off create the backend implementation plan.
+Do not modify another Verigence module to close a Web dependency. Record it above, keep the Web contract/adapter isolated, and create the backend implementation plan only after the Web application is accepted.

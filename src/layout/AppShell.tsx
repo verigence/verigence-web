@@ -28,6 +28,7 @@ const groups: NavGroup[] = [
     items: [
       { to: '/reviews', label: 'Review queue', mark: 'RV', roles: assurance },
       { to: '/evidence', label: 'Evidence', mark: 'EV', roles: ['PC', 'TL', 'PM', ...admin] },
+      { to: '/payments', label: 'Payment tracker', mark: 'PY', roles: ['PC', 'TL', 'PM', ...admin] },
       { to: '/findings', label: 'Findings', mark: 'FN', roles: assurance },
     ],
   },
@@ -35,6 +36,7 @@ const groups: NavGroup[] = [
     label: 'Operations',
     items: [
       { to: '/daily-ops', label: 'Daily operations', mark: 'DO', roles: ['PC', 'TL', 'PM', ...admin] },
+      { to: '/activity', label: 'Activity tracker', mark: 'AT', roles: ['PC', 'TL', 'PM', ...admin] },
       { to: '/crm', label: 'CRM follow-up', mark: 'CR', roles: ['CRM', 'PM', ...admin] },
       { to: '/escalations', label: 'Escalations', mark: 'ES', roles: ['TL', 'PM', 'CRM', ...admin] },
     ],
@@ -48,6 +50,8 @@ const groups: NavGroup[] = [
     items: [
       { to: '/approvals', label: 'Access approvals', mark: 'AC', roles: admin },
       { to: '/admin/organization', label: 'Organization', mark: 'OR', roles: admin },
+      { to: '/admin/team', label: 'Team & assignments', mark: 'TM', roles: admin },
+      { to: '/admin/masters', label: 'Masters & controls', mark: 'MS', roles: admin },
     ],
   },
 ];
@@ -70,68 +74,21 @@ export default function AppShell({ children }: PropsWithChildren) {
   return (
     <div className="enterprise-shell">
       <aside className="enterprise-sidebar">
-        <NavLink className="enterprise-brand" to="/dashboard" aria-label="Verigence home">
-          <img src="/brand/svg/verigence-logo.svg" alt="Verigence" />
-        </NavLink>
-
-        <div className="enterprise-sidebar__context">
-          <span>Workspace</span>
-          <strong>{runtimeConfig.tenantId}</strong>
-        </div>
-
+        <NavLink className="enterprise-brand" to="/dashboard" aria-label="Verigence home"><img src="/brand/svg/verigence-logo.svg" alt="Verigence" /></NavLink>
+        <div className="enterprise-sidebar__context"><span>Workspace</span><strong>{runtimeConfig.tenantId}</strong></div>
         <nav className="enterprise-nav" aria-label="Primary navigation">
           {groups.map((group) => {
             const items = group.items.filter((item) => !item.roles || item.roles.includes(role));
             if (items.length === 0) return null;
-            return (
-              <div className="enterprise-nav__group" key={group.label}>
-                <span className="enterprise-nav__group-label">{group.label}</span>
-                {items.map((item) => (
-                  <NavLink
-                    key={item.to}
-                    to={item.to}
-                    className={({ isActive }) => `enterprise-nav__item${isActive ? ' enterprise-nav__item--active' : ''}`}
-                  >
-                    <span className="enterprise-nav__mark">{item.mark}</span>
-                    <span>{item.label}</span>
-                  </NavLink>
-                ))}
-              </div>
-            );
+            return <div className="enterprise-nav__group" key={group.label}><span className="enterprise-nav__group-label">{group.label}</span>{items.map((item) => <NavLink key={item.to} to={item.to} className={({ isActive }) => `enterprise-nav__item${isActive ? ' enterprise-nav__item--active' : ''}`}><span className="enterprise-nav__mark">{item.mark}</span><span>{item.label}</span></NavLink>)}</div>;
           })}
         </nav>
-
-        <NavLink to="/profile" className="enterprise-profile-link">
-          <span className="enterprise-profile-link__avatar">{displayName.slice(0, 2).toUpperCase()}</span>
-          <span>
-            <strong>{displayName}</strong>
-            <small>{roleLabel(role)}</small>
-          </span>
-        </NavLink>
+        <NavLink to="/profile" className="enterprise-profile-link"><span className="enterprise-profile-link__avatar">{displayName.slice(0, 2).toUpperCase()}</span><span><strong>{displayName}</strong><small>{roleLabel(role)}</small></span></NavLink>
       </aside>
-
       <div className="enterprise-main">
         <header className="enterprise-topbar">
-          <div className="enterprise-topbar__trail">
-            <span>Verigence</span>
-            <span>/</span>
-            <strong>{location.pathname.split('/').filter(Boolean).at(-1)?.replaceAll('-', ' ') || 'overview'}</strong>
-          </div>
-          <div className="enterprise-topbar__actions">
-            <span className={`runtime-chip runtime-chip--${runtimeConfig.mode}`}>{runtimeConfig.mode === 'demo' ? 'Web preview' : 'Audit Core live'}</span>
-            <RolePreview />
-            <button
-              type="button"
-              className="user-menu-button"
-              title={email}
-              onClick={() => {
-                signOut();
-                navigate('/login');
-              }}
-            >
-              Sign out
-            </button>
-          </div>
+          <div className="enterprise-topbar__trail"><span>Verigence</span><span>/</span><strong>{location.pathname.split('/').filter(Boolean).at(-1)?.replaceAll('-', ' ') || 'overview'}</strong></div>
+          <div className="enterprise-topbar__actions"><span className={`runtime-chip runtime-chip--${runtimeConfig.mode}`}>{runtimeConfig.mode === 'demo' ? 'Web preview' : 'Audit Core live'}</span><RolePreview /><button type="button" className="user-menu-button" title={email} onClick={() => { signOut(); navigate('/login'); }}>Sign out</button></div>
         </header>
         <main className="enterprise-content">{children}</main>
       </div>

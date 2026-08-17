@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 
 import VerigenceButton from '../components/VerigenceButton';
 import type { UserRole } from '../domain/models';
+import { assetUrl } from '../services/assets';
 import { runtimeConfig } from '../services/runtime';
 import { useSessionStore } from '../store/sessionStore';
 
@@ -15,7 +16,7 @@ export default function LoginPage() {
   return (
     <main className="auth-page">
       <section className="auth-page__brand">
-        <img src="/brand/svg/verigence-hero-lockup.svg" alt="Verigence" />
+        <img src={assetUrl('brand/svg/verigence-hero-lockup.svg')} alt="Verigence" />
         <div>
           <span className="auth-page__kicker">Audit • Governance • Intelligence</span>
           <h1>Evidence-led control for every customer journey.</h1>
@@ -25,7 +26,7 @@ export default function LoginPage() {
 
       <section className="auth-page__form-wrap">
         <div className="auth-card">
-          <img className="auth-card__logo" src="/brand/svg/verigence-logo.svg" alt="Verigence" />
+          <img className="auth-card__logo" src={assetUrl('brand/svg/verigence-logo.svg')} alt="Verigence" />
           <span className="eyebrow">Approved users</span>
           <h2>Sign in</h2>
           <p>{runtimeConfig.mode === 'demo' ? 'Use Web Preview to walk every role while the UI is being completed.' : 'Production authentication will be activated after Web sign-off without changing these screens.'}</p>

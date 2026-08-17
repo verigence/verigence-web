@@ -17,10 +17,8 @@ export default function TasksPage() {
   const [message, setMessage] = useState('');
   const query = useQuery({ queryKey: ['tasks'], queryFn: () => loadTasks({ accessToken }) });
   const action = useMutation({
-    mutationFn: async ({ taskId, kind }: { taskId: string; kind: 'claim' | 'start' | 'complete' }) => {
-      if (runtimeConfig.mode === 'demo') return { taskId, kind };
-      return taskAction(runtimeConfig.tenantId, taskId, kind, accessToken);
-    },
+    mutationFn: async ({ taskId, kind }: { taskId: string; kind: 'claim' | 'start' | 'complete' }) =>
+      taskAction(runtimeConfig.tenantId, taskId, kind, accessToken),
     onSuccess: (_, variables) => {
       setMessage(`Task ${variables.kind} action completed.`);
       void queryClient.invalidateQueries({ queryKey: ['tasks'] });

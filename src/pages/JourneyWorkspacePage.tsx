@@ -51,12 +51,9 @@ export default function JourneyWorkspacePage() {
   const model = query.data;
 
   const auditAction = useMutation({
-    mutationFn: async (action: 'start' | 'submit') => {
-      if (runtimeConfig.mode === 'demo') return action;
-      return action === 'start'
-        ? startAudit(runtimeConfig.tenantId, journeyId, accessToken)
-        : submitAudit(runtimeConfig.tenantId, journeyId, accessToken);
-    },
+    mutationFn: async (action: 'start' | 'submit') => action === 'start'
+      ? startAudit(runtimeConfig.tenantId, journeyId, accessToken)
+      : submitAudit(runtimeConfig.tenantId, journeyId, accessToken),
     onSuccess: (_, action) => {
       setActionMessage(action === 'start' ? 'Audit started.' : 'Audit submitted for review.');
       void queryClient.invalidateQueries({ queryKey: ['journey-workspace', journeyId] });
@@ -64,14 +61,11 @@ export default function JourneyWorkspacePage() {
   });
 
   const reviewAction = useMutation({
-    mutationFn: async (decision: 'BREACH' | 'NO_BREACH' | 'SEND_BACK') => {
-      if (runtimeConfig.mode === 'demo') return decision;
-      return createReviewDecision(runtimeConfig.tenantId, journeyId, {
-        decision,
-        reviewerRoleCode: role === 'PM' ? 'PM' : 'TL',
-        remarks: reviewRemarks || undefined,
-      }, accessToken);
-    },
+    mutationFn: async (decision: 'BREACH' | 'NO_BREACH' | 'SEND_BACK') => createReviewDecision(runtimeConfig.tenantId, journeyId, {
+      decision,
+      reviewerRoleCode: role === 'PM' ? 'PM' : 'TL',
+      remarks: reviewRemarks || undefined,
+    }, accessToken),
     onSuccess: (_, decision) => setActionMessage(`Review decision recorded: ${decision.replaceAll('_', ' ')}.`),
   });
 

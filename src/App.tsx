@@ -2,6 +2,7 @@ import { IonApp } from '@ionic/react';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 
 import AppShell from './layout/AppShell';
+import ApprovalQueuePage from './pages/ApprovalQueuePage';
 import DashboardPage from './pages/DashboardPage';
 import EvidencePage from './pages/EvidencePage';
 import SignupPage from './pages/SignupPage';
@@ -17,6 +18,14 @@ export default function App() {
             element={
               <AppShell>
                 <DashboardPage />
+              </AppShell>
+            }
+          />
+          <Route
+            path="/approvals"
+            element={
+              <AppShell>
+                <ApprovalQueuePage />
               </AppShell>
             }
           />

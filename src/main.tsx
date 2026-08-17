@@ -11,6 +11,7 @@ import '@ionic/react/css/padding.css';
 import '@ionic/react/css/flex-utils.css';
 import './theme/variables.css';
 import './styles/global.css';
+import './styles/approval.css';
 
 import App from './App';
 

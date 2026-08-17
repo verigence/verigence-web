@@ -3,6 +3,7 @@ import { NavLink } from 'react-router-dom';
 
 const navItems = [
   { to: '/workspace', label: 'Workspace' },
+  { to: '/approvals', label: 'Approvals' },
   { to: '/evidence', label: 'Evidence' },
 ];
 

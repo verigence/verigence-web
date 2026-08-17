@@ -68,6 +68,7 @@ export default function AppShell({ children }: PropsWithChildren) {
   const role = useSessionStore((state) => state.role);
   const displayName = useSessionStore((state) => state.displayName);
   const email = useSessionStore((state) => state.email);
+  const tenantId = useSessionStore((state) => state.tenantId);
   const signOut = useSessionStore((state) => state.signOut);
   const navigate = useNavigate();
   const location = useLocation();
@@ -76,7 +77,7 @@ export default function AppShell({ children }: PropsWithChildren) {
     <div className="enterprise-shell">
       <aside className="enterprise-sidebar">
         <NavLink className="enterprise-brand" to="/dashboard" aria-label="Verigence home"><img src={assetUrl('brand/svg/verigence-logo.svg')} alt="Verigence" /></NavLink>
-        <div className="enterprise-sidebar__context"><span>Workspace</span><strong>{runtimeConfig.tenantId}</strong></div>
+        <div className="enterprise-sidebar__context"><span>Workspace</span><strong>{tenantId || 'Scope pending'}</strong></div>
         <nav className="enterprise-nav" aria-label="Primary navigation">
           {groups.map((group) => {
             const items = group.items.filter((item) => !item.roles || item.roles.includes(role));
@@ -84,7 +85,7 @@ export default function AppShell({ children }: PropsWithChildren) {
             return <div className="enterprise-nav__group" key={group.label}><span className="enterprise-nav__group-label">{group.label}</span>{items.map((item) => <NavLink key={item.to} to={item.to} className={({ isActive }) => `enterprise-nav__item${isActive ? ' enterprise-nav__item--active' : ''}`}><span className="enterprise-nav__mark">{item.mark}</span><span>{item.label}</span></NavLink>)}</div>;
           })}
         </nav>
-        <NavLink to="/profile" className="enterprise-profile-link"><span className="enterprise-profile-link__avatar">{displayName.slice(0, 2).toUpperCase()}</span><span><strong>{displayName}</strong><small>{roleLabel(role)}</small></span></NavLink>
+        <NavLink to="/profile" className="enterprise-profile-link"><span className="enterprise-profile-link__avatar">{displayName.slice(0, 2).toUpperCase()}</span><span><strong>{displayName || 'User'}</strong><small>{roleLabel(role)}</small></span></NavLink>
       </aside>
       <div className="enterprise-main">
         <header className="enterprise-topbar">

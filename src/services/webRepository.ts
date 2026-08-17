@@ -20,7 +20,6 @@ import type {
   DataBacking,
   EvidenceFact,
   EvidenceSummary,
-  JourneyStageKey,
   JourneySummary,
   JourneyWorkspaceModel,
   UserRole,
@@ -228,7 +227,7 @@ export async function loadJourneyWorkspace(journeyId: string, ctx: RepositoryCon
       vehicle,
       registration,
       delivery,
-      review: audit,
+      review: audit ? { ...audit } : null,
     },
     backing: 'CORE',
   };

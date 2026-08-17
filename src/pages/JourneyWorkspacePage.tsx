@@ -76,6 +76,7 @@ export default function JourneyWorkspacePage() {
   });
 
   const stageData = useMemo(() => model?.stages[activeStage] || null, [model, activeStage]);
+  const provenance = stageData?.source;
 
   if (query.isLoading) return <div className="page-loading">Loading journey workspace…</div>;
   if (!model) return <div className="page-error">Journey workspace could not be loaded.</div>;
@@ -131,7 +132,7 @@ export default function JourneyWorkspacePage() {
               </div>
             )}
 
-            {activeStage !== 'review' && stageData?.source && <div className="provenance-strip"><span>Source provenance</span><strong>{String(stageData.source).replaceAll('_', ' ')}</strong></div>}
+            {activeStage !== 'review' && provenance != null && provenance !== '' && <div className="provenance-strip"><span>Source provenance</span><strong>{String(provenance).replaceAll('_', ' ')}</strong></div>}
 
             {activeStage === 'review' && (
               <div className="review-action-panel">

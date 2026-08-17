@@ -4,6 +4,7 @@ import { Link, useParams } from 'react-router-dom';
 import PageHeader from '../components/PageHeader';
 import SectionCard from '../components/SectionCard';
 import StatusPill from '../components/StatusPill';
+import { assetUrl } from '../services/assets';
 import { loadEvidenceDetail } from '../services/webRepository';
 import { useSessionStore } from '../store/sessionStore';
 
@@ -36,7 +37,7 @@ export default function EvidenceDetailPage() {
         <SectionCard title="Document source" description="The original document remains authoritative; extracted facts below are a projection for audit review.">
           <div className="document-preview">
             <div className="document-preview__sheet">
-              <img src="/brand/svg/verigence-mark.svg" alt="" />
+              <img src={assetUrl('brand/svg/verigence-mark.svg')} alt="" />
               <strong>{data.evidence.filename || data.evidence.documentTypeKey}</strong>
               <span>Document preview placeholder</span>
               <small>The production viewer will render the original secured evidence stream when the content endpoint is connected.</small>

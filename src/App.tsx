@@ -4,7 +4,6 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 
 import AppShell from './layout/AppShell';
 import { assetUrl } from './services/assets';
-import { runtimeConfig } from './services/runtime';
 import { useSessionStore } from './store/sessionStore';
 
 const LoginPage = lazy(() => import('./pages/LoginPage'));
@@ -34,7 +33,7 @@ const routerBase = import.meta.env.BASE_URL === '/' ? undefined : import.meta.en
 
 function PrivatePage({ children }: { children: ReactNode }) {
   const signedIn = useSessionStore((state) => state.signedIn);
-  if (!signedIn && runtimeConfig.mode === 'demo') return <Navigate to="/login" replace />;
+  if (!signedIn) return <Navigate to="/login" replace />;
   return <AppShell>{children}</AppShell>;
 }
 

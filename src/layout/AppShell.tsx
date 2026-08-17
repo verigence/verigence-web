@@ -1,8 +1,8 @@
 import type { PropsWithChildren } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 
+import verigenceLockup from '../assets/verigence-lockup.png';
 import type { UserRole } from '../domain/models';
-import { assetUrl } from '../services/assets';
 import { useSessionStore } from '../store/sessionStore';
 
 type NavItem = { to: string; label: string; mark: string; roles?: UserRole[] };
@@ -52,7 +52,7 @@ export default function AppShell({ children }: PropsWithChildren) {
     <div className="enterprise-shell">
       <aside className="enterprise-sidebar">
         <NavLink className="enterprise-brand" to="/dashboard" aria-label="Verigence home">
-          <img src={assetUrl('brand/approved/verigence-lockup.png')} alt="Verigence" />
+          <img src={verigenceLockup} alt="Verigence" />
         </NavLink>
         <nav className="enterprise-nav" aria-label="Primary navigation">
           {groups.map((group) => {

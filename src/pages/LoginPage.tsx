@@ -1,8 +1,8 @@
 import { useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 
+import verigenceLockup from '../assets/verigence-lockup.png';
 import VerigenceButton from '../components/VerigenceButton';
-import { assetUrl } from '../services/assets';
 import { useSessionStore } from '../store/sessionStore';
 
 export default function LoginPage() {
@@ -24,10 +24,7 @@ export default function LoginPage() {
   return (
     <main className="auth-page">
       <section className="auth-page__brand">
-        <img
-          src={assetUrl('brand/approved/verigence-lockup.png')}
-          alt="Verigence — evidence, verify, everywhere."
-        />
+        <img src={verigenceLockup} alt="Verigence" />
         <div>
           <span className="auth-page__kicker">Evidence first</span>
           <h1>Capture. Verify. Act with confidence.</h1>
@@ -40,11 +37,7 @@ export default function LoginPage() {
 
       <section className="auth-page__form-wrap">
         <form className="auth-card auth-form" onSubmit={submit}>
-          <img
-            className="auth-card__logo"
-            src={assetUrl('brand/approved/verigence-lockup.png')}
-            alt="Verigence"
-          />
+          <img className="auth-card__logo" src={verigenceLockup} alt="Verigence" />
           <div className="auth-form__heading">
             <h2>Welcome back</h2>
             <p>Sign in to continue to Verigence.</p>

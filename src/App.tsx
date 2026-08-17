@@ -2,8 +2,8 @@ import { lazy, Suspense, type ReactNode } from 'react';
 import { IonApp } from '@ionic/react';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 
+import verigenceMark from './assets/verigence-mark.png';
 import AppShell from './layout/AppShell';
-import { assetUrl } from './services/assets';
 import { useSessionStore } from './store/sessionStore';
 
 const LoginPage = lazy(() => import('./pages/LoginPage'));
@@ -38,7 +38,7 @@ function PrivatePage({ children }: { children: ReactNode }) {
 }
 
 function Loading() {
-  return <div className="app-loading"><img src={assetUrl('brand/approved/verigence-mark.png')} alt="" /><span>Loading Verigence…</span></div>;
+  return <div className="app-loading"><img src={verigenceMark} alt="" /><span>Loading Verigence…</span></div>;
 }
 
 export default function App() {

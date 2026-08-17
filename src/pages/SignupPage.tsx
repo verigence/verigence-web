@@ -2,12 +2,12 @@ import { useMutation } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { Link } from 'react-router-dom';
 
+import verigenceLockup from '../assets/verigence-lockup.png';
 import VerigenceButton from '../components/VerigenceButton';
 import VerigenceInput from '../components/VerigenceInput';
 import { signupSchema, type SignupFormValues } from '../features/onboarding/signupSchema';
 import type { AccessRequest } from '../features/onboarding/types';
 import { createAccessRequest } from '../services/audit-core/onboarding';
-import { assetUrl } from '../services/assets';
 
 const emptyValues: SignupFormValues = {
   fullName: '',
@@ -49,11 +49,7 @@ export default function SignupPage() {
   return (
     <main className="signup-layout">
       <section className="signup-brand-panel">
-        <img
-          className="signup-brand-panel__logo"
-          src={assetUrl('brand/approved/verigence-lockup.png')}
-          alt="Verigence — evidence, verify, everywhere."
-        />
+        <img className="signup-brand-panel__logo" src={verigenceLockup} alt="Verigence" />
         <div className="signup-brand-panel__message">
           <span className="signup-brand-panel__kicker">Create your account</span>
           <h1>Join Verigence securely.</h1>
@@ -88,7 +84,7 @@ export default function SignupPage() {
       <section className="signup-form-panel">
         <div className="signup-form-card">
           <div className="signup-form-card__heading">
-            <img src={assetUrl('brand/approved/verigence-lockup.png')} alt="Verigence" />
+            <img src={verigenceLockup} alt="Verigence" />
             <div>
               <span className="eyebrow">New user</span>
               <h2>Create account</h2>
@@ -162,11 +158,7 @@ function SignupPending({ request }: { request: AccessRequest }) {
   return (
     <main className="signup-layout signup-layout--complete">
       <section className="signup-brand-panel">
-        <img
-          className="signup-brand-panel__logo"
-          src={assetUrl('brand/approved/verigence-lockup.png')}
-          alt="Verigence"
-        />
+        <img className="signup-brand-panel__logo" src={verigenceLockup} alt="Verigence" />
         <div className="signup-brand-panel__message">
           <span className="signup-brand-panel__kicker">Registration received</span>
           <h1>Your request is under review.</h1>

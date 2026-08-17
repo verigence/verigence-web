@@ -9,7 +9,6 @@ import '@ionic/react/css/structure.css';
 import '@ionic/react/css/typography.css';
 import '@ionic/react/css/padding.css';
 import '@ionic/react/css/flex-utils.css';
-import '/brand/brand-tokens.css';
 import './theme/variables.css';
 import './styles/global.css';
 

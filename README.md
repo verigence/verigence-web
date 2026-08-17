@@ -40,7 +40,7 @@ npm run build
 
 ## Native bootstrap
 
-After the web build is healthy, initialize native projects once and keep them in the same repository:
+Capacitor Android/iOS platform packages are kept in this repository, but native projects should be generated only when the Web baseline is healthy:
 
 ```bash
 npx cap add android

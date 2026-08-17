@@ -4,7 +4,6 @@ import { Link, useNavigate } from 'react-router-dom';
 import VerigenceButton from '../components/VerigenceButton';
 import type { UserRole } from '../domain/models';
 import { assetUrl } from '../services/assets';
-import { runtimeConfig } from '../services/runtime';
 import { useSessionStore } from '../store/sessionStore';
 
 export default function LoginPage() {
@@ -27,28 +26,26 @@ export default function LoginPage() {
       <section className="auth-page__form-wrap">
         <div className="auth-card">
           <img className="auth-card__logo" src={assetUrl('brand/svg/verigence-logo.svg')} alt="Verigence" />
-          <span className="eyebrow">Approved users</span>
+          <span className="eyebrow">Development access</span>
           <h2>Sign in</h2>
-          <p>{runtimeConfig.mode === 'demo' ? 'Use Web Preview to walk every role while the UI is being completed.' : 'Production authentication will be activated after Web sign-off without changing these screens.'}</p>
+          <p>The authentication bridge is temporary during Web development. After entry, every supported business screen calls Audit Core directly.</p>
 
           <label className="plain-field">
             <span>Work email</span>
             <input type="email" value={email} onChange={(event) => setEmail(event.target.value)} autoComplete="email" />
           </label>
 
-          {runtimeConfig.mode === 'demo' && (
-            <label className="plain-field">
-              <span>Preview role</span>
-              <select value={role} onChange={(event) => setRole(event.target.value as UserRole)}>
-                <option value="PC">Process Consultant</option>
-                <option value="TL">Team Lead</option>
-                <option value="PM">Project Manager</option>
-                <option value="CRM">CRM Operator</option>
-                <option value="TENANT_ADMIN">Tenant Admin</option>
-                <option value="SUPER_ADMIN">Super Admin</option>
-              </select>
-            </label>
-          )}
+          <label className="plain-field">
+            <span>Development role</span>
+            <select value={role} onChange={(event) => setRole(event.target.value as UserRole)}>
+              <option value="PC">Process Consultant</option>
+              <option value="TL">Team Lead</option>
+              <option value="PM">Project Manager</option>
+              <option value="CRM">CRM Operator</option>
+              <option value="TENANT_ADMIN">Tenant Admin</option>
+              <option value="SUPER_ADMIN">Super Admin</option>
+            </select>
+          </label>
 
           <VerigenceButton
             expand="block"
@@ -58,7 +55,7 @@ export default function LoginPage() {
               navigate('/dashboard');
             }}
           >
-            {runtimeConfig.mode === 'demo' ? 'Enter Web Preview' : 'Continue with Verigence'}
+            Continue to Verigence
           </VerigenceButton>
 
           <div className="auth-card__divider"><span>New to Verigence?</span></div>
@@ -66,7 +63,7 @@ export default function LoginPage() {
 
           <div className="auth-card__security">
             <strong>Approval is mandatory.</strong>
-            <span>Signing up never grants a role. Access becomes usable only after administrative approval and Security activation.</span>
+            <span>Signing up never grants a role. Production authentication and Security activation will replace this temporary development bridge when those backend APIs are implemented.</span>
           </div>
         </div>
       </section>

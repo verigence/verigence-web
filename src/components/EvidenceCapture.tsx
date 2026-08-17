@@ -17,12 +17,8 @@ export default function EvidenceCapture({ journeyId, onUploaded }: { journeyId: 
     setBusy(true);
     setMessage('');
     try {
-      if (runtimeConfig.mode === 'core') {
-        await uploadEvidence(runtimeConfig.tenantId, journeyId, file, 'JOURNEY_EVIDENCE', undefined, undefined, accessToken);
-        setMessage('Evidence uploaded to Audit Core.');
-      } else {
-        setMessage(`${file.name} captured in Web Preview. No audit facts were manually entered.`);
-      }
+      await uploadEvidence(runtimeConfig.tenantId, journeyId, file, 'JOURNEY_EVIDENCE', undefined, undefined, accessToken);
+      setMessage('Evidence uploaded to Audit Core.');
       onUploaded?.();
     } catch {
       setMessage('Upload could not be completed. No evidence state was assumed.');

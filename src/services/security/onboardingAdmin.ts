@@ -108,18 +108,13 @@ export async function decidePendingGlobalUser(
   accessToken: string,
   userId: string,
   status: OnboardingDecision,
-  reason?: string,
 ): Promise<UserStatusTransitionResponse> {
-  const body: { status: OnboardingDecision; reason?: string } = { status };
-  const cleanReason = reason?.trim();
-  if (cleanReason) body.reason = cleanReason;
-
   const response = await fetch(
     endpoint(`/security/v1/users/${encodeURIComponent(userId)}/status`),
     {
       method: 'PATCH',
       headers: authHeaders(accessToken, true),
-      body: JSON.stringify(body),
+      body: JSON.stringify({ status }),
     },
   );
   return readResponse<UserStatusTransitionResponse>(response);

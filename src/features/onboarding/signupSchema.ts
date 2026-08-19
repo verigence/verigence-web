@@ -1,22 +1,19 @@
 import { z } from 'zod';
 
 export const signupSchema = z.object({
-  fullName: z.string().trim().min(2, 'Enter your full name.'),
-  workEmail: z.string().trim().email('Enter a valid work email address.'),
-  verigenceKey: z
+  firstName: z.string().trim().min(1, 'Enter your first name.').max(120, 'First name is too long.'),
+  lastName: z.string().trim().min(1, 'Enter your last name.').max(120, 'Last name is too long.'),
+  email: z.string().trim().email('Enter a valid work email address.'),
+  mobile: z
     .string()
     .trim()
-    .min(4, 'Enter the Verigence Key provided to you.')
-    .max(100, 'Verigence Key is too long.'),
-  mobileNumber: z
+    .regex(/^[6-9][0-9]{9}$/, 'Enter a valid 10-digit Indian mobile number.'),
+  password: z.string().min(1, 'Enter a password.'),
+  verigenceIdentifier: z
     .string()
     .trim()
-    .max(24, 'Mobile number is too long.')
-    .refine(
-      (value) => !value || /^[+0-9 ()-]{7,24}$/.test(value),
-      'Enter a valid mobile number.',
-    )
-    .optional(),
+    .min(8, 'Enter the Verigence Identifier provided to you.')
+    .max(64, 'Verigence Identifier is too long.'),
 });
 
 export type SignupFormValues = z.infer<typeof signupSchema>;

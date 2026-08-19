@@ -160,6 +160,8 @@ PENDING -> REJECTED
 
 Both are SuperAdmin-only in Phase 1 and require the Security-issued human Bearer JWT.
 
+UC-001 sends the minimal status-transition payload only.
+
 Activation body:
 
 ```json
@@ -172,10 +174,11 @@ Rejection body:
 
 ```json
 {
-  "status": "REJECTED",
-  "reason": "optional administrative reason"
+  "status": "REJECTED"
 }
 ```
+
+Although the Security lifecycle schema supports an optional administrative reason, the approved UC-001 wireframes do not define a rejection-reason field. Web therefore does not add one to this use case.
 
 The review UI must not assign or edit:
 

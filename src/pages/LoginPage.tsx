@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 
 import { useSessionStore } from '../store/sessionStore';
 
-const verigenceLockup = `${import.meta.env.BASE_URL}brand/approved/verigence-lockup.svg`;
+const verigenceLockup = `${import.meta.env.BASE_URL}brand/approved/verigence-lockup.png`;
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -82,11 +82,7 @@ export default function LoginPage() {
             <button type="button" className="frozen-auth-text-link">Forgot password?</button>
           </div>
 
-          <button
-            className="frozen-auth-primary"
-            type="submit"
-            disabled={!email.trim() || !password}
-          >
+          <button className="frozen-auth-primary" type="submit">
             Sign in
           </button>
         </form>

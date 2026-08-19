@@ -1,137 +1,30 @@
-# Verigence Brand Guidelines
+# Verigence Brand Baseline
 
-**Status:** Web implementation baseline  
-**Scope:** `verigence/verigence-web`  
-**Brand source:** User-approved Verigence PNG artwork supplied on 2026-08-15.
+## Source of truth
 
-## 1. Brand idea
+The approved Verigence Web & Mobile wireframes shared on 17 Aug 2026 are the visual branding baseline for the Web application.
 
-Verigence brings together **Audit • Governance • Intelligence**.
+The approved identity uses:
 
-The mark combines three visual ideas:
+- the blue/teal stylized `V` mark shown in the wireframes;
+- the `VERIGENCE` wordmark in Deep Blue;
+- Deep Blue `#003A82`;
+- Electric Blue `#0057B8`;
+- Teal `#00AFA8`;
+- Mint `#00D3A7`;
+- Mist `#F4F8FB`;
+- White `#FFFFFF`;
+- Slate Text `#1F2937`.
 
-- **Shield:** trust, assurance, governance and controlled execution.
-- **Intelligence waveform:** analytics, AI and evidence-driven insight.
-- **Rising check / arrow:** validated outcomes, improvement and forward progress.
+## Approved Web assets
 
-Use the mark and wordmark as a single system. Do not redraw individual elements in product UI.
+The Web implementation uses branding assets derived directly from the approved wireframe reference:
 
-## 2. Primary logo system
+- `public/brand/approved/verigence-lockup.svg`
+- `public/brand/approved/verigence-mark.svg`
 
-Preferred order:
+Do not substitute a reconstructed shield, waveform, navy/gold identity, or another logo treatment.
 
-1. `public/brand/svg/verigence-logo.svg` — default horizontal logo.
-2. `public/brand/svg/verigence-logo-tagline.svg` — use when the descriptor is helpful.
-3. `public/brand/svg/verigence-mark.svg` — compact navigation, avatar and product-mark usage.
-4. `public/brand/svg/verigence-logo-mono.svg` / `verigence-mark-mono.svg` — monochrome fallback.
-5. `public/brand/icons/app-icon.svg` — application/PWA icon source.
-6. `public/brand/icons/favicon.svg` — browser/favicon source.
+## Change-control rule
 
-The user-approved PNG artwork remains the visual reference for fidelity. The checked-in SVG files are the Web implementation baseline reconstructed from that approved artwork.
-
-## 3. Color palette
-
-| Token | Hex | Use |
-|---|---:|---|
-| Verigence Deep Blue | `#003A82` | Primary wordmark, headings, trusted/controlled states |
-| Verigence Electric Blue | `#0057B8` | Gradient, links, active states |
-| Verigence Teal | `#00AFA8` | Intelligence and analytics accent |
-| Verigence Mint | `#00D3A7` | Improvement accent, gradient endpoint |
-| Verigence Slate | `#31506E` | Secondary text and descriptor |
-| Verigence Mist | `#F4F8FB` | Light surfaces/backgrounds |
-| White | `#FFFFFF` | Primary light surface |
-
-### Primary brand gradient
-
-```css
-linear-gradient(135deg, #003A82 0%, #0057B8 42%, #00AFA8 72%, #00D3A7 100%)
-```
-
-Use the gradient inside the mark and selected brand accents. Do not use it as a large decorative background behind dense application content.
-
-## 4. Typography
-
-Primary UI and brand-support typeface: **Inter**.
-
-Fallback stack:
-
-```css
-font-family: Inter, Arial, Helvetica, sans-serif;
-```
-
-Recommended UI weights:
-
-- 800 — logo-support / major display only
-- 700 — page titles
-- 600 — section headings, navigation, buttons
-- 500 — labels
-- 400 — body text
-
-Product UI should prioritize readability over decorative typography.
-
-## 5. Clear space and sizing
-
-Use a minimum clear space around the logo equal to roughly **25% of the mark width**.
-
-Recommended digital minimums:
-
-- Horizontal logo: **160 px** wide
-- Mark: **24 px** square-equivalent
-- Favicon: **16 px**
-- App icon: render from `public/brand/icons/app-icon.svg`
-
-Do not stretch the logo. Preserve aspect ratio.
-
-## 6. Background usage
-
-### Light surfaces
-Use the default full-color logo on white or Mist.
-
-### Dark surfaces
-Use `verigence-hero-lockup.svg` for intentional branded hero treatments, or place the default mark/logo on a sufficiently dark navy surface with adequate contrast.
-
-### Monochrome
-Use the monochrome SVG only where printing, accessibility, technical constraints or low-color environments require it.
-
-## 7. Logo misuse
-
-Do **not**:
-
-- change the logo proportions;
-- rotate, skew or stretch it;
-- change individual mark colors outside the approved color/mono variants;
-- add drop shadows, outlines, glows or 3D effects to the standard UI logo;
-- separate the waveform, shield or arrow and present them as a different logo;
-- place the logo on visually noisy imagery without a contrast treatment;
-- recreate the wordmark with an unrelated font.
-
-## 8. Checked-in Web asset inventory
-
-### Logos and marks
-- `public/brand/svg/verigence-logo.svg`
-- `public/brand/svg/verigence-logo-tagline.svg`
-- `public/brand/svg/verigence-logo-mono.svg`
-- `public/brand/svg/verigence-mark.svg`
-- `public/brand/svg/verigence-mark-mono.svg`
-- `public/brand/svg/verigence-hero-lockup.svg`
-
-### App/browser icons
-- `public/brand/icons/app-icon.svg`
-- `public/brand/icons/favicon.svg`
-
-### Design tokens
-- `public/brand/brand-tokens.css`
-
-Raster exports should be generated from these SVG assets only when a target platform specifically requires PNG/ICO sizes. The Web application should prefer SVG at runtime.
-
-## 9. UI implementation rules
-
-The Web application should consume the shared tokens from `public/brand/brand-tokens.css` rather than scattering raw brand hex values throughout components.
-
-Use Deep Blue for primary shell/navigation hierarchy, Teal/Mint for intelligence and improvement accents, and keep operational content surfaces predominantly neutral/light.
-
-Security, warning, error and success semantic colors are **not** defined by the logo palette; they should remain distinct accessible semantic tokens in the application design system.
-
-## 10. Change control
-
-Treat these assets as the Web brand baseline. Any material change to the Verigence mark, wordmark, palette or naming should update this document and the brand assets together.
+Branding changes must not alter screen fields, flow, typography sizing, layout, spacing, or functional behavior unless those changes are separately approved. The current Web screen structure remains unchanged; branding is applied as a visual skin only.

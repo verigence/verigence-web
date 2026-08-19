@@ -1,8 +1,9 @@
 node_modules/
-.next/
-.env.local
-.env.*.local
-*.tsbuildinfo
-android/
-ios/
+dist/
+.env
+.env.*
+!.env.example
+.DS_Store
 coverage/
+android/.gradle/
+ios/App/Pods/

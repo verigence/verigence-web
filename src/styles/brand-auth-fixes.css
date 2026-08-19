@@ -1,0 +1,181 @@
+:root {
+  --brand-deep-blue: #003a82;
+  --brand-electric-blue: #0057b8;
+  --brand-teal: #00afa8;
+  --brand-mint: #00d3a7;
+  --brand-mist: #f4f8fb;
+  --brand-slate: #1f2937;
+  --brand-line: #d7e4ee;
+}
+
+.auth-page,
+.signup-layout {
+  background: #ffffff;
+}
+
+.auth-page__brand,
+.signup-brand-panel {
+  color: var(--brand-deep-blue);
+  background:
+    radial-gradient(circle at 82% 18%, rgba(0, 175, 168, 0.16), transparent 30%),
+    radial-gradient(circle at 12% 88%, rgba(0, 211, 167, 0.10), transparent 32%),
+    linear-gradient(145deg, #ffffff 0%, #eef6ff 58%, var(--brand-mist) 100%);
+  border-right: 1px solid var(--brand-line);
+}
+
+.auth-page__brand > img,
+.signup-brand-panel__logo {
+  width: min(300px, 78%);
+  height: auto;
+  object-fit: contain;
+}
+
+.auth-page__kicker,
+.signup-brand-panel__kicker {
+  color: var(--brand-teal);
+}
+
+.auth-page__brand h1,
+.signup-brand-panel h1 {
+  color: var(--brand-deep-blue);
+}
+
+.auth-page__brand p,
+.signup-brand-panel p {
+  color: #526d84;
+}
+
+.signup-brand-panel__rule {
+  border-top-color: var(--brand-line);
+}
+
+.signup-brand-panel__rule > span {
+  color: var(--brand-teal);
+}
+
+.signup-brand-panel__rule strong {
+  color: var(--brand-deep-blue);
+}
+
+.signup-brand-panel__rule small {
+  color: #60798f;
+}
+
+.auth-page__form-wrap,
+.signup-form-panel {
+  background: #ffffff;
+}
+
+.auth-card,
+.signup-form-card,
+.pending-card {
+  border-color: var(--brand-line);
+  box-shadow: 0 20px 60px rgba(0, 58, 130, 0.08);
+}
+
+.auth-card__logo,
+.signup-form-card__heading img {
+  width: 206px;
+  height: auto;
+  object-fit: contain;
+}
+
+.auth-form {
+  gap: 18px;
+}
+
+.auth-form__heading {
+  display: grid;
+  gap: 5px;
+}
+
+.auth-form__heading h2 {
+  margin: 0;
+  color: var(--brand-deep-blue);
+  font-size: 30px;
+}
+
+.auth-form__heading p {
+  margin: 0;
+  color: #60798f;
+  font-size: 12px;
+}
+
+.auth-form__utility {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: -8px;
+}
+
+.auth-text-link {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--brand-electric-blue);
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.auth-page .verigence-button,
+.signup-layout .verigence-button {
+  --background: var(--brand-electric-blue);
+  --background-hover: var(--brand-deep-blue);
+  --border-color: var(--brand-electric-blue);
+  --color: #ffffff;
+}
+
+.auth-page .secondary-link-button,
+.signup-layout .secondary-link-button {
+  border-color: var(--brand-electric-blue);
+  color: var(--brand-electric-blue);
+}
+
+.signup-form-card__heading h2,
+.pending-card h2 {
+  color: var(--brand-deep-blue);
+}
+
+.signup-form__security-note {
+  border-color: #bce3dd;
+  background: #f3fbfa;
+}
+
+.signup-form__security-note strong {
+  color: #00766f;
+}
+
+.pending-card__icon {
+  background: linear-gradient(135deg, var(--brand-electric-blue), var(--brand-teal));
+}
+
+.enterprise-brand img {
+  width: 190px;
+  height: auto;
+  object-fit: contain;
+}
+
+.enterprise-nav__item--active {
+  background: #eaf3ff;
+  color: var(--brand-deep-blue);
+  box-shadow: inset 3px 0 var(--brand-electric-blue);
+}
+
+.enterprise-nav__item--active .enterprise-nav__mark {
+  border-color: var(--brand-electric-blue);
+  background: var(--brand-electric-blue);
+  color: #ffffff;
+}
+
+.enterprise-topbar__trail > span:first-child {
+  color: var(--brand-electric-blue);
+  font-weight: 750;
+}
+
+@media (max-width: 900px) {
+  .auth-page__brand,
+  .signup-brand-panel {
+    border-right: 0;
+    border-bottom: 1px solid var(--brand-line);
+  }
+}

@@ -1,8 +1,9 @@
-name: Deploy UC-001 to Cloudflare DEV
+name: Deploy Verigence Web to Cloudflare DEV
 
 on:
   push:
     branches:
+      - main
       - planning/uc-001-user-onboarding
   workflow_dispatch:
 

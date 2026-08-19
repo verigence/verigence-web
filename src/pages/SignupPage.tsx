@@ -29,6 +29,7 @@ export default function SignupPage() {
   const [verificationEmail, setVerificationEmail] = useState('');
   const [formError, setFormError] = useState<string>();
   const [busy, setBusy] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   const {
     register,
@@ -57,6 +58,7 @@ export default function SignupPage() {
       setAttempt(result);
       setVerificationEmail(parsed.data.email);
       reset(emptyValues);
+      setShowPassword(false);
       setScreen('verify');
     } catch (error) {
       setFormError(errorMessage(error));
@@ -140,8 +142,20 @@ export default function SignupPage() {
           <Field label="Password" error={errors.password?.message}>
             <span className="frozen-auth-input-wrap">
               <LockIcon />
-              <input type="password" autoComplete="new-password" placeholder="Create a strong password" {...register('password')} />
-              <EyeIcon />
+              <input
+                type={showPassword ? 'text' : 'password'}
+                autoComplete="new-password"
+                placeholder="Create a strong password"
+                {...register('password')}
+              />
+              <button
+                className="frozen-auth-input-action"
+                type="button"
+                onClick={() => setShowPassword((current) => !current)}
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
+              >
+                <EyeIcon />
+              </button>
             </span>
           </Field>
 
@@ -189,6 +203,7 @@ function VerifyEmailScreen({
 }) {
   const [digits, setDigits] = useState<string[]>(() => Array(6).fill(''));
   const [error, setError] = useState<string>();
+  const [resendNotice, setResendNotice] = useState<string>();
   const [busy, setBusy] = useState(false);
   const [resending, setResending] = useState(false);
   const inputs = useRef<Array<HTMLInputElement | null>>([]);
@@ -196,6 +211,7 @@ function VerifyEmailScreen({
 
   const setDigit = (index: number, raw: string) => {
     const digit = raw.replace(/\D/g, '').slice(-1);
+    setResendNotice(undefined);
     setDigits((current) => {
       const next = [...current];
       next[index] = digit;
@@ -214,6 +230,7 @@ function VerifyEmailScreen({
     const pasted = event.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6);
     if (!pasted) return;
     event.preventDefault();
+    setResendNotice(undefined);
     setDigits(Array.from({ length: 6 }, (_, index) => pasted[index] ?? ''));
     inputs.current[Math.min(pasted.length, 6) - 1]?.focus();
   };
@@ -221,6 +238,7 @@ function VerifyEmailScreen({
   const verify = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError(undefined);
+    setResendNotice(undefined);
     const code = digits.join('');
     if (code.length !== 6) {
       setError('Enter the 6-digit verification code.');
@@ -242,11 +260,13 @@ function VerifyEmailScreen({
 
   const resend = async () => {
     setError(undefined);
+    setResendNotice(undefined);
     setResending(true);
     try {
       const next = await resendOnboardingEmailCode(attempt.signupAttemptId);
       onAttemptUpdated(next);
       setDigits(Array(6).fill(''));
+      setResendNotice('A new verification code was sent.');
       inputs.current[0]?.focus();
     } catch (resendError) {
       setError(errorMessage(resendError));
@@ -286,12 +306,13 @@ function VerifyEmailScreen({
           </div>
 
           <p className="frozen-auth-expiry">Code expires in <strong>{countdown}</strong></p>
+          {resendNotice && <p className="frozen-auth-expiry" role="status">{resendNotice}</p>}
           {error && <div className="frozen-auth-alert" role="alert">{error}</div>}
 
-          <button className="frozen-auth-primary" type="submit" disabled={busy}>
+          <button className="frozen-auth-primary" type="submit" disabled={busy || resending}>
             {busy ? 'Verifying…' : 'Verify code'}
           </button>
-          <button className="frozen-auth-resend" type="button" onClick={resend} disabled={resending}>
+          <button className="frozen-auth-resend" type="button" onClick={resend} disabled={busy || resending}>
             {resending ? 'Sending…' : 'Resend code'}
           </button>
         </form>

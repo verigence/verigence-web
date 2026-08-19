@@ -166,12 +166,20 @@ No mandatory rejection-reason field is added because the reviewed 19-Aug source 
 - Buttons and controls remain usable by keyboard and touch.
 - Responsive behaviour must not remove required information or actions.
 
-## 7. Detailed low-fidelity boards
+## 7. Review artifacts
+
+### Functional low-fidelity boards
 
 - [`web-wireframes.md`](./web-wireframes.md)
 - [`mobile-wireframes.md`](./mobile-wireframes.md)
 
-These are the functional layout contract for review. A high-fidelity visual board should be derived from them using the approved Verigence assets and tokens; high-fidelity styling must not change the fields or flow.
+### Branded visual mockup board
+
+- [`mockup-board.html`](./mockup-board.html)
+
+The HTML board references the checked-in approved Verigence lockup directly from `public/brand/approved/verigence-lockup.svg`; it does not redraw or substitute the logo. Open it from the repository/worktree in a browser for a visual design review of applicant Web, applicant mobile, SuperAdmin Web and SuperAdmin mobile compositions.
+
+The low-fidelity boards remain the precise functional layout contract. The branded board is the visual review artifact. Styling must not change the fields or flow.
 
 ## 8. Open visual decisions
 

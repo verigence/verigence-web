@@ -1,0 +1,126 @@
+.approval-detail__refreshing {
+  margin: 14px 0 0;
+  color: #71889a;
+  font-size: 11px;
+}
+
+.approval-actions--decision-only {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.approval-actions--decision-only strong {
+  color: #17324d;
+  font-size: 13px;
+}
+
+.approval-actions--decision-only small {
+  min-height: 30px;
+  color: #71889a;
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.approval-success {
+  margin-top: 18px;
+  padding: 12px 14px;
+  border: 1px solid #bce3dd;
+  border-radius: 10px;
+  background: #f3fbfa;
+  color: #006e6a;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.approval-confirmation {
+  margin-top: 18px;
+  padding: 17px;
+  display: grid;
+  gap: 14px;
+  border: 1px solid #cddce6;
+  border-radius: 12px;
+  background: #fbfdfe;
+}
+
+.approval-confirmation > div:first-child {
+  display: grid;
+  gap: 5px;
+}
+
+.approval-confirmation > div:first-child strong {
+  color: #17324d;
+  font-size: 14px;
+}
+
+.approval-confirmation > div:first-child span {
+  color: #60798f;
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.approval-confirmation__reason {
+  display: grid;
+  gap: 7px;
+}
+
+.approval-confirmation__reason > span {
+  color: #274761;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.approval-confirmation__reason textarea {
+  width: 100%;
+  padding: 10px 12px;
+  resize: vertical;
+  border: 1px solid #bfd1df;
+  border-radius: 9px;
+  outline: none;
+  background: #ffffff;
+  color: #17324d;
+  font: inherit;
+  font-size: 12px;
+}
+
+.approval-confirmation__reason textarea:focus {
+  border-color: #0057b8;
+  box-shadow: 0 0 0 3px rgba(0, 87, 184, 0.1);
+}
+
+.approval-confirmation__actions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 10px;
+}
+
+.approval-confirmation__actions > button:not(.verigence-button) {
+  min-height: 40px;
+  padding: 0 14px;
+  border: 1px solid #bfd1df;
+  border-radius: 9px;
+  background: #ffffff;
+  color: #31506e;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.approval-confirmation__actions > button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+@media (max-width: 720px) {
+  .approval-actions--decision-only {
+    grid-template-columns: 1fr;
+  }
+
+  .approval-confirmation__actions {
+    align-items: stretch;
+    flex-direction: column-reverse;
+  }
+
+  .approval-confirmation__actions > * {
+    width: 100%;
+  }
+}

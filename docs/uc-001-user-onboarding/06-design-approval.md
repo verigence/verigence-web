@@ -1,203 +1,203 @@
 # UC-001 — Design Approval Record
 
-**Status:** NOT YET APPROVED  
+**Status:** APPROVED — APPLICANT ONBOARDING IMPLEMENTATION AUTHORIZED  
 **Date created:** 2026-08-19  
+**Approval recorded:** 2026-08-19  
 **Repository/branch:** `verigence/verigence-web` / `planning/uc-001-user-onboarding`
 
 ## 1. Approval gate
 
-No UC-001 implementation work is authorized until this record is explicitly approved.
+The applicant-facing UC-001 onboarding design is explicitly approved and frozen for implementation.
 
-Approval covers the business flow, API boundary, responsive Web/mobile behaviour and wireframes. Implementation must return to design review if it discovers a material gap.
+Approval covers the applicant Web/mobile flow, Security API boundary, responsive behaviour and the four approved authentication/onboarding screens. Any later material visual or contract change must return to design review rather than being introduced during implementation.
 
-## 2. Documents under review
+The SuperAdmin review/decision UI is not visually frozen by this approval record and remains a separate implementation/design checkpoint within the broader UC-001 scope.
 
-- [ ] `01-use-case-spec.md`
-- [ ] `02-sequence-diagram.md`
-- [ ] `03-wireframes/README.md`
-- [ ] `03-wireframes/web-wireframes.md`
-- [ ] `03-wireframes/mobile-wireframes.md`
-- [ ] `03-wireframes/mockup-board.html`
-- [ ] `04-api-data-mapping.md`
-- [ ] `05-test-scenarios.md`
+## 2. Approved design basis
 
-## 3. Frozen decisions represented by this pack
+The approved implementation basis is:
 
-- [ ] Web and Capacitor mobile use the same React application/codebase.
-- [ ] Approved Verigence branding remains unchanged.
-- [ ] Clerk is the human credential provider.
-- [ ] Only Security integrates with Clerk Backend APIs.
-- [ ] Web/Mobile contain no Clerk SDK/keys/session-JWT authentication.
-- [ ] Signup calls `POST /security/v1/onboarding/users`.
-- [ ] Signup fields are First Name, Last Name, Verigence Identifier, Email ID, Mobile Number and Password.
-- [ ] `X-Onboarding-Key` carries the Verigence Identifier.
-- [ ] Email OTP is entered in Verigence UI and sent to Security.
-- [ ] Successful verification produces/binds a global USER in `PENDING`.
-- [ ] SuperAdmin alone decides `PENDING -> ACTIVE` or `PENDING -> REJECTED`.
-- [ ] Applicant does not choose Tenant, role, Dealer/Outlet, Project or authorization scope.
-- [ ] SuperAdmin onboarding review does not assign those scopes either.
-- [ ] Device/Geo are not mandatory/persisted/onboarding gates in Phase 1.
-- [ ] No Phase-1 TOTP/MFA requirement is introduced.
-- [ ] No Security/Audit Core/DI/database change is assumed by the Web design.
+- `01-use-case-spec.md`
+- `02-sequence-diagram.md`
+- `03-wireframes/README.md`
+- `03-wireframes/web-wireframes.md`
+- `03-wireframes/mobile-wireframes.md`
+- `03-wireframes/mockup-board.html`
+- `04-api-data-mapping.md`
+- `05-test-scenarios.md`
+- the final applicant mockups approved in the 19-Aug-2026 design session.
 
-## 4. Open decisions requiring explicit resolution or deliberate deferral
+Where older Web authentication assumptions conflict with the 19-Aug-2026 Security v2 contract, the Security v2 contract remains authoritative.
 
-### OD-001 — Password guidance
+## 3. Frozen applicant flow
 
-The exact client-facing password-policy guidance/validation presentation is not defined in the reviewed 19-Aug design documents.
-
-Decision:
+The approved applicant journey is:
 
 ```text
-[ ] Resolve before implementation
-[ ] Defer to deployed Security contract and show only server-supported guidance
+Sign in
+   |
+   | Register Now
+   v
+Create your Verigence account
+   |
+   | POST /security/v1/onboarding/users
+   v
+Verify your email
+   |
+   | POST /security/v1/onboarding/users/{signupAttemptId}/verify-email
+   v
+Registration received
+   |
+   | USER remains PENDING until Verigence Admin approval
+   v
+Back to sign in
 ```
 
-Notes:
+The four approved screens are:
 
----
+1. **Sign in**
+2. **Create your Verigence account**
+3. **Verify your email**
+4. **Registration received**
 
-### OD-002 — OTP input shape
+Do not add a Tenant, operating role, Dealer/Outlet, Project or authorization-scope selection to this applicant journey.
 
-Exact OTP length/format and the request-body property name are not defined in the reviewed 19-Aug design documents.
+## 4. Frozen visual baseline — no silent changes
 
-Decision:
+The following are locked for the approved applicant screens.
+
+### 4.1 Verigence identity
+
+Use the approved full Verigence lockup asset exactly as supplied. Do not redraw, reinterpret, simplify, recolor or regenerate it.
+
+Approved repository asset:
 
 ```text
-[ ] Resolve before implementation
-[ ] Defer to deployed Security OpenAPI/contract
+public/brand/approved/verigence-lockup.svg
 ```
 
-Notes:
-
----
-
-### OD-003 — Resend timing/throttling UI
-
-Exact resend cooldown, max attempts and retry metadata are not defined by the reviewed 19-Aug design documents.
-
-Decision:
+The lockup includes the approved shield, wordmark treatment and tagline:
 
 ```text
-[ ] Resolve before implementation
-[ ] Do not show fixed countdown/limits unless Security contract supplies them
+AUDIT • GOVERNANCE • INTELLIGENCE
 ```
 
-Notes:
+### 4.2 Background
 
----
+Use the same background on every approved applicant screen, with the layers in this order from top to bottom:
 
-### OD-004 — Rejection notification/resubmission
+```css
+/* 1. 66px grid — horizontal */
+linear-gradient(rgba(255,255,255,0.045) 1px, transparent 1px)
 
-The applicant notification mechanism after `REJECTED` and any applicant-driven resubmission flow are not defined.
+/* 2. 66px grid — vertical */
+linear-gradient(90deg, rgba(255,255,255,0.045) 1px, transparent 1px)
 
-Decision:
+/* 3. right-centre teal bloom */
+radial-gradient(
+  ellipse at 78% 48%,
+  rgba(0,175,168,0.28) 0%,
+  rgba(0,175,168,0.16) 32%,
+  transparent 72%
+)
+
+/* 4. base gradient */
+linear-gradient(158deg, #011E47 0%, #013060 55%, #026D7D 100%)
+```
+
+Grid repeat:
+
+```css
+background-size: 66px 66px, 66px 66px, 100% 100%, 100% 100%;
+```
+
+### 4.3 Composition
+
+- centred white authentication/onboarding card;
+- same background and card language across all four screens;
+- deep-navy primary action button;
+- teal interactive accents;
+- approved full Verigence logo/tagline at the top of the card;
+- same React application/codebase for browser and Capacitor mobile;
+- responsive single-column behaviour on smaller screens;
+- no alternate mobile-only onboarding rules or fields.
+
+The approved visual baseline must not drift between screens.
+
+## 5. Frozen Security / Clerk decisions
+
+- Web and Capacitor mobile use the same React application/codebase.
+- Clerk is the human credential provider.
+- Only Security integrates with Clerk Backend APIs.
+- Web/Mobile contain no Clerk SDK, Clerk keys or Clerk session-JWT authentication.
+- Signup calls `POST /security/v1/onboarding/users`.
+- Signup contract contains First Name, Last Name, Verigence Identifier, Email ID, Mobile Number and Password.
+- `X-Onboarding-Key` transports the user-facing Verigence Identifier.
+- Email OTP is entered in Verigence UI and sent to Security.
+- Successful email verification creates/binds the global USER in `PENDING`.
+- SuperAdmin alone decides `PENDING -> ACTIVE` or `PENDING -> REJECTED`.
+- Applicant does not choose Tenant, role, Dealer/Outlet, Project or authorization scope.
+- Device/Geo are not mandatory, persisted or onboarding gates in Phase 1.
+- No Phase-1 TOTP/MFA requirement is introduced.
+- No Security, Audit Core, DI or database modification is authorized by this Web implementation approval.
+
+## 6. Implementation-time contract resolutions
+
+The deployed/current `verigence-security/dev` implementation was inspected before applicant implementation began. The following previously open transport details are therefore resolved for this implementation:
+
+- signup response reference: `signupAttemptId`;
+- signup response status: `EMAIL_VERIFICATION_REQUIRED`;
+- signup response includes `expiresAt`;
+- verify-email request body property: `code`;
+- resend uses `POST /security/v1/onboarding/users/{signupAttemptId}/resend-email-code`;
+- successful verification returns `PENDING_ADMIN_APPROVAL`.
+
+These are consumed as existing Security capabilities. They are not new Web-invented APIs or lifecycle states.
+
+## 7. Deliberately deferred/open items
+
+The following are not invented as part of this approval:
+
+- applicant notification mechanism after a later `REJECTED` decision;
+- applicant-driven resubmission after rejection;
+- optional Device/Geo request context — UC-001 does not require it;
+- password-policy copy beyond what the deployed Security/provider contract can safely support;
+- SuperAdmin review-screen visual redesign;
+- canonical login backend integration, which belongs to the later login use case.
+
+The OTP expiry presentation may use the expiry timestamp returned by Security. The client must not invent a separate retry limit or resend-throttle rule.
+
+## 8. Implementation authorization
 
 ```text
-[ ] Define notification/resubmission behaviour
-[ ] Keep rejected applicant screen as a conditional visual only and defer delivery/resubmission
+Design approval: Explicitly approved by the design owner in-session on 19-Aug-2026
+Frozen applicant mockups: YES
+Implementation authorized: YES — applicant UC-001 flow
+Security changes authorized: NO
+Audit Core / DI changes authorized: NO
+Web main changes authorized: NO
+Target branch: planning/uc-001-user-onboarding
 ```
 
-Notes:
+## 9. Post-approval implementation scope
 
----
+Applicant implementation may now reconcile the stale prototype areas required for the approved flow, including:
 
-### OD-005 — Optional Device/Geo context
+- `src/pages/LoginPage.tsx` — UC-001 entry/return visual only; canonical login remains later work;
+- `src/pages/SignupPage.tsx`;
+- `src/features/onboarding/signupSchema.ts`;
+- Security-facing Web onboarding client/service code;
+- applicant auth/onboarding responsive styles;
+- environment configuration required to address the existing Security API.
 
-Phase 1 permits optional context but does not require/persist/evaluate it.
+Stale Audit Core/demo onboarding code may be retired or bypassed only where necessary to remove it from the applicant flow. Broader administration code should not be refactored merely as cleanup.
 
-Decision:
+## 10. Verification and deployment restriction
 
-```text
-[ ] Do not send Device/Geo in UC-001
-[ ] Send optional context using existing Security-supported headers after contract verification
-```
+Implementation remains subject to normal verification:
 
-No choice here may make Device/Geo mandatory or create persistence/database changes.
-
-Notes:
-
----
-
-## 5. Wireframe approval checklist
-
-### Applicant Web
-
-- [ ] A01 Authentication entry
-- [ ] A02 Create Account
-- [ ] A03 Validation/error
-- [ ] A04 Submitting
-- [ ] A05 Verify Email
-- [ ] A06/A07 OTP error/resend feedback
-- [ ] A08 Registration Pending
-- [ ] A09 Rejected conditional visual state
-
-### Applicant mobile
-
-- [ ] Same content/flow as Web accepted
-- [ ] One-column responsive composition accepted
-- [ ] No mobile-only onboarding fields/rules
-
-### SuperAdmin Web
-
-- [ ] Pending list states
-- [ ] Pending USER detail
-- [ ] Activate confirmation
-- [ ] Reject confirmation
-- [ ] Decision progress/result/conflict
-
-### SuperAdmin mobile
-
-- [ ] List -> detail sequential flow accepted
-- [ ] Same activation/rejection semantics accepted
-
-### Branded mockup board
-
-- [ ] Applicant desktop composition accepted
-- [ ] Applicant mobile composition accepted
-- [ ] SuperAdmin desktop composition accepted
-- [ ] SuperAdmin mobile composition accepted
-- [ ] Approved Verigence logo assets/tokens used without reinterpretation
-
-## 6. Implementation authorization
-
-Current authorization:
-
-```text
-NOT AUTHORIZED
-```
-
-When explicitly approved by the design owner, record:
-
-```text
-Design approved by: ______________________________
-Approval date: ___________________________________
-Approved commit/reference: _______________________
-Open decisions accepted/deferred: _______________
-
-Implementation authorized: YES / NO
-```
-
-## 7. Post-approval implementation scope
-
-Only after approval, Web implementation may be planned against the approved UI/API contract.
-
-Known stale prototype areas to reconcile include:
-
-- `src/pages/SignupPage.tsx`
-- `src/features/onboarding/signupSchema.ts`
-- `src/features/onboarding/types.ts`
-- `src/services/audit-core/onboarding.ts`
-- `src/services/demo/onboardingDemo.ts`
-- `src/pages/ApprovalQueuePage.tsx`
-
-Login/session changes beyond the UC-001 entry/return-to-sign-in boundary require their own later use-case design.
-
-## 8. Deployment restriction
-
-Even after implementation approval:
-
-1. implementation must occur on a feature branch;
-2. typecheck/build/local functional/API/visual tests must pass;
-3. rendered Web/mobile results must be reviewed;
-4. merge to `main` occurs only after explicit deployment approval.
+1. implementation occurs only on `planning/uc-001-user-onboarding` or a child feature branch;
+2. typecheck/build and functional/API checks must pass before merge;
+3. Web/mobile rendered results must be compared with the frozen mockups;
+4. the approved logo asset and background layers must be verified for visual drift;
+5. merge to `main` occurs only after explicit deployment/merge approval.

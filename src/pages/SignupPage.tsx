@@ -10,7 +10,7 @@ import {
   type SignupAttemptResponse,
 } from '../services/security/onboarding';
 
-const verigenceLockup = `${import.meta.env.BASE_URL}brand/approved/verigence-lockup.svg`;
+const verigenceLockup = `${import.meta.env.BASE_URL}brand/approved/verigence-lockup.png`;
 
 const emptyValues: SignupFormValues = {
   firstName: '',

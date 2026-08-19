@@ -24,9 +24,8 @@ Preferred order:
 2. `public/brand/svg/verigence-logo-tagline.svg` — use when the descriptor is helpful.
 3. `public/brand/svg/verigence-mark.svg` — compact navigation, avatar and product-mark usage.
 4. `public/brand/svg/verigence-logo-mono.svg` / `verigence-mark-mono.svg` — monochrome fallback.
-5. `public/brand/svg/verigence-hero-lockup.svg` — dark/hero brand treatment.
-6. `public/brand/icons/app-icon.svg` — application/PWA icon source.
-7. `public/brand/icons/favicon.svg` — browser/favicon source.
+5. `public/brand/icons/app-icon.svg` — application/PWA icon source.
+6. `public/brand/icons/favicon.svg` — browser/favicon source.
 
 The user-approved PNG artwork remains the visual reference for fidelity. The checked-in SVG files are the Web implementation baseline reconstructed from that approved artwork.
 

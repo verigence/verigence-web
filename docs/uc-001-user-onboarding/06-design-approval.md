@@ -17,6 +17,7 @@ Approval covers the business flow, API boundary, responsive Web/mobile behaviour
 - [ ] `03-wireframes/README.md`
 - [ ] `03-wireframes/web-wireframes.md`
 - [ ] `03-wireframes/mobile-wireframes.md`
+- [ ] `03-wireframes/mockup-board.html`
 - [ ] `04-api-data-mapping.md`
 - [ ] `05-test-scenarios.md`
 
@@ -149,6 +150,14 @@ Notes:
 
 - [ ] List -> detail sequential flow accepted
 - [ ] Same activation/rejection semantics accepted
+
+### Branded mockup board
+
+- [ ] Applicant desktop composition accepted
+- [ ] Applicant mobile composition accepted
+- [ ] SuperAdmin desktop composition accepted
+- [ ] SuperAdmin mobile composition accepted
+- [ ] Approved Verigence logo assets/tokens used without reinterpretation
 
 ## 6. Implementation authorization
 

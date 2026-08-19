@@ -1,12 +1,12 @@
 # UC-001 — Implementation Status
 
-**Status:** IMPLEMENTED ON UC-001 BRANCH — VERIFICATION PENDING  
+**Status:** IMPLEMENTED ON UC-001 BRANCH — RUNTIME VERIFICATION PENDING  
 **Date:** 2026-08-19  
 **Repository/branch:** `verigence/verigence-web` / `planning/uc-001-user-onboarding`
 
 ## 1. Scope implemented
 
-UC-001 now implements the approved Web + Capacitor-mobile shared-code journey:
+UC-001 implements the approved Web + Capacitor-mobile shared-code journey:
 
 ```text
 Sign in
@@ -92,10 +92,11 @@ Rejection request:
 
 ```json
 {
-  "status": "REJECTED",
-  "reason": "optional administrative reason"
+  "status": "REJECTED"
 }
 ```
+
+Security supports an optional administrative reason in the broader lifecycle schema, but the approved UC-001 wireframes do not define a rejection-reason control. The UC-001 Web implementation therefore sends only the requested status.
 
 The SuperAdmin review does **not** assign:
 
@@ -108,17 +109,37 @@ The SuperAdmin review does **not** assign:
 
 Those remain separate administrative use cases.
 
+### Implemented review states
+
+- pending list loading;
+- pending list empty;
+- pending list error + retry;
+- pending list populated;
+- no automatic first-user selection;
+- authoritative pending USER detail;
+- explicit activation confirmation;
+- explicit rejection confirmation;
+- decision in progress with actions disabled;
+- explicit ACTIVE/REJECTED result screen;
+- stale/conflict state showing the current Security USER status;
+- desktop split list/detail presentation;
+- mobile sequential list -> detail -> result presentation.
+
+No password, OTP or Clerk subject is rendered in the SuperAdmin review UI.
+
 ## 4. Authorization boundary
 
 The protected SuperAdmin APIs require the Security-issued human Bearer JWT. `ApprovalQueuePage` therefore uses the volatile `accessToken` already present in the Web session store interface.
 
 The existing UC-001 Sign In screen deliberately remains a preview/navigation bridge because canonical login backend integration belongs to the later login use case. UC-001 does not add Clerk SDKs, Clerk keys, Clerk session JWTs or a second authentication model simply to make the approval screen self-authenticate.
 
-If no Security human access token is present, the approval page does not fall back to demo authorization; it displays that Security authentication is required.
+If no Security human access token is present, the approval page does not fall back to demo authorization or local data. It reports that an authenticated Security session is required.
 
 ## 5. Shared Web/mobile behavior
 
 The implementation remains one React codebase with responsive CSS and Capacitor support. There is no separate mobile onboarding model, API client, field set or business rule.
+
+For SuperAdmin review, desktop uses the approved split list/detail layout while small screens use sequential list/detail navigation from the same React component and Security client.
 
 ## 6. Explicitly unchanged
 
@@ -142,8 +163,12 @@ Before any merge/deployment approval:
 3. exercise registration against the target Security DEV environment;
 4. exercise OTP verify/resend using a real Security signup attempt;
 5. exercise SuperAdmin pending list/detail with a Security-issued SuperAdmin human token;
-6. verify `PENDING -> ACTIVE` and `PENDING -> REJECTED` refresh behavior;
-7. compare rendered desktop and mobile applicant screens against the frozen mockups;
-8. verify the approved full logo asset and frozen background have not drifted.
+6. verify `PENDING -> ACTIVE` and `PENDING -> REJECTED` result/refresh behavior;
+7. force a stale/conflict decision and confirm the authoritative Security status is displayed;
+8. compare rendered desktop and mobile applicant screens against the frozen mockups;
+9. verify mobile SuperAdmin navigation is list -> detail -> result without compressed split-view behavior;
+10. verify the approved full logo asset and frozen background have not drifted.
+
+The branch does not currently have a pull-request CI run for these latest commits, and this environment cannot clone the GitHub repository directly for local `npm` execution. Therefore typecheck/build and live DEV API verification remain explicitly pending rather than being claimed as passed.
 
 No merge to `main` is authorized by this implementation record.

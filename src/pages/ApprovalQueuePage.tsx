@@ -39,21 +39,25 @@ export default function ApprovalQueuePage() {
     enabled: Boolean(accessToken && selectedId),
   });
 
-  const selected = detail.data ?? users.find((user) => user.userId === selectedId) ?? null;
+  const listSelected = users.find((user) => user.userId === selectedId) ?? null;
+  const authoritativeSelected = detail.data ?? null;
+  const selected = authoritativeSelected ?? listSelected;
 
   const decision = useMutation({
     mutationFn: ({ status }: { status: OnboardingDecision }) => {
-      if (!accessToken || !selectedId) {
-        throw new Error('An authenticated Security session is required.');
+      if (!accessToken || !selectedId || !authoritativeSelected) {
+        throw new Error('The authoritative Security USER detail must be loaded before a decision.');
+      }
+      if (authoritativeSelected.status !== 'PENDING') {
+        throw new Error(`This USER is no longer PENDING. Current status: ${authoritativeSelected.status}.`);
       }
       return decidePendingGlobalUser(accessToken, selectedId, status);
     },
     onSuccess: async (result) => {
-      const decidedUser = selected;
       setDecisionMode(null);
       setDecisionResult({
         userId: result.userId,
-        displayName: decidedUser?.displayName ?? 'Verigence user',
+        displayName: authoritativeSelected?.displayName ?? 'Verigence user',
         status: result.status === 'REJECTED' ? 'REJECTED' : 'ACTIVE',
       });
       setSelectedId(null);
@@ -209,11 +213,8 @@ export default function ApprovalQueuePage() {
                 <span className="approval-detail__reference">{selected.userId}</span>
               </div>
 
-              {detail.isFetching && <p className="approval-detail__refreshing">Refreshing authoritative USER detail…</p>}
-              {detail.isError && (
-                <div className="form-alert form-alert--error" role="alert">
-                  USER detail could not be refreshed: {requestError(detail.error)}
-                </div>
+              {detail.isFetching && authoritativeSelected && (
+                <p className="approval-detail__refreshing">Refreshing authoritative USER detail…</p>
               )}
 
               <dl className="approval-detail__facts">
@@ -223,10 +224,21 @@ export default function ApprovalQueuePage() {
                 <Fact label="Created" value={formatSubmitted(selected.createdAtUtc)} />
               </dl>
 
-              {selected.status !== 'PENDING' ? (
+              {detail.isError ? (
+                <div className="approval-conflict" role="alert">
+                  <strong>Authoritative USER detail is unavailable.</strong>
+                  <span>{requestError(detail.error)}</span>
+                  <VerigenceButton fill="outline" onClick={() => detail.refetch()}>Try again</VerigenceButton>
+                </div>
+              ) : !authoritativeSelected ? (
+                <div className="approval-conflict" role="status">
+                  <strong>Loading authoritative USER detail.</strong>
+                  <span>Activation and rejection remain unavailable until Security confirms the current USER state.</span>
+                </div>
+              ) : authoritativeSelected.status !== 'PENDING' ? (
                 <div className="approval-conflict" role="status">
                   <strong>This user is no longer pending.</strong>
-                  <span>Current Security status: {selected.status}</span>
+                  <span>Current Security status: {authoritativeSelected.status}</span>
                   <VerigenceButton fill="outline" onClick={refreshSelected}>Refresh</VerigenceButton>
                 </div>
               ) : (
@@ -286,7 +298,7 @@ export default function ApprovalQueuePage() {
                       <div>
                         <strong>Confirm activation</strong>
                         <span>
-                          Activate {selected.displayName}? Security will perform PENDING → ACTIVE. No role or business scope is assigned here.
+                          Activate {authoritativeSelected.displayName}? Security will perform PENDING → ACTIVE. No role or business scope is assigned here.
                         </span>
                       </div>
                       <div className="approval-confirmation__actions">
@@ -306,7 +318,7 @@ export default function ApprovalQueuePage() {
                       <div>
                         <strong>Confirm rejection</strong>
                         <span>
-                          Reject {selected.displayName}? Security will perform PENDING → REJECTED.
+                          Reject {authoritativeSelected.displayName}? Security will perform PENDING → REJECTED.
                         </span>
                       </div>
                       <div className="approval-confirmation__actions">

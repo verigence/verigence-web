@@ -19,10 +19,18 @@ jobs:
     permissions:
       contents: read
       deployments: write
+    env:
+      # Public DEV service endpoint; this is configuration, not a credential.
+      SECURITY_UPSTREAM: https://security-dev.up.railway.app
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Identify deployment
+        run: |
+          echo "Deploying Git commit: $GITHUB_SHA"
+          echo "Security DEV upstream: $SECURITY_UPSTREAM"
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -32,14 +40,14 @@ jobs:
       - name: Install dependencies
         run: npm install --no-audit --no-fund
 
-      - name: Validate deployment configuration
-        env:
-          SECURITY_UPSTREAM: ${{ secrets.SECURITY_URL }}
+      - name: Validate Security DEV upstream
         run: |
-          if [ -z "$SECURITY_UPSTREAM" ]; then
-            echo "SECURITY_URL GitHub secret is not configured"
-            exit 1
-          fi
+          set -euo pipefail
+          echo "Checking $SECURITY_UPSTREAM/health/live"
+          curl --fail --silent --show-error \
+            --header 'Accept: application/json' \
+            "$SECURITY_UPSTREAM/health/live"
+          echo
 
       - name: Typecheck and build
         run: npm run build
@@ -68,7 +76,7 @@ jobs:
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           command: >-
             deploy
-            --var "SECURITY_UPSTREAM:${{ secrets.SECURITY_URL }}"
+            --var "SECURITY_UPSTREAM:${{ env.SECURITY_UPSTREAM }}"
 
       - name: Smoke test deployed Web and Security proxy
         env:

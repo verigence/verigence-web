@@ -29,6 +29,7 @@ export default function SignupPage() {
   const [formError, setFormError] = useState<string>();
   const [busy, setBusy] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [acceptedLegal, setAcceptedLegal] = useState(false);
 
   const {
     register,
@@ -40,6 +41,11 @@ export default function SignupPage() {
 
   const submitRegistration = handleSubmit(async (values) => {
     setFormError(undefined);
+    if (!acceptedLegal) {
+      setFormError('Please review and accept the Terms of Use and Privacy Policy to register.');
+      return;
+    }
+
     const parsed = signupSchema.safeParse(values);
     if (!parsed.success) {
       for (const issue of parsed.error.issues) {
@@ -57,6 +63,7 @@ export default function SignupPage() {
       setAttempt(result);
       setVerificationEmail(parsed.data.email);
       reset(emptyValues);
+      setAcceptedLegal(false);
       setShowPassword(false);
       setScreen('verify');
     } catch (error) {
@@ -166,15 +173,24 @@ export default function SignupPage() {
           </Field>
 
           <label className="frozen-auth-consent">
-            <input type="checkbox" defaultChecked />
+            <input
+              type="checkbox"
+              checked={acceptedLegal}
+              onChange={(event) => {
+                setAcceptedLegal(event.target.checked);
+                if (event.target.checked) setFormError(undefined);
+              }}
+              disabled={busy}
+            />
             <span>
-              I agree to the Verigence <strong>Terms of Use</strong> and <strong>Privacy Policy</strong>
+              I agree to the Verigence <Link to="/terms">Terms of Use</Link> and{' '}
+              <Link to="/privacy">Privacy Policy</Link>
             </span>
           </label>
 
           {formError && <div className="frozen-auth-alert" role="alert">{formError}</div>}
 
-          <button className="frozen-auth-primary" type="submit" disabled={busy}>
+          <button className="frozen-auth-primary" type="submit" disabled={busy || !acceptedLegal}>
             {busy ? 'Registering…' : 'Register'}
           </button>
         </form>

@@ -32,15 +32,33 @@ jobs:
       - name: Install dependencies
         run: npm install --no-audit --no-fund
 
+      - name: Validate deployment configuration
+        env:
+          SECURITY_UPSTREAM: ${{ secrets.SECURITY_URL }}
+        run: |
+          if [ -z "$SECURITY_UPSTREAM" ]; then
+            echo "SECURITY_URL GitHub secret is not configured"
+            exit 1
+          fi
+
       - name: Typecheck and build
         run: npm run build
         env:
-          VITE_SECURITY_BASE_URL: ${{ secrets.SECURITY_URL }}
+          # Browser calls /security/* on the Web origin. The Worker proxies it to Security DEV.
+          VITE_SECURITY_BASE_URL: ""
           VITE_AUDIT_CORE_BASE_URL: ${{ secrets.AUDIT_CORE_URL }}
+
+      - name: Verify approved brand asset
+        run: |
+          mkdir -p dist/brand/approved
+          cp public/brand/approved/verigence-lockup.png dist/brand/approved/verigence-lockup.png
+          test -s dist/brand/approved/verigence-lockup.png
 
       - name: Deploy to Cloudflare DEV
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: deploy
+          command: >-
+            deploy
+            --var "SECURITY_UPSTREAM:${{ secrets.SECURITY_URL }}"

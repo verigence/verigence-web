@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 
-import verigenceLockup from '../assets/verigence-lockup.png';
+import { verigenceLockup } from '../assets/verigenceLockup';
 
 export default function PrivacyPage() {
   return (

@@ -17,6 +17,17 @@ function buildSecurityTarget(rawUpstream, incomingUrl) {
   return upstream;
 }
 
+function proxyResponse(response) {
+  const headers = new Headers(response.headers);
+  headers.set('X-Verigence-Proxy', 'security');
+  headers.set('X-Verigence-Upstream-Status', String(response.status));
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers,
+  });
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -29,30 +40,25 @@ export default {
             title: 'Verigence Security is not configured',
             status: 503,
           },
-          { status: 503 },
+          { status: 503, headers: { 'X-Verigence-Proxy': 'security' } },
         );
       }
 
       try {
         const target = buildSecurityTarget(env.SECURITY_UPSTREAM, request.url);
-        const headers = new Headers(request.headers);
+
+        // Clone the incoming request so Workers preserves the request body correctly.
+        const upstreamRequest = new Request(target, request);
+        const headers = new Headers(upstreamRequest.headers);
 
         // This is a server-side hop. Do not forward browser-origin routing headers.
         headers.delete('host');
         headers.delete('origin');
         headers.delete('referer');
 
-        const init = {
-          method: request.method,
-          headers,
-          redirect: 'manual',
-        };
-
-        if (request.method !== 'GET' && request.method !== 'HEAD') {
-          init.body = request.body;
-        }
-
-        return await fetch(new Request(target, init));
+        const sanitizedRequest = new Request(upstreamRequest, { headers });
+        const response = await fetch(sanitizedRequest);
+        return proxyResponse(response);
       } catch (error) {
         console.error('Security upstream request failed', error);
         return Response.json(
@@ -61,7 +67,7 @@ export default {
             title: 'Verigence Security could not be reached',
             status: 502,
           },
-          { status: 502 },
+          { status: 502, headers: { 'X-Verigence-Proxy': 'security' } },
         );
       }
     }

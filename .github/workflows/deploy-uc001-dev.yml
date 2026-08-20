@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - main
-      - planning/uc-001-user-onboarding
   workflow_dispatch:
 
 concurrency:

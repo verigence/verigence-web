@@ -10,3 +10,33 @@
   background-size: 100% 100%, 100% 100%;
   background-position: center, center;
 }
+
+/* Small readability correction requested during DEV review. The frozen visual language,
+   colors, spacing and hierarchy remain unchanged; only compact text increases by 1px. */
+.frozen-auth-heading p,
+.frozen-auth-heading strong,
+.frozen-auth-input-wrap input,
+.frozen-auth-country-code {
+  font-size: 14px;
+}
+
+.frozen-auth-field > span:first-child,
+.frozen-auth-remember,
+.frozen-auth-consent,
+.frozen-auth-text-link,
+.frozen-auth-expiry,
+.frozen-auth-resend,
+.frozen-auth-back,
+.frozen-auth-footer,
+.frozen-auth-alert {
+  font-size: 13px;
+}
+
+.frozen-auth-field > small,
+.frozen-auth-divider {
+  font-size: 12px;
+}
+
+.frozen-auth-primary {
+  font-size: 15px;
+}

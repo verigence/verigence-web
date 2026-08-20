@@ -47,25 +47,48 @@ jobs:
             "$SECURITY_UPSTREAM/health/live"
           echo
 
+      - name: Verify exact approved Verigence logo source
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const fs = require('node:fs');
+          const crypto = require('node:crypto');
+          const files = [1, 2, 3, 4].map((part) => `src/assets/lockup.part${part}.ts`);
+          const base64 = files.map((file) => {
+            const source = fs.readFileSync(file, 'utf8');
+            const match = source.match(/^export default '([^']+)'/);
+            if (!match) throw new Error(`Cannot read logo base64 from ${file}`);
+            return match[1];
+          }).join('');
+          const image = Buffer.from(base64, 'base64');
+          const sha256 = crypto.createHash('sha256').update(image).digest('hex');
+          const expected = '6e2c9a9467367a2f35466a7807672379ab3623e535e29e3914d4be731a837f60';
+          if (sha256 !== expected) {
+            throw new Error(`Approved logo digest mismatch: ${sha256}`);
+          }
+          if (image.length !== 36060 || image.subarray(0, 8).toString('hex') !== '89504e470d0a1a0a') {
+            throw new Error('Approved logo is not the expected 36,060-byte PNG');
+          }
+          console.log(`VERIGENCE_LOGO_SOURCE=PASS sha256=${sha256} bytes=${image.length}`);
+          NODE
+
       - name: Typecheck and build
         run: npm run build
         env:
           VITE_SECURITY_BASE_URL: ""
           VITE_AUDIT_CORE_BASE_URL: ${{ secrets.AUDIT_CORE_URL }}
 
-      - name: Verify approved logo build output
+      - name: Verify approved logo is bundled
+        shell: bash
         run: |
           set -euo pipefail
-          LOGO_FILE="$(find dist/assets -maxdepth 1 -type f -name 'verigence-lockup-*.avif' -print -quit)"
-          if [ -z "$LOGO_FILE" ]; then
-            echo "Clean approved Verigence AVIF lockup was not emitted into dist/assets"
+          if ! grep -R -q 'data:image/png;base64,' dist/assets; then
+            echo "Approved bundled PNG lockup was not emitted into the production JavaScript"
             find dist -maxdepth 2 -type f -print
             exit 1
           fi
-          test -s "$LOGO_FILE"
-          file "$LOGO_FILE"
-          sha256sum "$LOGO_FILE"
-          echo "VERIGENCE_LOGO_PATH=/${LOGO_FILE#dist/}" >> "$GITHUB_ENV"
+          echo "VERIGENCE_LOGO_BUNDLE=PASS"
 
       - name: Deploy to Cloudflare DEV
         uses: cloudflare/wrangler-action@v3
@@ -87,19 +110,6 @@ jobs:
             --output /tmp/login.html \
             "$DEV_WEB_URL/login"
           head -n 20 /tmp/login.headers
-
-          echo "--- Approved logo asset ---"
-          curl --fail --silent --show-error \
-            --dump-header /tmp/logo.headers \
-            --output /tmp/logo.avif \
-            "$DEV_WEB_URL$VERIGENCE_LOGO_PATH"
-          head -n 20 /tmp/logo.headers
-          test -s /tmp/logo.avif
-          file /tmp/logo.avif
-          if ! grep -qi '^content-type: image/avif' /tmp/logo.headers; then
-            echo "Deployed clean logo did not return image/avif"
-            exit 1
-          fi
 
           echo "--- Security login route via Worker ---"
           SECURITY_STATUS="$(curl --silent --show-error \

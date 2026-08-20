@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type ClipboardEvent, type FormEvent, type 
 import { useForm } from 'react-hook-form';
 import { Link } from 'react-router-dom';
 
-import verigenceLockup from '../assets/verigence-lockup.png';
+import verigenceLockup from '../assets/verigenceLockup';
 import { signupSchema, type SignupFormValues } from '../features/onboarding/signupSchema';
 import {
   resendOnboardingEmailCode,
@@ -401,9 +401,9 @@ function LockIcon() {
 }
 
 function EyeIcon() {
-  return <Icon><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z" /><circle cx="12" cy="12" r="2.5" /></Icon>;
+  return <Icon><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z" /><circle cx="12" cy="12" r="3" /></Icon>;
 }
 
 function KeyIcon() {
-  return <Icon><circle cx="8" cy="15" r="4" /><path d="m11 12 9-9m-4 4 3 3m-6 0 3 3" /></Icon>;
+  return <Icon><circle cx="8" cy="15" r="3" /><path d="m10 13 8-8M15 8l2 2M17 6l2 2" /></Icon>;
 }

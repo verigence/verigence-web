@@ -48,11 +48,18 @@ jobs:
           VITE_SECURITY_BASE_URL: ""
           VITE_AUDIT_CORE_BASE_URL: ${{ secrets.AUDIT_CORE_URL }}
 
-      - name: Verify approved brand asset
+      - name: Verify approved logo build output
         run: |
-          mkdir -p dist/brand/approved
-          cp public/brand/approved/verigence-lockup.png dist/brand/approved/verigence-lockup.png
-          test -s dist/brand/approved/verigence-lockup.png
+          LOGO_FILE="$(find dist/assets -maxdepth 1 -type f -name 'verigence-lockup-*.png' -print -quit)"
+          if [ -z "$LOGO_FILE" ]; then
+            echo "Approved Verigence lockup was not emitted into dist/assets"
+            find dist -maxdepth 2 -type f -print
+            exit 1
+          fi
+          test -s "$LOGO_FILE"
+          file "$LOGO_FILE"
+          sha256sum "$LOGO_FILE"
+          echo "VERIGENCE_LOGO_PATH=/${LOGO_FILE#dist/}" >> "$GITHUB_ENV"
 
       - name: Deploy to Cloudflare DEV
         uses: cloudflare/wrangler-action@v3
@@ -62,3 +69,59 @@ jobs:
           command: >-
             deploy
             --var "SECURITY_UPSTREAM:${{ secrets.SECURITY_URL }}"
+
+      - name: Smoke test deployed Web and Security proxy
+        env:
+          DEV_WEB_URL: https://verigence-web-dev.jbrconsulting-it.workers.dev
+        run: |
+          set -euo pipefail
+          sleep 5
+
+          echo "--- Login page ---"
+          curl --fail --silent --show-error --location \
+            --dump-header /tmp/login.headers \
+            --output /tmp/login.html \
+            "$DEV_WEB_URL/login"
+          head -n 20 /tmp/login.headers
+
+          echo "--- Approved logo asset ---"
+          curl --fail --silent --show-error \
+            --dump-header /tmp/logo.headers \
+            --output /tmp/logo.png \
+            "$DEV_WEB_URL$VERIGENCE_LOGO_PATH"
+          head -n 20 /tmp/logo.headers
+          test -s /tmp/logo.png
+          file /tmp/logo.png
+          if ! grep -qi '^content-type: image/png' /tmp/logo.headers; then
+            echo "Deployed logo did not return image/png"
+            exit 1
+          fi
+
+          echo "--- Security login route via Worker ---"
+          SECURITY_STATUS="$(curl --silent --show-error \
+            --dump-header /tmp/security.headers \
+            --output /tmp/security.body \
+            --write-out '%{http_code}' \
+            --request POST \
+            --header 'Content-Type: application/json' \
+            --data '{}' \
+            "$DEV_WEB_URL/security/v1/auth/login")"
+          cat /tmp/security.headers
+          cat /tmp/security.body
+          echo
+          echo "Security smoke status: $SECURITY_STATUS"
+
+          if ! grep -qi '^x-verigence-proxy: security' /tmp/security.headers; then
+            echo "Request did not pass through the Verigence Security Worker proxy"
+            exit 1
+          fi
+
+          # Empty login JSON should reach FastAPI and fail request validation, normally HTTP 422.
+          # 400/401 are accepted defensively if the Security boundary normalizes validation/auth first.
+          case "$SECURITY_STATUS" in
+            400|401|422) ;;
+            *)
+              echo "Security login route is not healthy through the Worker proxy"
+              exit 1
+              ;;
+          esac

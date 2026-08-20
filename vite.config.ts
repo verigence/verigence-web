@@ -7,13 +7,14 @@ export default defineConfig({
   base: process.env.VITE_BASE_PATH || '/',
   plugins: [react()],
   resolve: {
-    alias: {
-      // The frozen auth screens still import the legacy PNG filename. Resolve that import to the
-      // clean approved lockup asset without changing screen markup or branding.
-      '../assets/verigence-lockup.png': fileURLToPath(
-        new URL('./src/assets/verigence-lockup.avif', import.meta.url),
-      ),
-    },
+    alias: [
+      {
+        // Some frozen auth screens still use the legacy PNG import. Match by filename rather than
+        // by one relative specifier so Vite always resolves those imports to the clean lockup.
+        find: /verigence-lockup\.png$/,
+        replacement: fileURLToPath(new URL('./src/assets/verigence-lockup.avif', import.meta.url)),
+      },
+    ],
   },
   build: {
     assetsInlineLimit: 4 * 1024,

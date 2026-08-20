@@ -68,11 +68,27 @@ function errorFrom(response: Response, payload: unknown): SecurityLoginError {
   );
 }
 
+function connectivityError(): SecurityLoginError {
+  return new SecurityLoginError(
+    'Verigence Security could not be reached.',
+    0,
+    'SECURITY_UPSTREAM_UNAVAILABLE',
+  );
+}
+
+async function securityFetch(input: RequestInfo | URL, init: RequestInit): Promise<Response> {
+  try {
+    return await fetch(input, init);
+  } catch {
+    throw connectivityError();
+  }
+}
+
 export async function loginHuman(
   identifier: string,
   password: string,
 ): Promise<HumanLoginResponse> {
-  const response = await fetch(endpoint('/security/v1/auth/login'), {
+  const response = await securityFetch(endpoint('/security/v1/auth/login'), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ identifier, password }),
@@ -91,7 +107,7 @@ export async function loginHuman(
  */
 export async function isPlatformSuperAdmin(accessToken: string): Promise<boolean> {
   const query = new URLSearchParams({ limit: '1', offset: '0' });
-  const response = await fetch(endpoint(`/security/v1/platform/users?${query.toString()}`), {
+  const response = await securityFetch(endpoint(`/security/v1/platform/users?${query.toString()}`), {
     method: 'GET',
     headers: { Authorization: `Bearer ${accessToken}` },
     cache: 'no-store',
@@ -120,7 +136,9 @@ export function loginErrorMessage(error: unknown): string {
     case 'PRINCIPAL_NOT_ACTIVE':
       return 'Your Verigence account is not active.';
     case 'IDENTITY_PROVIDER_UNAVAILABLE':
-      return 'Sign in is temporarily unavailable. Please try again.';
+      return 'Clerk authentication is temporarily unavailable. Please try again.';
+    case 'SECURITY_UPSTREAM_UNAVAILABLE':
+      return 'Verigence Security is temporarily unavailable. Please try again.';
     default:
       return error.message || 'Sign in could not be completed. Please try again.';
   }

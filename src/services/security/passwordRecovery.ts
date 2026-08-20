@@ -68,6 +68,14 @@ export async function resendPasswordResetCode(
   return readResponse<PasswordResetAttemptResponse>(response);
 }
 
+export async function cancelPasswordReset(attemptId: string): Promise<void> {
+  const response = await fetch(
+    endpoint(`/security/v1/auth/password-reset/${encodeURIComponent(attemptId)}/cancel`),
+    { method: 'POST', cache: 'no-store' },
+  );
+  await readResponse<unknown>(response);
+}
+
 export async function completePasswordReset(
   attemptId: string,
   code: string,

@@ -140,6 +140,19 @@ export function loginErrorMessage(error: unknown): string {
     case 'SECURITY_UPSTREAM_UNAVAILABLE':
       return 'Verigence Security is temporarily unavailable. Please try again.';
     default:
-      return error.message || 'Sign in could not be completed. Please try again.';
+      break;
   }
+
+  if (error.status === 404) {
+    return 'Verigence Security login endpoint is unavailable (HTTP 404).';
+  }
+  if (error.status >= 500) {
+    return `Verigence Security returned HTTP ${error.status}. Please try again.`;
+  }
+  if (error.status > 0) {
+    const code = error.code ? `, ${error.code}` : '';
+    return `${error.message || 'Sign in could not be completed.'} (HTTP ${error.status}${code})`;
+  }
+
+  return error.message || 'Sign in could not be completed. Please try again.';
 }

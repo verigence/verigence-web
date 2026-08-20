@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type ClipboardEvent, type FormEvent, type 
 import { useForm } from 'react-hook-form';
 import { Link } from 'react-router-dom';
 
+import verigenceLockup from '../assets/verigence-lockup.png';
 import { signupSchema, type SignupFormValues } from '../features/onboarding/signupSchema';
 import {
   resendOnboardingEmailCode,
@@ -9,8 +10,6 @@ import {
   verifyOnboardingEmail,
   type SignupAttemptResponse,
 } from '../services/security/onboarding';
-
-const verigenceLockup = `${import.meta.env.BASE_URL}brand/approved/verigence-lockup.png`;
 
 const emptyValues: SignupFormValues = {
   firstName: '',

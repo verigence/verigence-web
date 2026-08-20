@@ -20,7 +20,6 @@ jobs:
       contents: read
       deployments: write
     env:
-      # Public DEV service endpoint; this is configuration, not a credential.
       SECURITY_UPSTREAM: https://security-dev.up.railway.app
 
     steps:
@@ -52,7 +51,6 @@ jobs:
       - name: Typecheck and build
         run: npm run build
         env:
-          # Browser calls /security/* on the Web origin. The Worker proxies it to Security DEV.
           VITE_SECURITY_BASE_URL: ""
           VITE_AUDIT_CORE_BASE_URL: ${{ secrets.AUDIT_CORE_URL }}
 
@@ -74,9 +72,7 @@ jobs:
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: >-
-            deploy
-            --var "SECURITY_UPSTREAM:${{ env.SECURITY_UPSTREAM }}"
+          command: deploy
 
       - name: Smoke test deployed Web and Security proxy
         env:
@@ -124,8 +120,6 @@ jobs:
             exit 1
           fi
 
-          # Empty login JSON should reach FastAPI and fail request validation, normally HTTP 422.
-          # 400/401 are accepted defensively if the Security boundary normalizes validation/auth first.
           case "$SECURITY_STATUS" in
             400|401|422) ;;
             *)

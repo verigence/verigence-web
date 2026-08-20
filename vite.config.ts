@@ -5,9 +5,9 @@ export default defineConfig({
   base: process.env.VITE_BASE_PATH || '/',
   plugins: [react()],
   build: {
-    // The frozen approved Verigence lockup is ~67 KB. Inline it in the JS bundle so
-    // Cloudflare never has to resolve a separate runtime image URL for auth screens.
-    assetsInlineLimit: 128 * 1024,
+    // Keep the approved Verigence lockup as a normal same-origin hashed asset.
+    // This avoids data: image URLs, which can be blocked by a host-level CSP.
+    assetsInlineLimit: 4 * 1024,
   },
   server: {
     port: 5173,

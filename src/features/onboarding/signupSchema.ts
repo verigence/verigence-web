@@ -1,8 +1,8 @@
 import { z } from 'zod';
 
-export const ONBOARDING_KEY_PREFIX = 'VGN';
-export const ONBOARDING_KEY_DIGITS = 8;
-export const ONBOARDING_KEY_PATTERN = /^VGN[0-9]{8}$/i;
+export const ONBOARDING_KEY_PREFIX = 'VGN-';
+export const ONBOARDING_KEY_DIGITS = 7;
+export const ONBOARDING_KEY_PATTERN = /^VGN-[0-9]{7}$/i;
 
 export const signupSchema = z.object({
   firstName: z.string().trim().min(1, 'Enter your first name.').max(120, 'First name is too long.'),

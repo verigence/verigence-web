@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type ClipboardEvent, type FormEvent, type 
 import { useForm } from 'react-hook-form';
 import { Link } from 'react-router-dom';
 
-import verigenceLockup from '../assets/verigenceLockup';
+import verigenceLockup from '../assets/verigence-lockup.png';
 import { signupSchema, type SignupFormValues } from '../features/onboarding/signupSchema';
 import {
   resendOnboardingEmailCode,
@@ -29,6 +29,7 @@ export default function SignupPage() {
   const [formError, setFormError] = useState<string>();
   const [busy, setBusy] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [acceptedLegal, setAcceptedLegal] = useState(false);
 
   const {
     register,
@@ -40,6 +41,11 @@ export default function SignupPage() {
 
   const submitRegistration = handleSubmit(async (values) => {
     setFormError(undefined);
+    if (!acceptedLegal) {
+      setFormError('Please review and accept the Terms of Use and Privacy Policy to register.');
+      return;
+    }
+
     const parsed = signupSchema.safeParse(values);
     if (!parsed.success) {
       for (const issue of parsed.error.issues) {
@@ -57,6 +63,7 @@ export default function SignupPage() {
       setAttempt(result);
       setVerificationEmail(parsed.data.email);
       reset(emptyValues);
+      setAcceptedLegal(false);
       setShowPassword(false);
       setScreen('verify');
     } catch (error) {
@@ -166,15 +173,24 @@ export default function SignupPage() {
           </Field>
 
           <label className="frozen-auth-consent">
-            <input type="checkbox" defaultChecked />
+            <input
+              type="checkbox"
+              checked={acceptedLegal}
+              onChange={(event) => {
+                setAcceptedLegal(event.target.checked);
+                if (event.target.checked) setFormError(undefined);
+              }}
+              disabled={busy}
+            />
             <span>
-              I agree to the Verigence <strong>Terms of Use</strong> and <strong>Privacy Policy</strong>
+              I agree to the Verigence <Link to="/terms">Terms of Use</Link> and{' '}
+              <Link to="/privacy">Privacy Policy</Link>
             </span>
           </label>
 
           {formError && <div className="frozen-auth-alert" role="alert">{formError}</div>}
 
-          <button className="frozen-auth-primary" type="submit" disabled={busy}>
+          <button className="frozen-auth-primary" type="submit" disabled={busy || !acceptedLegal}>
             {busy ? 'Registering…' : 'Register'}
           </button>
         </form>
@@ -401,9 +417,9 @@ function LockIcon() {
 }
 
 function EyeIcon() {
-  return <Icon><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z" /><circle cx="12" cy="12" r="3" /></Icon>;
+  return <Icon><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z" /><circle cx="12" cy="12" r="2.5" /></Icon>;
 }
 
 function KeyIcon() {
-  return <Icon><circle cx="8" cy="15" r="3" /><path d="m10 13 8-8M15 8l2 2M17 6l2 2" /></Icon>;
+  return <Icon><circle cx="8" cy="15" r="4" /><path d="m11 12 9-9m-4 4 3 3m-6 0 3 3" /></Icon>;
 }

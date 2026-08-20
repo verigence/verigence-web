@@ -44,6 +44,23 @@ function endpoint(path: string): string {
   return `${securityBaseUrl}${path}`;
 }
 
+function validationDetailMessage(detail: unknown): string | undefined {
+  if (!Array.isArray(detail)) return undefined;
+  const messages = detail
+    .map((item) => {
+      if (typeof item !== 'object' || item === null) return undefined;
+      const record = item as Record<string, unknown>;
+      const msg = typeof record.msg === 'string' ? record.msg : undefined;
+      const loc = Array.isArray(record.loc)
+        ? record.loc.filter((part) => typeof part === 'string' || typeof part === 'number').join('.')
+        : undefined;
+      if (!msg) return undefined;
+      return loc ? `${loc}: ${msg}` : msg;
+    })
+    .filter((value): value is string => Boolean(value));
+  return messages.length ? messages.join(' ') : undefined;
+}
+
 async function readResponse<T>(response: Response): Promise<T> {
   const contentType = response.headers.get('content-type') ?? '';
   let payload: unknown;
@@ -61,10 +78,11 @@ async function readResponse<T>(response: Response): Promise<T> {
     const detail = record?.detail;
     const message =
       (typeof detail === 'string' && detail) ||
+      validationDetailMessage(detail) ||
       (typeof record?.message === 'string' && record.message) ||
       (typeof record?.title === 'string' && record.title) ||
       (typeof payload === 'string' && payload) ||
-      'Security request failed. Please try again.';
+      `Security request failed (${response.status}). Please try again.`;
     const code = typeof record?.code === 'string' ? record.code : undefined;
 
     throw new SecurityApiError(message, response.status, code);

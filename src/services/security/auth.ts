@@ -2,6 +2,7 @@ export interface HumanLoginResponse {
   accessToken: string;
   expiresAtUtc: string;
   actorType: 'USER';
+  isSuperAdmin: boolean;
 }
 
 interface SecurityProblem {
@@ -98,28 +99,6 @@ export async function loginHuman(
 
   if (!response.ok) throw errorFrom(response, payload);
   return payload as HumanLoginResponse;
-}
-
-/**
- * Security human JWTs intentionally carry no role/permission claims. Determine whether the
- * authenticated USER is Platform SuperAdmin by asking an existing SuperAdmin-only Security API.
- * A normal PERMISSION_DENIED response means the USER is authenticated but is not SuperAdmin.
- */
-export async function isPlatformSuperAdmin(accessToken: string): Promise<boolean> {
-  const query = new URLSearchParams({ limit: '1', offset: '0' });
-  const response = await securityFetch(endpoint(`/security/v1/platform/users?${query.toString()}`), {
-    method: 'GET',
-    headers: { Authorization: `Bearer ${accessToken}` },
-    cache: 'no-store',
-  });
-
-  if (response.ok) return true;
-
-  const payload = await readPayload(response);
-  const problem = problemFrom(payload);
-  if (response.status === 403 && problem?.code === 'PERMISSION_DENIED') return false;
-
-  throw errorFrom(response, payload);
 }
 
 export function loginErrorMessage(error: unknown): string {

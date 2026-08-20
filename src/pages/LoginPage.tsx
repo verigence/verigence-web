@@ -1,7 +1,7 @@
 import { useState, type FormEvent, type ReactNode } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 
-import verigenceLockup from '../assets/verigence-lockup.avif';
+import { verigenceLockup } from '../assets/verigenceLockup';
 import {
   loginErrorMessage,
   loginHuman,

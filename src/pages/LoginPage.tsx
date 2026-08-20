@@ -1,14 +1,13 @@
 import { useState, type FormEvent, type ReactNode } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 
+import verigenceLockup from '../assets/verigence-lockup.png';
 import {
   isPlatformSuperAdmin,
   loginErrorMessage,
   loginHuman,
 } from '../services/security/auth';
 import { useSessionStore } from '../store/sessionStore';
-
-const verigenceLockup = `${import.meta.env.BASE_URL}brand/approved/verigence-lockup.png`;
 
 export default function LoginPage() {
   const navigate = useNavigate();

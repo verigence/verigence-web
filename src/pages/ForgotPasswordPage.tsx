@@ -196,7 +196,7 @@ export default function ForgotPasswordPage() {
               </span>
             </label>
 
-            <p className="frozen-auth-expiry">Code expires in <strong>{useExpiryCountdown(attempt.expiresAt)}</strong></p>
+            <ExpiryCountdown expiresAt={attempt.expiresAt} />
             {notice && <p className="frozen-auth-notice" role="status">{notice}</p>}
             {error && <div className="frozen-auth-alert" role="alert">{error}</div>}
 
@@ -252,6 +252,11 @@ export default function ForgotPasswordPage() {
       </article>
     </main>
   );
+}
+
+function ExpiryCountdown({ expiresAt }: { expiresAt: string }) {
+  const countdown = useExpiryCountdown(expiresAt);
+  return <p className="frozen-auth-expiry">Code expires in <strong>{countdown}</strong></p>;
 }
 
 function useExpiryCountdown(expiresAt: string): string {

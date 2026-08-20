@@ -1,5 +1,4 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
 
 import type { UserRole } from '../domain/models';
 
@@ -15,6 +14,7 @@ interface SessionState extends BusinessContext {
   displayName: string;
   role: UserRole;
   accessToken?: string;
+  signInAuthenticated: (email: string, accessToken: string, role: UserRole) => void;
   signInPreview: (email: string, role?: UserRole) => void;
   signOut: () => void;
   setRolePreview: (role: UserRole) => void;
@@ -22,9 +22,35 @@ interface SessionState extends BusinessContext {
   setBusinessContext: (context: Partial<BusinessContext>) => void;
 }
 
-export const useSessionStore = create<SessionState>()(
-  persist(
-    (set) => ({
+export const useSessionStore = create<SessionState>((set) => ({
+  signedIn: false,
+  email: '',
+  displayName: '',
+  role: 'PC',
+  tenantId: '',
+  dealerId: '',
+  outletId: '',
+  accessToken: undefined,
+  signInAuthenticated: (email, accessToken, role) =>
+    set({
+      signedIn: true,
+      email,
+      displayName: email.split('@')[0] || email,
+      role,
+      accessToken,
+    }),
+  // Retained only for local/demo tooling. Protected routes reject preview sessions because
+  // they require a Security-issued human access token.
+  signInPreview: (email, role = 'PC') =>
+    set({
+      signedIn: true,
+      email,
+      displayName: email.split('@')[0] || email,
+      role,
+      accessToken: undefined,
+    }),
+  signOut: () =>
+    set({
       signedIn: false,
       email: '',
       displayName: '',
@@ -33,33 +59,8 @@ export const useSessionStore = create<SessionState>()(
       dealerId: '',
       outletId: '',
       accessToken: undefined,
-      signInPreview: (email, role = 'PC') =>
-        set({ signedIn: true, email, displayName: email.split('@')[0] || email, role }),
-      signOut: () =>
-        set({
-          signedIn: false,
-          email: '',
-          displayName: '',
-          tenantId: '',
-          dealerId: '',
-          outletId: '',
-          accessToken: undefined,
-        }),
-      setRolePreview: (role) => set({ role }),
-      setAccessToken: (accessToken) => set({ accessToken }),
-      setBusinessContext: (context) => set(context),
     }),
-    {
-      name: 'verigence-web-session',
-      partialize: (state) => ({
-        signedIn: state.signedIn,
-        email: state.email,
-        displayName: state.displayName,
-        role: state.role,
-        tenantId: state.tenantId,
-        dealerId: state.dealerId,
-        outletId: state.outletId,
-      }),
-    },
-  ),
-);
+  setRolePreview: (role) => set({ role }),
+  setAccessToken: (accessToken) => set({ accessToken }),
+  setBusinessContext: (context) => set(context),
+}));

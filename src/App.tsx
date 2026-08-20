@@ -8,6 +8,9 @@ import { useSessionStore } from './store/sessionStore';
 
 const LoginPage = lazy(() => import('./pages/LoginPage'));
 const SignupPage = lazy(() => import('./pages/SignupPage'));
+const ForgotPasswordPage = lazy(() => import('./pages/ForgotPasswordPage'));
+const TermsPage = lazy(() => import('./pages/TermsPage'));
+const PrivacyPage = lazy(() => import('./pages/PrivacyPage'));
 const ApprovalQueuePage = lazy(() => import('./pages/ApprovalQueuePage'));
 const DashboardPage = lazy(() => import('./pages/DashboardPage'));
 const CustomersPage = lazy(() => import('./pages/CustomersPage'));
@@ -50,6 +53,9 @@ export default function App() {
           <Routes>
             <Route path="/login" element={<LoginPage />} />
             <Route path="/signup" element={<SignupPage />} />
+            <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+            <Route path="/terms" element={<TermsPage />} />
+            <Route path="/privacy" element={<PrivacyPage />} />
             <Route path="/dashboard" element={<PrivatePage><DashboardPage /></PrivatePage>} />
             <Route path="/customers" element={<PrivatePage><CustomersPage /></PrivatePage>} />
             <Route path="/journeys" element={<PrivatePage><JourneysPage /></PrivatePage>} />

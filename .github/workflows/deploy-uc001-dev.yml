@@ -15,9 +15,9 @@ jobs:
   deploy:
     name: Build & Deploy DEV
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     permissions:
-      contents: read
+      contents: write
       deployments: write
     env:
       SECURITY_UPSTREAM: https://security-dev.up.railway.app
@@ -25,11 +25,14 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Identify deployment
         run: |
           echo "Deploying Git commit: $GITHUB_SHA"
           echo "Security DEV upstream: $SECURITY_UPSTREAM"
+          echo "WEB_SOURCE_SHA=$GITHUB_SHA" >> "$GITHUB_ENV"
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -49,7 +52,10 @@ jobs:
           echo
 
       - name: Typecheck and build
-        run: npm run build
+        run: |
+          set -euo pipefail
+          npm run build
+          echo "WEB_BUILD=PASS" >> "$GITHUB_ENV"
         env:
           VITE_SECURITY_BASE_URL: ""
           VITE_AUDIT_CORE_BASE_URL: ${{ secrets.AUDIT_CORE_URL }}
@@ -81,19 +87,20 @@ jobs:
           set -euo pipefail
           sleep 5
 
-          echo "--- Login page ---"
-          curl --fail --silent --show-error --location \
-            --dump-header /tmp/login.headers \
-            --output /tmp/login.html \
-            "$DEV_WEB_URL/login"
-          head -n 20 /tmp/login.headers
+          for page in login forgot-password terms privacy signup; do
+            echo "--- Public page: /$page ---"
+            curl --fail --silent --show-error --location \
+              --output "/tmp/${page}.html" \
+              "$DEV_WEB_URL/$page"
+            test -s "/tmp/${page}.html"
+          done
+          echo "WEB_PUBLIC_ROUTES=PASS" >> "$GITHUB_ENV"
 
           echo "--- Approved logo asset ---"
           curl --fail --silent --show-error \
             --dump-header /tmp/logo.headers \
             --output /tmp/logo.png \
             "$DEV_WEB_URL$VERIGENCE_LOGO_PATH"
-          head -n 20 /tmp/logo.headers
           test -s /tmp/logo.png
           file /tmp/logo.png
           if ! grep -qi '^content-type: image/png' /tmp/logo.headers; then
@@ -110,20 +117,61 @@ jobs:
             --header 'Content-Type: application/json' \
             --data '{}' \
             "$DEV_WEB_URL/security/v1/auth/login")"
-          cat /tmp/security.headers
-          cat /tmp/security.body
-          echo
-          echo "Security smoke status: $SECURITY_STATUS"
-
           if ! grep -qi '^x-verigence-proxy: security' /tmp/security.headers; then
             echo "Request did not pass through the Verigence Security Worker proxy"
             exit 1
           fi
-
           case "$SECURITY_STATUS" in
             400|401|422) ;;
-            *)
-              echo "Security login route is not healthy through the Worker proxy"
-              exit 1
-              ;;
+            *) echo "Security login route is not healthy through the Worker proxy"; exit 1 ;;
           esac
+
+          echo "--- Password recovery route via Worker ---"
+          RESET_READY=false
+          for attempt in $(seq 1 30); do
+            RESET_STATUS="$(curl --silent --show-error \
+              --dump-header /tmp/reset.headers \
+              --output /tmp/reset.body \
+              --write-out '%{http_code}' \
+              --request POST \
+              --header 'Content-Type: application/json' \
+              --data '{}' \
+              "$DEV_WEB_URL/security/v1/auth/password-reset")"
+            if grep -qi '^x-verigence-proxy: security' /tmp/reset.headers && [ "$RESET_STATUS" = "422" ]; then
+              RESET_READY=true
+              break
+            fi
+            echo "Password recovery route not ready yet (HTTP $RESET_STATUS), retrying..."
+            sleep 5
+          done
+          [ "$RESET_READY" = true ] || {
+            echo "Password recovery route did not become available through the Worker proxy"
+            cat /tmp/reset.headers || true
+            cat /tmp/reset.body || true
+            exit 1
+          }
+          echo "PASSWORD_RECOVERY_PROXY=PASS" >> "$GITHUB_ENV"
+          echo "WEB_SMOKE=PASS" >> "$GITHUB_ENV"
+
+      - name: Record UC-001 deploy proof
+        if: always()
+        run: |
+          set -euo pipefail
+          mkdir -p docs/handoff
+          cat > docs/handoff/UC001_PASSWORD_RECOVERY_LEGAL_DEPLOY_PROOF.md <<EOF
+          # UC-001 Password Recovery + Interim Legal Pages — DEV Deploy Proof
+
+          - run_id: $GITHUB_RUN_ID
+          - source_sha: ${WEB_SOURCE_SHA:-unknown}
+          - build: ${WEB_BUILD:-not_reached}
+          - public_routes: ${WEB_PUBLIC_ROUTES:-not_reached}
+          - password_recovery_proxy: ${PASSWORD_RECOVERY_PROXY:-not_reached}
+          - smoke: ${WEB_SMOKE:-not_reached}
+          - job_status: ${{ job.status }}
+          EOF
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add docs/handoff/UC001_PASSWORD_RECOVERY_LEGAL_DEPLOY_PROOF.md
+          git commit -m 'docs(uc-001): record recovery/legal DEV deploy proof [skip ci]' || exit 0
+          git pull --rebase origin "$GITHUB_REF_NAME"
+          git push origin HEAD:"$GITHUB_REF_NAME"

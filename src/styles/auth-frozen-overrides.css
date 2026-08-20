@@ -1,0 +1,12 @@
+.frozen-auth-screen {
+  background-image:
+    radial-gradient(
+      ellipse at 78% 48%,
+      rgba(0, 175, 168, 0.28) 0%,
+      rgba(0, 175, 168, 0.16) 32%,
+      transparent 72%
+    ),
+    linear-gradient(158deg, #011e47 0%, #013060 55%, #026d7d 100%);
+  background-size: 100% 100%, 100% 100%;
+  background-position: center, center;
+}

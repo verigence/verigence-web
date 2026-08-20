@@ -17,6 +17,7 @@ import './styles/workspace.css';
 import './styles/extended.css';
 import './styles/brand-auth-fixes.css';
 import './styles/auth-onboarding.css';
+import './styles/auth-frozen-overrides.css';
 
 import App from './App';
 

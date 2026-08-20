@@ -132,6 +132,8 @@ export function loginErrorMessage(error: unknown): string {
       return 'Email or password is incorrect.';
     case 'USER_NOT_ONBOARDED':
       return 'This account is not registered with Verigence.';
+    case 'USER_PENDING_APPROVAL':
+      return 'Your Verigence activation is pending administrator approval.';
     case 'USER_NOT_ACTIVE':
     case 'PRINCIPAL_NOT_ACTIVE':
       return 'Your Verigence account is not active.';

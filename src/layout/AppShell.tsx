@@ -1,7 +1,7 @@
 import type { PropsWithChildren } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 
-import verigenceLockup from '../assets/verigence-lockup.png';
+import { verigenceLockup } from '../assets/verigenceLockup';
 import type { UserRole } from '../domain/models';
 import { useSessionStore } from '../store/sessionStore';
 

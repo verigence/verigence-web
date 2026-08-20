@@ -56,9 +56,9 @@ jobs:
       - name: Verify approved logo build output
         run: |
           set -euo pipefail
-          LOGO_FILE="$(find dist/assets -maxdepth 1 -type f \( -name 'verigence-lockup-*.avif' -o -name 'verigence-lockup-*.png' \) -print -quit)"
+          LOGO_FILE="$(find dist/assets -maxdepth 1 -type f -name 'verigence-lockup-*.avif' -print -quit)"
           if [ -z "$LOGO_FILE" ]; then
-            echo "Approved Verigence lockup was not emitted into dist/assets"
+            echo "Clean approved Verigence AVIF lockup was not emitted into dist/assets"
             find dist -maxdepth 2 -type f -print
             exit 1
           fi
@@ -66,11 +66,6 @@ jobs:
           file "$LOGO_FILE"
           sha256sum "$LOGO_FILE"
           echo "VERIGENCE_LOGO_PATH=/${LOGO_FILE#dist/}" >> "$GITHUB_ENV"
-          case "$LOGO_FILE" in
-            *.avif) echo "VERIGENCE_LOGO_CONTENT_TYPE=image/avif" >> "$GITHUB_ENV" ;;
-            *.png) echo "VERIGENCE_LOGO_CONTENT_TYPE=image/png" >> "$GITHUB_ENV" ;;
-            *) echo "Unexpected logo format"; exit 1 ;;
-          esac
 
       - name: Deploy to Cloudflare DEV
         uses: cloudflare/wrangler-action@v3
@@ -96,13 +91,13 @@ jobs:
           echo "--- Approved logo asset ---"
           curl --fail --silent --show-error \
             --dump-header /tmp/logo.headers \
-            --output /tmp/logo.asset \
+            --output /tmp/logo.avif \
             "$DEV_WEB_URL$VERIGENCE_LOGO_PATH"
           head -n 20 /tmp/logo.headers
-          test -s /tmp/logo.asset
-          file /tmp/logo.asset
-          if ! grep -qi "^content-type: ${VERIGENCE_LOGO_CONTENT_TYPE}" /tmp/logo.headers; then
-            echo "Deployed logo returned the wrong content type; expected ${VERIGENCE_LOGO_CONTENT_TYPE}"
+          test -s /tmp/logo.avif
+          file /tmp/logo.avif
+          if ! grep -qi '^content-type: image/avif' /tmp/logo.headers; then
+            echo "Deployed clean logo did not return image/avif"
             exit 1
           fi
 

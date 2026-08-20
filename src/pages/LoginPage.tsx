@@ -104,7 +104,7 @@ export default function LoginPage() {
               />
               <span>Keep me signed in</span>
             </label>
-            <button type="button" className="frozen-auth-text-link" disabled={busy}>Forgot password?</button>
+            <Link className="frozen-auth-text-link" to="/forgot-password">Forgot password?</Link>
           </div>
 
           {error && <div className="frozen-auth-alert" role="alert">{error}</div>}
@@ -117,6 +117,9 @@ export default function LoginPage() {
         <div className="frozen-auth-divider"><span>or</span></div>
         <p className="frozen-auth-footer frozen-auth-footer--login">
           New to Verigence? <Link to="/signup">Register Now</Link>
+        </p>
+        <p className="frozen-auth-footer frozen-auth-footer--legal">
+          <Link to="/terms">Terms of Use</Link> · <Link to="/privacy">Privacy Policy</Link>
         </p>
       </article>
     </main>

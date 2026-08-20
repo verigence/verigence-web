@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 
 import verigenceLockup from '../assets/verigence-lockup.png';
 import {
+  cancelPasswordReset,
   completePasswordReset,
   resendPasswordResetCode,
   startPasswordReset,
@@ -22,6 +23,17 @@ export default function ForgotPasswordPage() {
   const [error, setError] = useState<string>();
   const [notice, setNotice] = useState<string>();
   const [busy, setBusy] = useState(false);
+
+  const clearVerificationState = () => {
+    setAttempt(null);
+    setCode('');
+    setNewPassword('');
+    setConfirmPassword('');
+    setShowPassword(false);
+    setError(undefined);
+    setNotice(undefined);
+    setScreen('request');
+  };
 
   const requestReset = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -95,6 +107,20 @@ export default function ForgotPasswordPage() {
     }
   };
 
+  const cancelAndBack = async () => {
+    if (!attempt || busy) return;
+    setBusy(true);
+    setError(undefined);
+    try {
+      await cancelPasswordReset(attempt.passwordResetAttemptId);
+      clearVerificationState();
+    } catch (cancelError) {
+      setError(errorMessage(cancelError));
+    } finally {
+      setBusy(false);
+    }
+  };
+
   if (screen === 'complete') {
     return (
       <main className="frozen-auth-screen">
@@ -120,15 +146,7 @@ export default function ForgotPasswordPage() {
           <button
             className="frozen-auth-back"
             type="button"
-            onClick={() => {
-              setAttempt(null);
-              setCode('');
-              setNewPassword('');
-              setConfirmPassword('');
-              setError(undefined);
-              setNotice(undefined);
-              setScreen('request');
-            }}
+            onClick={cancelAndBack}
             disabled={busy}
           >
             ‹ Back

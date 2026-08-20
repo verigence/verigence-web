@@ -9,6 +9,26 @@
   line-height: 1.45;
 }
 
+.frozen-auth-consent a,
+.frozen-auth-footer--legal a {
+  color: inherit;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.frozen-auth-consent a:hover,
+.frozen-auth-consent a:focus-visible,
+.frozen-auth-footer--legal a:hover,
+.frozen-auth-footer--legal a:focus-visible {
+  opacity: 0.82;
+}
+
+.frozen-auth-footer--legal {
+  margin-top: 10px;
+  font-size: 0.78rem;
+}
+
 .legal-screen {
   min-height: 100vh;
   padding: 40px 20px;

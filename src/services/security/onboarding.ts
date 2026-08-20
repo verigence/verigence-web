@@ -92,11 +92,12 @@ async function readResponse<T>(response: Response): Promise<T> {
 }
 
 export async function startOnboarding(input: StartOnboardingInput): Promise<SignupAttemptResponse> {
+  const onboardingKey = input.verigenceIdentifier.trim().toUpperCase();
   const response = await fetch(endpoint('/security/v1/onboarding/users'), {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'X-Onboarding-Key': input.verigenceIdentifier,
+      'X-Onboarding-Key': onboardingKey,
     },
     body: JSON.stringify({
       firstName: input.firstName,

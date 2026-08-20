@@ -1,26 +1,48 @@
 import { useState, type FormEvent, type ReactNode } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 
+import {
+  isPlatformSuperAdmin,
+  loginErrorMessage,
+  loginHuman,
+} from '../services/security/auth';
 import { useSessionStore } from '../store/sessionStore';
 
 const verigenceLockup = `${import.meta.env.BASE_URL}brand/approved/verigence-lockup.png`;
 
 export default function LoginPage() {
   const navigate = useNavigate();
-  const signInPreview = useSessionStore((state) => state.signInPreview);
+  const signInAuthenticated = useSessionStore((state) => state.signInAuthenticated);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [keepSignedIn, setKeepSignedIn] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string>();
 
-  const submit = (event: FormEvent<HTMLFormElement>) => {
+  const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!email.trim() || !password) return;
+    if (!email.trim() || !password || busy) return;
 
-    // Canonical Security login is intentionally left for its later UC.
-    // Retain the existing Web preview bridge so the rest of the current Web shell remains navigable.
-    signInPreview(email.trim());
-    navigate('/dashboard');
+    setError(undefined);
+    setBusy(true);
+    try {
+      const identifier = email.trim();
+      const login = await loginHuman(identifier, password);
+      const superAdmin = await isPlatformSuperAdmin(login.accessToken);
+
+      signInAuthenticated(
+        identifier,
+        login.accessToken,
+        superAdmin ? 'SUPER_ADMIN' : 'PC',
+      );
+      setPassword('');
+      navigate(superAdmin ? '/approvals' : '/dashboard', { replace: true });
+    } catch (loginError) {
+      setError(loginErrorMessage(loginError));
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
@@ -44,6 +66,7 @@ export default function LoginPage() {
                 onChange={(event) => setEmail(event.target.value)}
                 autoComplete="email"
                 placeholder="Enter your work email"
+                disabled={busy}
               />
             </span>
           </label>
@@ -58,12 +81,14 @@ export default function LoginPage() {
                 onChange={(event) => setPassword(event.target.value)}
                 autoComplete="current-password"
                 placeholder="Enter your password"
+                disabled={busy}
               />
               <button
                 className="frozen-auth-input-action"
                 type="button"
                 onClick={() => setShowPassword((current) => !current)}
                 aria-label={showPassword ? 'Hide password' : 'Show password'}
+                disabled={busy}
               >
                 <EyeIcon />
               </button>
@@ -76,14 +101,17 @@ export default function LoginPage() {
                 type="checkbox"
                 checked={keepSignedIn}
                 onChange={(event) => setKeepSignedIn(event.target.checked)}
+                disabled={busy}
               />
               <span>Keep me signed in</span>
             </label>
-            <button type="button" className="frozen-auth-text-link">Forgot password?</button>
+            <button type="button" className="frozen-auth-text-link" disabled={busy}>Forgot password?</button>
           </div>
 
-          <button className="frozen-auth-primary" type="submit">
-            Sign in
+          {error && <div className="frozen-auth-alert" role="alert">{error}</div>}
+
+          <button className="frozen-auth-primary" type="submit" disabled={busy || !email.trim() || !password}>
+            {busy ? 'Signing in…' : 'Sign in'}
           </button>
         </form>
 

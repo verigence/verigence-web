@@ -1,0 +1,61 @@
+name: Record Verigence Web DEV Deployment Result
+
+on:
+  workflow_run:
+    workflows:
+      - Deploy Verigence Web to Cloudflare DEV
+    types:
+      - completed
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  record:
+    name: Record Web deployment conclusion
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Write deployment evidence
+        shell: bash
+        env:
+          DEPLOY_RUN_ID: ${{ github.event.workflow_run.id }}
+          DEPLOY_RUN_NUMBER: ${{ github.event.workflow_run.run_number }}
+          DEPLOY_ATTEMPT: ${{ github.event.workflow_run.run_attempt }}
+          DEPLOY_SHA: ${{ github.event.workflow_run.head_sha }}
+          DEPLOY_CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+          DEPLOY_URL: ${{ github.event.workflow_run.html_url }}
+        run: |
+          set -euo pipefail
+          mkdir -p docs/deploy-evidence
+          cat > docs/deploy-evidence/WEB_DEV_LATEST.md <<EOF
+          # Verigence Web DEV — Latest Deployment
+
+          - run_id: ${DEPLOY_RUN_ID}
+          - run_number: ${DEPLOY_RUN_NUMBER}
+          - run_attempt: ${DEPLOY_ATTEMPT}
+          - source_sha: ${DEPLOY_SHA}
+          - conclusion: ${DEPLOY_CONCLUSION}
+          - workflow_url: ${DEPLOY_URL}
+          EOF
+
+      - name: Commit evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add docs/deploy-evidence/WEB_DEV_LATEST.md
+          if git diff --cached --quiet; then
+            exit 0
+          fi
+          git commit -m 'chore(web): record DEV deployment result [skip ci]'
+          git pull --rebase origin main
+          git push origin HEAD:main

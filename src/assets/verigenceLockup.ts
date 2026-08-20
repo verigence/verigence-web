@@ -8,3 +8,5 @@ import part4 from './lockup.part4';
  * Keeping the browser source self-contained avoids CDN/MIME/path differences between Chrome and Firefox.
  */
 export const verigenceLockup = `data:image/png;base64,${part1}${part2}${part3}${part4}`;
+
+export default verigenceLockup;

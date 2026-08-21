@@ -1,0 +1,50 @@
+name: Patch UC02 role scope
+
+on:
+  push:
+    branches:
+      - fix/uc02-role-scope-outlets
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/uc02-role-scope-outlets
+      - name: Patch W5 outlet scope
+        shell: python
+        run: |
+          from pathlib import Path
+          p = Path('src/pages/ProjectAdministrationPage.tsx')
+          s = p.read_text()
+          s = s.replace(
+              "  const [outlets, setOutlets] = useState<OutletAdmin[]>([]);\n",
+              "  const [outlets, setOutlets] = useState<OutletAdmin[]>([]);\n  const [projectOutlets, setProjectOutlets] = useState<OutletAdmin[]>([]);\n",
+          )
+          old = """  async function loadMappings() {\n    if (!tenantId || !accessToken) return;\n    setMappings(await listRoleMappings(tenantId, accessToken));\n  }\n"""
+          new = """  async function loadProjectOutlets(dealerValues: DealerAdmin[] = dealers) {\n    if (!tenantId || !accessToken) return;\n    const outletGroups = await Promise.all(\n      dealerValues.map((dealer) => listOutletsAdmin(tenantId, dealer.dealerId, accessToken)),\n    );\n    setProjectOutlets(outletGroups.flat());\n  }\n\n  async function loadMappings() {\n    if (!tenantId || !accessToken) return;\n    setMappings(await listRoleMappings(tenantId, accessToken));\n  }\n"""
+          if old not in s:
+              raise SystemExit('loadMappings anchor not found')
+          s = s.replace(old, new)
+          old = """        if ([2, 3, 5].includes(activeStep)) await loadDealersAndOutlets();\n        if (activeStep === 4) setCandidates(await listRoleMappingCandidates(tenantId, '', accessToken));\n        if (activeStep === 5) await loadMappings();\n"""
+          new = """        if ([2, 3, 5].includes(activeStep)) await loadDealersAndOutlets();\n        if (activeStep === 4) setCandidates(await listRoleMappingCandidates(tenantId, '', accessToken));\n        if (activeStep === 5) {\n          const dealerValues = await listDealersAdmin(tenantId, accessToken);\n          setDealers(dealerValues);\n          await Promise.all([loadProjectOutlets(dealerValues), loadMappings()]);\n        }\n"""
+          if old not in s:
+              raise SystemExit('step loader anchor not found')
+          s = s.replace(old, new)
+          old = """              {operatingRole === 'PC' && <div className=\"uc02-scope\"><strong>Outlet scope</strong>{dealers.flatMap((dealer) => outlets.filter((outlet) => outlet.dealerId === dealer.dealerId).map((outlet) => <label key={outlet.outletId}><input type=\"checkbox\" checked={scopeOutletIds.includes(outlet.outletId)} onChange={(event) => toggleValue(scopeOutletIds, outlet.outletId, event.target.checked, setScopeOutletIds)} />{dealer.dealerName} · {outlet.outletName}</label>))}{!outlets.length && <small>Select W3 and load outlets before mapping a PC.</small>}</div>}\n"""
+          new = """              {operatingRole === 'PC' && <div className=\"uc02-scope\"><strong>Outlet scope</strong>{dealers.flatMap((dealer) => projectOutlets.filter((outlet) => outlet.dealerId === dealer.dealerId).map((outlet) => <label key={outlet.outletId}><input type=\"checkbox\" checked={scopeOutletIds.includes(outlet.outletId)} onChange={(event) => toggleValue(scopeOutletIds, outlet.outletId, event.target.checked, setScopeOutletIds)} />{dealer.dealerName} · {outlet.outletName}</label>))}{!projectOutlets.length && <small>No Project outlets are configured yet.</small>}</div>}\n"""
+          if old not in s:
+              raise SystemExit('W5 render anchor not found')
+          p.write_text(s.replace(old, new))
+      - name: Commit patch
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add src/pages/ProjectAdministrationPage.tsx
+          git commit -m 'Fix W5 PC outlet scope across project dealers'
+          git push origin HEAD:fix/uc02-role-scope-outlets

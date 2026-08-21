@@ -2,7 +2,8 @@
 
 **Status:** FROZEN / APPROVED FOR CONTINUATION  
 **Frozen on:** 21-Aug-2026  
-**Branch:** `planning/uc-001-user-onboarding`
+**Revised:** 21-Aug-2026 — owner decisions on admin routing, delete, employee assignment, Maps and readiness  
+**Branch:** `planning/uc-002-project-onboarding`
 
 This document freezes the approved visual and interaction baseline for Journey 02 so future implementation and design work continues from the same agreed screens.
 
@@ -34,6 +35,17 @@ Required visual language:
 
 Security, Audit Core and Document Intelligence provisioning is automatic and does **not** appear as a normal onboarding step. A technical recovery screen is shown only if background provisioning fails.
 
+## Cross-module admin-call rule
+
+The browser continues to call Audit Core as its backend boundary for UC02.
+
+There are two different backend call modes and they must not be mixed:
+
+1. **Human administrative operation** — create/update/delete/activate or another SuperAdmin-controlled administrative action. Audit Core passes the same Security-issued human Bearer token/identity through to the owning downstream administrative API. The downstream module performs its own current authorization check. A ServiceIntegration token must not replace the human identity for that administrative action.
+2. **Machine/integration operation** — ordinary module-to-module processing, background integration or Security authorization-check calls. These use the registered ServiceIntegration token appropriate to the target audience.
+
+No separate Web BFF is required for UC02 by this decision.
+
 ## Frozen interaction rules
 
 ### Project Details
@@ -42,25 +54,35 @@ Security, Audit Core and Document Intelligence provisioning is automatic and doe
 - OEM, Product Category, Timezone and Region / Geography are dropdown/select controls.
 - Dates use date pickers.
 - Internal IDs/codes are platform generated and are not editable business fields.
+- After operational Journeys or dependent published masters exist, OEM, Product Category and Project Start Date are not directly editable; a later migration/rebaseline process is required.
+- Project Name, End Date, Timezone and Region / Geography remain controlled editable fields with audit history.
 
 ### Dealers
 
 - Dealer has no latitude/longitude fields.
 - Dealer can be created and edited after Project activation.
+- Phase 1 provides SuperAdmin hard delete for administrative rollback, subject to backend dependency/preflight rules and explicit confirmation.
 
 ### Dealer Outlets
 
 - Use **Dealer Outlet**, not Dealer Location.
 - Outlet owns `ONSITE | SATELLITE` classification.
-- Exact Outlet location is selected using Google Maps / Places style search and map pin.
-- Persist selected address plus latitude/longitude.
-- Outlet can be created/edited/inactivated after Project activation.
+- Google Maps / Places search and map pin is the approved map provider, but using the map is **optional** in Phase 1.
+- Manual address entry remains valid when Maps is not used or is unavailable.
+- When a Google Place is selected, persist the returned Google Place ID together with selected address and available latitude/longitude. Google Place ID is nullable/optional.
+- Missing Google Place ID or map coordinates alone does not block Project activation.
+- Outlet can be created/edited after Project activation.
+- Phase 1 provides SuperAdmin hard delete for administrative rollback, subject to backend dependency/preflight rules and explicit confirmation.
 
 ### Employees
 
-- First add an approved Verigence **Employee to Project**.
-- An Employee may initially exist in the Project without a role mapping.
-- Role assignment is the next separate task.
+Security is not being redesigned to create a second independent Project-membership model for UC02.
+
+- Select an approved global Verigence Employee.
+- Phase 1 Project association is represented by the existing Security Tenant operating-role assignment.
+- There is no new durable `Employee in Project with no role` backend state in Phase 1.
+- The Employees step may select/search the Employee, while the Role Mapping save performs the persisted Tenant role assignment.
+- Removing the Employee from this Project removes the applicable Project role/business mappings; it must never delete the global Verigence USER.
 
 ### Role Mapping
 
@@ -79,7 +101,9 @@ Business mapping rules:
 - CRM → Dealer(s) or whole Project
 - Executive → whole Project
 
-Role mappings must remain editable/end-dateable after go-live.
+Role mappings must remain editable/removable after go-live.
+
+For Project Readiness, **every ACTIVE Dealer Outlet must have at least one ACTIVE PC mapping**. This is a blocking activation rule in Phase 1.
 
 ### Project Masters
 
@@ -99,7 +123,11 @@ Every Excel-driven master upload follows:
 10. Show row-level errors/warnings and error report.
 11. Only after explicit confirmation create a DRAFT master version.
 12. Publish separately.
-13. Published historical versions are immutable.
+13. Published versions remain immutable while the Project exists; Phase-1 whole-Project hard delete may remove Project-scoped history as part of an explicitly confirmed rollback operation.
+
+**Phase-1 overlap rule:** overlapping effective periods are allowed. An overlap may be shown as a warning, but it is not an activation/publish blocker solely because of overlap. Each owning module retains its defined deterministic resolver/selection semantics; UC02 does not invent a new universal precedence rule.
+
+**Phase-2 note:** move to process-oriented master governance that prevents overlapping published effective periods unless a controlled supersede/end-date operation resolves the prior period.
 
 ### Special rule — Product Master
 
@@ -110,12 +138,12 @@ Models, variants, colours, SKUs and related attributes will continue changing du
 - repeated Product Master uploads are supported;
 - every upload carries explicit WEF;
 - parsed data is previewed before confirmation;
-- published historical Product versions are never overwritten;
-- historical Journeys retain the Product/SKU meaning that applied at their time;
+- published Product versions are never overwritten in place;
+- historical Journeys retain the Product/SKU meaning that applied at their time while the Project remains live;
 - Price Lists and Discount Schemes must reference Product SKUs valid for their own effective period;
 - upload file hash, WEF, validation result, confirmation and publication history must be retained.
 
-This requires an explicit Audit Core design/model treatment rather than silently mutating static platform product-reference rows.
+The exact Product Master scope across Projects using the same OEM remains an explicit open design decision; it must not be guessed before Audit Core data-model work begins.
 
 ### Project Readiness
 
@@ -124,13 +152,31 @@ Project Readiness is the complete onboarding gate and covers at minimum:
 - background module provisioning state;
 - Project setup;
 - Dealers and Dealer Outlets;
-- Outlet coordinates/location completeness;
-- Employees;
+- optional Outlet map/location enrichment as a warning/completeness indicator, not a standalone blocker;
+- Security operating-role assignments;
 - PM/PC/TL/CRM/Executive mappings and required coverage;
+- **at least one ACTIVE PC for every ACTIVE Dealer Outlet** as a blocking rule;
 - Project Master effective/published versions;
 - DI prerequisites/internal storage hierarchy availability.
 
 Activation remains blocked until all blocking readiness checks pass.
+
+## Phase-1 hard-delete / rollback rule
+
+Because the product is new, Phase 1 intentionally permits SuperAdmin hard delete for administrative rollback, including after activation when a Project/setup needs to be rebuilt.
+
+The UI must:
+
+- expose Delete on relevant administrative screens;
+- show dependency/preflight impact before confirmation;
+- require explicit destructive confirmation;
+- show durable progress for cross-module Project hard delete/reset;
+- never report success before the owning backend(s) confirm deletion;
+- use the same authenticated human SuperAdmin identity for downstream administrative delete APIs.
+
+This Phase-1 rule intentionally differs from the earlier Audit Core no-public-delete baseline. The backend design must contain an explicit UC02 administrative-delete amendment before code is implemented.
+
+**Phase 2:** replace broad rollback-oriented hard delete with process-oriented lifecycle, maker/checker, retention and controlled inactivate/retire/supersede semantics.
 
 ## Post-activation behaviour
 
@@ -140,13 +186,14 @@ SuperAdmin must be able to make controlled later changes to:
 
 - allowed Project details;
 - Dealers;
-- Dealer Outlets and map placement;
-- Project Employees;
+- Dealer Outlets and optional map placement;
+- Project Employee/role assignments;
 - Role Mappings;
 - effective-dated Project Masters;
-- Readiness checks.
+- Readiness checks;
+- Phase-1 hard-delete/rollback actions where permitted.
 
-Backend APIs must therefore support ongoing create/read/update/version-history behaviour, not create-only onboarding calls.
+Backend APIs must therefore support ongoing create/read/update/delete/version-history behaviour, not create-only onboarding calls.
 
 ## Internal DI rule
 

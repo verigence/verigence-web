@@ -34,9 +34,7 @@ const groups: NavGroup[] = [
   { label: 'Insights', items: [{ to: '/analytics', label: 'Analytics', mark: 'AN', roles: ['TL', 'PM', ...admin] }] },
   { label: 'Administration', items: [
     { to: '/approvals', label: 'Pending Approval', mark: 'PA', roles: ['SUPER_ADMIN'] },
-    { to: '/admin/organization', label: 'Organization', mark: 'OR', roles: admin },
-    { to: '/admin/team', label: 'Team & assignments', mark: 'TM', roles: admin },
-    { to: '/admin/masters', label: 'Masters & controls', mark: 'MS', roles: admin },
+    { to: '/admin/project', label: 'Project administration', mark: 'PR', roles: ['SUPER_ADMIN'] },
   ] },
 ];
 

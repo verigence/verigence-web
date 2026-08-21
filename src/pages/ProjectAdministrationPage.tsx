@@ -105,6 +105,7 @@ export default function ProjectAdministrationPage() {
   const [dealerForm, setDealerForm] = useState({ dealerName: '', legalName: '' });
   const [selectedDealerId, setSelectedDealerId] = useState('');
   const [outlets, setOutlets] = useState<OutletAdmin[]>([]);
+  const [projectOutlets, setProjectOutlets] = useState<OutletAdmin[]>([]);
   const [outletForm, setOutletForm] = useState({ outletName: '', outletClassification: 'ONSITE' as 'ONSITE' | 'SATELLITE', addressText: '', city: '', stateRegion: '', postalCode: '', monthlyVehicleVolume: '' });
 
   const [candidateQuery, setCandidateQuery] = useState('');
@@ -169,6 +170,14 @@ export default function ProjectAdministrationPage() {
     else setOutlets([]);
   }
 
+  async function loadProjectOutlets(dealerValues: DealerAdmin[] = dealers) {
+    if (!tenantId || !accessToken) return;
+    const outletGroups = await Promise.all(
+      dealerValues.map((dealer) => listOutletsAdmin(tenantId, dealer.dealerId, accessToken)),
+    );
+    setProjectOutlets(outletGroups.flat());
+  }
+
   async function loadMappings() {
     if (!tenantId || !accessToken) return;
     setMappings(await listRoleMappings(tenantId, accessToken));
@@ -193,7 +202,11 @@ export default function ProjectAdministrationPage() {
       try {
         if ([2, 3, 5].includes(activeStep)) await loadDealersAndOutlets();
         if (activeStep === 4) setCandidates(await listRoleMappingCandidates(tenantId, '', accessToken));
-        if (activeStep === 5) await loadMappings();
+        if (activeStep === 5) {
+          const dealerValues = await listDealersAdmin(tenantId, accessToken);
+          setDealers(dealerValues);
+          await Promise.all([loadProjectOutlets(dealerValues), loadMappings()]);
+        }
         if (activeStep === 6) await loadMasters();
         if ([7, 8].includes(activeStep)) setReadiness(await getProjectReadiness(tenantId, accessToken));
       } catch (error) {
@@ -528,7 +541,7 @@ export default function ProjectAdministrationPage() {
               <Field label="Employee"><select required value={selectedUserId} onChange={(event) => setSelectedUserId(event.target.value)}><option value="">Select employee</option>{candidates.map((item) => <option key={item.userId} value={item.userId}>{item.displayName} · {item.primaryEmail || item.userId}</option>)}{selectedUserId && !candidates.some((item) => item.userId === selectedUserId) && <option value={selectedUserId}>{selectedUserId}</option>}</select></Field>
               {selectedCandidate && <div className="uc02-selected-person"><strong>{selectedCandidate.displayName}</strong><span>{selectedCandidate.primaryEmail}</span></div>}
               <Field label="Operating role"><select value={operatingRole} onChange={(event) => { setOperatingRole(event.target.value as OperatingRole); setScopeDealerIds([]); setScopeOutletIds([]); }}><option value="PC">Process Consultant (PC)</option><option value="TL">Team Lead (TL)</option><option value="PM">Project Manager (PM)</option><option value="CRM">CRM</option><option value="Executive">Executive</option></select></Field>
-              {operatingRole === 'PC' && <div className="uc02-scope"><strong>Outlet scope</strong>{dealers.flatMap((dealer) => outlets.filter((outlet) => outlet.dealerId === dealer.dealerId).map((outlet) => <label key={outlet.outletId}><input type="checkbox" checked={scopeOutletIds.includes(outlet.outletId)} onChange={(event) => toggleValue(scopeOutletIds, outlet.outletId, event.target.checked, setScopeOutletIds)} />{dealer.dealerName} · {outlet.outletName}</label>))}{!outlets.length && <small>Select W3 and load outlets before mapping a PC.</small>}</div>}
+              {operatingRole === 'PC' && <div className="uc02-scope"><strong>Outlet scope</strong>{dealers.flatMap((dealer) => projectOutlets.filter((outlet) => outlet.dealerId === dealer.dealerId).map((outlet) => <label key={outlet.outletId}><input type="checkbox" checked={scopeOutletIds.includes(outlet.outletId)} onChange={(event) => toggleValue(scopeOutletIds, outlet.outletId, event.target.checked, setScopeOutletIds)} />{dealer.dealerName} · {outlet.outletName}</label>))}{!projectOutlets.length && <small>No Project outlets are configured yet.</small>}</div>}
               {(operatingRole === 'TL' || operatingRole === 'CRM') && <div className="uc02-scope"><strong>Dealer scope {operatingRole === 'CRM' && '(leave blank for Project-wide)'}</strong>{dealers.map((dealer) => <label key={dealer.dealerId}><input type="checkbox" checked={scopeDealerIds.includes(dealer.dealerId)} onChange={(event) => toggleValue(scopeDealerIds, dealer.dealerId, event.target.checked, setScopeDealerIds)} />{dealer.dealerName}</label>)}</div>}
               {(operatingRole === 'PM' || operatingRole === 'Executive') && <div className="uc02-note">{operatingRole} is Project-wide; no Dealer or Outlet scope is required.</div>}
               <div className="uc02-actions"><button className="uc02-button uc02-button--primary" disabled={busy || !selectedUserId}>Save role mapping</button></div>

@@ -1,6 +1,6 @@
 # Integrated Implementation Plan — UC-001 followed by UC-002
 
-**Status:** IMPLEMENTATION PLANNING BASELINE  
+**Status:** IMPLEMENTATION IN PROGRESS — UC01-WEB-01 CODED; FULL BUILD/RUNTIME VERIFICATION PENDING  
 **Date:** 2026-08-21  
 **Implementation order:** UC-001 first, then UC-002  
 **Primary Web repository:** `verigence/verigence-web`
@@ -334,25 +334,55 @@ Those writes belong to UC-002 Project Administration.
 
 ## 7. UC-001 implementation work packages
 
+### Progress checkpoint — 21-Aug-2026
+
+`UC01-WEB-01 — Replace approval visual shell` is coded on `planning/uc-001-user-onboarding`; full repository build/runtime/visual verification is still pending.
+
+Exact application files changed for the package:
+
+```text
+src/layout/AppShell.tsx
+src/pages/ApprovalQueuePage.tsx
+src/styles/approval-uc001.css
+```
+
+Implemented:
+
+- dedicated Pending Approval branded shell on `/approvals` using the frozen navy -> blue -> teal background and rounded white application surface;
+- exact mandated logo reference `public/brand/approved/verigence-lockup.svg`;
+- visible `Pending Approval` terminology and approved two-tab shell;
+- Pending Requests queue/detail visual alignment using only existing Security USER fields;
+- existing Security PENDING list/detail and ACTIVE/REJECTED decision semantics preserved;
+- Current Employees & Engagements data integration intentionally not implemented in this package;
+- no backend/API/schema/dependency changes.
+
+Targeted checks available in the current execution runtime passed: TSX syntax transpile for the two changed TSX files, static logo/terminology assertions and CSS structural balance. Full `npm run typecheck`, `npm run build`, browser runtime and desktop/mobile visual comparison remain required before UC-001 is declared complete.
+
+Next package: `UC01-WEB-02 — Pending Requests tab`, focused on the remaining frozen search/confirmation/state interaction alignment without changing Security lifecycle semantics.
+
 ### UC01-WEB-01 — Replace approval visual shell
 
-Files/components to inspect and modify only after implementation starts:
+**Status:** CODED — full build/runtime/visual verification pending.
+
+Files/components changed:
 
 - `src/pages/ApprovalQueuePage.tsx`
 - `src/styles/approval-uc001.css`
-- navigation/app shell labels as required
+- `src/layout/AppShell.tsx`
 
 Acceptance:
 
-- approved Pending Approval mockup visual match;
-- same exact Sign In/Sign Up logo asset;
-- no regression to applicant screens.
+- approved Pending Approval mockup visual shell implemented;
+- same exact approved Sign In/Sign Up logo asset referenced;
+- applicant screens not modified by this work package.
 
 ### UC01-WEB-02 — Pending Requests tab
 
 Reuse current Security client and decision semantics.
 
 Do not redesign backend transitions.
+
+Remaining package work includes the frozen Pending Requests search/confirmation/state interaction alignment and targeted verification against the existing Security decision contract.
 
 ### UC01-WEB-03 — Current Employees tab
 
@@ -791,6 +821,8 @@ The implementation sequence is intentionally strict:
 4. implement browse-only Current Employees & Engagements;
 5. run UC-001 regression + real DEV verification;
 6. merge UC-001.
+
+Current milestone state: visual-shell package `UC01-WEB-01` is coded; `UC01-WEB-02` is next. UC-001 is not yet complete or runtime-verified.
 
 ### Milestone 2 — Reconcile UC-002 branch with completed UC-001
 

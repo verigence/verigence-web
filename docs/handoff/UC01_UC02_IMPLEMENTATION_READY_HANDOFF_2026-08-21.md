@@ -1,6 +1,6 @@
 # UC-001 then UC-002 — Implementation-Ready Handoff
 
-**Status:** READY TO START IMPLEMENTATION  
+**Status:** IMPLEMENTATION IN PROGRESS — UC01-WEB-01 CODED; FULL BUILD/RUNTIME VERIFICATION PENDING  
 **Date:** 2026-08-21  
 **Execution order:** UC-001 first, UC-002 second  
 **Change rule:** implement only what is required by the frozen design/contracts; no opportunistic refactor, redesign, schema change, API invention or unrelated file change.
@@ -250,6 +250,39 @@ If that contract has been added since this handoff, use the newer source-of-trut
 
 ## 5. UC-001 implementation order
 
+### Progress checkpoint — 21-Aug-2026
+
+`UC01-WEB-01 — Replace approval visual shell` has been coded on `planning/uc-001-user-onboarding`.
+
+Changed application files:
+
+```text
+src/layout/AppShell.tsx
+src/pages/ApprovalQueuePage.tsx
+src/styles/approval-uc001.css
+```
+
+Completed in this work package:
+
+- `/approvals` now uses the frozen navy -> blue -> teal branded outer background and large rounded white application surface instead of the unrelated enterprise dashboard shell;
+- the Pending Approval shell references the mandated `public/brand/approved/verigence-lockup.svg` asset directly;
+- visible administration terminology is `Pending Approval`;
+- approved primary tab labels are present, with `Pending Requests` active; `Current Employees & Engagements` is deliberately not wired to engagement data yet;
+- Pending Requests queue/detail presentation has been aligned to the frozen visual shell while preserving the existing Security list/detail/decision logic;
+- no Security, Audit Core or DI code/API contract was changed;
+- no Project, role, Dealer/Outlet, permission or rejection-reason field was added.
+
+Targeted verification completed in the available implementation runtime:
+
+- TypeScript JSX syntax transpile: `AppShell.tsx` PASS;
+- TypeScript JSX syntax transpile: `ApprovalQueuePage.tsx` PASS;
+- approved SVG reference/static terminology checks PASS;
+- CSS structural/brace check PASS.
+
+Full repository `npm run typecheck`, `npm run build`, browser runtime and visual comparison remain mandatory before UC-001 completion. The current execution container has no GitHub/npm network checkout capability, and this branch's CI workflow does not run on direct `planning/**` pushes, so those checks are not claimed as complete here.
+
+Next active work package is `UC01-WEB-02 — Pending Requests tab`, including the remaining frozen confirmation/search/state interaction alignment using the existing Security contract.
+
 Proceed in this order:
 
 1. Inspect the current UC-001 Web branch and compare implementation to the frozen Pending Approval mockup.
@@ -450,24 +483,23 @@ These rules are mandatory:
 
 Start with **UC-001**, not UC-002.
 
-First implementation task:
+Current implementation checkpoint:
 
 ```text
-UC01-WEB-01 / UC01-WEB-02
-Pending Approval visual shell + Pending Requests behaviour
+UC01-WEB-01  Pending Approval visual shell — CODED; full build/runtime/visual verification pending
+UC01-WEB-02  Pending Requests behaviour/confirmation alignment — NEXT
 ```
 
-Procedure:
+Procedure from this checkpoint:
 
 1. Open `verigence-web` on `planning/uc-001-user-onboarding`.
 2. Read the mandatory UC-001 references in this handoff.
-3. Inspect the current Approval/Pending-Approval page, Security client and related tests.
-4. Compare the current implementation against the frozen approved mockup board.
-5. Prepare a concise changed-file plan before editing.
-6. Implement only the Pending Approval/Pending Requests delta using existing Security APIs.
-7. Add/update only directly relevant tests.
-8. Run targeted typecheck/tests/build required by the current repository.
-9. Report changed files, tests run and any contract gap before proceeding to Current Employees & Engagements.
+3. Review the UC01-WEB-01 progress checkpoint and exact changed files above.
+4. Re-read the current Approval/Pending-Approval page, Security client and frozen confirmation states before UC01-WEB-02 changes.
+5. Implement only the remaining Pending Requests interaction/state delta using existing Security APIs.
+6. Add/update only directly relevant tests.
+7. Run targeted typecheck/tests/build/runtime checks available for the repository.
+8. Report changed files, tests run and any contract gap before proceeding to Current Employees & Engagements.
 
 Do **not** begin by changing Security/Audit Core/DI for UC-001 unless AC-UC01-READ-001 is still missing and the Current Employees engagement work has actually reached that dependency.
 
@@ -477,7 +509,7 @@ Do **not** begin by changing Security/Audit Core/DI for UC-001 unless AC-UC01-RE
 
 ### Ready now
 
-- UC-001 Pending Approval visual/interaction implementation against the current Security decision contract.
+- UC01-WEB-02 Pending Requests interaction/confirmation completion on the new frozen shell.
 - UC-001 Current Employees identity browse after verifying the current Security ACTIVE-user list contract.
 - UC-002 design/contract baseline is sufficiently frozen to begin backend implementation **after UC-001 completes**, subject to normal code-vs-design reconciliation before each module change.
 
@@ -485,7 +517,7 @@ Do **not** begin by changing Security/Audit Core/DI for UC-001 unless AC-UC01-RE
 
 - `AC-UC01-READ-001` — platform-level Current Employees & Engagements read view.
 
-This does not block starting the UC-001 Pending Approval implementation.
+This does not block the Pending Requests work.
 
 ### Do not claim implementation completion until
 

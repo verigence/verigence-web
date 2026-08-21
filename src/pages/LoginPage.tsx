@@ -3,7 +3,6 @@ import { Link, useNavigate } from 'react-router-dom';
 
 import verigenceLockup from '../assets/verigence-lockup.png';
 import {
-  isPlatformSuperAdmin,
   loginErrorMessage,
   loginHuman,
 } from '../services/security/auth';
@@ -28,7 +27,7 @@ export default function LoginPage() {
     try {
       const identifier = email.trim();
       const login = await loginHuman(identifier, password);
-      const superAdmin = await isPlatformSuperAdmin(login.accessToken);
+      const superAdmin = login.isSuperAdmin;
 
       signInAuthenticated(
         identifier,

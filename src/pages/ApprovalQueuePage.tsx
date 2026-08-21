@@ -95,24 +95,33 @@ export default function ApprovalQueuePage() {
   const showWorkspace = Boolean(selectedId || users.length > 0);
 
   return (
-    <section className="page-stack approval-page">
-      <header className="approval-heading">
-        <div>
-          <span className="eyebrow">Administration · User onboarding</span>
-          <h1>Pending user approval</h1>
-          <p>
-            Review the global Verigence USER created after email verification, then activate or reject
-            the registration. Tenant, operating role, Dealer/Outlet and authorization scope are assigned
-            separately and are not part of this decision.
-          </p>
-        </div>
-        <div className="approval-heading__count"><span>Pending</span><strong>{users.length}</strong></div>
-      </header>
+    <section className="approval-page" aria-label="Pending Approval">
+      <div className="approval-tabs" role="tablist" aria-label="Pending Approval">
+        <button
+          id="pending-requests-tab"
+          className="approval-tab approval-tab--active"
+          type="button"
+          role="tab"
+          aria-selected="true"
+        >
+          Pending Requests
+        </button>
+        <button
+          className="approval-tab"
+          type="button"
+          role="tab"
+          aria-selected="false"
+          aria-disabled="true"
+          disabled
+        >
+          Current Employees &amp; Engagements
+        </button>
+      </div>
 
       {!accessToken && (
         <div className="approval-state approval-state--error" role="alert">
           <strong>Your Security session is required to review pending users.</strong>
-          <span>Sign in with an authorized Verigence account before opening onboarding approvals.</span>
+          <span>Sign in with an authorized Verigence account before opening Pending Approval.</span>
         </div>
       )}
 
@@ -140,12 +149,13 @@ export default function ApprovalQueuePage() {
 
       {accessToken && !decisionResult && !pending.isLoading && !pending.isError && showWorkspace && (
         <div className={`approval-workspace${selectedId ? ' approval-workspace--detail' : ''}`}>
-          <aside className="approval-queue" aria-label="Pending users">
+          <aside className="approval-queue" aria-label="Pending Requests">
             <div className="approval-queue__header">
               <div>
-                <strong>Pending users</strong>
-                <span>Select a global USER to review.</span>
+                <strong>Pending Requests</strong>
+                <span>Verified registrations waiting for SuperAdmin review.</span>
               </div>
+              <span className="approval-queue__count">{users.length}</span>
             </div>
             <div className="approval-queue__list">
               {users.map((user) => {
@@ -179,7 +189,7 @@ export default function ApprovalQueuePage() {
                 <strong>Select a pending user</strong>
                 <span>
                   Review identity details before activating or rejecting the global Verigence USER.
-                  Tenant, role and business scope are handled separately.
+                  Project, role and business scope are handled separately.
                 </span>
               </div>
             </article>
@@ -191,7 +201,7 @@ export default function ApprovalQueuePage() {
 
           {selectedId && !selected && detail.isError && (
             <article className="approval-detail">
-              <button className="approval-mobile-back" type="button" onClick={() => setSelectedId(null)}>← Pending users</button>
+              <button className="approval-mobile-back" type="button" onClick={() => setSelectedId(null)}>← Pending Requests</button>
               <div className="approval-state approval-state--error" role="alert">
                 <strong>USER detail could not be loaded.</strong>
                 <span>{requestError(detail.error)}</span>
@@ -202,15 +212,23 @@ export default function ApprovalQueuePage() {
 
           {selected && (
             <article className="approval-detail">
-              <button className="approval-mobile-back" type="button" onClick={() => setSelectedId(null)}>← Pending users</button>
+              <button className="approval-mobile-back" type="button" onClick={() => setSelectedId(null)}>← Pending Requests</button>
 
-              <div className="approval-detail__topline">
-                <div>
-                  <span className="status-chip">{selected.status === 'PENDING' ? 'Pending approval' : selected.status}</span>
-                  <h2>{selected.displayName}</h2>
-                  <p>{selected.primaryEmail ?? 'No email returned'}</p>
+              <div className="approval-detail__intro">
+                <h2>Review User</h2>
+                <p>Security USER detail is authoritative for this decision.</p>
+              </div>
+
+              <div className="approval-user-hero">
+                <span className="approval-user-hero__avatar">{initials(selected.displayName)}</span>
+                <div className="approval-user-hero__identity">
+                  <h3>{selected.displayName}</h3>
+                  <span>{selected.primaryEmail ?? 'No email returned'}</span>
+                  <span>{selected.primaryMobile ?? 'Not returned'}</span>
                 </div>
-                <span className="approval-detail__reference">{selected.userId}</span>
+                <span className="approval-user-hero__status">
+                  {selected.status === 'PENDING' ? 'PENDING APPROVAL' : selected.status}
+                </span>
               </div>
 
               {detail.isFetching && authoritativeSelected && (
@@ -218,11 +236,19 @@ export default function ApprovalQueuePage() {
               )}
 
               <dl className="approval-detail__facts">
-                <Fact label="Mobile" value={selected.primaryMobile ?? 'Not returned'} />
                 <Fact label="USER status" value={selected.status} />
                 <Fact label="Onboarding status" value={selected.onboardingStatus ?? 'Not returned'} />
-                <Fact label="Created" value={formatSubmitted(selected.createdAtUtc)} />
+                <Fact label="Registered on" value={formatSubmitted(selected.createdAtUtc)} />
+                <Fact label="USER ID" value={selected.userId} />
               </dl>
+
+              <div className="approval-identity-note">
+                <strong>Identity-only onboarding decision</strong>
+                <span>
+                  This decision activates or rejects the global Verigence USER only. Project, role and
+                  business scope are assigned separately.
+                </span>
+              </div>
 
               {detail.isError ? (
                 <div className="approval-conflict" role="alert">
@@ -243,54 +269,33 @@ export default function ApprovalQueuePage() {
                 </div>
               ) : (
                 <section className="approval-decision-section">
-                  <div className="approval-section-heading">
-                    <span>Decision</span>
-                    <div>
-                      <h3>Activate or reject registration</h3>
-                      <p>
-                        Security is authoritative for the transition. This action does not assign a Tenant,
-                        operating role, Dealer/Outlet or permission scope.
-                      </p>
-                    </div>
-                  </div>
-
                   {decision.isError && (
                     <div className="form-alert form-alert--error" role="alert">
                       The decision was not completed. {requestError(decision.error)} The authoritative USER state was refreshed.
                     </div>
                   )}
 
-                  <div className="approval-actions approval-actions--decision-only">
-                    <div className="approval-actions__approve">
-                      <strong>Activate</strong>
-                      <small>Transition the global USER from PENDING to ACTIVE.</small>
-                      <VerigenceButton
-                        expand="block"
-                        disabled={decision.isPending}
-                        onClick={() => {
-                          setDecisionMode('activate');
-                          decision.reset();
-                        }}
-                      >
-                        Activate user
-                      </VerigenceButton>
-                    </div>
-
-                    <div className="approval-actions__reject">
-                      <strong>Reject</strong>
-                      <small>Transition the global USER from PENDING to REJECTED.</small>
-                      <VerigenceButton
-                        className="verigence-button--danger"
-                        fill="outline"
-                        disabled={decision.isPending}
-                        onClick={() => {
-                          setDecisionMode('reject');
-                          decision.reset();
-                        }}
-                      >
-                        Reject registration
-                      </VerigenceButton>
-                    </div>
+                  <div className="approval-actions approval-actions--frozen">
+                    <VerigenceButton
+                      className="verigence-button--danger"
+                      fill="outline"
+                      disabled={decision.isPending}
+                      onClick={() => {
+                        setDecisionMode('reject');
+                        decision.reset();
+                      }}
+                    >
+                      Reject registration
+                    </VerigenceButton>
+                    <VerigenceButton
+                      disabled={decision.isPending}
+                      onClick={() => {
+                        setDecisionMode('activate');
+                        decision.reset();
+                      }}
+                    >
+                      Activate user
+                    </VerigenceButton>
                   </div>
 
                   {decisionMode === 'activate' && (
@@ -356,7 +361,7 @@ function DecisionResultPanel({ result, onBack }: { result: DecisionResult; onBac
         <div><dt>Status</dt><dd>{result.status}</dd></div>
         <div><dt>USER ID</dt><dd>{result.userId}</dd></div>
       </dl>
-      <VerigenceButton onClick={onBack}>Back to pending users</VerigenceButton>
+      <VerigenceButton onClick={onBack}>Back to Pending Requests</VerigenceButton>
     </div>
   );
 }

@@ -75,12 +75,20 @@ The mockup shows the intended combined presentation, but the current UC-001 cont
 
 The browse view must not become a hidden Role Mapping editor. Project/role/business-scope changes remain UC-02 Project Administration concerns.
 
-## Stored mockup files
+## Stored mockup asset
 
-The following approved mockups are stored beside this document:
+The durable repository mockup source is stored beside this document:
 
-- `UC01_PENDING_APPROVAL_MAIN.png`
-- `UC01_PENDING_APPROVAL_CONFIRM_ACTIVATION.png`
-- `UC01_PENDING_APPROVAL_CONFIRM_REJECTION.png`
+- `UC01_PENDING_APPROVAL_APPROVED_MOCKUPS.html`
 
-These files are the visual reference for the UC-001 SuperAdmin approval redesign.
+It contains the three frozen visual states:
+
+1. Pending Approval / Pending Requests + Current Employees & Engagements presentation;
+2. Confirm Activation;
+3. Confirm Rejection.
+
+The HTML mockup intentionally references the same approved repository logo asset used by Sign In and Sign Up:
+
+`public/brand/approved/verigence-lockup.svg`
+
+The approved raster mockups generated during design review are derivative visual references; the committed HTML board plus this baseline are the durable repository source of truth for implementation continuity.

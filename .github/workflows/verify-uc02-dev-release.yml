@@ -1,0 +1,67 @@
+name: Verify UC02 DEV release
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    if: github.head_ref == 'verify/uc02-dev-release'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      DEV_WEB_URL: https://verigence-web-dev.jbrconsulting-it.workers.dev
+      AUDIT_CORE_URL: ${{ secrets.AUDIT_CORE_URL }}
+    steps:
+      - name: Verify deployed UC02 Web bundle
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --location \
+            --output /tmp/login.html \
+            "$DEV_WEB_URL/login"
+          asset_path="$(grep -oE 'src="/assets/[^"]+\.js"' /tmp/login.html | head -n 1 | sed -E 's/^src="([^"]+)"$/\1/')"
+          [ -n "$asset_path" ] || { echo 'Could not resolve deployed JS asset'; exit 1; }
+          curl --fail --silent --show-error --location \
+            --output /tmp/app.js \
+            "$DEV_WEB_URL$asset_path"
+          grep -q 'Project administration' /tmp/app.js || {
+            echo 'UC02 Project administration marker is not present in deployed Web bundle'
+            exit 1
+          }
+          curl --fail --silent --show-error --location \
+            --output /tmp/admin.html \
+            "$DEV_WEB_URL/admin/project"
+          echo 'UC02_WEB_DEV=PASS'
+
+      - name: Verify deployed Audit Core UC02 contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          [ -n "${AUDIT_CORE_URL:-}" ] || { echo 'AUDIT_CORE_URL secret is not configured'; exit 1; }
+          echo "::add-mask::$AUDIT_CORE_URL"
+          base="${AUDIT_CORE_URL%/}"
+          curl --fail --silent --show-error "$base/health" >/tmp/audit-health.json
+          curl --fail --silent --show-error "$base/openapi.json" >/tmp/openapi.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          spec=json.loads(Path('/tmp/openapi.json').read_text())
+          paths=spec.get('paths', {})
+          required=[
+              '/v1/projects',
+              '/v1/tenants/{tenant_id}/project/readiness',
+              '/v1/tenants/{tenant_id}/project/activate',
+              '/v1/tenants/{tenant_id}/project-masters',
+              '/v1/tenants/{tenant_id}/role-mapping-candidates',
+              '/v1/tenants/{tenant_id}/role-mappings',
+          ]
+          missing=[path for path in required if path not in paths]
+          if missing:
+              raise SystemExit('Missing deployed UC02 API path(s): ' + ', '.join(missing))
+          print('AUDIT_CORE_UC02_DEV=PASS')
+          PY

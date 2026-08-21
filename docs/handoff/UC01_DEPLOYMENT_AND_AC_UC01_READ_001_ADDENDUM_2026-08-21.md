@@ -5,7 +5,7 @@
 **Applies after:** `docs/handoff/UC01_UC02_IMPLEMENTATION_READY_HANDOFF_2026-08-21.md`  
 **Branch:** `planning/uc-001-user-onboarding`
 
-This addendum records two corrections/clarifications that must be carried forward in every resumed implementation session.
+This addendum records deployment, browse-contract and implementation-priority corrections that must be carried forward in every resumed implementation session.
 
 ---
 
@@ -42,7 +42,7 @@ Implement/test on planning/uc-001-user-onboarding
 
 Do not try to establish UC-001 deployment by modifying a planning-branch workflow to deploy that branch. Do not claim the feature is deployed until the corresponding approved code exists on `main` and the `main` deployment workflow has successfully deployed/smoke-tested it.
 
-For UC01-WEB-01 specifically, the implementation is currently on `planning/uc-001-user-onboarding`; it still needs to be promoted to `main` before Cloudflare runtime verification.
+For UC01-WEB-01 specifically, the approved visual-shell package must be promoted selectively to current `main`; do **not** wholesale-merge the older planning branch over newer `main` auth/branding/deployment work.
 
 ---
 
@@ -81,9 +81,9 @@ Those existing contracts are Tenant/Project-specific. They do not yet provide th
 
 ### 2.2 Design work that must be frozen first
 
-Before any engagement-detail Web code, Audit Core must own/freeze `AC-UC01-READ-001` in its current solution/API contract. The final contract must define, without browser-side reconstruction:
+Before any engagement-detail Web code, Audit Core must own/freeze `AC-UC01-READ-001` in its current solution/API contract. The final SuperAdmin contract must define, without browser-side reconstruction:
 
-1. **Authorization** — human SuperAdmin only; fail closed for invalid/expired human JWT.
+1. **Authorization** — human SuperAdmin only for the UC-001 platform administrative view; fail closed for invalid/expired human JWT.
 2. **Canonical join key** — Security `userId` only; no email/name matching.
 3. **Platform scope** — able to browse across Projects for the authorized SuperAdmin rather than requiring the browser to enumerate every Tenant and join results itself.
 4. **Current-only semantics** — exclude deleted/inactive Project assignments and any assignment that is not current under the owning model.
@@ -106,7 +106,7 @@ If it does **not** exist, that is a concrete source-backed Security gap: freeze 
 
 ### 2.4 Cross-module authentication rule
 
-For the outer browse request:
+For the outer SuperAdmin browse request:
 
 ```text
 Browser/SuperAdmin
@@ -137,9 +137,9 @@ The Audit Core implementation should derive engagement scope from the authoritat
 
 ### 2.6 Minimum test gate for AC-UC01-READ-001
 
-Before Web uses the contract, verify at minimum:
+Before Web uses the SuperAdmin contract, verify at minimum:
 
-- non-SuperAdmin denied;
+- non-SuperAdmin denied from the platform administrative aggregate;
 - missing/expired human JWT denied;
 - canonical Security `userId` join only;
 - ACTIVE USER with zero engagement returns no fabricated Project;
@@ -154,14 +154,48 @@ Before Web uses the contract, verify at minimum:
 
 ---
 
-## 3. Resume instruction
+## 3. Priority decision — employee/engagement browsing is deferred until after UC-002
+
+UC-002 Project Onboarding/Administration is the higher-priority implementation. The employee engagement/assignment browse capability is deliberately parked until UC-002 is complete and runtime-verified.
+
+Do **not** block UC-002 on AC-UC01-READ-001 and do not create a temporary browser-side composition to make the tab appear complete.
+
+The detailed deferred implementation plan is:
+
+```text
+docs/handoff/UC01_POST_UC02_EMPLOYEE_BROWSE_IMPLEMENTATION_PLAN_2026-08-21.md
+```
+
+### 3.1 Role-scoped browse rules already frozen for the later package
+
+These authorization rules must be preserved when the deferred browse work resumes:
+
+- **PC:** cannot see engagement or assignment information belonging to other employees. A PC must not be given peer staffing/assignment visibility.
+- **TL:** may see employees assigned within the same Dealer that the TL is authorized to supervise. A TL must not see staffing/assignment data for unrelated Dealers or Projects.
+- Dealer scope must be derived from authoritative Audit Core business assignments, not names or browser-supplied scope.
+- No PM/CRM/Executive/Tenant Admin browse visibility rule is frozen by this checkpoint. Do not infer those rules; freeze them explicitly after UC-002.
+- The frozen UC-001 SuperAdmin platform browse remains a separate administrative capability and still requires AC-UC01-READ-001.
+
+UC-002 Role Mapping and Project/Dealer/Outlet state must be treated as prerequisites because the later browse authorization must operate on the final authoritative scope model established by UC-002.
+
+---
+
+## 4. Resume instruction
 
 On the next context reset, read this addendum immediately after the main UC-001/UC-002 implementation-ready handoff.
 
-Two non-negotiable rules to carry forward:
+Non-negotiable rules to carry forward:
 
 ```text
 Web DEV deployment proof requires approved code on main and a successful main workflow.
 
-AC-UC01-READ-001 must be frozen/implemented in the owning backend contract before engagement-detail Web implementation; Web must not invent or reconstruct the contract.
+Do not wholesale-merge the old planning branch over newer main.
+
+UC-002 is implemented before employee engagement/assignment browse.
+
+After UC-002, AC-UC01-READ-001 must be frozen/implemented in the owning backend contract before SuperAdmin engagement-detail Web implementation.
+
+PC cannot browse other employees' engagement/assignment data.
+
+TL browse is restricted to employees within the same authorized Dealer.
 ```

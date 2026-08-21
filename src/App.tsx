@@ -27,9 +27,7 @@ const ActivityTrackerPage = lazy(() => import('./pages/ActivityTrackerPage'));
 const CrmPage = lazy(() => import('./pages/CrmPage'));
 const EscalationsPage = lazy(() => import('./pages/EscalationsPage'));
 const AnalyticsPage = lazy(() => import('./pages/AnalyticsPage'));
-const OrganizationAdminPage = lazy(() => import('./pages/OrganizationAdminPage'));
-const TeamAssignmentsPage = lazy(() => import('./pages/TeamAssignmentsPage'));
-const MasterDataPage = lazy(() => import('./pages/MasterDataPage'));
+const ProjectAdministrationPage = lazy(() => import('./pages/ProjectAdministrationPage'));
 const ProfilePage = lazy(() => import('./pages/ProfilePage'));
 
 const routerBase = import.meta.env.BASE_URL === '/' ? undefined : import.meta.env.BASE_URL.replace(/\/$/, '');
@@ -72,9 +70,10 @@ export default function App() {
             <Route path="/escalations" element={<PrivatePage><EscalationsPage /></PrivatePage>} />
             <Route path="/analytics" element={<PrivatePage><AnalyticsPage /></PrivatePage>} />
             <Route path="/approvals" element={<PrivatePage><ApprovalQueuePage /></PrivatePage>} />
-            <Route path="/admin/organization" element={<PrivatePage><OrganizationAdminPage /></PrivatePage>} />
-            <Route path="/admin/team" element={<PrivatePage><TeamAssignmentsPage /></PrivatePage>} />
-            <Route path="/admin/masters" element={<PrivatePage><MasterDataPage /></PrivatePage>} />
+            <Route path="/admin/project" element={<PrivatePage><ProjectAdministrationPage /></PrivatePage>} />
+            <Route path="/admin/organization" element={<Navigate to="/admin/project?step=2" replace />} />
+            <Route path="/admin/team" element={<Navigate to="/admin/project?step=5" replace />} />
+            <Route path="/admin/masters" element={<Navigate to="/admin/project?step=6" replace />} />
             <Route path="/profile" element={<PrivatePage><ProfilePage /></PrivatePage>} />
             <Route path="/workspace" element={<Navigate to="/dashboard" replace />} />
             <Route path="/" element={<Navigate to="/login" replace />} />

@@ -7,7 +7,7 @@ on:
     types:
       - completed
     branches:
-      - main
+      - dev
 
 permissions:
   contents: write
@@ -17,10 +17,10 @@ jobs:
     name: Record Web deployment conclusion
     runs-on: ubuntu-latest
     steps:
-      - name: Check out main
+      - name: Check out dev
         uses: actions/checkout@v4
         with:
-          ref: main
+          ref: dev
           fetch-depth: 0
 
       - name: Write deployment evidence
@@ -38,6 +38,7 @@ jobs:
           cat > docs/deploy-evidence/WEB_DEV_LATEST.md <<EOF
           # Verigence Web DEV — Latest Deployment
 
+          - branch: dev
           - run_id: ${DEPLOY_RUN_ID}
           - run_number: ${DEPLOY_RUN_NUMBER}
           - run_attempt: ${DEPLOY_ATTEMPT}
@@ -57,5 +58,5 @@ jobs:
             exit 0
           fi
           git commit -m 'chore(web): record DEV deployment result [skip ci]'
-          git pull --rebase origin main
-          git push origin HEAD:main
+          git pull --rebase origin dev
+          git push origin HEAD:dev

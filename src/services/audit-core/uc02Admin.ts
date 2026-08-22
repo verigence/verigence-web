@@ -24,6 +24,14 @@ export interface Uc02Project {
   updatedAtUtc: string;
 }
 
+export interface ProjectSelection {
+  tenantId: string;
+  projectCode: string;
+  projectName: string;
+  projectStatus: string;
+  securityTenantStatus: string;
+}
+
 export interface ProjectCreateInput {
   projectName: string;
   oemId: string;
@@ -41,6 +49,8 @@ export interface ProjectProvisioningResult {
   projectStatus: string;
   provisioningStatus: 'READY' | 'IN_PROGRESS' | 'RECOVERY_REQUIRED';
   currentStep: 'SECURITY' | 'AUDIT_CORE' | 'DI' | 'COMPLETE';
+  errorCode?: string | null;
+  errorMessage?: string | null;
 }
 
 export interface DealerAdmin {
@@ -159,6 +169,10 @@ export interface ProjectActivationResult {
   projectStatus: string;
   securityTenantStatus: string;
   readiness: ProjectReadiness;
+}
+
+export function listProjects(accessToken?: string) {
+  return auditCoreRequest<ProjectSelection[]>('/v1/projects', auth(accessToken));
 }
 
 export function createProject(

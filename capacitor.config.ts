@@ -4,15 +4,25 @@ const config: CapacitorConfig = {
   appId: 'com.verigence.app',
   appName: 'Verigence',
   webDir: 'dist',
-  backgroundColor: '#011e47',
-  loggingBehavior: 'debug',
+  backgroundColor: '#f4f8fb',
+  loggingBehavior: 'production',
   server: {
     hostname: 'localhost',
-    iosScheme: 'capacitor',
     androidScheme: 'https',
   },
-  ios: {
-    preferredContentMode: 'mobile',
+  android: {
+    allowMixedContent: false,
+  },
+  plugins: {
+    StatusBar: {
+      style: 'DARK',
+      backgroundColor: '#ffffff',
+      overlaysWebView: false,
+    },
+    Keyboard: {
+      resize: 'native',
+      resizeOnFullScreen: true,
+    },
   },
 };
 

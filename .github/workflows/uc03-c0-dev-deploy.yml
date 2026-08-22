@@ -1,0 +1,147 @@
+name: UC03 C0 Web DEV Validation
+
+on:
+  pull_request:
+    branches:
+      - dev
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  deployments: write
+
+concurrency:
+  group: uc03-c0-web-dev
+  cancel-in-progress: true
+
+jobs:
+  validate-deploy:
+    if: >-
+      github.head_ref == 'planning/uc-003-booking-delivery-audit' &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      DEPLOY_SHA: ${{ github.event.pull_request.head.sha }}
+      SECURITY_UPSTREAM: https://security-dev.up.railway.app
+      DEV_WEB_URL: https://verigence-web-dev.jbrconsulting-it.workers.dev
+      VITE_SECURITY_BASE_URL: ""
+      VITE_AUDIT_CORE_BASE_URL: ${{ secrets.AUDIT_CORE_URL }}
+
+    steps:
+      - name: Checkout exact UC03 branch head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.DEPLOY_SHA }}
+
+      - name: Verify exact branch revision
+        shell: bash
+        run: |
+          set -euo pipefail
+          actual="$(git rev-parse HEAD)"
+          test "$actual" = "$DEPLOY_SHA"
+          echo "UC03_C0_WEB_HEAD=$actual"
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Verify C0 build configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+          [ -n "${VITE_AUDIT_CORE_BASE_URL:-}" ] || {
+            echo '::error::AUDIT_CORE_URL secret is not configured for Web DEV.'
+            exit 1
+          }
+          curl --fail --silent --show-error "$SECURITY_UPSTREAM/health/live" >/dev/null
+          echo 'UC03_C0_WEB_UPSTREAM_CONFIG=PASS'
+
+      - name: Verify exact approved Verigence logo source
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const fs = require('node:fs');
+          const crypto = require('node:crypto');
+          const files = [1, 2, 3, 4].map((part) => `src/assets/lockup.part${part}.ts`);
+          const base64 = files.map((file) => {
+            const source = fs.readFileSync(file, 'utf8');
+            const match = source.match(/^export default '([^']+)'/);
+            if (!match) throw new Error(`Cannot read logo base64 from ${file}`);
+            return match[1];
+          }).join('');
+          const image = Buffer.from(base64, 'base64');
+          const sha256 = crypto.createHash('sha256').update(image).digest('hex');
+          const expected = '6e2c9a9467367a2f35466a7807672379ab3623e535e29e3914d4be731a837f60';
+          if (sha256 !== expected || image.length !== 36060) {
+            throw new Error(`Approved logo mismatch: sha256=${sha256} bytes=${image.length}`);
+          }
+          console.log(`VERIGENCE_LOGO_SOURCE=PASS sha256=${sha256} bytes=${image.length}`);
+          NODE
+
+      - name: Typecheck and production build
+        run: |
+          npm run typecheck
+          npm run build
+
+      - name: Verify C0 contract is bundled
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -R -q '/v1/me/projects' dist/assets || { echo '::error::Project discovery contract missing from bundle.'; exit 1; }
+          grep -R -q '/uc03/landing-metrics' dist/assets || { echo '::error::C0 landing metrics contract missing from bundle.'; exit 1; }
+          grep -R -q '/uc03/work-items' dist/assets || { echo '::error::C0 work-list contract missing from bundle.'; exit 1; }
+          grep -R -q 'Delivery In Progress' dist/assets || { echo '::error::Required C0 Delivery In Progress wording missing from bundle.'; exit 1; }
+          grep -R -q 'data:image/png;base64,' dist/assets || { echo '::error::Approved bundled logo missing from production bundle.'; exit 1; }
+          echo 'UC03_C0_WEB_BUNDLE=PASS'
+
+      - name: Deploy exact C0 Web revision to Cloudflare DEV
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: deploy
+
+      - name: Smoke deployed C0 Web
+        shell: bash
+        run: |
+          set -euo pipefail
+          sleep 5
+          curl --fail --silent --show-error --location \
+            --dump-header /tmp/login.headers \
+            --output /tmp/login.html \
+            "$DEV_WEB_URL/login"
+
+          asset_path="$(grep -oE 'src="/assets/[^"]+\.js"' /tmp/login.html | head -n 1 | sed -E 's/^src="([^"]+)"$/\1/')"
+          [ -n "$asset_path" ] || { echo '::error::Could not resolve deployed JavaScript asset.'; cat /tmp/login.html; exit 1; }
+          curl --fail --silent --show-error --location --output /tmp/app.js "$DEV_WEB_URL$asset_path"
+
+          grep -q '/v1/me/projects' /tmp/app.js || { echo '::error::Deployed bundle is missing Project discovery.'; exit 1; }
+          grep -q '/uc03/landing-metrics' /tmp/app.js || { echo '::error::Deployed bundle is missing C0 landing metrics.'; exit 1; }
+          grep -q '/uc03/work-items' /tmp/app.js || { echo '::error::Deployed bundle is missing C0 work list.'; exit 1; }
+          grep -q 'Delivery In Progress' /tmp/app.js || { echo '::error::Deployed bundle is missing required C0 wording.'; exit 1; }
+          grep -q 'data:image/png;base64,' /tmp/app.js || { echo '::error::Deployed bundle is missing approved Verigence logo.'; exit 1; }
+          echo 'UC03_C0_WEB_DEPLOYED_BUNDLE=PASS'
+
+          SECURITY_STATUS="$(curl --silent --show-error \
+            --dump-header /tmp/security.headers \
+            --output /tmp/security.body \
+            --write-out '%{http_code}' \
+            --request POST \
+            --header 'Content-Type: application/json' \
+            --data '{}' \
+            "$DEV_WEB_URL/security/v1/auth/login")"
+          if ! grep -qi '^x-verigence-proxy: security' /tmp/security.headers; then
+            echo '::error::Security request did not pass through the Web DEV proxy.'
+            exit 1
+          fi
+          case "$SECURITY_STATUS" in
+            400|401|422) ;;
+            *) echo "::error::Security login proxy returned HTTP $SECURITY_STATUS"; cat /tmp/security.body; exit 1 ;;
+          esac
+          echo 'UC03_C0_WEB_DEV=PASS'

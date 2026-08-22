@@ -49,22 +49,23 @@ export default function ProjectSelector({
   }
 
   return (
-    <select
-      className="uc02-project-select"
-      aria-label="Select Project"
-      value={tenantId}
-      onChange={(event) => select(event.target.value)}
-      disabled={!accessToken || loading}
-    >
-      <option value="">New Project</option>
-      {tenantId && !currentIsListed && currentProjectName && (
-        <option value={tenantId}>{currentProjectName}</option>
-      )}
-      {projects.map((item) => (
-        <option key={item.tenantId} value={item.tenantId}>
-          {item.projectName} · {item.projectStatus}
-        </option>
-      ))}
-    </select>
+    <div className="uc02-field">
+      <select
+        aria-label="Select Project"
+        value={tenantId}
+        onChange={(event) => select(event.target.value)}
+        disabled={!accessToken || loading}
+      >
+        <option value="">New Project</option>
+        {tenantId && !currentIsListed && currentProjectName && (
+          <option value={tenantId}>{currentProjectName}</option>
+        )}
+        {projects.map((item) => (
+          <option key={item.tenantId} value={item.tenantId}>
+            {item.projectName} · {item.projectStatus}
+          </option>
+        ))}
+      </select>
+    </div>
   );
 }

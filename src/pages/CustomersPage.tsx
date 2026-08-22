@@ -25,26 +25,27 @@ export default function CustomersPage() {
   return (
     <div className="screen-stack">
       <PageHeader
-        eyebrow="Process Consultant · Customer context"
+        eyebrow="Customer context"
         title="Customers"
-        description="Find the customer context that already exists. The audit journey starts from source evidence and existing customer references—not re-keyed KYC data."
+        description="Find an existing customer and continue to their audit journeys."
         backing={query.data?.backing}
       />
       <SectionCard>
         <div className="toolbar-row">
           <label className="search-box">
             <span>Search</span>
-            <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Name, mobile last 4, email reference or DMS reference" />
+            <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Name, mobile, email or customer reference" />
           </label>
           <span className="toolbar-count">{filtered.length} customers</span>
         </div>
-        <div className="data-table-wrap">
+
+        <div className="data-table-wrap adaptive-list__desktop">
           <table className="data-table">
-            <thead><tr><th>Customer</th><th>Reference</th><th>Contact evidence</th><th>Status</th><th></th></tr></thead>
+            <thead><tr><th>Customer</th><th>Reference</th><th>Contact</th><th>Status</th><th></th></tr></thead>
             <tbody>
               {filtered.map((customer) => (
                 <tr key={customer.customerId}>
-                  <td><strong>{customer.displayName}</strong><small>{customer.customerId}</small></td>
+                  <td><strong>{customer.displayName}</strong></td>
                   <td>{customer.externalCustomerRef || '—'}</td>
                   <td><span>•••• {customer.mobileLast4 || '—'}</span><small>{customer.emailReference || 'No email reference'}</small></td>
                   <td><StatusPill value={customer.status} compact /></td>
@@ -53,6 +54,26 @@ export default function CustomersPage() {
               ))}
             </tbody>
           </table>
+        </div>
+
+        <div className="adaptive-list adaptive-list__mobile" aria-label="Customers">
+          {filtered.map((customer) => (
+            <Link className="adaptive-list-card" key={customer.customerId} to={`/journeys?customer=${customer.customerId}`}>
+              <div className="adaptive-list-card__head">
+                <div>
+                  <strong>{customer.displayName}</strong>
+                  <span>{customer.externalCustomerRef || 'Customer'}</span>
+                </div>
+                <StatusPill value={customer.status} compact />
+              </div>
+              <div className="adaptive-list-card__details">
+                <span>Mobile <strong>•••• {customer.mobileLast4 || '—'}</strong></span>
+                {customer.emailReference && <span>Email <strong>{customer.emailReference}</strong></span>}
+              </div>
+              <span className="adaptive-list-card__action">View journeys <span aria-hidden="true">›</span></span>
+            </Link>
+          ))}
+          {!filtered.length && <div className="adaptive-list-empty">No customers found.</div>}
         </div>
       </SectionCard>
     </div>

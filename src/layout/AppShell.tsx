@@ -38,6 +38,25 @@ const groups: NavGroup[] = [
   ] },
 ];
 
+const routeLabels: Record<string, string> = {
+  '/dashboard': 'Overview',
+  '/customers': 'Customers',
+  '/journeys': 'Journeys',
+  '/tasks': 'My work',
+  '/reviews': 'Review queue',
+  '/evidence': 'Evidence',
+  '/payments': 'Payment tracker',
+  '/findings': 'Findings',
+  '/daily-ops': 'Daily operations',
+  '/activity': 'Activity tracker',
+  '/crm': 'CRM follow-up',
+  '/escalations': 'Escalations',
+  '/analytics': 'Analytics',
+  '/approvals': 'Pending Approval',
+  '/admin/project': 'Project administration',
+  '/profile': 'Profile',
+};
+
 export default function AppShell({ children }: PropsWithChildren) {
   const role = useSessionStore((state) => state.role);
   const displayName = useSessionStore((state) => state.displayName);
@@ -45,40 +64,15 @@ export default function AppShell({ children }: PropsWithChildren) {
   const signOut = useSessionStore((state) => state.signOut);
   const navigate = useNavigate();
   const location = useLocation();
-  const pendingApprovalRoute = location.pathname === '/approvals';
 
   const handleSignOut = () => {
     signOut();
     navigate('/login');
   };
 
-  if (pendingApprovalRoute) {
-    return (
-      <div className="pending-approval-outer">
-        <section className="pending-approval-app" aria-label="Pending Approval application">
-          <header className="pending-approval-topbar">
-            <NavLink className="pending-approval-brand" to="/dashboard" aria-label="Verigence home">
-              <img src="/brand/approved/verigence-lockup.svg" alt="Verigence — Audit, Governance, Intelligence" />
-            </NavLink>
-            <div className="pending-approval-crumb" aria-label="Current section">
-              <span>Pending Approval</span>
-              <span aria-hidden="true">›</span>
-              <strong>Pending Approval</strong>
-            </div>
-            <div className="pending-approval-profile">
-              <span className="pending-approval-profile__avatar" aria-hidden="true">SA</span>
-              <span className="pending-approval-profile__identity">
-                <strong>SuperAdmin</strong>
-                <small>{email || displayName}</small>
-              </span>
-              <button type="button" className="pending-approval-signout" onClick={handleSignOut}>Sign out</button>
-            </div>
-          </header>
-          <main className="pending-approval-content">{children}</main>
-        </section>
-      </div>
-    );
-  }
+  const currentLabel = routeLabels[location.pathname]
+    ?? location.pathname.split('/').filter(Boolean).at(-1)?.replaceAll('-', ' ')
+    ?? 'Overview';
 
   return (
     <div className="enterprise-shell">
@@ -109,7 +103,7 @@ export default function AppShell({ children }: PropsWithChildren) {
       </aside>
       <div className="enterprise-main">
         <header className="enterprise-topbar">
-          <div className="enterprise-topbar__trail"><span>Verigence</span><span>/</span><strong>{location.pathname.split('/').filter(Boolean).at(-1)?.replaceAll('-', ' ') || 'overview'}</strong></div>
+          <div className="enterprise-topbar__trail"><span>Verigence</span><span>/</span><strong>{currentLabel}</strong></div>
           <div className="enterprise-topbar__actions">
             <button type="button" className="user-menu-button" title={email} onClick={handleSignOut}>Sign out</button>
           </div>

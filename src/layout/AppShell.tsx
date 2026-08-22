@@ -3,6 +3,7 @@ import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 
 import { verigenceLockup } from '../assets/verigenceLockup';
 import type { UserRole } from '../domain/models';
+import { ANDROID_BACK_EVENT } from '../native/AndroidNativeBridge';
 import { useSessionStore } from '../store/sessionStore';
 
 type NavItem = { to: string; label: string; mark: string; roles?: UserRole[] };
@@ -91,6 +92,16 @@ export default function AppShell({ children }: PropsWithChildren) {
     };
     document.addEventListener('keydown', onKeyDown);
     return () => document.removeEventListener('keydown', onKeyDown);
+  }, [mobileMenuOpen]);
+
+  useEffect(() => {
+    const onAndroidBack = (event: Event) => {
+      if (!mobileMenuOpen) return;
+      event.preventDefault();
+      setMobileMenuOpen(false);
+    };
+    window.addEventListener(ANDROID_BACK_EVENT, onAndroidBack);
+    return () => window.removeEventListener(ANDROID_BACK_EVENT, onAndroidBack);
   }, [mobileMenuOpen]);
 
   const handleSignOut = () => {

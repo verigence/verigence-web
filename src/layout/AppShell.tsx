@@ -3,19 +3,20 @@ import { useQueryClient } from '@tanstack/react-query';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 
 import { verigenceLockup } from '../assets/verigenceLockup';
-import type { UserRole } from '../domain/models';
+import type { OperatingRole, UserRole } from '../domain/models';
 import { clearOperationalProject, resetOperationalContext } from '../features/uc03/projectContext';
 import { ANDROID_BACK_EVENT } from '../native/AndroidNativeBridge';
 import { useProjectContextStore } from '../store/projectContextStore';
 import { useSessionStore } from '../store/sessionStore';
 
-type NavItem = { to: string; label: string; mark: string; roles?: UserRole[] };
+type ShellRole = UserRole | OperatingRole;
+type NavItem = { to: string; label: string; mark: string; roles?: ShellRole[] };
 type NavGroup = { label: string; items: NavItem[] };
 
-const c0OperatingRoles: UserRole[] = ['PC', 'TL', 'PM', 'CRM', 'EXECUTIVE'];
-const operational: UserRole[] = [...c0OperatingRoles, 'TENANT_ADMIN', 'SUPER_ADMIN'];
-const assurance: UserRole[] = ['TL', 'PM', 'EXECUTIVE', 'TENANT_ADMIN', 'SUPER_ADMIN'];
-const admin: UserRole[] = ['TENANT_ADMIN', 'SUPER_ADMIN'];
+const c0OperatingRoles: OperatingRole[] = ['PC', 'TL', 'PM', 'CRM', 'EXECUTIVE'];
+const operational: ShellRole[] = [...c0OperatingRoles, 'TENANT_ADMIN', 'SUPER_ADMIN'];
+const assurance: ShellRole[] = ['TL', 'PM', 'EXECUTIVE', 'TENANT_ADMIN', 'SUPER_ADMIN'];
+const admin: ShellRole[] = ['TENANT_ADMIN', 'SUPER_ADMIN'];
 
 const groups: NavGroup[] = [
   { label: 'Work', items: [
@@ -62,7 +63,7 @@ const routeLabels: Record<string, string> = {
   '/profile': 'Profile',
 };
 
-const roleLabels: Record<UserRole, string> = {
+const roleLabels: Record<ShellRole, string> = {
   PC: 'Process Coordinator',
   TL: 'Team Lead',
   PM: 'Project Manager',
@@ -89,8 +90,8 @@ export default function AppShell({ children }: PropsWithChildren) {
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  const role = selectedProject?.operatingRole ?? sessionRole;
-  const c0OperationalShell = Boolean(selectedProject && c0OperatingRoles.includes(role));
+  const role: ShellRole = selectedProject?.operatingRole ?? sessionRole;
+  const c0OperationalShell = Boolean(selectedProject);
 
   useEffect(() => {
     setMobileMenuOpen(false);
@@ -133,7 +134,7 @@ export default function AppShell({ children }: PropsWithChildren) {
   const visibleName = displayName || 'User';
   const roleLabel = roleLabels[role];
   const avatarText = initials(visibleName);
-  const visibleGroups = c0OperationalShell
+  const visibleGroups: NavGroup[] = c0OperationalShell
     ? [{ label: 'Work', items: [{ to: '/dashboard', label: 'Overview', mark: 'OV', roles: c0OperatingRoles }] }]
     : groups;
 

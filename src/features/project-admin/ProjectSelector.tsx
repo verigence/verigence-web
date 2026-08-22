@@ -28,7 +28,16 @@ export default function ProjectSelector({
     setLoading(true);
     void listProjects(accessToken)
       .then((values) => {
-        if (!cancelled) setProjects(values);
+        if (cancelled) return;
+        setProjects(values);
+
+        // A Tenant can disappear after a failed/compensated Project create or an
+        // administrative cleanup. Never leave that deleted Tenant hidden in the
+        // client business context while the selector visually shows "New Project".
+        if (tenantId && !values.some((item) => item.tenantId === tenantId)) {
+          setBusinessContext({ tenantId: '', dealerId: '', outletId: '' });
+          onSelectionChange('');
+        }
       })
       .catch((error) => {
         if (!cancelled) onError(auditCoreErrorMessage(error));
@@ -39,7 +48,7 @@ export default function ProjectSelector({
     return () => {
       cancelled = true;
     };
-  }, [accessToken, tenantId, onError]);
+  }, [accessToken, tenantId, onError, setBusinessContext]);
 
   const currentIsListed = projects.some((item) => item.tenantId === tenantId);
 

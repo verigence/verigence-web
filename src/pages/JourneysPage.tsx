@@ -33,7 +33,7 @@ export default function JourneysPage() {
       <PageHeader
         eyebrow="Audit journeys"
         title="Journey workspace"
-        description="One traceable view from booking through delivery, with source evidence attached to every observed fact."
+        description="Review each customer journey, its evidence and current audit status."
         backing={query.data?.backing}
       />
       <SectionCard>
@@ -42,14 +42,15 @@ export default function JourneysPage() {
           <label className="filter-select"><span>Audit state</span><select value={state} onChange={(e) => setState(e.target.value)}><option value="ALL">All</option><option value="IN_PROGRESS">In progress</option><option value="PC_SUBMITTED">PC submitted</option><option value="TL_REVIEW">TL review</option><option value="SENT_BACK">Sent back</option><option value="COMPLETED">Completed</option></select></label>
           <span className="toolbar-count">{items.length} journeys</span>
         </div>
-        <div className="data-table-wrap">
+
+        <div className="data-table-wrap adaptive-list__desktop">
           <table className="data-table">
             <thead><tr><th>Journey</th><th>Customer / vehicle</th><th>Outlet</th><th>Evidence</th><th>Audit</th><th>Outcome</th><th></th></tr></thead>
             <tbody>
               {items.map((journey) => (
                 <tr key={journey.journeyId}>
-                  <td><strong>{journey.journeyReference || 'Unreferenced journey'}</strong><small>{journey.bookingReference || 'Booking ref pending'}</small></td>
-                  <td><strong>{journey.customerName}</strong><small>{journey.productLabel || 'Product evidence pending'}</small></td>
+                  <td><strong>{journey.journeyReference || 'Journey'}</strong><small>{journey.bookingReference || 'Booking reference pending'}</small></td>
+                  <td><strong>{journey.customerName}</strong><small>{journey.productLabel || 'Vehicle details pending'}</small></td>
                   <td>{journey.outletName}<small>{journey.dealerName}</small></td>
                   <td><strong>{journey.evidenceCount}</strong><small>{journey.findingCount} findings</small></td>
                   <td><StatusPill value={journey.auditState} compact /></td>
@@ -59,6 +60,27 @@ export default function JourneysPage() {
               ))}
             </tbody>
           </table>
+        </div>
+
+        <div className="adaptive-list adaptive-list__mobile" aria-label="Journeys">
+          {items.map((journey) => (
+            <Link className="adaptive-list-card" key={journey.journeyId} to={`/journeys/${journey.journeyId}`}>
+              <div className="adaptive-list-card__head">
+                <div>
+                  <strong>{journey.customerName}</strong>
+                  <span>{journey.journeyReference || journey.bookingReference || 'Journey'}</span>
+                </div>
+                <StatusPill value={journey.auditState} compact />
+              </div>
+              <div className="adaptive-list-card__details">
+                <span>Vehicle <strong>{journey.productLabel || 'Pending'}</strong></span>
+                <span>Outlet <strong>{journey.outletName}</strong></span>
+                <span>Evidence <strong>{journey.evidenceCount} items · {journey.findingCount} findings</strong></span>
+              </div>
+              <span className="adaptive-list-card__action">Open journey <span aria-hidden="true">›</span></span>
+            </Link>
+          ))}
+          {!items.length && <div className="adaptive-list-empty">No journeys found.</div>}
         </div>
       </SectionCard>
     </div>

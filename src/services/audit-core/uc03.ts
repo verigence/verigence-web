@@ -1,4 +1,4 @@
-import type { UserRole } from '../../domain/models';
+import type { OperatingRole } from '../../domain/models';
 import { auditCoreRequest } from './client';
 
 export interface ProjectScopeSummary {
@@ -13,7 +13,7 @@ export interface OperationalProject {
   projectName: string;
   projectStatus: 'ACTIVE';
   timezoneName: string;
-  operatingRole: UserRole;
+  operatingRole: OperatingRole;
   scope: ProjectScopeSummary;
 }
 
@@ -89,15 +89,13 @@ function accessTokenRequired(accessToken?: string): string {
   return token;
 }
 
-function normalizeOperatingRole(role: string): UserRole {
+function normalizeOperatingRole(role: string): OperatingRole {
   switch (role.trim().toUpperCase()) {
     case 'PC': return 'PC';
     case 'TL': return 'TL';
     case 'PM': return 'PM';
     case 'CRM': return 'CRM';
     case 'EXECUTIVE': return 'EXECUTIVE';
-    case 'TENANT_ADMIN': return 'TENANT_ADMIN';
-    case 'SUPER_ADMIN': return 'SUPER_ADMIN';
     default: throw new Error('This Project has an unsupported operating role.');
   }
 }

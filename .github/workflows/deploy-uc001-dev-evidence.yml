@@ -12,6 +12,10 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: record-verigence-web-dev-deployment
+  cancel-in-progress: false
+
 jobs:
   record:
     name: Record Web deployment conclusion
@@ -35,6 +39,14 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p docs/deploy-evidence
+
+          current_run_number="$(awk '/^- run_number:/ {print $3}' docs/deploy-evidence/WEB_DEV_LATEST.md 2>/dev/null || true)"
+          if [[ "$current_run_number" =~ ^[0-9]+$ ]] && (( current_run_number >= DEPLOY_RUN_NUMBER )); then
+            echo "Existing deployment evidence is newer or equal (run ${current_run_number}); skipping run ${DEPLOY_RUN_NUMBER}."
+            echo "SKIP_EVIDENCE=true" >> "$GITHUB_ENV"
+            exit 0
+          fi
+
           cat > docs/deploy-evidence/WEB_DEV_LATEST.md <<EOF
           # Verigence Web DEV — Latest Deployment
 
@@ -48,6 +60,7 @@ jobs:
           EOF
 
       - name: Commit evidence
+        if: env.SKIP_EVIDENCE != 'true'
         shell: bash
         run: |
           set -euo pipefail

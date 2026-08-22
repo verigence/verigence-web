@@ -18,10 +18,10 @@ export default function EvidenceCapture({ journeyId, onUploaded }: { journeyId: 
     setMessage('');
     try {
       await uploadEvidence(runtimeConfig.tenantId, journeyId, file, 'JOURNEY_EVIDENCE', undefined, undefined, accessToken);
-      setMessage('Evidence uploaded to Audit Core.');
+      setMessage('Evidence uploaded successfully.');
       onUploaded?.();
     } catch {
-      setMessage('Upload could not be completed. No evidence state was assumed.');
+      setMessage("We couldn't upload this file. Please try again.");
     } finally {
       setBusy(false);
     }
@@ -29,7 +29,7 @@ export default function EvidenceCapture({ journeyId, onUploaded }: { journeyId: 
 
   const takePhoto = async () => {
     const photo = await captureEvidencePhoto();
-    setMessage(photo.webPath ? 'Photo captured. Native-to-File conversion will be finalized with mobile packaging.' : 'Photo captured.');
+    setMessage(photo.webPath ? 'Photo captured.' : 'Photo captured.');
   };
 
   return (
@@ -39,12 +39,12 @@ export default function EvidenceCapture({ journeyId, onUploaded }: { journeyId: 
         if (file) void processFile(file);
       }} />
       <div>
-        <strong>Add source evidence</strong>
-        <span>Booking docket, receipt, cover note, screenshot, invoice, registration or delivery evidence.</span>
+        <strong>Add Evidence</strong>
+        <span>Add a booking docket, receipt, cover note, screenshot, invoice, registration document or delivery evidence.</span>
       </div>
       <div className="evidence-capture__actions">
-        <VerigenceButton disabled={busy} onClick={() => inputRef.current?.click()}>{busy ? 'Uploading…' : 'Choose file'}</VerigenceButton>
-        {Capacitor.isNativePlatform() && <VerigenceButton fill="outline" onClick={takePhoto}>Take photo</VerigenceButton>}
+        <VerigenceButton disabled={busy} onClick={() => inputRef.current?.click()}>{busy ? 'Uploading…' : 'Choose File'}</VerigenceButton>
+        {Capacitor.isNativePlatform() && <VerigenceButton fill="outline" onClick={takePhoto}>Take Photo</VerigenceButton>}
       </div>
       {message && <small className="evidence-capture__message">{message}</small>}
     </div>

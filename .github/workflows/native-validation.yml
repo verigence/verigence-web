@@ -18,8 +18,44 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  start:
+    name: Record native validation start
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout dev
+        uses: actions/checkout@v4
+        with:
+          ref: dev
+          fetch-depth: 0
+
+      - name: Record run id
+        run: |
+          set -euo pipefail
+          mkdir -p docs/native-evidence
+          cat > docs/native-evidence/NATIVE_DEV_LATEST.md <<EOF
+          # Verigence Native DEV — Latest Validation
+
+          - branch: dev
+          - run_id: $GITHUB_RUN_ID
+          - run_number: $GITHUB_RUN_NUMBER
+          - source_sha: $GITHUB_SHA
+          - android: running
+          - ios: running
+          - workflow_url: https://github.com/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID
+          EOF
+
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add docs/native-evidence/NATIVE_DEV_LATEST.md
+          git commit -m 'chore(mobile): record native validation start [skip ci]'
+          git pull --rebase origin dev
+          git push origin HEAD:dev
+
   android:
     name: Android debug package
+    needs: start
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
@@ -79,6 +115,7 @@ jobs:
 
   ios:
     name: iOS simulator package
+    needs: start
     runs-on: macos-26
     timeout-minutes: 35
     env:
@@ -166,6 +203,7 @@ jobs:
     name: Record native validation result
     if: always()
     needs:
+      - start
       - android
       - ios
     runs-on: ubuntu-latest

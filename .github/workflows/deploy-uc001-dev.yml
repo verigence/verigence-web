@@ -3,7 +3,7 @@ name: Deploy Verigence Web to Cloudflare DEV
 on:
   push:
     branches:
-      - main
+      - dev
   workflow_dispatch:
 
 concurrency:
@@ -28,6 +28,7 @@ jobs:
       - name: Identify deployment
         run: |
           echo "Deploying Git commit: $GITHUB_SHA"
+          echo "Deploying branch: $GITHUB_REF_NAME"
           echo "Security DEV upstream: $SECURITY_UPSTREAM"
 
       - name: Setup Node

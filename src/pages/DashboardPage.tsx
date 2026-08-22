@@ -23,57 +23,72 @@ export default function DashboardPage() {
         backing={model?.backing}
       />
 
-      <div className="metric-grid">
-        {(model?.metrics || Array.from({ length: 4 }, () => ({ label: 'Loading', value: '—', detail: 'Retrieving workspace' }))).map((metric, index) => (
-          <MetricCard key={`${metric.label}-${index}`} metric={metric} />
-        ))}
-      </div>
-
-      <div className="dashboard-grid">
-        <SectionCard title="Priority work" description="Items that need attention before lower-risk work.">
-          <div className="compact-list">
-            {(model?.priorityWork || []).map((item) => (
-              <Link className="compact-list__row" key={item.taskId} to={`/journeys/${item.journeyId}?review=1`}>
-                <span>
-                  <strong>{item.customerName}</strong>
-                  <small>{item.journeyReference} · {item.outletName}</small>
-                </span>
-                <span className="compact-list__meta">
-                  <StatusPill value={item.severity} compact />
-                  <small>{item.exceptionCount} exceptions</small>
-                </span>
-              </Link>
-            ))}
-            {model && model.priorityWork.length === 0 && <p className="muted-copy">No priority work in this preview role.</p>}
+      {query.isError ? (
+        <section className="dashboard-load-state" role="status" aria-live="polite">
+          <div className="dashboard-load-state__mark" aria-hidden="true">!</div>
+          <div className="dashboard-load-state__copy">
+            <strong>Workspace data is not available for this session.</strong>
+            <p>The application shell is ready, but the current operating context could not load. No data or assignments have been changed.</p>
           </div>
-        </SectionCard>
-
-        <SectionCard title="Recent journeys" action={<Link className="text-link" to="/journeys">View all</Link>}>
-          <div className="compact-list">
-            {(model?.recentJourneys || []).map((journey) => (
-              <Link className="compact-list__row" key={journey.journeyId} to={`/journeys/${journey.journeyId}`}>
-                <span>
-                  <strong>{journey.customerName}</strong>
-                  <small>{journey.journeyReference} · {journey.productLabel || 'Product pending'}</small>
-                </span>
-                <span className="compact-list__meta">
-                  <StatusPill value={journey.auditState} compact />
-                  <small>{journey.evidenceCount} evidence</small>
-                </span>
-              </Link>
+          <button className="user-menu-button dashboard-load-state__retry" type="button" onClick={() => query.refetch()} disabled={query.isFetching}>
+            {query.isFetching ? 'Retrying…' : 'Retry'}
+          </button>
+        </section>
+      ) : (
+        <>
+          <div className="metric-grid">
+            {(model?.metrics || Array.from({ length: 4 }, () => ({ label: 'Loading', value: '—', detail: 'Retrieving workspace' }))).map((metric, index) => (
+              <MetricCard key={`${metric.label}-${index}`} metric={metric} />
             ))}
           </div>
-        </SectionCard>
-      </div>
 
-      <section className="evidence-principle-banner">
-        <div className="evidence-principle-banner__mark">EV</div>
-        <div>
-          <strong>Evidence first, not data entry.</strong>
-          <p>Operational audit screens show facts derived from documents, screenshots or source systems. Upload the evidence; Verigence carries the facts forward.</p>
-        </div>
-        <Link className="secondary-link-button secondary-link-button--compact" to="/evidence">Open evidence</Link>
-      </section>
+          <div className="dashboard-grid">
+            <SectionCard title="Priority work" description="Items that need attention before lower-risk work.">
+              <div className="compact-list">
+                {(model?.priorityWork || []).map((item) => (
+                  <Link className="compact-list__row" key={item.taskId} to={`/journeys/${item.journeyId}?review=1`}>
+                    <span>
+                      <strong>{item.customerName}</strong>
+                      <small>{item.journeyReference} · {item.outletName}</small>
+                    </span>
+                    <span className="compact-list__meta">
+                      <StatusPill value={item.severity} compact />
+                      <small>{item.exceptionCount} exceptions</small>
+                    </span>
+                  </Link>
+                ))}
+                {model && model.priorityWork.length === 0 && <p className="muted-copy">No priority work in this preview role.</p>}
+              </div>
+            </SectionCard>
+
+            <SectionCard title="Recent journeys" action={<Link className="text-link" to="/journeys">View all</Link>}>
+              <div className="compact-list">
+                {(model?.recentJourneys || []).map((journey) => (
+                  <Link className="compact-list__row" key={journey.journeyId} to={`/journeys/${journey.journeyId}`}>
+                    <span>
+                      <strong>{journey.customerName}</strong>
+                      <small>{journey.journeyReference} · {journey.productLabel || 'Product pending'}</small>
+                    </span>
+                    <span className="compact-list__meta">
+                      <StatusPill value={journey.auditState} compact />
+                      <small>{journey.evidenceCount} evidence</small>
+                    </span>
+                  </Link>
+                ))}
+              </div>
+            </SectionCard>
+          </div>
+
+          <section className="evidence-principle-banner">
+            <div className="evidence-principle-banner__mark">EV</div>
+            <div>
+              <strong>Evidence first, not data entry.</strong>
+              <p>Operational audit screens show facts derived from documents, screenshots or source systems. Upload the evidence; Verigence carries the facts forward.</p>
+            </div>
+            <Link className="secondary-link-button secondary-link-button--compact" to="/evidence">Open evidence</Link>
+          </section>
+        </>
+      )}
     </div>
   );
 }

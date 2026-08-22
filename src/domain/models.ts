@@ -1,4 +1,5 @@
-export type UserRole = 'PC' | 'TL' | 'PM' | 'CRM' | 'EXECUTIVE' | 'TENANT_ADMIN' | 'SUPER_ADMIN';
+export type UserRole = 'PC' | 'TL' | 'PM' | 'CRM' | 'TENANT_ADMIN' | 'SUPER_ADMIN';
+export type OperatingRole = 'PC' | 'TL' | 'PM' | 'CRM' | 'EXECUTIVE';
 export type DataBacking = 'CORE' | 'WEB_DEMO' | 'HYBRID';
 export type JourneyStageKey =
   | 'booking'

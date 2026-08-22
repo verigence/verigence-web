@@ -1,0 +1,425 @@
+/*
+ * FINAL MOBILE SWEEP
+ * Last-mile responsive refinements for approval, project administration,
+ * profile and authentication screens. Presentation only.
+ */
+
+@media (max-width: 767px) {
+  /* Pending Approval */
+  .approval-page {
+    min-width: 0;
+  }
+
+  .approval-tabs {
+    margin-bottom: 14px;
+    scroll-snap-type: x proximity;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .approval-tab {
+    min-height: 44px;
+    padding: 0 14px;
+    scroll-snap-align: start;
+    font-size: 12px;
+  }
+
+  .approval-workspace {
+    min-height: 0;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+  }
+
+  .approval-workspace--detail .approval-queue {
+    display: none;
+  }
+
+  .approval-mobile-back {
+    min-height: 44px;
+    margin-bottom: 12px;
+    display: inline-flex;
+    align-items: center;
+    border: 0;
+    background: transparent;
+    color: var(--vg-teal-600);
+    font: inherit;
+    font-size: 13px;
+    font-weight: 800;
+  }
+
+  .approval-queue__header,
+  .approval-detail {
+    padding: 16px;
+  }
+
+  .approval-queue__header strong,
+  .approval-detail__intro h2 {
+    font-size: clamp(22px, 7vw, 27px);
+  }
+
+  .approval-queue__list {
+    padding: 0 16px 16px;
+  }
+
+  .approval-request {
+    min-height: 66px;
+    grid-template-columns: 42px minmax(0, 1fr) auto;
+  }
+
+  .approval-user-hero {
+    padding: 14px;
+    display: grid;
+    grid-template-columns: 52px minmax(0, 1fr);
+    gap: 12px;
+  }
+
+  .approval-user-hero__status {
+    margin-left: 0;
+    grid-column: 1 / -1;
+    justify-self: start;
+  }
+
+  .approval-detail__facts,
+  .approval-result dl {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .approval-actions--frozen,
+  .approval-confirmation__actions {
+    align-items: stretch;
+    flex-direction: column-reverse;
+  }
+
+  .approval-actions--frozen .verigence-button,
+  .approval-confirmation__actions > button,
+  .approval-conflict .verigence-button,
+  .approval-result .verigence-button {
+    width: 100%;
+    min-width: 0;
+    min-height: 46px;
+  }
+
+  .approval-result {
+    min-height: 0;
+    padding: 30px 18px;
+  }
+
+  /* Project Administration */
+  .uc02-admin .page-header__actions {
+    align-self: flex-start;
+  }
+
+  .uc02-project-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .uc02-stepper {
+    margin-inline: -2px;
+    padding: 2px 2px 8px;
+  }
+
+  .uc02-stepper__item {
+    min-width: min(76vw, 270px);
+    min-height: 62px;
+  }
+
+  .uc02-card,
+  .uc02-workspace {
+    min-width: 0;
+  }
+
+  .uc02-card__title--row,
+  .uc02-search,
+  .uc02-readiness-banner,
+  .uc02-version-row {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .uc02-search {
+    display: flex;
+    gap: 8px;
+  }
+
+  .uc02-search input,
+  .uc02-search .uc02-button,
+  .uc02-card__title--row .uc02-button {
+    width: 100%;
+    min-height: 46px;
+  }
+
+  .uc02-scope label {
+    min-height: 44px;
+    padding-block: 8px;
+    align-items: center;
+  }
+
+  .uc02-import-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .uc02-check {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .uc02-footer-nav {
+    position: sticky;
+    bottom: 0;
+    z-index: 20;
+    margin: 0 -14px -20px;
+    padding: 10px 14px max(10px, env(safe-area-inset-bottom));
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    border-top: 1px solid var(--vg-line);
+    background: rgba(255, 255, 255, 0.96);
+    backdrop-filter: blur(12px);
+  }
+
+  .uc02-footer-nav > span {
+    grid-column: 1 / -1;
+    grid-row: 1;
+    text-align: center;
+  }
+
+  .uc02-footer-nav .uc02-button {
+    width: 100%;
+    min-height: 46px;
+  }
+
+  /* Profile */
+  .profile-page .definition-list > div {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 4px;
+  }
+
+  .profile-page .definition-list dt,
+  .profile-page .definition-list dd {
+    font-size: 13px;
+  }
+
+  /* Authentication and recovery */
+  .frozen-auth-screen {
+    min-height: 100dvh;
+    padding:
+      max(18px, env(safe-area-inset-top))
+      14px
+      max(18px, env(safe-area-inset-bottom));
+    display: grid;
+    place-items: center;
+  }
+
+  .frozen-auth-card,
+  .frozen-auth-card--login,
+  .frozen-auth-card--register,
+  .frozen-auth-card--verify,
+  .frozen-auth-card--complete {
+    width: min(100%, 560px);
+    max-width: 100%;
+    max-height: none;
+    margin: 0;
+    padding: clamp(22px, 6vw, 34px);
+    border-radius: 18px;
+  }
+
+  .frozen-auth-logo,
+  .frozen-auth-logo--register {
+    width: min(210px, 62vw);
+    max-width: 100%;
+    height: auto;
+  }
+
+  .frozen-auth-two-column {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .frozen-auth-input-wrap input,
+  .frozen-auth-country-code,
+  .frozen-auth-primary,
+  .frozen-auth-resend,
+  .frozen-auth-back {
+    min-height: 46px;
+  }
+
+  .frozen-auth-input-action {
+    width: 44px;
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  .frozen-auth-utility {
+    align-items: flex-start;
+    flex-wrap: wrap;
+    row-gap: 10px;
+  }
+
+  .frozen-auth-consent,
+  .frozen-auth-remember {
+    min-height: 44px;
+    align-items: flex-start;
+  }
+
+  .frozen-auth-otp {
+    width: 100%;
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 7px;
+  }
+
+  .frozen-auth-otp input {
+    width: 100%;
+    min-width: 0;
+    min-height: 48px;
+    padding: 0;
+    font-size: 18px !important;
+  }
+
+  .frozen-auth-footer,
+  .frozen-auth-footer--legal {
+    line-height: 1.55;
+  }
+}
+
+@media (max-width: 430px) {
+  .approval-request {
+    grid-template-columns: 38px minmax(0, 1fr);
+  }
+
+  .approval-request__avatar {
+    width: 36px;
+    height: 36px;
+  }
+
+  .approval-request__meta {
+    grid-column: 2;
+    justify-self: start;
+  }
+
+  .approval-user-hero {
+    grid-template-columns: 46px minmax(0, 1fr);
+  }
+
+  .approval-user-hero__avatar {
+    width: 46px;
+    height: 46px;
+  }
+
+  .uc02-project-strip {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .uc02-import-summary {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .frozen-auth-card,
+  .frozen-auth-card--login,
+  .frozen-auth-card--register,
+  .frozen-auth-card--verify,
+  .frozen-auth-card--complete {
+    padding: 22px 18px;
+  }
+
+  .frozen-auth-heading h1 {
+    font-size: clamp(25px, 8vw, 31px);
+  }
+
+  .frozen-auth-mobile-row {
+    grid-template-columns: 102px minmax(0, 1fr);
+  }
+
+  .frozen-auth-otp {
+    gap: 5px;
+  }
+}
+
+@media (max-width: 390px) {
+  .enterprise-content {
+    padding-left: 10px;
+    padding-right: 10px;
+  }
+
+  .approval-queue__header,
+  .approval-detail,
+  .approval-queue__list {
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+
+  .approval-tab {
+    padding-inline: 12px;
+    font-size: 11px;
+  }
+
+  .uc02-stepper__item {
+    min-width: 82vw;
+  }
+
+  .uc02-card,
+  .uc02-workspace__header {
+    padding-left: 13px;
+    padding-right: 13px;
+  }
+
+  .frozen-auth-screen {
+    padding-left: 10px;
+    padding-right: 10px;
+  }
+
+  .frozen-auth-card,
+  .frozen-auth-card--login,
+  .frozen-auth-card--register,
+  .frozen-auth-card--verify,
+  .frozen-auth-card--complete {
+    padding-left: 16px;
+    padding-right: 16px;
+    border-radius: 15px;
+  }
+
+  .frozen-auth-mobile-row {
+    grid-template-columns: 96px minmax(0, 1fr);
+  }
+
+  .frozen-auth-country-code {
+    padding-inline: 8px;
+  }
+}
+
+@media (max-width: 360px) {
+  .enterprise-mobile-brand img {
+    width: min(118px, 38vw);
+  }
+
+  .approval-user-hero {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .approval-user-hero__avatar {
+    width: 44px;
+    height: 44px;
+  }
+
+  .approval-user-hero__status {
+    grid-column: 1;
+  }
+
+  .uc02-footer-nav {
+    margin-left: -10px;
+    margin-right: -10px;
+    padding-left: 10px;
+    padding-right: 10px;
+  }
+
+  .frozen-auth-logo,
+  .frozen-auth-logo--register {
+    width: min(185px, 62vw);
+  }
+
+  .frozen-auth-mobile-row {
+    grid-template-columns: 90px minmax(0, 1fr);
+  }
+
+  .frozen-auth-otp input {
+    min-height: 44px;
+    font-size: 16px !important;
+  }
+}

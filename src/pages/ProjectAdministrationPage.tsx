@@ -57,7 +57,8 @@ function errorMessage(error: unknown) {
 }
 
 function provisioningErrorMessage(result: ProjectProvisioningResult) {
-  const message = result.errorMessage?.trim() || 'Project setup could not be completed. Retry setup.';
+  const projectName = result.projectName?.trim() || 'Project';
+  const message = result.errorMessage?.trim() || `${projectName} setup could not be completed. Please try again.`;
   return result.errorCode ? `${result.errorCode}: ${message}` : message;
 }
 
@@ -275,9 +276,7 @@ export default function ProjectAdministrationPage() {
         if (result.provisioningStatus === 'READY' && result.tenantId) {
           setBusinessContext({ tenantId: result.tenantId, dealerId: '', outletId: '' });
           setNotice('Project created successfully.');
-        } else if (result.provisioningStatus === 'RECOVERY_REQUIRED') {
-          setPageError(provisioningErrorMessage(result));
-        } else {
+        } else if (result.provisioningStatus === 'IN_PROGRESS') {
           setNotice('Project setup is in progress. Retry setup if it does not complete.');
         }
       }
@@ -297,9 +296,7 @@ export default function ProjectAdministrationPage() {
       if (result.provisioningStatus === 'READY' && result.tenantId) {
         setBusinessContext({ tenantId: result.tenantId, dealerId: '', outletId: '' });
         setNotice('Project setup is complete.');
-      } else if (result.provisioningStatus === 'RECOVERY_REQUIRED') {
-        setPageError(provisioningErrorMessage(result));
-      } else {
+      } else if (result.provisioningStatus === 'IN_PROGRESS') {
         setNotice('Project setup is still in progress.');
       }
     } catch (error) { setPageError(errorMessage(error)); }
@@ -485,6 +482,7 @@ export default function ProjectAdministrationPage() {
   }
 
   const projectConfigured = Boolean(tenantId && project);
+  const provisioningFailed = provisioning?.provisioningStatus === 'RECOVERY_REQUIRED';
 
   return (
     <div className="screen-stack uc02-admin">
@@ -506,7 +504,7 @@ export default function ProjectAdministrationPage() {
 
       <ProjectAdminStepper activeStep={activeStep} onChange={goToStep} projectConfigured={projectConfigured} />
 
-      {(pageError || notice) && <div className={`uc02-message ${pageError ? 'uc02-message--error' : 'uc02-message--success'}`}><strong>{pageError ? 'Could Not Complete Request' : 'Updated'}</strong><span>{pageError || notice}</span></div>}
+      {!provisioningFailed && (pageError || notice) && <div className={`uc02-message ${pageError ? 'uc02-message--error' : 'uc02-message--success'}`}><strong>{pageError ? 'Could Not Complete Request' : 'Updated'}</strong><span>{pageError || notice}</span></div>}
 
       <section className="uc02-workspace">
         <header className="uc02-workspace__header"><div><small>{currentStep.short}</small><h2>{currentStep.label}</h2><p>{currentStep.description}</p></div><span className="uc02-workspace__step">Step {activeStep} of 8</span></header>

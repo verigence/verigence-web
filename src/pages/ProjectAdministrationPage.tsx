@@ -5,6 +5,7 @@ import PageHeader from '../components/PageHeader';
 import StatusPill from '../components/StatusPill';
 import ProjectAdminStepper, { projectAdminSteps } from '../features/project-admin/ProjectAdminStepper';
 import ProjectReferenceFields from '../features/project-admin/ProjectReferenceFields';
+import ProjectSelector from '../features/project-admin/ProjectSelector';
 import {
   activateProject,
   confirmMasterImport,
@@ -55,6 +56,11 @@ function errorMessage(error: unknown) {
   return auditCoreErrorMessage(error);
 }
 
+function provisioningErrorMessage(result: ProjectProvisioningResult) {
+  const message = result.errorMessage?.trim() || 'Project setup could not be completed. Retry setup.';
+  return result.errorCode ? `${result.errorCode}: ${message}` : message;
+}
+
 function triggerBlob(blob: Blob, filename: string) {
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
@@ -80,6 +86,10 @@ function Field({ label, hint, children }: { label: string; hint?: string; childr
   );
 }
 
+const emptyProjectForm = () => ({
+  projectName: '', oemId: '', productCategoryId: '', effectiveStartDate: '', effectiveEndDate: '', timezoneName: 'Asia/Kolkata', regionCode: '',
+});
+
 export default function ProjectAdministrationPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const accessToken = useSessionStore((state) => state.accessToken);
@@ -95,9 +105,7 @@ export default function ProjectAdministrationPage() {
   const [busy, setBusy] = useState(false);
   const [provisioning, setProvisioning] = useState<ProjectProvisioningResult | null>(null);
 
-  const [projectForm, setProjectForm] = useState({
-    projectName: '', oemId: '', productCategoryId: '', effectiveStartDate: '', effectiveEndDate: '', timezoneName: 'Asia/Kolkata', regionCode: '',
-  });
+  const [projectForm, setProjectForm] = useState(emptyProjectForm);
   const [dealers, setDealers] = useState<DealerAdmin[]>([]);
   const [dealerForm, setDealerForm] = useState({ dealerName: '', legalName: '' });
   const [selectedDealerId, setSelectedDealerId] = useState('');
@@ -128,6 +136,36 @@ export default function ProjectAdministrationPage() {
 
   const goToStep = (step: number) => setSearchParams({ step: String(step) });
   const clearFeedback = () => { setPageError(''); setNotice(''); };
+
+  function clearProjectScopedUi() {
+    setDealers([]);
+    setSelectedDealerId('');
+    setOutlets([]);
+    setCandidates([]);
+    setSelectedUserId('');
+    setMappings([]);
+    setScopeDealerIds([]);
+    setScopeOutletIds([]);
+    setMasters([]);
+    setSelectedMasterKey('');
+    setMasterVersions([]);
+    setMasterFile(null);
+    setMasterWef('');
+    setMasterImport(null);
+    setMasterRows([]);
+    setReadiness(null);
+  }
+
+  function handleProjectSelection(nextTenantId: string) {
+    clearFeedback();
+    setProvisioning(null);
+    clearProjectScopedUi();
+    goToStep(1);
+    if (!nextTenantId) {
+      setProject(null);
+      setProjectForm(emptyProjectForm());
+    }
+  }
 
   async function loadProject() {
     if (!tenantId || !accessToken) {
@@ -234,9 +272,13 @@ export default function ProjectAdministrationPage() {
           accessToken,
         );
         setProvisioning(result);
-        if (result.tenantId) {
+        if (result.provisioningStatus === 'READY' && result.tenantId) {
           setBusinessContext({ tenantId: result.tenantId, dealerId: '', outletId: '' });
-          setNotice(result.provisioningStatus === 'READY' ? 'Project created successfully.' : 'Project created. Complete the remaining setup before continuing.');
+          setNotice('Project created successfully.');
+        } else if (result.provisioningStatus === 'RECOVERY_REQUIRED') {
+          setPageError(provisioningErrorMessage(result));
+        } else {
+          setNotice('Project setup is in progress. Retry setup if it does not complete.');
         }
       }
     } catch (error) {
@@ -252,8 +294,14 @@ export default function ProjectAdministrationPage() {
     try {
       const result = await retryProvisioningOperation(provisioning.operationId, accessToken);
       setProvisioning(result);
-      if (result.tenantId) setBusinessContext({ tenantId: result.tenantId });
-      setNotice(result.provisioningStatus === 'READY' ? 'Project setup is complete.' : 'Project setup is still in progress. Please try again.');
+      if (result.provisioningStatus === 'READY' && result.tenantId) {
+        setBusinessContext({ tenantId: result.tenantId, dealerId: '', outletId: '' });
+        setNotice('Project setup is complete.');
+      } else if (result.provisioningStatus === 'RECOVERY_REQUIRED') {
+        setPageError(provisioningErrorMessage(result));
+      } else {
+        setNotice('Project setup is still in progress.');
+      }
     } catch (error) { setPageError(errorMessage(error)); }
     finally { setBusy(false); }
   }
@@ -448,7 +496,11 @@ export default function ProjectAdministrationPage() {
       />
 
       <div className="uc02-project-strip">
-        <div><span>Current Project</span><strong>{project?.projectName || 'Not created or selected'}</strong></div>
+        <div>
+          <span>Project</span>
+          <ProjectSelector currentProjectName={project?.projectName} onSelectionChange={handleProjectSelection} onError={setPageError} />
+        </div>
+        <div><span>Current Project</span><strong>{project?.projectName || 'New Project'}</strong></div>
         <div><span>Setup Progress</span><strong>Step {activeStep} of 8</strong></div>
       </div>
 
@@ -482,7 +534,13 @@ export default function ProjectAdministrationPage() {
             </form>
             <aside className="uc02-card uc02-card--soft">
               <div className="uc02-card__title"><h3>Project Setup</h3><p>Complete project setup before moving to the remaining administration steps.</p></div>
-              {provisioning ? <div className="uc02-status-stack"><strong>{provisioning.provisioningStatus === 'READY' ? 'Ready to continue' : 'Setup in progress'}</strong>{provisioning.provisioningStatus !== 'READY' && <button className="uc02-button" type="button" onClick={() => void retryProvisioning()} disabled={busy}>Retry Setup</button>}</div> : <EmptyMessage>{project ? 'Project setup is available for the current project.' : 'Create the project to begin setup.'}</EmptyMessage>}
+              {provisioning ? (
+                <div className="uc02-status-stack">
+                  <strong>{provisioning.provisioningStatus === 'READY' ? 'Ready to continue' : provisioning.provisioningStatus === 'RECOVERY_REQUIRED' ? 'Setup failed' : 'Setup in progress'}</strong>
+                  {provisioning.provisioningStatus === 'RECOVERY_REQUIRED' && <span>{provisioningErrorMessage(provisioning)}</span>}
+                  {provisioning.provisioningStatus !== 'READY' && <button className="uc02-button" type="button" onClick={() => void retryProvisioning()} disabled={busy}>Retry Setup</button>}
+                </div>
+              ) : <EmptyMessage>{project ? 'Project setup is available for the current project.' : 'Create the project to begin setup.'}</EmptyMessage>}
             </aside>
           </div>
         )}

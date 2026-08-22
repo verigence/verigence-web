@@ -1,0 +1,117 @@
+/* UI-only shell corrections. Keep business/data behavior unchanged. */
+
+.approval-page {
+  width: 100%;
+  max-width: 1500px;
+  margin: 0 auto;
+  display: grid;
+  gap: 18px;
+}
+
+.approval-tabs {
+  margin: 0;
+  min-height: 50px;
+  padding: 0 4px;
+  align-items: flex-end;
+  border: 1px solid #dbe6ee;
+  border-radius: 12px;
+  background: #ffffff;
+  box-shadow: 0 8px 24px rgba(0, 58, 130, 0.035);
+}
+
+.approval-tab {
+  min-height: 49px;
+}
+
+.approval-state {
+  min-height: 320px;
+  border-style: solid;
+  border-color: #dbe6ee;
+  border-radius: 14px;
+  box-shadow: 0 8px 26px rgba(0, 58, 130, 0.035);
+}
+
+.approval-workspace {
+  min-height: 560px;
+}
+
+.approval-queue,
+.approval-detail,
+.approval-result {
+  box-shadow: 0 8px 26px rgba(0, 58, 130, 0.035);
+}
+
+.dashboard-load-state {
+  min-height: 260px;
+  padding: 32px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 18px;
+  border: 1px solid #dbe6ee;
+  border-radius: 14px;
+  background: #ffffff;
+  box-shadow: 0 8px 26px rgba(0, 58, 130, 0.035);
+}
+
+.dashboard-load-state__mark {
+  width: 46px;
+  height: 46px;
+  display: grid;
+  place-items: center;
+  border-radius: 12px;
+  background: #fff6df;
+  color: #875a00;
+  font-size: 20px;
+  font-weight: 850;
+}
+
+.dashboard-load-state__copy {
+  min-width: 0;
+  display: grid;
+  gap: 5px;
+}
+
+.dashboard-load-state__copy strong {
+  color: #17324d;
+  font-size: 15px;
+}
+
+.dashboard-load-state__copy p {
+  max-width: 760px;
+  margin: 0;
+  color: #6e879b;
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.dashboard-load-state__retry {
+  min-width: 82px;
+}
+
+@media (max-width: 900px) {
+  .approval-page {
+    gap: 14px;
+  }
+
+  .approval-tabs {
+    overflow-x: auto;
+  }
+
+  .approval-workspace {
+    min-height: 0;
+  }
+}
+
+@media (max-width: 650px) {
+  .dashboard-load-state {
+    min-height: 230px;
+    padding: 24px 20px;
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .dashboard-load-state__retry {
+    width: 100%;
+    grid-column: 1 / -1;
+  }
+}

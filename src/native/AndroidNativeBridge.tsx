@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
-import { App as CapacitorApp, type PluginListenerHandle } from '@capacitor/app';
-import { Capacitor } from '@capacitor/core';
+import { App as CapacitorApp } from '@capacitor/app';
+import { Capacitor, type PluginListenerHandle } from '@capacitor/core';
 import { Keyboard, KeyboardResize } from '@capacitor/keyboard';
 import { StatusBar, Style } from '@capacitor/status-bar';
 import { useLocation, useNavigate } from 'react-router-dom';

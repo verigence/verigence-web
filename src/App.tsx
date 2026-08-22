@@ -2,9 +2,11 @@ import { lazy, Suspense, type ReactNode } from 'react';
 import { IonApp } from '@ionic/react';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 
-import verigenceMark from './assets/verigence-mark.png';
+import { verigenceLockup } from './assets/verigenceLockup';
+import ProjectContextGate from './components/ProjectContextGate';
 import AppShell from './layout/AppShell';
 import AndroidNativeBridge from './native/AndroidNativeBridge';
+import { useProjectContextStore } from './store/projectContextStore';
 import { useSessionStore } from './store/sessionStore';
 
 const LoginPage = lazy(() => import('./pages/LoginPage'));
@@ -33,15 +35,40 @@ const ProfilePage = lazy(() => import('./pages/ProfilePage'));
 
 const routerBase = import.meta.env.BASE_URL === '/' ? undefined : import.meta.env.BASE_URL.replace(/\/$/, '');
 
-function PrivatePage({ children }: { children: ReactNode }) {
+function Authenticated({ children }: { children: ReactNode }) {
   const signedIn = useSessionStore((state) => state.signedIn);
   const accessToken = useSessionStore((state) => state.accessToken);
   if (!signedIn || !accessToken) return <Navigate to="/login" replace />;
-  return <AppShell>{children}</AppShell>;
+  return children;
+}
+
+function PrivatePage({ children }: { children: ReactNode }) {
+  return <Authenticated><AppShell>{children}</AppShell></Authenticated>;
+}
+
+function OperationalPage({ children }: { children: ReactNode }) {
+  return (
+    <Authenticated>
+      <ProjectContextGate><AppShell>{children}</AppShell></ProjectContextGate>
+    </Authenticated>
+  );
+}
+
+function LegacyOperationalPage({ children }: { children: ReactNode }) {
+  const role = useSessionStore((state) => state.role);
+  const selectedProject = useProjectContextStore((state) => state.selectedProject);
+  const adminPersona = role === 'SUPER_ADMIN' || role === 'TENANT_ADMIN';
+
+  if (adminPersona && !selectedProject) return <PrivatePage>{children}</PrivatePage>;
+  return (
+    <Authenticated>
+      <ProjectContextGate><Navigate to="/dashboard" replace /></ProjectContextGate>
+    </Authenticated>
+  );
 }
 
 function Loading() {
-  return <div className="app-loading"><img src={verigenceMark} alt="" /><span>Loading Verigence…</span></div>;
+  return <div className="app-loading"><img src={verigenceLockup} alt="Verigence" /><span>Loading Verigence…</span></div>;
 }
 
 export default function App() {
@@ -56,21 +83,21 @@ export default function App() {
             <Route path="/forgot-password" element={<ForgotPasswordPage />} />
             <Route path="/terms" element={<TermsPage />} />
             <Route path="/privacy" element={<PrivacyPage />} />
-            <Route path="/dashboard" element={<PrivatePage><DashboardPage /></PrivatePage>} />
-            <Route path="/customers" element={<PrivatePage><CustomersPage /></PrivatePage>} />
-            <Route path="/journeys" element={<PrivatePage><JourneysPage /></PrivatePage>} />
-            <Route path="/journeys/:journeyId" element={<PrivatePage><JourneyWorkspacePage /></PrivatePage>} />
-            <Route path="/journeys/:journeyId/evidence/:evidenceId" element={<PrivatePage><EvidenceDetailPage /></PrivatePage>} />
-            <Route path="/reviews" element={<PrivatePage><ReviewQueuePage /></PrivatePage>} />
-            <Route path="/evidence" element={<PrivatePage><EvidencePage /></PrivatePage>} />
-            <Route path="/payments" element={<PrivatePage><PaymentTrackerPage /></PrivatePage>} />
-            <Route path="/findings" element={<PrivatePage><FindingsPage /></PrivatePage>} />
-            <Route path="/tasks" element={<PrivatePage><TasksPage /></PrivatePage>} />
-            <Route path="/daily-ops" element={<PrivatePage><DailyOpsPage /></PrivatePage>} />
-            <Route path="/activity" element={<PrivatePage><ActivityTrackerPage /></PrivatePage>} />
-            <Route path="/crm" element={<PrivatePage><CrmPage /></PrivatePage>} />
-            <Route path="/escalations" element={<PrivatePage><EscalationsPage /></PrivatePage>} />
-            <Route path="/analytics" element={<PrivatePage><AnalyticsPage /></PrivatePage>} />
+            <Route path="/dashboard" element={<OperationalPage><DashboardPage /></OperationalPage>} />
+            <Route path="/customers" element={<LegacyOperationalPage><CustomersPage /></LegacyOperationalPage>} />
+            <Route path="/journeys" element={<LegacyOperationalPage><JourneysPage /></LegacyOperationalPage>} />
+            <Route path="/journeys/:journeyId" element={<LegacyOperationalPage><JourneyWorkspacePage /></LegacyOperationalPage>} />
+            <Route path="/journeys/:journeyId/evidence/:evidenceId" element={<LegacyOperationalPage><EvidenceDetailPage /></LegacyOperationalPage>} />
+            <Route path="/reviews" element={<LegacyOperationalPage><ReviewQueuePage /></LegacyOperationalPage>} />
+            <Route path="/evidence" element={<LegacyOperationalPage><EvidencePage /></LegacyOperationalPage>} />
+            <Route path="/payments" element={<LegacyOperationalPage><PaymentTrackerPage /></LegacyOperationalPage>} />
+            <Route path="/findings" element={<LegacyOperationalPage><FindingsPage /></LegacyOperationalPage>} />
+            <Route path="/tasks" element={<LegacyOperationalPage><TasksPage /></LegacyOperationalPage>} />
+            <Route path="/daily-ops" element={<LegacyOperationalPage><DailyOpsPage /></LegacyOperationalPage>} />
+            <Route path="/activity" element={<LegacyOperationalPage><ActivityTrackerPage /></LegacyOperationalPage>} />
+            <Route path="/crm" element={<LegacyOperationalPage><CrmPage /></LegacyOperationalPage>} />
+            <Route path="/escalations" element={<LegacyOperationalPage><EscalationsPage /></LegacyOperationalPage>} />
+            <Route path="/analytics" element={<LegacyOperationalPage><AnalyticsPage /></LegacyOperationalPage>} />
             <Route path="/approvals" element={<PrivatePage><ApprovalQueuePage /></PrivatePage>} />
             <Route path="/admin/project" element={<PrivatePage><ProjectAdministrationPage /></PrivatePage>} />
             <Route path="/admin/organization" element={<Navigate to="/admin/project?step=2" replace />} />

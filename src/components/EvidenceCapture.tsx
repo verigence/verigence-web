@@ -28,8 +28,24 @@ export default function EvidenceCapture({ journeyId, onUploaded }: { journeyId: 
   };
 
   const takePhoto = async () => {
-    const photo = await captureEvidencePhoto();
-    setMessage(photo.webPath ? 'Photo captured.' : 'Photo captured.');
+    if (busy) return;
+    setMessage('');
+    try {
+      const photo = await captureEvidencePhoto();
+      if (!photo.webPath) {
+        setMessage("We couldn't use this photo. Please try again.");
+        return;
+      }
+      const response = await fetch(photo.webPath);
+      const blob = await response.blob();
+      const extension = photo.format || 'jpeg';
+      const file = new File([blob], `evidence-${Date.now()}.${extension}`, {
+        type: blob.type || `image/${extension === 'jpg' ? 'jpeg' : extension}`,
+      });
+      await processFile(file);
+    } catch {
+      setMessage("We couldn't capture this photo. Please try again.");
+    }
   };
 
   return (
@@ -44,7 +60,7 @@ export default function EvidenceCapture({ journeyId, onUploaded }: { journeyId: 
       </div>
       <div className="evidence-capture__actions">
         <VerigenceButton disabled={busy} onClick={() => inputRef.current?.click()}>{busy ? 'Uploading…' : 'Choose File'}</VerigenceButton>
-        {Capacitor.isNativePlatform() && <VerigenceButton fill="outline" onClick={takePhoto}>Take Photo</VerigenceButton>}
+        {Capacitor.isNativePlatform() && <VerigenceButton fill="outline" disabled={busy} onClick={takePhoto}>Take Photo</VerigenceButton>}
       </div>
       {message && <small className="evidence-capture__message">{message}</small>}
     </div>

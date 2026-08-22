@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type ClipboardEvent, type FormEvent, type 
 import { useForm } from 'react-hook-form';
 import { Link } from 'react-router-dom';
 
-import verigenceLockup from '../assets/verigence-lockup.png';
+import { verigenceLockup } from '../assets/verigenceLockup';
 import { signupSchema, type SignupFormValues } from '../features/onboarding/signupSchema';
 import {
   resendOnboardingEmailCode,
@@ -66,8 +66,8 @@ export default function SignupPage() {
       setAcceptedLegal(false);
       setShowPassword(false);
       setScreen('verify');
-    } catch (error) {
-      setFormError(errorMessage(error));
+    } catch {
+      setFormError('We could not complete your registration. Please check your details and try again.');
     } finally {
       setBusy(false);
     }
@@ -266,8 +266,8 @@ function VerifyEmailScreen({
       await verifyOnboardingEmail(attempt.signupAttemptId, code);
       setDigits(Array(6).fill(''));
       onComplete();
-    } catch (verificationError) {
-      setError(errorMessage(verificationError));
+    } catch {
+      setError('We could not verify this code. Please try again or request a new code.');
     } finally {
       setBusy(false);
     }
@@ -283,8 +283,8 @@ function VerifyEmailScreen({
       setDigits(Array(6).fill(''));
       setResendNotice('A new verification code was sent.');
       inputs.current[0]?.focus();
-    } catch (resendError) {
-      setError(errorMessage(resendError));
+    } catch {
+      setError('We could not send a new code. Please try again.');
     } finally {
       setResending(false);
     }
@@ -390,10 +390,6 @@ function useExpiryCountdown(expiresAt: string): string {
   const minutesPart = Math.floor(seconds / 60).toString().padStart(2, '0');
   const secondsPart = (seconds % 60).toString().padStart(2, '0');
   return `${minutesPart}:${secondsPart}`;
-}
-
-function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : 'We could not complete the request. Please try again.';
 }
 
 function Icon({ children }: { children: React.ReactNode }) {

@@ -6,14 +6,14 @@ type Step = {
 };
 
 export const projectAdminSteps: Step[] = [
-  { key: 1, short: 'W1', label: 'Project Details', description: 'Create or update Project configuration.' },
-  { key: 2, short: 'W2', label: 'Dealers', description: 'Maintain Project dealer hierarchy.' },
-  { key: 3, short: 'W3', label: 'Dealer Outlets', description: 'Maintain dealer outlet locations.' },
-  { key: 4, short: 'W4', label: 'Employees', description: 'Find eligible Security users.' },
-  { key: 5, short: 'W5', label: 'Role Mapping', description: 'Assign operating role and business scope.' },
-  { key: 6, short: 'W6', label: 'Project Masters', description: 'Upload, validate, confirm and publish masters.' },
-  { key: 7, short: 'W7', label: 'Readiness', description: 'Resolve all blocking activation checks.' },
-  { key: 8, short: 'W8', label: 'Activate Project', description: 'Activate Security Tenant and Audit Core Project.' },
+  { key: 1, short: 'Step 1', label: 'Project Details', description: 'Create or update Project details.' },
+  { key: 2, short: 'Step 2', label: 'Dealers', description: 'Add and manage Project dealers.' },
+  { key: 3, short: 'Step 3', label: 'Dealer Outlets', description: 'Add and manage dealer outlet locations.' },
+  { key: 4, short: 'Step 4', label: 'Employees', description: 'Find people who can be assigned to the Project.' },
+  { key: 5, short: 'Step 5', label: 'Role Mapping', description: 'Assign roles and working scope.' },
+  { key: 6, short: 'Step 6', label: 'Project Masters', description: 'Upload and manage Project masters.' },
+  { key: 7, short: 'Step 7', label: 'Readiness', description: 'Review anything that must be completed before activation.' },
+  { key: 8, short: 'Step 8', label: 'Activate Project', description: 'Review and activate the Project.' },
 ];
 
 export default function ProjectAdminStepper({

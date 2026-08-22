@@ -240,6 +240,7 @@ export default function ProjectAdministrationPage() {
 
   async function submitProject(event: FormEvent) {
     event.preventDefault();
+    if (!project && (provisioning?.provisioningStatus === 'IN_PROGRESS' || provisioning?.provisioningStatus === 'RECOVERY_REQUIRED')) return;
     clearFeedback();
     setBusy(true);
     try {
@@ -483,6 +484,7 @@ export default function ProjectAdministrationPage() {
 
   const projectConfigured = Boolean(tenantId && project);
   const provisioningFailed = provisioning?.provisioningStatus === 'RECOVERY_REQUIRED';
+  const provisioningUnresolved = provisioning?.provisioningStatus === 'IN_PROGRESS' || provisioning?.provisioningStatus === 'RECOVERY_REQUIRED';
 
   return (
     <div className="screen-stack uc02-admin">
@@ -528,7 +530,7 @@ export default function ProjectAdministrationPage() {
                 <Field label="Timezone"><input required value={projectForm.timezoneName} onChange={(event) => setProjectForm({ ...projectForm, timezoneName: event.target.value })} /></Field>
                 <Field label="Region / Geography"><input value={projectForm.regionCode} onChange={(event) => setProjectForm({ ...projectForm, regionCode: event.target.value })} /></Field>
               </div>
-              <div className="uc02-actions"><button className="uc02-button uc02-button--primary" disabled={busy || projectLoading}>{busy ? 'Saving…' : project ? 'Save Project Details' : 'Create Project'}</button></div>
+              <div className="uc02-actions"><button className="uc02-button uc02-button--primary" disabled={busy || projectLoading || (!project && provisioningUnresolved)}>{busy ? 'Saving…' : project ? 'Save Project Details' : provisioningUnresolved ? 'Retry Setup to continue' : 'Create Project'}</button></div>
             </form>
             <aside className="uc02-card uc02-card--soft">
               <div className="uc02-card__title"><h3>Project Setup</h3><p>Complete project setup before moving to the remaining administration steps.</p></div>

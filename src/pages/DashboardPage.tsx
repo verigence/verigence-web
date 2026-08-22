@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import MetricCard from '../components/MetricCard';
 import PageHeader from '../components/PageHeader';
 import StatusPill from '../components/StatusPill';
-import type { UserRole } from '../domain/models';
+import type { OperatingRole } from '../domain/models';
 import {
   getUc03LandingMetrics,
   listUc03WorkItems,
@@ -14,14 +14,12 @@ import {
 import { useProjectContextStore } from '../store/projectContextStore';
 import { useSessionStore } from '../store/sessionStore';
 
-const roleLabels: Record<UserRole, string> = {
+const roleLabels: Record<OperatingRole, string> = {
   PC: 'Process Coordinator',
   TL: 'Team Lead',
   PM: 'Project Manager',
   CRM: 'CRM',
   EXECUTIVE: 'Executive',
-  TENANT_ADMIN: 'Tenant Admin',
-  SUPER_ADMIN: 'SuperAdmin',
 };
 
 function friendlyStatus(value?: string | null, fallback = 'Not Started'): string {

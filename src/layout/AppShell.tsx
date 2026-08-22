@@ -57,10 +57,24 @@ const routeLabels: Record<string, string> = {
   '/profile': 'Profile',
 };
 
+const roleLabels: Record<UserRole, string> = {
+  PC: 'Process Coordinator',
+  TL: 'Team Lead',
+  PM: 'Project Manager',
+  CRM: 'CRM',
+  TENANT_ADMIN: 'Tenant Admin',
+  SUPER_ADMIN: 'SuperAdmin',
+};
+
+function initials(name: string): string {
+  const tokens = name.trim().split(/\s+/).filter(Boolean);
+  if (tokens.length >= 2) return `${tokens[0][0]}${tokens[1][0]}`.toUpperCase();
+  return (tokens[0] || 'U').slice(0, 2).toUpperCase();
+}
+
 export default function AppShell({ children }: PropsWithChildren) {
   const role = useSessionStore((state) => state.role);
   const displayName = useSessionStore((state) => state.displayName);
-  const email = useSessionStore((state) => state.email);
   const signOut = useSessionStore((state) => state.signOut);
   const navigate = useNavigate();
   const location = useLocation();
@@ -73,6 +87,9 @@ export default function AppShell({ children }: PropsWithChildren) {
   const currentLabel = routeLabels[location.pathname]
     ?? location.pathname.split('/').filter(Boolean).at(-1)?.replaceAll('-', ' ')
     ?? 'Overview';
+  const visibleName = displayName || 'User';
+  const roleLabel = roleLabels[role];
+  const avatarText = initials(visibleName);
 
   return (
     <div className="enterprise-shell">
@@ -96,16 +113,20 @@ export default function AppShell({ children }: PropsWithChildren) {
             );
           })}
         </nav>
-        <NavLink to="/profile" className="enterprise-profile-link">
-          <span className="enterprise-profile-link__avatar">{displayName.slice(0, 2).toUpperCase()}</span>
-          <span><strong>{displayName || 'User'}</strong><small>{email}</small></span>
+        <NavLink to="/profile" className="enterprise-profile-link" aria-label="Open profile">
+          <span className="enterprise-profile-link__avatar">{avatarText}</span>
+          <span><strong>{visibleName}</strong><small>{roleLabel}</small></span>
         </NavLink>
       </aside>
       <div className="enterprise-main">
         <header className="enterprise-topbar">
           <div className="enterprise-topbar__trail"><span>Verigence</span><span>/</span><strong>{currentLabel}</strong></div>
           <div className="enterprise-topbar__actions">
-            <button type="button" className="user-menu-button" title={email} onClick={handleSignOut}>Sign out</button>
+            <NavLink to="/profile" className="enterprise-topbar__identity" aria-label="Open profile">
+              <span className="enterprise-topbar__avatar">{avatarText}</span>
+              <span className="enterprise-topbar__identity-copy"><strong>{visibleName}</strong><small>{roleLabel}</small></span>
+            </NavLink>
+            <button type="button" className="user-menu-button" onClick={handleSignOut}>Sign out</button>
           </div>
         </header>
         <main className="enterprise-content">{children}</main>

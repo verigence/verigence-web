@@ -117,15 +117,32 @@ jobs:
             --output /tmp/login.html \
             "$DEV_WEB_URL/login"
 
-          asset_path="$(grep -oE 'src="/assets/[^"]+\.js"' /tmp/login.html | head -n 1 | sed -E 's/^src="([^"]+)"$/\1/')"
-          [ -n "$asset_path" ] || { echo '::error::Could not resolve deployed JavaScript asset.'; cat /tmp/login.html; exit 1; }
-          curl --fail --silent --show-error --location --output /tmp/app.js "$DEV_WEB_URL$asset_path"
+          probe_deployed_marker() {
+            local marker="$1"
+            local label="$2"
+            local local_file
+            local remote_file
+            local remote_path
+            local local_sha
+            local remote_sha
 
-          grep -q '/v1/me/projects' /tmp/app.js || { echo '::error::Deployed bundle is missing Project discovery.'; exit 1; }
-          grep -q '/uc03/landing-metrics' /tmp/app.js || { echo '::error::Deployed bundle is missing C0 landing metrics.'; exit 1; }
-          grep -q '/uc03/work-items' /tmp/app.js || { echo '::error::Deployed bundle is missing C0 work list.'; exit 1; }
-          grep -q 'Delivery In Progress' /tmp/app.js || { echo '::error::Deployed bundle is missing required C0 wording.'; exit 1; }
-          grep -q 'data:image/png;base64,' /tmp/app.js || { echo '::error::Deployed bundle is missing approved Verigence logo.'; exit 1; }
+            local_file="$(grep -RFl -- "$marker" dist/assets | head -n 1)"
+            [ -n "$local_file" ] || { echo "::error::Local bundle marker missing: $label"; exit 1; }
+            remote_path="/assets/$(basename "$local_file")"
+            remote_file="/tmp/$(basename "$local_file")"
+            curl --fail --silent --show-error --location --output "$remote_file" "$DEV_WEB_URL$remote_path"
+            grep -Fq -- "$marker" "$remote_file" || { echo "::error::Deployed marker missing: $label"; exit 1; }
+            local_sha="$(sha256sum "$local_file" | awk '{print $1}')"
+            remote_sha="$(sha256sum "$remote_file" | awk '{print $1}')"
+            test "$local_sha" = "$remote_sha" || { echo "::error::Deployed asset hash mismatch for $remote_path"; exit 1; }
+            echo "UC03_C0_DEPLOYED_MARKER=PASS|$label|$remote_path"
+          }
+
+          probe_deployed_marker '/v1/me/projects' 'Project discovery'
+          probe_deployed_marker '/uc03/landing-metrics' 'Landing metrics'
+          probe_deployed_marker '/uc03/work-items' 'Work list'
+          probe_deployed_marker 'Delivery In Progress' 'Delivery In Progress wording'
+          probe_deployed_marker 'data:image/png;base64,' 'Approved Verigence logo'
           echo 'UC03_C0_WEB_DEPLOYED_BUNDLE=PASS'
 
           SECURITY_STATUS="$(curl --silent --show-error \

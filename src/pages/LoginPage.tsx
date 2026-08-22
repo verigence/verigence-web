@@ -1,7 +1,9 @@
 import { useState, type FormEvent, type ReactNode } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate } from 'react-router-dom';
 
 import { verigenceLockup } from '../assets/verigenceLockup';
+import { resetOperationalContext } from '../features/uc03/projectContext';
 import {
   loginErrorMessage,
   loginHuman,
@@ -10,6 +12,7 @@ import { useSessionStore } from '../store/sessionStore';
 
 export default function LoginPage() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const signInAuthenticated = useSessionStore((state) => state.signInAuthenticated);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -29,6 +32,7 @@ export default function LoginPage() {
       const login = await loginHuman(identifier, password);
       const superAdmin = login.isSuperAdmin;
 
+      resetOperationalContext(queryClient);
       signInAuthenticated(
         identifier,
         login.accessToken,

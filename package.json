@@ -11,15 +11,16 @@
     "preview": "vite preview",
     "deploy": "wrangler deploy",
     "cap:sync": "cap sync",
-    "cap:android": "cap open android",
-    "cap:ios": "cap open ios"
+    "cap:android": "cap open android"
   },
   "dependencies": {
     "@capacitor/android": "^8.0.0",
+    "@capacitor/app": "^8.0.0",
     "@capacitor/camera": "^8.0.0",
     "@capacitor/core": "^8.0.0",
     "@capacitor/geolocation": "^8.0.0",
-    "@capacitor/ios": "^8.0.0",
+    "@capacitor/keyboard": "^8.0.0",
+    "@capacitor/status-bar": "^8.0.0",
     "@ionic/react": "^8.0.0",
     "@tanstack/react-query": "^5.0.0",
     "react": "^19.0.0",

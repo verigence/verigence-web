@@ -3,7 +3,7 @@
 **Planning branch:** `planning/uc-003-booking-delivery-audit`  
 **Frozen baseline:** `dev@2c98f753ed1428c0d5f7a0b7144169d528a5bb78`
 
-The canonical UC03 design set is maintained in:
+The canonical UC03 business/workflow design set is maintained in:
 
 `verigence-audit-core / planning/uc-003-booking-delivery-audit / docs/uc-003-booking-delivery-audit/`
 
@@ -13,6 +13,34 @@ Current canonical documents:
 - `UC03_WORKFLOW_STATE_EVENT_CATALOG_v1.1.md`
 - `UC03_RULE_FLAG_CATALOG_v1.0.md`
 - `UC03_DOCUMENT_123_FIELD_MATRIX_v1.0.md`
+- `UC03_RECONCILIATION_DECISIONS_v1.0.md`
+
+## Web/Android planning artifacts
+
+1. [`UC03_UX_FLOW_CONTRACT_v0.1.md`](./UC03_UX_FLOW_CONTRACT_v0.1.md) — screen/state interaction contract.
+2. [`UC03_ANDROID_WEB_MOCKUPS_v0.1.html`](./UC03_ANDROID_WEB_MOCKUPS_v0.1.html) — static design-review pack with Android phone, Android tablet and desktop Web states.
+
+The mockup pack currently covers:
+
+### Android phone
+
+- My Work;
+- Booking capture while extraction runs;
+- extraction proposal review;
+- Booking verification/conclusion;
+- Delivery Start while Booking remains incomplete;
+- Delivery document checklist and camera/photo capture;
+- Audit Flags and human flag creation;
+- Delivery Completed while Audit remains In Progress.
+
+### Android tablet
+
+- TL/PM master-detail Audit Flag review.
+
+### Desktop Web
+
+- Booking workspace;
+- Delivery workspace.
 
 ## Web/Android responsibility
 
@@ -30,27 +58,38 @@ Web/Android owns the user experience only:
 
 Web/Android does **not** own authoritative business-state transitions or compliance logic.
 
-## UC03 UX direction frozen before mockups
+## UC03 UX direction
 
 - PC-facing UI uses **Booking** and **Delivery**, never “Journey Workspace”.
-- Android phone is the primary PC target; Android tablet is second; desktop Web follows the same workflow/components.
-- Booking and Delivery can overlap: Delivery may start while Booking remains In Progress.
-- Delivery business status is **Started -> In Progress -> Completed**. There is no Delivery Closed state.
-- After physical Delivery Completed, Delivery audit work may remain In Progress and the UI must show that distinction clearly.
-- Progression with incomplete Booking/Delivery audit conditions is captured normally; Audit Core returns resulting flag state.
-- Document extraction is asynchronous: upload first, continue user-only work, show per-document state, progressively surface extracted proposals.
+- Android phone is primary; Android tablet is second; desktop Web uses the same workflow/components.
+- Booking and Delivery can overlap.
+- Delivery business status is **Started -> In Progress -> Completed** only.
+- After physical Delivery Completed, Delivery Audit may remain In Progress.
+- Progression with incomplete Booking/Delivery audit conditions is recorded normally; Audit Core returns the resulting flag state.
+- Document extraction is asynchronous: upload first, continue PC-only work, show per-document state, progressively surface proposals.
 - Extracted values never silently overwrite PC-entered/accepted values.
-- The 123-field inventory is now accounted for; legacy generic Status and Observation fields are being replaced/remapped by Workflow/Flag models.
-- The provisional document catalogue contains 29 numbered source items pending UAT reconciliation against the source's 26-document wording.
+- Aadhaar is masked in the planned UX; raw-retention policy is not invented in the client.
+- VIN/chassis reconciliation result comes from Audit Core Rule Engine only.
+- Applicable document counts are dynamic; the UI does not hard-code 26 or 29.
 - No technical/internal backend messages are shown to users.
 - Post-Delivery reconciliation UI is out of Phase-1 scope.
 
-## Next UI deliverable
+## Current visual framework
 
-After review/reconciliation of the canonical four-document design set, create the complete UC03 mockup pack in this order:
+The static mockups intentionally retain the current Verigence direction:
 
-1. Android phone;
-2. Android tablet;
-3. desktop Web.
+- navy/blue/teal palette;
+- light mist background;
+- white rounded cards;
+- existing identity/topbar direction;
+- mobile drawer behavior;
+- 44–48 px touch targets;
+- card-first phone layouts.
 
-No Web/Android production implementation is authorized by this planning pointer.
+They redesign the UC03 work surface, not the entire product shell.
+
+## Approval gate
+
+These are static planning artifacts only. No Web/Android production implementation is authorized yet.
+
+After business/UX approval, create UC03 Implementation Design before changing React routes/components, Audit Core APIs, DI profiles or Android native behavior.

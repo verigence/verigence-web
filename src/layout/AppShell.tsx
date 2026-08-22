@@ -17,24 +17,24 @@ const groups: NavGroup[] = [
     { to: '/dashboard', label: 'Overview', mark: 'OV', roles: operational },
     { to: '/customers', label: 'Customers', mark: 'CU', roles: ['PC', 'TL', 'PM', ...admin] },
     { to: '/journeys', label: 'Journeys', mark: 'JR', roles: ['PC', 'TL', 'PM', ...admin] },
-    { to: '/tasks', label: 'My work', mark: 'WK', roles: operational },
+    { to: '/tasks', label: 'My Work', mark: 'WK', roles: operational },
   ] },
   { label: 'Assurance', items: [
-    { to: '/reviews', label: 'Review queue', mark: 'RV', roles: assurance },
+    { to: '/reviews', label: 'Review Queue', mark: 'RV', roles: assurance },
     { to: '/evidence', label: 'Evidence', mark: 'EV', roles: ['PC', 'TL', 'PM', ...admin] },
-    { to: '/payments', label: 'Payment tracker', mark: 'PY', roles: ['PC', 'TL', 'PM', ...admin] },
+    { to: '/payments', label: 'Payment Tracker', mark: 'PY', roles: ['PC', 'TL', 'PM', ...admin] },
     { to: '/findings', label: 'Findings', mark: 'FN', roles: assurance },
   ] },
   { label: 'Operations', items: [
-    { to: '/daily-ops', label: 'Daily operations', mark: 'DO', roles: ['PC', 'TL', 'PM', ...admin] },
-    { to: '/activity', label: 'Activity tracker', mark: 'AT', roles: ['PC', 'TL', 'PM', ...admin] },
-    { to: '/crm', label: 'CRM follow-up', mark: 'CR', roles: ['CRM', 'PM', ...admin] },
+    { to: '/daily-ops', label: 'Daily Operations', mark: 'DO', roles: ['PC', 'TL', 'PM', ...admin] },
+    { to: '/activity', label: 'Activity Tracker', mark: 'AT', roles: ['PC', 'TL', 'PM', ...admin] },
+    { to: '/crm', label: 'CRM Follow-up', mark: 'CR', roles: ['CRM', 'PM', ...admin] },
     { to: '/escalations', label: 'Escalations', mark: 'ES', roles: ['TL', 'PM', 'CRM', ...admin] },
   ] },
   { label: 'Insights', items: [{ to: '/analytics', label: 'Analytics', mark: 'AN', roles: ['TL', 'PM', ...admin] }] },
   { label: 'Administration', items: [
     { to: '/approvals', label: 'Pending Approval', mark: 'PA', roles: ['SUPER_ADMIN'] },
-    { to: '/admin/project', label: 'Project administration', mark: 'PR', roles: ['SUPER_ADMIN'] },
+    { to: '/admin/project', label: 'Project Administration', mark: 'PR', roles: ['SUPER_ADMIN'] },
   ] },
 ];
 
@@ -42,18 +42,18 @@ const routeLabels: Record<string, string> = {
   '/dashboard': 'Overview',
   '/customers': 'Customers',
   '/journeys': 'Journeys',
-  '/tasks': 'My work',
-  '/reviews': 'Review queue',
+  '/tasks': 'My Work',
+  '/reviews': 'Review Queue',
   '/evidence': 'Evidence',
-  '/payments': 'Payment tracker',
+  '/payments': 'Payment Tracker',
   '/findings': 'Findings',
-  '/daily-ops': 'Daily operations',
-  '/activity': 'Activity tracker',
-  '/crm': 'CRM follow-up',
+  '/daily-ops': 'Daily Operations',
+  '/activity': 'Activity Tracker',
+  '/crm': 'CRM Follow-up',
   '/escalations': 'Escalations',
   '/analytics': 'Analytics',
   '/approvals': 'Pending Approval',
-  '/admin/project': 'Project administration',
+  '/admin/project': 'Project Administration',
   '/profile': 'Profile',
 };
 
@@ -95,7 +95,7 @@ export default function AppShell({ children }: PropsWithChildren) {
     <div className="enterprise-shell">
       <aside className="enterprise-sidebar">
         <NavLink className="enterprise-brand" to="/dashboard" aria-label="Verigence home">
-          <img src={verigenceLockup} alt="Verigence" />
+          <img src={verigenceLockup} alt="Verigence" style={{ width: 194 }} />
         </NavLink>
         <nav className="enterprise-nav" aria-label="Primary navigation">
           {groups.map((group) => {
@@ -113,10 +113,6 @@ export default function AppShell({ children }: PropsWithChildren) {
             );
           })}
         </nav>
-        <NavLink to="/profile" className="enterprise-profile-link" aria-label="Open profile">
-          <span className="enterprise-profile-link__avatar">{avatarText}</span>
-          <span><strong>{visibleName}</strong><small>{roleLabel}</small></span>
-        </NavLink>
       </aside>
       <div className="enterprise-main">
         <header className="enterprise-topbar">

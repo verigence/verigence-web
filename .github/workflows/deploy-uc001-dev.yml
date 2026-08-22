@@ -153,3 +153,21 @@ jobs:
               exit 1
               ;;
           esac
+
+          echo "--- Capacitor CORS preflight ---"
+          for origin in 'capacitor://localhost' 'https://localhost'; do
+            curl --fail --silent --show-error \
+              --dump-header /tmp/cors.headers \
+              --output /dev/null \
+              --request OPTIONS \
+              --header "Origin: $origin" \
+              --header 'Access-Control-Request-Method: POST' \
+              --header 'Access-Control-Request-Headers: content-type,authorization,x-onboarding-key' \
+              "$DEV_WEB_URL/security/v1/auth/login"
+            if ! grep -Fqi "access-control-allow-origin: $origin" /tmp/cors.headers; then
+              echo "Capacitor origin $origin was not allowed by the Security proxy"
+              cat /tmp/cors.headers
+              exit 1
+            fi
+          done
+          echo "CAPACITOR_SECURITY_CORS=PASS"

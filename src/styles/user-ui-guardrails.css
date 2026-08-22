@@ -1,0 +1,151 @@
+/*
+ * USER-FACING UI GUARDRAILS
+ *
+ * This layer is intentionally loaded after the authenticated master theme.
+ * It must never expose implementation details, internal service names, technical IDs,
+ * internal workflow codes, reconciliation/provisioning language, or raw backend errors.
+ * User screens should contain only task-oriented language a business user needs.
+ */
+
+/* Keep Project Administration visually inside the common application workspace. */
+.uc02-admin {
+  width: 100%;
+  max-width: 1400px;
+  margin: 0 auto;
+  overflow-x: hidden;
+}
+
+.uc02-admin > .page-header {
+  padding: 20px 22px;
+  align-items: center;
+  border: 1px solid var(--vg-line);
+  border-radius: 14px;
+  background: #ffffff;
+  box-shadow: var(--vg-shadow-soft);
+}
+
+.uc02-admin > .page-header .page-header__copy {
+  max-width: 980px;
+}
+
+.uc02-admin > .page-header .eyebrow {
+  display: none;
+}
+
+.uc02-admin > .page-header .page-header__copy::before {
+  content: 'Administration';
+  display: block;
+  margin-bottom: 4px;
+  color: var(--vg-teal-600);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.uc02-admin > .page-header h1 {
+  margin: 2px 0 6px;
+  font-size: clamp(30px, 3vw, 40px);
+  line-height: 1.08;
+}
+
+/* The current source copy contains implementation notes. Do not show it to users. */
+.uc02-admin > .page-header p {
+  display: none;
+}
+
+.uc02-admin > .page-header .page-header__copy::after {
+  content: 'Set up project details, dealers, outlets, team access and masters before activation.';
+  display: block;
+  max-width: 820px;
+  color: var(--vg-muted);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+/* Technical data-source badges are not part of a user-facing screen. */
+.data-backing,
+.runtime-chip {
+  display: none !important;
+}
+
+/* Project summary should show business context, not internal tenant/version identifiers. */
+.uc02-admin .uc02-project-strip {
+  grid-template-columns: 1fr;
+}
+
+.uc02-admin .uc02-project-strip > div:nth-child(n + 2) {
+  display: none;
+}
+
+/* Never surface raw backend/service errors or internal success-process details. */
+.uc02-admin .uc02-message > span {
+  display: none;
+}
+
+.uc02-admin .uc02-message--error::after {
+  content: 'We could not complete your request. Please check the information and try again.';
+  font-weight: 500;
+}
+
+.uc02-admin .uc02-message--success::after {
+  content: 'Your request was completed successfully.';
+  font-weight: 500;
+}
+
+/* Step 1 currently contains implementation/provisioning copy. Keep only user task language. */
+.uc02-admin .uc02-grid--project .uc02-card__title > p {
+  display: none;
+}
+
+.uc02-admin .uc02-grid--project form .uc02-card__title::after {
+  content: 'Enter the Project information below.';
+  color: var(--vg-muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.uc02-admin .uc02-grid--project aside .uc02-card__title h3 {
+  font-size: 0;
+}
+
+.uc02-admin .uc02-grid--project aside .uc02-card__title h3::after {
+  content: 'Project setup';
+  font-size: 15px;
+}
+
+.uc02-admin .uc02-grid--project aside .uc02-card__title::after {
+  content: 'Complete the Project setup before continuing.';
+  color: var(--vg-muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+/* Operation IDs, internal step names and tenant identifiers are implementation details. */
+.uc02-admin .uc02-grid--project .uc02-status-stack dl {
+  display: none;
+}
+
+.uc02-admin .uc02-grid--project .uc02-status-stack > button {
+  font-size: 0;
+}
+
+.uc02-admin .uc02-grid--project .uc02-status-stack > button::after {
+  content: 'Try again';
+  font-size: 12px;
+}
+
+/* Internal implementation hints should not appear below business fields. */
+.uc02-admin .uc02-grid--project .uc02-field small {
+  display: none;
+}
+
+@media (max-width: 900px) {
+  .uc02-admin > .page-header {
+    padding: 18px;
+  }
+
+  .uc02-admin > .page-header h1 {
+    font-size: 30px;
+  }
+}

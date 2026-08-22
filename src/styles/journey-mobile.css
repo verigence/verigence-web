@@ -1,0 +1,136 @@
+/* Journey workspace phone presentation. Desktop behavior remains unchanged. */
+
+.journey-stage-mobile-picker {
+  display: none;
+}
+
+@media (max-width: 767px) {
+  .journey-stage-mobile-picker {
+    padding: 12px 14px;
+    display: grid;
+    gap: 6px;
+    border: 1px solid var(--vg-line);
+    border-radius: 12px;
+    background: #fff;
+    box-shadow: var(--vg-shadow-soft);
+  }
+
+  .journey-stage-mobile-picker > span {
+    color: var(--vg-muted);
+    font-size: 11px;
+    font-weight: 800;
+  }
+
+  .journey-stage-mobile-picker select {
+    width: 100%;
+    min-height: 48px;
+    padding: 0 38px 0 12px;
+    border: 1px solid var(--vg-line-strong);
+    border-radius: 10px;
+    background: #fff;
+    color: var(--vg-navy-950);
+    font-weight: 750;
+  }
+
+  .journey-stage-mobile-picker small {
+    color: var(--vg-muted);
+    font-size: 11px;
+  }
+
+  .journey-stage-nav {
+    display: none;
+  }
+
+  .journey-workspace-grid {
+    display: block;
+  }
+
+  .journey-stage-content {
+    width: 100%;
+  }
+
+  .journey-summary-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .journey-summary-strip > div {
+    min-width: 0;
+    padding: 12px;
+  }
+
+  .journey-summary-strip strong {
+    overflow-wrap: anywhere;
+  }
+
+  .review-state-card {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .review-state-card small {
+    width: 100%;
+    margin-left: 0;
+  }
+
+  .review-action-group .button-row,
+  .review-action-group .button-row--wrap {
+    width: 100%;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 8px;
+  }
+
+  .review-action-group .verigence-button {
+    width: 100%;
+  }
+
+  .evidence-mini-row {
+    min-width: 0;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .evidence-mini-row > span:nth-child(2) {
+    min-width: 0;
+  }
+
+  .evidence-mini-row > .status-pill {
+    flex: 0 0 auto;
+  }
+
+  .dashboard-grid .compact-list__row {
+    min-height: 58px;
+    align-items: flex-start;
+  }
+
+  .dashboard-grid .compact-list__meta {
+    max-width: 42%;
+  }
+
+  .evidence-principle-banner {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .evidence-principle-banner .secondary-link-button {
+    width: 100%;
+    min-height: 44px;
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 430px) {
+  .journey-summary-strip {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .dashboard-grid .compact-list__row {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .dashboard-grid .compact-list__meta {
+    width: 100%;
+    max-width: none;
+    justify-items: start;
+  }
+}

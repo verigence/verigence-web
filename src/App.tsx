@@ -4,6 +4,7 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 
 import verigenceMark from './assets/verigence-mark.png';
 import AppShell from './layout/AppShell';
+import AndroidNativeBridge from './native/AndroidNativeBridge';
 import { useSessionStore } from './store/sessionStore';
 
 const LoginPage = lazy(() => import('./pages/LoginPage'));
@@ -47,6 +48,7 @@ export default function App() {
   return (
     <IonApp>
       <BrowserRouter basename={routerBase}>
+        <AndroidNativeBridge />
         <Suspense fallback={<Loading />}>
           <Routes>
             <Route path="/login" element={<LoginPage />} />

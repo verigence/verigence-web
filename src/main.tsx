@@ -27,6 +27,7 @@ import './styles/adaptive-lists.css';
 import './styles/journey-mobile.css';
 import './styles/operational-mobile.css';
 import './styles/final-mobile-sweep.css';
+import './styles/android-native.css';
 
 import App from './App';
 

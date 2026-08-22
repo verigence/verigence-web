@@ -44,21 +44,20 @@ function endpoint(path: string): string {
   return `${securityBaseUrl}${path}`;
 }
 
-function validationDetailMessage(detail: unknown): string | undefined {
-  if (!Array.isArray(detail)) return undefined;
-  const messages = detail
-    .map((item) => {
-      if (typeof item !== 'object' || item === null) return undefined;
-      const record = item as Record<string, unknown>;
-      const msg = typeof record.msg === 'string' ? record.msg : undefined;
-      const loc = Array.isArray(record.loc)
-        ? record.loc.filter((part) => typeof part === 'string' || typeof part === 'number').join('.')
-        : undefined;
-      if (!msg) return undefined;
-      return loc ? `${loc}: ${msg}` : msg;
-    })
-    .filter((value): value is string => Boolean(value));
-  return messages.length ? messages.join(' ') : undefined;
+function safeErrorMessage(status: number): string {
+  if (status === 401 || status === 403) {
+    return 'Registration could not be completed with the information provided. Please review it and try again.';
+  }
+  if (status === 409) {
+    return 'A registration with these details already exists.';
+  }
+  if (status === 429) {
+    return 'Too many attempts. Please wait a moment and try again.';
+  }
+  if (status >= 500) {
+    return 'Registration is temporarily unavailable. Please try again.';
+  }
+  return 'We could not complete the request. Please review your information and try again.';
 }
 
 async function readResponse<T>(response: Response): Promise<T> {
@@ -75,17 +74,8 @@ async function readResponse<T>(response: Response): Promise<T> {
     const record = typeof payload === 'object' && payload !== null
       ? payload as Record<string, unknown>
       : undefined;
-    const detail = record?.detail;
-    const message =
-      (typeof detail === 'string' && detail) ||
-      validationDetailMessage(detail) ||
-      (typeof record?.message === 'string' && record.message) ||
-      (typeof record?.title === 'string' && record.title) ||
-      (typeof payload === 'string' && payload) ||
-      `Security request failed (${response.status}). Please try again.`;
     const code = typeof record?.code === 'string' ? record.code : undefined;
-
-    throw new SecurityApiError(message, response.status, code);
+    throw new SecurityApiError(safeErrorMessage(response.status), response.status, code);
   }
 
   return payload as T;

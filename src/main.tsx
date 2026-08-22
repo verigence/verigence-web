@@ -26,6 +26,7 @@ import './styles/mobile-foundation.css';
 import './styles/adaptive-lists.css';
 import './styles/journey-mobile.css';
 import './styles/operational-mobile.css';
+import './styles/final-mobile-sweep.css';
 
 import App from './App';
 

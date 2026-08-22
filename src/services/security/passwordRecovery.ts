@@ -27,6 +27,12 @@ function endpoint(path: string): string {
   return `${securityBaseUrl}${path}`;
 }
 
+function safeRecoveryMessage(status: number): string {
+  if (status === 429) return 'Too many attempts. Please wait a moment and try again.';
+  if (status >= 500) return 'Password recovery is temporarily unavailable. Please try again.';
+  return 'We could not complete password recovery. Please check the information and try again.';
+}
+
 async function readResponse<T>(response: Response): Promise<T> {
   const contentType = response.headers.get('content-type') ?? '';
   const payload: unknown = contentType.includes('json')
@@ -34,15 +40,7 @@ async function readResponse<T>(response: Response): Promise<T> {
     : await response.text().catch(() => undefined);
 
   if (!response.ok) {
-    const record = typeof payload === 'object' && payload !== null
-      ? payload as Record<string, unknown>
-      : undefined;
-    const detail = typeof record?.detail === 'string' ? record.detail : undefined;
-    const message = detail
-      || (typeof record?.title === 'string' ? record.title : undefined)
-      || (typeof payload === 'string' ? payload : undefined)
-      || 'Password recovery could not be completed. Please try again.';
-    throw new PasswordRecoveryError(message, response.status);
+    throw new PasswordRecoveryError(safeRecoveryMessage(response.status), response.status);
   }
 
   return payload as T;

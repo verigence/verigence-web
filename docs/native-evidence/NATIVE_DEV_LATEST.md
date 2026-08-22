@@ -1,9 +1,9 @@
 # Verigence Native DEV — Latest Validation
 
 - branch: dev
-- run_id: 32555561123
-- run_number: 2
-- source_sha: 557d1c35c97bf3800328342092891560bf8ec542
-- android: cancelled
-- ios: cancelled
-- workflow_url: https://github.com/verigence/verigence-web/actions/runs/32555561123
+- run_id: 32555637914
+- run_number: 3
+- source_sha: a7a98a2cb26b62cb9bb841831d96de4a6f66cca7
+- android: running
+- ios: running
+- workflow_url: https://github.com/verigence/verigence-web/actions/runs/32555637914

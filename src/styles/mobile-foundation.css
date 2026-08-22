@@ -332,6 +332,67 @@
     min-width: 620px;
   }
 
+  .task-card,
+  .review-card,
+  .evidence-register-card {
+    min-width: 0;
+    border-radius: 12px;
+  }
+
+  .task-card__meta {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 8px;
+  }
+
+  .task-card__actions {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .task-card__actions .text-link {
+    min-height: var(--vg-touch-target);
+    display: flex;
+    align-items: center;
+  }
+
+  .task-card__actions .button-row {
+    width: 100%;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .task-card__actions .button-row .verigence-button {
+    width: 100%;
+  }
+
+  .segmented-control {
+    width: 100%;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .segmented-control button {
+    min-width: 0;
+    min-height: var(--vg-touch-target);
+    padding: 0 8px;
+    white-space: normal;
+  }
+
+  .review-card__footer {
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .review-card__footer strong {
+    flex: 0 0 auto;
+  }
+
+  .evidence-register-card {
+    min-height: 150px;
+  }
+
   .uc02-stepper {
     display: flex;
     grid-template-columns: none;

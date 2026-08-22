@@ -3,20 +3,18 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 
 import { verigenceLockup } from '../assets/verigenceLockup';
-import type { UserRole } from '../domain/models';
+import type { OperatingRole } from '../domain/models';
 import { resetOperationalContext, selectOperationalProject } from '../features/uc03/projectContext';
 import { listMyOperationalProjects } from '../services/audit-core/uc03';
 import { useProjectContextStore } from '../store/projectContextStore';
 import { useSessionStore } from '../store/sessionStore';
 
-const roleLabels: Record<UserRole, string> = {
+const roleLabels: Record<OperatingRole, string> = {
   PC: 'Process Coordinator',
   TL: 'Team Lead',
   PM: 'Project Manager',
   CRM: 'CRM',
   EXECUTIVE: 'Executive',
-  TENANT_ADMIN: 'Tenant Admin',
-  SUPER_ADMIN: 'SuperAdmin',
 };
 
 export default function ProjectContextGate({ children }: PropsWithChildren) {

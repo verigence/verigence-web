@@ -23,6 +23,7 @@ import './styles/uc02-project-admin.css';
 import './styles/shell-ui-fixes.css';
 import './styles/user-ui-guardrails.css';
 import './styles/mobile-foundation.css';
+import './styles/adaptive-lists.css';
 
 import App from './App';
 

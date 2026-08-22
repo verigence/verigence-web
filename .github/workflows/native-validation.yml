@@ -1,0 +1,163 @@
+name: Validate Capacitor Native Apps
+
+on:
+  push:
+    branches:
+      - dev
+    paths:
+      - '.github/workflows/native-validation.yml'
+      - '.env.native-dev'
+      - 'capacitor.config.ts'
+      - 'package.json'
+      - 'scripts/configure-native.mjs'
+      - 'src/**'
+  workflow_dispatch:
+
+concurrency:
+  group: validate-capacitor-native-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  android:
+    name: Android debug package
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      VITE_SECURITY_BASE_URL: https://verigence-web-dev.jbrconsulting-it.workers.dev
+      VITE_AUDIT_CORE_BASE_URL: ${{ secrets.AUDIT_CORE_URL }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Build native Web assets
+        run: npm run build:native:dev
+
+      - name: Generate and sync Android
+        run: |
+          set -euo pipefail
+          npx cap add android
+          npx cap sync android
+          node scripts/configure-native.mjs android
+
+      - name: Verify Android native configuration
+        run: |
+          set -euo pipefail
+          grep -q 'android.permission.CAMERA' android/app/src/main/AndroidManifest.xml
+          grep -q 'android.permission.ACCESS_FINE_LOCATION' android/app/src/main/AndroidManifest.xml
+          grep -q 'android.permission.ACCESS_COARSE_LOCATION' android/app/src/main/AndroidManifest.xml
+          grep -q 'com.verigence.app' android/app/build.gradle || grep -R -q 'com.verigence.app' android/app
+          echo 'ANDROID_NATIVE_CONFIG=PASS'
+
+      - name: Build Android debug APK
+        working-directory: android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug --stacktrace
+
+      - name: Upload Android APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: verigence-android-debug
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 14
+
+  ios:
+    name: iOS simulator package
+    runs-on: macos-26
+    timeout-minutes: 35
+    env:
+      VITE_SECURITY_BASE_URL: https://verigence-web-dev.jbrconsulting-it.workers.dev
+      VITE_AUDIT_CORE_BASE_URL: ${{ secrets.AUDIT_CORE_URL }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Verify Xcode
+        run: |
+          set -euo pipefail
+          xcodebuild -version
+          major="$(xcodebuild -version | awk '/Xcode/{split($2,a,"."); print a[1]}')"
+          if [ "$major" -lt 26 ]; then
+            echo "Capacitor 8 requires Xcode 26 or newer"
+            exit 1
+          fi
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Build native Web assets
+        run: npm run build:native:dev
+
+      - name: Generate and sync iOS
+        run: |
+          set -euo pipefail
+          npx cap add ios
+          npx cap sync ios
+          node scripts/configure-native.mjs ios
+
+      - name: Verify iOS native configuration
+        run: |
+          set -euo pipefail
+          grep -q 'NSCameraUsageDescription' ios/App/App/Info.plist
+          grep -q 'NSLocationWhenInUseUsageDescription' ios/App/App/Info.plist
+          grep -R -q 'com.verigence.app' ios/App
+          echo 'IOS_NATIVE_CONFIG=PASS'
+
+      - name: Build iOS Simulator app
+        run: |
+          set -euo pipefail
+          mkdir -p build
+          if [ -d ios/App/App.xcworkspace ]; then
+            xcodebuild \
+              -workspace ios/App/App.xcworkspace \
+              -scheme App \
+              -configuration Debug \
+              -sdk iphonesimulator \
+              -destination 'generic/platform=iOS Simulator' \
+              -derivedDataPath build/ios-derived \
+              CODE_SIGNING_ALLOWED=NO \
+              build
+          else
+            xcodebuild \
+              -project ios/App/App.xcodeproj \
+              -scheme App \
+              -configuration Debug \
+              -sdk iphonesimulator \
+              -destination 'generic/platform=iOS Simulator' \
+              -derivedDataPath build/ios-derived \
+              CODE_SIGNING_ALLOWED=NO \
+              build
+          fi
+          app_path="$(find build/ios-derived/Build/Products -maxdepth 2 -type d -name 'App.app' | head -n 1)"
+          [ -n "$app_path" ] || { echo 'Built iOS app was not found'; exit 1; }
+          ditto -c -k --sequesterRsrc --keepParent "$app_path" build/verigence-ios-simulator.zip
+
+      - name: Upload iOS Simulator app
+        uses: actions/upload-artifact@v4
+        with:
+          name: verigence-ios-simulator
+          path: build/verigence-ios-simulator.zip
+          if-no-files-found: error
+          retention-days: 14

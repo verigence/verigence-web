@@ -1,4 +1,4 @@
-import type { PropsWithChildren } from 'react';
+import { useEffect, useState, type PropsWithChildren } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 
 import { verigenceLockup } from '../assets/verigenceLockup';
@@ -78,6 +78,20 @@ export default function AppShell({ children }: PropsWithChildren) {
   const signOut = useSessionStore((state) => state.signOut);
   const navigate = useNavigate();
   const location = useLocation();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  useEffect(() => {
+    setMobileMenuOpen(false);
+  }, [location.pathname]);
+
+  useEffect(() => {
+    if (!mobileMenuOpen) return undefined;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setMobileMenuOpen(false);
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [mobileMenuOpen]);
 
   const handleSignOut = () => {
     signOut();
@@ -92,11 +106,28 @@ export default function AppShell({ children }: PropsWithChildren) {
   const avatarText = initials(visibleName);
 
   return (
-    <div className="enterprise-shell">
-      <aside className="enterprise-sidebar">
-        <NavLink className="enterprise-brand" to="/dashboard" aria-label="Verigence home">
-          <img src={verigenceLockup} alt="Verigence" style={{ width: 194 }} />
-        </NavLink>
+    <div className={`enterprise-shell${mobileMenuOpen ? ' enterprise-shell--menu-open' : ''}`}>
+      <button
+        type="button"
+        className="enterprise-mobile-backdrop"
+        aria-label="Close navigation"
+        onClick={() => setMobileMenuOpen(false)}
+      />
+
+      <aside className={`enterprise-sidebar${mobileMenuOpen ? ' enterprise-sidebar--open' : ''}`} aria-label="Application navigation">
+        <div className="enterprise-sidebar__mobile-head">
+          <NavLink className="enterprise-brand" to="/dashboard" aria-label="Verigence home">
+            <img src={verigenceLockup} alt="Verigence" />
+          </NavLink>
+          <button
+            type="button"
+            className="enterprise-sidebar__close"
+            aria-label="Close navigation"
+            onClick={() => setMobileMenuOpen(false)}
+          >
+            ×
+          </button>
+        </div>
         <nav className="enterprise-nav" aria-label="Primary navigation">
           {groups.map((group) => {
             const items = group.items.filter((item) => !item.roles || item.roles.includes(role));
@@ -114,8 +145,23 @@ export default function AppShell({ children }: PropsWithChildren) {
           })}
         </nav>
       </aside>
+
       <div className="enterprise-main">
         <header className="enterprise-topbar">
+          <div className="enterprise-topbar__mobile-start">
+            <button
+              type="button"
+              className="enterprise-menu-button"
+              aria-label="Open navigation"
+              aria-expanded={mobileMenuOpen}
+              onClick={() => setMobileMenuOpen(true)}
+            >
+              <span aria-hidden="true">☰</span>
+            </button>
+            <NavLink className="enterprise-mobile-brand" to="/dashboard" aria-label="Verigence home">
+              <img src={verigenceLockup} alt="Verigence" />
+            </NavLink>
+          </div>
           <div className="enterprise-topbar__trail"><span>Verigence</span><span>/</span><strong>{currentLabel}</strong></div>
           <div className="enterprise-topbar__actions">
             <NavLink to="/profile" className="enterprise-topbar__identity" aria-label="Open profile">

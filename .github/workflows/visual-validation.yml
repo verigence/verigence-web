@@ -1,0 +1,178 @@
+name: Validate Responsive DEV UI
+
+on:
+  push:
+    branches:
+      - dev
+    paths:
+      - '.github/workflows/visual-validation.yml'
+      - 'src/pages/LoginPage.tsx'
+      - 'src/pages/SignupPage.tsx'
+      - 'src/pages/ForgotPasswordPage.tsx'
+      - 'src/pages/TermsPage.tsx'
+      - 'src/pages/PrivacyPage.tsx'
+      - 'src/styles/**'
+  workflow_dispatch:
+
+concurrency:
+  group: validate-responsive-ui-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  start:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: dev
+          fetch-depth: 0
+      - name: Record run id
+        run: |
+          set -euo pipefail
+          mkdir -p docs/visual-evidence
+          cat > docs/visual-evidence/VISUAL_DEV_LATEST.md <<EOF
+          # Verigence Web DEV — Responsive Visual Validation
+
+          - branch: dev
+          - run_id: $GITHUB_RUN_ID
+          - run_number: $GITHUB_RUN_NUMBER
+          - source_sha: $GITHUB_SHA
+          - result: running
+          - workflow_url: https://github.com/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID
+          EOF
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add docs/visual-evidence/VISUAL_DEV_LATEST.md
+          git commit -m 'chore(ui): record visual validation start [skip ci]'
+          git pull --rebase origin dev
+          git push origin HEAD:dev
+
+  validate:
+    needs: start
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      DEV_WEB_URL: https://verigence-web-dev.jbrconsulting-it.workers.dev
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install browser test runtime
+        run: |
+          npm install --no-audit --no-fund
+          npm install --no-save playwright@1.55.0
+          npx playwright install --with-deps chromium
+
+      - name: Capture and validate responsive screens
+        run: |
+          mkdir -p visual-output
+          node --input-type=module <<'NODE'
+          import { chromium } from 'playwright';
+          import fs from 'node:fs';
+
+          const base = process.env.DEV_WEB_URL;
+          const routes = ['/login', '/signup', '/forgot-password', '/terms', '/privacy'];
+          const viewports = [
+            { name: 'phone-360', width: 360, height: 800 },
+            { name: 'phone-390', width: 390, height: 844 },
+            { name: 'phone-430', width: 430, height: 932 },
+            { name: 'tablet-768', width: 768, height: 1024 },
+          ];
+
+          const browser = await chromium.launch({ headless: true });
+          const failures = [];
+          for (const viewport of viewports) {
+            const context = await browser.newContext({ viewport });
+            const page = await context.newPage();
+            for (const route of routes) {
+              await page.goto(`${base}${route}`, { waitUntil: 'networkidle' });
+              const metrics = await page.evaluate(() => ({
+                clientWidth: document.documentElement.clientWidth,
+                scrollWidth: document.documentElement.scrollWidth,
+                title: document.title,
+              }));
+              if (metrics.scrollWidth > metrics.clientWidth + 1) {
+                failures.push(`${route} at ${viewport.name} overflows horizontally: ${metrics.scrollWidth} > ${metrics.clientWidth}`);
+              }
+
+              if (viewport.width < 768) {
+                const smallInputs = await page.locator('input:visible, select:visible, textarea:visible').evaluateAll((elements) =>
+                  elements
+                    .map((element) => ({
+                      tag: element.tagName,
+                      fontSize: Number.parseFloat(getComputedStyle(element).fontSize),
+                    }))
+                    .filter((item) => item.fontSize < 16),
+                );
+                if (smallInputs.length) {
+                  failures.push(`${route} at ${viewport.name} has form controls below 16px: ${JSON.stringify(smallInputs)}`);
+                }
+              }
+
+              const safeName = route === '/' ? 'home' : route.slice(1).replaceAll('/', '-');
+              await page.screenshot({
+                path: `visual-output/${safeName}-${viewport.name}.png`,
+                fullPage: true,
+              });
+            }
+            await context.close();
+          }
+          await browser.close();
+
+          fs.writeFileSync('visual-output/result.txt', failures.length ? failures.join('\n') : 'RESPONSIVE_VISUAL_SMOKE=PASS\n');
+          if (failures.length) {
+            console.error(failures.join('\n'));
+            process.exit(1);
+          }
+          console.log('RESPONSIVE_VISUAL_SMOKE=PASS');
+          NODE
+
+      - name: Upload responsive screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: verigence-responsive-dev-screenshots
+          path: visual-output
+          if-no-files-found: error
+          retention-days: 14
+
+  evidence:
+    if: always()
+    needs:
+      - start
+      - validate
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: dev
+          fetch-depth: 0
+      - name: Record result
+        env:
+          VISUAL_RESULT: ${{ needs.validate.result }}
+        run: |
+          set -euo pipefail
+          mkdir -p docs/visual-evidence
+          cat > docs/visual-evidence/VISUAL_DEV_LATEST.md <<EOF
+          # Verigence Web DEV — Responsive Visual Validation
+
+          - branch: dev
+          - run_id: $GITHUB_RUN_ID
+          - run_number: $GITHUB_RUN_NUMBER
+          - source_sha: $GITHUB_SHA
+          - result: $VISUAL_RESULT
+          - workflow_url: https://github.com/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID
+          EOF
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add docs/visual-evidence/VISUAL_DEV_LATEST.md
+          git commit -m 'chore(ui): record visual validation result [skip ci]' || exit 0
+          git pull --rebase origin dev
+          git push origin HEAD:dev

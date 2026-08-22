@@ -1,0 +1,173 @@
+name: Validate Capacitor Android App
+
+on:
+  push:
+    branches:
+      - dev
+    paths:
+      - '.github/workflows/native-validation.yml'
+      - '.env.native-dev'
+      - 'capacitor.config.ts'
+      - 'package.json'
+      - 'scripts/configure-native.mjs'
+      - 'src/**'
+  workflow_dispatch:
+
+concurrency:
+  group: validate-capacitor-android-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  start:
+    name: Record Android validation start
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout dev
+        uses: actions/checkout@v4
+        with:
+          ref: dev
+          fetch-depth: 0
+
+      - name: Record run id
+        run: |
+          set -euo pipefail
+          mkdir -p docs/native-evidence
+          cat > docs/native-evidence/NATIVE_DEV_LATEST.md <<EOF
+          # Verigence Android DEV — Latest Validation
+
+          - branch: dev
+          - run_id: $GITHUB_RUN_ID
+          - run_number: $GITHUB_RUN_NUMBER
+          - source_sha: $GITHUB_SHA
+          - android: running
+          - workflow_url: https://github.com/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID
+          EOF
+
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add docs/native-evidence/NATIVE_DEV_LATEST.md
+          git commit -m 'chore(android): record validation start [skip ci]'
+          git pull --rebase origin dev
+          git push origin HEAD:dev
+
+  android:
+    name: Android debug package
+    needs: start
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      VITE_SECURITY_BASE_URL: https://verigence-web-dev.jbrconsulting-it.workers.dev
+      VITE_AUDIT_CORE_BASE_URL: ${{ secrets.AUDIT_CORE_URL }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Build Android Web assets
+        run: npm run build:native:dev
+
+      - name: Generate and sync Android
+        run: |
+          set -euo pipefail
+          npx cap add android
+          npx cap sync android
+          npx cap ls android
+          node scripts/configure-native.mjs android
+
+      - name: Verify Android native configuration
+        run: |
+          set -euo pipefail
+          manifest='android/app/src/main/AndroidManifest.xml'
+          grep -q 'android.permission.CAMERA' "$manifest"
+          grep -q 'android.permission.ACCESS_FINE_LOCATION' "$manifest"
+          grep -q 'android.permission.ACCESS_COARSE_LOCATION' "$manifest"
+          grep -q 'android:usesCleartextTraffic="false"' "$manifest"
+          grep -q 'com.verigence.app' android/app/build.gradle || grep -R -q 'com.verigence.app' android/app
+          grep -R -q 'capacitor-app' android || grep -R -q 'AppPlugin' android
+          grep -R -q 'capacitor-status-bar' android || grep -R -q 'StatusBarPlugin' android
+          grep -R -q 'capacitor-keyboard' android || grep -R -q 'KeyboardPlugin' android
+          echo 'ANDROID_NATIVE_CONFIG=PASS'
+
+      - name: Lint and build Android debug APK
+        working-directory: android
+        run: |
+          set -euo pipefail
+          chmod +x gradlew
+          ./gradlew lintDebug assembleDebug --stacktrace
+
+      - name: Verify APK
+        run: |
+          set -euo pipefail
+          apk='android/app/build/outputs/apk/debug/app-debug.apk'
+          test -s "$apk"
+          sha256sum "$apk" | tee android-apk.sha256
+          ls -lh "$apk"
+
+      - name: Upload Android APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: verigence-android-dev-debug
+          path: |
+            android/app/build/outputs/apk/debug/app-debug.apk
+            android-apk.sha256
+          if-no-files-found: error
+          retention-days: 14
+
+  evidence:
+    name: Record Android validation result
+    if: always()
+    needs:
+      - start
+      - android
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout dev
+        uses: actions/checkout@v4
+        with:
+          ref: dev
+          fetch-depth: 0
+
+      - name: Record result
+        env:
+          ANDROID_RESULT: ${{ needs.android.result }}
+        run: |
+          set -euo pipefail
+          mkdir -p docs/native-evidence
+          cat > docs/native-evidence/NATIVE_DEV_LATEST.md <<EOF
+          # Verigence Android DEV — Latest Validation
+
+          - branch: dev
+          - run_id: $GITHUB_RUN_ID
+          - run_number: $GITHUB_RUN_NUMBER
+          - source_sha: $GITHUB_SHA
+          - android: $ANDROID_RESULT
+          - workflow_url: https://github.com/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID
+          EOF
+
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add docs/native-evidence/NATIVE_DEV_LATEST.md
+          if git diff --cached --quiet; then
+            exit 0
+          fi
+          git commit -m 'chore(android): record validation result [skip ci]'
+          git pull --rebase origin dev
+          git push origin HEAD:dev

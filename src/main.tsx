@@ -22,6 +22,12 @@ import './styles/legal-and-recovery.css';
 import './styles/uc02-project-admin.css';
 import './styles/shell-ui-fixes.css';
 import './styles/user-ui-guardrails.css';
+import './styles/mobile-foundation.css';
+import './styles/adaptive-lists.css';
+import './styles/journey-mobile.css';
+import './styles/operational-mobile.css';
+import './styles/final-mobile-sweep.css';
+import './styles/android-native.css';
 
 import App from './App';
 

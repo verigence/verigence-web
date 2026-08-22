@@ -13,7 +13,6 @@ import { useSessionStore } from '../store/sessionStore';
 
 type DecisionMode = 'activate' | 'reject' | null;
 type DecisionResult = {
-  userId: string;
   displayName: string;
   status: OnboardingDecision;
 };
@@ -46,17 +45,16 @@ export default function ApprovalQueuePage() {
   const decision = useMutation({
     mutationFn: ({ status }: { status: OnboardingDecision }) => {
       if (!accessToken || !selectedId || !authoritativeSelected) {
-        throw new Error('The authoritative Security USER detail must be loaded before a decision.');
+        throw new Error('Current user details must be loaded before a decision.');
       }
       if (authoritativeSelected.status !== 'PENDING') {
-        throw new Error(`This USER is no longer PENDING. Current status: ${authoritativeSelected.status}.`);
+        throw new Error('This registration is no longer pending.');
       }
       return decidePendingGlobalUser(accessToken, selectedId, status);
     },
     onSuccess: async (result) => {
       setDecisionMode(null);
       setDecisionResult({
-        userId: result.userId,
         displayName: authoritativeSelected?.displayName ?? 'Verigence user',
         status: result.status === 'REJECTED' ? 'REJECTED' : 'ACTIVE',
       });
@@ -120,8 +118,8 @@ export default function ApprovalQueuePage() {
 
       {!accessToken && (
         <div className="approval-state approval-state--error" role="alert">
-          <strong>Your Security session is required to review pending users.</strong>
-          <span>Sign in with an authorized Verigence account before opening Pending Approval.</span>
+          <strong>Please sign in to review pending registrations.</strong>
+          <span>Use an authorized Verigence account to continue.</span>
         </div>
       )}
 
@@ -129,9 +127,9 @@ export default function ApprovalQueuePage() {
 
       {accessToken && pending.isError && (
         <div className="approval-state approval-state--error" role="alert">
-          <strong>Pending users could not be loaded.</strong>
-          <span>{requestError(pending.error)}</span>
-          <VerigenceButton fill="outline" onClick={() => pending.refetch()}>Try again</VerigenceButton>
+          <strong>Pending registrations could not be loaded.</strong>
+          <span>{requestError()}</span>
+          <VerigenceButton fill="outline" onClick={() => pending.refetch()}>Try Again</VerigenceButton>
         </div>
       )}
 
@@ -143,7 +141,7 @@ export default function ApprovalQueuePage() {
         <div className="approval-state">
           <div className="approval-state__mark">✓</div>
           <strong>No registrations are waiting for approval.</strong>
-          <span>New verified registrations will appear here while their global USER status is PENDING.</span>
+          <span>New registrations that need your review will appear here.</span>
         </div>
       )}
 
@@ -153,7 +151,7 @@ export default function ApprovalQueuePage() {
             <div className="approval-queue__header">
               <div>
                 <strong>Pending Requests</strong>
-                <span>Verified registrations waiting for SuperAdmin review.</span>
+                <span>Registrations waiting for your review.</span>
               </div>
               <span className="approval-queue__count">{users.length}</span>
             </div>
@@ -170,7 +168,7 @@ export default function ApprovalQueuePage() {
                     <span className="approval-request__avatar">{initials(user.displayName)}</span>
                     <span className="approval-request__identity">
                       <strong>{user.displayName}</strong>
-                      <small>{user.primaryEmail ?? 'No email returned'}</small>
+                      <small>{user.primaryEmail ?? 'Email unavailable'}</small>
                     </span>
                     <span className="approval-request__meta">
                       <strong>{user.status}</strong>
@@ -187,10 +185,7 @@ export default function ApprovalQueuePage() {
               <div className="approval-detail-placeholder">
                 <div className="approval-detail-placeholder__mark">→</div>
                 <strong>Select a pending user</strong>
-                <span>
-                  Review identity details before activating or rejecting the global Verigence USER.
-                  Project, role and business scope are handled separately.
-                </span>
+                <span>Review the registration details before activating or rejecting the user.</span>
               </div>
             </article>
           )}
@@ -203,9 +198,9 @@ export default function ApprovalQueuePage() {
             <article className="approval-detail">
               <button className="approval-mobile-back" type="button" onClick={() => setSelectedId(null)}>← Pending Requests</button>
               <div className="approval-state approval-state--error" role="alert">
-                <strong>USER detail could not be loaded.</strong>
-                <span>{requestError(detail.error)}</span>
-                <VerigenceButton fill="outline" onClick={() => detail.refetch()}>Try again</VerigenceButton>
+                <strong>User details could not be loaded.</strong>
+                <span>{requestError()}</span>
+                <VerigenceButton fill="outline" onClick={() => detail.refetch()}>Try Again</VerigenceButton>
               </div>
             </article>
           )}
@@ -216,15 +211,15 @@ export default function ApprovalQueuePage() {
 
               <div className="approval-detail__intro">
                 <h2>Review User</h2>
-                <p>Security USER detail is authoritative for this decision.</p>
+                <p>Confirm the registration details before making a decision.</p>
               </div>
 
               <div className="approval-user-hero">
                 <span className="approval-user-hero__avatar">{initials(selected.displayName)}</span>
                 <div className="approval-user-hero__identity">
                   <h3>{selected.displayName}</h3>
-                  <span>{selected.primaryEmail ?? 'No email returned'}</span>
-                  <span>{selected.primaryMobile ?? 'Not returned'}</span>
+                  <span>{selected.primaryEmail ?? 'Email unavailable'}</span>
+                  <span>{selected.primaryMobile ?? 'Mobile unavailable'}</span>
                 </div>
                 <span className="approval-user-hero__status">
                   {selected.status === 'PENDING' ? 'PENDING APPROVAL' : selected.status}
@@ -232,46 +227,42 @@ export default function ApprovalQueuePage() {
               </div>
 
               {detail.isFetching && authoritativeSelected && (
-                <p className="approval-detail__refreshing">Refreshing authoritative USER detail…</p>
+                <p className="approval-detail__refreshing">Refreshing user details…</p>
               )}
 
               <dl className="approval-detail__facts">
-                <Fact label="USER status" value={selected.status} />
-                <Fact label="Onboarding status" value={selected.onboardingStatus ?? 'Not returned'} />
+                <Fact label="Account status" value={selected.status} />
+                <Fact label="Registration status" value={selected.onboardingStatus ?? 'Pending review'} />
                 <Fact label="Registered on" value={formatSubmitted(selected.createdAtUtc)} />
-                <Fact label="USER ID" value={selected.userId} />
               </dl>
 
               <div className="approval-identity-note">
-                <strong>Identity-only onboarding decision</strong>
-                <span>
-                  This decision activates or rejects the global Verigence USER only. Project, role and
-                  business scope are assigned separately.
-                </span>
+                <strong>Approval scope</strong>
+                <span>This decision activates or rejects the user account. Project, role and business assignments are managed separately.</span>
               </div>
 
               {detail.isError ? (
                 <div className="approval-conflict" role="alert">
-                  <strong>Authoritative USER detail is unavailable.</strong>
-                  <span>{requestError(detail.error)}</span>
-                  <VerigenceButton fill="outline" onClick={() => detail.refetch()}>Try again</VerigenceButton>
+                  <strong>The latest user details are unavailable.</strong>
+                  <span>{requestError()}</span>
+                  <VerigenceButton fill="outline" onClick={() => detail.refetch()}>Try Again</VerigenceButton>
                 </div>
               ) : !authoritativeSelected ? (
                 <div className="approval-conflict" role="status">
-                  <strong>Loading authoritative USER detail.</strong>
-                  <span>Activation and rejection remain unavailable until Security confirms the current USER state.</span>
+                  <strong>Checking the latest registration status.</strong>
+                  <span>Approval actions will be available when the current status is confirmed.</span>
                 </div>
               ) : authoritativeSelected.status !== 'PENDING' ? (
                 <div className="approval-conflict" role="status">
                   <strong>This user is no longer pending.</strong>
-                  <span>Current Security status: {authoritativeSelected.status}</span>
+                  <span>The registration status changed while you were reviewing it.</span>
                   <VerigenceButton fill="outline" onClick={refreshSelected}>Refresh</VerigenceButton>
                 </div>
               ) : (
                 <section className="approval-decision-section">
                   {decision.isError && (
                     <div className="form-alert form-alert--error" role="alert">
-                      The decision was not completed. {requestError(decision.error)} The authoritative USER state was refreshed.
+                      We could not complete the decision. Please review the latest status and try again.
                     </div>
                   )}
 
@@ -285,7 +276,7 @@ export default function ApprovalQueuePage() {
                         decision.reset();
                       }}
                     >
-                      Reject registration
+                      Reject Registration
                     </VerigenceButton>
                     <VerigenceButton
                       disabled={decision.isPending}
@@ -294,17 +285,15 @@ export default function ApprovalQueuePage() {
                         decision.reset();
                       }}
                     >
-                      Activate user
+                      Activate User
                     </VerigenceButton>
                   </div>
 
                   {decisionMode === 'activate' && (
                     <div className="approval-confirmation" role="group" aria-label="Confirm activation">
                       <div>
-                        <strong>Confirm activation</strong>
-                        <span>
-                          Activate {authoritativeSelected.displayName}? Security will perform PENDING → ACTIVE. No role or business scope is assigned here.
-                        </span>
+                        <strong>Confirm Activation</strong>
+                        <span>Activate {authoritativeSelected.displayName}? Project, role and business assignments are managed separately.</span>
                       </div>
                       <div className="approval-confirmation__actions">
                         <button type="button" onClick={() => setDecisionMode(null)} disabled={decision.isPending}>Cancel</button>
@@ -312,7 +301,7 @@ export default function ApprovalQueuePage() {
                           disabled={decision.isPending}
                           onClick={() => decision.mutate({ status: 'ACTIVE' })}
                         >
-                          {decision.isPending ? 'Activating…' : 'Confirm activation'}
+                          {decision.isPending ? 'Activating…' : 'Confirm Activation'}
                         </VerigenceButton>
                       </div>
                     </div>
@@ -321,10 +310,8 @@ export default function ApprovalQueuePage() {
                   {decisionMode === 'reject' && (
                     <div className="approval-confirmation" role="group" aria-label="Confirm rejection">
                       <div>
-                        <strong>Confirm rejection</strong>
-                        <span>
-                          Reject {authoritativeSelected.displayName}? Security will perform PENDING → REJECTED.
-                        </span>
+                        <strong>Confirm Rejection</strong>
+                        <span>Reject {authoritativeSelected.displayName}'s registration?</span>
                       </div>
                       <div className="approval-confirmation__actions">
                         <button type="button" onClick={() => setDecisionMode(null)} disabled={decision.isPending}>Cancel</button>
@@ -334,7 +321,7 @@ export default function ApprovalQueuePage() {
                           disabled={decision.isPending}
                           onClick={() => decision.mutate({ status: 'REJECTED' })}
                         >
-                          {decision.isPending ? 'Rejecting…' : 'Confirm rejection'}
+                          {decision.isPending ? 'Rejecting…' : 'Confirm Rejection'}
                         </VerigenceButton>
                       </div>
                     </div>
@@ -354,12 +341,11 @@ function DecisionResultPanel({ result, onBack }: { result: DecisionResult; onBac
   return (
     <div className="approval-result" role="status">
       <div className="approval-result__mark">✓</div>
-      <span className="eyebrow">Onboarding decision completed</span>
-      <h2>{activated ? 'User activated' : 'User rejected'}</h2>
+      <span className="eyebrow">Approval Completed</span>
+      <h2>{activated ? 'User Activated' : 'Registration Rejected'}</h2>
       <p>{result.displayName}</p>
       <dl>
         <div><dt>Status</dt><dd>{result.status}</dd></div>
-        <div><dt>USER ID</dt><dd>{result.userId}</dd></div>
       </dl>
       <VerigenceButton onClick={onBack}>Back to Pending Requests</VerigenceButton>
     </div>
@@ -386,6 +372,6 @@ function formatSubmitted(value: string): string {
   return new Intl.DateTimeFormat('en-IN', { dateStyle: 'medium', timeStyle: 'short' }).format(date);
 }
 
-function requestError(error: unknown): string {
-  return error instanceof Error ? error.message : 'Security request failed. Please try again.';
+function requestError(): string {
+  return 'We could not complete this request. Please try again.';
 }

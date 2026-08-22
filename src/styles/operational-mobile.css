@@ -1,0 +1,115 @@
+/* Mobile refinements for operational and insight screens. */
+
+@media (max-width: 767px) {
+  .finding-card {
+    padding: 14px;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+  }
+
+  .finding-card__severity {
+    align-items: center;
+  }
+
+  .finding-card__comparison {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 8px;
+  }
+
+  .finding-card__comparison span {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .finding-card__link {
+    min-height: 44px;
+    padding-top: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    border-top: 1px solid #edf2f5;
+    text-align: left;
+  }
+
+  .finding-card__link .text-link {
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+  }
+
+  .activity-list {
+    gap: 9px;
+  }
+
+  .activity-row {
+    padding: 12px;
+    grid-template-columns: 38px minmax(0, 1fr) auto;
+    gap: 10px;
+    border: 1px solid var(--vg-line);
+    border-radius: 11px;
+    background: #fff;
+  }
+
+  .activity-row > span:not(.activity-avatar):not(.activity-person):not(.status-pill) {
+    display: none;
+  }
+
+  .activity-person strong {
+    font-size: 12px;
+  }
+
+  .activity-person small {
+    font-size: 10px;
+  }
+
+  .notepad-panel__date {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .notepad-panel textarea {
+    min-height: 180px;
+  }
+
+  .notepad-panel__footer {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .notepad-panel__footer .verigence-button {
+    width: 100%;
+    min-height: 44px;
+  }
+
+  .crm-card {
+    min-width: 0;
+    border-radius: 12px;
+  }
+
+  .crm-card .text-link {
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    border-top: 1px solid #edf2f5;
+  }
+
+  .bar-chart {
+    height: 220px;
+    padding: 16px 2px 0;
+    gap: 5px;
+  }
+
+  .bar-chart__bar {
+    width: min(30px, 72%);
+  }
+
+  .bar-chart__item span {
+    font-size: 9px;
+  }
+
+  .analytics-list > div {
+    min-height: 44px;
+    align-items: center;
+  }
+}

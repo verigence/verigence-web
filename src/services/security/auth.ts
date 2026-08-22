@@ -71,7 +71,7 @@ function errorFrom(response: Response, payload: unknown): SecurityLoginError {
 
 function connectivityError(): SecurityLoginError {
   return new SecurityLoginError(
-    'Verigence Security could not be reached.',
+    'Sign in service could not be reached.',
     0,
     'SECURITY_UPSTREAM_UNAVAILABLE',
   );
@@ -117,23 +117,11 @@ export function loginErrorMessage(error: unknown): string {
     case 'PRINCIPAL_NOT_ACTIVE':
       return 'Your Verigence account is not active.';
     case 'IDENTITY_PROVIDER_UNAVAILABLE':
-      return 'Clerk authentication is temporarily unavailable. Please try again.';
     case 'SECURITY_UPSTREAM_UNAVAILABLE':
-      return 'Verigence Security is temporarily unavailable. Please try again.';
+      return 'Sign in is temporarily unavailable. Please try again.';
     default:
-      break;
+      return error.status >= 500
+        ? 'Sign in is temporarily unavailable. Please try again.'
+        : 'Sign in could not be completed. Please check your details and try again.';
   }
-
-  if (error.status === 404) {
-    return 'Verigence Security login endpoint is unavailable (HTTP 404).';
-  }
-  if (error.status >= 500) {
-    return `Verigence Security returned HTTP ${error.status}. Please try again.`;
-  }
-  if (error.status > 0) {
-    const code = error.code ? `, ${error.code}` : '';
-    return `${error.message || 'Sign in could not be completed.'} (HTTP ${error.status}${code})`;
-  }
-
-  return error.message || 'Sign in could not be completed. Please try again.';
 }

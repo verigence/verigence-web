@@ -1,0 +1,41 @@
+/* Android-only native-shell refinements. Activated by AndroidNativeBridge. */
+html.native-android,
+html.native-android body,
+html.native-android #root,
+html.native-android ion-app {
+  min-height: 100dvh;
+  overscroll-behavior: none;
+  background: var(--verigence-mist, #f4f8fb);
+}
+
+html.native-android body {
+  -webkit-tap-highlight-color: transparent;
+  text-rendering: optimizeLegibility;
+}
+
+html.native-android button,
+html.native-android a,
+html.native-android [role='button'] {
+  touch-action: manipulation;
+}
+
+html.native-android input,
+html.native-android textarea,
+html.native-android select {
+  font-size: max(16px, 1em);
+}
+
+html.native-android .enterprise-topbar {
+  padding-top: env(safe-area-inset-top);
+}
+
+html.native-android .enterprise-content,
+html.native-android .frozen-auth-screen,
+html.native-android .legal-page,
+html.native-android .recovery-page {
+  padding-bottom: max(16px, env(safe-area-inset-bottom));
+}
+
+html.native-android .uc02-footer-nav {
+  padding-bottom: max(12px, env(safe-area-inset-bottom));
+}

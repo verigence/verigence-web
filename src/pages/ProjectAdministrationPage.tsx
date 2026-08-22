@@ -4,6 +4,7 @@ import { useSearchParams } from 'react-router-dom';
 import PageHeader from '../components/PageHeader';
 import StatusPill from '../components/StatusPill';
 import ProjectAdminStepper, { projectAdminSteps } from '../features/project-admin/ProjectAdminStepper';
+import ProjectReferenceFields from '../features/project-admin/ProjectReferenceFields';
 import {
   activateProject,
   confirmMasterImport,
@@ -42,6 +43,7 @@ import {
   listMasterImportRows,
   type MasterImportRow,
 } from '../services/audit-core/uc02MasterImports';
+import { auditCoreErrorMessage } from '../services/audit-core/errorMessage';
 import { useSessionStore } from '../store/sessionStore';
 
 function randomKey(prefix: string) {
@@ -49,8 +51,8 @@ function randomKey(prefix: string) {
   return `${prefix}-${suffix}`;
 }
 
-function errorMessage(_error: unknown) {
-  return 'We could not complete your request. Please try again.';
+function errorMessage(error: unknown) {
+  return auditCoreErrorMessage(error);
 }
 
 function triggerBlob(blob: Blob, filename: string) {
@@ -463,8 +465,14 @@ export default function ProjectAdministrationPage() {
               <div className="uc02-card__title"><h3>{project ? 'Project Details' : 'Create Project'}</h3><p>{project ? 'Update the project information that can still be changed.' : 'Enter the project details required to begin setup.'}</p></div>
               <div className="uc02-form-grid">
                 <Field label="Project Name"><input required value={projectForm.projectName} onChange={(event) => setProjectForm({ ...projectForm, projectName: event.target.value })} /></Field>
-                <Field label="OEM Reference"><input required disabled={Boolean(project)} value={projectForm.oemId} onChange={(event) => setProjectForm({ ...projectForm, oemId: event.target.value })} placeholder="Enter OEM reference" /></Field>
-                <Field label="Product Category Reference"><input required disabled={Boolean(project)} value={projectForm.productCategoryId} onChange={(event) => setProjectForm({ ...projectForm, productCategoryId: event.target.value })} placeholder="Enter product category reference" /></Field>
+                <ProjectReferenceFields
+                  oemId={projectForm.oemId}
+                  productCategoryId={projectForm.productCategoryId}
+                  disabled={Boolean(project)}
+                  onOemChange={(oemId) => setProjectForm({ ...projectForm, oemId })}
+                  onProductCategoryChange={(productCategoryId) => setProjectForm({ ...projectForm, productCategoryId })}
+                  onError={setPageError}
+                />
                 <Field label="Effective Start"><input type="date" required disabled={Boolean(project)} value={projectForm.effectiveStartDate} onChange={(event) => setProjectForm({ ...projectForm, effectiveStartDate: event.target.value })} /></Field>
                 <Field label="Effective End"><input type="date" value={projectForm.effectiveEndDate} onChange={(event) => setProjectForm({ ...projectForm, effectiveEndDate: event.target.value })} /></Field>
                 <Field label="Timezone"><input required value={projectForm.timezoneName} onChange={(event) => setProjectForm({ ...projectForm, timezoneName: event.target.value })} /></Field>

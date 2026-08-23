@@ -1,0 +1,225 @@
+.uc02-outlet-location-host {
+  min-width: 0;
+}
+
+.uc02-outlet-location {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--uc02-border);
+  border-radius: 12px;
+  background: #f8fbff;
+}
+
+.uc02-outlet-location__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.uc02-outlet-location__head > div:first-child {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.uc02-outlet-location__head strong {
+  color: var(--uc02-text);
+  font-size: 12px;
+}
+
+.uc02-outlet-location__head span,
+.uc02-outlet-location__note {
+  color: var(--uc02-muted);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.uc02-outlet-location__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.uc02-outlet-location__maps-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+}
+
+.uc02-outlet-location__map-wrap {
+  position: relative;
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid var(--uc02-border);
+  border-radius: 12px;
+  background: #eef4f8;
+}
+
+.uc02-outlet-location__map {
+  width: 100%;
+  height: clamp(240px, 34vw, 360px);
+  display: block;
+  border: 0;
+}
+
+.uc02-outlet-location__pin-label {
+  position: absolute;
+  left: 12px;
+  bottom: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  max-width: calc(100% - 24px);
+  padding: 7px 10px;
+  border: 1px solid rgba(255,255,255,.9);
+  border-radius: 999px;
+  background: rgba(6,43,99,.88);
+  color: #fff;
+  box-shadow: 0 6px 20px rgba(6,43,99,.18);
+  font-size: 10px;
+  font-weight: 750;
+  backdrop-filter: blur(8px);
+}
+
+.uc02-outlet-location__pin-label > span {
+  color: #0aa8aa;
+  font-size: 16px;
+  line-height: .8;
+}
+
+.uc02-outlet-location__empty {
+  padding: 20px;
+  border: 1px dashed #bdd0df;
+  border-radius: 11px;
+  background: #fff;
+  color: var(--uc02-muted);
+  font-size: 11px;
+  line-height: 1.55;
+  text-align: center;
+}
+
+.uc02-outlet-location__coordinates {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.uc02-outlet-location__coordinates span {
+  padding: 6px 9px;
+  border-radius: 8px;
+  background: #eef6f9;
+  color: var(--uc02-muted);
+  font-size: 10px;
+}
+
+.uc02-outlet-location__coordinates strong {
+  margin-left: 4px;
+  color: var(--uc02-text);
+}
+
+.uc02-outlet-location__message {
+  padding: 8px 10px;
+  border-radius: 9px;
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.uc02-outlet-location__message--info {
+  background: #edf5fb;
+  color: #0b4f8a;
+}
+
+.uc02-outlet-location__message--success {
+  background: #e8f7f4;
+  color: #08766f;
+}
+
+.uc02-outlet-location__message--error {
+  background: #fff1f0;
+  color: #912018;
+}
+
+/* Keep wizard navigation visible at every step instead of below a tall workspace. */
+.uc02-admin {
+  padding-bottom: 92px;
+}
+
+.uc02-footer-nav {
+  position: fixed;
+  left: calc(248px + 28px);
+  right: 28px;
+  bottom: 16px;
+  z-index: 35;
+  min-height: 58px;
+  padding: 10px 12px;
+  border: 1px solid var(--uc02-border);
+  border-radius: 14px;
+  background: rgba(255,255,255,.96);
+  box-shadow: 0 14px 38px rgba(6,43,99,.14);
+  backdrop-filter: blur(12px);
+}
+
+@media (max-width: 1180px) {
+  .uc02-outlet-location__map {
+    height: clamp(250px, 46vw, 380px);
+  }
+}
+
+@media (max-width: 900px) {
+  .uc02-footer-nav {
+    left: 14px;
+    right: 14px;
+    bottom: 12px;
+  }
+
+  .uc02-outlet-location__head {
+    flex-direction: column;
+  }
+
+  .uc02-outlet-location__actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 650px) {
+  .uc02-admin {
+    padding-bottom: 102px;
+  }
+
+  .uc02-outlet-location {
+    padding: 11px;
+  }
+
+  .uc02-outlet-location__actions {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .uc02-outlet-location__actions .uc02-button {
+    width: 100%;
+    min-height: 42px;
+  }
+
+  .uc02-outlet-location__map {
+    height: 280px;
+  }
+
+  .uc02-footer-nav {
+    gap: 8px;
+    padding: 9px;
+  }
+
+  .uc02-footer-nav > span {
+    display: none;
+  }
+
+  .uc02-footer-nav .uc02-button {
+    flex: 1;
+    min-height: 42px;
+  }
+}

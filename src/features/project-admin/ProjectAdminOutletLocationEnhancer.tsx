@@ -49,6 +49,17 @@ function errorText(error: unknown) {
   return 'The outlet could not be saved. Please try again.';
 }
 
+function buildGoogleMapsEmbedUrl(apiKey: string, query: string, coordinates: Coordinates | null) {
+  if (!apiKey || !query) return '';
+
+  if (coordinates) {
+    const center = `${coordinates.latitude},${coordinates.longitude}`;
+    return `https://www.google.com/maps/embed/v1/view?key=${encodeURIComponent(apiKey)}&center=${encodeURIComponent(center)}&zoom=16&maptype=roadmap`;
+  }
+
+  return `https://www.google.com/maps/embed/v1/place?key=${encodeURIComponent(apiKey)}&q=${encodeURIComponent(query)}&zoom=16`;
+}
+
 function OutletLocationPanel({ host }: { host: HTMLElement }) {
   const tenantId = useSessionStore((state) => state.tenantId);
   const accessToken = useSessionStore((state) => state.accessToken);
@@ -61,6 +72,7 @@ function OutletLocationPanel({ host }: { host: HTMLElement }) {
   const [saving, setSaving] = useState(false);
   const [saveState, setSaveState] = useState<SaveState>({ kind: 'idle', message: '' });
   const googleMapsEmbedApiKey = import.meta.env.VITE_GOOGLE_MAPS_EMBED_API_KEY?.trim() ?? '';
+  const nativePlatform = Capacitor.isNativePlatform();
 
   useEffect(() => {
     if (!(form instanceof HTMLFormElement)) return undefined;
@@ -152,9 +164,9 @@ function OutletLocationPanel({ host }: { host: HTMLElement }) {
     return addressQuery;
   }, [addressQuery, coordinates, searchQuery]);
 
-  const mapSrc = mapQuery && googleMapsEmbedApiKey
-    ? `https://www.google.com/maps/embed/v1/place?key=${encodeURIComponent(googleMapsEmbedApiKey)}&q=${encodeURIComponent(mapQuery)}`
-    : '';
+  const mapSrc = nativePlatform
+    ? ''
+    : buildGoogleMapsEmbedUrl(googleMapsEmbedApiKey, mapQuery, coordinates);
   const openMapsUrl = mapQuery
     ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(mapQuery)}`
     : '';
@@ -296,7 +308,11 @@ function OutletLocationPanel({ host }: { host: HTMLElement }) {
         </div>
       ) : mapQuery ? (
         <div className="uc02-outlet-location__empty">
-          Google Maps preview is temporarily unavailable here. Use <strong>Open in Google Maps</strong> above to verify the location.
+          {nativePlatform ? (
+            <>The Android app uses device GPS for the stored pin. Use <strong>Open in Google Maps</strong> above to verify it visually.</>
+          ) : (
+            <>Google Maps preview is not configured for this Web build. Use <strong>Open in Google Maps</strong> above to verify the location.</>
+          )}
         </div>
       ) : (
         <div className="uc02-outlet-location__empty">
@@ -317,7 +333,7 @@ function OutletLocationPanel({ host }: { host: HTMLElement }) {
         </div>
       )}
       <small className="uc02-outlet-location__note">
-        Text search is for visual confirmation on Google Maps. For an exact stored latitude/longitude on tablet or mobile, use Pin current location before Add Outlet.
+        Web uses the Google Maps Embed API for visual confirmation. Android stores the exact GPS pin and opens Google Maps externally for visual verification.
       </small>
     </section>
   );

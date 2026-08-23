@@ -18,14 +18,17 @@ export default function ProjectSelector({
   const setBusinessContext = useSessionStore((state) => state.setBusinessContext);
   const [projects, setProjects] = useState<ProjectSelection[]>([]);
   const [loading, setLoading] = useState(false);
+  const [loadWarning, setLoadWarning] = useState('');
 
   useEffect(() => {
     if (!accessToken) {
       setProjects([]);
+      setLoadWarning('');
       return;
     }
     let cancelled = false;
     setLoading(true);
+    setLoadWarning('');
     void listProjects(accessToken)
       .then((values) => {
         if (cancelled) return;
@@ -40,7 +43,17 @@ export default function ProjectSelector({
         }
       })
       .catch((error) => {
-        if (!cancelled) onError(auditCoreErrorMessage(error));
+        if (cancelled) return;
+        const message = auditCoreErrorMessage(error);
+        if (tenantId) {
+          // Loading the active Project is critical when a Project is already selected.
+          onError(message);
+        } else {
+          // Existing-Project discovery is not a blocker for the New Project form.
+          // Keep the form usable and surface the degraded directory state locally.
+          setProjects([]);
+          setLoadWarning('Existing projects could not be loaded. You can still create a new project.');
+        }
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -48,7 +61,7 @@ export default function ProjectSelector({
     return () => {
       cancelled = true;
     };
-  }, [accessToken, tenantId, onError, setBusinessContext]);
+  }, [accessToken, tenantId, onError, onSelectionChange, setBusinessContext]);
 
   const currentIsListed = projects.some((item) => item.tenantId === tenantId);
 
@@ -75,6 +88,7 @@ export default function ProjectSelector({
           </option>
         ))}
       </select>
+      {loadWarning && <small className="uc02-selector-warning">{loadWarning}</small>}
     </div>
   );
 }

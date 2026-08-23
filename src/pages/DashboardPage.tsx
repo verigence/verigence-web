@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { Link } from 'react-router-dom';
 
 import MetricCard from '../components/MetricCard';
 import PageHeader from '../components/PageHeader';
@@ -82,10 +83,15 @@ function WorkItemCard({ item, timezoneName }: { item: Uc03WorkItem; timezoneName
       </div>
 
       <footer className="uc03-work-card__footer">
-        <span>Latest activity {activityLabel(item.latestActivityAtUtc, timezoneName)}</span>
-        {item.processingDocumentCount > 0 && (
-          <span>{item.processingDocumentCount} document{item.processingDocumentCount === 1 ? '' : 's'} processing</span>
-        )}
+        <div>
+          <span>Latest activity {activityLabel(item.latestActivityAtUtc, timezoneName)}</span>
+          {item.processingDocumentCount > 0 && (
+            <span>{item.processingDocumentCount} document{item.processingDocumentCount === 1 ? '' : 's'} processing</span>
+          )}
+        </div>
+        <Link className="uc03-c1-secondary" to={`/bookings/${item.journeyId}`}>
+          {item.booking.businessStatus ? 'Open Booking' : 'Start Booking'}
+        </Link>
       </footer>
     </article>
   );

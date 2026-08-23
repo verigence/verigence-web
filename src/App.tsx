@@ -3,6 +3,7 @@ import { IonApp } from '@ionic/react';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 
 import verigenceMark from './assets/verigence-mark.png';
+import ProjectAdminOutletLocationEnhancer from './features/project-admin/ProjectAdminOutletLocationEnhancer';
 import AppShell from './layout/AppShell';
 import AndroidNativeBridge from './native/AndroidNativeBridge';
 import { useSessionStore } from './store/sessionStore';
@@ -49,6 +50,7 @@ export default function App() {
     <IonApp>
       <BrowserRouter basename={routerBase}>
         <AndroidNativeBridge />
+        <ProjectAdminOutletLocationEnhancer />
         <Suspense fallback={<Loading />}>
           <Routes>
             <Route path="/login" element={<LoginPage />} />

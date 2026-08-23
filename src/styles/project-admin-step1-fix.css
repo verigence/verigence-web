@@ -24,23 +24,38 @@
   width: 100%;
   max-width: none;
   min-width: 0;
+  position: relative;
 }
 
-/* Give the form enough room for its real submit action and keep that action explicit. */
-.uc02-admin .uc02-grid--project .uc02-actions {
-  position: static !important;
-  margin-top: 14px;
-  padding: 16px 0 4px;
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  border-top: 1px solid var(--uc02-border);
-  background: transparent;
-}
+/* On desktop keep the one action the user needs in immediate view. The form can be
+ * taller than the viewport, so putting Create Project only after every field forces
+ * unnecessary scrolling and makes it look as if the action has disappeared. */
+@media (min-width: 768px) {
+  .uc02-admin .uc02-grid--project .uc02-card__title {
+    padding-right: 210px;
+    min-height: 50px;
+  }
 
-.uc02-admin .uc02-grid--project .uc02-actions .uc02-button--primary {
-  min-width: 170px;
-  min-height: 42px;
+  .uc02-admin .uc02-grid--project .uc02-actions {
+    position: absolute !important;
+    top: 20px !important;
+    right: 20px !important;
+    bottom: auto !important;
+    left: auto !important;
+    z-index: 2;
+    margin: 0 !important;
+    padding: 0 !important;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    border: 0 !important;
+    background: transparent !important;
+  }
+
+  .uc02-admin .uc02-grid--project .uc02-actions .uc02-button--primary {
+    min-width: 170px;
+    min-height: 42px;
+  }
 }
 
 /* Previous/Next is workflow navigation, not the form submit bar. Keep it in normal
@@ -77,11 +92,24 @@
 
 @media (max-width: 767px) {
   .uc02-admin .uc02-grid--project .uc02-actions {
+    position: sticky !important;
+    bottom: 8px !important;
+    z-index: 3;
+    margin: 14px 0 0 !important;
+    padding: 10px !important;
+    display: flex;
     align-items: stretch;
+    border: 1px solid var(--uc02-border) !important;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.96) !important;
+    box-shadow: 0 6px 18px rgba(12, 45, 86, 0.12);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
   }
 
   .uc02-admin .uc02-grid--project .uc02-actions .uc02-button--primary {
     width: 100%;
+    min-height: 44px;
   }
 
   .uc02-admin .uc02-footer-nav {

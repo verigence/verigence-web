@@ -20,6 +20,7 @@ jobs:
       deployments: write
     env:
       SECURITY_UPSTREAM: https://security-dev.up.railway.app
+      AUDIT_CORE_UPSTREAM: https://verigence-audit-core-production.up.railway.app
 
     steps:
       - name: Checkout
@@ -30,6 +31,7 @@ jobs:
           echo "Deploying Git commit: $GITHUB_SHA"
           echo "Deploying branch: $GITHUB_REF_NAME"
           echo "Security DEV upstream: $SECURITY_UPSTREAM"
+          echo "Audit Core DEV upstream: $AUDIT_CORE_UPSTREAM"
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -39,13 +41,18 @@ jobs:
       - name: Install dependencies
         run: npm install --no-audit --no-fund
 
-      - name: Validate Security DEV upstream
+      - name: Validate DEV upstreams
         run: |
           set -euo pipefail
           echo "Checking $SECURITY_UPSTREAM/health/live"
           curl --fail --silent --show-error \
             --header 'Accept: application/json' \
             "$SECURITY_UPSTREAM/health/live"
+          echo
+          echo "Checking $AUDIT_CORE_UPSTREAM/health"
+          curl --fail --silent --show-error \
+            --header 'Accept: application/json' \
+            "$AUDIT_CORE_UPSTREAM/health"
           echo
 
       - name: Verify exact approved Verigence logo source
@@ -79,6 +86,7 @@ jobs:
         env:
           VITE_SECURITY_BASE_URL: ""
           VITE_AUDIT_CORE_BASE_URL: ${{ secrets.AUDIT_CORE_URL }}
+          VITE_AUDIT_CORE_PROXY_BASE_URL: /audit-core
 
       - name: Verify approved logo is bundled
         shell: bash
@@ -91,6 +99,16 @@ jobs:
           fi
           echo "VERIGENCE_LOGO_BUNDLE=PASS"
 
+      - name: Verify Audit Core proxy prefix is bundled
+        shell: bash
+        run: |
+          set -euo pipefail
+          if ! grep -R -q '/audit-core' dist/assets; then
+            echo 'Audit Core same-origin proxy prefix was not emitted into the production bundle.'
+            exit 1
+          fi
+          echo 'AUDIT_CORE_PROXY_BUNDLE=PASS'
+
       - name: Deploy to Cloudflare DEV
         uses: cloudflare/wrangler-action@v3
         with:
@@ -98,7 +116,7 @@ jobs:
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           command: deploy
 
-      - name: Smoke test deployed Web and Security proxy
+      - name: Smoke test deployed Web and backend proxies
         env:
           DEV_WEB_URL: https://verigence-web-dev.jbrconsulting-it.workers.dev
         run: |
@@ -153,6 +171,42 @@ jobs:
               exit 1
               ;;
           esac
+
+          echo "--- Audit Core health via Worker ---"
+          curl --fail --silent --show-error \
+            --dump-header /tmp/audit-health.headers \
+            --output /tmp/audit-health.body \
+            "$DEV_WEB_URL/audit-core/health"
+          cat /tmp/audit-health.headers
+          cat /tmp/audit-health.body
+          echo
+          if ! grep -qi '^x-verigence-proxy: audit-core' /tmp/audit-health.headers; then
+            echo 'Audit Core health request did not pass through the Worker proxy.'
+            exit 1
+          fi
+          echo 'AUDIT_CORE_PROXY_HEALTH=PASS'
+
+          echo "--- Project Administration route via Audit Core Worker proxy ---"
+          PROJECTS_STATUS="$(curl --silent --show-error \
+            --dump-header /tmp/projects.headers \
+            --output /tmp/projects.body \
+            --write-out '%{http_code}' \
+            "$DEV_WEB_URL/audit-core/v1/projects")"
+          cat /tmp/projects.headers
+          cat /tmp/projects.body
+          echo
+          if ! grep -qi '^x-verigence-proxy: audit-core' /tmp/projects.headers; then
+            echo 'Project Administration request did not pass through the Audit Core Worker proxy.'
+            exit 1
+          fi
+          case "$PROJECTS_STATUS" in
+            401|403) ;;
+            *)
+              echo "Unauthenticated Project Administration proxy smoke returned HTTP $PROJECTS_STATUS"
+              exit 1
+              ;;
+          esac
+          echo 'PROJECT_ADMIN_PROXY_ROUTE=PASS'
 
           echo "--- Capacitor CORS preflight ---"
           for origin in 'capacitor://localhost' 'https://localhost'; do

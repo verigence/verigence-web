@@ -20,6 +20,11 @@ export default function ProjectSelector({
   const [loading, setLoading] = useState(false);
   const [loadWarning, setLoadWarning] = useState('');
 
+  // Active-project loading has its own error handling in ProjectAdministrationPage.
+  // Keep this callback in the public component contract for compatibility, but never
+  // turn a directory-discovery failure into the page-level Create Project error.
+  void onError;
+
   useEffect(() => {
     if (!accessToken) {
       setProjects([]);
@@ -45,15 +50,25 @@ export default function ProjectSelector({
       .catch((error) => {
         if (cancelled) return;
         const message = auditCoreErrorMessage(error);
-        if (tenantId) {
-          // Loading the active Project is critical when a Project is already selected.
-          onError(message);
-        } else {
-          // Existing-Project discovery is not a blocker for the New Project form.
-          // Keep the form usable and surface the degraded directory state locally.
-          setProjects([]);
-          setLoadWarning('Existing projects could not be loaded. You can still create a new project.');
+        setProjects([]);
+
+        // If there is a tenantId but no loaded Project name, the browser can visually
+        // fall back to the first <option> ("New Project") while the session still carries
+        // the stale Tenant. That is exactly the dangerous state after an incomplete
+        // Project create. Clear it and make New Project real, not merely visual.
+        if (tenantId && !currentProjectName) {
+          setBusinessContext({ tenantId: '', dealerId: '', outletId: '' });
+          onSelectionChange('');
         }
+
+        // Existing-project discovery is not a blocker for creating a new Project.
+        // Surface the dependency problem locally instead of presenting it as if the
+        // user's Project form submission failed.
+        setLoadWarning(
+          message
+            ? `Existing projects could not be loaded (${message}). You can still create a new project.`
+            : 'Existing projects could not be loaded. You can still create a new project.',
+        );
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -61,7 +76,7 @@ export default function ProjectSelector({
     return () => {
       cancelled = true;
     };
-  }, [accessToken, tenantId, onError, setBusinessContext]);
+  }, [accessToken, tenantId, currentProjectName, onSelectionChange, setBusinessContext]);
 
   const currentIsListed = projects.some((item) => item.tenantId === tenantId);
 

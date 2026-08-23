@@ -156,6 +156,7 @@ export function actOnAuditFlag(
   action: Uc03FlagAction,
   remarks: string,
   accessToken?: string,
+  evidenceIds: string[] = [],
 ): Promise<FlagMutationResult> {
   return auditCoreRequest(`${base(tenantId, journeyId)}/flags/${encodeURIComponent(flag.flagId)}/actions`, {
     method: 'POST',
@@ -165,7 +166,7 @@ export function actOnAuditFlag(
       action,
       remarks: remarks || null,
       resolutionReason: ['RESOLVE', 'REOPEN', 'VOID'].includes(action) ? remarks : null,
-      evidenceIds: [],
+      evidenceIds,
     }),
   });
 }
@@ -176,12 +177,13 @@ export function addAuditFlagRemark(
   flag: Uc03AuditFlag,
   remarks: string,
   accessToken?: string,
+  evidenceIds: string[] = [],
 ): Promise<FlagMutationResult> {
   return auditCoreRequest(`${base(tenantId, journeyId)}/flags/${encodeURIComponent(flag.flagId)}/remarks`, {
     method: 'POST',
     accessToken: token(accessToken),
     headers: commandHeaders('uc03-audit-remark', flag.version),
-    body: JSON.stringify({ remarks, evidenceIds: [] }),
+    body: JSON.stringify({ remarks, evidenceIds }),
   });
 }
 

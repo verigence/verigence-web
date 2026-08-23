@@ -20,6 +20,8 @@ import './styles/auth-onboarding.css';
 import './styles/auth-frozen-overrides.css';
 import './styles/legal-and-recovery.css';
 import './styles/uc02-project-admin.css';
+import './styles/project-admin-outlet-location.css';
+import './styles/project-admin-outlet-location-search.css';
 import './styles/shell-ui-fixes.css';
 import './styles/user-ui-guardrails.css';
 import './styles/mobile-foundation.css';

@@ -3,7 +3,7 @@
 **Unified UC03 branch:** `planning/uc-003-booking-delivery-audit`  
 **Original frozen baseline:** `dev@2c98f753ed1428c0d5f7a0b7144169d528a5bb78`
 
-The canonical UC03 business/workflow/implementation set is maintained in:
+The canonical UC03 business/workflow/implementation and current execution-status set is maintained in:
 
 `verigence-audit-core / planning/uc-003-booking-delivery-audit / docs/uc-003-booking-delivery-audit/`
 
@@ -15,13 +15,19 @@ Current canonical Audit Core documents include:
 - `UC03_DOCUMENT_123_FIELD_MATRIX_v1.0.md`
 - `UC03_RECONCILIATION_DECISIONS_v1.0.md`
 - `UC03_IMPLEMENTATION_DESIGN_v0.1.md`
-- `UC03_IMPLEMENTATION_HANDOFF_v1.1.md` — current execution contract
+- `UC03_IMPLEMENTATION_HANDOFF_v1.1.md` — approved execution contract
+- `UC03_EXECUTION_BASELINE_ADDENDUM_2026-08-23.md` — active stabilization/continuity override
+- `status/UC03_C0_FOUNDATION.md`
+- `status/UC03_C1_BOOKING.md`
+- `status/UC03_C2_DELIVERY.md`
+- `status/UC03_C3_AUDIT.md`
+- `status/UC03_PHASE1_PRODUCT_BASELINE.md`
 
 ## Single-branch execution rule
 
 Web/Android implementation continues on this existing UC03 branch. Do not create Booking, Delivery, Audit, Android or separate `work/uc-003-*` branches.
 
-Sequential execution is:
+Feature checkpoints are:
 
 ```text
 C0 Foundation / Project Context
@@ -31,9 +37,13 @@ C1 Booking
 C2 Delivery
         ->
 C3 Audit / Review / Hardening
+        ->
+Full C0-C3 product regression + consolidated DEV/UAT
+        ->
+Phase-1 stable product baseline
 ```
 
-The next checkpoint does not begin until the current checkpoint passes its acceptance gate.
+Working shorthand **C4** means only the final full-product regression/DEV-UAT baseline. It is not a new business checkpoint and must not introduce new functionality or a new migration merely for naming symmetry.
 
 ## Web/Android design artifacts
 
@@ -73,9 +83,9 @@ Web/Android owns presentation and interaction only:
 - TL/PM/Executive review screens;
 - adaptive/mobile presentation and user-safe wording.
 
-Web/Android does not own authoritative workflow transitions, Project authorization or compliance logic.
+Web/Android does not own authoritative workflow transitions, Project authorization, VIN decisions, completion-guard policy or other compliance logic.
 
-## Frozen UX direction
+## Frozen UX / authority direction
 
 - PC-facing UI says Booking/Delivery, not Journey Workspace;
 - Android phone is primary, tablet second, desktop Web third;
@@ -87,9 +97,32 @@ Web/Android does not own authoritative workflow transitions, Project authorizati
 - Aadhaar is masked in ordinary UX;
 - VIN/chassis reconciliation comes only from Audit Core Rule Engine;
 - applicable document counts are dynamic;
+- human flag creation cannot self-declare an Audit completion guard;
+- lifecycle buttons follow server-returned permitted actions; Web/Android is not the permission authority;
 - no raw technical/internal errors are shown to users;
 - Post-Delivery reconciliation is out of Phase-1 scope.
 
-## Immediate implementation gate
+## CI/CD stabilization rule
 
-Start with **C0 Foundation / Project Context only** on this same branch. Booking implementation begins only after the C0 checkpoint note is closed.
+Per the Audit Core execution addendum, **do not redesign or materially change CI/CD while UC03 is being stabilized**.
+
+Provider throttling/outage or checkpoint-validation inconvenience is recorded as an external blocker and retried using the existing baseline. Railway/GitHub/Cloudflare deployment architecture, credential strategy, workflow trust and promotion design are not to be changed merely to unblock UC03.
+
+The Web branch previously contained temporary C2 PR-deployment instrumentation. During C3 closure, `.github/workflows/deploy-uc001-dev.yml` was restored byte-for-byte to the current `dev` baseline. This was cleanup of temporary validation instrumentation, not a CI/CD redesign.
+
+A CI/CD architecture review may begin only after UC03 is stable following full C0-C3 regression and consolidated human DEV/UAT.
+
+## Current Web/Android status — 23-Aug-2026
+
+C0-C3 Web engineering is present, including:
+
+- Project context/landing;
+- Booking workspace;
+- Delivery workspace and Android Camera evidence;
+- `/audit/:journeyId` Audit/History workspace;
+- human/machine finding presentation and server-authorized lifecycle actions;
+- complete cross-stage timeline presentation.
+
+Latest C3 Web client hardening removes human `blockingCompletion` from the request contract.
+
+Automated product-baseline evidence is recorded canonically in Audit Core `status/UC03_PHASE1_PRODUCT_BASELINE.md`. Human UAT remains pending and no planning branch is promotion-approved yet.

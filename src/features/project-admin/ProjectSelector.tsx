@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { auditCoreErrorMessage } from '../../services/audit-core/errorMessage';
 import { listProjects, type ProjectSelection } from '../../services/audit-core/uc02Admin';
@@ -19,6 +19,15 @@ export default function ProjectSelector({
   const [projects, setProjects] = useState<ProjectSelection[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadWarning, setLoadWarning] = useState('');
+  const currentProjectNameRef = useRef(currentProjectName);
+  const onSelectionChangeRef = useRef(onSelectionChange);
+
+  // Keep callback/display references current without making Project discovery depend on
+  // parent render identity. Dealer/outlet/form state changes must not re-fetch /v1/projects.
+  useEffect(() => {
+    currentProjectNameRef.current = currentProjectName;
+    onSelectionChangeRef.current = onSelectionChange;
+  }, [currentProjectName, onSelectionChange]);
 
   // Active-project loading has its own error handling in ProjectAdministrationPage.
   // Keep this callback in the public component contract for compatibility, but never
@@ -44,7 +53,7 @@ export default function ProjectSelector({
         // client business context while the selector visually shows "New Project".
         if (tenantId && !values.some((item) => item.tenantId === tenantId)) {
           setBusinessContext({ tenantId: '', dealerId: '', outletId: '' });
-          onSelectionChange('');
+          onSelectionChangeRef.current('');
         }
       })
       .catch((error) => {
@@ -56,9 +65,9 @@ export default function ProjectSelector({
         // fall back to the first <option> ("New Project") while the session still carries
         // the stale Tenant. That is exactly the dangerous state after an incomplete
         // Project create. Clear it and make New Project real, not merely visual.
-        if (tenantId && !currentProjectName) {
+        if (tenantId && !currentProjectNameRef.current) {
           setBusinessContext({ tenantId: '', dealerId: '', outletId: '' });
-          onSelectionChange('');
+          onSelectionChangeRef.current('');
         }
 
         // Existing-project discovery is not a blocker for creating a new Project.
@@ -76,7 +85,7 @@ export default function ProjectSelector({
     return () => {
       cancelled = true;
     };
-  }, [accessToken, tenantId, currentProjectName, onSelectionChange, setBusinessContext]);
+  }, [accessToken, tenantId, setBusinessContext]);
 
   const currentIsListed = projects.some((item) => item.tenantId === tenantId);
 

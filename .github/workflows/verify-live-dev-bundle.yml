@@ -12,25 +12,17 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
-      - name: Inspect live Cloudflare bundle
+      - name: Inspect live Cloudflare Project Administration chunk
         shell: bash
         run: |
           set -euo pipefail
-          url='https://verigence-web-dev.jbrconsulting-it.workers.dev/admin/project'
-          curl --fail --silent --show-error --location --output /tmp/page.html "$url"
-          asset_path="$(grep -oE 'src="/assets/[^"]+\.js"' /tmp/page.html | head -n 1 | sed -E 's/^src="([^"]+)"$/\1/')"
-          [ -n "$asset_path" ] || { echo 'NO_ASSET_PATH'; cat /tmp/page.html; exit 1; }
-          echo "LIVE_ASSET_PATH=$asset_path"
-          curl --fail --silent --show-error --location --output /tmp/app.js "https://verigence-web-dev.jbrconsulting-it.workers.dev$asset_path"
-          if grep -Fq 'Configure project details, dealers, outlets, team roles, master data and readiness before activation.' /tmp/app.js; then
-            echo 'LIVE_CURRENT_HEADER=YES'
-          else
-            echo 'LIVE_CURRENT_HEADER=NO'
-          fi
-          if grep -Fq 'Set up project details, dealers, outlets, team access and masters before activation.' /tmp/app.js; then
-            echo 'LIVE_OLD_HEADER=YES'
-          else
-            echo 'LIVE_OLD_HEADER=NO'
-          fi
-          if grep -Fq 'Setup Progress' /tmp/app.js; then echo 'LIVE_SETUP_PROGRESS=YES'; else echo 'LIVE_SETUP_PROGRESS=NO'; fi
-          if grep -Fq 'Please check the information and try again.' /tmp/app.js; then echo 'LIVE_OLD_GENERIC_ERROR=YES'; else echo 'LIVE_OLD_GENERIC_ERROR=NO'; fi
+          base='https://verigence-web-dev.jbrconsulting-it.workers.dev'
+          curl --fail --silent --show-error --location --output /tmp/page.html "$base/admin/project"
+          main_asset="$(grep -oE 'src="/assets/[^"]+\.js"' /tmp/page.html | head -n 1 | sed -E 's/^src="([^"]+)"$/\1/')"
+          [ -n "$main_asset" ] || { echo 'NO_MAIN_ASSET'; exit 1; }
+          echo "LIVE_MAIN_ASSET=$main_asset"
+          curl --fail --silent --show-error --location --output /tmp/project.js "$base/assets/ProjectAdministrationPage-CgWvRWp1.js"
+          if grep -Fq 'Configure project details, dealers, outlets, team roles, master data and readiness before activation.' /tmp/project.js; then echo 'PROJECT_CURRENT_HEADER=YES'; else echo 'PROJECT_CURRENT_HEADER=NO'; fi
+          if grep -Fq 'Set up project details, dealers, outlets, team access and masters before activation.' /tmp/project.js; then echo 'PROJECT_OLD_HEADER=YES'; else echo 'PROJECT_OLD_HEADER=NO'; fi
+          if grep -Fq 'Setup Progress' /tmp/project.js; then echo 'PROJECT_SETUP_PROGRESS=YES'; else echo 'PROJECT_SETUP_PROGRESS=NO'; fi
+          if grep -Fq 'Please check the information and try again.' /tmp/project.js; then echo 'PROJECT_OLD_GENERIC_ERROR=YES'; else echo 'PROJECT_OLD_GENERIC_ERROR=NO'; fi

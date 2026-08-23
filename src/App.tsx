@@ -18,6 +18,7 @@ const ApprovalQueuePage = lazy(() => import('./pages/ApprovalQueuePage'));
 const DashboardPage = lazy(() => import('./pages/DashboardPage'));
 const BookingWorkspacePage = lazy(() => import('./pages/BookingWorkspacePage'));
 const DeliveryWorkspacePage = lazy(() => import('./pages/DeliveryWorkspacePage'));
+const AuditReviewPage = lazy(() => import('./pages/AuditReviewPage'));
 const CustomersPage = lazy(() => import('./pages/CustomersPage'));
 const JourneysPage = lazy(() => import('./pages/JourneysPage'));
 const JourneyWorkspacePage = lazy(() => import('./pages/JourneyWorkspacePage'));
@@ -88,6 +89,7 @@ export default function App() {
             <Route path="/dashboard" element={<OperationalPage><DashboardPage /></OperationalPage>} />
             <Route path="/bookings/:journeyId" element={<OperationalPage><BookingWorkspacePage /></OperationalPage>} />
             <Route path="/deliveries/:journeyId" element={<OperationalPage><DeliveryWorkspacePage /></OperationalPage>} />
+            <Route path="/audit/:journeyId" element={<OperationalPage><AuditReviewPage /></OperationalPage>} />
             <Route path="/customers" element={<LegacyOperationalPage><CustomersPage /></LegacyOperationalPage>} />
             <Route path="/journeys" element={<LegacyOperationalPage><JourneysPage /></LegacyOperationalPage>} />
             <Route path="/journeys/:journeyId" element={<LegacyOperationalPage><JourneyWorkspacePage /></LegacyOperationalPage>} />

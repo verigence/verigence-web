@@ -57,6 +57,14 @@ function StageBlock({ label, item }: { label: string; item: Uc03WorkItem['bookin
 }
 
 function WorkItemCard({ item, timezoneName }: { item: Uc03WorkItem; timezoneName: string }) {
+  const bookingStatus = item.booking.businessStatus;
+  const deliveryEligible = Boolean(
+    item.delivery.businessStatus
+      || bookingStatus === 'BOOKING_STARTED'
+      || bookingStatus === 'BOOKING_IN_PROGRESS'
+      || bookingStatus === 'BOOKING_CLOSED',
+  );
+
   return (
     <article className="uc03-work-card">
       <header className="uc03-work-card__header">
@@ -89,9 +97,16 @@ function WorkItemCard({ item, timezoneName }: { item: Uc03WorkItem; timezoneName
             <span>{item.processingDocumentCount} document{item.processingDocumentCount === 1 ? '' : 's'} processing</span>
           )}
         </div>
-        <Link className="uc03-c1-secondary" to={`/bookings/${item.journeyId}`}>
-          {item.booking.businessStatus ? 'Open Booking' : 'Start Booking'}
-        </Link>
+        <div className="uc03-work-card__actions">
+          <Link className="uc03-c1-secondary" to={`/bookings/${item.journeyId}`}>
+            {item.booking.businessStatus ? 'Open Booking' : 'Start Booking'}
+          </Link>
+          {deliveryEligible && (
+            <Link className="uc03-c1-secondary" to={`/deliveries/${item.journeyId}`}>
+              {item.delivery.businessStatus ? 'Open Delivery' : 'Start Delivery'}
+            </Link>
+          )}
+        </div>
       </footer>
     </article>
   );

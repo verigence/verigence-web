@@ -1,0 +1,107 @@
+name: UC03 Android Validation
+
+# Shared UC03 native evidence gate; current artifact identifies the C2 Delivery checkpoint.
+on:
+  pull_request:
+    branches:
+      - dev
+    paths:
+      - '.github/workflows/uc03-native-validation.yml'
+      - '.env.native-dev'
+      - 'capacitor.config.ts'
+      - 'package.json'
+      - 'scripts/configure-native.mjs'
+      - 'src/**'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: uc03-android-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  android:
+    name: Build Android debug package
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      VITE_SECURITY_BASE_URL: https://verigence-web-dev.jbrconsulting-it.workers.dev
+      VITE_AUDIT_CORE_BASE_URL: ${{ secrets.AUDIT_CORE_URL }}
+
+    steps:
+      - name: Checkout UC03 branch
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Build Android Web assets
+        run: npm run build:native:dev
+
+      - name: Generate and sync Android
+        run: |
+          set -euo pipefail
+          npx cap add android
+          npx cap sync android
+          npx cap ls android
+          node scripts/configure-native.mjs android
+
+      - name: Verify Android native configuration
+        run: |
+          set -euo pipefail
+          manifest='android/app/src/main/AndroidManifest.xml'
+          grep -q 'android.permission.CAMERA' "$manifest"
+          grep -q 'android.permission.ACCESS_FINE_LOCATION' "$manifest"
+          grep -q 'android.permission.ACCESS_COARSE_LOCATION' "$manifest"
+          grep -q 'android:usesCleartextTraffic="false"' "$manifest"
+          grep -q 'com.verigence.app' android/app/build.gradle || grep -R -q 'com.verigence.app' android/app
+          grep -R -q 'capacitor-app' android || grep -R -q 'AppPlugin' android
+          grep -R -q 'capacitor-camera' android || grep -R -q 'CameraPlugin' android
+          grep -R -q 'capacitor-status-bar' android || grep -R -q 'StatusBarPlugin' android
+          grep -R -q 'capacitor-keyboard' android || grep -R -q 'KeyboardPlugin' android
+          echo 'ANDROID_NATIVE_CONFIG=PASS'
+
+      - name: Verify C2 Delivery camera contract in Web source
+        run: |
+          set -euo pipefail
+          grep -q 'capture=' src/pages/DeliveryWorkspacePage.tsx
+          grep -q "requirementKey === 'CAR_PICTURES'" src/pages/DeliveryWorkspacePage.tsx
+          grep -q '/delivery/workspace' src/services/audit-core/uc03Delivery.ts
+          echo 'UC03_C2_ANDROID_DELIVERY_CONTRACT=PASS'
+
+      - name: Lint and build Android debug APK
+        working-directory: android
+        run: |
+          set -euo pipefail
+          chmod +x gradlew
+          ./gradlew lintDebug assembleDebug --stacktrace
+
+      - name: Verify APK
+        run: |
+          set -euo pipefail
+          apk='android/app/build/outputs/apk/debug/app-debug.apk'
+          test -s "$apk"
+          sha256sum "$apk" | tee android-apk.sha256
+          ls -lh "$apk"
+
+      - name: Upload Android APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: verigence-uc03-c2-android-debug
+          path: |
+            android/app/build/outputs/apk/debug/app-debug.apk
+            android-apk.sha256
+          if-no-files-found: error
+          retention-days: 14

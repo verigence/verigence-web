@@ -37,6 +37,9 @@ export const useSessionStore = create<SessionState>((set) => ({
       email,
       displayName: email.split('@')[0] || email,
       role,
+      tenantId: '',
+      dealerId: '',
+      outletId: '',
       accessToken,
     }),
   // Retained only for local/demo tooling. Protected routes reject preview sessions because
@@ -47,6 +50,9 @@ export const useSessionStore = create<SessionState>((set) => ({
       email,
       displayName: email.split('@')[0] || email,
       role,
+      tenantId: '',
+      dealerId: '',
+      outletId: '',
       accessToken: undefined,
     }),
   signOut: () =>

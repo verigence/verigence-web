@@ -1,38 +1,43 @@
 import { useEffect, useState, type PropsWithChildren } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 
 import { verigenceLockup } from '../assets/verigenceLockup';
-import type { UserRole } from '../domain/models';
+import type { OperatingRole, UserRole } from '../domain/models';
+import { clearOperationalProject, resetOperationalContext } from '../features/uc03/projectContext';
 import { ANDROID_BACK_EVENT } from '../native/AndroidNativeBridge';
+import { useProjectContextStore } from '../store/projectContextStore';
 import { useSessionStore } from '../store/sessionStore';
 
-type NavItem = { to: string; label: string; mark: string; roles?: UserRole[] };
+type ShellRole = UserRole | OperatingRole;
+type NavItem = { to: string; label: string; mark: string; roles?: ShellRole[] };
 type NavGroup = { label: string; items: NavItem[] };
 
-const operational: UserRole[] = ['PC', 'TL', 'PM', 'CRM', 'TENANT_ADMIN', 'SUPER_ADMIN'];
-const assurance: UserRole[] = ['TL', 'PM', 'TENANT_ADMIN', 'SUPER_ADMIN'];
-const admin: UserRole[] = ['TENANT_ADMIN', 'SUPER_ADMIN'];
+const c0OperatingRoles: OperatingRole[] = ['PC', 'TL', 'PM', 'CRM', 'EXECUTIVE'];
+const operational: ShellRole[] = [...c0OperatingRoles, 'TENANT_ADMIN', 'SUPER_ADMIN'];
+const assurance: ShellRole[] = ['TL', 'PM', 'EXECUTIVE', 'TENANT_ADMIN', 'SUPER_ADMIN'];
+const admin: ShellRole[] = ['TENANT_ADMIN', 'SUPER_ADMIN'];
 
 const groups: NavGroup[] = [
   { label: 'Work', items: [
     { to: '/dashboard', label: 'Overview', mark: 'OV', roles: operational },
-    { to: '/customers', label: 'Customers', mark: 'CU', roles: ['PC', 'TL', 'PM', ...admin] },
-    { to: '/journeys', label: 'Journeys', mark: 'JR', roles: ['PC', 'TL', 'PM', ...admin] },
+    { to: '/customers', label: 'Customers', mark: 'CU', roles: ['PC', 'TL', 'PM', 'EXECUTIVE', ...admin] },
+    { to: '/journeys', label: 'Journeys', mark: 'JR', roles: ['PC', 'TL', 'PM', 'EXECUTIVE', ...admin] },
     { to: '/tasks', label: 'My Work', mark: 'WK', roles: operational },
   ] },
   { label: 'Assurance', items: [
     { to: '/reviews', label: 'Review Queue', mark: 'RV', roles: assurance },
-    { to: '/evidence', label: 'Evidence', mark: 'EV', roles: ['PC', 'TL', 'PM', ...admin] },
-    { to: '/payments', label: 'Payment Tracker', mark: 'PY', roles: ['PC', 'TL', 'PM', ...admin] },
+    { to: '/evidence', label: 'Evidence', mark: 'EV', roles: ['PC', 'TL', 'PM', 'EXECUTIVE', ...admin] },
+    { to: '/payments', label: 'Payment Tracker', mark: 'PY', roles: ['PC', 'TL', 'PM', 'EXECUTIVE', ...admin] },
     { to: '/findings', label: 'Findings', mark: 'FN', roles: assurance },
   ] },
   { label: 'Operations', items: [
     { to: '/daily-ops', label: 'Daily Operations', mark: 'DO', roles: ['PC', 'TL', 'PM', ...admin] },
     { to: '/activity', label: 'Activity Tracker', mark: 'AT', roles: ['PC', 'TL', 'PM', ...admin] },
     { to: '/crm', label: 'CRM Follow-up', mark: 'CR', roles: ['CRM', 'PM', ...admin] },
-    { to: '/escalations', label: 'Escalations', mark: 'ES', roles: ['TL', 'PM', 'CRM', ...admin] },
+    { to: '/escalations', label: 'Escalations', mark: 'ES', roles: ['TL', 'PM', 'CRM', 'EXECUTIVE', ...admin] },
   ] },
-  { label: 'Insights', items: [{ to: '/analytics', label: 'Analytics', mark: 'AN', roles: ['TL', 'PM', ...admin] }] },
+  { label: 'Insights', items: [{ to: '/analytics', label: 'Analytics', mark: 'AN', roles: ['TL', 'PM', 'EXECUTIVE', ...admin] }] },
   { label: 'Administration', items: [
     { to: '/approvals', label: 'Pending Approval', mark: 'PA', roles: ['SUPER_ADMIN'] },
     { to: '/admin/project', label: 'Project Administration', mark: 'PR', roles: ['SUPER_ADMIN'] },
@@ -58,11 +63,12 @@ const routeLabels: Record<string, string> = {
   '/profile': 'Profile',
 };
 
-const roleLabels: Record<UserRole, string> = {
+const roleLabels: Record<ShellRole, string> = {
   PC: 'Process Coordinator',
   TL: 'Team Lead',
   PM: 'Project Manager',
   CRM: 'CRM',
+  EXECUTIVE: 'Executive',
   TENANT_ADMIN: 'Tenant Admin',
   SUPER_ADMIN: 'SuperAdmin',
 };
@@ -74,12 +80,18 @@ function initials(name: string): string {
 }
 
 export default function AppShell({ children }: PropsWithChildren) {
-  const role = useSessionStore((state) => state.role);
+  const sessionRole = useSessionStore((state) => state.role);
   const displayName = useSessionStore((state) => state.displayName);
   const signOut = useSessionStore((state) => state.signOut);
+  const selectedProject = useProjectContextStore((state) => state.selectedProject);
+  const projects = useProjectContextStore((state) => state.projects);
+  const queryClient = useQueryClient();
   const navigate = useNavigate();
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  const role: ShellRole = selectedProject?.operatingRole ?? sessionRole;
+  const c0OperationalShell = Boolean(selectedProject);
 
   useEffect(() => {
     setMobileMenuOpen(false);
@@ -105,8 +117,15 @@ export default function AppShell({ children }: PropsWithChildren) {
   }, [mobileMenuOpen]);
 
   const handleSignOut = () => {
+    resetOperationalContext(queryClient);
     signOut();
     navigate('/login');
+  };
+
+  const handleSwitchProject = () => {
+    clearOperationalProject(queryClient);
+    setMobileMenuOpen(false);
+    navigate('/dashboard', { replace: true });
   };
 
   const currentLabel = routeLabels[location.pathname]
@@ -115,6 +134,9 @@ export default function AppShell({ children }: PropsWithChildren) {
   const visibleName = displayName || 'User';
   const roleLabel = roleLabels[role];
   const avatarText = initials(visibleName);
+  const visibleGroups: NavGroup[] = c0OperationalShell
+    ? [{ label: 'Work', items: [{ to: '/dashboard', label: 'Overview', mark: 'OV', roles: c0OperatingRoles }] }]
+    : groups;
 
   return (
     <div className={`enterprise-shell${mobileMenuOpen ? ' enterprise-shell--menu-open' : ''}`}>
@@ -139,8 +161,18 @@ export default function AppShell({ children }: PropsWithChildren) {
             ×
           </button>
         </div>
+        {selectedProject && (
+          <div className="uc03-shell-project">
+            <span>Current Project</span>
+            <strong>{selectedProject.projectName}</strong>
+            <small>{roleLabel}</small>
+            {projects.length > 1 && (
+              <button type="button" onClick={handleSwitchProject}>Switch Project</button>
+            )}
+          </div>
+        )}
         <nav className="enterprise-nav" aria-label="Primary navigation">
-          {groups.map((group) => {
+          {visibleGroups.map((group) => {
             const items = group.items.filter((item) => !item.roles || item.roles.includes(role));
             if (items.length === 0) return null;
             return (
@@ -173,8 +205,13 @@ export default function AppShell({ children }: PropsWithChildren) {
               <img src={verigenceLockup} alt="Verigence" />
             </NavLink>
           </div>
-          <div className="enterprise-topbar__trail"><span>Verigence</span><span>/</span><strong>{currentLabel}</strong></div>
+          <div className="enterprise-topbar__trail">
+            <span>{selectedProject?.projectName || 'Verigence'}</span><span>/</span><strong>{currentLabel}</strong>
+          </div>
           <div className="enterprise-topbar__actions">
+            {selectedProject && projects.length > 1 && (
+              <button type="button" className="uc03-switch-project-topbar" onClick={handleSwitchProject}>Switch Project</button>
+            )}
             <NavLink to="/profile" className="enterprise-topbar__identity" aria-label="Open profile">
               <span className="enterprise-topbar__avatar">{avatarText}</span>
               <span className="enterprise-topbar__identity-copy"><strong>{visibleName}</strong><small>{roleLabel}</small></span>

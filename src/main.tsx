@@ -30,6 +30,7 @@ import './styles/final-mobile-sweep.css';
 import './styles/android-native.css';
 import './styles/uc03-c0.css';
 import './styles/uc03-c1.css';
+import './styles/uc03-c2.css';
 
 import App from './App';
 

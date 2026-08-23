@@ -82,3 +82,46 @@
     width: min(80vw, 248px);
   }
 }
+
+/*
+ * Project Administration usability corrections.
+ * This file is loaded last so these rules deliberately neutralize older responsive
+ * overrides that can make the wizard navigation overlap the Step 1 submit action.
+ */
+.uc02-admin .uc02-grid--project {
+  grid-template-columns: minmax(0, 1fr) !important;
+}
+
+/* The backend uses synchronous Project creation and intentionally exposes no retry
+ * provisioning endpoint. Do not reserve half the Step 1 workspace for a dead flow. */
+.uc02-admin .uc02-grid--project > aside {
+  display: none !important;
+}
+
+.uc02-admin .uc02-footer-nav {
+  position: static !important;
+  inset: auto !important;
+  z-index: auto !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+  backdrop-filter: none !important;
+}
+
+.uc02-admin .uc02-grid--project form .uc02-actions {
+  margin-top: 4px;
+  padding-top: 14px;
+  border-top: 1px solid var(--uc02-border);
+}
+
+.uc02-admin .uc02-grid--project form .uc02-button--primary {
+  min-width: 150px;
+}
+
+.uc02-admin .uc02-selector-warning {
+  color: #8a5d00;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.4;
+}

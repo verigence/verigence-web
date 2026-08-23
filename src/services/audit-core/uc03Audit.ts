@@ -128,7 +128,6 @@ export function raiseAuditFlag(
     severity: string;
     summary: string;
     remarks?: string;
-    blockingCompletion?: boolean;
     evidenceIds?: string[];
   },
   accessToken?: string,
@@ -143,7 +142,6 @@ export function raiseAuditFlag(
       severity: payload.severity,
       summary: payload.summary,
       remarks: payload.remarks || null,
-      blockingCompletion: Boolean(payload.blockingCompletion),
       evidenceIds: payload.evidenceIds || [],
     }),
   });

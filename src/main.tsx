@@ -30,6 +30,7 @@ import './styles/journey-mobile.css';
 import './styles/operational-mobile.css';
 import './styles/final-mobile-sweep.css';
 import './styles/android-native.css';
+import './styles/auth-brand-emphasis.css';
 
 import App from './App';
 

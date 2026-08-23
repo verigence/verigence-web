@@ -161,5 +161,39 @@ writeResource('mipmap-anydpi-v26/ic_launcher_round.xml', adaptiveIcon);
 writeResource('mipmap-anydpi-v33/ic_launcher.xml', adaptiveIconThemed);
 writeResource('mipmap-anydpi-v33/ic_launcher_round.xml', adaptiveIconThemed);
 
+const approvedSplashMark = path.resolve('public/brand/approved/verigence-mark.png');
+if (!fs.existsSync(approvedSplashMark)) {
+  throw new Error(`Approved Verigence splash mark not found: ${approvedSplashMark}`);
+}
+
+for (const entry of fs.readdirSync(resourceRoot, { withFileTypes: true })) {
+  if (!entry.isDirectory() || !entry.name.startsWith('drawable')) continue;
+  const generatedSplash = path.join(resourceRoot, entry.name, 'splash.png');
+  if (fs.existsSync(generatedSplash)) fs.unlinkSync(generatedSplash);
+}
+
+const splashMarkDestination = path.join(resourceRoot, 'drawable', 'verigence_splash_mark.png');
+fs.mkdirSync(path.dirname(splashMarkDestination), { recursive: true });
+fs.copyFileSync(approvedSplashMark, splashMarkDestination);
+
+const splashColors = `
+<resources>
+  <color name="verigence_splash_background">#FFFFFF</color>
+</resources>`;
+
+const splashDrawable = `
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+  <item android:drawable="@color/verigence_splash_background" />
+  <item android:gravity="center">
+    <bitmap
+        android:src="@drawable/verigence_splash_mark"
+        android:gravity="center" />
+  </item>
+</layer-list>`;
+
+writeResource('values/verigence_splash_colors.xml', splashColors);
+writeResource('drawable/splash.xml', splashDrawable);
+
 console.log('ANDROID_NATIVE_CONFIGURATION=PASS');
 console.log('ANDROID_BRANDED_LAUNCHER_ICON=PASS');
+console.log('ANDROID_BRANDED_SPLASH=PASS');

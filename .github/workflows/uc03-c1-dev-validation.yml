@@ -48,6 +48,15 @@ jobs:
         env:
           VITE_SECURITY_BASE_URL: ""
           VITE_AUDIT_CORE_BASE_URL: ${{ secrets.AUDIT_CORE_URL }}
+      - name: Resolve C1 Booking build chunk
+        shell: bash
+        run: |
+          set -euo pipefail
+          booking_chunk="$(grep -l 'uc03-workspace' dist/assets/*.js | head -n 1)"
+          [ -n "$booking_chunk" ] || { echo '::error::Built C1 workspace chunk not found'; exit 1; }
+          grep -q 'booking/extraction/refresh' "$booking_chunk" || { echo '::error::Built C1 Booking chunk misses extraction refresh'; exit 1; }
+          echo "BOOKING_CHUNK=/assets/$(basename "$booking_chunk")" >> "$GITHUB_ENV"
+          echo "WEB_C1_BUILD_CHUNK=PASS|$(basename "$booking_chunk")"
       - name: Deploy to Cloudflare DEV
         uses: cloudflare/wrangler-action@v3
         with:
@@ -61,12 +70,10 @@ jobs:
           sleep 5
           curl --fail --silent --show-error --location --output /tmp/login.html "$DEV_WEB_URL/login"
           curl --fail --silent --show-error --location --output /tmp/booking.html "$DEV_WEB_URL/bookings/00000000-0000-0000-0000-000000000001"
-          asset_path="$(grep -oE 'src="/assets/[^"]+\.js"' /tmp/login.html | head -n 1 | sed -E 's/^src="([^"]+)"$/\1/')"
-          [ -n "$asset_path" ] || { echo '::error::Cannot resolve deployed JS asset'; exit 1; }
-          curl --fail --silent --show-error --location --output /tmp/app.js "$DEV_WEB_URL$asset_path"
-          grep -q 'uc03-workspace' /tmp/app.js || { echo '::error::Deployed JS is missing C1 workspace contract'; exit 1; }
-          grep -q 'booking/extraction/refresh' /tmp/app.js || { echo '::error::Deployed JS is missing C1 extraction refresh contract'; exit 1; }
-          echo 'WEB_C1_DEPLOYED_BUNDLE=PASS'
+          curl --fail --silent --show-error --location --output /tmp/booking.js "$DEV_WEB_URL$BOOKING_CHUNK"
+          grep -q 'uc03-workspace' /tmp/booking.js || { echo '::error::Deployed Booking chunk is missing C1 workspace contract'; exit 1; }
+          grep -q 'booking/extraction/refresh' /tmp/booking.js || { echo '::error::Deployed Booking chunk is missing C1 extraction refresh contract'; exit 1; }
+          echo "WEB_C1_DEPLOYED_BUNDLE=PASS|$BOOKING_CHUNK"
           security_status="$(curl --silent --show-error --dump-header /tmp/security.headers --output /tmp/security.body --write-out '%{http_code}' --request POST --header 'Content-Type: application/json' --data '{}' "$DEV_WEB_URL/security/v1/auth/login")"
           grep -qi '^x-verigence-proxy: security' /tmp/security.headers || { cat /tmp/security.headers; exit 1; }
           case "$security_status" in 400|401|422) ;; *) cat /tmp/security.body; exit 1 ;; esac

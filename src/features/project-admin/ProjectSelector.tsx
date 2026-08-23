@@ -19,15 +19,13 @@ export default function ProjectSelector({
   const [projects, setProjects] = useState<ProjectSelection[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadWarning, setLoadWarning] = useState('');
-  const currentProjectNameRef = useRef(currentProjectName);
   const onSelectionChangeRef = useRef(onSelectionChange);
 
-  // Keep callback/display references current without making Project discovery depend on
-  // parent render identity. Dealer/outlet/form state changes must not re-fetch /v1/projects.
+  // Keep the callback current without making Project discovery depend on parent
+  // render identity. Dealer/outlet/form state changes must not re-fetch /v1/projects.
   useEffect(() => {
-    currentProjectNameRef.current = currentProjectName;
     onSelectionChangeRef.current = onSelectionChange;
-  }, [currentProjectName, onSelectionChange]);
+  }, [onSelectionChange]);
 
   // Active-project loading has its own error handling in ProjectAdministrationPage.
   // Keep this callback in the public component contract for compatibility, but never
@@ -48,35 +46,19 @@ export default function ProjectSelector({
         if (cancelled) return;
         setProjects(values);
 
-        // A Tenant can disappear after a failed/compensated Project create or an
-        // administrative cleanup. Never leave that deleted Tenant hidden in the
-        // client business context while the selector visually shows "New Project".
-        if (tenantId && !values.some((item) => item.tenantId === tenantId)) {
-          setBusinessContext({ tenantId: '', dealerId: '', outletId: '' });
-          onSelectionChangeRef.current('');
-        }
+        // Project directory discovery is not authoritative enough to mutate the
+        // user's active business context. A transient empty/mismatched directory
+        // must never silently throw the user back to "New Project". The active
+        // Project remains until the user explicitly changes it or its own GET fails.
       })
       .catch((error) => {
         if (cancelled) return;
         const message = auditCoreErrorMessage(error);
         setProjects([]);
-
-        // If there is a tenantId but no loaded Project name, the browser can visually
-        // fall back to the first <option> ("New Project") while the session still carries
-        // the stale Tenant. That is exactly the dangerous state after an incomplete
-        // Project create. Clear it and make New Project real, not merely visual.
-        if (tenantId && !currentProjectNameRef.current) {
-          setBusinessContext({ tenantId: '', dealerId: '', outletId: '' });
-          onSelectionChangeRef.current('');
-        }
-
-        // Existing-project discovery is not a blocker for creating a new Project.
-        // Surface the dependency problem locally instead of presenting it as if the
-        // user's Project form submission failed.
         setLoadWarning(
           message
-            ? `Existing projects could not be loaded (${message}). You can still create a new project.`
-            : 'Existing projects could not be loaded. You can still create a new project.',
+            ? `Existing projects could not be loaded (${message}). Your current project has been preserved.`
+            : 'Existing projects could not be loaded. Your current project has been preserved.',
         );
       })
       .finally(() => {
@@ -85,13 +67,13 @@ export default function ProjectSelector({
     return () => {
       cancelled = true;
     };
-  }, [accessToken, tenantId, setBusinessContext]);
+  }, [accessToken, tenantId]);
 
   const currentIsListed = projects.some((item) => item.tenantId === tenantId);
 
   function select(nextTenantId: string) {
     setBusinessContext({ tenantId: nextTenantId, dealerId: '', outletId: '' });
-    onSelectionChange(nextTenantId);
+    onSelectionChangeRef.current(nextTenantId);
   }
 
   return (

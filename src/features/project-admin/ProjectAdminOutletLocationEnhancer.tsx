@@ -52,6 +52,8 @@ function OutletLocationPanel({ host }: { host: HTMLElement }) {
   const accessToken = useSessionStore((state) => state.accessToken);
   const form = host.closest('form');
   const [addressQuery, setAddressQuery] = useState('');
+  const [searchText, setSearchText] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
   const [coordinates, setCoordinates] = useState<Coordinates | null>(null);
   const [locating, setLocating] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -65,12 +67,16 @@ function OutletLocationPanel({ host }: { host: HTMLElement }) {
       .filter((control): control is FieldControl => control !== null);
 
     const refresh = () => {
-      setAddressQuery(addressFromForm(form));
+      const nextAddress = addressFromForm(form);
+      setAddressQuery(nextAddress);
+      if (!searchText.trim()) setSearchText(nextAddress);
       setCoordinates(null);
       setSaveState({ kind: 'idle', message: '' });
     };
 
-    setAddressQuery(addressFromForm(form));
+    const initialAddress = addressFromForm(form);
+    setAddressQuery(initialAddress);
+    setSearchText((current) => current || initialAddress);
     controls.forEach((control) => {
       control.addEventListener('input', refresh);
       control.addEventListener('change', refresh);
@@ -82,7 +88,7 @@ function OutletLocationPanel({ host }: { host: HTMLElement }) {
         control.removeEventListener('change', refresh);
       });
     };
-  }, [form]);
+  }, [form, searchText]);
 
   useEffect(() => {
     if (!(form instanceof HTMLFormElement) || !coordinates) return undefined;
@@ -139,8 +145,9 @@ function OutletLocationPanel({ host }: { host: HTMLElement }) {
 
   const mapQuery = useMemo(() => {
     if (coordinates) return `${coordinates.latitude},${coordinates.longitude}`;
+    if (searchQuery) return searchQuery;
     return addressQuery;
-  }, [addressQuery, coordinates]);
+  }, [addressQuery, coordinates, searchQuery]);
 
   const mapSrc = mapQuery
     ? `https://www.google.com/maps?q=${encodeURIComponent(mapQuery)}&z=16&output=embed`
@@ -148,6 +155,17 @@ function OutletLocationPanel({ host }: { host: HTMLElement }) {
   const openMapsUrl = mapQuery
     ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(mapQuery)}`
     : '';
+
+  const pinSearchLocation = () => {
+    const query = searchText.trim();
+    if (!query) {
+      setSaveState({ kind: 'error', message: 'Enter a place, landmark, road, locality or PIN code to search.' });
+      return;
+    }
+    setCoordinates(null);
+    setSearchQuery(query);
+    setSaveState({ kind: 'success', message: 'Google Maps search location pinned for confirmation.' });
+  };
 
   const pinCurrentLocation = () => {
     if (!navigator.geolocation) {
@@ -165,30 +183,37 @@ function OutletLocationPanel({ host }: { host: HTMLElement }) {
           accuracy: position.coords.accuracy,
         };
         setCoordinates(next);
+        setSearchQuery('');
         setLocating(false);
         setSaveState({
           kind: 'success',
-          message: `Location pinned${Number.isFinite(next.accuracy) ? ` (accuracy ±${Math.round(next.accuracy!)} m)` : ''}.`,
+          message: `Exact device location pinned${Number.isFinite(next.accuracy) ? ` (accuracy ±${Math.round(next.accuracy!)} m)` : ''}.`,
         });
       },
       (error) => {
         setLocating(false);
         const message =
           error.code === error.PERMISSION_DENIED
-            ? 'Location permission was denied. Allow location access or use the typed address pin.'
-            : 'Current location could not be determined. Use the typed address pin or try again.';
+            ? 'Location permission was denied. Allow location access or use the text search pin.'
+            : 'Current location could not be determined. Use text search or try again.';
         setSaveState({ kind: 'error', message });
       },
       { enableHighAccuracy: true, timeout: 12_000, maximumAge: 30_000 },
     );
   };
 
+  const pinLabel = coordinates
+    ? 'Exact device location pinned'
+    : searchQuery
+      ? 'Google Maps search result pinned'
+      : 'Address location pinned';
+
   return (
     <section className="uc02-outlet-location" aria-label="Outlet map location">
       <div className="uc02-outlet-location__head">
         <div>
           <strong>Google Maps Location</strong>
-          <span>Confirm the outlet on the map. Use device location for an exact GPS pin.</span>
+          <span>Search by place or landmark, use the entered address, or pin the device GPS location.</span>
         </div>
         <div className="uc02-outlet-location__actions">
           <button
@@ -207,6 +232,24 @@ function OutletLocationPanel({ host }: { host: HTMLElement }) {
         </div>
       </div>
 
+      <div className="uc02-outlet-location__search" role="search" aria-label="Search Google Maps location">
+        <input
+          value={searchText}
+          onChange={(event) => setSearchText(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter') {
+              event.preventDefault();
+              pinSearchLocation();
+            }
+          }}
+          placeholder="Search landmark, road, locality, dealer name or PIN code"
+          aria-label="Search place on Google Maps"
+        />
+        <button className="uc02-button uc02-button--primary" type="button" onClick={pinSearchLocation}>
+          Search & Pin
+        </button>
+      </div>
+
       {mapSrc ? (
         <div className="uc02-outlet-location__map-wrap">
           <iframe
@@ -219,12 +262,12 @@ function OutletLocationPanel({ host }: { host: HTMLElement }) {
           />
           <div className="uc02-outlet-location__pin-label">
             <span aria-hidden="true">●</span>
-            {coordinates ? 'Exact device location pinned' : 'Address location pinned'}
+            {pinLabel}
           </div>
         </div>
       ) : (
         <div className="uc02-outlet-location__empty">
-          Enter the outlet address above or choose <strong>Pin current location</strong> to show the map.
+          Search a place above, enter the outlet address, or choose <strong>Pin current location</strong> to show the map.
         </div>
       )}
 
@@ -240,11 +283,9 @@ function OutletLocationPanel({ host }: { host: HTMLElement }) {
           {saveState.message}
         </div>
       )}
-      {coordinates && (
-        <small className="uc02-outlet-location__note">
-          The pinned latitude and longitude will be saved with the outlet when you click Add Outlet.
-        </small>
-      )}
+      <small className="uc02-outlet-location__note">
+        Text search is for visual confirmation on Google Maps. For an exact stored latitude/longitude on tablet or mobile, use Pin current location before Add Outlet.
+      </small>
     </section>
   );
 }

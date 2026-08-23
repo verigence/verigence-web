@@ -4,7 +4,6 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 
 import { verigenceLockup } from './assets/verigenceLockup';
 import ProjectContextGate from './components/ProjectContextGate';
-import ProjectAdminOutletLocationEnhancer from './features/project-admin/ProjectAdminOutletLocationEnhancer';
 import AppShell from './layout/AppShell';
 import AndroidNativeBridge from './native/AndroidNativeBridge';
 import { useProjectContextStore } from './store/projectContextStore';
@@ -80,7 +79,6 @@ export default function App() {
     <IonApp>
       <BrowserRouter basename={routerBase}>
         <AndroidNativeBridge />
-        <ProjectAdminOutletLocationEnhancer />
         <Suspense fallback={<Loading />}>
           <Routes>
             <Route path="/login" element={<LoginPage />} />

@@ -60,6 +60,7 @@ function OutletLocationPanel({ host }: { host: HTMLElement }) {
   const [locating, setLocating] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveState, setSaveState] = useState<SaveState>({ kind: 'idle', message: '' });
+  const googleMapsEmbedApiKey = import.meta.env.VITE_GOOGLE_MAPS_EMBED_API_KEY?.trim() ?? '';
 
   useEffect(() => {
     if (!(form instanceof HTMLFormElement)) return undefined;
@@ -151,8 +152,8 @@ function OutletLocationPanel({ host }: { host: HTMLElement }) {
     return addressQuery;
   }, [addressQuery, coordinates, searchQuery]);
 
-  const mapSrc = mapQuery
-    ? `https://www.google.com/maps?q=${encodeURIComponent(mapQuery)}&z=16&output=embed`
+  const mapSrc = mapQuery && googleMapsEmbedApiKey
+    ? `https://www.google.com/maps/embed/v1/place?key=${encodeURIComponent(googleMapsEmbedApiKey)}&q=${encodeURIComponent(mapQuery)}`
     : '';
   const openMapsUrl = mapQuery
     ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(mapQuery)}`
@@ -285,13 +286,17 @@ function OutletLocationPanel({ host }: { host: HTMLElement }) {
             title="Dealer outlet location on Google Maps"
             src={mapSrc}
             loading="lazy"
-            referrerPolicy="no-referrer-when-downgrade"
+            referrerPolicy="strict-origin-when-cross-origin"
             allowFullScreen
           />
           <div className="uc02-outlet-location__pin-label">
             <span aria-hidden="true">●</span>
             {pinLabel}
           </div>
+        </div>
+      ) : mapQuery ? (
+        <div className="uc02-outlet-location__empty">
+          Google Maps preview is temporarily unavailable here. Use <strong>Open in Google Maps</strong> above to verify the location.
         </div>
       ) : (
         <div className="uc02-outlet-location__empty">
@@ -336,11 +341,13 @@ export default function ProjectAdminOutletLocationEnhancer() {
       if (currentHost?.isConnected && currentHost.closest('form') === form) return;
       currentHost?.remove();
 
+      const actionRow = form.querySelector<HTMLElement>('.uc02-actions');
       const addressControl = findFieldControl(form, 'Address');
       const addressField = addressControl?.closest('label.uc02-field');
       const nextHost = document.createElement('div');
       nextHost.className = 'uc02-outlet-location-host';
-      if (addressField) addressField.insertAdjacentElement('afterend', nextHost);
+      if (actionRow) actionRow.insertAdjacentElement('afterend', nextHost);
+      else if (addressField) addressField.insertAdjacentElement('afterend', nextHost);
       else form.appendChild(nextHost);
       currentHost = nextHost;
       setHost(nextHost);

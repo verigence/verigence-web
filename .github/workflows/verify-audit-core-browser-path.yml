@@ -1,0 +1,63 @@
+name: Verify Audit Core browser path
+
+on:
+  pull_request:
+    branches: [dev]
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      AUDIT_CORE_URL: ${{ secrets.AUDIT_CORE_URL }}
+      WEB_ORIGIN: https://verigence-web-dev.jbrconsulting-it.workers.dev
+    steps:
+      - name: Verify configured Audit Core URL, health and browser preflight
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -z "${AUDIT_CORE_URL:-}" ]; then
+            echo 'AUDIT_CORE_URL_PRESENT=NO'
+            exit 1
+          fi
+          echo 'AUDIT_CORE_URL_PRESENT=YES'
+
+          HEALTH_STATUS="$(curl --silent --show-error --location --output /tmp/health.body --write-out '%{http_code}' "${AUDIT_CORE_URL%/}/health" || true)"
+          echo "AUDIT_CORE_HEALTH_STATUS=$HEALTH_STATUS"
+          case "$HEALTH_STATUS" in
+            200) ;;
+            *) echo 'AUDIT_CORE_HEALTH=FAIL'; cat /tmp/health.body 2>/dev/null || true; exit 1 ;;
+          esac
+          echo 'AUDIT_CORE_HEALTH=PASS'
+
+          PREFLIGHT_STATUS="$(curl --silent --show-error --output /dev/null --dump-header /tmp/cors.headers --write-out '%{http_code}' \
+            --request OPTIONS \
+            --header "Origin: $WEB_ORIGIN" \
+            --header 'Access-Control-Request-Method: GET' \
+            --header 'Access-Control-Request-Headers: authorization,content-type' \
+            "${AUDIT_CORE_URL%/}/v1/project-reference-data" || true)"
+          echo "AUDIT_CORE_PREFLIGHT_STATUS=$PREFLIGHT_STATUS"
+
+          if grep -Fqi "access-control-allow-origin: $WEB_ORIGIN" /tmp/cors.headers; then
+            echo 'AUDIT_CORE_CORS_ORIGIN=PASS'
+          else
+            echo 'AUDIT_CORE_CORS_ORIGIN=FAIL'
+            sed -E 's/(set-cookie:).*/\1 [REDACTED]/I' /tmp/cors.headers
+            exit 1
+          fi
+
+          if grep -Fqi 'access-control-allow-credentials: true' /tmp/cors.headers; then
+            echo 'AUDIT_CORE_CORS_CREDENTIALS=PASS'
+          else
+            echo 'AUDIT_CORE_CORS_CREDENTIALS=FAIL'
+            sed -E 's/(set-cookie:).*/\1 [REDACTED]/I' /tmp/cors.headers
+            exit 1
+          fi
+
+          case "$PREFLIGHT_STATUS" in
+            200|204) echo 'AUDIT_CORE_PREFLIGHT=PASS' ;;
+            *) echo 'AUDIT_CORE_PREFLIGHT=FAIL'; sed -E 's/(set-cookie:).*/\1 [REDACTED]/I' /tmp/cors.headers; exit 1 ;;
+          esac

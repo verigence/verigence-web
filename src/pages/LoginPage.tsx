@@ -4,11 +4,18 @@ import { Link, useNavigate } from 'react-router-dom';
 
 import { verigenceLockup } from '../assets/verigenceLockup';
 import { resetOperationalContext } from '../features/uc03/projectContext';
+import { supportReference } from '../observability/correlation';
 import {
+  SecurityLoginError,
   loginErrorMessage,
   loginHuman,
 } from '../services/security/auth';
 import { useSessionStore } from '../store/sessionStore';
+
+interface LoginErrorState {
+  message: string;
+  reference?: string;
+}
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -19,7 +26,7 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [keepSignedIn, setKeepSignedIn] = useState(true);
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string>();
+  const [error, setError] = useState<LoginErrorState>();
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -41,7 +48,12 @@ export default function LoginPage() {
       setPassword('');
       navigate(superAdmin ? '/approvals' : '/dashboard', { replace: true });
     } catch (loginError) {
-      setError(loginErrorMessage(loginError));
+      setError({
+        message: loginErrorMessage(loginError),
+        reference: loginError instanceof SecurityLoginError
+          ? supportReference(loginError.correlationId)
+          : undefined,
+      });
     } finally {
       setBusy(false);
     }
@@ -110,7 +122,12 @@ export default function LoginPage() {
             <Link className="frozen-auth-text-link" to="/forgot-password">Forgot password?</Link>
           </div>
 
-          {error && <div className="frozen-auth-alert" role="alert">{error}</div>}
+          {error && (
+            <div className="frozen-auth-alert" role="alert">
+              <div>{error.message}</div>
+              {error.reference && <div>Reference: {error.reference}</div>}
+            </div>
+          )}
 
           <button className="frozen-auth-primary" type="submit" disabled={busy || !email.trim() || !password}>
             {busy ? 'Signing in…' : 'Sign in'}

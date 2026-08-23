@@ -106,6 +106,11 @@ function WorkItemCard({ item, timezoneName }: { item: Uc03WorkItem; timezoneName
               {item.delivery.businessStatus ? 'Open Delivery' : 'Start Delivery'}
             </Link>
           )}
+          {(item.booking.businessStatus || item.delivery.businessStatus || item.totalFlagCount > 0) && (
+            <Link className="uc03-c1-secondary" to={`/audit/${item.journeyId}`}>
+              Audit &amp; History
+            </Link>
+          )}
         </div>
       </footer>
     </article>

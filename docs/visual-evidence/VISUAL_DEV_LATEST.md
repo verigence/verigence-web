@@ -1,8 +1,8 @@
 # Verigence Web DEV — Responsive Visual Validation
 
 - branch: dev
-- run_id: 32625829828
-- run_number: 7
-- source_sha: 91b2fe68b7cdc9cc3ca73f2efbf03a8ebd363778
-- result: skipped
-- workflow_url: https://github.com/verigence/verigence-web/actions/runs/32625829828
+- run_id: 32631396206
+- run_number: 8
+- source_sha: 0b935be2832d0d226eaa079efd92875869125377
+- result: running
+- workflow_url: https://github.com/verigence/verigence-web/actions/runs/32631396206

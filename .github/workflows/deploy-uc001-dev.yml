@@ -87,6 +87,7 @@ jobs:
           VITE_SECURITY_BASE_URL: ""
           VITE_AUDIT_CORE_BASE_URL: ${{ secrets.AUDIT_CORE_URL }}
           VITE_AUDIT_CORE_PROXY_BASE_URL: /audit-core
+          VITE_GOOGLE_MAPS_EMBED_API_KEY: ${{ secrets.GOOGLE_MAPS_EMBED_API_KEY }}
 
       - name: Verify approved logo is bundled
         shell: bash
@@ -181,7 +182,7 @@ jobs:
           cat /tmp/audit-health.body
           echo
           if ! grep -qi '^x-verigence-proxy: audit-core' /tmp/audit-health.headers; then
-            echo 'Audit Core health request did not pass through the Worker proxy.'
+            echo 'Audit Core health request did not pass through the Audit Core Worker proxy.'
             exit 1
           fi
           echo 'AUDIT_CORE_PROXY_HEALTH=PASS'

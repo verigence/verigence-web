@@ -1,0 +1,68 @@
+/*
+ * Project Administration Step 1 usability fix.
+ * Loaded last so it wins over older responsive/sticky navigation rules.
+ */
+
+/* Step 1 is a single business task. Do not reserve space for the obsolete setup side panel. */
+.uc02-admin .uc02-grid--project {
+  grid-template-columns: minmax(0, 1fr) !important;
+}
+
+.uc02-admin .uc02-grid--project > aside {
+  display: none !important;
+}
+
+.uc02-admin .uc02-grid--project > form {
+  width: 100%;
+  max-width: none;
+}
+
+/* Keep the real Create/Save action visible and separated from workflow navigation. */
+.uc02-admin .uc02-grid--project .uc02-actions {
+  margin-top: 8px;
+  padding-top: 6px;
+  padding-bottom: 4px;
+  border-top: 1px solid var(--uc02-border);
+}
+
+.uc02-admin .uc02-grid--project .uc02-actions .uc02-button--primary {
+  min-width: 150px;
+}
+
+/* The step footer must never cover form controls on desktop or mobile. */
+.uc02-admin .uc02-footer-nav {
+  position: static !important;
+  inset: auto !important;
+  z-index: auto !important;
+  width: 100%;
+  margin: 0 !important;
+  padding: 2px 0 24px !important;
+  border-top: 0 !important;
+  background: transparent !important;
+  backdrop-filter: none !important;
+}
+
+/* A failed existing-project directory lookup is informative, not a form-submit failure. */
+.uc02-selector-warning {
+  margin-top: 5px;
+  color: #8a5d00 !important;
+  font-size: 11px !important;
+  font-weight: 600;
+}
+
+@media (max-width: 767px) {
+  .uc02-admin .uc02-grid--project .uc02-actions .uc02-button--primary {
+    width: 100%;
+  }
+
+  .uc02-admin .uc02-footer-nav {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .uc02-admin .uc02-footer-nav > span {
+    grid-column: 1 / -1;
+    text-align: center;
+  }
+}

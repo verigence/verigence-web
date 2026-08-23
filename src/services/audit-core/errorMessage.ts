@@ -1,10 +1,13 @@
+import { supportReference } from '../../observability/correlation';
 import { AuditCoreHttpError } from './client';
 
 export function auditCoreErrorMessage(error: unknown): string {
   if (error instanceof AuditCoreHttpError) {
     const problem = error.problem;
     const message = problem?.detail || problem?.title || error.message;
-    return problem?.errorCode ? `${problem.errorCode}: ${message}` : message;
+    const baseMessage = problem?.errorCode ? `${problem.errorCode}: ${message}` : message;
+    const reference = supportReference(error.correlationId);
+    return reference ? `${baseMessage} Reference: ${reference}` : baseMessage;
   }
   if (error instanceof Error && error.message.trim()) {
     return error.message;

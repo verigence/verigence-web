@@ -5,6 +5,18 @@
   "compatibility_date": "2026-08-20",
   "workers_dev": true,
   "preview_urls": true,
+  "observability": {
+    "logs": {
+      "enabled": true,
+      "head_sampling_rate": 1,
+      "persist": true
+    },
+    "traces": {
+      "enabled": true,
+      "head_sampling_rate": 1,
+      "persist": true
+    }
+  },
   "vars": {
     "SECURITY_UPSTREAM": "https://security-dev.up.railway.app",
     "AUDIT_CORE_UPSTREAM": "https://verigence-audit-core-production.up.railway.app"

@@ -18,6 +18,7 @@ const PrivacyPage = lazy(() => import('./pages/PrivacyPage'));
 const ApprovalQueuePage = lazy(() => import('./pages/ApprovalQueuePage'));
 const AdminUsersPage = lazy(() => import('./pages/AdminUsersPage'));
 const AdminConfigurationPage = lazy(() => import('./pages/AdminConfigurationPage'));
+const AdminLandingPage = lazy(() => import('./pages/AdminLandingPage'));
 const DashboardPage = lazy(() => import('./pages/DashboardPage'));
 const BookingWorkspacePage = lazy(() => import('./pages/BookingWorkspacePage'));
 const DeliveryWorkspacePage = lazy(() => import('./pages/DeliveryWorkspacePage'));
@@ -58,6 +59,16 @@ function SuperAdminPage({ children }: { children: ReactNode }) {
   return <PrivatePage>{children}</PrivatePage>;
 }
 
+function DashboardEntry() {
+  const role = useSessionStore((state) => state.role);
+  const selectedProject = useProjectContextStore((state) => state.selectedProject);
+
+  if (role === 'SUPER_ADMIN' && !selectedProject) {
+    return <PrivatePage><AdminLandingPage /></PrivatePage>;
+  }
+  return <OperationalPage><DashboardPage /></OperationalPage>;
+}
+
 function OperationalPage({ children }: { children: ReactNode }) {
   return (
     <Authenticated>
@@ -96,7 +107,7 @@ export default function App() {
             <Route path="/forgot-password" element={<ForgotPasswordPage />} />
             <Route path="/terms" element={<TermsPage />} />
             <Route path="/privacy" element={<PrivacyPage />} />
-            <Route path="/dashboard" element={<OperationalPage><DashboardPage /></OperationalPage>} />
+            <Route path="/dashboard" element={<DashboardEntry />} />
             <Route path="/bookings/:journeyId" element={<OperationalPage><BookingWorkspacePage /></OperationalPage>} />
             <Route path="/deliveries/:journeyId" element={<OperationalPage><DeliveryWorkspacePage /></OperationalPage>} />
             <Route path="/audit/:journeyId" element={<OperationalPage><AuditReviewPage /></OperationalPage>} />
@@ -115,6 +126,7 @@ export default function App() {
             <Route path="/escalations" element={<LegacyOperationalPage><EscalationsPage /></LegacyOperationalPage>} />
             <Route path="/analytics" element={<LegacyOperationalPage><AnalyticsPage /></LegacyOperationalPage>} />
 
+            <Route path="/admin/engagements" element={<SuperAdminPage><AdminConfigurationPage section="engagements" /></SuperAdminPage>} />
             <Route path="/admin/users" element={<SuperAdminPage><AdminUsersPage /></SuperAdminPage>} />
             <Route path="/admin/users/pending" element={<SuperAdminPage><ApprovalQueuePage /></SuperAdminPage>} />
             <Route path="/admin/activity-log" element={<SuperAdminPage><AdminConfigurationPage section="activity" /></SuperAdminPage>} />

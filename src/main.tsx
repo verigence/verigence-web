@@ -37,6 +37,7 @@ import './styles/uc03-c2.css';
 import './styles/uc03-c3.css';
 import './styles/auth-brand-emphasis.css';
 import './styles/project-admin-step1-fix.css';
+import './styles/navigation-admin-landing.css';
 
 import App from './App';
 

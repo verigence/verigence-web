@@ -4,6 +4,49 @@ import { auditCoreErrorMessage } from '../../services/audit-core/errorMessage';
 import { listProjects, type ProjectSelection } from '../../services/audit-core/uc02Admin';
 import { useSessionStore } from '../../store/sessionStore';
 
+type ProjectDirectoryCache = {
+  accessToken: string;
+  values: ProjectSelection[];
+};
+
+let projectDirectoryCache: ProjectDirectoryCache | null = null;
+let projectDirectoryInFlight: { accessToken: string; promise: Promise<ProjectSelection[]> } | null = null;
+const refreshedMissingProjects = new Set<string>();
+
+function cachedProjectDirectory(accessToken: string): ProjectSelection[] | null {
+  return projectDirectoryCache?.accessToken === accessToken ? projectDirectoryCache.values : null;
+}
+
+function missingProjectRefreshKey(accessToken: string, tenantId: string) {
+  return `${accessToken}\u0000${tenantId}`;
+}
+
+function loadProjectDirectory(
+  accessToken: string,
+  { forceRefresh = false }: { forceRefresh?: boolean } = {},
+): Promise<ProjectSelection[]> {
+  const cached = cachedProjectDirectory(accessToken);
+  if (!forceRefresh && cached) {
+    return Promise.resolve(cached);
+  }
+  if (projectDirectoryInFlight?.accessToken === accessToken) {
+    return projectDirectoryInFlight.promise;
+  }
+
+  const promise = listProjects(accessToken)
+    .then((values) => {
+      projectDirectoryCache = { accessToken, values };
+      return values;
+    })
+    .finally(() => {
+      if (projectDirectoryInFlight?.promise === promise) {
+        projectDirectoryInFlight = null;
+      }
+    });
+  projectDirectoryInFlight = { accessToken, promise };
+  return promise;
+}
+
 export default function ProjectSelector({
   currentProjectName,
   onSelectionChange,
@@ -16,7 +59,9 @@ export default function ProjectSelector({
   const accessToken = useSessionStore((state) => state.accessToken);
   const tenantId = useSessionStore((state) => state.tenantId);
   const setBusinessContext = useSessionStore((state) => state.setBusinessContext);
-  const [projects, setProjects] = useState<ProjectSelection[]>([]);
+  const [projects, setProjects] = useState<ProjectSelection[]>(() =>
+    accessToken ? cachedProjectDirectory(accessToken) || [] : [],
+  );
   const [loading, setLoading] = useState(false);
   const [loadWarning, setLoadWarning] = useState('');
   const onSelectionChangeRef = useRef(onSelectionChange);
@@ -38,18 +83,25 @@ export default function ProjectSelector({
       setLoadWarning('');
       return;
     }
+
+    const cached = cachedProjectDirectory(accessToken);
+    if (cached) {
+      setProjects(cached);
+      setLoadWarning('');
+      return;
+    }
+
     let cancelled = false;
     setLoading(true);
     setLoadWarning('');
-    void listProjects(accessToken)
-      .then((values) => {
-        if (cancelled) return;
-        setProjects(values);
 
-        // Project directory discovery is not authoritative enough to mutate the
-        // user's active business context. A transient empty/mismatched directory
-        // must never silently throw the user back to "New Project". The active
-        // Project remains until the user explicitly changes it or its own GET fails.
+    // The resolved directory is retained only in this JavaScript process. Step
+    // navigation/remounts reuse it and therefore do not call GET /v1/projects again.
+    // Nothing is written to localStorage/sessionStorage and a different access token
+    // cannot reuse another authenticated session's cached Project directory.
+    void loadProjectDirectory(accessToken)
+      .then((values) => {
+        if (!cancelled) setProjects(values);
       })
       .catch((error) => {
         if (cancelled) return;
@@ -64,6 +116,46 @@ export default function ProjectSelector({
       .finally(() => {
         if (!cancelled) setLoading(false);
       });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [accessToken]);
+
+  useEffect(() => {
+    if (!accessToken || !tenantId) return;
+
+    const cached = cachedProjectDirectory(accessToken);
+    if (!cached || cached.some((item) => item.tenantId === tenantId)) return;
+
+    // An explicitly selected existing Project is already in the browser directory.
+    // A tenantId that appears after the directory was loaded is therefore normally a
+    // newly-created Project. Refresh exactly once for that Project so the new entry is
+    // incorporated, then keep using browser memory while the user moves across steps.
+    const refreshKey = missingProjectRefreshKey(accessToken, tenantId);
+    if (refreshedMissingProjects.has(refreshKey)) return;
+    refreshedMissingProjects.add(refreshKey);
+
+    let cancelled = false;
+    setLoading(true);
+    setLoadWarning('');
+    void loadProjectDirectory(accessToken, { forceRefresh: true })
+      .then((values) => {
+        if (!cancelled) setProjects(values);
+      })
+      .catch((error) => {
+        if (cancelled) return;
+        const message = auditCoreErrorMessage(error);
+        setLoadWarning(
+          message
+            ? `Project list refresh failed (${message}). Your current project has been preserved.`
+            : 'Project list refresh failed. Your current project has been preserved.',
+        );
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
     return () => {
       cancelled = true;
     };

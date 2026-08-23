@@ -194,6 +194,35 @@ const splashDrawable = `
 writeResource('values/verigence_splash_colors.xml', splashColors);
 writeResource('drawable/splash.xml', splashDrawable);
 
+const stylesPath = path.join(resourceRoot, 'values', 'styles.xml');
+if (!fs.existsSync(stylesPath)) throw new Error(`Android styles not found: ${stylesPath}`);
+let stylesXml = fs.readFileSync(stylesPath, 'utf8');
+const launchStylePattern = /<style\s+name="AppTheme\.NoActionBarLaunch"[^>]*>[\s\S]*?<\/style>/;
+if (!launchStylePattern.test(stylesXml)) {
+  throw new Error('Android launch theme AppTheme.NoActionBarLaunch not found');
+}
+stylesXml = stylesXml.replace(launchStylePattern, (styleBlock) => {
+  const requiredItems = [
+    ['windowSplashScreenBackground', '@color/verigence_splash_background'],
+    ['windowSplashScreenAnimatedIcon', '@drawable/verigence_splash_mark'],
+    ['postSplashScreenTheme', '@style/AppTheme.NoActionBar'],
+  ];
+  let updated = styleBlock;
+  for (const [name, value] of requiredItems) {
+    const itemPattern = new RegExp(`<item\\s+name="${name}"[^>]*>[^<]*<\\/item>`);
+    const item = `<item name="${name}">${value}</item>`;
+    if (itemPattern.test(updated)) {
+      updated = updated.replace(itemPattern, item);
+    } else {
+      updated = updated.replace('</style>', `    ${item}\n</style>`);
+    }
+  }
+  return updated;
+});
+fs.writeFileSync(stylesPath, stylesXml);
+
 console.log('ANDROID_NATIVE_CONFIGURATION=PASS');
 console.log('ANDROID_BRANDED_LAUNCHER_ICON=PASS');
+console.log('ANDROID_WHITE_LAUNCHER_BACKGROUND=PASS');
 console.log('ANDROID_BRANDED_SPLASH=PASS');
+console.log('ANDROID_WHITE_SYSTEM_SPLASH_BACKGROUND=PASS');

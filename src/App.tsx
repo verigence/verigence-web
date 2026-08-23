@@ -52,6 +52,12 @@ function PrivatePage({ children }: { children: ReactNode }) {
   return <Authenticated><AppShell>{children}</AppShell></Authenticated>;
 }
 
+function SuperAdminPage({ children }: { children: ReactNode }) {
+  const role = useSessionStore((state) => state.role);
+  if (role !== 'SUPER_ADMIN') return <Navigate to="/dashboard" replace />;
+  return <PrivatePage>{children}</PrivatePage>;
+}
+
 function OperationalPage({ children }: { children: ReactNode }) {
   return (
     <Authenticated>
@@ -109,14 +115,14 @@ export default function App() {
             <Route path="/escalations" element={<LegacyOperationalPage><EscalationsPage /></LegacyOperationalPage>} />
             <Route path="/analytics" element={<LegacyOperationalPage><AnalyticsPage /></LegacyOperationalPage>} />
 
-            <Route path="/admin/users" element={<PrivatePage><AdminUsersPage /></PrivatePage>} />
-            <Route path="/admin/users/pending" element={<PrivatePage><ApprovalQueuePage /></PrivatePage>} />
-            <Route path="/admin/activity-log" element={<PrivatePage><AdminConfigurationPage section="activity" /></PrivatePage>} />
-            <Route path="/admin/roles-permissions" element={<PrivatePage><AdminConfigurationPage section="roles" /></PrivatePage>} />
-            <Route path="/admin/audit-rules" element={<PrivatePage><AdminConfigurationPage section="audit-rules" /></PrivatePage>} />
-            <Route path="/admin/approval-workflow" element={<PrivatePage><AdminConfigurationPage section="approval-workflow" /></PrivatePage>} />
-            <Route path="/admin/notifications" element={<PrivatePage><AdminConfigurationPage section="notifications" /></PrivatePage>} />
-            <Route path="/admin/project" element={<PrivatePage><ProjectAdministrationPage /></PrivatePage>} />
+            <Route path="/admin/users" element={<SuperAdminPage><AdminUsersPage /></SuperAdminPage>} />
+            <Route path="/admin/users/pending" element={<SuperAdminPage><ApprovalQueuePage /></SuperAdminPage>} />
+            <Route path="/admin/activity-log" element={<SuperAdminPage><AdminConfigurationPage section="activity" /></SuperAdminPage>} />
+            <Route path="/admin/roles-permissions" element={<SuperAdminPage><AdminConfigurationPage section="roles" /></SuperAdminPage>} />
+            <Route path="/admin/audit-rules" element={<SuperAdminPage><AdminConfigurationPage section="audit-rules" /></SuperAdminPage>} />
+            <Route path="/admin/approval-workflow" element={<SuperAdminPage><AdminConfigurationPage section="approval-workflow" /></SuperAdminPage>} />
+            <Route path="/admin/notifications" element={<SuperAdminPage><AdminConfigurationPage section="notifications" /></SuperAdminPage>} />
+            <Route path="/admin/project" element={<SuperAdminPage><ProjectAdministrationPage /></SuperAdminPage>} />
 
             <Route path="/approvals" element={<Navigate to="/admin/users/pending" replace />} />
             <Route path="/admin/project-provisioning" element={<Navigate to="/admin/project" replace />} />

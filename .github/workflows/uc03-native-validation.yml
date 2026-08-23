@@ -1,5 +1,6 @@
 name: UC03 Android Validation
 
+# Shared UC03 native evidence gate; C1 artifact naming is intentional for this checkpoint.
 on:
   pull_request:
     branches:

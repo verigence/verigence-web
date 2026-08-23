@@ -1,68 +1,98 @@
 /*
  * Project Administration Step 1 usability fix.
  * Loaded last so it wins over older responsive/sticky navigation rules.
+ *
+ * Step 1 is deliberately one task: enter Project details and create/save the Project.
+ * Do not render a competing side panel and never allow workflow navigation to cover
+ * the form action.
  */
 
-/* Step 1 is a single business task. Do not reserve space for the obsolete setup side panel. */
+/* Use the whole workspace for the Project form. */
 .uc02-admin .uc02-grid--project {
+  width: 100%;
   grid-template-columns: minmax(0, 1fr) !important;
+  align-items: start;
 }
 
-.uc02-admin .uc02-grid--project > aside {
+/* The old Project Setup panel belongs to the retired async provisioning UX. */
+.uc02-admin .uc02-grid--project > aside,
+.uc02-admin .uc02-grid--project > .uc02-card--soft {
   display: none !important;
 }
 
 .uc02-admin .uc02-grid--project > form {
   width: 100%;
   max-width: none;
+  min-width: 0;
 }
 
-/* Keep the real Create/Save action visible and separated from workflow navigation. */
+/* Give the form enough room for its real submit action and keep that action explicit. */
 .uc02-admin .uc02-grid--project .uc02-actions {
-  margin-top: 8px;
-  padding-top: 6px;
-  padding-bottom: 4px;
+  position: static !important;
+  margin-top: 14px;
+  padding: 16px 0 4px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
   border-top: 1px solid var(--uc02-border);
+  background: transparent;
 }
 
 .uc02-admin .uc02-grid--project .uc02-actions .uc02-button--primary {
-  min-width: 150px;
+  min-width: 170px;
+  min-height: 42px;
 }
 
-/* The step footer must never cover form controls on desktop or mobile. */
+/* Previous/Next is workflow navigation, not the form submit bar. Keep it in normal
+ * document flow so it cannot cover Create Project on desktop, tablet or mobile. */
 .uc02-admin .uc02-footer-nav {
   position: static !important;
   inset: auto !important;
+  left: auto !important;
+  right: auto !important;
+  bottom: auto !important;
   z-index: auto !important;
-  width: 100%;
+  width: 100% !important;
+  max-width: none !important;
   margin: 0 !important;
-  padding: 2px 0 24px !important;
+  padding: 10px 0 24px !important;
   border-top: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
   background: transparent !important;
   backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
 }
 
-/* A failed existing-project directory lookup is informative, not a form-submit failure. */
+/* A failed existing-project directory lookup is informative while creating a new
+ * Project; it is not the same thing as the user's Create Project request failing. */
 .uc02-selector-warning {
+  display: block;
   margin-top: 5px;
   color: #8a5d00 !important;
   font-size: 11px !important;
   font-weight: 600;
+  line-height: 1.4;
 }
 
 @media (max-width: 767px) {
+  .uc02-admin .uc02-grid--project .uc02-actions {
+    align-items: stretch;
+  }
+
   .uc02-admin .uc02-grid--project .uc02-actions .uc02-button--primary {
     width: 100%;
   }
 
   .uc02-admin .uc02-footer-nav {
-    display: grid;
+    display: grid !important;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 8px;
   }
 
   .uc02-admin .uc02-footer-nav > span {
     grid-column: 1 / -1;
+    grid-row: 1;
     text-align: center;
   }
 }

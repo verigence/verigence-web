@@ -4,6 +4,21 @@ import { auditCoreErrorMessage } from '../../services/audit-core/errorMessage';
 import { listProjects, type ProjectSelection } from '../../services/audit-core/uc02Admin';
 import { useSessionStore } from '../../store/sessionStore';
 
+let projectDirectoryInFlight: { accessToken: string; promise: Promise<ProjectSelection[]> } | null = null;
+
+function loadProjectDirectory(accessToken: string): Promise<ProjectSelection[]> {
+  if (projectDirectoryInFlight?.accessToken === accessToken) {
+    return projectDirectoryInFlight.promise;
+  }
+  const promise = listProjects(accessToken).finally(() => {
+    if (projectDirectoryInFlight?.promise === promise) {
+      projectDirectoryInFlight = null;
+    }
+  });
+  projectDirectoryInFlight = { accessToken, promise };
+  return promise;
+}
+
 export default function ProjectSelector({
   currentProjectName,
   onSelectionChange,
@@ -41,7 +56,10 @@ export default function ProjectSelector({
     let cancelled = false;
     setLoading(true);
     setLoadWarning('');
-    void listProjects(accessToken)
+    // Share only an active request. This is not a browser result cache: once the
+    // request settles, the Promise is discarded. It prevents duplicate development
+    // mounts from turning one screen entry into two identical Project-directory calls.
+    void loadProjectDirectory(accessToken)
       .then((values) => {
         if (cancelled) return;
         setProjects(values);

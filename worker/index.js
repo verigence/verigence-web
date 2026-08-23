@@ -22,6 +22,21 @@ function buildSecurityTarget(rawUpstream, incomingUrl) {
   return upstream;
 }
 
+function buildAuditCoreTarget(rawUpstream, incomingUrl) {
+  const upstream = new URL(String(rawUpstream || '').trim());
+  const incoming = new URL(incomingUrl);
+  const proxyPrefix = '/audit-core';
+  const upstreamPath = upstream.pathname.replace(/\/+$/, '');
+  const incomingPath = incoming.pathname.startsWith(proxyPrefix)
+    ? incoming.pathname.slice(proxyPrefix.length) || '/'
+    : incoming.pathname;
+
+  upstream.pathname = `${upstreamPath}${incomingPath}`.replace(/\/{2,}/g, '/');
+  upstream.search = incoming.search;
+  upstream.hash = '';
+  return upstream;
+}
+
 function capacitorOrigin(request) {
   const origin = request.headers.get('Origin');
   return origin && CAPACITOR_ORIGINS.has(origin) ? origin : null;
@@ -52,9 +67,9 @@ function preflightResponse(request) {
   return new Response(null, { status: 204, headers });
 }
 
-function proxyResponse(response, request) {
+function proxyResponse(response, request, proxyName) {
   const headers = applyCapacitorCors(new Headers(response.headers), request);
-  headers.set('X-Verigence-Proxy', 'security');
+  headers.set('X-Verigence-Proxy', proxyName);
   headers.set('X-Verigence-Upstream-Status', String(response.status));
   return new Response(response.body, {
     status: response.status,
@@ -63,12 +78,24 @@ function proxyResponse(response, request) {
   });
 }
 
-function securityError(request, body, status) {
+function proxyError(request, proxyName, code, title, status) {
   const headers = applyCapacitorCors(new Headers({
     'Content-Type': 'application/json',
-    'X-Verigence-Proxy': 'security',
+    'X-Verigence-Proxy': proxyName,
   }), request);
-  return new Response(JSON.stringify(body), { status, headers });
+  return new Response(JSON.stringify({ code, title, status }), { status, headers });
+}
+
+function sanitizedUpstreamRequest(target, request) {
+  const upstreamRequest = new Request(target, request);
+  const headers = new Headers(upstreamRequest.headers);
+
+  // This is a server-side hop. Do not forward browser-origin routing headers.
+  headers.delete('host');
+  headers.delete('origin');
+  headers.delete('referer');
+
+  return new Request(upstreamRequest, { headers });
 }
 
 export default {
@@ -81,35 +108,55 @@ export default {
       }
 
       if (!String(env.SECURITY_UPSTREAM || '').trim()) {
-        return securityError(request, {
-          code: 'SECURITY_UPSTREAM_UNAVAILABLE',
-          title: 'Verigence Security is not configured',
-          status: 503,
-        }, 503);
+        return proxyError(
+          request,
+          'security',
+          'SECURITY_UPSTREAM_UNAVAILABLE',
+          'Verigence Security is not configured',
+          503,
+        );
       }
 
       try {
         const target = buildSecurityTarget(env.SECURITY_UPSTREAM, request.url);
-
-        // Clone the incoming request so Workers preserves the request body correctly.
-        const upstreamRequest = new Request(target, request);
-        const headers = new Headers(upstreamRequest.headers);
-
-        // This is a server-side hop. Do not forward browser-origin routing headers.
-        headers.delete('host');
-        headers.delete('origin');
-        headers.delete('referer');
-
-        const sanitizedRequest = new Request(upstreamRequest, { headers });
-        const response = await fetch(sanitizedRequest);
-        return proxyResponse(response, request);
+        const response = await fetch(sanitizedUpstreamRequest(target, request));
+        return proxyResponse(response, request, 'security');
       } catch (error) {
         console.error('Security upstream request failed', error);
-        return securityError(request, {
-          code: 'SECURITY_UPSTREAM_UNAVAILABLE',
-          title: 'Verigence Security could not be reached',
-          status: 502,
-        }, 502);
+        return proxyError(
+          request,
+          'security',
+          'SECURITY_UPSTREAM_UNAVAILABLE',
+          'Verigence Security could not be reached',
+          502,
+        );
+      }
+    }
+
+    if (url.pathname === '/audit-core' || url.pathname.startsWith('/audit-core/')) {
+      if (!String(env.AUDIT_CORE_UPSTREAM || '').trim()) {
+        return proxyError(
+          request,
+          'audit-core',
+          'AUDIT_CORE_UPSTREAM_UNAVAILABLE',
+          'Verigence Audit Core is not configured',
+          503,
+        );
+      }
+
+      try {
+        const target = buildAuditCoreTarget(env.AUDIT_CORE_UPSTREAM, request.url);
+        const response = await fetch(sanitizedUpstreamRequest(target, request));
+        return proxyResponse(response, request, 'audit-core');
+      } catch (error) {
+        console.error('Audit Core upstream request failed', error);
+        return proxyError(
+          request,
+          'audit-core',
+          'AUDIT_CORE_UPSTREAM_UNAVAILABLE',
+          'Verigence Audit Core could not be reached',
+          502,
+        );
       }
     }
 

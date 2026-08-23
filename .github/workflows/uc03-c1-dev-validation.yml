@@ -1,5 +1,6 @@
 name: UC03 C1 Web DEV Validation
 
+# Branch-safe C1 Web deployment evidence; no merge to dev occurs here.
 on:
   pull_request:
     branches:

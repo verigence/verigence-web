@@ -184,50 +184,55 @@ export default function BookingWorkspacePage() {
     queryFn: () => getBookingWorkspace(project!.tenantId, journeyId!, accessToken),
     enabled,
     refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
   });
 
+  // Processing status is an initial/detail read only. Background progress is driven
+  // by the single workspace-processing loop below, avoiding a second 4-second poll.
   const processingQuery = useQuery({
     queryKey: ['uc03-booking-processing', project?.tenantId, journeyId],
     queryFn: () => getBookingProcessingStatus(project!.tenantId, journeyId!, accessToken),
     enabled: enabled && Boolean(workspaceQuery.data?.bookingStage.businessStatus),
-    refetchInterval: (query) => {
-      const data = query.state.data;
-      return data && data.pendingCount > 0 ? 4_000 : false;
-    },
-    refetchIntervalInBackground: false,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
     retry: 1,
   });
 
   const refreshWorkspace = useCallback(async () => {
     if (!project?.tenantId || !journeyId || !accessToken) return;
-    const current = workspaceQuery.data;
-    if (current?.processingSummary?.pendingCount) {
-      try {
-        await refreshBookingExtraction(project.tenantId, journeyId, accessToken);
-      } catch {
-        // Processing failure is rendered from the safe server status on the next read.
-      }
+    await workspaceQuery.refetch();
+  }, [accessToken, journeyId, project?.tenantId, workspaceQuery.refetch]);
+
+  const refreshProcessingWorkspace = useCallback(async () => {
+    if (!project?.tenantId || !journeyId || !accessToken) return;
+    const pending = workspaceQuery.data?.processingSummary?.pendingCount ?? 0;
+    if (pending > 0) {
+      await refreshBookingExtraction(project.tenantId, journeyId, accessToken).catch(() => undefined);
     }
-    await Promise.all([workspaceQuery.refetch(), processingQuery.refetch()]);
-  }, [accessToken, journeyId, processingQuery, project?.tenantId, workspaceQuery]);
+    await workspaceQuery.refetch();
+  }, [
+    accessToken,
+    journeyId,
+    project?.tenantId,
+    workspaceQuery.data?.processingSummary?.pendingCount,
+    workspaceQuery.refetch,
+  ]);
 
   useEffect(() => {
     const onResume = () => {
-      if (document.visibilityState === 'visible') void refreshWorkspace();
+      if (document.visibilityState === 'visible') void refreshProcessingWorkspace();
     };
-    const onOnline = () => void refreshWorkspace();
+    const onOnline = () => void refreshProcessingWorkspace();
     document.addEventListener('visibilitychange', onResume);
-    window.addEventListener('focus', onResume);
     window.addEventListener('online', onOnline);
     return () => {
       document.removeEventListener('visibilitychange', onResume);
-      window.removeEventListener('focus', onResume);
       window.removeEventListener('online', onOnline);
     };
-  }, [refreshWorkspace]);
+  }, [refreshProcessingWorkspace]);
 
   useEffect(() => {
-    const pending = processingQuery.data?.pendingCount ?? 0;
+    const pending = workspaceQuery.data?.processingSummary?.pendingCount ?? 0;
     if (pending <= 0 || !project?.tenantId || !journeyId || !accessToken) return;
     const id = window.setInterval(() => {
       if (document.visibilityState !== 'visible') return;
@@ -236,7 +241,13 @@ export default function BookingWorkspacePage() {
         .catch(() => undefined);
     }, 4_000);
     return () => window.clearInterval(id);
-  }, [accessToken, journeyId, processingQuery.data?.pendingCount, project?.tenantId, workspaceQuery]);
+  }, [
+    accessToken,
+    journeyId,
+    project?.tenantId,
+    workspaceQuery.data?.processingSummary?.pendingCount,
+    workspaceQuery.refetch,
+  ]);
 
   useEffect(() => {
     const capture = workspaceQuery.data?.capture;
@@ -420,7 +431,7 @@ export default function BookingWorkspacePage() {
 
   const started = Boolean(workspace.bookingStage.businessStatus);
   const active = workspace.permittedActions.includes('CAPTURE');
-  const processing = processingQuery.data ?? workspace.processingSummary;
+  const processing = workspace.processingSummary ?? processingQuery.data;
   const failedCount = processing?.failedCount ?? 0;
   const pendingCount = processing?.pendingCount ?? 0;
 

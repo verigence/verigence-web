@@ -135,6 +135,9 @@ export default function DashboardPage() {
     queryKey: ['uc03-landing-metrics', project?.tenantId],
     queryFn: () => getUc03LandingMetrics(project!.tenantId, accessToken),
     enabled: Boolean(project?.tenantId && accessToken),
+    retry: 1,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
   });
 
   const workQuery = useQuery({
@@ -150,6 +153,9 @@ export default function DashboardPage() {
       accessToken,
     ),
     enabled: Boolean(project?.tenantId && accessToken),
+    retry: 1,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
   });
 
   if (!project) return null;

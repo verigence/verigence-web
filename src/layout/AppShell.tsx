@@ -39,8 +39,13 @@ const groups: NavGroup[] = [
   ] },
   { label: 'Insights', items: [{ to: '/analytics', label: 'Analytics', mark: 'AN', roles: ['TL', 'PM', 'EXECUTIVE', ...admin] }] },
   { label: 'Administration', items: [
-    { to: '/approvals', label: 'Pending Approval', mark: 'PA', roles: ['SUPER_ADMIN'] },
-    { to: '/admin/project', label: 'Project Administration', mark: 'PR', roles: ['SUPER_ADMIN'] },
+    { to: '/admin/users', label: 'Users', mark: 'US', roles: ['SUPER_ADMIN'] },
+    { to: '/admin/activity-log', label: 'User Activity Log', mark: 'UA', roles: ['SUPER_ADMIN'] },
+    { to: '/admin/roles-permissions', label: 'Roles & Permissions', mark: 'RP', roles: ['SUPER_ADMIN'] },
+    { to: '/admin/audit-rules', label: 'Audit Rule Config', mark: 'AR', roles: ['SUPER_ADMIN'] },
+    { to: '/admin/approval-workflow', label: 'Approval Workflow Config', mark: 'AW', roles: ['SUPER_ADMIN'] },
+    { to: '/admin/notifications', label: 'Notification Settings', mark: 'NS', roles: ['SUPER_ADMIN'] },
+    { to: '/admin/project', label: 'Project Provisioning', mark: 'PP', roles: ['SUPER_ADMIN'] },
   ] },
 ];
 
@@ -58,8 +63,14 @@ const routeLabels: Record<string, string> = {
   '/crm': 'CRM Follow-up',
   '/escalations': 'Escalations',
   '/analytics': 'Analytics',
-  '/approvals': 'Pending Approval',
-  '/admin/project': 'Project Administration',
+  '/admin/users': 'Users',
+  '/admin/users/pending': 'Pending Approvals',
+  '/admin/activity-log': 'User Activity Log',
+  '/admin/roles-permissions': 'Roles & Permissions',
+  '/admin/audit-rules': 'Audit Rule Config',
+  '/admin/approval-workflow': 'Approval Workflow Config',
+  '/admin/notifications': 'Notification Settings',
+  '/admin/project': 'Project Provisioning',
   '/profile': 'Profile',
 };
 

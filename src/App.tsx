@@ -16,6 +16,8 @@ const ForgotPasswordPage = lazy(() => import('./pages/ForgotPasswordPage'));
 const TermsPage = lazy(() => import('./pages/TermsPage'));
 const PrivacyPage = lazy(() => import('./pages/PrivacyPage'));
 const ApprovalQueuePage = lazy(() => import('./pages/ApprovalQueuePage'));
+const AdminUsersPage = lazy(() => import('./pages/AdminUsersPage'));
+const AdminConfigurationPage = lazy(() => import('./pages/AdminConfigurationPage'));
 const DashboardPage = lazy(() => import('./pages/DashboardPage'));
 const BookingWorkspacePage = lazy(() => import('./pages/BookingWorkspacePage'));
 const DeliveryWorkspacePage = lazy(() => import('./pages/DeliveryWorkspacePage'));
@@ -48,6 +50,12 @@ function Authenticated({ children }: { children: ReactNode }) {
 
 function PrivatePage({ children }: { children: ReactNode }) {
   return <Authenticated><AppShell>{children}</AppShell></Authenticated>;
+}
+
+function SuperAdminPage({ children }: { children: ReactNode }) {
+  const role = useSessionStore((state) => state.role);
+  if (role !== 'SUPER_ADMIN') return <Navigate to="/dashboard" replace />;
+  return <PrivatePage>{children}</PrivatePage>;
 }
 
 function OperationalPage({ children }: { children: ReactNode }) {
@@ -106,8 +114,18 @@ export default function App() {
             <Route path="/crm" element={<LegacyOperationalPage><CrmPage /></LegacyOperationalPage>} />
             <Route path="/escalations" element={<LegacyOperationalPage><EscalationsPage /></LegacyOperationalPage>} />
             <Route path="/analytics" element={<LegacyOperationalPage><AnalyticsPage /></LegacyOperationalPage>} />
-            <Route path="/approvals" element={<PrivatePage><ApprovalQueuePage /></PrivatePage>} />
-            <Route path="/admin/project" element={<PrivatePage><ProjectAdministrationPage /></PrivatePage>} />
+
+            <Route path="/admin/users" element={<SuperAdminPage><AdminUsersPage /></SuperAdminPage>} />
+            <Route path="/admin/users/pending" element={<SuperAdminPage><ApprovalQueuePage /></SuperAdminPage>} />
+            <Route path="/admin/activity-log" element={<SuperAdminPage><AdminConfigurationPage section="activity" /></SuperAdminPage>} />
+            <Route path="/admin/roles-permissions" element={<SuperAdminPage><AdminConfigurationPage section="roles" /></SuperAdminPage>} />
+            <Route path="/admin/audit-rules" element={<SuperAdminPage><AdminConfigurationPage section="audit-rules" /></SuperAdminPage>} />
+            <Route path="/admin/approval-workflow" element={<SuperAdminPage><AdminConfigurationPage section="approval-workflow" /></SuperAdminPage>} />
+            <Route path="/admin/notifications" element={<SuperAdminPage><AdminConfigurationPage section="notifications" /></SuperAdminPage>} />
+            <Route path="/admin/project" element={<SuperAdminPage><ProjectAdministrationPage /></SuperAdminPage>} />
+
+            <Route path="/approvals" element={<Navigate to="/admin/users/pending" replace />} />
+            <Route path="/admin/project-provisioning" element={<Navigate to="/admin/project" replace />} />
             <Route path="/admin/organization" element={<Navigate to="/admin/project?step=2" replace />} />
             <Route path="/admin/team" element={<Navigate to="/admin/project?step=5" replace />} />
             <Route path="/admin/masters" element={<Navigate to="/admin/project?step=6" replace />} />

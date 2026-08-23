@@ -2,6 +2,13 @@ const CAPACITOR_ORIGINS = new Set([
   'capacitor://localhost',
   'https://localhost',
 ]);
+const CORRELATION_HEADER = 'X-Correlation-ID';
+const CORRELATION_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/;
+
+function correlationIdFor(request) {
+  const supplied = request.headers.get(CORRELATION_HEADER)?.trim();
+  return supplied && CORRELATION_PATTERN.test(supplied) ? supplied : crypto.randomUUID();
+}
 
 function buildSecurityTarget(rawUpstream, incomingUrl) {
   const upstream = new URL(String(rawUpstream || '').trim());
@@ -48,6 +55,7 @@ function applyCapacitorCors(headers, request) {
 
   headers.set('Access-Control-Allow-Origin', origin);
   headers.set('Access-Control-Allow-Credentials', 'true');
+  headers.set('Access-Control-Expose-Headers', CORRELATION_HEADER);
   headers.set('Vary', 'Origin');
   return headers;
 }
@@ -60,15 +68,23 @@ function preflightResponse(request) {
     'Access-Control-Allow-Origin': origin,
     'Access-Control-Allow-Credentials': 'true',
     'Access-Control-Allow-Methods': 'GET,HEAD,POST,PUT,PATCH,DELETE,OPTIONS',
-    'Access-Control-Allow-Headers': 'Authorization,Content-Type,X-Onboarding-Key',
+    'Access-Control-Allow-Headers': `Authorization,Content-Type,X-Onboarding-Key,${CORRELATION_HEADER}`,
+    'Access-Control-Expose-Headers': CORRELATION_HEADER,
     'Access-Control-Max-Age': '86400',
     'Vary': 'Origin',
   });
   return new Response(null, { status: 204, headers });
 }
 
-function proxyResponse(response, request, proxyName) {
+function proxyResponse(response, request, proxyName, correlationId) {
   const headers = applyCapacitorCors(new Headers(response.headers), request);
+  const upstreamCorrelationId = headers.get(CORRELATION_HEADER)?.trim();
+  headers.set(
+    CORRELATION_HEADER,
+    upstreamCorrelationId && CORRELATION_PATTERN.test(upstreamCorrelationId)
+      ? upstreamCorrelationId
+      : correlationId,
+  );
   headers.set('X-Verigence-Proxy', proxyName);
   headers.set('X-Verigence-Upstream-Status', String(response.status));
   return new Response(response.body, {
@@ -78,15 +94,19 @@ function proxyResponse(response, request, proxyName) {
   });
 }
 
-function proxyError(request, proxyName, code, title, status) {
+function proxyError(request, proxyName, code, title, status, correlationId) {
   const headers = applyCapacitorCors(new Headers({
     'Content-Type': 'application/json',
     'X-Verigence-Proxy': proxyName,
+    [CORRELATION_HEADER]: correlationId,
   }), request);
-  return new Response(JSON.stringify({ code, title, status }), { status, headers });
+  return new Response(
+    JSON.stringify({ code, title, status, correlationId }),
+    { status, headers },
+  );
 }
 
-function sanitizedUpstreamRequest(target, request) {
+function sanitizedUpstreamRequest(target, request, correlationId) {
   const upstreamRequest = new Request(target, request);
   const headers = new Headers(upstreamRequest.headers);
 
@@ -94,13 +114,28 @@ function sanitizedUpstreamRequest(target, request) {
   headers.delete('host');
   headers.delete('origin');
   headers.delete('referer');
+  headers.set(CORRELATION_HEADER, correlationId);
 
   return new Request(upstreamRequest, { headers });
+}
+
+function logProxyFailure(proxyName, request, correlationId, errorCode, error) {
+  console.error(JSON.stringify({
+    event_name: 'web_proxy_upstream_failed',
+    service_name: 'verigence-web',
+    proxy: proxyName,
+    correlation_id: correlationId,
+    http_method: request.method,
+    http_route: new URL(request.url).pathname,
+    error_code: errorCode,
+    exception_type: error instanceof Error ? error.name : undefined,
+  }));
 }
 
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
+    const correlationId = correlationIdFor(request);
 
     if (url.pathname.startsWith('/security/')) {
       if (request.method === 'OPTIONS') {
@@ -108,54 +143,82 @@ export default {
       }
 
       if (!String(env.SECURITY_UPSTREAM || '').trim()) {
+        logProxyFailure(
+          'security',
+          request,
+          correlationId,
+          'SECURITY_UPSTREAM_UNAVAILABLE',
+        );
         return proxyError(
           request,
           'security',
           'SECURITY_UPSTREAM_UNAVAILABLE',
           'Verigence Security is not configured',
           503,
+          correlationId,
         );
       }
 
       try {
         const target = buildSecurityTarget(env.SECURITY_UPSTREAM, request.url);
-        const response = await fetch(sanitizedUpstreamRequest(target, request));
-        return proxyResponse(response, request, 'security');
+        const response = await fetch(sanitizedUpstreamRequest(target, request, correlationId));
+        return proxyResponse(response, request, 'security', correlationId);
       } catch (error) {
-        console.error('Security upstream request failed', error);
+        logProxyFailure(
+          'security',
+          request,
+          correlationId,
+          'SECURITY_UPSTREAM_UNAVAILABLE',
+          error,
+        );
         return proxyError(
           request,
           'security',
           'SECURITY_UPSTREAM_UNAVAILABLE',
           'Verigence Security could not be reached',
           502,
+          correlationId,
         );
       }
     }
 
     if (url.pathname === '/audit-core' || url.pathname.startsWith('/audit-core/')) {
       if (!String(env.AUDIT_CORE_UPSTREAM || '').trim()) {
+        logProxyFailure(
+          'audit-core',
+          request,
+          correlationId,
+          'AUDIT_CORE_UPSTREAM_UNAVAILABLE',
+        );
         return proxyError(
           request,
           'audit-core',
           'AUDIT_CORE_UPSTREAM_UNAVAILABLE',
           'Verigence Audit Core is not configured',
           503,
+          correlationId,
         );
       }
 
       try {
         const target = buildAuditCoreTarget(env.AUDIT_CORE_UPSTREAM, request.url);
-        const response = await fetch(sanitizedUpstreamRequest(target, request));
-        return proxyResponse(response, request, 'audit-core');
+        const response = await fetch(sanitizedUpstreamRequest(target, request, correlationId));
+        return proxyResponse(response, request, 'audit-core', correlationId);
       } catch (error) {
-        console.error('Audit Core upstream request failed', error);
+        logProxyFailure(
+          'audit-core',
+          request,
+          correlationId,
+          'AUDIT_CORE_UPSTREAM_UNAVAILABLE',
+          error,
+        );
         return proxyError(
           request,
           'audit-core',
           'AUDIT_CORE_UPSTREAM_UNAVAILABLE',
           'Verigence Audit Core could not be reached',
           502,
+          correlationId,
         );
       }
     }

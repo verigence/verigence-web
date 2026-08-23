@@ -21,6 +21,18 @@ export interface UserStatusTransitionResponse {
 export type OnboardingDecision = 'ACTIVE' | 'REJECTED';
 export type GlobalUserLifecycleStatus = 'ACTIVE' | 'SUSPENDED' | 'DISABLED' | 'EXITED';
 
+type SecurityUserPayload = Partial<GlobalUserDirectoryItem> & {
+  user_id?: string;
+  display_name?: string;
+  primary_email?: string | null;
+  primary_mobile?: string | null;
+  clerk_user_id?: string | null;
+  clerk_subject?: string | null;
+  onboarding_status?: string | null;
+  created_at_utc?: string;
+  updated_at_utc?: string;
+};
+
 class SecurityAdminApiError extends Error {
   readonly status: number;
 
@@ -74,9 +86,32 @@ async function readResponse<T>(response: Response): Promise<T> {
   return payload as T;
 }
 
+function normalizeUser(payload: SecurityUserPayload): GlobalUserDirectoryItem {
+  const userId = payload.userId ?? payload.user_id;
+  const displayName = payload.displayName ?? payload.display_name;
+  const createdAtUtc = payload.createdAtUtc ?? payload.created_at_utc;
+  const updatedAtUtc = payload.updatedAtUtc ?? payload.updated_at_utc;
+
+  if (!userId || !displayName || !payload.status || !createdAtUtc || !updatedAtUtc) {
+    throw new SecurityAdminApiError('Security returned an incomplete user record.', 502);
+  }
+
+  return {
+    userId,
+    displayName,
+    primaryEmail: payload.primaryEmail ?? payload.primary_email ?? null,
+    primaryMobile: payload.primaryMobile ?? payload.primary_mobile ?? null,
+    status: payload.status,
+    clerkSubject: payload.clerkSubject ?? payload.clerk_subject ?? payload.clerk_user_id ?? null,
+    onboardingStatus: payload.onboardingStatus ?? payload.onboarding_status ?? null,
+    createdAtUtc,
+    updatedAtUtc,
+  };
+}
+
 /**
  * Read the authoritative global USER directory from Security.
- * `status_filter` is the currently implemented Security query parameter.
+ * `status_filter` is the currently implemented Security DEV query parameter.
  */
 export async function listGlobalUsers(
   accessToken: string,
@@ -90,15 +125,14 @@ export async function listGlobalUsers(
     headers: authHeaders(accessToken),
     cache: 'no-store',
   });
-  return readResponse<GlobalUserDirectoryItem[]>(response);
+  const payload = await readResponse<SecurityUserPayload[]>(response);
+  return payload.map(normalizeUser);
 }
 
 export async function listPendingGlobalUsers(
   accessToken: string,
 ): Promise<GlobalUserDirectoryItem[]> {
   const users = await listGlobalUsers(accessToken, 'PENDING');
-  // Keep a client-side guard so an older Security deployment that ignores the
-  // filter can never leak non-pending users into the approval queue.
   return users.filter((user) => user.status.toUpperCase() === 'PENDING');
 }
 
@@ -106,9 +140,6 @@ export async function getGlobalUser(
   accessToken: string,
   userId: string,
 ): Promise<GlobalUserDirectoryItem> {
-  // The current Security source of truth exposes the global list plus lifecycle
-  // mutation, not a dedicated detail read. Resolve detail from the authoritative
-  // directory rather than inventing a browser-owned USER record.
   const users = await listGlobalUsers(accessToken);
   const user = users.find((candidate) => candidate.userId === userId);
   if (!user) throw new SecurityAdminApiError('User not found.', 404);
@@ -120,15 +151,29 @@ export async function decidePendingGlobalUser(
   userId: string,
   status: OnboardingDecision,
 ): Promise<UserStatusTransitionResponse> {
+  if (status === 'REJECTED') {
+    throw new SecurityAdminApiError(
+      'Registration rejection is not exposed by the current Security DEV lifecycle contract. Activation remains available; rejection requires an explicit Security backend capability.',
+      501,
+    );
+  }
+
   const response = await fetch(
-    endpoint(`/security/v1/users/${encodeURIComponent(userId)}/status`),
+    endpoint(`/security/v1/platform/users/${encodeURIComponent(userId)}/status`),
     {
       method: 'PATCH',
       headers: authHeaders(accessToken, true),
-      body: JSON.stringify({ status }),
+      body: JSON.stringify({ status: 'ACTIVE' }),
     },
   );
-  return readResponse<UserStatusTransitionResponse>(response);
+  const result = normalizeUser(await readResponse<SecurityUserPayload>(response));
+  return {
+    userId: result.userId,
+    status: result.status,
+    previousStatus: 'PENDING',
+    changed: result.status === 'ACTIVE',
+    deletionRequestId: null,
+  };
 }
 
 /**
@@ -153,5 +198,5 @@ export async function changeGlobalUserLifecycleStatus(
       }),
     },
   );
-  return readResponse<GlobalUserDirectoryItem>(response);
+  return normalizeUser(await readResponse<SecurityUserPayload>(response));
 }

@@ -40,7 +40,14 @@ import App from './App';
 setupIonicReact({ mode: 'md' });
 
 const queryClient = new QueryClient({
-  defaultOptions: { queries: { staleTime: 30_000, retry: 1, refetchOnWindowFocus: false } },
+  defaultOptions: {
+    queries: {
+      staleTime: 30_000,
+      retry: 1,
+      refetchOnWindowFocus: false,
+      refetchOnReconnect: false,
+    },
+  },
 });
 
 ReactDOM.createRoot(document.getElementById('root')!).render(

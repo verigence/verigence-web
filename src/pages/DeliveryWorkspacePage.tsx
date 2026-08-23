@@ -51,6 +51,7 @@ export default function DeliveryWorkspacePage() {
     enabled: Boolean(project?.tenantId && journeyId && accessToken),
     retry: false,
     refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
   });
 
   useEffect(() => {
@@ -58,11 +59,9 @@ export default function DeliveryWorkspacePage() {
       if (document.visibilityState === 'visible') void workspaceQuery.refetch();
     };
     const reconnect = () => void workspaceQuery.refetch();
-    window.addEventListener('focus', refresh);
     window.addEventListener('online', reconnect);
     document.addEventListener('visibilitychange', refresh);
     return () => {
-      window.removeEventListener('focus', refresh);
       window.removeEventListener('online', reconnect);
       document.removeEventListener('visibilitychange', refresh);
     };

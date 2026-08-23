@@ -15,7 +15,7 @@ jobs:
       AUDIT_CORE_URL: ${{ secrets.AUDIT_CORE_URL }}
       WEB_ORIGIN: https://verigence-web-dev.jbrconsulting-it.workers.dev
     steps:
-      - name: Verify configured Audit Core URL, health and browser preflight
+      - name: Verify configured Audit Core URL, health, browser preflight and live bundle
         shell: bash
         run: |
           set -euo pipefail
@@ -35,7 +35,7 @@ jobs:
           echo "AUDIT_CORE_HEALTH_STATUS=$HEALTH_STATUS"
           case "$HEALTH_STATUS" in
             200) ;;
-            *) echo 'AUDIT_CORE_HEALTH=FAIL'; cat /tmp/health.body 2>/dev/null || true; exit 1 ;;
+            *) echo 'AUDIT_CORE_HEALTH=FAIL'; exit 1 ;;
           esac
           echo 'AUDIT_CORE_HEALTH=PASS'
 
@@ -46,24 +46,41 @@ jobs:
             --header 'Access-Control-Request-Headers: authorization,content-type' \
             "${AUDIT_CORE_URL%/}/v1/project-reference-data" || true)"
           echo "AUDIT_CORE_PREFLIGHT_STATUS=$PREFLIGHT_STATUS"
-
-          if grep -Fqi "access-control-allow-origin: $WEB_ORIGIN" /tmp/cors.headers; then
-            echo 'AUDIT_CORE_CORS_ORIGIN=PASS'
-          else
-            echo 'AUDIT_CORE_CORS_ORIGIN=FAIL'
-            sed -E 's/(set-cookie:).*/\1 [REDACTED]/I' /tmp/cors.headers
-            exit 1
-          fi
-
-          if grep -Fqi 'access-control-allow-credentials: true' /tmp/cors.headers; then
-            echo 'AUDIT_CORE_CORS_CREDENTIALS=PASS'
-          else
-            echo 'AUDIT_CORE_CORS_CREDENTIALS=FAIL'
-            sed -E 's/(set-cookie:).*/\1 [REDACTED]/I' /tmp/cors.headers
-            exit 1
-          fi
-
+          grep -Fqi "access-control-allow-origin: $WEB_ORIGIN" /tmp/cors.headers || { echo 'AUDIT_CORE_CORS_ORIGIN=FAIL'; exit 1; }
+          echo 'AUDIT_CORE_CORS_ORIGIN=PASS'
+          grep -Fqi 'access-control-allow-credentials: true' /tmp/cors.headers || { echo 'AUDIT_CORE_CORS_CREDENTIALS=FAIL'; exit 1; }
+          echo 'AUDIT_CORE_CORS_CREDENTIALS=PASS'
           case "$PREFLIGHT_STATUS" in
             200|204) echo 'AUDIT_CORE_PREFLIGHT=PASS' ;;
-            *) echo 'AUDIT_CORE_PREFLIGHT=FAIL'; sed -E 's/(set-cookie:).*/\1 [REDACTED]/I' /tmp/cors.headers; exit 1 ;;
+            *) echo 'AUDIT_CORE_PREFLIGHT=FAIL'; exit 1 ;;
           esac
+
+          # Compare the deployment secret to the URL literally embedded in the
+          # currently served browser client. Never print either value.
+          curl --fail --silent --show-error --location --output /tmp/index.html "$WEB_ORIGIN/admin/project"
+          main_asset="$(grep -oE 'src="/assets/[^"]+\.js"' /tmp/index.html | head -n 1 | sed -E 's/^src="([^"]+)"$/\1/')"
+          [ -n "$main_asset" ] || { echo 'LIVE_MAIN_ASSET=FAIL'; exit 1; }
+          curl --fail --silent --show-error --location --output /tmp/main.js "$WEB_ORIGIN$main_asset"
+
+          client_asset="$(grep -oE './client-[A-Za-z0-9_-]+\.js' /tmp/main.js | head -n 1 | sed 's#^\./#/assets/#')"
+          if [ -z "$client_asset" ]; then
+            # Vite may reference the chunk from a lazy page rather than main.
+            project_asset="$(grep -oE './ProjectAdministrationPage-[A-Za-z0-9_-]+\.js' /tmp/main.js | head -n 1 | sed 's#^\./#/assets/#')"
+            [ -n "$project_asset" ] || { echo 'LIVE_PROJECT_ASSET=FAIL'; exit 1; }
+            curl --fail --silent --show-error --location --output /tmp/project.js "$WEB_ORIGIN$project_asset"
+            client_asset="$(grep -oE './client-[A-Za-z0-9_-]+\.js' /tmp/project.js | head -n 1 | sed 's#^\./#/assets/#')"
+          fi
+          [ -n "$client_asset" ] || { echo 'LIVE_AUDIT_CLIENT_ASSET=FAIL'; exit 1; }
+          curl --fail --silent --show-error --location --output /tmp/client.js "$WEB_ORIGIN$client_asset"
+
+          python - <<'PY'
+          import os
+          from pathlib import Path
+          secret = os.environ['AUDIT_CORE_URL'].rstrip('/')
+          body = Path('/tmp/client.js').read_text(errors='replace')
+          if secret in body:
+              print('LIVE_BUNDLE_AUDIT_CORE_URL_MATCH=PASS')
+          else:
+              print('LIVE_BUNDLE_AUDIT_CORE_URL_MATCH=FAIL')
+              raise SystemExit(1)
+          PY

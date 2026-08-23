@@ -1,8 +1,11 @@
+import { ensureCorrelationHeader, responseCorrelationId } from '../../observability/correlation';
+
 const configuredBaseUrl = import.meta.env.VITE_AUDIT_CORE_BASE_URL?.trim();
 const configuredProxyBaseUrl = import.meta.env.VITE_AUDIT_CORE_PROXY_BASE_URL?.trim();
 
 export interface AuditCoreRequestOptions extends RequestInit {
   accessToken?: string;
+  correlationId?: string;
 }
 
 export interface AuditCoreProblem {
@@ -16,12 +19,14 @@ export interface AuditCoreProblem {
 export class AuditCoreHttpError extends Error {
   readonly status: number;
   readonly problem?: AuditCoreProblem;
+  readonly correlationId?: string;
 
-  constructor(status: number, problem?: AuditCoreProblem) {
+  constructor(status: number, problem?: AuditCoreProblem, correlationId?: string) {
     super(problem?.detail || problem?.title || `Audit Core request failed with HTTP ${status}.`);
     this.name = 'AuditCoreHttpError';
     this.status = status;
     this.problem = problem;
+    this.correlationId = problem?.correlationId || correlationId;
   }
 }
 
@@ -40,6 +45,7 @@ export async function auditCoreRawRequest(
   options: AuditCoreRequestOptions = {},
 ): Promise<Response> {
   const headers = new Headers(options.headers);
+  const correlationId = ensureCorrelationHeader(headers, options.correlationId);
 
   if (options.accessToken) {
     headers.set('Authorization', `Bearer ${options.accessToken}`);
@@ -54,6 +60,7 @@ export async function auditCoreRawRequest(
     headers,
     credentials: 'include',
   });
+  const echoedCorrelationId = responseCorrelationId(response, correlationId);
 
   if (!response.ok) {
     let problem: AuditCoreProblem | undefined;
@@ -62,7 +69,7 @@ export async function auditCoreRawRequest(
     } catch {
       problem = undefined;
     }
-    throw new AuditCoreHttpError(response.status, problem);
+    throw new AuditCoreHttpError(response.status, problem, echoedCorrelationId);
   }
 
   return response;

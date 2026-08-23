@@ -1,3 +1,8 @@
+import {
+  ensureCorrelationHeader,
+  responseCorrelationId,
+} from '../../observability/correlation';
+
 export interface HumanLoginResponse {
   accessToken: string;
   expiresAtUtc: string;
@@ -53,35 +58,51 @@ function problemFrom(payload: unknown): SecurityProblem | undefined {
     : undefined;
 }
 
-function errorFrom(response: Response, payload: unknown): SecurityLoginError {
+function errorFrom(
+  response: Response,
+  payload: unknown,
+  fallbackCorrelationId?: string,
+): SecurityLoginError {
   const problem = problemFrom(payload);
   const message =
     (typeof problem?.detail === 'string' && problem.detail) ||
     (typeof problem?.title === 'string' && problem.title) ||
     (typeof payload === 'string' && payload) ||
     'Sign in could not be completed.';
+  const correlationId = typeof problem?.correlationId === 'string'
+    ? problem.correlationId
+    : responseCorrelationId(response, fallbackCorrelationId);
 
   return new SecurityLoginError(
     message,
     response.status,
     typeof problem?.code === 'string' ? problem.code : undefined,
-    typeof problem?.correlationId === 'string' ? problem.correlationId : undefined,
+    correlationId,
   );
 }
 
-function connectivityError(): SecurityLoginError {
+function connectivityError(correlationId: string): SecurityLoginError {
   return new SecurityLoginError(
     'Sign in service could not be reached.',
     0,
     'SECURITY_UPSTREAM_UNAVAILABLE',
+    correlationId,
   );
 }
 
-async function securityFetch(input: RequestInfo | URL, init: RequestInit): Promise<Response> {
+async function securityFetch(
+  input: RequestInfo | URL,
+  init: RequestInit,
+): Promise<{ response: Response; correlationId: string }> {
+  const headers = new Headers(init.headers);
+  const correlationId = ensureCorrelationHeader(headers);
   try {
-    return await fetch(input, init);
+    return {
+      response: await fetch(input, { ...init, headers }),
+      correlationId,
+    };
   } catch {
-    throw connectivityError();
+    throw connectivityError(correlationId);
   }
 }
 
@@ -89,7 +110,7 @@ export async function loginHuman(
   identifier: string,
   password: string,
 ): Promise<HumanLoginResponse> {
-  const response = await securityFetch(endpoint('/security/v1/auth/login'), {
+  const { response, correlationId } = await securityFetch(endpoint('/security/v1/auth/login'), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ identifier, password }),
@@ -97,7 +118,7 @@ export async function loginHuman(
   });
   const payload = await readPayload(response);
 
-  if (!response.ok) throw errorFrom(response, payload);
+  if (!response.ok) throw errorFrom(response, payload, correlationId);
   return payload as HumanLoginResponse;
 }
 

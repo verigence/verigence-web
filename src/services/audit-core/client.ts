@@ -1,4 +1,5 @@
 const configuredBaseUrl = import.meta.env.VITE_AUDIT_CORE_BASE_URL?.trim();
+const configuredProxyBaseUrl = import.meta.env.VITE_AUDIT_CORE_PROXY_BASE_URL?.trim();
 
 export interface AuditCoreRequestOptions extends RequestInit {
   accessToken?: string;
@@ -25,10 +26,11 @@ export class AuditCoreHttpError extends Error {
 }
 
 function requestUrl(path: string): string {
-  if (!configuredBaseUrl) {
-    throw new Error('VITE_AUDIT_CORE_BASE_URL is not configured.');
+  const selectedBaseUrl = configuredProxyBaseUrl || configuredBaseUrl;
+  if (!selectedBaseUrl) {
+    throw new Error('Audit Core base URL is not configured.');
   }
-  const baseUrl = configuredBaseUrl.replace(/\/$/, '');
+  const baseUrl = selectedBaseUrl.replace(/\/$/, '');
   const normalizedPath = path.startsWith('/') ? path : `/${path}`;
   return `${baseUrl}${normalizedPath}`;
 }

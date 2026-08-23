@@ -18,6 +18,11 @@ type SaveState =
   | { kind: 'idle'; message: '' }
   | { kind: 'info' | 'success' | 'error'; message: string };
 
+type OutletLocationMount = {
+  host: HTMLElement;
+  form: HTMLFormElement;
+};
+
 function findOutletForm(): HTMLFormElement | null {
   return (
     Array.from(document.querySelectorAll<HTMLFormElement>('form.uc02-card')).find(
@@ -49,10 +54,9 @@ function errorText(error: unknown) {
   return 'The outlet could not be saved. Please try again.';
 }
 
-function OutletLocationPanel({ host }: { host: HTMLElement }) {
+function OutletLocationPanel({ form }: { form: HTMLFormElement }) {
   const tenantId = useSessionStore((state) => state.tenantId);
   const accessToken = useSessionStore((state) => state.accessToken);
-  const form = host.closest('form');
   const [addressQuery, setAddressQuery] = useState('');
   const [searchText, setSearchText] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
@@ -62,8 +66,6 @@ function OutletLocationPanel({ host }: { host: HTMLElement }) {
   const [saveState, setSaveState] = useState<SaveState>({ kind: 'idle', message: '' });
 
   useEffect(() => {
-    if (!(form instanceof HTMLFormElement)) return undefined;
-
     const controls = ['Address', 'City', 'State / Region', 'Postal Code']
       .map((label) => findFieldControl(form, label))
       .filter((control): control is FieldControl => control !== null);
@@ -93,7 +95,7 @@ function OutletLocationPanel({ host }: { host: HTMLElement }) {
   }, [form]);
 
   useEffect(() => {
-    if (!(form instanceof HTMLFormElement) || !coordinates) return undefined;
+    if (!coordinates) return undefined;
 
     const submitPinnedOutlet = async (event: Event) => {
       event.preventDefault();
@@ -319,31 +321,51 @@ function OutletLocationPanel({ host }: { host: HTMLElement }) {
 }
 
 export default function ProjectAdminOutletLocationEnhancer() {
-  const [host, setHost] = useState<HTMLElement | null>(null);
+  const [mountTarget, setMountTarget] = useState<OutletLocationMount | null>(null);
 
   useEffect(() => {
     let currentHost: HTMLElement | null = null;
+    let currentForm: HTMLFormElement | null = null;
+
+    const clearCurrent = () => {
+      currentForm?.classList.remove('uc02-outlet-form--enhanced');
+      currentHost?.remove();
+      currentHost = null;
+      currentForm = null;
+    };
 
     const mount = () => {
       const form = findOutletForm();
       if (!form) {
-        if (currentHost) currentHost.remove();
-        currentHost = null;
-        setHost(null);
+        clearCurrent();
+        setMountTarget(null);
         return;
       }
 
-      if (currentHost?.isConnected && currentHost.closest('form') === form) return;
-      currentHost?.remove();
+      if (currentHost?.isConnected && currentForm === form) return;
+      clearCurrent();
 
-      const addressControl = findFieldControl(form, 'Address');
-      const addressField = addressControl?.closest('label.uc02-field');
+      form.classList.add('uc02-outlet-form--enhanced');
+      const grid = form.closest('.uc02-grid');
+      const outletListCard = grid?.querySelector<HTMLElement>('.uc02-card--wide') ?? null;
+      const outletListTitle = outletListCard?.querySelector<HTMLElement>('.uc02-card__title') ?? null;
       const nextHost = document.createElement('div');
       nextHost.className = 'uc02-outlet-location-host';
-      if (addressField) addressField.insertAdjacentElement('afterend', nextHost);
-      else form.appendChild(nextHost);
+
+      if (outletListCard) {
+        nextHost.classList.add('uc02-outlet-location-host--side');
+        if (outletListTitle) outletListTitle.insertAdjacentElement('afterend', nextHost);
+        else outletListCard.prepend(nextHost);
+      } else {
+        const addressControl = findFieldControl(form, 'Address');
+        const addressField = addressControl?.closest('label.uc02-field');
+        if (addressField) addressField.insertAdjacentElement('afterend', nextHost);
+        else form.appendChild(nextHost);
+      }
+
       currentHost = nextHost;
-      setHost(nextHost);
+      currentForm = form;
+      setMountTarget({ host: nextHost, form });
     };
 
     mount();
@@ -354,9 +376,11 @@ export default function ProjectAdminOutletLocationEnhancer() {
     return () => {
       observer.disconnect();
       window.removeEventListener('popstate', mount);
-      currentHost?.remove();
+      clearCurrent();
     };
   }, []);
 
-  return host ? createPortal(<OutletLocationPanel host={host} />, host) : null;
+  return mountTarget
+    ? createPortal(<OutletLocationPanel form={mountTarget.form} />, mountTarget.host)
+    : null;
 }

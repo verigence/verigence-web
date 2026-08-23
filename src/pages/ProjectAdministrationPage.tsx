@@ -185,12 +185,19 @@ export default function ProjectAdministrationPage() {
 
   useEffect(() => { void loadProject(); }, [tenantId, accessToken]);
 
-  async function loadDealersAndOutlets(preferredDealerId?: string) {
-    if (!tenantId || !accessToken) return;
+  async function loadDealers(preferredDealerId?: string) {
+    if (!tenantId || !accessToken) return [] as DealerAdmin[];
     const values = await listDealersAdmin(tenantId, accessToken);
     setDealers(values);
     const dealerId = preferredDealerId || selectedDealerId || values[0]?.dealerId || '';
     setSelectedDealerId(dealerId);
+    return values;
+  }
+
+  async function loadDealersAndOutlets(preferredDealerId?: string) {
+    if (!tenantId || !accessToken) return;
+    const values = await loadDealers(preferredDealerId);
+    const dealerId = preferredDealerId || selectedDealerId || values[0]?.dealerId || '';
     if (dealerId) setOutlets(await listOutletsAdmin(tenantId, dealerId, accessToken));
     else setOutlets([]);
   }
@@ -217,7 +224,8 @@ export default function ProjectAdministrationPage() {
     if (!tenantId || !accessToken || activeStep === 1) return;
     void (async () => {
       try {
-        if ([2, 3, 5].includes(activeStep)) await loadDealersAndOutlets();
+        if (activeStep === 2) await loadDealers();
+        if ([3, 5].includes(activeStep)) await loadDealersAndOutlets();
         if ([4, 5].includes(activeStep)) setCandidates(await listRoleMappingCandidates(tenantId, '', accessToken));
         if (activeStep === 5) await loadMappings();
         if (activeStep === 6) await loadMasters();
@@ -281,7 +289,9 @@ export default function ProjectAdministrationPage() {
     try {
       const created = await createDealerAdmin(tenantId, { dealerName: dealerForm.dealerName.trim(), legalName: dealerForm.legalName.trim() || null }, accessToken);
       setDealerForm({ dealerName: '', legalName: '' });
-      await loadDealersAndOutlets(created.dealerId);
+      setDealers((current) => [...current.filter((item) => item.dealerId !== created.dealerId), created]);
+      setSelectedDealerId(created.dealerId);
+      setOutlets([]);
       setNotice('Dealer added successfully.');
     } catch (error) { setPageError(errorMessage(error)); }
     finally { setBusy(false); }
@@ -298,7 +308,7 @@ export default function ProjectAdministrationPage() {
     event.preventDefault(); if (!tenantId || !accessToken || !selectedDealerId) return;
     clearFeedback(); setBusy(true);
     try {
-      await createOutletAdmin(
+      const created = await createOutletAdmin(
         tenantId,
         selectedDealerId,
         {
@@ -313,7 +323,7 @@ export default function ProjectAdministrationPage() {
         accessToken,
       );
       setOutletForm({ outletName: '', outletClassification: 'ONSITE', addressText: '', city: '', stateRegion: '', postalCode: '', monthlyVehicleVolume: '' });
-      setOutlets(await listOutletsAdmin(tenantId, selectedDealerId, accessToken));
+      setOutlets((current) => [...current.filter((item) => item.outletId !== created.outletId), created]);
       setNotice('Outlet added successfully.');
     } catch (error) { setPageError(errorMessage(error)); }
     finally { setBusy(false); }

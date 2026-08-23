@@ -104,7 +104,7 @@ const legacyVector = `
     android:viewportWidth="512"
     android:viewportHeight="512">
   <path
-      android:fillColor="#021A3A"
+      android:fillColor="#FFFFFF"
       android:pathData="M120,16 H392 C449.4,16 496,62.6 496,120 V392 C496,449.4 449.4,496 392,496 H120 C62.6,496 16,449.4 16,392 V120 C16,62.6 62.6,16 120,16 Z" />
   <group
       android:scaleX="0.68"
@@ -122,7 +122,7 @@ const legacyRoundVector = `
     android:viewportWidth="512"
     android:viewportHeight="512">
   <path
-      android:fillColor="#021A3A"
+      android:fillColor="#FFFFFF"
       android:pathData="M256,16 C388.5,16 496,123.5 496,256 C496,388.5 388.5,496 256,496 C123.5,496 16,388.5 16,256 C16,123.5 123.5,16 256,16 Z" />
   <group
       android:scaleX="0.68"
@@ -148,7 +148,7 @@ const adaptiveIconThemed = `
 
 const launcherColors = `
 <resources>
-  <color name="verigence_launcher_background">#021A3A</color>
+  <color name="verigence_launcher_background">#FFFFFF</color>
 </resources>`;
 
 writeResource('drawable/ic_launcher_foreground.xml', foregroundVector);

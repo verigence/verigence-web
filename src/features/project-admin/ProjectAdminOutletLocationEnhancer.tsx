@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { Capacitor } from '@capacitor/core';
+import { Geolocation } from '@capacitor/geolocation';
 
 import { createOutletAdmin } from '../../services/audit-core/uc02Admin';
 import { useSessionStore } from '../../store/sessionStore';
@@ -69,7 +71,7 @@ function OutletLocationPanel({ host }: { host: HTMLElement }) {
     const refresh = () => {
       const nextAddress = addressFromForm(form);
       setAddressQuery(nextAddress);
-      if (!searchText.trim()) setSearchText(nextAddress);
+      setSearchText((current) => current.trim() ? current : nextAddress);
       setCoordinates(null);
       setSaveState({ kind: 'idle', message: '' });
     };
@@ -88,7 +90,7 @@ function OutletLocationPanel({ host }: { host: HTMLElement }) {
         control.removeEventListener('change', refresh);
       });
     };
-  }, [form, searchText]);
+  }, [form]);
 
   useEffect(() => {
     if (!(form instanceof HTMLFormElement) || !coordinates) return undefined;
@@ -167,39 +169,65 @@ function OutletLocationPanel({ host }: { host: HTMLElement }) {
     setSaveState({ kind: 'success', message: 'Google Maps search location pinned for confirmation.' });
   };
 
-  const pinCurrentLocation = () => {
-    if (!navigator.geolocation) {
-      setSaveState({ kind: 'error', message: 'Location services are not available on this device/browser.' });
-      return;
-    }
+  const applyCoordinates = (next: Coordinates) => {
+    setCoordinates(next);
+    setSearchQuery('');
+    setLocating(false);
+    setSaveState({
+      kind: 'success',
+      message: `Exact device location pinned${Number.isFinite(next.accuracy) ? ` (accuracy ±${Math.round(next.accuracy ?? 0)} m)` : ''}.`,
+    });
+  };
 
+  const pinCurrentLocation = async () => {
     setLocating(true);
     setSaveState({ kind: 'info', message: 'Getting the device location…' });
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        const next = {
+
+    try {
+      if (Capacitor.isNativePlatform()) {
+        const permission = await Geolocation.requestPermissions();
+        if (permission.location !== 'granted' && permission.coarseLocation !== 'granted') {
+          throw new Error('Location permission was denied. Allow location access or use the text search pin.');
+        }
+        const position = await Geolocation.getCurrentPosition({
+          enableHighAccuracy: true,
+          timeout: 12_000,
+          maximumAge: 30_000,
+        });
+        applyCoordinates({
           latitude: position.coords.latitude,
           longitude: position.coords.longitude,
           accuracy: position.coords.accuracy,
-        };
-        setCoordinates(next);
-        setSearchQuery('');
-        setLocating(false);
-        setSaveState({
-          kind: 'success',
-          message: `Exact device location pinned${Number.isFinite(next.accuracy) ? ` (accuracy ±${Math.round(next.accuracy!)} m)` : ''}.`,
         });
-      },
-      (error) => {
-        setLocating(false);
-        const message =
-          error.code === error.PERMISSION_DENIED
-            ? 'Location permission was denied. Allow location access or use the text search pin.'
-            : 'Current location could not be determined. Use text search or try again.';
-        setSaveState({ kind: 'error', message });
-      },
-      { enableHighAccuracy: true, timeout: 12_000, maximumAge: 30_000 },
-    );
+        return;
+      }
+
+      if (!navigator.geolocation) {
+        throw new Error('Location services are not available on this device/browser.');
+      }
+
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          applyCoordinates({
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude,
+            accuracy: position.coords.accuracy,
+          });
+        },
+        (error) => {
+          setLocating(false);
+          const message =
+            error.code === error.PERMISSION_DENIED
+              ? 'Location permission was denied. Allow location access or use the text search pin.'
+              : 'Current location could not be determined. Use text search or try again.';
+          setSaveState({ kind: 'error', message });
+        },
+        { enableHighAccuracy: true, timeout: 12_000, maximumAge: 30_000 },
+      );
+    } catch (error) {
+      setLocating(false);
+      setSaveState({ kind: 'error', message: errorText(error) });
+    }
   };
 
   const pinLabel = coordinates
@@ -219,7 +247,7 @@ function OutletLocationPanel({ host }: { host: HTMLElement }) {
           <button
             className="uc02-button"
             type="button"
-            onClick={pinCurrentLocation}
+            onClick={() => void pinCurrentLocation()}
             disabled={locating || saving}
           >
             {locating ? 'Locating…' : 'Pin current location'}

@@ -1,8 +1,8 @@
 # Verigence Android DEV — Latest Validation
 
 - branch: dev
-- run_id: 32656739283
-- run_number: 52
-- source_sha: 1f2d8986a0973d1aea9740482ccec69a1da474e1
-- android: skipped
-- workflow_url: https://github.com/verigence/verigence-web/actions/runs/32656739283
+- run_id: 32657485523
+- run_number: 53
+- source_sha: 7ad8619bba09bd159c913a27c23c94f2dc56208b
+- android: running
+- workflow_url: https://github.com/verigence/verigence-web/actions/runs/32657485523

@@ -10,6 +10,7 @@ on:
       - 'capacitor.config.ts'
       - 'package.json'
       - 'scripts/configure-native.mjs'
+      - 'scripts/finalize-native-branding.mjs'
       - 'src/**'
   workflow_dispatch:
 
@@ -89,6 +90,7 @@ jobs:
           npx cap sync android
           npx cap ls android
           node scripts/configure-native.mjs android
+          node scripts/finalize-native-branding.mjs android
 
       - name: Verify Android native configuration
         run: |
@@ -102,7 +104,16 @@ jobs:
           grep -R -q 'capacitor-app' android || grep -R -q 'AppPlugin' android
           grep -R -q 'capacitor-status-bar' android || grep -R -q 'StatusBarPlugin' android
           grep -R -q 'capacitor-keyboard' android || grep -R -q 'KeyboardPlugin' android
+          grep -q 'M64,136' android/app/src/main/res/drawable-v24/ic_launcher_foreground.xml
+          grep -q '#00CBB0' android/app/src/main/res/drawable-v24/ic_launcher_foreground.xml
+          if grep -q 'M66.94,46.02\|M32,64' android/app/src/main/res/drawable-v24/ic_launcher_foreground.xml; then
+            echo '::error::Stock Android launcher artwork remains in drawable-v24.'
+            exit 1
+          fi
+          grep -q '@drawable/verigence_splash_mark' android/app/src/main/res/drawable/splash.xml
+          test -s android/app/src/main/res/drawable/verigence_splash_mark.png
           echo 'ANDROID_NATIVE_CONFIG=PASS'
+          echo 'ANDROID_VERIGENCE_BRANDING_SOURCE=PASS'
 
       - name: Lint and build Android debug APK
         working-directory: android
@@ -116,8 +127,19 @@ jobs:
           set -euo pipefail
           apk='android/app/build/outputs/apk/debug/app-debug.apk'
           test -s "$apk"
+          unzip -t "$apk" >/dev/null
+          unzip -p "$apk" res/drawable-v24/ic_launcher_foreground.xml | strings >/tmp/verigence-v24-foreground.txt
+          grep -q 'M64,136' /tmp/verigence-v24-foreground.txt
+          if grep -q 'M66.94,46.02\|M32,64' /tmp/verigence-v24-foreground.txt; then
+            echo '::error::Built APK still contains the stock Android launcher foreground.'
+            exit 1
+          fi
+          unzip -p "$apk" resources.arsc | strings | grep -q 'verigence_splash_mark'
           sha256sum "$apk" | tee android-apk.sha256
           ls -lh "$apk"
+          echo 'ANDROID_APK_ZIP_INTEGRITY=PASS'
+          echo 'ANDROID_APK_VERIGENCE_ICON=PASS'
+          echo 'ANDROID_APK_VERIGENCE_SPLASH=PASS'
 
       - name: Upload Android APK
         uses: actions/upload-artifact@v4

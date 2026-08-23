@@ -25,7 +25,6 @@ import {
   patchProjectAdmin,
   publishMasterVersion,
   putRoleMapping,
-  retryProvisioningOperation,
   uploadMasterImport,
   type DealerAdmin,
   type MasterDescriptor,
@@ -33,7 +32,6 @@ import {
   type MasterVersion,
   type OperatingRole,
   type OutletAdmin,
-  type ProjectProvisioningResult,
   type ProjectReadiness,
   type RoleMapping,
   type RoleMappingCandidate,
@@ -54,12 +52,6 @@ function randomKey(prefix: string) {
 
 function errorMessage(error: unknown) {
   return auditCoreErrorMessage(error);
-}
-
-function provisioningErrorMessage(result: ProjectProvisioningResult) {
-  const projectName = result.projectName?.trim() || 'Project';
-  const message = result.errorMessage?.trim() || `${projectName} setup could not be completed. Please try again.`;
-  return result.errorCode ? `${result.errorCode}: ${message}` : message;
 }
 
 function triggerBlob(blob: Blob, filename: string) {
@@ -104,7 +96,6 @@ export default function ProjectAdministrationPage() {
   const [pageError, setPageError] = useState('');
   const [notice, setNotice] = useState('');
   const [busy, setBusy] = useState(false);
-  const [provisioning, setProvisioning] = useState<ProjectProvisioningResult | null>(null);
 
   const [projectForm, setProjectForm] = useState(emptyProjectForm);
   const [dealers, setDealers] = useState<DealerAdmin[]>([]);
@@ -159,7 +150,6 @@ export default function ProjectAdministrationPage() {
 
   function handleProjectSelection(nextTenantId: string) {
     clearFeedback();
-    setProvisioning(null);
     clearProjectScopedUi();
     goToStep(1);
     if (!nextTenantId) {
@@ -240,7 +230,6 @@ export default function ProjectAdministrationPage() {
 
   async function submitProject(event: FormEvent) {
     event.preventDefault();
-    if (!project && (provisioning?.provisioningStatus === 'IN_PROGRESS' || provisioning?.provisioningStatus === 'RECOVERY_REQUIRED')) return;
     clearFeedback();
     setBusy(true);
     try {
@@ -273,35 +262,17 @@ export default function ProjectAdministrationPage() {
           randomKey('project-create'),
           accessToken,
         );
-        setProvisioning(result);
-        if (result.provisioningStatus === 'READY' && result.tenantId) {
-          setBusinessContext({ tenantId: result.tenantId, dealerId: '', outletId: '' });
-          setNotice('Project created successfully.');
-        } else if (result.provisioningStatus === 'IN_PROGRESS') {
-          setNotice('Project setup is in progress. Retry setup if it does not complete.');
+        if (result.provisioningStatus !== 'READY' || !result.tenantId) {
+          throw new Error('Project setup did not complete. Please try again.');
         }
+        setBusinessContext({ tenantId: result.tenantId, dealerId: '', outletId: '' });
+        setNotice('Project created successfully.');
       }
     } catch (error) {
       setPageError(errorMessage(error));
     } finally {
       setBusy(false);
     }
-  }
-
-  async function retryProvisioning() {
-    if (!provisioning || !accessToken) return;
-    clearFeedback(); setBusy(true);
-    try {
-      const result = await retryProvisioningOperation(provisioning.operationId, accessToken);
-      setProvisioning(result);
-      if (result.provisioningStatus === 'READY' && result.tenantId) {
-        setBusinessContext({ tenantId: result.tenantId, dealerId: '', outletId: '' });
-        setNotice('Project setup is complete.');
-      } else if (result.provisioningStatus === 'IN_PROGRESS') {
-        setNotice('Project setup is still in progress.');
-      }
-    } catch (error) { setPageError(errorMessage(error)); }
-    finally { setBusy(false); }
   }
 
   async function submitDealer(event: FormEvent) {
@@ -483,8 +454,6 @@ export default function ProjectAdministrationPage() {
   }
 
   const projectConfigured = Boolean(tenantId && project);
-  const provisioningFailed = provisioning?.provisioningStatus === 'RECOVERY_REQUIRED';
-  const provisioningUnresolved = provisioning?.provisioningStatus === 'IN_PROGRESS' || provisioning?.provisioningStatus === 'RECOVERY_REQUIRED';
 
   return (
     <div className="screen-stack uc02-admin">
@@ -506,7 +475,7 @@ export default function ProjectAdministrationPage() {
 
       <ProjectAdminStepper activeStep={activeStep} onChange={goToStep} projectConfigured={projectConfigured} />
 
-      {!provisioningFailed && (pageError || notice) && <div className={`uc02-message ${pageError ? 'uc02-message--error' : 'uc02-message--success'}`}><strong>{pageError ? 'Could Not Complete Request' : 'Updated'}</strong><span>{pageError || notice}</span></div>}
+      {(pageError || notice) && <div className={`uc02-message ${pageError ? 'uc02-message--error' : 'uc02-message--success'}`}><strong>{pageError ? 'Could Not Complete Request' : 'Updated'}</strong><span>{pageError || notice}</span></div>}
 
       <section className="uc02-workspace">
         <header className="uc02-workspace__header"><div><small>{currentStep.short}</small><h2>{currentStep.label}</h2><p>{currentStep.description}</p></div><span className="uc02-workspace__step">Step {activeStep} of 8</span></header>
@@ -530,18 +499,8 @@ export default function ProjectAdministrationPage() {
                 <Field label="Timezone"><input required value={projectForm.timezoneName} onChange={(event) => setProjectForm({ ...projectForm, timezoneName: event.target.value })} /></Field>
                 <Field label="Region / Geography"><input value={projectForm.regionCode} onChange={(event) => setProjectForm({ ...projectForm, regionCode: event.target.value })} /></Field>
               </div>
-              <div className="uc02-actions"><button className="uc02-button uc02-button--primary" disabled={busy || projectLoading || (!project && provisioningUnresolved)}>{busy ? 'Saving…' : project ? 'Save Project Details' : provisioningUnresolved ? 'Retry Setup to continue' : 'Create Project'}</button></div>
+              <div className="uc02-actions"><button className="uc02-button uc02-button--primary" disabled={busy || projectLoading}>{busy ? 'Saving…' : project ? 'Save Project Details' : 'Create Project'}</button></div>
             </form>
-            <aside className="uc02-card uc02-card--soft">
-              <div className="uc02-card__title"><h3>Project Setup</h3><p>Complete project setup before moving to the remaining administration steps.</p></div>
-              {provisioning ? (
-                <div className="uc02-status-stack">
-                  <strong>{provisioning.provisioningStatus === 'READY' ? 'Ready to continue' : provisioning.provisioningStatus === 'RECOVERY_REQUIRED' ? 'Setup failed' : 'Setup in progress'}</strong>
-                  {provisioning.provisioningStatus === 'RECOVERY_REQUIRED' && <span>{provisioningErrorMessage(provisioning)}</span>}
-                  {provisioning.provisioningStatus !== 'READY' && <button className="uc02-button" type="button" onClick={() => void retryProvisioning()} disabled={busy}>Retry Setup</button>}
-                </div>
-              ) : <EmptyMessage>{project ? 'Project setup is available for the current project.' : 'Create the project to begin setup.'}</EmptyMessage>}
-            </aside>
           </div>
         )}
 

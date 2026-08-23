@@ -25,6 +25,12 @@ jobs:
           fi
           echo 'AUDIT_CORE_URL_PRESENT=YES'
 
+          case "$AUDIT_CORE_URL" in
+            https://*) echo 'AUDIT_CORE_HTTPS_SCHEME=PASS' ;;
+            http://*) echo 'AUDIT_CORE_HTTPS_SCHEME=FAIL_HTTP'; exit 1 ;;
+            *) echo 'AUDIT_CORE_HTTPS_SCHEME=FAIL_INVALID'; exit 1 ;;
+          esac
+
           HEALTH_STATUS="$(curl --silent --show-error --location --output /tmp/health.body --write-out '%{http_code}' "${AUDIT_CORE_URL%/}/health" || true)"
           echo "AUDIT_CORE_HEALTH_STATUS=$HEALTH_STATUS"
           case "$HEALTH_STATUS" in

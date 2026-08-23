@@ -67,7 +67,7 @@ export default function ProjectSelector({
     return () => {
       cancelled = true;
     };
-  }, [accessToken, tenantId]);
+  }, [accessToken]);
 
   const currentIsListed = projects.some((item) => item.tenantId === tenantId);
 

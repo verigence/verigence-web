@@ -55,6 +55,17 @@ jobs:
             "$AUDIT_CORE_UPSTREAM/health"
           echo
 
+      - name: Validate Google Maps Embed configuration
+        env:
+          GOOGLE_MAPS_EMBED_API_KEY: ${{ secrets.GOOGLE_MAPS_EMBED_API_KEY }}
+        run: |
+          set -euo pipefail
+          if [ -z "${GOOGLE_MAPS_EMBED_API_KEY:-}" ]; then
+            echo '::error::Missing GOOGLE_MAPS_EMBED_API_KEY repository secret. Configure the restricted Google Maps Embed API browser key before deploying Web DEV.'
+            exit 1
+          fi
+          echo 'GOOGLE_MAPS_EMBED_API_KEY=CONFIGURED'
+
       - name: Verify exact approved Verigence logo source
         shell: bash
         run: |
@@ -109,6 +120,16 @@ jobs:
             exit 1
           fi
           echo 'AUDIT_CORE_PROXY_BUNDLE=PASS'
+
+      - name: Verify Google Maps Embed support is bundled
+        shell: bash
+        run: |
+          set -euo pipefail
+          if ! grep -R -q 'maps/embed/v1/' dist/assets; then
+            echo 'Google Maps Embed API support was not emitted into the production bundle.'
+            exit 1
+          fi
+          echo 'GOOGLE_MAPS_EMBED_BUNDLE=PASS'
 
       - name: Deploy to Cloudflare DEV
         uses: cloudflare/wrangler-action@v3
@@ -182,7 +203,7 @@ jobs:
           cat /tmp/audit-health.body
           echo
           if ! grep -qi '^x-verigence-proxy: audit-core' /tmp/audit-health.headers; then
-            echo 'Audit Core health request did not pass through the Audit Core Worker proxy.'
+            echo 'Audit Core health request did not pass through the Worker proxy.'
             exit 1
           fi
           echo 'AUDIT_CORE_PROXY_HEALTH=PASS'

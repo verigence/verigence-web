@@ -16,6 +16,8 @@ const ForgotPasswordPage = lazy(() => import('./pages/ForgotPasswordPage'));
 const TermsPage = lazy(() => import('./pages/TermsPage'));
 const PrivacyPage = lazy(() => import('./pages/PrivacyPage'));
 const ApprovalQueuePage = lazy(() => import('./pages/ApprovalQueuePage'));
+const AdminUsersPage = lazy(() => import('./pages/AdminUsersPage'));
+const AdminConfigurationPage = lazy(() => import('./pages/AdminConfigurationPage'));
 const DashboardPage = lazy(() => import('./pages/DashboardPage'));
 const BookingWorkspacePage = lazy(() => import('./pages/BookingWorkspacePage'));
 const DeliveryWorkspacePage = lazy(() => import('./pages/DeliveryWorkspacePage'));
@@ -106,8 +108,18 @@ export default function App() {
             <Route path="/crm" element={<LegacyOperationalPage><CrmPage /></LegacyOperationalPage>} />
             <Route path="/escalations" element={<LegacyOperationalPage><EscalationsPage /></LegacyOperationalPage>} />
             <Route path="/analytics" element={<LegacyOperationalPage><AnalyticsPage /></LegacyOperationalPage>} />
-            <Route path="/approvals" element={<PrivatePage><ApprovalQueuePage /></PrivatePage>} />
+
+            <Route path="/admin/users" element={<PrivatePage><AdminUsersPage /></PrivatePage>} />
+            <Route path="/admin/users/pending" element={<PrivatePage><ApprovalQueuePage /></PrivatePage>} />
+            <Route path="/admin/activity-log" element={<PrivatePage><AdminConfigurationPage section="activity" /></PrivatePage>} />
+            <Route path="/admin/roles-permissions" element={<PrivatePage><AdminConfigurationPage section="roles" /></PrivatePage>} />
+            <Route path="/admin/audit-rules" element={<PrivatePage><AdminConfigurationPage section="audit-rules" /></PrivatePage>} />
+            <Route path="/admin/approval-workflow" element={<PrivatePage><AdminConfigurationPage section="approval-workflow" /></PrivatePage>} />
+            <Route path="/admin/notifications" element={<PrivatePage><AdminConfigurationPage section="notifications" /></PrivatePage>} />
             <Route path="/admin/project" element={<PrivatePage><ProjectAdministrationPage /></PrivatePage>} />
+
+            <Route path="/approvals" element={<Navigate to="/admin/users/pending" replace />} />
+            <Route path="/admin/project-provisioning" element={<Navigate to="/admin/project" replace />} />
             <Route path="/admin/organization" element={<Navigate to="/admin/project?step=2" replace />} />
             <Route path="/admin/team" element={<Navigate to="/admin/project?step=5" replace />} />
             <Route path="/admin/masters" element={<Navigate to="/admin/project?step=6" replace />} />

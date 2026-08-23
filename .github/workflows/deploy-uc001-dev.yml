@@ -5,6 +5,11 @@ on:
     branches:
       - dev
   workflow_dispatch:
+  pull_request:
+    branches:
+      - dev
+    paths:
+      - '.github/workflows/deploy-uc001-dev.yml'
 
 concurrency:
   group: deploy-verigence-web-dev
@@ -12,6 +17,7 @@ concurrency:
 
 jobs:
   deploy:
+    if: github.ref == 'refs/heads/dev' || (github.event_name == 'pull_request' && github.head_ref == 'planning/uc-003-booking-delivery-audit')
     name: Build & Deploy DEV
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -20,15 +26,18 @@ jobs:
       deployments: write
     env:
       SECURITY_UPSTREAM: https://security-dev.up.railway.app
+      DEPLOY_SHA: 9eab4bd33cf6ce418c73f43b9b1e594a0343ef65
 
     steps:
-      - name: Checkout
+      - name: Checkout exact tested C2 Web revision
         uses: actions/checkout@v4
+        with:
+          ref: ${{ env.DEPLOY_SHA }}
 
       - name: Identify deployment
         run: |
-          echo "Deploying Git commit: $GITHUB_SHA"
-          echo "Deploying branch: $GITHUB_REF_NAME"
+          echo "Deploying tested Git commit: $DEPLOY_SHA"
+          echo "Validation branch: $GITHUB_HEAD_REF"
           echo "Security DEV upstream: $SECURITY_UPSTREAM"
 
       - name: Setup Node
@@ -65,31 +74,34 @@ jobs:
           const image = Buffer.from(base64, 'base64');
           const sha256 = crypto.createHash('sha256').update(image).digest('hex');
           const expected = '6e2c9a9467367a2f35466a7807672379ab3623e535e29e3914d4be731a837f60';
-          if (sha256 !== expected) {
-            throw new Error(`Approved logo digest mismatch: ${sha256}`);
-          }
+          if (sha256 !== expected) throw new Error(`Approved logo digest mismatch: ${sha256}`);
           if (image.length !== 36060 || image.subarray(0, 8).toString('hex') !== '89504e470d0a1a0a') {
             throw new Error('Approved logo is not the expected 36,060-byte PNG');
           }
           console.log(`VERIGENCE_LOGO_SOURCE=PASS sha256=${sha256} bytes=${image.length}`);
           NODE
 
-      - name: Typecheck and build
+      - name: Typecheck and build exact C2 Web revision
         run: npm run build
         env:
           VITE_SECURITY_BASE_URL: ""
           VITE_AUDIT_CORE_BASE_URL: ${{ secrets.AUDIT_CORE_URL }}
 
-      - name: Verify approved logo is bundled
+      - name: Verify C2 Delivery bundle contract
         shell: bash
         run: |
           set -euo pipefail
+          grep -R -q 'delivery/workspace' dist/assets || {
+            echo 'C2 Delivery workspace client was not emitted into the production bundle'; exit 1;
+          }
+          grep -R -q 'CAR_PICTURES' dist/assets || {
+            echo 'C2 car-picture evidence contract was not emitted into the production bundle'; exit 1;
+          }
           if ! grep -R -q 'data:image/png;base64,' dist/assets; then
-            echo "Approved bundled PNG lockup was not emitted into the production JavaScript"
-            find dist -maxdepth 2 -type f -print
-            exit 1
+            echo 'Approved bundled PNG lockup was not emitted into production JavaScript'; exit 1;
           fi
-          echo "VERIGENCE_LOGO_BUNDLE=PASS"
+          echo 'UC03_C2_WEB_BUNDLE=PASS'
+          echo 'VERIGENCE_LOGO_BUNDLE=PASS'
 
       - name: Deploy to Cloudflare DEV
         uses: cloudflare/wrangler-action@v3
@@ -98,36 +110,29 @@ jobs:
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           command: deploy
 
-      - name: Smoke test deployed Web and Security proxy
+      - name: Smoke test deployed C2 Web and Security proxy
         env:
           DEV_WEB_URL: https://verigence-web-dev.jbrconsulting-it.workers.dev
         run: |
           set -euo pipefail
           sleep 5
 
-          echo "--- Login page ---"
-          curl --fail --silent --show-error --location \
-            --dump-header /tmp/login.headers \
-            --output /tmp/login.html \
-            "$DEV_WEB_URL/login"
-          head -n 20 /tmp/login.headers
+          curl --fail --silent --show-error --location --output /tmp/login.html "$DEV_WEB_URL/login"
+          curl --fail --silent --show-error --location --output /tmp/delivery.html \
+            "$DEV_WEB_URL/deliveries/00000000-0000-0000-0000-000000000001"
+          grep -q '<div id="root"></div>' /tmp/delivery.html || {
+            echo 'Deployed C2 Delivery SPA route did not resolve to the application shell'; exit 1;
+          }
+          echo 'UC03_C2_DELIVERY_ROUTE=PASS'
 
           asset_path="$(grep -oE 'src="/assets/[^"]+\.js"' /tmp/login.html | head -n 1 | sed -E 's/^src="([^"]+)"$/\1/')"
-          [ -n "$asset_path" ] || {
-            echo "Could not resolve deployed JavaScript asset from login page"
-            cat /tmp/login.html
-            exit 1
-          }
-          curl --fail --silent --show-error --location \
-            --output /tmp/app.js \
-            "$DEV_WEB_URL$asset_path"
+          [ -n "$asset_path" ] || { echo 'Could not resolve deployed JavaScript asset'; exit 1; }
+          curl --fail --silent --show-error --location --output /tmp/app.js "$DEV_WEB_URL$asset_path"
           if ! grep -q 'data:image/png;base64,' /tmp/app.js; then
-            echo "Deployed Cloudflare JavaScript does not contain the approved bundled PNG lockup"
-            exit 1
+            echo 'Deployed Cloudflare JavaScript does not contain approved bundled PNG lockup'; exit 1;
           fi
-          echo "VERIGENCE_LOGO_DEPLOYED_BUNDLE=PASS"
+          echo 'VERIGENCE_LOGO_DEPLOYED_BUNDLE=PASS'
 
-          echo "--- Security login route via Worker ---"
           SECURITY_STATUS="$(curl --silent --show-error \
             --dump-header /tmp/security.headers \
             --output /tmp/security.body \
@@ -136,38 +141,19 @@ jobs:
             --header 'Content-Type: application/json' \
             --data '{}' \
             "$DEV_WEB_URL/security/v1/auth/login")"
-          cat /tmp/security.headers
-          cat /tmp/security.body
-          echo
-          echo "Security smoke status: $SECURITY_STATUS"
-
           if ! grep -qi '^x-verigence-proxy: security' /tmp/security.headers; then
-            echo "Request did not pass through the Verigence Security Worker proxy"
-            exit 1
+            echo 'Request did not pass through the Verigence Security Worker proxy'; exit 1;
           fi
+          case "$SECURITY_STATUS" in 400|401|422) ;; *) exit 1 ;; esac
 
-          case "$SECURITY_STATUS" in
-            400|401|422) ;;
-            *)
-              echo "Security login route is not healthy through the Worker proxy"
-              exit 1
-              ;;
-          esac
-
-          echo "--- Capacitor CORS preflight ---"
           for origin in 'capacitor://localhost' 'https://localhost'; do
             curl --fail --silent --show-error \
-              --dump-header /tmp/cors.headers \
-              --output /dev/null \
-              --request OPTIONS \
+              --dump-header /tmp/cors.headers --output /dev/null --request OPTIONS \
               --header "Origin: $origin" \
               --header 'Access-Control-Request-Method: POST' \
               --header 'Access-Control-Request-Headers: content-type,authorization,x-onboarding-key' \
               "$DEV_WEB_URL/security/v1/auth/login"
-            if ! grep -Fqi "access-control-allow-origin: $origin" /tmp/cors.headers; then
-              echo "Capacitor origin $origin was not allowed by the Security proxy"
-              cat /tmp/cors.headers
-              exit 1
-            fi
+            grep -Fqi "access-control-allow-origin: $origin" /tmp/cors.headers || exit 1
           done
-          echo "CAPACITOR_SECURITY_CORS=PASS"
+          echo 'CAPACITOR_SECURITY_CORS=PASS'
+          echo "WEB_DEPLOYED_SHA=$DEPLOY_SHA"

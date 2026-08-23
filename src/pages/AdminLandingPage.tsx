@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 
@@ -34,11 +35,7 @@ async function loadSummary(accessToken: string): Promise<Summary> {
 
   const allEmployees = new Set<string>();
   const byRole: Record<keyof Summary['roles'], Set<string>> = {
-    PC: new Set<string>(),
-    TL: new Set<string>(),
-    PM: new Set<string>(),
-    CRM: new Set<string>(),
-    EXECUTIVE: new Set<string>(),
+    PC: new Set<string>(), TL: new Set<string>(), PM: new Set<string>(), CRM: new Set<string>(), EXECUTIVE: new Set<string>(),
   };
 
   roleMappings.flat().forEach((mapping) => {
@@ -51,13 +48,7 @@ async function loadSummary(accessToken: string): Promise<Summary> {
     totalEmployees: allEmployees.size,
     totalProjects: projects.length,
     activeProjects: projects.filter((project) => project.projectStatus.toUpperCase() === 'ACTIVE').length,
-    roles: {
-      PC: byRole.PC.size,
-      TL: byRole.TL.size,
-      PM: byRole.PM.size,
-      CRM: byRole.CRM.size,
-      EXECUTIVE: byRole.EXECUTIVE.size,
-    },
+    roles: { PC: byRole.PC.size, TL: byRole.TL.size, PM: byRole.PM.size, CRM: byRole.CRM.size, EXECUTIVE: byRole.EXECUTIVE.size },
   };
 }
 
@@ -82,9 +73,11 @@ export default function AdminLandingPage() {
     retry: 1,
   });
 
-  const operationalProjects = operationalProjectsQuery.data ?? [];
-  if (operationalProjectsQuery.data) setProjects(operationalProjectsQuery.data);
+  useEffect(() => {
+    if (operationalProjectsQuery.data) setProjects(operationalProjectsQuery.data);
+  }, [operationalProjectsQuery.data, setProjects]);
 
+  const operationalProjects = operationalProjectsQuery.data ?? [];
   const summary = summaryQuery.data;
   const metrics = [
     ['Total Employees', summary?.totalEmployees, 'Unique employees with an operational role across Projects'],
@@ -107,19 +100,14 @@ export default function AdminLandingPage() {
 
       {summaryQuery.isError ? (
         <div className="admin-landing__error" role="alert">
-          <div>
-            <strong>Administration summary could not be loaded.</strong>
-            <p>The dashboard never estimates staffing numbers. Retry to load the authoritative Project and role-mapping data.</p>
-          </div>
+          <div><strong>Administration summary could not be loaded.</strong><p>The dashboard never estimates staffing numbers. Retry to load the authoritative Project and role-mapping data.</p></div>
           <button type="button" className="uc01-admin-button" onClick={() => summaryQuery.refetch()}>Try Again</button>
         </div>
       ) : (
         <div className="admin-landing__metrics" aria-label="Administration metrics">
           {metrics.map(([label, value, detail]) => (
             <article className="admin-landing__metric" key={label}>
-              <span>{label}</span>
-              <strong>{summaryQuery.isPending ? '—' : String(value ?? 0)}</strong>
-              <small>{detail}</small>
+              <span>{label}</span><strong>{summaryQuery.isPending ? '—' : String(value ?? 0)}</strong><small>{detail}</small>
             </article>
           ))}
         </div>
@@ -127,42 +115,19 @@ export default function AdminLandingPage() {
 
       <section className="admin-landing__projects" aria-labelledby="admin-projects-title">
         <header>
-          <div>
-            <span className="eyebrow">Operational access</span>
-            <h2 id="admin-projects-title">Open a Project</h2>
-            <p>Select a Project where you currently hold an operating role. Project provisioning and configuration remain available under Administration.</p>
-          </div>
+          <div><span className="eyebrow">Operational access</span><h2 id="admin-projects-title">Open a Project</h2><p>Select a Project where you currently hold an operating role. Project provisioning and configuration remain available under Administration.</p></div>
           <Link to="/admin/project" className="uc01-admin-button">Manage Projects</Link>
         </header>
 
         {operationalProjectsQuery.isPending && <div className="admin-landing__project-state">Loading your Projects…</div>}
-        {operationalProjectsQuery.isError && (
-          <div className="admin-landing__project-state admin-landing__project-state--error">
-            We couldn't load your operational Project assignments.
-          </div>
-        )}
-        {operationalProjectsQuery.data && operationalProjects.length === 0 && (
-          <div className="admin-landing__project-state">
-            You do not currently have an operating role in an active Project. Administration remains available from the navigation.
-          </div>
-        )}
+        {operationalProjectsQuery.isError && <div className="admin-landing__project-state admin-landing__project-state--error">We couldn't load your operational Project assignments.</div>}
+        {operationalProjectsQuery.data && operationalProjects.length === 0 && <div className="admin-landing__project-state">You do not currently have an operating role in an active Project. Administration remains available from the navigation.</div>}
         {operationalProjects.length > 0 && (
           <div className="admin-landing__project-grid">
             {operationalProjects.map((project) => (
-              <button
-                type="button"
-                className="admin-landing__project-card"
-                key={project.tenantId}
-                onClick={() => selectOperationalProject(project, queryClient)}
-              >
-                <span>
-                  <strong>{project.projectName}</strong>
-                  <small>{project.projectCode}</small>
-                </span>
-                <span>
-                  <strong>{project.operatingRole}</strong>
-                  <small>{project.scope.allDealers ? 'All Dealers' : `${project.scope.dealerCount} dealer scope`}</small>
-                </span>
+              <button type="button" className="admin-landing__project-card" key={project.tenantId} onClick={() => selectOperationalProject(project, queryClient)}>
+                <span><strong>{project.projectName}</strong><small>{project.projectCode}</small></span>
+                <span><strong>{project.operatingRole}</strong><small>{project.scope.allDealers ? 'All Dealers' : `${project.scope.dealerCount} dealer scope`}</small></span>
                 <b aria-hidden="true">→</b>
               </button>
             ))}
@@ -170,9 +135,7 @@ export default function AdminLandingPage() {
         )}
       </section>
 
-      <p className="admin-landing__note">
-        Employee role counts are unique within each role. Because one employee may hold different operating roles in different Projects, role totals can overlap and do not have to equal Total Employees.
-      </p>
+      <p className="admin-landing__note">Employee role counts are unique within each role. Because one employee may hold different operating roles in different Projects, role totals can overlap and do not have to equal Total Employees.</p>
     </section>
   );
 }

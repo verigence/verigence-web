@@ -1,0 +1,443 @@
+.uc03-c1-workspace {
+  --uc03-border: rgba(26, 42, 58, 0.14);
+  --uc03-soft: rgba(31, 87, 112, 0.07);
+  max-width: 1440px;
+  margin: 0 auto;
+  padding-bottom: calc(32px + env(safe-area-inset-bottom));
+}
+
+.uc03-c1-topbar,
+.uc03-c1-section-heading,
+.uc03-c1-card > header,
+.uc03-c1-flag-card > header,
+.uc03-c1-flag-card > footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.uc03-c1-topbar {
+  min-height: 44px;
+  color: var(--text-muted, #5c6872);
+  font-size: 0.88rem;
+}
+
+.uc03-c1-back,
+.uc03-c1-inline-field button,
+.uc03-c1-answer-row button,
+.uc03-c1-proposal-actions button,
+.uc03-c1-primary,
+.uc03-c1-secondary {
+  min-height: 44px;
+  border-radius: 12px;
+  border: 1px solid var(--uc03-border);
+  background: var(--surface, #fff);
+  padding: 10px 14px;
+  font: inherit;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.uc03-c1-back {
+  border: 0;
+  background: transparent;
+  padding-inline: 0;
+}
+
+.uc03-c1-primary {
+  background: var(--brand-primary, #153f55);
+  color: #fff;
+  border-color: transparent;
+}
+
+.uc03-c1-secondary {
+  background: var(--uc03-soft);
+}
+
+.uc03-c1-primary:disabled,
+.uc03-c1-secondary:disabled,
+.uc03-c1-inline-field button:disabled,
+.uc03-c1-answer-row button:disabled,
+.uc03-c1-proposal-actions button:disabled,
+.uc03-c1-back:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.uc03-c1-stage-strip {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin: 8px 0 20px;
+}
+
+.uc03-c1-stage-strip > div {
+  border: 1px solid var(--uc03-border);
+  border-radius: 16px;
+  background: var(--surface, #fff);
+  padding: 14px 16px;
+  min-height: 76px;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.uc03-c1-stage-strip span,
+.uc03-c1-eyebrow,
+.uc03-c1-section-heading p,
+.uc03-c1-card p,
+.uc03-c1-muted,
+.uc03-c1-conclusion label > span,
+.uc03-c1-capture-grid label > span,
+.uc03-c1-flag-form label > span,
+.uc03-c1-choice-field > span {
+  color: var(--text-muted, #68737c);
+}
+
+.uc03-c1-stage-strip > div > span:first-child,
+.uc03-c1-eyebrow {
+  font-size: 0.76rem;
+  font-weight: 750;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.uc03-c1-feedback,
+.uc03-c1-notice,
+.uc03-c1-empty {
+  border-radius: 14px;
+  padding: 13px 15px;
+  margin: 10px 0;
+  border: 1px solid var(--uc03-border);
+}
+
+.uc03-c1-feedback.is-success {
+  background: rgba(41, 128, 81, 0.08);
+}
+
+.uc03-c1-feedback.is-error {
+  background: rgba(181, 60, 60, 0.08);
+}
+
+.uc03-c1-notice {
+  background: rgba(182, 130, 36, 0.09);
+  margin: 12px 0 0;
+}
+
+.uc03-c1-start-panel,
+.uc03-c1-section {
+  border: 1px solid var(--uc03-border);
+  border-radius: 20px;
+  background: var(--surface, #fff);
+  padding: clamp(18px, 2.4vw, 28px);
+  margin-bottom: 18px;
+}
+
+.uc03-c1-start-panel {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.uc03-c1-start-panel h2,
+.uc03-c1-section-heading h2,
+.uc03-c1-card h3,
+.uc03-c1-flag-form h3 {
+  margin: 4px 0 6px;
+}
+
+.uc03-c1-section-heading {
+  align-items: flex-start;
+  margin-bottom: 18px;
+}
+
+.uc03-c1-section-heading p {
+  max-width: 760px;
+  margin: 4px 0 0;
+}
+
+.uc03-c1-processing-summary {
+  display: grid;
+  grid-template-columns: auto auto;
+  gap: 2px 8px;
+  min-width: 150px;
+  font-size: 0.82rem;
+}
+
+.uc03-c1-processing-summary strong {
+  text-align: right;
+}
+
+.uc03-c1-document-grid,
+.uc03-c1-proposal-list,
+.uc03-c1-flag-list {
+  display: grid;
+  gap: 14px;
+}
+
+.uc03-c1-document-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.uc03-c1-card {
+  border: 1px solid var(--uc03-border);
+  border-radius: 16px;
+  background: var(--surface-raised, #fff);
+  padding: 16px;
+}
+
+.uc03-c1-card > header {
+  align-items: flex-start;
+}
+
+.uc03-c1-card p {
+  margin: 4px 0 0;
+}
+
+.uc03-c1-status-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  font-size: 0.78rem;
+}
+
+.uc03-c1-document-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 16px 0 12px;
+  flex-wrap: wrap;
+}
+
+.uc03-c1-file-button {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  border: 1px dashed var(--uc03-border);
+  border-radius: 12px;
+  padding: 10px 14px;
+  cursor: pointer;
+  font-weight: 650;
+}
+
+.uc03-c1-file-button input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.uc03-c1-file-button.is-disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.uc03-c1-evidence-ok {
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.uc03-c1-answer-row,
+.uc03-c1-proposal-actions,
+.uc03-c1-choice-field > div {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.uc03-c1-answer-row button.is-active,
+.uc03-c1-choice-field button.is-active {
+  background: var(--uc03-soft);
+  box-shadow: inset 0 0 0 1px var(--brand-primary, #153f55);
+}
+
+.uc03-c1-capture-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px 18px;
+}
+
+.uc03-c1-capture-grid label,
+.uc03-c1-choice-field,
+.uc03-c1-flag-form label,
+.uc03-c1-conclusion label {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.uc03-c1-inline-field {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+}
+
+.uc03-c1-capture-grid input,
+.uc03-c1-proposal-actions input,
+.uc03-c1-flag-form input,
+.uc03-c1-flag-form select,
+.uc03-c1-flag-form textarea,
+.uc03-c1-conclusion input,
+.uc03-c1-conclusion select,
+.uc03-c1-conclusion textarea {
+  width: 100%;
+  min-height: 44px;
+  border: 1px solid var(--uc03-border);
+  border-radius: 12px;
+  background: var(--surface, #fff);
+  color: inherit;
+  font: inherit;
+  padding: 10px 12px;
+}
+
+.uc03-c1-flag-form textarea,
+.uc03-c1-conclusion textarea {
+  min-height: 92px;
+  resize: vertical;
+}
+
+.uc03-c1-choice-field {
+  justify-content: flex-end;
+}
+
+.uc03-c1-choice-field button {
+  min-height: 44px;
+  border: 1px solid var(--uc03-border);
+  background: var(--surface, #fff);
+  border-radius: 12px;
+  padding: 10px 18px;
+}
+
+.uc03-c1-proposal-list {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.uc03-c1-proposal-value {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 14px;
+  margin: 14px 0;
+  border-radius: 12px;
+  background: var(--uc03-soft);
+}
+
+.uc03-c1-proposal-value span {
+  font-size: 0.78rem;
+  color: var(--text-muted, #68737c);
+}
+
+.uc03-c1-proposal-actions {
+  display: grid;
+  grid-template-columns: auto minmax(140px, 1fr) auto;
+}
+
+.uc03-c1-flag-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(280px, 0.65fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.uc03-c1-flag-card footer {
+  margin-top: 12px;
+  justify-content: flex-start;
+}
+
+.uc03-c1-flag-form,
+.uc03-c1-conclusion {
+  display: grid;
+  gap: 12px;
+  border: 1px solid var(--uc03-border);
+  border-radius: 16px;
+  padding: 16px;
+}
+
+.uc03-c1-blockers {
+  margin: 0 0 18px;
+  padding-left: 22px;
+}
+
+.uc03-c1-blockers li {
+  margin: 7px 0;
+}
+
+.uc03-c1-conclusion {
+  grid-template-columns: minmax(220px, 1fr) minmax(180px, 0.7fr) minmax(240px, 1.2fr) auto;
+  align-items: end;
+}
+
+.uc03-c1-loading {
+  min-height: 50vh;
+  display: grid;
+  place-items: center;
+}
+
+@media (max-width: 960px) {
+  .uc03-c1-stage-strip,
+  .uc03-c1-document-grid,
+  .uc03-c1-proposal-list,
+  .uc03-c1-capture-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .uc03-c1-flag-layout,
+  .uc03-c1-conclusion {
+    grid-template-columns: 1fr;
+  }
+
+  .uc03-c1-conclusion .uc03-c1-primary {
+    width: 100%;
+  }
+}
+
+@media (max-width: 640px) {
+  .uc03-c1-workspace {
+    padding-inline: 2px;
+  }
+
+  .uc03-c1-stage-strip,
+  .uc03-c1-document-grid,
+  .uc03-c1-proposal-list,
+  .uc03-c1-capture-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .uc03-c1-stage-strip {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .uc03-c1-start-panel,
+  .uc03-c1-section-heading,
+  .uc03-c1-card > header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .uc03-c1-status-stack {
+    align-items: flex-start;
+  }
+
+  .uc03-c1-processing-summary {
+    align-self: stretch;
+  }
+
+  .uc03-c1-proposal-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .uc03-c1-answer-row button,
+  .uc03-c1-proposal-actions button,
+  .uc03-c1-file-button {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .uc03-c1-inline-field {
+    grid-template-columns: 1fr auto;
+  }
+}

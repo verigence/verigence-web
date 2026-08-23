@@ -42,15 +42,17 @@ export interface ProjectCreateInput {
   regionCode?: string | null;
 }
 
+/* Project creation is synchronous in the current Audit Core contract. A successful
+ * response is already fully provisioned across Security, Audit Core and DI. */
 export interface ProjectProvisioningResult {
   operationId: string;
-  tenantId?: string | null;
+  tenantId: string;
   projectName: string;
   projectStatus: string;
-  provisioningStatus: 'READY' | 'IN_PROGRESS' | 'RECOVERY_REQUIRED';
-  currentStep: 'SECURITY' | 'AUDIT_CORE' | 'DI' | 'COMPLETE';
-  errorCode?: string | null;
-  errorMessage?: string | null;
+  provisioningStatus: 'READY';
+  currentStep: 'COMPLETE';
+  errorCode?: null;
+  errorMessage?: null;
 }
 
 export interface DealerAdmin {
@@ -186,20 +188,6 @@ export function createProject(
     headers: idempotencyHeaders(idempotencyKey),
     ...auth(accessToken),
   });
-}
-
-export function getProvisioningOperation(operationId: string, accessToken?: string) {
-  return auditCoreRequest<ProjectProvisioningResult>(
-    `/v1/project-provisioning-operations/${operationId}`,
-    auth(accessToken),
-  );
-}
-
-export function retryProvisioningOperation(operationId: string, accessToken?: string) {
-  return auditCoreRequest<ProjectProvisioningResult>(
-    `/v1/project-provisioning-operations/${operationId}/retry`,
-    { method: 'POST', ...auth(accessToken) },
-  );
 }
 
 export function getProjectAdmin(tenantId: string, accessToken?: string) {

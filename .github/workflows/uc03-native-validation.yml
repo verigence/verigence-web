@@ -1,6 +1,6 @@
 name: UC03 Android Validation
 
-# Shared UC03 native evidence gate; C1 artifact naming is intentional for this checkpoint.
+# Shared UC03 native evidence gate; current artifact identifies the C2 Delivery checkpoint.
 on:
   pull_request:
     branches:
@@ -68,9 +68,18 @@ jobs:
           grep -q 'android:usesCleartextTraffic="false"' "$manifest"
           grep -q 'com.verigence.app' android/app/build.gradle || grep -R -q 'com.verigence.app' android/app
           grep -R -q 'capacitor-app' android || grep -R -q 'AppPlugin' android
+          grep -R -q 'capacitor-camera' android || grep -R -q 'CameraPlugin' android
           grep -R -q 'capacitor-status-bar' android || grep -R -q 'StatusBarPlugin' android
           grep -R -q 'capacitor-keyboard' android || grep -R -q 'KeyboardPlugin' android
           echo 'ANDROID_NATIVE_CONFIG=PASS'
+
+      - name: Verify C2 Delivery camera contract in Web source
+        run: |
+          set -euo pipefail
+          grep -q 'capture=' src/pages/DeliveryWorkspacePage.tsx
+          grep -q "requirementKey === 'CAR_PICTURES'" src/pages/DeliveryWorkspacePage.tsx
+          grep -q '/delivery/workspace' src/services/audit-core/uc03Delivery.ts
+          echo 'UC03_C2_ANDROID_DELIVERY_CONTRACT=PASS'
 
       - name: Lint and build Android debug APK
         working-directory: android
@@ -90,7 +99,7 @@ jobs:
       - name: Upload Android APK
         uses: actions/upload-artifact@v4
         with:
-          name: verigence-uc03-c1-android-debug
+          name: verigence-uc03-c2-android-debug
           path: |
             android/app/build/outputs/apk/debug/app-debug.apk
             android-apk.sha256

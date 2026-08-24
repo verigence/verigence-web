@@ -21,6 +21,7 @@ jobs:
     env:
       SECURITY_UPSTREAM: https://security-dev.up.railway.app
       AUDIT_CORE_UPSTREAM: https://verigence-audit-core-production.up.railway.app
+      DI_UPSTREAM: https://di-api-dev.up.railway.app
 
     steps:
       - name: Checkout
@@ -32,6 +33,7 @@ jobs:
           echo "Deploying branch: $GITHUB_REF_NAME"
           echo "Security DEV upstream: $SECURITY_UPSTREAM"
           echo "Audit Core DEV upstream: $AUDIT_CORE_UPSTREAM"
+          echo "DI DEV upstream: $DI_UPSTREAM"
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -53,6 +55,11 @@ jobs:
           curl --fail --silent --show-error \
             --header 'Accept: application/json' \
             "$AUDIT_CORE_UPSTREAM/health"
+          echo
+          echo "Checking $DI_UPSTREAM/health/ready"
+          curl --fail --silent --show-error \
+            --header 'Accept: application/json' \
+            "$DI_UPSTREAM/health/ready"
           echo
 
       - name: Verify exact approved Verigence logo source
@@ -109,6 +116,21 @@ jobs:
           fi
           echo 'AUDIT_CORE_PROXY_BUNDLE=PASS'
 
+      - name: Verify DI Test Console is bundled
+        shell: bash
+        run: |
+          set -euo pipefail
+          di_chunk="$(find dist/assets -maxdepth 1 -type f -name 'DiTestConsolePage-*.js' | head -n 1)"
+          [ -n "$di_chunk" ] || {
+            echo 'DI Test Console lazy chunk was not emitted by the Web build.'
+            exit 1
+          }
+          grep -q 'DI Test Console' "$di_chunk" || {
+            echo 'DI Test Console chunk does not contain the expected console marker.'
+            exit 1
+          }
+          echo "DI_TEST_CONSOLE_BUNDLE=PASS|$(basename "$di_chunk")"
+
       - name: Deploy to Cloudflare DEV
         uses: cloudflare/wrangler-action@v3
         with:
@@ -122,12 +144,15 @@ jobs:
         run: |
           set -euo pipefail
           sleep 5
+          cache_bust="deploy=$GITHUB_SHA"
 
-          echo "--- Login page ---"
+          echo "--- Login page (cache-busted) ---"
           curl --fail --silent --show-error --location \
+            --header 'Cache-Control: no-cache' \
+            --header 'Pragma: no-cache' \
             --dump-header /tmp/login.headers \
             --output /tmp/login.html \
-            "$DEV_WEB_URL/login"
+            "$DEV_WEB_URL/login?$cache_bust"
           head -n 20 /tmp/login.headers
 
           asset_path="$(grep -oE 'src="/assets/[^"]+\.js"' /tmp/login.html | head -n 1 | sed -E 's/^src="([^"]+)"$/\1/')"
@@ -137,13 +162,43 @@ jobs:
             exit 1
           }
           curl --fail --silent --show-error --location \
+            --header 'Cache-Control: no-cache' \
             --output /tmp/app.js \
-            "$DEV_WEB_URL$asset_path"
+            "$DEV_WEB_URL$asset_path?$cache_bust"
           if ! grep -q 'data:image/png;base64,' /tmp/app.js; then
             echo "Deployed Cloudflare JavaScript does not contain the approved bundled PNG lockup"
             exit 1
           fi
           echo "VERIGENCE_LOGO_DEPLOYED_BUNDLE=PASS"
+
+          echo "--- DI Test Console deployed chunk ---"
+          di_chunk="$(find dist/assets -maxdepth 1 -type f -name 'DiTestConsolePage-*.js' | head -n 1)"
+          di_asset="/assets/$(basename "$di_chunk")"
+          curl --fail --silent --show-error --location \
+            --header 'Cache-Control: no-cache' \
+            --output /tmp/di-test-console.js \
+            "$DEV_WEB_URL$di_asset?$cache_bust"
+          grep -q 'DI Test Console' /tmp/di-test-console.js || {
+            echo 'Deployed DI Test Console asset does not match the built console chunk.'
+            exit 1
+          }
+          echo "DI_TEST_CONSOLE_DEPLOYED_BUNDLE=PASS|$di_asset"
+
+          echo "--- DI direct-browser CORS preflight ---"
+          curl --fail --silent --show-error \
+            --dump-header /tmp/di-cors.headers \
+            --output /dev/null \
+            --request OPTIONS \
+            --header "Origin: $DEV_WEB_URL" \
+            --header 'Access-Control-Request-Method: POST' \
+            --header 'Access-Control-Request-Headers: content-type,authorization' \
+            "$DI_UPSTREAM/v1/tenants/70c5661e-bab2-46e7-8199-0f9c32acbac3/subjects"
+          if ! grep -Eqi '^access-control-allow-origin: (\*|https://verigence-web-dev\.jbrconsulting-it\.workers\.dev)' /tmp/di-cors.headers; then
+            echo 'DI DEV did not allow the Web DEV origin for direct browser API testing.'
+            cat /tmp/di-cors.headers
+            exit 1
+          fi
+          echo 'DI_TEST_CONSOLE_CORS=PASS'
 
           echo "--- Security login route via Worker ---"
           SECURITY_STATUS="$(curl --silent --show-error \
@@ -181,7 +236,7 @@ jobs:
           cat /tmp/audit-health.body
           echo
           if ! grep -qi '^x-verigence-proxy: audit-core' /tmp/audit-health.headers; then
-            echo 'Audit Core health request did not pass through the Worker proxy.'
+            echo 'Audit Core health request did not pass through the Audit Core Worker proxy.'
             exit 1
           fi
           echo 'AUDIT_CORE_PROXY_HEALTH=PASS'

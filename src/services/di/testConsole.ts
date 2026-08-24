@@ -55,15 +55,16 @@ const DEFAULT_BASE_URL = 'https://di-api-dev.up.railway.app';
 const DEFAULT_TEST_TENANT_ID = '70c5661e-bab2-46e7-8199-0f9c32acbac3';
 const DEFAULT_TEST_ACTOR = 'e2e-di-rules';
 
+// Extraction-only testing bench. The operator explicitly selects the document
+// type; DI does not auto-classify in this console.
 export const DI_TEST_DOCUMENT_TYPES: DiDocumentType[] = [
   { key: 'booking_form', label: 'Booking Form', category: 'HANDWRITTEN' },
   { key: 'booking_docket', label: 'Booking Docket', category: 'PRINTABLE' },
   { key: 'pan_card', label: 'PAN Card', category: 'GOVT_ID' },
   { key: 'aadhaar', label: 'Aadhaar Card', category: 'GOVT_ID' },
   { key: 'passport', label: 'Passport', category: 'GOVT_ID' },
-  { key: 'driving_licence', label: 'Driving Licence', category: 'GOVT_ID' },
   { key: 'voter_id', label: 'Voter ID', category: 'GOVT_ID' },
-  { key: 'corporate_id', label: 'Corporate ID', category: 'PRINTABLE' },
+  { key: 'corporate_id', label: 'Employee / Corporate ID Card', category: 'PRINTABLE' },
   { key: 'bank_statement', label: 'Bank Statement', category: 'PRINTABLE' },
   { key: 'bank_statement_extract', label: 'Bank Statement Extract', category: 'PRINTABLE' },
   { key: 'loan_statement', label: 'Loan Statement', category: 'PRINTABLE' },
@@ -179,12 +180,24 @@ export async function getDiTestFields(subjectId: string, documentId: string): Pr
   return payload.data?.fields ?? [];
 }
 
-export async function analyseDiTestDocuments(documentIds: string[]): Promise<DiAnalysis> {
-  const response = await fetch(`${diTestConfig.baseUrl}/v1/tenants/${encodeURIComponent(diTestConfig.tenantId)}/analyse`, {
-    method: 'POST',
-    headers: headers(true),
-    body: JSON.stringify({ documentIds }),
-  });
-  const payload = await envelope<DiAnalysis>(response, 'Run DI rule analysis');
+export async function listDiTestDocuments(subjectId: string): Promise<DiDocument[]> {
+  const response = await fetch(
+    `${diTestConfig.baseUrl}/v1/tenants/${encodeURIComponent(diTestConfig.tenantId)}/subjects/${encodeURIComponent(subjectId)}/documents`,
+    { headers: headers(false), cache: 'no-store' },
+  );
+  const payload = await envelope<DiDocument[]>(response, 'List DI test documents');
+  return Array.isArray(payload.data) ? payload.data : [];
+}
+
+export async function analyseDiTestDocuments(subjectId: string, documentIds: string[]): Promise<DiAnalysis> {
+  const response = await fetch(
+    `${diTestConfig.baseUrl}/v1/tenants/${encodeURIComponent(diTestConfig.tenantId)}/subjects/${encodeURIComponent(subjectId)}/analyse`,
+    {
+      method: 'POST',
+      headers: headers(true),
+      body: JSON.stringify({ documentIds }),
+    },
+  );
+  const payload = await envelope<DiAnalysis>(response, 'Run DI analysis');
   return payload.data ?? {};
 }

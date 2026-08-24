@@ -157,7 +157,10 @@ export default function ProjectContextGate({ children }: PropsWithChildren) {
     );
   }
 
-  if (selectedProject.operatingRole === 'PC' && !outletId) {
+  const selectedOutletIsValid = selectedProject.operatingRole !== 'PC'
+    || selectedProject.scope.outlets.some((outlet) => outlet.outletId === outletId);
+
+  if (selectedProject.operatingRole === 'PC' && !selectedOutletIsValid) {
     return (
       <main className="uc03-project-gate">
         <section className="uc03-project-gate__panel uc03-project-gate__panel--wide">

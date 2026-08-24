@@ -283,7 +283,8 @@
 .uc03-c1-flag-form textarea,
 .uc03-c1-conclusion input,
 .uc03-c1-conclusion select,
-.uc03-c1-conclusion textarea {
+.uc03-c1-conclusion textarea,
+.uc03-review-correction input {
   width: 100%;
   min-height: 44px;
   border: 1px solid var(--uc03-border);
@@ -336,6 +337,243 @@
   grid-template-columns: auto minmax(140px, 1fr) auto;
 }
 
+/* Sequential source + field verification */
+.uc03-review-shell {
+  display: grid;
+  grid-template-columns: minmax(0, 1.45fr) minmax(320px, 0.55fr);
+  gap: clamp(16px, 2vw, 28px);
+  align-items: start;
+}
+
+.uc03-review-source,
+.uc03-review-field,
+.uc03-review-empty {
+  border: 1px solid var(--uc03-border);
+  border-radius: 18px;
+  background: var(--surface-raised, #fff);
+}
+
+.uc03-review-source {
+  min-width: 0;
+  overflow: hidden;
+}
+
+.uc03-review-source > header,
+.uc03-review-progress-row,
+.uc03-review-meta,
+.uc03-review-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.uc03-review-source > header {
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--uc03-border);
+}
+
+.uc03-review-source > header > div:first-child {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.uc03-review-location {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.uc03-review-location span,
+.uc03-review-meta span {
+  border-radius: 999px;
+  background: var(--uc03-soft);
+  padding: 5px 9px;
+  font-size: 0.76rem;
+  font-weight: 650;
+}
+
+.uc03-review-preview {
+  min-height: 420px;
+  max-height: min(68vh, 720px);
+  overflow: auto;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: rgba(25, 40, 55, 0.035);
+}
+
+.uc03-review-preview-message {
+  min-height: 260px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  text-align: center;
+  color: var(--text-muted, #68737c);
+}
+
+.uc03-review-preview-message.is-error {
+  color: var(--danger, #a83c3c);
+}
+
+.uc03-review-image-stage {
+  position: relative;
+  display: inline-block;
+  max-width: 100%;
+  line-height: 0;
+}
+
+.uc03-review-image-stage img {
+  display: block;
+  max-width: 100%;
+  max-height: min(62vh, 650px);
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  border-radius: 8px;
+}
+
+.uc03-review-highlight {
+  position: absolute;
+  z-index: 2;
+  pointer-events: none;
+  border: 3px solid var(--brand-primary, #153f55);
+  border-radius: 5px;
+  background: rgba(255, 224, 102, 0.3);
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.72);
+}
+
+.uc03-review-pdf-stage {
+  width: 100%;
+  min-height: 520px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.uc03-review-pdf-stage iframe {
+  width: 100%;
+  min-height: 500px;
+  border: 0;
+  border-radius: 8px;
+  background: var(--surface, #fff);
+}
+
+.uc03-review-pdf-stage a,
+.uc03-review-preview-message a {
+  align-self: center;
+  font-weight: 650;
+}
+
+.uc03-review-source > footer {
+  padding: 11px 16px;
+  border-top: 1px solid var(--uc03-border);
+  color: var(--text-muted, #68737c);
+  font-size: 0.8rem;
+}
+
+.uc03-review-field {
+  padding: clamp(16px, 2vw, 24px);
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  position: sticky;
+  top: 16px;
+}
+
+.uc03-review-progress-row {
+  align-items: flex-end;
+  font-size: 0.78rem;
+  color: var(--text-muted, #68737c);
+}
+
+.uc03-review-progress {
+  height: 7px;
+  border-radius: 999px;
+  background: var(--uc03-soft);
+  overflow: hidden;
+}
+
+.uc03-review-progress > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--brand-primary, #153f55);
+  transition: width 160ms ease;
+}
+
+.uc03-review-value-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 18px;
+  border-radius: 16px;
+  background: var(--uc03-soft);
+}
+
+.uc03-review-value-card > span {
+  color: var(--text-muted, #68737c);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.uc03-review-value-card > strong {
+  font-size: clamp(1.2rem, 2.2vw, 1.75rem);
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.uc03-review-meta {
+  justify-content: flex-start;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
+
+.uc03-review-correction {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.uc03-review-correction > span {
+  color: var(--text-muted, #68737c);
+  font-size: 0.82rem;
+  font-weight: 650;
+}
+
+.uc03-review-decision-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.uc03-review-decision-actions button {
+  width: 100%;
+}
+
+.uc03-review-nav {
+  padding-top: 4px;
+}
+
+.uc03-review-empty {
+  padding: 28px;
+  min-height: 160px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  text-align: center;
+}
+
+.uc03-review-empty span {
+  color: var(--text-muted, #68737c);
+}
+
 .uc03-c1-flag-layout {
   display: grid;
   grid-template-columns: minmax(0, 1.35fr) minmax(280px, 0.65fr);
@@ -385,9 +623,24 @@
     grid-template-columns: 1fr 1fr;
   }
 
+  .uc03-review-shell,
   .uc03-c1-flag-layout,
   .uc03-c1-conclusion {
     grid-template-columns: 1fr;
+  }
+
+  .uc03-review-field {
+    position: static;
+  }
+
+  .uc03-review-preview {
+    min-height: 360px;
+    max-height: 52vh;
+  }
+
+  .uc03-review-pdf-stage,
+  .uc03-review-pdf-stage iframe {
+    min-height: 440px;
   }
 
   .uc03-c1-conclusion .uc03-c1-primary {
@@ -413,7 +666,8 @@
 
   .uc03-c1-start-panel,
   .uc03-c1-section-heading,
-  .uc03-c1-card > header {
+  .uc03-c1-card > header,
+  .uc03-review-source > header {
     flex-direction: column;
     align-items: stretch;
   }
@@ -426,18 +680,44 @@
     align-self: stretch;
   }
 
-  .uc03-c1-proposal-actions {
+  .uc03-c1-proposal-actions,
+  .uc03-review-decision-actions {
     grid-template-columns: 1fr;
   }
 
   .uc03-c1-answer-row button,
   .uc03-c1-proposal-actions button,
-  .uc03-c1-file-button {
+  .uc03-c1-file-button,
+  .uc03-review-nav button {
     width: 100%;
     justify-content: center;
   }
 
   .uc03-c1-inline-field {
     grid-template-columns: 1fr auto;
+  }
+
+  .uc03-review-location {
+    justify-content: flex-start;
+  }
+
+  .uc03-review-preview {
+    min-height: 300px;
+    max-height: 46vh;
+    padding: 10px;
+  }
+
+  .uc03-review-image-stage img {
+    max-height: 42vh;
+  }
+
+  .uc03-review-pdf-stage,
+  .uc03-review-pdf-stage iframe {
+    min-height: 42vh;
+  }
+
+  .uc03-review-progress-row,
+  .uc03-review-nav {
+    align-items: stretch;
   }
 }

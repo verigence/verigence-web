@@ -1,4 +1,4 @@
-import { auditCoreRequest } from './client';
+import { auditCoreRawRequest, auditCoreRequest } from './client';
 
 export interface BookingStageView {
   businessStatus: string | null;
@@ -23,6 +23,12 @@ export interface BookingDocumentView {
   updatedAtUtc: string | null;
 }
 
+export interface EvidenceRegion {
+  type: string;
+  coordinateSystem: string;
+  box: [number, number, number, number];
+}
+
 export interface ExtractionProposalView {
   proposalId: string;
   fieldKey: string;
@@ -33,6 +39,8 @@ export interface ExtractionProposalView {
   valueSource: string | null;
   proposedValue: unknown;
   confidence: number | null;
+  pageNo?: number | null;
+  evidenceRegion?: EvidenceRegion | null;
   status: 'PENDING' | 'ACCEPTED' | 'CORRECTED' | 'REJECTED' | 'SUPERSEDED';
   acceptedValue: unknown;
   canAccept: boolean;
@@ -103,6 +111,11 @@ export interface ProcessingStatus {
   userMessage: string | null;
 }
 
+export interface EvidenceReviewContent {
+  blob: Blob;
+  mimeType: string;
+}
+
 function token(accessToken?: string): string {
   const value = accessToken?.trim();
   if (!value) throw new Error('A Security human access token is required.');
@@ -144,6 +157,25 @@ export async function getBookingWorkspace(
     accessToken: token(accessToken),
     cache: 'no-store',
   });
+}
+
+export async function getBookingEvidenceReviewContent(
+  tenantId: string,
+  journeyId: string,
+  evidenceId: string,
+  accessToken?: string,
+): Promise<EvidenceReviewContent> {
+  const response = await auditCoreRawRequest(
+    `${base(tenantId, journeyId)}/evidence/${encodeURIComponent(evidenceId)}/review-content`,
+    {
+      accessToken: token(accessToken),
+      cache: 'no-store',
+    },
+  );
+  return {
+    blob: await response.blob(),
+    mimeType: response.headers.get('content-type') || 'application/octet-stream',
+  };
 }
 
 export async function startBooking(

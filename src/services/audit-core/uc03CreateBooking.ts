@@ -1,18 +1,6 @@
 import { auditCoreRequest } from './client';
 import { newIdempotencyKey } from './uc03Booking';
 
-export interface CreateBookingOutlet {
-  outletId: string;
-  outletName: string;
-  outletClassification: string;
-  dealerId: string;
-  dealerName: string;
-}
-
-export interface CreateBookingContext {
-  outlets: CreateBookingOutlet[];
-}
-
 export interface CreateBookingResult {
   journeyId: string;
   customerId: string;
@@ -28,28 +16,19 @@ function token(accessToken?: string): string {
   return value;
 }
 
-export function getCreateBookingContext(
-  tenantId: string,
-  accessToken?: string,
-): Promise<CreateBookingContext> {
-  return auditCoreRequest<CreateBookingContext>(
-    `/v1/tenants/${encodeURIComponent(tenantId)}/uc03/create-booking-context`,
-    { accessToken: token(accessToken), cache: 'no-store' },
-  );
-}
-
 export function createBooking(
   tenantId: string,
-  outletId: string | undefined,
+  outletId: string,
   accessToken?: string,
 ): Promise<CreateBookingResult> {
+  if (!outletId.trim()) throw new Error('A working Outlet must be selected before creating a Booking.');
   return auditCoreRequest<CreateBookingResult>(
     `/v1/tenants/${encodeURIComponent(tenantId)}/uc03/bookings`,
     {
       method: 'POST',
       accessToken: token(accessToken),
       headers: { 'Idempotency-Key': newIdempotencyKey('uc03-create-booking') },
-      body: JSON.stringify({ outletId: outletId || null }),
+      body: JSON.stringify({ outletId }),
     },
   );
 }

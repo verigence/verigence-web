@@ -1,0 +1,63 @@
+name: Token Renewal DEV Proof
+
+on:
+  pull_request:
+    branches: [dev]
+    paths:
+      - '.github/workflows/token-renewal-dev-proof.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  proof:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      DEV_WEB_URL: https://verigence-web-dev.jbrconsulting-it.workers.dev
+    steps:
+      - name: Verify deployed Web bundle contains renewal client
+        shell: bash
+        run: |
+          set -euo pipefail
+          cache_bust="proof=${GITHUB_SHA}"
+          curl --fail --silent --show-error --location \
+            --header 'Cache-Control: no-cache' \
+            --output /tmp/index.html \
+            "$DEV_WEB_URL/login?$cache_bust"
+          asset_path="$(grep -oE 'src="/assets/[^"]+\.js"' /tmp/index.html | head -n 1 | sed -E 's/^src="([^"]+)"$/\1/')"
+          [ -n "$asset_path" ] || { echo 'Could not resolve deployed entry JavaScript'; cat /tmp/index.html; exit 1; }
+          curl --fail --silent --show-error --location \
+            --header 'Cache-Control: no-cache' \
+            --output /tmp/app.js \
+            "$DEV_WEB_URL$asset_path?$cache_bust"
+          grep -Fq '/security/v1/auth/refresh' /tmp/app.js || {
+            echo 'Deployed Web bundle does not yet contain the human-token renewal client.'
+            exit 1
+          }
+          echo "WEB_TOKEN_RENEWAL_DEPLOYED=PASS asset=$asset_path"
+
+      - name: Verify deployed Security refresh route through Worker
+        shell: bash
+        run: |
+          set -euo pipefail
+          status="$(curl --silent --show-error \
+            --dump-header /tmp/refresh.headers \
+            --output /tmp/refresh.body \
+            --write-out '%{http_code}' \
+            --request POST \
+            --header 'Content-Type: application/json' \
+            "$DEV_WEB_URL/security/v1/auth/refresh")"
+          cat /tmp/refresh.headers
+          cat /tmp/refresh.body
+          echo
+          grep -qi '^x-verigence-proxy: security' /tmp/refresh.headers || {
+            echo 'Refresh request did not pass through the Security Worker proxy.'
+            exit 1
+          }
+          case "$status" in
+            401|403) ;;
+            404) echo 'Security refresh endpoint is not deployed.'; exit 1 ;;
+            *) echo "Unexpected unauthenticated refresh status: $status"; exit 1 ;;
+          esac
+          echo "SECURITY_TOKEN_REFRESH_DEPLOYED=PASS http=$status"

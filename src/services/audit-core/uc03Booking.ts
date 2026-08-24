@@ -116,6 +116,17 @@ export interface EvidenceReviewContent {
   mimeType: string;
 }
 
+export interface EvidenceFactView {
+  evidenceFactId: string;
+  fieldKey: string;
+  valueType: string;
+  value: unknown;
+  normalizedValue: string | null;
+  confidenceScore: number | null;
+  verificationStatus: string | null;
+  fetchedAtUtc: string;
+}
+
 function token(accessToken?: string): string {
   const value = accessToken?.trim();
   if (!value) throw new Error('A Security human access token is required.');
@@ -176,6 +187,21 @@ export async function getBookingEvidenceReviewContent(
     blob: await response.blob(),
     mimeType: response.headers.get('content-type') || 'application/octet-stream',
   };
+}
+
+export async function getBookingEvidenceFacts(
+  tenantId: string,
+  journeyId: string,
+  evidenceId: string,
+  accessToken?: string,
+): Promise<EvidenceFactView[]> {
+  return auditCoreRequest<EvidenceFactView[]>(
+    `${base(tenantId, journeyId)}/evidence/${encodeURIComponent(evidenceId)}/facts`,
+    {
+      accessToken: token(accessToken),
+      cache: 'no-store',
+    },
+  );
 }
 
 export async function startBooking(

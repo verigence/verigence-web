@@ -6,11 +6,12 @@ import { verigenceLockup } from '../assets/verigenceLockup';
 import type { OperatingRole, UserRole } from '../domain/models';
 import { clearOperationalProject, resetOperationalContext } from '../features/uc03/projectContext';
 import { ANDROID_BACK_EVENT } from '../native/AndroidNativeBridge';
+import { isDiTestConsoleAvailable } from '../services/di/testConsole';
 import { useProjectContextStore } from '../store/projectContextStore';
 import { useSessionStore } from '../store/sessionStore';
 
 type ShellRole = UserRole | OperatingRole;
-type NavItem = { to: string; label: string; mark: string; roles?: ShellRole[] };
+type NavItem = { to: string; label: string; mark: string; roles?: ShellRole[]; devOnly?: boolean };
 type NavGroup = { key: string; label: string; items: NavItem[] };
 
 const c0OperatingRoles: OperatingRole[] = ['PC', 'TL', 'PM', 'CRM', 'EXECUTIVE'];
@@ -40,6 +41,7 @@ const groups: NavGroup[] = [
   ] },
   { key: 'administration', label: 'Administration', items: [
     { to: '/admin/engagements', label: 'Engagements', mark: 'EN', roles: ['SUPER_ADMIN'] },
+    { to: '/admin/di-test', label: 'DI Test Console', mark: 'DI', roles: ['SUPER_ADMIN'], devOnly: true },
     { to: '/admin/users', label: 'Users', mark: 'US', roles: ['SUPER_ADMIN'] },
     { to: '/admin/activity-log', label: 'User Activity Log', mark: 'UA', roles: ['SUPER_ADMIN'] },
     { to: '/admin/roles-permissions', label: 'Roles & Permissions', mark: 'RP', roles: ['SUPER_ADMIN'] },
@@ -54,7 +56,7 @@ const routeLabels: Record<string, string> = {
   '/dashboard': 'Overview', '/customers': 'Customers', '/journeys': 'Journeys', '/tasks': 'My Work',
   '/reviews': 'Review Queue', '/evidence': 'Evidence', '/payments': 'Payment Tracker', '/findings': 'Findings',
   '/daily-ops': 'Daily Operations', '/activity': 'Activity Tracker', '/crm': 'CRM Follow-up', '/escalations': 'Escalations',
-  '/analytics': 'Analytics', '/admin/engagements': 'Engagements', '/admin/users': 'Users',
+  '/analytics': 'Analytics', '/admin/engagements': 'Engagements', '/admin/di-test': 'DI Test Console', '/admin/users': 'Users',
   '/admin/users/pending': 'Pending Approvals', '/admin/activity-log': 'User Activity Log',
   '/admin/roles-permissions': 'Roles & Permissions', '/admin/audit-rules': 'Audit Rule Config',
   '/admin/approval-workflow': 'Approval Workflow Config', '/admin/notifications': 'Notification Settings',
@@ -85,6 +87,7 @@ export default function AppShell({ children }: PropsWithChildren) {
 
   const role: ShellRole = selectedProject?.operatingRole ?? sessionRole;
   const c0OperationalShell = Boolean(selectedProject);
+  const diTestAvailable = isDiTestConsoleAvailable();
   const visibleGroups = useMemo<NavGroup[]>(() => c0OperationalShell
     ? [{ key: 'workspace', label: 'Workspace', items: [{ to: '/dashboard', label: 'Overview', mark: 'OV', roles: c0OperatingRoles }] }]
     : groups, [c0OperationalShell]);
@@ -149,7 +152,7 @@ export default function AppShell({ children }: PropsWithChildren) {
         )}
         <nav className="enterprise-nav enterprise-nav--accordion" aria-label="Primary navigation">
           {visibleGroups.map((group) => {
-            const items = group.items.filter((item) => !item.roles || item.roles.includes(role));
+            const items = group.items.filter((item) => (!item.roles || item.roles.includes(role)) && (!item.devOnly || diTestAvailable));
             if (items.length === 0) return null;
             const expanded = openGroup === group.key;
             return (

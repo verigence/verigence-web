@@ -44,6 +44,21 @@ function buildAuditCoreTarget(rawUpstream, incomingUrl) {
   return upstream;
 }
 
+function buildDiTarget(rawUpstream, incomingUrl) {
+  const upstream = new URL(String(rawUpstream || '').trim());
+  const incoming = new URL(incomingUrl);
+  const proxyPrefix = '/di';
+  const upstreamPath = upstream.pathname.replace(/\/+$/, '');
+  const incomingPath = incoming.pathname.startsWith(proxyPrefix)
+    ? incoming.pathname.slice(proxyPrefix.length) || '/'
+    : incoming.pathname;
+
+  upstream.pathname = `${upstreamPath}${incomingPath}`.replace(/\/{2,}/g, '/');
+  upstream.search = incoming.search;
+  upstream.hash = '';
+  return upstream;
+}
+
 function capacitorOrigin(request) {
   const origin = request.headers.get('Origin');
   return origin && CAPACITOR_ORIGINS.has(origin) ? origin : null;
@@ -143,20 +158,8 @@ export default {
       }
 
       if (!String(env.SECURITY_UPSTREAM || '').trim()) {
-        logProxyFailure(
-          'security',
-          request,
-          correlationId,
-          'SECURITY_UPSTREAM_UNAVAILABLE',
-        );
-        return proxyError(
-          request,
-          'security',
-          'SECURITY_UPSTREAM_UNAVAILABLE',
-          'Verigence Security is not configured',
-          503,
-          correlationId,
-        );
+        logProxyFailure('security', request, correlationId, 'SECURITY_UPSTREAM_UNAVAILABLE');
+        return proxyError(request, 'security', 'SECURITY_UPSTREAM_UNAVAILABLE', 'Verigence Security is not configured', 503, correlationId);
       }
 
       try {
@@ -164,40 +167,15 @@ export default {
         const response = await fetch(sanitizedUpstreamRequest(target, request, correlationId));
         return proxyResponse(response, request, 'security', correlationId);
       } catch (error) {
-        logProxyFailure(
-          'security',
-          request,
-          correlationId,
-          'SECURITY_UPSTREAM_UNAVAILABLE',
-          error,
-        );
-        return proxyError(
-          request,
-          'security',
-          'SECURITY_UPSTREAM_UNAVAILABLE',
-          'Verigence Security could not be reached',
-          502,
-          correlationId,
-        );
+        logProxyFailure('security', request, correlationId, 'SECURITY_UPSTREAM_UNAVAILABLE', error);
+        return proxyError(request, 'security', 'SECURITY_UPSTREAM_UNAVAILABLE', 'Verigence Security could not be reached', 502, correlationId);
       }
     }
 
     if (url.pathname === '/audit-core' || url.pathname.startsWith('/audit-core/')) {
       if (!String(env.AUDIT_CORE_UPSTREAM || '').trim()) {
-        logProxyFailure(
-          'audit-core',
-          request,
-          correlationId,
-          'AUDIT_CORE_UPSTREAM_UNAVAILABLE',
-        );
-        return proxyError(
-          request,
-          'audit-core',
-          'AUDIT_CORE_UPSTREAM_UNAVAILABLE',
-          'Verigence Audit Core is not configured',
-          503,
-          correlationId,
-        );
+        logProxyFailure('audit-core', request, correlationId, 'AUDIT_CORE_UPSTREAM_UNAVAILABLE');
+        return proxyError(request, 'audit-core', 'AUDIT_CORE_UPSTREAM_UNAVAILABLE', 'Verigence Audit Core is not configured', 503, correlationId);
       }
 
       try {
@@ -205,21 +183,24 @@ export default {
         const response = await fetch(sanitizedUpstreamRequest(target, request, correlationId));
         return proxyResponse(response, request, 'audit-core', correlationId);
       } catch (error) {
-        logProxyFailure(
-          'audit-core',
-          request,
-          correlationId,
-          'AUDIT_CORE_UPSTREAM_UNAVAILABLE',
-          error,
-        );
-        return proxyError(
-          request,
-          'audit-core',
-          'AUDIT_CORE_UPSTREAM_UNAVAILABLE',
-          'Verigence Audit Core could not be reached',
-          502,
-          correlationId,
-        );
+        logProxyFailure('audit-core', request, correlationId, 'AUDIT_CORE_UPSTREAM_UNAVAILABLE', error);
+        return proxyError(request, 'audit-core', 'AUDIT_CORE_UPSTREAM_UNAVAILABLE', 'Verigence Audit Core could not be reached', 502, correlationId);
+      }
+    }
+
+    if (url.pathname === '/di' || url.pathname.startsWith('/di/')) {
+      if (!String(env.DI_UPSTREAM || '').trim()) {
+        logProxyFailure('di', request, correlationId, 'DI_UPSTREAM_UNAVAILABLE');
+        return proxyError(request, 'di', 'DI_UPSTREAM_UNAVAILABLE', 'Verigence Document Intelligence is not configured', 503, correlationId);
+      }
+
+      try {
+        const target = buildDiTarget(env.DI_UPSTREAM, request.url);
+        const response = await fetch(sanitizedUpstreamRequest(target, request, correlationId));
+        return proxyResponse(response, request, 'di', correlationId);
+      } catch (error) {
+        logProxyFailure('di', request, correlationId, 'DI_UPSTREAM_UNAVAILABLE', error);
+        return proxyError(request, 'di', 'DI_UPSTREAM_UNAVAILABLE', 'Verigence Document Intelligence could not be reached', 502, correlationId);
       }
     }
 

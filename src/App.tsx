@@ -6,6 +6,7 @@ import { verigenceLockup } from './assets/verigenceLockup';
 import ProjectContextGate from './components/ProjectContextGate';
 import SessionRenewalGate from './components/SessionRenewalGate';
 import ProjectAdminOutletLocationEnhancer from './features/project-admin/ProjectAdminOutletLocationEnhancer';
+import ProjectMasterActionOverlay from './features/project-admin/ProjectMasterActionOverlay';
 import AppShell from './layout/AppShell';
 import AndroidNativeBridge from './native/AndroidNativeBridge';
 import { useProjectContextStore } from './store/projectContextStore';
@@ -112,6 +113,7 @@ export default function App() {
         <SessionRenewalGate />
         <AndroidNativeBridge />
         <ProjectAdminOutletLocationEnhancer />
+        <ProjectMasterActionOverlay />
         <Suspense fallback={<Loading />}>
           <Routes>
             <Route path="/login" element={<LoginPage />} />

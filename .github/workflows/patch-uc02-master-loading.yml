@@ -1,0 +1,72 @@
+name: Patch UC02 Master Loading
+
+on:
+  push:
+    branches:
+      - fix/uc02-master-loading-list
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: ${{ !contains(github.event.head_commit.message, '[patched-master-loading]') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/uc02-master-loading-list
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Apply focused UI fix
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('src/features/project-admin/MahindraMasterUploads.tsx')
+          text = path.read_text()
+
+          text = text.replace(
+              "  const onErrorRef = useRef(onError);\n  onErrorRef.current = onError;",
+              "  const onErrorRef = useRef(onError);\n  const restoreSequence = useRef(0);\n  onErrorRef.current = onError;",
+          )
+
+          text = text.replace(
+              "        label: `${segment.segmentName} Vehicle & Price Master`,",
+              "        label: segment.segmentName.endsWith('Vehicle')\n          ? `${segment.segmentName} & Price Master`\n          : `${segment.segmentName} Vehicle & Price Master`,",
+          )
+
+          old = '''  useEffect(() => {\n    if (!accessToken) return;\n    let cancelled = false;\n    setRestoring(true);\n    void listMahindraMasterImports(tenantId, accessToken)\n      .then((items) => {\n        if (cancelled) return;\n        const next: ImportMap = {};\n        for (const item of items) {\n          const key = keyForImport(item);\n          if (key) next[key] = item;\n        }\n        setImportsByKey(next);\n        setRowsByKey({});\n      })\n      .catch((error) => {\n        if (!cancelled) onErrorRef.current(auditCoreErrorMessage(error));\n      })\n      .finally(() => {\n        if (!cancelled) setRestoring(false);\n      });\n    return () => {\n      cancelled = true;\n    };\n  }, [accessToken, tenantId]);'''
+
+          new = '''  useEffect(() => {\n    if (!accessToken) {\n      setImportsByKey({});\n      setRowsByKey({});\n      setRestoring(false);\n      return;\n    }\n\n    const requestId = ++restoreSequence.current;\n    let cancelled = false;\n    let settled = false;\n\n    // The backend is authoritative. Never display a previous Project/Tenant's\n    // master state while a fresh restore is in flight.\n    setImportsByKey({});\n    setRowsByKey({});\n    setRestoring(true);\n\n    const timeoutId = window.setTimeout(() => {\n      if (cancelled || settled || requestId !== restoreSequence.current) return;\n      settled = true;\n      setRestoring(false);\n      onErrorRef.current(\n        'Loading Project Masters timed out. Please retry; no stale browser state has been kept.',\n      );\n    }, 8000);\n\n    void listMahindraMasterImports(tenantId, accessToken)\n      .then((items) => {\n        if (cancelled || settled || requestId !== restoreSequence.current) return;\n        const next: ImportMap = {};\n        for (const item of items) {\n          const key = keyForImport(item);\n          if (key) next[key] = item;\n        }\n        setImportsByKey(next);\n        setRowsByKey({});\n      })\n      .catch((error) => {\n        if (cancelled || settled || requestId !== restoreSequence.current) return;\n        setImportsByKey({});\n        setRowsByKey({});\n        onErrorRef.current(auditCoreErrorMessage(error));\n      })\n      .finally(() => {\n        if (cancelled || requestId !== restoreSequence.current) return;\n        if (!settled) {\n          settled = true;\n          window.clearTimeout(timeoutId);\n          setRestoring(false);\n        }\n      });\n\n    return () => {\n      cancelled = true;\n      window.clearTimeout(timeoutId);\n    };\n  }, [accessToken, tenantId]);'''
+
+          if old not in text:
+              raise SystemExit('restore effect pattern not found')
+          text = text.replace(old, new)
+
+          text = text.replace(
+              '<aside className="uc02-card uc02-master-list">',
+              '<aside className="uc02-card uc02-master-list uc02-master-list--mahindra">',
+          )
+
+          path.write_text(text)
+
+          css_path = Path('src/styles/mahindra-masters.css')
+          css = css_path.read_text().rstrip() + '''\n.uc02-master-list--mahindra{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));align-content:start;gap:8px}.uc02-master-list--mahindra .uc02-card__title{grid-column:1/-1}.uc02-master-list--mahindra .uc02-master-list__item{border:1px solid #edf0f3;border-radius:10px;padding:9px;min-height:82px;align-items:flex-start}.uc02-master-list--mahindra .uc02-master-list__item:first-of-type{border-top:1px solid #edf0f3}.uc02-master-list--mahindra .uc02-master-list__item.active{border-color:#315df5;background:#f5f7ff;padding:9px}.uc02-master-list--mahindra .uc02-master-list__item>span{gap:3px}.uc02-master-list--mahindra .uc02-master-list__item strong{font-size:11px;line-height:1.2}.uc02-master-list--mahindra .uc02-master-list__item small{font-size:9px;line-height:1.25}@media(max-width:760px){.uc02-master-list--mahindra{grid-template-columns:1fr}}\n'''
+          css_path.write_text(css)
+          PY
+      - name: Build and typecheck
+        run: |
+          npm install --no-audit --no-fund
+          npm run build
+      - name: Commit application changes
+        shell: bash
+        run: |
+          git config user.name 'Verigence-admin'
+          git config user.email 'verigence-admin@users.noreply.github.com'
+          git add src/features/project-admin/MahindraMasterUploads.tsx src/styles/mahindra-masters.css
+          git commit -m 'fix: make project master restore authoritative and catalogue visible [patched-master-loading]'
+          git push origin HEAD:fix/uc02-master-loading-list

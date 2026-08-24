@@ -42,6 +42,7 @@ import './styles/project-admin-step1-fix.css';
 import './styles/navigation-admin-landing.css';
 
 import App from './App';
+import DiFieldViewerEnhancer from './features/di-test/DiFieldViewerEnhancer';
 
 setupIonicReact({ mode: 'md' });
 
@@ -57,5 +58,10 @@ const queryClient = new QueryClient({
 });
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
-  <React.StrictMode><QueryClientProvider client={queryClient}><App /></QueryClientProvider></React.StrictMode>,
+  <React.StrictMode>
+    <QueryClientProvider client={queryClient}>
+      <DiFieldViewerEnhancer />
+      <App />
+    </QueryClientProvider>
+  </React.StrictMode>,
 );

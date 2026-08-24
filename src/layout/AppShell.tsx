@@ -26,6 +26,13 @@ const projectAdministrationItem: NavItem = {
   roles: admin,
 };
 
+const createBookingItem: NavItem = {
+  to: '/dashboard?action=create-booking',
+  label: 'Create Booking',
+  mark: 'CB',
+  roles: ['PC'],
+};
+
 const groups: NavGroup[] = [
   { key: 'workspace', label: 'Workspace', items: [
     { to: '/dashboard', label: 'Overview', mark: 'OV', roles: operational },
@@ -97,22 +104,31 @@ export default function AppShell({ children }: PropsWithChildren) {
   const role: ShellRole = selectedProject?.operatingRole ?? sessionRole;
   const c0OperationalShell = Boolean(selectedProject);
   const diTestAvailable = isDiTestConsoleAvailable();
+  const createBookingMode = location.pathname === '/dashboard'
+    && new URLSearchParams(location.search).get('action') === 'create-booking';
   const visibleGroups = useMemo<NavGroup[]>(() => {
     if (!c0OperationalShell) return groups;
+    const workspaceItems: NavItem[] = [
+      { to: '/dashboard', label: 'Overview', mark: 'OV', roles: c0OperatingRoles },
+    ];
+    if (role === 'PC') workspaceItems.push(createBookingItem);
     const workspaceGroup: NavGroup = {
       key: 'workspace',
       label: 'Workspace',
-      items: [{ to: '/dashboard', label: 'Overview', mark: 'OV', roles: c0OperatingRoles }],
+      items: workspaceItems,
     };
     if (sessionRole !== 'TENANT_ADMIN') return [workspaceGroup];
     return [
       workspaceGroup,
       { key: 'administration', label: 'Administration', items: [projectAdministrationItem] },
     ];
-  }, [c0OperationalShell, sessionRole]);
+  }, [c0OperationalShell, role, sessionRole]);
 
   const activeGroupKey = useMemo(() => {
-    return visibleGroups.find((group) => group.items.some((item) => location.pathname === item.to || location.pathname.startsWith(`${item.to}/`)))?.key
+    return visibleGroups.find((group) => group.items.some((item) => {
+      const itemPath = item.to.split('?')[0];
+      return location.pathname === itemPath || location.pathname.startsWith(`${itemPath}/`);
+    }))?.key
       ?? visibleGroups[0]?.key
       ?? 'workspace';
   }, [location.pathname, visibleGroups]);
@@ -147,9 +163,11 @@ export default function AppShell({ children }: PropsWithChildren) {
     navigate('/dashboard', { replace: true });
   };
 
-  const currentLabel = routeLabels[location.pathname]
-    ?? location.pathname.split('/').filter(Boolean).at(-1)?.replaceAll('-', ' ')
-    ?? 'Overview';
+  const currentLabel = createBookingMode
+    ? 'Create Booking'
+    : routeLabels[location.pathname]
+      ?? location.pathname.split('/').filter(Boolean).at(-1)?.replaceAll('-', ' ')
+      ?? 'Overview';
   const visibleName = displayName || 'User';
   const roleLabel = roleLabels[role];
   const avatarText = initials(visibleName);
@@ -159,6 +177,12 @@ export default function AppShell({ children }: PropsWithChildren) {
     if (!item.roles) return true;
     if (item.to === '/admin/project' && sessionRole === 'TENANT_ADMIN') return true;
     return item.roles.includes(role);
+  };
+
+  const isNavItemActive = (item: NavItem, isActive: boolean) => {
+    if (item.to === createBookingItem.to) return createBookingMode;
+    if (item.to === '/dashboard') return isActive && !createBookingMode;
+    return isActive;
   };
 
   return (
@@ -193,7 +217,11 @@ export default function AppShell({ children }: PropsWithChildren) {
                 </button>
                 <div className="enterprise-nav__group-items" hidden={!expanded}>
                   {items.map((item) => (
-                    <NavLink key={item.to} to={item.to} className={({ isActive }) => `enterprise-nav__item${isActive ? ' enterprise-nav__item--active' : ''}`}>
+                    <NavLink
+                      key={item.to}
+                      to={item.to}
+                      className={({ isActive }) => `enterprise-nav__item${isNavItemActive(item, isActive) ? ' enterprise-nav__item--active' : ''}`}
+                    >
                       <span className="enterprise-nav__mark">{item.mark}</span><span>{item.label}</span>
                     </NavLink>
                   ))}

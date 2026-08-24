@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 
 import MetricCard from '../components/MetricCard';
 import PageHeader from '../components/PageHeader';
@@ -14,6 +14,7 @@ import {
 } from '../services/audit-core/uc03';
 import { useProjectContextStore } from '../store/projectContextStore';
 import { useSessionStore } from '../store/sessionStore';
+import CreateBookingPage from './CreateBookingPage';
 
 const roleLabels: Record<OperatingRole, string> = {
   PC: 'Process Coordinator',
@@ -99,7 +100,7 @@ function WorkItemCard({ item, timezoneName }: { item: Uc03WorkItem; timezoneName
         </div>
         <div className="uc03-work-card__actions">
           <Link className="uc03-c1-secondary" to={`/bookings/${item.journeyId}`}>
-            {item.booking.businessStatus ? 'Open Booking' : 'Start Booking'}
+            Open Booking
           </Link>
           {deliveryEligible && (
             <Link className="uc03-c1-secondary" to={`/deliveries/${item.journeyId}`}>
@@ -118,6 +119,7 @@ function WorkItemCard({ item, timezoneName }: { item: Uc03WorkItem; timezoneName
 }
 
 export default function DashboardPage() {
+  const [searchParams] = useSearchParams();
   const project = useProjectContextStore((state) => state.selectedProject);
   const accessToken = useSessionStore((state) => state.accessToken);
   const [workType, setWorkType] = useState<Uc03WorkType>('ALL');
@@ -159,6 +161,9 @@ export default function DashboardPage() {
   });
 
   if (!project) return null;
+  if (searchParams.get('action') === 'create-booking' && project.operatingRole === 'PC') {
+    return <CreateBookingPage />;
+  }
 
   const metrics = metricsQuery.data;
   const metricCards = [
@@ -279,7 +284,7 @@ export default function DashboardPage() {
               {workQuery.data.items.length === 0 && (
                 <div className="uc03-work-empty">
                   <strong>No matching Booking or Delivery work.</strong>
-                  <p>Try a different transaction type or date range.</p>
+                  <p>Create a Booking to begin a new Journey.</p>
                 </div>
               )}
             </div>

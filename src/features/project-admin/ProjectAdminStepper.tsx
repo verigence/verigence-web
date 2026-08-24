@@ -11,7 +11,7 @@ export const projectAdminSteps: Step[] = [
   { key: 3, short: 'Step 3', label: 'Dealer Outlets', description: 'Add and manage dealer outlet locations.' },
   { key: 4, short: 'Step 4', label: 'Employees', description: 'Find people who can be assigned to the Project.' },
   { key: 5, short: 'Step 5', label: 'Role Mapping', description: 'Assign roles and working scope.' },
-  { key: 6, short: 'Step 6', label: 'Project Masters', description: 'Upload and manage Project masters.' },
+  { key: 6, short: 'Step 6', label: 'Masters & DI', description: 'Configure Project masters and Document Intelligence.' },
   { key: 7, short: 'Step 7', label: 'Readiness', description: 'Review anything that must be completed before activation.' },
   { key: 8, short: 'Step 8', label: 'Activate Project', description: 'Review and activate the Project.' },
 ];

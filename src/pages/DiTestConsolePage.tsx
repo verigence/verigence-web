@@ -87,7 +87,7 @@ export default function DiTestConsolePage() {
   const selectedType = DI_TEST_DOCUMENT_TYPES.find((item) => item.key === documentTypeKey);
   const processedDocumentIds = useMemo(
     () => runs
-      .filter((run) => run.document?.processingStatus === 'PROCESSED' && run.documentId !== '')
+      .filter((run) => run.document?.processingStatus === 'PROCESSED' && Boolean(run.document?.documentId))
       .map((run) => run.document?.documentId)
       .filter((value): value is string => Boolean(value)),
     [runs],

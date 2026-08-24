@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 
 import StatusPill from '../../components/StatusPill';
 import { auditCoreErrorMessage } from '../../services/audit-core/errorMessage';
@@ -7,13 +7,16 @@ import {
   downloadMahindraDiscountPolicyTemplate,
   downloadMahindraSegmentTemplate,
   publishMahindraMasterImport,
-  uploadMahindraDiscountPolicy,
-  uploadMahindraSegmentMaster,
   type MahindraMasterImport,
   type Uc02ProjectSegment,
 } from '../../services/audit-core/uc02Admin';
 import {
-  downloadMasterImportErrorReport,
+  downloadMahindraValidationReport,
+  listMahindraMasterImports,
+  uploadMahindraNativeDiscountPolicy,
+  uploadMahindraNativeSegmentMaster,
+} from '../../services/audit-core/mahindraMasterState';
+import {
   listMasterImportRows,
   type MasterImportRow,
 } from '../../services/audit-core/uc02MasterImports';
@@ -28,6 +31,9 @@ interface MahindraMasterUploadsProps {
 type UploadTarget =
   | { key: string; kind: 'SEGMENT'; segment: Uc02ProjectSegment; label: string }
   | { key: 'DISCOUNT_POLICY'; kind: 'DISCOUNT'; label: string };
+
+type ImportMap = Record<string, MahindraMasterImport>;
+type RowMap = Record<string, MasterImportRow[]>;
 
 function randomKey(prefix: string) {
   const suffix = globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random()}`;
@@ -45,12 +51,28 @@ function triggerBlob(blob: Blob, filename: string) {
   URL.revokeObjectURL(url);
 }
 
+function keyForImport(item: MahindraMasterImport): string | null {
+  if (item.masterKey === 'DISCOUNT_POLICY') return 'DISCOUNT_POLICY';
+  if (item.masterKey === 'MAHINDRA_SEGMENT_MASTER' && item.segmentId) {
+    return `SEGMENT:${item.segmentId}`;
+  }
+  return null;
+}
+
+function validationLabel(item: MahindraMasterImport) {
+  return item.errorRows > 0 || item.status === 'VALIDATION_FAILED'
+    ? 'VALIDATION FAILED'
+    : 'VALIDATION PASSED';
+}
+
 export default function MahindraMasterUploads({
   tenantId,
   segments,
   onError,
 }: MahindraMasterUploadsProps) {
   const accessToken = useSessionStore((state) => state.accessToken);
+  const onErrorRef = useRef(onError);
+  onErrorRef.current = onError;
   const targets = useMemo<UploadTarget[]>(
     () => [
       ...segments.map((segment) => ({
@@ -65,10 +87,12 @@ export default function MahindraMasterUploads({
   );
   const [activeKey, setActiveKey] = useState(targets[0]?.key || 'DISCOUNT_POLICY');
   const [file, setFile] = useState<File | null>(null);
+  const [fileInputVersion, setFileInputVersion] = useState(0);
   const [effectiveFrom, setEffectiveFrom] = useState('');
-  const [masterImport, setMasterImport] = useState<MahindraMasterImport | null>(null);
-  const [rows, setRows] = useState<MasterImportRow[]>([]);
+  const [importsByKey, setImportsByKey] = useState<ImportMap>({});
+  const [rowsByKey, setRowsByKey] = useState<RowMap>({});
   const [busy, setBusy] = useState(false);
+  const [restoring, setRestoring] = useState(false);
   const [notice, setNotice] = useState('');
 
   useEffect(() => {
@@ -77,15 +101,63 @@ export default function MahindraMasterUploads({
     }
   }, [activeKey, targets]);
 
+  useEffect(() => {
+    if (!accessToken) return;
+    let cancelled = false;
+    setRestoring(true);
+    void listMahindraMasterImports(tenantId, accessToken)
+      .then((items) => {
+        if (cancelled) return;
+        const next: ImportMap = {};
+        for (const item of items) {
+          const key = keyForImport(item);
+          if (key) next[key] = item;
+        }
+        setImportsByKey(next);
+        setRowsByKey({});
+      })
+      .catch((error) => {
+        if (!cancelled) onErrorRef.current(auditCoreErrorMessage(error));
+      })
+      .finally(() => {
+        if (!cancelled) setRestoring(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [accessToken, tenantId]);
+
   const activeTarget = targets.find((target) => target.key === activeKey) || targets[0];
+  const masterImport = importsByKey[activeKey] || null;
+  const rows = rowsByKey[activeKey] || [];
+
+  useEffect(() => {
+    if (!accessToken || !masterImport || rowsByKey[activeKey]) return;
+    let cancelled = false;
+    void listMasterImportRows(tenantId, masterImport.importId, undefined, accessToken)
+      .then((page) => {
+        if (!cancelled) {
+          setRowsByKey((current) => ({ ...current, [activeKey]: page.items }));
+        }
+      })
+      .catch((error) => {
+        if (!cancelled) onErrorRef.current(auditCoreErrorMessage(error));
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [accessToken, activeKey, masterImport, rowsByKey, tenantId]);
 
   function changeTarget(key: string) {
     setActiveKey(key);
     setFile(null);
+    setFileInputVersion((value) => value + 1);
     setEffectiveFrom('');
-    setMasterImport(null);
-    setRows([]);
     setNotice('');
+  }
+
+  function rememberImport(key: string, imported: MahindraMasterImport) {
+    setImportsByKey((current) => ({ ...current, [key]: imported }));
   }
 
   async function getTemplate() {
@@ -99,16 +171,13 @@ export default function MahindraMasterUploads({
           activeTarget.segment.segmentId,
           accessToken,
         );
-        triggerBlob(
-          blob,
-          `mahindra-${activeTarget.segment.segmentCode.toLowerCase()}-vehicle-price.xlsx`,
-        );
+        triggerBlob(blob, `mahindra-${activeTarget.segment.segmentCode.toLowerCase()}-vehicle-price.xlsx`);
       } else {
         const blob = await downloadMahindraDiscountPolicyTemplate(tenantId, accessToken);
         triggerBlob(blob, 'mahindra-discount-policy.xlsx');
       }
     } catch (error) {
-      onError(auditCoreErrorMessage(error));
+      onErrorRef.current(auditCoreErrorMessage(error));
     } finally {
       setBusy(false);
     }
@@ -116,36 +185,39 @@ export default function MahindraMasterUploads({
 
   async function submitUpload(event: FormEvent) {
     event.preventDefault();
-    if (!accessToken || !activeTarget || !file || !effectiveFrom) return;
+    if (!accessToken || !activeTarget || !file) return;
     setBusy(true);
     setNotice('');
     try {
       const imported = activeTarget.kind === 'SEGMENT'
-        ? await uploadMahindraSegmentMaster(
+        ? await uploadMahindraNativeSegmentMaster(
             tenantId,
             activeTarget.segment.segmentId,
             file,
-            effectiveFrom,
+            effectiveFrom || null,
             randomKey('mahindra-segment-master'),
             accessToken,
           )
-        : await uploadMahindraDiscountPolicy(
+        : await uploadMahindraNativeDiscountPolicy(
             tenantId,
             file,
-            effectiveFrom,
+            effectiveFrom || null,
             randomKey('mahindra-discount-policy'),
             accessToken,
           );
-      setMasterImport(imported);
+      rememberImport(activeKey, imported);
       const page = await listMasterImportRows(tenantId, imported.importId, undefined, accessToken);
-      setRows(page.items);
+      setRowsByKey((current) => ({ ...current, [activeKey]: page.items }));
       setNotice(
-        imported.status === 'PREVIEW_READY'
-          ? 'Workbook validated. Review the preview before confirming.'
-          : 'Workbook has validation errors. Correct them and upload again.',
+        imported.errorRows === 0
+          ? `Validation PASSED. ${imported.validRows} rows are valid. Review and confirm this import.`
+          : `Validation FAILED. ${imported.errorRows} rows contain blocking errors.`,
       );
+      setFile(null);
+      setFileInputVersion((value) => value + 1);
+      setEffectiveFrom('');
     } catch (error) {
-      onError(auditCoreErrorMessage(error));
+      onErrorRef.current(auditCoreErrorMessage(error));
     } finally {
       setBusy(false);
     }
@@ -156,15 +228,11 @@ export default function MahindraMasterUploads({
     setBusy(true);
     setNotice('');
     try {
-      const confirmed = await confirmMahindraMasterImport(
-        tenantId,
-        masterImport.importId,
-        accessToken,
-      );
-      setMasterImport(confirmed);
-      setNotice('Import confirmed. The new master version is DRAFT and ready to publish.');
+      const confirmed = await confirmMahindraMasterImport(tenantId, masterImport.importId, accessToken);
+      rememberImport(activeKey, confirmed);
+      setNotice('Import confirmed. The validated master is DRAFT and ready to publish.');
     } catch (error) {
-      onError(auditCoreErrorMessage(error));
+      onErrorRef.current(auditCoreErrorMessage(error));
     } finally {
       setBusy(false);
     }
@@ -175,15 +243,11 @@ export default function MahindraMasterUploads({
     setBusy(true);
     setNotice('');
     try {
-      const published = await publishMahindraMasterImport(
-        tenantId,
-        masterImport.importId,
-        accessToken,
-      );
-      setMasterImport(published);
+      const published = await publishMahindraMasterImport(tenantId, masterImport.importId, accessToken);
+      rememberImport(activeKey, published);
       setNotice('Master published successfully.');
     } catch (error) {
-      onError(auditCoreErrorMessage(error));
+      onErrorRef.current(auditCoreErrorMessage(error));
     } finally {
       setBusy(false);
     }
@@ -192,14 +256,10 @@ export default function MahindraMasterUploads({
   async function validationReport() {
     if (!accessToken || !masterImport) return;
     try {
-      const blob = await downloadMasterImportErrorReport(
-        tenantId,
-        masterImport.importId,
-        accessToken,
-      );
-      triggerBlob(blob, `${masterImport.masterKey.toLowerCase()}-${masterImport.importId}-validation.csv`);
+      const blob = await downloadMahindraValidationReport(tenantId, masterImport.importId, accessToken);
+      triggerBlob(blob, `${masterImport.masterKey.toLowerCase()}-${masterImport.importId}-validation.xlsx`);
     } catch (error) {
-      onError(auditCoreErrorMessage(error));
+      onErrorRef.current(auditCoreErrorMessage(error));
     }
   }
 
@@ -210,25 +270,33 @@ export default function MahindraMasterUploads({
       <aside className="uc02-card uc02-master-list">
         <div className="uc02-card__title">
           <h3>Mahindra Masters</h3>
-          <p>Upload only the Segments selected for this Project.</p>
+          <p>Each selected Segment keeps its own upload and validation state.</p>
         </div>
-        {targets.map((target) => (
-          <button
-            key={target.key}
-            type="button"
-            className={`uc02-master-list__item${activeKey === target.key ? ' active' : ''}`}
-            onClick={() => changeTarget(target.key)}
-          >
-            <span>
-              <strong>{target.label}</strong>
-              <small>
-                {target.kind === 'SEGMENT'
-                  ? `${target.segment.segmentCode.replaceAll('_', ' ')} · Product + dynamic pricing`
-                  : 'Booking, commercial and trade-in rule parameters'}
-              </small>
-            </span>
-          </button>
-        ))}
+        {targets.map((target) => {
+          const existing = importsByKey[target.key];
+          return (
+            <button
+              key={target.key}
+              type="button"
+              className={`uc02-master-list__item${activeKey === target.key ? ' active' : ''}`}
+              onClick={() => changeTarget(target.key)}
+            >
+              <span>
+                <strong>{target.label}</strong>
+                <small>
+                  {target.kind === 'SEGMENT'
+                    ? `${target.segment.segmentCode.replaceAll('_', ' ')} · Product + dynamic pricing`
+                    : 'Booking, commercial and trade-in rule parameters'}
+                </small>
+                {existing && (
+                  <small>
+                    {existing.fileName} · {existing.lifecycleStatus || existing.status} · WEF {existing.effectiveFrom}
+                  </small>
+                )}
+              </span>
+            </button>
+          );
+        })}
       </aside>
 
       <div className="uc02-card uc02-card--wide">
@@ -236,8 +304,8 @@ export default function MahindraMasterUploads({
           <h3>{activeTarget.label}</h3>
           <p>
             {activeTarget.kind === 'SEGMENT'
-              ? 'One effective-dated workbook creates the Segment Product Master and its dynamic Price Master. Price component keys are supplied by the workbook, not hard-coded in the UI.'
-              : 'One effective-dated workbook supplies Booking Protection, Minimum Booking Amount, discount/commercial controls and Trade-in policy parameters consumed by rules.'}
+              ? 'Upload the original OEM workbook. Verigence reads the vehicle configuration, dynamic price components and workbook WEF; no predefined price lines are required.'
+              : 'Upload the OEM Discount & Policy workbook. Booking, commercial and trade-in parameters are validated before confirmation.'}
           </p>
         </div>
 
@@ -247,10 +315,13 @@ export default function MahindraMasterUploads({
           </button>
         </div>
 
+        {restoring && <div className="uc02-note">Loading previously uploaded master status…</div>}
+
         <form className="uc02-master-upload" onSubmit={submitUpload}>
           <label className="uc02-field">
             <span>Completed Workbook</span>
             <input
+              key={`${activeKey}:${fileInputVersion}`}
               type="file"
               accept=".xlsx"
               required
@@ -258,28 +329,36 @@ export default function MahindraMasterUploads({
             />
           </label>
           <label className="uc02-field">
-            <span>Effective From</span>
+            <span>Effective From <small>(optional)</small></span>
             <input
               type="date"
-              required
               value={effectiveFrom}
               onChange={(event) => setEffectiveFrom(event.target.value)}
             />
+            <small>Leave blank when the OEM workbook contains its own WEF.</small>
           </label>
-          <button className="uc02-button uc02-button--primary" disabled={busy || !file || !effectiveFrom}>
-            Upload &amp; Validate
+          <button className="uc02-button uc02-button--primary" disabled={busy || !file}>
+            {busy ? 'Validating…' : 'Upload & Validate'}
           </button>
         </form>
 
         {notice && <div className="uc02-note">{notice}</div>}
 
         {masterImport && (
-          <div className="uc02-import-summary">
-            <div><span>Status</span><StatusPill value={masterImport.lifecycleStatus || masterImport.status} /></div>
-            <div><span>Rows</span><strong>{masterImport.rowsParsed}</strong></div>
-            <div><span>Valid</span><strong>{masterImport.validRows}</strong></div>
-            <div><span>Errors</span><strong>{masterImport.errorRows}</strong></div>
-          </div>
+          <>
+            <div className="uc02-note">
+              <strong>{validationLabel(masterImport)}</strong>
+              {' · '}File: {masterImport.fileName}
+              {' · '}WEF: {masterImport.effectiveFrom}
+              {' · '}Import Reference: {masterImport.importId}
+            </div>
+            <div className="uc02-import-summary">
+              <div><span>Status</span><StatusPill value={masterImport.lifecycleStatus || masterImport.status} /></div>
+              <div><span>Rows</span><strong>{masterImport.rowsParsed}</strong></div>
+              <div><span>Valid</span><strong>{masterImport.validRows}</strong></div>
+              <div><span>Errors</span><strong>{masterImport.errorRows}</strong></div>
+            </div>
+          </>
         )}
 
         {rows.length > 0 && (
@@ -291,7 +370,7 @@ export default function MahindraMasterUploads({
                   <tr key={row.rowNumber}>
                     <td>{row.rowNumber}</td>
                     <td><StatusPill value={row.validationStatus} compact /></td>
-                    <td>{row.messages.join(' · ') || 'No issues'}</td>
+                    <td>{row.messages.join(' · ') || 'Validated'}</td>
                   </tr>
                 ))}
               </tbody>

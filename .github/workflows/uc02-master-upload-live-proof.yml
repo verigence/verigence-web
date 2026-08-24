@@ -26,13 +26,20 @@ jobs:
           [ -n "$entry" ] || { echo 'Could not resolve deployed entry asset'; exit 1; }
           curl --fail --silent --show-error --location --header 'Cache-Control: no-cache' \
             --output /tmp/entry.js "$DEV_WEB_URL$entry?$bust"
-          grep -Fq '/mahindra-masters/imports' /tmp/entry.js || {
-            echo 'Deployed Web does not contain persisted Mahindra import-state API.'; exit 1;
+          admin_chunk="$(grep -oE 'ProjectAdministrationPage-[A-Za-z0-9_-]+\.js' /tmp/entry.js | head -n1)"
+          [ -n "$admin_chunk" ] || { echo 'Could not resolve deployed Project Administration chunk'; exit 1; }
+          curl --fail --silent --show-error --location --header 'Cache-Control: no-cache' \
+            --output /tmp/admin.js "$DEV_WEB_URL/assets/$admin_chunk?$bust"
+          grep -Fq '/mahindra-masters/imports' /tmp/admin.js || {
+            echo 'Deployed Project Administration chunk lacks persisted Mahindra import-state API.'; exit 1;
           }
-          grep -Fq '/native-imports' /tmp/entry.js || {
-            echo 'Deployed Web does not contain native OEM upload endpoint.'; exit 1;
+          grep -Fq '/native-imports' /tmp/admin.js || {
+            echo 'Deployed Project Administration chunk lacks native OEM upload endpoint.'; exit 1;
           }
-          echo "WEB_MASTER_UPLOAD_STATE_DEPLOYED=PASS asset=$entry"
+          grep -Fq 'Validation PASSED' /tmp/admin.js || {
+            echo 'Deployed Project Administration chunk lacks explicit validation result UI.'; exit 1;
+          }
+          echo "WEB_MASTER_UPLOAD_STATE_DEPLOYED=PASS chunk=$admin_chunk"
 
       - name: Verify backend route through Worker proxy
         shell: bash

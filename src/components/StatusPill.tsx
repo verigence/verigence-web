@@ -1,3 +1,5 @@
+import { displayName } from '../utils/displayNames';
+
 type Props = { value: string; compact?: boolean };
 
 function tone(value: string): string {
@@ -10,5 +12,5 @@ function tone(value: string): string {
 }
 
 export default function StatusPill({ value, compact = false }: Props) {
-  return <span className={`status-pill status-pill--${tone(value)}${compact ? ' status-pill--compact' : ''}`}>{value.replaceAll('_', ' ')}</span>;
+  return <span className={`status-pill status-pill--${tone(value)}${compact ? ' status-pill--compact' : ''}`}>{displayName(value)}</span>;
 }

@@ -1,3 +1,15 @@
+const VALUE_LABELS: Record<string, string> = {
+  DI: 'Document Intelligence',
+  HUMAN: 'User Entered',
+  MACHINE: 'System Extracted',
+  PC: 'Process Coordinator',
+  PM: 'Project Manager',
+  PROCESS_COORDINATOR: 'Process Coordinator',
+  PROJECT_MANAGER: 'Project Manager',
+  TEAM_LEAD: 'Team Lead',
+  TL: 'Team Lead',
+};
+
 const TOKEN_LABELS: Record<string, string> = {
   aadhaar: 'Aadhaar',
   aadhar: 'Aadhaar',
@@ -22,6 +34,9 @@ const TOKEN_LABELS: Record<string, string> = {
 export function displayName(value?: string | null, fallback = 'Not Available'): string {
   const source = value?.trim();
   if (!source) return fallback;
+
+  const exact = VALUE_LABELS[source.toUpperCase()];
+  if (exact) return exact;
 
   return source
     .replace(/([a-z0-9])([A-Z])/g, '$1 $2')

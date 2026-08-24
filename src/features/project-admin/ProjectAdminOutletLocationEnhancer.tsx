@@ -3,9 +3,6 @@ import { createPortal } from 'react-dom';
 import { Capacitor } from '@capacitor/core';
 import { Geolocation } from '@capacitor/geolocation';
 
-import { createOutletAdmin } from '../../services/audit-core/uc02Admin';
-import { useSessionStore } from '../../store/sessionStore';
-
 type Coordinates = {
   latitude: number;
   longitude: number;
@@ -14,7 +11,7 @@ type Coordinates = {
 
 type FieldControl = HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement;
 
-type SaveState =
+type MessageState =
   | { kind: 'idle'; message: '' }
   | { kind: 'info' | 'success' | 'error'; message: string };
 
@@ -24,11 +21,7 @@ type OutletLocationMount = {
 };
 
 function findOutletForm(): HTMLFormElement | null {
-  return (
-    Array.from(document.querySelectorAll<HTMLFormElement>('form.uc02-card')).find(
-      (form) => form.querySelector('.uc02-card__title h3')?.textContent?.trim() === 'Add Dealer Outlet',
-    ) ?? null
-  );
+  return document.querySelector<HTMLFormElement>('form[data-uc02-outlet-editor="true"]');
 }
 
 function findFieldControl(form: HTMLFormElement, labelText: string): FieldControl | null {
@@ -49,21 +42,37 @@ function addressFromForm(form: HTMLFormElement) {
     .join(', ');
 }
 
+function hiddenInput(form: HTMLFormElement, name: string) {
+  let input = form.querySelector<HTMLInputElement>(`input[type="hidden"][name="${name}"]`);
+  if (!input) {
+    input = document.createElement('input');
+    input.type = 'hidden';
+    input.name = name;
+    form.appendChild(input);
+  }
+  return input;
+}
+
+function readInitialCoordinates(form: HTMLFormElement): Coordinates | null {
+  const latitude = Number(hiddenInput(form, 'latitude').value);
+  const longitude = Number(hiddenInput(form, 'longitude').value);
+  return Number.isFinite(latitude) && Number.isFinite(longitude) && (latitude !== 0 || longitude !== 0)
+    ? { latitude, longitude }
+    : null;
+}
+
 function errorText(error: unknown) {
   if (error instanceof Error && error.message) return error.message;
-  return 'The outlet could not be saved. Please try again.';
+  return 'The outlet location could not be resolved. Please try again.';
 }
 
 function OutletLocationPanel({ form }: { form: HTMLFormElement }) {
-  const tenantId = useSessionStore((state) => state.tenantId);
-  const accessToken = useSessionStore((state) => state.accessToken);
   const [addressQuery, setAddressQuery] = useState('');
   const [searchText, setSearchText] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
-  const [coordinates, setCoordinates] = useState<Coordinates | null>(null);
+  const [coordinates, setCoordinates] = useState<Coordinates | null>(() => readInitialCoordinates(form));
   const [locating, setLocating] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [saveState, setSaveState] = useState<SaveState>({ kind: 'idle', message: '' });
+  const [message, setMessage] = useState<MessageState>({ kind: 'idle', message: '' });
 
   useEffect(() => {
     const controls = ['Address', 'City', 'State / Region', 'Postal Code']
@@ -74,8 +83,7 @@ function OutletLocationPanel({ form }: { form: HTMLFormElement }) {
       const nextAddress = addressFromForm(form);
       setAddressQuery(nextAddress);
       setSearchText((current) => current.trim() ? current : nextAddress);
-      setCoordinates(null);
-      setSaveState({ kind: 'idle', message: '' });
+      setSearchQuery('');
     };
 
     const initialAddress = addressFromForm(form);
@@ -85,7 +93,6 @@ function OutletLocationPanel({ form }: { form: HTMLFormElement }) {
       control.addEventListener('input', refresh);
       control.addEventListener('change', refresh);
     });
-
     return () => {
       controls.forEach((control) => {
         control.removeEventListener('input', refresh);
@@ -95,57 +102,9 @@ function OutletLocationPanel({ form }: { form: HTMLFormElement }) {
   }, [form]);
 
   useEffect(() => {
-    if (!coordinates) return undefined;
-
-    const submitPinnedOutlet = async (event: Event) => {
-      event.preventDefault();
-      event.stopPropagation();
-      event.stopImmediatePropagation();
-
-      const dealerId = readField(form, 'Dealer');
-      const outletName = readField(form, 'Outlet Name');
-      const outletClassification = readField(form, 'Classification') as 'ONSITE' | 'SATELLITE';
-      const monthlyVehicleVolume = readField(form, 'Monthly Vehicle Volume');
-
-      if (!tenantId || !accessToken) {
-        setSaveState({ kind: 'error', message: 'Your session is not ready. Please sign in again.' });
-        return;
-      }
-      if (!dealerId || !outletName) {
-        setSaveState({ kind: 'error', message: 'Dealer and Outlet Name are required.' });
-        return;
-      }
-
-      setSaving(true);
-      setSaveState({ kind: 'info', message: 'Saving outlet with pinned location…' });
-      try {
-        await createOutletAdmin(
-          tenantId,
-          dealerId,
-          {
-            outletName,
-            outletClassification,
-            addressText: readField(form, 'Address') || null,
-            city: readField(form, 'City') || null,
-            stateRegion: readField(form, 'State / Region') || null,
-            postalCode: readField(form, 'Postal Code') || null,
-            latitude: coordinates.latitude,
-            longitude: coordinates.longitude,
-            monthlyVehicleVolume: monthlyVehicleVolume ? Number(monthlyVehicleVolume) : null,
-          },
-          accessToken,
-        );
-        setSaveState({ kind: 'success', message: 'Outlet saved with its pinned location.' });
-        window.setTimeout(() => window.location.reload(), 450);
-      } catch (error) {
-        setSaveState({ kind: 'error', message: errorText(error) });
-        setSaving(false);
-      }
-    };
-
-    form.addEventListener('submit', submitPinnedOutlet, true);
-    return () => form.removeEventListener('submit', submitPinnedOutlet, true);
-  }, [accessToken, coordinates, form, tenantId]);
+    hiddenInput(form, 'latitude').value = coordinates ? String(coordinates.latitude) : '';
+    hiddenInput(form, 'longitude').value = coordinates ? String(coordinates.longitude) : '';
+  }, [coordinates, form]);
 
   const mapQuery = useMemo(() => {
     if (coordinates) return `${coordinates.latitude},${coordinates.longitude}`;
@@ -163,19 +122,18 @@ function OutletLocationPanel({ form }: { form: HTMLFormElement }) {
   const pinSearchLocation = () => {
     const query = searchText.trim();
     if (!query) {
-      setSaveState({ kind: 'error', message: 'Enter a place, landmark, road, locality or PIN code to search.' });
+      setMessage({ kind: 'error', message: 'Enter a place, landmark, road, locality or PIN code to search.' });
       return;
     }
-    setCoordinates(null);
     setSearchQuery(query);
-    setSaveState({ kind: 'success', message: 'Google Maps search location pinned for confirmation.' });
+    setMessage({ kind: 'success', message: 'Google Maps search location loaded for visual confirmation.' });
   };
 
   const applyCoordinates = (next: Coordinates) => {
     setCoordinates(next);
     setSearchQuery('');
     setLocating(false);
-    setSaveState({
+    setMessage({
       kind: 'success',
       message: `Exact device location pinned${Number.isFinite(next.accuracy) ? ` (accuracy ±${Math.round(next.accuracy ?? 0)} m)` : ''}.`,
     });
@@ -183,13 +141,12 @@ function OutletLocationPanel({ form }: { form: HTMLFormElement }) {
 
   const pinCurrentLocation = async () => {
     setLocating(true);
-    setSaveState({ kind: 'info', message: 'Getting the device location…' });
-
+    setMessage({ kind: 'info', message: 'Getting the device location…' });
     try {
       if (Capacitor.isNativePlatform()) {
         const permission = await Geolocation.requestPermissions();
         if (permission.location !== 'granted' && permission.coarseLocation !== 'granted') {
-          throw new Error('Location permission was denied. Allow location access or use the text search pin.');
+          throw new Error('Location permission was denied. Allow location access or use text search.');
         }
         const position = await Geolocation.getCurrentPosition({
           enableHighAccuracy: true,
@@ -203,40 +160,29 @@ function OutletLocationPanel({ form }: { form: HTMLFormElement }) {
         });
         return;
       }
-
-      if (!navigator.geolocation) {
-        throw new Error('Location services are not available on this device/browser.');
-      }
-
+      if (!navigator.geolocation) throw new Error('Location services are not available in this browser.');
       navigator.geolocation.getCurrentPosition(
-        (position) => {
-          applyCoordinates({
-            latitude: position.coords.latitude,
-            longitude: position.coords.longitude,
-            accuracy: position.coords.accuracy,
-          });
-        },
+        (position) => applyCoordinates({
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+          accuracy: position.coords.accuracy,
+        }),
         (error) => {
           setLocating(false);
-          const message =
-            error.code === error.PERMISSION_DENIED
-              ? 'Location permission was denied. Allow location access or use the text search pin.'
-              : 'Current location could not be determined. Use text search or try again.';
-          setSaveState({ kind: 'error', message });
+          setMessage({
+            kind: 'error',
+            message: error.code === error.PERMISSION_DENIED
+              ? 'Location permission was denied. Allow location access or use text search.'
+              : 'Current location could not be determined. Use text search or try again.',
+          });
         },
         { enableHighAccuracy: true, timeout: 12_000, maximumAge: 30_000 },
       );
     } catch (error) {
       setLocating(false);
-      setSaveState({ kind: 'error', message: errorText(error) });
+      setMessage({ kind: 'error', message: errorText(error) });
     }
   };
-
-  const pinLabel = coordinates
-    ? 'Exact device location pinned'
-    : searchQuery
-      ? 'Google Maps search result pinned'
-      : 'Address location pinned';
 
   return (
     <section className="uc02-outlet-location" aria-label="Outlet map location">
@@ -246,19 +192,10 @@ function OutletLocationPanel({ form }: { form: HTMLFormElement }) {
           <span>Search by place or landmark, use the entered address, or pin the device GPS location.</span>
         </div>
         <div className="uc02-outlet-location__actions">
-          <button
-            className="uc02-button"
-            type="button"
-            onClick={() => void pinCurrentLocation()}
-            disabled={locating || saving}
-          >
+          <button className="uc02-button" type="button" onClick={() => void pinCurrentLocation()} disabled={locating}>
             {locating ? 'Locating…' : 'Pin current location'}
           </button>
-          {openMapsUrl && (
-            <a className="uc02-button uc02-outlet-location__maps-link" href={openMapsUrl} target="_blank" rel="noreferrer">
-              Open in Google Maps
-            </a>
-          )}
+          {openMapsUrl && <a className="uc02-button uc02-outlet-location__maps-link" href={openMapsUrl} target="_blank" rel="noreferrer">Open in Google Maps</a>}
         </div>
       </div>
 
@@ -275,9 +212,7 @@ function OutletLocationPanel({ form }: { form: HTMLFormElement }) {
           placeholder="Search landmark, road, locality, dealer name or PIN code"
           aria-label="Search place on Google Maps"
         />
-        <button className="uc02-button uc02-button--primary" type="button" onClick={pinSearchLocation}>
-          Search & Pin
-        </button>
+        <button className="uc02-button uc02-button--primary" type="button" onClick={pinSearchLocation}>Search & Pin</button>
       </div>
 
       {mapSrc ? (
@@ -290,32 +225,15 @@ function OutletLocationPanel({ form }: { form: HTMLFormElement }) {
             referrerPolicy="no-referrer-when-downgrade"
             allowFullScreen
           />
-          <div className="uc02-outlet-location__pin-label">
-            <span aria-hidden="true">●</span>
-            {pinLabel}
-          </div>
+          <div className="uc02-outlet-location__pin-label"><span aria-hidden="true">●</span>{coordinates ? 'Exact device location pinned' : 'Map location preview'}</div>
         </div>
       ) : (
-        <div className="uc02-outlet-location__empty">
-          Search a place above, enter the outlet address, or choose <strong>Pin current location</strong> to show the map.
-        </div>
+        <div className="uc02-outlet-location__empty">Search a place above, enter the outlet address, or choose <strong>Pin current location</strong> to show the map.</div>
       )}
 
-      {coordinates && (
-        <div className="uc02-outlet-location__coordinates">
-          <span>Latitude <strong>{coordinates.latitude.toFixed(6)}</strong></span>
-          <span>Longitude <strong>{coordinates.longitude.toFixed(6)}</strong></span>
-        </div>
-      )}
-
-      {saveState.message && (
-        <div className={`uc02-outlet-location__message uc02-outlet-location__message--${saveState.kind}`} role="status">
-          {saveState.message}
-        </div>
-      )}
-      <small className="uc02-outlet-location__note">
-        Text search is for visual confirmation on Google Maps. For an exact stored latitude/longitude on tablet or mobile, use Pin current location before Add Outlet.
-      </small>
+      {coordinates && <div className="uc02-outlet-location__coordinates"><span>Latitude <strong>{coordinates.latitude.toFixed(6)}</strong></span><span>Longitude <strong>{coordinates.longitude.toFixed(6)}</strong></span></div>}
+      {message.message && <div className={`uc02-outlet-location__message uc02-outlet-location__message--${message.kind}`} role="status">{message.message}</div>}
+      <small className="uc02-outlet-location__note">Text search is for visual confirmation. Use Pin current location when an exact latitude/longitude must be stored.</small>
     </section>
   );
 }
@@ -328,7 +246,6 @@ export default function ProjectAdminOutletLocationEnhancer() {
     let currentForm: HTMLFormElement | null = null;
 
     const clearCurrent = () => {
-      currentForm?.classList.remove('uc02-outlet-form--enhanced');
       currentHost?.remove();
       currentHost = null;
       currentForm = null;
@@ -341,27 +258,15 @@ export default function ProjectAdminOutletLocationEnhancer() {
         setMountTarget(null);
         return;
       }
-
       if (currentHost?.isConnected && currentForm === form) return;
       clearCurrent();
 
-      form.classList.add('uc02-outlet-form--enhanced');
-      const grid = form.closest('.uc02-grid');
-      const outletListCard = grid?.querySelector<HTMLElement>('.uc02-card--wide') ?? null;
-      const outletListTitle = outletListCard?.querySelector<HTMLElement>('.uc02-card__title') ?? null;
       const nextHost = document.createElement('div');
-      nextHost.className = 'uc02-outlet-location-host';
-
-      if (outletListCard) {
-        nextHost.classList.add('uc02-outlet-location-host--side');
-        if (outletListTitle) outletListTitle.insertAdjacentElement('afterend', nextHost);
-        else outletListCard.prepend(nextHost);
-      } else {
-        const addressControl = findFieldControl(form, 'Address');
-        const addressField = addressControl?.closest('label.uc02-field');
-        if (addressField) addressField.insertAdjacentElement('afterend', nextHost);
-        else form.appendChild(nextHost);
-      }
+      nextHost.className = 'uc02-outlet-location-host uc02-outlet-location-host--editor';
+      const addressControl = findFieldControl(form, 'Address');
+      const addressField = addressControl?.closest('label.uc02-field');
+      if (addressField) addressField.insertAdjacentElement('afterend', nextHost);
+      else form.appendChild(nextHost);
 
       currentHost = nextHost;
       currentForm = form;
@@ -371,16 +276,11 @@ export default function ProjectAdminOutletLocationEnhancer() {
     mount();
     const observer = new MutationObserver(mount);
     observer.observe(document.body, { childList: true, subtree: true });
-    window.addEventListener('popstate', mount);
-
     return () => {
       observer.disconnect();
-      window.removeEventListener('popstate', mount);
       clearCurrent();
     };
   }, []);
 
-  return mountTarget
-    ? createPortal(<OutletLocationPanel form={mountTarget.form} />, mountTarget.host)
-    : null;
+  return mountTarget ? createPortal(<OutletLocationPanel form={mountTarget.form} />, mountTarget.host) : null;
 }

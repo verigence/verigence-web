@@ -19,6 +19,13 @@ const operational: ShellRole[] = [...c0OperatingRoles, 'TENANT_ADMIN', 'SUPER_AD
 const assurance: ShellRole[] = ['TL', 'PM', 'EXECUTIVE', 'TENANT_ADMIN', 'SUPER_ADMIN'];
 const admin: ShellRole[] = ['TENANT_ADMIN', 'SUPER_ADMIN'];
 
+const projectAdministrationItem: NavItem = {
+  to: '/admin/project',
+  label: 'Project Administration',
+  mark: 'PA',
+  roles: admin,
+};
+
 const groups: NavGroup[] = [
   { key: 'workspace', label: 'Workspace', items: [
     { to: '/dashboard', label: 'Overview', mark: 'OV', roles: operational },
@@ -49,7 +56,7 @@ const groups: NavGroup[] = [
     { to: '/admin/audit-rules', label: 'Audit Rule Config', mark: 'AR', roles: ['SUPER_ADMIN'] },
     { to: '/admin/approval-workflow', label: 'Approval Workflow Config', mark: 'AW', roles: ['SUPER_ADMIN'] },
     { to: '/admin/notifications', label: 'Notification Settings', mark: 'NS', roles: ['SUPER_ADMIN'] },
-    { to: '/admin/project', label: 'Project Provisioning', mark: 'PP', roles: ['SUPER_ADMIN'] },
+    projectAdministrationItem,
   ] },
 ];
 
@@ -62,7 +69,7 @@ const routeLabels: Record<string, string> = {
   '/admin/users/pending': 'Pending Approvals', '/admin/activity-log': 'User Activity Log',
   '/admin/roles-permissions': 'Roles & Permissions', '/admin/audit-rules': 'Audit Rule Config',
   '/admin/approval-workflow': 'Approval Workflow Config', '/admin/notifications': 'Notification Settings',
-  '/admin/project': 'Project Provisioning', '/profile': 'Profile',
+  '/admin/project': 'Project Administration', '/profile': 'Profile',
 };
 
 const roleLabels: Record<ShellRole, string> = {
@@ -90,9 +97,19 @@ export default function AppShell({ children }: PropsWithChildren) {
   const role: ShellRole = selectedProject?.operatingRole ?? sessionRole;
   const c0OperationalShell = Boolean(selectedProject);
   const diTestAvailable = isDiTestConsoleAvailable();
-  const visibleGroups = useMemo<NavGroup[]>(() => c0OperationalShell
-    ? [{ key: 'workspace', label: 'Workspace', items: [{ to: '/dashboard', label: 'Overview', mark: 'OV', roles: c0OperatingRoles }] }]
-    : groups, [c0OperationalShell]);
+  const visibleGroups = useMemo<NavGroup[]>(() => {
+    if (!c0OperationalShell) return groups;
+    const workspaceGroup: NavGroup = {
+      key: 'workspace',
+      label: 'Workspace',
+      items: [{ to: '/dashboard', label: 'Overview', mark: 'OV', roles: c0OperatingRoles }],
+    };
+    if (sessionRole !== 'TENANT_ADMIN') return [workspaceGroup];
+    return [
+      workspaceGroup,
+      { key: 'administration', label: 'Administration', items: [projectAdministrationItem] },
+    ];
+  }, [c0OperationalShell, sessionRole]);
 
   const activeGroupKey = useMemo(() => {
     return visibleGroups.find((group) => group.items.some((item) => location.pathname === item.to || location.pathname.startsWith(`${item.to}/`)))?.key
@@ -137,6 +154,13 @@ export default function AppShell({ children }: PropsWithChildren) {
   const roleLabel = roleLabels[role];
   const avatarText = initials(visibleName);
 
+  const canSeeItem = (item: NavItem) => {
+    if (item.devOnly && !diTestAvailable) return false;
+    if (!item.roles) return true;
+    if (item.to === '/admin/project' && sessionRole === 'TENANT_ADMIN') return true;
+    return item.roles.includes(role);
+  };
+
   return (
     <div className={`enterprise-shell${mobileMenuOpen ? ' enterprise-shell--menu-open' : ''}`}>
       <button type="button" className="enterprise-mobile-backdrop" aria-label="Close navigation" onClick={() => setMobileMenuOpen(false)} />
@@ -154,7 +178,7 @@ export default function AppShell({ children }: PropsWithChildren) {
         )}
         <nav className="enterprise-nav enterprise-nav--accordion" aria-label="Primary navigation">
           {visibleGroups.map((group) => {
-            const items = group.items.filter((item) => (!item.roles || item.roles.includes(role)) && (!item.devOnly || diTestAvailable));
+            const items = group.items.filter(canSeeItem);
             if (items.length === 0) return null;
             const expanded = openGroup === group.key;
             return (

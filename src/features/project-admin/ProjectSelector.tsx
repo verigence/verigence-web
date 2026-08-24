@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 
 import { auditCoreErrorMessage } from '../../services/audit-core/errorMessage';
 import { listProjects, type ProjectSelection } from '../../services/audit-core/uc02Admin';
+import { useProjectContextStore } from '../../store/projectContextStore';
 import { useSessionStore } from '../../store/sessionStore';
 
 type ProjectDirectoryCache = {
@@ -57,27 +58,37 @@ export default function ProjectSelector({
   onError: (message: string) => void;
 }) {
   const accessToken = useSessionStore((state) => state.accessToken);
+  const role = useSessionStore((state) => state.role);
   const tenantId = useSessionStore((state) => state.tenantId);
   const setBusinessContext = useSessionStore((state) => state.setBusinessContext);
+  const selectedOperationalProject = useProjectContextStore((state) => state.selectedProject);
+  const tenantAdmin = role === 'TENANT_ADMIN';
   const [projects, setProjects] = useState<ProjectSelection[]>(() =>
-    accessToken ? cachedProjectDirectory(accessToken) || [] : [],
+    !tenantAdmin && accessToken ? cachedProjectDirectory(accessToken) || [] : [],
   );
   const [loading, setLoading] = useState(false);
   const [loadWarning, setLoadWarning] = useState('');
   const onSelectionChangeRef = useRef(onSelectionChange);
 
-  // Keep the callback current without making Project discovery depend on parent
-  // render identity. Dealer/outlet/form state changes must not re-fetch /v1/projects.
   useEffect(() => {
     onSelectionChangeRef.current = onSelectionChange;
   }, [onSelectionChange]);
 
-  // Active-project loading has its own error handling in ProjectAdministrationPage.
-  // Keep this callback in the public component contract for compatibility, but never
-  // turn a directory-discovery failure into the page-level Create Project error.
   void onError;
 
   useEffect(() => {
+    if (!tenantAdmin || tenantId || !selectedOperationalProject) return;
+    setBusinessContext({ tenantId: selectedOperationalProject.tenantId, dealerId: '', outletId: '' });
+    onSelectionChangeRef.current(selectedOperationalProject.tenantId);
+  }, [selectedOperationalProject, setBusinessContext, tenantAdmin, tenantId]);
+
+  useEffect(() => {
+    if (tenantAdmin) {
+      setProjects([]);
+      setLoading(false);
+      setLoadWarning('');
+      return;
+    }
     if (!accessToken) {
       setProjects([]);
       setLoadWarning('');
@@ -95,10 +106,6 @@ export default function ProjectSelector({
     setLoading(true);
     setLoadWarning('');
 
-    // The resolved directory is retained only in this JavaScript process. Step
-    // navigation/remounts reuse it and therefore do not call GET /v1/projects again.
-    // Nothing is written to localStorage/sessionStorage and a different access token
-    // cannot reuse another authenticated session's cached Project directory.
     void loadProjectDirectory(accessToken)
       .then((values) => {
         if (!cancelled) setProjects(values);
@@ -120,18 +127,14 @@ export default function ProjectSelector({
     return () => {
       cancelled = true;
     };
-  }, [accessToken]);
+  }, [accessToken, tenantAdmin]);
 
   useEffect(() => {
-    if (!accessToken || !tenantId) return;
+    if (tenantAdmin || !accessToken || !tenantId) return;
 
     const cached = cachedProjectDirectory(accessToken);
     if (!cached || cached.some((item) => item.tenantId === tenantId)) return;
 
-    // An explicitly selected existing Project is already in the browser directory.
-    // A tenantId that appears after the directory was loaded is therefore normally a
-    // newly-created Project. Refresh exactly once for that Project so the new entry is
-    // incorporated, then keep using browser memory while the user moves across steps.
     const refreshKey = missingProjectRefreshKey(accessToken, tenantId);
     if (refreshedMissingProjects.has(refreshKey)) return;
     refreshedMissingProjects.add(refreshKey);
@@ -159,7 +162,21 @@ export default function ProjectSelector({
     return () => {
       cancelled = true;
     };
-  }, [accessToken, tenantId]);
+  }, [accessToken, tenantAdmin, tenantId]);
+
+  if (tenantAdmin) {
+    const assignedTenantId = tenantId || selectedOperationalProject?.tenantId || '';
+    const assignedProjectName = currentProjectName || selectedOperationalProject?.projectName || 'Assigned Project';
+    return (
+      <div className="uc02-field">
+        <select aria-label="Assigned Project" value={assignedTenantId} disabled>
+          {!assignedTenantId && <option value="">Select your Project from the dashboard</option>}
+          {assignedTenantId && <option value={assignedTenantId}>{assignedProjectName}</option>}
+        </select>
+        {!assignedTenantId && <small>Tenant Admin manages only the Project currently assigned to its tenant context.</small>}
+      </div>
+    );
+  }
 
   const currentIsListed = projects.some((item) => item.tenantId === tenantId);
 

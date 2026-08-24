@@ -122,6 +122,18 @@ export async function loginHuman(
   return payload as HumanLoginResponse;
 }
 
+export async function refreshHuman(accessToken: string): Promise<HumanLoginResponse> {
+  const { response, correlationId } = await securityFetch(endpoint('/security/v1/auth/refresh'), {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${accessToken}` },
+    cache: 'no-store',
+  });
+  const payload = await readPayload(response);
+
+  if (!response.ok) throw errorFrom(response, payload, correlationId);
+  return payload as HumanLoginResponse;
+}
+
 export function loginErrorMessage(error: unknown): string {
   if (!(error instanceof SecurityLoginError)) {
     return 'Sign in could not be completed. Please try again.';

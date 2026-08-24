@@ -14,11 +14,17 @@ interface SessionState extends BusinessContext {
   displayName: string;
   role: UserRole;
   accessToken?: string;
-  signInAuthenticated: (email: string, accessToken: string, role: UserRole) => void;
+  accessTokenExpiresAtUtc?: string;
+  signInAuthenticated: (
+    email: string,
+    accessToken: string,
+    role: UserRole,
+    expiresAtUtc: string,
+  ) => void;
   signInPreview: (email: string, role?: UserRole) => void;
   signOut: () => void;
   setRolePreview: (role: UserRole) => void;
-  setAccessToken: (token?: string) => void;
+  setAccessToken: (token?: string, expiresAtUtc?: string) => void;
   setBusinessContext: (context: Partial<BusinessContext>) => void;
 }
 
@@ -31,7 +37,8 @@ export const useSessionStore = create<SessionState>((set) => ({
   dealerId: '',
   outletId: '',
   accessToken: undefined,
-  signInAuthenticated: (email, accessToken, role) =>
+  accessTokenExpiresAtUtc: undefined,
+  signInAuthenticated: (email, accessToken, role, accessTokenExpiresAtUtc) =>
     set({
       signedIn: true,
       email,
@@ -41,6 +48,7 @@ export const useSessionStore = create<SessionState>((set) => ({
       dealerId: '',
       outletId: '',
       accessToken,
+      accessTokenExpiresAtUtc,
     }),
   // Retained only for local/demo tooling. Protected routes reject preview sessions because
   // they require a Security-issued human access token.
@@ -54,6 +62,7 @@ export const useSessionStore = create<SessionState>((set) => ({
       dealerId: '',
       outletId: '',
       accessToken: undefined,
+      accessTokenExpiresAtUtc: undefined,
     }),
   signOut: () =>
     set({
@@ -65,8 +74,12 @@ export const useSessionStore = create<SessionState>((set) => ({
       dealerId: '',
       outletId: '',
       accessToken: undefined,
+      accessTokenExpiresAtUtc: undefined,
     }),
   setRolePreview: (role) => set({ role }),
-  setAccessToken: (accessToken) => set({ accessToken }),
+  setAccessToken: (accessToken, accessTokenExpiresAtUtc) => set({
+    accessToken,
+    accessTokenExpiresAtUtc,
+  }),
   setBusinessContext: (context) => set(context),
 }));

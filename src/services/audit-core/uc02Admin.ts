@@ -8,12 +8,19 @@ function idempotencyHeaders(key: string): HeadersInit {
   return { 'Idempotency-Key': key };
 }
 
+export interface Uc02ProjectSegment {
+  segmentId: string;
+  segmentCode: string;
+  segmentName: string;
+}
+
 export interface Uc02Project {
   tenantId: string;
   projectCode: string;
   projectName: string;
   oemId: string;
-  productCategoryId: string;
+  productCategoryId?: string | null;
+  segments: Uc02ProjectSegment[];
   effectiveStartDate: string;
   effectiveEndDate?: string | null;
   timezoneName: string;
@@ -35,7 +42,7 @@ export interface ProjectSelection {
 export interface ProjectCreateInput {
   projectName: string;
   oemId: string;
-  productCategoryId: string;
+  segmentIds: string[];
   effectiveStartDate: string;
   effectiveEndDate?: string | null;
   timezoneName: string;
@@ -151,6 +158,37 @@ export interface MasterImport {
   versionNo: number;
 }
 
+export interface MahindraMasterOption {
+  segmentId?: string | null;
+  segmentCode?: string | null;
+  segmentName?: string | null;
+  uploadKey: string;
+  displayName: string;
+}
+
+export interface MahindraMasterOptions {
+  oemCode: 'MAHINDRA';
+  segmentUploads: MahindraMasterOption[];
+  discountUpload: MahindraMasterOption;
+}
+
+export interface MahindraMasterImport {
+  importId: string;
+  masterKey: string;
+  segmentId?: string | null;
+  segmentCode?: string | null;
+  effectiveFrom: string;
+  fileName: string;
+  status: string;
+  rowsParsed: number;
+  validRows: number;
+  errorRows: number;
+  productMasterVersionId?: string | null;
+  priceListVersionId?: string | null;
+  discountPolicyVersionId?: string | null;
+  lifecycleStatus?: string | null;
+}
+
 export interface ReadinessCheck {
   area: string;
   checkKey: string;
@@ -197,7 +235,11 @@ export function getProjectAdmin(tenantId: string, accessToken?: string) {
 export function patchProjectAdmin(
   tenantId: string,
   versionNo: number,
-  payload: Partial<Pick<Uc02Project, 'projectName' | 'effectiveEndDate' | 'timezoneName' | 'regionCode'>>,
+  payload: Partial<Pick<Uc02Project, 'projectName' | 'effectiveEndDate' | 'timezoneName' | 'regionCode'>> & {
+    oemId?: string;
+    segmentIds?: string[];
+    effectiveStartDate?: string;
+  },
   accessToken?: string,
 ) {
   return auditCoreRequest<Uc02Project>(`/v1/tenants/${tenantId}/project`, {
@@ -375,6 +417,101 @@ export function publishMasterVersion(
 ) {
   return auditCoreRequest<MasterVersion>(
     `/v1/tenants/${tenantId}/project-masters/${ownerModule}/${masterKey}/versions/${versionId}/publish`,
+    { method: 'POST', ...auth(accessToken) },
+  );
+}
+
+export function getMahindraMasterOptions(tenantId: string, accessToken?: string) {
+  return auditCoreRequest<MahindraMasterOptions>(
+    `/v1/tenants/${tenantId}/mahindra-masters/options`,
+    auth(accessToken),
+  );
+}
+
+export async function downloadMahindraSegmentTemplate(
+  tenantId: string,
+  segmentId: string,
+  accessToken?: string,
+): Promise<Blob> {
+  const response = await auditCoreRawRequest(
+    `/v1/tenants/${tenantId}/mahindra-masters/segments/${segmentId}/template`,
+    auth(accessToken),
+  );
+  return response.blob();
+}
+
+export async function downloadMahindraDiscountPolicyTemplate(
+  tenantId: string,
+  accessToken?: string,
+): Promise<Blob> {
+  const response = await auditCoreRawRequest(
+    `/v1/tenants/${tenantId}/mahindra-masters/discount-policy/template`,
+    auth(accessToken),
+  );
+  return response.blob();
+}
+
+export function uploadMahindraSegmentMaster(
+  tenantId: string,
+  segmentId: string,
+  file: File,
+  effectiveFrom: string,
+  idempotencyKey: string,
+  accessToken?: string,
+) {
+  const body = new FormData();
+  body.append('file', file);
+  body.append('effectiveFrom', effectiveFrom);
+  return auditCoreRequest<MahindraMasterImport>(
+    `/v1/tenants/${tenantId}/mahindra-masters/segments/${segmentId}/imports`,
+    {
+      method: 'POST',
+      headers: idempotencyHeaders(idempotencyKey),
+      body,
+      ...auth(accessToken),
+    },
+  );
+}
+
+export function uploadMahindraDiscountPolicy(
+  tenantId: string,
+  file: File,
+  effectiveFrom: string,
+  idempotencyKey: string,
+  accessToken?: string,
+) {
+  const body = new FormData();
+  body.append('file', file);
+  body.append('effectiveFrom', effectiveFrom);
+  return auditCoreRequest<MahindraMasterImport>(
+    `/v1/tenants/${tenantId}/mahindra-masters/discount-policy/imports`,
+    {
+      method: 'POST',
+      headers: idempotencyHeaders(idempotencyKey),
+      body,
+      ...auth(accessToken),
+    },
+  );
+}
+
+export function confirmMahindraMasterImport(
+  tenantId: string,
+  importId: string,
+  accessToken?: string,
+) {
+  return auditCoreRequest<MahindraMasterImport>(
+    `/v1/tenants/${tenantId}/mahindra-masters/imports/${importId}/confirm`,
+    { method: 'POST', ...auth(accessToken) },
+  );
+}
+
+export function publishMahindraMasterImport(
+  tenantId: string,
+  importId: string,
+  accessToken?: string,
+) {
+  return auditCoreRequest<MahindraMasterImport>(
+    `/v1/tenants/${tenantId}/mahindra-masters/imports/${importId}/publish`,
     { method: 'POST', ...auth(accessToken) },
   );
 }

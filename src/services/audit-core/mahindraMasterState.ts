@@ -1,4 +1,4 @@
-import { auditCoreRequest } from './client';
+import { auditCoreRawRequest, auditCoreRequest } from './client';
 import type { MahindraMasterImport } from './uc02Admin';
 
 function auth(accessToken?: string) {
@@ -14,6 +14,18 @@ export function listMahindraMasterImports(tenantId: string, accessToken?: string
     `/v1/tenants/${tenantId}/mahindra-masters/imports`,
     auth(accessToken),
   );
+}
+
+export async function downloadMahindraValidationReport(
+  tenantId: string,
+  importId: string,
+  accessToken?: string,
+): Promise<Blob> {
+  const response = await auditCoreRawRequest(
+    `/v1/tenants/${tenantId}/mahindra-masters/imports/${importId}/validation-report`,
+    auth(accessToken),
+  );
+  return response.blob();
 }
 
 export function uploadMahindraNativeSegmentMaster(

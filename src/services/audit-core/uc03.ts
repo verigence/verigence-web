@@ -1,10 +1,19 @@
 import type { OperatingRole } from '../../domain/models';
 import { auditCoreRequest } from './client';
 
+export interface OperationalOutletScope {
+  dealerId: string;
+  dealerName: string;
+  outletId: string;
+  outletName: string;
+  outletClassification: string;
+}
+
 export interface ProjectScopeSummary {
   allDealers: boolean;
   dealerCount: number;
   outletCount: number;
+  outlets: OperationalOutletScope[];
 }
 
 export interface OperationalProject {
@@ -66,6 +75,7 @@ export interface Uc03WorkItemPage {
     fromDate: string | null;
     toDate: string | null;
     timezoneName: string;
+    outletId?: string | null;
   };
 }
 
@@ -80,6 +90,7 @@ export interface Uc03WorkItemFilters {
   workType: Uc03WorkType;
   fromDate?: string;
   toDate?: string;
+  outletId?: string;
   cursor?: string;
 }
 
@@ -110,15 +121,23 @@ export async function listMyOperationalProjects(
   return response.projects.map((project) => ({
     ...project,
     operatingRole: normalizeOperatingRole(project.operatingRole),
+    scope: {
+      ...project.scope,
+      outlets: project.scope.outlets || [],
+    },
   }));
 }
 
 export async function getUc03LandingMetrics(
   tenantId: string,
+  outletId: string | undefined,
   accessToken?: string,
 ): Promise<Uc03LandingMetrics> {
+  const search = new URLSearchParams();
+  if (outletId) search.set('outletId', outletId);
+  const suffix = search.size ? `?${search.toString()}` : '';
   return auditCoreRequest<Uc03LandingMetrics>(
-    `/v1/tenants/${encodeURIComponent(tenantId)}/uc03/landing-metrics`,
+    `/v1/tenants/${encodeURIComponent(tenantId)}/uc03/landing-metrics${suffix}`,
     {
       accessToken: accessTokenRequired(accessToken),
       cache: 'no-store',
@@ -136,6 +155,7 @@ export async function listUc03WorkItems(
   search.set('limit', '10');
   if (filters.fromDate) search.set('fromDate', filters.fromDate);
   if (filters.toDate) search.set('toDate', filters.toDate);
+  if (filters.outletId) search.set('outletId', filters.outletId);
   if (filters.cursor) search.set('cursor', filters.cursor);
 
   return auditCoreRequest<Uc03WorkItemPage>(

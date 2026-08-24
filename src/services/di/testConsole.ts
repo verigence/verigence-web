@@ -180,24 +180,12 @@ export async function getDiTestFields(subjectId: string, documentId: string): Pr
   return payload.data?.fields ?? [];
 }
 
-export async function listDiTestDocuments(subjectId: string): Promise<DiDocument[]> {
-  const response = await fetch(
-    `${diTestConfig.baseUrl}/v1/tenants/${encodeURIComponent(diTestConfig.tenantId)}/subjects/${encodeURIComponent(subjectId)}/documents`,
-    { headers: headers(false), cache: 'no-store' },
-  );
-  const payload = await envelope<DiDocument[]>(response, 'List DI test documents');
-  return Array.isArray(payload.data) ? payload.data : [];
-}
-
-export async function analyseDiTestDocuments(subjectId: string, documentIds: string[]): Promise<DiAnalysis> {
-  const response = await fetch(
-    `${diTestConfig.baseUrl}/v1/tenants/${encodeURIComponent(diTestConfig.tenantId)}/subjects/${encodeURIComponent(subjectId)}/analyse`,
-    {
-      method: 'POST',
-      headers: headers(true),
-      body: JSON.stringify({ documentIds }),
-    },
-  );
-  const payload = await envelope<DiAnalysis>(response, 'Run DI analysis');
+export async function analyseDiTestDocuments(documentIds: string[]): Promise<DiAnalysis> {
+  const response = await fetch(`${diTestConfig.baseUrl}/v1/tenants/${encodeURIComponent(diTestConfig.tenantId)}/analyse`, {
+    method: 'POST',
+    headers: headers(true),
+    body: JSON.stringify({ documentIds }),
+  });
+  const payload = await envelope<DiAnalysis>(response, 'Run DI rule analysis');
   return payload.data ?? {};
 }

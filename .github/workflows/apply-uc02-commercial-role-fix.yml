@@ -84,7 +84,7 @@ jobs:
               """onClick={() => { selectMappingUser(item.userId); goToStep(5); }}""",
           )
           PY
-          npm ci
+          npm install --no-audit --no-fund
           npm run typecheck
           npm run build
           git config user.name 'Verigence-admin'

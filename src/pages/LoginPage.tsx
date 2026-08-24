@@ -44,6 +44,7 @@ export default function LoginPage() {
         identifier,
         login.accessToken,
         superAdmin ? 'SUPER_ADMIN' : 'PC',
+        login.expiresAtUtc,
       );
       setPassword('');
       navigate(superAdmin ? '/approvals' : '/dashboard', { replace: true });

@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate, useParams } from 'react-router-dom';
 
 import PageHeader from '../components/PageHeader';
 import StatusPill from '../components/StatusPill';
+import { DocumentFieldReview } from '../features/uc03/DocumentFieldReview';
 import {
   assessBookingDocument,
   captureBookingValue,
@@ -71,15 +72,6 @@ function displayValue(value: unknown): string {
   if (typeof value === 'string' || typeof value === 'number') return String(value);
   if (typeof value === 'boolean') return value ? 'Yes' : 'No';
   return JSON.stringify(value);
-}
-
-function confidenceLabel(value: number | null): string {
-  if (value === null) return 'Confidence unavailable';
-  return `${Math.round(value * 100)}% confidence`;
-}
-
-function isCleanProposal(proposal: ExtractionProposalView): boolean {
-  return proposal.status === 'PENDING' && proposal.canAccept && (proposal.confidence ?? 0) >= 0.85;
 }
 
 function DocumentCard({
@@ -169,7 +161,6 @@ export default function BookingWorkspacePage() {
   const [message, setMessage] = useState<string>();
   const [error, setError] = useState<string>();
   const [captureValues, setCaptureValues] = useState<Record<string, string>>({});
-  const [proposalEdits, setProposalEdits] = useState<Record<string, string>>({});
   const [flagCategory, setFlagCategory] = useState('PHYSICAL_OBSERVATION');
   const [flagSeverity, setFlagSeverity] = useState('MEDIUM');
   const [flagSummary, setFlagSummary] = useState('');
@@ -187,8 +178,6 @@ export default function BookingWorkspacePage() {
     refetchOnReconnect: false,
   });
 
-  // Processing status is an initial/detail read only. Background progress is driven
-  // by the single workspace-processing loop below, avoiding a second 4-second poll.
   const processingQuery = useQuery({
     queryKey: ['uc03-booking-processing', project?.tenantId, journeyId],
     queryFn: () => getBookingProcessingStatus(project!.tenantId, journeyId!, accessToken),
@@ -260,11 +249,6 @@ export default function BookingWorkspacePage() {
       return next;
     });
   }, [workspaceQuery.data?.capture]);
-
-  const cleanProposals = useMemo(
-    () => workspaceQuery.data?.proposals.filter(isCleanProposal) ?? [],
-    [workspaceQuery.data?.proposals],
-  );
 
   if (!project || !journeyId) return null;
   const workspace = workspaceQuery.data;
@@ -342,7 +326,11 @@ export default function BookingWorkspacePage() {
     `${friendly(documentView.requirementKey)} assessment saved.`,
   );
 
-  const handleProposal = (proposal: ExtractionProposalView, mode: 'accept' | 'correct') => run(
+  const handleProposal = (
+    proposal: ExtractionProposalView,
+    mode: 'accept' | 'correct',
+    correctedValue?: string,
+  ) => run(
     () => decideExtractionProposal(
       project.tenantId,
       journeyId,
@@ -350,36 +338,12 @@ export default function BookingWorkspacePage() {
       mode,
       workspace!.aggregateVersion,
       accessToken,
-      proposalEdits[proposal.proposalId],
+      correctedValue,
     ),
-    mode === 'accept' ? 'Extracted value accepted.' : 'Correction saved with the original machine value retained.',
+    mode === 'accept'
+      ? 'Extracted value confirmed.'
+      : 'Correction saved with the original machine value retained.',
   );
-
-  const handleBulkAccept = async () => {
-    if (!workspace || cleanProposals.length === 0) return;
-    setBusy(true);
-    setError(undefined);
-    try {
-      let version = workspace.aggregateVersion;
-      for (const proposal of cleanProposals) {
-        const result = await decideExtractionProposal(
-          project.tenantId,
-          journeyId,
-          proposal.proposalId,
-          'accept',
-          version,
-          accessToken,
-        );
-        version = result.aggregateVersion;
-      }
-      setMessage(`${cleanProposals.length} clean extraction proposal${cleanProposals.length === 1 ? '' : 's'} accepted.`);
-      await refreshWorkspace();
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'Clean proposals could not be accepted.');
-    } finally {
-      setBusy(false);
-    }
-  };
 
   const handleFlag = () => run(
     () => createBookingFlag(
@@ -445,7 +409,7 @@ export default function BookingWorkspacePage() {
       <PageHeader
         eyebrow={`Booking audit · ${workspace.operatingRole}`}
         title={(workspace.capture.BOOKING_REFERENCE as string) || 'Booking reference pending'}
-        description="Upload evidence, continue PC capture while documents process, review extracted proposals, and conclude the Booking when the checkpoint is ready."
+        description="Upload evidence, continue PC capture while documents process, review extracted values against their source, and conclude the Booking when the checkpoint is ready."
       />
 
       <section className="uc03-c1-stage-strip" aria-label="Booking stage status">
@@ -558,60 +522,19 @@ export default function BookingWorkspacePage() {
             <header className="uc03-c1-section-heading">
               <div>
                 <span className="uc03-c1-eyebrow">3 · Review extraction</span>
-                <h2>Extracted proposals</h2>
-                <p>Machine values are proposals only. Accepting or correcting writes to the typed business owner and retains the original machine value, source and confidence.</p>
+                <h2>Compare source &amp; extracted value</h2>
+                <p>Review one field at a time. When DI provides source localization, the document opens on that page and images highlight the exact returned region. No location is guessed when DI cannot localize it.</p>
               </div>
-              {cleanProposals.length > 0 && (
-                <button type="button" className="uc03-c1-secondary" disabled={busy} onClick={() => void handleBulkAccept()}>
-                  Accept {cleanProposals.length} clean proposal{cleanProposals.length === 1 ? '' : 's'}
-                </button>
-              )}
             </header>
-            <div className="uc03-c1-proposal-list">
-              {workspace.proposals.map((proposal) => (
-                <article key={proposal.proposalId} className="uc03-c1-card uc03-c1-proposal-card">
-                  <header>
-                    <div>
-                      <span className="uc03-c1-eyebrow">{friendly(proposal.sourceDocumentTypeKey)}</span>
-                      <h3>{friendly(proposal.fieldKey)}</h3>
-                    </div>
-                    <div className="uc03-c1-status-stack">
-                      <StatusPill value={proposal.status} compact />
-                      <span>{confidenceLabel(proposal.confidence)}</span>
-                    </div>
-                  </header>
-                  <div className="uc03-c1-proposal-value">
-                    <span>Machine proposal</span>
-                    <strong>{displayValue(proposal.proposedValue) || 'No readable value'}</strong>
-                  </div>
-                  {proposal.status === 'PENDING' && proposal.canAccept && (
-                    <div className="uc03-c1-proposal-actions">
-                      <button type="button" disabled={busy} onClick={() => void handleProposal(proposal, 'accept')}>Accept</button>
-                      <input
-                        aria-label={`Correct ${proposal.fieldKey}`}
-                        placeholder="Correct value"
-                        value={proposalEdits[proposal.proposalId] ?? displayValue(proposal.proposedValue)}
-                        onChange={(event) => setProposalEdits((current) => ({ ...current, [proposal.proposalId]: event.target.value }))}
-                      />
-                      <button
-                        type="button"
-                        disabled={busy || !(proposalEdits[proposal.proposalId] ?? displayValue(proposal.proposedValue)).trim()}
-                        onClick={() => void handleProposal(proposal, 'correct')}
-                      >Save correction</button>
-                    </div>
-                  )}
-                  {proposal.status === 'PENDING' && !proposal.canAccept && (
-                    <p className="uc03-c1-muted">Review only — this value requires configured master resolution before it can become authoritative.</p>
-                  )}
-                  {(proposal.status === 'ACCEPTED' || proposal.status === 'CORRECTED') && (
-                    <p className="uc03-c1-muted">Accepted value: <strong>{displayValue(proposal.acceptedValue)}</strong></p>
-                  )}
-                </article>
-              ))}
-              {workspace.proposals.length === 0 && (
-                <div className="uc03-c1-empty">No extracted proposals yet. Continue working while uploaded documents process.</div>
-              )}
-            </div>
+            <DocumentFieldReview
+              tenantId={project.tenantId}
+              journeyId={journeyId}
+              accessToken={accessToken}
+              proposals={workspace.proposals}
+              disabled={busy || !active}
+              onAccept={(proposal) => handleProposal(proposal, 'accept')}
+              onCorrect={(proposal, value) => handleProposal(proposal, 'correct', value)}
+            />
           </section>
 
           <section className="uc03-c1-section uc03-c1-flags-section">

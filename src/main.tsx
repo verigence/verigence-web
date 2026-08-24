@@ -36,12 +36,14 @@ import './styles/final-mobile-sweep.css';
 import './styles/android-native.css';
 import './styles/uc03-c0.css';
 import './styles/uc03-c1.css';
+import './styles/uc03-c1-responsive-fixes.css';
 import './styles/uc03-c2.css';
 import './styles/uc03-c3.css';
 import './styles/auth-brand-emphasis.css';
 import './styles/project-admin-step1-fix.css';
 import './styles/uc02-project-admin-scroll-hotfix.css';
 import './styles/navigation-admin-landing.css';
+import './styles/scroll-foundation.css';
 
 import App from './App';
 import DiFieldViewerEnhancer from './features/di-test/DiFieldViewerEnhancer';

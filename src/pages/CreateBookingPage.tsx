@@ -38,13 +38,14 @@ export default function CreateBookingPage() {
   );
 
   if (!project) return null;
+  const activeProject = project;
 
   async function handleCreate() {
     setCreating(true);
     setError('');
     try {
       const result = await createBooking(
-        project.tenantId,
+        activeProject.tenantId,
         outlets.length === 1 ? undefined : selectedOutletId || undefined,
         accessToken,
       );
@@ -86,7 +87,7 @@ export default function CreateBookingPage() {
           <div className="section-card__header">
             <div>
               <h2>Booking Journey</h2>
-              <p>{project.projectName}</p>
+              <p>{activeProject.projectName}</p>
             </div>
           </div>
 
@@ -120,9 +121,7 @@ export default function CreateBookingPage() {
               )}
 
               {selectedOutlet && outlets.length > 1 && (
-                <div className="field-stack">
-                  <small>{selectedOutlet.outletClassification}</small>
-                </div>
+                <div className="field-stack"><small>{selectedOutlet.outletClassification}</small></div>
               )}
 
               {error && <div className="uc03-c1-feedback is-error" role="alert">{error}</div>}

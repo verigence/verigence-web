@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 
 import PageHeader from '../components/PageHeader';
 import StatusPill from '../components/StatusPill';
+import MahindraMasterUploads from '../features/project-admin/MahindraMasterUploads';
 import ProjectAdminStepper, { projectAdminSteps } from '../features/project-admin/ProjectAdminStepper';
 import ProjectReferenceFields from '../features/project-admin/ProjectReferenceFields';
 import ProjectSelector from '../features/project-admin/ProjectSelector';
@@ -45,6 +46,12 @@ import {
 import { auditCoreErrorMessage } from '../services/audit-core/errorMessage';
 import { useSessionStore } from '../store/sessionStore';
 
+const MAHINDRA_SEGMENT_CODES = new Set([
+  'PASSENGER_VEHICLE',
+  'COMMERCIAL',
+  'BATTERY_ELECTRIC',
+]);
+
 function randomKey(prefix: string) {
   const suffix = globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random()}`;
   return `${prefix}-${suffix}`;
@@ -80,7 +87,13 @@ function Field({ label, hint, children }: { label: string; hint?: string; childr
 }
 
 const emptyProjectForm = () => ({
-  projectName: '', oemId: '', productCategoryId: '', effectiveStartDate: '', effectiveEndDate: '', timezoneName: 'Asia/Kolkata', regionCode: '',
+  projectName: '',
+  oemId: '',
+  segmentIds: [] as string[],
+  effectiveStartDate: '',
+  effectiveEndDate: '',
+  timezoneName: 'Asia/Kolkata',
+  regionCode: '',
 });
 
 export default function ProjectAdministrationPage() {
@@ -125,6 +138,10 @@ export default function ProjectAdministrationPage() {
   const selectedMaster = useMemo(() => masters.find((item) => item.masterKey === selectedMasterKey) || null, [masters, selectedMasterKey]);
   const selectedCandidate = useMemo(() => candidates.find((item) => item.userId === selectedUserId) || null, [candidates, selectedUserId]);
   const currentStep = projectAdminSteps.find((item) => item.key === activeStep)!;
+  const isMahindraProject = Boolean(
+    project?.segments.length &&
+    project.segments.every((segment) => MAHINDRA_SEGMENT_CODES.has(segment.segmentCode)),
+  );
 
   const goToStep = (step: number) => setSearchParams({ step: String(step) });
   const clearFeedback = () => { setPageError(''); setNotice(''); };
@@ -170,7 +187,7 @@ export default function ProjectAdministrationPage() {
       setProjectForm({
         projectName: value.projectName,
         oemId: value.oemId,
-        productCategoryId: value.productCategoryId,
+        segmentIds: value.segments.map((segment) => segment.segmentId),
         effectiveStartDate: value.effectiveStartDate,
         effectiveEndDate: value.effectiveEndDate || '',
         timezoneName: value.timezoneName,
@@ -228,13 +245,13 @@ export default function ProjectAdministrationPage() {
         if ([3, 5].includes(activeStep)) await loadDealersAndOutlets();
         if ([4, 5].includes(activeStep)) setCandidates(await listRoleMappingCandidates(tenantId, '', accessToken));
         if (activeStep === 5) await loadMappings();
-        if (activeStep === 6) await loadMasters();
+        if (activeStep === 6 && !isMahindraProject) await loadMasters();
         if ([7, 8].includes(activeStep)) setReadiness(await getProjectReadiness(tenantId, accessToken));
       } catch (error) {
         setPageError(errorMessage(error));
       }
     })();
-  }, [activeStep, tenantId, accessToken]);
+  }, [activeStep, tenantId, accessToken, isMahindraProject]);
 
   async function submitProject(event: FormEvent) {
     event.preventDefault();
@@ -261,7 +278,7 @@ export default function ProjectAdministrationPage() {
           {
             projectName: projectForm.projectName.trim(),
             oemId: projectForm.oemId.trim(),
-            productCategoryId: projectForm.productCategoryId.trim(),
+            segmentIds: projectForm.segmentIds,
             effectiveStartDate: projectForm.effectiveStartDate,
             effectiveEndDate: projectForm.effectiveEndDate || null,
             timezoneName: projectForm.timezoneName.trim(),
@@ -498,10 +515,10 @@ export default function ProjectAdministrationPage() {
                 <Field label="Project Name"><input required value={projectForm.projectName} onChange={(event) => setProjectForm({ ...projectForm, projectName: event.target.value })} /></Field>
                 <ProjectReferenceFields
                   oemId={projectForm.oemId}
-                  productCategoryId={projectForm.productCategoryId}
+                  segmentIds={projectForm.segmentIds}
                   disabled={Boolean(project)}
-                  onOemChange={(oemId) => setProjectForm({ ...projectForm, oemId })}
-                  onProductCategoryChange={(productCategoryId) => setProjectForm({ ...projectForm, productCategoryId })}
+                  onOemChange={(oemId) => setProjectForm((current) => ({ ...current, oemId }))}
+                  onSegmentsChange={(segmentIds) => setProjectForm((current) => ({ ...current, segmentIds }))}
                   onError={setPageError}
                 />
                 <Field label="Effective Start"><input type="date" required disabled={Boolean(project)} value={projectForm.effectiveStartDate} onChange={(event) => setProjectForm({ ...projectForm, effectiveStartDate: event.target.value })} /></Field>
@@ -565,7 +582,15 @@ export default function ProjectAdministrationPage() {
           </div>
         )}
 
-        {activeStep === 6 && (
+        {activeStep === 6 && isMahindraProject && tenantId && project && (
+          <MahindraMasterUploads
+            tenantId={tenantId}
+            segments={project.segments}
+            onError={setPageError}
+          />
+        )}
+
+        {activeStep === 6 && !isMahindraProject && (
           <div className="uc02-master-layout">
             <aside className="uc02-card uc02-master-list"><div className="uc02-card__title"><h3>Master Catalogue</h3><p>Select a master to upload or manage its versions.</p></div>{masters.map((item) => <button key={`${item.ownerModule}-${item.masterKey}`} type="button" className={`uc02-master-list__item${selectedMasterKey === item.masterKey ? ' active' : ''}`} onClick={() => void changeMaster(item.masterKey)}><span><strong>{item.displayName}</strong><small>{item.administrationModes.includes('EXCEL') ? 'Excel supported' : 'Managed configuration'}</small></span><StatusPill value={item.lifecycleStatus || 'NOT_CONFIGURED'} compact /></button>)}</aside>
             <div className="uc02-card uc02-card--wide">

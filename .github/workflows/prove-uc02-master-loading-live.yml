@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - diagnose/uc02-master-loading-live
+  pull_request:
+    branches:
+      - dev
 
 jobs:
   prove:

@@ -1,0 +1,53 @@
+name: Prove UC02 Master Loading Live
+
+on:
+  push:
+    branches:
+      - diagnose/uc02-master-loading-live
+
+jobs:
+  prove:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Verify deployed Project Administration chunk
+        shell: bash
+        env:
+          DEV_WEB_URL: https://verigence-web-dev.jbrconsulting-it.workers.dev
+        run: |
+          set -euo pipefail
+          for attempt in $(seq 1 30); do
+            cache="proof=$(date +%s)-$attempt"
+            curl --fail --silent --show-error --location \
+              --header 'Cache-Control: no-cache' \
+              "$DEV_WEB_URL/login?$cache" -o /tmp/login.html
+            entry="$(grep -oE 'src="/assets/[^"]+\.js"' /tmp/login.html | head -n1 | sed -E 's/^src="([^"]+)"$/\1/')"
+            if [ -z "$entry" ]; then
+              echo "attempt=$attempt no entry asset yet"
+              sleep 10
+              continue
+            fi
+            curl --fail --silent --show-error --location \
+              --header 'Cache-Control: no-cache' \
+              "$DEV_WEB_URL$entry?$cache" -o /tmp/app.js
+            chunk="$(grep -oE 'ProjectAdministrationPage-[A-Za-z0-9_-]+\.js' /tmp/app.js | head -n1 || true)"
+            if [ -z "$chunk" ]; then
+              echo "attempt=$attempt Project Administration chunk not resolved"
+              sleep 10
+              continue
+            fi
+            curl --fail --silent --show-error --location \
+              --header 'Cache-Control: no-cache' \
+              "$DEV_WEB_URL/assets/$chunk?$cache" -o /tmp/project.js
+            if grep -q 'Loading Project Masters timed out' /tmp/project.js \
+              && grep -q 'Discount & Policy Master' /tmp/project.js; then
+              echo "WEB_MASTER_LOADING_FIX=PASS|attempt=$attempt|chunk=$chunk"
+              curl --fail --silent --show-error "$DEV_WEB_URL/audit-core/health" -o /tmp/audit-health.json
+              echo "AUDIT_CORE_PROXY_HEALTH=PASS|$(cat /tmp/audit-health.json)"
+              exit 0
+            fi
+            echo "attempt=$attempt stale Project Administration chunk=$chunk"
+            sleep 10
+          done
+          echo 'WEB_MASTER_LOADING_FIX=FAIL|deployment did not converge in time'
+          exit 1

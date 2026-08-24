@@ -40,7 +40,7 @@ const ActivityTrackerPage = lazy(() => import('./pages/ActivityTrackerPage'));
 const CrmPage = lazy(() => import('./pages/CrmPage'));
 const EscalationsPage = lazy(() => import('./pages/EscalationsPage'));
 const AnalyticsPage = lazy(() => import('./pages/AnalyticsPage'));
-const ProjectAdministrationPage = lazy(() => import('./pages/ProjectAdministrationPage'));
+const ProjectAdministrationPage = lazy(() => import('./pages/ProjectAdministrationV2Page'));
 const ProfilePage = lazy(() => import('./pages/ProfilePage'));
 
 const routerBase = import.meta.env.BASE_URL === '/' ? undefined : import.meta.env.BASE_URL.replace(/\/$/, '');

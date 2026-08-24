@@ -62,6 +62,14 @@ function SuperAdminPage({ children }: { children: ReactNode }) {
   return <PrivatePage>{children}</PrivatePage>;
 }
 
+function ProjectAdminPage({ children }: { children: ReactNode }) {
+  const role = useSessionStore((state) => state.role);
+  if (role !== 'SUPER_ADMIN' && role !== 'TENANT_ADMIN') {
+    return <Navigate to="/dashboard" replace />;
+  }
+  return <PrivatePage>{children}</PrivatePage>;
+}
+
 function DashboardEntry() {
   const role = useSessionStore((state) => state.role);
   const selectedProject = useProjectContextStore((state) => state.selectedProject);
@@ -140,7 +148,7 @@ export default function App() {
             <Route path="/admin/audit-rules" element={<SuperAdminPage><AdminConfigurationPage section="audit-rules" /></SuperAdminPage>} />
             <Route path="/admin/approval-workflow" element={<SuperAdminPage><AdminConfigurationPage section="approval-workflow" /></SuperAdminPage>} />
             <Route path="/admin/notifications" element={<SuperAdminPage><AdminConfigurationPage section="notifications" /></SuperAdminPage>} />
-            <Route path="/admin/project" element={<SuperAdminPage><ProjectAdministrationPage /></SuperAdminPage>} />
+            <Route path="/admin/project" element={<ProjectAdminPage><ProjectAdministrationPage /></ProjectAdminPage>} />
 
             <Route path="/approvals" element={<Navigate to="/admin/users/pending" replace />} />
             <Route path="/admin/project-provisioning" element={<Navigate to="/admin/project" replace />} />

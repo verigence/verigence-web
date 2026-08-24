@@ -18,13 +18,8 @@ const c0OperatingRoles: OperatingRole[] = ['PC', 'TL', 'PM', 'CRM', 'EXECUTIVE']
 const operational: ShellRole[] = [...c0OperatingRoles, 'TENANT_ADMIN', 'SUPER_ADMIN'];
 const assurance: ShellRole[] = ['TL', 'PM', 'EXECUTIVE', 'TENANT_ADMIN', 'SUPER_ADMIN'];
 const admin: ShellRole[] = ['TENANT_ADMIN', 'SUPER_ADMIN'];
-
-const projectAdministrationItem: NavItem = {
-  to: '/admin/project',
-  label: 'Project Administration',
-  mark: 'PA',
-  roles: admin,
-};
+const projectAdministrationItem: NavItem = { to: '/admin/project', label: 'Project Administration', mark: 'PA', roles: admin };
+const createBookingItem: NavItem = { to: '/dashboard?action=create-booking', label: 'Create Booking', mark: 'CB', roles: ['PC'] };
 
 const groups: NavGroup[] = [
   { key: 'workspace', label: 'Workspace', items: [
@@ -43,9 +38,7 @@ const groups: NavGroup[] = [
     { to: '/crm', label: 'CRM Follow-up', mark: 'CR', roles: ['CRM', 'PM', ...admin] },
     { to: '/escalations', label: 'Escalations', mark: 'ES', roles: ['TL', 'PM', 'CRM', 'EXECUTIVE', ...admin] },
   ] },
-  { key: 'insights', label: 'Insights', items: [
-    { to: '/analytics', label: 'Analytics', mark: 'AN', roles: ['TL', 'PM', 'EXECUTIVE', ...admin] },
-  ] },
+  { key: 'insights', label: 'Insights', items: [{ to: '/analytics', label: 'Analytics', mark: 'AN', roles: ['TL', 'PM', 'EXECUTIVE', ...admin] }] },
   { key: 'administration', label: 'Administration', items: [
     { to: '/admin/engagements', label: 'Engagements', mark: 'EN', roles: ['SUPER_ADMIN'] },
     { to: '/admin/document-intelligence', label: 'Document Intelligence', mark: 'DC', roles: ['SUPER_ADMIN'] },
@@ -65,17 +58,12 @@ const routeLabels: Record<string, string> = {
   '/reviews': 'Review Queue', '/evidence': 'Evidence', '/payments': 'Payment Tracker', '/findings': 'Findings',
   '/daily-ops': 'Daily Operations', '/activity': 'Activity Tracker', '/crm': 'CRM Follow-up', '/escalations': 'Escalations',
   '/analytics': 'Analytics', '/admin/engagements': 'Engagements', '/admin/document-intelligence': 'Document Intelligence Configuration',
-  '/admin/di-test': 'DI Test Console', '/admin/users': 'Users',
-  '/admin/users/pending': 'Pending Approvals', '/admin/activity-log': 'User Activity Log',
-  '/admin/roles-permissions': 'Roles & Permissions', '/admin/audit-rules': 'Audit Rule Config',
-  '/admin/approval-workflow': 'Approval Workflow Config', '/admin/notifications': 'Notification Settings',
-  '/admin/project': 'Project Administration', '/profile': 'Profile',
+  '/admin/di-test': 'DI Test Console', '/admin/users': 'Users', '/admin/users/pending': 'Pending Approvals',
+  '/admin/activity-log': 'User Activity Log', '/admin/roles-permissions': 'Roles & Permissions', '/admin/audit-rules': 'Audit Rule Config',
+  '/admin/approval-workflow': 'Approval Workflow Config', '/admin/notifications': 'Notification Settings', '/admin/project': 'Project Administration', '/profile': 'Profile',
 };
 
-const roleLabels: Record<ShellRole, string> = {
-  PC: 'Process Coordinator', TL: 'Team Lead', PM: 'Project Manager', CRM: 'CRM', EXECUTIVE: 'Executive',
-  TENANT_ADMIN: 'Tenant Admin', SUPER_ADMIN: 'SuperAdmin',
-};
+const roleLabels: Record<ShellRole, string> = { PC: 'Process Coordinator', TL: 'Team Lead', PM: 'Project Manager', CRM: 'CRM', EXECUTIVE: 'Executive', TENANT_ADMIN: 'Tenant Admin', SUPER_ADMIN: 'SuperAdmin' };
 
 function initials(name: string): string {
   const tokens = name.trim().split(/\s+/).filter(Boolean);
@@ -99,127 +87,53 @@ export default function AppShell({ children }: PropsWithChildren) {
   const diTestAvailable = isDiTestConsoleAvailable();
   const visibleGroups = useMemo<NavGroup[]>(() => {
     if (!c0OperationalShell) return groups;
-    const workspaceGroup: NavGroup = {
-      key: 'workspace',
-      label: 'Workspace',
-      items: [{ to: '/dashboard', label: 'Overview', mark: 'OV', roles: c0OperatingRoles }],
-    };
+    const workspaceItems: NavItem[] = [{ to: '/dashboard', label: 'Overview', mark: 'OV', roles: c0OperatingRoles }];
+    if (role === 'PC') workspaceItems.push(createBookingItem);
+    const workspaceGroup: NavGroup = { key: 'workspace', label: 'Workspace', items: workspaceItems };
     if (sessionRole !== 'TENANT_ADMIN') return [workspaceGroup];
-    return [
-      workspaceGroup,
-      { key: 'administration', label: 'Administration', items: [projectAdministrationItem] },
-    ];
-  }, [c0OperationalShell, sessionRole]);
+    return [workspaceGroup, { key: 'administration', label: 'Administration', items: [projectAdministrationItem] }];
+  }, [c0OperationalShell, role, sessionRole]);
 
-  const activeGroupKey = useMemo(() => {
-    return visibleGroups.find((group) => group.items.some((item) => location.pathname === item.to || location.pathname.startsWith(`${item.to}/`)))?.key
-      ?? visibleGroups[0]?.key
-      ?? 'workspace';
-  }, [location.pathname, visibleGroups]);
+  const activeGroupKey = useMemo(() => visibleGroups.find((group) => group.items.some((item) => location.pathname === item.to.split('?')[0] || location.pathname.startsWith(`${item.to.split('?')[0]}/`)))?.key ?? visibleGroups[0]?.key ?? 'workspace', [location.pathname, visibleGroups]);
   const [openGroup, setOpenGroup] = useState(activeGroupKey);
 
-  useEffect(() => {
-    setMobileMenuOpen(false);
-    setOpenGroup(activeGroupKey);
-  }, [activeGroupKey, location.pathname]);
-
+  useEffect(() => { setMobileMenuOpen(false); setOpenGroup(activeGroupKey); }, [activeGroupKey, location.pathname]);
   useEffect(() => {
     if (!mobileMenuOpen) return undefined;
     const onKeyDown = (event: KeyboardEvent) => { if (event.key === 'Escape') setMobileMenuOpen(false); };
     document.addEventListener('keydown', onKeyDown);
     return () => document.removeEventListener('keydown', onKeyDown);
   }, [mobileMenuOpen]);
-
   useEffect(() => {
-    const onAndroidBack = (event: Event) => {
-      if (!mobileMenuOpen) return;
-      event.preventDefault();
-      setMobileMenuOpen(false);
-    };
+    const onAndroidBack = (event: Event) => { if (!mobileMenuOpen) return; event.preventDefault(); setMobileMenuOpen(false); };
     window.addEventListener(ANDROID_BACK_EVENT, onAndroidBack);
     return () => window.removeEventListener(ANDROID_BACK_EVENT, onAndroidBack);
   }, [mobileMenuOpen]);
 
   const handleSignOut = () => { resetOperationalContext(queryClient); signOut(); navigate('/login'); };
-  const handleSwitchProject = () => {
-    clearOperationalProject(queryClient);
-    setMobileMenuOpen(false);
-    navigate('/dashboard', { replace: true });
-  };
-
-  const currentLabel = routeLabels[location.pathname]
-    ?? location.pathname.split('/').filter(Boolean).at(-1)?.replaceAll('-', ' ')
-    ?? 'Overview';
+  const handleSwitchProject = () => { clearOperationalProject(queryClient); setMobileMenuOpen(false); navigate('/dashboard', { replace: true }); };
+  const createMode = location.pathname === '/dashboard' && new URLSearchParams(location.search).get('action') === 'create-booking';
+  const currentLabel = createMode ? 'Create Booking' : routeLabels[location.pathname] ?? location.pathname.split('/').filter(Boolean).at(-1)?.replaceAll('-', ' ') ?? 'Overview';
   const visibleName = displayName || 'User';
   const roleLabel = roleLabels[role];
   const avatarText = initials(visibleName);
-
-  const canSeeItem = (item: NavItem) => {
-    if (item.devOnly && !diTestAvailable) return false;
-    if (!item.roles) return true;
-    if (item.to === '/admin/project' && sessionRole === 'TENANT_ADMIN') return true;
-    return item.roles.includes(role);
-  };
+  const canSeeItem = (item: NavItem) => { if (item.devOnly && !diTestAvailable) return false; if (!item.roles) return true; if (item.to === '/admin/project' && sessionRole === 'TENANT_ADMIN') return true; return item.roles.includes(role); };
 
   return (
     <div className={`enterprise-shell${mobileMenuOpen ? ' enterprise-shell--menu-open' : ''}`}>
       <button type="button" className="enterprise-mobile-backdrop" aria-label="Close navigation" onClick={() => setMobileMenuOpen(false)} />
-
       <aside className={`enterprise-sidebar${mobileMenuOpen ? ' enterprise-sidebar--open' : ''}`} aria-label="Application navigation">
-        <div className="enterprise-sidebar__mobile-head">
-          <NavLink className="enterprise-brand" to="/dashboard" aria-label="Verigence home"><img src={verigenceLockup} alt="Verigence" /></NavLink>
-          <button type="button" className="enterprise-sidebar__close" aria-label="Close navigation" onClick={() => setMobileMenuOpen(false)}>×</button>
-        </div>
-        {selectedProject && (
-          <div className="uc03-shell-project">
-            <span>Current Project</span><strong>{selectedProject.projectName}</strong><small>{roleLabel}</small>
-            {projects.length > 1 && <button type="button" onClick={handleSwitchProject}>Switch Project</button>}
-          </div>
-        )}
+        <div className="enterprise-sidebar__mobile-head"><NavLink className="enterprise-brand" to="/dashboard" aria-label="Verigence home"><img src={verigenceLockup} alt="Verigence" /></NavLink><button type="button" className="enterprise-sidebar__close" aria-label="Close navigation" onClick={() => setMobileMenuOpen(false)}>×</button></div>
+        {selectedProject && <div className="uc03-shell-project"><span>Current Project</span><strong>{selectedProject.projectName}</strong><small>{roleLabel}</small>{projects.length > 1 && <button type="button" onClick={handleSwitchProject}>Switch Project</button>}</div>}
         <nav className="enterprise-nav enterprise-nav--accordion" aria-label="Primary navigation">
           {visibleGroups.map((group) => {
-            const items = group.items.filter(canSeeItem);
-            if (items.length === 0) return null;
-            const expanded = openGroup === group.key;
-            return (
-              <div className={`enterprise-nav__group enterprise-nav__group--accordion${expanded ? ' is-open' : ''}`} key={group.key}>
-                <button
-                  type="button"
-                  className="enterprise-nav__group-toggle"
-                  aria-expanded={expanded}
-                  onClick={() => setOpenGroup((current) => current === group.key ? '' : group.key)}
-                >
-                  <span>{group.label}</span><span className="enterprise-nav__chevron" aria-hidden="true">⌄</span>
-                </button>
-                <div className="enterprise-nav__group-items" hidden={!expanded}>
-                  {items.map((item) => (
-                    <NavLink key={item.to} to={item.to} className={({ isActive }) => `enterprise-nav__item${isActive ? ' enterprise-nav__item--active' : ''}`}>
-                      <span className="enterprise-nav__mark">{item.mark}</span><span>{item.label}</span>
-                    </NavLink>
-                  ))}
-                </div>
-              </div>
-            );
+            const items = group.items.filter(canSeeItem); if (!items.length) return null; const expanded = openGroup === group.key;
+            return <div className={`enterprise-nav__group enterprise-nav__group--accordion${expanded ? ' is-open' : ''}`} key={group.key}><button type="button" className="enterprise-nav__group-toggle" aria-expanded={expanded} onClick={() => setOpenGroup((current) => current === group.key ? '' : group.key)}><span>{group.label}</span><span className="enterprise-nav__chevron" aria-hidden="true">⌄</span></button><div className="enterprise-nav__group-items" hidden={!expanded}>{items.map((item) => <NavLink key={item.to} to={item.to} className={({ isActive }) => `enterprise-nav__item${isActive && (!item.to.includes('?') || createMode) ? ' enterprise-nav__item--active' : ''}`}><span className="enterprise-nav__mark">{item.mark}</span><span>{item.label}</span></NavLink>)}</div></div>;
           })}
         </nav>
       </aside>
-
       <div className="enterprise-main">
-        <header className="enterprise-topbar">
-          <div className="enterprise-topbar__mobile-start">
-            <button type="button" className="enterprise-menu-button" aria-label="Open navigation" aria-expanded={mobileMenuOpen} onClick={() => setMobileMenuOpen(true)}><span aria-hidden="true">☰</span></button>
-            <NavLink className="enterprise-mobile-brand" to="/dashboard" aria-label="Verigence home"><img src={verigenceLockup} alt="Verigence" /></NavLink>
-          </div>
-          <div className="enterprise-topbar__trail"><span>{selectedProject?.projectName || 'Verigence'}</span><span>/</span><strong>{currentLabel}</strong></div>
-          <div className="enterprise-topbar__actions">
-            {selectedProject && projects.length > 1 && <button type="button" className="uc03-switch-project-topbar" onClick={handleSwitchProject}>Switch Project</button>}
-            <NavLink to="/profile" className="enterprise-topbar__identity" aria-label="Open profile">
-              <span className="enterprise-topbar__avatar">{avatarText}</span>
-              <span className="enterprise-topbar__identity-copy"><strong>{visibleName}</strong><small>{roleLabel}</small></span>
-            </NavLink>
-            <button type="button" className="user-menu-button" onClick={handleSignOut}>Sign out</button>
-          </div>
-        </header>
+        <header className="enterprise-topbar"><div className="enterprise-topbar__mobile-start"><button type="button" className="enterprise-menu-button" aria-label="Open navigation" aria-expanded={mobileMenuOpen} onClick={() => setMobileMenuOpen(true)}><span aria-hidden="true">☰</span></button><NavLink className="enterprise-mobile-brand" to="/dashboard" aria-label="Verigence home"><img src={verigenceLockup} alt="Verigence" /></NavLink></div><div className="enterprise-topbar__trail"><span>{selectedProject?.projectName || 'Verigence'}</span><span>/</span><strong>{currentLabel}</strong></div><div className="enterprise-topbar__actions">{selectedProject && projects.length > 1 && <button type="button" className="uc03-switch-project-topbar" onClick={handleSwitchProject}>Switch Project</button>}<NavLink to="/profile" className="enterprise-topbar__identity" aria-label="Open profile"><span className="enterprise-topbar__avatar">{avatarText}</span><span className="enterprise-topbar__identity-copy"><strong>{visibleName}</strong><small>{roleLabel}</small></span></NavLink><button type="button" className="user-menu-button" onClick={handleSignOut}>Sign out</button></div></header>
         <main className="enterprise-content">{children}</main>
       </div>
     </div>

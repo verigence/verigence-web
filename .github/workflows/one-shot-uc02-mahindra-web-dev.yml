@@ -62,7 +62,21 @@ jobs:
           grep -q 'Vehicle & Price Master' /tmp/app.js
           grep -q 'Discount & Policy Master' /tmp/app.js
           echo 'UC02_MAHINDRA_DEPLOYED_BUNDLE=PASS'
-      - name: Record success and self-clean
+
+  evidence:
+    if: always()
+    needs: deploy-and-verify
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: dev
+          fetch-depth: 0
+      - name: Record result and self-clean
+        env:
+          DEPLOY_RESULT: ${{ needs.deploy-and-verify.result }}
         shell: bash
         run: |
           set -euo pipefail
@@ -70,15 +84,15 @@ jobs:
           cat > docs/deployments/UC02_MAHINDRA_WEB_DEV_LATEST.md <<EOF
           # UC02 Mahindra Web DEV
 
-          - result: PASS
-          - deployed_source_sha: $GITHUB_SHA
+          - result: $DEPLOY_RESULT
+          - source_sha: $GITHUB_SHA
           - run_id: $GITHUB_RUN_ID
-          - verified_markers: Passenger Vehicle, Battery Electric, Vehicle & Price Master, Discount & Policy Master
+          - expected_markers: Passenger Vehicle, Battery Electric, Vehicle & Price Master, Discount & Policy Master
           EOF
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git rm .github/workflows/one-shot-uc02-mahindra-web-dev.yml
           git add docs/deployments/UC02_MAHINDRA_WEB_DEV_LATEST.md
-          git commit -m 'docs(dev): record UC02 Mahindra Web deployment [skip ci]'
+          git commit -m 'docs(dev): record UC02 Mahindra Web deployment result [skip ci]'
           git pull --rebase origin dev
           git push origin HEAD:dev

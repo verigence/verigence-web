@@ -99,18 +99,14 @@ function WorkItemCard({ item, timezoneName }: { item: Uc03WorkItem; timezoneName
           )}
         </div>
         <div className="uc03-work-card__actions">
-          <Link className="uc03-c1-secondary" to={`/bookings/${item.journeyId}`}>
-            Open Booking
-          </Link>
+          <Link className="uc03-c1-secondary" to={`/bookings/${item.journeyId}`}>Open Booking</Link>
           {deliveryEligible && (
             <Link className="uc03-c1-secondary" to={`/deliveries/${item.journeyId}`}>
               {item.delivery.businessStatus ? 'Open Delivery' : 'Start Delivery'}
             </Link>
           )}
           {(item.booking.businessStatus || item.delivery.businessStatus || item.totalFlagCount > 0) && (
-            <Link className="uc03-c1-secondary" to={`/audit/${item.journeyId}`}>
-              Audit &amp; History
-            </Link>
+            <Link className="uc03-c1-secondary" to={`/audit/${item.journeyId}`}>Audit &amp; History</Link>
           )}
         </div>
       </footer>
@@ -122,39 +118,44 @@ export default function DashboardPage() {
   const [searchParams] = useSearchParams();
   const project = useProjectContextStore((state) => state.selectedProject);
   const accessToken = useSessionStore((state) => state.accessToken);
+  const outletId = useSessionStore((state) => state.outletId);
   const [workType, setWorkType] = useState<Uc03WorkType>('ALL');
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
   const [cursor, setCursor] = useState<string>();
   const [previousCursors, setPreviousCursors] = useState<Array<string | undefined>>([]);
 
+  const selectedOutlet = project?.scope.outlets.find((outlet) => outlet.outletId === outletId);
+  const pcContextReady = project?.operatingRole !== 'PC' || Boolean(outletId);
+
   useEffect(() => {
     setCursor(undefined);
     setPreviousCursors([]);
-  }, [project?.tenantId, workType, fromDate, toDate]);
+  }, [project?.tenantId, outletId, workType, fromDate, toDate]);
 
   const metricsQuery = useQuery({
-    queryKey: ['uc03-landing-metrics', project?.tenantId],
-    queryFn: () => getUc03LandingMetrics(project!.tenantId, accessToken),
-    enabled: Boolean(project?.tenantId && accessToken),
+    queryKey: ['uc03-landing-metrics', project?.tenantId, outletId],
+    queryFn: () => getUc03LandingMetrics(project!.tenantId, outletId || undefined, accessToken),
+    enabled: Boolean(project?.tenantId && accessToken && pcContextReady),
     retry: 1,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
   });
 
   const workQuery = useQuery({
-    queryKey: ['uc03-work-items', project?.tenantId, workType, fromDate, toDate, cursor],
+    queryKey: ['uc03-work-items', project?.tenantId, outletId, workType, fromDate, toDate, cursor],
     queryFn: () => listUc03WorkItems(
       project!.tenantId,
       {
         workType,
         fromDate: fromDate || undefined,
         toDate: toDate || undefined,
+        outletId: outletId || undefined,
         cursor,
       },
       accessToken,
     ),
-    enabled: Boolean(project?.tenantId && accessToken),
+    enabled: Boolean(project?.tenantId && accessToken && pcContextReady),
     retry: 1,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
@@ -166,9 +167,12 @@ export default function DashboardPage() {
   }
 
   const metrics = metricsQuery.data;
+  const scopeDetail = selectedOutlet
+    ? `${selectedOutlet.dealerName} · ${selectedOutlet.outletName}`
+    : 'Current authorized Project scope';
   const metricCards = [
-    { label: 'Bookings In Progress', value: metrics ? String(metrics.bookingsInProgress) : '—', detail: 'Current authorized Project scope' },
-    { label: 'Delivery In Progress', value: metrics ? String(metrics.deliveryInProgress) : '—', detail: 'Current authorized Project scope' },
+    { label: 'Bookings In Progress', value: metrics ? String(metrics.bookingsInProgress) : '—', detail: scopeDetail },
+    { label: 'Delivery In Progress', value: metrics ? String(metrics.deliveryInProgress) : '—', detail: scopeDetail },
     { label: 'Needs Attention', value: metrics ? String(metrics.needsAttention) : '—', detail: 'Cases with an open or acknowledged Audit Flag' },
     { label: 'Audit Flags', value: metrics ? String(metrics.auditFlags) : '—', detail: 'Open and acknowledged flags in your scope' },
   ];
@@ -196,7 +200,9 @@ export default function DashboardPage() {
       <PageHeader
         eyebrow={`${roleLabels[project.operatingRole]} · ${project.projectCode}`}
         title={project.projectName}
-        description="Booking and Delivery work for your current Project and authorized business scope."
+        description={selectedOutlet
+          ? `Booking and Delivery work for ${selectedOutlet.dealerName} · ${selectedOutlet.outletName}.`
+          : 'Booking and Delivery work for your current Project and authorized business scope.'}
       />
 
       {metricsQuery.isError ? (
@@ -217,7 +223,7 @@ export default function DashboardPage() {
       <section className="uc03-work-list" aria-labelledby="uc03-work-list-title">
         <header className="uc03-work-list__heading">
           <div>
-            <span>Current Project</span>
+            <span>{selectedOutlet ? 'Current Outlet' : 'Current Project'}</span>
             <h2 id="uc03-work-list-title">Latest Bookings &amp; Deliveries</h2>
             <p>Latest meaningful activity first. Up to 10 transactions are loaded at a time.</p>
           </div>
@@ -246,19 +252,13 @@ export default function DashboardPage() {
             <input type="date" value={toDate} onChange={(event) => setToDate(event.target.value)} />
           </label>
           {(fromDate || toDate) && (
-            <button
-              type="button"
-              className="uc03-clear-filter"
-              onClick={() => { setFromDate(''); setToDate(''); }}
-            >
+            <button type="button" className="uc03-clear-filter" onClick={() => { setFromDate(''); setToDate(''); }}>
               Clear dates
             </button>
           )}
         </div>
 
-        {invalidDateRange && (
-          <p className="uc03-filter-error" role="alert">From date must be on or before To date.</p>
-        )}
+        {invalidDateRange && <p className="uc03-filter-error" role="alert">From date must be on or before To date.</p>}
 
         {!invalidDateRange && workQuery.isError && (
           <section className="dashboard-load-state" role="alert">

@@ -4,7 +4,11 @@ import { useNavigate } from 'react-router-dom';
 
 import { verigenceLockup } from '../assets/verigenceLockup';
 import type { OperatingRole } from '../domain/models';
-import { resetOperationalContext, selectOperationalProject } from '../features/uc03/projectContext';
+import {
+  resetOperationalContext,
+  selectOperationalOutlet,
+  selectOperationalProject,
+} from '../features/uc03/projectContext';
 import { listMyOperationalProjects } from '../services/audit-core/uc03';
 import { useProjectContextStore } from '../store/projectContextStore';
 import { useSessionStore } from '../store/sessionStore';
@@ -19,6 +23,7 @@ const roleLabels: Record<OperatingRole, string> = {
 
 export default function ProjectContextGate({ children }: PropsWithChildren) {
   const accessToken = useSessionStore((state) => state.accessToken);
+  const outletId = useSessionStore((state) => state.outletId);
   const signOut = useSessionStore((state) => state.signOut);
   const projects = useProjectContextStore((state) => state.projects);
   const selectedProject = useProjectContextStore((state) => state.selectedProject);
@@ -42,6 +47,16 @@ export default function ProjectContextGate({ children }: PropsWithChildren) {
       selectOperationalProject(projectQuery.data[0], queryClient);
     }
   }, [projectQuery.data, queryClient, selectedProject, setProjects]);
+
+  useEffect(() => {
+    if (!selectedProject || selectedProject.operatingRole !== 'PC') return;
+    const onlyOutlet = selectedProject.scope.outlets.length === 1
+      ? selectedProject.scope.outlets[0]
+      : undefined;
+    if (onlyOutlet && outletId !== onlyOutlet.outletId) {
+      selectOperationalOutlet(selectedProject, onlyOutlet, queryClient);
+    }
+  }, [outletId, queryClient, selectedProject]);
 
   const handleSignOut = () => {
     resetOperationalContext(queryClient);
@@ -118,6 +133,58 @@ export default function ProjectContextGate({ children }: PropsWithChildren) {
                 <span className="uc03-project-card__meta">
                   <strong>{roleLabels[project.operatingRole]}</strong>
                   <small>{project.timezoneName}</small>
+                </span>
+                <span className="uc03-project-card__arrow" aria-hidden="true">→</span>
+              </button>
+            ))}
+          </div>
+          <button type="button" className="user-menu-button" onClick={handleSignOut}>Sign out</button>
+        </section>
+      </main>
+    );
+  }
+
+  if (selectedProject.operatingRole === 'PC' && selectedProject.scope.outlets.length === 0) {
+    return (
+      <main className="uc03-project-gate">
+        <section className="uc03-project-gate__panel" role="alert">
+          <img src={verigenceLockup} alt="Verigence" />
+          <h1>No active Outlet is assigned to you.</h1>
+          <p>Your Process Coordinator role must be mapped to at least one active Dealer Outlet.</p>
+          <button type="button" className="user-menu-button" onClick={handleSignOut}>Sign out</button>
+        </section>
+      </main>
+    );
+  }
+
+  const selectedOutletIsValid = selectedProject.operatingRole !== 'PC'
+    || selectedProject.scope.outlets.some((outlet) => outlet.outletId === outletId);
+
+  if (selectedProject.operatingRole === 'PC' && !selectedOutletIsValid) {
+    return (
+      <main className="uc03-project-gate">
+        <section className="uc03-project-gate__panel uc03-project-gate__panel--wide">
+          <img src={verigenceLockup} alt="Verigence" />
+          <header className="uc03-project-gate__heading">
+            <span>{selectedProject.projectName}</span>
+            <h1>Choose Outlet</h1>
+            <p>Select the Dealer Outlet you want to work in. Your dashboard and new Bookings will use this Outlet.</p>
+          </header>
+          <div className="uc03-project-list">
+            {selectedProject.scope.outlets.map((outlet) => (
+              <button
+                type="button"
+                className="uc03-project-card"
+                key={outlet.outletId}
+                onClick={() => selectOperationalOutlet(selectedProject, outlet, queryClient)}
+              >
+                <span>
+                  <strong>{outlet.outletName}</strong>
+                  <small>{outlet.dealerName}</small>
+                </span>
+                <span className="uc03-project-card__meta">
+                  <strong>{outlet.outletClassification}</strong>
+                  <small>Process Coordinator</small>
                 </span>
                 <span className="uc03-project-card__arrow" aria-hidden="true">→</span>
               </button>

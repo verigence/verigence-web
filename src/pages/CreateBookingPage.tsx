@@ -1,12 +1,8 @@
-import { useEffect, useMemo, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 import PageHeader from '../components/PageHeader';
-import {
-  createBooking,
-  getCreateBookingContext,
-} from '../services/audit-core/uc03CreateBooking';
+import { createBooking } from '../services/audit-core/uc03CreateBooking';
 import { useProjectContextStore } from '../store/projectContextStore';
 import { useSessionStore } from '../store/sessionStore';
 
@@ -14,41 +10,27 @@ export default function CreateBookingPage() {
   const navigate = useNavigate();
   const project = useProjectContextStore((state) => state.selectedProject);
   const accessToken = useSessionStore((state) => state.accessToken);
-  const [selectedOutletId, setSelectedOutletId] = useState('');
+  const outletId = useSessionStore((state) => state.outletId);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState('');
 
-  const contextQuery = useQuery({
-    queryKey: ['uc03-create-booking-context', project?.tenantId],
-    queryFn: () => getCreateBookingContext(project!.tenantId, accessToken),
-    enabled: Boolean(project?.tenantId && accessToken),
-    retry: 1,
-    refetchOnWindowFocus: false,
-  });
-
-  const outlets = contextQuery.data?.outlets || [];
-
-  useEffect(() => {
-    if (outlets.length === 1) setSelectedOutletId(outlets[0].outletId);
-  }, [outlets]);
-
   const selectedOutlet = useMemo(
-    () => outlets.find((item) => item.outletId === selectedOutletId),
-    [outlets, selectedOutletId],
+    () => project?.scope.outlets.find((outlet) => outlet.outletId === outletId),
+    [outletId, project?.scope.outlets],
   );
 
   if (!project) return null;
   const activeProject = project;
 
   async function handleCreate() {
+    if (!outletId) {
+      setError('Choose your working Outlet before creating a Booking.');
+      return;
+    }
     setCreating(true);
     setError('');
     try {
-      const result = await createBooking(
-        activeProject.tenantId,
-        outlets.length === 1 ? undefined : selectedOutletId || undefined,
-        accessToken,
-      );
+      const result = await createBooking(activeProject.tenantId, outletId, accessToken);
       navigate(`/bookings/${result.journeyId}`, { replace: true });
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'The Booking could not be created.');
@@ -62,84 +44,47 @@ export default function CreateBookingPage() {
       <PageHeader
         eyebrow="Process Coordinator"
         title="Create Booking"
-        description="Create a new Booking Journey for the current Project. Customer and Booking details can be captured from evidence or entered in the Booking workspace."
+        description="Create a new Booking Journey in your current working Outlet. Booking details will be captured from evidence in the Booking workspace."
       />
 
-      {contextQuery.isPending && (
-        <div className="dashboard-load-state" role="status">
-          <div className="dashboard-load-state__copy"><strong>Loading your authorized outlet…</strong></div>
+      <section className="section-card">
+        <div className="section-card__header">
+          <div>
+            <h2>Booking Journey</h2>
+            <p>{activeProject.projectName}</p>
+          </div>
         </div>
-      )}
 
-      {contextQuery.isError && (
-        <section className="dashboard-load-state" role="alert">
-          <div className="dashboard-load-state__mark">!</div>
-          <div className="dashboard-load-state__copy">
-            <strong>Create Booking is not available.</strong>
-            <p>{contextQuery.error instanceof Error ? contextQuery.error.message : 'Please try again.'}</p>
+        {!selectedOutlet ? (
+          <div className="dashboard-load-state" role="alert">
+            <div className="dashboard-load-state__copy">
+              <strong>No working Outlet is selected.</strong>
+              <p>Return to the Project context and choose the Outlet you want to work in.</p>
+            </div>
           </div>
-          <button type="button" className="user-menu-button" onClick={() => contextQuery.refetch()}>Try Again</button>
-        </section>
-      )}
+        ) : (
+          <div className="form-stack">
+            <div className="field-stack">
+              <span>Working Outlet</span>
+              <strong>{selectedOutlet.dealerName} · {selectedOutlet.outletName}</strong>
+              <small>{selectedOutlet.outletClassification}</small>
+            </div>
 
-      {contextQuery.data && (
-        <section className="section-card">
-          <div className="section-card__header">
+            {error && <div className="uc03-c1-feedback is-error" role="alert">{error}</div>}
+
             <div>
-              <h2>Booking Journey</h2>
-              <p>{activeProject.projectName}</p>
+              <button
+                type="button"
+                className="uc03-c1-primary"
+                disabled={creating}
+                onClick={() => void handleCreate()}
+              >
+                {creating ? 'Creating Booking…' : 'Create Booking'}
+              </button>
             </div>
           </div>
-
-          {outlets.length === 0 ? (
-            <div className="dashboard-load-state" role="alert">
-              <div className="dashboard-load-state__copy">
-                <strong>No authorized outlet is available.</strong>
-                <p>Your Process Coordinator assignment must include an active outlet.</p>
-              </div>
-            </div>
-          ) : (
-            <div className="form-stack">
-              {outlets.length === 1 ? (
-                <div className="field-stack">
-                  <span>Outlet</span>
-                  <strong>{outlets[0].dealerName} · {outlets[0].outletName}</strong>
-                  <small>{outlets[0].outletClassification}</small>
-                </div>
-              ) : (
-                <label className="field-stack">
-                  <span>Outlet</span>
-                  <select value={selectedOutletId} onChange={(event) => setSelectedOutletId(event.target.value)}>
-                    <option value="">Select outlet</option>
-                    {outlets.map((outlet) => (
-                      <option key={outlet.outletId} value={outlet.outletId}>
-                        {outlet.dealerName} · {outlet.outletName}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              )}
-
-              {selectedOutlet && outlets.length > 1 && (
-                <div className="field-stack"><small>{selectedOutlet.outletClassification}</small></div>
-              )}
-
-              {error && <div className="uc03-c1-feedback is-error" role="alert">{error}</div>}
-
-              <div>
-                <button
-                  type="button"
-                  className="uc03-c1-primary"
-                  disabled={creating || (outlets.length > 1 && !selectedOutletId)}
-                  onClick={() => void handleCreate()}
-                >
-                  {creating ? 'Creating Booking…' : 'Create Booking'}
-                </button>
-              </div>
-            </div>
-          )}
-        </section>
-      )}
+        )}
+      </section>
     </div>
   );
 }

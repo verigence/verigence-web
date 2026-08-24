@@ -19,7 +19,6 @@ import {
   getProjectReadiness,
   listDealersAdmin,
   listMasterVersions,
-  listOutletsAdmin,
   listProjectMasters,
   listRoleMappingCandidates,
   listRoleMappings,
@@ -53,6 +52,7 @@ import {
   listMasterImportRows,
   type MasterImportRow,
 } from '../services/audit-core/uc02MasterImports';
+import { deleteConfiguringDealerSetup, listProjectOutlets } from '../services/audit-core/uc02Stabilization';
 import { auditCoreErrorMessage } from '../services/audit-core/errorMessage';
 import { useSessionStore } from '../store/sessionStore';
 
@@ -61,6 +61,7 @@ const MAHINDRA_SEGMENT_CODES = new Set([
   'COMMERCIAL',
   'BATTERY_ELECTRIC',
 ]);
+const MAHINDRA_SPECIALIZED_MASTER_KEYS = new Set(['PRODUCT_MASTER', 'PRICE_LIST', 'DISCOUNT_SCHEME']);
 
 type DealerEditor = { mode: 'new' } | { mode: 'edit'; item: DealerAdmin } | null;
 type OutletEditor = { mode: 'new' } | { mode: 'edit'; item: OutletAdmin } | null;
@@ -107,12 +108,24 @@ function dependencySummary(dependencies: Record<string, number>) {
 }
 
 function targetStepForCheck(check: ReadinessCheck): number | null {
-  const value = `${check.area} ${check.checkKey} ${check.targetTask}`.toUpperCase();
+  const exact: Record<string, number> = {
+    PROJECT_DETAILS: 1,
+    DEALERS: 2,
+    DEALER_OUTLETS: 3,
+    EMPLOYEES: 4,
+    ROLE_MAPPING: 5,
+    PROJECT_MASTERS: 6,
+    DOCUMENT_INTELLIGENCE: 6,
+  };
+  const targetTask = check.targetTask.toUpperCase();
+  if (exact[targetTask]) return exact[targetTask];
+
+  const value = `${check.area} ${check.checkKey}`.toUpperCase();
+  if (value.includes('ROLE') || value.includes('MAPPING') || value.includes('TEAM') || value.includes('PC_COVERAGE')) return 5;
+  if (value.includes('MASTER') || value.includes('POLICY') || value.includes('PRICE') || value.includes('PRODUCT') || value.includes('DI_')) return 6;
   if (value.includes('OUTLET')) return 3;
   if (value.includes('DEALER')) return 2;
   if (value.includes('EMPLOYEE') || value.includes('USER')) return 4;
-  if (value.includes('ROLE') || value.includes('MAPPING') || value.includes('TEAM')) return 5;
-  if (value.includes('MASTER') || value.includes('POLICY') || value.includes('PRICE') || value.includes('PRODUCT')) return 6;
   if (value.includes('PROJECT')) return 1;
   return null;
 }
@@ -207,6 +220,9 @@ export default function ProjectAdministrationPage() {
   const filteredOutlets = outletDealerFilter
     ? outlets.filter((item) => item.dealerId === outletDealerFilter)
     : outlets;
+  const visibleConfigurationMasters = isMahindraProject
+    ? masters.filter((item) => item.ownerModule === 'DI' || !MAHINDRA_SPECIALIZED_MASTER_KEYS.has(item.masterKey))
+    : masters;
 
   const goToStep = (step: number) => setSearchParams({ step: String(step) });
   const clearFeedback = () => { setPageError(''); setNotice(''); };
@@ -283,11 +299,12 @@ export default function ProjectAdministrationPage() {
 
   async function loadDealerHierarchy() {
     if (!tenantId || !accessToken) return;
-    const dealerValues = await loadDealers();
-    const outletGroups = await Promise.all(
-      dealerValues.map((dealer) => listOutletsAdmin(tenantId, dealer.dealerId, accessToken)),
-    );
-    setOutlets(outletGroups.flat());
+    const [dealerValues, outletValues] = await Promise.all([
+      listDealersAdmin(tenantId, accessToken),
+      listProjectOutlets(tenantId, accessToken),
+    ]);
+    setDealers(dealerValues);
+    setOutlets(outletValues);
   }
 
   async function loadMappings() {
@@ -351,7 +368,7 @@ export default function ProjectAdministrationPage() {
         if (activeStep === 3) await loadDealerHierarchy();
         if (activeStep === 4) setCandidates(await listRoleMappingCandidates(tenantId, '', accessToken));
         if (activeStep === 5) await loadRoleMappingContext();
-        if (activeStep === 6 && !isMahindraProject) await loadMasters();
+        if (activeStep === 6) await loadMasters();
         if (activeStep === 7) setReadiness(await getProjectReadiness(tenantId, accessToken));
         if (activeStep === 8) {
           const [nextReadiness] = await Promise.all([
@@ -434,14 +451,15 @@ export default function ProjectAdministrationPage() {
     setBusy(true);
     try {
       if (dealerEditor.mode === 'new') {
-        await createDealerAdmin(
+        const created = await createDealerAdmin(
           tenantId,
           { dealerName: dealerForm.dealerName.trim(), legalName: dealerForm.legalName.trim() || null },
           accessToken,
         );
+        setDealers((current) => [...current.filter((item) => item.dealerId !== created.dealerId), created]);
         setNotice('Dealer added successfully.');
       } else {
-        await patchDealerAdmin(
+        const updated = await patchDealerAdmin(
           tenantId,
           dealerEditor.item.dealerId,
           dealerEditor.item.versionNo,
@@ -452,10 +470,10 @@ export default function ProjectAdministrationPage() {
           },
           accessToken,
         );
+        setDealers((current) => current.map((item) => item.dealerId === updated.dealerId ? updated : item));
         setNotice('Dealer updated successfully.');
       }
       setDealerEditor(null);
-      await loadDealers();
     } catch (error) {
       setPageError(errorMessage(error));
     } finally {
@@ -466,6 +484,23 @@ export default function ProjectAdministrationPage() {
   async function removeDealer(item: DealerAdmin) {
     if (!tenantId || !accessToken) return;
     clearFeedback();
+    if (project?.projectStatus === 'CONFIGURING') {
+      if (!window.confirm(`Remove dealer “${item.dealerName}” from this configuring Project? Empty setup outlets will also be removed. Linked business data will remain protected.`)) return;
+      setBusy(true);
+      try {
+        await deleteConfiguringDealerSetup(tenantId, item.dealerId, randomKey('dealer-setup-delete'), accessToken);
+        setDealers((current) => current.filter((dealer) => dealer.dealerId !== item.dealerId));
+        setOutlets((current) => current.filter((outlet) => outlet.dealerId !== item.dealerId));
+        if (dealerEditor?.mode === 'edit' && dealerEditor.item.dealerId === item.dealerId) setDealerEditor(null);
+        setNotice('Dealer setup removed successfully.');
+      } catch (error) {
+        setPageError(errorMessage(error));
+      } finally {
+        setBusy(false);
+      }
+      return;
+    }
+
     setBusy(true);
     try {
       const impact = await getDealerDeletionImpact(tenantId, item.dealerId, accessToken);
@@ -475,8 +510,9 @@ export default function ProjectAdministrationPage() {
       }
       if (!window.confirm(`Delete dealer “${item.dealerName}”? This cannot be undone.`)) return;
       await deleteDealerAdmin(tenantId, item.dealerId, randomKey('dealer-delete'), accessToken);
+      setDealers((current) => current.filter((dealer) => dealer.dealerId !== item.dealerId));
+      setOutlets((current) => current.filter((outlet) => outlet.dealerId !== item.dealerId));
       if (dealerEditor?.mode === 'edit' && dealerEditor.item.dealerId === item.dealerId) setDealerEditor(null);
-      await loadDealers();
       setNotice('Dealer deleted.');
     } catch (error) {
       setPageError(errorMessage(error));
@@ -531,10 +567,11 @@ export default function ProjectAdministrationPage() {
         monthlyVehicleVolume: outletForm.monthlyVehicleVolume ? Number(outletForm.monthlyVehicleVolume) : null,
       };
       if (outletEditor.mode === 'new') {
-        await createOutletAdmin(tenantId, outletForm.dealerId, payload, accessToken);
+        const created = await createOutletAdmin(tenantId, outletForm.dealerId, payload, accessToken);
+        setOutlets((current) => [...current.filter((item) => item.outletId !== created.outletId), created]);
         setNotice('Outlet added successfully.');
       } else {
-        await patchOutletAdmin(
+        const updated = await patchOutletAdmin(
           tenantId,
           outletEditor.item.dealerId,
           outletEditor.item.outletId,
@@ -542,10 +579,10 @@ export default function ProjectAdministrationPage() {
           { ...payload, status: outletForm.status },
           accessToken,
         );
+        setOutlets((current) => current.map((item) => item.outletId === updated.outletId ? updated : item));
         setNotice('Outlet updated successfully.');
       }
       setOutletEditor(null);
-      await loadDealerHierarchy();
     } catch (error) {
       setPageError(errorMessage(error));
     } finally {
@@ -565,8 +602,8 @@ export default function ProjectAdministrationPage() {
       }
       if (!window.confirm(`Delete outlet “${item.outletName}”? This cannot be undone.`)) return;
       await deleteOutletAdmin(tenantId, item.dealerId, item.outletId, randomKey('outlet-delete'), accessToken);
+      setOutlets((current) => current.filter((outlet) => outlet.outletId !== item.outletId));
       if (outletEditor?.mode === 'edit' && outletEditor.item.outletId === item.outletId) setOutletEditor(null);
-      await loadDealerHierarchy();
       setNotice('Outlet deleted.');
     } catch (error) {
       setPageError(errorMessage(error));
@@ -599,6 +636,10 @@ export default function ProjectAdministrationPage() {
     event.preventDefault();
     if (!tenantId || !accessToken || !selectedUserId) return;
     clearFeedback();
+    if (operatingRole === 'PC' && scopeOutletIds.length === 0) {
+      setPageError('Select at least one Dealer Outlet for the Process Consultant. Onsite and Satellite outlets are both supported.');
+      return;
+    }
     setBusy(true);
     try {
       const payload = {
@@ -607,8 +648,8 @@ export default function ProjectAdministrationPage() {
         outletIds: operatingRole === 'PC' || operatingRole === 'CRM' ? scopeOutletIds : [],
       };
       const result = await putRoleMapping(tenantId, selectedUserId, payload, randomKey('role-map'), accessToken);
-      await loadMappings();
-      if (result.operationStatus === 'COMPLETED') {
+      if (result.operationStatus === 'COMPLETED' && result.mapping) {
+        setMappings((current) => [...current.filter((item) => item.userId !== result.mapping?.userId), result.mapping as RoleMapping]);
         setMappingEditorOpen(false);
         setNotice('Role mapping saved successfully.');
       } else {
@@ -628,12 +669,16 @@ export default function ProjectAdministrationPage() {
     setBusy(true);
     try {
       const result = await deleteRoleMapping(tenantId, userId, randomKey('role-remove'), accessToken);
-      await loadMappings();
-      if (selectedUserId === userId) {
-        setSelectedUserId('');
-        setMappingEditorOpen(false);
+      if (result.operationStatus === 'COMPLETED') {
+        setMappings((current) => current.filter((item) => item.userId !== userId));
+        if (selectedUserId === userId) {
+          setSelectedUserId('');
+          setMappingEditorOpen(false);
+        }
+        setNotice('Role mapping removed.');
+      } else {
+        setPageError('Role mapping could not be removed. Please try again.');
       }
-      setNotice(result.operationStatus === 'COMPLETED' ? 'Role mapping removed.' : 'Role mapping could not be removed. Please try again.');
     } catch (error) {
       setPageError(errorMessage(error));
     } finally {
@@ -757,7 +802,7 @@ export default function ProjectAdministrationPage() {
       setMasterVersions([]);
       setMasterResetVersion((value) => value + 1);
       setReadiness(null);
-      if (!isMahindraProject) await loadMasters();
+      await loadMasters();
       setNotice('Project Masters reset successfully.');
     } catch (error) {
       setPageError(errorMessage(error));
@@ -800,7 +845,7 @@ export default function ProjectAdministrationPage() {
       <PageHeader
         eyebrow="Administration"
         title="Project Administration"
-        description="Configure project details, dealers, outlets, team roles, master data and readiness before activation."
+        description="Configure project details, dealers, outlets, team roles, master data, Document Intelligence and readiness before activation."
         actions={project && <StatusPill value={project.projectStatus} />}
       />
 
@@ -817,7 +862,7 @@ export default function ProjectAdministrationPage() {
 
       {(pageError || notice) && (
         <div className={`uc02-message ${pageError ? 'uc02-message--error' : 'uc02-message--success'}`}>
-          <strong>{pageError ? 'Could Not Complete Request' : 'Updated'}</strong>
+          <strong>{pageError ? 'Action Required' : 'Updated'}</strong>
           <span>{pageError || notice}</span>
         </div>
       )}
@@ -963,10 +1008,10 @@ export default function ProjectAdministrationPage() {
                 <Field label="Employee"><select required value={selectedUserId} onChange={(event) => selectMappingUser(event.target.value)}><option value="">Select employee</option>{candidates.map((item) => <option key={item.userId} value={item.userId}>{item.displayName}{item.primaryEmail ? ` · ${item.primaryEmail}` : ''}</option>)}</select></Field>
                 {selectedCandidate && <div className="uc02-selected-person"><strong>{selectedCandidate.displayName}</strong><span>{selectedCandidate.primaryEmail}</span></div>}
                 <Field label="Operating Role"><select value={operatingRole} onChange={(event) => { setOperatingRole(event.target.value as OperatingRole); setScopeDealerIds([]); setScopeOutletIds([]); }}><option value="PC">Process Consultant</option><option value="TL">Team Lead</option><option value="PM">Project Manager</option><option value="CRM">CRM</option><option value="Executive">Executive</option></select></Field>
-                {operatingRole === 'PC' && <div className="uc02-scope"><strong>Outlet Scope</strong>{dealers.flatMap((dealer) => outlets.filter((outlet) => outlet.dealerId === dealer.dealerId).map((outlet) => <label key={outlet.outletId}><input type="checkbox" checked={scopeOutletIds.includes(outlet.outletId)} onChange={(event) => toggleValue(scopeOutletIds, outlet.outletId, event.target.checked, setScopeOutletIds)} />{dealer.dealerName} · {outlet.outletName}</label>))}{!outlets.length && <small>Add dealer outlets before assigning a Process Consultant.</small>}</div>}
-                {operatingRole === 'CRM' && <><div className="uc02-scope"><strong>Dealer Scope (optional)</strong>{dealers.map((dealer) => <label key={dealer.dealerId}><input type="checkbox" checked={scopeDealerIds.includes(dealer.dealerId)} onChange={(event) => toggleValue(scopeDealerIds, dealer.dealerId, event.target.checked, setScopeDealerIds)} />{dealer.dealerName}</label>)}</div><div className="uc02-scope"><strong>Outlet Scope (optional; leave both blank for project-wide)</strong>{dealers.flatMap((dealer) => outlets.filter((outlet) => outlet.dealerId === dealer.dealerId).map((outlet) => <label key={outlet.outletId}><input type="checkbox" checked={scopeOutletIds.includes(outlet.outletId)} onChange={(event) => toggleValue(scopeOutletIds, outlet.outletId, event.target.checked, setScopeOutletIds)} />{dealer.dealerName} · {outlet.outletName}</label>))}</div></>}
+                {operatingRole === 'PC' && <div className="uc02-scope"><strong>Outlet Scope</strong><small>Select any Onsite or Satellite outlets this Process Consultant covers.</small>{dealers.flatMap((dealer) => outlets.filter((outlet) => outlet.dealerId === dealer.dealerId).map((outlet) => <label key={outlet.outletId}><input type="checkbox" checked={scopeOutletIds.includes(outlet.outletId)} onChange={(event) => toggleValue(scopeOutletIds, outlet.outletId, event.target.checked, setScopeOutletIds)} />{dealer.dealerName} · {outlet.outletName} [{outlet.outletClassification}]</label>))}{!outlets.length && <small>Add dealer outlets before assigning a Process Consultant.</small>}</div>}
+                {operatingRole === 'CRM' && <><div className="uc02-scope"><strong>Dealer Scope (optional)</strong>{dealers.map((dealer) => <label key={dealer.dealerId}><input type="checkbox" checked={scopeDealerIds.includes(dealer.dealerId)} onChange={(event) => toggleValue(scopeDealerIds, dealer.dealerId, event.target.checked, setScopeDealerIds)} />{dealer.dealerName}</label>)}</div><div className="uc02-scope"><strong>Outlet Scope (optional; leave both blank for project-wide)</strong>{dealers.flatMap((dealer) => outlets.filter((outlet) => outlet.dealerId === dealer.dealerId).map((outlet) => <label key={outlet.outletId}><input type="checkbox" checked={scopeOutletIds.includes(outlet.outletId)} onChange={(event) => toggleValue(scopeOutletIds, outlet.outletId, event.target.checked, setScopeOutletIds)} />{dealer.dealerName} · {outlet.outletName} [{outlet.outletClassification}]</label>))}</div></>}
                 {(operatingRole === 'TL' || operatingRole === 'PM' || operatingRole === 'Executive') && <div className="uc02-note">This role works across the Project; no Dealer or Outlet selection is required.</div>}
-                <div className="uc02-actions"><button className="uc02-button" type="button" onClick={() => setMappingEditorOpen(false)}>Cancel</button><button className="uc02-button uc02-button--primary" disabled={busy || !selectedUserId}>{busy ? 'Saving…' : selectedMapping ? 'Update Role Mapping' : 'Save Role Mapping'}</button></div>
+                <div className="uc02-actions"><button className="uc02-button" type="button" onClick={() => setMappingEditorOpen(false)}>Cancel</button><button className="uc02-button uc02-button--primary" disabled={busy || !selectedUserId || (operatingRole === 'PC' && scopeOutletIds.length === 0)}>{busy ? 'Saving…' : selectedMapping ? 'Update Role Mapping' : 'Save Role Mapping'}</button></div>
               </form>
             )}
           </div>
@@ -974,8 +1019,8 @@ export default function ProjectAdministrationPage() {
 
         {activeStep === 6 && tenantId && project && (
           <div className="uc02-step-body">
-            <div className="uc02-list-toolbar uc02-step-actions"><div className="uc02-card__title"><h3>Project Master Catalogue</h3><p>Persisted Project-owned master state is the primary view.</p></div>{canResetMasters && <button className="uc02-button uc02-button--danger" type="button" onClick={() => void resetMasters()} disabled={busy}>Reset Project Masters</button>}</div>
-            {isMahindraProject ? (
+            <div className="uc02-list-toolbar uc02-step-actions"><div className="uc02-card__title"><h3>Project Masters &amp; Document Intelligence</h3><p>Complete every Project-owned and DI-owned configuration required by Readiness.</p></div>{canResetMasters && <button className="uc02-button uc02-button--danger" type="button" onClick={() => void resetMasters()} disabled={busy}>Reset Project Masters</button>}</div>
+            {isMahindraProject && (
               <MahindraMasterUploads
                 key={`${tenantId}:${masterResetVersion}`}
                 tenantId={tenantId}
@@ -983,23 +1028,22 @@ export default function ProjectAdministrationPage() {
                 projectStatus={project.projectStatus}
                 onError={setPageError}
               />
-            ) : (
-              <>
-                <div className="uc02-card uc02-list-card">
-                  {masters.length ? <div className="uc02-table-wrap"><table className="uc02-table"><thead><tr><th>Master</th><th>Owner</th><th>Status</th><th>WEF</th><th>Current Version</th><th>Actions</th></tr></thead><tbody>{masters.map((item) => <tr key={`${item.ownerModule}-${item.masterKey}`}><td><strong>{item.displayName}</strong><small>{item.administrationModes.join(' / ')}</small></td><td>{item.ownerModule}</td><td><StatusPill value={item.lifecycleStatus || 'NOT_CONFIGURED'} compact /></td><td>{item.currentWef || '—'}</td><td><code>{item.currentVersionId || '—'}</code></td><td><button className="uc02-link-button" type="button" onClick={() => void openMaster(item.masterKey)}>{item.currentVersionId ? 'Manage / Replace' : 'Configure'}</button></td></tr>)}</tbody></table></div> : <EmptyMessage>No Project Masters are registered for this Project.</EmptyMessage>}
-                </div>
-                {masterEditorOpen && selectedMaster && (
-                  <div className="uc02-card uc02-editor-panel">
-                    <div className="uc02-list-toolbar"><div className="uc02-card__title"><h3>{selectedMaster.displayName}</h3><p>{selectedMaster.requiresWef ? 'An effective date is required for this master.' : 'Manage the current master data and published versions.'}</p></div><button className="uc02-button" type="button" onClick={() => setMasterEditorOpen(false)}>Close</button></div>
-                    {selectedMaster.administrationModes.includes('EXCEL') && <div className="uc02-master-actions"><button className="uc02-button" type="button" onClick={() => void getTemplate()} disabled={busy}>Get Excel Template</button></div>}
-                    {selectedMaster.administrationModes.includes('EXCEL') && <form className="uc02-master-upload" onSubmit={submitMasterImport}><Field label="Completed Workbook"><input type="file" accept=".xlsx" required onChange={(event) => setMasterFile(event.target.files?.[0] || null)} /></Field>{selectedMaster.requiresWef && <Field label="Effective From"><input type="date" required value={masterWef} onChange={(event) => setMasterWef(event.target.value)} /></Field>}<button className="uc02-button uc02-button--primary" disabled={busy || !masterFile}>Upload &amp; Validate</button></form>}
-                    {masterImport && <div className="uc02-import-summary"><div><span>Status</span><StatusPill value={masterImport.status} /></div><div><span>Rows</span><strong>{masterImport.rowsParsed}</strong></div><div><span>Valid</span><strong>{masterImport.validRows}</strong></div><div><span>Warnings</span><strong>{masterImport.warningRows}</strong></div><div><span>Errors</span><strong>{masterImport.errorRows}</strong></div></div>}
-                    {masterRows.length > 0 && <div className="uc02-table-wrap"><table className="uc02-table"><thead><tr><th>Row</th><th>Status</th><th>Messages</th></tr></thead><tbody>{masterRows.slice(0, 100).map((row) => <tr key={row.rowNumber}><td>{row.rowNumber}</td><td><StatusPill value={row.validationStatus} compact /></td><td>{row.messages.join(' · ') || 'No issues'}</td></tr>)}</tbody></table></div>}
-                    {masterImport && <div className="uc02-actions"><button className="uc02-button" type="button" onClick={() => void errorReport()} disabled={busy}>Validation Report</button><button className="uc02-button uc02-button--primary" type="button" onClick={() => void confirmImport()} disabled={busy || masterImport.status !== 'PREVIEW_READY' || masterImport.errorRows > 0}>Confirm Import</button></div>}
-                    <div className="uc02-version-list"><h4>Versions</h4>{masterVersions.length ? masterVersions.map((version) => <div className="uc02-version-row" key={version.versionId}><span><strong>{version.displayName || version.businessKey || `Version ${version.versionNo || ''}`}</strong><small>{version.effectiveFrom ? `Effective ${version.effectiveFrom}` : 'Version details'}</small></span><StatusPill value={version.lifecycleStatus} compact />{version.lifecycleStatus === 'DRAFT' && <button className="uc02-link-button" type="button" onClick={() => void publishVersion(version.versionId)} disabled={busy}>Publish</button>}</div>) : <EmptyMessage>No versions yet.</EmptyMessage>}</div>
-                  </div>
-                )}
-              </>
+            )}
+            <div className="uc02-card uc02-list-card">
+              <div className="uc02-card__title"><h3>{isMahindraProject ? 'Additional Required Configuration' : 'Project Configuration Catalogue'}</h3><p>Document Intelligence is configured here as part of the Project setup, not only at Readiness.</p></div>
+              {visibleConfigurationMasters.length ? <div className="uc02-table-wrap"><table className="uc02-table"><thead><tr><th>Configuration</th><th>Owner</th><th>Status</th><th>WEF</th><th>Current Version</th><th>Actions</th></tr></thead><tbody>{visibleConfigurationMasters.map((item) => <tr key={`${item.ownerModule}-${item.masterKey}`}><td><strong>{item.displayName}</strong><small>{item.administrationModes.join(' / ')}</small></td><td>{item.ownerModule === 'DI' ? 'Document Intelligence' : 'Audit Core'}</td><td><StatusPill value={item.lifecycleStatus || 'NOT_CONFIGURED'} compact /></td><td>{item.currentWef || '—'}</td><td><code>{item.currentVersionId || '—'}</code></td><td><button className="uc02-link-button" type="button" onClick={() => void openMaster(item.masterKey)}>{item.administrationModes.includes('EXCEL') ? (item.currentVersionId ? 'Manage / Replace' : 'Configure') : 'View Versions'}</button></td></tr>)}</tbody></table></div> : <EmptyMessage>No additional Project or Document Intelligence configurations were returned.</EmptyMessage>}
+            </div>
+            {masterEditorOpen && selectedMaster && (
+              <div className="uc02-card uc02-editor-panel">
+                <div className="uc02-list-toolbar"><div className="uc02-card__title"><h3>{selectedMaster.displayName}</h3><p>{selectedMaster.ownerModule === 'DI' ? 'Document Intelligence configuration is owned and validated by DI through the Project Master facade.' : selectedMaster.requiresWef ? 'An effective date is required for this master.' : 'Manage the current master data and published versions.'}</p></div><button className="uc02-button" type="button" onClick={() => setMasterEditorOpen(false)}>Close</button></div>
+                {selectedMaster.administrationModes.includes('EXCEL') && <div className="uc02-master-actions"><button className="uc02-button" type="button" onClick={() => void getTemplate()} disabled={busy}>Get Excel Template</button></div>}
+                {selectedMaster.administrationModes.includes('EXCEL') && <form className="uc02-master-upload" onSubmit={submitMasterImport}><Field label="Completed Workbook"><input type="file" accept=".xlsx" required onChange={(event) => setMasterFile(event.target.files?.[0] || null)} /></Field>{selectedMaster.requiresWef && <Field label="Effective From"><input type="date" required value={masterWef} onChange={(event) => setMasterWef(event.target.value)} /></Field>}<button className="uc02-button uc02-button--primary" disabled={busy || !masterFile}>Upload &amp; Validate</button></form>}
+                {selectedMaster.administrationModes.includes('FORM') && <div className="uc02-note">This configuration is form-managed. Existing versions are shown below. Its authoring fields are not currently exposed by the Project Administration API.</div>}
+                {masterImport && <div className="uc02-import-summary"><div><span>Status</span><StatusPill value={masterImport.status} /></div><div><span>Rows</span><strong>{masterImport.rowsParsed}</strong></div><div><span>Valid</span><strong>{masterImport.validRows}</strong></div><div><span>Warnings</span><strong>{masterImport.warningRows}</strong></div><div><span>Errors</span><strong>{masterImport.errorRows}</strong></div></div>}
+                {masterRows.length > 0 && <div className="uc02-table-wrap"><table className="uc02-table"><thead><tr><th>Row</th><th>Status</th><th>Messages</th></tr></thead><tbody>{masterRows.slice(0, 100).map((row) => <tr key={row.rowNumber}><td>{row.rowNumber}</td><td><StatusPill value={row.validationStatus} compact /></td><td>{row.messages.join(' · ') || 'No issues'}</td></tr>)}</tbody></table></div>}
+                {masterImport && <div className="uc02-actions"><button className="uc02-button" type="button" onClick={() => void errorReport()} disabled={busy}>Validation Report</button><button className="uc02-button uc02-button--primary" type="button" onClick={() => void confirmImport()} disabled={busy || masterImport.status !== 'PREVIEW_READY' || masterImport.errorRows > 0}>Confirm Import</button></div>}
+                <div className="uc02-version-list"><h4>Versions</h4>{masterVersions.length ? masterVersions.map((version) => <div className="uc02-version-row" key={version.versionId}><span><strong>{version.displayName || version.businessKey || `Version ${version.versionNo || ''}`}</strong><small>{version.effectiveFrom ? `Effective ${version.effectiveFrom}` : 'Version details'}</small></span><StatusPill value={version.lifecycleStatus} compact />{version.lifecycleStatus === 'DRAFT' && <button className="uc02-link-button" type="button" onClick={() => void publishVersion(version.versionId)} disabled={busy}>Publish</button>}</div>) : <EmptyMessage>No versions yet.</EmptyMessage>}</div>
+              </div>
             )}
             {!canResetMasters && <div className="uc02-note">Project Master deletion/reset is available only while the Project is CONFIGURING.</div>}
           </div>
@@ -1007,7 +1051,7 @@ export default function ProjectAdministrationPage() {
 
         {activeStep === 7 && (
           <div className="uc02-step-body"><div className="uc02-card uc02-list-card">
-            <div className="uc02-list-toolbar"><div className="uc02-card__title"><h3>Project Readiness</h3><p>Every check remains visible, including blockers and pending items.</p></div><button className="uc02-button" type="button" onClick={() => void refreshReadiness()} disabled={busy}>Refresh Checks</button></div>
+            <div className="uc02-list-toolbar"><div className="uc02-card__title"><h3>Project Readiness</h3><p>Every check remains visible. Blocking failures prevent activation; warnings do not.</p></div><button className="uc02-button" type="button" onClick={() => void refreshReadiness()} disabled={busy}>Refresh Checks</button></div>
             {readiness ? <><div className={`uc02-readiness-banner ${readiness.readyToActivate ? 'ready' : 'blocked'}`}><strong>{readiness.readyToActivate ? 'Ready to Activate' : 'Activation Blocked'}</strong><span>Checked {new Date(readiness.evaluatedAtUtc).toLocaleString()}</span></div>{readiness.checks.length ? <div className="uc02-table-wrap"><table className="uc02-table uc02-readiness-table"><thead><tr><th>Area</th><th>Check</th><th>Status</th><th>Severity</th><th>Reason</th><th>Action</th></tr></thead><tbody>{readiness.checks.map((check) => { const targetStep = targetStepForCheck(check); return <tr key={check.checkKey}><td>{check.area}</td><td><strong>{check.checkKey}</strong></td><td><StatusPill value={check.status} compact /></td><td>{check.severity}</td><td>{check.message}<small>{check.targetTask}</small></td><td>{targetStep && check.status !== 'PASS' ? <button className="uc02-link-button" type="button" onClick={() => goToStep(targetStep)}>Go to Step {targetStep}</button> : '—'}</td></tr>; })}</tbody></table></div> : <EmptyMessage>No readiness checks were returned.</EmptyMessage>}</> : <EmptyMessage>Readiness has not been loaded.</EmptyMessage>}
           </div></div>
         )}

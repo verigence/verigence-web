@@ -74,9 +74,14 @@
   text-decoration: none;
 }
 
+/*
+ * The map is a primary location-setting surface, not a thumbnail. Keep enough
+ * vertical room to inspect streets/landmarks and visually confirm the pin.
+ */
 .uc02-outlet-location__map-wrap {
   position: relative;
   min-width: 0;
+  min-height: 420px;
   overflow: hidden;
   border: 1px solid var(--uc02-border);
   border-radius: 12px;
@@ -85,7 +90,7 @@
 
 .uc02-outlet-location__map {
   width: 100%;
-  height: clamp(220px, 26vw, 300px);
+  height: clamp(420px, 46vw, 540px);
   display: block;
   border: 0;
 }
@@ -116,6 +121,7 @@
 }
 
 .uc02-outlet-location__empty {
+  min-height: 240px;
   padding: 20px;
   border: 1px dashed #bdd0df;
   border-radius: 11px;
@@ -124,6 +130,8 @@
   font-size: 11px;
   line-height: 1.55;
   text-align: center;
+  display: grid;
+  place-items: center;
 }
 
 .uc02-outlet-location__coordinates {
@@ -188,8 +196,12 @@
 }
 
 @media (max-width: 1180px) {
+  .uc02-outlet-location__map-wrap {
+    min-height: 390px;
+  }
+
   .uc02-outlet-location__map {
-    height: clamp(220px, 38vw, 320px);
+    height: clamp(390px, 54vw, 500px);
   }
 }
 
@@ -244,8 +256,16 @@
     min-height: 42px;
   }
 
+  .uc02-outlet-location__map-wrap {
+    min-height: 340px;
+  }
+
   .uc02-outlet-location__map {
-    height: 260px;
+    height: 360px;
+  }
+
+  .uc02-outlet-location__empty {
+    min-height: 180px;
   }
 
   .uc02-footer-nav {

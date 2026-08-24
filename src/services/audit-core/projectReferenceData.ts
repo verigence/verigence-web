@@ -1,6 +1,6 @@
 import { auditCoreRequest } from './client';
 
-export interface ProjectOemSegmentReference {
+export interface ProjectSegmentReference {
   segmentId: string;
   segmentCode: string;
   segmentName: string;
@@ -10,11 +10,11 @@ export interface ProjectOemReference {
   oemId: string;
   oemCode: string;
   oemName: string;
-  segments: ProjectOemSegmentReference[];
 }
 
 export interface ProjectReferenceData {
   oems: ProjectOemReference[];
+  segments: ProjectSegmentReference[];
 }
 
 export function getProjectReferenceData(accessToken: string) {

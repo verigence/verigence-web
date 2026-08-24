@@ -25,7 +25,10 @@ export default function ProjectReferenceFields({
   onError,
 }: ProjectReferenceFieldsProps) {
   const accessToken = useSessionStore((state) => state.accessToken);
-  const [referenceData, setReferenceData] = useState<ProjectReferenceData>({ oems: [] });
+  const [referenceData, setReferenceData] = useState<ProjectReferenceData>({
+    oems: [],
+    segments: [],
+  });
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -47,11 +50,10 @@ export default function ProjectReferenceFields({
     };
   }, [accessToken, onError]);
 
-  const selectedOem = useMemo(
-    () => referenceData.oems.find((item) => item.oemId === oemId) || null,
+  const selectedOemExists = useMemo(
+    () => referenceData.oems.some((item) => item.oemId === oemId),
     [oemId, referenceData.oems],
   );
-  const selectedOemExists = Boolean(selectedOem);
 
   function toggleSegment(segmentId: string, checked: boolean) {
     onSegmentsChange(
@@ -69,10 +71,7 @@ export default function ProjectReferenceFields({
           required
           disabled={disabled || loading}
           value={oemId}
-          onChange={(event) => {
-            onOemChange(event.target.value);
-            onSegmentsChange([]);
-          }}
+          onChange={(event) => onOemChange(event.target.value)}
         >
           <option value="">{loading ? 'Loading OEMs…' : 'Select OEM'}</option>
           {oemId && !selectedOemExists && <option value={oemId}>Current selection</option>}
@@ -82,15 +81,12 @@ export default function ProjectReferenceFields({
         </select>
       </label>
 
-      <fieldset className="uc02-field uc02-segment-field" disabled={disabled || loading || !oemId}>
+      <fieldset className="uc02-field uc02-segment-field" disabled={disabled || loading}>
         <legend>Segments</legend>
-        {!oemId && <small>Select an OEM first.</small>}
-        {oemId && selectedOem?.segments.length === 0 && (
-          <small>No Segment choices are configured for this OEM.</small>
-        )}
-        {selectedOem?.segments.length ? (
+        <small>Select one or more Segments. Segment choices are universal and do not depend on OEM.</small>
+        {referenceData.segments.length > 0 ? (
           <div className="uc02-segment-options">
-            {selectedOem.segments.map((segment) => (
+            {referenceData.segments.map((segment) => (
               <label key={segment.segmentId} className="uc02-segment-option">
                 <input
                   type="checkbox"
@@ -104,7 +100,9 @@ export default function ProjectReferenceFields({
               </label>
             ))}
           </div>
-        ) : null}
+        ) : (
+          !loading && <small>No active Segments are configured.</small>
+        )}
       </fieldset>
     </>
   );

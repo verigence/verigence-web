@@ -5,6 +5,7 @@ import {
   type ExtractionProposalView,
   getBookingEvidenceReviewContent,
 } from '../../services/audit-core/uc03Booking';
+import { displayName } from '../../utils/displayNames';
 
 interface DocumentFieldReviewProps {
   tenantId: string;
@@ -21,16 +22,8 @@ interface SourcePreview {
   mimeType: string;
 }
 
-function labelForField(fieldKey: string): string {
-  return fieldKey
-    .split('_')
-    .filter(Boolean)
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(' ');
-}
-
 function displayValue(value: unknown): string {
-  if (value === null || value === undefined) return 'Not found';
+  if (value === null || value === undefined) return 'Not Found';
   if (typeof value === 'string') return value || 'Blank';
   if (typeof value === 'number' || typeof value === 'boolean') return String(value);
   try {
@@ -38,6 +31,12 @@ function displayValue(value: unknown): string {
   } catch {
     return String(value);
   }
+}
+
+function confidenceLabel(value: number | null): string {
+  if (value === null || !Number.isFinite(value)) return 'Confidence Not Available';
+  const percent = value <= 1 ? value * 100 : value;
+  return `${Math.round(percent)}% Confidence`;
 }
 
 function validBox(region?: EvidenceRegion | null): [number, number, number, number] | null {
@@ -134,8 +133,8 @@ export function DocumentFieldReview({
   if (pending.length === 0) {
     return (
       <div className="uc03-review-empty" role="status">
-        <strong>All extracted fields reviewed.</strong>
-        <span>There are no pending DI values requiring a PC decision.</span>
+        <strong>All Extracted Fields Reviewed.</strong>
+        <span>There are no pending Document Intelligence values requiring a PC decision.</span>
       </div>
     );
   }
@@ -147,6 +146,8 @@ export function DocumentFieldReview({
   const isPdf = source?.mimeType.includes('pdf') ?? false;
   const pageNo = active.pageNo && active.pageNo > 0 ? active.pageNo : null;
   const fieldNumber = safeIndex + 1;
+  const fieldName = displayName(active.fieldKey);
+  const sourceDocumentName = displayName(active.sourceDocumentTypeKey, 'Uploaded Document');
 
   const decide = async (mode: 'accept' | 'correct') => {
     setActionBusy(true);
@@ -166,27 +167,27 @@ export function DocumentFieldReview({
       <div className="uc03-review-source">
         <header>
           <div>
-            <span className="uc03-c1-eyebrow">Source document</span>
-            <strong>{active.sourceDocumentTypeKey || 'Uploaded evidence'}</strong>
+            <span className="uc03-c1-eyebrow">Source Document</span>
+            <strong>{sourceDocumentName}</strong>
           </div>
           <div className="uc03-review-location">
-            {pageNo ? <span>Page {pageNo}</span> : <span>Page not localized</span>}
-            {box && isImage ? <span>Source highlighted</span> : null}
+            {pageNo ? <span>Page {pageNo}</span> : <span>Page Not Localized</span>}
+            {box && isImage ? <span>Source Highlighted</span> : null}
           </div>
         </header>
 
         <div className="uc03-review-preview" aria-live="polite">
-          {sourceLoading ? <div className="uc03-review-preview-message">Loading source document…</div> : null}
+          {sourceLoading ? <div className="uc03-review-preview-message">Loading Source Document…</div> : null}
           {sourceError ? <div className="uc03-review-preview-message is-error">{sourceError}</div> : null}
 
           {!sourceLoading && !sourceError && source && isImage ? (
             <div className="uc03-review-image-stage">
-              <img src={source.url} alt={`Source evidence for ${labelForField(active.fieldKey)}`} />
+              <img src={source.url} alt={`Source document for ${fieldName}`} />
               {box ? (
                 <span
                   className="uc03-review-highlight"
                   style={normalizedBoxStyle(box)}
-                  aria-label="DI source location"
+                  aria-label="Document Intelligence source location"
                 />
               ) : null}
             </div>
@@ -195,28 +196,28 @@ export function DocumentFieldReview({
           {!sourceLoading && !sourceError && source && isPdf ? (
             <div className="uc03-review-pdf-stage">
               <iframe
-                title={`Source PDF for ${labelForField(active.fieldKey)}`}
+                title={`Source PDF for ${fieldName}`}
                 src={`${source.url}#page=${pageNo || 1}&view=FitH`}
               />
               <a href={`${source.url}#page=${pageNo || 1}`} target="_blank" rel="noreferrer">
-                Open PDF in full viewer
+                Open PDF in Full Viewer
               </a>
             </div>
           ) : null}
 
           {!sourceLoading && !sourceError && source && !isImage && !isPdf ? (
             <div className="uc03-review-preview-message">
-              <span>Inline preview is not available for {source.mimeType}.</span>
-              <a href={source.url} target="_blank" rel="noreferrer">Open source document</a>
+              <span>Inline preview is not available for this document format.</span>
+              <a href={source.url} target="_blank" rel="noreferrer">Open Source Document</a>
             </div>
           ) : null}
         </div>
 
         <footer>
           {box && isImage ? (
-            <span>DI highlighted the exact source region returned by extraction.</span>
+            <span>Document Intelligence highlighted the exact source region returned by extraction.</span>
           ) : pageNo ? (
-            <span>DI localized this value to page {pageNo}. Compare visually if no box is shown.</span>
+            <span>Document Intelligence localized this value to page {pageNo}. Compare visually if no box is shown.</span>
           ) : (
             <span>No reliable source location was returned. Compare the value visually; no location was guessed.</span>
           )}
@@ -226,24 +227,24 @@ export function DocumentFieldReview({
       <div className="uc03-review-field">
         <div className="uc03-review-progress-row">
           <span className="uc03-c1-eyebrow">Field {fieldNumber} of {pending.length}</span>
-          <span>{Math.round((fieldNumber / pending.length) * 100)}% through pending fields</span>
+          <span>{Math.round((fieldNumber / pending.length) * 100)}% Through Pending Fields</span>
         </div>
         <div className="uc03-review-progress" aria-hidden="true">
           <span style={{ width: `${(fieldNumber / pending.length) * 100}%` }} />
         </div>
 
         <div className="uc03-review-value-card">
-          <span>{labelForField(active.fieldKey)}</span>
+          <span>{fieldName}</span>
           <strong>{displayValue(active.proposedValue)}</strong>
           <div className="uc03-review-meta">
-            <span>DI confidence {active.confidence === null ? '—' : `${active.confidence.toFixed(0)}%`}</span>
-            <span>{active.valueSource || 'MACHINE'}</span>
+            <span>{confidenceLabel(active.confidence)}</span>
+            <span>{displayName(active.valueSource, 'System Extracted')}</span>
           </div>
         </div>
 
         {editing ? (
           <label className="uc03-review-correction">
-            <span>Correct value</span>
+            <span>Correct Value</span>
             <input
               autoFocus
               value={correction}
@@ -270,7 +271,7 @@ export function DocumentFieldReview({
                 disabled={disabled || actionBusy}
                 onClick={() => setEditing(true)}
               >
-                Change value
+                Change Value
               </button>
             </>
           ) : (
@@ -281,7 +282,7 @@ export function DocumentFieldReview({
                 disabled={disabled || actionBusy || correction.trim().length === 0}
                 onClick={() => void decide('correct')}
               >
-                Save change
+                Save Change
               </button>
               <button
                 type="button"

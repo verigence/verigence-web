@@ -119,14 +119,17 @@ function OutletLocationPanel({ form }: { form: HTMLFormElement }) {
     ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(mapQuery)}`
     : '';
 
-  const pinSearchLocation = () => {
+  const showSearchLocation = () => {
     const query = searchText.trim();
     if (!query) {
       setMessage({ kind: 'error', message: 'Enter a place, landmark, road, locality or PIN code to search.' });
       return;
     }
     setSearchQuery(query);
-    setMessage({ kind: 'success', message: 'Google Maps search location loaded for visual confirmation.' });
+    setMessage({
+      kind: 'info',
+      message: 'Google Maps location loaded for visual confirmation. Use Pin current location to store exact coordinates.',
+    });
   };
 
   const applyCoordinates = (next: Coordinates) => {
@@ -189,7 +192,7 @@ function OutletLocationPanel({ form }: { form: HTMLFormElement }) {
       <div className="uc02-outlet-location__head">
         <div>
           <strong>Google Maps Location</strong>
-          <span>Search by place or landmark, use the entered address, or pin the device GPS location.</span>
+          <span>Search by place or landmark, use the entered address, or pin the device GPS location. The map canvas is intentionally large for location verification.</span>
         </div>
         <div className="uc02-outlet-location__actions">
           <button className="uc02-button" type="button" onClick={() => void pinCurrentLocation()} disabled={locating}>
@@ -206,13 +209,13 @@ function OutletLocationPanel({ form }: { form: HTMLFormElement }) {
           onKeyDown={(event) => {
             if (event.key === 'Enter') {
               event.preventDefault();
-              pinSearchLocation();
+              showSearchLocation();
             }
           }}
           placeholder="Search landmark, road, locality, dealer name or PIN code"
           aria-label="Search place on Google Maps"
         />
-        <button className="uc02-button uc02-button--primary" type="button" onClick={pinSearchLocation}>Search & Pin</button>
+        <button className="uc02-button uc02-button--primary" type="button" onClick={showSearchLocation}>Show on Map</button>
       </div>
 
       {mapSrc ? (
@@ -225,7 +228,7 @@ function OutletLocationPanel({ form }: { form: HTMLFormElement }) {
             referrerPolicy="no-referrer-when-downgrade"
             allowFullScreen
           />
-          <div className="uc02-outlet-location__pin-label"><span aria-hidden="true">●</span>{coordinates ? 'Exact device location pinned' : 'Map location preview'}</div>
+          <div className="uc02-outlet-location__pin-label"><span aria-hidden="true">●</span>{coordinates ? 'Exact GPS pin stored' : 'Map preview — coordinates not stored'}</div>
         </div>
       ) : (
         <div className="uc02-outlet-location__empty">Search a place above, enter the outlet address, or choose <strong>Pin current location</strong> to show the map.</div>
@@ -233,7 +236,7 @@ function OutletLocationPanel({ form }: { form: HTMLFormElement }) {
 
       {coordinates && <div className="uc02-outlet-location__coordinates"><span>Latitude <strong>{coordinates.latitude.toFixed(6)}</strong></span><span>Longitude <strong>{coordinates.longitude.toFixed(6)}</strong></span></div>}
       {message.message && <div className={`uc02-outlet-location__message uc02-outlet-location__message--${message.kind}`} role="status">{message.message}</div>}
-      <small className="uc02-outlet-location__note">Text search is for visual confirmation. Use Pin current location when an exact latitude/longitude must be stored.</small>
+      <small className="uc02-outlet-location__note">Text search is for visual confirmation. Use Pin current location when exact latitude/longitude must be stored with the outlet.</small>
     </section>
   );
 }

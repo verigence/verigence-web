@@ -137,6 +137,7 @@ export default function ProjectAdministrationPage() {
   const selectedDealer = useMemo(() => dealers.find((item) => item.dealerId === selectedDealerId) || null, [dealers, selectedDealerId]);
   const selectedMaster = useMemo(() => masters.find((item) => item.masterKey === selectedMasterKey) || null, [masters, selectedMasterKey]);
   const selectedCandidate = useMemo(() => candidates.find((item) => item.userId === selectedUserId) || null, [candidates, selectedUserId]);
+  const selectedMapping = useMemo(() => mappings.find((item) => item.userId === selectedUserId) || null, [mappings, selectedUserId]);
   const currentStep = projectAdminSteps.find((item) => item.key === activeStep)!;
   const isMahindraProject = Boolean(
     project?.segments.length &&
@@ -224,6 +225,38 @@ export default function ProjectAdministrationPage() {
     setMappings(await listRoleMappings(tenantId, accessToken));
   }
 
+  async function loadRoleMappingContext() {
+    if (!tenantId || !accessToken) return;
+    const dealerValues = await loadDealers();
+    const outletGroups = await Promise.all(
+      dealerValues.map((dealer) => listOutletsAdmin(tenantId, dealer.dealerId, accessToken)),
+    );
+    setOutlets(outletGroups.flat());
+  }
+
+  function selectMappingUser(userId: string) {
+    setSelectedUserId(userId);
+    const existing = mappings.find((item) => item.userId === userId);
+    if (existing) {
+      setOperatingRole(existing.operatingRole);
+      setScopeDealerIds(existing.dealerIds);
+      setScopeOutletIds(existing.outletIds);
+    } else {
+      setOperatingRole('PC');
+      setScopeDealerIds([]);
+      setScopeOutletIds([]);
+    }
+  }
+
+  useEffect(() => {
+    if (!selectedUserId) return;
+    const existing = mappings.find((item) => item.userId === selectedUserId);
+    if (!existing) return;
+    setOperatingRole(existing.operatingRole);
+    setScopeDealerIds(existing.dealerIds);
+    setScopeOutletIds(existing.outletIds);
+  }, [mappings, selectedUserId]);
+
   async function loadMasters() {
     if (!tenantId || !accessToken) return;
     const values = await listProjectMasters(tenantId, accessToken);
@@ -242,7 +275,8 @@ export default function ProjectAdministrationPage() {
     void (async () => {
       try {
         if (activeStep === 2) await loadDealers();
-        if ([3, 5].includes(activeStep)) await loadDealersAndOutlets();
+        if (activeStep === 3) await loadDealersAndOutlets();
+        if (activeStep === 5) await loadRoleMappingContext();
         if ([4, 5].includes(activeStep)) setCandidates(await listRoleMappingCandidates(tenantId, '', accessToken));
         if (activeStep === 5) await loadMappings();
         if (activeStep === 6 && !isMahindraProject) await loadMasters();
@@ -367,8 +401,8 @@ export default function ProjectAdministrationPage() {
     try {
       const payload = {
         operatingRole,
-        dealerIds: operatingRole === 'TL' || operatingRole === 'CRM' ? scopeDealerIds : [],
-        outletIds: operatingRole === 'PC' ? scopeOutletIds : [],
+        dealerIds: operatingRole === 'CRM' ? scopeDealerIds : [],
+        outletIds: operatingRole === 'PC' || operatingRole === 'CRM' ? scopeOutletIds : [],
       };
       const result = await putRoleMapping(tenantId, selectedUserId, payload, randomKey('role-map'), accessToken);
       await loadMappings();
@@ -562,7 +596,7 @@ export default function ProjectAdministrationPage() {
           <div className="uc02-card">
             <div className="uc02-card__title"><h3>Employees</h3><p>Find people who can be assigned to this project.</p></div>
             <form className="uc02-search" onSubmit={searchCandidates}><input value={candidateQuery} onChange={(event) => setCandidateQuery(event.target.value)} placeholder="Search by name or email" /><button className="uc02-button uc02-button--primary" disabled={busy}>Search</button></form>
-            {candidates.length ? <div className="uc02-table-wrap"><table className="uc02-table"><thead><tr><th>Employee</th><th>Status</th><th></th></tr></thead><tbody>{candidates.map((item) => <tr key={item.userId}><td><strong>{item.displayName}</strong><small>{item.primaryEmail || 'Email unavailable'}</small></td><td><StatusPill value={item.status} compact /></td><td><button className="uc02-link-button" type="button" onClick={() => { setSelectedUserId(item.userId); goToStep(5); }}>Map Role</button></td></tr>)}</tbody></table></div> : <EmptyMessage>No employees loaded yet.</EmptyMessage>}
+            {candidates.length ? <div className="uc02-table-wrap"><table className="uc02-table"><thead><tr><th>Employee</th><th>Status</th><th></th></tr></thead><tbody>{candidates.map((item) => <tr key={item.userId}><td><strong>{item.displayName}</strong><small>{item.primaryEmail || 'Email unavailable'}</small></td><td><StatusPill value={item.status} compact /></td><td><button className="uc02-link-button" type="button" onClick={() => { selectMappingUser(item.userId); goToStep(5); }}>Map Role</button></td></tr>)}</tbody></table></div> : <EmptyMessage>No employees loaded yet.</EmptyMessage>}
           </div>
         )}
 
@@ -570,13 +604,14 @@ export default function ProjectAdministrationPage() {
           <div className="uc02-grid uc02-grid--mapping">
             <form className="uc02-card" onSubmit={saveMapping}>
               <div className="uc02-card__title"><h3>Role Mapping</h3><p>Assign an operating role and working scope.</p></div>
-              <Field label="Employee"><select required value={selectedUserId} onChange={(event) => setSelectedUserId(event.target.value)}><option value="">Select employee</option>{candidates.map((item) => <option key={item.userId} value={item.userId}>{item.displayName}{item.primaryEmail ? ` · ${item.primaryEmail}` : ''}</option>)}</select></Field>
+              <Field label="Employee"><select required value={selectedUserId} onChange={(event) => selectMappingUser(event.target.value)}><option value="">Select employee</option>{candidates.map((item) => <option key={item.userId} value={item.userId}>{item.displayName}{item.primaryEmail ? ` · ${item.primaryEmail}` : ''}</option>)}</select></Field>
               {selectedCandidate && <div className="uc02-selected-person"><strong>{selectedCandidate.displayName}</strong><span>{selectedCandidate.primaryEmail}</span></div>}
+              {selectedMapping && <div className="uc02-note">Saved mapping loaded: {selectedMapping.operatingRole} · {selectedMapping.outletIds.length ? `${selectedMapping.outletIds.length} outlet(s)` : selectedMapping.dealerIds.length ? `${selectedMapping.dealerIds.length} dealer(s)` : 'Project-wide'}.</div>}
               <Field label="Operating Role"><select value={operatingRole} onChange={(event) => { setOperatingRole(event.target.value as OperatingRole); setScopeDealerIds([]); setScopeOutletIds([]); }}><option value="PC">Process Consultant</option><option value="TL">Team Lead</option><option value="PM">Project Manager</option><option value="CRM">CRM</option><option value="Executive">Executive</option></select></Field>
               {operatingRole === 'PC' && <div className="uc02-scope"><strong>Outlet Scope</strong>{dealers.flatMap((dealer) => outlets.filter((outlet) => outlet.dealerId === dealer.dealerId).map((outlet) => <label key={outlet.outletId}><input type="checkbox" checked={scopeOutletIds.includes(outlet.outletId)} onChange={(event) => toggleValue(scopeOutletIds, outlet.outletId, event.target.checked, setScopeOutletIds)} />{dealer.dealerName} · {outlet.outletName}</label>))}{!outlets.length && <small>Add dealer outlets before assigning a Process Consultant.</small>}</div>}
-              {(operatingRole === 'TL' || operatingRole === 'CRM') && <div className="uc02-scope"><strong>Dealer Scope {operatingRole === 'CRM' && '(leave blank for project-wide access)'}</strong>{dealers.map((dealer) => <label key={dealer.dealerId}><input type="checkbox" checked={scopeDealerIds.includes(dealer.dealerId)} onChange={(event) => toggleValue(scopeDealerIds, dealer.dealerId, event.target.checked, setScopeDealerIds)} />{dealer.dealerName}</label>)}</div>}
-              {(operatingRole === 'PM' || operatingRole === 'Executive') && <div className="uc02-note">This role works across the project; no dealer or outlet selection is required.</div>}
-              <div className="uc02-actions"><button className="uc02-button uc02-button--primary" disabled={busy || !selectedUserId}>Save Role Mapping</button></div>
+              {operatingRole === 'CRM' && <><div className="uc02-scope"><strong>Dealer Scope (optional)</strong>{dealers.map((dealer) => <label key={dealer.dealerId}><input type="checkbox" checked={scopeDealerIds.includes(dealer.dealerId)} onChange={(event) => toggleValue(scopeDealerIds, dealer.dealerId, event.target.checked, setScopeDealerIds)} />{dealer.dealerName}</label>)}</div><div className="uc02-scope"><strong>Outlet Scope (optional; leave both scopes blank for project-wide access)</strong>{dealers.flatMap((dealer) => outlets.filter((outlet) => outlet.dealerId === dealer.dealerId).map((outlet) => <label key={outlet.outletId}><input type="checkbox" checked={scopeOutletIds.includes(outlet.outletId)} onChange={(event) => toggleValue(scopeOutletIds, outlet.outletId, event.target.checked, setScopeOutletIds)} />{dealer.dealerName} · {outlet.outletName}</label>))}</div></>}
+              {(operatingRole === 'TL' || operatingRole === 'PM' || operatingRole === 'Executive') && <div className="uc02-note">This role works across the project; no dealer or outlet selection is required.</div>}
+              <div className="uc02-actions"><button className="uc02-button uc02-button--primary" disabled={busy || !selectedUserId}>{selectedMapping ? 'Update Role Mapping' : 'Save Role Mapping'}</button></div>
             </form>
             <div className="uc02-card uc02-card--wide"><div className="uc02-card__title"><h3>Active Mappings</h3><p>{mappings.length} users mapped</p></div>{mappings.length ? <div className="uc02-table-wrap"><table className="uc02-table"><thead><tr><th>Employee</th><th>Role</th><th>Scope</th><th></th></tr></thead><tbody>{mappings.map((item) => { const person = candidates.find((candidate) => candidate.userId === item.userId); return <tr key={item.userId}><td><strong>{person?.displayName || 'Assigned Employee'}</strong><small>{person?.primaryEmail || ''}</small></td><td><strong>{item.operatingRole}</strong></td><td>{item.outletIds.length ? `${item.outletIds.length} outlet(s)` : item.dealerIds.length ? `${item.dealerIds.length} dealer(s)` : 'Project-wide'}</td><td><button className="uc02-link-button uc02-link-button--danger" type="button" onClick={() => void removeMapping(item.userId)} disabled={busy}>Remove</button></td></tr>; })}</tbody></table></div> : <EmptyMessage>No active role mappings yet.</EmptyMessage>}</div>
           </div>

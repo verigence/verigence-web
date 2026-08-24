@@ -133,15 +133,23 @@ export default function MahindraMasterUploads({
 
   useEffect(() => {
     if (!accessToken || !masterImport || rowsByKey[activeKey]) return;
+    if (masterImport.errorRows === 0) {
+      setRowsByKey((current) => ({ ...current, [activeKey]: [] }));
+      return;
+    }
     let cancelled = false;
-    void listMasterImportRows(tenantId, masterImport.importId, undefined, accessToken)
+    void listMasterImportRows(tenantId, masterImport.importId, 'ERROR', accessToken)
       .then((page) => {
         if (!cancelled) {
           setRowsByKey((current) => ({ ...current, [activeKey]: page.items }));
         }
       })
-      .catch((error) => {
-        if (!cancelled) onErrorRef.current(auditCoreErrorMessage(error));
+      .catch(() => {
+        if (!cancelled) {
+          // The import summary is authoritative. A secondary preview failure must
+          // never be reported as an upload failure.
+          setRowsByKey((current) => ({ ...current, [activeKey]: [] }));
+        }
       });
     return () => {
       cancelled = true;
@@ -206,8 +214,7 @@ export default function MahindraMasterUploads({
             accessToken,
           );
       rememberImport(activeKey, imported);
-      const page = await listMasterImportRows(tenantId, imported.importId, undefined, accessToken);
-      setRowsByKey((current) => ({ ...current, [activeKey]: page.items }));
+      setRowsByKey((current) => ({ ...current, [activeKey]: [] }));
       setNotice(
         imported.errorRows === 0
           ? `Validation PASSED. ${imported.validRows} rows are valid. Review and confirm this import.`
@@ -216,6 +223,16 @@ export default function MahindraMasterUploads({
       setFile(null);
       setFileInputVersion((value) => value + 1);
       setEffectiveFrom('');
+
+      if (imported.errorRows > 0) {
+        try {
+          const page = await listMasterImportRows(tenantId, imported.importId, 'ERROR', accessToken);
+          setRowsByKey((current) => ({ ...current, [activeKey]: page.items }));
+        } catch {
+          // Validation status/counts are already persisted and displayed above.
+          // Keep a successful upload successful even when row preview is unavailable.
+        }
+      }
     } catch (error) {
       onErrorRef.current(auditCoreErrorMessage(error));
     } finally {

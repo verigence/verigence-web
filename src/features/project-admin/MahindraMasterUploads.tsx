@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 
 import StatusPill from '../../components/StatusPill';
 import { auditCoreErrorMessage } from '../../services/audit-core/errorMessage';
@@ -11,12 +11,12 @@ import {
   type Uc02ProjectSegment,
 } from '../../services/audit-core/uc02Admin';
 import {
+  downloadMahindraValidationReport,
   listMahindraMasterImports,
   uploadMahindraNativeDiscountPolicy,
   uploadMahindraNativeSegmentMaster,
 } from '../../services/audit-core/mahindraMasterState';
 import {
-  downloadMasterImportErrorReport,
   listMasterImportRows,
   type MasterImportRow,
 } from '../../services/audit-core/uc02MasterImports';
@@ -71,6 +71,8 @@ export default function MahindraMasterUploads({
   onError,
 }: MahindraMasterUploadsProps) {
   const accessToken = useSessionStore((state) => state.accessToken);
+  const onErrorRef = useRef(onError);
+  onErrorRef.current = onError;
   const targets = useMemo<UploadTarget[]>(
     () => [
       ...segments.map((segment) => ({
@@ -112,9 +114,10 @@ export default function MahindraMasterUploads({
           if (key) next[key] = item;
         }
         setImportsByKey(next);
+        setRowsByKey({});
       })
       .catch((error) => {
-        if (!cancelled) onError(auditCoreErrorMessage(error));
+        if (!cancelled) onErrorRef.current(auditCoreErrorMessage(error));
       })
       .finally(() => {
         if (!cancelled) setRestoring(false);
@@ -122,7 +125,7 @@ export default function MahindraMasterUploads({
     return () => {
       cancelled = true;
     };
-  }, [accessToken, onError, tenantId]);
+  }, [accessToken, tenantId]);
 
   const activeTarget = targets.find((target) => target.key === activeKey) || targets[0];
   const masterImport = importsByKey[activeKey] || null;
@@ -138,12 +141,12 @@ export default function MahindraMasterUploads({
         }
       })
       .catch((error) => {
-        if (!cancelled) onError(auditCoreErrorMessage(error));
+        if (!cancelled) onErrorRef.current(auditCoreErrorMessage(error));
       });
     return () => {
       cancelled = true;
     };
-  }, [accessToken, activeKey, masterImport, onError, rowsByKey, tenantId]);
+  }, [accessToken, activeKey, masterImport, rowsByKey, tenantId]);
 
   function changeTarget(key: string) {
     setActiveKey(key);
@@ -174,7 +177,7 @@ export default function MahindraMasterUploads({
         triggerBlob(blob, 'mahindra-discount-policy.xlsx');
       }
     } catch (error) {
-      onError(auditCoreErrorMessage(error));
+      onErrorRef.current(auditCoreErrorMessage(error));
     } finally {
       setBusy(false);
     }
@@ -214,7 +217,7 @@ export default function MahindraMasterUploads({
       setFileInputVersion((value) => value + 1);
       setEffectiveFrom('');
     } catch (error) {
-      onError(auditCoreErrorMessage(error));
+      onErrorRef.current(auditCoreErrorMessage(error));
     } finally {
       setBusy(false);
     }
@@ -229,7 +232,7 @@ export default function MahindraMasterUploads({
       rememberImport(activeKey, confirmed);
       setNotice('Import confirmed. The validated master is DRAFT and ready to publish.');
     } catch (error) {
-      onError(auditCoreErrorMessage(error));
+      onErrorRef.current(auditCoreErrorMessage(error));
     } finally {
       setBusy(false);
     }
@@ -244,7 +247,7 @@ export default function MahindraMasterUploads({
       rememberImport(activeKey, published);
       setNotice('Master published successfully.');
     } catch (error) {
-      onError(auditCoreErrorMessage(error));
+      onErrorRef.current(auditCoreErrorMessage(error));
     } finally {
       setBusy(false);
     }
@@ -253,10 +256,10 @@ export default function MahindraMasterUploads({
   async function validationReport() {
     if (!accessToken || !masterImport) return;
     try {
-      const blob = await downloadMasterImportErrorReport(tenantId, masterImport.importId, accessToken);
-      triggerBlob(blob, `${masterImport.masterKey.toLowerCase()}-${masterImport.importId}-validation.csv`);
+      const blob = await downloadMahindraValidationReport(tenantId, masterImport.importId, accessToken);
+      triggerBlob(blob, `${masterImport.masterKey.toLowerCase()}-${masterImport.importId}-validation.xlsx`);
     } catch (error) {
-      onError(auditCoreErrorMessage(error));
+      onErrorRef.current(auditCoreErrorMessage(error));
     }
   }
 

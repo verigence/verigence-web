@@ -72,6 +72,7 @@ export default function MahindraMasterUploads({
 }: MahindraMasterUploadsProps) {
   const accessToken = useSessionStore((state) => state.accessToken);
   const onErrorRef = useRef(onError);
+  const restoreSequence = useRef(0);
   onErrorRef.current = onError;
   const targets = useMemo<UploadTarget[]>(
     () => [
@@ -79,7 +80,9 @@ export default function MahindraMasterUploads({
         key: `SEGMENT:${segment.segmentId}`,
         kind: 'SEGMENT' as const,
         segment,
-        label: `${segment.segmentName} Vehicle & Price Master`,
+        label: segment.segmentName.endsWith('Vehicle')
+          ? `${segment.segmentName} & Price Master`
+          : `${segment.segmentName} Vehicle & Price Master`,
       })),
       { key: 'DISCOUNT_POLICY' as const, kind: 'DISCOUNT' as const, label: 'Discount & Policy Master' },
     ],
@@ -102,12 +105,35 @@ export default function MahindraMasterUploads({
   }, [activeKey, targets]);
 
   useEffect(() => {
-    if (!accessToken) return;
+    if (!accessToken) {
+      setImportsByKey({});
+      setRowsByKey({});
+      setRestoring(false);
+      return;
+    }
+
+    const requestId = ++restoreSequence.current;
     let cancelled = false;
+    let settled = false;
+
+    // The backend is authoritative. Never display a previous Project/Tenant's
+    // master state while a fresh restore is in flight.
+    setImportsByKey({});
+    setRowsByKey({});
     setRestoring(true);
+
+    const timeoutId = window.setTimeout(() => {
+      if (cancelled || settled || requestId !== restoreSequence.current) return;
+      settled = true;
+      setRestoring(false);
+      onErrorRef.current(
+        'Loading Project Masters timed out. Please retry; no stale browser state has been kept.',
+      );
+    }, 8000);
+
     void listMahindraMasterImports(tenantId, accessToken)
       .then((items) => {
-        if (cancelled) return;
+        if (cancelled || settled || requestId !== restoreSequence.current) return;
         const next: ImportMap = {};
         for (const item of items) {
           const key = keyForImport(item);
@@ -117,13 +143,23 @@ export default function MahindraMasterUploads({
         setRowsByKey({});
       })
       .catch((error) => {
-        if (!cancelled) onErrorRef.current(auditCoreErrorMessage(error));
+        if (cancelled || settled || requestId !== restoreSequence.current) return;
+        setImportsByKey({});
+        setRowsByKey({});
+        onErrorRef.current(auditCoreErrorMessage(error));
       })
       .finally(() => {
-        if (!cancelled) setRestoring(false);
+        if (cancelled || requestId !== restoreSequence.current) return;
+        if (!settled) {
+          settled = true;
+          window.clearTimeout(timeoutId);
+          setRestoring(false);
+        }
       });
+
     return () => {
       cancelled = true;
+      window.clearTimeout(timeoutId);
     };
   }, [accessToken, tenantId]);
 
@@ -284,7 +320,7 @@ export default function MahindraMasterUploads({
 
   return (
     <div className="uc02-master-layout">
-      <aside className="uc02-card uc02-master-list">
+      <aside className="uc02-card uc02-master-list uc02-master-list--mahindra">
         <div className="uc02-card__title">
           <h3>Mahindra Masters</h3>
           <p>Each selected Segment keeps its own upload and validation state.</p>

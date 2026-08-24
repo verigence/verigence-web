@@ -54,6 +54,16 @@ function statusClass(value: string): string {
   return value.toLowerCase().replace(/[^a-z0-9]+/g, '-');
 }
 
+function fieldSectionId(localId: string): string {
+  return `di-test-fields-${localId}`;
+}
+
+function scrollToFields(localId: string): void {
+  window.setTimeout(() => {
+    document.getElementById(fieldSectionId(localId))?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, 80);
+}
+
 export default function DiTestConsolePage() {
   const available = isDiTestConsoleAvailable();
   const [health, setHealth] = useState<'CHECKING' | 'READY' | 'UNAVAILABLE'>('CHECKING');
@@ -144,6 +154,7 @@ export default function DiTestConsolePage() {
         if (document.confirmationStatus === 'CONFIRMED') {
           const fields = await getDiTestFields(activeSubjectId, documentId);
           updateRun(runId, { fields, state: 'PROCESSED' });
+          scrollToFields(runId);
         } else {
           updateRun(runId, {
             state: 'PROCESSED',
@@ -212,6 +223,9 @@ export default function DiTestConsolePage() {
         state: document.processingStatus === 'FAILED' ? 'FAILED' : document.processingStatus === 'PROCESSED' ? 'PROCESSED' : 'PROCESSING',
         error: undefined,
       });
+      if (document.processingStatus === 'PROCESSED' && document.confirmationStatus === 'CONFIRMED') {
+        scrollToFields(run.localId);
+      }
     } catch (error) {
       updateRun(run.localId, { error: error instanceof Error ? error.message : 'Refresh failed.' });
     }
@@ -320,6 +334,7 @@ export default function DiTestConsolePage() {
         {runs.length === 0 && <div className="di-test-empty">No documents uploaded in this browser session yet.</div>}
         {runs.map((run) => {
           const documentId = run.document?.documentId || run.upload?.documentId;
+          const confirmed = run.document?.processingStatus === 'PROCESSED' && run.document?.confirmationStatus === 'CONFIRMED';
           return (
             <article className="di-test-run" key={run.localId}>
               <div className="di-test-run__head">
@@ -330,6 +345,11 @@ export default function DiTestConsolePage() {
                 </div>
                 <div className="di-test-run__actions">
                   <span className={`di-test-state di-test-state--${statusClass(run.state)}`}>{run.state}</span>
+                  {confirmed && (
+                    <button type="button" className="di-test-button di-test-button--small" onClick={() => scrollToFields(run.localId)}>
+                      View fields ({run.fields.length})
+                    </button>
+                  )}
                   {documentId && <button type="button" className="di-test-button di-test-button--small" onClick={() => refreshRun(run)}>Refresh from DI</button>}
                 </div>
               </div>
@@ -343,10 +363,10 @@ export default function DiTestConsolePage() {
 
               {run.error && <div className="di-test-message di-test-message--error">{run.error}</div>}
 
-              <div className="di-test-field-section">
-                <h3>Fetched values from DI /fields</h3>
+              <div className="di-test-field-section" id={fieldSectionId(run.localId)}>
+                <h3>Fetched values from DI /fields — {run.fields.length} field{run.fields.length === 1 ? '' : 's'}</h3>
                 {run.fields.length === 0 ? (
-                  <div className="di-test-empty di-test-empty--compact">No DI field values are available for this document yet.</div>
+                  <div className="di-test-empty di-test-empty--compact">DI returned zero current field values for this document. Use Refresh from DI to fetch again.</div>
                 ) : (
                   <div className="di-test-field-table-wrap">
                     <table className="di-test-field-table">

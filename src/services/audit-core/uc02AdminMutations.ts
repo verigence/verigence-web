@@ -5,6 +5,11 @@ function auth(accessToken?: string) {
   return accessToken ? { accessToken } : {};
 }
 
+export interface DeletionImpact {
+  canDelete: boolean;
+  dependencies: Record<string, number>;
+}
+
 export interface ProjectMasterDeleteResult {
   tenantId: string;
   action: string;
@@ -16,7 +21,7 @@ export function patchDealerAdmin(
   tenantId: string,
   dealerId: string,
   versionNo: number,
-  payload: { dealerName?: string; status?: string },
+  payload: { dealerName?: string; legalName?: string | null; status?: string },
   accessToken?: string,
 ) {
   return auditCoreRequest<DealerAdmin>(`/v1/tenants/${tenantId}/dealers/${dealerId}`, {
@@ -27,15 +32,26 @@ export function patchDealerAdmin(
   });
 }
 
+export function getDealerDeletionImpact(
+  tenantId: string,
+  dealerId: string,
+  accessToken?: string,
+) {
+  return auditCoreRequest<DeletionImpact>(
+    `/v1/tenants/${tenantId}/dealers/${dealerId}/deletion-impact`,
+    auth(accessToken),
+  );
+}
+
 export function deleteDealerAdmin(
   tenantId: string,
   dealerId: string,
-  versionNo: number,
+  idempotencyKey: string,
   accessToken?: string,
 ) {
   return auditCoreRequest<void>(`/v1/tenants/${tenantId}/dealers/${dealerId}`, {
     method: 'DELETE',
-    headers: { 'If-Match': `"${versionNo}"` },
+    headers: { 'Idempotency-Key': idempotencyKey },
     ...auth(accessToken),
   });
 }
@@ -71,18 +87,30 @@ export function patchOutletAdmin(
   );
 }
 
+export function getOutletDeletionImpact(
+  tenantId: string,
+  dealerId: string,
+  outletId: string,
+  accessToken?: string,
+) {
+  return auditCoreRequest<DeletionImpact>(
+    `/v1/tenants/${tenantId}/dealers/${dealerId}/outlets/${outletId}/deletion-impact`,
+    auth(accessToken),
+  );
+}
+
 export function deleteOutletAdmin(
   tenantId: string,
   dealerId: string,
   outletId: string,
-  versionNo: number,
+  idempotencyKey: string,
   accessToken?: string,
 ) {
   return auditCoreRequest<void>(
     `/v1/tenants/${tenantId}/dealers/${dealerId}/outlets/${outletId}`,
     {
       method: 'DELETE',
-      headers: { 'If-Match': `"${versionNo}"` },
+      headers: { 'Idempotency-Key': idempotencyKey },
       ...auth(accessToken),
     },
   );

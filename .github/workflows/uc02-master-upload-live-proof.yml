@@ -1,0 +1,52 @@
+name: UC02 Master Upload Web DEV Proof
+
+on:
+  pull_request:
+    branches: [dev]
+
+permissions:
+  contents: read
+
+jobs:
+  proof:
+    runs-on: ubuntu-24.04
+    env:
+      DEV_WEB_URL: https://verigence-web-dev.jbrconsulting-it.workers.dev
+    steps:
+      - name: Verify deployed Web bundle contains persisted master upload flow
+        shell: bash
+        run: |
+          set -euo pipefail
+          bust="proof=${GITHUB_SHA}"
+          curl --fail --silent --show-error --location \
+            --header 'Cache-Control: no-cache' \
+            --output /tmp/index.html \
+            "$DEV_WEB_URL/login?$bust"
+          entry="$(grep -oE 'src="/assets/[^"]+\.js"' /tmp/index.html | head -n1 | sed -E 's/^src="([^"]+)"$/\1/')"
+          [ -n "$entry" ] || { echo 'Could not resolve deployed entry asset'; exit 1; }
+          curl --fail --silent --show-error --location --header 'Cache-Control: no-cache' \
+            --output /tmp/entry.js "$DEV_WEB_URL$entry?$bust"
+          grep -Fq '/mahindra-masters/imports' /tmp/entry.js || {
+            echo 'Deployed Web does not contain persisted Mahindra import-state API.'; exit 1;
+          }
+          grep -Fq '/native-imports' /tmp/entry.js || {
+            echo 'Deployed Web does not contain native OEM upload endpoint.'; exit 1;
+          }
+          echo "WEB_MASTER_UPLOAD_STATE_DEPLOYED=PASS asset=$entry"
+
+      - name: Verify backend route through Worker proxy
+        shell: bash
+        run: |
+          set -euo pipefail
+          status="$(curl --silent --show-error --dump-header /tmp/headers --output /tmp/body \
+            --write-out '%{http_code}' \
+            "$DEV_WEB_URL/audit-core/v1/tenants/00000000-0000-0000-0000-000000000000/mahindra-masters/imports")"
+          grep -qi '^x-verigence-proxy: audit-core' /tmp/headers || {
+            echo 'Request did not pass through Audit Core Worker proxy.'; cat /tmp/headers; exit 1;
+          }
+          case "$status" in
+            401|403) ;;
+            404) echo 'Persisted Mahindra upload-state route is not deployed through Worker.'; exit 1 ;;
+            *) echo "Unexpected route status: $status"; cat /tmp/body; exit 1 ;;
+          esac
+          echo "WEB_MASTER_UPLOAD_ROUTE=PASS http=$status"

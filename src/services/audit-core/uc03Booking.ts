@@ -127,6 +127,39 @@ export interface EvidenceFactView {
   fetchedAtUtc: string;
 }
 
+const processingByJourney = new Map<string, ProcessingStatus>();
+const terminalProcessingStatuses = new Set([
+  'COMPLETED',
+  'COMPLETE',
+  'PROCESSED',
+  'SUCCEEDED',
+  'READY',
+  'VERIFIED',
+]);
+
+function processingKey(tenantId: string, journeyId: string): string {
+  return `${tenantId}:${journeyId}`;
+}
+
+export function rememberBookingWorkspace(
+  tenantId: string,
+  journeyId: string,
+  workspace: BookingWorkspace,
+): void {
+  const summary = workspace.processingSummary;
+  const failedCount = summary?.failedCount ?? 0;
+  processingByJourney.set(processingKey(tenantId, journeyId), {
+    version: workspace.aggregateVersion,
+    pendingCount: summary?.pendingCount ?? 0,
+    readyProposalCount: summary?.readyProposalCount ?? 0,
+    failedCount,
+    documents: workspace.documents,
+    userMessage: failedCount > 0
+      ? 'One or more documents need attention. Retry processing or upload a clearer document.'
+      : null,
+  });
+}
+
 function token(accessToken?: string): string {
   const value = accessToken?.trim();
   if (!value) throw new Error('A Security human access token is required.');
@@ -164,10 +197,12 @@ export async function getBookingWorkspace(
   journeyId: string,
   accessToken?: string,
 ): Promise<BookingWorkspace> {
-  return auditCoreRequest<BookingWorkspace>(`${base(tenantId, journeyId)}/uc03-workspace`, {
+  const workspace = await auditCoreRequest<BookingWorkspace>(`${base(tenantId, journeyId)}/uc03-workspace`, {
     accessToken: token(accessToken),
     cache: 'no-store',
   });
+  rememberBookingWorkspace(tenantId, journeyId, workspace);
+  return workspace;
 }
 
 export async function getBookingEvidenceReviewContent(
@@ -242,7 +277,7 @@ export async function uploadBookingDocument(
 ): Promise<{ evidenceId: string; processingStatus: string }> {
   const form = new FormData();
   form.append('file', file);
-  return auditCoreRequest(
+  const result = await auditCoreRequest<{ evidenceId: string; processingStatus: string }>(
     `${base(tenantId, journeyId)}/stages/BOOKING/documents/${encodeURIComponent(requirementKey)}/evidence`,
     {
       method: 'POST',
@@ -251,6 +286,19 @@ export async function uploadBookingDocument(
       body: form,
     },
   );
+  if (!terminalProcessingStatuses.has(result.processingStatus.toUpperCase())) {
+    const key = processingKey(tenantId, journeyId);
+    const current = processingByJourney.get(key);
+    processingByJourney.set(key, {
+      version: current?.version ?? 0,
+      pendingCount: Math.max(1, current?.pendingCount ?? 0),
+      readyProposalCount: current?.readyProposalCount ?? 0,
+      failedCount: current?.failedCount ?? 0,
+      documents: current?.documents ?? [],
+      userMessage: current?.userMessage ?? null,
+    });
+  }
+  return result;
 }
 
 export async function assessBookingDocument(
@@ -290,10 +338,15 @@ export async function getBookingProcessingStatus(
   journeyId: string,
   accessToken?: string,
 ): Promise<ProcessingStatus> {
-  return auditCoreRequest(`${base(tenantId, journeyId)}/processing-status`, {
+  const key = processingKey(tenantId, journeyId);
+  const known = processingByJourney.get(key);
+  if (known && known.pendingCount === 0) return known;
+  const result = await auditCoreRequest<ProcessingStatus>(`${base(tenantId, journeyId)}/processing-status`, {
     accessToken: token(accessToken),
     cache: 'no-store',
   });
+  processingByJourney.set(key, result);
+  return result;
 }
 
 export async function decideExtractionProposal(

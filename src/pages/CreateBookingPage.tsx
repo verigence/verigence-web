@@ -1,13 +1,16 @@
 import { useMemo, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 
 import PageHeader from '../components/PageHeader';
+import { rememberBookingWorkspace } from '../services/audit-core/uc03Booking';
 import { createBooking } from '../services/audit-core/uc03CreateBooking';
 import { useProjectContextStore } from '../store/projectContextStore';
 import { useSessionStore } from '../store/sessionStore';
 
 export default function CreateBookingPage() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const project = useProjectContextStore((state) => state.selectedProject);
   const accessToken = useSessionStore((state) => state.accessToken);
   const outletId = useSessionStore((state) => state.outletId);
@@ -42,6 +45,14 @@ export default function CreateBookingPage() {
         normalizedCustomerName,
         accessToken,
       );
+      const workspaceQueryKey = [
+        'uc03-booking-workspace',
+        activeProject.tenantId,
+        result.journeyId,
+      ];
+      rememberBookingWorkspace(activeProject.tenantId, result.journeyId, result.workspace);
+      queryClient.setQueryDefaults(workspaceQueryKey, { staleTime: 30_000 });
+      queryClient.setQueryData(workspaceQueryKey, result.workspace);
       navigate(`/bookings/${result.journeyId}`, { replace: true });
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'The Booking could not be started.');

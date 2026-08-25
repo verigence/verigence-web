@@ -34,7 +34,8 @@ export default function ProjectContextGate({ children }: PropsWithChildren) {
   const projectQuery = useQuery({
     queryKey: ['uc03-projects'],
     queryFn: () => listMyOperationalProjects(accessToken),
-    staleTime: 15_000,
+    staleTime: Infinity,
+    gcTime: Infinity,
     retry: 1,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,

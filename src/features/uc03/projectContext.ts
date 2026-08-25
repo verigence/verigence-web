@@ -58,7 +58,11 @@ export function clearOperationalProject(queryClient: QueryClient): void {
 }
 
 export function resetOperationalContext(queryClient?: QueryClient): void {
-  if (queryClient) clearTenantQueries(queryClient);
+  if (queryClient) {
+    clearTenantQueries(queryClient);
+    void queryClient.cancelQueries({ queryKey: ['uc03-projects'] });
+    queryClient.removeQueries({ queryKey: ['uc03-projects'] });
+  }
   useSessionStore.getState().setBusinessContext({
     tenantId: '',
     dealerId: '',

@@ -2,7 +2,6 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 
-import PageHeader from '../components/PageHeader';
 import StatusPill from '../components/StatusPill';
 import type { OperatingRole } from '../domain/models';
 import {
@@ -71,7 +70,11 @@ function LandingMetric({ label, value, detail, actionLabel, attention, onSelect 
       <span className="uc03-landing-metric__label">{label}</span>
       <strong className="uc03-landing-metric__value">{value}</strong>
       <span className="uc03-landing-metric__detail">{detail}</span>
-      {actionLabel && <span className="uc03-landing-metric__action">{actionLabel}<span aria-hidden="true">→</span></span>}
+      {actionLabel && (
+        <span className="uc03-landing-metric__action">
+          {actionLabel}<span aria-hidden="true">→</span>
+        </span>
+      )}
     </>
   );
 
@@ -84,6 +87,36 @@ function LandingMetric({ label, value, detail, actionLabel, attention, onSelect 
   }
 
   return <article className={`uc03-landing-metric${attention ? ' is-attention' : ''}`}>{content}</article>;
+}
+
+type DashboardHeroProps = {
+  eyebrow: string;
+  title: string;
+  description: string;
+  showCaptureAction: boolean;
+};
+
+function DashboardHero({ eyebrow, title, description, showCaptureAction }: DashboardHeroProps) {
+  return (
+    <section className="uc03-dashboard-hero" aria-labelledby="uc03-dashboard-hero-title">
+      <div className="uc03-dashboard-hero__copy">
+        <span className="uc03-dashboard-hero__eyebrow">{eyebrow}</span>
+        <h1 id="uc03-dashboard-hero-title">{title}</h1>
+        <p>{description}</p>
+      </div>
+
+      <div className="uc03-dashboard-hero__brand" aria-hidden="true">
+        <img src="/brand/approved/verigence-mark.svg" alt="" />
+      </div>
+
+      {showCaptureAction && (
+        <Link className="uc03-landing__capture-action" to="/dashboard?action=create-booking">
+          <span aria-hidden="true">＋</span>
+          <span>Capture New Booking</span>
+        </Link>
+      )}
+    </section>
+  );
 }
 
 function WorkItemCard({ item, timezoneName }: { item: Uc03WorkItem; timezoneName: string }) {
@@ -315,15 +348,11 @@ export default function DashboardPage() {
 
   return (
     <div className="screen-stack uc03-landing uc03-landing--phase2 uc03-landing--approved">
-      <PageHeader
+      <DashboardHero
         eyebrow={`${roleLabels[project.operatingRole]} Workspace`}
         title={headerTitle}
         description={headerDescription}
-        actions={isPc ? (
-          <Link className="uc03-landing__capture-action" to="/dashboard?action=create-booking">
-            <span aria-hidden="true">＋</span> Capture New Booking
-          </Link>
-        ) : undefined}
+        showCaptureAction={isPc}
       />
 
       {metricsQuery.isError ? (

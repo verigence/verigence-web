@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 
+import { verigenceLockup } from '../assets/verigenceLockup';
 import StatusPill from '../components/StatusPill';
 import {
   getUc03LandingMetrics,
@@ -40,14 +41,14 @@ function greetingForTime(timezoneName: string): string {
       hourCycle: 'h23',
     }).format(new Date());
     const hour = Number.parseInt(hourText, 10);
-    if (hour < 12) return 'Good morning';
-    if (hour < 17) return 'Good afternoon';
-    return 'Good evening';
+    if (hour < 12) return 'Good Morning';
+    if (hour < 17) return 'Good Afternoon';
+    return 'Good Evening';
   } catch {
     const hour = new Date().getHours();
-    if (hour < 12) return 'Good morning';
-    if (hour < 17) return 'Good afternoon';
-    return 'Good evening';
+    if (hour < 12) return 'Good Morning';
+    if (hour < 17) return 'Good Afternoon';
+    return 'Good Evening';
   }
 }
 
@@ -55,6 +56,13 @@ function firstNameFromDisplayName(displayName: string): string {
   const firstPart = displayName.trim().split(/[\s._-]+/).find(Boolean) || '';
   if (!firstPart) return '';
   return firstPart.charAt(0).toUpperCase() + firstPart.slice(1);
+}
+
+function auditStageSummary(item: Uc03WorkItem['booking']): string {
+  const state = friendlyStatus(item.auditState);
+  if (item.auditStatus === 'FLAGS_RAISED') return `${state} · Flags Raised`;
+  if (item.auditStatus === 'NO_FLAGS') return `${state} · No Flags`;
+  return `${state} · Not Evaluated`;
 }
 
 function StageBlock({ label, item }: { label: string; item: Uc03WorkItem['booking'] }) {
@@ -122,7 +130,7 @@ function DashboardHero({ greeting, dealershipName, outletName, showCaptureAction
       </div>
 
       <div className="uc03-dashboard-hero__brand" aria-hidden="true">
-        <img src="/brand/approved/verigence-mark.svg" alt="" />
+        <img src={verigenceLockup} alt="" />
       </div>
 
       {showCaptureAction && (
@@ -178,11 +186,9 @@ function WorkItemCard({ item, timezoneName }: { item: Uc03WorkItem; timezoneName
         <div className="uc03-work-card__summary">
           <span className="uc03-work-card__status-label">Booking</span>
           <strong>{friendlyStatus(item.booking.businessStatus)}</strong>
-          {item.openFlagCount > 0 ? (
-            <span className="uc03-work-card__attention">{item.openFlagCount} open flag{item.openFlagCount === 1 ? '' : 's'}</span>
-          ) : (
-            <span className="uc03-work-card__clear">No open flags</span>
-          )}
+          <span className={`uc03-work-card__audit-state${item.booking.auditStatus === 'FLAGS_RAISED' ? ' is-attention' : ''}`}>
+            Audit {auditStageSummary(item.booking)}
+          </span>
         </div>
       </header>
 
@@ -199,8 +205,9 @@ function WorkItemCard({ item, timezoneName }: { item: Uc03WorkItem; timezoneName
           </div>
           <div className="uc03-work-card__expanded-meta">
             <span>Latest activity {activityLabel(item.latestActivityAtUtc, timezoneName)}</span>
-            <span>{item.openFlagCount} open / {item.totalFlagCount} total Audit Flags</span>
-            {item.highestOpenSeverity && <StatusPill value={item.highestOpenSeverity} compact />}
+            {item.totalFlagCount > 0 && (
+              <span>{item.totalFlagCount} Audit Flag{item.totalFlagCount === 1 ? '' : 's'} Raised</span>
+            )}
             {item.processingDocumentCount > 0 && (
               <span>{item.processingDocumentCount} document{item.processingDocumentCount === 1 ? '' : 's'} processing</span>
             )}
@@ -407,10 +414,9 @@ export default function DashboardPage() {
             attention={Boolean(metrics?.needsAttention)}
           />
           <LandingMetric
-            label="Audit Flags"
-            value={metrics ? String(metrics.auditFlags) : '—'}
-            detail="Open / acknowledged"
-            attention={Boolean(metrics?.auditFlags)}
+            label="Audit Status"
+            value={typeof metrics?.auditInProgress === 'number' ? String(metrics.auditInProgress) : '—'}
+            detail="In progress"
           />
         </div>
       )}

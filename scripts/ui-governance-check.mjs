@@ -62,6 +62,12 @@ forbid(
 requireText('src/components/ProjectContextGate.tsx', 'Choose Workspace', 'selection screen must use neutral Workspace wording.');
 requireText('src/components/ProjectContextGate.tsx', 'Choose Work Location', 'outlet selection must use neutral Work Location wording.');
 
+forbid(
+  'src/pages/DashboardPage.tsx',
+  /project\.projectName\b/,
+  'Landing may show Dealer/Outlet for PC context but must never fall back to Project Name.',
+);
+
 const operationalFiles = [
   'src/pages/DeliveryWorkspacePage.tsx',
   'src/pages/AuditReviewPage.tsx',

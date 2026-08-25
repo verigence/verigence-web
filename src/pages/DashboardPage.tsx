@@ -198,11 +198,16 @@ export default function DashboardPage() {
   return (
     <div className="screen-stack uc03-landing">
       <PageHeader
-        eyebrow={`${roleLabels[project.operatingRole]} · ${project.projectCode}`}
+        eyebrow={roleLabels[project.operatingRole]}
         title={project.projectName}
         description={selectedOutlet
           ? `Booking and Delivery work for ${selectedOutlet.dealerName} · ${selectedOutlet.outletName}.`
           : 'Booking and Delivery work for your current Project and authorized business scope.'}
+        actions={project.operatingRole === 'PC' ? (
+          <Link className="uc03-landing__capture-action" to="/dashboard?action=create-booking">
+            Capture New Booking
+          </Link>
+        ) : undefined}
       />
 
       {metricsQuery.isError ? (

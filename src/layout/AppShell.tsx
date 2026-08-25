@@ -137,7 +137,7 @@ export default function AppShell({ children }: PropsWithChildren) {
   useEffect(() => {
     setMobileMenuOpen(false);
     setOpenGroup(activeGroupKey);
-  }, [activeGroupKey, location.pathname]);
+  }, [activeGroupKey, location.pathname, location.search]);
 
   useEffect(() => {
     if (!mobileMenuOpen) return undefined;
@@ -191,7 +191,7 @@ export default function AppShell({ children }: PropsWithChildren) {
 
       <aside className={`enterprise-sidebar${mobileMenuOpen ? ' enterprise-sidebar--open' : ''}`} aria-label="Application navigation">
         <div className="enterprise-sidebar__mobile-head">
-          <NavLink className="enterprise-brand" to="/dashboard" aria-label="Verigence home"><img src={verigenceLockup} alt="Verigence" /></NavLink>
+          <NavLink className="enterprise-brand" to="/dashboard" aria-label="Verigence home" onClick={() => setMobileMenuOpen(false)}><img src={verigenceLockup} alt="Verigence" /></NavLink>
           <button type="button" className="enterprise-sidebar__close" aria-label="Close navigation" onClick={() => setMobileMenuOpen(false)}>×</button>
         </div>
         {selectedProject && (
@@ -220,6 +220,7 @@ export default function AppShell({ children }: PropsWithChildren) {
                     <NavLink
                       key={item.to}
                       to={item.to}
+                      onClick={() => setMobileMenuOpen(false)}
                       className={({ isActive }) => `enterprise-nav__item${isNavItemActive(item, isActive) ? ' enterprise-nav__item--active' : ''}`}
                     >
                       <span className="enterprise-nav__mark">{item.mark}</span><span>{item.label}</span>
@@ -236,7 +237,7 @@ export default function AppShell({ children }: PropsWithChildren) {
         <header className="enterprise-topbar">
           <div className="enterprise-topbar__mobile-start">
             <button type="button" className="enterprise-menu-button" aria-label="Open navigation" aria-expanded={mobileMenuOpen} onClick={() => setMobileMenuOpen(true)}><span aria-hidden="true">☰</span></button>
-            <NavLink className="enterprise-mobile-brand" to="/dashboard" aria-label="Verigence home"><img src={verigenceLockup} alt="Verigence" /></NavLink>
+            <NavLink className="enterprise-mobile-brand" to="/dashboard" aria-label="Verigence home" onClick={() => setMobileMenuOpen(false)}><img src={verigenceLockup} alt="Verigence" /></NavLink>
           </div>
           <div className="enterprise-topbar__trail"><span>{selectedProject?.projectName || 'Verigence'}</span><span>/</span><strong>{currentLabel}</strong></div>
           <div className="enterprise-topbar__actions">

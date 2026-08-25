@@ -5,10 +5,13 @@ on:
     branches: [dev]
     paths:
       - '.github/workflows/booking-functional-validation.yml'
+      - 'src/main.tsx'
+      - 'src/layout/AppShell.tsx'
       - 'src/pages/BookingWorkspacePage.tsx'
       - 'src/services/audit-core/uc03Booking.ts'
       - 'src/services/audit-core/uc03BookingJourney.ts'
       - 'src/services/audit-core/uc03BookingPart1.ts'
+      - 'src/styles/authenticated-scroll-owner.css'
       - 'src/styles/ui-governance.css'
       - 'src/styles/uc03-booking-*.css'
   workflow_dispatch:
@@ -68,6 +71,36 @@ jobs:
             body: JSON.stringify(body),
           });
           const ref = (values) => values.map(([code, label]) => ({ code, label }));
+          const assertMainScrollBottom = async (page, viewportName, stepName, requireOverflow = false) => {
+            const metrics = await page.evaluate(() => {
+              const host = document.querySelector('.enterprise-main');
+              if (!host) return null;
+              return {
+                scrollHeight: host.scrollHeight,
+                clientHeight: host.clientHeight,
+                overflowY: getComputedStyle(host).overflowY,
+              };
+            });
+            if (!metrics) throw new Error(`${viewportName}: authenticated scroll host .enterprise-main is missing.`);
+            if (!['auto', 'scroll'].includes(metrics.overflowY)) {
+              throw new Error(`${viewportName}: ${stepName} scroll host overflow-y is ${metrics.overflowY}, expected auto/scroll.`);
+            }
+            const hasOverflow = metrics.scrollHeight > metrics.clientHeight + 1;
+            if (requireOverflow && !hasOverflow) {
+              throw new Error(`${viewportName}: ${stepName} did not exercise a real vertical overflow scenario.`);
+            }
+            if (!hasOverflow) return;
+            await page.evaluate(() => {
+              const host = document.querySelector('.enterprise-main');
+              host.scrollTop = host.scrollHeight;
+            });
+            await page.waitForTimeout(50);
+            const bottomReachable = await page.evaluate(() => {
+              const host = document.querySelector('.enterprise-main');
+              return host.scrollTop + host.clientHeight >= host.scrollHeight - 3;
+            });
+            if (!bottomReachable) throw new Error(`${viewportName}: ${stepName} freezes before the bottom.`);
+          };
 
           const fakeLogin = {
             accessToken: 'booking-functional-human-token',
@@ -212,19 +245,7 @@ jobs:
               await item.scrollIntoViewIfNeeded();
               if (!(await item.isVisible())) throw new Error(`${viewport.name}: upload card not reachable: ${title}`);
             }
-            if (viewport.width < 768) {
-              const metrics = await page.evaluate(() => ({
-                scrollHeight: Math.max(document.documentElement.scrollHeight, document.body.scrollHeight),
-                innerHeight: window.innerHeight,
-              }));
-              if (metrics.scrollHeight <= metrics.innerHeight) throw new Error(`${viewport.name}: no vertical overflow scenario was exercised.`);
-              await page.evaluate(() => window.scrollTo(0, Math.max(document.documentElement.scrollHeight, document.body.scrollHeight)));
-              const bottomReachable = await page.evaluate(() => {
-                const total = Math.max(document.documentElement.scrollHeight, document.body.scrollHeight);
-                return window.scrollY + window.innerHeight >= total - 3;
-              });
-              if (!bottomReachable) throw new Error(`${viewport.name}: Step 1 freezes before the bottom.`);
-            }
+            await assertMainScrollBottom(page, viewport.name, 'Step 1', viewport.width < 768);
 
             await page.getByRole('button', { name: /Continue to Booking Details/i }).click();
             await page.getByRole('heading', { name: 'Booking Details' }).waitFor();
@@ -263,6 +284,15 @@ jobs:
 
             const reviewButton = page.getByRole('button', { name: /Review Booking Details/i });
             if (!(await reviewButton.isEnabled())) throw new Error(`${viewport.name}: no Price List still blocks Review.`);
+            await assertMainScrollBottom(page, viewport.name, 'Step 2', true);
+            const reviewAtBottom = await reviewButton.evaluate((element) => {
+              const host = document.querySelector('.enterprise-main');
+              if (!host) return false;
+              const elementRect = element.getBoundingClientRect();
+              const hostRect = host.getBoundingClientRect();
+              return elementRect.top >= hostRect.top - 2 && elementRect.bottom <= hostRect.bottom + 2;
+            });
+            if (!reviewAtBottom) throw new Error(`${viewport.name}: Step 2 bottom action is not reachable in the scroll viewport.`);
 
             await Promise.all([
               page.waitForResponse((response) => response.request().method() === 'POST' && response.url().includes('/documents/corporate_id/evidence')),
@@ -290,6 +320,7 @@ jobs:
 
           await browser.close();
           console.log('BOOKING_FUNCTIONAL_UX=PASS');
+          console.log('ScrollHost=ENTERPRISE_MAIN_BOTTOM_REACHABLE');
           console.log('Step1=FOUR_UPLOADS_REACHABLE');
           console.log('Step2=NO_PRICE_LIST_NON_BLOCKING');
           console.log('Step2=ALL_REQUIRED_DROPDOWNS_SELECTABLE');

@@ -79,6 +79,19 @@ const routeLabels: Record<string, string> = {
   '/admin/project': 'Project Administration', '/profile': 'Profile',
 };
 
+const dynamicRouteLabels: Array<[string, string]> = [
+  ['/bookings/', 'Booking'],
+  ['/deliveries/', 'Delivery'],
+  ['/audit/', 'Audit Review'],
+  ['/customers/', 'Customer'],
+  ['/journeys/', 'Journey'],
+  ['/evidence/', 'Evidence'],
+  ['/payments/', 'Payment'],
+  ['/findings/', 'Finding'],
+  ['/reviews/', 'Review'],
+  ['/tasks/', 'Work Item'],
+];
+
 const roleLabels: Record<ShellRole, string> = {
   PC: 'Process Coordinator', TL: 'Team Lead', PM: 'Project Manager', CRM: 'CRM', EXECUTIVE: 'Executive',
   TENANT_ADMIN: 'Tenant Admin', SUPER_ADMIN: 'SuperAdmin',
@@ -163,11 +176,12 @@ export default function AppShell({ children }: PropsWithChildren) {
     navigate('/dashboard', { replace: true });
   };
 
+  const dynamicLabel = dynamicRouteLabels.find(([prefix]) => location.pathname.startsWith(prefix))?.[1];
   const currentLabel = createBookingMode
     ? 'Capture New Booking'
     : routeLabels[location.pathname]
-      ?? location.pathname.split('/').filter(Boolean).at(-1)?.replaceAll('-', ' ')
-      ?? 'Overview';
+      ?? dynamicLabel
+      ?? 'Workspace';
   const visibleName = displayName || 'User';
   const roleLabel = roleLabels[role];
   const avatarText = initials(visibleName);

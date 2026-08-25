@@ -54,7 +54,7 @@ export interface BookingDetailsView {
 }
 
 export interface BookingDetailsPayload {
-  priceListId: string;
+  priceListId: string | null;
   customerType: string;
   dealType: string;
   dealSource: string;

@@ -49,6 +49,7 @@ import './styles/uc03-pc-ui-regression-fixes.css';
 import './styles/uc03-pc-landing-cta.css';
 import './styles/uc03-pc-product-polish.css';
 import './styles/uc03-phase2-worklist.css';
+import './styles/uc03-approved-landing.css';
 
 import App from './App';
 import DiFieldViewerEnhancer from './features/di-test/DiFieldViewerEnhancer';

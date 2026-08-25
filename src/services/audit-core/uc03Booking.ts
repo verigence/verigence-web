@@ -124,6 +124,8 @@ export interface EvidenceFactView {
   normalizedValue: string | null;
   confidenceScore: number | null;
   verificationStatus: string | null;
+  pageNo: number | null;
+  evidenceRegion: EvidenceRegion | null;
   fetchedAtUtc: string;
 }
 

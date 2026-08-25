@@ -64,7 +64,9 @@ function ProposalRow({
   const [editing, setEditing] = useState(false);
   const [correction, setCorrection] = useState(displayValue(proposal.proposedValue));
   const [busy, setBusy] = useState(false);
-  const lockedIdentityField = proposal.fieldKey === 'customer_name' || proposal.fieldKey === 'pan_name';
+  // Only the name entered when the Journey was created is locked. PAN/Aadhaar
+  // names establish Legal Name and must remain available for normal PC review.
+  const lockedIdentityField = proposal.fieldKey === 'customer_name';
   const lockedMatches = lockedIdentityField
     && comparableValue(proposal.proposedValue) === comparableValue(lockedCustomerName);
   const decided = proposal.status !== 'PENDING';

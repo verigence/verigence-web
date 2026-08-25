@@ -231,7 +231,7 @@ export async function getBookingEvidenceFacts(
   accessToken?: string,
 ): Promise<EvidenceFactView[]> {
   return auditCoreRequest<EvidenceFactView[]>(
-    `${base(tenantId, journeyId)}/evidence/${encodeURIComponent(evidenceId)}/facts`,
+    `${base(tenantId, journeyId)}/booking/evidence/${encodeURIComponent(evidenceId)}/facts`,
     {
       accessToken: token(accessToken),
       cache: 'no-store',

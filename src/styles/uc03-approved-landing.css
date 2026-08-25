@@ -1,0 +1,495 @@
+/*
+ * UC03 approved PC landing layout — 25 Aug 2026.
+ * Visual hierarchy only. Keeps the existing Verigence navy/teal brand system.
+ * Loaded last so the approved landing presentation replaces older UC03 polish.
+ */
+
+.uc03-landing--approved {
+  gap: 14px;
+}
+
+/* Compact identity header: Outlet first, Dealership second. */
+.uc03-landing--approved > .page-header {
+  position: relative;
+  overflow: hidden;
+  min-height: 0;
+  padding: 17px 20px;
+  align-items: center;
+  border: 1px solid #dbe5ec;
+  border-radius: 15px;
+  background: #fff;
+  box-shadow: 0 5px 18px rgba(0, 48, 101, .035);
+}
+
+.uc03-landing--approved > .page-header::before {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 4px;
+  background: linear-gradient(180deg, #003a82 0%, #00afa8 100%);
+}
+
+.uc03-landing--approved > .page-header .eyebrow {
+  color: #6d8294;
+  font-size: 9px;
+  font-weight: 850;
+  letter-spacing: .075em;
+  text-transform: uppercase;
+}
+
+.uc03-landing--approved > .page-header h1 {
+  margin: 3px 0 3px;
+  color: #122c46;
+  font-size: clamp(23px, 2.2vw, 29px);
+  line-height: 1.1;
+  letter-spacing: -.025em;
+}
+
+.uc03-landing--approved > .page-header p {
+  margin: 0;
+  color: #557087;
+  font-size: 12px;
+  font-weight: 650;
+  line-height: 1.35;
+}
+
+.uc03-landing--approved .uc03-landing__capture-action {
+  min-height: 42px;
+  padding: 0 15px;
+  border-radius: 9px;
+  background: #003a82;
+  box-shadow: none;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.uc03-landing--approved .uc03-landing__capture-action:hover,
+.uc03-landing--approved .uc03-landing__capture-action:focus-visible {
+  background: #052f69;
+  outline: 3px solid rgba(0, 175, 168, .13);
+  outline-offset: 2px;
+}
+
+/* Operational summary: compact, scan-first. */
+.uc03-landing--approved .uc03-landing-metrics {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 9px;
+}
+
+.uc03-landing--approved .uc03-landing-metric {
+  min-height: 92px;
+  padding: 12px 13px;
+  grid-template-rows: auto auto auto;
+  align-content: start;
+  gap: 3px;
+  border: 1px solid #e0e7ee;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: none;
+}
+
+.uc03-landing--approved .uc03-landing-metric::before {
+  height: 2px;
+}
+
+.uc03-landing--approved .uc03-landing-metric__label {
+  color: #6b7e90;
+  font-size: 8.5px;
+  letter-spacing: .06em;
+}
+
+.uc03-landing--approved .uc03-landing-metric__value {
+  margin-top: 1px;
+  color: #003a82;
+  font-size: 25px;
+  line-height: 1.05;
+}
+
+.uc03-landing--approved .uc03-landing-metric__detail {
+  color: #7a8897;
+  font-size: 9.5px;
+  line-height: 1.25;
+}
+
+.uc03-landing--approved .uc03-landing-metric__action {
+  position: absolute;
+  right: 12px;
+  bottom: 10px;
+  color: #007f79;
+  font-size: 9px;
+}
+
+.uc03-landing--approved .uc03-landing-metric.is-action:hover,
+.uc03-landing--approved .uc03-landing-metric.is-action:focus-visible {
+  transform: none;
+  border-color: #a8cbd5;
+  box-shadow: 0 5px 16px rgba(0, 58, 130, .06);
+}
+
+/* Recent work surface */
+.uc03-landing--approved .uc03-work-list {
+  padding: 17px;
+  gap: 12px;
+  border: 1px solid #dce4eb;
+  border-radius: 15px;
+  background: #fff;
+  box-shadow: 0 5px 18px rgba(0, 48, 101, .025);
+}
+
+.uc03-work-list__heading--approved {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.uc03-work-list__heading--approved > div > span {
+  display: block;
+  color: #7890a2;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+
+.uc03-landing--approved .uc03-work-list__heading--approved h2 {
+  margin: 2px 0 0;
+  color: #17324d;
+  font-size: 20px;
+  line-height: 1.15;
+  letter-spacing: -.02em;
+}
+
+.uc03-filter-toggle {
+  min-height: 38px;
+  padding: 0 12px;
+  border: 1px solid #cdd9e3;
+  border-radius: 9px;
+  background: #fff;
+  color: #31506e;
+  font: inherit;
+  font-size: 10px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.uc03-filter-toggle.is-active,
+.uc03-filter-toggle:hover,
+.uc03-filter-toggle:focus-visible {
+  border-color: #86b9c3;
+  background: #f3fbfa;
+  color: #007f79;
+  outline: none;
+}
+
+.uc03-work-filter-tabs--approved {
+  width: min(100%, 360px);
+  padding: 3px;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 2px;
+  border: 1px solid #e2e7ed;
+  border-radius: 10px;
+  background: #f3f6f9;
+}
+
+.uc03-work-filter-tabs--approved button {
+  min-height: 34px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: #66798b;
+  font: inherit;
+  font-size: 10px;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.uc03-work-filter-tabs--approved button.is-active {
+  background: #fff;
+  color: #003a82;
+  box-shadow: 0 2px 7px rgba(0, 48, 101, .08);
+}
+
+.uc03-work-filters--approved {
+  padding: 11px 12px;
+  display: flex;
+  align-items: end;
+  justify-content: flex-start;
+  gap: 10px;
+  border: 1px solid #e4e9ee;
+  border-radius: 10px;
+  background: #f8fafc;
+}
+
+.uc03-work-filters--approved .uc03-date-range {
+  width: min(100%, 390px);
+}
+
+/* Compact transaction rows instead of nested dashboard cards. */
+.uc03-landing--approved .uc03-work-cards {
+  gap: 8px;
+}
+
+.uc03-landing--approved .uc03-work-card {
+  gap: 7px;
+  padding: 13px 14px;
+  border: 1px solid #e1e7ed;
+  border-radius: 11px;
+  background: #fff;
+  box-shadow: none;
+}
+
+.uc03-landing--approved .uc03-work-card--interactive:hover,
+.uc03-landing--approved .uc03-work-card--interactive:focus-visible {
+  transform: none;
+  border-color: #a8c9d6;
+  background: #fcfeff;
+  box-shadow: 0 4px 14px rgba(0, 58, 130, .045);
+}
+
+.uc03-landing--approved .uc03-work-card__header {
+  align-items: start;
+}
+
+.uc03-landing--approved .uc03-work-card__reference {
+  color: #607a91;
+  font-size: 9px;
+  font-weight: 800;
+}
+
+.uc03-landing--approved .uc03-work-card__identity h3 {
+  margin: 2px 0 1px;
+  color: #17324d;
+  font-size: 14px;
+  line-height: 1.2;
+}
+
+.uc03-landing--approved .uc03-work-card__identity p {
+  margin: 0;
+  color: #6d7f8f;
+  font-size: 10.5px;
+}
+
+.uc03-landing--approved .uc03-work-card__summary {
+  min-width: 118px;
+  gap: 1px;
+}
+
+.uc03-landing--approved .uc03-work-card__status-label {
+  font-size: 8px;
+}
+
+.uc03-landing--approved .uc03-work-card__summary > strong {
+  color: #334f69;
+  font-size: 11px;
+}
+
+.uc03-landing--approved .uc03-work-card__attention,
+.uc03-landing--approved .uc03-work-card__clear {
+  font-size: 9px;
+}
+
+.uc03-landing--approved .uc03-work-card__location {
+  padding-top: 1px;
+  color: #80909f;
+  font-size: 9.5px;
+}
+
+.uc03-landing--approved .uc03-work-card__footer {
+  margin-top: 2px;
+  padding-top: 7px;
+  border-top: 1px solid #eef1f4;
+}
+
+.uc03-landing--approved .uc03-work-card__activity {
+  color: #7b8996;
+  font-size: 9px;
+}
+
+.uc03-landing--approved .uc03-work-card__primary-hint {
+  margin-top: 1px;
+  color: #0057b8;
+  font-size: 9px;
+}
+
+.uc03-landing--approved .uc03-work-card__details-button,
+.uc03-landing--approved .uc03-work-card__actions--desktop .uc03-c1-secondary,
+.uc03-landing--approved .uc03-work-card__more-button {
+  min-height: 32px;
+  padding: 0 9px;
+  border-radius: 7px;
+  font-size: 9px;
+}
+
+.uc03-landing--approved .uc03-work-card.is-expanded {
+  border-color: #b9d4df;
+  background: #fcfeff;
+  box-shadow: 0 5px 16px rgba(0, 58, 130, .04);
+}
+
+.uc03-landing--approved .uc03-work-card__expanded-content {
+  margin-top: 4px;
+}
+
+.uc03-landing--approved .uc03-work-card__expanded-meta {
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: #f6f9fb;
+  font-size: 9px;
+}
+
+.uc03-landing--approved .uc03-stage-block {
+  padding: 8px 9px;
+  border-radius: 8px;
+  background: #f7f9fb;
+}
+
+.uc03-landing--approved .uc03-stage-block > span {
+  font-size: 8px;
+}
+
+.uc03-landing--approved .uc03-stage-block > strong {
+  font-size: 10px;
+}
+
+.uc03-landing--approved .uc03-lazy-load {
+  min-height: 40px;
+  padding-top: 2px;
+  font-size: 9px;
+}
+
+.uc03-landing--approved .uc03-lazy-load button {
+  min-height: 32px;
+  padding: 0 10px;
+  border-radius: 7px;
+  font-size: 9px;
+}
+
+@media (max-width: 900px) {
+  .uc03-landing--approved .uc03-landing-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .uc03-work-filters--approved {
+    align-items: stretch;
+  }
+}
+
+@media (max-width: 767px) {
+  .uc03-landing--approved {
+    gap: 10px;
+  }
+
+  .uc03-landing--approved > .page-header {
+    padding: 14px 14px 14px 16px;
+    align-items: stretch;
+    border-radius: 12px;
+  }
+
+  .uc03-landing--approved > .page-header h1 {
+    margin: 2px 0;
+    font-size: 22px;
+  }
+
+  .uc03-landing--approved > .page-header p {
+    font-size: 11px;
+  }
+
+  .uc03-landing--approved > .page-header .page-header__actions {
+    margin-top: 10px;
+  }
+
+  .uc03-landing--approved .uc03-landing__capture-action {
+    width: 100%;
+    min-height: 43px;
+    justify-content: center;
+    font-size: 11px;
+  }
+
+  .uc03-landing--approved .uc03-landing-metrics {
+    gap: 7px;
+  }
+
+  .uc03-landing--approved .uc03-landing-metric {
+    min-height: 84px;
+    padding: 10px 11px;
+  }
+
+  .uc03-landing--approved .uc03-landing-metric__value {
+    font-size: 23px;
+  }
+
+  .uc03-landing--approved .uc03-landing-metric__detail {
+    font-size: 8.5px;
+  }
+
+  .uc03-landing--approved .uc03-work-list {
+    padding: 12px;
+    gap: 10px;
+    border-radius: 12px;
+  }
+
+  .uc03-landing--approved .uc03-work-list__heading--approved h2 {
+    font-size: 18px;
+  }
+
+  .uc03-filter-toggle {
+    min-height: 36px;
+  }
+
+  .uc03-work-filter-tabs--approved {
+    width: 100%;
+  }
+
+  .uc03-work-filters--approved {
+    display: grid;
+    gap: 8px;
+    padding: 9px;
+  }
+
+  .uc03-work-filters--approved .uc03-date-range {
+    width: 100%;
+  }
+
+  .uc03-landing--approved .uc03-work-card {
+    padding: 11px;
+    border-radius: 10px;
+  }
+
+  .uc03-landing--approved .uc03-work-card__summary {
+    min-width: 92px;
+  }
+
+  .uc03-landing--approved .uc03-work-card__summary > strong {
+    max-width: 102px;
+  }
+
+  .uc03-landing--approved .uc03-work-card__footer {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .uc03-landing--approved .uc03-work-card__controls {
+    width: auto;
+    justify-content: flex-end;
+  }
+
+  .uc03-landing--approved .uc03-work-card__details-button {
+    flex: 0 0 auto;
+  }
+}
+
+@media (max-width: 390px) {
+  .uc03-landing--approved > .page-header h1 {
+    font-size: 20px;
+  }
+
+  .uc03-landing--approved .uc03-landing-metric {
+    min-height: 82px;
+  }
+
+  .uc03-work-list__heading--approved {
+    align-items: center;
+  }
+}

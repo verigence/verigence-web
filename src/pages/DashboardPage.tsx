@@ -3,7 +3,6 @@ import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 
 import StatusPill from '../components/StatusPill';
-import type { OperatingRole } from '../domain/models';
 import {
   getUc03LandingMetrics,
   listUc03WorkItems,
@@ -13,14 +12,6 @@ import {
 import { useProjectContextStore } from '../store/projectContextStore';
 import { useSessionStore } from '../store/sessionStore';
 import CreateBookingPage from './CreateBookingPage';
-
-const roleLabels: Record<OperatingRole, string> = {
-  PC: 'Process Coordinator',
-  TL: 'Team Lead',
-  PM: 'Project Manager',
-  CRM: 'CRM',
-  EXECUTIVE: 'Executive',
-};
 
 function friendlyStatus(value?: string | null, fallback = 'Not Started'): string {
   if (!value) return fallback;
@@ -39,6 +30,31 @@ function activityLabel(timestamp: string, timezoneName: string): string {
     dateStyle: 'medium',
     timeStyle: 'short',
   }).format(date);
+}
+
+function greetingForTime(timezoneName: string): string {
+  try {
+    const hourText = new Intl.DateTimeFormat('en-GB', {
+      timeZone: timezoneName,
+      hour: '2-digit',
+      hourCycle: 'h23',
+    }).format(new Date());
+    const hour = Number.parseInt(hourText, 10);
+    if (hour < 12) return 'Good morning';
+    if (hour < 17) return 'Good afternoon';
+    return 'Good evening';
+  } catch {
+    const hour = new Date().getHours();
+    if (hour < 12) return 'Good morning';
+    if (hour < 17) return 'Good afternoon';
+    return 'Good evening';
+  }
+}
+
+function firstNameFromDisplayName(displayName: string): string {
+  const firstPart = displayName.trim().split(/[\s._-]+/).find(Boolean) || '';
+  if (!firstPart) return '';
+  return firstPart.charAt(0).toUpperCase() + firstPart.slice(1);
 }
 
 function StageBlock({ label, item }: { label: string; item: Uc03WorkItem['booking'] }) {
@@ -90,19 +106,19 @@ function LandingMetric({ label, value, detail, actionLabel, attention, onSelect 
 }
 
 type DashboardHeroProps = {
-  eyebrow: string;
-  title: string;
-  description: string;
+  greeting: string;
+  dealershipName: string;
+  outletName: string;
   showCaptureAction: boolean;
 };
 
-function DashboardHero({ eyebrow, title, description, showCaptureAction }: DashboardHeroProps) {
+function DashboardHero({ greeting, dealershipName, outletName, showCaptureAction }: DashboardHeroProps) {
   return (
-    <section className="uc03-dashboard-hero" aria-labelledby="uc03-dashboard-hero-title">
+    <section className="uc03-dashboard-hero uc03-dashboard-hero--greeting" aria-labelledby="uc03-dashboard-hero-title">
       <div className="uc03-dashboard-hero__copy">
-        <span className="uc03-dashboard-hero__eyebrow">{eyebrow}</span>
-        <h1 id="uc03-dashboard-hero-title">{title}</h1>
-        <p>{description}</p>
+        <span className="uc03-dashboard-hero__greeting">{greeting}</span>
+        <h1 id="uc03-dashboard-hero-title">{dealershipName}</h1>
+        <p>{outletName}</p>
       </div>
 
       <div className="uc03-dashboard-hero__brand" aria-hidden="true">
@@ -110,7 +126,7 @@ function DashboardHero({ eyebrow, title, description, showCaptureAction }: Dashb
       </div>
 
       {showCaptureAction && (
-        <Link className="uc03-landing__capture-action" to="/dashboard?action=create-booking">
+        <Link className="uc03-landing__capture-action uc03-landing__capture-action--centered" to="/dashboard?action=create-booking">
           <span aria-hidden="true">＋</span>
           <span>Capture New Booking</span>
         </Link>
@@ -265,6 +281,7 @@ export default function DashboardPage() {
   const project = useProjectContextStore((state) => state.selectedProject);
   const accessToken = useSessionStore((state) => state.accessToken);
   const outletId = useSessionStore((state) => state.outletId);
+  const displayName = useSessionStore((state) => state.displayName);
   const [workType, setWorkType] = useState<Uc03WorkType>('ALL');
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
@@ -331,9 +348,12 @@ export default function DashboardPage() {
 
   const metrics = metricsQuery.data;
   const isPc = project.operatingRole === 'PC';
-  const headerTitle = isPc && selectedOutlet ? selectedOutlet.outletName : project.projectName;
-  const headerDescription = isPc && selectedOutlet
-    ? selectedOutlet.dealerName
+  const pcFirstName = firstNameFromDisplayName(displayName);
+  const timeGreeting = greetingForTime(project.timezoneName || timezoneName);
+  const greeting = pcFirstName ? `${timeGreeting}, ${pcFirstName}` : timeGreeting;
+  const dealershipName = isPc && selectedOutlet ? selectedOutlet.dealerName : project.projectName;
+  const outletName = isPc && selectedOutlet
+    ? selectedOutlet.outletName
     : 'Booking and Delivery work for your current authorized business scope.';
   const activeDateFilterCount = Number(Boolean(fromDate)) + Number(Boolean(toDate));
 
@@ -349,9 +369,9 @@ export default function DashboardPage() {
   return (
     <div className="screen-stack uc03-landing uc03-landing--phase2 uc03-landing--approved">
       <DashboardHero
-        eyebrow={`${roleLabels[project.operatingRole]} Workspace`}
-        title={headerTitle}
-        description={headerDescription}
+        greeting={greeting}
+        dealershipName={dealershipName}
+        outletName={outletName}
         showCaptureAction={isPc}
       />
 

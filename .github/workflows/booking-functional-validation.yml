@@ -198,7 +198,12 @@ jobs:
             await page.getByRole('button', { name: 'Sign in' }).click();
             await page.waitForURL('**/dashboard');
 
-            await page.goto(`${base}/bookings/journey-functional`, { waitUntil: 'networkidle' });
+            // React/Zustand auth and Project context are in-memory. Navigate inside the SPA so
+            // the functional test does not erase the same session context a real user keeps.
+            await page.evaluate(() => {
+              window.history.pushState({}, '', '/bookings/journey-functional');
+              window.dispatchEvent(new PopStateEvent('popstate'));
+            });
             await page.getByRole('heading', { name: 'Upload Documents' }).waitFor();
 
             for (const title of ['Booking Form / Booking Docket', 'Booking Payment Receipt(s)', 'PAN', 'Aadhaar']) {

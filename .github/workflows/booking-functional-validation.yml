@@ -285,7 +285,7 @@ jobs:
             if (!(await corporateUpload.isVisible())) throw new Error(`${viewport.name}: Corporate ID upload missing.`);
             if (!(await gstUpload.isVisible())) throw new Error(`${viewport.name}: GST Certificate upload missing.`);
 
-            const reviewButton = page.getByRole('button', { name: /Review Booking Details/i });
+            const reviewButton = page.getByRole('button', { name: /Review Booking Documents/i });
             if (!(await reviewButton.isEnabled())) throw new Error(`${viewport.name}: no Price List still blocks Review.`);
             await assertMainScrollBottom(page, viewport.name, 'Step 2', true);
             const reviewAtBottom = await reviewButton.evaluate((element) => {

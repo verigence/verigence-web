@@ -1,0 +1,360 @@
+name: Validate Booking Functional UX
+
+on:
+  push:
+    branches:
+      - dev
+    paths:
+      - '.github/workflows/booking-functional-validation.yml'
+      - 'src/pages/BookingWorkspacePage.tsx'
+      - 'src/services/audit-core/uc03Booking.ts'
+      - 'src/services/audit-core/uc03BookingJourney.ts'
+      - 'src/services/audit-core/uc03BookingPart1.ts'
+      - 'src/styles/ui-governance.css'
+      - 'src/styles/uc03-booking-*.css'
+  workflow_dispatch:
+
+concurrency:
+  group: booking-functional-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  booking-functional:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install application and browser runtime
+        run: |
+          npm install --no-audit --no-fund
+          npm install --no-save playwright@1.55.0
+          npx playwright install --with-deps chromium
+
+      - name: Build application
+        run: npm run build
+
+      - name: Start local preview
+        run: |
+          set -euo pipefail
+          npx vite preview --host 127.0.0.1 --port 4173 > /tmp/verigence-booking-vite.log 2>&1 &
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:4173/login >/dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          cat /tmp/verigence-booking-vite.log
+          exit 1
+
+      - name: Exercise Booking Step 1 and Step 2
+        env:
+          TEST_WEB_URL: http://127.0.0.1:4173
+        run: |
+          node --input-type=module <<'NODE'
+          import { chromium } from 'playwright';
+
+          const base = process.env.TEST_WEB_URL;
+          const browser = await chromium.launch({ headless: true });
+          const viewports = [
+            { name: 'phone-390', width: 390, height: 844 },
+            { name: 'laptop-1366', width: 1366, height: 768 },
+          ];
+
+          const fakeLogin = {
+            accessToken: 'booking-functional-human-token',
+            expiresAtUtc: '2099-01-01T00:00:00Z',
+            actorType: 'USER',
+            isSuperAdmin: false,
+          };
+
+          const project = {
+            tenantId: 'tenant-booking-functional',
+            projectCode: 'BOOKING-FUNCTIONAL',
+            projectName: 'INTERNAL PROJECT NAME',
+            projectStatus: 'ACTIVE',
+            timezoneName: 'Asia/Kolkata',
+            operatingRole: 'PC',
+            scope: {
+              allDealers: false,
+              dealerCount: 1,
+              outletCount: 1,
+              outlets: [{
+                dealerId: 'dealer-functional',
+                dealerName: 'Functional Dealer',
+                outletId: 'outlet-functional',
+                outletName: 'Functional Outlet',
+                outletClassification: 'ONSITE',
+              }],
+            },
+          };
+
+          const dashboard = {
+            metrics: {
+              bookingsInProgress: 1,
+              deliveryInProgress: 0,
+              needsAttention: 0,
+              auditFlags: 0,
+              auditInProgress: 1,
+            },
+            workItems: {
+              items: [],
+              pageSize: 10,
+              nextCursor: null,
+              previousCursor: null,
+              filters: {
+                workType: 'ALL',
+                fromDate: null,
+                toDate: null,
+                timezoneName: 'Asia/Kolkata',
+                outletId: 'outlet-functional',
+              },
+            },
+          };
+
+          const bookingWorkspace = {
+            journeyId: 'journey-functional',
+            bookingStage: {
+              businessStatus: 'BOOKING_IN_PROGRESS',
+              auditState: 'IN_PROGRESS',
+              auditStatus: 'NOT_EVALUATED',
+            },
+            capture: { CUSTOMER_NAME: 'Booking Functional Customer' },
+            documents: [],
+            proposals: [],
+            flags: [],
+            completion: { ready: false, blockers: [] },
+            processingSummary: { pendingCount: 0, failedCount: 0, readyProposalCount: 0 },
+            flagSummary: { openCount: 0, totalCount: 0 },
+            permittedActions: [],
+            aggregateVersion: 1,
+            operatingRole: 'PC',
+          };
+
+          const bookingPart1 = {
+            journeyId: 'journey-functional',
+            requirements: [
+              { kind: 'BOOKING_DOCKET', requirementKey: 'booking_docket', documentTypeKey: 'booking_form', requirementLevel: 'REQUIRED', requirementStatus: 'PENDING', evidence: [] },
+              { kind: 'BOOKING_PAYMENT_RECEIPT', requirementKey: 'booking_payment_receipt', documentTypeKey: 'booking_payment_receipt', requirementLevel: 'REQUIRED', requirementStatus: 'PENDING', evidence: [] },
+              { kind: 'PAN', requirementKey: 'pan_card', documentTypeKey: 'pan_card', requirementLevel: 'CONDITIONAL', requirementStatus: 'PENDING', evidence: [] },
+              { kind: 'AADHAAR', requirementKey: 'aadhaar', documentTypeKey: 'aadhaar', requirementLevel: 'CONDITIONAL', requirementStatus: 'PENDING', evidence: [] },
+            ],
+            mandatoryEvidence: {
+              bookingDocketComplete: false,
+              kycComplete: false,
+              kycBothProvided: false,
+              paymentReceiptComplete: false,
+              paymentReceiptCount: 0,
+              part1EvidenceComplete: false,
+            },
+            productMaster: {
+              status: 'PENDING_EXTRACTION',
+              extractedModel: null,
+              extractedVariant: null,
+              modelId: null,
+              modelName: null,
+              variantId: null,
+              variantName: null,
+              masterVersionIds: [],
+              message: 'Pending extraction',
+            },
+          };
+
+          const details = {
+            aggregateVersion: 1,
+            priceListId: null,
+            customerType: null,
+            dealType: null,
+            dealSource: null,
+            leadSource: null,
+            registrationState: null,
+            territoryCategorization: null,
+            districtName: null,
+            registrationType: null,
+            registrationCategory: null,
+            outrightPurchase: null,
+            tradeIn: null,
+            gstBenefit: null,
+            corporateIdAvailable: null,
+            optionalEvidence: [],
+          };
+
+          const ref = (values) => values.map(([code, label]) => ({ code, label }));
+          const options = {
+            effectiveOn: '2026-08-25',
+            priceLists: [{ priceListId: 'price-list-1', code: 'PL-1', name: 'Standard Price List', effectiveVersionId: 'price-list-version-1' }],
+            customerTypes: ref([['INDIVIDUAL', 'Individual'], ['CORPORATE', 'Corporate']]),
+            dealTypes: ref([['IN_SCOPE', 'In-Scope'], ['OUT_OF_SCOPE', 'Out of Scope']]),
+            dealSources: ref([['WALK_IN', 'Walk-in'], ['DIGITAL', 'Digital']]),
+            leadSources: ref([['IN_HOUSE', 'In House'], ['DSA', 'DSA']]),
+            registrationStates: ref([['PB', 'Punjab'], ['CH', 'Chandigarh']]),
+            territoryCategories: ref([['SAME_TERRITORY', 'Same Territory'], ['OUT_OF_TERRITORY', 'Out of Territory']]),
+            districts: ref([['MOHALI', 'Mohali'], ['OTHER', 'Other / Not Listed']]),
+            registrationTypes: ref([['PERMANENT', 'Permanent'], ['TEMPORARY', 'Temporary']]),
+            registrationCategories: ref([['PRIVATE', 'Private'], ['COMMERCIAL', 'Commercial']]),
+          };
+
+          const optionalEvidence = [
+            { requirementKey: 'corporate_id', documentTypeKey: 'corporate_id', evidenceId: null, processingStatus: null },
+            { requirementKey: 'gst_certificate', documentTypeKey: 'gst_certificate', evidenceId: null, processingStatus: null },
+          ];
+
+          async function fulfillJson(route, json, status = 200) {
+            await route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(json) });
+          }
+
+          for (const viewport of viewports) {
+            const context = await browser.newContext({ viewport });
+            const page = await context.newPage();
+            const savedPayloads = [];
+            const uploadedRequirementKeys = [];
+
+            await page.route('**/security/v1/auth/login', (route) => fulfillJson(route, fakeLogin));
+            await page.route('**/security/v1/auth/refresh', (route) => fulfillJson(route, fakeLogin));
+            await page.route('**/audit-core/v1/me/projects', (route) => fulfillJson(route, { projects: [project] }));
+            await page.route('**/audit-core/v1/tenants/tenant-booking-functional/uc03/dashboard**', (route) => fulfillJson(route, dashboard));
+            await page.route('**/audit-core/v1/tenants/tenant-booking-functional/journeys/journey-functional/uc03-workspace', (route) => fulfillJson(route, bookingWorkspace));
+            await page.route('**/audit-core/v1/tenants/tenant-booking-functional/journeys/journey-functional/booking/part1', (route) => fulfillJson(route, bookingPart1));
+            await page.route('**/audit-core/v1/tenants/tenant-booking-functional/journeys/journey-functional/booking/details/options', (route) => fulfillJson(route, options));
+            await page.route('**/audit-core/v1/tenants/tenant-booking-functional/journeys/journey-functional/booking/details', async (route) => {
+              if (route.request().method() === 'PUT') {
+                savedPayloads.push(route.request().postDataJSON());
+                await fulfillJson(route, {
+                  journeyId: 'journey-functional',
+                  aggregateVersion: 2 + savedPayloads.length,
+                  optionalEvidence,
+                });
+                return;
+              }
+              await fulfillJson(route, details);
+            });
+            await page.route('**/audit-core/v1/tenants/tenant-booking-functional/journeys/journey-functional/stages/BOOKING/documents/*/evidence', async (route) => {
+              const match = route.request().url().match(/documents\/([^/]+)\/evidence/);
+              const requirementKey = decodeURIComponent(match?.[1] || 'unknown');
+              uploadedRequirementKeys.push(requirementKey);
+              await fulfillJson(route, { evidenceId: `evidence-${requirementKey}`, processingStatus: 'COMPLETED' });
+            });
+
+            await page.goto(`${base}/login`, { waitUntil: 'networkidle' });
+            await page.getByLabel('Email').fill('booking.functional@example.com');
+            await page.getByLabel('Password').fill('booking-functional-test');
+            await page.getByRole('button', { name: 'Sign in' }).click();
+            await page.getByRole('heading', { name: 'Functional Dealer' }).waitFor();
+
+            await page.goto(`${base}/bookings/journey-functional`, { waitUntil: 'networkidle' });
+            await page.getByRole('heading', { name: 'Upload Documents' }).waitFor();
+
+            // Step 1 acceptance: all four real upload cards must exist and the last
+            // card must be physically reachable on a phone through vertical scroll.
+            for (const title of ['Booking Form / Booking Docket', 'Booking Payment Receipt(s)', 'PAN', 'Aadhaar']) {
+              const cardTitle = page.getByText(title, { exact: true });
+              if (await cardTitle.count() !== 1) throw new Error(`${viewport.name}: missing upload card ${title}`);
+              await cardTitle.scrollIntoViewIfNeeded();
+              if (!(await cardTitle.isVisible())) throw new Error(`${viewport.name}: upload card is not reachable: ${title}`);
+            }
+            if (viewport.width < 768) {
+              const metrics = await page.evaluate(() => ({
+                scrollHeight: Math.max(document.documentElement.scrollHeight, document.body.scrollHeight),
+                innerHeight: window.innerHeight,
+              }));
+              if (metrics.scrollHeight <= metrics.innerHeight) throw new Error(`${viewport.name}: Booking Step 1 does not expose a real vertical overflow scenario.`);
+              await page.evaluate(() => window.scrollTo(0, Math.max(document.documentElement.scrollHeight, document.body.scrollHeight)));
+              const bottomReachable = await page.evaluate(() => {
+                const total = Math.max(document.documentElement.scrollHeight, document.body.scrollHeight);
+                return window.scrollY + window.innerHeight >= total - 3;
+              });
+              if (!bottomReachable) throw new Error(`${viewport.name}: Booking Step 1 vertically freezes before the bottom.`);
+            }
+
+            await page.getByRole('button', { name: /Continue to Booking Details/i }).click();
+            await page.getByRole('heading', { name: 'Booking Details' }).waitFor();
+
+            // Step 2 acceptance: every master-backed dropdown must be enabled and
+            // selectable. These are the controls that previously rendered dead.
+            const selections = [
+              ['Price List', 'price-list-1'],
+              ['Type of Customer', 'CORPORATE'],
+              ['Type of Deal', 'IN_SCOPE'],
+              ['Deal Source', 'WALK_IN'],
+              ['Lead Generated Through', 'IN_HOUSE'],
+              ['Registration State', 'PB'],
+              ['Territory Categorization', 'SAME_TERRITORY'],
+              ['District Name', 'MOHALI'],
+              ['Registration Type', 'PERMANENT'],
+              ['Registration Category', 'PRIVATE'],
+            ];
+            for (const [label, value] of selections) {
+              const select = page.getByLabel(label, { exact: true });
+              if (!(await select.isEnabled())) throw new Error(`${viewport.name}: ${label} dropdown is disabled.`);
+              if (await select.locator('option').count() < 2) throw new Error(`${viewport.name}: ${label} dropdown has no selectable master value.`);
+              await select.selectOption(value);
+              if (await select.inputValue() !== value) throw new Error(`${viewport.name}: ${label} dropdown did not accept ${value}.`);
+            }
+
+            // GST and Corporate are functional conditions, not static labels.
+            const outrightGroup = page.getByRole('group', { name: 'Outright Purchase' });
+            await outrightGroup.getByLabel('No').check();
+            const tradeGroup = page.getByRole('group', { name: 'Trade In' });
+            await tradeGroup.getByLabel('No').check();
+            const gstGroup = page.getByRole('group', { name: 'GST Benefit' });
+            await gstGroup.getByLabel('Yes').check();
+
+            const corporateGroup = page.getByRole('group', { name: 'Corporate ID Available' });
+            await corporateGroup.waitFor();
+            await corporateGroup.getByLabel('Yes').check();
+
+            const corporateUpload = page.locator('.uc03-booking-optional-upload').filter({ hasText: 'Corporate ID' });
+            const gstUpload = page.locator('.uc03-booking-optional-upload').filter({ hasText: 'GST Certificate' });
+            await corporateUpload.scrollIntoViewIfNeeded();
+            if (!(await corporateUpload.isVisible())) throw new Error(`${viewport.name}: Corporate ID upload did not appear for a Corporate Booking.`);
+            await gstUpload.scrollIntoViewIfNeeded();
+            if (!(await gstUpload.isVisible())) throw new Error(`${viewport.name}: GST Certificate upload did not appear when GST Benefit was Yes.`);
+
+            const reviewButton = page.getByRole('button', { name: /Review Booking Details/i });
+            if (!(await reviewButton.isEnabled())) throw new Error(`${viewport.name}: completed Booking Details still cannot proceed to review.`);
+
+            // Exercise both conditional upload actions. The component must first
+            // persist the selected business facts and then call the evidence facade.
+            await Promise.all([
+              page.waitForResponse((response) => response.request().method() === 'POST' && response.url().includes('/documents/corporate_id/evidence')),
+              corporateUpload.locator('input[type="file"]').first().setInputFiles({
+                name: 'corporate-id.pdf',
+                mimeType: 'application/pdf',
+                buffer: Buffer.from('functional-corporate-id'),
+              }),
+            ]);
+            await Promise.all([
+              page.waitForResponse((response) => response.request().method() === 'POST' && response.url().includes('/documents/gst_certificate/evidence')),
+              gstUpload.locator('input[type="file"]').first().setInputFiles({
+                name: 'gst-certificate.pdf',
+                mimeType: 'application/pdf',
+                buffer: Buffer.from('functional-gst-certificate'),
+              }),
+            ]);
+
+            if (!uploadedRequirementKeys.includes('corporate_id')) throw new Error(`${viewport.name}: Corporate ID upload API was not called.`);
+            if (!uploadedRequirementKeys.includes('gst_certificate')) throw new Error(`${viewport.name}: GST Certificate upload API was not called.`);
+            if (savedPayloads.length < 2) throw new Error(`${viewport.name}: conditional uploads did not persist Booking Details first.`);
+
+            const payload = savedPayloads.at(-1);
+            if (payload.customerType !== 'CORPORATE' || payload.corporateIdAvailable !== true || payload.gstBenefit !== true) {
+              throw new Error(`${viewport.name}: Corporate/GST selections were not preserved in the Booking Details payload.`);
+            }
+            if (payload.registrationState !== 'PB' || payload.districtName !== 'MOHALI' || payload.registrationType !== 'PERMANENT' || payload.registrationCategory !== 'PRIVATE') {
+              throw new Error(`${viewport.name}: registration dropdown selections were not preserved in the Booking Details payload.`);
+            }
+
+            await context.close();
+          }
+
+          await browser.close();
+          console.log('BOOKING_FUNCTIONAL_UX=PASS');
+          console.log('Step1=FOUR_UPLOADS_REACHABLE');
+          console.log('Step2=ALL_DROPDOWNS_SELECTABLE');
+          console.log('GST=CONDITIONAL_UPLOAD_EXERCISED');
+          console.log('Corporate=CONDITIONAL_UPLOAD_EXERCISED');
+          NODE

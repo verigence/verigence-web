@@ -45,6 +45,7 @@ import './styles/project-admin-step1-fix.css';
 import './styles/uc02-project-admin-scroll-hotfix.css';
 import './styles/navigation-admin-landing.css';
 import './styles/scroll-foundation.css';
+import './styles/uc03-pc-ui-regression-fixes.css';
 
 import App from './App';
 import DiFieldViewerEnhancer from './features/di-test/DiFieldViewerEnhancer';

@@ -1,0 +1,363 @@
+/*
+ * UC03 Booking capture compact/responsive override.
+ * Presentation only: compact document capture, small upload affordances,
+ * full-width single-document rows, and mobile camera/file actions.
+ */
+
+.uc03-c1-workspace {
+  max-width: 1560px;
+  gap: 12px;
+}
+
+.uc03-c1-workspace > .page-header {
+  margin: 0 0 10px;
+  padding: 18px 20px;
+  border-radius: 15px;
+}
+
+.uc03-c1-workspace > .page-header h1 {
+  font-size: clamp(1.65rem, 2.4vw, 2.25rem);
+}
+
+.uc03-c1-workspace > .page-header p {
+  margin-top: 6px;
+  font-size: 0.86rem;
+  line-height: 1.45;
+}
+
+.uc03-c1-topbar {
+  min-height: 32px;
+  margin-bottom: 0;
+}
+
+.uc03-c1-stage-strip {
+  margin-bottom: 12px;
+  padding: 5px 8px;
+}
+
+.uc03-c1-stage-strip > div {
+  min-height: 52px;
+  padding: 7px 11px;
+}
+
+.uc03-c1-start-panel,
+.uc03-c1-section {
+  margin-bottom: 12px;
+  padding: 16px;
+  border-radius: 15px;
+}
+
+.uc03-c1-section-heading {
+  margin-bottom: 12px;
+  padding-bottom: 10px;
+}
+
+.uc03-c1-section-heading h2,
+.uc03-c1-start-panel h2 {
+  font-size: clamp(1.15rem, 1.65vw, 1.4rem);
+}
+
+.uc03-c1-section-heading p,
+.uc03-c1-start-panel p {
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
+.uc03-c1-document-grid {
+  gap: 12px;
+}
+
+.uc03-c1-document-grid--single {
+  grid-template-columns: minmax(0, 1fr) !important;
+}
+
+.uc03-c1-kyc-group {
+  margin-top: 12px;
+  padding: 14px;
+}
+
+.uc03-c1-payment-group {
+  margin-top: 12px;
+}
+
+.uc03-c1-document-card {
+  padding: 14px 16px;
+  border-radius: 13px;
+  box-shadow: 0 6px 18px rgba(0, 30, 71, 0.045);
+}
+
+.uc03-c1-document-card:hover {
+  transform: none;
+  box-shadow: 0 8px 22px rgba(0, 30, 71, 0.06);
+}
+
+.uc03-c1-document-name {
+  margin-top: 3px !important;
+  font-size: 1.02rem;
+}
+
+.uc03-c1-document-card .uc03-c1-muted {
+  margin-top: 3px;
+  font-size: 0.8rem;
+  line-height: 1.4;
+}
+
+/* Replace the old 96px drop zone with compact actions. */
+.uc03-c1-document-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 10px 0 8px;
+}
+
+.uc03-c1-upload-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.uc03-c1-upload-action,
+.uc03-c1-upload-state,
+.uc03-c1-get-details {
+  min-height: 38px;
+  border-radius: 9px;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 740;
+}
+
+.uc03-c1-upload-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 7px 11px;
+  border: 1px solid rgba(0, 155, 148, 0.42);
+  background: #f7fcfb;
+  color: #063b66;
+  cursor: pointer;
+}
+
+.uc03-c1-upload-action::before {
+  content: '↑';
+  width: 20px;
+  height: 20px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(0, 175, 168, 0.24);
+  border-radius: 6px;
+  background: rgba(0, 175, 168, 0.09);
+  color: #008d86;
+  font-size: 0.78rem;
+  line-height: 1;
+}
+
+.uc03-c1-upload-action:hover {
+  border-color: #009b94;
+  background: #f2fbfa;
+}
+
+.uc03-c1-upload-action input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.uc03-c1-upload-action--mobile-camera,
+.uc03-c1-upload-action--mobile-file {
+  display: none;
+}
+
+.uc03-c1-upload-state {
+  display: inline-flex;
+  align-items: center;
+  padding: 7px 11px;
+  border: 1px solid #d7e1eb;
+  background: #f5f8fb;
+  color: #61788b;
+}
+
+.uc03-c1-upload-state.is-failed {
+  border-color: #efc1bc;
+  background: #fff5f3;
+  color: #8b2e25;
+}
+
+.uc03-c1-upload-hint {
+  margin-left: 2px;
+  font-size: 0.7rem;
+  line-height: 1.35;
+}
+
+/* Uploaded evidence is a compact row, not another card inside the card. */
+.uc03-c1-evidence-list {
+  display: grid;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.uc03-c1-evidence-row {
+  min-width: 0;
+  padding: 8px 10px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid #dfe8ee;
+  border-radius: 10px;
+  background: #f9fcfd;
+}
+
+.uc03-c1-evidence-row.is-failed {
+  border-color: #efc1bc;
+  background: #fff8f7;
+}
+
+.uc03-c1-evidence-summary {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.uc03-c1-evidence-mark {
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  border-radius: 7px;
+  background: #e8f7f4;
+  color: #08766f;
+  font-size: 0.7rem;
+  font-weight: 850;
+}
+
+.uc03-c1-evidence-row.is-processing .uc03-c1-evidence-mark {
+  background: #edf4fb;
+  color: #0b437f;
+}
+
+.uc03-c1-evidence-row.is-failed .uc03-c1-evidence-mark {
+  background: #fff0ef;
+  color: #a52f27;
+}
+
+.uc03-c1-evidence-copy {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.uc03-c1-evidence-copy strong {
+  color: #071f49;
+  font-size: 0.8rem;
+}
+
+.uc03-c1-evidence-copy span {
+  overflow: hidden;
+  color: #6e8295;
+  font-size: 0.7rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.uc03-c1-get-details {
+  padding: 6px 10px;
+  border: 1px solid #c6d5e3;
+  background: #fff;
+  color: #04265c;
+  cursor: pointer;
+}
+
+.uc03-c1-get-details:disabled {
+  cursor: wait;
+  opacity: 0.55;
+}
+
+.uc03-c1-customer-lock {
+  padding-block: 11px;
+}
+
+.uc03-c1-feedback,
+.uc03-c1-notice,
+.uc03-c1-empty {
+  margin: 7px 0;
+  padding: 10px 12px;
+}
+
+@media (max-width: 960px) {
+  .uc03-c1-workspace {
+    gap: 10px;
+  }
+
+  .uc03-c1-start-panel,
+  .uc03-c1-section {
+    padding: 14px;
+  }
+
+  .uc03-c1-document-card {
+    padding: 13px;
+  }
+}
+
+@media (max-width: 767px) {
+  .uc03-c1-workspace > .page-header {
+    padding: 15px;
+  }
+
+  .uc03-c1-document-grid {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  .uc03-c1-kyc-group {
+    padding: 12px;
+  }
+
+  .uc03-c1-upload-action--desktop {
+    display: none;
+  }
+
+  .uc03-c1-upload-action--mobile-camera,
+  .uc03-c1-upload-action--mobile-file {
+    display: inline-flex;
+    min-height: 44px;
+    flex: 1 1 calc(50% - 4px);
+  }
+
+  .uc03-c1-upload-controls {
+    width: 100%;
+  }
+
+  .uc03-c1-upload-state {
+    width: 100%;
+    min-height: 44px;
+    justify-content: center;
+  }
+
+  .uc03-c1-evidence-row {
+    padding: 9px 10px;
+  }
+
+  .uc03-c1-get-details {
+    min-height: 44px;
+  }
+}
+
+@media (max-width: 420px) {
+  .uc03-c1-upload-action--mobile-camera,
+  .uc03-c1-upload-action--mobile-file {
+    flex-basis: 100%;
+  }
+
+  .uc03-c1-evidence-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .uc03-c1-get-details {
+    width: 100%;
+  }
+}

@@ -71,7 +71,7 @@ export async function refreshPart1Evidence(
   accessToken?: string,
 ): Promise<void> {
   await auditCoreRequest(
-    `${base(tenantId, journeyId)}/evidence/${encodeURIComponent(evidenceId)}/refresh`,
+    `${base(tenantId, journeyId)}/booking/evidence/${encodeURIComponent(evidenceId)}/refresh`,
     { method: 'POST', accessToken: token(accessToken) },
   );
 }

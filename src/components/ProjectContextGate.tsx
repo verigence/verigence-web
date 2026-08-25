@@ -71,7 +71,7 @@ export default function ProjectContextGate({ children }: PropsWithChildren) {
         <section className="uc03-project-gate__panel">
           <img src={verigenceLockup} alt="Verigence" />
           <div className="uc03-project-gate__spinner" aria-hidden="true" />
-          <h1>Opening your Project</h1>
+          <h1>Opening your workspace</h1>
           <p>Loading your current work context…</p>
         </section>
       </main>
@@ -83,7 +83,7 @@ export default function ProjectContextGate({ children }: PropsWithChildren) {
       <main className="uc03-project-gate">
         <section className="uc03-project-gate__panel" role="alert">
           <img src={verigenceLockup} alt="Verigence" />
-          <h1>We couldn't load your Projects.</h1>
+          <h1>We couldn't load your workspaces.</h1>
           <p>Please try again. If the problem continues, contact your Verigence administrator.</p>
           <div className="uc03-project-gate__actions">
             <button type="button" className="frozen-auth-primary" onClick={() => projectQuery.refetch()}>
@@ -101,7 +101,7 @@ export default function ProjectContextGate({ children }: PropsWithChildren) {
       <main className="uc03-project-gate">
         <section className="uc03-project-gate__panel">
           <img src={verigenceLockup} alt="Verigence" />
-          <h1>No active Projects are currently assigned to you.</h1>
+          <h1>No active workspaces are currently assigned to you.</h1>
           <p>Please contact your Verigence administrator.</p>
           <button type="button" className="user-menu-button" onClick={handleSignOut}>Sign out</button>
         </section>
@@ -115,12 +115,12 @@ export default function ProjectContextGate({ children }: PropsWithChildren) {
         <section className="uc03-project-gate__panel uc03-project-gate__panel--wide">
           <img src={verigenceLockup} alt="Verigence" />
           <header className="uc03-project-gate__heading">
-            <span>Your Projects</span>
-            <h1>Choose Project</h1>
-            <p>Select the Project you want to work in. Your operating role may differ by Project.</p>
+            <span>Your Workspaces</span>
+            <h1>Choose Workspace</h1>
+            <p>Select the workspace you want to work in. Your operating role may differ by workspace.</p>
           </header>
           <div className="uc03-project-list">
-            {projects.map((project) => (
+            {projects.map((project, index) => (
               <button
                 type="button"
                 className="uc03-project-card"
@@ -128,11 +128,11 @@ export default function ProjectContextGate({ children }: PropsWithChildren) {
                 onClick={() => selectOperationalProject(project, queryClient)}
               >
                 <span>
-                  <strong>{project.projectName}</strong>
-                  <small>{project.projectCode}</small>
+                  <strong>Workspace {index + 1}</strong>
+                  <small>{roleLabels[project.operatingRole]}</small>
                 </span>
                 <span className="uc03-project-card__meta">
-                  <strong>{roleLabels[project.operatingRole]}</strong>
+                  <strong>Assigned</strong>
                   <small>{project.timezoneName}</small>
                 </span>
                 <span className="uc03-project-card__arrow" aria-hidden="true">→</span>
@@ -150,8 +150,8 @@ export default function ProjectContextGate({ children }: PropsWithChildren) {
       <main className="uc03-project-gate">
         <section className="uc03-project-gate__panel" role="alert">
           <img src={verigenceLockup} alt="Verigence" />
-          <h1>No active Outlet is assigned to you.</h1>
-          <p>Your Process Coordinator role must be mapped to at least one active Dealer Outlet.</p>
+          <h1>No active work location is assigned to you.</h1>
+          <p>Your Process Coordinator role must be mapped to at least one active work location.</p>
           <button type="button" className="user-menu-button" onClick={handleSignOut}>Sign out</button>
         </section>
       </main>
@@ -167,12 +167,12 @@ export default function ProjectContextGate({ children }: PropsWithChildren) {
         <section className="uc03-project-gate__panel uc03-project-gate__panel--wide">
           <img src={verigenceLockup} alt="Verigence" />
           <header className="uc03-project-gate__heading">
-            <span>{selectedProject.projectName}</span>
-            <h1>Choose Outlet</h1>
-            <p>Select the Dealer Outlet you want to work in. Your dashboard and new Bookings will use this Outlet.</p>
+            <span>Assigned Locations</span>
+            <h1>Choose Work Location</h1>
+            <p>Select the assigned work location for this session. The landing page will show the Dealer and Outlet context after selection.</p>
           </header>
           <div className="uc03-project-list">
-            {selectedProject.scope.outlets.map((outlet) => (
+            {selectedProject.scope.outlets.map((outlet, index) => (
               <button
                 type="button"
                 className="uc03-project-card"
@@ -180,12 +180,12 @@ export default function ProjectContextGate({ children }: PropsWithChildren) {
                 onClick={() => selectOperationalOutlet(selectedProject, outlet, queryClient)}
               >
                 <span>
-                  <strong>{outlet.outletName}</strong>
-                  <small>{outlet.dealerName}</small>
+                  <strong>Work Location {index + 1}</strong>
+                  <small>{outlet.outletClassification}</small>
                 </span>
                 <span className="uc03-project-card__meta">
-                  <strong>{outlet.outletClassification}</strong>
-                  <small>Process Coordinator</small>
+                  <strong>Process Coordinator</strong>
+                  <small>Assigned location</small>
                 </span>
                 <span className="uc03-project-card__arrow" aria-hidden="true">→</span>
               </button>

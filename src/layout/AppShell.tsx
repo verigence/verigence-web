@@ -210,8 +210,8 @@ export default function AppShell({ children }: PropsWithChildren) {
         </div>
         {selectedProject && (
           <div className="uc03-shell-project">
-            <span>Current Project</span><strong>{selectedProject.projectName}</strong><small>{roleLabel}</small>
-            {projects.length > 1 && <button type="button" onClick={handleSwitchProject}>Switch Project</button>}
+            <span>Current Workspace</span><strong>{roleLabel}</strong>
+            {projects.length > 1 && <button type="button" onClick={handleSwitchProject}>Switch Workspace</button>}
           </div>
         )}
         <nav className="enterprise-nav enterprise-nav--accordion" aria-label="Primary navigation">
@@ -253,9 +253,9 @@ export default function AppShell({ children }: PropsWithChildren) {
             <button type="button" className="enterprise-menu-button" aria-label="Open navigation" aria-expanded={mobileMenuOpen} onClick={() => setMobileMenuOpen(true)}><span aria-hidden="true">☰</span></button>
             <NavLink className="enterprise-mobile-brand" to="/dashboard" aria-label="Verigence home" onClick={() => setMobileMenuOpen(false)}><img src={verigenceLockup} alt="Verigence" /></NavLink>
           </div>
-          <div className="enterprise-topbar__trail"><span>{selectedProject?.projectName || 'Verigence'}</span><span>/</span><strong>{currentLabel}</strong></div>
+          <div className="enterprise-topbar__trail"><strong>{currentLabel}</strong></div>
           <div className="enterprise-topbar__actions">
-            {selectedProject && projects.length > 1 && <button type="button" className="uc03-switch-project-topbar" onClick={handleSwitchProject}>Switch Project</button>}
+            {selectedProject && projects.length > 1 && <button type="button" className="uc03-switch-project-topbar" onClick={handleSwitchProject}>Switch Workspace</button>}
             <NavLink to="/profile" className="enterprise-topbar__identity" aria-label="Open profile">
               <span className="enterprise-topbar__avatar">{avatarText}</span>
               <span className="enterprise-topbar__identity-copy"><strong>{visibleName}</strong><small>{roleLabel}</small></span>

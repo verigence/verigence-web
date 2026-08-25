@@ -54,6 +54,7 @@ import './styles/uc03-hero-greeting.css';
 import './styles/uc03-verification-simple.css';
 import './styles/uc03-booking-capture-compact.css';
 import './styles/uc03-booking-adaptive.css';
+import './styles/uc03-booking-mobile-compact.css';
 
 import App from './App';
 import DiFieldViewerEnhancer from './features/di-test/DiFieldViewerEnhancer';

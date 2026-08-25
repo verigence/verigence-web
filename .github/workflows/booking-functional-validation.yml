@@ -246,6 +246,7 @@ jobs:
               if (!(await item.isVisible())) throw new Error(`${viewport.name}: upload card not reachable: ${title}`);
             }
             await assertMainScrollBottom(page, viewport.name, 'Step 1', viewport.width < 768);
+            console.log(`${viewport.name}: STEP1_SCROLL=PASS`);
 
             await page.getByRole('button', { name: /Continue to Booking Details/i }).click();
             await page.getByRole('heading', { name: 'Booking Details' }).waitFor();
@@ -261,7 +262,9 @@ jobs:
               ['Registration Category', 'PRIVATE'],
             ];
             for (const [label, value] of selections) {
-              const select = page.getByLabel(label, { exact: true });
+              const field = page.locator('.uc03-booking-field').filter({ hasText: label });
+              const select = field.locator('select');
+              await select.waitFor({ state: 'visible' });
               if (!(await select.isEnabled())) throw new Error(`${viewport.name}: ${label} dropdown disabled.`);
               if (await select.locator('option').count() < 2) throw new Error(`${viewport.name}: ${label} has no selectable values.`);
               await select.selectOption(value);
@@ -293,6 +296,7 @@ jobs:
               return elementRect.top >= hostRect.top - 2 && elementRect.bottom <= hostRect.bottom + 2;
             });
             if (!reviewAtBottom) throw new Error(`${viewport.name}: Step 2 bottom action is not reachable in the scroll viewport.`);
+            console.log(`${viewport.name}: STEP2_SCROLL=PASS`);
 
             await Promise.all([
               page.waitForResponse((response) => response.request().method() === 'POST' && response.url().includes('/documents/corporate_id/evidence')),

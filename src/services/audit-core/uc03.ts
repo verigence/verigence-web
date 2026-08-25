@@ -84,6 +84,7 @@ export interface Uc03LandingMetrics {
   deliveryInProgress: number;
   needsAttention: number;
   auditFlags: number;
+  auditInProgress: number;
 }
 
 export interface Uc03WorkItemFilters {

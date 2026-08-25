@@ -1,17 +1,16 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate, useParams } from 'react-router-dom';
 
 import PageHeader from '../components/PageHeader';
 import StatusPill from '../components/StatusPill';
-import { DocumentFieldReview } from '../features/uc03/DocumentFieldReview';
+import BookingDocumentDetails from '../features/uc03/BookingDocumentDetails';
 import {
   assessBookingDocument,
   captureBookingValue,
   concludeBooking,
   createBookingFlag,
   decideExtractionProposal,
-  getBookingEvidenceFacts,
   getBookingProcessingStatus,
   getBookingWorkspace,
   refreshBookingExtraction,
@@ -25,7 +24,6 @@ import { useSessionStore } from '../store/sessionStore';
 import { displayName, valueToCode } from '../utils/displayNames';
 
 const CAPTURE_FIELDS = [
-  ['CUSTOMER_NAME', 'Customer Name'],
   ['CUSTOMER_NUMBER', 'Customer Number'],
   ['CUSTOMER_EMAIL', 'Email ID'],
   ['CUSTOMER_TYPE', 'Customer Type'],
@@ -70,8 +68,6 @@ const CANCEL_REASON_SUGGESTIONS = [
   'Dealer Cancelled',
 ];
 
-const PROCESSING_STATES = new Set(['PENDING', 'PROCESSING', 'RECEIVED', 'QUEUED', 'DI_ACCEPTED', 'DI_SUBMITTING']);
-
 type ConclusionAction = (typeof CONCLUSION_OPTIONS)[number][0];
 
 function displayValue(value: unknown): string {
@@ -85,55 +81,34 @@ function displayValue(value: unknown): string {
   }
 }
 
-function confidenceLabel(value?: number | null): string | null {
-  if (value === null || value === undefined || !Number.isFinite(value)) return null;
-  const percent = value <= 1 ? value * 100 : value;
-  return `${Math.round(percent)}% Confidence`;
-}
-
 function DocumentCard({
   document,
-  busy,
-  tenantId,
-  journeyId,
-  accessToken,
+  uploadBusy,
+  detailsBusy,
+  selected,
+  disabled,
   onUpload,
+  onGetDetails,
   onAssess,
 }: {
   document: BookingDocumentView;
-  busy: boolean;
-  tenantId: string;
-  journeyId: string;
-  accessToken?: string;
+  uploadBusy: boolean;
+  detailsBusy: boolean;
+  selected: boolean;
+  disabled: boolean;
   onUpload: (document: BookingDocumentView, files: File[]) => Promise<void>;
+  onGetDetails: (document: BookingDocumentView) => Promise<void>;
   onAssess: (document: BookingDocumentView, answer: 'YES' | 'NO' | 'NA') => Promise<void>;
 }) {
   const documentName = displayName(document.documentTypeKey || document.requirementKey, 'Document');
-  const processingState = document.processingStatus?.toUpperCase() || '';
-  const processingActive = Boolean(document.evidenceId && PROCESSING_STATES.has(processingState));
-  const factsQuery = useQuery({
-    queryKey: [
-      'uc03-booking-evidence-facts',
-      tenantId,
-      journeyId,
-      document.evidenceId,
-      document.updatedAtUtc,
-    ],
-    queryFn: () => getBookingEvidenceFacts(tenantId, journeyId, document.evidenceId!, accessToken),
-    enabled: Boolean(document.evidenceId && accessToken),
-    retry: 1,
-    staleTime: 10_000,
-    refetchInterval: processingActive ? 4_000 : false,
-  });
-
   const hidden = document.applicabilityState === 'NOT_APPLICABLE' && document.answer === 'NA';
   if (hidden) return null;
 
   const canUpload = document.applicabilityState === 'APPLICABLE';
-  const facts = factsQuery.data ?? [];
+  const cardBusy = uploadBusy || detailsBusy;
 
   return (
-    <article className="uc03-c1-card uc03-c1-document-card">
+    <article className={`uc03-c1-card uc03-c1-document-card${selected ? ' is-selected' : ''}`}>
       <header>
         <div>
           <span className="uc03-c1-eyebrow">{displayName(document.requirementLevel)}</span>
@@ -151,13 +126,13 @@ function DocumentCard({
       {document.applicabilityReason && <p className="uc03-c1-muted">{displayName(document.applicabilityReason, document.applicabilityReason)}</p>}
 
       <div className="uc03-c1-document-actions">
-        <label className={`uc03-c1-file-button ${!canUpload || busy ? 'is-disabled' : ''}`}>
-          <span>{document.evidenceId ? 'Add / Replace Files' : 'Upload Files'}</span>
+        <label className={`uc03-c1-file-button ${!canUpload || uploadBusy || disabled ? 'is-disabled' : ''}`}>
+          <span>{uploadBusy ? 'Uploading…' : document.evidenceId ? 'Add / Replace Files' : 'Upload Files'}</span>
           <input
             type="file"
             accept="image/*,.pdf"
             multiple
-            disabled={!canUpload || busy}
+            disabled={!canUpload || uploadBusy || disabled}
             onChange={(event) => {
               const files = Array.from(event.target.files ?? []);
               if (files.length > 0) void onUpload(document, files);
@@ -165,61 +140,28 @@ function DocumentCard({
             }}
           />
         </label>
-        <span className="uc03-c1-upload-hint">Select one or more images or PDFs.</span>
-        {document.evidenceId && <span className="uc03-c1-evidence-ok">Evidence Linked</span>}
+        <span className="uc03-c1-upload-hint">Upload one or more images or PDFs. Other document cards remain available while this upload runs.</span>
+        {document.evidenceId && <span className="uc03-c1-evidence-ok">Document Linked</span>}
       </div>
 
-      <section className="uc03-c1-extraction-panel" aria-label={`Extracted fields from ${documentName}`}>
-        <div className="uc03-c1-extraction-heading">
-          <h4>Extracted Fields</h4>
-          <span>
-            {facts.length > 0
-              ? `${facts.length} ${facts.length === 1 ? 'Field' : 'Fields'} Found`
-              : document.evidenceId
-                ? processingActive ? 'Document Intelligence Processing' : 'No Fields Yet'
-                : 'Waiting for Document'}
-          </span>
+      {document.evidenceId ? (
+        <div className="uc03-c1-document-tools">
+          <div>
+            <strong>{selected ? 'Details Open' : 'Ready for Review'}</strong>
+            <span>Get Details reads the latest Document Intelligence result and opens the uploaded document with its extracted fields.</span>
+          </div>
+          <button
+            type="button"
+            className="uc03-c1-get-details"
+            disabled={detailsBusy || disabled}
+            onClick={() => void onGetDetails(document)}
+          >
+            {detailsBusy ? 'Getting Details…' : 'Get Details'}
+          </button>
         </div>
-
-        {!document.evidenceId && (
-          <div className="uc03-c1-extraction-empty">Upload the document and its extracted fields will appear here automatically.</div>
-        )}
-
-        {document.evidenceId && factsQuery.isPending && (
-          <div className="uc03-c1-extraction-empty">Loading extracted fields…</div>
-        )}
-
-        {document.evidenceId && factsQuery.isError && (
-          <div className="uc03-c1-extraction-empty">Extracted fields could not be loaded. They will be retried when the document status refreshes.</div>
-        )}
-
-        {facts.length > 0 && (
-          <div className="uc03-c1-extracted-grid">
-            {facts.map((fact) => {
-              const confidence = confidenceLabel(fact.confidenceScore);
-              const value = displayValue(fact.normalizedValue ?? fact.value) || 'Not Found';
-              const meta = [confidence, fact.verificationStatus ? displayName(fact.verificationStatus) : null]
-                .filter(Boolean)
-                .join(' · ');
-              return (
-                <div className="uc03-c1-extracted-field" key={fact.evidenceFactId}>
-                  <span>{displayName(fact.fieldKey)}</span>
-                  <strong>{value}</strong>
-                  {meta && <small>{meta}</small>}
-                </div>
-              );
-            })}
-          </div>
-        )}
-
-        {document.evidenceId && !factsQuery.isPending && !factsQuery.isError && facts.length === 0 && (
-          <div className="uc03-c1-extraction-empty">
-            {processingActive
-              ? 'Document Intelligence is reading this document. Fields will appear here as soon as processing completes.'
-              : 'No extracted fields are available for this document yet.'}
-          </div>
-        )}
-      </section>
+      ) : (
+        <div className="uc03-c1-extraction-empty">Upload this document first. You can continue with other documents and Booking fields in any order.</div>
+      )}
 
       <div className="uc03-c1-answer-row" role="group" aria-label={`Assessment for ${documentName}`}>
         {(['YES', 'NO'] as const).map((answer) => (
@@ -227,7 +169,7 @@ function DocumentCard({
             type="button"
             key={answer}
             className={document.answer === answer ? 'is-active' : ''}
-            disabled={busy || document.applicabilityState !== 'APPLICABLE'}
+            disabled={cardBusy || disabled || document.applicabilityState !== 'APPLICABLE'}
             onClick={() => void onAssess(document, answer)}
           >
             {answer === 'YES' ? 'Yes — Available' : 'No — Missing / Mismatch'}
@@ -237,7 +179,7 @@ function DocumentCard({
           <button
             type="button"
             className={document.answer === 'NA' ? 'is-active' : ''}
-            disabled={busy}
+            disabled={cardBusy || disabled}
             onClick={() => void onAssess(document, 'NA')}
           >
             Not Applicable
@@ -257,6 +199,11 @@ export default function BookingWorkspacePage() {
   const [message, setMessage] = useState<string>();
   const [error, setError] = useState<string>();
   const [captureValues, setCaptureValues] = useState<Record<string, string>>({});
+  const [dirtyFields, setDirtyFields] = useState<Record<string, boolean>>({});
+  const [uploadingRequirements, setUploadingRequirements] = useState<Record<string, boolean>>({});
+  const [detailsBusyKey, setDetailsBusyKey] = useState<string>();
+  const [selectedReviewKey, setSelectedReviewKey] = useState<string>();
+  const [detailsRefreshKey, setDetailsRefreshKey] = useState<string>();
   const [flagCategory, setFlagCategory] = useState('PHYSICAL_OBSERVATION');
   const [flagSeverity, setFlagSeverity] = useState('MEDIUM');
   const [flagSummary, setFlagSummary] = useState('');
@@ -281,6 +228,7 @@ export default function BookingWorkspacePage() {
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
     retry: 1,
+    refetchInterval: workspaceQuery.data?.processingSummary?.pendingCount ? 5_000 : false,
   });
 
   const refreshWorkspace = useCallback(async () => {
@@ -288,51 +236,23 @@ export default function BookingWorkspacePage() {
     await workspaceQuery.refetch();
   }, [accessToken, journeyId, project?.tenantId, workspaceQuery.refetch]);
 
-  const refreshProcessingWorkspace = useCallback(async () => {
-    if (!project?.tenantId || !journeyId || !accessToken) return;
-    const pending = workspaceQuery.data?.processingSummary?.pendingCount ?? 0;
-    if (pending > 0) {
-      await refreshBookingExtraction(project.tenantId, journeyId, accessToken).catch(() => undefined);
-    }
-    await workspaceQuery.refetch();
-  }, [
-    accessToken,
-    journeyId,
-    project?.tenantId,
-    workspaceQuery.data?.processingSummary?.pendingCount,
-    workspaceQuery.refetch,
-  ]);
-
   useEffect(() => {
     const onResume = () => {
-      if (document.visibilityState === 'visible') void refreshProcessingWorkspace();
+      if (document.visibilityState !== 'visible') return;
+      void workspaceQuery.refetch();
+      void processingQuery.refetch();
     };
-    const onOnline = () => void refreshProcessingWorkspace();
+    const onOnline = () => {
+      void workspaceQuery.refetch();
+      void processingQuery.refetch();
+    };
     document.addEventListener('visibilitychange', onResume);
     window.addEventListener('online', onOnline);
     return () => {
       document.removeEventListener('visibilitychange', onResume);
       window.removeEventListener('online', onOnline);
     };
-  }, [refreshProcessingWorkspace]);
-
-  useEffect(() => {
-    const pending = workspaceQuery.data?.processingSummary?.pendingCount ?? 0;
-    if (pending <= 0 || !project?.tenantId || !journeyId || !accessToken) return;
-    const id = window.setInterval(() => {
-      if (document.visibilityState !== 'visible') return;
-      void refreshBookingExtraction(project.tenantId, journeyId, accessToken)
-        .then(() => workspaceQuery.refetch())
-        .catch(() => undefined);
-    }, 4_000);
-    return () => window.clearInterval(id);
-  }, [
-    accessToken,
-    journeyId,
-    project?.tenantId,
-    workspaceQuery.data?.processingSummary?.pendingCount,
-    workspaceQuery.refetch,
-  ]);
+  }, [processingQuery.refetch, workspaceQuery.refetch]);
 
   useEffect(() => {
     const capture = workspaceQuery.data?.capture;
@@ -340,14 +260,16 @@ export default function BookingWorkspacePage() {
     setCaptureValues((current) => {
       const next = { ...current };
       CAPTURE_FIELDS.forEach(([key]) => {
-        if (next[key] === undefined) next[key] = displayValue(capture[key]);
+        if (!dirtyFields[key]) next[key] = displayValue(capture[key]);
       });
       return next;
     });
-  }, [workspaceQuery.data?.capture]);
+  }, [dirtyFields, workspaceQuery.data?.capture]);
 
   if (!project || !journeyId) return null;
   const workspace = workspaceQuery.data;
+
+  const anyUploadBusy = Object.values(uploadingRequirements).some(Boolean);
 
   const run = async (operation: () => Promise<unknown>, success: string) => {
     setBusy(true);
@@ -359,122 +281,197 @@ export default function BookingWorkspacePage() {
       await refreshWorkspace();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'The Booking action could not be completed.');
+      throw cause;
     } finally {
       setBusy(false);
     }
   };
 
-  const handleStart = () => run(
-    () => startBooking(project.tenantId, journeyId, workspace?.aggregateVersion ?? 0, accessToken),
-    'Booking Started.',
-  );
+  const handleStart = async () => {
+    try {
+      await run(
+        () => startBooking(project.tenantId, journeyId, workspace?.aggregateVersion ?? 0, accessToken),
+        'Booking Started.',
+      );
+    } catch {
+      // Message is already shown by run().
+    }
+  };
 
-  const handleCapture = (fieldKey: string) => run(
-    () => captureBookingValue(
-      project.tenantId,
-      journeyId,
-      fieldKey,
-      captureValues[fieldKey] ?? '',
-      workspace!.aggregateVersion,
-      accessToken,
-    ),
-    `${displayName(fieldKey)} Saved.`,
-  );
-
-  const handleExchange = (value: boolean) => run(
-    () => captureBookingValue(
-      project.tenantId,
-      journeyId,
-      'EXCHANGE_TAKEN',
-      value,
-      workspace!.aggregateVersion,
-      accessToken,
-    ),
-    'Exchange Applicability Updated.',
-  );
-
-  const handleUpload = async (documentView: BookingDocumentView, files: File[]) => {
-    const documentName = displayName(documentView.documentTypeKey || documentView.requirementKey, 'Document');
-    await run(async () => {
-      for (const file of files) {
-        await uploadBookingDocument(
+  const handleCapture = async (fieldKey: string) => {
+    try {
+      await run(
+        () => captureBookingValue(
           project.tenantId,
           journeyId,
-          documentView.requirementKey,
-          file,
+          fieldKey,
+          captureValues[fieldKey] ?? '',
+          workspace!.aggregateVersion,
           accessToken,
-        );
+        ),
+        `${displayName(fieldKey)} Saved.`,
+      );
+      setDirtyFields((current) => ({ ...current, [fieldKey]: false }));
+    } catch {
+      // Message is already shown by run().
+    }
+  };
+
+  const handleExchange = async (value: boolean) => {
+    try {
+      await run(
+        () => captureBookingValue(
+          project.tenantId,
+          journeyId,
+          'EXCHANGE_TAKEN',
+          value,
+          workspace!.aggregateVersion,
+          accessToken,
+        ),
+        'Exchange Applicability Updated.',
+      );
+    } catch {
+      // Message is already shown by run().
+    }
+  };
+
+  const handleUpload = async (documentView: BookingDocumentView, files: File[]) => {
+    const requirementKey = documentView.requirementKey;
+    const documentName = displayName(documentView.documentTypeKey || requirementKey, 'Document');
+    setUploadingRequirements((current) => ({ ...current, [requirementKey]: true }));
+    setError(undefined);
+    setMessage(undefined);
+    try {
+      await Promise.all(files.map((file) => uploadBookingDocument(
+        project.tenantId,
+        journeyId,
+        requirementKey,
+        file,
+        accessToken,
+      )));
+      setMessage(`${documentName}: ${files.length} ${files.length === 1 ? 'File' : 'Files'} Uploaded. Processing Continues in the Background.`);
+      await Promise.all([workspaceQuery.refetch(), processingQuery.refetch()]);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : `${documentName} could not be uploaded.`);
+    } finally {
+      setUploadingRequirements((current) => ({ ...current, [requirementKey]: false }));
+    }
+  };
+
+  const handleGetDetails = async (documentView: BookingDocumentView) => {
+    if (!documentView.evidenceId) return;
+    setDetailsBusyKey(documentView.requirementKey);
+    setError(undefined);
+    setMessage(undefined);
+    try {
+      const result = await refreshBookingExtraction(project.tenantId, journeyId, accessToken);
+      await Promise.all([workspaceQuery.refetch(), processingQuery.refetch()]);
+      setSelectedReviewKey(documentView.requirementKey);
+      setDetailsRefreshKey(`${Date.now()}-${result.aggregateVersion}`);
+      if (result.failedDocuments > 0) {
+        setError('Document Intelligence could not complete one or more documents. Review the document status and retry Get Details.');
+      } else if (result.createdProposals === 0) {
+        setMessage('Latest document details loaded. If processing is still running, use Get Details again after it completes.');
+      } else {
+        setMessage('Latest document details loaded for review.');
       }
-      await refreshBookingExtraction(project.tenantId, journeyId, accessToken).catch(() => undefined);
-    }, `${documentName}: ${files.length} ${files.length === 1 ? 'File' : 'Files'} Uploaded. Processing Continues in the Background.`);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Document details could not be loaded.');
+    } finally {
+      setDetailsBusyKey(undefined);
+    }
   };
 
   const handleAssess = async (
     documentView: BookingDocumentView,
     answer: 'YES' | 'NO' | 'NA',
-  ) => run(
-    () => assessBookingDocument(
-      project.tenantId,
-      journeyId,
-      documentView.requirementKey,
-      answer,
-      workspace!.aggregateVersion,
-      accessToken,
-      documentView.evidenceId,
-    ),
-    `${displayName(documentView.documentTypeKey || documentView.requirementKey)} Assessment Saved.`,
-  );
+  ) => {
+    try {
+      await run(
+        () => assessBookingDocument(
+          project.tenantId,
+          journeyId,
+          documentView.requirementKey,
+          answer,
+          workspace!.aggregateVersion,
+          accessToken,
+          documentView.evidenceId,
+        ),
+        `${displayName(documentView.documentTypeKey || documentView.requirementKey)} Assessment Saved.`,
+      );
+    } catch {
+      // Message is already shown by run().
+    }
+  };
 
-  const handleProposal = (
+  const handleProposal = async (
     proposal: ExtractionProposalView,
     mode: 'accept' | 'correct',
     correctedValue?: string,
-  ) => run(
-    () => decideExtractionProposal(
-      project.tenantId,
-      journeyId,
-      proposal.proposalId,
-      mode,
-      workspace!.aggregateVersion,
-      accessToken,
-      correctedValue,
-    ),
-    mode === 'accept'
-      ? 'Extracted Value Confirmed.'
-      : 'Correction Saved with the Original Extracted Value Retained.',
-  );
+  ) => {
+    try {
+      await run(
+        () => decideExtractionProposal(
+          project.tenantId,
+          journeyId,
+          proposal.proposalId,
+          mode,
+          workspace!.aggregateVersion,
+          accessToken,
+          correctedValue,
+        ),
+        mode === 'accept'
+          ? 'Extracted Value Confirmed.'
+          : 'Edit Saved. The Original System Read Value Is Retained in Audit History.',
+      );
+      setDetailsRefreshKey(`${Date.now()}-${proposal.proposalId}`);
+    } catch {
+      // Message is already shown by run().
+    }
+  };
 
-  const handleFlag = () => run(
-    () => createBookingFlag(
-      project.tenantId,
-      journeyId,
-      workspace!.aggregateVersion,
-      {
-        category: flagCategory,
-        severity: flagSeverity,
-        summary: flagSummary,
-        remarks: flagRemarks || undefined,
-      },
-      accessToken,
-    ),
-    'Audit Flag Raised. It Does Not Stop Business Progression Unless Policy Explicitly Marks It Blocking.',
-  ).then(() => {
-    setFlagSummary('');
-    setFlagRemarks('');
-  });
+  const handleFlag = async () => {
+    try {
+      await run(
+        () => createBookingFlag(
+          project.tenantId,
+          journeyId,
+          workspace!.aggregateVersion,
+          {
+            category: flagCategory,
+            severity: flagSeverity,
+            summary: flagSummary,
+            remarks: flagRemarks || undefined,
+          },
+          accessToken,
+        ),
+        'Audit Flag Raised. It Does Not Stop Business Progression Unless Policy Explicitly Marks It Blocking.',
+      );
+      setFlagSummary('');
+      setFlagRemarks('');
+    } catch {
+      // Message is already shown by run().
+    }
+  };
 
-  const handleConclusion = () => run(
-    () => concludeBooking(
-      project.tenantId,
-      journeyId,
-      conclusion,
-      workspace!.aggregateVersion,
-      accessToken,
-      reasonName.trim() ? valueToCode(reasonName) : undefined,
-      conclusionRemarks || undefined,
-    ),
-    'Booking Conclusion Recorded.',
-  );
+  const handleConclusion = async () => {
+    try {
+      await run(
+        () => concludeBooking(
+          project.tenantId,
+          journeyId,
+          conclusion,
+          workspace!.aggregateVersion,
+          accessToken,
+          reasonName.trim() ? valueToCode(reasonName) : undefined,
+          conclusionRemarks || undefined,
+        ),
+        conclusion === 'close-ready' ? 'Booking Submitted.' : 'Booking Outcome Recorded.',
+      );
+    } catch {
+      // Message is already shown by run().
+    }
+  };
 
   if (workspaceQuery.isPending) {
     return <div className="uc03-c1-loading" role="status">Loading Booking Workspace…</div>;
@@ -498,6 +495,15 @@ export default function BookingWorkspacePage() {
   const failedCount = processing?.failedCount ?? 0;
   const pendingCount = processing?.pendingCount ?? 0;
   const reasonSuggestions = conclusion === 'cancel' ? CANCEL_REASON_SUGGESTIONS : CLOSE_REASON_SUGGESTIONS;
+  const customerName = displayValue(workspace.capture.CUSTOMER_NAME) || 'Customer';
+  const bookingReference = displayValue(workspace.capture.BOOKING_REFERENCE) || 'Booking Reference Pending';
+  const selectedReviewDocument = selectedReviewKey
+    ? workspace.documents.find((item) => item.requirementKey === selectedReviewKey)
+    : undefined;
+  const selectedProposals = selectedReviewDocument?.evidenceId
+    ? workspace.proposals.filter((proposal) => proposal.sourceEvidenceId === selectedReviewDocument.evidenceId)
+    : [];
+  const actionLockedByUpload = anyUploadBusy;
 
   return (
     <div className="screen-stack uc03-c1-workspace">
@@ -507,10 +513,19 @@ export default function BookingWorkspacePage() {
       </div>
 
       <PageHeader
-        eyebrow={`Booking Audit · ${displayName(workspace.operatingRole)}`}
-        title={(workspace.capture.BOOKING_REFERENCE as string) || 'Booking Reference Pending'}
-        description="Upload evidence, continue PC capture while documents process, review extracted values against their source, and conclude the Booking when the checkpoint is ready."
+        eyebrow={`Booking Capture · ${displayName(workspace.operatingRole)}`}
+        title={customerName}
+        description={`${bookingReference}. Upload documents and enter Booking fields in any order. Use Get Details on an uploaded document when you are ready to compare its System Read values with the source.`}
       />
+
+      <section className="uc03-c1-customer-lock" aria-label="Locked Customer Name">
+        <div>
+          <span>Customer Name</span>
+          <strong>{customerName}</strong>
+          <small>Locked when Add Details created this Journey. Document Intelligence can validate this name but cannot silently replace it.</small>
+        </div>
+        <span className="uc03-c1-customer-lock__badge">Locked</span>
+      </section>
 
       <section className="uc03-c1-stage-strip" aria-label="Booking Stage Status">
         <div><span>Business Status</span><strong>{displayName(workspace.bookingStage.businessStatus)}</strong></div>
@@ -527,9 +542,9 @@ export default function BookingWorkspacePage() {
           <div>
             <span className="uc03-c1-eyebrow">Booking Journey</span>
             <h2>Start Booking Audit</h2>
-            <p>Starting creates the Booking workflow event and loads the versioned document checklist for this case.</p>
+            <p>Start this legacy Journey before capturing Booking evidence and details.</p>
           </div>
-          <button type="button" className="uc03-c1-primary" disabled={busy} onClick={() => void handleStart()}>
+          <button type="button" className="uc03-c1-primary" disabled={busy || anyUploadBusy} onClick={() => void handleStart()}>
             Start Booking
           </button>
         </section>
@@ -537,23 +552,23 @@ export default function BookingWorkspacePage() {
 
       {started && (
         <>
-          <section className="uc03-c1-section">
+          <section className="uc03-c1-section uc03-c1-section--documents">
             <header className="uc03-c1-section-heading">
               <div>
-                <span className="uc03-c1-eyebrow">1 · Evidence First</span>
+                <span className="uc03-c1-eyebrow">1 · Documents</span>
                 <h2>Booking Documents</h2>
-                <p>Upload applicable evidence first. You can select multiple files for the same document, and each file processes independently while you continue the Booking.</p>
+                <p>Document cards are independent. Upload Aadhaar, Booking Docket and other applicable evidence in any order; each upload can run without blocking another document card.</p>
               </div>
               <div className="uc03-c1-processing-summary">
                 <strong>{pendingCount}</strong><span>Processing</span>
-                <strong>{processing?.readyProposalCount ?? 0}</strong><span>Proposals</span>
+                <strong>{processing?.readyProposalCount ?? 0}</strong><span>Ready to Review</span>
                 <strong>{failedCount}</strong><span>Need Attention</span>
               </div>
             </header>
 
             {failedCount > 0 && (
               <div className="uc03-c1-feedback is-error">
-                {processingQuery.data?.userMessage || 'One or more documents need attention. Retry processing or upload a clearer document.'}
+                {processingQuery.data?.userMessage || 'One or more documents need attention. Upload a clearer document or use Get Details to refresh its status.'}
               </div>
             )}
 
@@ -562,11 +577,12 @@ export default function BookingWorkspacePage() {
                 <DocumentCard
                   key={documentView.requirementKey}
                   document={documentView}
-                  busy={busy}
-                  tenantId={project.tenantId}
-                  journeyId={journeyId}
-                  accessToken={accessToken}
+                  uploadBusy={Boolean(uploadingRequirements[documentView.requirementKey])}
+                  detailsBusy={detailsBusyKey === documentView.requirementKey}
+                  selected={selectedReviewKey === documentView.requirementKey}
+                  disabled={busy}
                   onUpload={handleUpload}
+                  onGetDetails={handleGetDetails}
                   onAssess={handleAssess}
                 />
               ))}
@@ -574,78 +590,93 @@ export default function BookingWorkspacePage() {
                 <div className="uc03-c1-empty">No Booking document requirements are configured for this case.</div>
               )}
             </div>
+
+            {selectedReviewDocument?.evidenceId && (
+              <BookingDocumentDetails
+                key={`${selectedReviewDocument.evidenceId}-${detailsRefreshKey || 'initial'}`}
+                tenantId={project.tenantId}
+                journeyId={journeyId}
+                accessToken={accessToken}
+                evidenceId={selectedReviewDocument.evidenceId}
+                documentName={displayName(selectedReviewDocument.documentTypeKey || selectedReviewDocument.requirementKey, 'Document')}
+                proposals={selectedProposals}
+                lockedCustomerName={customerName}
+                disabled={busy || anyUploadBusy}
+                refreshKey={detailsRefreshKey}
+                onAccept={(proposal) => handleProposal(proposal, 'accept')}
+                onCorrect={(proposal, value) => handleProposal(proposal, 'correct', value)}
+                onClose={() => setSelectedReviewKey(undefined)}
+              />
+            )}
           </section>
 
           <section className="uc03-c1-section">
             <header className="uc03-c1-section-heading">
               <div>
-                <span className="uc03-c1-eyebrow">2 · Work in Parallel</span>
-                <h2>Booking Details</h2>
-                <p>PC-entered fields save directly to their existing Audit Core business domains. The screen does not become the system of record.</p>
+                <span className="uc03-c1-eyebrow">2 · Booking Details</span>
+                <h2>Additional Booking Details</h2>
+                <p>Enter the remaining Booking fields in any order while documents process. Values confirmed from Document Intelligence populate the same Booking record. A later Save/Edit creates another Audit History event.</p>
               </div>
             </header>
             <div className="uc03-c1-capture-grid">
-              {CAPTURE_FIELDS.map(([key, label]) => (
-                <label key={key}>
-                  <span>{label}</span>
-                  <div className="uc03-c1-inline-field">
-                    <input
-                      type={key === 'BOOKING_DATE' ? 'date' : 'text'}
-                      value={captureValues[key] ?? ''}
-                      disabled={!active || busy}
-                      onChange={(event) => setCaptureValues((current) => ({ ...current, [key]: event.target.value }))}
-                    />
-                    <button type="button" disabled={!active || busy || !(captureValues[key] ?? '').trim()} onClick={() => void handleCapture(key)}>
-                      Save
-                    </button>
-                  </div>
-                </label>
-              ))}
+              {CAPTURE_FIELDS.map(([key, label]) => {
+                const serverValue = displayValue(workspace.capture[key]);
+                const currentValue = captureValues[key] ?? '';
+                const changed = dirtyFields[key] && currentValue !== serverValue;
+                return (
+                  <label key={key}>
+                    <span>{label}</span>
+                    <div className="uc03-c1-inline-field">
+                      <input
+                        type={key === 'BOOKING_DATE' ? 'date' : 'text'}
+                        value={currentValue}
+                        disabled={!active || busy}
+                        onChange={(event) => {
+                          const value = event.target.value;
+                          setCaptureValues((current) => ({ ...current, [key]: value }));
+                          setDirtyFields((current) => ({ ...current, [key]: true }));
+                        }}
+                      />
+                      <button
+                        type="button"
+                        disabled={!active || busy || actionLockedByUpload || !currentValue.trim() || !changed}
+                        onClick={() => void handleCapture(key)}
+                      >
+                        {serverValue ? 'Save Edit' : 'Save'}
+                      </button>
+                    </div>
+                  </label>
+                );
+              })}
               <div className="uc03-c1-choice-field">
                 <span>Exchange Taken?</span>
                 <div>
                   <button
                     type="button"
                     className={workspace.capture.EXCHANGE_TAKEN === true ? 'is-active' : ''}
-                    disabled={!active || busy}
+                    disabled={!active || busy || actionLockedByUpload}
                     onClick={() => void handleExchange(true)}
                   >Yes</button>
                   <button
                     type="button"
                     className={workspace.capture.EXCHANGE_TAKEN === false ? 'is-active' : ''}
-                    disabled={!active || busy}
+                    disabled={!active || busy || actionLockedByUpload}
                     onClick={() => void handleExchange(false)}
                   >No</button>
                 </div>
               </div>
             </div>
-          </section>
-
-          <section className="uc03-c1-section">
-            <header className="uc03-c1-section-heading">
-              <div>
-                <span className="uc03-c1-eyebrow">3 · Review Extraction</span>
-                <h2>Review Extracted Values</h2>
-                <p>Extracted fields are shown with their document above. This detailed review opens the source when a value needs confirmation or correction.</p>
-              </div>
-            </header>
-            <DocumentFieldReview
-              tenantId={project.tenantId}
-              journeyId={journeyId}
-              accessToken={accessToken}
-              proposals={workspace.proposals}
-              disabled={busy || !active}
-              onAccept={(proposal) => handleProposal(proposal, 'accept')}
-              onCorrect={(proposal, value) => handleProposal(proposal, 'correct', value)}
-            />
+            {anyUploadBusy && (
+              <p className="uc03-c1-async-note">Documents are uploading in the background. You can continue typing Booking details; Save actions re-enable as soon as the active upload request completes.</p>
+            )}
           </section>
 
           <section className="uc03-c1-section uc03-c1-flags-section">
             <header className="uc03-c1-section-heading">
               <div>
-                <span className="uc03-c1-eyebrow">4 · Audit Flags</span>
+                <span className="uc03-c1-eyebrow">3 · Audit Flags</span>
                 <h2>Observations &amp; Flags</h2>
-                <p>Flags are audit findings, not a substitute business status. Ordinary flags remain visible without blocking progression.</p>
+                <p>Raise an observation only when needed. Flags remain separate from the Booking business status.</p>
               </div>
             </header>
             <div className="uc03-c1-flag-layout">
@@ -660,13 +691,13 @@ export default function BookingWorkspacePage() {
                 {workspace.flags.length === 0 && <div className="uc03-c1-empty">No Booking Flags.</div>}
               </div>
               {active && (
-                <form className="uc03-c1-flag-form" onSubmit={(event) => { event.preventDefault(); if (flagSummary.trim()) void handleFlag(); }}>
+                <form className="uc03-c1-flag-form" onSubmit={(event) => { event.preventDefault(); if (flagSummary.trim() && !anyUploadBusy) void handleFlag(); }}>
                   <h3>Raise a PC Flag</h3>
                   <label><span>Category</span><select value={flagCategory} onChange={(event) => setFlagCategory(event.target.value)}>{HUMAN_FLAG_CATEGORIES.map((value) => <option key={value} value={value}>{displayName(value)}</option>)}</select></label>
                   <label><span>Severity</span><select value={flagSeverity} onChange={(event) => setFlagSeverity(event.target.value)}>{['INFO', 'LOW', 'MEDIUM', 'HIGH', 'CRITICAL'].map((value) => <option key={value} value={value}>{displayName(value)}</option>)}</select></label>
                   <label><span>Summary</span><input value={flagSummary} maxLength={500} onChange={(event) => setFlagSummary(event.target.value)} required /></label>
                   <label><span>Remarks</span><textarea value={flagRemarks} maxLength={4000} onChange={(event) => setFlagRemarks(event.target.value)} /></label>
-                  <button type="submit" className="uc03-c1-secondary" disabled={busy || !flagSummary.trim()}>Raise Flag</button>
+                  <button type="submit" className="uc03-c1-secondary" disabled={busy || anyUploadBusy || !flagSummary.trim()}>Raise Flag</button>
                 </form>
               )}
             </div>
@@ -675,9 +706,9 @@ export default function BookingWorkspacePage() {
           <section className="uc03-c1-section uc03-c1-checkpoint-section">
             <header className="uc03-c1-section-heading">
               <div>
-                <span className="uc03-c1-eyebrow">5 · Booking Checkpoint</span>
-                <h2>{workspace.completion.ready ? 'Ready to Conclude' : 'Outstanding Audit Work'}</h2>
-                <p>Only configured completion guards stop normal Booking closure. Open non-blocking flags remain visible.</p>
+                <span className="uc03-c1-eyebrow">4 · Submit</span>
+                <h2>{workspace.completion.ready ? 'Ready to Submit' : 'Booking Still Needs Attention'}</h2>
+                <p>Submit becomes available when the configured required documents, document assessments, extraction validations and blocking audit conditions are complete.</p>
               </div>
               <StatusPill value={workspace.completion.ready ? 'READY' : 'INCOMPLETE'} />
             </header>
@@ -690,7 +721,7 @@ export default function BookingWorkspacePage() {
             {active && (
               <div className="uc03-c1-conclusion">
                 <label>
-                  <span>Conclusion</span>
+                  <span>Booking Outcome</span>
                   <select
                     value={conclusion}
                     onChange={(event) => {
@@ -719,9 +750,11 @@ export default function BookingWorkspacePage() {
                 <button
                   type="button"
                   className="uc03-c1-primary"
-                  disabled={busy || (conclusion === 'close-ready' && !workspace.completion.ready) || ((conclusion === 'close-no-delivery' || conclusion === 'cancel') && !reasonName.trim())}
+                  disabled={busy || anyUploadBusy || (conclusion === 'close-ready' && !workspace.completion.ready) || ((conclusion === 'close-no-delivery' || conclusion === 'cancel') && !reasonName.trim())}
                   onClick={() => void handleConclusion()}
-                >Record Conclusion</button>
+                >
+                  {conclusion === 'close-ready' ? 'Submit Booking' : 'Record Outcome'}
+                </button>
               </div>
             )}
           </section>

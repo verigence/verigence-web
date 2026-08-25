@@ -23,31 +23,70 @@
   --verigence-governed-radius: 18px;
 }
 
-html,
-body,
-#root {
+/*
+ * Ionic ships viewport/root positioning rules that are appropriate when ion-content owns
+ * scrolling. Verigence authenticated screens use normal document flow instead. Reset the
+ * complete root chain so a long Booking form can grow beyond the viewport and the browser /
+ * Capacitor WebView can pan vertically to its true bottom.
+ */
+html {
+  position: relative !important;
+  inset: auto !important;
   min-width: 0;
   min-height: 100%;
+  height: auto !important;
+  max-height: none !important;
   margin: 0;
-}
-
-html,
-body {
-  overflow-x: hidden;
-  overflow-y: auto;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
   background: #011e47;
 }
 
 body {
-  min-height: 100dvh;
+  position: relative !important;
+  inset: auto !important;
+  min-width: 0;
+  min-height: 100dvh !important;
+  height: auto !important;
+  max-height: none !important;
+  margin: 0;
+  overflow-x: hidden !important;
+  overflow-y: visible !important;
+  touch-action: pan-y;
+  -webkit-overflow-scrolling: touch;
+  background-color: #011e47;
   background-image: var(--verigence-app-background);
   background-attachment: fixed;
   background-size: cover;
   background-position: center;
 }
 
+#root {
+  position: relative !important;
+  inset: auto !important;
+  min-width: 0;
+  min-height: 100dvh !important;
+  height: auto !important;
+  max-height: none !important;
+  margin: 0;
+  overflow: visible !important;
+}
+
+ion-app {
+  position: relative !important;
+  inset: auto !important;
+  display: block !important;
+  min-width: 0 !important;
+  min-height: 100dvh !important;
+  height: auto !important;
+  max-height: none !important;
+  overflow: visible !important;
+  touch-action: pan-y;
+}
+
 /* Shared authenticated shell uses the same visual foundation as Sign in. */
 .enterprise-shell {
+  position: relative !important;
   min-width: 0 !important;
   min-height: 100dvh !important;
   height: auto !important;
@@ -60,6 +99,7 @@ body {
 }
 
 .enterprise-main {
+  position: relative !important;
   min-width: 0 !important;
   min-height: 100dvh !important;
   height: auto !important;
@@ -68,6 +108,7 @@ body {
 }
 
 .enterprise-content {
+  position: relative !important;
   box-sizing: border-box;
   min-width: 0 !important;
   min-height: calc(100dvh - 66px) !important;
@@ -97,10 +138,33 @@ body {
 }
 
 .screen-stack {
+  position: relative !important;
   min-width: 0;
+  min-height: 0;
   height: auto !important;
   max-height: none !important;
   overflow: visible !important;
+}
+
+/*
+ * Booking acceptance rule: neither step panels nor their grids/footer may create a nested
+ * viewport that clips lower evidence cards or fields. All four Step-1 upload cards and the
+ * complete Step-2 form must remain reachable through normal vertical scrolling.
+ */
+.uc03-booking-journey,
+.uc03-booking-step-panel,
+.uc03-booking-document-grid,
+.uc03-booking-form-grid,
+.uc03-booking-yes-no-grid,
+.uc03-booking-step-footer {
+  min-height: 0 !important;
+  height: auto !important;
+  max-height: none !important;
+  overflow: visible !important;
+}
+
+.uc03-booking-journey {
+  padding-bottom: max(24px, env(safe-area-inset-bottom)) !important;
 }
 
 /* Project/workspace gate follows the same Sign-in background and can always scroll. */
@@ -170,6 +234,10 @@ canvas {
 }
 
 @media (max-width: 767px) {
+  body {
+    background-attachment: scroll;
+  }
+
   .enterprise-content {
     padding:
       14px

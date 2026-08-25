@@ -47,6 +47,7 @@ import './styles/navigation-admin-landing.css';
 import './styles/scroll-foundation.css';
 import './styles/uc03-pc-ui-regression-fixes.css';
 import './styles/uc03-pc-landing-cta.css';
+import './styles/uc03-pc-product-polish.css';
 
 import App from './App';
 import DiFieldViewerEnhancer from './features/di-test/DiFieldViewerEnhancer';

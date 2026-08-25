@@ -55,17 +55,10 @@ export default function CreateBookingPage() {
       <PageHeader
         eyebrow="Process Coordinator"
         title="Capture New Booking"
-        description="Enter the Customer Name first. Add Details creates the Booking Journey and opens the evidence-first Booking workspace."
+        description="Enter the customer name to create the Booking and continue with documents and Booking details."
       />
 
       <section className="section-card uc03-capture-new-booking__card">
-        <div className="section-card__header">
-          <div>
-            <h2>Customer</h2>
-            <p>{activeProject.projectName}</p>
-          </div>
-        </div>
-
         {!selectedOutlet ? (
           <div className="dashboard-load-state" role="alert">
             <div className="dashboard-load-state__copy">
@@ -75,9 +68,11 @@ export default function CreateBookingPage() {
           </div>
         ) : (
           <div className="form-stack uc03-capture-new-booking__form">
-            <div className="field-stack uc03-capture-new-booking__outlet">
-              <span>Working Outlet</span>
-              <strong>{selectedOutlet.dealerName} · {selectedOutlet.outletName}</strong>
+            <div className="uc03-capture-new-booking__context" aria-label="Current working outlet">
+              <div>
+                <span>Working Outlet</span>
+                <strong>{selectedOutlet.dealerName} · {selectedOutlet.outletName}</strong>
+              </div>
               <small>{selectedOutlet.outletClassification}</small>
             </div>
 
@@ -90,6 +85,7 @@ export default function CreateBookingPage() {
                 autoComplete="name"
                 placeholder="Enter customer name"
                 disabled={creating}
+                autoFocus
                 onChange={(event) => {
                   setCustomerName(event.target.value);
                   if (error) setError('');
@@ -101,7 +97,7 @@ export default function CreateBookingPage() {
                   }
                 }}
               />
-              <small>The Customer Name becomes read-only after the Booking Journey is created.</small>
+              <small>Customer Name is locked after the Booking is created.</small>
             </label>
 
             {error && <div className="uc03-c1-feedback is-error" role="alert">{error}</div>}

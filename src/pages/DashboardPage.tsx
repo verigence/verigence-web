@@ -2,11 +2,10 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 
-import { verigenceLockup } from '../assets/verigenceLockup';
-import StatusPill from '../components/StatusPill';
 import {
   getUc03LandingMetrics,
   listUc03WorkItems,
+  type Uc03StageSummary,
   type Uc03WorkItem,
   type Uc03WorkType,
 } from '../services/audit-core/uc03';
@@ -58,22 +57,25 @@ function firstNameFromDisplayName(displayName: string): string {
   return firstPart.charAt(0).toUpperCase() + firstPart.slice(1);
 }
 
-function auditStageSummary(item: Uc03WorkItem['booking']): string {
-  const state = friendlyStatus(item.auditState);
-  if (item.auditStatus === 'FLAGS_RAISED') return `${state} · Flags Raised`;
-  if (item.auditStatus === 'NO_FLAGS') return `${state} · No Flags`;
-  return `${state} · Not Evaluated`;
+function isVerified(stage: Uc03StageSummary): boolean {
+  return stage.auditState === 'COMPLETE';
 }
 
-function StageBlock({ label, item }: { label: string; item: Uc03WorkItem['booking'] }) {
+function VerificationBadge({ stage }: { stage: Uc03StageSummary }) {
+  const verified = isVerified(stage);
+  return (
+    <span className={`uc03-verification-badge${verified ? ' is-verified' : ' is-not-verified'}`}>
+      {verified ? 'Verified' : 'Not Verified'}
+    </span>
+  );
+}
+
+function StageBlock({ label, item }: { label: string; item: Uc03StageSummary }) {
   return (
     <div className="uc03-stage-block">
       <span>{label}</span>
       <strong>{friendlyStatus(item.businessStatus)}</strong>
-      <div className="uc03-stage-block__audit">
-        <StatusPill value={item.auditState} compact />
-        <StatusPill value={item.auditStatus} compact />
-      </div>
+      <VerificationBadge stage={item} />
       {item.businessDate && <small>{item.businessDate}</small>}
     </div>
   );
@@ -129,10 +131,6 @@ function DashboardHero({ greeting, dealershipName, outletName, showCaptureAction
         <p>{outletName}</p>
       </div>
 
-      <div className="uc03-dashboard-hero__brand" aria-hidden="true">
-        <img src={verigenceLockup} alt="" />
-      </div>
-
       {showCaptureAction && (
         <Link className="uc03-landing__capture-action uc03-landing__capture-action--centered" to="/dashboard?action=create-booking">
           <span aria-hidden="true">＋</span>
@@ -155,7 +153,7 @@ function WorkItemCard({ item, timezoneName }: { item: Uc03WorkItem; timezoneName
       || bookingStatus === 'BOOKING_IN_PROGRESS'
       || bookingStatus === 'BOOKING_CLOSED',
   );
-  const auditAvailable = Boolean(item.booking.businessStatus || item.delivery.businessStatus || item.totalFlagCount > 0);
+  const auditAvailable = Boolean(item.booking.businessStatus || item.delivery.businessStatus);
   const hasSecondaryActions = deliveryEligible || auditAvailable;
 
   return (
@@ -183,12 +181,11 @@ function WorkItemCard({ item, timezoneName }: { item: Uc03WorkItem; timezoneName
           <h3>{item.customerDisplayName}</h3>
           <p>{item.productLabel || 'Vehicle details pending'}</p>
         </div>
-        <div className="uc03-work-card__summary">
+
+        <div className="uc03-work-card__summary uc03-work-card__summary--simple">
           <span className="uc03-work-card__status-label">Booking</span>
           <strong>{friendlyStatus(item.booking.businessStatus)}</strong>
-          <span className={`uc03-work-card__audit-state${item.booking.auditStatus === 'FLAGS_RAISED' ? ' is-attention' : ''}`}>
-            Audit {auditStageSummary(item.booking)}
-          </span>
+          <VerificationBadge stage={item.booking} />
         </div>
       </header>
 
@@ -205,9 +202,6 @@ function WorkItemCard({ item, timezoneName }: { item: Uc03WorkItem; timezoneName
           </div>
           <div className="uc03-work-card__expanded-meta">
             <span>Latest activity {activityLabel(item.latestActivityAtUtc, timezoneName)}</span>
-            {item.totalFlagCount > 0 && (
-              <span>{item.totalFlagCount} Audit Flag{item.totalFlagCount === 1 ? '' : 's'} Raised</span>
-            )}
             {item.processingDocumentCount > 0 && (
               <span>{item.processingDocumentCount} document{item.processingDocumentCount === 1 ? '' : 's'} processing</span>
             )}
@@ -374,7 +368,7 @@ export default function DashboardPage() {
   const invalidDateRange = Boolean(fromDate && toDate && fromDate > toDate);
 
   return (
-    <div className="screen-stack uc03-landing uc03-landing--phase2 uc03-landing--approved">
+    <div className="screen-stack uc03-landing uc03-landing--phase2 uc03-landing--approved uc03-landing--verification-simple">
       <DashboardHero
         greeting={greeting}
         dealershipName={dealershipName}
@@ -412,11 +406,6 @@ export default function DashboardPage() {
             value={metrics ? String(metrics.needsAttention) : '—'}
             detail="Cases needing review"
             attention={Boolean(metrics?.needsAttention)}
-          />
-          <LandingMetric
-            label="Audit Status"
-            value={typeof metrics?.auditInProgress === 'number' ? String(metrics.auditInProgress) : '—'}
-            detail="In progress"
           />
         </div>
       )}

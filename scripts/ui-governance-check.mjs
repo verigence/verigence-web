@@ -34,6 +34,13 @@ for (const required of [
   'min-height: 100dvh',
   'overflow-y: auto',
   '.uc03-booking-journey .uc03-c1-topbar > span',
+  'ion-app',
+  'height: auto !important',
+  'max-height: none !important',
+  'touch-action: pan-y',
+  '.uc03-booking-step-panel',
+  '.uc03-booking-document-grid',
+  '.uc03-booking-form-grid',
 ]) {
   if (!governanceCss.includes(required)) {
     failures.push(`src/styles/ui-governance.css: required governance rule missing: ${required}`);
@@ -44,6 +51,12 @@ if (/height\s*:\s*100vh\b/.test(governanceCss)) {
 }
 if (/overflow\s*:\s*hidden\s*!important/.test(governanceCss) && !/overflow-x\s*:\s*hidden/.test(governanceCss)) {
   failures.push('src/styles/ui-governance.css: do not globally hide overflow; lower content must remain reachable.');
+}
+
+for (const rootSelector of ['html {', 'body {', '#root {', 'ion-app {']) {
+  if (!governanceCss.includes(rootSelector)) {
+    failures.push(`src/styles/ui-governance.css: ${rootSelector.replace(' {', '')} root scrolling contract is missing.`);
+  }
 }
 
 forbid(
@@ -88,6 +101,33 @@ if (/\.dealerName\b|\.outletName\b/.test(booking)) {
   failures.push('src/pages/BookingWorkspacePage.tsx: Dealer/Outlet names are landing-page-only.');
 }
 
+/* Booking is a functional acceptance surface, not a screenshot-only surface. */
+for (const uploadTitle of [
+  'Booking Form / Booking Docket',
+  'Booking Payment Receipt(s)',
+  'PAN',
+  'Aadhaar',
+]) {
+  if (!booking.includes(`title="${uploadTitle}"`)) {
+    failures.push(`src/pages/BookingWorkspacePage.tsx: Step 1 upload card missing: ${uploadTitle}`);
+  }
+}
+if (!booking.includes('label="GST Benefit"')) {
+  failures.push('src/pages/BookingWorkspacePage.tsx: GST Benefit point is required on Booking Details.');
+}
+if (!booking.includes('label="Corporate ID Available"')) {
+  failures.push('src/pages/BookingWorkspacePage.tsx: Corporate ID availability point is required for Corporate Booking.');
+}
+if (!booking.includes("form.customerType === 'CORPORATE'")) {
+  failures.push('src/pages/BookingWorkspacePage.tsx: Corporate Booking conditional path is missing.');
+}
+if (!booking.includes("form.gstBenefit === true") || !booking.includes('GST Certificate')) {
+  failures.push('src/pages/BookingWorkspacePage.tsx: GST Certificate conditional evidence path is missing.');
+}
+if (!booking.includes("form.corporateIdAvailable === true") || !booking.includes('Corporate ID')) {
+  failures.push('src/pages/BookingWorkspacePage.tsx: Corporate ID conditional evidence path is missing.');
+}
+
 const packageJson = JSON.parse(read('package.json'));
 if (!String(packageJson.scripts?.build || '').includes('ui:governance')) {
   failures.push('package.json: every Web build must execute ui:governance.');
@@ -106,5 +146,7 @@ console.log('VERIGENCE_UI_GOVERNANCE=PASS');
 console.log('Background=LOGIN_NAVY_TEAL');
 console.log('ProjectName=PROHIBITED_OPERATIONAL_UI');
 console.log('DealerOutlet=LANDING_ONLY');
-console.log('VerticalFreeze=PROHIBITED_SCROLL_FALLBACK_REQUIRED');
+console.log('VerticalFreeze=PROHIBITED_ROOT_AND_PAGE_SCROLL_REQUIRED');
+console.log('BookingStep1=FOUR_UPLOADS_REQUIRED_AND_REACHABLE');
+console.log('BookingStep2=GST_AND_CORPORATE_PATH_REQUIRED');
 console.log('Responsive=ADAPTIVE_REQUIRED');

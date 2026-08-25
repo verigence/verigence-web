@@ -1,0 +1,303 @@
+/*
+ * UC03 PC UI regression fixes.
+ * Presentation only. Branding follows implemented UC01 navy/teal language.
+ */
+
+.uc03-capture-new-booking {
+  width: min(100%, 760px);
+  max-width: 760px;
+  gap: 18px;
+}
+
+.uc03-capture-new-booking > .page-header {
+  display: block;
+}
+
+.uc03-capture-new-booking > .page-header .eyebrow {
+  color: #008d86;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.uc03-capture-new-booking > .page-header h1 {
+  margin: 5px 0 7px;
+  color: #003a82;
+  font-size: clamp(30px, 4vw, 42px);
+  line-height: 1.04;
+}
+
+.uc03-capture-new-booking > .page-header p {
+  max-width: 650px;
+  color: #5d768b;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.uc03-capture-new-booking__card {
+  padding: 26px;
+  border: 1px solid #d7e1eb;
+  border-radius: 16px;
+  box-shadow: 0 10px 28px rgba(0, 58, 130, .055);
+}
+
+.uc03-capture-new-booking__form {
+  display: grid;
+  gap: 20px;
+}
+
+.uc03-capture-new-booking__context {
+  min-height: 58px;
+  padding: 12px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  border: 1px solid #e0e8ef;
+  border-radius: 10px;
+  background: #f7fafc;
+}
+
+.uc03-capture-new-booking__context > div {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.uc03-capture-new-booking__context span {
+  color: #6e879b;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .055em;
+  text-transform: uppercase;
+}
+
+.uc03-capture-new-booking__context strong {
+  min-width: 0;
+  color: #17324d;
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.uc03-capture-new-booking__context small {
+  flex: 0 0 auto;
+  padding: 5px 8px;
+  border-radius: 999px;
+  background: rgba(0, 175, 168, .09);
+  color: #00766f;
+  font-size: 9px;
+  font-weight: 800;
+  text-transform: capitalize;
+}
+
+.uc03-capture-new-booking__name {
+  display: grid;
+  gap: 7px;
+}
+
+.uc03-capture-new-booking__name > span {
+  color: #31506e;
+  font-size: 12px;
+  font-weight: 750;
+}
+
+.uc03-capture-new-booking__name input {
+  width: 100%;
+  min-height: 50px;
+  padding: 0 13px;
+  border: 1px solid #cbd9e3;
+  border-radius: 9px;
+  outline: 0;
+  background: #fff;
+  color: #17324d;
+  font: inherit;
+  font-size: 15px;
+}
+
+.uc03-capture-new-booking__name input:focus {
+  border-color: #00afa8;
+  box-shadow: 0 0 0 3px rgba(0, 175, 168, .11);
+}
+
+.uc03-capture-new-booking__name small {
+  color: #6e879b;
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.uc03-capture-new-booking__actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.uc03-capture-new-booking__actions .uc03-c1-primary {
+  min-width: 180px;
+  min-height: 48px;
+  padding: 0 22px;
+  border: 1px solid #04265c !important;
+  border-radius: 9px;
+  background: #04265c !important;
+  color: #fff !important;
+  box-shadow: 0 7px 16px rgba(4, 38, 92, .14);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 800;
+  opacity: 1;
+}
+
+.uc03-capture-new-booking__actions .uc03-c1-primary:hover:not(:disabled) {
+  background: #003a82 !important;
+  border-color: #003a82 !important;
+}
+
+.uc03-capture-new-booking__actions .uc03-c1-primary:disabled {
+  background: #dbe3ec !important;
+  border-color: #dbe3ec !important;
+  color: #7a8da0 !important;
+  box-shadow: none;
+  opacity: 1;
+}
+
+/* PC landing: operational summary, not four oversized report cards. */
+.uc03-landing > .page-header {
+  align-items: center;
+}
+
+.uc03-landing > .page-header h1 {
+  font-size: clamp(28px, 3.4vw, 38px);
+}
+
+.uc03-landing .metric-card {
+  min-height: 118px;
+  padding: 16px;
+}
+
+.uc03-landing .metric-card__value {
+  font-size: 29px;
+}
+
+.uc03-landing .metric-card__detail {
+  font-size: 10.5px;
+}
+
+@media (max-width: 767px) {
+  .uc03-landing {
+    gap: 12px;
+  }
+
+  .uc03-landing > .page-header {
+    display: block;
+  }
+
+  .uc03-landing > .page-header .eyebrow {
+    max-width: 100%;
+    color: #008d86;
+    font-size: 10px;
+    line-height: 1.35;
+  }
+
+  .uc03-landing > .page-header h1 {
+    margin: 4px 0 5px;
+    font-size: clamp(27px, 7.4vw, 32px);
+    line-height: 1.04;
+  }
+
+  .uc03-landing > .page-header p {
+    font-size: 12px;
+    line-height: 1.42;
+  }
+
+  .uc03-landing .metric-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 9px;
+  }
+
+  .uc03-landing .metric-card {
+    min-height: 104px;
+    padding: 13px;
+    gap: 4px;
+    border-radius: 11px;
+  }
+
+  .uc03-landing .metric-card__label {
+    font-size: 8.5px;
+    line-height: 1.3;
+  }
+
+  .uc03-landing .metric-card__value {
+    margin-top: 1px;
+    font-size: 27px;
+  }
+
+  .uc03-landing .metric-card__detail {
+    font-size: 9.5px;
+    line-height: 1.35;
+  }
+
+  .uc03-landing .uc03-work-list {
+    gap: 13px;
+    padding: 14px;
+    border-radius: 12px;
+  }
+
+  .uc03-landing .uc03-work-list__heading h2 {
+    margin: 3px 0 4px;
+    font-size: 21px;
+  }
+
+  .uc03-landing .uc03-work-list__heading p {
+    font-size: 11px;
+    line-height: 1.4;
+  }
+
+  .uc03-capture-new-booking {
+    width: 100%;
+    max-width: none;
+    gap: 14px;
+  }
+
+  .uc03-capture-new-booking > .page-header h1 {
+    font-size: clamp(28px, 8vw, 34px);
+  }
+
+  .uc03-capture-new-booking > .page-header p {
+    font-size: 12px;
+  }
+
+  .uc03-capture-new-booking__card {
+    padding: 16px;
+    border-radius: 13px;
+  }
+
+  .uc03-capture-new-booking__form {
+    gap: 16px;
+  }
+
+  .uc03-capture-new-booking__context {
+    min-height: 0;
+    padding: 11px 12px;
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .uc03-capture-new-booking__context small {
+    align-self: flex-start;
+  }
+
+  .uc03-capture-new-booking__actions,
+  .uc03-capture-new-booking__actions .uc03-c1-primary {
+    width: 100%;
+  }
+}
+
+@media (max-width: 360px) {
+  .uc03-landing .metric-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .uc03-landing .metric-card {
+    min-height: 88px;
+  }
+}

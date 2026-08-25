@@ -1,0 +1,156 @@
+/* UC03 Booking mobile-only density override. Web/tablet layouts remain unchanged. */
+@media (max-width: 767px) {
+  .uc03-c1-section--documents {
+    gap: 6px;
+    padding: 8px;
+  }
+
+  .uc03-c1-section--documents > .uc03-c1-section-heading {
+    margin-bottom: 2px;
+    padding-bottom: 5px;
+  }
+
+  .uc03-c1-section--documents > .uc03-c1-section-heading p {
+    display: none;
+  }
+
+  .uc03-c1-kyc-group > header,
+  .uc03-c1-kyc-group > .uc03-c1-notice {
+    display: none;
+  }
+
+  .uc03-c1-kyc-group > .uc03-c1-document-grid {
+    gap: 6px;
+  }
+
+  .uc03-c1-document-card {
+    padding: 8px 9px;
+    border-radius: 10px;
+  }
+
+  .uc03-c1-document-card > header {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .uc03-c1-document-card .uc03-c1-eyebrow {
+    font-size: 0.58rem;
+    line-height: 1.1;
+  }
+
+  .uc03-c1-document-name {
+    margin: 1px 0 0 !important;
+    font-size: 0.98rem;
+    line-height: 1.15;
+  }
+
+  .uc03-c1-document-card .uc03-c1-muted {
+    display: none;
+  }
+
+  .uc03-c1-document-card .status-pill,
+  .uc03-c1-document-card .status-pill--compact {
+    min-height: 0;
+    padding: 4px 7px;
+    font-size: 0.58rem;
+    line-height: 1.05;
+    white-space: nowrap;
+  }
+
+  /* Processing/success is already represented by the status pill and evidence row. */
+  .uc03-c1-upload-state {
+    display: none;
+  }
+
+  .uc03-c1-document-actions {
+    margin: 4px 0 2px;
+  }
+
+  .uc03-c1-upload-controls {
+    gap: 6px;
+  }
+
+  .uc03-c1-upload-action--mobile-camera,
+  .uc03-c1-upload-action--mobile-file {
+    min-height: 42px;
+    padding: 6px 8px;
+    font-size: 0.72rem;
+  }
+
+  .uc03-c1-upload-action::before {
+    width: 18px;
+    height: 18px;
+  }
+
+  .uc03-c1-upload-hint {
+    width: 100%;
+    margin: 0;
+    font-size: 0.61rem;
+    line-height: 1.25;
+  }
+
+  .uc03-c1-evidence-list {
+    margin-top: 4px;
+    gap: 4px;
+  }
+
+  .uc03-c1-evidence-row {
+    min-height: 44px;
+    padding: 5px 7px;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 6px;
+    border-radius: 8px;
+  }
+
+  .uc03-c1-evidence-summary {
+    gap: 6px;
+  }
+
+  .uc03-c1-evidence-mark {
+    width: 20px;
+    height: 20px;
+    border-radius: 6px;
+    font-size: 0.62rem;
+  }
+
+  .uc03-c1-evidence-copy strong {
+    font-size: 0.76rem;
+    line-height: 1.15;
+  }
+
+  .uc03-c1-evidence-copy span {
+    font-size: 0.64rem;
+    line-height: 1.15;
+  }
+
+  .uc03-c1-get-details {
+    min-height: 40px;
+    padding: 5px 9px;
+    font-size: 0.72rem;
+    white-space: nowrap;
+  }
+
+  .uc03-c1-payment-group {
+    margin-top: 0;
+  }
+}
+
+@media (max-width: 420px) {
+  .uc03-c1-section--documents {
+    padding: 7px;
+  }
+
+  .uc03-c1-document-card {
+    padding: 8px;
+  }
+
+  .uc03-c1-evidence-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .uc03-c1-get-details {
+    width: auto;
+  }
+}

@@ -51,6 +51,7 @@ import './styles/uc03-pc-product-polish.css';
 import './styles/uc03-phase2-worklist.css';
 import './styles/uc03-approved-landing.css';
 import './styles/uc03-hero-greeting.css';
+import './styles/uc03-hero-mark.css';
 
 import App from './App';
 import DiFieldViewerEnhancer from './features/di-test/DiFieldViewerEnhancer';

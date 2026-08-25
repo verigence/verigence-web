@@ -260,7 +260,7 @@ export default function AppShell({ children }: PropsWithChildren) {
               <span className="enterprise-topbar__avatar">{avatarText}</span>
               <span className="enterprise-topbar__identity-copy"><strong>{visibleName}</strong><small>{roleLabel}</small></span>
             </NavLink>
-            <button type="button" className="user-menu-button" onClick={handleSignOut}>Sign out</button>
+            <button type="button" className="user-menu-button" onClick={handleSignOut}>Sign Out</button>
           </div>
         </header>
         <main className="enterprise-content">{children}</main>

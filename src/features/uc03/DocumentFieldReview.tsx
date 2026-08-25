@@ -2,13 +2,16 @@ import { type PointerEvent as ReactPointerEvent, useEffect, useLayoutEffect, use
 
 import '../../styles/uc03-document-verification.css';
 import {
+  type EvidenceFactView,
   type EvidenceRegion,
   type ExtractionProposalView,
+  getBookingEvidenceFacts,
   getBookingEvidenceReviewContent,
 } from '../../services/audit-core/uc03Booking';
 import { displayName } from '../../utils/displayNames';
 
 type SheetSnap = 'peek' | 'half' | 'full';
+const EMPTY_DECIDED_IDS: ReadonlySet<string> = new Set();
 
 type ReviewProposal = ExtractionProposalView & {
   sourceText?: string | null;
@@ -107,16 +110,27 @@ export function DocumentFieldReview({
   evidenceId,
   documentName,
   proposals,
-  decidedIds = new Set<string>(),
+  decidedIds = EMPTY_DECIDED_IDS,
   disabled = false,
   onAccept,
   onCorrect,
   onReviewCompleteChange,
 }: DocumentFieldReviewProps) {
-  const fields = useMemo(
-    () => (proposals as ReviewProposal[]).filter((proposal) => proposal.status !== 'SUPERSEDED'),
-    [proposals],
-  );
+  const [facts, setFacts] = useState<EvidenceFactView[]>([]);
+  const fields = useMemo(() => {
+    const factByField = new Map(facts.map((fact) => [fact.fieldKey, fact]));
+    return (proposals as ReviewProposal[])
+      .filter((proposal) => proposal.status !== 'SUPERSEDED')
+      .map((proposal) => {
+        const fact = factByField.get(proposal.fieldKey);
+        return {
+          ...proposal,
+          confidence: proposal.confidence ?? fact?.confidenceScore ?? null,
+          pageNo: proposal.pageNo ?? fact?.pageNo ?? null,
+          evidenceRegion: proposal.evidenceRegion ?? fact?.evidenceRegion ?? null,
+        };
+      });
+  }, [facts, proposals]);
   const rootRef = useRef<HTMLDivElement>(null);
   const scrollerRef = useRef<HTMLDivElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
@@ -164,9 +178,14 @@ export function DocumentFieldReview({
     let cancelled = false;
     let objectUrl: string | null = null;
     setSource(null);
+    setFacts([]);
     setSourceLoading(true);
     setSourceError(null);
     setImageReady(false);
+
+    void getBookingEvidenceFacts(tenantId, journeyId, evidenceId, accessToken)
+      .then((result) => { if (!cancelled) setFacts(result); })
+      .catch(() => { if (!cancelled) setFacts([]); });
 
     void getBookingEvidenceReviewContent(tenantId, journeyId, evidenceId, accessToken)
       .then((result) => {
@@ -279,7 +298,7 @@ export function DocumentFieldReview({
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [actionBusyId, disabled, fields, selected, selectedId, wide]);
+  }, [actionBusyId, decidedIds, disabled, fields, locallyReviewedIds, selected, selectedId, wide]);
 
   const cycleSnap = () => {
     setSnap((current) => current === 'peek' ? 'half' : current === 'half' ? 'full' : 'peek');

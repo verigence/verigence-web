@@ -19,16 +19,19 @@ function token(accessToken?: string): string {
 export function createBooking(
   tenantId: string,
   outletId: string,
+  customerName: string,
   accessToken?: string,
 ): Promise<CreateBookingResult> {
   if (!outletId.trim()) throw new Error('A working Outlet must be selected before creating a Booking.');
+  const normalizedCustomerName = customerName.trim().replace(/\s+/g, ' ');
+  if (!normalizedCustomerName) throw new Error('Customer Name is required before adding Booking details.');
   return auditCoreRequest<CreateBookingResult>(
     `/v1/tenants/${encodeURIComponent(tenantId)}/uc03/bookings`,
     {
       method: 'POST',
       accessToken: token(accessToken),
       headers: { 'Idempotency-Key': newIdempotencyKey('uc03-create-booking') },
-      body: JSON.stringify({ outletId }),
+      body: JSON.stringify({ outletId, customerName: normalizedCustomerName }),
     },
   );
 }

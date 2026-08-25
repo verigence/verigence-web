@@ -57,6 +57,7 @@ import './styles/uc03-booking-adaptive.css';
 import './styles/uc03-booking-mobile-compact.css';
 import './styles/uc03-booking-journey.css';
 import './styles/ui-governance.css';
+import './styles/authenticated-scroll-owner.css';
 
 import App from './App';
 import DiFieldViewerEnhancer from './features/di-test/DiFieldViewerEnhancer';

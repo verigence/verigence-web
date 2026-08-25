@@ -2,14 +2,14 @@
    Greeting first, Dealership above Outlet, centered Capture action, more brand breathing room. */
 
 .uc03-dashboard-hero--greeting {
-  grid-template-columns: minmax(0, 1fr) 132px;
+  grid-template-columns: minmax(0, 1fr) 200px;
   grid-template-areas:
     "copy brand"
     "action action";
   row-gap: 18px;
-  column-gap: 28px;
+  column-gap: 30px;
   align-items: center;
-  padding: 22px 26px 24px 30px;
+  padding: 22px 28px 24px 30px;
 }
 
 .uc03-dashboard-hero--greeting .uc03-dashboard-hero__copy {
@@ -42,17 +42,26 @@
   line-height: 1.4;
 }
 
+/* Use the same bundled approved lockup that already renders reliably in the shell. */
 .uc03-dashboard-hero--greeting .uc03-dashboard-hero__brand {
   grid-area: brand;
   justify-self: end;
-  width: 126px;
-  height: 118px;
-  border-radius: 30px;
+  width: 190px;
+  height: 98px;
+  padding: 12px 14px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 22px;
+  background: rgba(255, 255, 255, .5);
 }
 
 .uc03-dashboard-hero--greeting .uc03-dashboard-hero__brand img {
-  width: 88px;
-  height: 88px;
+  width: 100%;
+  height: auto;
+  max-height: 72px;
+  display: block;
+  object-fit: contain;
 }
 
 .uc03-landing--approved .uc03-landing__capture-action--centered {
@@ -64,14 +73,30 @@
   font-size: 13px;
 }
 
+.uc03-work-card__audit-state {
+  color: #60798f;
+  font-size: .76rem;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.uc03-work-card__audit-state.is-attention {
+  color: #9a2e25;
+}
+
+/* User-facing shell copy alignment requested during UC03 review. */
+.enterprise-topbar .user-menu-button {
+  font-size: 11px;
+}
+
 @media (max-width: 767px) {
   .uc03-dashboard-hero--greeting {
-    grid-template-columns: minmax(0, 1fr) 94px;
+    grid-template-columns: minmax(0, 1fr) 150px;
     grid-template-areas:
       "copy brand"
       "action action";
-    gap: 14px 16px;
-    padding: 18px 16px 18px 20px;
+    gap: 14px 18px;
+    padding: 18px 18px 18px 20px;
   }
 
   .uc03-dashboard-hero__greeting {
@@ -89,14 +114,14 @@
   }
 
   .uc03-dashboard-hero--greeting .uc03-dashboard-hero__brand {
-    width: 90px;
-    height: 86px;
-    border-radius: 23px;
+    width: 146px;
+    height: 78px;
+    padding: 9px 10px;
+    border-radius: 18px;
   }
 
   .uc03-dashboard-hero--greeting .uc03-dashboard-hero__brand img {
-    width: 64px;
-    height: 64px;
+    max-height: 58px;
   }
 
   .uc03-landing--approved .uc03-landing__capture-action--centered {
@@ -105,20 +130,32 @@
   }
 }
 
-@media (max-width: 390px) {
+@media (max-width: 480px) {
   .uc03-dashboard-hero--greeting {
-    grid-template-columns: minmax(0, 1fr) 78px;
+    grid-template-columns: minmax(0, 1fr) 112px;
     column-gap: 10px;
   }
 
   .uc03-dashboard-hero--greeting .uc03-dashboard-hero__brand {
-    width: 76px;
-    height: 74px;
-    border-radius: 20px;
+    width: 108px;
+    height: 66px;
+    padding: 8px;
+    border-radius: 16px;
   }
 
   .uc03-dashboard-hero--greeting .uc03-dashboard-hero__brand img {
-    width: 54px;
-    height: 54px;
+    max-height: 48px;
+  }
+}
+
+@media (max-width: 390px) {
+  .uc03-dashboard-hero--greeting {
+    grid-template-columns: minmax(0, 1fr) 94px;
+  }
+
+  .uc03-dashboard-hero--greeting .uc03-dashboard-hero__brand {
+    width: 90px;
+    height: 58px;
+    padding: 7px;
   }
 }

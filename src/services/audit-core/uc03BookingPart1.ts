@@ -49,13 +49,29 @@ function token(accessToken?: string): string {
   return value;
 }
 
+function base(tenantId: string, journeyId: string): string {
+  return `/v1/tenants/${encodeURIComponent(tenantId)}/journeys/${encodeURIComponent(journeyId)}`;
+}
+
 export async function getBookingPart1(
   tenantId: string,
   journeyId: string,
   accessToken?: string,
 ): Promise<BookingPart1View> {
-  return auditCoreRequest<BookingPart1View>(
-    `/v1/tenants/${encodeURIComponent(tenantId)}/journeys/${encodeURIComponent(journeyId)}/booking/part1`,
-    { accessToken: token(accessToken), cache: 'no-store' },
+  return auditCoreRequest<BookingPart1View>(`${base(tenantId, journeyId)}/booking/part1`, {
+    accessToken: token(accessToken),
+    cache: 'no-store',
+  });
+}
+
+export async function refreshPart1Evidence(
+  tenantId: string,
+  journeyId: string,
+  evidenceId: string,
+  accessToken?: string,
+): Promise<void> {
+  await auditCoreRequest(
+    `${base(tenantId, journeyId)}/evidence/${encodeURIComponent(evidenceId)}/refresh`,
+    { method: 'POST', accessToken: token(accessToken) },
   );
 }

@@ -51,7 +51,7 @@ jobs:
           cat /tmp/verigence-booking-vite.log
           exit 1
 
-      - name: Exercise Booking Step 1 and Step 2
+      - name: Exercise Booking Steps 1 to 3
         env:
           TEST_WEB_URL: http://127.0.0.1:4173
         run: |
@@ -71,7 +71,6 @@ jobs:
             actorType: 'USER',
             isSuperAdmin: false,
           };
-
           const project = {
             tenantId: 'tenant-booking-functional',
             projectCode: 'BOOKING-FUNCTIONAL',
@@ -92,7 +91,6 @@ jobs:
               }],
             },
           };
-
           const dashboard = {
             metrics: {
               bookingsInProgress: 1,
@@ -115,7 +113,6 @@ jobs:
               },
             },
           };
-
           const bookingWorkspace = {
             journeyId: 'journey-functional',
             bookingStage: {
@@ -134,7 +131,6 @@ jobs:
             aggregateVersion: 1,
             operatingRole: 'PC',
           };
-
           const bookingPart1 = {
             journeyId: 'journey-functional',
             requirements: [
@@ -163,7 +159,6 @@ jobs:
               message: 'Pending extraction',
             },
           };
-
           const details = {
             aggregateVersion: 1,
             priceListId: null,
@@ -182,11 +177,11 @@ jobs:
             corporateIdAvailable: null,
             optionalEvidence: [],
           };
-
           const ref = (values) => values.map(([code, label]) => ({ code, label }));
           const options = {
             effectiveOn: '2026-08-25',
-            priceLists: [{ priceListId: 'price-list-1', code: 'PL-1', name: 'Standard Price List', effectiveVersionId: 'price-list-version-1' }],
+            // Reproduce the real DEV defect: Booking must remain usable with no Price List.
+            priceLists: [],
             customerTypes: ref([['INDIVIDUAL', 'Individual'], ['CORPORATE', 'Corporate']]),
             dealTypes: ref([['IN_SCOPE', 'In-Scope'], ['OUT_OF_SCOPE', 'Out of Scope']]),
             dealSources: ref([['WALK_IN', 'Walk-in'], ['DIGITAL', 'Digital']]),
@@ -197,10 +192,10 @@ jobs:
             registrationTypes: ref([['PERMANENT', 'Permanent'], ['TEMPORARY', 'Temporary']]),
             registrationCategories: ref([['PRIVATE', 'Private'], ['COMMERCIAL', 'Commercial']]),
           };
-
           const optionalEvidence = [
             { requirementKey: 'corporate_id', documentTypeKey: 'corporate_id', evidenceId: null, processingStatus: null },
             { requirementKey: 'gst_certificate', documentTypeKey: 'gst_certificate', evidenceId: null, processingStatus: null },
+            { requirementKey: 'trade_in_vehicle_rc', documentTypeKey: 'vehicle_rc', evidenceId: null, processingStatus: null },
           ];
 
           async function fulfillJson(route, json, status = 200) {
@@ -220,6 +215,17 @@ jobs:
             await page.route('**/audit-core/v1/tenants/tenant-booking-functional/journeys/journey-functional/uc03-workspace', (route) => fulfillJson(route, bookingWorkspace));
             await page.route('**/audit-core/v1/tenants/tenant-booking-functional/journeys/journey-functional/booking/part1', (route) => fulfillJson(route, bookingPart1));
             await page.route('**/audit-core/v1/tenants/tenant-booking-functional/journeys/journey-functional/booking/details/options', (route) => fulfillJson(route, options));
+            await page.route('**/audit-core/v1/tenants/tenant-booking-functional/journeys/journey-functional/booking/details/review', (route) => fulfillJson(route, {
+              journeyId: 'journey-functional',
+              aggregateVersion: 10,
+              raisedObservationIds: ['price-list-info'],
+              documents: [],
+            }));
+            await page.route('**/audit-core/v1/tenants/tenant-booking-functional/journeys/journey-functional/uc03/flags', (route) => fulfillJson(route, {
+              flag: { flagId: 'missing-evidence-info' },
+              eventId: 'missing-evidence-event',
+              idempotent: false,
+            }));
             await page.route('**/audit-core/v1/tenants/tenant-booking-functional/journeys/journey-functional/booking/details', async (route) => {
               if (route.request().method() === 'PUT') {
                 savedPayloads.push(route.request().postDataJSON());
@@ -241,15 +247,13 @@ jobs:
 
             await page.goto(`${base}/login`, { waitUntil: 'networkidle' });
             await page.getByLabel('Email').fill('booking.functional@example.com');
-            await page.getByLabel('Password').fill('booking-functional-test');
+            await page.getByPlaceholder('Enter your password').fill('booking-functional-test');
             await page.getByRole('button', { name: 'Sign in' }).click();
             await page.getByRole('heading', { name: 'Functional Dealer' }).waitFor();
 
             await page.goto(`${base}/bookings/journey-functional`, { waitUntil: 'networkidle' });
             await page.getByRole('heading', { name: 'Upload Documents' }).waitFor();
 
-            // Step 1 acceptance: all four real upload cards must exist and the last
-            // card must be physically reachable on a phone through vertical scroll.
             for (const title of ['Booking Form / Booking Docket', 'Booking Payment Receipt(s)', 'PAN', 'Aadhaar']) {
               const cardTitle = page.getByText(title, { exact: true });
               if (await cardTitle.count() !== 1) throw new Error(`${viewport.name}: missing upload card ${title}`);
@@ -273,10 +277,10 @@ jobs:
             await page.getByRole('button', { name: /Continue to Booking Details/i }).click();
             await page.getByRole('heading', { name: 'Booking Details' }).waitFor();
 
-            // Step 2 acceptance: every master-backed dropdown must be enabled and
-            // selectable. These are the controls that previously rendered dead.
+            const noPriceList = page.getByText('Not configured for this Booking date.', { exact: true });
+            if (!(await noPriceList.isVisible())) throw new Error(`${viewport.name}: missing Price List is not shown as non-blocking information.`);
+
             const selections = [
-              ['Price List', 'price-list-1'],
               ['Type of Customer', 'CORPORATE'],
               ['Type of Deal', 'IN_SCOPE'],
               ['Deal Source', 'WALK_IN'],
@@ -295,14 +299,9 @@ jobs:
               if (await select.inputValue() !== value) throw new Error(`${viewport.name}: ${label} dropdown did not accept ${value}.`);
             }
 
-            // GST and Corporate are functional conditions, not static labels.
-            const outrightGroup = page.getByRole('group', { name: 'Outright Purchase' });
-            await outrightGroup.getByLabel('No').check();
-            const tradeGroup = page.getByRole('group', { name: 'Trade In' });
-            await tradeGroup.getByLabel('No').check();
-            const gstGroup = page.getByRole('group', { name: 'GST Benefit' });
-            await gstGroup.getByLabel('Yes').check();
-
+            await page.getByRole('group', { name: 'Outright Purchase' }).getByLabel('No').check();
+            await page.getByRole('group', { name: 'Trade In' }).getByLabel('No').check();
+            await page.getByRole('group', { name: 'GST Benefit' }).getByLabel('Yes').check();
             const corporateGroup = page.getByRole('group', { name: 'Corporate ID Available' });
             await corporateGroup.waitFor();
             await corporateGroup.getByLabel('Yes').check();
@@ -315,10 +314,8 @@ jobs:
             if (!(await gstUpload.isVisible())) throw new Error(`${viewport.name}: GST Certificate upload did not appear when GST Benefit was Yes.`);
 
             const reviewButton = page.getByRole('button', { name: /Review Booking Details/i });
-            if (!(await reviewButton.isEnabled())) throw new Error(`${viewport.name}: completed Booking Details still cannot proceed to review.`);
+            if (!(await reviewButton.isEnabled())) throw new Error(`${viewport.name}: Booking Details cannot proceed without a Price List.`);
 
-            // Exercise both conditional upload actions. The component must first
-            // persist the selected business facts and then call the evidence facade.
             await Promise.all([
               page.waitForResponse((response) => response.request().method() === 'POST' && response.url().includes('/documents/corporate_id/evidence')),
               corporateUpload.locator('input[type="file"]').first().setInputFiles({
@@ -341,6 +338,7 @@ jobs:
             if (savedPayloads.length < 2) throw new Error(`${viewport.name}: conditional uploads did not persist Booking Details first.`);
 
             const payload = savedPayloads.at(-1);
+            if (payload.priceListId !== null) throw new Error(`${viewport.name}: no Price List must persist as null, not a fake value.`);
             if (payload.customerType !== 'CORPORATE' || payload.corporateIdAvailable !== true || payload.gstBenefit !== true) {
               throw new Error(`${viewport.name}: Corporate/GST selections were not preserved in the Booking Details payload.`);
             }
@@ -348,13 +346,20 @@ jobs:
               throw new Error(`${viewport.name}: registration dropdown selections were not preserved in the Booking Details payload.`);
             }
 
+            await reviewButton.click();
+            await page.getByText('Mandatory Booking documents are still pending.', { exact: true }).waitFor();
+            await page.getByRole('button', { name: 'Continue Anyway' }).click();
+            await page.getByRole('heading', { name: 'Review Booking Documents' }).waitFor();
+
             await context.close();
           }
 
           await browser.close();
           console.log('BOOKING_FUNCTIONAL_UX=PASS');
           console.log('Step1=FOUR_UPLOADS_REACHABLE');
-          console.log('Step2=ALL_DROPDOWNS_SELECTABLE');
+          console.log('Step2=NO_PRICE_LIST_NON_BLOCKING');
+          console.log('Step2=ALL_REQUIRED_DROPDOWNS_SELECTABLE');
           console.log('GST=CONDITIONAL_UPLOAD_EXERCISED');
           console.log('Corporate=CONDITIONAL_UPLOAD_EXERCISED');
+          console.log('Step3=CONTINUE_ANYWAY_REACHES_REVIEW');
           NODE

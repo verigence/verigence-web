@@ -1,0 +1,124 @@
+/* UC03 PC hero refinement — 25 Aug 2026.
+   Greeting first, Dealership above Outlet, centered Capture action, more brand breathing room. */
+
+.uc03-dashboard-hero--greeting {
+  grid-template-columns: minmax(0, 1fr) 132px;
+  grid-template-areas:
+    "copy brand"
+    "action action";
+  row-gap: 18px;
+  column-gap: 28px;
+  align-items: center;
+  padding: 22px 26px 24px 30px;
+}
+
+.uc03-dashboard-hero--greeting .uc03-dashboard-hero__copy {
+  grid-area: copy;
+}
+
+.uc03-dashboard-hero__greeting {
+  display: block;
+  margin: 0 0 10px;
+  color: #4f6b82;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.uc03-dashboard-hero--greeting h1 {
+  margin: 0;
+  color: #003a82;
+  font-size: clamp(30px, 3vw, 40px);
+  font-weight: 800;
+  line-height: 1.06;
+  letter-spacing: -.03em;
+}
+
+.uc03-dashboard-hero--greeting p {
+  margin: 7px 0 0;
+  color: #60798f;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.uc03-dashboard-hero--greeting .uc03-dashboard-hero__brand {
+  grid-area: brand;
+  justify-self: end;
+  width: 126px;
+  height: 118px;
+  border-radius: 30px;
+}
+
+.uc03-dashboard-hero--greeting .uc03-dashboard-hero__brand img {
+  width: 88px;
+  height: 88px;
+}
+
+.uc03-landing--approved .uc03-landing__capture-action--centered {
+  grid-area: action;
+  justify-self: center;
+  width: min(100%, 330px);
+  min-height: 48px;
+  margin: 0 auto;
+  font-size: 13px;
+}
+
+@media (max-width: 767px) {
+  .uc03-dashboard-hero--greeting {
+    grid-template-columns: minmax(0, 1fr) 94px;
+    grid-template-areas:
+      "copy brand"
+      "action action";
+    gap: 14px 16px;
+    padding: 18px 16px 18px 20px;
+  }
+
+  .uc03-dashboard-hero__greeting {
+    margin-bottom: 8px;
+    font-size: 12px;
+  }
+
+  .uc03-dashboard-hero--greeting h1 {
+    font-size: clamp(25px, 7vw, 31px);
+  }
+
+  .uc03-dashboard-hero--greeting p {
+    margin-top: 5px;
+    font-size: 12px;
+  }
+
+  .uc03-dashboard-hero--greeting .uc03-dashboard-hero__brand {
+    width: 90px;
+    height: 86px;
+    border-radius: 23px;
+  }
+
+  .uc03-dashboard-hero--greeting .uc03-dashboard-hero__brand img {
+    width: 64px;
+    height: 64px;
+  }
+
+  .uc03-landing--approved .uc03-landing__capture-action--centered {
+    width: min(100%, 340px);
+    min-height: 46px;
+  }
+}
+
+@media (max-width: 390px) {
+  .uc03-dashboard-hero--greeting {
+    grid-template-columns: minmax(0, 1fr) 78px;
+    column-gap: 10px;
+  }
+
+  .uc03-dashboard-hero--greeting .uc03-dashboard-hero__brand {
+    width: 76px;
+    height: 74px;
+    border-radius: 20px;
+  }
+
+  .uc03-dashboard-hero--greeting .uc03-dashboard-hero__brand img {
+    width: 54px;
+    height: 54px;
+  }
+}

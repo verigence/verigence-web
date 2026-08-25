@@ -87,6 +87,16 @@ function evidenceProcessingState(evidence: Part1EvidenceItem): EvidenceProcessin
   return 'PROCESSING';
 }
 
+function reviewDocumentsFromUploads(requirements: Part1Requirement[]): BookingReviewDocument[] {
+  return requirements.flatMap((requirement) => requirement.evidence.map((evidence) => ({
+    evidenceId: evidence.evidenceId,
+    requirementKey: requirement.requirementKey,
+    documentTypeKey: evidence.documentTypeKey || requirement.documentTypeKey,
+    processingStatus: evidence.processingStatus,
+    verificationStatus: evidence.verificationStatus,
+  })));
+}
+
 function UploadCard({
   title,
   requirement,
@@ -447,6 +457,15 @@ export default function BookingWorkspacePage() {
     && (form.customerType !== 'CORPORATE' || form.corporateIdAvailable !== null)
   );
 
+  const openDocumentReview = () => {
+    setError(undefined);
+    setMessage(undefined);
+    setShowMissingEvidenceWarning(false);
+    setReviewDocuments(reviewDocumentsFromUploads(part1.requirements));
+    setReviewIndex(0);
+    setStep(3);
+  };
+
   const updateForm = <K extends keyof BookingDetailsForm>(key: K, value: BookingDetailsForm[K]) => {
     setForm((current) => ({
       ...current,
@@ -620,7 +639,7 @@ export default function BookingWorkspacePage() {
         <nav className="uc03-booking-steps" aria-label="Booking capture steps">
           <button type="button" className={step === 1 ? 'is-active' : ''} onClick={() => setStep(1)}>1 <span>Documents</span></button>
           <button type="button" className={step === 2 ? 'is-active' : ''} onClick={() => setStep(2)}>2 <span>Booking Details</span></button>
-          <button type="button" className={step === 3 ? 'is-active' : ''} disabled={reviewDocuments.length === 0} onClick={() => setStep(3)}>3 <span>Review</span></button>
+          <button type="button" className={step === 3 ? 'is-active' : ''} onClick={openDocumentReview}>3 <span>Review</span></button>
         </nav>
       ) : null}
 
@@ -732,7 +751,17 @@ export default function BookingWorkspacePage() {
 
           <div className="uc03-booking-step-footer">
             <button type="button" className="uc03-c1-secondary" onClick={() => setStep(1)}>← Documents</button>
-            <button type="button" className="uc03-c1-primary" disabled={!formComplete || busy || Boolean(uploadingKey)} onClick={handleStartReview}>{busy ? 'Preparing Review…' : 'Review Booking Details →'}</button>
+            <button
+              type="button"
+              className="uc03-c1-primary"
+              disabled={busy || Boolean(uploadingKey)}
+              onClick={() => {
+                if (formComplete) handleStartReview();
+                else openDocumentReview();
+              }}
+            >
+              {busy ? 'Preparing Review…' : 'Review Booking Documents →'}
+            </button>
           </div>
         </section>
       ) : (

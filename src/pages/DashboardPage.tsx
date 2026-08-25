@@ -352,7 +352,7 @@ export default function DashboardPage() {
   const pcFirstName = firstNameFromDisplayName(displayName);
   const timeGreeting = greetingForTime(project.timezoneName || timezoneName);
   const greeting = pcFirstName ? `${timeGreeting}, ${pcFirstName}` : timeGreeting;
-  const dealershipName = isPc && selectedOutlet ? selectedOutlet.dealerName : project.projectName;
+  const dealershipName = isPc && selectedOutlet ? selectedOutlet.dealerName : 'Authorized Workspace';
   const outletName = isPc && selectedOutlet
     ? selectedOutlet.outletName
     : 'Booking and Delivery work for your current authorized business scope.';

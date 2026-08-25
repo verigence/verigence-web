@@ -1,13 +1,209 @@
-/* UC03 PC hero refinement — 25 Aug 2026.
-   Greeting first, Dealership above Outlet, centered Capture action, more brand breathing room. */
+/* UC03 shared visual refinement — 25 Aug 2026.
+   Keep the project-opening/selection experience consistent with the operational dashboard,
+   and keep the dashboard hero focused on context + action rather than duplicate branding. */
 
+/* ===== Project context / opening screen ===== */
+.uc03-project-gate {
+  min-height: 100dvh;
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  padding: clamp(24px, 4vw, 46px) 16px;
+  background:
+    radial-gradient(circle at 10% 12%, rgba(7, 154, 164, .13), transparent 30%),
+    radial-gradient(circle at 88% 84%, rgba(6, 43, 99, .10), transparent 34%),
+    linear-gradient(135deg, #f7faff 0%, #f1f7fc 48%, #eefaf8 100%);
+}
+
+.uc03-project-gate::before,
+.uc03-project-gate::after {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  pointer-events: none;
+  border-radius: 999px;
+  filter: blur(.2px);
+}
+
+.uc03-project-gate::before {
+  width: min(48vw, 520px);
+  height: min(48vw, 520px);
+  top: -26vw;
+  right: -15vw;
+  border: 1px solid rgba(7, 154, 164, .12);
+  box-shadow:
+    0 0 0 44px rgba(7, 154, 164, .025),
+    0 0 0 90px rgba(6, 43, 99, .018);
+}
+
+.uc03-project-gate::after {
+  width: min(42vw, 460px);
+  height: min(42vw, 460px);
+  bottom: -24vw;
+  left: -14vw;
+  border: 1px solid rgba(6, 43, 99, .09);
+  box-shadow: 0 0 0 54px rgba(6, 43, 99, .02);
+}
+
+.uc03-project-gate .uc03-project-gate__panel {
+  position: relative;
+  overflow: hidden;
+  width: min(100%, 620px);
+  gap: 16px;
+  padding: clamp(30px, 4vw, 44px) clamp(24px, 4vw, 42px);
+  border: 1px solid #cbdce8;
+  border-radius: 26px;
+  background:
+    radial-gradient(circle at 90% 10%, rgba(10, 168, 170, .09), transparent 30%),
+    linear-gradient(135deg, rgba(255, 255, 255, .99), rgba(248, 252, 253, .98));
+  box-shadow:
+    0 24px 64px rgba(6, 43, 99, .12),
+    0 8px 20px rgba(6, 43, 99, .045);
+}
+
+.uc03-project-gate .uc03-project-gate__panel::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 7px;
+  background: linear-gradient(180deg, #0b4f8a 0%, #079aa4 62%, #0aa8aa 100%);
+}
+
+.uc03-project-gate .uc03-project-gate__panel::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 7px;
+  right: 0;
+  height: 4px;
+  background: linear-gradient(90deg, rgba(11, 79, 138, .96), rgba(7, 154, 164, .88), rgba(10, 168, 170, .2));
+}
+
+.uc03-project-gate .uc03-project-gate__panel--wide {
+  width: min(100%, 860px);
+}
+
+.uc03-project-gate .uc03-project-gate__panel > * {
+  position: relative;
+  z-index: 1;
+}
+
+.uc03-project-gate .uc03-project-gate__panel > img {
+  width: min(250px, 62vw);
+  margin-bottom: 4px;
+  filter: drop-shadow(0 5px 10px rgba(6, 43, 99, .06));
+}
+
+.uc03-project-gate .uc03-project-gate__panel h1 {
+  color: #07356f;
+  font-size: clamp(28px, 4vw, 38px);
+  font-weight: 800;
+  line-height: 1.08;
+  letter-spacing: -.028em;
+}
+
+.uc03-project-gate .uc03-project-gate__panel p {
+  max-width: 620px;
+  align-self: center;
+  color: #60798f;
+  font-size: 15px;
+  font-weight: 500;
+  line-height: 1.55;
+}
+
+.uc03-project-gate .uc03-project-gate__heading {
+  gap: 8px;
+}
+
+.uc03-project-gate .uc03-project-gate__heading > span {
+  color: #078e98;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .13em;
+}
+
+.uc03-project-gate .uc03-project-gate__spinner {
+  width: 42px;
+  height: 42px;
+  margin: 3px auto 4px;
+  border: 4px solid #dce8ef;
+  border-right-color: #079aa4;
+  border-top-color: #07356f;
+  box-shadow: 0 0 0 6px rgba(7, 154, 164, .045);
+}
+
+.uc03-project-gate .uc03-project-list {
+  gap: 13px;
+  margin-top: 4px;
+}
+
+.uc03-project-gate .uc03-project-card {
+  min-height: 88px;
+  padding: 17px 18px 17px 20px;
+  border: 1px solid #d4e1eb;
+  border-left: 4px solid #0aa8aa;
+  border-radius: 16px;
+  background: linear-gradient(135deg, #ffffff 0%, #f8fbfd 100%);
+  color: #153a67;
+  box-shadow: 0 7px 18px rgba(6, 43, 99, .045);
+  transition: transform 130ms ease, border-color 130ms ease, box-shadow 130ms ease, background 130ms ease;
+}
+
+.uc03-project-gate .uc03-project-card:hover,
+.uc03-project-gate .uc03-project-card:focus-visible {
+  transform: translateY(-1px);
+  border-color: #8bcfd1;
+  border-left-color: #079aa4;
+  background: linear-gradient(135deg, #ffffff 0%, #f1fbfa 100%);
+  outline: none;
+  box-shadow:
+    0 10px 24px rgba(6, 43, 99, .08),
+    0 0 0 3px rgba(7, 154, 164, .08);
+}
+
+.uc03-project-gate .uc03-project-card strong {
+  color: #07356f;
+  font-weight: 750;
+}
+
+.uc03-project-gate .uc03-project-card small {
+  color: #7086a3;
+  font-weight: 550;
+}
+
+.uc03-project-gate .uc03-project-card__meta strong {
+  color: #087f84;
+  font-size: .84rem;
+}
+
+.uc03-project-gate .uc03-project-card__arrow {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border: 1px solid #b8dcdd;
+  border-radius: 50%;
+  background: #f1fbfa;
+  color: #078e98;
+  font-size: 1.05rem;
+}
+
+.uc03-project-gate .user-menu-button {
+  align-self: center;
+  min-width: 112px;
+  margin-top: 2px;
+  border-color: #c5d4e3;
+  background: rgba(255, 255, 255, .82);
+  font-size: 11px;
+}
+
+/* ===== Dashboard hero ===== */
 .uc03-dashboard-hero--greeting {
-  grid-template-columns: minmax(0, 1fr) 200px;
+  grid-template-columns: minmax(0, 1fr);
   grid-template-areas:
-    "copy brand"
-    "action action";
+    "copy"
+    "action";
   row-gap: 18px;
-  column-gap: 30px;
   align-items: center;
   padding: 22px 28px 24px 30px;
 }
@@ -42,26 +238,9 @@
   line-height: 1.4;
 }
 
-/* Use the same bundled approved lockup that already renders reliably in the shell. */
+/* Do not duplicate the full Verigence lockup inside the hero. The shell already carries the brand. */
 .uc03-dashboard-hero--greeting .uc03-dashboard-hero__brand {
-  grid-area: brand;
-  justify-self: end;
-  width: 190px;
-  height: 98px;
-  padding: 12px 14px;
-  display: grid;
-  place-items: center;
-  border: 0;
-  border-radius: 22px;
-  background: rgba(255, 255, 255, .5);
-}
-
-.uc03-dashboard-hero--greeting .uc03-dashboard-hero__brand img {
-  width: 100%;
-  height: auto;
-  max-height: 72px;
-  display: block;
-  object-fit: contain;
+  display: none !important;
 }
 
 .uc03-landing--approved .uc03-landing__capture-action--centered {
@@ -90,12 +269,44 @@
 }
 
 @media (max-width: 767px) {
+  .uc03-project-gate {
+    padding: 24px 14px;
+    background:
+      radial-gradient(circle at 50% 0%, rgba(7, 154, 164, .12), transparent 34%),
+      linear-gradient(180deg, #f6f9fd 0%, #eff7fb 58%, #eef9f7 100%);
+  }
+
+  .uc03-project-gate .uc03-project-gate__panel,
+  .uc03-project-gate .uc03-project-gate__panel--wide {
+    width: min(100%, 620px);
+    gap: 14px;
+    padding: 28px 20px 26px 24px;
+    border-radius: 22px;
+  }
+
+  .uc03-project-gate .uc03-project-gate__panel > img {
+    width: min(230px, 64vw);
+  }
+
+  .uc03-project-gate .uc03-project-gate__panel h1 {
+    font-size: clamp(27px, 7vw, 34px);
+  }
+
+  .uc03-project-gate .uc03-project-gate__panel p {
+    font-size: 14px;
+  }
+
+  .uc03-project-gate .uc03-project-card {
+    min-height: 82px;
+    padding: 15px 14px 15px 16px;
+  }
+
   .uc03-dashboard-hero--greeting {
-    grid-template-columns: minmax(0, 1fr) 150px;
+    grid-template-columns: minmax(0, 1fr);
     grid-template-areas:
-      "copy brand"
-      "action action";
-    gap: 14px 18px;
+      "copy"
+      "action";
+    gap: 14px;
     padding: 18px 18px 18px 20px;
   }
 
@@ -113,49 +324,30 @@
     font-size: 12px;
   }
 
-  .uc03-dashboard-hero--greeting .uc03-dashboard-hero__brand {
-    width: 146px;
-    height: 78px;
-    padding: 9px 10px;
-    border-radius: 18px;
-  }
-
-  .uc03-dashboard-hero--greeting .uc03-dashboard-hero__brand img {
-    max-height: 58px;
-  }
-
   .uc03-landing--approved .uc03-landing__capture-action--centered {
     width: min(100%, 340px);
     min-height: 46px;
   }
 }
 
-@media (max-width: 480px) {
-  .uc03-dashboard-hero--greeting {
-    grid-template-columns: minmax(0, 1fr) 112px;
-    column-gap: 10px;
+@media (max-width: 430px) {
+  .uc03-project-gate {
+    place-items: center;
+    padding: 18px 12px;
   }
 
-  .uc03-dashboard-hero--greeting .uc03-dashboard-hero__brand {
-    width: 108px;
-    height: 66px;
-    padding: 8px;
-    border-radius: 16px;
+  .uc03-project-gate .uc03-project-gate__panel,
+  .uc03-project-gate .uc03-project-gate__panel--wide {
+    padding: 25px 17px 23px 21px;
+    border-radius: 20px;
   }
 
-  .uc03-dashboard-hero--greeting .uc03-dashboard-hero__brand img {
-    max-height: 48px;
-  }
-}
-
-@media (max-width: 390px) {
-  .uc03-dashboard-hero--greeting {
-    grid-template-columns: minmax(0, 1fr) 94px;
+  .uc03-project-gate .uc03-project-gate__panel > img {
+    width: min(215px, 66vw);
   }
 
-  .uc03-dashboard-hero--greeting .uc03-dashboard-hero__brand {
-    width: 90px;
-    height: 58px;
-    padding: 7px;
+  .uc03-project-gate .uc03-project-gate__spinner {
+    width: 38px;
+    height: 38px;
   }
 }

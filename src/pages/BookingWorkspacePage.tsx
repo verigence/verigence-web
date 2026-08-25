@@ -1,22 +1,29 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate, useParams } from 'react-router-dom';
 
 import PageHeader from '../components/PageHeader';
 import StatusPill from '../components/StatusPill';
-import BookingDocumentDetails from '../features/uc03/BookingDocumentDetails';
+import BookingReviewDocumentPanel from '../features/uc03/BookingReviewDocumentPanel';
 import {
-  createBookingFlag,
-  decideExtractionProposal,
   getBookingWorkspace,
   refreshBookingExtraction,
   startBooking,
   uploadBookingDocument,
-  type ExtractionProposalView,
 } from '../services/audit-core/uc03Booking';
 import {
+  approveBookingReviewDocument,
+  getBookingDetails,
+  getBookingDetailsOptions,
+  saveBookingDetails,
+  startBookingDetailsReview,
+  type BookingDetailsPayload,
+  type BookingOptionalEvidence,
+  type BookingReferenceOption,
+  type BookingReviewDocument,
+} from '../services/audit-core/uc03BookingJourney';
+import {
   getBookingPart1,
-  refreshPart1Evidence,
   type Part1EvidenceItem,
   type Part1Requirement,
 } from '../services/audit-core/uc03BookingPart1';
@@ -24,37 +31,46 @@ import { useProjectContextStore } from '../store/projectContextStore';
 import { useSessionStore } from '../store/sessionStore';
 import { displayName } from '../utils/displayNames';
 
-const HUMAN_FLAG_CATEGORIES = [
-  'PHYSICAL_OBSERVATION',
-  'DOCUMENT_EXCEPTION',
-  'PAYMENT_EXCEPTION',
-  'CUSTOMER_IDENTITY_CONCERN',
-  'COMMERCIAL_EXCEPTION',
-  'PROCESS_NON_COMPLIANCE',
-  'OTHER',
-];
-
 const SUCCESS_PROCESSING_STATUSES = new Set([
-  'COMPLETED',
-  'COMPLETE',
-  'PROCESSED',
-  'SUCCEEDED',
-  'READY',
-  'VERIFIED',
+  'COMPLETED', 'COMPLETE', 'PROCESSED', 'SUCCEEDED', 'READY', 'VERIFIED',
 ]);
 
+type JourneyStep = 1 | 2 | 3;
 type EvidenceProcessingState = 'READY' | 'FAILED' | 'PROCESSING';
 
-function displayValue(value: unknown): string {
-  if (value === null || value === undefined || value === '') return '';
-  if (typeof value === 'string' || typeof value === 'number') return String(value);
-  if (typeof value === 'boolean') return value ? 'Yes' : 'No';
-  try {
-    return JSON.stringify(value);
-  } catch {
-    return String(value);
-  }
-}
+type BookingDetailsForm = {
+  priceListId: string;
+  customerType: string;
+  dealType: string;
+  dealSource: string;
+  leadSource: string;
+  registrationState: string;
+  territoryCategorization: string;
+  districtName: string;
+  registrationType: string;
+  registrationCategory: string;
+  outrightPurchase: boolean | null;
+  tradeIn: boolean | null;
+  gstBenefit: boolean | null;
+  corporateIdAvailable: boolean | null;
+};
+
+const EMPTY_FORM: BookingDetailsForm = {
+  priceListId: '',
+  customerType: '',
+  dealType: '',
+  dealSource: '',
+  leadSource: '',
+  registrationState: '',
+  territoryCategorization: '',
+  districtName: '',
+  registrationType: '',
+  registrationCategory: '',
+  outrightPurchase: null,
+  tradeIn: null,
+  gstBenefit: null,
+  corporateIdAvailable: null,
+};
 
 function requirementByKind(
   requirements: Part1Requirement[],
@@ -70,177 +86,214 @@ function evidenceProcessingState(evidence: Part1EvidenceItem): EvidenceProcessin
   return 'PROCESSING';
 }
 
-function EvidenceList({
-  evidence,
-  busyEvidenceId,
-  onGetDetails,
-}: {
-  evidence: Part1EvidenceItem[];
-  busyEvidenceId?: string;
-  onGetDetails: (evidence: Part1EvidenceItem, index: number) => Promise<void>;
-}) {
-  if (evidence.length === 0) return null;
-  return (
-    <div className="uc03-c1-evidence-list">
-      {evidence.map((item, index) => {
-        const state = evidenceProcessingState(item);
-        const stateClass = state.toLowerCase();
-        const mark = state === 'READY' ? '✓' : state === 'FAILED' ? '!' : '…';
-        return (
-          <div key={item.evidenceId} className={`uc03-c1-evidence-row is-${stateClass}`}>
-            <div className="uc03-c1-evidence-summary">
-              <span className="uc03-c1-evidence-mark" aria-hidden="true">{mark}</span>
-              <div className="uc03-c1-evidence-copy">
-                <strong>{`Document ${index + 1}`}</strong>
-                <span>
-                  {displayName(item.processingStatus || 'Processing')}
-                  {item.verificationStatus ? ` · ${displayName(item.verificationStatus)}` : ''}
-                </span>
-              </div>
-            </div>
-            <button
-              type="button"
-              className="uc03-c1-get-details"
-              disabled={busyEvidenceId === item.evidenceId}
-              onClick={() => void onGetDetails(item, index)}
-            >
-              {busyEvidenceId === item.evidenceId ? 'Getting Details…' : 'Get Details'}
-            </button>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
 function UploadCard({
   title,
-  helper,
   requirement,
   uploadBusy,
-  detailsBusyEvidenceId,
   multiple = false,
+  optional = false,
   onUpload,
-  onGetDetails,
 }: {
   title: string;
-  helper: string;
   requirement?: Part1Requirement;
   uploadBusy: boolean;
-  detailsBusyEvidenceId?: string;
   multiple?: boolean;
+  optional?: boolean;
   onUpload: (requirement: Part1Requirement, files: File[]) => Promise<void>;
-  onGetDetails: (requirement: Part1Requirement, evidence: Part1EvidenceItem, index: number) => Promise<void>;
 }) {
   const evidence = requirement?.evidence ?? [];
-  const count = evidence.length;
-  const latestEvidence = count > 0 ? evidence[count - 1] : undefined;
-  const latestState = latestEvidence ? evidenceProcessingState(latestEvidence) : undefined;
-  const processingLocked = uploadBusy || latestState === 'PROCESSING';
+  const latest = evidence.at(-1);
+  const latestState = latest ? evidenceProcessingState(latest) : undefined;
   const canUpload = Boolean(requirement)
     && !uploadBusy
-    && (multiple ? latestState !== 'PROCESSING' : count === 0 || latestState === 'FAILED');
-
-  let cardStatus = 'PENDING';
-  if (uploadBusy || latestState === 'PROCESSING') cardStatus = 'PROCESSING';
-  else if (latestState === 'FAILED') cardStatus = 'FAILED';
-  else if (count > 0) cardStatus = 'UPLOADED';
-
+    && (multiple ? latestState !== 'PROCESSING' : evidence.length === 0 || latestState === 'FAILED');
   const retrying = latestState === 'FAILED';
-  const desktopLabel = retrying
-    ? 'Retry / Replace'
-    : multiple && count > 0
-      ? 'Add Receipt'
-      : 'Upload Document';
-  const mobileCameraLabel = retrying ? 'Retake Photo' : 'Take Photo';
-  const mobileFileLabel = retrying
-    ? 'Choose Replacement'
-    : multiple && count > 0
-      ? 'Choose Receipt'
-      : 'Choose File';
-  const lockedLabel = uploadBusy
-    ? 'Uploading…'
-    : latestState === 'PROCESSING'
-      ? multiple ? 'Processing receipt…' : 'Processing…'
-      : 'Upload complete';
+  const status = uploadBusy || latestState === 'PROCESSING'
+    ? 'PROCESSING'
+    : retrying
+      ? 'FAILED'
+      : evidence.length > 0
+        ? 'UPLOADED'
+        : optional ? 'OPTIONAL' : 'PENDING';
 
-  const submitFiles = (files: File[]) => {
+  const submit = (files: File[]) => {
     if (!requirement || !canUpload || files.length === 0) return;
     void onUpload(requirement, files);
   };
 
   return (
-    <article className="uc03-c1-card uc03-c1-document-card">
+    <article className="uc03-booking-upload-card">
       <header>
         <div>
-          <span className="uc03-c1-eyebrow">Mandatory Evidence</span>
-          <h3 className="uc03-c1-document-name">{title}</h3>
+          <strong>{title}</strong>
+          {optional ? <small>Optional</small> : null}
         </div>
-        <StatusPill value={cardStatus} compact />
+        <StatusPill value={status} compact />
       </header>
-      <p className="uc03-c1-muted">{helper}</p>
       {requirement ? (
-        <div className="uc03-c1-document-actions">
-          {canUpload ? (
-            <div className="uc03-c1-upload-controls">
-              <label className="uc03-c1-upload-action uc03-c1-upload-action--desktop">
-                <span>{desktopLabel}</span>
-                <input
-                  type="file"
-                  accept="image/*,.pdf"
-                  multiple={multiple}
-                  onChange={(event) => {
-                    submitFiles(Array.from(event.target.files ?? []));
-                    event.currentTarget.value = '';
-                  }}
-                />
-              </label>
-              <label className="uc03-c1-upload-action uc03-c1-upload-action--mobile-camera">
-                <span>{mobileCameraLabel}</span>
-                <input
-                  type="file"
-                  accept="image/*"
-                  capture="environment"
-                  onChange={(event) => {
-                    submitFiles(Array.from(event.target.files ?? []));
-                    event.currentTarget.value = '';
-                  }}
-                />
-              </label>
-              <label className="uc03-c1-upload-action uc03-c1-upload-action--mobile-file">
-                <span>{mobileFileLabel}</span>
-                <input
-                  type="file"
-                  accept="image/*,.pdf"
-                  multiple={multiple}
-                  onChange={(event) => {
-                    submitFiles(Array.from(event.target.files ?? []));
-                    event.currentTarget.value = '';
-                  }}
-                />
-              </label>
-              {multiple ? (
-                <span className="uc03-c1-upload-hint">Add each Booking payment receipt. Multiple files can also be selected together.</span>
-              ) : null}
+        <>
+          <div className="uc03-booking-upload-actions">
+            {canUpload ? (
+              <>
+                <label className="uc03-booking-upload-action is-desktop">
+                  <span>{retrying ? 'Retry / Replace' : multiple && evidence.length ? 'Add Receipt' : 'Upload'}</span>
+                  <input
+                    type="file"
+                    accept="image/*,.pdf"
+                    multiple={multiple}
+                    onChange={(event) => {
+                      submit(Array.from(event.currentTarget.files ?? []));
+                      event.currentTarget.value = '';
+                    }}
+                  />
+                </label>
+                <label className="uc03-booking-upload-action is-mobile">
+                  <span>{retrying ? 'Retake Photo' : 'Take Photo'}</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    onChange={(event) => {
+                      submit(Array.from(event.currentTarget.files ?? []));
+                      event.currentTarget.value = '';
+                    }}
+                  />
+                </label>
+                <label className="uc03-booking-upload-action is-mobile">
+                  <span>{retrying ? 'Choose Replacement' : multiple && evidence.length ? 'Choose Receipt' : 'Choose File'}</span>
+                  <input
+                    type="file"
+                    accept="image/*,.pdf"
+                    multiple={multiple}
+                    onChange={(event) => {
+                      submit(Array.from(event.currentTarget.files ?? []));
+                      event.currentTarget.value = '';
+                    }}
+                  />
+                </label>
+              </>
+            ) : (
+              <span className="uc03-booking-upload-state">
+                {uploadBusy ? 'Uploading…' : latestState === 'PROCESSING' ? 'Processing…' : evidence.length ? 'Uploaded' : 'Upload unavailable'}
+              </span>
+            )}
+          </div>
+          {evidence.length ? (
+            <div className="uc03-booking-upload-summary">
+              {evidence.map((item, index) => (
+                <span key={item.evidenceId}>
+                  ✓ {multiple ? `Document ${index + 1}` : 'Document'} · {displayName(item.processingStatus || 'Accepted')}
+                </span>
+              ))}
             </div>
-          ) : (
-            <span className={`uc03-c1-upload-state ${latestState === 'FAILED' ? 'is-failed' : ''}`} aria-disabled="true">
-              {processingLocked || (!multiple && count > 0) ? lockedLabel : 'Upload unavailable'}
-            </span>
-          )}
-        </div>
+          ) : null}
+        </>
       ) : (
-        <div className="uc03-c1-feedback is-error">This mandatory evidence requirement is not configured for this Booking.</div>
+        <div className="uc03-booking-journey-feedback is-error">This Booking document requirement is not configured.</div>
       )}
-      {requirement ? (
-        <EvidenceList
-          evidence={evidence}
-          busyEvidenceId={detailsBusyEvidenceId}
-          onGetDetails={(item, index) => onGetDetails(requirement, item, index)}
-        />
-      ) : null}
     </article>
   );
+}
+
+function MasterSelect({
+  label,
+  value,
+  options,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  options: BookingReferenceOption[];
+  onChange: (value: string) => void;
+}) {
+  const configured = options.length > 0;
+  return (
+    <label className="uc03-booking-field">
+      <span>{label}</span>
+      <select value={value} disabled={!configured} onChange={(event) => onChange(event.target.value)}>
+        <option value="">{configured ? `Select ${label}` : `${label} master not configured`}</option>
+        {options.map((option) => <option key={option.code} value={option.code}>{option.label}</option>)}
+      </select>
+    </label>
+  );
+}
+
+function YesNo({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: boolean | null;
+  onChange: (value: boolean) => void;
+}) {
+  return (
+    <fieldset className="uc03-booking-choice">
+      <legend>{label}</legend>
+      <label><input type="radio" checked={value === true} onChange={() => onChange(true)} /> Yes</label>
+      <label><input type="radio" checked={value === false} onChange={() => onChange(false)} /> No</label>
+    </fieldset>
+  );
+}
+
+function optionalEvidenceByKey(items: BookingOptionalEvidence[], key: string) {
+  return items.find((item) => item.requirementKey === key);
+}
+
+function OptionalEvidenceUpload({
+  title,
+  evidence,
+  busy,
+  onUpload,
+}: {
+  title: string;
+  evidence?: BookingOptionalEvidence;
+  busy: boolean;
+  onUpload: (file: File) => Promise<void>;
+}) {
+  const uploaded = Boolean(evidence?.evidenceId);
+  const processing = evidence?.processingStatus && !SUCCESS_PROCESSING_STATUSES.has(evidence.processingStatus.toUpperCase())
+    && evidence.processingStatus.toUpperCase() !== 'FAILED';
+  const failed = evidence?.processingStatus?.toUpperCase() === 'FAILED';
+  const canUpload = !busy && !processing && (!uploaded || failed);
+  const submit = (file?: File) => { if (file && canUpload) void onUpload(file); };
+  return (
+    <div className="uc03-booking-optional-upload">
+      <div>
+        <strong>{title}</strong>
+        <span>{uploaded ? displayName(evidence?.processingStatus || 'Uploaded') : 'Optional document'}</span>
+      </div>
+      {canUpload ? (
+        <div className="uc03-booking-upload-actions">
+          <label className="uc03-booking-upload-action is-desktop">
+            <span>{failed ? 'Retry / Replace' : 'Upload'}</span>
+            <input type="file" accept="image/*,.pdf" onChange={(event) => { submit(event.currentTarget.files?.[0]); event.currentTarget.value = ''; }} />
+          </label>
+          <label className="uc03-booking-upload-action is-mobile">
+            <span>Take Photo</span>
+            <input type="file" accept="image/*" capture="environment" onChange={(event) => { submit(event.currentTarget.files?.[0]); event.currentTarget.value = ''; }} />
+          </label>
+          <label className="uc03-booking-upload-action is-mobile">
+            <span>Choose File</span>
+            <input type="file" accept="image/*,.pdf" onChange={(event) => { submit(event.currentTarget.files?.[0]); event.currentTarget.value = ''; }} />
+          </label>
+        </div>
+      ) : <span className="uc03-booking-upload-state">{busy ? 'Uploading…' : processing ? 'Processing…' : 'Uploaded'}</span>}
+    </div>
+  );
+}
+
+function reviewDocumentName(document: BookingReviewDocument, index: number): string {
+  switch (document.requirementKey) {
+    case 'booking_docket': return 'Booking Form / Booking Docket';
+    case 'pan_card': return 'PAN';
+    case 'aadhaar': return 'Aadhaar';
+    case 'booking_payment_receipt': return `Booking Payment Receipt ${index + 1}`;
+    case 'corporate_id': return 'Corporate ID';
+    case 'gst_certificate': return 'GST Certificate';
+    case 'trade_in_vehicle_rc': return 'Trade-In Document';
+    default: return displayName(document.documentTypeKey || document.requirementKey || 'Document');
+  }
 }
 
 export default function BookingWorkspacePage() {
@@ -248,18 +301,16 @@ export default function BookingWorkspacePage() {
   const navigate = useNavigate();
   const project = useProjectContextStore((state) => state.selectedProject);
   const accessToken = useSessionStore((state) => state.accessToken);
+  const [step, setStep] = useState<JourneyStep>(1);
   const [busy, setBusy] = useState(false);
+  const [uploadingKey, setUploadingKey] = useState<string>();
   const [message, setMessage] = useState<string>();
   const [error, setError] = useState<string>();
-  const [uploadingKey, setUploadingKey] = useState<string>();
-  const [detailsBusyEvidenceId, setDetailsBusyEvidenceId] = useState<string>();
-  const [selectedEvidenceId, setSelectedEvidenceId] = useState<string>();
-  const [selectedDocumentName, setSelectedDocumentName] = useState('Document');
-  const [detailsRefreshKey, setDetailsRefreshKey] = useState<string>();
-  const [flagCategory, setFlagCategory] = useState('PHYSICAL_OBSERVATION');
-  const [flagSeverity, setFlagSeverity] = useState('MEDIUM');
-  const [flagSummary, setFlagSummary] = useState('');
-  const [flagRemarks, setFlagRemarks] = useState('');
+  const [form, setForm] = useState<BookingDetailsForm>(EMPTY_FORM);
+  const [formDirty, setFormDirty] = useState(false);
+  const [version, setVersion] = useState(0);
+  const [reviewDocuments, setReviewDocuments] = useState<BookingReviewDocument[]>([]);
+  const [reviewIndex, setReviewIndex] = useState(0);
 
   const enabled = Boolean(project?.tenantId && journeyId && accessToken);
   const workspaceQuery = useQuery({
@@ -274,24 +325,58 @@ export default function BookingWorkspacePage() {
     enabled,
     refetchOnWindowFocus: false,
   });
+  const detailsQuery = useQuery({
+    queryKey: ['uc03-booking-details', project?.tenantId, journeyId],
+    queryFn: () => getBookingDetails(project!.tenantId, journeyId!, accessToken),
+    enabled,
+    refetchOnWindowFocus: false,
+  });
+  const optionsQuery = useQuery({
+    queryKey: ['uc03-booking-details-options', project?.tenantId, journeyId],
+    queryFn: () => getBookingDetailsOptions(project!.tenantId, journeyId!, accessToken),
+    enabled,
+    refetchOnWindowFocus: false,
+  });
 
-  const refresh = useCallback(async () => {
-    await Promise.all([workspaceQuery.refetch(), part1Query.refetch()]);
-  }, [part1Query.refetch, workspaceQuery.refetch]);
+  useEffect(() => {
+    if (workspaceQuery.data?.aggregateVersion !== undefined) setVersion(workspaceQuery.data.aggregateVersion);
+  }, [workspaceQuery.data?.aggregateVersion]);
 
-  const selectedProposals = useMemo(
-    () => workspaceQuery.data?.proposals.filter((proposal) => proposal.sourceEvidenceId === selectedEvidenceId) ?? [],
-    [selectedEvidenceId, workspaceQuery.data?.proposals],
-  );
+  useEffect(() => {
+    const details = detailsQuery.data;
+    if (!details || formDirty) return;
+    setForm({
+      priceListId: details.priceListId || '',
+      customerType: details.customerType || '',
+      dealType: details.dealType || '',
+      dealSource: details.dealSource || '',
+      leadSource: details.leadSource || '',
+      registrationState: details.registrationState || '',
+      territoryCategorization: details.territoryCategorization || '',
+      districtName: details.districtName || '',
+      registrationType: details.registrationType || '',
+      registrationCategory: details.registrationCategory || '',
+      outrightPurchase: details.outrightPurchase ?? null,
+      tradeIn: details.tradeIn ?? null,
+      gstBenefit: details.gstBenefit ?? null,
+      corporateIdAvailable: details.corporateIdAvailable ?? null,
+    });
+  }, [detailsQuery.data, formDirty]);
+
+  const refreshAll = useCallback(async () => {
+    const [workspaceResult] = await Promise.all([
+      workspaceQuery.refetch(),
+      part1Query.refetch(),
+      detailsQuery.refetch(),
+    ]);
+    if (workspaceResult.data) setVersion(workspaceResult.data.aggregateVersion);
+  }, [detailsQuery, part1Query, workspaceQuery]);
 
   if (!project || !journeyId) return null;
-
-  const workspace = workspaceQuery.data;
-  const part1 = part1Query.data;
   if (workspaceQuery.isPending || part1Query.isPending) {
-    return <div className="uc03-c1-loading" role="status">Loading Booking Capture…</div>;
+    return <div className="uc03-c1-loading" role="status">Loading Booking…</div>;
   }
-  if (workspaceQuery.isError || part1Query.isError || !workspace || !part1) {
+  if (workspaceQuery.isError || part1Query.isError || !workspaceQuery.data || !part1Query.data) {
     const cause = workspaceQuery.error || part1Query.error;
     return (
       <section className="dashboard-load-state" role="alert">
@@ -300,148 +385,162 @@ export default function BookingWorkspacePage() {
           <strong>We couldn't open this Booking.</strong>
           <p>{cause instanceof Error ? cause.message : 'Please try again.'}</p>
         </div>
-        <button type="button" className="user-menu-button" onClick={() => void refresh()}>Try Again</button>
+        <button type="button" className="user-menu-button" onClick={() => void refreshAll()}>Try Again</button>
       </section>
     );
   }
 
+  const workspace = workspaceQuery.data;
+  const part1 = part1Query.data;
+  const options = optionsQuery.data;
   const started = Boolean(workspace.bookingStage.businessStatus);
-  const customerName = displayValue(workspace.capture.CUSTOMER_NAME) || 'Customer';
+  const customerName = String(workspace.capture.CUSTOMER_NAME || 'Customer');
   const bookingDocket = requirementByKind(part1.requirements, 'BOOKING_DOCKET');
   const pan = requirementByKind(part1.requirements, 'PAN');
   const aadhaar = requirementByKind(part1.requirements, 'AADHAAR');
   const paymentReceipt = requirementByKind(part1.requirements, 'BOOKING_PAYMENT_RECEIPT');
+  const currentReviewDocument = reviewDocuments[reviewIndex];
+  const currentReviewProposals = currentReviewDocument
+    ? workspace.proposals.filter((proposal) => proposal.sourceEvidenceId === currentReviewDocument.evidenceId)
+    : [];
 
-  const run = async (operation: () => Promise<unknown>, success: string) => {
-    setBusy(true);
-    setMessage(undefined);
-    setError(undefined);
-    try {
-      await operation();
-      setMessage(success);
-      await refresh();
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'The Booking action could not be completed.');
-      throw cause;
-    } finally {
-      setBusy(false);
+  const formComplete = Boolean(
+    form.priceListId && form.customerType && form.dealType && form.dealSource && form.leadSource
+    && form.registrationState && form.territoryCategorization && form.districtName
+    && form.registrationType && form.registrationCategory
+    && form.outrightPurchase !== null && form.tradeIn !== null && form.gstBenefit !== null
+    && (form.customerType !== 'CORPORATE' || form.corporateIdAvailable !== null)
+  );
+
+  const updateForm = <K extends keyof BookingDetailsForm>(key: K, value: BookingDetailsForm[K]) => {
+    setForm((current) => ({
+      ...current,
+      [key]: value,
+      ...(key === 'customerType' && value !== 'CORPORATE' ? { corporateIdAvailable: null } : {}),
+    }));
+    setFormDirty(true);
+  };
+
+  const detailsPayload = (): BookingDetailsPayload => {
+    if (!formComplete || form.outrightPurchase === null || form.tradeIn === null || form.gstBenefit === null) {
+      throw new Error('Complete all mandatory Booking Details before continuing.');
     }
+    return {
+      priceListId: form.priceListId,
+      customerType: form.customerType,
+      dealType: form.dealType,
+      dealSource: form.dealSource,
+      leadSource: form.leadSource,
+      registrationState: form.registrationState,
+      territoryCategorization: form.territoryCategorization,
+      districtName: form.districtName,
+      registrationType: form.registrationType,
+      registrationCategory: form.registrationCategory,
+      outrightPurchase: form.outrightPurchase,
+      tradeIn: form.tradeIn,
+      gstBenefit: form.gstBenefit,
+      corporateIdAvailable: form.customerType === 'CORPORATE' ? form.corporateIdAvailable : null,
+    };
   };
 
   const handleStart = async () => {
+    setBusy(true); setError(undefined); setMessage(undefined);
     try {
-      await run(
-        () => startBooking(project.tenantId, journeyId, workspace.aggregateVersion, accessToken),
-        'Booking Started.',
-      );
-    } catch {
-      // run() shows the error.
-    }
+      await startBooking(project.tenantId, journeyId, version, accessToken);
+      await refreshAll();
+      setMessage('Booking started.');
+    } catch (cause: unknown) {
+      setError(cause instanceof Error ? cause.message : 'Booking could not be started.');
+    } finally { setBusy(false); }
   };
 
   const handleUpload = async (requirement: Part1Requirement, files: File[]) => {
-    setUploadingKey(requirement.requirementKey);
-    setMessage(undefined);
-    setError(undefined);
+    setUploadingKey(requirement.requirementKey); setError(undefined); setMessage(undefined);
     try {
-      await Promise.all(files.map((file) => uploadBookingDocument(
+      for (const file of files) {
+        await uploadBookingDocument(project.tenantId, journeyId, requirement.requirementKey, file, accessToken);
+      }
+      await refreshAll();
+      setMessage('Document accepted by Document Intelligence.');
+    } catch (cause: unknown) {
+      setError(cause instanceof Error ? cause.message : 'The document could not be uploaded.');
+    } finally { setUploadingKey(undefined); }
+  };
+
+  const saveCurrentDetails = async () => {
+    const result = await saveBookingDetails(project.tenantId, journeyId, detailsPayload(), version, accessToken);
+    setVersion(result.aggregateVersion);
+    return result;
+  };
+
+  const handleOptionalUpload = async (requirementKey: string, file: File) => {
+    setUploadingKey(requirementKey); setBusy(true); setError(undefined); setMessage(undefined);
+    try {
+      const saved = await saveCurrentDetails();
+      const requirement = saved.optionalEvidence.find((item) => item.requirementKey === requirementKey);
+      if (!requirement) throw new Error('This optional Booking document is not configured for the Journey.');
+      await uploadBookingDocument(project.tenantId, journeyId, requirement.requirementKey, file, accessToken);
+      await refreshAll();
+      setMessage('Optional document accepted by Document Intelligence.');
+    } catch (cause: unknown) {
+      setError(cause instanceof Error ? cause.message : 'The optional document could not be uploaded.');
+    } finally { setUploadingKey(undefined); setBusy(false); }
+  };
+
+  const handleStartReview = async () => {
+    setBusy(true); setError(undefined); setMessage(undefined);
+    try {
+      const saved = await saveCurrentDetails();
+      const review = await startBookingDetailsReview(project.tenantId, journeyId, saved.aggregateVersion, accessToken);
+      setVersion(review.aggregateVersion);
+      const extraction = await refreshBookingExtraction(project.tenantId, journeyId, accessToken);
+      setVersion(extraction.aggregateVersion);
+      await refreshAll();
+      setReviewDocuments(review.documents);
+      setReviewIndex(0);
+      setStep(3);
+      setMessage(review.raisedObservationIds.length
+        ? 'Booking details saved. Missing optional Corporate/GST evidence was recorded as a non-blocking observation.'
+        : 'Booking details saved. Document review is ready.');
+    } catch (cause: unknown) {
+      setError(cause instanceof Error ? cause.message : 'Booking review could not be started.');
+    } finally { setBusy(false); }
+  };
+
+  const handleApproveDocument = async () => {
+    if (!currentReviewDocument) return;
+    setBusy(true); setError(undefined); setMessage(undefined);
+    try {
+      const result = await approveBookingReviewDocument(
         project.tenantId,
         journeyId,
-        requirement.requirementKey,
-        file,
+        currentReviewDocument.evidenceId,
+        version,
         accessToken,
-      )));
-      setMessage(`${files.length} ${files.length === 1 ? 'document' : 'documents'} uploaded. Processing continues in the background.`);
-      await refresh();
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'The document could not be uploaded.');
-    } finally {
-      setUploadingKey(undefined);
-    }
-  };
-
-  const handleGetDetails = async (
-    requirement: Part1Requirement,
-    evidence: Part1EvidenceItem,
-    index: number,
-  ) => {
-    setDetailsBusyEvidenceId(evidence.evidenceId);
-    setMessage(undefined);
-    setError(undefined);
-    try {
-      await refreshPart1Evidence(project.tenantId, journeyId, evidence.evidenceId, accessToken);
-      await refreshBookingExtraction(project.tenantId, journeyId, accessToken);
-      await refresh();
-      setSelectedEvidenceId(evidence.evidenceId);
-      setSelectedDocumentName(
-        requirement.kind === 'BOOKING_PAYMENT_RECEIPT'
-          ? `Booking Payment Receipt ${index + 1}`
-          : displayName(requirement.documentTypeKey || requirement.requirementKey),
       );
-      setDetailsRefreshKey(`${Date.now()}-${evidence.evidenceId}`);
-      setMessage('Latest extracted details loaded for PC review.');
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'Document details could not be loaded.');
-    } finally {
-      setDetailsBusyEvidenceId(undefined);
-    }
+      setVersion(result.aggregateVersion);
+      await workspaceQuery.refetch();
+      if (reviewIndex < reviewDocuments.length - 1) {
+        setReviewIndex((value) => value + 1);
+        setMessage('Document approved. Moving to the next uploaded document.');
+      } else {
+        setReviewIndex(reviewDocuments.length);
+        setMessage('All uploaded Booking documents have been reviewed and approved.');
+      }
+    } catch (cause: unknown) {
+      setError(cause instanceof Error ? cause.message : 'The document could not be approved.');
+      throw cause;
+    } finally { setBusy(false); }
   };
 
-  const handleProposal = async (
-    proposal: ExtractionProposalView,
-    mode: 'accept' | 'correct',
-    correctedValue?: string,
-  ) => {
-    try {
-      await run(
-        () => decideExtractionProposal(
-          project.tenantId,
-          journeyId,
-          proposal.proposalId,
-          mode,
-          workspace.aggregateVersion,
-          accessToken,
-          correctedValue,
-        ),
-        mode === 'accept'
-          ? 'Extracted value approved.'
-          : 'Corrected value saved. The required confidence-based Flag was created automatically.',
-      );
-      setDetailsRefreshKey(`${Date.now()}-${proposal.proposalId}`);
-    } catch {
-      // run() shows the error.
-    }
-  };
-
-  const handleFlag = async () => {
-    if (!flagSummary.trim()) return;
-    try {
-      await run(
-        () => createBookingFlag(
-          project.tenantId,
-          journeyId,
-          workspace.aggregateVersion,
-          {
-            category: flagCategory,
-            severity: flagSeverity,
-            summary: flagSummary.trim(),
-            remarks: flagRemarks.trim() || undefined,
-          },
-          accessToken,
-        ),
-        'Observation logged as a Flag.',
-      );
-      setFlagSummary('');
-      setFlagRemarks('');
-    } catch {
-      // run() shows the error.
-    }
-  };
-
-  const masterMismatch = ['NO_MATCH', 'AMBIGUOUS', 'NO_EFFECTIVE_MASTER'].includes(part1.productMaster.status);
+  const optionalEvidence = detailsQuery.data?.optionalEvidence ?? [];
+  const corporateEvidence = optionalEvidenceByKey(optionalEvidence, 'corporate_id');
+  const gstEvidence = optionalEvidenceByKey(optionalEvidence, 'gst_certificate');
+  const tradeEvidence = optionalEvidenceByKey(optionalEvidence, 'trade_in_vehicle_rc');
+  const reviewDone = reviewDocuments.length > 0 && reviewIndex >= reviewDocuments.length;
 
   return (
-    <div className="screen-stack uc03-c1-workspace">
+    <div className="screen-stack uc03-booking-journey">
       <div className="uc03-c1-topbar">
         <button type="button" className="uc03-c1-back" onClick={() => navigate('/dashboard')}>← Work List</button>
         <span>Project · {project.projectName}</span>
@@ -450,203 +549,150 @@ export default function BookingWorkspacePage() {
       <PageHeader
         eyebrow="Capture New Booking"
         title={customerName}
-        description="Part 1 captures mandatory Booking evidence first. Upload the Booking Docket, at least one KYC document, and all Booking payment receipts. Use Get Details to review and approve or correct extracted values."
+        description={step === 1
+          ? 'Step 1 of 3 · Upload Booking documents.'
+          : step === 2
+            ? 'Step 2 of 3 · Capture Booking details.'
+            : 'Step 3 of 3 · Review uploaded documents and System Read fields.'}
       />
 
-      <section className="uc03-c1-customer-lock" aria-label="Entered Customer Name">
-        <div>
-          <span>Entered Name</span>
-          <strong>{customerName}</strong>
-          <small>Captured when Add Details created the Journey. The entered name remains unchanged; identity documents establish Legal Name separately.</small>
-        </div>
-        <span className="uc03-c1-customer-lock__badge">Locked</span>
-      </section>
+      {started ? (
+        <nav className="uc03-booking-steps" aria-label="Booking capture steps">
+          <button type="button" className={step === 1 ? 'is-active' : ''} onClick={() => setStep(1)}>1 <span>Documents</span></button>
+          <button type="button" className={step === 2 ? 'is-active' : ''} disabled={!part1.mandatoryEvidence.part1EvidenceComplete} onClick={() => setStep(2)}>2 <span>Booking Details</span></button>
+          <button type="button" className={step === 3 ? 'is-active' : ''} disabled={reviewDocuments.length === 0} onClick={() => setStep(3)}>3 <span>Review</span></button>
+        </nav>
+      ) : null}
 
-      {message && <div className="uc03-c1-feedback is-success" role="status">{message}</div>}
-      {error && <div className="uc03-c1-feedback is-error" role="alert">{error}</div>}
+      {message ? <div className="uc03-booking-journey-feedback is-success" role="status">{message}</div> : null}
+      {error ? <div className="uc03-booking-journey-feedback is-error" role="alert">{error}</div> : null}
 
       {!started ? (
         <section className="uc03-c1-start-panel">
-          <div>
-            <span className="uc03-c1-eyebrow">Booking Journey</span>
-            <h2>Start Booking Capture</h2>
-            <p>Start the Booking before uploading mandatory evidence.</p>
+          <div><span className="uc03-c1-eyebrow">Booking Journey</span><h2>Start Booking Capture</h2></div>
+          <button type="button" className="uc03-c1-primary" disabled={busy} onClick={() => void handleStart()}>Start Booking</button>
+        </section>
+      ) : step === 1 ? (
+        <section className="uc03-booking-step-panel">
+          <header className="uc03-booking-step-heading">
+            <div><span className="uc03-c1-eyebrow">Step 1</span><h2>Upload Documents</h2></div>
+            <span>{part1.mandatoryEvidence.part1EvidenceComplete ? 'Mandatory uploads complete' : 'Mandatory uploads pending'}</span>
+          </header>
+          <div className="uc03-booking-document-grid">
+            <UploadCard title="Booking Form / Booking Docket" requirement={bookingDocket} uploadBusy={uploadingKey === bookingDocket?.requirementKey} onUpload={handleUpload} />
+            <UploadCard title="PAN" requirement={pan} uploadBusy={uploadingKey === pan?.requirementKey} optional onUpload={handleUpload} />
+            <UploadCard title="Aadhaar" requirement={aadhaar} uploadBusy={uploadingKey === aadhaar?.requirementKey} optional onUpload={handleUpload} />
+            <UploadCard title="Booking Payment Receipt(s)" requirement={paymentReceipt} uploadBusy={uploadingKey === paymentReceipt?.requirementKey} multiple onUpload={handleUpload} />
           </div>
-          <button type="button" className="uc03-c1-primary" disabled={busy} onClick={() => void handleStart()}>
-            Start Booking
-          </button>
+          <div className="uc03-booking-step-footer">
+            <span>Booking Docket + at least one KYC document + one payment receipt are required.</span>
+            <button type="button" className="uc03-c1-primary" disabled={!part1.mandatoryEvidence.part1EvidenceComplete || Boolean(uploadingKey)} onClick={() => setStep(2)}>Continue to Booking Details →</button>
+          </div>
+        </section>
+      ) : step === 2 ? (
+        <section className="uc03-booking-step-panel">
+          <header className="uc03-booking-step-heading">
+            <div><span className="uc03-c1-eyebrow">Step 2</span><h2>Booking Details</h2></div>
+            <span>Only Booking-stage PC inputs are captured here.</span>
+          </header>
+
+          {optionsQuery.isPending || detailsQuery.isPending ? <div className="uc03-booking-review-loading">Loading Project masters…</div> : null}
+          {optionsQuery.isError ? <div className="uc03-booking-journey-feedback is-error">Booking Project masters could not be loaded.</div> : null}
+
+          {options ? (
+            <div className="uc03-booking-form-grid">
+              <label className="uc03-booking-field">
+                <span>Price List</span>
+                <select value={form.priceListId} disabled={!options.priceLists.length} onChange={(event) => updateForm('priceListId', event.target.value)}>
+                  <option value="">{options.priceLists.length ? 'Select Price List' : 'Price List master not configured'}</option>
+                  {options.priceLists.map((item) => <option key={item.priceListId} value={item.priceListId}>{item.name}</option>)}
+                </select>
+              </label>
+              <MasterSelect label="Type of Customer" value={form.customerType} options={options.customerTypes} onChange={(value) => updateForm('customerType', value)} />
+              <MasterSelect label="Type of Deal" value={form.dealType} options={options.dealTypes} onChange={(value) => updateForm('dealType', value)} />
+              <MasterSelect label="Deal Source" value={form.dealSource} options={options.dealSources} onChange={(value) => updateForm('dealSource', value)} />
+              <MasterSelect label="Lead Generated Through" value={form.leadSource} options={options.leadSources} onChange={(value) => updateForm('leadSource', value)} />
+              <MasterSelect label="Registration State" value={form.registrationState} options={options.registrationStates} onChange={(value) => updateForm('registrationState', value)} />
+              <MasterSelect label="Territory Categorization" value={form.territoryCategorization} options={options.territoryCategories} onChange={(value) => updateForm('territoryCategorization', value)} />
+              <MasterSelect label="District Name" value={form.districtName} options={options.districts} onChange={(value) => updateForm('districtName', value)} />
+              <MasterSelect label="Registration Type" value={form.registrationType} options={options.registrationTypes} onChange={(value) => updateForm('registrationType', value)} />
+              <MasterSelect label="Registration Category" value={form.registrationCategory} options={options.registrationCategories} onChange={(value) => updateForm('registrationCategory', value)} />
+            </div>
+          ) : null}
+
+          <div className="uc03-booking-yesno-grid">
+            <YesNo label="Outright Purchase" value={form.outrightPurchase} onChange={(value) => updateForm('outrightPurchase', value)} />
+            <YesNo label="Trade In" value={form.tradeIn} onChange={(value) => updateForm('tradeIn', value)} />
+            <YesNo label="GST Benefit" value={form.gstBenefit} onChange={(value) => updateForm('gstBenefit', value)} />
+            {form.customerType === 'CORPORATE' ? (
+              <YesNo label="Corporate ID Available" value={form.corporateIdAvailable} onChange={(value) => updateForm('corporateIdAvailable', value)} />
+            ) : null}
+          </div>
+
+          <div className="uc03-booking-conditional-evidence">
+            {form.customerType === 'CORPORATE' && form.corporateIdAvailable === true ? (
+              <OptionalEvidenceUpload title="Corporate ID" evidence={corporateEvidence} busy={uploadingKey === 'corporate_id'} onUpload={(file) => handleOptionalUpload('corporate_id', file)} />
+            ) : null}
+            {form.gstBenefit === true ? (
+              <OptionalEvidenceUpload title="GST Certificate" evidence={gstEvidence} busy={uploadingKey === 'gst_certificate'} onUpload={(file) => handleOptionalUpload('gst_certificate', file)} />
+            ) : null}
+            {form.tradeIn === true ? (
+              <OptionalEvidenceUpload title="Trade-In Document" evidence={tradeEvidence} busy={uploadingKey === 'trade_in_vehicle_rc'} onUpload={(file) => handleOptionalUpload('trade_in_vehicle_rc', file)} />
+            ) : null}
+          </div>
+
+          <div className="uc03-booking-step-footer">
+            <button type="button" className="uc03-c1-secondary" onClick={() => setStep(1)}>← Documents</button>
+            <button type="button" className="uc03-c1-primary" disabled={!formComplete || busy || Boolean(uploadingKey)} onClick={() => void handleStartReview()}>{busy ? 'Preparing Review…' : 'Review Booking Details →'}</button>
+          </div>
         </section>
       ) : (
-        <>
-          <section className="uc03-c1-stage-strip" aria-label="Part 1 Status">
-            <div><span>Booking Docket</span><strong>{part1.mandatoryEvidence.bookingDocketComplete ? 'Captured' : 'Pending'}</strong></div>
-            <div><span>KYC</span><strong>{part1.mandatoryEvidence.kycComplete ? 'Minimum Met' : 'Pending'}</strong></div>
-            <div><span>Payment Receipts</span><strong>{part1.mandatoryEvidence.paymentReceiptCount}</strong></div>
-            <div><span>Part 1 Evidence</span><StatusPill value={part1.mandatoryEvidence.part1EvidenceComplete ? 'COMPLETE' : 'IN_PROGRESS'} /></div>
-          </section>
+        <section className="uc03-booking-step-panel">
+          <header className="uc03-booking-step-heading">
+            <div><span className="uc03-c1-eyebrow">Step 3</span><h2>Review Booking Documents</h2></div>
+            <span>{reviewDocuments.length ? `Document ${Math.min(reviewIndex + 1, reviewDocuments.length)} of ${reviewDocuments.length}` : 'No documents'}</span>
+          </header>
 
-          <section className="uc03-c1-section uc03-c1-section--documents">
-            <header className="uc03-c1-section-heading">
-              <div>
-                <span className="uc03-c1-eyebrow">1 · Mandatory Evidence</span>
-                <h2>Capture Booking Documents</h2>
-                <p>Only Part-1 mandatory evidence is shown here. Uploads are independent; the PC can continue capturing other documents while processing runs.</p>
-              </div>
-            </header>
-
-            <div className="uc03-c1-document-grid uc03-c1-document-grid--single">
-              <UploadCard
-                title="Booking Form / Booking Docket"
-                helper="Mandatory. Upload the Booking Form or Booking Docket and use Get Details to validate extracted Booking facts."
-                requirement={bookingDocket}
-                uploadBusy={uploadingKey === bookingDocket?.requirementKey}
-                detailsBusyEvidenceId={detailsBusyEvidenceId}
-                onUpload={handleUpload}
-                onGetDetails={handleGetDetails}
-              />
-            </div>
-
-            <div className="uc03-c1-card uc03-c1-kyc-group">
-              <header>
-                <div>
-                  <span className="uc03-c1-eyebrow">KYC</span>
-                  <h3>Customer KYC</h3>
-                  <p>At least one is mandatory: PAN or Aadhaar. Capture both when both are available.</p>
+          {currentReviewDocument ? (
+            <>
+              {currentReviewDocument.requirementKey === 'booking_docket' ? (
+                <div className="uc03-booking-product-confirmation">
+                  <div><span>System Read Model</span><strong>{part1.productMaster.extractedModel || 'Pending extraction'}</strong></div>
+                  <div><span>System Read Variant</span><strong>{part1.productMaster.extractedVariant || 'Pending extraction'}</strong></div>
+                  <div><span>Product Master Model</span><strong>{part1.productMaster.modelName || '—'}</strong></div>
+                  <div><span>Product Master Variant</span><strong>{part1.productMaster.variantName || '—'}</strong></div>
+                  <StatusPill value={part1.productMaster.status} compact />
+                  <p>{part1.productMaster.message}</p>
                 </div>
-                <StatusPill value={part1.mandatoryEvidence.kycComplete ? 'COMPLETE' : 'PENDING'} compact />
-              </header>
-              {part1.mandatoryEvidence.kycComplete && !part1.mandatoryEvidence.kycBothProvided ? (
-                <div className="uc03-c1-notice">KYC minimum is met. The second identity document is preferred when available.</div>
               ) : null}
-              <div className="uc03-c1-document-grid">
-                <UploadCard
-                  title="PAN"
-                  helper="Use PAN as KYC when available."
-                  requirement={pan}
-                  uploadBusy={uploadingKey === pan?.requirementKey}
-                  detailsBusyEvidenceId={detailsBusyEvidenceId}
-                  onUpload={handleUpload}
-                  onGetDetails={handleGetDetails}
-                />
-                <UploadCard
-                  title="Aadhaar"
-                  helper="Use Aadhaar as KYC when available."
-                  requirement={aadhaar}
-                  uploadBusy={uploadingKey === aadhaar?.requirementKey}
-                  detailsBusyEvidenceId={detailsBusyEvidenceId}
-                  onUpload={handleUpload}
-                  onGetDetails={handleGetDetails}
-                />
-              </div>
-            </div>
-
-            <div className="uc03-c1-document-grid uc03-c1-document-grid--single uc03-c1-payment-group">
-              <UploadCard
-                title="Booking Payment Receipt(s)"
-                helper="Mandatory Booking-stage payment evidence. Capture every receipt when the customer made more than one Booking payment."
-                requirement={paymentReceipt}
-                uploadBusy={uploadingKey === paymentReceipt?.requirementKey}
-                detailsBusyEvidenceId={detailsBusyEvidenceId}
-                multiple
-                onUpload={handleUpload}
-                onGetDetails={handleGetDetails}
-              />
-            </div>
-
-            {selectedEvidenceId ? (
-              <BookingDocumentDetails
-                key={`${selectedEvidenceId}-${detailsRefreshKey || 'initial'}`}
+              <BookingReviewDocumentPanel
+                key={currentReviewDocument.evidenceId}
                 tenantId={project.tenantId}
                 journeyId={journeyId}
                 accessToken={accessToken}
-                evidenceId={selectedEvidenceId}
-                documentName={selectedDocumentName}
-                proposals={selectedProposals}
-                lockedCustomerName={customerName}
+                evidenceId={currentReviewDocument.evidenceId}
+                documentName={reviewDocumentName(currentReviewDocument, reviewIndex)}
+                proposals={currentReviewProposals}
+                aggregateVersion={version}
                 disabled={busy}
-                refreshKey={detailsRefreshKey}
-                onAccept={(proposal) => handleProposal(proposal, 'accept')}
-                onCorrect={(proposal, value) => handleProposal(proposal, 'correct', value)}
-                onClose={() => setSelectedEvidenceId(undefined)}
-              />
-            ) : null}
-          </section>
-
-          <section className="uc03-c1-section">
-            <header className="uc03-c1-section-heading">
-              <div>
-                <span className="uc03-c1-eyebrow">2 · Product Master Match</span>
-                <h2>Model & Variant</h2>
-                <p>Model and Variant come from Booking Docket extraction and the effective Project Product Master. There is no manual Model/Variant key-in.</p>
-              </div>
-              <StatusPill value={part1.productMaster.status} compact />
-            </header>
-            <div className="uc03-c1-stage-strip">
-              <div><span>System Read Model</span><strong>{part1.productMaster.extractedModel || 'Pending extraction'}</strong></div>
-              <div><span>System Read Variant</span><strong>{part1.productMaster.extractedVariant || 'Pending extraction'}</strong></div>
-              <div><span>Master Model</span><strong>{part1.productMaster.modelName || '—'}</strong></div>
-              <div><span>Master Variant</span><strong>{part1.productMaster.variantName || '—'}</strong></div>
-            </div>
-            <div className={`uc03-c1-feedback ${masterMismatch ? 'is-error' : 'is-success'}`}>
-              {part1.productMaster.message}
-            </div>
-            {masterMismatch ? (
-              <button
-                type="button"
-                className="uc03-c1-secondary"
-                onClick={() => {
-                  setFlagCategory('DOCUMENT_EXCEPTION');
-                  setFlagSeverity('MEDIUM');
-                  setFlagSummary('Booking Model / Variant does not match Product Master');
-                  setFlagRemarks(`System Read Model: ${part1.productMaster.extractedModel || 'Not Found'}; System Read Variant: ${part1.productMaster.extractedVariant || 'Not Found'}.`);
+                onVersion={(nextVersion) => {
+                  setVersion(nextVersion);
+                  void Promise.all([workspaceQuery.refetch(), part1Query.refetch()]);
                 }}
-              >
-                Log Product Master Observation
-              </button>
-            ) : null}
-          </section>
+                onApprove={handleApproveDocument}
+              />
+            </>
+          ) : reviewDone ? (
+            <div className="uc03-booking-review-complete"><strong>Booking document review complete.</strong><span>All uploaded Booking evidence has been reviewed.</span></div>
+          ) : (
+            <div className="uc03-booking-review-empty">No uploaded Booking documents are available for review.</div>
+          )}
 
-          <section className="uc03-c1-section">
-            <header className="uc03-c1-section-heading">
-              <div>
-                <span className="uc03-c1-eyebrow">3 · Observation</span>
-                <h2>Log Observation / Raise Flag</h2>
-                <p>Use this only when the PC notices an issue during evidence capture. DI corrections create their confidence-based Flags automatically.</p>
-              </div>
-            </header>
-            <div className="uc03-c1-form-grid">
-              <label>
-                <span>Category</span>
-                <select value={flagCategory} onChange={(event) => setFlagCategory(event.target.value)}>
-                  {HUMAN_FLAG_CATEGORIES.map((category) => <option key={category} value={category}>{displayName(category)}</option>)}
-                </select>
-              </label>
-              <label>
-                <span>Priority</span>
-                <select value={flagSeverity} onChange={(event) => setFlagSeverity(event.target.value)}>
-                  {['INFO', 'LOW', 'MEDIUM', 'HIGH', 'CRITICAL'].map((severity) => <option key={severity} value={severity}>{displayName(severity)}</option>)}
-                </select>
-              </label>
-              <label className="uc03-c1-field-wide">
-                <span>Observation</span>
-                <input value={flagSummary} onChange={(event) => setFlagSummary(event.target.value)} placeholder="Describe what you observed" />
-              </label>
-              <label className="uc03-c1-field-wide">
-                <span>Remarks</span>
-                <textarea value={flagRemarks} onChange={(event) => setFlagRemarks(event.target.value)} placeholder="Optional supporting remarks" />
-              </label>
-            </div>
-            <button type="button" className="uc03-c1-primary" disabled={busy || !flagSummary.trim()} onClick={() => void handleFlag()}>
-              Log Observation
-            </button>
-          </section>
-
-          <section className="uc03-c1-section">
-            <div className="uc03-c1-notice">
-              Part 1 ends here. Additional Booking input fields and later conditional evidence are intentionally not shown until the next approved step.
-            </div>
-          </section>
-        </>
+          <div className="uc03-booking-step-footer">
+            <button type="button" className="uc03-c1-secondary" disabled={busy} onClick={() => setStep(2)}>← Booking Details</button>
+            {reviewIndex > 0 && !reviewDone ? <button type="button" className="uc03-c1-secondary" disabled={busy} onClick={() => setReviewIndex((value) => Math.max(0, value - 1))}>Previous Document</button> : null}
+          </div>
+        </section>
       )}
     </div>
   );

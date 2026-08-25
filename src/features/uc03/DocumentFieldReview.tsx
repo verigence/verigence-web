@@ -13,6 +13,7 @@ interface DocumentFieldReviewProps {
   accessToken?: string;
   proposals: ExtractionProposalView[];
   disabled?: boolean;
+  lockedValues?: Record<string, string>;
   onAccept: (proposal: ExtractionProposalView) => Promise<void>;
   onCorrect: (proposal: ExtractionProposalView, value: string) => Promise<void>;
 }
@@ -31,6 +32,10 @@ function displayValue(value: unknown): string {
   } catch {
     return String(value);
   }
+}
+
+function comparableValue(value: unknown): string {
+  return displayValue(value).trim().replace(/\s+/g, ' ').toLocaleLowerCase();
 }
 
 function confidenceLabel(value: number | null): string {
@@ -65,6 +70,7 @@ export function DocumentFieldReview({
   accessToken,
   proposals,
   disabled = false,
+  lockedValues = {},
   onAccept,
   onCorrect,
 }: DocumentFieldReviewProps) {
@@ -148,14 +154,17 @@ export function DocumentFieldReview({
   const fieldNumber = safeIndex + 1;
   const fieldName = displayName(active.fieldKey);
   const sourceDocumentName = displayName(active.sourceDocumentTypeKey, 'Uploaded Document');
+  const lockedValue = lockedValues[active.fieldKey];
+  const locked = lockedValue !== undefined;
+  const lockedMatches = locked && comparableValue(active.proposedValue) === comparableValue(lockedValue);
 
-  const decide = async (mode: 'accept' | 'correct') => {
+  const decide = async (mode: 'accept' | 'correct', forcedValue?: string) => {
     setActionBusy(true);
     try {
       if (mode === 'accept') {
         await onAccept(active);
       } else {
-        await onCorrect(active, correction);
+        await onCorrect(active, forcedValue ?? correction);
       }
     } finally {
       setActionBusy(false);
@@ -242,7 +251,19 @@ export function DocumentFieldReview({
           </div>
         </div>
 
-        {editing ? (
+        {locked ? (
+          <div className={`uc03-review-locked${lockedMatches ? ' is-match' : ' is-mismatch'}`}>
+            <span>Locked Booking Value</span>
+            <strong>{lockedValue}</strong>
+            <small>
+              {lockedMatches
+                ? 'The document value matches the Customer Name entered when the Journey was created.'
+                : 'The document value differs. Customer Name is locked, so keeping the entered name records this as a correction without changing the Journey identity.'}
+            </small>
+          </div>
+        ) : null}
+
+        {!locked && editing ? (
           <label className="uc03-review-correction">
             <span>Correct Value</span>
             <input
@@ -255,7 +276,16 @@ export function DocumentFieldReview({
         ) : null}
 
         <div className="uc03-review-decision-actions">
-          {!editing ? (
+          {locked ? (
+            <button
+              type="button"
+              className="uc03-c1-primary"
+              disabled={disabled || actionBusy || !active.canAccept}
+              onClick={() => void (lockedMatches ? decide('accept') : decide('correct', lockedValue))}
+            >
+              {lockedMatches ? '✓ Matches Entered Name' : 'Keep Entered Name'}
+            </button>
+          ) : !editing ? (
             <>
               <button
                 type="button"
@@ -263,15 +293,15 @@ export function DocumentFieldReview({
                 disabled={disabled || actionBusy || !active.canAccept}
                 onClick={() => void decide('accept')}
               >
-                ✓ Correct
+                ✓ Matches Document
               </button>
               <button
                 type="button"
                 className="uc03-c1-secondary"
-                disabled={disabled || actionBusy}
+                disabled={disabled || actionBusy || !active.canAccept}
                 onClick={() => setEditing(true)}
               >
-                Change Value
+                Edit Value
               </button>
             </>
           ) : (
@@ -279,10 +309,10 @@ export function DocumentFieldReview({
               <button
                 type="button"
                 className="uc03-c1-primary"
-                disabled={disabled || actionBusy || correction.trim().length === 0}
+                disabled={disabled || actionBusy || correction.trim().length === 0 || !active.canAccept}
                 onClick={() => void decide('correct')}
               >
-                Save Change
+                Save Edit
               </button>
               <button
                 type="button"
@@ -298,6 +328,10 @@ export function DocumentFieldReview({
             </>
           )}
         </div>
+
+        {!active.canAccept && !locked ? (
+          <p className="uc03-review-readonly-note">This extracted field is view-only until its configured business/master mapping is available.</p>
+        ) : null}
 
         <div className="uc03-review-nav">
           <button

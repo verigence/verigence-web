@@ -340,6 +340,9 @@ export default function BookingWorkspacePage() {
     refetchOnWindowFocus: false,
   });
 
+  const hasProcessingEvidence = Boolean(part1Query.data?.requirements.some((requirement) =>
+    requirement.evidence.some((item) => evidenceProcessingState(item) === 'PROCESSING')));
+
   useEffect(() => {
     if (workspaceQuery.data?.aggregateVersion !== undefined) setVersion(workspaceQuery.data.aggregateVersion);
   }, [workspaceQuery.data?.aggregateVersion]);
@@ -364,6 +367,30 @@ export default function BookingWorkspacePage() {
       corporateIdAvailable: details.corporateIdAvailable ?? null,
     });
   }, [detailsQuery.data, formDirty]);
+
+  useEffect(() => {
+    if (!hasProcessingEvidence || !project?.tenantId || !journeyId || !accessToken) return undefined;
+    let cancelled = false;
+    let timer: number | undefined;
+
+    const poll = async () => {
+      try {
+        await refreshBookingExtraction(project.tenantId, journeyId, accessToken);
+        if (!cancelled) {
+          await Promise.all([part1Query.refetch(), workspaceQuery.refetch()]);
+        }
+      } catch {
+        // Processing refresh is deliberately non-blocking. Step 2 remains available while DI recovers.
+      }
+      if (!cancelled) timer = window.setTimeout(() => void poll(), 4000);
+    };
+
+    timer = window.setTimeout(() => void poll(), 2500);
+    return () => {
+      cancelled = true;
+      if (timer !== undefined) window.clearTimeout(timer);
+    };
+  }, [accessToken, hasProcessingEvidence, journeyId, part1Query, project?.tenantId, workspaceQuery]);
 
   const refreshAll = useCallback(async () => {
     const [workspaceResult] = await Promise.all([
@@ -413,7 +440,7 @@ export default function BookingWorkspacePage() {
   ];
 
   const formComplete = Boolean(
-    form.priceListId && form.customerType && form.dealType && form.dealSource && form.leadSource
+    form.customerType && form.dealType && form.dealSource && form.leadSource
     && form.registrationState && form.territoryCategorization && form.districtName
     && form.registrationType && form.registrationCategory
     && form.outrightPurchase !== null && form.tradeIn !== null && form.gstBenefit !== null
@@ -434,7 +461,7 @@ export default function BookingWorkspacePage() {
       throw new Error('Complete all mandatory Booking Details before continuing.');
     }
     return {
-      priceListId: form.priceListId,
+      priceListId: form.priceListId || null,
       customerType: form.customerType,
       dealType: form.dealType,
       dealSource: form.dealSource,
@@ -469,7 +496,7 @@ export default function BookingWorkspacePage() {
         await uploadBookingDocument(project.tenantId, journeyId, requirement.requirementKey, file, accessToken);
       }
       await refreshAll();
-      setMessage('Document accepted by Document Intelligence.');
+      setMessage('Document accepted by Document Intelligence. Processing status will refresh automatically.');
     } catch (cause: unknown) {
       setError(cause instanceof Error ? cause.message : 'The document could not be uploaded.');
     } finally { setUploadingKey(undefined); }
@@ -489,7 +516,7 @@ export default function BookingWorkspacePage() {
       if (!requirement) throw new Error('This optional Booking document is not configured for the Journey.');
       await uploadBookingDocument(project.tenantId, journeyId, requirement.requirementKey, file, accessToken);
       await refreshAll();
-      setMessage('Optional document accepted by Document Intelligence.');
+      setMessage('Optional document accepted by Document Intelligence. Processing status will refresh automatically.');
     } catch (cause: unknown) {
       setError(cause instanceof Error ? cause.message : 'The optional document could not be uploaded.');
     } finally { setUploadingKey(undefined); setBusy(false); }
@@ -502,15 +529,13 @@ export default function BookingWorkspacePage() {
       const saved = await saveCurrentDetails();
       const review = await startBookingDetailsReview(project.tenantId, journeyId, saved.aggregateVersion, accessToken);
       setVersion(review.aggregateVersion);
-      const extraction = await refreshBookingExtraction(project.tenantId, journeyId, accessToken);
-      setVersion(extraction.aggregateVersion);
 
       if (missingMandatoryDocuments.length > 0) {
         await raiseAuditFlag(
           project.tenantId,
           journeyId,
           'BOOKING',
-          extraction.aggregateVersion,
+          review.aggregateVersion,
           {
             category: 'DOCUMENT_EXCEPTION',
             severity: 'INFO',
@@ -526,7 +551,7 @@ export default function BookingWorkspacePage() {
       setReviewIndex(0);
       setStep(3);
       setMessage(review.raisedObservationIds.length || missingMandatoryDocuments.length
-        ? 'Booking details saved. Missing evidence was recorded as non-blocking INFO audit information.'
+        ? 'Booking details saved. Missing evidence/configuration was recorded as non-blocking INFO audit information.'
         : 'Booking details saved. Document review is ready.');
     } catch (cause: unknown) {
       setError(cause instanceof Error ? cause.message : 'Booking review could not be started.');
@@ -635,46 +660,59 @@ export default function BookingWorkspacePage() {
           {optionsQuery.isError ? <div className="uc03-booking-journey-feedback is-error">Booking Project masters could not be loaded.</div> : null}
 
           {options ? (
-            <div className="uc03-booking-form-grid">
-              <label className="uc03-booking-field">
-                <span>Price List</span>
-                <select value={form.priceListId} disabled={!options.priceLists.length} onChange={(event) => updateForm('priceListId', event.target.value)}>
-                  <option value="">{options.priceLists.length ? 'Select Price List' : 'Price List master not configured'}</option>
-                  {options.priceLists.map((item) => <option key={item.priceListId} value={item.priceListId}>{item.name}</option>)}
-                </select>
-              </label>
-              <MasterSelect label="Type of Customer" value={form.customerType} options={options.customerTypes} onChange={(value) => updateForm('customerType', value)} />
-              <MasterSelect label="Type of Deal" value={form.dealType} options={options.dealTypes} onChange={(value) => updateForm('dealType', value)} />
-              <MasterSelect label="Deal Source" value={form.dealSource} options={options.dealSources} onChange={(value) => updateForm('dealSource', value)} />
-              <MasterSelect label="Lead Generated Through" value={form.leadSource} options={options.leadSources} onChange={(value) => updateForm('leadSource', value)} />
-              <MasterSelect label="Registration State" value={form.registrationState} options={options.registrationStates} onChange={(value) => updateForm('registrationState', value)} />
-              <MasterSelect label="Territory Categorization" value={form.territoryCategorization} options={options.territoryCategories} onChange={(value) => updateForm('territoryCategorization', value)} />
-              <MasterSelect label="District Name" value={form.districtName} options={options.districts} onChange={(value) => updateForm('districtName', value)} />
-              <MasterSelect label="Registration Type" value={form.registrationType} options={options.registrationTypes} onChange={(value) => updateForm('registrationType', value)} />
-              <MasterSelect label="Registration Category" value={form.registrationCategory} options={options.registrationCategories} onChange={(value) => updateForm('registrationCategory', value)} />
-            </div>
+            <>
+              <div className="uc03-booking-form-grid">
+                <MasterSelect label="Type of Customer" value={form.customerType} options={options.customerTypes} onChange={(value) => updateForm('customerType', value)} />
+                <MasterSelect label="Type of Deal" value={form.dealType} options={options.dealTypes} onChange={(value) => updateForm('dealType', value)} />
+                <MasterSelect label="Deal Source" value={form.dealSource} options={options.dealSources} onChange={(value) => updateForm('dealSource', value)} />
+                <MasterSelect label="Lead Generated Through" value={form.leadSource} options={options.leadSources} onChange={(value) => updateForm('leadSource', value)} />
+              </div>
+
+              <div className="uc03-booking-yesno-grid">
+                <YesNo label="Outright Purchase" value={form.outrightPurchase} onChange={(value) => updateForm('outrightPurchase', value)} />
+                <YesNo label="Trade In" value={form.tradeIn} onChange={(value) => updateForm('tradeIn', value)} />
+                <YesNo label="GST Benefit" value={form.gstBenefit} onChange={(value) => updateForm('gstBenefit', value)} />
+                {form.customerType === 'CORPORATE' ? (
+                  <YesNo label="Corporate ID Available" value={form.corporateIdAvailable} onChange={(value) => updateForm('corporateIdAvailable', value)} />
+                ) : null}
+              </div>
+
+              <div className="uc03-booking-conditional-evidence">
+                {form.customerType === 'CORPORATE' && form.corporateIdAvailable === true ? (
+                  <OptionalEvidenceUpload title="Corporate ID" evidence={corporateEvidence} busy={uploadingKey === 'corporate_id'} onUpload={(file) => handleOptionalUpload('corporate_id', file)} />
+                ) : null}
+                {form.gstBenefit === true ? (
+                  <OptionalEvidenceUpload title="GST Certificate" evidence={gstEvidence} busy={uploadingKey === 'gst_certificate'} onUpload={(file) => handleOptionalUpload('gst_certificate', file)} />
+                ) : null}
+                {form.tradeIn === true ? (
+                  <OptionalEvidenceUpload title="Trade-In Document" evidence={tradeEvidence} busy={uploadingKey === 'trade_in_vehicle_rc'} onUpload={(file) => handleOptionalUpload('trade_in_vehicle_rc', file)} />
+                ) : null}
+              </div>
+
+              <div className="uc03-booking-form-grid">
+                <MasterSelect label="Registration State" value={form.registrationState} options={options.registrationStates} onChange={(value) => updateForm('registrationState', value)} />
+                <MasterSelect label="Territory Categorization" value={form.territoryCategorization} options={options.territoryCategories} onChange={(value) => updateForm('territoryCategorization', value)} />
+                <MasterSelect label="District Name" value={form.districtName} options={options.districts} onChange={(value) => updateForm('districtName', value)} />
+                <MasterSelect label="Registration Type" value={form.registrationType} options={options.registrationTypes} onChange={(value) => updateForm('registrationType', value)} />
+                <MasterSelect label="Registration Category" value={form.registrationCategory} options={options.registrationCategories} onChange={(value) => updateForm('registrationCategory', value)} />
+                {options.priceLists.length ? (
+                  <label className="uc03-booking-field">
+                    <span>Price List <small>(optional)</small></span>
+                    <select value={form.priceListId} onChange={(event) => updateForm('priceListId', event.target.value)}>
+                      <option value="">Continue without Price List</option>
+                      {options.priceLists.map((item) => <option key={item.priceListId} value={item.priceListId}>{item.name}</option>)}
+                    </select>
+                  </label>
+                ) : (
+                  <div className="uc03-booking-field uc03-booking-journey-feedback" role="status">
+                    <span>Price List</span>
+                    <strong>Not configured for this Booking date.</strong>
+                    <small>This is non-blocking. Booking can continue and an INFO audit observation will record the missing configuration.</small>
+                  </div>
+                )}
+              </div>
+            </>
           ) : null}
-
-          <div className="uc03-booking-yesno-grid">
-            <YesNo label="Outright Purchase" value={form.outrightPurchase} onChange={(value) => updateForm('outrightPurchase', value)} />
-            <YesNo label="Trade In" value={form.tradeIn} onChange={(value) => updateForm('tradeIn', value)} />
-            <YesNo label="GST Benefit" value={form.gstBenefit} onChange={(value) => updateForm('gstBenefit', value)} />
-            {form.customerType === 'CORPORATE' ? (
-              <YesNo label="Corporate ID Available" value={form.corporateIdAvailable} onChange={(value) => updateForm('corporateIdAvailable', value)} />
-            ) : null}
-          </div>
-
-          <div className="uc03-booking-conditional-evidence">
-            {form.customerType === 'CORPORATE' && form.corporateIdAvailable === true ? (
-              <OptionalEvidenceUpload title="Corporate ID" evidence={corporateEvidence} busy={uploadingKey === 'corporate_id'} onUpload={(file) => handleOptionalUpload('corporate_id', file)} />
-            ) : null}
-            {form.gstBenefit === true ? (
-              <OptionalEvidenceUpload title="GST Certificate" evidence={gstEvidence} busy={uploadingKey === 'gst_certificate'} onUpload={(file) => handleOptionalUpload('gst_certificate', file)} />
-            ) : null}
-            {form.tradeIn === true ? (
-              <OptionalEvidenceUpload title="Trade-In Document" evidence={tradeEvidence} busy={uploadingKey === 'trade_in_vehicle_rc'} onUpload={(file) => handleOptionalUpload('trade_in_vehicle_rc', file)} />
-            ) : null}
-          </div>
 
           {showMissingEvidenceWarning ? (
             <div className="uc03-booking-evidence-warning" role="alert">

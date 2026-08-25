@@ -20,8 +20,14 @@
 }
 
 .uc03-work-card__summary--simple {
-  min-width: 138px;
+  min-width: 150px;
   gap: 5px;
+}
+
+.uc03-work-card__summary--simple > strong {
+  max-width: none;
+  white-space: nowrap;
+  line-height: 1.2;
 }
 
 .uc03-verification-badge {
@@ -66,12 +72,12 @@
 
 @media (max-width: 640px) {
   .uc03-work-card__summary--simple {
-    min-width: 112px;
+    min-width: 136px;
   }
 
   .uc03-work-card__summary--simple > strong {
-    max-width: 126px;
-    line-height: 1.2;
+    font-size: .78rem;
+    white-space: nowrap;
   }
 
   .uc03-verification-badge {

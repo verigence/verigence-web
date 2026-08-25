@@ -34,6 +34,17 @@ const HUMAN_FLAG_CATEGORIES = [
   'OTHER',
 ];
 
+const SUCCESS_PROCESSING_STATUSES = new Set([
+  'COMPLETED',
+  'COMPLETE',
+  'PROCESSED',
+  'SUCCEEDED',
+  'READY',
+  'VERIFIED',
+]);
+
+type EvidenceProcessingState = 'READY' | 'FAILED' | 'PROCESSING';
+
 function displayValue(value: unknown): string {
   if (value === null || value === undefined || value === '') return '';
   if (typeof value === 'string' || typeof value === 'number') return String(value);
@@ -52,6 +63,13 @@ function requirementByKind(
   return requirements.find((item) => item.kind === kind);
 }
 
+function evidenceProcessingState(evidence: Part1EvidenceItem): EvidenceProcessingState {
+  const status = (evidence.processingStatus || '').trim().toUpperCase();
+  if (status === 'FAILED') return 'FAILED';
+  if (SUCCESS_PROCESSING_STATUSES.has(status)) return 'READY';
+  return 'PROCESSING';
+}
+
 function EvidenceList({
   evidence,
   busyEvidenceId,
@@ -63,26 +81,34 @@ function EvidenceList({
 }) {
   if (evidence.length === 0) return null;
   return (
-    <div className="uc03-c1-document-tools" style={{ display: 'grid', gap: '0.65rem' }}>
-      {evidence.map((item, index) => (
-        <div key={item.evidenceId} className="uc03-c1-document-tools" style={{ margin: 0 }}>
-          <div>
-            <strong>{`Document ${index + 1}`}</strong>
-            <span>
-              {displayName(item.processingStatus || 'Uploaded')}
-              {item.verificationStatus ? ` · ${displayName(item.verificationStatus)}` : ''}
-            </span>
+    <div className="uc03-c1-evidence-list">
+      {evidence.map((item, index) => {
+        const state = evidenceProcessingState(item);
+        const stateClass = state.toLowerCase();
+        const mark = state === 'READY' ? '✓' : state === 'FAILED' ? '!' : '…';
+        return (
+          <div key={item.evidenceId} className={`uc03-c1-evidence-row is-${stateClass}`}>
+            <div className="uc03-c1-evidence-summary">
+              <span className="uc03-c1-evidence-mark" aria-hidden="true">{mark}</span>
+              <div className="uc03-c1-evidence-copy">
+                <strong>{`Document ${index + 1}`}</strong>
+                <span>
+                  {displayName(item.processingStatus || 'Processing')}
+                  {item.verificationStatus ? ` · ${displayName(item.verificationStatus)}` : ''}
+                </span>
+              </div>
+            </div>
+            <button
+              type="button"
+              className="uc03-c1-get-details"
+              disabled={busyEvidenceId === item.evidenceId}
+              onClick={() => void onGetDetails(item, index)}
+            >
+              {busyEvidenceId === item.evidenceId ? 'Getting Details…' : 'Get Details'}
+            </button>
           </div>
-          <button
-            type="button"
-            className="uc03-c1-get-details"
-            disabled={busyEvidenceId === item.evidenceId}
-            onClick={() => void onGetDetails(item, index)}
-          >
-            {busyEvidenceId === item.evidenceId ? 'Getting Details…' : 'Get Details'}
-          </button>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }
@@ -106,7 +132,43 @@ function UploadCard({
   onUpload: (requirement: Part1Requirement, files: File[]) => Promise<void>;
   onGetDetails: (requirement: Part1Requirement, evidence: Part1EvidenceItem, index: number) => Promise<void>;
 }) {
-  const count = requirement?.evidence.length ?? 0;
+  const evidence = requirement?.evidence ?? [];
+  const count = evidence.length;
+  const latestEvidence = count > 0 ? evidence[count - 1] : undefined;
+  const latestState = latestEvidence ? evidenceProcessingState(latestEvidence) : undefined;
+  const processingLocked = uploadBusy || latestState === 'PROCESSING';
+  const canUpload = Boolean(requirement)
+    && !uploadBusy
+    && (multiple ? latestState !== 'PROCESSING' : count === 0 || latestState === 'FAILED');
+
+  let cardStatus = 'PENDING';
+  if (uploadBusy || latestState === 'PROCESSING') cardStatus = 'PROCESSING';
+  else if (latestState === 'FAILED') cardStatus = 'FAILED';
+  else if (count > 0) cardStatus = 'UPLOADED';
+
+  const retrying = latestState === 'FAILED';
+  const desktopLabel = retrying
+    ? 'Retry / Replace'
+    : multiple && count > 0
+      ? 'Add Receipt'
+      : 'Upload Document';
+  const mobileCameraLabel = retrying ? 'Retake Photo' : 'Take Photo';
+  const mobileFileLabel = retrying
+    ? 'Choose Replacement'
+    : multiple && count > 0
+      ? 'Choose Receipt'
+      : 'Choose File';
+  const lockedLabel = uploadBusy
+    ? 'Uploading…'
+    : latestState === 'PROCESSING'
+      ? multiple ? 'Processing receipt…' : 'Processing…'
+      : 'Upload complete';
+
+  const submitFiles = (files: File[]) => {
+    if (!requirement || !canUpload || files.length === 0) return;
+    void onUpload(requirement, files);
+  };
+
   return (
     <article className="uc03-c1-card uc03-c1-document-card">
       <header>
@@ -114,37 +176,67 @@ function UploadCard({
           <span className="uc03-c1-eyebrow">Mandatory Evidence</span>
           <h3 className="uc03-c1-document-name">{title}</h3>
         </div>
-        <StatusPill value={count > 0 ? 'UPLOADED' : 'PENDING'} compact />
+        <StatusPill value={cardStatus} compact />
       </header>
       <p className="uc03-c1-muted">{helper}</p>
       {requirement ? (
         <div className="uc03-c1-document-actions">
-          <label className={`uc03-c1-file-button ${uploadBusy ? 'is-disabled' : ''}`}>
-            <span>{uploadBusy ? 'Uploading…' : count > 0 ? 'Add Document' : 'Upload Document'}</span>
-            <input
-              type="file"
-              accept="image/*,.pdf"
-              multiple={multiple}
-              disabled={uploadBusy}
-              onChange={(event) => {
-                const files = Array.from(event.target.files ?? []);
-                if (files.length > 0) void onUpload(requirement, files);
-                event.currentTarget.value = '';
-              }}
-            />
-          </label>
-          {multiple ? (
-            <span className="uc03-c1-upload-hint">Select one or multiple Booking payment receipts. Every receipt is retained and reviewed independently.</span>
-          ) : null}
+          {canUpload ? (
+            <div className="uc03-c1-upload-controls">
+              <label className="uc03-c1-upload-action uc03-c1-upload-action--desktop">
+                <span>{desktopLabel}</span>
+                <input
+                  type="file"
+                  accept="image/*,.pdf"
+                  multiple={multiple}
+                  onChange={(event) => {
+                    submitFiles(Array.from(event.target.files ?? []));
+                    event.currentTarget.value = '';
+                  }}
+                />
+              </label>
+              <label className="uc03-c1-upload-action uc03-c1-upload-action--mobile-camera">
+                <span>{mobileCameraLabel}</span>
+                <input
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  onChange={(event) => {
+                    submitFiles(Array.from(event.target.files ?? []));
+                    event.currentTarget.value = '';
+                  }}
+                />
+              </label>
+              <label className="uc03-c1-upload-action uc03-c1-upload-action--mobile-file">
+                <span>{mobileFileLabel}</span>
+                <input
+                  type="file"
+                  accept="image/*,.pdf"
+                  multiple={multiple}
+                  onChange={(event) => {
+                    submitFiles(Array.from(event.target.files ?? []));
+                    event.currentTarget.value = '';
+                  }}
+                />
+              </label>
+              {multiple ? (
+                <span className="uc03-c1-upload-hint">Add each Booking payment receipt. Multiple files can also be selected together.</span>
+              ) : null}
+            </div>
+          ) : (
+            <span className={`uc03-c1-upload-state ${latestState === 'FAILED' ? 'is-failed' : ''}`} aria-disabled="true">
+              {processingLocked || (!multiple && count > 0) ? lockedLabel : 'Upload unavailable'}
+            </span>
+          )}
         </div>
       ) : (
         <div className="uc03-c1-feedback is-error">This mandatory evidence requirement is not configured for this Booking.</div>
       )}
       {requirement ? (
         <EvidenceList
-          evidence={requirement.evidence}
+          evidence={evidence}
           busyEvidenceId={detailsBusyEvidenceId}
-          onGetDetails={(evidence, index) => onGetDetails(requirement, evidence, index)}
+          onGetDetails={(item, index) => onGetDetails(requirement, item, index)}
         />
       ) : null}
     </article>
@@ -402,7 +494,7 @@ export default function BookingWorkspacePage() {
               </div>
             </header>
 
-            <div className="uc03-c1-document-grid">
+            <div className="uc03-c1-document-grid uc03-c1-document-grid--single">
               <UploadCard
                 title="Booking Form / Booking Docket"
                 helper="Mandatory. Upload the Booking Form or Booking Docket and use Get Details to validate extracted Booking facts."
@@ -414,7 +506,7 @@ export default function BookingWorkspacePage() {
               />
             </div>
 
-            <div className="uc03-c1-card" style={{ marginTop: '1rem' }}>
+            <div className="uc03-c1-card uc03-c1-kyc-group">
               <header>
                 <div>
                   <span className="uc03-c1-eyebrow">KYC</span>
@@ -448,7 +540,7 @@ export default function BookingWorkspacePage() {
               </div>
             </div>
 
-            <div className="uc03-c1-document-grid" style={{ marginTop: '1rem' }}>
+            <div className="uc03-c1-document-grid uc03-c1-document-grid--single uc03-c1-payment-group">
               <UploadCard
                 title="Booking Payment Receipt(s)"
                 helper="Mandatory Booking-stage payment evidence. Capture every receipt when the customer made more than one Booking payment."

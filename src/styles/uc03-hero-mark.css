@@ -1,0 +1,75 @@
+/* Final UC03 hero brand treatment: use the approved icon-only Verigence mark. */
+.uc03-dashboard-hero--greeting {
+  grid-template-columns: minmax(0, 1fr) 112px;
+  grid-template-areas:
+    "copy brand"
+    "action action";
+  column-gap: 22px;
+}
+
+.uc03-dashboard-hero--greeting .uc03-dashboard-hero__brand {
+  grid-area: brand;
+  justify-self: end;
+  width: 104px;
+  height: 104px;
+  padding: 14px;
+  display: grid !important;
+  place-items: center;
+  border: 1px solid rgba(7, 154, 164, .13);
+  border-radius: 28px;
+  background: rgba(255, 255, 255, .42);
+}
+
+.uc03-dashboard-hero--greeting .uc03-dashboard-hero__brand img {
+  display: none !important;
+}
+
+.uc03-dashboard-hero--greeting .uc03-dashboard-hero__brand::before {
+  content: "";
+  width: 74px;
+  height: 74px;
+  display: block;
+  background: url('/brand/approved/verigence-mark.svg') center / contain no-repeat;
+  filter: drop-shadow(0 6px 12px rgba(6, 43, 99, .08));
+}
+
+@media (max-width: 767px) {
+  .uc03-dashboard-hero--greeting {
+    grid-template-columns: minmax(0, 1fr) 92px;
+    grid-template-areas:
+      "copy brand"
+      "action action";
+    column-gap: 14px;
+  }
+
+  .uc03-dashboard-hero--greeting .uc03-dashboard-hero__brand {
+    width: 86px;
+    height: 86px;
+    padding: 11px;
+    border-radius: 23px;
+  }
+
+  .uc03-dashboard-hero--greeting .uc03-dashboard-hero__brand::before {
+    width: 62px;
+    height: 62px;
+  }
+}
+
+@media (max-width: 430px) {
+  .uc03-dashboard-hero--greeting {
+    grid-template-columns: minmax(0, 1fr) 76px;
+    column-gap: 10px;
+  }
+
+  .uc03-dashboard-hero--greeting .uc03-dashboard-hero__brand {
+    width: 72px;
+    height: 72px;
+    padding: 9px;
+    border-radius: 20px;
+  }
+
+  .uc03-dashboard-hero--greeting .uc03-dashboard-hero__brand::before {
+    width: 52px;
+    height: 52px;
+  }
+}

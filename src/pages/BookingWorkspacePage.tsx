@@ -5,6 +5,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import PageHeader from '../components/PageHeader';
 import StatusPill from '../components/StatusPill';
 import BookingReviewDocumentPanel from '../features/uc03/BookingReviewDocumentPanel';
+import { raiseAuditFlag } from '../services/audit-core/uc03Audit';
 import {
   getBookingWorkspace,
   refreshBookingExtraction,
@@ -311,6 +312,7 @@ export default function BookingWorkspacePage() {
   const [version, setVersion] = useState(0);
   const [reviewDocuments, setReviewDocuments] = useState<BookingReviewDocument[]>([]);
   const [reviewIndex, setReviewIndex] = useState(0);
+  const [showMissingEvidenceWarning, setShowMissingEvidenceWarning] = useState(false);
 
   const enabled = Boolean(project?.tenantId && journeyId && accessToken);
   const workspaceQuery = useQuery({
@@ -404,6 +406,12 @@ export default function BookingWorkspacePage() {
     ? workspace.proposals.filter((proposal) => proposal.sourceEvidenceId === currentReviewDocument.evidenceId)
     : [];
 
+  const missingMandatoryDocuments = [
+    ...(!part1.mandatoryEvidence.bookingDocketComplete ? ['Booking Form / Booking Docket'] : []),
+    ...(!part1.mandatoryEvidence.kycComplete ? ['PAN or Aadhaar'] : []),
+    ...(!part1.mandatoryEvidence.paymentReceiptComplete ? ['Booking Payment Receipt'] : []),
+  ];
+
   const formComplete = Boolean(
     form.priceListId && form.customerType && form.dealType && form.dealSource && form.leadSource
     && form.registrationState && form.territoryCategorization && form.districtName
@@ -487,7 +495,8 @@ export default function BookingWorkspacePage() {
     } finally { setUploadingKey(undefined); setBusy(false); }
   };
 
-  const handleStartReview = async () => {
+  const performStartReview = async () => {
+    setShowMissingEvidenceWarning(false);
     setBusy(true); setError(undefined); setMessage(undefined);
     try {
       const saved = await saveCurrentDetails();
@@ -495,16 +504,42 @@ export default function BookingWorkspacePage() {
       setVersion(review.aggregateVersion);
       const extraction = await refreshBookingExtraction(project.tenantId, journeyId, accessToken);
       setVersion(extraction.aggregateVersion);
+
+      if (missingMandatoryDocuments.length > 0) {
+        await raiseAuditFlag(
+          project.tenantId,
+          journeyId,
+          'BOOKING',
+          extraction.aggregateVersion,
+          {
+            category: 'DOCUMENT_EXCEPTION',
+            severity: 'INFO',
+            summary: 'Booking continued with mandatory evidence pending',
+            remarks: `PC chose Continue Anyway. Pending mandatory evidence: ${missingMandatoryDocuments.join(', ')}. Booking remains In Progress.`,
+          },
+          accessToken,
+        );
+      }
+
       await refreshAll();
       setReviewDocuments(review.documents);
       setReviewIndex(0);
       setStep(3);
-      setMessage(review.raisedObservationIds.length
-        ? 'Booking details saved. Missing optional Corporate/GST evidence was recorded as a non-blocking observation.'
+      setMessage(review.raisedObservationIds.length || missingMandatoryDocuments.length
+        ? 'Booking details saved. Missing evidence was recorded as non-blocking INFO audit information.'
         : 'Booking details saved. Document review is ready.');
     } catch (cause: unknown) {
       setError(cause instanceof Error ? cause.message : 'Booking review could not be started.');
     } finally { setBusy(false); }
+  };
+
+  const handleStartReview = () => {
+    setError(undefined); setMessage(undefined);
+    if (missingMandatoryDocuments.length > 0) {
+      setShowMissingEvidenceWarning(true);
+      return;
+    }
+    void performStartReview();
   };
 
   const handleApproveDocument = async () => {
@@ -559,7 +594,7 @@ export default function BookingWorkspacePage() {
       {started ? (
         <nav className="uc03-booking-steps" aria-label="Booking capture steps">
           <button type="button" className={step === 1 ? 'is-active' : ''} onClick={() => setStep(1)}>1 <span>Documents</span></button>
-          <button type="button" className={step === 2 ? 'is-active' : ''} disabled={!part1.mandatoryEvidence.part1EvidenceComplete} onClick={() => setStep(2)}>2 <span>Booking Details</span></button>
+          <button type="button" className={step === 2 ? 'is-active' : ''} onClick={() => setStep(2)}>2 <span>Booking Details</span></button>
           <button type="button" className={step === 3 ? 'is-active' : ''} disabled={reviewDocuments.length === 0} onClick={() => setStep(3)}>3 <span>Review</span></button>
         </nav>
       ) : null}
@@ -580,13 +615,13 @@ export default function BookingWorkspacePage() {
           </header>
           <div className="uc03-booking-document-grid">
             <UploadCard title="Booking Form / Booking Docket" requirement={bookingDocket} uploadBusy={uploadingKey === bookingDocket?.requirementKey} onUpload={handleUpload} />
+            <UploadCard title="Booking Payment Receipt(s)" requirement={paymentReceipt} uploadBusy={uploadingKey === paymentReceipt?.requirementKey} multiple onUpload={handleUpload} />
             <UploadCard title="PAN" requirement={pan} uploadBusy={uploadingKey === pan?.requirementKey} optional onUpload={handleUpload} />
             <UploadCard title="Aadhaar" requirement={aadhaar} uploadBusy={uploadingKey === aadhaar?.requirementKey} optional onUpload={handleUpload} />
-            <UploadCard title="Booking Payment Receipt(s)" requirement={paymentReceipt} uploadBusy={uploadingKey === paymentReceipt?.requirementKey} multiple onUpload={handleUpload} />
           </div>
           <div className="uc03-booking-step-footer">
-            <span>Booking Docket + at least one KYC document + one payment receipt are required.</span>
-            <button type="button" className="uc03-c1-primary" disabled={!part1.mandatoryEvidence.part1EvidenceComplete || Boolean(uploadingKey)} onClick={() => setStep(2)}>Continue to Booking Details →</button>
+            <span>Booking Docket + at least one KYC document + one payment receipt are expected. You may continue and complete missing evidence later.</span>
+            <button type="button" className="uc03-c1-primary" disabled={Boolean(uploadingKey)} onClick={() => setStep(2)}>Continue to Booking Details →</button>
           </div>
         </section>
       ) : step === 2 ? (
@@ -641,9 +676,25 @@ export default function BookingWorkspacePage() {
             ) : null}
           </div>
 
+          {showMissingEvidenceWarning ? (
+            <div className="uc03-booking-evidence-warning" role="alert">
+              <div>
+                <strong>Mandatory Booking documents are still pending.</strong>
+                <p>You can continue. The Booking will remain In Progress and an INFO audit flag will record the missing evidence.</p>
+                <ul>
+                  {missingMandatoryDocuments.map((item) => <li key={item}>{item}</li>)}
+                </ul>
+              </div>
+              <div className="uc03-booking-evidence-warning__actions">
+                <button type="button" className="uc03-c1-secondary" disabled={busy} onClick={() => setShowMissingEvidenceWarning(false)}>Go Back</button>
+                <button type="button" className="uc03-c1-primary" disabled={busy || Boolean(uploadingKey)} onClick={() => void performStartReview()}>{busy ? 'Continuing…' : 'Continue Anyway'}</button>
+              </div>
+            </div>
+          ) : null}
+
           <div className="uc03-booking-step-footer">
             <button type="button" className="uc03-c1-secondary" onClick={() => setStep(1)}>← Documents</button>
-            <button type="button" className="uc03-c1-primary" disabled={!formComplete || busy || Boolean(uploadingKey)} onClick={() => void handleStartReview()}>{busy ? 'Preparing Review…' : 'Review Booking Details →'}</button>
+            <button type="button" className="uc03-c1-primary" disabled={!formComplete || busy || Boolean(uploadingKey)} onClick={handleStartReview}>{busy ? 'Preparing Review…' : 'Review Booking Details →'}</button>
           </div>
         </section>
       ) : (

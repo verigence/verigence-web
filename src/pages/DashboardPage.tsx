@@ -1,8 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 
-import MetricCard from '../components/MetricCard';
 import PageHeader from '../components/PageHeader';
 import StatusPill from '../components/StatusPill';
 import type { OperatingRole } from '../domain/models';
@@ -57,17 +56,69 @@ function StageBlock({ label, item }: { label: string; item: Uc03WorkItem['bookin
   );
 }
 
+type LandingMetricProps = {
+  label: string;
+  value: string;
+  detail: string;
+  actionLabel?: string;
+  attention?: boolean;
+  onSelect?: () => void;
+};
+
+function LandingMetric({ label, value, detail, actionLabel, attention, onSelect }: LandingMetricProps) {
+  const content = (
+    <>
+      <span className="uc03-landing-metric__label">{label}</span>
+      <strong className="uc03-landing-metric__value">{value}</strong>
+      <span className="uc03-landing-metric__detail">{detail}</span>
+      {actionLabel && <span className="uc03-landing-metric__action">{actionLabel}<span aria-hidden="true">→</span></span>}
+    </>
+  );
+
+  if (onSelect) {
+    return (
+      <button type="button" className="uc03-landing-metric is-action" onClick={onSelect}>
+        {content}
+      </button>
+    );
+  }
+
+  return <article className={`uc03-landing-metric${attention ? ' is-attention' : ''}`}>{content}</article>;
+}
+
 function WorkItemCard({ item, timezoneName }: { item: Uc03WorkItem; timezoneName: string }) {
+  const navigate = useNavigate();
+  const [moreOpen, setMoreOpen] = useState(false);
   const bookingStatus = item.booking.businessStatus;
+  const bookingPath = `/bookings/${item.journeyId}`;
   const deliveryEligible = Boolean(
     item.delivery.businessStatus
       || bookingStatus === 'BOOKING_STARTED'
       || bookingStatus === 'BOOKING_IN_PROGRESS'
       || bookingStatus === 'BOOKING_CLOSED',
   );
+  const auditAvailable = Boolean(item.booking.businessStatus || item.delivery.businessStatus || item.totalFlagCount > 0);
+  const hasSecondaryActions = deliveryEligible || auditAvailable;
 
   return (
-    <article className="uc03-work-card">
+    <article
+      className="uc03-work-card uc03-work-card--interactive"
+      role="link"
+      tabIndex={0}
+      aria-label={`Open Booking for ${item.customerDisplayName}`}
+      onClick={(event) => {
+        const target = event.target as HTMLElement;
+        if (target.closest('a, button')) return;
+        navigate(bookingPath);
+      }}
+      onKeyDown={(event) => {
+        if (event.target !== event.currentTarget) return;
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          navigate(bookingPath);
+        }
+      }}
+    >
       <header className="uc03-work-card__header">
         <div>
           <span className="uc03-work-card__reference">{item.bookingReference || 'Booking reference pending'}</span>
@@ -92,23 +143,53 @@ function WorkItemCard({ item, timezoneName }: { item: Uc03WorkItem; timezoneName
       </div>
 
       <footer className="uc03-work-card__footer">
-        <div>
+        <div className="uc03-work-card__activity">
           <span>Latest activity {activityLabel(item.latestActivityAtUtc, timezoneName)}</span>
           {item.processingDocumentCount > 0 && (
             <span>{item.processingDocumentCount} document{item.processingDocumentCount === 1 ? '' : 's'} processing</span>
           )}
+          <span className="uc03-work-card__primary-hint">Open Booking <span aria-hidden="true">→</span></span>
         </div>
-        <div className="uc03-work-card__actions">
-          <Link className="uc03-c1-secondary" to={`/bookings/${item.journeyId}`}>Open Booking</Link>
-          {deliveryEligible && (
-            <Link className="uc03-c1-secondary" to={`/deliveries/${item.journeyId}`}>
-              {item.delivery.businessStatus ? 'Open Delivery' : 'Start Delivery'}
-            </Link>
-          )}
-          {(item.booking.businessStatus || item.delivery.businessStatus || item.totalFlagCount > 0) && (
-            <Link className="uc03-c1-secondary" to={`/audit/${item.journeyId}`}>Audit &amp; History</Link>
-          )}
-        </div>
+
+        {hasSecondaryActions && (
+          <>
+            <div className="uc03-work-card__actions uc03-work-card__actions--desktop">
+              {deliveryEligible && (
+                <Link className="uc03-c1-secondary" to={`/deliveries/${item.journeyId}`}>
+                  {item.delivery.businessStatus ? 'Delivery' : 'Start Delivery'}
+                </Link>
+              )}
+              {auditAvailable && (
+                <Link className="uc03-c1-secondary" to={`/audit/${item.journeyId}`}>Audit Review</Link>
+              )}
+            </div>
+
+            <div className="uc03-work-card__mobile-more">
+              <button
+                type="button"
+                className="uc03-work-card__more-button"
+                aria-expanded={moreOpen}
+                aria-label={`More actions for ${item.customerDisplayName}`}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  setMoreOpen((current) => !current);
+                }}
+              >
+                <span>More</span><strong aria-hidden="true">•••</strong>
+              </button>
+              {moreOpen && (
+                <div className="uc03-work-card__more-menu" role="menu">
+                  {deliveryEligible && (
+                    <Link role="menuitem" to={`/deliveries/${item.journeyId}`}>
+                      {item.delivery.businessStatus ? 'Open Delivery' : 'Start Delivery'}
+                    </Link>
+                  )}
+                  {auditAvailable && <Link role="menuitem" to={`/audit/${item.journeyId}`}>Audit Review</Link>}
+                </div>
+              )}
+            </div>
+          </>
+        )}
       </footer>
     </article>
   );
@@ -170,12 +251,13 @@ export default function DashboardPage() {
   const scopeDetail = selectedOutlet
     ? `${selectedOutlet.dealerName} · ${selectedOutlet.outletName}`
     : 'Current authorized Project scope';
-  const metricCards = [
-    { label: 'Bookings In Progress', value: metrics ? String(metrics.bookingsInProgress) : '—', detail: scopeDetail },
-    { label: 'Delivery In Progress', value: metrics ? String(metrics.deliveryInProgress) : '—', detail: scopeDetail },
-    { label: 'Needs Attention', value: metrics ? String(metrics.needsAttention) : '—', detail: 'Cases with an open or acknowledged Audit Flag' },
-    { label: 'Audit Flags', value: metrics ? String(metrics.auditFlags) : '—', detail: 'Open and acknowledged flags in your scope' },
-  ];
+
+  const selectWork = (nextWorkType: Uc03WorkType) => {
+    setWorkType(nextWorkType);
+    window.requestAnimationFrame(() => {
+      document.getElementById('uc03-work-list-title')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  };
 
   const handleNext = () => {
     const next = workQuery.data?.nextCursor;
@@ -198,14 +280,14 @@ export default function DashboardPage() {
   return (
     <div className="screen-stack uc03-landing">
       <PageHeader
-        eyebrow={roleLabels[project.operatingRole]}
+        eyebrow={`${roleLabels[project.operatingRole]} Workspace`}
         title={project.projectName}
         description={selectedOutlet
-          ? `Booking and Delivery work for ${selectedOutlet.dealerName} · ${selectedOutlet.outletName}.`
+          ? `${selectedOutlet.dealerName} · ${selectedOutlet.outletName}`
           : 'Booking and Delivery work for your current Project and authorized business scope.'}
         actions={project.operatingRole === 'PC' ? (
           <Link className="uc03-landing__capture-action" to="/dashboard?action=create-booking">
-            Capture New Booking
+            <span aria-hidden="true">＋</span> Capture New Booking
           </Link>
         ) : undefined}
       />
@@ -220,8 +302,33 @@ export default function DashboardPage() {
           <button type="button" className="user-menu-button" onClick={() => metricsQuery.refetch()}>Try Again</button>
         </section>
       ) : (
-        <div className="metric-grid">
-          {metricCards.map((metric) => <MetricCard key={metric.label} metric={metric} />)}
+        <div className="uc03-landing-metrics" aria-label="Current work summary">
+          <LandingMetric
+            label="Bookings In Progress"
+            value={metrics ? String(metrics.bookingsInProgress) : '—'}
+            detail={scopeDetail}
+            actionLabel="View Bookings"
+            onSelect={() => selectWork('BOOKING')}
+          />
+          <LandingMetric
+            label="Delivery In Progress"
+            value={metrics ? String(metrics.deliveryInProgress) : '—'}
+            detail={scopeDetail}
+            actionLabel="View Deliveries"
+            onSelect={() => selectWork('DELIVERY')}
+          />
+          <LandingMetric
+            label="Needs Attention"
+            value={metrics ? String(metrics.needsAttention) : '—'}
+            detail="Cases with an open or acknowledged Audit Flag"
+            attention={Boolean(metrics?.needsAttention)}
+          />
+          <LandingMetric
+            label="Audit Flags"
+            value={metrics ? String(metrics.auditFlags) : '—'}
+            detail="Open and acknowledged flags in your scope"
+            attention={Boolean(metrics?.auditFlags)}
+          />
         </div>
       )}
 
@@ -230,7 +337,7 @@ export default function DashboardPage() {
           <div>
             <span>{selectedOutlet ? 'Current Outlet' : 'Current Project'}</span>
             <h2 id="uc03-work-list-title">Latest Bookings &amp; Deliveries</h2>
-            <p>Latest meaningful activity first. Up to 10 transactions are loaded at a time.</p>
+            <p>Tap a Booking to continue work. Use the secondary action only when you need Delivery or Audit Review.</p>
           </div>
         </header>
 
@@ -289,7 +396,7 @@ export default function DashboardPage() {
               {workQuery.data.items.length === 0 && (
                 <div className="uc03-work-empty">
                   <strong>No matching Booking or Delivery work.</strong>
-                  <p>Create a Booking to begin a new Journey.</p>
+                  <p>Capture a new Booking to begin a Journey.</p>
                 </div>
               )}
             </div>

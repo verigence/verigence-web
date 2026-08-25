@@ -28,7 +28,7 @@ const projectAdministrationItem: NavItem = {
 
 const createBookingItem: NavItem = {
   to: '/dashboard?action=create-booking',
-  label: 'Create Booking',
+  label: 'Capture New Booking',
   mark: 'CB',
   roles: ['PC'],
 };
@@ -164,7 +164,7 @@ export default function AppShell({ children }: PropsWithChildren) {
   };
 
   const currentLabel = createBookingMode
-    ? 'Create Booking'
+    ? 'Capture New Booking'
     : routeLabels[location.pathname]
       ?? location.pathname.split('/').filter(Boolean).at(-1)?.replaceAll('-', ' ')
       ?? 'Overview';

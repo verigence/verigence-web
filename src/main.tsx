@@ -37,6 +37,7 @@ import './styles/android-native.css';
 import './styles/uc03-c0.css';
 import './styles/uc03-c1.css';
 import './styles/uc03-c1-responsive-fixes.css';
+import './styles/uc03-capture-flow.css';
 import './styles/uc03-c2.css';
 import './styles/uc03-c3.css';
 import './styles/auth-brand-emphasis.css';

@@ -1,9 +1,10 @@
 # UC03 — Booking & Delivery Audit — Web/Android Pointer
 
-**Unified UC03 branch:** `planning/uc-003-booking-delivery-audit`  
-**Original frozen baseline:** `dev@2c98f753ed1428c0d5f7a0b7144169d528a5bb78`
+**UC03 canonical planning branch:** `planning/uc-003-booking-delivery-audit`  
+**Original frozen baseline:** `dev@2c98f753ed1428c0d5f7a0b7144169d528a5bb78`  
+**Documentation/status refreshed:** `2026-08-25`
 
-The canonical UC03 business/workflow/implementation and current execution-status set is maintained in:
+The canonical UC03 business/workflow/implementation and execution-status set is maintained in:
 
 `verigence-audit-core / planning/uc-003-booking-delivery-audit / docs/uc-003-booking-delivery-audit/`
 
@@ -17,17 +18,24 @@ Current canonical Audit Core documents include:
 - `UC03_IMPLEMENTATION_DESIGN_v0.1.md`
 - `UC03_IMPLEMENTATION_HANDOFF_v1.1.md` — approved execution contract
 - `UC03_EXECUTION_BASELINE_ADDENDUM_2026-08-23.md` — active stabilization/continuity override
+- `UC03_UI_LAYOUT_AMENDMENT_2026-08-25.md` — dated UI-only refinement pointer
 - `status/UC03_C0_FOUNDATION.md`
 - `status/UC03_C1_BOOKING.md`
 - `status/UC03_C2_DELIVERY.md`
 - `status/UC03_C3_AUDIT.md`
 - `status/UC03_PHASE1_PRODUCT_BASELINE.md`
 
-## Single-branch execution rule
+## Branch / integration note — 25-Aug-2026
 
-Web/Android implementation continues on this existing UC03 branch. Do not create Booking, Delivery, Audit, Android or separate `work/uc-003-*` branches.
+The designated UC03 planning branch remains `planning/uc-003-booking-delivery-audit`. The current Web `dev` branch, however, already contains later UC03 UI integration from the recent Booking/mobile/capture PRs and is therefore the active UI comparison baseline.
 
-Feature checkpoints are:
+Do **not** bulk-merge all of `dev` into the UC03 planning branch merely to catch it up: `dev` also contains unrelated product work. Reconciliation back to planning must be UC03-scoped and deliberate.
+
+The Phase 1 / Phase 2 UI refinement recorded below is implemented against the current `dev` integration baseline. It changes presentation and client loading behavior only; it does not change Audit Core workflow authority.
+
+## Execution checkpoints
+
+Feature checkpoints remain:
 
 ```text
 C0 Foundation / Project Context
@@ -48,33 +56,52 @@ Working shorthand **C4** means only the final full-product regression/DEV-UAT ba
 ## Web/Android design artifacts
 
 1. [`UC03_UX_FLOW_CONTRACT_v0.1.md`](./UC03_UX_FLOW_CONTRACT_v0.1.md) — original Android-first screen/state interaction contract.
-2. [`UC03_ANDROID_WEB_MOCKUPS_v0.1.html`](./UC03_ANDROID_WEB_MOCKUPS_v0.1.html) — static design-review pack.
-3. [`UC03_UX_REVIEW_NOTES_v0.2.md`](./UC03_UX_REVIEW_NOTES_v0.2.md) — accepted review amendment; supersedes conflicting v0.1 mockup/UX details.
+2. [`UC03_ANDROID_WEB_MOCKUPS_v0.1.html`](./UC03_ANDROID_WEB_MOCKUPS_v0.1.html) — original static design-review pack.
+3. [`UC03_UX_REVIEW_NOTES_v0.2.md`](./UC03_UX_REVIEW_NOTES_v0.2.md) — accepted 22-Aug review amendment.
+4. [`UC03_UI_LAYOUT_AMENDMENT_2026-08-25.md`](./UC03_UI_LAYOUT_AMENDMENT_2026-08-25.md) — current Phase 1 / Phase 2 UI layout and interaction baseline.
+5. [`UC03_PC_UI_MOCKUPS_2026-08-25.html`](./UC03_PC_UI_MOCKUPS_2026-08-25.html) — updated reference mockup board for PC Overview, compact/expanded work rows, Capture New Booking, Booking Workspace and mobile consistency.
 
-## Accepted UX amendment
+Where visual/layout guidance conflicts, the 25-Aug amendment takes precedence. It does not supersede authoritative Audit Core workflow/state/security contracts.
 
-Implementation must:
+## Phase 1 — PC landing/dashboard visual refactor
 
-- reuse `src/assets/verigenceLockup.ts` for the approved Verigence identity;
-- resolve Project context before PC/TL/PM operational landing;
-- auto-select exactly one available Project;
-- show Choose Project when more than one is available;
-- bind operating role to selected Project;
-- use **Delivery In Progress**, not Delivery Today;
-- use **Latest Bookings & Deliveries**;
-- default to latest 10 transactions;
-- provide All / Bookings / Deliveries + date/date-range filtering;
-- keep results at 10 per page;
-- use Project timezone for date boundaries;
-- allow further UX refinement during Android/tablet/Web UAT.
+Phase 1 is implemented as a visual/information-hierarchy refinement with no backend/API redesign.
+
+It covers:
+
+- selected Project + Process Coordinator workspace identity;
+- Dealer / Outlet context close to the page title;
+- visible **Capture New Booking** primary action;
+- operational KPI cards for Bookings In Progress, Delivery In Progress, Needs Attention and Audit Flags;
+- actionable Booking/Delivery KPI filters;
+- **Latest Bookings & Deliveries** as the primary work surface;
+- cleaner spacing, card/row styling and responsive density;
+- Booking as the primary transaction action, with Delivery and Audit Review secondary;
+- Booking Workspace header/presentation aligned to the same UC01-derived visual baseline;
+- approved Verigence lockup, blue/teal palette, typography and enterprise visual language preserved.
+
+## Phase 2 — interaction refinement
+
+Phase 2 is implemented on top of Phase 1 and covers:
+
+- progressive/lazy loading of the server-paged work list;
+- API page size remains bounded at 10 transactions while the client appends subsequent pages;
+- automatic next-page loading near the end of the list plus an explicit **Load more** fallback;
+- simplified All / Bookings / Deliveries + From/To date filter treatment;
+- compact work rows by default for fast scanning;
+- **View details / Hide details** in-place expansion;
+- expanded Booking/Delivery audit state, flags, document-processing count and proposal-ready count;
+- consistent content hierarchy across desktop Web, tablet and Android phone;
+- mobile secondary actions retained behind the compact More action;
+- no change to server-returned permitted actions or workflow authority.
 
 ## Web/Android responsibility
 
 Web/Android owns presentation and interaction only:
 
-- Project selection/switching;
-- Project-scoped landing;
-- Create/Open Booking;
+- Project and PC Outlet selection/switching;
+- Project/Outlet-scoped landing;
+- Capture/Open Booking;
 - Booking capture;
 - Delivery capture;
 - document upload and Android camera interactions;
@@ -108,21 +135,12 @@ Per the Audit Core execution addendum, **do not redesign or materially change CI
 
 Provider throttling/outage or checkpoint-validation inconvenience is recorded as an external blocker and retried using the existing baseline. Railway/GitHub/Cloudflare deployment architecture, credential strategy, workflow trust and promotion design are not to be changed merely to unblock UC03.
 
-The Web branch previously contained temporary C2 PR-deployment instrumentation. During C3 closure, `.github/workflows/deploy-uc001-dev.yml` was restored byte-for-byte to the current `dev` baseline. This was cleanup of temporary validation instrumentation, not a CI/CD redesign.
-
 A CI/CD architecture review may begin only after UC03 is stable following full C0-C3 regression and consolidated human DEV/UAT.
 
-## Current Web/Android status — 23-Aug-2026
+## Current Web/Android status — 25-Aug-2026
 
-C0-C3 Web engineering is present, including:
+C0-C3 Web engineering remains present, including Project context, Booking, Delivery, Audit/History and cross-stage timeline presentation.
 
-- Project context/landing;
-- Booking workspace;
-- Delivery workspace and Android Camera evidence;
-- `/audit/:journeyId` Audit/History workspace;
-- human/machine finding presentation and server-authorized lifecycle actions;
-- complete cross-stage timeline presentation.
+The current `dev` UI baseline also contains the PC landing/capture/Booking visual refinements from the recent UC03 PRs. Phase 1 and Phase 2 of the 25-Aug UI refinement are now represented in the runtime source and dated reference documentation.
 
-Latest C3 Web client hardening removes human `blockingCompletion` from the request contract.
-
-Automated product-baseline evidence is recorded canonically in Audit Core `status/UC03_PHASE1_PRODUCT_BASELINE.md`. Human UAT remains pending and no planning branch is promotion-approved yet.
+Automated build/visual/native status must be taken from the CI runs for the relevant commits. **Human UAT remains pending**; no automated result is to be recorded as a human-UAT pass.

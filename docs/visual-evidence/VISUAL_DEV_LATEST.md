@@ -4,6 +4,6 @@
 - run_id: 32870986661
 - run_number: 46
 - source_sha: 9391ac3cb697a9bd69998c84c38d9e318df5ea77
-- result: running
+- result: cancelled
 - governance: Login-background + operational-context + adaptive/scroll checks
 - workflow_url: https://github.com/verigence/verigence-web/actions/runs/32870986661

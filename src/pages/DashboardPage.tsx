@@ -235,6 +235,7 @@ export default function DashboardPage() {
   const [workType, setWorkType] = useState<Uc03WorkType>('ALL');
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
 
   const selectedOutlet = project?.scope.outlets.find((outlet) => outlet.outletId === outletId);
@@ -296,9 +297,12 @@ export default function DashboardPage() {
   }
 
   const metrics = metricsQuery.data;
-  const scopeDetail = selectedOutlet
-    ? `${selectedOutlet.dealerName} · ${selectedOutlet.outletName}`
-    : 'Current authorized Project scope';
+  const isPc = project.operatingRole === 'PC';
+  const headerTitle = isPc && selectedOutlet ? selectedOutlet.outletName : project.projectName;
+  const headerDescription = isPc && selectedOutlet
+    ? selectedOutlet.dealerName
+    : 'Booking and Delivery work for your current authorized business scope.';
+  const activeDateFilterCount = Number(Boolean(fromDate)) + Number(Boolean(toDate));
 
   const selectWork = (nextWorkType: Uc03WorkType) => {
     setWorkType(nextWorkType);
@@ -310,14 +314,12 @@ export default function DashboardPage() {
   const invalidDateRange = Boolean(fromDate && toDate && fromDate > toDate);
 
   return (
-    <div className="screen-stack uc03-landing uc03-landing--phase2">
+    <div className="screen-stack uc03-landing uc03-landing--phase2 uc03-landing--approved">
       <PageHeader
         eyebrow={`${roleLabels[project.operatingRole]} Workspace`}
-        title={project.projectName}
-        description={selectedOutlet
-          ? `${selectedOutlet.dealerName} · ${selectedOutlet.outletName}`
-          : 'Booking and Delivery work for your current Project and authorized business scope.'}
-        actions={project.operatingRole === 'PC' ? (
+        title={headerTitle}
+        description={headerDescription}
+        actions={isPc ? (
           <Link className="uc03-landing__capture-action" to="/dashboard?action=create-booking">
             <span aria-hidden="true">＋</span> Capture New Booking
           </Link>
@@ -328,84 +330,93 @@ export default function DashboardPage() {
         <section className="dashboard-load-state" role="alert">
           <div className="dashboard-load-state__mark" aria-hidden="true">!</div>
           <div className="dashboard-load-state__copy">
-            <strong>We couldn't load the Project summary.</strong>
-            <p>Please try again. Your work list is kept separate from this summary.</p>
+            <strong>We couldn't load the work summary.</strong>
+            <p>Please try again. Your recent work list is kept separate from this summary.</p>
           </div>
           <button type="button" className="user-menu-button" onClick={() => metricsQuery.refetch()}>Try Again</button>
         </section>
       ) : (
         <div className="uc03-landing-metrics" aria-label="Current work summary">
           <LandingMetric
-            label="Bookings In Progress"
+            label="Bookings"
             value={metrics ? String(metrics.bookingsInProgress) : '—'}
-            detail={scopeDetail}
-            actionLabel="View Bookings"
+            detail="In progress"
+            actionLabel="View"
             onSelect={() => selectWork('BOOKING')}
           />
           <LandingMetric
-            label="Delivery In Progress"
+            label="Deliveries"
             value={metrics ? String(metrics.deliveryInProgress) : '—'}
-            detail={scopeDetail}
-            actionLabel="View Deliveries"
+            detail="In progress"
+            actionLabel="View"
             onSelect={() => selectWork('DELIVERY')}
           />
           <LandingMetric
-            label="Needs Attention"
+            label="Attention"
             value={metrics ? String(metrics.needsAttention) : '—'}
-            detail="Cases with an open or acknowledged Audit Flag"
+            detail="Cases needing review"
             attention={Boolean(metrics?.needsAttention)}
           />
           <LandingMetric
             label="Audit Flags"
             value={metrics ? String(metrics.auditFlags) : '—'}
-            detail="Open and acknowledged flags in your scope"
+            detail="Open / acknowledged"
             attention={Boolean(metrics?.auditFlags)}
           />
         </div>
       )}
 
       <section className="uc03-work-list" aria-labelledby="uc03-work-list-title">
-        <header className="uc03-work-list__heading">
+        <header className="uc03-work-list__heading uc03-work-list__heading--approved">
           <div>
-            <span>{selectedOutlet ? 'Current Outlet' : 'Current Project'}</span>
-            <h2 id="uc03-work-list-title">Latest Bookings &amp; Deliveries</h2>
-            <p>Recent work loads progressively. Open a Booking directly or expand a row for Delivery and Audit detail.</p>
+            <span>Latest Bookings &amp; Deliveries</span>
+            <h2 id="uc03-work-list-title">Recent Work</h2>
           </div>
+          <button
+            type="button"
+            className={`uc03-filter-toggle${filtersOpen || activeDateFilterCount ? ' is-active' : ''}`}
+            aria-expanded={filtersOpen}
+            onClick={() => setFiltersOpen((current) => !current)}
+          >
+            Filters{activeDateFilterCount > 0 ? ` (${activeDateFilterCount})` : ''}
+          </button>
         </header>
 
-        <div className="uc03-work-filters uc03-work-filters--phase2">
-          <div className="uc03-work-filter-tabs" role="group" aria-label="Transaction type">
-            {(['ALL', 'BOOKING', 'DELIVERY'] as const).map((value) => (
-              <button
-                type="button"
-                key={value}
-                className={workType === value ? 'is-active' : ''}
-                aria-pressed={workType === value}
-                onClick={() => setWorkType(value)}
-              >
-                {value === 'ALL' ? 'All' : value === 'BOOKING' ? 'Bookings' : 'Deliveries'}
-              </button>
-            ))}
-          </div>
-
-          <div className="uc03-date-range" role="group" aria-label="Date range">
-            <label>
-              <span>From</span>
-              <input type="date" value={fromDate} onChange={(event) => setFromDate(event.target.value)} />
-            </label>
-            <span className="uc03-date-range__separator" aria-hidden="true">→</span>
-            <label>
-              <span>To</span>
-              <input type="date" value={toDate} onChange={(event) => setToDate(event.target.value)} />
-            </label>
-          </div>
-
-          {(fromDate || toDate) && (
-            <button type="button" className="uc03-clear-filter" onClick={() => { setFromDate(''); setToDate(''); }}>
-              Clear dates
+        <div className="uc03-work-filter-tabs uc03-work-filter-tabs--approved" role="group" aria-label="Transaction type">
+          {(['ALL', 'BOOKING', 'DELIVERY'] as const).map((value) => (
+            <button
+              type="button"
+              key={value}
+              className={workType === value ? 'is-active' : ''}
+              aria-pressed={workType === value}
+              onClick={() => setWorkType(value)}
+            >
+              {value === 'ALL' ? 'All' : value === 'BOOKING' ? 'Bookings' : 'Deliveries'}
             </button>
-          )}
+          ))}
         </div>
+
+        {(filtersOpen || activeDateFilterCount > 0) && (
+          <div className="uc03-work-filters uc03-work-filters--approved">
+            <div className="uc03-date-range" role="group" aria-label="Date range">
+              <label>
+                <span>From</span>
+                <input type="date" value={fromDate} onChange={(event) => setFromDate(event.target.value)} />
+              </label>
+              <span className="uc03-date-range__separator" aria-hidden="true">→</span>
+              <label>
+                <span>To</span>
+                <input type="date" value={toDate} onChange={(event) => setToDate(event.target.value)} />
+              </label>
+            </div>
+
+            {(fromDate || toDate) && (
+              <button type="button" className="uc03-clear-filter" onClick={() => { setFromDate(''); setToDate(''); }}>
+                Clear dates
+              </button>
+            )}
+          </div>
+        )}
 
         {invalidDateRange && <p className="uc03-filter-error" role="alert">From date must be on or before To date.</p>}
 
@@ -433,7 +444,7 @@ export default function DashboardPage() {
               {workItems.length === 0 && (
                 <div className="uc03-work-empty">
                   <strong>No matching Booking or Delivery work.</strong>
-                  <p>Capture a new Booking to begin a Journey.</p>
+                  <p>Capture a new Booking to begin.</p>
                 </div>
               )}
             </div>

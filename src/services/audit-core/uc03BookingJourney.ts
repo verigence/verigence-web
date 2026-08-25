@@ -172,7 +172,7 @@ export async function approveBookingReviewDocument(
   accessToken?: string,
 ): Promise<BookingReviewApprovalResult> {
   return auditCoreRequest<BookingReviewApprovalResult>(
-    `${base(tenantId, journeyId)}/review/${encodeURIComponent(evidenceId)}/approve-editable`,
+    `${base(tenantId, journeyId)}/review/${encodeURIComponent(evidenceId)}/approve`,
     {
       method: 'POST',
       accessToken: token(accessToken),

@@ -5,6 +5,8 @@ import {
 } from './uc03PcBookingDocuments';
 
 export interface Part1EvidenceItem {
+  // On the active PC direct-DI path this is the DI documentId. The legacy field
+  // name is retained so the existing Booking page does not need a layout rewrite.
   evidenceId: string;
   documentTypeKey: string;
   processingStatus: string | null;
@@ -94,28 +96,29 @@ export async function getBookingPart1(
     cache: 'no-store',
   });
 
-  // DI -> Audit Core linkage is intentionally asynchronous. Immediately after a
-  // successful direct upload, preserve the PC's visible Uploaded state using only
-  // the documentId already returned by DI; no additional DB write or status poll is
-  // introduced here. Once the callback lands, the normal Audit Core evidence row
-  // naturally replaces this in-memory bridge.
   try {
     const context = await prepareBookingDocumentUploadContext(tenantId, journeyId, accessToken);
     const now = new Date().toISOString();
     const requirements = view.requirements.map((requirement) => {
       const slot = context.requirements.find((item) => sameRequirement(item.requirementKey, requirement.requirementKey));
       if (!slot) return requirement;
-      const existing = new Set(requirement.evidence.map((item) => item.evidenceId));
-      const local = locallyUploadedDocumentIds(tenantId, journeyId, slot.requirementRef)
-        .filter((documentId) => !existing.has(documentId))
-        .map((documentId) => ({
-          evidenceId: documentId,
-          documentTypeKey: slot.documentTypeKey,
-          processingStatus: null,
-          verificationStatus: null,
-          linkedAtUtc: now,
-        }));
-      return local.length ? { ...requirement, evidence: [...requirement.evidence, ...local] } : requirement;
+
+      // Audit Core owns the linkage but its legacy Part-1 DTO exposes Audit evidence
+      // UUIDs. Normalize the active PC UI to DI documentIds using the lightweight
+      // upload-context linkage. Also merge freshly returned DI IDs while the single
+      // asynchronous callback is still in flight.
+      const documentIds = [...slot.activeDocumentIds];
+      for (const documentId of locallyUploadedDocumentIds(tenantId, journeyId, slot.requirementRef)) {
+        if (!documentIds.includes(documentId)) documentIds.push(documentId);
+      }
+      const evidence = documentIds.map((documentId) => ({
+        evidenceId: documentId,
+        documentTypeKey: slot.documentTypeKey,
+        processingStatus: null,
+        verificationStatus: null,
+        linkedAtUtc: now,
+      }));
+      return { ...requirement, documentTypeKey: slot.documentTypeKey, evidence };
     });
     return withMandatorySummary(view, requirements);
   } catch {

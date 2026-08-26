@@ -42,29 +42,29 @@ function activityLabel(timestamp: string, timezoneName: string): string {
   }).format(date);
 }
 
-function greetingForTime(timezoneName: string): string {
-  try {
-    const hourText = new Intl.DateTimeFormat('en-GB', {
-      timeZone: timezoneName,
-      hour: '2-digit',
-      hourCycle: 'h23',
-    }).format(new Date());
-    const hour = Number.parseInt(hourText, 10);
-    if (hour < 12) return 'Good Morning';
-    if (hour < 17) return 'Good Afternoon';
-    return 'Good Evening';
-  } catch {
-    const hour = new Date().getHours();
-    if (hour < 12) return 'Good Morning';
-    if (hour < 17) return 'Good Afternoon';
-    return 'Good Evening';
-  }
+function activityRelativeLabel(timestamp: string): string {
+  const date = new Date(timestamp);
+  if (Number.isNaN(date.getTime())) return 'Unknown age';
+  const elapsedMs = Math.max(0, Date.now() - date.getTime());
+  const minutes = Math.floor(elapsedMs / 60_000);
+  if (minutes < 1) return 'Just now';
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days}d ago`;
+  const weeks = Math.floor(days / 7);
+  return `${weeks}w ago`;
 }
 
-function firstNameFromDisplayName(displayName: string): string {
-  const firstPart = displayName.trim().split(/[\s._-]+/).find(Boolean) || '';
-  if (!firstPart) return '';
-  return firstPart.charAt(0).toUpperCase() + firstPart.slice(1);
+function activityAgeTone(timestamp: string): string {
+  const date = new Date(timestamp);
+  if (Number.isNaN(date.getTime())) return 'is-age-neutral';
+  const elapsedHours = Math.max(0, Date.now() - date.getTime()) / 3_600_000;
+  // UI aging cue only — these are not contractual SLA thresholds.
+  if (elapsedHours >= 48) return 'is-age-critical';
+  if (elapsedHours >= 24) return 'is-age-warning';
+  return 'is-age-fresh';
 }
 
 function isVerified(stage: Uc03StageSummary): boolean {
@@ -126,23 +126,21 @@ function LandingMetric({ label, value, detail, actionLabel, attention, onSelect 
 }
 
 type DashboardHeroProps = {
-  greeting: string;
   dealershipName: string;
   outletName: string;
   showCaptureAction: boolean;
 };
 
-function DashboardHero({ greeting, dealershipName, outletName, showCaptureAction }: DashboardHeroProps) {
+function DashboardHero({ dealershipName, outletName, showCaptureAction }: DashboardHeroProps) {
   return (
-    <section className="uc03-dashboard-hero uc03-dashboard-hero--greeting" aria-labelledby="uc03-dashboard-hero-title">
+    <section className="uc03-dashboard-hero uc03-dashboard-hero--workqueue" aria-labelledby="uc03-dashboard-hero-title">
       <div className="uc03-dashboard-hero__copy">
-        <span className="uc03-dashboard-hero__greeting">{greeting}</span>
-        <h1 id="uc03-dashboard-hero-title">{dealershipName}</h1>
-        <p>{outletName}</p>
+        <h1 id="uc03-dashboard-hero-title">Work Queue</h1>
+        <p>{dealershipName}<span aria-hidden="true"> · </span>{outletName}</p>
       </div>
 
       {showCaptureAction && (
-        <Link className="uc03-landing__capture-action uc03-landing__capture-action--centered" to="/dashboard?action=create-booking">
+        <Link className="uc03-landing__capture-action uc03-landing__capture-action--workqueue" to="/dashboard?action=create-booking">
           <span aria-hidden="true">＋</span>
           <span>Capture New Booking</span>
         </Link>
@@ -151,12 +149,63 @@ function DashboardHero({ greeting, dealershipName, outletName, showCaptureAction
   );
 }
 
+type WorkPresentation = {
+  workLabel: 'Booking' | 'Delivery';
+  nextStep: string;
+  primaryActionLabel: string;
+  primaryPath: string;
+};
+
+function workPresentation(item: Uc03WorkItem): WorkPresentation {
+  const bookingPath = `/bookings/${item.journeyId}`;
+  const deliveryPath = `/deliveries/${item.journeyId}`;
+  const auditPath = `/audit/${item.journeyId}`;
+  const hasDelivery = Boolean(item.delivery.businessStatus);
+  const bookingStatus = item.booking.businessStatus;
+
+  if (item.openFlagCount > 0) {
+    return {
+      workLabel: hasDelivery ? 'Delivery' : 'Booking',
+      nextStep: `Review ${item.openFlagCount} audit flag${item.openFlagCount === 1 ? '' : 's'}`,
+      primaryActionLabel: 'Review Flags',
+      primaryPath: auditPath,
+    };
+  }
+
+  if (hasDelivery) {
+    return {
+      workLabel: 'Delivery',
+      nextStep: 'Continue delivery work',
+      primaryActionLabel: 'Continue Delivery',
+      primaryPath: deliveryPath,
+    };
+  }
+
+  if (bookingStatus === 'BOOKING_CLOSED') {
+    return {
+      workLabel: 'Booking',
+      nextStep: 'Start delivery',
+      primaryActionLabel: 'Start Delivery',
+      primaryPath: deliveryPath,
+    };
+  }
+
+  return {
+    workLabel: 'Booking',
+    nextStep: 'Continue booking',
+    primaryActionLabel: 'Continue Booking',
+    primaryPath: bookingPath,
+  };
+}
+
 function WorkItemCard({ item, timezoneName }: { item: Uc03WorkItem; timezoneName: string }) {
   const navigate = useNavigate();
   const [expanded, setExpanded] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
   const bookingStatus = item.booking.businessStatus;
   const bookingPath = `/bookings/${item.journeyId}`;
+  const deliveryPath = `/deliveries/${item.journeyId}`;
+  const auditPath = `/audit/${item.journeyId}`;
   const deliveryEligible = Boolean(
     item.delivery.businessStatus
       || bookingStatus === 'BOOKING_STARTED'
@@ -164,56 +213,67 @@ function WorkItemCard({ item, timezoneName }: { item: Uc03WorkItem; timezoneName
       || bookingStatus === 'BOOKING_CLOSED',
   );
   const auditAvailable = Boolean(item.booking.businessStatus || item.delivery.businessStatus);
-  const hasSecondaryActions = deliveryEligible || auditAvailable;
-  const isDeliveryWork = Boolean(item.delivery.businessStatus);
+  const presentation = workPresentation(item);
+  const isDeliveryWork = presentation.workLabel === 'Delivery';
   const primaryStage = isDeliveryWork ? item.delivery : item.booking;
-  const workLabel = isDeliveryWork ? 'Delivery' : 'Booking';
   const workStatus = friendlyStatus(primaryStage.businessStatus);
   const workStatusTone = statusTone(primaryStage.businessStatus);
+  const ageTone = activityAgeTone(item.latestActivityAtUtc);
+  const absoluteActivity = activityLabel(item.latestActivityAtUtc, timezoneName);
+  const relativeActivity = activityRelativeLabel(item.latestActivityAtUtc);
+  const severityClass = item.openFlagCount > 0 && item.highestOpenSeverity
+    ? ` is-severity-${item.highestOpenSeverity.toLowerCase()}`
+    : '';
 
   return (
     <article
-      className={`uc03-work-card uc03-work-card--interactive${expanded ? ' is-expanded' : ' is-compact'}`}
+      className={`uc03-work-card uc03-work-card--interactive${expanded ? ' is-expanded' : ' is-compact'}${item.openFlagCount > 0 ? ' has-attention' : ''}${severityClass}`}
       role="link"
       tabIndex={0}
-      aria-label={`Open Booking for ${item.customerDisplayName}`}
+      aria-label={`${presentation.primaryActionLabel} for ${item.customerDisplayName}`}
       onClick={(event) => {
         const target = event.target as HTMLElement;
         if (target.closest('a, button')) return;
-        navigate(bookingPath);
+        navigate(presentation.primaryPath);
       }}
       onKeyDown={(event) => {
         if (event.target !== event.currentTarget) return;
         if (event.key === 'Enter') {
           event.preventDefault();
-          navigate(bookingPath);
+          navigate(presentation.primaryPath);
         }
       }}
     >
       <header className="uc03-work-card__header">
         <div className="uc03-work-card__identity">
-          <span className="uc03-work-card__reference">{item.bookingReference || 'Booking reference pending'}</span>
           <h3>{item.customerDisplayName}</h3>
-          <p>{item.productLabel || 'Vehicle details pending'}</p>
-          <div className="uc03-work-card__desktop-meta" aria-label={`Type ${workLabel}`}>
-            <span className={`uc03-work-card__type-chip${isDeliveryWork ? ' is-delivery' : ''}`}>{workLabel}</span>
+          <div className="uc03-work-card__identity-meta">
+            <span className="uc03-work-card__type-label">{presentation.workLabel}</span>
+            {item.bookingReference && <span>{item.bookingReference}</span>}
           </div>
+          <p>{item.productLabel || 'Vehicle not captured'}</p>
+        </div>
+
+        <div className="uc03-work-card__next-step">
+          <span>Next step</span>
+          <strong>{presentation.nextStep}</strong>
+          {item.openFlagCount > 0 && (
+            <small>
+              {item.highestOpenSeverity ? `${friendlyStatus(item.highestOpenSeverity)} severity · ` : ''}
+              {item.openFlagCount} open flag{item.openFlagCount === 1 ? '' : 's'}
+            </small>
+          )}
         </div>
 
         <div className="uc03-work-card__summary uc03-work-card__summary--simple">
-          <span className="uc03-work-card__status-label">{workLabel}</span>
           <strong className={`uc03-work-status-pill ${workStatusTone}`}>{workStatus}</strong>
           <VerificationBadge stage={primaryStage} />
         </div>
       </header>
 
-      <div className="uc03-work-card__activity-cell">
-        {activityLabel(item.latestActivityAtUtc, timezoneName)}
-      </div>
-
-      <div className="uc03-work-card__location">
-        <span>{item.dealerName}</span><span aria-hidden="true">·</span><span>{item.outletName}</span>
-        {item.customerMobileLast4 && <span>Mobile •••• {item.customerMobileLast4}</span>}
+      <div className={`uc03-work-card__age ${ageTone}`} title={absoluteActivity}>
+        <strong>{relativeActivity}</strong>
+        <span>since activity</span>
       </div>
 
       {expanded && (
@@ -223,7 +283,9 @@ function WorkItemCard({ item, timezoneName }: { item: Uc03WorkItem; timezoneName
             <StageBlock label="Delivery" item={item.delivery} />
           </div>
           <div className="uc03-work-card__expanded-meta">
-            <span>Latest activity {activityLabel(item.latestActivityAtUtc, timezoneName)}</span>
+            <span>Last activity {absoluteActivity}</span>
+            <span>{item.dealerName}<span aria-hidden="true"> · </span>{item.outletName}</span>
+            {item.customerMobileLast4 && <span>Mobile •••• {item.customerMobileLast4}</span>}
             {item.processingDocumentCount > 0 && (
               <span>{item.processingDocumentCount} document{item.processingDocumentCount === 1 ? '' : 's'} processing</span>
             )}
@@ -235,63 +297,49 @@ function WorkItemCard({ item, timezoneName }: { item: Uc03WorkItem; timezoneName
       )}
 
       <footer className="uc03-work-card__footer">
-        <div className="uc03-work-card__activity">
-          {!expanded && <span>Latest activity {activityLabel(item.latestActivityAtUtc, timezoneName)}</span>}
-          <span className="uc03-work-card__primary-hint">Open Booking <span aria-hidden="true">→</span></span>
-        </div>
+        <Link className="uc03-work-card__primary-action" to={presentation.primaryPath}>
+          {presentation.primaryActionLabel}
+        </Link>
 
-        <div className="uc03-work-card__controls">
+        <div className="uc03-work-card__more">
           <button
             type="button"
-            className="uc03-work-card__details-button"
-            aria-expanded={expanded}
+            className="uc03-work-card__more-button"
+            aria-expanded={moreOpen}
+            aria-label={`More actions for ${item.customerDisplayName}`}
             onClick={(event) => {
               event.stopPropagation();
-              setExpanded((current) => !current);
-              setMoreOpen(false);
+              setMoreOpen((current) => !current);
             }}
           >
-            {expanded ? 'Hide details' : 'View details'}
+            <span aria-hidden="true">•••</span>
           </button>
 
-          {hasSecondaryActions && (
-            <>
-              <div className="uc03-work-card__actions uc03-work-card__actions--desktop">
-                {deliveryEligible && (
-                  <Link className="uc03-c1-secondary" to={`/deliveries/${item.journeyId}`}>
-                    {item.delivery.businessStatus ? 'Delivery' : 'Start Delivery'}
-                  </Link>
-                )}
-                {auditAvailable && (
-                  <Link className="uc03-c1-secondary" to={`/audit/${item.journeyId}`}>Audit Review</Link>
-                )}
-              </div>
-
-              <div className="uc03-work-card__mobile-more">
-                <button
-                  type="button"
-                  className="uc03-work-card__more-button"
-                  aria-expanded={moreOpen}
-                  aria-label={`More actions for ${item.customerDisplayName}`}
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    setMoreOpen((current) => !current);
-                  }}
-                >
-                  <span>More</span><strong aria-hidden="true">•••</strong>
-                </button>
-                {moreOpen && (
-                  <div className="uc03-work-card__more-menu" role="menu">
-                    {deliveryEligible && (
-                      <Link role="menuitem" to={`/deliveries/${item.journeyId}`}>
-                        {item.delivery.businessStatus ? 'Open Delivery' : 'Start Delivery'}
-                      </Link>
-                    )}
-                    {auditAvailable && <Link role="menuitem" to={`/audit/${item.journeyId}`}>Audit Review</Link>}
-                  </div>
-                )}
-              </div>
-            </>
+          {moreOpen && (
+            <div className="uc03-work-card__more-menu" role="menu">
+              <button
+                type="button"
+                role="menuitem"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  setExpanded((current) => !current);
+                  setMoreOpen(false);
+                }}
+              >
+                {expanded ? 'Hide details' : 'View details'}
+              </button>
+              {presentation.primaryPath !== bookingPath && (
+                <Link role="menuitem" to={bookingPath}>Open Booking</Link>
+              )}
+              {deliveryEligible && presentation.primaryPath !== deliveryPath && (
+                <Link role="menuitem" to={deliveryPath}>
+                  {item.delivery.businessStatus ? 'Open Delivery' : 'Start Delivery'}
+                </Link>
+              )}
+              {auditAvailable && presentation.primaryPath !== auditPath && (
+                <Link role="menuitem" to={auditPath}>Audit Review</Link>
+              )}
+            </div>
           )}
         </div>
       </footer>
@@ -304,7 +352,6 @@ export default function DashboardPage() {
   const project = useProjectContextStore((state) => state.selectedProject);
   const accessToken = useSessionStore((state) => state.accessToken);
   const outletId = useSessionStore((state) => state.outletId);
-  const displayName = useSessionStore((state) => state.displayName);
   const [workType, setWorkType] = useState<Uc03WorkType>('ALL');
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
@@ -348,6 +395,15 @@ export default function DashboardPage() {
     () => workQuery.data?.pages.flatMap((page) => page.items) ?? [],
     [workQuery.data],
   );
+  const displayedWorkItems = useMemo(
+    () => [...workItems].sort((left, right) => {
+      const leftTime = new Date(left.latestActivityAtUtc).getTime();
+      const rightTime = new Date(right.latestActivityAtUtc).getTime();
+      if (Number.isNaN(leftTime) || Number.isNaN(rightTime)) return 0;
+      return leftTime - rightTime;
+    }),
+    [workItems],
+  );
   const timezoneName = workQuery.data?.pages[0]?.filters.timezoneName || project?.timezoneName || 'UTC';
 
   useEffect(() => {
@@ -371,9 +427,6 @@ export default function DashboardPage() {
 
   const metrics = metricsQuery.data;
   const isPc = project.operatingRole === 'PC';
-  const pcFirstName = firstNameFromDisplayName(displayName);
-  const timeGreeting = greetingForTime(project.timezoneName || timezoneName);
-  const greeting = pcFirstName ? `${timeGreeting}, ${pcFirstName}` : timeGreeting;
   const dealershipName = isPc && selectedOutlet ? selectedOutlet.dealerName : 'Authorized Workspace';
   const outletName = isPc && selectedOutlet
     ? selectedOutlet.outletName
@@ -390,9 +443,8 @@ export default function DashboardPage() {
   const invalidDateRange = Boolean(fromDate && toDate && fromDate > toDate);
 
   return (
-    <div className="screen-stack uc03-landing uc03-landing--phase2 uc03-landing--approved uc03-landing--verification-simple">
+    <div className="screen-stack uc03-landing uc03-landing--phase2 uc03-landing--approved uc03-landing--verification-simple uc03-landing--workqueue">
       <DashboardHero
-        greeting={greeting}
         dealershipName={dealershipName}
         outletName={outletName}
         showCaptureAction={isPc}
@@ -403,7 +455,7 @@ export default function DashboardPage() {
           <div className="dashboard-load-state__mark" aria-hidden="true">!</div>
           <div className="dashboard-load-state__copy">
             <strong>We couldn't load the work summary.</strong>
-            <p>Please try again. Your recent work list is kept separate from this summary.</p>
+            <p>Please try again. Your work queue is kept separate from this summary.</p>
           </div>
           <button type="button" className="user-menu-button" onClick={() => metricsQuery.refetch()}>Try Again</button>
         </section>
@@ -426,7 +478,7 @@ export default function DashboardPage() {
           <LandingMetric
             label="Attention"
             value={metrics ? String(metrics.needsAttention) : '—'}
-            detail="Cases needing review"
+            detail="Needs review"
             attention={Boolean(metrics?.needsAttention)}
           />
         </div>
@@ -435,8 +487,10 @@ export default function DashboardPage() {
       <section className="uc03-work-list" aria-labelledby="uc03-work-list-title">
         <header className="uc03-work-list__heading uc03-work-list__heading--approved">
           <div>
-            <span>Latest Bookings &amp; Deliveries</span>
-            <h2 id="uc03-work-list-title">Recent Work</h2>
+            <h2 id="uc03-work-list-title">Work Queue</h2>
+            <p className="uc03-work-list__queue-note">
+              {displayedWorkItems.length} loaded · oldest loaded activity first
+            </p>
           </div>
           <button
             type="button"
@@ -504,18 +558,19 @@ export default function DashboardPage() {
         {!invalidDateRange && workQuery.data && (
           <>
             <div className="uc03-work-cards">
-              {workItems.length > 0 && (
+              {displayedWorkItems.length > 0 && (
                 <div className="uc03-work-table-head" aria-hidden="true">
                   <span>Work Item</span>
+                  <span>Next Step</span>
                   <span>Status</span>
-                  <span>Last Activity</span>
-                  <span>Actions</span>
+                  <span>Age</span>
+                  <span>Action</span>
                 </div>
               )}
-              {workItems.map((item) => (
+              {displayedWorkItems.map((item) => (
                 <WorkItemCard key={item.journeyId} item={item} timezoneName={timezoneName} />
               ))}
-              {workItems.length === 0 && (
+              {displayedWorkItems.length === 0 && (
                 <div className="uc03-work-empty">
                   <strong>No matching Booking or Delivery work.</strong>
                   <p>Capture a new Booking to begin.</p>
@@ -523,9 +578,9 @@ export default function DashboardPage() {
               )}
             </div>
 
-            {workItems.length > 0 && (
+            {displayedWorkItems.length > 0 && (
               <div className="uc03-lazy-load" aria-live="polite">
-                <span>{workItems.length} transaction{workItems.length === 1 ? '' : 's'} loaded</span>
+                <span>{displayedWorkItems.length} transaction{displayedWorkItems.length === 1 ? '' : 's'} loaded</span>
                 {workQuery.hasNextPage ? (
                   <button
                     type="button"

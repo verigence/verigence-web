@@ -1,11 +1,20 @@
 /*
  * Recent Work responsive table — 26 Aug 2026.
- * Desktop >= 900px: compact four-column mockup-aligned table rows.
- * Mobile < 900px: preserve the existing approved card presentation.
+ * Desktop >= 900px: compact four-column table with explicit actions.
+ * Mobile < 900px: preserve card presentation without duplicate workspace metadata.
  */
 
 .enterprise-shell--approved-nav .uc03-work-table-head {
   display: none;
+}
+
+/* Dealer/outlet are already established by the dashboard workspace context.
+ * Booking reference is omitted from this summary surface; the booking detail
+ * remains the source of truth for the actual reference when assigned.
+ */
+.enterprise-shell--approved-nav .uc03-work-card__reference,
+.enterprise-shell--approved-nav .uc03-work-card__location {
+  display: none !important;
 }
 
 @media (min-width: 900px) {
@@ -20,11 +29,11 @@
 
   .enterprise-shell--approved-nav .uc03-work-table-head {
     display: grid;
-    grid-template-columns: minmax(320px, 2.65fr) minmax(170px, 1fr) minmax(210px, 1.25fr) minmax(170px, 0.9fr);
+    grid-template-columns: minmax(260px, 1.55fr) minmax(150px, 0.75fr) minmax(175px, 0.85fr) minmax(330px, 1.55fr);
     align-items: center;
-    gap: 22px;
-    min-height: 46px;
-    padding: 0 20px;
+    gap: 14px;
+    min-height: 44px;
+    padding: 0 18px;
     border-bottom: 1px solid #dfe9ee;
     background: linear-gradient(180deg, #f8fbfc 0%, #f4f9fa 100%);
     color: #607a8e;
@@ -39,14 +48,14 @@
 
   .enterprise-shell--approved-nav .uc03-landing--approved .uc03-work-card {
     display: grid;
-    grid-template-columns: minmax(320px, 2.65fr) minmax(170px, 1fr) minmax(210px, 1.25fr) minmax(170px, 0.9fr);
+    grid-template-columns: minmax(260px, 1.55fr) minmax(150px, 0.75fr) minmax(175px, 0.85fr) minmax(330px, 1.55fr);
     grid-template-areas:
       "item status activity actions"
       "details details details details";
     align-items: center;
-    gap: 22px;
-    min-height: 82px !important;
-    padding: 12px 20px;
+    gap: 14px;
+    min-height: 72px !important;
+    padding: 10px 18px;
     border: 0 !important;
     border-bottom: 1px solid #e4edf1 !important;
     border-radius: 0 !important;
@@ -78,10 +87,6 @@
     min-width: 0;
   }
 
-  .enterprise-shell--approved-nav .uc03-work-card__reference {
-    display: none;
-  }
-
   .enterprise-shell--approved-nav .uc03-work-card__identity h3 {
     margin: 0 0 3px;
     color: #173a59;
@@ -104,13 +109,13 @@
     display: flex;
     align-items: center;
     gap: 8px;
-    margin-top: 7px;
+    margin-top: 6px;
   }
 
   .enterprise-shell--approved-nav .uc03-work-card__type-chip {
     display: inline-flex;
     align-items: center;
-    min-height: 23px;
+    min-height: 22px;
     padding: 0 8px;
     border: 1px solid #d8e4e9;
     border-radius: 999px;
@@ -137,8 +142,7 @@
   }
 
   .enterprise-shell--approved-nav .uc03-work-card__status-label,
-  .enterprise-shell--approved-nav .uc03-work-card__summary .uc03-verification-badge,
-  .enterprise-shell--approved-nav .uc03-work-card__location {
+  .enterprise-shell--approved-nav .uc03-work-card__summary .uc03-verification-badge {
     display: none;
   }
 
@@ -213,76 +217,45 @@
     border: 0;
   }
 
-  .enterprise-shell--approved-nav .uc03-work-card__activity {
-    display: none;
+  /* Last Activity belongs in its own column on desktop; do not repeat it in Actions. */
+  .enterprise-shell--approved-nav .uc03-work-card__footer .uc03-work-card__activity {
+    display: none !important;
   }
 
   .enterprise-shell--approved-nav .uc03-work-card__controls {
     display: flex;
     justify-content: flex-end;
     align-items: center;
-    gap: 8px;
+    gap: 7px;
     width: 100%;
   }
 
-  .enterprise-shell--approved-nav .uc03-work-card__details-button {
-    min-height: 34px;
-    padding: 0 13px;
-    border-color: #c4dbe1;
+  .enterprise-shell--approved-nav .uc03-work-card__details-button,
+  .enterprise-shell--approved-nav .uc03-work-card__actions--desktop .uc03-c1-secondary {
+    min-height: 32px;
+    padding: 0 10px;
     border-radius: 8px;
-    background: #ffffff;
-    color: #075e68;
-    font-size: 11px;
+    font-size: 10.5px;
     font-weight: 760;
     white-space: nowrap;
   }
 
+  .enterprise-shell--approved-nav .uc03-work-card__details-button {
+    border-color: #bcd9de;
+    background: #ffffff;
+    color: #075e68;
+  }
+
+  /* Desktop has room to expose the actual actions. The ellipsis menu is mobile-only. */
   .enterprise-shell--approved-nav .uc03-work-card__actions--desktop {
-    display: none !important;
+    display: flex !important;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 7px;
   }
 
   .enterprise-shell--approved-nav .uc03-work-card__mobile-more {
-    position: relative;
-    display: block !important;
-  }
-
-  .enterprise-shell--approved-nav .uc03-work-card__more-button {
-    display: inline-grid;
-    place-items: center;
-    width: 34px;
-    min-width: 34px;
-    height: 34px;
-    min-height: 34px;
-    padding: 0;
-    border: 1px solid transparent;
-    border-radius: 8px;
-    background: transparent;
-    color: #44647b;
-  }
-
-  .enterprise-shell--approved-nav .uc03-work-card__more-button:hover,
-  .enterprise-shell--approved-nav .uc03-work-card__more-button:focus-visible {
-    border-color: #cce4e3;
-    background: #f1faf9;
-    color: #007f79;
-  }
-
-  .enterprise-shell--approved-nav .uc03-work-card__more-button > span {
-    display: none;
-  }
-
-  .enterprise-shell--approved-nav .uc03-work-card__more-button > strong {
-    display: block;
-    transform: rotate(90deg);
-    font-size: 13px;
-    letter-spacing: 1px;
-    line-height: 1;
-  }
-
-  .enterprise-shell--approved-nav .uc03-work-card__more-menu {
-    right: 0;
-    left: auto;
-    min-width: 150px;
+    display: none !important;
   }
 
   .enterprise-shell--approved-nav .uc03-work-card__expanded-content {
@@ -298,5 +271,11 @@
   .enterprise-shell--approved-nav .uc03-work-card__desktop-meta,
   .enterprise-shell--approved-nav .uc03-work-card__activity-cell {
     display: none;
+  }
+
+  /* Keep the approved mobile card interaction, but remove workspace duplication. */
+  .enterprise-shell--approved-nav .uc03-work-card__reference,
+  .enterprise-shell--approved-nav .uc03-work-card__location {
+    display: none !important;
   }
 }

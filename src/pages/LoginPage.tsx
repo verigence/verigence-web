@@ -1,12 +1,13 @@
 import { useState, type FormEvent, type ReactNode } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 
-import verigenceLockup from '../assets/verigence-lockup.png';
 import {
   loginErrorMessage,
   loginHuman,
 } from '../services/security/auth';
 import { useSessionStore } from '../store/sessionStore';
+
+const approvedLockup = '/brand/approved/verigence-lockup.png?v=20260826-r1';
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -46,7 +47,7 @@ export default function LoginPage() {
   return (
     <main className="frozen-auth-screen">
       <article className="frozen-auth-card frozen-auth-card--login" aria-labelledby="sign-in-title">
-        <img className="frozen-auth-logo" src={verigenceLockup} alt="Verigence — Audit, Governance, Intelligence" />
+        <img className="frozen-auth-logo" src={approvedLockup} alt="Verigence — Audit, Governance, Intelligence" />
 
         <header className="frozen-auth-heading">
           <h1 id="sign-in-title">Sign in</h1>

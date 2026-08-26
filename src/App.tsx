@@ -20,6 +20,7 @@ const PrivacyPage = lazy(() => import('./pages/PrivacyPage'));
 const ApprovalQueuePage = lazy(() => import('./pages/ApprovalQueuePage'));
 const AdminUsersPage = lazy(() => import('./pages/AdminUsersPage'));
 const AdminConfigurationPage = lazy(() => import('./pages/AdminConfigurationPage'));
+const AdminHousekeepingPage = lazy(() => import('./pages/AdminHousekeepingPage'));
 const AdminLandingPage = lazy(() => import('./pages/AdminLandingPage'));
 const DiTestConsolePage = lazy(() => import('./pages/DiTestConsolePage'));
 const DocumentIntelligenceConfigurationPage = lazy(() => import('./pages/DocumentIntelligenceConfigurationPage'));
@@ -142,6 +143,7 @@ export default function App() {
 
             <Route path="/admin/engagements" element={<SuperAdminPage><AdminConfigurationPage section="engagements" /></SuperAdminPage>} />
             <Route path="/admin/document-intelligence" element={<SuperAdminPage><DocumentIntelligenceConfigurationPage /></SuperAdminPage>} />
+            <Route path="/admin/housekeeping" element={<SuperAdminPage><AdminHousekeepingPage /></SuperAdminPage>} />
             <Route path="/admin/di-test" element={<SuperAdminPage><DiTestConsolePage /></SuperAdminPage>} />
             <Route path="/admin/users" element={<SuperAdminPage><AdminUsersPage /></SuperAdminPage>} />
             <Route path="/admin/users/pending" element={<SuperAdminPage><ApprovalQueuePage /></SuperAdminPage>} />

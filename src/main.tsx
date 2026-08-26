@@ -58,6 +58,7 @@ import './styles/uc03-booking-mobile-compact.css';
 import './styles/uc03-booking-journey.css';
 import './styles/authenticated-scroll-owner.css';
 import './styles/approved-navigation-shell.css';
+import './styles/approved-navigation-scroll-owner.css';
 import './styles/ui-governance.css';
 
 import App from './App';

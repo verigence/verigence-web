@@ -61,6 +61,7 @@ import './styles/approved-navigation-shell.css';
 import './styles/approved-navigation-scroll-owner.css';
 import './styles/reference-dashboard-alignment.css';
 import './styles/hero-list-teal-polish.css';
+import './styles/dashboard-density-width-pass.css';
 import './styles/ui-governance.css';
 
 import App from './App';

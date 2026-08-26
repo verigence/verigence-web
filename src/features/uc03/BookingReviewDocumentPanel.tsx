@@ -21,6 +21,10 @@ interface BookingReviewDocumentPanelProps {
   accessToken?: string;
   evidenceId: string;
   documentName: string;
+  // Compatibility props retained while BookingWorkspacePage still owns the
+  // aggregate/workspace transition. Direct DI facts are loaded by this panel.
+  proposals?: ExtractionProposalView[];
+  aggregateVersion?: number;
   disabled?: boolean;
   approved?: boolean;
   onVersion: (version: number) => void;

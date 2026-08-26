@@ -1,4 +1,13 @@
-import { auditCoreRawRequest, auditCoreRequest } from './client';
+import { auditCoreRequest } from './client';
+import {
+  prepareBookingDocumentUploadContext,
+  rememberDirectBookingUpload,
+} from './uc03PcBookingDocuments';
+import {
+  getPcBookingDocumentContent,
+  getPcBookingExtractionReview,
+  uploadPcBookingDocument,
+} from '../di/bookingDocuments';
 
 export interface BookingStageView {
   businessStatus: string | null;
@@ -179,6 +188,12 @@ function base(tenantId: string, journeyId: string): string {
   return `/v1/tenants/${encodeURIComponent(tenantId)}/journeys/${encodeURIComponent(journeyId)}`;
 }
 
+function matchingRequirementKey(candidate: string, requested: string): boolean {
+  if (candidate === requested) return true;
+  const paymentKeys = new Set(['booking_payment_receipt', 'minimum_booking_payment_proof']);
+  return paymentKeys.has(candidate) && paymentKeys.has(requested);
+}
+
 export function newIdempotencyKey(prefix: string): string {
   const random = globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`;
   return `${prefix}-${random}`;
@@ -213,17 +228,13 @@ export async function getBookingEvidenceReviewContent(
   evidenceId: string,
   accessToken?: string,
 ): Promise<EvidenceReviewContent> {
-  const response = await auditCoreRawRequest(
-    `${base(tenantId, journeyId)}/evidence/${encodeURIComponent(evidenceId)}/review-content`,
-    {
-      accessToken: token(accessToken),
-      cache: 'no-store',
-    },
+  const context = await prepareBookingDocumentUploadContext(tenantId, journeyId, accessToken);
+  return getPcBookingDocumentContent(
+    tenantId,
+    context.externalContextRef,
+    evidenceId,
+    token(accessToken),
   );
-  return {
-    blob: await response.blob(),
-    mimeType: response.headers.get('content-type') || 'application/octet-stream',
-  };
 }
 
 export async function getBookingEvidenceFacts(
@@ -232,13 +243,28 @@ export async function getBookingEvidenceFacts(
   evidenceId: string,
   accessToken?: string,
 ): Promise<EvidenceFactView[]> {
-  return auditCoreRequest<EvidenceFactView[]>(
-    `${base(tenantId, journeyId)}/booking/evidence/${encodeURIComponent(evidenceId)}/facts`,
-    {
-      accessToken: token(accessToken),
-      cache: 'no-store',
-    },
+  const context = await prepareBookingDocumentUploadContext(tenantId, journeyId, accessToken);
+  const review = await getPcBookingExtractionReview(
+    tenantId,
+    context.externalContextRef,
+    evidenceId,
+    token(accessToken),
   );
+  const fetchedAtUtc = new Date().toISOString();
+  return review.facts.map((fact) => ({
+    evidenceFactId: fact.sourceFactRef,
+    fieldKey: fact.fieldKey,
+    valueType: typeof fact.normalizedValue,
+    value: fact.normalizedValue ?? fact.rawValue,
+    normalizedValue: typeof fact.normalizedValue === 'string' ? fact.normalizedValue : null,
+    // Confidence is intentionally suppressed from the PC review adapter. The
+    // direct review panel keeps the DI value privately for Audit provenance only.
+    confidenceScore: null,
+    verificationStatus: null,
+    pageNo: fact.pageNo,
+    evidenceRegion: fact.evidenceRegion as EvidenceRegion | null,
+    fetchedAtUtc,
+  }));
 }
 
 export async function startBooking(
@@ -277,30 +303,30 @@ export async function uploadBookingDocument(
   file: File,
   accessToken?: string,
 ): Promise<{ evidenceId: string; processingStatus: string }> {
-  const form = new FormData();
-  form.append('file', file);
-  const result = await auditCoreRequest<{ evidenceId: string; processingStatus: string }>(
-    `${base(tenantId, journeyId)}/stages/BOOKING/documents/${encodeURIComponent(requirementKey)}/evidence`,
-    {
-      method: 'POST',
-      accessToken: token(accessToken),
-      headers: { 'Idempotency-Key': stableUploadKey(journeyId, requirementKey, file) },
-      body: form,
-    },
-  );
-  if (!terminalProcessingStatuses.has(result.processingStatus.toUpperCase())) {
-    const key = processingKey(tenantId, journeyId);
-    const current = processingByJourney.get(key);
-    processingByJourney.set(key, {
-      version: current?.version ?? 0,
-      pendingCount: Math.max(1, current?.pendingCount ?? 0),
-      readyProposalCount: current?.readyProposalCount ?? 0,
-      failedCount: current?.failedCount ?? 0,
-      documents: current?.documents ?? [],
-      userMessage: current?.userMessage ?? null,
-    });
+  const context = await prepareBookingDocumentUploadContext(tenantId, journeyId, accessToken);
+  const requirement = context.requirements.find((item) =>
+    matchingRequirementKey(item.requirementKey, requirementKey));
+  if (!requirement) {
+    throw new Error('This Booking document requirement is not configured or currently applicable.');
   }
-  return result;
+  const result = await uploadPcBookingDocument(
+    tenantId,
+    context.externalContextRef,
+    requirement.requirementRef,
+    requirement.documentTypeKey,
+    file,
+    token(accessToken),
+  );
+  rememberDirectBookingUpload(
+    tenantId,
+    journeyId,
+    requirement.requirementRef,
+    result.documentId,
+  );
+  return {
+    evidenceId: result.documentId,
+    processingStatus: result.processingStatus,
+  };
 }
 
 export async function assessBookingDocument(
@@ -324,15 +350,20 @@ export async function assessBookingDocument(
   );
 }
 
+// Retained only for compatibility with older callers while the PC path is
+// migrated. Direct DI extraction is asynchronous and Audit Core is not refreshed.
 export async function refreshBookingExtraction(
   tenantId: string,
   journeyId: string,
   accessToken?: string,
 ): Promise<{ aggregateVersion: number; refreshedDocuments: number; createdProposals: number; failedDocuments: number }> {
-  return auditCoreRequest(`${base(tenantId, journeyId)}/booking/extraction/refresh`, {
-    method: 'POST',
-    accessToken: token(accessToken),
-  });
+  const workspace = await getBookingWorkspace(tenantId, journeyId, accessToken);
+  return {
+    aggregateVersion: workspace.aggregateVersion,
+    refreshedDocuments: 0,
+    createdProposals: 0,
+    failedDocuments: 0,
+  };
 }
 
 export async function getBookingProcessingStatus(

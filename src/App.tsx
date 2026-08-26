@@ -6,6 +6,7 @@ import { verigenceLockup } from './assets/verigenceLockup';
 import ProjectContextGate from './components/ProjectContextGate';
 import SessionRenewalGate from './components/SessionRenewalGate';
 import ProjectAdminOutletLocationEnhancer from './features/project-admin/ProjectAdminOutletLocationEnhancer';
+import ReviewReadinessWatcher from './features/uc03/ReviewReadinessWatcher';
 import AppShell from './layout/AppShell';
 import AndroidNativeBridge from './native/AndroidNativeBridge';
 import { useProjectContextStore } from './store/projectContextStore';
@@ -24,6 +25,7 @@ const DiTestConsolePage = lazy(() => import('./pages/DiTestConsolePage'));
 const DocumentIntelligenceConfigurationPage = lazy(() => import('./pages/DocumentIntelligenceConfigurationPage'));
 const DashboardPage = lazy(() => import('./pages/DashboardPage'));
 const BookingWorkspacePage = lazy(() => import('./pages/BookingWorkspacePage'));
+const BookingReviewPage = lazy(() => import('./pages/BookingReviewPage'));
 const DeliveryWorkspacePage = lazy(() => import('./pages/DeliveryWorkspacePage'));
 const AuditReviewPage = lazy(() => import('./pages/AuditReviewPage'));
 const CustomersPage = lazy(() => import('./pages/CustomersPage'));
@@ -75,7 +77,12 @@ function DashboardEntry() {
 function OperationalPage({ children }: { children: ReactNode }) {
   return (
     <Authenticated>
-      <ProjectContextGate><AppShell>{children}</AppShell></ProjectContextGate>
+      <ProjectContextGate>
+        <AppShell>
+          <ReviewReadinessWatcher />
+          {children}
+        </AppShell>
+      </ProjectContextGate>
     </Authenticated>
   );
 }
@@ -113,6 +120,7 @@ export default function App() {
             <Route path="/privacy" element={<PrivacyPage />} />
             <Route path="/dashboard" element={<DashboardEntry />} />
             <Route path="/bookings/:journeyId" element={<OperationalPage><BookingWorkspacePage /></OperationalPage>} />
+            <Route path="/bookings/:journeyId/review" element={<OperationalPage><BookingReviewPage /></OperationalPage>} />
             <Route path="/deliveries/:journeyId" element={<OperationalPage><DeliveryWorkspacePage /></OperationalPage>} />
             <Route path="/audit/:journeyId" element={<OperationalPage><AuditReviewPage /></OperationalPage>} />
             <Route path="/customers" element={<LegacyOperationalPage><CustomersPage /></LegacyOperationalPage>} />

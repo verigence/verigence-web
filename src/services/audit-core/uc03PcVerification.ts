@@ -73,7 +73,7 @@ export function submitPcBookingCapture(
     method: 'POST',
     accessToken: token(accessToken),
     headers: commandHeaders('uc03-pc-capture-submit', version),
-    body: { values },
+    body: JSON.stringify({ values }),
   });
 }
 

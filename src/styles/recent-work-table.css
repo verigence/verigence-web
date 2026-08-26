@@ -1,6 +1,6 @@
 /*
  * Recent Work responsive table — 26 Aug 2026.
- * Desktop >= 900px: compact mockup-aligned table rows.
+ * Desktop >= 900px: compact four-column mockup-aligned table rows.
  * Mobile < 900px: preserve the existing approved card presentation.
  */
 
@@ -20,11 +20,11 @@
 
   .enterprise-shell--approved-nav .uc03-work-table-head {
     display: grid;
-    grid-template-columns: minmax(250px, 2.2fr) minmax(110px, 0.75fr) minmax(150px, 1fr) minmax(190px, 1.25fr) minmax(160px, 0.9fr);
+    grid-template-columns: minmax(320px, 2.65fr) minmax(170px, 1fr) minmax(210px, 1.25fr) minmax(170px, 0.9fr);
     align-items: center;
-    gap: 20px;
+    gap: 22px;
     min-height: 46px;
-    padding: 0 18px;
+    padding: 0 20px;
     border-bottom: 1px solid #dfe9ee;
     background: linear-gradient(180deg, #f8fbfc 0%, #f4f9fa 100%);
     color: #607a8e;
@@ -39,14 +39,14 @@
 
   .enterprise-shell--approved-nav .uc03-landing--approved .uc03-work-card {
     display: grid;
-    grid-template-columns: minmax(250px, 2.2fr) minmax(110px, 0.75fr) minmax(150px, 1fr) minmax(190px, 1.25fr) minmax(160px, 0.9fr);
+    grid-template-columns: minmax(320px, 2.65fr) minmax(170px, 1fr) minmax(210px, 1.25fr) minmax(170px, 0.9fr);
     grid-template-areas:
-      "item type status activity actions"
-      "details details details details details";
+      "item status activity actions"
+      "details details details details";
     align-items: center;
-    gap: 20px;
-    min-height: 76px !important;
-    padding: 12px 18px;
+    gap: 22px;
+    min-height: 82px !important;
+    padding: 12px 20px;
     border: 0 !important;
     border-bottom: 1px solid #e4edf1 !important;
     border-radius: 0 !important;
@@ -83,7 +83,7 @@
   }
 
   .enterprise-shell--approved-nav .uc03-work-card__identity h3 {
-    margin: 0 0 4px;
+    margin: 0 0 3px;
     color: #173a59;
     font-size: 14px;
     font-weight: 760;
@@ -100,22 +100,25 @@
     white-space: nowrap;
   }
 
-  .enterprise-shell--approved-nav .uc03-work-card__type-cell {
-    grid-area: type;
-    justify-self: start;
+  .enterprise-shell--approved-nav .uc03-work-card__desktop-meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 7px;
   }
 
   .enterprise-shell--approved-nav .uc03-work-card__type-chip {
     display: inline-flex;
     align-items: center;
-    min-height: 28px;
-    padding: 0 10px;
+    min-height: 23px;
+    padding: 0 8px;
     border: 1px solid #d8e4e9;
     border-radius: 999px;
     background: #f3f7f9;
     color: #5e7486;
-    font-size: 11px;
-    font-weight: 750;
+    font-size: 10px;
+    font-weight: 760;
+    line-height: 1;
     white-space: nowrap;
   }
 
@@ -139,12 +142,12 @@
     display: none;
   }
 
-  .enterprise-shell--approved-nav .uc03-work-card__summary > strong {
+  .enterprise-shell--approved-nav .uc03-work-card__summary > strong.uc03-work-status-pill {
     display: inline-flex;
     align-items: center;
     min-height: 28px;
     max-width: 100%;
-    padding: 0 10px;
+    padding: 0 11px;
     border: 1px solid #cfe4e6;
     border-radius: 999px;
     background: #edf9f8;
@@ -153,6 +156,42 @@
     font-weight: 780;
     line-height: 1.2;
     white-space: nowrap;
+  }
+
+  .enterprise-shell--approved-nav .uc03-work-status-pill.is-progress {
+    border-color: #cdddf7 !important;
+    background: #edf4ff !important;
+    color: #1d5fbf !important;
+  }
+
+  .enterprise-shell--approved-nav .uc03-work-status-pill.is-pending {
+    border-color: #f0d6a8 !important;
+    background: #fff4df !important;
+    color: #a96305 !important;
+  }
+
+  .enterprise-shell--approved-nav .uc03-work-status-pill.is-review {
+    border-color: #dfcff8 !important;
+    background: #f4edff !important;
+    color: #7044b5 !important;
+  }
+
+  .enterprise-shell--approved-nav .uc03-work-status-pill.is-attention {
+    border-color: #f1c8cc !important;
+    background: #fff0f1 !important;
+    color: #b63e49 !important;
+  }
+
+  .enterprise-shell--approved-nav .uc03-work-status-pill.is-complete {
+    border-color: #c8e5d6 !important;
+    background: #edf9f3 !important;
+    color: #247655 !important;
+  }
+
+  .enterprise-shell--approved-nav .uc03-work-status-pill.is-neutral {
+    border-color: #cfe4e6 !important;
+    background: #edf9f8 !important;
+    color: #167d7a !important;
   }
 
   .enterprise-shell--approved-nav .uc03-work-card__activity-cell {
@@ -256,7 +295,7 @@
 
 @media (max-width: 899px) {
   .enterprise-shell--approved-nav .uc03-work-table-head,
-  .enterprise-shell--approved-nav .uc03-work-card__type-cell,
+  .enterprise-shell--approved-nav .uc03-work-card__desktop-meta,
   .enterprise-shell--approved-nav .uc03-work-card__activity-cell {
     display: none;
   }

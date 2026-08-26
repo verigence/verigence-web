@@ -1,0 +1,263 @@
+/*
+ * Recent Work responsive table — 26 Aug 2026.
+ * Desktop >= 900px: compact mockup-aligned table rows.
+ * Mobile < 900px: preserve the existing approved card presentation.
+ */
+
+.enterprise-shell--approved-nav .uc03-work-table-head {
+  display: none;
+}
+
+@media (min-width: 900px) {
+  .enterprise-shell--approved-nav .uc03-landing--approved .uc03-work-cards {
+    display: block;
+    overflow: visible;
+    border: 1px solid #d8e7eb;
+    border-radius: 14px;
+    background: #ffffff;
+    box-shadow: 0 6px 18px rgba(0, 58, 130, 0.025);
+  }
+
+  .enterprise-shell--approved-nav .uc03-work-table-head {
+    display: grid;
+    grid-template-columns: minmax(250px, 2.2fr) minmax(110px, 0.75fr) minmax(150px, 1fr) minmax(190px, 1.25fr) minmax(160px, 0.9fr);
+    align-items: center;
+    gap: 20px;
+    min-height: 46px;
+    padding: 0 18px;
+    border-bottom: 1px solid #dfe9ee;
+    background: linear-gradient(180deg, #f8fbfc 0%, #f4f9fa 100%);
+    color: #607a8e;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.055em;
+  }
+
+  .enterprise-shell--approved-nav .uc03-work-table-head > span:last-child {
+    text-align: right;
+  }
+
+  .enterprise-shell--approved-nav .uc03-landing--approved .uc03-work-card {
+    display: grid;
+    grid-template-columns: minmax(250px, 2.2fr) minmax(110px, 0.75fr) minmax(150px, 1fr) minmax(190px, 1.25fr) minmax(160px, 0.9fr);
+    grid-template-areas:
+      "item type status activity actions"
+      "details details details details details";
+    align-items: center;
+    gap: 20px;
+    min-height: 76px !important;
+    padding: 12px 18px;
+    border: 0 !important;
+    border-bottom: 1px solid #e4edf1 !important;
+    border-radius: 0 !important;
+    background: #ffffff !important;
+    box-shadow: none !important;
+  }
+
+  .enterprise-shell--approved-nav .uc03-landing--approved .uc03-work-card:last-child {
+    border-bottom: 0 !important;
+  }
+
+  .enterprise-shell--approved-nav .uc03-landing--approved .uc03-work-card::before {
+    width: 3px;
+    background: rgba(0, 175, 168, 0.32);
+  }
+
+  .enterprise-shell--approved-nav .uc03-landing--approved .uc03-work-card:hover,
+  .enterprise-shell--approved-nav .uc03-landing--approved .uc03-work-card:focus-visible {
+    background: linear-gradient(90deg, rgba(0, 175, 168, 0.045) 0%, #fbfefe 15%, #ffffff 100%) !important;
+    box-shadow: inset 3px 0 #00afa8 !important;
+  }
+
+  .enterprise-shell--approved-nav .uc03-work-card__header {
+    display: contents;
+  }
+
+  .enterprise-shell--approved-nav .uc03-work-card__identity {
+    grid-area: item;
+    min-width: 0;
+  }
+
+  .enterprise-shell--approved-nav .uc03-work-card__reference {
+    display: none;
+  }
+
+  .enterprise-shell--approved-nav .uc03-work-card__identity h3 {
+    margin: 0 0 4px;
+    color: #173a59;
+    font-size: 14px;
+    font-weight: 760;
+    line-height: 1.25;
+  }
+
+  .enterprise-shell--approved-nav .uc03-work-card__identity p {
+    margin: 0;
+    overflow: hidden;
+    color: #71889a;
+    font-size: 11.5px;
+    line-height: 1.35;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .enterprise-shell--approved-nav .uc03-work-card__type-cell {
+    grid-area: type;
+    justify-self: start;
+  }
+
+  .enterprise-shell--approved-nav .uc03-work-card__type-chip {
+    display: inline-flex;
+    align-items: center;
+    min-height: 28px;
+    padding: 0 10px;
+    border: 1px solid #d8e4e9;
+    border-radius: 999px;
+    background: #f3f7f9;
+    color: #5e7486;
+    font-size: 11px;
+    font-weight: 750;
+    white-space: nowrap;
+  }
+
+  .enterprise-shell--approved-nav .uc03-work-card__type-chip.is-delivery {
+    border-color: #cde8e3;
+    background: #edf9f6;
+    color: #16776f;
+  }
+
+  .enterprise-shell--approved-nav .uc03-work-card__summary {
+    grid-area: status;
+    display: block;
+    min-width: 0;
+    max-width: none;
+    text-align: left;
+  }
+
+  .enterprise-shell--approved-nav .uc03-work-card__status-label,
+  .enterprise-shell--approved-nav .uc03-work-card__summary .uc03-verification-badge,
+  .enterprise-shell--approved-nav .uc03-work-card__location {
+    display: none;
+  }
+
+  .enterprise-shell--approved-nav .uc03-work-card__summary > strong {
+    display: inline-flex;
+    align-items: center;
+    min-height: 28px;
+    max-width: 100%;
+    padding: 0 10px;
+    border: 1px solid #cfe4e6;
+    border-radius: 999px;
+    background: #edf9f8;
+    color: #167d7a;
+    font-size: 11px;
+    font-weight: 780;
+    line-height: 1.2;
+    white-space: nowrap;
+  }
+
+  .enterprise-shell--approved-nav .uc03-work-card__activity-cell {
+    grid-area: activity;
+    color: #637c8f;
+    font-size: 11.5px;
+    font-weight: 560;
+    line-height: 1.4;
+    white-space: nowrap;
+  }
+
+  .enterprise-shell--approved-nav .uc03-work-card__footer {
+    grid-area: actions;
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    margin: 0;
+    padding: 0;
+    border: 0;
+  }
+
+  .enterprise-shell--approved-nav .uc03-work-card__activity {
+    display: none;
+  }
+
+  .enterprise-shell--approved-nav .uc03-work-card__controls {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+  }
+
+  .enterprise-shell--approved-nav .uc03-work-card__details-button {
+    min-height: 34px;
+    padding: 0 13px;
+    border-color: #c4dbe1;
+    border-radius: 8px;
+    background: #ffffff;
+    color: #075e68;
+    font-size: 11px;
+    font-weight: 760;
+    white-space: nowrap;
+  }
+
+  .enterprise-shell--approved-nav .uc03-work-card__actions--desktop {
+    display: none !important;
+  }
+
+  .enterprise-shell--approved-nav .uc03-work-card__mobile-more {
+    position: relative;
+    display: block !important;
+  }
+
+  .enterprise-shell--approved-nav .uc03-work-card__more-button {
+    display: inline-grid;
+    place-items: center;
+    width: 34px;
+    min-width: 34px;
+    height: 34px;
+    min-height: 34px;
+    padding: 0;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    background: transparent;
+    color: #44647b;
+  }
+
+  .enterprise-shell--approved-nav .uc03-work-card__more-button:hover,
+  .enterprise-shell--approved-nav .uc03-work-card__more-button:focus-visible {
+    border-color: #cce4e3;
+    background: #f1faf9;
+    color: #007f79;
+  }
+
+  .enterprise-shell--approved-nav .uc03-work-card__more-button > span {
+    display: none;
+  }
+
+  .enterprise-shell--approved-nav .uc03-work-card__more-button > strong {
+    display: block;
+    transform: rotate(90deg);
+    font-size: 13px;
+    letter-spacing: 1px;
+    line-height: 1;
+  }
+
+  .enterprise-shell--approved-nav .uc03-work-card__more-menu {
+    right: 0;
+    left: auto;
+    min-width: 150px;
+  }
+
+  .enterprise-shell--approved-nav .uc03-work-card__expanded-content {
+    grid-area: details;
+    margin-top: 4px;
+    padding: 14px 0 4px;
+    border-top: 1px dashed #d8e5ea;
+  }
+}
+
+@media (max-width: 899px) {
+  .enterprise-shell--approved-nav .uc03-work-table-head,
+  .enterprise-shell--approved-nav .uc03-work-card__type-cell,
+  .enterprise-shell--approved-nav .uc03-work-card__activity-cell {
+    display: none;
+  }
+}

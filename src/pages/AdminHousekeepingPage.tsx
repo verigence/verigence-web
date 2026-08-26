@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
+import SecurityHousekeepingPanel from '../components/admin/SecurityHousekeepingPanel';
 import PageHeader from '../components/PageHeader';
 import {
   previewJourneyHousekeeping,
@@ -414,6 +415,8 @@ export default function AdminHousekeepingPage() {
             {journeyMessage ? <div className="uc01-admin-message uc01-admin-message--success" role="status">{journeyMessage}</div> : null}
             {journeyError ? <div className="uc01-admin-message uc01-admin-message--error" role="alert">{journeyError}</div> : null}
           </section>
+
+          <SecurityHousekeepingPanel tenantId={tenantId} accessToken={accessToken} />
 
           <section className="admin-landing__projects" aria-labelledby="di-housekeeping-title">
             <header>

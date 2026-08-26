@@ -1,0 +1,80 @@
+/*
+ * Dashboard density + width pass — 26 Aug 2026.
+ * Presentation only. Keeps the approved hero/list styling and adjusts layout density.
+ */
+
+/* Use the authenticated main pane instead of centering a narrow 1180px island. */
+.enterprise-shell--approved-nav .enterprise-content > .screen-stack.uc03-landing--approved {
+  width: 100% !important;
+  max-width: 1440px !important;
+  margin-inline: 0 !important;
+  padding-left: 28px !important;
+  padding-right: 30px !important;
+}
+
+/* Keep the dashboard/list naturally stretched with the wider canvas. */
+.enterprise-shell--approved-nav .uc03-landing--approved .uc03-work-list,
+.enterprise-shell--approved-nav .uc03-landing--approved .uc03-dashboard-hero--greeting,
+.enterprise-shell--approved-nav .uc03-landing--approved .uc03-landing-metrics {
+  width: 100%;
+}
+
+/* Three metrics across on desktop. */
+.enterprise-shell--approved-nav .uc03-landing--approved .uc03-landing-metrics {
+  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+}
+
+@media (max-width: 899px) {
+  .enterprise-shell--approved-nav .enterprise-content > .screen-stack.uc03-landing--approved {
+    max-width: none !important;
+    padding-left: 14px !important;
+    padding-right: 14px !important;
+  }
+
+  /* Two columns on mobile/tablet: Bookings + Deliveries in row one. */
+  .enterprise-shell--approved-nav .uc03-landing--approved .uc03-landing-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 10px !important;
+  }
+
+  /* Attention occupies row two without leaving an awkward empty card slot. */
+  .enterprise-shell--approved-nav .uc03-landing--approved .uc03-landing-metric:last-child {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 560px) {
+  /* Override the legacy 540px one-column rule: keep three KPIs in two rows. */
+  .enterprise-shell--approved-nav .uc03-landing--approved .uc03-landing-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 10px !important;
+  }
+
+  .enterprise-shell--approved-nav .uc03-landing--approved .uc03-landing-metric {
+    min-height: 102px !important;
+    padding: 14px 13px !important;
+  }
+
+  .enterprise-shell--approved-nav .uc03-landing--approved .uc03-landing-metric__label {
+    font-size: 10px !important;
+    letter-spacing: 0.06em;
+  }
+
+  .enterprise-shell--approved-nav .uc03-landing--approved .uc03-landing-metric__value {
+    font-size: 28px !important;
+  }
+
+  .enterprise-shell--approved-nav .uc03-landing--approved .uc03-landing-metric__detail {
+    font-size: 11.5px !important;
+  }
+
+  .enterprise-shell--approved-nav .uc03-landing--approved .uc03-landing-metric__action {
+    right: 12px;
+    bottom: 12px;
+    font-size: 11px;
+  }
+
+  .enterprise-shell--approved-nav .uc03-landing--approved .uc03-landing-metric:last-child {
+    grid-column: 1 / -1;
+  }
+}

@@ -1,5 +1,4 @@
 import { auditCoreRequest } from './client';
-import { newIdempotencyKey } from './uc03Booking';
 
 export interface BookingUploadRequirementContext {
   requirementRef: string;
@@ -58,6 +57,11 @@ function token(accessToken?: string): string {
 
 function key(tenantId: string, journeyId: string): string {
   return `${tenantId}:${journeyId}`;
+}
+
+function newIdempotencyKey(prefix: string): string {
+  const random = globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  return `${prefix}-${random}`;
 }
 
 function contextPath(tenantId: string, journeyId: string): string {

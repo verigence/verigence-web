@@ -1,6 +1,7 @@
-import { type PointerEvent as ReactPointerEvent, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 
 import '../../styles/uc03-document-verification.css';
+import '../../styles/uc03-step3-review.css';
 import {
   type EvidenceFactView,
   type EvidenceRegion,
@@ -9,8 +10,8 @@ import {
   getBookingEvidenceReviewContent,
 } from '../../services/audit-core/uc03Booking';
 import { displayName } from '../../utils/displayNames';
+import { PdfPageReview } from './PdfPageReview';
 
-type SheetSnap = 'peek' | 'half' | 'full';
 const EMPTY_DECIDED_IDS: ReadonlySet<string> = new Set();
 
 type ReviewProposal = ExtractionProposalView & {
@@ -97,12 +98,6 @@ function reviewReason(proposal: ReviewProposal): string | null {
   return null;
 }
 
-function snapVisibleHeight(snap: SheetSnap, containerHeight: number): number {
-  if (snap === 'peek') return Math.min(122, Math.max(96, containerHeight * 0.16));
-  if (snap === 'half') return containerHeight * 0.5;
-  return containerHeight * 0.9;
-}
-
 export function DocumentFieldReview({
   tenantId,
   journeyId,
@@ -131,14 +126,11 @@ export function DocumentFieldReview({
         };
       });
   }, [facts, proposals]);
+
   const rootRef = useRef<HTMLDivElement>(null);
   const scrollerRef = useRef<HTMLDivElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
-  const dragStartY = useRef<number | null>(null);
-  const dragged = useRef(false);
   const [wide, setWide] = useState(false);
-  const [size, setSize] = useState({ width: 0, height: 0 });
-  const [snap, setSnap] = useState<SheetSnap>('half');
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [locallyReviewedIds, setLocallyReviewedIds] = useState<Set<string>>(() => new Set());
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -152,11 +144,7 @@ export function DocumentFieldReview({
   useLayoutEffect(() => {
     const root = rootRef.current;
     if (!root) return undefined;
-    const observer = new ResizeObserver(([entry]) => {
-      const { width, height } = entry.contentRect;
-      setSize({ width, height });
-      setWide(width >= 720 && height >= 520);
-    });
+    const observer = new ResizeObserver(([entry]) => setWide(entry.contentRect.width >= 720));
     observer.observe(root);
     return () => observer.disconnect();
   }, []);
@@ -166,7 +154,6 @@ export function DocumentFieldReview({
     setLocallyReviewedIds(new Set());
     setEditingId(null);
     setCorrection('');
-    setSnap('half');
   }, [evidenceId]);
 
   useEffect(() => {
@@ -194,8 +181,7 @@ export function DocumentFieldReview({
         setSource({ url: objectUrl, mimeType: result.mimeType });
       })
       .catch((cause: unknown) => {
-        if (cancelled) return;
-        setSourceError(cause instanceof Error ? cause.message : 'Unable to load source document.');
+        if (!cancelled) setSourceError(cause instanceof Error ? cause.message : 'Unable to load source document.');
       })
       .finally(() => {
         if (!cancelled) setSourceLoading(false);
@@ -212,7 +198,6 @@ export function DocumentFieldReview({
   const isImage = source?.mimeType.startsWith('image/') ?? false;
   const isPdf = source?.mimeType.includes('pdf') ?? false;
   const selectedPage = selected?.pageNo && selected.pageNo > 0 ? selected.pageNo : 1;
-  const occludedBottom = wide ? 0 : snapVisibleHeight(snap, size.height);
 
   const isReviewed = (proposal: ExtractionProposalView): boolean => {
     if (isPersistedReview(proposal, decidedIds)) return true;
@@ -232,18 +217,15 @@ export function DocumentFieldReview({
     const scroller = scrollerRef.current;
     const image = imageRef.current;
     if (!scroller || !image || image.clientHeight <= 0) return;
-
     const absoluteY = image.offsetTop + selectedBox.y * image.clientHeight;
-    const usableHeight = Math.max(120, scroller.clientHeight - occludedBottom);
-    const target = absoluteY - Math.max(70, usableHeight * 0.42);
+    const target = absoluteY - Math.max(70, scroller.clientHeight * 0.42);
     const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     scroller.scrollTo({ top: Math.max(0, target), behavior: reduceMotion ? 'auto' : 'smooth' });
-  }, [imageReady, isImage, occludedBottom, selectedBox?.h, selectedBox?.w, selectedBox?.x, selectedBox?.y]);
+  }, [imageReady, isImage, selectedBox?.h, selectedBox?.w, selectedBox?.x, selectedBox?.y]);
 
   const selectField = (proposalId: string) => {
     setSelectedId(proposalId);
     setEditingId(null);
-    if (!wide && snap === 'full') setSnap('half');
   };
 
   const acceptField = async (proposal: ExtractionProposalView) => {
@@ -264,7 +246,6 @@ export function DocumentFieldReview({
     setSelectedId(proposal.proposalId);
     setCorrection(proposalValue(proposal.proposedValue));
     setEditingId(proposal.proposalId);
-    if (!wide && snap === 'peek') setSnap('half');
   };
 
   const saveCorrection = async (proposal: ExtractionProposalView) => {
@@ -300,27 +281,13 @@ export function DocumentFieldReview({
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [actionBusyId, decidedIds, disabled, fields, locallyReviewedIds, selected, selectedId, wide]);
 
-  const cycleSnap = () => {
-    setSnap((current) => current === 'peek' ? 'half' : current === 'half' ? 'full' : 'peek');
-  };
-
-  const onGrabPointerDown = (event: ReactPointerEvent<HTMLButtonElement>) => {
-    dragStartY.current = event.clientY;
-    dragged.current = false;
-    event.currentTarget.setPointerCapture(event.pointerId);
-  };
-
-  const onGrabPointerUp = (event: ReactPointerEvent<HTMLButtonElement>) => {
-    if (dragStartY.current === null) return;
-    const delta = event.clientY - dragStartY.current;
-    dragStartY.current = null;
-    if (Math.abs(delta) < 36) return;
-    dragged.current = true;
-    const order: SheetSnap[] = ['peek', 'half', 'full'];
-    const index = order.indexOf(snap);
-    const next = delta < 0 ? Math.min(order.length - 1, index + 1) : Math.max(0, index - 1);
-    setSnap(order[next]);
-  };
+  const sourceNote = selected
+    ? selectedBox
+      ? `Selected value is highlighted on ${isPdf ? `PDF page ${selectedPage}` : 'the source document'}.`
+      : selected.pageNo
+        ? `Selected value was localized to page ${selected.pageNo}; no reliable box was returned.`
+        : 'No reliable source region was returned. Compare visually; no location is guessed.'
+    : null;
 
   return (
     <div ref={rootRef} className={`uc03-docverify ${wide ? 'is-wide' : 'is-narrow'}`}>
@@ -369,10 +336,12 @@ export function DocumentFieldReview({
 
             {!sourceLoading && !sourceError && source && isPdf ? (
               <div className="uc03-docverify-pdf">
-                <iframe
-                  key={selectedPage}
-                  title={`${documentName} source PDF`}
-                  src={`${source.url}#page=${selectedPage}&view=FitH`}
+                <PdfPageReview
+                  sourceUrl={source.url}
+                  pageNumber={selectedPage}
+                  box={selectedBox}
+                  label={selected ? displayName(selected.fieldKey) : null}
+                  attention={Boolean(selected && requiresExtraAttention(selected))}
                 />
                 <a href={`${source.url}#page=${selectedPage}`} target="_blank" rel="noreferrer">Open PDF in full viewer</a>
               </div>
@@ -388,40 +357,12 @@ export function DocumentFieldReview({
             {!sourceLoading && !sourceError && !source ? (
               <div className="uc03-docverify-message">Source document is not available.</div>
             ) : null}
-            {!wide ? <div aria-hidden style={{ height: occludedBottom }} /> : null}
           </div>
 
-          {selected ? (
-            <div className="uc03-docverify-source-note">
-              {selectedBox && isImage
-                ? 'Selected value is highlighted on the source document.'
-                : selected.pageNo
-                  ? `Selected value was localized to page ${selected.pageNo}.`
-                  : 'No reliable source region was returned. Compare visually; no location is guessed.'}
-            </div>
-          ) : null}
+          {sourceNote ? <div className="uc03-docverify-source-note">{sourceNote}</div> : null}
         </div>
 
-        <aside className={`uc03-docverify-panel ${wide ? 'is-wide' : `is-${snap}`}`}>
-          {!wide ? (
-            <button
-              type="button"
-              className="uc03-docverify-grab"
-              aria-label="Resize extracted values panel"
-              onPointerDown={onGrabPointerDown}
-              onPointerUp={onGrabPointerUp}
-              onClick={() => {
-                if (dragged.current) {
-                  dragged.current = false;
-                  return;
-                }
-                cycleSnap();
-              }}
-            >
-              <span />
-            </button>
-          ) : null}
-
+        <aside className={`uc03-docverify-panel ${wide ? 'is-wide' : 'is-stacked'}`}>
           <div className="uc03-docverify-panel__head">
             <div>
               <strong>What We Read</strong>
@@ -461,6 +402,7 @@ export function DocumentFieldReview({
                         <div className="uc03-docverify-field__meta">
                           {confidence !== null ? <span>{Math.round(confidence)}% confidence</span> : <span>Confidence unavailable</span>}
                           {field.pageNo ? <span>Page {field.pageNo}</span> : null}
+                          {normalizedBox(field.evidenceRegion) ? <span>Box localized</span> : null}
                           {!field.canAccept ? <span>Reference field</span> : null}
                         </div>
 

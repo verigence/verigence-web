@@ -1,0 +1,445 @@
+/*
+ * Approved Verigence navigation shell.
+ *
+ * Scope is intentionally limited to AppShell via .enterprise-shell--approved-nav.
+ * Public/auth screens do not render this class and therefore cannot be affected.
+ * ui-governance.css remains the final stylesheet import; these selectors use the
+ * additional shell class to win only where the authenticated shell is present.
+ */
+
+.enterprise-shell.enterprise-shell--approved-nav {
+  display: grid !important;
+  grid-template-columns: 248px minmax(0, 1fr) !important;
+  grid-template-rows: 72px minmax(calc(100dvh - 72px), auto) !important;
+  align-items: start;
+}
+
+.enterprise-shell--approved-nav .enterprise-topbar {
+  position: sticky !important;
+  top: 0 !important;
+  grid-column: 1 / -1 !important;
+  grid-row: 1 !important;
+  width: 100%;
+  height: 72px !important;
+  min-height: 72px;
+  padding: 0 24px !important;
+  display: flex !important;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  border-bottom: 1px solid #d8e2ee !important;
+  background: #ffffff !important;
+  box-shadow: 0 4px 18px rgba(6, 43, 99, 0.06) !important;
+  backdrop-filter: none !important;
+  z-index: 60 !important;
+}
+
+.enterprise-shell--approved-nav .enterprise-topbar__start {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  flex: 1 1 auto;
+  gap: 18px;
+}
+
+.enterprise-shell--approved-nav .enterprise-global-brand {
+  width: 188px;
+  min-width: 188px;
+  height: 72px;
+  display: flex;
+  align-items: center;
+  color: inherit;
+  text-decoration: none;
+}
+
+.enterprise-shell--approved-nav .enterprise-global-brand img {
+  display: block;
+  width: 172px;
+  max-width: 100%;
+  height: auto;
+}
+
+.enterprise-shell--approved-nav .enterprise-topbar__trail {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  color: #748aa3;
+  font-size: 12px;
+}
+
+.enterprise-shell--approved-nav .enterprise-topbar__trail strong {
+  overflow: hidden;
+  color: #31506e;
+  font-weight: 750;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.enterprise-shell--approved-nav .enterprise-topbar__actions {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.enterprise-shell--approved-nav .enterprise-menu-button {
+  display: none !important;
+}
+
+.enterprise-shell--approved-nav .enterprise-sidebar {
+  position: sticky !important;
+  top: 72px !important;
+  grid-column: 1 !important;
+  grid-row: 2 !important;
+  align-self: start;
+  width: 248px !important;
+  height: calc(100dvh - 72px) !important;
+  max-height: calc(100dvh - 72px) !important;
+  padding: 16px 14px 18px !important;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  border-right: 1px solid rgba(255, 255, 255, 0.12) !important;
+  background: linear-gradient(180deg, #032555 0%, #073f68 58%, #0a5373 100%) !important;
+  box-shadow: 8px 0 24px rgba(0, 26, 58, 0.12) !important;
+  color: #ffffff;
+  z-index: 35 !important;
+}
+
+.enterprise-shell--approved-nav .enterprise-sidebar__mobile-head {
+  display: none !important;
+}
+
+.enterprise-shell--approved-nav .uc03-shell-project {
+  margin: 2px 5px 16px;
+  padding: 11px 12px;
+  display: grid;
+  gap: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.075);
+}
+
+.enterprise-shell--approved-nav .uc03-shell-project > span {
+  color: rgba(255, 255, 255, 0.58) !important;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.enterprise-shell--approved-nav .uc03-shell-project > strong {
+  color: #ffffff !important;
+  font-size: 12px;
+}
+
+.enterprise-shell--approved-nav .uc03-shell-project button {
+  width: fit-content;
+  margin-top: 4px;
+  padding: 4px 0;
+  border: 0;
+  background: transparent;
+  color: #77e2df;
+  font-size: 10px;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.enterprise-shell--approved-nav .enterprise-nav {
+  display: grid !important;
+  gap: 13px !important;
+}
+
+.enterprise-shell--approved-nav .enterprise-nav__group {
+  display: grid;
+  gap: 3px;
+}
+
+.enterprise-shell--approved-nav .enterprise-nav__group-toggle {
+  width: 100%;
+  min-height: 34px;
+  padding: 6px 9px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  border: 0 !important;
+  border-radius: 8px;
+  background: transparent !important;
+  color: rgba(255, 255, 255, 0.62) !important;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.095em;
+  text-align: left;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.enterprise-shell--approved-nav .enterprise-nav__group-toggle:hover,
+.enterprise-shell--approved-nav .enterprise-nav__group-toggle:focus-visible {
+  background: rgba(255, 255, 255, 0.07) !important;
+  color: #ffffff !important;
+  outline: none;
+}
+
+.enterprise-shell--approved-nav .enterprise-nav__chevron {
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 15px;
+  line-height: 1;
+  transition: transform 120ms ease;
+}
+
+.enterprise-shell--approved-nav .enterprise-nav__group.is-open .enterprise-nav__chevron {
+  transform: rotate(180deg);
+}
+
+.enterprise-shell--approved-nav .enterprise-nav__group-items {
+  display: grid;
+  gap: 2px;
+}
+
+.enterprise-shell--approved-nav .enterprise-nav__group-items[hidden] {
+  display: none !important;
+}
+
+.enterprise-shell--approved-nav .enterprise-nav__item {
+  min-height: 42px !important;
+  padding: 7px 9px !important;
+  display: flex !important;
+  align-items: center;
+  gap: 10px;
+  border: 0 !important;
+  border-radius: 9px !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  color: rgba(241, 249, 255, 0.78) !important;
+  font-size: 12.5px;
+  font-weight: 650;
+  text-decoration: none;
+  transition: background 120ms ease, color 120ms ease, transform 120ms ease;
+}
+
+.enterprise-shell--approved-nav .enterprise-nav__item:hover,
+.enterprise-shell--approved-nav .enterprise-nav__item:focus-visible {
+  background: rgba(255, 255, 255, 0.09) !important;
+  color: #ffffff !important;
+  outline: none;
+}
+
+.enterprise-shell--approved-nav .enterprise-nav__item--active {
+  background: rgba(0, 175, 168, 0.28) !important;
+  box-shadow: inset 3px 0 #35d0ca !important;
+  color: #ffffff !important;
+}
+
+.enterprise-shell--approved-nav .enterprise-nav__mark {
+  width: 28px !important;
+  height: 28px !important;
+  min-width: 28px;
+  display: grid !important;
+  place-items: center;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  color: #9fc6d5 !important;
+  font-size: 0 !important;
+}
+
+.enterprise-shell--approved-nav .enterprise-nav__item--active .enterprise-nav__mark,
+.enterprise-shell--approved-nav .enterprise-nav__item:hover .enterprise-nav__mark {
+  border-color: transparent !important;
+  background: transparent !important;
+  color: #ffffff !important;
+}
+
+.enterprise-shell--approved-nav .enterprise-nav__icon {
+  width: 20px;
+  height: 20px;
+  display: block;
+  overflow: visible;
+}
+
+.enterprise-shell--approved-nav .enterprise-main {
+  position: relative !important;
+  grid-column: 2 !important;
+  grid-row: 2 !important;
+  min-width: 0 !important;
+  min-height: calc(100dvh - 72px) !important;
+  height: auto !important;
+  max-height: none !important;
+  overflow: visible !important;
+}
+
+.enterprise-shell--approved-nav .enterprise-content {
+  min-height: calc(100dvh - 72px) !important;
+}
+
+.enterprise-shell--approved-nav .enterprise-mobile-backdrop {
+  display: none !important;
+}
+
+@media (max-width: 899px) {
+  .enterprise-shell.enterprise-shell--approved-nav {
+    grid-template-columns: minmax(0, 1fr) !important;
+    grid-template-rows: 64px minmax(calc(100dvh - 64px), auto) !important;
+  }
+
+  .enterprise-shell--approved-nav .enterprise-topbar {
+    grid-column: 1 !important;
+    grid-row: 1 !important;
+    height: 64px !important;
+    min-height: 64px;
+    padding: 0 10px !important;
+    gap: 8px;
+  }
+
+  .enterprise-shell--approved-nav .enterprise-topbar__start {
+    gap: 8px;
+  }
+
+  .enterprise-shell--approved-nav .enterprise-menu-button {
+    width: 38px;
+    height: 38px;
+    min-width: 38px;
+    padding: 0;
+    display: grid !important;
+    place-items: center;
+    border: 1px solid #d8e2ee;
+    border-radius: 9px;
+    background: #ffffff;
+    color: #07356f;
+    font-size: 19px;
+    cursor: pointer;
+  }
+
+  .enterprise-shell--approved-nav .enterprise-global-brand {
+    width: auto;
+    min-width: 0;
+    height: 64px;
+    flex: 0 1 auto;
+  }
+
+  .enterprise-shell--approved-nav .enterprise-global-brand img {
+    width: 124px;
+  }
+
+  .enterprise-shell--approved-nav .enterprise-topbar__trail {
+    display: none !important;
+  }
+
+  .enterprise-shell--approved-nav .enterprise-topbar__actions {
+    gap: 6px;
+  }
+
+  .enterprise-shell--approved-nav .enterprise-topbar__identity-copy {
+    display: none !important;
+  }
+
+  .enterprise-shell--approved-nav .enterprise-topbar__avatar {
+    width: 34px !important;
+    height: 34px !important;
+    font-size: 10px;
+  }
+
+  .enterprise-shell--approved-nav .uc03-switch-project-topbar {
+    display: none !important;
+  }
+
+  .enterprise-shell--approved-nav .user-menu-button {
+    min-height: 34px;
+    padding: 0 9px;
+    font-size: 9px;
+    white-space: nowrap;
+  }
+
+  .enterprise-shell--approved-nav .enterprise-sidebar {
+    position: fixed !important;
+    top: 64px !important;
+    left: 0 !important;
+    grid-column: auto !important;
+    grid-row: auto !important;
+    width: min(84vw, 320px) !important;
+    height: calc(100dvh - 64px) !important;
+    max-height: calc(100dvh - 64px) !important;
+    padding: 12px 14px max(18px, env(safe-area-inset-bottom)) !important;
+    transform: translateX(-105%);
+    transition: transform 180ms ease;
+    box-shadow: 16px 0 36px rgba(0, 18, 42, 0.28) !important;
+    z-index: 55 !important;
+  }
+
+  .enterprise-shell--approved-nav .enterprise-sidebar.enterprise-sidebar--open {
+    transform: translateX(0);
+  }
+
+  .enterprise-shell--approved-nav .enterprise-sidebar__mobile-head {
+    min-height: 44px;
+    margin-bottom: 8px;
+    padding: 0 4px 8px 8px;
+    display: flex !important;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.13);
+    color: rgba(255, 255, 255, 0.72);
+  }
+
+  .enterprise-shell--approved-nav .enterprise-sidebar__mobile-head strong {
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+  }
+
+  .enterprise-shell--approved-nav .enterprise-sidebar__close {
+    width: 34px;
+    height: 34px;
+    padding: 0;
+    display: grid !important;
+    place-items: center;
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    border-radius: 9px;
+    background: rgba(255, 255, 255, 0.08);
+    color: #ffffff;
+    font-size: 22px;
+    line-height: 1;
+    cursor: pointer;
+  }
+
+  .enterprise-shell--approved-nav .enterprise-main {
+    grid-column: 1 !important;
+    grid-row: 2 !important;
+    min-height: calc(100dvh - 64px) !important;
+  }
+
+  .enterprise-shell--approved-nav .enterprise-content {
+    min-height: calc(100dvh - 64px) !important;
+  }
+
+  .enterprise-shell--approved-nav.enterprise-shell--menu-open .enterprise-mobile-backdrop {
+    position: fixed !important;
+    top: 64px !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    width: 100% !important;
+    height: auto !important;
+    display: block !important;
+    border: 0 !important;
+    background: rgba(0, 22, 48, 0.46) !important;
+    z-index: 50 !important;
+  }
+}
+
+@media (max-width: 430px) {
+  .enterprise-shell--approved-nav .enterprise-global-brand img {
+    width: 116px;
+  }
+
+  .enterprise-shell--approved-nav .enterprise-topbar__actions {
+    gap: 4px;
+  }
+
+  .enterprise-shell--approved-nav .user-menu-button {
+    padding-inline: 7px;
+  }
+}

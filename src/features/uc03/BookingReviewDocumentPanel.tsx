@@ -21,9 +21,12 @@ interface BookingReviewDocumentPanelProps {
   accessToken?: string;
   evidenceId: string;
   documentName: string;
-  proposals: ExtractionProposalView[];
-  aggregateVersion: number;
+  // Compatibility props retained while BookingWorkspacePage still owns the
+  // aggregate/workspace transition. Direct DI facts are loaded by this panel.
+  proposals?: ExtractionProposalView[];
+  aggregateVersion?: number;
   disabled?: boolean;
+  approved?: boolean;
   onVersion: (version: number) => void;
   onApprove: () => Promise<void>;
 }
@@ -35,7 +38,6 @@ type LocalDecision = {
 
 const READY = new Set(['COMPLETED', 'COMPLETE', 'PROCESSED', 'SUCCEEDED', 'READY', 'VERIFIED']);
 const FAILED = new Set(['FAILED', 'REJECTED']);
-const BACKOFF_MS = [3000, 5000, 8000, 10000];
 
 function valueOf(fact: PcBookingExtractionFact): unknown {
   return fact.normalizedValue ?? fact.rawValue ?? '';
@@ -60,8 +62,6 @@ function proposalFromFact(
     sourceDocumentTypeKey: documentTypeKey,
     valueSource: 'DI_MACHINE_EXTRACTION',
     proposedValue: valueOf(fact),
-    // Confidence is deliberately not sent to the PC rendering component. The
-    // original DI fact is retained separately and submitted only as audit provenance.
     confidence: null,
     pageNo: fact.pageNo,
     evidenceRegion: fact.evidenceRegion as ExtractionProposalView['evidenceRegion'],
@@ -80,30 +80,26 @@ export default function BookingReviewDocumentPanel({
   accessToken,
   evidenceId,
   documentName,
-  aggregateVersion,
   disabled = false,
+  approved = false,
   onVersion,
   onApprove,
 }: BookingReviewDocumentPanelProps) {
-  const [currentVersion, setCurrentVersion] = useState(aggregateVersion);
   const [requirement, setRequirement] = useState<BookingUploadRequirementContext | null>(null);
   const [facts, setFacts] = useState<PcBookingExtractionFact[]>([]);
   const [processingStatus, setProcessingStatus] = useState<string>('PROCESSING');
   const [decisions, setDecisions] = useState<Map<string, LocalDecision>>(() => new Map());
   const [fieldReviewComplete, setFieldReviewComplete] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [approved, setApproved] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>();
 
-  useEffect(() => setCurrentVersion(aggregateVersion), [aggregateVersion]);
   useEffect(() => {
     setRequirement(null);
     setFacts([]);
     setProcessingStatus('PROCESSING');
     setDecisions(new Map());
     setFieldReviewComplete(false);
-    setApproved(false);
     setLoading(true);
     setError(undefined);
   }, [evidenceId]);
@@ -111,10 +107,8 @@ export default function BookingReviewDocumentPanel({
   useEffect(() => {
     if (!accessToken) return undefined;
     let cancelled = false;
-    let timer: number | undefined;
-    let attempt = 0;
 
-    const load = async () => {
+    const loadOnce = async () => {
       try {
         const context = await prepareBookingDocumentUploadContext(tenantId, journeyId, accessToken);
         const list = await listPcBookingDocuments(tenantId, context.externalContextRef, accessToken);
@@ -124,58 +118,45 @@ export default function BookingReviewDocumentPanel({
           item.requirementRef === document?.requirementRef
           || locallyUploadedDocumentIds(tenantId, journeyId, item.requirementRef).includes(evidenceId));
         if (!slot) {
+          setError('This uploaded document is not linked to a Booking document requirement.');
           setLoading(false);
-          setError('This uploaded document is waiting for its Booking requirement linkage. Please retry shortly.');
           return;
         }
         setRequirement(slot);
-        const status = (document?.processingStatus || processingStatus || 'PROCESSING').toUpperCase();
+        const status = (document?.processingStatus || 'PROCESSING').toUpperCase();
         setProcessingStatus(status);
 
-        if (READY.has(status)) {
-          const review = await getPcBookingExtractionReview(
-            tenantId,
-            context.externalContextRef,
-            evidenceId,
-            accessToken,
-          );
-          if (cancelled) return;
-          setProcessingStatus(review.processingStatus.toUpperCase());
-          // Review visibility and Audit Core persistence are separate concerns.
-          // The PC must see every fact DI extracted. captureEligibleFieldKeys is
-          // used only to decide which approved/corrected values may be written
-          // into Audit Core typed business data.
-          setFacts(review.facts);
+        if (FAILED.has(status)) {
+          setError('Document extraction failed. Return to Documents and replace or retry this document.');
           setLoading(false);
-          setError(undefined);
           return;
         }
-        if (FAILED.has(status)) {
+        if (!READY.has(status)) {
+          setError('Extraction is not complete. Return to Booking Details and check document readiness again.');
           setLoading(false);
-          setError('Document extraction failed. The upload is retained; upload a clearer replacement if needed.');
           return;
         }
 
-        setLoading(false);
+        const review = await getPcBookingExtractionReview(
+          tenantId,
+          context.externalContextRef,
+          evidenceId,
+          accessToken,
+        );
+        if (cancelled) return;
+        setProcessingStatus(review.processingStatus.toUpperCase());
+        setFacts(review.facts);
         setError(undefined);
-        const delay = BACKOFF_MS[Math.min(attempt, BACKOFF_MS.length - 1)];
-        attempt += 1;
-        timer = window.setTimeout(() => void load(), delay);
+        setLoading(false);
       } catch (cause: unknown) {
         if (cancelled) return;
-        setLoading(false);
         setError(cause instanceof Error ? cause.message : 'Document Intelligence is temporarily unavailable.');
-        const delay = BACKOFF_MS[Math.min(attempt, BACKOFF_MS.length - 1)];
-        attempt += 1;
-        timer = window.setTimeout(() => void load(), delay);
+        setLoading(false);
       }
     };
 
-    void load();
-    return () => {
-      cancelled = true;
-      if (timer !== undefined) window.clearTimeout(timer);
-    };
+    void loadOnce();
+    return () => { cancelled = true; };
   }, [accessToken, evidenceId, journeyId, tenantId]);
 
   const captureEligibleFieldKeys = useMemo(
@@ -219,7 +200,7 @@ export default function BookingReviewDocumentPanel({
   };
 
   const approve = async () => {
-    if (!requirement) return;
+    if (!requirement || approved) return;
     setBusy(true);
     setError(undefined);
     try {
@@ -236,6 +217,7 @@ export default function BookingReviewDocumentPanel({
           return {
             fieldKey: fact.fieldKey,
             sourceFactRef: fact.sourceFactRef,
+            // Audit Core's current provenance command is explicitly version-1.
             sourceFactVersion: 1,
             sourceConfidence: fact.confidenceScore,
             decision: decision.decision,
@@ -250,11 +232,9 @@ export default function BookingReviewDocumentPanel({
           fields,
           accessToken,
         );
-        setCurrentVersion(result.aggregateVersion);
         onVersion(result.aggregateVersion);
       }
       await onApprove();
-      setApproved(true);
     } catch (cause: unknown) {
       setError(cause instanceof Error ? cause.message : 'The document review could not be saved.');
     } finally {
@@ -276,7 +256,7 @@ export default function BookingReviewDocumentPanel({
           {approved
             ? 'Approved'
             : extractionPending
-              ? 'Extracting…'
+              ? 'Not ready'
               : fieldReviewComplete
                 ? 'All fields reviewed'
                 : syntheticProposals.length
@@ -286,11 +266,7 @@ export default function BookingReviewDocumentPanel({
       </header>
 
       {error ? <div className="uc03-booking-journey-feedback is-error" role="alert">{error}</div> : null}
-      {loading || extractionPending ? (
-        <div className="uc03-booking-review-loading" role="status">
-          {loading ? 'Loading document status…' : 'Document uploaded. Extraction is still running in Document Intelligence…'}
-        </div>
-      ) : null}
+      {loading ? <div className="uc03-booking-review-loading" role="status">Loading document review…</div> : null}
 
       {!loading && READY.has(processingStatus) ? (
         <DocumentFieldReview
@@ -313,7 +289,7 @@ export default function BookingReviewDocumentPanel({
           {approved
             ? 'Document review recorded in Audit Core.'
             : extractionPending
-              ? 'You can leave this screen; extraction continues asynchronously in DI.'
+              ? 'Extraction must complete before this document can be reviewed.'
               : syntheticProposals.length
                 ? 'One batch is written to Audit Core only when you approve this document.'
                 : 'No extracted values were returned. Review the source document visually.'}

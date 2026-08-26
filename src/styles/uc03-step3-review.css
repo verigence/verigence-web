@@ -1,0 +1,171 @@
+.uc03-booking-step-panel--review {
+  max-height: min(980px, calc(100dvh - 120px));
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-gutter: stable;
+}
+
+.uc03-booking-review-selector {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: end;
+  margin: 0 0 16px;
+  padding: 12px 14px;
+  border: 1px solid var(--uc03-booking-border, rgba(26, 42, 58, 0.14));
+  border-radius: 14px;
+  background: var(--uc03-booking-soft, rgba(31, 87, 112, 0.07));
+}
+
+.uc03-booking-review-selector label {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.uc03-booking-review-selector label > span {
+  color: var(--text-muted, #68737c);
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.uc03-booking-review-selector select {
+  width: 100%;
+  min-height: 44px;
+  border: 1px solid var(--uc03-booking-border, rgba(26, 42, 58, 0.14));
+  border-radius: 10px;
+  background: #fff;
+  color: inherit;
+  padding: 0 10px;
+  font: inherit;
+  font-weight: 650;
+}
+
+.uc03-booking-review-selector__status {
+  display: inline-flex;
+  align-items: center;
+  min-height: 34px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: #fff;
+  color: var(--text-muted, #68737c);
+  font-size: 0.74rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.uc03-booking-review-selector__status.is-reviewed {
+  color: #1e6e33;
+}
+
+.uc03-booking-review-waiting {
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+  padding: 14px;
+  border: 1px solid rgba(185, 120, 20, 0.34);
+  border-radius: 14px;
+  background: rgba(185, 120, 20, 0.07);
+}
+
+.uc03-booking-review-waiting ul {
+  margin: 0;
+  padding-left: 20px;
+}
+
+.uc03-docverify-pdf-renderer {
+  width: 100%;
+  display: grid;
+  place-items: center;
+  gap: 8px;
+}
+
+.uc03-docverify-pdf-page {
+  position: relative;
+  width: fit-content;
+  max-width: 100%;
+  line-height: 0;
+  background: #fff;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
+}
+
+.uc03-docverify-pdf-page canvas {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+
+.uc03-docverify-pdf-status {
+  min-height: 22px;
+  color: rgba(255, 255, 255, 0.82);
+  font-size: 0.72rem;
+  font-weight: 650;
+}
+
+.uc03-docverify.is-narrow {
+  height: auto;
+  min-height: 0;
+  overflow: visible;
+}
+
+.uc03-docverify.is-narrow .uc03-docverify-body {
+  display: block;
+  overflow: visible;
+}
+
+.uc03-docverify.is-narrow .uc03-docverify-canvas {
+  height: clamp(340px, 56dvh, 560px);
+  min-height: 340px;
+}
+
+.uc03-docverify.is-narrow .uc03-docverify-panel:not(.is-wide),
+.uc03-docverify.is-narrow .uc03-docverify-panel.is-stacked {
+  position: relative;
+  inset: auto;
+  z-index: 1;
+  width: 100%;
+  height: auto;
+  max-height: none;
+  transform: none;
+  border-radius: 0;
+  box-shadow: none;
+  overflow: visible;
+}
+
+.uc03-docverify.is-narrow .uc03-docverify-fields {
+  overflow: visible;
+  max-height: none;
+}
+
+.uc03-docverify.is-narrow .uc03-docverify-pdf {
+  min-height: 100%;
+  justify-content: flex-start;
+}
+
+.uc03-docverify.is-narrow .uc03-docverify-source-note {
+  max-width: calc(100% - 24px);
+}
+
+@media (max-width: 680px) {
+  .uc03-booking-step-panel--review {
+    max-height: calc(100dvh - 84px);
+    padding: 14px;
+    scrollbar-gutter: auto;
+  }
+
+  .uc03-booking-review-selector {
+    grid-template-columns: 1fr;
+    align-items: stretch;
+  }
+
+  .uc03-booking-review-selector__status {
+    justify-self: start;
+  }
+
+  .uc03-docverify.is-narrow .uc03-docverify-canvas {
+    height: clamp(320px, 52dvh, 500px);
+    min-height: 320px;
+  }
+}

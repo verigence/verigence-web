@@ -207,7 +207,8 @@ export default function BookingReviewPage() {
     );
   }
 
-  const pendingReviewable = workspace.proposals.filter((proposal) => proposal.status === 'PENDING' && proposal.canAccept);
+  const reviewableProposals = workspace.proposals.filter((proposal) => proposal.canAccept);
+  const pendingReviewable = reviewableProposals.filter((proposal) => proposal.status === 'PENDING');
   const canVerify = verification.pendingProposalCount === 0;
 
   return (
@@ -245,7 +246,7 @@ export default function BookingReviewPage() {
           tenantId={project.tenantId}
           journeyId={journeyId}
           accessToken={accessToken}
-          proposals={workspace.proposals}
+          proposals={reviewableProposals}
           disabled={busy}
           onAccept={(proposal) => handleProposal(proposal, 'accept')}
           onCorrect={(proposal, value) => handleProposal(proposal, 'correct', value)}

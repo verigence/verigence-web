@@ -155,6 +155,10 @@ function WorkItemCard({ item, timezoneName }: { item: Uc03WorkItem; timezoneName
   );
   const auditAvailable = Boolean(item.booking.businessStatus || item.delivery.businessStatus);
   const hasSecondaryActions = deliveryEligible || auditAvailable;
+  const isDeliveryWork = Boolean(item.delivery.businessStatus);
+  const primaryStage = isDeliveryWork ? item.delivery : item.booking;
+  const workLabel = isDeliveryWork ? 'Delivery' : 'Booking';
+  const workStatus = friendlyStatus(primaryStage.businessStatus);
 
   return (
     <article
@@ -183,11 +187,19 @@ function WorkItemCard({ item, timezoneName }: { item: Uc03WorkItem; timezoneName
         </div>
 
         <div className="uc03-work-card__summary uc03-work-card__summary--simple">
-          <span className="uc03-work-card__status-label">Booking</span>
-          <strong>{friendlyStatus(item.booking.businessStatus)}</strong>
-          <VerificationBadge stage={item.booking} />
+          <span className="uc03-work-card__status-label">{workLabel}</span>
+          <strong>{workStatus}</strong>
+          <VerificationBadge stage={primaryStage} />
         </div>
       </header>
+
+      <div className="uc03-work-card__type-cell" aria-label={`Type ${workLabel}`}>
+        <span className={`uc03-work-card__type-chip${isDeliveryWork ? ' is-delivery' : ''}`}>{workLabel}</span>
+      </div>
+
+      <div className="uc03-work-card__activity-cell">
+        {activityLabel(item.latestActivityAtUtc, timezoneName)}
+      </div>
 
       <div className="uc03-work-card__location">
         <span>{item.dealerName}</span><span aria-hidden="true">·</span><span>{item.outletName}</span>
@@ -482,6 +494,15 @@ export default function DashboardPage() {
         {!invalidDateRange && workQuery.data && (
           <>
             <div className="uc03-work-cards">
+              {workItems.length > 0 && (
+                <div className="uc03-work-table-head" aria-hidden="true">
+                  <span>Work Item</span>
+                  <span>Type</span>
+                  <span>Status</span>
+                  <span>Last Activity</span>
+                  <span>Actions</span>
+                </div>
+              )}
               {workItems.map((item) => (
                 <WorkItemCard key={item.journeyId} item={item} timezoneName={timezoneName} />
               ))}

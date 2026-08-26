@@ -1,9 +1,9 @@
 # UC-001 Password Recovery + Interim Legal Pages — DEV Deploy Proof
 
-- run_id: 32485629608
-- source_sha: af42c930e5022678509833463216ebe9fc03906d
+- run_id: 32943801364
+- source_sha: 86104fba3e1145acf8626ab6c1726abcd6c5be71
 - build: PASS
-- public_routes: not_reached
-- password_recovery_proxy: not_reached
-- smoke: not_reached
-- job_status: failure
+- public_routes: PASS
+- password_recovery_proxy: PASS
+- smoke: PASS
+- job_status: cancelled

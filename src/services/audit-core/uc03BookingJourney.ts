@@ -170,11 +170,70 @@ export async function saveBookingDetails(
   });
 }
 
+export async function getBookingReviewDocuments(
+  tenantId: string,
+  journeyId: string,
+  accessToken?: string,
+): Promise<BookingReviewDocument[]> {
+  const context = await prepareBookingDocumentUploadContext(tenantId, journeyId, accessToken);
+  const list = await listPcBookingDocuments(
+    tenantId,
+    context.externalContextRef,
+    token(accessToken),
+  );
+  const documents: BookingReviewDocument[] = [];
+
+  for (const requirement of context.requirements) {
+    const directIds = new Set(locallyUploadedDocumentIds(
+      tenantId,
+      journeyId,
+      requirement.requirementRef,
+    ));
+    const matches = list.documents.filter((document) =>
+      document.requirementRef === requirement.requirementRef
+      && document.uploadStatus.toUpperCase() !== 'REJECTED');
+
+    for (const documentId of directIds) {
+      if (!matches.some((item) => item.documentId === documentId)) {
+        matches.push({
+          documentId,
+          requirementRef: requirement.requirementRef,
+          documentTypeKey: requirement.documentTypeKey,
+          uploadStatus: 'ACCEPTED',
+          processingStatus: 'PROCESSING',
+          registeredAtUtc: new Date().toISOString(),
+        });
+      }
+    }
+
+    const latest = newest(matches);
+    const selected = requirement.repeatable
+      ? [...matches].sort((a, b) => Date.parse(a.registeredAtUtc) - Date.parse(b.registeredAtUtc))
+      : (latest ? [latest] : []);
+    for (const document of selected) {
+      documents.push({
+        evidenceId: document.documentId,
+        requirementRef: requirement.requirementRef,
+        requirementKey: requirement.requirementKey,
+        documentTypeKey: document.documentTypeKey || requirement.documentTypeKey,
+        processingStatus: document.processingStatus,
+        verificationStatus: null,
+        captureEligibleFieldKeys: requirement.captureEligibleFieldKeys,
+        registeredAtUtc: document.registeredAtUtc,
+        repeatable: requirement.repeatable,
+      });
+    }
+  }
+
+  return documents;
+}
+
 export async function startBookingDetailsReview(
   tenantId: string,
   journeyId: string,
   version: number,
   accessToken?: string,
+  preparedDocuments?: BookingReviewDocument[],
 ): Promise<BookingReviewStartResult> {
   const review = await auditCoreRequest<BookingReviewStartResult>(`${base(tenantId, journeyId)}/review`, {
     method: 'POST',
@@ -182,66 +241,11 @@ export async function startBookingDetailsReview(
     headers: commandHeaders('uc03-booking-review-start', version),
   });
 
-  // The business review transition remains Audit Core-owned. The document list is
-  // DI-owned on this PC path so no extraction/status copy is needed in Core.
   try {
-    const context = await prepareBookingDocumentUploadContext(tenantId, journeyId, accessToken);
-    const list = await listPcBookingDocuments(
-      tenantId,
-      context.externalContextRef,
-      token(accessToken),
-    );
-    const documents: BookingReviewDocument[] = [];
-
-    for (const requirement of context.requirements) {
-      const directIds = new Set(locallyUploadedDocumentIds(
-        tenantId,
-        journeyId,
-        requirement.requirementRef,
-      ));
-      const matches = list.documents.filter((document) =>
-        document.requirementRef === requirement.requirementRef
-        && document.uploadStatus.toUpperCase() !== 'REJECTED');
-
-      // A freshly accepted upload can be visible before the list read catches up.
-      // Preserve that documentId without fabricating processing/extraction state.
-      for (const documentId of directIds) {
-        if (!matches.some((item) => item.documentId === documentId)) {
-          matches.push({
-            documentId,
-            requirementRef: requirement.requirementRef,
-            documentTypeKey: requirement.documentTypeKey,
-            uploadStatus: 'ACCEPTED',
-            processingStatus: 'PROCESSING',
-            registeredAtUtc: new Date().toISOString(),
-          });
-        }
-      }
-
-      const latest = newest(matches);
-      const selected = requirement.repeatable
-        ? [...matches].sort((a, b) => Date.parse(a.registeredAtUtc) - Date.parse(b.registeredAtUtc))
-        : (latest ? [latest] : []);
-      for (const document of selected) {
-        documents.push({
-          evidenceId: document.documentId,
-          requirementRef: requirement.requirementRef,
-          requirementKey: requirement.requirementKey,
-          documentTypeKey: document.documentTypeKey || requirement.documentTypeKey,
-          processingStatus: document.processingStatus,
-          verificationStatus: null,
-          captureEligibleFieldKeys: requirement.captureEligibleFieldKeys,
-          registeredAtUtc: document.registeredAtUtc,
-          repeatable: requirement.repeatable,
-        });
-      }
-    }
-
+    const documents = preparedDocuments ?? await getBookingReviewDocuments(tenantId, journeyId, accessToken);
     return { ...review, documents };
   } catch {
-    // DI read failure must not block the PC from entering the review step. Do not
-    // fall back to Audit Core's old extraction/proposal copy, because that would
-    // silently reintroduce the deprecated data path.
+    // DI read failure must not fall back to the deprecated Audit Core extraction copy.
     return { ...review, documents: [] };
   }
 }

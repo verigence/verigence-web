@@ -21,8 +21,6 @@ interface BookingReviewDocumentPanelProps {
   accessToken?: string;
   evidenceId: string;
   documentName: string;
-  proposals: ExtractionProposalView[];
-  aggregateVersion: number;
   disabled?: boolean;
   approved?: boolean;
   onVersion: (version: number) => void;
@@ -78,13 +76,11 @@ export default function BookingReviewDocumentPanel({
   accessToken,
   evidenceId,
   documentName,
-  aggregateVersion,
   disabled = false,
   approved = false,
   onVersion,
   onApprove,
 }: BookingReviewDocumentPanelProps) {
-  const [currentVersion, setCurrentVersion] = useState(aggregateVersion);
   const [requirement, setRequirement] = useState<BookingUploadRequirementContext | null>(null);
   const [facts, setFacts] = useState<PcBookingExtractionFact[]>([]);
   const [processingStatus, setProcessingStatus] = useState<string>('PROCESSING');
@@ -94,7 +90,6 @@ export default function BookingReviewDocumentPanel({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>();
 
-  useEffect(() => setCurrentVersion(aggregateVersion), [aggregateVersion]);
   useEffect(() => {
     setRequirement(null);
     setFacts([]);
@@ -232,7 +227,6 @@ export default function BookingReviewDocumentPanel({
           fields,
           accessToken,
         );
-        setCurrentVersion(result.aggregateVersion);
         onVersion(result.aggregateVersion);
       }
       await onApprove();

@@ -56,6 +56,7 @@ const groups: NavGroup[] = [
   { key: 'administration', label: 'Administration', items: [
     { to: '/admin/engagements', label: 'Engagements', mark: 'EN', roles: ['SUPER_ADMIN'] },
     { to: '/admin/document-intelligence', label: 'Document Intelligence', mark: 'DC', roles: ['SUPER_ADMIN'] },
+    { to: '/admin/housekeeping', label: 'Housekeeping', mark: 'HK', roles: ['SUPER_ADMIN'] },
     { to: '/admin/di-test', label: 'DI Test Console', mark: 'DI', roles: ['SUPER_ADMIN'], devOnly: true },
     { to: '/admin/users', label: 'Users', mark: 'US', roles: ['SUPER_ADMIN'] },
     { to: '/admin/activity-log', label: 'User Activity Log', mark: 'UA', roles: ['SUPER_ADMIN'] },
@@ -72,7 +73,7 @@ const routeLabels: Record<string, string> = {
   '/reviews': 'Review Queue', '/evidence': 'Evidence', '/payments': 'Payment Tracker', '/findings': 'Findings',
   '/daily-ops': 'Daily Operations', '/activity': 'Activity Tracker', '/crm': 'CRM Follow-up', '/escalations': 'Escalations',
   '/analytics': 'Analytics', '/admin/engagements': 'Engagements', '/admin/document-intelligence': 'Document Intelligence Configuration',
-  '/admin/di-test': 'DI Test Console', '/admin/users': 'Users',
+  '/admin/housekeeping': 'Housekeeping', '/admin/di-test': 'DI Test Console', '/admin/users': 'Users',
   '/admin/users/pending': 'Pending Approvals', '/admin/activity-log': 'User Activity Log',
   '/admin/roles-permissions': 'Roles & Permissions', '/admin/audit-rules': 'Audit Rule Config',
   '/admin/approval-workflow': 'Approval Workflow Config', '/admin/notifications': 'Notification Settings',

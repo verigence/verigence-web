@@ -1,5 +1,11 @@
 import { auditCoreRequest } from './client';
 import { newIdempotencyKey } from './uc03Booking';
+import {
+  latestBookingDocumentDecisionVersion,
+  locallyUploadedDocumentIds,
+  prepareBookingDocumentUploadContext,
+} from './uc03PcBookingDocuments';
+import { listPcBookingDocuments, type PcBookingDocumentStatus } from '../di/bookingDocuments';
 
 export interface BookingReferenceOption {
   code: string;
@@ -77,11 +83,17 @@ export interface BookingDetailsSaveResult {
 }
 
 export interface BookingReviewDocument {
+  // Compatibility name retained for the existing page. On the direct-DI PC path
+  // this is the DI documentId, not an Audit Core evidence UUID.
   evidenceId: string;
+  requirementRef?: string;
   requirementKey: string | null;
   documentTypeKey: string | null;
   processingStatus: string | null;
   verificationStatus: string | null;
+  captureEligibleFieldKeys?: string[];
+  registeredAtUtc?: string | null;
+  repeatable?: boolean;
 }
 
 export interface BookingReviewStartResult {
@@ -112,6 +124,13 @@ function commandHeaders(prefix: string, version: number): HeadersInit {
     'Idempotency-Key': newIdempotencyKey(prefix),
     'If-Match': `"${version}"`,
   };
+}
+
+function newest(documents: PcBookingDocumentStatus[]): PcBookingDocumentStatus | undefined {
+  return [...documents].sort((a, b) => {
+    const time = Date.parse(b.registeredAtUtc) - Date.parse(a.registeredAtUtc);
+    return time || b.documentId.localeCompare(a.documentId);
+  })[0];
 }
 
 export async function getBookingDetails(
@@ -157,11 +176,74 @@ export async function startBookingDetailsReview(
   version: number,
   accessToken?: string,
 ): Promise<BookingReviewStartResult> {
-  return auditCoreRequest<BookingReviewStartResult>(`${base(tenantId, journeyId)}/review`, {
+  const review = await auditCoreRequest<BookingReviewStartResult>(`${base(tenantId, journeyId)}/review`, {
     method: 'POST',
     accessToken: token(accessToken),
     headers: commandHeaders('uc03-booking-review-start', version),
   });
+
+  // The business review transition remains Audit Core-owned. The document list is
+  // DI-owned on this PC path so no extraction/status copy is needed in Core.
+  try {
+    const context = await prepareBookingDocumentUploadContext(tenantId, journeyId, accessToken);
+    const list = await listPcBookingDocuments(
+      tenantId,
+      context.externalContextRef,
+      token(accessToken),
+    );
+    const documents: BookingReviewDocument[] = [];
+
+    for (const requirement of context.requirements) {
+      const directIds = new Set(locallyUploadedDocumentIds(
+        tenantId,
+        journeyId,
+        requirement.requirementRef,
+      ));
+      const matches = list.documents.filter((document) =>
+        document.requirementRef === requirement.requirementRef
+        && document.uploadStatus.toUpperCase() !== 'REJECTED');
+
+      // A freshly accepted upload can be visible before the list read catches up.
+      // Preserve that documentId without fabricating processing/extraction state.
+      for (const documentId of directIds) {
+        if (!matches.some((item) => item.documentId === documentId)) {
+          matches.push({
+            documentId,
+            requirementRef: requirement.requirementRef,
+            documentTypeKey: requirement.documentTypeKey,
+            uploadStatus: 'ACCEPTED',
+            processingStatus: 'PROCESSING',
+            registeredAtUtc: new Date().toISOString(),
+          });
+        }
+      }
+
+      const latest = newest(matches);
+      const selected = requirement.repeatable
+        ? [...matches].sort((a, b) => Date.parse(a.registeredAtUtc) - Date.parse(b.registeredAtUtc))
+        : (latest ? [latest] : []);
+      for (const document of selected) {
+        documents.push({
+          evidenceId: document.documentId,
+          requirementRef: requirement.requirementRef,
+          requirementKey: requirement.requirementKey,
+          documentTypeKey: document.documentTypeKey || requirement.documentTypeKey,
+          processingStatus: document.processingStatus,
+          verificationStatus: null,
+          captureEligibleFieldKeys: requirement.captureEligibleFieldKeys,
+          registeredAtUtc: document.registeredAtUtc,
+          repeatable: requirement.repeatable,
+        });
+      }
+    }
+
+    return { ...review, documents };
+  } catch {
+    // DI read failure must not block the PC from entering the review step. Do not
+    // fall back to Audit Core's old extraction/proposal copy, because that would
+    // silently reintroduce the deprecated data path.
+    return { ...review, documents: [] };
+  }
 }
 
 export async function approveBookingReviewDocument(
@@ -169,14 +251,13 @@ export async function approveBookingReviewDocument(
   journeyId: string,
   evidenceId: string,
   version: number,
-  accessToken?: string,
+  _accessToken?: string,
 ): Promise<BookingReviewApprovalResult> {
-  return auditCoreRequest<BookingReviewApprovalResult>(
-    `${base(tenantId, journeyId)}/review/${encodeURIComponent(evidenceId)}/approve`,
-    {
-      method: 'POST',
-      accessToken: token(accessToken),
-      headers: commandHeaders('uc03-booking-review-approve', version),
-    },
-  );
+  // The direct-DI review panel persists one Audit Core batch before invoking this
+  // compatibility hook. There is deliberately no DI verification/proxy call here.
+  return {
+    evidenceId,
+    aggregateVersion: latestBookingDocumentDecisionVersion(tenantId, journeyId, version),
+    verificationStatus: 'REVIEWED',
+  };
 }

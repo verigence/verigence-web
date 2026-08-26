@@ -8,7 +8,6 @@ import BookingReviewDocumentPanel from '../features/uc03/BookingReviewDocumentPa
 import { raiseAuditFlag } from '../services/audit-core/uc03Audit';
 import {
   getBookingWorkspace,
-  refreshBookingExtraction,
   startBooking,
   uploadBookingDocument,
 } from '../services/audit-core/uc03Booking';
@@ -16,6 +15,7 @@ import {
   approveBookingReviewDocument,
   getBookingDetails,
   getBookingDetailsOptions,
+  getBookingReviewDocuments,
   saveBookingDetails,
   startBookingDetailsReview,
   type BookingDetailsPayload,
@@ -35,6 +35,7 @@ import { displayName } from '../utils/displayNames';
 const SUCCESS_PROCESSING_STATUSES = new Set([
   'COMPLETED', 'COMPLETE', 'PROCESSED', 'SUCCEEDED', 'READY', 'VERIFIED',
 ]);
+const FAILED_PROCESSING_STATUSES = new Set(['FAILED', 'REJECTED']);
 
 type JourneyStep = 1 | 2 | 3;
 type EvidenceProcessingState = 'READY' | 'FAILED' | 'PROCESSING';
@@ -82,7 +83,14 @@ function requirementByKind(
 
 function evidenceProcessingState(evidence: Part1EvidenceItem): EvidenceProcessingState {
   const status = (evidence.processingStatus || '').trim().toUpperCase();
-  if (status === 'FAILED') return 'FAILED';
+  if (FAILED_PROCESSING_STATUSES.has(status)) return 'FAILED';
+  if (SUCCESS_PROCESSING_STATUSES.has(status)) return 'READY';
+  return 'PROCESSING';
+}
+
+function reviewProcessingState(document: BookingReviewDocument): EvidenceProcessingState {
+  const status = (document.processingStatus || '').trim().toUpperCase();
+  if (FAILED_PROCESSING_STATUSES.has(status)) return 'FAILED';
   if (SUCCESS_PROCESSING_STATUSES.has(status)) return 'READY';
   return 'PROCESSING';
 }
@@ -264,8 +272,8 @@ function OptionalEvidenceUpload({
 }) {
   const uploaded = Boolean(evidence?.evidenceId);
   const processing = evidence?.processingStatus && !SUCCESS_PROCESSING_STATUSES.has(evidence.processingStatus.toUpperCase())
-    && evidence.processingStatus.toUpperCase() !== 'FAILED';
-  const failed = evidence?.processingStatus?.toUpperCase() === 'FAILED';
+    && !FAILED_PROCESSING_STATUSES.has(evidence.processingStatus.toUpperCase());
+  const failed = evidence?.processingStatus ? FAILED_PROCESSING_STATUSES.has(evidence.processingStatus.toUpperCase()) : false;
   const canUpload = !busy && !processing && (!uploaded || failed);
   const submit = (file?: File) => { if (file && canUpload) void onUpload(file); };
   return (
@@ -322,6 +330,8 @@ export default function BookingWorkspacePage() {
   const [version, setVersion] = useState(0);
   const [reviewDocuments, setReviewDocuments] = useState<BookingReviewDocument[]>([]);
   const [reviewIndex, setReviewIndex] = useState(0);
+  const [reviewedDocumentIds, setReviewedDocumentIds] = useState<Set<string>>(() => new Set());
+  const [reviewWaitingDocuments, setReviewWaitingDocuments] = useState<BookingReviewDocument[]>([]);
   const [showMissingEvidenceWarning, setShowMissingEvidenceWarning] = useState(false);
 
   const enabled = Boolean(project?.tenantId && journeyId && accessToken);
@@ -350,9 +360,6 @@ export default function BookingWorkspacePage() {
     refetchOnWindowFocus: false,
   });
 
-  const hasProcessingEvidence = Boolean(part1Query.data?.requirements.some((requirement) =>
-    requirement.evidence.some((item) => evidenceProcessingState(item) === 'PROCESSING')));
-
   useEffect(() => {
     if (workspaceQuery.data?.aggregateVersion !== undefined) setVersion(workspaceQuery.data.aggregateVersion);
   }, [workspaceQuery.data?.aggregateVersion]);
@@ -377,30 +384,6 @@ export default function BookingWorkspacePage() {
       corporateIdAvailable: details.corporateIdAvailable ?? null,
     });
   }, [detailsQuery.data, formDirty]);
-
-  useEffect(() => {
-    if (!hasProcessingEvidence || !project?.tenantId || !journeyId || !accessToken) return undefined;
-    let cancelled = false;
-    let timer: number | undefined;
-
-    const poll = async () => {
-      try {
-        await refreshBookingExtraction(project.tenantId, journeyId, accessToken);
-        if (!cancelled) {
-          await Promise.all([part1Query.refetch(), workspaceQuery.refetch()]);
-        }
-      } catch {
-        // Processing refresh is deliberately non-blocking. Step 2 remains available while DI recovers.
-      }
-      if (!cancelled) timer = window.setTimeout(() => void poll(), 4000);
-    };
-
-    timer = window.setTimeout(() => void poll(), 2500);
-    return () => {
-      cancelled = true;
-      if (timer !== undefined) window.clearTimeout(timer);
-    };
-  }, [accessToken, hasProcessingEvidence, journeyId, part1Query, project?.tenantId, workspaceQuery]);
 
   const refreshAll = useCallback(async () => {
     const [workspaceResult] = await Promise.all([
@@ -457,15 +440,6 @@ export default function BookingWorkspacePage() {
     && (form.customerType !== 'CORPORATE' || form.corporateIdAvailable !== null)
   );
 
-  const openDocumentReview = () => {
-    setError(undefined);
-    setMessage(undefined);
-    setShowMissingEvidenceWarning(false);
-    setReviewDocuments(reviewDocumentsFromUploads(part1.requirements));
-    setReviewIndex(0);
-    setStep(3);
-  };
-
   const updateForm = <K extends keyof BookingDetailsForm>(key: K, value: BookingDetailsForm[K]) => {
     setForm((current) => ({
       ...current,
@@ -473,6 +447,7 @@ export default function BookingWorkspacePage() {
       ...(key === 'customerType' && value !== 'CORPORATE' ? { corporateIdAvailable: null } : {}),
     }));
     setFormDirty(true);
+    setReviewWaitingDocuments([]);
   };
 
   const detailsPayload = (): BookingDetailsPayload => {
@@ -515,7 +490,8 @@ export default function BookingWorkspacePage() {
         await uploadBookingDocument(project.tenantId, journeyId, requirement.requirementKey, file, accessToken);
       }
       await refreshAll();
-      setMessage('Document accepted by Document Intelligence. Processing status will refresh automatically.');
+      setReviewWaitingDocuments([]);
+      setMessage('Document accepted by Document Intelligence. Extraction continues asynchronously; readiness is checked when you continue to Review.');
     } catch (cause: unknown) {
       setError(cause instanceof Error ? cause.message : 'The document could not be uploaded.');
     } finally { setUploadingKey(undefined); }
@@ -524,6 +500,7 @@ export default function BookingWorkspacePage() {
   const saveCurrentDetails = async () => {
     const result = await saveBookingDetails(project.tenantId, journeyId, detailsPayload(), version, accessToken);
     setVersion(result.aggregateVersion);
+    setFormDirty(false);
     return result;
   };
 
@@ -535,7 +512,8 @@ export default function BookingWorkspacePage() {
       if (!requirement) throw new Error('This optional Booking document is not configured for the Journey.');
       await uploadBookingDocument(project.tenantId, journeyId, requirement.requirementKey, file, accessToken);
       await refreshAll();
-      setMessage('Optional document accepted by Document Intelligence. Processing status will refresh automatically.');
+      setReviewWaitingDocuments([]);
+      setMessage('Optional document accepted by Document Intelligence. Extraction continues asynchronously; readiness is checked when you continue to Review.');
     } catch (cause: unknown) {
       setError(cause instanceof Error ? cause.message : 'The optional document could not be uploaded.');
     } finally { setUploadingKey(undefined); setBusy(false); }
@@ -545,8 +523,28 @@ export default function BookingWorkspacePage() {
     setShowMissingEvidenceWarning(false);
     setBusy(true); setError(undefined); setMessage(undefined);
     try {
+      const preparedDocuments = await getBookingReviewDocuments(project.tenantId, journeyId, accessToken);
+      const failed = preparedDocuments.filter((document) => reviewProcessingState(document) === 'FAILED');
+      if (failed.length > 0) {
+        setReviewWaitingDocuments(failed);
+        setError('One or more uploaded documents failed extraction. Return to Documents and retry or replace them before Review.');
+        return;
+      }
+      const waiting = preparedDocuments.filter((document) => reviewProcessingState(document) === 'PROCESSING');
+      if (waiting.length > 0) {
+        setReviewWaitingDocuments(waiting);
+        setMessage('Document extraction is still completing. Review is not opened until uploaded extraction-required documents are ready.');
+        return;
+      }
+
       const saved = await saveCurrentDetails();
-      const review = await startBookingDetailsReview(project.tenantId, journeyId, saved.aggregateVersion, accessToken);
+      const review = await startBookingDetailsReview(
+        project.tenantId,
+        journeyId,
+        saved.aggregateVersion,
+        accessToken,
+        preparedDocuments,
+      );
       setVersion(review.aggregateVersion);
 
       if (missingMandatoryDocuments.length > 0) {
@@ -565,9 +563,9 @@ export default function BookingWorkspacePage() {
         );
       }
 
-      await refreshAll();
       setReviewDocuments(review.documents);
       setReviewIndex(0);
+      setReviewWaitingDocuments([]);
       setStep(3);
       setMessage(review.raisedObservationIds.length || missingMandatoryDocuments.length
         ? 'Booking details saved. Missing evidence/configuration was recorded as non-blocking INFO audit information.'
@@ -579,11 +577,24 @@ export default function BookingWorkspacePage() {
 
   const handleStartReview = () => {
     setError(undefined); setMessage(undefined);
+    if (!formComplete) {
+      setError('Complete the mandatory Booking Details before opening Review. Optional fields and missing evidence remain non-blocking.');
+      return;
+    }
     if (missingMandatoryDocuments.length > 0) {
       setShowMissingEvidenceWarning(true);
       return;
     }
     void performStartReview();
+  };
+
+  const handleReviewStepClick = () => {
+    setError(undefined);
+    if (reviewDocuments.length > 0) {
+      setStep(3);
+      return;
+    }
+    handleStartReview();
   };
 
   const handleApproveDocument = async () => {
@@ -598,12 +609,16 @@ export default function BookingWorkspacePage() {
         accessToken,
       );
       setVersion(result.aggregateVersion);
-      await workspaceQuery.refetch();
-      if (reviewIndex < reviewDocuments.length - 1) {
-        setReviewIndex((value) => value + 1);
-        setMessage('Document approved. Moving to the next uploaded document.');
+      const nextReviewed = new Set(reviewedDocumentIds);
+      nextReviewed.add(currentReviewDocument.evidenceId);
+      setReviewedDocumentIds(nextReviewed);
+
+      const nextIndex = reviewDocuments.findIndex((document, index) =>
+        index !== reviewIndex && !nextReviewed.has(document.evidenceId));
+      if (nextIndex >= 0) {
+        setReviewIndex(nextIndex);
+        setMessage('Document approved. Select any remaining document to continue review.');
       } else {
-        setReviewIndex(reviewDocuments.length);
         setMessage('All uploaded Booking documents have been reviewed and approved.');
       }
     } catch (cause: unknown) {
@@ -616,7 +631,8 @@ export default function BookingWorkspacePage() {
   const corporateEvidence = optionalEvidenceByKey(optionalEvidence, 'corporate_id');
   const gstEvidence = optionalEvidenceByKey(optionalEvidence, 'gst_certificate');
   const tradeEvidence = optionalEvidenceByKey(optionalEvidence, 'trade_in_vehicle_rc');
-  const reviewDone = reviewDocuments.length > 0 && reviewIndex >= reviewDocuments.length;
+  const reviewedCount = reviewDocuments.filter((document) => reviewedDocumentIds.has(document.evidenceId)).length;
+  const reviewDone = reviewDocuments.length > 0 && reviewedCount === reviewDocuments.length;
 
   return (
     <div className="screen-stack uc03-booking-journey">
@@ -639,7 +655,7 @@ export default function BookingWorkspacePage() {
         <nav className="uc03-booking-steps" aria-label="Booking capture steps">
           <button type="button" className={step === 1 ? 'is-active' : ''} onClick={() => setStep(1)}>1 <span>Documents</span></button>
           <button type="button" className={step === 2 ? 'is-active' : ''} onClick={() => setStep(2)}>2 <span>Booking Details</span></button>
-          <button type="button" className={step === 3 ? 'is-active' : ''} onClick={openDocumentReview}>3 <span>Review</span></button>
+          <button type="button" className={step === 3 ? 'is-active' : ''} onClick={handleReviewStepClick}>3 <span>Review</span></button>
         </nav>
       ) : null}
 
@@ -744,7 +760,22 @@ export default function BookingWorkspacePage() {
               </div>
               <div className="uc03-booking-evidence-warning__actions">
                 <button type="button" className="uc03-c1-secondary" disabled={busy} onClick={() => setShowMissingEvidenceWarning(false)}>Go Back</button>
-                <button type="button" className="uc03-c1-primary" disabled={busy || Boolean(uploadingKey)} onClick={() => void performStartReview()}>{busy ? 'Continuing…' : 'Continue Anyway'}</button>
+                <button type="button" className="uc03-c1-primary" disabled={busy || Boolean(uploadingKey)} onClick={() => void performStartReview()}>{busy ? 'Checking…' : 'Continue Anyway'}</button>
+              </div>
+            </div>
+          ) : null}
+
+          {reviewWaitingDocuments.length > 0 ? (
+            <div className="uc03-booking-review-waiting" role="status">
+              <strong>{reviewWaitingDocuments.some((document) => reviewProcessingState(document) === 'FAILED') ? 'Document extraction needs attention.' : 'Document extraction is still running.'}</strong>
+              <ul>
+                {reviewWaitingDocuments.map((document, index) => (
+                  <li key={document.evidenceId}>{reviewDocumentName(document, index)} · {displayName(document.processingStatus || 'Processing')}</li>
+                ))}
+              </ul>
+              <div className="uc03-booking-evidence-warning__actions">
+                <button type="button" className="uc03-c1-secondary" disabled={busy} onClick={() => setStep(1)}>Documents</button>
+                <button type="button" className="uc03-c1-primary" disabled={busy} onClick={() => void performStartReview()}>{busy ? 'Checking…' : 'Check Again'}</button>
               </div>
             </div>
           ) : null}
@@ -755,21 +786,43 @@ export default function BookingWorkspacePage() {
               type="button"
               className="uc03-c1-primary"
               disabled={busy || Boolean(uploadingKey)}
-              onClick={() => {
-                if (formComplete) handleStartReview();
-                else openDocumentReview();
-              }}
+              onClick={handleStartReview}
             >
-              {busy ? 'Preparing Review…' : 'Review Booking Documents →'}
+              {busy ? 'Checking Documents…' : 'Review Booking Documents →'}
             </button>
           </div>
         </section>
       ) : (
-        <section className="uc03-booking-step-panel">
+        <section className="uc03-booking-step-panel uc03-booking-step-panel--review">
           <header className="uc03-booking-step-heading">
             <div><span className="uc03-c1-eyebrow">Step 3</span><h2>Review Booking Documents</h2></div>
-            <span>{reviewDocuments.length ? `Document ${Math.min(reviewIndex + 1, reviewDocuments.length)} of ${reviewDocuments.length}` : 'No documents'}</span>
+            <span>{reviewDocuments.length ? `${reviewedCount} of ${reviewDocuments.length} reviewed` : 'No documents'}</span>
           </header>
+
+          {reviewDocuments.length > 0 ? (
+            <div className="uc03-booking-review-selector">
+              <label>
+                <span>Select document to review</span>
+                <select
+                  value={currentReviewDocument?.evidenceId || ''}
+                  disabled={busy}
+                  onChange={(event) => {
+                    const nextIndex = reviewDocuments.findIndex((document) => document.evidenceId === event.target.value);
+                    if (nextIndex >= 0) setReviewIndex(nextIndex);
+                  }}
+                >
+                  {reviewDocuments.map((document, index) => (
+                    <option key={document.evidenceId} value={document.evidenceId}>
+                      {reviewedDocumentIds.has(document.evidenceId) ? '✓ ' : ''}{reviewDocumentName(document, index)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <span className={`uc03-booking-review-selector__status ${currentReviewDocument && reviewedDocumentIds.has(currentReviewDocument.evidenceId) ? 'is-reviewed' : ''}`}>
+                {currentReviewDocument && reviewedDocumentIds.has(currentReviewDocument.evidenceId) ? '✓ Reviewed' : reviewDone ? 'All reviewed' : 'Pending review'}
+              </span>
+            </div>
+          ) : null}
 
           {currentReviewDocument ? (
             <>
@@ -793,10 +846,8 @@ export default function BookingWorkspacePage() {
                 proposals={currentReviewProposals}
                 aggregateVersion={version}
                 disabled={busy}
-                onVersion={(nextVersion) => {
-                  setVersion(nextVersion);
-                  void Promise.all([workspaceQuery.refetch(), part1Query.refetch()]);
-                }}
+                approved={reviewedDocumentIds.has(currentReviewDocument.evidenceId)}
+                onVersion={setVersion}
                 onApprove={handleApproveDocument}
               />
             </>
@@ -808,7 +859,6 @@ export default function BookingWorkspacePage() {
 
           <div className="uc03-booking-step-footer">
             <button type="button" className="uc03-c1-secondary" disabled={busy} onClick={() => setStep(2)}>← Booking Details</button>
-            {reviewIndex > 0 && !reviewDone ? <button type="button" className="uc03-c1-secondary" disabled={busy} onClick={() => setReviewIndex((value) => Math.max(0, value - 1))}>Previous Document</button> : null}
           </div>
         </section>
       )}

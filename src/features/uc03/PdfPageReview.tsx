@@ -60,10 +60,7 @@ export function PdfPageReview({
 
     void task.promise
       .then((pdf) => {
-        if (cancelled) {
-          void pdf.destroy();
-          return;
-        }
+        if (cancelled) return;
         setDocumentProxy(pdf);
         setPageCount(pdf.numPages);
       })
@@ -107,6 +104,7 @@ export function PdfPageReview({
         if (!context) throw new Error('PDF canvas is not available.');
 
         renderTask = page.render({
+          canvas,
           canvasContext: context,
           viewport,
           transform: pixelRatio === 1 ? undefined : [pixelRatio, 0, 0, pixelRatio, 0, 0],

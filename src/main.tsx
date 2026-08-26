@@ -56,6 +56,7 @@ import './styles/uc03-booking-capture-compact.css';
 import './styles/uc03-booking-adaptive.css';
 import './styles/uc03-booking-mobile-compact.css';
 import './styles/uc03-booking-journey.css';
+import './styles/booking-step12-visual-refresh.css';
 import './styles/authenticated-scroll-owner.css';
 import './styles/approved-navigation-shell.css';
 import './styles/approved-navigation-scroll-owner.css';

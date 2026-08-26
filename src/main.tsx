@@ -66,6 +66,7 @@ import './styles/dashboard-density-width-pass.css';
 import './styles/recent-work-table.css';
 import './styles/dashboard-visual-hierarchy.css';
 import './styles/dashboard-workqueue-ui.css';
+import './styles/dashboard-mobile-workqueue-fix.css';
 import './styles/ui-governance.css';
 
 import App from './App';

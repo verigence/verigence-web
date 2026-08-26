@@ -1,24 +1,19 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate, useParams } from 'react-router-dom';
 
 import PageHeader from '../components/PageHeader';
 import StatusPill from '../components/StatusPill';
-import { DocumentFieldReview } from '../features/uc03/DocumentFieldReview';
 import {
-  assessBookingDocument,
-  captureBookingValue,
-  concludeBooking,
-  createBookingFlag,
-  decideExtractionProposal,
-  getBookingProcessingStatus,
   getBookingWorkspace,
-  refreshBookingExtraction,
   startBooking,
   uploadBookingDocument,
   type BookingDocumentView,
-  type ExtractionProposalView,
 } from '../services/audit-core/uc03Booking';
+import {
+  getPcVerification,
+  submitPcBookingCapture,
+} from '../services/audit-core/uc03PcVerification';
 import { useProjectContextStore } from '../store/projectContextStore';
 import { useSessionStore } from '../store/sessionStore';
 
@@ -38,25 +33,6 @@ const CAPTURE_FIELDS = [
   ['REGISTRATION_TYPE', 'Registration type'],
   ['REGISTRATION_CATEGORY', 'Registration category'],
 ] as const;
-
-const HUMAN_FLAG_CATEGORIES = [
-  'PHYSICAL_OBSERVATION',
-  'DOCUMENT_EXCEPTION',
-  'PAYMENT_EXCEPTION',
-  'CUSTOMER_IDENTITY_CONCERN',
-  'COMMERCIAL_EXCEPTION',
-  'PROCESS_NON_COMPLIANCE',
-  'OTHER',
-];
-
-const CONCLUSION_OPTIONS = [
-  ['close-ready', 'Booking complete — proceed to Delivery'],
-  ['close-no-delivery', 'Close — no Delivery'],
-  ['cancel', 'Cancel Booking'],
-  ['mark-duplicate', 'Mark duplicate Booking'],
-] as const;
-
-type ConclusionAction = (typeof CONCLUSION_OPTIONS)[number][0];
 
 function friendly(value?: string | null): string {
   if (!value) return 'Not started';
@@ -78,17 +54,15 @@ function DocumentCard({
   document,
   busy,
   onUpload,
-  onAssess,
 }: {
   document: BookingDocumentView;
   busy: boolean;
   onUpload: (document: BookingDocumentView, file: File) => Promise<void>;
-  onAssess: (document: BookingDocumentView, answer: 'YES' | 'NO' | 'NA') => Promise<void>;
 }) {
-  const hidden = document.applicabilityState === 'NOT_APPLICABLE' && document.answer === 'NA';
+  const hidden = document.applicabilityState === 'NOT_APPLICABLE';
   if (hidden) return null;
 
-  const canUpload = document.applicabilityState === 'APPLICABLE';
+  const canUpload = document.applicabilityState !== 'NOT_APPLICABLE';
   return (
     <article className="uc03-c1-card uc03-c1-document-card">
       <header>
@@ -98,13 +72,12 @@ function DocumentCard({
           <p>{friendly(document.documentTypeKey)}</p>
         </div>
         <div className="uc03-c1-status-stack">
-          <StatusPill value={document.requirementStatus} compact />
-          {document.processingStatus && <StatusPill value={document.processingStatus} compact />}
+          {document.evidenceId ? <StatusPill value="UPLOADED" compact /> : <StatusPill value="PENDING" compact />}
         </div>
       </header>
 
       {document.applicabilityState === 'UNRESOLVED' && (
-        <div className="uc03-c1-notice">Applicability will update when the related Booking details are captured.</div>
+        <div className="uc03-c1-notice">Upload this document if it is available. Applicability can be resolved from Booking Details later.</div>
       )}
       {document.applicabilityReason && <p className="uc03-c1-muted">{document.applicabilityReason}</p>}
 
@@ -122,31 +95,7 @@ function DocumentCard({
             }}
           />
         </label>
-        {document.evidenceId && <span className="uc03-c1-evidence-ok">Document linked</span>}
-      </div>
-
-      <div className="uc03-c1-answer-row" role="group" aria-label={`Assessment for ${document.requirementKey}`}>
-        {(['YES', 'NO'] as const).map((answer) => (
-          <button
-            type="button"
-            key={answer}
-            className={document.answer === answer ? 'is-active' : ''}
-            disabled={busy || document.applicabilityState !== 'APPLICABLE'}
-            onClick={() => void onAssess(document, answer)}
-          >
-            {answer === 'YES' ? 'Yes — available' : 'No — missing / mismatch'}
-          </button>
-        ))}
-        {document.applicabilityState === 'NOT_APPLICABLE' && (
-          <button
-            type="button"
-            className={document.answer === 'NA' ? 'is-active' : ''}
-            disabled={busy}
-            onClick={() => void onAssess(document, 'NA')}
-          >
-            Not applicable
-          </button>
-        )}
+        {document.evidenceId && <span className="uc03-c1-evidence-ok">Document linked to Booking</span>}
       </div>
     </article>
   );
@@ -161,13 +110,7 @@ export default function BookingWorkspacePage() {
   const [message, setMessage] = useState<string>();
   const [error, setError] = useState<string>();
   const [captureValues, setCaptureValues] = useState<Record<string, string>>({});
-  const [flagCategory, setFlagCategory] = useState('PHYSICAL_OBSERVATION');
-  const [flagSeverity, setFlagSeverity] = useState('MEDIUM');
-  const [flagSummary, setFlagSummary] = useState('');
-  const [flagRemarks, setFlagRemarks] = useState('');
-  const [conclusion, setConclusion] = useState<ConclusionAction>('close-ready');
-  const [reasonCode, setReasonCode] = useState('');
-  const [conclusionRemarks, setConclusionRemarks] = useState('');
+  const [exchangeTaken, setExchangeTaken] = useState<boolean | null>(null);
 
   const enabled = Boolean(project?.tenantId && journeyId && accessToken);
   const workspaceQuery = useQuery({
@@ -177,66 +120,14 @@ export default function BookingWorkspacePage() {
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
   });
-
-  const processingQuery = useQuery({
-    queryKey: ['uc03-booking-processing', project?.tenantId, journeyId],
-    queryFn: () => getBookingProcessingStatus(project!.tenantId, journeyId!, accessToken),
+  const verificationQuery = useQuery({
+    queryKey: ['uc03-pc-verification', project?.tenantId, journeyId],
+    queryFn: () => getPcVerification(project!.tenantId, journeyId!, accessToken),
     enabled: enabled && Boolean(workspaceQuery.data?.bookingStage.businessStatus),
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
-    retry: 1,
+    retry: false,
   });
-
-  const refreshWorkspace = useCallback(async () => {
-    if (!project?.tenantId || !journeyId || !accessToken) return;
-    await workspaceQuery.refetch();
-  }, [accessToken, journeyId, project?.tenantId, workspaceQuery.refetch]);
-
-  const refreshProcessingWorkspace = useCallback(async () => {
-    if (!project?.tenantId || !journeyId || !accessToken) return;
-    const pending = workspaceQuery.data?.processingSummary?.pendingCount ?? 0;
-    if (pending > 0) {
-      await refreshBookingExtraction(project.tenantId, journeyId, accessToken).catch(() => undefined);
-    }
-    await workspaceQuery.refetch();
-  }, [
-    accessToken,
-    journeyId,
-    project?.tenantId,
-    workspaceQuery.data?.processingSummary?.pendingCount,
-    workspaceQuery.refetch,
-  ]);
-
-  useEffect(() => {
-    const onResume = () => {
-      if (document.visibilityState === 'visible') void refreshProcessingWorkspace();
-    };
-    const onOnline = () => void refreshProcessingWorkspace();
-    document.addEventListener('visibilitychange', onResume);
-    window.addEventListener('online', onOnline);
-    return () => {
-      document.removeEventListener('visibilitychange', onResume);
-      window.removeEventListener('online', onOnline);
-    };
-  }, [refreshProcessingWorkspace]);
-
-  useEffect(() => {
-    const pending = workspaceQuery.data?.processingSummary?.pendingCount ?? 0;
-    if (pending <= 0 || !project?.tenantId || !journeyId || !accessToken) return;
-    const id = window.setInterval(() => {
-      if (document.visibilityState !== 'visible') return;
-      void refreshBookingExtraction(project.tenantId, journeyId, accessToken)
-        .then(() => workspaceQuery.refetch())
-        .catch(() => undefined);
-    }, 4_000);
-    return () => window.clearInterval(id);
-  }, [
-    accessToken,
-    journeyId,
-    project?.tenantId,
-    workspaceQuery.data?.processingSummary?.pendingCount,
-    workspaceQuery.refetch,
-  ]);
 
   useEffect(() => {
     const capture = workspaceQuery.data?.capture;
@@ -248,10 +139,17 @@ export default function BookingWorkspacePage() {
       });
       return next;
     });
-  }, [workspaceQuery.data?.capture]);
+    if (exchangeTaken === null && typeof capture.EXCHANGE_TAKEN === 'boolean') {
+      setExchangeTaken(capture.EXCHANGE_TAKEN);
+    }
+  }, [exchangeTaken, workspaceQuery.data?.capture]);
 
   if (!project || !journeyId) return null;
   const workspace = workspaceQuery.data;
+
+  const refresh = async () => {
+    await Promise.all([workspaceQuery.refetch(), verificationQuery.refetch()]);
+  };
 
   const run = async (operation: () => Promise<unknown>, success: string) => {
     setBusy(true);
@@ -260,7 +158,7 @@ export default function BookingWorkspacePage() {
     try {
       await operation();
       setMessage(success);
-      await refreshWorkspace();
+      await refresh();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'The Booking action could not be completed.');
     } finally {
@@ -273,112 +171,49 @@ export default function BookingWorkspacePage() {
     'Booking started.',
   );
 
-  const handleCapture = (fieldKey: string) => run(
-    () => captureBookingValue(
-      project.tenantId,
-      journeyId,
-      fieldKey,
-      captureValues[fieldKey] ?? '',
-      workspace!.aggregateVersion,
-      accessToken,
-    ),
-    `${friendly(fieldKey)} saved.`,
-  );
-
-  const handleExchange = (value: boolean) => run(
-    () => captureBookingValue(
-      project.tenantId,
-      journeyId,
-      'EXCHANGE_TAKEN',
-      value,
-      workspace!.aggregateVersion,
-      accessToken,
-    ),
-    'Exchange applicability updated.',
-  );
-
   const handleUpload = async (documentView: BookingDocumentView, file: File) => {
-    await run(async () => {
-      await uploadBookingDocument(
+    await run(
+      () => uploadBookingDocument(
         project.tenantId,
         journeyId,
         documentView.requirementKey,
         file,
         accessToken,
-      );
-      await refreshBookingExtraction(project.tenantId, journeyId, accessToken).catch(() => undefined);
-    }, `${friendly(documentView.requirementKey)} uploaded. Processing continues in the background.`);
+      ),
+      `${friendly(documentView.requirementKey)} uploaded. Document Intelligence will process it asynchronously.`,
+    );
   };
 
-  const handleAssess = async (
-    documentView: BookingDocumentView,
-    answer: 'YES' | 'NO' | 'NA',
-  ) => run(
-    () => assessBookingDocument(
-      project.tenantId,
-      journeyId,
-      documentView.requirementKey,
-      answer,
-      workspace!.aggregateVersion,
-      accessToken,
-      documentView.evidenceId,
-    ),
-    `${friendly(documentView.requirementKey)} assessment saved.`,
-  );
+  const handleSubmit = async () => {
+    if (!workspace) return;
+    setBusy(true);
+    setError(undefined);
+    setMessage(undefined);
+    try {
+      const values: Record<string, unknown> = {};
+      CAPTURE_FIELDS.forEach(([key]) => {
+        const value = captureValues[key]?.trim();
+        if (value) values[key] = value;
+      });
+      if (exchangeTaken !== null) values.EXCHANGE_TAKEN = exchangeTaken;
 
-  const handleProposal = (
-    proposal: ExtractionProposalView,
-    mode: 'accept' | 'correct',
-    correctedValue?: string,
-  ) => run(
-    () => decideExtractionProposal(
-      project.tenantId,
-      journeyId,
-      proposal.proposalId,
-      mode,
-      workspace!.aggregateVersion,
-      accessToken,
-      correctedValue,
-    ),
-    mode === 'accept'
-      ? 'Extracted value confirmed.'
-      : 'Correction saved with the original machine value retained.',
-  );
-
-  const handleFlag = () => run(
-    () => createBookingFlag(
-      project.tenantId,
-      journeyId,
-      workspace!.aggregateVersion,
-      {
-        category: flagCategory,
-        severity: flagSeverity,
-        summary: flagSummary,
-        remarks: flagRemarks || undefined,
-      },
-      accessToken,
-    ),
-    'Audit Flag raised. It does not stop business progression unless policy explicitly marks it blocking.',
-  ).then(() => {
-    setFlagSummary('');
-    setFlagRemarks('');
-  });
-
-  const handleConclusion = () => run(
-    () => concludeBooking(
-      project.tenantId,
-      journeyId,
-      conclusion,
-      workspace!.aggregateVersion,
-      accessToken,
-      reasonCode || undefined,
-      conclusionRemarks || undefined,
-    ),
-    'Booking conclusion recorded.',
-  );
+      await submitPcBookingCapture(
+        project.tenantId,
+        journeyId,
+        workspace.aggregateVersion,
+        values,
+        accessToken,
+      );
+      navigate(`/bookings/${journeyId}/review`, { replace: true });
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Booking capture could not be submitted.');
+    } finally {
+      setBusy(false);
+    }
+  };
 
   if (workspaceQuery.isPending) {
-    return <div className="uc03-c1-loading" role="status">Loading Booking workspace…</div>;
+    return <div className="uc03-c1-loading" role="status">Loading Booking…</div>;
   }
   if (workspaceQuery.isError || !workspace) {
     return (
@@ -395,9 +230,9 @@ export default function BookingWorkspacePage() {
 
   const started = Boolean(workspace.bookingStage.businessStatus);
   const active = workspace.permittedActions.includes('CAPTURE');
-  const processing = workspace.processingSummary ?? processingQuery.data;
-  const failedCount = processing?.failedCount ?? 0;
-  const pendingCount = processing?.pendingCount ?? 0;
+  const verification = verificationQuery.data;
+  const captureSubmitted = verification?.captureSubmitted ?? false;
+  const verified = verification?.pcVerificationStatus === 'VERIFIED';
 
   return (
     <div className="screen-stack uc03-c1-workspace">
@@ -407,16 +242,16 @@ export default function BookingWorkspacePage() {
       </div>
 
       <PageHeader
-        eyebrow={`Booking audit · ${workspace.operatingRole}`}
+        eyebrow="PC Booking Capture"
         title={(workspace.capture.BOOKING_REFERENCE as string) || 'Booking reference pending'}
-        description="Upload evidence, continue PC capture while documents process, review extracted values against their source, and conclude the Booking when the checkpoint is ready."
+        description="Upload the available Booking documents, capture whatever Booking information is available, then submit. Document verification is handled separately."
       />
 
-      <section className="uc03-c1-stage-strip" aria-label="Booking stage status">
-        <div><span>Business status</span><strong>{friendly(workspace.bookingStage.businessStatus)}</strong></div>
-        <div><span>Audit State</span><StatusPill value={workspace.bookingStage.auditState} /></div>
-        <div><span>Audit Status</span><StatusPill value={workspace.bookingStage.auditStatus} /></div>
-        <div><span>Open flags</span><strong>{workspace.flagSummary?.openCount ?? workspace.flags.length}</strong></div>
+      <section className="uc03-c1-stage-strip" aria-label="Booking capture status">
+        <div><span>Booking status</span><strong>{friendly(workspace.bookingStage.businessStatus)}</strong></div>
+        <div><span>Capture</span><StatusPill value={captureSubmitted ? 'SUBMITTED' : started ? 'IN_PROGRESS' : 'NOT_STARTED'} /></div>
+        <div><span>PC verification</span><StatusPill value={verification?.pcVerificationStatus || 'NOT_SUBMITTED'} /></div>
+        <div><span>Documents linked</span><strong>{workspace.documents.filter((item) => item.evidenceId).length}</strong></div>
       </section>
 
       {message && <div className="uc03-c1-feedback is-success" role="status">{message}</div>}
@@ -425,9 +260,9 @@ export default function BookingWorkspacePage() {
       {!started && (
         <section className="uc03-c1-start-panel">
           <div>
-            <span className="uc03-c1-eyebrow">C1 Booking journey</span>
-            <h2>Start Booking audit</h2>
-            <p>Starting creates the Booking workflow event and loads the versioned document checklist for this case.</p>
+            <span className="uc03-c1-eyebrow">PC Booking journey</span>
+            <h2>Start Booking</h2>
+            <p>Start the Booking capture before uploading documents or entering Booking details.</p>
           </div>
           <button type="button" className="uc03-c1-primary" disabled={busy} onClick={() => void handleStart()}>
             Start Booking
@@ -440,31 +275,19 @@ export default function BookingWorkspacePage() {
           <section className="uc03-c1-section">
             <header className="uc03-c1-section-heading">
               <div>
-                <span className="uc03-c1-eyebrow">1 · Evidence first</span>
+                <span className="uc03-c1-eyebrow">1 · Documents</span>
                 <h2>Booking documents</h2>
-                <p>Upload applicable evidence first. Each document processes independently; you can continue entering Booking details below.</p>
-              </div>
-              <div className="uc03-c1-processing-summary">
-                <strong>{pendingCount}</strong><span>processing</span>
-                <strong>{processing?.readyProposalCount ?? 0}</strong><span>proposals</span>
-                <strong>{failedCount}</strong><span>need attention</span>
+                <p>Upload the documents available to the PC. They are sent to Document Intelligence immediately and continue processing asynchronously. Booking capture does not wait for extraction.</p>
               </div>
             </header>
-
-            {failedCount > 0 && (
-              <div className="uc03-c1-feedback is-error">
-                {processingQuery.data?.userMessage || 'One or more documents need attention. Retry processing or upload a clearer document.'}
-              </div>
-            )}
 
             <div className="uc03-c1-document-grid">
               {workspace.documents.map((documentView) => (
                 <DocumentCard
                   key={documentView.requirementKey}
                   document={documentView}
-                  busy={busy}
+                  busy={busy || verified}
                   onUpload={handleUpload}
-                  onAssess={handleAssess}
                 />
               ))}
               {workspace.documents.length === 0 && (
@@ -476,26 +299,22 @@ export default function BookingWorkspacePage() {
           <section className="uc03-c1-section">
             <header className="uc03-c1-section-heading">
               <div>
-                <span className="uc03-c1-eyebrow">2 · Work in parallel</span>
-                <h2>Booking details</h2>
-                <p>PC-entered fields save directly to their existing Audit Core business domains. The screen does not become the system of record.</p>
+                <span className="uc03-c1-eyebrow">2 · Booking Details</span>
+                <h2>Capture available information</h2>
+                <p>Enter only what is available at Booking stage. Missing values are not required merely to submit Booking capture.</p>
               </div>
             </header>
+
             <div className="uc03-c1-capture-grid">
               {CAPTURE_FIELDS.map(([key, label]) => (
                 <label key={key}>
                   <span>{label}</span>
-                  <div className="uc03-c1-inline-field">
-                    <input
-                      type={key === 'BOOKING_DATE' ? 'date' : 'text'}
-                      value={captureValues[key] ?? ''}
-                      disabled={!active || busy}
-                      onChange={(event) => setCaptureValues((current) => ({ ...current, [key]: event.target.value }))}
-                    />
-                    <button type="button" disabled={!active || busy || !(captureValues[key] ?? '').trim()} onClick={() => void handleCapture(key)}>
-                      Save
-                    </button>
-                  </div>
+                  <input
+                    type={key === 'BOOKING_DATE' ? 'date' : 'text'}
+                    value={captureValues[key] ?? ''}
+                    disabled={!active || busy || verified}
+                    onChange={(event) => setCaptureValues((current) => ({ ...current, [key]: event.target.value }))}
+                  />
                 </label>
               ))}
               <div className="uc03-c1-choice-field">
@@ -503,102 +322,38 @@ export default function BookingWorkspacePage() {
                 <div>
                   <button
                     type="button"
-                    className={workspace.capture.EXCHANGE_TAKEN === true ? 'is-active' : ''}
-                    disabled={!active || busy}
-                    onClick={() => void handleExchange(true)}
+                    className={exchangeTaken === true ? 'is-active' : ''}
+                    disabled={!active || busy || verified}
+                    onClick={() => setExchangeTaken(true)}
                   >Yes</button>
                   <button
                     type="button"
-                    className={workspace.capture.EXCHANGE_TAKEN === false ? 'is-active' : ''}
-                    disabled={!active || busy}
-                    onClick={() => void handleExchange(false)}
+                    className={exchangeTaken === false ? 'is-active' : ''}
+                    disabled={!active || busy || verified}
+                    onClick={() => setExchangeTaken(false)}
                   >No</button>
                 </div>
               </div>
             </div>
-          </section>
 
-          <section className="uc03-c1-section">
-            <header className="uc03-c1-section-heading">
-              <div>
-                <span className="uc03-c1-eyebrow">3 · Review extraction</span>
-                <h2>Compare source &amp; extracted value</h2>
-                <p>Review one field at a time. When DI provides source localization, the document opens on that page and images highlight the exact returned region. No location is guessed when DI cannot localize it.</p>
-              </div>
-            </header>
-            <DocumentFieldReview
-              tenantId={project.tenantId}
-              journeyId={journeyId}
-              accessToken={accessToken}
-              proposals={workspace.proposals}
-              disabled={busy || !active}
-              onAccept={(proposal) => handleProposal(proposal, 'accept')}
-              onCorrect={(proposal, value) => handleProposal(proposal, 'correct', value)}
-            />
-          </section>
-
-          <section className="uc03-c1-section uc03-c1-flags-section">
-            <header className="uc03-c1-section-heading">
-              <div>
-                <span className="uc03-c1-eyebrow">4 · Audit Flags</span>
-                <h2>Observations &amp; flags</h2>
-                <p>Flags are audit findings, not a substitute business status. Ordinary flags remain visible without blocking progression.</p>
-              </div>
-            </header>
-            <div className="uc03-c1-flag-layout">
-              <div className="uc03-c1-flag-list">
-                {workspace.flags.map((flag) => (
-                  <article key={flag.flagId} className="uc03-c1-card uc03-c1-flag-card">
-                    <header><strong>{flag.title}</strong><StatusPill value={flag.severity} compact /></header>
-                    <p>{flag.description || friendly(flag.category)}</p>
-                    <footer><StatusPill value={flag.status} compact /><span>{friendly(flag.originKind)}</span></footer>
-                  </article>
-                ))}
-                {workspace.flags.length === 0 && <div className="uc03-c1-empty">No Booking flags.</div>}
-              </div>
-              {active && (
-                <form className="uc03-c1-flag-form" onSubmit={(event) => { event.preventDefault(); if (flagSummary.trim()) void handleFlag(); }}>
-                  <h3>Raise a PC flag</h3>
-                  <label><span>Category</span><select value={flagCategory} onChange={(event) => setFlagCategory(event.target.value)}>{HUMAN_FLAG_CATEGORIES.map((value) => <option key={value} value={value}>{friendly(value)}</option>)}</select></label>
-                  <label><span>Severity</span><select value={flagSeverity} onChange={(event) => setFlagSeverity(event.target.value)}>{['INFO', 'LOW', 'MEDIUM', 'HIGH', 'CRITICAL'].map((value) => <option key={value}>{value}</option>)}</select></label>
-                  <label><span>Summary</span><input value={flagSummary} maxLength={500} onChange={(event) => setFlagSummary(event.target.value)} required /></label>
-                  <label><span>Remarks</span><textarea value={flagRemarks} maxLength={4000} onChange={(event) => setFlagRemarks(event.target.value)} /></label>
-                  <button type="submit" className="uc03-c1-secondary" disabled={busy || !flagSummary.trim()}>Raise flag</button>
-                </form>
+            <div className="uc03-c1-conclusion">
+              <button type="button" className="uc03-c1-secondary" disabled={busy} onClick={() => navigate('/dashboard')}>
+                Back to Work List
+              </button>
+              {verified ? (
+                <button type="button" className="uc03-c1-primary" onClick={() => navigate(`/bookings/${journeyId}/review`)}>
+                  View Verification
+                </button>
+              ) : captureSubmitted ? (
+                <button type="button" className="uc03-c1-primary" disabled={busy} onClick={() => navigate(`/bookings/${journeyId}/review`)}>
+                  Review Documents
+                </button>
+              ) : (
+                <button type="button" className="uc03-c1-primary" disabled={!active || busy} onClick={() => void handleSubmit()}>
+                  Submit Booking
+                </button>
               )}
             </div>
-          </section>
-
-          <section className="uc03-c1-section uc03-c1-checkpoint-section">
-            <header className="uc03-c1-section-heading">
-              <div>
-                <span className="uc03-c1-eyebrow">5 · Booking checkpoint</span>
-                <h2>{workspace.completion.ready ? 'Ready to conclude' : 'Outstanding audit work'}</h2>
-                <p>Only configured completion guards stop normal Booking closure. Open non-blocking flags remain visible.</p>
-              </div>
-              <StatusPill value={workspace.completion.ready ? 'READY' : 'INCOMPLETE'} />
-            </header>
-            {workspace.completion.blockers.length > 0 && (
-              <ul className="uc03-c1-blockers">
-                {workspace.completion.blockers.map((blocker) => <li key={`${blocker.code}-${blocker.label}`}>{blocker.label}</li>)}
-              </ul>
-            )}
-
-            {active && (
-              <div className="uc03-c1-conclusion">
-                <label><span>Conclusion</span><select value={conclusion} onChange={(event) => setConclusion(event.target.value as ConclusionAction)}>{CONCLUSION_OPTIONS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
-                {(conclusion === 'close-no-delivery' || conclusion === 'cancel') && (
-                  <label><span>Reason code</span><input value={reasonCode} onChange={(event) => setReasonCode(event.target.value.toUpperCase())} placeholder={conclusion === 'cancel' ? 'CUSTOMER_CANCELLED' : 'FINANCE_NOT_APPROVED'} /></label>
-                )}
-                <label><span>Remarks</span><textarea value={conclusionRemarks} onChange={(event) => setConclusionRemarks(event.target.value)} /></label>
-                <button
-                  type="button"
-                  className="uc03-c1-primary"
-                  disabled={busy || (conclusion === 'close-ready' && !workspace.completion.ready) || ((conclusion === 'close-no-delivery' || conclusion === 'cancel') && !reasonCode.trim())}
-                  onClick={() => void handleConclusion()}
-                >Record conclusion</button>
-              </div>
-            )}
           </section>
         </>
       )}

@@ -86,14 +86,14 @@ export interface BookingReviewDocument {
   // Compatibility name retained for the existing page. On the direct-DI PC path
   // this is the DI documentId, not an Audit Core evidence UUID.
   evidenceId: string;
-  requirementRef: string;
+  requirementRef?: string;
   requirementKey: string | null;
   documentTypeKey: string | null;
   processingStatus: string | null;
   verificationStatus: string | null;
-  captureEligibleFieldKeys: string[];
-  registeredAtUtc: string | null;
-  repeatable: boolean;
+  captureEligibleFieldKeys?: string[];
+  registeredAtUtc?: string | null;
+  repeatable?: boolean;
 }
 
 export interface BookingReviewStartResult {
@@ -218,9 +218,10 @@ export async function startBookingDetailsReview(
         }
       }
 
+      const latest = newest(matches);
       const selected = requirement.repeatable
         ? [...matches].sort((a, b) => Date.parse(a.registeredAtUtc) - Date.parse(b.registeredAtUtc))
-        : (newest(matches) ? [newest(matches)!] : []);
+        : (latest ? [latest] : []);
       for (const document of selected) {
         documents.push({
           evidenceId: document.documentId,

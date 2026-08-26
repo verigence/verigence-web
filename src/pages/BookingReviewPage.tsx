@@ -209,6 +209,10 @@ export default function BookingReviewPage() {
 
   const reviewableProposals = workspace.proposals.filter((proposal) => proposal.canAccept);
   const pendingReviewable = reviewableProposals.filter((proposal) => proposal.status === 'PENDING');
+  const reviewDocuments = workspace.documents.filter((document) =>
+    Boolean(document.evidenceId)
+    && reviewableProposals.some((proposal) => proposal.sourceEvidenceId === document.evidenceId),
+  );
   const canVerify = verification.pendingProposalCount === 0;
 
   return (
@@ -221,7 +225,7 @@ export default function BookingReviewPage() {
       <PageHeader
         eyebrow="PC Document Verification"
         title={bookingLabel}
-        description="Compare the uploaded source document with DI extraction. Confirm or correct the value; DI remains unchanged."
+        description="Compare each uploaded source document with DI extraction. Confirm or correct the value; DI remains unchanged."
       />
 
       <section className="uc03-c1-stage-strip" aria-label="PC verification status">
@@ -239,18 +243,33 @@ export default function BookingReviewPage() {
           <div>
             <span className="uc03-c1-eyebrow">Document review</span>
             <h2>Compare source &amp; extracted value</h2>
-            <p>Review one field at a time. Confirmed/corrected values update the Audit Core business record while the original DI extraction and confidence remain unchanged.</p>
+            <p>Review fields against the document that produced them. Confirmed/corrected values update the Audit Core business record while the original DI extraction and confidence remain unchanged.</p>
           </div>
         </header>
-        <DocumentFieldReview
-          tenantId={project.tenantId}
-          journeyId={journeyId}
-          accessToken={accessToken}
-          proposals={reviewableProposals}
-          disabled={busy}
-          onAccept={(proposal) => handleProposal(proposal, 'accept')}
-          onCorrect={(proposal, value) => handleProposal(proposal, 'correct', value)}
-        />
+
+        {reviewDocuments.length > 0 ? reviewDocuments.map((document) => {
+          const evidenceId = document.evidenceId!;
+          const proposals = reviewableProposals.filter((proposal) => proposal.sourceEvidenceId === evidenceId);
+          return (
+            <DocumentFieldReview
+              key={evidenceId}
+              tenantId={project.tenantId}
+              journeyId={journeyId}
+              accessToken={accessToken}
+              evidenceId={evidenceId}
+              documentName={document.documentTypeKey || document.requirementKey}
+              proposals={proposals}
+              disabled={busy}
+              onAccept={(proposal) => handleProposal(proposal, 'accept')}
+              onCorrect={(proposal, value) => handleProposal(proposal, 'correct', value)}
+            />
+          );
+        }) : (
+          <div className="uc03-review-empty" role="status">
+            <strong>No extracted fields require PC confirmation.</strong>
+            <span>You may complete PC verification when the pending field count is zero.</span>
+          </div>
+        )}
       </section>
 
       <section className="uc03-c1-section uc03-c1-checkpoint-section">

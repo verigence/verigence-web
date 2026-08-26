@@ -78,11 +78,19 @@ export function rememberDirectBookingUpload(
   journeyId: string,
   requirementRef: string,
   documentId: string,
+  repeatable: boolean,
 ): void {
   const journeyKey = key(tenantId, journeyId);
   const byRequirement = directUploadIds.get(journeyKey) ?? new Map<string, string[]>();
-  const current = byRequirement.get(requirementRef) ?? [];
-  if (!current.includes(documentId)) byRequirement.set(requirementRef, [...current, documentId]);
+  if (repeatable) {
+    const current = byRequirement.get(requirementRef) ?? [];
+    if (!current.includes(documentId)) byRequirement.set(requirementRef, [...current, documentId]);
+  } else {
+    // A single-value replacement is immediately the only local/current document.
+    // The older DI document remains historical in DI/Audit Core; it simply should
+    // not appear as another active upload in the current PC screen.
+    byRequirement.set(requirementRef, [documentId]);
+  }
   directUploadIds.set(journeyKey, byRequirement);
 }
 

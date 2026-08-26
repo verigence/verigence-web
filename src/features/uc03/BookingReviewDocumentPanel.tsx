@@ -217,7 +217,8 @@ export default function BookingReviewDocumentPanel({
           return {
             fieldKey: fact.fieldKey,
             sourceFactRef: fact.sourceFactRef,
-            sourceFactVersion: fact.sourceFactVersion,
+            // Audit Core's current provenance command is explicitly version-1.
+            sourceFactVersion: 1,
             sourceConfidence: fact.confidenceScore,
             decision: decision.decision,
             approvedValue: decision.approvedValue,

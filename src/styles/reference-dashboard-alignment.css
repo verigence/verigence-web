@@ -1,0 +1,497 @@
+/*
+ * Authenticated dashboard reference-alignment pass.
+ *
+ * Visual target: approved dashboard reference supplied 26 Aug 2026.
+ * Scope: authenticated AppShell + UC03 landing presentation only.
+ * No routes, permissions, API behaviour or workflow logic are changed here.
+ */
+
+/* --------------------------------------------------------------------------
+   Global authenticated shell scale
+   -------------------------------------------------------------------------- */
+
+.enterprise-shell--approved-nav .enterprise-topbar {
+  padding-inline: 28px !important;
+}
+
+.enterprise-shell--approved-nav .enterprise-topbar__start {
+  gap: 24px;
+}
+
+.enterprise-shell--approved-nav .enterprise-global-brand {
+  width: 214px;
+  min-width: 214px;
+}
+
+.enterprise-shell--approved-nav .enterprise-global-brand img {
+  width: 202px;
+}
+
+/* The page title beside the brand is visually redundant on the approved shell. */
+.enterprise-shell--approved-nav .enterprise-topbar__trail {
+  display: none !important;
+}
+
+.enterprise-shell--approved-nav .enterprise-topbar__actions {
+  gap: 12px;
+}
+
+.enterprise-shell--approved-nav .enterprise-topbar__identity {
+  gap: 11px;
+}
+
+.enterprise-shell--approved-nav .enterprise-topbar__avatar {
+  width: 40px !important;
+  height: 40px !important;
+  font-size: 11px;
+}
+
+.enterprise-shell--approved-nav .enterprise-topbar__identity-copy strong {
+  max-width: 210px;
+  font-size: 14px;
+  font-weight: 800;
+  line-height: 1.18;
+}
+
+.enterprise-shell--approved-nav .enterprise-topbar__identity-copy small {
+  font-size: 11px;
+  line-height: 1.25;
+}
+
+.enterprise-shell--approved-nav .user-menu-button {
+  min-height: 38px;
+  padding-inline: 14px;
+  border-radius: 9px;
+  font-size: 11.5px;
+}
+
+.enterprise-shell--approved-nav .enterprise-sidebar {
+  padding: 18px 16px 22px !important;
+}
+
+.enterprise-shell--approved-nav .uc03-shell-project {
+  margin: 2px 3px 20px;
+  padding: 13px 14px;
+  gap: 5px;
+  border-radius: 11px;
+}
+
+.enterprise-shell--approved-nav .uc03-shell-project > span {
+  font-size: 10px;
+  letter-spacing: 0.09em;
+}
+
+.enterprise-shell--approved-nav .uc03-shell-project > strong {
+  font-size: 14px;
+  line-height: 1.25;
+}
+
+.enterprise-shell--approved-nav .uc03-shell-project button {
+  font-size: 11px;
+}
+
+.enterprise-shell--approved-nav .enterprise-nav {
+  gap: 16px !important;
+}
+
+.enterprise-shell--approved-nav .enterprise-nav__group-toggle {
+  min-height: 36px;
+  padding: 7px 8px;
+  font-size: 10px;
+  letter-spacing: 0.105em;
+}
+
+.enterprise-shell--approved-nav .enterprise-nav__group-items {
+  gap: 4px;
+}
+
+.enterprise-shell--approved-nav .enterprise-nav__item {
+  min-height: 50px !important;
+  padding: 9px 10px !important;
+  gap: 12px;
+  border-radius: 10px !important;
+  font-size: 14px;
+  font-weight: 650;
+  line-height: 1.2;
+}
+
+.enterprise-shell--approved-nav .enterprise-nav__mark {
+  width: 30px !important;
+  height: 30px !important;
+  min-width: 30px;
+}
+
+.enterprise-shell--approved-nav .enterprise-nav__icon {
+  width: 22px;
+  height: 22px;
+  stroke-width: 1.9;
+}
+
+/* --------------------------------------------------------------------------
+   Landing canvas — constrain width and remove the oversized framed-page effect
+   -------------------------------------------------------------------------- */
+
+.enterprise-shell--approved-nav .enterprise-main {
+  background:
+    radial-gradient(circle at 90% 8%, rgba(0, 175, 168, 0.095), transparent 30%),
+    linear-gradient(180deg, #fbfdff 0%, #f4f8fb 100%);
+}
+
+.enterprise-shell--approved-nav .enterprise-content > .screen-stack.uc03-landing--approved {
+  width: min(100%, 1180px);
+  margin-inline: auto;
+  padding: 28px 30px 38px !important;
+  gap: 18px;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+/* --------------------------------------------------------------------------
+   Hero — desktop composition follows the approved reference
+   -------------------------------------------------------------------------- */
+
+.enterprise-shell--approved-nav .uc03-dashboard-hero--greeting {
+  min-height: 170px;
+  padding: 22px 4px 26px !important;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas: "copy action";
+  column-gap: 44px;
+  row-gap: 12px;
+  align-items: center;
+  overflow: visible;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.enterprise-shell--approved-nav .uc03-dashboard-hero--greeting::before {
+  display: none;
+}
+
+.enterprise-shell--approved-nav .uc03-dashboard-hero__greeting {
+  margin-bottom: 9px;
+  color: #526b84;
+  font-size: 16px;
+  font-weight: 650;
+  line-height: 1.35;
+}
+
+.enterprise-shell--approved-nav .uc03-dashboard-hero--greeting h1 {
+  font-size: clamp(34px, 3vw, 42px);
+  line-height: 1.04;
+  letter-spacing: -0.035em;
+}
+
+.enterprise-shell--approved-nav .uc03-dashboard-hero--greeting p {
+  margin-top: 8px;
+  font-size: 14px;
+  font-weight: 550;
+  line-height: 1.45;
+}
+
+.enterprise-shell--approved-nav .uc03-landing--approved .uc03-landing__capture-action--centered {
+  justify-self: end;
+  width: 300px;
+  min-height: 58px;
+  margin: 0;
+  padding-inline: 24px;
+  border-radius: 11px;
+  font-size: 16px;
+  font-weight: 700;
+  box-shadow: 0 10px 24px rgba(0, 58, 130, 0.16);
+}
+
+.enterprise-shell--approved-nav .uc03-landing--approved .uc03-landing__capture-action--centered > span:first-child {
+  font-size: 24px;
+}
+
+/* --------------------------------------------------------------------------
+   KPI tiles — larger, calmer dashboard typography
+   -------------------------------------------------------------------------- */
+
+.enterprise-shell--approved-nav .uc03-landing--approved .uc03-landing-metrics {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.enterprise-shell--approved-nav .uc03-landing--approved .uc03-landing-metric {
+  min-height: 126px;
+  padding: 18px 20px;
+  gap: 7px;
+  border-radius: 16px;
+  box-shadow: 0 7px 20px rgba(0, 58, 130, 0.035);
+}
+
+.enterprise-shell--approved-nav .uc03-landing--approved .uc03-landing-metric__label {
+  font-size: 12px;
+  letter-spacing: 0.075em;
+}
+
+.enterprise-shell--approved-nav .uc03-landing--approved .uc03-landing-metric__value {
+  margin-top: 2px;
+  font-size: 31px;
+  line-height: 1;
+}
+
+.enterprise-shell--approved-nav .uc03-landing--approved .uc03-landing-metric__detail {
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.enterprise-shell--approved-nav .uc03-landing--approved .uc03-landing-metric__action {
+  right: 18px;
+  bottom: 15px;
+  font-size: 12px;
+}
+
+/* --------------------------------------------------------------------------
+   Recent Work — compact desktop table-like rhythm while retaining card actions
+   -------------------------------------------------------------------------- */
+
+.enterprise-shell--approved-nav .uc03-landing--approved .uc03-work-list {
+  padding: 22px 24px 24px;
+  gap: 16px;
+  border-radius: 18px;
+  box-shadow: 0 8px 24px rgba(0, 58, 130, 0.035);
+}
+
+.enterprise-shell--approved-nav .uc03-work-list__heading--approved > div > span {
+  font-size: 10.5px;
+}
+
+.enterprise-shell--approved-nav .uc03-landing--approved .uc03-work-list__heading--approved h2 {
+  margin-top: 4px;
+  font-size: 25px;
+}
+
+.enterprise-shell--approved-nav .uc03-filter-toggle {
+  min-height: 42px;
+  padding-inline: 15px;
+  font-size: 12px;
+}
+
+.enterprise-shell--approved-nav .uc03-work-filter-tabs--approved {
+  width: min(100%, 420px);
+  padding: 4px;
+}
+
+.enterprise-shell--approved-nav .uc03-work-filter-tabs--approved button {
+  min-height: 40px;
+  font-size: 12px;
+}
+
+.enterprise-shell--approved-nav .uc03-landing--approved .uc03-work-cards {
+  gap: 0 !important;
+  overflow: hidden;
+  border: 1px solid #dfe7ee;
+  border-radius: 14px;
+  background: #ffffff;
+}
+
+.enterprise-shell--approved-nav .uc03-landing--approved .uc03-work-card {
+  min-height: 0 !important;
+  margin: 0;
+  padding: 15px 16px;
+  gap: 7px;
+  border: 0 !important;
+  border-bottom: 1px solid #e8eef3 !important;
+  border-radius: 0 !important;
+  background: #ffffff;
+}
+
+.enterprise-shell--approved-nav .uc03-landing--approved .uc03-work-card:last-child {
+  border-bottom: 0 !important;
+}
+
+.enterprise-shell--approved-nav .uc03-landing--approved .uc03-work-card__header {
+  gap: 24px;
+}
+
+.enterprise-shell--approved-nav .uc03-landing--approved .uc03-work-card__reference {
+  font-size: 11px;
+}
+
+.enterprise-shell--approved-nav .uc03-landing--approved .uc03-work-card__identity h3 {
+  margin: 4px 0 2px;
+  font-size: 16px;
+  font-weight: 650;
+}
+
+.enterprise-shell--approved-nav .uc03-landing--approved .uc03-work-card__identity p {
+  font-size: 12px;
+}
+
+.enterprise-shell--approved-nav .uc03-landing--approved .uc03-work-card__summary {
+  min-width: 150px;
+  max-width: 190px;
+  gap: 4px;
+}
+
+.enterprise-shell--approved-nav .uc03-landing--approved .uc03-work-card__status-label {
+  font-size: 10px;
+}
+
+.enterprise-shell--approved-nav .uc03-landing--approved .uc03-work-card__summary > strong {
+  font-size: 12.5px;
+}
+
+.enterprise-shell--approved-nav .uc03-landing--approved .uc03-work-card__location,
+.enterprise-shell--approved-nav .uc03-landing--approved .uc03-work-card__activity {
+  font-size: 11px;
+}
+
+.enterprise-shell--approved-nav .uc03-landing--approved .uc03-work-card__footer {
+  margin-top: 0;
+  padding-top: 8px;
+}
+
+.enterprise-shell--approved-nav .uc03-landing--approved .uc03-work-card__primary-hint {
+  font-size: 11px;
+}
+
+.enterprise-shell--approved-nav .uc03-landing--approved .uc03-work-card__details-button,
+.enterprise-shell--approved-nav .uc03-landing--approved .uc03-work-card__actions--desktop .uc03-c1-secondary,
+.enterprise-shell--approved-nav .uc03-landing--approved .uc03-work-card__more-button {
+  min-height: 36px;
+  padding-inline: 12px;
+  font-size: 11px;
+}
+
+/* --------------------------------------------------------------------------
+   Responsive — retain the mobile drawer and avoid desktop scale leaking down
+   -------------------------------------------------------------------------- */
+
+@media (max-width: 1100px) {
+  .enterprise-shell--approved-nav .enterprise-content > .screen-stack.uc03-landing--approved {
+    width: 100%;
+    padding: 24px 24px 34px !important;
+  }
+
+  .enterprise-shell--approved-nav .uc03-dashboard-hero--greeting {
+    column-gap: 28px;
+  }
+
+  .enterprise-shell--approved-nav .uc03-landing--approved .uc03-landing__capture-action--centered {
+    width: 270px;
+  }
+}
+
+@media (max-width: 899px) {
+  .enterprise-shell--approved-nav .enterprise-topbar {
+    padding-inline: 12px !important;
+  }
+
+  .enterprise-shell--approved-nav .enterprise-topbar__start {
+    gap: 9px;
+  }
+
+  .enterprise-shell--approved-nav .enterprise-global-brand {
+    width: auto;
+    min-width: 0;
+  }
+
+  .enterprise-shell--approved-nav .enterprise-global-brand img {
+    width: 126px;
+  }
+
+  .enterprise-shell--approved-nav .enterprise-topbar__avatar {
+    width: 34px !important;
+    height: 34px !important;
+    font-size: 10px;
+  }
+
+  .enterprise-shell--approved-nav .user-menu-button {
+    min-height: 34px;
+    padding-inline: 9px;
+    font-size: 10px;
+  }
+
+  .enterprise-shell--approved-nav .enterprise-sidebar {
+    padding: 14px 14px max(20px, env(safe-area-inset-bottom)) !important;
+  }
+
+  .enterprise-shell--approved-nav .enterprise-nav__item {
+    min-height: 48px !important;
+    font-size: 14px;
+  }
+
+  .enterprise-shell--approved-nav .enterprise-main {
+    background: #f6f9fc;
+  }
+
+  .enterprise-shell--approved-nav .enterprise-content > .screen-stack.uc03-landing--approved {
+    padding: 18px 14px 28px !important;
+    gap: 14px;
+  }
+
+  .enterprise-shell--approved-nav .uc03-dashboard-hero--greeting {
+    min-height: 0;
+    padding: 12px 2px 18px !important;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      "copy"
+      "action";
+    gap: 14px;
+  }
+
+  .enterprise-shell--approved-nav .uc03-dashboard-hero__greeting {
+    margin-bottom: 7px;
+    font-size: 13px;
+  }
+
+  .enterprise-shell--approved-nav .uc03-dashboard-hero--greeting h1 {
+    font-size: clamp(29px, 7vw, 34px);
+  }
+
+  .enterprise-shell--approved-nav .uc03-dashboard-hero--greeting p {
+    font-size: 13px;
+  }
+
+  .enterprise-shell--approved-nav .uc03-landing--approved .uc03-landing__capture-action--centered {
+    justify-self: stretch;
+    width: 100%;
+    min-height: 50px;
+    font-size: 14px;
+  }
+
+  .enterprise-shell--approved-nav .uc03-landing--approved .uc03-landing-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .enterprise-shell--approved-nav .uc03-landing--approved .uc03-landing-metric {
+    min-height: 112px;
+    padding: 16px;
+  }
+
+  .enterprise-shell--approved-nav .uc03-landing--approved .uc03-work-list {
+    padding: 18px 14px 20px;
+  }
+
+  .enterprise-shell--approved-nav .uc03-landing--approved .uc03-work-cards {
+    gap: 10px !important;
+    overflow: visible;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+  }
+
+  .enterprise-shell--approved-nav .uc03-landing--approved .uc03-work-card {
+    padding: 15px;
+    border: 1px solid #dfe6ec !important;
+    border-radius: 12px !important;
+  }
+}
+
+@media (max-width: 540px) {
+  .enterprise-shell--approved-nav .uc03-landing--approved .uc03-landing-metrics {
+    grid-template-columns: 1fr;
+  }
+
+  .enterprise-shell--approved-nav .uc03-landing--approved .uc03-landing-metric {
+    min-height: 104px;
+  }
+}

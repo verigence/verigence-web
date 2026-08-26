@@ -66,12 +66,14 @@ export function submitPcBookingCapture(
   tenantId: string,
   journeyId: string,
   version: number,
+  values: Record<string, unknown>,
   accessToken?: string,
 ): Promise<PcVerificationView> {
   return auditCoreRequest(`${base(tenantId, journeyId)}/submit`, {
     method: 'POST',
     accessToken: token(accessToken),
     headers: commandHeaders('uc03-pc-capture-submit', version),
+    body: { values },
   });
 }
 

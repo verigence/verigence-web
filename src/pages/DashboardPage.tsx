@@ -22,6 +22,16 @@ function friendlyStatus(value?: string | null, fallback = 'Not Started'): string
     .join(' ');
 }
 
+function statusTone(value?: string | null): string {
+  const normalized = (value || '').toUpperCase();
+  if (normalized.includes('COMPLETE') || normalized.includes('CLOSED') || normalized.includes('DELIVERED')) return 'is-complete';
+  if (normalized.includes('ATTENTION') || normalized.includes('FAILED') || normalized.includes('ERROR') || normalized.includes('REJECT')) return 'is-attention';
+  if (normalized.includes('REVIEW') || normalized.includes('VERIFY') || normalized.includes('VALIDAT')) return 'is-review';
+  if (normalized.includes('PENDING') || normalized.includes('DOCUMENT') || normalized.includes('DOC')) return 'is-pending';
+  if (normalized.includes('STARTED') || normalized.includes('IN_PROGRESS') || normalized.includes('PROCESSING') || normalized.includes('ACTIVE')) return 'is-progress';
+  return 'is-neutral';
+}
+
 function activityLabel(timestamp: string, timezoneName: string): string {
   const date = new Date(timestamp);
   if (Number.isNaN(date.getTime())) return 'Activity time unavailable';
@@ -159,6 +169,7 @@ function WorkItemCard({ item, timezoneName }: { item: Uc03WorkItem; timezoneName
   const primaryStage = isDeliveryWork ? item.delivery : item.booking;
   const workLabel = isDeliveryWork ? 'Delivery' : 'Booking';
   const workStatus = friendlyStatus(primaryStage.businessStatus);
+  const workStatusTone = statusTone(primaryStage.businessStatus);
 
   return (
     <article
@@ -184,18 +195,17 @@ function WorkItemCard({ item, timezoneName }: { item: Uc03WorkItem; timezoneName
           <span className="uc03-work-card__reference">{item.bookingReference || 'Booking reference pending'}</span>
           <h3>{item.customerDisplayName}</h3>
           <p>{item.productLabel || 'Vehicle details pending'}</p>
+          <div className="uc03-work-card__desktop-meta" aria-label={`Type ${workLabel}`}>
+            <span className={`uc03-work-card__type-chip${isDeliveryWork ? ' is-delivery' : ''}`}>{workLabel}</span>
+          </div>
         </div>
 
         <div className="uc03-work-card__summary uc03-work-card__summary--simple">
           <span className="uc03-work-card__status-label">{workLabel}</span>
-          <strong>{workStatus}</strong>
+          <strong className={`uc03-work-status-pill ${workStatusTone}`}>{workStatus}</strong>
           <VerificationBadge stage={primaryStage} />
         </div>
       </header>
-
-      <div className="uc03-work-card__type-cell" aria-label={`Type ${workLabel}`}>
-        <span className={`uc03-work-card__type-chip${isDeliveryWork ? ' is-delivery' : ''}`}>{workLabel}</span>
-      </div>
 
       <div className="uc03-work-card__activity-cell">
         {activityLabel(item.latestActivityAtUtc, timezoneName)}
@@ -497,7 +507,6 @@ export default function DashboardPage() {
               {workItems.length > 0 && (
                 <div className="uc03-work-table-head" aria-hidden="true">
                   <span>Work Item</span>
-                  <span>Type</span>
                   <span>Status</span>
                   <span>Last Activity</span>
                   <span>Actions</span>

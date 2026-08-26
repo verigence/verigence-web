@@ -9,9 +9,15 @@ import {
   type Uc03WorkItem,
   type Uc03WorkType,
 } from '../services/audit-core/uc03';
+import {
+  listReviewPending,
+  type ReviewPendingItem,
+} from '../services/audit-core/uc03PcVerification';
 import { useProjectContextStore } from '../store/projectContextStore';
 import { useSessionStore } from '../store/sessionStore';
 import CreateBookingPage from './CreateBookingPage';
+
+type LandingView = Uc03WorkType | 'REVIEW_PENDING';
 
 function friendlyStatus(value?: string | null, fallback = 'Not Started'): string {
   if (!value) return fallback;
@@ -61,7 +67,6 @@ function activityAgeTone(timestamp: string): string {
   const date = new Date(timestamp);
   if (Number.isNaN(date.getTime())) return 'is-age-neutral';
   const elapsedHours = Math.max(0, Date.now() - date.getTime()) / 3_600_000;
-  // UI aging cue only — these are not contractual SLA thresholds.
   if (elapsedHours >= 48) return 'is-age-critical';
   if (elapsedHours >= 24) return 'is-age-warning';
   return 'is-age-fresh';
@@ -347,12 +352,51 @@ function WorkItemCard({ item, timezoneName }: { item: Uc03WorkItem; timezoneName
   );
 }
 
+function ReviewPendingCard({ item, timezoneName }: { item: ReviewPendingItem; timezoneName: string }) {
+  const absoluteActivity = activityLabel(item.latestActivityAtUtc, timezoneName);
+  const relativeActivity = activityRelativeLabel(item.latestActivityAtUtc);
+  const ageTone = activityAgeTone(item.latestActivityAtUtc);
+  return (
+    <article className="uc03-work-card uc03-work-card--interactive is-compact">
+      <header className="uc03-work-card__header">
+        <div className="uc03-work-card__identity">
+          <h3>{item.customerDisplayName}</h3>
+          <div className="uc03-work-card__identity-meta">
+            <span className="uc03-work-card__type-label">Booking Review</span>
+            {item.bookingReference && <span>{item.bookingReference}</span>}
+          </div>
+          <p>{item.productLabel || 'Vehicle not captured'}</p>
+        </div>
+        <div className="uc03-work-card__next-step">
+          <span>Next step</span>
+          <strong>Review documents</strong>
+          <small>PC verification pending</small>
+        </div>
+        <div className="uc03-work-card__summary uc03-work-card__summary--simple">
+          <strong className="uc03-work-status-pill is-review">Review Pending</strong>
+          <span className="uc03-verification-badge is-not-verified">Not Verified</span>
+        </div>
+      </header>
+      <div className={`uc03-work-card__age ${ageTone}`} title={absoluteActivity}>
+        <strong>{relativeActivity}</strong>
+        <span>since activity</span>
+      </div>
+      <footer className="uc03-work-card__footer">
+        <Link className="uc03-work-card__primary-action" to={`/bookings/${item.journeyId}/review`}>Review Documents</Link>
+        <div className="uc03-work-card__expanded-meta">
+          <span>{item.dealerName}<span aria-hidden="true"> · </span>{item.outletName}</span>
+        </div>
+      </footer>
+    </article>
+  );
+}
+
 export default function DashboardPage() {
   const [searchParams] = useSearchParams();
   const project = useProjectContextStore((state) => state.selectedProject);
   const accessToken = useSessionStore((state) => state.accessToken);
   const outletId = useSessionStore((state) => state.outletId);
-  const [workType, setWorkType] = useState<Uc03WorkType>('ALL');
+  const [view, setView] = useState<LandingView>('ALL');
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
   const [filtersOpen, setFiltersOpen] = useState(false);
@@ -360,6 +404,8 @@ export default function DashboardPage() {
 
   const selectedOutlet = project?.scope.outlets.find((outlet) => outlet.outletId === outletId);
   const pcContextReady = project?.operatingRole !== 'PC' || Boolean(outletId);
+  const isPc = project?.operatingRole === 'PC';
+  const workType: Uc03WorkType = view === 'REVIEW_PENDING' ? 'ALL' : view;
 
   const metricsQuery = useQuery({
     queryKey: ['uc03-landing-metrics', project?.tenantId, outletId],
@@ -368,6 +414,15 @@ export default function DashboardPage() {
     retry: 1,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
+  });
+
+  const reviewPendingQuery = useQuery({
+    queryKey: ['uc03-review-pending', project?.tenantId],
+    queryFn: () => listReviewPending(project!.tenantId, accessToken),
+    enabled: Boolean(isPc && project?.tenantId && accessToken && pcContextReady),
+    retry: 1,
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
   });
 
   const workQuery = useInfiniteQuery({
@@ -385,7 +440,7 @@ export default function DashboardPage() {
       accessToken,
     ),
     getNextPageParam: (lastPage) => lastPage.nextCursor || undefined,
-    enabled: Boolean(project?.tenantId && accessToken && pcContextReady),
+    enabled: Boolean(project?.tenantId && accessToken && pcContextReady && view !== 'REVIEW_PENDING'),
     retry: 1,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
@@ -407,6 +462,7 @@ export default function DashboardPage() {
   const timezoneName = workQuery.data?.pages[0]?.filters.timezoneName || project?.timezoneName || 'UTC';
 
   useEffect(() => {
+    if (view === 'REVIEW_PENDING') return undefined;
     const node = loadMoreRef.current;
     if (!node || !workQuery.hasNextPage) return undefined;
 
@@ -418,7 +474,7 @@ export default function DashboardPage() {
 
     observer.observe(node);
     return () => observer.disconnect();
-  }, [workQuery.fetchNextPage, workQuery.hasNextPage, workQuery.isFetchingNextPage]);
+  }, [view, workQuery.fetchNextPage, workQuery.hasNextPage, workQuery.isFetchingNextPage]);
 
   if (!project) return null;
   if (searchParams.get('action') === 'create-booking' && project.operatingRole === 'PC') {
@@ -426,15 +482,14 @@ export default function DashboardPage() {
   }
 
   const metrics = metricsQuery.data;
-  const isPc = project.operatingRole === 'PC';
   const dealershipName = isPc && selectedOutlet ? selectedOutlet.dealerName : 'Authorized Workspace';
   const outletName = isPc && selectedOutlet
     ? selectedOutlet.outletName
     : 'Booking and Delivery work for your current authorized business scope.';
   const activeDateFilterCount = Number(Boolean(fromDate)) + Number(Boolean(toDate));
 
-  const selectWork = (nextWorkType: Uc03WorkType) => {
-    setWorkType(nextWorkType);
+  const selectWork = (nextView: LandingView) => {
+    setView(nextView);
     window.requestAnimationFrame(() => {
       document.getElementById('uc03-work-list-title')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     });
@@ -468,6 +523,16 @@ export default function DashboardPage() {
             actionLabel="View"
             onSelect={() => selectWork('BOOKING')}
           />
+          {isPc && (
+            <LandingMetric
+              label="Review Pending"
+              value={reviewPendingQuery.data ? String(reviewPendingQuery.data.totalCount) : reviewPendingQuery.isError ? '!' : '—'}
+              detail="PC verification"
+              actionLabel="Review"
+              attention={Boolean(reviewPendingQuery.data?.totalCount)}
+              onSelect={() => selectWork('REVIEW_PENDING')}
+            />
+          )}
           <LandingMetric
             label="Deliveries"
             value={metrics ? String(metrics.deliveryInProgress) : '—'}
@@ -487,36 +552,45 @@ export default function DashboardPage() {
       <section className="uc03-work-list" aria-labelledby="uc03-work-list-title">
         <header className="uc03-work-list__heading uc03-work-list__heading--approved">
           <div>
-            <h2 id="uc03-work-list-title">Work Queue</h2>
+            <h2 id="uc03-work-list-title">{view === 'REVIEW_PENDING' ? 'Review Pending' : 'Work Queue'}</h2>
             <p className="uc03-work-list__queue-note">
-              {displayedWorkItems.length} loaded · oldest loaded activity first
+              {view === 'REVIEW_PENDING'
+                ? `${reviewPendingQuery.data?.totalCount ?? 0} Booking review${reviewPendingQuery.data?.totalCount === 1 ? '' : 's'} pending`
+                : `${displayedWorkItems.length} loaded · oldest loaded activity first`}
             </p>
           </div>
-          <button
-            type="button"
-            className={`uc03-filter-toggle${filtersOpen || activeDateFilterCount ? ' is-active' : ''}`}
-            aria-expanded={filtersOpen}
-            onClick={() => setFiltersOpen((current) => !current)}
-          >
-            Filters{activeDateFilterCount > 0 ? ` (${activeDateFilterCount})` : ''}
-          </button>
+          {view !== 'REVIEW_PENDING' && (
+            <button
+              type="button"
+              className={`uc03-filter-toggle${filtersOpen || activeDateFilterCount ? ' is-active' : ''}`}
+              aria-expanded={filtersOpen}
+              onClick={() => setFiltersOpen((current) => !current)}
+            >
+              Filters{activeDateFilterCount > 0 ? ` (${activeDateFilterCount})` : ''}
+            </button>
+          )}
         </header>
 
         <div className="uc03-work-filter-tabs uc03-work-filter-tabs--approved" role="group" aria-label="Transaction type">
-          {(['ALL', 'BOOKING', 'DELIVERY'] as const).map((value) => (
+          {([
+            ['ALL', 'All'],
+            ['BOOKING', 'Bookings'],
+            ...(isPc ? [['REVIEW_PENDING', `Review Pending${reviewPendingQuery.data ? ` (${reviewPendingQuery.data.totalCount})` : ''}`]] : []),
+            ['DELIVERY', 'Deliveries'],
+          ] as Array<[LandingView, string]>).map(([value, label]) => (
             <button
               type="button"
               key={value}
-              className={workType === value ? 'is-active' : ''}
-              aria-pressed={workType === value}
-              onClick={() => setWorkType(value)}
+              className={view === value ? 'is-active' : ''}
+              aria-pressed={view === value}
+              onClick={() => setView(value)}
             >
-              {value === 'ALL' ? 'All' : value === 'BOOKING' ? 'Bookings' : 'Deliveries'}
+              {label}
             </button>
           ))}
         </div>
 
-        {(filtersOpen || activeDateFilterCount > 0) && (
+        {view !== 'REVIEW_PENDING' && (filtersOpen || activeDateFilterCount > 0) && (
           <div className="uc03-work-filters uc03-work-filters--approved">
             <div className="uc03-date-range" role="group" aria-label="Date range">
               <label>
@@ -538,62 +612,98 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {invalidDateRange && <p className="uc03-filter-error" role="alert">From date must be on or before To date.</p>}
-
-        {!invalidDateRange && workQuery.isError && (
-          <section className="dashboard-load-state" role="alert">
-            <div className="dashboard-load-state__mark" aria-hidden="true">!</div>
-            <div className="dashboard-load-state__copy">
-              <strong>We couldn't load your Booking and Delivery work.</strong>
-              <p>Please try again. If the problem continues, contact your Verigence administrator.</p>
-            </div>
-            <button type="button" className="user-menu-button" onClick={() => workQuery.refetch()}>Try Again</button>
-          </section>
-        )}
-
-        {!invalidDateRange && workQuery.isPending && (
-          <div className="uc03-work-loading" role="status">Loading Booking and Delivery work…</div>
-        )}
-
-        {!invalidDateRange && workQuery.data && (
+        {view === 'REVIEW_PENDING' ? (
           <>
-            <div className="uc03-work-cards">
-              {displayedWorkItems.length > 0 && (
-                <div className="uc03-work-table-head" aria-hidden="true">
-                  <span>Work Item</span>
-                  <span>Next Step</span>
-                  <span>Status</span>
-                  <span>Age</span>
-                  <span>Action</span>
+            {reviewPendingQuery.isError && (
+              <section className="dashboard-load-state" role="alert">
+                <div className="dashboard-load-state__mark" aria-hidden="true">!</div>
+                <div className="dashboard-load-state__copy">
+                  <strong>We couldn't load Review Pending.</strong>
+                  <p>Please try again. No Document Intelligence readiness check was made.</p>
                 </div>
-              )}
-              {displayedWorkItems.map((item) => (
-                <WorkItemCard key={item.journeyId} item={item} timezoneName={timezoneName} />
-              ))}
-              {displayedWorkItems.length === 0 && (
-                <div className="uc03-work-empty">
-                  <strong>No matching Booking or Delivery work.</strong>
-                  <p>Capture a new Booking to begin.</p>
-                </div>
-              )}
-            </div>
-
-            {displayedWorkItems.length > 0 && (
-              <div className="uc03-lazy-load" aria-live="polite">
-                <span>{displayedWorkItems.length} transaction{displayedWorkItems.length === 1 ? '' : 's'} loaded</span>
-                {workQuery.hasNextPage ? (
-                  <button
-                    type="button"
-                    onClick={() => void workQuery.fetchNextPage()}
-                    disabled={workQuery.isFetchingNextPage}
-                  >
-                    {workQuery.isFetchingNextPage ? 'Loading more…' : 'Load more'}
-                  </button>
-                ) : (
-                  <span>You're up to date.</span>
+                <button type="button" className="user-menu-button" onClick={() => reviewPendingQuery.refetch()}>Try Again</button>
+              </section>
+            )}
+            {reviewPendingQuery.isPending && <div className="uc03-work-loading" role="status">Loading Review Pending…</div>}
+            {reviewPendingQuery.data && (
+              <div className="uc03-work-cards">
+                {reviewPendingQuery.data.items.length > 0 && (
+                  <div className="uc03-work-table-head" aria-hidden="true">
+                    <span>Work Item</span><span>Next Step</span><span>Status</span><span>Age</span><span>Action</span>
+                  </div>
                 )}
-                <div ref={loadMoreRef} className="uc03-lazy-load__sentinel" aria-hidden="true" />
+                {reviewPendingQuery.data.items.map((item) => (
+                  <ReviewPendingCard key={item.journeyId} item={item} timezoneName={project.timezoneName || 'UTC'} />
+                ))}
+                {reviewPendingQuery.data.items.length === 0 && (
+                  <div className="uc03-work-empty">
+                    <strong>No PC reviews pending.</strong>
+                    <p>Submitted Bookings will appear here until PC document verification is completed.</p>
+                  </div>
+                )}
               </div>
+            )}
+          </>
+        ) : (
+          <>
+            {invalidDateRange && <p className="uc03-filter-error" role="alert">From date must be on or before To date.</p>}
+
+            {!invalidDateRange && workQuery.isError && (
+              <section className="dashboard-load-state" role="alert">
+                <div className="dashboard-load-state__mark" aria-hidden="true">!</div>
+                <div className="dashboard-load-state__copy">
+                  <strong>We couldn't load your Booking and Delivery work.</strong>
+                  <p>Please try again. If the problem continues, contact your Verigence administrator.</p>
+                </div>
+                <button type="button" className="user-menu-button" onClick={() => workQuery.refetch()}>Try Again</button>
+              </section>
+            )}
+
+            {!invalidDateRange && workQuery.isPending && (
+              <div className="uc03-work-loading" role="status">Loading Booking and Delivery work…</div>
+            )}
+
+            {!invalidDateRange && workQuery.data && (
+              <>
+                <div className="uc03-work-cards">
+                  {displayedWorkItems.length > 0 && (
+                    <div className="uc03-work-table-head" aria-hidden="true">
+                      <span>Work Item</span>
+                      <span>Next Step</span>
+                      <span>Status</span>
+                      <span>Age</span>
+                      <span>Action</span>
+                    </div>
+                  )}
+                  {displayedWorkItems.map((item) => (
+                    <WorkItemCard key={item.journeyId} item={item} timezoneName={timezoneName} />
+                  ))}
+                  {displayedWorkItems.length === 0 && (
+                    <div className="uc03-work-empty">
+                      <strong>No matching Booking or Delivery work.</strong>
+                      <p>Capture a new Booking to begin.</p>
+                    </div>
+                  )}
+                </div>
+
+                {displayedWorkItems.length > 0 && (
+                  <div className="uc03-lazy-load" aria-live="polite">
+                    <span>{displayedWorkItems.length} transaction{displayedWorkItems.length === 1 ? '' : 's'} loaded</span>
+                    {workQuery.hasNextPage ? (
+                      <button
+                        type="button"
+                        onClick={() => void workQuery.fetchNextPage()}
+                        disabled={workQuery.isFetchingNextPage}
+                      >
+                        {workQuery.isFetchingNextPage ? 'Loading more…' : 'Load more'}
+                      </button>
+                    ) : (
+                      <span>You're up to date.</span>
+                    )}
+                    <div ref={loadMoreRef} className="uc03-lazy-load__sentinel" aria-hidden="true" />
+                  </div>
+                )}
+              </>
             )}
           </>
         )}

@@ -324,6 +324,7 @@ export async function uploadBookingDocument(
     journeyId,
     requirement.requirementRef,
     result.documentId,
+    requirement.repeatable,
   );
   return {
     evidenceId: result.documentId,

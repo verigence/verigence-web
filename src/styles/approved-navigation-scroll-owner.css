@@ -1,0 +1,24 @@
+/*
+ * Preserve the established authenticated scrolling contract after the approved
+ * header/navigation shell changes. The main application pane remains the single
+ * vertical scroll owner; public/auth screens do not render this shell class.
+ */
+.enterprise-shell.enterprise-shell--approved-nav > .enterprise-main {
+  height: calc(100dvh - 72px) !important;
+  min-height: 0 !important;
+  max-height: calc(100dvh - 72px) !important;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  overscroll-behavior-y: contain;
+  touch-action: pan-y;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-gutter: stable;
+}
+
+@media (max-width: 899px) {
+  .enterprise-shell.enterprise-shell--approved-nav > .enterprise-main {
+    height: calc(100dvh - 64px) !important;
+    max-height: calc(100dvh - 64px) !important;
+    scrollbar-gutter: auto;
+  }
+}

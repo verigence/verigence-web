@@ -1,7 +1,6 @@
 import type { PropsWithChildren } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 
-import verigenceLockup from '../assets/verigence-lockup.png';
 import type { UserRole } from '../domain/models';
 import { useSessionStore } from '../store/sessionStore';
 
@@ -40,6 +39,8 @@ const groups: NavGroup[] = [
   ] },
 ];
 
+const approvedLockup = '/brand/approved/verigence-lockup.png?v=20260826-r1';
+
 export default function AppShell({ children }: PropsWithChildren) {
   const role = useSessionStore((state) => state.role);
   const displayName = useSessionStore((state) => state.displayName);
@@ -60,7 +61,7 @@ export default function AppShell({ children }: PropsWithChildren) {
         <section className="pending-approval-app" aria-label="Pending Approval application">
           <header className="pending-approval-topbar">
             <NavLink className="pending-approval-brand" to="/dashboard" aria-label="Verigence home">
-              <img src="/brand/approved/verigence-lockup.svg" alt="Verigence — Audit, Governance, Intelligence" />
+              <img src={approvedLockup} alt="Verigence — Audit, Governance, Intelligence" />
             </NavLink>
             <div className="pending-approval-crumb" aria-label="Current section">
               <span>Pending Approval</span>
@@ -86,7 +87,7 @@ export default function AppShell({ children }: PropsWithChildren) {
     <div className="enterprise-shell">
       <aside className="enterprise-sidebar">
         <NavLink className="enterprise-brand" to="/dashboard" aria-label="Verigence home">
-          <img src={verigenceLockup} alt="Verigence" />
+          <img src={approvedLockup} alt="Verigence" />
         </NavLink>
         <nav className="enterprise-nav" aria-label="Primary navigation">
           {groups.map((group) => {

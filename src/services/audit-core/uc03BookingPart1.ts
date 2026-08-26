@@ -114,7 +114,10 @@ export async function getBookingPart1(
       const evidence = documentIds.map((documentId) => ({
         evidenceId: documentId,
         documentTypeKey: slot.documentTypeKey,
-        processingStatus: null,
+        // Step 1 means "upload accepted", not "extraction complete". Mark the
+        // compatibility card ready so the old Audit-Core extraction refresh loop
+        // never starts; Screen 3 alone polls DI extraction status.
+        processingStatus: 'READY',
         verificationStatus: null,
         linkedAtUtc: now,
       }));

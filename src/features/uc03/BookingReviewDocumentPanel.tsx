@@ -41,10 +41,15 @@ function valueOf(fact: PcBookingExtractionFact): unknown {
   return fact.normalizedValue ?? fact.rawValue ?? '';
 }
 
+function normalizedFieldKey(fieldKey: string): string {
+  return fieldKey.trim().toLowerCase();
+}
+
 function proposalFromFact(
   documentId: string,
   documentTypeKey: string,
   fact: PcBookingExtractionFact,
+  canAccept: boolean,
 ): ExtractionProposalView {
   return {
     proposalId: fact.sourceFactRef,
@@ -62,7 +67,7 @@ function proposalFromFact(
     evidenceRegion: fact.evidenceRegion as ExtractionProposalView['evidenceRegion'],
     status: 'PENDING',
     acceptedValue: null,
-    canAccept: true,
+    canAccept,
     owningDomainKey: null,
     owningRecordReference: null,
     version: 1,
@@ -136,7 +141,11 @@ export default function BookingReviewDocumentPanel({
           );
           if (cancelled) return;
           setProcessingStatus(review.processingStatus.toUpperCase());
-          setFacts(review.facts.filter((fact) => slot.captureEligibleFieldKeys.includes(fact.fieldKey)));
+          // Review visibility and Audit Core persistence are separate concerns.
+          // The PC must see every fact DI extracted. captureEligibleFieldKeys is
+          // used only to decide which approved/corrected values may be written
+          // into Audit Core typed business data.
+          setFacts(review.facts);
           setLoading(false);
           setError(undefined);
           return;
@@ -169,10 +178,25 @@ export default function BookingReviewDocumentPanel({
     };
   }, [accessToken, evidenceId, journeyId, tenantId]);
 
+  const captureEligibleFieldKeys = useMemo(
+    () => new Set((requirement?.captureEligibleFieldKeys ?? []).map(normalizedFieldKey)),
+    [requirement?.captureEligibleFieldKeys],
+  );
+
+  const persistableFacts = useMemo(
+    () => facts.filter((fact) => captureEligibleFieldKeys.has(normalizedFieldKey(fact.fieldKey))),
+    [captureEligibleFieldKeys, facts],
+  );
+
   const syntheticProposals = useMemo(() => {
     const documentTypeKey = requirement?.documentTypeKey || '';
-    return facts.map((fact) => proposalFromFact(evidenceId, documentTypeKey, fact));
-  }, [evidenceId, facts, requirement?.documentTypeKey]);
+    return facts.map((fact) => proposalFromFact(
+      evidenceId,
+      documentTypeKey,
+      fact,
+      captureEligibleFieldKeys.has(normalizedFieldKey(fact.fieldKey)),
+    ));
+  }, [captureEligibleFieldKeys, evidenceId, facts, requirement?.documentTypeKey]);
 
   const decidedIds = useMemo(() => new Set(decisions.keys()), [decisions]);
 
@@ -183,6 +207,7 @@ export default function BookingReviewDocumentPanel({
   ) => {
     const fact = facts.find((item) => item.sourceFactRef === proposal.sourceFactId);
     if (!fact) throw new Error('The DI source fact is no longer available for this field.');
+    if (!captureEligibleFieldKeys.has(normalizedFieldKey(fact.fieldKey))) return;
     setDecisions((current) => {
       const next = new Map(current);
       next.set(proposal.proposalId, {
@@ -198,11 +223,14 @@ export default function BookingReviewDocumentPanel({
     setBusy(true);
     setError(undefined);
     try {
-      if (facts.length > 0) {
-        if (!fieldReviewComplete || decisions.size !== facts.length) {
-          throw new Error('Review every System Read field before approving this document.');
+      if (facts.length > 0 && !fieldReviewComplete) {
+        throw new Error('Review every System Read field before approving this document.');
+      }
+      if (persistableFacts.length > 0) {
+        if (decisions.size !== persistableFacts.length) {
+          throw new Error('Review every editable System Read field before approving this document.');
         }
-        const fields: BookingExtractionFieldDecision[] = facts.map((fact) => {
+        const fields: BookingExtractionFieldDecision[] = persistableFacts.map((fact) => {
           const decision = decisions.get(fact.sourceFactRef);
           if (!decision) throw new Error(`Review ${fact.fieldKey} before approving this document.`);
           return {
@@ -288,7 +316,7 @@ export default function BookingReviewDocumentPanel({
               ? 'You can leave this screen; extraction continues asynchronously in DI.'
               : syntheticProposals.length
                 ? 'One batch is written to Audit Core only when you approve this document.'
-                : 'No supported extracted business fields were returned. Review the source document visually.'}
+                : 'No extracted values were returned. Review the source document visually.'}
         </span>
         <button
           type="button"

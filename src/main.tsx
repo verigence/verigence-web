@@ -19,7 +19,6 @@ import './styles/brand-auth-fixes.css';
 import './styles/auth-onboarding.css';
 import './styles/auth-frozen-overrides.css';
 import './styles/legal-and-recovery.css';
-import './styles/navigation-shell-v2.css';
 
 import App from './App';
 

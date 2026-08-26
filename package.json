@@ -24,6 +24,7 @@
     "@capacitor/status-bar": "^8.0.0",
     "@ionic/react": "^8.0.0",
     "@tanstack/react-query": "^5.0.0",
+    "pdfjs-dist": "^6.2.108",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-hook-form": "^7.0.0",

@@ -9,6 +9,7 @@ import { useSessionStore } from '../../store/sessionStore';
 const STORAGE_KEY = 'uc03-pc-review-readiness-watch-v1';
 const CHANGE_EVENT = 'uc03-pc-review-readiness-watch-change';
 const RECHECK_MS = 120_000;
+const SCHEDULER_TICK_MS = 10_000;
 
 interface ReviewWatchEntry {
   tenantId: string;
@@ -113,7 +114,7 @@ export default function ReviewReadinessWatcher() {
   }, [accessToken, project?.operatingRole, project?.tenantId]);
 
   useEffect(() => {
-    const interval = window.setInterval(() => { void checkDue(); }, RECHECK_MS);
+    const interval = window.setInterval(() => { void checkDue(); }, SCHEDULER_TICK_MS);
     const onVisibility = () => { if (document.visibilityState === 'visible') void checkDue(); };
     document.addEventListener('visibilitychange', onVisibility);
     return () => {
@@ -134,6 +135,7 @@ export default function ReviewReadinessWatcher() {
       type="button"
       className="user-menu-button"
       aria-label={`${ready.length} Booking review${ready.length === 1 ? '' : 's'} ready`}
+      title={ready.length === 1 ? `${first.label} is ready for review` : `${ready.length} Bookings are ready for review`}
       onClick={() => navigate(`/bookings/${first.journeyId}/review`)}
       style={{ position: 'fixed', top: '76px', right: '24px', zIndex: 80, boxShadow: '0 10px 30px rgba(15,23,42,.18)' }}
     >

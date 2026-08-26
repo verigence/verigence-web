@@ -139,14 +139,6 @@ export interface EvidenceFactView {
 }
 
 const processingByJourney = new Map<string, ProcessingStatus>();
-const terminalProcessingStatuses = new Set([
-  'COMPLETED',
-  'COMPLETE',
-  'PROCESSED',
-  'SUCCEEDED',
-  'READY',
-  'VERIFIED',
-]);
 
 function processingKey(tenantId: string, journeyId: string): string {
   return `${tenantId}:${journeyId}`;
@@ -303,12 +295,22 @@ export async function uploadBookingDocument(
   file: File,
   accessToken?: string,
 ): Promise<{ evidenceId: string; processingStatus: string }> {
-  const context = await prepareBookingDocumentUploadContext(tenantId, journeyId, accessToken);
-  const requirement = context.requirements.find((item) =>
+  let context = await prepareBookingDocumentUploadContext(tenantId, journeyId, accessToken);
+  let requirement = context.requirements.find((item) =>
     matchingRequirementKey(item.requirementKey, requirementKey));
+
+  // Conditional requirements (GST/Corporate/Trade-In) can become applicable only
+  // after Step 2 is saved. Refresh the one reusable context on that boundary rather
+  // than failing or forcing every upload to re-prepare it.
+  if (!requirement) {
+    context = await prepareBookingDocumentUploadContext(tenantId, journeyId, accessToken, true);
+    requirement = context.requirements.find((item) =>
+      matchingRequirementKey(item.requirementKey, requirementKey));
+  }
   if (!requirement) {
     throw new Error('This Booking document requirement is not configured or currently applicable.');
   }
+
   const result = await uploadPcBookingDocument(
     tenantId,
     context.externalContextRef,

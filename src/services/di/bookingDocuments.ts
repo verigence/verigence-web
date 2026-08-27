@@ -65,8 +65,10 @@ export interface PcBookingUploadResult {
 }
 
 export interface PcBookingDocumentContent {
-  blob: Blob;
+  documentId: string;
+  url: string;
   mimeType: string;
+  expiresInSeconds: number;
 }
 
 export class DiBookingHttpError extends Error {
@@ -82,6 +84,8 @@ export class DiBookingHttpError extends Error {
 }
 
 const EXTRACTION_CACHE_MS = 60_000;
+// DI signs content URLs for 10 minutes. Keep the session cache comfortably inside
+// that lifetime so repeat opens are instant without ever reusing an expired URL.
 const CONTENT_CACHE_MS = 5 * 60_000;
 const extractionCache = new Map<string, TimedPromise<PcBookingExtractionReview>>();
 const contentCache = new Map<string, TimedPromise<PcBookingDocumentContent>>();
@@ -219,13 +223,10 @@ export function getPcBookingDocumentContent(
   const key = reviewCacheKey(tenantId, externalContextRef, documentId, accessToken);
   return cachedPromise(contentCache, key, CONTENT_CACHE_MS, async () => {
     const response = await request(
-      `${contextBase(tenantId, externalContextRef)}/${encodeURIComponent(documentId)}/content`,
+      `${contextBase(tenantId, externalContextRef)}/${encodeURIComponent(documentId)}/content-access`,
       accessToken,
       { cache: 'no-store' },
     );
-    return {
-      blob: await response.blob(),
-      mimeType: response.headers.get('content-type') || 'application/octet-stream',
-    };
+    return envelope<PcBookingDocumentContent>(response, 'Open Booking document');
   });
 }

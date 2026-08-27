@@ -38,9 +38,25 @@ function newBookingWorkspace(
   };
 }
 
-function newBookingPart1(journeyId: string): BookingPart1View {
+function newBookingPart1(
+  journeyId: string,
+  customerName: string,
+  businessStatus: string,
+  aggregateVersion: number,
+): BookingPart1View {
   return {
     journeyId,
+    aggregateVersion,
+    operatingRole: 'PC',
+    capture: { CUSTOMER_NAME: customerName },
+    bookingStage: {
+      businessStatus,
+      closureDisposition: null,
+      auditState: 'NOT_STARTED',
+      auditStatus: 'NOT_EVALUATED',
+      closeReasonCode: null,
+      closureRemarks: null,
+    },
     requirements: [
       {
         kind: 'BOOKING_DOCKET',
@@ -136,8 +152,7 @@ export default function CreateBookingPage() {
       );
 
       // Create already returned everything needed to paint a brand-new Booking.
-      // Seed React Query before navigation so Step 1 never waits for Workspace or
-      // Part-1 just to discover that no documents have been uploaded yet.
+      // Seed React Query before navigation so Step 1 never waits for another read.
       queryClient.setQueryData<BookingWorkspace>(
         ['uc03-booking-workspace', activeProject.tenantId, result.journeyId],
         newBookingWorkspace(
@@ -149,7 +164,12 @@ export default function CreateBookingPage() {
       );
       queryClient.setQueryData<BookingPart1View>(
         ['uc03-booking-part1', activeProject.tenantId, result.journeyId],
-        newBookingPart1(result.journeyId),
+        newBookingPart1(
+          result.journeyId,
+          normalizedCustomerName,
+          result.businessStatus,
+          result.aggregateVersion,
+        ),
       );
 
       navigate(`/bookings/${result.journeyId}`, {

@@ -1,9 +1,5 @@
 import { auditCoreRequest } from './client';
 import { newIdempotencyKey } from './uc03Booking';
-import {
-  clearPcBookingReviewWarmCache,
-  warmPcBookingReview,
-} from './uc03PcDirectReview';
 
 export type PcVerificationStatus = 'NOT_SUBMITTED' | 'PENDING' | 'VERIFIED';
 
@@ -55,62 +51,43 @@ function commandHeaders(prefix: string, version: number): HeadersInit {
   };
 }
 
-function warmReviewWhenUseful(
-  tenantId: string,
-  journeyId: string,
-  result: PcVerificationView,
-  accessToken?: string,
-): void {
-  if (!result.captureSubmitted || result.pcVerificationStatus !== 'PENDING') return;
-  // Start the expensive Review preparation while the user is still on the
-  // Booking screen. The Review route reuses these in-flight/cached promises.
-  void warmPcBookingReview(tenantId, journeyId, accessToken);
-}
-
-export async function getPcVerification(
+export function getPcVerification(
   tenantId: string,
   journeyId: string,
   accessToken?: string,
 ): Promise<PcVerificationView> {
-  const result = await auditCoreRequest<PcVerificationView>(base(tenantId, journeyId), {
+  return auditCoreRequest(base(tenantId, journeyId), {
     accessToken: token(accessToken),
     cache: 'no-store',
   });
-  warmReviewWhenUseful(tenantId, journeyId, result, accessToken);
-  return result;
 }
 
-export async function submitPcBookingCapture(
+export function submitPcBookingCapture(
   tenantId: string,
   journeyId: string,
   version: number,
   values: Record<string, unknown>,
   accessToken?: string,
 ): Promise<PcVerificationView> {
-  clearPcBookingReviewWarmCache(tenantId, journeyId, accessToken);
-  const result = await auditCoreRequest<PcVerificationView>(`${base(tenantId, journeyId)}/submit`, {
+  return auditCoreRequest(`${base(tenantId, journeyId)}/submit`, {
     method: 'POST',
     accessToken: token(accessToken),
     headers: commandHeaders('uc03-pc-capture-submit', version),
     body: JSON.stringify({ values }),
   });
-  warmReviewWhenUseful(tenantId, journeyId, result, accessToken);
-  return result;
 }
 
-export async function verifyPcBooking(
+export function verifyPcBooking(
   tenantId: string,
   journeyId: string,
   version: number,
   accessToken?: string,
 ): Promise<PcVerificationView> {
-  const result = await auditCoreRequest<PcVerificationView>(`${base(tenantId, journeyId)}/verify`, {
+  return auditCoreRequest(`${base(tenantId, journeyId)}/verify`, {
     method: 'POST',
     accessToken: token(accessToken),
     headers: commandHeaders('uc03-pc-verify', version),
   });
-  clearPcBookingReviewWarmCache(tenantId, journeyId, accessToken);
-  return result;
 }
 
 export function listReviewPending(

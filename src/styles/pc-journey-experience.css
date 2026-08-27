@@ -162,11 +162,50 @@
     gap: 10px !important;
   }
 
+  /* Remove the older three-tile icon treatment; four counters need one consistent hierarchy. */
   .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-landing-metric,
   .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-landing-metric:nth-child(n) {
     grid-column: auto !important;
     width: auto !important;
     min-width: 0 !important;
+    min-height: 82px !important;
+    padding: 11px 12px !important;
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) !important;
+    grid-template-areas:
+      "label"
+      "value"
+      "detail" !important;
+    align-content: center !important;
+    gap: 3px !important;
+  }
+
+  .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-landing-metric::before {
+    display: none !important;
+  }
+
+  .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-landing-metric__label {
+    grid-area: label !important;
+    font-size: 9px !important;
+    line-height: 1.15 !important;
+  }
+
+  .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-landing-metric__value {
+    grid-area: value !important;
+    font-size: 25px !important;
+    line-height: 1 !important;
+  }
+
+  .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-landing-metric__detail {
+    grid-area: detail !important;
+    display: block !important;
+    font-size: 10px !important;
+    line-height: 1.2 !important;
+  }
+
+  /* The full tile is already clickable; duplicate View/Review text wastes mobile width. */
+  .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-landing-metric__action {
+    display: none !important;
   }
 
   .enterprise-shell--approved-nav :is(
@@ -214,6 +253,12 @@
   .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-landing-metrics {
     grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
     gap: 8px !important;
+  }
+
+  .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-landing-metric,
+  .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-landing-metric:nth-child(n) {
+    min-height: 78px !important;
+    padding: 10px !important;
   }
 
   .enterprise-shell--approved-nav .uc03-booking-journey .uc03-booking-steps {

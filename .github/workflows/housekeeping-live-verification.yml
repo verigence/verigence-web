@@ -129,11 +129,14 @@ jobs:
           await projectSelect.selectOption('tenant-housekeeping-visual');
 
           await page.getByRole('heading', { name: 'What do you want to delete?' }).waitFor();
-          await page.getByRole('button', { name: /Delete Complete Project/ }).waitFor();
-          await page.getByRole('button', { name: /Delete Journey Data/ }).waitFor();
-          await page.getByRole('button', { name: /Delete System History/ }).waitFor();
+          const projectScope = page.locator('.housekeeping-action-card--project');
+          const journeyScope = page.locator('.housekeeping-action-card--journey');
+          const systemScope = page.locator('.housekeeping-action-card--system');
+          await projectScope.waitFor({ state: 'visible' });
+          await journeyScope.waitFor({ state: 'visible' });
+          await systemScope.waitFor({ state: 'visible' });
 
-          const initialText = await page.locator('main, body').innerText();
+          const initialText = await page.locator('body').innerText();
           for (const required of [
             'Whole Project · Highest impact',
             'Business transactions · Project preserved',
@@ -147,17 +150,17 @@ jobs:
 
           await page.screenshot({ path: 'housekeeping-live-output/01-scope-selection-desktop.png', fullPage: true });
 
-          await page.getByRole('button', { name: /Delete Complete Project/ }).click();
+          await projectScope.click();
           await page.getByRole('heading', { name: 'Delete Complete Project' }).waitFor();
           await page.getByText('Housekeeping Visual Project', { exact: true }).first().waitFor();
           await page.screenshot({ path: 'housekeeping-live-output/02-complete-project-desktop.png', fullPage: true });
 
-          await page.getByRole('button', { name: /Delete Journey Data/ }).first().click();
+          await journeyScope.click();
           await page.getByRole('heading', { name: 'Purge Journey Transactions' }).waitFor();
           await page.getByText('Every Journey for every Dealer and Outlet in this Project/Tenant.').waitFor();
           await page.screenshot({ path: 'housekeeping-live-output/03-journey-desktop.png', fullPage: true });
 
-          await page.getByRole('button', { name: /Delete System History/ }).first().click();
+          await systemScope.click();
           await page.getByRole('heading', { name: 'Choose System History' }).waitFor();
           await page.screenshot({ path: 'housekeeping-live-output/04-system-history-desktop.png', fullPage: true });
 

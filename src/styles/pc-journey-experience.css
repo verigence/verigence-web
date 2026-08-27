@@ -1,0 +1,207 @@
+/*
+ * PC JOURNEY EXPERIENCE LAYER
+ *
+ * Presentation-only alignment for the Process Coordinator journey across Web and
+ * Capacitor/mobile. This file is intentionally imported immediately before
+ * ui-governance.css. Selectors are scoped to the authenticated approved shell so
+ * admin/public screens and business behavior remain untouched.
+ */
+
+:root {
+  --vg-pc-content-max: 1360px;
+  --vg-pc-enter-duration: 180ms;
+  --vg-pc-enter-easing: cubic-bezier(0.2, 0.72, 0.24, 1);
+}
+
+/*
+ * Keep every PC journey screen on the same visual rail. Previously Dashboard,
+ * Create, Booking, Review and Delivery used a mixture of 1360/1440/1500/1560px
+ * caps and left/center alignment, which made navigation appear to jump sideways.
+ */
+.enterprise-shell--approved-nav .enterprise-content > :is(
+  .screen-stack.uc03-landing--approved,
+  .screen-stack.uc03-capture-new-booking,
+  .screen-stack.uc03-booking-journey,
+  .screen-stack.uc03-c1-workspace,
+  .screen-stack.uc03-c2-workspace,
+  .screen-stack.uc03-c3-audit
+) {
+  box-sizing: border-box;
+  width: min(100%, var(--vg-pc-content-max)) !important;
+  max-width: var(--vg-pc-content-max) !important;
+  margin-inline: auto !important;
+  padding: clamp(18px, 1.8vw, 26px) !important;
+  animation: vg-pc-screen-enter var(--vg-pc-enter-duration) var(--vg-pc-enter-easing) both;
+  transform-origin: 50% 0;
+}
+
+@keyframes vg-pc-screen-enter {
+  from {
+    opacity: 0.72;
+    transform: translate3d(0, 6px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+/* Booking is a two-step journey. Do not reserve an empty third step column. */
+.enterprise-shell--approved-nav .uc03-booking-journey .uc03-booking-steps {
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+}
+
+/* A light directional transition makes Step 1 <-> Step 2 feel connected. */
+.enterprise-shell--approved-nav .uc03-booking-journey:has(.uc03-booking-steps button:first-child.is-active) .uc03-booking-step-panel {
+  animation: vg-pc-step-from-left 150ms var(--vg-pc-enter-easing) both;
+}
+
+.enterprise-shell--approved-nav .uc03-booking-journey:has(.uc03-booking-steps button:nth-child(2).is-active) .uc03-booking-step-panel {
+  animation: vg-pc-step-from-right 150ms var(--vg-pc-enter-easing) both;
+}
+
+@keyframes vg-pc-step-from-left {
+  from { opacity: 0.78; transform: translate3d(-5px, 0, 0); }
+  to { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+
+@keyframes vg-pc-step-from-right {
+  from { opacity: 0.78; transform: translate3d(5px, 0, 0); }
+  to { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+
+/*
+ * Local containment: wide panels may scroll or reflow internally, but must not push
+ * the authenticated page wider than the viewport. Avoid overflow:hidden here so
+ * selects, focus rings, menus and sticky actions are not clipped.
+ */
+.enterprise-shell--approved-nav :is(
+  .uc03-landing--approved,
+  .uc03-capture-new-booking,
+  .uc03-booking-journey,
+  .uc03-c1-workspace,
+  .uc03-c2-workspace,
+  .uc03-c3-audit
+) :is(
+  .page-header,
+  .section-card,
+  .uc03-work-list,
+  .uc03-work-cards,
+  .uc03-booking-step-panel,
+  .uc03-booking-document-grid,
+  .uc03-booking-form-grid,
+  .uc03-booking-yesno-grid,
+  .uc03-c1-section,
+  .uc03-c1-stage-strip,
+  .uc03-review-shell,
+  .uc03-c2-stage-strip,
+  .uc03-c2-grid,
+  .uc03-c2-panel,
+  .uc03-c2-complete-bar,
+  .uc03-c3-overview,
+  .uc03-c3-stage-grid,
+  .uc03-c3-section,
+  .uc03-c3-context-links
+) {
+  box-sizing: border-box;
+  min-width: 0 !important;
+  max-width: 100%;
+}
+
+/* Long identifiers/source values should wrap rather than widen a card. */
+.enterprise-shell--approved-nav :is(
+  .uc03-booking-journey,
+  .uc03-c1-workspace,
+  .uc03-c2-workspace,
+  .uc03-c3-audit
+) :is(strong, p, small, span) {
+  overflow-wrap: anywhere;
+}
+
+/* Keep genuinely tabular/wide controls local on compact viewports. */
+@media (max-width: 899px) {
+  :root {
+    --vg-pc-enter-duration: 150ms;
+  }
+
+  .enterprise-shell--approved-nav .enterprise-content > :is(
+    .screen-stack.uc03-landing--approved,
+    .screen-stack.uc03-capture-new-booking,
+    .screen-stack.uc03-booking-journey,
+    .screen-stack.uc03-c1-workspace,
+    .screen-stack.uc03-c2-workspace,
+    .screen-stack.uc03-c3-audit
+  ) {
+    width: 100% !important;
+    max-width: none !important;
+    margin-inline: 0 !important;
+    padding: 14px !important;
+  }
+
+  .enterprise-shell--approved-nav :is(
+    .uc03-work-filter-tabs,
+    .uc03-c3-context-links
+  ) {
+    max-width: 100%;
+    overflow-x: auto;
+    overflow-y: hidden;
+    overscroll-behavior-inline: contain;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+
+  .enterprise-shell--approved-nav :is(
+    .uc03-work-filter-tabs,
+    .uc03-c3-context-links
+  )::-webkit-scrollbar {
+    display: none;
+  }
+
+  .enterprise-shell--approved-nav .uc03-c1-workspace .uc03-review-shell {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  .enterprise-shell--approved-nav .uc03-c2-workspace .uc03-c2-complete-bar,
+  .enterprise-shell--approved-nav .uc03-booking-journey .uc03-booking-step-footer,
+  .enterprise-shell--approved-nav .uc03-c1-workspace .uc03-c1-document-actions {
+    max-width: 100%;
+  }
+}
+
+@media (max-width: 430px) {
+  .enterprise-shell--approved-nav .enterprise-content > :is(
+    .screen-stack.uc03-landing--approved,
+    .screen-stack.uc03-capture-new-booking,
+    .screen-stack.uc03-booking-journey,
+    .screen-stack.uc03-c1-workspace,
+    .screen-stack.uc03-c2-workspace,
+    .screen-stack.uc03-c3-audit
+  ) {
+    padding: 12px !important;
+  }
+
+  .enterprise-shell--approved-nav .uc03-booking-journey .uc03-booking-steps {
+    gap: 7px !important;
+  }
+}
+
+/* Accessibility: preserve the aligned layout but remove motion when requested. */
+@media (prefers-reduced-motion: reduce) {
+  .enterprise-shell--approved-nav .enterprise-content > :is(
+    .screen-stack.uc03-landing--approved,
+    .screen-stack.uc03-capture-new-booking,
+    .screen-stack.uc03-booking-journey,
+    .screen-stack.uc03-c1-workspace,
+    .screen-stack.uc03-c2-workspace,
+    .screen-stack.uc03-c3-audit
+  ),
+  .enterprise-shell--approved-nav .uc03-booking-journey .uc03-booking-step-panel {
+    animation: none !important;
+  }
+
+  .enterprise-shell--approved-nav *,
+  .enterprise-shell--approved-nav *::before,
+  .enterprise-shell--approved-nav *::after {
+    scroll-behavior: auto !important;
+  }
+}

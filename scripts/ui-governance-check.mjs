@@ -90,13 +90,11 @@ for (const relativePath of operationalFiles) {
 }
 
 const booking = read('src/pages/BookingWorkspacePage.tsx');
-const bookingProjectNameCount = (booking.match(/project\.projectName/g) || []).length;
-if (bookingProjectNameCount > 1) {
-  failures.push('src/pages/BookingWorkspacePage.tsx: Project Name may not be introduced anywhere else in Booking.');
-}
-if (bookingProjectNameCount === 1 && !governanceCss.includes('.uc03-booking-journey .uc03-c1-topbar > span')) {
-  failures.push('Booking Project context is not governed/hidden.');
-}
+forbid(
+  'src/pages/BookingWorkspacePage.tsx',
+  /project\.projectName\b/,
+  'Project Name must not be rendered in Booking.',
+);
 if (/\.dealerName\b|\.outletName\b/.test(booking)) {
   failures.push('src/pages/BookingWorkspacePage.tsx: Dealer/Outlet names are landing-page-only.');
 }

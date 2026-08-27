@@ -1,4 +1,5 @@
 import { auditCoreRequest } from './client';
+import { awaitPrimaryUc03WorkQueue } from './uc03';
 import { newIdempotencyKey } from './uc03Booking';
 
 export type PcVerificationStatus = 'NOT_SUBMITTED' | 'PENDING' | 'VERIFIED';
@@ -90,11 +91,12 @@ export function verifyPcBooking(
   });
 }
 
-export function listReviewPending(
+export async function listReviewPending(
   tenantId: string,
   accessToken?: string,
   limit = 50,
 ): Promise<ReviewPendingPage> {
+  await awaitPrimaryUc03WorkQueue(tenantId);
   const params = new URLSearchParams({ limit: String(limit) });
   return auditCoreRequest(`/v1/tenants/${encodeURIComponent(tenantId)}/uc03/review-pending?${params}`, {
     accessToken: token(accessToken),

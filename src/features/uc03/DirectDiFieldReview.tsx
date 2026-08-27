@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import '../../styles/uc03-document-verification.css';
 import '../../styles/uc03-step3-review.css';
@@ -7,6 +7,7 @@ import type {
   PcBookingExtractionFact,
 } from '../../services/di/bookingDocuments';
 import { displayName } from '../../utils/displayNames';
+import { PdfPageReview } from './PdfPageReview';
 
 interface DirectDiFieldReviewProps {
   documentName: string;
@@ -18,6 +19,13 @@ interface DirectDiFieldReviewProps {
   disabled?: boolean;
   onModify: (fact: PcBookingExtractionFact, value: string) => void;
   onReset: (fact: PcBookingExtractionFact) => void;
+}
+
+interface NormalizedBox {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
 }
 
 function factValue(fact: PcBookingExtractionFact): unknown {
@@ -41,6 +49,21 @@ function confidencePercent(value: number | null): string {
   return `${Math.round(Math.max(0, Math.min(100, percent)))}% confidence`;
 }
 
+function normalizedBox(region: PcBookingExtractionFact['evidenceRegion']): NormalizedBox | null {
+  if (!region || region.type !== 'BOX_2D' || region.coordinateSystem !== 'NORMALIZED_1000') return null;
+  if (!Array.isArray(region.box) || region.box.length !== 4) return null;
+  const values = region.box.map(Number);
+  if (values.some((value) => !Number.isFinite(value) || value < 0 || value > 1000)) return null;
+  const [ymin, xmin, ymax, xmax] = values;
+  if (ymin >= ymax || xmin >= xmax) return null;
+  return {
+    x: xmin / 1000,
+    y: ymin / 1000,
+    w: (xmax - xmin) / 1000,
+    h: (ymax - ymin) / 1000,
+  };
+}
+
 export function DirectDiFieldReview({
   documentName,
   facts,
@@ -52,10 +75,13 @@ export function DirectDiFieldReview({
   onModify,
   onReset,
 }: DirectDiFieldReviewProps) {
+  const scrollerRef = useRef<HTMLDivElement>(null);
+  const imageRef = useRef<HTMLImageElement>(null);
   const [selectedRef, setSelectedRef] = useState<string | null>(null);
   const [editingRef, setEditingRef] = useState<string | null>(null);
   const [editValue, setEditValue] = useState('');
   const [sourceUrl, setSourceUrl] = useState<string>();
+  const [imageReady, setImageReady] = useState(false);
 
   useEffect(() => {
     if (!facts.length) {
@@ -68,6 +94,7 @@ export function DirectDiFieldReview({
   }, [facts, selectedRef]);
 
   useEffect(() => {
+    setImageReady(false);
     if (!content?.blob) {
       setSourceUrl(undefined);
       return undefined;
@@ -81,10 +108,23 @@ export function DirectDiFieldReview({
     () => facts.find((fact) => fact.sourceFactRef === selectedRef) ?? null,
     [facts, selectedRef],
   );
+  const selectedBox = normalizedBox(selected?.evidenceRegion ?? null);
+  const selectedPage = selected?.pageNo && selected.pageNo > 0 ? selected.pageNo : 1;
   const modifiedCount = Object.keys(modifiedValues).length;
   const mimeType = content?.mimeType || '';
   const isImage = mimeType.startsWith('image/');
   const isPdf = mimeType.includes('pdf');
+
+  useEffect(() => {
+    if (!selectedBox || !isImage || !imageReady) return;
+    const scroller = scrollerRef.current;
+    const image = imageRef.current;
+    if (!scroller || !image || image.clientHeight <= 0) return;
+    const absoluteY = image.offsetTop + selectedBox.y * image.clientHeight;
+    const target = absoluteY - Math.max(70, scroller.clientHeight * 0.42);
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    scroller.scrollTo({ top: Math.max(0, target), behavior: reduceMotion ? 'auto' : 'smooth' });
+  }, [imageReady, isImage, selectedBox?.h, selectedBox?.w, selectedBox?.x, selectedBox?.y]);
 
   const startEdit = (fact: PcBookingExtractionFact) => {
     setSelectedRef(fact.sourceFactRef);
@@ -104,6 +144,14 @@ export function DirectDiFieldReview({
     setEditingRef(null);
   };
 
+  const sourceNote = selected
+    ? selectedBox
+      ? `Selected value is highlighted on ${isPdf ? `PDF page ${selectedPage}` : 'the source document'}.`
+      : selected.pageNo
+        ? `Selected value was localized to page ${selected.pageNo}; no reliable box was returned.`
+        : 'No reliable source region was returned for this value.'
+    : 'Values and the source document are read directly from Document Intelligence.';
+
   return (
     <div className="uc03-docverify is-wide">
       <div className="uc03-docverify-bar">
@@ -118,23 +166,45 @@ export function DirectDiFieldReview({
 
       <div className="uc03-docverify-body is-wide">
         <div className="uc03-docverify-canvas">
-          <div className="uc03-docverify-scroller">
+          <div ref={scrollerRef} className="uc03-docverify-scroller">
             {contentLoading ? <div className="uc03-docverify-message">Loading source document…</div> : null}
             {contentError ? <div className="uc03-docverify-message is-error">{contentError}</div> : null}
 
             {!contentLoading && !contentError && sourceUrl && isImage ? (
               <div className="uc03-docverify-image-page">
-                <img src={sourceUrl} alt={`${documentName} source`} draggable={false} />
+                <img
+                  ref={imageRef}
+                  src={sourceUrl}
+                  alt={`${documentName} source`}
+                  draggable={false}
+                  onLoad={() => setImageReady(true)}
+                />
+                {selectedBox ? (
+                  <div
+                    className="uc03-docverify-highlight"
+                    style={{
+                      left: `${selectedBox.x * 100}%`,
+                      top: `${selectedBox.y * 100}%`,
+                      width: `${selectedBox.w * 100}%`,
+                      height: `${selectedBox.h * 100}%`,
+                    }}
+                    aria-label={selected ? `Source location for ${displayName(selected.fieldKey)}` : 'Source location'}
+                  >
+                    {selected ? <span>{displayName(selected.fieldKey)}</span> : null}
+                  </div>
+                ) : null}
               </div>
             ) : null}
 
             {!contentLoading && !contentError && sourceUrl && isPdf ? (
               <div className="uc03-docverify-pdf">
-                <iframe
-                  src={selected?.pageNo ? `${sourceUrl}#page=${selected.pageNo}` : sourceUrl}
-                  title={`${documentName} source document`}
+                <PdfPageReview
+                  sourceUrl={sourceUrl}
+                  pageNumber={selectedPage}
+                  box={selectedBox}
+                  label={selected ? displayName(selected.fieldKey) : null}
                 />
-                <a href={selected?.pageNo ? `${sourceUrl}#page=${selected.pageNo}` : sourceUrl} target="_blank" rel="noreferrer">
+                <a href={`${sourceUrl}#page=${selectedPage}`} target="_blank" rel="noreferrer">
                   Open PDF in full viewer
                 </a>
               </div>
@@ -151,9 +221,7 @@ export function DirectDiFieldReview({
               <div className="uc03-docverify-message">Source document is not available.</div>
             ) : null}
           </div>
-          <div className="uc03-docverify-source-note">
-            Values and the source document are read directly from Document Intelligence. Change only values that are incorrect.
-          </div>
+          <div className="uc03-docverify-source-note">{sourceNote}</div>
         </div>
 
         <aside className="uc03-docverify-panel is-wide">

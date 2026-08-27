@@ -55,7 +55,7 @@ function displayValue(value: unknown): string {
   if (value === null || value === undefined || value === '') return '';
   if (typeof value === 'string' || typeof value === 'number') return String(value);
   if (typeof value === 'boolean') return value ? 'Yes' : 'No';
-  return JSON.stringify(value);
+  return JSON.stringify(value) ?? '';
 }
 
 function DocumentCard({
@@ -279,7 +279,25 @@ export default function BookingWorkspacePage() {
   };
 
   if (workspaceQuery.isPending) {
-    return <div className="uc03-c1-loading" role="status">Loading Booking…</div>;
+    return (
+      <div className="screen-stack uc03-c1-workspace">
+        <div className="uc03-c1-topbar">
+          <button type="button" className="uc03-c1-back" onClick={() => navigate('/dashboard')}>← Work list</button>
+          <span>Project · {project.projectName}</span>
+        </div>
+        <PageHeader
+          eyebrow="PC Booking Capture"
+          title="Booking"
+          description="Opening the latest Booking state…"
+        />
+        <section className="uc03-c1-section">
+          <div className="uc03-review-empty" role="status">
+            <strong>Opening Booking…</strong>
+            <span>The screen is ready; only the Booking data needed for this case is being loaded.</span>
+          </div>
+        </section>
+      </div>
+    );
   }
   if (workspaceQuery.isError || !workspace) {
     return (

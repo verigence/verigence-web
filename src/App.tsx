@@ -143,7 +143,7 @@ export default function App() {
             <Route path="/payments" element={<LegacyOperationalPage><PaymentTrackerPage /></LegacyOperationalPage>} />
             <Route path="/findings" element={<LegacyOperationalPage><FindingsPage /></LegacyOperationalPage>} />
             <Route path="/tasks" element={<LegacyOperationalPage><TasksPage /></LegacyOperationalPage>} />
-            <Route path="/daily-ops" element={<LegacyOperationalPage><DailyOpsPage /></LegacyOperationalPage>} />
+            <Route path="/daily-ops" element={<OperationalPage><DailyOpsPage /></OperationalPage>} />
             <Route path="/activity" element={<LegacyOperationalPage><ActivityTrackerPage /></LegacyOperationalPage>} />
             <Route path="/crm" element={<LegacyOperationalPage><CrmPage /></LegacyOperationalPage>} />
             <Route path="/escalations" element={<LegacyOperationalPage><EscalationsPage /></LegacyOperationalPage>} />

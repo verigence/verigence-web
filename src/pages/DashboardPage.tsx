@@ -17,7 +17,7 @@ import { useProjectContextStore } from '../store/projectContextStore';
 import { useSessionStore } from '../store/sessionStore';
 import CreateBookingPage from './CreateBookingPage';
 
-type LandingView = Uc03WorkType | 'REVIEW_PENDING';
+type LandingView = Uc03WorkType | 'REVIEW_PENDING' | 'FLAGS';
 
 function friendlyStatus(value?: string | null, fallback = 'Not Started'): string {
   if (!value) return fallback;
@@ -85,12 +85,20 @@ function VerificationBadge({ stage }: { stage: Uc03StageSummary }) {
   );
 }
 
-function StageBlock({ label, item }: { label: string; item: Uc03StageSummary }) {
+function StageBlock({
+  label,
+  item,
+  showVerification = true,
+}: {
+  label: string;
+  item: Uc03StageSummary;
+  showVerification?: boolean;
+}) {
   return (
     <div className="uc03-stage-block">
       <span>{label}</span>
       <strong>{friendlyStatus(item.businessStatus)}</strong>
-      <VerificationBadge stage={item} />
+      {showVerification && <VerificationBadge stage={item} />}
       {item.businessDate && <small>{item.businessDate}</small>}
     </div>
   );
@@ -161,14 +169,24 @@ type WorkPresentation = {
   primaryPath: string;
 };
 
-function workPresentation(item: Uc03WorkItem): WorkPresentation {
+function workPresentation(item: Uc03WorkItem, isPc: boolean, reviewPending: boolean): WorkPresentation {
   const bookingPath = `/bookings/${item.journeyId}`;
+  const reviewPath = `/bookings/${item.journeyId}/review`;
   const deliveryPath = `/deliveries/${item.journeyId}`;
   const auditPath = `/audit/${item.journeyId}`;
   const hasDelivery = Boolean(item.delivery.businessStatus);
   const bookingStatus = item.booking.businessStatus;
 
-  if (item.openFlagCount > 0) {
+  if (isPc && reviewPending) {
+    return {
+      workLabel: 'Booking',
+      nextStep: 'Review documents',
+      primaryActionLabel: 'Review Documents',
+      primaryPath: reviewPath,
+    };
+  }
+
+  if (!isPc && item.openFlagCount > 0) {
     return {
       workLabel: hasDelivery ? 'Delivery' : 'Booking',
       nextStep: `Review ${item.openFlagCount} audit flag${item.openFlagCount === 1 ? '' : 's'}`,
@@ -203,7 +221,17 @@ function workPresentation(item: Uc03WorkItem): WorkPresentation {
   };
 }
 
-function WorkItemCard({ item, timezoneName }: { item: Uc03WorkItem; timezoneName: string }) {
+function WorkItemCard({
+  item,
+  timezoneName,
+  isPc,
+  reviewPending,
+}: {
+  item: Uc03WorkItem;
+  timezoneName: string;
+  isPc: boolean;
+  reviewPending: boolean;
+}) {
   const navigate = useNavigate();
   const [expanded, setExpanded] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
@@ -218,11 +246,11 @@ function WorkItemCard({ item, timezoneName }: { item: Uc03WorkItem; timezoneName
       || bookingStatus === 'BOOKING_CLOSED',
   );
   const auditAvailable = Boolean(item.booking.businessStatus || item.delivery.businessStatus);
-  const presentation = workPresentation(item);
+  const presentation = workPresentation(item, isPc, reviewPending);
   const isDeliveryWork = presentation.workLabel === 'Delivery';
   const primaryStage = isDeliveryWork ? item.delivery : item.booking;
-  const workStatus = friendlyStatus(primaryStage.businessStatus);
-  const workStatusTone = statusTone(primaryStage.businessStatus);
+  const workStatus = reviewPending ? 'Review Pending' : friendlyStatus(primaryStage.businessStatus);
+  const workStatusTone = reviewPending ? 'is-review' : statusTone(primaryStage.businessStatus);
   const ageTone = activityAgeTone(item.latestActivityAtUtc);
   const absoluteActivity = activityLabel(item.latestActivityAtUtc, timezoneName);
   const relativeActivity = activityRelativeLabel(item.latestActivityAtUtc);
@@ -253,7 +281,7 @@ function WorkItemCard({ item, timezoneName }: { item: Uc03WorkItem; timezoneName
         <div className="uc03-work-card__identity">
           <h3>{item.customerDisplayName}</h3>
           <div className="uc03-work-card__identity-meta">
-            <span className="uc03-work-card__type-label">{presentation.workLabel}</span>
+            <span className="uc03-work-card__type-label">{reviewPending ? 'Booking Review' : presentation.workLabel}</span>
             {item.bookingReference && <span>{item.bookingReference}</span>}
           </div>
           <p>{item.productLabel || 'Vehicle not captured'}</p>
@@ -272,7 +300,7 @@ function WorkItemCard({ item, timezoneName }: { item: Uc03WorkItem; timezoneName
 
         <div className="uc03-work-card__summary uc03-work-card__summary--simple">
           <strong className={`uc03-work-status-pill ${workStatusTone}`}>{workStatus}</strong>
-          <VerificationBadge stage={primaryStage} />
+          {!isPc && <VerificationBadge stage={primaryStage} />}
         </div>
       </header>
 
@@ -284,8 +312,8 @@ function WorkItemCard({ item, timezoneName }: { item: Uc03WorkItem; timezoneName
       {expanded && (
         <div className="uc03-work-card__expanded-content">
           <div className="uc03-work-card__stages">
-            <StageBlock label="Booking" item={item.booking} />
-            <StageBlock label="Delivery" item={item.delivery} />
+            <StageBlock label="Booking" item={item.booking} showVerification={!isPc} />
+            <StageBlock label="Delivery" item={item.delivery} showVerification={!isPc} />
           </div>
           <div className="uc03-work-card__expanded-meta">
             <span>Last activity {absoluteActivity}</span>
@@ -342,7 +370,9 @@ function WorkItemCard({ item, timezoneName }: { item: Uc03WorkItem; timezoneName
                 </Link>
               )}
               {auditAvailable && presentation.primaryPath !== auditPath && (
-                <Link role="menuitem" to={auditPath}>Audit Review</Link>
+                <Link role="menuitem" to={auditPath}>
+                  {isPc ? (item.openFlagCount > 0 ? 'Review / Raise Flag' : 'Raise Flag') : 'Audit Review'}
+                </Link>
               )}
             </div>
           )}
@@ -374,7 +404,6 @@ function ReviewPendingCard({ item, timezoneName }: { item: ReviewPendingItem; ti
         </div>
         <div className="uc03-work-card__summary uc03-work-card__summary--simple">
           <strong className="uc03-work-status-pill is-review">Review Pending</strong>
-          <span className="uc03-verification-badge is-not-verified">Not Verified</span>
         </div>
       </header>
       <div className={`uc03-work-card__age ${ageTone}`} title={absoluteActivity}>
@@ -405,7 +434,7 @@ export default function DashboardPage() {
   const selectedOutlet = project?.scope.outlets.find((outlet) => outlet.outletId === outletId);
   const pcContextReady = project?.operatingRole !== 'PC' || Boolean(outletId);
   const isPc = project?.operatingRole === 'PC';
-  const workType: Uc03WorkType = view === 'REVIEW_PENDING' ? 'ALL' : view;
+  const workType: Uc03WorkType = view === 'REVIEW_PENDING' || view === 'FLAGS' ? 'ALL' : view;
 
   const metricsQuery = useQuery({
     queryKey: ['uc03-landing-metrics', project?.tenantId, outletId],
@@ -446,19 +475,39 @@ export default function DashboardPage() {
     refetchOnReconnect: false,
   });
 
+  const reviewPendingItems = useMemo(() => {
+    const items = reviewPendingQuery.data?.items ?? [];
+    if (!isPc || !selectedOutlet) return items;
+    return items.filter((item) => (
+      item.dealerName === selectedOutlet.dealerName
+      && item.outletName === selectedOutlet.outletName
+    ));
+  }, [isPc, reviewPendingQuery.data?.items, selectedOutlet]);
+
+  const reviewPendingIds = useMemo(
+    () => new Set(reviewPendingItems.map((item) => item.journeyId)),
+    [reviewPendingItems],
+  );
+
   const workItems = useMemo(
     () => workQuery.data?.pages.flatMap((page) => page.items) ?? [],
     [workQuery.data],
   );
-  const displayedWorkItems = useMemo(
-    () => [...workItems].sort((left, right) => {
+  const displayedWorkItems = useMemo(() => {
+    let items = workItems;
+    if (isPc && view === 'BOOKING') {
+      items = items.filter((item) => !reviewPendingIds.has(item.journeyId) && !item.delivery.businessStatus);
+    } else if (isPc && view === 'FLAGS') {
+      items = items.filter((item) => item.openFlagCount > 0);
+    }
+
+    return [...items].sort((left, right) => {
       const leftTime = new Date(left.latestActivityAtUtc).getTime();
       const rightTime = new Date(right.latestActivityAtUtc).getTime();
       if (Number.isNaN(leftTime) || Number.isNaN(rightTime)) return 0;
       return leftTime - rightTime;
-    }),
-    [workItems],
-  );
+    });
+  }, [isPc, reviewPendingIds, view, workItems]);
   const timezoneName = workQuery.data?.pages[0]?.filters.timezoneName || project?.timezoneName || 'UTC';
 
   useEffect(() => {
@@ -482,6 +531,15 @@ export default function DashboardPage() {
   }
 
   const metrics = metricsQuery.data;
+  const reviewPendingCount = reviewPendingItems.length;
+  const pcBookingsToComplete = metrics
+    ? Math.max(0, metrics.bookingsInProgress - reviewPendingCount - metrics.deliveryInProgress)
+    : 0;
+  const bookingMetricValue = metrics
+    ? isPc
+      ? reviewPendingQuery.data ? String(pcBookingsToComplete) : '—'
+      : String(metrics.bookingsInProgress)
+    : '—';
   const dealershipName = isPc && selectedOutlet ? selectedOutlet.dealerName : 'Authorized Workspace';
   const outletName = isPc && selectedOutlet
     ? selectedOutlet.outletName
@@ -496,6 +554,12 @@ export default function DashboardPage() {
   };
 
   const invalidDateRange = Boolean(fromDate && toDate && fromDate > toDate);
+  const queueTitle = view === 'REVIEW_PENDING' ? 'Review Pending' : view === 'FLAGS' ? 'Flags' : 'Work Queue';
+  const queueNote = view === 'REVIEW_PENDING'
+    ? `${reviewPendingCount} Booking review${reviewPendingCount === 1 ? '' : 's'} pending`
+    : view === 'FLAGS'
+      ? `${displayedWorkItems.length} loaded with open flags`
+      : `${displayedWorkItems.length} loaded · oldest loaded activity first`;
 
   return (
     <div className="screen-stack uc03-landing uc03-landing--phase2 uc03-landing--approved uc03-landing--verification-simple uc03-landing--workqueue">
@@ -518,46 +582,53 @@ export default function DashboardPage() {
         <div className="uc03-landing-metrics" aria-label="Current work summary">
           <LandingMetric
             label="Bookings"
-            value={metrics ? String(metrics.bookingsInProgress) : '—'}
-            detail="In progress"
+            value={bookingMetricValue}
+            detail={isPc ? 'Capture to complete' : 'In progress'}
             actionLabel="View"
             onSelect={() => selectWork('BOOKING')}
           />
           {isPc && (
             <LandingMetric
               label="Review Pending"
-              value={reviewPendingQuery.data ? String(reviewPendingQuery.data.totalCount) : reviewPendingQuery.isError ? '!' : '—'}
-              detail="PC verification"
+              value={reviewPendingQuery.data ? String(reviewPendingCount) : reviewPendingQuery.isError ? '!' : '—'}
+              detail="Documents to review"
               actionLabel="Review"
-              attention={Boolean(reviewPendingQuery.data?.totalCount)}
+              attention={Boolean(reviewPendingCount)}
               onSelect={() => selectWork('REVIEW_PENDING')}
             />
           )}
           <LandingMetric
             label="Deliveries"
             value={metrics ? String(metrics.deliveryInProgress) : '—'}
-            detail="In progress"
+            detail={isPc ? 'Capture in progress' : 'In progress'}
             actionLabel="View"
             onSelect={() => selectWork('DELIVERY')}
           />
-          <LandingMetric
-            label="Attention"
-            value={metrics ? String(metrics.needsAttention) : '—'}
-            detail="Needs review"
-            attention={Boolean(metrics?.needsAttention)}
-          />
+          {isPc ? (
+            <LandingMetric
+              label="Flags"
+              value={metrics ? String(metrics.auditFlags) : '—'}
+              detail="Open observations"
+              actionLabel="View"
+              attention={Boolean(metrics?.auditFlags)}
+              onSelect={() => selectWork('FLAGS')}
+            />
+          ) : (
+            <LandingMetric
+              label="Attention"
+              value={metrics ? String(metrics.needsAttention) : '—'}
+              detail="Needs review"
+              attention={Boolean(metrics?.needsAttention)}
+            />
+          )}
         </div>
       )}
 
       <section className="uc03-work-list" aria-labelledby="uc03-work-list-title">
         <header className="uc03-work-list__heading uc03-work-list__heading--approved">
           <div>
-            <h2 id="uc03-work-list-title">{view === 'REVIEW_PENDING' ? 'Review Pending' : 'Work Queue'}</h2>
-            <p className="uc03-work-list__queue-note">
-              {view === 'REVIEW_PENDING'
-                ? `${reviewPendingQuery.data?.totalCount ?? 0} Booking review${reviewPendingQuery.data?.totalCount === 1 ? '' : 's'} pending`
-                : `${displayedWorkItems.length} loaded · oldest loaded activity first`}
-            </p>
+            <h2 id="uc03-work-list-title">{queueTitle}</h2>
+            <p className="uc03-work-list__queue-note">{queueNote}</p>
           </div>
           {view !== 'REVIEW_PENDING' && (
             <button
@@ -575,8 +646,9 @@ export default function DashboardPage() {
           {([
             ['ALL', 'All'],
             ['BOOKING', 'Bookings'],
-            ...(isPc ? [['REVIEW_PENDING', `Review Pending${reviewPendingQuery.data ? ` (${reviewPendingQuery.data.totalCount})` : ''}`]] : []),
+            ...(isPc ? [['REVIEW_PENDING', `Review Pending${reviewPendingQuery.data ? ` (${reviewPendingCount})` : ''}`]] : []),
             ['DELIVERY', 'Deliveries'],
+            ...(isPc ? [['FLAGS', `Flags${metrics ? ` (${metrics.auditFlags})` : ''}`]] : []),
           ] as Array<[LandingView, string]>).map(([value, label]) => (
             <button
               type="button"
@@ -627,15 +699,15 @@ export default function DashboardPage() {
             {reviewPendingQuery.isPending && <div className="uc03-work-loading" role="status">Loading Review Pending…</div>}
             {reviewPendingQuery.data && (
               <div className="uc03-work-cards">
-                {reviewPendingQuery.data.items.length > 0 && (
+                {reviewPendingItems.length > 0 && (
                   <div className="uc03-work-table-head" aria-hidden="true">
                     <span>Work Item</span><span>Next Step</span><span>Status</span><span>Age</span><span>Action</span>
                   </div>
                 )}
-                {reviewPendingQuery.data.items.map((item) => (
+                {reviewPendingItems.map((item) => (
                   <ReviewPendingCard key={item.journeyId} item={item} timezoneName={project.timezoneName || 'UTC'} />
                 ))}
-                {reviewPendingQuery.data.items.length === 0 && (
+                {reviewPendingItems.length === 0 && (
                   <div className="uc03-work-empty">
                     <strong>No PC reviews pending.</strong>
                     <p>Submitted Bookings will appear here until PC document verification is completed.</p>
@@ -676,19 +748,25 @@ export default function DashboardPage() {
                     </div>
                   )}
                   {displayedWorkItems.map((item) => (
-                    <WorkItemCard key={item.journeyId} item={item} timezoneName={timezoneName} />
+                    <WorkItemCard
+                      key={item.journeyId}
+                      item={item}
+                      timezoneName={timezoneName}
+                      isPc={isPc}
+                      reviewPending={reviewPendingIds.has(item.journeyId)}
+                    />
                   ))}
                   {displayedWorkItems.length === 0 && (
                     <div className="uc03-work-empty">
-                      <strong>No matching Booking or Delivery work.</strong>
-                      <p>Capture a new Booking to begin.</p>
+                      <strong>{view === 'FLAGS' ? 'No open flags in the loaded work.' : 'No matching Booking or Delivery work.'}</strong>
+                      <p>{view === 'FLAGS' ? 'Open flags will remain visible without changing the Booking or Delivery next step.' : 'Capture a new Booking to begin.'}</p>
                     </div>
                   )}
                 </div>
 
-                {displayedWorkItems.length > 0 && (
+                {workItems.length > 0 && (
                   <div className="uc03-lazy-load" aria-live="polite">
-                    <span>{displayedWorkItems.length} transaction{displayedWorkItems.length === 1 ? '' : 's'} loaded</span>
+                    <span>{displayedWorkItems.length} transaction{displayedWorkItems.length === 1 ? '' : 's'} shown</span>
                     {workQuery.hasNextPage ? (
                       <button
                         type="button"

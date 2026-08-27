@@ -1,0 +1,203 @@
+.housekeeping-scope-guide {
+  display: grid;
+  gap: 1rem;
+  padding: 1.25rem;
+  border: 1px solid rgba(15, 118, 110, 0.18);
+  border-radius: 18px;
+  background: linear-gradient(180deg, rgba(240, 253, 250, 0.78), rgba(255, 255, 255, 0.96));
+}
+
+.housekeeping-scope-guide__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.housekeeping-scope-guide__header h2,
+.housekeeping-system-choice h2 {
+  margin: 0.2rem 0 0.35rem;
+}
+
+.housekeeping-scope-guide__header p,
+.housekeeping-system-choice p {
+  margin: 0;
+  max-width: 72rem;
+}
+
+.housekeeping-action-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.9rem;
+}
+
+.housekeeping-action-card {
+  display: grid;
+  gap: 0.55rem;
+  min-height: 190px;
+  padding: 1rem;
+  border: 1px solid rgba(15, 23, 42, 0.14);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.96);
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 140ms ease, box-shadow 140ms ease, transform 140ms ease;
+}
+
+.housekeeping-action-card:hover:not(:disabled) {
+  transform: translateY(-1px);
+  border-color: rgba(15, 118, 110, 0.42);
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
+}
+
+.housekeeping-action-card:focus-visible {
+  outline: 3px solid rgba(13, 148, 136, 0.28);
+  outline-offset: 2px;
+}
+
+.housekeeping-action-card--active {
+  border-color: rgb(13, 148, 136);
+  box-shadow: 0 0 0 2px rgba(13, 148, 136, 0.12), 0 10px 24px rgba(15, 23, 42, 0.08);
+}
+
+.housekeeping-action-card--project {
+  border-top: 4px solid rgb(185, 28, 28);
+}
+
+.housekeeping-action-card--journey {
+  border-top: 4px solid rgb(180, 83, 9);
+}
+
+.housekeeping-action-card--system {
+  border-top: 4px solid rgb(15, 118, 110);
+}
+
+.housekeeping-action-card__level {
+  font-size: 0.73rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(15, 23, 42, 0.62);
+}
+
+.housekeeping-action-card strong {
+  font-size: 1.05rem;
+  line-height: 1.25;
+}
+
+.housekeeping-action-card > span:not(.housekeeping-action-card__level) {
+  line-height: 1.45;
+}
+
+.housekeeping-action-card small {
+  align-self: end;
+  color: rgba(15, 23, 42, 0.64);
+  line-height: 1.4;
+}
+
+.housekeeping-hierarchy {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.55rem;
+  padding: 0.75rem;
+  border-radius: 14px;
+  background: rgba(15, 23, 42, 0.035);
+}
+
+.housekeeping-hierarchy__item {
+  display: grid;
+  gap: 0.18rem;
+  padding: 0.7rem 0.8rem;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.75);
+}
+
+.housekeeping-hierarchy__item span {
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(15, 23, 42, 0.58);
+}
+
+.housekeeping-hierarchy__item strong {
+  font-size: 0.88rem;
+}
+
+.housekeeping-workspace-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  padding: 0.85rem 1rem;
+  border-radius: 14px;
+  border: 1px solid rgba(15, 118, 110, 0.16);
+  background: rgba(240, 253, 250, 0.62);
+}
+
+.housekeeping-workspace-banner p {
+  margin: 0;
+}
+
+.housekeeping-system-choice {
+  display: grid;
+  gap: 0.9rem;
+  padding: 1rem;
+  border: 1px solid rgba(15, 23, 42, 0.12);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.9);
+}
+
+.housekeeping-system-choice__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.housekeeping-system-choice__button {
+  display: grid;
+  gap: 0.35rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid rgba(15, 23, 42, 0.14);
+  border-radius: 12px;
+  background: rgba(248, 250, 252, 0.9);
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.housekeeping-system-choice__button--active {
+  border-color: rgb(13, 148, 136);
+  background: rgba(240, 253, 250, 0.9);
+  box-shadow: 0 0 0 2px rgba(13, 148, 136, 0.1);
+}
+
+.housekeeping-system-choice__button strong {
+  font-size: 0.98rem;
+}
+
+.housekeeping-system-choice__button span {
+  font-size: 0.84rem;
+  line-height: 1.4;
+  color: rgba(15, 23, 42, 0.66);
+}
+
+@media (max-width: 980px) {
+  .housekeeping-action-grid,
+  .housekeeping-hierarchy {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 720px) {
+  .housekeeping-system-choice__grid {
+    grid-template-columns: 1fr;
+  }
+
+  .housekeeping-action-card {
+    min-height: auto;
+  }
+}

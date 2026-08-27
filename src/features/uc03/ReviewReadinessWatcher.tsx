@@ -1,7 +1,15 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 
-import { refreshBookingExtraction } from '../../services/audit-core/uc03Booking';
+import {
+  bookingWorkspaceQueryKey,
+  pcVerificationQueryKey,
+} from './queryKeys';
+import {
+  refreshBookingExtraction,
+  type BookingWorkspace,
+} from '../../services/audit-core/uc03Booking';
 import { getPcVerification } from '../../services/audit-core/uc03PcVerification';
 import { useProjectContextStore } from '../../store/projectContextStore';
 import { useSessionStore } from '../../store/sessionStore';
@@ -60,6 +68,7 @@ export function clearReviewReadinessWatch(tenantId: string, journeyId: string) {
 
 export default function ReviewReadinessWatcher() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const project = useProjectContextStore((state) => state.selectedProject);
   const accessToken = useSessionStore((state) => state.accessToken);
   const [entries, setEntries] = useState<ReviewWatchEntry[]>(() => readEntries());
@@ -95,9 +104,18 @@ export default function ReviewReadinessWatcher() {
     )));
 
     for (const entry of due) {
-      await refreshBookingExtraction(entry.tenantId, entry.journeyId, accessToken).catch(() => undefined);
+      const refresh = await refreshBookingExtraction(entry.tenantId, entry.journeyId, accessToken).catch(() => null);
+      if (refresh) {
+        queryClient.setQueryData<BookingWorkspace>(
+          bookingWorkspaceQueryKey(entry.tenantId, entry.journeyId),
+          (cached) => cached ? { ...cached, aggregateVersion: refresh.aggregateVersion } : cached,
+        );
+      }
+
       const status = await getPcVerification(entry.tenantId, entry.journeyId, accessToken).catch(() => null);
       if (!status) continue;
+      queryClient.setQueryData(pcVerificationQueryKey(entry.tenantId, entry.journeyId), status);
+
       const latest = readEntries();
       if (status.pcVerificationStatus === 'VERIFIED') {
         writeEntries(latest.filter((item) => !(item.tenantId === entry.tenantId && item.journeyId === entry.journeyId)));
@@ -111,7 +129,7 @@ export default function ReviewReadinessWatcher() {
         )));
       }
     }
-  }, [accessToken, project?.operatingRole, project?.tenantId]);
+  }, [accessToken, project?.operatingRole, project?.tenantId, queryClient]);
 
   useEffect(() => {
     const interval = window.setInterval(() => { void checkDue(); }, SCHEDULER_TICK_MS);

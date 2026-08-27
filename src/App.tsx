@@ -26,7 +26,7 @@ const AdminLandingPage = lazy(() => import('./pages/AdminLandingPage'));
 const DiTestConsolePage = lazy(() => import('./pages/DiTestConsolePage'));
 const DocumentIntelligenceConfigurationPage = lazy(() => import('./pages/DocumentIntelligenceConfigurationPage'));
 const DashboardPage = lazy(() => import('./pages/DashboardPage'));
-const BookingWorkspacePage = lazy(() => import('./pages/BookingWorkspacePage'));
+const BookingWorkspacePage = lazy(() => import('./pages/BookingWorkspaceFastEntry'));
 const BookingReviewPage = lazy(() => import('./pages/BookingReviewPage'));
 const DeliveryWorkspacePage = lazy(() => import('./pages/DeliveryWorkspacePage'));
 const AuditReviewPage = lazy(() => import('./pages/AuditReviewPage'));

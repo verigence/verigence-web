@@ -5,6 +5,7 @@ import { useProjectContextStore } from '../../store/projectContextStore';
 import { useSessionStore } from '../../store/sessionStore';
 
 const WORKSPACE_HINT_PREFIX = 'verigence.uc03.workspace.v1:';
+let restoredHintNeedsRevalidation = false;
 
 interface WorkspaceHint {
   project: OperationalProject;
@@ -86,15 +87,24 @@ export function restoreOperationalContextHint(
       outletId: outlet?.outletId || '',
     });
 
-    // Seed navigation immediately, then force authoritative Project/assignment
-    // revalidation in the background. Server JWT, Security authorization and RLS
-    // remain the authority for every Work Queue/Booking request.
+    // The previously server-validated Project/Outlet is navigation-only. Seed it so
+    // the first Work Queue request can start immediately. Do not make /me/projects
+    // compete with that first useful request: the Work Queue itself still performs
+    // live JWT, Security authorization, assignment and RLS checks. Dashboard asks for
+    // authoritative Project revalidation as soon as the first queue request settles.
     queryClient.setQueryData(['uc03-projects'], [project]);
-    void queryClient.invalidateQueries({ queryKey: ['uc03-projects'] });
+    restoredHintNeedsRevalidation = true;
     return true;
   } catch {
+    restoredHintNeedsRevalidation = false;
     return false;
   }
+}
+
+export function revalidateRestoredOperationalContext(queryClient: QueryClient): void {
+  if (!restoredHintNeedsRevalidation) return;
+  restoredHintNeedsRevalidation = false;
+  void queryClient.invalidateQueries({ queryKey: ['uc03-projects'] });
 }
 
 export function selectOperationalOutlet(
@@ -102,6 +112,7 @@ export function selectOperationalOutlet(
   outlet: OperationalOutletScope,
   queryClient: QueryClient,
 ): void {
+  restoredHintNeedsRevalidation = false;
   clearTenantQueries(queryClient);
   useSessionStore.getState().setBusinessContext({
     tenantId: project.tenantId,
@@ -115,6 +126,7 @@ export function selectOperationalProject(
   project: OperationalProject,
   queryClient: QueryClient,
 ): void {
+  restoredHintNeedsRevalidation = false;
   clearTenantQueries(queryClient);
   const onlyPcOutlet = project.operatingRole === 'PC' && project.scope.outlets.length === 1
     ? project.scope.outlets[0]
@@ -131,11 +143,13 @@ export function selectOperationalProject(
 }
 
 export function clearOperationalOutlet(queryClient: QueryClient): void {
+  restoredHintNeedsRevalidation = false;
   clearTenantQueries(queryClient);
   useSessionStore.getState().setBusinessContext({ dealerId: '', outletId: '' });
 }
 
 export function clearOperationalProject(queryClient: QueryClient): void {
+  restoredHintNeedsRevalidation = false;
   clearTenantQueries(queryClient);
   clearWorkspaceHint();
   useSessionStore.getState().setBusinessContext({
@@ -147,6 +161,7 @@ export function clearOperationalProject(queryClient: QueryClient): void {
 }
 
 export function resetOperationalContext(queryClient?: QueryClient): void {
+  restoredHintNeedsRevalidation = false;
   if (queryClient) {
     clearTenantQueries(queryClient);
     void queryClient.cancelQueries({ queryKey: ['uc03-projects'] });

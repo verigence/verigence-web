@@ -33,12 +33,20 @@ const createBookingItem: NavItem = {
   roles: ['PC'],
 };
 
+const feedbackItem: NavItem = {
+  to: '/feedback',
+  label: 'Feedback',
+  mark: 'FB',
+  roles: ['PC', 'TL', 'PM'],
+};
+
 const groups: NavGroup[] = [
   { key: 'workspace', label: 'Workspace', items: [
     { to: '/dashboard', label: 'Overview', mark: 'OV', roles: operational },
     { to: '/customers', label: 'Customers', mark: 'CU', roles: ['PC', 'TL', 'PM', 'EXECUTIVE', ...admin] },
     { to: '/journeys', label: 'Journeys', mark: 'JR', roles: ['PC', 'TL', 'PM', 'EXECUTIVE', ...admin] },
     { to: '/tasks', label: 'My Work', mark: 'WK', roles: operational },
+    feedbackItem,
   ] },
   { key: 'operations', label: 'Operations & Assurance', items: [
     { to: '/reviews', label: 'Review Queue', mark: 'RV', roles: assurance },
@@ -57,6 +65,7 @@ const groups: NavGroup[] = [
     { to: '/admin/engagements', label: 'Engagements', mark: 'EN', roles: ['SUPER_ADMIN'] },
     { to: '/admin/document-intelligence', label: 'Document Intelligence', mark: 'DC', roles: ['SUPER_ADMIN'] },
     { to: '/admin/housekeeping', label: 'Housekeeping', mark: 'HK', roles: ['SUPER_ADMIN'] },
+    { to: '/admin/feedback', label: 'User Feedback', mark: 'FB', roles: ['SUPER_ADMIN'] },
     { to: '/admin/di-test', label: 'DI Test Console', mark: 'DI', roles: ['SUPER_ADMIN'], devOnly: true },
     { to: '/admin/users', label: 'Users', mark: 'US', roles: ['SUPER_ADMIN'] },
     { to: '/admin/activity-log', label: 'User Activity Log', mark: 'UA', roles: ['SUPER_ADMIN'] },
@@ -70,10 +79,11 @@ const groups: NavGroup[] = [
 
 const routeLabels: Record<string, string> = {
   '/dashboard': 'Overview', '/customers': 'Customers', '/journeys': 'Journeys', '/tasks': 'My Work',
+  '/feedback': 'Feedback',
   '/reviews': 'Review Queue', '/evidence': 'Evidence', '/payments': 'Payment Tracker', '/findings': 'Findings',
   '/daily-ops': 'Daily Operations', '/activity': 'Activity Tracker', '/crm': 'CRM Follow-up', '/escalations': 'Escalations',
   '/analytics': 'Analytics', '/admin/engagements': 'Engagements', '/admin/document-intelligence': 'Document Intelligence Configuration',
-  '/admin/housekeeping': 'Housekeeping', '/admin/di-test': 'DI Test Console', '/admin/users': 'Users',
+  '/admin/housekeeping': 'Housekeeping', '/admin/feedback': 'User Feedback', '/admin/di-test': 'DI Test Console', '/admin/users': 'Users',
   '/admin/users/pending': 'Pending Approvals', '/admin/activity-log': 'User Activity Log',
   '/admin/roles-permissions': 'Roles & Permissions', '/admin/audit-rules': 'Audit Rule Config',
   '/admin/approval-workflow': 'Approval Workflow Config', '/admin/notifications': 'Notification Settings',
@@ -111,6 +121,7 @@ function NavIcon({ mark }: { mark: string }) {
     case 'CU': glyph = <><circle cx="9" cy="8" r="3" /><path d="M3.5 19c.6-3.2 2.5-5 5.5-5s4.9 1.8 5.5 5" /><circle cx="17" cy="9" r="2" /><path d="M15.5 14.5c2.7-.4 4.5 1 5 3.5" /></>; break;
     case 'JR': glyph = <><circle cx="6" cy="7" r="2" /><circle cx="18" cy="17" r="2" /><path d="M8 7h3c4 0 4 4 4 5s0 5 3 5" /></>; break;
     case 'WK': glyph = <><rect x="5" y="4" width="14" height="16" rx="2" /><path d="M9 4.5h6M8 10l2 2 4-4M8 16h6" /></>; break;
+    case 'FB': glyph = <><path d="M4 5h16v11H9l-5 4z" /><path d="M8 9h8M8 12h5" /></>; break;
     case 'RV': glyph = <><path d="M3 12s3.5-5 9-5 9 5 9 5-3.5 5-9 5-9-5-9-5Z" /><circle cx="12" cy="12" r="2.5" /></>; break;
     case 'EV': glyph = <><path d="M6 3h8l4 4v14H6z" /><path d="M14 3v5h5M9 14l2 2 4-4" /></>; break;
     case 'PY': glyph = <><rect x="3" y="6" width="18" height="12" rx="2" /><path d="M3 10h18M7 15h3" /></>; break;
@@ -161,6 +172,9 @@ export default function AppShell({ children }: PropsWithChildren) {
     if (role === 'PC') {
       workspaceItems.push(createBookingItem);
       workspaceItems.push({ to: '/daily-ops', label: 'Daily Operations', mark: 'DO', roles: ['PC'] });
+    }
+    if (role === 'PC' || role === 'TL' || role === 'PM') {
+      workspaceItems.push(feedbackItem);
     }
     const workspaceGroup: NavGroup = {
       key: 'workspace',
@@ -287,6 +301,7 @@ export default function AppShell({ children }: PropsWithChildren) {
                     <NavLink
                       key={item.to}
                       to={item.to}
+                      state={item.to === '/feedback' ? { from: `${location.pathname}${location.search}` } : undefined}
                       onClick={() => setMobileMenuOpen(false)}
                       className={({ isActive }) => `enterprise-nav__item${isNavItemActive(item, isActive) ? ' enterprise-nav__item--active' : ''}`}
                     >

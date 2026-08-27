@@ -20,6 +20,21 @@ export interface BookingDocumentUploadContext {
   requirements: BookingUploadRequirementContext[];
 }
 
+export interface BookingReviewCachedDocument {
+  requirementRef: string;
+  requirementKey: string;
+  documentTypeKey: string;
+  documentId: string;
+  repeatable: boolean;
+}
+
+export interface BookingReviewCachedContext {
+  journeyId: string;
+  externalContextRef: string;
+  documents: BookingReviewCachedDocument[];
+  cachedAt: number;
+}
+
 export interface BookingExtractionFieldDecision {
   fieldKey: string;
   sourceFactRef: string;
@@ -45,9 +60,16 @@ export interface BookingExtractionDecisionResponse {
   decisions: BookingExtractionDecisionResult[];
 }
 
+type StoredBookingReviewCache = {
+  context: BookingDocumentUploadContext;
+  directUploads: Record<string, string[]>;
+  cachedAt: number;
+};
+
 const contextCache = new Map<string, Promise<BookingDocumentUploadContext>>();
 const directUploadIds = new Map<string, Map<string, string[]>>();
 const latestDecisionVersions = new Map<string, number>();
+const REVIEW_CACHE_PREFIX = 'uc03-booking-review-di-context-v1';
 
 function token(accessToken?: string): string {
   const value = accessToken?.trim();
@@ -59,6 +81,10 @@ function key(tenantId: string, journeyId: string): string {
   return `${tenantId}:${journeyId}`;
 }
 
+function reviewStorageKey(tenantId: string, journeyId: string): string {
+  return `${REVIEW_CACHE_PREFIX}:${tenantId}:${journeyId}`;
+}
+
 function newIdempotencyKey(prefix: string): string {
   const random = globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`;
   return `${prefix}-${random}`;
@@ -67,6 +93,100 @@ function newIdempotencyKey(prefix: string): string {
 function contextPath(tenantId: string, journeyId: string): string {
   return `/v1/tenants/${encodeURIComponent(tenantId)}/journeys/${encodeURIComponent(journeyId)}`
     + '/booking/document-upload-context';
+}
+
+function readStoredReviewCache(tenantId: string, journeyId: string): StoredBookingReviewCache | null {
+  try {
+    const raw = sessionStorage.getItem(reviewStorageKey(tenantId, journeyId));
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as StoredBookingReviewCache;
+    if (!parsed?.context || parsed.context.journeyId !== journeyId || !parsed.context.externalContextRef) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function directUploadsForJourney(tenantId: string, journeyId: string): Map<string, string[]> {
+  const journeyKey = key(tenantId, journeyId);
+  const current = directUploadIds.get(journeyKey);
+  if (current) return current;
+
+  const stored = readStoredReviewCache(tenantId, journeyId);
+  const hydrated = new Map<string, string[]>(Object.entries(stored?.directUploads ?? {}));
+  directUploadIds.set(journeyKey, hydrated);
+  return hydrated;
+}
+
+function persistReviewCache(
+  tenantId: string,
+  journeyId: string,
+  context?: BookingDocumentUploadContext,
+): void {
+  try {
+    const existing = readStoredReviewCache(tenantId, journeyId);
+    const activeContext = context ?? existing?.context;
+    if (!activeContext) return;
+    const directUploads = Object.fromEntries(directUploadsForJourney(tenantId, journeyId));
+    sessionStorage.setItem(reviewStorageKey(tenantId, journeyId), JSON.stringify({
+      context: activeContext,
+      directUploads,
+      cachedAt: Date.now(),
+    } satisfies StoredBookingReviewCache));
+  } catch {
+    // Session cache is an optimization only. Direct upload/review must continue
+    // normally even when browser storage is unavailable.
+  }
+}
+
+function unique(values: string[]): string[] {
+  return [...new Set(values.filter(Boolean))];
+}
+
+export function getCachedBookingReviewContext(
+  tenantId: string,
+  journeyId: string,
+): BookingReviewCachedContext | null {
+  const stored = readStoredReviewCache(tenantId, journeyId);
+  if (!stored) return null;
+
+  const localUploads = directUploadsForJourney(tenantId, journeyId);
+  const documents: BookingReviewCachedDocument[] = [];
+
+  for (const requirement of stored.context.requirements) {
+    const localIds = localUploads.get(requirement.requirementRef) ?? [];
+    const persistedIds = unique([
+      ...(requirement.activeDocumentIds ?? []),
+      ...(requirement.currentDocumentId ? [requirement.currentDocumentId] : []),
+    ]);
+
+    const documentIds = requirement.repeatable
+      ? unique([...persistedIds, ...localIds])
+      : localIds.length > 0
+        ? [localIds[localIds.length - 1]]
+        : requirement.currentDocumentId
+          ? [requirement.currentDocumentId]
+          : persistedIds.length > 0
+            ? [persistedIds[persistedIds.length - 1]]
+            : [];
+
+    for (const documentId of documentIds) {
+      documents.push({
+        requirementRef: requirement.requirementRef,
+        requirementKey: requirement.requirementKey,
+        documentTypeKey: requirement.documentTypeKey || requirement.requirementKey,
+        documentId,
+        repeatable: requirement.repeatable,
+      });
+    }
+  }
+
+  return {
+    journeyId,
+    externalContextRef: stored.context.externalContextRef,
+    documents,
+    cachedAt: stored.cachedAt,
+  };
 }
 
 export function clearBookingDocumentUploadContext(tenantId: string, journeyId: string): void {
@@ -80,8 +200,7 @@ export function rememberDirectBookingUpload(
   documentId: string,
   repeatable: boolean,
 ): void {
-  const journeyKey = key(tenantId, journeyId);
-  const byRequirement = directUploadIds.get(journeyKey) ?? new Map<string, string[]>();
+  const byRequirement = directUploadsForJourney(tenantId, journeyId);
   if (repeatable) {
     const current = byRequirement.get(requirementRef) ?? [];
     if (!current.includes(documentId)) byRequirement.set(requirementRef, [...current, documentId]);
@@ -91,7 +210,8 @@ export function rememberDirectBookingUpload(
     // not appear as another active upload in the current PC screen.
     byRequirement.set(requirementRef, [documentId]);
   }
-  directUploadIds.set(journeyKey, byRequirement);
+  directUploadIds.set(key(tenantId, journeyId), byRequirement);
+  persistReviewCache(tenantId, journeyId);
 }
 
 export function locallyUploadedDocumentIds(
@@ -99,7 +219,7 @@ export function locallyUploadedDocumentIds(
   journeyId: string,
   requirementRef: string,
 ): string[] {
-  return directUploadIds.get(key(tenantId, journeyId))?.get(requirementRef) ?? [];
+  return directUploadsForJourney(tenantId, journeyId).get(requirementRef) ?? [];
 }
 
 export async function prepareBookingDocumentUploadContext(
@@ -116,6 +236,9 @@ export async function prepareBookingDocumentUploadContext(
       method: 'POST',
       accessToken: token(accessToken),
       cache: 'no-store',
+    }).then((context) => {
+      persistReviewCache(tenantId, journeyId, context);
+      return context;
     }).catch((cause) => {
       contextCache.delete(cacheKey);
       throw cause;

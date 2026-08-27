@@ -21,6 +21,13 @@ type TimedPromise<T> = {
   promise: Promise<T>;
 };
 
+export interface PcBookingContentAccess {
+  documentId: string;
+  contentUrl: string;
+  contentUrlExpiresAtUtc: string;
+  mimeType: string | null;
+}
+
 export interface PcBookingDocumentStatus {
   documentId: string;
   requirementRef: string;
@@ -28,6 +35,11 @@ export interface PcBookingDocumentStatus {
   uploadStatus: string;
   processingStatus: string;
   registeredAtUtc: string;
+  // Optional for compatibility with older DI responses and locally synthesized
+  // status rows. New DI responses populate these when signing succeeds.
+  contentUrl?: string | null;
+  contentUrlExpiresAtUtc?: string | null;
+  mimeType?: string | null;
 }
 
 export interface PcBookingDocumentList {
@@ -62,11 +74,15 @@ export interface PcBookingUploadResult {
   documentId: string;
   uploadStatus: string;
   processingStatus: string;
+  contentUrl?: string | null;
+  contentUrlExpiresAtUtc?: string | null;
+  mimeType?: string | null;
 }
 
 export interface PcBookingDocumentContent {
   blob: Blob;
   mimeType: string;
+  contentAccess: PcBookingContentAccess;
 }
 
 export class DiBookingHttpError extends Error {
@@ -83,8 +99,11 @@ export class DiBookingHttpError extends Error {
 
 const EXTRACTION_CACHE_MS = 60_000;
 const CONTENT_CACHE_MS = 5 * 60_000;
+const CONTENT_URL_SAFETY_MS = 30_000;
+const CONTENT_ACCESS_STORAGE_PREFIX = 'uc03-di-direct-content-v1';
 const extractionCache = new Map<string, TimedPromise<PcBookingExtractionReview>>();
 const contentCache = new Map<string, TimedPromise<PcBookingDocumentContent>>();
+const contentAccessCache = new Map<string, PcBookingContentAccess>();
 
 function token(accessToken?: string): string {
   const value = accessToken?.trim();
@@ -105,6 +124,14 @@ function reviewCacheKey(
 ): string {
   // Keep cached document data isolated to the exact human session token.
   return `${tenantId}:${externalContextRef}:${documentId}:${token(accessToken)}`;
+}
+
+function contentAccessKey(tenantId: string, externalContextRef: string, documentId: string): string {
+  return `${tenantId}:${externalContextRef}:${documentId}`;
+}
+
+function contentAccessStorageKey(tenantId: string, externalContextRef: string, documentId: string): string {
+  return `${CONTENT_ACCESS_STORAGE_PREFIX}:${contentAccessKey(tenantId, externalContextRef, documentId)}`;
 }
 
 function cachedPromise<T>(
@@ -163,6 +190,66 @@ async function envelope<T>(response: Response, operation: string): Promise<T> {
   return payload.data;
 }
 
+function asContentAccess(
+  documentId: string,
+  candidate?: {
+    contentUrl?: string | null;
+    contentUrlExpiresAtUtc?: string | null;
+    mimeType?: string | null;
+  } | null,
+): PcBookingContentAccess | null {
+  if (!candidate?.contentUrl || !candidate.contentUrlExpiresAtUtc) return null;
+  return {
+    documentId,
+    contentUrl: candidate.contentUrl,
+    contentUrlExpiresAtUtc: candidate.contentUrlExpiresAtUtc,
+    mimeType: candidate.mimeType ?? null,
+  };
+}
+
+function contentAccessIsFresh(access?: PcBookingContentAccess | null): access is PcBookingContentAccess {
+  if (!access?.contentUrl || !access.contentUrlExpiresAtUtc) return false;
+  const expiresAt = Date.parse(access.contentUrlExpiresAtUtc);
+  return Number.isFinite(expiresAt) && expiresAt - CONTENT_URL_SAFETY_MS > Date.now();
+}
+
+function rememberContentAccess(
+  tenantId: string,
+  externalContextRef: string,
+  access: PcBookingContentAccess,
+): void {
+  const key = contentAccessKey(tenantId, externalContextRef, access.documentId);
+  contentAccessCache.set(key, access);
+  try {
+    sessionStorage.setItem(
+      contentAccessStorageKey(tenantId, externalContextRef, access.documentId),
+      JSON.stringify(access),
+    );
+  } catch {
+    // Browser/mobile session storage is only a performance optimization.
+  }
+}
+
+function readContentAccess(
+  tenantId: string,
+  externalContextRef: string,
+  documentId: string,
+): PcBookingContentAccess | null {
+  const key = contentAccessKey(tenantId, externalContextRef, documentId);
+  const inMemory = contentAccessCache.get(key);
+  if (inMemory) return inMemory;
+  try {
+    const raw = sessionStorage.getItem(contentAccessStorageKey(tenantId, externalContextRef, documentId));
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as PcBookingContentAccess;
+    if (!parsed?.contentUrl || !parsed.contentUrlExpiresAtUtc || parsed.documentId !== documentId) return null;
+    contentAccessCache.set(key, parsed);
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
 export async function uploadPcBookingDocument(
   tenantId: string,
   externalContextRef: string,
@@ -179,7 +266,10 @@ export async function uploadPcBookingDocument(
     method: 'POST',
     body: form,
   });
-  return envelope<PcBookingUploadResult>(response, 'Upload Booking document');
+  const result = await envelope<PcBookingUploadResult>(response, 'Upload Booking document');
+  const access = asContentAccess(result.documentId, result);
+  if (access) rememberContentAccess(tenantId, externalContextRef, access);
+  return result;
 }
 
 export async function listPcBookingDocuments(
@@ -190,7 +280,12 @@ export async function listPcBookingDocuments(
   const response = await request(contextBase(tenantId, externalContextRef), accessToken, {
     cache: 'no-store',
   });
-  return envelope<PcBookingDocumentList>(response, 'List Booking documents');
+  const result = await envelope<PcBookingDocumentList>(response, 'List Booking documents');
+  result.documents.forEach((document) => {
+    const access = asContentAccess(document.documentId, document);
+    if (access) rememberContentAccess(tenantId, externalContextRef, access);
+  });
+  return result;
 }
 
 export function getPcBookingExtractionReview(
@@ -210,22 +305,85 @@ export function getPcBookingExtractionReview(
   });
 }
 
+export async function getPcBookingDocumentContentUrl(
+  tenantId: string,
+  externalContextRef: string,
+  documentId: string,
+  accessToken: string,
+): Promise<PcBookingContentAccess> {
+  const response = await request(
+    `${contextBase(tenantId, externalContextRef)}/${encodeURIComponent(documentId)}/content-url`,
+    accessToken,
+    { cache: 'no-store' },
+  );
+  const access = await envelope<PcBookingContentAccess>(response, 'Prepare Booking document content');
+  rememberContentAccess(tenantId, externalContextRef, access);
+  return access;
+}
+
+async function fetchDirectContent(
+  access: PcBookingContentAccess,
+): Promise<PcBookingDocumentContent> {
+  // The signed R2/MinIO URL already carries temporary authorization. Never send
+  // the human Security token or cookies to object storage.
+  const response = await fetch(access.contentUrl, {
+    method: 'GET',
+    cache: 'no-store',
+    credentials: 'omit',
+  });
+  if (!response.ok) {
+    throw new DiBookingHttpError(
+      response.status,
+      `The source document could not be read directly from storage (HTTP ${response.status}).`,
+    );
+  }
+  return {
+    blob: await response.blob(),
+    mimeType: response.headers.get('content-type') || access.mimeType || 'application/octet-stream',
+    contentAccess: access,
+  };
+}
+
 export function getPcBookingDocumentContent(
   tenantId: string,
   externalContextRef: string,
   documentId: string,
   accessToken: string,
+  cachedAccess?: {
+    contentUrl?: string | null;
+    contentUrlExpiresAtUtc?: string | null;
+    mimeType?: string | null;
+  } | null,
 ): Promise<PcBookingDocumentContent> {
   const key = reviewCacheKey(tenantId, externalContextRef, documentId, accessToken);
   return cachedPromise(contentCache, key, CONTENT_CACHE_MS, async () => {
-    const response = await request(
-      `${contextBase(tenantId, externalContextRef)}/${encodeURIComponent(documentId)}/content`,
-      accessToken,
-      { cache: 'no-store' },
-    );
-    return {
-      blob: await response.blob(),
-      mimeType: response.headers.get('content-type') || 'application/octet-stream',
-    };
+    let access = asContentAccess(documentId, cachedAccess)
+      ?? readContentAccess(tenantId, externalContextRef, documentId);
+    if (!contentAccessIsFresh(access)) {
+      access = await getPcBookingDocumentContentUrl(
+        tenantId,
+        externalContextRef,
+        documentId,
+        accessToken,
+      );
+    }
+
+    try {
+      return await fetchDirectContent(access);
+    } catch (cause) {
+      // A URL can expire between the freshness check and the R2 request. Refresh
+      // once through the tiny DI signing endpoint; document bytes still never
+      // transit DI.
+      if (cause instanceof DiBookingHttpError && (cause.status === 401 || cause.status === 403)) {
+        const refreshed = await getPcBookingDocumentContentUrl(
+          tenantId,
+          externalContextRef,
+          documentId,
+          accessToken,
+        );
+        return fetchDirectContent(refreshed);
+      }
+      throw cause;
+    }
   });
 }

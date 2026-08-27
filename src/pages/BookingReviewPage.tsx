@@ -1,22 +1,21 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useQueries, useQuery } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { useNavigate, useParams } from 'react-router-dom';
 
 import PageHeader from '../components/PageHeader';
 import StatusPill from '../components/StatusPill';
 import { DirectDiFieldReview } from '../features/uc03/DirectDiFieldReview';
+import { clearReviewReadinessWatch } from '../features/uc03/ReviewReadinessWatcher';
 import {
-  REVIEW_READY_EVENT,
-  clearReviewReadinessWatch,
-  watchReviewReadiness,
-} from '../features/uc03/ReviewReadinessWatcher';
-import { getBookingWorkspace } from '../services/audit-core/uc03Booking';
+  getCachedBookingReviewContext,
+  prepareBookingDocumentUploadContext,
+  type BookingReviewCachedContext,
+  type BookingReviewCachedDocument,
+} from '../services/audit-core/uc03PcBookingDocuments';
 import {
-  getPcBookingReviewSnapshot,
   getPcDirectReviewState,
   submitPcDirectDocumentReview,
   verifyPcBookingDirect,
-  type PcBookingReviewDocument,
   type PcDirectExtractedField,
 } from '../services/audit-core/uc03PcDirectReview';
 import { getPcVerification } from '../services/audit-core/uc03PcVerification';
@@ -42,143 +41,257 @@ function factValue(fact: PcBookingExtractionFact): unknown {
   return fact.normalizedValue ?? fact.rawValue;
 }
 
+function LazyReviewDocument({
+  tenantId,
+  journeyId,
+  externalContextRef,
+  document,
+  accessToken,
+  enabled,
+  saving,
+  blocked,
+  modifiedValues,
+  onModify,
+  onReset,
+  onSave,
+  onExtractionSettled,
+}: {
+  tenantId: string;
+  journeyId: string;
+  externalContextRef: string;
+  document: BookingReviewCachedDocument;
+  accessToken: string;
+  enabled: boolean;
+  saving: boolean;
+  blocked: boolean;
+  modifiedValues: Record<string, string>;
+  onModify: (fact: PcBookingExtractionFact, value: string) => void;
+  onReset: (fact: PcBookingExtractionFact) => void;
+  onSave: (document: BookingReviewCachedDocument, review: PcBookingExtractionReview) => void;
+  onExtractionSettled: () => void;
+}) {
+  const settledNotified = useRef(false);
+  const extractionQuery = useQuery({
+    queryKey: ['uc03-pc-direct-di-extraction', tenantId, journeyId, document.documentId],
+    queryFn: () => getPcBookingExtractionReview(
+      tenantId,
+      externalContextRef,
+      document.documentId,
+      accessToken,
+    ),
+    enabled,
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    retry: 1,
+  });
+  const contentQuery = useQuery({
+    queryKey: ['uc03-pc-direct-di-content', tenantId, journeyId, document.documentId],
+    queryFn: () => getPcBookingDocumentContent(
+      tenantId,
+      externalContextRef,
+      document.documentId,
+      accessToken,
+    ),
+    enabled,
+    staleTime: 5 * 60_000,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    retry: 1,
+  });
+
+  useEffect(() => {
+    if (!enabled || settledNotified.current) return;
+    if (extractionQuery.isSuccess || extractionQuery.isError) {
+      settledNotified.current = true;
+      onExtractionSettled();
+    }
+  }, [enabled, extractionQuery.isError, extractionQuery.isSuccess, onExtractionSettled]);
+
+  if (!enabled) {
+    return (
+      <section className="uc03-c1-section" aria-label={`${friendly(document.documentTypeKey)} queued`}>
+        <div className="uc03-review-empty" role="status">
+          <strong>{friendly(document.documentTypeKey)}</strong>
+          <span>Queued. It will load after the previous document starts rendering.</span>
+        </div>
+      </section>
+    );
+  }
+
+  if (extractionQuery.isPending) {
+    return (
+      <section className="uc03-c1-section">
+        <div className="uc03-c1-loading" role="status">
+          Loading {friendly(document.documentTypeKey)} directly from Document Intelligence…
+        </div>
+      </section>
+    );
+  }
+
+  if (extractionQuery.isError || !extractionQuery.data) {
+    return (
+      <section className="uc03-c1-section">
+        <div className="uc03-c1-feedback is-error" role="alert">
+          {extractionQuery.error instanceof Error
+            ? extractionQuery.error.message
+            : `${friendly(document.documentTypeKey)} extraction could not be loaded from DI.`}
+        </div>
+        <div className="uc03-c1-document-actions">
+          <button type="button" className="uc03-c1-secondary" onClick={() => void extractionQuery.refetch()}>
+            Retry this document
+          </button>
+        </div>
+      </section>
+    );
+  }
+
+  const review = extractionQuery.data;
+  if (review.processingStatus.toUpperCase() !== 'PROCESSED') {
+    return (
+      <section className="uc03-c1-section">
+        <div className="uc03-review-empty" role="status">
+          <strong>{friendly(document.documentTypeKey)} is still processing.</strong>
+          <span>Other documents can continue loading while DI finishes this one.</span>
+        </div>
+        <div className="uc03-c1-document-actions">
+          <button type="button" className="uc03-c1-secondary" onClick={() => void extractionQuery.refetch()}>
+            Check this document again
+          </button>
+        </div>
+      </section>
+    );
+  }
+
+  return (
+    <section className="uc03-c1-section">
+      <DirectDiFieldReview
+        documentName={friendly(document.documentTypeKey || document.requirementKey)}
+        facts={review.facts}
+        content={contentQuery.data}
+        contentLoading={contentQuery.isPending}
+        contentError={contentQuery.isError
+          ? (contentQuery.error instanceof Error ? contentQuery.error.message : 'DI source document could not be loaded.')
+          : undefined}
+        modifiedValues={modifiedValues}
+        disabled={blocked}
+        onModify={onModify}
+        onReset={onReset}
+      />
+      <div className="uc03-c1-document-actions">
+        <button
+          type="button"
+          className="uc03-c1-primary"
+          disabled={saving || blocked}
+          onClick={() => onSave(document, review)}
+        >
+          {saving ? 'Saving Review…' : 'Save Document Review'}
+        </button>
+      </div>
+    </section>
+  );
+}
+
 export default function BookingReviewPage() {
   const { journeyId } = useParams<{ journeyId: string }>();
   const navigate = useNavigate();
   const project = useProjectContextStore((state) => state.selectedProject);
   const accessToken = useSessionStore((state) => state.accessToken);
+  const [reviewContext, setReviewContext] = useState<BookingReviewCachedContext | null>(() => (
+    project?.tenantId && journeyId ? getCachedBookingReviewContext(project.tenantId, journeyId) : null
+  ));
+  const [contextLoading, setContextLoading] = useState(false);
   const [busyDocumentId, setBusyDocumentId] = useState<string>();
   const [verifying, setVerifying] = useState(false);
+  const [verified, setVerified] = useState(false);
   const [message, setMessage] = useState<string>();
   const [error, setError] = useState<string>();
   const [modifications, setModifications] = useState<ModifiedByDocument>({});
-  const watchRegistered = useRef(false);
+  const [locallyReviewedIds, setLocallyReviewedIds] = useState<Set<string>>(() => new Set());
+  const [unlockedDocumentCount, setUnlockedDocumentCount] = useState(0);
+  const cacheSyncAttempted = useRef(false);
 
   const enabled = Boolean(project?.tenantId && journeyId && accessToken);
-  const workspaceQuery = useQuery({
-    queryKey: ['uc03-booking-review-workspace', project?.tenantId, journeyId],
-    queryFn: () => getBookingWorkspace(project!.tenantId, journeyId!, accessToken),
-    enabled,
-    refetchOnWindowFocus: false,
-    refetchOnReconnect: false,
-  });
-  const verificationQuery = useQuery({
-    queryKey: ['uc03-pc-verification', project?.tenantId, journeyId],
-    queryFn: () => getPcVerification(project!.tenantId, journeyId!, accessToken),
-    enabled,
-    refetchOnWindowFocus: true,
-    refetchOnReconnect: true,
-  });
-  const snapshotQuery = useQuery({
-    queryKey: ['uc03-pc-direct-di-review-snapshot', project?.tenantId, journeyId],
-    queryFn: () => getPcBookingReviewSnapshot(project!.tenantId, journeyId!, accessToken, true),
-    enabled,
-    refetchOnWindowFocus: true,
-    refetchOnReconnect: true,
-    retry: 1,
-  });
+
+  // Fast path: the upload flow persisted externalContextRef + document ids in
+  // session storage. Review opens immediately from that cache. Audit Core is only
+  // used here as a non-blocking fallback for a cold/new browser session.
+  useEffect(() => {
+    if (!enabled || !project?.tenantId || !journeyId) return;
+    const cached = getCachedBookingReviewContext(project.tenantId, journeyId);
+    if (cached) {
+      setReviewContext(cached);
+      return;
+    }
+
+    let cancelled = false;
+    setContextLoading(true);
+    void prepareBookingDocumentUploadContext(project.tenantId, journeyId, accessToken)
+      .then(() => {
+        if (cancelled) return;
+        const recovered = getCachedBookingReviewContext(project.tenantId, journeyId);
+        setReviewContext(recovered);
+        if (!recovered) setError('No Booking document context is available for this Journey.');
+      })
+      .catch((cause) => {
+        if (!cancelled) setError(cause instanceof Error ? cause.message : 'Booking document context could not be loaded.');
+      })
+      .finally(() => {
+        if (!cancelled) setContextLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, [accessToken, enabled, journeyId, project?.tenantId]);
+
+  // This Audit Core state check runs in the background and never gates the first
+  // document. It is used only to hide already-reviewed docs and enable final verify.
   const directStateQuery = useQuery({
     queryKey: ['uc03-pc-direct-review-state', project?.tenantId, journeyId],
     queryFn: () => getPcDirectReviewState(project!.tenantId, journeyId!, accessToken),
-    enabled,
-    refetchOnWindowFocus: true,
-    refetchOnReconnect: true,
+    enabled: enabled && Boolean(reviewContext),
+    staleTime: 15_000,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
     retry: 1,
   });
 
-  const verification = verificationQuery.data;
-  const workspace = workspaceQuery.data;
-  const snapshot = snapshotQuery.data;
-  const directState = directStateQuery.data;
-  const bookingLabel = String(workspace?.capture.BOOKING_REFERENCE || 'Booking');
-  const reviewedIds = useMemo(
-    () => new Set(directState?.reviewedDocumentIds ?? []),
-    [directState?.reviewedDocumentIds],
-  );
-  const reviewCandidates = useMemo(
-    () => (snapshot?.documents ?? []).filter((document) => (
-      document.linked
-      && document.processingStatus.toUpperCase() === 'PROCESSED'
-      && !reviewedIds.has(document.documentId)
-    )),
-    [reviewedIds, snapshot?.documents],
-  );
-
-  // DI owns the extraction schema. As soon as a document is review-ready, preload
-  // its complete extraction and source content directly from DI in parallel so the
-  // PC is not waiting on an Audit Core field whitelist when Review opens.
-  const extractionQueries = useQueries({
-    queries: reviewCandidates.map((document) => ({
-      queryKey: ['uc03-pc-direct-di-extraction', project?.tenantId, journeyId, document.documentId],
-      queryFn: () => getPcBookingExtractionReview(
-        project!.tenantId,
-        snapshot!.externalContextRef,
-        document.documentId,
-        accessToken!,
-      ),
-      staleTime: 60_000,
-      refetchOnWindowFocus: false,
-      retry: 1,
-    })),
-  });
-  const contentQueries = useQueries({
-    queries: reviewCandidates.map((document) => ({
-      queryKey: ['uc03-pc-direct-di-content', project?.tenantId, journeyId, document.documentId],
-      queryFn: () => getPcBookingDocumentContent(
-        project!.tenantId,
-        snapshot!.externalContextRef,
-        document.documentId,
-        accessToken!,
-      ),
-      staleTime: 5 * 60_000,
-      refetchOnWindowFocus: false,
-      retry: 1,
-    })),
-  });
-
-  const extractionByDocument = useMemo(() => {
-    const result = new Map<string, PcBookingExtractionReview>();
-    reviewCandidates.forEach((document, index) => {
-      const review = extractionQueries[index]?.data;
-      if (review) result.set(document.documentId, review);
-    });
+  const reviewedIds = useMemo(() => {
+    const result = new Set(directStateQuery.data?.reviewedDocumentIds ?? []);
+    locallyReviewedIds.forEach((documentId) => result.add(documentId));
     return result;
-  }, [extractionQueries, reviewCandidates]);
+  }, [directStateQuery.data?.reviewedDocumentIds, locallyReviewedIds]);
+
+  const reviewCandidates = useMemo(
+    () => (reviewContext?.documents ?? []).filter((document) => !reviewedIds.has(document.documentId)),
+    [reviewContext?.documents, reviewedIds],
+  );
+  const candidateKey = reviewCandidates.map((document) => document.documentId).join('|');
 
   useEffect(() => {
-    if (!project?.tenantId || !journeyId || !verification || !snapshot) return;
-    if (verification.pcVerificationStatus === 'VERIFIED' || snapshot.allReady) {
-      clearReviewReadinessWatch(project.tenantId, journeyId);
-      watchRegistered.current = false;
-      return;
-    }
-    if (verification.pcVerificationStatus === 'PENDING' && snapshot.failedCount === 0 && !watchRegistered.current) {
-      watchRegistered.current = true;
-      watchReviewReadiness(project.tenantId, journeyId, bookingLabel);
-    }
-  }, [bookingLabel, journeyId, project?.tenantId, snapshot, verification]);
+    setUnlockedDocumentCount((current) => {
+      if (reviewCandidates.length === 0) return 0;
+      if (current <= 0) return 1;
+      return Math.min(current, reviewCandidates.length);
+    });
+  }, [candidateKey, reviewCandidates.length]);
 
+  // If a cold/stale cache misses a document that Audit Core already considers
+  // active, refresh the context in the background. The DI first-document path has
+  // already started, so this recovery never recreates the old full-screen wait.
   useEffect(() => {
-    if (!project?.tenantId || !journeyId) return undefined;
-    const onReady = (event: Event) => {
-      const detail = (event as CustomEvent<{ tenantId: string; journeyId: string }>).detail;
-      if (detail?.tenantId !== project.tenantId || detail?.journeyId !== journeyId) return;
-      void snapshotQuery.refetch();
-    };
-    window.addEventListener(REVIEW_READY_EVENT, onReady);
-    return () => window.removeEventListener(REVIEW_READY_EVENT, onReady);
-  }, [journeyId, project?.tenantId, snapshotQuery.refetch]);
+    if (!project?.tenantId || !journeyId || !reviewContext || !directStateQuery.data || cacheSyncAttempted.current) return;
+    const cachedIds = new Set(reviewContext.documents.map((document) => document.documentId));
+    const missing = directStateQuery.data.activeDocumentIds.some((documentId) => !cachedIds.has(documentId));
+    if (!missing) return;
+    cacheSyncAttempted.current = true;
+    void prepareBookingDocumentUploadContext(project.tenantId, journeyId, accessToken, true)
+      .then(() => {
+        const refreshed = getCachedBookingReviewContext(project.tenantId, journeyId);
+        if (refreshed) setReviewContext(refreshed);
+      })
+      .catch(() => undefined);
+  }, [accessToken, directStateQuery.data, journeyId, project?.tenantId, reviewContext]);
 
-  if (!project || !journeyId) return null;
-
-  const refresh = async () => {
-    await Promise.all([
-      workspaceQuery.refetch(),
-      verificationQuery.refetch(),
-      snapshotQuery.refetch(),
-      directStateQuery.refetch(),
-    ]);
-  };
+  if (!project || !journeyId || !accessToken) return null;
 
   const setModifiedValue = (documentId: string, fact: PcBookingExtractionFact, value: string) => {
     setModifications((current) => ({
@@ -198,9 +311,10 @@ export default function BookingReviewPage() {
     });
   };
 
-  const saveDocumentReview = async (document: PcBookingReviewDocument) => {
-    const review = extractionByDocument.get(document.documentId);
-    if (!review) return;
+  const saveDocumentReview = async (
+    document: BookingReviewCachedDocument,
+    review: PcBookingExtractionReview,
+  ) => {
     const documentModifications = modifications[document.documentId] || {};
     const fields: PcDirectExtractedField[] = review.facts.map((fact) => ({
       fieldKey: fact.fieldKey,
@@ -231,12 +345,13 @@ export default function BookingReviewPage() {
         + `${result.storedFieldCount} DI field${result.storedFieldCount === 1 ? '' : 's'} stored`
         + `${changed ? `, ${changed} changed` : ''}.`,
       );
+      setLocallyReviewedIds((current) => new Set([...current, document.documentId]));
       setModifications((current) => {
         const next = { ...current };
         delete next[document.documentId];
         return next;
       });
-      await Promise.all([directStateQuery.refetch(), verificationQuery.refetch()]);
+      void directStateQuery.refetch();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'The document review could not be saved.');
     } finally {
@@ -249,12 +364,17 @@ export default function BookingReviewPage() {
     setError(undefined);
     setMessage(undefined);
     try {
-      const current = await verificationQuery.refetch();
-      const version = current.data?.aggregateVersion;
-      if (version === undefined) throw new Error('Unable to read the current Booking version. Please refresh and retry.');
-      await verifyPcBookingDirect(project.tenantId, journeyId, version, accessToken);
+      const state = await getPcDirectReviewState(project.tenantId, journeyId, accessToken);
+      if (!state.reviewComplete) {
+        throw new Error(`${state.pendingDocumentCount} Booking document${state.pendingDocumentCount === 1 ? '' : 's'} still need review.`);
+      }
+      const current = await getPcVerification(project.tenantId, journeyId, accessToken);
+      if (!current.captureSubmitted) throw new Error('Booking capture has not been submitted.');
+      if (current.pcVerificationStatus !== 'VERIFIED') {
+        await verifyPcBookingDirect(project.tenantId, journeyId, current.aggregateVersion, accessToken);
+      }
       clearReviewReadinessWatch(project.tenantId, journeyId);
-      await Promise.all([verificationQuery.refetch(), directStateQuery.refetch()]);
+      setVerified(true);
       setMessage('PC verification completed.');
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'PC verification could not be completed.');
@@ -263,42 +383,24 @@ export default function BookingReviewPage() {
     }
   };
 
-  if (workspaceQuery.isPending || verificationQuery.isPending || snapshotQuery.isPending || directStateQuery.isPending) {
-    return <div className="uc03-c1-loading" role="status">Opening document review…</div>;
-  }
-  if (workspaceQuery.isError || verificationQuery.isError || snapshotQuery.isError || directStateQuery.isError || !workspace || !verification || !snapshot || !directState) {
-    const cause = workspaceQuery.error || verificationQuery.error || snapshotQuery.error || directStateQuery.error;
-    return (
-      <section className="dashboard-load-state" role="alert">
-        <div className="dashboard-load-state__mark">!</div>
-        <div className="dashboard-load-state__copy">
-          <strong>We couldn't open this Booking review.</strong>
-          <p>{cause instanceof Error ? cause.message : 'Please try again.'}</p>
-        </div>
-        <button type="button" className="user-menu-button" onClick={() => void refresh()}>Try Again</button>
-      </section>
-    );
-  }
+  const refreshDocumentContext = async () => {
+    setContextLoading(true);
+    setError(undefined);
+    try {
+      await prepareBookingDocumentUploadContext(project.tenantId, journeyId, accessToken, true);
+      setReviewContext(getCachedBookingReviewContext(project.tenantId, journeyId));
+      await directStateQuery.refetch();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Booking document list could not be refreshed.');
+    } finally {
+      setContextLoading(false);
+    }
+  };
 
-  if (!verification.captureSubmitted) {
+  if (verified) {
     return (
       <div className="screen-stack uc03-c1-workspace">
-        <PageHeader eyebrow="PC Document Verification" title={bookingLabel} description="Submit Booking Details before document verification." />
-        <section className="uc03-c1-section">
-          <div className="uc03-review-empty" role="status">
-            <strong>Booking capture has not been submitted.</strong>
-            <span>Complete Step 2 before opening document review.</span>
-          </div>
-          <button type="button" className="uc03-c1-secondary" onClick={() => navigate(`/bookings/${journeyId}`)}>Back to Booking</button>
-        </section>
-      </div>
-    );
-  }
-
-  if (verification.pcVerificationStatus === 'VERIFIED') {
-    return (
-      <div className="screen-stack uc03-c1-workspace">
-        <PageHeader eyebrow="PC Document Verification" title={bookingLabel} description="The PC document verification for this Booking is complete." />
+        <PageHeader eyebrow="PC Document Verification" title="Booking Review" description="The PC document verification for this Booking is complete." />
         <section className="uc03-c1-section">
           <div className="uc03-review-empty" role="status">
             <strong>Booking verified.</strong>
@@ -310,8 +412,12 @@ export default function BookingReviewPage() {
     );
   }
 
-  const canVerify = snapshot.allReady && directState.reviewComplete;
-  const pendingDocumentReviewCount = directState.pendingDocumentCount;
+  const totalDocuments = reviewContext?.documents.length ?? 0;
+  const reviewedDocumentCount = reviewContext
+    ? reviewContext.documents.filter((document) => reviewedIds.has(document.documentId)).length
+    : 0;
+  const canVerify = Boolean(directStateQuery.data?.reviewComplete);
+  const pendingDocumentReviewCount = directStateQuery.data?.pendingDocumentCount ?? reviewCandidates.length;
 
   return (
     <div className="screen-stack uc03-c1-workspace">
@@ -322,120 +428,66 @@ export default function BookingReviewPage() {
 
       <PageHeader
         eyebrow="PC Document Verification"
-        title={bookingLabel}
-        description="All extracted fields and source documents are read directly from Document Intelligence. Change only values that are incorrect."
+        title="Booking Review"
+        description="Documents load directly from Document Intelligence, one at a time. Change only values that are incorrect."
       />
 
-      {!snapshot.allReady && (
+      {message && <div className="uc03-c1-feedback is-success" role="status">{message}</div>}
+      {error && <div className="uc03-c1-feedback is-error" role="alert">{error}</div>}
+
+      {!reviewContext && contextLoading && (
         <section className="uc03-c1-section">
           <div className="uc03-review-empty" role="status">
-            <strong>{snapshot.documents.length === 0 ? 'No Booking documents are available in Document Intelligence.' : 'Some documents are still being prepared.'}</strong>
-            <span>
-              {snapshot.documents.length === 0
-                ? 'Return to Booking Documents and confirm the uploads were accepted.'
-                : 'You can review any document already processed. Pending documents will continue asynchronously; while this application window remains open, we will recheck after two minutes.'}
-            </span>
+            <strong>Locating Booking documents…</strong>
+            <span>The fast session cache was not available, so the document context is being recovered in the background.</span>
           </div>
         </section>
       )}
 
-      <section className="uc03-c1-stage-strip" aria-label="Document processing status">
-        <div><span>Linked documents</span><strong>{snapshot.linkedDocumentCount}</strong></div>
-        <div><span>Processing</span><strong>{snapshot.processingCount}</strong></div>
-        <div><span>Need attention</span><strong>{snapshot.failedCount}</strong></div>
-        <div><span>PC verification</span><StatusPill value="PENDING" /></div>
-      </section>
-
-      <section className="uc03-c1-section">
-        <header className="uc03-c1-section-heading">
-          <div>
-            <span className="uc03-c1-eyebrow">Booking documents</span>
-            <h2>Document status</h2>
-            <p>This list comes from the current DI Booking context. A replacement document is shown immediately even if its Audit Core linkage callback is still completing.</p>
-          </div>
-        </header>
-        {snapshot.documents.length > 0 ? (
-          <div className="uc03-c1-stage-strip" aria-label="Booking document list">
-            {snapshot.documents.map((document) => {
-              const reviewed = reviewedIds.has(document.documentId);
-              const state = reviewed
-                ? 'Reviewed'
-                : !document.linked
-                  ? 'Linking'
-                  : friendly(document.processingStatus);
-              return (
-                <div key={document.documentId}>
-                  <span>{friendly(document.documentTypeKey || document.requirementKey)}</span>
-                  <strong>{state}</strong>
-                </div>
-              );
-            })}
-          </div>
-        ) : (
-          <div className="uc03-review-empty" role="status">
-            <strong>No documents returned by DI.</strong>
-            <span>Use Booking Documents to upload the required Booking evidence.</span>
-          </div>
-        )}
-      </section>
-
-      {snapshot.failedCount > 0 && (
-        <div className="uc03-c1-feedback is-error" role="alert">
-          One or more documents could not be processed. Upload a clearer replacement from Booking Documents and reopen Review.
-        </div>
+      {reviewContext && totalDocuments > 0 && (
+        <section className="uc03-c1-stage-strip" aria-label="Document review progress">
+          <div><span>Documents</span><strong>{totalDocuments}</strong></div>
+          <div><span>Reviewed</span><strong>{reviewedDocumentCount}</strong></div>
+          <div><span>Remaining</span><strong>{Math.max(0, totalDocuments - reviewedDocumentCount)}</strong></div>
+          <div><span>PC verification</span><StatusPill value={canVerify ? 'READY' : 'PENDING'} /></div>
+        </section>
       )}
-      {message && <div className="uc03-c1-feedback is-success" role="status">{message}</div>}
-      {error && <div className="uc03-c1-feedback is-error" role="alert">{error}</div>}
 
-      {reviewCandidates.map((document, index) => {
-        const extractionQuery = extractionQueries[index];
-        const contentQuery = contentQueries[index];
-        const review = extractionQuery?.data;
-        const saving = busyDocumentId === document.documentId;
-        return (
-          <section className="uc03-c1-section" key={document.documentId}>
-            {extractionQuery?.isPending && <div className="uc03-c1-loading" role="status">Loading extracted values from DI…</div>}
-            {extractionQuery?.isError && (
-              <div className="uc03-c1-feedback is-error" role="alert">
-                {extractionQuery.error instanceof Error ? extractionQuery.error.message : 'DI extraction could not be loaded for this document.'}
-              </div>
-            )}
-            {review && (
-              <>
-                <DirectDiFieldReview
-                  documentName={friendly(document.documentTypeKey || document.requirementKey)}
-                  facts={review.facts}
-                  content={contentQuery?.data}
-                  contentLoading={contentQuery?.isPending}
-                  contentError={contentQuery?.isError
-                    ? (contentQuery.error instanceof Error ? contentQuery.error.message : 'DI source document could not be loaded.')
-                    : undefined}
-                  modifiedValues={modifications[document.documentId] || {}}
-                  disabled={Boolean(busyDocumentId) || verifying}
-                  onModify={(fact, value) => setModifiedValue(document.documentId, fact, value)}
-                  onReset={(fact) => resetModifiedValue(document.documentId, fact)}
-                />
-                <div className="uc03-c1-document-actions">
-                  <button
-                    type="button"
-                    className="uc03-c1-primary"
-                    disabled={saving || Boolean(busyDocumentId) || verifying}
-                    onClick={() => void saveDocumentReview(document)}
-                  >
-                    {saving ? 'Saving Review…' : 'Save Document Review'}
-                  </button>
-                </div>
-              </>
-            )}
-          </section>
-        );
-      })}
+      {reviewContext && reviewCandidates.map((document, index) => (
+        <LazyReviewDocument
+          key={document.documentId}
+          tenantId={project.tenantId}
+          journeyId={journeyId}
+          externalContextRef={reviewContext.externalContextRef}
+          document={document}
+          accessToken={accessToken}
+          enabled={index < unlockedDocumentCount}
+          saving={busyDocumentId === document.documentId}
+          blocked={Boolean(busyDocumentId) || verifying}
+          modifiedValues={modifications[document.documentId] || {}}
+          onModify={(fact, value) => setModifiedValue(document.documentId, fact, value)}
+          onReset={(fact) => resetModifiedValue(document.documentId, fact)}
+          onSave={(target, review) => void saveDocumentReview(target, review)}
+          onExtractionSettled={() => {
+            setUnlockedDocumentCount((current) => Math.max(current, index + 2));
+          }}
+        />
+      ))}
 
-      {reviewCandidates.length === 0 && snapshot.documents.some((document) => reviewedIds.has(document.documentId)) && (
+      {reviewContext && totalDocuments === 0 && (
         <section className="uc03-c1-section">
           <div className="uc03-review-empty" role="status">
-            <strong>Processed documents already reviewed.</strong>
-            <span>Any remaining document will become reviewable when DI finishes processing it.</span>
+            <strong>No Booking documents are cached for Review.</strong>
+            <span>Refresh the document list, or return to Booking Documents if nothing has been uploaded yet.</span>
+          </div>
+        </section>
+      )}
+
+      {reviewContext && totalDocuments > 0 && reviewCandidates.length === 0 && (
+        <section className="uc03-c1-section">
+          <div className="uc03-review-empty" role="status">
+            <strong>All Booking documents are reviewed.</strong>
+            <span>Final verification becomes available as soon as Audit Core confirms the saved document reviews.</span>
           </div>
         </section>
       )}
@@ -445,7 +497,7 @@ export default function BookingReviewPage() {
           <div>
             <span className="uc03-c1-eyebrow">PC verification</span>
             <h2>{canVerify ? 'Review complete' : `${pendingDocumentReviewCount} document${pendingDocumentReviewCount === 1 ? '' : 's'} still to review`}</h2>
-            <p>This changes only PC verification status. It does not change the Booking business status and does not require a TL review.</p>
+            <p>Final verification checks Audit Core only when required; it does not block the Review screen opening.</p>
           </div>
           <StatusPill value={canVerify ? 'READY' : 'PENDING'} />
         </header>
@@ -455,7 +507,9 @@ export default function BookingReviewPage() {
         <div className="uc03-c1-document-actions">
           <button type="button" className="uc03-c1-secondary" onClick={() => navigate('/dashboard')}>Back to Work List</button>
           <button type="button" className="uc03-c1-secondary" onClick={() => navigate(`/bookings/${journeyId}`)}>Booking Documents</button>
-          <button type="button" className="uc03-c1-secondary" onClick={() => void refresh()}>Check Again</button>
+          <button type="button" className="uc03-c1-secondary" disabled={contextLoading} onClick={() => void refreshDocumentContext()}>
+            {contextLoading ? 'Refreshing…' : 'Refresh Document List'}
+          </button>
         </div>
       </section>
     </div>

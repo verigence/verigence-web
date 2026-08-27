@@ -5,6 +5,8 @@ import {
   type BookingUploadRequirementContext,
 } from './uc03PcBookingDocuments';
 import {
+  getPcBookingDocumentContent,
+  getPcBookingExtractionReview,
   listPcBookingDocuments,
   type PcBookingDocumentStatus,
 } from '../di/bookingDocuments';
@@ -278,9 +280,32 @@ export async function warmPcBookingReview(
   journeyId: string,
   accessToken?: string,
 ): Promise<void> {
-  await Promise.allSettled([
+  const [snapshotResult] = await Promise.all([
     getPcBookingReviewSnapshot(tenantId, journeyId, accessToken),
-    getPcDirectReviewState(tenantId, journeyId, accessToken),
+    getPcDirectReviewState(tenantId, journeyId, accessToken).catch(() => null),
+  ]);
+
+  const readyDocuments = snapshotResult.documents.filter((document) => (
+    document.linked && document.processingStatus.toUpperCase() === 'PROCESSED'
+  ));
+  if (readyDocuments.length === 0) return;
+
+  // Extraction JSON is small, so warm every ready document. Warm only the first
+  // source blob to keep the initial Review field+highlight instantaneous without
+  // downloading every potentially large PDF/image before the user opens Review.
+  await Promise.allSettled([
+    ...readyDocuments.map((document) => getPcBookingExtractionReview(
+      tenantId,
+      snapshotResult.externalContextRef,
+      document.documentId,
+      token(accessToken),
+    )),
+    getPcBookingDocumentContent(
+      tenantId,
+      snapshotResult.externalContextRef,
+      readyDocuments[0].documentId,
+      token(accessToken),
+    ),
   ]);
 }
 

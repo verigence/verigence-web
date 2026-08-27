@@ -344,6 +344,25 @@ async function fetchDirectContent(
   };
 }
 
+async function fetchProxyContent(
+  tenantId: string,
+  externalContextRef: string,
+  documentId: string,
+  accessToken: string,
+  contentAccess: PcBookingContentAccess,
+): Promise<PcBookingDocumentContent> {
+  const response = await request(
+    `${contextBase(tenantId, externalContextRef)}/${encodeURIComponent(documentId)}/content`,
+    accessToken,
+    { cache: 'no-store' },
+  );
+  return {
+    blob: await response.blob(),
+    mimeType: response.headers.get('content-type') || contentAccess.mimeType || 'application/octet-stream',
+    contentAccess,
+  };
+}
+
 export function getPcBookingDocumentContent(
   tenantId: string,
   externalContextRef: string,
@@ -372,18 +391,32 @@ export function getPcBookingDocumentContent(
       return await fetchDirectContent(access);
     } catch (cause) {
       // A URL can expire between the freshness check and the R2 request. Refresh
-      // once through the tiny DI signing endpoint; document bytes still never
-      // transit DI.
+      // once through the tiny DI signing endpoint before giving up on direct R2.
       if (cause instanceof DiBookingHttpError && (cause.status === 401 || cause.status === 403)) {
-        const refreshed = await getPcBookingDocumentContentUrl(
+        access = await getPcBookingDocumentContentUrl(
           tenantId,
           externalContextRef,
           documentId,
           accessToken,
         );
-        return fetchDirectContent(refreshed);
+        try {
+          return await fetchDirectContent(access);
+        } catch {
+          // Fall through to the authorized DI streaming route below.
+        }
       }
-      throw cause;
+
+      // Browsers report a blocked R2 CORS response as a network TypeError (for
+      // example Firefox: "NetworkError when attempting to fetch resource") and
+      // do not expose an HTTP status. Direct R2 is therefore a best-effort fast
+      // path; the existing authorized DI stream remains the reliability fallback.
+      return fetchProxyContent(
+        tenantId,
+        externalContextRef,
+        documentId,
+        accessToken,
+        access,
+      );
     }
   });
 }

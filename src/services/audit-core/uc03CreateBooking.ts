@@ -1,5 +1,5 @@
 import { auditCoreRequest } from './client';
-import { newIdempotencyKey, type BookingWorkspace } from './uc03Booking';
+import { newIdempotencyKey } from './uc03Booking';
 
 export interface CreateBookingResult {
   journeyId: string;
@@ -8,7 +8,6 @@ export interface CreateBookingResult {
   outletId: string;
   businessStatus: string;
   aggregateVersion: number;
-  workspace: BookingWorkspace;
 }
 
 function token(accessToken?: string): string {

@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { type InfiniteData, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 
 import PageHeader from '../components/PageHeader';
 import StatusPill from '../components/StatusPill';
@@ -16,6 +16,15 @@ import { useProjectContextStore } from '../store/projectContextStore';
 import { useSessionStore } from '../store/sessionStore';
 import { displayName } from '../utils/displayNames';
 import BookingWorkspacePage from './BookingWorkspacePage';
+
+type CreatedBookingNavigationState = {
+  createdBooking?: {
+    journeyId: string;
+    customerName: string;
+    businessStatus: string;
+    aggregateVersion: number;
+  };
+};
 
 function requirementLabel(requirement: Part1Requirement): string {
   switch (requirement.kind) {
@@ -132,12 +141,19 @@ function FastBookingShell({
 
 export default function BookingWorkspaceFastEntry() {
   const { journeyId } = useParams<{ journeyId: string }>();
+  const location = useLocation();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const project = useProjectContextStore((state) => state.selectedProject);
   const accessToken = useSessionStore((state) => state.accessToken);
 
   const enabled = Boolean(project?.tenantId && journeyId && accessToken);
+
+  const createdBooking = useMemo(() => {
+    const state = location.state as CreatedBookingNavigationState | null;
+    const candidate = state?.createdBooking;
+    return candidate?.journeyId === journeyId ? candidate : undefined;
+  }, [journeyId, location.state]);
 
   const cachedWorkItem = useMemo<Uc03WorkItem | undefined>(() => {
     if (!project?.tenantId || !journeyId) return undefined;
@@ -156,7 +172,7 @@ export default function BookingWorkspaceFastEntry() {
   const summaryQuery = useQuery({
     queryKey: ['uc03-booking-summary', project?.tenantId, journeyId],
     queryFn: () => getBookingSummary(project!.tenantId, journeyId!, accessToken),
-    enabled: enabled && !cachedWorkItem,
+    enabled: enabled && !cachedWorkItem && !createdBooking,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
     retry: 1,
@@ -183,11 +199,11 @@ export default function BookingWorkspaceFastEntry() {
   }
 
   const summary = summaryQuery.data;
-  const customerName = cachedWorkItem?.customerDisplayName || 'Booking';
+  const customerName = cachedWorkItem?.customerDisplayName || createdBooking?.customerName || 'Booking';
   const bookingReference = cachedWorkItem?.bookingReference ?? summary?.bookingReference;
   const productLabel = cachedWorkItem?.productLabel
     ?? (summary ? [summary.product.modelName, summary.product.variantName, summary.product.colourName].filter(Boolean).join(' · ') : null);
-  const hasImmediateBookingData = Boolean(cachedWorkItem || summary);
+  const hasImmediateBookingData = Boolean(cachedWorkItem || createdBooking || summary);
   const part1Failed = part1Query.isError;
 
   if (!hasImmediateBookingData && summaryQuery.isError) {

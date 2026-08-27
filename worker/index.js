@@ -59,6 +59,14 @@ function buildDiTarget(rawUpstream, incomingUrl) {
   return upstream;
 }
 
+function buildWarmupTarget(rawUpstream, path) {
+  const upstream = new URL(String(rawUpstream || '').trim());
+  upstream.pathname = path;
+  upstream.search = '';
+  upstream.hash = '';
+  return upstream;
+}
+
 function capacitorOrigin(request) {
   const origin = request.headers.get('Origin');
   return origin && CAPACITOR_ORIGINS.has(origin) ? origin : null;
@@ -147,10 +155,44 @@ function logProxyFailure(proxyName, request, correlationId, errorCode, error) {
   }));
 }
 
+async function warmRuntime(env, correlationId) {
+  const requests = [];
+  const headers = { [CORRELATION_HEADER]: correlationId };
+
+  if (String(env.SECURITY_UPSTREAM || '').trim()) {
+    requests.push(fetch(buildWarmupTarget(env.SECURITY_UPSTREAM, '/health/ready'), {
+      method: 'GET',
+      headers,
+      cache: 'no-store',
+    }));
+  }
+
+  if (String(env.AUDIT_CORE_UPSTREAM || '').trim()) {
+    requests.push(fetch(buildWarmupTarget(env.AUDIT_CORE_UPSTREAM, '/health'), {
+      method: 'GET',
+      headers,
+      cache: 'no-store',
+    }));
+  }
+
+  await Promise.allSettled(requests);
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
     const correlationId = correlationIdFor(request);
+
+    if (url.pathname === '/runtime-warmup' && request.method === 'GET') {
+      await warmRuntime(env, correlationId);
+      return new Response(null, {
+        status: 204,
+        headers: {
+          'Cache-Control': 'no-store',
+          [CORRELATION_HEADER]: correlationId,
+        },
+      });
+    }
 
     if (url.pathname.startsWith('/security/')) {
       if (request.method === 'OPTIONS') {

@@ -1,4 +1,4 @@
-import { useState, type FormEvent, type ReactNode } from 'react';
+import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate } from 'react-router-dom';
 
@@ -27,6 +27,16 @@ export default function LoginPage() {
   const [keepSignedIn, setKeepSignedIn] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<LoginErrorState>();
+
+  useEffect(() => {
+    // Wake Railway-backed runtime services while the USER is typing credentials.
+    // This is deliberately best-effort and carries no authentication or USER data.
+    void fetch('/runtime-warmup', {
+      method: 'GET',
+      cache: 'no-store',
+      keepalive: true,
+    }).catch(() => undefined);
+  }, []);
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();

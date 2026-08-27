@@ -11,6 +11,11 @@
   --vg-pc-content-max: 1360px;
   --vg-pc-enter-duration: 180ms;
   --vg-pc-enter-easing: cubic-bezier(0.2, 0.72, 0.24, 1);
+  /* Stylized, non-logo Mahindra-inspired SUV silhouettes. Inline masks keep Web and
+     Capacitor native builds asset-free and add no image/network round trip. */
+  --vg-pc-suv-side: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 72 40'%3E%3Cpath fill='black' d='M6 28.3c0-2.7 1.6-5 4-6l3.2-6.8c.7-1.5 2-2.6 3.6-3l10.7-3c1.6-.4 3.2-.5 4.8-.2l11.8 2.1c1.8.3 3.4 1.2 4.6 2.6l4.4 5.1 7.2 1.8c3 .8 5.1 3.5 5.1 6.6v2.4h-4.8a6.5 6.5 0 0 0-12.6 0H25.2a6.5 6.5 0 0 0-12.6 0H8.5A2.5 2.5 0 0 1 6 27.4v.9Zm11-12.1-2.4 5.2h13V12.8L17 16.2Zm15-4.1v9.3h16.4l-3.4-4c-.8-.9-1.9-1.5-3.1-1.7L32 12.1ZM19 25a5 5 0 1 1 0 10 5 5 0 0 1 0-10Zm35.6 0a5 5 0 1 1 0 10 5 5 0 0 1 0-10Z'/%3E%3C/svg%3E");
+  --vg-pc-suv-review: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 72 40'%3E%3Cpath fill='black' d='M5 29c0-2.4 1.4-4.5 3.6-5.4l3-6.4c.7-1.4 1.9-2.5 3.4-2.9l10-2.8c1.5-.4 3-.5 4.5-.2l10.8 2c1.7.3 3.1 1.1 4.2 2.4l4 4.6 6.5 1.6c2.6.7 4.5 3 4.5 5.8V30h-4.1a5.8 5.8 0 0 0-11.3 0H23.4a5.8 5.8 0 0 0-11.3 0H7a2 2 0 0 1-2-2v1Zm13-3.6a4.7 4.7 0 1 1 0 9.4 4.7 4.7 0 0 1 0-9.4Zm32.1 0a4.7 4.7 0 1 1 0 9.4 4.7 4.7 0 0 1 0-9.4ZM56 3a7 7 0 1 1 0 14 7 7 0 0 1 0-14Zm0 3a4 4 0 1 0 0 8 4 4 0 0 0 0-8Zm4.8 8.6 6.2 6.2-2.2 2.2-6.2-6.2 2.2-2.2Z'/%3E%3C/svg%3E");
+  --vg-pc-suv-delivery: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 72 40'%3E%3Cpath fill='black' d='M6 28c0-2.5 1.5-4.7 3.8-5.6l3-6.5c.7-1.5 2-2.6 3.6-3.1l10.3-2.9c1.5-.4 3.1-.5 4.6-.2l11.4 2c1.8.3 3.4 1.2 4.5 2.6l4.2 4.8 6.9 1.7c2.8.7 4.7 3.2 4.7 6v2.6h-4.5a6.2 6.2 0 0 0-12 0H24.7a6.2 6.2 0 0 0-12 0H8.3A2.3 2.3 0 0 1 6 27.1v.9Zm12.9-3.2a4.8 4.8 0 1 1 0 9.6 4.8 4.8 0 0 1 0-9.6Zm34.4 0a4.8 4.8 0 1 1 0 9.6 4.8 4.8 0 0 1 0-9.6ZM56 2a7.5 7.5 0 1 1 0 15 7.5 7.5 0 0 1 0-15Zm3.6 4.6-5 5-2.5-2.5-2 2 4.5 4.5 7-7-2-2Z'/%3E%3C/svg%3E");
 }
 
 /*
@@ -62,6 +67,62 @@
   grid-column: auto !important;
   width: auto !important;
   min-width: 0 !important;
+}
+
+/* Automotive cues: keep the KPI counts clean; apply SUV identity to work type and journey headers. */
+.enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-work-card__type-label {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+}
+
+.enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-work-card__type-label::before {
+  content: '';
+  width: 22px;
+  height: 14px;
+  flex: 0 0 auto;
+  background: currentColor;
+  -webkit-mask: var(--vg-pc-suv-side) center / contain no-repeat;
+  mask: var(--vg-pc-suv-side) center / contain no-repeat;
+}
+
+.enterprise-shell--approved-nav :is(
+  .uc03-capture-new-booking,
+  .uc03-booking-journey,
+  .uc03-c1-workspace,
+  .uc03-c2-workspace,
+  .uc03-c3-audit
+) .page-header .eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.enterprise-shell--approved-nav :is(
+  .uc03-capture-new-booking,
+  .uc03-booking-journey
+) .page-header .eyebrow::before,
+.enterprise-shell--approved-nav .uc03-c1-workspace .page-header .eyebrow::before,
+.enterprise-shell--approved-nav .uc03-c2-workspace .page-header .eyebrow::before,
+.enterprise-shell--approved-nav .uc03-c3-audit .page-header .eyebrow::before {
+  content: '';
+  width: 30px;
+  height: 18px;
+  flex: 0 0 auto;
+  background: currentColor;
+  -webkit-mask: var(--vg-pc-suv-side) center / contain no-repeat;
+  mask: var(--vg-pc-suv-side) center / contain no-repeat;
+}
+
+/* Review gets an inspection cue; Delivery gets a handover/check cue. */
+.enterprise-shell--approved-nav .uc03-c1-workspace .page-header .eyebrow::before {
+  -webkit-mask-image: var(--vg-pc-suv-review);
+  mask-image: var(--vg-pc-suv-review);
+}
+
+.enterprise-shell--approved-nav .uc03-c2-workspace .page-header .eyebrow::before {
+  -webkit-mask-image: var(--vg-pc-suv-delivery);
+  mask-image: var(--vg-pc-suv-delivery);
 }
 
 /* Booking is a two-step journey. Do not reserve an empty third step column. */
@@ -206,6 +267,22 @@
   /* The full tile is already clickable; duplicate View/Review text wastes mobile width. */
   .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-landing-metric__action {
     display: none !important;
+  }
+
+  .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-work-card__type-label::before {
+    width: 19px;
+    height: 12px;
+  }
+
+  .enterprise-shell--approved-nav :is(
+    .uc03-capture-new-booking,
+    .uc03-booking-journey,
+    .uc03-c1-workspace,
+    .uc03-c2-workspace,
+    .uc03-c3-audit
+  ) .page-header .eyebrow::before {
+    width: 25px;
+    height: 15px;
   }
 
   .enterprise-shell--approved-nav :is(

@@ -1,14 +1,22 @@
 import { useEffect, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useParams } from 'react-router-dom';
 
 import PageHeader from '../components/PageHeader';
 import StatusPill from '../components/StatusPill';
 import {
+  bookingWorkspaceQueryKey,
+  pcVerificationQueryKey,
+  UC03_OPERATIONAL_GC_MS,
+  UC03_OPERATIONAL_STALE_MS,
+} from '../features/uc03/queryKeys';
+import {
+  getBookingProcessingStatus,
   getBookingWorkspace,
   startBooking,
   uploadBookingDocument,
   type BookingDocumentView,
+  type BookingWorkspace,
 } from '../services/audit-core/uc03Booking';
 import {
   getPcVerification,
@@ -104,6 +112,7 @@ function DocumentCard({
 export default function BookingWorkspacePage() {
   const { journeyId } = useParams<{ journeyId: string }>();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const project = useProjectContextStore((state) => state.selectedProject);
   const accessToken = useSessionStore((state) => state.accessToken);
   const [busy, setBusy] = useState(false);
@@ -113,17 +122,24 @@ export default function BookingWorkspacePage() {
   const [exchangeTaken, setExchangeTaken] = useState<boolean | null>(null);
 
   const enabled = Boolean(project?.tenantId && journeyId && accessToken);
+  const workspaceKey = bookingWorkspaceQueryKey(project?.tenantId, journeyId);
+  const verificationKey = pcVerificationQueryKey(project?.tenantId, journeyId);
+
   const workspaceQuery = useQuery({
-    queryKey: ['uc03-booking-workspace', project?.tenantId, journeyId],
+    queryKey: workspaceKey,
     queryFn: () => getBookingWorkspace(project!.tenantId, journeyId!, accessToken),
     enabled,
+    staleTime: UC03_OPERATIONAL_STALE_MS,
+    gcTime: UC03_OPERATIONAL_GC_MS,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
   });
   const verificationQuery = useQuery({
-    queryKey: ['uc03-pc-verification', project?.tenantId, journeyId],
+    queryKey: verificationKey,
     queryFn: () => getPcVerification(project!.tenantId, journeyId!, accessToken),
     enabled: enabled && Boolean(workspaceQuery.data?.bookingStage.businessStatus),
+    staleTime: 30_000,
+    gcTime: UC03_OPERATIONAL_GC_MS,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
     retry: false,
@@ -147,18 +163,41 @@ export default function BookingWorkspacePage() {
   if (!project || !journeyId) return null;
   const workspace = workspaceQuery.data;
 
-  const refresh = async () => {
-    await Promise.all([workspaceQuery.refetch(), verificationQuery.refetch()]);
+  const reconcileProcessingStatus = () => {
+    void getBookingProcessingStatus(project.tenantId, journeyId, accessToken)
+      .then((processing) => {
+        queryClient.setQueryData<BookingWorkspace>(workspaceKey, (current) => current ? {
+          ...current,
+          aggregateVersion: processing.version,
+          documents: processing.documents,
+          processingSummary: {
+            pendingCount: processing.pendingCount,
+            failedCount: processing.failedCount,
+            readyProposalCount: processing.readyProposalCount,
+          },
+        } : current);
+      })
+      .catch(() => undefined);
   };
 
-  const run = async (operation: () => Promise<unknown>, success: string) => {
+  const handleStart = async () => {
     setBusy(true);
     setError(undefined);
     setMessage(undefined);
     try {
-      await operation();
-      setMessage(success);
-      await refresh();
+      const result = await startBooking(project.tenantId, journeyId, workspace?.aggregateVersion ?? 0, accessToken);
+      queryClient.setQueryData<BookingWorkspace>(workspaceKey, (current) => current ? {
+        ...current,
+        bookingStage: {
+          ...current.bookingStage,
+          businessStatus: result.businessStatus,
+        },
+        aggregateVersion: result.aggregateVersion,
+        permittedActions: current.permittedActions.includes('CAPTURE')
+          ? current.permittedActions
+          : [...current.permittedActions, 'CAPTURE'],
+      } : current);
+      setMessage('Booking started.');
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'The Booking action could not be completed.');
     } finally {
@@ -166,22 +205,43 @@ export default function BookingWorkspacePage() {
     }
   };
 
-  const handleStart = () => run(
-    () => startBooking(project.tenantId, journeyId, workspace?.aggregateVersion ?? 0, accessToken),
-    'Booking started.',
-  );
-
   const handleUpload = async (documentView: BookingDocumentView, file: File) => {
-    await run(
-      () => uploadBookingDocument(
+    setBusy(true);
+    setError(undefined);
+    setMessage(undefined);
+    try {
+      const result = await uploadBookingDocument(
         project.tenantId,
         journeyId,
         documentView.requirementKey,
         file,
         accessToken,
-      ),
-      `${friendly(documentView.requirementKey)} uploaded. Document Intelligence will process it asynchronously.`,
-    );
+      );
+      const updatedAtUtc = new Date().toISOString();
+      queryClient.setQueryData<BookingWorkspace>(workspaceKey, (current) => current ? {
+        ...current,
+        bookingStage: {
+          ...current.bookingStage,
+          businessStatus: 'BOOKING_IN_PROGRESS',
+        },
+        // UC03 Booking evidence linking advances the Booking aggregate exactly once
+        // for a successful idempotent upload. The lightweight processing-status call
+        // below reconciles the authoritative version asynchronously.
+        aggregateVersion: current.aggregateVersion + 1,
+        documents: current.documents.map((item) => item.requirementKey === documentView.requirementKey ? {
+          ...item,
+          evidenceId: result.evidenceId,
+          processingStatus: result.processingStatus,
+          updatedAtUtc,
+        } : item),
+      } : current);
+      setMessage(`${friendly(documentView.requirementKey)} uploaded. Document Intelligence will process it asynchronously.`);
+      reconcileProcessingStatus();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'The Booking action could not be completed.');
+    } finally {
+      setBusy(false);
+    }
   };
 
   const handleSubmit = async () => {
@@ -197,13 +257,19 @@ export default function BookingWorkspacePage() {
       });
       if (exchangeTaken !== null) values.EXCHANGE_TAKEN = exchangeTaken;
 
-      await submitPcBookingCapture(
+      const verification = await submitPcBookingCapture(
         project.tenantId,
         journeyId,
         workspace.aggregateVersion,
         values,
         accessToken,
       );
+      queryClient.setQueryData(verificationKey, verification);
+      queryClient.setQueryData<BookingWorkspace>(workspaceKey, (current) => current ? {
+        ...current,
+        capture: { ...current.capture, ...values },
+        aggregateVersion: verification.aggregateVersion,
+      } : current);
       navigate(`/bookings/${journeyId}/review`, { replace: true });
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Booking capture could not be submitted.');

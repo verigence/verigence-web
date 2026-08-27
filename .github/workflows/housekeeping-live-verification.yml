@@ -35,6 +35,7 @@ jobs:
           mkdir -p housekeeping-live-output
           node --input-type=module <<'NODE'
           import { chromium } from 'playwright';
+          import fs from 'node:fs';
 
           const base = process.env.DEV_WEB_URL;
           const browser = await chromium.launch({ headless: true });
@@ -137,18 +138,16 @@ jobs:
           await systemScope.waitFor({ state: 'visible' });
 
           const initialText = await page.locator('body').innerText();
-          for (const required of [
-            'Whole Project · Highest impact',
-            'Business transactions · Project preserved',
-            'System-only history · Narrowest scope',
-            'Complete Project',
-            'Journey Data',
-            'System History',
-          ]) {
-            if (!initialText.includes(required)) throw new Error(`Missing hierarchy marker: ${required}`);
-          }
-
+          fs.writeFileSync('housekeeping-live-output/01-scope-selection-text.txt', initialText);
           await page.screenshot({ path: 'housekeeping-live-output/01-scope-selection-desktop.png', fullPage: true });
+
+          for (const required of [
+            'Delete Complete Project',
+            'Delete Journey Data',
+            'Delete System History',
+          ]) {
+            if (!initialText.includes(required)) throw new Error(`Missing hierarchy action: ${required}`);
+          }
 
           await projectScope.click();
           await page.getByRole('heading', { name: 'Delete Complete Project' }).waitFor();

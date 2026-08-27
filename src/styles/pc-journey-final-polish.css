@@ -1,0 +1,467 @@
+/*
+ * PC journey final polish — layout owner for Work Queue KPI strip, mobile task cards
+ * and route motion. Loaded after all legacy dashboard/mobile layers.
+ * Presentation only: no API, Security or journey semantics change.
+ */
+
+:root {
+  --vg-pc-motion: cubic-bezier(0.22, 0.72, 0.24, 1);
+}
+
+/* --------------------------------------------------------------------------
+ * Work Queue KPI strip
+ * -------------------------------------------------------------------------- */
+.enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-landing-metrics {
+  box-sizing: border-box !important;
+  display: grid !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  gap: 10px !important;
+  align-items: stretch !important;
+  contain: inline-size;
+}
+
+.enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-landing-metric,
+.enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-landing-metric:nth-child(n),
+.enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-landing-metric:last-child {
+  box-sizing: border-box !important;
+  grid-column: auto !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  min-height: 80px !important;
+  overflow: hidden !important;
+  contain: inline-size;
+}
+
+.enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-landing-metric__label,
+.enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-landing-metric__value,
+.enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-landing-metric__detail,
+.enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-landing-metric__action {
+  min-width: 0 !important;
+}
+
+.enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-landing-metric__detail {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Fourth KPI previously had no dedicated palette because older CSS assumed 3 cards. */
+.enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-landing-metric:nth-child(4) .uc03-landing-metric__value {
+  color: #6a3dad !important;
+}
+
+/* --------------------------------------------------------------------------
+ * Route/screen motion
+ * -------------------------------------------------------------------------- */
+.enterprise-shell--approved-nav .enterprise-content > .screen-stack {
+  animation: vg-pc-soft-enter 240ms var(--vg-pc-motion) both !important;
+  will-change: opacity, transform;
+}
+
+@keyframes vg-pc-soft-enter {
+  from {
+    opacity: 0.86;
+    transform: translate3d(0, 4px, 0) scale(0.998);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+/* A short exit cue starts on pointer/key intent before React Router swaps the view. */
+html.vg-pc-navigating .enterprise-shell--approved-nav .enterprise-content > .screen-stack {
+  opacity: 0.9;
+  transform: translate3d(0, -2px, 0) scale(0.999);
+  transition:
+    opacity 120ms ease-out,
+    transform 120ms ease-out !important;
+}
+
+/* Native View Transition styling is harmless when the browser does not support it and
+ * gives us a consistent motion language where React Router/browser enables it. */
+::view-transition-old(root) {
+  animation: 160ms ease-out both vg-pc-view-old;
+}
+
+::view-transition-new(root) {
+  animation: 240ms var(--vg-pc-motion) both vg-pc-view-new;
+}
+
+@keyframes vg-pc-view-old {
+  to { opacity: 0.3; transform: translate3d(0, -2px, 0); }
+}
+
+@keyframes vg-pc-view-new {
+  from { opacity: 0.25; transform: translate3d(0, 5px, 0); }
+  to { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+
+/* --------------------------------------------------------------------------
+ * Mobile / Capacitor Work Queue
+ * -------------------------------------------------------------------------- */
+@media (max-width: 899px) {
+  .enterprise-shell--approved-nav .uc03-landing--workqueue {
+    gap: 10px !important;
+  }
+
+  .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-dashboard-hero--workqueue h1,
+  .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-work-list__heading--approved h2 {
+    font-size: 21px !important;
+    line-height: 1.12 !important;
+    letter-spacing: -0.02em !important;
+  }
+
+  .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-dashboard-hero--workqueue p,
+  .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-work-list__queue-note {
+    font-size: 11px !important;
+    line-height: 1.35 !important;
+  }
+
+  /* Four KPIs = balanced 2 x 2. Never 3 across and never an orphan full-width fourth. */
+  .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-landing-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 8px !important;
+  }
+
+  .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-landing-metric,
+  .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-landing-metric:nth-child(n),
+  .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-landing-metric:last-child {
+    grid-column: auto !important;
+    min-height: 76px !important;
+    padding: 10px 11px !important;
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) !important;
+    grid-template-areas:
+      "label"
+      "value"
+      "detail" !important;
+    align-content: center !important;
+    align-items: start !important;
+    gap: 2px !important;
+  }
+
+  .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-landing-metric::before {
+    display: none !important;
+    content: none !important;
+  }
+
+  .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-landing-metric__label {
+    grid-area: label !important;
+    font-size: 9px !important;
+    line-height: 1.15 !important;
+    letter-spacing: 0.055em !important;
+  }
+
+  .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-landing-metric__value {
+    grid-area: value !important;
+    font-size: 24px !important;
+    line-height: 1 !important;
+  }
+
+  .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-landing-metric__detail {
+    grid-area: detail !important;
+    display: block !important;
+    font-size: 10px !important;
+    line-height: 1.25 !important;
+    white-space: normal !important;
+  }
+
+  .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-landing-metric__action {
+    display: none !important;
+  }
+
+  .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-work-list {
+    padding: 13px !important;
+  }
+
+  /* Mobile filters are a single, touch-friendly chip rail rather than a 3+2 grid. */
+  .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-work-filter-tabs--approved {
+    box-sizing: border-box !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-height: 0 !important;
+    margin: 0 0 10px !important;
+    padding: 2px !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 6px !important;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    border: 0 !important;
+    background: transparent !important;
+    scrollbar-width: none;
+    overscroll-behavior-inline: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-work-filter-tabs--approved::-webkit-scrollbar {
+    display: none;
+  }
+
+  .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-work-filter-tabs--approved button {
+    flex: 0 0 auto !important;
+    min-width: 0 !important;
+    min-height: 36px !important;
+    padding: 0 13px !important;
+    border: 1px solid #d6e3e8 !important;
+    border-radius: 999px !important;
+    background: #f5f8f9 !important;
+    color: #526c80 !important;
+    box-shadow: none !important;
+    font-size: 11px !important;
+    font-weight: 720 !important;
+    line-height: 1 !important;
+    white-space: nowrap !important;
+  }
+
+  .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-work-filter-tabs--approved button.is-active {
+    border-color: #8dcfca !important;
+    background: #eaf8f6 !important;
+    color: #087a76 !important;
+    box-shadow: none !important;
+  }
+
+  .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-work-cards {
+    display: grid !important;
+    gap: 9px !important;
+    overflow: visible !important;
+    border: 0 !important;
+    background: transparent !important;
+  }
+
+  /* Mobile item = task card, not a collapsed desktop table row. */
+  .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-work-card {
+    box-sizing: border-box !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) auto !important;
+    grid-template-areas:
+      "header header"
+      "age actions"
+      "details details" !important;
+    gap: 9px 10px !important;
+    margin: 0 !important;
+    padding: 12px !important;
+    border: 1px solid #dce7eb !important;
+    border-radius: 12px !important;
+    background: #ffffff !important;
+    box-shadow: 0 3px 10px rgba(0, 49, 91, 0.035) !important;
+  }
+
+  .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-work-card__header {
+    grid-area: header !important;
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) auto !important;
+    grid-template-areas:
+      "item status"
+      "next next" !important;
+    align-items: start !important;
+    gap: 8px 10px !important;
+    min-width: 0 !important;
+  }
+
+  .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-work-card__identity {
+    grid-area: item !important;
+    display: grid !important;
+    gap: 3px !important;
+    min-width: 0 !important;
+  }
+
+  /* Customer is the primary anchor; type is metadata below it. */
+  .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-work-card__identity h3 {
+    order: 0 !important;
+    margin: 0 !important;
+    color: #173a59 !important;
+    font-size: 15.5px !important;
+    font-weight: 780 !important;
+    line-height: 1.18 !important;
+    letter-spacing: -0.01em !important;
+  }
+
+  .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-work-card__identity-meta {
+    order: 1 !important;
+    margin: 0 !important;
+    display: flex !important;
+    align-items: center !important;
+    flex-wrap: wrap !important;
+    gap: 5px !important;
+    color: #6b8293 !important;
+    font-size: 9.5px !important;
+    font-weight: 650 !important;
+    line-height: 1.2 !important;
+  }
+
+  .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-work-card__type-label {
+    font-size: 9px !important;
+    font-weight: 820 !important;
+    letter-spacing: 0.065em !important;
+  }
+
+  .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-work-card__type-label::before {
+    width: 19px !important;
+    height: 12px !important;
+  }
+
+  .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-work-card__identity p {
+    display: none !important;
+  }
+
+  .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-work-card__summary {
+    grid-area: status !important;
+    align-self: start !important;
+    justify-self: end !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: flex-end !important;
+    min-width: 0 !important;
+    padding: 0 !important;
+  }
+
+  .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-work-card__summary > strong.uc03-work-status-pill,
+  .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-work-card__summary .uc03-verification-badge {
+    min-height: 25px !important;
+    max-width: 132px !important;
+    padding: 0 8px !important;
+    font-size: 10px !important;
+    font-weight: 760 !important;
+    line-height: 1.15 !important;
+    text-align: center !important;
+    white-space: normal !important;
+  }
+
+  .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-work-card__next-step {
+    grid-area: next !important;
+    min-width: 0 !important;
+    min-height: 0 !important;
+    padding: 8px 10px !important;
+    display: grid !important;
+    grid-template-columns: auto minmax(0, 1fr) !important;
+    align-items: baseline !important;
+    gap: 4px 7px !important;
+    border: 1px solid #e4ecef !important;
+    border-radius: 8px !important;
+    background: #f8fafb !important;
+  }
+
+  .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-work-card__next-step > span {
+    color: #7a8d9b !important;
+    font-size: 8.5px !important;
+    font-weight: 780 !important;
+    letter-spacing: 0.055em !important;
+    line-height: 1.2 !important;
+    text-transform: uppercase !important;
+  }
+
+  .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-work-card__next-step > strong {
+    color: #17486f !important;
+    font-size: 11.5px !important;
+    font-weight: 760 !important;
+    line-height: 1.25 !important;
+  }
+
+  .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-work-card__next-step > small {
+    grid-column: 1 / -1 !important;
+    color: #a74e3c !important;
+    font-size: 9px !important;
+    line-height: 1.25 !important;
+  }
+
+  .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-work-card__age {
+    grid-area: age !important;
+    align-self: center !important;
+    display: flex !important;
+    align-items: baseline !important;
+    gap: 4px !important;
+    min-width: 0 !important;
+  }
+
+  .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-work-card__age strong {
+    font-size: 10.5px !important;
+    line-height: 1.15 !important;
+  }
+
+  .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-work-card__age span {
+    font-size: 9px !important;
+    line-height: 1.15 !important;
+  }
+
+  .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-work-card__footer {
+    grid-area: actions !important;
+    align-self: center !important;
+    justify-self: end !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 5px !important;
+  }
+
+  .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-work-card__primary-action {
+    min-width: 0 !important;
+    min-height: 36px !important;
+    padding: 0 11px !important;
+    border-radius: 8px !important;
+    font-size: 10.5px !important;
+    font-weight: 760 !important;
+    white-space: nowrap !important;
+  }
+
+  .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-work-card__more-button {
+    width: 36px !important;
+    height: 36px !important;
+    min-width: 36px !important;
+    border-radius: 8px !important;
+  }
+
+  .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-work-card__expanded-content {
+    grid-area: details !important;
+  }
+
+  .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-lazy-load {
+    font-size: 10px !important;
+  }
+}
+
+@media (max-width: 430px) {
+  .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-work-list {
+    padding: 11px !important;
+  }
+
+  .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-work-card {
+    padding: 11px !important;
+  }
+
+  .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-work-card__header {
+    grid-template-columns: minmax(0, 1fr) minmax(92px, auto) !important;
+    gap: 7px 8px !important;
+  }
+
+  .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-work-card__identity h3 {
+    font-size: 15px !important;
+  }
+
+  .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-work-card__summary > strong.uc03-work-status-pill,
+  .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-work-card__summary .uc03-verification-badge {
+    max-width: 112px !important;
+    font-size: 9.5px !important;
+  }
+
+  .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-work-card__next-step {
+    padding: 7px 9px !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .enterprise-shell--approved-nav .enterprise-content > .screen-stack,
+  html.vg-pc-navigating .enterprise-shell--approved-nav .enterprise-content > .screen-stack,
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation: none !important;
+    transition: none !important;
+  }
+}

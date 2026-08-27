@@ -39,8 +39,8 @@ export interface BookingPart1View {
   bookingStage: {
     businessStatus: string | null;
     closureDisposition: string | null;
-    auditState: string;
-    auditStatus: string;
+    auditState: 'NOT_STARTED' | 'IN_PROGRESS' | 'COMPLETE';
+    auditStatus: 'NOT_EVALUATED' | 'NO_FLAGS' | 'FLAGS_RAISED';
     closeReasonCode: string | null;
     closureRemarks: string | null;
   };

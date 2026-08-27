@@ -98,8 +98,10 @@ export class DiBookingHttpError extends Error {
 const EXTRACTION_CACHE_MS = 60_000;
 const CONTENT_CACHE_MS = 5 * 60_000;
 const CONTENT_URL_SAFETY_MS = 30_000;
+const CONTENT_ACCESS_STORAGE_PREFIX = 'uc03-di-direct-content-v1';
 const extractionCache = new Map<string, TimedPromise<PcBookingExtractionReview>>();
 const contentCache = new Map<string, TimedPromise<PcBookingDocumentContent>>();
+const contentAccessCache = new Map<string, PcBookingContentAccess>();
 
 function token(accessToken?: string): string {
   const value = accessToken?.trim();
@@ -120,6 +122,14 @@ function reviewCacheKey(
 ): string {
   // Keep cached document data isolated to the exact human session token.
   return `${tenantId}:${externalContextRef}:${documentId}:${token(accessToken)}`;
+}
+
+function contentAccessKey(tenantId: string, externalContextRef: string, documentId: string): string {
+  return `${tenantId}:${externalContextRef}:${documentId}`;
+}
+
+function contentAccessStorageKey(tenantId: string, externalContextRef: string, documentId: string): string {
+  return `${CONTENT_ACCESS_STORAGE_PREFIX}:${contentAccessKey(tenantId, externalContextRef, documentId)}`;
 }
 
 function cachedPromise<T>(
@@ -201,6 +211,43 @@ function contentAccessIsFresh(access?: PcBookingContentAccess | null): access is
   return Number.isFinite(expiresAt) && expiresAt - CONTENT_URL_SAFETY_MS > Date.now();
 }
 
+function rememberContentAccess(
+  tenantId: string,
+  externalContextRef: string,
+  access: PcBookingContentAccess,
+): void {
+  const key = contentAccessKey(tenantId, externalContextRef, access.documentId);
+  contentAccessCache.set(key, access);
+  try {
+    sessionStorage.setItem(
+      contentAccessStorageKey(tenantId, externalContextRef, access.documentId),
+      JSON.stringify(access),
+    );
+  } catch {
+    // Browser/mobile session storage is only a performance optimization.
+  }
+}
+
+function readContentAccess(
+  tenantId: string,
+  externalContextRef: string,
+  documentId: string,
+): PcBookingContentAccess | null {
+  const key = contentAccessKey(tenantId, externalContextRef, documentId);
+  const inMemory = contentAccessCache.get(key);
+  if (inMemory) return inMemory;
+  try {
+    const raw = sessionStorage.getItem(contentAccessStorageKey(tenantId, externalContextRef, documentId));
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as PcBookingContentAccess;
+    if (!parsed?.contentUrl || !parsed.contentUrlExpiresAtUtc || parsed.documentId !== documentId) return null;
+    contentAccessCache.set(key, parsed);
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
 export async function uploadPcBookingDocument(
   tenantId: string,
   externalContextRef: string,
@@ -217,7 +264,10 @@ export async function uploadPcBookingDocument(
     method: 'POST',
     body: form,
   });
-  return envelope<PcBookingUploadResult>(response, 'Upload Booking document');
+  const result = await envelope<PcBookingUploadResult>(response, 'Upload Booking document');
+  const access = asContentAccess(result.documentId, result);
+  if (access) rememberContentAccess(tenantId, externalContextRef, access);
+  return result;
 }
 
 export async function listPcBookingDocuments(
@@ -228,7 +278,12 @@ export async function listPcBookingDocuments(
   const response = await request(contextBase(tenantId, externalContextRef), accessToken, {
     cache: 'no-store',
   });
-  return envelope<PcBookingDocumentList>(response, 'List Booking documents');
+  const result = await envelope<PcBookingDocumentList>(response, 'List Booking documents');
+  result.documents.forEach((document) => {
+    const access = asContentAccess(document.documentId, document);
+    if (access) rememberContentAccess(tenantId, externalContextRef, access);
+  });
+  return result;
 }
 
 export function getPcBookingExtractionReview(
@@ -259,7 +314,9 @@ export async function getPcBookingDocumentContentUrl(
     accessToken,
     { cache: 'no-store' },
   );
-  return envelope<PcBookingContentAccess>(response, 'Prepare Booking document content');
+  const access = await envelope<PcBookingContentAccess>(response, 'Prepare Booking document content');
+  rememberContentAccess(tenantId, externalContextRef, access);
+  return access;
 }
 
 async function fetchDirectContent(
@@ -298,7 +355,8 @@ export function getPcBookingDocumentContent(
 ): Promise<PcBookingDocumentContent> {
   const key = reviewCacheKey(tenantId, externalContextRef, documentId, accessToken);
   return cachedPromise(contentCache, key, CONTENT_CACHE_MS, async () => {
-    let access = asContentAccess(documentId, cachedAccess);
+    let access = asContentAccess(documentId, cachedAccess)
+      ?? readContentAccess(tenantId, externalContextRef, documentId);
     if (!contentAccessIsFresh(access)) {
       access = await getPcBookingDocumentContentUrl(
         tenantId,

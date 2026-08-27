@@ -70,7 +70,9 @@ import './styles/dashboard-mobile-workqueue-fix.css';
 import './styles/dashboard-mobile-card-polish.css';
 import './styles/feedback.css';
 import './styles/pc-journey-experience.css';
+import './styles/pc-journey-final-polish.css';
 import './styles/ui-governance.css';
+import './ui/pcNavigationMotion';
 
 import App from './App';
 import DiFieldViewerEnhancer from './features/di-test/DiFieldViewerEnhancer';

@@ -4,7 +4,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 
 import PageHeader from '../components/PageHeader';
 import StatusPill from '../components/StatusPill';
-import { DocumentFieldReview } from '../features/uc03/DocumentFieldReview';
+import { DirectDiFieldReview } from '../features/uc03/DirectDiFieldReview';
 import {
   bookingWorkspaceQueryKey,
   pcDirectExtractionQueryKey,
@@ -21,10 +21,7 @@ import {
 import {
   getBookingWorkspace,
   type BookingWorkspace,
-  type EvidenceRegion,
-  type ExtractionProposalView,
 } from '../services/audit-core/uc03Booking';
-import type { BookingExtractionFieldDecision } from '../services/audit-core/uc03PcBookingDocuments';
 import {
   getPcBookingReviewSnapshot,
   getPcDirectReviewState,
@@ -32,10 +29,15 @@ import {
   verifyPcBookingDirect,
   type PcBookingReviewDocument,
   type PcBookingReviewSnapshot,
+  type PcDirectExtractedField,
   type PcDirectReviewState,
 } from '../services/audit-core/uc03PcDirectReview';
-import { getPcVerification, type PcVerificationView } from '../services/audit-core/uc03PcVerification';
 import {
+  getPcVerification,
+  type PcVerificationView,
+} from '../services/audit-core/uc03PcVerification';
+import {
+  getPcBookingDocumentContent,
   getPcBookingExtractionReview,
   type PcBookingExtractionFact,
   type PcBookingExtractionReview,
@@ -43,12 +45,7 @@ import {
 import { useProjectContextStore } from '../store/projectContextStore';
 import { useSessionStore } from '../store/sessionStore';
 
-interface LocalFieldDecision {
-  decision: 'APPROVED' | 'CORRECTED';
-  approvedValue: unknown;
-}
-
-type DecisionByDocument = Record<string, Record<string, LocalFieldDecision>>;
+type ModifiedByDocument = Record<string, Record<string, string>>;
 
 function friendly(value: string): string {
   return value
@@ -61,50 +58,6 @@ function factValue(fact: PcBookingExtractionFact): unknown {
   return fact.normalizedValue ?? fact.rawValue;
 }
 
-function reviewableFacts(
-  document: PcBookingReviewDocument,
-  review?: PcBookingExtractionReview,
-): PcBookingExtractionFact[] {
-  if (!review) return [];
-  const allowed = new Set(document.captureEligibleFieldKeys.map((key) => key.toLowerCase()));
-  const seen = new Set<string>();
-  return review.facts.filter((fact) => {
-    const fieldKey = fact.fieldKey.toLowerCase();
-    if (!allowed.has(fieldKey) || seen.has(fieldKey)) return false;
-    const foundStatus = fact.foundStatus.toUpperCase();
-    if (foundStatus === 'NOT_FOUND' || foundStatus === 'MISSING' || factValue(fact) === null || factValue(fact) === undefined) {
-      return false;
-    }
-    seen.add(fieldKey);
-    return true;
-  });
-}
-
-function proposalsFor(
-  document: PcBookingReviewDocument,
-  review?: PcBookingExtractionReview,
-): ExtractionProposalView[] {
-  return reviewableFacts(document, review).map((fact) => ({
-    proposalId: fact.sourceFactRef,
-    fieldKey: fact.fieldKey,
-    sourceEvidenceId: document.documentId,
-    sourceFactId: fact.sourceFactRef,
-    sourceFactVersion: fact.sourceFactVersion,
-    sourceDocumentTypeKey: document.documentTypeKey,
-    valueSource: 'DI_MACHINE',
-    proposedValue: factValue(fact),
-    confidence: null,
-    pageNo: fact.pageNo,
-    evidenceRegion: fact.evidenceRegion as EvidenceRegion | null,
-    status: 'PENDING',
-    acceptedValue: null,
-    canAccept: true,
-    owningDomainKey: null,
-    owningRecordReference: null,
-    version: 1,
-  }));
-}
-
 export default function BookingReviewPage() {
   const { journeyId } = useParams<{ journeyId: string }>();
   const navigate = useNavigate();
@@ -115,8 +68,7 @@ export default function BookingReviewPage() {
   const [verifying, setVerifying] = useState(false);
   const [message, setMessage] = useState<string>();
   const [error, setError] = useState<string>();
-  const [decisions, setDecisions] = useState<DecisionByDocument>({});
-  const [documentComplete, setDocumentComplete] = useState<Record<string, boolean>>({});
+  const [modifications, setModifications] = useState<ModifiedByDocument>({});
   const watchRegistered = useRef(false);
 
   const enabled = Boolean(project?.tenantId && journeyId && accessToken);
@@ -147,7 +99,7 @@ export default function BookingReviewPage() {
   });
   const snapshotQuery = useQuery({
     queryKey: snapshotKey,
-    queryFn: () => getPcBookingReviewSnapshot(project!.tenantId, journeyId!, accessToken, false),
+    queryFn: () => getPcBookingReviewSnapshot(project!.tenantId, journeyId!, accessToken, true),
     enabled,
     staleTime: 120_000,
     gcTime: UC03_OPERATIONAL_GC_MS,
@@ -185,6 +137,9 @@ export default function BookingReviewPage() {
     [reviewedIds, snapshot?.documents],
   );
 
+  // DI owns the extraction schema. As soon as a document is review-ready, preload
+  // its complete extraction and source content directly from DI in parallel so the
+  // PC is not waiting on an Audit Core field whitelist when Review opens.
   const extractionQueries = useQueries({
     queries: reviewCandidates.map((document) => ({
       queryKey: pcDirectExtractionQueryKey(project?.tenantId, journeyId, document.documentId),
@@ -196,6 +151,21 @@ export default function BookingReviewPage() {
       ),
       staleTime: UC03_OPERATIONAL_STALE_MS,
       gcTime: UC03_OPERATIONAL_GC_MS,
+      refetchOnWindowFocus: false,
+      refetchOnReconnect: false,
+      retry: 1,
+    })),
+  });
+  const contentQueries = useQueries({
+    queries: reviewCandidates.map((document) => ({
+      queryKey: ['uc03-pc-direct-di-content', project?.tenantId, journeyId, document.documentId],
+      queryFn: () => getPcBookingDocumentContent(
+        project!.tenantId,
+        snapshot!.externalContextRef,
+        document.documentId,
+        accessToken!,
+      ),
+      staleTime: 5 * 60_000,
       refetchOnWindowFocus: false,
       refetchOnReconnect: false,
       retry: 1,
@@ -233,44 +203,38 @@ export default function BookingReviewPage() {
     ]);
   };
 
-  const rememberDecision = (
-    documentId: string,
-    proposal: ExtractionProposalView,
-    decision: LocalFieldDecision,
-  ) => {
-    setDecisions((current) => ({
+  const setModifiedValue = (documentId: string, fact: PcBookingExtractionFact, value: string) => {
+    setModifications((current) => ({
       ...current,
       [documentId]: {
         ...(current[documentId] || {}),
-        [proposal.proposalId]: decision,
+        [fact.sourceFactRef]: value,
       },
     }));
+  };
+
+  const resetModifiedValue = (documentId: string, fact: PcBookingExtractionFact) => {
+    setModifications((current) => {
+      const documentValues = { ...(current[documentId] || {}) };
+      delete documentValues[fact.sourceFactRef];
+      return { ...current, [documentId]: documentValues };
+    });
   };
 
   const saveDocumentReview = async (document: PcBookingReviewDocument) => {
     const review = extractionByDocument.get(document.documentId);
     if (!review) return;
-    const proposals = proposalsFor(document, review);
-    const documentDecisions = decisions[document.documentId] || {};
-    if (proposals.some((proposal) => !documentDecisions[proposal.proposalId])) {
-      setError('Review every extracted value before saving this document review.');
-      return;
-    }
-
-    const factByRef = new Map(review.facts.map((fact) => [fact.sourceFactRef, fact]));
-    const fields: BookingExtractionFieldDecision[] = proposals.map((proposal) => {
-      const fact = factByRef.get(proposal.sourceFactId);
-      const local = documentDecisions[proposal.proposalId];
-      if (!fact || !local) throw new Error('The DI extraction changed while this document was being reviewed. Please reopen the review.');
-      return {
-        fieldKey: fact.fieldKey,
-        sourceFactRef: fact.sourceFactRef,
-        sourceFactVersion: 1,
-        sourceConfidence: fact.confidenceScore,
-        decision: local.decision,
-        approvedValue: local.approvedValue,
-      };
-    });
+    const documentModifications = modifications[document.documentId] || {};
+    const fields: PcDirectExtractedField[] = review.facts.map((fact) => ({
+      fieldKey: fact.fieldKey,
+      sourceFactRef: fact.sourceFactRef,
+      sourceFactVersion: fact.sourceFactVersion,
+      extractedValue: factValue(fact),
+      modifiedValue: Object.prototype.hasOwnProperty.call(documentModifications, fact.sourceFactRef)
+        ? documentModifications[fact.sourceFactRef]
+        : null,
+      confidenceScore: fact.confidenceScore,
+    }));
 
     setBusyDocumentId(document.documentId);
     setError(undefined);
@@ -284,8 +248,13 @@ export default function BookingReviewPage() {
         fields,
         accessToken,
       );
-      setMessage(`${friendly(document.documentTypeKey || document.requirementKey)} review saved.`);
-      setDecisions((current) => {
+      const changed = result.modifiedFieldCount;
+      setMessage(
+        `${friendly(document.documentTypeKey || document.requirementKey)} review saved: `
+        + `${result.storedFieldCount} DI field${result.storedFieldCount === 1 ? '' : 's'} stored`
+        + `${changed ? `, ${changed} changed` : ''}.`,
+      );
+      setModifications((current) => {
         const next = { ...current };
         delete next[document.documentId];
         return next;
@@ -353,7 +322,6 @@ export default function BookingReviewPage() {
       <div className="screen-stack uc03-c1-workspace">
         <div className="uc03-c1-topbar">
           <button type="button" className="uc03-c1-back" onClick={() => navigate('/dashboard')}>← Work list</button>
-          <span>Project · {project.projectName}</span>
         </div>
         <PageHeader eyebrow="PC Document Verification" title={bookingLabel} description="Opening document review…" />
         <div className="uc03-c1-loading" role="status">Loading only review data not already available in session cache…</div>
@@ -396,7 +364,7 @@ export default function BookingReviewPage() {
         <section className="uc03-c1-section">
           <div className="uc03-review-empty" role="status">
             <strong>Booking verified.</strong>
-            <span>Confirmed or corrected business values have been recorded in Audit Core. DI retains its original extraction.</span>
+            <span>DI extraction and any PC modifications have been recorded in Audit Core.</span>
           </div>
           <button type="button" className="uc03-c1-secondary" onClick={() => navigate('/dashboard')}>Back to Work List</button>
         </section>
@@ -411,13 +379,12 @@ export default function BookingReviewPage() {
     <div className="screen-stack uc03-c1-workspace">
       <div className="uc03-c1-topbar">
         <button type="button" className="uc03-c1-back" onClick={() => navigate('/dashboard')}>← Work list</button>
-        <span>Project · {project.projectName}</span>
       </div>
 
       <PageHeader
         eyebrow="PC Document Verification"
         title={bookingLabel}
-        description="Booking capture is complete. Document status and extraction are read directly from Document Intelligence."
+        description="All extracted fields and source documents are read directly from Document Intelligence. Change only values that are incorrect."
       />
 
       {!snapshot.allReady && (
@@ -482,54 +449,38 @@ export default function BookingReviewPage() {
       {error && <div className="uc03-c1-feedback is-error" role="alert">{error}</div>}
 
       {reviewCandidates.map((document, index) => {
-        const query = extractionQueries[index];
-        const review = query?.data;
-        const proposals = proposalsFor(document, review);
-        const decidedIds = new Set(Object.keys(decisions[document.documentId] || {}));
-        const isComplete = documentComplete[document.documentId] ?? proposals.length === 0;
+        const extractionQuery = extractionQueries[index];
+        const contentQuery = contentQueries[index];
+        const review = extractionQuery?.data;
         const saving = busyDocumentId === document.documentId;
         return (
           <section className="uc03-c1-section" key={document.documentId}>
-            {query?.isPending && <div className="uc03-c1-loading" role="status">Loading extracted values…</div>}
-            {query?.isError && (
+            {extractionQuery?.isPending && <div className="uc03-c1-loading" role="status">Loading extracted values from DI…</div>}
+            {extractionQuery?.isError && (
               <div className="uc03-c1-feedback is-error" role="alert">
-                {query.error instanceof Error ? query.error.message : 'DI extraction could not be loaded for this document.'}
+                {extractionQuery.error instanceof Error ? extractionQuery.error.message : 'DI extraction could not be loaded for this document.'}
               </div>
             )}
             {review && (
               <>
-                <DocumentFieldReview
-                  tenantId={project.tenantId}
-                  journeyId={journeyId}
-                  accessToken={accessToken}
-                  evidenceId={document.documentId}
+                <DirectDiFieldReview
                   documentName={friendly(document.documentTypeKey || document.requirementKey)}
-                  proposals={proposals}
-                  decidedIds={decidedIds}
+                  facts={review.facts}
+                  content={contentQuery?.data}
+                  contentLoading={contentQuery?.isPending}
+                  contentError={contentQuery?.isError
+                    ? (contentQuery.error instanceof Error ? contentQuery.error.message : 'DI source document could not be loaded.')
+                    : undefined}
+                  modifiedValues={modifications[document.documentId] || {}}
                   disabled={Boolean(busyDocumentId) || verifying}
-                  onAccept={async (proposal) => {
-                    rememberDecision(document.documentId, proposal, {
-                      decision: 'APPROVED',
-                      approvedValue: proposal.proposedValue,
-                    });
-                  }}
-                  onCorrect={async (proposal, value) => {
-                    rememberDecision(document.documentId, proposal, {
-                      decision: 'CORRECTED',
-                      approvedValue: value,
-                    });
-                  }}
-                  onReviewCompleteChange={(complete) => setDocumentComplete((current) => (
-                    current[document.documentId] === complete
-                      ? current
-                      : { ...current, [document.documentId]: complete }
-                  ))}
+                  onModify={(fact, value) => setModifiedValue(document.documentId, fact, value)}
+                  onReset={(fact) => resetModifiedValue(document.documentId, fact)}
                 />
                 <div className="uc03-c1-document-actions">
                   <button
                     type="button"
                     className="uc03-c1-primary"
-                    disabled={!isComplete || saving || Boolean(busyDocumentId) || verifying}
+                    disabled={saving || Boolean(busyDocumentId) || verifying}
                     onClick={() => void saveDocumentReview(document)}
                   >
                     {saving ? 'Saving Review…' : 'Save Document Review'}

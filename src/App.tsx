@@ -97,6 +97,16 @@ function OperationalPage({ children }: { children: ReactNode }) {
   );
 }
 
+function OperationalShellPage({ children }: { children: ReactNode }) {
+  return (
+    <Authenticated>
+      <ProjectContextGate>
+        <AppShell>{children}</AppShell>
+      </ProjectContextGate>
+    </Authenticated>
+  );
+}
+
 function LegacyOperationalPage({ children }: { children: ReactNode }) {
   const role = useSessionStore((state) => state.role);
   const selectedProject = useProjectContextStore((state) => state.selectedProject);
@@ -143,7 +153,7 @@ export default function App() {
             <Route path="/payments" element={<LegacyOperationalPage><PaymentTrackerPage /></LegacyOperationalPage>} />
             <Route path="/findings" element={<LegacyOperationalPage><FindingsPage /></LegacyOperationalPage>} />
             <Route path="/tasks" element={<LegacyOperationalPage><TasksPage /></LegacyOperationalPage>} />
-            <Route path="/daily-ops" element={<OperationalPage><DailyOpsPage /></OperationalPage>} />
+            <Route path="/daily-ops" element={<OperationalShellPage><DailyOpsPage /></OperationalShellPage>} />
             <Route path="/activity" element={<LegacyOperationalPage><ActivityTrackerPage /></LegacyOperationalPage>} />
             <Route path="/crm" element={<LegacyOperationalPage><CrmPage /></LegacyOperationalPage>} />
             <Route path="/escalations" element={<LegacyOperationalPage><EscalationsPage /></LegacyOperationalPage>} />

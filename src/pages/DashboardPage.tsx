@@ -169,13 +169,27 @@ type WorkPresentation = {
   primaryPath: string;
 };
 
-function workPresentation(item: Uc03WorkItem, isPc: boolean, reviewPending: boolean): WorkPresentation {
+function workPresentation(
+  item: Uc03WorkItem,
+  isPc: boolean,
+  reviewPending: boolean,
+  flagsView: boolean,
+): WorkPresentation {
   const bookingPath = `/bookings/${item.journeyId}`;
   const reviewPath = `/bookings/${item.journeyId}/review`;
   const deliveryPath = `/deliveries/${item.journeyId}`;
   const auditPath = `/audit/${item.journeyId}`;
   const hasDelivery = Boolean(item.delivery.businessStatus);
   const bookingStatus = item.booking.businessStatus;
+
+  if (isPc && flagsView && item.openFlagCount > 0) {
+    return {
+      workLabel: hasDelivery ? 'Delivery' : 'Booking',
+      nextStep: `Review ${item.openFlagCount} flag${item.openFlagCount === 1 ? '' : 's'}`,
+      primaryActionLabel: 'Review Flags',
+      primaryPath: auditPath,
+    };
+  }
 
   if (isPc && reviewPending) {
     return {
@@ -226,11 +240,13 @@ function WorkItemCard({
   timezoneName,
   isPc,
   reviewPending,
+  flagsView,
 }: {
   item: Uc03WorkItem;
   timezoneName: string;
   isPc: boolean;
   reviewPending: boolean;
+  flagsView: boolean;
 }) {
   const navigate = useNavigate();
   const [expanded, setExpanded] = useState(false);
@@ -246,7 +262,7 @@ function WorkItemCard({
       || bookingStatus === 'BOOKING_CLOSED',
   );
   const auditAvailable = Boolean(item.booking.businessStatus || item.delivery.businessStatus);
-  const presentation = workPresentation(item, isPc, reviewPending);
+  const presentation = workPresentation(item, isPc, reviewPending, flagsView);
   const isDeliveryWork = presentation.workLabel === 'Delivery';
   const primaryStage = isDeliveryWork ? item.delivery : item.booking;
   const workStatus = reviewPending ? 'Review Pending' : friendlyStatus(primaryStage.businessStatus);
@@ -281,7 +297,7 @@ function WorkItemCard({
         <div className="uc03-work-card__identity">
           <h3>{item.customerDisplayName}</h3>
           <div className="uc03-work-card__identity-meta">
-            <span className="uc03-work-card__type-label">{reviewPending ? 'Booking Review' : presentation.workLabel}</span>
+            <span className="uc03-work-card__type-label">{reviewPending && !flagsView ? 'Booking Review' : presentation.workLabel}</span>
             {item.bookingReference && <span>{item.bookingReference}</span>}
           </div>
           <p>{item.productLabel || 'Vehicle not captured'}</p>
@@ -754,6 +770,7 @@ export default function DashboardPage() {
                       timezoneName={timezoneName}
                       isPc={isPc}
                       reviewPending={reviewPendingIds.has(item.journeyId)}
+                      flagsView={view === 'FLAGS'}
                     />
                   ))}
                   {displayedWorkItems.length === 0 && (

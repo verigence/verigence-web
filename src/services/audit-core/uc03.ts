@@ -100,6 +100,57 @@ export interface Uc03WorkItemFilters {
   cursor?: string;
 }
 
+type PrimaryQueueEntry = {
+  promise: Promise<Uc03WorkItemPage>;
+  createdAt: number;
+};
+
+const primaryQueueRequests = new Map<string, PrimaryQueueEntry>();
+const PRIMARY_QUEUE_REGISTRATION_WAIT_MS = 100;
+const PRIMARY_QUEUE_REUSE_MS = 2_000;
+
+function primaryQueueKey(tenantId: string, outletId?: string): string {
+  return `${tenantId}:${outletId || ''}`;
+}
+
+function isInitialWorkQueue(filters: Uc03WorkItemFilters): boolean {
+  return filters.workType === 'ALL'
+    && !filters.fromDate
+    && !filters.toDate
+    && !filters.cursor;
+}
+
+async function waitForPrimaryQueueRegistration(
+  tenantId: string,
+  outletId?: string,
+): Promise<PrimaryQueueEntry | undefined> {
+  const key = primaryQueueKey(tenantId, outletId);
+  const existing = primaryQueueRequests.get(key);
+  if (existing) return existing;
+
+  const deadline = Date.now() + PRIMARY_QUEUE_REGISTRATION_WAIT_MS;
+  while (Date.now() < deadline) {
+    await new Promise<void>((resolve) => globalThis.setTimeout(resolve, 0));
+    const registered = primaryQueueRequests.get(key);
+    if (registered) return registered;
+  }
+  return undefined;
+}
+
+/** Let the first Work Queue page win the initial Dashboard request burst. */
+export async function awaitPrimaryUc03WorkQueue(
+  tenantId: string,
+  outletId?: string,
+): Promise<void> {
+  const entry = await waitForPrimaryQueueRegistration(tenantId, outletId);
+  if (!entry) return;
+  try {
+    await entry.promise;
+  } catch {
+    // Secondary Dashboard reads must still be able to recover independently.
+  }
+}
+
 function accessTokenRequired(accessToken?: string): string {
   const token = accessToken?.trim();
   if (!token) throw new Error('A Security human access token is required.');
@@ -139,13 +190,12 @@ export async function getUc03LandingMetrics(
   outletId: string | undefined,
   accessToken?: string,
 ): Promise<Uc03LandingMetrics> {
+  await awaitPrimaryUc03WorkQueue(tenantId, outletId);
+
   const search = new URLSearchParams();
   if (outletId) search.set('outletId', outletId);
   const suffix = search.size ? `?${search.toString()}` : '';
 
-  // Metrics and the first work-queue page are independent reads. Keep them as
-  // separate requests so React Query can execute them concurrently instead of
-  // waiting for Audit Core's historical serial /dashboard bootstrap.
   return auditCoreRequest<Uc03LandingMetrics>(
     `/v1/tenants/${encodeURIComponent(tenantId)}/uc03/landing-metrics${suffix}`,
     {
@@ -168,11 +218,26 @@ export async function listUc03WorkItems(
   if (filters.outletId) search.set('outletId', filters.outletId);
   if (filters.cursor) search.set('cursor', filters.cursor);
 
-  return auditCoreRequest<Uc03WorkItemPage>(
+  const request = auditCoreRequest<Uc03WorkItemPage>(
     `/v1/tenants/${encodeURIComponent(tenantId)}/uc03/work-items?${search.toString()}`,
     {
       accessToken: accessTokenRequired(accessToken),
       cache: 'no-store',
     },
   );
+
+  if (!isInitialWorkQueue(filters)) return request;
+
+  const key = primaryQueueKey(tenantId, filters.outletId);
+  const entry = { promise: request, createdAt: Date.now() };
+  primaryQueueRequests.set(key, entry);
+  void request.finally(() => {
+    globalThis.setTimeout(() => {
+      const current = primaryQueueRequests.get(key);
+      if (current === entry || (current && Date.now() - current.createdAt > PRIMARY_QUEUE_REUSE_MS)) {
+        primaryQueueRequests.delete(key);
+      }
+    }, PRIMARY_QUEUE_REUSE_MS);
+  });
+  return request;
 }

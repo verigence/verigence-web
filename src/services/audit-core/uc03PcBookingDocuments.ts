@@ -20,7 +20,13 @@ export interface BookingDocumentUploadContext {
   requirements: BookingUploadRequirementContext[];
 }
 
-export interface BookingReviewCachedDocument {
+export interface BookingReviewContentAccess {
+  contentUrl: string | null;
+  contentUrlExpiresAtUtc: string | null;
+  mimeType: string | null;
+}
+
+export interface BookingReviewCachedDocument extends BookingReviewContentAccess {
   requirementRef: string;
   requirementKey: string;
   documentTypeKey: string;
@@ -63,13 +69,15 @@ export interface BookingExtractionDecisionResponse {
 type StoredBookingReviewCache = {
   context: BookingDocumentUploadContext;
   directUploads: Record<string, string[]>;
+  contentAccessByDocument?: Record<string, BookingReviewContentAccess>;
   cachedAt: number;
 };
 
 const contextCache = new Map<string, Promise<BookingDocumentUploadContext>>();
 const directUploadIds = new Map<string, Map<string, string[]>>();
+const contentAccessByJourney = new Map<string, Map<string, BookingReviewContentAccess>>();
 const latestDecisionVersions = new Map<string, number>();
-const REVIEW_CACHE_PREFIX = 'uc03-booking-review-di-context-v1';
+const REVIEW_CACHE_PREFIX = 'uc03-booking-review-di-context-v2';
 
 function token(accessToken?: string): string {
   const value = accessToken?.trim();
@@ -118,6 +126,22 @@ function directUploadsForJourney(tenantId: string, journeyId: string): Map<strin
   return hydrated;
 }
 
+function contentAccessForJourney(
+  tenantId: string,
+  journeyId: string,
+): Map<string, BookingReviewContentAccess> {
+  const journeyKey = key(tenantId, journeyId);
+  const current = contentAccessByJourney.get(journeyKey);
+  if (current) return current;
+
+  const stored = readStoredReviewCache(tenantId, journeyId);
+  const hydrated = new Map<string, BookingReviewContentAccess>(
+    Object.entries(stored?.contentAccessByDocument ?? {}),
+  );
+  contentAccessByJourney.set(journeyKey, hydrated);
+  return hydrated;
+}
+
 function persistReviewCache(
   tenantId: string,
   journeyId: string,
@@ -128,14 +152,16 @@ function persistReviewCache(
     const activeContext = context ?? existing?.context;
     if (!activeContext) return;
     const directUploads = Object.fromEntries(directUploadsForJourney(tenantId, journeyId));
+    const contentAccessByDocument = Object.fromEntries(contentAccessForJourney(tenantId, journeyId));
     sessionStorage.setItem(reviewStorageKey(tenantId, journeyId), JSON.stringify({
       context: activeContext,
       directUploads,
+      contentAccessByDocument,
       cachedAt: Date.now(),
     } satisfies StoredBookingReviewCache));
   } catch {
     // Session cache is an optimization only. Direct upload/review must continue
-    // normally even when browser storage is unavailable.
+    // normally even when browser/mobile WebView storage is unavailable.
   }
 }
 
@@ -151,6 +177,7 @@ export function getCachedBookingReviewContext(
   if (!stored) return null;
 
   const localUploads = directUploadsForJourney(tenantId, journeyId);
+  const contentAccess = contentAccessForJourney(tenantId, journeyId);
   const documents: BookingReviewCachedDocument[] = [];
 
   for (const requirement of stored.context.requirements) {
@@ -171,12 +198,16 @@ export function getCachedBookingReviewContext(
             : [];
 
     for (const documentId of documentIds) {
+      const access = contentAccess.get(documentId);
       documents.push({
         requirementRef: requirement.requirementRef,
         requirementKey: requirement.requirementKey,
         documentTypeKey: requirement.documentTypeKey || requirement.requirementKey,
         documentId,
         repeatable: requirement.repeatable,
+        contentUrl: access?.contentUrl ?? null,
+        contentUrlExpiresAtUtc: access?.contentUrlExpiresAtUtc ?? null,
+        mimeType: access?.mimeType ?? null,
       });
     }
   }
@@ -193,12 +224,25 @@ export function clearBookingDocumentUploadContext(tenantId: string, journeyId: s
   contextCache.delete(key(tenantId, journeyId));
 }
 
+export function rememberBookingDocumentContentAccess(
+  tenantId: string,
+  journeyId: string,
+  documentId: string,
+  access: BookingReviewContentAccess,
+): void {
+  const byDocument = contentAccessForJourney(tenantId, journeyId);
+  byDocument.set(documentId, access);
+  contentAccessByJourney.set(key(tenantId, journeyId), byDocument);
+  persistReviewCache(tenantId, journeyId);
+}
+
 export function rememberDirectBookingUpload(
   tenantId: string,
   journeyId: string,
   requirementRef: string,
   documentId: string,
   repeatable: boolean,
+  contentAccess?: BookingReviewContentAccess,
 ): void {
   const byRequirement = directUploadsForJourney(tenantId, journeyId);
   if (repeatable) {
@@ -211,6 +255,9 @@ export function rememberDirectBookingUpload(
     byRequirement.set(requirementRef, [documentId]);
   }
   directUploadIds.set(key(tenantId, journeyId), byRequirement);
+  if (contentAccess) {
+    contentAccessForJourney(tenantId, journeyId).set(documentId, contentAccess);
+  }
   persistReviewCache(tenantId, journeyId);
 }
 

@@ -33,11 +33,13 @@ export interface PcBookingDocumentStatus {
   requirementRef: string;
   documentTypeKey: string | null;
   uploadStatus: string;
-  processingStatus: string | null;
+  processingStatus: string;
   registeredAtUtc: string;
-  contentUrl: string | null;
-  contentUrlExpiresAtUtc: string | null;
-  mimeType: string | null;
+  // Optional for compatibility with older DI responses and locally synthesized
+  // status rows. New DI responses populate these when signing succeeds.
+  contentUrl?: string | null;
+  contentUrlExpiresAtUtc?: string | null;
+  mimeType?: string | null;
 }
 
 export interface PcBookingDocumentList {
@@ -71,10 +73,10 @@ export interface PcBookingExtractionReview {
 export interface PcBookingUploadResult {
   documentId: string;
   uploadStatus: string;
-  processingStatus: string | null;
-  contentUrl: string | null;
-  contentUrlExpiresAtUtc: string | null;
-  mimeType: string | null;
+  processingStatus: string;
+  contentUrl?: string | null;
+  contentUrlExpiresAtUtc?: string | null;
+  mimeType?: string | null;
 }
 
 export interface PcBookingDocumentContent {

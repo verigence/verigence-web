@@ -1,30 +1,43 @@
-import { useCallback, useEffect, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useEffect, useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useParams } from 'react-router-dom';
 
 import PageHeader from '../components/PageHeader';
 import StatusPill from '../components/StatusPill';
 import {
+  bookingDetailsOptionsQueryKey,
+  bookingDetailsQueryKey,
+  bookingPart1QueryKey,
+  bookingWorkspaceQueryKey,
+  pcVerificationQueryKey,
+  UC03_OPERATIONAL_GC_MS,
+  UC03_OPERATIONAL_STALE_MS,
+} from '../features/uc03/queryKeys';
+import {
   getBookingWorkspace,
   startBooking,
   uploadBookingDocument,
+  type BookingWorkspace,
 } from '../services/audit-core/uc03Booking';
 import {
   getBookingDetails,
   getBookingDetailsOptions,
   saveBookingDetails,
   type BookingDetailsPayload,
+  type BookingDetailsView,
   type BookingOptionalEvidence,
   type BookingReferenceOption,
 } from '../services/audit-core/uc03BookingJourney';
 import {
   getBookingPart1,
+  type BookingPart1View,
   type Part1EvidenceItem,
   type Part1Requirement,
 } from '../services/audit-core/uc03BookingPart1';
 import {
   getPcVerification,
   submitPcBookingCapture,
+  type PcVerificationView,
 } from '../services/audit-core/uc03PcVerification';
 import { useProjectContextStore } from '../store/projectContextStore';
 import { useSessionStore } from '../store/sessionStore';
@@ -84,6 +97,25 @@ function evidenceProcessingState(evidence: Part1EvidenceItem): EvidenceProcessin
   if (FAILED_PROCESSING_STATUSES.has(status)) return 'FAILED';
   if (SUCCESS_PROCESSING_STATUSES.has(status)) return 'READY';
   return 'PROCESSING';
+}
+
+function withMandatorySummary(view: BookingPart1View, requirements: Part1Requirement[]): BookingPart1View {
+  const booking = requirementByKind(requirements, 'BOOKING_DOCKET')?.evidence.length ?? 0;
+  const pan = requirementByKind(requirements, 'PAN')?.evidence.length ?? 0;
+  const aadhaar = requirementByKind(requirements, 'AADHAAR')?.evidence.length ?? 0;
+  const receipts = requirementByKind(requirements, 'BOOKING_PAYMENT_RECEIPT')?.evidence.length ?? 0;
+  return {
+    ...view,
+    requirements,
+    mandatoryEvidence: {
+      bookingDocketComplete: booking > 0,
+      kycComplete: pan > 0 || aadhaar > 0,
+      kycBothProvided: pan > 0 && aadhaar > 0,
+      paymentReceiptComplete: receipts > 0,
+      paymentReceiptCount: receipts,
+      part1EvidenceComplete: booking > 0 && (pan > 0 || aadhaar > 0) && receipts > 0,
+    },
+  };
 }
 
 function UploadCard({
@@ -290,6 +322,7 @@ function OptionalEvidenceUpload({
 export default function BookingWorkspacePage() {
   const { journeyId } = useParams<{ journeyId: string }>();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const project = useProjectContextStore((state) => state.selectedProject);
   const accessToken = useSessionStore((state) => state.accessToken);
   const [step, setStep] = useState<JourneyStep>(1);
@@ -302,34 +335,59 @@ export default function BookingWorkspacePage() {
   const [version, setVersion] = useState(0);
 
   const enabled = Boolean(project?.tenantId && journeyId && accessToken);
+  const workspaceKey = bookingWorkspaceQueryKey(project?.tenantId, journeyId);
+  const part1Key = bookingPart1QueryKey(project?.tenantId, journeyId);
+  const detailsKey = bookingDetailsQueryKey(project?.tenantId, journeyId);
+  const optionsKey = bookingDetailsOptionsQueryKey(project?.tenantId, journeyId);
+  const verificationKey = pcVerificationQueryKey(project?.tenantId, journeyId);
+
   const workspaceQuery = useQuery({
-    queryKey: ['uc03-booking-workspace', project?.tenantId, journeyId],
+    queryKey: workspaceKey,
     queryFn: () => getBookingWorkspace(project!.tenantId, journeyId!, accessToken),
     enabled,
+    staleTime: UC03_OPERATIONAL_STALE_MS,
+    gcTime: UC03_OPERATIONAL_GC_MS,
+    refetchOnMount: false,
     refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
   });
   const part1Query = useQuery({
-    queryKey: ['uc03-booking-part1', project?.tenantId, journeyId],
+    queryKey: part1Key,
     queryFn: () => getBookingPart1(project!.tenantId, journeyId!, accessToken),
     enabled,
+    staleTime: UC03_OPERATIONAL_STALE_MS,
+    gcTime: UC03_OPERATIONAL_GC_MS,
+    refetchOnMount: false,
     refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
   });
   const detailsQuery = useQuery({
-    queryKey: ['uc03-booking-details', project?.tenantId, journeyId],
+    queryKey: detailsKey,
     queryFn: () => getBookingDetails(project!.tenantId, journeyId!, accessToken),
-    enabled,
+    enabled: enabled && step === 2,
+    staleTime: UC03_OPERATIONAL_STALE_MS,
+    gcTime: UC03_OPERATIONAL_GC_MS,
+    refetchOnMount: false,
     refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
   });
   const optionsQuery = useQuery({
-    queryKey: ['uc03-booking-details-options', project?.tenantId, journeyId],
+    queryKey: optionsKey,
     queryFn: () => getBookingDetailsOptions(project!.tenantId, journeyId!, accessToken),
-    enabled,
+    enabled: enabled && step === 2,
+    staleTime: UC03_OPERATIONAL_STALE_MS,
+    gcTime: UC03_OPERATIONAL_GC_MS,
+    refetchOnMount: false,
     refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
   });
   const verificationQuery = useQuery({
-    queryKey: ['uc03-pc-verification', project?.tenantId, journeyId],
+    queryKey: verificationKey,
     queryFn: () => getPcVerification(project!.tenantId, journeyId!, accessToken),
-    enabled: enabled && Boolean(workspaceQuery.data?.bookingStage.businessStatus),
+    enabled: enabled && step === 2 && Boolean(workspaceQuery.data?.bookingStage.businessStatus),
+    staleTime: UC03_OPERATIONAL_STALE_MS,
+    gcTime: UC03_OPERATIONAL_GC_MS,
+    refetchOnMount: false,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
     retry: false,
@@ -360,19 +418,17 @@ export default function BookingWorkspacePage() {
     });
   }, [detailsQuery.data, formDirty]);
 
-  const refreshAll = useCallback(async () => {
-    const [workspaceResult] = await Promise.all([
-      workspaceQuery.refetch(),
-      part1Query.refetch(),
-      detailsQuery.refetch(),
-      verificationQuery.refetch(),
-    ]);
-    if (workspaceResult.data) setVersion(workspaceResult.data.aggregateVersion);
-  }, [detailsQuery, part1Query, verificationQuery, workspaceQuery]);
-
   if (!project || !journeyId) return null;
   if (workspaceQuery.isPending || part1Query.isPending) {
-    return <div className="uc03-c1-loading" role="status">Loading Booking…</div>;
+    return (
+      <div className="screen-stack uc03-booking-journey">
+        <div className="uc03-c1-topbar">
+          <button type="button" className="uc03-c1-back" onClick={() => navigate('/dashboard')}>← Work List</button>
+        </div>
+        <PageHeader eyebrow="Capture New Booking" title="Booking" description="Opening Booking documents…" />
+        <div className="uc03-c1-loading" role="status">Loading Booking…</div>
+      </div>
+    );
   }
   if (workspaceQuery.isError || part1Query.isError || !workspaceQuery.data || !part1Query.data) {
     const cause = workspaceQuery.error || part1Query.error;
@@ -383,7 +439,11 @@ export default function BookingWorkspacePage() {
           <strong>We couldn't open this Booking.</strong>
           <p>{cause instanceof Error ? cause.message : 'Please try again.'}</p>
         </div>
-        <button type="button" className="user-menu-button" onClick={() => void refreshAll()}>Try Again</button>
+        <button
+          type="button"
+          className="user-menu-button"
+          onClick={() => void Promise.all([workspaceQuery.refetch(), part1Query.refetch()])}
+        >Try Again</button>
       </section>
     );
   }
@@ -462,8 +522,19 @@ export default function BookingWorkspacePage() {
   const handleStart = async () => {
     setBusy(true); setError(undefined); setMessage(undefined);
     try {
-      await startBooking(project.tenantId, journeyId, version, accessToken);
-      await refreshAll();
+      const result = await startBooking(project.tenantId, journeyId, version, accessToken);
+      setVersion(result.aggregateVersion);
+      queryClient.setQueryData<BookingWorkspace>(workspaceKey, (current) => current ? {
+        ...current,
+        bookingStage: {
+          ...current.bookingStage,
+          businessStatus: result.businessStatus,
+          auditState: result.auditState as BookingWorkspace['bookingStage']['auditState'],
+          auditStatus: result.auditStatus as BookingWorkspace['bookingStage']['auditStatus'],
+          closureDisposition: result.closureDisposition,
+        },
+        aggregateVersion: result.aggregateVersion,
+      } : current);
       setMessage('Booking started.');
     } catch (cause: unknown) {
       setError(cause instanceof Error ? cause.message : 'Booking could not be started.');
@@ -474,9 +545,34 @@ export default function BookingWorkspacePage() {
     setUploadingKey(requirement.requirementKey); setError(undefined); setMessage(undefined);
     try {
       for (const file of files) {
-        await uploadBookingDocument(project.tenantId, journeyId, requirement.requirementKey, file, accessToken);
+        const result = await uploadBookingDocument(
+          project.tenantId,
+          journeyId,
+          requirement.requirementKey,
+          file,
+          accessToken,
+        );
+        const evidence: Part1EvidenceItem = {
+          evidenceId: result.evidenceId,
+          documentTypeKey: requirement.documentTypeKey,
+          processingStatus: result.processingStatus,
+          verificationStatus: null,
+          linkedAtUtc: new Date().toISOString(),
+        };
+        queryClient.setQueryData<BookingPart1View>(part1Key, (current) => {
+          if (!current) return current;
+          const requirements = current.requirements.map((item) => {
+            if (item.requirementKey !== requirement.requirementKey) return item;
+            return {
+              ...item,
+              evidence: item.kind === 'BOOKING_PAYMENT_RECEIPT'
+                ? [...item.evidence.filter((entry) => entry.evidenceId !== evidence.evidenceId), evidence]
+                : [evidence],
+            };
+          });
+          return withMandatorySummary(current, requirements);
+        });
       }
-      await refreshAll();
       setMessage('Document accepted by Document Intelligence. Extraction continues asynchronously and does not block Booking submission.');
     } catch (cause: unknown) {
       setError(cause instanceof Error ? cause.message : 'The document could not be uploaded.');
@@ -484,9 +580,20 @@ export default function BookingWorkspacePage() {
   };
 
   const saveCurrentDetails = async () => {
-    const result = await saveBookingDetails(project.tenantId, journeyId, detailsPayload(), version, accessToken);
+    const payload = detailsPayload();
+    const result = await saveBookingDetails(project.tenantId, journeyId, payload, version, accessToken);
     setVersion(result.aggregateVersion);
     setFormDirty(false);
+    queryClient.setQueryData<BookingDetailsView>(detailsKey, (current) => current ? {
+      ...current,
+      ...payload,
+      aggregateVersion: result.aggregateVersion,
+      optionalEvidence: result.optionalEvidence,
+    } : current);
+    queryClient.setQueryData<BookingWorkspace>(workspaceKey, (current) => current ? {
+      ...current,
+      aggregateVersion: result.aggregateVersion,
+    } : current);
     return result;
   };
 
@@ -496,8 +603,21 @@ export default function BookingWorkspacePage() {
       const saved = await saveCurrentDetails();
       const requirement = saved.optionalEvidence.find((item) => item.requirementKey === requirementKey);
       if (!requirement) throw new Error('This optional Booking document is not configured for the Journey.');
-      await uploadBookingDocument(project.tenantId, journeyId, requirement.requirementKey, file, accessToken);
-      await refreshAll();
+      const uploaded = await uploadBookingDocument(
+        project.tenantId,
+        journeyId,
+        requirement.requirementKey,
+        file,
+        accessToken,
+      );
+      queryClient.setQueryData<BookingDetailsView>(detailsKey, (current) => current ? {
+        ...current,
+        optionalEvidence: current.optionalEvidence.map((item) => item.requirementKey === requirementKey ? {
+          ...item,
+          evidenceId: uploaded.evidenceId,
+          processingStatus: uploaded.processingStatus,
+        } : item),
+      } : current);
       setMessage('Optional document accepted by Document Intelligence. Extraction continues asynchronously.');
     } catch (cause: unknown) {
       setError(cause instanceof Error ? cause.message : 'The optional document could not be uploaded.');
@@ -512,13 +632,19 @@ export default function BookingWorkspacePage() {
         const saved = await saveCurrentDetails();
         submitVersion = saved.aggregateVersion;
       }
-      await submitPcBookingCapture(
+      const submitted = await submitPcBookingCapture(
         project.tenantId,
         journeyId,
         submitVersion,
         pcCaptureValues(),
         accessToken,
       );
+      queryClient.setQueryData<PcVerificationView>(verificationKey, submitted);
+      queryClient.setQueryData<BookingWorkspace>(workspaceKey, (current) => current ? {
+        ...current,
+        aggregateVersion: submitted.aggregateVersion,
+      } : current);
+      setVersion(submitted.aggregateVersion);
       navigate(`/bookings/${journeyId}/review`, { replace: true });
     } catch (cause: unknown) {
       setError(cause instanceof Error ? cause.message : 'Booking capture could not be submitted.');
@@ -534,7 +660,6 @@ export default function BookingWorkspacePage() {
     <div className="screen-stack uc03-booking-journey">
       <div className="uc03-c1-topbar">
         <button type="button" className="uc03-c1-back" onClick={() => navigate('/dashboard')}>← Work List</button>
-        <span>Project · {project.projectName}</span>
       </div>
 
       <PageHeader

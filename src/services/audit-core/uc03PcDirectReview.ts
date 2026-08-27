@@ -1,7 +1,6 @@
 import { auditCoreRequest } from './client';
 import {
   prepareBookingDocumentUploadContext,
-  type BookingExtractionFieldDecision,
   type BookingUploadRequirementContext,
 } from './uc03PcBookingDocuments';
 import {
@@ -42,19 +41,25 @@ export interface PcDirectReviewState {
   reviewComplete: boolean;
 }
 
+export interface PcDirectExtractedField {
+  fieldKey: string;
+  sourceFactRef: string;
+  sourceFactVersion: number;
+  extractedValue: unknown;
+  modifiedValue: unknown | null;
+  confidenceScore: number | null;
+}
+
 export interface PcDirectDocumentReviewResponse {
   journeyId: string;
   requirementRef: string;
   documentId: string;
   aggregateVersion: number;
   reviewEventId: string;
-  decisions: Array<{
-    fieldKey: string;
-    decision: 'APPROVED' | 'CORRECTED';
-    owningDomainKey: string;
-    owningRecordReference: string;
-    eventId: string;
-  }>;
+  storedFieldCount: number;
+  modifiedFieldCount: number;
+  projectedFieldCount: number;
+  projectionFailureCount: number;
 }
 
 export interface PcDirectVerificationResponse {
@@ -79,10 +84,10 @@ function newIdempotencyKey(prefix: string): string {
 }
 
 function stableDocumentReviewKey(tenantId: string, journeyId: string, documentId: string): string {
-  const storageKey = `uc03-direct-review:${tenantId}:${journeyId}:${documentId}`;
+  const storageKey = `uc03-direct-review-fields:${tenantId}:${journeyId}:${documentId}`;
   const existing = sessionStorage.getItem(storageKey);
   if (existing) return existing;
-  const created = newIdempotencyKey('uc03-booking-direct-review');
+  const created = newIdempotencyKey('uc03-booking-direct-review-fields');
   sessionStorage.setItem(storageKey, created);
   return created;
 }
@@ -132,9 +137,6 @@ function selectCurrentDocuments(
       continue;
     }
 
-    // For a replacement upload, DI knows about the newest accepted document before
-    // the asynchronous linkage callback may have reached Audit Core. Prefer that
-    // newest DI document, but mark it not linked until Audit Core acknowledges it.
     const document = matching[matching.length - 1];
     const linked = activeIds.has(document.documentId)
       || requirement.currentDocumentId === document.documentId;
@@ -204,10 +206,10 @@ export async function submitPcDirectDocumentReview(
   journeyId: string,
   requirementRef: string,
   documentId: string,
-  fields: BookingExtractionFieldDecision[],
+  fields: PcDirectExtractedField[],
   accessToken?: string,
 ): Promise<PcDirectDocumentReviewResponse> {
-  return auditCoreRequest<PcDirectDocumentReviewResponse>(`${base(tenantId, journeyId)}/booking/direct-document-review`, {
+  return auditCoreRequest<PcDirectDocumentReviewResponse>(`${base(tenantId, journeyId)}/booking/direct-document-review-fields`, {
     method: 'POST',
     accessToken: token(accessToken),
     headers: { 'Idempotency-Key': stableDocumentReviewKey(tenantId, journeyId, documentId) },

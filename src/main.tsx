@@ -68,8 +68,8 @@ import './styles/dashboard-visual-hierarchy.css';
 import './styles/dashboard-workqueue-ui.css';
 import './styles/dashboard-mobile-workqueue-fix.css';
 import './styles/dashboard-mobile-card-polish.css';
-import './styles/ui-governance.css';
 import './styles/feedback.css';
+import './styles/ui-governance.css';
 
 import App from './App';
 import DiFieldViewerEnhancer from './features/di-test/DiFieldViewerEnhancer';

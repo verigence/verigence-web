@@ -1,4 +1,4 @@
-import { getPcBookingDocumentContent } from '../di/bookingDocuments';
+import { getPcBookingDocumentAccess } from '../di/bookingDocuments';
 import { prepareBookingDocumentUploadContext } from './uc03PcBookingDocuments';
 
 export interface BookingDocumentAccess {
@@ -20,7 +20,7 @@ export async function getBookingDocumentAccess(
   accessToken?: string,
 ): Promise<BookingDocumentAccess> {
   const context = await prepareBookingDocumentUploadContext(tenantId, journeyId, accessToken);
-  const access = await getPcBookingDocumentContent(
+  const access = await getPcBookingDocumentAccess(
     tenantId,
     context.externalContextRef,
     evidenceId,

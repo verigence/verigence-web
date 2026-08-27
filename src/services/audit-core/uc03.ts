@@ -100,14 +100,6 @@ export interface Uc03WorkItemFilters {
   cursor?: string;
 }
 
-interface DashboardBootstrapCacheEntry {
-  expiresAt: number;
-  promise: Promise<Uc03DashboardBootstrap>;
-}
-
-const dashboardBootstrapCache = new Map<string, DashboardBootstrapCacheEntry>();
-const DASHBOARD_BOOTSTRAP_REUSE_MS = 5_000;
-
 function accessTokenRequired(accessToken?: string): string {
   const token = accessToken?.trim();
   if (!token) throw new Error('A Security human access token is required.');
@@ -123,35 +115,6 @@ function normalizeOperatingRole(role: string): OperatingRole {
     case 'EXECUTIVE': return 'EXECUTIVE';
     default: throw new Error('This Project has an unsupported operating role.');
   }
-}
-
-function getUc03DashboardBootstrap(
-  tenantId: string,
-  outletId: string | undefined,
-  accessToken?: string,
-): Promise<Uc03DashboardBootstrap> {
-  const token = accessTokenRequired(accessToken);
-  const key = `${token}:${tenantId}:${outletId || ''}`;
-  const now = Date.now();
-  const cached = dashboardBootstrapCache.get(key);
-  if (cached && cached.expiresAt > now) return cached.promise;
-
-  const search = new URLSearchParams();
-  if (outletId) search.set('outletId', outletId);
-  const suffix = search.size ? `?${search.toString()}` : '';
-  const promise = auditCoreRequest<Uc03DashboardBootstrap>(
-    `/v1/tenants/${encodeURIComponent(tenantId)}/uc03/dashboard${suffix}`,
-    {
-      accessToken: token,
-      cache: 'no-store',
-    },
-  );
-  const entry = { expiresAt: now + DASHBOARD_BOOTSTRAP_REUSE_MS, promise };
-  dashboardBootstrapCache.set(key, entry);
-  globalThis.setTimeout(() => {
-    if (dashboardBootstrapCache.get(key) === entry) dashboardBootstrapCache.delete(key);
-  }, DASHBOARD_BOOTSTRAP_REUSE_MS);
-  return promise;
 }
 
 export async function listMyOperationalProjects(
@@ -176,7 +139,20 @@ export async function getUc03LandingMetrics(
   outletId: string | undefined,
   accessToken?: string,
 ): Promise<Uc03LandingMetrics> {
-  return (await getUc03DashboardBootstrap(tenantId, outletId, accessToken)).metrics;
+  const search = new URLSearchParams();
+  if (outletId) search.set('outletId', outletId);
+  const suffix = search.size ? `?${search.toString()}` : '';
+
+  // Metrics and the first work-queue page are independent reads. Keep them as
+  // separate requests so React Query can execute them concurrently instead of
+  // waiting for Audit Core's historical serial /dashboard bootstrap.
+  return auditCoreRequest<Uc03LandingMetrics>(
+    `/v1/tenants/${encodeURIComponent(tenantId)}/uc03/landing-metrics${suffix}`,
+    {
+      accessToken: accessTokenRequired(accessToken),
+      cache: 'no-store',
+    },
+  );
 }
 
 export async function listUc03WorkItems(
@@ -184,14 +160,6 @@ export async function listUc03WorkItems(
   filters: Uc03WorkItemFilters,
   accessToken?: string,
 ): Promise<Uc03WorkItemPage> {
-  const initialDashboardPage = filters.workType === 'ALL'
-    && !filters.fromDate
-    && !filters.toDate
-    && !filters.cursor;
-  if (initialDashboardPage) {
-    return (await getUc03DashboardBootstrap(tenantId, filters.outletId, accessToken)).workItems;
-  }
-
   const search = new URLSearchParams();
   search.set('workType', filters.workType);
   search.set('limit', '10');

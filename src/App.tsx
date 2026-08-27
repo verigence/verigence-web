@@ -1,4 +1,4 @@
-import { lazy, Suspense, type ReactNode } from 'react';
+import { lazy, Suspense, useEffect, type ReactNode } from 'react';
 import { IonApp } from '@ionic/react';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 
@@ -13,6 +13,12 @@ import AndroidNativeBridge from './native/AndroidNativeBridge';
 import { useProjectContextStore } from './store/projectContextStore';
 import { useSessionStore } from './store/sessionStore';
 
+const loadDashboardPage = () => import('./pages/DashboardPage');
+const loadBookingWorkspacePage = () => import('./pages/BookingWorkspaceFastEntry');
+const loadBookingReviewPage = () => import('./pages/BookingReviewPage');
+const loadDeliveryWorkspacePage = () => import('./pages/DeliveryWorkspacePage');
+const loadAuditReviewPage = () => import('./pages/AuditReviewPage');
+
 const LoginPage = lazy(() => import('./pages/LoginPage'));
 const SignupPage = lazy(() => import('./pages/SignupPage'));
 const ForgotPasswordPage = lazy(() => import('./pages/ForgotPasswordPage'));
@@ -26,11 +32,11 @@ const AdminLandingPage = lazy(() => import('./pages/AdminLandingPage'));
 const AdminFeedbackPage = lazy(() => import('./pages/AdminFeedbackPage'));
 const DiTestConsolePage = lazy(() => import('./pages/DiTestConsolePage'));
 const DocumentIntelligenceConfigurationPage = lazy(() => import('./pages/DocumentIntelligenceConfigurationPage'));
-const DashboardPage = lazy(() => import('./pages/DashboardPage'));
-const BookingWorkspacePage = lazy(() => import('./pages/BookingWorkspaceFastEntry'));
-const BookingReviewPage = lazy(() => import('./pages/BookingReviewPage'));
-const DeliveryWorkspacePage = lazy(() => import('./pages/DeliveryWorkspacePage'));
-const AuditReviewPage = lazy(() => import('./pages/AuditReviewPage'));
+const DashboardPage = lazy(loadDashboardPage);
+const BookingWorkspacePage = lazy(loadBookingWorkspacePage);
+const BookingReviewPage = lazy(loadBookingReviewPage);
+const DeliveryWorkspacePage = lazy(loadDeliveryWorkspacePage);
+const AuditReviewPage = lazy(loadAuditReviewPage);
 const CustomersPage = lazy(() => import('./pages/CustomersPage'));
 const JourneysPage = lazy(() => import('./pages/JourneysPage'));
 const JourneyWorkspacePage = lazy(() => import('./pages/JourneyWorkspacePage'));
@@ -50,6 +56,37 @@ const ProjectAdministrationPage = lazy(() => import('./pages/ProjectAdministrati
 const ProfilePage = lazy(() => import('./pages/ProfilePage'));
 
 const routerBase = import.meta.env.BASE_URL === '/' ? undefined : import.meta.env.BASE_URL.replace(/\/$/, '');
+
+function PcJourneyRoutePreloader() {
+  const signedIn = useSessionStore((state) => state.signedIn);
+
+  useEffect(() => {
+    // The dashboard is the first operational destination. Warm its chunk while the
+    // user is still on the login screen so authentication does not end in a route flash.
+    const timer = window.setTimeout(() => {
+      void loadDashboardPage();
+    }, 250);
+    return () => window.clearTimeout(timer);
+  }, []);
+
+  useEffect(() => {
+    if (!signedIn) return undefined;
+    // Once authenticated, warm the rest of the PC journey in the background. Browser
+    // module caching makes later Work Queue -> Booking -> Review/Delivery transitions
+    // reuse these chunks instead of falling back to the global loading screen.
+    const timer = window.setTimeout(() => {
+      void Promise.allSettled([
+        loadBookingWorkspacePage(),
+        loadBookingReviewPage(),
+        loadDeliveryWorkspacePage(),
+        loadAuditReviewPage(),
+      ]);
+    }, 100);
+    return () => window.clearTimeout(timer);
+  }, [signedIn]);
+
+  return null;
+}
 
 function Authenticated({ children }: { children: ReactNode }) {
   const signedIn = useSessionStore((state) => state.signedIn);
@@ -131,6 +168,7 @@ export default function App() {
     <IonApp>
       <BrowserRouter basename={routerBase}>
         <SessionRenewalGate />
+        <PcJourneyRoutePreloader />
         <AndroidNativeBridge />
         <ProjectAdminOutletLocationEnhancer />
         <ProjectMasterActionOverlay />

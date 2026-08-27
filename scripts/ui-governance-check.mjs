@@ -18,6 +18,20 @@ function forbid(relativePath, pattern, message) {
   if (pattern.test(source)) failures.push(`${relativePath}: ${message}`);
 }
 
+function uiFiles(relativeDir) {
+  const absoluteDir = path.join(root, relativeDir);
+  const result = [];
+  for (const entry of fs.readdirSync(absoluteDir, { withFileTypes: true })) {
+    const relativePath = path.join(relativeDir, entry.name).replaceAll('\\', '/');
+    if (entry.isDirectory()) {
+      result.push(...uiFiles(relativePath));
+    } else if (entry.isFile() && relativePath.endsWith('.tsx')) {
+      result.push(relativePath);
+    }
+  }
+  return result;
+}
+
 const main = read('src/main.tsx');
 const governanceImport = "import './styles/ui-governance.css';";
 const styleImports = [...main.matchAll(/^import '\.\/styles\/[^']+';$/gm)].map((match) => match[0]);
@@ -59,42 +73,35 @@ for (const rootSelector of ['html {', 'body {', '#root {', 'ion-app {']) {
   }
 }
 
+for (const relativePath of uiFiles('src')) {
+  forbid(relativePath, /\bprojectName\b/, 'Project Name must not be referenced by rendered Web UI.');
+}
+
 forbid(
   'src/layout/AppShell.tsx',
-  /selectedProject\?*\.projectName|selectedProject\.projectName|Current Project|Switch Project/,
-  'Project Name / Project identity must not be rendered in the shared application shell.',
+  /Current Project|Switch Project/,
+  'Project identity must not be rendered in the shared application shell.',
 );
 requireText('src/layout/AppShell.tsx', 'Current Workspace', 'shared shell must use neutral Workspace context.');
 requireText('src/layout/AppShell.tsx', 'Switch Workspace', 'project switching must be labelled as Workspace switching.');
 
 forbid(
   'src/components/ProjectContextGate.tsx',
-  /\.projectName\b|\.dealerName\b|\.outletName\b/,
-  'Project/Dealer/Outlet names are prohibited in selection/gate screens.',
+  /\.dealerName\b|\.outletName\b/,
+  'Dealer/Outlet names are prohibited in selection/gate screens.',
 );
 requireText('src/components/ProjectContextGate.tsx', 'Choose Workspace', 'selection screen must use neutral Workspace wording.');
 requireText('src/components/ProjectContextGate.tsx', 'Choose Work Location', 'outlet selection must use neutral Work Location wording.');
-
-forbid(
-  'src/pages/DashboardPage.tsx',
-  /project\.projectName\b/,
-  'Landing may show Dealer/Outlet for PC context but must never fall back to Project Name.',
-);
 
 const operationalFiles = [
   'src/pages/DeliveryWorkspacePage.tsx',
   'src/pages/AuditReviewPage.tsx',
 ];
 for (const relativePath of operationalFiles) {
-  forbid(relativePath, /\.projectName\b|\.dealerName\b|\.outletName\b/, 'operational screens may not render Project, Dealer or Outlet names.');
+  forbid(relativePath, /\.dealerName\b|\.outletName\b/, 'operational screens may not render Dealer or Outlet names.');
 }
 
 const booking = read('src/pages/BookingWorkspacePage.tsx');
-forbid(
-  'src/pages/BookingWorkspacePage.tsx',
-  /project\.projectName\b/,
-  'Project Name must not be rendered in Booking.',
-);
 if (/\.dealerName\b|\.outletName\b/.test(booking)) {
   failures.push('src/pages/BookingWorkspacePage.tsx: Dealer/Outlet names are landing-page-only.');
 }
@@ -142,7 +149,7 @@ if (failures.length) {
 
 console.log('VERIGENCE_UI_GOVERNANCE=PASS');
 console.log('Background=LOGIN_NAVY_TEAL');
-console.log('ProjectName=PROHIBITED_OPERATIONAL_UI');
+console.log('ProjectName=PROHIBITED_ALL_RENDERED_UI');
 console.log('DealerOutlet=LANDING_ONLY');
 console.log('VerticalFreeze=PROHIBITED_ROOT_AND_PAGE_SCROLL_REQUIRED');
 console.log('BookingStep1=FOUR_UPLOADS_REQUIRED_AND_REACHABLE');

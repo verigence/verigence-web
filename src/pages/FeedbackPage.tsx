@@ -48,7 +48,7 @@ export default function FeedbackPage() {
       setError('Screenshot must be a PNG, JPEG or WebP image.');
       return;
     }
-    if (file.size > MAX_SCREENSHOT_BYTES) {
+    if (file.size >= MAX_SCREENSHOT_BYTES) {
       setScreenshot(undefined);
       setError('Screenshot must be smaller than 1 MB.');
       return;
@@ -123,7 +123,7 @@ export default function FeedbackPage() {
             onChange={(event) => onScreenshotChange(event.target.files?.[0])}
             disabled={submitting}
           />
-          <small>PNG, JPEG or WebP. Maximum size 1 MB.</small>
+          <small>PNG, JPEG or WebP. Must be smaller than 1 MB.</small>
         </label>
 
         {previewUrl && screenshot && (

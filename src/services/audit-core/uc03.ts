@@ -244,13 +244,15 @@ export async function listUc03WorkItems(
   const key = primaryQueueKey(tenantId, filters.outletId);
   const entry = { promise: request, createdAt: Date.now() };
   primaryQueueRequests.set(key, entry);
-  void request.finally(() => {
+
+  const scheduleCleanup = () => {
     globalThis.setTimeout(() => {
       const current = primaryQueueRequests.get(key);
       if (current === entry || (current && Date.now() - current.createdAt > PRIMARY_QUEUE_REUSE_MS)) {
         primaryQueueRequests.delete(key);
       }
     }, PRIMARY_QUEUE_REUSE_MS);
-  });
+  };
+  void request.then(scheduleCleanup, scheduleCleanup);
   return request;
 }

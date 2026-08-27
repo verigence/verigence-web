@@ -1,13 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
-import { refreshBookingExtraction } from '../../services/audit-core/uc03Booking';
-import { getPcVerification } from '../../services/audit-core/uc03PcVerification';
+import { getPcBookingReviewSnapshot } from '../../services/audit-core/uc03PcDirectReview';
 import { useProjectContextStore } from '../../store/projectContextStore';
 import { useSessionStore } from '../../store/sessionStore';
 
 const STORAGE_KEY = 'uc03-pc-review-readiness-watch-v1';
 const CHANGE_EVENT = 'uc03-pc-review-readiness-watch-change';
+export const REVIEW_READY_EVENT = 'uc03-pc-review-ready';
 const RECHECK_MS = 120_000;
 const SCHEDULER_TICK_MS = 10_000;
 
@@ -95,21 +95,23 @@ export default function ReviewReadinessWatcher() {
     )));
 
     for (const entry of due) {
-      await refreshBookingExtraction(entry.tenantId, entry.journeyId, accessToken).catch(() => undefined);
-      const status = await getPcVerification(entry.tenantId, entry.journeyId, accessToken).catch(() => null);
-      if (!status) continue;
+      const snapshot = await getPcBookingReviewSnapshot(
+        entry.tenantId,
+        entry.journeyId,
+        accessToken,
+        true,
+      ).catch(() => null);
+      if (!snapshot?.allReady) continue;
+
       const latest = readEntries();
-      if (status.pcVerificationStatus === 'VERIFIED') {
-        writeEntries(latest.filter((item) => !(item.tenantId === entry.tenantId && item.journeyId === entry.journeyId)));
-        continue;
-      }
-      if (status.reviewReady) {
-        writeEntries(latest.map((item) => (
-          item.tenantId === entry.tenantId && item.journeyId === entry.journeyId
-            ? { ...item, ready: true }
-            : item
-        )));
-      }
+      writeEntries(latest.map((item) => (
+        item.tenantId === entry.tenantId && item.journeyId === entry.journeyId
+          ? { ...item, ready: true }
+          : item
+      )));
+      window.dispatchEvent(new CustomEvent(REVIEW_READY_EVENT, {
+        detail: { tenantId: entry.tenantId, journeyId: entry.journeyId },
+      }));
     }
   }, [accessToken, project?.operatingRole, project?.tenantId]);
 

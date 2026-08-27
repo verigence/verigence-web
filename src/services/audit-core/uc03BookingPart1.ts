@@ -31,6 +31,19 @@ export interface Part1ProductMasterMatch {
 
 export interface BookingPart1View {
   journeyId: string;
+  aggregateVersion: number;
+  operatingRole: string;
+  capture: {
+    CUSTOMER_NAME: string | null;
+  };
+  bookingStage: {
+    businessStatus: string | null;
+    closureDisposition: string | null;
+    auditState: string;
+    auditStatus: string;
+    closeReasonCode: string | null;
+    closureRemarks: string | null;
+  };
   requirements: Part1Requirement[];
   mandatoryEvidence: {
     bookingDocketComplete: boolean;
@@ -58,8 +71,9 @@ export async function getBookingPart1(
   journeyId: string,
   accessToken?: string,
 ): Promise<BookingPart1View> {
-  // Booking open is a read-only Audit Core operation. Preparing the upload/DI
-  // context belongs to the actual upload action and must not delay Step 1.
+  // Booking Part-1 is now the complete lightweight bootstrap for the PC capture
+  // screen: customer/status/version plus document requirements/evidence. The full
+  // audit workspace is deliberately not fetched just to paint Step 1.
   return auditCoreRequest<BookingPart1View>(`${base(tenantId, journeyId)}/booking/part1`, {
     accessToken: token(accessToken),
     cache: 'no-store',

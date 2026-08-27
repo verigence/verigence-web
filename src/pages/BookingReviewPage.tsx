@@ -1,10 +1,15 @@
 import { useEffect, useRef, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useParams } from 'react-router-dom';
 
 import PageHeader from '../components/PageHeader';
 import StatusPill from '../components/StatusPill';
 import { DocumentFieldReview } from '../features/uc03/DocumentFieldReview';
+import {
+  bookingWorkspaceQueryKey,
+  pcVerificationQueryKey,
+  UC03_OPERATIONAL_GC_MS,
+} from '../features/uc03/queryKeys';
 import {
   clearReviewReadinessWatch,
   watchReviewReadiness,
@@ -13,11 +18,13 @@ import {
   decideExtractionProposal,
   getBookingWorkspace,
   refreshBookingExtraction,
+  type BookingWorkspace,
   type ExtractionProposalView,
 } from '../services/audit-core/uc03Booking';
 import {
   getPcVerification,
   verifyPcBooking,
+  type PcVerificationView,
 } from '../services/audit-core/uc03PcVerification';
 import { useProjectContextStore } from '../store/projectContextStore';
 import { useSessionStore } from '../store/sessionStore';
@@ -25,6 +32,7 @@ import { useSessionStore } from '../store/sessionStore';
 export default function BookingReviewPage() {
   const { journeyId } = useParams<{ journeyId: string }>();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const project = useProjectContextStore((state) => state.selectedProject);
   const accessToken = useSessionStore((state) => state.accessToken);
   const [busy, setBusy] = useState(false);
@@ -34,33 +42,51 @@ export default function BookingReviewPage() {
   const watchRegistered = useRef(false);
 
   const enabled = Boolean(project?.tenantId && journeyId && accessToken);
-  const workspaceQuery = useQuery({
-    queryKey: ['uc03-booking-review-workspace', project?.tenantId, journeyId],
-    queryFn: () => getBookingWorkspace(project!.tenantId, journeyId!, accessToken),
+  const workspaceKey = bookingWorkspaceQueryKey(project?.tenantId, journeyId);
+  const verificationKey = pcVerificationQueryKey(project?.tenantId, journeyId);
+
+  const verificationQuery = useQuery({
+    queryKey: verificationKey,
+    queryFn: () => getPcVerification(project!.tenantId, journeyId!, accessToken),
     enabled,
+    staleTime: 15_000,
+    gcTime: UC03_OPERATIONAL_GC_MS,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
   });
-  const verificationQuery = useQuery({
-    queryKey: ['uc03-pc-verification', project?.tenantId, journeyId],
-    queryFn: () => getPcVerification(project!.tenantId, journeyId!, accessToken),
-    enabled,
+  const verification = verificationQuery.data;
+  const reviewReady = Boolean(verification?.reviewReady && verification.pcVerificationStatus === 'PENDING');
+
+  // The heavy Booking workspace is deliberately lazy here. Until DI says the
+  // review is ready, the Review screen needs only the lightweight verification view.
+  const workspaceQuery = useQuery({
+    queryKey: workspaceKey,
+    queryFn: () => getBookingWorkspace(project!.tenantId, journeyId!, accessToken),
+    enabled: enabled && reviewReady,
+    staleTime: 0,
+    gcTime: UC03_OPERATIONAL_GC_MS,
+    refetchOnMount: 'always',
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
   });
 
   useEffect(() => {
     if (!enabled || firstReadinessCheck.current) return;
-    if (!verificationQuery.data || verificationQuery.data.pcVerificationStatus !== 'PENDING') return;
+    if (!verification || verification.pcVerificationStatus !== 'PENDING' || verification.reviewReady) return;
     firstReadinessCheck.current = true;
     void refreshBookingExtraction(project!.tenantId, journeyId!, accessToken)
+      .then((result) => {
+        queryClient.setQueryData<BookingWorkspace>(workspaceKey, (current) => current ? {
+          ...current,
+          aggregateVersion: result.aggregateVersion,
+        } : current);
+      })
       .catch(() => undefined)
-      .finally(() => Promise.all([workspaceQuery.refetch(), verificationQuery.refetch()]));
-  }, [accessToken, enabled, journeyId, project, verificationQuery.data, verificationQuery.refetch, workspaceQuery.refetch]);
+      .finally(() => { void verificationQuery.refetch(); });
+  }, [accessToken, enabled, journeyId, project, queryClient, verification, verificationQuery, workspaceKey]);
 
-  const verification = verificationQuery.data;
-  const workspace = workspaceQuery.data;
-  const bookingLabel = String(workspace?.capture.BOOKING_REFERENCE || 'Booking');
+  const cachedWorkspace = workspaceQuery.data;
+  const bookingLabel = String(cachedWorkspace?.capture.BOOKING_REFERENCE || 'Booking');
 
   useEffect(() => {
     if (!project?.tenantId || !journeyId || !verification) return;
@@ -76,18 +102,51 @@ export default function BookingReviewPage() {
 
   if (!project || !journeyId) return null;
 
-  const refresh = async () => {
-    await Promise.all([workspaceQuery.refetch(), verificationQuery.refetch()]);
+  const retry = async () => {
+    await verificationQuery.refetch();
+    if (reviewReady) await workspaceQuery.refetch();
   };
 
-  const run = async (operation: () => Promise<unknown>, success: string) => {
+  const handleProposal = async (
+    proposal: ExtractionProposalView,
+    mode: 'accept' | 'correct',
+    correctedValue?: string,
+  ) => {
+    if (!cachedWorkspace) return;
     setBusy(true);
     setError(undefined);
     setMessage(undefined);
     try {
-      await operation();
-      setMessage(success);
-      await refresh();
+      const result = await decideExtractionProposal(
+        project.tenantId,
+        journeyId,
+        proposal.proposalId,
+        mode,
+        cachedWorkspace.aggregateVersion,
+        accessToken,
+        correctedValue,
+      );
+      queryClient.setQueryData<BookingWorkspace>(workspaceKey, (current) => current ? {
+        ...current,
+        aggregateVersion: result.aggregateVersion,
+        proposals: current.proposals.map((item) => item.proposalId === proposal.proposalId ? {
+          ...item,
+          status: mode === 'accept' ? 'ACCEPTED' : 'CORRECTED',
+          acceptedValue: mode === 'accept' ? item.proposedValue : correctedValue,
+          canAccept: false,
+          version: item.version + 1,
+        } : item),
+      } : current);
+      queryClient.setQueryData<PcVerificationView>(verificationKey, (current) => current ? {
+        ...current,
+        aggregateVersion: result.aggregateVersion,
+        pendingProposalCount: proposal.status === 'PENDING'
+          ? Math.max(0, current.pendingProposalCount - 1)
+          : current.pendingProposalCount,
+      } : current);
+      setMessage(mode === 'accept'
+        ? 'Extracted value confirmed.'
+        : 'Correction saved. The original DI extraction remains unchanged.');
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'The review action could not be completed.');
     } finally {
@@ -95,43 +154,44 @@ export default function BookingReviewPage() {
     }
   };
 
-  const handleProposal = (
-    proposal: ExtractionProposalView,
-    mode: 'accept' | 'correct',
-    correctedValue?: string,
-  ) => run(
-    () => decideExtractionProposal(
-      project.tenantId,
-      journeyId,
-      proposal.proposalId,
-      mode,
-      workspace!.aggregateVersion,
-      accessToken,
-      correctedValue,
-    ),
-    mode === 'accept'
-      ? 'Extracted value confirmed.'
-      : 'Correction saved. The original DI extraction remains unchanged.',
-  );
-
-  const handleVerify = () => run(
-    async () => {
-      await verifyPcBooking(
+  const handleVerify = async () => {
+    if (!verification) return;
+    setBusy(true);
+    setError(undefined);
+    setMessage(undefined);
+    try {
+      const result = await verifyPcBooking(
         project.tenantId,
         journeyId,
-        verification!.aggregateVersion,
+        verification.aggregateVersion,
         accessToken,
       );
+      queryClient.setQueryData(verificationKey, result);
+      queryClient.setQueryData<BookingWorkspace>(workspaceKey, (current) => current ? {
+        ...current,
+        aggregateVersion: result.aggregateVersion,
+      } : current);
       clearReviewReadinessWatch(project.tenantId, journeyId);
-    },
-    'PC verification completed.',
-  );
+      setMessage('PC verification completed.');
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'The review action could not be completed.');
+    } finally {
+      setBusy(false);
+    }
+  };
 
-  if (workspaceQuery.isPending || verificationQuery.isPending) {
-    return <div className="uc03-c1-loading" role="status">Opening document review…</div>;
+  if (verificationQuery.isPending) {
+    return (
+      <div className="screen-stack uc03-c1-workspace">
+        <PageHeader eyebrow="PC Document Verification" title="Booking review" description="Checking document readiness…" />
+        <section className="uc03-c1-section">
+          <div className="uc03-review-empty" role="status"><strong>Opening review…</strong><span>The screen is ready; only the latest verification state is being loaded.</span></div>
+        </section>
+      </div>
+    );
   }
-  if (workspaceQuery.isError || verificationQuery.isError || !workspace || !verification) {
-    const cause = workspaceQuery.error || verificationQuery.error;
+  if (verificationQuery.isError || !verification) {
+    const cause = verificationQuery.error;
     return (
       <section className="dashboard-load-state" role="alert">
         <div className="dashboard-load-state__mark">!</div>
@@ -139,7 +199,7 @@ export default function BookingReviewPage() {
           <strong>We couldn't open this Booking review.</strong>
           <p>{cause instanceof Error ? cause.message : 'Please try again.'}</p>
         </div>
-        <button type="button" className="user-menu-button" onClick={() => void refresh()}>Try Again</button>
+        <button type="button" className="user-menu-button" onClick={() => void retry()}>Try Again</button>
       </section>
     );
   }
@@ -207,7 +267,36 @@ export default function BookingReviewPage() {
     );
   }
 
-  const reviewableProposals = workspace.proposals.filter((proposal) => proposal.canAccept);
+  if (workspaceQuery.isPending || workspaceQuery.isFetching || !cachedWorkspace) {
+    return (
+      <div className="screen-stack uc03-c1-workspace">
+        <div className="uc03-c1-topbar">
+          <button type="button" className="uc03-c1-back" onClick={() => navigate('/dashboard')}>← Work list</button>
+          <span>Project · {project.projectName}</span>
+        </div>
+        <PageHeader eyebrow="PC Document Verification" title={bookingLabel} description="Documents are ready. Loading only the extracted fields needed for review…" />
+        <section className="uc03-c1-section">
+          <div className="uc03-review-empty" role="status"><strong>Preparing extracted fields…</strong><span>No other Booking sections are being reloaded.</span></div>
+        </section>
+      </div>
+    );
+  }
+
+  if (workspaceQuery.isError) {
+    const cause = workspaceQuery.error;
+    return (
+      <section className="dashboard-load-state" role="alert">
+        <div className="dashboard-load-state__mark">!</div>
+        <div className="dashboard-load-state__copy">
+          <strong>We couldn't load the extracted fields.</strong>
+          <p>{cause instanceof Error ? cause.message : 'Please try again.'}</p>
+        </div>
+        <button type="button" className="user-menu-button" onClick={() => void retry()}>Try Again</button>
+      </section>
+    );
+  }
+
+  const reviewableProposals = cachedWorkspace.proposals.filter((proposal) => proposal.canAccept);
   const pendingReviewable = reviewableProposals.filter((proposal) => proposal.status === 'PENDING');
   const canVerify = verification.pendingProposalCount === 0;
 
@@ -225,7 +314,7 @@ export default function BookingReviewPage() {
       />
 
       <section className="uc03-c1-stage-strip" aria-label="PC verification status">
-        <div><span>Booking status</span><strong>{workspace.bookingStage.businessStatus || '—'}</strong></div>
+        <div><span>Booking status</span><strong>{cachedWorkspace.bookingStage.businessStatus || '—'}</strong></div>
         <div><span>PC verification</span><StatusPill value={verification.pcVerificationStatus} /></div>
         <div><span>Pending fields</span><strong>{verification.pendingProposalCount}</strong></div>
         <div><span>Documents</span><strong>{verification.linkedDocumentCount}</strong></div>
@@ -248,8 +337,8 @@ export default function BookingReviewPage() {
           accessToken={accessToken}
           proposals={reviewableProposals}
           disabled={busy}
-          onAccept={(proposal) => handleProposal(proposal, 'accept')}
-          onCorrect={(proposal, value) => handleProposal(proposal, 'correct', value)}
+          onAccept={(proposal) => { void handleProposal(proposal, 'accept'); }}
+          onCorrect={(proposal, value) => { void handleProposal(proposal, 'correct', value); }}
         />
       </section>
 

@@ -66,11 +66,11 @@ export default function AdminUsersPage() {
       const current = user.status.toUpperCase();
       let requestedInThisOperation = false;
 
-      if (current === 'ACTIVE') {
+      if (current === 'ACTIVE' || current === 'REJECTED') {
         await requestGlobalUserDeletion(accessToken!, user.userId, reasonText);
         requestedInThisOperation = true;
       } else if (current !== 'DISABLED') {
-        throw new Error('Only an ACTIVE or DISABLED user can be permanently deleted.');
+        throw new Error('Only an ACTIVE, REJECTED or DISABLED user can be permanently deleted.');
       }
 
       try {
@@ -78,7 +78,7 @@ export default function AdminUsersPage() {
       } catch (error) {
         if (requestedInThisOperation) {
           const detail = error instanceof Error ? error.message : 'Security hard delete failed.';
-          throw new Error(`User access was disabled, but permanent deletion did not complete. ${detail}`);
+          throw new Error(`The deletion request was recorded, but permanent deletion did not complete. ${detail}`);
         }
         throw error;
       }
@@ -277,7 +277,7 @@ export default function AdminUsersPage() {
                             Activate
                           </button>
                         )}
-                        {['ACTIVE', 'DISABLED'].includes(currentStatus) && (
+                        {['ACTIVE', 'REJECTED', 'DISABLED'].includes(currentStatus) && (
                           <button
                             type="button"
                             className="uc01-admin-button uc01-admin-button--compact uc01-admin-button--danger"
@@ -309,7 +309,9 @@ export default function AdminUsersPage() {
                 {action.kind === 'delete'
                   ? action.user.status.toUpperCase() === 'DISABLED'
                     ? `Complete the existing deletion request for ${action.user.displayName}. Security will permanently remove the live USER and Clerk identity while retaining approved audit/tombstone evidence.`
-                    : `Permanently delete ${action.user.displayName}. Security will first disable access and record the deletion request, then the SuperAdmin hard-delete will remove the live USER and Clerk identity while retaining approved audit/tombstone evidence.`
+                    : action.user.status.toUpperCase() === 'REJECTED'
+                      ? `Permanently delete rejected user ${action.user.displayName}. Security will record a governed deletion request and then remove the live USER and Clerk identity while retaining approved audit/tombstone evidence.`
+                      : `Permanently delete ${action.user.displayName}. Security will first disable access and record the deletion request, then the SuperAdmin hard-delete will remove the live USER and Clerk identity while retaining approved audit/tombstone evidence.`
                   : `Change ${action.user.displayName} from ${action.user.status} to ${action.target}.`}
               </p>
             </div>

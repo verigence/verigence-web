@@ -158,7 +158,10 @@ export default function AppShell({ children }: PropsWithChildren) {
     const workspaceItems: NavItem[] = [
       { to: '/dashboard', label: 'Overview', mark: 'OV', roles: c0OperatingRoles },
     ];
-    if (role === 'PC') workspaceItems.push(createBookingItem);
+    if (role === 'PC') {
+      workspaceItems.push(createBookingItem);
+      workspaceItems.push({ to: '/daily-ops', label: 'Daily Operations', mark: 'DO', roles: ['PC'] });
+    }
     const workspaceGroup: NavGroup = {
       key: 'workspace',
       label: 'Workspace',

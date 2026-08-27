@@ -65,6 +65,11 @@ export interface PcBookingUploadResult {
 }
 
 export interface PcBookingDocumentContent {
+  blob: Blob;
+  mimeType: string;
+}
+
+export interface PcBookingDocumentAccess {
   documentId: string;
   url: string;
   mimeType: string;
@@ -84,11 +89,13 @@ export class DiBookingHttpError extends Error {
 }
 
 const EXTRACTION_CACHE_MS = 60_000;
-// DI signs content URLs for 10 minutes. Keep the session cache comfortably inside
-// that lifetime so repeat opens are instant without ever reusing an expired URL.
 const CONTENT_CACHE_MS = 5 * 60_000;
+// DI signs direct-access URLs for 10 minutes. Cache them for only five minutes so
+// repeat opens are instant while every cached URL remains comfortably valid.
+const ACCESS_CACHE_MS = 5 * 60_000;
 const extractionCache = new Map<string, TimedPromise<PcBookingExtractionReview>>();
 const contentCache = new Map<string, TimedPromise<PcBookingDocumentContent>>();
+const accessCache = new Map<string, TimedPromise<PcBookingDocumentAccess>>();
 
 function token(accessToken?: string): string {
   const value = accessToken?.trim();
@@ -223,10 +230,30 @@ export function getPcBookingDocumentContent(
   const key = reviewCacheKey(tenantId, externalContextRef, documentId, accessToken);
   return cachedPromise(contentCache, key, CONTENT_CACHE_MS, async () => {
     const response = await request(
+      `${contextBase(tenantId, externalContextRef)}/${encodeURIComponent(documentId)}/content`,
+      accessToken,
+      { cache: 'no-store' },
+    );
+    return {
+      blob: await response.blob(),
+      mimeType: response.headers.get('content-type') || 'application/octet-stream',
+    };
+  });
+}
+
+export function getPcBookingDocumentAccess(
+  tenantId: string,
+  externalContextRef: string,
+  documentId: string,
+  accessToken: string,
+): Promise<PcBookingDocumentAccess> {
+  const key = reviewCacheKey(tenantId, externalContextRef, documentId, accessToken);
+  return cachedPromise(accessCache, key, ACCESS_CACHE_MS, async () => {
+    const response = await request(
       `${contextBase(tenantId, externalContextRef)}/${encodeURIComponent(documentId)}/content-access`,
       accessToken,
       { cache: 'no-store' },
     );
-    return envelope<PcBookingDocumentContent>(response, 'Open Booking document');
+    return envelope<PcBookingDocumentAccess>(response, 'Open Booking document');
   });
 }

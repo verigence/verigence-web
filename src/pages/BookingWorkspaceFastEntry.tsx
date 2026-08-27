@@ -3,19 +3,70 @@ import { type InfiniteData, useQuery, useQueryClient } from '@tanstack/react-que
 import { useNavigate, useParams } from 'react-router-dom';
 
 import PageHeader from '../components/PageHeader';
+import StatusPill from '../components/StatusPill';
 import { type Uc03WorkItem, type Uc03WorkItemPage } from '../services/audit-core/uc03';
 import { getBookingWorkspace } from '../services/audit-core/uc03Booking';
-import { getBookingPart1 } from '../services/audit-core/uc03BookingPart1';
+import {
+  getBookingPart1,
+  type BookingPart1View,
+  type Part1Requirement,
+} from '../services/audit-core/uc03BookingPart1';
 import { getBookingSummary } from '../services/audit-core/uc03BookingSummary';
 import { useProjectContextStore } from '../store/projectContextStore';
 import { useSessionStore } from '../store/sessionStore';
+import { displayName } from '../utils/displayNames';
 import BookingWorkspacePage from './BookingWorkspacePage';
+
+function requirementLabel(requirement: Part1Requirement): string {
+  switch (requirement.kind) {
+    case 'BOOKING_DOCKET': return 'Booking Form / Booking Docket';
+    case 'BOOKING_PAYMENT_RECEIPT': return 'Booking Payment Receipt(s)';
+    case 'PAN': return 'PAN';
+    case 'AADHAAR': return 'Aadhaar';
+  }
+}
+
+function Part1DocumentPreview({ part1 }: { part1: BookingPart1View }) {
+  return (
+    <div className="uc03-booking-document-grid">
+      {part1.requirements.map((requirement) => {
+        const evidence = requirement.evidence ?? [];
+        const latest = evidence.at(-1);
+        const status = evidence.length > 0 ? 'UPLOADED' : 'PENDING';
+        return (
+          <article className="uc03-booking-upload-card" key={requirement.requirementKey}>
+            <header>
+              <div>
+                <strong>{requirementLabel(requirement)}</strong>
+                {requirement.requirementLevel !== 'REQUIRED' ? <small>{displayName(requirement.requirementLevel)}</small> : null}
+              </div>
+              <StatusPill value={status} compact />
+            </header>
+            <div className="uc03-booking-upload-summary">
+              {evidence.length > 0 ? (
+                evidence.map((item, index) => (
+                  <span key={item.evidenceId}>
+                    ✓ {evidence.length > 1 ? `Document ${index + 1}` : 'Document'} · {displayName(item.processingStatus || 'Accepted')}
+                  </span>
+                ))
+              ) : (
+                <span>No document uploaded yet</span>
+              )}
+              {latest?.verificationStatus ? <span>{displayName(latest.verificationStatus)}</span> : null}
+            </div>
+          </article>
+        );
+      })}
+    </div>
+  );
+}
 
 function FastBookingShell({
   customerName,
   bookingReference,
   productLabel,
   statusMessage,
+  part1,
   onBack,
   onRetry,
 }: {
@@ -23,6 +74,7 @@ function FastBookingShell({
   bookingReference?: string | null;
   productLabel?: string | null;
   statusMessage: string;
+  part1?: BookingPart1View;
   onBack: () => void;
   onRetry?: () => void;
 }) {
@@ -56,7 +108,17 @@ function FastBookingShell({
           </div>
         ) : null}
 
-        <div className="uc03-c1-loading" role="status">Loading Booking documents…</div>
+        {part1 ? (
+          <>
+            <Part1DocumentPreview part1={part1} />
+            <div className="uc03-booking-step-footer">
+              <span>Document requirements loaded. Booking workspace state is still loading in the background for this performance trial.</span>
+            </div>
+          </>
+        ) : (
+          <div className="uc03-c1-loading" role="status">Loading Booking documents…</div>
+        )}
+
         {onRetry ? (
           <div className="uc03-booking-step-footer">
             <span>Booking details are available, but the document view could not be loaded.</span>
@@ -126,7 +188,7 @@ export default function BookingWorkspaceFastEntry() {
   const productLabel = cachedWorkItem?.productLabel
     ?? (summary ? [summary.product.modelName, summary.product.variantName, summary.product.colourName].filter(Boolean).join(' · ') : null);
   const hasImmediateBookingData = Boolean(cachedWorkItem || summary);
-  const hasReadError = workspaceQuery.isError || part1Query.isError;
+  const part1Failed = part1Query.isError;
 
   if (!hasImmediateBookingData && summaryQuery.isError) {
     return (
@@ -146,11 +208,14 @@ export default function BookingWorkspaceFastEntry() {
       customerName={customerName}
       bookingReference={bookingReference}
       productLabel={productLabel}
-      statusMessage={hasReadError ? 'Booking document view needs retry' : 'Loading document requirements…'}
+      part1={part1Query.data}
+      statusMessage={part1Failed
+        ? 'Booking document view needs retry'
+        : part1Query.data
+          ? 'Document requirements loaded'
+          : 'Loading document requirements…'}
       onBack={() => navigate('/dashboard')}
-      onRetry={hasReadError
-        ? () => { void Promise.all([workspaceQuery.refetch(), part1Query.refetch()]); }
-        : undefined}
+      onRetry={part1Failed ? () => { void part1Query.refetch(); } : undefined}
     />
   );
 }

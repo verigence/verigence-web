@@ -1,11 +1,14 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 
 import '../../styles/uc03-document-verification.css';
 import '../../styles/uc03-step3-review.css';
 import type { PcBookingExtractionFact } from '../../services/di/bookingDocuments';
 import type { PcBookingDocumentPreviewSource } from '../../services/di/bookingPreview';
 import { displayName } from '../../utils/displayNames';
-import { OptimizedPdfPageReview } from './OptimizedPdfPageReview';
+
+const OptimizedPdfPageReview = lazy(() => import('./OptimizedPdfPageReview').then((module) => ({
+  default: module.OptimizedPdfPageReview,
+})));
 
 interface OptimizedDirectDiFieldReviewProps {
   documentName: string;
@@ -222,14 +225,16 @@ export function OptimizedDirectDiFieldReview({
 
             {!contentLoading && !contentError && sourceUrl && isPdf ? (
               <div className="uc03-docverify-pdf">
-                <OptimizedPdfPageReview
-                  sourceUrl={sourceUrl}
-                  pageNumber={selectedPage}
-                  box={selectedBox}
-                  label={selected ? displayName(selected.fieldKey) : null}
-                  rangeCapable={content?.rangeCapable ?? false}
-                  onFirstRenderSettled={notifyPreviewSettled}
-                />
+                <Suspense fallback={<div className="uc03-docverify-message">Preparing PDF viewer…</div>}>
+                  <OptimizedPdfPageReview
+                    sourceUrl={sourceUrl}
+                    pageNumber={selectedPage}
+                    box={selectedBox}
+                    label={selected ? displayName(selected.fieldKey) : null}
+                    rangeCapable={content?.rangeCapable ?? false}
+                    onFirstRenderSettled={notifyPreviewSettled}
+                  />
+                </Suspense>
                 <a href={`${sourceUrl}#page=${selectedPage}`} target="_blank" rel="noreferrer">
                   Open PDF in full viewer
                 </a>

@@ -1,3 +1,4 @@
+import { BOOKING_DETAILS_LOCAL_MASTERS } from '../../features/uc03/bookingDetailsLocalMasters';
 import { auditCoreRequest } from './client';
 import { newIdempotencyKey } from './uc03Booking';
 import {
@@ -145,14 +146,26 @@ export async function getBookingDetails(
 }
 
 export async function getBookingDetailsOptions(
-  tenantId: string,
-  journeyId: string,
-  accessToken?: string,
+  _tenantId: string,
+  _journeyId: string,
+  _accessToken?: string,
 ): Promise<BookingDetailsOptions> {
-  return auditCoreRequest<BookingDetailsOptions>(`${base(tenantId, journeyId)}/options`, {
-    accessToken: token(accessToken),
-    cache: 'no-store',
-  });
+  // Screen-2 reference values are intentionally local. They are finite workflow
+  // vocabulary, not transaction data, and must not add an API round trip to every
+  // Booking. Audit Core remains responsible for validating submitted codes.
+  return {
+    effectiveOn: new Date().toISOString().slice(0, 10),
+    priceLists: [],
+    customerTypes: [...BOOKING_DETAILS_LOCAL_MASTERS.customerTypes],
+    dealTypes: [...BOOKING_DETAILS_LOCAL_MASTERS.dealTypes],
+    dealSources: [...BOOKING_DETAILS_LOCAL_MASTERS.dealSources],
+    leadSources: [...BOOKING_DETAILS_LOCAL_MASTERS.leadSources],
+    registrationStates: [...BOOKING_DETAILS_LOCAL_MASTERS.registrationStates],
+    territoryCategories: [...BOOKING_DETAILS_LOCAL_MASTERS.territoryCategories],
+    districts: [...BOOKING_DETAILS_LOCAL_MASTERS.districts],
+    registrationTypes: [...BOOKING_DETAILS_LOCAL_MASTERS.registrationTypes],
+    registrationCategories: [...BOOKING_DETAILS_LOCAL_MASTERS.registrationCategories],
+  };
 }
 
 export async function saveBookingDetails(

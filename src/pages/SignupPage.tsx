@@ -6,6 +6,7 @@ import { verigenceLockup } from '../assets/verigenceLockup';
 import { signupSchema, type SignupFormValues } from '../features/onboarding/signupSchema';
 import {
   resendOnboardingEmailCode,
+  SecurityApiError,
   startOnboarding,
   verifyOnboardingEmail,
   type SignupAttemptResponse,
@@ -66,8 +67,16 @@ export default function SignupPage() {
       setAcceptedLegal(false);
       setShowPassword(false);
       setScreen('verify');
-    } catch {
-      setFormError('We could not complete your registration. Please check your details and try again.');
+    } catch (error) {
+      if (error instanceof SecurityApiError) {
+        if (error.status === 422 && error.message.toLowerCase().includes('password')) {
+          setError('password', { message: error.message });
+        } else {
+          setFormError(error.message);
+        }
+      } else {
+        setFormError('We could not complete your registration. Please check your details and try again.');
+      }
     } finally {
       setBusy(false);
     }

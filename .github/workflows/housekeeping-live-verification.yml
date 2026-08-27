@@ -155,12 +155,12 @@ jobs:
           await page.screenshot({ path: 'housekeeping-live-output/02-complete-project-desktop.png', fullPage: true });
 
           await journeyScope.click();
-          await page.getByRole('heading', { name: 'Purge Journey Transactions' }).waitFor();
-          await page.getByText('Every Journey for every Dealer and Outlet in this Project/Tenant.').waitFor();
+          await page.getByRole('heading', { name: 'Choose Journey Deletion Scope' }).waitFor();
+          await page.getByText('Every Journey for every Dealer and Outlet in this Project.').waitFor();
           await page.screenshot({ path: 'housekeeping-live-output/03-journey-desktop.png', fullPage: true });
 
           await systemScope.click();
-          await page.getByRole('heading', { name: 'Choose System History' }).waitFor();
+          await page.getByRole('heading', { name: 'Choose the system history to clean' }).waitFor();
           await page.screenshot({ path: 'housekeeping-live-output/04-system-history-desktop.png', fullPage: true });
 
           await page.setViewportSize({ width: 390, height: 844 });

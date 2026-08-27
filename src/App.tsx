@@ -27,6 +27,7 @@ const AdminFeedbackPage = lazy(() => import('./pages/AdminFeedbackPage'));
 const DiTestConsolePage = lazy(() => import('./pages/DiTestConsolePage'));
 const DocumentIntelligenceConfigurationPage = lazy(() => import('./pages/DocumentIntelligenceConfigurationPage'));
 const DashboardPage = lazy(() => import('./pages/DashboardPage'));
+const TeamLeadDashboardPage = lazy(() => import('./pages/TeamLeadDashboardPage'));
 const BookingWorkspacePage = lazy(() => import('./pages/BookingWorkspaceFastEntry'));
 const BookingReviewPage = lazy(() => import('./pages/BookingReviewPage'));
 const DeliveryWorkspacePage = lazy(() => import('./pages/DeliveryWorkspacePage'));
@@ -82,6 +83,9 @@ function DashboardEntry() {
 
   if (role === 'SUPER_ADMIN' && !selectedProject) {
     return <PrivatePage><AdminLandingPage /></PrivatePage>;
+  }
+  if (selectedProject?.operatingRole === 'TL') {
+    return <OperationalPage><TeamLeadDashboardPage /></OperationalPage>;
   }
   return <OperationalPage><DashboardPage /></OperationalPage>;
 }

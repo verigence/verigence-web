@@ -44,12 +44,46 @@ function endpoint(path: string): string {
   return `${securityBaseUrl}${path}`;
 }
 
-function safeErrorMessage(status: number): string {
+function safePasswordMessage(detail?: string): string | undefined {
+  if (!detail) return undefined;
+
+  const normalized = detail.toLowerCase();
+  if (!normalized.includes('password')) return undefined;
+
+  // Never display provider-controlled text directly. Clerk currently reports compromised-password
+  // rejection with form_password_pwned and breach-oriented wording; Security intentionally keeps
+  // that provider detail behind its API boundary. Match only the category and return our own copy.
+  if (
+    normalized.includes('breach')
+    || normalized.includes('pwned')
+    || normalized.includes('compromis')
+  ) {
+    return 'This password has appeared in a known data breach. Please choose a new password that you have not used elsewhere.';
+  }
+
+  // Other Clerk password-policy failures remain actionable without exposing raw provider messages.
+  if (
+    normalized.includes('security requirement')
+    || normalized.includes('validation')
+    || normalized.includes('requirement')
+    || normalized.includes('too short')
+  ) {
+    return 'Password does not meet the security requirements. Please choose a stronger password.';
+  }
+
+  return undefined;
+}
+
+function safeErrorMessage(status: number, detail?: string): string {
   if (status === 401 || status === 403) {
     return 'Registration could not be completed with the information provided. Please review it and try again.';
   }
   if (status === 409) {
     return 'A registration with these details already exists.';
+  }
+  if (status === 422) {
+    return safePasswordMessage(detail)
+      ?? 'We could not validate the registration details. Please review them and try again.';
   }
   if (status === 429) {
     return 'Too many attempts. Please wait a moment and try again.';
@@ -75,7 +109,8 @@ async function readResponse<T>(response: Response): Promise<T> {
       ? payload as Record<string, unknown>
       : undefined;
     const code = typeof record?.code === 'string' ? record.code : undefined;
-    throw new SecurityApiError(safeErrorMessage(response.status), response.status, code);
+    const detail = typeof record?.detail === 'string' ? record.detail : undefined;
+    throw new SecurityApiError(safeErrorMessage(response.status, detail), response.status, code);
   }
 
   return payload as T;

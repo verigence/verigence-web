@@ -1,13 +1,105 @@
 import { useMemo, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 
 import PageHeader from '../components/PageHeader';
+import type { BookingWorkspace } from '../services/audit-core/uc03Booking';
+import type { BookingPart1View } from '../services/audit-core/uc03BookingPart1';
 import { createBooking } from '../services/audit-core/uc03CreateBooking';
 import { useProjectContextStore } from '../store/projectContextStore';
 import { useSessionStore } from '../store/sessionStore';
 
+function newBookingWorkspace(
+  journeyId: string,
+  customerName: string,
+  businessStatus: string,
+  aggregateVersion: number,
+): BookingWorkspace {
+  return {
+    journeyId,
+    bookingStage: {
+      businessStatus,
+      closureDisposition: null,
+      auditState: 'NOT_STARTED',
+      auditStatus: 'NOT_EVALUATED',
+      closeReasonCode: null,
+      closureRemarks: null,
+    },
+    capture: { CUSTOMER_NAME: customerName },
+    documents: [],
+    proposals: [],
+    flags: [],
+    completion: { ready: false, blockers: [] },
+    processingSummary: { pendingCount: 0, failedCount: 0, readyProposalCount: 0 },
+    flagSummary: { openCount: 0, totalCount: 0 },
+    permittedActions: [],
+    aggregateVersion,
+    operatingRole: 'PC',
+  };
+}
+
+function newBookingPart1(journeyId: string): BookingPart1View {
+  return {
+    journeyId,
+    requirements: [
+      {
+        kind: 'BOOKING_DOCKET',
+        requirementKey: 'booking_docket',
+        documentTypeKey: 'booking_docket',
+        requirementLevel: 'REQUIRED',
+        requirementStatus: 'PENDING',
+        evidence: [],
+      },
+      {
+        kind: 'BOOKING_PAYMENT_RECEIPT',
+        requirementKey: 'booking_payment_receipt',
+        documentTypeKey: 'dealer_receipt',
+        requirementLevel: 'REQUIRED',
+        requirementStatus: 'PENDING',
+        evidence: [],
+      },
+      {
+        kind: 'PAN',
+        requirementKey: 'pan_card',
+        documentTypeKey: 'pan_card',
+        requirementLevel: 'OPTIONAL',
+        requirementStatus: 'PENDING',
+        evidence: [],
+      },
+      {
+        kind: 'AADHAAR',
+        requirementKey: 'aadhaar',
+        documentTypeKey: 'aadhaar',
+        requirementLevel: 'OPTIONAL',
+        requirementStatus: 'PENDING',
+        evidence: [],
+      },
+    ],
+    mandatoryEvidence: {
+      bookingDocketComplete: false,
+      kycComplete: false,
+      kycBothProvided: false,
+      paymentReceiptComplete: false,
+      paymentReceiptCount: 0,
+      part1EvidenceComplete: false,
+    },
+    productMaster: {
+      status: 'PENDING_EXTRACTION',
+      extractedModel: null,
+      extractedVariant: null,
+      modelId: null,
+      modelName: null,
+      variantId: null,
+      variantName: null,
+      masterVersionIds: [],
+      message: 'Product matching starts after document extraction.',
+    },
+  };
+}
+
 export default function CreateBookingPage() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const project = useProjectContextStore((state) => state.selectedProject);
   const accessToken = useSessionStore((state) => state.accessToken);
   const outletId = useSessionStore((state) => state.outletId);
@@ -42,6 +134,24 @@ export default function CreateBookingPage() {
         normalizedCustomerName,
         accessToken,
       );
+
+      // Create already returned everything needed to paint a brand-new Booking.
+      // Seed React Query before navigation so Step 1 never waits for Workspace or
+      // Part-1 just to discover that no documents have been uploaded yet.
+      queryClient.setQueryData<BookingWorkspace>(
+        ['uc03-booking-workspace', activeProject.tenantId, result.journeyId],
+        newBookingWorkspace(
+          result.journeyId,
+          normalizedCustomerName,
+          result.businessStatus,
+          result.aggregateVersion,
+        ),
+      );
+      queryClient.setQueryData<BookingPart1View>(
+        ['uc03-booking-part1', activeProject.tenantId, result.journeyId],
+        newBookingPart1(result.journeyId),
+      );
+
       navigate(`/bookings/${result.journeyId}`, {
         replace: true,
         state: {

@@ -32,8 +32,8 @@ export default function JourneysPage() {
     <div className="screen-stack">
       <PageHeader
         eyebrow="Audit journeys"
-        title="Journey workspace"
-        description="Review each customer journey, its evidence and current audit status."
+        title="Journeys"
+        description="Open the Booking flow directly for the selected customer journey."
         backing={query.data?.backing}
       />
       <SectionCard>
@@ -55,7 +55,7 @@ export default function JourneysPage() {
                   <td><strong>{journey.evidenceCount}</strong><small>{journey.findingCount} findings</small></td>
                   <td><StatusPill value={journey.auditState} compact /></td>
                   <td><StatusPill value={journey.auditOutcome} compact /></td>
-                  <td><Link className="row-action" to={`/journeys/${journey.journeyId}`}>Open</Link></td>
+                  <td><Link className="row-action" to={`/bookings/${journey.journeyId}`}>Open Booking</Link></td>
                 </tr>
               ))}
             </tbody>
@@ -64,7 +64,7 @@ export default function JourneysPage() {
 
         <div className="adaptive-list adaptive-list__mobile" aria-label="Journeys">
           {items.map((journey) => (
-            <Link className="adaptive-list-card" key={journey.journeyId} to={`/journeys/${journey.journeyId}`}>
+            <Link className="adaptive-list-card" key={journey.journeyId} to={`/bookings/${journey.journeyId}`}>
               <div className="adaptive-list-card__head">
                 <div>
                   <strong>{journey.customerName}</strong>
@@ -77,7 +77,7 @@ export default function JourneysPage() {
                 <span>Outlet <strong>{journey.outletName}</strong></span>
                 <span>Evidence <strong>{journey.evidenceCount} items · {journey.findingCount} findings</strong></span>
               </div>
-              <span className="adaptive-list-card__action">Open journey <span aria-hidden="true">›</span></span>
+              <span className="adaptive-list-card__action">Open Booking <span aria-hidden="true">›</span></span>
             </Link>
           ))}
           {!items.length && <div className="adaptive-list-empty">No journeys found.</div>}

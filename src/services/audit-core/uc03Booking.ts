@@ -213,7 +213,7 @@ export async function uploadBookingDocument(
   requirementKey: string,
   file: File,
   accessToken?: string,
-): Promise<{ evidenceId: string; processingStatus: string }> {
+): Promise<{ evidenceId: string; processingStatus: string; aggregateVersion: number }> {
   const form = new FormData();
   form.append('file', file);
   return auditCoreRequest(

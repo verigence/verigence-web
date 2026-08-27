@@ -18,19 +18,21 @@ export interface UserStatusTransitionResponse {
   deletionRequestId: string | null;
 }
 
-export type OnboardingDecision = 'ACTIVE' | 'REJECTED';
-export type GlobalUserLifecycleStatus = 'ACTIVE' | 'SUSPENDED' | 'DISABLED' | 'EXITED';
+export interface UserHardDeleteResponse {
+  userId: string;
+  deletionRequestId: string;
+  tombstoneId: string;
+  deletedAtUtc: string;
+  retainUntilUtc: string;
+}
 
-type SecurityUserPayload = Partial<GlobalUserDirectoryItem> & {
-  user_id?: string;
-  display_name?: string;
-  primary_email?: string | null;
-  primary_mobile?: string | null;
-  clerk_user_id?: string | null;
-  clerk_subject?: string | null;
-  onboarding_status?: string | null;
-  created_at_utc?: string;
-  updated_at_utc?: string;
+export type OnboardingDecision = 'ACTIVE' | 'REJECTED';
+export type GlobalUserLifecycleStatus = 'ACTIVE' | 'SUSPENDED';
+type GlobalUserStatusTarget = OnboardingDecision | 'SUSPENDED' | 'DISABLED';
+
+type StatusTransitionOptions = {
+  reasonCode?: string;
+  reason?: string;
 };
 
 class SecurityAdminApiError extends Error {
@@ -86,64 +88,68 @@ async function readResponse<T>(response: Response): Promise<T> {
   return payload as T;
 }
 
-function normalizeUser(payload: SecurityUserPayload): GlobalUserDirectoryItem {
-  const userId = payload.userId ?? payload.user_id;
-  const displayName = payload.displayName ?? payload.display_name;
-  const createdAtUtc = payload.createdAtUtc ?? payload.created_at_utc;
-  const updatedAtUtc = payload.updatedAtUtc ?? payload.updated_at_utc;
-
-  if (!userId || !displayName || !payload.status || !createdAtUtc || !updatedAtUtc) {
-    throw new SecurityAdminApiError('Security returned an incomplete user record.', 502);
-  }
-
-  return {
-    userId,
-    displayName,
-    primaryEmail: payload.primaryEmail ?? payload.primary_email ?? null,
-    primaryMobile: payload.primaryMobile ?? payload.primary_mobile ?? null,
-    status: payload.status,
-    clerkSubject: payload.clerkSubject ?? payload.clerk_subject ?? payload.clerk_user_id ?? null,
-    onboardingStatus: payload.onboardingStatus ?? payload.onboarding_status ?? null,
-    createdAtUtc,
-    updatedAtUtc,
-  };
-}
-
-/**
- * Read the authoritative global USER directory from Security.
- * `status_filter` is the currently implemented Security DEV query parameter.
- */
+/** Read the authoritative Security v2 global USER directory. */
 export async function listGlobalUsers(
   accessToken: string,
   status?: string,
+  search?: string,
 ): Promise<GlobalUserDirectoryItem[]> {
-  const query = new URLSearchParams();
-  if (status) query.set('status_filter', status.toUpperCase());
-  const suffix = query.size ? `?${query.toString()}` : '';
-  const response = await fetch(endpoint(`/security/v1/platform/users${suffix}`), {
+  const query = new URLSearchParams({
+    limit: '200',
+    offset: '0',
+  });
+  if (status) query.set('userStatus', status.toUpperCase());
+  if (search?.trim()) query.set('search', search.trim());
+
+  const response = await fetch(endpoint(`/security/v1/platform/users?${query.toString()}`), {
     method: 'GET',
     headers: authHeaders(accessToken),
     cache: 'no-store',
   });
-  const payload = await readResponse<SecurityUserPayload[]>(response);
-  return payload.map(normalizeUser);
+  return readResponse<GlobalUserDirectoryItem[]>(response);
 }
 
 export async function listPendingGlobalUsers(
   accessToken: string,
 ): Promise<GlobalUserDirectoryItem[]> {
-  const users = await listGlobalUsers(accessToken, 'PENDING');
-  return users.filter((user) => user.status.toUpperCase() === 'PENDING');
+  return listGlobalUsers(accessToken, 'PENDING');
 }
 
 export async function getGlobalUser(
   accessToken: string,
   userId: string,
 ): Promise<GlobalUserDirectoryItem> {
-  const users = await listGlobalUsers(accessToken);
-  const user = users.find((candidate) => candidate.userId === userId);
-  if (!user) throw new SecurityAdminApiError('User not found.', 404);
-  return user;
+  const response = await fetch(
+    endpoint(`/security/v1/platform/users/${encodeURIComponent(userId)}`),
+    {
+      method: 'GET',
+      headers: authHeaders(accessToken),
+      cache: 'no-store',
+    },
+  );
+  return readResponse<GlobalUserDirectoryItem>(response);
+}
+
+async function transitionGlobalUserStatus(
+  accessToken: string,
+  userId: string,
+  status: GlobalUserStatusTarget,
+  options: StatusTransitionOptions = {},
+): Promise<UserStatusTransitionResponse> {
+  const reason = options.reason?.trim();
+  const response = await fetch(
+    endpoint(`/security/v1/users/${encodeURIComponent(userId)}/status`),
+    {
+      method: 'PATCH',
+      headers: authHeaders(accessToken, true),
+      body: JSON.stringify({
+        status,
+        reasonCode: options.reasonCode,
+        reason: reason || undefined,
+      }),
+    },
+  );
+  return readResponse<UserStatusTransitionResponse>(response);
 }
 
 export async function decidePendingGlobalUser(
@@ -151,52 +157,44 @@ export async function decidePendingGlobalUser(
   userId: string,
   status: OnboardingDecision,
 ): Promise<UserStatusTransitionResponse> {
-  if (status === 'REJECTED') {
-    throw new SecurityAdminApiError(
-      'Registration rejection is not exposed by the current Security DEV lifecycle contract. Activation remains available; rejection requires an explicit Security backend capability.',
-      501,
-    );
-  }
-
-  const response = await fetch(
-    endpoint(`/security/v1/platform/users/${encodeURIComponent(userId)}/status`),
-    {
-      method: 'PATCH',
-      headers: authHeaders(accessToken, true),
-      body: JSON.stringify({ status: 'ACTIVE' }),
-    },
-  );
-  const result = normalizeUser(await readResponse<SecurityUserPayload>(response));
-  return {
-    userId: result.userId,
-    status: result.status,
-    previousStatus: 'PENDING',
-    changed: result.status === 'ACTIVE',
-    deletionRequestId: null,
-  };
+  return transitionGlobalUserStatus(accessToken, userId, status);
 }
 
-/**
- * Administrative USER lifecycle management supported by the current Security
- * implementation. "Delete User" in the UI maps to EXITED (logical offboarding),
- * never to physical deletion, so historical audit references remain intact.
- */
 export async function changeGlobalUserLifecycleStatus(
   accessToken: string,
   userId: string,
   status: GlobalUserLifecycleStatus,
   reason?: string,
-): Promise<GlobalUserDirectoryItem> {
+): Promise<UserStatusTransitionResponse> {
+  return transitionGlobalUserStatus(accessToken, userId, status, { reason });
+}
+
+/**
+ * Start the Security v2 hard-delete workflow. DISABLED is not a terminal display state;
+ * it records the deletion request and immediately removes the user's access.
+ */
+export async function requestGlobalUserDeletion(
+  accessToken: string,
+  userId: string,
+  reason?: string,
+): Promise<UserStatusTransitionResponse> {
+  return transitionGlobalUserStatus(accessToken, userId, 'DISABLED', {
+    reasonCode: 'DELETE_REQUEST',
+    reason,
+  });
+}
+
+/** Complete a recorded deletion request. Security removes the live USER and Clerk identity. */
+export async function hardDeleteGlobalUser(
+  accessToken: string,
+  userId: string,
+): Promise<UserHardDeleteResponse> {
   const response = await fetch(
-    endpoint(`/security/v1/platform/users/${encodeURIComponent(userId)}/status`),
+    endpoint(`/security/v1/platform/users/${encodeURIComponent(userId)}`),
     {
-      method: 'PATCH',
-      headers: authHeaders(accessToken, true),
-      body: JSON.stringify({
-        status,
-        reason: reason?.trim() || undefined,
-      }),
+      method: 'DELETE',
+      headers: authHeaders(accessToken),
     },
   );
-  return normalizeUser(await readResponse<SecurityUserPayload>(response));
+  return readResponse<UserHardDeleteResponse>(response);
 }

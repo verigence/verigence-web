@@ -16,6 +16,11 @@ type DiEnvelope<T> = {
   code?: string;
 };
 
+type TimedPromise<T> = {
+  expiresAt: number;
+  promise: Promise<T>;
+};
+
 export interface PcBookingDocumentStatus {
   documentId: string;
   requirementRef: string;
@@ -76,6 +81,11 @@ export class DiBookingHttpError extends Error {
   }
 }
 
+const EXTRACTION_CACHE_MS = 60_000;
+const CONTENT_CACHE_MS = 5 * 60_000;
+const extractionCache = new Map<string, TimedPromise<PcBookingExtractionReview>>();
+const contentCache = new Map<string, TimedPromise<PcBookingDocumentContent>>();
+
 function token(accessToken?: string): string {
   const value = accessToken?.trim();
   if (!value) throw new Error('A Security human access token is required.');
@@ -85,6 +95,33 @@ function token(accessToken?: string): string {
 function contextBase(tenantId: string, externalContextRef: string): string {
   return `${configuredBaseUrl}/v1/tenants/${encodeURIComponent(tenantId)}`
     + `/audit-storage-contexts/${encodeURIComponent(externalContextRef)}/pc-booking-documents`;
+}
+
+function reviewCacheKey(
+  tenantId: string,
+  externalContextRef: string,
+  documentId: string,
+  accessToken: string,
+): string {
+  // Keep cached document data isolated to the exact human session token.
+  return `${tenantId}:${externalContextRef}:${documentId}:${token(accessToken)}`;
+}
+
+function cachedPromise<T>(
+  cache: Map<string, TimedPromise<T>>,
+  key: string,
+  ttlMs: number,
+  loader: () => Promise<T>,
+): Promise<T> {
+  const existing = cache.get(key);
+  if (existing && existing.expiresAt > Date.now()) return existing.promise;
+
+  const promise = loader();
+  cache.set(key, { expiresAt: Date.now() + ttlMs, promise });
+  void promise.catch(() => {
+    if (cache.get(key)?.promise === promise) cache.delete(key);
+  });
+  return promise;
 }
 
 function problemMessage(payload: DiEnvelope<unknown> | undefined, status: number): string {
@@ -156,33 +193,39 @@ export async function listPcBookingDocuments(
   return envelope<PcBookingDocumentList>(response, 'List Booking documents');
 }
 
-export async function getPcBookingExtractionReview(
+export function getPcBookingExtractionReview(
   tenantId: string,
   externalContextRef: string,
   documentId: string,
   accessToken: string,
 ): Promise<PcBookingExtractionReview> {
-  const response = await request(
-    `${contextBase(tenantId, externalContextRef)}/${encodeURIComponent(documentId)}/extraction-review`,
-    accessToken,
-    { cache: 'no-store' },
-  );
-  return envelope<PcBookingExtractionReview>(response, 'Read Booking extraction');
+  const key = reviewCacheKey(tenantId, externalContextRef, documentId, accessToken);
+  return cachedPromise(extractionCache, key, EXTRACTION_CACHE_MS, async () => {
+    const response = await request(
+      `${contextBase(tenantId, externalContextRef)}/${encodeURIComponent(documentId)}/extraction-review`,
+      accessToken,
+      { cache: 'no-store' },
+    );
+    return envelope<PcBookingExtractionReview>(response, 'Read Booking extraction');
+  });
 }
 
-export async function getPcBookingDocumentContent(
+export function getPcBookingDocumentContent(
   tenantId: string,
   externalContextRef: string,
   documentId: string,
   accessToken: string,
 ): Promise<PcBookingDocumentContent> {
-  const response = await request(
-    `${contextBase(tenantId, externalContextRef)}/${encodeURIComponent(documentId)}/content`,
-    accessToken,
-    { cache: 'no-store' },
-  );
-  return {
-    blob: await response.blob(),
-    mimeType: response.headers.get('content-type') || 'application/octet-stream',
-  };
+  const key = reviewCacheKey(tenantId, externalContextRef, documentId, accessToken);
+  return cachedPromise(contentCache, key, CONTENT_CACHE_MS, async () => {
+    const response = await request(
+      `${contextBase(tenantId, externalContextRef)}/${encodeURIComponent(documentId)}/content`,
+      accessToken,
+      { cache: 'no-store' },
+    );
+    return {
+      blob: await response.blob(),
+      mimeType: response.headers.get('content-type') || 'application/octet-stream',
+    };
+  });
 }

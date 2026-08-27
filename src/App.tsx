@@ -1,6 +1,6 @@
 import { lazy, Suspense, type ReactNode } from 'react';
 import { IonApp } from '@ionic/react';
-import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
+import { BrowserRouter, Navigate, Route, Routes, useParams } from 'react-router-dom';
 
 import { verigenceLockup } from './assets/verigenceLockup';
 import ProjectContextGate from './components/ProjectContextGate';
@@ -30,7 +30,6 @@ const DeliveryWorkspacePage = lazy(() => import('./pages/DeliveryWorkspacePage')
 const AuditReviewPage = lazy(() => import('./pages/AuditReviewPage'));
 const CustomersPage = lazy(() => import('./pages/CustomersPage'));
 const JourneysPage = lazy(() => import('./pages/JourneysPage'));
-const JourneyWorkspacePage = lazy(() => import('./pages/JourneyWorkspacePage'));
 const EvidencePage = lazy(() => import('./pages/EvidencePage'));
 const EvidenceDetailPage = lazy(() => import('./pages/EvidenceDetailPage'));
 const ReviewQueuePage = lazy(() => import('./pages/ReviewQueuePage'));
@@ -100,6 +99,11 @@ function LegacyOperationalPage({ children }: { children: ReactNode }) {
   );
 }
 
+function LegacyJourneyRedirect() {
+  const { journeyId = '' } = useParams();
+  return <Navigate to={journeyId ? `/bookings/${journeyId}` : '/dashboard'} replace />;
+}
+
 function Loading() {
   return <div className="app-loading"><img src={verigenceLockup} alt="Verigence" /><span>Loading Verigence…</span></div>;
 }
@@ -125,7 +129,7 @@ export default function App() {
             <Route path="/audit/:journeyId" element={<OperationalPage><AuditReviewPage /></OperationalPage>} />
             <Route path="/customers" element={<LegacyOperationalPage><CustomersPage /></LegacyOperationalPage>} />
             <Route path="/journeys" element={<LegacyOperationalPage><JourneysPage /></LegacyOperationalPage>} />
-            <Route path="/journeys/:journeyId" element={<LegacyOperationalPage><JourneyWorkspacePage /></LegacyOperationalPage>} />
+            <Route path="/journeys/:journeyId" element={<Authenticated><LegacyJourneyRedirect /></Authenticated>} />
             <Route path="/journeys/:journeyId/evidence/:evidenceId" element={<LegacyOperationalPage><EvidenceDetailPage /></LegacyOperationalPage>} />
             <Route path="/reviews" element={<LegacyOperationalPage><ReviewQueuePage /></LegacyOperationalPage>} />
             <Route path="/evidence" element={<LegacyOperationalPage><EvidencePage /></LegacyOperationalPage>} />

@@ -4,7 +4,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 
 import PageHeader from '../components/PageHeader';
 import StatusPill from '../components/StatusPill';
-import { DirectDiFieldReview } from '../features/uc03/DirectDiFieldReview';
+import { OptimizedDirectDiFieldReview } from '../features/uc03/OptimizedDirectDiFieldReview';
 import { clearReviewReadinessWatch } from '../features/uc03/ReviewReadinessWatcher';
 import {
   getCachedBookingReviewContext,
@@ -20,11 +20,11 @@ import {
 } from '../services/audit-core/uc03PcDirectReview';
 import { getPcVerification } from '../services/audit-core/uc03PcVerification';
 import {
-  getPcBookingDocumentContent,
   getPcBookingExtractionReview,
   type PcBookingExtractionFact,
   type PcBookingExtractionReview,
 } from '../services/di/bookingDocuments';
+import { getPcBookingDocumentPreviewSource } from '../services/di/bookingPreview';
 import { useProjectContextStore } from '../store/projectContextStore';
 import { useSessionStore } from '../store/sessionStore';
 
@@ -54,7 +54,7 @@ function LazyReviewDocument({
   onModify,
   onReset,
   onSave,
-  onExtractionSettled,
+  onPreviewSettled,
 }: {
   tenantId: string;
   journeyId: string;
@@ -68,7 +68,7 @@ function LazyReviewDocument({
   onModify: (fact: PcBookingExtractionFact, value: string) => void;
   onReset: (fact: PcBookingExtractionFact) => void;
   onSave: (document: BookingReviewCachedDocument, review: PcBookingExtractionReview) => void;
-  onExtractionSettled: () => void;
+  onPreviewSettled: () => void;
 }) {
   const settledNotified = useRef(false);
   const extractionQuery = useQuery({
@@ -85,35 +85,49 @@ function LazyReviewDocument({
     refetchOnReconnect: false,
     retry: 1,
   });
+  const extractionReady = extractionQuery.data?.processingStatus.toUpperCase() === 'PROCESSED';
   const contentQuery = useQuery({
-    queryKey: ['uc03-pc-direct-di-content', tenantId, journeyId, document.documentId],
-    queryFn: () => getPcBookingDocumentContent(
+    queryKey: ['uc03-pc-direct-di-preview-v2', tenantId, journeyId, document.documentId],
+    queryFn: () => getPcBookingDocumentPreviewSource(
       tenantId,
       externalContextRef,
       document.documentId,
       accessToken,
+      document,
     ),
-    enabled,
+    // Do not start a large source-document request until the small extraction
+    // response confirms this document is actually ready for human review.
+    enabled: enabled && extractionReady,
     staleTime: 5 * 60_000,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
     retry: 1,
   });
 
+  const notifySequenceSettled = () => {
+    if (settledNotified.current) return;
+    settledNotified.current = true;
+    onPreviewSettled();
+  };
+
   useEffect(() => {
     if (!enabled || settledNotified.current) return;
-    if (extractionQuery.isSuccess || extractionQuery.isError) {
-      settledNotified.current = true;
-      onExtractionSettled();
+    if (extractionQuery.isError) {
+      notifySequenceSettled();
+      return;
     }
-  }, [enabled, extractionQuery.isError, extractionQuery.isSuccess, onExtractionSettled]);
+    if (extractionQuery.isSuccess && !extractionReady) {
+      // A still-processing document must not block the rest of the Booking.
+      notifySequenceSettled();
+    }
+  }, [enabled, extractionQuery.isError, extractionQuery.isSuccess, extractionReady]);
 
   if (!enabled) {
     return (
       <section className="uc03-c1-section" aria-label={`${friendly(document.documentTypeKey)} queued`}>
         <div className="uc03-review-empty" role="status">
           <strong>{friendly(document.documentTypeKey)}</strong>
-          <span>Queued. It will load after the previous document starts rendering.</span>
+          <span>Queued. It will load after the previous document becomes visible.</span>
         </div>
       </section>
     );
@@ -123,7 +137,7 @@ function LazyReviewDocument({
     return (
       <section className="uc03-c1-section">
         <div className="uc03-c1-loading" role="status">
-          Loading {friendly(document.documentTypeKey)} directly from Document Intelligence…
+          Loading {friendly(document.documentTypeKey)} extraction from Document Intelligence…
         </div>
       </section>
     );
@@ -147,12 +161,12 @@ function LazyReviewDocument({
   }
 
   const review = extractionQuery.data;
-  if (review.processingStatus.toUpperCase() !== 'PROCESSED') {
+  if (!extractionReady) {
     return (
       <section className="uc03-c1-section">
         <div className="uc03-review-empty" role="status">
           <strong>{friendly(document.documentTypeKey)} is still processing.</strong>
-          <span>Other documents can continue loading while DI finishes this one.</span>
+          <span>The next document can continue while DI finishes this one.</span>
         </div>
         <div className="uc03-c1-document-actions">
           <button type="button" className="uc03-c1-secondary" onClick={() => void extractionQuery.refetch()}>
@@ -165,18 +179,19 @@ function LazyReviewDocument({
 
   return (
     <section className="uc03-c1-section">
-      <DirectDiFieldReview
+      <OptimizedDirectDiFieldReview
         documentName={friendly(document.documentTypeKey || document.requirementKey)}
         facts={review.facts}
         content={contentQuery.data}
         contentLoading={contentQuery.isPending}
         contentError={contentQuery.isError
-          ? (contentQuery.error instanceof Error ? contentQuery.error.message : 'DI source document could not be loaded.')
+          ? (contentQuery.error instanceof Error ? contentQuery.error.message : 'Source document could not be loaded.')
           : undefined}
         modifiedValues={modifiedValues}
         disabled={blocked}
         onModify={onModify}
         onReset={onReset}
+        onPreviewSettled={notifySequenceSettled}
       />
       <div className="uc03-c1-document-actions">
         <button
@@ -429,7 +444,7 @@ export default function BookingReviewPage() {
       <PageHeader
         eyebrow="PC Document Verification"
         title="Booking Review"
-        description="Documents load directly from Document Intelligence, one at a time. Change only values that are incorrect."
+        description="DI fields load first; source documents render one at a time so the current document gets network priority."
       />
 
       {message && <div className="uc03-c1-feedback is-success" role="status">{message}</div>}
@@ -468,7 +483,7 @@ export default function BookingReviewPage() {
           onModify={(fact, value) => setModifiedValue(document.documentId, fact, value)}
           onReset={(fact) => resetModifiedValue(document.documentId, fact)}
           onSave={(target, review) => void saveDocumentReview(target, review)}
-          onExtractionSettled={() => {
+          onPreviewSettled={() => {
             setUnlockedDocumentCount((current) => Math.max(current, index + 2));
           }}
         />

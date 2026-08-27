@@ -3,7 +3,10 @@ import { useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate } from 'react-router-dom';
 
 import { verigenceLockup } from '../assets/verigenceLockup';
-import { resetOperationalContext } from '../features/uc03/projectContext';
+import {
+  resetOperationalContext,
+  restoreOperationalContextHint,
+} from '../features/uc03/projectContext';
 import { supportReference } from '../observability/correlation';
 import {
   SecurityLoginError,
@@ -56,6 +59,9 @@ export default function LoginPage() {
         superAdmin ? 'SUPER_ADMIN' : 'PC',
         login.expiresAtUtc,
       );
+      if (!superAdmin) {
+        restoreOperationalContextHint(login.accessToken, queryClient);
+      }
       setPassword('');
       navigate(superAdmin ? '/approvals' : '/dashboard', { replace: true });
     } catch (loginError) {

@@ -1,0 +1,281 @@
+/*
+ * Recent Work responsive table — 26 Aug 2026.
+ * Desktop >= 900px: compact four-column table with explicit actions.
+ * Mobile < 900px: preserve card presentation without duplicate workspace metadata.
+ */
+
+.enterprise-shell--approved-nav .uc03-work-table-head {
+  display: none;
+}
+
+/* Dealer/outlet are already established by the dashboard workspace context.
+ * Booking reference is omitted from this summary surface; the booking detail
+ * remains the source of truth for the actual reference when assigned.
+ */
+.enterprise-shell--approved-nav .uc03-work-card__reference,
+.enterprise-shell--approved-nav .uc03-work-card__location {
+  display: none !important;
+}
+
+@media (min-width: 900px) {
+  .enterprise-shell--approved-nav .uc03-landing--approved .uc03-work-cards {
+    display: block;
+    overflow: visible;
+    border: 1px solid #d8e7eb;
+    border-radius: 14px;
+    background: #ffffff;
+    box-shadow: 0 6px 18px rgba(0, 58, 130, 0.025);
+  }
+
+  .enterprise-shell--approved-nav .uc03-work-table-head {
+    display: grid;
+    grid-template-columns: minmax(260px, 1.55fr) minmax(150px, 0.75fr) minmax(175px, 0.85fr) minmax(330px, 1.55fr);
+    align-items: center;
+    gap: 14px;
+    min-height: 44px;
+    padding: 0 18px;
+    border-bottom: 1px solid #dfe9ee;
+    background: linear-gradient(180deg, #f8fbfc 0%, #f4f9fa 100%);
+    color: #607a8e;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.055em;
+  }
+
+  .enterprise-shell--approved-nav .uc03-work-table-head > span:last-child {
+    text-align: right;
+  }
+
+  .enterprise-shell--approved-nav .uc03-landing--approved .uc03-work-card {
+    display: grid;
+    grid-template-columns: minmax(260px, 1.55fr) minmax(150px, 0.75fr) minmax(175px, 0.85fr) minmax(330px, 1.55fr);
+    grid-template-areas:
+      "item status activity actions"
+      "details details details details";
+    align-items: center;
+    gap: 14px;
+    min-height: 72px !important;
+    padding: 10px 18px;
+    border: 0 !important;
+    border-bottom: 1px solid #e4edf1 !important;
+    border-radius: 0 !important;
+    background: #ffffff !important;
+    box-shadow: none !important;
+  }
+
+  .enterprise-shell--approved-nav .uc03-landing--approved .uc03-work-card:last-child {
+    border-bottom: 0 !important;
+  }
+
+  .enterprise-shell--approved-nav .uc03-landing--approved .uc03-work-card::before {
+    width: 3px;
+    background: rgba(0, 175, 168, 0.32);
+  }
+
+  .enterprise-shell--approved-nav .uc03-landing--approved .uc03-work-card:hover,
+  .enterprise-shell--approved-nav .uc03-landing--approved .uc03-work-card:focus-visible {
+    background: linear-gradient(90deg, rgba(0, 175, 168, 0.045) 0%, #fbfefe 15%, #ffffff 100%) !important;
+    box-shadow: inset 3px 0 #00afa8 !important;
+  }
+
+  .enterprise-shell--approved-nav .uc03-work-card__header {
+    display: contents;
+  }
+
+  .enterprise-shell--approved-nav .uc03-work-card__identity {
+    grid-area: item;
+    min-width: 0;
+  }
+
+  .enterprise-shell--approved-nav .uc03-work-card__identity h3 {
+    margin: 0 0 3px;
+    color: #173a59;
+    font-size: 14px;
+    font-weight: 760;
+    line-height: 1.25;
+  }
+
+  .enterprise-shell--approved-nav .uc03-work-card__identity p {
+    margin: 0;
+    overflow: hidden;
+    color: #71889a;
+    font-size: 11.5px;
+    line-height: 1.35;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .enterprise-shell--approved-nav .uc03-work-card__desktop-meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 6px;
+  }
+
+  .enterprise-shell--approved-nav .uc03-work-card__type-chip {
+    display: inline-flex;
+    align-items: center;
+    min-height: 22px;
+    padding: 0 8px;
+    border: 1px solid #d8e4e9;
+    border-radius: 999px;
+    background: #f3f7f9;
+    color: #5e7486;
+    font-size: 10px;
+    font-weight: 760;
+    line-height: 1;
+    white-space: nowrap;
+  }
+
+  .enterprise-shell--approved-nav .uc03-work-card__type-chip.is-delivery {
+    border-color: #cde8e3;
+    background: #edf9f6;
+    color: #16776f;
+  }
+
+  .enterprise-shell--approved-nav .uc03-work-card__summary {
+    grid-area: status;
+    display: block;
+    min-width: 0;
+    max-width: none;
+    text-align: left;
+  }
+
+  .enterprise-shell--approved-nav .uc03-work-card__status-label,
+  .enterprise-shell--approved-nav .uc03-work-card__summary .uc03-verification-badge {
+    display: none;
+  }
+
+  .enterprise-shell--approved-nav .uc03-work-card__summary > strong.uc03-work-status-pill {
+    display: inline-flex;
+    align-items: center;
+    min-height: 28px;
+    max-width: 100%;
+    padding: 0 11px;
+    border: 1px solid #cfe4e6;
+    border-radius: 999px;
+    background: #edf9f8;
+    color: #167d7a;
+    font-size: 11px;
+    font-weight: 780;
+    line-height: 1.2;
+    white-space: nowrap;
+  }
+
+  .enterprise-shell--approved-nav .uc03-work-status-pill.is-progress {
+    border-color: #cdddf7 !important;
+    background: #edf4ff !important;
+    color: #1d5fbf !important;
+  }
+
+  .enterprise-shell--approved-nav .uc03-work-status-pill.is-pending {
+    border-color: #f0d6a8 !important;
+    background: #fff4df !important;
+    color: #a96305 !important;
+  }
+
+  .enterprise-shell--approved-nav .uc03-work-status-pill.is-review {
+    border-color: #dfcff8 !important;
+    background: #f4edff !important;
+    color: #7044b5 !important;
+  }
+
+  .enterprise-shell--approved-nav .uc03-work-status-pill.is-attention {
+    border-color: #f1c8cc !important;
+    background: #fff0f1 !important;
+    color: #b63e49 !important;
+  }
+
+  .enterprise-shell--approved-nav .uc03-work-status-pill.is-complete {
+    border-color: #c8e5d6 !important;
+    background: #edf9f3 !important;
+    color: #247655 !important;
+  }
+
+  .enterprise-shell--approved-nav .uc03-work-status-pill.is-neutral {
+    border-color: #cfe4e6 !important;
+    background: #edf9f8 !important;
+    color: #167d7a !important;
+  }
+
+  .enterprise-shell--approved-nav .uc03-work-card__activity-cell {
+    grid-area: activity;
+    color: #637c8f;
+    font-size: 11.5px;
+    font-weight: 560;
+    line-height: 1.4;
+    white-space: nowrap;
+  }
+
+  .enterprise-shell--approved-nav .uc03-work-card__footer {
+    grid-area: actions;
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    margin: 0;
+    padding: 0;
+    border: 0;
+  }
+
+  /* Last Activity belongs in its own column on desktop; do not repeat it in Actions. */
+  .enterprise-shell--approved-nav .uc03-work-card__footer .uc03-work-card__activity {
+    display: none !important;
+  }
+
+  .enterprise-shell--approved-nav .uc03-work-card__controls {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 7px;
+    width: 100%;
+  }
+
+  .enterprise-shell--approved-nav .uc03-work-card__details-button,
+  .enterprise-shell--approved-nav .uc03-work-card__actions--desktop .uc03-c1-secondary {
+    min-height: 32px;
+    padding: 0 10px;
+    border-radius: 8px;
+    font-size: 10.5px;
+    font-weight: 760;
+    white-space: nowrap;
+  }
+
+  .enterprise-shell--approved-nav .uc03-work-card__details-button {
+    border-color: #bcd9de;
+    background: #ffffff;
+    color: #075e68;
+  }
+
+  /* Desktop has room to expose the actual actions. The ellipsis menu is mobile-only. */
+  .enterprise-shell--approved-nav .uc03-work-card__actions--desktop {
+    display: flex !important;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 7px;
+  }
+
+  .enterprise-shell--approved-nav .uc03-work-card__mobile-more {
+    display: none !important;
+  }
+
+  .enterprise-shell--approved-nav .uc03-work-card__expanded-content {
+    grid-area: details;
+    margin-top: 4px;
+    padding: 14px 0 4px;
+    border-top: 1px dashed #d8e5ea;
+  }
+}
+
+@media (max-width: 899px) {
+  .enterprise-shell--approved-nav .uc03-work-table-head,
+  .enterprise-shell--approved-nav .uc03-work-card__desktop-meta,
+  .enterprise-shell--approved-nav .uc03-work-card__activity-cell {
+    display: none;
+  }
+
+  /* Keep the approved mobile card interaction, but remove workspace duplication. */
+  .enterprise-shell--approved-nav .uc03-work-card__reference,
+  .enterprise-shell--approved-nav .uc03-work-card__location {
+    display: none !important;
+  }
+}

@@ -1,0 +1,204 @@
+/* UC03 Phase 2 — progressive work list and compact/expanded transaction rows.
+   Loaded after the existing UC03 product-polish layers so these rules only
+   refine the PC landing/work-list interaction without changing workflow logic. */
+
+.uc03-work-filters--phase2 {
+  grid-template-columns: minmax(260px, 1fr) minmax(360px, auto) auto;
+  align-items: end;
+}
+
+.uc03-date-range {
+  display: grid;
+  grid-template-columns: minmax(142px, 1fr) auto minmax(142px, 1fr);
+  gap: 8px;
+  align-items: end;
+}
+
+.uc03-date-range__separator {
+  min-height: 44px;
+  display: grid;
+  place-items: center;
+  color: #667085;
+  font-weight: 700;
+}
+
+.uc03-work-card.is-compact {
+  gap: 10px;
+}
+
+.uc03-work-card.is-expanded {
+  border-color: #c8d8ee;
+  box-shadow: 0 10px 26px rgb(25 45 76 / 8%);
+}
+
+.uc03-work-card__summary {
+  min-width: 148px;
+  display: grid;
+  gap: 3px;
+  align-content: start;
+  justify-items: end;
+  text-align: right;
+}
+
+.uc03-work-card__status-label {
+  color: #667085;
+  font-size: .72rem;
+  font-weight: 750;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+
+.uc03-work-card__attention,
+.uc03-work-card__clear {
+  font-size: .78rem;
+  font-weight: 700;
+}
+
+.uc03-work-card__attention {
+  color: #9a2e25;
+}
+
+.uc03-work-card__clear {
+  color: #28745d;
+}
+
+.uc03-work-card__expanded-content {
+  display: grid;
+  gap: 10px;
+  animation: uc03-detail-reveal .16s ease-out;
+}
+
+@keyframes uc03-detail-reveal {
+  from { opacity: 0; transform: translateY(-3px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.uc03-work-card__expanded-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  align-items: center;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: #f8fafc;
+  color: #596579;
+  font-size: .79rem;
+}
+
+.uc03-work-card__controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.uc03-work-card__details-button,
+.uc03-lazy-load button {
+  min-height: 40px;
+  padding: 0 13px;
+  border: 1px solid #cfd8e5;
+  border-radius: 9px;
+  background: #fff;
+  color: var(--ion-color-primary);
+  font: inherit;
+  font-size: .82rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.uc03-work-card__details-button:hover,
+.uc03-work-card__details-button:focus-visible,
+.uc03-lazy-load button:hover,
+.uc03-lazy-load button:focus-visible {
+  border-color: var(--ion-color-primary);
+  outline: 2px solid rgb(var(--ion-color-primary-rgb) / 10%);
+  outline-offset: 1px;
+}
+
+.uc03-lazy-load {
+  position: relative;
+  min-height: 54px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 4px 0;
+  color: #667085;
+  font-size: .82rem;
+}
+
+.uc03-lazy-load button:disabled {
+  opacity: .55;
+  cursor: wait;
+}
+
+.uc03-lazy-load__sentinel {
+  position: absolute;
+  inset: auto 0 -180px;
+  height: 1px;
+  pointer-events: none;
+}
+
+@media (max-width: 900px) {
+  .uc03-work-filters--phase2 {
+    grid-template-columns: 1fr;
+  }
+
+  .uc03-date-range {
+    width: 100%;
+  }
+}
+
+@media (max-width: 640px) {
+  .uc03-date-range {
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+
+  .uc03-date-range__separator {
+    display: none;
+  }
+
+  .uc03-work-card__header {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 10px;
+  }
+
+  .uc03-work-card__summary {
+    min-width: 104px;
+  }
+
+  .uc03-work-card__summary > strong {
+    max-width: 120px;
+    font-size: .82rem;
+  }
+
+  .uc03-work-card__location span:last-child:not(:first-child) {
+    width: 100%;
+    margin-left: 0;
+  }
+
+  .uc03-work-card__footer {
+    align-items: stretch;
+  }
+
+  .uc03-work-card__activity,
+  .uc03-work-card__controls {
+    width: 100%;
+  }
+
+  .uc03-work-card__controls {
+    justify-content: space-between;
+  }
+
+  .uc03-work-card__details-button {
+    flex: 1;
+  }
+
+  .uc03-work-card__expanded-meta {
+    display: grid;
+    gap: 6px;
+  }
+}

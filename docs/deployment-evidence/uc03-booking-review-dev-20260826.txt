@@ -1,0 +1,6 @@
+UC03 Booking capture/review DEV promotion trigger
+Merged capability commit: 1c820926ad9a8714c753bfb4e3a91834acaabe63
+Audit Core dependency: merged to DEV
+Cloudflare workflow: retained original DEV workflow only
+DI: unchanged
+Security: unchanged

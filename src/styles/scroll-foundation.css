@@ -1,0 +1,50 @@
+/*
+ * Natural page scrolling for the shared Web / tablet / Capacitor shell.
+ * The application uses IonApp as a root wrapper without IonContent, so Ionic's
+ * viewport locking must not clip long operational workspaces.
+ */
+html {
+  min-height: 100%;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+}
+
+body,
+#root {
+  min-height: 100%;
+  overflow-x: hidden;
+  overflow-y: visible;
+}
+
+ion-app {
+  position: relative !important;
+  inset: auto !important;
+  min-height: 100vh;
+  height: auto !important;
+  overflow: visible !important;
+}
+
+.enterprise-shell,
+.enterprise-main {
+  min-height: 100vh;
+}
+
+.enterprise-content {
+  min-height: calc(100vh - 66px);
+  overflow: visible;
+}
+
+@media (max-width: 767px) {
+  html {
+    scrollbar-gutter: auto;
+  }
+
+  ion-app {
+    min-height: 100dvh;
+  }
+
+  .enterprise-shell,
+  .enterprise-main {
+    min-height: 100dvh;
+  }
+}

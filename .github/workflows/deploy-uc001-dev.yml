@@ -165,11 +165,29 @@ jobs:
             --header 'Cache-Control: no-cache' \
             --output /tmp/app.js \
             "$DEV_WEB_URL$asset_path?$cache_bust"
-          if ! grep -q 'data:image/png;base64,' /tmp/app.js; then
-            echo "Deployed Cloudflare JavaScript does not contain the approved bundled PNG lockup"
+          [ -s /tmp/app.js ] || {
+            echo "Deployed application entry JavaScript is empty"
+            exit 1
+          }
+          echo "WEB_ENTRY_ASSET_DEPLOYED=PASS|$asset_path"
+
+          echo "--- Approved logo deployed chunk ---"
+          logo_chunk="$(grep -Rl 'data:image/png;base64,' dist/assets --include='*.js' | head -n 1)"
+          [ -n "$logo_chunk" ] || {
+            echo 'Could not identify the built JavaScript chunk containing the approved PNG lockup.'
+            exit 1
+          }
+          logo_asset="/assets/$(basename "$logo_chunk")"
+          curl --fail --silent --show-error --location \
+            --header 'Cache-Control: no-cache' \
+            --header 'Pragma: no-cache' \
+            --output /tmp/logo-chunk.js \
+            "$DEV_WEB_URL$logo_asset?$cache_bust"
+          if ! grep -q 'data:image/png;base64,' /tmp/logo-chunk.js; then
+            echo "Deployed logo-bearing chunk does not contain the approved bundled PNG lockup: $logo_asset"
             exit 1
           fi
-          echo "VERIGENCE_LOGO_DEPLOYED_BUNDLE=PASS"
+          echo "VERIGENCE_LOGO_DEPLOYED_BUNDLE=PASS|$logo_asset"
 
           echo "--- DI Test Console deployed chunk ---"
           di_chunk="$(find dist/assets -maxdepth 1 -type f -name 'DiTestConsolePage-*.js' | head -n 1)"

@@ -1,19 +1,36 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 
+import '../../styles/uc03-document-verification.css';
+import '../../styles/uc03-step3-review.css';
 import {
+  type EvidenceFactView,
   type EvidenceRegion,
   type ExtractionProposalView,
+  getBookingEvidenceFacts,
   getBookingEvidenceReviewContent,
 } from '../../services/audit-core/uc03Booking';
+import { displayName } from '../../utils/displayNames';
+import { PdfPageReview } from './PdfPageReview';
+
+const EMPTY_DECIDED_IDS: ReadonlySet<string> = new Set();
+
+type ReviewProposal = ExtractionProposalView & {
+  sourceText?: string | null;
+  reviewReason?: string | null;
+};
 
 interface DocumentFieldReviewProps {
   tenantId: string;
   journeyId: string;
   accessToken?: string;
+  evidenceId: string;
+  documentName: string;
   proposals: ExtractionProposalView[];
+  decidedIds?: ReadonlySet<string>;
   disabled?: boolean;
   onAccept: (proposal: ExtractionProposalView) => Promise<void>;
   onCorrect: (proposal: ExtractionProposalView, value: string) => Promise<void>;
+  onReviewCompleteChange?: (complete: boolean) => void;
 }
 
 interface SourcePreview {
@@ -21,16 +38,15 @@ interface SourcePreview {
   mimeType: string;
 }
 
-function labelForField(fieldKey: string): string {
-  return fieldKey
-    .split('_')
-    .filter(Boolean)
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(' ');
+interface NormalizedBox {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
 }
 
-function displayValue(value: unknown): string {
-  if (value === null || value === undefined) return 'Not found';
+function proposalValue(value: unknown): string {
+  if (value === null || value === undefined) return 'Not Found';
   if (typeof value === 'string') return value || 'Blank';
   if (typeof value === 'number' || typeof value === 'boolean') return String(value);
   try {
@@ -40,86 +56,132 @@ function displayValue(value: unknown): string {
   }
 }
 
-function validBox(region?: EvidenceRegion | null): [number, number, number, number] | null {
+function confidencePercent(value: number | null): number | null {
+  if (value === null || !Number.isFinite(value)) return null;
+  const percent = value <= 1 ? value * 100 : value;
+  return Math.max(0, Math.min(100, percent));
+}
+
+function normalizedBox(region?: EvidenceRegion | null): NormalizedBox | null {
   if (!region || region.type !== 'BOX_2D' || region.coordinateSystem !== 'NORMALIZED_1000') return null;
   if (!Array.isArray(region.box) || region.box.length !== 4) return null;
   const values = region.box.map(Number);
   if (values.some((value) => !Number.isFinite(value) || value < 0 || value > 1000)) return null;
   const [ymin, xmin, ymax, xmax] = values;
   if (ymin >= ymax || xmin >= xmax) return null;
-  return [ymin, xmin, ymax, xmax];
+  return {
+    x: xmin / 1000,
+    y: ymin / 1000,
+    w: (xmax - xmin) / 1000,
+    h: (ymax - ymin) / 1000,
+  };
 }
 
-function normalizedBoxStyle(box: [number, number, number, number]) {
-  const [ymin, xmin, ymax, xmax] = box;
-  return {
-    top: `${ymin / 10}%`,
-    left: `${xmin / 10}%`,
-    height: `${(ymax - ymin) / 10}%`,
-    width: `${(xmax - xmin) / 10}%`,
-  };
+function isPersistedReview(proposal: ExtractionProposalView, decidedIds: ReadonlySet<string>): boolean {
+  return decidedIds.has(proposal.proposalId)
+    || proposal.status === 'ACCEPTED'
+    || proposal.status === 'CORRECTED';
+}
+
+function requiresExtraAttention(proposal: ReviewProposal): boolean {
+  if (proposal.reviewReason?.trim()) return true;
+  const confidence = confidencePercent(proposal.confidence);
+  return confidence !== null && confidence <= 90;
+}
+
+function reviewReason(proposal: ReviewProposal): string | null {
+  if (proposal.reviewReason?.trim()) return proposal.reviewReason.trim();
+  const confidence = confidencePercent(proposal.confidence);
+  if (confidence !== null && confidence <= 90) {
+    return `${Math.round(confidence)}% extraction confidence — compare carefully with the source document.`;
+  }
+  return null;
 }
 
 export function DocumentFieldReview({
   tenantId,
   journeyId,
   accessToken,
+  evidenceId,
+  documentName,
   proposals,
+  decidedIds = EMPTY_DECIDED_IDS,
   disabled = false,
   onAccept,
   onCorrect,
+  onReviewCompleteChange,
 }: DocumentFieldReviewProps) {
-  const pending = useMemo(
-    () => proposals.filter((proposal) => proposal.status === 'PENDING'),
-    [proposals],
-  );
-  const [activeIndex, setActiveIndex] = useState(0);
-  const [editing, setEditing] = useState(false);
+  const [facts, setFacts] = useState<EvidenceFactView[]>([]);
+  const fields = useMemo(() => {
+    const factByField = new Map(facts.map((fact) => [fact.fieldKey, fact]));
+    return (proposals as ReviewProposal[])
+      .filter((proposal) => proposal.status !== 'SUPERSEDED')
+      .map((proposal) => {
+        const fact = factByField.get(proposal.fieldKey);
+        return {
+          ...proposal,
+          confidence: proposal.confidence ?? fact?.confidenceScore ?? null,
+          pageNo: proposal.pageNo ?? fact?.pageNo ?? null,
+          evidenceRegion: proposal.evidenceRegion ?? fact?.evidenceRegion ?? null,
+        };
+      });
+  }, [facts, proposals]);
+
+  const rootRef = useRef<HTMLDivElement>(null);
+  const scrollerRef = useRef<HTMLDivElement>(null);
+  const imageRef = useRef<HTMLImageElement>(null);
+  const [wide, setWide] = useState(false);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [locallyReviewedIds, setLocallyReviewedIds] = useState<Set<string>>(() => new Set());
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [correction, setCorrection] = useState('');
+  const [actionBusyId, setActionBusyId] = useState<string | null>(null);
   const [source, setSource] = useState<SourcePreview | null>(null);
   const [sourceLoading, setSourceLoading] = useState(false);
   const [sourceError, setSourceError] = useState<string | null>(null);
-  const [actionBusy, setActionBusy] = useState(false);
+  const [imageReady, setImageReady] = useState(false);
 
-  const safeIndex = pending.length === 0 ? 0 : Math.min(activeIndex, pending.length - 1);
-  const active = pending[safeIndex] ?? null;
-
-  useEffect(() => {
-    if (activeIndex !== safeIndex) setActiveIndex(safeIndex);
-  }, [activeIndex, safeIndex]);
-
-  useEffect(() => {
-    setEditing(false);
-    setCorrection(active ? displayValue(active.proposedValue) : '');
-  }, [active?.proposalId]);
+  useLayoutEffect(() => {
+    const root = rootRef.current;
+    if (!root) return undefined;
+    const observer = new ResizeObserver(([entry]) => setWide(entry.contentRect.width >= 720));
+    observer.observe(root);
+    return () => observer.disconnect();
+  }, []);
 
   useEffect(() => {
-    if (!active?.sourceEvidenceId) {
-      setSource(null);
-      setSourceError(null);
-      return;
-    }
+    setSelectedId(fields.find((field) => field.status === 'PENDING')?.proposalId ?? fields[0]?.proposalId ?? null);
+    setLocallyReviewedIds(new Set());
+    setEditingId(null);
+    setCorrection('');
+  }, [evidenceId]);
 
+  useEffect(() => {
+    if (selectedId && fields.some((field) => field.proposalId === selectedId)) return;
+    setSelectedId(fields.find((field) => field.status === 'PENDING')?.proposalId ?? fields[0]?.proposalId ?? null);
+  }, [fields, selectedId]);
+
+  useEffect(() => {
     let cancelled = false;
     let objectUrl: string | null = null;
+    setSource(null);
+    setFacts([]);
     setSourceLoading(true);
     setSourceError(null);
+    setImageReady(false);
 
-    void getBookingEvidenceReviewContent(
-      tenantId,
-      journeyId,
-      active.sourceEvidenceId,
-      accessToken,
-    )
+    void getBookingEvidenceFacts(tenantId, journeyId, evidenceId, accessToken)
+      .then((result) => { if (!cancelled) setFacts(result); })
+      .catch(() => { if (!cancelled) setFacts([]); });
+
+    void getBookingEvidenceReviewContent(tenantId, journeyId, evidenceId, accessToken)
       .then((result) => {
         if (cancelled) return;
         objectUrl = URL.createObjectURL(result.blob);
         setSource({ url: objectUrl, mimeType: result.mimeType });
       })
-      .catch((error: unknown) => {
-        if (cancelled) return;
-        setSource(null);
-        setSourceError(error instanceof Error ? error.message : 'Unable to load source document.');
+      .catch((cause: unknown) => {
+        if (!cancelled) setSourceError(cause instanceof Error ? cause.message : 'Unable to load source document.');
       })
       .finally(() => {
         if (!cancelled) setSourceLoading(false);
@@ -129,193 +191,273 @@ export function DocumentFieldReview({
       cancelled = true;
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
-  }, [accessToken, active?.sourceEvidenceId, journeyId, tenantId]);
+  }, [accessToken, evidenceId, journeyId, tenantId]);
 
-  if (pending.length === 0) {
-    return (
-      <div className="uc03-review-empty" role="status">
-        <strong>All extracted fields reviewed.</strong>
-        <span>There are no pending DI values requiring a PC decision.</span>
-      </div>
-    );
-  }
-
-  if (!active) return null;
-
-  const box = validBox(active.evidenceRegion);
+  const selected = fields.find((field) => field.proposalId === selectedId) ?? null;
+  const selectedBox = normalizedBox(selected?.evidenceRegion);
   const isImage = source?.mimeType.startsWith('image/') ?? false;
   const isPdf = source?.mimeType.includes('pdf') ?? false;
-  const pageNo = active.pageNo && active.pageNo > 0 ? active.pageNo : null;
-  const fieldNumber = safeIndex + 1;
+  const selectedPage = selected?.pageNo && selected.pageNo > 0 ? selected.pageNo : 1;
 
-  const decide = async (mode: 'accept' | 'correct') => {
-    setActionBusy(true);
+  const isReviewed = (proposal: ExtractionProposalView): boolean => {
+    if (isPersistedReview(proposal, decidedIds)) return true;
+    return locallyReviewedIds.has(proposal.proposalId);
+  };
+
+  const reviewComplete = fields.every((field) => isReviewed(field));
+  const reviewedCount = fields.filter((field) => isReviewed(field)).length;
+  const attentionCount = fields.filter((field) => !isReviewed(field) && requiresExtraAttention(field)).length;
+
+  useEffect(() => {
+    onReviewCompleteChange?.(reviewComplete);
+  }, [onReviewCompleteChange, reviewComplete]);
+
+  useEffect(() => {
+    if (!selectedBox || !isImage || !imageReady) return;
+    const scroller = scrollerRef.current;
+    const image = imageRef.current;
+    if (!scroller || !image || image.clientHeight <= 0) return;
+    const absoluteY = image.offsetTop + selectedBox.y * image.clientHeight;
+    const target = absoluteY - Math.max(70, scroller.clientHeight * 0.42);
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    scroller.scrollTo({ top: Math.max(0, target), behavior: reduceMotion ? 'auto' : 'smooth' });
+  }, [imageReady, isImage, selectedBox?.h, selectedBox?.w, selectedBox?.x, selectedBox?.y]);
+
+  const selectField = (proposalId: string) => {
+    setSelectedId(proposalId);
+    setEditingId(null);
+  };
+
+  const acceptField = async (proposal: ExtractionProposalView) => {
+    if (disabled || actionBusyId || isReviewed(proposal)) return;
+    if (!proposal.canAccept) {
+      setLocallyReviewedIds((current) => new Set(current).add(proposal.proposalId));
+      return;
+    }
+    setActionBusyId(proposal.proposalId);
     try {
-      if (mode === 'accept') {
-        await onAccept(active);
-      } else {
-        await onCorrect(active, correction);
-      }
+      await onAccept(proposal);
     } finally {
-      setActionBusy(false);
+      setActionBusyId(null);
     }
   };
 
+  const startCorrection = (proposal: ExtractionProposalView) => {
+    setSelectedId(proposal.proposalId);
+    setCorrection(proposalValue(proposal.proposedValue));
+    setEditingId(proposal.proposalId);
+  };
+
+  const saveCorrection = async (proposal: ExtractionProposalView) => {
+    const value = correction.trim();
+    if (!value || disabled || actionBusyId) return;
+    setActionBusyId(proposal.proposalId);
+    try {
+      await onCorrect(proposal, value);
+      setEditingId(null);
+    } finally {
+      setActionBusyId(null);
+    }
+  };
+
+  useEffect(() => {
+    if (!wide) return undefined;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement) return;
+      if (fields.length === 0) return;
+      const current = Math.max(0, fields.findIndex((field) => field.proposalId === selectedId));
+      if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+        event.preventDefault();
+        const delta = event.key === 'ArrowDown' ? 1 : -1;
+        const next = Math.max(0, Math.min(fields.length - 1, current + delta));
+        selectField(fields[next].proposalId);
+      }
+      if (event.key === 'Enter' && selected && !isReviewed(selected)) {
+        event.preventDefault();
+        void acceptField(selected);
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [actionBusyId, decidedIds, disabled, fields, locallyReviewedIds, selected, selectedId, wide]);
+
+  const sourceNote = selected
+    ? selectedBox
+      ? `Selected value is highlighted on ${isPdf ? `PDF page ${selectedPage}` : 'the source document'}.`
+      : selected.pageNo
+        ? `Selected value was localized to page ${selected.pageNo}; no reliable box was returned.`
+        : 'No reliable source region was returned. Compare visually; no location is guessed.'
+    : null;
+
   return (
-    <div className="uc03-review-shell">
-      <div className="uc03-review-source">
-        <header>
-          <div>
-            <span className="uc03-c1-eyebrow">Source document</span>
-            <strong>{active.sourceDocumentTypeKey || 'Uploaded evidence'}</strong>
-          </div>
-          <div className="uc03-review-location">
-            {pageNo ? <span>Page {pageNo}</span> : <span>Page not localized</span>}
-            {box && isImage ? <span>Source highlighted</span> : null}
-          </div>
-        </header>
-
-        <div className="uc03-review-preview" aria-live="polite">
-          {sourceLoading ? <div className="uc03-review-preview-message">Loading source document…</div> : null}
-          {sourceError ? <div className="uc03-review-preview-message is-error">{sourceError}</div> : null}
-
-          {!sourceLoading && !sourceError && source && isImage ? (
-            <div className="uc03-review-image-stage">
-              <img src={source.url} alt={`Source evidence for ${labelForField(active.fieldKey)}`} />
-              {box ? (
-                <span
-                  className="uc03-review-highlight"
-                  style={normalizedBoxStyle(box)}
-                  aria-label="DI source location"
-                />
-              ) : null}
-            </div>
-          ) : null}
-
-          {!sourceLoading && !sourceError && source && isPdf ? (
-            <div className="uc03-review-pdf-stage">
-              <iframe
-                title={`Source PDF for ${labelForField(active.fieldKey)}`}
-                src={`${source.url}#page=${pageNo || 1}&view=FitH`}
-              />
-              <a href={`${source.url}#page=${pageNo || 1}`} target="_blank" rel="noreferrer">
-                Open PDF in full viewer
-              </a>
-            </div>
-          ) : null}
-
-          {!sourceLoading && !sourceError && source && !isImage && !isPdf ? (
-            <div className="uc03-review-preview-message">
-              <span>Inline preview is not available for {source.mimeType}.</span>
-              <a href={source.url} target="_blank" rel="noreferrer">Open source document</a>
-            </div>
-          ) : null}
+    <div ref={rootRef} className={`uc03-docverify ${wide ? 'is-wide' : 'is-narrow'}`}>
+      <div className="uc03-docverify-bar">
+        <div>
+          <strong>{documentName}</strong>
+          <span>{fields.length ? `${fields.length} System Read field${fields.length === 1 ? '' : 's'}` : 'No extracted fields returned'}</span>
         </div>
-
-        <footer>
-          {box && isImage ? (
-            <span>DI highlighted the exact source region returned by extraction.</span>
-          ) : pageNo ? (
-            <span>DI localized this value to page {pageNo}. Compare visually if no box is shown.</span>
-          ) : (
-            <span>No reliable source location was returned. Compare the value visually; no location was guessed.</span>
-          )}
-        </footer>
+        <div className="uc03-docverify-bar__status">
+          <span>{reviewedCount}/{fields.length} reviewed</span>
+          {attentionCount > 0 ? <span className="is-attention">{attentionCount} to check carefully</span> : null}
+        </div>
       </div>
 
-      <div className="uc03-review-field">
-        <div className="uc03-review-progress-row">
-          <span className="uc03-c1-eyebrow">Field {fieldNumber} of {pending.length}</span>
-          <span>{Math.round((fieldNumber / pending.length) * 100)}% through pending fields</span>
-        </div>
-        <div className="uc03-review-progress" aria-hidden="true">
-          <span style={{ width: `${(fieldNumber / pending.length) * 100}%` }} />
-        </div>
+      <div className={`uc03-docverify-body ${wide ? 'is-wide' : 'is-narrow'}`}>
+        <div className="uc03-docverify-canvas">
+          <div ref={scrollerRef} className="uc03-docverify-scroller">
+            {sourceLoading ? <div className="uc03-docverify-message">Loading source document…</div> : null}
+            {sourceError ? <div className="uc03-docverify-message is-error">{sourceError}</div> : null}
 
-        <div className="uc03-review-value-card">
-          <span>{labelForField(active.fieldKey)}</span>
-          <strong>{displayValue(active.proposedValue)}</strong>
-          <div className="uc03-review-meta">
-            <span>DI confidence {active.confidence === null ? '—' : `${active.confidence.toFixed(0)}%`}</span>
-            <span>{active.valueSource || 'MACHINE'}</span>
+            {!sourceLoading && !sourceError && source && isImage ? (
+              <div className="uc03-docverify-image-page">
+                <img
+                  ref={imageRef}
+                  src={source.url}
+                  alt={`${documentName} source`}
+                  draggable={false}
+                  onLoad={() => setImageReady(true)}
+                />
+                {selectedBox ? (
+                  <div
+                    className={`uc03-docverify-highlight ${selected && requiresExtraAttention(selected) ? 'is-attention' : ''}`}
+                    style={{
+                      left: `${selectedBox.x * 100}%`,
+                      top: `${selectedBox.y * 100}%`,
+                      width: `${selectedBox.w * 100}%`,
+                      height: `${selectedBox.h * 100}%`,
+                    }}
+                    aria-label={selected ? `Source location for ${displayName(selected.fieldKey)}` : 'Source location'}
+                  >
+                    {selected ? <span>{displayName(selected.fieldKey)}</span> : null}
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
+
+            {!sourceLoading && !sourceError && source && isPdf ? (
+              <div className="uc03-docverify-pdf">
+                <PdfPageReview
+                  sourceUrl={source.url}
+                  pageNumber={selectedPage}
+                  box={selectedBox}
+                  label={selected ? displayName(selected.fieldKey) : null}
+                  attention={Boolean(selected && requiresExtraAttention(selected))}
+                />
+                <a href={`${source.url}#page=${selectedPage}`} target="_blank" rel="noreferrer">Open PDF in full viewer</a>
+              </div>
+            ) : null}
+
+            {!sourceLoading && !sourceError && source && !isImage && !isPdf ? (
+              <div className="uc03-docverify-message">
+                <span>Inline preview is not available for this file type.</span>
+                <a href={source.url} target="_blank" rel="noreferrer">Open source document</a>
+              </div>
+            ) : null}
+
+            {!sourceLoading && !sourceError && !source ? (
+              <div className="uc03-docverify-message">Source document is not available.</div>
+            ) : null}
           </div>
+
+          {sourceNote ? <div className="uc03-docverify-source-note">{sourceNote}</div> : null}
         </div>
 
-        {editing ? (
-          <label className="uc03-review-correction">
-            <span>Correct value</span>
-            <input
-              autoFocus
-              value={correction}
-              onChange={(event) => setCorrection(event.target.value)}
-              disabled={disabled || actionBusy}
-            />
-          </label>
-        ) : null}
+        <aside className={`uc03-docverify-panel ${wide ? 'is-wide' : 'is-stacked'}`}>
+          <div className="uc03-docverify-panel__head">
+            <div>
+              <strong>What We Read</strong>
+              <span>Select any value to verify it against the document.</span>
+            </div>
+            <span className={reviewComplete ? 'is-complete' : ''}>{reviewComplete ? 'All reviewed' : `${fields.length - reviewedCount} remaining`}</span>
+          </div>
 
-        <div className="uc03-review-decision-actions">
-          {!editing ? (
-            <>
-              <button
-                type="button"
-                className="uc03-c1-primary"
-                disabled={disabled || actionBusy || !active.canAccept}
-                onClick={() => void decide('accept')}
-              >
-                ✓ Correct
-              </button>
-              <button
-                type="button"
-                className="uc03-c1-secondary"
-                disabled={disabled || actionBusy}
-                onClick={() => setEditing(true)}
-              >
-                Change value
-              </button>
-            </>
+          {fields.length ? (
+            <ul className="uc03-docverify-fields">
+              {fields.map((field) => {
+                const selectedField = field.proposalId === selectedId;
+                const reviewed = isReviewed(field);
+                const attention = requiresExtraAttention(field);
+                const reason = reviewReason(field);
+                const confidence = confidencePercent(field.confidence);
+                const editing = editingId === field.proposalId;
+                const busy = actionBusyId === field.proposalId;
+                return (
+                  <li
+                    key={field.proposalId}
+                    className={`uc03-docverify-field ${selectedField ? 'is-selected' : ''} ${attention ? 'is-attention' : ''} ${reviewed ? 'is-reviewed' : ''}`}
+                  >
+                    <button
+                      type="button"
+                      className="uc03-docverify-field__summary"
+                      aria-expanded={selectedField}
+                      onClick={() => selectField(field.proposalId)}
+                    >
+                      <span>{displayName(field.fieldKey)}</span>
+                      <strong>{reviewed && field.status === 'CORRECTED' && field.acceptedValue !== null ? proposalValue(field.acceptedValue) : proposalValue(field.proposedValue)}</strong>
+                      {reviewed ? <b aria-label="Reviewed">✓</b> : null}
+                    </button>
+
+                    {selectedField ? (
+                      <div className="uc03-docverify-field__details">
+                        <div className="uc03-docverify-field__meta">
+                          {confidence !== null ? <span>{Math.round(confidence)}% confidence</span> : <span>Confidence unavailable</span>}
+                          {field.pageNo ? <span>Page {field.pageNo}</span> : null}
+                          {normalizedBox(field.evidenceRegion) ? <span>Box localized</span> : null}
+                          {!field.canAccept ? <span>Reference field</span> : null}
+                        </div>
+
+                        {field.sourceText?.trim() ? (
+                          <div className="uc03-docverify-source-text">
+                            <b>Read from the document</b>
+                            <span>{field.sourceText}</span>
+                          </div>
+                        ) : null}
+
+                        {reason ? <div className="uc03-docverify-warning">⚠ {reason}</div> : null}
+
+                        {editing ? (
+                          <div className="uc03-docverify-edit">
+                            <label>
+                              <span>Correct value</span>
+                              <input
+                                autoFocus
+                                value={correction}
+                                disabled={disabled || busy}
+                                onChange={(event) => setCorrection(event.target.value)}
+                              />
+                            </label>
+                            <div>
+                              <button type="button" className="is-primary" disabled={disabled || busy || !correction.trim()} onClick={() => void saveCorrection(field)}>
+                                {busy ? 'Saving…' : 'Save Change'}
+                              </button>
+                              <button type="button" disabled={disabled || busy} onClick={() => setEditingId(null)}>Cancel</button>
+                            </div>
+                          </div>
+                        ) : !reviewed ? (
+                          <div className="uc03-docverify-actions">
+                            <button type="button" className="is-primary" disabled={disabled || busy} onClick={() => void acceptField(field)}>
+                              {busy ? 'Saving…' : field.canAccept ? (attention ? 'Confirm Value' : 'Accept Value') : 'Confirm Value'}
+                            </button>
+                            {field.canAccept ? (
+                              <button type="button" disabled={disabled || busy} onClick={() => startCorrection(field)}>Change Value</button>
+                            ) : null}
+                          </div>
+                        ) : (
+                          <div className="uc03-docverify-reviewed-note">✓ Value reviewed</div>
+                        )}
+                      </div>
+                    ) : null}
+                  </li>
+                );
+              })}
+            </ul>
           ) : (
-            <>
-              <button
-                type="button"
-                className="uc03-c1-primary"
-                disabled={disabled || actionBusy || correction.trim().length === 0}
-                onClick={() => void decide('correct')}
-              >
-                Save change
-              </button>
-              <button
-                type="button"
-                className="uc03-c1-secondary"
-                disabled={disabled || actionBusy}
-                onClick={() => {
-                  setCorrection(displayValue(active.proposedValue));
-                  setEditing(false);
-                }}
-              >
-                Cancel
-              </button>
-            </>
+            <div className="uc03-docverify-empty">
+              <strong>No System Read values were returned.</strong>
+              <span>Review the document visually, then approve the document below.</span>
+            </div>
           )}
-        </div>
-
-        <div className="uc03-review-nav">
-          <button
-            type="button"
-            className="uc03-c1-secondary"
-            disabled={safeIndex === 0 || actionBusy}
-            onClick={() => setActiveIndex((value) => Math.max(0, value - 1))}
-          >
-            ← Previous
-          </button>
-          <button
-            type="button"
-            className="uc03-c1-secondary"
-            disabled={safeIndex >= pending.length - 1 || actionBusy}
-            onClick={() => setActiveIndex((value) => Math.min(pending.length - 1, value + 1))}
-          >
-            Next →
-          </button>
-        </div>
+        </aside>
       </div>
     </div>
   );

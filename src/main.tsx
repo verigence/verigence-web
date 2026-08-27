@@ -36,15 +36,42 @@ import './styles/final-mobile-sweep.css';
 import './styles/android-native.css';
 import './styles/uc03-c0.css';
 import './styles/uc03-c1.css';
+import './styles/uc03-c1-responsive-fixes.css';
+import './styles/uc03-capture-flow.css';
 import './styles/uc03-c2.css';
 import './styles/uc03-c3.css';
 import './styles/auth-brand-emphasis.css';
 import './styles/project-admin-step1-fix.css';
+import './styles/uc02-project-admin-scroll-hotfix.css';
 import './styles/navigation-admin-landing.css';
+import './styles/scroll-foundation.css';
+import './styles/uc03-pc-ui-regression-fixes.css';
+import './styles/uc03-pc-landing-cta.css';
+import './styles/uc03-pc-product-polish.css';
+import './styles/uc03-phase2-worklist.css';
+import './styles/uc03-approved-landing.css';
+import './styles/uc03-hero-greeting.css';
+import './styles/uc03-verification-simple.css';
+import './styles/uc03-booking-capture-compact.css';
+import './styles/uc03-booking-adaptive.css';
+import './styles/uc03-booking-mobile-compact.css';
+import './styles/uc03-booking-journey.css';
+import './styles/booking-step12-visual-refresh.css';
+import './styles/authenticated-scroll-owner.css';
+import './styles/approved-navigation-shell.css';
+import './styles/approved-navigation-scroll-owner.css';
+import './styles/reference-dashboard-alignment.css';
+import './styles/hero-list-teal-polish.css';
+import './styles/dashboard-density-width-pass.css';
+import './styles/recent-work-table.css';
+import './styles/dashboard-visual-hierarchy.css';
+import './styles/dashboard-workqueue-ui.css';
+import './styles/dashboard-mobile-workqueue-fix.css';
+import './styles/dashboard-mobile-card-polish.css';
+import './styles/ui-governance.css';
 
 import App from './App';
 import DiFieldViewerEnhancer from './features/di-test/DiFieldViewerEnhancer';
-import SessionQueryCacheBoundary from './features/query/SessionQueryCacheBoundary';
 
 setupIonicReact({ mode: 'md' });
 
@@ -62,7 +89,6 @@ const queryClient = new QueryClient({
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <QueryClientProvider client={queryClient}>
-      <SessionQueryCacheBoundary />
       <DiFieldViewerEnhancer />
       <App />
     </QueryClientProvider>

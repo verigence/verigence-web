@@ -1,14 +1,19 @@
 # UC-001A — Administration Expansion Design
 
-**Status:** APPROVED FOR IMPLEMENTATION  
+**Status:** APPROVED FOR IMPLEMENTATION — LIFECYCLE CONTRACT REVISED  
 **Approved:** 2026-08-23  
-**Repository/branch:** `verigence/verigence-web` / `planning/uc-001-administration-expansion`
+**Lifecycle revision:** 2026-08-27  
+**Repository:** `verigence/verigence-web`
 
 ## 1. Decision
 
 UC-001 is extended beyond applicant onboarding to include the SuperAdmin administration entry points required to govern the global Verigence USER lifecycle and future administrative configuration.
 
 This addendum supersedes older UC-001 statements that treated all post-approval administration as out of scope. It does **not** change the frozen applicant signup/OTP journey.
+
+The 27-Aug-2026 lifecycle revision aligns Web with the authoritative Security v2 contract dated 19-Aug-2026. The earlier Web-only `EXITED` logical-offboarding interpretation is retired. New Web behavior must not create or transition a USER to `EXITED`.
+
+The rejected-user administration clarification on 27-Aug-2026 requires a rejected USER to have exactly two SuperAdmin outcomes: **Activate** or **Delete User**. Delete User follows the governed Security deletion-request and hard-delete workflow; a rejected USER must not be temporarily activated merely to delete it.
 
 ## 2. Administration navigation
 
@@ -38,46 +43,75 @@ The Users screen must provide:
 - identity/contact summary;
 - entry point to administrative role management;
 - pending approval entry point;
+- activate/reject pending registration;
+- activate or permanently delete a rejected registration;
 - suspend;
 - reinstate;
-- delete/offboard.
+- permanent delete using the Security v2 deletion workflow.
 
-### 3.2 Lifecycle rules
+### 3.2 Authoritative lifecycle rules
 
 Security remains authoritative for USER lifecycle.
 
-The current Security implementation supports administrative lifecycle states including:
+The active Security v2 lifecycle states used by Web are:
 
 ```text
+PENDING
+REJECTED
 ACTIVE
 SUSPENDED
 DISABLED
-EXITED
 ```
 
 Approved UI behavior:
 
 ```text
+PENDING -> ACTIVE
+PENDING -> REJECTED
+REJECTED -> ACTIVE
+REJECTED -> DISABLED   # deletion request, reasonCode=DELETE_REQUEST
 ACTIVE -> SUSPENDED
-SUSPENDED/DISABLED -> ACTIVE
-ACTIVE/SUSPENDED/DISABLED -> EXITED
+SUSPENDED -> ACTIVE
+ACTIVE -> DISABLED     # deletion request, reasonCode=DELETE_REQUEST
+DISABLED -> ACTIVE     # cancel/reactivate deletion request
+DISABLED -> hard DELETE
 ```
 
-`EXITED` is treated as terminal by the current Security implementation.
+`EXITED` is not an active UC-001 lifecycle state and must not be exposed as a filter, target status or delete outcome in Web.
 
-### 3.3 Delete means logical offboarding
+For `REJECTED`, the Users screen exposes only the two applicable administration actions: **Activate** and **Delete**. Suspend/Reinstate do not apply to a rejected registration.
 
-The user-facing action may be labelled **Delete User**, but Verigence must not physically delete the USER record from the audit/governance history.
+### 3.3 Delete means hard delete
 
-`Delete User` therefore maps to controlled logical offboarding (`EXITED`) so that:
+The user-facing action is **Delete User**.
 
-- future login/access is blocked;
-- new role assignment is not permitted;
-- the USER is excluded from normal active-user selection;
-- immutable user ID and historical references remain available;
-- completed audit, evidence and administrative history continue to resolve to the original actor.
+For an `ACTIVE` or `REJECTED` USER, Web performs the Security v2 deletion sequence:
 
-No browser-side record deletion or local shadow USER database is allowed.
+```text
+1. PATCH /security/v1/users/{userId}/status
+   {
+     "status": "DISABLED",
+     "reasonCode": "DELETE_REQUEST",
+     "reason": "<optional administrative reason>"
+   }
+
+2. DELETE /security/v1/platform/users/{userId}
+```
+
+The same SuperAdmin may perform both stages in Phase 1.
+
+`DISABLED` is an intermediate deletion-request state, not a replacement for physical deletion. If the first stage succeeds but final hard delete fails, the USER remains `DISABLED`; the Users screen must refresh authoritative state and allow the SuperAdmin to retry the final hard delete.
+
+Security owns all hard-delete safety and evidence retention, including:
+
+- removal of the live USER/principal records;
+- removal of the Clerk identity;
+- termination/removal of live Security access state and assignments;
+- retained audit evidence;
+- retained deletion tombstone/reference according to the Security retention policy;
+- release of the user identity/contact for permitted future reuse.
+
+Web must not maintain a shadow deleted-user record or use `EXITED` to preserve history. Historical evidence is a Security responsibility.
 
 ## 4. Pending approvals
 
@@ -88,6 +122,16 @@ Administration -> Users -> Pending Approvals
 ```
 
 The legacy `/approvals` route may remain only as a compatibility redirect.
+
+The authoritative decision endpoint is:
+
+```text
+PATCH /security/v1/users/{userId}/status
+```
+
+with target `ACTIVE` or `REJECTED`.
+
+A `PENDING` USER is not hard-deleted directly from the Users list. The onboarding decision must first resolve the registration to `ACTIVE` or `REJECTED`.
 
 ## 5. Roles & Permissions
 
@@ -164,9 +208,12 @@ Project Admin and Module Admin are approved administrative role concepts, but ar
 
 | Administration area | Current implementation decision |
 | --- | --- |
-| Users list | Use Security global USER directory |
-| Suspend / Reinstate | Use Security USER lifecycle API |
-| Delete User | Map to Security `EXITED` logical offboarding |
+| Users list | `GET /security/v1/platform/users?userStatus=...` |
+| User detail | `GET /security/v1/platform/users/{userId}` |
+| Activate / Reject | `PATCH /security/v1/users/{userId}/status` |
+| Suspend / Reinstate | `PATCH /security/v1/users/{userId}/status` |
+| Request deletion | `PATCH /security/v1/users/{userId}/status` with `DISABLED` + `reasonCode=DELETE_REQUEST`; valid from `ACTIVE` or `REJECTED` |
+| Hard Delete User | `DELETE /security/v1/platform/users/{userId}`; SuperAdmin only |
 | Pending Approvals | Reuse UC-001 approval flow under Users |
 | Roles & Permissions | UI + design implemented; mutation blocked pending Security contract |
 | User Activity Log | UI + design implemented; read blocked pending authoritative backend contract |
@@ -177,11 +224,16 @@ Project Admin and Module Admin are approved administrative role concepts, but ar
 
 ## 13. Repository boundaries
 
-This implementation changes Web only.
+The rejected-user deletion correction requires a narrow change in both Web and Security.
 
-- No Security code/schema change is required for global USER list, suspend, reinstate or logical offboarding because those lifecycle capabilities already exist in the reviewed Security implementation.
-- No new Security role/activity/configuration APIs are invented.
-- No Audit Core or DI code change is authorized by this addendum.
+- Web exposes **Delete** alongside **Activate** for `REJECTED` users and reuses the existing deletion client flow.
+- Security extends the existing deletion-request transition guard to permit `REJECTED -> DISABLED` when `reasonCode=DELETE_REQUEST`.
+- No new Security endpoint is introduced.
+- No database schema or migration change is required.
+- Existing Security hard-delete, Clerk deletion, tombstone and audit controls remain unchanged.
+- No Audit Core or DI code change is authorized by this correction.
+
+Security remains the source of truth for USER lifecycle and deletion evidence.
 
 ## 14. Approval record
 
@@ -193,7 +245,21 @@ The design owner explicitly approved in-session on 23-Aug-2026:
 - separation from UC02 PC/TL/PM/CRM/Executive role mapping;
 - Suspend User;
 - Reinstate User;
-- Delete User as controlled logical offboarding;
 - Project Provisioning terminology.
 
-Implementation on `planning/uc-001-administration-expansion` is authorized. Merge/deployment remains subject to normal CI and DEV verification.
+On 27-Aug-2026 the design owner explicitly revised the lifecycle decision:
+
+- remove `EXITED` from the active Web lifecycle;
+- do not use logical offboarding as the Delete implementation;
+- use the Security v2 deletion-request step followed by hard delete;
+- allow SuperAdmin to complete actual hard deletion through `DELETE /security/v1/platform/users/{userId}`;
+- preserve historical evidence through Security tombstone/audit controls rather than retaining the live USER row.
+
+On 27-Aug-2026 the design owner further clarified rejected-registration handling:
+
+- a `REJECTED` USER must show **Activate** and **Delete**;
+- no other lifecycle action applies to `REJECTED` in the Users screen;
+- Delete must use `REJECTED -> DISABLED` with `reasonCode=DELETE_REQUEST`, followed by the existing hard-delete endpoint;
+- the USER must not be temporarily activated only to make deletion possible.
+
+This clarification supersedes the earlier active-only deletion-request guard while preserving the same governed hard-delete workflow.

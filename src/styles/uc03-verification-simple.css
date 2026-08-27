@@ -1,0 +1,88 @@
+/* UC03 verification simplification — 25 Aug 2026.
+   User-facing audit state is intentionally reduced to Verified / Not Verified.
+   Verified means the authoritative audit state is COMPLETE. All other audit states
+   (NOT_STARTED or IN_PROGRESS) render as Not Verified. */
+
+.uc03-landing--verification-simple .uc03-dashboard-hero--greeting {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas:
+    "copy"
+    "action";
+  row-gap: 18px;
+}
+
+.uc03-landing--verification-simple .uc03-dashboard-hero__brand {
+  display: none !important;
+}
+
+.uc03-landing--verification-simple .uc03-landing-metrics {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.uc03-work-card__summary--simple {
+  min-width: 150px;
+  gap: 5px;
+}
+
+.uc03-work-card__summary--simple > strong {
+  max-width: none;
+  white-space: nowrap;
+  line-height: 1.2;
+}
+
+.uc03-verification-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: fit-content;
+  min-height: 26px;
+  padding: 4px 9px;
+  border-radius: 999px;
+  font-size: .74rem;
+  font-weight: 800;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.uc03-work-card__summary .uc03-verification-badge {
+  justify-self: end;
+}
+
+.uc03-verification-badge.is-verified {
+  border: 1px solid #a8d9ca;
+  background: #eef9f5;
+  color: #176b53;
+}
+
+.uc03-verification-badge.is-not-verified {
+  border: 1px solid #d6dee7;
+  background: #f5f7fa;
+  color: #5f7184;
+}
+
+.uc03-stage-block .uc03-verification-badge {
+  margin-top: 3px;
+}
+
+@media (max-width: 900px) {
+  .uc03-landing--verification-simple .uc03-landing-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .uc03-work-card__summary--simple {
+    min-width: 136px;
+  }
+
+  .uc03-work-card__summary--simple > strong {
+    font-size: .78rem;
+    white-space: nowrap;
+  }
+
+  .uc03-verification-badge {
+    min-height: 24px;
+    padding: 4px 8px;
+    font-size: .7rem;
+  }
+}

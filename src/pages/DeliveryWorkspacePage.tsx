@@ -1,14 +1,9 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useParams } from 'react-router-dom';
 
 import PageHeader from '../components/PageHeader';
 import StatusPill from '../components/StatusPill';
-import {
-  deliveryWorkspaceQueryKey,
-  UC03_OPERATIONAL_GC_MS,
-  UC03_OPERATIONAL_STALE_MS,
-} from '../features/uc03/queryKeys';
 import {
   assessDeliveryDocument,
   completeDelivery,
@@ -18,7 +13,6 @@ import {
   startDelivery,
   type DeliveryDocumentAnswer,
   type DeliveryDocumentView,
-  type DeliveryWorkspace,
   uploadDeliveryEvidence,
 } from '../services/audit-core/uc03Delivery';
 import { useProjectContextStore } from '../store/projectContextStore';
@@ -47,33 +41,39 @@ export default function DeliveryWorkspacePage() {
   const [chassisNumber, setChassisNumber] = useState('');
   const [busyDocument, setBusyDocument] = useState<string>();
 
-  const queryKey = deliveryWorkspaceQueryKey(project?.tenantId, journeyId);
+  const queryKey = useMemo(
+    () => ['uc03-delivery-workspace', project?.tenantId, journeyId],
+    [project?.tenantId, journeyId],
+  );
   const workspaceQuery = useQuery({
     queryKey,
     queryFn: () => getDeliveryWorkspace(project!.tenantId, journeyId, accessToken),
     enabled: Boolean(project?.tenantId && journeyId && accessToken),
-    staleTime: UC03_OPERATIONAL_STALE_MS,
-    gcTime: UC03_OPERATIONAL_GC_MS,
     retry: false,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
   });
 
-  const patchWorkspace = (updater: (current: DeliveryWorkspace) => DeliveryWorkspace) => {
-    queryClient.setQueryData<DeliveryWorkspace>(queryKey, (current) => current ? updater(current) : current);
+  useEffect(() => {
+    const refresh = () => {
+      if (document.visibilityState === 'visible') void workspaceQuery.refetch();
+    };
+    const reconnect = () => void workspaceQuery.refetch();
+    window.addEventListener('online', reconnect);
+    document.addEventListener('visibilitychange', refresh);
+    return () => {
+      window.removeEventListener('online', reconnect);
+      document.removeEventListener('visibilitychange', refresh);
+    };
+  }, [workspaceQuery.refetch]);
+
+  const refresh = async () => {
+    await queryClient.invalidateQueries({ queryKey });
   };
 
   const startMutation = useMutation({
     mutationFn: () => startDelivery(project!.tenantId, journeyId, accessToken),
-    onSuccess: async () => {
-      // This is the only intentional post-command workspace read: before Delivery
-      // starts there is no workspace to patch. Load it once, then stay cache-first.
-      await queryClient.fetchQuery({
-        queryKey,
-        queryFn: () => getDeliveryWorkspace(project!.tenantId, journeyId, accessToken),
-        staleTime: UC03_OPERATIONAL_STALE_MS,
-      });
-    },
+    onSuccess: refresh,
   });
   const intimationMutation = useMutation({
     mutationFn: (payload: { answer: 'YES' | 'NO'; reason?: string }) =>
@@ -85,20 +85,7 @@ export default function DeliveryWorkspacePage() {
         accessToken,
         payload.reason,
       ),
-    onSuccess: (result, payload) => {
-      patchWorkspace((current) => ({
-        ...current,
-        delivery: {
-          ...current.delivery,
-          aggregateVersion: result.aggregateVersion,
-          auditStatus: result.flagId ? 'FLAGS_RAISED' : current.delivery.auditStatus,
-        },
-        intimation: {
-          answer: payload.answer,
-          reason: payload.answer === 'NO' ? payload.reason?.trim() || null : null,
-        },
-      }));
-    },
+    onSuccess: refresh,
   });
   const vehicleMutation = useMutation({
     mutationFn: () => {
@@ -115,24 +102,7 @@ export default function DeliveryWorkspacePage() {
         accessToken,
       );
     },
-    onSuccess: (result) => {
-      const sourceEvidenceId = workspaceQuery.data?.documents.find((item) => item.requirementKey === 'CAR_PICTURES')?.evidenceId || null;
-      patchWorkspace((current) => ({
-        ...current,
-        delivery: {
-          ...current.delivery,
-          aggregateVersion: result.aggregateVersion,
-          auditStatus: result.flagId ? 'FLAGS_RAISED' : current.delivery.auditStatus,
-        },
-        vehicle: {
-          ...current.vehicle,
-          observedVin: vin.trim() || null,
-          observedChassisNumber: chassisNumber.trim() || null,
-          observedSourceEvidenceId: sourceEvidenceId,
-          reconciliationStatus: result.reconciliationStatus as DeliveryWorkspace['vehicle']['reconciliationStatus'],
-        },
-      }));
-    },
+    onSuccess: refresh,
   });
   const completeMutation = useMutation({
     mutationFn: () => completeDelivery(
@@ -141,30 +111,13 @@ export default function DeliveryWorkspacePage() {
       workspaceQuery.data!.delivery.aggregateVersion,
       accessToken,
     ),
-    onSuccess: (result) => {
-      patchWorkspace((current) => ({
-        ...current,
-        delivery: {
-          ...current.delivery,
-          businessStatus: result.businessStatus,
-          auditState: result.auditState,
-          auditStatus: result.auditStatus,
-          aggregateVersion: result.aggregateVersion,
-          completedAtUtc: current.delivery.completedAtUtc || new Date().toISOString(),
-        },
-      }));
-    },
+    onSuccess: refresh,
   });
 
   if (!project) return null;
 
   if (workspaceQuery.isPending) {
-    return (
-      <div className="screen-stack uc03-c2-workspace">
-        <PageHeader eyebrow={`${project.projectCode} · Delivery Audit`} title="Delivery" description="Opening the latest Delivery state…" />
-        <section className="uc03-c2-start-card"><strong>Opening Delivery…</strong><p>The route is ready; only the Delivery aggregate is being loaded.</p></section>
-      </div>
-    );
+    return <div className="uc03-c2-load" role="status">Loading Delivery workspace…</div>;
   }
 
   if (workspaceQuery.isError && !workspaceQuery.data) {
@@ -198,7 +151,7 @@ export default function DeliveryWorkspacePage() {
   const assess = async (document: DeliveryDocumentView, answer: DeliveryDocumentAnswer) => {
     setBusyDocument(document.requirementKey);
     try {
-      const result = await assessDeliveryDocument(
+      await assessDeliveryDocument(
         project.tenantId,
         journeyId,
         document.requirementKey,
@@ -207,18 +160,7 @@ export default function DeliveryWorkspacePage() {
         accessToken,
         document.evidenceId,
       );
-      patchWorkspace((current) => ({
-        ...current,
-        delivery: {
-          ...current.delivery,
-          aggregateVersion: result.aggregateVersion,
-          auditStatus: result.flagId ? 'FLAGS_RAISED' : current.delivery.auditStatus,
-        },
-        documents: current.documents.map((item) => item.requirementKey === document.requirementKey ? {
-          ...item,
-          answer,
-        } : item),
-      }));
+      await refresh();
     } finally {
       setBusyDocument(undefined);
     }
@@ -229,7 +171,7 @@ export default function DeliveryWorkspacePage() {
     setBusyDocument(document.requirementKey);
     try {
       const evidence = await uploadDeliveryEvidence(project.tenantId, journeyId, document, file, accessToken);
-      const result = await assessDeliveryDocument(
+      await assessDeliveryDocument(
         project.tenantId,
         journeyId,
         document.requirementKey,
@@ -239,19 +181,7 @@ export default function DeliveryWorkspacePage() {
         evidence.evidenceId,
         'Evidence captured in Delivery workspace.',
       );
-      patchWorkspace((current) => ({
-        ...current,
-        delivery: {
-          ...current.delivery,
-          aggregateVersion: result.aggregateVersion,
-          auditStatus: result.flagId ? 'FLAGS_RAISED' : current.delivery.auditStatus,
-        },
-        documents: current.documents.map((item) => item.requirementKey === document.requirementKey ? {
-          ...item,
-          evidenceId: evidence.evidenceId,
-          answer: 'YES',
-        } : item),
-      }));
+      await refresh();
     } finally {
       setBusyDocument(undefined);
     }

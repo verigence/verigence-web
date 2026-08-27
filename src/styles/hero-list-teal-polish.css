@@ -1,0 +1,265 @@
+/*
+ * UC03 dashboard visual polish — 26 Aug 2026.
+ *
+ * Scope is presentation only. It refines the approved dashboard hero and Recent Work
+ * styling without changing routes, data, workflow logic, auth or Security integration.
+ * Loaded before ui-governance.css; selectors are intentionally scoped/specific.
+ */
+
+/* --------------------------------------------------------------------------
+   Hero — stronger branded composition without adding unsupported UI
+   -------------------------------------------------------------------------- */
+
+.enterprise-shell--approved-nav .uc03-dashboard-hero--greeting {
+  position: relative;
+  isolation: isolate;
+  min-height: 166px;
+  padding: 28px 30px 28px 34px !important;
+  overflow: hidden;
+  border: 1px solid #d7e7ed !important;
+  border-radius: 18px !important;
+  background:
+    radial-gradient(circle at 86% 18%, rgba(0, 175, 168, 0.16), transparent 31%),
+    radial-gradient(circle at 70% 105%, rgba(0, 58, 130, 0.07), transparent 38%),
+    linear-gradient(118deg, #ffffff 0%, #fbfdff 54%, #eefaf8 100%) !important;
+  box-shadow: 0 10px 28px rgba(0, 58, 130, 0.055) !important;
+}
+
+.enterprise-shell--approved-nav .uc03-dashboard-hero--greeting::before {
+  content: '' !important;
+  position: absolute !important;
+  inset: 0 auto 0 0 !important;
+  display: block !important;
+  width: 5px !important;
+  background: linear-gradient(180deg, #003a82 0%, #079aa4 58%, #00afa8 100%) !important;
+  z-index: 0;
+}
+
+.enterprise-shell--approved-nav .uc03-dashboard-hero--greeting::after {
+  content: '';
+  position: absolute;
+  width: 300px;
+  height: 300px;
+  right: -132px;
+  top: -122px;
+  border: 1px solid rgba(0, 175, 168, 0.13);
+  border-radius: 50%;
+  box-shadow:
+    0 0 0 38px rgba(0, 175, 168, 0.025),
+    0 0 0 76px rgba(0, 58, 130, 0.018);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.enterprise-shell--approved-nav .uc03-dashboard-hero--greeting .uc03-dashboard-hero__copy,
+.enterprise-shell--approved-nav .uc03-dashboard-hero--greeting .uc03-landing__capture-action--centered {
+  position: relative;
+  z-index: 1;
+}
+
+.enterprise-shell--approved-nav .uc03-dashboard-hero__greeting {
+  margin-bottom: 10px;
+  color: #486983;
+  font-size: 16px;
+  font-weight: 650;
+}
+
+.enterprise-shell--approved-nav .uc03-dashboard-hero--greeting h1 {
+  color: #073f83;
+  font-size: clamp(36px, 3.15vw, 44px);
+  font-weight: 820;
+  letter-spacing: -0.038em;
+}
+
+.enterprise-shell--approved-nav .uc03-dashboard-hero--greeting p {
+  margin-top: 9px;
+  color: #5e788e;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.enterprise-shell--approved-nav .uc03-landing--approved .uc03-landing__capture-action--centered {
+  width: 304px;
+  min-height: 58px;
+  border: 1px solid #073f83;
+  background: linear-gradient(135deg, #073f83 0%, #004b92 100%);
+  box-shadow: 0 11px 24px rgba(0, 58, 130, 0.19);
+}
+
+.enterprise-shell--approved-nav .uc03-landing--approved .uc03-landing__capture-action--centered:hover,
+.enterprise-shell--approved-nav .uc03-landing--approved .uc03-landing__capture-action--centered:focus-visible {
+  background: linear-gradient(135deg, #064a90 0%, #076899 100%);
+  box-shadow: 0 12px 26px rgba(0, 58, 130, 0.22);
+}
+
+/* --------------------------------------------------------------------------
+   Recent Work — introduce controlled Verigence teal and stronger scan hierarchy
+   -------------------------------------------------------------------------- */
+
+.enterprise-shell--approved-nav .uc03-landing--approved .uc03-work-list {
+  position: relative;
+  overflow: hidden;
+  border-color: #d7e7ed;
+}
+
+.enterprise-shell--approved-nav .uc03-landing--approved .uc03-work-list::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 3px;
+  background: linear-gradient(90deg, #003a82 0%, #079aa4 52%, #00afa8 100%);
+}
+
+.enterprise-shell--approved-nav .uc03-work-list__heading--approved > div > span {
+  color: #648196;
+}
+
+.enterprise-shell--approved-nav .uc03-landing--approved .uc03-work-list__heading--approved h2 {
+  color: #073f83;
+}
+
+.enterprise-shell--approved-nav .uc03-work-filter-tabs--approved {
+  border-color: #d8e7eb;
+  background: #f0f7f8;
+}
+
+.enterprise-shell--approved-nav .uc03-work-filter-tabs--approved button {
+  color: #5b7185;
+}
+
+.enterprise-shell--approved-nav .uc03-work-filter-tabs--approved button.is-active {
+  color: #007f79;
+  background: #ffffff;
+  box-shadow:
+    inset 0 -2px #00afa8,
+    0 2px 8px rgba(0, 95, 102, 0.08);
+}
+
+.enterprise-shell--approved-nav .uc03-filter-toggle:hover,
+.enterprise-shell--approved-nav .uc03-filter-toggle:focus-visible,
+.enterprise-shell--approved-nav .uc03-filter-toggle.is-active {
+  border-color: #83c8c5;
+  background: #f1fbfa;
+  color: #007f79;
+}
+
+.enterprise-shell--approved-nav .uc03-landing--approved .uc03-work-cards {
+  border-color: #d7e7ed;
+  box-shadow: 0 6px 18px rgba(0, 58, 130, 0.025);
+}
+
+.enterprise-shell--approved-nav .uc03-landing--approved .uc03-work-card {
+  position: relative;
+  background: linear-gradient(90deg, rgba(0, 175, 168, 0.025) 0%, #ffffff 16%, #ffffff 100%);
+  transition: background 130ms ease, box-shadow 130ms ease;
+}
+
+.enterprise-shell--approved-nav .uc03-landing--approved .uc03-work-card::before {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 3px;
+  background: rgba(0, 175, 168, 0.32);
+}
+
+.enterprise-shell--approved-nav .uc03-landing--approved .uc03-work-card:nth-child(even) {
+  background: linear-gradient(90deg, rgba(7, 154, 164, 0.035) 0%, #fbfefe 17%, #fbfefe 100%);
+}
+
+.enterprise-shell--approved-nav .uc03-landing--approved .uc03-work-card:hover,
+.enterprise-shell--approved-nav .uc03-landing--approved .uc03-work-card:focus-visible {
+  background: linear-gradient(90deg, rgba(0, 175, 168, 0.075) 0%, #f8fdfd 20%, #ffffff 100%);
+  box-shadow: inset 3px 0 #00afa8;
+}
+
+.enterprise-shell--approved-nav .uc03-landing--approved .uc03-work-card__reference {
+  color: #087f84;
+}
+
+.enterprise-shell--approved-nav .uc03-landing--approved .uc03-work-card__status-label {
+  color: #078e98;
+}
+
+.enterprise-shell--approved-nav .uc03-landing--approved .uc03-work-card__summary > strong {
+  color: #24506d;
+}
+
+.enterprise-shell--approved-nav .uc03-landing--approved .uc03-verification-badge.is-not-verified {
+  border-color: #cae7e5;
+  background: #f0faf9;
+  color: #397a78;
+}
+
+.enterprise-shell--approved-nav .uc03-landing--approved .uc03-work-card__primary-hint {
+  margin-top: 0;
+  color: #007f79;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.enterprise-shell--approved-nav .uc03-landing--approved .uc03-work-card__details-button {
+  border-color: #b9d9dc;
+  color: #075e68;
+}
+
+.enterprise-shell--approved-nav .uc03-landing--approved .uc03-work-card__details-button:hover,
+.enterprise-shell--approved-nav .uc03-landing--approved .uc03-work-card__details-button:focus-visible {
+  border-color: #079aa4;
+  background: #f0fbfa;
+  color: #007f79;
+}
+
+/* Fix the cramped 'date/timeOpen Booking' presentation without changing markup. */
+.enterprise-shell--approved-nav .uc03-landing--approved .uc03-work-card__activity {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  column-gap: 14px;
+  row-gap: 5px;
+}
+
+.enterprise-shell--approved-nav .uc03-landing--approved .uc03-work-card__activity > span:first-child {
+  margin-right: 2px;
+}
+
+/* --------------------------------------------------------------------------
+   Responsive — retain readable hero/list behavior on smaller screens
+   -------------------------------------------------------------------------- */
+
+@media (max-width: 899px) {
+  .enterprise-shell--approved-nav .uc03-dashboard-hero--greeting {
+    padding: 20px 18px 20px 22px !important;
+    border-radius: 15px !important;
+  }
+
+  .enterprise-shell--approved-nav .uc03-dashboard-hero--greeting::after {
+    width: 220px;
+    height: 220px;
+    right: -132px;
+    top: -118px;
+  }
+
+  .enterprise-shell--approved-nav .uc03-dashboard-hero--greeting h1 {
+    font-size: clamp(29px, 8vw, 35px);
+  }
+
+  .enterprise-shell--approved-nav .uc03-landing--approved .uc03-work-card__activity {
+    align-items: flex-start;
+    column-gap: 10px;
+    row-gap: 6px;
+  }
+}
+
+@media (max-width: 560px) {
+  .enterprise-shell--approved-nav .uc03-dashboard-hero--greeting {
+    padding: 18px 16px 18px 20px !important;
+  }
+
+  .enterprise-shell--approved-nav .uc03-landing--approved .uc03-landing__capture-action--centered {
+    width: 100%;
+  }
+
+  .enterprise-shell--approved-nav .uc03-landing--approved .uc03-work-card::before {
+    width: 2px;
+  }
+}

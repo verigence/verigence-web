@@ -1,21 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 
-import {
-  bookingWorkspaceQueryKey,
-  pcVerificationQueryKey,
-} from './queryKeys';
-import {
-  refreshBookingExtraction,
-  type BookingWorkspace,
-} from '../../services/audit-core/uc03Booking';
-import { getPcVerification } from '../../services/audit-core/uc03PcVerification';
+import { getPcBookingReviewSnapshot } from '../../services/audit-core/uc03PcDirectReview';
 import { useProjectContextStore } from '../../store/projectContextStore';
 import { useSessionStore } from '../../store/sessionStore';
 
 const STORAGE_KEY = 'uc03-pc-review-readiness-watch-v1';
 const CHANGE_EVENT = 'uc03-pc-review-readiness-watch-change';
+export const REVIEW_READY_EVENT = 'uc03-pc-review-ready';
 const RECHECK_MS = 120_000;
 const SCHEDULER_TICK_MS = 10_000;
 
@@ -68,7 +60,6 @@ export function clearReviewReadinessWatch(tenantId: string, journeyId: string) {
 
 export default function ReviewReadinessWatcher() {
   const navigate = useNavigate();
-  const queryClient = useQueryClient();
   const project = useProjectContextStore((state) => state.selectedProject);
   const accessToken = useSessionStore((state) => state.accessToken);
   const [entries, setEntries] = useState<ReviewWatchEntry[]>(() => readEntries());
@@ -104,32 +95,25 @@ export default function ReviewReadinessWatcher() {
     )));
 
     for (const entry of due) {
-      const refresh = await refreshBookingExtraction(entry.tenantId, entry.journeyId, accessToken).catch(() => null);
-      if (refresh) {
-        queryClient.setQueryData<BookingWorkspace>(
-          bookingWorkspaceQueryKey(entry.tenantId, entry.journeyId),
-          (cached) => cached ? { ...cached, aggregateVersion: refresh.aggregateVersion } : cached,
-        );
-      }
-
-      const status = await getPcVerification(entry.tenantId, entry.journeyId, accessToken).catch(() => null);
-      if (!status) continue;
-      queryClient.setQueryData(pcVerificationQueryKey(entry.tenantId, entry.journeyId), status);
+      const snapshot = await getPcBookingReviewSnapshot(
+        entry.tenantId,
+        entry.journeyId,
+        accessToken,
+        true,
+      ).catch(() => null);
+      if (!snapshot?.allReady) continue;
 
       const latest = readEntries();
-      if (status.pcVerificationStatus === 'VERIFIED') {
-        writeEntries(latest.filter((item) => !(item.tenantId === entry.tenantId && item.journeyId === entry.journeyId)));
-        continue;
-      }
-      if (status.reviewReady) {
-        writeEntries(latest.map((item) => (
-          item.tenantId === entry.tenantId && item.journeyId === entry.journeyId
-            ? { ...item, ready: true }
-            : item
-        )));
-      }
+      writeEntries(latest.map((item) => (
+        item.tenantId === entry.tenantId && item.journeyId === entry.journeyId
+          ? { ...item, ready: true }
+          : item
+      )));
+      window.dispatchEvent(new CustomEvent(REVIEW_READY_EVENT, {
+        detail: { tenantId: entry.tenantId, journeyId: entry.journeyId },
+      }));
     }
-  }, [accessToken, project?.operatingRole, project?.tenantId, queryClient]);
+  }, [accessToken, project?.operatingRole, project?.tenantId]);
 
   useEffect(() => {
     const interval = window.setInterval(() => { void checkDue(); }, SCHEDULER_TICK_MS);

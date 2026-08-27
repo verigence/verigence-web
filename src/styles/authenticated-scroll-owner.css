@@ -1,0 +1,68 @@
+/*
+ * AUTHENTICATED APPLICATION SCROLL OWNER
+ *
+ * The authenticated shell is rendered inside Ionic's IonApp without IonContent.
+ * Do not rely on document/body scrolling for authenticated screens. Keep the shell
+ * at viewport height and make enterprise-main the single vertical scroll owner.
+ *
+ * This stylesheet is intentionally loaded immediately BEFORE ui-governance.css.
+ * Selectors here are more specific than the generic shell selectors in governance,
+ * so the scroll-owner contract remains authoritative without violating the rule that
+ * ui-governance.css must be the final stylesheet import.
+ */
+
+.enterprise-shell.enterprise-shell {
+  height: 100dvh !important;
+  min-height: 0 !important;
+  max-height: 100dvh !important;
+  overflow: hidden !important;
+}
+
+.enterprise-shell > .enterprise-main {
+  height: 100dvh !important;
+  min-height: 0 !important;
+  max-height: 100dvh !important;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  overscroll-behavior-y: contain;
+  touch-action: pan-y;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-gutter: stable;
+}
+
+.enterprise-main > .enterprise-content {
+  min-height: calc(100dvh - 66px) !important;
+  height: auto !important;
+  max-height: none !important;
+  overflow: visible !important;
+}
+
+/* Long page content must contribute to enterprise-main's scroll height. */
+.enterprise-main > .enterprise-content > .screen-stack,
+.enterprise-main > .enterprise-content > .dashboard-load-state,
+.enterprise-main > .enterprise-content > .uc03-c1-loading,
+.enterprise-main > .enterprise-content > .uc03-c2-load,
+.enterprise-main .screen-stack {
+  height: auto !important;
+  max-height: none !important;
+  overflow: visible !important;
+}
+
+/* Keep navigation independent from main-content scrolling. */
+.enterprise-shell > .enterprise-sidebar {
+  height: 100dvh !important;
+  max-height: 100dvh !important;
+  overflow-y: auto !important;
+}
+
+@media (max-width: 767px) {
+  .enterprise-shell.enterprise-shell,
+  .enterprise-shell > .enterprise-main {
+    height: 100dvh !important;
+    max-height: 100dvh !important;
+  }
+
+  .enterprise-shell > .enterprise-main {
+    scrollbar-gutter: auto;
+  }
+}

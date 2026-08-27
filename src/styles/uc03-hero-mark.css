@@ -1,0 +1,37 @@
+/* UC03 hero final treatment: no secondary brand placeholder.
+   The application shell already carries the approved Verigence lockup.
+   Keep the hero focused on greeting, dealership/outlet context and the primary action. */
+.uc03-dashboard-hero--greeting {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas:
+    "copy"
+    "action";
+  column-gap: 0;
+  row-gap: 18px;
+}
+
+.uc03-dashboard-hero--greeting .uc03-dashboard-hero__brand {
+  display: none !important;
+}
+
+.uc03-landing--approved .uc03-landing__capture-action--centered {
+  grid-area: action;
+  justify-self: center;
+  width: min(100%, 330px);
+  margin-inline: auto;
+}
+
+@media (max-width: 767px) {
+  .uc03-dashboard-hero--greeting {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      "copy"
+      "action";
+    column-gap: 0;
+    row-gap: 14px;
+  }
+
+  .uc03-landing--approved .uc03-landing__capture-action--centered {
+    width: min(100%, 330px);
+  }
+}

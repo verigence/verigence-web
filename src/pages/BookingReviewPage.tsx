@@ -1,197 +1,312 @@
-import { useEffect, useRef, useState } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useQueries, useQuery } from '@tanstack/react-query';
 import { useNavigate, useParams } from 'react-router-dom';
 
 import PageHeader from '../components/PageHeader';
 import StatusPill from '../components/StatusPill';
 import { DocumentFieldReview } from '../features/uc03/DocumentFieldReview';
 import {
-  bookingWorkspaceQueryKey,
-  pcVerificationQueryKey,
-  UC03_OPERATIONAL_GC_MS,
-} from '../features/uc03/queryKeys';
-import {
+  REVIEW_READY_EVENT,
   clearReviewReadinessWatch,
   watchReviewReadiness,
 } from '../features/uc03/ReviewReadinessWatcher';
 import {
-  decideExtractionProposal,
   getBookingWorkspace,
-  refreshBookingExtraction,
-  type BookingWorkspace,
+  type EvidenceRegion,
   type ExtractionProposalView,
 } from '../services/audit-core/uc03Booking';
+import type { BookingExtractionFieldDecision } from '../services/audit-core/uc03PcBookingDocuments';
 import {
-  getPcVerification,
-  verifyPcBooking,
-  type PcVerificationView,
-} from '../services/audit-core/uc03PcVerification';
+  getPcBookingReviewSnapshot,
+  getPcDirectReviewState,
+  submitPcDirectDocumentReview,
+  verifyPcBookingDirect,
+  type PcBookingReviewDocument,
+} from '../services/audit-core/uc03PcDirectReview';
+import { getPcVerification } from '../services/audit-core/uc03PcVerification';
+import {
+  getPcBookingExtractionReview,
+  type PcBookingExtractionFact,
+  type PcBookingExtractionReview,
+} from '../services/di/bookingDocuments';
 import { useProjectContextStore } from '../store/projectContextStore';
 import { useSessionStore } from '../store/sessionStore';
+
+interface LocalFieldDecision {
+  decision: 'APPROVED' | 'CORRECTED';
+  approvedValue: unknown;
+}
+
+type DecisionByDocument = Record<string, Record<string, LocalFieldDecision>>;
+
+function friendly(value: string): string {
+  return value
+    .replace(/[_-]+/g, ' ')
+    .toLowerCase()
+    .replace(/\b\w/g, (match) => match.toUpperCase());
+}
+
+function factValue(fact: PcBookingExtractionFact): unknown {
+  return fact.normalizedValue ?? fact.rawValue;
+}
+
+function reviewableFacts(
+  document: PcBookingReviewDocument,
+  review?: PcBookingExtractionReview,
+): PcBookingExtractionFact[] {
+  if (!review) return [];
+  const allowed = new Set(document.captureEligibleFieldKeys.map((key) => key.toLowerCase()));
+  const seen = new Set<string>();
+  return review.facts.filter((fact) => {
+    const fieldKey = fact.fieldKey.toLowerCase();
+    if (!allowed.has(fieldKey) || seen.has(fieldKey)) return false;
+    const foundStatus = fact.foundStatus.toUpperCase();
+    if (foundStatus === 'NOT_FOUND' || foundStatus === 'MISSING' || factValue(fact) === null || factValue(fact) === undefined) {
+      return false;
+    }
+    seen.add(fieldKey);
+    return true;
+  });
+}
+
+function proposalsFor(
+  document: PcBookingReviewDocument,
+  review?: PcBookingExtractionReview,
+): ExtractionProposalView[] {
+  return reviewableFacts(document, review).map((fact) => ({
+    proposalId: fact.sourceFactRef,
+    fieldKey: fact.fieldKey,
+    sourceEvidenceId: document.documentId,
+    sourceFactId: fact.sourceFactRef,
+    sourceFactVersion: fact.sourceFactVersion,
+    sourceDocumentTypeKey: document.documentTypeKey,
+    valueSource: 'DI_MACHINE',
+    proposedValue: factValue(fact),
+    // Confidence is deliberately not presented to the PC. It is carried from the
+    // DI fact only when the document batch is submitted for immutable provenance.
+    confidence: null,
+    pageNo: fact.pageNo,
+    evidenceRegion: fact.evidenceRegion as EvidenceRegion | null,
+    status: 'PENDING',
+    acceptedValue: null,
+    canAccept: true,
+    owningDomainKey: null,
+    owningRecordReference: null,
+    version: 1,
+  }));
+}
 
 export default function BookingReviewPage() {
   const { journeyId } = useParams<{ journeyId: string }>();
   const navigate = useNavigate();
-  const queryClient = useQueryClient();
   const project = useProjectContextStore((state) => state.selectedProject);
   const accessToken = useSessionStore((state) => state.accessToken);
-  const [busy, setBusy] = useState(false);
+  const [busyDocumentId, setBusyDocumentId] = useState<string>();
+  const [verifying, setVerifying] = useState(false);
   const [message, setMessage] = useState<string>();
   const [error, setError] = useState<string>();
-  const firstReadinessCheck = useRef(false);
+  const [decisions, setDecisions] = useState<DecisionByDocument>({});
+  const [documentComplete, setDocumentComplete] = useState<Record<string, boolean>>({});
   const watchRegistered = useRef(false);
 
   const enabled = Boolean(project?.tenantId && journeyId && accessToken);
-  const workspaceKey = bookingWorkspaceQueryKey(project?.tenantId, journeyId);
-  const verificationKey = pcVerificationQueryKey(project?.tenantId, journeyId);
-
+  const workspaceQuery = useQuery({
+    queryKey: ['uc03-booking-review-workspace', project?.tenantId, journeyId],
+    queryFn: () => getBookingWorkspace(project!.tenantId, journeyId!, accessToken),
+    enabled,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+  });
   const verificationQuery = useQuery({
-    queryKey: verificationKey,
+    queryKey: ['uc03-pc-verification', project?.tenantId, journeyId],
     queryFn: () => getPcVerification(project!.tenantId, journeyId!, accessToken),
     enabled,
-    staleTime: 15_000,
-    gcTime: UC03_OPERATIONAL_GC_MS,
-    refetchOnWindowFocus: false,
-    refetchOnReconnect: false,
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
   });
+  const snapshotQuery = useQuery({
+    queryKey: ['uc03-pc-direct-di-review-snapshot', project?.tenantId, journeyId],
+    queryFn: () => getPcBookingReviewSnapshot(project!.tenantId, journeyId!, accessToken, true),
+    enabled,
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
+    retry: 1,
+  });
+  const directStateQuery = useQuery({
+    queryKey: ['uc03-pc-direct-review-state', project?.tenantId, journeyId],
+    queryFn: () => getPcDirectReviewState(project!.tenantId, journeyId!, accessToken),
+    enabled,
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
+    retry: 1,
+  });
+
   const verification = verificationQuery.data;
-  const reviewReady = Boolean(verification?.reviewReady && verification.pcVerificationStatus === 'PENDING');
+  const workspace = workspaceQuery.data;
+  const snapshot = snapshotQuery.data;
+  const directState = directStateQuery.data;
+  const bookingLabel = String(workspace?.capture.BOOKING_REFERENCE || 'Booking');
+  const reviewedIds = useMemo(
+    () => new Set(directState?.reviewedDocumentIds ?? []),
+    [directState?.reviewedDocumentIds],
+  );
+  const reviewCandidates = useMemo(
+    () => (snapshot?.documents ?? []).filter((document) => (
+      document.linked
+      && document.processingStatus.toUpperCase() === 'PROCESSED'
+      && !reviewedIds.has(document.documentId)
+    )),
+    [reviewedIds, snapshot?.documents],
+  );
 
-  // The heavy Booking workspace is deliberately lazy here. Until DI says the
-  // review is ready, the Review screen needs only the lightweight verification view.
-  const workspaceQuery = useQuery({
-    queryKey: workspaceKey,
-    queryFn: () => getBookingWorkspace(project!.tenantId, journeyId!, accessToken),
-    enabled: enabled && reviewReady,
-    staleTime: 0,
-    gcTime: UC03_OPERATIONAL_GC_MS,
-    refetchOnMount: 'always',
-    refetchOnWindowFocus: false,
-    refetchOnReconnect: false,
+  const extractionQueries = useQueries({
+    queries: reviewCandidates.map((document) => ({
+      queryKey: ['uc03-pc-direct-di-extraction', project?.tenantId, journeyId, document.documentId],
+      queryFn: () => getPcBookingExtractionReview(
+        project!.tenantId,
+        snapshot!.externalContextRef,
+        document.documentId,
+        accessToken!,
+      ),
+      staleTime: 60_000,
+      refetchOnWindowFocus: false,
+      retry: 1,
+    })),
   });
 
-  useEffect(() => {
-    if (!enabled || firstReadinessCheck.current) return;
-    if (!verification || verification.pcVerificationStatus !== 'PENDING' || verification.reviewReady) return;
-    firstReadinessCheck.current = true;
-    void refreshBookingExtraction(project!.tenantId, journeyId!, accessToken)
-      .then((result) => {
-        queryClient.setQueryData<BookingWorkspace>(workspaceKey, (current) => current ? {
-          ...current,
-          aggregateVersion: result.aggregateVersion,
-        } : current);
-      })
-      .catch(() => undefined)
-      .finally(() => { void verificationQuery.refetch(); });
-  }, [accessToken, enabled, journeyId, project, queryClient, verification, verificationQuery, workspaceKey]);
-
-  const cachedWorkspace = workspaceQuery.data;
-  const bookingLabel = String(cachedWorkspace?.capture.BOOKING_REFERENCE || 'Booking');
+  const extractionByDocument = useMemo(() => {
+    const result = new Map<string, PcBookingExtractionReview>();
+    reviewCandidates.forEach((document, index) => {
+      const review = extractionQueries[index]?.data;
+      if (review) result.set(document.documentId, review);
+    });
+    return result;
+  }, [extractionQueries, reviewCandidates]);
 
   useEffect(() => {
-    if (!project?.tenantId || !journeyId || !verification) return;
-    if (verification.pcVerificationStatus === 'VERIFIED' || verification.reviewReady) {
+    if (!project?.tenantId || !journeyId || !verification || !snapshot) return;
+    if (verification.pcVerificationStatus === 'VERIFIED' || snapshot.allReady) {
       clearReviewReadinessWatch(project.tenantId, journeyId);
+      watchRegistered.current = false;
       return;
     }
-    if (verification.pcVerificationStatus === 'PENDING' && !watchRegistered.current) {
+    if (verification.pcVerificationStatus === 'PENDING' && snapshot.failedCount === 0 && !watchRegistered.current) {
       watchRegistered.current = true;
       watchReviewReadiness(project.tenantId, journeyId, bookingLabel);
     }
-  }, [bookingLabel, journeyId, project?.tenantId, verification]);
+  }, [bookingLabel, journeyId, project?.tenantId, snapshot, verification]);
+
+  useEffect(() => {
+    if (!project?.tenantId || !journeyId) return undefined;
+    const onReady = (event: Event) => {
+      const detail = (event as CustomEvent<{ tenantId: string; journeyId: string }>).detail;
+      if (detail?.tenantId !== project.tenantId || detail?.journeyId !== journeyId) return;
+      void snapshotQuery.refetch();
+    };
+    window.addEventListener(REVIEW_READY_EVENT, onReady);
+    return () => window.removeEventListener(REVIEW_READY_EVENT, onReady);
+  }, [journeyId, project?.tenantId, snapshotQuery.refetch]);
 
   if (!project || !journeyId) return null;
 
-  const retry = async () => {
-    await verificationQuery.refetch();
-    if (reviewReady) await workspaceQuery.refetch();
+  const refresh = async () => {
+    await Promise.all([
+      workspaceQuery.refetch(),
+      verificationQuery.refetch(),
+      snapshotQuery.refetch(),
+      directStateQuery.refetch(),
+    ]);
   };
 
-  const handleProposal = async (
+  const rememberDecision = (
+    documentId: string,
     proposal: ExtractionProposalView,
-    mode: 'accept' | 'correct',
-    correctedValue?: string,
+    decision: LocalFieldDecision,
   ) => {
-    if (!cachedWorkspace) return;
-    setBusy(true);
+    setDecisions((current) => ({
+      ...current,
+      [documentId]: {
+        ...(current[documentId] || {}),
+        [proposal.proposalId]: decision,
+      },
+    }));
+  };
+
+  const saveDocumentReview = async (document: PcBookingReviewDocument) => {
+    const review = extractionByDocument.get(document.documentId);
+    if (!review) return;
+    const proposals = proposalsFor(document, review);
+    const documentDecisions = decisions[document.documentId] || {};
+    if (proposals.some((proposal) => !documentDecisions[proposal.proposalId])) {
+      setError('Review every extracted value before saving this document review.');
+      return;
+    }
+
+    const factByRef = new Map(review.facts.map((fact) => [fact.sourceFactRef, fact]));
+    const fields: BookingExtractionFieldDecision[] = proposals.map((proposal) => {
+      const fact = factByRef.get(proposal.sourceFactId);
+      const local = documentDecisions[proposal.proposalId];
+      if (!fact || !local) throw new Error('The DI extraction changed while this document was being reviewed. Please reopen the review.');
+      return {
+        fieldKey: fact.fieldKey,
+        sourceFactRef: fact.sourceFactRef,
+        sourceFactVersion: 1,
+        sourceConfidence: fact.confidenceScore,
+        decision: local.decision,
+        approvedValue: local.approvedValue,
+      };
+    });
+
+    setBusyDocumentId(document.documentId);
     setError(undefined);
     setMessage(undefined);
     try {
-      const result = await decideExtractionProposal(
+      await submitPcDirectDocumentReview(
         project.tenantId,
         journeyId,
-        proposal.proposalId,
-        mode,
-        cachedWorkspace.aggregateVersion,
+        document.requirementRef,
+        document.documentId,
+        fields,
         accessToken,
-        correctedValue,
       );
-      queryClient.setQueryData<BookingWorkspace>(workspaceKey, (current) => current ? {
-        ...current,
-        aggregateVersion: result.aggregateVersion,
-        proposals: current.proposals.map((item) => item.proposalId === proposal.proposalId ? {
-          ...item,
-          status: mode === 'accept' ? 'ACCEPTED' : 'CORRECTED',
-          acceptedValue: mode === 'accept' ? item.proposedValue : correctedValue,
-          canAccept: false,
-          version: item.version + 1,
-        } : item),
-      } : current);
-      queryClient.setQueryData<PcVerificationView>(verificationKey, (current) => current ? {
-        ...current,
-        aggregateVersion: result.aggregateVersion,
-        pendingProposalCount: proposal.status === 'PENDING'
-          ? Math.max(0, current.pendingProposalCount - 1)
-          : current.pendingProposalCount,
-      } : current);
-      setMessage(mode === 'accept'
-        ? 'Extracted value confirmed.'
-        : 'Correction saved. The original DI extraction remains unchanged.');
+      setMessage(`${friendly(document.documentTypeKey || document.requirementKey)} review saved.`);
+      setDecisions((current) => {
+        const next = { ...current };
+        delete next[document.documentId];
+        return next;
+      });
+      await Promise.all([directStateQuery.refetch(), verificationQuery.refetch()]);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'The review action could not be completed.');
+      setError(cause instanceof Error ? cause.message : 'The document review could not be saved.');
     } finally {
-      setBusy(false);
+      setBusyDocumentId(undefined);
     }
   };
 
   const handleVerify = async () => {
-    if (!verification) return;
-    setBusy(true);
+    setVerifying(true);
     setError(undefined);
     setMessage(undefined);
     try {
-      const result = await verifyPcBooking(
-        project.tenantId,
-        journeyId,
-        verification.aggregateVersion,
-        accessToken,
-      );
-      queryClient.setQueryData(verificationKey, result);
-      queryClient.setQueryData<BookingWorkspace>(workspaceKey, (current) => current ? {
-        ...current,
-        aggregateVersion: result.aggregateVersion,
-      } : current);
+      const current = await verificationQuery.refetch();
+      const version = current.data?.aggregateVersion;
+      if (version === undefined) throw new Error('Unable to read the current Booking version. Please refresh and retry.');
+      await verifyPcBookingDirect(project.tenantId, journeyId, version, accessToken);
       clearReviewReadinessWatch(project.tenantId, journeyId);
+      await Promise.all([verificationQuery.refetch(), directStateQuery.refetch()]);
       setMessage('PC verification completed.');
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'The review action could not be completed.');
+      setError(cause instanceof Error ? cause.message : 'PC verification could not be completed.');
     } finally {
-      setBusy(false);
+      setVerifying(false);
     }
   };
 
-  if (verificationQuery.isPending) {
-    return (
-      <div className="screen-stack uc03-c1-workspace">
-        <PageHeader eyebrow="PC Document Verification" title="Booking review" description="Checking document readiness…" />
-        <section className="uc03-c1-section">
-          <div className="uc03-review-empty" role="status"><strong>Opening review…</strong><span>The screen is ready; only the latest verification state is being loaded.</span></div>
-        </section>
-      </div>
-    );
+  if (workspaceQuery.isPending || verificationQuery.isPending || snapshotQuery.isPending || directStateQuery.isPending) {
+    return <div className="uc03-c1-loading" role="status">Opening document review…</div>;
   }
-  if (verificationQuery.isError || !verification) {
-    const cause = verificationQuery.error;
+  if (workspaceQuery.isError || verificationQuery.isError || snapshotQuery.isError || directStateQuery.isError || !workspace || !verification || !snapshot || !directState) {
+    const cause = workspaceQuery.error || verificationQuery.error || snapshotQuery.error || directStateQuery.error;
     return (
       <section className="dashboard-load-state" role="alert">
         <div className="dashboard-load-state__mark">!</div>
@@ -199,7 +314,7 @@ export default function BookingReviewPage() {
           <strong>We couldn't open this Booking review.</strong>
           <p>{cause instanceof Error ? cause.message : 'Please try again.'}</p>
         </div>
-        <button type="button" className="user-menu-button" onClick={() => void retry()}>Try Again</button>
+        <button type="button" className="user-menu-button" onClick={() => void refresh()}>Try Again</button>
       </section>
     );
   }
@@ -234,71 +349,8 @@ export default function BookingReviewPage() {
     );
   }
 
-  if (!verification.reviewReady) {
-    return (
-      <div className="screen-stack uc03-c1-workspace">
-        <div className="uc03-c1-topbar">
-          <button type="button" className="uc03-c1-back" onClick={() => navigate('/dashboard')}>← Work list</button>
-          <span>Project · {project.projectName}</span>
-        </div>
-        <PageHeader eyebrow="PC Document Verification" title={bookingLabel} description="Booking capture is complete. Document verification is waiting for Document Intelligence." />
-        <section className="uc03-c1-section">
-          <div className="uc03-review-empty" role="status">
-            <strong>Documents are still being prepared.</strong>
-            <span>Document Intelligence is processing the uploaded documents. Please continue with your other work and check again later. While this application window remains open, we will recheck this Booking after two minutes.</span>
-          </div>
-          <div className="uc03-c1-stage-strip" aria-label="Document processing status">
-            <div><span>Linked documents</span><strong>{verification.linkedDocumentCount}</strong></div>
-            <div><span>Processing</span><strong>{verification.pendingDocumentCount}</strong></div>
-            <div><span>Need attention</span><strong>{verification.failedDocumentCount}</strong></div>
-            <div><span>PC verification</span><StatusPill value="PENDING" /></div>
-          </div>
-          {verification.failedDocumentCount > 0 && (
-            <div className="uc03-c1-feedback is-error" role="alert">
-              One or more documents could not be processed. Upload a clearer document from Booking Documents and try Review again.
-            </div>
-          )}
-          <div className="uc03-c1-document-actions">
-            <button type="button" className="uc03-c1-secondary" onClick={() => navigate('/dashboard')}>Back to Work List</button>
-            <button type="button" className="uc03-c1-secondary" onClick={() => navigate(`/bookings/${journeyId}`)}>Booking Documents</button>
-          </div>
-        </section>
-      </div>
-    );
-  }
-
-  if (workspaceQuery.isPending || workspaceQuery.isFetching || !cachedWorkspace) {
-    return (
-      <div className="screen-stack uc03-c1-workspace">
-        <div className="uc03-c1-topbar">
-          <button type="button" className="uc03-c1-back" onClick={() => navigate('/dashboard')}>← Work list</button>
-          <span>Project · {project.projectName}</span>
-        </div>
-        <PageHeader eyebrow="PC Document Verification" title={bookingLabel} description="Documents are ready. Loading only the extracted fields needed for review…" />
-        <section className="uc03-c1-section">
-          <div className="uc03-review-empty" role="status"><strong>Preparing extracted fields…</strong><span>No other Booking sections are being reloaded.</span></div>
-        </section>
-      </div>
-    );
-  }
-
-  if (workspaceQuery.isError) {
-    const cause = workspaceQuery.error;
-    return (
-      <section className="dashboard-load-state" role="alert">
-        <div className="dashboard-load-state__mark">!</div>
-        <div className="dashboard-load-state__copy">
-          <strong>We couldn't load the extracted fields.</strong>
-          <p>{cause instanceof Error ? cause.message : 'Please try again.'}</p>
-        </div>
-        <button type="button" className="user-menu-button" onClick={() => void retry()}>Try Again</button>
-      </section>
-    );
-  }
-
-  const reviewableProposals = cachedWorkspace.proposals.filter((proposal) => proposal.canAccept);
-  const pendingReviewable = reviewableProposals.filter((proposal) => proposal.status === 'PENDING');
-  const canVerify = verification.pendingProposalCount === 0;
+  const canVerify = snapshot.allReady && directState.reviewComplete;
+  const pendingDocumentReviewCount = directState.pendingDocumentCount;
 
   return (
     <div className="screen-stack uc03-c1-workspace">
@@ -310,50 +362,156 @@ export default function BookingReviewPage() {
       <PageHeader
         eyebrow="PC Document Verification"
         title={bookingLabel}
-        description="Compare the uploaded source document with DI extraction. Confirm or correct the value; DI remains unchanged."
+        description="Booking capture is complete. Document status and extraction are read directly from Document Intelligence."
       />
 
-      <section className="uc03-c1-stage-strip" aria-label="PC verification status">
-        <div><span>Booking status</span><strong>{cachedWorkspace.bookingStage.businessStatus || '—'}</strong></div>
-        <div><span>PC verification</span><StatusPill value={verification.pcVerificationStatus} /></div>
-        <div><span>Pending fields</span><strong>{verification.pendingProposalCount}</strong></div>
-        <div><span>Documents</span><strong>{verification.linkedDocumentCount}</strong></div>
-      </section>
+      {!snapshot.allReady && (
+        <section className="uc03-c1-section">
+          <div className="uc03-review-empty" role="status">
+            <strong>{snapshot.documents.length === 0 ? 'No Booking documents are available in Document Intelligence.' : 'Some documents are still being prepared.'}</strong>
+            <span>
+              {snapshot.documents.length === 0
+                ? 'Return to Booking Documents and confirm the uploads were accepted.'
+                : 'You can review any document already processed. Pending documents will continue asynchronously; while this application window remains open, we will recheck after two minutes.'}
+            </span>
+          </div>
+        </section>
+      )}
 
-      {message && <div className="uc03-c1-feedback is-success" role="status">{message}</div>}
-      {error && <div className="uc03-c1-feedback is-error" role="alert">{error}</div>}
+      <section className="uc03-c1-stage-strip" aria-label="Document processing status">
+        <div><span>Linked documents</span><strong>{snapshot.linkedDocumentCount}</strong></div>
+        <div><span>Processing</span><strong>{snapshot.processingCount}</strong></div>
+        <div><span>Need attention</span><strong>{snapshot.failedCount}</strong></div>
+        <div><span>PC verification</span><StatusPill value="PENDING" /></div>
+      </section>
 
       <section className="uc03-c1-section">
         <header className="uc03-c1-section-heading">
           <div>
-            <span className="uc03-c1-eyebrow">Document review</span>
-            <h2>Compare source &amp; extracted value</h2>
-            <p>Review one field at a time. Confirmed/corrected values update the Audit Core business record while the original DI extraction and confidence remain unchanged.</p>
+            <span className="uc03-c1-eyebrow">Booking documents</span>
+            <h2>Document status</h2>
+            <p>This list comes from the current DI Booking context. A replacement document is shown immediately even if its Audit Core linkage callback is still completing.</p>
           </div>
         </header>
-        <DocumentFieldReview
-          tenantId={project.tenantId}
-          journeyId={journeyId}
-          accessToken={accessToken}
-          proposals={reviewableProposals}
-          disabled={busy}
-          onAccept={(proposal) => { void handleProposal(proposal, 'accept'); }}
-          onCorrect={(proposal, value) => { void handleProposal(proposal, 'correct', value); }}
-        />
+        {snapshot.documents.length > 0 ? (
+          <div className="uc03-c1-stage-strip" aria-label="Booking document list">
+            {snapshot.documents.map((document) => {
+              const reviewed = reviewedIds.has(document.documentId);
+              const state = reviewed
+                ? 'Reviewed'
+                : !document.linked
+                  ? 'Linking'
+                  : friendly(document.processingStatus);
+              return (
+                <div key={document.documentId}>
+                  <span>{friendly(document.documentTypeKey || document.requirementKey)}</span>
+                  <strong>{state}</strong>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="uc03-review-empty" role="status">
+            <strong>No documents returned by DI.</strong>
+            <span>Use Booking Documents to upload the required Booking evidence.</span>
+          </div>
+        )}
       </section>
+
+      {snapshot.failedCount > 0 && (
+        <div className="uc03-c1-feedback is-error" role="alert">
+          One or more documents could not be processed. Upload a clearer replacement from Booking Documents and reopen Review.
+        </div>
+      )}
+      {message && <div className="uc03-c1-feedback is-success" role="status">{message}</div>}
+      {error && <div className="uc03-c1-feedback is-error" role="alert">{error}</div>}
+
+      {reviewCandidates.map((document, index) => {
+        const query = extractionQueries[index];
+        const review = query?.data;
+        const proposals = proposalsFor(document, review);
+        const decidedIds = new Set(Object.keys(decisions[document.documentId] || {}));
+        const isComplete = documentComplete[document.documentId] ?? proposals.length === 0;
+        const saving = busyDocumentId === document.documentId;
+        return (
+          <section className="uc03-c1-section" key={document.documentId}>
+            {query?.isPending && <div className="uc03-c1-loading" role="status">Loading extracted values…</div>}
+            {query?.isError && (
+              <div className="uc03-c1-feedback is-error" role="alert">
+                {query.error instanceof Error ? query.error.message : 'DI extraction could not be loaded for this document.'}
+              </div>
+            )}
+            {review && (
+              <>
+                <DocumentFieldReview
+                  tenantId={project.tenantId}
+                  journeyId={journeyId}
+                  accessToken={accessToken}
+                  evidenceId={document.documentId}
+                  documentName={friendly(document.documentTypeKey || document.requirementKey)}
+                  proposals={proposals}
+                  decidedIds={decidedIds}
+                  disabled={Boolean(busyDocumentId) || verifying}
+                  onAccept={async (proposal) => {
+                    rememberDecision(document.documentId, proposal, {
+                      decision: 'APPROVED',
+                      approvedValue: proposal.proposedValue,
+                    });
+                  }}
+                  onCorrect={async (proposal, value) => {
+                    rememberDecision(document.documentId, proposal, {
+                      decision: 'CORRECTED',
+                      approvedValue: value,
+                    });
+                  }}
+                  onReviewCompleteChange={(complete) => setDocumentComplete((current) => (
+                    current[document.documentId] === complete
+                      ? current
+                      : { ...current, [document.documentId]: complete }
+                  ))}
+                />
+                <div className="uc03-c1-document-actions">
+                  <button
+                    type="button"
+                    className="uc03-c1-primary"
+                    disabled={!isComplete || saving || Boolean(busyDocumentId) || verifying}
+                    onClick={() => void saveDocumentReview(document)}
+                  >
+                    {saving ? 'Saving Review…' : 'Save Document Review'}
+                  </button>
+                </div>
+              </>
+            )}
+          </section>
+        );
+      })}
+
+      {reviewCandidates.length === 0 && snapshot.documents.some((document) => reviewedIds.has(document.documentId)) && (
+        <section className="uc03-c1-section">
+          <div className="uc03-review-empty" role="status">
+            <strong>Processed documents already reviewed.</strong>
+            <span>Any remaining document will become reviewable when DI finishes processing it.</span>
+          </div>
+        </section>
+      )}
 
       <section className="uc03-c1-section uc03-c1-checkpoint-section">
         <header className="uc03-c1-section-heading">
           <div>
             <span className="uc03-c1-eyebrow">PC verification</span>
-            <h2>{canVerify ? 'Review complete' : `${pendingReviewable.length} extracted field${pendingReviewable.length === 1 ? '' : 's'} remaining`}</h2>
+            <h2>{canVerify ? 'Review complete' : `${pendingDocumentReviewCount} document${pendingDocumentReviewCount === 1 ? '' : 's'} still to review`}</h2>
             <p>This changes only PC verification status. It does not change the Booking business status and does not require a TL review.</p>
           </div>
           <StatusPill value={canVerify ? 'READY' : 'PENDING'} />
         </header>
-        <button type="button" className="uc03-c1-primary" disabled={busy || !canVerify} onClick={() => void handleVerify()}>
-          Mark Booking Verified
+        <button type="button" className="uc03-c1-primary" disabled={verifying || Boolean(busyDocumentId) || !canVerify} onClick={() => void handleVerify()}>
+          {verifying ? 'Completing…' : 'Mark Booking Verified'}
         </button>
+        <div className="uc03-c1-document-actions">
+          <button type="button" className="uc03-c1-secondary" onClick={() => navigate('/dashboard')}>Back to Work List</button>
+          <button type="button" className="uc03-c1-secondary" onClick={() => navigate(`/bookings/${journeyId}`)}>Booking Documents</button>
+          <button type="button" className="uc03-c1-secondary" onClick={() => void refresh()}>Check Again</button>
+        </div>
       </section>
     </div>
   );

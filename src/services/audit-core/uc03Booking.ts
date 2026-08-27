@@ -1,4 +1,13 @@
-import { auditCoreRawRequest, auditCoreRequest } from './client';
+import { auditCoreRequest } from './client';
+import {
+  prepareBookingDocumentUploadContext,
+  rememberDirectBookingUpload,
+} from './uc03PcBookingDocuments';
+import {
+  getPcBookingDocumentContent,
+  getPcBookingExtractionReview,
+  uploadPcBookingDocument,
+} from '../di/bookingDocuments';
 
 export interface BookingStageView {
   businessStatus: string | null;
@@ -116,6 +125,44 @@ export interface EvidenceReviewContent {
   mimeType: string;
 }
 
+export interface EvidenceFactView {
+  evidenceFactId: string;
+  fieldKey: string;
+  valueType: string;
+  value: unknown;
+  normalizedValue: string | null;
+  confidenceScore: number | null;
+  verificationStatus: string | null;
+  pageNo: number | null;
+  evidenceRegion: EvidenceRegion | null;
+  fetchedAtUtc: string;
+}
+
+const processingByJourney = new Map<string, ProcessingStatus>();
+
+function processingKey(tenantId: string, journeyId: string): string {
+  return `${tenantId}:${journeyId}`;
+}
+
+export function rememberBookingWorkspace(
+  tenantId: string,
+  journeyId: string,
+  workspace: BookingWorkspace,
+): void {
+  const summary = workspace.processingSummary;
+  const failedCount = summary?.failedCount ?? 0;
+  processingByJourney.set(processingKey(tenantId, journeyId), {
+    version: workspace.aggregateVersion,
+    pendingCount: summary?.pendingCount ?? 0,
+    readyProposalCount: summary?.readyProposalCount ?? 0,
+    failedCount,
+    documents: workspace.documents,
+    userMessage: failedCount > 0
+      ? 'One or more documents need attention. Retry processing or upload a clearer document.'
+      : null,
+  });
+}
+
 function token(accessToken?: string): string {
   const value = accessToken?.trim();
   if (!value) throw new Error('A Security human access token is required.');
@@ -131,6 +178,12 @@ function commandHeaders(idempotencyKey: string, version: number): HeadersInit {
 
 function base(tenantId: string, journeyId: string): string {
   return `/v1/tenants/${encodeURIComponent(tenantId)}/journeys/${encodeURIComponent(journeyId)}`;
+}
+
+function matchingRequirementKey(candidate: string, requested: string): boolean {
+  if (candidate === requested) return true;
+  const paymentKeys = new Set(['booking_payment_receipt', 'minimum_booking_payment_proof']);
+  return paymentKeys.has(candidate) && paymentKeys.has(requested);
 }
 
 export function newIdempotencyKey(prefix: string): string {
@@ -153,10 +206,12 @@ export async function getBookingWorkspace(
   journeyId: string,
   accessToken?: string,
 ): Promise<BookingWorkspace> {
-  return auditCoreRequest<BookingWorkspace>(`${base(tenantId, journeyId)}/uc03-workspace`, {
+  const workspace = await auditCoreRequest<BookingWorkspace>(`${base(tenantId, journeyId)}/uc03-workspace`, {
     accessToken: token(accessToken),
     cache: 'no-store',
   });
+  rememberBookingWorkspace(tenantId, journeyId, workspace);
+  return workspace;
 }
 
 export async function getBookingEvidenceReviewContent(
@@ -165,17 +220,43 @@ export async function getBookingEvidenceReviewContent(
   evidenceId: string,
   accessToken?: string,
 ): Promise<EvidenceReviewContent> {
-  const response = await auditCoreRawRequest(
-    `${base(tenantId, journeyId)}/evidence/${encodeURIComponent(evidenceId)}/review-content`,
-    {
-      accessToken: token(accessToken),
-      cache: 'no-store',
-    },
+  const context = await prepareBookingDocumentUploadContext(tenantId, journeyId, accessToken);
+  return getPcBookingDocumentContent(
+    tenantId,
+    context.externalContextRef,
+    evidenceId,
+    token(accessToken),
   );
-  return {
-    blob: await response.blob(),
-    mimeType: response.headers.get('content-type') || 'application/octet-stream',
-  };
+}
+
+export async function getBookingEvidenceFacts(
+  tenantId: string,
+  journeyId: string,
+  evidenceId: string,
+  accessToken?: string,
+): Promise<EvidenceFactView[]> {
+  const context = await prepareBookingDocumentUploadContext(tenantId, journeyId, accessToken);
+  const review = await getPcBookingExtractionReview(
+    tenantId,
+    context.externalContextRef,
+    evidenceId,
+    token(accessToken),
+  );
+  const fetchedAtUtc = new Date().toISOString();
+  return review.facts.map((fact) => ({
+    evidenceFactId: fact.sourceFactRef,
+    fieldKey: fact.fieldKey,
+    valueType: typeof fact.normalizedValue,
+    value: fact.normalizedValue ?? fact.rawValue,
+    normalizedValue: typeof fact.normalizedValue === 'string' ? fact.normalizedValue : null,
+    // Confidence is intentionally suppressed from the PC review adapter. The
+    // direct review panel keeps the DI value privately for Audit provenance only.
+    confidenceScore: null,
+    verificationStatus: null,
+    pageNo: fact.pageNo,
+    evidenceRegion: fact.evidenceRegion as EvidenceRegion | null,
+    fetchedAtUtc,
+  }));
 }
 
 export async function startBooking(
@@ -213,18 +294,42 @@ export async function uploadBookingDocument(
   requirementKey: string,
   file: File,
   accessToken?: string,
-): Promise<{ evidenceId: string; processingStatus: string; aggregateVersion: number }> {
-  const form = new FormData();
-  form.append('file', file);
-  return auditCoreRequest(
-    `${base(tenantId, journeyId)}/stages/BOOKING/documents/${encodeURIComponent(requirementKey)}/evidence`,
-    {
-      method: 'POST',
-      accessToken: token(accessToken),
-      headers: { 'Idempotency-Key': stableUploadKey(journeyId, requirementKey, file) },
-      body: form,
-    },
+): Promise<{ evidenceId: string; processingStatus: string }> {
+  let context = await prepareBookingDocumentUploadContext(tenantId, journeyId, accessToken);
+  let requirement = context.requirements.find((item) =>
+    matchingRequirementKey(item.requirementKey, requirementKey));
+
+  // Conditional requirements (GST/Corporate/Trade-In) can become applicable only
+  // after Step 2 is saved. Refresh the one reusable context on that boundary rather
+  // than failing or forcing every upload to re-prepare it.
+  if (!requirement) {
+    context = await prepareBookingDocumentUploadContext(tenantId, journeyId, accessToken, true);
+    requirement = context.requirements.find((item) =>
+      matchingRequirementKey(item.requirementKey, requirementKey));
+  }
+  if (!requirement) {
+    throw new Error('This Booking document requirement is not configured or currently applicable.');
+  }
+
+  const result = await uploadPcBookingDocument(
+    tenantId,
+    context.externalContextRef,
+    requirement.requirementRef,
+    requirement.documentTypeKey,
+    file,
+    token(accessToken),
   );
+  rememberDirectBookingUpload(
+    tenantId,
+    journeyId,
+    requirement.requirementRef,
+    result.documentId,
+    requirement.repeatable,
+  );
+  return {
+    evidenceId: result.documentId,
+    processingStatus: result.processingStatus,
+  };
 }
 
 export async function assessBookingDocument(
@@ -248,15 +353,20 @@ export async function assessBookingDocument(
   );
 }
 
+// Retained only for compatibility with older callers while the PC path is
+// migrated. Direct DI extraction is asynchronous and Audit Core is not refreshed.
 export async function refreshBookingExtraction(
   tenantId: string,
   journeyId: string,
   accessToken?: string,
 ): Promise<{ aggregateVersion: number; refreshedDocuments: number; createdProposals: number; failedDocuments: number }> {
-  return auditCoreRequest(`${base(tenantId, journeyId)}/booking/extraction/refresh`, {
-    method: 'POST',
-    accessToken: token(accessToken),
-  });
+  const workspace = await getBookingWorkspace(tenantId, journeyId, accessToken);
+  return {
+    aggregateVersion: workspace.aggregateVersion,
+    refreshedDocuments: 0,
+    createdProposals: 0,
+    failedDocuments: 0,
+  };
 }
 
 export async function getBookingProcessingStatus(
@@ -264,10 +374,15 @@ export async function getBookingProcessingStatus(
   journeyId: string,
   accessToken?: string,
 ): Promise<ProcessingStatus> {
-  return auditCoreRequest(`${base(tenantId, journeyId)}/processing-status`, {
+  const key = processingKey(tenantId, journeyId);
+  const known = processingByJourney.get(key);
+  if (known && known.pendingCount === 0) return known;
+  const result = await auditCoreRequest<ProcessingStatus>(`${base(tenantId, journeyId)}/processing-status`, {
     accessToken: token(accessToken),
     cache: 'no-store',
   });
+  processingByJourney.set(key, result);
+  return result;
 }
 
 export async function decideExtractionProposal(

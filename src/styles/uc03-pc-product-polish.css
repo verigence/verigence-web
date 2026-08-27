@@ -1,0 +1,522 @@
+/*
+ * UC03 PC product polish.
+ * UI/navigation only. Uses the implemented UC01 navy/teal visual language.
+ */
+
+.uc03-landing {
+  gap: 18px;
+}
+
+/* Stronger product header without introducing a new brand language. */
+.uc03-landing > .page-header {
+  position: relative;
+  overflow: hidden;
+  padding: 24px 26px;
+  align-items: center;
+  border: 1px solid #d4e2eb;
+  border-radius: 18px;
+  background:
+    radial-gradient(circle at 92% 18%, rgba(0, 175, 168, .11), transparent 31%),
+    linear-gradient(135deg, #f5f9fd 0%, #fbfdff 52%, #f2fbfa 100%);
+  box-shadow: 0 12px 32px rgba(0, 58, 130, .055);
+}
+
+.uc03-landing > .page-header::before {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 5px;
+  background: linear-gradient(180deg, #003a82, #00afa8);
+}
+
+.uc03-landing > .page-header .eyebrow {
+  color: #007f79;
+  font-size: 10px;
+  font-weight: 850;
+  letter-spacing: .09em;
+  text-transform: uppercase;
+}
+
+.uc03-landing > .page-header h1 {
+  margin: 5px 0 7px;
+  color: #003a82;
+  font-size: clamp(30px, 3.1vw, 40px);
+  line-height: 1.04;
+  letter-spacing: -.035em;
+}
+
+.uc03-landing > .page-header p {
+  max-width: 720px;
+  color: #536f82;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.45;
+}
+
+.uc03-landing__capture-action {
+  min-height: 48px;
+  padding: 0 20px;
+  gap: 7px;
+  border-radius: 10px;
+  background: #04265c;
+  box-shadow: 0 9px 20px rgba(4, 38, 92, .16);
+  font-size: 12px;
+  letter-spacing: .005em;
+}
+
+.uc03-landing__capture-action > span {
+  font-size: 18px;
+  font-weight: 500;
+  line-height: 1;
+}
+
+/* Dashboard metrics: compact, purposeful and partly actionable. */
+.uc03-landing-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.uc03-landing-metric {
+  position: relative;
+  min-width: 0;
+  min-height: 132px;
+  padding: 16px 17px;
+  display: grid;
+  grid-template-rows: auto auto 1fr auto;
+  gap: 5px;
+  overflow: hidden;
+  border: 1px solid #dbe6ee;
+  border-radius: 14px;
+  background: #fff;
+  color: #17324d;
+  text-align: left;
+  box-shadow: 0 8px 24px rgba(0, 58, 130, .035);
+}
+
+button.uc03-landing-metric {
+  width: 100%;
+  font: inherit;
+  cursor: pointer;
+}
+
+.uc03-landing-metric::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto;
+  height: 3px;
+  background: #d6e2eb;
+}
+
+.uc03-landing-metric.is-action::before {
+  background: linear-gradient(90deg, #003a82, #00afa8);
+}
+
+.uc03-landing-metric.is-attention::before {
+  background: #d49a22;
+}
+
+.uc03-landing-metric.is-action {
+  transition: transform 150ms ease, border-color 150ms ease, box-shadow 150ms ease;
+}
+
+.uc03-landing-metric.is-action:hover,
+.uc03-landing-metric.is-action:focus-visible {
+  transform: translateY(-2px);
+  border-color: #b9d7e3;
+  box-shadow: 0 12px 28px rgba(0, 58, 130, .09);
+  outline: none;
+}
+
+.uc03-landing-metric__label {
+  color: #6e879b;
+  font-size: 9px;
+  font-weight: 850;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+}
+
+.uc03-landing-metric__value {
+  color: #003a82;
+  font-size: 31px;
+  line-height: 1;
+  letter-spacing: -.035em;
+}
+
+.uc03-landing-metric__detail {
+  align-self: start;
+  color: #688095;
+  font-size: 10.5px;
+  line-height: 1.38;
+}
+
+.uc03-landing-metric__action {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: #0057b8;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+/* Work list: Booking is the default card action. */
+.uc03-work-list {
+  border-color: #d7e3ec;
+  box-shadow: 0 9px 28px rgba(0, 58, 130, .035);
+}
+
+.uc03-work-card--interactive {
+  position: relative;
+  cursor: pointer;
+  outline: none;
+  transition: transform 150ms ease, border-color 150ms ease, box-shadow 150ms ease;
+}
+
+.uc03-work-card--interactive:hover,
+.uc03-work-card--interactive:focus-visible {
+  transform: translateY(-1px);
+  border-color: #a9ccdc;
+  box-shadow: 0 10px 24px rgba(0, 58, 130, .075);
+}
+
+.uc03-work-card--interactive:focus-visible {
+  box-shadow: 0 0 0 3px rgba(0, 175, 168, .12), 0 10px 24px rgba(0, 58, 130, .075);
+}
+
+.uc03-work-card__primary-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 4px;
+  color: #0057b8;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.uc03-work-card__actions--desktop {
+  align-items: center;
+}
+
+.uc03-work-card__actions--desktop .uc03-c1-secondary {
+  min-height: 34px;
+  padding: 0 11px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  background: #fff;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.uc03-work-card__mobile-more {
+  display: none;
+}
+
+/* Mobile drawer: closer to UC01 scale instead of oversized navigation. */
+@media (max-width: 767px) {
+  .enterprise-sidebar {
+    width: min(82vw, 296px);
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+
+  .enterprise-sidebar .enterprise-brand img {
+    width: min(164px, 54vw);
+  }
+
+  .uc03-shell-project {
+    margin: 12px 2px 8px;
+    padding: 11px 12px;
+    gap: 3px;
+    border: 1px solid #dfe8ef;
+    border-radius: 11px;
+    background: #f7fafc;
+    color: #17324d;
+  }
+
+  .uc03-shell-project > span {
+    color: #7890a2;
+    font-size: 9px;
+    font-weight: 800;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+  }
+
+  .uc03-shell-project > strong {
+    color: #17324d;
+    font-size: 15px;
+    line-height: 1.2;
+  }
+
+  .uc03-shell-project > small {
+    color: #5f788d;
+    font-size: 10.5px;
+    opacity: 1;
+  }
+
+  .enterprise-nav {
+    margin-top: 10px;
+    gap: 14px;
+  }
+
+  .enterprise-nav__group-toggle {
+    min-height: 40px;
+    padding: 0 9px;
+    border-radius: 9px;
+    font-size: 11px;
+    font-weight: 850;
+    letter-spacing: .06em;
+  }
+
+  .enterprise-nav__item {
+    min-height: 43px;
+    padding: 6px 8px;
+    gap: 10px;
+    border-radius: 9px;
+    font-size: 13px;
+  }
+
+  .enterprise-nav__mark {
+    width: 29px;
+    height: 29px;
+    border-radius: 8px;
+    font-size: 8px;
+  }
+
+  /* PC landing */
+  .uc03-landing {
+    gap: 12px;
+  }
+
+  .uc03-landing > .page-header {
+    padding: 18px 17px 17px;
+    border-radius: 14px;
+  }
+
+  .uc03-landing > .page-header h1 {
+    margin: 4px 0 5px;
+    font-size: clamp(27px, 7.3vw, 32px);
+  }
+
+  .uc03-landing > .page-header p {
+    font-size: 11.5px;
+  }
+
+  .uc03-landing > .page-header .page-header__actions {
+    margin-top: 13px;
+  }
+
+  .uc03-landing__capture-action {
+    min-height: 46px;
+    font-size: 12px;
+  }
+
+  .uc03-landing-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .uc03-landing-metric {
+    min-height: 112px;
+    padding: 12px;
+    gap: 4px;
+    border-radius: 11px;
+  }
+
+  .uc03-landing-metric__label {
+    font-size: 8px;
+    line-height: 1.25;
+  }
+
+  .uc03-landing-metric__value {
+    font-size: 27px;
+  }
+
+  .uc03-landing-metric__detail {
+    font-size: 9px;
+    line-height: 1.3;
+  }
+
+  .uc03-landing-metric__action {
+    font-size: 9px;
+  }
+
+  .uc03-landing .uc03-work-list {
+    padding: 13px;
+    gap: 12px;
+  }
+
+  .uc03-landing .uc03-work-list__heading h2 {
+    font-size: 20px;
+  }
+
+  .uc03-landing .uc03-work-list__heading p {
+    font-size: 10.5px;
+  }
+
+  .uc03-work-filters {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .uc03-work-filter-tabs {
+    grid-column: 1 / -1;
+  }
+
+  .uc03-clear-filter {
+    grid-column: 1 / -1;
+  }
+
+  .uc03-work-card {
+    gap: 10px;
+    padding: 13px;
+  }
+
+  .uc03-work-card__header {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 10px;
+  }
+
+  .uc03-work-card__header h3 {
+    font-size: 15px;
+  }
+
+  .uc03-work-card__flags {
+    min-width: 64px;
+    justify-items: end;
+    text-align: right;
+  }
+
+  .uc03-work-card__flags > strong {
+    font-size: 20px;
+  }
+
+  .uc03-work-card__flags > span {
+    max-width: 72px;
+    font-size: 8px;
+    line-height: 1.25;
+  }
+
+  .uc03-work-card__location {
+    font-size: 10px;
+  }
+
+  .uc03-work-card__stages {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 7px;
+  }
+
+  .uc03-stage-block {
+    min-width: 0;
+    padding: 10px;
+    gap: 5px;
+  }
+
+  .uc03-stage-block > span {
+    font-size: 8px;
+  }
+
+  .uc03-stage-block > strong {
+    font-size: 11px;
+  }
+
+  .uc03-stage-block__audit {
+    gap: 4px;
+  }
+
+  .uc03-work-card__footer {
+    position: relative;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: end;
+    gap: 10px;
+  }
+
+  .uc03-work-card__activity {
+    min-width: 0;
+    display: grid;
+    gap: 3px;
+  }
+
+  .uc03-work-card__actions--desktop {
+    display: none;
+  }
+
+  .uc03-work-card__mobile-more {
+    position: relative;
+    display: block;
+  }
+
+  .uc03-work-card__more-button {
+    min-width: 64px;
+    min-height: 38px;
+    padding: 0 9px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    border: 1px solid #c7d8e3;
+    border-radius: 9px;
+    background: #fff;
+    color: #31506e;
+    font: inherit;
+    font-size: 10px;
+    font-weight: 800;
+  }
+
+  .uc03-work-card__more-button strong {
+    color: #007f79;
+    font-size: 10px;
+    letter-spacing: 1px;
+  }
+
+  .uc03-work-card__more-menu {
+    position: absolute;
+    right: 0;
+    bottom: calc(100% + 7px);
+    z-index: 30;
+    min-width: 150px;
+    padding: 6px;
+    display: grid;
+    gap: 3px;
+    border: 1px solid #d5e1e9;
+    border-radius: 10px;
+    background: #fff;
+    box-shadow: 0 12px 30px rgba(0, 42, 84, .16);
+  }
+
+  .uc03-work-card__more-menu a {
+    min-height: 39px;
+    padding: 0 10px;
+    display: flex;
+    align-items: center;
+    border-radius: 7px;
+    color: #17324d;
+    font-size: 11px;
+    font-weight: 750;
+    text-decoration: none;
+  }
+
+  .uc03-work-card__more-menu a:hover,
+  .uc03-work-card__more-menu a:focus-visible {
+    background: #f1f7fb;
+    color: #0057b8;
+    outline: none;
+  }
+}
+
+@media (max-width: 390px) {
+  .uc03-landing-metric {
+    min-height: 108px;
+    padding: 11px;
+  }
+
+  .uc03-landing-metric__detail {
+    font-size: 8.5px;
+  }
+
+  .uc03-work-card__stages {
+    gap: 6px;
+  }
+}

@@ -1,10 +1,19 @@
 import type { OperatingRole } from '../../domain/models';
 import { auditCoreRequest } from './client';
 
+export interface OperationalOutletScope {
+  dealerId: string;
+  dealerName: string;
+  outletId: string;
+  outletName: string;
+  outletClassification: string;
+}
+
 export interface ProjectScopeSummary {
   allDealers: boolean;
   dealerCount: number;
   outletCount: number;
+  outlets: OperationalOutletScope[];
 }
 
 export interface OperationalProject {
@@ -66,6 +75,7 @@ export interface Uc03WorkItemPage {
     fromDate: string | null;
     toDate: string | null;
     timezoneName: string;
+    outletId?: string | null;
   };
 }
 
@@ -74,14 +84,29 @@ export interface Uc03LandingMetrics {
   deliveryInProgress: number;
   needsAttention: number;
   auditFlags: number;
+  auditInProgress?: number;
+}
+
+export interface Uc03DashboardBootstrap {
+  metrics: Uc03LandingMetrics;
+  workItems: Uc03WorkItemPage;
 }
 
 export interface Uc03WorkItemFilters {
   workType: Uc03WorkType;
   fromDate?: string;
   toDate?: string;
+  outletId?: string;
   cursor?: string;
 }
+
+interface DashboardBootstrapCacheEntry {
+  expiresAt: number;
+  promise: Promise<Uc03DashboardBootstrap>;
+}
+
+const dashboardBootstrapCache = new Map<string, DashboardBootstrapCacheEntry>();
+const DASHBOARD_BOOTSTRAP_REUSE_MS = 5_000;
 
 function accessTokenRequired(accessToken?: string): string {
   const token = accessToken?.trim();
@@ -100,6 +125,35 @@ function normalizeOperatingRole(role: string): OperatingRole {
   }
 }
 
+function getUc03DashboardBootstrap(
+  tenantId: string,
+  outletId: string | undefined,
+  accessToken?: string,
+): Promise<Uc03DashboardBootstrap> {
+  const token = accessTokenRequired(accessToken);
+  const key = `${token}:${tenantId}:${outletId || ''}`;
+  const now = Date.now();
+  const cached = dashboardBootstrapCache.get(key);
+  if (cached && cached.expiresAt > now) return cached.promise;
+
+  const search = new URLSearchParams();
+  if (outletId) search.set('outletId', outletId);
+  const suffix = search.size ? `?${search.toString()}` : '';
+  const promise = auditCoreRequest<Uc03DashboardBootstrap>(
+    `/v1/tenants/${encodeURIComponent(tenantId)}/uc03/dashboard${suffix}`,
+    {
+      accessToken: token,
+      cache: 'no-store',
+    },
+  );
+  const entry = { expiresAt: now + DASHBOARD_BOOTSTRAP_REUSE_MS, promise };
+  dashboardBootstrapCache.set(key, entry);
+  globalThis.setTimeout(() => {
+    if (dashboardBootstrapCache.get(key) === entry) dashboardBootstrapCache.delete(key);
+  }, DASHBOARD_BOOTSTRAP_REUSE_MS);
+  return promise;
+}
+
 export async function listMyOperationalProjects(
   accessToken?: string,
 ): Promise<OperationalProject[]> {
@@ -110,20 +164,19 @@ export async function listMyOperationalProjects(
   return response.projects.map((project) => ({
     ...project,
     operatingRole: normalizeOperatingRole(project.operatingRole),
+    scope: {
+      ...project.scope,
+      outlets: project.scope.outlets || [],
+    },
   }));
 }
 
 export async function getUc03LandingMetrics(
   tenantId: string,
+  outletId: string | undefined,
   accessToken?: string,
 ): Promise<Uc03LandingMetrics> {
-  return auditCoreRequest<Uc03LandingMetrics>(
-    `/v1/tenants/${encodeURIComponent(tenantId)}/uc03/landing-metrics`,
-    {
-      accessToken: accessTokenRequired(accessToken),
-      cache: 'no-store',
-    },
-  );
+  return (await getUc03DashboardBootstrap(tenantId, outletId, accessToken)).metrics;
 }
 
 export async function listUc03WorkItems(
@@ -131,11 +184,20 @@ export async function listUc03WorkItems(
   filters: Uc03WorkItemFilters,
   accessToken?: string,
 ): Promise<Uc03WorkItemPage> {
+  const initialDashboardPage = filters.workType === 'ALL'
+    && !filters.fromDate
+    && !filters.toDate
+    && !filters.cursor;
+  if (initialDashboardPage) {
+    return (await getUc03DashboardBootstrap(tenantId, filters.outletId, accessToken)).workItems;
+  }
+
   const search = new URLSearchParams();
   search.set('workType', filters.workType);
   search.set('limit', '10');
   if (filters.fromDate) search.set('fromDate', filters.fromDate);
   if (filters.toDate) search.set('toDate', filters.toDate);
+  if (filters.outletId) search.set('outletId', filters.outletId);
   if (filters.cursor) search.set('cursor', filters.cursor);
 
   return auditCoreRequest<Uc03WorkItemPage>(

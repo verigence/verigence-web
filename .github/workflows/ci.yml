@@ -28,6 +28,9 @@ jobs:
       - name: Install
         run: npm install --no-audit --no-fund
 
+      - name: UI governance
+        run: npm run ui:governance
+
       - name: Typecheck
         run: npm run typecheck
 

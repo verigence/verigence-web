@@ -11,6 +11,10 @@ import {
   type Uc02ProjectSegment,
 } from '../../services/audit-core/uc02Admin';
 import {
+  deleteMahindraDiscountPolicy,
+  deleteMahindraSegmentMaster,
+} from '../../services/audit-core/uc02AdminMutations';
+import {
   downloadMahindraValidationReport,
   listMahindraMasterImports,
   uploadMahindraNativeDiscountPolicy,
@@ -25,6 +29,7 @@ import { useSessionStore } from '../../store/sessionStore';
 interface MahindraMasterUploadsProps {
   tenantId: string;
   segments: Uc02ProjectSegment[];
+  projectStatus: string;
   onError: (message: string) => void;
 }
 
@@ -53,9 +58,7 @@ function triggerBlob(blob: Blob, filename: string) {
 
 function keyForImport(item: MahindraMasterImport): string | null {
   if (item.masterKey === 'DISCOUNT_POLICY') return 'DISCOUNT_POLICY';
-  if (item.masterKey === 'MAHINDRA_SEGMENT_MASTER' && item.segmentId) {
-    return `SEGMENT:${item.segmentId}`;
-  }
+  if (item.masterKey === 'MAHINDRA_SEGMENT_MASTER' && item.segmentId) return `SEGMENT:${item.segmentId}`;
   return null;
 }
 
@@ -68,12 +71,14 @@ function validationLabel(item: MahindraMasterImport) {
 export default function MahindraMasterUploads({
   tenantId,
   segments,
+  projectStatus,
   onError,
 }: MahindraMasterUploadsProps) {
   const accessToken = useSessionStore((state) => state.accessToken);
   const onErrorRef = useRef(onError);
   const restoreSequence = useRef(0);
   onErrorRef.current = onError;
+
   const targets = useMemo<UploadTarget[]>(
     () => [
       ...segments.map((segment) => ({
@@ -88,7 +93,8 @@ export default function MahindraMasterUploads({
     ],
     [segments],
   );
-  const [activeKey, setActiveKey] = useState(targets[0]?.key || 'DISCOUNT_POLICY');
+
+  const [activeKey, setActiveKey] = useState('');
   const [file, setFile] = useState<File | null>(null);
   const [fileInputVersion, setFileInputVersion] = useState(0);
   const [effectiveFrom, setEffectiveFrom] = useState('');
@@ -99,9 +105,7 @@ export default function MahindraMasterUploads({
   const [notice, setNotice] = useState('');
 
   useEffect(() => {
-    if (!targets.some((target) => target.key === activeKey)) {
-      setActiveKey(targets[0]?.key || 'DISCOUNT_POLICY');
-    }
+    if (activeKey && !targets.some((target) => target.key === activeKey)) setActiveKey('');
   }, [activeKey, targets]);
 
   useEffect(() => {
@@ -115,9 +119,6 @@ export default function MahindraMasterUploads({
     const requestId = ++restoreSequence.current;
     let cancelled = false;
     let settled = false;
-
-    // The backend is authoritative. Never display a previous Project/Tenant's
-    // master state while a fresh restore is in flight.
     setImportsByKey({});
     setRowsByKey({});
     setRestoring(true);
@@ -126,9 +127,7 @@ export default function MahindraMasterUploads({
       if (cancelled || settled || requestId !== restoreSequence.current) return;
       settled = true;
       setRestoring(false);
-      onErrorRef.current(
-        'Loading Project Masters timed out. Please retry; no stale browser state has been kept.',
-      );
+      onErrorRef.current('Loading Project Masters timed out. Please retry; no stale browser state has been kept.');
     }, 8000);
 
     void listMahindraMasterImports(tenantId, accessToken)
@@ -140,12 +139,10 @@ export default function MahindraMasterUploads({
           if (key) next[key] = item;
         }
         setImportsByKey(next);
-        setRowsByKey({});
       })
       .catch((error) => {
         if (cancelled || settled || requestId !== restoreSequence.current) return;
         setImportsByKey({});
-        setRowsByKey({});
         onErrorRef.current(auditCoreErrorMessage(error));
       })
       .finally(() => {
@@ -163,12 +160,12 @@ export default function MahindraMasterUploads({
     };
   }, [accessToken, tenantId]);
 
-  const activeTarget = targets.find((target) => target.key === activeKey) || targets[0];
-  const masterImport = importsByKey[activeKey] || null;
-  const rows = rowsByKey[activeKey] || [];
+  const activeTarget = targets.find((target) => target.key === activeKey) || null;
+  const masterImport = activeKey ? importsByKey[activeKey] || null : null;
+  const rows = activeKey ? rowsByKey[activeKey] || [] : [];
 
   useEffect(() => {
-    if (!accessToken || !masterImport || rowsByKey[activeKey]) return;
+    if (!accessToken || !activeKey || !masterImport || rowsByKey[activeKey]) return;
     if (masterImport.errorRows === 0) {
       setRowsByKey((current) => ({ ...current, [activeKey]: [] }));
       return;
@@ -176,26 +173,25 @@ export default function MahindraMasterUploads({
     let cancelled = false;
     void listMasterImportRows(tenantId, masterImport.importId, 'ERROR', accessToken)
       .then((page) => {
-        if (!cancelled) {
-          setRowsByKey((current) => ({ ...current, [activeKey]: page.items }));
-        }
+        if (!cancelled) setRowsByKey((current) => ({ ...current, [activeKey]: page.items }));
       })
       .catch(() => {
-        if (!cancelled) {
-          // The import summary is authoritative. A secondary preview failure must
-          // never be reported as an upload failure.
-          setRowsByKey((current) => ({ ...current, [activeKey]: [] }));
-        }
+        if (!cancelled) setRowsByKey((current) => ({ ...current, [activeKey]: [] }));
       });
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, [accessToken, activeKey, masterImport, rowsByKey, tenantId]);
 
-  function changeTarget(key: string) {
+  function openTarget(key: string) {
     setActiveKey(key);
     setFile(null);
     setFileInputVersion((value) => value + 1);
+    setEffectiveFrom('');
+    setNotice('');
+  }
+
+  function closeEditor() {
+    setActiveKey('');
+    setFile(null);
     setEffectiveFrom('');
     setNotice('');
   }
@@ -210,11 +206,7 @@ export default function MahindraMasterUploads({
     setNotice('');
     try {
       if (activeTarget.kind === 'SEGMENT') {
-        const blob = await downloadMahindraSegmentTemplate(
-          tenantId,
-          activeTarget.segment.segmentId,
-          accessToken,
-        );
+        const blob = await downloadMahindraSegmentTemplate(tenantId, activeTarget.segment.segmentId, accessToken);
         triggerBlob(blob, `mahindra-${activeTarget.segment.segmentCode.toLowerCase()}-vehicle-price.xlsx`);
       } else {
         const blob = await downloadMahindraDiscountPolicyTemplate(tenantId, accessToken);
@@ -251,11 +243,9 @@ export default function MahindraMasterUploads({
           );
       rememberImport(activeKey, imported);
       setRowsByKey((current) => ({ ...current, [activeKey]: [] }));
-      setNotice(
-        imported.errorRows === 0
-          ? `Validation PASSED. ${imported.validRows} rows are valid. Review and confirm this import.`
-          : `Validation FAILED. ${imported.errorRows} rows contain blocking errors.`,
-      );
+      setNotice(imported.errorRows === 0
+        ? `Validation PASSED. ${imported.validRows} rows are valid. Review and confirm this import.`
+        : `Validation FAILED. ${imported.errorRows} rows contain blocking errors.`);
       setFile(null);
       setFileInputVersion((value) => value + 1);
       setEffectiveFrom('');
@@ -265,8 +255,7 @@ export default function MahindraMasterUploads({
           const page = await listMasterImportRows(tenantId, imported.importId, 'ERROR', accessToken);
           setRowsByKey((current) => ({ ...current, [activeKey]: page.items }));
         } catch {
-          // Validation status/counts are already persisted and displayed above.
-          // Keep a successful upload successful even when row preview is unavailable.
+          // The persisted import summary remains authoritative when row preview is unavailable.
         }
       }
     } catch (error) {
@@ -316,145 +305,123 @@ export default function MahindraMasterUploads({
     }
   }
 
-  if (!activeTarget) return null;
+  async function deleteTarget(target: UploadTarget) {
+    if (!accessToken || projectStatus !== 'CONFIGURING' || !importsByKey[target.key]) return;
+    if (!window.confirm(`Delete Project-owned data for “${target.label}”? This cannot be undone.`)) return;
+    setBusy(true);
+    setNotice('');
+    try {
+      if (target.kind === 'SEGMENT') {
+        await deleteMahindraSegmentMaster(tenantId, target.segment.segmentId, accessToken);
+      } else {
+        await deleteMahindraDiscountPolicy(tenantId, accessToken);
+      }
+      setImportsByKey((current) => {
+        const next = { ...current };
+        delete next[target.key];
+        return next;
+      });
+      setRowsByKey((current) => {
+        const next = { ...current };
+        delete next[target.key];
+        return next;
+      });
+      if (activeKey === target.key) closeEditor();
+      setNotice(`${target.label} deleted.`);
+    } catch (error) {
+      onErrorRef.current(auditCoreErrorMessage(error));
+    } finally {
+      setBusy(false);
+    }
+  }
 
   return (
-    <div className="uc02-master-layout">
-      <aside className="uc02-card uc02-master-list uc02-master-list--mahindra">
-        <div className="uc02-card__title">
-          <h3>Mahindra Masters</h3>
-          <p>Each selected Segment keeps its own upload and validation state.</p>
-        </div>
-        {targets.map((target) => {
-          const existing = importsByKey[target.key];
-          return (
-            <button
-              key={target.key}
-              type="button"
-              className={`uc02-master-list__item${activeKey === target.key ? ' active' : ''}`}
-              onClick={() => changeTarget(target.key)}
-            >
-              <span>
-                <strong>{target.label}</strong>
-                <small>
-                  {target.kind === 'SEGMENT'
-                    ? `${target.segment.segmentCode.replaceAll('_', ' ')} · Product + dynamic pricing`
-                    : 'Booking, commercial and trade-in rule parameters'}
-                </small>
-                {existing && (
-                  <small>
-                    {existing.fileName} · {existing.lifecycleStatus || existing.status} · WEF {existing.effectiveFrom}
-                  </small>
-                )}
-              </span>
-            </button>
-          );
-        })}
-      </aside>
-
-      <div className="uc02-card uc02-card--wide">
-        <div className="uc02-card__title">
-          <h3>{activeTarget.label}</h3>
-          <p>
-            {activeTarget.kind === 'SEGMENT'
-              ? 'Upload the original OEM workbook. Verigence reads the vehicle configuration, dynamic price components and workbook WEF; no predefined price lines are required.'
-              : 'Upload the OEM Discount & Policy workbook. Booking, commercial and trade-in parameters are validated before confirmation.'}
-          </p>
-        </div>
-
-        <div className="uc02-master-actions">
-          <button className="uc02-button" type="button" onClick={() => void getTemplate()} disabled={busy}>
-            Get Excel Template
-          </button>
-        </div>
-
+    <>
+      <div className="uc02-card uc02-list-card">
         {restoring && <div className="uc02-note">Loading previously uploaded master status…</div>}
-
-        <form className="uc02-master-upload" onSubmit={submitUpload}>
-          <label className="uc02-field">
-            <span>Completed Workbook</span>
-            <input
-              key={`${activeKey}:${fileInputVersion}`}
-              type="file"
-              accept=".xlsx"
-              required
-              onChange={(event) => setFile(event.target.files?.[0] || null)}
-            />
-          </label>
-          <label className="uc02-field">
-            <span>Effective From <small>(optional)</small></span>
-            <input
-              type="date"
-              value={effectiveFrom}
-              onChange={(event) => setEffectiveFrom(event.target.value)}
-            />
-            <small>Leave blank when the OEM workbook contains its own WEF.</small>
-          </label>
-          <button className="uc02-button uc02-button--primary" disabled={busy || !file}>
-            {busy ? 'Validating…' : 'Upload & Validate'}
-          </button>
-        </form>
-
-        {notice && <div className="uc02-note">{notice}</div>}
-
-        {masterImport && (
-          <>
-            <div className="uc02-note">
-              <strong>{validationLabel(masterImport)}</strong>
-              {' · '}File: {masterImport.fileName}
-              {' · '}WEF: {masterImport.effectiveFrom}
-              {' · '}Import Reference: {masterImport.importId}
-            </div>
-            <div className="uc02-import-summary">
-              <div><span>Status</span><StatusPill value={masterImport.lifecycleStatus || masterImport.status} /></div>
-              <div><span>Rows</span><strong>{masterImport.rowsParsed}</strong></div>
-              <div><span>Valid</span><strong>{masterImport.validRows}</strong></div>
-              <div><span>Errors</span><strong>{masterImport.errorRows}</strong></div>
-            </div>
-          </>
-        )}
-
-        {rows.length > 0 && (
-          <div className="uc02-table-wrap">
-            <table className="uc02-table">
-              <thead><tr><th>Row</th><th>Status</th><th>Messages</th></tr></thead>
-              <tbody>
-                {rows.slice(0, 100).map((row) => (
-                  <tr key={row.rowNumber}>
-                    <td>{row.rowNumber}</td>
-                    <td><StatusPill value={row.validationStatus} compact /></td>
-                    <td>{row.messages.join(' · ') || 'Validated'}</td>
+        <div className="uc02-table-wrap">
+          <table className="uc02-table">
+            <thead><tr><th>Master</th><th>Segment / Scope</th><th>Status</th><th>WEF</th><th>Rows</th><th>Actions</th></tr></thead>
+            <tbody>
+              {targets.map((target) => {
+                const existing = importsByKey[target.key];
+                return (
+                  <tr key={target.key}>
+                    <td><strong>{target.label}</strong><small>{target.kind === 'SEGMENT' ? 'Product + dynamic pricing' : 'Booking, commercial and trade-in policy'}</small></td>
+                    <td>{target.kind === 'SEGMENT' ? target.segment.segmentCode.replaceAll('_', ' ') : 'Project-wide'}</td>
+                    <td><StatusPill value={existing?.lifecycleStatus || existing?.status || 'NOT_CONFIGURED'} compact /></td>
+                    <td>{existing?.effectiveFrom || '—'}</td>
+                    <td>{existing ? `${existing.validRows}/${existing.rowsParsed}` : '—'}</td>
+                    <td><div className="uc02-row-actions"><button className="uc02-link-button" type="button" onClick={() => openTarget(target.key)}>{existing ? 'Manage / Replace' : 'Configure'}</button>{existing && projectStatus === 'CONFIGURING' && <button className="uc02-link-button uc02-link-button--danger" type="button" onClick={() => void deleteTarget(target)} disabled={busy}>Delete</button>}</div></td>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-
-        {masterImport && (
-          <div className="uc02-actions">
-            <button className="uc02-button" type="button" onClick={() => void validationReport()} disabled={busy}>
-              Validation Report
-            </button>
-            <button
-              className="uc02-button uc02-button--primary"
-              type="button"
-              onClick={() => void confirmImport()}
-              disabled={busy || masterImport.status !== 'PREVIEW_READY' || masterImport.errorRows > 0}
-            >
-              Confirm Import
-            </button>
-            <button
-              className="uc02-button uc02-button--primary"
-              type="button"
-              onClick={() => void publishImport()}
-              disabled={busy || masterImport.status !== 'CONFIRMED' || masterImport.lifecycleStatus === 'PUBLISHED'}
-            >
-              Publish
-            </button>
-          </div>
-        )}
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
       </div>
-    </div>
+
+      {activeTarget && (
+        <div className="uc02-card uc02-editor-panel">
+          <div className="uc02-list-toolbar">
+            <div className="uc02-card__title">
+              <h3>{activeTarget.label}</h3>
+              <p>{activeTarget.kind === 'SEGMENT'
+                ? 'Upload the original OEM workbook. Verigence reads vehicle configuration, dynamic price components and workbook WEF.'
+                : 'Upload the OEM Discount & Policy workbook. Booking, commercial and trade-in parameters are validated before confirmation.'}</p>
+            </div>
+            <button className="uc02-button" type="button" onClick={closeEditor}>Close</button>
+          </div>
+
+          <div className="uc02-master-actions">
+            <button className="uc02-button" type="button" onClick={() => void getTemplate()} disabled={busy}>Get Excel Template</button>
+          </div>
+
+          <form className="uc02-master-upload" onSubmit={submitUpload}>
+            <label className="uc02-field">
+              <span>Completed Workbook</span>
+              <input key={`${activeKey}:${fileInputVersion}`} type="file" accept=".xlsx" required onChange={(event) => setFile(event.target.files?.[0] || null)} />
+            </label>
+            <label className="uc02-field">
+              <span>Effective From <small>(optional)</small></span>
+              <input type="date" value={effectiveFrom} onChange={(event) => setEffectiveFrom(event.target.value)} />
+              <small>Leave blank when the OEM workbook contains its own WEF.</small>
+            </label>
+            <button className="uc02-button uc02-button--primary" disabled={busy || !file}>{busy ? 'Validating…' : masterImport ? 'Replace & Validate' : 'Upload & Validate'}</button>
+          </form>
+
+          {notice && <div className="uc02-note">{notice}</div>}
+
+          {masterImport && (
+            <>
+              <div className="uc02-note"><strong>{validationLabel(masterImport)}</strong>{' · '}File: {masterImport.fileName}{' · '}WEF: {masterImport.effectiveFrom}{' · '}Import Reference: {masterImport.importId}</div>
+              <div className="uc02-import-summary">
+                <div><span>Status</span><StatusPill value={masterImport.lifecycleStatus || masterImport.status} /></div>
+                <div><span>Rows</span><strong>{masterImport.rowsParsed}</strong></div>
+                <div><span>Valid</span><strong>{masterImport.validRows}</strong></div>
+                <div><span>Errors</span><strong>{masterImport.errorRows}</strong></div>
+              </div>
+            </>
+          )}
+
+          {rows.length > 0 && (
+            <div className="uc02-table-wrap">
+              <table className="uc02-table">
+                <thead><tr><th>Row</th><th>Status</th><th>Messages</th></tr></thead>
+                <tbody>{rows.slice(0, 100).map((row) => <tr key={row.rowNumber}><td>{row.rowNumber}</td><td><StatusPill value={row.validationStatus} compact /></td><td>{row.messages.join(' · ') || 'Validated'}</td></tr>)}</tbody>
+              </table>
+            </div>
+          )}
+
+          {masterImport && (
+            <div className="uc02-actions">
+              <button className="uc02-button" type="button" onClick={() => void validationReport()} disabled={busy}>Validation Report</button>
+              <button className="uc02-button uc02-button--primary" type="button" onClick={() => void confirmImport()} disabled={busy || masterImport.status !== 'PREVIEW_READY' || masterImport.errorRows > 0}>Confirm Import</button>
+              <button className="uc02-button uc02-button--primary" type="button" onClick={() => void publishImport()} disabled={busy || masterImport.status !== 'CONFIRMED' || masterImport.lifecycleStatus === 'PUBLISHED'}>Publish</button>
+            </div>
+          )}
+        </div>
+      )}
+    </>
   );
 }

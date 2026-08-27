@@ -1,0 +1,216 @@
+/*
+ * Dashboard mobile task-card polish — 26 Aug 2026.
+ * Mobile-only presentation layer. No API/backend behavior changes.
+ */
+
+@media (max-width: 899px) {
+  /* KPI strip: force three aligned tiles and give each a compact semantic icon. */
+  .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-landing-metrics {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    align-items: stretch !important;
+    gap: 7px !important;
+  }
+
+  .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-landing-metric,
+  .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-landing-metric:nth-child(1),
+  .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-landing-metric:nth-child(2),
+  .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-landing-metric:nth-child(3) {
+    grid-column: auto !important;
+    min-width: 0 !important;
+    width: auto !important;
+    min-height: 68px !important;
+    padding: 9px 8px !important;
+    display: grid !important;
+    grid-template-columns: 24px minmax(0, 1fr) !important;
+    grid-template-areas:
+      "icon label"
+      "icon value" !important;
+    column-gap: 7px !important;
+    row-gap: 2px !important;
+    align-content: center !important;
+    align-items: center !important;
+  }
+
+  .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-landing-metric::before {
+    content: '' !important;
+    display: block !important;
+    grid-area: icon !important;
+    width: 22px !important;
+    height: 22px !important;
+    background: #0b4f8f !important;
+    -webkit-mask-position: center !important;
+    -webkit-mask-repeat: no-repeat !important;
+    -webkit-mask-size: contain !important;
+    mask-position: center !important;
+    mask-repeat: no-repeat !important;
+    mask-size: contain !important;
+  }
+
+  .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-landing-metric:nth-child(1)::before {
+    -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect x='4' y='5' width='16' height='15' rx='2' fill='none' stroke='black' stroke-width='2'/%3E%3Cpath d='M8 3v4M16 3v4M4 10h16M8 14h3v3H8z' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") !important;
+    mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect x='4' y='5' width='16' height='15' rx='2' fill='none' stroke='black' stroke-width='2'/%3E%3Cpath d='M8 3v4M16 3v4M4 10h16M8 14h3v3H8z' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") !important;
+  }
+
+  .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-landing-metric:nth-child(2)::before {
+    background: #0b8d86 !important;
+    -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M3 6h11v10H3zM14 10h4l3 3v3h-7zM7 19a2 2 0 1 0 0-4 2 2 0 0 0 0 4ZM18 19a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") !important;
+    mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M3 6h11v10H3zM14 10h4l3 3v3h-7zM7 19a2 2 0 1 0 0-4 2 2 0 0 0 0 4ZM18 19a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") !important;
+  }
+
+  .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-landing-metric:nth-child(3)::before {
+    background: #6f8494 !important;
+    -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 3 21 20H3L12 3Z' fill='none' stroke='black' stroke-width='2' stroke-linejoin='round'/%3E%3Cpath d='M12 9v5M12 17h.01' fill='none' stroke='black' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E") !important;
+    mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 3 21 20H3L12 3Z' fill='none' stroke='black' stroke-width='2' stroke-linejoin='round'/%3E%3Cpath d='M12 9v5M12 17h.01' fill='none' stroke='black' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E") !important;
+  }
+
+  .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-landing-metric.is-attention::before {
+    background: #b56508 !important;
+  }
+
+  .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-landing-metric__label {
+    grid-area: label !important;
+    align-self: end !important;
+    font-size: 8.5px !important;
+    line-height: 1.1 !important;
+  }
+
+  .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-landing-metric__value {
+    grid-area: value !important;
+    align-self: start !important;
+    font-size: 21px !important;
+    line-height: 1 !important;
+  }
+
+  /* Mobile task card hierarchy: type first, then customer, then status/verification. */
+  .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-work-card {
+    padding: 10px 11px !important;
+    gap: 6px 9px !important;
+    border-radius: 10px !important;
+  }
+
+  .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-work-card__header {
+    gap: 4px !important;
+  }
+
+  .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-work-card__identity {
+    display: flex !important;
+    flex-direction: column !important;
+    min-width: 0 !important;
+  }
+
+  .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-work-card__identity-meta {
+    order: -1 !important;
+    margin: 0 0 3px !important;
+    min-height: 15px !important;
+    gap: 6px !important;
+  }
+
+  .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-work-card__type-label {
+    color: #087f7b !important;
+    font-size: 9.5px !important;
+    font-weight: 850 !important;
+    letter-spacing: 0.075em !important;
+  }
+
+  .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-work-card__identity h3 {
+    order: 0 !important;
+    margin: 0 !important;
+    font-size: 16px !important;
+    line-height: 1.12 !important;
+  }
+
+  /* Do not show the synthetic 'Vehicle not captured' fallback on mobile.
+     Vehicle/product context remains available when the user opens the work item. */
+  .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-work-card__identity p {
+    display: none !important;
+  }
+
+  .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-work-card__summary {
+    justify-content: center !important;
+    gap: 6px !important;
+    padding: 1px 0 !important;
+  }
+
+  .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-work-card__summary > strong.uc03-work-status-pill,
+  .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-work-card__summary .uc03-verification-badge {
+    min-height: 23px !important;
+    padding: 0 8px !important;
+    font-size: 9.5px !important;
+    white-space: nowrap !important;
+  }
+
+  .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-work-card__next-step {
+    gap: 4px !important;
+    min-height: 22px !important;
+    align-items: center !important;
+  }
+
+  .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-work-card__next-step > span {
+    font-size: 8px !important;
+  }
+
+  .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-work-card__next-step > strong {
+    font-size: 11.5px !important;
+  }
+
+  .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-work-card__age {
+    align-self: center !important;
+    gap: 0 !important;
+  }
+
+  .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-work-card__age strong {
+    font-size: 11.5px !important;
+    line-height: 1.1 !important;
+  }
+
+  .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-work-card__age span {
+    font-size: 9px !important;
+  }
+
+  .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-work-card__footer {
+    gap: 5px !important;
+  }
+
+  .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-work-card__primary-action {
+    width: auto !important;
+    min-width: 0 !important;
+    min-height: 36px !important;
+    padding: 0 11px !important;
+    font-size: 10px !important;
+    border-radius: 8px !important;
+  }
+
+  .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-work-card__more-button {
+    width: 36px !important;
+    height: 36px !important;
+    min-width: 36px !important;
+  }
+}
+
+@media (max-width: 430px) {
+  .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-landing-metric,
+  .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-landing-metric:nth-child(1),
+  .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-landing-metric:nth-child(2),
+  .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-landing-metric:nth-child(3) {
+    grid-template-columns: 20px minmax(0, 1fr) !important;
+    padding: 8px 6px !important;
+    column-gap: 5px !important;
+  }
+
+  .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-landing-metric::before {
+    width: 19px !important;
+    height: 19px !important;
+  }
+
+  .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-landing-metric__label {
+    font-size: 7.5px !important;
+  }
+
+  .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-landing-metric__value {
+    font-size: 19px !important;
+  }
+
+  .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-work-card {
+    padding: 9px 10px !important;
+  }
+}

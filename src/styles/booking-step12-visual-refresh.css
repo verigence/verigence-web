@@ -1,0 +1,590 @@
+/*
+ * Booking Step 1/2 visual refresh.
+ * Scoped to the UC03 booking journey so dashboard/auth/shell visuals remain untouched.
+ * Base safety point: snapshot/dev-dashboard-hierarchy-4df0251.
+ */
+
+.uc03-booking-journey {
+  --booking-navy: #073b70;
+  --booking-navy-deep: #052f5d;
+  --booking-teal: #078b8f;
+  --booking-teal-strong: #007f82;
+  --booking-teal-soft: #e9f7f6;
+  --booking-blue-soft: #eef5ff;
+  --booking-amber: #a96410;
+  --booking-amber-soft: #fff6e7;
+  --booking-green: #237a55;
+  --booking-green-soft: #edf8f2;
+  --booking-red: #b33b3b;
+  --booking-red-soft: #fff0f0;
+  --booking-ink: #14395f;
+  --booking-muted: #607a92;
+  --booking-line: #d7e3eb;
+  max-width: 1360px;
+}
+
+/* Booking context / customer hierarchy */
+.uc03-booking-journey .uc03-c1-topbar {
+  margin-bottom: 12px;
+}
+
+.uc03-booking-journey .uc03-c1-back {
+  color: var(--booking-navy);
+  font-size: 0.95rem;
+  font-weight: 750;
+}
+
+.uc03-booking-journey .page-header {
+  position: relative;
+  overflow: hidden;
+  margin-bottom: 14px;
+  padding: 18px 22px 19px;
+  border: 1px solid #d2e5eb;
+  border-left: 4px solid var(--booking-teal);
+  border-radius: 18px;
+  background:
+    radial-gradient(circle at 94% 12%, rgba(7, 139, 143, 0.14), transparent 28%),
+    linear-gradient(105deg, #ffffff 0%, #f7fbfd 58%, #eef9f8 100%);
+  box-shadow: 0 10px 28px rgba(4, 53, 95, 0.05);
+}
+
+.uc03-booking-journey .page-header::after {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto;
+  height: 3px;
+  background: linear-gradient(90deg, var(--booking-navy), var(--booking-teal));
+}
+
+.uc03-booking-journey .page-header .eyebrow {
+  color: var(--booking-teal-strong);
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.11em;
+}
+
+.uc03-booking-journey .page-header h1 {
+  margin: 5px 0 5px;
+  color: var(--booking-navy-deep);
+  font-size: clamp(1.8rem, 2.3vw, 2.25rem);
+  line-height: 1.06;
+  letter-spacing: -0.025em;
+}
+
+.uc03-booking-journey .page-header p {
+  margin: 0;
+  color: var(--booking-muted);
+  font-size: 0.97rem;
+  line-height: 1.5;
+}
+
+/* Stepper: active = strong brand, completed = teal-soft, future = quiet. */
+.uc03-booking-journey .uc03-booking-steps {
+  gap: 8px;
+  margin: 0 0 18px;
+}
+
+.uc03-booking-journey .uc03-booking-steps button {
+  min-height: 50px;
+  border-color: #cfdae3;
+  border-radius: 12px;
+  background: #ffffff;
+  color: #385671;
+  font-size: 0.93rem;
+  font-weight: 760;
+  transition: border-color 120ms ease, background 120ms ease, color 120ms ease, box-shadow 120ms ease;
+}
+
+.uc03-booking-journey .uc03-booking-steps button span {
+  margin-left: 7px;
+  font-weight: 720;
+}
+
+.uc03-booking-journey .uc03-booking-steps button:has(~ button.is-active) {
+  border-color: #a9d9d5;
+  background: var(--booking-teal-soft);
+  color: #086d70;
+}
+
+.uc03-booking-journey .uc03-booking-steps button.is-active {
+  border-color: var(--booking-navy);
+  background: linear-gradient(105deg, var(--booking-navy-deep), var(--booking-navy));
+  color: #ffffff;
+  box-shadow: 0 7px 16px rgba(5, 47, 93, 0.16);
+}
+
+.uc03-booking-journey .uc03-booking-steps button.is-active span {
+  color: inherit;
+}
+
+/* Shared Step 1/2 panel hierarchy */
+.uc03-booking-journey .uc03-booking-step-panel {
+  position: relative;
+  padding: clamp(20px, 2vw, 26px);
+  border-color: #d3e0e8;
+  border-radius: 18px;
+  background: #ffffff;
+  box-shadow: 0 12px 32px rgba(5, 47, 93, 0.055);
+}
+
+.uc03-booking-journey .uc03-booking-step-panel::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto;
+  height: 3px;
+  border-radius: 18px 18px 0 0;
+  background: linear-gradient(90deg, var(--booking-navy), var(--booking-teal));
+}
+
+.uc03-booking-journey .uc03-booking-step-heading {
+  padding-bottom: 14px;
+  margin-bottom: 18px;
+  border-bottom-color: #dde7ed;
+}
+
+.uc03-booking-journey .uc03-booking-step-heading .uc03-c1-eyebrow {
+  color: var(--booking-teal-strong);
+  font-size: 0.76rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+}
+
+.uc03-booking-journey .uc03-booking-step-heading h2 {
+  color: var(--booking-navy-deep);
+  font-size: clamp(1.45rem, 2vw, 1.8rem);
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+}
+
+.uc03-booking-journey .uc03-booking-step-heading > span {
+  align-self: center;
+  padding: 7px 10px;
+  border: 1px solid #cfe5e4;
+  border-radius: 999px;
+  background: #f1f9f8;
+  color: #4a6d72;
+  font-size: 0.84rem;
+  font-weight: 700;
+}
+
+/* Step 1: document evidence cards */
+.uc03-booking-journey .uc03-booking-document-grid {
+  gap: 12px;
+}
+
+.uc03-booking-journey .uc03-booking-upload-card {
+  position: relative;
+  min-height: 142px;
+  padding: 16px 17px;
+  border-color: #d6e2e9;
+  border-radius: 14px;
+  background: #fbfdfe;
+  box-shadow: 0 4px 12px rgba(5, 47, 93, 0.025);
+}
+
+.uc03-booking-journey .uc03-booking-upload-card::before {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 4px;
+  border-radius: 14px 0 0 14px;
+  background: #b9cbd7;
+}
+
+.uc03-booking-journey .uc03-booking-upload-card > header strong {
+  color: var(--booking-ink);
+  font-size: 0.98rem;
+  line-height: 1.35;
+}
+
+.uc03-booking-journey .uc03-booking-upload-card > header small {
+  color: #71869a;
+  font-size: 0.8rem;
+}
+
+/* Uploaded/ready */
+.uc03-booking-journey .uc03-booking-upload-card:has(.uc03-booking-upload-summary) {
+  border-color: #c6e5d6;
+  background: linear-gradient(105deg, #ffffff, var(--booking-green-soft));
+}
+
+.uc03-booking-journey .uc03-booking-upload-card:has(.uc03-booking-upload-summary)::before {
+  background: var(--booking-green);
+}
+
+.uc03-booking-journey .uc03-booking-upload-card:has(.uc03-booking-upload-summary) .status-pill {
+  border: 1px solid #b8ddc9;
+  background: #e7f6ee;
+  color: #236f4f;
+}
+
+/* Pending */
+.uc03-booking-journey .uc03-booking-upload-card:has(.status-pill--info)::before {
+  background: #d99535;
+}
+
+.uc03-booking-journey .uc03-booking-upload-card .status-pill--info {
+  border: 1px solid #efd7aa;
+  background: var(--booking-amber-soft);
+  color: var(--booking-amber);
+}
+
+/* Failed / retry */
+.uc03-booking-journey .uc03-booking-upload-card:has(.status-pill--danger) {
+  border-color: #efc6c6;
+  background: var(--booking-red-soft);
+}
+
+.uc03-booking-journey .uc03-booking-upload-card:has(.status-pill--danger)::before {
+  background: var(--booking-red);
+}
+
+.uc03-booking-journey .uc03-booking-upload-card .status-pill--danger {
+  border: 1px solid #efc0c0;
+  background: #ffe6e6;
+  color: #9e3030;
+}
+
+/* Optional with no upload yet */
+.uc03-booking-journey .uc03-booking-upload-card:has(header small):not(:has(.uc03-booking-upload-summary))::before {
+  background: var(--booking-teal);
+}
+
+.uc03-booking-journey .uc03-booking-upload-card:has(header small):not(:has(.uc03-booking-upload-summary)) .status-pill {
+  border: 1px solid #bee0dd;
+  background: var(--booking-teal-soft);
+  color: #147174;
+}
+
+.uc03-booking-journey .uc03-booking-upload-action,
+.uc03-booking-journey .uc03-booking-upload-state {
+  min-height: 40px;
+  border-color: #bfd8df;
+  border-radius: 10px;
+  background: #eff8f8;
+  color: var(--booking-navy);
+  font-size: 0.9rem;
+  font-weight: 750;
+}
+
+.uc03-booking-journey .uc03-booking-upload-action:hover {
+  border-color: #85c7c6;
+  background: #e4f5f3;
+}
+
+.uc03-booking-journey .uc03-booking-upload-summary {
+  color: #4b6f65;
+  font-size: 0.86rem;
+  line-height: 1.45;
+}
+
+/* Footer note/action — useful, but visually secondary to the step content. */
+.uc03-booking-journey .uc03-booking-step-footer {
+  gap: 14px;
+  margin-top: 18px;
+  padding: 14px;
+  border-top: 0;
+  border-radius: 12px;
+  background: linear-gradient(90deg, #f5f9fc, #eef8f7);
+}
+
+.uc03-booking-journey .uc03-booking-step-footer > span {
+  max-width: 760px;
+  color: #557088;
+  font-size: 0.88rem;
+  line-height: 1.5;
+}
+
+/* Step 2: visually separate the major decision groups without changing data/API structure. */
+.uc03-booking-journey .uc03-booking-step-panel > .uc03-booking-form-grid,
+.uc03-booking-journey .uc03-booking-step-panel > .uc03-booking-yesno-grid {
+  position: relative;
+  padding: 18px;
+  border: 1px solid #d9e4eb;
+  border-radius: 14px;
+  background: #f9fbfd;
+}
+
+.uc03-booking-journey .uc03-booking-step-panel > .uc03-booking-form-grid::before,
+.uc03-booking-journey .uc03-booking-step-panel > .uc03-booking-yesno-grid::before {
+  grid-column: 1 / -1;
+  color: var(--booking-navy);
+  font-size: 0.8rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.uc03-booking-journey .uc03-booking-step-panel > .uc03-booking-form-grid:first-of-type::before {
+  content: 'Customer & Deal';
+}
+
+.uc03-booking-journey .uc03-booking-step-panel > .uc03-booking-yesno-grid {
+  margin-top: 14px;
+  background: #f2faf9;
+}
+
+.uc03-booking-journey .uc03-booking-step-panel > .uc03-booking-yesno-grid::before {
+  content: 'Commercial Decisions';
+  color: #087679;
+}
+
+.uc03-booking-journey .uc03-booking-step-panel > .uc03-booking-form-grid:last-of-type {
+  margin-top: 14px;
+}
+
+.uc03-booking-journey .uc03-booking-step-panel > .uc03-booking-form-grid:last-of-type::before {
+  content: 'Registration & Pricing';
+}
+
+.uc03-booking-journey .uc03-booking-field {
+  gap: 8px;
+}
+
+.uc03-booking-journey .uc03-booking-field > span,
+.uc03-booking-journey .uc03-booking-choice legend {
+  color: #405e78;
+  font-size: 0.88rem;
+  font-weight: 760;
+}
+
+.uc03-booking-journey .uc03-booking-field select {
+  min-height: 48px;
+  border-color: #c9d8e2;
+  border-radius: 10px;
+  background: #ffffff;
+  color: #183b60;
+  padding: 0 13px;
+  font-size: 0.95rem;
+}
+
+.uc03-booking-journey .uc03-booking-field select:focus {
+  border-color: var(--booking-teal);
+  outline: 3px solid rgba(7, 139, 143, 0.11);
+}
+
+.uc03-booking-journey .uc03-booking-choice {
+  padding: 12px;
+  border-color: #cfe0e5;
+  border-radius: 12px;
+  background: #ffffff;
+}
+
+.uc03-booking-journey .uc03-booking-choice label {
+  min-height: 38px;
+  margin: 9px 7px 0 0;
+  padding: 7px 11px;
+  border: 1px solid #d3dfe6;
+  border-radius: 9px;
+  background: #ffffff;
+  color: #284d70;
+  font-weight: 700;
+}
+
+.uc03-booking-journey .uc03-booking-choice label:has(input:checked) {
+  border-color: #7bc2c0;
+  background: #e8f7f5;
+  color: #086f72;
+}
+
+.uc03-booking-journey .uc03-booking-choice input {
+  accent-color: var(--booking-teal);
+}
+
+.uc03-booking-journey .uc03-booking-conditional-evidence {
+  margin-top: 12px;
+}
+
+.uc03-booking-journey .uc03-booking-optional-upload {
+  border-color: #cde2e3;
+  background: #f3faf9;
+}
+
+.uc03-booking-journey .uc03-booking-optional-upload strong {
+  color: var(--booking-navy);
+}
+
+.uc03-booking-journey .uc03-c1-primary {
+  border-color: var(--booking-navy);
+  background: var(--booking-navy);
+}
+
+.uc03-booking-journey .uc03-c1-primary:hover:not(:disabled) {
+  background: var(--booking-navy-deep);
+}
+
+.uc03-booking-journey .uc03-c1-secondary {
+  border-color: #bdd5df;
+  color: var(--booking-navy);
+}
+
+@media (max-width: 900px) {
+  .uc03-booking-journey {
+    max-width: none;
+  }
+
+  .uc03-booking-journey .page-header {
+    padding: 17px 18px;
+  }
+
+  .uc03-booking-journey .uc03-booking-step-panel > .uc03-booking-form-grid,
+  .uc03-booking-journey .uc03-booking-step-panel > .uc03-booking-yesno-grid {
+    padding: 16px;
+  }
+}
+
+@media (max-width: 680px) {
+  .uc03-booking-journey {
+    padding-bottom: calc(24px + env(safe-area-inset-bottom));
+  }
+
+  .uc03-booking-journey .uc03-c1-topbar {
+    margin-bottom: 10px;
+  }
+
+  .uc03-booking-journey .uc03-c1-topbar > span {
+    display: none;
+  }
+
+  .uc03-booking-journey .uc03-c1-back {
+    min-height: 42px;
+    font-size: 0.95rem;
+  }
+
+  .uc03-booking-journey .page-header {
+    margin-bottom: 12px;
+    padding: 15px 15px 16px;
+    border-radius: 15px;
+  }
+
+  .uc03-booking-journey .page-header h1 {
+    font-size: 1.8rem;
+  }
+
+  .uc03-booking-journey .page-header p {
+    font-size: 0.95rem;
+  }
+
+  .uc03-booking-journey .uc03-booking-steps {
+    gap: 6px;
+    margin-bottom: 14px;
+  }
+
+  .uc03-booking-journey .uc03-booking-steps button {
+    min-width: 0;
+    min-height: 62px;
+    padding: 8px 5px;
+    border-radius: 11px;
+    font-size: 1rem;
+  }
+
+  .uc03-booking-journey .uc03-booking-steps button span {
+    display: block;
+    margin: 4px 0 0;
+    font-size: 0.78rem;
+    line-height: 1.15;
+  }
+
+  .uc03-booking-journey .uc03-booking-step-panel {
+    padding: 16px;
+    border-radius: 15px;
+  }
+
+  .uc03-booking-journey .uc03-booking-step-heading {
+    gap: 10px;
+    padding-bottom: 13px;
+    margin-bottom: 14px;
+  }
+
+  .uc03-booking-journey .uc03-booking-step-heading h2 {
+    font-size: 1.55rem;
+  }
+
+  .uc03-booking-journey .uc03-booking-step-heading > span {
+    align-self: flex-start;
+    font-size: 0.82rem;
+  }
+
+  .uc03-booking-journey .uc03-booking-document-grid {
+    gap: 10px;
+  }
+
+  .uc03-booking-journey .uc03-booking-upload-card {
+    min-height: 0;
+    padding: 15px;
+  }
+
+  .uc03-booking-journey .uc03-booking-upload-card > header strong {
+    font-size: 1rem;
+  }
+
+  .uc03-booking-journey .uc03-booking-upload-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    margin-top: 12px;
+  }
+
+  .uc03-booking-journey .uc03-booking-upload-action.is-mobile {
+    min-width: 0;
+    min-height: 46px;
+    width: 100%;
+    font-size: 0.9rem;
+  }
+
+  .uc03-booking-journey .uc03-booking-upload-state {
+    min-height: 44px;
+  }
+
+  .uc03-booking-journey .uc03-booking-step-panel > .uc03-booking-form-grid,
+  .uc03-booking-journey .uc03-booking-step-panel > .uc03-booking-yesno-grid {
+    padding: 14px;
+    gap: 14px;
+    border-radius: 12px;
+  }
+
+  .uc03-booking-journey .uc03-booking-step-panel > .uc03-booking-form-grid::before,
+  .uc03-booking-journey .uc03-booking-step-panel > .uc03-booking-yesno-grid::before {
+    font-size: 0.78rem;
+  }
+
+  .uc03-booking-journey .uc03-booking-field > span,
+  .uc03-booking-journey .uc03-booking-choice legend {
+    font-size: 0.9rem;
+  }
+
+  .uc03-booking-journey .uc03-booking-field select {
+    min-height: 50px;
+    font-size: 0.96rem;
+  }
+
+  .uc03-booking-journey .uc03-booking-choice {
+    padding: 11px;
+  }
+
+  .uc03-booking-journey .uc03-booking-choice label {
+    min-height: 42px;
+    min-width: 78px;
+    justify-content: center;
+    margin-top: 8px;
+  }
+
+  .uc03-booking-journey .uc03-booking-step-footer {
+    padding: 12px;
+    gap: 10px;
+  }
+
+  .uc03-booking-journey .uc03-booking-step-footer > span {
+    font-size: 0.86rem;
+  }
+}
+
+@media (max-width: 390px) {
+  .uc03-booking-journey .uc03-booking-steps button span {
+    font-size: 0.72rem;
+  }
+
+  .uc03-booking-journey .uc03-booking-upload-actions {
+    grid-template-columns: 1fr;
+  }
+}

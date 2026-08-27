@@ -6,6 +6,14 @@ on:
       - dev
     paths:
       - '.github/workflows/visual-validation.yml'
+      - 'scripts/ui-governance-check.mjs'
+      - 'src/main.tsx'
+      - 'src/layout/AppShell.tsx'
+      - 'src/components/ProjectContextGate.tsx'
+      - 'src/pages/DashboardPage.tsx'
+      - 'src/pages/BookingWorkspacePage.tsx'
+      - 'src/pages/DeliveryWorkspacePage.tsx'
+      - 'src/pages/AuditReviewPage.tsx'
       - 'src/pages/LoginPage.tsx'
       - 'src/pages/SignupPage.tsx'
       - 'src/pages/ForgotPasswordPage.tsx'
@@ -40,21 +48,20 @@ jobs:
           - run_number: $GITHUB_RUN_NUMBER
           - source_sha: $GITHUB_SHA
           - result: running
+          - governance: Login-background + operational-context + adaptive/scroll checks
           - workflow_url: https://github.com/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID
           EOF
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add docs/visual-evidence/VISUAL_DEV_LATEST.md
-          git commit -m 'chore(ui): record visual validation start [skip ci]'
+          git commit -m 'chore(ui): record visual validation start [skip ci]' || exit 0
           git pull --rebase origin dev
           git push origin HEAD:dev
 
   validate:
     needs: start
     runs-on: ubuntu-latest
-    timeout-minutes: 20
-    env:
-      DEV_WEB_URL: https://verigence-web-dev.jbrconsulting-it.workers.dev
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
 
@@ -68,68 +75,367 @@ jobs:
           npm install --no-save playwright@1.55.0
           npx playwright install --with-deps chromium
 
-      - name: Capture and validate responsive screens
+      - name: Enforce static UI governance
+        run: npm run ui:governance
+
+      - name: Build governed application
+        run: npm run build
+
+      - name: Start local preview
+        run: |
+          set -euo pipefail
+          npx vite preview --host 127.0.0.1 --port 4173 > /tmp/verigence-vite.log 2>&1 &
+          echo $! > /tmp/verigence-vite.pid
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:4173/login >/dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          cat /tmp/verigence-vite.log
+          exit 1
+
+      - name: Capture and validate governed responsive screens
+        env:
+          TEST_WEB_URL: http://127.0.0.1:4173
         run: |
           mkdir -p visual-output
           node --input-type=module <<'NODE'
           import { chromium } from 'playwright';
           import fs from 'node:fs';
 
-          const base = process.env.DEV_WEB_URL;
-          const routes = ['/login', '/signup', '/forgot-password', '/terms', '/privacy'];
+          const base = process.env.TEST_WEB_URL;
+          const publicRoutes = ['/login', '/signup', '/forgot-password', '/terms', '/privacy'];
           const viewports = [
             { name: 'phone-360', width: 360, height: 800 },
             { name: 'phone-390', width: 390, height: 844 },
             { name: 'phone-430', width: 430, height: 932 },
             { name: 'tablet-768', width: 768, height: 1024 },
+            { name: 'landscape-1024', width: 1024, height: 768 },
+            { name: 'laptop-1366', width: 1366, height: 768 },
+            { name: 'desktop-1440', width: 1440, height: 900 },
+            { name: 'desktop-1920', width: 1920, height: 1080 },
+          ];
+          const operationalViewports = viewports;
+          const failures = [];
+
+          const fakeLogin = {
+            accessToken: 'ui-governance-human-token',
+            expiresAtUtc: '2099-01-01T00:00:00Z',
+            actorType: 'USER',
+            isSuperAdmin: false,
+          };
+
+          const outlet = {
+            dealerId: 'dealer-governance',
+            dealerName: 'Dealer Governance Visible Only On Landing',
+            outletId: 'outlet-governance',
+            outletName: 'Outlet Governance Visible Only On Landing',
+            outletClassification: 'Urban',
+          };
+
+          function project(tenantId, projectName, outlets = [outlet]) {
+            return {
+              tenantId,
+              projectCode: `CODE-${tenantId}`,
+              projectName,
+              projectStatus: 'ACTIVE',
+              timezoneName: 'Asia/Kolkata',
+              operatingRole: 'PC',
+              scope: {
+                allDealers: false,
+                dealerCount: 1,
+                outletCount: outlets.length,
+                outlets,
+              },
+            };
+          }
+
+          const oneProject = project('tenant-governance', 'FORBIDDEN INTERNAL PROJECT NAME');
+          const twoProjects = [
+            project('tenant-a', 'FORBIDDEN PROJECT ALPHA', []),
+            project('tenant-b', 'FORBIDDEN PROJECT BETA', []),
           ];
 
+          const dashboard = {
+            metrics: {
+              bookingsInProgress: 2,
+              deliveryInProgress: 1,
+              needsAttention: 0,
+              auditFlags: 0,
+              auditInProgress: 1,
+            },
+            workItems: {
+              items: [],
+              pageSize: 10,
+              nextCursor: null,
+              previousCursor: null,
+              filters: {
+                workType: 'ALL',
+                fromDate: null,
+                toDate: null,
+                timezoneName: 'Asia/Kolkata',
+                outletId: 'outlet-governance',
+              },
+            },
+          };
+
+          const bookingWorkspace = {
+            journeyId: 'journey-governance',
+            bookingStage: {
+              businessStatus: 'BOOKING_IN_PROGRESS',
+              auditState: 'IN_PROGRESS',
+              auditStatus: 'NOT_EVALUATED',
+            },
+            capture: { CUSTOMER_NAME: 'Governance Customer' },
+            documents: [],
+            proposals: [],
+            flags: [],
+            completion: { ready: false, blockers: [] },
+            processingSummary: { pendingCount: 0, failedCount: 0, readyProposalCount: 0 },
+            flagSummary: { openCount: 0, totalCount: 0 },
+            permittedActions: [],
+            aggregateVersion: 1,
+            operatingRole: 'PC',
+          };
+
+          const bookingPart1 = {
+            journeyId: 'journey-governance',
+            requirements: [
+              { kind: 'BOOKING_DOCKET', requirementKey: 'booking_docket', documentTypeKey: 'booking_form', requirementLevel: 'REQUIRED', requirementStatus: 'PENDING', evidence: [] },
+              { kind: 'BOOKING_PAYMENT_RECEIPT', requirementKey: 'booking_payment_receipt', documentTypeKey: 'booking_payment_receipt', requirementLevel: 'REQUIRED', requirementStatus: 'PENDING', evidence: [] },
+              { kind: 'PAN', requirementKey: 'pan_card', documentTypeKey: 'pan_card', requirementLevel: 'CONDITIONAL', requirementStatus: 'PENDING', evidence: [] },
+              { kind: 'AADHAAR', requirementKey: 'aadhaar', documentTypeKey: 'aadhaar', requirementLevel: 'CONDITIONAL', requirementStatus: 'PENDING', evidence: [] },
+            ],
+            mandatoryEvidence: {
+              bookingDocketComplete: false,
+              kycComplete: false,
+              kycBothProvided: false,
+              paymentReceiptComplete: false,
+              paymentReceiptCount: 0,
+              part1EvidenceComplete: false,
+            },
+            productMaster: {
+              status: 'PENDING_EXTRACTION',
+              extractedModel: null,
+              extractedVariant: null,
+              modelId: null,
+              modelName: null,
+              variantId: null,
+              variantName: null,
+              masterVersionIds: [],
+              message: 'Pending extraction',
+            },
+          };
+
+          const bookingDetails = {
+            aggregateVersion: 1,
+            priceListId: null,
+            customerType: null,
+            dealType: null,
+            dealSource: null,
+            leadSource: null,
+            registrationState: null,
+            territoryCategorization: null,
+            districtName: null,
+            registrationType: null,
+            registrationCategory: null,
+            outrightPurchase: null,
+            tradeIn: null,
+            gstBenefit: null,
+            corporateIdAvailable: null,
+            optionalEvidence: [],
+          };
+
+          const ref = (values) => values.map(([code, label]) => ({ code, label }));
+          const bookingOptions = {
+            effectiveOn: '2026-08-25',
+            priceLists: [{ priceListId: 'price-1', code: 'PL-1', name: 'Standard Price List', effectiveVersionId: 'plv-1' }],
+            customerTypes: ref([['INDIVIDUAL', 'Individual'], ['CORPORATE', 'Corporate'], ['LEASE', 'Lease'], ['CSD', 'CSD'], ['BUSINESS', 'Business']]),
+            dealTypes: ref([['IN_SCOPE', 'In-Scope'], ['OUT_OF_SCOPE', 'Out of Scope'], ['MANAGEMENT_REFERRAL', 'Management Referral'], ['OEM_REFERRAL', 'OEM Referral']]),
+            dealSources: ref([['WALK_IN', 'Walk-in'], ['DIGITAL', 'Digital'], ['INCOMING_CALL', 'Incoming Call'], ['CRM', 'CRM'], ['REFERRAL', 'Referral'], ['FIELD_GENERATION', 'Field Generation']]),
+            leadSources: ref([['IN_HOUSE', 'In House'], ['DSA', 'DSA'], ['LEASING', 'Leasing']]),
+            registrationStates: ref([['STATE_1', 'State 1']]),
+            territoryCategories: ref([['SAME_TERRITORY', 'Same Territory'], ['OUT_OF_TERRITORY', 'Out of Territory'], ['OUT_OF_STATE', 'Out of State']]),
+            districts: ref([['DISTRICT_1', 'District 1']]),
+            registrationTypes: ref([['REGULAR', 'Regular']]),
+            registrationCategories: ref([['PRIVATE', 'Private']]),
+          };
+
+          async function routeJson(page, pattern, json, status = 200) {
+            await page.route(pattern, async (route) => {
+              await route.fulfill({
+                status,
+                contentType: 'application/json',
+                body: JSON.stringify(json),
+              });
+            });
+          }
+
+          async function installAuth(page) {
+            await routeJson(page, '**/security/v1/auth/login', fakeLogin);
+            await routeJson(page, '**/security/v1/auth/refresh', fakeLogin);
+          }
+
+          async function login(page) {
+            await page.goto(`${base}/login`, { waitUntil: 'networkidle' });
+            await page.getByLabel('Email').fill('ui.governance@example.com');
+            await page.getByLabel('Password').fill('governance-test');
+            await page.getByRole('button', { name: 'Sign in' }).click();
+          }
+
+          async function pageHealth(page, label, viewport) {
+            const metrics = await page.evaluate(() => {
+              const doc = document.documentElement;
+              const body = document.body;
+              return {
+                clientWidth: doc.clientWidth,
+                scrollWidth: Math.max(doc.scrollWidth, body.scrollWidth),
+                scrollHeight: Math.max(doc.scrollHeight, body.scrollHeight),
+                innerHeight: window.innerHeight,
+                htmlOverflowY: getComputedStyle(doc).overflowY,
+                bodyOverflowY: getComputedStyle(body).overflowY,
+              };
+            });
+
+            if (metrics.scrollWidth > metrics.clientWidth + 1) {
+              failures.push(`${label} at ${viewport.name} overflows horizontally: ${metrics.scrollWidth} > ${metrics.clientWidth}`);
+            }
+
+            if (metrics.scrollHeight > metrics.innerHeight + 2) {
+              if (metrics.htmlOverflowY === 'hidden' && metrics.bodyOverflowY === 'hidden') {
+                failures.push(`${label} at ${viewport.name} vertically freezes: both html and body hide overflow.`);
+              }
+              await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+              await page.waitForTimeout(40);
+              const bottomReachable = await page.evaluate(() => {
+                const scrollHeight = Math.max(document.documentElement.scrollHeight, document.body.scrollHeight);
+                return window.scrollY + window.innerHeight >= scrollHeight - 3;
+              });
+              if (!bottomReachable) failures.push(`${label} at ${viewport.name} lower content is not reachable by vertical scrolling.`);
+              await page.evaluate(() => window.scrollTo(0, 0));
+            }
+
+            if (viewport.width < 768) {
+              const smallInputs = await page.locator('input:visible, select:visible, textarea:visible').evaluateAll((elements) =>
+                elements
+                  .map((element) => ({
+                    tag: element.tagName,
+                    fontSize: Number.parseFloat(getComputedStyle(element).fontSize),
+                  }))
+                  .filter((item) => item.fontSize < 16),
+              );
+              if (smallInputs.length) failures.push(`${label} at ${viewport.name} has form controls below 16px: ${JSON.stringify(smallInputs)}`);
+            }
+          }
+
+          async function assertGovernedBackground(page, selector, label, viewport) {
+            const value = await page.locator(selector).evaluate((element) => getComputedStyle(element).backgroundImage);
+            if (!value.includes('linear-gradient') || !value.includes('radial-gradient')) {
+              failures.push(`${label} at ${viewport.name} does not use the governed Login navy/teal background.`);
+            }
+          }
+
+          async function screenshot(page, name, viewport) {
+            await page.screenshot({ path: `visual-output/${name}-${viewport.name}.png`, fullPage: true });
+          }
+
           const browser = await chromium.launch({ headless: true });
-          const failures = [];
+
+          // Public/auth screens.
           for (const viewport of viewports) {
             const context = await browser.newContext({ viewport });
             const page = await context.newPage();
-            for (const route of routes) {
+            for (const route of publicRoutes) {
               await page.goto(`${base}${route}`, { waitUntil: 'networkidle' });
-              const metrics = await page.evaluate(() => ({
-                clientWidth: document.documentElement.clientWidth,
-                scrollWidth: document.documentElement.scrollWidth,
-                title: document.title,
-              }));
-              if (metrics.scrollWidth > metrics.clientWidth + 1) {
-                failures.push(`${route} at ${viewport.name} overflows horizontally: ${metrics.scrollWidth} > ${metrics.clientWidth}`);
-              }
-
-              if (viewport.width < 768) {
-                const smallInputs = await page.locator('input:visible, select:visible, textarea:visible').evaluateAll((elements) =>
-                  elements
-                    .map((element) => ({
-                      tag: element.tagName,
-                      fontSize: Number.parseFloat(getComputedStyle(element).fontSize),
-                    }))
-                    .filter((item) => item.fontSize < 16),
-                );
-                if (smallInputs.length) {
-                  failures.push(`${route} at ${viewport.name} has form controls below 16px: ${JSON.stringify(smallInputs)}`);
-                }
-              }
-
-              const safeName = route === '/' ? 'home' : route.slice(1).replaceAll('/', '-');
-              await page.screenshot({
-                path: `visual-output/${safeName}-${viewport.name}.png`,
-                fullPage: true,
-              });
+              await pageHealth(page, route, viewport);
+              const safeName = route.slice(1).replaceAll('/', '-') || 'home';
+              await screenshot(page, safeName, viewport);
             }
             await context.close();
           }
+
+          // Actual authenticated Project/Workspace selector: names must never be exposed.
+          for (const viewport of operationalViewports) {
+            const context = await browser.newContext({ viewport });
+            const page = await context.newPage();
+            await installAuth(page);
+            await routeJson(page, '**/audit-core/v1/me/projects', { projects: twoProjects });
+            await login(page);
+            await page.getByRole('heading', { name: 'Choose Workspace' }).waitFor();
+            const visibleText = await page.locator('body').innerText();
+            for (const forbidden of ['FORBIDDEN PROJECT ALPHA', 'FORBIDDEN PROJECT BETA']) {
+              if (visibleText.includes(forbidden)) failures.push(`Project selection at ${viewport.name} exposes Project Name: ${forbidden}`);
+            }
+            await assertGovernedBackground(page, '.uc03-project-gate', 'project-selection', viewport);
+            await pageHealth(page, 'project-selection', viewport);
+            await screenshot(page, 'project-selection', viewport);
+            await context.close();
+          }
+
+          // Actual authenticated Landing + Booking Step 1/2 using deterministic mocked business data.
+          for (const viewport of operationalViewports) {
+            const context = await browser.newContext({ viewport });
+            const page = await context.newPage();
+            await installAuth(page);
+            await routeJson(page, '**/audit-core/v1/me/projects', { projects: [oneProject] });
+            await routeJson(page, '**/audit-core/v1/tenants/tenant-governance/uc03/dashboard**', dashboard);
+            await routeJson(page, '**/audit-core/v1/tenants/tenant-governance/journeys/journey-governance/uc03-workspace', bookingWorkspace);
+            await routeJson(page, '**/audit-core/v1/tenants/tenant-governance/journeys/journey-governance/booking/part1', bookingPart1);
+            await routeJson(page, '**/audit-core/v1/tenants/tenant-governance/journeys/journey-governance/booking/details/options', bookingOptions);
+            await routeJson(page, '**/audit-core/v1/tenants/tenant-governance/journeys/journey-governance/booking/details', bookingDetails);
+
+            await login(page);
+            await page.getByRole('heading', { name: 'Dealer Governance Visible Only On Landing' }).waitFor();
+            let visibleText = await page.locator('body').innerText();
+            if (visibleText.includes('FORBIDDEN INTERNAL PROJECT NAME')) failures.push(`Landing at ${viewport.name} exposes Project Name.`);
+            if (!visibleText.includes('Dealer Governance Visible Only On Landing') || !visibleText.includes('Outlet Governance Visible Only On Landing')) {
+              failures.push(`Landing at ${viewport.name} must show Dealer and Outlet context.`);
+            }
+            await assertGovernedBackground(page, '.enterprise-shell', 'landing', viewport);
+            await pageHealth(page, 'landing', viewport);
+            await screenshot(page, 'landing-authenticated', viewport);
+
+            await page.goto(`${base}/bookings/journey-governance`, { waitUntil: 'networkidle' });
+            await page.getByRole('heading', { name: 'Upload Documents' }).waitFor();
+            visibleText = await page.locator('body').innerText();
+            for (const forbidden of [
+              'FORBIDDEN INTERNAL PROJECT NAME',
+              'Dealer Governance Visible Only On Landing',
+              'Outlet Governance Visible Only On Landing',
+            ]) {
+              if (visibleText.includes(forbidden)) failures.push(`Booking Step 1 at ${viewport.name} exposes prohibited context: ${forbidden}`);
+            }
+            await assertGovernedBackground(page, '.enterprise-shell', 'booking-step-1', viewport);
+            await pageHealth(page, 'booking-step-1', viewport);
+            await screenshot(page, 'booking-step-1', viewport);
+
+            await page.getByRole('button', { name: /Continue to Booking Details/i }).click();
+            await page.getByRole('heading', { name: 'Booking Details' }).waitFor();
+            visibleText = await page.locator('body').innerText();
+            for (const forbidden of [
+              'FORBIDDEN INTERNAL PROJECT NAME',
+              'Dealer Governance Visible Only On Landing',
+              'Outlet Governance Visible Only On Landing',
+            ]) {
+              if (visibleText.includes(forbidden)) failures.push(`Booking Step 2 at ${viewport.name} exposes prohibited context: ${forbidden}`);
+            }
+            await pageHealth(page, 'booking-step-2', viewport);
+            await screenshot(page, 'booking-step-2', viewport);
+            await context.close();
+          }
+
           await browser.close();
 
-          fs.writeFileSync('visual-output/result.txt', failures.length ? failures.join('\n') : 'RESPONSIVE_VISUAL_SMOKE=PASS\n');
+          fs.writeFileSync(
+            'visual-output/result.txt',
+            failures.length ? failures.join('\n') : 'VERIGENCE_UI_GOVERNANCE_VISUAL=PASS\n',
+          );
           if (failures.length) {
             console.error(failures.join('\n'));
             process.exit(1);
           }
-          console.log('RESPONSIVE_VISUAL_SMOKE=PASS');
+          console.log('VERIGENCE_UI_GOVERNANCE_VISUAL=PASS');
           NODE
 
       - name: Upload responsive screenshots
@@ -168,6 +474,7 @@ jobs:
           - run_number: $GITHUB_RUN_NUMBER
           - source_sha: $GITHUB_SHA
           - result: $VISUAL_RESULT
+          - governance: Login-background + operational-context + adaptive/scroll checks
           - workflow_url: https://github.com/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID
           EOF
           git config user.name 'github-actions[bot]'

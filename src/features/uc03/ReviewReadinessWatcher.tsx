@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 
-import { getPcBookingReviewSnapshot } from '../../services/audit-core/uc03PcDirectReview';
+import { getPcBookingReviewSnapshot, type PcBookingReviewSnapshot } from '../../services/audit-core/uc03PcDirectReview';
 import { useProjectContextStore } from '../../store/projectContextStore';
 import { useSessionStore } from '../../store/sessionStore';
+import { pcDirectReviewSnapshotQueryKey } from './queryKeys';
 
 const STORAGE_KEY = 'uc03-pc-review-readiness-watch-v1';
 const CHANGE_EVENT = 'uc03-pc-review-readiness-watch-change';
@@ -60,6 +62,7 @@ export function clearReviewReadinessWatch(tenantId: string, journeyId: string) {
 
 export default function ReviewReadinessWatcher() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const project = useProjectContextStore((state) => state.selectedProject);
   const accessToken = useSessionStore((state) => state.accessToken);
   const [entries, setEntries] = useState<ReviewWatchEntry[]>(() => readEntries());
@@ -99,9 +102,15 @@ export default function ReviewReadinessWatcher() {
         entry.tenantId,
         entry.journeyId,
         accessToken,
-        true,
+        false,
       ).catch(() => null);
-      if (!snapshot?.allReady) continue;
+      if (!snapshot) continue;
+
+      queryClient.setQueryData<PcBookingReviewSnapshot>(
+        pcDirectReviewSnapshotQueryKey(entry.tenantId, entry.journeyId),
+        snapshot,
+      );
+      if (!snapshot.allReady) continue;
 
       const latest = readEntries();
       writeEntries(latest.map((item) => (
@@ -113,7 +122,7 @@ export default function ReviewReadinessWatcher() {
         detail: { tenantId: entry.tenantId, journeyId: entry.journeyId },
       }));
     }
-  }, [accessToken, project?.operatingRole, project?.tenantId]);
+  }, [accessToken, project?.operatingRole, project?.tenantId, queryClient]);
 
   useEffect(() => {
     const interval = window.setInterval(() => { void checkDue(); }, SCHEDULER_TICK_MS);

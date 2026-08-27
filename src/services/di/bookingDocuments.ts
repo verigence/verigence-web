@@ -60,8 +60,10 @@ export interface PcBookingUploadResult {
 }
 
 export interface PcBookingDocumentContent {
-  blob: Blob;
+  documentId: string;
+  url: string;
   mimeType: string;
+  expiresInSeconds: number;
 }
 
 export class DiBookingHttpError extends Error {
@@ -177,12 +179,9 @@ export async function getPcBookingDocumentContent(
   accessToken: string,
 ): Promise<PcBookingDocumentContent> {
   const response = await request(
-    `${contextBase(tenantId, externalContextRef)}/${encodeURIComponent(documentId)}/content`,
+    `${contextBase(tenantId, externalContextRef)}/${encodeURIComponent(documentId)}/content-access`,
     accessToken,
     { cache: 'no-store' },
   );
-  return {
-    blob: await response.blob(),
-    mimeType: response.headers.get('content-type') || 'application/octet-stream',
-  };
+  return envelope<PcBookingDocumentContent>(response, 'Open Booking document');
 }

@@ -1,11 +1,11 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { type InfiniteData, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 
 import PageHeader from '../components/PageHeader';
 import StatusPill from '../components/StatusPill';
 import { type Uc03WorkItem, type Uc03WorkItemPage } from '../services/audit-core/uc03';
-import { getBookingWorkspace } from '../services/audit-core/uc03Booking';
+import { type BookingWorkspace } from '../services/audit-core/uc03Booking';
 import {
   getBookingPart1,
   type BookingPart1View,
@@ -33,6 +33,24 @@ function requirementLabel(requirement: Part1Requirement): string {
     case 'PAN': return 'PAN';
     case 'AADHAAR': return 'Aadhaar';
   }
+}
+
+function bootstrapWorkspace(part1: BookingPart1View): BookingWorkspace {
+  const started = Boolean(part1.bookingStage.businessStatus);
+  return {
+    journeyId: part1.journeyId,
+    bookingStage: part1.bookingStage,
+    capture: part1.capture,
+    documents: [],
+    proposals: [],
+    flags: [],
+    completion: { ready: false, blockers: [] },
+    processingSummary: { pendingCount: 0, failedCount: 0, readyProposalCount: 0 },
+    flagSummary: { openCount: 0, totalCount: 0 },
+    permittedActions: started ? ['CAPTURE', 'UPLOAD_DOCUMENT'] : ['START_BOOKING'],
+    aggregateVersion: part1.aggregateVersion,
+    operatingRole: part1.operatingRole,
+  };
 }
 
 function Part1DocumentPreview({ part1 }: { part1: BookingPart1View }) {
@@ -121,7 +139,7 @@ function FastBookingShell({
           <>
             <Part1DocumentPreview part1={part1} />
             <div className="uc03-booking-step-footer">
-              <span>Document requirements loaded. Booking workspace state is still loading in the background for this performance trial.</span>
+              <span>Document requirements loaded. Opening the capture workspace no longer waits for the full audit aggregate.</span>
             </div>
           </>
         ) : (
@@ -146,6 +164,7 @@ export default function BookingWorkspaceFastEntry() {
   const queryClient = useQueryClient();
   const project = useProjectContextStore((state) => state.selectedProject);
   const accessToken = useSessionStore((state) => state.accessToken);
+  const [handoffReady, setHandoffReady] = useState(false);
 
   const enabled = Boolean(project?.tenantId && journeyId && accessToken);
 
@@ -178,13 +197,6 @@ export default function BookingWorkspaceFastEntry() {
     retry: 1,
   });
 
-  const workspaceQuery = useQuery({
-    queryKey: ['uc03-booking-workspace', project?.tenantId, journeyId],
-    queryFn: () => getBookingWorkspace(project!.tenantId, journeyId!, accessToken),
-    enabled,
-    refetchOnWindowFocus: false,
-  });
-
   const part1Query = useQuery({
     queryKey: ['uc03-booking-part1', project?.tenantId, journeyId],
     queryFn: () => getBookingPart1(project!.tenantId, journeyId!, accessToken),
@@ -192,9 +204,22 @@ export default function BookingWorkspaceFastEntry() {
     refetchOnWindowFocus: false,
   });
 
+  useEffect(() => {
+    if (!project?.tenantId || !journeyId || !part1Query.data) return;
+    queryClient.setQueryData<BookingWorkspace>(
+      ['uc03-booking-workspace', project.tenantId, journeyId],
+      bootstrapWorkspace(part1Query.data),
+      { updatedAt: Date.now() },
+    );
+    setHandoffReady(true);
+  }, [journeyId, part1Query.data, project?.tenantId, queryClient]);
+
   if (!project || !journeyId) return null;
 
-  if (workspaceQuery.data && part1Query.data) {
+  // Part-1 is the lightweight capture bootstrap. Once it is available, seed the
+  // legacy workspace cache and hand off immediately; the expensive full workspace
+  // is no longer a prerequisite for opening a Booking from the Work Queue.
+  if (part1Query.data && handoffReady) {
     return <BookingWorkspacePage />;
   }
 

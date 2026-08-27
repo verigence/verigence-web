@@ -1,6 +1,10 @@
 import type { QueryClient } from '@tanstack/react-query';
 
-import type { OperationalOutletScope, OperationalProject } from '../../services/audit-core/uc03';
+import {
+  awaitPrimaryUc03WorkQueue,
+  type OperationalOutletScope,
+  type OperationalProject,
+} from '../../services/audit-core/uc03';
 import { useProjectContextStore } from '../../store/projectContextStore';
 import { useSessionStore } from '../../store/sessionStore';
 
@@ -60,6 +64,12 @@ function clearWorkspaceHint(): void {
   }
 }
 
+export function revalidateRestoredOperationalContext(queryClient: QueryClient): void {
+  if (!restoredHintNeedsRevalidation) return;
+  restoredHintNeedsRevalidation = false;
+  void queryClient.invalidateQueries({ queryKey: ['uc03-projects'] });
+}
+
 export function restoreOperationalContextHint(
   accessToken: string,
   queryClient: QueryClient,
@@ -90,21 +100,23 @@ export function restoreOperationalContextHint(
     // The previously server-validated Project/Outlet is navigation-only. Seed it so
     // the first Work Queue request can start immediately. Do not make /me/projects
     // compete with that first useful request: the Work Queue itself still performs
-    // live JWT, Security authorization, assignment and RLS checks. Dashboard asks for
-    // authoritative Project revalidation as soon as the first queue request settles.
+    // live JWT, Security authorization, assignment and RLS checks.
     queryClient.setQueryData(['uc03-projects'], [project]);
     restoredHintNeedsRevalidation = true;
+
+    // Dashboard registers its primary Work Queue request during the next render.
+    // Reuse the existing primary-request coordinator so authoritative workspace
+    // revalidation starts only after that first queue request has settled.
+    globalThis.setTimeout(() => {
+      void awaitPrimaryUc03WorkQueue(project.tenantId, outlet?.outletId).finally(() => {
+        revalidateRestoredOperationalContext(queryClient);
+      });
+    }, 0);
     return true;
   } catch {
     restoredHintNeedsRevalidation = false;
     return false;
   }
-}
-
-export function revalidateRestoredOperationalContext(queryClient: QueryClient): void {
-  if (!restoredHintNeedsRevalidation) return;
-  restoredHintNeedsRevalidation = false;
-  void queryClient.invalidateQueries({ queryKey: ['uc03-projects'] });
 }
 
 export function selectOperationalOutlet(

@@ -113,6 +113,20 @@ function primaryQueueKey(tenantId: string, outletId?: string): string {
   return `${tenantId}:${outletId || ''}`;
 }
 
+function currentPrimaryQueueEntry(
+  tenantId: string,
+  outletId?: string,
+): PrimaryQueueEntry | undefined {
+  if (outletId !== undefined) {
+    return primaryQueueRequests.get(primaryQueueKey(tenantId, outletId));
+  }
+  const prefix = `${tenantId}:`;
+  for (const [key, entry] of primaryQueueRequests) {
+    if (key.startsWith(prefix)) return entry;
+  }
+  return undefined;
+}
+
 function isInitialWorkQueue(filters: Uc03WorkItemFilters): boolean {
   return filters.workType === 'ALL'
     && !filters.fromDate
@@ -124,14 +138,13 @@ async function waitForPrimaryQueueRegistration(
   tenantId: string,
   outletId?: string,
 ): Promise<PrimaryQueueEntry | undefined> {
-  const key = primaryQueueKey(tenantId, outletId);
-  const existing = primaryQueueRequests.get(key);
+  const existing = currentPrimaryQueueEntry(tenantId, outletId);
   if (existing) return existing;
 
   const deadline = Date.now() + PRIMARY_QUEUE_REGISTRATION_WAIT_MS;
   while (Date.now() < deadline) {
     await new Promise<void>((resolve) => globalThis.setTimeout(resolve, 0));
-    const registered = primaryQueueRequests.get(key);
+    const registered = currentPrimaryQueueEntry(tenantId, outletId);
     if (registered) return registered;
   }
   return undefined;

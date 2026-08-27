@@ -1,0 +1,180 @@
+name: Verify Deployed Housekeeping UI
+
+on:
+  pull_request:
+    branches:
+      - dev
+    paths:
+      - '.github/workflows/housekeeping-live-verification.yml'
+      - 'src/pages/AdminHousekeepingPage.tsx'
+      - 'src/components/admin/**'
+      - 'src/styles/housekeeping-hierarchy.css'
+  workflow_dispatch:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install browser runtime
+        run: |
+          npm install --no-audit --no-fund
+          npm install --no-save playwright@1.55.0
+          npx playwright install --with-deps chromium
+
+      - name: Verify deployed SuperAdmin Housekeeping hierarchy
+        env:
+          DEV_WEB_URL: https://verigence-web-dev.jbrconsulting-it.workers.dev
+        run: |
+          mkdir -p housekeeping-live-output
+          node --input-type=module <<'NODE'
+          import { chromium } from 'playwright';
+          import fs from 'node:fs';
+
+          const base = process.env.DEV_WEB_URL;
+          const browser = await chromium.launch({ headless: true });
+          const context = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
+          const page = await context.newPage();
+
+          const json = async (route, payload, status = 200) => {
+            await route.fulfill({
+              status,
+              contentType: 'application/json',
+              body: JSON.stringify(payload),
+            });
+          };
+
+          await page.route('**/security/v1/auth/login', (route) => json(route, {
+            accessToken: 'housekeeping-live-superadmin-token',
+            expiresAtUtc: '2099-01-01T00:00:00Z',
+            actorType: 'USER',
+            isSuperAdmin: true,
+          }));
+          await page.route('**/security/v1/auth/refresh', (route) => json(route, {
+            accessToken: 'housekeeping-live-superadmin-token',
+            expiresAtUtc: '2099-01-01T00:00:00Z',
+            actorType: 'USER',
+            isSuperAdmin: true,
+          }));
+
+          await page.route('**/audit-core/v1/projects', (route) => json(route, [
+            {
+              tenantId: 'tenant-housekeeping-visual',
+              projectCode: 'HK-VISUAL',
+              projectName: 'Housekeeping Visual Project',
+              projectStatus: 'ACTIVE',
+              securityTenantStatus: 'ACTIVE',
+            },
+          ]));
+
+          await page.route('**/audit-core/v1/tenants/tenant-housekeeping-visual/project/deletion-impact', (route) => json(route, {
+            tenantId: 'tenant-housekeeping-visual',
+            projectName: 'Housekeeping Visual Project',
+            projectStatus: 'ACTIVE',
+            journeyCount: 7,
+            canDelete: true,
+            rule: 'SuperAdmin confirmed hard delete',
+            cleanupTargets: ['DI', 'SECURITY', 'AUDIT_CORE'],
+          }));
+
+          await page.route('**/audit-core/v1/tenants/tenant-housekeeping-visual/admin/housekeeping/journeys/preview**', (route) => json(route, {
+            tenantId: 'tenant-housekeeping-visual',
+            scope: 'TENANT',
+            scopeId: 'tenant-housekeeping-visual',
+            journeys: 7,
+            customers: 6,
+            evidence: 24,
+            diDocuments: 18,
+            auditFindings: 4,
+            payments: 7,
+            deliveries: 2,
+            workflowTasks: 9,
+          }));
+
+          await page.route('**/security/v1/admin/tenants/tenant-housekeeping-visual/housekeeping**', (route) => json(route, {
+            tenantId: 'tenant-housekeeping-visual',
+            retentionPolicy: {
+              accessContextRetentionDays: 90,
+              accessSessionRetentionDays: 90,
+              securityEventRetentionDays: 365,
+            },
+            eligible: {
+              accessContextEvaluations: 0,
+              accessSessions: 0,
+              securityEvents: 0,
+            },
+            total: {
+              accessContextEvaluations: 0,
+              accessSessions: 0,
+              securityEvents: 0,
+            },
+          }));
+
+          await page.goto(`${base}/login?verify-housekeeping=${Date.now()}`, { waitUntil: 'networkidle' });
+          await page.getByLabel('Email').fill('superadmin.visual@example.com');
+          await page.locator('input[type="password"]').fill('visual-test-password');
+          await page.getByRole('button', { name: 'Sign in' }).click();
+
+          const housekeepingLink = page.getByRole('link', { name: 'Housekeeping' });
+          await housekeepingLink.waitFor({ state: 'visible' });
+          await housekeepingLink.click();
+
+          await page.getByRole('heading', { name: 'Data Housekeeping' }).waitFor();
+          const projectSelect = page.locator('select').filter({ has: page.locator('option[value="tenant-housekeeping-visual"]') }).first();
+          await projectSelect.selectOption('tenant-housekeeping-visual');
+
+          await page.getByRole('heading', { name: 'What do you want to delete?' }).waitFor();
+          const projectScope = page.locator('.housekeeping-action-card--project');
+          const journeyScope = page.locator('.housekeeping-action-card--journey');
+          const systemScope = page.locator('.housekeeping-action-card--system');
+          await projectScope.waitFor({ state: 'visible' });
+          await journeyScope.waitFor({ state: 'visible' });
+          await systemScope.waitFor({ state: 'visible' });
+
+          const initialText = await page.locator('body').innerText();
+          fs.writeFileSync('housekeeping-live-output/01-scope-selection-text.txt', initialText);
+          await page.screenshot({ path: 'housekeeping-live-output/01-scope-selection-desktop.png', fullPage: true });
+
+          for (const required of [
+            'Delete Complete Project',
+            'Delete Journey Data',
+            'Delete System History',
+          ]) {
+            if (!initialText.includes(required)) throw new Error(`Missing hierarchy action: ${required}`);
+          }
+
+          await projectScope.click();
+          await page.getByRole('heading', { name: 'Delete Complete Project' }).waitFor();
+          await page.getByText('Housekeeping Visual Project', { exact: true }).first().waitFor();
+          await page.screenshot({ path: 'housekeeping-live-output/02-complete-project-desktop.png', fullPage: true });
+
+          await journeyScope.click();
+          await page.getByRole('heading', { name: 'Choose Journey Deletion Scope' }).waitFor();
+          await page.getByText('Every Journey for every Dealer and Outlet in this Project.').waitFor();
+          await page.screenshot({ path: 'housekeeping-live-output/03-journey-desktop.png', fullPage: true });
+
+          await systemScope.click();
+          await page.getByRole('heading', { name: 'Choose the system history to clean' }).waitFor();
+          await page.screenshot({ path: 'housekeeping-live-output/04-system-history-desktop.png', fullPage: true });
+
+          await page.setViewportSize({ width: 390, height: 844 });
+          await page.screenshot({ path: 'housekeeping-live-output/05-system-history-mobile.png', fullPage: true });
+
+          console.log('HOUSEKEEPING_DEPLOYED_VISUAL=PASS');
+          await browser.close();
+          NODE
+
+      - name: Upload deployed Housekeeping screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: housekeeping-live-screenshots
+          path: housekeeping-live-output
+          if-no-files-found: error
+          retention-days: 14

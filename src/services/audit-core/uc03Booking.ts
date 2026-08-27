@@ -249,8 +249,8 @@ export async function getBookingEvidenceFacts(
     valueType: typeof fact.normalizedValue,
     value: fact.normalizedValue ?? fact.rawValue,
     normalizedValue: typeof fact.normalizedValue === 'string' ? fact.normalizedValue : null,
-    // Confidence is intentionally suppressed from the PC review adapter. The
-    // direct review panel keeps the DI value privately for Audit provenance only.
+    // Confidence is intentionally suppressed from the legacy adapter. The direct
+    // Review flow still retains DI confidence for Audit Core persistence.
     confidenceScore: null,
     verificationStatus: null,
     pageNo: fact.pageNo,
@@ -325,10 +325,15 @@ export async function uploadBookingDocument(
     requirement.requirementRef,
     result.documentId,
     requirement.repeatable,
+    {
+      contentUrl: result.contentUrl,
+      contentUrlExpiresAtUtc: result.contentUrlExpiresAtUtc,
+      mimeType: result.mimeType,
+    },
   );
   return {
     evidenceId: result.documentId,
-    processingStatus: result.processingStatus,
+    processingStatus: result.processingStatus || 'PROCESSING',
   };
 }
 

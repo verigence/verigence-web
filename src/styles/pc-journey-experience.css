@@ -46,6 +46,24 @@
   }
 }
 
+/*
+ * Work Queue has four PC counters: Bookings, Review Pending, Deliveries and Flags.
+ * Keep all four balanced on Web; older overrides forced three columns and left the
+ * fourth tile as an orphan/half-width row.
+ */
+.enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-landing-metrics {
+  width: 100% !important;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  align-items: stretch !important;
+}
+
+.enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-landing-metric,
+.enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-landing-metric:nth-child(n) {
+  grid-column: auto !important;
+  width: auto !important;
+  min-width: 0 !important;
+}
+
 /* Booking is a two-step journey. Do not reserve an empty third step column. */
 .enterprise-shell--approved-nav .uc03-booking-journey .uc03-booking-steps {
   grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
@@ -138,6 +156,19 @@
     padding: 14px !important;
   }
 
+  /* Two balanced rows on tablet/mobile — never a single half-width orphan tile. */
+  .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-landing-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 10px !important;
+  }
+
+  .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-landing-metric,
+  .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-landing-metric:nth-child(n) {
+    grid-column: auto !important;
+    width: auto !important;
+    min-width: 0 !important;
+  }
+
   .enterprise-shell--approved-nav :is(
     .uc03-work-filter-tabs,
     .uc03-c3-context-links
@@ -178,6 +209,11 @@
     .screen-stack.uc03-c3-audit
   ) {
     padding: 12px !important;
+  }
+
+  .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-landing-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 8px !important;
   }
 
   .enterprise-shell--approved-nav .uc03-booking-journey .uc03-booking-steps {

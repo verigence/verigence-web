@@ -99,12 +99,6 @@ export default function FeedbackPage() {
           <h1 id="feedback-title">Share feedback</h1>
           <p>Tell us what did not work as expected. You can attach one screenshot smaller than 1 MB.</p>
         </div>
-        {selectedProject && (
-          <div className="feedback-page__workspace">
-            <span>Workspace</span>
-            <strong>{selectedProject.projectName}</strong>
-          </div>
-        )}
       </div>
 
       <form className="feedback-card" onSubmit={onSubmit}>

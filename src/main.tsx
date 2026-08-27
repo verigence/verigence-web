@@ -69,6 +69,7 @@ import './styles/dashboard-workqueue-ui.css';
 import './styles/dashboard-mobile-workqueue-fix.css';
 import './styles/dashboard-mobile-card-polish.css';
 import './styles/feedback.css';
+import './styles/pc-journey-experience.css';
 import './styles/ui-governance.css';
 
 import App from './App';

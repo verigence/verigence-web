@@ -35,6 +35,28 @@ export interface JourneyHousekeepingSelection {
   journeyId?: string;
 }
 
+export interface ProjectDeletionImpact {
+  tenantId: string;
+  projectName: string;
+  projectStatus: string;
+  journeyCount: number;
+  canDelete: boolean;
+  rule: string;
+  cleanupTargets: string[];
+}
+
+export interface ProjectDeletionResult {
+  operationId: string;
+  tenantId: string;
+  projectName: string;
+  projectStatus: string;
+  journeyCount: number;
+  deletionStatus: string;
+  diReceipt: Record<string, unknown>;
+  securityReceipt: Record<string, unknown>;
+  auditCoreReceipt: Record<string, unknown>;
+}
+
 function queryFor(selection: JourneyHousekeepingSelection): string {
   const query = new URLSearchParams({ scope: selection.scope });
   if (selection.outletId) query.set('outletId', selection.outletId);
@@ -71,6 +93,30 @@ export function purgeJourneyHousekeeping(
         confirmScopeId,
         confirmation: 'PURGE_JOURNEY_DATA',
       }),
+    },
+  );
+}
+
+export function getProjectDeletionImpact(tenantId: string, accessToken: string) {
+  return auditCoreRequest<ProjectDeletionImpact>(
+    `/v1/tenants/${tenantId}/project/deletion-impact`,
+    { accessToken },
+  );
+}
+
+export function hardDeleteProject(
+  tenantId: string,
+  confirmProjectName: string,
+  idempotencyKey: string,
+  accessToken: string,
+) {
+  return auditCoreRequest<ProjectDeletionResult>(
+    `/v1/tenants/${tenantId}/project`,
+    {
+      method: 'DELETE',
+      accessToken,
+      headers: { 'Idempotency-Key': idempotencyKey },
+      body: JSON.stringify({ confirmProjectName }),
     },
   );
 }

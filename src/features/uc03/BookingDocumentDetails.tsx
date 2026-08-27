@@ -2,10 +2,10 @@ import { useEffect, useMemo, useState } from 'react';
 
 import {
   getBookingEvidenceFacts,
-  getBookingEvidenceReviewContent,
   type EvidenceFactView,
   type ExtractionProposalView,
 } from '../../services/audit-core/uc03Booking';
+import { getBookingDocumentAccess } from '../../services/audit-core/uc03BookingDocumentAccess';
 import { displayName } from '../../utils/displayNames';
 
 interface Props {
@@ -201,15 +201,13 @@ export default function BookingDocumentDetails({
 
   useEffect(() => {
     let cancelled = false;
-    let objectUrl: string | null = null;
     setSourceLoading(true);
     setSourceError(undefined);
 
-    void getBookingEvidenceReviewContent(tenantId, journeyId, evidenceId, accessToken)
+    void getBookingDocumentAccess(tenantId, journeyId, evidenceId, accessToken)
       .then((result) => {
         if (cancelled) return;
-        objectUrl = URL.createObjectURL(result.blob);
-        setSource({ url: objectUrl, mimeType: result.mimeType });
+        setSource({ url: result.url, mimeType: result.mimeType });
       })
       .catch((cause: unknown) => {
         if (cancelled) return;
@@ -220,10 +218,7 @@ export default function BookingDocumentDetails({
         if (!cancelled) setSourceLoading(false);
       });
 
-    return () => {
-      cancelled = true;
-      if (objectUrl) URL.revokeObjectURL(objectUrl);
-    };
+    return () => { cancelled = true; };
   }, [accessToken, evidenceId, journeyId, tenantId]);
 
   useEffect(() => {

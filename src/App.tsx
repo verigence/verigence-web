@@ -32,7 +32,6 @@ const DeliveryWorkspacePage = lazy(() => import('./pages/DeliveryWorkspacePage')
 const AuditReviewPage = lazy(() => import('./pages/AuditReviewPage'));
 const CustomersPage = lazy(() => import('./pages/CustomersPage'));
 const JourneysPage = lazy(() => import('./pages/JourneysPage'));
-const JourneyWorkspacePage = lazy(() => import('./pages/JourneyWorkspacePage'));
 const EvidencePage = lazy(() => import('./pages/EvidencePage'));
 const EvidenceDetailPage = lazy(() => import('./pages/EvidenceDetailPage'));
 const ReviewQueuePage = lazy(() => import('./pages/ReviewQueuePage'));
@@ -146,7 +145,7 @@ export default function App() {
             <Route path="/audit/:journeyId" element={<OperationalPage><AuditReviewPage /></OperationalPage>} />
             <Route path="/customers" element={<LegacyOperationalPage><CustomersPage /></LegacyOperationalPage>} />
             <Route path="/journeys" element={<LegacyOperationalPage><JourneysPage /></LegacyOperationalPage>} />
-            <Route path="/journeys/:journeyId" element={<LegacyOperationalPage><JourneyWorkspacePage /></LegacyOperationalPage>} />
+            <Route path="/journeys/:journeyId" element={<Navigate to="/dashboard" replace />} />
             <Route path="/journeys/:journeyId/evidence/:evidenceId" element={<LegacyOperationalPage><EvidenceDetailPage /></LegacyOperationalPage>} />
             <Route path="/reviews" element={<LegacyOperationalPage><ReviewQueuePage /></LegacyOperationalPage>} />
             <Route path="/evidence" element={<LegacyOperationalPage><EvidencePage /></LegacyOperationalPage>} />

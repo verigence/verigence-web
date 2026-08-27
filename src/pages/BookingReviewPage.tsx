@@ -1,25 +1,41 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useQueries, useQuery } from '@tanstack/react-query';
+import { useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useParams } from 'react-router-dom';
 
 import PageHeader from '../components/PageHeader';
 import StatusPill from '../components/StatusPill';
 import { DirectDiFieldReview } from '../features/uc03/DirectDiFieldReview';
 import {
-  REVIEW_READY_EVENT,
+  bookingWorkspaceQueryKey,
+  pcDirectExtractionQueryKey,
+  pcDirectReviewSnapshotQueryKey,
+  pcDirectReviewStateQueryKey,
+  pcVerificationQueryKey,
+  UC03_OPERATIONAL_GC_MS,
+  UC03_OPERATIONAL_STALE_MS,
+} from '../features/uc03/queryKeys';
+import {
   clearReviewReadinessWatch,
   watchReviewReadiness,
 } from '../features/uc03/ReviewReadinessWatcher';
-import { getBookingWorkspace } from '../services/audit-core/uc03Booking';
+import {
+  getBookingWorkspace,
+  type BookingWorkspace,
+} from '../services/audit-core/uc03Booking';
 import {
   getPcBookingReviewSnapshot,
   getPcDirectReviewState,
   submitPcDirectDocumentReview,
   verifyPcBookingDirect,
   type PcBookingReviewDocument,
+  type PcBookingReviewSnapshot,
   type PcDirectExtractedField,
+  type PcDirectReviewState,
 } from '../services/audit-core/uc03PcDirectReview';
-import { getPcVerification } from '../services/audit-core/uc03PcVerification';
+import {
+  getPcVerification,
+  type PcVerificationView,
+} from '../services/audit-core/uc03PcVerification';
 import {
   getPcBookingDocumentContent,
   getPcBookingExtractionReview,
@@ -45,6 +61,7 @@ function factValue(fact: PcBookingExtractionFact): unknown {
 export default function BookingReviewPage() {
   const { journeyId } = useParams<{ journeyId: string }>();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const project = useProjectContextStore((state) => state.selectedProject);
   const accessToken = useSessionStore((state) => state.accessToken);
   const [busyDocumentId, setBusyDocumentId] = useState<string>();
@@ -55,34 +72,50 @@ export default function BookingReviewPage() {
   const watchRegistered = useRef(false);
 
   const enabled = Boolean(project?.tenantId && journeyId && accessToken);
+  const workspaceKey = bookingWorkspaceQueryKey(project?.tenantId, journeyId);
+  const verificationKey = pcVerificationQueryKey(project?.tenantId, journeyId);
+  const snapshotKey = pcDirectReviewSnapshotQueryKey(project?.tenantId, journeyId);
+  const directStateKey = pcDirectReviewStateQueryKey(project?.tenantId, journeyId);
+
   const workspaceQuery = useQuery({
-    queryKey: ['uc03-booking-review-workspace', project?.tenantId, journeyId],
+    queryKey: workspaceKey,
     queryFn: () => getBookingWorkspace(project!.tenantId, journeyId!, accessToken),
     enabled,
+    staleTime: UC03_OPERATIONAL_STALE_MS,
+    gcTime: UC03_OPERATIONAL_GC_MS,
+    refetchOnMount: false,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
   });
   const verificationQuery = useQuery({
-    queryKey: ['uc03-pc-verification', project?.tenantId, journeyId],
+    queryKey: verificationKey,
     queryFn: () => getPcVerification(project!.tenantId, journeyId!, accessToken),
     enabled,
-    refetchOnWindowFocus: true,
-    refetchOnReconnect: true,
+    staleTime: UC03_OPERATIONAL_STALE_MS,
+    gcTime: UC03_OPERATIONAL_GC_MS,
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
   });
   const snapshotQuery = useQuery({
-    queryKey: ['uc03-pc-direct-di-review-snapshot', project?.tenantId, journeyId],
+    queryKey: snapshotKey,
     queryFn: () => getPcBookingReviewSnapshot(project!.tenantId, journeyId!, accessToken, true),
     enabled,
-    refetchOnWindowFocus: true,
-    refetchOnReconnect: true,
+    staleTime: 120_000,
+    gcTime: UC03_OPERATIONAL_GC_MS,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
     retry: 1,
   });
   const directStateQuery = useQuery({
-    queryKey: ['uc03-pc-direct-review-state', project?.tenantId, journeyId],
+    queryKey: directStateKey,
     queryFn: () => getPcDirectReviewState(project!.tenantId, journeyId!, accessToken),
     enabled,
-    refetchOnWindowFocus: true,
-    refetchOnReconnect: true,
+    staleTime: UC03_OPERATIONAL_STALE_MS,
+    gcTime: UC03_OPERATIONAL_GC_MS,
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
     retry: 1,
   });
 
@@ -109,15 +142,17 @@ export default function BookingReviewPage() {
   // PC is not waiting on an Audit Core field whitelist when Review opens.
   const extractionQueries = useQueries({
     queries: reviewCandidates.map((document) => ({
-      queryKey: ['uc03-pc-direct-di-extraction', project?.tenantId, journeyId, document.documentId],
+      queryKey: pcDirectExtractionQueryKey(project?.tenantId, journeyId, document.documentId),
       queryFn: () => getPcBookingExtractionReview(
         project!.tenantId,
         snapshot!.externalContextRef,
         document.documentId,
         accessToken!,
       ),
-      staleTime: 60_000,
+      staleTime: UC03_OPERATIONAL_STALE_MS,
+      gcTime: UC03_OPERATIONAL_GC_MS,
       refetchOnWindowFocus: false,
+      refetchOnReconnect: false,
       retry: 1,
     })),
   });
@@ -132,6 +167,7 @@ export default function BookingReviewPage() {
       ),
       staleTime: 5 * 60_000,
       refetchOnWindowFocus: false,
+      refetchOnReconnect: false,
       retry: 1,
     })),
   });
@@ -158,23 +194,10 @@ export default function BookingReviewPage() {
     }
   }, [bookingLabel, journeyId, project?.tenantId, snapshot, verification]);
 
-  useEffect(() => {
-    if (!project?.tenantId || !journeyId) return undefined;
-    const onReady = (event: Event) => {
-      const detail = (event as CustomEvent<{ tenantId: string; journeyId: string }>).detail;
-      if (detail?.tenantId !== project.tenantId || detail?.journeyId !== journeyId) return;
-      void snapshotQuery.refetch();
-    };
-    window.addEventListener(REVIEW_READY_EVENT, onReady);
-    return () => window.removeEventListener(REVIEW_READY_EVENT, onReady);
-  }, [journeyId, project?.tenantId, snapshotQuery.refetch]);
-
   if (!project || !journeyId) return null;
 
   const refresh = async () => {
     await Promise.all([
-      workspaceQuery.refetch(),
-      verificationQuery.refetch(),
       snapshotQuery.refetch(),
       directStateQuery.refetch(),
     ]);
@@ -236,7 +259,27 @@ export default function BookingReviewPage() {
         delete next[document.documentId];
         return next;
       });
-      await Promise.all([directStateQuery.refetch(), verificationQuery.refetch()]);
+      queryClient.setQueryData<PcDirectReviewState>(directStateKey, (current) => {
+        if (!current) return current;
+        const reviewedDocumentIds = Array.from(new Set([...current.reviewedDocumentIds, document.documentId]));
+        const pendingDocumentIds = current.pendingDocumentIds.filter((id) => id !== document.documentId);
+        return {
+          ...current,
+          reviewedDocumentIds,
+          pendingDocumentIds,
+          reviewedDocumentCount: reviewedDocumentIds.length,
+          pendingDocumentCount: pendingDocumentIds.length,
+          reviewComplete: current.activeDocumentCount > 0 && pendingDocumentIds.length === 0,
+        };
+      });
+      queryClient.setQueryData<PcVerificationView>(verificationKey, (current) => current ? {
+        ...current,
+        aggregateVersion: result.aggregateVersion,
+      } : current);
+      queryClient.setQueryData<BookingWorkspace>(workspaceKey, (current) => current ? {
+        ...current,
+        aggregateVersion: result.aggregateVersion,
+      } : current);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'The document review could not be saved.');
     } finally {
@@ -245,16 +288,27 @@ export default function BookingReviewPage() {
   };
 
   const handleVerify = async () => {
+    if (!verification) return;
     setVerifying(true);
     setError(undefined);
     setMessage(undefined);
     try {
-      const current = await verificationQuery.refetch();
-      const version = current.data?.aggregateVersion;
-      if (version === undefined) throw new Error('Unable to read the current Booking version. Please refresh and retry.');
-      await verifyPcBookingDirect(project.tenantId, journeyId, version, accessToken);
+      const result = await verifyPcBookingDirect(
+        project.tenantId,
+        journeyId,
+        verification.aggregateVersion,
+        accessToken,
+      );
       clearReviewReadinessWatch(project.tenantId, journeyId);
-      await Promise.all([verificationQuery.refetch(), directStateQuery.refetch()]);
+      queryClient.setQueryData<PcVerificationView>(verificationKey, (current) => current ? {
+        ...current,
+        pcVerificationStatus: result.pcVerificationStatus,
+        aggregateVersion: result.aggregateVersion,
+      } : current);
+      queryClient.setQueryData<BookingWorkspace>(workspaceKey, (current) => current ? {
+        ...current,
+        aggregateVersion: result.aggregateVersion,
+      } : current);
       setMessage('PC verification completed.');
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'PC verification could not be completed.');
@@ -264,7 +318,15 @@ export default function BookingReviewPage() {
   };
 
   if (workspaceQuery.isPending || verificationQuery.isPending || snapshotQuery.isPending || directStateQuery.isPending) {
-    return <div className="uc03-c1-loading" role="status">Opening document review…</div>;
+    return (
+      <div className="screen-stack uc03-c1-workspace">
+        <div className="uc03-c1-topbar">
+          <button type="button" className="uc03-c1-back" onClick={() => navigate('/dashboard')}>← Work list</button>
+        </div>
+        <PageHeader eyebrow="PC Document Verification" title={bookingLabel} description="Opening document review…" />
+        <div className="uc03-c1-loading" role="status">Loading only review data not already available in session cache…</div>
+      </div>
+    );
   }
   if (workspaceQuery.isError || verificationQuery.isError || snapshotQuery.isError || directStateQuery.isError || !workspace || !verification || !snapshot || !directState) {
     const cause = workspaceQuery.error || verificationQuery.error || snapshotQuery.error || directStateQuery.error;
@@ -317,7 +379,6 @@ export default function BookingReviewPage() {
     <div className="screen-stack uc03-c1-workspace">
       <div className="uc03-c1-topbar">
         <button type="button" className="uc03-c1-back" onClick={() => navigate('/dashboard')}>← Work list</button>
-        <span>Project · {project.projectName}</span>
       </div>
 
       <PageHeader

@@ -33,7 +33,6 @@ for (const required of [
   '.uc03-project-gate',
   'min-height: 100dvh',
   'overflow-y: auto',
-  '.uc03-booking-journey .uc03-c1-topbar > span',
   'ion-app',
   'height: auto !important',
   'max-height: none !important',
@@ -62,7 +61,7 @@ for (const rootSelector of ['html {', 'body {', '#root {', 'ion-app {']) {
 forbid(
   'src/layout/AppShell.tsx',
   /selectedProject\?*\.projectName|selectedProject\.projectName|Current Project|Switch Project/,
-  'Project Name / Project identity must not be rendered in the shared application shell.',
+  'UC03 PC/TL/PM shell must not render Project Name / Project identity.',
 );
 requireText('src/layout/AppShell.tsx', 'Current Workspace', 'shared shell must use neutral Workspace context.');
 requireText('src/layout/AppShell.tsx', 'Switch Workspace', 'project switching must be labelled as Workspace switching.');
@@ -70,33 +69,32 @@ requireText('src/layout/AppShell.tsx', 'Switch Workspace', 'project switching mu
 forbid(
   'src/components/ProjectContextGate.tsx',
   /\.projectName\b|\.dealerName\b|\.outletName\b/,
-  'Project/Dealer/Outlet names are prohibited in selection/gate screens.',
+  'UC03 selection/gate screens must not render Project/Dealer/Outlet names.',
 );
 requireText('src/components/ProjectContextGate.tsx', 'Choose Workspace', 'selection screen must use neutral Workspace wording.');
 requireText('src/components/ProjectContextGate.tsx', 'Choose Work Location', 'outlet selection must use neutral Work Location wording.');
 
-forbid(
+const uc03OperationalFiles = [
   'src/pages/DashboardPage.tsx',
-  /project\.projectName\b/,
-  'Landing may show Dealer/Outlet for PC context but must never fall back to Project Name.',
-);
+  'src/pages/CreateBookingPage.tsx',
+  'src/pages/BookingWorkspacePage.tsx',
+  'src/pages/BookingReviewPage.tsx',
+  'src/pages/DeliveryWorkspacePage.tsx',
+  'src/pages/AuditReviewPage.tsx',
+];
+for (const relativePath of uc03OperationalFiles) {
+  forbid(relativePath, /\.projectName\b/, 'UC03 PC/TL/PM operational screens must not render Project Name.');
+}
 
 const operationalFiles = [
   'src/pages/DeliveryWorkspacePage.tsx',
   'src/pages/AuditReviewPage.tsx',
 ];
 for (const relativePath of operationalFiles) {
-  forbid(relativePath, /\.projectName\b|\.dealerName\b|\.outletName\b/, 'operational screens may not render Project, Dealer or Outlet names.');
+  forbid(relativePath, /\.dealerName\b|\.outletName\b/, 'operational screens may not render Dealer or Outlet names.');
 }
 
 const booking = read('src/pages/BookingWorkspacePage.tsx');
-const bookingProjectNameCount = (booking.match(/project\.projectName/g) || []).length;
-if (bookingProjectNameCount > 1) {
-  failures.push('src/pages/BookingWorkspacePage.tsx: Project Name may not be introduced anywhere else in Booking.');
-}
-if (bookingProjectNameCount === 1 && !governanceCss.includes('.uc03-booking-journey .uc03-c1-topbar > span')) {
-  failures.push('Booking Project context is not governed/hidden.');
-}
 if (/\.dealerName\b|\.outletName\b/.test(booking)) {
   failures.push('src/pages/BookingWorkspacePage.tsx: Dealer/Outlet names are landing-page-only.');
 }
@@ -144,7 +142,7 @@ if (failures.length) {
 
 console.log('VERIGENCE_UI_GOVERNANCE=PASS');
 console.log('Background=LOGIN_NAVY_TEAL');
-console.log('ProjectName=PROHIBITED_OPERATIONAL_UI');
+console.log('ProjectName=PROHIBITED_UC03_PC_TL_PM_UI');
 console.log('DealerOutlet=LANDING_ONLY');
 console.log('VerticalFreeze=PROHIBITED_ROOT_AND_PAGE_SCROLL_REQUIRED');
 console.log('BookingStep1=FOUR_UPLOADS_REQUIRED_AND_REACHABLE');

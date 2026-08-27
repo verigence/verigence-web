@@ -72,6 +72,7 @@ import './styles/ui-governance.css';
 
 import App from './App';
 import DiFieldViewerEnhancer from './features/di-test/DiFieldViewerEnhancer';
+import SessionQueryCacheBoundary from './features/query/SessionQueryCacheBoundary';
 
 setupIonicReact({ mode: 'md' });
 
@@ -89,6 +90,7 @@ const queryClient = new QueryClient({
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <QueryClientProvider client={queryClient}>
+      <SessionQueryCacheBoundary />
       <DiFieldViewerEnhancer />
       <App />
     </QueryClientProvider>

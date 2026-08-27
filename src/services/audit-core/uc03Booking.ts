@@ -326,9 +326,9 @@ export async function uploadBookingDocument(
     result.documentId,
     requirement.repeatable,
     {
-      contentUrl: result.contentUrl,
-      contentUrlExpiresAtUtc: result.contentUrlExpiresAtUtc,
-      mimeType: result.mimeType,
+      contentUrl: result.contentUrl ?? null,
+      contentUrlExpiresAtUtc: result.contentUrlExpiresAtUtc ?? null,
+      mimeType: result.mimeType ?? null,
     },
   );
   return {

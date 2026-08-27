@@ -223,23 +223,28 @@ export async function listUc03WorkItems(
   filters: Uc03WorkItemFilters,
   accessToken?: string,
 ): Promise<Uc03WorkItemPage> {
+  const initial = isInitialWorkQueue(filters);
   const search = new URLSearchParams();
-  search.set('workType', filters.workType);
   search.set('limit', '10');
-  if (filters.fromDate) search.set('fromDate', filters.fromDate);
-  if (filters.toDate) search.set('toDate', filters.toDate);
   if (filters.outletId) search.set('outletId', filters.outletId);
-  if (filters.cursor) search.set('cursor', filters.cursor);
 
+  if (!initial) {
+    search.set('workType', filters.workType);
+    if (filters.fromDate) search.set('fromDate', filters.fromDate);
+    if (filters.toDate) search.set('toDate', filters.toDate);
+    if (filters.cursor) search.set('cursor', filters.cursor);
+  }
+
+  const route = initial ? 'work-items-fast' : 'work-items';
   const request = auditCoreRequest<Uc03WorkItemPage>(
-    `/v1/tenants/${encodeURIComponent(tenantId)}/uc03/work-items?${search.toString()}`,
+    `/v1/tenants/${encodeURIComponent(tenantId)}/uc03/${route}?${search.toString()}`,
     {
       accessToken: accessTokenRequired(accessToken),
       cache: 'no-store',
     },
   );
 
-  if (!isInitialWorkQueue(filters)) return request;
+  if (!initial) return request;
 
   const key = primaryQueueKey(tenantId, filters.outletId);
   const entry = { promise: request, createdAt: Date.now() };

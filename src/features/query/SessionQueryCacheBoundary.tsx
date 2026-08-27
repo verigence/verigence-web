@@ -14,7 +14,7 @@ export default function SessionQueryCacheBoundary() {
   const signedIn = useSessionStore((state) => state.signedIn);
   const email = useSessionStore((state) => state.email);
   const role = useSessionStore((state) => state.role);
-  const previousScope = useRef<string>();
+  const previousScope = useRef<string | undefined>(undefined);
 
   useLayoutEffect(() => {
     const scope = signedIn ? `${email.trim().toLowerCase()}|${role}` : 'SIGNED_OUT';

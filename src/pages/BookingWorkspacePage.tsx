@@ -11,7 +11,6 @@ import {
   UC03_OPERATIONAL_STALE_MS,
 } from '../features/uc03/queryKeys';
 import {
-  getBookingProcessingStatus,
   getBookingWorkspace,
   startBooking,
   uploadBookingDocument,
@@ -163,23 +162,6 @@ export default function BookingWorkspacePage() {
   if (!project || !journeyId) return null;
   const workspace = workspaceQuery.data;
 
-  const reconcileProcessingStatus = () => {
-    void getBookingProcessingStatus(project.tenantId, journeyId, accessToken)
-      .then((processing) => {
-        queryClient.setQueryData<BookingWorkspace>(workspaceKey, (current) => current ? {
-          ...current,
-          aggregateVersion: processing.version,
-          documents: processing.documents,
-          processingSummary: {
-            pendingCount: processing.pendingCount,
-            failedCount: processing.failedCount,
-            readyProposalCount: processing.readyProposalCount,
-          },
-        } : current);
-      })
-      .catch(() => undefined);
-  };
-
   const handleStart = async () => {
     setBusy(true);
     setError(undefined);
@@ -224,10 +206,7 @@ export default function BookingWorkspacePage() {
           ...current.bookingStage,
           businessStatus: 'BOOKING_IN_PROGRESS',
         },
-        // UC03 Booking evidence linking advances the Booking aggregate exactly once
-        // for a successful idempotent upload. The lightweight processing-status call
-        // below reconciles the authoritative version asynchronously.
-        aggregateVersion: current.aggregateVersion + 1,
+        aggregateVersion: result.aggregateVersion,
         documents: current.documents.map((item) => item.requirementKey === documentView.requirementKey ? {
           ...item,
           evidenceId: result.evidenceId,
@@ -236,7 +215,6 @@ export default function BookingWorkspacePage() {
         } : item),
       } : current);
       setMessage(`${friendly(documentView.requirementKey)} uploaded. Document Intelligence will process it asynchronously.`);
-      reconcileProcessingStatus();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'The Booking action could not be completed.');
     } finally {

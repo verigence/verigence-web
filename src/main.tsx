@@ -73,6 +73,7 @@ import './styles/pc-journey-experience.css';
 import './styles/pc-journey-final-polish.css';
 import './styles/uc03-tl-supervisory.css';
 import './styles/uc03-tl-review.css';
+import './styles/dashboard-workqueue-compact-toolbar.css';
 import './styles/ui-governance.css';
 import './ui/pcNavigationMotion';
 

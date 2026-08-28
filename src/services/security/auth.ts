@@ -2,12 +2,15 @@ import {
   ensureCorrelationHeader,
   responseCorrelationId,
 } from '../../observability/correlation';
+import type { VerigenceDeviceContext } from '../device/identity';
 
 export interface HumanLoginResponse {
   accessToken: string;
   expiresAtUtc: string;
   actorType: 'USER';
   isSuperAdmin: boolean;
+  sessionId: string;
+  deviceId: string;
 }
 
 interface SecurityProblem {
@@ -40,7 +43,7 @@ export class SecurityLoginError extends Error {
 const configuredSecurityBaseUrl = import.meta.env.VITE_SECURITY_BASE_URL?.trim();
 const securityBaseUrl = configuredSecurityBaseUrl?.replace(/\/$/, '') ?? '';
 
-function endpoint(path: string): string {
+export function securityEndpoint(path: string): string {
   return `${securityBaseUrl}${path}`;
 }
 
@@ -90,7 +93,7 @@ function connectivityError(correlationId: string): SecurityLoginError {
   );
 }
 
-async function securityFetch(
+export async function securityFetch(
   input: RequestInfo | URL,
   init: RequestInit,
 ): Promise<{ response: Response; correlationId: string }> {
@@ -109,11 +112,12 @@ async function securityFetch(
 export async function loginHuman(
   identifier: string,
   password: string,
+  device: VerigenceDeviceContext,
 ): Promise<HumanLoginResponse> {
-  const { response, correlationId } = await securityFetch(endpoint('/security/v1/auth/login'), {
+  const { response, correlationId } = await securityFetch(securityEndpoint('/security/v1/auth/login'), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ identifier, password }),
+    body: JSON.stringify({ identifier, password, device }),
     cache: 'no-store',
   });
   const payload = await readPayload(response);
@@ -123,7 +127,7 @@ export async function loginHuman(
 }
 
 export async function refreshHuman(accessToken: string): Promise<HumanLoginResponse> {
-  const { response, correlationId } = await securityFetch(endpoint('/security/v1/auth/refresh'), {
+  const { response, correlationId } = await securityFetch(securityEndpoint('/security/v1/auth/refresh'), {
     method: 'POST',
     headers: { Authorization: `Bearer ${accessToken}` },
     cache: 'no-store',

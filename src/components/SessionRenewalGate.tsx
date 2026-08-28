@@ -4,6 +4,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { resetOperationalContext } from '../features/uc03/projectContext';
 import { refreshHuman, SecurityLoginError } from '../services/security/auth';
 import { useSessionStore } from '../store/sessionStore';
+import SessionObservationBootstrap from './SessionObservationBootstrap';
 
 const RENEW_BEFORE_EXPIRY_MS = 2 * 60 * 1000;
 const RETRY_DELAY_MS = 30 * 1000;
@@ -106,5 +107,5 @@ export default function SessionRenewalGate() {
     };
   }, [accessToken, expiresAtUtc, queryClient, signedIn]);
 
-  return null;
+  return <SessionObservationBootstrap />;
 }

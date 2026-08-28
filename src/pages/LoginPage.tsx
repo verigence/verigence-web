@@ -8,6 +8,7 @@ import {
   restoreOperationalContextHint,
 } from '../features/uc03/projectContext';
 import { supportReference } from '../observability/correlation';
+import { getVerigenceDeviceContext } from '../services/device/identity';
 import {
   SecurityLoginError,
   loginErrorMessage,
@@ -39,6 +40,9 @@ export default function LoginPage() {
       cache: 'no-store',
       keepalive: true,
     }).catch(() => undefined);
+    // Generate/read the Verigence installation UUID locally while the login page is idle. This
+    // performs no network request and therefore does not extend the credential-login critical path.
+    getVerigenceDeviceContext();
   }, []);
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
@@ -49,7 +53,8 @@ export default function LoginPage() {
     setBusy(true);
     try {
       const identifier = email.trim();
-      const login = await loginHuman(identifier, password);
+      const device = getVerigenceDeviceContext();
+      const login = await loginHuman(identifier, password, device);
       const superAdmin = login.isSuperAdmin;
 
       resetOperationalContext(queryClient);
@@ -58,6 +63,8 @@ export default function LoginPage() {
         login.accessToken,
         superAdmin ? 'SUPER_ADMIN' : 'PC',
         login.expiresAtUtc,
+        login.sessionId,
+        login.deviceId,
       );
       if (!superAdmin) {
         restoreOperationalContextHint(login.accessToken, queryClient);
@@ -154,6 +161,9 @@ export default function LoginPage() {
         <div className="frozen-auth-divider"><span>or</span></div>
         <p className="frozen-auth-footer frozen-auth-footer--login">
           New to Verigence? <Link to="/signup">Register Now</Link>
+        </p>
+        <p className="frozen-auth-footer frozen-auth-footer--legal">
+          For security and audit controls, Verigence records the device and location from which the application is accessed.
         </p>
         <p className="frozen-auth-footer frozen-auth-footer--legal">
           <Link to="/terms">Terms of Use</Link> · <Link to="/privacy">Privacy Policy</Link>

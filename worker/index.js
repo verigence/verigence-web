@@ -139,6 +139,11 @@ function sanitizedUpstreamRequest(target, request, correlationId) {
   headers.delete('referer');
   headers.set(CORRELATION_HEADER, correlationId);
 
+  // Security's trusted ingress contract reads X-Real-IP. Cloudflare gives the Worker the actual
+  // client address as CF-Connecting-IP, so map it server-side instead of trusting a browser value.
+  const connectingIp = request.headers.get('CF-Connecting-IP')?.trim();
+  if (connectingIp) headers.set('X-Real-IP', connectingIp);
+
   return new Request(upstreamRequest, { headers });
 }
 

@@ -74,6 +74,7 @@ import './styles/pc-journey-final-polish.css';
 import './styles/uc03-tl-supervisory.css';
 import './styles/uc03-tl-review.css';
 import './styles/ui-governance.css';
+import './styles/uc03-pc-screen-fit.css';
 import './ui/pcNavigationMotion';
 
 import App from './App';

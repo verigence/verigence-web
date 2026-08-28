@@ -33,6 +33,8 @@ const AdminFeedbackPage = lazy(() => import('./pages/AdminFeedbackPage'));
 const DiTestConsolePage = lazy(() => import('./pages/DiTestConsolePage'));
 const DocumentIntelligenceConfigurationPage = lazy(() => import('./pages/DocumentIntelligenceConfigurationPage'));
 const DashboardPage = lazy(loadDashboardPage);
+const TeamLeadDashboardPage = lazy(() => import('./pages/TeamLeadDashboardPage'));
+const TeamLeadReviewPage = lazy(() => import('./pages/TeamLeadReviewPage'));
 const BookingWorkspacePage = lazy(loadBookingWorkspacePage);
 const BookingReviewPage = lazy(loadBookingReviewPage);
 const DeliveryWorkspacePage = lazy(loadDeliveryWorkspacePage);
@@ -61,8 +63,6 @@ function PcJourneyRoutePreloader() {
   const signedIn = useSessionStore((state) => state.signedIn);
 
   useEffect(() => {
-    // The dashboard is the first operational destination. Warm its chunk while the
-    // user is still on the login screen so authentication does not end in a route flash.
     const timer = window.setTimeout(() => {
       void loadDashboardPage();
     }, 250);
@@ -71,9 +71,6 @@ function PcJourneyRoutePreloader() {
 
   useEffect(() => {
     if (!signedIn) return undefined;
-    // Once authenticated, warm the rest of the PC journey in the background. Browser
-    // module caching makes later Work Queue -> Booking -> Review/Delivery transitions
-    // reuse these chunks instead of falling back to the global loading screen.
     const timer = window.setTimeout(() => {
       void Promise.allSettled([
         loadBookingWorkspacePage(),
@@ -119,6 +116,9 @@ function DashboardEntry() {
 
   if (role === 'SUPER_ADMIN' && !selectedProject) {
     return <PrivatePage><AdminLandingPage /></PrivatePage>;
+  }
+  if (selectedProject?.operatingRole === 'TL') {
+    return <OperationalPage><TeamLeadDashboardPage /></OperationalPage>;
   }
   return <OperationalPage><DashboardPage /></OperationalPage>;
 }
@@ -180,6 +180,7 @@ export default function App() {
             <Route path="/terms" element={<TermsPage />} />
             <Route path="/privacy" element={<PrivacyPage />} />
             <Route path="/dashboard" element={<DashboardEntry />} />
+            <Route path="/tl/cases/:journeyId/review" element={<OperationalPage><TeamLeadReviewPage /></OperationalPage>} />
             <Route path="/bookings/:journeyId" element={<OperationalPage><BookingWorkspacePage /></OperationalPage>} />
             <Route path="/bookings/:journeyId/review" element={<OperationalPage><BookingReviewPage /></OperationalPage>} />
             <Route path="/deliveries/:journeyId" element={<OperationalPage><DeliveryWorkspacePage /></OperationalPage>} />

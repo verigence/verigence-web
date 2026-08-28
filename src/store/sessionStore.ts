@@ -15,11 +15,15 @@ interface SessionState extends BusinessContext {
   role: UserRole;
   accessToken?: string;
   accessTokenExpiresAtUtc?: string;
+  securitySessionId?: string;
+  securityDeviceId?: string;
   signInAuthenticated: (
     email: string,
     accessToken: string,
     role: UserRole,
     expiresAtUtc: string,
+    securitySessionId: string,
+    securityDeviceId: string,
   ) => void;
   signInPreview: (email: string, role?: UserRole) => void;
   signOut: () => void;
@@ -38,7 +42,16 @@ export const useSessionStore = create<SessionState>((set) => ({
   outletId: '',
   accessToken: undefined,
   accessTokenExpiresAtUtc: undefined,
-  signInAuthenticated: (email, accessToken, role, accessTokenExpiresAtUtc) =>
+  securitySessionId: undefined,
+  securityDeviceId: undefined,
+  signInAuthenticated: (
+    email,
+    accessToken,
+    role,
+    accessTokenExpiresAtUtc,
+    securitySessionId,
+    securityDeviceId,
+  ) =>
     set({
       signedIn: true,
       email,
@@ -49,6 +62,8 @@ export const useSessionStore = create<SessionState>((set) => ({
       outletId: '',
       accessToken,
       accessTokenExpiresAtUtc,
+      securitySessionId,
+      securityDeviceId,
     }),
   // Retained only for local/demo tooling. Protected routes reject preview sessions because
   // they require a Security-issued human access token.
@@ -63,6 +78,8 @@ export const useSessionStore = create<SessionState>((set) => ({
       outletId: '',
       accessToken: undefined,
       accessTokenExpiresAtUtc: undefined,
+      securitySessionId: undefined,
+      securityDeviceId: undefined,
     }),
   signOut: () =>
     set({
@@ -75,6 +92,8 @@ export const useSessionStore = create<SessionState>((set) => ({
       outletId: '',
       accessToken: undefined,
       accessTokenExpiresAtUtc: undefined,
+      securitySessionId: undefined,
+      securityDeviceId: undefined,
     }),
   setRolePreview: (role) => set({ role }),
   setAccessToken: (accessToken, accessTokenExpiresAtUtc) => set({

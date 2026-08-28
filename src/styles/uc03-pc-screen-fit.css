@@ -1,0 +1,219 @@
+/*
+ * UC03 PC screen-fit owner.
+ * Loaded last on purpose so legacy/global governance layers cannot re-expand
+ * the operational PC screens after their journey-specific styles are applied.
+ * Presentation only: no API, Security, state, or journey semantics change.
+ */
+
+/* --------------------------------------------------------------------------
+ * Work Queue: one page title only.
+ * The hero owns "Work Queue"; the list panel keeps only its queue note/filter UI.
+ * -------------------------------------------------------------------------- */
+.enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-work-list__heading--approved h2 {
+  display: none !important;
+}
+
+.enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-work-list__heading--approved {
+  min-height: 0 !important;
+  margin-bottom: 14px !important;
+  padding: 0 !important;
+  align-items: center !important;
+}
+
+.enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-work-list__queue-note {
+  margin: 0 !important;
+}
+
+/* Keep the primary capture action visible without letting it dominate the hero. */
+.enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-landing__capture-action--workqueue {
+  width: auto !important;
+  min-width: 0 !important;
+  min-height: 42px !important;
+  padding: 0 18px !important;
+  border-radius: 10px !important;
+  font-size: 0.95rem !important;
+  line-height: 1 !important;
+  white-space: nowrap !important;
+}
+
+/* --------------------------------------------------------------------------
+ * Booking Step 1/2 desktop density.
+ * Preserve readable typography; remove excess chrome/vertical whitespace instead.
+ * -------------------------------------------------------------------------- */
+@media (min-width: 901px) {
+  .enterprise-shell--approved-nav .uc03-booking-journey {
+    box-sizing: border-box !important;
+    width: min(100%, 1360px) !important;
+    max-width: 1360px !important;
+    padding-bottom: 12px !important;
+  }
+
+  .enterprise-shell--approved-nav .uc03-booking-journey .uc03-c1-topbar {
+    min-height: 22px !important;
+    margin-bottom: 6px !important;
+  }
+
+  .enterprise-shell--approved-nav .uc03-booking-journey .uc03-c1-back {
+    font-size: 0.86rem !important;
+    line-height: 1.2 !important;
+  }
+
+  .enterprise-shell--approved-nav .uc03-booking-journey .page-header {
+    margin-bottom: 10px !important;
+    padding: 13px 18px 14px !important;
+    border-radius: 14px !important;
+  }
+
+  .enterprise-shell--approved-nav .uc03-booking-journey .page-header h1 {
+    margin: 3px 0 3px !important;
+    font-size: clamp(1.65rem, 2vw, 2rem) !important;
+    line-height: 1.04 !important;
+  }
+
+  .enterprise-shell--approved-nav .uc03-booking-journey .page-header .eyebrow {
+    font-size: 0.72rem !important;
+  }
+
+  .enterprise-shell--approved-nav .uc03-booking-journey .page-header p {
+    font-size: 0.92rem !important;
+    line-height: 1.35 !important;
+  }
+
+  .enterprise-shell--approved-nav .uc03-booking-journey .uc03-booking-steps {
+    gap: 8px !important;
+    margin: 0 0 10px !important;
+  }
+
+  .enterprise-shell--approved-nav .uc03-booking-journey .uc03-booking-steps button {
+    min-height: 42px !important;
+    border-radius: 10px !important;
+    font-size: 0.9rem !important;
+  }
+
+  .enterprise-shell--approved-nav .uc03-booking-journey .uc03-booking-step-panel {
+    padding: 15px 16px 14px !important;
+    border-radius: 14px !important;
+  }
+
+  .enterprise-shell--approved-nav .uc03-booking-journey .uc03-booking-step-panel::before {
+    border-radius: 14px 14px 0 0 !important;
+  }
+
+  .enterprise-shell--approved-nav .uc03-booking-journey .uc03-booking-step-heading {
+    margin-bottom: 10px !important;
+    padding-bottom: 9px !important;
+  }
+
+  .enterprise-shell--approved-nav .uc03-booking-journey .uc03-booking-step-heading h2 {
+    font-size: 1.5rem !important;
+    line-height: 1.1 !important;
+  }
+
+  .enterprise-shell--approved-nav .uc03-booking-journey .uc03-booking-step-heading .uc03-c1-eyebrow {
+    font-size: 0.7rem !important;
+  }
+
+  .enterprise-shell--approved-nav .uc03-booking-journey .uc03-booking-step-heading > span {
+    padding: 5px 9px !important;
+    font-size: 0.78rem !important;
+  }
+
+  .enterprise-shell--approved-nav .uc03-booking-journey .uc03-booking-document-grid {
+    gap: 10px !important;
+  }
+
+  .enterprise-shell--approved-nav .uc03-booking-journey .uc03-booking-upload-card {
+    min-height: 112px !important;
+    padding: 12px 14px !important;
+    border-radius: 12px !important;
+  }
+
+  .enterprise-shell--approved-nav .uc03-booking-journey .uc03-booking-upload-card::before {
+    border-radius: 12px 0 0 12px !important;
+  }
+
+  .enterprise-shell--approved-nav .uc03-booking-journey .uc03-booking-upload-card > header strong {
+    font-size: 0.94rem !important;
+    line-height: 1.25 !important;
+  }
+
+  .enterprise-shell--approved-nav .uc03-booking-journey .uc03-booking-upload-card > header small {
+    font-size: 0.76rem !important;
+  }
+
+  .enterprise-shell--approved-nav .uc03-booking-journey .uc03-booking-upload-action,
+  .enterprise-shell--approved-nav .uc03-booking-journey .uc03-booking-upload-state {
+    min-height: 34px !important;
+    padding-block: 6px !important;
+    border-radius: 9px !important;
+    font-size: 0.86rem !important;
+  }
+
+  .enterprise-shell--approved-nav .uc03-booking-journey .uc03-booking-upload-summary {
+    font-size: 0.81rem !important;
+    line-height: 1.3 !important;
+  }
+
+  .enterprise-shell--approved-nav .uc03-booking-journey .uc03-booking-step-footer {
+    gap: 10px !important;
+    margin-top: 10px !important;
+    padding: 9px 11px !important;
+    border-radius: 10px !important;
+  }
+
+  .enterprise-shell--approved-nav .uc03-booking-journey .uc03-booking-step-footer > span {
+    font-size: 0.84rem !important;
+    line-height: 1.35 !important;
+  }
+
+  .enterprise-shell--approved-nav .uc03-booking-journey .uc03-booking-step-footer .uc03-c1-primary,
+  .enterprise-shell--approved-nav .uc03-booking-journey .uc03-booking-step-footer .uc03-c1-secondary {
+    min-height: 40px !important;
+    padding: 0 15px !important;
+  }
+
+  /* Step 2 also inherits a tighter but readable rhythm. */
+  .enterprise-shell--approved-nav .uc03-booking-journey .uc03-booking-step-panel > .uc03-booking-form-grid,
+  .enterprise-shell--approved-nav .uc03-booking-journey .uc03-booking-step-panel > .uc03-booking-yesno-grid {
+    padding: 13px !important;
+    gap: 10px 12px !important;
+  }
+
+  .enterprise-shell--approved-nav .uc03-booking-journey .uc03-booking-step-panel > .uc03-booking-yesno-grid,
+  .enterprise-shell--approved-nav .uc03-booking-journey .uc03-booking-step-panel > .uc03-booking-form-grid:last-of-type {
+    margin-top: 10px !important;
+  }
+
+  .enterprise-shell--approved-nav .uc03-booking-journey .uc03-booking-field {
+    gap: 5px !important;
+  }
+
+  .enterprise-shell--approved-nav .uc03-booking-journey .uc03-booking-field select {
+    min-height: 42px !important;
+    font-size: 0.92rem !important;
+  }
+
+  .enterprise-shell--approved-nav .uc03-booking-journey .uc03-booking-choice {
+    padding: 9px 10px !important;
+  }
+
+  .enterprise-shell--approved-nav .uc03-booking-journey .uc03-booking-choice label {
+    min-height: 34px !important;
+    margin-top: 6px !important;
+    padding: 5px 9px !important;
+  }
+}
+
+/* Do not apply the desktop density rules to phone/Capacitor layouts. */
+@media (max-width: 900px) {
+  .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-work-list__heading--approved {
+    margin-bottom: 10px !important;
+  }
+
+  .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-landing__capture-action--workqueue {
+    width: 100% !important;
+    min-height: 44px !important;
+    justify-content: center !important;
+    font-size: 0.95rem !important;
+  }
+}

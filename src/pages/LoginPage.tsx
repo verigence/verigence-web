@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate } from 'react-router-dom';
 
@@ -9,6 +9,7 @@ import {
 } from '../features/uc03/projectContext';
 import { supportReference } from '../observability/correlation';
 import { getVerigenceDeviceContext } from '../services/device/identity';
+import { getCurrentLocation } from '../services/device/location';
 import {
   SecurityLoginError,
   loginErrorMessage,
@@ -21,16 +22,39 @@ interface LoginErrorState {
   reference?: string;
 }
 
+function locationRequiredMessage(error: unknown): string {
+  const code = typeof error === 'object' && error !== null && 'code' in error
+    ? (error as { code?: unknown }).code
+    : undefined;
+  if (code === 1 || code === 'PERMISSION_DENIED') {
+    return 'Location access is required to use Verigence. Please allow location access in your browser and try again.';
+  }
+  return 'Verigence could not determine your location. Please enable location services and try again.';
+}
+
 export default function LoginPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const signInAuthenticated = useSessionStore((state) => state.signInAuthenticated);
+  const locationRequest = useRef<ReturnType<typeof getCurrentLocation> | null>(null);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [keepSignedIn, setKeepSignedIn] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<LoginErrorState>();
+
+  const requireLocation = async () => {
+    if (!locationRequest.current) {
+      locationRequest.current = getCurrentLocation();
+    }
+    try {
+      return await locationRequest.current;
+    } catch (locationError) {
+      locationRequest.current = null;
+      throw locationError;
+    }
+  };
 
   useEffect(() => {
     // Wake Railway-backed runtime services while the USER is typing credentials.
@@ -43,6 +67,9 @@ export default function LoginPage() {
     // Generate/read the Verigence installation UUID locally while the login page is idle. This
     // performs no network request and therefore does not extend the credential-login critical path.
     getVerigenceDeviceContext();
+    // Start the mandatory location request while the USER is entering credentials so the normal
+    // case does not add perceived login time. Login still refuses to proceed unless this resolves.
+    void requireLocation().catch(() => undefined);
   }, []);
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
@@ -52,6 +79,13 @@ export default function LoginPage() {
     setError(undefined);
     setBusy(true);
     try {
+      try {
+        await requireLocation();
+      } catch (locationError) {
+        setError({ message: locationRequiredMessage(locationError) });
+        return;
+      }
+
       const identifier = email.trim();
       const device = getVerigenceDeviceContext();
       const login = await loginHuman(identifier, password, device);
@@ -163,7 +197,7 @@ export default function LoginPage() {
           New to Verigence? <Link to="/signup">Register Now</Link>
         </p>
         <p className="frozen-auth-footer frozen-auth-footer--legal">
-          For security and audit controls, Verigence records the device and location from which the application is accessed.
+          For security and audit controls, Verigence records the device and location from which the application is accessed. Location access is required to use the application.
         </p>
         <p className="frozen-auth-footer frozen-auth-footer--legal">
           <Link to="/terms">Terms of Use</Link> · <Link to="/privacy">Privacy Policy</Link>

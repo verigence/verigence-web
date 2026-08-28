@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
 
 import {
   listAllTlSupervisoryCases,
@@ -96,9 +97,7 @@ function BreakdownPanel({
           <h2>{title}</h2>
           <p>Click a row to filter the case list.</p>
         </div>
-        {selectedKey && (
-          <button type="button" onClick={() => onSelect('')}>Clear</button>
-        )}
+        {selectedKey && <button type="button" onClick={() => onSelect('')}>Clear</button>}
       </header>
       <div className="uc03-tl-breakdown">
         {rows.map((row) => (
@@ -127,6 +126,7 @@ function BreakdownPanel({
 }
 
 function CaseRow({ item, timezoneName }: { item: TlSupervisoryCase; timezoneName: string }) {
+  const navigate = useNavigate();
   const [expanded, setExpanded] = useState(false);
   const stage = tlBusinessStage(item);
   const rawStatus = stage === 'BOOKING_SUBMITTED'
@@ -187,6 +187,12 @@ function CaseRow({ item, timezoneName }: { item: TlSupervisoryCase; timezoneName
           <div>
             <span>Responsible PC reference</span>
             <strong>{item.responsiblePcActorId || 'Not recorded'}</strong>
+          </div>
+          <div className="uc03-tl-case__review-action">
+            <span>TL action</span>
+            <button type="button" onClick={() => navigate(`/tl/cases/${item.journeyId}/review`)}>
+              Review / Verify
+            </button>
           </div>
         </div>
       )}
@@ -312,7 +318,7 @@ export default function TeamLeadDashboardPage() {
         </div>
         <div className="uc03-tl-hero__note">
           <strong>Submitted work only</strong>
-          <span>PC drafts stay private until submitted.</span>
+          <span>PC drafts stay private until submitted. TL review is optional.</span>
         </div>
       </section>
 

@@ -437,6 +437,7 @@ jobs:
           }
           console.log('VERIGENCE_UI_GOVERNANCE_VISUAL=PASS');
           NODE
+
       - name: Upload responsive screenshots
         if: always()
         uses: actions/upload-artifact@v4

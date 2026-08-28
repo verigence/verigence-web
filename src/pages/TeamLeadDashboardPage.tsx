@@ -298,6 +298,9 @@ export default function TeamLeadDashboardPage() {
 
   const dealerCount = new Set(cases.map((item) => item.dealerId)).size || project.scope.dealerCount;
   const outletCount = new Set(cases.map((item) => item.outletId)).size || project.scope.outletCount;
+  const scopeSummary = project.scope.allDealers
+    ? `${project.projectName} · All dealers · All outlets`
+    : `${project.projectName} · ${dealerCount} dealer${dealerCount === 1 ? '' : 's'} · ${outletCount} outlet${outletCount === 1 ? '' : 's'}`;
   const openFlags = cases.reduce((sum, item) => sum + item.openFlagCount, 0);
   const activeFilterCount = Number(Boolean(outletId)) + Number(Boolean(pcActorId)) + Number(stageFilter !== 'ALL') + Number(Boolean(search.trim()));
 
@@ -314,7 +317,7 @@ export default function TeamLeadDashboardPage() {
         <div>
           <span className="uc03-tl-hero__eyebrow">Team Lead · Supervisory View</span>
           <h1>Dealer Operations Overview</h1>
-          <p>{project.projectName} · {dealerCount} dealer{dealerCount === 1 ? '' : 's'} · {outletCount} outlet{outletCount === 1 ? '' : 's'}</p>
+          <p>{scopeSummary}</p>
         </div>
         <div className="uc03-tl-hero__note">
           <strong>Submitted work only</strong>

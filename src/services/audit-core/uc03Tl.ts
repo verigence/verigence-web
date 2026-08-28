@@ -31,10 +31,62 @@ export interface TlSupervisoryCasePage {
   offset: number;
 }
 
+export interface TlReviewRequirement {
+  requirementRef: string;
+  requirementKey: string;
+  documentTypeKey: string;
+  activeDocumentIds: string[];
+}
+
+export interface TlReviewContext {
+  journeyId: string;
+  externalContextRef: string;
+  requirements: TlReviewRequirement[];
+}
+
+export interface TlExtractedField {
+  fieldKey: string;
+  sourceFactRef: string;
+  sourceFactVersion: number;
+  extractedValue: unknown;
+  modifiedValue: unknown | null;
+  confidenceScore: number | null;
+}
+
+export interface TlDocumentReviewResponse {
+  journeyId: string;
+  requirementRef: string;
+  documentId: string;
+  aggregateVersion: number;
+  reviewEventId: string;
+  storedFieldCount: number;
+  modifiedFieldCount: number;
+  projectedFieldCount: number;
+  projectionFailureCount: number;
+}
+
+export interface TlReuploadRequestResponse {
+  journeyId: string;
+  requirementRef: string;
+  documentId: string;
+  taskId: string;
+  findingId: string;
+  assignedPcActorId: string;
+  status: 'REQUESTED';
+}
+
 function accessTokenRequired(accessToken?: string): string {
   const token = accessToken?.trim();
   if (!token) throw new Error('A Security human access token is required.');
   return token;
+}
+
+function commandKey(prefix: string): string {
+  return `${prefix}-${crypto.randomUUID()}`;
+}
+
+function tlBase(tenantId: string): string {
+  return `/v1/tenants/${encodeURIComponent(tenantId)}/uc03/tl`;
 }
 
 export async function listTlSupervisoryCasePage(
@@ -44,7 +96,7 @@ export async function listTlSupervisoryCasePage(
 ): Promise<TlSupervisoryCasePage> {
   const search = new URLSearchParams({ limit: '200', offset: String(offset) });
   return auditCoreRequest<TlSupervisoryCasePage>(
-    `/v1/tenants/${encodeURIComponent(tenantId)}/uc03/tl/cases?${search.toString()}`,
+    `${tlBase(tenantId)}/cases?${search.toString()}`,
     {
       accessToken: accessTokenRequired(accessToken),
       cache: 'no-store',
@@ -73,6 +125,58 @@ export async function listAllTlSupervisoryCases(
   }
 
   return items;
+}
+
+export function getTlReviewContext(
+  tenantId: string,
+  journeyId: string,
+  accessToken?: string,
+): Promise<TlReviewContext> {
+  return auditCoreRequest<TlReviewContext>(
+    `${tlBase(tenantId)}/cases/${encodeURIComponent(journeyId)}/review-context`,
+    {
+      accessToken: accessTokenRequired(accessToken),
+      cache: 'no-store',
+    },
+  );
+}
+
+export function submitTlDocumentReview(
+  tenantId: string,
+  journeyId: string,
+  requirementRef: string,
+  documentId: string,
+  fields: TlExtractedField[],
+  accessToken?: string,
+): Promise<TlDocumentReviewResponse> {
+  return auditCoreRequest<TlDocumentReviewResponse>(
+    `${tlBase(tenantId)}/cases/${encodeURIComponent(journeyId)}/document-review`,
+    {
+      method: 'POST',
+      accessToken: accessTokenRequired(accessToken),
+      headers: { 'Idempotency-Key': commandKey('tl-review') },
+      body: JSON.stringify({ requirementRef, documentId, fields }),
+    },
+  );
+}
+
+export function requestTlDocumentReupload(
+  tenantId: string,
+  journeyId: string,
+  requirementRef: string,
+  documentId: string,
+  reason: string,
+  accessToken?: string,
+): Promise<TlReuploadRequestResponse> {
+  return auditCoreRequest<TlReuploadRequestResponse>(
+    `${tlBase(tenantId)}/cases/${encodeURIComponent(journeyId)}/reupload-request`,
+    {
+      method: 'POST',
+      accessToken: accessTokenRequired(accessToken),
+      headers: { 'Idempotency-Key': commandKey('tl-reupload') },
+      body: JSON.stringify({ requirementRef, documentId, reason: reason.trim() }),
+    },
+  );
 }
 
 export function tlBusinessStage(item: TlSupervisoryCase): TlBusinessStage {

@@ -1,0 +1,56 @@
+/*
+ * PC Work Queue desktop control density.
+ * Presentation only. Imported immediately before ui-governance.css so the
+ * governance stylesheet remains the final stylesheet owner.
+ */
+
+@media (min-width: 900px) {
+  .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-work-list {
+    min-height: 0 !important;
+    height: auto !important;
+    align-content: start !important;
+    gap: 9px !important;
+  }
+
+  .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-work-list__heading--approved {
+    min-height: 40px !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-work-filter-tabs--approved {
+    box-sizing: border-box !important;
+    width: fit-content !important;
+    max-width: 100% !important;
+    min-height: 42px !important;
+    margin: 0 0 2px !important;
+    padding: 3px !important;
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    align-items: stretch !important;
+    gap: 3px !important;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    scrollbar-width: none;
+  }
+
+  .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-work-filter-tabs--approved::-webkit-scrollbar {
+    display: none;
+  }
+
+  .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-work-filter-tabs--approved button {
+    flex: 0 0 auto !important;
+    min-width: 82px !important;
+    min-height: 36px !important;
+    padding: 0 14px !important;
+    white-space: nowrap !important;
+  }
+
+  .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-work-filter-tabs--approved button:nth-child(3) {
+    min-width: 146px !important;
+  }
+
+  .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-work-cards {
+    margin-top: 0 !important;
+  }
+}

@@ -280,7 +280,7 @@ jobs:
           async function login(page) {
             await page.goto(`${base}/login`, { waitUntil: 'networkidle' });
             await page.getByLabel('Email').fill('ui.governance@example.com');
-            await page.getByLabel('Password').fill('governance-test');
+            await page.locator('input[type="password"]').fill('governance-test');
             await page.getByRole('button', { name: 'Sign in' }).click();
           }
 

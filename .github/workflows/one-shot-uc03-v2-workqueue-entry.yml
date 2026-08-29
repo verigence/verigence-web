@@ -1,0 +1,63 @@
+name: One-shot UC03 V2 work queue entry
+
+on:
+  push:
+    branches: [fix/uc03-v2-workqueue-entry]
+    paths:
+      - '.github/workflows/one-shot-uc03-v2-workqueue-entry.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  wire:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: fix/uc03-v2-workqueue-entry
+          fetch-depth: 0
+      - name: Wire split Work Queue entry without changing V1 behavior
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          app = Path('src/App.tsx')
+          text = app.read_text()
+          old = "const BookingReviewPage = lazy(loadBookingReviewPage);\nconst BookingCaptureV2Page = lazy(() => import('./pages/BookingCaptureV2Page'));"
+          new = "const BookingReviewPage = lazy(loadBookingReviewPage);\nconst CreateBookingV2Page = lazy(() => import('./pages/CreateBookingV2Page'));\nconst BookingCaptureV2Page = lazy(() => import('./pages/BookingCaptureV2Page'));"
+          if text.count(old) != 1:
+              raise SystemExit('App lazy-import anchor not found exactly once')
+          text = text.replace(old, new)
+          old = "            <Route path=\"/bookings/:journeyId/review\" element={<OperationalPage><BookingReviewPage /></OperationalPage>} />\n            <Route path=\"/v2/bookings/:journeyId\" element={<OperationalPage><BookingCaptureV2Page /></OperationalPage>} />"
+          new = "            <Route path=\"/bookings/:journeyId/review\" element={<OperationalPage><BookingReviewPage /></OperationalPage>} />\n            <Route path=\"/v2/bookings/new\" element={<OperationalPage><CreateBookingV2Page /></OperationalPage>} />\n            <Route path=\"/v2/bookings/:journeyId\" element={<OperationalPage><BookingCaptureV2Page /></OperationalPage>} />"
+          if text.count(old) != 1:
+              raise SystemExit('App route anchor not found exactly once')
+          app.write_text(text.replace(old, new))
+
+          dashboard = Path('src/pages/DashboardPage.tsx')
+          text = dashboard.read_text()
+          old = '''      {showCaptureAction && (\n        <Link className="uc03-landing__capture-action uc03-landing__capture-action--workqueue" to="/dashboard?action=create-booking">\n          <span aria-hidden="true">＋</span>\n          <span>Capture New Booking</span>\n        </Link>\n      )}\n'''
+          new = '''      {showCaptureAction && (\n        <div className="uc03-dashboard-hero__capture-actions" aria-label="Booking capture options">\n          <Link className="uc03-landing__capture-action uc03-landing__capture-action--workqueue" to="/dashboard?action=create-booking">\n            <span aria-hidden="true">＋</span>\n            <span>Capture New Booking</span>\n          </Link>\n          <Link className="uc03-landing__capture-action uc03-landing__capture-action--workqueue" to="/v2/bookings/new">\n            <span aria-hidden="true">＋</span>\n            <span>Capture New Booking V2</span>\n          </Link>\n        </div>\n      )}\n'''
+          if text.count(old) != 1:
+              raise SystemExit('Dashboard capture action anchor not found exactly once')
+          dashboard.write_text(text.replace(old, new))
+
+          main = Path('src/main.tsx')
+          text = main.read_text()
+          old = "import './styles/dashboard-workqueue-compact-toolbar.css';\nimport './styles/ui-governance.css';"
+          new = "import './styles/dashboard-workqueue-compact-toolbar.css';\nimport './styles/uc03-v2-workqueue-entry.css';\nimport './styles/ui-governance.css';"
+          if text.count(old) != 1:
+              raise SystemExit('main CSS import anchor not found exactly once')
+          main.write_text(text.replace(old, new))
+          PY
+
+          git diff --check
+          git diff -- src/App.tsx src/pages/DashboardPage.tsx src/main.tsx
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add src/App.tsx src/pages/DashboardPage.tsx src/main.tsx
+          git commit -m 'fix(web): expose V1 and V2 booking capture entries'
+          git push origin HEAD:fix/uc03-v2-workqueue-entry

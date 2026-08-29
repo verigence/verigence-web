@@ -96,7 +96,10 @@ export function captureV2HasPendingClassification(capture?: BookingCaptureV2): b
   if (!capture) return false;
   return capture.uploads.some((document) => {
     const state = document.state.toUpperCase();
-    return state === 'RECEIVING' || state === 'STORED' || state === 'CLASSIFYING';
+    if (state === 'RECEIVING' || state === 'STORED' || state === 'CLASSIFYING') return true;
+    // Finalize can race a very fast classifier. Until a capture read provides the
+    // accepted type, keep polling once more so requirements are reconciled correctly.
+    return state === 'CLASSIFIED' && !document.classifiedDocumentTypeKey;
   });
 }
 

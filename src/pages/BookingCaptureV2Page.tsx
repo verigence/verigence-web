@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useParams } from 'react-router-dom';
 
@@ -14,11 +14,15 @@ import {
   type BookingCaptureV2,
   type CaptureV2Declaration,
   type CaptureV2Requirement,
+  type UploadBookingCaptureV2Result,
   uploadBookingCaptureV2Files,
 } from '../services/audit-core/uc03DocumentCaptureV2';
 import { useProjectContextStore } from '../store/projectContextStore';
 import { useSessionStore } from '../store/sessionStore';
 import '../styles/uc03-document-capture-v2.css';
+
+const CAPTURE_STALE_MS = 3_000;
+const CLASSIFICATION_POLL_MS = 1_000;
 
 const CONDITION_LABELS: Record<string, string> = {
   gstApplicable: 'Is GST Certificate applicable?',
@@ -40,15 +44,113 @@ function documentStatus(requirement: CaptureV2Requirement): string {
   }
 }
 
+function optimisticDeclaration(
+  capture: BookingCaptureV2,
+  conditionKey: string,
+  applicable: boolean,
+  documentAvailable: boolean | null,
+): BookingCaptureV2 {
+  const declaration: CaptureV2Declaration = {
+    conditionKey,
+    applicable,
+    documentAvailable: applicable ? documentAvailable : null,
+    source: 'PC',
+  };
+  const declarations = [
+    ...capture.declarations.filter((item) => item.conditionKey !== conditionKey),
+    declaration,
+  ];
+  const requirements = capture.requirements.map((requirement) => {
+    if (requirement.conditionKey !== conditionKey || requirement.document) return requirement;
+    if (!applicable) {
+      return {
+        ...requirement,
+        applicabilityState: 'NOT_APPLICABLE' as const,
+        state: 'NOT_APPLICABLE',
+        needsDecision: false,
+        blocksContinue: false,
+      };
+    }
+    const missingAcknowledged = documentAvailable === false;
+    const blocksContinue = documentAvailable === true;
+    return {
+      ...requirement,
+      applicabilityState: 'APPLICABLE' as const,
+      state: missingAcknowledged ? 'ACKNOWLEDGED_MISSING' : 'NOT_UPLOADED',
+      needsDecision: false,
+      blocksContinue,
+    };
+  });
+  return {
+    ...capture,
+    declarations,
+    requirements,
+    canContinue: requirements.every((requirement) => !requirement.blocksContinue),
+  };
+}
+
+function mergeDeclarationResponse(
+  current: BookingCaptureV2 | undefined,
+  response: BookingCaptureV2,
+): BookingCaptureV2 {
+  if (!current) return response;
+  const currentUploadById = new Map(current.uploads.map((upload) => [upload.documentId, upload]));
+  const uploads = response.uploads.map((upload) => {
+    const previous = currentUploadById.get(upload.documentId);
+    if (!previous) return upload;
+    return {
+      ...previous,
+      ...upload,
+      contentUrl: upload.contentUrl || previous.contentUrl,
+      processingStatus: upload.processingStatus || previous.processingStatus,
+    };
+  });
+  const responseRequirementByKey = new Map(
+    response.requirements.map((requirement) => [requirement.requirementKey, requirement]),
+  );
+  const requirements = current.requirements.map((requirement) => {
+    const next = responseRequirementByKey.get(requirement.requirementKey);
+    if (!next) return requirement;
+    const document = next.document && requirement.document
+      ? {
+          ...requirement.document,
+          ...next.document,
+          contentUrl: next.document.contentUrl || requirement.document.contentUrl,
+          processingStatus: next.document.processingStatus || requirement.document.processingStatus,
+        }
+      : next.document;
+    return { ...next, document };
+  });
+  return { ...response, uploads, requirements };
+}
+
+function addPendingUploads(
+  capture: BookingCaptureV2 | undefined,
+  uploads: UploadBookingCaptureV2Result[],
+): BookingCaptureV2 | undefined {
+  if (!capture || uploads.length === 0) return capture;
+  const existing = new Set(capture.uploads.map((upload) => upload.documentId));
+  const additions = uploads
+    .filter((upload) => !existing.has(upload.documentId))
+    .map((upload) => ({
+      documentId: upload.documentId,
+      clientUploadId: upload.clientUploadId,
+      state: upload.state,
+      classifiedDocumentTypeKey: null,
+      originalFilename: upload.originalFilename,
+      contentUrl: null,
+      processingStatus: null,
+    }));
+  return additions.length ? { ...capture, uploads: [...capture.uploads, ...additions] } : capture;
+}
+
 function ConditionalDecision({
   conditionKey,
   capture,
-  disabled,
   onSet,
 }: {
   conditionKey: string;
   capture: BookingCaptureV2;
-  disabled: boolean;
   onSet: (applicable: boolean, available: boolean | null) => Promise<void>;
 }) {
   const declaration = declarationFor(capture, conditionKey);
@@ -67,13 +169,13 @@ function ConditionalDecision({
           <button
             type="button"
             className={applicable === true ? 'is-selected' : ''}
-            disabled={disabled || inferred}
+            disabled={inferred}
             onClick={() => void onSet(true, available ?? true)}
           >Yes</button>
           <button
             type="button"
             className={applicable === false ? 'is-selected' : ''}
-            disabled={disabled || inferred}
+            disabled={inferred}
             onClick={() => void onSet(false, null)}
           >No</button>
         </div>
@@ -86,13 +188,11 @@ function ConditionalDecision({
             <button
               type="button"
               className={available === true ? 'is-selected' : ''}
-              disabled={disabled}
               onClick={() => void onSet(true, true)}
             >Yes</button>
             <button
               type="button"
               className={available === false ? 'is-selected' : ''}
-              disabled={disabled}
               onClick={() => void onSet(true, false)}
             >No</button>
           </div>
@@ -110,13 +210,11 @@ function ConditionalDecision({
 
 function RequirementRow({
   requirement,
-  busy,
   busyDocumentId,
   onDelete,
   onUpload,
 }: {
   requirement: CaptureV2Requirement;
-  busy: boolean;
   busyDocumentId?: string;
   onDelete: (documentId: string) => Promise<void>;
   onUpload: (files: File[]) => Promise<void>;
@@ -159,16 +257,16 @@ function RequirementRow({
             <a href={document.contentUrl} target="_blank" rel="noreferrer">View</a>
           ) : null}
           {requirement.canDelete ? (
-            <button type="button" disabled={deleting || busy} onClick={() => void onDelete(document.documentId)}>
+            <button type="button" disabled={deleting} onClick={() => void onDelete(document.documentId)}>
               {deleting ? 'Deleting…' : 'Delete'}
             </button>
           ) : null}
-          <label aria-disabled={busy || deleting}>
+          <label aria-disabled={deleting}>
             Upload Again
             <input
               type="file"
               accept="image/*,.pdf"
-              disabled={busy || deleting}
+              disabled={deleting}
               onChange={(event) => {
                 const files = Array.from(event.currentTarget.files ?? []);
                 event.currentTarget.value = '';
@@ -188,25 +286,31 @@ export default function BookingCaptureV2Page() {
   const queryClient = useQueryClient();
   const project = useProjectContextStore((state) => state.selectedProject);
   const accessToken = useSessionStore((state) => state.accessToken);
-  const [busy, setBusy] = useState(false);
+  const [startBusy, setStartBusy] = useState(false);
+  const [activeUploadBatches, setActiveUploadBatches] = useState(0);
+  const [pendingDeclarations, setPendingDeclarations] = useState(0);
   const [busyDocumentId, setBusyDocumentId] = useState<string>();
   const [message, setMessage] = useState<string>();
   const [error, setError] = useState<string>();
+  const declarationSequence = useRef(new Map<string, number>());
 
   const enabled = Boolean(project?.tenantId && journeyId && accessToken);
+  const captureKey = ['uc03-document-capture-v2', project?.tenantId, journeyId] as const;
   const workspaceQuery = useQuery({
     queryKey: ['uc03-booking-workspace', project?.tenantId, journeyId],
     queryFn: () => getBookingWorkspace(project!.tenantId, journeyId!, accessToken),
     enabled,
     refetchOnWindowFocus: false,
+    staleTime: CAPTURE_STALE_MS,
   });
   const started = Boolean(workspaceQuery.data?.bookingStage.businessStatus);
   const captureQuery = useQuery({
-    queryKey: ['uc03-document-capture-v2', project?.tenantId, journeyId],
+    queryKey: captureKey,
     queryFn: () => getBookingCaptureV2(project!.tenantId, journeyId!, accessToken),
     enabled: enabled && started,
     refetchOnWindowFocus: false,
-    refetchInterval: (query) => captureV2HasPendingClassification(query.state.data) ? 1500 : false,
+    staleTime: CAPTURE_STALE_MS,
+    refetchInterval: (query) => captureV2HasPendingClassification(query.state.data) ? CLASSIFICATION_POLL_MS : false,
   });
 
   useEffect(() => {
@@ -217,6 +321,7 @@ export default function BookingCaptureV2Page() {
 
   useEffect(() => {
     if (!enabled || !started || !project?.tenantId || !journeyId) return;
+    void import('./BookingDetailsV2Page');
     void queryClient.prefetchQuery({
       queryKey: ['uc03-booking-details', project.tenantId, journeyId],
       queryFn: () => getBookingDetails(project.tenantId, journeyId, accessToken),
@@ -240,7 +345,7 @@ export default function BookingCaptureV2Page() {
   const handleStart = async () => {
     const version = workspaceQuery.data?.aggregateVersion;
     if (version === undefined) return;
-    setBusy(true); setError(undefined); setMessage(undefined);
+    setStartBusy(true); setError(undefined); setMessage(undefined);
     try {
       await startBooking(project.tenantId, journeyId, version, accessToken);
       await workspaceQuery.refetch();
@@ -248,29 +353,38 @@ export default function BookingCaptureV2Page() {
     } catch (cause: unknown) {
       setError(cause instanceof Error ? cause.message : 'Booking could not be started.');
     } finally {
-      setBusy(false);
+      setStartBusy(false);
     }
   };
 
   const handleUpload = async (files: File[]) => {
     if (files.length === 0) return;
-    setBusy(true); setError(undefined); setMessage('Uploading directly to secure document storage…');
+    setActiveUploadBatches((count) => count + 1);
+    setError(undefined);
+    setMessage('Uploading directly to secure document storage…');
     try {
-      await uploadBookingCaptureV2Files(project.tenantId, journeyId, files, accessToken);
-      await captureQuery.refetch();
-      setMessage('Upload complete. Classification is running automatically.');
+      const finalized = await uploadBookingCaptureV2Files(project.tenantId, journeyId, files, accessToken);
+      queryClient.setQueryData<BookingCaptureV2>(captureKey, (current) => addPendingUploads(current, finalized));
+      setMessage('Upload complete. Classification is running automatically. You can continue working.');
     } catch (cause: unknown) {
       setError(cause instanceof Error ? cause.message : 'The document could not be uploaded.');
       setMessage(undefined);
     } finally {
-      setBusy(false);
+      setActiveUploadBatches((count) => Math.max(0, count - 1));
     }
   };
 
   const handleDeclaration = async (conditionKey: string, applicable: boolean, available: boolean | null) => {
-    setBusy(true); setError(undefined);
+    const previous = queryClient.getQueryData<BookingCaptureV2>(captureKey);
+    const sequence = (declarationSequence.current.get(conditionKey) ?? 0) + 1;
+    declarationSequence.current.set(conditionKey, sequence);
+    queryClient.setQueryData<BookingCaptureV2>(captureKey, (current) =>
+      current ? optimisticDeclaration(current, conditionKey, applicable, available) : current,
+    );
+    setPendingDeclarations((count) => count + 1);
+    setError(undefined);
     try {
-      await setBookingCaptureV2Declaration(
+      const response = await setBookingCaptureV2Declaration(
         project.tenantId,
         journeyId,
         conditionKey,
@@ -278,11 +392,18 @@ export default function BookingCaptureV2Page() {
         available,
         accessToken,
       );
-      await captureQuery.refetch();
+      if (declarationSequence.current.get(conditionKey) === sequence) {
+        queryClient.setQueryData<BookingCaptureV2>(captureKey, (current) =>
+          mergeDeclarationResponse(current, response),
+        );
+      }
     } catch (cause: unknown) {
+      if (declarationSequence.current.get(conditionKey) === sequence && previous) {
+        queryClient.setQueryData(captureKey, previous);
+      }
       setError(cause instanceof Error ? cause.message : 'The applicability declaration could not be saved.');
     } finally {
-      setBusy(false);
+      setPendingDeclarations((count) => Math.max(0, count - 1));
     }
   };
 
@@ -320,6 +441,7 @@ export default function BookingCaptureV2Page() {
   const capture = captureQuery.data;
   const unmatchedUploads = capture?.uploads.filter((upload) =>
     !capture.requirements.some((requirement) => requirement.document?.documentId === upload.documentId)) ?? [];
+  const uploading = activeUploadBatches > 0;
 
   return (
     <div className="screen-stack uc03-booking-journey uc03-v2-capture">
@@ -345,7 +467,9 @@ export default function BookingCaptureV2Page() {
       {!started ? (
         <section className="uc03-c1-start-panel">
           <div><span className="uc03-c1-eyebrow">Booking Journey</span><h2>Start Booking Capture</h2></div>
-          <button type="button" className="uc03-c1-primary" disabled={busy} onClick={() => void handleStart()}>Start Booking</button>
+          <button type="button" className="uc03-c1-primary" disabled={startBusy} onClick={() => void handleStart()}>
+            {startBusy ? 'Starting…' : 'Start Booking'}
+          </button>
         </section>
       ) : captureQuery.isPending ? (
         <div className="uc03-c1-loading" role="status">Loading document requirements…</div>
@@ -362,14 +486,16 @@ export default function BookingCaptureV2Page() {
         <>
           {conditionKeys.length ? (
             <section className="uc03-v2-section">
-              <header><div><span className="uc03-c1-eyebrow">Applicability</span><h2>Booking conditions</h2></div></header>
+              <header>
+                <div><span className="uc03-c1-eyebrow">Applicability</span><h2>Booking conditions</h2></div>
+                {pendingDeclarations ? <span role="status">Saving {pendingDeclarations > 1 ? 'answers' : 'answer'}…</span> : null}
+              </header>
               <div className="uc03-v2-decision-grid">
                 {conditionKeys.map((conditionKey) => (
                   <ConditionalDecision
                     key={conditionKey}
                     conditionKey={conditionKey}
                     capture={capture}
-                    disabled={busy}
                     onSet={(applicable, available) => handleDeclaration(conditionKey, applicable, available)}
                   />
                 ))}
@@ -387,15 +513,15 @@ export default function BookingCaptureV2Page() {
               <div>
                 <strong>Upload any Booking document</strong>
                 <span>You do not need to select a document type. Classification happens automatically.</span>
+                {uploading ? <span role="status">Upload is running in the background; you can keep answering questions or add more files.</span> : null}
               </div>
               <div className="uc03-v2-upload-actions">
                 <label className="uc03-c1-primary">
-                  {busy ? 'Uploading…' : 'Choose Files'}
+                  {uploading ? 'Add More Files' : 'Choose Files'}
                   <input
                     type="file"
                     accept="image/*,.pdf"
                     multiple
-                    disabled={busy}
                     onChange={(event) => {
                       const files = Array.from(event.currentTarget.files ?? []);
                       event.currentTarget.value = '';
@@ -409,7 +535,6 @@ export default function BookingCaptureV2Page() {
                     type="file"
                     accept="image/*"
                     capture="environment"
-                    disabled={busy}
                     onChange={(event) => {
                       const files = Array.from(event.currentTarget.files ?? []);
                       event.currentTarget.value = '';
@@ -425,7 +550,6 @@ export default function BookingCaptureV2Page() {
                 <RequirementRow
                   key={requirement.requirementKey}
                   requirement={requirement}
-                  busy={busy}
                   busyDocumentId={busyDocumentId}
                   onDelete={handleDelete}
                   onUpload={handleUpload}
@@ -442,8 +566,8 @@ export default function BookingCaptureV2Page() {
                       <strong>{upload.originalFilename}</strong>
                       <span>{upload.state === 'UNKNOWN' ? 'Document type could not be identified. Upload a clearer/replacement document.' : `Classification: ${upload.state}`}</span>
                     </div>
-                    <button type="button" disabled={busyDocumentId === upload.documentId || busy} onClick={() => void handleDelete(upload.documentId)}>
-                      Delete
+                    <button type="button" disabled={busyDocumentId === upload.documentId} onClick={() => void handleDelete(upload.documentId)}>
+                      {busyDocumentId === upload.documentId ? 'Deleting…' : 'Delete'}
                     </button>
                   </div>
                 ))}
@@ -457,7 +581,7 @@ export default function BookingCaptureV2Page() {
               <button
                 type="button"
                 className="uc03-c1-primary"
-                disabled={!capture.canContinue || busy || Boolean(busyDocumentId)}
+                disabled={!capture.canContinue || pendingDeclarations > 0 || Boolean(busyDocumentId)}
                 onClick={() => navigate(`/v2/bookings/${journeyId}/details`)}
               >Continue to Booking Details →</button>
             </div>

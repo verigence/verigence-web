@@ -4,9 +4,11 @@ export type ReviewState = 'READY' | 'NEEDS_REVIEW';
 export type ComparisonState = 'MATCH' | 'MISMATCH' | 'SINGLE_SOURCE' | 'NOT_AVAILABLE';
 
 export interface ReviewV2Field {
+  canonicalFieldId: string;
   fieldKey: string;
   value: unknown;
   confidenceScore: number | null;
+  sourceFactVersion: number;
   reviewState: ReviewState;
   source: 'DI';
   pageNo: number | null;
@@ -27,9 +29,11 @@ export interface ReviewV2Document {
 }
 
 export interface ReviewV2SourceValue {
+  canonicalFieldId: string;
   fieldKey: string;
   value: unknown;
   confidenceScore: number | null;
+  sourceFactVersion: number;
   reviewState: ReviewState;
   documentId: string;
   evidenceId: string | null;
@@ -56,9 +60,11 @@ export interface ReviewV2Attribute {
 }
 
 export interface ReviewV2UnmappedField {
+  canonicalFieldId: string;
   fieldKey: string;
   value: unknown;
   confidenceScore: number | null;
+  sourceFactVersion: number;
   documentId: string;
   documentTypeKey: string | null;
   documentLabel: string;
@@ -80,12 +86,23 @@ export interface BookingReviewV2 {
   phase: 'BOOKING';
   captureSubmitted: boolean;
   pcVerificationStatus: string;
+  aggregateVersion: number;
   processingPending: boolean;
   needsReviewCount: number;
   attributes: ReviewV2Attribute[];
   unmappedFields: ReviewV2UnmappedField[];
   documents: ReviewV2Document[];
   missingDeclarations: ReviewV2MissingDeclaration[];
+}
+
+export interface BookingReviewV2ConfirmResponse {
+  journeyId: string;
+  pcVerificationStatus: 'VERIFIED';
+  aggregateVersion: number;
+  resolvedAttributeCount: number;
+  appliedAttributes: string[];
+  reviewOnlyAttributes: string[];
+  conflictAttributes: string[];
 }
 
 export interface AuditSourceComparisonV2 {
@@ -112,6 +129,26 @@ export async function getBookingReviewV2(
     `/v2/tenants/${encodeURIComponent(tenantId)}/journeys/${encodeURIComponent(journeyId)}/booking/review`,
     {
       accessToken: token(accessToken),
+      cache: 'no-store',
+    },
+  );
+}
+
+export async function confirmBookingReviewV2(
+  tenantId: string,
+  journeyId: string,
+  aggregateVersion: number,
+  accessToken?: string,
+): Promise<BookingReviewV2ConfirmResponse> {
+  return auditCoreRequest<BookingReviewV2ConfirmResponse>(
+    `/v2/tenants/${encodeURIComponent(tenantId)}/journeys/${encodeURIComponent(journeyId)}/booking/review/confirm`,
+    {
+      method: 'POST',
+      accessToken: token(accessToken),
+      headers: {
+        'If-Match': `"${aggregateVersion}"`,
+        'Idempotency-Key': `booking-review-${journeyId}-${aggregateVersion}`,
+      },
       cache: 'no-store',
     },
   );

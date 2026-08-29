@@ -190,7 +190,11 @@ jobs:
           ];
 
           for (const viewport of viewports) {
-            const context = await browser.newContext({ viewport });
+            const context = await browser.newContext({
+              viewport,
+              permissions: ['geolocation'],
+              geolocation: { latitude: 20.2961, longitude: 85.8245, accuracy: 15 },
+            });
             const page = await context.newPage();
             const savedPayloads = [];
             const uploadedRequirementKeys = [];

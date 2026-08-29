@@ -4,14 +4,15 @@ import { useNavigate, useParams } from 'react-router-dom';
 
 import PageHeader from '../components/PageHeader';
 import {
-  getBookingDetails,
   getBookingDetailsOptions,
-  saveBookingDetails,
-  type BookingDetailsPayload,
   type BookingReferenceOption,
 } from '../services/audit-core/uc03BookingJourney';
 import {
-  completeBookingCaptureV2,
+  getBookingDetailsV2,
+  submitBookingV2,
+  type BookingDetailsV2Payload,
+} from '../services/audit-core/uc03BookingV2';
+import {
   getBookingCaptureV2,
   type BookingCaptureV2,
 } from '../services/audit-core/uc03DocumentCaptureV2';
@@ -108,8 +109,8 @@ export default function BookingDetailsV2Page() {
     staleTime: 5 * 60_000,
   });
   const detailsQuery = useQuery({
-    queryKey: ['uc03-booking-details', project?.tenantId, journeyId],
-    queryFn: () => getBookingDetails(project!.tenantId, journeyId!, accessToken),
+    queryKey: ['uc03-booking-details-v2', project?.tenantId, journeyId],
+    queryFn: () => getBookingDetailsV2(project!.tenantId, journeyId!, accessToken),
     enabled,
     refetchOnWindowFocus: false,
     staleTime: 5 * 60_000,
@@ -209,7 +210,7 @@ export default function BookingDetailsV2Page() {
   const corporateDeclared = conditions.corporateCustomer?.applicable === true;
   const corporateMismatch = Boolean(form.customerType) && customerTypeIsCorporate !== corporateDeclared;
 
-  const payload = (): BookingDetailsPayload => {
+  const payload = (): BookingDetailsV2Payload => {
     if (!complete || form.outrightPurchase === null) throw new Error('Complete all mandatory Booking Details.');
     if (corporateMismatch) {
       throw new Error('Customer Type and the Corporate applicability answer from Documents must match. Return to Documents or choose the matching Customer Type.');
@@ -237,17 +238,11 @@ export default function BookingDetailsV2Page() {
   const submit = async () => {
     setBusy(true); setError(undefined);
     try {
-      const saved = await saveBookingDetails(
+      await submitBookingV2(
         project.tenantId,
         journeyId,
         payload(),
         details.aggregateVersion,
-        accessToken,
-      );
-      await completeBookingCaptureV2(
-        project.tenantId,
-        journeyId,
-        saved.aggregateVersion,
         accessToken,
       );
       navigate(`/v2/bookings/${journeyId}/review`, { replace: true });

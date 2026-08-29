@@ -5,6 +5,7 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { verigenceLockup } from './assets/verigenceLockup';
 import ProjectContextGate from './components/ProjectContextGate';
 import SessionRenewalGate from './components/SessionRenewalGate';
+import AttendanceShellSlot from './features/attendance/AttendanceShellSlot';
 import ProjectAdminOutletLocationEnhancer from './features/project-admin/ProjectAdminOutletLocationEnhancer';
 import ProjectMasterActionOverlay from './features/project-admin/ProjectMasterActionOverlay';
 import ReviewReadinessWatcher from './features/uc03/ReviewReadinessWatcher';
@@ -39,6 +40,7 @@ const BookingWorkspacePage = lazy(loadBookingWorkspacePage);
 const BookingReviewPage = lazy(loadBookingReviewPage);
 const DeliveryWorkspacePage = lazy(loadDeliveryWorkspacePage);
 const AuditReviewPage = lazy(loadAuditReviewPage);
+const AttendancePage = lazy(() => import('./pages/AttendancePage'));
 const CustomersPage = lazy(() => import('./pages/CustomersPage'));
 const JourneysPage = lazy(() => import('./pages/JourneysPage'));
 const JourneyWorkspacePage = lazy(() => import('./pages/JourneyWorkspacePage'));
@@ -172,6 +174,7 @@ export default function App() {
         <AndroidNativeBridge />
         <ProjectAdminOutletLocationEnhancer />
         <ProjectMasterActionOverlay />
+        <AttendanceShellSlot />
         <Suspense fallback={<Loading />}>
           <Routes>
             <Route path="/login" element={<LoginPage />} />
@@ -180,6 +183,7 @@ export default function App() {
             <Route path="/terms" element={<TermsPage />} />
             <Route path="/privacy" element={<PrivacyPage />} />
             <Route path="/dashboard" element={<DashboardEntry />} />
+            <Route path="/attendance" element={<OperationalShellPage><AttendancePage /></OperationalShellPage>} />
             <Route path="/tl/cases/:journeyId/review" element={<OperationalPage><TeamLeadReviewPage /></OperationalPage>} />
             <Route path="/bookings/:journeyId" element={<OperationalPage><BookingWorkspacePage /></OperationalPage>} />
             <Route path="/bookings/:journeyId/review" element={<OperationalPage><BookingReviewPage /></OperationalPage>} />

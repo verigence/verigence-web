@@ -1,4 +1,6 @@
 const configuredAttendanceBaseUrl = import.meta.env.VITE_ATTENDANCE_BASE_URL?.trim();
+const DEV_WEB_HOST = 'verigence-web-dev.jbrconsulting-it.workers.dev';
+const DEV_ATTENDANCE_BASE_URL = 'https://attendance-dev.up.railway.app';
 const REQUEST_TIMEOUT_MS = 4_000;
 
 export interface AttendancePolicy {
@@ -107,10 +109,16 @@ export class AttendanceHttpError extends Error {
 }
 
 function baseUrl(): string {
-  if (!configuredAttendanceBaseUrl) {
-    throw new Error('Attendance service is not configured.');
+  if (configuredAttendanceBaseUrl) return configuredAttendanceBaseUrl.replace(/\/$/, '');
+
+  // The Cloudflare DEV deployment is intentionally bound only to the isolated DEV
+  // Attendance service. This runtime fallback cannot activate on any other host,
+  // so a future production build cannot accidentally send attendance traffic to DEV.
+  if (typeof window !== 'undefined' && window.location.hostname === DEV_WEB_HOST) {
+    return DEV_ATTENDANCE_BASE_URL;
   }
-  return configuredAttendanceBaseUrl.replace(/\/$/, '');
+
+  throw new Error('Attendance service is not configured.');
 }
 
 async function attendanceRequest<T>(

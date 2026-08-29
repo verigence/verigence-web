@@ -5,8 +5,11 @@ import { useNavigate } from 'react-router-dom';
 import PageHeader from '../components/PageHeader';
 import type { BookingWorkspace } from '../services/audit-core/uc03Booking';
 import { createBooking } from '../services/audit-core/uc03CreateBooking';
+import { getBookingCaptureV2 } from '../services/audit-core/uc03DocumentCaptureV2';
 import { useProjectContextStore } from '../store/projectContextStore';
 import { useSessionStore } from '../store/sessionStore';
+
+const CAPTURE_HANDOFF_STALE_MS = 3_000;
 
 function newBookingWorkspace(
   journeyId: string,
@@ -69,7 +72,6 @@ export default function CreateBookingV2Page() {
     setCreating(true);
     setError('');
     try {
-      // Reuse the existing create API exactly as-is. Only the V2 Web route differs.
       const result = await createBooking(
         activeProject.tenantId,
         outletId,
@@ -86,6 +88,15 @@ export default function CreateBookingV2Page() {
           result.aggregateVersion,
         ),
       );
+
+      // Start the next route chunk and its first useful data request before navigation.
+      // React Query deduplicates the mount-time request if this prefetch is still in flight.
+      void import('./BookingCaptureV2Page');
+      void queryClient.prefetchQuery({
+        queryKey: ['uc03-document-capture-v2', activeProject.tenantId, result.journeyId],
+        queryFn: () => getBookingCaptureV2(activeProject.tenantId, result.journeyId, accessToken),
+        staleTime: CAPTURE_HANDOFF_STALE_MS,
+      });
 
       navigate(`/v2/bookings/${result.journeyId}`, {
         replace: true,

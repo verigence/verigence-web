@@ -63,6 +63,11 @@ interface FinalizeResponse {
   state: string;
 }
 
+export interface UploadBookingCaptureV2Result extends FinalizeResponse {
+  clientUploadId: string;
+  originalFilename: string;
+}
+
 export interface BookingCaptureV2Completion {
   journeyId: string;
   phase: 'BOOKING';
@@ -91,7 +96,10 @@ export function captureV2HasPendingClassification(capture?: BookingCaptureV2): b
   if (!capture) return false;
   return capture.uploads.some((document) => {
     const state = document.state.toUpperCase();
-    return state === 'RECEIVING' || state === 'STORED' || state === 'CLASSIFYING';
+    if (state === 'RECEIVING' || state === 'STORED' || state === 'CLASSIFYING') return true;
+    // Finalize can race a very fast classifier. Until a capture read provides the
+    // accepted type, keep polling once more so requirements are reconciled correctly.
+    return state === 'CLASSIFIED' && !document.classifiedDocumentTypeKey;
   });
 }
 
@@ -111,9 +119,10 @@ export async function uploadBookingCaptureV2Files(
   journeyId: string,
   files: File[],
   accessToken?: string,
-): Promise<FinalizeResponse[]> {
+): Promise<UploadBookingCaptureV2Result[]> {
   if (files.length === 0) return [];
 
+  const access = token(accessToken);
   const prepared = files.map((file) => ({
     clientUploadId: clientUploadId(),
     filename: file.name || 'document',
@@ -123,7 +132,7 @@ export async function uploadBookingCaptureV2Files(
 
   const intent = await auditCoreRequest<UploadIntentResponse>(`${base(tenantId, journeyId)}/upload-intents`, {
     method: 'POST',
-    accessToken: token(accessToken),
+    accessToken: access,
     body: JSON.stringify({
       files: prepared.map(({ clientUploadId: id, filename, contentType }) => ({
         clientUploadId: id,
@@ -133,8 +142,8 @@ export async function uploadBookingCaptureV2Files(
     }),
   });
 
-  const byClientId = new Map(prepared.map((item) => [item.clientUploadId, item.file]));
-  const finalized = new Array<FinalizeResponse>(intent.uploads.length);
+  const byClientId = new Map(prepared.map((item) => [item.clientUploadId, item]));
+  const finalized = new Array<UploadBookingCaptureV2Result>(intent.uploads.length);
   let nextIndex = 0;
 
   const uploadWorker = async () => {
@@ -144,30 +153,39 @@ export async function uploadBookingCaptureV2Files(
       if (index >= intent.uploads.length) return;
 
       const upload = intent.uploads[index];
-      const file = byClientId.get(upload.clientUploadId);
-      if (!file) throw new Error(`Upload intent ${upload.clientUploadId} has no matching local file.`);
+      const preparedItem = byClientId.get(upload.clientUploadId);
+      if (!preparedItem) throw new Error(`Upload intent ${upload.clientUploadId} has no matching local file.`);
 
       const headers = new Headers(upload.uploadHeaders);
-      if (file.type && !headers.has('Content-Type')) headers.set('Content-Type', file.type);
+      if (preparedItem.file.type && !headers.has('Content-Type')) {
+        headers.set('Content-Type', preparedItem.file.type);
+      }
       const put = await fetch(upload.uploadUrl, {
         method: 'PUT',
         headers,
-        body: file,
+        body: preparedItem.file,
       });
       if (!put.ok) {
         throw new Error(`Document storage upload failed with HTTP ${put.status}.`);
       }
 
-      finalized[index] = await auditCoreRequest<FinalizeResponse>(
+      const result = await auditCoreRequest<FinalizeResponse>(
         `${base(tenantId, journeyId)}/documents/${encodeURIComponent(upload.documentId)}/finalize`,
         {
           method: 'POST',
-          accessToken: token(accessToken),
+          accessToken: access,
         },
       );
+      finalized[index] = {
+        ...result,
+        clientUploadId: upload.clientUploadId,
+        originalFilename: preparedItem.filename,
+      };
     }
   };
 
+  // Six parallel direct-to-storage streams match the DI classifier pool and avoid
+  // over-saturating mobile connections while still keeping multi-document capture fast.
   const concurrency = Math.min(6, intent.uploads.length);
   await Promise.all(Array.from({ length: concurrency }, () => uploadWorker()));
   return finalized;

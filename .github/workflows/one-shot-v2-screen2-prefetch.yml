@@ -68,7 +68,8 @@ jobs:
           PY
 
           git diff --check
-          npm ci
+          npm install --no-audit --no-fund
+          npm run typecheck
           npm run build
           git diff -- src/services/audit-core/uc03DocumentCaptureV2.ts src/pages/BookingDetailsV2Page.tsx
           git config user.name "Verigence-admin"

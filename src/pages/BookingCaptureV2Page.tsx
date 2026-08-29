@@ -92,8 +92,11 @@ function optimisticDeclaration(
 function mergeDeclarationResponse(
   current: BookingCaptureV2 | undefined,
   response: BookingCaptureV2,
+  conditionKey: string,
 ): BookingCaptureV2 {
   if (!current) return response;
+
+  const responseUploadById = new Map(response.uploads.map((upload) => [upload.documentId, upload]));
   const currentUploadById = new Map(current.uploads.map((upload) => [upload.documentId, upload]));
   const uploads = response.uploads.map((upload) => {
     const previous = currentUploadById.get(upload.documentId);
@@ -105,11 +108,22 @@ function mergeDeclarationResponse(
       processingStatus: upload.processingStatus || previous.processingStatus,
     };
   });
-  const responseRequirementByKey = new Map(
-    response.requirements.map((requirement) => [requirement.requirementKey, requirement]),
+  for (const upload of current.uploads) {
+    if (!responseUploadById.has(upload.documentId)) uploads.push(upload);
+  }
+
+  const serverDeclaration = response.declarations.find((item) => item.conditionKey === conditionKey);
+  const declarations = current.declarations.filter((item) => item.conditionKey !== conditionKey);
+  if (serverDeclaration) declarations.push(serverDeclaration);
+
+  const serverRequirementByKey = new Map(
+    response.requirements
+      .filter((requirement) => requirement.conditionKey === conditionKey)
+      .map((requirement) => [requirement.requirementKey, requirement]),
   );
   const requirements = current.requirements.map((requirement) => {
-    const next = responseRequirementByKey.get(requirement.requirementKey);
+    if (requirement.conditionKey !== conditionKey) return requirement;
+    const next = serverRequirementByKey.get(requirement.requirementKey);
     if (!next) return requirement;
     const document = next.document && requirement.document
       ? {
@@ -121,7 +135,43 @@ function mergeDeclarationResponse(
       : next.document;
     return { ...next, document };
   });
-  return { ...response, uploads, requirements };
+
+  return {
+    ...current,
+    externalContextRef: response.externalContextRef || current.externalContextRef,
+    uploads,
+    declarations,
+    requirements,
+    canContinue: requirements.every((requirement) => !requirement.blocksContinue),
+  };
+}
+
+function rollbackDeclaration(
+  current: BookingCaptureV2 | undefined,
+  previous: BookingCaptureV2 | undefined,
+  conditionKey: string,
+): BookingCaptureV2 | undefined {
+  if (!current || !previous) return current;
+  const previousDeclaration = previous.declarations.find((item) => item.conditionKey === conditionKey);
+  const declarations = current.declarations.filter((item) => item.conditionKey !== conditionKey);
+  if (previousDeclaration) declarations.push(previousDeclaration);
+
+  const previousRequirements = new Map(
+    previous.requirements
+      .filter((requirement) => requirement.conditionKey === conditionKey)
+      .map((requirement) => [requirement.requirementKey, requirement]),
+  );
+  const requirements = current.requirements.map((requirement) =>
+    requirement.conditionKey === conditionKey
+      ? previousRequirements.get(requirement.requirementKey) ?? requirement
+      : requirement,
+  );
+  return {
+    ...current,
+    declarations,
+    requirements,
+    canContinue: requirements.every((requirement) => !requirement.blocksContinue),
+  };
 }
 
 function addPendingUploads(
@@ -394,12 +444,14 @@ export default function BookingCaptureV2Page() {
       );
       if (declarationSequence.current.get(conditionKey) === sequence) {
         queryClient.setQueryData<BookingCaptureV2>(captureKey, (current) =>
-          mergeDeclarationResponse(current, response),
+          mergeDeclarationResponse(current, response, conditionKey),
         );
       }
     } catch (cause: unknown) {
-      if (declarationSequence.current.get(conditionKey) === sequence && previous) {
-        queryClient.setQueryData(captureKey, previous);
+      if (declarationSequence.current.get(conditionKey) === sequence) {
+        queryClient.setQueryData<BookingCaptureV2>(captureKey, (current) =>
+          rollbackDeclaration(current, previous, conditionKey),
+        );
       }
       setError(cause instanceof Error ? cause.message : 'The applicability declaration could not be saved.');
     } finally {

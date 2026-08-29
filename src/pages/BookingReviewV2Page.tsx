@@ -5,6 +5,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import PageHeader from '../components/PageHeader';
 import AttributeEvidenceViewer from '../features/uc03/AttributeEvidenceViewer';
 import {
+  confirmBookingReviewV2,
   getBookingReviewV2,
   type ReviewV2Attribute,
   type ReviewV2SourceValue,
@@ -93,6 +94,9 @@ export default function BookingReviewV2Page() {
   const previousReadyFieldCount = useRef<number | null>(null);
   const [hasNewResults, setHasNewResults] = useState(false);
   const [selectedSource, setSelectedSource] = useState<ReviewV2SourceValue>();
+  const [confirming, setConfirming] = useState(false);
+  const [confirmationMessage, setConfirmationMessage] = useState<string>();
+  const [confirmationError, setConfirmationError] = useState<string>();
 
   const enabled = Boolean(project?.tenantId && journeyId && accessToken);
   const reviewQuery = useQuery({
@@ -141,6 +145,34 @@ export default function BookingReviewV2Page() {
   const populatedCount = review.attributes.filter((attribute) => (
     attribute.resolvedValue !== null && attribute.resolvedValue !== undefined
   )).length;
+  const canConfirm = review.pcVerificationStatus === 'PENDING'
+    && !review.processingPending
+    && failedDocuments.length === 0;
+
+  const confirmReview = async () => {
+    setConfirming(true);
+    setConfirmationMessage(undefined);
+    setConfirmationError(undefined);
+    try {
+      const result = await confirmBookingReviewV2(
+        project.tenantId,
+        journeyId,
+        review.aggregateVersion,
+        accessToken,
+      );
+      const applied = result.appliedAttributes.length;
+      const reviewOnly = result.reviewOnlyAttributes.length;
+      setConfirmationMessage(
+        `Booking Review verified. ${applied} attribute${applied === 1 ? '' : 's'} updated in approved business fields; ${reviewOnly} remain audit/review-only.`,
+      );
+      await reviewQuery.refetch();
+    } catch (error) {
+      setConfirmationError(error instanceof Error ? error.message : 'Booking Review could not be confirmed. Refresh and try again.');
+      await reviewQuery.refetch();
+    } finally {
+      setConfirming(false);
+    }
+  };
 
   return (
     <div className="screen-stack uc03-booking-journey uc03-v2-capture uc03-attribute-review-page">
@@ -190,7 +222,7 @@ export default function BookingReviewV2Page() {
       {review.needsReviewCount > 0 ? (
         <div className="uc03-v2-review-attention" role="status">
           <strong>{review.needsReviewCount} populated attribute{review.needsReviewCount === 1 ? '' : 's'} need attention.</strong>
-          <span>Confidence is shown so PC/TL can decide whether to inspect the boxed source evidence.</span>
+          <span>Confidence is shown so PC/TL can inspect the boxed source evidence before confirming Review.</span>
         </div>
       ) : null}
 
@@ -247,6 +279,29 @@ export default function BookingReviewV2Page() {
             </tbody>
           </table>
         </div>
+      </section>
+
+      {confirmationMessage && <div className="uc03-c3-message" role="status">{confirmationMessage}</div>}
+      {confirmationError && <div className="uc03-c3-error" role="alert">{confirmationError}</div>}
+
+      <section className="uc03-attribute-confirm-panel">
+        <div>
+          <strong>{review.pcVerificationStatus === 'VERIFIED' ? 'Booking Review verified' : 'Confirm reviewed Booking attributes'}</strong>
+          <span>
+            {review.pcVerificationStatus === 'VERIFIED'
+              ? 'The reviewed source references are recorded. Raw DI extraction remains in Document Intelligence.'
+              : review.processingPending
+                ? 'Wait for the remaining documents to finish processing before confirming.'
+                : failedDocuments.length > 0
+                  ? 'Resolve failed document processing before confirming.'
+                  : 'Confirmation re-resolves the current DI facts on the server. Only attributes with an approved typed owner are written to business tables; raw extracted facts are never copied.'}
+          </span>
+        </div>
+        {review.pcVerificationStatus !== 'VERIFIED' && (
+          <button type="button" className="uc03-c3-primary" disabled={!canConfirm || confirming} onClick={() => void confirmReview()}>
+            {confirming ? 'Confirming…' : 'Confirm reviewed values'}
+          </button>
+        )}
       </section>
 
       {review.unmappedFields.length > 0 && (

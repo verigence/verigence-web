@@ -102,12 +102,14 @@ export default function BookingDetailsV2Page() {
     queryFn: () => getBookingCaptureV2(project!.tenantId, journeyId!, accessToken),
     enabled,
     refetchOnWindowFocus: false,
+    staleTime: 5 * 60_000,
   });
   const detailsQuery = useQuery({
     queryKey: ['uc03-booking-details', project?.tenantId, journeyId],
     queryFn: () => getBookingDetails(project!.tenantId, journeyId!, accessToken),
     enabled,
     refetchOnWindowFocus: false,
+    staleTime: 5 * 60_000,
   });
   const optionsQuery = useQuery({
     queryKey: ['uc03-booking-details-options', project?.tenantId, journeyId],
@@ -132,18 +134,24 @@ export default function BookingDetailsV2Page() {
     });
   }, [detailsQuery.data, dirty]);
 
-  const complete = useMemo(() => Boolean(
-    form.customerType
-      && form.dealType
-      && form.dealSource
-      && form.leadSource
-      && form.registrationState
-      && form.territoryCategorization
-      && form.districtName
-      && form.registrationType
-      && form.registrationCategory
-      && form.outrightPurchase !== null
-  ), [form]);
+  const missingFields = useMemo(() => {
+    const fields: Array<[keyof DetailsForm, string]> = [
+      ['customerType', 'Customer Type'],
+      ['dealType', 'Deal Type'],
+      ['dealSource', 'Deal Source'],
+      ['leadSource', 'Lead Source'],
+      ['registrationState', 'Registration State'],
+      ['territoryCategorization', 'Territory Categorization'],
+      ['districtName', 'District'],
+      ['registrationType', 'Registration Type'],
+      ['registrationCategory', 'Registration Category'],
+    ];
+    const missing = fields.filter(([key]) => !form[key]).map(([, label]) => label);
+    if (form.outrightPurchase === null) missing.push('Outright Purchase');
+    return missing;
+  }, [form]);
+
+  const complete = missingFields.length === 0;
 
   if (!project || !journeyId) return null;
 
@@ -317,7 +325,9 @@ export default function BookingDetailsV2Page() {
         </div>
 
         <div className="uc03-booking-step-footer">
-          <span>Submitting completes PC Booking capture and opens Review. Extraction does not need to finish first.</span>
+          <span>{missingFields.length
+            ? `Complete required field${missingFields.length === 1 ? '' : 's'}: ${missingFields.join(', ')}`
+            : 'Submitting completes PC Booking capture and opens Review. Extraction does not need to finish first.'}</span>
           <button type="button" className="uc03-c1-primary" disabled={!complete || corporateMismatch || busy} onClick={() => void submit()}>
             {busy ? 'Submitting…' : 'Submit Booking → Review'}
           </button>

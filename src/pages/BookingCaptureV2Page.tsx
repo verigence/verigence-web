@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useParams } from 'react-router-dom';
 
 import PageHeader from '../components/PageHeader';
 import StatusPill from '../components/StatusPill';
 import { getBookingWorkspace, startBooking } from '../services/audit-core/uc03Booking';
+import { getBookingDetails } from '../services/audit-core/uc03BookingJourney';
 import {
   captureV2HasPendingClassification,
   deleteBookingCaptureV2Document,
@@ -184,6 +185,7 @@ function RequirementRow({
 export default function BookingCaptureV2Page() {
   const { journeyId } = useParams<{ journeyId: string }>();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const project = useProjectContextStore((state) => state.selectedProject);
   const accessToken = useSessionStore((state) => state.accessToken);
   const [busy, setBusy] = useState(false);
@@ -212,6 +214,15 @@ export default function BookingCaptureV2Page() {
     setMessage('Document received. Classification is running automatically…');
     return undefined;
   }, [captureQuery.data]);
+
+  useEffect(() => {
+    if (!enabled || !started || !project?.tenantId || !journeyId) return;
+    void queryClient.prefetchQuery({
+      queryKey: ['uc03-booking-details', project.tenantId, journeyId],
+      queryFn: () => getBookingDetails(project.tenantId, journeyId, accessToken),
+      staleTime: 5 * 60_000,
+    });
+  }, [accessToken, enabled, journeyId, project?.tenantId, queryClient, started]);
 
   const conditionKeys = useMemo(() => {
     const keys = captureQuery.data?.requirements

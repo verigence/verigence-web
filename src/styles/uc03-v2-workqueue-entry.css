@@ -1,0 +1,21 @@
+/* UC03 Booking capture split entry. UI-only; legacy V1 route remains unchanged. */
+.enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-dashboard-hero__capture-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 760px) {
+  .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-dashboard-hero__capture-actions {
+    width: 100%;
+    justify-content: stretch;
+  }
+
+  .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-dashboard-hero__capture-actions .uc03-landing__capture-action--workqueue {
+    flex: 1 1 100%;
+    min-width: 0 !important;
+    width: 100%;
+  }
+}

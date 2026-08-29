@@ -1,4 +1,4 @@
-name: One-shot R2 V2 upload CORS diagnose
+name: One-shot R2 V2 upload CORS fix
 
 on:
   push:
@@ -11,12 +11,13 @@ permissions:
   contents: read
 
 jobs:
-  diagnose:
+  fix:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     env:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      R2_BUCKET: verigence-di-bucket-dev
     steps:
       - uses: actions/checkout@v4
         with:
@@ -29,8 +30,37 @@ jobs:
       - name: Install repository dependencies
         run: npm install --no-audit --no-fund
 
-      - name: Show accessible R2 buckets
-        run: npx wrangler r2 bucket list
+      - name: Write narrow DEV R2 CORS policy
+        shell: bash
+        run: |
+          cat > /tmp/r2-cors.json <<'JSON'
+          {
+            "rules": [
+              {
+                "allowed": {
+                  "origins": [
+                    "https://verigence-web-dev.jbrconsulting-it.workers.dev",
+                    "https://localhost"
+                  ],
+                  "methods": ["GET", "HEAD", "PUT"],
+                  "headers": ["Range", "Content-Type"]
+                },
+                "exposeHeaders": [
+                  "Content-Type",
+                  "Content-Length",
+                  "ETag",
+                  "Accept-Ranges",
+                  "Content-Range"
+                ],
+                "maxAgeSeconds": 3600
+              }
+            ]
+          }
+          JSON
+          cat /tmp/r2-cors.json
 
-      - name: Read live DEV bucket CORS
-        run: npx wrangler r2 bucket cors list verigence-di-bucket-dev
+      - name: Apply private R2 CORS policy
+        run: npx wrangler r2 bucket cors set "$R2_BUCKET" --file /tmp/r2-cors.json --force
+
+      - name: Verify live R2 CORS policy
+        run: npx wrangler r2 bucket cors list "$R2_BUCKET"

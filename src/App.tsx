@@ -17,6 +17,10 @@ import { useSessionStore } from './store/sessionStore';
 const loadDashboardPage = () => import('./pages/DashboardPage');
 const loadBookingWorkspacePage = () => import('./pages/BookingWorkspaceFastEntry');
 const loadBookingReviewPage = () => import('./pages/BookingReviewPage');
+const loadCreateBookingV2Page = () => import('./pages/CreateBookingV2Page');
+const loadBookingCaptureV2Page = () => import('./pages/BookingCaptureV2Page');
+const loadBookingDetailsV2Page = () => import('./pages/BookingDetailsV2Page');
+const loadBookingReviewV2Page = () => import('./pages/BookingReviewV2Page');
 const loadDeliveryWorkspacePage = () => import('./pages/DeliveryWorkspacePage');
 const loadAuditReviewPage = () => import('./pages/AuditReviewPage');
 
@@ -38,10 +42,10 @@ const TeamLeadDashboardPage = lazy(() => import('./pages/TeamLeadDashboardPage')
 const TeamLeadReviewPage = lazy(() => import('./pages/TeamLeadReviewPage'));
 const BookingWorkspacePage = lazy(loadBookingWorkspacePage);
 const BookingReviewPage = lazy(loadBookingReviewPage);
-const CreateBookingV2Page = lazy(() => import('./pages/CreateBookingV2Page'));
-const BookingCaptureV2Page = lazy(() => import('./pages/BookingCaptureV2Page'));
-const BookingDetailsV2Page = lazy(() => import('./pages/BookingDetailsV2Page'));
-const BookingReviewV2Page = lazy(() => import('./pages/BookingReviewV2Page'));
+const CreateBookingV2Page = lazy(loadCreateBookingV2Page);
+const BookingCaptureV2Page = lazy(loadBookingCaptureV2Page);
+const BookingDetailsV2Page = lazy(loadBookingDetailsV2Page);
+const BookingReviewV2Page = lazy(loadBookingReviewV2Page);
 const DeliveryWorkspacePage = lazy(loadDeliveryWorkspacePage);
 const AuditReviewPage = lazy(loadAuditReviewPage);
 const AttendancePage = lazy(() => import('./pages/AttendancePage'));
@@ -81,6 +85,10 @@ function PcJourneyRoutePreloader() {
       void Promise.allSettled([
         loadBookingWorkspacePage(),
         loadBookingReviewPage(),
+        loadCreateBookingV2Page(),
+        loadBookingCaptureV2Page(),
+        loadBookingDetailsV2Page(),
+        loadBookingReviewV2Page(),
         loadDeliveryWorkspacePage(),
         loadAuditReviewPage(),
       ]);

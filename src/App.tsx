@@ -38,6 +38,7 @@ const TeamLeadDashboardPage = lazy(() => import('./pages/TeamLeadDashboardPage')
 const TeamLeadReviewPage = lazy(() => import('./pages/TeamLeadReviewPage'));
 const BookingWorkspacePage = lazy(loadBookingWorkspacePage);
 const BookingReviewPage = lazy(loadBookingReviewPage);
+const CreateBookingV2Page = lazy(() => import('./pages/CreateBookingV2Page'));
 const BookingCaptureV2Page = lazy(() => import('./pages/BookingCaptureV2Page'));
 const BookingDetailsV2Page = lazy(() => import('./pages/BookingDetailsV2Page'));
 const BookingReviewV2Page = lazy(() => import('./pages/BookingReviewV2Page'));
@@ -190,6 +191,7 @@ export default function App() {
             <Route path="/tl/cases/:journeyId/review" element={<OperationalPage><TeamLeadReviewPage /></OperationalPage>} />
             <Route path="/bookings/:journeyId" element={<OperationalPage><BookingWorkspacePage /></OperationalPage>} />
             <Route path="/bookings/:journeyId/review" element={<OperationalPage><BookingReviewPage /></OperationalPage>} />
+            <Route path="/v2/bookings/new" element={<OperationalPage><CreateBookingV2Page /></OperationalPage>} />
             <Route path="/v2/bookings/:journeyId" element={<OperationalPage><BookingCaptureV2Page /></OperationalPage>} />
             <Route path="/v2/bookings/:journeyId/details" element={<OperationalPage><BookingDetailsV2Page /></OperationalPage>} />
             <Route path="/v2/bookings/:journeyId/review" element={<OperationalPage><BookingReviewV2Page /></OperationalPage>} />

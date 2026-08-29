@@ -186,6 +186,7 @@ export default function BookingDetailsV2Page() {
   const update = <K extends keyof DetailsForm>(key: K, value: DetailsForm[K]) => {
     setForm((current) => ({ ...current, [key]: value }));
     setDirty(true);
+    setError(undefined);
   };
 
   const conditions = {
@@ -193,9 +194,15 @@ export default function BookingDetailsV2Page() {
     gstApplicable: declaration(capture, 'gstApplicable'),
     corporateCustomer: declaration(capture, 'corporateCustomer'),
   };
+  const customerTypeIsCorporate = form.customerType.trim().toUpperCase() === 'CORPORATE';
+  const corporateDeclared = conditions.corporateCustomer?.applicable === true;
+  const corporateMismatch = Boolean(form.customerType) && customerTypeIsCorporate !== corporateDeclared;
 
   const payload = (): BookingDetailsPayload => {
     if (!complete || form.outrightPurchase === null) throw new Error('Complete all mandatory Booking Details.');
+    if (corporateMismatch) {
+      throw new Error('Customer Type and the Corporate applicability answer from Documents must match. Return to Documents or choose the matching Customer Type.');
+    }
     return {
       priceListId: details.priceListId,
       customerType: form.customerType,
@@ -210,7 +217,7 @@ export default function BookingDetailsV2Page() {
       outrightPurchase: form.outrightPurchase,
       tradeIn: conditions.exchangeTaken?.applicable ?? false,
       gstBenefit: conditions.gstApplicable?.applicable ?? false,
-      corporateIdAvailable: form.customerType === 'CORPORATE'
+      corporateIdAvailable: customerTypeIsCorporate
         ? (conditions.corporateCustomer?.documentAvailable ?? false)
         : null,
     };
@@ -290,6 +297,12 @@ export default function BookingDetailsV2Page() {
           <span>Corporate customer: {conditions.corporateCustomer?.applicable ? 'Yes' : 'No'}</span>
         </div>
 
+        {corporateMismatch ? (
+          <div className="uc03-booking-journey-feedback is-error" role="alert">
+            Customer Type and the Corporate answer captured on Documents do not match. Correct one of them before submitting.
+          </div>
+        ) : null}
+
         <div className="uc03-booking-details-grid">
           <MasterSelect label="Customer Type" value={form.customerType} options={options.customerTypes} onChange={(value) => update('customerType', value)} />
           <MasterSelect label="Deal Type" value={form.dealType} options={options.dealTypes} onChange={(value) => update('dealType', value)} />
@@ -305,7 +318,7 @@ export default function BookingDetailsV2Page() {
 
         <div className="uc03-booking-step-footer">
           <span>Submitting completes PC Booking capture and opens Review. Extraction does not need to finish first.</span>
-          <button type="button" className="uc03-c1-primary" disabled={!complete || busy} onClick={() => void submit()}>
+          <button type="button" className="uc03-c1-primary" disabled={!complete || corporateMismatch || busy} onClick={() => void submit()}>
             {busy ? 'Submitting…' : 'Submit Booking → Review'}
           </button>
         </div>

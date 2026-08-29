@@ -109,12 +109,16 @@ function ConditionalDecision({
 
 function RequirementRow({
   requirement,
+  busy,
   busyDocumentId,
   onDelete,
+  onUpload,
 }: {
   requirement: CaptureV2Requirement;
+  busy: boolean;
   busyDocumentId?: string;
   onDelete: (documentId: string) => Promise<void>;
+  onUpload: (files: File[]) => Promise<void>;
 }) {
   const document = requirement.document;
   const deleting = document?.documentId === busyDocumentId;
@@ -154,13 +158,22 @@ function RequirementRow({
             <a href={document.contentUrl} target="_blank" rel="noreferrer">View</a>
           ) : null}
           {requirement.canDelete ? (
-            <button type="button" disabled={deleting} onClick={() => void onDelete(document.documentId)}>
+            <button type="button" disabled={deleting || busy} onClick={() => void onDelete(document.documentId)}>
               {deleting ? 'Deleting…' : 'Delete'}
             </button>
           ) : null}
-          <label>
+          <label aria-disabled={busy || deleting}>
             Upload Again
-            <input type="file" disabled aria-hidden="true" tabIndex={-1} />
+            <input
+              type="file"
+              accept="image/*,.pdf"
+              disabled={busy || deleting}
+              onChange={(event) => {
+                const files = Array.from(event.currentTarget.files ?? []);
+                event.currentTarget.value = '';
+                void onUpload(files);
+              }}
+            />
           </label>
         </div>
       ) : null}
@@ -401,8 +414,10 @@ export default function BookingCaptureV2Page() {
                 <RequirementRow
                   key={requirement.requirementKey}
                   requirement={requirement}
+                  busy={busy}
                   busyDocumentId={busyDocumentId}
                   onDelete={handleDelete}
+                  onUpload={handleUpload}
                 />
               ))}
             </div>
@@ -416,7 +431,7 @@ export default function BookingCaptureV2Page() {
                       <strong>{upload.originalFilename}</strong>
                       <span>{upload.state === 'UNKNOWN' ? 'Document type could not be identified. Upload a clearer/replacement document.' : `Classification: ${upload.state}`}</span>
                     </div>
-                    <button type="button" disabled={busyDocumentId === upload.documentId} onClick={() => void handleDelete(upload.documentId)}>
+                    <button type="button" disabled={busyDocumentId === upload.documentId || busy} onClick={() => void handleDelete(upload.documentId)}>
                       Delete
                     </button>
                   </div>

@@ -1,0 +1,36 @@
+name: One-shot R2 V2 upload CORS diagnose
+
+on:
+  push:
+    branches:
+      - diagnose/r2-v2-upload-cors
+    paths:
+      - .github/workflows/one-shot-r2-v2-upload-cors-diagnose.yml
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: diagnose/r2-v2-upload-cors
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install repository dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Show accessible R2 buckets
+        run: npx wrangler r2 bucket list
+
+      - name: Read live DEV bucket CORS
+        run: npx wrangler r2 bucket cors list verigence-di-dev

@@ -1,0 +1,78 @@
+name: One-shot V2 Screen 2 prefetch
+
+on:
+  push:
+    branches:
+      - perf/v2-screen2-prefetch
+    paths:
+      - .github/workflows/one-shot-v2-screen2-prefetch.yml
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: perf/v2-screen2-prefetch
+          fetch-depth: 0
+      - name: Apply focused Web changes
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          capture_path = Path('src/pages/BookingCaptureV2Page.tsx')
+          text = capture_path.read_text()
+          old = "import { useQuery } from '@tanstack/react-query';"
+          new = "import { useQuery, useQueryClient } from '@tanstack/react-query';"
+          assert old in text
+          text = text.replace(old, new, 1)
+          old = "import { getBookingWorkspace, startBooking } from '../services/audit-core/uc03Booking';"
+          new = "import { getBookingWorkspace, startBooking } from '../services/audit-core/uc03Booking';\nimport { getBookingDetails } from '../services/audit-core/uc03BookingJourney';"
+          assert old in text
+          text = text.replace(old, new, 1)
+          old = "  const navigate = useNavigate();\n  const project = useProjectContextStore((state) => state.selectedProject);"
+          new = "  const navigate = useNavigate();\n  const queryClient = useQueryClient();\n  const project = useProjectContextStore((state) => state.selectedProject);"
+          assert old in text
+          text = text.replace(old, new, 1)
+          anchor = "  useEffect(() => {\n    if (!captureQuery.data || !captureV2HasPendingClassification(captureQuery.data)) return undefined;\n    setMessage('Document received. Classification is running automatically…');\n    return undefined;\n  }, [captureQuery.data]);\n"
+          assert anchor in text
+          addition = anchor + "\n  useEffect(() => {\n    if (!enabled || !started || !project?.tenantId || !journeyId) return;\n    void queryClient.prefetchQuery({\n      queryKey: ['uc03-booking-details', project.tenantId, journeyId],\n      queryFn: () => getBookingDetails(project.tenantId, journeyId, accessToken),\n      staleTime: 5 * 60_000,\n    });\n  }, [accessToken, enabled, journeyId, project?.tenantId, queryClient, started]);\n"
+          text = text.replace(anchor, addition, 1)
+          capture_path.write_text(text)
+
+          details_path = Path('src/pages/BookingDetailsV2Page.tsx')
+          text = details_path.read_text()
+          old = "    enabled,\n    refetchOnWindowFocus: false,\n  });\n  const detailsQuery = useQuery({"
+          new = "    enabled,\n    refetchOnWindowFocus: false,\n    staleTime: 5 * 60_000,\n  });\n  const detailsQuery = useQuery({"
+          assert old in text
+          text = text.replace(old, new, 1)
+          old = "    enabled,\n    refetchOnWindowFocus: false,\n  });\n  const optionsQuery = useQuery({"
+          new = "    enabled,\n    refetchOnWindowFocus: false,\n    staleTime: 5 * 60_000,\n  });\n  const optionsQuery = useQuery({"
+          assert old in text
+          text = text.replace(old, new, 1)
+
+          old = "  const complete = useMemo(() => Boolean(\n    form.customerType\n      && form.dealType\n      && form.dealSource\n      && form.leadSource\n      && form.registrationState\n      && form.territoryCategorization\n      && form.districtName\n      && form.registrationType\n      && form.registrationCategory\n      && form.outrightPurchase !== null\n  ), [form]);"
+          new = "  const missingFields = useMemo(() => {\n    const fields: Array<[keyof DetailsForm, string]> = [\n      ['customerType', 'Customer Type'],\n      ['dealType', 'Deal Type'],\n      ['dealSource', 'Deal Source'],\n      ['leadSource', 'Lead Source'],\n      ['registrationState', 'Registration State'],\n      ['territoryCategorization', 'Territory Categorization'],\n      ['districtName', 'District'],\n      ['registrationType', 'Registration Type'],\n      ['registrationCategory', 'Registration Category'],\n    ];\n    const missing = fields.filter(([key]) => !form[key]).map(([, label]) => label);\n    if (form.outrightPurchase === null) missing.push('Outright Purchase');\n    return missing;\n  }, [form]);\n\n  const complete = missingFields.length === 0;"
+          assert old in text
+          text = text.replace(old, new, 1)
+
+          old = "          <span>Submitting completes PC Booking capture and opens Review. Extraction does not need to finish first.</span>"
+          new = "          <span>{missingFields.length\n            ? `Complete required field${missingFields.length === 1 ? '' : 's'}: ${missingFields.join(', ')}`\n            : 'Submitting completes PC Booking capture and opens Review. Extraction does not need to finish first.'}</span>"
+          assert old in text
+          text = text.replace(old, new, 1)
+          details_path.write_text(text)
+          PY
+
+          git diff --check
+          git diff -- src/pages/BookingCaptureV2Page.tsx src/pages/BookingDetailsV2Page.tsx
+          git config user.name "Verigence-admin"
+          git config user.email "jbrconsulting.it@gmail.com"
+          git add src/pages/BookingCaptureV2Page.tsx src/pages/BookingDetailsV2Page.tsx
+          git commit -m "perf(v2): prefetch Booking Details before Screen 2"
+          git push origin HEAD:perf/v2-screen2-prefetch

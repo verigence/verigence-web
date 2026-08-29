@@ -1,4 +1,5 @@
 import { auditCoreRequest } from './client';
+import { newIdempotencyKey } from './uc03Booking';
 
 export type CaptureV2Applicability = 'APPLICABLE' | 'NOT_APPLICABLE' | 'UNRESOLVED';
 
@@ -60,6 +61,13 @@ interface UploadIntentResponse {
 interface FinalizeResponse {
   documentId: string;
   state: string;
+}
+
+export interface BookingCaptureV2Completion {
+  journeyId: string;
+  phase: 'BOOKING';
+  status: 'COMPLETED';
+  aggregateVersion: number;
 }
 
 function token(accessToken?: string): string {
@@ -126,32 +134,42 @@ export async function uploadBookingCaptureV2Files(
   });
 
   const byClientId = new Map(prepared.map((item) => [item.clientUploadId, item.file]));
-  const finalized: FinalizeResponse[] = [];
+  const finalized = new Array<FinalizeResponse>(intent.uploads.length);
+  let nextIndex = 0;
 
-  for (const upload of intent.uploads) {
-    const file = byClientId.get(upload.clientUploadId);
-    if (!file) throw new Error(`Upload intent ${upload.clientUploadId} has no matching local file.`);
+  const uploadWorker = async () => {
+    while (true) {
+      const index = nextIndex;
+      nextIndex += 1;
+      if (index >= intent.uploads.length) return;
 
-    const headers = new Headers(upload.uploadHeaders);
-    if (file.type && !headers.has('Content-Type')) headers.set('Content-Type', file.type);
-    const put = await fetch(upload.uploadUrl, {
-      method: 'PUT',
-      headers,
-      body: file,
-    });
-    if (!put.ok) {
-      throw new Error(`Document storage upload failed with HTTP ${put.status}.`);
+      const upload = intent.uploads[index];
+      const file = byClientId.get(upload.clientUploadId);
+      if (!file) throw new Error(`Upload intent ${upload.clientUploadId} has no matching local file.`);
+
+      const headers = new Headers(upload.uploadHeaders);
+      if (file.type && !headers.has('Content-Type')) headers.set('Content-Type', file.type);
+      const put = await fetch(upload.uploadUrl, {
+        method: 'PUT',
+        headers,
+        body: file,
+      });
+      if (!put.ok) {
+        throw new Error(`Document storage upload failed with HTTP ${put.status}.`);
+      }
+
+      finalized[index] = await auditCoreRequest<FinalizeResponse>(
+        `${base(tenantId, journeyId)}/documents/${encodeURIComponent(upload.documentId)}/finalize`,
+        {
+          method: 'POST',
+          accessToken: token(accessToken),
+        },
+      );
     }
+  };
 
-    finalized.push(await auditCoreRequest<FinalizeResponse>(
-      `${base(tenantId, journeyId)}/documents/${encodeURIComponent(upload.documentId)}/finalize`,
-      {
-        method: 'POST',
-        accessToken: token(accessToken),
-      },
-    ));
-  }
-
+  const concurrency = Math.min(6, intent.uploads.length);
+  await Promise.all(Array.from({ length: concurrency }, () => uploadWorker()));
   return finalized;
 }
 
@@ -186,4 +204,20 @@ export async function setBookingCaptureV2Declaration(
       body: JSON.stringify({ applicable, documentAvailable }),
     },
   );
+}
+
+export async function completeBookingCaptureV2(
+  tenantId: string,
+  journeyId: string,
+  aggregateVersion: number,
+  accessToken?: string,
+): Promise<BookingCaptureV2Completion> {
+  return auditCoreRequest<BookingCaptureV2Completion>(`${base(tenantId, journeyId)}/complete`, {
+    method: 'POST',
+    accessToken: token(accessToken),
+    headers: {
+      'Idempotency-Key': newIdempotencyKey('uc03-v2-booking-complete'),
+      'If-Match': `"${aggregateVersion}"`,
+    },
+  });
 }

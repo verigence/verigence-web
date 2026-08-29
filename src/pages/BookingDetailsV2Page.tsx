@@ -10,8 +10,11 @@ import {
   type BookingDetailsPayload,
   type BookingReferenceOption,
 } from '../services/audit-core/uc03BookingJourney';
-import { submitPcBookingCapture } from '../services/audit-core/uc03PcVerification';
-import { getBookingCaptureV2, type BookingCaptureV2 } from '../services/audit-core/uc03DocumentCaptureV2';
+import {
+  completeBookingCaptureV2,
+  getBookingCaptureV2,
+  type BookingCaptureV2,
+} from '../services/audit-core/uc03DocumentCaptureV2';
 import { useProjectContextStore } from '../store/projectContextStore';
 import { useSessionStore } from '../store/sessionStore';
 import '../styles/uc03-document-capture-v2.css';
@@ -231,22 +234,6 @@ export default function BookingDetailsV2Page() {
     };
   };
 
-  const pcCaptureValues = (): Record<string, unknown> => ({
-    CUSTOMER_TYPE: form.customerType,
-    DEAL_TYPE: form.dealType,
-    DEAL_SOURCE: form.dealSource,
-    LEAD_SOURCE: form.leadSource,
-    REGISTRATION_STATE: form.registrationState,
-    TERRITORY_CATEGORIZATION: form.territoryCategorization,
-    DISTRICT_NAME: form.districtName,
-    REGISTRATION_TYPE: form.registrationType,
-    REGISTRATION_CATEGORY: form.registrationCategory,
-    OUTRIGHT_PURCHASE: form.outrightPurchase,
-    EXCHANGE_TAKEN: conditions.exchangeTaken?.applicable ?? false,
-    GST_APPLICABLE: conditions.gstApplicable?.applicable ?? false,
-    CORPORATE_CUSTOMER: conditions.corporateCustomer?.applicable ?? false,
-  });
-
   const submit = async () => {
     setBusy(true); setError(undefined);
     try {
@@ -257,11 +244,10 @@ export default function BookingDetailsV2Page() {
         details.aggregateVersion,
         accessToken,
       );
-      await submitPcBookingCapture(
+      await completeBookingCaptureV2(
         project.tenantId,
         journeyId,
         saved.aggregateVersion,
-        pcCaptureValues(),
         accessToken,
       );
       navigate(`/v2/bookings/${journeyId}/review`, { replace: true });

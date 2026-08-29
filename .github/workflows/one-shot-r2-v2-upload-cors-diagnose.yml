@@ -33,4 +33,4 @@ jobs:
         run: npx wrangler r2 bucket list
 
       - name: Read live DEV bucket CORS
-        run: npx wrangler r2 bucket cors list verigence-di-dev
+        run: npx wrangler r2 bucket cors list verigence-di-bucket-dev

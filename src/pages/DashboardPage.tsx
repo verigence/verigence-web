@@ -153,10 +153,16 @@ function DashboardHero({ dealershipName, outletName, showCaptureAction }: Dashbo
       </div>
 
       {showCaptureAction && (
-        <Link className="uc03-landing__capture-action uc03-landing__capture-action--workqueue" to="/dashboard?action=create-booking">
-          <span aria-hidden="true">＋</span>
-          <span>Capture New Booking</span>
-        </Link>
+        <div className="uc03-dashboard-hero__capture-actions" aria-label="Booking capture options">
+          <Link className="uc03-landing__capture-action uc03-landing__capture-action--workqueue" to="/dashboard?action=create-booking">
+            <span aria-hidden="true">＋</span>
+            <span>Capture New Booking</span>
+          </Link>
+          <Link className="uc03-landing__capture-action uc03-landing__capture-action--workqueue" to="/v2/bookings/new">
+            <span aria-hidden="true">＋</span>
+            <span>Capture New Booking V2</span>
+          </Link>
+        </div>
       )}
     </section>
   );

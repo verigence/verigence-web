@@ -10,8 +10,11 @@ import {
   type BookingDetailsPayload,
   type BookingReferenceOption,
 } from '../services/audit-core/uc03BookingJourney';
-import { submitPcBookingCapture } from '../services/audit-core/uc03PcVerification';
-import { getBookingCaptureV2, type BookingCaptureV2 } from '../services/audit-core/uc03DocumentCaptureV2';
+import {
+  completeBookingCaptureV2,
+  getBookingCaptureV2,
+  type BookingCaptureV2,
+} from '../services/audit-core/uc03DocumentCaptureV2';
 import { useProjectContextStore } from '../store/projectContextStore';
 import { useSessionStore } from '../store/sessionStore';
 import '../styles/uc03-document-capture-v2.css';
@@ -102,12 +105,14 @@ export default function BookingDetailsV2Page() {
     queryFn: () => getBookingCaptureV2(project!.tenantId, journeyId!, accessToken),
     enabled,
     refetchOnWindowFocus: false,
+    staleTime: 5 * 60_000,
   });
   const detailsQuery = useQuery({
     queryKey: ['uc03-booking-details', project?.tenantId, journeyId],
     queryFn: () => getBookingDetails(project!.tenantId, journeyId!, accessToken),
     enabled,
     refetchOnWindowFocus: false,
+    staleTime: 5 * 60_000,
   });
   const optionsQuery = useQuery({
     queryKey: ['uc03-booking-details-options', project?.tenantId, journeyId],
@@ -132,18 +137,24 @@ export default function BookingDetailsV2Page() {
     });
   }, [detailsQuery.data, dirty]);
 
-  const complete = useMemo(() => Boolean(
-    form.customerType
-      && form.dealType
-      && form.dealSource
-      && form.leadSource
-      && form.registrationState
-      && form.territoryCategorization
-      && form.districtName
-      && form.registrationType
-      && form.registrationCategory
-      && form.outrightPurchase !== null
-  ), [form]);
+  const missingFields = useMemo(() => {
+    const fields: Array<[keyof DetailsForm, string]> = [
+      ['customerType', 'Customer Type'],
+      ['dealType', 'Deal Type'],
+      ['dealSource', 'Deal Source'],
+      ['leadSource', 'Lead Source'],
+      ['registrationState', 'Registration State'],
+      ['territoryCategorization', 'Territory Categorization'],
+      ['districtName', 'District'],
+      ['registrationType', 'Registration Type'],
+      ['registrationCategory', 'Registration Category'],
+    ];
+    const missing = fields.filter(([key]) => !form[key]).map(([, label]) => label);
+    if (form.outrightPurchase === null) missing.push('Outright Purchase');
+    return missing;
+  }, [form]);
+
+  const complete = missingFields.length === 0;
 
   if (!project || !journeyId) return null;
 
@@ -223,22 +234,6 @@ export default function BookingDetailsV2Page() {
     };
   };
 
-  const pcCaptureValues = (): Record<string, unknown> => ({
-    CUSTOMER_TYPE: form.customerType,
-    DEAL_TYPE: form.dealType,
-    DEAL_SOURCE: form.dealSource,
-    LEAD_SOURCE: form.leadSource,
-    REGISTRATION_STATE: form.registrationState,
-    TERRITORY_CATEGORIZATION: form.territoryCategorization,
-    DISTRICT_NAME: form.districtName,
-    REGISTRATION_TYPE: form.registrationType,
-    REGISTRATION_CATEGORY: form.registrationCategory,
-    OUTRIGHT_PURCHASE: form.outrightPurchase,
-    EXCHANGE_TAKEN: conditions.exchangeTaken?.applicable ?? false,
-    GST_APPLICABLE: conditions.gstApplicable?.applicable ?? false,
-    CORPORATE_CUSTOMER: conditions.corporateCustomer?.applicable ?? false,
-  });
-
   const submit = async () => {
     setBusy(true); setError(undefined);
     try {
@@ -249,11 +244,10 @@ export default function BookingDetailsV2Page() {
         details.aggregateVersion,
         accessToken,
       );
-      await submitPcBookingCapture(
+      await completeBookingCaptureV2(
         project.tenantId,
         journeyId,
         saved.aggregateVersion,
-        pcCaptureValues(),
         accessToken,
       );
       navigate(`/v2/bookings/${journeyId}/review`, { replace: true });
@@ -317,7 +311,9 @@ export default function BookingDetailsV2Page() {
         </div>
 
         <div className="uc03-booking-step-footer">
-          <span>Submitting completes PC Booking capture and opens Review. Extraction does not need to finish first.</span>
+          <span>{missingFields.length
+            ? `Complete required field${missingFields.length === 1 ? '' : 's'}: ${missingFields.join(', ')}`
+            : 'Submitting completes PC Booking capture and opens Review. Extraction does not need to finish first.'}</span>
           <button type="button" className="uc03-c1-primary" disabled={!complete || corporateMismatch || busy} onClick={() => void submit()}>
             {busy ? 'Submitting…' : 'Submit Booking → Review'}
           </button>

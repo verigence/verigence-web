@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect, type ReactNode } from 'react';
 import { IonApp } from '@ionic/react';
-import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
+import { BrowserRouter, Navigate, Route, Routes, useParams } from 'react-router-dom';
 
 import { verigenceLockup } from './assets/verigenceLockup';
 import ProjectContextGate from './components/ProjectContextGate';
@@ -43,13 +43,10 @@ const DocumentIntelligenceConfigurationPage = lazy(() => import('./pages/Documen
 const DashboardPage = lazy(loadDashboardPage);
 const TeamLeadDashboardPage = lazy(() => import('./pages/TeamLeadDashboardPage'));
 const TeamLeadReviewPage = lazy(() => import('./pages/TeamLeadReviewPage'));
-const BookingWorkspacePage = lazy(loadBookingWorkspacePage);
-const BookingReviewPage = lazy(loadBookingReviewPage);
 const CreateBookingV2Page = lazy(loadCreateBookingV2Page);
 const BookingCaptureV2Page = lazy(loadBookingCaptureV2Page);
 const BookingDetailsV2Page = lazy(loadBookingDetailsV2Page);
 const BookingReviewV2Page = lazy(loadBookingReviewV2Page);
-const DeliveryWorkspacePage = lazy(loadDeliveryWorkspacePage);
 const DeliveryCaptureV2Page = lazy(loadDeliveryCaptureV2Page);
 const DeliveryReviewV2Page = lazy(loadDeliveryReviewV2Page);
 const AuditReviewPage = lazy(loadAuditReviewPage);
@@ -179,6 +176,17 @@ function LegacyOperationalPage({ children }: { children: ReactNode }) {
   return <Authenticated><ProjectContextGate><Navigate to="/dashboard" replace /></ProjectContextGate></Authenticated>;
 }
 
+function V2JourneyRedirect({ target }: { target: 'BOOKING' | 'BOOKING_REVIEW' | 'DELIVERY' }) {
+  const { journeyId = '' } = useParams();
+  if (!journeyId) return <Navigate to="/dashboard" replace />;
+  const path = target === 'BOOKING'
+    ? `/v2/bookings/${journeyId}`
+    : target === 'BOOKING_REVIEW'
+      ? `/v2/bookings/${journeyId}/review`
+      : `/v2/deliveries/${journeyId}`;
+  return <Navigate to={path} replace />;
+}
+
 function Loading() {
   return <div className="app-loading"><img src={verigenceLockup} alt="Verigence" /><span>Loading Verigence…</span></div>;
 }
@@ -203,13 +211,13 @@ export default function App() {
             <Route path="/dashboard" element={<DashboardEntry />} />
             <Route path="/attendance" element={<OperationalShellPage><AttendancePage /></OperationalShellPage>} />
             <Route path="/tl/cases/:journeyId/review" element={<OperationalPage><TeamLeadReviewPage /></OperationalPage>} />
-            <Route path="/bookings/:journeyId" element={<OperationalPage><BookingWorkspacePage /></OperationalPage>} />
-            <Route path="/bookings/:journeyId/review" element={<OperationalPage><BookingReviewPage /></OperationalPage>} />
+            <Route path="/bookings/:journeyId" element={<V2JourneyRedirect target="BOOKING" />} />
+            <Route path="/bookings/:journeyId/review" element={<V2JourneyRedirect target="BOOKING_REVIEW" />} />
             <Route path="/v2/bookings/new" element={<OperationalPage><CreateBookingV2Page /></OperationalPage>} />
             <Route path="/v2/bookings/:journeyId" element={<OperationalPage><BookingCaptureV2Page /></OperationalPage>} />
             <Route path="/v2/bookings/:journeyId/details" element={<OperationalPage><BookingDetailsV2Page /></OperationalPage>} />
             <Route path="/v2/bookings/:journeyId/review" element={<OperationalPage><BookingReviewV2Page /></OperationalPage>} />
-            <Route path="/deliveries/:journeyId" element={<OperationalPage><DeliveryWorkspacePage /></OperationalPage>} />
+            <Route path="/deliveries/:journeyId" element={<V2JourneyRedirect target="DELIVERY" />} />
             <Route path="/v2/deliveries/:journeyId" element={<OperationalPage><DeliveryCaptureV2Page /></OperationalPage>} />
             <Route path="/v2/deliveries/:journeyId/review" element={<OperationalPage><DeliveryReviewV2Page /></OperationalPage>} />
             <Route path="/audit/:journeyId" element={<OperationalPage><AuditReviewPage /></OperationalPage>} />

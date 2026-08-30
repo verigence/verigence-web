@@ -21,6 +21,55 @@ import '../styles/uc03-attribute-audit-review.css';
 
 const REVIEW_REFRESH_MS = 2 * 60 * 1000;
 const REVIEW_THRESHOLD = 92;
+const RECEIPT_DOCUMENT_TYPE = 'dealer_receipt';
+
+const EXPECTED_DOCUMENT_BY_ATTRIBUTE: Record<string, string> = {
+  customer_name: 'PAN Card / Aadhaar Card / Booking Form',
+  customer_date_of_birth: 'PAN Card / Aadhaar Card',
+  aadhaar_number: 'Aadhaar Card',
+  customer_gender: 'Aadhaar Card',
+  customer_address: 'Aadhaar Card / Booking Form',
+  customer_number: 'Booking Form',
+  mail_id: 'Booking Form',
+  pan: 'PAN Card',
+  pan_father_name: 'PAN Card',
+  customer_relationship_type: 'PAN Card / Aadhaar Card',
+  customer_relationship_name: 'PAN Card / Aadhaar Card',
+  dealer_name: 'Booking Form',
+  dealer_branch: 'Booking Form',
+  sc_name: 'Booking Form',
+  model: 'Booking Form / Invoice',
+  variant: 'Booking Form / Invoice',
+  color: 'Booking Form / Invoice',
+  sku_code: 'Booking Form',
+  booking_registration_by: 'Booking Form',
+  booking_registration_type: 'Booking Form',
+  booking_insurance_by: 'Booking Form',
+  booking_exchange_applicable: 'Booking Form',
+  booking_exchange_value: 'Booking Form',
+  booking_ex_showroom_price: 'Booking Form / Cost Sheet / Invoice',
+  booking_tcs_amount: 'Booking Form / Invoice',
+  booking_registration_charges: 'Booking Form',
+  booking_road_tax_amount: 'Booking Form',
+  booking_road_tax_registration_combined: 'Booking Form',
+  booking_insurance_amount: 'Insurance Document / Booking Form',
+  booking_rsa_amount: 'Booking Form',
+  booking_accessories_cost: 'Booking Form',
+  booking_additional_warranty_amount: 'Booking Form',
+  booking_other_charges: 'Booking Form',
+  booking_total_price: 'Booking Form / Invoice',
+  booking_discount_amount: 'Booking Form / Invoice',
+  booking_bonus_amount: 'Booking Form',
+  booking_net_amount: 'Booking Form / Invoice',
+  booking_amount_paid: 'Booking Form',
+  booking_balance_amount: 'Booking Form',
+  booking_payment_mode: 'Booking Form',
+  booking_payment_reference: 'Booking Form',
+  expected_delivery_text: 'Booking Form',
+  expected_delivery_date: 'Booking Form',
+  booking_reference: 'Booking Form',
+  actual_booking_date: 'Booking Form',
+};
 
 function displayFieldKey(fieldKey: string): string {
   return fieldKey
@@ -53,11 +102,23 @@ function comparableValue(value: unknown): string {
   }
 }
 
-function needsAttributeDecision(attribute: ReviewV2Attribute): boolean {
-  const hasValue = attribute.resolvedValue !== null
+function hasExtractedValue(attribute: ReviewV2Attribute): boolean {
+  return attribute.resolvedValue !== null
     && attribute.resolvedValue !== undefined
     && attribute.resolvedValue !== '';
-  return hasValue && (attribute.reviewState === 'NEEDS_REVIEW' || attribute.comparisonState === 'MISMATCH');
+}
+
+function expectedDocument(attribute: ReviewV2Attribute): string {
+  return EXPECTED_DOCUMENT_BY_ATTRIBUTE[attribute.attributeKey] ?? 'Configured source document';
+}
+
+function isReceiptField(field: ReviewV2UnmappedField): boolean {
+  return field.documentTypeKey?.trim().toLowerCase() === RECEIPT_DOCUMENT_TYPE;
+}
+
+function needsAttributeDecision(attribute: ReviewV2Attribute): boolean {
+  return hasExtractedValue(attribute)
+    && (attribute.reviewState === 'NEEDS_REVIEW' || attribute.comparisonState === 'MISMATCH');
 }
 
 function rawSource(field: ReviewV2UnmappedField): ReviewV2SourceValue {
@@ -150,34 +211,29 @@ function DecisionButtons({
 
 function AttributeRow({
   attribute,
-  processingPending,
   decision,
   busy,
   onEvidence,
   onDecision,
 }: {
   attribute: ReviewV2Attribute;
-  processingPending: boolean;
   decision?: ReviewDecisionValue;
   busy: boolean;
   onEvidence: (source: ReviewV2SourceValue) => void;
   onDecision: (reviewKey: string, decision: ReviewDecisionValue) => void;
 }) {
   const source = attribute.resolvedSource;
-  const hasValue = attribute.resolvedValue !== null && attribute.resolvedValue !== undefined && attribute.resolvedValue !== '';
   const needsDecision = needsAttributeDecision(attribute);
   const localizationMissing = Boolean(source && !hasBoxedEvidence(source));
-  const status = !hasValue
-    ? (processingPending ? 'Processing' : 'Not Available')
-    : decision === 'REJECTED'
-      ? 'Rejected'
-      : decision === 'ACCEPTED'
-        ? 'Accepted'
-        : needsDecision
-          ? (attribute.comparisonState === 'MISMATCH' ? 'Source Mismatch' : 'Needs Review')
-          : localizationMissing
-            ? 'Source Location Unavailable'
-            : 'Ready';
+  const status = decision === 'REJECTED'
+    ? 'Rejected'
+    : decision === 'ACCEPTED'
+      ? 'Accepted'
+      : needsDecision
+        ? (attribute.comparisonState === 'MISMATCH' ? 'Source Mismatch' : 'Needs Review')
+        : localizationMissing
+          ? 'Source Location Unavailable'
+          : 'Ready';
 
   return (
     <tr className={needsDecision && !decision ? 'needs-review' : ''}>
@@ -188,7 +244,7 @@ function AttributeRow({
           {attribute.mappingStatus === 'PROVISIONAL' ? ' · review-only mapping' : ''}
         </span>
       </td>
-      <td className={hasValue ? '' : 'is-empty'}>{displayValue(attribute.resolvedValue)}</td>
+      <td>{displayValue(attribute.resolvedValue)}</td>
       <td>{confidence(attribute.confidenceScore)}</td>
       <td>
         {source ? (
@@ -206,7 +262,7 @@ function AttributeRow({
         ) : '—'}
       </td>
       <td>
-        <span className={`uc03-attribute-status ${decision === 'REJECTED' ? 'rejected' : needsDecision && !decision ? 'needs-review' : localizationMissing ? 'needs-review' : hasValue ? 'ready' : 'pending'}`}>
+        <span className={`uc03-attribute-status ${decision === 'REJECTED' ? 'rejected' : needsDecision && !decision ? 'needs-review' : localizationMissing ? 'needs-review' : 'ready'}`}>
           {status}
         </span>
       </td>
@@ -218,9 +274,92 @@ function AttributeRow({
             busy={busy}
             onDecision={onDecision}
           />
-        ) : hasValue ? <span className="uc03-review-auto-cleared">No action needed</span> : '—'}
+        ) : <span className="uc03-review-auto-cleared">No action needed</span>}
       </td>
     </tr>
+  );
+}
+
+function RawReviewCards({
+  groups,
+  decisionByKey,
+  decisionBusyKey,
+  onEvidence,
+  onDecision,
+}: {
+  groups: RawReviewGroup[];
+  decisionByKey: Map<string, ReviewDecisionValue>;
+  decisionBusyKey?: string;
+  onEvidence: (source: ReviewV2SourceValue) => void;
+  onDecision: (reviewKey: string, decision: ReviewDecisionValue) => void;
+}) {
+  return (
+    <div className="uc03-raw-review-grid">
+      {groups.map((group) => {
+        const reviewKey = `raw:${group.fieldKey}`;
+        const decision = decisionByKey.get(reviewKey);
+        const selectedSourceValue = rawSource(group.selected);
+        const selectedHasBox = hasBoxedEvidence(selectedSourceValue);
+        return (
+          <article key={group.fieldKey} className={`uc03-raw-review-card ${group.needsDecision && !decision ? 'needs-review' : ''}`}>
+            <header>
+              <div>
+                <span className="uc03-attribute-evidence-kicker">DI extracted field</span>
+                <h3>{displayFieldKey(group.fieldKey)}</h3>
+              </div>
+              <span className={`uc03-attribute-status ${decision === 'REJECTED' ? 'rejected' : group.needsDecision && !decision ? 'needs-review' : !selectedHasBox ? 'needs-review' : 'ready'}`}>
+                {decision === 'ACCEPTED' ? 'Accepted' : decision === 'REJECTED' ? 'Rejected' : group.mismatch ? 'Source Mismatch' : group.needsDecision ? 'Needs Review' : !selectedHasBox ? 'Source Location Unavailable' : 'Ready'}
+              </span>
+            </header>
+
+            <div className="uc03-raw-review-selected">
+              <span>Selected DI value</span>
+              <strong>{displayValue(group.selected.value)}</strong>
+              <small>{group.selected.documentLabel} · {confidence(group.selected.confidenceScore)} · {selectedHasBox ? 'boxed evidence' : 'source location unavailable'}</small>
+            </div>
+
+            {group.sources.length > 1 && (
+              <div className="uc03-raw-review-sources">
+                <span>Available source values</span>
+                {group.sources.map((source) => {
+                  const evidenceSource = rawSource(source);
+                  const boxed = hasBoxedEvidence(evidenceSource);
+                  return (
+                    <button
+                      type="button"
+                      key={`${source.documentId}:${source.canonicalFieldId}:${source.sourceFactVersion}`}
+                      disabled={!boxed}
+                      onClick={() => boxed && onEvidence(evidenceSource)}
+                    >
+                      <strong>{displayValue(source.value)}</strong>
+                      <small>{source.documentLabel} · {confidence(source.confidenceScore)} · {boxed ? 'boxed evidence' : 'source location unavailable'}</small>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
+            <div className="uc03-raw-review-actions">
+              {selectedHasBox ? (
+                <button type="button" className="uc03-attribute-evidence-link" onClick={() => onEvidence(selectedSourceValue)}>
+                  View boxed evidence
+                </button>
+              ) : (
+                <span>Source location unavailable</span>
+              )}
+              {group.needsDecision ? (
+                <DecisionButtons
+                  reviewKey={reviewKey}
+                  decision={decision}
+                  busy={decisionBusyKey === reviewKey}
+                  onDecision={onDecision}
+                />
+              ) : <span className="uc03-review-auto-cleared">No action needed</span>}
+            </div>
+          </article>
+        );
+      })}
+    </div>
   );
 }
 
@@ -254,9 +393,7 @@ export default function BookingReviewV2Page() {
   });
 
   const readyFieldCount = useMemo(
-    () => reviewQuery.data?.attributes.filter((attribute) => (
-      attribute.resolvedValue !== null && attribute.resolvedValue !== undefined
-    )).length ?? 0,
+    () => reviewQuery.data?.attributes.filter(hasExtractedValue).length ?? 0,
     [reviewQuery.data],
   );
 
@@ -270,9 +407,17 @@ export default function BookingReviewV2Page() {
     (decisionsQuery.data?.decisions ?? []).map((item) => [item.reviewKey, item.decision] as const),
   ), [decisionsQuery.data]);
 
-  const rawGroups = useMemo(
-    () => groupRawFields(reviewQuery.data?.unmappedFields ?? []),
+  const receiptGroups = useMemo(
+    () => groupRawFields((reviewQuery.data?.unmappedFields ?? []).filter(isReceiptField)),
     [reviewQuery.data?.unmappedFields],
+  );
+  const additionalRawGroups = useMemo(
+    () => groupRawFields((reviewQuery.data?.unmappedFields ?? []).filter((field) => !isReceiptField(field))),
+    [reviewQuery.data?.unmappedFields],
+  );
+  const rawGroups = useMemo(
+    () => [...receiptGroups, ...additionalRawGroups],
+    [receiptGroups, additionalRawGroups],
   );
 
   if (!project || !journeyId) return null;
@@ -297,9 +442,8 @@ export default function BookingReviewV2Page() {
   const review = reviewQuery.data;
   const pendingDocuments = review.documents.filter((document) => document.extractionState === 'PENDING');
   const failedDocuments = review.documents.filter((document) => document.extractionState === 'FAILED');
-  const populatedAttributes = review.attributes.filter((attribute) => (
-    attribute.resolvedValue !== null && attribute.resolvedValue !== undefined && attribute.resolvedValue !== ''
-  ));
+  const populatedAttributes = review.attributes.filter(hasExtractedValue);
+  const missingAttributes = review.attributes.filter((attribute) => !hasExtractedValue(attribute));
   const requiredMappedKeys = populatedAttributes
     .filter(needsAttributeDecision)
     .map((attribute) => `attribute:${attribute.attributeKey}`);
@@ -387,14 +531,14 @@ export default function BookingReviewV2Page() {
       <PageHeader
         eyebrow="Booking Review · Evidence First"
         title="Review extracted Booking information"
-        description="Verigence shows values directly from Document Intelligence. Boxed source evidence opens only when DI returned a reliable field location; missing locations are shown explicitly and never fabricated."
+        description="Verigence shows only values actually extracted by Document Intelligence in the main review. Expected attributes without an extracted value are listed separately at the bottom."
       />
 
       <section className="uc03-attribute-review-summary" aria-label="Booking review summary">
         <div><span>Mapped values</span><strong>{populatedAttributes.length}</strong></div>
-        <div><span>Additional DI values</span><strong>{rawGroups.length}</strong></div>
+        <div><span>Payment receipt values</span><strong>{receiptGroups.length}</strong></div>
+        <div><span>Expected not extracted</span><strong>{missingAttributes.length}</strong></div>
         <div><span>Exceptions pending</span><strong>{unresolvedDecisionKeys.length}</strong></div>
-        <div><span>Documents processing</span><strong>{pendingDocuments.length}</strong></div>
       </section>
 
       {review.processingPending ? (
@@ -436,9 +580,9 @@ export default function BookingReviewV2Page() {
       <section className="uc03-v2-section uc03-attribute-table-section">
         <header className="uc03-v2-section-header">
           <div>
-            <span className="uc03-c1-eyebrow">Resolved Booking attributes</span>
+            <span className="uc03-c1-eyebrow">Extracted Booking attributes</span>
             <h2>Business attribute review</h2>
-            <p>Mapped DI facts are resolved using explicit source rules. A mismatch or confidence below {REVIEW_THRESHOLD}% becomes an exception; otherwise no reviewer action is required.</p>
+            <p>Only mapped attributes with an actual DI value appear here. A mismatch or confidence below {REVIEW_THRESHOLD}% becomes an exception; otherwise no reviewer action is required.</p>
           </div>
           <span>PC Verification: {review.pcVerificationStatus}</span>
         </header>
@@ -456,101 +600,89 @@ export default function BookingReviewV2Page() {
               </tr>
             </thead>
             <tbody>
-              {review.attributes.map((attribute) => {
+              {populatedAttributes.length > 0 ? populatedAttributes.map((attribute) => {
                 const reviewKey = `attribute:${attribute.attributeKey}`;
                 return (
                   <AttributeRow
                     key={attribute.attributeKey}
                     attribute={attribute}
-                    processingPending={review.processingPending}
                     decision={decisionByKey.get(reviewKey)}
                     busy={decisionBusyKey === reviewKey}
                     onEvidence={setSelectedSource}
                     onDecision={(key, decision) => void setDecision(key, decision)}
                   />
                 );
-              })}
+              }) : (
+                <tr>
+                  <td colSpan={6} className="uc03-review-empty-table">No mapped Booking values have been extracted yet.</td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
       </section>
 
-      {rawGroups.length > 0 && (
+      {receiptGroups.length > 0 && (
+        <section className="uc03-v2-section uc03-raw-review-section">
+          <header className="uc03-v2-section-header">
+            <div>
+              <span className="uc03-c1-eyebrow">Payment receipts</span>
+              <h2>Dealer receipt evidence</h2>
+              <p>Each receipt remains a separate payment record. Receipt values are reviewed in their own frame and are not collapsed into one Booking attribute.</p>
+            </div>
+            <span>{receiptGroups.length} value{receiptGroups.length === 1 ? '' : 's'}</span>
+          </header>
+          <RawReviewCards
+            groups={receiptGroups}
+            decisionByKey={decisionByKey}
+            decisionBusyKey={decisionBusyKey}
+            onEvidence={setSelectedSource}
+            onDecision={(key, decision) => void setDecision(key, decision)}
+          />
+        </section>
+      )}
+
+      {additionalRawGroups.length > 0 && (
         <section className="uc03-v2-section uc03-raw-review-section">
           <header className="uc03-v2-section-header">
             <div>
               <span className="uc03-c1-eyebrow">Additional extracted evidence</span>
               <h2>DI values not yet mapped to a business attribute</h2>
-              <p>These values stay in Document Intelligence. They are visible for audit completeness and are never guessed into a business field.</p>
+              <p>Only genuinely unmapped values appear here. They stay in Document Intelligence and are never guessed into a business field.</p>
             </div>
-            <span>{rawGroups.length} field{rawGroups.length === 1 ? '' : 's'}</span>
+            <span>{additionalRawGroups.length} field{additionalRawGroups.length === 1 ? '' : 's'}</span>
           </header>
+          <RawReviewCards
+            groups={additionalRawGroups}
+            decisionByKey={decisionByKey}
+            decisionBusyKey={decisionBusyKey}
+            onEvidence={setSelectedSource}
+            onDecision={(key, decision) => void setDecision(key, decision)}
+          />
+        </section>
+      )}
 
-          <div className="uc03-raw-review-grid">
-            {rawGroups.map((group) => {
-              const reviewKey = `raw:${group.fieldKey}`;
-              const decision = decisionByKey.get(reviewKey);
-              const selectedSourceValue = rawSource(group.selected);
-              const selectedHasBox = hasBoxedEvidence(selectedSourceValue);
-              return (
-                <article key={group.fieldKey} className={`uc03-raw-review-card ${group.needsDecision && !decision ? 'needs-review' : ''}`}>
-                  <header>
-                    <div>
-                      <span className="uc03-attribute-evidence-kicker">DI extracted field</span>
-                      <h3>{displayFieldKey(group.fieldKey)}</h3>
-                    </div>
-                    <span className={`uc03-attribute-status ${decision === 'REJECTED' ? 'rejected' : group.needsDecision && !decision ? 'needs-review' : !selectedHasBox ? 'needs-review' : 'ready'}`}>
-                      {decision === 'ACCEPTED' ? 'Accepted' : decision === 'REJECTED' ? 'Rejected' : group.mismatch ? 'Source Mismatch' : group.needsDecision ? 'Needs Review' : !selectedHasBox ? 'Source Location Unavailable' : 'Ready'}
-                    </span>
-                  </header>
-
-                  <div className="uc03-raw-review-selected">
-                    <span>Selected DI value</span>
-                    <strong>{displayValue(group.selected.value)}</strong>
-                    <small>{group.selected.documentLabel} · {confidence(group.selected.confidenceScore)} · {selectedHasBox ? 'boxed evidence' : 'source location unavailable'}</small>
-                  </div>
-
-                  {group.sources.length > 1 && (
-                    <div className="uc03-raw-review-sources">
-                      <span>Available source values</span>
-                      {group.sources.map((source) => {
-                        const evidenceSource = rawSource(source);
-                        const boxed = hasBoxedEvidence(evidenceSource);
-                        return (
-                          <button
-                            type="button"
-                            key={`${source.documentId}:${source.canonicalFieldId}:${source.sourceFactVersion}`}
-                            disabled={!boxed}
-                            onClick={() => boxed && setSelectedSource(evidenceSource)}
-                          >
-                            <strong>{displayValue(source.value)}</strong>
-                            <small>{source.documentLabel} · {confidence(source.confidenceScore)} · {boxed ? 'boxed evidence' : 'source location unavailable'}</small>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
-
-                  <div className="uc03-raw-review-actions">
-                    {selectedHasBox ? (
-                      <button type="button" className="uc03-attribute-evidence-link" onClick={() => setSelectedSource(selectedSourceValue)}>
-                        View boxed evidence
-                      </button>
-                    ) : (
-                      <span>Source location unavailable</span>
-                    )}
-                    {group.needsDecision ? (
-                      <DecisionButtons
-                        reviewKey={reviewKey}
-                        decision={decision}
-                        busy={decisionBusyKey === reviewKey}
-                        onDecision={(key, nextDecision) => void setDecision(key, nextDecision)}
-                      />
-                    ) : <span className="uc03-review-auto-cleared">No action needed</span>}
-                  </div>
-                </article>
-              );
-            })}
+      {missingAttributes.length > 0 && (
+        <section className="uc03-v2-section uc03-missing-attribute-section">
+          <header className="uc03-v2-section-header">
+            <div>
+              <span className="uc03-c1-eyebrow">Expected but not extracted</span>
+              <h2>Attributes not available from DI</h2>
+              <p>These are kept out of the review table. The list shows only the expected attribute and the document where it would normally be extracted.</p>
+            </div>
+            <span>{missingAttributes.length} attribute{missingAttributes.length === 1 ? '' : 's'}</span>
+          </header>
+          <div className="uc03-missing-attribute-list">
+            <div className="uc03-missing-attribute-heading">
+              <span>Attribute</span>
+              <span>Expected document</span>
+            </div>
+            {missingAttributes.map((attribute) => (
+              <div key={attribute.attributeKey} className="uc03-missing-attribute-row">
+                <strong>{attribute.label}</strong>
+                <span>{expectedDocument(attribute)}</span>
+              </div>
+            ))}
           </div>
         </section>
       )}

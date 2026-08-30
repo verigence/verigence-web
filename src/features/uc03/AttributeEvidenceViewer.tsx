@@ -26,6 +26,14 @@ function normalizedBox(region: Record<string, unknown> | null): NormalizedBox | 
   };
 }
 
+export function hasBoxedEvidence(
+  source: Pick<ReviewV2SourceValue, 'pageNo' | 'evidenceRegion' | 'originalFilename'>,
+): boolean {
+  if (!normalizedBox(source.evidenceRegion)) return false;
+  const isPdf = source.originalFilename.toLowerCase().endsWith('.pdf');
+  return !isPdf || Boolean(source.pageNo && source.pageNo > 0);
+}
+
 function displayValue(value: unknown): string {
   if (value === null || value === undefined || value === '') return 'Not found';
   if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') return String(value);
@@ -54,24 +62,26 @@ export default function AttributeEvidenceViewer({
   source: ReviewV2SourceValue;
   onClose: () => void;
 }) {
+  const box = useMemo(() => normalizedBox(source.evidenceRegion), [source.evidenceRegion]);
+  const localized = hasBoxedEvidence(source);
   const contentQuery = useQuery({
     queryKey: ['uc03-review-document-content', tenantId, journeyId, source.documentId],
     queryFn: () => getReviewDocumentContentV2(tenantId, journeyId, source.documentId, accessToken),
     staleTime: 5 * 60 * 1000,
+    enabled: localized,
   });
   const [objectUrl, setObjectUrl] = useState<string>();
 
   useEffect(() => {
-    if (!contentQuery.data?.blob) {
+    if (!localized || !contentQuery.data?.blob) {
       setObjectUrl(undefined);
       return undefined;
     }
     const next = URL.createObjectURL(contentQuery.data.blob);
     setObjectUrl(next);
     return () => URL.revokeObjectURL(next);
-  }, [contentQuery.data?.blob]);
+  }, [contentQuery.data?.blob, localized]);
 
-  const box = useMemo(() => normalizedBox(source.evidenceRegion), [source.evidenceRegion]);
   const contentType = contentQuery.data?.contentType || '';
   const filename = source.originalFilename.toLowerCase();
   const isPdf = contentType.includes('pdf') || filename.endsWith('.pdf');
@@ -84,7 +94,7 @@ export default function AttributeEvidenceViewer({
       <section className="uc03-attribute-evidence-modal" role="dialog" aria-modal="true" aria-label={`Evidence for ${source.fieldKey}`}>
         <header className="uc03-attribute-evidence-header">
           <div>
-            <span>Source evidence</span>
+            <span>{localized ? 'Boxed source evidence' : 'Source location unavailable'}</span>
             <h2>{source.documentLabel}</h2>
             <p>{source.originalFilename}</p>
           </div>
@@ -93,40 +103,42 @@ export default function AttributeEvidenceViewer({
 
         <div className="uc03-attribute-evidence-layout">
           <div className="uc03-attribute-evidence-preview">
-            {contentQuery.isPending && <div className="uc03-attribute-evidence-message">Loading source document…</div>}
-            {contentQuery.isError && <div className="uc03-attribute-evidence-message is-error">The source document could not be loaded. Try again.</div>}
-            {objectUrl && isPdf && (
+            {!localized ? (
+              <div className="uc03-attribute-evidence-message is-error">
+                Document Intelligence returned this extracted value without a reliable source location. Verigence does not show an unboxed document as field evidence and never invents a bounding box.
+              </div>
+            ) : null}
+            {localized && contentQuery.isPending && <div className="uc03-attribute-evidence-message">Loading boxed source evidence…</div>}
+            {localized && contentQuery.isError && <div className="uc03-attribute-evidence-message is-error">The boxed source evidence could not be loaded. Try again.</div>}
+            {localized && objectUrl && isPdf && box ? (
               <PdfPageReview
                 sourceUrl={objectUrl}
                 pageNumber={source.pageNo || 1}
-                box={box ?? null}
+                box={box}
                 label={source.fieldKey}
                 attention={source.reviewState === 'NEEDS_REVIEW'}
               />
-            )}
-            {objectUrl && isImage && (
+            ) : null}
+            {localized && objectUrl && isImage && box ? (
               <div className="uc03-attribute-image-frame">
                 <img src={objectUrl} alt={source.originalFilename} />
-                {box && (
-                  <span
-                    className={`uc03-attribute-image-box ${source.reviewState === 'NEEDS_REVIEW' ? 'needs-review' : ''}`}
-                    style={{
-                      left: `${box.x * 100}%`,
-                      top: `${box.y * 100}%`,
-                      width: `${box.w * 100}%`,
-                      height: `${box.h * 100}%`,
-                    }}
-                    aria-hidden="true"
-                  />
-                )}
+                <span
+                  className={`uc03-attribute-image-box ${source.reviewState === 'NEEDS_REVIEW' ? 'needs-review' : ''}`}
+                  style={{
+                    left: `${box.x * 100}%`,
+                    top: `${box.y * 100}%`,
+                    width: `${box.w * 100}%`,
+                    height: `${box.h * 100}%`,
+                  }}
+                  aria-hidden="true"
+                />
               </div>
-            )}
-            {objectUrl && !isPdf && !isImage && (
-              <div className="uc03-attribute-evidence-message">
-                Preview is not available for this file type.
-                <a href={objectUrl} target="_blank" rel="noreferrer">Open source document</a>
+            ) : null}
+            {localized && objectUrl && !isPdf && !isImage ? (
+              <div className="uc03-attribute-evidence-message is-error">
+                Boxed preview is not supported for this file type. Verigence will not substitute an unboxed document in an extracted-field review.
               </div>
-            )}
+            ) : null}
           </div>
 
           <aside className="uc03-attribute-evidence-detail">
@@ -136,11 +148,13 @@ export default function AttributeEvidenceViewer({
             <dl>
               <div><dt>Confidence</dt><dd>{confidence(source.confidenceScore)}</dd></div>
               <div><dt>Document type</dt><dd>{source.documentTypeKey || source.documentLabel}</dd></div>
-              <div><dt>Page</dt><dd>{source.pageNo || '—'}</dd></div>
-              <div><dt>Evidence box</dt><dd>{box ? 'Located' : 'Not returned'}</dd></div>
+              <div><dt>Page</dt><dd>{source.pageNo || (isPdf ? 'Not returned' : 'Single-page document')}</dd></div>
+              <div><dt>Evidence location</dt><dd>{localized ? 'Boxed' : 'Unavailable'}</dd></div>
               <div><dt>Review state</dt><dd>{source.reviewState === 'READY' ? 'Ready' : 'Needs review'}</dd></div>
             </dl>
-            <p>Verigence is displaying the value directly from Document Intelligence. The source document and machine extraction remain unchanged.</p>
+            <p>{localized
+              ? 'The highlighted location is returned by Document Intelligence. The source document and machine extraction remain unchanged.'
+              : 'The extracted value remains visible for review, but the source document is intentionally not presented as field evidence until DI supplies a reliable location.'}</p>
           </aside>
         </div>
       </section>

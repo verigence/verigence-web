@@ -105,6 +105,12 @@
   font-style: italic;
 }
 
+.uc03-review-empty-table {
+  padding: 28px !important;
+  color: var(--attribute-muted);
+  text-align: center !important;
+}
+
 .uc03-attribute-status,
 .uc03-source-comparison-state {
   display: inline-flex;
@@ -350,6 +356,49 @@
 
 .uc03-raw-review-sources small {
   color: var(--attribute-muted);
+}
+
+.uc03-missing-attribute-section {
+  display: grid;
+  gap: 14px;
+}
+
+.uc03-missing-attribute-list {
+  overflow: hidden;
+  border: 1px solid var(--attribute-border);
+  border-radius: 16px;
+  background: var(--ion-card-background, #fff);
+}
+
+.uc03-missing-attribute-heading,
+.uc03-missing-attribute-row {
+  display: grid;
+  grid-template-columns: minmax(220px, .9fr) minmax(260px, 1.1fr);
+  gap: 18px;
+  align-items: center;
+  padding: 12px 16px;
+}
+
+.uc03-missing-attribute-heading {
+  background: #f8fafc;
+  color: #475569;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+}
+
+.uc03-missing-attribute-row {
+  border-top: 1px solid var(--attribute-border);
+}
+
+.uc03-missing-attribute-row strong {
+  font-size: 14px;
+}
+
+.uc03-missing-attribute-row span {
+  color: var(--attribute-muted);
+  font-size: 13px;
 }
 
 .uc03-attribute-evidence-backdrop {
@@ -607,6 +656,12 @@
 
   .uc03-review-decision-buttons button {
     flex: 1;
+  }
+
+  .uc03-missing-attribute-heading,
+  .uc03-missing-attribute-row {
+    grid-template-columns: 1fr;
+    gap: 4px;
   }
 }
 

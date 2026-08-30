@@ -112,6 +112,8 @@ export default function DeliveryCaptureV2Page() {
   const [helpOpen, setHelpOpen] = useState(false);
   const [clock, setClock] = useState('00:00');
   const startedAt = useRef(Date.now());
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
 
   const enabled = Boolean(project?.tenantId && journeyId && accessToken);
   const workspaceQuery = useQuery({
@@ -204,15 +206,47 @@ export default function DeliveryCaptureV2Page() {
 
   if (workspaceQuery.isPending) return <div className="uc03-c1-loading" role="status">Loading Delivery…</div>;
 
-  if (workspaceQuery.isError && !deliveryStarted) {
+  if (workspaceQuery.isError) {
     return (
-      <div className="screen-stack uc03-delivery-v2-page">
+      <div className="screen-stack uc03-v2-capture uc03-delivery-v2-page">
+        <div className="uc03-c1-topbar"><button type="button" className="uc03-c1-back" onClick={() => navigate('/dashboard')}>← Work List</button></div>
+        <PageHeader eyebrow="Delivery · V2" title="Delivery unavailable" description="The Delivery workspace could not be loaded. Retry without leaving this journey." />
+        <div className="uc03-booking-journey-feedback is-error" role="alert">
+          {workspaceQuery.error instanceof Error ? workspaceQuery.error.message : 'Delivery could not be loaded.'}
+        </div>
+        <section className="uc03-c1-start-panel">
+          <div><span className="uc03-c1-eyebrow">Delivery Journey</span><h2>Retry Delivery</h2></div>
+          <button type="button" className="uc03-c1-primary" onClick={() => void workspaceQuery.refetch()}>Retry</button>
+        </section>
+      </div>
+    );
+  }
+
+  if (!deliveryStarted) {
+    return (
+      <div className="screen-stack uc03-v2-capture uc03-delivery-v2-page">
         <div className="uc03-c1-topbar"><button type="button" className="uc03-c1-back" onClick={() => navigate('/dashboard')}>← Work List</button></div>
         <PageHeader eyebrow="Delivery · V2" title="Start Delivery" description="Start the Delivery event, then upload whatever evidence is available. Audit observations never block the business process." />
         {error ? <div className="uc03-booking-journey-feedback is-error" role="alert">{error}</div> : null}
         <section className="uc03-c1-start-panel">
           <div><span className="uc03-c1-eyebrow">Delivery Journey</span><h2>Start Delivery Capture</h2></div>
           <button type="button" className="uc03-c1-primary" disabled={starting} onClick={() => void handleStart()}>{starting ? 'Starting…' : 'Start Delivery'}</button>
+        </section>
+      </div>
+    );
+  }
+
+  if (captureQuery.isError) {
+    return (
+      <div className="screen-stack uc03-v2-capture uc03-delivery-v2-page">
+        <div className="uc03-c1-topbar"><button type="button" className="uc03-c1-back" onClick={() => navigate('/dashboard')}>← Work List</button></div>
+        <PageHeader eyebrow="Delivery · V2" title="Delivery documents" description="Delivery has started, but its document workspace could not be loaded." />
+        <div className="uc03-booking-journey-feedback is-error" role="alert">
+          {captureQuery.error instanceof Error ? captureQuery.error.message : 'Delivery documents could not be loaded.'}
+        </div>
+        <section className="uc03-delivery-v2-retry-panel">
+          <strong>Document workspace unavailable</strong>
+          <button type="button" className="uc03-delivery-v2-upload-button is-primary" onClick={() => void captureQuery.refetch()}>Retry</button>
         </section>
       </div>
     );
@@ -227,7 +261,7 @@ export default function DeliveryCaptureV2Page() {
 
   if (capture.submitted) {
     return (
-      <div className="screen-stack uc03-delivery-v2-page">
+      <div className="screen-stack uc03-v2-capture uc03-delivery-v2-page">
         <div className="uc03-c1-topbar"><button type="button" className="uc03-c1-back" onClick={() => navigate('/dashboard')}>← Work List</button></div>
         <PageHeader eyebrow="Delivery · V2" title="Delivery documents submitted" description="The submitted evidence remains available in the Delivery Review. Any exceptions are audit observations only and do not block Delivery." />
         <section className="uc03-delivery-v2-submit-complete">
@@ -239,10 +273,9 @@ export default function DeliveryCaptureV2Page() {
   }
 
   return (
-    <div className="screen-stack uc03-delivery-v2-page">
+    <div className="screen-stack uc03-v2-capture uc03-delivery-v2-page">
       <div className="uc03-c1-topbar">
         <button type="button" className="uc03-c1-back" onClick={() => navigate('/dashboard')}>← Work List</button>
-
       </div>
       <PageHeader
         eyebrow="Delivery · V2"
@@ -277,22 +310,48 @@ export default function DeliveryCaptureV2Page() {
           ) : null}
         </div>
         <div className="uc03-v2-upload-actions">
-          <label className="uc03-c1-primary">
+          <button
+            type="button"
+            className="uc03-delivery-v2-upload-button is-primary"
+            disabled={uploading}
+            onClick={() => fileInputRef.current?.click()}
+          >
             {uploading ? 'Uploading…' : 'Choose Files'}
-            <input type="file" accept="image/*,.pdf" multiple disabled={uploading} onChange={(event) => {
-              const files = Array.from(event.currentTarget.files ?? []);
-              event.currentTarget.value = '';
-              void handleUpload(files);
-            }} />
-          </label>
-          <label className="uc03-v2-camera-action">
+          </button>
+          <button
+            type="button"
+            className="uc03-delivery-v2-upload-button"
+            disabled={uploading}
+            onClick={() => cameraInputRef.current?.click()}
+          >
             Take Photo
-            <input type="file" accept="image/*" capture="environment" disabled={uploading} onChange={(event) => {
+          </button>
+          <input
+            ref={fileInputRef}
+            className="uc03-delivery-v2-file-input"
+            type="file"
+            accept="image/*,.pdf"
+            multiple
+            disabled={uploading}
+            onChange={(event) => {
               const files = Array.from(event.currentTarget.files ?? []);
               event.currentTarget.value = '';
               void handleUpload(files);
-            }} />
-          </label>
+            }}
+          />
+          <input
+            ref={cameraInputRef}
+            className="uc03-delivery-v2-file-input"
+            type="file"
+            accept="image/*"
+            capture="environment"
+            disabled={uploading}
+            onChange={(event) => {
+              const files = Array.from(event.currentTarget.files ?? []);
+              event.currentTarget.value = '';
+              void handleUpload(files);
+            }}
+          />
         </div>
       </section>
 

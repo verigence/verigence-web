@@ -82,6 +82,7 @@ export interface Uc03WorkItemPage {
 export interface Uc03LandingMetrics {
   bookingsInProgress: number;
   deliveryInProgress: number;
+  reviewPending: number;
   needsAttention: number;
   auditFlags: number;
   auditInProgress?: number;
@@ -151,7 +152,7 @@ async function waitForPrimaryQueueRegistration(
   return undefined;
 }
 
-/** Let the first Work Queue page win the initial Dashboard request burst. */
+/** Keep background-only work behind the first Work Queue request. */
 export async function awaitPrimaryUc03WorkQueue(
   tenantId: string,
   outletId?: string,
@@ -161,7 +162,7 @@ export async function awaitPrimaryUc03WorkQueue(
   try {
     await entry.promise;
   } catch {
-    // Secondary Dashboard reads must still be able to recover independently.
+    // Background work must still be able to recover independently.
   }
 }
 
@@ -204,8 +205,6 @@ export async function getUc03LandingMetrics(
   outletId: string | undefined,
   accessToken?: string,
 ): Promise<Uc03LandingMetrics> {
-  await awaitPrimaryUc03WorkQueue(tenantId, outletId);
-
   const search = new URLSearchParams();
   if (outletId) search.set('outletId', outletId);
   const suffix = search.size ? `?${search.toString()}` : '';

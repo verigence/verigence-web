@@ -169,9 +169,10 @@ export default function DeliveryCaptureV2Page() {
     setMessage('Documents uploading…');
     try {
       await uploadDeliveryCaptureV2Files(project.tenantId, journeyId, files, accessToken);
-      await captureQuery.refetch();
       setMessage('Documents received. They are being classified and prepared for review.');
+      await captureQuery.refetch();
     } catch (cause) {
+      setMessage(undefined);
       setError(cause instanceof Error ? cause.message : 'One or more Delivery documents could not be uploaded.');
     } finally {
       setUploading(false);

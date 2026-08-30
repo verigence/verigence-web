@@ -1,0 +1,67 @@
+.uc03-delivery-review-missing {
+  margin-top: 1.25rem;
+}
+
+.uc03-delivery-review-missing__intro {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.85rem;
+}
+
+.uc03-delivery-review-missing__intro h2,
+.uc03-delivery-review-missing__intro p {
+  margin: 0;
+}
+
+.uc03-delivery-review-missing__intro p {
+  max-width: 48rem;
+  color: var(--text-muted, #5f6b76);
+}
+
+.uc03-delivery-review-missing__list {
+  display: grid;
+  gap: 0;
+  overflow: hidden;
+  border: 1px solid var(--border-subtle, #d9e0e6);
+  border-radius: 0.85rem;
+  background: var(--surface, #ffffff);
+}
+
+.uc03-delivery-review-missing__row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(16rem, 1.25fr);
+  gap: 1rem;
+  align-items: start;
+  padding: 0.85rem 1rem;
+}
+
+.uc03-delivery-review-missing__row + .uc03-delivery-review-missing__row {
+  border-top: 1px solid var(--border-subtle, #e4e9ed);
+}
+
+.uc03-delivery-review-missing__row strong,
+.uc03-delivery-review-missing__row span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.uc03-delivery-review-missing__row span {
+  color: var(--text-muted, #5f6b76);
+}
+
+@media (max-width: 720px) {
+  .uc03-delivery-review-missing__intro {
+    display: block;
+  }
+
+  .uc03-delivery-review-missing__intro p {
+    margin-top: 0.35rem;
+  }
+
+  .uc03-delivery-review-missing__row {
+    grid-template-columns: 1fr;
+    gap: 0.3rem;
+  }
+}

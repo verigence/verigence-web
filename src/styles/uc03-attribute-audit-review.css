@@ -136,6 +136,11 @@
   color: #475569;
 }
 
+.uc03-attribute-status.rejected {
+  background: rgba(220, 38, 38, .10);
+  color: #991b1b;
+}
+
 .uc03-attribute-evidence-link,
 .uc03-source-value-button {
   appearance: none;
@@ -152,6 +157,11 @@
 .uc03-attribute-evidence-link:hover,
 .uc03-source-value-button:hover {
   text-decoration: underline;
+}
+
+.uc03-attribute-source-cell .uc03-attribute-evidence-link {
+  margin-top: 7px;
+  font-size: 12px;
 }
 
 .uc03-attribute-unmapped,
@@ -198,6 +208,148 @@
   gap: 6px 14px;
   padding: 10px 16px 14px;
   font-size: 12px;
+}
+
+.uc03-review-decision-buttons {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.uc03-review-decision-buttons button {
+  min-height: 34px;
+  padding: 7px 11px;
+  border: 1px solid var(--attribute-border);
+  border-radius: 10px;
+  background: #fff;
+  color: #475569;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: transform .12s ease, box-shadow .12s ease, background .12s ease;
+}
+
+.uc03-review-decision-buttons button:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 5px 14px rgba(15, 23, 42, .10);
+}
+
+.uc03-review-decision-buttons button:disabled {
+  cursor: wait;
+  opacity: .6;
+}
+
+.uc03-review-decision-buttons button.accept.is-selected {
+  border-color: rgba(22, 163, 74, .34);
+  background: rgba(22, 163, 74, .12);
+  color: #166534;
+}
+
+.uc03-review-decision-buttons button.reject.is-selected {
+  border-color: rgba(220, 38, 38, .30);
+  background: rgba(220, 38, 38, .10);
+  color: #991b1b;
+}
+
+.uc03-review-auto-cleared {
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.uc03-booking-review-table td:nth-child(2) {
+  max-width: 280px;
+  overflow-wrap: anywhere;
+}
+
+.uc03-raw-review-section {
+  display: grid;
+  gap: 14px;
+}
+
+.uc03-raw-review-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.uc03-raw-review-card {
+  display: grid;
+  gap: 16px;
+  padding: 18px;
+  border: 1px solid var(--attribute-border);
+  border-radius: 18px;
+  background: var(--ion-card-background, #fff);
+  box-shadow: 0 6px 18px rgba(15, 23, 42, .04);
+}
+
+.uc03-raw-review-card.needs-review {
+  border-color: rgba(217, 119, 6, .32);
+  box-shadow: 0 7px 22px rgba(217, 119, 6, .08);
+}
+
+.uc03-raw-review-card > header,
+.uc03-raw-review-actions {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.uc03-raw-review-card h3 {
+  margin: 3px 0 0;
+}
+
+.uc03-raw-review-selected {
+  display: grid;
+  gap: 5px;
+  padding: 14px;
+  border-radius: 14px;
+  background: #f8fafc;
+}
+
+.uc03-raw-review-selected > span,
+.uc03-raw-review-sources > span {
+  color: var(--attribute-muted);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+
+.uc03-raw-review-selected strong {
+  font-size: 18px;
+  overflow-wrap: anywhere;
+}
+
+.uc03-raw-review-selected small {
+  color: var(--attribute-muted);
+}
+
+.uc03-raw-review-sources {
+  display: grid;
+  gap: 8px;
+}
+
+.uc03-raw-review-sources > button {
+  display: grid;
+  gap: 3px;
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--attribute-border);
+  border-radius: 12px;
+  background: #fff;
+  text-align: left;
+  cursor: pointer;
+}
+
+.uc03-raw-review-sources > button:hover {
+  background: #f8fafc;
+}
+
+.uc03-raw-review-sources small {
+  color: var(--attribute-muted);
 }
 
 .uc03-attribute-evidence-backdrop {
@@ -422,7 +574,8 @@
 
 @media (max-width: 900px) {
   .uc03-attribute-review-summary,
-  .uc03-attribute-unmapped-grid {
+  .uc03-attribute-unmapped-grid,
+  .uc03-raw-review-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
@@ -434,6 +587,26 @@
   .uc03-attribute-evidence-detail {
     border-left: 0;
     border-top: 1px solid var(--attribute-border);
+  }
+}
+
+@media (max-width: 680px) {
+  .uc03-raw-review-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .uc03-raw-review-card > header,
+  .uc03-raw-review-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .uc03-review-decision-buttons {
+    width: 100%;
+  }
+
+  .uc03-review-decision-buttons button {
+    flex: 1;
   }
 }
 

@@ -4,6 +4,7 @@ import type {
   AuditSourceComparisonV2,
   ReviewV2SourceValue,
 } from '../../services/audit-core/uc03DocumentReviewV2';
+import { hasBoxedEvidence } from './AttributeEvidenceViewer';
 
 function displayValue(value: unknown): string {
   if (value === null || value === undefined || value === '') return '—';
@@ -25,6 +26,34 @@ function resultLabel(value: string): string {
   if (value === 'MISMATCH') return 'Mismatch';
   if (value === 'SINGLE_SOURCE') return 'Single source';
   return 'Not available';
+}
+
+function SourceValue({
+  source,
+  value,
+  onEvidence,
+  prefix,
+}: {
+  source: ReviewV2SourceValue;
+  value: unknown;
+  onEvidence: (source: ReviewV2SourceValue) => void;
+  prefix?: string;
+}) {
+  const boxed = hasBoxedEvidence(source);
+  return (
+    <>
+      {boxed ? (
+        <button type="button" className="uc03-source-value-button" onClick={() => onEvidence(source)}>
+          {displayValue(value)}
+        </button>
+      ) : (
+        <strong>{displayValue(value)}</strong>
+      )}
+      <small>
+        {prefix ? `${prefix} · ` : ''}{confidence(source.confidenceScore)} · {boxed ? 'boxed evidence' : 'source location unavailable'}
+      </small>
+    </>
+  );
 }
 
 export default function AuditSourceComparisonTable({
@@ -58,7 +87,7 @@ export default function AuditSourceComparisonTable({
         <div>
           <span>Cross-source audit view</span>
           <h2 id="source-comparison-heading">Attribute Source Comparison</h2>
-          <p>Every displayed cell is read live from Document Intelligence. The resolved column applies the common UC03 source-priority mapping; raw document values are not copied into Audit Core.</p>
+          <p>Every displayed cell is read live from Document Intelligence. Click a value only when boxed source evidence is available; missing source locations are shown explicitly and no bounding box is invented.</p>
         </div>
         {comparison.processingPending && <span className="uc03-attribute-status pending">Processing continues</span>}
       </header>
@@ -89,12 +118,12 @@ export default function AuditSourceComparisonTable({
                   </td>
                   <td className="uc03-source-cell">
                     {attribute.resolvedSource ? (
-                      <>
-                        <button type="button" className="uc03-source-value-button" onClick={() => onEvidence(attribute.resolvedSource!)}>
-                          {displayValue(attribute.resolvedValue)}
-                        </button>
-                        <small>{attribute.resolvedSource.documentLabel} · {confidence(attribute.confidenceScore)}</small>
-                      </>
+                      <SourceValue
+                        source={attribute.resolvedSource}
+                        value={attribute.resolvedValue}
+                        prefix={attribute.resolvedSource.documentLabel}
+                        onEvidence={onEvidence}
+                      />
                     ) : '—'}
                   </td>
                   {sourceColumns.map((column) => {
@@ -102,12 +131,7 @@ export default function AuditSourceComparisonTable({
                     return (
                       <td key={column.documentId} className="uc03-source-cell">
                         {source ? (
-                          <>
-                            <button type="button" className="uc03-source-value-button" onClick={() => onEvidence(source)}>
-                              {displayValue(source.value)}
-                            </button>
-                            <small>{confidence(source.confidenceScore)}</small>
-                          </>
+                          <SourceValue source={source} value={source.value} onEvidence={onEvidence} />
                         ) : '—'}
                       </td>
                     );

@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useNavigate, useParams } from 'react-router-dom';
 
 import PageHeader from '../components/PageHeader';
-import AttributeEvidenceViewer from '../features/uc03/AttributeEvidenceViewer';
+import AttributeEvidenceViewer, { hasBoxedEvidence } from '../features/uc03/AttributeEvidenceViewer';
 import { completeDelivery, getDeliveryWorkspace } from '../services/audit-core/uc03Delivery';
 import {
   getAuditSourceComparisonV2,
@@ -73,8 +73,35 @@ function rawSource(field: ReviewV2UnmappedField): ReviewV2SourceValue {
   };
 }
 
+function EvidenceSource({
+  source,
+  onEvidence,
+}: {
+  source: ReviewV2SourceValue;
+  onEvidence: (source: ReviewV2SourceValue) => void;
+}) {
+  const boxed = hasBoxedEvidence(source);
+  if (!boxed) {
+    return (
+      <div className="uc03-delivery-review-source" style={{ cursor: 'default' }}>
+        <strong>{source.documentLabel}</strong>
+        <span>{displayValue(source.value)}</span>
+        <small>{confidence(source.confidenceScore)} · Source location unavailable</small>
+      </div>
+    );
+  }
+  return (
+    <button type="button" className="uc03-delivery-review-source" onClick={() => onEvidence(source)}>
+      <strong>{source.documentLabel}</strong>
+      <span>{displayValue(source.value)}</span>
+      <small>{confidence(source.confidenceScore)} · boxed evidence</small>
+    </button>
+  );
+}
+
 function AttributeCard({ attribute, onEvidence }: { attribute: ReviewV2Attribute; onEvidence: (source: ReviewV2SourceValue) => void }) {
-  const exception = attribute.comparisonState === 'MISMATCH' || attribute.reviewState === 'NEEDS_REVIEW';
+  const localizationException = attribute.sources.some((source) => !hasBoxedEvidence(source));
+  const exception = attribute.comparisonState === 'MISMATCH' || attribute.reviewState === 'NEEDS_REVIEW' || localizationException;
   return (
     <article className={`uc03-delivery-review-field ${exception ? 'is-exception' : ''}`}>
       <div className="uc03-delivery-review-field__name">
@@ -87,15 +114,23 @@ function AttributeCard({ attribute, onEvidence }: { attribute: ReviewV2Attribute
       </div>
       <div className="uc03-delivery-review-sources">
         {attribute.sources.map((source) => (
-          <button key={`${source.documentId}:${source.canonicalFieldId}:${source.sourceFactVersion}`} type="button" className="uc03-delivery-review-source" onClick={() => onEvidence(source)}>
-            <strong>{source.documentLabel}</strong>
-            <span>{displayValue(source.value)}</span>
-            <small>{confidence(source.confidenceScore)} · boxed evidence</small>
-          </button>
+          <EvidenceSource
+            key={`${source.documentId}:${source.canonicalFieldId}:${source.sourceFactVersion}`}
+            source={source}
+            onEvidence={onEvidence}
+          />
         ))}
       </div>
       <span className="uc03-delivery-review-result">
-        {attribute.comparisonState === 'MATCH' ? 'Sources match' : attribute.comparisonState === 'MISMATCH' ? 'Exception' : attribute.comparisonState === 'SINGLE_SOURCE' ? 'Single source' : 'Not available'}
+        {localizationException
+          ? 'Evidence location exception'
+          : attribute.comparisonState === 'MATCH'
+            ? 'Sources match'
+            : attribute.comparisonState === 'MISMATCH'
+              ? 'Exception'
+              : attribute.comparisonState === 'SINGLE_SOURCE'
+                ? 'Single source'
+                : 'Not available'}
       </span>
     </article>
   );
@@ -180,8 +215,18 @@ export default function DeliveryReviewV2Page() {
   const comparison = comparisonQuery.data;
   const workspace = workspaceQuery.data;
   const deliveryCompleted = workspace.delivery.businessStatus === 'DELIVERY_COMPLETED';
-  const exceptions = comparison.attributes.filter((attribute) => attribute.comparisonState === 'MISMATCH' || attribute.reviewState === 'NEEDS_REVIEW').length
-    + raw.filter((item) => item.mismatch || item.selected.confidenceScore === null || item.selected.confidenceScore < 92).length;
+  const mappedExceptions = comparison.attributes.filter((attribute) => (
+    attribute.comparisonState === 'MISMATCH'
+    || attribute.reviewState === 'NEEDS_REVIEW'
+    || attribute.sources.some((source) => !hasBoxedEvidence(source))
+  )).length;
+  const rawExceptions = raw.filter((item) => (
+    item.mismatch
+    || item.selected.confidenceScore === null
+    || item.selected.confidenceScore < 92
+    || item.fields.some((field) => !hasBoxedEvidence(rawSource(field)))
+  )).length;
+  const exceptions = mappedExceptions + rawExceptions;
   const extractedCount = comparison.attributes.filter((attribute) => attribute.resolvedValue !== null && attribute.resolvedValue !== undefined && attribute.resolvedValue !== '').length + raw.length;
 
   const complete = async () => {
@@ -207,7 +252,7 @@ export default function DeliveryReviewV2Page() {
       <PageHeader
         eyebrow="Delivery Review · Evidence First"
         title="Review Delivery information"
-        description="All extracted values are shown with their source evidence. Differences and low-confidence values are identified as audit exceptions; they never block Delivery."
+        description="Extracted values are shown with boxed source evidence when DI returns a reliable location. Missing source locations are identified as audit exceptions and never block Delivery."
       />
 
       {message ? <div className="uc03-booking-journey-feedback is-success" role="status">{message}</div> : null}
@@ -236,7 +281,8 @@ export default function DeliveryReviewV2Page() {
           <AttributeCard key={attribute.attributeKey} attribute={attribute} onEvidence={setSelectedSource} />
         ))}
         {groupedRaw[activeGroup].map((item) => {
-          const exception = item.mismatch || item.selected.confidenceScore === null || item.selected.confidenceScore < 92;
+          const localizationException = item.fields.some((field) => !hasBoxedEvidence(rawSource(field)));
+          const exception = item.mismatch || item.selected.confidenceScore === null || item.selected.confidenceScore < 92 || localizationException;
           return (
             <article key={`raw:${item.fieldKey}`} className={`uc03-delivery-review-field ${exception ? 'is-exception' : ''}`}>
               <div className="uc03-delivery-review-field__name"><strong>{fieldLabel(item.fieldKey)}</strong><span>{item.fields.length} source{item.fields.length === 1 ? '' : 's'}</span></div>
@@ -244,10 +290,10 @@ export default function DeliveryReviewV2Page() {
               <div className="uc03-delivery-review-sources">
                 {item.fields.map((field) => {
                   const source = rawSource(field);
-                  return <button key={`${field.documentId}:${field.canonicalFieldId}:${field.sourceFactVersion}`} type="button" className="uc03-delivery-review-source" onClick={() => setSelectedSource(source)}><strong>{field.documentLabel}</strong><span>{displayValue(field.value)}</span><small>{confidence(field.confidenceScore)} · boxed evidence</small></button>;
+                  return <EvidenceSource key={`${field.documentId}:${field.canonicalFieldId}:${field.sourceFactVersion}`} source={source} onEvidence={setSelectedSource} />;
                 })}
               </div>
-              <span className="uc03-delivery-review-result">{exception ? 'Exception' : item.fields.length > 1 ? 'Sources match' : 'Single source'}</span>
+              <span className="uc03-delivery-review-result">{localizationException ? 'Evidence location exception' : exception ? 'Exception' : item.fields.length > 1 ? 'Sources match' : 'Single source'}</span>
             </article>
           );
         })}

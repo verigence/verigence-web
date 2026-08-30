@@ -129,17 +129,23 @@ export function OptimizedDirectDiFieldReview({
   const mimeType = content?.mimeType || '';
   const isImage = mimeType.startsWith('image/');
   const isPdf = mimeType.includes('pdf');
+  const selectedLocalized = Boolean(selectedBox && (!isPdf || Boolean(selected?.pageNo && selected.pageNo > 0)));
+  const fieldEvidenceVisible = !selected || selectedLocalized;
 
   useEffect(() => {
     if (contentError || (!contentLoading && content && !sourceUrl)) notifyPreviewSettled();
   }, [content, contentError, contentLoading, sourceUrl]);
 
   useEffect(() => {
-    if (!contentLoading && sourceUrl && !isImage && !isPdf) notifyPreviewSettled();
-  }, [contentLoading, isImage, isPdf, sourceUrl]);
+    if (selected && !selectedLocalized) notifyPreviewSettled();
+  }, [selected, selectedLocalized]);
 
   useEffect(() => {
-    if (!selectedBox || !isImage || !imageReady) return;
+    if (!contentLoading && sourceUrl && fieldEvidenceVisible && !isImage && !isPdf) notifyPreviewSettled();
+  }, [contentLoading, fieldEvidenceVisible, isImage, isPdf, sourceUrl]);
+
+  useEffect(() => {
+    if (!selectedLocalized || !selectedBox || !isImage || !imageReady) return;
     const scroller = scrollerRef.current;
     const image = imageRef.current;
     if (!scroller || !image || image.clientHeight <= 0) return;
@@ -147,7 +153,7 @@ export function OptimizedDirectDiFieldReview({
     const target = absoluteY - Math.max(70, scroller.clientHeight * 0.42);
     const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     scroller.scrollTo({ top: Math.max(0, target), behavior: reduceMotion ? 'auto' : 'smooth' });
-  }, [imageReady, isImage, selectedBox?.h, selectedBox?.w, selectedBox?.x, selectedBox?.y]);
+  }, [imageReady, isImage, selectedBox?.h, selectedBox?.w, selectedBox?.x, selectedBox?.y, selectedLocalized]);
 
   const startEdit = (fact: PcBookingExtractionFact) => {
     setSelectedRef(fact.sourceFactRef);
@@ -168,12 +174,10 @@ export function OptimizedDirectDiFieldReview({
   };
 
   const sourceNote = selected
-    ? selectedBox
-      ? `Selected value is highlighted on ${isPdf ? `PDF page ${selectedPage}` : 'the source document'}.`
-      : selected.pageNo
-        ? `Selected value was localized to page ${selected.pageNo}; no reliable box was returned.`
-        : 'No reliable source region was returned for this value.'
-    : 'Values come from DI and the source document is loaded from its stored object.';
+    ? selectedLocalized
+      ? `Selected value is boxed on ${isPdf ? `PDF page ${selectedPage}` : 'the source document'}.`
+      : 'Source location unavailable. The unboxed document is intentionally not shown for this extracted-field review.'
+    : 'No extracted field is selected, so the source document can be viewed normally without a field box.';
 
   return (
     <div className="uc03-docverify is-wide">
@@ -190,10 +194,15 @@ export function OptimizedDirectDiFieldReview({
       <div className="uc03-docverify-body is-wide">
         <div className="uc03-docverify-canvas">
           <div ref={scrollerRef} className="uc03-docverify-scroller">
-            {contentLoading ? <div className="uc03-docverify-message">Loading source document…</div> : null}
-            {contentError ? <div className="uc03-docverify-message is-error">{contentError}</div> : null}
+            {selected && !selectedLocalized ? (
+              <div className="uc03-docverify-message is-error">
+                Source location unavailable. Document Intelligence returned this value without a reliable page/bounding box. Verigence does not show an unboxed document as extracted-field evidence and does not invent a box.
+              </div>
+            ) : null}
+            {fieldEvidenceVisible && contentLoading ? <div className="uc03-docverify-message">Loading source document…</div> : null}
+            {fieldEvidenceVisible && contentError ? <div className="uc03-docverify-message is-error">{contentError}</div> : null}
 
-            {!contentLoading && !contentError && sourceUrl && isImage ? (
+            {fieldEvidenceVisible && !contentLoading && !contentError && sourceUrl && isImage ? (
               <div className="uc03-docverify-image-page">
                 <img
                   ref={imageRef}
@@ -223,7 +232,7 @@ export function OptimizedDirectDiFieldReview({
               </div>
             ) : null}
 
-            {!contentLoading && !contentError && sourceUrl && isPdf ? (
+            {fieldEvidenceVisible && !contentLoading && !contentError && sourceUrl && isPdf ? (
               <div className="uc03-docverify-pdf">
                 <Suspense fallback={<div className="uc03-docverify-message">Preparing PDF viewer…</div>}>
                   <OptimizedPdfPageReview
@@ -235,20 +244,22 @@ export function OptimizedDirectDiFieldReview({
                     onFirstRenderSettled={notifyPreviewSettled}
                   />
                 </Suspense>
-                <a href={`${sourceUrl}#page=${selectedPage}`} target="_blank" rel="noreferrer">
-                  Open PDF in full viewer
-                </a>
+                {!selected ? (
+                  <a href={`${sourceUrl}#page=${selectedPage}`} target="_blank" rel="noreferrer">
+                    Open PDF in full viewer
+                  </a>
+                ) : null}
               </div>
             ) : null}
 
-            {!contentLoading && !contentError && sourceUrl && !isImage && !isPdf ? (
+            {fieldEvidenceVisible && !contentLoading && !contentError && sourceUrl && !isImage && !isPdf ? (
               <div className="uc03-docverify-message">
-                <span>Inline preview is not available for this file type.</span>
-                <a href={sourceUrl} target="_blank" rel="noreferrer">Open source document</a>
+                <span>{selected ? 'Boxed preview is not supported for this file type.' : 'Inline preview is not available for this file type.'}</span>
+                {!selected ? <a href={sourceUrl} target="_blank" rel="noreferrer">Open source document</a> : null}
               </div>
             ) : null}
 
-            {!contentLoading && !contentError && !sourceUrl ? (
+            {fieldEvidenceVisible && !contentLoading && !contentError && !sourceUrl ? (
               <div className="uc03-docverify-message">Source document is not available.</div>
             ) : null}
           </div>
@@ -259,7 +270,7 @@ export function OptimizedDirectDiFieldReview({
           <div className="uc03-docverify-panel__head">
             <div>
               <strong>What DI Read</strong>
-              <span>All fields returned by DI are shown. Unchanged values need no action.</span>
+              <span>All fields returned by DI are shown. Select a field to see its boxed source location.</span>
             </div>
             <span>{facts.length} fields</span>
           </div>
@@ -271,6 +282,7 @@ export function OptimizedDirectDiFieldReview({
                 const editing = fact.sourceFactRef === editingRef;
                 const modified = Object.prototype.hasOwnProperty.call(modifiedValues, fact.sourceFactRef);
                 const shownValue = modified ? modifiedValues[fact.sourceFactRef] : displayValue(factValue(fact));
+                const factLocalized = Boolean(normalizedBox(fact.evidenceRegion) && (!isPdf || Boolean(fact.pageNo && fact.pageNo > 0)));
                 return (
                   <li
                     key={`${fact.sourceFactRef}:${fact.sourceFactVersion}`}
@@ -296,6 +308,7 @@ export function OptimizedDirectDiFieldReview({
                           <span>{confidencePercent(fact.confidenceScore)}</span>
                           <span>{fact.foundStatus}</span>
                           {fact.pageNo ? <span>Page {fact.pageNo}</span> : null}
+                          <span>{factLocalized ? 'Boxed source' : 'Source location unavailable'}</span>
                           {modified ? <span>PC changed</span> : null}
                         </div>
 

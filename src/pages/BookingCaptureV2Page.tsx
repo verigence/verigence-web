@@ -445,7 +445,7 @@ export default function BookingCaptureV2CompactPage() {
       <div className="screen-stack uc03-booking-journey uc03-v2-capture uc03-v2-compact">
         <div className="uc03-c1-topbar">
           <button type="button" className="uc03-c1-back" onClick={() => navigate('/dashboard')}>← Work List</button>
-          <span>Project · {project.projectName}</span>
+
         </div>
         <PageHeader eyebrow="Capture New Booking · V2" title={customerName} description="Step 1 of 2 · Documents" />
         <section className="uc03-c1-start-panel">
@@ -507,7 +507,7 @@ export default function BookingCaptureV2CompactPage() {
     <div className="screen-stack uc03-booking-journey uc03-v2-capture uc03-v2-compact">
       <div className="uc03-c1-topbar">
         <button type="button" className="uc03-c1-back" onClick={() => navigate('/dashboard')}>← Work List</button>
-        <span>Project · {project.projectName}</span>
+
       </div>
 
       <PageHeader

@@ -242,7 +242,7 @@ export default function DeliveryCaptureV2Page() {
     <div className="screen-stack uc03-delivery-v2-page">
       <div className="uc03-c1-topbar">
         <button type="button" className="uc03-c1-back" onClick={() => navigate('/dashboard')}>← Work List</button>
-        <span>{project.projectName}</span>
+
       </div>
       <PageHeader
         eyebrow="Delivery · V2"

@@ -299,8 +299,8 @@ export default function TeamLeadDashboardPage() {
   const dealerCount = new Set(cases.map((item) => item.dealerId)).size || project.scope.dealerCount;
   const outletCount = new Set(cases.map((item) => item.outletId)).size || project.scope.outletCount;
   const scopeSummary = project.scope.allDealers
-    ? `${project.projectName} · All dealers · All outlets`
-    : `${project.projectName} · ${dealerCount} dealer${dealerCount === 1 ? '' : 's'} · ${outletCount} outlet${outletCount === 1 ? '' : 's'}`;
+    ? `All dealers · All outlets`
+    : `${dealerCount} dealer${dealerCount === 1 ? '' : 's'} · ${outletCount} outlet${outletCount === 1 ? '' : 's'}`;
   const openFlags = cases.reduce((sum, item) => sum + item.openFlagCount, 0);
   const activeFilterCount = Number(Boolean(outletId)) + Number(Boolean(pcActorId)) + Number(stageFilter !== 'ALL') + Number(Boolean(search.trim()));
 

@@ -232,7 +232,7 @@ export default function DocumentIntelligenceConfigurationPage() {
           <label>Project
             <select value={tenantId} onChange={(event) => setTenantId(event.target.value)}>
               <option value="">Select a Project</option>
-              {projects.map((project) => <option key={project.tenantId} value={project.tenantId}>{project.projectName} · {project.projectCode}</option>)}
+              {projects.map((project) => <option key={project.tenantId} value={project.tenantId}>{project.projectCode}</option>)}
             </select>
           </label>
           {currentProject && <p className="di-config-meta">Tenant: <code>{currentProject.tenantId}</code></p>}

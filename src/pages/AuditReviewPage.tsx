@@ -4,7 +4,7 @@ import { Link, useParams } from 'react-router-dom';
 
 import PageHeader from '../components/PageHeader';
 import StatusPill from '../components/StatusPill';
-import AttributeEvidenceViewer from '../features/uc03/AttributeEvidenceViewer';
+import AttributeEvidenceViewer, { hasBoxedEvidence } from '../features/uc03/AttributeEvidenceViewer';
 import AuditSourceComparisonTable from '../features/uc03/AuditSourceComparisonTable';
 import {
   actOnAuditFlag,
@@ -479,7 +479,7 @@ export default function AuditReviewPage() {
         </section>
       )}
       {sourceComparisonQuery.data && (
-        <AuditSourceComparisonTable comparison={sourceComparisonQuery.data} onEvidence={setSelectedSource} />
+        <AuditSourceComparisonTable comparison={sourceComparisonQuery.data} onEvidence={(source) => { if (hasBoxedEvidence(source)) setSelectedSource(source); }} />
       )}
 
       {summary?.permittedActions.includes('RAISE') && (
@@ -569,7 +569,7 @@ export default function AuditReviewPage() {
         </ol>
       </section>
 
-      {selectedSource && (
+      {selectedSource && hasBoxedEvidence(selectedSource) && (
         <AttributeEvidenceViewer
           tenantId={project.tenantId}
           journeyId={journeyId}

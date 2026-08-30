@@ -16,10 +16,60 @@ import { useSessionStore } from '../store/sessionStore';
 import '../styles/uc03-document-capture-v2.css';
 import '../styles/uc03-attribute-audit-review.css';
 import '../styles/uc03-delivery-capture-v2.css';
+import '../styles/uc03-delivery-review-missing.css';
 
 const REFRESH_MS = 2 * 60 * 1000;
 
 type ReviewGroup = 'CUSTOMER' | 'VEHICLE' | 'FINANCIAL' | 'OTHER';
+
+const EXPECTED_DOCUMENT_TYPES: Record<string, string> = {
+  customer_name: 'PAN Card / Aadhaar / Booking Form or Booking Docket',
+  customer_number: 'Booking Form or Booking Docket',
+  mail_id: 'Booking Form or Booking Docket',
+  pan: 'PAN Card',
+  pan_father_name: 'PAN Card',
+  customer_relationship_type: 'PAN Card / Aadhaar',
+  customer_relationship_name: 'PAN Card / Aadhaar',
+  sc_name: 'Booking Form or Booking Docket',
+  model: 'Booking Form or Booking Docket / Customer Invoice (DMS) / Tax Invoice',
+  variant: 'Booking Form or Booking Docket / Customer Invoice (DMS) / Tax Invoice',
+  color: 'Booking Form or Booking Docket / Customer Invoice (DMS) / Tax Invoice',
+  booking_registration_by: 'Booking Form or Booking Docket',
+  booking_registration_type: 'Booking Form or Booking Docket',
+  booking_insurance_by: 'Booking Form or Booking Docket',
+  booking_exchange_applicable: 'Booking Form or Booking Docket',
+  booking_exchange_value: 'Booking Form or Booking Docket',
+  booking_ex_showroom_price: 'Booking Form or Booking Docket / Cost Sheet / Customer Invoice (DMS) / Tax Invoice',
+  booking_tcs_amount: 'Booking Form or Booking Docket / Customer Invoice (DMS) / Tax Invoice',
+  booking_registration_charges: 'Booking Form or Booking Docket',
+  booking_road_tax_amount: 'Booking Form or Booking Docket',
+  booking_road_tax_registration_combined: 'Booking Form or Booking Docket',
+  booking_insurance_amount: 'Insurance Cover Note or Insurance Policy / Booking Form or Booking Docket',
+  booking_rsa_amount: 'Booking Form or Booking Docket',
+  booking_accessories_cost: 'Booking Form or Booking Docket',
+  booking_additional_warranty_amount: 'Booking Form or Booking Docket',
+  booking_other_charges: 'Booking Form or Booking Docket',
+  booking_total_price: 'Booking Form or Booking Docket / Customer Invoice (DMS) / Tax Invoice',
+  booking_discount_amount: 'Booking Form or Booking Docket / Customer Invoice (DMS) / Tax Invoice',
+  booking_bonus_amount: 'Booking Form or Booking Docket',
+  booking_net_amount: 'Booking Form or Booking Docket / Customer Invoice (DMS) / Tax Invoice',
+  booking_amount_paid: 'Booking Form or Booking Docket',
+  booking_balance_amount: 'Booking Form or Booking Docket',
+  booking_payment_mode: 'Booking Form or Booking Docket',
+  booking_payment_reference: 'Booking Form or Booking Docket',
+  expected_delivery_text: 'Booking Form or Booking Docket',
+  expected_delivery_date: 'Booking Form or Booking Docket',
+  booking_reference: 'Booking Form or Booking Docket',
+  actual_booking_date: 'Booking Form or Booking Docket',
+};
+
+function hasExtractedValue(value: unknown): boolean {
+  return value !== null && value !== undefined && value !== '';
+}
+
+function expectedDocumentTypes(attribute: ReviewV2Attribute): string {
+  return EXPECTED_DOCUMENT_TYPES[attribute.attributeKey] ?? 'Source document mapping pending';
+}
 
 function displayValue(value: unknown): string {
   if (value === null || value === undefined || value === '') return 'Not available';
@@ -188,11 +238,15 @@ export default function DeliveryReviewV2Page() {
   const groupedAttributes = useMemo(() => {
     const groups: Record<ReviewGroup, ReviewV2Attribute[]> = { CUSTOMER: [], VEHICLE: [], FINANCIAL: [], OTHER: [] };
     comparisonQuery.data?.attributes.forEach((attribute) => {
-      if (attribute.resolvedValue === null || attribute.resolvedValue === undefined || attribute.resolvedValue === '') return;
+      if (!hasExtractedValue(attribute.resolvedValue)) return;
       groups[groupFor(attribute.attributeKey, attribute.label)].push(attribute);
     });
     return groups;
   }, [comparisonQuery.data?.attributes]);
+  const missingAttributes = useMemo(
+    () => (comparisonQuery.data?.attributes ?? []).filter((attribute) => !hasExtractedValue(attribute.resolvedValue)),
+    [comparisonQuery.data?.attributes],
+  );
   const groupedRaw = useMemo(() => {
     const groups: Record<ReviewGroup, RawGroup[]> = { CUSTOMER: [], VEHICLE: [], FINANCIAL: [], OTHER: [] };
     raw.forEach((item) => groups[groupFor(item.fieldKey, fieldLabel(item.fieldKey))].push(item));
@@ -216,9 +270,12 @@ export default function DeliveryReviewV2Page() {
   const workspace = workspaceQuery.data;
   const deliveryCompleted = workspace.delivery.businessStatus === 'DELIVERY_COMPLETED';
   const mappedExceptions = comparison.attributes.filter((attribute) => (
-    attribute.comparisonState === 'MISMATCH'
-    || attribute.reviewState === 'NEEDS_REVIEW'
-    || attribute.sources.some((source) => !hasBoxedEvidence(source))
+    hasExtractedValue(attribute.resolvedValue)
+    && (
+      attribute.comparisonState === 'MISMATCH'
+      || attribute.reviewState === 'NEEDS_REVIEW'
+      || attribute.sources.some((source) => !hasBoxedEvidence(source))
+    )
   )).length;
   const rawExceptions = raw.filter((item) => (
     item.mismatch
@@ -227,7 +284,7 @@ export default function DeliveryReviewV2Page() {
     || item.fields.some((field) => !hasBoxedEvidence(rawSource(field)))
   )).length;
   const exceptions = mappedExceptions + rawExceptions;
-  const extractedCount = comparison.attributes.filter((attribute) => attribute.resolvedValue !== null && attribute.resolvedValue !== undefined && attribute.resolvedValue !== '').length + raw.length;
+  const extractedCount = comparison.attributes.filter((attribute) => hasExtractedValue(attribute.resolvedValue)).length + raw.length;
 
   const complete = async () => {
     setCompleting(true);
@@ -252,7 +309,7 @@ export default function DeliveryReviewV2Page() {
       <PageHeader
         eyebrow="Delivery Review · Evidence First"
         title="Review Delivery information"
-        description="Extracted values are shown with boxed source evidence when DI returns a reliable location. Missing source locations are identified as audit exceptions and never block Delivery."
+        description="Only extracted values are shown in the Review sections, with boxed source evidence when DI returns a reliable location. Attributes that were expected but not extracted are listed separately at the bottom."
       />
 
       {message ? <div className="uc03-booking-journey-feedback is-success" role="status">{message}</div> : null}
@@ -299,6 +356,23 @@ export default function DeliveryReviewV2Page() {
         })}
         {!groupedAttributes[activeGroup].length && !groupedRaw[activeGroup].length ? <p>No extracted values are available in this section yet.</p> : null}
       </section>
+
+      {missingAttributes.length ? (
+        <section className="uc03-delivery-review-section uc03-delivery-review-missing">
+          <div className="uc03-delivery-review-missing__intro">
+            <h2>Attributes not extracted</h2>
+            <p>These attributes are intentionally excluded from the Review above. Only the expected source document type is shown here.</p>
+          </div>
+          <div className="uc03-delivery-review-missing__list">
+            {missingAttributes.map((attribute) => (
+              <div key={`missing:${attribute.attributeKey}`} className="uc03-delivery-review-missing__row">
+                <strong>{attribute.label}</strong>
+                <span>{expectedDocumentTypes(attribute)}</span>
+              </div>
+            ))}
+          </div>
+        </section>
+      ) : null}
 
       <section className="uc03-delivery-review-complete">
         <div>

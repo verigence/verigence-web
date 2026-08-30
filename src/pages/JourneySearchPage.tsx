@@ -25,7 +25,7 @@ const matchLabels: Record<JourneySearchMatch, string> = {
 function roleScopeCopy(role?: string): string {
   if (role === 'PC') return 'Search is restricted to the Dealer Outlet(s) assigned to you.';
   if (role === 'TL') return 'Search covers all Dealers and Outlets assigned to you.';
-  if (role === 'PM') return 'Search covers your complete assigned Project scope.';
+  if (role === 'PM') return 'Search covers your complete assigned scope.';
   return 'Journey search is available to PC, TL and PM users.';
 }
 
@@ -67,7 +67,7 @@ export default function JourneySearchPage() {
     if (operatingRole === 'PC') return `${outletCount} assigned outlet${outletCount === 1 ? '' : 's'}`;
     if (operatingRole === 'TL') return `${dealerCount} dealer${dealerCount === 1 ? '' : 's'} · ${outletCount} outlet${outletCount === 1 ? '' : 's'}`;
     if (operatingRole === 'PM') return selectedProject.scope.allDealers
-      ? 'All Dealers in this Project'
+      ? 'All assigned Dealers'
       : `${dealerCount} dealer${dealerCount === 1 ? '' : 's'} · ${outletCount} outlet${outletCount === 1 ? '' : 's'}`;
     return '';
   }, [operatingRole, selectedProject]);
@@ -75,7 +75,7 @@ export default function JourneySearchPage() {
   return (
     <div className="screen-stack journey-search-page">
       <PageHeader
-        eyebrow={selectedProject?.projectName || 'Current Project'}
+        eyebrow="Current Workspace"
         title="Journey Search"
         description="Find a customer journey using the identifiers your team actually works with, then open Booking and Delivery together."
       />

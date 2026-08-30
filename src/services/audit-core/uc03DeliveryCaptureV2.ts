@@ -115,10 +115,18 @@ export async function uploadDeliveryCaptureV2Files(
       if (local.file.type && !headers.has('Content-Type')) headers.set('Content-Type', local.file.type);
       const put = await fetch(upload.uploadUrl, { method: 'PUT', headers, body: local.file });
       if (!put.ok) throw new Error(`Delivery document upload failed with HTTP ${put.status}.`);
-      await auditCoreRequest<FinalizeResponse>(
-        `${base(tenantId, journeyId)}/documents/${encodeURIComponent(upload.documentId)}/finalize`,
-        { method: 'POST', accessToken: access },
-      );
+
+      // Finalize is only a latency hint. Once the direct object PUT succeeds, DI status
+      // reconciliation can recover a lost/failed finalize and queue classification later.
+      // Do not turn a safely stored Delivery document into a false upload failure.
+      try {
+        await auditCoreRequest<FinalizeResponse>(
+          `${base(tenantId, journeyId)}/documents/${encodeURIComponent(upload.documentId)}/finalize`,
+          { method: 'POST', accessToken: access },
+        );
+      } catch {
+        // The next Delivery status read reconciles RECEIVING objects that already exist.
+      }
     }
   };
   await Promise.all(Array.from({ length: Math.min(6, intent.uploads.length) }, () => worker()));

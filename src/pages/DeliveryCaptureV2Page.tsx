@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 
 import PageHeader from '../components/PageHeader';
 import StatusPill from '../components/StatusPill';
@@ -9,12 +9,12 @@ import {
   deleteDeliveryCaptureV2Document,
   deliveryCaptureV2IsProcessing,
   getDeliveryCaptureV2,
-  submitDeliveryCaptureV2,
   uploadDeliveryCaptureV2Files,
 } from '../services/audit-core/uc03DeliveryCaptureV2';
 import type { CaptureV2Requirement } from '../services/audit-core/uc03DocumentCaptureV2';
 import { useProjectContextStore } from '../store/projectContextStore';
 import { useSessionStore } from '../store/sessionStore';
+import DeliveryDetailsV2Page from './DeliveryDetailsV2Page';
 import '../styles/uc03-document-capture-v2.css';
 import '../styles/uc03-delivery-capture-v2.css';
 
@@ -100,12 +100,12 @@ function RequirementRow({
 
 export default function DeliveryCaptureV2Page() {
   const { journeyId = '' } = useParams();
+  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const project = useProjectContextStore((state) => state.selectedProject);
   const accessToken = useSessionStore((state) => state.accessToken);
   const [starting, setStarting] = useState(false);
   const [uploading, setUploading] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
   const [deletingId, setDeletingId] = useState<string>();
   const [message, setMessage] = useState<string>();
   const [error, setError] = useState<string>();
@@ -146,6 +146,10 @@ export default function DeliveryCaptureV2Page() {
   }, [capture?.requirements]);
 
   if (!project || !journeyId) return null;
+
+  if (searchParams.get('step') === 'details') {
+    return <DeliveryDetailsV2Page />;
+  }
 
   const handleStart = async () => {
     setStarting(true);
@@ -190,18 +194,6 @@ export default function DeliveryCaptureV2Page() {
       setError(cause instanceof Error ? cause.message : 'The Delivery document could not be removed.');
     } finally {
       setDeletingId(undefined);
-    }
-  };
-
-  const handleSubmit = async () => {
-    setSubmitting(true);
-    setError(undefined);
-    try {
-      await submitDeliveryCaptureV2(project.tenantId, journeyId, accessToken);
-      navigate(`/v2/deliveries/${journeyId}/review`);
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'Delivery documents could not be submitted.');
-      setSubmitting(false);
     }
   };
 
@@ -255,8 +247,14 @@ export default function DeliveryCaptureV2Page() {
 
   if (captureQuery.isPending || !capture) return <div className="uc03-c1-loading" role="status">Loading Delivery documents…</div>;
 
-  const classified = capture.uploads.filter((document) => document.state.toUpperCase() === 'CLASSIFIED' && document.classifiedDocumentTypeKey).length;
+  const classified = capture.uploads.filter((document) => (
+    document.state.toUpperCase() === 'CLASSIFIED' && Boolean(document.classifiedDocumentTypeKey)
+  )).length;
   const processing = deliveryCaptureV2IsProcessing(capture);
+  const allUploadedClassified = capture.uploads.every((document) => (
+    document.state.toUpperCase() === 'CLASSIFIED' && Boolean(document.classifiedDocumentTypeKey)
+  ));
+  const canGoNext = !uploading && !deletingId && allUploadedClassified;
   const mandatory = capture.requirements.filter((item) => item.requirementLevel === 'REQUIRED' && item.applicabilityState !== 'NOT_APPLICABLE');
   const mandatoryReceived = mandatory.filter((item) => Boolean(item.document)).length;
 
@@ -281,17 +279,22 @@ export default function DeliveryCaptureV2Page() {
       <PageHeader
         eyebrow="Delivery · V2"
         title="Delivery documents"
-        description="Upload the documents available at Delivery. Missing or inconsistent evidence is flagged for audit follow-up; it never blocks Delivery progression."
+        description="Step 1 of 2 · Upload whatever Delivery documents are available. Missing configured documents remain audit observations and do not block Next."
       />
+
+      <nav className="uc03-booking-steps" aria-label="Delivery capture steps">
+        <button type="button" className="is-active" disabled>1 <span>Documents</span></button>
+        <button type="button" disabled>2 <span>Delivery Details</span></button>
+      </nav>
 
       {message ? <div className="uc03-booking-journey-feedback is-success" role="status">{message}</div> : null}
       {error ? <div className="uc03-booking-journey-feedback is-error" role="alert">{error}</div> : null}
 
       <section className="uc03-delivery-v2-summary" aria-label="Delivery document status">
         <div><span>Documents received</span><strong>{capture.uploads.length}</strong></div>
-        <div><span>Documents classified</span><strong>{classified}</strong></div>
-        <div><span>Mandatory received</span><strong>{mandatoryReceived}/{mandatory.length}</strong></div>
-        <div className={processing ? 'is-processing' : 'is-ready'}><span>{processing ? 'Documents being classified' : 'Documents uploaded'}</span><strong>{clock}</strong></div>
+        <div><span>Documents classified</span><strong>{classified}/{capture.uploads.length}</strong></div>
+        <div><span>Configured mandatory received</span><strong>{mandatoryReceived}/{mandatory.length}</strong></div>
+        <div className={allUploadedClassified ? 'is-ready' : 'is-processing'}><span>{allUploadedClassified ? 'Uploaded documents classified' : 'Waiting for classification'}</span><strong>{clock}</strong></div>
       </section>
 
       <section className="uc03-delivery-v2-upload-panel">
@@ -304,9 +307,9 @@ export default function DeliveryCaptureV2Page() {
           {helpOpen ? (
             <div className="uc03-delivery-v2-help-panel">
               <strong>Document guide</strong>
-              <p><b>Mandatory:</b> {mandatory.length ? mandatory.map((item) => item.label).join(', ') : 'No mandatory document configured.'}</p>
+              <p><b>Configured mandatory:</b> {mandatory.length ? mandatory.map((item) => item.label).join(', ') : 'No mandatory document configured.'}</p>
               <p><b>Optional / if applicable:</b> {capture.requirements.filter((item) => item.requirementLevel !== 'REQUIRED').map((item) => item.label).join(', ') || 'None configured.'}</p>
-              <small>Missing evidence creates an audit exception; it does not stop Delivery.</small>
+              <small>These requirements are audit expectations. Missing documents do not block Next.</small>
             </div>
           ) : null}
         </div>
@@ -369,11 +372,18 @@ export default function DeliveryCaptureV2Page() {
 
       <section className="uc03-delivery-v2-submit-bar">
         <div>
-          <strong>{processing ? 'Waiting for uploaded document classification' : 'Ready to continue'}</strong>
-          <span>{processing ? 'Submit will be available as soon as the documents you uploaded are classified.' : 'Submit whatever evidence is available. Missing mandatory documents remain non-blocking audit observations.'}</span>
+          <strong>{canGoNext ? 'Ready for Delivery Details' : 'Waiting for uploaded document classification'}</strong>
+          <span>{canGoNext
+            ? 'All documents you uploaded are classified. Missing configured documents do not block progression.'
+            : `${classified} of ${capture.uploads.length} uploaded document${capture.uploads.length === 1 ? '' : 's'} classified. Next becomes available when every uploaded document is classified.`}</span>
         </div>
-        <button type="button" className="uc03-c1-primary" disabled={uploading || submitting || processing} onClick={() => void handleSubmit()}>
-          {submitting ? 'Submitting…' : processing ? 'Classifying…' : 'Submit & Review →'}
+        <button
+          type="button"
+          className="uc03-c1-primary"
+          disabled={!canGoNext}
+          onClick={() => navigate(`/v2/deliveries/${journeyId}?step=details`)}
+        >
+          {uploading ? 'Uploading…' : processing ? 'Classifying…' : 'Next →'}
         </button>
       </section>
     </div>

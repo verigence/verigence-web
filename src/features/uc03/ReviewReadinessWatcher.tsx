@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
+import { awaitPrimaryUc03WorkQueue } from '../../services/audit-core/uc03';
 import { getPcBookingReviewSnapshot } from '../../services/audit-core/uc03PcDirectReview';
 import { useProjectContextStore } from '../../store/projectContextStore';
 import { useSessionStore } from '../../store/sessionStore';
@@ -76,6 +77,12 @@ export default function ReviewReadinessWatcher() {
 
   const checkDue = useCallback(async () => {
     if (!project?.tenantId || project.operatingRole !== 'PC' || !accessToken) return;
+    if (document.visibilityState !== 'visible') return;
+
+    // Never let periodic review readiness traffic compete with the user's first
+    // useful landing request. If a primary Work Queue request is active, share its
+    // priority barrier and begin review checks only after it settles.
+    await awaitPrimaryUc03WorkQueue(project.tenantId);
     if (document.visibilityState !== 'visible') return;
 
     const now = Date.now();

@@ -108,6 +108,7 @@ type PrimaryQueueEntry = {
 const primaryQueueRequests = new Map<string, PrimaryQueueEntry>();
 const PRIMARY_QUEUE_REGISTRATION_WAIT_MS = 100;
 const PRIMARY_QUEUE_REUSE_MS = 2_000;
+export const UC03_PRIMARY_WORK_QUEUE_SETTLED_EVENT = 'uc03-primary-work-queue-settled';
 
 function primaryQueueKey(tenantId: string, outletId?: string): string {
   return `${tenantId}:${outletId || ''}`;
@@ -250,14 +251,19 @@ export async function listUc03WorkItems(
   const entry = { promise: request, createdAt: Date.now() };
   primaryQueueRequests.set(key, entry);
 
-  const scheduleCleanup = () => {
+  const settlePrimaryQueue = () => {
     globalThis.setTimeout(() => {
       const current = primaryQueueRequests.get(key);
       if (current === entry || (current && Date.now() - current.createdAt > PRIMARY_QUEUE_REUSE_MS)) {
         primaryQueueRequests.delete(key);
       }
     }, PRIMARY_QUEUE_REUSE_MS);
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent(UC03_PRIMARY_WORK_QUEUE_SETTLED_EVENT, {
+        detail: { tenantId, outletId: filters.outletId || null },
+      }));
+    }
   };
-  void request.then(scheduleCleanup, scheduleCleanup);
+  void request.then(settlePrimaryQueue, settlePrimaryQueue);
   return request;
 }

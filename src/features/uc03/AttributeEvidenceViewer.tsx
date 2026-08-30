@@ -2,13 +2,13 @@ import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 
 import { getReviewDocumentContentV2, type ReviewV2SourceValue } from '../../services/audit-core/uc03DocumentReviewV2';
-import PdfPageReview from './PdfPageReview';
+import { PdfPageReview } from './PdfPageReview';
 
 interface NormalizedBox {
   x: number;
   y: number;
-  width: number;
-  height: number;
+  w: number;
+  h: number;
 }
 
 function normalizedBox(region: Record<string, unknown> | null): NormalizedBox | undefined {
@@ -21,8 +21,8 @@ function normalizedBox(region: Record<string, unknown> | null): NormalizedBox | 
   return {
     x: xmin / 1000,
     y: ymin / 1000,
-    width: (xmax - xmin) / 1000,
-    height: (ymax - ymin) / 1000,
+    w: (xmax - xmin) / 1000,
+    h: (ymax - ymin) / 1000,
   };
 }
 
@@ -99,7 +99,7 @@ export default function AttributeEvidenceViewer({
               <PdfPageReview
                 sourceUrl={objectUrl}
                 pageNumber={source.pageNo || 1}
-                box={box}
+                box={box ?? null}
                 label={source.fieldKey}
                 attention={source.reviewState === 'NEEDS_REVIEW'}
               />
@@ -113,8 +113,8 @@ export default function AttributeEvidenceViewer({
                     style={{
                       left: `${box.x * 100}%`,
                       top: `${box.y * 100}%`,
-                      width: `${box.width * 100}%`,
-                      height: `${box.height * 100}%`,
+                      width: `${box.w * 100}%`,
+                      height: `${box.h * 100}%`,
                     }}
                     aria-hidden="true"
                   />

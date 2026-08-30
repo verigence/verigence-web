@@ -85,9 +85,18 @@ export interface AttendanceLocationEvidence {
   capturedAt: string;
 }
 
+export interface AttendanceLocationResolution {
+  displayAddress: string;
+  provider: string;
+  attribution: string;
+}
+
 export interface AttendanceActionBody {
   location: AttendanceLocationEvidence;
   exceptionReason?: string;
+  displayAddress?: string;
+  locationConfirmed?: boolean;
+  locationRemarks?: string;
 }
 
 export interface AttendanceCorrectionBody {
@@ -209,27 +218,73 @@ export function updateAttendancePolicy(
   });
 }
 
-export function checkInAttendance(
+export function resolveAttendanceLocation(
   tenantId: string,
   accessToken: string,
-  body: AttendanceActionBody,
-): Promise<AttendanceActionResponse> {
-  return attendanceRequest<AttendanceActionResponse>(
-    `/attendance/v1/tenants/${tenantId}/me/check-in`,
+  location: AttendanceLocationEvidence,
+): Promise<AttendanceLocationResolution> {
+  return attendanceRequest<AttendanceLocationResolution>(
+    `/attendance/v1/tenants/${tenantId}/me/location/resolve`,
     accessToken,
-    { method: 'POST', body: JSON.stringify(body) },
+    { method: 'POST', body: JSON.stringify({ location }) },
   );
 }
 
-export function checkOutAttendance(
+async function withEmployeeLocationConfirmation(
+  tenantId: string,
+  accessToken: string,
+  body: AttendanceActionBody,
+): Promise<AttendanceActionBody> {
+  if (body.displayAddress && body.locationConfirmed !== undefined) return body;
+
+  const resolved = await resolveAttendanceLocation(tenantId, accessToken, body.location);
+  const accuracy = Math.round(body.location.accuracyMeters);
+  const confirmed = globalThis.confirm(
+    `Your detected location:\n\n${resolved.displayAddress}\n\nGPS accuracy: ±${accuracy} m\n${resolved.attribution}\n\nDo you confirm you are currently at this location?\n\nOK = Yes   Cancel = No`,
+  );
+
+  let remarks: string | undefined;
+  if (!confirmed) {
+    const entered = globalThis.prompt(
+      'You selected No. Please enter remarks explaining why the detected location does not represent your current work location. Select Cancel to stop attendance submission.',
+      '',
+    );
+    if (entered === null) throw new Error('Attendance submission was cancelled before location confirmation.');
+    remarks = entered.trim();
+    if (remarks.length < 3) throw new Error('Remarks are required when you do not confirm the detected location.');
+  }
+
+  return {
+    ...body,
+    displayAddress: resolved.displayAddress,
+    locationConfirmed: confirmed,
+    locationRemarks: remarks,
+  };
+}
+
+export async function checkInAttendance(
   tenantId: string,
   accessToken: string,
   body: AttendanceActionBody,
 ): Promise<AttendanceActionResponse> {
+  const confirmedBody = await withEmployeeLocationConfirmation(tenantId, accessToken, body);
+  return attendanceRequest<AttendanceActionResponse>(
+    `/attendance/v1/tenants/${tenantId}/me/check-in`,
+    accessToken,
+    { method: 'POST', body: JSON.stringify(confirmedBody) },
+  );
+}
+
+export async function checkOutAttendance(
+  tenantId: string,
+  accessToken: string,
+  body: AttendanceActionBody,
+): Promise<AttendanceActionResponse> {
+  const confirmedBody = await withEmployeeLocationConfirmation(tenantId, accessToken, body);
   return attendanceRequest<AttendanceActionResponse>(
     `/attendance/v1/tenants/${tenantId}/me/check-out`,
     accessToken,
-    { method: 'POST', body: JSON.stringify(body) },
+    { method: 'POST', body: JSON.stringify(confirmedBody) },
   );
 }
 

@@ -2,6 +2,8 @@ import { auditCoreRawRequest, auditCoreRequest } from './client';
 
 export type ReviewState = 'READY' | 'NEEDS_REVIEW';
 export type ComparisonState = 'MATCH' | 'MISMATCH' | 'SINGLE_SOURCE' | 'NOT_AVAILABLE';
+export type ReviewDecisionValue = 'ACCEPTED' | 'REJECTED';
+export type ReviewDecisionKind = 'ATTRIBUTE' | 'RAW_FIELD';
 
 export interface ReviewV2Field {
   canonicalFieldId: string;
@@ -95,6 +97,23 @@ export interface BookingReviewV2 {
   missingDeclarations: ReviewV2MissingDeclaration[];
 }
 
+export interface BookingReviewDecision {
+  reviewKey: string;
+  reviewKind: ReviewDecisionKind;
+  decision: ReviewDecisionValue;
+  sourceSetRef: string;
+  sourceDocumentId: string;
+  sourceCanonicalFieldId: string | null;
+  sourceFieldKey: string;
+  sourceFactVersion: number;
+  decidedByActorId: string;
+}
+
+export interface BookingReviewDecisionsResponse {
+  journeyId: string;
+  decisions: BookingReviewDecision[];
+}
+
 export interface BookingReviewV2ConfirmResponse {
   journeyId: string;
   pcVerificationStatus: 'VERIFIED';
@@ -103,6 +122,7 @@ export interface BookingReviewV2ConfirmResponse {
   appliedAttributes: string[];
   reviewOnlyAttributes: string[];
   conflictAttributes: string[];
+  rejectedAttributes?: string[];
 }
 
 export interface AuditSourceComparisonV2 {
@@ -129,6 +149,39 @@ export async function getBookingReviewV2(
     `/v2/tenants/${encodeURIComponent(tenantId)}/journeys/${encodeURIComponent(journeyId)}/booking/review`,
     {
       accessToken: token(accessToken),
+      cache: 'no-store',
+    },
+  );
+}
+
+export async function getBookingReviewDecisionsV2(
+  tenantId: string,
+  journeyId: string,
+  accessToken?: string,
+): Promise<BookingReviewDecisionsResponse> {
+  return auditCoreRequest<BookingReviewDecisionsResponse>(
+    `/v2/tenants/${encodeURIComponent(tenantId)}/journeys/${encodeURIComponent(journeyId)}/booking/review/decisions`,
+    {
+      accessToken: token(accessToken),
+      cache: 'no-store',
+    },
+  );
+}
+
+export async function setBookingReviewDecisionV2(
+  tenantId: string,
+  journeyId: string,
+  reviewKey: string,
+  decision: ReviewDecisionValue,
+  accessToken?: string,
+): Promise<BookingReviewDecision> {
+  return auditCoreRequest<BookingReviewDecision>(
+    `/v2/tenants/${encodeURIComponent(tenantId)}/journeys/${encodeURIComponent(journeyId)}/booking/review/decision`,
+    {
+      method: 'POST',
+      accessToken: token(accessToken),
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ reviewKey, decision }),
       cache: 'no-store',
     },
   );

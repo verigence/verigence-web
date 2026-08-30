@@ -11,6 +11,7 @@ import ProjectMasterActionOverlay from './features/project-admin/ProjectMasterAc
 import ReviewReadinessWatcher from './features/uc03/ReviewReadinessWatcher';
 import AppShell from './layout/AppShell';
 import AndroidNativeBridge from './native/AndroidNativeBridge';
+import { UC03_PRIMARY_WORK_QUEUE_SETTLED_EVENT } from './services/audit-core/uc03';
 import { useProjectContextStore } from './store/projectContextStore';
 import { useSessionStore } from './store/sessionStore';
 
@@ -81,23 +82,38 @@ function PcJourneyRoutePreloader() {
 
   useEffect(() => {
     if (!signedIn) return undefined;
-    // The first authenticated request burst is reserved for Project context and the
-    // primary Work Queue. Preloading eight journey chunks 100 ms after sign-in can
-    // contend with that cold path on slower/mobile links, so warm them only after
-    // the landing page has had ample time to become interactive.
-    const timer = window.setTimeout(() => {
-      void Promise.allSettled([
-        loadBookingWorkspacePage(),
-        loadBookingReviewPage(),
-        loadCreateBookingV2Page(),
-        loadBookingCaptureV2Page(),
-        loadBookingDetailsV2Page(),
-        loadBookingReviewV2Page(),
-        loadDeliveryWorkspacePage(),
-        loadAuditReviewPage(),
-      ]);
-    }, 30_000);
-    return () => window.clearTimeout(timer);
+    let started = false;
+    let preloadTimer: number | undefined;
+    let fallbackTimer: number | undefined;
+
+    const preloadJourneys = () => {
+      if (started) return;
+      started = true;
+      if (fallbackTimer !== undefined) window.clearTimeout(fallbackTimer);
+      preloadTimer = window.setTimeout(() => {
+        void Promise.allSettled([
+          loadBookingWorkspacePage(),
+          loadBookingReviewPage(),
+          loadCreateBookingV2Page(),
+          loadBookingCaptureV2Page(),
+          loadBookingDetailsV2Page(),
+          loadBookingReviewV2Page(),
+          loadDeliveryWorkspacePage(),
+          loadAuditReviewPage(),
+        ]);
+      }, 150);
+    };
+
+    // The first authenticated request burst belongs exclusively to Project context
+    // and the primary Work Queue. Only warm journey chunks after that queue settles.
+    window.addEventListener(UC03_PRIMARY_WORK_QUEUE_SETTLED_EVENT, preloadJourneys);
+    fallbackTimer = window.setTimeout(preloadJourneys, 30_000);
+
+    return () => {
+      window.removeEventListener(UC03_PRIMARY_WORK_QUEUE_SETTLED_EVENT, preloadJourneys);
+      if (preloadTimer !== undefined) window.clearTimeout(preloadTimer);
+      if (fallbackTimer !== undefined) window.clearTimeout(fallbackTimer);
+    };
   }, [signedIn]);
 
   return null;

@@ -81,6 +81,10 @@ function PcJourneyRoutePreloader() {
 
   useEffect(() => {
     if (!signedIn) return undefined;
+    // The first authenticated request burst is reserved for Project context and the
+    // primary Work Queue. Preloading eight journey chunks 100 ms after sign-in can
+    // contend with that cold path on slower/mobile links, so warm them only after
+    // the landing page has had ample time to become interactive.
     const timer = window.setTimeout(() => {
       void Promise.allSettled([
         loadBookingWorkspacePage(),
@@ -92,7 +96,7 @@ function PcJourneyRoutePreloader() {
         loadDeliveryWorkspacePage(),
         loadAuditReviewPage(),
       ]);
-    }, 100);
+    }, 30_000);
     return () => window.clearTimeout(timer);
   }, [signedIn]);
 

@@ -262,10 +262,36 @@ export default function DeliveryCaptureV2Page() {
     return (
       <div className="screen-stack uc03-v2-capture uc03-delivery-v2-page">
         <div className="uc03-c1-topbar"><button type="button" className="uc03-c1-back" onClick={() => navigate('/dashboard')}>← Work List</button></div>
-        <PageHeader eyebrow="Delivery · V2" title="Delivery documents submitted" description="The submitted evidence remains available in the Delivery Review. Any exceptions are audit observations only and do not block Delivery." />
+        <PageHeader
+          eyebrow="Delivery · V2"
+          title="Delivery documents"
+          description="Step 1 of 2 · These documents were submitted by the earlier Delivery flow. Continue to Delivery Details to complete the current two-step journey."
+        />
+        <nav className="uc03-booking-steps" aria-label="Delivery capture steps">
+          <button type="button" className="is-active" disabled>1 <span>Documents</span></button>
+          <button type="button" disabled>2 <span>Delivery Details</span></button>
+        </nav>
+        <section className="uc03-delivery-v2-summary" aria-label="Delivery document status">
+          <div><span>Documents received</span><strong>{capture.uploads.length}</strong></div>
+          <div><span>Documents classified</span><strong>{classified}/{capture.uploads.length}</strong></div>
+          <div><span>Configured mandatory received</span><strong>{mandatoryReceived}/{mandatory.length}</strong></div>
+          <div className={allUploadedClassified ? 'is-ready' : 'is-processing'}><span>{allUploadedClassified ? 'Uploaded documents classified' : 'Waiting for classification'}</span><strong>{clock}</strong></div>
+        </section>
         <section className="uc03-delivery-v2-submit-complete">
-          <strong>Delivery evidence submitted</strong>
-          <button type="button" className="uc03-c1-primary" onClick={() => navigate(`/v2/deliveries/${journeyId}/review`)}>Open Delivery Review →</button>
+          <div>
+            <strong>Documents already submitted</strong>
+            <span>{allUploadedClassified
+              ? 'All documents you uploaded are classified. Continue to Delivery Details.'
+              : `${classified} of ${capture.uploads.length} uploaded document${capture.uploads.length === 1 ? '' : 's'} classified. Next becomes available when every uploaded document is classified.`}</span>
+          </div>
+          <button
+            type="button"
+            className="uc03-c1-primary"
+            disabled={!allUploadedClassified}
+            onClick={() => navigate(`/v2/deliveries/${journeyId}?step=details&captureSubmitted=1`)}
+          >
+            {allUploadedClassified ? 'Next →' : 'Classifying…'}
+          </button>
         </section>
       </div>
     );

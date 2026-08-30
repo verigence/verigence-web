@@ -76,6 +76,7 @@ import './styles/uc03-tl-review.css';
 import './styles/dashboard-workqueue-compact-toolbar.css';
 import './styles/uc03-v2-workqueue-entry.css';
 import './styles/uc03-v2-navigation.css';
+import './styles/uc03-journey-search.css';
 import './styles/ui-governance.css';
 import './ui/pcNavigationMotion';
 

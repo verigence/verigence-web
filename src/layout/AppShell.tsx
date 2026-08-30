@@ -33,6 +33,13 @@ const createBookingItem: NavItem = {
   roles: ['PC'],
 };
 
+const journeySearchItem: NavItem = {
+  to: '/search',
+  label: 'Journey Search',
+  mark: 'JS',
+  roles: ['PC', 'TL', 'PM'],
+};
+
 const attendanceItem: NavItem = {
   to: '/attendance',
   label: 'Attendance',
@@ -50,6 +57,7 @@ const feedbackItem: NavItem = {
 const groups: NavGroup[] = [
   { key: 'workspace', label: 'Workspace', items: [
     { to: '/dashboard', label: 'Overview', mark: 'OV', roles: operational },
+    journeySearchItem,
     attendanceItem,
     { to: '/customers', label: 'Customers', mark: 'CU', roles: ['PC', 'TL', 'PM', 'EXECUTIVE', ...admin] },
     { to: '/journeys', label: 'Journeys', mark: 'JR', roles: ['PC', 'TL', 'PM', 'EXECUTIVE', ...admin] },
@@ -86,7 +94,7 @@ const groups: NavGroup[] = [
 ];
 
 const routeLabels: Record<string, string> = {
-  '/dashboard': 'Overview', '/attendance': 'Attendance', '/customers': 'Customers', '/journeys': 'Journeys', '/tasks': 'My Work',
+  '/dashboard': 'Overview', '/search': 'Journey Search', '/attendance': 'Attendance', '/customers': 'Customers', '/journeys': 'Journeys', '/tasks': 'My Work',
   '/feedback': 'Feedback',
   '/reviews': 'Review Queue', '/evidence': 'Evidence', '/payments': 'Payment Tracker', '/findings': 'Findings',
   '/daily-ops': 'Daily Operations', '/activity': 'Activity Tracker', '/crm': 'CRM Follow-up', '/escalations': 'Escalations',
@@ -126,6 +134,7 @@ function NavIcon({ mark }: { mark: string }) {
   let glyph;
   switch (mark) {
     case 'OV': glyph = <><rect x="4" y="4" width="6" height="6" rx="1" /><rect x="14" y="4" width="6" height="6" rx="1" /><rect x="4" y="14" width="6" height="6" rx="1" /><rect x="14" y="14" width="6" height="6" rx="1" /></>; break;
+    case 'JS': glyph = <><circle cx="10.5" cy="10.5" r="6" /><path d="m15 15 5 5" /></>; break;
     case 'AD': glyph = <><circle cx="12" cy="12" r="8" /><path d="M12 8v4l3 2M8 3v3m8-3v3" /></>; break;
     case 'CU': glyph = <><circle cx="9" cy="8" r="3" /><path d="M3.5 19c.6-3.2 2.5-5 5.5-5s4.9 1.8 5.5 5" /><circle cx="17" cy="9" r="2" /><path d="M15.5 14.5c2.7-.4 4.5 1 5 3.5" /></>; break;
     case 'JR': glyph = <><circle cx="6" cy="7" r="2" /><circle cx="18" cy="17" r="2" /><path d="M8 7h3c4 0 4 4 4 5s0 5 3 5" /></>; break;
@@ -177,8 +186,11 @@ export default function AppShell({ children }: PropsWithChildren) {
     if (!c0OperationalShell) return groups;
     const workspaceItems: NavItem[] = [
       { to: '/dashboard', label: 'Overview', mark: 'OV', roles: c0OperatingRoles },
-      attendanceItem,
     ];
+    if (role === 'PC' || role === 'TL' || role === 'PM') {
+      workspaceItems.push(journeySearchItem);
+    }
+    workspaceItems.push(attendanceItem);
     if (role === 'PC') {
       workspaceItems.push(createBookingItem);
       workspaceItems.push({ to: '/daily-ops', label: 'Daily Operations', mark: 'DO', roles: ['PC'] });

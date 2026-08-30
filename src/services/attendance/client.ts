@@ -1,7 +1,7 @@
 const configuredAttendanceBaseUrl = import.meta.env.VITE_ATTENDANCE_BASE_URL?.trim();
 const DEV_WEB_HOST = 'verigence-web-dev.jbrconsulting-it.workers.dev';
 const DEV_ATTENDANCE_BASE_URL = 'https://attendance-dev.up.railway.app';
-const REQUEST_TIMEOUT_MS = 4_000;
+const REQUEST_TIMEOUT_MS = 12_000;
 
 export interface AttendancePolicy {
   tenantId: string;

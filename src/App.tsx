@@ -53,6 +53,8 @@ const AuditReviewPage = lazy(loadAuditReviewPage);
 const AttendancePage = lazy(() => import('./pages/AttendancePage'));
 const CustomersPage = lazy(() => import('./pages/CustomersPage'));
 const JourneysPage = lazy(() => import('./pages/JourneysPage'));
+const JourneySearchPage = lazy(() => import('./pages/JourneySearchPage'));
+const Journey360Page = lazy(() => import('./pages/Journey360Page'));
 const JourneyWorkspacePage = lazy(() => import('./pages/JourneyWorkspacePage'));
 const EvidencePage = lazy(() => import('./pages/EvidencePage'));
 const EvidenceDetailPage = lazy(() => import('./pages/EvidenceDetailPage'));
@@ -209,6 +211,8 @@ export default function App() {
             <Route path="/terms" element={<TermsPage />} />
             <Route path="/privacy" element={<PrivacyPage />} />
             <Route path="/dashboard" element={<DashboardEntry />} />
+            <Route path="/search" element={<OperationalPage><JourneySearchPage /></OperationalPage>} />
+            <Route path="/journeys/:journeyId/overview" element={<OperationalPage><Journey360Page /></OperationalPage>} />
             <Route path="/attendance" element={<OperationalShellPage><AttendancePage /></OperationalShellPage>} />
             <Route path="/tl/cases/:journeyId/review" element={<OperationalPage><TeamLeadReviewPage /></OperationalPage>} />
             <Route path="/bookings/:journeyId" element={<V2JourneyRedirect target="BOOKING" />} />

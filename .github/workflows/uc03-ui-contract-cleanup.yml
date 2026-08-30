@@ -1,0 +1,104 @@
+name: One-time UC03 UI contract cleanup
+
+on:
+  push:
+    branches: [dev]
+    paths:
+      - .github/workflows/uc03-ui-contract-cleanup.yml
+
+permissions:
+  contents: write
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: dev
+          fetch-depth: 0
+
+      - name: Apply exact UI contract cleanup
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+
+          def update(path, transform):
+              p = Path(path)
+              source = p.read_text()
+              changed = transform(source)
+              if changed != source:
+                  p.write_text(changed)
+                  print(f'UPDATED {path}')
+
+          # Project Name must not appear anywhere in rendered TSX. These replacements
+          # remove the known operational/header exposures without changing tenant IDs,
+          # dealer/outlet scope, or backend compatibility contracts.
+          for p in Path('src').rglob('*.tsx'):
+              source = p.read_text()
+              source = re.sub(r'\n\s*<span>Project · \{[^{}\n]*\.projectName\}</span>', '', source)
+              source = re.sub(r'\n\s*<span>\{[^{}\n]*\.projectName\}</span>', '', source)
+              p.write_text(source)
+
+          update('src/pages/TeamLeadDashboardPage.tsx', lambda s: s
+              .replace('`${project.projectName} · All dealers · All outlets`', '`All dealers · All outlets`')
+              .replace('`${project.projectName} · ${dealerCount} dealer${dealerCount === 1 ? \'\' : \'s\'} · ${outletCount} outlet${outletCount === 1 ? \'\' : \'s\'}`', '`${dealerCount} dealer${dealerCount === 1 ? \'\' : \'s\'} · ${outletCount} outlet${outletCount === 1 ? \'\' : \'s\'}`'))
+
+          update('src/pages/DocumentIntelligenceConfigurationPage.tsx', lambda s: s
+              .replace('{project.projectName} · {project.projectCode}', '{project.projectCode}'))
+
+          # Audit Review gets a parent-level defense as well as the table-level gate:
+          # a source can open only when DI returned a valid page/box localization.
+          update('src/pages/AuditReviewPage.tsx', lambda s: s
+              .replace("import AttributeEvidenceViewer from '../features/uc03/AttributeEvidenceViewer';", "import AttributeEvidenceViewer, { hasBoxedEvidence } from '../features/uc03/AttributeEvidenceViewer';")
+              .replace('<AuditSourceComparisonTable comparison={sourceComparisonQuery.data} onEvidence={setSelectedSource} />', '<AuditSourceComparisonTable comparison={sourceComparisonQuery.data} onEvidence={(source) => { if (hasBoxedEvidence(source)) setSelectedSource(source); }} />')
+              .replace('{selectedSource && (\n        <AttributeEvidenceViewer', '{selectedSource && hasBoxedEvidence(selectedSource) && (\n        <AttributeEvidenceViewer'))
+
+          # Governance now covers every rendered TSX file, including administration.
+          governance = Path('scripts/ui-governance-check.mjs')
+          source = governance.read_text()
+          old = """const operationalTsx = filesUnder('src', (relativePath) => {\n  if (!relativePath.endsWith('.tsx')) return false;\n  if (relativePath.startsWith('src/pages/Admin')) return false;\n  if (relativePath.startsWith('src/pages/ProjectAdministration')) return false;\n  if (relativePath.startsWith('src/features/project-admin/')) return false;\n  return true;\n});\nfor (const relativePath of operationalTsx) {\n  const source = read(relativePath);\n  if (/\\.projectName\\b/.test(source)) {\n    failures.push(`${relativePath}: Project Name must not be read/rendered in operational UI.`);\n  }\n  if (/\\bProject Name\\b/.test(source)) {\n    failures.push(`${relativePath}: visible Project Name wording is prohibited in operational UI.`);\n  }\n}\n"""
+          new = """const renderedTsx = filesUnder('src', (relativePath) => relativePath.endsWith('.tsx'));\nfor (const relativePath of renderedTsx) {\n  const source = read(relativePath);\n  if (/\\.projectName\\b/.test(source)) {\n    failures.push(`${relativePath}: Project Name must not be read/rendered anywhere in Web UI.`);\n  }\n  if (/\\bProject Name\\b/.test(source)) {\n    failures.push(`${relativePath}: visible Project Name wording is prohibited everywhere in Web UI.`);\n  }\n}\n"""
+          if old not in source:
+              raise SystemExit('Governance Project Name block did not match expected source; refusing unsafe edit.')
+          governance.write_text(source.replace(old, new))
+          print('UPDATED scripts/ui-governance-check.mjs')
+
+          # Hard stop: do not commit if any TSX still reads/renders Project Name.
+          leftovers = []
+          for p in Path('src').rglob('*.tsx'):
+              text = p.read_text()
+              if re.search(r'\.projectName\b', text) or re.search(r'\bProject Name\b', text):
+                  for number, line in enumerate(text.splitlines(), 1):
+                      if '.projectName' in line or 'Project Name' in line:
+                          leftovers.append(f'{p}:{number}: {line.strip()}')
+          if leftovers:
+              print('PROJECT_NAME_UI_LEFTOVERS')
+              print('\n'.join(leftovers))
+              raise SystemExit(2)
+
+          # Boxed-evidence contract must be explicit on every active review surface.
+          review_contracts = {
+              'src/pages/BookingReviewV2Page.tsx': 'hasBoxedEvidence',
+              'src/pages/DeliveryReviewV2Page.tsx': 'hasBoxedEvidence',
+              'src/pages/TeamLeadReviewPage.tsx': 'hasBoxedEvidence',
+              'src/pages/AuditReviewPage.tsx': 'hasBoxedEvidence',
+          }
+          for path, token in review_contracts.items():
+              if token not in Path(path).read_text():
+                  raise SystemExit(f'{path}: missing boxed-evidence gate')
+          print('BOXED_EVIDENCE_REVIEW_CONTRACT=PASS')
+          PY
+
+      - name: Commit cleanup and remove one-time workflow
+        shell: bash
+        run: |
+          git rm .github/workflows/uc03-ui-contract-cleanup.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src scripts/ui-governance-check.mjs
+          git diff --cached --check
+          git commit -m "UC03 UI: remove Project Name and enforce boxed evidence"
+          git push origin HEAD:dev

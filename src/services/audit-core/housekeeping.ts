@@ -120,3 +120,16 @@ export function hardDeleteProject(
     },
   );
 }
+
+export function hardDeleteProjectFromImpact(
+  impact: ProjectDeletionImpact,
+  idempotencyKey: string,
+  accessToken: string,
+) {
+  return hardDeleteProject(
+    impact.tenantId,
+    impact.projectName,
+    idempotencyKey,
+    accessToken,
+  );
+}

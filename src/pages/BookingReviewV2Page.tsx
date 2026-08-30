@@ -485,19 +485,13 @@ export default function BookingReviewV2Page() {
     setConfirmationMessage(undefined);
     setConfirmationError(undefined);
     try {
-      const result = await confirmBookingReviewV2(
+      await confirmBookingReviewV2(
         project.tenantId,
         journeyId,
         review.aggregateVersion,
         accessToken,
       );
-      const applied = result.appliedAttributes.length;
-      const reviewOnly = result.reviewOnlyAttributes.length;
-      const rejected = result.rejectedAttributes?.length ?? 0;
-      setConfirmationMessage(
-        `Booking Review verified. ${applied} attribute${applied === 1 ? '' : 's'} updated; ${reviewOnly} remain review-only; ${rejected} rejected value${rejected === 1 ? '' : 's'} were not projected.`,
-      );
-      await Promise.all([reviewQuery.refetch(), decisionsQuery.refetch()]);
+      navigate('/dashboard', { replace: true });
     } catch (error) {
       setConfirmationError(error instanceof Error ? error.message : 'Booking Review could not be confirmed. Refresh and try again.');
       await Promise.all([reviewQuery.refetch(), decisionsQuery.refetch()]);

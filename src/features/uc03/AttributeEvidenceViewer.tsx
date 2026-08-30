@@ -218,7 +218,7 @@ export default function AttributeEvidenceViewer({
           <div ref={previewRef} className="uc03-attribute-evidence-preview">
             {!localized ? (
               <div className="uc03-attribute-evidence-message is-error">
-                Document Intelligence returned this extracted value without a reliable source location. Verigence does not invent a bounding box.
+                Document Intelligence returned this extracted value without a reliable source location. Verigence never invents a bounding box.
               </div>
             ) : null}
             {localized && contentQuery.isPending && <div className="uc03-attribute-evidence-message">Loading source evidence…</div>}

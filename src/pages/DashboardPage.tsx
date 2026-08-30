@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
-import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 
 import {
   getUc03LandingMetrics,
@@ -15,7 +15,6 @@ import {
 } from '../services/audit-core/uc03PcVerification';
 import { useProjectContextStore } from '../store/projectContextStore';
 import { useSessionStore } from '../store/sessionStore';
-import CreateBookingPage from './CreateBookingPage';
 
 type LandingView = Uc03WorkType | 'REVIEW_PENDING' | 'FLAGS';
 
@@ -153,14 +152,10 @@ function DashboardHero({ dealershipName, outletName, showCaptureAction }: Dashbo
       </div>
 
       {showCaptureAction && (
-        <div className="uc03-dashboard-hero__capture-actions" aria-label="Booking capture options">
-          <Link className="uc03-landing__capture-action uc03-landing__capture-action--workqueue" to="/dashboard?action=create-booking">
-            <span aria-hidden="true">＋</span>
-            <span>Capture New Booking</span>
-          </Link>
+        <div className="uc03-dashboard-hero__capture-actions" aria-label="Booking capture">
           <Link className="uc03-landing__capture-action uc03-landing__capture-action--workqueue" to="/v2/bookings/new">
             <span aria-hidden="true">＋</span>
-            <span>Capture New Booking V2</span>
+            <span>Capture New Booking</span>
           </Link>
         </div>
       )}
@@ -181,9 +176,9 @@ function workPresentation(
   reviewPending: boolean,
   flagsView: boolean,
 ): WorkPresentation {
-  const bookingPath = `/bookings/${item.journeyId}`;
-  const reviewPath = `/bookings/${item.journeyId}/review`;
-  const deliveryPath = `/deliveries/${item.journeyId}`;
+  const bookingPath = `/v2/bookings/${item.journeyId}`;
+  const reviewPath = `/v2/bookings/${item.journeyId}/review`;
+  const deliveryPath = `/v2/deliveries/${item.journeyId}`;
   const auditPath = `/audit/${item.journeyId}`;
   const hasDelivery = Boolean(item.delivery.businessStatus);
   const bookingStatus = item.booking.businessStatus;
@@ -258,8 +253,8 @@ function WorkItemCard({
   const [expanded, setExpanded] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
   const bookingStatus = item.booking.businessStatus;
-  const bookingPath = `/bookings/${item.journeyId}`;
-  const deliveryPath = `/deliveries/${item.journeyId}`;
+  const bookingPath = `/v2/bookings/${item.journeyId}`;
+  const deliveryPath = `/v2/deliveries/${item.journeyId}`;
   const auditPath = `/audit/${item.journeyId}`;
   const deliveryEligible = Boolean(
     item.delivery.businessStatus
@@ -433,7 +428,7 @@ function ReviewPendingCard({ item, timezoneName }: { item: ReviewPendingItem; ti
         <span>since activity</span>
       </div>
       <footer className="uc03-work-card__footer">
-        <Link className="uc03-work-card__primary-action" to={`/bookings/${item.journeyId}/review`}>Review Documents</Link>
+        <Link className="uc03-work-card__primary-action" to={`/v2/bookings/${item.journeyId}/review`}>Review Documents</Link>
         <div className="uc03-work-card__expanded-meta">
           <span>{item.dealerName}<span aria-hidden="true"> · </span>{item.outletName}</span>
         </div>
@@ -443,7 +438,6 @@ function ReviewPendingCard({ item, timezoneName }: { item: ReviewPendingItem; ti
 }
 
 export default function DashboardPage() {
-  const [searchParams] = useSearchParams();
   const project = useProjectContextStore((state) => state.selectedProject);
   const accessToken = useSessionStore((state) => state.accessToken);
   const outletId = useSessionStore((state) => state.outletId);
@@ -548,9 +542,6 @@ export default function DashboardPage() {
   }, [view, workQuery.fetchNextPage, workQuery.hasNextPage, workQuery.isFetchingNextPage]);
 
   if (!project) return null;
-  if (searchParams.get('action') === 'create-booking' && project.operatingRole === 'PC') {
-    return <CreateBookingPage />;
-  }
 
   const metrics = metricsQuery.data;
   const reviewPendingCount = reviewPendingItems.length;

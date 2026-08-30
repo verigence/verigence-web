@@ -133,8 +133,6 @@ export default function Journey360Page() {
             <Fact label="Mobile">{textValue(model.customer, 'mobileNumber')}</Fact>
             <Fact label="Email">{textValue(model.customer, 'emailReference')}</Fact>
             <Fact label="Customer Type">{readable(value(model.customer, 'customerType'))}</Fact>
-            <Fact label="Relationship">{textValue(model.customer, 'relationshipType')}</Fact>
-            <Fact label="Related Person">{textValue(model.customer, 'relationshipName')}</Fact>
           </div>
         </SectionCard>
 
@@ -149,8 +147,6 @@ export default function Journey360Page() {
               <Fact label="Deal Type">{readable(value(model.booking, 'dealType'))}</Fact>
               <Fact label="Deal Source">{readable(value(model.booking, 'dealSource'))}</Fact>
               <Fact label="Lead Source">{readable(value(model.booking, 'leadSource'))}</Fact>
-              <Fact label="Expected Delivery">{textValue(model.booking, 'expectedDeliveryText')}</Fact>
-              <Fact label="Expected Delivery Date">{dateLabel(value(model.booking, 'expectedDeliveryDate'))}</Fact>
               <Fact label="GST Benefit">{readable(value(model.booking, 'gstBenefit'))}</Fact>
               <Fact label="Corporate ID Available">{readable(value(model.booking, 'corporateIdAvailable'))}</Fact>
             </div>
@@ -205,13 +201,12 @@ export default function Journey360Page() {
               <div className="journey-360-payment-total"><span>Total recorded</span><strong>{money(paymentTotal)}</strong></div>
               <div className="journey-360-table-wrap">
                 <table className="journey-360-table">
-                  <thead><tr><th>Date</th><th>Reference</th><th>Stage</th><th>Status</th><th>Amount</th></tr></thead>
+                  <thead><tr><th>Date</th><th>Reference</th><th>Status</th><th>Amount</th></tr></thead>
                   <tbody>
                     {model.payments.map((payment) => (
                       <tr key={String(payment.paymentId)}>
                         <td>{dateLabel(payment.paymentAtUtc)}</td>
                         <td>{payment.paymentReference ? String(payment.paymentReference) : '—'}</td>
-                        <td>{readable(payment.paymentStage)}</td>
                         <td>{readable(payment.actualStatusCode)}</td>
                         <td>{money(payment.amount, String(payment.currencyCode || 'INR'))}</td>
                       </tr>
@@ -253,7 +248,6 @@ export default function Journey360Page() {
               <Fact label="Registration No.">{textValue(model.registration, 'registrationNumber')}</Fact>
               <Fact label="State">{textValue(model.registration, 'registrationState')}</Fact>
               <Fact label="Type">{readable(value(model.registration, 'registrationTypeCode'))}</Fact>
-              <Fact label="Registration By">{textValue(model.registration, 'registrationBy')}</Fact>
               <Fact label="Status">{readable(value(model.registration, 'actualStatusCode'))}</Fact>
             </div>
           ) : <EmptySection>Registration details are not available yet.</EmptySection>}
@@ -278,7 +272,6 @@ export default function Journey360Page() {
             <div className="journey-360-facts journey-360-facts--single">
               <Fact label="Insurer">{textValue(model.insurance, 'insurerName')}</Fact>
               <Fact label="Policy">{textValue(model.insurance, 'policyReference')}</Fact>
-              <Fact label="Insurance By">{textValue(model.insurance, 'insuranceBy')}</Fact>
               <Fact label="Actual Premium">{money(value(model.insurance, 'actualPremiumAmount'))}</Fact>
               <Fact label="Status">{readable(value(model.insurance, 'actualStatusCode'))}</Fact>
             </div>

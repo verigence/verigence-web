@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 
 import PageHeader from '../components/PageHeader';
 import StatusPill from '../components/StatusPill';
@@ -26,7 +26,7 @@ function roleScopeCopy(role?: string): string {
   if (role === 'PC') return 'Search is restricted to the Dealer Outlet(s) assigned to you.';
   if (role === 'TL') return 'Search covers all Dealers and Outlets assigned to you.';
   if (role === 'PM') return 'Search covers your complete assigned scope.';
-  return 'Journey search is available to PC, TL and PM users.';
+  return 'Search is available to PC, TL and PM users.';
 }
 
 function mobileLabel(last4: string | null): string {
@@ -36,7 +36,8 @@ function mobileLabel(last4: string | null): string {
 export default function JourneySearchPage() {
   const accessToken = useSessionStore((state) => state.accessToken);
   const selectedProject = useProjectContextStore((state) => state.selectedProject);
-  const [queryText, setQueryText] = useState('');
+  const [searchParams] = useSearchParams();
+  const [queryText, setQueryText] = useState(() => searchParams.get('q')?.trim() || '');
   const [debouncedQuery, setDebouncedQuery] = useState('');
 
   useEffect(() => {
@@ -76,11 +77,11 @@ export default function JourneySearchPage() {
     <div className="screen-stack journey-search-page">
       <PageHeader
         eyebrow="Current Workspace"
-        title="Journey Search"
+        title="Search"
         description="Find a customer journey using the identifiers your team actually works with, then open Booking and Delivery together."
       />
 
-      <section className="journey-search-panel" aria-label="Journey search">
+      <section className="journey-search-panel" aria-label="Search">
         <div className="journey-search-panel__heading">
           <div>
             <span className="journey-search-panel__kicker">Authorized scope</span>
@@ -97,7 +98,7 @@ export default function JourneySearchPage() {
             value={queryText}
             onChange={(event) => setQueryText(event.target.value)}
             placeholder="Customer name, mobile, dealer booking no., VIN, registration, invoice…"
-            aria-label="Search customer journeys"
+            aria-label="Search"
             autoComplete="off"
             spellCheck={false}
           />
@@ -114,7 +115,7 @@ export default function JourneySearchPage() {
 
       {!supportedRole && (
         <div className="journey-search-state journey-search-state--warning">
-          Journey Search is currently available only for Process Consultant, Team Lead and Project Manager roles.
+          Search is currently available only for Process Consultant, Team Lead and Project Manager roles.
         </div>
       )}
 

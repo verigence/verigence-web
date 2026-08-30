@@ -163,9 +163,9 @@ export default function AttendancePage() {
       setExceptionReason('');
       setActionNotice(
         result.exceptionRecorded
-          ? 'Attendance recorded as a geofence exception for review.'
+          ? 'Attendance recorded with a different-location remark for later review.'
           : result.geofenceRequired
-            ? 'Attendance recorded within the assigned work-location geofence.'
+            ? 'Attendance recorded at the assigned work location.'
             : 'Attendance recorded with current location evidence.',
       );
       await refreshAttendance();
@@ -270,7 +270,6 @@ export default function AttendancePage() {
           {today && (
             <p className="attendance-muted">
               Location result: {statusLabel(today.checkInResult)}
-              {today.checkInDistanceMeters != null ? ` · ${Math.round(today.checkInDistanceMeters)} m from assigned work location` : ''}
               {today.checkOutAt ? ` · Check out ${formatDateTime(today.checkOutAt)}` : ''}
             </p>
           )}
@@ -300,11 +299,11 @@ export default function AttendancePage() {
 
           {exceptionAction && (
             <div className="attendance-exception">
-              <div className="attendance-notice">You are outside the PC work-location geofence. Give the operational reason to record this as an exception.</div>
+              <div className="attendance-notice">Your current location is different from, or cannot be verified against, your assigned work location. Tell us why you are working from this location today. Attendance will still be recorded and flagged for later review.</div>
               <textarea
                 value={exceptionReason}
                 onChange={(event) => setExceptionReason(event.target.value)}
-                placeholder="Reason, for example customer visit or manager instruction"
+                placeholder="For example: working from home, customer visit, manager instruction"
               />
               <div className="attendance-actions">
                 <button
@@ -313,7 +312,7 @@ export default function AttendancePage() {
                   disabled={exceptionReason.trim().length < 3 || actionMutation.isPending}
                   onClick={() => actionMutation.mutate({ action: exceptionAction, reason: exceptionReason })}
                 >
-                  Record exception
+                  Record attendance
                 </button>
                 <button type="button" className="attendance-button attendance-button--secondary" onClick={() => setExceptionAction(null)}>Cancel</button>
               </div>
@@ -329,9 +328,6 @@ export default function AttendancePage() {
               <div className="attendance-metrics">
                 <div className="attendance-metric"><strong>{todayQuery.data.policy.expectedStartLocal.slice(0, 5)}</strong><span>Expected start</span></div>
                 <div className="attendance-metric"><strong>{todayQuery.data.policy.expectedEndLocal.slice(0, 5)}</strong><span>Expected end</span></div>
-                <div className="attendance-metric"><strong>{todayQuery.data.policy.pcGeofenceRadiusMeters} m</strong><span>PC geofence</span></div>
-                <div className="attendance-metric"><strong>{Math.round(todayQuery.data.policy.maxLocationAccuracyMeters)} m</strong><span>Max GPS accuracy</span></div>
-                <div className="attendance-metric"><strong>{todayQuery.data.policy.maxLocationAgeSeconds}s</strong><span>Location freshness</span></div>
               </div>
             </>
           ) : <p>Loading attendance policy…</p>}
@@ -413,17 +409,14 @@ export default function AttendancePage() {
         {isHrAdmin && policyDraft && (
           <article className="attendance-card attendance-card--wide">
             <h2>HR attendance policy</h2>
-            <p>These settings affect Attendance only. They do not gate Booking, Delivery, Review, or other Verigence work.</p>
+            <p>Working hours and reminders are runtime configuration. Saving them here does not require a Web or Attendance build.</p>
             <div className="attendance-policy-grid">
               <label>Timezone<input value={policyDraft.timezoneIana} onChange={(event) => setPolicyDraft({ ...policyDraft, timezoneIana: event.target.value })} /></label>
-              <label>PC geofence radius (m)<input type="number" min={50} max={5000} value={policyDraft.pcGeofenceRadiusMeters} onChange={(event) => setPolicyDraft({ ...policyDraft, pcGeofenceRadiusMeters: Number(event.target.value) })} /></label>
               <label>Check-in reminder<input type="time" value={policyDraft.checkinReminderLocal.slice(0, 5)} onChange={(event) => setPolicyDraft({ ...policyDraft, checkinReminderLocal: `${event.target.value}:00` })} /></label>
               <label>Expected start<input type="time" value={policyDraft.expectedStartLocal.slice(0, 5)} onChange={(event) => setPolicyDraft({ ...policyDraft, expectedStartLocal: `${event.target.value}:00` })} /></label>
               <label>Checkout reminder<input type="time" value={policyDraft.checkoutReminderLocal.slice(0, 5)} onChange={(event) => setPolicyDraft({ ...policyDraft, checkoutReminderLocal: `${event.target.value}:00` })} /></label>
               <label>Expected end<input type="time" value={policyDraft.expectedEndLocal.slice(0, 5)} onChange={(event) => setPolicyDraft({ ...policyDraft, expectedEndLocal: `${event.target.value}:00` })} /></label>
-              <label>Maximum location accuracy (m)<input type="number" min={1} max={5000} value={policyDraft.maxLocationAccuracyMeters} onChange={(event) => setPolicyDraft({ ...policyDraft, maxLocationAccuracyMeters: Number(event.target.value) })} /></label>
               <label>Maximum location age (seconds)<input type="number" min={10} max={900} value={policyDraft.maxLocationAgeSeconds} onChange={(event) => setPolicyDraft({ ...policyDraft, maxLocationAgeSeconds: Number(event.target.value) })} /></label>
-              <label>Outside-geofence exception<select value={policyDraft.geofenceExceptionAllowed ? 'YES' : 'NO'} onChange={(event) => setPolicyDraft({ ...policyDraft, geofenceExceptionAllowed: event.target.value === 'YES' })}><option value="YES">Allowed with reason</option><option value="NO">Blocked</option></select></label>
             </div>
             {policyMutation.error && <div className="attendance-error" style={{ marginTop: 12 }}>{errorMessage(policyMutation.error)}</div>}
             <div className="attendance-actions" style={{ marginTop: 14 }}>

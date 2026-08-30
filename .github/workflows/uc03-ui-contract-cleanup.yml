@@ -24,30 +24,32 @@ jobs:
           python - <<'PY'
           from pathlib import Path
 
-          def replace(path, old, new):
+          def replace_all(path, old, new):
               p = Path(path)
               source = p.read_text()
-              if old not in source:
+              count = source.count(old)
+              if count:
+                  p.write_text(source.replace(old, new))
+                  print(f'UPDATED {path}: {count} occurrence(s)')
+              else:
                   print(f'NOOP {path}: expected text already absent')
-                  return
-              p.write_text(source.replace(old, new))
-              print(f'UPDATED {path}')
 
-          # Operational UI only. Keep UC02 administration/provisioning contracts intact.
+          # Operational display references only. Do not touch UC02 administration,
+          # provisioning, Project selection, or backend create/delete contracts.
           for path in [
               'src/pages/BookingCaptureV2Page.tsx',
               'src/pages/BookingReviewPage.tsx',
               'src/pages/BookingWorkspacePage.tsx',
           ]:
-              replace(path, '\n        <span>Project · {project.projectName}</span>', '')
+              replace_all(path, '<span>Project · {project.projectName}</span>', '')
 
-          replace(
+          replace_all(
               'src/pages/DeliveryCaptureV2Page.tsx',
-              '\n        <span>{project.projectName}</span>',
+              '<span>{project.projectName}</span>',
               '',
           )
 
-          replace(
+          replace_all(
               'src/pages/DocumentIntelligenceConfigurationPage.tsx',
               '{project.projectName} · {project.projectCode}',
               '{project.projectCode}',
@@ -66,8 +68,8 @@ jobs:
           p.write_text(source)
           print('UPDATED src/pages/TeamLeadDashboardPage.tsx')
 
-          # Unrelated existing governance blocker: only open source evidence when DI
-          # supplied a reliable page/box localization. No audit semantics are changed.
+          # Existing build governance also requires reliable field localization before
+          # opening source evidence. This is a view-safety gate only.
           p = Path('src/pages/AuditReviewPage.tsx')
           source = p.read_text()
           source = source.replace(
@@ -85,7 +87,6 @@ jobs:
           p.write_text(source)
           print('UPDATED src/pages/AuditReviewPage.tsx')
 
-          # Exact validation against the blockers reported by DEV build 33313068843.
           operational = [
               'src/pages/BookingCaptureV2Page.tsx',
               'src/pages/BookingReviewPage.tsx',
@@ -102,7 +103,8 @@ jobs:
           if leftovers:
               raise SystemExit('Operational Project Name references remain: ' + ', '.join(leftovers))
 
-          if 'hasBoxedEvidence' not in Path('src/pages/AuditReviewPage.tsx').read_text():
+          audit_review = Path('src/pages/AuditReviewPage.tsx').read_text()
+          if 'hasBoxedEvidence' not in audit_review:
               raise SystemExit('AuditReviewPage.tsx: boxed-evidence gate missing')
 
           print('IMPACT_ASSESSED_UI_CLEANUP=PASS')

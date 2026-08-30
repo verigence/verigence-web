@@ -1,0 +1,67 @@
+.uc03-docverify-pdf-renderer {
+  width: 100%;
+  display: grid;
+  place-items: center;
+  gap: 8px;
+}
+
+.uc03-docverify-pdf-page {
+  position: relative;
+  width: fit-content;
+  max-width: 100%;
+  line-height: 0;
+  background: #fff;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
+}
+
+.uc03-docverify-pdf-page canvas {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+
+.uc03-docverify-pdf-status {
+  min-height: 22px;
+  color: var(--uc03-pdf-status-color, rgba(255, 255, 255, 0.82));
+  font-size: 0.72rem;
+  font-weight: 650;
+}
+
+.uc03-docverify-pdf-page .uc03-docverify-highlight {
+  position: absolute;
+  z-index: 6;
+  min-width: 4px;
+  min-height: 4px;
+  pointer-events: none;
+  border: 3px solid #0f8f83;
+  border-radius: 4px;
+  background: rgba(15, 143, 131, 0.16);
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.92), 0 4px 14px rgba(15, 23, 42, 0.24);
+}
+
+.uc03-docverify-pdf-page .uc03-docverify-highlight.is-attention {
+  border-color: #d97706;
+  background: rgba(217, 119, 6, 0.16);
+}
+
+.uc03-docverify-pdf-page .uc03-docverify-highlight > span {
+  position: absolute;
+  top: -25px;
+  left: -3px;
+  max-width: 240px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 4px 8px;
+  border-radius: 5px;
+  background: #0f766e;
+  color: #fff;
+  font-size: 0.68rem;
+  font-weight: 800;
+  line-height: 1.2;
+  text-transform: capitalize;
+}
+
+.uc03-docverify-pdf-page .uc03-docverify-highlight.is-attention > span {
+  background: #b45309;
+}

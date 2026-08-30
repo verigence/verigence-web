@@ -7,6 +7,8 @@ import {
 } from 'pdfjs-dist';
 import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 
+import '../../styles/uc03-pdf-evidence.css';
+
 GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
 
 type NormalizedBox = {
@@ -33,6 +35,7 @@ export function PdfPageReview({
 }: PdfPageReviewProps) {
   const hostRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const highlightRef = useRef<HTMLDivElement>(null);
   const [documentProxy, setDocumentProxy] = useState<PDFDocumentProxy | null>(null);
   const [hostWidth, setHostWidth] = useState(0);
   const [renderedPage, setRenderedPage] = useState(1);
@@ -129,13 +132,31 @@ export function PdfPageReview({
     };
   }, [documentProxy, hostWidth, pageNumber]);
 
+  useEffect(() => {
+    const targetPage = Math.max(1, pageNumber || 1);
+    if (!box || loading || renderedPage !== targetPage || !highlightRef.current) return undefined;
+
+    const frame = window.requestAnimationFrame(() => {
+      const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      highlightRef.current?.scrollIntoView({
+        block: 'center',
+        inline: 'center',
+        behavior: reduceMotion ? 'auto' : 'smooth',
+      });
+    });
+
+    return () => window.cancelAnimationFrame(frame);
+  }, [box?.h, box?.w, box?.x, box?.y, loading, pageNumber, renderedPage]);
+
   return (
     <div ref={hostRef} className="uc03-docverify-pdf-renderer">
       <div className="uc03-docverify-pdf-page">
         <canvas ref={canvasRef} aria-label={`PDF page ${renderedPage}`} />
         {box && renderedPage === Math.max(1, pageNumber || 1) ? (
           <div
+            ref={highlightRef}
             className={`uc03-docverify-highlight ${attention ? 'is-attention' : ''}`}
+            data-evidence-highlight="true"
             style={{
               left: `${box.x * 100}%`,
               top: `${box.y * 100}%`,

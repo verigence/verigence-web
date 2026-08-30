@@ -1,0 +1,202 @@
+.uc03-attribute-evidence-backdrop {
+  --attribute-border: rgba(15, 23, 42, 0.12);
+  --attribute-muted: #64748b;
+  position: fixed;
+  inset: 0;
+  z-index: 2400;
+  overflow: hidden;
+  background: rgba(15, 23, 42, 0.72);
+}
+
+.uc03-attribute-evidence-modal {
+  position: fixed;
+  width: min(1180px, calc(100vw - 24px));
+  max-height: 94dvh;
+  overflow: hidden;
+  border-radius: 20px;
+  background: var(--ion-background-color, #fff);
+  box-shadow: 0 24px 80px rgba(15, 23, 42, 0.28);
+}
+
+.uc03-attribute-evidence-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--attribute-border);
+}
+
+.uc03-attribute-evidence-header span,
+.uc03-attribute-evidence-kicker {
+  color: var(--attribute-muted);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.uc03-attribute-evidence-header h2,
+.uc03-attribute-evidence-header p {
+  margin: 3px 0 0;
+}
+
+.uc03-attribute-evidence-header p {
+  color: var(--attribute-muted);
+  font-size: 13px;
+}
+
+.uc03-attribute-evidence-header button {
+  width: 38px;
+  height: 38px;
+  border: 0;
+  border-radius: 12px;
+  background: #f1f5f9;
+  font-size: 25px;
+  cursor: pointer;
+}
+
+.uc03-attribute-evidence-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.65fr) minmax(300px, 0.65fr);
+  height: min(760px, calc(94dvh - 82px));
+  min-height: min(520px, calc(94dvh - 82px));
+}
+
+.uc03-attribute-evidence-preview {
+  --uc03-pdf-status-color: #475569;
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+  padding: 18px;
+  background: #e2e8f0;
+  overscroll-behavior: contain;
+}
+
+.uc03-attribute-evidence-detail {
+  min-width: 0;
+  overflow: auto;
+  padding: 24px;
+  border-left: 1px solid var(--attribute-border);
+  background: #fff;
+}
+
+.uc03-attribute-evidence-detail h3 {
+  margin: 6px 0 8px;
+  text-transform: capitalize;
+}
+
+.uc03-attribute-evidence-value {
+  display: block;
+  margin: 0 0 20px;
+  font-size: 22px;
+  overflow-wrap: anywhere;
+}
+
+.uc03-attribute-evidence-detail dl {
+  display: grid;
+  gap: 0;
+  margin: 0;
+}
+
+.uc03-attribute-evidence-detail dl > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 11px 0;
+  border-bottom: 1px solid var(--attribute-border);
+}
+
+.uc03-attribute-evidence-detail dt {
+  color: var(--attribute-muted);
+}
+
+.uc03-attribute-evidence-detail dd {
+  margin: 0;
+  font-weight: 700;
+  text-align: right;
+}
+
+.uc03-attribute-evidence-detail p {
+  color: var(--attribute-muted);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.uc03-attribute-evidence-message {
+  display: grid;
+  place-items: center;
+  gap: 12px;
+  min-height: 420px;
+  color: #475569;
+  text-align: center;
+}
+
+.uc03-attribute-evidence-message.is-error {
+  color: #b91c1c;
+}
+
+.uc03-attribute-image-frame {
+  position: relative;
+  width: fit-content;
+  max-width: 100%;
+  margin: 0 auto;
+  line-height: 0;
+  background: #fff;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.18);
+}
+
+.uc03-attribute-image-frame img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+
+.uc03-attribute-image-box {
+  position: absolute;
+  z-index: 6;
+  min-width: 4px;
+  min-height: 4px;
+  border: 3px solid #0f8f83;
+  border-radius: 4px;
+  background: rgba(15, 143, 131, 0.16);
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.92), 0 4px 14px rgba(15, 23, 42, 0.2);
+  pointer-events: none;
+}
+
+.uc03-attribute-image-box.needs-review {
+  border-color: #d97706;
+  background: rgba(217, 119, 6, 0.16);
+}
+
+@media (max-width: 900px) {
+  .uc03-attribute-evidence-layout {
+    grid-template-columns: 1fr;
+    grid-template-rows: minmax(300px, 1fr) auto;
+    overflow: auto;
+  }
+
+  .uc03-attribute-evidence-preview {
+    min-height: 300px;
+  }
+
+  .uc03-attribute-evidence-detail {
+    overflow: visible;
+    border-left: 0;
+    border-top: 1px solid var(--attribute-border);
+  }
+}
+
+@media (max-width: 560px) {
+  .uc03-attribute-evidence-modal {
+    width: 100vw;
+    height: 100dvh;
+    max-height: 100dvh;
+    border-radius: 0;
+  }
+
+  .uc03-attribute-evidence-layout {
+    height: calc(100dvh - 78px);
+    min-height: 0;
+  }
+}

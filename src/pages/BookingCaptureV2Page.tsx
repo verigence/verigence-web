@@ -12,27 +12,24 @@ import {
   getBookingCaptureV2,
   setBookingCaptureV2Declaration,
   type BookingCaptureV2,
-  type CaptureV2Declaration,
   type CaptureV2Requirement,
-  type UploadBookingCaptureV2Result,
   uploadBookingCaptureV2Files,
 } from '../services/audit-core/uc03DocumentCaptureV2';
 import { useProjectContextStore } from '../store/projectContextStore';
 import { useSessionStore } from '../store/sessionStore';
 import '../styles/uc03-document-capture-v2.css';
+import '../styles/uc03-document-capture-v2-compact.css';
 
 const CAPTURE_STALE_MS = 3_000;
-const CLASSIFICATION_POLL_MS = 1_000;
+const CAPTURE_POLL_MS = 1_000;
+const GST_CONDITION = 'gstApplicable';
+const CORPORATE_CONDITION = 'corporateCustomer';
 
 const CONDITION_LABELS: Record<string, string> = {
   gstApplicable: 'Is GST Certificate applicable?',
   corporateCustomer: 'Is this a Corporate customer?',
   exchangeTaken: 'Is Trade-In / Exchange applicable?',
 };
-
-function declarationFor(capture: BookingCaptureV2, conditionKey: string): CaptureV2Declaration | undefined {
-  return capture.declarations.find((item) => item.conditionKey === conditionKey);
-}
 
 function documentStatus(requirement: CaptureV2Requirement): string {
   switch (requirement.state) {
@@ -44,218 +41,25 @@ function documentStatus(requirement: CaptureV2Requirement): string {
   }
 }
 
-function optimisticDeclaration(
-  capture: BookingCaptureV2,
-  conditionKey: string,
-  applicable: boolean,
-  documentAvailable: boolean | null,
-): BookingCaptureV2 {
-  const declaration: CaptureV2Declaration = {
-    conditionKey,
-    applicable,
-    documentAvailable: applicable ? documentAvailable : null,
-    source: 'PC',
-  };
-  const declarations = [
-    ...capture.declarations.filter((item) => item.conditionKey !== conditionKey),
-    declaration,
-  ];
-  const requirements = capture.requirements.map((requirement) => {
-    if (requirement.conditionKey !== conditionKey || requirement.document) return requirement;
-    if (!applicable) {
-      return {
-        ...requirement,
-        applicabilityState: 'NOT_APPLICABLE' as const,
-        state: 'NOT_APPLICABLE',
-        needsDecision: false,
-        blocksContinue: false,
-      };
-    }
-    const missingAcknowledged = documentAvailable === false;
-    const blocksContinue = documentAvailable === true;
-    return {
-      ...requirement,
-      applicabilityState: 'APPLICABLE' as const,
-      state: missingAcknowledged ? 'ACKNOWLEDGED_MISSING' : 'NOT_UPLOADED',
-      needsDecision: false,
-      blocksContinue,
-    };
+function hasClassificationInFlight(capture?: BookingCaptureV2): boolean {
+  if (!capture) return false;
+  return capture.uploads.some((document) => {
+    const state = document.state.toUpperCase();
+    return state === 'RECEIVING'
+      || state === 'STORED'
+      || state === 'CLASSIFYING'
+      || (state === 'CLASSIFIED' && !document.classifiedDocumentTypeKey);
   });
-  return {
-    ...capture,
-    declarations,
-    requirements,
-    canContinue: requirements.every((requirement) => !requirement.blocksContinue),
-  };
 }
 
-function mergeDeclarationResponse(
-  current: BookingCaptureV2 | undefined,
-  response: BookingCaptureV2,
-  conditionKey: string,
-): BookingCaptureV2 {
-  if (!current) return response;
-
-  const responseUploadById = new Map(response.uploads.map((upload) => [upload.documentId, upload]));
-  const currentUploadById = new Map(current.uploads.map((upload) => [upload.documentId, upload]));
-  const uploads = response.uploads.map((upload) => {
-    const previous = currentUploadById.get(upload.documentId);
-    if (!previous) return upload;
-    return {
-      ...previous,
-      ...upload,
-      contentUrl: upload.contentUrl || previous.contentUrl,
-      processingStatus: upload.processingStatus || previous.processingStatus,
-    };
-  });
-  for (const upload of current.uploads) {
-    if (!responseUploadById.has(upload.documentId)) uploads.push(upload);
-  }
-
-  const serverDeclaration = response.declarations.find((item) => item.conditionKey === conditionKey);
-  const declarations = current.declarations.filter((item) => item.conditionKey !== conditionKey);
-  if (serverDeclaration) declarations.push(serverDeclaration);
-
-  const serverRequirementByKey = new Map(
-    response.requirements
-      .filter((requirement) => requirement.conditionKey === conditionKey)
-      .map((requirement) => [requirement.requirementKey, requirement]),
-  );
-  const requirements = current.requirements.map((requirement) => {
-    if (requirement.conditionKey !== conditionKey) return requirement;
-    const next = serverRequirementByKey.get(requirement.requirementKey);
-    if (!next) return requirement;
-    const document = next.document && requirement.document
-      ? {
-          ...requirement.document,
-          ...next.document,
-          contentUrl: next.document.contentUrl || requirement.document.contentUrl,
-          processingStatus: next.document.processingStatus || requirement.document.processingStatus,
-        }
-      : next.document;
-    return { ...next, document };
-  });
-
-  return {
-    ...current,
-    externalContextRef: response.externalContextRef || current.externalContextRef,
-    uploads,
-    declarations,
-    requirements,
-    canContinue: requirements.every((requirement) => !requirement.blocksContinue),
-  };
+function formatElapsed(totalSeconds: number): string {
+  const minutes = Math.floor(totalSeconds / 60).toString().padStart(2, '0');
+  const seconds = Math.max(0, totalSeconds % 60).toString().padStart(2, '0');
+  return `${minutes}:${seconds}`;
 }
 
-function rollbackDeclaration(
-  current: BookingCaptureV2 | undefined,
-  previous: BookingCaptureV2 | undefined,
-  conditionKey: string,
-): BookingCaptureV2 | undefined {
-  if (!current || !previous) return current;
-  const previousDeclaration = previous.declarations.find((item) => item.conditionKey === conditionKey);
-  const declarations = current.declarations.filter((item) => item.conditionKey !== conditionKey);
-  if (previousDeclaration) declarations.push(previousDeclaration);
-
-  const previousRequirements = new Map(
-    previous.requirements
-      .filter((requirement) => requirement.conditionKey === conditionKey)
-      .map((requirement) => [requirement.requirementKey, requirement]),
-  );
-  const requirements = current.requirements.map((requirement) =>
-    requirement.conditionKey === conditionKey
-      ? previousRequirements.get(requirement.requirementKey) ?? requirement
-      : requirement,
-  );
-  return {
-    ...current,
-    declarations,
-    requirements,
-    canContinue: requirements.every((requirement) => !requirement.blocksContinue),
-  };
-}
-
-function addPendingUploads(
-  capture: BookingCaptureV2 | undefined,
-  uploads: UploadBookingCaptureV2Result[],
-): BookingCaptureV2 | undefined {
-  if (!capture || uploads.length === 0) return capture;
-  const existing = new Set(capture.uploads.map((upload) => upload.documentId));
-  const additions = uploads
-    .filter((upload) => !existing.has(upload.documentId))
-    .map((upload) => ({
-      documentId: upload.documentId,
-      clientUploadId: upload.clientUploadId,
-      state: upload.state,
-      classifiedDocumentTypeKey: null,
-      originalFilename: upload.originalFilename,
-      contentUrl: null,
-      processingStatus: null,
-    }));
-  return additions.length ? { ...capture, uploads: [...capture.uploads, ...additions] } : capture;
-}
-
-function ConditionalDecision({
-  conditionKey,
-  capture,
-  onSet,
-}: {
-  conditionKey: string;
-  capture: BookingCaptureV2;
-  onSet: (applicable: boolean, available: boolean | null) => Promise<void>;
-}) {
-  const declaration = declarationFor(capture, conditionKey);
-  const inferred = declaration?.source === 'DOCUMENT';
-  const applicable = declaration?.applicable;
-  const available = declaration?.documentAvailable;
-
-  return (
-    <article className="uc03-v2-decision-card">
-      <div className="uc03-v2-decision-question">
-        <div>
-          <strong>{CONDITION_LABELS[conditionKey] || conditionKey}</strong>
-          {inferred ? <small>Detected from an uploaded document</small> : null}
-        </div>
-        <div className="uc03-v2-choice-row" role="group" aria-label={CONDITION_LABELS[conditionKey] || conditionKey}>
-          <button
-            type="button"
-            className={applicable === true ? 'is-selected' : ''}
-            disabled={inferred}
-            onClick={() => void onSet(true, available ?? true)}
-          >Yes</button>
-          <button
-            type="button"
-            className={applicable === false ? 'is-selected' : ''}
-            disabled={inferred}
-            onClick={() => void onSet(false, null)}
-          >No</button>
-        </div>
-      </div>
-
-      {applicable === true && !inferred ? (
-        <div className="uc03-v2-decision-question is-secondary">
-          <strong>Is the document available now?</strong>
-          <div className="uc03-v2-choice-row" role="group" aria-label="Document available now">
-            <button
-              type="button"
-              className={available === true ? 'is-selected' : ''}
-              onClick={() => void onSet(true, true)}
-            >Yes</button>
-            <button
-              type="button"
-              className={available === false ? 'is-selected' : ''}
-              onClick={() => void onSet(true, false)}
-            >No</button>
-          </div>
-        </div>
-      ) : null}
-
-      {applicable === true && available === false ? (
-        <div className="uc03-v2-missing-note" role="status">
-          Missing document declared. You can continue after the other required documents are classified; this declaration remains available for audit follow-up.
-        </div>
-      ) : null}
-    </article>
-  );
+function scrollToCaptureItem(id: string): void {
+  document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
 
 function RequirementRow({
@@ -271,48 +75,47 @@ function RequirementRow({
 }) {
   const document = requirement.document;
   const deleting = document?.documentId === busyDocumentId;
-  const passive = requirement.state !== 'UPLOADED';
 
   return (
-    <article className={`uc03-v2-requirement ${passive ? 'is-passive' : 'is-active'}`}>
-      <div className="uc03-v2-requirement-main">
-        <div className="uc03-v2-requirement-title">
-          <strong>{requirement.label}</strong>
-          <span>{requirement.requirementLevel}</span>
-        </div>
-        <StatusPill value={documentStatus(requirement)} compact />
+    <article
+      id={`requirement-${requirement.requirementKey}`}
+      className={`uc03-v2-compact-row ${requirement.state === 'UPLOADED' ? 'is-ready' : ''}`}
+    >
+      <div className="uc03-v2-compact-row__name">
+        <strong>{requirement.label}</strong>
+        <span>{requirement.requirementLevel}</span>
       </div>
 
-      <div className="uc03-v2-requirement-detail">
-        {requirement.state === 'UPLOADED' && document ? (
-          <>
-            <span>✓ {document.originalFilename}</span>
-            <span>Classified as {document.classifiedDocumentTypeKey || requirement.documentTypeKey}</span>
-            {document.processingStatus ? <span>Extraction: {document.processingStatus}</span> : null}
-          </>
+      <div className="uc03-v2-compact-row__status">
+        <StatusPill value={documentStatus(requirement)} compact />
+        {document ? (
+          <span title={document.originalFilename}>
+            {document.classifiedDocumentTypeKey || requirement.documentTypeKey}
+            {document.processingStatus ? ` · Extraction ${document.processingStatus}` : ''}
+          </span>
         ) : requirement.state === 'ACKNOWLEDGED_MISSING' ? (
-          <span>Applicable, but document is not available. Declaration recorded.</span>
+          <span>Missing declared for audit follow-up</span>
         ) : requirement.state === 'NEEDS_DECISION' ? (
-          <span>Answer the applicability question above before continuing.</span>
+          <span>Applicability decision required</span>
         ) : requirement.state === 'NOT_APPLICABLE' ? (
-          <span>Not applicable for this Booking.</span>
+          <span>Not applicable for this Booking</span>
         ) : (
-          <span>{requirement.requirementLevel === 'OPTIONAL' ? 'Upload when available.' : 'Waiting for a matching classified upload.'}</span>
+          <span>{requirement.requirementLevel === 'OPTIONAL' ? 'Optional evidence' : 'Waiting for matching classified evidence'}</span>
         )}
       </div>
 
-      {document ? (
-        <div className="uc03-v2-requirement-actions">
-          {requirement.canView && document.contentUrl ? (
-            <a href={document.contentUrl} target="_blank" rel="noreferrer">View</a>
-          ) : null}
-          {requirement.canDelete ? (
-            <button type="button" disabled={deleting} onClick={() => void onDelete(document.documentId)}>
-              {deleting ? 'Deleting…' : 'Delete'}
-            </button>
-          ) : null}
+      <div className="uc03-v2-compact-row__actions">
+        {document && requirement.canView && document.contentUrl ? (
+          <a href={document.contentUrl} target="_blank" rel="noreferrer">View</a>
+        ) : null}
+        {document && requirement.canDelete ? (
+          <button type="button" disabled={deleting} onClick={() => void onDelete(document.documentId)}>
+            {deleting ? 'Deleting…' : 'Delete'}
+          </button>
+        ) : null}
+        {document ? (
           <label aria-disabled={deleting}>
-            Upload Again
+            Replace
             <input
               type="file"
               accept="image/*,.pdf"
@@ -324,28 +127,87 @@ function RequirementRow({
               }}
             />
           </label>
+        ) : null}
+      </div>
+    </article>
+  );
+}
+
+function ApplicabilityCard({
+  conditionKey,
+  capture,
+  busy,
+  onSet,
+}: {
+  conditionKey: string;
+  capture: BookingCaptureV2;
+  busy: boolean;
+  onSet: (conditionKey: string, applicable: boolean, available: boolean | null) => Promise<void>;
+}) {
+  const declaration = capture.declarations.find((item) => item.conditionKey === conditionKey);
+  const applicable = declaration?.applicable;
+  const available = declaration?.documentAvailable;
+
+  return (
+    <article id={`condition-${conditionKey}`} className="uc03-v2-compact-condition">
+      <strong>{CONDITION_LABELS[conditionKey] || conditionKey}</strong>
+      <div className="uc03-v2-compact-choice" role="group" aria-label={CONDITION_LABELS[conditionKey] || conditionKey}>
+        <button
+          type="button"
+          className={applicable === true ? 'is-selected' : ''}
+          disabled={busy}
+          onClick={() => void onSet(conditionKey, true, available ?? true)}
+        >Yes</button>
+        <button
+          type="button"
+          className={applicable === false ? 'is-selected' : ''}
+          disabled={busy}
+          onClick={() => void onSet(conditionKey, false, null)}
+        >No</button>
+      </div>
+
+      {applicable === true ? (
+        <div className="uc03-v2-compact-availability">
+          <span>Document available now?</span>
+          <div className="uc03-v2-compact-choice is-small" role="group" aria-label="Document available now">
+            <button
+              type="button"
+              className={available === true ? 'is-selected' : ''}
+              disabled={busy}
+              onClick={() => void onSet(conditionKey, true, true)}
+            >Yes</button>
+            <button
+              type="button"
+              className={available === false ? 'is-selected' : ''}
+              disabled={busy}
+              onClick={() => void onSet(conditionKey, true, false)}
+            >No</button>
+          </div>
         </div>
       ) : null}
     </article>
   );
 }
 
-export default function BookingCaptureV2Page() {
+export default function BookingCaptureV2CompactPage() {
   const { journeyId } = useParams<{ journeyId: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const project = useProjectContextStore((state) => state.selectedProject);
   const accessToken = useSessionStore((state) => state.accessToken);
+
   const [startBusy, setStartBusy] = useState(false);
   const [activeUploadBatches, setActiveUploadBatches] = useState(0);
   const [pendingDeclarations, setPendingDeclarations] = useState(0);
   const [busyDocumentId, setBusyDocumentId] = useState<string>();
   const [message, setMessage] = useState<string>();
   const [error, setError] = useState<string>();
-  const declarationSequence = useRef(new Map<string, number>());
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const readinessStartedAt = useRef<number>();
 
   const enabled = Boolean(project?.tenantId && journeyId && accessToken);
   const captureKey = ['uc03-document-capture-v2', project?.tenantId, journeyId] as const;
+
   const workspaceQuery = useQuery({
     queryKey: ['uc03-booking-workspace', project?.tenantId, journeyId],
     queryFn: () => getBookingWorkspace(project!.tenantId, journeyId!, accessToken),
@@ -354,20 +216,39 @@ export default function BookingCaptureV2Page() {
     staleTime: CAPTURE_STALE_MS,
   });
   const started = Boolean(workspaceQuery.data?.bookingStage.businessStatus);
+
   const captureQuery = useQuery({
     queryKey: captureKey,
     queryFn: () => getBookingCaptureV2(project!.tenantId, journeyId!, accessToken),
     enabled: enabled && started,
     refetchOnWindowFocus: false,
     staleTime: CAPTURE_STALE_MS,
-    refetchInterval: (query) => captureV2HasPendingClassification(query.state.data) ? CLASSIFICATION_POLL_MS : false,
+    refetchInterval: (query) => captureV2HasPendingClassification(query.state.data) ? CAPTURE_POLL_MS : false,
   });
 
+  const capture = captureQuery.data;
+  const uploading = activeUploadBatches > 0;
+  const classificationInFlight = hasClassificationInFlight(capture);
+  const busy = pendingDeclarations > 0 || Boolean(busyDocumentId);
+  const exclusiveConflict = Boolean(
+    capture?.declarations.find((item) => item.conditionKey === GST_CONDITION)?.applicable
+    && capture?.declarations.find((item) => item.conditionKey === CORPORATE_CONDITION)?.applicable,
+  );
+  const canContinue = Boolean(capture?.canContinue) && !uploading && !busy && !exclusiveConflict;
+
   useEffect(() => {
-    if (!captureQuery.data || !captureV2HasPendingClassification(captureQuery.data)) return undefined;
-    setMessage('Document received. Classification is running automatically…');
-    return undefined;
-  }, [captureQuery.data]);
+    if (!started || !capture) return undefined;
+    if (readinessStartedAt.current === undefined) readinessStartedAt.current = Date.now();
+
+    const update = () => {
+      const startedAt = readinessStartedAt.current ?? Date.now();
+      setElapsedSeconds(Math.max(0, Math.floor((Date.now() - startedAt) / 1000)));
+    };
+    update();
+    if (canContinue) return undefined;
+    const timer = window.setInterval(update, 1_000);
+    return () => window.clearInterval(timer);
+  }, [canContinue, capture, started]);
 
   useEffect(() => {
     if (!enabled || !started || !project?.tenantId || !journeyId) return;
@@ -379,12 +260,54 @@ export default function BookingCaptureV2Page() {
     });
   }, [accessToken, enabled, journeyId, project?.tenantId, queryClient, started]);
 
-  const conditionKeys = useMemo(() => {
-    const keys = captureQuery.data?.requirements
-      .map((requirement) => requirement.conditionKey)
-      .filter((value): value is string => Boolean(value)) ?? [];
+  const unresolvedConditions = useMemo(() => {
+    if (!capture || classificationInFlight) return [];
+    const keys = capture.requirements
+      .filter((requirement) => requirement.needsDecision && requirement.conditionKey)
+      .map((requirement) => requirement.conditionKey as string);
     return [...new Set(keys)];
-  }, [captureQuery.data?.requirements]);
+  }, [capture, classificationInFlight]);
+
+  const blockers = useMemo(() => {
+    if (!capture) return [] as Array<{ key: string; text: string; target?: string }>;
+    const items: Array<{ key: string; text: string; target?: string }> = [];
+
+    if (exclusiveConflict) {
+      items.push({
+        key: 'gst-corporate-conflict',
+        text: 'GST and Corporate cannot both apply. Remove or correct the contradictory GST/Corporate evidence before continuing.',
+      });
+    }
+
+    for (const upload of capture.uploads) {
+      const state = upload.state.toUpperCase();
+      if (state === 'RECEIVING' || state === 'STORED' || state === 'CLASSIFYING' || (state === 'CLASSIFIED' && !upload.classifiedDocumentTypeKey)) {
+        items.push({
+          key: `upload-${upload.documentId}`,
+          text: `${upload.originalFilename} is still being classified.`,
+        });
+      }
+    }
+
+    for (const requirement of capture.requirements.filter((item) => item.blocksContinue)) {
+      if (exclusiveConflict && (requirement.conditionKey === GST_CONDITION || requirement.conditionKey === CORPORATE_CONDITION)) continue;
+      if (requirement.needsDecision && requirement.conditionKey) {
+        items.push({
+          key: `decision-${requirement.requirementKey}`,
+          text: `Please confirm whether ${requirement.label} is applicable.`,
+          target: `condition-${requirement.conditionKey}`,
+        });
+      } else if (!requirement.document) {
+        items.push({
+          key: `requirement-${requirement.requirementKey}`,
+          text: `${requirement.label} still needs matching classified evidence.`,
+          target: `requirement-${requirement.requirementKey}`,
+        });
+      }
+    }
+
+    return items;
+  }, [capture, exclusiveConflict]);
 
   if (!project || !journeyId) return null;
 
@@ -395,11 +318,14 @@ export default function BookingCaptureV2Page() {
   const handleStart = async () => {
     const version = workspaceQuery.data?.aggregateVersion;
     if (version === undefined) return;
-    setStartBusy(true); setError(undefined); setMessage(undefined);
+    setStartBusy(true);
+    setError(undefined);
     try {
       await startBooking(project.tenantId, journeyId, version, accessToken);
       await workspaceQuery.refetch();
-      setMessage('Booking started. You can now upload documents.');
+      readinessStartedAt.current = Date.now();
+      setElapsedSeconds(0);
+      setMessage('Booking started. Upload the available Booking documents.');
     } catch (cause: unknown) {
       setError(cause instanceof Error ? cause.message : 'Booking could not be started.');
     } finally {
@@ -409,13 +335,14 @@ export default function BookingCaptureV2Page() {
 
   const handleUpload = async (files: File[]) => {
     if (files.length === 0) return;
+    if (readinessStartedAt.current === undefined) readinessStartedAt.current = Date.now();
     setActiveUploadBatches((count) => count + 1);
     setError(undefined);
-    setMessage('Uploading directly to secure document storage…');
+    setMessage(`Uploading ${files.length} document${files.length > 1 ? 's' : ''}…`);
     try {
-      const finalized = await uploadBookingCaptureV2Files(project.tenantId, journeyId, files, accessToken);
-      queryClient.setQueryData<BookingCaptureV2>(captureKey, (current) => addPendingUploads(current, finalized));
-      setMessage('Upload complete. Classification is running automatically. You can continue working.');
+      await uploadBookingCaptureV2Files(project.tenantId, journeyId, files, accessToken);
+      await captureQuery.refetch();
+      setMessage('Upload complete. Classification is running automatically; extraction starts as each document is classified.');
     } catch (cause: unknown) {
       setError(cause instanceof Error ? cause.message : 'The document could not be uploaded.');
       setMessage(undefined);
@@ -425,12 +352,6 @@ export default function BookingCaptureV2Page() {
   };
 
   const handleDeclaration = async (conditionKey: string, applicable: boolean, available: boolean | null) => {
-    const previous = queryClient.getQueryData<BookingCaptureV2>(captureKey);
-    const sequence = (declarationSequence.current.get(conditionKey) ?? 0) + 1;
-    declarationSequence.current.set(conditionKey, sequence);
-    queryClient.setQueryData<BookingCaptureV2>(captureKey, (current) =>
-      current ? optimisticDeclaration(current, conditionKey, applicable, available) : current,
-    );
     setPendingDeclarations((count) => count + 1);
     setError(undefined);
     try {
@@ -442,29 +363,21 @@ export default function BookingCaptureV2Page() {
         available,
         accessToken,
       );
-      if (declarationSequence.current.get(conditionKey) === sequence) {
-        queryClient.setQueryData<BookingCaptureV2>(captureKey, (current) =>
-          mergeDeclarationResponse(current, response, conditionKey),
-        );
-      }
+      queryClient.setQueryData<BookingCaptureV2>(captureKey, response);
     } catch (cause: unknown) {
-      if (declarationSequence.current.get(conditionKey) === sequence) {
-        queryClient.setQueryData<BookingCaptureV2>(captureKey, (current) =>
-          rollbackDeclaration(current, previous, conditionKey),
-        );
-      }
-      setError(cause instanceof Error ? cause.message : 'The applicability declaration could not be saved.');
+      setError(cause instanceof Error ? cause.message : 'The applicability decision could not be saved.');
     } finally {
       setPendingDeclarations((count) => Math.max(0, count - 1));
     }
   };
 
   const handleDelete = async (documentId: string) => {
-    setBusyDocumentId(documentId); setError(undefined); setMessage(undefined);
+    setBusyDocumentId(documentId);
+    setError(undefined);
     try {
       await deleteBookingCaptureV2Document(project.tenantId, journeyId, documentId, accessToken);
       await captureQuery.refetch();
-      setMessage('Document deleted. Upload a replacement if it is still required.');
+      setMessage('Document removed. Upload a replacement if it remains required.');
     } catch (cause: unknown) {
       setError(cause instanceof Error ? cause.message : 'The document could not be deleted.');
     } finally {
@@ -472,9 +385,8 @@ export default function BookingCaptureV2Page() {
     }
   };
 
-  if (workspaceQuery.isPending) {
-    return <div className="uc03-c1-loading" role="status">Loading Booking…</div>;
-  }
+  if (workspaceQuery.isPending) return <div className="uc03-c1-loading" role="status">Loading Booking…</div>;
+
   if (workspaceQuery.isError || !workspaceQuery.data) {
     return (
       <section className="dashboard-load-state" role="alert">
@@ -490,13 +402,47 @@ export default function BookingCaptureV2Page() {
 
   const workspace = workspaceQuery.data;
   const customerName = String(workspace.capture.CUSTOMER_NAME || 'Customer');
-  const capture = captureQuery.data;
-  const unmatchedUploads = capture?.uploads.filter((upload) =>
-    !capture.requirements.some((requirement) => requirement.document?.documentId === upload.documentId)) ?? [];
-  const uploading = activeUploadBatches > 0;
+
+  if (!started) {
+    return (
+      <div className="screen-stack uc03-booking-journey uc03-v2-capture uc03-v2-compact">
+        <div className="uc03-c1-topbar">
+          <button type="button" className="uc03-c1-back" onClick={() => navigate('/dashboard')}>← Work List</button>
+          <span>Project · {project.projectName}</span>
+        </div>
+        <PageHeader eyebrow="Capture New Booking · V2" title={customerName} description="Step 1 of 2 · Documents" />
+        <section className="uc03-c1-start-panel">
+          <div><span className="uc03-c1-eyebrow">Booking Journey</span><h2>Start Booking Capture</h2></div>
+          <button type="button" className="uc03-c1-primary" disabled={startBusy} onClick={() => void handleStart()}>
+            {startBusy ? 'Starting…' : 'Start Booking'}
+          </button>
+        </section>
+      </div>
+    );
+  }
+
+  if (captureQuery.isPending) return <div className="uc03-c1-loading" role="status">Loading document requirements…</div>;
+
+  if (captureQuery.isError || !capture) {
+    return (
+      <section className="dashboard-load-state" role="alert">
+        <div className="dashboard-load-state__mark">!</div>
+        <div className="dashboard-load-state__copy">
+          <strong>Document capture is temporarily unavailable.</strong>
+          <p>{captureQuery.error instanceof Error ? captureQuery.error.message : 'Please try again.'}</p>
+        </div>
+        <button type="button" className="user-menu-button" onClick={() => void captureQuery.refetch()}>Try Again</button>
+      </section>
+    );
+  }
+
+  const classifiedCount = capture.uploads.filter((item) => item.state.toUpperCase() === 'CLASSIFIED' && item.classifiedDocumentTypeKey).length;
+  const extractionReadyCount = capture.uploads.filter((item) => item.processingStatus?.toUpperCase() === 'PROCESSED').length;
+  const unmatchedUploads = capture.uploads.filter((upload) =>
+    !capture.requirements.some((requirement) => requirement.document?.documentId === upload.documentId));
 
   return (
-    <div className="screen-stack uc03-booking-journey uc03-v2-capture">
+    <div className="screen-stack uc03-booking-journey uc03-v2-capture uc03-v2-compact">
       <div className="uc03-c1-topbar">
         <button type="button" className="uc03-c1-back" onClick={() => navigate('/dashboard')}>← Work List</button>
         <span>Project · {project.projectName}</span>
@@ -505,7 +451,7 @@ export default function BookingCaptureV2Page() {
       <PageHeader
         eyebrow="Capture New Booking · V2"
         title={customerName}
-        description="Step 1 of 2 · Upload documents first. Verigence identifies each document automatically; extraction continues in the background."
+        description="Step 1 of 2 · Upload evidence. Verigence classifies first and starts extraction immediately in the background."
       />
 
       <nav className="uc03-booking-steps" aria-label="Booking capture steps">
@@ -516,130 +462,137 @@ export default function BookingCaptureV2Page() {
       {message ? <div className="uc03-booking-journey-feedback is-success" role="status">{message}</div> : null}
       {error ? <div className="uc03-booking-journey-feedback is-error" role="alert">{error}</div> : null}
 
-      {!started ? (
-        <section className="uc03-c1-start-panel">
-          <div><span className="uc03-c1-eyebrow">Booking Journey</span><h2>Start Booking Capture</h2></div>
-          <button type="button" className="uc03-c1-primary" disabled={startBusy} onClick={() => void handleStart()}>
-            {startBusy ? 'Starting…' : 'Start Booking'}
-          </button>
-        </section>
-      ) : captureQuery.isPending ? (
-        <div className="uc03-c1-loading" role="status">Loading document requirements…</div>
-      ) : captureQuery.isError || !capture ? (
-        <section className="dashboard-load-state" role="alert">
-          <div className="dashboard-load-state__mark">!</div>
-          <div className="dashboard-load-state__copy">
-            <strong>Document capture is temporarily unavailable.</strong>
-            <p>{captureQuery.error instanceof Error ? captureQuery.error.message : 'Please try again.'}</p>
+      <section className="uc03-v2-compact-summary" aria-label="Document capture status">
+        <div><strong>{classifiedCount}/{capture.uploads.length || 0}</strong><span>Classified</span></div>
+        <div><strong>{extractionReadyCount}/{capture.uploads.length || 0}</strong><span>Extraction ready</span></div>
+        <div className={canContinue ? 'is-ready' : 'is-waiting'}>
+          <strong>{formatElapsed(elapsedSeconds)}</strong>
+          <span>{canContinue ? 'Ready' : 'Gate timer'}</span>
+        </div>
+      </section>
+
+      <section className="uc03-v2-compact-panel">
+        <div className="uc03-v2-compact-upload">
+          <div>
+            <strong>Booking documents</strong>
+            <span>Upload together. Document type selection is not required.</span>
           </div>
-          <button type="button" className="user-menu-button" onClick={() => void captureQuery.refetch()}>Try Again</button>
-        </section>
-      ) : (
-        <>
-          {conditionKeys.length ? (
-            <section className="uc03-v2-section">
-              <header>
-                <div><span className="uc03-c1-eyebrow">Applicability</span><h2>Booking conditions</h2></div>
-                {pendingDeclarations ? <span role="status">Saving {pendingDeclarations > 1 ? 'answers' : 'answer'}…</span> : null}
-              </header>
-              <div className="uc03-v2-decision-grid">
-                {conditionKeys.map((conditionKey) => (
-                  <ConditionalDecision
-                    key={conditionKey}
-                    conditionKey={conditionKey}
-                    capture={capture}
-                    onSet={(applicable, available) => handleDeclaration(conditionKey, applicable, available)}
-                  />
-                ))}
-              </div>
-            </section>
-          ) : null}
+          <div className="uc03-v2-upload-actions">
+            <label className="uc03-c1-primary">
+              {uploading ? 'Add More' : 'Choose Files'}
+              <input
+                type="file"
+                accept="image/*,.pdf"
+                multiple
+                onChange={(event) => {
+                  const files = Array.from(event.currentTarget.files ?? []);
+                  event.currentTarget.value = '';
+                  void handleUpload(files);
+                }}
+              />
+            </label>
+            <label className="uc03-v2-camera-action">
+              Take Photo
+              <input
+                type="file"
+                accept="image/*"
+                capture="environment"
+                onChange={(event) => {
+                  const files = Array.from(event.currentTarget.files ?? []);
+                  event.currentTarget.value = '';
+                  void handleUpload(files);
+                }}
+              />
+            </label>
+          </div>
+        </div>
 
-          <section className="uc03-v2-section">
-            <header className="uc03-v2-section-header">
-              <div><span className="uc03-c1-eyebrow">Step 1</span><h2>Documents</h2></div>
-              <span>{capture.canContinue ? 'Required document checks complete' : 'Required document checks pending'}</span>
+        {classificationInFlight ? (
+          <div className="uc03-v2-compact-checking" role="status">
+            Checking uploaded documents… applicability questions will appear only if evidence cannot answer them.
+          </div>
+        ) : null}
+
+        {unresolvedConditions.length > 0 ? (
+          <div className="uc03-v2-compact-conditions">
+            <header>
+              <strong>Only information not established by documents</strong>
+              {pendingDeclarations ? <span>Saving…</span> : null}
             </header>
-
-            <div className="uc03-v2-dropzone">
-              <div>
-                <strong>Upload any Booking document</strong>
-                <span>You do not need to select a document type. Classification happens automatically.</span>
-                {uploading ? <span role="status">Upload is running in the background; you can keep answering questions or add more files.</span> : null}
-              </div>
-              <div className="uc03-v2-upload-actions">
-                <label className="uc03-c1-primary">
-                  {uploading ? 'Add More Files' : 'Choose Files'}
-                  <input
-                    type="file"
-                    accept="image/*,.pdf"
-                    multiple
-                    onChange={(event) => {
-                      const files = Array.from(event.currentTarget.files ?? []);
-                      event.currentTarget.value = '';
-                      void handleUpload(files);
-                    }}
-                  />
-                </label>
-                <label className="uc03-v2-camera-action">
-                  Take Photo
-                  <input
-                    type="file"
-                    accept="image/*"
-                    capture="environment"
-                    onChange={(event) => {
-                      const files = Array.from(event.currentTarget.files ?? []);
-                      event.currentTarget.value = '';
-                      void handleUpload(files);
-                    }}
-                  />
-                </label>
-              </div>
-            </div>
-
-            <div className="uc03-v2-requirement-list">
-              {capture.requirements.map((requirement) => (
-                <RequirementRow
-                  key={requirement.requirementKey}
-                  requirement={requirement}
-                  busyDocumentId={busyDocumentId}
-                  onDelete={handleDelete}
-                  onUpload={handleUpload}
+            <div className="uc03-v2-compact-condition-grid">
+              {unresolvedConditions.map((conditionKey) => (
+                <ApplicabilityCard
+                  key={conditionKey}
+                  conditionKey={conditionKey}
+                  capture={capture}
+                  busy={pendingDeclarations > 0}
+                  onSet={handleDeclaration}
                 />
               ))}
             </div>
+          </div>
+        ) : null}
 
-            {unmatchedUploads.length ? (
-              <div className="uc03-v2-unmatched">
-                <h3>Uploads awaiting a usable classification</h3>
-                {unmatchedUploads.map((upload) => (
-                  <div key={upload.documentId} className="uc03-v2-unmatched-row">
-                    <div>
-                      <strong>{upload.originalFilename}</strong>
-                      <span>{upload.state === 'UNKNOWN' ? 'Document type could not be identified. Upload a clearer/replacement document.' : `Classification: ${upload.state}`}</span>
-                    </div>
-                    <button type="button" disabled={busyDocumentId === upload.documentId} onClick={() => void handleDelete(upload.documentId)}>
-                      {busyDocumentId === upload.documentId ? 'Deleting…' : 'Delete'}
-                    </button>
-                  </div>
-                ))}
+        <div className="uc03-v2-compact-list">
+          {capture.requirements.map((requirement) => (
+            <RequirementRow
+              key={requirement.requirementKey}
+              requirement={requirement}
+              busyDocumentId={busyDocumentId}
+              onDelete={handleDelete}
+              onUpload={handleUpload}
+            />
+          ))}
+        </div>
+
+        {unmatchedUploads.length ? (
+          <div className="uc03-v2-compact-unmatched">
+            {unmatchedUploads.map((upload) => (
+              <div key={upload.documentId}>
+                <span><strong>{upload.originalFilename}</strong> · Classification {upload.state}</span>
+                <button type="button" disabled={busyDocumentId === upload.documentId} onClick={() => void handleDelete(upload.documentId)}>
+                  Delete
+                </button>
               </div>
-            ) : null}
+            ))}
+          </div>
+        ) : null}
+      </section>
 
-            <div className="uc03-booking-step-footer">
-              <span>{capture.canContinue
-                ? 'You can continue. Extraction may still be running; it does not block Booking Details.'
-                : 'Continue becomes available after required documents are classified and applicability decisions are complete.'}</span>
-              <button
-                type="button"
-                className="uc03-c1-primary"
-                disabled={!capture.canContinue || pendingDeclarations > 0 || Boolean(busyDocumentId)}
-                onClick={() => navigate(`/v2/bookings/${journeyId}/details`)}
-              >Continue to Booking Details →</button>
-            </div>
-          </section>
-        </>
-      )}
+      <section className={`uc03-v2-compact-gate ${canContinue ? 'is-ready' : 'is-blocked'}`}>
+        <div className="uc03-v2-compact-gate__copy">
+          {canContinue ? (
+            <>
+              <strong>Document gate complete</strong>
+              <span>Extraction can continue in the background while you enter Booking Details.</span>
+            </>
+          ) : (
+            <>
+              <strong>{blockers.length || 1} action{(blockers.length || 1) === 1 ? '' : 's'} before you can continue · {formatElapsed(elapsedSeconds)}</strong>
+              <span>The button enables immediately when the actual classification/applicability gate is complete.</span>
+            </>
+          )}
+        </div>
+
+        {!canContinue ? (
+          <div className="uc03-v2-compact-blockers" role="status">
+            {blockers.length ? blockers.map((blocker) => (
+              blocker.target ? (
+                <button key={blocker.key} type="button" onClick={() => scrollToCaptureItem(blocker.target!)}>
+                  {blocker.text}
+                </button>
+              ) : <span key={blocker.key}>{blocker.text}</span>
+            )) : <span>Document checks are still being refreshed.</span>}
+          </div>
+        ) : null}
+
+        <button
+          type="button"
+          className="uc03-c1-primary"
+          disabled={!canContinue}
+          onClick={() => navigate(`/v2/bookings/${journeyId}/details`)}
+        >Continue to Booking Details →</button>
+      </section>
     </div>
   );
 }

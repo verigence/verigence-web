@@ -23,6 +23,8 @@ const loadBookingCaptureV2Page = () => import('./pages/BookingCaptureV2Page');
 const loadBookingDetailsV2Page = () => import('./pages/BookingDetailsV2Page');
 const loadBookingReviewV2Page = () => import('./pages/BookingReviewV2Page');
 const loadDeliveryWorkspacePage = () => import('./pages/DeliveryWorkspacePage');
+const loadDeliveryCaptureV2Page = () => import('./pages/DeliveryCaptureV2Page');
+const loadDeliveryReviewV2Page = () => import('./pages/DeliveryReviewV2Page');
 const loadAuditReviewPage = () => import('./pages/AuditReviewPage');
 
 const LoginPage = lazy(() => import('./pages/LoginPage'));
@@ -48,6 +50,8 @@ const BookingCaptureV2Page = lazy(loadBookingCaptureV2Page);
 const BookingDetailsV2Page = lazy(loadBookingDetailsV2Page);
 const BookingReviewV2Page = lazy(loadBookingReviewV2Page);
 const DeliveryWorkspacePage = lazy(loadDeliveryWorkspacePage);
+const DeliveryCaptureV2Page = lazy(loadDeliveryCaptureV2Page);
+const DeliveryReviewV2Page = lazy(loadDeliveryReviewV2Page);
 const AuditReviewPage = lazy(loadAuditReviewPage);
 const AttendancePage = lazy(() => import('./pages/AttendancePage'));
 const CustomersPage = lazy(() => import('./pages/CustomersPage'));
@@ -99,13 +103,13 @@ function PcJourneyRoutePreloader() {
           loadBookingDetailsV2Page(),
           loadBookingReviewV2Page(),
           loadDeliveryWorkspacePage(),
+          loadDeliveryCaptureV2Page(),
+          loadDeliveryReviewV2Page(),
           loadAuditReviewPage(),
         ]);
       }, 150);
     };
 
-    // The first authenticated request burst belongs exclusively to Project context
-    // and the primary Work Queue. Only warm journey chunks after that queue settles.
     window.addEventListener(UC03_PRIMARY_WORK_QUEUE_SETTLED_EVENT, preloadJourneys);
     fallbackTimer = window.setTimeout(preloadJourneys, 30_000);
 
@@ -138,22 +142,15 @@ function SuperAdminPage({ children }: { children: ReactNode }) {
 
 function ProjectAdminPage({ children }: { children: ReactNode }) {
   const role = useSessionStore((state) => state.role);
-  if (role !== 'SUPER_ADMIN' && role !== 'TENANT_ADMIN') {
-    return <Navigate to="/dashboard" replace />;
-  }
+  if (role !== 'SUPER_ADMIN' && role !== 'TENANT_ADMIN') return <Navigate to="/dashboard" replace />;
   return <PrivatePage>{children}</PrivatePage>;
 }
 
 function DashboardEntry() {
   const role = useSessionStore((state) => state.role);
   const selectedProject = useProjectContextStore((state) => state.selectedProject);
-
-  if (role === 'SUPER_ADMIN' && !selectedProject) {
-    return <PrivatePage><AdminLandingPage /></PrivatePage>;
-  }
-  if (selectedProject?.operatingRole === 'TL') {
-    return <OperationalPage><TeamLeadDashboardPage /></OperationalPage>;
-  }
+  if (role === 'SUPER_ADMIN' && !selectedProject) return <PrivatePage><AdminLandingPage /></PrivatePage>;
+  if (selectedProject?.operatingRole === 'TL') return <OperationalPage><TeamLeadDashboardPage /></OperationalPage>;
   return <OperationalPage><DashboardPage /></OperationalPage>;
 }
 
@@ -171,26 +168,15 @@ function OperationalPage({ children }: { children: ReactNode }) {
 }
 
 function OperationalShellPage({ children }: { children: ReactNode }) {
-  return (
-    <Authenticated>
-      <ProjectContextGate>
-        <AppShell>{children}</AppShell>
-      </ProjectContextGate>
-    </Authenticated>
-  );
+  return <Authenticated><ProjectContextGate><AppShell>{children}</AppShell></ProjectContextGate></Authenticated>;
 }
 
 function LegacyOperationalPage({ children }: { children: ReactNode }) {
   const role = useSessionStore((state) => state.role);
   const selectedProject = useProjectContextStore((state) => state.selectedProject);
   const adminPersona = role === 'SUPER_ADMIN' || role === 'TENANT_ADMIN';
-
   if (adminPersona && !selectedProject) return <PrivatePage>{children}</PrivatePage>;
-  return (
-    <Authenticated>
-      <ProjectContextGate><Navigate to="/dashboard" replace /></ProjectContextGate>
-    </Authenticated>
-  );
+  return <Authenticated><ProjectContextGate><Navigate to="/dashboard" replace /></ProjectContextGate></Authenticated>;
 }
 
 function Loading() {
@@ -224,6 +210,8 @@ export default function App() {
             <Route path="/v2/bookings/:journeyId/details" element={<OperationalPage><BookingDetailsV2Page /></OperationalPage>} />
             <Route path="/v2/bookings/:journeyId/review" element={<OperationalPage><BookingReviewV2Page /></OperationalPage>} />
             <Route path="/deliveries/:journeyId" element={<OperationalPage><DeliveryWorkspacePage /></OperationalPage>} />
+            <Route path="/v2/deliveries/:journeyId" element={<OperationalPage><DeliveryCaptureV2Page /></OperationalPage>} />
+            <Route path="/v2/deliveries/:journeyId/review" element={<OperationalPage><DeliveryReviewV2Page /></OperationalPage>} />
             <Route path="/audit/:journeyId" element={<OperationalPage><AuditReviewPage /></OperationalPage>} />
             <Route path="/feedback" element={<OperationalShellPage><FeedbackPage /></OperationalShellPage>} />
             <Route path="/customers" element={<LegacyOperationalPage><CustomersPage /></LegacyOperationalPage>} />

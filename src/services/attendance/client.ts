@@ -55,6 +55,12 @@ export interface AttendanceActionResponse {
   exceptionRecorded: boolean;
 }
 
+export interface AttendanceLocationConfirmationSummary {
+  displayAddress: string;
+  employeeConfirmed: boolean;
+  remarks?: string | null;
+}
+
 export interface AttendanceOverviewItem {
   userId: string;
   displayName: string;
@@ -62,6 +68,8 @@ export interface AttendanceOverviewItem {
   roleKey?: string | null;
   status: string;
   attendance?: AttendanceRecord | null;
+  checkInLocationConfirmation?: AttendanceLocationConfirmationSummary | null;
+  checkOutLocationConfirmation?: AttendanceLocationConfirmationSummary | null;
 }
 
 export interface AttendanceOverview {

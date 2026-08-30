@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 import {
   getProjectDeletionImpact,
-  hardDeleteProject,
+  hardDeleteProjectFromImpact,
   purgeJourneyHousekeeping,
 } from '../../services/audit-core/housekeeping';
 
@@ -48,12 +48,12 @@ export default function CompleteProjectDeletionPanel({
   const impact = impactQuery.data;
   const canDelete = Boolean(
     impact
-      && confirmation === impact.projectName
+      && confirmation === tenantId
       && !deleting,
   );
 
   const handleDelete = async () => {
-    if (!accessToken || !impact || confirmation !== impact.projectName) return;
+    if (!accessToken || !impact || confirmation !== tenantId) return;
 
     setDeleting(true);
     setMessage(undefined);
@@ -71,9 +71,8 @@ export default function CompleteProjectDeletionPanel({
         );
       }
 
-      const result = await hardDeleteProject(
-        tenantId,
-        impact.projectName,
+      await hardDeleteProjectFromImpact(
+        impact,
         operationKey,
         accessToken,
       );
@@ -82,8 +81,8 @@ export default function CompleteProjectDeletionPanel({
       setIdempotencyKey('');
       await queryClient.invalidateQueries({ queryKey: ['admin-housekeeping-projects'] });
       setMessage(
-        `Project ${result.projectName} was permanently deleted from Document Intelligence, Security and Audit Core. `
-        + 'Select another Project to continue housekeeping.',
+        'The selected workspace was permanently deleted from Document Intelligence, Security and Audit Core. '
+        + 'Select another workspace to continue housekeeping.',
       );
     } catch (cause: unknown) {
       setError(
@@ -130,7 +129,7 @@ export default function CompleteProjectDeletionPanel({
         <div className="uc01-admin-config-grid">
           <article className="uc01-admin-config-card">
             <span className="eyebrow">Permanent deletion</span>
-            <h2>{impact.projectName}</h2>
+            <h2>Selected workspace</h2>
             <p><strong>Project status:</strong> {impact.projectStatus}</p>
             <p><strong>Journeys:</strong> {impact.journeyCount}</p>
             {impact.journeyCount > 0 ? (
@@ -141,10 +140,10 @@ export default function CompleteProjectDeletionPanel({
               </div>
             ) : null}
             <p>
-              This action cannot be undone. To confirm, type the exact Project name:
+              This action cannot be undone. To confirm, type the workspace tenant ID shown below:
             </p>
             <label className="uc03-booking-field">
-              <span>{impact.projectName}</span>
+              <span>{tenantId}</span>
               <input
                 type="text"
                 value={confirmation}
@@ -152,7 +151,7 @@ export default function CompleteProjectDeletionPanel({
                 autoComplete="off"
                 spellCheck={false}
                 onChange={(event) => setConfirmation(event.target.value)}
-                placeholder="Enter exact Project name"
+                placeholder="Enter exact tenant ID"
               />
             </label>
             <button

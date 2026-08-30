@@ -125,6 +125,25 @@ if (!app.includes('<V2JourneyRedirect target="BOOKING" />') || !app.includes('<V
   failures.push('src/App.tsx: legacy Booking/Delivery routes must redirect to V2.');
 }
 
+const dashboard = read('src/pages/DashboardPage.tsx');
+for (const required of [
+  'to="/v2/bookings/new"',
+  '`/v2/bookings/${item.journeyId}`',
+  '`/v2/bookings/${item.journeyId}/review`',
+  '`/v2/deliveries/${item.journeyId}`',
+]) {
+  if (!dashboard.includes(required)) failures.push(`src/pages/DashboardPage.tsx: direct V2 navigation missing: ${required}`);
+}
+for (const legacyPattern of [
+  /dashboard\?action=create-booking/,
+  /`\/bookings\/\$\{item\.journeyId\}`/,
+  /`\/bookings\/\$\{item\.journeyId\}\/review`/,
+  /`\/deliveries\/\$\{item\.journeyId\}`/,
+  /Capture New Booking V2/,
+]) {
+  if (legacyPattern.test(dashboard)) failures.push('src/pages/DashboardPage.tsx: V1/redirect-dependent journey navigation is prohibited; UI must link directly to V2.');
+}
+
 /* Booking V2 document-first contract. */
 for (const text of [
   'Booking documents',
@@ -181,7 +200,7 @@ console.log('VERIGENCE_UI_GOVERNANCE=PASS');
 console.log('Background=LOGIN_NAVY_TEAL');
 console.log('ProjectName=PROHIBITED_OPERATIONAL_UI');
 console.log('VerticalFreeze=PROHIBITED_ROOT_AND_PAGE_SCROLL_REQUIRED');
-console.log('BookingJourney=V2_ONLY_NON_BLOCKING_AUDIT');
-console.log('DeliveryJourney=V2_ONLY_NON_BLOCKING_AUDIT');
+console.log('BookingJourney=V2_ONLY_DIRECT_NAVIGATION_NON_BLOCKING_AUDIT');
+console.log('DeliveryJourney=V2_ONLY_DIRECT_NAVIGATION_NON_BLOCKING_AUDIT');
 console.log('ExtractedFieldEvidence=BOX_REQUIRED_OR_LOCATION_EXCEPTION');
 console.log('Responsive=ADAPTIVE_REQUIRED');

@@ -84,7 +84,7 @@ export default function Journey360Page() {
   if (overviewQuery.isError || !model) {
     return (
       <div className="screen-stack journey-360-page">
-        <PageHeader title="Journey unavailable" description="This Journey was not found in your current authorized Project scope." />
+        <PageHeader eyebrow="Journey Search" title="Journey unavailable" description="This Journey was not found in your current authorized Project scope." />
         <Link className="journey-360-back" to="/search">← Back to Journey Search</Link>
       </div>
     );

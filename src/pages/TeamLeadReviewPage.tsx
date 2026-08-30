@@ -37,6 +37,16 @@ function factValue(fact: PcBookingExtractionFact): unknown {
   return fact.normalizedValue ?? fact.rawValue;
 }
 
+function hasBoxedEvidence(fact: PcBookingExtractionFact): boolean {
+  const region = fact.evidenceRegion;
+  if (!region || region.type !== 'BOX_2D' || region.coordinateSystem !== 'NORMALIZED_1000') return false;
+  if (!Array.isArray(region.box) || region.box.length !== 4) return false;
+  const values = region.box.map(Number);
+  if (values.some((value) => !Number.isFinite(value) || value < 0 || value > 1000)) return false;
+  const [ymin, xmin, ymax, xmax] = values;
+  return ymin < ymax && xmin < xmax;
+}
+
 function TlReviewDocumentCard({
   tenantId,
   journeyId,
@@ -71,6 +81,7 @@ function TlReviewDocumentCard({
   });
 
   const extractionReady = extractionQuery.data?.processingStatus.toUpperCase() === 'PROCESSED';
+  const localizedFieldCount = extractionQuery.data?.facts.filter(hasBoxedEvidence).length ?? 0;
   const previewQuery = useQuery({
     queryKey: ['uc03-tl-document-preview', tenantId, journeyId, document.documentId],
     queryFn: () => getPcBookingDocumentPreviewSource(
@@ -79,7 +90,7 @@ function TlReviewDocumentCard({
       document.documentId,
       accessToken,
     ),
-    enabled: extractionReady,
+    enabled: Boolean(extractionReady && localizedFieldCount > 0),
     staleTime: 5 * 60_000,
     retry: 1,
     refetchOnWindowFocus: false,
@@ -187,6 +198,11 @@ function TlReviewDocumentCard({
     <>
       {message && <div className="uc03-c1-feedback is-success" role="status">{message}</div>}
       {error && <div className="uc03-c1-feedback is-error" role="alert">{error}</div>}
+      {extractionQuery.data.facts.length > localizedFieldCount ? (
+        <div className="uc03-c1-feedback" role="status">
+          {extractionQuery.data.facts.length - localizedFieldCount} extracted field{extractionQuery.data.facts.length - localizedFieldCount === 1 ? '' : 's'} do not have a reliable source location. Those values remain reviewable, but Verigence will not show an unboxed document as field evidence.
+        </div>
+      ) : null}
 
       <OptimizedDirectDiFieldReview
         documentName={friendly(document.documentTypeKey || document.requirementKey)}
@@ -282,7 +298,6 @@ export default function TeamLeadReviewPage() {
     <div className="screen-stack uc03-c1-workspace uc03-tl-review-page">
       <div className="uc03-c1-topbar">
         <button type="button" className="uc03-c1-back" onClick={() => navigate('/dashboard')}>← TL Dashboard</button>
-        <span>Project · {project.projectName}</span>
       </div>
 
       <PageHeader

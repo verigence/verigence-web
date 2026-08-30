@@ -53,18 +53,14 @@ function clientUploadId(): string {
   return `delivery-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
-const PENDING_STATES = new Set(['RECEIVING', 'STORED', 'CLASSIFYING']);
-const PENDING_PROCESSING_STATES = new Set(['NOT_STARTED', 'PROCESSING', 'RETRY_PENDING']);
+const PENDING_CLASSIFICATION_STATES = new Set(['RECEIVING', 'STORED', 'CLASSIFYING']);
 
 export function deliveryCaptureV2IsProcessing(capture?: DeliveryCaptureV2): boolean {
   if (!capture) return false;
   return capture.uploads.some((document) => {
     const state = document.state.toUpperCase();
-    if (PENDING_STATES.has(state)) return true;
-    if (state === 'CLASSIFIED' && !document.classifiedDocumentTypeKey) return true;
-    return state === 'CLASSIFIED'
-      && Boolean(document.processingStatus)
-      && PENDING_PROCESSING_STATES.has(document.processingStatus!.toUpperCase());
+    if (PENDING_CLASSIFICATION_STATES.has(state)) return true;
+    return state === 'CLASSIFIED' && !document.classifiedDocumentTypeKey;
   });
 }
 

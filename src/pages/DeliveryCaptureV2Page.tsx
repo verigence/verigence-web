@@ -368,11 +368,11 @@ export default function DeliveryCaptureV2Page() {
 
       <section className="uc03-delivery-v2-submit-bar">
         <div>
-          <strong>{processing ? 'Documents being classified' : 'Ready to continue'}</strong>
-          <span>Submit whenever the PC is done uploading. Audit exceptions remain non-blocking.</span>
+          <strong>{processing ? 'Waiting for uploaded document classification' : 'Ready to continue'}</strong>
+          <span>{processing ? 'Submit will be available as soon as the documents you uploaded are classified.' : 'Submit whatever evidence is available. Missing mandatory documents remain non-blocking audit observations.'}</span>
         </div>
-        <button type="button" className="uc03-c1-primary" disabled={uploading || submitting} onClick={() => void handleSubmit()}>
-          {submitting ? 'Submitting…' : 'Submit & Review →'}
+        <button type="button" className="uc03-c1-primary" disabled={uploading || submitting || processing} onClick={() => void handleSubmit()}>
+          {submitting ? 'Submitting…' : processing ? 'Classifying…' : 'Submit & Review →'}
         </button>
       </section>
     </div>

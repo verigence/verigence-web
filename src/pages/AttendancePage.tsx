@@ -354,7 +354,7 @@ export default function AttendancePage() {
                 </div>
                 <div className="attendance-table-wrap">
                   <table className="attendance-table">
-                    <thead><tr><th>Employee</th><th>Role</th><th>Check in</th><th>Check out</th><th>Status</th>{isHrAdmin && <th>HR action</th>}</tr></thead>
+                    <thead><tr><th>Employee</th><th>Role</th><th>Check in</th><th>Check out</th><th>Status</th><th>Location confirmed</th><th>Remarks</th>{isHrAdmin && <th>HR action</th>}</tr></thead>
                     <tbody>
                       {overviewItems.map((item) => (
                         <tr key={item.userId}>
@@ -363,6 +363,18 @@ export default function AttendancePage() {
                           <td>{formatDateTime(item.attendance?.checkInAt)}</td>
                           <td>{formatDateTime(item.attendance?.checkOutAt)}</td>
                           <td>{statusLabel(item.status)}</td>
+                          <td>
+                            {item.checkInLocationConfirmation ? (
+                              <><strong>In: {item.checkInLocationConfirmation.employeeConfirmed ? 'Yes' : 'No'}</strong><div className="attendance-muted">{item.checkInLocationConfirmation.displayAddress}</div></>
+                            ) : '—'}
+                            {item.checkOutLocationConfirmation && (
+                              <div style={{ marginTop: 6 }}><strong>Out: {item.checkOutLocationConfirmation.employeeConfirmed ? 'Yes' : 'No'}</strong><div className="attendance-muted">{item.checkOutLocationConfirmation.displayAddress}</div></div>
+                            )}
+                          </td>
+                          <td>
+                            {item.checkInLocationConfirmation?.remarks ? <div><strong>In:</strong> {item.checkInLocationConfirmation.remarks}</div> : '—'}
+                            {item.checkOutLocationConfirmation?.remarks && <div style={{ marginTop: 6 }}><strong>Out:</strong> {item.checkOutLocationConfirmation.remarks}</div>}
+                          </td>
                           {isHrAdmin && <td>{item.attendance ? <button type="button" className="attendance-button attendance-button--secondary" onClick={() => openCorrection(item)}>Correct</button> : '—'}</td>}
                         </tr>
                       ))}

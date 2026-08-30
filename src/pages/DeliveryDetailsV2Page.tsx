@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 
 import PageHeader from '../components/PageHeader';
 import StatusPill from '../components/StatusPill';
@@ -25,6 +25,7 @@ function isVehiclePhoto(document: DeliveryDocumentView): boolean {
 
 export default function DeliveryDetailsV2Page() {
   const { journeyId = '' } = useParams();
+  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const project = useProjectContextStore((state) => state.selectedProject);
   const accessToken = useSessionStore((state) => state.accessToken);
@@ -40,6 +41,7 @@ export default function DeliveryDetailsV2Page() {
   const [error, setError] = useState<string>();
 
   const enabled = Boolean(project?.tenantId && journeyId && accessToken);
+  const captureAlreadySubmitted = searchParams.get('captureSubmitted') === '1';
   const workspaceQuery = useQuery({
     queryKey: ['uc03-delivery-details-v2', project?.tenantId, journeyId],
     queryFn: () => getDeliveryWorkspace(project!.tenantId, journeyId, accessToken),
@@ -147,7 +149,9 @@ export default function DeliveryDetailsV2Page() {
     setSubmitting(true);
     setError(undefined);
     try {
-      await submitDeliveryCaptureV2(project.tenantId, journeyId, accessToken);
+      if (!captureAlreadySubmitted) {
+        await submitDeliveryCaptureV2(project.tenantId, journeyId, accessToken);
+      }
       navigate(`/v2/deliveries/${journeyId}/review`, { replace: true });
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Delivery capture could not be submitted.');
@@ -181,7 +185,7 @@ export default function DeliveryDetailsV2Page() {
       <PageHeader
         eyebrow="Delivery · V2"
         title="Delivery Details & Vehicle Evidence"
-        description="Step 2 of 2 · Record the Delivery handover details and vehicle evidence, then submit the capture for Review."
+        description="Step 2 of 2 · Record the Delivery handover details and vehicle evidence, then continue to Review."
       />
 
       <nav className="uc03-booking-steps" aria-label="Delivery capture steps">
@@ -191,6 +195,12 @@ export default function DeliveryDetailsV2Page() {
 
       {message ? <div className="uc03-booking-journey-feedback is-success" role="status">{message}</div> : null}
       {error ? <div className="uc03-booking-journey-feedback is-error" role="alert">{error}</div> : null}
+
+      {captureAlreadySubmitted ? (
+        <div className="uc03-booking-journey-feedback is-warning" role="status">
+          The document step was already submitted by the earlier Delivery flow. Complete the Delivery details below; Verigence will not submit the document capture a second time.
+        </div>
+      ) : null}
 
       <section className="uc03-booking-step-panel">
         <header className="uc03-booking-step-heading">
@@ -210,7 +220,7 @@ export default function DeliveryDetailsV2Page() {
           </label>
         ) : null}
         <div className="uc03-booking-step-footer">
-          <span>{workspace.intimation.answer === 'UNANSWERED' ? 'Save the Delivery intimation before submission.' : `Saved as ${workspace.intimation.answer}.`}</span>
+          <span>{workspace.intimation.answer === 'UNANSWERED' ? 'Save the Delivery intimation before continuing.' : `Saved as ${workspace.intimation.answer}.`}</span>
           <button type="button" className="uc03-c1-secondary" disabled={savingIntimation || !intimationAnswer} onClick={() => void saveIntimation()}>{savingIntimation ? 'Saving…' : 'Save Intimation'}</button>
         </div>
       </section>
@@ -260,10 +270,10 @@ export default function DeliveryDetailsV2Page() {
 
       <section className="uc03-delivery-v2-submit-bar">
         <div>
-          <strong>{canSubmit ? 'Ready to submit Delivery capture' : 'Complete required Delivery details'}</strong>
-          <span>{!intimationComplete ? 'Delivery intimation is required. ' : ''}{vehiclePhotoRequired && !vehiclePhotoAvailable ? 'Required vehicle photograph is missing.' : 'Submitting opens Delivery Review.'}</span>
+          <strong>{canSubmit ? (captureAlreadySubmitted ? 'Ready for Delivery Review' : 'Ready to submit Delivery capture') : 'Complete required Delivery details'}</strong>
+          <span>{!intimationComplete ? 'Delivery intimation is required. ' : ''}{vehiclePhotoRequired && !vehiclePhotoAvailable ? 'Required vehicle photograph is missing.' : captureAlreadySubmitted ? 'Continue to Delivery Review.' : 'Submitting opens Delivery Review.'}</span>
         </div>
-        <button type="button" className="uc03-c1-primary" disabled={!canSubmit} onClick={() => void submit()}>{submitting ? 'Submitting…' : 'Submit Delivery → Review'}</button>
+        <button type="button" className="uc03-c1-primary" disabled={!canSubmit} onClick={() => void submit()}>{submitting ? 'Working…' : captureAlreadySubmitted ? 'Continue → Review' : 'Submit Delivery → Review'}</button>
       </section>
     </div>
   );

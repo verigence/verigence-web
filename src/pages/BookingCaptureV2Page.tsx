@@ -26,19 +26,15 @@ const GST_CONDITION = 'gstApplicable';
 const CORPORATE_CONDITION = 'corporateCustomer';
 
 const CONDITION_LABELS: Record<string, string> = {
-  gstApplicable: 'Is GST Certificate applicable?',
-  corporateCustomer: 'Is this a Corporate customer?',
-  exchangeTaken: 'Is Trade-In / Exchange applicable?',
+  gstApplicable: 'Does the customer want to avail GST benefit for this Booking?',
+  corporateCustomer: 'Is this Booking for a Corporate customer?',
+  exchangeTaken: 'Does the customer want to avail Trade-In / Exchange?',
 };
 
-function documentStatus(requirement: CaptureV2Requirement): string {
-  switch (requirement.state) {
-    case 'UPLOADED': return 'CLASSIFIED';
-    case 'ACKNOWLEDGED_MISSING': return 'MISSING DECLARED';
-    case 'NEEDS_DECISION': return 'DECISION REQUIRED';
-    case 'NOT_APPLICABLE': return 'NOT APPLICABLE';
-    default: return requirement.requirementLevel === 'OPTIONAL' ? 'OPTIONAL' : 'PENDING';
-  }
+function formatElapsed(totalSeconds: number): string {
+  const minutes = Math.floor(totalSeconds / 60).toString().padStart(2, '0');
+  const seconds = Math.max(0, totalSeconds % 60).toString().padStart(2, '0');
+  return `${minutes}:${seconds}`;
 }
 
 function hasClassificationInFlight(capture?: BookingCaptureV2): boolean {
@@ -52,14 +48,29 @@ function hasClassificationInFlight(capture?: BookingCaptureV2): boolean {
   });
 }
 
-function formatElapsed(totalSeconds: number): string {
-  const minutes = Math.floor(totalSeconds / 60).toString().padStart(2, '0');
-  const seconds = Math.max(0, totalSeconds % 60).toString().padStart(2, '0');
-  return `${minutes}:${seconds}`;
+function requirementLevel(requirement: CaptureV2Requirement): string {
+  if (requirement.requirementLevel === 'REQUIRED') return 'REQUIRED';
+  if (requirement.requirementLevel === 'CONDITIONAL') return 'OPTIONAL · IF APPLICABLE';
+  return 'OPTIONAL';
 }
 
-function scrollToCaptureItem(id: string): void {
-  document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+function documentStatus(requirement: CaptureV2Requirement): string {
+  if (requirement.document) return 'CLASSIFIED';
+  if (requirement.requirementLevel !== 'REQUIRED') {
+    return requirement.state === 'NOT_APPLICABLE' ? 'NOT APPLICABLE' : 'OPTIONAL';
+  }
+  return 'PENDING';
+}
+
+function requirementMessage(requirement: CaptureV2Requirement): string {
+  if (requirement.document) {
+    return requirement.document.processingStatus
+      ? `Confirmed · Review values ${requirement.document.processingStatus.toLowerCase()}`
+      : 'Confirmed for this Booking';
+  }
+  if (requirement.state === 'NOT_APPLICABLE') return 'Not required for this Booking';
+  if (requirement.requirementLevel === 'REQUIRED') return 'Required for this Booking';
+  return 'Upload only when available and applicable';
 }
 
 function RequirementRow({
@@ -79,29 +90,16 @@ function RequirementRow({
   return (
     <article
       id={`requirement-${requirement.requirementKey}`}
-      className={`uc03-v2-compact-row ${requirement.state === 'UPLOADED' ? 'is-ready' : ''}`}
+      className={`uc03-v2-compact-row ${document ? 'is-ready' : ''}`}
     >
       <div className="uc03-v2-compact-row__name">
         <strong>{requirement.label}</strong>
-        <span>{requirement.requirementLevel}</span>
+        <span>{requirementLevel(requirement)}</span>
       </div>
 
       <div className="uc03-v2-compact-row__status">
         <StatusPill value={documentStatus(requirement)} compact />
-        {document ? (
-          <span title={document.originalFilename}>
-            {document.classifiedDocumentTypeKey || requirement.documentTypeKey}
-            {document.processingStatus ? ` · Extraction ${document.processingStatus}` : ''}
-          </span>
-        ) : requirement.state === 'ACKNOWLEDGED_MISSING' ? (
-          <span>Missing declared for audit follow-up</span>
-        ) : requirement.state === 'NEEDS_DECISION' ? (
-          <span>Applicability decision required</span>
-        ) : requirement.state === 'NOT_APPLICABLE' ? (
-          <span>Not applicable for this Booking</span>
-        ) : (
-          <span>{requirement.requirementLevel === 'OPTIONAL' ? 'Optional evidence' : 'Waiting for matching classified evidence'}</span>
-        )}
+        <span title={document?.originalFilename || requirement.label}>{requirementMessage(requirement)}</span>
       </div>
 
       <div className="uc03-v2-compact-row__actions">
@@ -110,7 +108,7 @@ function RequirementRow({
         ) : null}
         {document && requirement.canDelete ? (
           <button type="button" disabled={deleting} onClick={() => void onDelete(document.documentId)}>
-            {deleting ? 'Deleting…' : 'Delete'}
+            {deleting ? 'Removing…' : 'Delete'}
           </button>
         ) : null}
         {document ? (
@@ -133,59 +131,65 @@ function RequirementRow({
   );
 }
 
-function ApplicabilityCard({
-  conditionKey,
+function OptionalChoiceDialog({
   capture,
+  conditionKeys,
   busy,
+  onClose,
   onSet,
+  onContinue,
 }: {
-  conditionKey: string;
   capture: BookingCaptureV2;
+  conditionKeys: string[];
   busy: boolean;
-  onSet: (conditionKey: string, applicable: boolean, available: boolean | null) => Promise<void>;
+  onClose: () => void;
+  onSet: (conditionKey: string, applicable: boolean) => Promise<void>;
+  onContinue: () => void;
 }) {
-  const declaration = capture.declarations.find((item) => item.conditionKey === conditionKey);
-  const applicable = declaration?.applicable;
-  const available = declaration?.documentAvailable;
+  const complete = conditionKeys.length === 0 && capture.canContinue;
 
   return (
-    <article id={`condition-${conditionKey}`} className="uc03-v2-compact-condition">
-      <strong>{CONDITION_LABELS[conditionKey] || conditionKey}</strong>
-      <div className="uc03-v2-compact-choice" role="group" aria-label={CONDITION_LABELS[conditionKey] || conditionKey}>
-        <button
-          type="button"
-          className={applicable === true ? 'is-selected' : ''}
-          disabled={busy}
-          onClick={() => void onSet(conditionKey, true, available ?? true)}
-        >Yes</button>
-        <button
-          type="button"
-          className={applicable === false ? 'is-selected' : ''}
-          disabled={busy}
-          onClick={() => void onSet(conditionKey, false, null)}
-        >No</button>
-      </div>
-
-      {applicable === true ? (
-        <div className="uc03-v2-compact-availability">
-          <span>Document available now?</span>
-          <div className="uc03-v2-compact-choice is-small" role="group" aria-label="Document available now">
-            <button
-              type="button"
-              className={available === true ? 'is-selected' : ''}
-              disabled={busy}
-              onClick={() => void onSet(conditionKey, true, true)}
-            >Yes</button>
-            <button
-              type="button"
-              className={available === false ? 'is-selected' : ''}
-              disabled={busy}
-              onClick={() => void onSet(conditionKey, true, false)}
-            >No</button>
+    <div className="uc03-v2-choice-modal-backdrop" role="presentation">
+      <section className="uc03-v2-choice-modal" role="dialog" aria-modal="true" aria-labelledby="optional-choice-title">
+        <header>
+          <div>
+            <span className="uc03-c1-eyebrow">Before you continue</span>
+            <h2 id="optional-choice-title">A quick customer confirmation</h2>
+            <p>
+              No supporting document was uploaded for the items below. Confirm the customer's choice only where applicable;
+              your response will be recorded with this Booking.
+            </p>
           </div>
-        </div>
-      ) : null}
-    </article>
+          <button type="button" className="uc03-v2-choice-modal__close" onClick={onClose} aria-label="Close confirmation">×</button>
+        </header>
+
+        {conditionKeys.length > 0 ? (
+          <div className="uc03-v2-choice-list">
+            {conditionKeys.map((conditionKey) => (
+              <article key={conditionKey} className="uc03-v2-choice-item">
+                <strong>{CONDITION_LABELS[conditionKey] || conditionKey}</strong>
+                <div className="uc03-v2-compact-choice" role="group" aria-label={CONDITION_LABELS[conditionKey] || conditionKey}>
+                  <button type="button" disabled={busy} onClick={() => void onSet(conditionKey, true)}>Yes</button>
+                  <button type="button" disabled={busy} onClick={() => void onSet(conditionKey, false)}>No</button>
+                </div>
+              </article>
+            ))}
+          </div>
+        ) : (
+          <div className="uc03-v2-choice-complete" role="status">
+            <strong>Thank you. The Booking document pack is ready.</strong>
+            <span>You can continue to Booking Details.</span>
+          </div>
+        )}
+
+        <footer>
+          <button type="button" className="uc03-v2-choice-secondary" onClick={onClose}>Back to documents</button>
+          <button type="button" className="uc03-c1-primary" disabled={!complete || busy} onClick={onContinue}>
+            Continue to Booking Details →
+          </button>
+        </footer>
+      </section>
+    </div>
   );
 }
 
@@ -203,6 +207,8 @@ export default function BookingCaptureV2CompactPage() {
   const [message, setMessage] = useState<string>();
   const [error, setError] = useState<string>();
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const [helpOpen, setHelpOpen] = useState(false);
+  const [choiceDialogOpen, setChoiceDialogOpen] = useState(false);
   const readinessStartedAt = useRef<number | undefined>(undefined);
 
   const enabled = Boolean(project?.tenantId && journeyId && accessToken);
@@ -234,21 +240,66 @@ export default function BookingCaptureV2CompactPage() {
     capture?.declarations.find((item) => item.conditionKey === GST_CONDITION)?.applicable
     && capture?.declarations.find((item) => item.conditionKey === CORPORATE_CONDITION)?.applicable,
   );
-  const canContinue = Boolean(capture?.canContinue) && !uploading && !busy && !exclusiveConflict;
+
+  const unresolvedConditions = useMemo(() => {
+    if (!capture || classificationInFlight) return [];
+    const keys = capture.requirements
+      .filter((requirement) => requirement.needsDecision && requirement.conditionKey && !requirement.document)
+      .map((requirement) => requirement.conditionKey as string);
+    return [...new Set(keys)];
+  }, [capture, classificationInFlight]);
+
+  const documentBlockers = useMemo(() => {
+    if (!capture) return [] as Array<{ key: string; text: string; target?: string }>;
+    const items: Array<{ key: string; text: string; target?: string }> = [];
+
+    if (exclusiveConflict) {
+      items.push({
+        key: 'gst-corporate-conflict',
+        text: 'GST and Corporate evidence cannot both apply to the same Booking. Please remove the incorrect document.',
+      });
+    }
+
+    for (const upload of capture.uploads) {
+      const state = upload.state.toUpperCase();
+      if (state === 'RECEIVING' || state === 'STORED' || state === 'CLASSIFYING' || (state === 'CLASSIFIED' && !upload.classifiedDocumentTypeKey)) {
+        items.push({ key: `upload-${upload.documentId}`, text: `${upload.originalFilename} is being checked.` });
+      }
+    }
+
+    for (const requirement of capture.requirements) {
+      if (!requirement.blocksContinue) continue;
+      if (requirement.needsDecision && requirement.conditionKey) continue;
+      if (!requirement.document) {
+        items.push({
+          key: `requirement-${requirement.requirementKey}`,
+          text: `${requirement.label} is required for this Booking.`,
+          target: `requirement-${requirement.requirementKey}`,
+        });
+      }
+    }
+    return items;
+  }, [capture, exclusiveConflict]);
+
+  const uploadReady = Boolean(capture)
+    && !uploading
+    && !busy
+    && !classificationInFlight
+    && !exclusiveConflict
+    && documentBlockers.length === 0;
 
   useEffect(() => {
     if (!started || !capture) return undefined;
     if (readinessStartedAt.current === undefined) readinessStartedAt.current = Date.now();
-
     const update = () => {
       const startedAt = readinessStartedAt.current ?? Date.now();
       setElapsedSeconds(Math.max(0, Math.floor((Date.now() - startedAt) / 1000)));
     };
     update();
-    if (canContinue) return undefined;
+    if (uploadReady) return undefined;
     const timer = window.setInterval(update, 1_000);
     return () => window.clearInterval(timer);
-  }, [canContinue, capture, started]);
+  }, [capture, started, uploadReady]);
 
   useEffect(() => {
     if (!enabled || !started || !project?.tenantId || !journeyId) return;
@@ -259,55 +310,6 @@ export default function BookingCaptureV2CompactPage() {
       staleTime: 5 * 60_000,
     });
   }, [accessToken, enabled, journeyId, project?.tenantId, queryClient, started]);
-
-  const unresolvedConditions = useMemo(() => {
-    if (!capture || classificationInFlight) return [];
-    const keys = capture.requirements
-      .filter((requirement) => requirement.needsDecision && requirement.conditionKey)
-      .map((requirement) => requirement.conditionKey as string);
-    return [...new Set(keys)];
-  }, [capture, classificationInFlight]);
-
-  const blockers = useMemo(() => {
-    if (!capture) return [] as Array<{ key: string; text: string; target?: string }>;
-    const items: Array<{ key: string; text: string; target?: string }> = [];
-
-    if (exclusiveConflict) {
-      items.push({
-        key: 'gst-corporate-conflict',
-        text: 'GST and Corporate cannot both apply. Remove or correct the contradictory GST/Corporate evidence before continuing.',
-      });
-    }
-
-    for (const upload of capture.uploads) {
-      const state = upload.state.toUpperCase();
-      if (state === 'RECEIVING' || state === 'STORED' || state === 'CLASSIFYING' || (state === 'CLASSIFIED' && !upload.classifiedDocumentTypeKey)) {
-        items.push({
-          key: `upload-${upload.documentId}`,
-          text: `${upload.originalFilename} is still being classified.`,
-        });
-      }
-    }
-
-    for (const requirement of capture.requirements.filter((item) => item.blocksContinue)) {
-      if (exclusiveConflict && (requirement.conditionKey === GST_CONDITION || requirement.conditionKey === CORPORATE_CONDITION)) continue;
-      if (requirement.needsDecision && requirement.conditionKey) {
-        items.push({
-          key: `decision-${requirement.requirementKey}`,
-          text: `Please confirm whether ${requirement.label} is applicable.`,
-          target: `condition-${requirement.conditionKey}`,
-        });
-      } else if (!requirement.document) {
-        items.push({
-          key: `requirement-${requirement.requirementKey}`,
-          text: `${requirement.label} still needs matching classified evidence.`,
-          target: `requirement-${requirement.requirementKey}`,
-        });
-      }
-    }
-
-    return items;
-  }, [capture, exclusiveConflict]);
 
   if (!project || !journeyId) return null;
 
@@ -325,9 +327,9 @@ export default function BookingCaptureV2CompactPage() {
       await workspaceQuery.refetch();
       readinessStartedAt.current = Date.now();
       setElapsedSeconds(0);
-      setMessage('Booking started. Upload the available Booking documents.');
+      setMessage('Booking is ready for document capture.');
     } catch (cause: unknown) {
-      setError(cause instanceof Error ? cause.message : 'Booking could not be started.');
+      setError(cause instanceof Error ? cause.message : 'This Booking could not be started.');
     } finally {
       setStartBusy(false);
     }
@@ -338,20 +340,20 @@ export default function BookingCaptureV2CompactPage() {
     if (readinessStartedAt.current === undefined) readinessStartedAt.current = Date.now();
     setActiveUploadBatches((count) => count + 1);
     setError(undefined);
-    setMessage(`Uploading ${files.length} document${files.length > 1 ? 's' : ''}…`);
+    setMessage(`Receiving ${files.length} Booking document${files.length > 1 ? 's' : ''}…`);
     try {
       await uploadBookingCaptureV2Files(project.tenantId, journeyId, files, accessToken);
       await captureQuery.refetch();
-      setMessage('Upload complete. Classification is running automatically; extraction starts as each document is classified.');
+      setMessage('Documents received. We’re checking that the Booking pack is complete.');
     } catch (cause: unknown) {
-      setError(cause instanceof Error ? cause.message : 'The document could not be uploaded.');
+      setError(cause instanceof Error ? cause.message : 'We could not add this document to the Booking. Please try again.');
       setMessage(undefined);
     } finally {
       setActiveUploadBatches((count) => Math.max(0, count - 1));
     }
   };
 
-  const handleDeclaration = async (conditionKey: string, applicable: boolean, available: boolean | null) => {
+  const handleDeclaration = async (conditionKey: string, applicable: boolean) => {
     setPendingDeclarations((count) => count + 1);
     setError(undefined);
     try {
@@ -360,12 +362,12 @@ export default function BookingCaptureV2CompactPage() {
         journeyId,
         conditionKey,
         applicable,
-        available,
+        applicable ? false : null,
         accessToken,
       );
       queryClient.setQueryData<BookingCaptureV2>(captureKey, response);
     } catch (cause: unknown) {
-      setError(cause instanceof Error ? cause.message : 'The applicability decision could not be saved.');
+      setError(cause instanceof Error ? cause.message : 'We could not save this customer confirmation. Please try again.');
     } finally {
       setPendingDeclarations((count) => Math.max(0, count - 1));
     }
@@ -377,15 +379,28 @@ export default function BookingCaptureV2CompactPage() {
     try {
       await deleteBookingCaptureV2Document(project.tenantId, journeyId, documentId, accessToken);
       await captureQuery.refetch();
-      setMessage('Document removed. Upload a replacement if it remains required.');
+      setMessage('Document removed from this Booking.');
     } catch (cause: unknown) {
-      setError(cause instanceof Error ? cause.message : 'The document could not be deleted.');
+      setError(cause instanceof Error ? cause.message : 'We could not remove this document. Please try again.');
     } finally {
       setBusyDocumentId(undefined);
     }
   };
 
-  if (workspaceQuery.isPending) return <div className="uc03-c1-loading" role="status">Loading Booking…</div>;
+  const handleContinue = () => {
+    if (!uploadReady) return;
+    if (unresolvedConditions.length > 0) {
+      setChoiceDialogOpen(true);
+      return;
+    }
+    if (capture?.canContinue) {
+      navigate(`/v2/bookings/${journeyId}/details`);
+      return;
+    }
+    void captureQuery.refetch();
+  };
+
+  if (workspaceQuery.isPending) return <div className="uc03-c1-loading" role="status">Opening Booking…</div>;
 
   if (workspaceQuery.isError || !workspaceQuery.data) {
     return (
@@ -421,14 +436,14 @@ export default function BookingCaptureV2CompactPage() {
     );
   }
 
-  if (captureQuery.isPending) return <div className="uc03-c1-loading" role="status">Loading document requirements…</div>;
+  if (captureQuery.isPending) return <div className="uc03-c1-loading" role="status">Preparing Booking documents…</div>;
 
   if (captureQuery.isError || !capture) {
     return (
       <section className="dashboard-load-state" role="alert">
         <div className="dashboard-load-state__mark">!</div>
         <div className="dashboard-load-state__copy">
-          <strong>Document capture is temporarily unavailable.</strong>
+          <strong>Booking documents are temporarily unavailable.</strong>
           <p>{captureQuery.error instanceof Error ? captureQuery.error.message : 'Please try again.'}</p>
         </div>
         <button type="button" className="user-menu-button" onClick={() => void captureQuery.refetch()}>Try Again</button>
@@ -438,6 +453,8 @@ export default function BookingCaptureV2CompactPage() {
 
   const classifiedCount = capture.uploads.filter((item) => item.state.toUpperCase() === 'CLASSIFIED' && item.classifiedDocumentTypeKey).length;
   const extractionReadyCount = capture.uploads.filter((item) => item.processingStatus?.toUpperCase() === 'PROCESSED').length;
+  const requiredDocuments = capture.requirements.filter((item) => item.requirementLevel === 'REQUIRED');
+  const optionalDocuments = capture.requirements.filter((item) => item.requirementLevel !== 'REQUIRED');
   const unmatchedUploads = capture.uploads.filter((upload) =>
     !capture.requirements.some((requirement) => requirement.document?.documentId === upload.documentId));
 
@@ -451,7 +468,7 @@ export default function BookingCaptureV2CompactPage() {
       <PageHeader
         eyebrow="Capture New Booking · V2"
         title={customerName}
-        description="Step 1 of 2 · Upload evidence. Verigence classifies first and starts extraction immediately in the background."
+        description="Step 1 of 2 · Add the Booking documents you have. We’ll identify them automatically."
       />
 
       <nav className="uc03-booking-steps" aria-label="Booking capture steps">
@@ -462,21 +479,43 @@ export default function BookingCaptureV2CompactPage() {
       {message ? <div className="uc03-booking-journey-feedback is-success" role="status">{message}</div> : null}
       {error ? <div className="uc03-booking-journey-feedback is-error" role="alert">{error}</div> : null}
 
-      <section className="uc03-v2-compact-summary" aria-label="Document capture status">
-        <div><strong>{classifiedCount}/{capture.uploads.length || 0}</strong><span>Classified</span></div>
-        <div><strong>{extractionReadyCount}/{capture.uploads.length || 0}</strong><span>Extraction ready</span></div>
-        <div className={canContinue ? 'is-ready' : 'is-waiting'}>
+      <section className="uc03-v2-compact-summary" aria-label="Booking document status">
+        <div><strong>{classifiedCount}/{capture.uploads.length || 0}</strong><span>Documents confirmed</span></div>
+        <div><strong>{extractionReadyCount}/{capture.uploads.length || 0}</strong><span>Review values ready</span></div>
+        <div className={uploadReady ? 'is-ready' : 'is-waiting'}>
           <strong>{formatElapsed(elapsedSeconds)}</strong>
-          <span>{canContinue ? 'Ready' : 'Gate timer'}</span>
+          <span>{uploadReady ? 'Ready to continue' : 'Time elapsed'}</span>
         </div>
       </section>
 
       <section className="uc03-v2-compact-panel">
         <div className="uc03-v2-compact-upload">
-          <div>
-            <strong>Booking documents</strong>
-            <span>Upload together. Document type selection is not required.</span>
+          <div className="uc03-v2-upload-copy">
+            <div className="uc03-v2-upload-title-row">
+              <strong>Booking documents</strong>
+              <button
+                type="button"
+                className="uc03-v2-help-button"
+                aria-label="Which Booking documents should I upload?"
+                aria-expanded={helpOpen}
+                onClick={() => setHelpOpen((value) => !value)}
+              >?</button>
+            </div>
+            <span>Upload together. You do not need to select a document type.</span>
+            {helpOpen ? (
+              <div className="uc03-v2-document-help" role="status">
+                <div>
+                  <strong>Required</strong>
+                  <ul>{requiredDocuments.map((item) => <li key={item.requirementKey}>{item.label}</li>)}</ul>
+                </div>
+                <div>
+                  <strong>Optional / if applicable</strong>
+                  <ul>{optionalDocuments.map((item) => <li key={item.requirementKey}>{item.label}</li>)}</ul>
+                </div>
+              </div>
+            ) : null}
           </div>
+
           <div className="uc03-v2-upload-actions">
             <label className="uc03-c1-primary">
               {uploading ? 'Add More' : 'Choose Files'}
@@ -509,27 +548,7 @@ export default function BookingCaptureV2CompactPage() {
 
         {classificationInFlight ? (
           <div className="uc03-v2-compact-checking" role="status">
-            Checking uploaded documents… applicability questions will appear only if evidence cannot answer them.
-          </div>
-        ) : null}
-
-        {unresolvedConditions.length > 0 ? (
-          <div className="uc03-v2-compact-conditions">
-            <header>
-              <strong>Only information not established by documents</strong>
-              {pendingDeclarations ? <span>Saving…</span> : null}
-            </header>
-            <div className="uc03-v2-compact-condition-grid">
-              {unresolvedConditions.map((conditionKey) => (
-                <ApplicabilityCard
-                  key={conditionKey}
-                  conditionKey={conditionKey}
-                  capture={capture}
-                  busy={pendingDeclarations > 0}
-                  onSet={handleDeclaration}
-                />
-              ))}
-            </div>
+            We’re checking the uploaded documents. You can continue as soon as the required Booking documents are confirmed.
           </div>
         ) : null}
 
@@ -549,7 +568,7 @@ export default function BookingCaptureV2CompactPage() {
           <div className="uc03-v2-compact-unmatched">
             {unmatchedUploads.map((upload) => (
               <div key={upload.documentId}>
-                <span><strong>{upload.originalFilename}</strong> · Classification {upload.state}</span>
+                <span><strong>{upload.originalFilename}</strong> · We could not match this document to the Booking list yet.</span>
                 <button type="button" disabled={busyDocumentId === upload.documentId} onClick={() => void handleDelete(upload.documentId)}>
                   Delete
                 </button>
@@ -559,40 +578,54 @@ export default function BookingCaptureV2CompactPage() {
         ) : null}
       </section>
 
-      <section className={`uc03-v2-compact-gate ${canContinue ? 'is-ready' : 'is-blocked'}`}>
+      <section className={`uc03-v2-compact-gate ${uploadReady ? 'is-ready' : 'is-blocked'}`}>
         <div className="uc03-v2-compact-gate__copy">
-          {canContinue ? (
+          {uploadReady ? (
             <>
-              <strong>Document gate complete</strong>
-              <span>Extraction can continue in the background while you enter Booking Details.</span>
+              <strong>Required Booking documents are ready · {formatElapsed(elapsedSeconds)}</strong>
+              <span>
+                {unresolvedConditions.length > 0
+                  ? 'Continue to confirm any customer choices not supported by an uploaded document.'
+                  : 'Continue to Booking Details. Review values are being prepared in the background.'}
+              </span>
             </>
           ) : (
             <>
-              <strong>{blockers.length || 1} action{(blockers.length || 1) === 1 ? '' : 's'} before you can continue · {formatElapsed(elapsedSeconds)}</strong>
-              <span>The button enables immediately when the actual classification/applicability gate is complete.</span>
+              <strong>Preparing Booking documents · {formatElapsed(elapsedSeconds)}</strong>
+              <span>We’re confirming the required documents before you continue.</span>
             </>
           )}
         </div>
 
-        {!canContinue ? (
+        {!uploadReady && documentBlockers.length > 0 ? (
           <div className="uc03-v2-compact-blockers" role="status">
-            {blockers.length ? blockers.map((blocker) => (
+            {documentBlockers.map((blocker) => (
               blocker.target ? (
-                <button key={blocker.key} type="button" onClick={() => scrollToCaptureItem(blocker.target!)}>
-                  {blocker.text}
-                </button>
+                <button
+                  key={blocker.key}
+                  type="button"
+                  onClick={() => document.getElementById(blocker.target!)?.scrollIntoView({ behavior: 'smooth', block: 'center' })}
+                >{blocker.text}</button>
               ) : <span key={blocker.key}>{blocker.text}</span>
-            )) : <span>Document checks are still being refreshed.</span>}
+            ))}
           </div>
         ) : null}
 
-        <button
-          type="button"
-          className="uc03-c1-primary"
-          disabled={!canContinue}
-          onClick={() => navigate(`/v2/bookings/${journeyId}/details`)}
-        >Continue to Booking Details →</button>
+        <button type="button" className="uc03-c1-primary" disabled={!uploadReady} onClick={handleContinue}>
+          Continue to Booking Details →
+        </button>
       </section>
+
+      {choiceDialogOpen ? (
+        <OptionalChoiceDialog
+          capture={capture}
+          conditionKeys={unresolvedConditions}
+          busy={pendingDeclarations > 0}
+          onClose={() => setChoiceDialogOpen(false)}
+          onSet={handleDeclaration}
+          onContinue={() => navigate(`/v2/bookings/${journeyId}/details`)}
+        />
+      ) : null}
     </div>
   );
 }

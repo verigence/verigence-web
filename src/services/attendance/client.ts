@@ -246,9 +246,8 @@ async function withEmployeeLocationConfirmation(
   if (body.displayAddress && body.locationConfirmed !== undefined) return body;
 
   const resolved = await resolveAttendanceLocation(tenantId, accessToken, body.location);
-  const accuracy = Math.round(body.location.accuracyMeters);
   const confirmed = globalThis.confirm(
-    `Your detected location:\n\n${resolved.displayAddress}\n\nGPS accuracy: ±${accuracy} m\n${resolved.attribution}\n\nDo you confirm you are currently at this location?\n\nOK = Yes   Cancel = No`,
+    `Your detected location:\n\n${resolved.displayAddress}\n\n${resolved.attribution}\n\nDo you confirm you are currently at this location?\n\nOK = Yes   Cancel = No`,
   );
 
   let remarks: string | undefined;

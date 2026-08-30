@@ -92,15 +92,51 @@ function clientUploadId(): string {
   return `upload-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
+const EXTRACTION_POLL_WINDOW_MS = 2 * 60_000;
+const extractionPollStartedAt = new Map<string, number>();
+const PENDING_PROCESSING_STATES = new Set(['NOT_STARTED', 'PROCESSING', 'RETRY_PENDING']);
+
+/**
+ * Keep the V2 capture query live while either classification or the extraction
+ * launched by an accepted classification is still moving. Classification and
+ * extraction are separate DI worker steps: the first CLASSIFIED response can
+ * legitimately still say NOT_STARTED because the processing worker has not yet
+ * claimed the newly-created INITIAL job.
+ *
+ * Some document types are intentionally manual-review-only, so NOT_STARTED is
+ * not safe as an unbounded polling signal. Limit post-classification polling to
+ * two minutes per document; terminal processing states clear the local window.
+ */
 export function captureV2HasPendingClassification(capture?: BookingCaptureV2): boolean {
   if (!capture) return false;
-  return capture.uploads.some((document) => {
+  const now = Date.now();
+  let pending = false;
+
+  for (const document of capture.uploads) {
     const state = document.state.toUpperCase();
-    if (state === 'RECEIVING' || state === 'STORED' || state === 'CLASSIFYING') return true;
+    if (state === 'RECEIVING' || state === 'STORED' || state === 'CLASSIFYING') {
+      pending = true;
+      continue;
+    }
     // Finalize can race a very fast classifier. Until a capture read provides the
     // accepted type, keep polling once more so requirements are reconciled correctly.
-    return state === 'CLASSIFIED' && !document.classifiedDocumentTypeKey;
-  });
+    if (state === 'CLASSIFIED' && !document.classifiedDocumentTypeKey) {
+      pending = true;
+      continue;
+    }
+
+    const processingStatus = document.processingStatus?.toUpperCase();
+    if (state === 'CLASSIFIED' && processingStatus && PENDING_PROCESSING_STATES.has(processingStatus)) {
+      const startedAt = extractionPollStartedAt.get(document.documentId) ?? now;
+      extractionPollStartedAt.set(document.documentId, startedAt);
+      if (now - startedAt < EXTRACTION_POLL_WINDOW_MS) pending = true;
+      continue;
+    }
+
+    extractionPollStartedAt.delete(document.documentId);
+  }
+
+  return pending;
 }
 
 export async function getBookingCaptureV2(

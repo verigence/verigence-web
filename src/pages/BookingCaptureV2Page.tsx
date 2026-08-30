@@ -203,7 +203,7 @@ export default function BookingCaptureV2CompactPage() {
   const [message, setMessage] = useState<string>();
   const [error, setError] = useState<string>();
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
-  const readinessStartedAt = useRef<number>();
+  const readinessStartedAt = useRef<number | undefined>(undefined);
 
   const enabled = Boolean(project?.tenantId && journeyId && accessToken);
   const captureKey = ['uc03-document-capture-v2', project?.tenantId, journeyId] as const;

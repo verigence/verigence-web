@@ -120,7 +120,6 @@ export interface BookingReviewV2ConfirmResponse {
   aggregateVersion: number;
   resolvedAttributeCount: number;
   appliedAttributes: string[];
-  reviewOnlyAttributes: string[];
   conflictAttributes: string[];
   rejectedAttributes?: string[];
 }

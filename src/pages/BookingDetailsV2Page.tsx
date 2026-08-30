@@ -182,19 +182,6 @@ export default function BookingDetailsV2Page() {
   const details = detailsQuery.data;
   const options = optionsQuery.data;
 
-  if (!capture.canContinue) {
-    return (
-      <section className="dashboard-load-state" role="alert">
-        <div className="dashboard-load-state__mark">!</div>
-        <div className="dashboard-load-state__copy">
-          <strong>Document capture is not complete yet.</strong>
-          <p>Required classifications or applicability declarations are still pending.</p>
-        </div>
-        <button type="button" className="user-menu-button" onClick={() => navigate(`/v2/bookings/${journeyId}`)}>Return to Documents</button>
-      </section>
-    );
-  }
-
   const update = <K extends keyof DetailsForm>(key: K, value: DetailsForm[K]) => {
     setForm((current) => ({ ...current, [key]: value }));
     setDirty(true);
@@ -212,9 +199,6 @@ export default function BookingDetailsV2Page() {
 
   const payload = (): BookingDetailsV2Payload => {
     if (!complete || form.outrightPurchase === null) throw new Error('Complete all mandatory Booking Details.');
-    if (corporateMismatch) {
-      throw new Error('Customer Type and the Corporate applicability answer from Documents must match. Return to Documents or choose the matching Customer Type.');
-    }
     return {
       priceListId: details.priceListId,
       customerType: form.customerType,
@@ -236,7 +220,8 @@ export default function BookingDetailsV2Page() {
   };
 
   const submit = async () => {
-    setBusy(true); setError(undefined);
+    setBusy(true);
+    setError(undefined);
     try {
       await submitBookingV2(
         project.tenantId,
@@ -257,13 +242,13 @@ export default function BookingDetailsV2Page() {
     <div className="screen-stack uc03-booking-journey uc03-v2-capture">
       <div className="uc03-c1-topbar">
         <button type="button" className="uc03-c1-back" onClick={() => navigate(`/v2/bookings/${journeyId}`)}>← Documents</button>
-        <span>Project · {project.projectName}</span>
+        <span>Booking capture</span>
       </div>
 
       <PageHeader
         eyebrow="Capture New Booking · V2"
         title="Booking Details"
-        description="Step 2 of 2 · Capture operational Booking details. GST, Corporate and Trade-In applicability were already captured on the Documents screen."
+        description="Step 2 of 2 · Capture the Booking details known to you. Any mismatch with document evidence is raised for audit follow-up and does not stop Booking submission."
       />
 
       <nav className="uc03-booking-steps" aria-label="Booking capture steps">
@@ -276,19 +261,19 @@ export default function BookingDetailsV2Page() {
       <section className="uc03-booking-step-panel">
         <header className="uc03-booking-step-heading">
           <div><span className="uc03-c1-eyebrow">Step 2</span><h2>Booking Details</h2></div>
-          <span>Document extraction continues asynchronously</span>
+          <span>Document review values continue to prepare in the background</span>
         </header>
 
         <div className="uc03-v2-carried-forward">
-          <strong>Carried forward from Documents</strong>
+          <strong>Carried forward from document evidence</strong>
           <span>Trade-In: {conditions.exchangeTaken?.applicable ? 'Yes' : 'No'}</span>
           <span>GST applicable: {conditions.gstApplicable?.applicable ? 'Yes' : 'No'}</span>
           <span>Corporate customer: {conditions.corporateCustomer?.applicable ? 'Yes' : 'No'}</span>
         </div>
 
         {corporateMismatch ? (
-          <div className="uc03-booking-journey-feedback is-error" role="alert">
-            Customer Type and the Corporate answer captured on Documents do not match. Correct one of them before submitting.
+          <div className="uc03-booking-journey-feedback is-warning" role="status">
+            Customer Type differs from the Corporate indication in the document evidence. You can submit the Booking; the difference will remain visible for audit follow-up.
           </div>
         ) : null}
 
@@ -307,9 +292,9 @@ export default function BookingDetailsV2Page() {
 
         <div className="uc03-booking-step-footer">
           <span>{missingFields.length
-            ? `Complete required field${missingFields.length === 1 ? '' : 's'}: ${missingFields.join(', ')}`
-            : 'Submitting completes PC Booking capture and opens Review. Extraction does not need to finish first.'}</span>
-          <button type="button" className="uc03-c1-primary" disabled={!complete || corporateMismatch || busy} onClick={() => void submit()}>
+            ? `Complete Booking detail${missingFields.length === 1 ? '' : 's'}: ${missingFields.join(', ')}`
+            : 'Submitting records the Booking and opens Review. Audit exceptions do not stop the business process.'}</span>
+          <button type="button" className="uc03-c1-primary" disabled={!complete || busy} onClick={() => void submit()}>
             {busy ? 'Submitting…' : 'Submit Booking → Review'}
           </button>
         </div>

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type PropsWithChildren } from 'react';
+import { useEffect, useMemo, useState, type FormEvent, type PropsWithChildren } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 
@@ -35,7 +35,7 @@ const createBookingItem: NavItem = {
 
 const journeySearchItem: NavItem = {
   to: '/search',
-  label: 'Journey Search',
+  label: 'Search',
   mark: 'JS',
   roles: ['PC', 'TL', 'PM'],
 };
@@ -94,7 +94,7 @@ const groups: NavGroup[] = [
 ];
 
 const routeLabels: Record<string, string> = {
-  '/dashboard': 'Overview', '/search': 'Journey Search', '/attendance': 'Attendance', '/customers': 'Customers', '/journeys': 'Journeys', '/tasks': 'My Work',
+  '/dashboard': 'Overview', '/search': 'Search', '/attendance': 'Attendance', '/customers': 'Customers', '/journeys': 'Journeys', '/tasks': 'My Work',
   '/feedback': 'Feedback',
   '/reviews': 'Review Queue', '/evidence': 'Evidence', '/payments': 'Payment Tracker', '/findings': 'Findings',
   '/daily-ops': 'Daily Operations', '/activity': 'Activity Tracker', '/crm': 'CRM Follow-up', '/escalations': 'Escalations',
@@ -248,6 +248,15 @@ export default function AppShell({ children }: PropsWithChildren) {
     setMobileMenuOpen(false);
     navigate('/dashboard', { replace: true });
   };
+  const showLandingSearch = location.pathname === '/dashboard'
+    && !createBookingMode
+    && (role === 'PC' || role === 'TL' || role === 'PM');
+  const handleLandingSearch = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const formData = new FormData(event.currentTarget);
+    const query = String(formData.get('q') || '').trim();
+    navigate(query ? `/search?q=${encodeURIComponent(query)}` : '/search');
+  };
 
   const dynamicLabel = dynamicRouteLabels.find(([prefix]) => location.pathname.startsWith(prefix))?.[1];
   const currentLabel = createBookingMode
@@ -338,7 +347,25 @@ export default function AppShell({ children }: PropsWithChildren) {
       </aside>
 
       <div className="enterprise-main">
-        <main className="enterprise-content">{children}</main>
+        <main className="enterprise-content">
+          {showLandingSearch ? (
+            <div className="screen-stack journey-search-page">
+              <form className="journey-search-input-wrap" role="search" onSubmit={handleLandingSearch}>
+                <span className="journey-search-input-wrap__icon" aria-hidden="true">⌕</span>
+                <input
+                  type="search"
+                  name="q"
+                  placeholder="Search customer, mobile, booking no., VIN, registration…"
+                  aria-label="Search"
+                  autoComplete="off"
+                  spellCheck={false}
+                />
+                <button type="submit" className="journey-search-clear">Search</button>
+              </form>
+              {children}
+            </div>
+          ) : children}
+        </main>
       </div>
     </div>
   );

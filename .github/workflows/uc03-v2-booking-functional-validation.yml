@@ -1,0 +1,255 @@
+name: Validate UC03 V2 Booking Functional UX
+
+on:
+  pull_request:
+    branches: [dev]
+    paths:
+      - '.github/workflows/uc03-v2-booking-functional-validation.yml'
+      - 'src/pages/BookingCaptureV2Page.tsx'
+      - 'src/pages/BookingDetailsV2Page.tsx'
+      - 'src/pages/BookingReviewV2Page.tsx'
+      - 'src/features/uc03/AttributeEvidenceViewer.tsx'
+      - 'src/services/audit-core/uc03DocumentCaptureV2.ts'
+      - 'src/services/audit-core/uc03BookingV2.ts'
+      - 'src/services/audit-core/uc03DocumentReviewV2.ts'
+  push:
+    branches: [dev]
+    paths:
+      - '.github/workflows/uc03-v2-booking-functional-validation.yml'
+      - 'src/pages/BookingCaptureV2Page.tsx'
+      - 'src/pages/BookingDetailsV2Page.tsx'
+      - 'src/pages/BookingReviewV2Page.tsx'
+      - 'src/features/uc03/AttributeEvidenceViewer.tsx'
+      - 'src/services/audit-core/uc03DocumentCaptureV2.ts'
+      - 'src/services/audit-core/uc03BookingV2.ts'
+      - 'src/services/audit-core/uc03DocumentReviewV2.ts'
+  workflow_dispatch:
+
+concurrency:
+  group: uc03-v2-booking-functional-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  v2-booking-functional:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      VITE_AUDIT_CORE_BASE_URL: http://127.0.0.1:4173/audit-core
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install application and browser runtime
+        run: |
+          npm ci
+          npm install --no-save playwright@1.55.0
+          npx playwright install --with-deps chromium
+      - name: Build application
+        run: npm run build
+      - name: Start local preview
+        run: |
+          set -euo pipefail
+          npx vite preview --host 127.0.0.1 --port 4173 > /tmp/verigence-v2-vite.log 2>&1 &
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:4173/login >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/verigence-v2-vite.log
+          exit 1
+      - name: Exercise V2 upload classification gate, details and populated review
+        env:
+          TEST_WEB_URL: http://127.0.0.1:4173
+        run: |
+          node --input-type=module <<'NODE'
+          import { chromium } from 'playwright';
+
+          const base = process.env.TEST_WEB_URL;
+          const browser = await chromium.launch({ headless: true });
+          const context = await browser.newContext({ viewport: { width: 1366, height: 850 } });
+          const page = await context.newPage();
+          const json = (route, body, status = 200) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
+          const ref = (values) => values.map(([code, label]) => ({ code, label }));
+
+          const tenant = 'tenant-v2-functional';
+          const journey = 'journey-v2-functional';
+          const apiBase = `/audit-core/v2/tenants/${tenant}/journeys/${journey}/booking`;
+          const docs = [
+            { id: 'doc-booking', name: 'booking-form.png', type: 'booking_form', key: 'booking_form', label: 'Booking Form / Booking Docket' },
+            { id: 'doc-pan', name: 'pan.png', type: 'pan_card', key: 'pan_card', label: 'PAN' },
+            { id: 'doc-aadhaar', name: 'aadhaar.png', type: 'aadhaar', key: 'aadhaar', label: 'Aadhaar' },
+            { id: 'doc-payment', name: 'payment.png', type: 'dealer_receipt', key: 'booking_payment_receipt', label: 'Booking Payment Receipt' },
+          ];
+          const finalized = new Set();
+          let postUploadReads = 0;
+
+          const capture = () => {
+            const allFinalized = finalized.size === docs.length;
+            if (allFinalized) postUploadReads += 1;
+            const classified = allFinalized && postUploadReads >= 3;
+            const classifying = allFinalized && !classified;
+            const uploads = docs.filter((d) => finalized.has(d.id)).map((d) => ({
+              documentId: d.id,
+              clientUploadId: `client-${d.id}`,
+              state: classified ? 'CLASSIFIED' : (classifying ? 'CLASSIFYING' : 'STORED'),
+              classifiedDocumentTypeKey: classified ? d.type : null,
+              originalFilename: d.name,
+              contentUrl: classified ? `https://content.test/${d.id}` : null,
+              processingStatus: classified ? 'PROCESSING' : null,
+            }));
+            const requirements = docs.map((d) => {
+              const upload = uploads.find((u) => u.documentId === d.id);
+              const ready = Boolean(upload && classified);
+              return {
+                requirementKey: d.key,
+                label: d.label,
+                documentTypeKey: d.type,
+                requirementLevel: 'REQUIRED',
+                conditionKey: null,
+                applicabilityState: 'APPLICABLE',
+                state: ready ? 'UPLOADED' : 'NOT_UPLOADED',
+                document: ready ? upload : null,
+                canView: ready,
+                canDelete: ready,
+                needsDecision: false,
+                blocksContinue: !ready,
+              };
+            });
+            return {
+              journeyId: journey,
+              externalContextRef: 'ext-v2-functional',
+              phase: 'BOOKING',
+              requirements,
+              uploads,
+              declarations: [
+                { conditionKey: 'gstApplicable', applicable: false, documentAvailable: null, source: 'PC' },
+                { conditionKey: 'corporateCustomer', applicable: false, documentAvailable: null, source: 'PC' },
+                { conditionKey: 'exchangeTaken', applicable: false, documentAvailable: null, source: 'PC' },
+              ],
+              canContinue: requirements.every((r) => !r.blocksContinue),
+            };
+          };
+
+          const login = { accessToken: 'v2-functional-human-token', expiresAtUtc: '2099-01-01T00:00:00Z', actorType: 'USER', isSuperAdmin: false };
+          const project = {
+            tenantId: tenant, projectCode: 'V2-FUNCTIONAL', projectName: 'V2 Functional Project', projectStatus: 'ACTIVE',
+            timezoneName: 'Asia/Kolkata', operatingRole: 'PC',
+            scope: { allDealers: false, dealerCount: 1, outletCount: 1, outlets: [{ dealerId: 'd1', dealerName: 'Dealer', outletId: 'o1', outletName: 'Outlet', outletClassification: 'ONSITE' }] },
+          };
+          const workspace = {
+            journeyId: journey,
+            bookingStage: { businessStatus: 'BOOKING_IN_PROGRESS', auditState: 'IN_PROGRESS', auditStatus: 'NOT_EVALUATED' },
+            capture: { CUSTOMER_NAME: 'V2 Functional Customer' }, documents: [], proposals: [], flags: [],
+            completion: { ready: false, blockers: [] }, processingSummary: { pendingCount: 4, failedCount: 0, readyProposalCount: 0 },
+            flagSummary: { openCount: 0, totalCount: 0 }, permittedActions: [], aggregateVersion: 7, operatingRole: 'PC',
+          };
+          const options = {
+            effectiveOn: '2026-08-30', priceLists: [],
+            customerTypes: ref([['INDIVIDUAL', 'Individual'], ['CORPORATE', 'Corporate']]),
+            dealTypes: ref([['IN_SCOPE', 'In-Scope']]), dealSources: ref([['WALK_IN', 'Walk-in']]),
+            leadSources: ref([['IN_HOUSE', 'In House']]), registrationStates: ref([['PB', 'Punjab']]),
+            territoryCategories: ref([['SAME_TERRITORY', 'Same Territory']]), districts: ref([['MOHALI', 'Mohali']]),
+            registrationTypes: ref([['PERMANENT', 'Permanent']]), registrationCategories: ref([['PRIVATE', 'Private']]),
+          };
+          const details = {
+            aggregateVersion: 7, priceListId: null, customerType: null, dealType: null, dealSource: null, leadSource: null,
+            registrationState: null, territoryCategorization: null, districtName: null, registrationType: null,
+            registrationCategory: null, outrightPurchase: null, tradeIn: false, gstBenefit: false, corporateIdAvailable: null,
+          };
+          const source = {
+            canonicalFieldId: 'cf-customer-name', fieldKey: 'customer_name', value: 'V2 Functional Customer', confidenceScore: 97,
+            sourceFactVersion: 1, reviewState: 'READY', documentId: 'doc-booking', evidenceId: 'ev-booking',
+            documentTypeKey: 'booking_form', documentLabel: 'Booking Form / Booking Docket', originalFilename: 'booking-form.png',
+            contentUrl: null, pageNo: 1, evidenceRegion: { type: 'BOX_2D', coordinateSystem: 'NORMALIZED_1000', box: [100, 100, 220, 700] },
+          };
+          const review = {
+            journeyId: journey, phase: 'BOOKING', captureSubmitted: true, pcVerificationStatus: 'PENDING', aggregateVersion: 8,
+            processingPending: false, needsReviewCount: 0,
+            attributes: [
+              { attributeKey: 'customer_name', excelFieldNo: 2, label: 'Customer Name', mappingStatus: 'SUPPORTED', operationalField: 'customer_name', resolvedValue: 'V2 Functional Customer', confidenceScore: 97, reviewState: 'READY', comparisonState: 'SINGLE_SOURCE', resolvedSource: source, sources: [source] },
+              { attributeKey: 'pan_number', excelFieldNo: 7, label: 'PAN', mappingStatus: 'SUPPORTED', operationalField: 'pan_number', resolvedValue: 'ABCDE1234F', confidenceScore: 99, reviewState: 'READY', comparisonState: 'SINGLE_SOURCE', resolvedSource: { ...source, canonicalFieldId: 'cf-pan', fieldKey: 'pan_number', value: 'ABCDE1234F', confidenceScore: 99, documentId: 'doc-pan', evidenceId: 'ev-pan', documentTypeKey: 'pan_card', documentLabel: 'PAN', originalFilename: 'pan.png' }, sources: [] },
+            ],
+            unmappedFields: [], missingDeclarations: [],
+            documents: docs.map((d) => ({ documentId: d.id, evidenceId: `ev-${d.id}`, requirementKey: d.key, label: d.label, documentTypeKey: d.type, originalFilename: d.name, contentUrl: null, processingStatus: 'PROCESSED', extractionState: 'READY', fields: [] })),
+          };
+
+          await page.route('**/security/v1/auth/login', (route) => json(route, login));
+          await page.route('**/security/v1/auth/refresh', (route) => json(route, login));
+          await page.route('**/audit-core/v1/me/projects', (route) => json(route, { projects: [project] }));
+          await page.route(`**/audit-core/v1/tenants/${tenant}/uc03/dashboard**`, (route) => json(route, { metrics: { bookingsInProgress: 1, deliveryInProgress: 0, needsAttention: 0, auditFlags: 0, auditInProgress: 0 }, workItems: { items: [], pageSize: 10, nextCursor: null, previousCursor: null, filters: {} } }));
+          await page.route(`**/audit-core/v1/tenants/${tenant}/journeys/${journey}/uc03-workspace`, (route) => json(route, workspace));
+          await page.route(`**${apiBase}/capture`, (route) => json(route, capture()));
+          await page.route(`**${apiBase}/upload-intents`, async (route) => {
+            const body = route.request().postDataJSON();
+            const uploads = body.files.map((file, index) => ({ clientUploadId: file.clientUploadId, documentId: docs[index].id, uploadUrl: `https://upload.verigence.test/${docs[index].id}`, uploadHeaders: {}, expiresAtUtc: '2099-01-01T00:00:00Z' }));
+            return json(route, { externalContextRef: 'ext-v2-functional', uploads });
+          });
+          await page.route('https://upload.verigence.test/**', (route) => route.fulfill({ status: 200, body: '' }));
+          await page.route(`**${apiBase}/documents/*/finalize`, (route) => {
+            const id = route.request().url().split('/documents/')[1].split('/finalize')[0];
+            finalized.add(decodeURIComponent(id));
+            return json(route, { documentId: decodeURIComponent(id), state: 'STORED' });
+          });
+          await page.route(`**${apiBase}/details`, (route) => json(route, details));
+          await page.route(`**/audit-core/v1/tenants/${tenant}/journeys/${journey}/booking/details/options`, (route) => json(route, options));
+          await page.route(`**${apiBase}/submit`, (route) => json(route, { journeyId: journey, phase: 'BOOKING', status: 'COMPLETED', pcVerificationStatus: 'PENDING', aggregateVersion: 8 }));
+          await page.route(`**${apiBase}/review`, (route) => json(route, review));
+          await page.route(`**/audit-core/v2/tenants/${tenant}/journeys/${journey}/review/documents/*/content`, (route) => {
+            const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9ZQmcAAAAASUVORK5CYII=', 'base64');
+            return route.fulfill({ status: 200, contentType: 'image/png', body: png });
+          });
+
+          await page.goto(`${base}/login`, { waitUntil: 'networkidle' });
+          await page.getByLabel('Email').fill('v2.functional@example.com');
+          await page.getByPlaceholder('Enter your password').fill('v2-functional-test');
+          await page.getByRole('button', { name: 'Sign in' }).click();
+          await page.waitForURL('**/dashboard');
+          await page.evaluate((journeyId) => { window.history.pushState({}, '', `/v2/bookings/${journeyId}`); window.dispatchEvent(new PopStateEvent('popstate')); }, journey);
+          await page.getByRole('heading', { name: 'Documents' }).waitFor();
+
+          const continueButton = page.getByRole('button', { name: /Continue to Booking Details/i });
+          if (await continueButton.isEnabled()) throw new Error('V2 Step 1 must be blocked before required classifications are complete.');
+
+          const input = page.locator('input[type=file][multiple]');
+          const files = docs.map((d) => ({ name: d.name, mimeType: 'image/png', buffer: Buffer.from(`functional-${d.id}`) }));
+          const startedAt = Date.now();
+          await input.setInputFiles(files);
+          await page.getByText('Upload complete. Classification is running automatically. You can continue working.').waitFor({ timeout: 8000 });
+          if (await continueButton.isEnabled()) throw new Error('V2 Step 1 became available before classification hard gate completed.');
+          await continueButton.waitFor({ state: 'visible' });
+          await page.waitForFunction(() => {
+            const button = [...document.querySelectorAll('button')].find((b) => b.textContent?.includes('Continue to Booking Details'));
+            return button && !button.disabled;
+          }, null, { timeout: 8000 });
+          const classifiedMs = Date.now() - startedAt;
+          console.log(`V2_FUNCTIONAL_UPLOAD_TO_CLASSIFIED_GATE_MS=${classifiedMs}`);
+          console.log('V2_CLASSIFICATION_HARD_GATE=PASS');
+
+          await continueButton.click();
+          await page.getByRole('heading', { name: 'Booking Details' }).waitFor();
+          const selections = [
+            ['Customer Type', 'INDIVIDUAL'], ['Deal Type', 'IN_SCOPE'], ['Deal Source', 'WALK_IN'], ['Lead Source', 'IN_HOUSE'],
+            ['Registration State', 'PB'], ['Territory Categorization', 'SAME_TERRITORY'], ['District', 'MOHALI'],
+            ['Registration Type', 'PERMANENT'], ['Registration Category', 'PRIVATE'],
+          ];
+          for (const [label, value] of selections) {
+            const field = page.locator('.uc03-booking-field').filter({ hasText: label });
+            await field.locator('select').selectOption(value);
+          }
+          await page.getByRole('group', { name: 'Outright Purchase' }).getByText('No', { exact: true }).click();
+          await page.getByRole('button', { name: /Submit Booking.*Review/i }).click();
+          await page.waitForURL(`**/v2/bookings/${journey}/review`);
+          await page.getByRole('heading', { name: 'Booking Attribute Review' }).waitFor();
+          await page.getByText('V2 Functional Customer', { exact: true }).waitFor();
+          await page.getByText('97%', { exact: true }).waitFor();
+          console.log('V2_POPULATED_REVIEW=PASS');
+
+          await page.getByRole('button', { name: 'View evidence' }).first().click();
+          await page.getByRole('dialog', { name: /Evidence for customer_name/i }).waitFor();
+          await page.getByText('V2 Functional Customer', { exact: true }).last().waitFor();
+          await page.getByText('Evidence box').waitFor();
+          console.log('V2_CLICKABLE_BOXED_EVIDENCE=PASS');
+
+          await browser.close();
+          NODE

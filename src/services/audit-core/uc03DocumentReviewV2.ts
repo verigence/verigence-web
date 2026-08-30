@@ -134,10 +134,49 @@ export interface AuditSourceComparisonV2 {
   documents: ReviewV2Document[];
 }
 
+const RECEIPT_DOCUMENT_TYPE = 'dealer_receipt';
+
 function token(accessToken?: string): string {
   const value = accessToken?.trim();
   if (!value) throw new Error('A Security human access token is required.');
   return value;
+}
+
+/**
+ * Dealer receipts are repeated business entities, not competing sources for one
+ * Booking attribute. Keep the server's original source field untouched everywhere
+ * else, but give raw Review cards a stable receipt-scoped key so Receipt 1 amount
+ * and Receipt 2 amount never appear as a false source mismatch.
+ */
+export function scopeRepeatedReceiptReviewFields(review: BookingReviewV2): BookingReviewV2 {
+  const receiptDocumentIds = [...new Set(
+    review.unmappedFields
+      .filter((field) => (
+        field.documentTypeKey?.trim().toLowerCase() === RECEIPT_DOCUMENT_TYPE
+        && field.value !== null
+        && field.value !== undefined
+        && field.value !== ''
+      ))
+      .map((field) => field.documentId),
+  )].sort();
+
+  if (receiptDocumentIds.length === 0) return review;
+
+  const ordinalByDocumentId = new Map(
+    receiptDocumentIds.map((documentId, index) => [documentId, index + 1] as const),
+  );
+  return {
+    ...review,
+    unmappedFields: review.unmappedFields.map((field) => {
+      if (field.documentTypeKey?.trim().toLowerCase() !== RECEIPT_DOCUMENT_TYPE) return field;
+      const ordinal = ordinalByDocumentId.get(field.documentId);
+      if (!ordinal) return field;
+      return {
+        ...field,
+        fieldKey: `receipt_${ordinal}_${field.fieldKey}`,
+      };
+    }),
+  };
 }
 
 export async function getBookingReviewV2(
@@ -145,13 +184,14 @@ export async function getBookingReviewV2(
   journeyId: string,
   accessToken?: string,
 ): Promise<BookingReviewV2> {
-  return auditCoreRequest<BookingReviewV2>(
+  const review = await auditCoreRequest<BookingReviewV2>(
     `/v2/tenants/${encodeURIComponent(tenantId)}/journeys/${encodeURIComponent(journeyId)}/booking/review`,
     {
       accessToken: token(accessToken),
       cache: 'no-store',
     },
   );
+  return scopeRepeatedReceiptReviewFields(review);
 }
 
 export async function getBookingReviewDecisionsV2(

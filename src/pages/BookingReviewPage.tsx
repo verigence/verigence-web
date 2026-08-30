@@ -438,7 +438,7 @@ export default function BookingReviewPage() {
     <div className="screen-stack uc03-c1-workspace">
       <div className="uc03-c1-topbar">
         <button type="button" className="uc03-c1-back" onClick={() => navigate('/dashboard')}>← Work list</button>
-        <span>Project · {project.projectName}</span>
+
       </div>
 
       <PageHeader

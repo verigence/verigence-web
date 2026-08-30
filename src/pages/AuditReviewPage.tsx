@@ -4,6 +4,8 @@ import { Link, useParams } from 'react-router-dom';
 
 import PageHeader from '../components/PageHeader';
 import StatusPill from '../components/StatusPill';
+import AttributeEvidenceViewer from '../features/uc03/AttributeEvidenceViewer';
+import AuditSourceComparisonTable from '../features/uc03/AuditSourceComparisonTable';
 import {
   actOnAuditFlag,
   addAuditFlagRemark,
@@ -19,8 +21,13 @@ import {
 } from '../services/audit-core/uc03Audit';
 import { getBookingWorkspace } from '../services/audit-core/uc03Booking';
 import { getDeliveryWorkspace } from '../services/audit-core/uc03Delivery';
+import {
+  getAuditSourceComparisonV2,
+  type ReviewV2SourceValue,
+} from '../services/audit-core/uc03DocumentReviewV2';
 import { useProjectContextStore } from '../store/projectContextStore';
 import { useSessionStore } from '../store/sessionStore';
+import '../styles/uc03-attribute-audit-review.css';
 
 const FLAG_CATEGORIES = [
   'PHYSICAL_OBSERVATION',
@@ -250,6 +257,7 @@ export default function AuditReviewPage() {
   const [newSummary, setNewSummary] = useState('');
   const [newRemarks, setNewRemarks] = useState('');
   const [newEvidence, setNewEvidence] = useState<string[]>([]);
+  const [selectedSource, setSelectedSource] = useState<ReviewV2SourceValue>();
 
   const enabled = Boolean(project?.tenantId && journeyId && accessToken);
   const summaryQuery = useQuery({
@@ -284,6 +292,13 @@ export default function AuditReviewPage() {
     enabled: enabled && Boolean(summaryQuery.data?.delivery),
     retry: false,
   });
+  const deliveryCompleted = summaryQuery.data?.delivery?.businessStatus === 'DELIVERY_COMPLETED';
+  const sourceComparisonQuery = useQuery({
+    queryKey: ['uc03-audit-source-comparison-v2', project?.tenantId, journeyId],
+    queryFn: () => getAuditSourceComparisonV2(project!.tenantId, journeyId!, accessToken),
+    enabled: enabled && deliveryCompleted,
+    retry: false,
+  });
 
   const evidenceOptions = useMemo(() => {
     const options: EvidenceOption[] = [];
@@ -314,6 +329,7 @@ export default function AuditReviewPage() {
 
   const refresh = async () => {
     await Promise.all([summaryQuery.refetch(), flagsQuery.refetch(), timelineQuery.refetch()]);
+    if (deliveryCompleted) await sourceComparisonQuery.refetch();
   };
 
   const run = async (operation: () => Promise<unknown>, success: string) => {
@@ -395,7 +411,7 @@ export default function AuditReviewPage() {
       <PageHeader
         eyebrow={`${friendly(summary?.operatingRole || project.operatingRole)} · Audit review`}
         title="Booking & Delivery Audit"
-        description="Review Audit Flags, evidence, decisions and the complete case history without changing the underlying source documents."
+        description="Review Audit Flags, source comparisons, evidence, decisions and the complete case history without changing the underlying source documents."
       />
 
       <nav className="uc03-c3-context-links" aria-label="Case workspaces">
@@ -447,6 +463,23 @@ export default function AuditReviewPage() {
             )}
           </section>
         </>
+      )}
+
+      {deliveryCompleted && sourceComparisonQuery.isPending && (
+        <section className="uc03-c3-section" role="status">Loading cross-source attribute comparison…</section>
+      )}
+      {deliveryCompleted && sourceComparisonQuery.isError && (
+        <section className="dashboard-load-state" role="alert">
+          <div className="dashboard-load-state__mark" aria-hidden="true">!</div>
+          <div className="dashboard-load-state__copy">
+            <strong>Source comparison is temporarily unavailable.</strong>
+            <p>The rest of the audit workspace remains available. No source value has been copied or inferred.</p>
+          </div>
+          <button type="button" className="user-menu-button" onClick={() => void sourceComparisonQuery.refetch()}>Try Again</button>
+        </section>
+      )}
+      {sourceComparisonQuery.data && (
+        <AuditSourceComparisonTable comparison={sourceComparisonQuery.data} onEvidence={setSelectedSource} />
       )}
 
       {summary?.permittedActions.includes('RAISE') && (
@@ -535,6 +568,16 @@ export default function AuditReviewPage() {
           {timelineQuery.data?.length === 0 && <li className="uc03-c3-empty">No audit history has been recorded yet.</li>}
         </ol>
       </section>
+
+      {selectedSource && (
+        <AttributeEvidenceViewer
+          tenantId={project.tenantId}
+          journeyId={journeyId}
+          accessToken={accessToken}
+          source={selectedSource}
+          onClose={() => setSelectedSource(undefined)}
+        />
+      )}
     </div>
   );
 }

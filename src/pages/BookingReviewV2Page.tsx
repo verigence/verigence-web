@@ -3,13 +3,17 @@ import { useQuery } from '@tanstack/react-query';
 import { useNavigate, useParams } from 'react-router-dom';
 
 import PageHeader from '../components/PageHeader';
+import AttributeEvidenceViewer from '../features/uc03/AttributeEvidenceViewer';
 import {
+  confirmBookingReviewV2,
   getBookingReviewV2,
-  type ReviewV2Field,
+  type ReviewV2Attribute,
+  type ReviewV2SourceValue,
 } from '../services/audit-core/uc03DocumentReviewV2';
 import { useProjectContextStore } from '../store/projectContextStore';
 import { useSessionStore } from '../store/sessionStore';
 import '../styles/uc03-document-capture-v2.css';
+import '../styles/uc03-attribute-audit-review.css';
 
 const REVIEW_REFRESH_MS = 2 * 60 * 1000;
 
@@ -21,10 +25,8 @@ function displayFieldKey(fieldKey: string): string {
 }
 
 function displayValue(value: unknown): string {
-  if (value === null || value === undefined || value === '') return 'Not found';
-  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
-    return String(value);
-  }
+  if (value === null || value === undefined || value === '') return 'Not available yet';
+  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') return String(value);
   try {
     return JSON.stringify(value);
   } catch {
@@ -32,21 +34,55 @@ function displayValue(value: unknown): string {
   }
 }
 
-function ReviewFieldRow({ field }: { field: ReviewV2Field }) {
-  const needsReview = field.reviewState === 'NEEDS_REVIEW';
+function confidence(value: number | null): string {
+  if (value === null || value === undefined) return '—';
+  return `${value.toFixed(value % 1 === 0 ? 0 : 1)}%`;
+}
+
+function AttributeRow({
+  attribute,
+  processingPending,
+  onEvidence,
+}: {
+  attribute: ReviewV2Attribute;
+  processingPending: boolean;
+  onEvidence: (source: ReviewV2SourceValue) => void;
+}) {
+  const source = attribute.resolvedSource;
+  const hasValue = attribute.resolvedValue !== null && attribute.resolvedValue !== undefined && attribute.resolvedValue !== '';
+  const needsReview = hasValue && attribute.reviewState === 'NEEDS_REVIEW';
+  const status = hasValue
+    ? (needsReview ? 'Needs Review' : 'Ready')
+    : (processingPending ? 'Processing' : 'Not Available');
+
   return (
-    <div className={`uc03-v2-review-field ${needsReview ? 'needs-review' : ''}`}>
-      <div>
-        <strong>{displayFieldKey(field.fieldKey)}</strong>
-        {field.pageNo ? <small>Page {field.pageNo}</small> : null}
-      </div>
-      <span className={field.value === null || field.value === undefined ? 'is-empty' : ''}>
-        {displayValue(field.value)}
-      </span>
-      <span className={`uc03-v2-review-state ${needsReview ? 'needs-review' : 'ready'}`}>
-        {needsReview ? 'Needs Review' : 'Ready'}
-      </span>
-    </div>
+    <tr className={needsReview ? 'needs-review' : ''}>
+      <td className="uc03-attribute-name-cell">
+        <strong>{attribute.label}</strong>
+        <span>
+          {attribute.excelFieldNo ? `Excel #${attribute.excelFieldNo}` : 'Booking business field'}
+          {attribute.mappingStatus === 'PROVISIONAL' ? ' · provisional mapping' : ''}
+        </span>
+      </td>
+      <td className={hasValue ? '' : 'is-empty'}>{displayValue(attribute.resolvedValue)}</td>
+      <td>{confidence(attribute.confidenceScore)}</td>
+      <td>
+        {source ? (
+          <div className="uc03-attribute-source-cell">
+            <strong>{source.documentLabel}</strong>
+            <span>{source.documentTypeKey || source.originalFilename}</span>
+          </div>
+        ) : '—'}
+      </td>
+      <td><span className={`uc03-attribute-status ${needsReview ? 'needs-review' : hasValue ? 'ready' : 'pending'}`}>{status}</span></td>
+      <td>
+        {source ? (
+          <button type="button" className="uc03-attribute-evidence-link" onClick={() => onEvidence(source)}>
+            View evidence
+          </button>
+        ) : '—'}
+      </td>
+    </tr>
   );
 }
 
@@ -57,6 +93,10 @@ export default function BookingReviewV2Page() {
   const accessToken = useSessionStore((state) => state.accessToken);
   const previousReadyFieldCount = useRef<number | null>(null);
   const [hasNewResults, setHasNewResults] = useState(false);
+  const [selectedSource, setSelectedSource] = useState<ReviewV2SourceValue>();
+  const [confirming, setConfirming] = useState(false);
+  const [confirmationMessage, setConfirmationMessage] = useState<string>();
+  const [confirmationError, setConfirmationError] = useState<string>();
 
   const enabled = Boolean(project?.tenantId && journeyId && accessToken);
   const reviewQuery = useQuery({
@@ -68,10 +108,9 @@ export default function BookingReviewV2Page() {
   });
 
   const readyFieldCount = useMemo(
-    () => reviewQuery.data?.documents.reduce(
-      (total, document) => total + document.fields.length,
-      0,
-    ) ?? 0,
+    () => reviewQuery.data?.attributes.filter((attribute) => (
+      attribute.resolvedValue !== null && attribute.resolvedValue !== undefined
+    )).length ?? 0,
     [reviewQuery.data],
   );
 
@@ -103,9 +142,40 @@ export default function BookingReviewV2Page() {
   const review = reviewQuery.data;
   const pendingDocuments = review.documents.filter((document) => document.extractionState === 'PENDING');
   const failedDocuments = review.documents.filter((document) => document.extractionState === 'FAILED');
+  const populatedCount = review.attributes.filter((attribute) => (
+    attribute.resolvedValue !== null && attribute.resolvedValue !== undefined
+  )).length;
+  const canConfirm = review.pcVerificationStatus === 'PENDING'
+    && !review.processingPending
+    && failedDocuments.length === 0;
+
+  const confirmReview = async () => {
+    setConfirming(true);
+    setConfirmationMessage(undefined);
+    setConfirmationError(undefined);
+    try {
+      const result = await confirmBookingReviewV2(
+        project.tenantId,
+        journeyId,
+        review.aggregateVersion,
+        accessToken,
+      );
+      const applied = result.appliedAttributes.length;
+      const reviewOnly = result.reviewOnlyAttributes.length;
+      setConfirmationMessage(
+        `Booking Review verified. ${applied} attribute${applied === 1 ? '' : 's'} updated in approved business fields; ${reviewOnly} remain audit/review-only.`,
+      );
+      await reviewQuery.refetch();
+    } catch (error) {
+      setConfirmationError(error instanceof Error ? error.message : 'Booking Review could not be confirmed. Refresh and try again.');
+      await reviewQuery.refetch();
+    } finally {
+      setConfirming(false);
+    }
+  };
 
   return (
-    <div className="screen-stack uc03-booking-journey uc03-v2-capture">
+    <div className="screen-stack uc03-booking-journey uc03-v2-capture uc03-attribute-review-page">
       <div className="uc03-c1-topbar">
         <button type="button" className="uc03-c1-back" onClick={() => navigate('/dashboard')}>← Work List</button>
         <div className="uc03-v2-review-top-actions">
@@ -128,15 +198,22 @@ export default function BookingReviewV2Page() {
 
       <PageHeader
         eyebrow="Booking Review · V2"
-        title="Review extracted Booking information"
-        description="Review becomes available immediately after Booking submission. Document extraction continues independently and updates this screen as results become available."
+        title="Review Booking attributes from source documents"
+        description="The business attribute view is resolved from Document Intelligence without copying raw extraction data into Audit Core. Click any source to inspect the exact document, page and Gemini evidence box."
       />
+
+      <section className="uc03-attribute-review-summary" aria-label="Booking review summary">
+        <div><span>Mapped attributes</span><strong>{review.attributes.length}</strong></div>
+        <div><span>Populated</span><strong>{populatedCount}</strong></div>
+        <div><span>Needs review</span><strong>{review.needsReviewCount}</strong></div>
+        <div><span>Documents processing</span><strong>{pendingDocuments.length}</strong></div>
+      </section>
 
       {review.processingPending ? (
         <div className="uc03-v2-review-pending" role="status">
           <div>
             <strong>Some documents are still being processed.</strong>
-            <span>You can leave this screen and check later. While this window remains open, Review checks again after 2 minutes.</span>
+            <span>Booking is complete. This Review remains live and checks again after 2 minutes while the screen is open.</span>
           </div>
           <span>{pendingDocuments.length} pending</span>
         </div>
@@ -144,8 +221,8 @@ export default function BookingReviewV2Page() {
 
       {review.needsReviewCount > 0 ? (
         <div className="uc03-v2-review-attention" role="status">
-          <strong>{review.needsReviewCount} extracted field{review.needsReviewCount === 1 ? '' : 's'} need review.</strong>
-          <span>Confidence values are intentionally hidden; only the review state is shown.</span>
+          <strong>{review.needsReviewCount} populated attribute{review.needsReviewCount === 1 ? '' : 's'} need attention.</strong>
+          <span>Confidence is shown so PC/TL can inspect the boxed source evidence before confirming Review.</span>
         </div>
       ) : null}
 
@@ -168,62 +245,119 @@ export default function BookingReviewV2Page() {
         </section>
       ) : null}
 
-      <section className="uc03-v2-section">
+      <section className="uc03-v2-section uc03-attribute-table-section">
         <header className="uc03-v2-section-header">
-          <div><span className="uc03-c1-eyebrow">Document Intelligence</span><h2>Extracted values</h2></div>
+          <div>
+            <span className="uc03-c1-eyebrow">Common UC03 attribute mapping</span>
+            <h2>Booking Attribute Review</h2>
+            <p>V1 and V2 extraction keys resolve through the same explicit business/Excel mapping. No fuzzy label matching is used.</p>
+          </div>
           <span>PC Verification: {review.pcVerificationStatus}</span>
         </header>
 
-        {review.documents.length === 0 ? (
-          <div className="uc03-v2-review-empty">
-            <strong>No classified documents are available for Review yet.</strong>
-            <span>Check again later if document processing has only just started.</span>
-          </div>
-        ) : (
-          <div className="uc03-v2-review-documents">
-            {review.documents.map((document) => (
-              <article key={document.documentId} className="uc03-v2-review-document">
-                <header>
-                  <div>
-                    <strong>{document.label}</strong>
-                    <span>{document.originalFilename}</span>
-                  </div>
-                  <div className="uc03-v2-review-document-actions">
-                    <span className={`uc03-v2-review-state ${document.extractionState.toLowerCase()}`}>
-                      {document.extractionState === 'READY' ? 'Extraction Ready' : document.extractionState === 'FAILED' ? 'Processing Failed' : 'Processing'}
-                    </span>
-                    {document.contentUrl ? <a href={document.contentUrl} target="_blank" rel="noreferrer">View Document</a> : null}
-                  </div>
-                </header>
+        <div className="uc03-attribute-table-wrap">
+          <table className="uc03-attribute-table">
+            <thead>
+              <tr>
+                <th>Attribute</th>
+                <th>Resolved value</th>
+                <th>Confidence</th>
+                <th>Document</th>
+                <th>Status</th>
+                <th>Evidence</th>
+              </tr>
+            </thead>
+            <tbody>
+              {review.attributes.map((attribute) => (
+                <AttributeRow
+                  key={attribute.attributeKey}
+                  attribute={attribute}
+                  processingPending={review.processingPending}
+                  onEvidence={setSelectedSource}
+                />
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
 
-                {document.extractionState === 'PENDING' ? (
-                  <div className="uc03-v2-review-document-message">
-                    Extraction is not available yet. This does not invalidate the completed Booking capture.
-                  </div>
-                ) : document.extractionState === 'FAILED' ? (
-                  <div className="uc03-v2-review-document-message is-error">
-                    Document processing did not complete. This item requires follow-up.
-                  </div>
-                ) : document.fields.length === 0 ? (
-                  <div className="uc03-v2-review-document-message">No extracted fields were returned for this document.</div>
-                ) : (
-                  <div className="uc03-v2-review-fields">
-                    {document.fields.map((field) => (
-                      <ReviewFieldRow key={`${document.documentId}:${field.fieldKey}`} field={field} />
-                    ))}
-                  </div>
-                )}
-              </article>
+      {confirmationMessage && <div className="uc03-c3-message" role="status">{confirmationMessage}</div>}
+      {confirmationError && <div className="uc03-c3-error" role="alert">{confirmationError}</div>}
+
+      <section className="uc03-attribute-confirm-panel">
+        <div>
+          <strong>{review.pcVerificationStatus === 'VERIFIED' ? 'Booking Review verified' : 'Confirm reviewed Booking attributes'}</strong>
+          <span>
+            {review.pcVerificationStatus === 'VERIFIED'
+              ? 'The reviewed source references are recorded. Raw DI extraction remains in Document Intelligence.'
+              : review.processingPending
+                ? 'Wait for the remaining documents to finish processing before confirming.'
+                : failedDocuments.length > 0
+                  ? 'Resolve failed document processing before confirming.'
+                  : 'Confirmation re-resolves the current DI facts on the server. Only attributes with an approved typed owner are written to business tables; raw extracted facts are never copied.'}
+          </span>
+        </div>
+        {review.pcVerificationStatus !== 'VERIFIED' && (
+          <button type="button" className="uc03-c3-primary" disabled={!canConfirm || confirming} onClick={() => void confirmReview()}>
+            {confirming ? 'Confirming…' : 'Confirm reviewed values'}
+          </button>
+        )}
+      </section>
+
+      {review.unmappedFields.length > 0 && (
+        <details className="uc03-attribute-unmapped">
+          <summary>{review.unmappedFields.length} extracted value{review.unmappedFields.length === 1 ? '' : 's'} not yet mapped to a UC03 business/Excel attribute</summary>
+          <p>These values are deliberately not guessed into a business field. Add an explicit mapping before they can participate in resolution.</p>
+          <div className="uc03-attribute-unmapped-grid">
+            {review.unmappedFields.map((field, index) => (
+              <div key={`${field.documentId}:${field.fieldKey}:${index}`}>
+                <strong>{displayFieldKey(field.fieldKey)}</strong>
+                <span>{displayValue(field.value)}</span>
+                <small>{field.documentLabel} · {confidence(field.confidenceScore)}</small>
+              </div>
             ))}
           </div>
-        )}
+        </details>
+      )}
 
-        {failedDocuments.length ? (
-          <div className="uc03-v2-review-failed-summary">
-            {failedDocuments.length} document{failedDocuments.length === 1 ? '' : 's'} could not be processed and require follow-up.
-          </div>
-        ) : null}
-      </section>
+      <details className="uc03-attribute-document-inventory">
+        <summary>Document evidence inventory ({review.documents.length})</summary>
+        <div className="uc03-v2-review-documents">
+          {review.documents.map((document) => (
+            <article key={document.documentId} className="uc03-v2-review-document">
+              <header>
+                <div><strong>{document.label}</strong><span>{document.originalFilename}</span></div>
+                <span className={`uc03-v2-review-state ${document.extractionState.toLowerCase()}`}>
+                  {document.extractionState === 'READY' ? 'Extraction Ready' : document.extractionState === 'FAILED' ? 'Processing Failed' : 'Processing'}
+                </span>
+              </header>
+              {document.fields.length > 0 && (
+                <div className="uc03-attribute-document-fields">
+                  {document.fields.map((field) => (
+                    <span key={`${document.documentId}:${field.fieldKey}`}>{displayFieldKey(field.fieldKey)} · {confidence(field.confidenceScore)}</span>
+                  ))}
+                </div>
+              )}
+            </article>
+          ))}
+        </div>
+      </details>
+
+      {failedDocuments.length ? (
+        <div className="uc03-v2-review-failed-summary">
+          {failedDocuments.length} document{failedDocuments.length === 1 ? '' : 's'} could not be processed and require follow-up.
+        </div>
+      ) : null}
+
+      {selectedSource && (
+        <AttributeEvidenceViewer
+          tenantId={project.tenantId}
+          journeyId={journeyId}
+          accessToken={accessToken}
+          source={selectedSource}
+          onClose={() => setSelectedSource(undefined)}
+        />
+      )}
     </div>
   );
 }

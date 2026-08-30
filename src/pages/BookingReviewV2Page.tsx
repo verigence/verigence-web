@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useNavigate, useParams } from 'react-router-dom';
 
 import PageHeader from '../components/PageHeader';
-import AttributeEvidenceViewer from '../features/uc03/AttributeEvidenceViewer';
+import AttributeEvidenceViewer, { hasBoxedEvidence } from '../features/uc03/AttributeEvidenceViewer';
 import {
   confirmBookingReviewV2,
   getBookingReviewDecisionsV2,
@@ -166,6 +166,7 @@ function AttributeRow({
   const source = attribute.resolvedSource;
   const hasValue = attribute.resolvedValue !== null && attribute.resolvedValue !== undefined && attribute.resolvedValue !== '';
   const needsDecision = needsAttributeDecision(attribute);
+  const localizationMissing = Boolean(source && !hasBoxedEvidence(source));
   const status = !hasValue
     ? (processingPending ? 'Processing' : 'Not Available')
     : decision === 'REJECTED'
@@ -174,7 +175,9 @@ function AttributeRow({
         ? 'Accepted'
         : needsDecision
           ? (attribute.comparisonState === 'MISMATCH' ? 'Source Mismatch' : 'Needs Review')
-          : 'Ready';
+          : localizationMissing
+            ? 'Source Location Unavailable'
+            : 'Ready';
 
   return (
     <tr className={needsDecision && !decision ? 'needs-review' : ''}>
@@ -192,14 +195,18 @@ function AttributeRow({
           <div className="uc03-attribute-source-cell">
             <strong>{source.documentLabel}</strong>
             <span>{source.documentTypeKey || source.originalFilename}</span>
-            <button type="button" className="uc03-attribute-evidence-link" onClick={() => onEvidence(source)}>
-              View boxed evidence
-            </button>
+            {hasBoxedEvidence(source) ? (
+              <button type="button" className="uc03-attribute-evidence-link" onClick={() => onEvidence(source)}>
+                View boxed evidence
+              </button>
+            ) : (
+              <span>Source location unavailable</span>
+            )}
           </div>
         ) : '—'}
       </td>
       <td>
-        <span className={`uc03-attribute-status ${decision === 'REJECTED' ? 'rejected' : needsDecision && !decision ? 'needs-review' : hasValue ? 'ready' : 'pending'}`}>
+        <span className={`uc03-attribute-status ${decision === 'REJECTED' ? 'rejected' : needsDecision && !decision ? 'needs-review' : localizationMissing ? 'needs-review' : hasValue ? 'ready' : 'pending'}`}>
           {status}
         </span>
       </td>
@@ -380,7 +387,7 @@ export default function BookingReviewV2Page() {
       <PageHeader
         eyebrow="Booking Review · Evidence First"
         title="Review extracted Booking information"
-        description="Verigence shows the values directly from Document Intelligence. Review only the exceptions; open boxed source evidence whenever you need to verify what DI read."
+        description="Verigence shows values directly from Document Intelligence. Boxed source evidence opens only when DI returned a reliable field location; missing locations are shown explicitly and never fabricated."
       />
 
       <section className="uc03-attribute-review-summary" aria-label="Booking review summary">
@@ -483,6 +490,8 @@ export default function BookingReviewV2Page() {
             {rawGroups.map((group) => {
               const reviewKey = `raw:${group.fieldKey}`;
               const decision = decisionByKey.get(reviewKey);
+              const selectedSourceValue = rawSource(group.selected);
+              const selectedHasBox = hasBoxedEvidence(selectedSourceValue);
               return (
                 <article key={group.fieldKey} className={`uc03-raw-review-card ${group.needsDecision && !decision ? 'needs-review' : ''}`}>
                   <header>
@@ -490,37 +499,46 @@ export default function BookingReviewV2Page() {
                       <span className="uc03-attribute-evidence-kicker">DI extracted field</span>
                       <h3>{displayFieldKey(group.fieldKey)}</h3>
                     </div>
-                    <span className={`uc03-attribute-status ${decision === 'REJECTED' ? 'rejected' : group.needsDecision && !decision ? 'needs-review' : 'ready'}`}>
-                      {decision === 'ACCEPTED' ? 'Accepted' : decision === 'REJECTED' ? 'Rejected' : group.mismatch ? 'Source Mismatch' : group.needsDecision ? 'Needs Review' : 'Ready'}
+                    <span className={`uc03-attribute-status ${decision === 'REJECTED' ? 'rejected' : group.needsDecision && !decision ? 'needs-review' : !selectedHasBox ? 'needs-review' : 'ready'}`}>
+                      {decision === 'ACCEPTED' ? 'Accepted' : decision === 'REJECTED' ? 'Rejected' : group.mismatch ? 'Source Mismatch' : group.needsDecision ? 'Needs Review' : !selectedHasBox ? 'Source Location Unavailable' : 'Ready'}
                     </span>
                   </header>
 
                   <div className="uc03-raw-review-selected">
                     <span>Selected DI value</span>
                     <strong>{displayValue(group.selected.value)}</strong>
-                    <small>{group.selected.documentLabel} · {confidence(group.selected.confidenceScore)}</small>
+                    <small>{group.selected.documentLabel} · {confidence(group.selected.confidenceScore)} · {selectedHasBox ? 'boxed evidence' : 'source location unavailable'}</small>
                   </div>
 
                   {group.sources.length > 1 && (
                     <div className="uc03-raw-review-sources">
                       <span>Available source values</span>
-                      {group.sources.map((source) => (
-                        <button
-                          type="button"
-                          key={`${source.documentId}:${source.canonicalFieldId}:${source.sourceFactVersion}`}
-                          onClick={() => setSelectedSource(rawSource(source))}
-                        >
-                          <strong>{displayValue(source.value)}</strong>
-                          <small>{source.documentLabel} · {confidence(source.confidenceScore)}</small>
-                        </button>
-                      ))}
+                      {group.sources.map((source) => {
+                        const evidenceSource = rawSource(source);
+                        const boxed = hasBoxedEvidence(evidenceSource);
+                        return (
+                          <button
+                            type="button"
+                            key={`${source.documentId}:${source.canonicalFieldId}:${source.sourceFactVersion}`}
+                            disabled={!boxed}
+                            onClick={() => boxed && setSelectedSource(evidenceSource)}
+                          >
+                            <strong>{displayValue(source.value)}</strong>
+                            <small>{source.documentLabel} · {confidence(source.confidenceScore)} · {boxed ? 'boxed evidence' : 'source location unavailable'}</small>
+                          </button>
+                        );
+                      })}
                     </div>
                   )}
 
                   <div className="uc03-raw-review-actions">
-                    <button type="button" className="uc03-attribute-evidence-link" onClick={() => setSelectedSource(rawSource(group.selected))}>
-                      View boxed evidence
-                    </button>
+                    {selectedHasBox ? (
+                      <button type="button" className="uc03-attribute-evidence-link" onClick={() => setSelectedSource(selectedSourceValue)}>
+                        View boxed evidence
+                      </button>
+                    ) : (
+                      <span>Source location unavailable</span>
+                    )}
                     {group.needsDecision ? (
                       <DecisionButtons
                         reviewKey={reviewKey}
@@ -563,29 +581,6 @@ export default function BookingReviewV2Page() {
           </button>
         )}
       </section>
-
-      <details className="uc03-attribute-document-inventory">
-        <summary>Document evidence inventory ({review.documents.length})</summary>
-        <div className="uc03-v2-review-documents">
-          {review.documents.map((document) => (
-            <article key={document.documentId} className="uc03-v2-review-document">
-              <header>
-                <div><strong>{document.label}</strong><span>{document.originalFilename}</span></div>
-                <span className={`uc03-v2-review-state ${document.extractionState.toLowerCase()}`}>
-                  {document.extractionState === 'READY' ? 'Extraction Ready' : document.extractionState === 'FAILED' ? 'Processing Failed' : 'Processing'}
-                </span>
-              </header>
-              {document.fields.length > 0 && (
-                <div className="uc03-attribute-document-fields">
-                  {document.fields.map((field) => (
-                    <span key={`${document.documentId}:${field.fieldKey}`}>{displayFieldKey(field.fieldKey)} · {confidence(field.confidenceScore)}</span>
-                  ))}
-                </div>
-              )}
-            </article>
-          ))}
-        </div>
-      </details>
 
       {failedDocuments.length ? (
         <div className="uc03-v2-review-failed-summary">

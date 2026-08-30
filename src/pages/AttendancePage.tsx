@@ -22,6 +22,23 @@ import { useSessionStore } from '../store/sessionStore';
 
 type AttendanceAction = 'CHECK_IN' | 'CHECK_OUT';
 
+const ATTENDANCE_STATUS_LABELS: Record<string, string> = {
+  CHECKED_IN: 'Checked in',
+  CHECKED_IN_EXCEPTION: 'Submitted',
+  CHECKED_OUT: 'Completed',
+  CHECKED_OUT_EXCEPTION: 'Submitted',
+  CORRECTED: 'Corrected',
+  NOT_CHECKED_IN: 'Not checked in',
+};
+
+const LOCATION_RESULT_LABELS: Record<string, string> = {
+  LOCATION_CAPTURED: 'Location recorded',
+  WITHIN_GEOFENCE: 'At assigned work location',
+  OUTSIDE_GEOFENCE_EXCEPTION: 'Different work location — submitted for review',
+  GEOFENCE_UNVERIFIABLE_EXCEPTION: 'Assigned work location could not be verified — submitted for review',
+  OUTSIDE_GEOFENCE: 'Different work location',
+};
+
 function errorMessage(error: unknown): string {
   if (error instanceof Error) return error.message;
   return 'Attendance is temporarily unavailable. Your normal Verigence work is not affected.';
@@ -59,8 +76,16 @@ function localInputValue(value?: string | null): string {
   return new Date(date.getTime() - offset).toISOString().slice(0, 16);
 }
 
+function fallbackLabel(value: string): string {
+  return value.replaceAll('_', ' ').toLowerCase().replace(/^./, (letter) => letter.toUpperCase());
+}
+
 function statusLabel(status: string): string {
-  return status.replaceAll('_', ' ').toLowerCase().replace(/^./, (letter) => letter.toUpperCase());
+  return ATTENDANCE_STATUS_LABELS[status] ?? fallbackLabel(status);
+}
+
+function locationResultLabel(result: string): string {
+  return LOCATION_RESULT_LABELS[result] ?? fallbackLabel(result);
 }
 
 export default function AttendancePage() {
@@ -69,7 +94,8 @@ export default function AttendancePage() {
   const accessToken = useSessionStore((state) => state.accessToken);
   const tenantId = selectedProject?.tenantId ?? '';
   const timezone = selectedProject?.timezoneName || 'Asia/Kolkata';
-  const [overviewDate, setOverviewDate] = useState(() => dateForTimezone(timezone));
+  const todayDate = dateForTimezone(timezone);
+  const [overviewDate, setOverviewDate] = useState(() => todayDate);
   const [exceptionAction, setExceptionAction] = useState<AttendanceAction | null>(null);
   const [exceptionReason, setExceptionReason] = useState('');
   const [actionNotice, setActionNotice] = useState('');
@@ -246,7 +272,12 @@ export default function AttendancePage() {
         <div className="attendance-date-control">
           <label>
             Reporting date
-            <input type="date" value={overviewDate} onChange={(event) => setOverviewDate(event.target.value)} />
+            <input
+              type="date"
+              min={todayDate}
+              value={overviewDate}
+              onChange={(event) => setOverviewDate(event.target.value)}
+            />
           </label>
         </div>
       </div>
@@ -269,7 +300,7 @@ export default function AttendancePage() {
 
           {today && (
             <p className="attendance-muted">
-              Location result: {statusLabel(today.checkInResult)}
+              Location result: {locationResultLabel(today.checkInResult)}
               {today.checkOutAt ? ` · Check out ${formatDateTime(today.checkOutAt)}` : ''}
             </p>
           )}
@@ -346,7 +377,7 @@ export default function AttendancePage() {
                   <div className="attendance-metric"><strong>{overviewQuery.data.checkedIn}</strong><span>Checked in</span></div>
                   <div className="attendance-metric"><strong>{overviewQuery.data.checkedOut}</strong><span>Checked out</span></div>
                   <div className="attendance-metric"><strong>{overviewQuery.data.notCheckedIn}</strong><span>Not checked in</span></div>
-                  <div className="attendance-metric"><strong>{overviewQuery.data.exceptions}</strong><span>Exceptions</span></div>
+                  <div className="attendance-metric"><strong>{overviewQuery.data.exceptions}</strong><span>Submitted for review</span></div>
                 </div>
                 <div className="attendance-table-wrap">
                   <table className="attendance-table">
@@ -396,7 +427,7 @@ export default function AttendancePage() {
                       <td>{formatDateTime(record.checkInAt)}</td>
                       <td>{formatDateTime(record.checkOutAt)}</td>
                       <td>{statusLabel(record.status)}</td>
-                      <td>{statusLabel(record.checkInResult)}</td>
+                      <td>{locationResultLabel(record.checkInResult)}</td>
                     </tr>
                   ))}
                   {historyQuery.data.items.length === 0 && <tr><td colSpan={5}>No attendance has been recorded yet.</td></tr>}

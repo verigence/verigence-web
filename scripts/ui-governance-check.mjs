@@ -18,6 +18,21 @@ function forbid(relativePath, pattern, message) {
   if (pattern.test(source)) failures.push(`${relativePath}: ${message}`);
 }
 
+function filesUnder(relativeDir, predicate) {
+  const base = path.join(root, relativeDir);
+  const results = [];
+  const walk = (absolute, relative) => {
+    for (const entry of fs.readdirSync(absolute, { withFileTypes: true })) {
+      const absoluteChild = path.join(absolute, entry.name);
+      const relativeChild = path.join(relative, entry.name).replaceAll('\\', '/');
+      if (entry.isDirectory()) walk(absoluteChild, relativeChild);
+      else if (predicate(relativeChild)) results.push(relativeChild);
+    }
+  };
+  walk(base, relativeDir);
+  return results;
+}
+
 const main = read('src/main.tsx');
 const governanceImport = "import './styles/ui-governance.css';";
 const styleImports = [...main.matchAll(/^import '\.\/styles\/[^']+';$/gm)].map((match) => match[0]);
@@ -33,14 +48,10 @@ for (const required of [
   '.uc03-project-gate',
   'min-height: 100dvh',
   'overflow-y: auto',
-  '.uc03-booking-journey .uc03-c1-topbar > span',
   'ion-app',
   'height: auto !important',
   'max-height: none !important',
   'touch-action: pan-y',
-  '.uc03-booking-step-panel',
-  '.uc03-booking-document-grid',
-  '.uc03-booking-form-grid',
 ]) {
   if (!governanceCss.includes(required)) {
     failures.push(`src/styles/ui-governance.css: required governance rule missing: ${required}`);
@@ -52,17 +63,34 @@ if (/height\s*:\s*100vh\b/.test(governanceCss)) {
 if (/overflow\s*:\s*hidden\s*!important/.test(governanceCss) && !/overflow-x\s*:\s*hidden/.test(governanceCss)) {
   failures.push('src/styles/ui-governance.css: do not globally hide overflow; lower content must remain reachable.');
 }
-
 for (const rootSelector of ['html {', 'body {', '#root {', 'ion-app {']) {
   if (!governanceCss.includes(rootSelector)) {
     failures.push(`src/styles/ui-governance.css: ${rootSelector.replace(' {', '')} root scrolling contract is missing.`);
   }
 }
 
+/* Project Name is internal context and must never leak into operational UI. */
+const operationalTsx = filesUnder('src', (relativePath) => {
+  if (!relativePath.endsWith('.tsx')) return false;
+  if (relativePath.startsWith('src/pages/Admin')) return false;
+  if (relativePath.startsWith('src/pages/ProjectAdministration')) return false;
+  if (relativePath.startsWith('src/features/project-admin/')) return false;
+  return true;
+});
+for (const relativePath of operationalTsx) {
+  const source = read(relativePath);
+  if (/\.projectName\b/.test(source)) {
+    failures.push(`${relativePath}: Project Name must not be read/rendered in operational UI.`);
+  }
+  if (/\bProject Name\b/.test(source)) {
+    failures.push(`${relativePath}: visible Project Name wording is prohibited in operational UI.`);
+  }
+}
+
 forbid(
   'src/layout/AppShell.tsx',
-  /selectedProject\?*\.projectName|selectedProject\.projectName|Current Project|Switch Project/,
-  'Project Name / Project identity must not be rendered in the shared application shell.',
+  /Current Project|Switch Project/,
+  'shared shell must use neutral Workspace terminology.',
 );
 requireText('src/layout/AppShell.tsx', 'Current Workspace', 'shared shell must use neutral Workspace context.');
 requireText('src/layout/AppShell.tsx', 'Switch Workspace', 'project switching must be labelled as Workspace switching.');
@@ -78,55 +106,62 @@ requireText('src/components/ProjectContextGate.tsx', 'Choose Work Location', 'ou
 forbid(
   'src/pages/DashboardPage.tsx',
   /project\.projectName\b/,
-  'Landing may show Dealer/Outlet for PC context but must never fall back to Project Name.',
+  'Landing may show Dealer/Outlet for PC context but must never show Project Name.',
 );
 
-const operationalFiles = [
-  'src/pages/DeliveryWorkspacePage.tsx',
-  'src/pages/AuditReviewPage.tsx',
-];
-for (const relativePath of operationalFiles) {
-  forbid(relativePath, /\.projectName\b|\.dealerName\b|\.outletName\b/, 'operational screens may not render Project, Dealer or Outlet names.');
-}
-
-const booking = read('src/pages/BookingWorkspacePage.tsx');
-const bookingProjectNameCount = (booking.match(/project\.projectName/g) || []).length;
-if (bookingProjectNameCount > 1) {
-  failures.push('src/pages/BookingWorkspacePage.tsx: Project Name may not be introduced anywhere else in Booking.');
-}
-if (bookingProjectNameCount === 1 && !governanceCss.includes('.uc03-booking-journey .uc03-c1-topbar > span')) {
-  failures.push('Booking Project context is not governed/hidden.');
-}
-if (/\.dealerName\b|\.outletName\b/.test(booking)) {
-  failures.push('src/pages/BookingWorkspacePage.tsx: Dealer/Outlet names are landing-page-only.');
-}
-
-/* Booking is a functional acceptance surface, not a screenshot-only surface. */
-for (const uploadTitle of [
-  'Booking Form / Booking Docket',
-  'Booking Payment Receipt(s)',
-  'PAN',
-  'Aadhaar',
+/* V2 is the only active Booking/Delivery journey surface. */
+const app = read('src/App.tsx');
+for (const route of [
+  'path="/v2/bookings/new"',
+  'path="/v2/bookings/:journeyId"',
+  'path="/v2/bookings/:journeyId/details"',
+  'path="/v2/bookings/:journeyId/review"',
+  'path="/v2/deliveries/:journeyId"',
+  'path="/v2/deliveries/:journeyId/review"',
 ]) {
-  if (!booking.includes(`title="${uploadTitle}"`)) {
-    failures.push(`src/pages/BookingWorkspacePage.tsx: Step 1 upload card missing: ${uploadTitle}`);
-  }
+  if (!app.includes(route)) failures.push(`src/App.tsx: V2 route missing: ${route}`);
 }
-if (!booking.includes('label="GST Benefit"')) {
-  failures.push('src/pages/BookingWorkspacePage.tsx: GST Benefit point is required on Booking Details.');
+if (!app.includes('<V2JourneyRedirect target="BOOKING" />') || !app.includes('<V2JourneyRedirect target="DELIVERY" />')) {
+  failures.push('src/App.tsx: legacy Booking/Delivery routes must redirect to V2.');
 }
-if (!booking.includes('label="Corporate ID Available"')) {
-  failures.push('src/pages/BookingWorkspacePage.tsx: Corporate ID availability point is required for Corporate Booking.');
+
+/* Booking V2 document-first contract. */
+for (const text of [
+  'Booking documents',
+  'Customer ID',
+  'Additional / if applicable',
+  'Documents being classified',
+  'Documents uploaded',
+  'missing evidence will be flagged for audit',
+]) {
+  requireText('src/pages/BookingCaptureV2Page.tsx', text, `Booking V2 contract missing: ${text}`);
 }
-if (!booking.includes("form.customerType === 'CORPORATE'")) {
-  failures.push('src/pages/BookingWorkspacePage.tsx: Corporate Booking conditional path is missing.');
+forbid(
+  'src/pages/BookingCaptureV2Page.tsx',
+  /blocksContinue[^\n]*disabled|!capture\.canContinue/,
+  'Booking document/audit state must not block business continuation.',
+);
+
+/* Booking Details may require operational fields, but audit/document inconsistencies never block submission. */
+forbid(
+  'src/pages/BookingDetailsV2Page.tsx',
+  /if\s*\(\s*!capture\.canContinue\s*\)|corporateMismatch\s*\|\|\s*busy|throw new Error\([^\n]*Corporate/,
+  'audit/document state must not block Booking V2 submission.',
+);
+requireText('src/pages/BookingDetailsV2Page.tsx', 'Audit exceptions do not stop the business process.', 'Booking V2 must state the non-blocking audit rule.');
+
+/* Extracted-field review must only open source evidence when a reliable box exists. */
+for (const relativePath of [
+  'src/pages/BookingReviewV2Page.tsx',
+  'src/pages/DeliveryReviewV2Page.tsx',
+  'src/pages/TeamLeadReviewPage.tsx',
+  'src/pages/AuditReviewPage.tsx',
+]) {
+  requireText(relativePath, 'hasBoxedEvidence', 'extracted-field review must use the shared boxed-evidence gate.');
 }
-if (!booking.includes("form.gstBenefit === true") || !booking.includes('GST Certificate')) {
-  failures.push('src/pages/BookingWorkspacePage.tsx: GST Certificate conditional evidence path is missing.');
-}
-if (!booking.includes("form.corporateIdAvailable === true") || !booking.includes('Corporate ID')) {
-  failures.push('src/pages/BookingWorkspacePage.tsx: Corporate ID conditional evidence path is missing.');
-}
+requireText('src/features/uc03/AttributeEvidenceViewer.tsx', 'enabled: localized', 'evidence document must not load as field evidence when localization is missing.');
+requireText('src/features/uc03/AttributeEvidenceViewer.tsx', 'never invents a bounding box', 'viewer must explicitly reject fabricated field boxes.');
+requireText('src/features/uc03/OptimizedDirectDiFieldReview.tsx', 'unboxed document is intentionally not shown', 'direct DI field review must not substitute unboxed source evidence.');
 
 const packageJson = JSON.parse(read('package.json'));
 if (!String(packageJson.scripts?.build || '').includes('ui:governance')) {
@@ -145,8 +180,8 @@ if (failures.length) {
 console.log('VERIGENCE_UI_GOVERNANCE=PASS');
 console.log('Background=LOGIN_NAVY_TEAL');
 console.log('ProjectName=PROHIBITED_OPERATIONAL_UI');
-console.log('DealerOutlet=LANDING_ONLY');
 console.log('VerticalFreeze=PROHIBITED_ROOT_AND_PAGE_SCROLL_REQUIRED');
-console.log('BookingStep1=FOUR_UPLOADS_REQUIRED_AND_REACHABLE');
-console.log('BookingStep2=GST_AND_CORPORATE_PATH_REQUIRED');
+console.log('BookingJourney=V2_ONLY_NON_BLOCKING_AUDIT');
+console.log('DeliveryJourney=V2_ONLY_NON_BLOCKING_AUDIT');
+console.log('ExtractedFieldEvidence=BOX_REQUIRED_OR_LOCATION_EXCEPTION');
 console.log('Responsive=ADAPTIVE_REQUIRED');

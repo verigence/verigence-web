@@ -22,6 +22,7 @@ jobs:
   start:
     name: Record Android validation start
     runs-on: ubuntu-latest
+    continue-on-error: true
     permissions:
       contents: write
     steps:
@@ -50,12 +51,19 @@ jobs:
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add docs/native-evidence/NATIVE_DEV_LATEST.md
           git commit -m 'chore(android): record validation start [skip ci]'
-          git pull --rebase origin dev
-          git push origin HEAD:dev
+          for attempt in 1 2 3 4; do
+            git pull --rebase origin dev
+            if git push origin HEAD:dev; then
+              exit 0
+            fi
+            echo "::warning::Android validation start evidence raced with another dev update; retry ${attempt}/4."
+            sleep $((attempt * 2))
+          done
+          echo '::warning::Unable to persist Android validation start evidence after retries.'
+          exit 1
 
   android:
     name: Android debug package
-    needs: start
     runs-on: ubuntu-latest
     timeout-minutes: 35
     env:
@@ -158,6 +166,7 @@ jobs:
       - start
       - android
     runs-on: ubuntu-latest
+    continue-on-error: true
     permissions:
       contents: write
     steps:
@@ -191,5 +200,13 @@ jobs:
             exit 0
           fi
           git commit -m 'chore(android): record validation result [skip ci]'
-          git pull --rebase origin dev
-          git push origin HEAD:dev
+          for attempt in 1 2 3 4; do
+            git pull --rebase origin dev
+            if git push origin HEAD:dev; then
+              exit 0
+            fi
+            echo "::warning::Android validation result evidence raced with another dev update; retry ${attempt}/4."
+            sleep $((attempt * 2))
+          done
+          echo '::warning::Unable to persist Android validation result evidence after retries.'
+          exit 1

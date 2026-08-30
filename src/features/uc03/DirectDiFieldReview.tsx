@@ -49,6 +49,49 @@ function confidencePercent(value: number | null): string {
   return `${Math.round(Math.max(0, Math.min(100, percent)))}% confidence`;
 }
 
+function reviewFieldGroup(fieldKey: string): number {
+  const key = fieldKey.toLowerCase().replace(/[^a-z0-9]+/g, '_');
+  const has = (...tokens: string[]) => tokens.some((token) => key.includes(token));
+
+  // Keep document-specific identity fields together before applying generic
+  // name/contact matching (for example PAN Name + PAN Number).
+  if (has(
+    'pan_', '_pan', 'pan_number',
+    'aadhaar', 'aadhar',
+    'passport',
+    'driving_licence', 'driving_license', 'licence_number', 'license_number',
+    'identity_', '_identity',
+  )) return 3;
+
+  if (has('customer', 'applicant', 'buyer', 'owner', 'contact_person')) return 0;
+  if (has('booking', 'order_', '_order', 'enquiry', 'inquiry', 'quotation', 'quote_')) return 1;
+  if (has(
+    'vehicle', 'make_', '_make', 'model', 'variant', 'colour', 'color',
+    'vin', 'chassis', 'engine', 'registration', 'reg_no', 'registration_no',
+  )) return 2;
+  if (has(
+    'amount', 'price', 'discount', 'payment', 'finance', 'loan', 'emi',
+    'bank', 'tax', 'gst', 'invoice', 'receipt',
+  )) return 4;
+  if (has('dealer', 'outlet', 'showroom', 'branch', 'salesperson', 'sales_person', 'consultant')) return 5;
+  if (has('insurance', 'insurer', 'policy', 'premium')) return 6;
+
+  // Generic contact/person fields that do not carry a stronger business prefix.
+  if (has(
+    'name', 'phone', 'mobile', 'email', 'address', 'city', 'state',
+    'pincode', 'pin_code', 'postal', 'dob', 'date_of_birth', 'gender',
+  )) return 0;
+
+  return 7;
+}
+
+function orderReviewFacts(facts: PcBookingExtractionFact[]): PcBookingExtractionFact[] {
+  return facts
+    .map((fact, index) => ({ fact, index, group: reviewFieldGroup(fact.fieldKey) }))
+    .sort((left, right) => left.group - right.group || left.index - right.index)
+    .map(({ fact }) => fact);
+}
+
 function normalizedBox(region: PcBookingExtractionFact['evidenceRegion']): NormalizedBox | null {
   if (!region || region.type !== 'BOX_2D' || region.coordinateSystem !== 'NORMALIZED_1000') return null;
   if (!Array.isArray(region.box) || region.box.length !== 4) return null;
@@ -82,16 +125,17 @@ export function DirectDiFieldReview({
   const [editValue, setEditValue] = useState('');
   const [sourceUrl, setSourceUrl] = useState<string>();
   const [imageReady, setImageReady] = useState(false);
+  const orderedFacts = useMemo(() => orderReviewFacts(facts), [facts]);
 
   useEffect(() => {
-    if (!facts.length) {
+    if (!orderedFacts.length) {
       setSelectedRef(null);
       return;
     }
-    if (!selectedRef || !facts.some((fact) => fact.sourceFactRef === selectedRef)) {
-      setSelectedRef(facts[0].sourceFactRef);
+    if (!selectedRef || !orderedFacts.some((fact) => fact.sourceFactRef === selectedRef)) {
+      setSelectedRef(orderedFacts[0].sourceFactRef);
     }
-  }, [facts, selectedRef]);
+  }, [orderedFacts, selectedRef]);
 
   useEffect(() => {
     setImageReady(false);
@@ -105,8 +149,8 @@ export function DirectDiFieldReview({
   }, [content?.blob]);
 
   const selected = useMemo(
-    () => facts.find((fact) => fact.sourceFactRef === selectedRef) ?? null,
-    [facts, selectedRef],
+    () => orderedFacts.find((fact) => fact.sourceFactRef === selectedRef) ?? null,
+    [orderedFacts, selectedRef],
   );
   const selectedBox = normalizedBox(selected?.evidenceRegion ?? null);
   const selectedPage = selected?.pageNo && selected.pageNo > 0 ? selected.pageNo : 1;
@@ -233,9 +277,9 @@ export function DirectDiFieldReview({
             <span>{facts.length} fields</span>
           </div>
 
-          {facts.length ? (
+          {orderedFacts.length ? (
             <ul className="uc03-docverify-fields">
-              {facts.map((fact) => {
+              {orderedFacts.map((fact) => {
                 const selectedField = fact.sourceFactRef === selectedRef;
                 const editing = fact.sourceFactRef === editingRef;
                 const modified = Object.prototype.hasOwnProperty.call(modifiedValues, fact.sourceFactRef);

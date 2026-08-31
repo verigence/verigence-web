@@ -173,7 +173,7 @@ export default function DeliveryCaptureV2Page() {
     setMessage('Documents uploading…');
     try {
       await uploadDeliveryCaptureV2Files(project.tenantId, journeyId, files, accessToken);
-      setMessage('Documents received. They are being classified and prepared for review.');
+      setMessage('Documents received. Classification continues in the background and does not block Delivery.');
       await captureQuery.refetch();
     } catch (cause) {
       setMessage(undefined);
@@ -250,11 +250,12 @@ export default function DeliveryCaptureV2Page() {
   const classified = capture.uploads.filter((document) => (
     document.state.toUpperCase() === 'CLASSIFIED' && Boolean(document.classifiedDocumentTypeKey)
   )).length;
-  const processing = deliveryCaptureV2IsProcessing(capture);
   const allUploadedClassified = capture.uploads.every((document) => (
     document.state.toUpperCase() === 'CLASSIFIED' && Boolean(document.classifiedDocumentTypeKey)
   ));
-  const canGoNext = !uploading && !deletingId && allUploadedClassified;
+  // 2026-08-30 requirement: classification/extraction are asynchronous status only.
+  // They must never gate progression to Delivery Details.
+  const canGoNext = !uploading && !deletingId;
   const mandatory = capture.requirements.filter((item) => item.requirementLevel === 'REQUIRED' && item.applicabilityState !== 'NOT_APPLICABLE');
   const mandatoryReceived = mandatory.filter((item) => Boolean(item.document)).length;
 
@@ -265,7 +266,7 @@ export default function DeliveryCaptureV2Page() {
         <PageHeader
           eyebrow="Delivery · V2"
           title="Delivery documents"
-          description="Step 1 of 2 · These documents were submitted by the earlier Delivery flow. Continue to Delivery Details to complete the current two-step journey."
+          description="Step 1 of 2 · These documents were submitted by the earlier Delivery flow. Continue to Delivery Details; background document processing does not block the journey."
         />
         <nav className="uc03-booking-steps" aria-label="Delivery capture steps">
           <button type="button" className="is-active" disabled>1 <span>Documents</span></button>
@@ -275,22 +276,19 @@ export default function DeliveryCaptureV2Page() {
           <div><span>Documents received</span><strong>{capture.uploads.length}</strong></div>
           <div><span>Documents classified</span><strong>{classified}/{capture.uploads.length}</strong></div>
           <div><span>Configured mandatory received</span><strong>{mandatoryReceived}/{mandatory.length}</strong></div>
-          <div className={allUploadedClassified ? 'is-ready' : 'is-processing'}><span>{allUploadedClassified ? 'Uploaded documents classified' : 'Waiting for classification'}</span><strong>{clock}</strong></div>
+          <div className={allUploadedClassified ? 'is-ready' : 'is-processing'}><span>{allUploadedClassified ? 'Uploaded documents classified' : 'Classification continuing'}</span><strong>{clock}</strong></div>
         </section>
         <section className="uc03-delivery-v2-submit-complete">
           <div>
-            <strong>Documents already submitted</strong>
-            <span>{allUploadedClassified
-              ? 'All documents you uploaded are classified. Continue to Delivery Details.'
-              : `${classified} of ${capture.uploads.length} uploaded document${capture.uploads.length === 1 ? '' : 's'} classified. Next becomes available when every uploaded document is classified.`}</span>
+            <strong>Ready for Delivery Details</strong>
+            <span>{classified} of {capture.uploads.length} uploaded document{capture.uploads.length === 1 ? '' : 's'} classified. Classification continues in the background and does not block Next.</span>
           </div>
           <button
             type="button"
             className="uc03-c1-primary"
-            disabled={!allUploadedClassified}
             onClick={() => navigate(`/v2/deliveries/${journeyId}?step=details&captureSubmitted=1`)}
           >
-            {allUploadedClassified ? 'Next →' : 'Classifying…'}
+            Next →
           </button>
         </section>
       </div>
@@ -305,7 +303,7 @@ export default function DeliveryCaptureV2Page() {
       <PageHeader
         eyebrow="Delivery · V2"
         title="Delivery documents"
-        description="Step 1 of 2 · Upload whatever Delivery documents are available. Missing configured documents remain audit observations and do not block Next."
+        description="Step 1 of 2 · Upload whatever Delivery documents are available. Missing documents and background classification are audit status only and do not block Next."
       />
 
       <nav className="uc03-booking-steps" aria-label="Delivery capture steps">
@@ -320,7 +318,7 @@ export default function DeliveryCaptureV2Page() {
         <div><span>Documents received</span><strong>{capture.uploads.length}</strong></div>
         <div><span>Documents classified</span><strong>{classified}/{capture.uploads.length}</strong></div>
         <div><span>Configured mandatory received</span><strong>{mandatoryReceived}/{mandatory.length}</strong></div>
-        <div className={allUploadedClassified ? 'is-ready' : 'is-processing'}><span>{allUploadedClassified ? 'Uploaded documents classified' : 'Waiting for classification'}</span><strong>{clock}</strong></div>
+        <div className={allUploadedClassified ? 'is-ready' : 'is-processing'}><span>{allUploadedClassified ? 'Uploaded documents classified' : 'Classification continuing'}</span><strong>{clock}</strong></div>
       </section>
 
       <section className="uc03-delivery-v2-upload-panel">
@@ -329,13 +327,13 @@ export default function DeliveryCaptureV2Page() {
             <strong>Upload Delivery documents</strong>
             <button type="button" className="uc03-delivery-v2-help" aria-label="Delivery document help" aria-expanded={helpOpen} onClick={() => setHelpOpen((current) => !current)}>?</button>
           </div>
-          <span>Select multiple files together. Verigence will identify the document types.</span>
+          <span>Select multiple files together. Verigence will identify the document types in the background.</span>
           {helpOpen ? (
             <div className="uc03-delivery-v2-help-panel">
               <strong>Document guide</strong>
               <p><b>Configured mandatory:</b> {mandatory.length ? mandatory.map((item) => item.label).join(', ') : 'No mandatory document configured.'}</p>
               <p><b>Optional / if applicable:</b> {capture.requirements.filter((item) => item.requirementLevel !== 'REQUIRED').map((item) => item.label).join(', ') || 'None configured.'}</p>
-              <small>These requirements are audit expectations. Missing documents do not block Next.</small>
+              <small>These requirements are audit expectations. Missing or still-processing documents do not block Next.</small>
             </div>
           ) : null}
         </div>
@@ -398,10 +396,8 @@ export default function DeliveryCaptureV2Page() {
 
       <section className="uc03-delivery-v2-submit-bar">
         <div>
-          <strong>{canGoNext ? 'Ready for Delivery Details' : 'Waiting for uploaded document classification'}</strong>
-          <span>{canGoNext
-            ? 'All documents you uploaded are classified. Missing configured documents do not block progression.'
-            : `${classified} of ${capture.uploads.length} uploaded document${capture.uploads.length === 1 ? '' : 's'} classified. Next becomes available when every uploaded document is classified.`}</span>
+          <strong>Ready for Delivery Details</strong>
+          <span>{classified} of {capture.uploads.length} uploaded document{capture.uploads.length === 1 ? '' : 's'} classified. Classification continues in the background and does not block Next.</span>
         </div>
         <button
           type="button"
@@ -409,7 +405,7 @@ export default function DeliveryCaptureV2Page() {
           disabled={!canGoNext}
           onClick={() => navigate(`/v2/deliveries/${journeyId}?step=details`)}
         >
-          {uploading ? 'Uploading…' : processing ? 'Classifying…' : 'Next →'}
+          {uploading ? 'Uploading…' : 'Next →'}
         </button>
       </section>
     </div>

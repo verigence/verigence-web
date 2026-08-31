@@ -52,6 +52,24 @@
   background: #fff;
 }
 
+/* Screen 1 is always a Next action. Progress belongs in the status copy beside it,
+   not in the button label. This override keeps the user-visible action stable while
+   the existing disabled/classification gate remains unchanged. */
+body .uc03-delivery-v2-page .uc03-delivery-v2-submit-bar > .uc03-c1-primary,
+body .uc03-delivery-v2-page .uc03-delivery-v2-submit-complete > .uc03-c1-primary {
+  font-size: 0 !important;
+}
+
+body .uc03-delivery-v2-page .uc03-delivery-v2-submit-bar > .uc03-c1-primary::after,
+body .uc03-delivery-v2-page .uc03-delivery-v2-submit-complete > .uc03-c1-primary::after {
+  content: 'Next →';
+  font-size: 0.86rem !important;
+  font-weight: 700 !important;
+  line-height: 1.2 !important;
+  color: inherit !important;
+  -webkit-text-fill-color: currentColor !important;
+}
+
 @media (max-width: 680px) {
   .uc03-v2-upload-actions {
     width: 100%;

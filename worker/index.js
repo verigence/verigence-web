@@ -211,7 +211,20 @@ export default {
 
       try {
         const target = buildSecurityTarget(env.SECURITY_UPSTREAM, request.url);
+        const proxyStart = performance.now();
         const response = await fetch(sanitizedUpstreamRequest(target, request, correlationId));
+        if (String(env.LOG_PROXY_SUCCESS || '').toLowerCase() === 'true') {
+          console.log(JSON.stringify({
+            event_name: 'web_proxy_success',
+            service_name: 'verigence-web',
+            proxy: 'security',
+            correlation_id: correlationId,
+            http_method: request.method,
+            http_route: new URL(request.url).pathname,
+            upstream_status: response.status,
+            duration_ms: Math.round(performance.now() - proxyStart),
+          }));
+        }
         return proxyResponse(response, request, 'security', correlationId);
       } catch (error) {
         logProxyFailure('security', request, correlationId, 'SECURITY_UPSTREAM_UNAVAILABLE', error);
@@ -227,7 +240,20 @@ export default {
 
       try {
         const target = buildAuditCoreTarget(env.AUDIT_CORE_UPSTREAM, request.url);
+        const proxyStart = performance.now();
         const response = await fetch(sanitizedUpstreamRequest(target, request, correlationId));
+        if (String(env.LOG_PROXY_SUCCESS || '').toLowerCase() === 'true') {
+          console.log(JSON.stringify({
+            event_name: 'web_proxy_success',
+            service_name: 'verigence-web',
+            proxy: 'audit-core',
+            correlation_id: correlationId,
+            http_method: request.method,
+            http_route: new URL(request.url).pathname,
+            upstream_status: response.status,
+            duration_ms: Math.round(performance.now() - proxyStart),
+          }));
+        }
         return proxyResponse(response, request, 'audit-core', correlationId);
       } catch (error) {
         logProxyFailure('audit-core', request, correlationId, 'AUDIT_CORE_UPSTREAM_UNAVAILABLE', error);
@@ -243,7 +269,20 @@ export default {
 
       try {
         const target = buildDiTarget(env.DI_UPSTREAM, request.url);
+        const proxyStart = performance.now();
         const response = await fetch(sanitizedUpstreamRequest(target, request, correlationId));
+        if (String(env.LOG_PROXY_SUCCESS || '').toLowerCase() === 'true') {
+          console.log(JSON.stringify({
+            event_name: 'web_proxy_success',
+            service_name: 'verigence-web',
+            proxy: 'di',
+            correlation_id: correlationId,
+            http_method: request.method,
+            http_route: new URL(request.url).pathname,
+            upstream_status: response.status,
+            duration_ms: Math.round(performance.now() - proxyStart),
+          }));
+        }
         return proxyResponse(response, request, 'di', correlationId);
       } catch (error) {
         logProxyFailure('di', request, correlationId, 'DI_UPSTREAM_UNAVAILABLE', error);

@@ -20,7 +20,8 @@
   "vars": {
     "SECURITY_UPSTREAM": "https://security-dev.up.railway.app",
     "AUDIT_CORE_UPSTREAM": "https://verigence-audit-core-production.up.railway.app",
-    "DI_UPSTREAM": "https://di-api-dev.up.railway.app"
+    "DI_UPSTREAM": "https://di-api-dev.up.railway.app",
+    "LOG_PROXY_SUCCESS": "false"
   },
   "assets": {
     "directory": "./dist/",

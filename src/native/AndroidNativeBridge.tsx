@@ -21,7 +21,12 @@ export default function AndroidNativeBridge() {
     void StatusBar.setStyle({ style: Style.Dark }).catch(() => undefined);
     void Keyboard.setResizeMode({ mode: KeyboardResize.Native }).catch(() => undefined);
 
+    // Track whether this effect has already been cleaned up. If cleanup fires
+    // before the addListener promise resolves (fast unmount), we immediately
+    // remove the handle so the listener is never left dangling.
+    let aborted = false;
     let backHandle: PluginListenerHandle | undefined;
+
     void CapacitorApp.addListener('backButton', ({ canGoBack }) => {
       const intercepted = new Event(ANDROID_BACK_EVENT, { cancelable: true });
       window.dispatchEvent(intercepted);
@@ -38,10 +43,16 @@ export default function AndroidNativeBridge() {
         navigate('/dashboard', { replace: true });
       }
     }).then((handle) => {
-      backHandle = handle;
+      if (aborted) {
+        // Cleanup already ran — remove the listener immediately
+        void handle.remove();
+      } else {
+        backHandle = handle;
+      }
     }).catch(() => undefined);
 
     return () => {
+      aborted = true;
       document.documentElement.classList.remove('native-android');
       void backHandle?.remove();
     };

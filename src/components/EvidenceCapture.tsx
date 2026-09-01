@@ -30,6 +30,7 @@ export default function EvidenceCapture({ journeyId, onUploaded }: { journeyId: 
   const takePhoto = async () => {
     if (busy) return;
     setMessage('');
+    let objectUrl: string | undefined;
     try {
       const photo = await captureEvidencePhoto();
       if (!photo.webPath) {
@@ -38,13 +39,23 @@ export default function EvidenceCapture({ journeyId, onUploaded }: { journeyId: 
       }
       const response = await fetch(photo.webPath);
       const blob = await response.blob();
+      // Create an object URL to read the blob as a File, then revoke immediately
+      // after construction to prevent the ~16 MB buffer from leaking.
+      objectUrl = URL.createObjectURL(blob);
       const extension = photo.format || 'jpeg';
       const file = new File([blob], `evidence-${Date.now()}.${extension}`, {
         type: blob.type || `image/${extension === 'jpg' ? 'jpeg' : extension}`,
       });
+      URL.revokeObjectURL(objectUrl);
+      objectUrl = undefined;
       await processFile(file);
     } catch {
       setMessage("We couldn't capture this photo. Please try again.");
+    } finally {
+      // Safety net: revoke if an error was thrown after URL creation
+      if (objectUrl !== undefined) {
+        URL.revokeObjectURL(objectUrl);
+      }
     }
   };
 
@@ -59,7 +70,7 @@ export default function EvidenceCapture({ journeyId, onUploaded }: { journeyId: 
         <span>Add a booking docket, receipt, cover note, screenshot, invoice, registration document or delivery evidence.</span>
       </div>
       <div className="evidence-capture__actions">
-        <VerigenceButton disabled={busy} onClick={() => inputRef.current?.click()}>{busy ? 'Uploading…' : 'Choose File'}</VerigenceButton>
+        <VerigenceButton disabled={busy} onClick={() => inputRef.current?.click()}>{busy ? 'Uploading\u2026' : 'Choose File'}</VerigenceButton>
         {Capacitor.isNativePlatform() && <VerigenceButton fill="outline" disabled={busy} onClick={takePhoto}>Take Photo</VerigenceButton>}
       </div>
       {message && <small className="evidence-capture__message">{message}</small>}

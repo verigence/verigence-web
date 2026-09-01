@@ -3,6 +3,7 @@ import { IonApp } from '@ionic/react';
 import { BrowserRouter, Navigate, Route, Routes, useParams } from 'react-router-dom';
 
 import { verigenceLockup } from './assets/verigenceLockup';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import ProjectContextGate from './components/ProjectContextGate';
 import SessionRenewalGate from './components/SessionRenewalGate';
 import AttendanceShellSlot from './features/attendance/AttendanceShellSlot';
@@ -195,78 +196,80 @@ function Loading() {
 
 export default function App() {
   return (
-    <IonApp>
-      <BrowserRouter basename={routerBase}>
-        <SessionRenewalGate />
-        <PcJourneyRoutePreloader />
-        <AndroidNativeBridge />
-        <ProjectAdminOutletLocationEnhancer />
-        <ProjectMasterActionOverlay />
-        <AttendanceShellSlot />
-        <Suspense fallback={<Loading />}>
-          <Routes>
-            <Route path="/login" element={<LoginPage />} />
-            <Route path="/signup" element={<SignupPage />} />
-            <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-            <Route path="/terms" element={<TermsPage />} />
-            <Route path="/privacy" element={<PrivacyPage />} />
-            <Route path="/dashboard" element={<DashboardEntry />} />
-            <Route path="/search" element={<OperationalPage><JourneySearchPage /></OperationalPage>} />
-            <Route path="/journeys/:journeyId/overview" element={<OperationalPage><Journey360Page /></OperationalPage>} />
-            <Route path="/attendance" element={<OperationalShellPage><AttendancePage /></OperationalShellPage>} />
-            <Route path="/tl/cases/:journeyId/review" element={<OperationalPage><TeamLeadReviewPage /></OperationalPage>} />
-            <Route path="/bookings/:journeyId" element={<V2JourneyRedirect target="BOOKING" />} />
-            <Route path="/bookings/:journeyId/review" element={<V2JourneyRedirect target="BOOKING_REVIEW" />} />
-            <Route path="/v2/bookings/new" element={<OperationalPage><CreateBookingV2Page /></OperationalPage>} />
-            <Route path="/v2/bookings/:journeyId" element={<OperationalPage><BookingCaptureV2Page /></OperationalPage>} />
-            <Route path="/v2/bookings/:journeyId/details" element={<OperationalPage><BookingDetailsV2Page /></OperationalPage>} />
-            <Route path="/v2/bookings/:journeyId/review" element={<OperationalPage><BookingReviewV2Page /></OperationalPage>} />
-            <Route path="/deliveries/:journeyId" element={<V2JourneyRedirect target="DELIVERY" />} />
-            <Route path="/v2/deliveries/:journeyId" element={<OperationalPage><DeliveryCaptureV2Page /></OperationalPage>} />
-            <Route path="/v2/deliveries/:journeyId/review" element={<OperationalPage><DeliveryReviewV2Page /></OperationalPage>} />
-            <Route path="/audit/:journeyId" element={<OperationalPage><AuditReviewPage /></OperationalPage>} />
-            <Route path="/feedback" element={<OperationalShellPage><FeedbackPage /></OperationalShellPage>} />
-            <Route path="/customers" element={<LegacyOperationalPage><CustomersPage /></LegacyOperationalPage>} />
-            <Route path="/journeys" element={<LegacyOperationalPage><JourneysPage /></LegacyOperationalPage>} />
-            <Route path="/journeys/:journeyId" element={<LegacyOperationalPage><JourneyWorkspacePage /></LegacyOperationalPage>} />
-            <Route path="/journeys/:journeyId/evidence/:evidenceId" element={<LegacyOperationalPage><EvidenceDetailPage /></LegacyOperationalPage>} />
-            <Route path="/reviews" element={<LegacyOperationalPage><ReviewQueuePage /></LegacyOperationalPage>} />
-            <Route path="/evidence" element={<LegacyOperationalPage><EvidencePage /></LegacyOperationalPage>} />
-            <Route path="/payments" element={<LegacyOperationalPage><PaymentTrackerPage /></LegacyOperationalPage>} />
-            <Route path="/findings" element={<LegacyOperationalPage><FindingsPage /></LegacyOperationalPage>} />
-            <Route path="/tasks" element={<LegacyOperationalPage><TasksPage /></LegacyOperationalPage>} />
-            <Route path="/daily-ops" element={<OperationalShellPage><DailyOpsPage /></OperationalShellPage>} />
-            <Route path="/activity" element={<LegacyOperationalPage><ActivityTrackerPage /></LegacyOperationalPage>} />
-            <Route path="/crm" element={<LegacyOperationalPage><CrmPage /></LegacyOperationalPage>} />
-            <Route path="/escalations" element={<LegacyOperationalPage><EscalationsPage /></LegacyOperationalPage>} />
-            <Route path="/analytics" element={<LegacyOperationalPage><AnalyticsPage /></LegacyOperationalPage>} />
+    <ErrorBoundary>
+      <IonApp>
+        <BrowserRouter basename={routerBase}>
+          <SessionRenewalGate />
+          <PcJourneyRoutePreloader />
+          <AndroidNativeBridge />
+          <ProjectAdminOutletLocationEnhancer />
+          <ProjectMasterActionOverlay />
+          <AttendanceShellSlot />
+          <Suspense fallback={<Loading />}>
+            <Routes>
+              <Route path="/login" element={<LoginPage />} />
+              <Route path="/signup" element={<SignupPage />} />
+              <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+              <Route path="/terms" element={<TermsPage />} />
+              <Route path="/privacy" element={<PrivacyPage />} />
+              <Route path="/dashboard" element={<DashboardEntry />} />
+              <Route path="/search" element={<OperationalPage><JourneySearchPage /></OperationalPage>} />
+              <Route path="/journeys/:journeyId/overview" element={<OperationalPage><Journey360Page /></OperationalPage>} />
+              <Route path="/attendance" element={<OperationalShellPage><AttendancePage /></OperationalShellPage>} />
+              <Route path="/tl/cases/:journeyId/review" element={<OperationalPage><TeamLeadReviewPage /></OperationalPage>} />
+              <Route path="/bookings/:journeyId" element={<V2JourneyRedirect target="BOOKING" />} />
+              <Route path="/bookings/:journeyId/review" element={<V2JourneyRedirect target="BOOKING_REVIEW" />} />
+              <Route path="/v2/bookings/new" element={<OperationalPage><CreateBookingV2Page /></OperationalPage>} />
+              <Route path="/v2/bookings/:journeyId" element={<OperationalPage><BookingCaptureV2Page /></OperationalPage>} />
+              <Route path="/v2/bookings/:journeyId/details" element={<OperationalPage><BookingDetailsV2Page /></OperationalPage>} />
+              <Route path="/v2/bookings/:journeyId/review" element={<OperationalPage><BookingReviewV2Page /></OperationalPage>} />
+              <Route path="/deliveries/:journeyId" element={<V2JourneyRedirect target="DELIVERY" />} />
+              <Route path="/v2/deliveries/:journeyId" element={<OperationalPage><DeliveryCaptureV2Page /></OperationalPage>} />
+              <Route path="/v2/deliveries/:journeyId/review" element={<OperationalPage><DeliveryReviewV2Page /></OperationalPage>} />
+              <Route path="/audit/:journeyId" element={<OperationalPage><AuditReviewPage /></OperationalPage>} />
+              <Route path="/feedback" element={<OperationalShellPage><FeedbackPage /></OperationalShellPage>} />
+              <Route path="/customers" element={<LegacyOperationalPage><CustomersPage /></LegacyOperationalPage>} />
+              <Route path="/journeys" element={<LegacyOperationalPage><JourneysPage /></LegacyOperationalPage>} />
+              <Route path="/journeys/:journeyId" element={<LegacyOperationalPage><JourneyWorkspacePage /></LegacyOperationalPage>} />
+              <Route path="/journeys/:journeyId/evidence/:evidenceId" element={<LegacyOperationalPage><EvidenceDetailPage /></LegacyOperationalPage>} />
+              <Route path="/reviews" element={<LegacyOperationalPage><ReviewQueuePage /></LegacyOperationalPage>} />
+              <Route path="/evidence" element={<LegacyOperationalPage><EvidencePage /></LegacyOperationalPage>} />
+              <Route path="/payments" element={<LegacyOperationalPage><PaymentTrackerPage /></LegacyOperationalPage>} />
+              <Route path="/findings" element={<LegacyOperationalPage><FindingsPage /></LegacyOperationalPage>} />
+              <Route path="/tasks" element={<LegacyOperationalPage><TasksPage /></LegacyOperationalPage>} />
+              <Route path="/daily-ops" element={<OperationalShellPage><DailyOpsPage /></OperationalShellPage>} />
+              <Route path="/activity" element={<LegacyOperationalPage><ActivityTrackerPage /></LegacyOperationalPage>} />
+              <Route path="/crm" element={<LegacyOperationalPage><CrmPage /></LegacyOperationalPage>} />
+              <Route path="/escalations" element={<LegacyOperationalPage><EscalationsPage /></LegacyOperationalPage>} />
+              <Route path="/analytics" element={<LegacyOperationalPage><AnalyticsPage /></LegacyOperationalPage>} />
 
-            <Route path="/admin/engagements" element={<SuperAdminPage><AdminConfigurationPage section="engagements" /></SuperAdminPage>} />
-            <Route path="/admin/document-intelligence" element={<SuperAdminPage><DocumentIntelligenceConfigurationPage /></SuperAdminPage>} />
-            <Route path="/admin/housekeeping" element={<SuperAdminPage><AdminHousekeepingPage /></SuperAdminPage>} />
-            <Route path="/admin/feedback" element={<SuperAdminPage><AdminFeedbackPage /></SuperAdminPage>} />
-            <Route path="/admin/di-test" element={<SuperAdminPage><DiTestConsolePage /></SuperAdminPage>} />
-            <Route path="/admin/users" element={<SuperAdminPage><AdminUsersPage /></SuperAdminPage>} />
-            <Route path="/admin/users/pending" element={<SuperAdminPage><ApprovalQueuePage /></SuperAdminPage>} />
-            <Route path="/admin/activity-log" element={<SuperAdminPage><AdminConfigurationPage section="activity" /></SuperAdminPage>} />
-            <Route path="/admin/roles-permissions" element={<SuperAdminPage><AdminConfigurationPage section="roles" /></SuperAdminPage>} />
-            <Route path="/admin/audit-rules" element={<SuperAdminPage><AdminConfigurationPage section="audit-rules" /></SuperAdminPage>} />
-            <Route path="/admin/approval-workflow" element={<SuperAdminPage><AdminConfigurationPage section="approval-workflow" /></SuperAdminPage>} />
-            <Route path="/admin/notifications" element={<SuperAdminPage><AdminConfigurationPage section="notifications" /></SuperAdminPage>} />
-            <Route path="/admin/project" element={<ProjectAdminPage><ProjectAdministrationPage /></ProjectAdminPage>} />
+              <Route path="/admin/engagements" element={<SuperAdminPage><AdminConfigurationPage section="engagements" /></SuperAdminPage>} />
+              <Route path="/admin/document-intelligence" element={<SuperAdminPage><DocumentIntelligenceConfigurationPage /></SuperAdminPage>} />
+              <Route path="/admin/housekeeping" element={<SuperAdminPage><AdminHousekeepingPage /></SuperAdminPage>} />
+              <Route path="/admin/feedback" element={<SuperAdminPage><AdminFeedbackPage /></SuperAdminPage>} />
+              <Route path="/admin/di-test" element={<SuperAdminPage><DiTestConsolePage /></SuperAdminPage>} />
+              <Route path="/admin/users" element={<SuperAdminPage><AdminUsersPage /></SuperAdminPage>} />
+              <Route path="/admin/users/pending" element={<SuperAdminPage><ApprovalQueuePage /></SuperAdminPage>} />
+              <Route path="/admin/activity-log" element={<SuperAdminPage><AdminConfigurationPage section="activity" /></SuperAdminPage>} />
+              <Route path="/admin/roles-permissions" element={<SuperAdminPage><AdminConfigurationPage section="roles" /></SuperAdminPage>} />
+              <Route path="/admin/audit-rules" element={<SuperAdminPage><AdminConfigurationPage section="audit-rules" /></SuperAdminPage>} />
+              <Route path="/admin/approval-workflow" element={<SuperAdminPage><AdminConfigurationPage section="approval-workflow" /></SuperAdminPage>} />
+              <Route path="/admin/notifications" element={<SuperAdminPage><AdminConfigurationPage section="notifications" /></SuperAdminPage>} />
+              <Route path="/admin/project" element={<ProjectAdminPage><ProjectAdministrationPage /></ProjectAdminPage>} />
 
-            <Route path="/approvals" element={<Navigate to="/admin/users/pending" replace />} />
-            <Route path="/admin/project-provisioning" element={<Navigate to="/admin/project" replace />} />
-            <Route path="/admin/organization" element={<Navigate to="/admin/project?step=2" replace />} />
-            <Route path="/admin/team" element={<Navigate to="/admin/project?step=5" replace />} />
-            <Route path="/admin/masters" element={<Navigate to="/admin/project?step=6" replace />} />
-            <Route path="/profile" element={<PrivatePage><ProfilePage /></PrivatePage>} />
-            <Route path="/workspace" element={<Navigate to="/dashboard" replace />} />
-            <Route path="/" element={<Navigate to="/login" replace />} />
-            <Route path="*" element={<Navigate to="/dashboard" replace />} />
-          </Routes>
-        </Suspense>
-      </BrowserRouter>
-    </IonApp>
+              <Route path="/approvals" element={<Navigate to="/admin/users/pending" replace />} />
+              <Route path="/admin/project-provisioning" element={<Navigate to="/admin/project" replace />} />
+              <Route path="/admin/organization" element={<Navigate to="/admin/project?step=2" replace />} />
+              <Route path="/admin/team" element={<Navigate to="/admin/project?step=5" replace />} />
+              <Route path="/admin/masters" element={<Navigate to="/admin/project?step=6" replace />} />
+              <Route path="/profile" element={<PrivatePage><ProfilePage /></PrivatePage>} />
+              <Route path="/workspace" element={<Navigate to="/dashboard" replace />} />
+              <Route path="/" element={<Navigate to="/login" replace />} />
+              <Route path="*" element={<Navigate to="/dashboard" replace />} />
+            </Routes>
+          </Suspense>
+        </BrowserRouter>
+      </IonApp>
+    </ErrorBoundary>
   );
 }

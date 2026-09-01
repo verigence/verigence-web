@@ -34,7 +34,22 @@ import App from './App';
 setupIonicReact({ mode: 'md' });
 
 const queryClient = new QueryClient({
-  defaultOptions: { queries: { staleTime: 30_000, retry: 1, refetchOnWindowFocus: false } },
+  defaultOptions: {
+    queries: {
+      staleTime: 60_000,          // 60 s: prevents refetch storms on normal navigation
+      gcTime: 5 * 60_000,         // 5 min default; override to lower for large payloads
+      retry: (count, err) => {
+        // Never retry auth errors — they will not recover without user action
+        const isAuthError =
+          err instanceof Error && 'status' in (err as any) && (err as any).status === 401;
+        return !isAuthError && count < 2;
+      },
+      refetchOnWindowFocus: false, // Capacitor: webview gains focus on resume, keyboard dismiss,
+                                   // camera return — disable to prevent storms. Drive refresh
+                                   // explicitly from App.addListener('resume'). §7.1
+      networkMode: 'offlineFirst',
+    },
+  },
 });
 
 ReactDOM.createRoot(document.getElementById('root')!).render(

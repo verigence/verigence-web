@@ -86,6 +86,16 @@ import DiFieldViewerEnhancer from './features/di-test/DiFieldViewerEnhancer';
 
 setupIonicReact({ mode: 'md' });
 
+window.addEventListener('unhandledrejection', (event) => {
+  console.error(
+    JSON.stringify({
+      event_name: 'web_unhandled_rejection',
+      service_name: 'verigence-web',
+      reason: event.reason instanceof Error ? event.reason.message : String(event.reason),
+    }),
+  );
+});
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {

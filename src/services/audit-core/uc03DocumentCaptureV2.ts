@@ -1,4 +1,4 @@
-import { auditCoreRequest } from './client';
+import { auditCoreRawRequest, auditCoreRequest } from './client';
 import { newIdempotencyKey } from './uc03Booking';
 
 export type CaptureV2Applicability = 'APPLICABLE' | 'NOT_APPLICABLE' | 'UNRESOLVED';
@@ -95,6 +95,25 @@ function clientUploadId(): string {
 const EXTRACTION_POLL_WINDOW_MS = 2 * 60_000;
 const extractionPollStartedAt = new Map<string, number>();
 const PENDING_PROCESSING_STATES = new Set(['NOT_STARTED', 'PROCESSING', 'RETRY_PENDING']);
+const CAPTURE_RECONCILE_MIN_INTERVAL_MS = 5_000;
+const captureReconcileInFlight = new Set<string>();
+const captureReconcileStartedAt = new Map<string, number>();
+
+function scheduleBookingCaptureReconciliation(path: string, accessToken: string): void {
+  const now = Date.now();
+  const lastStartedAt = captureReconcileStartedAt.get(path) ?? 0;
+  if (captureReconcileInFlight.has(path) || now - lastStartedAt < CAPTURE_RECONCILE_MIN_INTERVAL_MS) return;
+
+  captureReconcileStartedAt.set(path, now);
+  captureReconcileInFlight.add(path);
+  void auditCoreRawRequest(path, {
+    accessToken,
+    cache: 'no-store',
+    timeoutMs: 10_000,
+  })
+    .catch(() => undefined)
+    .finally(() => captureReconcileInFlight.delete(path));
+}
 
 /**
  * Keep the V2 capture query live while either classification or the extraction
@@ -144,10 +163,14 @@ export async function getBookingCaptureV2(
   journeyId: string,
   accessToken?: string,
 ): Promise<BookingCaptureV2> {
-  return auditCoreRequest<BookingCaptureV2>(`${base(tenantId, journeyId)}/capture`, {
-    accessToken: token(accessToken),
+  const access = token(accessToken);
+  const bookingBase = base(tenantId, journeyId);
+  const capture = await auditCoreRequest<BookingCaptureV2>(`${bookingBase}/capture-local`, {
+    accessToken: access,
     cache: 'no-store',
   });
+  scheduleBookingCaptureReconciliation(`${bookingBase}/capture`, access);
+  return capture;
 }
 
 export async function uploadBookingCaptureV2Files(

@@ -20,7 +20,6 @@ import { useSessionStore } from '../store/sessionStore';
 import '../styles/uc03-document-capture-v2.css';
 import '../styles/uc03-attribute-audit-review.css';
 import '../styles/uc03-delivery-capture-v2.css';
-import '../styles/uc03-delivery-review-missing.css';
 
 const REFRESH_MS = 2 * 60 * 1000;
 const REVIEW_THRESHOLD = 92;
@@ -167,7 +166,6 @@ export default function DeliveryReviewV2Page() {
   const workspace = workspaceQuery.data;
   const deliveryCompleted = workspace.delivery.businessStatus === 'DELIVERY_COMPLETED';
   const failedDocuments = review.documents.filter((document) => document.extractionState === 'FAILED');
-  const missingAttributes = review.attributes.filter((attribute) => !hasExtractedValue(attribute.resolvedValue));
   const mappedExceptions = review.attributes.filter((attribute) => (
     hasExtractedValue(attribute.resolvedValue)
     && (attribute.comparisonState === 'MISMATCH' || attribute.reviewState === 'NEEDS_REVIEW')
@@ -292,7 +290,7 @@ export default function DeliveryReviewV2Page() {
           const evidenceSource = rawSource(source);
           return (
             <article key={item.groupKey} className={`uc03-delivery-review-field ${item.needsDecision ? 'is-exception' : ''}`}>
-              <div className="uc03-delivery-review-field__name"><strong>{fieldLabel(item.fieldKey)}</strong><span>{source.documentLabel}</span></div>
+              <div className="uc03-delivery-review-field__name"><strong>{fieldLabel(item.fieldKey)}</strong><span>DI extracted · not mapped · {source.documentLabel}</span></div>
               <div className="uc03-delivery-review-field__value">
                 <ReviewEffectiveValueEditor
                   source={source}
@@ -315,15 +313,6 @@ export default function DeliveryReviewV2Page() {
         })}
         {!groupedAttributes[activeGroup].length && !groupedRaw[activeGroup].length ? <p>No extracted values are available in this section yet.</p> : null}
       </section>
-
-      {missingAttributes.length ? (
-        <section className="uc03-delivery-review-section uc03-delivery-review-missing">
-          <div className="uc03-delivery-review-missing__intro"><h2>Attributes not extracted</h2><p>These attributes have no Delivery-stage DI value and therefore are not editable or persisted as a reviewed value.</p></div>
-          <div className="uc03-delivery-review-missing__list">
-            {missingAttributes.map((attribute) => <div key={`missing:${attribute.attributeKey}`} className="uc03-delivery-review-missing__row"><strong>{attribute.label}</strong><span>Configured source evidence not available</span></div>)}
-          </div>
-        </section>
-      ) : null}
 
       <section className="uc03-attribute-confirm-panel">
         <div>

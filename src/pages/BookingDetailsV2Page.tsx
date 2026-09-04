@@ -260,7 +260,7 @@ export default function BookingDetailsV2Page() {
 
       <section className="uc03-booking-step-panel">
         <header className="uc03-booking-step-heading">
-          <div><span className="uc03-c1-eyebrow">Step 2</span><h2>Booking Details</h2></div>
+          <div><span className="uc03-c1-eyebrow">Step 2</span><h2>Required Booking Details</h2></div>
           <span>Document review values continue to prepare in the background</span>
         </header>
 

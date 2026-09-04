@@ -83,6 +83,7 @@ import './ui/pcNavigationMotion';
 
 import App from './App';
 import DiFieldViewerEnhancer from './features/di-test/DiFieldViewerEnhancer';
+import { AuditCoreTimeoutError } from './services/audit-core/client';
 
 setupIonicReact({ mode: 'md' });
 
@@ -100,7 +101,7 @@ const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       staleTime: 30_000,
-      retry: 1,
+      retry: (failureCount, error) => !(error instanceof AuditCoreTimeoutError) && failureCount < 1,
       refetchOnWindowFocus: false,
       refetchOnReconnect: false,
     },

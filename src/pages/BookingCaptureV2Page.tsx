@@ -1,1 +1,1 @@
-export { default } from './BookingWorkspaceFastEntry';
+export { default } from './BookingCaptureV2FastEntry';

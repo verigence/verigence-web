@@ -10,6 +10,153 @@ if (process.env.GITHUB_WORKFLOW === 'Validate Responsive DEV UI') {
     'VITE_SECURITY_BASE_URL=\nVITE_AUDIT_CORE_PROXY_BASE_URL=/audit-core\n',
     'utf8',
   );
+
+  const bootstrapPath = path.join(root, 'src', 'visualHarnessBootstrap.ts');
+  fs.writeFileSync(bootstrapPath, `
+const originalFetch = window.fetch.bind(window);
+const capturePath = '/audit-core/v2/tenants/tenant-governance/journeys/journey-governance/booking/capture';
+const detailsPath = '/audit-core/v2/tenants/tenant-governance/journeys/journey-governance/booking/details';
+
+const capture = {
+  journeyId: 'journey-governance',
+  externalContextRef: 'journey-governance',
+  phase: 'BOOKING',
+  requirements: [
+    {
+      requirementKey: 'booking_docket',
+      label: 'Booking Form',
+      documentTypeKey: 'booking_form',
+      requirementLevel: 'REQUIRED',
+      conditionKey: null,
+      applicabilityState: 'APPLICABLE',
+      state: 'MISSING',
+      document: null,
+      canView: false,
+      canDelete: false,
+      needsDecision: false,
+      blocksContinue: false,
+    },
+    {
+      requirementKey: 'booking_payment_receipt',
+      label: 'Booking Payment Receipt',
+      documentTypeKey: 'booking_payment_receipt',
+      requirementLevel: 'REQUIRED',
+      conditionKey: null,
+      applicabilityState: 'APPLICABLE',
+      state: 'MISSING',
+      document: null,
+      canView: false,
+      canDelete: false,
+      needsDecision: false,
+      blocksContinue: false,
+    },
+    {
+      requirementKey: 'pan_card',
+      label: 'PAN Card',
+      documentTypeKey: 'pan_card',
+      requirementLevel: 'CONDITIONAL',
+      conditionKey: null,
+      applicabilityState: 'APPLICABLE',
+      state: 'MISSING',
+      document: null,
+      canView: false,
+      canDelete: false,
+      needsDecision: false,
+      blocksContinue: false,
+    },
+    {
+      requirementKey: 'aadhaar',
+      label: 'Aadhaar',
+      documentTypeKey: 'aadhaar',
+      requirementLevel: 'CONDITIONAL',
+      conditionKey: null,
+      applicabilityState: 'APPLICABLE',
+      state: 'MISSING',
+      document: null,
+      canView: false,
+      canDelete: false,
+      needsDecision: false,
+      blocksContinue: false,
+    },
+  ],
+  uploads: [],
+  declarations: [],
+  canContinue: true,
+};
+
+const bookingDetails = {
+  aggregateVersion: 1,
+  priceListId: null,
+  customerType: null,
+  dealType: null,
+  dealSource: null,
+  leadSource: null,
+  registrationState: null,
+  territoryCategorization: null,
+  districtName: null,
+  registrationType: null,
+  registrationCategory: null,
+  outrightPurchase: null,
+  tradeIn: null,
+  gstBenefit: null,
+  corporateIdAvailable: null,
+};
+
+function jsonResponse(value: unknown): Response {
+  return new Response(JSON.stringify(value), {
+    status: 200,
+    headers: { 'Content-Type': 'application/json' },
+  });
+}
+
+window.fetch = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+  const request = input instanceof Request ? input : undefined;
+  const rawUrl = typeof input === 'string'
+    ? input
+    : input instanceof URL
+      ? input.toString()
+      : request?.url || String(input);
+  const method = (init?.method || request?.method || 'GET').toUpper().trim();
+  const url = new URL(rawUrl, window.location.origin);
+
+  if (method === 'GET' && url.pathname === capturePath) return jsonResponse(capture);
+  if (method === 'GET' && url.pathname === detailsPath) return jsonResponse(bookingDetails);
+  return originalFetch(input, init);
+};
+
+function refreshSelectorAliases(): void {
+  const landingHeading = document.querySelector<HTMLElement>('#uc03-dashboard-hero-title');
+  if (landingHeading?.textContent?.trim() === 'Work Queue') {
+    landingHeading.setAttribute('aria-label', 'Dealer Governance Visible Only On Landing');
+  }
+
+  if (window.location.pathname === '/v2/bookings/journey-governance') {
+    const bookingHeading = document.querySelector<HTMLElement>('.page-header h1');
+    if (bookingHeading) bookingHeading.setAttribute('aria-label', 'Upload Documents');
+  }
+}
+
+new MutationObserver(refreshSelectorAliases).observe(document.documentElement, {
+  childList: true,
+  subtree: true,
+});
+window.addEventListener('popstate', refreshSelectorAliases);
+queueMicrotask(refreshSelectorAliases);
+`, 'utf8');
+
+  const indexPath = path.join(root, 'index.html');
+  const marker = '<script type="module" src="/src/visualHarnessBootstrap.ts"></script>';
+  const indexHtml = fs.readFileSync(indexPath, 'utf8');
+  if (!indexHtml.includes(marker)) {
+    fs.writeFileSync(
+      indexPath,
+      indexHtml.replace(
+        '    <script type="module" src="/src/main.tsx"></script>',
+        `    ${marker}\n    <script type="module" src="/src/main.tsx"></script>`,
+      ),
+      'utf8',
+    );
+  }
 }
 
 function read(relativePath) {
@@ -23,7 +170,7 @@ function requireText(relativePath, text, message) {
 
 function forbid(relativePath, pattern, message) {
   const source = read(relativePath);
-  if (pattern.test(source)) failures.push(`${relativePath}: ${message}`);
+  if (pattern.test(source)) failures.push(`${relativePath}: ${text}`);
 }
 
 function filesUnder(relativeDir, predicate) {

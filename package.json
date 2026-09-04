@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "ui:governance": "node scripts/ui-governance-check.mjs",
+    "ui:governance": "node scripts/ui-governance-check.mjs && node scripts/ui-visual-harness-fix.mjs",
     "build": "npm run ui:governance && npm run typecheck && vite build",
     "build:native:dev": "npm run ui:governance && npm run typecheck && vite build --mode native-dev",
     "typecheck": "tsc --noEmit -p tsconfig.app.json && tsc --noEmit -p tsconfig.node.json",

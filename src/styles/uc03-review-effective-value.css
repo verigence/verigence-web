@@ -43,7 +43,7 @@
 }
 
 .uc03-effective-value-editor.is-modified {
-  border-left: 3px solid var(--brand-primary, #0b6f78);
+  border-left: 3px solid var(--verigence-teal-600, #00afa8);
   padding-left: 0.65rem;
 }
 

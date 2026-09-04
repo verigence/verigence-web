@@ -4,6 +4,7 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 
 import PageHeader from '../components/PageHeader';
 import StatusPill from '../components/StatusPill';
+import CaptureUploadInventory from '../features/uc03/CaptureUploadInventory';
 import { getDeliveryWorkspace, startDelivery } from '../services/audit-core/uc03Delivery';
 import {
   deleteDeliveryCaptureV2Document,
@@ -253,8 +254,8 @@ export default function DeliveryCaptureV2Page() {
   const allUploadedClassified = capture.uploads.every((document) => (
     document.state.toUpperCase() === 'CLASSIFIED' && Boolean(document.classifiedDocumentTypeKey)
   ));
-  // 2026-08-30 requirement: classification/extraction are asynchronous status only.
-  // They must never gate progression to Delivery Details.
+  // Classification/extraction are asynchronous audit status only. They must never
+  // gate progression to Delivery Details.
   const canGoNext = !uploading && !deletingId;
   const mandatory = capture.requirements.filter((item) => item.requirementLevel === 'REQUIRED' && item.applicabilityState !== 'NOT_APPLICABLE');
   const mandatoryReceived = mandatory.filter((item) => Boolean(item.document)).length;
@@ -278,6 +279,7 @@ export default function DeliveryCaptureV2Page() {
           <div><span>Configured mandatory received</span><strong>{mandatoryReceived}/{mandatory.length}</strong></div>
           <div className={allUploadedClassified ? 'is-ready' : 'is-processing'}><span>{allUploadedClassified ? 'Uploaded documents classified' : 'Classification continuing'}</span><strong>{clock}</strong></div>
         </section>
+        <CaptureUploadInventory uploads={capture.uploads} readOnly title="Submitted Delivery documents" />
         <section className="uc03-delivery-v2-submit-complete">
           <div>
             <strong>Ready for Delivery Details</strong>
@@ -382,6 +384,8 @@ export default function DeliveryCaptureV2Page() {
           />
         </div>
       </section>
+
+      <CaptureUploadInventory uploads={capture.uploads} busyDocumentId={deletingId} onDelete={handleDelete} />
 
       <div className="uc03-delivery-v2-groups">
         {(['INVOICES', 'PAYMENTS', 'OTHERS'] as DeliveryGroupKey[]).map((key) => (

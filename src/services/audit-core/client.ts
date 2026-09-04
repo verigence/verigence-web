@@ -2,10 +2,12 @@ import { ensureCorrelationHeader, responseCorrelationId } from '../../observabil
 
 const configuredBaseUrl = import.meta.env.VITE_AUDIT_CORE_BASE_URL?.trim();
 const configuredProxyBaseUrl = import.meta.env.VITE_AUDIT_CORE_PROXY_BASE_URL?.trim();
+const DEFAULT_READ_TIMEOUT_MS = 10_000;
 
 export interface AuditCoreRequestOptions extends RequestInit {
   accessToken?: string;
   correlationId?: string;
+  timeoutMs?: number;
 }
 
 export interface AuditCoreProblem {
@@ -30,6 +32,16 @@ export class AuditCoreHttpError extends Error {
   }
 }
 
+export class AuditCoreTimeoutError extends Error {
+  readonly timeoutMs: number;
+
+  constructor(timeoutMs: number) {
+    super(`Audit Core did not respond within ${Math.ceil(timeoutMs / 1_000)} seconds. Please try again.`);
+    this.name = 'AuditCoreTimeoutError';
+    this.timeoutMs = timeoutMs;
+  }
+}
+
 function requestUrl(path: string): string {
   const selectedBaseUrl = configuredProxyBaseUrl || configuredBaseUrl;
   if (!selectedBaseUrl) {
@@ -40,39 +52,77 @@ function requestUrl(path: string): string {
   return `${baseUrl}${normalizedPath}`;
 }
 
+function readTimeoutMs(method: string, configuredTimeoutMs?: number): number | undefined {
+  if (configuredTimeoutMs !== undefined) return configuredTimeoutMs > 0 ? configuredTimeoutMs : undefined;
+  return method === 'GET' || method === 'HEAD' ? DEFAULT_READ_TIMEOUT_MS : undefined;
+}
+
 export async function auditCoreRawRequest(
   path: string,
   options: AuditCoreRequestOptions = {},
 ): Promise<Response> {
-  const headers = new Headers(options.headers);
-  const correlationId = ensureCorrelationHeader(headers, options.correlationId);
+  const {
+    accessToken,
+    correlationId: requestedCorrelationId,
+    timeoutMs: configuredTimeoutMs,
+    signal: callerSignal,
+    ...requestInit
+  } = options;
+  const headers = new Headers(requestInit.headers);
+  const correlationId = ensureCorrelationHeader(headers, requestedCorrelationId);
+  const method = (requestInit.method || 'GET').toUpperCase();
+  const timeoutMs = readTimeoutMs(method, configuredTimeoutMs);
+  const controller = timeoutMs ? new AbortController() : undefined;
+  let timedOut = false;
 
-  if (options.accessToken) {
-    headers.set('Authorization', `Bearer ${options.accessToken}`);
+  const abortFromCaller = () => controller?.abort(callerSignal?.reason);
+  if (controller && callerSignal) {
+    if (callerSignal.aborted) controller.abort(callerSignal.reason);
+    else callerSignal.addEventListener('abort', abortFromCaller, { once: true });
   }
 
-  if (options.body && !headers.has('Content-Type') && !(options.body instanceof FormData)) {
+  const timeoutId = controller && timeoutMs
+    ? globalThis.setTimeout(() => {
+        timedOut = true;
+        controller.abort();
+      }, timeoutMs)
+    : undefined;
+
+  if (accessToken) {
+    headers.set('Authorization', `Bearer ${accessToken}`);
+  }
+
+  if (requestInit.body && !headers.has('Content-Type') && !(requestInit.body instanceof FormData)) {
     headers.set('Content-Type', 'application/json');
   }
 
-  const response = await fetch(requestUrl(path), {
-    ...options,
-    headers,
-    credentials: 'include',
-  });
-  const echoedCorrelationId = responseCorrelationId(response, correlationId);
+  try {
+    const response = await fetch(requestUrl(path), {
+      ...requestInit,
+      headers,
+      credentials: 'include',
+      signal: controller?.signal || callerSignal,
+    });
+    const echoedCorrelationId = responseCorrelationId(response, correlationId);
 
-  if (!response.ok) {
-    let problem: AuditCoreProblem | undefined;
-    try {
-      problem = (await response.clone().json()) as AuditCoreProblem;
-    } catch {
-      problem = undefined;
+    if (!response.ok) {
+      let problem: AuditCoreProblem | undefined;
+      try {
+        problem = (await response.clone().json()) as AuditCoreProblem;
+      } catch {
+        problem = undefined;
+      }
+      throw new AuditCoreHttpError(response.status, problem, echoedCorrelationId);
     }
-    throw new AuditCoreHttpError(response.status, problem, echoedCorrelationId);
-  }
 
-  return response;
+    return response;
+  } catch (error) {
+    if (timedOut && timeoutMs) throw new AuditCoreTimeoutError(timeoutMs);
+    throw error;
+  } finally {
+    if (timeoutId !== undefined) globalThis.clearTimeout(timeoutId);
+    if (controller && callerSignal) callerSignal.removeEventListener('abort', abortFromCaller);
+  }
 }
 
 export async function auditCoreRequest<T>(

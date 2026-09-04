@@ -18,27 +18,60 @@ export interface AuditCoreProblem {
   correlationId?: string;
 }
 
+function supportMessage(message: string, errorCode: string, correlationId?: string): string {
+  const normalized = message.trim().replace(/\s+/g, ' ');
+  const withCode = `${normalized} Error code: ${errorCode}.`;
+  return correlationId ? `${withCode} Reference: ${correlationId}.` : withCode;
+}
+
 export class AuditCoreHttpError extends Error {
   readonly status: number;
   readonly problem?: AuditCoreProblem;
   readonly correlationId?: string;
+  readonly errorCode: string;
 
   constructor(status: number, problem?: AuditCoreProblem, correlationId?: string) {
-    super(problem?.detail || problem?.title || `Audit Core request failed with HTTP ${status}.`);
+    const resolvedCorrelationId = problem?.correlationId || correlationId;
+    const errorCode = problem?.errorCode?.trim() || `WEB-AC-HTTP-${status}`;
+    const detail = problem?.detail || problem?.title || `Audit Core request failed with HTTP ${status}.`;
+    super(supportMessage(detail, errorCode, resolvedCorrelationId));
     this.name = 'AuditCoreHttpError';
     this.status = status;
     this.problem = problem;
-    this.correlationId = problem?.correlationId || correlationId;
+    this.correlationId = resolvedCorrelationId;
+    this.errorCode = errorCode;
   }
 }
 
 export class AuditCoreTimeoutError extends Error {
   readonly timeoutMs: number;
+  readonly correlationId?: string;
+  readonly errorCode = 'WEB-AC-TIMEOUT';
 
-  constructor(timeoutMs: number) {
-    super(`Audit Core did not respond within ${Math.ceil(timeoutMs / 1_000)} seconds. Please try again.`);
+  constructor(timeoutMs: number, correlationId?: string) {
+    super(supportMessage(
+      `Audit Core did not respond within ${Math.ceil(timeoutMs / 1_000)} seconds. Please try again.`,
+      'WEB-AC-TIMEOUT',
+      correlationId,
+    ));
     this.name = 'AuditCoreTimeoutError';
     this.timeoutMs = timeoutMs;
+    this.correlationId = correlationId;
+  }
+}
+
+export class AuditCoreNetworkError extends Error {
+  readonly correlationId?: string;
+  readonly errorCode = 'WEB-AC-NETWORK';
+
+  constructor(correlationId?: string) {
+    super(supportMessage(
+      'Audit Core could not be reached. Please check your connection and try again.',
+      'WEB-AC-NETWORK',
+      correlationId,
+    ));
+    this.name = 'AuditCoreNetworkError';
+    this.correlationId = correlationId;
   }
 }
 
@@ -117,8 +150,10 @@ export async function auditCoreRawRequest(
 
     return response;
   } catch (error) {
-    if (timedOut && timeoutMs) throw new AuditCoreTimeoutError(timeoutMs);
-    throw error;
+    if (error instanceof AuditCoreHttpError) throw error;
+    if (timedOut && timeoutMs) throw new AuditCoreTimeoutError(timeoutMs, correlationId);
+    if (callerSignal?.aborted) throw error;
+    throw new AuditCoreNetworkError(correlationId);
   } finally {
     if (timeoutId !== undefined) globalThis.clearTimeout(timeoutId);
     if (controller && callerSignal) callerSignal.removeEventListener('abort', abortFromCaller);

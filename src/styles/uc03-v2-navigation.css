@@ -1,3 +1,5 @@
 .uc03-dashboard-hero__capture-actions .uc03-landing__capture-action:first-child {
   display: none;
 }
+
+/* Responsive validation trigger after Booking Details heading selector correction. */

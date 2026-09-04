@@ -1,4 +1,4 @@
-import { auditCoreRequest } from './client';
+import { AuditCoreTimeoutError, auditCoreRequest } from './client';
 import { newIdempotencyKey } from './uc03Booking';
 
 export type CaptureV2Applicability = 'APPLICABLE' | 'NOT_APPLICABLE' | 'UNRESOLVED';
@@ -93,8 +93,12 @@ function clientUploadId(): string {
 }
 
 const EXTRACTION_POLL_WINDOW_MS = 2 * 60_000;
+const CAPTURE_STATUS_TIMEOUT_MS = 3_000;
+const LOCAL_FALLBACK_POLL_WINDOW_MS = 30_000;
 const extractionPollStartedAt = new Map<string, number>();
+const localFallbackPollStartedAt = new Map<string, number>();
 const PENDING_PROCESSING_STATES = new Set(['NOT_STARTED', 'PROCESSING', 'RETRY_PENDING']);
+const LOCAL_FALLBACK_PREFIX = 'fallback:';
 
 /**
  * Keep the V2 capture query live while either classification or the extraction
@@ -103,14 +107,23 @@ const PENDING_PROCESSING_STATES = new Set(['NOT_STARTED', 'PROCESSING', 'RETRY_P
  * legitimately still say NOT_STARTED because the processing worker has not yet
  * claimed the newly-created INITIAL job.
  *
- * Some document types are intentionally manual-review-only, so NOT_STARTED is
- * not safe as an unbounded polling signal. Limit post-classification polling to
- * two minutes per document; terminal processing states clear the local window.
+ * If the DI-backed status read exceeded the screen-read budget, getBookingCaptureV2
+ * returns durable Audit Core state immediately and marks it as a local fallback.
+ * Keep retrying that fallback for a bounded window so content links and processing
+ * status recover automatically when DI becomes responsive again.
  */
 export function captureV2HasPendingClassification(capture?: BookingCaptureV2): boolean {
   if (!capture) return false;
   const now = Date.now();
   let pending = false;
+
+  if (capture.externalContextRef.startsWith(LOCAL_FALLBACK_PREFIX)) {
+    const startedAt = localFallbackPollStartedAt.get(capture.journeyId) ?? now;
+    localFallbackPollStartedAt.set(capture.journeyId, startedAt);
+    if (now - startedAt < LOCAL_FALLBACK_POLL_WINDOW_MS) pending = true;
+  } else {
+    localFallbackPollStartedAt.delete(capture.journeyId);
+  }
 
   for (const document of capture.uploads) {
     const state = document.state.toUpperCase();
@@ -144,10 +157,23 @@ export async function getBookingCaptureV2(
   journeyId: string,
   accessToken?: string,
 ): Promise<BookingCaptureV2> {
-  return auditCoreRequest<BookingCaptureV2>(`${base(tenantId, journeyId)}/capture`, {
-    accessToken: token(accessToken),
-    cache: 'no-store',
-  });
+  const access = token(accessToken);
+  const bookingBase = base(tenantId, journeyId);
+  try {
+    return await auditCoreRequest<BookingCaptureV2>(`${bookingBase}/capture`, {
+      accessToken: access,
+      cache: 'no-store',
+      timeoutMs: CAPTURE_STATUS_TIMEOUT_MS,
+    });
+  } catch (error) {
+    if (!(error instanceof AuditCoreTimeoutError)) throw error;
+    const local = await auditCoreRequest<BookingCaptureV2>(`${bookingBase}/capture-local`, {
+      accessToken: access,
+      cache: 'no-store',
+      timeoutMs: CAPTURE_STATUS_TIMEOUT_MS,
+    });
+    return { ...local, externalContextRef: `${LOCAL_FALLBACK_PREFIX}${local.externalContextRef}` };
+  }
 }
 
 export async function uploadBookingCaptureV2Files(

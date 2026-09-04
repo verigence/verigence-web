@@ -1,35 +1,74 @@
 /*
- * UC03 V2 final product-layout owner.
+ * UC03 V2 product-layout owner.
  * Scope is deliberately limited to Booking/Delivery V2 capture, details and review.
- * Existing component styles retain colour/branding/control semantics; this file owns
- * workspace width, desktop composition, scroll ownership and action reachability.
+ * The desktop principle is density, not stretch: a sparse operational workflow should
+ * stay inside a controlled work canvas instead of filling a 1500px+ white surface.
  */
 
-.screen-stack.uc03-v2-capture,
-.screen-stack.uc03-attribute-review-page,
-.screen-stack.uc03-delivery-review-v2 {
-  width: min(100%, 1680px);
-  max-width: 1680px;
-  margin-inline: auto;
+.enterprise-content > .screen-stack.uc03-v2-capture,
+.enterprise-content > .screen-stack.uc03-attribute-review-page,
+.enterprise-content > .screen-stack.uc03-delivery-review-v2 {
+  box-sizing: border-box;
+  width: min(calc(100% - 24px), 1180px) !important;
+  max-width: 1180px !important;
+  margin-inline: auto !important;
+  padding: 18px 20px 20px !important;
+  border-radius: 16px !important;
 }
 
-.screen-stack.uc03-v2-capture > .page-header,
-.screen-stack.uc03-attribute-review-page > .page-header,
-.screen-stack.uc03-delivery-review-v2 > .page-header {
-  margin-bottom: 0;
+/* Compact page identity: the title should orient the user, not dominate the screen. */
+.enterprise-content > .screen-stack.uc03-v2-capture > .page-header,
+.enterprise-content > .screen-stack.uc03-attribute-review-page > .page-header,
+.enterprise-content > .screen-stack.uc03-delivery-review-v2 > .page-header {
+  min-height: 0 !important;
+  margin: 0 0 10px !important;
+  padding: 12px 16px 13px !important;
+  border-radius: 12px !important;
 }
 
-.screen-stack.uc03-v2-capture > .page-header .page-header__copy,
-.screen-stack.uc03-attribute-review-page > .page-header .page-header__copy,
-.screen-stack.uc03-delivery-review-v2 > .page-header .page-header__copy {
-  max-width: 1120px;
+.enterprise-content > .screen-stack.uc03-v2-capture > .page-header .page-header__copy,
+.enterprise-content > .screen-stack.uc03-attribute-review-page > .page-header .page-header__copy,
+.enterprise-content > .screen-stack.uc03-delivery-review-v2 > .page-header .page-header__copy {
+  max-width: 820px !important;
 }
 
-/* Booking and Delivery V2 both have exactly two capture steps. */
-.uc03-v2-capture .uc03-booking-steps {
+.enterprise-content > .screen-stack.uc03-v2-capture > .page-header h1,
+.enterprise-content > .screen-stack.uc03-attribute-review-page > .page-header h1,
+.enterprise-content > .screen-stack.uc03-delivery-review-v2 > .page-header h1 {
+  margin-block: 2px 4px !important;
+  font-size: clamp(1.45rem, 1.8vw, 1.8rem) !important;
+  line-height: 1.08 !important;
+}
+
+.enterprise-content > .screen-stack.uc03-v2-capture > .page-header p,
+.enterprise-content > .screen-stack.uc03-attribute-review-page > .page-header p,
+.enterprise-content > .screen-stack.uc03-delivery-review-v2 > .page-header p {
+  max-width: 780px !important;
+  margin: 0 !important;
+  font-size: 0.9rem !important;
+  line-height: 1.35 !important;
+}
+
+.enterprise-content > .screen-stack.uc03-v2-capture .uc03-c1-topbar,
+.enterprise-content > .screen-stack.uc03-attribute-review-page .uc03-c1-topbar,
+.enterprise-content > .screen-stack.uc03-delivery-review-v2 .uc03-c1-topbar {
+  min-height: 20px !important;
+  margin-bottom: 6px !important;
+}
+
+/* Booking and Delivery V2 have two capture steps; keep the stepper compact and readable. */
+.enterprise-content > .screen-stack.uc03-v2-capture .uc03-booking-steps {
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  width: min(100%, 780px);
-  margin-bottom: 8px;
+  width: min(100%, 560px) !important;
+  gap: 8px !important;
+  margin: 0 0 10px !important;
+}
+
+.enterprise-content > .screen-stack.uc03-v2-capture .uc03-booking-steps button {
+  min-height: 38px !important;
+  padding-inline: 12px !important;
+  border-radius: 9px !important;
+  font-size: 0.86rem !important;
 }
 
 /* Keep primary journey actions reachable without creating a second page scrollbar. */
@@ -38,126 +77,150 @@
 .uc03-delivery-v2-submit-complete,
 .uc03-attribute-review-page .uc03-attribute-confirm-panel,
 .uc03-delivery-review-v2 .uc03-attribute-confirm-panel {
-  scroll-margin-bottom: 88px;
+  scroll-margin-bottom: 72px;
 }
 
-/* Booking details: exploit desktop width instead of stacking ten controls into two columns. */
-.uc03-v2-capture:not(.uc03-delivery-v2-page) .uc03-booking-details-grid {
+/* Booking Details: two columns are denser and easier to scan than three stretched columns. */
+.enterprise-content > .screen-stack.uc03-v2-capture:not(.uc03-delivery-v2-page) .uc03-booking-details-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(190px, 1fr));
-  gap: 16px;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  gap: 11px 14px !important;
 }
 
-.uc03-v2-capture:not(.uc03-delivery-v2-page) .uc03-v2-carried-forward {
+.enterprise-content > .screen-stack.uc03-v2-capture:not(.uc03-delivery-v2-page) .uc03-v2-carried-forward {
   display: grid;
-  grid-template-columns: minmax(220px, 1.35fr) repeat(3, minmax(145px, 0.7fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  gap: 10px 14px !important;
   align-items: center;
 }
 
-/* Booking Review: one deliberate scroll owner for the large business-value table. */
-.uc03-attribute-review-page .uc03-attribute-table-wrap {
-  max-height: min(58vh, 650px);
+.enterprise-content > .screen-stack.uc03-v2-capture .uc03-booking-step-panel {
+  padding: 14px 15px !important;
+  border-radius: 12px !important;
+}
+
+.enterprise-content > .screen-stack.uc03-v2-capture .uc03-booking-step-heading {
+  margin-bottom: 9px !important;
+  padding-bottom: 8px !important;
+}
+
+.enterprise-content > .screen-stack.uc03-v2-capture .uc03-booking-step-heading h2 {
+  font-size: 1.28rem !important;
+  line-height: 1.12 !important;
+}
+
+/* Booking Review: use the width for the data, not for decorative whitespace. */
+.enterprise-content > .screen-stack.uc03-attribute-review-page .uc03-attribute-table-wrap {
+  max-height: min(60vh, 620px);
   overflow: auto;
   overscroll-behavior: contain;
   scrollbar-gutter: stable;
 }
 
-.uc03-attribute-review-page .uc03-attribute-table th {
+.enterprise-content > .screen-stack.uc03-attribute-review-page .uc03-attribute-table th {
   top: 0;
 }
 
-.uc03-attribute-review-page .uc03-attribute-confirm-panel,
-.uc03-delivery-review-v2 .uc03-attribute-confirm-panel {
+.enterprise-content > .screen-stack.uc03-attribute-review-page .uc03-attribute-confirm-panel,
+.enterprise-content > .screen-stack.uc03-delivery-review-v2 .uc03-attribute-confirm-panel {
   position: sticky;
   bottom: 8px;
   z-index: 20;
+  padding: 12px 14px !important;
+  border-radius: 11px !important;
   background: rgba(255, 255, 255, 0.97);
-  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.13);
+  box-shadow: 0 10px 26px rgba(15, 23, 42, 0.12);
   backdrop-filter: blur(10px);
 }
 
-.uc03-attribute-review-page .uc03-raw-review-grid {
+.enterprise-content > .screen-stack.uc03-attribute-review-page .uc03-raw-review-grid {
   grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px !important;
 }
 
-/* Delivery Capture already has three business groups; retain them and improve density. */
-.uc03-delivery-v2-page .uc03-delivery-v2-groups {
-  gap: 14px;
+/* Delivery Capture: one compact upload rail + one useful inventory surface. */
+.enterprise-content > .screen-stack.uc03-delivery-v2-page .uc03-delivery-v2-summary {
+  gap: 8px !important;
 }
 
-.uc03-delivery-v2-page .uc03-delivery-v2-group {
-  padding: 14px;
+.enterprise-content > .screen-stack.uc03-delivery-v2-page .uc03-delivery-v2-groups {
+  gap: 10px !important;
 }
 
-/* Delivery Review: retain dense rows but make source/effective-value columns usable. */
-.uc03-delivery-review-v2 .uc03-delivery-review-section {
-  gap: 10px;
-  padding: 18px;
+.enterprise-content > .screen-stack.uc03-delivery-v2-page .uc03-delivery-v2-group {
+  padding: 12px !important;
+  border-radius: 11px !important;
 }
 
-.uc03-delivery-review-v2 .uc03-delivery-review-field {
-  grid-template-columns: minmax(170px, 0.8fr) minmax(220px, 1fr) minmax(300px, 1.55fr) auto;
-  gap: 14px;
-  padding: 12px 14px;
+/* Delivery Review stays dense; source/effective value remain readable without over-expanding. */
+.enterprise-content > .screen-stack.uc03-delivery-review-v2 .uc03-delivery-review-section {
+  gap: 8px !important;
+  padding: 14px !important;
 }
 
-.uc03-delivery-review-v2 .uc03-delivery-review-tabs {
+.enterprise-content > .screen-stack.uc03-delivery-review-v2 .uc03-delivery-review-field {
+  grid-template-columns: minmax(145px, 0.75fr) minmax(180px, 0.95fr) minmax(240px, 1.35fr) auto !important;
+  gap: 10px !important;
+  padding: 10px 12px !important;
+}
+
+.enterprise-content > .screen-stack.uc03-delivery-review-v2 .uc03-delivery-review-tabs {
   position: sticky;
   top: 0;
   z-index: 8;
-  padding-block: 6px;
+  padding-block: 5px;
   background: var(--ion-background-color, #fff);
 }
 
-@media (min-width: 1180px) {
-  /* Booking Capture: upload/evidence context on the left, variable document list on the right. */
-  .uc03-v2-compact .uc03-v2-compact-panel {
-    grid-template-columns: minmax(300px, 0.72fr) minmax(0, 1.55fr);
-    gap: 18px;
+@media (min-width: 1080px) {
+  /* Booking Capture: compact left action rail, evidence inventory on the right. */
+  .enterprise-content > .screen-stack.uc03-v2-capture .uc03-v2-compact-panel {
+    grid-template-columns: minmax(260px, 0.72fr) minmax(0, 1.65fr) !important;
+    gap: 14px !important;
     align-items: start;
-    padding: 18px;
+    padding: 14px !important;
   }
 
-  .uc03-v2-compact .uc03-v2-compact-panel > .uc03-v2-compact-upload {
+  .enterprise-content > .screen-stack.uc03-v2-capture .uc03-v2-compact-panel > .uc03-v2-compact-upload {
     grid-column: 1;
     grid-row: 1 / span 20;
     position: sticky;
-    top: 76px;
+    top: 72px;
     flex-direction: column;
     align-items: stretch;
     min-width: 0;
   }
 
-  .uc03-v2-compact .uc03-v2-compact-panel > :not(.uc03-v2-compact-upload) {
+  .enterprise-content > .screen-stack.uc03-v2-capture .uc03-v2-compact-panel > :not(.uc03-v2-compact-upload) {
     grid-column: 2;
   }
 
-  .uc03-v2-compact .uc03-v2-compact-upload .uc03-v2-upload-actions {
+  .enterprise-content > .screen-stack.uc03-v2-capture .uc03-v2-compact-upload .uc03-v2-upload-actions {
     width: 100%;
   }
 
-  .uc03-v2-compact .uc03-v2-compact-upload .uc03-v2-upload-actions > * {
-    flex: 1 1 140px;
+  .enterprise-content > .screen-stack.uc03-v2-capture .uc03-v2-compact-upload .uc03-v2-upload-actions > * {
+    flex: 1 1 120px;
   }
 
-  .uc03-v2-compact .uc03-v2-document-help {
+  .enterprise-content > .screen-stack.uc03-v2-capture .uc03-v2-document-help {
     position: static;
     grid-template-columns: 1fr;
     min-width: 0;
     max-width: none;
-    margin-top: 10px;
+    margin-top: 8px;
     box-shadow: none;
   }
 
-  /* Delivery Capture: upload controls and received-document inventory share the first row. */
-  .screen-stack.uc03-v2-capture.uc03-delivery-v2-page:not(.uc03-booking-journey) {
+  /* Delivery Capture: 40/60 split keeps both sides substantial without leaving dead space. */
+  .enterprise-content > .screen-stack.uc03-v2-capture.uc03-delivery-v2-page:not(.uc03-booking-journey) {
     display: grid;
-    grid-template-columns: repeat(12, minmax(0, 1fr));
-    gap: 14px 16px;
+    grid-template-columns: repeat(10, minmax(0, 1fr));
+    gap: 10px 14px;
     align-items: start;
   }
 
-  .screen-stack.uc03-v2-capture.uc03-delivery-v2-page:not(.uc03-booking-journey) > :is(
+  .enterprise-content > .screen-stack.uc03-v2-capture.uc03-delivery-v2-page:not(.uc03-booking-journey) > :is(
     .uc03-c1-topbar,
     .page-header,
     .uc03-booking-steps,
@@ -172,28 +235,35 @@
     grid-column: 1 / -1;
   }
 
-  .screen-stack.uc03-v2-capture.uc03-delivery-v2-page:not(.uc03-booking-journey) > .uc03-delivery-v2-upload-panel {
+  .enterprise-content > .screen-stack.uc03-v2-capture.uc03-delivery-v2-page:not(.uc03-booking-journey) > .uc03-delivery-v2-upload-panel {
     grid-column: span 4;
     position: sticky;
-    top: 76px;
+    top: 72px;
     min-width: 0;
     height: fit-content;
   }
 
-  .screen-stack.uc03-v2-capture.uc03-delivery-v2-page:not(.uc03-booking-journey) > .uc03-upload-inventory {
-    grid-column: span 8;
+  .enterprise-content > .screen-stack.uc03-v2-capture.uc03-delivery-v2-page:not(.uc03-booking-journey) > .uc03-upload-inventory {
+    grid-column: span 6;
     min-width: 0;
     margin: 0;
   }
 
-  /* Delivery Details: three handover activities can be worked side by side on desktop. */
-  .screen-stack.uc03-v2-capture.uc03-delivery-v2-page.uc03-booking-journey {
+  .enterprise-content > .screen-stack.uc03-v2-capture.uc03-delivery-v2-page:not(.uc03-booking-journey) > .uc03-delivery-v2-groups {
     display: grid;
-    grid-template-columns: repeat(12, minmax(0, 1fr));
-    gap: 16px;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
-  .screen-stack.uc03-v2-capture.uc03-delivery-v2-page.uc03-booking-journey > :is(
+  /* Delivery Details: three compact activity cards fit cleanly inside 1180px. */
+  .enterprise-shell--approved-nav .enterprise-content > .screen-stack.uc03-v2-capture.uc03-delivery-v2-page.uc03-booking-journey {
+    display: grid;
+    width: min(calc(100% - 24px), 1180px) !important;
+    max-width: 1180px !important;
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+    gap: 12px;
+  }
+
+  .enterprise-shell--approved-nav .enterprise-content > .screen-stack.uc03-v2-capture.uc03-delivery-v2-page.uc03-booking-journey > :is(
     .uc03-c1-topbar,
     .page-header,
     .uc03-booking-steps,
@@ -204,65 +274,79 @@
     grid-column: 1 / -1;
   }
 
-  .screen-stack.uc03-v2-capture.uc03-delivery-v2-page.uc03-booking-journey > .uc03-booking-step-panel {
+  .enterprise-shell--approved-nav .enterprise-content > .screen-stack.uc03-v2-capture.uc03-delivery-v2-page.uc03-booking-journey > .uc03-booking-step-panel {
     grid-column: span 4;
     display: flex;
     flex-direction: column;
     min-width: 0;
     height: 100%;
+    padding: 13px !important;
   }
 
-  .screen-stack.uc03-v2-capture.uc03-delivery-v2-page.uc03-booking-journey > .uc03-booking-step-panel .uc03-booking-step-footer {
+  .enterprise-shell--approved-nav .enterprise-content > .screen-stack.uc03-v2-capture.uc03-delivery-v2-page.uc03-booking-journey > .uc03-booking-step-panel .uc03-booking-step-footer {
     margin-top: auto;
   }
 
-  .screen-stack.uc03-v2-capture.uc03-delivery-v2-page.uc03-booking-journey > .uc03-booking-step-panel .uc03-booking-details-grid {
-    grid-template-columns: 1fr;
+  .enterprise-shell--approved-nav .enterprise-content > .screen-stack.uc03-v2-capture.uc03-delivery-v2-page.uc03-booking-journey > .uc03-booking-step-panel .uc03-booking-details-grid {
+    grid-template-columns: 1fr !important;
   }
 }
 
-@media (min-width: 760px) and (max-width: 1179px) {
-  .uc03-v2-capture:not(.uc03-delivery-v2-page) .uc03-booking-details-grid {
+@media (min-width: 760px) and (max-width: 1079px) {
+  .enterprise-content > .screen-stack.uc03-v2-capture,
+  .enterprise-content > .screen-stack.uc03-attribute-review-page,
+  .enterprise-content > .screen-stack.uc03-delivery-review-v2 {
+    width: min(calc(100% - 20px), 980px) !important;
+    padding: 16px 18px 18px !important;
+  }
+
+  .enterprise-content > .screen-stack.uc03-v2-capture:not(.uc03-delivery-v2-page) .uc03-booking-details-grid,
+  .enterprise-content > .screen-stack.uc03-v2-capture:not(.uc03-delivery-v2-page) .uc03-v2-carried-forward {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  .enterprise-content > .screen-stack.uc03-delivery-v2-page .uc03-delivery-v2-groups {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .uc03-v2-capture:not(.uc03-delivery-v2-page) .uc03-v2-carried-forward {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .uc03-delivery-v2-page .uc03-delivery-v2-groups {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .uc03-delivery-v2-page .uc03-delivery-v2-group:last-child:nth-child(odd) {
+  .enterprise-content > .screen-stack.uc03-delivery-v2-page .uc03-delivery-v2-group:last-child:nth-child(odd) {
     grid-column: 1 / -1;
   }
 }
 
 @media (max-width: 759px) {
-  .screen-stack.uc03-v2-capture,
-  .screen-stack.uc03-attribute-review-page,
-  .screen-stack.uc03-delivery-review-v2 {
-    width: 100%;
+  .enterprise-content > .screen-stack.uc03-v2-capture,
+  .enterprise-content > .screen-stack.uc03-attribute-review-page,
+  .enterprise-content > .screen-stack.uc03-delivery-review-v2 {
+    width: 100% !important;
+    max-width: 100% !important;
+    padding: 13px !important;
+    border-radius: 14px !important;
   }
 
-  .uc03-v2-capture .uc03-booking-steps {
-    width: 100%;
+  .enterprise-content > .screen-stack.uc03-v2-capture > .page-header,
+  .enterprise-content > .screen-stack.uc03-attribute-review-page > .page-header,
+  .enterprise-content > .screen-stack.uc03-delivery-review-v2 > .page-header {
+    padding: 11px 12px !important;
   }
 
-  .uc03-v2-capture:not(.uc03-delivery-v2-page) .uc03-booking-details-grid,
-  .uc03-v2-capture:not(.uc03-delivery-v2-page) .uc03-v2-carried-forward,
-  .uc03-attribute-review-page .uc03-raw-review-grid {
-    grid-template-columns: 1fr;
+  .enterprise-content > .screen-stack.uc03-v2-capture .uc03-booking-steps {
+    width: 100% !important;
   }
 
-  .uc03-attribute-review-page .uc03-attribute-table-wrap {
+  .enterprise-content > .screen-stack.uc03-v2-capture:not(.uc03-delivery-v2-page) .uc03-booking-details-grid,
+  .enterprise-content > .screen-stack.uc03-v2-capture:not(.uc03-delivery-v2-page) .uc03-v2-carried-forward,
+  .enterprise-content > .screen-stack.uc03-attribute-review-page .uc03-raw-review-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .enterprise-content > .screen-stack.uc03-attribute-review-page .uc03-attribute-table-wrap {
     max-height: none;
   }
 
-  .uc03-attribute-review-page .uc03-attribute-confirm-panel,
-  .uc03-delivery-review-v2 .uc03-attribute-confirm-panel,
-  .uc03-delivery-review-v2 .uc03-delivery-review-tabs {
+  .enterprise-content > .screen-stack.uc03-attribute-review-page .uc03-attribute-confirm-panel,
+  .enterprise-content > .screen-stack.uc03-delivery-review-v2 .uc03-attribute-confirm-panel,
+  .enterprise-content > .screen-stack.uc03-delivery-review-v2 .uc03-delivery-review-tabs {
     position: static;
   }
 }

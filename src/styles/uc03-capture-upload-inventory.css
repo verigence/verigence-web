@@ -1,0 +1,140 @@
+.uc03-upload-inventory {
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+  border: 1px solid rgba(24, 40, 62, 0.12);
+  border-radius: 16px;
+  background: var(--verigence-white, #ffffff);
+}
+
+.uc03-upload-inventory > header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.uc03-upload-inventory > header > div {
+  display: grid;
+  gap: 3px;
+}
+
+.uc03-upload-inventory h2,
+.uc03-upload-inventory p {
+  margin: 0;
+}
+
+.uc03-upload-inventory p {
+  color: #667085;
+  font-size: 0.86rem;
+}
+
+.uc03-upload-inventory > header > strong {
+  min-width: 2.2rem;
+  min-height: 2.2rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: var(--verigence-mist-50, #f4f8fb);
+  color: var(--verigence-blue-900, #003a82);
+}
+
+.uc03-upload-inventory__list {
+  display: grid;
+  gap: 8px;
+}
+
+.uc03-upload-inventory__row {
+  display: grid;
+  grid-template-columns: minmax(180px, 1.2fr) minmax(180px, 1fr) auto;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 14px;
+  border: 1px solid rgba(24, 40, 62, 0.1);
+  border-radius: 12px;
+  background: var(--verigence-mist-50, #f4f8fb);
+}
+
+.uc03-upload-inventory__identity,
+.uc03-upload-inventory__status {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.uc03-upload-inventory__identity > span,
+.uc03-upload-inventory__status > span {
+  color: #667085;
+  font-size: 0.76rem;
+}
+
+.uc03-upload-inventory__identity > strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.uc03-upload-inventory__status > strong {
+  color: var(--verigence-slate-700, #1f2937);
+  overflow-wrap: anywhere;
+}
+
+.uc03-upload-inventory__actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.uc03-upload-inventory__actions a,
+.uc03-upload-inventory__actions button {
+  min-height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 12px;
+  border: 1px solid rgba(24, 40, 62, 0.14);
+  border-radius: 9px;
+  background: var(--verigence-white, #ffffff);
+  color: inherit;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 700;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.uc03-upload-inventory__actions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+@media (max-width: 900px) {
+  .uc03-upload-inventory__row {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .uc03-upload-inventory__status {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+}
+
+@media (max-width: 620px) {
+  .uc03-upload-inventory > header,
+  .uc03-upload-inventory__row {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .uc03-upload-inventory__identity > strong {
+    white-space: normal;
+  }
+
+  .uc03-upload-inventory__actions {
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
+}

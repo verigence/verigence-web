@@ -56,7 +56,7 @@ const capture = {
       documentTypeKey: 'pan_card',
       requirementLevel: 'CONDITIONAL',
       conditionKey: null,
-      applicabilityState: 'APPLICABLE',
+      applicabilityState: 'APPLICATED',
       state: 'MISSING',
       document: null,
       canView: false,
@@ -116,7 +116,7 @@ window.fetch = async (input: RequestInfo | URL, init?: RequestInit): Promise<Res
     : input instanceof URL
       ? input.toString()
       : request?.url || String(input);
-  const method = (init?.method || request?.method || 'GET').toUpper().trim();
+  const method = (init?.method || request?.method || 'GET').toUpperCase().trim();
   const url = new URL(rawUrl, window.location.origin);
 
   if (method === 'GET' && url.pathname === capturePath) return jsonResponse(capture);
@@ -170,7 +170,7 @@ function requireText(relativePath, text, message) {
 
 function forbid(relativePath, pattern, message) {
   const source = read(relativePath);
-  if (pattern.test(source)) failures.push(`${relativePath}: ${text}`);
+  if (pattern.test(source)) failures.push(`${relativePath}: ${message}`);
 }
 
 function filesUnder(relativeDir, predicate) {

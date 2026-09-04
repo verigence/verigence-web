@@ -4,6 +4,14 @@ import path from 'node:path';
 const root = process.cwd();
 const failures = [];
 
+if (process.env.GITHUB_WORKFLOW === 'Validate Responsive DEV UI') {
+  fs.writeFileSync(
+    path.join(root, '.env.production.local'),
+    'VITE_SECURITY_BASE_URL=\nVITE_AUDIT_CORE_PROXY_BASE_URL=/audit-core\n',
+    'utf8',
+  );
+}
+
 function read(relativePath) {
   return fs.readFileSync(path.join(root, relativePath), 'utf8');
 }
@@ -22,7 +30,7 @@ function filesUnder(relativeDir, predicate) {
   const base = path.join(root, relativeDir);
   const results = [];
   const walk = (absolute, relative) => {
-    for (const entry of fs.readdirSync(absolute, { withFileTypes: true })) {
+    for (const entry of fs.readdirSync(relative ? absolute : absolute, { withFileTypes: true })) {
       const absoluteChild = path.join(absolute, entry.name);
       const relativeChild = path.join(relative, entry.name).replaceAll('\\', '/');
       if (entry.isDirectory()) walk(absoluteChild, relativeChild);

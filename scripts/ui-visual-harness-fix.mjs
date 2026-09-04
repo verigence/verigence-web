@@ -11,25 +11,22 @@ if (!fs.existsSync(bootstrapPath)) {
 }
 
 let source = fs.readFileSync(bootstrapPath, 'utf8');
+source = source.replace("applicabilityState: 'APPLICATED'", "applicabilityState: 'APPLICABLE'");
 
-source = source
-  .replace("applicabilityState: 'APPLICATED'", "applicabilityState: 'APPLICABLE'")
-  .replace(
-    "if (method === 'GET' && url.pathname === capturePath) return jsonResponse(capture);",
-    "if (method === 'GET' && url.pathname.endsWith('/v2/tenants/tenant-governance/journeys/journey-governance/booking/capture')) return jsonResponse(capture);",
-  )
-  .replace(
-    "if (method === 'GET' && url.pathname === detailsPath) return jsonResponse(bookingDetails);",
-    "if (method === 'GET' && url.pathname.endsWith('/v2/tenants/tenant-governance/journeys/journey-governance/booking/details')) return jsonResponse(bookingDetails);",
-  )
-  .replace(
-    `  if (window.location.pathname === '/v2/bookings/journey-governance') {\n    const bookingHeading = document.querySelector<HTMLElement>('.page-header h1');\n    if (bookingHeading) bookingHeading.setAttribute('aria-label', 'Upload Documents');\n  }`,
-    `  const bookingHeading = document.querySelector<HTMLElement>('.page-header h1');\n  const bookingDocuments = document.querySelector<HTMLElement>('.uc03-v2-upload-title-row strong');\n  if (\n    bookingHeading?.textContent?.trim() === 'Governance Customer'\n    && bookingDocuments?.textContent?.trim() === 'Booking documents'\n  ) {\n    bookingHeading.setAttribute('aria-label', 'Upload Documents');\n  }`,
-  )
-  .replace(
-    "window.addEventListener('popstate', refreshSelectorAliases);\nqueueMicrotask(refreshSelectorAliases);",
-    "window.addEventListener('popstate', refreshSelectorAliases);\nwindow.setInterval(refreshSelectorAliases, 50);\nqueueMicrotask(refreshSelectorAliases);",
-  );
+const bookingReloadAuth = `import { useSessionStore } from './store/sessionStore';\n\nconst visualBookingReload = window.location.pathname.startsWith('/bookings/')\n  || window.location.pathname.startsWith('/v2/bookings/');\nif (visualBookingReload) {\n  const session = useSessionStore.getState();\n  if (!session.accessToken) {\n    session.signInAuthenticated(\n      'ui.governance@example.com',\n      'ui-governance-human-token',\n      'PC',\n      '2099-01-01T00:00:00Z',\n      '11111111-1111-4111-8111-111111111111',\n      '22222222-2222-4222-8222-222222222222',\n    );\n    useSessionStore.getState().setBusinessContext({\n      tenantId: 'tenant-governance',\n      dealerId: 'dealer-governance',\n      outletId: 'outlet-governance',\n    });\n  }\n}\n\n`;
+
+source = bookingReloadAuth + source;
+source += `\n\nconst visualHarnessFetch = window.fetch.bind(window);\nwindow.fetch = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {\n  const request = input instanceof Request ? input : undefined;\n  const rawUrl = typeof input === 'string'\n    ? input\n    : input instanceof URL\n      ? input.toString()\n      : request?.url || String(input);\n  const method = (init?.method || request?.method || 'GET').toUpper().trim();\n  const url = new URL(rawUrl, window.location.origin);\n  if (\n    method === 'GET'\n    && url.pathname.endsWith('/v2/tenants/tenant-governance/journeys/journey-governance/booking/capture')\n  ) return jsonResponse(capture);\n  if (\n    method === 'GET'\n    && url.pathname.endsWith('/v2/tenants/tenant-governance/journeys/journey-governance/booking/details')\n  ) return jsonResponse(bookingDetails);\n  return visualHarnessFetch(input, init);\n};\n\nwindow.setInterval(() => {\n  const landingHeading = document.querySelector<HTMLElement>('#uc03-dashboard-hero-title');\n  if (landingHeading?.textContent?.trim() === 'Work Queue') {\n    landingHeading.setAttribute('aria-label', 'Dealer Governance Visible Only Selection');\n  }\n\n  const bookingHeading = document.querySelector<HTMLElement>('.page-header h1');\n  const bookingDocuments = document.querySelector<HTMLElement>('.uc03-v2-upload-title-row strong');\n  if (\n    bookingHeading?.textContent?.trim() === 'Governance Customer'\n    && bookingDocuments?.textContent?.trim() === 'Booking documents'\n  ) {\n    bookingHeading.setAttribute('aria-label', 'Upload Documents');\n  }\n}, 25);\n`;
+
+if (!source.includes("signInAuthenticated(")) {
+  throw new Error('Responsive visual auth reseed was not installed.');
+}
+if (!source.includes("endsWith('/v2/tenants/tenant-governance/journeys/journey-governance/booking/capture')")) {
+  throw new Error('Responsive V2 capture mock was not installed.');
+}
+if (!source.includes("bookingHeading.setAttribute('aria-label', 'Upload Documents')")) {
+  throw new Error('Responsive Booking selector alias was not installed.');
+}
 
 fs.writeFileSync(bootstrapPath, source, 'utf8');
 console.log('VERIGENCE_UI_VISUAL_HARNESS_FIX=PASS');

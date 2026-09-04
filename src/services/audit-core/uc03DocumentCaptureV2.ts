@@ -1,4 +1,4 @@
-import { AuditCoreTimeoutError, auditCoreRequest } from './client';
+import { auditCoreRequest } from './client';
 import { newIdempotencyKey } from './uc03Booking';
 
 export type CaptureV2Applicability = 'APPLICABLE' | 'NOT_APPLICABLE' | 'UNRESOLVED';
@@ -93,12 +93,65 @@ function clientUploadId(): string {
 }
 
 const EXTRACTION_POLL_WINDOW_MS = 2 * 60_000;
-const CAPTURE_STATUS_TIMEOUT_MS = 3_000;
+const LOCAL_CAPTURE_TIMEOUT_MS = 8_000;
+const LIVE_CAPTURE_TIMEOUT_MS = 18_000;
+const LIVE_REFRESH_MIN_INTERVAL_MS = 5_000;
 const LOCAL_FALLBACK_POLL_WINDOW_MS = 30_000;
 const extractionPollStartedAt = new Map<string, number>();
 const localFallbackPollStartedAt = new Map<string, number>();
 const PENDING_PROCESSING_STATES = new Set(['NOT_STARTED', 'PROCESSING', 'RETRY_PENDING']);
 const LOCAL_FALLBACK_PREFIX = 'fallback:';
+
+interface CaptureReadState {
+  snapshot?: BookingCaptureV2;
+  liveInFlight?: Promise<void>;
+  lastLiveStartedAt: number;
+}
+
+const captureReadState = new Map<string, CaptureReadState>();
+
+function readKey(tenantId: string, journeyId: string): string {
+  return `${tenantId}:${journeyId}`;
+}
+
+function markLocal(capture: BookingCaptureV2): BookingCaptureV2 {
+  if (capture.externalContextRef.startsWith(LOCAL_FALLBACK_PREFIX)) return capture;
+  return { ...capture, externalContextRef: `${LOCAL_FALLBACK_PREFIX}${capture.externalContextRef}` };
+}
+
+function invalidateCaptureReadState(tenantId: string, journeyId: string): void {
+  captureReadState.delete(readKey(tenantId, journeyId));
+  localFallbackPollStartedAt.delete(journeyId);
+}
+
+function scheduleLiveRefresh(
+  tenantId: string,
+  journeyId: string,
+  accessToken: string,
+  state: CaptureReadState,
+): void {
+  const now = Date.now();
+  if (state.liveInFlight || now - state.lastLiveStartedAt < LIVE_REFRESH_MIN_INTERVAL_MS) return;
+
+  state.lastLiveStartedAt = now;
+  const bookingBase = base(tenantId, journeyId);
+  const refresh = auditCoreRequest<BookingCaptureV2>(`${bookingBase}/capture`, {
+    accessToken,
+    cache: 'no-store',
+    timeoutMs: LIVE_CAPTURE_TIMEOUT_MS,
+  })
+    .then((live) => {
+      state.snapshot = live;
+      localFallbackPollStartedAt.delete(journeyId);
+    })
+    .catch(() => {
+      // Durable Audit Core state remains usable. DI status is supplementary to first paint.
+    })
+    .finally(() => {
+      if (state.liveInFlight === refresh) state.liveInFlight = undefined;
+    });
+  state.liveInFlight = refresh;
+}
 
 /**
  * Keep the V2 capture query live while either classification or the extraction
@@ -107,10 +160,8 @@ const LOCAL_FALLBACK_PREFIX = 'fallback:';
  * legitimately still say NOT_STARTED because the processing worker has not yet
  * claimed the newly-created INITIAL job.
  *
- * If the DI-backed status read exceeded the screen-read budget, getBookingCaptureV2
- * returns durable Audit Core state immediately and marks it as a local fallback.
- * Keep retrying that fallback for a bounded window so content links and processing
- * status recover automatically when DI becomes responsive again.
+ * Initial page paint is always backed by durable Audit Core state. DI reconciliation
+ * is throttled in the background and can never hold the screen-open path hostage.
  */
 export function captureV2HasPendingClassification(capture?: BookingCaptureV2): boolean {
   if (!capture) return false;
@@ -131,8 +182,6 @@ export function captureV2HasPendingClassification(capture?: BookingCaptureV2): b
       pending = true;
       continue;
     }
-    // Finalize can race a very fast classifier. Until a capture read provides the
-    // accepted type, keep polling once more so requirements are reconciled correctly.
     if (state === 'CLASSIFIED' && !document.classifiedDocumentTypeKey) {
       pending = true;
       continue;
@@ -158,22 +207,27 @@ export async function getBookingCaptureV2(
   accessToken?: string,
 ): Promise<BookingCaptureV2> {
   const access = token(accessToken);
-  const bookingBase = base(tenantId, journeyId);
-  try {
-    return await auditCoreRequest<BookingCaptureV2>(`${bookingBase}/capture`, {
-      accessToken: access,
-      cache: 'no-store',
-      timeoutMs: CAPTURE_STATUS_TIMEOUT_MS,
-    });
-  } catch (error) {
-    if (!(error instanceof AuditCoreTimeoutError)) throw error;
-    const local = await auditCoreRequest<BookingCaptureV2>(`${bookingBase}/capture-local`, {
-      accessToken: access,
-      cache: 'no-store',
-      timeoutMs: CAPTURE_STATUS_TIMEOUT_MS,
-    });
-    return { ...local, externalContextRef: `${LOCAL_FALLBACK_PREFIX}${local.externalContextRef}` };
+  const key = readKey(tenantId, journeyId);
+  const existing = captureReadState.get(key);
+
+  if (existing?.snapshot) {
+    scheduleLiveRefresh(tenantId, journeyId, access, existing);
+    return existing.snapshot;
   }
+
+  const bookingBase = base(tenantId, journeyId);
+  const local = markLocal(await auditCoreRequest<BookingCaptureV2>(`${bookingBase}/capture-local`, {
+    accessToken: access,
+    cache: 'no-store',
+    timeoutMs: LOCAL_CAPTURE_TIMEOUT_MS,
+  }));
+  const state: CaptureReadState = {
+    snapshot: local,
+    lastLiveStartedAt: 0,
+  };
+  captureReadState.set(key, state);
+  scheduleLiveRefresh(tenantId, journeyId, access, state);
+  return local;
 }
 
 export async function uploadBookingCaptureV2Files(
@@ -246,10 +300,9 @@ export async function uploadBookingCaptureV2Files(
     }
   };
 
-  // Six parallel direct-to-storage streams match the DI classifier pool and avoid
-  // over-saturating mobile connections while still keeping multi-document capture fast.
   const concurrency = Math.min(6, intent.uploads.length);
   await Promise.all(Array.from({ length: concurrency }, () => uploadWorker()));
+  invalidateCaptureReadState(tenantId, journeyId);
   return finalized;
 }
 
@@ -266,6 +319,7 @@ export async function deleteBookingCaptureV2Document(
       accessToken: token(accessToken),
     },
   );
+  invalidateCaptureReadState(tenantId, journeyId);
 }
 
 export async function setBookingCaptureV2Declaration(
@@ -276,7 +330,7 @@ export async function setBookingCaptureV2Declaration(
   documentAvailable: boolean | null,
   accessToken?: string,
 ): Promise<BookingCaptureV2> {
-  return auditCoreRequest<BookingCaptureV2>(
+  const result = await auditCoreRequest<BookingCaptureV2>(
     `${base(tenantId, journeyId)}/declarations/${encodeURIComponent(conditionKey)}`,
     {
       method: 'PUT',
@@ -284,6 +338,8 @@ export async function setBookingCaptureV2Declaration(
       body: JSON.stringify({ applicable, documentAvailable }),
     },
   );
+  invalidateCaptureReadState(tenantId, journeyId);
+  return result;
 }
 
 export async function completeBookingCaptureV2(
@@ -292,7 +348,7 @@ export async function completeBookingCaptureV2(
   aggregateVersion: number,
   accessToken?: string,
 ): Promise<BookingCaptureV2Completion> {
-  return auditCoreRequest<BookingCaptureV2Completion>(`${base(tenantId, journeyId)}/complete`, {
+  const result = await auditCoreRequest<BookingCaptureV2Completion>(`${base(tenantId, journeyId)}/complete`, {
     method: 'POST',
     accessToken: token(accessToken),
     headers: {
@@ -300,4 +356,6 @@ export async function completeBookingCaptureV2(
       'If-Match': `"${aggregateVersion}"`,
     },
   });
+  invalidateCaptureReadState(tenantId, journeyId);
+  return result;
 }

@@ -1,4 +1,4 @@
-import { auditCoreRawRequest, auditCoreRequest } from './client';
+import { auditCoreRequest } from './client';
 import { newIdempotencyKey } from './uc03Booking';
 import type { CaptureV2Document, CaptureV2Requirement } from './uc03DocumentCaptureV2';
 
@@ -54,25 +54,6 @@ function clientUploadId(): string {
 }
 
 const PENDING_CLASSIFICATION_STATES = new Set(['RECEIVING', 'STORED', 'CLASSIFYING']);
-const CAPTURE_RECONCILE_MIN_INTERVAL_MS = 5_000;
-const captureReconcileInFlight = new Set<string>();
-const captureReconcileStartedAt = new Map<string, number>();
-
-function scheduleDeliveryCaptureReconciliation(path: string, accessToken: string): void {
-  const now = Date.now();
-  const lastStartedAt = captureReconcileStartedAt.get(path) ?? 0;
-  if (captureReconcileInFlight.has(path) || now - lastStartedAt < CAPTURE_RECONCILE_MIN_INTERVAL_MS) return;
-
-  captureReconcileStartedAt.set(path, now);
-  captureReconcileInFlight.add(path);
-  void auditCoreRawRequest(path, {
-    accessToken,
-    cache: 'no-store',
-    timeoutMs: 10_000,
-  })
-    .catch(() => undefined)
-    .finally(() => captureReconcileInFlight.delete(path));
-}
 
 export function deliveryCaptureV2IsProcessing(capture?: DeliveryCaptureV2): boolean {
   if (!capture) return false;
@@ -88,14 +69,10 @@ export async function getDeliveryCaptureV2(
   journeyId: string,
   accessToken?: string,
 ): Promise<DeliveryCaptureV2> {
-  const access = token(accessToken);
-  const deliveryBase = base(tenantId, journeyId);
-  const capture = await auditCoreRequest<DeliveryCaptureV2>(`${deliveryBase}/capture-local`, {
-    accessToken: access,
+  return auditCoreRequest<DeliveryCaptureV2>(`${base(tenantId, journeyId)}/capture`, {
+    accessToken: token(accessToken),
     cache: 'no-store',
   });
-  scheduleDeliveryCaptureReconciliation(`${deliveryBase}/capture`, access);
-  return capture;
 }
 
 export async function uploadDeliveryCaptureV2Files(
@@ -148,7 +125,7 @@ export async function uploadDeliveryCaptureV2Files(
           { method: 'POST', accessToken: access },
         );
       } catch {
-        // The background Delivery status reconciliation will recover the stored object.
+        // The next Delivery status read reconciles RECEIVING objects that already exist.
       }
     }
   };

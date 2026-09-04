@@ -275,6 +275,12 @@ jobs:
           }
 
           async function installAuth(page) {
+            await page.context().grantPermissions(['geolocation'], { origin: base });
+            await page.context().setGeolocation({
+              latitude: 28.6139,
+              longitude: 77.2090,
+              accuracy: 20,
+            });
             await routeJson(page, '**/security/v1/auth/login', fakeLogin);
             await routeJson(page, '**/security/v1/auth/refresh', fakeLogin);
           }

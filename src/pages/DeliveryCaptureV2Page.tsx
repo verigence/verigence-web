@@ -1,1 +1,1 @@
-export { default } from './DeliveryCaptureV2FastEntry';
+export { default } from './DeliveryCaptureV2WorkspacePage';

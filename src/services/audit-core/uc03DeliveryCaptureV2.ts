@@ -1,4 +1,4 @@
-import { AuditCoreTimeoutError, auditCoreRequest } from './client';
+import { auditCoreRequest } from './client';
 import { newIdempotencyKey } from './uc03Booking';
 import type { CaptureV2Document, CaptureV2Requirement } from './uc03DocumentCaptureV2';
 
@@ -54,10 +54,63 @@ function clientUploadId(): string {
 }
 
 const PENDING_CLASSIFICATION_STATES = new Set(['RECEIVING', 'STORED', 'CLASSIFYING']);
-const CAPTURE_STATUS_TIMEOUT_MS = 3_000;
+const LOCAL_CAPTURE_TIMEOUT_MS = 8_000;
+const LIVE_CAPTURE_TIMEOUT_MS = 18_000;
+const LIVE_REFRESH_MIN_INTERVAL_MS = 5_000;
 const LOCAL_FALLBACK_POLL_WINDOW_MS = 30_000;
 const LOCAL_FALLBACK_PREFIX = 'fallback:';
 const localFallbackPollStartedAt = new Map<string, number>();
+
+interface DeliveryCaptureReadState {
+  snapshot?: DeliveryCaptureV2;
+  liveInFlight?: Promise<void>;
+  lastLiveStartedAt: number;
+}
+
+const captureReadState = new Map<string, DeliveryCaptureReadState>();
+
+function readKey(tenantId: string, journeyId: string): string {
+  return `${tenantId}:${journeyId}`;
+}
+
+function markLocal(capture: DeliveryCaptureV2): DeliveryCaptureV2 {
+  if (capture.externalContextRef.startsWith(LOCAL_FALLBACK_PREFIX)) return capture;
+  return { ...capture, externalContextRef: `${LOCAL_FALLBACK_PREFIX}${capture.externalContextRef}` };
+}
+
+function invalidateCaptureReadState(tenantId: string, journeyId: string): void {
+  captureReadState.delete(readKey(tenantId, journeyId));
+  localFallbackPollStartedAt.delete(journeyId);
+}
+
+function scheduleLiveRefresh(
+  tenantId: string,
+  journeyId: string,
+  accessToken: string,
+  state: DeliveryCaptureReadState,
+): void {
+  const now = Date.now();
+  if (state.liveInFlight || now - state.lastLiveStartedAt < LIVE_REFRESH_MIN_INTERVAL_MS) return;
+
+  state.lastLiveStartedAt = now;
+  const deliveryBase = base(tenantId, journeyId);
+  const refresh = auditCoreRequest<DeliveryCaptureV2>(`${deliveryBase}/capture`, {
+    accessToken,
+    cache: 'no-store',
+    timeoutMs: LIVE_CAPTURE_TIMEOUT_MS,
+  })
+    .then((live) => {
+      state.snapshot = live;
+      localFallbackPollStartedAt.delete(journeyId);
+    })
+    .catch(() => {
+      // Durable Audit Core state remains usable. DI status is supplementary to first paint.
+    })
+    .finally(() => {
+      if (state.liveInFlight === refresh) state.liveInFlight = undefined;
+    });
+  state.liveInFlight = refresh;
+}
 
 export function deliveryCaptureV2IsProcessing(capture?: DeliveryCaptureV2): boolean {
   if (!capture) return false;
@@ -84,22 +137,27 @@ export async function getDeliveryCaptureV2(
   accessToken?: string,
 ): Promise<DeliveryCaptureV2> {
   const access = token(accessToken);
-  const deliveryBase = base(tenantId, journeyId);
-  try {
-    return await auditCoreRequest<DeliveryCaptureV2>(`${deliveryBase}/capture`, {
-      accessToken: access,
-      cache: 'no-store',
-      timeoutMs: CAPTURE_STATUS_TIMEOUT_MS,
-    });
-  } catch (error) {
-    if (!(error instanceof AuditCoreTimeoutError)) throw error;
-    const local = await auditCoreRequest<DeliveryCaptureV2>(`${deliveryBase}/capture-local`, {
-      accessToken: access,
-      cache: 'no-store',
-      timeoutMs: CAPTURE_STATUS_TIMEOUT_MS,
-    });
-    return { ...local, externalContextRef: `${LOCAL_FALLBACK_PREFIX}${local.externalContextRef}` };
+  const key = readKey(tenantId, journeyId);
+  const existing = captureReadState.get(key);
+
+  if (existing?.snapshot) {
+    scheduleLiveRefresh(tenantId, journeyId, access, existing);
+    return existing.snapshot;
   }
+
+  const deliveryBase = base(tenantId, journeyId);
+  const local = markLocal(await auditCoreRequest<DeliveryCaptureV2>(`${deliveryBase}/capture-local`, {
+    accessToken: access,
+    cache: 'no-store',
+    timeoutMs: LOCAL_CAPTURE_TIMEOUT_MS,
+  }));
+  const state: DeliveryCaptureReadState = {
+    snapshot: local,
+    lastLiveStartedAt: 0,
+  };
+  captureReadState.set(key, state);
+  scheduleLiveRefresh(tenantId, journeyId, access, state);
+  return local;
 }
 
 export async function uploadDeliveryCaptureV2Files(
@@ -143,20 +201,18 @@ export async function uploadDeliveryCaptureV2Files(
       const put = await fetch(upload.uploadUrl, { method: 'PUT', headers, body: local.file });
       if (!put.ok) throw new Error(`Delivery document upload failed with HTTP ${put.status}.`);
 
-      // Finalize is only a latency hint. Once the direct object PUT succeeds, DI status
-      // reconciliation can recover a lost/failed finalize and queue classification later.
-      // Do not turn a safely stored Delivery document into a false upload failure.
       try {
         await auditCoreRequest<FinalizeResponse>(
           `${base(tenantId, journeyId)}/documents/${encodeURIComponent(upload.documentId)}/finalize`,
           { method: 'POST', accessToken: access },
         );
       } catch {
-        // The next Delivery status read reconciles RECEIVING objects that already exist.
+        // The next Delivery status reconciliation can recover a stored object.
       }
     }
   };
   await Promise.all(Array.from({ length: Math.min(6, intent.uploads.length) }, () => worker()));
+  invalidateCaptureReadState(tenantId, journeyId);
 }
 
 export async function deleteDeliveryCaptureV2Document(
@@ -169,6 +225,7 @@ export async function deleteDeliveryCaptureV2Document(
     method: 'DELETE',
     accessToken: token(accessToken),
   });
+  invalidateCaptureReadState(tenantId, journeyId);
 }
 
 export async function submitDeliveryCaptureV2(
@@ -176,9 +233,11 @@ export async function submitDeliveryCaptureV2(
   journeyId: string,
   accessToken?: string,
 ): Promise<DeliveryCaptureV2Submission> {
-  return auditCoreRequest<DeliveryCaptureV2Submission>(`${base(tenantId, journeyId)}/submit`, {
+  const result = await auditCoreRequest<DeliveryCaptureV2Submission>(`${base(tenantId, journeyId)}/submit`, {
     method: 'POST',
     accessToken: token(accessToken),
     headers: { 'Idempotency-Key': newIdempotencyKey('uc03-v2-delivery-submit') },
   });
+  invalidateCaptureReadState(tenantId, journeyId);
+  return result;
 }

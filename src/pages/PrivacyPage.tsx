@@ -2,7 +2,6 @@ import { Link } from 'react-router-dom';
 
 import { verigenceLockup } from '../assets/verigenceLockup';
 
-// Responsive validation trigger only; no runtime behavior is changed here.
 export default function PrivacyPage() {
   return (
     <main className="legal-screen">
@@ -31,7 +30,7 @@ export default function PrivacyPage() {
             events, organization and role information, audit-work data submitted by authorized
             users, device or technical information, and service-usage records needed to operate and
             protect the platform.
-          </p>
+          </other>
         </section>
 
         <section>
@@ -96,7 +95,7 @@ export default function PrivacyPage() {
           <span aria-hidden="true">•</span>
           <Link to="/login">Sign in</Link>
         </footer>
-      </article>
+      </other>
     </main>
   );
 }

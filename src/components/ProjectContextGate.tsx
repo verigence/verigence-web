@@ -36,7 +36,7 @@ export default function ProjectContextGate({ children }: PropsWithChildren) {
     queryFn: () => listMyOperationalProjects(accessToken),
     staleTime: Infinity,
     gcTime: Infinity,
-    retry: 1,
+    retry: false,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
   });

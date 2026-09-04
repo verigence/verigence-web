@@ -1,10 +1,10 @@
 .uc03-v2-capture {
   --v2-border: rgba(24, 40, 62, 0.12);
   --v2-muted: #667085;
-  --v2-surface: #ffffff;
-  --v2-soft: #f7f9fc;
-  --v2-accent: #1b5cff;
-  --v2-accent-soft: #eef4ff;
+  --v2-surface: var(--verigence-white, #ffffff);
+  --v2-soft: var(--verigence-mist-50, #f4f8fb);
+  --v2-accent: var(--verigence-blue-700, #0057b8);
+  --v2-accent-soft: var(--verigence-mist-50, #f4f8fb);
   --v2-warning-soft: #fff8e6;
   --v2-warning-border: #f0c36a;
   --v2-danger: #b42318;
@@ -86,7 +86,7 @@
 .uc03-v2-choice-row button.is-selected {
   border-color: var(--v2-accent);
   background: var(--v2-accent-soft);
-  color: #1746b3;
+  color: var(--verigence-blue-900, #003a82);
 }
 
 .uc03-v2-choice-row button:disabled {
@@ -109,7 +109,7 @@
   justify-content: space-between;
   gap: 20px;
   padding: 20px;
-  border: 1.5px dashed rgba(27, 92, 255, 0.35);
+  border: 1.5px dashed rgba(0, 87, 184, 0.35);
   border-radius: 16px;
   background: var(--v2-accent-soft);
 }
@@ -190,9 +190,9 @@
 }
 
 .uc03-v2-requirement.is-active {
-  border-color: rgba(27, 92, 255, 0.35);
+  border-color: rgba(0, 87, 184, 0.35);
   background: #fff;
-  box-shadow: 0 8px 22px rgba(27, 92, 255, 0.07);
+  box-shadow: 0 8px 22px rgba(0, 87, 184, 0.07);
 }
 
 .uc03-v2-requirement-main,
@@ -291,9 +291,9 @@
 }
 
 .uc03-v2-review-notification {
-  border-color: rgba(27, 92, 255, 0.3);
+  border-color: rgba(0, 87, 184, 0.3);
   background: var(--v2-accent-soft);
-  color: #1746b3;
+  color: var(--verigence-blue-900, #003a82);
 }
 
 .uc03-v2-review-pending,
@@ -429,7 +429,7 @@
 
 .uc03-v2-review-state.pending {
   background: var(--v2-accent-soft);
-  color: #1746b3;
+  color: var(--verigence-blue-900, #003a82);
 }
 
 .uc03-v2-review-fields {

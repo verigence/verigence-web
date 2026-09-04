@@ -1,0 +1,96 @@
+.uc03-effective-value-editor {
+  display: grid;
+  gap: 0.35rem;
+  min-width: 13rem;
+}
+
+.uc03-effective-value-editor__summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.uc03-effective-value-editor__summary > span {
+  width: 100%;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--text-muted, #64748b);
+}
+
+.uc03-effective-value-editor__summary > strong {
+  flex: 1 1 8rem;
+  overflow-wrap: anywhere;
+}
+
+.uc03-effective-value-editor button {
+  min-height: 2rem;
+  border: 1px solid var(--border-subtle, #d7dee8);
+  border-radius: 0.55rem;
+  background: var(--surface-primary, #fff);
+  padding: 0.35rem 0.65rem;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.uc03-effective-value-editor button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.uc03-effective-value-editor.is-modified {
+  border-left: 3px solid var(--verigence-teal-600, #00afa8);
+  padding-left: 0.65rem;
+}
+
+.uc03-effective-value-editor > small {
+  color: var(--text-muted, #64748b);
+  overflow-wrap: anywhere;
+}
+
+.uc03-effective-value-editor__form {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.uc03-effective-value-editor__form input,
+.uc03-effective-value-editor__form select,
+.uc03-effective-value-editor__form textarea {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid var(--border-strong, #aeb8c6);
+  border-radius: 0.55rem;
+  background: var(--surface-primary, #fff);
+  padding: 0.55rem 0.65rem;
+  color: inherit;
+  font: inherit;
+}
+
+.uc03-effective-value-editor__form textarea {
+  resize: vertical;
+}
+
+.uc03-effective-value-editor__save {
+  justify-self: start;
+}
+
+.uc03-effective-value-editor__error {
+  color: #a3262a;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+@media (max-width: 720px) {
+  .uc03-effective-value-editor {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .uc03-effective-value-editor__summary > strong {
+    flex-basis: 100%;
+  }
+}

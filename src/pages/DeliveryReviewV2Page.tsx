@@ -4,9 +4,13 @@ import { useNavigate, useParams } from 'react-router-dom';
 
 import PageHeader from '../components/PageHeader';
 import AttributeEvidenceViewer, { hasBoxedEvidence } from '../features/uc03/AttributeEvidenceViewer';
+import ReviewEffectiveValueEditor, { reviewSourceKey } from '../features/uc03/ReviewEffectiveValueEditor';
+import { buildRawReviewGroups } from '../features/uc03/reviewFieldGroups';
 import { completeDelivery, getDeliveryWorkspace } from '../services/audit-core/uc03Delivery';
 import {
-  getAuditSourceComparisonV2,
+  confirmDeliveryReviewV2,
+  getDeliveryReviewV2,
+  type ReviewFieldCorrection,
   type ReviewV2Attribute,
   type ReviewV2SourceValue,
   type ReviewV2UnmappedField,
@@ -19,56 +23,12 @@ import '../styles/uc03-delivery-capture-v2.css';
 import '../styles/uc03-delivery-review-missing.css';
 
 const REFRESH_MS = 2 * 60 * 1000;
+const REVIEW_THRESHOLD = 92;
 
 type ReviewGroup = 'CUSTOMER' | 'VEHICLE' | 'FINANCIAL' | 'OTHER';
 
-const EXPECTED_DOCUMENT_TYPES: Record<string, string> = {
-  customer_name: 'PAN Card / Aadhaar / Booking Form or Booking Docket',
-  customer_number: 'Booking Form or Booking Docket',
-  mail_id: 'Booking Form or Booking Docket',
-  pan: 'PAN Card',
-  pan_father_name: 'PAN Card',
-  customer_relationship_type: 'PAN Card / Aadhaar',
-  customer_relationship_name: 'PAN Card / Aadhaar',
-  sc_name: 'Booking Form or Booking Docket',
-  model: 'Booking Form or Booking Docket / Customer Invoice (DMS) / Tax Invoice',
-  variant: 'Booking Form or Booking Docket / Customer Invoice (DMS) / Tax Invoice',
-  color: 'Booking Form or Booking Docket / Customer Invoice (DMS) / Tax Invoice',
-  booking_registration_by: 'Booking Form or Booking Docket',
-  booking_registration_type: 'Booking Form or Booking Docket',
-  booking_insurance_by: 'Booking Form or Booking Docket',
-  booking_exchange_applicable: 'Booking Form or Booking Docket',
-  booking_exchange_value: 'Booking Form or Booking Docket',
-  booking_ex_showroom_price: 'Booking Form or Booking Docket / Cost Sheet / Customer Invoice (DMS) / Tax Invoice',
-  booking_tcs_amount: 'Booking Form or Booking Docket / Customer Invoice (DMS) / Tax Invoice',
-  booking_registration_charges: 'Booking Form or Booking Docket',
-  booking_road_tax_amount: 'Booking Form or Booking Docket',
-  booking_road_tax_registration_combined: 'Booking Form or Booking Docket',
-  booking_insurance_amount: 'Insurance Cover Note or Insurance Policy / Booking Form or Booking Docket',
-  booking_rsa_amount: 'Booking Form or Booking Docket',
-  booking_accessories_cost: 'Booking Form or Booking Docket',
-  booking_additional_warranty_amount: 'Booking Form or Booking Docket',
-  booking_other_charges: 'Booking Form or Booking Docket',
-  booking_total_price: 'Booking Form or Booking Docket / Customer Invoice (DMS) / Tax Invoice',
-  booking_discount_amount: 'Booking Form or Booking Docket / Customer Invoice (DMS) / Tax Invoice',
-  booking_bonus_amount: 'Booking Form or Booking Docket',
-  booking_net_amount: 'Booking Form or Booking Docket / Customer Invoice (DMS) / Tax Invoice',
-  booking_amount_paid: 'Booking Form or Booking Docket',
-  booking_balance_amount: 'Booking Form or Booking Docket',
-  booking_payment_mode: 'Booking Form or Booking Docket',
-  booking_payment_reference: 'Booking Form or Booking Docket',
-  expected_delivery_text: 'Booking Form or Booking Docket',
-  expected_delivery_date: 'Booking Form or Booking Docket',
-  booking_reference: 'Booking Form or Booking Docket',
-  actual_booking_date: 'Booking Form or Booking Docket',
-};
-
 function hasExtractedValue(value: unknown): boolean {
   return value !== null && value !== undefined && value !== '';
-}
-
-function expectedDocumentTypes(attribute: ReviewV2Attribute): string {
-  return EXPECTED_DOCUMENT_TYPES[attribute.attributeKey] ?? 'Source document mapping pending';
 }
 
 function displayValue(value: unknown): string {
@@ -111,7 +71,7 @@ function rawSource(field: ReviewV2UnmappedField): ReviewV2SourceValue {
     value: field.value,
     confidenceScore: field.confidenceScore,
     sourceFactVersion: field.sourceFactVersion,
-    reviewState: field.confidenceScore !== null && field.confidenceScore >= 92 ? 'READY' : 'NEEDS_REVIEW',
+    reviewState: field.confidenceScore !== null && field.confidenceScore >= REVIEW_THRESHOLD ? 'READY' : 'NEEDS_REVIEW',
     documentId: field.documentId,
     evidenceId: null,
     documentTypeKey: field.documentTypeKey,
@@ -123,13 +83,7 @@ function rawSource(field: ReviewV2UnmappedField): ReviewV2SourceValue {
   };
 }
 
-function EvidenceSource({
-  source,
-  onEvidence,
-}: {
-  source: ReviewV2SourceValue;
-  onEvidence: (source: ReviewV2SourceValue) => void;
-}) {
+function EvidenceSource({ source, onEvidence }: { source: ReviewV2SourceValue; onEvidence: (source: ReviewV2SourceValue) => void }) {
   const boxed = hasBoxedEvidence(source);
   if (!boxed) {
     return (
@@ -149,63 +103,6 @@ function EvidenceSource({
   );
 }
 
-function AttributeCard({ attribute, onEvidence }: { attribute: ReviewV2Attribute; onEvidence: (source: ReviewV2SourceValue) => void }) {
-  const localizationException = attribute.sources.some((source) => !hasBoxedEvidence(source));
-  const exception = attribute.comparisonState === 'MISMATCH' || attribute.reviewState === 'NEEDS_REVIEW' || localizationException;
-  return (
-    <article className={`uc03-delivery-review-field ${exception ? 'is-exception' : ''}`}>
-      <div className="uc03-delivery-review-field__name">
-        <strong>{attribute.label}</strong>
-        <span>{attribute.sources.length} source{attribute.sources.length === 1 ? '' : 's'}</span>
-      </div>
-      <div className="uc03-delivery-review-field__value">
-        <strong>{displayValue(attribute.resolvedValue)}</strong>
-        <span>{confidence(attribute.confidenceScore)}</span>
-      </div>
-      <div className="uc03-delivery-review-sources">
-        {attribute.sources.map((source) => (
-          <EvidenceSource
-            key={`${source.documentId}:${source.canonicalFieldId}:${source.sourceFactVersion}`}
-            source={source}
-            onEvidence={onEvidence}
-          />
-        ))}
-      </div>
-      <span className="uc03-delivery-review-result">
-        {localizationException
-          ? 'Evidence location exception'
-          : attribute.comparisonState === 'MATCH'
-            ? 'Sources match'
-            : attribute.comparisonState === 'MISMATCH'
-              ? 'Exception'
-              : attribute.comparisonState === 'SINGLE_SOURCE'
-                ? 'Single source'
-                : 'Not available'}
-      </span>
-    </article>
-  );
-}
-
-interface RawGroup {
-  fieldKey: string;
-  fields: ReviewV2UnmappedField[];
-  selected: ReviewV2UnmappedField;
-  mismatch: boolean;
-}
-
-function rawGroups(fields: ReviewV2UnmappedField[]): RawGroup[] {
-  const grouped = new Map<string, ReviewV2UnmappedField[]>();
-  fields.forEach((field) => {
-    if (field.value === null || field.value === undefined || field.value === '') return;
-    grouped.set(field.fieldKey, [...(grouped.get(field.fieldKey) ?? []), field]);
-  });
-  return [...grouped.entries()].map(([fieldKey, sources]) => {
-    const sorted = [...sources].sort((left, right) => (right.confidenceScore ?? -1) - (left.confidenceScore ?? -1));
-    const values = new Set(sources.map((source) => JSON.stringify(source.value)));
-    return { fieldKey, fields: sources, selected: sorted[0], mismatch: values.size > 1 };
-  });
-}
-
 export default function DeliveryReviewV2Page() {
   const { journeyId = '' } = useParams();
   const navigate = useNavigate();
@@ -213,14 +110,16 @@ export default function DeliveryReviewV2Page() {
   const accessToken = useSessionStore((state) => state.accessToken);
   const [activeGroup, setActiveGroup] = useState<ReviewGroup>('CUSTOMER');
   const [selectedSource, setSelectedSource] = useState<ReviewV2SourceValue>();
+  const [corrections, setCorrections] = useState<Map<string, ReviewFieldCorrection>>(new Map());
+  const [confirming, setConfirming] = useState(false);
   const [completing, setCompleting] = useState(false);
   const [message, setMessage] = useState<string>();
   const [error, setError] = useState<string>();
 
   const enabled = Boolean(project?.tenantId && journeyId && accessToken);
-  const comparisonQuery = useQuery({
+  const reviewQuery = useQuery({
     queryKey: ['uc03-delivery-review-v2', project?.tenantId, journeyId],
-    queryFn: () => getAuditSourceComparisonV2(project!.tenantId, journeyId, accessToken),
+    queryFn: () => getDeliveryReviewV2(project!.tenantId, journeyId, accessToken),
     enabled,
     retry: false,
     refetchOnWindowFocus: false,
@@ -234,67 +133,94 @@ export default function DeliveryReviewV2Page() {
     refetchOnWindowFocus: false,
   });
 
-  const raw = useMemo(() => rawGroups(comparisonQuery.data?.unmappedFields ?? []), [comparisonQuery.data?.unmappedFields]);
+  const rawGroups = useMemo(
+    () => buildRawReviewGroups(reviewQuery.data?.unmappedFields ?? [], REVIEW_THRESHOLD),
+    [reviewQuery.data?.unmappedFields],
+  );
   const groupedAttributes = useMemo(() => {
     const groups: Record<ReviewGroup, ReviewV2Attribute[]> = { CUSTOMER: [], VEHICLE: [], FINANCIAL: [], OTHER: [] };
-    comparisonQuery.data?.attributes.forEach((attribute) => {
+    reviewQuery.data?.attributes.forEach((attribute) => {
       if (!hasExtractedValue(attribute.resolvedValue)) return;
       groups[groupFor(attribute.attributeKey, attribute.label)].push(attribute);
     });
     return groups;
-  }, [comparisonQuery.data?.attributes]);
-  const missingAttributes = useMemo(
-    () => (comparisonQuery.data?.attributes ?? []).filter((attribute) => !hasExtractedValue(attribute.resolvedValue)),
-    [comparisonQuery.data?.attributes],
-  );
+  }, [reviewQuery.data?.attributes]);
   const groupedRaw = useMemo(() => {
-    const groups: Record<ReviewGroup, RawGroup[]> = { CUSTOMER: [], VEHICLE: [], FINANCIAL: [], OTHER: [] };
-    raw.forEach((item) => groups[groupFor(item.fieldKey, fieldLabel(item.fieldKey))].push(item));
+    const groups: Record<ReviewGroup, typeof rawGroups> = { CUSTOMER: [], VEHICLE: [], FINANCIAL: [], OTHER: [] };
+    rawGroups.forEach((item) => groups[groupFor(item.fieldKey, fieldLabel(item.fieldKey))].push(item));
     return groups;
-  }, [raw]);
+  }, [rawGroups]);
 
   if (!project || !journeyId) return null;
-
-  if (comparisonQuery.isPending || workspaceQuery.isPending) return <div className="uc03-c1-loading" role="status">Loading Delivery Review…</div>;
-  if (comparisonQuery.isError || !comparisonQuery.data || workspaceQuery.isError || !workspaceQuery.data) {
+  if (reviewQuery.isPending || workspaceQuery.isPending) return <div className="uc03-c1-loading" role="status">Loading Delivery Review…</div>;
+  if (reviewQuery.isError || !reviewQuery.data || workspaceQuery.isError || !workspaceQuery.data) {
     return (
       <section className="dashboard-load-state" role="alert">
         <div className="dashboard-load-state__mark">!</div>
         <div className="dashboard-load-state__copy"><strong>Delivery Review is not available yet.</strong><p>Refresh after Delivery documents are submitted.</p></div>
-        <button type="button" className="user-menu-button" onClick={() => void Promise.all([comparisonQuery.refetch(), workspaceQuery.refetch()])}>Try Again</button>
+        <button type="button" className="user-menu-button" onClick={() => void Promise.all([reviewQuery.refetch(), workspaceQuery.refetch()])}>Try Again</button>
       </section>
     );
   }
 
-  const comparison = comparisonQuery.data;
+  const review = reviewQuery.data;
   const workspace = workspaceQuery.data;
   const deliveryCompleted = workspace.delivery.businessStatus === 'DELIVERY_COMPLETED';
-  const mappedExceptions = comparison.attributes.filter((attribute) => (
+  const failedDocuments = review.documents.filter((document) => document.extractionState === 'FAILED');
+  const missingAttributes = review.attributes.filter((attribute) => !hasExtractedValue(attribute.resolvedValue));
+  const mappedExceptions = review.attributes.filter((attribute) => (
     hasExtractedValue(attribute.resolvedValue)
-    && (
-      attribute.comparisonState === 'MISMATCH'
-      || attribute.reviewState === 'NEEDS_REVIEW'
-      || attribute.sources.some((source) => !hasBoxedEvidence(source))
-    )
+    && (attribute.comparisonState === 'MISMATCH' || attribute.reviewState === 'NEEDS_REVIEW')
   )).length;
-  const rawExceptions = raw.filter((item) => (
-    item.mismatch
-    || item.selected.confidenceScore === null
-    || item.selected.confidenceScore < 92
-    || item.fields.some((field) => !hasBoxedEvidence(rawSource(field)))
-  )).length;
+  const rawExceptions = rawGroups.filter((item) => item.needsDecision).length;
   const exceptions = mappedExceptions + rawExceptions;
-  const extractedCount = comparison.attributes.filter((attribute) => hasExtractedValue(attribute.resolvedValue)).length + raw.length;
+  const extractedCount = review.attributes.filter((attribute) => hasExtractedValue(attribute.resolvedValue)).length + rawGroups.length;
+  const canConfirmReview = review.pcVerificationStatus === 'PENDING' && !review.processingPending && failedDocuments.length === 0;
 
-  const complete = async () => {
+  const setCorrection = (source: ReviewV2SourceValue | ReviewV2UnmappedField, correction: ReviewFieldCorrection | undefined) => {
+    const key = reviewSourceKey(source);
+    setCorrections((current) => {
+      const next = new Map(current);
+      if (correction) next.set(key, correction);
+      else next.delete(key);
+      return next;
+    });
+  };
+
+  const confirmReview = async () => {
+    setConfirming(true);
+    setError(undefined);
+    setMessage(undefined);
+    try {
+      const result = await confirmDeliveryReviewV2(
+        project.tenantId,
+        journeyId,
+        review.aggregateVersion,
+        [...corrections.values()],
+        accessToken,
+      );
+      setCorrections(new Map());
+      setMessage(`${result.storedFieldCount} Delivery DI field${result.storedFieldCount === 1 ? '' : 's'} confirmed in Audit Core.`);
+      await Promise.all([reviewQuery.refetch(), workspaceQuery.refetch()]);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Delivery Review could not be confirmed. Refresh and try again.');
+      await Promise.all([reviewQuery.refetch(), workspaceQuery.refetch()]);
+    } finally {
+      setConfirming(false);
+    }
+  };
+
+  const completePhysicalDelivery = async () => {
     setCompleting(true);
     setError(undefined);
+    setMessage(undefined);
     try {
       const result = await completeDelivery(project.tenantId, journeyId, workspace.delivery.aggregateVersion, accessToken);
       setMessage(`Delivery recorded as complete. ${result.raisedFlagIds.length} audit flag${result.raisedFlagIds.length === 1 ? '' : 's'} raised for follow-up.`);
-      await workspaceQuery.refetch();
+      await Promise.all([workspaceQuery.refetch(), reviewQuery.refetch()]);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Delivery could not be completed.');
+      await Promise.all([workspaceQuery.refetch(), reviewQuery.refetch()]);
     } finally {
       setCompleting(false);
     }
@@ -304,12 +230,12 @@ export default function DeliveryReviewV2Page() {
     <div className="screen-stack uc03-delivery-review-v2">
       <div className="uc03-c1-topbar">
         <button type="button" className="uc03-c1-back" onClick={() => navigate('/dashboard')}>← Work List</button>
-        <button type="button" className="uc03-v2-review-refresh" disabled={comparisonQuery.isFetching} onClick={() => void comparisonQuery.refetch()}>{comparisonQuery.isFetching ? 'Refreshing…' : 'Refresh Review'}</button>
+        <button type="button" className="uc03-v2-review-refresh" disabled={reviewQuery.isFetching} onClick={() => void reviewQuery.refetch()}>{reviewQuery.isFetching ? 'Refreshing…' : 'Refresh Review'}</button>
       </div>
       <PageHeader
         eyebrow="Delivery Review · Evidence First"
         title="Review Delivery information"
-        description="Only extracted values are shown in the Review sections, with boxed source evidence when DI returns a reliable location. Attributes that were expected but not extracted are listed separately at the bottom."
+        description="Review values extracted from Delivery-stage documents. The DI value remains traceable; edit only when the confirmed business value is different."
       />
 
       {message ? <div className="uc03-booking-journey-feedback is-success" role="status">{message}</div> : null}
@@ -318,11 +244,11 @@ export default function DeliveryReviewV2Page() {
       <section className="uc03-delivery-review-summary">
         <div><span>Extracted fields</span><strong>{extractedCount}</strong></div>
         <div><span>Audit exceptions</span><strong>{exceptions}</strong></div>
-        <div><span>Documents processing</span><strong>{comparison.processingPending ? 'Yes' : 'No'}</strong></div>
-        <div><span>Delivery status</span><strong>{deliveryCompleted ? 'Completed' : 'In progress'}</strong></div>
+        <div><span>PC corrections</span><strong>{corrections.size}</strong></div>
+        <div><span>Review status</span><strong>{review.pcVerificationStatus}</strong></div>
       </section>
 
-      {comparison.processingPending ? <div className="uc03-booking-journey-feedback is-success" role="status">Some document values are still being prepared. Available values are shown now; this Review refreshes again in 2 minutes.</div> : null}
+      {review.processingPending ? <div className="uc03-booking-journey-feedback is-success" role="status">Some Delivery document values are still being prepared. Available values remain usable; this Review checks again in 2 minutes.</div> : null}
 
       <nav className="uc03-delivery-review-tabs" aria-label="Delivery review sections">
         {(['CUSTOMER', 'VEHICLE', 'FINANCIAL', 'OTHER'] as ReviewGroup[]).map((group) => (
@@ -334,23 +260,56 @@ export default function DeliveryReviewV2Page() {
 
       <section className="uc03-delivery-review-section">
         <h2>{groupTitle(activeGroup)}</h2>
-        {groupedAttributes[activeGroup].map((attribute) => (
-          <AttributeCard key={attribute.attributeKey} attribute={attribute} onEvidence={setSelectedSource} />
-        ))}
-        {groupedRaw[activeGroup].map((item) => {
-          const localizationException = item.fields.some((field) => !hasBoxedEvidence(rawSource(field)));
-          const exception = item.mismatch || item.selected.confidenceScore === null || item.selected.confidenceScore < 92 || localizationException;
+        {groupedAttributes[activeGroup].map((attribute) => {
+          const source = attribute.resolvedSource;
+          const localizationException = attribute.sources.some((item) => !hasBoxedEvidence(item));
+          const exception = attribute.comparisonState === 'MISMATCH' || attribute.reviewState === 'NEEDS_REVIEW' || localizationException;
           return (
-            <article key={`raw:${item.fieldKey}`} className={`uc03-delivery-review-field ${exception ? 'is-exception' : ''}`}>
-              <div className="uc03-delivery-review-field__name"><strong>{fieldLabel(item.fieldKey)}</strong><span>{item.fields.length} source{item.fields.length === 1 ? '' : 's'}</span></div>
-              <div className="uc03-delivery-review-field__value"><strong>{displayValue(item.selected.value)}</strong><span>{confidence(item.selected.confidenceScore)}</span></div>
+            <article key={attribute.attributeKey} className={`uc03-delivery-review-field ${exception ? 'is-exception' : ''}`}>
+              <div className="uc03-delivery-review-field__name"><strong>{attribute.label}</strong><span>{attribute.sources.length} source{attribute.sources.length === 1 ? '' : 's'}</span></div>
+              <div className="uc03-delivery-review-field__value">
+                {source ? (
+                  <ReviewEffectiveValueEditor
+                    source={source}
+                    correction={corrections.get(reviewSourceKey(source))}
+                    onChange={(correction) => setCorrection(source, correction)}
+                    requireValue
+                    disabled={review.pcVerificationStatus === 'VERIFIED'}
+                  />
+                ) : <strong>{displayValue(attribute.resolvedValue)}</strong>}
+                <span>{confidence(attribute.confidenceScore)}</span>
+              </div>
               <div className="uc03-delivery-review-sources">
-                {item.fields.map((field) => {
-                  const source = rawSource(field);
-                  return <EvidenceSource key={`${field.documentId}:${field.canonicalFieldId}:${field.sourceFactVersion}`} source={source} onEvidence={setSelectedSource} />;
+                {attribute.sources.map((item) => <EvidenceSource key={`${item.documentId}:${item.canonicalFieldId}:${item.sourceFactVersion}`} source={item} onEvidence={setSelectedSource} />)}
+              </div>
+              <span className="uc03-delivery-review-result">{attribute.comparisonState === 'MISMATCH' ? 'Source mismatch' : attribute.reviewState === 'NEEDS_REVIEW' ? 'Needs review' : 'Ready'}</span>
+            </article>
+          );
+        })}
+
+        {groupedRaw[activeGroup].map((item) => {
+          const source = item.selected;
+          const evidenceSource = rawSource(source);
+          return (
+            <article key={item.groupKey} className={`uc03-delivery-review-field ${item.needsDecision ? 'is-exception' : ''}`}>
+              <div className="uc03-delivery-review-field__name"><strong>{fieldLabel(item.fieldKey)}</strong><span>{source.documentLabel}</span></div>
+              <div className="uc03-delivery-review-field__value">
+                <ReviewEffectiveValueEditor
+                  source={source}
+                  correction={corrections.get(reviewSourceKey(source))}
+                  onChange={(correction) => setCorrection(source, correction)}
+                  disabled={review.pcVerificationStatus === 'VERIFIED'}
+                />
+                <span>{confidence(source.confidenceScore)}</span>
+              </div>
+              <div className="uc03-delivery-review-sources">
+                {item.sources.map((field) => {
+                  const itemSource = rawSource(field);
+                  return <EvidenceSource key={`${field.documentId}:${field.canonicalFieldId}:${field.sourceFactVersion}`} source={itemSource} onEvidence={setSelectedSource} />;
                 })}
               </div>
-              <span className="uc03-delivery-review-result">{localizationException ? 'Evidence location exception' : exception ? 'Exception' : item.fields.length > 1 ? 'Sources match' : 'Single source'}</span>
+              <span className="uc03-delivery-review-result">{item.needsDecision ? 'Needs review' : 'Ready'}</span>
+              {hasBoxedEvidence(evidenceSource) ? <button type="button" className="uc03-attribute-evidence-link" onClick={() => setSelectedSource(evidenceSource)}>View selected evidence</button> : null}
             </article>
           );
         })}
@@ -359,27 +318,27 @@ export default function DeliveryReviewV2Page() {
 
       {missingAttributes.length ? (
         <section className="uc03-delivery-review-section uc03-delivery-review-missing">
-          <div className="uc03-delivery-review-missing__intro">
-            <h2>Attributes not extracted</h2>
-            <p>These attributes are intentionally excluded from the Review above. Only the expected source document type is shown here.</p>
-          </div>
+          <div className="uc03-delivery-review-missing__intro"><h2>Attributes not extracted</h2><p>These attributes have no Delivery-stage DI value and therefore are not editable or persisted as a reviewed value.</p></div>
           <div className="uc03-delivery-review-missing__list">
-            {missingAttributes.map((attribute) => (
-              <div key={`missing:${attribute.attributeKey}`} className="uc03-delivery-review-missing__row">
-                <strong>{attribute.label}</strong>
-                <span>{expectedDocumentTypes(attribute)}</span>
-              </div>
-            ))}
+            {missingAttributes.map((attribute) => <div key={`missing:${attribute.attributeKey}`} className="uc03-delivery-review-missing__row"><strong>{attribute.label}</strong><span>Configured source evidence not available</span></div>)}
           </div>
         </section>
       ) : null}
 
+      <section className="uc03-attribute-confirm-panel">
+        <div>
+          <strong>{review.pcVerificationStatus === 'VERIFIED' ? 'Delivery Review verified' : 'Confirm Delivery Review'}</strong>
+          <span>{review.pcVerificationStatus === 'VERIFIED' ? 'Original DI values and confirmed effective values are retained in Audit Core.' : review.processingPending ? 'Final Review confirmation becomes available when Delivery document processing finishes.' : failedDocuments.length ? 'Resolve failed Delivery document processing before Review confirmation.' : 'Unchanged fields keep their DI values; saved corrections become the effective values.'}</span>
+        </div>
+        {review.pcVerificationStatus !== 'VERIFIED' ? <button type="button" className="uc03-c3-primary" disabled={!canConfirmReview || confirming} onClick={() => void confirmReview()}>{confirming ? 'Confirming…' : 'Confirm reviewed values'}</button> : null}
+      </section>
+
       <section className="uc03-delivery-review-complete">
         <div>
           <strong>{deliveryCompleted ? 'Physical Delivery is complete' : 'Record physical Delivery when handover is complete'}</strong>
-          <p>Audit exceptions remain open for follow-up and never prevent the Delivery event.</p>
+          <p>Physical Delivery remains independent of audit Review. Open exceptions or an unfinished Review do not block the Delivery event.</p>
         </div>
-        {!deliveryCompleted ? <button type="button" className="uc03-c1-primary" disabled={completing} onClick={() => void complete()}>{completing ? 'Recording…' : 'Complete Delivery'}</button> : <button type="button" className="uc03-c1-secondary" onClick={() => navigate(`/audit/${journeyId}`)}>View Audit Flags</button>}
+        {!deliveryCompleted ? <button type="button" className="uc03-c1-primary" disabled={completing} onClick={() => void completePhysicalDelivery()}>{completing ? 'Recording…' : 'Complete Delivery'}</button> : <button type="button" className="uc03-c1-secondary" onClick={() => navigate(`/audit/${journeyId}`)}>View Audit Flags</button>}
       </section>
 
       {selectedSource ? <AttributeEvidenceViewer tenantId={project.tenantId} journeyId={journeyId} accessToken={accessToken} source={selectedSource} onClose={() => setSelectedSource(undefined)} /> : null}

@@ -83,6 +83,14 @@ export interface ReviewV2MissingDeclaration {
   documentAvailable: boolean | null;
 }
 
+export interface ReviewFieldCorrection {
+  documentId: string;
+  canonicalFieldId: string;
+  fieldKey: string;
+  sourceFactVersion: number;
+  effectiveValue: unknown;
+}
+
 export interface BookingReviewV2 {
   journeyId: string;
   phase: 'BOOKING';
@@ -95,6 +103,19 @@ export interface BookingReviewV2 {
   unmappedFields: ReviewV2UnmappedField[];
   documents: ReviewV2Document[];
   missingDeclarations: ReviewV2MissingDeclaration[];
+}
+
+export interface DeliveryReviewV2 {
+  journeyId: string;
+  phase: 'DELIVERY';
+  captureSubmitted: boolean;
+  pcVerificationStatus: string;
+  aggregateVersion: number;
+  processingPending: boolean;
+  needsReviewCount: number;
+  attributes: ReviewV2Attribute[];
+  unmappedFields: ReviewV2UnmappedField[];
+  documents: ReviewV2Document[];
 }
 
 export interface BookingReviewDecision {
@@ -124,6 +145,13 @@ export interface BookingReviewV2ConfirmResponse {
   rejectedAttributes?: string[];
 }
 
+export interface DeliveryReviewV2ConfirmResponse {
+  journeyId: string;
+  pcVerificationStatus: 'VERIFIED';
+  aggregateVersion: number;
+  storedFieldCount: number;
+}
+
 export interface AuditSourceComparisonV2 {
   journeyId: string;
   deliverySubmitted: boolean;
@@ -142,10 +170,9 @@ function token(accessToken?: string): string {
 }
 
 /**
- * Dealer receipts are repeated business entities, not competing sources for one
- * Booking attribute. Keep the server's original source field untouched everywhere
- * else, but give raw Review cards a stable receipt-scoped key so Receipt 1 amount
- * and Receipt 2 amount never appear as a false source mismatch.
+ * Legacy display helper retained for callers that still want receipt-scoped labels.
+ * Do not use this for Review persistence: changing fieldKey destroys the exact DI fact
+ * identity required by correction and provenance contracts.
  */
 export function scopeRepeatedReceiptReviewFields(review: BookingReviewV2): BookingReviewV2 {
   const receiptDocumentIds = [...new Set(
@@ -183,14 +210,13 @@ export async function getBookingReviewV2(
   journeyId: string,
   accessToken?: string,
 ): Promise<BookingReviewV2> {
-  const review = await auditCoreRequest<BookingReviewV2>(
+  return auditCoreRequest<BookingReviewV2>(
     `/v2/tenants/${encodeURIComponent(tenantId)}/journeys/${encodeURIComponent(journeyId)}/booking/review`,
     {
       accessToken: token(accessToken),
       cache: 'no-store',
     },
   );
-  return scopeRepeatedReceiptReviewFields(review);
 }
 
 export async function getBookingReviewDecisionsV2(
@@ -230,6 +256,7 @@ export async function confirmBookingReviewV2(
   tenantId: string,
   journeyId: string,
   aggregateVersion: number,
+  corrections: ReviewFieldCorrection[] = [],
   accessToken?: string,
 ): Promise<BookingReviewV2ConfirmResponse> {
   return auditCoreRequest<BookingReviewV2ConfirmResponse>(
@@ -238,9 +265,48 @@ export async function confirmBookingReviewV2(
       method: 'POST',
       accessToken: token(accessToken),
       headers: {
+        'Content-Type': 'application/json',
         'If-Match': `"${aggregateVersion}"`,
         'Idempotency-Key': `booking-review-${journeyId}-${aggregateVersion}`,
       },
+      body: JSON.stringify({ corrections }),
+      cache: 'no-store',
+    },
+  );
+}
+
+export async function getDeliveryReviewV2(
+  tenantId: string,
+  journeyId: string,
+  accessToken?: string,
+): Promise<DeliveryReviewV2> {
+  return auditCoreRequest<DeliveryReviewV2>(
+    `/v2/tenants/${encodeURIComponent(tenantId)}/journeys/${encodeURIComponent(journeyId)}/delivery/review`,
+    {
+      accessToken: token(accessToken),
+      cache: 'no-store',
+    },
+  );
+}
+
+export async function confirmDeliveryReviewV2(
+  tenantId: string,
+  journeyId: string,
+  aggregateVersion: number,
+  corrections: ReviewFieldCorrection[] = [],
+  accessToken?: string,
+): Promise<DeliveryReviewV2ConfirmResponse> {
+  return auditCoreRequest<DeliveryReviewV2ConfirmResponse>(
+    `/v2/tenants/${encodeURIComponent(tenantId)}/journeys/${encodeURIComponent(journeyId)}/delivery/review/confirm`,
+    {
+      method: 'POST',
+      accessToken: token(accessToken),
+      headers: {
+        'Content-Type': 'application/json',
+        'If-Match': `"${aggregateVersion}"`,
+        'Idempotency-Key': `delivery-review-${journeyId}-${aggregateVersion}`,
+      },
+      body: JSON.stringify({ corrections }),
       cache: 'no-store',
     },
   );

@@ -681,7 +681,11 @@ export default function BookingCaptureV2CompactPage() {
           <div className="uc03-v2-compact-unmatched">
             {unmatchedUploads.map((upload) => (
               <div key={upload.documentId}>
-                <span><strong>{upload.originalFilename}</strong> · Document received; classification is still being confirmed.</span>
+                <span>
+                  <strong>{upload.originalFilename}</strong> · {upload.state.toUpperCase() === 'CLASSIFIED' && upload.classifiedDocumentTypeKey
+                    ? `Classified as ${upload.classifiedDocumentTypeKey} · retained as a separate document.`
+                    : 'Document received; classification is still being confirmed.'}
+                </span>
                 <button type="button" disabled={busyDocumentId === upload.documentId} onClick={() => void handleDelete(upload.documentId)}>
                   Delete
                 </button>

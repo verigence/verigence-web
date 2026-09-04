@@ -61,10 +61,10 @@ export default function DeliveryDetailsV2Page() {
   }, [workspace]);
 
   const vehiclePhoto = useMemo(() => workspace?.documents.find(isVehiclePhoto), [workspace?.documents]);
-  const vehiclePhotoRequired = Boolean(vehiclePhoto && vehiclePhoto.requirementLevel === 'REQUIRED' && vehiclePhoto.applicabilityState !== 'NOT_APPLICABLE');
+  const vehiclePhotoExpected = Boolean(vehiclePhoto && vehiclePhoto.requirementLevel === 'REQUIRED' && vehiclePhoto.applicabilityState !== 'NOT_APPLICABLE');
   const vehiclePhotoAvailable = Boolean(vehiclePhoto?.evidenceId);
   const intimationComplete = intimationAnswer === 'YES' || (intimationAnswer === 'NO' && Boolean(intimationReason.trim()));
-  const canSubmit = intimationComplete && (!vehiclePhotoRequired || vehiclePhotoAvailable) && !savingIntimation && !savingVehicle && !uploadingPhoto && !submitting;
+  const canSubmit = intimationComplete && !savingIntimation && !savingVehicle && !uploadingPhoto && !submitting;
 
   if (!project || !journeyId) return null;
 
@@ -185,7 +185,7 @@ export default function DeliveryDetailsV2Page() {
       <PageHeader
         eyebrow="Delivery · V2"
         title="Delivery Details & Vehicle Evidence"
-        description="Step 2 of 2 · Record the Delivery handover details and vehicle evidence, then continue to Review."
+        description="Step 2 of 2 · Record the Delivery handover details and any vehicle evidence available, then continue to Review."
       />
 
       <nav className="uc03-booking-steps" aria-label="Delivery capture steps">
@@ -248,11 +248,11 @@ export default function DeliveryDetailsV2Page() {
       <section className="uc03-booking-step-panel">
         <header className="uc03-booking-step-heading">
           <div><span className="uc03-c1-eyebrow">Evidence</span><h2>Vehicle photograph</h2></div>
-          <StatusPill value={vehiclePhotoAvailable ? 'UPLOADED' : vehiclePhotoRequired ? 'REQUIRED' : 'OPTIONAL'} compact />
+          <StatusPill value={vehiclePhotoAvailable ? 'UPLOADED' : vehiclePhotoExpected ? 'EXPECTED' : 'OPTIONAL'} compact />
         </header>
         {vehiclePhoto ? (
           <div className="uc03-booking-step-footer">
-            <span>{vehiclePhotoAvailable ? 'Vehicle photograph is linked to this Delivery.' : 'Capture a vehicle photograph as Delivery evidence. This is evidence-only and is not part of document classification.'}</span>
+            <span>{vehiclePhotoAvailable ? 'Vehicle photograph is linked to this Delivery.' : vehiclePhotoExpected ? 'Vehicle photograph is expected audit evidence. If it is unavailable, Delivery can still continue and the missing evidence remains visible for follow-up.' : 'Add a vehicle photograph when available. This is evidence-only and is not part of document classification.'}</span>
             <label className="uc03-c1-primary" aria-disabled={uploadingPhoto}>
               {uploadingPhoto ? 'Uploading…' : vehiclePhotoAvailable ? 'Replace Photo' : 'Take / Upload Photo'}
               <input type="file" accept="image/*" capture="environment" disabled={uploadingPhoto} onChange={(event) => { const file = event.currentTarget.files?.[0]; event.currentTarget.value = ''; void uploadVehiclePhoto(file); }} />
@@ -270,8 +270,8 @@ export default function DeliveryDetailsV2Page() {
 
       <section className="uc03-delivery-v2-submit-bar">
         <div>
-          <strong>{canSubmit ? (captureAlreadySubmitted ? 'Ready for Delivery Review' : 'Ready to submit Delivery capture') : 'Complete required Delivery details'}</strong>
-          <span>{!intimationComplete ? 'Delivery intimation is required. ' : ''}{vehiclePhotoRequired && !vehiclePhotoAvailable ? 'Required vehicle photograph is missing.' : captureAlreadySubmitted ? 'Continue to Delivery Review.' : 'Submitting opens Delivery Review.'}</span>
+          <strong>{canSubmit ? (captureAlreadySubmitted ? 'Ready for Delivery Review' : 'Ready to submit Delivery capture') : 'Complete Delivery intimation'}</strong>
+          <span>{!intimationComplete ? 'Delivery intimation is required. ' : vehiclePhotoExpected && !vehiclePhotoAvailable ? 'Expected vehicle-photo evidence is missing; it will not block progression. ' : ''}{captureAlreadySubmitted ? 'Continue to Delivery Review.' : 'Submitting opens Delivery Review.'}</span>
         </div>
         <button type="button" className="uc03-c1-primary" disabled={!canSubmit} onClick={() => void submit()}>{submitting ? 'Working…' : captureAlreadySubmitted ? 'Continue → Review' : 'Submit Delivery → Review'}</button>
       </section>

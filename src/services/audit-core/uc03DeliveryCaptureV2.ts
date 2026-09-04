@@ -1,4 +1,4 @@
-import { auditCoreRequest } from './client';
+import { AuditCoreTimeoutError, auditCoreRequest } from './client';
 import { newIdempotencyKey } from './uc03Booking';
 import type { CaptureV2Document, CaptureV2Requirement } from './uc03DocumentCaptureV2';
 
@@ -54,9 +54,23 @@ function clientUploadId(): string {
 }
 
 const PENDING_CLASSIFICATION_STATES = new Set(['RECEIVING', 'STORED', 'CLASSIFYING']);
+const CAPTURE_STATUS_TIMEOUT_MS = 3_000;
+const LOCAL_FALLBACK_POLL_WINDOW_MS = 30_000;
+const LOCAL_FALLBACK_PREFIX = 'fallback:';
+const localFallbackPollStartedAt = new Map<string, number>();
 
 export function deliveryCaptureV2IsProcessing(capture?: DeliveryCaptureV2): boolean {
   if (!capture) return false;
+
+  const now = Date.now();
+  if (capture.externalContextRef.startsWith(LOCAL_FALLBACK_PREFIX)) {
+    const startedAt = localFallbackPollStartedAt.get(capture.journeyId) ?? now;
+    localFallbackPollStartedAt.set(capture.journeyId, startedAt);
+    if (now - startedAt < LOCAL_FALLBACK_POLL_WINDOW_MS) return true;
+  } else {
+    localFallbackPollStartedAt.delete(capture.journeyId);
+  }
+
   return capture.uploads.some((document) => {
     const state = document.state.toUpperCase();
     if (PENDING_CLASSIFICATION_STATES.has(state)) return true;
@@ -69,10 +83,23 @@ export async function getDeliveryCaptureV2(
   journeyId: string,
   accessToken?: string,
 ): Promise<DeliveryCaptureV2> {
-  return auditCoreRequest<DeliveryCaptureV2>(`${base(tenantId, journeyId)}/capture`, {
-    accessToken: token(accessToken),
-    cache: 'no-store',
-  });
+  const access = token(accessToken);
+  const deliveryBase = base(tenantId, journeyId);
+  try {
+    return await auditCoreRequest<DeliveryCaptureV2>(`${deliveryBase}/capture`, {
+      accessToken: access,
+      cache: 'no-store',
+      timeoutMs: CAPTURE_STATUS_TIMEOUT_MS,
+    });
+  } catch (error) {
+    if (!(error instanceof AuditCoreTimeoutError)) throw error;
+    const local = await auditCoreRequest<DeliveryCaptureV2>(`${deliveryBase}/capture-local`, {
+      accessToken: access,
+      cache: 'no-store',
+      timeoutMs: CAPTURE_STATUS_TIMEOUT_MS,
+    });
+    return { ...local, externalContextRef: `${LOCAL_FALLBACK_PREFIX}${local.externalContextRef}` };
+  }
 }
 
 export async function uploadDeliveryCaptureV2Files(

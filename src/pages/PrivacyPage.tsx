@@ -30,7 +30,7 @@ export default function PrivacyPage() {
             events, organization and role information, audit-work data submitted by authorized
             users, device or technical information, and service-usage records needed to operate and
             protect the platform.
-          </other>
+          </p>
         </section>
 
         <section>
@@ -95,7 +95,7 @@ export default function PrivacyPage() {
           <span aria-hidden="true">•</span>
           <Link to="/login">Sign in</Link>
         </footer>
-      </other>
+      </article>
     </main>
   );
 }

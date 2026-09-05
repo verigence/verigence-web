@@ -90,11 +90,6 @@ export interface Uc03LandingMetrics {
   auditInProgress?: number;
 }
 
-export interface Uc03DashboardBootstrap {
-  metrics: Uc03LandingMetrics;
-  workItems: Uc03WorkItemPage;
-}
-
 export interface Uc03WorkItemFilters {
   workType: Uc03WorkType;
   fromDate?: string;
@@ -108,24 +103,13 @@ type PrimaryQueueEntry = {
   createdAt: number;
 };
 
-type DashboardBootstrapEntry = {
-  promise: Promise<Uc03DashboardBootstrap>;
-  expiresAt: number;
-};
-
 const primaryQueueRequests = new Map<string, PrimaryQueueEntry>();
-const dashboardBootstrapRequests = new Map<string, DashboardBootstrapEntry>();
 const PRIMARY_QUEUE_REGISTRATION_WAIT_MS = 100;
 const PRIMARY_QUEUE_REUSE_MS = 2_000;
-const DASHBOARD_BOOTSTRAP_REUSE_MS = 5_000;
 export const UC03_PRIMARY_WORK_QUEUE_SETTLED_EVENT = 'uc03-primary-work-queue-settled';
 
 function primaryQueueKey(tenantId: string, outletId?: string): string {
   return `${tenantId}:${outletId || ''}`;
-}
-
-function dashboardBootstrapKey(accessToken: string, tenantId: string, outletId?: string): string {
-  return `${accessToken}:${tenantId}:${outletId || ''}`;
 }
 
 function currentPrimaryQueueEntry(
@@ -196,40 +180,6 @@ function normalizeOperatingRole(role: string): OperatingRole {
   }
 }
 
-function getUc03DashboardBootstrap(
-  tenantId: string,
-  outletId: string | undefined,
-  accessToken?: string,
-): Promise<Uc03DashboardBootstrap> {
-  const token = accessTokenRequired(accessToken);
-  const key = dashboardBootstrapKey(token, tenantId, outletId);
-  const now = Date.now();
-  const current = dashboardBootstrapRequests.get(key);
-  if (current && current.expiresAt > now) return current.promise;
-
-  const search = new URLSearchParams();
-  if (outletId) search.set('outletId', outletId);
-  const suffix = search.size ? `?${search.toString()}` : '';
-  const promise = auditCoreRequest<Uc03DashboardBootstrap>(
-    `/v1/tenants/${encodeURIComponent(tenantId)}/uc03/dashboard${suffix}`,
-    {
-      accessToken: token,
-      cache: 'no-store',
-    },
-  );
-  const entry = {
-    promise,
-    expiresAt: now + DASHBOARD_BOOTSTRAP_REUSE_MS,
-  };
-  dashboardBootstrapRequests.set(key, entry);
-  globalThis.setTimeout(() => {
-    if (dashboardBootstrapRequests.get(key) === entry) {
-      dashboardBootstrapRequests.delete(key);
-    }
-  }, DASHBOARD_BOOTSTRAP_REUSE_MS);
-  return promise;
-}
-
 export async function listMyOperationalProjects(
   accessToken?: string,
 ): Promise<OperationalProject[]> {
@@ -252,7 +202,19 @@ export async function getUc03LandingMetrics(
   outletId: string | undefined,
   accessToken?: string,
 ): Promise<Uc03LandingMetrics> {
-  return (await getUc03DashboardBootstrap(tenantId, outletId, accessToken)).metrics;
+  // Metrics are secondary dashboard information. Do not let the tenant-wide
+  // counter query or its Security call delay first Work Queue paint.
+  await awaitPrimaryUc03WorkQueue(tenantId, outletId);
+  const search = new URLSearchParams();
+  if (outletId) search.set('outletId', outletId);
+  const suffix = search.size ? `?${search.toString()}` : '';
+  return auditCoreRequest<Uc03LandingMetrics>(
+    `/v1/tenants/${encodeURIComponent(tenantId)}/uc03/landing-metrics${suffix}`,
+    {
+      accessToken: accessTokenRequired(accessToken),
+      cache: 'no-store',
+    },
+  );
 }
 
 export async function listUc03WorkItems(
@@ -279,8 +241,16 @@ export async function listUc03WorkItems(
     );
   }
 
-  const request = getUc03DashboardBootstrap(tenantId, filters.outletId, accessToken)
-    .then((bootstrap) => bootstrap.workItems);
+  const search = new URLSearchParams();
+  search.set('limit', '10');
+  if (filters.outletId) search.set('outletId', filters.outletId);
+  const request = auditCoreRequest<Uc03WorkItemPage>(
+    `/v1/tenants/${encodeURIComponent(tenantId)}/uc03/work-items-fast?${search.toString()}`,
+    {
+      accessToken: accessTokenRequired(accessToken),
+      cache: 'no-store',
+    },
+  );
   const key = primaryQueueKey(tenantId, filters.outletId);
   const entry = { promise: request, createdAt: Date.now() };
   primaryQueueRequests.set(key, entry);

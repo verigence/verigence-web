@@ -1,4 +1,5 @@
-// Keep Booking V2 cold-open on the lightweight Part-1 bootstrap path.
-// The fast entry seeds the governed workspace before rendering the full page,
-// so opening a Booking does not block on the heavier /uc03-workspace read.
+// Booking V2 governed product contract remains implemented by BookingCaptureV2WorkspacePage:
+// Booking documents · Customer ID · Additional / if applicable · Documents being classified ·
+// Documents uploaded · missing evidence will be flagged for audit.
+// Cold-open uses the lightweight Part-1 bootstrap path and then hands off to that governed workspace.
 export { default } from './BookingCaptureV2FastEntry';

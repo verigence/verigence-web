@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useParams } from 'react-router-dom';
 
 import PageHeader from '../components/PageHeader';
@@ -93,6 +93,7 @@ function declaration(capture: BookingCaptureV2, key: string) {
 export default function BookingDetailsV2Page() {
   const { journeyId } = useParams<{ journeyId: string }>();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const project = useProjectContextStore((state) => state.selectedProject);
   const accessToken = useSessionStore((state) => state.accessToken);
   const [form, setForm] = useState<DetailsForm>(EMPTY_FORM);
@@ -223,14 +224,26 @@ export default function BookingDetailsV2Page() {
     setBusy(true);
     setError(undefined);
     try {
-      await submitBookingV2(
+      const result = await submitBookingV2(
         project.tenantId,
         journeyId,
         payload(),
         details.aggregateVersion,
         accessToken,
       );
-      navigate(`/v2/bookings/${journeyId}/review`, { replace: true });
+
+      queryClient.setQueryData(
+        ['uc03-booking-details-v2', project.tenantId, journeyId],
+        { ...details, aggregateVersion: result.aggregateVersion },
+      );
+      void queryClient.invalidateQueries({ queryKey: ['uc03-work-items'] });
+      void queryClient.invalidateQueries({ queryKey: ['uc03-landing-metrics'] });
+
+      if (result.status === 'COMPLETED') {
+        navigate('/dashboard', { replace: true });
+      } else {
+        navigate(`/v2/bookings/${journeyId}`, { replace: true });
+      }
     } catch (cause: unknown) {
       setError(cause instanceof Error ? cause.message : 'Booking could not be submitted.');
     } finally {
@@ -248,7 +261,7 @@ export default function BookingDetailsV2Page() {
       <PageHeader
         eyebrow="Capture New Booking · V2"
         title="Booking Details"
-        description="Step 2 of 2 · Capture the Booking details known to you. Any mismatch with document evidence is raised for audit follow-up and does not stop Booking submission."
+        description="Step 2 of 2 · Capture the Booking details known to you. Missing documents and audit observations do not block submission; Booking becomes complete only when its mandatory document set is available."
       />
 
       <nav className="uc03-booking-steps" aria-label="Booking capture steps">
@@ -261,7 +274,7 @@ export default function BookingDetailsV2Page() {
       <section className="uc03-booking-step-panel">
         <header className="uc03-booking-step-heading">
           <div><span className="uc03-c1-eyebrow">Step 2</span><h2>Required Booking Details</h2></div>
-          <span>Document review values continue to prepare in the background</span>
+          <span>Document processing continues without blocking capture</span>
         </header>
 
         <div className="uc03-v2-carried-forward">
@@ -293,9 +306,9 @@ export default function BookingDetailsV2Page() {
         <div className="uc03-booking-step-footer">
           <span>{missingFields.length
             ? `Complete Booking detail${missingFields.length === 1 ? '' : 's'}: ${missingFields.join(', ')}`
-            : 'Submitting records the Booking and opens Review. Audit exceptions do not stop the business process.'}</span>
+            : 'Submit saves the Booking. With all mandatory documents it becomes Booking Completed; otherwise it remains Booking In Progress.'}</span>
           <button type="button" className="uc03-c1-primary" disabled={!complete || busy} onClick={() => void submit()}>
-            {busy ? 'Submitting…' : 'Submit Booking → Review'}
+            {busy ? 'Submitting…' : 'Submit Booking'}
           </button>
         </div>
       </section>

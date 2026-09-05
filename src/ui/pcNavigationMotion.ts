@@ -5,7 +5,7 @@ const pcDestination = (value: string | null): boolean => {
   try {
     const url = new URL(value, window.location.origin);
     if (url.origin !== window.location.origin) return false;
-    return /^\/(dashboard|v2\/bookings(?:\/|$)|v2\/deliveries(?:\/|$)|bookings(?:\/|$)|deliveries(?:\/|$)|audit(?:\/|$))/.test(url.pathname);
+    return /^\/(dashboard|journeys(?:\/|$)|v2\/bookings(?:\/|$)|v2\/deliveries(?:\/|$)|bookings(?:\/|$)|deliveries(?:\/|$)|audit(?:\/|$))/.test(url.pathname);
   } catch {
     return false;
   }
@@ -38,6 +38,7 @@ function shouldAnimateIntent(target: Element): boolean {
     '.uc03-work-card__primary-action',
     '.uc03-work-card__secondary-action',
     '.uc03-work-card__more-menu',
+    '.uc03-work-row-v2__details-button',
   ].join(',')));
 }
 
@@ -52,6 +53,32 @@ function workQueueRoute(target: Element): URL | undefined {
     if (url.origin !== window.location.origin) return undefined;
     if (!/^\/(?:v2\/bookings|v2\/deliveries|audit)\//.test(url.pathname)) return undefined;
     return url;
+  } catch {
+    return undefined;
+  }
+}
+
+function workQueueDetailsRoute(target: Element): URL | undefined {
+  if (!target.closest('.uc03-work-row-v2__details-button')) return undefined;
+  const row = target.closest('.uc03-work-row-v2');
+  if (!row) return undefined;
+
+  const journeyAnchor = row.querySelector<HTMLAnchorElement>(
+    'a.uc03-work-card__primary-action[href], a[href^="/v2/bookings/"], a[href^="/v2/deliveries/"], a[href^="/audit/"]',
+  );
+  if (!journeyAnchor) return undefined;
+
+  try {
+    const source = new URL(journeyAnchor.href, window.location.href);
+    if (source.origin !== window.location.origin) return undefined;
+    const match = source.pathname.match(/^\/(?:v2\/bookings|v2\/deliveries|audit)\/([^/]+)/);
+    if (!match?.[1]) return undefined;
+
+    const journeyId = decodeURIComponent(match[1]);
+    return new URL(
+      `/journeys/${encodeURIComponent(journeyId)}/overview?from=dashboard`,
+      window.location.origin,
+    );
   } catch {
     return undefined;
   }
@@ -76,13 +103,19 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
     if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
     const target = targetElement(event.target);
     if (!target) return;
-    const url = workQueueRoute(target);
+
+    // "View Details" is a Journey-level operation, not a Booking-capture operation.
+    // Keep one longitudinal Journey view as Booking progresses into Delivery so
+    // customer, vehicle, every payment receipt, delivery and later facts accumulate
+    // on the same screen. Intercept before the old inline Booking-only expansion.
+    const detailsUrl = workQueueDetailsRoute(target);
+    const url = detailsUrl ?? workQueueRoute(target);
     if (!url) return;
 
     // UC03 Work Queue session state is held in-memory. A browser-level navigation
     // reloads the application and therefore drops the authenticated session. Keep
-    // Booking/Delivery/Audit actions inside the mounted SPA even if an anchor's
-    // normal navigation is not intercepted by React Router in the deployed shell.
+    // Work Queue journey actions inside the mounted SPA even if an anchor's normal
+    // navigation is not intercepted by React Router in the deployed shell.
     event.preventDefault();
     event.stopImmediatePropagation();
     armNavigationMotion();

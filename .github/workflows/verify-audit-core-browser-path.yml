@@ -1,0 +1,79 @@
+name: Verify Audit Core browser path
+
+on:
+  pull_request:
+    branches: [dev]
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      AUDIT_CORE_URL: ${{ secrets.AUDIT_CORE_URL }}
+      WEB_ORIGIN: https://verigence-web-dev.jbrconsulting-it.workers.dev
+    steps:
+      - name: Verify configured Audit Core browser path
+        shell: bash
+        run: |
+          set -euo pipefail
+          [ -n "${AUDIT_CORE_URL:-}" ] || { echo 'AUDIT_CORE_URL_PRESENT=NO'; exit 1; }
+          echo 'AUDIT_CORE_URL_PRESENT=YES'
+          case "$AUDIT_CORE_URL" in
+            https://*) echo 'AUDIT_CORE_HTTPS_SCHEME=PASS' ;;
+            *) echo 'AUDIT_CORE_HTTPS_SCHEME=FAIL'; exit 1 ;;
+          esac
+
+          HEALTH_STATUS="$(curl --silent --show-error --location --output /dev/null --write-out '%{http_code}' "${AUDIT_CORE_URL%/}/health" || true)"
+          echo "AUDIT_CORE_HEALTH_STATUS=$HEALTH_STATUS"
+          [ "$HEALTH_STATUS" = 200 ] || { echo 'AUDIT_CORE_HEALTH=FAIL'; exit 1; }
+          echo 'AUDIT_CORE_HEALTH=PASS'
+
+          # Browser document policy must not block cross-origin API connections.
+          curl --fail --silent --show-error --location --dump-header /tmp/web.headers --output /dev/null "$WEB_ORIGIN/admin/project"
+          if grep -Eqi '^content-security-policy:' /tmp/web.headers; then
+            echo 'WEB_CSP_PRESENT=YES'
+            if grep -Eqi '^content-security-policy:.*connect-src' /tmp/web.headers; then
+              echo 'WEB_CSP_CONNECT_SRC_PRESENT=YES'
+            else
+              echo 'WEB_CSP_CONNECT_SRC_PRESENT=NO'
+            fi
+          else
+            echo 'WEB_CSP_PRESENT=NO'
+          fi
+
+          PREFLIGHT_STATUS="$(curl --silent --show-error --output /dev/null --dump-header /tmp/cors.headers --write-out '%{http_code}' \
+            --request OPTIONS \
+            --header "Origin: $WEB_ORIGIN" \
+            --header 'Access-Control-Request-Method: GET' \
+            --header 'Access-Control-Request-Headers: authorization,content-type' \
+            "${AUDIT_CORE_URL%/}/v1/project-reference-data" || true)"
+          echo "AUDIT_CORE_PREFLIGHT_STATUS=$PREFLIGHT_STATUS"
+          grep -Fqi "access-control-allow-origin: $WEB_ORIGIN" /tmp/cors.headers || { echo 'AUDIT_CORE_CORS_ORIGIN=FAIL'; exit 1; }
+          echo 'AUDIT_CORE_CORS_ORIGIN=PASS'
+          grep -Fqi 'access-control-allow-credentials: true' /tmp/cors.headers || { echo 'AUDIT_CORE_CORS_CREDENTIALS=FAIL'; exit 1; }
+          echo 'AUDIT_CORE_CORS_CREDENTIALS=PASS'
+
+          # Actual (unauthenticated) response must also carry CORS; status should be 401.
+          ACTUAL_STATUS="$(curl --silent --show-error --output /tmp/actual.body --dump-header /tmp/actual.headers --write-out '%{http_code}' \
+            --header "Origin: $WEB_ORIGIN" \
+            "${AUDIT_CORE_URL%/}/v1/project-reference-data" || true)"
+          echo "AUDIT_CORE_ACTUAL_UNAUTH_STATUS=$ACTUAL_STATUS"
+          grep -Fqi "access-control-allow-origin: $WEB_ORIGIN" /tmp/actual.headers || { echo 'AUDIT_CORE_ACTUAL_CORS_ORIGIN=FAIL'; exit 1; }
+          echo 'AUDIT_CORE_ACTUAL_CORS_ORIGIN=PASS'
+
+          # Deployment run 187 built and uploaded this exact shared Audit Core client chunk.
+          curl --fail --silent --show-error --location --output /tmp/client.js "$WEB_ORIGIN/assets/client-BHaeGV6J.js"
+          python - <<'PY'
+          import os
+          from pathlib import Path
+          secret = os.environ['AUDIT_CORE_URL'].rstrip('/')
+          body = Path('/tmp/client.js').read_text(errors='replace')
+          if secret in body:
+              print('LIVE_BUNDLE_AUDIT_CORE_URL_MATCH=PASS')
+          else:
+              print('LIVE_BUNDLE_AUDIT_CORE_URL_MATCH=FAIL')
+              raise SystemExit(1)
+          PY

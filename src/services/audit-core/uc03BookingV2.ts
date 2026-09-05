@@ -39,8 +39,8 @@ export interface BookingDetailsV2Payload {
 export interface BookingSubmitV2Result {
   journeyId: string;
   phase: 'BOOKING';
-  status: 'COMPLETED';
-  pcVerificationStatus: 'PENDING';
+  status: 'IN_PROGRESS' | 'COMPLETED';
+  pcVerificationStatus: 'PENDING' | null;
   aggregateVersion: number;
 }
 

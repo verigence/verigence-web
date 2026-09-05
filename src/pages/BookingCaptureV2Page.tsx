@@ -1,4 +1,4 @@
-// Booking V2 governed product contract remains implemented by BookingCaptureV2WorkspacePage:
-// Booking documents · Customer ID · Additional / if applicable · Documents being classified ·
-// Documents uploaded · missing evidence will be flagged for audit.
-export { default } from './BookingCaptureV2WorkspacePage';
+// Keep Booking V2 cold-open on the lightweight Part-1 bootstrap path.
+// The fast entry seeds the governed workspace before rendering the full page,
+// so opening a Booking does not block on the heavier /uc03-workspace read.
+export { default } from './BookingCaptureV2FastEntry';

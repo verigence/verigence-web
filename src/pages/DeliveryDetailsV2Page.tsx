@@ -152,7 +152,9 @@ export default function DeliveryDetailsV2Page() {
       if (!captureAlreadySubmitted) {
         await submitDeliveryCaptureV2(project.tenantId, journeyId, accessToken);
       }
-      navigate(`/v2/deliveries/${journeyId}/review`, { replace: true });
+      // PC capture ends at the Work Queue. TL/system review is a separate workflow and
+      // must never become the PC's next screen merely because Delivery capture finished.
+      navigate('/dashboard', { replace: true });
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Delivery capture could not be submitted.');
     } finally {
@@ -185,7 +187,7 @@ export default function DeliveryDetailsV2Page() {
       <PageHeader
         eyebrow="Delivery · V2"
         title="Delivery Details & Vehicle Evidence"
-        description="Step 2 of 2 · Record the Delivery handover details and any vehicle evidence available, then continue to Review."
+        description="Step 2 of 2 · Record the Delivery handover details and any vehicle evidence available, then return to your Work Queue."
       />
 
       <nav className="uc03-booking-steps" aria-label="Delivery capture steps">
@@ -270,10 +272,10 @@ export default function DeliveryDetailsV2Page() {
 
       <section className="uc03-delivery-v2-submit-bar">
         <div>
-          <strong>{canSubmit ? (captureAlreadySubmitted ? 'Ready for Delivery Review' : 'Ready to submit Delivery capture') : 'Complete Delivery intimation'}</strong>
-          <span>{!intimationComplete ? 'Delivery intimation is required. ' : vehiclePhotoExpected && !vehiclePhotoAvailable ? 'Expected vehicle-photo evidence is missing; it will not block progression. ' : ''}{captureAlreadySubmitted ? 'Continue to Delivery Review.' : 'Submitting opens Delivery Review.'}</span>
+          <strong>{canSubmit ? (captureAlreadySubmitted ? 'Delivery capture ready' : 'Ready to submit Delivery capture') : 'Complete Delivery intimation'}</strong>
+          <span>{!intimationComplete ? 'Delivery intimation is required. ' : vehiclePhotoExpected && !vehiclePhotoAvailable ? 'Expected vehicle-photo evidence is missing; it will not block progression. ' : ''}{captureAlreadySubmitted ? 'Finish this step and return to the Work Queue.' : 'Submitting returns you to the Work Queue. Any TL/system review remains a separate workflow.'}</span>
         </div>
-        <button type="button" className="uc03-c1-primary" disabled={!canSubmit} onClick={() => void submit()}>{submitting ? 'Working…' : captureAlreadySubmitted ? 'Continue → Review' : 'Submit Delivery → Review'}</button>
+        <button type="button" className="uc03-c1-primary" disabled={!canSubmit} onClick={() => void submit()}>{submitting ? 'Working…' : captureAlreadySubmitted ? 'Finish Delivery Capture' : 'Submit Delivery Capture'}</button>
       </section>
     </div>
   );

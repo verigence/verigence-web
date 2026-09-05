@@ -15,10 +15,12 @@ import {
   type Uc03WorkItem,
   type Uc03WorkType,
 } from '../services/audit-core/uc03';
+import { getBookingDetailsV2 } from '../services/audit-core/uc03BookingV2';
 import {
   listReviewPending,
   type ReviewPendingItem,
 } from '../services/audit-core/uc03PcVerification';
+import { enrichUc03WorkItems } from '../services/audit-core/uc03WorkItemEnrichment';
 import { useProjectContextStore } from '../store/projectContextStore';
 import { useSessionStore } from '../store/sessionStore';
 
@@ -32,6 +34,11 @@ function friendlyStatus(value?: string | null, fallback = 'Not Started'): string
     .split('_')
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(' ');
+}
+
+function yesNo(value?: boolean | null): string {
+  if (value === null || value === undefined) return 'Not captured';
+  return value ? 'Yes' : 'No';
 }
 
 function statusTone(value?: string | null): string {
@@ -308,13 +315,17 @@ function WorkItemRow({
   timezoneName,
   isPc,
   flagsView,
+  productLabelOverride,
 }: {
   item: Uc03WorkItem;
   timezoneName: string;
   isPc: boolean;
   flagsView: boolean;
+  productLabelOverride?: string;
 }) {
   const [expanded, setExpanded] = useState(false);
+  const project = useProjectContextStore((state) => state.selectedProject);
+  const accessToken = useSessionStore((state) => state.accessToken);
   const bookingPath = `/v2/bookings/${item.journeyId}`;
   const deliveryPath = `/v2/deliveries/${item.journeyId}`;
   const auditPath = `/audit/${item.journeyId}`;
@@ -335,6 +346,16 @@ function WorkItemRow({
     : '';
   const deliveryEligible = Boolean(item.delivery.businessStatus || item.booking.captureCompletedAtUtc || item.booking.businessStatus === 'BOOKING_CLOSED');
   const auditAvailable = Boolean(item.booking.businessStatus || item.delivery.businessStatus);
+  const productLabel = productLabelOverride || item.productLabel || 'Vehicle not captured';
+  const bookingDetailsQuery = useQuery({
+    queryKey: ['uc03-work-item-booking-details', project?.tenantId, item.journeyId],
+    queryFn: () => getBookingDetailsV2(project!.tenantId, item.journeyId, accessToken),
+    enabled: Boolean(expanded && project?.tenantId && accessToken),
+    retry: false,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+  });
+  const bookingDetails = bookingDetailsQuery.data;
 
   return (
     <article className={`uc03-work-row-v2${expanded ? ' is-expanded' : ''}${showAttention ? ' has-attention' : ''}${severityClass}`}>
@@ -345,7 +366,7 @@ function WorkItemRow({
       </div>
 
       <div className="uc03-work-row-v2__cell uc03-work-row-v2__vehicle">
-        <strong>{item.productLabel || 'Vehicle not captured'}</strong>
+        <strong>{productLabel}</strong>
         <small>{presentation.workLabel} journey</small>
       </div>
 
@@ -401,10 +422,29 @@ function WorkItemRow({
 
       {expanded && (
         <div className="uc03-work-row-v2__details">
-          <div><span>Last activity</span><strong>{absoluteActivity}</strong></div>
-          <div><span>Next step</span><strong>{presentation.nextStep}</strong></div>
-          <div><span>Documents processing</span><strong>{item.processingDocumentCount}</strong></div>
-          <div><span>Observations</span><strong>{item.openFlagCount}</strong></div>
+          {bookingDetailsQuery.isPending && (
+            <div><span>Captured Booking details</span><strong>Loading…</strong></div>
+          )}
+          {bookingDetailsQuery.isError && (
+            <div><span>Captured Booking details</span><strong>Could not load</strong></div>
+          )}
+          {bookingDetails && (
+            <>
+              <div><span>Vehicle</span><strong>{productLabel}</strong></div>
+              <div><span>Customer type</span><strong>{friendlyStatus(bookingDetails.customerType, 'Not captured')}</strong></div>
+              <div><span>Deal type</span><strong>{friendlyStatus(bookingDetails.dealType, 'Not captured')}</strong></div>
+              <div><span>Deal source</span><strong>{friendlyStatus(bookingDetails.dealSource, 'Not captured')}</strong></div>
+              <div><span>Lead source</span><strong>{friendlyStatus(bookingDetails.leadSource, 'Not captured')}</strong></div>
+              <div><span>Registration state</span><strong>{friendlyStatus(bookingDetails.registrationState, 'Not captured')}</strong></div>
+              <div><span>Registration type</span><strong>{friendlyStatus(bookingDetails.registrationType, 'Not captured')}</strong></div>
+              <div><span>Registration category</span><strong>{friendlyStatus(bookingDetails.registrationCategory, 'Not captured')}</strong></div>
+              <div><span>Territory</span><strong>{friendlyStatus(bookingDetails.territoryCategorization, 'Not captured')}</strong></div>
+              <div><span>District</span><strong>{friendlyStatus(bookingDetails.districtName, 'Not captured')}</strong></div>
+              <div><span>Outright purchase</span><strong>{yesNo(bookingDetails.outrightPurchase)}</strong></div>
+              <div><span>Trade-In</span><strong>{yesNo(bookingDetails.tradeIn)}</strong></div>
+              <div><span>GST benefit</span><strong>{yesNo(bookingDetails.gstBenefit)}</strong></div>
+            </>
+          )}
           {isPc && updateRequired && (
             <p>Booking requires additional information. Update Booking remains available while Delivery can continue unless a specific business rule blocks it.</p>
           )}
@@ -491,6 +531,8 @@ export default function DashboardPage() {
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [enrichedProductLabels, setEnrichedProductLabels] = useState<Record<string, string>>({});
+  const enrichmentRequestedRef = useRef<Set<string>>(new Set());
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
 
   const selectedOutlet = project?.scope.outlets.find((outlet) => outlet.outletId === outletId);
@@ -559,6 +601,32 @@ export default function DashboardPage() {
     });
   }, [isPc, view, workItems]);
   const timezoneName = workQuery.data?.pages[0]?.filters.timezoneName || project?.timezoneName || 'UTC';
+
+  useEffect(() => {
+    if (!isPc || !project?.tenantId || !accessToken || workItems.length === 0) return;
+    const missing = workItems
+      .filter((item) => !item.productLabel && !enrichedProductLabels[item.journeyId] && !enrichmentRequestedRef.current.has(item.journeyId))
+      .slice(0, 10);
+    if (missing.length === 0) return;
+
+    missing.forEach((item) => enrichmentRequestedRef.current.add(item.journeyId));
+    void enrichUc03WorkItems(
+      project.tenantId,
+      missing.map((item) => item.journeyId),
+      accessToken,
+    ).then((response) => {
+      if (response.items.length === 0) return;
+      setEnrichedProductLabels((current) => {
+        const next = { ...current };
+        response.items.forEach((item) => {
+          if (item.productLabel) next[item.journeyId] = item.productLabel;
+        });
+        return next;
+      });
+    }).catch(() => {
+      // Post-paint enrichment must never replace or delay the already-visible Work Queue.
+    });
+  }, [accessToken, enrichedProductLabels, isPc, project?.tenantId, workItems]);
 
   useEffect(() => {
     if (view === 'REVIEW_PENDING') return undefined;
@@ -793,6 +861,7 @@ export default function DashboardPage() {
                       timezoneName={timezoneName}
                       isPc={isPc}
                       flagsView={view === 'FLAGS'}
+                      productLabelOverride={enrichedProductLabels[item.journeyId]}
                     />
                   ))}
                   {displayedWorkItems.length === 0 && (

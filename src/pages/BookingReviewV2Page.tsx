@@ -162,7 +162,6 @@ export default function BookingReviewV2Page() {
   const pendingDocuments = review.documents.filter((document) => document.extractionState === 'PENDING');
   const failedDocuments = review.documents.filter((document) => document.extractionState === 'FAILED');
   const populatedAttributes = review.attributes.filter(hasExtractedValue);
-  const missingAttributes = review.attributes.filter((attribute) => !hasExtractedValue(attribute));
   const requiredMappedKeys = populatedAttributes.filter(needsAttributeDecision).map((attribute) => `attribute:${attribute.attributeKey}`);
   const requiredRawKeys = rawGroups.filter((group) => group.needsDecision).map((group) => group.reviewKey);
   const requiredDecisionKeys = [...requiredMappedKeys, ...requiredRawKeys];
@@ -320,9 +319,7 @@ export default function BookingReviewV2Page() {
       </section>
 
       {receiptGroups.length ? <section className="uc03-v2-section uc03-raw-review-section"><header className="uc03-v2-section-header"><div><span className="uc03-c1-eyebrow">Payment receipts</span><h2>Dealer receipt evidence</h2><p>Each receipt and field remains tied to its own DI document identity.</p></div><span>{receiptGroups.length} value{receiptGroups.length === 1 ? '' : 's'}</span></header>{renderRawGroups(receiptGroups)}</section> : null}
-      {additionalRawGroups.length ? <section className="uc03-v2-section uc03-raw-review-section"><header className="uc03-v2-section-header"><div><span className="uc03-c1-eyebrow">Additional extracted evidence</span><h2>DI values without a typed business projection</h2><p>These values still receive durable Audit Core representation. Repeated documents remain separate rather than being collapsed by field name.</p></div><span>{additionalRawGroups.length} field{additionalRawGroups.length === 1 ? '' : 's'}</span></header>{renderRawGroups(additionalRawGroups)}</section> : null}
-
-      {missingAttributes.length ? <section className="uc03-v2-section uc03-missing-attribute-section"><header className="uc03-v2-section-header"><div><span className="uc03-c1-eyebrow">Expected but not extracted</span><h2>Attributes not available from DI</h2><p>No value is invented when DI did not extract one.</p></div><span>{missingAttributes.length} attribute{missingAttributes.length === 1 ? '' : 's'}</span></header><div className="uc03-missing-attribute-list">{missingAttributes.map((attribute) => <div key={attribute.attributeKey} className="uc03-missing-attribute-row"><strong>{attribute.label}</strong><span>Configured source evidence not available</span></div>)}</div></section> : null}
+      {additionalRawGroups.length ? <section className="uc03-v2-section uc03-raw-review-section"><header className="uc03-v2-section-header"><div><span className="uc03-c1-eyebrow">Additional extracted evidence</span><h2>DI fields extracted but not mapped to a Booking attribute</h2><p>These are actual DI results, kept document-scoped so repeated documents remain separate. They are shown here instead of filling the screen with configured attributes for which DI returned no value.</p></div><span>{additionalRawGroups.length} field{additionalRawGroups.length === 1 ? '' : 's'}</span></header>{renderRawGroups(additionalRawGroups)}</section> : null}
 
       {decisionError ? <div className="uc03-c3-error" role="alert">{decisionError}</div> : null}
       {decisionsQuery.isError ? <div className="uc03-c3-error" role="alert">Review decisions could not be loaded. Refresh Review before confirming.</div> : null}

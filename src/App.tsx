@@ -9,6 +9,7 @@ import SessionRenewalGate from './components/SessionRenewalGate';
 import AttendanceShellSlot from './features/attendance/AttendanceShellSlot';
 import ProjectAdminOutletLocationEnhancer from './features/project-admin/ProjectAdminOutletLocationEnhancer';
 import ProjectMasterActionOverlay from './features/project-admin/ProjectMasterActionOverlay';
+import OverviewOpenBoundary from './features/uc03/OverviewOpenBoundary';
 import ReviewReadinessWatcher from './features/uc03/ReviewReadinessWatcher';
 import AppShell from './layout/AppShell';
 import AndroidNativeBridge from './native/AndroidNativeBridge';
@@ -167,6 +168,14 @@ function OperationalPage({ children }: { children: ReactNode }) {
   );
 }
 
+function OverviewJourneyPage({ children }: { children: ReactNode }) {
+  return (
+    <OperationalPage>
+      <OverviewOpenBoundary>{children}</OverviewOpenBoundary>
+    </OperationalPage>
+  );
+}
+
 function OperationalShellPage({ children }: { children: ReactNode }) {
   return <Authenticated><ProjectContextGate><AppShell>{children}</AppShell></ProjectContextGate></Authenticated>;
 }
@@ -220,12 +229,12 @@ export default function App() {
               <Route path="/bookings/:journeyId" element={<V2JourneyRedirect target="BOOKING" />} />
               <Route path="/bookings/:journeyId/review" element={<V2JourneyRedirect target="BOOKING_REVIEW" />} />
               <Route path="/v2/bookings/new" element={<OperationalPage><CreateBookingV2Page /></OperationalPage>} />
-              <Route path="/v2/bookings/:journeyId" element={<OperationalPage><BookingCaptureV2Page /></OperationalPage>} />
+              <Route path="/v2/bookings/:journeyId" element={<OverviewJourneyPage><BookingCaptureV2Page /></OverviewJourneyPage>} />
               <Route path="/v2/bookings/:journeyId/details" element={<OperationalPage><BookingDetailsV2Page /></OperationalPage>} />
-              <Route path="/v2/bookings/:journeyId/review" element={<OperationalPage><BookingReviewV2Page /></OperationalPage>} />
+              <Route path="/v2/bookings/:journeyId/review" element={<OverviewJourneyPage><BookingReviewV2Page /></OverviewJourneyPage>} />
               <Route path="/deliveries/:journeyId" element={<V2JourneyRedirect target="DELIVERY" />} />
-              <Route path="/v2/deliveries/:journeyId" element={<OperationalPage><DeliveryCaptureV2Page /></OperationalPage>} />
-              <Route path="/v2/deliveries/:journeyId/review" element={<OperationalPage><DeliveryReviewV2Page /></OperationalPage>} />
+              <Route path="/v2/deliveries/:journeyId" element={<OverviewJourneyPage><DeliveryCaptureV2Page /></OverviewJourneyPage>} />
+              <Route path="/v2/deliveries/:journeyId/review" element={<OverviewJourneyPage><DeliveryReviewV2Page /></OverviewJourneyPage>} />
               <Route path="/audit/:journeyId" element={<OperationalPage><AuditReviewPage /></OperationalPage>} />
               <Route path="/feedback" element={<OperationalShellPage><FeedbackPage /></OperationalShellPage>} />
               <Route path="/customers" element={<LegacyOperationalPage><CustomersPage /></LegacyOperationalPage>} />

@@ -1,219 +1,302 @@
-/* UC03 work queue stabilization: use the five desktop columns as a real table.
-   This intentionally loads after the historical dashboard polish files. */
+/* UC03 Work Queue trial layout.
+   The row owns its five columns directly so historical card CSS cannot move
+   identity/action content into the wrong grid cell. No additional data fetches. */
 
-@media (min-width: 961px) {
-  .uc03-work-cards {
-    gap: 0;
-    overflow: hidden;
-    border: 1px solid rgba(20, 61, 98, 0.14);
-    border-radius: 18px;
-    background: #fff;
-  }
+.uc03-work-cards--v2 {
+  overflow: hidden;
+  border: 1px solid rgba(20, 61, 98, 0.14);
+  border-radius: 16px;
+  background: #fff;
+}
 
-  .uc03-work-table-head {
-    display: grid !important;
-    grid-template-columns: minmax(250px, 1.45fr) minmax(210px, 1.2fr) minmax(160px, 0.9fr) minmax(105px, 0.55fr) minmax(210px, 1fr) !important;
-    gap: 20px !important;
-    align-items: center;
-    padding: 12px 20px !important;
-    margin: 0 !important;
-    border: 0 !important;
-    border-bottom: 1px solid rgba(20, 61, 98, 0.12) !important;
-    border-radius: 0 !important;
-    background: #f7fafc !important;
-    color: #5d728a !important;
-    font-size: 0.72rem !important;
-    font-weight: 800 !important;
-    letter-spacing: 0.055em;
-    text-transform: uppercase;
-  }
+.uc03-work-table-head--v2 {
+  display: grid !important;
+  grid-template-columns: minmax(220px, 1.25fr) minmax(230px, 1.35fr) minmax(175px, 0.95fr) minmax(190px, 1fr) minmax(230px, 1.15fr) !important;
+  gap: 20px !important;
+  align-items: center;
+  margin: 0 !important;
+  padding: 12px 20px !important;
+  border: 0 !important;
+  border-bottom: 1px solid rgba(20, 61, 98, 0.12) !important;
+  border-radius: 0 !important;
+  background: #f7fafc !important;
+  color: #5d728a !important;
+  font-size: 0.72rem !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.055em;
+  text-transform: uppercase;
+}
 
-  .uc03-work-card.uc03-work-card--interactive {
-    display: grid !important;
-    grid-template-columns: minmax(250px, 1.45fr) minmax(210px, 1.2fr) minmax(160px, 0.9fr) minmax(105px, 0.55fr) minmax(210px, 1fr) !important;
-    grid-template-areas:
-      "identity next status age actions"
-      "details details details details details" !important;
-    gap: 20px !important;
-    align-items: center !important;
-    min-height: 92px;
-    padding: 16px 20px !important;
-    margin: 0 !important;
-    border: 0 !important;
-    border-bottom: 1px solid rgba(20, 61, 98, 0.1) !important;
-    border-radius: 0 !important;
-    box-shadow: none !important;
-    background: #fff !important;
-  }
+.uc03-work-row-v2 {
+  display: grid;
+  grid-template-columns: minmax(220px, 1.25fr) minmax(230px, 1.35fr) minmax(175px, 0.95fr) minmax(190px, 1fr) minmax(230px, 1.15fr);
+  gap: 20px;
+  align-items: center;
+  min-height: 96px;
+  padding: 16px 20px;
+  border-bottom: 1px solid rgba(20, 61, 98, 0.1);
+  background: #fff;
+}
 
-  .uc03-work-card.uc03-work-card--interactive:last-child {
-    border-bottom: 0 !important;
-  }
+.uc03-work-row-v2:last-child {
+  border-bottom: 0;
+}
 
-  .uc03-work-card.uc03-work-card--interactive:hover,
-  .uc03-work-card.uc03-work-card--interactive:focus-within {
-    background: #f9fcfd !important;
-    box-shadow: inset 4px 0 0 rgba(0, 143, 154, 0.55) !important;
-    transform: none !important;
-  }
+.uc03-work-row-v2:hover,
+.uc03-work-row-v2:focus-within {
+  background: #f9fcfd;
+  box-shadow: inset 4px 0 0 rgba(0, 143, 154, 0.5);
+}
 
-  .uc03-work-card__header {
-    display: contents !important;
-  }
+.uc03-work-row-v2.has-attention {
+  box-shadow: inset 4px 0 0 rgba(187, 89, 39, 0.6);
+}
 
-  .uc03-work-card__identity {
-    grid-area: identity !important;
-    min-width: 0;
-    padding: 0 !important;
-  }
+.uc03-work-row-v2__cell {
+  min-width: 0;
+}
 
-  .uc03-work-card__identity h3 {
-    margin: 0 0 5px !important;
-    font-size: 1rem !important;
-    line-height: 1.25 !important;
-    color: #103b67 !important;
-  }
+.uc03-work-row-v2__customer strong,
+.uc03-work-row-v2__vehicle strong {
+  display: block;
+  overflow: hidden;
+  color: #103b67;
+  font-size: 0.96rem;
+  line-height: 1.3;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 
-  .uc03-work-card__identity-meta {
-    display: flex !important;
-    flex-wrap: wrap;
-    gap: 5px 9px !important;
-    margin: 0 !important;
-    color: #63788e !important;
-    font-size: 0.76rem !important;
-  }
+.uc03-work-row-v2__customer span,
+.uc03-work-row-v2__customer small,
+.uc03-work-row-v2__vehicle small,
+.uc03-work-row-v2__status small,
+.uc03-work-row-v2__dates small {
+  display: block;
+  margin-top: 5px;
+  color: #6d8297;
+  font-size: 0.74rem;
+  line-height: 1.3;
+}
 
-  .uc03-work-card__identity p {
-    margin: 5px 0 0 !important;
-    color: #344f69 !important;
-    font-size: 0.82rem !important;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
+.uc03-work-row-v2__customer span {
+  color: #3f5871;
+  font-size: 0.8rem;
+}
 
-  .uc03-work-card__identity > small {
-    display: block;
-    margin-top: 5px;
-    color: #71859a;
-    font-size: 0.73rem;
-    line-height: 1.25;
-  }
+.uc03-work-row-v2__vehicle strong {
+  color: #263f59;
+  white-space: normal;
+}
 
-  .uc03-work-card__next-step {
-    grid-area: next !important;
-    min-width: 0;
-    padding: 0 !important;
-    border: 0 !important;
-    background: transparent !important;
-  }
+.uc03-work-row-v2__dates {
+  display: grid;
+  gap: 6px;
+}
 
-  .uc03-work-card__next-step > span {
-    display: none !important;
-  }
+.uc03-work-row-v2__dates > div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
 
-  .uc03-work-card__next-step strong {
-    display: block;
-    color: #143e67 !important;
-    font-size: 0.9rem !important;
-    line-height: 1.3 !important;
-  }
+.uc03-work-row-v2__dates span {
+  color: #6d8297;
+  font-size: 0.72rem;
+}
 
-  .uc03-work-card__next-step small {
-    display: block;
-    margin-top: 5px;
-    color: #71859a !important;
-    font-size: 0.73rem !important;
-  }
+.uc03-work-row-v2__dates strong {
+  color: #28445f;
+  font-size: 0.78rem;
+  font-weight: 750;
+  text-align: right;
+}
 
-  .uc03-work-card__summary {
-    grid-area: status !important;
-    min-width: 0;
-    padding: 0 !important;
-    border: 0 !important;
-    background: transparent !important;
-  }
+.uc03-work-row-v2__status {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
 
-  .uc03-work-status-pill {
-    display: inline-flex !important;
-    max-width: 100%;
-    padding: 6px 9px !important;
-    border-radius: 999px !important;
-    font-size: 0.73rem !important;
-    line-height: 1.15 !important;
-    white-space: normal !important;
-  }
+.uc03-work-row-v2__status .uc03-work-status-pill {
+  display: inline-flex !important;
+  max-width: 100%;
+  margin: 0 !important;
+  padding: 6px 10px !important;
+  border-radius: 999px !important;
+  font-size: 0.74rem !important;
+  line-height: 1.2 !important;
+  white-space: normal !important;
+}
 
-  .uc03-work-card__age {
-    grid-area: age !important;
-    min-width: 0;
-    padding: 0 !important;
-    border: 0 !important;
-    background: transparent !important;
-    text-align: left !important;
-  }
+.uc03-work-row-v2__status .uc03-verification-badge {
+  margin: 0;
+}
 
-  .uc03-work-card__age strong {
-    display: block;
-    font-size: 0.86rem !important;
-    line-height: 1.2;
-  }
+.uc03-work-row-v2__actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 7px;
+}
 
-  .uc03-work-card__age span {
-    display: block;
-    margin-top: 3px;
-    color: #7a8da0 !important;
-    font-size: 0.69rem !important;
-  }
+.uc03-work-row-v2__action-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
 
-  .uc03-work-card__footer {
-    grid-area: actions !important;
-    display: flex !important;
-    align-items: center !important;
-    justify-content: flex-start !important;
-    gap: 7px !important;
-    min-width: 0;
-    padding: 0 !important;
-    margin: 0 !important;
-    border: 0 !important;
-    background: transparent !important;
-  }
+.uc03-work-row-v2__actions .uc03-work-card__primary-action,
+.uc03-work-row-v2__actions .uc03-work-card__secondary-action {
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  min-height: 36px !important;
+  margin: 0 !important;
+  padding: 8px 12px !important;
+  border-radius: 9px !important;
+  font-size: 0.78rem !important;
+  font-weight: 750;
+  line-height: 1.15 !important;
+  text-decoration: none;
+  white-space: nowrap;
+}
 
-  .uc03-work-card__primary-action {
-    min-height: 36px !important;
-    padding: 8px 12px !important;
-    border-radius: 9px !important;
-    font-size: 0.78rem !important;
-    line-height: 1.15 !important;
-    white-space: nowrap;
-  }
+.uc03-work-row-v2__actions .uc03-work-card__secondary-action {
+  border: 1px solid rgba(16, 59, 103, 0.22);
+  background: #fff;
+  color: #103b67;
+}
 
-  .uc03-work-card__more {
-    flex: 0 0 auto;
-  }
+.uc03-work-row-v2__details-button {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #35657f;
+  font: inherit;
+  font-size: 0.76rem;
+  font-weight: 700;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
 
-  .uc03-work-card__more-button {
-    width: 36px !important;
-    height: 36px !important;
-    min-width: 36px !important;
-    border-radius: 9px !important;
-  }
+.uc03-work-row-v2__details {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(130px, 1fr));
+  gap: 12px 20px;
+  margin: 2px -20px -16px;
+  padding: 14px 20px 16px;
+  border-top: 1px solid rgba(20, 61, 98, 0.1);
+  background: #f8fbfd;
+}
 
-  .uc03-work-card__expanded-content {
-    grid-area: details !important;
-    margin: 4px -20px -16px !important;
-    padding: 14px 20px !important;
-    border-top: 1px solid rgba(20, 61, 98, 0.1) !important;
-    background: #f8fbfd !important;
+.uc03-work-row-v2__details > div:not(.uc03-work-row-v2__stages):not(.uc03-work-row-v2__detail-links) span {
+  display: block;
+  color: #74879a;
+  font-size: 0.7rem;
+}
+
+.uc03-work-row-v2__details > div:not(.uc03-work-row-v2__stages):not(.uc03-work-row-v2__detail-links) strong {
+  display: block;
+  margin-top: 4px;
+  color: #28445f;
+  font-size: 0.8rem;
+}
+
+.uc03-work-row-v2__details p {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: #704321;
+  font-size: 0.8rem;
+  line-height: 1.4;
+}
+
+.uc03-work-row-v2__stages,
+.uc03-work-row-v2__detail-links {
+  grid-column: 1 / -1;
+}
+
+.uc03-work-row-v2__stages {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.uc03-work-row-v2__detail-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+}
+
+.uc03-work-row-v2__detail-links a {
+  color: #0a6174;
+  font-size: 0.78rem;
+  font-weight: 750;
+  text-decoration: none;
+}
+
+@media (max-width: 1180px) and (min-width: 961px) {
+  .uc03-work-table-head--v2,
+  .uc03-work-row-v2 {
+    grid-template-columns: minmax(190px, 1.15fr) minmax(190px, 1.2fr) minmax(160px, 0.9fr) minmax(170px, 1fr) minmax(185px, 1fr) !important;
+    gap: 14px !important;
   }
 }
 
 @media (max-width: 960px) {
-  .uc03-work-table-head {
+  .uc03-work-cards--v2 {
+    overflow: visible;
+    border: 0;
+    background: transparent;
+  }
+
+  .uc03-work-table-head--v2 {
     display: none !important;
   }
 
-  .uc03-work-card.uc03-work-card--interactive {
-    border-radius: 14px !important;
+  .uc03-work-row-v2 {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 13px;
+    margin-bottom: 12px;
+    padding: 16px;
+    border: 1px solid rgba(20, 61, 98, 0.14);
+    border-radius: 14px;
+    box-shadow: 0 4px 14px rgba(19, 55, 88, 0.06);
+  }
+
+  .uc03-work-row-v2__dates > div {
+    justify-content: flex-start;
+  }
+
+  .uc03-work-row-v2__dates strong {
+    text-align: left;
+  }
+
+  .uc03-work-row-v2__details {
+    grid-column: auto;
+    grid-template-columns: 1fr 1fr;
+    margin: 2px -16px -16px;
+    padding: 14px 16px 16px;
+  }
+}
+
+@media (max-width: 560px) {
+  .uc03-work-row-v2__details,
+  .uc03-work-row-v2__stages {
+    grid-template-columns: 1fr;
+  }
+
+  .uc03-work-row-v2__action-buttons {
+    width: 100%;
+  }
+
+  .uc03-work-row-v2__actions .uc03-work-card__primary-action,
+  .uc03-work-row-v2__actions .uc03-work-card__secondary-action {
+    flex: 1 1 auto;
   }
 }

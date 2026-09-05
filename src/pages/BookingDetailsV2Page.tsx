@@ -261,7 +261,7 @@ export default function BookingDetailsV2Page() {
       <PageHeader
         eyebrow="Capture New Booking · V2"
         title="Booking Details"
-        description="Step 2 of 2 · Capture the Booking details known to you. Missing documents and audit observations do not block submission; Booking becomes complete only when its mandatory document set is available."
+        description="Step 2 of 2 · Capture the Booking details known to you. Missing documents and audit observations do not block submission; Booking becomes complete only when its mandatory document set is available. Audit exceptions do not stop the business process."
       />
 
       <nav className="uc03-booking-steps" aria-label="Booking capture steps">

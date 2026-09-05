@@ -1,4 +1,4 @@
-import { auditCoreRequest } from './client';
+import { AuditCoreHttpError, auditCoreRequest } from './client';
 import { newIdempotencyKey } from './uc03Booking';
 
 export type DeliveryAuditState = 'NOT_STARTED' | 'IN_PROGRESS' | 'COMPLETE';
@@ -110,15 +110,60 @@ function stableDeliveryUploadKey(journeyId: string, requirementKey: string, file
   return created;
 }
 
+function preStartWorkspace(journeyId: string): DeliveryWorkspace {
+  return {
+    journeyId,
+    operatingRole: '',
+    delivery: {
+      businessStatus: '',
+      auditState: 'NOT_STARTED',
+      auditStatus: 'NOT_EVALUATED',
+      aggregateVersion: 0,
+      startedAtUtc: null,
+      completedAtUtc: null,
+    },
+    booking: {
+      businessStatus: null,
+      closureDisposition: null,
+      incompleteAtDelivery: false,
+      warning: null,
+    },
+    intimation: { answer: 'UNANSWERED', reason: null },
+    vehicle: {
+      expectedVin: null,
+      expectedChassisNumber: null,
+      observedVin: null,
+      observedChassisNumber: null,
+      observedSourceEvidenceId: null,
+      reconciliationStatus: 'NOT_EVALUATED',
+      evaluatorKey: null,
+      evaluatedAtUtc: null,
+    },
+    documents: [],
+    payments: [],
+    flags: [],
+  };
+}
+
 export async function getDeliveryWorkspace(
   tenantId: string,
   journeyId: string,
   accessToken?: string,
 ): Promise<DeliveryWorkspace> {
-  return auditCoreRequest<DeliveryWorkspace>(`${base(tenantId, journeyId)}/delivery/workspace`, {
-    accessToken: token(accessToken),
-    cache: 'no-store',
-  });
+  try {
+    return await auditCoreRequest<DeliveryWorkspace>(`${base(tenantId, journeyId)}/delivery/workspace`, {
+      accessToken: token(accessToken),
+      cache: 'no-store',
+    });
+  } catch (error) {
+    // Audit Core intentionally has no Delivery workspace until the Delivery event
+    // has started. That is an expected pre-start business state, not an error page.
+    // Return a minimal NOT_STARTED workspace so the UI can expose Start Delivery.
+    if (error instanceof AuditCoreHttpError && error.errorCode === 'VAC-NF-012') {
+      return preStartWorkspace(journeyId);
+    }
+    throw error;
+  }
 }
 
 export async function startDelivery(

@@ -3,6 +3,13 @@ import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { Link, useNavigate } from 'react-router-dom';
 
 import {
+  effectiveStageStatus,
+  overviewOpenState,
+  reviewPendingOverviewOpenState,
+  stageReviewPending,
+  type OverviewTarget,
+} from '../features/uc03/overviewOpen';
+import {
   getUc03LandingMetrics,
   listUc03WorkItems,
   type Uc03StageSummary,
@@ -72,14 +79,16 @@ function activityAgeTone(timestamp: string): string {
 }
 
 function isVerified(stage: Uc03StageSummary): boolean {
+  if (stage.pcVerificationStatus) return stage.pcVerificationStatus === 'VERIFIED';
   return stage.auditState === 'COMPLETE';
 }
 
 function VerificationBadge({ stage }: { stage: Uc03StageSummary }) {
   const verified = isVerified(stage);
+  const pending = stage.pcVerificationStatus === 'PENDING';
   return (
     <span className={`uc03-verification-badge${verified ? ' is-verified' : ' is-not-verified'}`}>
-      {verified ? 'Verified' : 'Not Verified'}
+      {verified ? 'Verified' : pending ? 'Review Pending' : 'Not Verified'}
     </span>
   );
 }
@@ -93,10 +102,11 @@ function StageBlock({
   item: Uc03StageSummary;
   showVerification?: boolean;
 }) {
+  const stageKind = label === 'Delivery' ? 'DELIVERY' : 'BOOKING';
   return (
     <div className="uc03-stage-block">
       <span>{label}</span>
-      <strong>{friendlyStatus(item.businessStatus)}</strong>
+      <strong>{friendlyStatus(effectiveStageStatus(item, stageKind))}</strong>
       {showVerification && <VerificationBadge stage={item} />}
       {item.businessDate && <small>{item.businessDate}</small>}
     </div>
@@ -168,6 +178,7 @@ type WorkPresentation = {
   nextStep: string;
   primaryActionLabel: string;
   primaryPath: string;
+  target: OverviewTarget;
 };
 
 function workPresentation(
@@ -177,11 +188,14 @@ function workPresentation(
   flagsView: boolean,
 ): WorkPresentation {
   const bookingPath = `/v2/bookings/${item.journeyId}`;
-  const reviewPath = `/v2/bookings/${item.journeyId}/review`;
+  const bookingReviewPath = `/v2/bookings/${item.journeyId}/review`;
   const deliveryPath = `/v2/deliveries/${item.journeyId}`;
+  const deliveryReviewPath = `/v2/deliveries/${item.journeyId}/review`;
   const auditPath = `/audit/${item.journeyId}`;
   const hasDelivery = Boolean(item.delivery.businessStatus);
   const bookingStatus = item.booking.businessStatus;
+  const bookingReviewPending = stageReviewPending(item.booking) || reviewPending;
+  const deliveryReviewPending = stageReviewPending(item.delivery);
 
   if (isPc && flagsView && item.openFlagCount > 0) {
     return {
@@ -189,15 +203,27 @@ function workPresentation(
       nextStep: `Review ${item.openFlagCount} flag${item.openFlagCount === 1 ? '' : 's'}`,
       primaryActionLabel: 'Review Flags',
       primaryPath: auditPath,
+      target: 'AUDIT',
     };
   }
 
-  if (isPc && reviewPending) {
+  if (isPc && deliveryReviewPending) {
+    return {
+      workLabel: 'Delivery',
+      nextStep: 'Review delivery documents',
+      primaryActionLabel: 'Review Delivery',
+      primaryPath: deliveryReviewPath,
+      target: 'DELIVERY_REVIEW',
+    };
+  }
+
+  if (isPc && bookingReviewPending) {
     return {
       workLabel: 'Booking',
       nextStep: 'Review documents',
       primaryActionLabel: 'Review Documents',
-      primaryPath: reviewPath,
+      primaryPath: bookingReviewPath,
+      target: 'BOOKING_REVIEW',
     };
   }
 
@@ -207,6 +233,7 @@ function workPresentation(
       nextStep: `Review ${item.openFlagCount} audit flag${item.openFlagCount === 1 ? '' : 's'}`,
       primaryActionLabel: 'Review Flags',
       primaryPath: auditPath,
+      target: 'AUDIT',
     };
   }
 
@@ -216,15 +243,20 @@ function workPresentation(
       nextStep: 'Continue delivery work',
       primaryActionLabel: 'Continue Delivery',
       primaryPath: deliveryPath,
+      target: 'DELIVERY',
     };
   }
 
-  if (bookingStatus === 'BOOKING_CLOSED') {
+  if (
+    bookingStatus === 'BOOKING_CLOSED'
+    || (Boolean(item.booking.captureCompletedAtUtc) && item.booking.pcVerificationStatus === 'VERIFIED')
+  ) {
     return {
       workLabel: 'Booking',
       nextStep: 'Start delivery',
       primaryActionLabel: 'Start Delivery',
       primaryPath: deliveryPath,
+      target: 'DELIVERY',
     };
   }
 
@@ -233,6 +265,7 @@ function workPresentation(
     nextStep: 'Continue booking',
     primaryActionLabel: 'Continue Booking',
     primaryPath: bookingPath,
+    target: 'BOOKING',
   };
 }
 
@@ -258,6 +291,7 @@ function WorkItemCard({
   const auditPath = `/audit/${item.journeyId}`;
   const deliveryEligible = Boolean(
     item.delivery.businessStatus
+      || item.booking.captureCompletedAtUtc
       || bookingStatus === 'BOOKING_STARTED'
       || bookingStatus === 'BOOKING_IN_PROGRESS'
       || bookingStatus === 'BOOKING_CLOSED',
@@ -266,14 +300,21 @@ function WorkItemCard({
   const presentation = workPresentation(item, isPc, reviewPending, flagsView);
   const isDeliveryWork = presentation.workLabel === 'Delivery';
   const primaryStage = isDeliveryWork ? item.delivery : item.booking;
-  const workStatus = reviewPending ? 'Review Pending' : friendlyStatus(primaryStage.businessStatus);
-  const workStatusTone = reviewPending ? 'is-review' : statusTone(primaryStage.businessStatus);
+  const primaryStageKind = isDeliveryWork ? 'DELIVERY' : 'BOOKING';
+  const primaryReviewPending = stageReviewPending(primaryStage)
+    || (presentation.target === 'BOOKING_REVIEW' && reviewPending);
+  const effectiveStatus = effectiveStageStatus(primaryStage, primaryStageKind);
+  const workStatus = primaryReviewPending
+    ? `${friendlyStatus(effectiveStatus)} · Review Pending`
+    : friendlyStatus(effectiveStatus);
+  const workStatusTone = primaryReviewPending ? 'is-review' : statusTone(effectiveStatus);
   const ageTone = activityAgeTone(item.latestActivityAtUtc);
   const absoluteActivity = activityLabel(item.latestActivityAtUtc, timezoneName);
   const relativeActivity = activityRelativeLabel(item.latestActivityAtUtc);
   const severityClass = item.openFlagCount > 0 && item.highestOpenSeverity
     ? ` is-severity-${item.highestOpenSeverity.toLowerCase()}`
     : '';
+  const isReviewWork = presentation.target === 'BOOKING_REVIEW' || presentation.target === 'DELIVERY_REVIEW';
 
   return (
     <article
@@ -284,13 +325,13 @@ function WorkItemCard({
       onClick={(event) => {
         const target = event.target as HTMLElement;
         if (target.closest('a, button')) return;
-        navigate(presentation.primaryPath);
+        navigate(presentation.primaryPath, { state: overviewOpenState(item, presentation.target) });
       }}
       onKeyDown={(event) => {
         if (event.target !== event.currentTarget) return;
         if (event.key === 'Enter') {
           event.preventDefault();
-          navigate(presentation.primaryPath);
+          navigate(presentation.primaryPath, { state: overviewOpenState(item, presentation.target) });
         }
       }}
     >
@@ -298,7 +339,7 @@ function WorkItemCard({
         <div className="uc03-work-card__identity">
           <h3>{item.customerDisplayName}</h3>
           <div className="uc03-work-card__identity-meta">
-            <span className="uc03-work-card__type-label">{reviewPending && !flagsView ? 'Booking Review' : presentation.workLabel}</span>
+            <span className="uc03-work-card__type-label">{isReviewWork ? `${presentation.workLabel} Review` : presentation.workLabel}</span>
             {item.bookingReference && <span>{item.bookingReference}</span>}
           </div>
           <p>{item.productLabel || 'Vehicle not captured'}</p>
@@ -347,7 +388,11 @@ function WorkItemCard({
       )}
 
       <footer className="uc03-work-card__footer">
-        <Link className="uc03-work-card__primary-action" to={presentation.primaryPath}>
+        <Link
+          className="uc03-work-card__primary-action"
+          to={presentation.primaryPath}
+          state={overviewOpenState(item, presentation.target)}
+        >
           {presentation.primaryActionLabel}
         </Link>
 
@@ -379,15 +424,15 @@ function WorkItemCard({
                 {expanded ? 'Hide details' : 'View details'}
               </button>
               {presentation.primaryPath !== bookingPath && (
-                <Link role="menuitem" to={bookingPath}>Open Booking</Link>
+                <Link role="menuitem" to={bookingPath} state={overviewOpenState(item, 'BOOKING')}>Open Booking</Link>
               )}
               {deliveryEligible && presentation.primaryPath !== deliveryPath && (
-                <Link role="menuitem" to={deliveryPath}>
+                <Link role="menuitem" to={deliveryPath} state={overviewOpenState(item, 'DELIVERY')}>
                   {item.delivery.businessStatus ? 'Open Delivery' : 'Start Delivery'}
                 </Link>
               )}
               {auditAvailable && presentation.primaryPath !== auditPath && (
-                <Link role="menuitem" to={auditPath}>
+                <Link role="menuitem" to={auditPath} state={overviewOpenState(item, 'AUDIT')}>
                   {isPc ? (item.openFlagCount > 0 ? 'Review / Raise Flag' : 'Raise Flag') : 'Audit Review'}
                 </Link>
               )}
@@ -420,7 +465,7 @@ function ReviewPendingCard({ item, timezoneName }: { item: ReviewPendingItem; ti
           <small>PC verification pending</small>
         </div>
         <div className="uc03-work-card__summary uc03-work-card__summary--simple">
-          <strong className="uc03-work-status-pill is-review">Review Pending</strong>
+          <strong className="uc03-work-status-pill is-review">Booking Completed · Review Pending</strong>
         </div>
       </header>
       <div className={`uc03-work-card__age ${ageTone}`} title={absoluteActivity}>
@@ -428,7 +473,13 @@ function ReviewPendingCard({ item, timezoneName }: { item: ReviewPendingItem; ti
         <span>since activity</span>
       </div>
       <footer className="uc03-work-card__footer">
-        <Link className="uc03-work-card__primary-action" to={`/v2/bookings/${item.journeyId}/review`}>Review Documents</Link>
+        <Link
+          className="uc03-work-card__primary-action"
+          to={`/v2/bookings/${item.journeyId}/review`}
+          state={reviewPendingOverviewOpenState(item)}
+        >
+          Review Documents
+        </Link>
         <div className="uc03-work-card__expanded-meta">
           <span>{item.dealerName}<span aria-hidden="true"> · </span>{item.outletName}</span>
         </div>
@@ -512,7 +563,7 @@ export default function DashboardPage() {
   const displayedWorkItems = useMemo(() => {
     let items = workItems;
     if (isPc && view === 'BOOKING') {
-      items = items.filter((item) => !reviewPendingIds.has(item.journeyId) && !item.delivery.businessStatus);
+      items = items.filter((item) => !reviewPendingIds.has(item.journeyId) && !stageReviewPending(item.booking) && !item.delivery.businessStatus);
     } else if (isPc && view === 'FLAGS') {
       items = items.filter((item) => item.openFlagCount > 0);
     }

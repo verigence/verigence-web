@@ -3,7 +3,7 @@
    identity/action content into the wrong grid cell. No additional data fetches. */
 
 .uc03-work-cards--v2 {
-  overflow: hidden;
+  overflow: visible;
   border: 1px solid rgba(20, 61, 98, 0.14);
   border-radius: 16px;
   background: #fff;
@@ -46,6 +46,13 @@
 .uc03-work-row-v2:focus-within {
   background: #f9fcfd;
   box-shadow: inset 4px 0 0 rgba(0, 143, 154, 0.5);
+}
+
+.uc03-work-row-v2.is-expanded {
+  position: relative;
+  z-index: 1;
+  background: #fbfdfe;
+  box-shadow: inset 4px 0 0 rgba(0, 143, 154, 0.72), 0 8px 22px rgba(21, 61, 98, 0.08);
 }
 
 .uc03-work-row-v2.has-attention {
@@ -171,27 +178,49 @@
 }
 
 .uc03-work-row-v2__details-button {
-  padding: 0;
-  border: 0;
-  background: transparent;
-  color: #35657f;
+  min-height: 30px;
+  padding: 4px 8px;
+  border: 1px solid rgba(10, 97, 116, 0.22);
+  border-radius: 7px;
+  background: #fff;
+  color: #0a6174;
   font: inherit;
   font-size: 0.76rem;
-  font-weight: 700;
+  font-weight: 750;
   cursor: pointer;
-  text-decoration: underline;
-  text-underline-offset: 3px;
+  text-decoration: none;
+}
+
+.uc03-work-row-v2__details-button:hover,
+.uc03-work-row-v2__details-button:focus-visible,
+.uc03-work-row-v2.is-expanded .uc03-work-row-v2__details-button {
+  border-color: rgba(0, 143, 154, 0.5);
+  background: #eef9fa;
+  outline: none;
 }
 
 .uc03-work-row-v2__details {
   grid-column: 1 / -1;
-  display: grid;
+  display: grid !important;
   grid-template-columns: repeat(4, minmax(130px, 1fr));
   gap: 12px 20px;
-  margin: 2px -20px -16px;
-  padding: 14px 20px 16px;
-  border-top: 1px solid rgba(20, 61, 98, 0.1);
-  background: #f8fbfd;
+  width: auto;
+  min-height: 72px;
+  margin: 4px -20px -16px;
+  padding: 16px 20px 18px;
+  border-top: 1px solid rgba(20, 61, 98, 0.14);
+  background: #f3f8fb;
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+
+.uc03-work-row-v2__details::before {
+  content: 'Case details';
+  grid-column: 1 / -1;
+  color: #103b67;
+  font-size: 0.76rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
 }
 
 .uc03-work-row-v2__details > div:not(.uc03-work-row-v2__stages):not(.uc03-work-row-v2__detail-links) span {

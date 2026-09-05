@@ -1,0 +1,219 @@
+/* UC03 work queue stabilization: use the five desktop columns as a real table.
+   This intentionally loads after the historical dashboard polish files. */
+
+@media (min-width: 961px) {
+  .uc03-work-cards {
+    gap: 0;
+    overflow: hidden;
+    border: 1px solid rgba(20, 61, 98, 0.14);
+    border-radius: 18px;
+    background: #fff;
+  }
+
+  .uc03-work-table-head {
+    display: grid !important;
+    grid-template-columns: minmax(250px, 1.45fr) minmax(210px, 1.2fr) minmax(160px, 0.9fr) minmax(105px, 0.55fr) minmax(210px, 1fr) !important;
+    gap: 20px !important;
+    align-items: center;
+    padding: 12px 20px !important;
+    margin: 0 !important;
+    border: 0 !important;
+    border-bottom: 1px solid rgba(20, 61, 98, 0.12) !important;
+    border-radius: 0 !important;
+    background: #f7fafc !important;
+    color: #5d728a !important;
+    font-size: 0.72rem !important;
+    font-weight: 800 !important;
+    letter-spacing: 0.055em;
+    text-transform: uppercase;
+  }
+
+  .uc03-work-card.uc03-work-card--interactive {
+    display: grid !important;
+    grid-template-columns: minmax(250px, 1.45fr) minmax(210px, 1.2fr) minmax(160px, 0.9fr) minmax(105px, 0.55fr) minmax(210px, 1fr) !important;
+    grid-template-areas:
+      "identity next status age actions"
+      "details details details details details" !important;
+    gap: 20px !important;
+    align-items: center !important;
+    min-height: 92px;
+    padding: 16px 20px !important;
+    margin: 0 !important;
+    border: 0 !important;
+    border-bottom: 1px solid rgba(20, 61, 98, 0.1) !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    background: #fff !important;
+  }
+
+  .uc03-work-card.uc03-work-card--interactive:last-child {
+    border-bottom: 0 !important;
+  }
+
+  .uc03-work-card.uc03-work-card--interactive:hover,
+  .uc03-work-card.uc03-work-card--interactive:focus-within {
+    background: #f9fcfd !important;
+    box-shadow: inset 4px 0 0 rgba(0, 143, 154, 0.55) !important;
+    transform: none !important;
+  }
+
+  .uc03-work-card__header {
+    display: contents !important;
+  }
+
+  .uc03-work-card__identity {
+    grid-area: identity !important;
+    min-width: 0;
+    padding: 0 !important;
+  }
+
+  .uc03-work-card__identity h3 {
+    margin: 0 0 5px !important;
+    font-size: 1rem !important;
+    line-height: 1.25 !important;
+    color: #103b67 !important;
+  }
+
+  .uc03-work-card__identity-meta {
+    display: flex !important;
+    flex-wrap: wrap;
+    gap: 5px 9px !important;
+    margin: 0 !important;
+    color: #63788e !important;
+    font-size: 0.76rem !important;
+  }
+
+  .uc03-work-card__identity p {
+    margin: 5px 0 0 !important;
+    color: #344f69 !important;
+    font-size: 0.82rem !important;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .uc03-work-card__identity > small {
+    display: block;
+    margin-top: 5px;
+    color: #71859a;
+    font-size: 0.73rem;
+    line-height: 1.25;
+  }
+
+  .uc03-work-card__next-step {
+    grid-area: next !important;
+    min-width: 0;
+    padding: 0 !important;
+    border: 0 !important;
+    background: transparent !important;
+  }
+
+  .uc03-work-card__next-step > span {
+    display: none !important;
+  }
+
+  .uc03-work-card__next-step strong {
+    display: block;
+    color: #143e67 !important;
+    font-size: 0.9rem !important;
+    line-height: 1.3 !important;
+  }
+
+  .uc03-work-card__next-step small {
+    display: block;
+    margin-top: 5px;
+    color: #71859a !important;
+    font-size: 0.73rem !important;
+  }
+
+  .uc03-work-card__summary {
+    grid-area: status !important;
+    min-width: 0;
+    padding: 0 !important;
+    border: 0 !important;
+    background: transparent !important;
+  }
+
+  .uc03-work-status-pill {
+    display: inline-flex !important;
+    max-width: 100%;
+    padding: 6px 9px !important;
+    border-radius: 999px !important;
+    font-size: 0.73rem !important;
+    line-height: 1.15 !important;
+    white-space: normal !important;
+  }
+
+  .uc03-work-card__age {
+    grid-area: age !important;
+    min-width: 0;
+    padding: 0 !important;
+    border: 0 !important;
+    background: transparent !important;
+    text-align: left !important;
+  }
+
+  .uc03-work-card__age strong {
+    display: block;
+    font-size: 0.86rem !important;
+    line-height: 1.2;
+  }
+
+  .uc03-work-card__age span {
+    display: block;
+    margin-top: 3px;
+    color: #7a8da0 !important;
+    font-size: 0.69rem !important;
+  }
+
+  .uc03-work-card__footer {
+    grid-area: actions !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: flex-start !important;
+    gap: 7px !important;
+    min-width: 0;
+    padding: 0 !important;
+    margin: 0 !important;
+    border: 0 !important;
+    background: transparent !important;
+  }
+
+  .uc03-work-card__primary-action {
+    min-height: 36px !important;
+    padding: 8px 12px !important;
+    border-radius: 9px !important;
+    font-size: 0.78rem !important;
+    line-height: 1.15 !important;
+    white-space: nowrap;
+  }
+
+  .uc03-work-card__more {
+    flex: 0 0 auto;
+  }
+
+  .uc03-work-card__more-button {
+    width: 36px !important;
+    height: 36px !important;
+    min-width: 36px !important;
+    border-radius: 9px !important;
+  }
+
+  .uc03-work-card__expanded-content {
+    grid-area: details !important;
+    margin: 4px -20px -16px !important;
+    padding: 14px 20px !important;
+    border-top: 1px solid rgba(20, 61, 98, 0.1) !important;
+    background: #f8fbfd !important;
+  }
+}
+
+@media (max-width: 960px) {
+  .uc03-work-table-head {
+    display: none !important;
+  }
+
+  .uc03-work-card.uc03-work-card--interactive {
+    border-radius: 14px !important;
+  }
+}

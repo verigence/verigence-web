@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 
 import {
   effectiveStageStatus,
@@ -69,13 +69,16 @@ function activityRelativeLabel(timestamp: string): string {
   return `${weeks}w ago`;
 }
 
-function activityAgeTone(timestamp: string): string {
-  const date = new Date(timestamp);
-  if (Number.isNaN(date.getTime())) return 'is-age-neutral';
-  const elapsedHours = Math.max(0, Date.now() - date.getTime()) / 3_600_000;
-  if (elapsedHours >= 48) return 'is-age-critical';
-  if (elapsedHours >= 24) return 'is-age-warning';
-  return 'is-age-fresh';
+function businessDateLabel(value?: string | null): string {
+  if (!value) return 'Not captured';
+  const date = new Date(`${value}T00:00:00Z`);
+  if (Number.isNaN(date.getTime())) return value;
+  return new Intl.DateTimeFormat(undefined, {
+    timeZone: 'UTC',
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  }).format(date);
 }
 
 function isVerified(stage: Uc03StageSummary): boolean {
@@ -100,7 +103,7 @@ function StageBlock({ label, item }: { label: string; item: Uc03StageSummary }) 
       <span>{label}</span>
       <strong>{friendlyStatus(effectiveStageStatus(item, stageKind))}</strong>
       <VerificationBadge stage={item} />
-      {item.businessDate && <small>{item.businessDate}</small>}
+      {item.businessDate && <small>{businessDateLabel(item.businessDate)}</small>}
     </div>
   );
 }
@@ -119,11 +122,11 @@ function pcBookingStatus(item: Uc03WorkItem): PcBookingStatus {
 function pcBookingCaptureNote(item: Uc03WorkItem): string {
   const status = pcBookingStatus(item);
   if (status === 'BOOKING_UPDATE_REQUIRED') return 'Additional Booking information is required';
-  if (status === 'BOOKING_COMPLETED') return 'Mandatory Booking capture complete';
+  if (status === 'BOOKING_COMPLETED') return 'Mandatory Booking documents received';
   if (item.processingDocumentCount > 0) {
     return `${item.processingDocumentCount} document${item.processingDocumentCount === 1 ? '' : 's'} processing`;
   }
-  return 'Mandatory Booking capture incomplete';
+  return 'Mandatory Booking documents incomplete';
 }
 
 type LandingMetricProps = {
@@ -300,7 +303,7 @@ function workPresentation(
   };
 }
 
-function WorkItemCard({
+function WorkItemRow({
   item,
   timezoneName,
   isPc,
@@ -311,9 +314,7 @@ function WorkItemCard({
   isPc: boolean;
   flagsView: boolean;
 }) {
-  const navigate = useNavigate();
   const [expanded, setExpanded] = useState(false);
-  const [moreOpen, setMoreOpen] = useState(false);
   const bookingPath = `/v2/bookings/${item.journeyId}`;
   const deliveryPath = `/v2/deliveries/${item.journeyId}`;
   const auditPath = `/audit/${item.journeyId}`;
@@ -325,7 +326,6 @@ function WorkItemCard({
   const effectiveStatus = pcStatus || effectiveStageStatus(primaryStage, primaryStageKind);
   const workStatus = friendlyStatus(effectiveStatus);
   const workStatusTone = statusTone(effectiveStatus);
-  const ageTone = activityAgeTone(item.latestActivityAtUtc);
   const absoluteActivity = activityLabel(item.latestActivityAtUtc, timezoneName);
   const relativeActivity = activityRelativeLabel(item.latestActivityAtUtc);
   const updateRequired = pcStatus === 'BOOKING_UPDATE_REQUIRED';
@@ -337,142 +337,100 @@ function WorkItemCard({
   const auditAvailable = Boolean(item.booking.businessStatus || item.delivery.businessStatus);
 
   return (
-    <article
-      className={`uc03-work-card uc03-work-card--interactive${expanded ? ' is-expanded' : ' is-compact'}${showAttention ? ' has-attention' : ''}${severityClass}`}
-      role="link"
-      tabIndex={0}
-      aria-label={`${presentation.primaryActionLabel} for ${item.customerDisplayName}`}
-      onClick={(event) => {
-        const target = event.target as HTMLElement;
-        if (target.closest('a, button')) return;
-        navigate(presentation.primaryPath, { state: overviewOpenState(item, presentation.target) });
-      }}
-      onKeyDown={(event) => {
-        if (event.target !== event.currentTarget) return;
-        if (event.key === 'Enter') {
-          event.preventDefault();
-          navigate(presentation.primaryPath, { state: overviewOpenState(item, presentation.target) });
-        }
-      }}
-    >
-      <header className="uc03-work-card__header">
-        <div className="uc03-work-card__identity">
-          <h3>{item.customerDisplayName}</h3>
-          <div className="uc03-work-card__identity-meta">
-            <span className="uc03-work-card__type-label">{presentation.workLabel}</span>
-            {item.bookingReference && <span>{item.bookingReference}</span>}
-            {item.customerMobileLast4 && <span>Mobile •••• {item.customerMobileLast4}</span>}
+    <article className={`uc03-work-row-v2${expanded ? ' is-expanded' : ''}${showAttention ? ' has-attention' : ''}${severityClass}`}>
+      <div className="uc03-work-row-v2__cell uc03-work-row-v2__customer">
+        <strong>{item.customerDisplayName}</strong>
+        <span>{item.bookingReference || 'Booking reference not captured'}</span>
+        {item.customerMobileLast4 && <small>Mobile •••• {item.customerMobileLast4}</small>}
+      </div>
+
+      <div className="uc03-work-row-v2__cell uc03-work-row-v2__vehicle">
+        <strong>{item.productLabel || 'Vehicle not captured'}</strong>
+        <small>{presentation.workLabel} journey</small>
+      </div>
+
+      <div className="uc03-work-row-v2__cell uc03-work-row-v2__dates">
+        <div>
+          <span>Booking date</span>
+          <strong>{businessDateLabel(item.booking.businessDate)}</strong>
+        </div>
+        {item.delivery.businessDate && (
+          <div>
+            <span>Delivery date</span>
+            <strong>{businessDateLabel(item.delivery.businessDate)}</strong>
           </div>
-          <p>{item.productLabel || 'Vehicle not captured'}</p>
-          {isPc && !isDeliveryWork && (
-            <small>{pcBookingCaptureNote(item)}</small>
+        )}
+        <small title={absoluteActivity}>Last activity · {relativeActivity}</small>
+      </div>
+
+      <div className="uc03-work-row-v2__cell uc03-work-row-v2__status">
+        <strong className={`uc03-work-status-pill ${workStatusTone}`}>{workStatus}</strong>
+        {isPc && !isDeliveryWork && <small>{pcBookingCaptureNote(item)}</small>}
+        {!isPc && <VerificationBadge stage={primaryStage} />}
+        {item.openFlagCount > 0 && <small>{item.openFlagCount} open observation{item.openFlagCount === 1 ? '' : 's'}</small>}
+      </div>
+
+      <div className="uc03-work-row-v2__cell uc03-work-row-v2__actions">
+        <div className="uc03-work-row-v2__action-buttons">
+          <Link
+            className="uc03-work-card__primary-action"
+            to={presentation.primaryPath}
+            state={overviewOpenState(item, presentation.target)}
+          >
+            {presentation.primaryActionLabel}
+          </Link>
+          {presentation.secondaryActionLabel && presentation.secondaryPath && presentation.secondaryTarget && (
+            <Link
+              className="uc03-work-card__secondary-action"
+              to={presentation.secondaryPath}
+              state={overviewOpenState(item, presentation.secondaryTarget)}
+            >
+              {presentation.secondaryActionLabel}
+            </Link>
           )}
         </div>
-
-        <div className="uc03-work-card__next-step">
-          <span>Next step</span>
-          <strong>{presentation.nextStep}</strong>
-          {isPc && !isDeliveryWork && (
-            <small>Booking {pcStatus === 'BOOKING_IN_PROGRESS' ? '●' : '✓'} · Delivery {item.delivery.businessStatus ? '●' : '—'}</small>
-          )}
-          {!isPc && item.openFlagCount > 0 && (
-            <small>
-              {item.highestOpenSeverity ? `${friendlyStatus(item.highestOpenSeverity)} severity · ` : ''}
-              {item.openFlagCount} open flag{item.openFlagCount === 1 ? '' : 's'}
-            </small>
-          )}
-        </div>
-
-        <div className="uc03-work-card__summary uc03-work-card__summary--simple">
-          <strong className={`uc03-work-status-pill ${workStatusTone}`}>{workStatus}</strong>
-          {!isPc && <VerificationBadge stage={primaryStage} />}
-        </div>
-      </header>
-
-      <div className={`uc03-work-card__age ${ageTone}`} title={absoluteActivity}>
-        <strong>{relativeActivity}</strong>
-        <span>since activity</span>
+        <button
+          type="button"
+          className="uc03-work-row-v2__details-button"
+          aria-expanded={expanded}
+          onClick={() => setExpanded((current) => !current)}
+        >
+          {expanded ? 'Hide Details' : 'View Details'}
+        </button>
       </div>
 
       {expanded && (
-        <div className="uc03-work-card__expanded-content">
+        <div className="uc03-work-row-v2__details">
+          <div><span>Last activity</span><strong>{absoluteActivity}</strong></div>
+          <div><span>Next step</span><strong>{presentation.nextStep}</strong></div>
+          <div><span>Documents processing</span><strong>{item.processingDocumentCount}</strong></div>
+          <div><span>Observations</span><strong>{item.openFlagCount}</strong></div>
+          {isPc && updateRequired && (
+            <p>Booking requires additional information. Update Booking remains available while Delivery can continue unless a specific business rule blocks it.</p>
+          )}
           {!isPc && (
-            <div className="uc03-work-card__stages">
+            <div className="uc03-work-row-v2__stages">
               <StageBlock label="Booking" item={item.booking} />
               <StageBlock label="Delivery" item={item.delivery} />
             </div>
           )}
-          <div className="uc03-work-card__expanded-meta">
-            <span>Last activity {absoluteActivity}</span>
-            {!isPc && <span>{item.dealerName}<span aria-hidden="true"> · </span>{item.outletName}</span>}
-            {isPc && updateRequired && <span>Booking requires additional information before audit can be cleared.</span>}
+          <div className="uc03-work-row-v2__detail-links">
+            {presentation.primaryPath !== bookingPath && (
+              <Link to={bookingPath} state={overviewOpenState(item, 'BOOKING')}>Open Booking</Link>
+            )}
+            {deliveryEligible && presentation.primaryPath !== deliveryPath && presentation.secondaryPath !== deliveryPath && (
+              <Link to={deliveryPath} state={overviewOpenState(item, 'DELIVERY')}>
+                {item.delivery.businessStatus ? 'Open Delivery' : 'Capture Delivery'}
+              </Link>
+            )}
+            {auditAvailable && presentation.primaryPath !== auditPath && (
+              <Link to={auditPath} state={overviewOpenState(item, 'AUDIT')}>
+                {isPc ? 'Raise Observation' : 'Audit Review'}
+              </Link>
+            )}
           </div>
         </div>
       )}
-
-      <footer className="uc03-work-card__footer">
-        <Link
-          className="uc03-work-card__primary-action"
-          to={presentation.primaryPath}
-          state={overviewOpenState(item, presentation.target)}
-        >
-          {presentation.primaryActionLabel}
-        </Link>
-
-        {presentation.secondaryActionLabel && presentation.secondaryPath && presentation.secondaryTarget && (
-          <Link
-            className="uc03-work-card__primary-action"
-            to={presentation.secondaryPath}
-            state={overviewOpenState(item, presentation.secondaryTarget)}
-          >
-            {presentation.secondaryActionLabel}
-          </Link>
-        )}
-
-        <div className="uc03-work-card__more">
-          <button
-            type="button"
-            className="uc03-work-card__more-button"
-            aria-expanded={moreOpen}
-            aria-label={`More actions for ${item.customerDisplayName}`}
-            onClick={(event) => {
-              event.stopPropagation();
-              setMoreOpen((current) => !current);
-            }}
-          >
-            <span aria-hidden="true">•••</span>
-          </button>
-
-          {moreOpen && (
-            <div className="uc03-work-card__more-menu" role="menu">
-              <button
-                type="button"
-                role="menuitem"
-                onClick={(event) => {
-                  event.stopPropagation();
-                  setExpanded((current) => !current);
-                  setMoreOpen(false);
-                }}
-              >
-                {expanded ? 'Hide details' : 'View details'}
-              </button>
-              {presentation.primaryPath !== bookingPath && (
-                <Link role="menuitem" to={bookingPath} state={overviewOpenState(item, 'BOOKING')}>Open Booking</Link>
-              )}
-              {deliveryEligible && presentation.primaryPath !== deliveryPath && presentation.secondaryPath !== deliveryPath && (
-                <Link role="menuitem" to={deliveryPath} state={overviewOpenState(item, 'DELIVERY')}>
-                  {item.delivery.businessStatus ? 'Open Delivery' : 'Capture Delivery'}
-                </Link>
-              )}
-              {auditAvailable && presentation.primaryPath !== auditPath && (
-                <Link role="menuitem" to={auditPath} state={overviewOpenState(item, 'AUDIT')}>
-                  {isPc ? 'Raise Observation' : 'Audit Review'}
-                </Link>
-              )}
-            </div>
-          )}
-        </div>
-      </footer>
     </article>
   );
 }
@@ -480,7 +438,14 @@ function WorkItemCard({
 function ReviewPendingCard({ item, timezoneName }: { item: ReviewPendingItem; timezoneName: string }) {
   const absoluteActivity = activityLabel(item.latestActivityAtUtc, timezoneName);
   const relativeActivity = activityRelativeLabel(item.latestActivityAtUtc);
-  const ageTone = activityAgeTone(item.latestActivityAtUtc);
+  const ageTone = (() => {
+    const date = new Date(item.latestActivityAtUtc);
+    if (Number.isNaN(date.getTime())) return 'is-age-neutral';
+    const elapsedHours = Math.max(0, Date.now() - date.getTime()) / 3_600_000;
+    if (elapsedHours >= 48) return 'is-age-critical';
+    if (elapsedHours >= 24) return 'is-age-warning';
+    return 'is-age-fresh';
+  })();
   return (
     <article className="uc03-work-card uc03-work-card--interactive is-compact">
       <header className="uc03-work-card__header">
@@ -811,18 +776,18 @@ export default function DashboardPage() {
 
             {!invalidDateRange && workQuery.data && (
               <>
-                <div className="uc03-work-cards">
+                <div className="uc03-work-cards uc03-work-cards--v2">
                   {displayedWorkItems.length > 0 && (
-                    <div className="uc03-work-table-head" aria-hidden="true">
-                      <span>Work Item</span>
-                      <span>Next Step</span>
+                    <div className="uc03-work-table-head uc03-work-table-head--v2" aria-hidden="true">
+                      <span>Customer</span>
+                      <span>Vehicle</span>
+                      <span>Dates</span>
                       <span>Status</span>
-                      <span>Age</span>
-                      <span>Action</span>
+                      <span>Next Action</span>
                     </div>
                   )}
                   {displayedWorkItems.map((item) => (
-                    <WorkItemCard
+                    <WorkItemRow
                       key={item.journeyId}
                       item={item}
                       timezoneName={timezoneName}

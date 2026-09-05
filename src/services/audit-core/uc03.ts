@@ -41,6 +41,8 @@ export interface Uc03StageSummary {
   auditState: 'NOT_STARTED' | 'IN_PROGRESS' | 'COMPLETE';
   auditStatus: 'NOT_EVALUATED' | 'NO_FLAGS' | 'FLAGS_RAISED';
   businessDate: string | null;
+  captureCompletedAtUtc?: string | null;
+  pcVerificationStatus?: 'PENDING' | 'VERIFIED' | null;
 }
 
 export interface Uc03WorkItem {

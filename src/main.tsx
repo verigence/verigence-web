@@ -82,7 +82,6 @@ import './styles/uc03-v2-product-layout.css';
 import './styles/dashboard-workqueue-five-column.css';
 import './styles/ui-governance.css';
 import './ui/pcNavigationMotion';
-import './ui/workQueueDetailsNavigation';
 
 import App from './App';
 import DiFieldViewerEnhancer from './features/di-test/DiFieldViewerEnhancer';

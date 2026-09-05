@@ -6,7 +6,6 @@ import {
   effectiveStageStatus,
   overviewOpenState,
   reviewPendingOverviewOpenState,
-  stageReviewPending,
   type OverviewTarget,
 } from '../features/uc03/overviewOpen';
 import {
@@ -24,6 +23,7 @@ import { useProjectContextStore } from '../store/projectContextStore';
 import { useSessionStore } from '../store/sessionStore';
 
 type LandingView = Uc03WorkType | 'REVIEW_PENDING' | 'FLAGS';
+type PcBookingStatus = 'BOOKING_IN_PROGRESS' | 'BOOKING_COMPLETED' | 'BOOKING_UPDATE_REQUIRED';
 
 function friendlyStatus(value?: string | null, fallback = 'Not Started'): string {
   if (!value) return fallback;
@@ -36,8 +36,8 @@ function friendlyStatus(value?: string | null, fallback = 'Not Started'): string
 
 function statusTone(value?: string | null): string {
   const normalized = (value || '').toUpperCase();
+  if (normalized.includes('UPDATE_REQUIRED') || normalized.includes('ATTENTION') || normalized.includes('FAILED') || normalized.includes('ERROR') || normalized.includes('REJECT')) return 'is-attention';
   if (normalized.includes('COMPLETE') || normalized.includes('CLOSED') || normalized.includes('DELIVERED')) return 'is-complete';
-  if (normalized.includes('ATTENTION') || normalized.includes('FAILED') || normalized.includes('ERROR') || normalized.includes('REJECT')) return 'is-attention';
   if (normalized.includes('REVIEW') || normalized.includes('VERIFY') || normalized.includes('VALIDAT')) return 'is-review';
   if (normalized.includes('PENDING') || normalized.includes('DOCUMENT') || normalized.includes('DOC')) return 'is-pending';
   if (normalized.includes('STARTED') || normalized.includes('IN_PROGRESS') || normalized.includes('PROCESSING') || normalized.includes('ACTIVE')) return 'is-progress';
@@ -93,24 +93,37 @@ function VerificationBadge({ stage }: { stage: Uc03StageSummary }) {
   );
 }
 
-function StageBlock({
-  label,
-  item,
-  showVerification = true,
-}: {
-  label: string;
-  item: Uc03StageSummary;
-  showVerification?: boolean;
-}) {
+function StageBlock({ label, item }: { label: string; item: Uc03StageSummary }) {
   const stageKind = label === 'Delivery' ? 'DELIVERY' : 'BOOKING';
   return (
     <div className="uc03-stage-block">
       <span>{label}</span>
       <strong>{friendlyStatus(effectiveStageStatus(item, stageKind))}</strong>
-      {showVerification && <VerificationBadge stage={item} />}
+      <VerificationBadge stage={item} />
       {item.businessDate && <small>{item.businessDate}</small>}
     </div>
   );
+}
+
+function pcBookingStatus(item: Uc03WorkItem): PcBookingStatus {
+  const nextAction = item.nextActionCode?.trim().toUpperCase();
+  if (nextAction === 'UPDATE_BOOKING' || nextAction === 'BOOKING_UPDATE_REQUIRED') {
+    return 'BOOKING_UPDATE_REQUIRED';
+  }
+  if (item.booking.captureCompletedAtUtc || item.booking.businessStatus === 'BOOKING_CLOSED') {
+    return 'BOOKING_COMPLETED';
+  }
+  return 'BOOKING_IN_PROGRESS';
+}
+
+function pcBookingCaptureNote(item: Uc03WorkItem): string {
+  const status = pcBookingStatus(item);
+  if (status === 'BOOKING_UPDATE_REQUIRED') return 'Additional Booking information is required';
+  if (status === 'BOOKING_COMPLETED') return 'Mandatory Booking capture complete';
+  if (item.processingDocumentCount > 0) {
+    return `${item.processingDocumentCount} document${item.processingDocumentCount === 1 ? '' : 's'} processing`;
+  }
+  return 'Mandatory Booking capture incomplete';
 }
 
 type LandingMetricProps = {
@@ -179,55 +192,76 @@ type WorkPresentation = {
   primaryActionLabel: string;
   primaryPath: string;
   target: OverviewTarget;
+  secondaryActionLabel?: string;
+  secondaryPath?: string;
+  secondaryTarget?: OverviewTarget;
 };
 
 function workPresentation(
   item: Uc03WorkItem,
   isPc: boolean,
-  reviewPending: boolean,
   flagsView: boolean,
 ): WorkPresentation {
   const bookingPath = `/v2/bookings/${item.journeyId}`;
-  const bookingReviewPath = `/v2/bookings/${item.journeyId}/review`;
   const deliveryPath = `/v2/deliveries/${item.journeyId}`;
-  const deliveryReviewPath = `/v2/deliveries/${item.journeyId}/review`;
   const auditPath = `/audit/${item.journeyId}`;
   const hasDelivery = Boolean(item.delivery.businessStatus);
-  const bookingStatus = item.booking.businessStatus;
-  const bookingReviewPending = stageReviewPending(item.booking) || reviewPending;
-  const deliveryReviewPending = stageReviewPending(item.delivery);
 
-  if (isPc && flagsView && item.openFlagCount > 0) {
-    return {
-      workLabel: hasDelivery ? 'Delivery' : 'Booking',
-      nextStep: `Review ${item.openFlagCount} flag${item.openFlagCount === 1 ? '' : 's'}`,
-      primaryActionLabel: 'Review Flags',
-      primaryPath: auditPath,
-      target: 'AUDIT',
-    };
-  }
+  if (isPc) {
+    if (flagsView && item.openFlagCount > 0) {
+      return {
+        workLabel: hasDelivery ? 'Delivery' : 'Booking',
+        nextStep: `Review ${item.openFlagCount} observation${item.openFlagCount === 1 ? '' : 's'}`,
+        primaryActionLabel: 'Review Observations',
+        primaryPath: auditPath,
+        target: 'AUDIT',
+      };
+    }
 
-  if (isPc && deliveryReviewPending) {
-    return {
-      workLabel: 'Delivery',
-      nextStep: 'Review delivery documents',
-      primaryActionLabel: 'Review Delivery',
-      primaryPath: deliveryReviewPath,
-      target: 'DELIVERY_REVIEW',
-    };
-  }
+    if (hasDelivery) {
+      return {
+        workLabel: 'Delivery',
+        nextStep: 'Continue Delivery',
+        primaryActionLabel: 'Continue Delivery',
+        primaryPath: deliveryPath,
+        target: 'DELIVERY',
+      };
+    }
 
-  if (isPc && bookingReviewPending) {
+    const bookingStatus = pcBookingStatus(item);
+    if (bookingStatus === 'BOOKING_UPDATE_REQUIRED') {
+      return {
+        workLabel: 'Booking',
+        nextStep: 'Update Booking · Capture Delivery',
+        primaryActionLabel: 'Update Booking',
+        primaryPath: bookingPath,
+        target: 'BOOKING',
+        secondaryActionLabel: 'Capture Delivery',
+        secondaryPath: deliveryPath,
+        secondaryTarget: 'DELIVERY',
+      };
+    }
+
+    if (bookingStatus === 'BOOKING_COMPLETED') {
+      return {
+        workLabel: 'Booking',
+        nextStep: 'Capture Delivery',
+        primaryActionLabel: 'Capture Delivery',
+        primaryPath: deliveryPath,
+        target: 'DELIVERY',
+      };
+    }
+
     return {
       workLabel: 'Booking',
-      nextStep: 'Review documents',
-      primaryActionLabel: 'Review Documents',
-      primaryPath: bookingReviewPath,
-      target: 'BOOKING_REVIEW',
+      nextStep: 'Continue Booking',
+      primaryActionLabel: 'Continue Booking',
+      primaryPath: bookingPath,
+      target: 'BOOKING',
     };
   }
 
-  if (!isPc && item.openFlagCount > 0) {
+  if (item.openFlagCount > 0) {
     return {
       workLabel: hasDelivery ? 'Delivery' : 'Booking',
       nextStep: `Review ${item.openFlagCount} audit flag${item.openFlagCount === 1 ? '' : 's'}`,
@@ -247,14 +281,11 @@ function workPresentation(
     };
   }
 
-  if (
-    bookingStatus === 'BOOKING_CLOSED'
-    || (Boolean(item.booking.captureCompletedAtUtc) && item.booking.pcVerificationStatus === 'VERIFIED')
-  ) {
+  if (item.booking.businessStatus === 'BOOKING_CLOSED' || item.booking.captureCompletedAtUtc) {
     return {
       workLabel: 'Booking',
-      nextStep: 'Start delivery',
-      primaryActionLabel: 'Start Delivery',
+      nextStep: 'Capture Delivery',
+      primaryActionLabel: 'Capture Delivery',
       primaryPath: deliveryPath,
       target: 'DELIVERY',
     };
@@ -273,52 +304,41 @@ function WorkItemCard({
   item,
   timezoneName,
   isPc,
-  reviewPending,
   flagsView,
 }: {
   item: Uc03WorkItem;
   timezoneName: string;
   isPc: boolean;
-  reviewPending: boolean;
   flagsView: boolean;
 }) {
   const navigate = useNavigate();
   const [expanded, setExpanded] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
-  const bookingStatus = item.booking.businessStatus;
   const bookingPath = `/v2/bookings/${item.journeyId}`;
   const deliveryPath = `/v2/deliveries/${item.journeyId}`;
   const auditPath = `/audit/${item.journeyId}`;
-  const deliveryEligible = Boolean(
-    item.delivery.businessStatus
-      || item.booking.captureCompletedAtUtc
-      || bookingStatus === 'BOOKING_STARTED'
-      || bookingStatus === 'BOOKING_IN_PROGRESS'
-      || bookingStatus === 'BOOKING_CLOSED',
-  );
-  const auditAvailable = Boolean(item.booking.businessStatus || item.delivery.businessStatus);
-  const presentation = workPresentation(item, isPc, reviewPending, flagsView);
+  const presentation = workPresentation(item, isPc, flagsView);
   const isDeliveryWork = presentation.workLabel === 'Delivery';
   const primaryStage = isDeliveryWork ? item.delivery : item.booking;
   const primaryStageKind = isDeliveryWork ? 'DELIVERY' : 'BOOKING';
-  const primaryReviewPending = stageReviewPending(primaryStage)
-    || (presentation.target === 'BOOKING_REVIEW' && reviewPending);
-  const effectiveStatus = effectiveStageStatus(primaryStage, primaryStageKind);
-  const workStatus = primaryReviewPending
-    ? `${friendlyStatus(effectiveStatus)} · Review Pending`
-    : friendlyStatus(effectiveStatus);
-  const workStatusTone = primaryReviewPending ? 'is-review' : statusTone(effectiveStatus);
+  const pcStatus = isPc && !isDeliveryWork ? pcBookingStatus(item) : null;
+  const effectiveStatus = pcStatus || effectiveStageStatus(primaryStage, primaryStageKind);
+  const workStatus = friendlyStatus(effectiveStatus);
+  const workStatusTone = statusTone(effectiveStatus);
   const ageTone = activityAgeTone(item.latestActivityAtUtc);
   const absoluteActivity = activityLabel(item.latestActivityAtUtc, timezoneName);
   const relativeActivity = activityRelativeLabel(item.latestActivityAtUtc);
-  const severityClass = item.openFlagCount > 0 && item.highestOpenSeverity
+  const updateRequired = pcStatus === 'BOOKING_UPDATE_REQUIRED';
+  const showAttention = updateRequired || (!isPc && item.openFlagCount > 0) || (isPc && flagsView && item.openFlagCount > 0);
+  const severityClass = showAttention && item.highestOpenSeverity
     ? ` is-severity-${item.highestOpenSeverity.toLowerCase()}`
     : '';
-  const isReviewWork = presentation.target === 'BOOKING_REVIEW' || presentation.target === 'DELIVERY_REVIEW';
+  const deliveryEligible = Boolean(item.delivery.businessStatus || item.booking.captureCompletedAtUtc || item.booking.businessStatus === 'BOOKING_CLOSED');
+  const auditAvailable = Boolean(item.booking.businessStatus || item.delivery.businessStatus);
 
   return (
     <article
-      className={`uc03-work-card uc03-work-card--interactive${expanded ? ' is-expanded' : ' is-compact'}${item.openFlagCount > 0 ? ' has-attention' : ''}${severityClass}`}
+      className={`uc03-work-card uc03-work-card--interactive${expanded ? ' is-expanded' : ' is-compact'}${showAttention ? ' has-attention' : ''}${severityClass}`}
       role="link"
       tabIndex={0}
       aria-label={`${presentation.primaryActionLabel} for ${item.customerDisplayName}`}
@@ -339,16 +359,23 @@ function WorkItemCard({
         <div className="uc03-work-card__identity">
           <h3>{item.customerDisplayName}</h3>
           <div className="uc03-work-card__identity-meta">
-            <span className="uc03-work-card__type-label">{isReviewWork ? `${presentation.workLabel} Review` : presentation.workLabel}</span>
+            <span className="uc03-work-card__type-label">{presentation.workLabel}</span>
             {item.bookingReference && <span>{item.bookingReference}</span>}
+            {item.customerMobileLast4 && <span>Mobile •••• {item.customerMobileLast4}</span>}
           </div>
           <p>{item.productLabel || 'Vehicle not captured'}</p>
+          {isPc && !isDeliveryWork && (
+            <small>{pcBookingCaptureNote(item)}</small>
+          )}
         </div>
 
         <div className="uc03-work-card__next-step">
           <span>Next step</span>
           <strong>{presentation.nextStep}</strong>
-          {item.openFlagCount > 0 && (
+          {isPc && !isDeliveryWork && (
+            <small>Booking {pcStatus === 'BOOKING_IN_PROGRESS' ? '●' : '✓'} · Delivery {item.delivery.businessStatus ? '●' : '—'}</small>
+          )}
+          {!isPc && item.openFlagCount > 0 && (
             <small>
               {item.highestOpenSeverity ? `${friendlyStatus(item.highestOpenSeverity)} severity · ` : ''}
               {item.openFlagCount} open flag{item.openFlagCount === 1 ? '' : 's'}
@@ -369,20 +396,16 @@ function WorkItemCard({
 
       {expanded && (
         <div className="uc03-work-card__expanded-content">
-          <div className="uc03-work-card__stages">
-            <StageBlock label="Booking" item={item.booking} showVerification={!isPc} />
-            <StageBlock label="Delivery" item={item.delivery} showVerification={!isPc} />
-          </div>
+          {!isPc && (
+            <div className="uc03-work-card__stages">
+              <StageBlock label="Booking" item={item.booking} />
+              <StageBlock label="Delivery" item={item.delivery} />
+            </div>
+          )}
           <div className="uc03-work-card__expanded-meta">
             <span>Last activity {absoluteActivity}</span>
-            <span>{item.dealerName}<span aria-hidden="true"> · </span>{item.outletName}</span>
-            {item.customerMobileLast4 && <span>Mobile •••• {item.customerMobileLast4}</span>}
-            {item.processingDocumentCount > 0 && (
-              <span>{item.processingDocumentCount} document{item.processingDocumentCount === 1 ? '' : 's'} processing</span>
-            )}
-            {item.proposalReadyCount > 0 && (
-              <span>{item.proposalReadyCount} extracted proposal{item.proposalReadyCount === 1 ? '' : 's'} ready</span>
-            )}
+            {!isPc && <span>{item.dealerName}<span aria-hidden="true"> · </span>{item.outletName}</span>}
+            {isPc && updateRequired && <span>Booking requires additional information before audit can be cleared.</span>}
           </div>
         </div>
       )}
@@ -395,6 +418,16 @@ function WorkItemCard({
         >
           {presentation.primaryActionLabel}
         </Link>
+
+        {presentation.secondaryActionLabel && presentation.secondaryPath && presentation.secondaryTarget && (
+          <Link
+            className="uc03-work-card__primary-action"
+            to={presentation.secondaryPath}
+            state={overviewOpenState(item, presentation.secondaryTarget)}
+          >
+            {presentation.secondaryActionLabel}
+          </Link>
+        )}
 
         <div className="uc03-work-card__more">
           <button
@@ -426,14 +459,14 @@ function WorkItemCard({
               {presentation.primaryPath !== bookingPath && (
                 <Link role="menuitem" to={bookingPath} state={overviewOpenState(item, 'BOOKING')}>Open Booking</Link>
               )}
-              {deliveryEligible && presentation.primaryPath !== deliveryPath && (
+              {deliveryEligible && presentation.primaryPath !== deliveryPath && presentation.secondaryPath !== deliveryPath && (
                 <Link role="menuitem" to={deliveryPath} state={overviewOpenState(item, 'DELIVERY')}>
-                  {item.delivery.businessStatus ? 'Open Delivery' : 'Start Delivery'}
+                  {item.delivery.businessStatus ? 'Open Delivery' : 'Capture Delivery'}
                 </Link>
               )}
               {auditAvailable && presentation.primaryPath !== auditPath && (
                 <Link role="menuitem" to={auditPath} state={overviewOpenState(item, 'AUDIT')}>
-                  {isPc ? (item.openFlagCount > 0 ? 'Review / Raise Flag' : 'Raise Flag') : 'Audit Review'}
+                  {isPc ? 'Raise Observation' : 'Audit Review'}
                 </Link>
               )}
             </div>
@@ -461,8 +494,8 @@ function ReviewPendingCard({ item, timezoneName }: { item: ReviewPendingItem; ti
         </div>
         <div className="uc03-work-card__next-step">
           <span>Next step</span>
-          <strong>Review documents</strong>
-          <small>PC verification pending</small>
+          <strong>Review Booking</strong>
+          <small>TL review pending</small>
         </div>
         <div className="uc03-work-card__summary uc03-work-card__summary--simple">
           <strong className="uc03-work-status-pill is-review">Booking Completed · Review Pending</strong>
@@ -478,11 +511,8 @@ function ReviewPendingCard({ item, timezoneName }: { item: ReviewPendingItem; ti
           to={`/v2/bookings/${item.journeyId}/review`}
           state={reviewPendingOverviewOpenState(item)}
         >
-          Review Documents
+          Review Booking
         </Link>
-        <div className="uc03-work-card__expanded-meta">
-          <span>{item.dealerName}<span aria-hidden="true"> · </span>{item.outletName}</span>
-        </div>
       </footer>
     </article>
   );
@@ -501,6 +531,7 @@ export default function DashboardPage() {
   const selectedOutlet = project?.scope.outlets.find((outlet) => outlet.outletId === outletId);
   const pcContextReady = project?.operatingRole !== 'PC' || Boolean(outletId);
   const isPc = project?.operatingRole === 'PC';
+  const isTl = project?.operatingRole === 'TL';
   const workType: Uc03WorkType = view === 'REVIEW_PENDING' || view === 'FLAGS' ? 'ALL' : view;
 
   const metricsQuery = useQuery({
@@ -515,10 +546,10 @@ export default function DashboardPage() {
   const reviewPendingQuery = useQuery({
     queryKey: ['uc03-review-pending', project?.tenantId],
     queryFn: () => listReviewPending(project!.tenantId, accessToken),
-    enabled: Boolean(isPc && project?.tenantId && accessToken && pcContextReady),
+    enabled: Boolean(isTl && view === 'REVIEW_PENDING' && project?.tenantId && accessToken && pcContextReady),
     retry: 1,
-    refetchOnWindowFocus: true,
-    refetchOnReconnect: true,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
   });
 
   const workQuery = useInfiniteQuery({
@@ -542,20 +573,7 @@ export default function DashboardPage() {
     refetchOnReconnect: false,
   });
 
-  const reviewPendingItems = useMemo(() => {
-    const items = reviewPendingQuery.data?.items ?? [];
-    if (!isPc || !selectedOutlet) return items;
-    return items.filter((item) => (
-      item.dealerName === selectedOutlet.dealerName
-      && item.outletName === selectedOutlet.outletName
-    ));
-  }, [isPc, reviewPendingQuery.data?.items, selectedOutlet]);
-
-  const reviewPendingIds = useMemo(
-    () => new Set(reviewPendingItems.map((item) => item.journeyId)),
-    [reviewPendingItems],
-  );
-
+  const reviewPendingItems = useMemo(() => reviewPendingQuery.data?.items ?? [], [reviewPendingQuery.data?.items]);
   const workItems = useMemo(
     () => workQuery.data?.pages.flatMap((page) => page.items) ?? [],
     [workQuery.data],
@@ -563,7 +581,7 @@ export default function DashboardPage() {
   const displayedWorkItems = useMemo(() => {
     let items = workItems;
     if (isPc && view === 'BOOKING') {
-      items = items.filter((item) => !reviewPendingIds.has(item.journeyId) && !stageReviewPending(item.booking) && !item.delivery.businessStatus);
+      items = items.filter((item) => !item.delivery.businessStatus);
     } else if (isPc && view === 'FLAGS') {
       items = items.filter((item) => item.openFlagCount > 0);
     }
@@ -574,7 +592,7 @@ export default function DashboardPage() {
       if (Number.isNaN(leftTime) || Number.isNaN(rightTime)) return 0;
       return leftTime - rightTime;
     });
-  }, [isPc, reviewPendingIds, view, workItems]);
+  }, [isPc, view, workItems]);
   const timezoneName = workQuery.data?.pages[0]?.filters.timezoneName || project?.timezoneName || 'UTC';
 
   useEffect(() => {
@@ -596,14 +614,7 @@ export default function DashboardPage() {
 
   const metrics = metricsQuery.data;
   const reviewPendingCount = reviewPendingItems.length;
-  const pcBookingsToComplete = metrics
-    ? Math.max(0, metrics.bookingsInProgress - reviewPendingCount - metrics.deliveryInProgress)
-    : 0;
-  const bookingMetricValue = metrics
-    ? isPc
-      ? reviewPendingQuery.data ? String(pcBookingsToComplete) : '—'
-      : String(metrics.bookingsInProgress)
-    : '—';
+  const bookingMetricValue = metrics ? String(metrics.bookingsInProgress) : '—';
   const dealershipName = isPc && selectedOutlet ? selectedOutlet.dealerName : 'Authorized Workspace';
   const outletName = isPc && selectedOutlet
     ? selectedOutlet.outletName
@@ -618,11 +629,11 @@ export default function DashboardPage() {
   };
 
   const invalidDateRange = Boolean(fromDate && toDate && fromDate > toDate);
-  const queueTitle = view === 'REVIEW_PENDING' ? 'Review Pending' : view === 'FLAGS' ? 'Flags' : 'Work Queue';
+  const queueTitle = view === 'REVIEW_PENDING' ? 'Review Pending' : view === 'FLAGS' ? 'Observations' : 'Work Queue';
   const queueNote = view === 'REVIEW_PENDING'
     ? `${reviewPendingCount} Booking review${reviewPendingCount === 1 ? '' : 's'} pending`
     : view === 'FLAGS'
-      ? `${displayedWorkItems.length} loaded with open flags`
+      ? `${displayedWorkItems.length} loaded with open observations`
       : `${displayedWorkItems.length} loaded · oldest loaded activity first`;
 
   return (
@@ -638,7 +649,7 @@ export default function DashboardPage() {
           <div className="dashboard-load-state__mark" aria-hidden="true">!</div>
           <div className="dashboard-load-state__copy">
             <strong>We couldn't load the work summary.</strong>
-            <p>Please try again. Your work queue is kept separate from this summary.</p>
+            <p>The Work Queue remains available while summary counts recover.</p>
           </div>
           <button type="button" className="user-menu-button" onClick={() => metricsQuery.refetch()}>Try Again</button>
         </section>
@@ -647,20 +658,10 @@ export default function DashboardPage() {
           <LandingMetric
             label="Bookings"
             value={bookingMetricValue}
-            detail={isPc ? 'Capture to complete' : 'In progress'}
+            detail={isPc ? 'Capture in progress' : 'In progress'}
             actionLabel="View"
             onSelect={() => selectWork('BOOKING')}
           />
-          {isPc && (
-            <LandingMetric
-              label="Review Pending"
-              value={reviewPendingQuery.data ? String(reviewPendingCount) : reviewPendingQuery.isError ? '!' : '—'}
-              detail="Documents to review"
-              actionLabel="Review"
-              attention={Boolean(reviewPendingCount)}
-              onSelect={() => selectWork('REVIEW_PENDING')}
-            />
-          )}
           <LandingMetric
             label="Deliveries"
             value={metrics ? String(metrics.deliveryInProgress) : '—'}
@@ -670,9 +671,9 @@ export default function DashboardPage() {
           />
           {isPc ? (
             <LandingMetric
-              label="Flags"
+              label="Observations"
               value={metrics ? String(metrics.auditFlags) : '—'}
-              detail="Open observations"
+              detail="Open items"
               actionLabel="View"
               attention={Boolean(metrics?.auditFlags)}
               onSelect={() => selectWork('FLAGS')}
@@ -683,6 +684,15 @@ export default function DashboardPage() {
               value={metrics ? String(metrics.needsAttention) : '—'}
               detail="Needs review"
               attention={Boolean(metrics?.needsAttention)}
+            />
+          )}
+          {isTl && (
+            <LandingMetric
+              label="Review Pending"
+              value={view === 'REVIEW_PENDING' && reviewPendingQuery.data ? String(reviewPendingCount) : '—'}
+              detail="TL review queue"
+              actionLabel="Review"
+              onSelect={() => selectWork('REVIEW_PENDING')}
             />
           )}
         </div>
@@ -710,9 +720,9 @@ export default function DashboardPage() {
           {([
             ['ALL', 'All'],
             ['BOOKING', 'Bookings'],
-            ...(isPc ? [['REVIEW_PENDING', `Review Pending${reviewPendingQuery.data ? ` (${reviewPendingCount})` : ''}`]] : []),
+            ...(isTl ? [['REVIEW_PENDING', 'Review Pending']] : []),
             ['DELIVERY', 'Deliveries'],
-            ...(isPc ? [['FLAGS', `Flags${metrics ? ` (${metrics.auditFlags})` : ''}`]] : []),
+            ...(isPc ? [['FLAGS', `Observations${metrics ? ` (${metrics.auditFlags})` : ''}`]] : []),
           ] as Array<[LandingView, string]>).map(([value, label]) => (
             <button
               type="button"
@@ -755,7 +765,7 @@ export default function DashboardPage() {
                 <div className="dashboard-load-state__mark" aria-hidden="true">!</div>
                 <div className="dashboard-load-state__copy">
                   <strong>We couldn't load Review Pending.</strong>
-                  <p>Please try again. No Document Intelligence readiness check was made.</p>
+                  <p>Please try again.</p>
                 </div>
                 <button type="button" className="user-menu-button" onClick={() => reviewPendingQuery.refetch()}>Try Again</button>
               </section>
@@ -773,8 +783,8 @@ export default function DashboardPage() {
                 ))}
                 {reviewPendingItems.length === 0 && (
                   <div className="uc03-work-empty">
-                    <strong>No PC reviews pending.</strong>
-                    <p>Submitted Bookings will appear here until PC document verification is completed.</p>
+                    <strong>No TL reviews pending.</strong>
+                    <p>Bookings requiring TL review will appear here.</p>
                   </div>
                 )}
               </div>
@@ -817,14 +827,13 @@ export default function DashboardPage() {
                       item={item}
                       timezoneName={timezoneName}
                       isPc={isPc}
-                      reviewPending={reviewPendingIds.has(item.journeyId)}
                       flagsView={view === 'FLAGS'}
                     />
                   ))}
                   {displayedWorkItems.length === 0 && (
                     <div className="uc03-work-empty">
-                      <strong>{view === 'FLAGS' ? 'No open flags in the loaded work.' : 'No matching Booking or Delivery work.'}</strong>
-                      <p>{view === 'FLAGS' ? 'Open flags will remain visible without changing the Booking or Delivery next step.' : 'Capture a new Booking to begin.'}</p>
+                      <strong>{view === 'FLAGS' ? 'No open observations in the loaded work.' : 'No matching Booking or Delivery work.'}</strong>
+                      <p>{view === 'FLAGS' ? 'Open observations remain separate from the Booking or Delivery business status.' : 'Capture a new Booking to begin.'}</p>
                     </div>
                   )}
                 </div>

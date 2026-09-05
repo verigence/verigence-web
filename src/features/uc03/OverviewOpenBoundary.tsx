@@ -1,6 +1,7 @@
 import { Suspense, useEffect, useMemo, type ReactNode } from 'react';
 import { useLocation } from 'react-router-dom';
 
+import { useProjectContextStore } from '../../store/projectContextStore';
 import {
   OVERVIEW_OPEN_BUDGET_MS,
   type OverviewOpenNavigationState,
@@ -17,6 +18,7 @@ function displayStatus(value?: string | null): string {
 
 export default function OverviewOpenBoundary({ children }: { children: ReactNode }) {
   const location = useLocation();
+  const operatingRole = useProjectContextStore((state) => state.selectedProject?.operatingRole);
   const navigation = (location.state as OverviewOpenNavigationState | null)?.overviewOpen;
   const snapshot = navigation?.snapshot;
 
@@ -59,11 +61,13 @@ export default function OverviewOpenBoundary({ children }: { children: ReactNode
     );
   }
 
-  const reviewStatus = snapshot.pcVerificationStatus?.toUpperCase() === 'PENDING'
-    ? 'Review Pending'
-    : snapshot.pcVerificationStatus?.toUpperCase() === 'VERIFIED'
-      ? 'Verified'
-      : null;
+  const reviewStatus = operatingRole === 'PC'
+    ? null
+    : snapshot.pcVerificationStatus?.toUpperCase() === 'PENDING'
+      ? 'Review Pending'
+      : snapshot.pcVerificationStatus?.toUpperCase() === 'VERIFIED'
+        ? 'Verified'
+        : null;
 
   return (
     <>

@@ -1,0 +1,186 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap">
+  <style>
+    :root{
+      --ink:#12304f;--head:#0c2440;--muted:#5c7590;--faint:#93a6bb;
+      --ground:#edf1f6;--surface:#ffffff;--line:#e6ecf2;--line-soft:#f1f4f8;
+      --a:#003a82;--a-hover:#00296b;--blue:#0057b8;--teal:#00afa8;--teal-ink:#0a746c;--mint:#00d3a7;
+      --grad:linear-gradient(122deg,#003A82 0%,#0057B8 42%,#00AFA8 72%,#00D3A7 100%);
+      --hero:linear-gradient(140deg,#04264f 0%,#06466a 52%,#0a5c6e 100%);
+      --deep-grad:linear-gradient(180deg,#04264f 0%,#06466a 55%,#0a5c6e 100%);
+      --shadow-s:0 2px 6px rgba(10,40,90,.06);
+      --shadow-m:0 22px 50px -24px rgba(8,38,86,.30),0 3px 10px rgba(8,38,86,.05);
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{margin:0;font-family:Manrope,"Helvetica Neue",Arial,sans-serif;color:var(--ink);font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased;
+      background:radial-gradient(900px 460px at 6% -12%,rgba(0,169,157,.12),transparent 55%),radial-gradient(760px 380px at 106% -8%,rgba(0,87,184,.09),transparent 52%),var(--ground)}
+    h1,h2,h3{margin:0;color:var(--head);font-weight:800;letter-spacing:-.02em}
+    p{margin:0}
+    .ico{width:18px;height:18px;flex:none;stroke:currentColor;stroke-width:1.9;fill:none;stroke-linecap:round;stroke-linejoin:round}
+
+    .app{height:100%;display:grid;grid-template-columns:230px minmax(0,1fr);grid-template-rows:72px 1fr}
+    .top{grid-column:1/-1;grid-row:1;background:var(--surface);border-bottom:1px solid #dde5ed;box-shadow:0 4px 16px rgba(8,40,96,.05);display:flex;align-items:center;padding:0 24px;z-index:4}
+    .brand{width:214px;height:auto;flex:none}
+    .top .spacer{flex:1}
+    .identity{display:flex;align-items:center;gap:11px;margin-right:14px}
+    .avatar{width:40px;height:40px;border-radius:50%;background:var(--grad);color:#fff;font-weight:800;font-size:13.5px;display:flex;align-items:center;justify-content:center}
+    .identity .who strong{display:block;font-size:14px;color:var(--head);font-weight:700}
+    .identity .who span{font-size:12px;color:var(--muted)}
+    .signout{height:40px;padding:0 18px;border-radius:11px;border:1.5px solid var(--line);background:#fff;color:var(--a);font:700 13px Manrope,sans-serif;cursor:pointer}
+    .newbk{height:40px;padding:0 18px;border-radius:11px;border:0;background:var(--a);color:#fff;font:800 13px Manrope,sans-serif;cursor:pointer;display:flex;align-items:center;gap:8px;margin-right:14px;box-shadow:0 8px 18px -8px rgba(0,58,130,.55)}
+    .newbk:hover{background:var(--a-hover)}
+    .newbk .ico{width:15px;height:15px;stroke-width:2.6}
+
+    .nav{grid-column:1;grid-row:2;background:var(--deep-grad);color:#fff;display:flex;flex-direction:column;padding:18px 14px;overflow:hidden;box-shadow:8px 0 30px -16px rgba(4,26,60,.5)}
+    .ws{border:1px solid rgba(255,255,255,.15);border-radius:14px;background:rgba(255,255,255,.06);padding:13px 14px;margin-bottom:16px}
+    .ws .wl{font-size:9.5px;font-weight:800;letter-spacing:.13em;text-transform:uppercase;color:rgba(255,255,255,.5)}
+    .ws strong{display:block;color:#fff;font-size:14px;font-weight:800;margin-top:4px}
+    .ws span{font-size:11.5px;color:rgba(255,255,255,.6)}
+    .nav a{display:flex;align-items:center;gap:13px;padding:12px 13px;border-radius:12px;color:rgba(255,255,255,.82);font-weight:600;font-size:14px;text-decoration:none;position:relative;margin-bottom:2px}
+    .nav a:hover{background:rgba(255,255,255,.08);color:#fff}
+    .nav a.on{background:linear-gradient(90deg,rgba(0,211,167,.26),rgba(0,211,167,.05));color:#fff}
+    .nav a.on::before{content:"";position:absolute;left:-14px;top:9px;bottom:9px;width:4px;border-radius:0 4px 4px 0;background:var(--mint)}
+    .nav a .ico{width:19px;height:19px;opacity:.95}
+    .nav .grow{flex:1}
+    .nav .switch{padding:11px 13px;font-size:12.5px;color:#6fe6da;font-weight:700}
+
+    .main{grid-column:2;grid-row:2;padding:18px 22px;min-width:0;display:flex;flex-direction:column;gap:16px;overflow:hidden}
+
+    .hero{position:relative;overflow:hidden;border-radius:24px;background:var(--hero);color:#fff;padding:24px 30px;box-shadow:0 30px 60px -26px rgba(6,44,96,.55)}
+    .hero .mark{position:absolute;right:26px;top:50%;transform:translateY(-50%);width:180px;height:180px;opacity:.16}
+    .hero > .z{position:relative;z-index:1}
+    .hero .greet{font-size:13.5px;color:rgba(255,255,255,.78);font-weight:600}
+    .hero .place{font-size:15px;color:rgba(255,255,255,.9);font-weight:700;margin-top:2px}
+    .hero .headline{font-size:32px;font-weight:800;color:#fff;letter-spacing:-.03em;margin-top:14px;line-height:1.1;display:flex;align-items:center;gap:12px}
+    .hero .headline .tick{width:34px;height:34px;border-radius:50%;background:rgba(143,243,223,.22);display:flex;align-items:center;justify-content:center;flex:none}
+    .hero .headline .tick .ico{width:19px;height:19px;color:#8ff3df;stroke-width:2.6}
+    .hero .sub{font-size:13.5px;color:rgba(255,255,255,.78);margin-top:8px;max-width:52ch}
+    .hero .today{font-size:12px;color:rgba(255,255,255,.62);font-weight:600;margin-top:14px}
+    .hero .kpis{display:flex;gap:10px;margin-top:16px}
+    .hero .hk{flex:1;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.18);border-radius:14px;padding:11px 14px}
+    .hero .hk .kv{font-size:22px;font-weight:800;color:rgba(255,255,255,.92);font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+    .hero .hk .kl{font-size:10.5px;color:rgba(255,255,255,.66);font-weight:600;margin-top:2px}
+
+    .empty{flex:1;min-height:0;background:var(--surface);border:1px solid rgba(10,44,96,.06);border-radius:22px;box-shadow:var(--shadow-m);display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:36px}
+    .empty .em-mark{width:88px;height:88px;margin-bottom:16px}
+    .empty h2{font-size:23px;font-weight:800}
+    .empty p{font-size:14px;color:var(--muted);max-width:46ch;line-height:1.65;margin-top:8px}
+    .empty .cta{margin-top:22px;height:52px;padding:0 28px;border-radius:14px;background:var(--a);color:#fff;font:800 15px Manrope,sans-serif;border:0;cursor:pointer;display:inline-flex;align-items:center;gap:9px}
+    .empty .cta:hover{background:var(--a-hover)}
+    .empty .cta .ico{width:17px;height:17px}
+    .empty .alt{margin-top:12px;font-size:12.5px;color:var(--faint)}
+    .empty .alt a{color:var(--a);font-weight:700;text-decoration:none}
+
+    .flowprev{margin-top:34px;width:400px;max-width:100%}
+    .flowprev .rail{display:flex;align-items:center;justify-content:space-between;position:relative}
+    .flowprev .rail::before{content:"";position:absolute;left:8px;right:8px;top:50%;height:3px;background:linear-gradient(90deg,#cdd9e4,#cfe8e0);border-radius:2px}
+    .flowprev .rail .n{width:16px;height:16px;border-radius:50%;background:#fff;border:3px solid #cdd9e4;position:relative;z-index:1}
+    .flowprev .labels{display:flex;justify-content:space-between;margin-top:8px;font-size:11px;font-weight:700;color:var(--faint)}
+    .flowprev .cap{font-size:11.5px;color:var(--faint);margin-top:12px}
+
+    .jstrip{background:var(--surface);border:1px solid rgba(10,44,96,.06);border-radius:20px;box-shadow:var(--shadow-s);padding:16px 20px;display:flex;align-items:center;justify-content:space-between;gap:16px}
+    .jstrip .jt{font-size:14px;font-weight:800;color:var(--head)}
+    .jstrip .jt span{display:block;font-size:11.5px;font-weight:500;color:var(--muted)}
+    .jstrip .jbar-empty{flex:1;height:32px;border-radius:10px;background:repeating-linear-gradient(45deg,#eef2f6,#eef2f6 8px,#e7edf3 8px,#e7edf3 16px);display:flex;align-items:center;justify-content:center;font-size:11.5px;color:var(--faint);font-weight:600}
+  </style>
+</helmet>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-home" viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="7" height="7" rx="2"/><rect x="13.5" y="3.5" width="7" height="7" rx="2"/><rect x="3.5" y="13.5" width="7" height="7" rx="2"/><rect x="13.5" y="13.5" width="7" height="7" rx="2"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4.5 4.5"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 8v4.5l3 1.8"/></symbol>
+  <symbol id="i-grid2" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16M4 6h.01M4 12h.01M4 18h.01"/></symbol>
+  <symbol id="i-chat" viewBox="0 0 24 24"><path d="M5 5h14v10H9l-4 4z"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12 5 5 9-11"/></symbol>
+</svg>
+
+<div class="app">
+  <header class="top">
+    <svg class="brand" viewBox="0 0 1280 380" role="img" aria-label="Verigence — Audit, Governance, Intelligence">
+      <defs>
+        <linearGradient id="brandGradient" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#003A82"/><stop offset="42%" stop-color="#0057B8"/><stop offset="72%" stop-color="#00AFA8"/><stop offset="100%" stop-color="#00D3A7"/></linearGradient>
+        <linearGradient id="tealGradient" x1="0%" y1="100%" x2="100%" y2="0%"><stop offset="0%" stop-color="#007F9E"/><stop offset="55%" stop-color="#00B7A8"/><stop offset="100%" stop-color="#00D3A7"/></linearGradient>
+        <linearGradient id="blueGradient" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#0057B8"/><stop offset="100%" stop-color="#003A82"/></linearGradient>
+        <linearGradient id="mg" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#003a82"/><stop offset="55%" stop-color="#00afa8"/><stop offset="100%" stop-color="#00d3a7"/></linearGradient>
+      </defs>
+      <g transform="translate(20,-4) scale(0.56)">
+        <path d="M64 136 C136 119 196 91 256 52 L256 126 C205 159 151 178 83 191 Z" fill="url(#blueGradient)"/>
+        <path d="M256 52 C318 91 378 118 448 136 L424 191 C357 178 305 159 256 126 Z" fill="url(#tealGradient)"/>
+        <path d="M82 191 L137 218 C140 325 176 398 256 447 L256 505 C138 454 80 368 68 258 L68 188 Z" fill="url(#blueGradient)"/>
+        <path d="M443 190 L443 264 C433 368 371 454 256 505 L256 447 C332 401 377 330 389 254 L345 294 L315 260 Z" fill="url(#tealGradient)"/>
+        <path d="M148 258 L255 371 L392 230 L430 267 L255 443 L116 298 Z" fill="url(#brandGradient)"/>
+        <g fill="url(#brandGradient)"><rect x="170" y="205" width="31" height="106" rx="15.5"/><rect x="211" y="177" width="31" height="164" rx="15.5"/><rect x="252" y="151" width="31" height="216" rx="15.5"/><rect x="293" y="177" width="31" height="164" rx="15.5"/><rect x="334" y="205" width="31" height="106" rx="15.5"/></g>
+      </g>
+      <g font-family="Inter, Arial, Helvetica, sans-serif" font-weight="800" font-size="137" letter-spacing="-3"><text x="315" y="205" fill="#003A82">VERIGE</text><text x="790" y="205" fill="url(#brandGradient)">N</text><text x="895" y="205" fill="#003A82">CE</text></g>
+      <text x="325" y="285" fill="#31506E" font-family="Inter, Arial, Helvetica, sans-serif" font-weight="650" font-size="34" letter-spacing="6">AUDIT</text><circle cx="505" cy="273" r="7" fill="#00B7A8"/><text x="535" y="285" fill="#31506E" font-family="Inter, Arial, Helvetica, sans-serif" font-weight="650" font-size="34" letter-spacing="6">GOVERNANCE</text><circle cx="891" cy="273" r="7" fill="#00B7A8"/><text x="921" y="285" fill="#31506E" font-family="Inter, Arial, Helvetica, sans-serif" font-weight="650" font-size="34" letter-spacing="6">INTELLIGENCE</text>
+    </svg>
+    <span class="spacer"></span>
+    <button class="newbk"><svg class="ico"><use href="#i-plus"/></svg>Capture new booking</button>
+    <span class="identity"><span class="avatar">SP</span><span class="who"><strong>Sanjay Prasad</strong><span>Process Coordinator</span></span></span>
+    <button class="signout">Sign Out</button>
+  </header>
+
+  <nav class="nav">
+    <div class="ws"><p class="wl">Dealership &amp; outlet</p><strong>Aditya Hyundai</strong><span>Ludhiana</span></div>
+    <a class="on"><svg class="ico"><use href="#i-home"/></svg>Overview</a>
+    <a><svg class="ico"><use href="#i-search"/></svg>Search</a>
+    <a><svg class="ico"><use href="#i-clock"/></svg>Attendance</a>
+    <a><svg class="ico"><use href="#i-grid2"/></svg>Daily operations</a>
+    <a><svg class="ico"><use href="#i-chat"/></svg>Feedback</a>
+    <div class="grow"></div>
+    <a class="switch">Switch dealership / outlet</a>
+  </nav>
+
+  <main class="main">
+    <section class="hero">
+      <svg class="mark" viewBox="0 0 512 540" aria-hidden="true"><g fill="#ffffff"><path d="M64 136 C136 119 196 91 256 52 L256 126 C205 159 151 178 83 191 Z"/><path d="M256 52 C318 91 378 118 448 136 L424 191 C357 178 305 159 256 126 Z"/><path d="M82 191 L137 218 C140 325 176 398 256 447 L256 505 C138 454 80 368 68 258 L68 188 Z"/><path d="M443 190 L443 264 C433 368 371 454 256 505 L256 447 C332 401 377 330 389 254 L345 294 L315 260 Z"/><path d="M148 258 L255 371 L392 230 L430 267 L255 443 L116 298 Z"/><rect x="170" y="205" width="31" height="106" rx="15.5"/><rect x="211" y="177" width="31" height="164" rx="15.5"/><rect x="252" y="151" width="31" height="216" rx="15.5"/><rect x="293" y="177" width="31" height="164" rx="15.5"/><rect x="334" y="205" width="31" height="106" rx="15.5"/></g></svg>
+
+      <div class="z">
+        <p class="greet">Good morning, Sanjay</p>
+        <p class="place">Aditya Hyundai · Ludhiana</p>
+        <h1 class="headline"><span class="tick"><svg class="ico"><use href="#i-check"/></svg></span>You're all caught up</h1>
+        <p class="sub">Nothing needs your attention right now. New bookings and deliveries will show up here as they come in.</p>
+        <p class="today">No deliveries scheduled today yet</p>
+        <div class="kpis">
+          <div class="hk"><div class="kv">0</div><div class="kl">Bookings completed</div></div>
+          <div class="hk"><div class="kv">0</div><div class="kl">Deliveries completed</div></div>
+          <div class="hk"><div class="kv">0</div><div class="kl">Bookings in progress</div></div>
+          <div class="hk"><div class="kv">0</div><div class="kl">Deliveries in progress</div></div>
+          <div class="hk"><div class="kv">0</div><div class="kl">Open flags</div></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="empty">
+      <svg class="em-mark" viewBox="0 0 512 540" aria-hidden="true"><g fill="url(#mg)"><path d="M64 136 C136 119 196 91 256 52 L256 126 C205 159 151 178 83 191 Z" opacity=".85"/><path d="M256 52 C318 91 378 118 448 136 L424 191 C357 178 305 159 256 126 Z" opacity=".85"/><path d="M82 191 L137 218 C140 325 176 398 256 447 L256 505 C138 454 80 368 68 258 L68 188 Z" opacity=".85"/><path d="M443 190 L443 264 C433 368 371 454 256 505 L256 447 C332 401 377 330 389 254 L345 294 L315 260 Z" opacity=".85"/><path d="M148 258 L255 371 L392 230 L430 267 L255 443 L116 298 Z"/><rect x="170" y="205" width="31" height="106" rx="15.5"/><rect x="211" y="177" width="31" height="164" rx="15.5"/><rect x="252" y="151" width="31" height="216" rx="15.5"/><rect x="293" y="177" width="31" height="164" rx="15.5"/><rect x="334" y="205" width="31" height="106" rx="15.5"/></g></svg>
+      <h2>Ready when you are</h2>
+      <p>When a customer books a vehicle, capture it here. Verigence walks you through the documents, the delivery and the audit trail — one step at a time.</p>
+      <button class="cta"><svg class="ico"><use href="#i-plus"/></svg>Capture New Booking</button>
+      <p class="alt">or <a href="#">search for an existing booking</a></p>
+
+      <div class="flowprev">
+        <div class="rail"><span class="n"></span><span class="n"></span><span class="n"></span><span class="n"></span></div>
+        <div class="labels"><span>Booking</span><span>Documents</span><span>Delivery</span><span>Done</span></div>
+        <p class="cap">Every journey follows this path</p>
+      </div>
+    </section>
+
+    <div class="jstrip">
+      <div class="jt">Your journeys<span>Nothing in progress yet</span></div>
+      <div class="jbar-empty">Journeys you start will appear here</div>
+    </div>
+  </main>
+</div>
+</x-dc>
+</body>
+</html>

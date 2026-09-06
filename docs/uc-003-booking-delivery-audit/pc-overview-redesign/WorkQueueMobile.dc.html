@@ -1,0 +1,172 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap">
+  <style>
+    :root{
+      --ink:#12304f;--head:#0c2440;--muted:#5c7590;--faint:#93a6bb;
+      --ground:#edf1f6;--surface:#ffffff;--line:#e6ecf2;--line-soft:#f1f4f8;
+      --a:#003a82;--a-hover:#00296b;--blue:#0057b8;--teal:#00afa8;--teal-ink:#0a746c;--mint:#00d3a7;
+      --grad:linear-gradient(122deg,#003A82 0%,#0057B8 42%,#00AFA8 72%,#00D3A7 100%);
+      --book:#003A82;   /* brand Deep Blue — same as every primary action */
+      --deliver:linear-gradient(90deg,#007F9E,#00B7A8 55%,#00D3A7);   /* logo tealGradient */
+      --hero:linear-gradient(140deg,#04264f 0%,#06466a 52%,#0a5c6e 100%);
+      --coral:#dd6f57;--coral-soft:#fbeee9;
+      --shadow:0 18px 40px -20px rgba(8,38,86,.30),0 3px 10px rgba(8,38,86,.05);
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%;overflow:hidden}
+    body{margin:0;font-family:Manrope,"Helvetica Neue",Arial,sans-serif;color:var(--ink);font-size:14px;line-height:1.45;-webkit-font-smoothing:antialiased;display:flex;flex-direction:column;height:100%;
+      background:radial-gradient(640px 320px at 0% -6%,rgba(0,169,157,.13),transparent 56%),var(--ground)}
+    h1,h3{margin:0;color:var(--head);font-weight:800;letter-spacing:-.02em}
+    p{margin:0}
+    .ico{width:18px;height:18px;flex:none;stroke:currentColor;stroke-width:1.9;fill:none;stroke-linecap:round;stroke-linejoin:round}
+
+    .top{height:56px;flex:none;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:0 14px;background:var(--surface);border-bottom:1px solid #dde5ed;box-shadow:0 3px 12px rgba(8,40,96,.05);z-index:3}
+    .brand{width:150px;height:auto}
+    .ib{width:36px;height:36px;border-radius:10px;border:1px solid var(--line);background:#fff;display:flex;align-items:center;justify-content:center;color:var(--muted)}
+    .avatar{width:34px;height:34px;border-radius:50%;background:var(--grad);color:#fff;font-weight:800;font-size:12px;display:flex;align-items:center;justify-content:center}
+
+    .body{flex:1;min-height:0;display:flex;flex-direction:column;padding:12px 12px 0;gap:13px;overflow:hidden}
+
+    .hero{position:relative;overflow:hidden;border-radius:20px;background:var(--hero);color:#fff;padding:17px 18px;box-shadow:0 20px 42px -18px rgba(6,44,96,.55)}
+    .hero .mark{position:absolute;right:-24px;bottom:-40px;width:150px;height:150px;opacity:.15}
+    .hero > .z{position:relative;z-index:1}
+    .hero .greet{font-size:12px;color:rgba(255,255,255,.78);font-weight:600}
+    .hero .place{font-size:13px;color:rgba(255,255,255,.9);font-weight:700;margin-top:1px}
+    .hero .headline{font-size:24px;font-weight:800;color:#fff;letter-spacing:-.03em;margin-top:11px;line-height:1.12}
+    .hero .headline b{color:#8ff3df}
+    .hero .sub{font-size:12px;color:rgba(255,255,255,.78);margin-top:5px}
+    .hero .sub b{color:#fff;font-weight:800}
+    .hero .today{display:flex;align-items:center;gap:10px;margin-top:11px}
+    .hero .today .bars{display:flex;gap:3px;align-items:flex-end;height:16px}
+    .hero .today .bars i{width:6px;border-radius:2px;background:rgba(255,255,255,.28)}
+    .hero .today .bars i.f{background:linear-gradient(180deg,#8ff3df,#00d3a7)}
+    .hero .today .lbl{font-size:11px;color:rgba(255,255,255,.78);font-weight:600}
+    .hero .kpis{display:flex;gap:6px;margin-top:12px}
+    .hero .hk{flex:1;background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.2);border-radius:10px;padding:8px 3px;text-align:center}
+    .hero .hk b{display:block;font-size:15.5px;font-weight:800;color:#fff;font-variant-numeric:tabular-nums}
+    .hero .hk span{font-size:7.5px;color:rgba(255,255,255,.66);letter-spacing:-.01em}
+
+    .sec-h{display:flex;align-items:baseline;justify-content:space-between;padding:0 3px}
+    .sec-h h3{font-size:15px;font-weight:800}
+    .sec-h a{font-size:12px;font-weight:700;color:var(--a);text-decoration:none}
+
+    .cards{flex:1;min-height:0;display:flex;flex-direction:column;gap:11px;overflow:hidden}
+    .cc{background:var(--surface);border:1px solid rgba(10,44,96,.06);border-radius:18px;box-shadow:var(--shadow);padding:14px 15px}
+    .cc .r1{display:flex;align-items:center;justify-content:space-between;gap:8px}
+    .cc .veh{font-size:15px;font-weight:800;color:var(--head);letter-spacing:-.02em}
+    .cc .chip{font-size:10.5px;font-weight:800;padding:4px 8px;border-radius:7px;white-space:nowrap;font-variant-numeric:tabular-nums}
+    .cc .chip.hot{background:var(--coral);color:#fff}
+    .cc .chip.soft{background:#eef2f7;color:var(--muted)}
+    .cc .cust{font-size:11.5px;color:var(--muted);margin-top:1px}
+    .cc .cust b{color:var(--ink);font-weight:700}
+    .cc .track{margin:11px 0 3px}
+    .cc .rail{height:7px;border-radius:999px;background:#e7edf3;position:relative;overflow:hidden}
+    .cc .rail i{position:absolute;left:0;top:0;bottom:0;border-radius:999px;background:var(--grad)}
+    .cc .now{font-size:10px;font-weight:700;color:var(--a);margin-top:5px;display:block}
+    .cc .ask{font-size:12.5px;color:var(--ink);line-height:1.4;margin-top:9px}
+    .cc .go{margin-top:12px;height:44px;width:100%;border-radius:12px;background:var(--a);color:#fff;font:800 13.5px Manrope,sans-serif;border:0;display:flex;align-items:center;justify-content:center;gap:7px}
+    .cc .go .ico{width:16px;height:16px}
+
+    .jstrip{background:var(--surface);border:1px solid rgba(10,44,96,.06);border-radius:16px;box-shadow:var(--shadow);padding:13px 15px}
+    .jstrip .jt{font-size:13px;font-weight:800;color:var(--head);display:flex;justify-content:space-between;align-items:baseline}
+    .jstrip .jt a{font-size:11.5px;font-weight:700;color:var(--a);text-decoration:none}
+    .jstrip .jbar{display:flex;height:28px;border-radius:9px;overflow:hidden;font:800 11px Manrope,sans-serif;margin-top:9px}
+    .jstrip .jbar .b{display:flex;align-items:center;justify-content:center;color:#fff}
+    .jstrip .jbar .bk{flex:7;background:var(--book)}
+    .jstrip .jbar .dl{flex:5;background:var(--deliver)}
+
+    .fab{flex:none;padding:10px 12px 15px;background:var(--surface);border-top:1px solid var(--line)}
+    .fab button{width:100%;height:48px;border-radius:13px;background:var(--a);color:#fff;font:800 14px Manrope,sans-serif;border:0;display:flex;align-items:center;justify-content:center;gap:8px}
+    .fab .ico{width:16px;height:16px}
+  </style>
+</helmet>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h13M13 6l6 6-6 6"/></symbol>
+</svg>
+
+<header class="top">
+  <button class="ib"><svg class="ico"><use href="#i-menu"/></svg></button>
+  <svg class="brand" viewBox="0 0 1280 320" role="img" aria-label="Verigence">
+    <defs>
+      <linearGradient id="brandGradient" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#003A82"/><stop offset="42%" stop-color="#0057B8"/><stop offset="72%" stop-color="#00AFA8"/><stop offset="100%" stop-color="#00D3A7"/></linearGradient>
+      <linearGradient id="tealGradient" x1="0%" y1="100%" x2="100%" y2="0%"><stop offset="0%" stop-color="#007F9E"/><stop offset="55%" stop-color="#00B7A8"/><stop offset="100%" stop-color="#00D3A7"/></linearGradient>
+      <linearGradient id="blueGradient" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#0057B8"/><stop offset="100%" stop-color="#003A82"/></linearGradient>
+    </defs>
+    <g transform="translate(20,-4) scale(0.56)">
+      <path d="M64 136 C136 119 196 91 256 52 L256 126 C205 159 151 178 83 191 Z" fill="url(#blueGradient)"/>
+      <path d="M256 52 C318 91 378 118 448 136 L424 191 C357 178 305 159 256 126 Z" fill="url(#tealGradient)"/>
+      <path d="M82 191 L137 218 C140 325 176 398 256 447 L256 505 C138 454 80 368 68 258 L68 188 Z" fill="url(#blueGradient)"/>
+      <path d="M443 190 L443 264 C433 368 371 454 256 505 L256 447 C332 401 377 330 389 254 L345 294 L315 260 Z" fill="url(#tealGradient)"/>
+      <path d="M148 258 L255 371 L392 230 L430 267 L255 443 L116 298 Z" fill="url(#brandGradient)"/>
+      <g fill="url(#brandGradient)"><rect x="170" y="205" width="31" height="106" rx="15.5"/><rect x="211" y="177" width="31" height="164" rx="15.5"/><rect x="252" y="151" width="31" height="216" rx="15.5"/><rect x="293" y="177" width="31" height="164" rx="15.5"/><rect x="334" y="205" width="31" height="106" rx="15.5"/></g>
+    </g>
+    <g font-family="Inter, Arial, Helvetica, sans-serif" font-weight="800" font-size="137" letter-spacing="-3"><text x="315" y="205" fill="#003A82">VERIGE</text><text x="790" y="205" fill="url(#brandGradient)">N</text><text x="895" y="205" fill="#003A82">CE</text></g>
+  </svg>
+  <span class="avatar">SP</span>
+</header>
+
+<div class="body">
+  <section class="hero">
+    <svg class="mark" viewBox="0 0 512 540" aria-hidden="true"><g fill="#ffffff"><path d="M148 258 L255 371 L392 230 L430 267 L255 443 L116 298 Z"/><rect x="170" y="205" width="31" height="106" rx="15.5"/><rect x="211" y="177" width="31" height="164" rx="15.5"/><rect x="252" y="151" width="31" height="216" rx="15.5"/><rect x="293" y="177" width="31" height="164" rx="15.5"/><rect x="334" y="205" width="31" height="106" rx="15.5"/></g></svg>
+    <div class="z">
+      <p class="greet">Good evening, Sanjay</p>
+      <p class="place">Aditya Hyundai · Ludhiana</p>
+      <h1 class="headline"><b>4 things</b> need you<br>right now</h1>
+      <p class="sub"><b>2 came back to you</b> · 1 booking, no action for 7 days</p>
+      <div class="today">
+        <div class="bars"><i class="f" style="height:7px"></i><i class="f" style="height:11px"></i><i class="f" style="height:14px"></i><i class="f" style="height:9px"></i><i style="height:15px"></i><i style="height:11px"></i><i style="height:16px"></i></div>
+        <span class="lbl">4 of 9 deliveries done today</span>
+      </div>
+      <div class="kpis">
+        <div class="hk"><b>14</b><span>Bk done</span></div>
+        <div class="hk"><b>9</b><span>Dl done</span></div>
+        <div class="hk"><b>7</b><span>Bk open</span></div>
+        <div class="hk"><b>5</b><span>Dl open</span></div>
+        <div class="hk"><b>2</b><span>Flags</span></div>
+      </div>
+    </div>
+  </section>
+
+  <div class="sec-h"><h3>Do these next</h3><a href="#">See all 4 →</a></div>
+
+  <div class="cards">
+    <article class="cc">
+      <div class="r1"><span class="veh">Creta N Line N8</span><span class="chip hot">Sent back 3h ago</span></div>
+      <div class="cust"><b>Sunita Rao</b> · Booking #682566</div>
+      <div class="track"><div class="rail"><i style="width:34%"></i></div><span class="now">Step: Documents</span></div>
+      <p class="ask">The Customer ID photo was unclear. Upload a sharper one.</p>
+      <button class="go">Re-upload photo <svg class="ico"><use href="#i-arrow"/></svg></button>
+    </article>
+
+    <article class="cc">
+      <div class="r1"><span class="veh">Creta 1.5 S(O) MT</span><span class="chip hot">No action · 7 days</span></div>
+      <div class="cust"><b>Deepak Sharma</b> · Booking #682499</div>
+      <div class="track"><div class="rail"><i style="width:20%"></i></div><span class="now">Step: Documents</span></div>
+      <p class="ask">No action for 7 days. Check with the customer or move it forward.</p>
+      <button class="go">Open booking <svg class="ico"><use href="#i-arrow"/></svg></button>
+    </article>
+  </div>
+
+  <div class="jstrip">
+    <div class="jt">Your journeys · 12 in progress <a href="#">See all →</a></div>
+    <div class="jbar"><span class="b bk">7 in booking</span><span class="b dl">5 in delivery</span></div>
+  </div>
+
+  <div class="fab">
+    <button><svg class="ico"><use href="#i-plus"/></svg>Capture New Booking</button>
+  </div>
+</div>
+</x-dc>
+</body>
+</html>

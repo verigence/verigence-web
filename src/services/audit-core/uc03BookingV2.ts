@@ -40,7 +40,7 @@ export interface BookingSubmitV2Result {
   journeyId: string;
   phase: 'BOOKING';
   status: 'IN_PROGRESS' | 'COMPLETED';
-  pcVerificationStatus: 'PENDING' | null;
+  pcVerificationStatus: 'PENDING' | 'VERIFIED' | null;
   aggregateVersion: number;
 }
 
@@ -65,6 +65,7 @@ export async function getBookingDetailsV2(
   });
 }
 
+/** Legacy compatibility only. The 06-Sep-2026 active flow does not collect these fields. */
 export async function submitBookingV2(
   tenantId: string,
   journeyId: string,
@@ -80,5 +81,23 @@ export async function submitBookingV2(
       'If-Match': `"${aggregateVersion}"`,
     },
     body: JSON.stringify(payload),
+  });
+}
+
+/** C-02: Review is the final normal Booking submit step. */
+export async function submitSimplifiedBookingV2(
+  tenantId: string,
+  journeyId: string,
+  aggregateVersion: number,
+  accessToken?: string,
+): Promise<BookingSubmitV2Result> {
+  return auditCoreRequest<BookingSubmitV2Result>(`${base(tenantId, journeyId)}/submit`, {
+    method: 'POST',
+    accessToken: token(accessToken),
+    headers: {
+      'Idempotency-Key': newIdempotencyKey('uc03-v2-booking-review-submit'),
+      'If-Match': `"${aggregateVersion}"`,
+    },
+    body: JSON.stringify({}),
   });
 }

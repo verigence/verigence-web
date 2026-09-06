@@ -1,6 +1,7 @@
 import type { ReviewV2UnmappedField } from '../../services/audit-core/uc03DocumentReviewV2';
 
 const RECEIPT_DOCUMENT_TYPE = 'dealer_receipt';
+const PC_REVIEW_THRESHOLD = 90;
 
 export interface RawReviewGroup {
   groupKey: string;
@@ -29,10 +30,19 @@ function isReceipt(field: ReviewV2UnmappedField): boolean {
   return field.documentTypeKey?.trim().toLowerCase() === RECEIPT_DOCUMENT_TYPE;
 }
 
+function needsPcReview(field: ReviewV2UnmappedField, reviewThreshold: number): boolean {
+  return field.confidenceScore === null
+    || field.confidenceScore === undefined
+    || field.confidenceScore < reviewThreshold;
+}
+
 export function buildRawReviewGroups(
   fields: ReviewV2UnmappedField[],
-  reviewThreshold = 92,
+  reviewThreshold = PC_REVIEW_THRESHOLD,
 ): RawReviewGroup[] {
+  // The business policy is fixed at 90%. Older callers may still pass the former
+  // 92% presentation threshold; never let that turn 90–91.99% facts into PC work.
+  const effectiveReviewThreshold = Math.min(reviewThreshold, PC_REVIEW_THRESHOLD);
   const populated = fields.filter(hasValue);
   const receiptDocumentIds = [...new Set(
     populated.filter(isReceipt).map((field) => field.documentId),
@@ -72,7 +82,7 @@ export function buildRawReviewGroups(
     });
     const selected = sorted[0];
     const mismatch = new Set(sources.map((source) => normalizedValue(source.value))).size > 1;
-    const lowConfidence = selected.confidenceScore === null || selected.confidenceScore < reviewThreshold;
+    const lowConfidence = sources.some((source) => needsPcReview(source, effectiveReviewThreshold));
 
     let reviewKey = `raw:${selected.fieldKey}`;
     if (isReceipt(selected)) {
@@ -89,7 +99,8 @@ export function buildRawReviewGroups(
       sources,
       selected,
       mismatch,
-      needsDecision: mismatch || lowConfidence,
+      // Mismatch stays visible for audit comparison but does not create PC work.
+      needsDecision: lowConfidence,
     };
   });
 }

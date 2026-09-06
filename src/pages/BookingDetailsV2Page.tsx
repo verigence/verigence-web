@@ -7,6 +7,7 @@ import Journey360Page from './Journey360Page';
  * capture step, not the post-capture Booking Details view. This route is the
  * consolidated read/view surface after Review & Submit and uses the same Audit
  * Core-backed data projection without exposing Journey terminology to the PC.
+ * Audit exceptions do not stop the business process.
  */
 export default function BookingDetailsV2Page() {
   const { journeyId = '' } = useParams<{ journeyId: string }>();

@@ -5,6 +5,7 @@ import { Link } from 'react-router-dom';
 import { effectiveStageStatus, overviewOpenState, type OverviewTarget } from '../features/uc03/overviewOpen';
 import {
   getUc03LandingMetrics,
+  getUc03PcStats,
   listUc03WorkItems,
   type Uc03WorkItem,
 } from '../services/audit-core/uc03';
@@ -181,6 +182,21 @@ function presentCard(candidate: Candidate): CardPresentation {
 
 const STEP_LABELS = ['Documents', 'Details', 'Delivery', 'Done'];
 
+function localIsoDate(value: Date): string {
+  return `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, '0')}-${String(value.getDate()).padStart(2, '0')}`;
+}
+
+function statsRange(period: 'week' | 'month'): { from: string; to: string } {
+  const now = new Date();
+  const start = new Date(now);
+  if (period === 'week') {
+    start.setDate(now.getDate() - 6);
+  } else {
+    start.setDate(1);
+  }
+  return { from: localIsoDate(start), to: localIsoDate(now) };
+}
+
 function WorkCard({
   candidate,
   productLabel,
@@ -233,6 +249,7 @@ export default function PcOverviewPage() {
 
   const [enrichedLabels, setEnrichedLabels] = useState<Record<string, string>>({});
   const enrichmentRequested = useRef<Set<string>>(new Set());
+  const [statsPeriod, setStatsPeriod] = useState<'week' | 'month'>('week');
 
   const contextReady = Boolean(project?.tenantId && accessToken && (project?.operatingRole !== 'PC' || outletId));
 
@@ -248,6 +265,19 @@ export default function PcOverviewPage() {
     queryFn: () => listUc03WorkItems(
       project!.tenantId,
       { workType: 'ALL', outletId: outletId || undefined },
+      accessToken,
+    ),
+    enabled: contextReady,
+    retry: 1,
+  });
+
+  // Performance strip — secondary signal, never blocks the dashboard.
+  const statsQuery = useQuery({
+    queryKey: ['pcov-pc-stats', project?.tenantId, outletId, statsPeriod],
+    queryFn: () => getUc03PcStats(
+      project!.tenantId,
+      statsRange(statsPeriod),
+      outletId || undefined,
       accessToken,
     ),
     enabled: contextReady,
@@ -306,8 +336,10 @@ export default function PcOverviewPage() {
   const bookingsInProgress = metrics?.bookingsInProgress ?? 0;
   const deliveriesInProgress = metrics?.deliveryInProgress ?? 0;
   const openFlags = metrics?.auditFlags ?? 0;
-  const reviewPending = metrics?.reviewPending ?? 0;
+  const needsAttention = metrics?.needsAttention ?? 0;
   const journeysInProgress = bookingsInProgress + deliveriesInProgress;
+
+  const stats = statsQuery.data;
 
   const returnedCount = candidates.filter((candidate) => candidate.reason === 'RETURNED').length;
   const flaggedCount = candidates.filter((candidate) => candidate.reason === 'FLAGGED').length;
@@ -365,11 +397,42 @@ export default function PcOverviewPage() {
             <div className="pcov-kpi__label">Open observations</div>
           </div>
           <div className="pcov-kpi">
-            <div className="pcov-kpi__value">{metrics ? reviewPending : '—'}</div>
-            <div className="pcov-kpi__label">Waiting on review</div>
+            <div className="pcov-kpi__value">{metrics ? needsAttention : '—'}</div>
+            <div className="pcov-kpi__label">Journeys needing attention</div>
           </div>
         </div>
       </section>
+
+      {!statsQuery.isError && (
+        <div className="pcov-perf" aria-label="Your throughput">
+          <div className="pcov-perf__toggle" role="group" aria-label="Period">
+            <button
+              type="button"
+              className={statsPeriod === 'week' ? 'is-active' : undefined}
+              aria-pressed={statsPeriod === 'week'}
+              onClick={() => setStatsPeriod('week')}
+            >
+              This week
+            </button>
+            <button
+              type="button"
+              className={statsPeriod === 'month' ? 'is-active' : undefined}
+              aria-pressed={statsPeriod === 'month'}
+              onClick={() => setStatsPeriod('month')}
+            >
+              This month
+            </button>
+          </div>
+          <div className="pcov-perf__stat">
+            <b>{stats ? stats.bookingsCompleted : '—'}</b>
+            <span>bookings completed</span>
+          </div>
+          <div className="pcov-perf__stat">
+            <b>{stats ? stats.deliveriesCompleted : '—'}</b>
+            <span>deliveries completed</span>
+          </div>
+        </div>
+      )}
 
       {(metricsQuery.isError || workQuery.isError) && (
         <div className="pcov-state" role="alert">

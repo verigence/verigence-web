@@ -161,6 +161,58 @@
   color: #ffd9cf;
 }
 
+/* ---------- Performance strip ---------- */
+.pcov-perf {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  flex-wrap: wrap;
+  background: var(--pcov-surface);
+  border: 1px solid var(--pcov-line);
+  border-radius: 16px;
+  box-shadow: var(--pcov-shadow-s);
+  padding: 12px 18px;
+}
+
+.pcov-perf__toggle {
+  display: inline-flex;
+  border: 1px solid var(--pcov-line);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.pcov-perf__toggle button {
+  border: 0;
+  background: #fff;
+  color: var(--pcov-muted);
+  font: 700 12px Inter, sans-serif;
+  padding: 7px 14px;
+  cursor: pointer;
+}
+
+.pcov-perf__toggle button.is-active {
+  background: var(--pcov-blue);
+  color: #fff;
+}
+
+.pcov-perf__stat {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+}
+
+.pcov-perf__stat b {
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--pcov-head);
+  font-variant-numeric: tabular-nums;
+}
+
+.pcov-perf__stat span {
+  font-size: 12px;
+  color: var(--pcov-muted);
+}
+
 /* ---------- Section heading ---------- */
 .pcov-sec-head {
   display: flex;

@@ -92,26 +92,67 @@ except one small new stats endpoint.
 | Pending mandatory-doc count per journey | `Uc03WorkItem.processingDocumentCount` / mandatory-doc checklist | exists |
 | "No action for N days" (stale booking) | Computed in the **Web UI**: `now − latestActivityAtUtc > N days`. Pure config, no backend. | UI only |
 | Greeting name, dealer, outlet | session / `GET /me/projects` | exists |
-| Performance strip (bookings & deliveries, completed & in-progress, week / month) | **NEW** — see below | to build |
+| Performance strip (bookings & deliveries completed, week / month) | `GET /uc03/pc-stats` | **built** — see below |
 
-### New endpoint (the only backend work)
+### `GET /uc03/pc-stats` — the only new backend
 
 ```
-GET /uc03/pc-stats?from={ISO}&to={ISO}&outletId={id}
+GET /v1/tenants/{tenantId}/uc03/pc-stats?from={date}&to={date}&outletId={uuid}
 → 200
 {
-  "bookingsCompleted":    <int>,
+  "bookingsCompleted":    <int>,   // stage completed within [from, to]
   "deliveriesCompleted":  <int>,
-  "bookingsInProgress":   <int>,
+  "bookingsInProgress":   <int>,   // point-in-time, == landing-metrics
   "deliveriesInProgress": <int>
 }
 ```
 
-- Implemented in **audit-core**. The UI calls it twice (this week, this month)
-  to fill the performance strip.
-- "In progress" counts are point-in-time (as of `to`); "completed" counts are
-  within `[from, to]`.
+Implemented in `verigence-audit-core` (branch `feat/uc03-pc-stats`):
+`src/audit_core/uc03_authorized_work_items.py` (next to `landing-metrics`,
+same router, same auth), migration `0056`, `tests/test_uc03_pc_stats.py`.
+
+**Logic**
+
+- `from` / `to` are inclusive calendar dates; Audit Core evaluates them in the
+  **Project timezone** (`projects.timezone_name`), same as `work-items` date
+  filters. `from > to` → `400 VAC-VAL-001`.
+- Scope: the actor's active `business_assignments` (dealer/outlet), optionally
+  narrowed to one outlet — byte-identical to the `landing-metrics` scoping CTE.
+- **Completed** = a row in `auditcore.journey_stage_states` for that stage whose
+  `business_completed_at_utc` falls in the window. That column is set by the
+  existing capture/closure flow (e.g. migration `0055` for V2 booking closure);
+  this endpoint only reads it.
+- **In progress** = `business_status IN ('BOOKING_STARTED','BOOKING_IN_PROGRESS')`
+  / `('DELIVERY_STARTED','DELIVERY_IN_PROGRESS')`, coalesced with the
+  booking/delivery record status exactly as `landing-metrics` does — so the two
+  endpoints never disagree.
 - Average cycle-time tiles were considered and **dropped** — not in this spec.
+
+**Compute on read, not a rollup table — and why**
+
+We do **not** maintain a stats/matrix table. `journey_stage_states` is already a
+compact one-row-per-stage projection (not an event log). Once scoped to one PC's
+outlet and a week/month window, the query touches tens–low-hundreds of rows, so
+computing on read is fast *and* always correct. A rollup table would add a new
+table, a migration, a writer (trigger or job), a backfill, and a staleness
+window — real complexity and a correctness risk (a "completed" date can be
+revised) for a four-integer endpoint called ~2× per dashboard load.
+
+To keep the read cheap, migration `0056` adds one **partial index**:
+`ix_uc03_stage_business_completed (tenant_id, stage_code, business_completed_at_utc)
+WHERE business_completed_at_utc IS NOT NULL`. It is small, only maintained when a
+stage actually completes (no cost to in-flight captures), and makes the window
+filter an index range scan.
+
+**When a rollup *would* be worth it:** tenant-wide / all-outlet analytics over
+long horizons (12-month trend charts across many outlets). That is a different
+surface (PM/Executive analytics), and it should get its own daily rollup
+(`uc03_daily_stage_stats` keyed by tenant/dealer/outlet/date) written by a
+scheduled job — not this PC endpoint.
+
+The Web UI calls `pc-stats` **after first paint** (secondary `useQuery`), once
+for "this week" and again when the PC flips to "this month". A slow or failed
+call hides the strip and never delays the work list.
 
 ### Web-UI configuration
 
@@ -144,11 +185,14 @@ A first cut is wired into the app, kept fully parallel to the current dashboard:
 - To roll back: set `PC_OVERVIEW_REDESIGN_ENABLED = false` in `src/App.tsx`, **or**
   open any dashboard link with `?legacyDashboard=1`.
 
-**What it renders today** (all on existing endpoints):
+**What it renders:**
 
 - Hero — greeting, bold dealership + outlet, "N things need you", plain-language
   sub-line, and KPI tiles (bookings in progress, deliveries in progress, open
-  observations, waiting on review) from `/uc03/landing-metrics`.
+  observations, journeys needing attention) from `/uc03/landing-metrics`.
+- Performance strip — "This week / This month" toggle over
+  `bookingsCompleted` / `deliveriesCompleted` from `/uc03/pc-stats`, fetched
+  after first paint; hidden if the call fails.
 - "Do these next" — up to 4 cards derived from `/uc03/work-items`, prioritised
   Returned → Flagged → Delivery-in-progress → Stale, each with a progress rail,
   a plain instruction, an age/count chip and one action button to the right V2
@@ -156,9 +200,10 @@ A first cut is wired into the app, kept fully parallel to the current dashboard:
 - "Your journeys" pipeline strip; "See all →" opens the legacy list.
 - Empty / all-caught-up states.
 
-**Not yet built:** the weekly / monthly "completed" performance tiles — they need
-`GET /uc03/pc-stats` (below). Until then those tiles are simply not shown (no
-fake numbers).
+`getUc03PcStats` lives in `src/services/audit-core/uc03.ts`; the strip is a
+secondary `useQuery` in `PcOverviewPage.tsx` and never blocks the work list.
+`landing-metrics` has no `reviewPending` field, so the fourth KPI tile shows
+`needsAttention` ("journeys needing attention"), not review count.
 
 ---
 

@@ -5,6 +5,7 @@ import { Link, useParams } from 'react-router-dom';
 import PageHeader from '../components/PageHeader';
 import SectionCard from '../components/SectionCard';
 import StatusPill from '../components/StatusPill';
+import JourneyReviewedDetails from '../features/uc03/JourneyReviewedDetails';
 import { getUc03JourneyOverview } from '../services/audit-core/uc03JourneySearch';
 import { useProjectContextStore } from '../store/projectContextStore';
 import { useSessionStore } from '../store/sessionStore';
@@ -24,6 +25,13 @@ function textValue(record: Record<string, unknown> | null | undefined, key: stri
   const current = value(record, key);
   if (current === null || current === undefined || current === '') return 'Not available';
   if (typeof current === 'boolean') return current ? 'Yes' : 'No';
+  if (typeof current === 'object') {
+    try {
+      return JSON.stringify(current);
+    } catch {
+      return String(current);
+    }
+  }
   return String(current);
 }
 
@@ -111,7 +119,6 @@ export default function Journey360Page() {
   }
 
   const reviewedBooking = objectValue(model.booking, 'reviewedValues');
-  const enteredName = textValue(model.customer, 'enteredName');
   const capturedCustomerName = preferredText(reviewedBooking, 'customer_name', model.customer, 'enteredName');
   const legalNameRaw = value(model.customer, 'legalName');
   const customerName = legalNameRaw ? String(legalNameRaw) : capturedCustomerName;
@@ -120,6 +127,7 @@ export default function Journey360Page() {
   const bookingStatus = value(model.journey, 'bookingStatus');
   const deliveryStatus = value(model.journey, 'deliveryStatus');
   const activeFindings = model.findings.filter((finding) => ['OPEN', 'ACKNOWLEDGED'].includes(String(finding.findingStatus || '')));
+  const reviewedFields = model.reviewedFields || [];
 
   return (
     <div className="screen-stack journey-360-page">
@@ -143,23 +151,33 @@ export default function Journey360Page() {
         <div><span>Dealer Booking No.</span><strong>{bookingReference}</strong></div>
         <div><span>Payments / Receipts</span><strong>{paymentRows.length}</strong><small>{money(paymentTotal)}</small></div>
         <div><span>Documents</span><strong>{model.evidence.length}</strong></div>
+        <div><span>Reviewed DI Fields</span><strong>{reviewedFields.length}</strong></div>
         <div><span>Open Findings</span><strong>{activeFindings.length}</strong></div>
       </section>
 
       <div className="journey-360-grid journey-360-grid--two">
-        <SectionCard title="Customer" description="Captured customer information with reviewed document identity kept separate.">
+        <SectionCard title="Customer" description="PAN/Aadhaar reviewed identity is the customer source of truth; entered Booking values remain available in the complete source detail below.">
           <div className="journey-360-facts">
-            <Fact label="Customer Name">{capturedCustomerName}</Fact>
-            <Fact label="Document / Legal Name">{textValue(model.customer, 'legalName')}</Fact>
+            <Fact label="Customer Name (Booking)">{capturedCustomerName}</Fact>
+            <Fact label="Legal / KYC Name">{textValue(model.customer, 'legalName')}</Fact>
+            <Fact label="PAN">{textValue(model.customer, 'panNumber')}</Fact>
+            <Fact label="Aadhaar">{textValue(model.customer, 'aadhaarNumber')}</Fact>
+            <Fact label="Date of Birth">{dateLabel(value(model.customer, 'dateOfBirth'))}</Fact>
+            <Fact label="Gender">{readable(value(model.customer, 'gender'))}</Fact>
             <Fact label="Mobile">{preferredText(model.customer, 'mobileNumber', reviewedBooking, 'customer_phone')}</Fact>
             <Fact label="Email">{preferredText(model.customer, 'emailReference', reviewedBooking, 'customer_email')}</Fact>
-            <Fact label="Address">{textValue(reviewedBooking, 'customer_address')}</Fact>
+            <Fact label="KYC Address">{preferredText(model.customer, 'address', reviewedBooking, 'customer_address')}</Fact>
+            <Fact label="Pincode">{textValue(model.customer, 'pincode')}</Fact>
+            <Fact label="KYC State">{textValue(model.customer, 'kycState')}</Fact>
+            <Fact label="KYC District">{textValue(model.customer, 'kycDistrict')}</Fact>
+            <Fact label="Relationship">{textValue(model.customer, 'relationshipType')}</Fact>
+            <Fact label="Relationship Name">{textValue(model.customer, 'relationshipName')}</Fact>
             <Fact label="Customer Type">{readable(value(model.customer, 'customerType'))}</Fact>
             <Fact label="Identity Status">{readable(value(model.customer, 'legalNameStatus'))}</Fact>
           </div>
         </SectionCard>
 
-        <SectionCard title="Booking & Vehicle" description="What was captured and agreed at Booking.">
+        <SectionCard title="Booking & Vehicle" description="Booking state with reviewed Delivery product facts taking precedence when the same information is extracted again at Delivery.">
           {model.booking ? (
             <div className="journey-360-facts">
               <Fact label="Dealer Booking No.">{bookingReference}</Fact>
@@ -167,6 +185,7 @@ export default function Journey360Page() {
               <Fact label="Model">{preferredText(model.booking, 'modelName', reviewedBooking, 'vehicle_model')}</Fact>
               <Fact label="Variant">{preferredText(model.booking, 'variantName', reviewedBooking, 'vehicle_variant')}</Fact>
               <Fact label="Colour">{preferredText(model.booking, 'colourName', reviewedBooking, 'vehicle_color')}</Fact>
+              <Fact label="SKU">{textValue(reviewedBooking, 'sku_code')}</Fact>
               <Fact label="Sales Consultant">{textValue(reviewedBooking, 'sales_person')}</Fact>
               <Fact label="Dealer">{textValue(reviewedBooking, 'dealer_name')}</Fact>
               <Fact label="Dealer Branch">{textValue(reviewedBooking, 'dealer_branch')}</Fact>
@@ -175,44 +194,58 @@ export default function Journey360Page() {
               <Fact label="Lead Source">{readable(value(model.booking, 'leadSource'))}</Fact>
               <Fact label="Expected Delivery">{dateLabel(value(reviewedBooking, 'expected_delivery_date') || value(reviewedBooking, 'expected_delivery'))}</Fact>
               <Fact label="Registration By">{textValue(reviewedBooking, 'registration_by')}</Fact>
+              <Fact label="Registration Type">{textValue(reviewedBooking, 'registration_type')}</Fact>
               <Fact label="Insurance By">{textValue(reviewedBooking, 'insurance_by')}</Fact>
+              <Fact label="Exchange Applicable">{readable(value(reviewedBooking, 'exchange_applicable'))}</Fact>
+              <Fact label="Exchange Value">{money(value(reviewedBooking, 'exchange_value'))}</Fact>
             </div>
           ) : <EmptySection>Booking details are not available yet.</EmptySection>}
         </SectionCard>
       </div>
 
       <div className="journey-360-grid journey-360-grid--two">
-        <SectionCard title="Commercials & Discounts" description="Captured/reviewed commercial values alongside Core-owned audit lines.">
+        <SectionCard title="Commercials & Discounts" description="Current Core-owned commercial lines are the final amounts; Booking reviewed amounts are retained for comparison and audit traceability.">
           {reviewedBooking && (
-            <div className="journey-360-facts">
-              <Fact label="Ex-showroom Price">{money(value(reviewedBooking, 'ex_showroom_price'))}</Fact>
-              <Fact label="Insurance Amount">{money(value(reviewedBooking, 'insurance_amount'))}</Fact>
-              <Fact label="Registration Charges">{money(value(reviewedBooking, 'registration_charges'))}</Fact>
-              <Fact label="Accessories">{money(value(reviewedBooking, 'accessories_cost'))}</Fact>
-              <Fact label="Discount">{money(value(reviewedBooking, 'discount_amount'))}</Fact>
-              <Fact label="Bonus">{money(value(reviewedBooking, 'bonus_amount'))}</Fact>
-              <Fact label="Total Price">{money(value(reviewedBooking, 'total_price'))}</Fact>
-              <Fact label="Net Amount">{money(value(reviewedBooking, 'net_amount'))}</Fact>
-              <Fact label="Booking Amount Paid">{money(value(reviewedBooking, 'booking_amount_paid'))}</Fact>
-              <Fact label="Balance Amount">{money(value(reviewedBooking, 'balance_amount'))}</Fact>
+            <div className="journey-360-subsection">
+              <strong>Booking reviewed amounts</strong>
+              <div className="journey-360-facts">
+                <Fact label="Ex-showroom Price">{money(value(reviewedBooking, 'ex_showroom_price'))}</Fact>
+                <Fact label="Insurance Amount">{money(value(reviewedBooking, 'insurance_amount'))}</Fact>
+                <Fact label="Registration Charges">{money(value(reviewedBooking, 'registration_charges'))}</Fact>
+                <Fact label="Road Tax">{money(value(reviewedBooking, 'road_tax_amount'))}</Fact>
+                <Fact label="TCS">{money(value(reviewedBooking, 'tcs_amount'))}</Fact>
+                <Fact label="RSA">{money(value(reviewedBooking, 'rsa_amount'))}</Fact>
+                <Fact label="Additional Warranty">{money(value(reviewedBooking, 'additional_warranty_amount'))}</Fact>
+                <Fact label="Accessories">{money(value(reviewedBooking, 'accessories_cost'))}</Fact>
+                <Fact label="Other Charges">{money(value(reviewedBooking, 'other_charges'))}</Fact>
+                <Fact label="Discount">{money(value(reviewedBooking, 'discount_amount'))}</Fact>
+                <Fact label="Bonus">{money(value(reviewedBooking, 'bonus_amount'))}</Fact>
+                <Fact label="Total Price">{money(value(reviewedBooking, 'total_price'))}</Fact>
+                <Fact label="Net Amount">{money(value(reviewedBooking, 'net_amount'))}</Fact>
+                <Fact label="Booking Amount Paid">{money(value(reviewedBooking, 'booking_amount_paid'))}</Fact>
+                <Fact label="Balance Amount">{money(value(reviewedBooking, 'balance_amount'))}</Fact>
+              </div>
             </div>
           )}
 
           {model.commercialLines.length > 0 ? (
-            <div className="journey-360-table-wrap">
-              <table className="journey-360-table">
-                <thead><tr><th>Component</th><th>Standard</th><th>Actual</th><th>Source</th></tr></thead>
-                <tbody>
-                  {model.commercialLines.map((line) => (
-                    <tr key={String(line.commercialLineId)}>
-                      <td>{readable(line.componentKey)}</td>
-                      <td>{money(line.standardAmount, String(line.currencyCode || 'INR'))}</td>
-                      <td>{money(line.actualAmount, String(line.currencyCode || 'INR'))}</td>
-                      <td>{readable(line.sourceKind)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <div className="journey-360-subsection">
+              <strong>Current commercial values</strong>
+              <div className="journey-360-table-wrap">
+                <table className="journey-360-table">
+                  <thead><tr><th>Component</th><th>Standard</th><th>Actual</th><th>Source</th></tr></thead>
+                  <tbody>
+                    {model.commercialLines.map((line) => (
+                      <tr key={String(line.commercialLineId)}>
+                        <td>{readable(line.componentKey)}</td>
+                        <td>{money(line.standardAmount, String(line.currencyCode || 'INR'))}</td>
+                        <td>{money(line.actualAmount, String(line.currencyCode || 'INR'))}</td>
+                        <td>{String(line.sourceReference || readable(line.sourceKind))}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           ) : !reviewedBooking && <EmptySection>No reviewed commercial lines are available yet.</EmptySection>}
 
@@ -237,7 +270,7 @@ export default function Journey360Page() {
           )}
         </SectionCard>
 
-        <SectionCard title="Payments & Receipts" description="Every uploaded receipt remains a separate record under this Journey.">
+        <SectionCard title="Payments & Receipts" description="Every uploaded reviewed receipt remains a separate record under this Journey.">
           {paymentRows.length > 0 ? (
             <>
               <div className="journey-360-payment-total"><span>Total recorded</span><strong>{money(paymentTotal)}</strong></div>
@@ -275,6 +308,7 @@ export default function Journey360Page() {
               <Fact label="Planned">{dateLabel(value(model.delivery, 'plannedDeliveryAt'))}</Fact>
               <Fact label="Intimated">{dateLabel(value(model.delivery, 'deliveryIntimatedAt'))}</Fact>
               <Fact label="Delivered">{dateLabel(value(model.delivery, 'actualDeliveredAt'))}</Fact>
+              <Fact label="Source">{readable(value(model.delivery, 'sourceKind'))}</Fact>
             </div>
           ) : <EmptySection>Delivery has not been recorded yet.</EmptySection>}
         </SectionCard>
@@ -286,6 +320,8 @@ export default function Journey360Page() {
               <Fact label="Chassis No.">{textValue(model.vehicle, 'chassisNumber')}</Fact>
               <Fact label="DMS Reference">{textValue(model.vehicle, 'dmsReference')}</Fact>
               <Fact label="Invoice Reference">{textValue(model.vehicle, 'invoiceReference')}</Fact>
+              <Fact label="Allocated">{dateLabel(value(model.vehicle, 'allocatedAtUtc'))}</Fact>
+              <Fact label="Source">{readable(value(model.vehicle, 'sourceKind'))}</Fact>
             </div>
           ) : <EmptySection>Vehicle allocation details are not available yet.</EmptySection>}
         </SectionCard>
@@ -295,8 +331,12 @@ export default function Journey360Page() {
             <div className="journey-360-facts journey-360-facts--single">
               <Fact label="Registration No.">{textValue(model.registration, 'registrationNumber')}</Fact>
               <Fact label="State">{textValue(model.registration, 'registrationState')}</Fact>
+              <Fact label="Territory">{textValue(model.registration, 'registrationTerritory')}</Fact>
+              <Fact label="District">{textValue(model.registration, 'registrationDistrict')}</Fact>
               <Fact label="Type">{readable(value(model.registration, 'registrationTypeCode'))}</Fact>
+              <Fact label="Category">{readable(value(model.registration, 'registrationCategoryCode'))}</Fact>
               <Fact label="Status">{readable(value(model.registration, 'actualStatusCode'))}</Fact>
+              <Fact label="Source">{readable(value(model.registration, 'sourceKind'))}</Fact>
             </div>
           ) : <EmptySection>Registration details are not available yet.</EmptySection>}
         </SectionCard>
@@ -309,10 +349,13 @@ export default function Journey360Page() {
               <Fact label="Type">{readable(value(model.finance, 'financeTypeCode'))}</Fact>
               <Fact label="Provider">{textValue(model.finance, 'providerName')}</Fact>
               <Fact label="DO Reference">{textValue(model.finance, 'doReference')}</Fact>
+              <Fact label="PO Reference">{textValue(model.finance, 'poReference')}</Fact>
               <Fact label="Financed Amount">{money(value(model.finance, 'financedAmount'))}</Fact>
               <Fact label="Status">{readable(value(model.finance, 'actualStatusCode'))}</Fact>
+              <Fact label="Details">{textValue(model.finance, 'details')}</Fact>
+              <Fact label="Source">{readable(value(model.finance, 'sourceKind'))}</Fact>
             </div>
-          ) : <EmptySection>No finance record is available.</EmptySection>}
+          ) : <EmptySection>No typed finance record is available. Reviewed finance documents remain visible in Complete Reviewed Document Data.</EmptySection>}
         </SectionCard>
 
         <SectionCard title="Insurance">
@@ -320,10 +363,14 @@ export default function Journey360Page() {
             <div className="journey-360-facts journey-360-facts--single">
               <Fact label="Insurer">{textValue(model.insurance, 'insurerName')}</Fact>
               <Fact label="Policy">{textValue(model.insurance, 'policyReference')}</Fact>
+              <Fact label="Cover Note">{textValue(model.insurance, 'coverNoteReference')}</Fact>
+              <Fact label="Standard Premium">{money(value(model.insurance, 'standardPremiumAmount'))}</Fact>
               <Fact label="Actual Premium">{money(value(model.insurance, 'actualPremiumAmount'))}</Fact>
+              <Fact label="Self Insurance">{readable(value(model.insurance, 'selfInsuranceFlag'))}</Fact>
               <Fact label="Status">{readable(value(model.insurance, 'actualStatusCode'))}</Fact>
+              <Fact label="Source">{readable(value(model.insurance, 'sourceKind'))}</Fact>
             </div>
-          ) : <EmptySection>No insurance record is available.</EmptySection>}
+          ) : <EmptySection>No typed insurance record is available. Reviewed policy data remains visible below.</EmptySection>}
         </SectionCard>
 
         <SectionCard title="Trade-in / Exchange">
@@ -334,10 +381,39 @@ export default function Journey360Page() {
               <Fact label="Registration">{textValue(model.tradeIn, 'oldVehicleRegistration')}</Fact>
               <Fact label="Quoted Value">{money(value(model.tradeIn, 'quotedValue'))}</Fact>
               <Fact label="Actual Value">{money(value(model.tradeIn, 'actualValue'))}</Fact>
+              <Fact label="Handover">{dateLabel(value(model.tradeIn, 'handoverAtUtc'))}</Fact>
+              <Fact label="Payment">{dateLabel(value(model.tradeIn, 'paymentAtUtc'))}</Fact>
+              <Fact label="Resale">{dateLabel(value(model.tradeIn, 'resaleAtUtc'))}</Fact>
+              <Fact label="Details">{textValue(model.tradeIn, 'details')}</Fact>
+              <Fact label="Source">{readable(value(model.tradeIn, 'sourceKind'))}</Fact>
             </div>
-          ) : <EmptySection>No trade-in record is available.</EmptySection>}
+          ) : <EmptySection>No typed trade-in record is available. Reviewed exchange documents remain visible below.</EmptySection>}
         </SectionCard>
       </div>
+
+      <SectionCard title="Add-ons / Warranty / Accessories" description="Typed Audit Core add-on records. DI-extracted warranty, RSA and accessory invoice fields are also shown in the complete reviewed data section below.">
+        {model.addons.length > 0 ? (
+          <div className="journey-360-table-wrap">
+            <table className="journey-360-table">
+              <thead><tr><th>Type</th><th>Provider</th><th>Reference</th><th>Standard</th><th>Actual</th><th>Source</th></tr></thead>
+              <tbody>
+                {model.addons.map((addon, index) => (
+                  <tr key={String(addon.journeyAddonId || index)}>
+                    <td>{readable(addon.addonTypeCode)}</td>
+                    <td>{String(addon.providerName || '—')}</td>
+                    <td>{String(addon.referenceNumber || '—')}</td>
+                    <td>{money(addon.standardAmount)}</td>
+                    <td>{money(addon.actualAmount)}</td>
+                    <td>{readable(addon.sourceKind)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : <EmptySection>No typed add-on rows are available yet; reviewed DI add-on fields are retained below.</EmptySection>}
+      </SectionCard>
+
+      <JourneyReviewedDetails fields={reviewedFields} />
 
       <div className="journey-360-grid journey-360-grid--two">
         <SectionCard title="Documents" description="Booking and Delivery documents already linked to this Journey.">

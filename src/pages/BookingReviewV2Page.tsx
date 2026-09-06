@@ -6,6 +6,7 @@ import PageHeader from '../components/PageHeader';
 import AttributeEvidenceViewer, { hasBoxedEvidence } from '../features/uc03/AttributeEvidenceViewer';
 import ReviewEffectiveValueEditor, { reviewSourceKey } from '../features/uc03/ReviewEffectiveValueEditor';
 import { buildRawReviewGroups } from '../features/uc03/reviewFieldGroups';
+import { submitSimplifiedBookingV2 } from '../services/audit-core/uc03BookingV2';
 import {
   confirmBookingReviewV2,
   getBookingReviewDecisionsV2,
@@ -23,7 +24,7 @@ import '../styles/uc03-document-capture-v2.css';
 import '../styles/uc03-attribute-audit-review.css';
 
 const REVIEW_REFRESH_MS = 2 * 60 * 1000;
-const REVIEW_THRESHOLD = 92;
+const REVIEW_THRESHOLD = 90;
 const RECEIPT_DOCUMENT_TYPE = 'dealer_receipt';
 
 function displayFieldKey(fieldKey: string): string {
@@ -49,8 +50,9 @@ function hasExtractedValue(attribute: ReviewV2Attribute): boolean {
 }
 
 function needsAttributeDecision(attribute: ReviewV2Attribute): boolean {
-  return hasExtractedValue(attribute)
-    && (attribute.reviewState === 'NEEDS_REVIEW' || attribute.comparisonState === 'MISMATCH');
+  // 06-Sep-2026 C-05: confidence alone controls PC review. Source mismatch remains
+  // visible for audit comparison but does not create PC work by itself.
+  return hasExtractedValue(attribute) && attribute.reviewState === 'NEEDS_REVIEW';
 }
 
 function rawSource(field: ReviewV2UnmappedField): ReviewV2SourceValue {
@@ -166,11 +168,11 @@ export default function BookingReviewV2Page() {
   const requiredRawKeys = rawGroups.filter((group) => group.needsDecision).map((group) => group.reviewKey);
   const requiredDecisionKeys = [...requiredMappedKeys, ...requiredRawKeys];
   const unresolvedDecisionKeys = requiredDecisionKeys.filter((key) => !decisionByKey.has(key));
-  const canConfirm = review.pcVerificationStatus === 'PENDING'
-    && !review.processingPending
-    && failedDocuments.length === 0
-    && !decisionsQuery.isPending
+  // Extraction still running is explicitly not a submit blocker. Only currently
+  // available low-confidence exceptions (and failed evidence processing) must be dealt with.
+  const canAct = !decisionsQuery.isPending
     && !decisionsQuery.isError
+    && failedDocuments.length === 0
     && unresolvedDecisionKeys.length === 0;
 
   const setCorrection = (source: ReviewV2SourceValue | ReviewV2UnmappedField, correction: ReviewFieldCorrection | undefined) => {
@@ -198,21 +200,40 @@ export default function BookingReviewV2Page() {
     }
   };
 
-  const confirmReview = async () => {
+  const finishReviewOrSubmit = async () => {
     setConfirming(true);
     setConfirmationError(undefined);
     try {
-      await confirmBookingReviewV2(
-        project.tenantId,
-        journeyId,
-        review.aggregateVersion,
-        [...corrections.values()],
-        accessToken,
-      );
-      setCorrections(new Map());
-      navigate('/dashboard', { replace: true });
+      let aggregateVersion = review.aggregateVersion;
+      const shouldConfirmAvailableFacts = review.pcVerificationStatus === 'PENDING'
+        && (requiredDecisionKeys.length > 0 || corrections.size > 0);
+
+      if (shouldConfirmAvailableFacts) {
+        const confirmed = await confirmBookingReviewV2(
+          project.tenantId,
+          journeyId,
+          aggregateVersion,
+          [...corrections.values()],
+          accessToken,
+        );
+        aggregateVersion = confirmed.aggregateVersion;
+        setCorrections(new Map());
+      }
+
+      if (!review.captureSubmitted) {
+        await submitSimplifiedBookingV2(
+          project.tenantId,
+          journeyId,
+          aggregateVersion,
+          accessToken,
+        );
+      }
+
+      // View is always the consolidated Journey Detail, whether DI is complete or
+      // still filling late facts after submit.
+      navigate(`/journeys/${journeyId}/overview`, { replace: true });
     } catch (error) {
-      setConfirmationError(error instanceof Error ? error.message : 'Booking Review could not be confirmed. Refresh and try again.');
+      setConfirmationError(error instanceof Error ? error.message : 'Booking could not be submitted. Refresh and try again.');
       await Promise.all([reviewQuery.refetch(), decisionsQuery.refetch()]);
     } finally {
       setConfirming(false);
@@ -238,7 +259,7 @@ export default function BookingReviewV2Page() {
               source={source}
               correction={corrections.get(reviewSourceKey(source))}
               onChange={(correction) => setCorrection(source, correction)}
-              disabled={review.pcVerificationStatus === 'VERIFIED' || decision === 'REJECTED'}
+              disabled={review.captureSubmitted && review.pcVerificationStatus === 'VERIFIED' || decision === 'REJECTED'}
             />
             <div className="uc03-raw-review-selected"><span>DI source</span><strong>{displayValue(source.value)}</strong><small>{source.documentLabel} · {confidence(source.confidenceScore)}</small></div>
             {group.sources.length > 1 ? (
@@ -272,9 +293,9 @@ export default function BookingReviewV2Page() {
       </div>
 
       <PageHeader
-        eyebrow="Booking Review · Evidence First"
-        title="Review extracted Booking information"
-        description="Unchanged values keep the DI extraction. When a PC corrects a value, Verigence retains the original DI value and stores the PC-confirmed value as the effective value."
+        eyebrow="Booking · Step 2 of 2"
+        title={review.captureSubmitted ? 'Review extracted Booking information' : 'Review & Submit Booking'}
+        description="DI values at 90% confidence or above need no PC action. Values below 90% require Accept/Reject or correction; original DI evidence is always retained."
       />
 
       <section className="uc03-attribute-review-summary" aria-label="Booking review summary">
@@ -284,7 +305,7 @@ export default function BookingReviewV2Page() {
         <div><span>Exceptions pending</span><strong>{unresolvedDecisionKeys.length}</strong></div>
       </section>
 
-      {review.processingPending ? <div className="uc03-v2-review-pending" role="status"><div><strong>Some documents are still being processed.</strong><span>Booking is complete. Available results remain usable; this screen checks again after 2 minutes.</span></div><span>{pendingDocuments.length} pending</span></div> : null}
+      {review.processingPending ? <div className="uc03-v2-review-pending" role="status"><div><strong>Some documents are still being processed.</strong><span>{review.captureSubmitted ? 'Available values are shown now; late DI results will continue to fill Audit Core and Journey Detail automatically.' : 'You may submit after reviewing any currently available fields below 90%. Late DI results will continue to fill Audit Core automatically.'}</span></div><span>{pendingDocuments.length} pending</span></div> : null}
       {requiredDecisionKeys.length > 0 ? <div className="uc03-v2-review-attention" role="status"><strong>{unresolvedDecisionKeys.length} of {requiredDecisionKeys.length} exception{requiredDecisionKeys.length === 1 ? '' : 's'} still need a decision.</strong><span>Accept or Reject is separate from editing the effective value.</span></div> : null}
 
       {review.missingDeclarations.length ? (
@@ -305,10 +326,10 @@ export default function BookingReviewV2Page() {
                 return (
                   <tr key={attribute.attributeKey} className={needsDecision && !decision ? 'needs-review' : ''}>
                     <td className="uc03-attribute-name-cell"><strong>{attribute.label}</strong><span>{attribute.excelFieldNo ? `Excel #${attribute.excelFieldNo}` : 'Booking business field'}</span></td>
-                    <td>{source ? <ReviewEffectiveValueEditor source={source} correction={corrections.get(reviewSourceKey(source))} onChange={(correction) => setCorrection(source, correction)} requireValue disabled={review.pcVerificationStatus === 'VERIFIED' || decision === 'REJECTED'} /> : displayValue(attribute.resolvedValue)}</td>
+                    <td>{source ? <ReviewEffectiveValueEditor source={source} correction={corrections.get(reviewSourceKey(source))} onChange={(correction) => setCorrection(source, correction)} requireValue disabled={review.captureSubmitted && review.pcVerificationStatus === 'VERIFIED' || decision === 'REJECTED'} /> : displayValue(attribute.resolvedValue)}</td>
                     <td>{confidence(attribute.confidenceScore)}</td>
                     <td>{source ? <div className="uc03-attribute-source-cell"><strong>{source.documentLabel}</strong><span>{source.documentTypeKey || source.originalFilename}</span>{hasBoxedEvidence(source) ? <button type="button" className="uc03-attribute-evidence-link" onClick={() => setSelectedSource(source)}>View boxed evidence</button> : <span>Source location unavailable</span>}</div> : '—'}</td>
-                    <td><span className={`uc03-attribute-status ${decision === 'REJECTED' ? 'rejected' : needsDecision && !decision ? 'needs-review' : 'ready'}`}>{decision === 'ACCEPTED' ? 'Accepted' : decision === 'REJECTED' ? 'Rejected' : needsDecision ? 'Needs Review' : 'Ready'}</span></td>
+                    <td><span className={`uc03-attribute-status ${decision === 'REJECTED' ? 'rejected' : needsDecision && !decision ? 'needs-review' : 'ready'}`}>{decision === 'ACCEPTED' ? 'Accepted' : decision === 'REJECTED' ? 'Rejected' : needsDecision ? 'Needs Review' : attribute.comparisonState === 'MISMATCH' ? 'Source Mismatch' : 'Ready'}</span></td>
                     <td>{needsDecision ? <DecisionButtons reviewKey={reviewKey} decision={decision} busy={decisionBusyKey === reviewKey} onDecision={(key, value) => void setDecision(key, value)} /> : <span className="uc03-review-auto-cleared">No action needed</span>}</td>
                   </tr>
                 );
@@ -319,15 +340,22 @@ export default function BookingReviewV2Page() {
       </section>
 
       {receiptGroups.length ? <section className="uc03-v2-section uc03-raw-review-section"><header className="uc03-v2-section-header"><div><span className="uc03-c1-eyebrow">Payment receipts</span><h2>Dealer receipt evidence</h2><p>Each receipt and field remains tied to its own DI document identity.</p></div><span>{receiptGroups.length} value{receiptGroups.length === 1 ? '' : 's'}</span></header>{renderRawGroups(receiptGroups)}</section> : null}
-      {additionalRawGroups.length ? <section className="uc03-v2-section uc03-raw-review-section"><header className="uc03-v2-section-header"><div><span className="uc03-c1-eyebrow">Additional extracted evidence</span><h2>DI fields extracted but not mapped to a Booking attribute</h2><p>These are actual DI results, kept document-scoped so repeated documents remain separate. They are shown here instead of filling the screen with configured attributes for which DI returned no value.</p></div><span>{additionalRawGroups.length} field{additionalRawGroups.length === 1 ? '' : 's'}</span></header>{renderRawGroups(additionalRawGroups)}</section> : null}
+      {additionalRawGroups.length ? <section className="uc03-v2-section uc03-raw-review-section"><header className="uc03-v2-section-header"><div><span className="uc03-c1-eyebrow">Additional extracted evidence</span><h2>Additional DI fields</h2><p>Every extracted field remains visible and document-scoped even when a richer typed business owner is not yet available.</p></div><span>{additionalRawGroups.length} field{additionalRawGroups.length === 1 ? '' : 's'}</span></header>{renderRawGroups(additionalRawGroups)}</section> : null}
 
       {decisionError ? <div className="uc03-c3-error" role="alert">{decisionError}</div> : null}
       {decisionsQuery.isError ? <div className="uc03-c3-error" role="alert">Review decisions could not be loaded. Refresh Review before confirming.</div> : null}
       {confirmationError ? <div className="uc03-c3-error" role="alert">{confirmationError}</div> : null}
 
       <section className="uc03-attribute-confirm-panel">
-        <div><strong>{review.pcVerificationStatus === 'VERIFIED' ? 'Booking Review verified' : 'Complete Booking Review'}</strong><span>{review.pcVerificationStatus === 'VERIFIED' ? 'Original DI values, confirmed effective values and provenance are retained.' : review.processingPending ? 'Final confirmation unlocks when document processing finishes.' : failedDocuments.length ? 'Resolve failed document processing before confirming.' : unresolvedDecisionKeys.length ? `Decide the remaining ${unresolvedDecisionKeys.length} exception${unresolvedDecisionKeys.length === 1 ? '' : 's'} before confirming.` : 'Unchanged fields keep DI values; saved PC corrections become effective values.'}</span></div>
-        {review.pcVerificationStatus !== 'VERIFIED' ? <button type="button" className="uc03-c3-primary" disabled={!canConfirm || confirming} onClick={() => void confirmReview()}>{confirming ? 'Confirming…' : 'Confirm reviewed values'}</button> : null}
+        <div>
+          <strong>{review.captureSubmitted ? (review.pcVerificationStatus === 'VERIFIED' ? 'Booking Review verified' : 'Complete Booking Review') : 'Submit Booking'}</strong>
+          <span>{review.captureSubmitted && review.pcVerificationStatus === 'VERIFIED' ? 'Original DI values, effective values and provenance are retained. Open Journey Detail to see the consolidated record.' : failedDocuments.length ? 'Resolve failed document processing before continuing.' : unresolvedDecisionKeys.length ? `Decide the remaining ${unresolvedDecisionKeys.length} exception${unresolvedDecisionKeys.length === 1 ? '' : 's'} before continuing.` : review.processingPending ? 'Extraction is still running, but it does not block Booking submit. Late results will populate Audit Core and Journey Detail automatically.' : 'All currently available confidence exceptions are resolved. Continue to the consolidated Journey Detail.'}</span>
+        </div>
+        {review.captureSubmitted && review.pcVerificationStatus === 'VERIFIED' ? (
+          <button type="button" className="uc03-c3-primary" onClick={() => navigate(`/journeys/${journeyId}/overview`)}>View Journey Details</button>
+        ) : (
+          <button type="button" className="uc03-c3-primary" disabled={!canAct || confirming} onClick={() => void finishReviewOrSubmit()}>{confirming ? (review.captureSubmitted ? 'Confirming…' : 'Submitting…') : (review.captureSubmitted ? 'Confirm reviewed values' : 'Submit Booking')}</button>
+        )}
       </section>
 
       {failedDocuments.length ? <div className="uc03-v2-review-failed-summary">{failedDocuments.length} document{failedDocuments.length === 1 ? '' : 's'} could not be processed and require follow-up.</div> : null}

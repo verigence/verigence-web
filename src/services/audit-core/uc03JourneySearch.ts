@@ -40,6 +40,46 @@ export interface JourneySearchResponse {
   resultCount: number;
 }
 
+export interface JourneyReviewedField {
+  reviewedFieldId: string;
+  documentId: string;
+  evidenceId?: string | null;
+  stageCode: string;
+  documentTypeKey?: string | null;
+  requirementKey?: string | null;
+  originalFilename?: string | null;
+  canonicalFieldId?: string | null;
+  fieldKey: string;
+  semanticKey: string;
+  businessCategory: string;
+  extractedValue: unknown;
+  modifiedValue: unknown;
+  effectiveValue: unknown;
+  displayValue: unknown;
+  hasEffectiveValue: boolean;
+  isModified: boolean;
+  confidenceScore?: number | null;
+  confidenceScale?: string | null;
+  sourceFactVersion: number;
+  reviewedByActorId?: string | null;
+  reviewedAtUtc?: string | null;
+  isPreferred: boolean;
+  precedenceReason?: string | null;
+}
+
+export interface JourneyResolvedReviewedValue {
+  value: unknown;
+  reviewedFieldId?: string | null;
+  documentId?: string | null;
+  evidenceId?: string | null;
+  documentTypeKey?: string | null;
+  fieldKey?: string | null;
+  stageCode?: string | null;
+  businessCategory?: string | null;
+  sourceFactVersion?: number | null;
+  precedenceReason?: string | null;
+}
+
 export interface JourneyOverview {
   journey: Record<string, unknown>;
   customer: Record<string, unknown>;
@@ -57,6 +97,8 @@ export interface JourneyOverview {
   delivery: Record<string, unknown> | null;
   evidence: Array<Record<string, unknown>>;
   findings: Array<Record<string, unknown>>;
+  reviewedFields?: JourneyReviewedField[];
+  resolvedReviewedValues?: Record<string, JourneyResolvedReviewedValue>;
 }
 
 function accessTokenRequired(accessToken?: string): string {

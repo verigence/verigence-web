@@ -28,7 +28,16 @@ const STALE_DELIVERY_DAYS = 5;
 
 const MAX_CARDS = 4;
 
-type Reason = 'RETURNED' | 'FLAGGED' | 'DELIVERY' | 'STALE';
+// Reasons a journey needs the PC, in priority order.
+//
+// NOTE — "sent back by the Team Lead" is NOT a reason here yet: audit-core does
+// not surface it on Uc03WorkItem. `nextActionCode` is always null today, and the
+// TL send-back only sets journeys.audit_state = 'SENT_BACK', which the work-items
+// payload does not return. When audit-core exposes that (or populates
+// nextActionCode), add a 'RETURNED' reason at priority 0. Until then a sent-back
+// booking still surfaces here — as FLAGGED (the send-back usually raises
+// findings) or, failing that, as STALE.
+type Reason = 'FLAGGED' | 'VERIFY' | 'DELIVERY' | 'STALE';
 
 interface Candidate {
   item: Uc03WorkItem;
@@ -99,9 +108,13 @@ function bookingCompleted(item: Uc03WorkItem): boolean {
   return status === 'BOOKING_COMPLETED' || BOOKING_DONE_STATUSES.has(status);
 }
 
-function isReturned(item: Uc03WorkItem): boolean {
-  const next = item.nextActionCode?.trim().toUpperCase();
-  return next === 'UPDATE_BOOKING' || next === 'BOOKING_UPDATE_REQUIRED';
+function needsVerify(item: Uc03WorkItem): boolean {
+  // Booking documents captured; PC still has to check the extracted details and
+  // submit for review. pc_verification_status is set to PENDING on booking
+  // closure (audit-core migrations 0028 / 0055) and is returned on Uc03WorkItem.
+  return Boolean(item.booking.captureCompletedAtUtc)
+    && item.booking.pcVerificationStatus === 'PENDING'
+    && !deliveryStarted(item);
 }
 
 function journeyStep(item: Uc03WorkItem): { index: number; pct: number } {
@@ -115,8 +128,8 @@ function classifyCandidate(item: Uc03WorkItem): Candidate | null {
   const ageMs = Math.max(0, Date.now() - new Date(item.latestActivityAtUtc).getTime());
   const staleDays = daysSince(item.latestActivityAtUtc);
 
-  if (isReturned(item)) return { item, reason: 'RETURNED', ageMs, staleDays };
   if (item.openFlagCount > 0) return { item, reason: 'FLAGGED', ageMs, staleDays };
+  if (needsVerify(item)) return { item, reason: 'VERIFY', ageMs, staleDays };
   if (deliveryStarted(item) && !deliveryDone(item)) {
     if (staleDays >= STALE_DELIVERY_DAYS) return { item, reason: 'STALE', ageMs, staleDays };
     return { item, reason: 'DELIVERY', ageMs, staleDays };
@@ -128,7 +141,7 @@ function classifyCandidate(item: Uc03WorkItem): Candidate | null {
   return null;
 }
 
-const REASON_ORDER: Record<Reason, number> = { RETURNED: 0, FLAGGED: 1, DELIVERY: 2, STALE: 3 };
+const REASON_ORDER: Record<Reason, number> = { FLAGGED: 0, VERIFY: 1, DELIVERY: 2, STALE: 3 };
 
 interface CardPresentation {
   ask: string;
@@ -145,16 +158,6 @@ function presentCard(candidate: Candidate): CardPresentation {
   const deliveryPath = `/v2/deliveries/${item.journeyId}`;
   const auditPath = `/audit/${item.journeyId}`;
 
-  if (reason === 'RETURNED') {
-    return {
-      ask: 'This came back for changes. Open the booking and update what has been asked for.',
-      chip: `Sent back ${ageLabel(item.latestActivityAtUtc)}`,
-      chipHot: true,
-      actionLabel: 'Update booking',
-      to: bookingPath,
-      target: 'BOOKING',
-    };
-  }
   if (reason === 'FLAGGED') {
     const n = item.openFlagCount;
     return {
@@ -164,6 +167,16 @@ function presentCard(candidate: Candidate): CardPresentation {
       actionLabel: 'Review observations',
       to: auditPath,
       target: 'AUDIT',
+    };
+  }
+  if (reason === 'VERIFY') {
+    return {
+      ask: 'Booking documents are in. Check the details that were read off them, then submit for review.',
+      chip: `Ready ${ageLabel(item.latestActivityAtUtc)}`,
+      chipHot: false,
+      actionLabel: 'Review & submit',
+      to: `${bookingPath}/review`,
+      target: 'BOOKING_REVIEW',
     };
   }
   if (reason === 'DELIVERY') {
@@ -348,8 +361,8 @@ export default function PcOverviewPage() {
 
   const stats = statsQuery.data;
 
-  const returnedCount = candidates.filter((candidate) => candidate.reason === 'RETURNED').length;
   const flaggedCount = candidates.filter((candidate) => candidate.reason === 'FLAGGED').length;
+  const verifyCount = candidates.filter((candidate) => candidate.reason === 'VERIFY').length;
   const staleCount = candidates.filter((candidate) => candidate.reason === 'STALE').length;
 
   const needCount = candidates.length;
@@ -357,8 +370,8 @@ export default function PcOverviewPage() {
   const hasAnyWork = workItems.length > 0 || journeysInProgress > 0;
 
   const subClauses: string[] = [];
-  if (returnedCount > 0) subClauses.push(`${returnedCount} came back to you`);
   if (flaggedCount > 0) subClauses.push(`${flaggedCount} with open observations`);
+  if (verifyCount > 0) subClauses.push(`${verifyCount} ready to submit`);
   if (staleCount > 0) subClauses.push(`${staleCount} with no action for ${STALE_BOOKING_DAYS}+ days`);
 
   const headline = needCount > 0

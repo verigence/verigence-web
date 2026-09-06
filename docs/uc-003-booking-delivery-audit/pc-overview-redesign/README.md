@@ -193,10 +193,27 @@ A first cut is wired into the app, kept fully parallel to the current dashboard:
 - Performance strip — "This week / This month" toggle over
   `bookingsCompleted` / `deliveriesCompleted` from `/uc03/pc-stats`, fetched
   after first paint; hidden if the call fails.
-- "Do these next" — up to 4 cards derived from `/uc03/work-items`, prioritised
-  Returned → Flagged → Delivery-in-progress → Stale, each with a progress rail,
-  a plain instruction, an age/count chip and one action button to the right V2
-  screen. Product labels lazy-enriched for the visible cards only.
+- "Do these next" — up to 4 cards derived from `/uc03/work-items`, each with a
+  progress rail, a plain instruction, an age/count chip and one action button to
+  the right V2 screen. Product labels lazy-enriched for the visible cards only.
+  Reasons, in priority order, and the **real** `Uc03WorkItem` signal each uses:
+
+  | Reason | Signal (all present & populated on `Uc03WorkItem`) | Button → route |
+  |---|---|---|
+  | **Flagged** | `openFlagCount > 0` (`audit_findings` OPEN/ACKNOWLEDGED) | Review observations → `/audit/{id}` |
+  | **Verify** | `booking.captureCompletedAtUtc` set **and** `booking.pcVerificationStatus === 'PENDING'` | Review & submit → `/v2/bookings/{id}/review` |
+  | **Delivery** | `delivery.businessStatus` set and ≠ `DELIVERY_COMPLETED` | Continue delivery → `/v2/deliveries/{id}` |
+  | **Stale** | `now − latestActivityAtUtc ≥ staleBookingDays`, booking not done, no delivery | Open booking → `/v2/bookings/{id}` |
+
+  **Gap — "sent back by the Team Lead" is not a card yet.** audit-core does not
+  expose it on `Uc03WorkItem`: `nextActionCode` is hard-coded `null` in
+  `_row_to_item`, and a TL send-back only sets `journeys.audit_state = 'SENT_BACK'`,
+  which the work-items payload does not return. A sent-back booking still shows
+  here (usually as **Flagged**, since the send-back raises findings; otherwise as
+  **Stale**). When audit-core surfaces the send-back — populate `nextActionCode`,
+  or add `audit_state` to the work-item — a `RETURNED` reason slots in at
+  priority 0. The earlier `DashboardPage` "Update Booking" branch has the same
+  latent dependency (it checks `nextActionCode` too, so it also never fires).
 - "Your journeys" pipeline strip; "See all →" opens the legacy list.
 - Empty / all-caught-up states.
 

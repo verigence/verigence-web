@@ -1,1 +1,0 @@
-Regression invariant: /v2/bookings/:journeyId/details must redirect to /review while captureSubmitted is false. This protects the two-screen Documents -> Review & Submit -> Booking Details flow.

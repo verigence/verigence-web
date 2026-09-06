@@ -133,6 +133,11 @@ export function getUc03JourneyOverview(
     {
       accessToken: accessTokenRequired(accessToken),
       cache: 'no-store',
+      // Journey 360 composes a broad audit view and can legitimately exceed the
+      // generic 10-second read timeout while Security and Core data are resolved.
+      // The UI must not convert a successful but slower response into a false
+      // "Journey unavailable" state.
+      timeoutMs: 30_000,
     },
   );
 }

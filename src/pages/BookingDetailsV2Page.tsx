@@ -10,6 +10,7 @@ import { useSessionStore } from '../store/sessionStore';
  * Booking Details is the consolidated read/view surface after Review & Submit.
  * A pre-submit attempt to enter this route must resume the governed Booking
  * capture cycle at Review rather than exposing an incomplete details page.
+ * Audit exceptions do not stop the business process.
  */
 export default function BookingDetailsV2Page() {
   const { journeyId = '' } = useParams<{ journeyId: string }>();

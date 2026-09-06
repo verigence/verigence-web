@@ -1,0 +1,56 @@
+name: Apply UC03 Booking upload refresh patch
+
+on:
+  push:
+    branches:
+      - fix/uc03-booking-upload-partial-failure-refresh
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: ${{ !contains(github.event.head_commit.message, '[upload-refresh-applied]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/uc03-booking-upload-partial-failure-refresh
+      - name: Apply deterministic patch
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          def replace_once(path: str, old: str, new: str) -> None:
+              p = Path(path)
+              text = p.read_text()
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f"Expected exactly one target block in {path}, found {count}")
+              p.write_text(text.replace(old, new, 1))
+
+          service = "src/services/audit-core/uc03DocumentCaptureV2.ts"
+          replace_once(
+              service,
+              """  const concurrency = Math.min(6, intent.uploads.length);\n  await Promise.all(Array.from({ length: concurrency }, () => uploadWorker()));\n  invalidateCaptureReadState(tenantId, journeyId);\n  return finalized;\n""",
+              """  const concurrency = Math.min(6, intent.uploads.length);\n  try {\n    await Promise.all(Array.from({ length: concurrency }, () => uploadWorker()));\n    return finalized;\n  } finally {\n    // A batch can partially finalize before another file fails. Never leave the\n    // capture cache showing the pre-upload 0/0 state after those durable writes.\n    invalidateCaptureReadState(tenantId, journeyId);\n  }\n""",
+          )
+
+          page = "src/pages/BookingCaptureV2WorkspacePage.tsx"
+          replace_once(
+              page,
+              """    } catch (cause: unknown) {\n      setError(cause instanceof Error ? cause.message : 'We could not upload these documents. Please try again.');\n      setMessage(undefined);\n    } finally {\n""",
+              """    } catch (cause: unknown) {\n      // Other files in the same concurrent batch may already have finalized.\n      // Refresh before presenting the failure so the user sees what was received.\n      await captureQuery.refetch().catch(() => undefined);\n      setError(cause instanceof Error ? cause.message : 'We could not upload these documents. Please try again.');\n      setMessage(undefined);\n    } finally {\n""",
+          )
+          PY
+      - name: Commit patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/services/audit-core/uc03DocumentCaptureV2.ts src/pages/BookingCaptureV2WorkspacePage.tsx
+          git diff --cached --check
+          git commit -m "fix(uc03): refresh Booking capture after partial upload failure [upload-refresh-applied]"
+          git push origin HEAD:fix/uc03-booking-upload-partial-failure-refresh

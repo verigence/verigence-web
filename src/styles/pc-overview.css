@@ -1,0 +1,526 @@
+/*
+ * PC Overview — redesigned Process Coordinator dashboard.
+ * Feature-flagged in src/App.tsx (PC_OVERVIEW_REDESIGN_ENABLED); the legacy
+ * DashboardPage / dashboard-workqueue-*.css remain the fallback and are untouched.
+ * Design reference: docs/uc-003-booking-delivery-audit/pc-overview-redesign/
+ * All selectors are namespaced `.pcov`. No vertical freeze — natural scroll.
+ */
+
+.pcov {
+  /* one brand blue for every solid action + the booking accent */
+  --pcov-blue: #003a82;
+  --pcov-blue-hover: #00296b;
+  --pcov-electric: #0057b8;
+  --pcov-teal: #00afa8;
+  --pcov-teal-dot: #00b7a8;
+  --pcov-mint: #00d3a7;
+  --pcov-grad: linear-gradient(122deg, #003a82 0%, #0057b8 42%, #00afa8 72%, #00d3a7 100%);
+  --pcov-hero: linear-gradient(140deg, #04264f 0%, #06466a 52%, #0a5c6e 100%);
+  --pcov-coral: #dd6f57;
+  --pcov-ink: #1b3557;
+  --pcov-head: #0e2748;
+  --pcov-muted: #5c7590;
+  --pcov-faint: #93a6bb;
+  --pcov-surface: #ffffff;
+  --pcov-line: rgba(10, 44, 96, 0.08);
+  --pcov-shadow-s: 0 2px 6px rgba(10, 40, 90, 0.06);
+  --pcov-shadow-m: 0 22px 50px -24px rgba(8, 38, 86, 0.3), 0 3px 10px rgba(8, 38, 86, 0.05);
+
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  color: var(--pcov-ink);
+  font-family: Inter, Arial, Helvetica, sans-serif;
+}
+
+.pcov h1,
+.pcov h2 {
+  margin: 0;
+  color: var(--pcov-head);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+/* ---------- Hero ---------- */
+.pcov-hero {
+  position: relative;
+  overflow: hidden;
+  border-radius: 24px;
+  background: var(--pcov-hero);
+  color: #fff;
+  padding: 24px 30px;
+  box-shadow: 0 30px 60px -26px rgba(6, 44, 96, 0.55);
+}
+
+.pcov-hero__top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.pcov-hero__greet {
+  font-size: 13.5px;
+  color: rgba(255, 255, 255, 0.78);
+  font-weight: 600;
+}
+
+.pcov-hero__place {
+  font-size: 15px;
+  color: rgba(255, 255, 255, 0.9);
+  margin-top: 2px;
+}
+
+.pcov-hero__place b {
+  font-weight: 800;
+}
+
+.pcov-hero__headline {
+  font-size: 27px;
+  font-weight: 800;
+  color: #fff;
+  letter-spacing: -0.03em;
+  margin-top: 12px;
+  line-height: 1.14;
+}
+
+.pcov-hero__headline b {
+  color: #8ff3df;
+}
+
+.pcov-hero__sub {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.78);
+  margin-top: 6px;
+}
+
+.pcov-hero__sub b {
+  color: #fff;
+  font-weight: 800;
+}
+
+.pcov-capture {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 44px;
+  padding: 0 20px;
+  border: 0;
+  border-radius: 12px;
+  background: #fff;
+  color: var(--pcov-blue);
+  font: 800 13.5px Inter, sans-serif;
+  text-decoration: none;
+  cursor: pointer;
+  box-shadow: 0 14px 30px -12px rgba(0, 0, 0, 0.4);
+  white-space: nowrap;
+}
+
+.pcov-capture:hover {
+  background: #eef3f9;
+}
+
+.pcov-capture__plus {
+  font-size: 17px;
+  line-height: 1;
+}
+
+.pcov-hero__kpis {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.pcov-kpi {
+  flex: 1;
+  min-width: 120px;
+  background: rgba(255, 255, 255, 0.13);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 14px;
+  padding: 11px 14px;
+}
+
+.pcov-kpi__value {
+  font-size: 23px;
+  font-weight: 800;
+  color: #fff;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+
+.pcov-kpi__label {
+  font-size: 10.5px;
+  color: rgba(255, 255, 255, 0.72);
+  font-weight: 600;
+  margin-top: 2px;
+}
+
+.pcov-kpi--flag .pcov-kpi__value {
+  color: #ffd9cf;
+}
+
+/* ---------- Section heading ---------- */
+.pcov-sec-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: 0 2px;
+}
+
+.pcov-sec-head h2 {
+  font-size: 17px;
+}
+
+.pcov-sec-head a {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--pcov-blue);
+  text-decoration: none;
+}
+
+/* ---------- Do these next ---------- */
+.pcov-cards {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 14px;
+}
+
+.pcov-card {
+  display: flex;
+  flex-direction: column;
+  background: var(--pcov-surface);
+  border: 1px solid var(--pcov-line);
+  border-radius: 20px;
+  box-shadow: var(--pcov-shadow-m);
+  padding: 16px 18px 14px;
+}
+
+.pcov-card__veh {
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--pcov-head);
+  letter-spacing: -0.02em;
+}
+
+.pcov-card__cust {
+  font-size: 12px;
+  color: var(--pcov-muted);
+  margin-top: 2px;
+}
+
+.pcov-card__cust b {
+  color: var(--pcov-ink);
+  font-weight: 700;
+}
+
+.pcov-track {
+  margin: 16px 0 4px;
+}
+
+.pcov-rail {
+  height: 8px;
+  border-radius: 999px;
+  background: #e7edf3;
+  position: relative;
+  overflow: hidden;
+}
+
+.pcov-rail i {
+  position: absolute;
+  inset: 0 auto 0 0;
+  border-radius: 999px;
+  background: var(--pcov-grad);
+}
+
+.pcov-steps {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 7px;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--pcov-faint);
+}
+
+.pcov-steps .is-now {
+  color: var(--pcov-blue);
+}
+
+.pcov-card__ask {
+  font-size: 13px;
+  color: var(--pcov-ink);
+  line-height: 1.45;
+  margin-top: 12px;
+  flex: 1;
+}
+
+.pcov-card__foot {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.pcov-chip {
+  font-size: 11px;
+  font-weight: 800;
+  padding: 5px 10px;
+  border-radius: 8px;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.pcov-chip--hot {
+  background: var(--pcov-coral);
+  color: #fff;
+}
+
+.pcov-chip--soft {
+  background: #eef2f7;
+  color: var(--pcov-muted);
+}
+
+.pcov-card__go {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  height: 44px;
+  border-radius: 12px;
+  background: var(--pcov-blue);
+  color: #fff;
+  font: 800 13.5px Inter, sans-serif;
+  border: 0;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.pcov-card__go:hover {
+  background: var(--pcov-blue-hover);
+}
+
+/* ---------- Journeys strip ---------- */
+.pcov-jstrip {
+  display: flex;
+  align-items: center;
+  gap: 22px;
+  background: var(--pcov-surface);
+  border: 1px solid var(--pcov-line);
+  border-radius: 20px;
+  box-shadow: var(--pcov-shadow-s);
+  padding: 15px 20px;
+}
+
+.pcov-jstrip__title {
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--pcov-head);
+  white-space: nowrap;
+}
+
+.pcov-jstrip__title span {
+  display: block;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--pcov-muted);
+}
+
+.pcov-jbar {
+  flex: 1;
+  display: flex;
+  height: 32px;
+  min-width: 120px;
+  border-radius: 10px;
+  overflow: hidden;
+  font: 800 12px Inter, sans-serif;
+}
+
+.pcov-jbar span {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+}
+
+.pcov-jbar .pcov-jbar__bk {
+  background: var(--pcov-blue);
+}
+
+.pcov-jbar .pcov-jbar__dl {
+  background: linear-gradient(90deg, #007f9e, #00b7a8 55%, #00d3a7);
+}
+
+.pcov-jbar__empty {
+  flex: 1;
+  min-width: 120px;
+  height: 32px;
+  border-radius: 10px;
+  background: repeating-linear-gradient(45deg, #eef2f6, #eef2f6 8px, #e7edf3 8px, #e7edf3 16px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11.5px;
+  color: var(--pcov-faint);
+  font-weight: 600;
+}
+
+.pcov-jlegend {
+  display: flex;
+  gap: 16px;
+  font-size: 11.5px;
+  color: var(--pcov-muted);
+  white-space: nowrap;
+}
+
+.pcov-jlegend i {
+  width: 9px;
+  height: 9px;
+  border-radius: 3px;
+  display: inline-block;
+  margin-right: 6px;
+  vertical-align: middle;
+}
+
+.pcov-jstrip a {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--pcov-blue);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+/* ---------- Empty / all caught up ---------- */
+.pcov-empty {
+  background: var(--pcov-surface);
+  border: 1px solid var(--pcov-line);
+  border-radius: 22px;
+  box-shadow: var(--pcov-shadow-m);
+  padding: 44px 36px;
+  text-align: center;
+}
+
+.pcov-empty h2 {
+  font-size: 22px;
+}
+
+.pcov-empty p {
+  font-size: 14px;
+  color: var(--pcov-muted);
+  max-width: 46ch;
+  margin: 8px auto 0;
+  line-height: 1.6;
+}
+
+.pcov-empty .pcov-capture {
+  margin-top: 22px;
+  height: 50px;
+  background: var(--pcov-blue);
+  color: #fff;
+}
+
+.pcov-empty .pcov-capture:hover {
+  background: var(--pcov-blue-hover);
+}
+
+.pcov-flowprev {
+  display: flex;
+  justify-content: center;
+  gap: 30px;
+  margin-top: 30px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--pcov-faint);
+}
+
+.pcov-flowprev span {
+  position: relative;
+}
+
+.pcov-flowprev span::before {
+  content: "";
+  display: block;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 3px solid #cdd9e4;
+  background: #fff;
+  margin: 0 auto 8px;
+}
+
+/* ---------- Load / error ---------- */
+.pcov-state {
+  background: var(--pcov-surface);
+  border: 1px solid var(--pcov-line);
+  border-radius: 18px;
+  box-shadow: var(--pcov-shadow-s);
+  padding: 22px 24px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.pcov-state strong {
+  color: var(--pcov-head);
+}
+
+.pcov-state p {
+  margin: 2px 0 0;
+  font-size: 13px;
+  color: var(--pcov-muted);
+}
+
+.pcov-state button {
+  margin-left: auto;
+  height: 40px;
+  padding: 0 18px;
+  border-radius: 11px;
+  border: 1.5px solid var(--pcov-line);
+  background: #fff;
+  color: var(--pcov-blue);
+  font: 700 13px Inter, sans-serif;
+  cursor: pointer;
+}
+
+.pcov-skeleton {
+  color: var(--pcov-muted);
+  font-size: 13px;
+  padding: 20px 2px;
+}
+
+/* ---------- Responsive ---------- */
+@media (max-width: 900px) {
+  .pcov-hero__top {
+    flex-direction: column;
+  }
+
+  .pcov-capture {
+    align-self: stretch;
+    justify-content: center;
+  }
+
+  .pcov-cards {
+    grid-template-columns: 1fr;
+  }
+
+  .pcov-jstrip {
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+}
+
+@media (max-width: 560px) {
+  .pcov-hero {
+    padding: 20px 18px;
+    border-radius: 20px;
+  }
+
+  .pcov-hero__headline {
+    font-size: 23px;
+  }
+
+  .pcov-kpi {
+    min-width: calc(50% - 5px);
+  }
+}

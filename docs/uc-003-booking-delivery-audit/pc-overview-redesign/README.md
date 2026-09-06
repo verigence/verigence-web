@@ -124,6 +124,44 @@ Both are configurable; the number shown in the copy is driven by the config valu
 
 ---
 
+## Implementation status
+
+A first cut is wired into the app, kept fully parallel to the current dashboard:
+
+| Piece | Where |
+|---|---|
+| New page | `src/pages/PcOverviewPage.tsx` |
+| Styles | `src/styles/pc-overview.css` (imported in `src/main.tsx` just before `ui-governance.css`; all selectors namespaced `.pcov`) |
+| Wiring | `src/App.tsx` → `DashboardEntry` |
+
+**Fallback is trivial and the legacy path is untouched:**
+
+- `PcOverviewPage` replaces **only** the Process Coordinator landing. Team Lead,
+  PM and admin dashboards are unchanged.
+- The legacy `DashboardPage` and every `dashboard-*.css` file are left exactly as
+  they were — nothing deleted, nothing commented out in a way that stops it
+  compiling.
+- To roll back: set `PC_OVERVIEW_REDESIGN_ENABLED = false` in `src/App.tsx`, **or**
+  open any dashboard link with `?legacyDashboard=1`.
+
+**What it renders today** (all on existing endpoints):
+
+- Hero — greeting, bold dealership + outlet, "N things need you", plain-language
+  sub-line, and KPI tiles (bookings in progress, deliveries in progress, open
+  observations, waiting on review) from `/uc03/landing-metrics`.
+- "Do these next" — up to 4 cards derived from `/uc03/work-items`, prioritised
+  Returned → Flagged → Delivery-in-progress → Stale, each with a progress rail,
+  a plain instruction, an age/count chip and one action button to the right V2
+  screen. Product labels lazy-enriched for the visible cards only.
+- "Your journeys" pipeline strip; "See all →" opens the legacy list.
+- Empty / all-caught-up states.
+
+**Not yet built:** the weekly / monthly "completed" performance tiles — they need
+`GET /uc03/pc-stats` (below). Until then those tiles are simply not shown (no
+fake numbers).
+
+---
+
 ## Performance budget
 
 The current dashboard was reported as "too slow to navigate". This redesign is

@@ -1,0 +1,471 @@
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { Link } from 'react-router-dom';
+
+import { effectiveStageStatus, overviewOpenState, type OverviewTarget } from '../features/uc03/overviewOpen';
+import {
+  getUc03LandingMetrics,
+  listUc03WorkItems,
+  type Uc03WorkItem,
+} from '../services/audit-core/uc03';
+import { enrichUc03WorkItems } from '../services/audit-core/uc03WorkItemEnrichment';
+import { useProjectContextStore } from '../store/projectContextStore';
+import { useSessionStore } from '../store/sessionStore';
+
+/*
+ * Redesigned Process Coordinator dashboard — see
+ * docs/uc-003-booking-delivery-audit/pc-overview-redesign/.
+ * Runs entirely on the existing /uc03 endpoints. The only thing it cannot
+ * source today is the weekly/monthly "completed" performance strip, which
+ * needs GET /uc03/pc-stats (audit-core) — tracked in the folder README.
+ */
+
+// Web-UI configuration (no backend). A booking / delivery with no activity for
+// longer than this is surfaced to the PC as needing a nudge.
+const STALE_BOOKING_DAYS = 7;
+const STALE_DELIVERY_DAYS = 5;
+
+const MAX_CARDS = 4;
+
+type Reason = 'RETURNED' | 'FLAGGED' | 'DELIVERY' | 'STALE';
+
+interface Candidate {
+  item: Uc03WorkItem;
+  reason: Reason;
+  ageMs: number;
+  staleDays: number;
+}
+
+const BOOKING_TERMINAL = new Set([
+  'BOOKING_CLOSED',
+  'BOOKING_CANCELLED',
+  'BOOKING_DUPLICATE',
+  'BOOKING_NO_DELIVERY',
+  'DELIVERY_COMPLETED',
+  'DELIVERED',
+]);
+
+function greeting(): string {
+  const hour = new Date().getHours();
+  if (hour < 12) return 'Good morning';
+  if (hour < 17) return 'Good afternoon';
+  return 'Good evening';
+}
+
+function firstName(displayName: string, email: string): string {
+  const source = (displayName || email.split('@')[0] || '').replace(/[._-]+/g, ' ').trim();
+  const token = source.split(' ')[0] || 'there';
+  return token.charAt(0).toUpperCase() + token.slice(1);
+}
+
+function ageLabel(fromIso: string): string {
+  const then = new Date(fromIso).getTime();
+  if (Number.isNaN(then)) return 'a while ago';
+  const minutes = Math.max(0, Math.floor((Date.now() - then) / 60_000));
+  if (minutes < 1) return 'just now';
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 14) return `${days}d ago`;
+  return `${Math.floor(days / 7)}w ago`;
+}
+
+function daysSince(fromIso: string): number {
+  const then = new Date(fromIso).getTime();
+  if (Number.isNaN(then)) return 0;
+  return Math.floor((Date.now() - then) / 86_400_000);
+}
+
+function deliveryStarted(item: Uc03WorkItem): boolean {
+  return Boolean(item.delivery.businessStatus);
+}
+
+function deliveryDone(item: Uc03WorkItem): boolean {
+  const status = effectiveStageStatus(item.delivery, 'DELIVERY')?.toUpperCase() || '';
+  return status.includes('COMPLETE') || status.includes('DELIVERED');
+}
+
+function bookingCompleted(item: Uc03WorkItem): boolean {
+  if (item.booking.captureCompletedAtUtc) return true;
+  const status = (item.booking.businessStatus || '').toUpperCase();
+  return status === 'BOOKING_COMPLETED' || BOOKING_TERMINAL.has(status);
+}
+
+function isReturned(item: Uc03WorkItem): boolean {
+  const next = item.nextActionCode?.trim().toUpperCase();
+  return next === 'UPDATE_BOOKING' || next === 'BOOKING_UPDATE_REQUIRED';
+}
+
+function journeyStep(item: Uc03WorkItem): { index: number; pct: number } {
+  if (deliveryDone(item)) return { index: 3, pct: 100 };
+  if (deliveryStarted(item)) return { index: 2, pct: 74 };
+  if (bookingCompleted(item)) return { index: 1, pct: 52 };
+  return { index: 0, pct: item.processingDocumentCount > 0 ? 34 : 22 };
+}
+
+function classifyCandidate(item: Uc03WorkItem): Candidate | null {
+  const ageMs = Math.max(0, Date.now() - new Date(item.latestActivityAtUtc).getTime());
+  const staleDays = daysSince(item.latestActivityAtUtc);
+
+  if (isReturned(item)) return { item, reason: 'RETURNED', ageMs, staleDays };
+  if (item.openFlagCount > 0) return { item, reason: 'FLAGGED', ageMs, staleDays };
+  if (deliveryStarted(item) && !deliveryDone(item)) {
+    if (staleDays >= STALE_DELIVERY_DAYS) return { item, reason: 'STALE', ageMs, staleDays };
+    return { item, reason: 'DELIVERY', ageMs, staleDays };
+  }
+  if (!bookingCompleted(item) && staleDays >= STALE_BOOKING_DAYS) {
+    return { item, reason: 'STALE', ageMs, staleDays };
+  }
+  return null;
+}
+
+const REASON_ORDER: Record<Reason, number> = { RETURNED: 0, FLAGGED: 1, DELIVERY: 2, STALE: 3 };
+
+interface CardPresentation {
+  ask: string;
+  chip: string;
+  chipHot: boolean;
+  actionLabel: string;
+  to: string;
+  target: OverviewTarget;
+}
+
+function presentCard(candidate: Candidate): CardPresentation {
+  const { item, reason, staleDays } = candidate;
+  const bookingPath = `/v2/bookings/${item.journeyId}`;
+  const deliveryPath = `/v2/deliveries/${item.journeyId}`;
+  const auditPath = `/audit/${item.journeyId}`;
+
+  if (reason === 'RETURNED') {
+    return {
+      ask: 'This came back for changes. Open the booking and update what has been asked for.',
+      chip: `Sent back ${ageLabel(item.latestActivityAtUtc)}`,
+      chipHot: true,
+      actionLabel: 'Update booking',
+      to: bookingPath,
+      target: 'BOOKING',
+    };
+  }
+  if (reason === 'FLAGGED') {
+    const n = item.openFlagCount;
+    return {
+      ask: `${n} observation${n === 1 ? '' : 's'} raised on this journey. Review and resolve what is needed.`,
+      chip: `${n} open`,
+      chipHot: true,
+      actionLabel: 'Review observations',
+      to: auditPath,
+      target: 'AUDIT',
+    };
+  }
+  if (reason === 'DELIVERY') {
+    return {
+      ask: 'Delivery is in progress. Add the remaining photos and documents to complete it.',
+      chip: `In delivery · ${ageLabel(item.latestActivityAtUtc)}`,
+      chipHot: false,
+      actionLabel: 'Continue delivery',
+      to: deliveryPath,
+      target: 'DELIVERY',
+    };
+  }
+  const started = deliveryStarted(item);
+  return {
+    ask: `No action for ${staleDays} days. Check with the customer or move the ${started ? 'delivery' : 'booking'} forward.`,
+    chip: `No action · ${staleDays}d`,
+    chipHot: true,
+    actionLabel: started ? 'Open delivery' : 'Open booking',
+    to: started ? deliveryPath : bookingPath,
+    target: started ? 'DELIVERY' : 'BOOKING',
+  };
+}
+
+const STEP_LABELS = ['Documents', 'Details', 'Delivery', 'Done'];
+
+function WorkCard({
+  candidate,
+  productLabel,
+}: {
+  candidate: Candidate;
+  productLabel: string;
+}) {
+  const { item } = candidate;
+  const step = journeyStep(item);
+  const presentation = presentCard(candidate);
+  return (
+    <article className="pcov-card">
+      <div className="pcov-card__veh">{productLabel}</div>
+      <div className="pcov-card__cust">
+        <b>{item.customerDisplayName}</b>
+        {item.bookingReference ? ` · ${item.bookingReference}` : ''}
+      </div>
+      <div className="pcov-track">
+        <div className="pcov-rail"><i style={{ width: `${step.pct}%` }} /></div>
+        <div className="pcov-steps">
+          {STEP_LABELS.map((label, index) => (
+            <span key={label} className={index === step.index ? 'is-now' : undefined}>{label}</span>
+          ))}
+        </div>
+      </div>
+      <p className="pcov-card__ask">{presentation.ask}</p>
+      <div className="pcov-card__foot">
+        <span className={`pcov-chip ${presentation.chipHot ? 'pcov-chip--hot' : 'pcov-chip--soft'}`}>
+          {presentation.chip}
+        </span>
+        <Link
+          className="pcov-card__go"
+          to={presentation.to}
+          state={overviewOpenState(item, presentation.target)}
+        >
+          {presentation.actionLabel}
+          <span aria-hidden="true">→</span>
+        </Link>
+      </div>
+    </article>
+  );
+}
+
+export default function PcOverviewPage() {
+  const project = useProjectContextStore((state) => state.selectedProject);
+  const accessToken = useSessionStore((state) => state.accessToken);
+  const outletId = useSessionStore((state) => state.outletId);
+  const displayName = useSessionStore((state) => state.displayName);
+  const email = useSessionStore((state) => state.email);
+
+  const [enrichedLabels, setEnrichedLabels] = useState<Record<string, string>>({});
+  const enrichmentRequested = useRef<Set<string>>(new Set());
+
+  const contextReady = Boolean(project?.tenantId && accessToken && (project?.operatingRole !== 'PC' || outletId));
+
+  const metricsQuery = useQuery({
+    queryKey: ['pcov-landing-metrics', project?.tenantId, outletId],
+    queryFn: () => getUc03LandingMetrics(project!.tenantId, outletId || undefined, accessToken),
+    enabled: contextReady,
+    retry: 1,
+  });
+
+  const workQuery = useQuery({
+    queryKey: ['pcov-work-items', project?.tenantId, outletId],
+    queryFn: () => listUc03WorkItems(
+      project!.tenantId,
+      { workType: 'ALL', outletId: outletId || undefined },
+      accessToken,
+    ),
+    enabled: contextReady,
+    retry: 1,
+  });
+
+  const workItems = useMemo(() => workQuery.data?.items ?? [], [workQuery.data]);
+
+  const candidates = useMemo(() => {
+    const list: Candidate[] = [];
+    for (const item of workItems) {
+      const candidate = classifyCandidate(item);
+      if (candidate) list.push(candidate);
+    }
+    return list.sort((left, right) => {
+      const order = REASON_ORDER[left.reason] - REASON_ORDER[right.reason];
+      if (order !== 0) return order;
+      return right.ageMs - left.ageMs;
+    });
+  }, [workItems]);
+
+  const shownCandidates = candidates.slice(0, MAX_CARDS);
+
+  useEffect(() => {
+    if (!project?.tenantId || !accessToken) return;
+    const missing = shownCandidates
+      .map((candidate) => candidate.item)
+      .filter((item) => !item.productLabel
+        && !enrichedLabels[item.journeyId]
+        && !enrichmentRequested.current.has(item.journeyId));
+    if (missing.length === 0) return;
+    missing.forEach((item) => enrichmentRequested.current.add(item.journeyId));
+    void enrichUc03WorkItems(project.tenantId, missing.map((item) => item.journeyId), accessToken)
+      .then((response) => {
+        if (response.items.length === 0) return;
+        setEnrichedLabels((current) => {
+          const next = { ...current };
+          for (const entry of response.items) {
+            if (entry.productLabel) next[entry.journeyId] = entry.productLabel;
+          }
+          return next;
+        });
+      })
+      .catch(() => {
+        // Enrichment is post-paint decoration; never block the dashboard on it.
+      });
+  }, [accessToken, enrichedLabels, project?.tenantId, shownCandidates]);
+
+  if (!project) return null;
+
+  const selectedOutlet = project.scope.outlets.find((outlet) => outlet.outletId === outletId);
+  const dealerName = selectedOutlet?.dealerName || 'Your dealership';
+  const outletName = selectedOutlet?.outletName || 'your outlet';
+
+  const metrics = metricsQuery.data;
+  const bookingsInProgress = metrics?.bookingsInProgress ?? 0;
+  const deliveriesInProgress = metrics?.deliveryInProgress ?? 0;
+  const openFlags = metrics?.auditFlags ?? 0;
+  const reviewPending = metrics?.reviewPending ?? 0;
+  const journeysInProgress = bookingsInProgress + deliveriesInProgress;
+
+  const returnedCount = candidates.filter((candidate) => candidate.reason === 'RETURNED').length;
+  const flaggedCount = candidates.filter((candidate) => candidate.reason === 'FLAGGED').length;
+  const staleCount = candidates.filter((candidate) => candidate.reason === 'STALE').length;
+
+  const needCount = candidates.length;
+  const loading = workQuery.isPending || metricsQuery.isPending;
+  const hasAnyWork = workItems.length > 0 || journeysInProgress > 0;
+
+  const subClauses: string[] = [];
+  if (returnedCount > 0) subClauses.push(`${returnedCount} came back to you`);
+  if (flaggedCount > 0) subClauses.push(`${flaggedCount} with open observations`);
+  if (staleCount > 0) subClauses.push(`${staleCount} with no action for ${STALE_BOOKING_DAYS}+ days`);
+
+  const headline = needCount > 0
+    ? <>{`${needCount} thing${needCount === 1 ? '' : 's'} `}<b>need{needCount === 1 ? 's' : ''} you</b>{' right now'}</>
+    : <><b>You&rsquo;re all caught up</b></>;
+
+  const captureLink = (
+    <Link className="pcov-capture" to="/v2/bookings/new">
+      <span className="pcov-capture__plus" aria-hidden="true">＋</span>
+      <span>Capture new booking</span>
+    </Link>
+  );
+
+  return (
+    <div className="screen-stack pcov">
+      <section className="pcov-hero" aria-labelledby="pcov-hero-title">
+        <div className="pcov-hero__top">
+          <div>
+            <p className="pcov-hero__greet">{greeting()}, {firstName(displayName, email)}</p>
+            <p className="pcov-hero__place"><b>{dealerName}</b> · {outletName}</p>
+          </div>
+          {captureLink}
+        </div>
+        <h1 id="pcov-hero-title" className="pcov-hero__headline">{headline}</h1>
+        <p className="pcov-hero__sub">
+          {loading
+            ? 'Loading your work…'
+            : subClauses.length > 0
+              ? subClauses.join(' · ')
+              : 'Nothing needs your attention right now. New bookings and deliveries will show up here.'}
+        </p>
+        <div className="pcov-hero__kpis" aria-label="Current work summary">
+          <div className="pcov-kpi">
+            <div className="pcov-kpi__value">{metrics ? bookingsInProgress : '—'}</div>
+            <div className="pcov-kpi__label">Bookings in progress</div>
+          </div>
+          <div className="pcov-kpi">
+            <div className="pcov-kpi__value">{metrics ? deliveriesInProgress : '—'}</div>
+            <div className="pcov-kpi__label">Deliveries in progress</div>
+          </div>
+          <div className="pcov-kpi pcov-kpi--flag">
+            <div className="pcov-kpi__value">{metrics ? openFlags : '—'}</div>
+            <div className="pcov-kpi__label">Open observations</div>
+          </div>
+          <div className="pcov-kpi">
+            <div className="pcov-kpi__value">{metrics ? reviewPending : '—'}</div>
+            <div className="pcov-kpi__label">Waiting on review</div>
+          </div>
+        </div>
+      </section>
+
+      {(metricsQuery.isError || workQuery.isError) && (
+        <div className="pcov-state" role="alert">
+          <div>
+            <strong>We couldn&rsquo;t load part of your dashboard.</strong>
+            <p>Your bookings and deliveries are still safe. Try again in a moment.</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => { void metricsQuery.refetch(); void workQuery.refetch(); }}
+          >
+            Try again
+          </button>
+        </div>
+      )}
+
+      {loading && !workQuery.data && (
+        <div className="pcov-skeleton" role="status">Loading your bookings and deliveries…</div>
+      )}
+
+      {!loading && !hasAnyWork && (
+        <div className="pcov-empty">
+          <h2>Ready when you are</h2>
+          <p>
+            When a customer books a vehicle, capture it here. Verigence walks you through the
+            documents, the delivery and the audit trail — one step at a time.
+          </p>
+          {captureLink}
+          <div className="pcov-flowprev" aria-hidden="true">
+            <span>Booking</span>
+            <span>Documents</span>
+            <span>Delivery</span>
+            <span>Done</span>
+          </div>
+        </div>
+      )}
+
+      {!loading && hasAnyWork && (
+        <>
+          <div className="pcov-sec-head">
+            <h2>Do these next</h2>
+            {candidates.length > MAX_CARDS && (
+              <Link to="/dashboard?legacyDashboard=1">See all {candidates.length} →</Link>
+            )}
+          </div>
+
+          {shownCandidates.length > 0 ? (
+            <div className="pcov-cards">
+              {shownCandidates.map((candidate) => (
+                <WorkCard
+                  key={candidate.item.journeyId}
+                  candidate={candidate}
+                  productLabel={
+                    candidate.item.productLabel
+                    || enrichedLabels[candidate.item.journeyId]
+                    || 'Vehicle not captured'
+                  }
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="pcov-empty">
+              <h2>You&rsquo;re all caught up</h2>
+              <p>Nothing needs your attention right now. Your journeys in progress are below.</p>
+            </div>
+          )}
+
+          <div className="pcov-jstrip">
+            <div className="pcov-jstrip__title">
+              Your journeys
+              <span>{journeysInProgress} in progress</span>
+            </div>
+            {journeysInProgress > 0 ? (
+              <div className="pcov-jbar" role="img" aria-label={`${bookingsInProgress} in booking, ${deliveriesInProgress} in delivery`}>
+                {bookingsInProgress > 0 && (
+                  <span className="pcov-jbar__bk" style={{ flex: bookingsInProgress }}>
+                    {bookingsInProgress} in booking
+                  </span>
+                )}
+                {deliveriesInProgress > 0 && (
+                  <span className="pcov-jbar__dl" style={{ flex: deliveriesInProgress }}>
+                    {deliveriesInProgress} in delivery
+                  </span>
+                )}
+              </div>
+            ) : (
+              <div className="pcov-jbar__empty">Journeys you start will appear here</div>
+            )}
+            <div className="pcov-jlegend">
+              <span><i style={{ background: '#003a82' }} />Booking</span>
+              <span><i style={{ background: '#00b7a8' }} />Delivery</span>
+            </div>
+            <Link to="/dashboard?legacyDashboard=1">See all →</Link>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 
@@ -13,7 +13,6 @@ const CAPTURE_HANDOFF_STALE_MS = 3_000;
 
 function newBookingWorkspace(
   journeyId: string,
-  customerName: string,
   businessStatus: string,
   aggregateVersion: number,
 ): BookingWorkspace {
@@ -27,7 +26,7 @@ function newBookingWorkspace(
       closeReasonCode: null,
       closureRemarks: null,
     },
-    capture: { CUSTOMER_NAME: customerName },
+    capture: {},
     documents: [],
     proposals: [],
     flags: [],
@@ -46,7 +45,7 @@ export default function CreateBookingV2Page() {
   const project = useProjectContextStore((state) => state.selectedProject);
   const accessToken = useSessionStore((state) => state.accessToken);
   const outletId = useSessionStore((state) => state.outletId);
-  const [customerName, setCustomerName] = useState('');
+  const creationStarted = useRef(false);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState('');
 
@@ -55,46 +54,24 @@ export default function CreateBookingV2Page() {
     [outletId, project?.scope.outlets],
   );
 
-  if (!project) return null;
-  const activeProject = project;
-  const normalizedCustomerName = customerName.trim().replace(/\s+/g, ' ');
-
-  async function handleContinue() {
-    if (!outletId) {
-      setError('Choose your working Outlet before capturing a Booking.');
-      return;
-    }
-    if (!normalizedCustomerName) {
-      setError('Enter the Customer Name to continue.');
-      return;
-    }
-
+  async function startBooking() {
+    if (!project || !outletId || !accessToken || creationStarted.current) return;
+    creationStarted.current = true;
     setCreating(true);
     setError('');
     try {
-      const result = await createBooking(
-        activeProject.tenantId,
-        outletId,
-        normalizedCustomerName,
-        accessToken,
-      );
+      const result = await createBooking(project.tenantId, outletId, accessToken);
 
       queryClient.setQueryData<BookingWorkspace>(
-        ['uc03-booking-workspace', activeProject.tenantId, result.journeyId],
-        newBookingWorkspace(
-          result.journeyId,
-          normalizedCustomerName,
-          result.businessStatus,
-          result.aggregateVersion,
-        ),
+        ['uc03-booking-workspace', project.tenantId, result.journeyId],
+        newBookingWorkspace(result.journeyId, result.businessStatus, result.aggregateVersion),
       );
 
-      // Start the next route chunk and its first useful data request before navigation.
-      // React Query deduplicates the mount-time request if this prefetch is still in flight.
+      // Warm the document screen and its first capture-state request before routing.
       void import('./BookingCaptureV2Page');
       void queryClient.prefetchQuery({
-        queryKey: ['uc03-document-capture-v2', activeProject.tenantId, result.journeyId],
-        queryFn: () => getBookingCaptureV2(activeProject.tenantId, result.journeyId, accessToken),
+        queryKey: ['uc03-document-capture-v2', project.tenantId, result.journeyId],
+        queryFn: () => getBookingCaptureV2(project.tenantId, result.journeyId, accessToken),
         staleTime: CAPTURE_HANDOFF_STALE_MS,
       });
 
@@ -103,25 +80,33 @@ export default function CreateBookingV2Page() {
         state: {
           createdBooking: {
             journeyId: result.journeyId,
-            customerName: normalizedCustomerName,
             businessStatus: result.businessStatus,
             aggregateVersion: result.aggregateVersion,
           },
         },
       });
     } catch (cause) {
+      creationStarted.current = false;
       setError(cause instanceof Error ? cause.message : 'The Booking could not be started.');
     } finally {
       setCreating(false);
     }
   }
 
+  useEffect(() => {
+    if (project && outletId && accessToken && selectedOutlet) void startBooking();
+    // startBooking intentionally runs once for the resolved working context.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [project?.tenantId, outletId, accessToken, selectedOutlet?.outletId]);
+
+  if (!project) return null;
+
   return (
     <div className="screen-stack uc03-capture-new-booking">
       <PageHeader
         eyebrow="Process Coordinator"
-        title="Capture New Booking — V2"
-        description="Enter the customer name to create the Booking and continue with the new document-driven capture flow."
+        title="Capture New Booking"
+        description="Creating the Journey and opening Documents. Customer identity will come from documentary evidence."
       />
 
       <section className="section-card uc03-capture-new-booking__card">
@@ -132,51 +117,22 @@ export default function CreateBookingV2Page() {
               <p>Return to the Project context and choose the Outlet you want to work in.</p>
             </div>
           </div>
-        ) : (
-          <div className="form-stack uc03-capture-new-booking__form">
-            <div className="uc03-capture-new-booking__context" aria-label="Current working outlet">
-              <div>
-                <span>Working Outlet</span>
-                <strong>{selectedOutlet.dealerName} · {selectedOutlet.outletName}</strong>
-              </div>
-              <small>{selectedOutlet.outletClassification}</small>
+        ) : error ? (
+          <div className="dashboard-load-state" role="alert">
+            <div className="dashboard-load-state__mark">!</div>
+            <div className="dashboard-load-state__copy">
+              <strong>Booking could not be started.</strong>
+              <p>{error}</p>
             </div>
-
-            <label className="field-stack uc03-capture-new-booking__name">
-              <span>Customer Name</span>
-              <input
-                type="text"
-                value={customerName}
-                maxLength={200}
-                autoComplete="name"
-                placeholder="Enter customer name"
-                disabled={creating}
-                autoFocus
-                onChange={(event) => {
-                  setCustomerName(event.target.value);
-                  if (error) setError('');
-                }}
-                onKeyDown={(event) => {
-                  if (event.key === 'Enter' && normalizedCustomerName && !creating) {
-                    event.preventDefault();
-                    void handleContinue();
-                  }
-                }}
-              />
-              <small>Customer Name is locked after the Booking is created.</small>
-            </label>
-
-            {error && <div className="uc03-c1-feedback is-error" role="alert">{error}</div>}
-
-            <div className="uc03-capture-new-booking__actions">
-              <button
-                type="button"
-                className="uc03-c1-primary"
-                disabled={creating || !normalizedCustomerName}
-                onClick={() => void handleContinue()}
-              >
-                {creating ? 'Creating Booking…' : 'Continue to Documents'}
-              </button>
+            <button type="button" className="user-menu-button" disabled={creating} onClick={() => void startBooking()}>
+              {creating ? 'Creating…' : 'Try Again'}
+            </button>
+          </div>
+        ) : (
+          <div className="dashboard-load-state" role="status">
+            <div className="dashboard-load-state__copy">
+              <strong>{creating ? 'Creating Journey…' : 'Opening Documents…'}</strong>
+              <p>{selectedOutlet.dealerName} · {selectedOutlet.outletName}</p>
             </div>
           </div>
         )}

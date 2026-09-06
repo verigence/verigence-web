@@ -242,13 +242,23 @@ for (const relativePath of operationalTsx) {
   }
 }
 
+/*
+ * Shell context-switcher terminology.
+ * 2026-09 — product-owner decision: an operational user works a DEALERSHIP
+ * (a Process Coordinator has one or more Outlets under it), not an abstract
+ * "Workspace". The shell switcher must say "Dealership"; both "Workspace" and
+ * "Project" are wrong here. The PC shell also lists the Outlets assigned to the
+ * signed-in user. The selection GATE (ProjectContextGate) keeps its neutral
+ * "Workspace" / "Work Location" wording — names only appear post-selection.
+ * See docs/uc-003-booking-delivery-audit/pc-overview-redesign/README.md.
+ */
 forbid(
   'src/layout/AppShell.tsx',
-  /Current Project|Switch Project/,
-  'shared shell must use neutral Workspace terminology.',
+  /Current Project|Switch Project|Current Workspace|Switch Workspace/,
+  'shell context switcher must use Dealership terminology, not Project/Workspace.',
 );
-requireText('src/layout/AppShell.tsx', 'Current Workspace', 'shared shell must use neutral Workspace context.');
-requireText('src/layout/AppShell.tsx', 'Switch Workspace', 'project switching must be labelled as Workspace switching.');
+requireText('src/layout/AppShell.tsx', 'Current Dealership', 'shell must label the current context as Dealership.');
+requireText('src/layout/AppShell.tsx', 'Switch Dealership', 'context switching must be labelled as Switch Dealership.');
 
 forbid(
   'src/components/ProjectContextGate.tsx',
@@ -354,6 +364,7 @@ if (failures.length) {
 console.log('VERIGENCE_UI_GOVERNANCE=PASS');
 console.log('Background=LOGIN_NAVY_TEAL');
 console.log('ProjectName=PROHIBITED_OPERATIONAL_UI');
+console.log('ShellContextSwitcher=DEALERSHIP_AND_OUTLETS');
 console.log('VerticalFreeze=PROHIBITED_ROOT_AND_PAGE_SCROLL_REQUIRED');
 console.log('BookingJourney=V2_ONLY_DIRECT_NAVIGATION_NON_BLOCKING_AUDIT');
 console.log('DeliveryJourney=V2_ONLY_DIRECT_NAVIGATION_NON_BLOCKING_AUDIT');

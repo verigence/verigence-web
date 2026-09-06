@@ -489,6 +489,58 @@
   padding: 20px 2px;
 }
 
+/* ---------- Sidebar: dealership outlets available to a PC ---------- */
+/* Rendered by AppShell inside .uc03-shell-project (dark sidebar). */
+.enterprise-shell--approved-nav .uc03-shell-project .pcov-outlets {
+  list-style: none;
+  margin: 6px 0 2px;
+  padding: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.enterprise-shell--approved-nav .uc03-shell-project .pcov-outlets__item {
+  width: 100%;
+  margin: 0;
+  padding: 6px 8px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.82);
+  font: 600 11px Inter, sans-serif;
+  text-align: left;
+  cursor: pointer;
+}
+
+.enterprise-shell--approved-nav .uc03-shell-project .pcov-outlets__item:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+}
+
+.enterprise-shell--approved-nav .uc03-shell-project .pcov-outlets__item.is-active {
+  background: rgba(0, 211, 167, 0.16);
+  border-color: rgba(0, 211, 167, 0.45);
+  color: #fff;
+  cursor: default;
+}
+
+.enterprise-shell--approved-nav .uc03-shell-project .pcov-outlets__item small {
+  flex: none;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.enterprise-shell--approved-nav .uc03-shell-project .pcov-outlets__item.is-active small {
+  color: #77e2df;
+}
+
 /* ---------- Responsive ---------- */
 @media (max-width: 900px) {
   .pcov-hero__top {

@@ -73,8 +73,8 @@ no training:
   button, every card action button, the Booking segment and its legend swatch —
   is the same Deep Blue `#003A82`. Gradients (the lockup, the journey progress
   rail) run the full brand ramp `#003A82 → #0057B8 → #00AFA8 → #00D3A7`.
-- **Terminology.** The workspace switcher is labelled **"Dealership & outlet"** /
-  **"Switch dealership / outlet"**, not "workspace".
+- **Terminology.** The shell context switcher is labelled **"Current Dealership"** /
+  **"Switch Dealership"**, not "workspace" (see below).
 
 ---
 
@@ -159,6 +159,36 @@ A first cut is wired into the app, kept fully parallel to the current dashboard:
 **Not yet built:** the weekly / monthly "completed" performance tiles — they need
 `GET /uc03/pc-stats` (below). Until then those tiles are simply not shown (no
 fake numbers).
+
+---
+
+## Shell terminology change — "Dealership", not "Workspace"
+
+**Decision (2026-09, product owner):** an operational user works a **Dealership**.
+A Process Coordinator has one or more **Outlets** under that dealership. "Switch
+Workspace" was the wrong words for that; "Project" is also wrong (internal only).
+
+What changed in `src/layout/AppShell.tsx`:
+
+- The context line and both switch buttons (top bar + sidebar) now read
+  **"Current Dealership"** / **"Switch Dealership"**.
+- For a PC, the sidebar context card now lists **every Outlet assigned to the
+  signed-in user** (`selectedProject.scope.outlets`), with the active one marked
+  "Current". Clicking another Outlet switches context in place
+  (`selectOperationalOutlet`) and returns to the dashboard — no full re-selection
+  flow. Styles: `.pcov-outlets*` in `src/styles/pc-overview.css`.
+- TL / PM shells (which can span multiple dealers) still show the role label in
+  that card; only the button wording changed for them.
+
+Governance gate updated to match (`scripts/ui-governance-check.mjs`):
+
+- `AppShell.tsx` now **must** contain `Current Dealership` and `Switch Dealership`,
+  and **must not** contain `Current Workspace` / `Switch Workspace` /
+  `Current Project` / `Switch Project`.
+- The selection **gate** (`ProjectContextGate.tsx`) is unchanged and keeps its
+  neutral "Choose Workspace" / "Choose Work Location" wording — dealer and outlet
+  names still only appear *after* selection, per the existing rule.
+- New check-output line: `ShellContextSwitcher=DEALERSHIP_AND_OUTLETS`.
 
 ---
 

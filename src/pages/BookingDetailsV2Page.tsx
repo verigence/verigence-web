@@ -29,7 +29,7 @@ export default function BookingDetailsV2Page() {
   if (reviewQuery.isPending) {
     return <div className="uc03-c1-loading" role="status">Opening Booking Review…</div>;
   }
-  if (reviewQuery.data && !reviewQuery.data.captureSubmitted) {
+  if (reviewQuery.isError || !reviewQuery.data || !reviewQuery.data.captureSubmitted) {
     return <Navigate to={`/v2/bookings/${journeyId}/review`} replace />;
   }
 

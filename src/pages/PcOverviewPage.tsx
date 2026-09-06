@@ -37,14 +37,19 @@ interface Candidate {
   staleDays: number;
 }
 
-const BOOKING_TERMINAL = new Set([
+// Stage codes: journey_stage_states.stage_code = BOOKING | DELIVERY | POST_DELIVERY.
+// Uc03WorkItem exposes `booking` and `delivery` as Uc03StageSummary.
+// business_status vocabulary (auditcore.business_status_codes + uc03_booking_commands):
+//   BOOKING : BOOKING_STARTED · BOOKING_IN_PROGRESS · BOOKING_CLOSED
+//             · BOOKING_CANCELLED · DUPLICATE_BOOKING
+//             ("no delivery" is BOOKING_CLOSED with closure_disposition = NO_DELIVERY)
+//   DELIVERY: DELIVERY_STARTED · DELIVERY_IN_PROGRESS · DELIVERY_COMPLETED
+const BOOKING_DONE_STATUSES = new Set([
   'BOOKING_CLOSED',
   'BOOKING_CANCELLED',
-  'BOOKING_DUPLICATE',
-  'BOOKING_NO_DELIVERY',
-  'DELIVERY_COMPLETED',
-  'DELIVERED',
+  'DUPLICATE_BOOKING',
 ]);
+const DELIVERY_DONE_STATUSES = new Set(['DELIVERY_COMPLETED']);
 
 function greeting(): string {
   const hour = new Date().getHours();
@@ -83,14 +88,15 @@ function deliveryStarted(item: Uc03WorkItem): boolean {
 }
 
 function deliveryDone(item: Uc03WorkItem): boolean {
-  const status = effectiveStageStatus(item.delivery, 'DELIVERY')?.toUpperCase() || '';
-  return status.includes('COMPLETE') || status.includes('DELIVERED');
+  const status = (effectiveStageStatus(item.delivery, 'DELIVERY') || '').toUpperCase();
+  return DELIVERY_DONE_STATUSES.has(status);
 }
 
 function bookingCompleted(item: Uc03WorkItem): boolean {
-  if (item.booking.captureCompletedAtUtc) return true;
-  const status = (item.booking.businessStatus || '').toUpperCase();
-  return status === 'BOOKING_COMPLETED' || BOOKING_TERMINAL.has(status);
+  // effectiveStageStatus() already synthesises BOOKING_COMPLETED from
+  // captureCompletedAtUtc when the stage is not in a terminal state.
+  const status = (effectiveStageStatus(item.booking, 'BOOKING') || '').toUpperCase();
+  return status === 'BOOKING_COMPLETED' || BOOKING_DONE_STATUSES.has(status);
 }
 
 function isReturned(item: Uc03WorkItem): boolean {
@@ -115,7 +121,8 @@ function classifyCandidate(item: Uc03WorkItem): Candidate | null {
     if (staleDays >= STALE_DELIVERY_DAYS) return { item, reason: 'STALE', ageMs, staleDays };
     return { item, reason: 'DELIVERY', ageMs, staleDays };
   }
-  if (!bookingCompleted(item) && staleDays >= STALE_BOOKING_DAYS) {
+  // Booking not yet done and no delivery started, untouched for too long.
+  if (!deliveryStarted(item) && !bookingCompleted(item) && staleDays >= STALE_BOOKING_DAYS) {
     return { item, reason: 'STALE', ageMs, staleDays };
   }
   return null;

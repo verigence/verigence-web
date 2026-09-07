@@ -188,6 +188,7 @@ function DocumentSelector({ documents }: { documents: Array<Record<string, unkno
         const label = readable(doc.documentTypeKey || doc.requirementKey || doc.originalFilename);
         const stage = readable(doc.processArea || doc.evidencePurpose);
         const status = String(doc.reviewStatus || doc.verificationStatus || doc.processingStatus || 'UNKNOWN');
+        const viewUrl = doc.contentUrl ? String(doc.contentUrl) : null;
         return (
           <div key={id} className={`journey-360-doc-row${isOpen ? ' journey-360-doc-row--open' : ''}`}>
             <button
@@ -215,6 +216,18 @@ function DocumentSelector({ documents }: { documents: Array<Record<string, unkno
                   {Boolean(doc.captureStatus) && <Fact label="Capture Status">{readable(doc.captureStatus)}</Fact>}
                   {Boolean(doc.linkedAtUtc) && <Fact label="Linked">{dateLabel(doc.linkedAtUtc)}</Fact>}
                 </div>
+                {viewUrl && (
+                  <div className="journey-360-doc-view-row">
+                    <a
+                      href={viewUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="journey-360-doc-view-btn"
+                    >
+                      View document ↗
+                    </a>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -378,7 +391,7 @@ export default function Journey360Page() {
         <SectionCard title="Booking & Vehicle" description="Resolved product facts — Delivery document values take precedence over Booking where both exist.">
           {model.booking ? (
             <div className="journey-360-facts">
-              <Fact label="Dealer Booking No.">{bookingReference}</Fact>
+              {/* Dealer Booking No. is already shown in the summary bar — not repeated here */}
               <Fact label="Booking Date">{dateLabel(value(model.booking, 'bookingDate'))}</Fact>
               <Fact label="Model">{preferredText(model.booking, 'modelName', reviewedBooking, 'vehicle_model')}</Fact>
               <Fact label="Variant">{preferredText(model.booking, 'variantName', reviewedBooking, 'vehicle_variant')}</Fact>
@@ -491,13 +504,26 @@ export default function Journey360Page() {
                 </div>
                 <div className="journey-360-table-wrap">
                   <table className="journey-360-table">
-                    <thead><tr><th>Date</th><th>Receipt No.</th><th>Mode</th><th>Amount</th></tr></thead>
+                    <thead>
+                      <tr>
+                        <th>Date</th>
+                        <th>Receipt No.</th>
+                        <th>Mode</th>
+                        <th>Bank</th>
+                        <th>Customer on Receipt</th>
+                        <th>Booking Ref</th>
+                        <th>Amount</th>
+                      </tr>
+                    </thead>
                     <tbody>
                       {receiptRows.map((r, i) => (
-                        <tr key={String(r.documentId || r.evidenceId || i)}>
+                        <tr key={String(r.receiptId || r.documentId || r.evidenceId || i)}>
                           <td>{dateLabel(r.receiptDate)}</td>
                           <td>{String(r.receiptNumber || r.paymentReference || '—')}</td>
                           <td>{readable(r.paymentMethodCode)}</td>
+                          <td>{String(r.bankName || '—')}</td>
+                          <td>{String(r.customerName || '—')}</td>
+                          <td>{String(r.bookingReference || '—')}</td>
                           <td>{money(r.amount, String(r.currencyCode || 'INR'))}</td>
                         </tr>
                       ))}
@@ -510,6 +536,9 @@ export default function Journey360Page() {
                 <Fact label="Booking Amount Paid">{money(value(reviewedBooking, 'booking_amount_paid'))}</Fact>
                 <Fact label="Payment Mode">{readable(value(reviewedBooking, 'mode_of_payment'))}</Fact>
                 <Fact label="Payment Reference">{textValue(reviewedBooking, 'payment_reference_no')}</Fact>
+                <Fact label="Payment Date">{dateLabel(value(reviewedBooking, 'payment_date') || value(reviewedBooking, 'booking_date'))}</Fact>
+                <Fact label="Bank / Instrument">{textValue(reviewedBooking, 'bank_name')}</Fact>
+                <Fact label="Balance Amount">{money(value(reviewedBooking, 'balance_amount'))}</Fact>
               </div>
             )}
             {pendingReceiptRows.length > 0 && (
@@ -543,12 +572,21 @@ export default function Journey360Page() {
                 </div>
                 <div className="journey-360-table-wrap">
                   <table className="journey-360-table">
-                    <thead><tr><th>Date</th><th>Reference</th><th>Status</th><th>Amount</th></tr></thead>
+                    <thead>
+                      <tr>
+                        <th>Date</th>
+                        <th>Reference</th>
+                        <th>Mode</th>
+                        <th>Status</th>
+                        <th>Amount</th>
+                      </tr>
+                    </thead>
                     <tbody>
                       {invoiceRows.map((p, i) => (
                         <tr key={String(p.paymentId || i)}>
                           <td>{dateLabel(p.paymentAtUtc)}</td>
                           <td>{String(p.paymentReference || '—')}</td>
+                          <td>{readable(p.paymentMethodCode)}</td>
                           <td>{readable(p.actualStatusCode)}</td>
                           <td>{money(p.amount, String(p.currencyCode || 'INR'))}</td>
                         </tr>
@@ -675,7 +713,7 @@ export default function Journey360Page() {
 
       {/* ── Row 5: Documents (accordion) + Findings ── */}
       <div className="journey-360-grid journey-360-grid--two">
-        <SectionCard title="Documents" description="Click a document to expand its details.">
+        <SectionCard title="Documents" description="Click a document to expand its details. Use the View button to open the original file.">
           <DocumentSelector documents={model.evidence} />
         </SectionCard>
 

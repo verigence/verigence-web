@@ -686,6 +686,36 @@
   background: #f8fafc;
 }
 
+/* ── Document view row (View button inside expanded doc detail) ─────────────── */
+
+.journey-360-doc-view-row {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(148, 163, 184, 0.14);
+  display: flex;
+  justify-content: flex-end;
+}
+
+.journey-360-doc-view-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 32px;
+  padding: 0 14px;
+  border-radius: 8px;
+  background: var(--journey-search-accent);
+  color: #fff;
+  text-decoration: none;
+  font-size: 0.74rem;
+  font-weight: 700;
+  white-space: nowrap;
+  transition: background 120ms ease;
+}
+
+.journey-360-doc-view-btn:hover {
+  background: var(--journey-search-accent-dark);
+}
+
 /* ── Pending receipt rows ────────────────────────────────────────────────────── */
 
 .journey-360-receipt-pending td {

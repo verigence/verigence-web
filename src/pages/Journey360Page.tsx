@@ -58,7 +58,7 @@ function readable(valueToFormat: unknown): string {
 }
 
 function money(valueToFormat: unknown, currency = 'INR'): string {
-  if (valueToFormat === null || valueToFormat === undefined || valueToFormat === '') return '\u2014';
+  if (valueToFormat === null || valueToFormat === undefined || valueToFormat === '') return '—';
   const amount = Number(valueToFormat);
   if (Number.isNaN(amount)) return String(valueToFormat);
   try {
@@ -119,7 +119,7 @@ function DeviationCell({ amount, percent, currency = 'INR' }: { amount: number |
 function SkuPriceCheckPanel({ pricing }: { pricing: SkuPricing }) {
   const currency = pricing.currencyCode || 'INR';
   const fmt = (v: number | null) =>
-    v === null ? '\u2014' : new Intl.NumberFormat('en-IN', { style: 'currency', currency, maximumFractionDigits: 0 }).format(v);
+    v === null ? '—' : new Intl.NumberFormat('en-IN', { style: 'currency', currency, maximumFractionDigits: 0 }).format(v);
   const statusCls =
     pricing.selectionStatus === 'CONFIRMED'
       ? 'journey-360-sku-status journey-360-sku-status--confirmed'
@@ -140,7 +140,7 @@ function SkuPriceCheckPanel({ pricing }: { pricing: SkuPricing }) {
         <div>
           <span className="journey-360-sku-label">Product</span>
           <strong>
-            {[pricing.modelName, pricing.variantName, pricing.colourName].filter(Boolean).join(' \u00b7 ')}
+            {[pricing.modelName, pricing.variantName, pricing.colourName].filter(Boolean).join(' · ')}
           </strong>
         </div>
         <div>
@@ -206,7 +206,7 @@ function SkuPriceCheckPanel({ pricing }: { pricing: SkuPricing }) {
 
       {pricing.selectionStatus === 'TENTATIVE' && (
         <p className="journey-360-sku-note">
-          \u26a0 SKU is tentative \u2014 multiple matching master rows found. Confirm via Audit Review.
+          ⚠ SKU is tentative — multiple matching master rows found. Confirm via Audit Review.
         </p>
       )}
     </div>
@@ -262,12 +262,12 @@ export default function Journey360Page() {
     }, 0)
   ), [paymentRows]);
 
-  if (overviewQuery.isLoading) return <div className="page-loading">Loading complete Journey\u2026</div>;
+  if (overviewQuery.isLoading) return <div className="page-loading">Loading complete Journey…</div>;
   if (overviewQuery.isError || !model) {
     return (
       <div className="screen-stack journey-360-page">
         <PageHeader eyebrow="Journey Search" title="Journey unavailable" description="This Journey was not found in your current authorized Project scope." />
-        <Link className="journey-360-back" to="/search">\u2190 Back to Journey Search</Link>
+        <Link className="journey-360-back" to="/search">← Back to Journey Search</Link>
       </div>
     );
   }
@@ -283,17 +283,25 @@ export default function Journey360Page() {
   const activeFindings = model.findings.filter((finding) => ['OPEN', 'ACKNOWLEDGED'].includes(String(finding.findingStatus || '')));
   const reviewedFields = model.reviewedFields || [];
 
+  // SKU: read from the resolved journey_products row (via booking query skuCode),
+  // with a fallback to the skuPricing panel when available.
+  const resolvedSkuCode = value(model.booking, 'skuCode');
+  const skuDisplay = resolvedSkuCode != null && resolvedSkuCode !== ''
+    ? String(resolvedSkuCode)
+    : model.skuPricing?.skuCode ?? 'Not available';
+  const skuSelectionStatus = value(model.booking, 'selectionStatus') as string | null;
+
   return (
     <div className="screen-stack journey-360-page">
       {showSubmitBanner && (
         <div className="journey-360-submit-banner" role="status" aria-live="polite">
-          <span>\u2714\ufe0f Booking submitted successfully.</span>
-          <button type="button" className="journey-360-banner-dismiss" aria-label="Dismiss" onClick={() => setShowSubmitBanner(false)}>\u00d7</button>
+          <span>✔️ Booking submitted successfully.</span>
+          <button type="button" className="journey-360-banner-dismiss" aria-label="Dismiss" onClick={() => setShowSubmitBanner(false)}>×</button>
         </div>
       )}
 
       <div className="journey-360-topline">
-        <Link className="journey-360-back" to="/search">\u2190 Search results</Link>
+        <Link className="journey-360-back" to="/search">← Search results</Link>
         <div className="journey-360-actions">
           <Link to={`/v2/bookings/${journeyId}`}>Open Booking</Link>
           <Link to={`/v2/deliveries/${journeyId}`}>Open Delivery</Link>
@@ -302,9 +310,9 @@ export default function Journey360Page() {
       </div>
 
       <PageHeader
-        eyebrow={`${textValue(model.journey, 'dealerName')} \u00b7 ${textValue(model.journey, 'outletName')}`}
+        eyebrow={`${textValue(model.journey, 'dealerName')} · ${textValue(model.journey, 'outletName')}`}
         title={customerName}
-        description={`Dealer Booking ${bookingReference} \u00b7 ${productLabel}`}
+        description={`Dealer Booking ${bookingReference} · ${productLabel}`}
         actions={<div className="header-statuses"><StatusPill value={String(bookingStatus || 'NOT_STARTED')} /><StatusPill value={String(deliveryStatus || 'NOT_STARTED')} /></div>}
       />
 
@@ -346,7 +354,14 @@ export default function Journey360Page() {
               <Fact label="Model">{preferredText(model.booking, 'modelName', reviewedBooking, 'vehicle_model')}</Fact>
               <Fact label="Variant">{preferredText(model.booking, 'variantName', reviewedBooking, 'vehicle_variant')}</Fact>
               <Fact label="Colour">{preferredText(model.booking, 'colourName', reviewedBooking, 'vehicle_color')}</Fact>
-              <Fact label="SKU">{textValue(reviewedBooking, 'sku_code')}</Fact>
+              <Fact label="SKU">
+                {skuDisplay}
+                {skuSelectionStatus === 'TENTATIVE' && (
+                  <small style={{ display: 'block', fontWeight: 'normal', fontSize: '0.78em', color: '#b45309', marginTop: '2px' }}>
+                    Tentative — confirm at Delivery
+                  </small>
+                )}
+              </Fact>
               <Fact label="Sales Consultant">{textValue(reviewedBooking, 'sales_person')}</Fact>
               <Fact label="Dealer">{textValue(reviewedBooking, 'dealer_name')}</Fact>
               <Fact label="Dealer Branch">{textValue(reviewedBooking, 'dealer_branch')}</Fact>
@@ -366,8 +381,8 @@ export default function Journey360Page() {
 
       {model.skuPricing && (
         <SectionCard
-          title="Price Check \u2014 Master vs Booking"
-          description={`SKU ${model.skuPricing.skuCode} \u00b7 ${model.skuPricing.selectionStatus} \u00b7 Price List version ${model.skuPricing.priceListVersionId.slice(0, 8)}\u2026`}
+          title="Price Check — Master vs Booking"
+          description={`SKU ${model.skuPricing.skuCode} · ${model.skuPricing.selectionStatus} · Price List version ${model.skuPricing.priceListVersionId.slice(0, 8)}…`}
         >
           <SkuPriceCheckPanel pricing={model.skuPricing} />
         </SectionCard>
@@ -456,10 +471,10 @@ export default function Journey360Page() {
                           className={isPending ? 'journey-360-receipt-pending' : ''}
                         >
                           <td>{isPending ? <span className="journey-360-receipt-pending-label">Document received</span> : dateLabel(payment.receiptDate || payment.paymentAtUtc)}</td>
-                          <td>{String(payment.receiptNumber || payment.paymentReference || payment.originalFilename || '\u2014')}</td>
+                          <td>{String(payment.receiptNumber || payment.paymentReference || payment.originalFilename || '—')}</td>
                           <td>
                             {isPending
-                              ? <span className="journey-360-receipt-pending-status">DI extracting\u2026</span>
+                              ? <span className="journey-360-receipt-pending-status">DI extracting…</span>
                               : readable(payment.paymentMethodCode || payment.reviewStatus || payment.actualStatusCode)}
                           </td>
                           <td>{isPending ? <span className="journey-360-receipt-pending-label">Pending</span> : money(payment.amount, String(payment.currencyCode || 'INR'))}</td>
@@ -580,8 +595,8 @@ export default function Journey360Page() {
                 {model.addons.map((addon, index) => (
                   <tr key={String(addon.journeyAddonId || index)}>
                     <td>{readable(addon.addonTypeCode)}</td>
-                    <td>{String(addon.providerName || '\u2014')}</td>
-                    <td>{String(addon.referenceNumber || '\u2014')}</td>
+                    <td>{String(addon.providerName || '—')}</td>
+                    <td>{String(addon.referenceNumber || '—')}</td>
                     <td>{money(addon.standardAmount)}</td>
                     <td>{money(addon.actualAmount)}</td>
                     <td>{readable(addon.sourceKind)}</td>
@@ -604,7 +619,7 @@ export default function Journey360Page() {
                   <span className="journey-360-document-mark">DOC</span>
                   <div>
                     <strong>{readable(document.documentTypeKey || document.requirementKey || document.originalFilename)}</strong>
-                    <small>{readable(document.processArea || document.evidencePurpose)}{document.originalFilename ? ` \u00b7 ${String(document.originalFilename)}` : ''}</small>
+                    <small>{readable(document.processArea || document.evidencePurpose)}{document.originalFilename ? ` · ${String(document.originalFilename)}` : ''}</small>
                   </div>
                   <div className="journey-360-list__status">
                     <StatusPill value={String(document.reviewStatus || document.verificationStatus || document.processingStatus || 'UNKNOWN')} compact />
@@ -623,7 +638,7 @@ export default function Journey360Page() {
                   <span className="journey-360-finding-mark">!</span>
                   <div>
                     <strong>{String(finding.title || 'Audit finding')}</strong>
-                    <small>{readable(finding.stageCode)} \u00b7 {readable(finding.findingStatus)}</small>
+                    <small>{readable(finding.stageCode)} · {readable(finding.findingStatus)}</small>
                   </div>
                   <div className="journey-360-list__status"><StatusPill value={String(finding.severity || 'INFO')} compact /></div>
                 </div>

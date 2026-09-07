@@ -131,11 +131,16 @@ function needsManualVerification(item: Uc03WorkItem): boolean {
   return bookingManualVerification(item) || deliveryManualVerification(item);
 }
 
+// The rail marks the four milestones a journey crosses, in order:
+//   Booking  → booking documents being captured
+//   Verify   → booking captured; PC checks the read-off values and submits
+//   Delivery → vehicle delivery under way (its own capture + verify)
+//   Delivered → delivery complete, journey closed
 function journeyStep(item: Uc03WorkItem): { index: number; pct: number } {
   if (deliveryDone(item)) return { index: 3, pct: 100 };
-  if (deliveryStarted(item)) return { index: 2, pct: 74 };
-  if (bookingCompleted(item)) return { index: 1, pct: 52 };
-  return { index: 0, pct: item.processingDocumentCount > 0 ? 34 : 22 };
+  if (deliveryStarted(item)) return { index: 2, pct: 72 };
+  if (bookingCompleted(item)) return { index: 1, pct: 48 };
+  return { index: 0, pct: item.processingDocumentCount > 0 ? 26 : 14 };
 }
 
 function classifyCandidate(item: Uc03WorkItem): Candidate | null {
@@ -233,7 +238,7 @@ function presentCard(candidate: Candidate): CardPresentation {
   };
 }
 
-const STEP_LABELS = ['Documents', 'Details', 'Delivery', 'Done'];
+const STEP_LABELS = ['Booking', 'Verify', 'Delivery', 'Delivered'];
 
 function localIsoDate(value: Date): string {
   return `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, '0')}-${String(value.getDate()).padStart(2, '0')}`;
@@ -523,9 +528,9 @@ export default function PcOverviewPage() {
           {captureLink}
           <div className="pcov-flowprev" aria-hidden="true">
             <span>Booking</span>
-            <span>Documents</span>
+            <span>Verify</span>
             <span>Delivery</span>
-            <span>Done</span>
+            <span>Delivered</span>
           </div>
         </div>
       )}

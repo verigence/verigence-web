@@ -259,8 +259,6 @@ export default function Journey360Page() {
   const model = overviewQuery.data;
 
   // ── Payment / Receipt split ─────────────────────────────────────────────
-  // receipts[]  = DI-reviewed dealer receipts (amount_paid, receipt_number, date, mode)
-  // payments[]  = Audit Core payment records (booking amount, balance, etc.)
   const receiptRows = useMemo(() => (model?.receipts || []).filter((r) => !receiptIsPending(r)), [model?.receipts]);
   const pendingReceiptRows = useMemo(() => (model?.receipts || []).filter(receiptIsPending), [model?.receipts]);
   const invoiceRows = model?.payments || [];
@@ -309,7 +307,8 @@ export default function Journey360Page() {
       <div className="journey-360-topline">
         <Link className="journey-360-back" to="/search">← Search results</Link>
         <div className="journey-360-actions">
-          <Link to={`/v2/bookings/${journeyId}`}>Open Booking</Link>
+          {/* /details renders Journey360Page directly — no capture-gate redirect */}
+          <Link to={`/v2/bookings/${journeyId}/details`}>Open Booking</Link>
           <Link to={`/v2/deliveries/${journeyId}`}>Open Delivery</Link>
           <Link className="journey-360-actions__primary" to={`/audit/${journeyId}`}>Audit Review</Link>
         </div>

@@ -661,3 +661,161 @@
     justify-content: center;
   }
 }
+
+/* ──────────────────────────────────────────────────────────────────────────
+   Price Check Panel — Master (Standard) vs Booking / Invoice columns
+   ────────────────────────────────────────────────────────────────────────── */
+
+.journey-360-sku-price-check {
+  display: grid;
+  gap: 16px;
+}
+
+.journey-360-sku-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+  padding: 14px 16px;
+  background: #f8fafc;
+  border-radius: 12px;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+}
+
+.journey-360-sku-meta > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.journey-360-sku-label {
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #64748b;
+}
+
+.journey-360-sku-status {
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 6px;
+  display: inline-block;
+}
+
+.journey-360-sku-status--confirmed {
+  background: rgba(16, 185, 129, 0.12);
+  color: #065f46;
+}
+
+.journey-360-sku-status--tentative {
+  background: rgba(245, 158, 11, 0.14);
+  color: #92400e;
+}
+
+/* ── Price-check table column alignment ───────────────────────────────────── */
+
+.journey-360-table--price-check .journey-360-col-master,
+.journey-360-table--price-check .journey-360-col-booking,
+.journey-360-table--price-check .journey-360-col-deviation {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.journey-360-table--price-check .journey-360-col-master {
+  color: #1e3a5f;
+}
+
+.journey-360-table--price-check .journey-360-col-booking {
+  color: #374151;
+}
+
+/* ── Deviation cell states ─────────────────────────────────────────────────── */
+
+.journey-360-deviation {
+  text-align: right;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.journey-360-deviation small {
+  display: block;
+  font-size: 0.62rem;
+  opacity: 0.7;
+  margin-top: 1px;
+}
+
+.journey-360-deviation--none {
+  color: #94a3b8;
+}
+
+.journey-360-deviation--ok {
+  color: #059669;
+  font-weight: 600;
+}
+
+.journey-360-deviation--over {
+  color: #dc2626;
+  font-weight: 700;
+  background: rgba(220, 38, 38, 0.06);
+  border-radius: 4px;
+}
+
+.journey-360-deviation--under {
+  color: #d97706;
+  font-weight: 700;
+  background: rgba(217, 119, 6, 0.07);
+  border-radius: 4px;
+}
+
+/* ── Highlighted deviated row ──────────────────────────────────────────────── */
+
+.journey-360-table--price-check tbody tr.journey-360-row--deviated {
+  background: rgba(254, 243, 199, 0.45);
+}
+
+/* ── Total / Net footer rows ─────────────────────────────────────────────────── */
+
+.journey-360-table--price-check tfoot tr.journey-360-row--total td {
+  padding-top: 12px;
+  border-top: 2px solid rgba(148, 163, 184, 0.28);
+  font-size: 0.8rem;
+}
+
+.journey-360-table--price-check tfoot tr.journey-360-row--net td {
+  padding-top: 6px;
+  font-size: 0.76rem;
+  color: #475569;
+  border-top: 1px solid rgba(148, 163, 184, 0.15);
+}
+
+/* ── Discount / Bonus summary strip ──────────────────────────────────────────── */
+
+.journey-360-sku-deductions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: rgba(248, 250, 252, 0.9);
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  font-size: 0.74rem;
+  color: #475569;
+}
+
+.journey-360-sku-deduction {
+  color: #dc2626;
+}
+
+/* ── Tentative warning note ──────────────────────────────────────────────────── */
+
+.journey-360-sku-note {
+  margin: 0;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: rgba(254, 243, 199, 0.7);
+  border: 1px solid rgba(217, 119, 6, 0.25);
+  color: #92400e;
+  font-size: 0.74rem;
+  font-weight: 500;
+}

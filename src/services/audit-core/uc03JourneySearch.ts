@@ -80,6 +80,35 @@ export interface JourneyResolvedReviewedValue {
   precedenceReason?: string | null;
 }
 
+export interface SkuPricingComponent {
+  componentKey: string;
+  masterAmount: number;
+  bookingAmount: number | null;
+  deviationAmount: number | null;
+  deviationPercent: number | null;
+  currencyCode: string;
+}
+
+export interface SkuPricing {
+  skuCode: string;
+  modelName: string | null;
+  variantName: string | null;
+  colourName: string | null;
+  selectionStatus: string;
+  selectionMethod: string | null;
+  priceListVersionId: string;
+  currencyCode: string;
+  masterTotalAmount: number;
+  masterComponents: SkuPricingComponent[];
+  bookingTotalPrice: number | null;
+  bookingNetAmount: number | null;
+  bookingExShowroom: number | null;
+  bookingDiscount: number | null;
+  bookingBonus: number | null;
+  totalDeviationAmount: number | null;
+  totalDeviationPercent: number | null;
+}
+
 export interface JourneyOverview {
   journey: Record<string, unknown>;
   customer: Record<string, unknown>;
@@ -99,6 +128,7 @@ export interface JourneyOverview {
   findings: Array<Record<string, unknown>>;
   reviewedFields?: JourneyReviewedField[];
   resolvedReviewedValues?: Record<string, JourneyResolvedReviewedValue>;
+  skuPricing: SkuPricing | null;
 }
 
 function accessTokenRequired(accessToken?: string): string {

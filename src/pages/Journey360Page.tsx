@@ -6,8 +6,7 @@ import PageHeader from '../components/PageHeader';
 import SectionCard from '../components/SectionCard';
 import StatusPill from '../components/StatusPill';
 import JourneyReviewedDetails from '../features/uc03/JourneyReviewedDetails';
-import { deriveSkuCandidates } from '../services/audit-core/uc03SkuCandidates';
-import { getUc03JourneyOverview } from '../services/audit-core/uc03JourneySearch';
+import { getUc03JourneyOverview, type SkuPricing, type SkuPricingComponent } from '../services/audit-core/uc03JourneySearch';
 import { useProjectContextStore } from '../store/projectContextStore';
 import { useSessionStore } from '../store/sessionStore';
 
@@ -99,6 +98,121 @@ function receiptIsPending(payment: Record<string, unknown>): boolean {
   ) && String(payment.reviewStatus || '').toUpperCase() !== 'VERIFIED';
 }
 
+function DeviationCell({ amount, percent, currency = 'INR' }: { amount: number | null; percent: number | null; currency?: string }) {
+  if (amount === null) return <td className="journey-360-deviation journey-360-deviation--none">—</td>;
+  const sign = amount > 0 ? '+' : '';
+  const cls = amount === 0
+    ? 'journey-360-deviation journey-360-deviation--ok'
+    : Math.abs(amount) < 0.01
+    ? 'journey-360-deviation journey-360-deviation--ok'
+    : amount > 0
+    ? 'journey-360-deviation journey-360-deviation--over'
+    : 'journey-360-deviation journey-360-deviation--under';
+  return (
+    <td className={cls}>
+      {sign}{new Intl.NumberFormat('en-IN', { style: 'currency', currency, maximumFractionDigits: 0 }).format(amount)}
+      {percent !== null && <small>{sign}{percent.toFixed(1)}%</small>}
+    </td>
+  );
+}
+
+function SkuPriceCheckPanel({ pricing }: { pricing: SkuPricing }) {
+  const currency = pricing.currencyCode || 'INR';
+  const fmt = (v: number | null) =>
+    v === null ? '\u2014' : new Intl.NumberFormat('en-IN', { style: 'currency', currency, maximumFractionDigits: 0 }).format(v);
+  const statusCls =
+    pricing.selectionStatus === 'CONFIRMED'
+      ? 'journey-360-sku-status journey-360-sku-status--confirmed'
+      : 'journey-360-sku-status journey-360-sku-status--tentative';
+
+  const componentLabel = (key: string) =>
+    key.replaceAll('_', ' ').toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
+
+  const rows = pricing.masterComponents as SkuPricingComponent[];
+
+  return (
+    <div className="journey-360-sku-price-check">
+      <div className="journey-360-sku-meta">
+        <div>
+          <span className="journey-360-sku-label">SKU</span>
+          <strong>{pricing.skuCode}</strong>
+        </div>
+        <div>
+          <span className="journey-360-sku-label">Product</span>
+          <strong>
+            {[pricing.modelName, pricing.variantName, pricing.colourName].filter(Boolean).join(' \u00b7 ')}
+          </strong>
+        </div>
+        <div>
+          <span className="journey-360-sku-label">SKU Status</span>
+          <span className={statusCls}>{pricing.selectionStatus}</span>
+        </div>
+      </div>
+
+      {rows.length > 0 && (
+        <div className="journey-360-table-wrap">
+          <table className="journey-360-table journey-360-table--price-check">
+            <thead>
+              <tr>
+                <th>Component</th>
+                <th className="journey-360-col-master">Master (Standard)</th>
+                <th className="journey-360-col-booking">Booking / Invoice</th>
+                <th className="journey-360-col-deviation">Deviation</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row) => (
+                <tr
+                  key={row.componentKey}
+                  className={row.deviationAmount !== null && row.deviationAmount !== 0 ? 'journey-360-row--deviated' : ''}
+                >
+                  <td>{componentLabel(row.componentKey)}</td>
+                  <td className="journey-360-col-master">{fmt(row.masterAmount)}</td>
+                  <td className="journey-360-col-booking">{fmt(row.bookingAmount)}</td>
+                  <DeviationCell amount={row.deviationAmount} percent={row.deviationPercent} currency={currency} />
+                </tr>
+              ))}
+            </tbody>
+            <tfoot>
+              <tr className="journey-360-row--total">
+                <td><strong>Total (On-Road)</strong></td>
+                <td className="journey-360-col-master"><strong>{fmt(pricing.masterTotalAmount)}</strong></td>
+                <td className="journey-360-col-booking"><strong>{fmt(pricing.bookingTotalPrice)}</strong></td>
+                <DeviationCell amount={pricing.totalDeviationAmount} percent={pricing.totalDeviationPercent} currency={currency} />
+              </tr>
+              {pricing.bookingNetAmount !== null && (
+                <tr className="journey-360-row--net">
+                  <td><strong>Net Amount (after discounts)</strong></td>
+                  <td className="journey-360-col-master">—</td>
+                  <td className="journey-360-col-booking"><strong>{fmt(pricing.bookingNetAmount)}</strong></td>
+                  <td>—</td>
+                </tr>
+              )}
+            </tfoot>
+          </table>
+        </div>
+      )}
+
+      {(pricing.bookingDiscount !== null || pricing.bookingBonus !== null) && (
+        <div className="journey-360-sku-deductions">
+          {pricing.bookingDiscount !== null && (
+            <span><span className="journey-360-sku-label">Booking Discount</span> <strong className="journey-360-sku-deduction">{fmt(pricing.bookingDiscount)}</strong></span>
+          )}
+          {pricing.bookingBonus !== null && (
+            <span><span className="journey-360-sku-label">Bonus</span> <strong className="journey-360-sku-deduction">{fmt(pricing.bookingBonus)}</strong></span>
+          )}
+        </div>
+      )}
+
+      {pricing.selectionStatus === 'TENTATIVE' && (
+        <p className="journey-360-sku-note">
+          \u26a0 SKU is tentative \u2014 multiple matching master rows found. Confirm via Audit Review.
+        </p>
+      )}
+    </div>
+  );
+}
+
 export default function Journey360Page() {
   const { journeyId = '' } = useParams();
   const location = useLocation();
@@ -114,14 +228,12 @@ export default function Journey360Page() {
     if (!arrivedFromSubmit) return undefined;
     const timer = window.setTimeout(() => setShowSubmitBanner(false), SUBMIT_BANNER_DURATION_MS);
     return () => window.clearTimeout(timer);
-  // Run once on mount only — the location.state does not change after mount.
+  // Run once on mount only.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // BUG-1: when navigated from Review submit, force the overview query to
-  // re-fetch immediately rather than serving the 15s stale cache that still
-  // has captureSubmitted=false. This prevents BookingDetailsV2Page redirecting
-  // the user back to Review.
+  // re-fetch immediately rather than serving the 15s stale cache.
   const invalidatedOnArrival = useRef(false);
   useEffect(() => {
     if (!arrivedFromSubmit || invalidatedOnArrival.current) return;
@@ -129,7 +241,6 @@ export default function Journey360Page() {
     void queryClient.invalidateQueries({
       queryKey: ['uc03-journey-overview', tenantId, journeyId],
     });
-  // tenantId and journeyId are stable for the lifetime of this page mount.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -140,75 +251,7 @@ export default function Journey360Page() {
     staleTime: 15_000,
   });
 
-  // BUG-3: SKU auto-trigger state.
-  const skuTriggered = useRef(false);
-  const [skuResult, setSkuResult] = useState<{ label: string; status: string; tentative: boolean } | null>(null);
-  const [skuPending, setSkuPending] = useState(false);
-
   const model = overviewQuery.data;
-
-  // BUG-3: trigger SKU derivation once after data loads, when SKU is missing.
-  useEffect(() => {
-    if (!model || skuTriggered.current || !tenantId || !journeyId || !accessToken) return;
-    const booking = model.booking;
-    if (!booking) return;
-    const reviewedValues = objectValue(booking, 'reviewedValues');
-    // SKU is already present — nothing to do.
-    if (textValue(reviewedValues, 'sku_code') !== 'Not available') {
-      skuTriggered.current = true;
-      return;
-    }
-    // Need model name and at least one commercial total to attempt resolution.
-    const modelName = String(value(booking, 'modelName') || value(reviewedValues, 'vehicle_model') || '').trim();
-    // Sum available commercial lines for a total to match against the price master.
-    const commercialTotal = (model.commercialLines as Array<Record<string, unknown>>).reduce(
-      (sum, line) => {
-        const amt = Number(line.standardAmount ?? line.actualAmount ?? 0);
-        return sum + (Number.isNaN(amt) ? 0 : amt);
-      },
-      0,
-    );
-    // Also try reviewed DI total if Core lines are not yet populated.
-    const reviewedTotal = Number(value(reviewedValues, 'total_price') ?? value(reviewedValues, 'net_amount') ?? 0);
-    const totalToUse = commercialTotal > 0 ? commercialTotal : reviewedTotal;
-    if (!modelName || totalToUse <= 0) return;
-
-    skuTriggered.current = true;
-    setSkuPending(true);
-    const variantName = String(value(booking, 'variantName') || value(reviewedValues, 'vehicle_variant') || '').trim() || undefined;
-    const colourName = String(value(booking, 'colourName') || value(reviewedValues, 'vehicle_color') || '').trim() || undefined;
-    deriveSkuCandidates(
-      tenantId,
-      journeyId,
-      {
-        modelName,
-        variantName: variantName || null,
-        colourName: colourName || null,
-        totalCommercialAmount: totalToUse,
-      },
-      accessToken,
-    )
-      .then((response) => {
-        const top = response.candidates[0];
-        if (!top) return;
-        setSkuResult({
-          label: top.displayLabel,
-          status: top.candidateStatus === 'CONFIRMED' ? 'SKU resolved' : 'SKU tentative — confirm at Delivery',
-          tentative: top.candidateStatus === 'TENTATIVE',
-        });
-        // Invalidate the overview so the SKU appears in future fetches.
-        void queryClient.invalidateQueries({
-          queryKey: ['uc03-journey-overview', tenantId, journeyId],
-        });
-      })
-      .catch(() => {
-        // VAC-SKU-001 = no exact match; silently suppress — the section will
-        // show 'Not available' which is correct when no master row matches.
-      })
-      .finally(() => setSkuPending(false));
-  // Run when model first becomes available; dependencies are stable identifiers.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [model]);
 
   const receiptRows = model?.receipts || [];
   const paymentRows = receiptRows.length > 0 ? receiptRows : (model?.payments || []);
@@ -239,17 +282,6 @@ export default function Journey360Page() {
   const deliveryStatus = value(model.journey, 'deliveryStatus');
   const activeFindings = model.findings.filter((finding) => ['OPEN', 'ACKNOWLEDGED'].includes(String(finding.findingStatus || '')));
   const reviewedFields = model.reviewedFields || [];
-
-  // Resolved SKU: prefer Core answer, fall back to auto-trigger result.
-  const resolvedSku = textValue(reviewedBooking, 'sku_code');
-  const skuDisplay = resolvedSku !== 'Not available'
-    ? resolvedSku
-    : skuPending
-      ? 'Resolving SKU\u2026'
-      : skuResult
-        ? skuResult.label
-        : 'Not available';
-  const skuNote = resolvedSku === 'Not available' && skuResult ? skuResult.status : undefined;
 
   return (
     <div className="screen-stack journey-360-page">
@@ -314,10 +346,7 @@ export default function Journey360Page() {
               <Fact label="Model">{preferredText(model.booking, 'modelName', reviewedBooking, 'vehicle_model')}</Fact>
               <Fact label="Variant">{preferredText(model.booking, 'variantName', reviewedBooking, 'vehicle_variant')}</Fact>
               <Fact label="Colour">{preferredText(model.booking, 'colourName', reviewedBooking, 'vehicle_color')}</Fact>
-              <Fact label="SKU">
-                {skuDisplay}
-                {skuNote && <small style={{ display: 'block', fontWeight: 'normal', fontSize: '0.8em', color: skuResult?.tentative ? '#b45309' : '#15803d' }}>{skuNote}</small>}
-              </Fact>
+              <Fact label="SKU">{textValue(reviewedBooking, 'sku_code')}</Fact>
               <Fact label="Sales Consultant">{textValue(reviewedBooking, 'sales_person')}</Fact>
               <Fact label="Dealer">{textValue(reviewedBooking, 'dealer_name')}</Fact>
               <Fact label="Dealer Branch">{textValue(reviewedBooking, 'dealer_branch')}</Fact>
@@ -334,6 +363,15 @@ export default function Journey360Page() {
           ) : <EmptySection>Booking details are not available yet.</EmptySection>}
         </SectionCard>
       </div>
+
+      {model.skuPricing && (
+        <SectionCard
+          title="Price Check \u2014 Master vs Booking"
+          description={`SKU ${model.skuPricing.skuCode} \u00b7 ${model.skuPricing.selectionStatus} \u00b7 Price List version ${model.skuPricing.priceListVersionId.slice(0, 8)}\u2026`}
+        >
+          <SkuPriceCheckPanel pricing={model.skuPricing} />
+        </SectionCard>
+      )}
 
       <div className="journey-360-grid journey-360-grid--two">
         <SectionCard title="Commercials & Discounts" description="Current Core-owned commercial lines are the final amounts; Booking reviewed amounts are retained for comparison and audit traceability.">

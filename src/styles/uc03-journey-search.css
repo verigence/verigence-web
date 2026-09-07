@@ -294,6 +294,39 @@
   background: var(--journey-search-accent-dark);
 }
 
+/* ── Journey 360 submit success banner ──────────────────────────────────────── */
+
+.journey-360-submit-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 13px 18px;
+  border-radius: 14px;
+  background: #ecfdf5;
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  color: #065f46;
+  font-size: 0.84rem;
+  font-weight: 600;
+}
+
+.journey-360-banner-dismiss {
+  border: 0;
+  background: transparent;
+  color: #065f46;
+  font-size: 1.1rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 4px;
+  opacity: 0.7;
+}
+
+.journey-360-banner-dismiss:hover {
+  opacity: 1;
+}
+
+/* ── Journey 360 topline / nav ──────────────────────────────────────────────── */
+
 .journey-360-topline {
   display: flex;
   align-items: center;
@@ -336,6 +369,8 @@
   color: #fff;
 }
 
+/* ── Journey 360 summary bar ────────────────────────────────────────────────── */
+
 .journey-360-summary {
   display: grid;
   grid-template-columns: 1.4fr repeat(4, 1fr);
@@ -367,6 +402,24 @@
   font-size: 1rem;
 }
 
+/* Pending receipt badge inside summary bar */
+.journey-360-receipt-pending-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 1px 6px;
+  border-radius: 6px;
+  background: rgba(217, 119, 6, 0.12);
+  color: #92400e;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  vertical-align: middle;
+  margin-left: 4px;
+}
+
+/* ── Layout grids ───────────────────────────────────────────────────────────── */
+
 .journey-360-grid {
   display: grid;
   gap: 14px;
@@ -379,6 +432,8 @@
 .journey-360-grid--three {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
+
+/* ── Facts grid ─────────────────────────────────────────────────────────────── */
 
 .journey-360-facts {
   display: grid;
@@ -433,6 +488,8 @@
   font-size: 0.82rem;
 }
 
+/* ── Data tables ────────────────────────────────────────────────────────────── */
+
 .journey-360-table-wrap {
   width: 100%;
   overflow-x: auto;
@@ -463,6 +520,8 @@
   vertical-align: top;
 }
 
+/* ── Payment totals chip ────────────────────────────────────────────────────── */
+
 .journey-360-payment-total {
   display: flex;
   align-items: baseline;
@@ -484,12 +543,21 @@
   font-size: 1rem;
 }
 
-/* ── Payment split container: stacks two cards vertically inside the grid cell ── */
+/* ── Payment split container ────────────────────────────────────────────────── */
+/* Stacks Payment Receipts and Invoice Payments vertically inside the right
+   column of the Commercials row. Both cards grow to fill the column equally. */
+
 .journey-360-payment-split {
   display: flex;
   flex-direction: column;
   gap: 14px;
 }
+
+.journey-360-payment-split > * {
+  flex: 1;
+}
+
+/* ── List rows (findings) ───────────────────────────────────────────────────── */
 
 .journey-360-list {
   display: grid;
@@ -618,7 +686,7 @@
   background: #f8fafc;
 }
 
-/* ── Pending receipt row ─────────────────────────────────────────────────────── */
+/* ── Pending receipt rows ────────────────────────────────────────────────────── */
 
 .journey-360-receipt-pending td {
   color: #94a3b8;
@@ -675,6 +743,8 @@
   .journey-360-summary > div:nth-child(3n) { border-right: 0; }
   .journey-360-grid--two,
   .journey-360-grid--three { grid-template-columns: 1fr; }
+  /* On mobile the split stacks normally; cards already take full width */
+  .journey-360-payment-split > * { flex: none; }
 }
 
 @media (max-width: 520px) {

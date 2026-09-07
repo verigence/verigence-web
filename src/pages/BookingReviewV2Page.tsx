@@ -40,19 +40,18 @@ function displayValue(value: unknown): string {
   try { return JSON.stringify(value); } catch { return String(value); }
 }
 
-function confidence(value: number | null): string {
-  if (value === null || value === undefined) return '\u2014';
-  return `${value.toFixed(value % 1 === 0 ? 0 : 1)}%`;
-}
-
 function hasExtractedValue(attribute: ReviewV2Attribute): boolean {
   return attribute.resolvedValue !== null && attribute.resolvedValue !== undefined && attribute.resolvedValue !== '';
 }
 
 function needsAttributeDecision(attribute: ReviewV2Attribute): boolean {
-  // 06-Sep-2026 C-05: confidence alone controls PC review. Source mismatch remains
-  // visible for audit comparison but does not create PC work by itself.
   return hasExtractedValue(attribute) && attribute.reviewState === 'NEEDS_REVIEW';
+}
+
+function isHighConfidence(attribute: ReviewV2Attribute): boolean {
+  return attribute.confidenceScore !== null
+    && attribute.confidenceScore !== undefined
+    && attribute.confidenceScore >= REVIEW_THRESHOLD;
 }
 
 function rawSource(field: ReviewV2UnmappedField): ReviewV2SourceValue {
@@ -168,8 +167,6 @@ export default function BookingReviewV2Page() {
   const requiredRawKeys = rawGroups.filter((group) => group.needsDecision).map((group) => group.reviewKey);
   const requiredDecisionKeys = [...requiredMappedKeys, ...requiredRawKeys];
   const unresolvedDecisionKeys = requiredDecisionKeys.filter((key) => !decisionByKey.has(key));
-  // Extraction still running is explicitly not a submit blocker. Only currently
-  // available low-confidence exceptions (and failed evidence processing) must be dealt with.
   const canAct = !decisionsQuery.isPending
     && !decisionsQuery.isError
     && failedDocuments.length === 0
@@ -204,12 +201,6 @@ export default function BookingReviewV2Page() {
     setConfirming(true);
     setConfirmationError(undefined);
     try {
-      // Always confirm before submit when Booking has not been submitted yet.
-      // confirmBookingReviewV2 is idempotent (keyed on journeyId + version) and
-      // returns the current authoritative aggregateVersion, eliminating the stale
-      // version window that caused VAC-CONFLICT-005.
-      // The VERIFIED guard is preserved: re-confirming an already-VERIFIED booking
-      // would be a redundant mutation.
       let aggregateVersion = review.aggregateVersion;
 
       if (!review.captureSubmitted) {
@@ -230,7 +221,6 @@ export default function BookingReviewV2Page() {
           accessToken,
         );
       } else if (review.pcVerificationStatus !== 'VERIFIED') {
-        // captureSubmitted but not yet VERIFIED: confirm late-arriving DI facts only.
         const confirmed = await confirmBookingReviewV2(
           project.tenantId,
           journeyId,
@@ -242,8 +232,6 @@ export default function BookingReviewV2Page() {
         setCorrections(new Map());
       }
 
-      // Navigate to Journey Detail. Pass bookingSubmitted=true so Journey360Page
-      // invalidates its stale cache and shows the success confirmation banner.
       navigate(`/journeys/${journeyId}/overview`, {
         replace: true,
         state: { bookingSubmitted: true },
@@ -256,6 +244,8 @@ export default function BookingReviewV2Page() {
     }
   };
 
+  const isReadOnly = review.captureSubmitted && review.pcVerificationStatus === 'VERIFIED';
+
   const renderRawGroups = (groups: typeof rawGroups) => (
     <div className="uc03-raw-review-grid">
       {groups.map((group) => {
@@ -263,28 +253,56 @@ export default function BookingReviewV2Page() {
         const source = group.selected;
         const evidenceSource = rawSource(source);
         const selectedHasBox = hasBoxedEvidence(evidenceSource);
+        const highConf = source.confidenceScore !== null
+          && source.confidenceScore !== undefined
+          && source.confidenceScore >= REVIEW_THRESHOLD;
         return (
           <article key={group.groupKey} className={`uc03-raw-review-card ${group.needsDecision && !decision ? 'needs-review' : ''}`}>
             <header>
-              <div><span className="uc03-attribute-evidence-kicker">DI extracted field</span><h3>{displayFieldKey(group.fieldKey)}</h3><small>{source.documentLabel}</small></div>
+              <div>
+                <span className="uc03-attribute-evidence-kicker">DI extracted field</span>
+                <h3>{displayFieldKey(group.fieldKey)}</h3>
+                <small>{source.documentLabel}</small>
+              </div>
               <span className={`uc03-attribute-status ${decision === 'REJECTED' ? 'rejected' : group.needsDecision && !decision ? 'needs-review' : 'ready'}`}>
                 {decision === 'ACCEPTED' ? 'Accepted' : decision === 'REJECTED' ? 'Rejected' : group.mismatch ? 'Source Mismatch' : group.needsDecision ? 'Needs Review' : 'Ready'}
               </span>
             </header>
-            <ReviewEffectiveValueEditor
-              source={source}
-              correction={corrections.get(reviewSourceKey(source))}
-              onChange={(correction) => setCorrection(source, correction)}
-              disabled={review.captureSubmitted && review.pcVerificationStatus === 'VERIFIED' || decision === 'REJECTED'}
-            />
-            <div className="uc03-raw-review-selected"><span>DI source</span><strong>{displayValue(source.value)}</strong><small>{source.documentLabel} \u00b7 {confidence(source.confidenceScore)}</small></div>
+            {/* Only show the editor when confidence < 90% and not rejected and not read-only */}
+            {!highConf && !isReadOnly && decision !== 'REJECTED' ? (
+              <ReviewEffectiveValueEditor
+                source={source}
+                correction={corrections.get(reviewSourceKey(source))}
+                onChange={(correction) => setCorrection(source, correction)}
+                disabled={false}
+              />
+            ) : (
+              <div className="uc03-raw-review-selected">
+                <span>Extracted value</span>
+                <strong>{displayValue(source.value)}</strong>
+              </div>
+            )}
+            <div className="uc03-raw-review-selected">
+              <span>DI source</span>
+              <strong>{source.documentLabel}</strong>
+            </div>
             {group.sources.length > 1 ? (
               <div className="uc03-raw-review-sources">
                 <span>Available source values</span>
                 {group.sources.map((item) => {
                   const itemSource = rawSource(item);
                   const boxed = hasBoxedEvidence(itemSource);
-                  return <button type="button" key={`${item.documentId}:${item.canonicalFieldId}:${item.sourceFactVersion}`} disabled={!boxed} onClick={() => boxed && setSelectedSource(itemSource)}><strong>{displayValue(item.value)}</strong><small>{item.documentLabel} \u00b7 {confidence(item.confidenceScore)}</small></button>;
+                  return (
+                    <button
+                      type="button"
+                      key={`${item.documentId}:${item.canonicalFieldId}:${item.sourceFactVersion}`}
+                      disabled={!boxed}
+                      onClick={() => boxed && setSelectedSource(itemSource)}
+                    >
+                      <strong>{displayValue(item.value)}</strong>
+                      <small>{item.documentLabel}</small>
+                    </button>
+                  );
                 })}
               </div>
             ) : null}
@@ -309,9 +327,9 @@ export default function BookingReviewV2Page() {
       </div>
 
       <PageHeader
-        eyebrow="Booking \u00b7 Step 2 of 2"
+        eyebrow="Booking · Step 2 of 2"
         title={review.captureSubmitted ? 'Review extracted Booking information' : 'Review & Submit Booking'}
-        description="DI values at 90% confidence or above need no PC action. Values below 90% require Accept/Reject or correction; original DI evidence is always retained."
+        description="Values extracted by DI at 90% confidence or above are ready — no PC action needed. Values below 90% require Accept / Reject or correction."
       />
 
       <section className="uc03-attribute-review-summary" aria-label="Booking review summary">
@@ -325,38 +343,89 @@ export default function BookingReviewV2Page() {
       {requiredDecisionKeys.length > 0 ? <div className="uc03-v2-review-attention" role="status"><strong>{unresolvedDecisionKeys.length} of {requiredDecisionKeys.length} exception{requiredDecisionKeys.length === 1 ? '' : 's'} still need a decision.</strong><span>Accept or Reject is separate from editing the effective value.</span></div> : null}
 
       {review.missingDeclarations.length ? (
-        <section className="uc03-v2-section"><header><div><span className="uc03-c1-eyebrow">Declarations</span><h2>Applicable documents not available</h2></div></header><div className="uc03-v2-review-missing-list">{review.missingDeclarations.map((item) => <div key={item.requirementKey} className="uc03-v2-review-missing-row"><div><strong>{item.label}</strong><span>Applicable \u00b7 Document not available</span></div><span>Recorded for audit follow-up</span></div>)}</div></section>
+        <section className="uc03-v2-section"><header><div><span className="uc03-c1-eyebrow">Declarations</span><h2>Applicable documents not available</h2></div></header><div className="uc03-v2-review-missing-list">{review.missingDeclarations.map((item) => <div key={item.requirementKey} className="uc03-v2-review-missing-row"><div><strong>{item.label}</strong><span>Applicable · Document not available</span></div><span>Recorded for audit follow-up</span></div>)}</div></section>
       ) : null}
 
+      {/* ── Mapped Booking attributes table ── */}
       <section className="uc03-v2-section uc03-attribute-table-section">
-        <header className="uc03-v2-section-header"><div><span className="uc03-c1-eyebrow">Extracted Booking attributes</span><h2>Business attribute review</h2><p>Edit only when the confirmed value differs from DI. The source fact and original DI value remain traceable.</p></div><span>PC Verification: {review.pcVerificationStatus}</span></header>
+        <header className="uc03-v2-section-header">
+          <div>
+            <span className="uc03-c1-eyebrow">Extracted Booking attributes</span>
+            <h2>Business attribute review</h2>
+            <p>Only values below 90% confidence can be edited. Original DI value and provenance are always retained.</p>
+          </div>
+        </header>
         <div className="uc03-attribute-table-wrap">
+          {/* Columns: Attribute | Value | Source evidence | Decision */}
           <table className="uc03-attribute-table uc03-booking-review-table">
-            <thead><tr><th>Attribute</th><th>Effective value</th><th>Confidence</th><th>Source evidence</th><th>Review state</th><th>Decision</th></tr></thead>
+            <thead>
+              <tr>
+                <th>Attribute</th>
+                <th>Value</th>
+                <th>Source evidence</th>
+                <th>Decision</th>
+              </tr>
+            </thead>
             <tbody>
               {populatedAttributes.length ? populatedAttributes.map((attribute) => {
                 const source = attribute.resolvedSource;
                 const reviewKey = `attribute:${attribute.attributeKey}`;
                 const decision = decisionByKey.get(reviewKey);
                 const needsDecision = needsAttributeDecision(attribute);
+                const highConf = isHighConfidence(attribute);
+                const locked = isReadOnly || decision === 'REJECTED';
                 return (
                   <tr key={attribute.attributeKey} className={needsDecision && !decision ? 'needs-review' : ''}>
-                    <td className="uc03-attribute-name-cell"><strong>{attribute.label}</strong><span>{attribute.excelFieldNo ? `Excel #${attribute.excelFieldNo}` : 'Booking business field'}</span></td>
-                    <td>{source ? <ReviewEffectiveValueEditor source={source} correction={corrections.get(reviewSourceKey(source))} onChange={(correction) => setCorrection(source, correction)} requireValue disabled={review.captureSubmitted && review.pcVerificationStatus === 'VERIFIED' || decision === 'REJECTED'} /> : displayValue(attribute.resolvedValue)}</td>
-                    <td>{confidence(attribute.confidenceScore)}</td>
-                    <td>{source ? <div className="uc03-attribute-source-cell"><strong>{source.documentLabel}</strong><span>{source.documentTypeKey || source.originalFilename}</span>{hasBoxedEvidence(source) ? <button type="button" className="uc03-attribute-evidence-link" onClick={() => setSelectedSource(source)}>View boxed evidence</button> : <span>Source location unavailable</span>}</div> : '\u2014'}</td>
-                    <td><span className={`uc03-attribute-status ${decision === 'REJECTED' ? 'rejected' : needsDecision && !decision ? 'needs-review' : 'ready'}`}>{decision === 'ACCEPTED' ? 'Accepted' : decision === 'REJECTED' ? 'Rejected' : needsDecision ? 'Needs Review' : attribute.comparisonState === 'MISMATCH' ? 'Source Mismatch' : 'Ready'}</span></td>
-                    <td>{needsDecision ? <DecisionButtons reviewKey={reviewKey} decision={decision} busy={decisionBusyKey === reviewKey} onDecision={(key, value) => void setDecision(key, value)} /> : <span className="uc03-review-auto-cleared">No action needed</span>}</td>
+                    {/* Attribute name — no Excel field number */}
+                    <td className="uc03-attribute-name-cell">
+                      <strong>{attribute.label}</strong>
+                    </td>
+                    {/* Value — editable only when confidence < 90% */}
+                    <td>
+                      {source && !highConf && !locked ? (
+                        <ReviewEffectiveValueEditor
+                          source={source}
+                          correction={corrections.get(reviewSourceKey(source))}
+                          onChange={(correction) => setCorrection(source, correction)}
+                          requireValue
+                          disabled={false}
+                        />
+                      ) : (
+                        displayValue(attribute.resolvedValue)
+                      )}
+                    </td>
+                    {/* Source evidence */}
+                    <td>
+                      {source ? (
+                        <div className="uc03-attribute-source-cell">
+                          <strong>{source.documentLabel}</strong>
+                          <span>{source.documentTypeKey || source.originalFilename}</span>
+                          {hasBoxedEvidence(source) ? (
+                            <button type="button" className="uc03-attribute-evidence-link" onClick={() => setSelectedSource(source)}>View boxed evidence</button>
+                          ) : (
+                            <span>Source location unavailable</span>
+                          )}
+                        </div>
+                      ) : '—'}
+                    </td>
+                    {/* Decision — only when low confidence */}
+                    <td>
+                      {needsDecision ? (
+                        <DecisionButtons reviewKey={reviewKey} decision={decision} busy={decisionBusyKey === reviewKey} onDecision={(key, value) => void setDecision(key, value)} />
+                      ) : (
+                        <span className="uc03-review-auto-cleared">No action needed</span>
+                      )}
+                    </td>
                   </tr>
                 );
-              }) : <tr><td colSpan={6} className="uc03-review-empty-table">No mapped Booking values have been extracted yet.</td></tr>}
+              }) : <tr><td colSpan={4} className="uc03-review-empty-table">No mapped Booking values have been extracted yet.</td></tr>}
             </tbody>
           </table>
         </div>
       </section>
 
       {receiptGroups.length ? <section className="uc03-v2-section uc03-raw-review-section"><header className="uc03-v2-section-header"><div><span className="uc03-c1-eyebrow">Payment receipts</span><h2>Dealer receipt evidence</h2><p>Each receipt and field remains tied to its own DI document identity.</p></div><span>{receiptGroups.length} value{receiptGroups.length === 1 ? '' : 's'}</span></header>{renderRawGroups(receiptGroups)}</section> : null}
-      {additionalRawGroups.length ? <section className="uc03-v2-section uc03-raw-review-section"><header className="uc03-v2-section-header"><div><span className="uc03-c1-eyebrow">Additional extracted evidence</span><h2>Additional DI fields</h2><p>Every extracted field remains visible and document-scoped even when a richer typed business owner is not yet available.</p></div><span>{additionalRawGroups.length} field{additionalRawGroups.length === 1 ? '' : 's'}</span></header>{renderRawGroups(additionalRawGroups)}</section> : null}
+      {additionalRawGroups.length ? <section className="uc03-v2-section uc03-raw-review-section"><header className="uc03-v2-section-header"><div><span className="uc03-c1-eyebrow">Additional extracted evidence</span><h2>Additional DI fields</h2><p>Every extracted field is shown here — these are DI extractions not yet mapped to a typed Audit Core business field.</p></div><span>{additionalRawGroups.length} field{additionalRawGroups.length === 1 ? '' : 's'}</span></header>{renderRawGroups(additionalRawGroups)}</section> : null}
 
       {decisionError ? <div className="uc03-c3-error" role="alert">{decisionError}</div> : null}
       {decisionsQuery.isError ? <div className="uc03-c3-error" role="alert">Review decisions could not be loaded. Refresh Review before confirming.</div> : null}

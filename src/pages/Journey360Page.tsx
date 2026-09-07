@@ -1,14 +1,18 @@
-import { useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { Link, useParams } from 'react-router-dom';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { Link, useLocation, useParams } from 'react-router-dom';
 
 import PageHeader from '../components/PageHeader';
 import SectionCard from '../components/SectionCard';
 import StatusPill from '../components/StatusPill';
 import JourneyReviewedDetails from '../features/uc03/JourneyReviewedDetails';
+import { deriveSkuCandidates } from '../services/audit-core/uc03SkuCandidates';
 import { getUc03JourneyOverview } from '../services/audit-core/uc03JourneySearch';
 import { useProjectContextStore } from '../store/projectContextStore';
 import { useSessionStore } from '../store/sessionStore';
+
+// How long the "Booking submitted" success banner stays visible (ms).
+const SUBMIT_BANNER_DURATION_MS = 6_000;
 
 function value(record: Record<string, unknown> | null | undefined, key: string): unknown {
   return record?.[key];
@@ -55,7 +59,7 @@ function readable(valueToFormat: unknown): string {
 }
 
 function money(valueToFormat: unknown, currency = 'INR'): string {
-  if (valueToFormat === null || valueToFormat === undefined || valueToFormat === '') return '—';
+  if (valueToFormat === null || valueToFormat === undefined || valueToFormat === '') return '\u2014';
   const amount = Number(valueToFormat);
   if (Number.isNaN(amount)) return String(valueToFormat);
   try {
@@ -85,11 +89,49 @@ function EmptySection({ children }: { children: React.ReactNode }) {
   return <p className="journey-360-empty">{children}</p>;
 }
 
+/** True when the receipt row has no reviewed amount yet (DI still processing). */
+function receiptIsPending(payment: Record<string, unknown>): boolean {
+  return (
+    payment.amount === null
+    || payment.amount === undefined
+    || payment.amount === ''
+    || Number(payment.amount) === 0
+  ) && String(payment.reviewStatus || '').toUpperCase() !== 'VERIFIED';
+}
+
 export default function Journey360Page() {
   const { journeyId = '' } = useParams();
+  const location = useLocation();
+  const queryClient = useQueryClient();
   const accessToken = useSessionStore((state) => state.accessToken);
   const selectedProject = useProjectContextStore((state) => state.selectedProject);
   const tenantId = selectedProject?.tenantId || '';
+
+  // BUG-4: show a timed success banner when navigated straight from Booking Review submit.
+  const arrivedFromSubmit = (location.state as Record<string, unknown> | null)?.bookingSubmitted === true;
+  const [showSubmitBanner, setShowSubmitBanner] = useState(arrivedFromSubmit);
+  useEffect(() => {
+    if (!arrivedFromSubmit) return undefined;
+    const timer = window.setTimeout(() => setShowSubmitBanner(false), SUBMIT_BANNER_DURATION_MS);
+    return () => window.clearTimeout(timer);
+  // Run once on mount only — the location.state does not change after mount.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // BUG-1: when navigated from Review submit, force the overview query to
+  // re-fetch immediately rather than serving the 15s stale cache that still
+  // has captureSubmitted=false. This prevents BookingDetailsV2Page redirecting
+  // the user back to Review.
+  const invalidatedOnArrival = useRef(false);
+  useEffect(() => {
+    if (!arrivedFromSubmit || invalidatedOnArrival.current) return;
+    invalidatedOnArrival.current = true;
+    void queryClient.invalidateQueries({
+      queryKey: ['uc03-journey-overview', tenantId, journeyId],
+    });
+  // tenantId and journeyId are stable for the lifetime of this page mount.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const overviewQuery = useQuery({
     queryKey: ['uc03-journey-overview', tenantId, journeyId],
@@ -98,7 +140,76 @@ export default function Journey360Page() {
     staleTime: 15_000,
   });
 
+  // BUG-3: SKU auto-trigger state.
+  const skuTriggered = useRef(false);
+  const [skuResult, setSkuResult] = useState<{ label: string; status: string; tentative: boolean } | null>(null);
+  const [skuPending, setSkuPending] = useState(false);
+
   const model = overviewQuery.data;
+
+  // BUG-3: trigger SKU derivation once after data loads, when SKU is missing.
+  useEffect(() => {
+    if (!model || skuTriggered.current || !tenantId || !journeyId || !accessToken) return;
+    const booking = model.booking;
+    if (!booking) return;
+    const reviewedValues = objectValue(booking, 'reviewedValues');
+    // SKU is already present — nothing to do.
+    if (textValue(reviewedValues, 'sku_code') !== 'Not available') {
+      skuTriggered.current = true;
+      return;
+    }
+    // Need model name and at least one commercial total to attempt resolution.
+    const modelName = String(value(booking, 'modelName') || value(reviewedValues, 'vehicle_model') || '').trim();
+    // Sum available commercial lines for a total to match against the price master.
+    const commercialTotal = (model.commercialLines as Array<Record<string, unknown>>).reduce(
+      (sum, line) => {
+        const amt = Number(line.standardAmount ?? line.actualAmount ?? 0);
+        return sum + (Number.isNaN(amt) ? 0 : amt);
+      },
+      0,
+    );
+    // Also try reviewed DI total if Core lines are not yet populated.
+    const reviewedTotal = Number(value(reviewedValues, 'total_price') ?? value(reviewedValues, 'net_amount') ?? 0);
+    const totalToUse = commercialTotal > 0 ? commercialTotal : reviewedTotal;
+    if (!modelName || totalToUse <= 0) return;
+
+    skuTriggered.current = true;
+    setSkuPending(true);
+    const variantName = String(value(booking, 'variantName') || value(reviewedValues, 'vehicle_variant') || '').trim() || undefined;
+    const colourName = String(value(booking, 'colourName') || value(reviewedValues, 'vehicle_color') || '').trim() || undefined;
+    deriveSkuCandidates(
+      tenantId,
+      journeyId,
+      {
+        modelName,
+        variantName: variantName || null,
+        colourName: colourName || null,
+        totalCommercialAmount: totalToUse,
+      },
+      accessToken,
+    )
+      .then((response) => {
+        const top = response.candidates[0];
+        if (!top) return;
+        setSkuResult({
+          label: top.displayLabel,
+          status: top.candidateStatus === 'CONFIRMED' ? 'SKU resolved' : 'SKU tentative — confirm at Delivery',
+          tentative: top.candidateStatus === 'TENTATIVE',
+        });
+        // Invalidate the overview so the SKU appears in future fetches.
+        void queryClient.invalidateQueries({
+          queryKey: ['uc03-journey-overview', tenantId, journeyId],
+        });
+      })
+      .catch(() => {
+        // VAC-SKU-001 = no exact match; silently suppress — the section will
+        // show 'Not available' which is correct when no master row matches.
+      })
+      .finally(() => setSkuPending(false));
+  // Run when model first becomes available; dependencies are stable identifiers.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [model]);
+
   const receiptRows = model?.receipts || [];
   const paymentRows = receiptRows.length > 0 ? receiptRows : (model?.payments || []);
   const paymentTotal = useMemo(() => (
@@ -108,12 +219,12 @@ export default function Journey360Page() {
     }, 0)
   ), [paymentRows]);
 
-  if (overviewQuery.isLoading) return <div className="page-loading">Loading complete Journey…</div>;
+  if (overviewQuery.isLoading) return <div className="page-loading">Loading complete Journey\u2026</div>;
   if (overviewQuery.isError || !model) {
     return (
       <div className="screen-stack journey-360-page">
         <PageHeader eyebrow="Journey Search" title="Journey unavailable" description="This Journey was not found in your current authorized Project scope." />
-        <Link className="journey-360-back" to="/search">← Back to Journey Search</Link>
+        <Link className="journey-360-back" to="/search">\u2190 Back to Journey Search</Link>
       </div>
     );
   }
@@ -129,10 +240,28 @@ export default function Journey360Page() {
   const activeFindings = model.findings.filter((finding) => ['OPEN', 'ACKNOWLEDGED'].includes(String(finding.findingStatus || '')));
   const reviewedFields = model.reviewedFields || [];
 
+  // Resolved SKU: prefer Core answer, fall back to auto-trigger result.
+  const resolvedSku = textValue(reviewedBooking, 'sku_code');
+  const skuDisplay = resolvedSku !== 'Not available'
+    ? resolvedSku
+    : skuPending
+      ? 'Resolving SKU\u2026'
+      : skuResult
+        ? skuResult.label
+        : 'Not available';
+  const skuNote = resolvedSku === 'Not available' && skuResult ? skuResult.status : undefined;
+
   return (
     <div className="screen-stack journey-360-page">
+      {showSubmitBanner && (
+        <div className="journey-360-submit-banner" role="status" aria-live="polite">
+          <span>\u2714\ufe0f Booking submitted successfully.</span>
+          <button type="button" className="journey-360-banner-dismiss" aria-label="Dismiss" onClick={() => setShowSubmitBanner(false)}>\u00d7</button>
+        </div>
+      )}
+
       <div className="journey-360-topline">
-        <Link className="journey-360-back" to="/search">← Search results</Link>
+        <Link className="journey-360-back" to="/search">\u2190 Search results</Link>
         <div className="journey-360-actions">
           <Link to={`/v2/bookings/${journeyId}`}>Open Booking</Link>
           <Link to={`/v2/deliveries/${journeyId}`}>Open Delivery</Link>
@@ -141,9 +270,9 @@ export default function Journey360Page() {
       </div>
 
       <PageHeader
-        eyebrow={`${textValue(model.journey, 'dealerName')} · ${textValue(model.journey, 'outletName')}`}
+        eyebrow={`${textValue(model.journey, 'dealerName')} \u00b7 ${textValue(model.journey, 'outletName')}`}
         title={customerName}
-        description={`Dealer Booking ${bookingReference} · ${productLabel}`}
+        description={`Dealer Booking ${bookingReference} \u00b7 ${productLabel}`}
         actions={<div className="header-statuses"><StatusPill value={String(bookingStatus || 'NOT_STARTED')} /><StatusPill value={String(deliveryStatus || 'NOT_STARTED')} /></div>}
       />
 
@@ -185,7 +314,10 @@ export default function Journey360Page() {
               <Fact label="Model">{preferredText(model.booking, 'modelName', reviewedBooking, 'vehicle_model')}</Fact>
               <Fact label="Variant">{preferredText(model.booking, 'variantName', reviewedBooking, 'vehicle_variant')}</Fact>
               <Fact label="Colour">{preferredText(model.booking, 'colourName', reviewedBooking, 'vehicle_color')}</Fact>
-              <Fact label="SKU">{textValue(reviewedBooking, 'sku_code')}</Fact>
+              <Fact label="SKU">
+                {skuDisplay}
+                {skuNote && <small style={{ display: 'block', fontWeight: 'normal', fontSize: '0.8em', color: skuResult?.tentative ? '#b45309' : '#15803d' }}>{skuNote}</small>}
+              </Fact>
               <Fact label="Sales Consultant">{textValue(reviewedBooking, 'sales_person')}</Fact>
               <Fact label="Dealer">{textValue(reviewedBooking, 'dealer_name')}</Fact>
               <Fact label="Dealer Branch">{textValue(reviewedBooking, 'dealer_branch')}</Fact>
@@ -278,14 +410,24 @@ export default function Journey360Page() {
                 <table className="journey-360-table">
                   <thead><tr><th>Date</th><th>Receipt / Reference</th><th>Mode / Status</th><th>Amount</th></tr></thead>
                   <tbody>
-                    {paymentRows.map((payment, index) => (
-                      <tr key={String(payment.documentId || payment.paymentId || payment.receiptNumber || index)}>
-                        <td>{dateLabel(payment.receiptDate || payment.paymentAtUtc)}</td>
-                        <td>{String(payment.receiptNumber || payment.paymentReference || payment.originalFilename || '—')}</td>
-                        <td>{readable(payment.paymentMethodCode || payment.reviewStatus || payment.actualStatusCode)}</td>
-                        <td>{money(payment.amount, String(payment.currencyCode || 'INR'))}</td>
-                      </tr>
-                    ))}
+                    {paymentRows.map((payment, index) => {
+                      const isPending = receiptIsPending(payment);
+                      return (
+                        <tr
+                          key={String(payment.documentId || payment.paymentId || payment.receiptNumber || index)}
+                          className={isPending ? 'journey-360-receipt-pending' : ''}
+                        >
+                          <td>{isPending ? <span className="journey-360-receipt-pending-label">Document received</span> : dateLabel(payment.receiptDate || payment.paymentAtUtc)}</td>
+                          <td>{String(payment.receiptNumber || payment.paymentReference || payment.originalFilename || '\u2014')}</td>
+                          <td>
+                            {isPending
+                              ? <span className="journey-360-receipt-pending-status">DI extracting\u2026</span>
+                              : readable(payment.paymentMethodCode || payment.reviewStatus || payment.actualStatusCode)}
+                          </td>
+                          <td>{isPending ? <span className="journey-360-receipt-pending-label">Pending</span> : money(payment.amount, String(payment.currencyCode || 'INR'))}</td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -400,8 +542,8 @@ export default function Journey360Page() {
                 {model.addons.map((addon, index) => (
                   <tr key={String(addon.journeyAddonId || index)}>
                     <td>{readable(addon.addonTypeCode)}</td>
-                    <td>{String(addon.providerName || '—')}</td>
-                    <td>{String(addon.referenceNumber || '—')}</td>
+                    <td>{String(addon.providerName || '\u2014')}</td>
+                    <td>{String(addon.referenceNumber || '\u2014')}</td>
                     <td>{money(addon.standardAmount)}</td>
                     <td>{money(addon.actualAmount)}</td>
                     <td>{readable(addon.sourceKind)}</td>
@@ -424,7 +566,7 @@ export default function Journey360Page() {
                   <span className="journey-360-document-mark">DOC</span>
                   <div>
                     <strong>{readable(document.documentTypeKey || document.requirementKey || document.originalFilename)}</strong>
-                    <small>{readable(document.processArea || document.evidencePurpose)}{document.originalFilename ? ` · ${String(document.originalFilename)}` : ''}</small>
+                    <small>{readable(document.processArea || document.evidencePurpose)}{document.originalFilename ? ` \u00b7 ${String(document.originalFilename)}` : ''}</small>
                   </div>
                   <div className="journey-360-list__status">
                     <StatusPill value={String(document.reviewStatus || document.verificationStatus || document.processingStatus || 'UNKNOWN')} compact />
@@ -443,7 +585,7 @@ export default function Journey360Page() {
                   <span className="journey-360-finding-mark">!</span>
                   <div>
                     <strong>{String(finding.title || 'Audit finding')}</strong>
-                    <small>{readable(finding.stageCode)} · {readable(finding.findingStatus)}</small>
+                    <small>{readable(finding.stageCode)} \u00b7 {readable(finding.findingStatus)}</small>
                   </div>
                   <div className="journey-360-list__status"><StatusPill value={String(finding.severity || 'INFO')} compact /></div>
                 </div>

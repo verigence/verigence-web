@@ -544,8 +544,6 @@
 }
 
 /* ── Payment split container ────────────────────────────────────────────────── */
-/* Stacks Payment Receipts and Invoice Payments vertically inside the right
-   column of the Commercials row. Both cards grow to fill the column equally. */
 
 .journey-360-payment-split {
   display: flex;
@@ -686,7 +684,7 @@
   background: #f8fafc;
 }
 
-/* ── Document view row (View button inside expanded doc detail) ─────────────── */
+/* ── Document view row ─────────────────────────────────────────────────────── */
 
 .journey-360-doc-view-row {
   margin-top: 12px;
@@ -773,7 +771,6 @@
   .journey-360-summary > div:nth-child(3n) { border-right: 0; }
   .journey-360-grid--two,
   .journey-360-grid--three { grid-template-columns: 1fr; }
-  /* On mobile the split stacks normally; cards already take full width */
   .journey-360-payment-split > * { flex: none; }
 }
 
@@ -791,92 +788,213 @@
   .journey-360-actions a { flex: 1 1 auto; justify-content: center; }
 }
 
-/* ──────────────────────────────────────────────────────────────────────────────
-   Price Check Panel
-   ────────────────────────────────────────────────────────────────────────────── */
+/* ══════════════════════════════════════════════════════════════════════════════
+   Price Check panel  (pc-*)
+   Verdict-first · visual bars · exception-default
+   ══════════════════════════════════════════════════════════════════════════════ */
 
-.journey-360-sku-price-check { display: grid; gap: 16px; }
+.pc-grid { display: flex; flex-direction: column; gap: 0; }
 
-.journey-360-sku-meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 20px;
-  padding: 14px 16px;
-  background: #f8fafc;
-  border-radius: 12px;
-  border: 1px solid rgba(148, 163, 184, 0.18);
+.pc-sku-strip {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 16px; padding: 14px 20px;
+  background: #f8fafc; border-bottom: 1px solid rgba(148,163,184,0.18);
+}
+.pc-sku-strip__main { display: flex; align-items: baseline; gap: 12px; min-width: 0; }
+.pc-sku-strip__code { font-size: 0.82rem; font-weight: 800; color: #075f5a; letter-spacing: 0.03em; white-space: nowrap; }
+.pc-sku-strip__product { font-size: 0.8rem; color: #334155; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pc-sku-strip__badge { font-size: 0.68rem; font-weight: 700; padding: 3px 10px; border-radius: 999px; white-space: nowrap; flex-shrink: 0; }
+.pc-sku-strip__badge--ok   { background: rgba(5,150,105,0.12); color: #065f46; }
+.pc-sku-strip__badge--warn { background: rgba(217,119,6,0.13);  color: #92400e; }
+
+.pc-verdict {
+  display: flex; align-items: flex-start; gap: 14px;
+  padding: 16px 20px; border-bottom: 1px solid rgba(148,163,184,0.18);
+}
+.pc-verdict > div { display: flex; flex-direction: column; gap: 3px; }
+.pc-verdict strong { font-size: 0.88rem; font-weight: 700; }
+.pc-verdict > div > span { font-size: 0.74rem; color: #64748b; }
+.pc-verdict__icon {
+  width: 36px; height: 36px; border-radius: 10px;
+  display: grid; place-items: center; font-size: 1rem; font-weight: 800; flex-shrink: 0;
+}
+.pc-verdict--clean   { background: rgba(5,150,105,0.05); }
+.pc-verdict--clean .pc-verdict__icon   { background: rgba(5,150,105,0.15); color: #065f46; }
+.pc-verdict--clean strong              { color: #065f46; }
+.pc-verdict--pending { background: rgba(100,116,139,0.05); }
+.pc-verdict--pending .pc-verdict__icon { background: rgba(100,116,139,0.12); color: #475569; }
+.pc-verdict--pending strong            { color: #475569; }
+.pc-verdict--over    { background: rgba(220,38,38,0.04); }
+.pc-verdict--over .pc-verdict__icon    { background: rgba(220,38,38,0.12); color: #991b1b; }
+.pc-verdict--over strong               { color: #991b1b; }
+.pc-verdict--under   { background: rgba(217,119,6,0.05); }
+.pc-verdict--under .pc-verdict__icon   { background: rgba(217,119,6,0.14); color: #92400e; }
+.pc-verdict--under strong              { color: #92400e; }
+
+.pc-section { border-top: 1px solid rgba(148,163,184,0.18); }
+.pc-section--clean { background: #fafafa; }
+.pc-section__head { display: flex; align-items: baseline; gap: 10px; padding: 12px 20px 8px; }
+.pc-section__title { font-size: 0.72rem; font-weight: 750; text-transform: uppercase; letter-spacing: 0.05em; color: #64748b; }
+.pc-section__title--alert { color: #991b1b; }
+.pc-section__sub { font-size: 0.68rem; color: #94a3b8; }
+
+.pc-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 12px; padding: 8px 20px 18px;
 }
 
-.journey-360-sku-meta > div { display: flex; flex-direction: column; gap: 2px; }
+.pc-card {
+  border-radius: 12px; border: 1px solid rgba(148,163,184,0.18);
+  background: #fff; padding: 14px 16px 12px; display: grid; gap: 10px;
+}
+.pc-card--ok      { border-color: rgba(5,150,105,0.22); }
+.pc-card--over    { border-color: rgba(220,38,38,0.28);  background: rgba(255,248,248,0.9); }
+.pc-card--under   { border-color: rgba(217,119,6,0.28);  background: rgba(255,252,244,0.9); }
+.pc-card--unknown { opacity: 0.82; }
+.pc-card__top { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+.pc-card__name { font-size: 0.82rem; font-weight: 650; color: #172033; line-height: 1.3; }
+.pc-card__pills { display: flex; flex-wrap: wrap; gap: 5px; justify-content: flex-end; flex-shrink: 0; }
+.pc-card__source { font-size: 0.62rem; color: #64748b; background: rgba(148,163,184,0.13); padding: 2px 7px; border-radius: 5px; white-space: nowrap; }
+.pc-card__dev { font-size: 0.68rem; font-weight: 700; padding: 2px 8px; border-radius: 5px; white-space: nowrap; }
+.pc-card__dev--ok      { background: rgba(5,150,105,0.12);  color: #065f46; }
+.pc-card__dev--over    { background: rgba(220,38,38,0.12);  color: #991b1b; }
+.pc-card__dev--under   { background: rgba(217,119,6,0.12);  color: #92400e; }
+.pc-card__dev--unknown { display: none; }
 
-.journey-360-sku-label {
-  font-size: 0.65rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+.pc-bar { height: 28px; display: flex; align-items: center; }
+.pc-bar--empty { height: 20px; }
+.pc-bar__label-muted { font-size: 0.68rem; color: #94a3b8; font-style: italic; }
+.pc-bar__track { position: relative; width: 100%; height: 8px; border-radius: 4px; background: rgba(148,163,184,0.18); overflow: hidden; }
+.pc-bar__std { position: absolute; top: 0; left: 0; height: 100%; background: rgba(100,116,139,0.35); border-radius: 4px; }
+.pc-bar__act { position: absolute; top: 0; left: 0; height: 100%; border-radius: 4px; transition: width 300ms ease; }
+.pc-bar__act--ok      { background: rgba(5,150,105,0.65); }
+.pc-bar__act--over    { background: rgba(220,38,38,0.70); }
+.pc-bar__act--under   { background: rgba(217,119,6,0.65); }
+.pc-bar__act--unknown { background: rgba(148,163,184,0.4); }
+
+.pc-card__amounts { display: flex; gap: 20px; }
+.pc-card__amounts > div { display: flex; flex-direction: column; gap: 1px; }
+.pc-card__amounts span { font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.04em; color: #64748b; font-weight: 600; }
+.pc-card__amounts strong { font-size: 0.84rem; font-variant-numeric: tabular-nums; color: #172033; font-weight: 650; }
+.pc-amt--over  { color: #991b1b !important; }
+.pc-amt--under { color: #92400e !important; }
+
+.pc-clean-list { display: flex; flex-direction: column; padding: 4px 20px 12px; }
+.pc-clean-row { display: grid; grid-template-columns: 1fr auto auto; gap: 16px; align-items: center; padding: 8px 0; border-bottom: 1px solid rgba(148,163,184,0.1); font-size: 0.78rem; }
+.pc-clean-row:last-child { border-bottom: 0; }
+.pc-clean-row__name   { color: #475569; }
+.pc-clean-row__ok     { color: #059669; font-size: 0.8rem; }
+.pc-clean-row__amount { color: #334155; font-variant-numeric: tabular-nums; font-weight: 600; }
+
+.pc-showall-row { display: flex; align-items: center; gap: 12px; padding: 10px 20px; border-top: 1px solid rgba(148,163,184,0.18); background: #fafafa; }
+.pc-showall-btn { border: 0; background: transparent; font: inherit; font-size: 0.74rem; font-weight: 700; color: #075f5a; cursor: pointer; padding: 0; }
+.pc-showall-btn:hover { text-decoration: underline; }
+.pc-showall-hint { font-size: 0.70rem; color: #64748b; }
+
+.pc-net-bar { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); border-top: 2px solid rgba(148,163,184,0.18); background: #f8fafc; }
+.pc-net-bar__cell { display: flex; flex-direction: column; gap: 3px; padding: 14px 20px; border-right: 1px solid rgba(148,163,184,0.18); }
+.pc-net-bar__cell:last-child { border-right: 0; }
+.pc-net-bar__cell span { font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.04em; color: #64748b; font-weight: 600; }
+.pc-net-bar__cell strong { font-size: 0.92rem; font-variant-numeric: tabular-nums; color: #172033; font-weight: 700; }
+.pc-net-bar__cell--deduction strong { color: #991b1b; }
+.pc-net-bar__cell--net { background: rgba(8,127,119,0.05); }
+.pc-net-bar__cell--net strong { color: #075f5a; font-size: 1rem; }
+
+@media (max-width: 640px) {
+  .pc-cards { grid-template-columns: 1fr; padding: 8px 14px 14px; }
+  .pc-net-bar { grid-template-columns: repeat(2, 1fr); }
+  .pc-net-bar__cell { border-bottom: 1px solid rgba(148,163,184,0.18); border-right: 0; }
+  .pc-net-bar__cell:nth-child(odd) { border-right: 1px solid rgba(148,163,184,0.18); }
+  .pc-sku-strip { flex-direction: column; align-items: flex-start; gap: 8px; }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   Receipt Accordion  (rcpt-*)
+   One row per receipt — compact trigger + expandable full-detail panel
+   ══════════════════════════════════════════════════════════════════════════════ */
+
+.rcpt-total {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px;
+  margin-bottom: 10px;
+  border-radius: 10px;
+  background: rgba(8, 127, 119, 0.07);
+}
+.rcpt-total span { color: var(--journey-search-muted); font-size: 0.72rem; }
+.rcpt-total strong { color: var(--journey-search-accent-dark); font-size: 0.98rem; font-weight: 700; }
+
+.rcpt-list { display: grid; gap: 6px; }
+
+.rcpt-row {
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  border-radius: 12px;
+  overflow: hidden;
+  background: #fff;
+  transition: border-color 120ms ease;
+}
+.rcpt-row--open  { border-color: rgba(8, 127, 119, 0.3); }
+.rcpt-row--pending { opacity: 0.72; }
+
+.rcpt-trigger {
+  width: 100%;
+  display: grid;
+  grid-template-columns: auto 1fr auto auto;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 13px;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+}
+.rcpt-trigger:hover { background: rgba(8, 127, 119, 0.035); }
+.rcpt-trigger--pending { cursor: default; }
+.rcpt-trigger--pending:hover { background: transparent; }
+
+.rcpt-trigger__mark {
+  width: 34px; height: 34px;
+  display: grid; place-items: center;
+  border-radius: 10px;
+  background: rgba(8, 127, 119, 0.10);
+  color: var(--journey-search-accent-dark);
+  font-size: 0.58rem; font-weight: 850;
+  flex-shrink: 0;
+}
+.rcpt-trigger__mark--pending {
+  background: rgba(148, 163, 184, 0.14);
   color: #64748b;
 }
 
-.journey-360-sku-status {
-  font-size: 0.72rem;
-  font-weight: 700;
-  padding: 2px 8px;
-  border-radius: 6px;
-  display: inline-block;
+.rcpt-trigger__body { min-width: 0; display: grid; gap: 2px; }
+.rcpt-trigger__primary {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 5px;
+  font-size: 0.8rem; color: #172033; font-weight: 600;
+}
+.rcpt-trigger__ref   { font-weight: 700; color: #0f172a; }
+.rcpt-trigger__sep   { color: #94a3b8; font-weight: 400; }
+.rcpt-trigger__date  { color: #475569; font-weight: 400; }
+.rcpt-trigger__mode  { color: #334155; font-weight: 600; font-size: 0.76rem; letter-spacing: 0.02em; }
+.rcpt-trigger__words { font-size: 0.68rem; color: var(--journey-search-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.rcpt-trigger__right {
+  display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex-shrink: 0;
+}
+.rcpt-trigger__amount { font-size: 0.88rem; font-weight: 750; color: #0f172a; font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+.rcpt-trigger__chevron { color: var(--journey-search-muted); font-size: 0.58rem; width: 16px; text-align: center; flex-shrink: 0; }
+
+.rcpt-pending-badge {
+  font-size: 0.62rem; font-weight: 700; padding: 2px 7px; border-radius: 6px;
+  background: rgba(217, 119, 6, 0.12); color: #92400e;
 }
 
-.journey-360-sku-status--confirmed { background: rgba(16, 185, 129, 0.12); color: #065f46; }
-.journey-360-sku-status--tentative { background: rgba(245, 158, 11, 0.14); color: #92400e; }
-
-.journey-360-table--price-check .journey-360-col-master,
-.journey-360-table--price-check .journey-360-col-booking,
-.journey-360-table--price-check .journey-360-col-deviation { text-align: right; white-space: nowrap; }
-.journey-360-table--price-check .journey-360-col-master { color: #1e3a5f; }
-.journey-360-table--price-check .journey-360-col-booking { color: #374151; }
-
-.journey-360-deviation { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
-.journey-360-deviation small { display: block; font-size: 0.62rem; opacity: 0.7; margin-top: 1px; }
-.journey-360-deviation--none { color: #94a3b8; }
-.journey-360-deviation--ok { color: #059669; font-weight: 600; }
-.journey-360-deviation--over { color: #dc2626; font-weight: 700; background: rgba(220, 38, 38, 0.06); border-radius: 4px; }
-.journey-360-deviation--under { color: #d97706; font-weight: 700; background: rgba(217, 119, 6, 0.07); border-radius: 4px; }
-
-.journey-360-table--price-check tbody tr.journey-360-row--deviated { background: rgba(254, 243, 199, 0.45); }
-
-.journey-360-table--price-check tfoot tr.journey-360-row--total td {
-  padding-top: 12px;
-  border-top: 2px solid rgba(148, 163, 184, 0.28);
-  font-size: 0.8rem;
-}
-
-.journey-360-table--price-check tfoot tr.journey-360-row--net td {
-  padding-top: 6px;
-  font-size: 0.76rem;
-  color: #475569;
-  border-top: 1px solid rgba(148, 163, 184, 0.15);
-}
-
-.journey-360-sku-deductions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 16px;
-  padding: 10px 14px;
-  border-radius: 10px;
-  background: rgba(248, 250, 252, 0.9);
-  border: 1px solid rgba(148, 163, 184, 0.14);
-  font-size: 0.74rem;
-  color: #475569;
-}
-
-.journey-360-sku-deduction { color: #dc2626; }
-
-.journey-360-sku-note {
-  margin: 0;
-  padding: 10px 14px;
-  border-radius: 10px;
-  background: rgba(254, 243, 199, 0.7);
-  border: 1px solid rgba(217, 119, 6, 0.25);
-  color: #92400e;
-  font-size: 0.74rem;
-  font-weight: 500;
+.rcpt-detail {
+  padding: 12px 14px 14px;
+  border-top: 1px solid rgba(148, 163, 184, 0.14);
+  background: #f8fafc;
 }

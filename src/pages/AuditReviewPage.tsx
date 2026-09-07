@@ -142,22 +142,51 @@ function FlagCard({
     ));
   };
 
+  // Per-finding permitted actions from the server (class-aware); fall back to the
+  // role-level list for the legacy REMARK affordance.
+  const canDo = (action: string) =>
+    flag.permittedActions.includes(action) || permittedActions.includes(action);
+  const isViolation = flag.findingClass === 'VIOLATION';
+  const open = ['OPEN', 'ACKNOWLEDGED'].includes(flag.status);
+
   const availableActions: Array<{ action: Uc03FlagAction; label: string; needsReason?: boolean }> = [];
-  if (flag.status === 'OPEN' && permittedActions.includes('ACKNOWLEDGE')) {
+  if (flag.status === 'OPEN' && canDo('ACKNOWLEDGE')) {
     availableActions.push({ action: 'ACKNOWLEDGE', label: 'Acknowledge' });
   }
-  if (['OPEN', 'ACKNOWLEDGED'].includes(flag.status) && permittedActions.includes('REVIEW')) {
-    availableActions.push({ action: 'REVIEW', label: 'Mark reviewed' });
+  if (open && isViolation && canDo('REJECT')) {
+    availableActions.push({ action: 'REJECT', label: 'Reject — not a breach', needsReason: true });
   }
-  if (['OPEN', 'ACKNOWLEDGED'].includes(flag.status) && permittedActions.includes('RESOLVE')) {
+  if (open && isViolation && canDo('ACCEPT')) {
+    availableActions.push({ action: 'ACCEPT', label: 'Accept — confirmed breach', needsReason: true });
+  }
+  if (open && !isViolation && canDo('RESOLVE')) {
+    availableActions.push({ action: 'RESOLVE', label: 'Mark fixed', needsReason: true });
+  }
+  if (open && isViolation && canDo('RESOLVE') && !canDo('ACCEPT')) {
     availableActions.push({ action: 'RESOLVE', label: 'Resolve', needsReason: true });
   }
-  if (flag.status === 'RESOLVED' && permittedActions.includes('REOPEN')) {
+  if (flag.status === 'RESOLVED' && canDo('REOPEN')) {
     availableActions.push({ action: 'REOPEN', label: 'Reopen', needsReason: true });
   }
-  if (flag.status !== 'VOIDED' && permittedActions.includes('VOID')) {
+  if (flag.status !== 'VOIDED' && canDo('VOID')) {
     availableActions.push({ action: 'VOID', label: 'Void', needsReason: true });
   }
+
+  const classLabel = flag.findingClass === 'VIOLATION'
+    ? 'Violation'
+    : flag.findingClass === 'DOCUMENT_GAP'
+      ? 'Missing document'
+      : flag.findingClass === 'DATA_GAP'
+        ? 'Missing data'
+        : null;
+  const slaText = flag.slaDueAtUtc
+    ? (() => {
+        const diff = new Date(flag.slaDueAtUtc).getTime() - Date.now();
+        const h = Math.max(Math.round(Math.abs(diff) / 3_600_000), 1);
+        const human = h >= 48 ? `${Math.round(h / 24)}d` : `${h}h`;
+        return diff < 0 ? `Overdue ${human}` : `Due in ${human}`;
+      })()
+    : null;
 
   return (
     <article className={`uc03-c3-flag-card severity-${flag.severity.toLowerCase()}`}>
@@ -165,11 +194,20 @@ function FlagCard({
         <div>
           <div className="uc03-c3-flag-meta">
             <span>{friendly(flag.stage)}</span>
+            {classLabel && <span className={`uc03-c3-class uc03-c3-class--${(flag.findingClass || '').toLowerCase()}`}>{classLabel}</span>}
             <span>{actorLabel(flag)}</span>
+            {flag.ownerRoleCode && <span>Owner: {friendly(flag.ownerRoleCode)}</span>}
+            {slaText && open && <span className={new Date(flag.slaDueAtUtc || 0).getTime() < Date.now() ? 'uc03-c3-sla-late' : 'uc03-c3-sla'}>{slaText}</span>}
+            {flag.escalationLevel > 0 && open && <span className="uc03-c3-sla-late">Escalated</span>}
             {flag.evidenceCount > 0 && <span>{flag.evidenceCount} linked evidence</span>}
           </div>
           <h3>{flag.title}</h3>
           {flag.description && <p>{flag.description}</p>}
+          {flag.disposition && (
+            <p className="uc03-c3-disposition">
+              {flag.disposition === 'CONFIRMED_BREACH' ? 'Confirmed breach' : flag.disposition === 'NOT_A_BREACH' ? 'Reviewed — not a breach' : 'Fixed'}
+            </p>
+          )}
         </div>
         <div className="uc03-c3-status-pair">
           <StatusPill value={flag.severity} compact />
@@ -226,7 +264,7 @@ function FlagCard({
               <button
                 type="button"
                 key={action}
-                className={action === 'RESOLVE' ? 'uc03-c3-primary' : action === 'VOID' ? 'is-danger' : ''}
+                className={['RESOLVE', 'ACCEPT'].includes(action) ? 'uc03-c3-primary' : ['VOID', 'REJECT'].includes(action) ? 'is-danger' : ''}
                 disabled={busy || Boolean(needsReason && !remarks.trim())}
                 onClick={() => void onAction(flag, action, remarks.trim(), selectedEvidence).then(() => {
                   setRemarks('');

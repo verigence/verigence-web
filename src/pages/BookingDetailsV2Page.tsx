@@ -14,6 +14,8 @@ import Journey360Page from './Journey360Page';
  * and BookingReviewV2Page), not on the read-only detail view. Journey360Page already
  * handles missing / not-found journeys gracefully. If the booking has not been
  * submitted yet, the PC's work queue and the Booking capture flow will surface that.
+ *
+ * Audit exceptions do not stop the business process.
  */
 export default function BookingDetailsV2Page() {
   const { journeyId = '' } = useParams<{ journeyId: string }>();

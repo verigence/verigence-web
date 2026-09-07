@@ -2,7 +2,18 @@ import { auditCoreRequest } from './client';
 import { newIdempotencyKey } from './uc03Booking';
 
 export type Uc03StageCode = 'BOOKING' | 'DELIVERY';
-export type Uc03FlagAction = 'ACKNOWLEDGE' | 'REVIEW' | 'RESOLVE' | 'REOPEN' | 'VOID';
+export type Uc03FlagAction =
+  | 'ACKNOWLEDGE'
+  | 'REVIEW'
+  | 'ACCEPT'
+  | 'REJECT'
+  | 'RESOLVE'
+  | 'REOPEN'
+  | 'VOID';
+
+export type Uc03FindingClass = 'DATA_GAP' | 'DOCUMENT_GAP' | 'VIOLATION';
+export type Uc03ResolutionMode = 'SELF_SERVICE' | 'ADJUDICATED';
+export type Uc03Disposition = 'FIXED' | 'CONFIRMED_BREACH' | 'NOT_A_BREACH' | null;
 
 export interface Uc03StageAuditView {
   stage: Uc03StageCode;
@@ -48,6 +59,14 @@ export interface Uc03AuditFlag {
   version: number;
   createdAtUtc: string;
   updatedAtUtc: string;
+  findingClass: Uc03FindingClass | null;
+  resolutionMode: Uc03ResolutionMode | null;
+  ownerRoleCode: string | null;
+  disposition: Uc03Disposition;
+  slaDueAtUtc: string | null;
+  escalationLevel: number;
+  overdue: boolean;
+  permittedActions: string[];
 }
 
 export interface Uc03TimelineItem {
@@ -163,7 +182,9 @@ export function actOnAuditFlag(
     body: JSON.stringify({
       action,
       remarks: remarks || null,
-      resolutionReason: ['RESOLVE', 'REOPEN', 'VOID'].includes(action) ? remarks : null,
+      resolutionReason: ['RESOLVE', 'REOPEN', 'VOID', 'ACCEPT', 'REJECT'].includes(action)
+        ? remarks
+        : null,
       evidenceIds,
     }),
   });
@@ -182,6 +203,109 @@ export function addAuditFlagRemark(
     accessToken: token(accessToken),
     headers: commandHeaders('uc03-audit-remark', flag.version),
     body: JSON.stringify({ remarks, evidenceIds }),
+  });
+}
+
+// ── Cross-journey review queue ────────────────────────────────────────────────
+
+export type Uc03QueueScope = 'ALL' | 'MINE' | 'ESCALATED';
+
+export interface Uc03ReviewQueueItem {
+  flagId: string;
+  journeyId: string;
+  journeyReference: string | null;
+  stage: Uc03StageCode;
+  findingClass: Uc03FindingClass;
+  resolutionMode: Uc03ResolutionMode;
+  category: string | null;
+  severity: string;
+  status: 'OPEN' | 'ACKNOWLEDGED';
+  version: number;
+  title: string;
+  description: string | null;
+  ownerRoleCode: string;
+  disposition: Uc03Disposition;
+  originKind: 'MACHINE' | 'HUMAN' | null;
+  ruleKey: string | null;
+  createdAtUtc: string;
+  slaDueAtUtc: string | null;
+  escalationLevel: number;
+  overdue: boolean;
+  isMine: boolean;
+  permittedActions: string[];
+  customerName: string | null;
+  dealerName: string | null;
+  outletName: string | null;
+  productLabel: string | null;
+  bookingReference: string | null;
+}
+
+export interface Uc03ReviewQueue {
+  roles: string[];
+  generatedAtUtc: string;
+  items: Uc03ReviewQueueItem[];
+}
+
+export interface Uc03ReviewQueueSummary {
+  roles: string[];
+  total: number;
+  mine: number;
+  escalatedToMe: number;
+  overdue: number;
+  byClass: Record<string, number>;
+  byStage: Record<string, number>;
+}
+
+function tenantBase(tenantId: string): string {
+  return `/v1/tenants/${encodeURIComponent(tenantId)}/uc03`;
+}
+
+export function getReviewQueue(
+  tenantId: string,
+  options: { scope?: Uc03QueueScope; findingClass?: Uc03FindingClass; stage?: Uc03StageCode } = {},
+  accessToken?: string,
+): Promise<Uc03ReviewQueue> {
+  const params = new URLSearchParams();
+  if (options.scope && options.scope !== 'ALL') params.set('scope', options.scope);
+  if (options.findingClass) params.set('findingClass', options.findingClass);
+  if (options.stage) params.set('stage', options.stage);
+  const query = params.toString() ? `?${params.toString()}` : '';
+  return auditCoreRequest(`${tenantBase(tenantId)}/review-queue${query}`, {
+    accessToken: token(accessToken),
+    cache: 'no-store',
+  });
+}
+
+export function getReviewQueueSummary(
+  tenantId: string,
+  accessToken?: string,
+): Promise<Uc03ReviewQueueSummary> {
+  return auditCoreRequest(`${tenantBase(tenantId)}/review-queue/summary`, {
+    accessToken: token(accessToken),
+    cache: 'no-store',
+  });
+}
+
+export function actOnQueueFinding(
+  tenantId: string,
+  item: Uc03ReviewQueueItem,
+  action: Uc03FlagAction,
+  remarks: string,
+  accessToken?: string,
+): Promise<FlagMutationResult> {
+  const flagBase = `/v1/tenants/${encodeURIComponent(tenantId)}/journeys/${encodeURIComponent(item.journeyId)}/uc03`;
+  return auditCoreRequest(`${flagBase}/flags/${encodeURIComponent(item.flagId)}/actions`, {
+    method: 'POST',
+    accessToken: token(accessToken),
+    headers: commandHeaders(`uc03-audit-${action.toLowerCase()}`, item.version),
+    body: JSON.stringify({
+      action,
+      remarks: remarks || null,
+      resolutionReason: ['RESOLVE', 'REOPEN', 'VOID', 'ACCEPT', 'REJECT'].includes(action)
+        ? remarks
+        : null,
+      evidenceIds: [],
+    }),
   });
 }
 

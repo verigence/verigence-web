@@ -63,6 +63,15 @@ const reviewQueueItem: NavItem = {
   roles: ['PC', 'TL', 'PM', 'EXECUTIVE'],
 };
 
+// PC Overview is "what needs me now"; this opens the full work queue (the legacy
+// dashboard) so a PC can browse every booking and delivery and tab between them.
+const allJourneysItem: NavItem = {
+  to: '/dashboard?legacyDashboard=1&view=ALL',
+  label: 'Bookings & Deliveries',
+  mark: 'JR',
+  roles: ['PC'],
+};
+
 const groups: NavGroup[] = [
   { key: 'workspace', label: 'Workspace', items: [
     { to: '/dashboard', label: 'Overview', mark: 'OV', roles: operational },
@@ -211,11 +220,16 @@ export default function AppShell({ children }: PropsWithChildren) {
   const diTestAvailable = isDiTestConsoleAvailable();
   const createBookingMode = location.pathname === '/dashboard'
     && new URLSearchParams(location.search).get('action') === 'create-booking';
+  const legacyQueueMode = location.pathname === '/dashboard'
+    && new URLSearchParams(location.search).get('legacyDashboard') === '1';
   const visibleGroups = useMemo<NavGroup[]>(() => {
     if (!c0OperationalShell) return groups;
     const workspaceItems: NavItem[] = [
       { to: '/dashboard', label: 'Overview', mark: 'OV', roles: c0OperatingRoles },
     ];
+    if (role === 'PC') {
+      workspaceItems.push(allJourneysItem);
+    }
     if (role === 'PC' || role === 'TL' || role === 'PM') {
       workspaceItems.push(journeySearchItem);
     }
@@ -305,9 +319,11 @@ export default function AppShell({ children }: PropsWithChildren) {
   const dynamicLabel = dynamicRouteLabels.find(([prefix]) => location.pathname.startsWith(prefix))?.[1];
   const currentLabel = createBookingMode
     ? 'Capture New Booking'
-    : routeLabels[location.pathname]
-      ?? dynamicLabel
-      ?? 'Workspace';
+    : legacyQueueMode
+      ? 'Bookings & Deliveries'
+      : routeLabels[location.pathname]
+        ?? dynamicLabel
+        ?? 'Workspace';
   const visibleName = displayName || 'User';
   const roleLabel = roleLabels[role];
   const avatarText = initials(visibleName);
@@ -321,7 +337,8 @@ export default function AppShell({ children }: PropsWithChildren) {
 
   const isNavItemActive = (item: NavItem, isActive: boolean) => {
     if (item.to === createBookingItem.to) return createBookingMode;
-    if (item.to === '/dashboard') return isActive && !createBookingMode;
+    if (item.to === allJourneysItem.to) return legacyQueueMode;
+    if (item.to === '/dashboard') return isActive && !createBookingMode && !legacyQueueMode;
     return isActive;
   };
 

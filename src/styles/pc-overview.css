@@ -28,7 +28,7 @@
 
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 20px;
   width: min(1160px, 100%);
   margin: 0 auto;
   color: var(--pcov-ink);
@@ -148,10 +148,10 @@
 .pcov-kpi {
   flex: 1;
   min-width: 116px;
-  background: #eef2f8;
-  border: 1px solid var(--pcov-line);
+  background: #e5f4f1;
+  border: 1px solid rgba(0, 175, 168, 0.26);
   border-radius: 12px;
-  padding: 9px 12px;
+  padding: 10px 13px;
   text-decoration: none;
   color: inherit;
   cursor: pointer;
@@ -159,31 +159,26 @@
 }
 
 .pcov-kpi:hover {
-  border-color: rgba(10, 44, 96, 0.28);
-  box-shadow: 0 4px 14px -8px rgba(10, 40, 90, 0.28);
+  border-color: rgba(0, 127, 121, 0.5);
+  box-shadow: 0 4px 14px -8px rgba(0, 90, 86, 0.32);
   transform: translateY(-1px);
 }
 
 .pcov-kpi:focus-visible {
-  outline: 2px solid var(--pcov-blue);
+  outline: 2px solid var(--pcov-teal);
   outline-offset: 2px;
 }
 
-/* the two "needs you" tiles carry a wash; the first two stay neutral grey */
-.pcov-kpi--verify {
-  background: #e7f5f3;
-  border-color: rgba(0, 175, 168, 0.28);
-}
-
+/* the "open observations" tile keeps a coral wash — it's a problem, not progress */
 .pcov-kpi--flag {
   background: #fbf1ee;
-  border-color: rgba(221, 111, 87, 0.3);
+  border-color: rgba(221, 111, 87, 0.32);
 }
 
 .pcov-kpi__value {
-  font-size: 20px;
+  font-size: 21px;
   font-weight: 800;
-  color: var(--pcov-head);
+  color: #045c57;
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.02em;
 }
@@ -193,10 +188,6 @@
   color: var(--pcov-muted);
   font-weight: 600;
   margin-top: 2px;
-}
-
-.pcov-kpi--verify .pcov-kpi__value {
-  color: #007f79;
 }
 
 .pcov-kpi--flag .pcov-kpi__value {
@@ -341,10 +332,40 @@
   background: var(--pcov-grad);
 }
 
+/* the Booking | Delivery boundary */
+.pcov-rail__mid {
+  position: absolute;
+  top: -1px;
+  bottom: -1px;
+  left: 50%;
+  width: 2px;
+  background: #fff;
+}
+
 .pcov-steps {
   display: flex;
-  justify-content: space-between;
+  gap: 14px;
   margin-top: 7px;
+}
+
+.pcov-steps__phase {
+  flex: 1;
+  min-width: 0;
+}
+
+.pcov-steps__phase > b {
+  display: block;
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--pcov-faint);
+}
+
+.pcov-steps__phase > div {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 2px;
   font-size: 10px;
   font-weight: 700;
   color: var(--pcov-faint);
@@ -406,73 +427,6 @@
 
 .pcov-card__go:hover {
   background: var(--pcov-blue-hover);
-}
-
-/* ---------- Journeys strip ---------- */
-.pcov-jstrip {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  background: var(--pcov-surface);
-  border: 1px solid var(--pcov-line);
-  border-radius: 12px;
-  box-shadow: var(--pcov-shadow-s);
-  padding: 10px 14px;
-}
-
-.pcov-jstrip__head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.pcov-jstrip__title {
-  font-size: 15px;
-  font-weight: 800;
-  color: var(--pcov-head);
-}
-
-.pcov-jstrip__title span {
-  font-size: 11.5px;
-  font-weight: 600;
-  color: var(--pcov-muted);
-  margin-left: 6px;
-}
-
-.pcov-jbar {
-  display: flex;
-  height: 24px;
-  border-radius: 8px;
-  overflow: hidden;
-  font: 800 11px Inter, sans-serif;
-}
-
-.pcov-jbar span {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #fff;
-}
-
-.pcov-jbar .pcov-jbar__bk {
-  background: var(--pcov-blue);
-}
-
-.pcov-jbar .pcov-jbar__dl {
-  background: linear-gradient(90deg, #007f9e, #00b7a8 55%, #00d3a7);
-}
-
-.pcov-jbar__empty {
-  height: 24px;
-  border-radius: 8px;
-  background: repeating-linear-gradient(45deg, #eef2f6, #eef2f6 8px, #e7edf3 8px, #e7edf3 16px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 11.5px;
-  color: var(--pcov-faint);
-  font-weight: 600;
 }
 
 /* ---------- Empty / all caught up ---------- */
@@ -638,11 +592,6 @@
 
   .pcov-cards {
     grid-template-columns: 1fr;
-  }
-
-  .pcov-jstrip {
-    flex-wrap: wrap;
-    gap: 12px;
   }
 }
 

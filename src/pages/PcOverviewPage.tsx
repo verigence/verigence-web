@@ -26,7 +26,7 @@ import { useSessionStore } from '../store/sessionStore';
 const STALE_BOOKING_DAYS = 7;
 const STALE_DELIVERY_DAYS = 5;
 
-const MAX_CARDS = 2;
+const MAX_CARDS = 4;
 
 // Where each hero KPI tile deep-links — the legacy work queue, filtered.
 const QUEUE = '/dashboard?legacyDashboard=1';
@@ -131,17 +131,24 @@ function needsManualVerification(item: Uc03WorkItem): boolean {
   return bookingManualVerification(item) || deliveryManualVerification(item);
 }
 
-// The rail marks the four milestones a journey crosses, in order:
-//   Booking  → booking documents being captured
-//   Verify   → booking captured; PC checks the read-off values and submits
-//   Delivery → vehicle delivery under way (its own capture + verify)
-//   Delivered → delivery complete, journey closed
+// Two phases, three steps each — Booking and Delivery both run
+// Docs → Verify (skipped through if nothing is below 90%) → Done.
+//   0 Booking · Docs      3 Delivery · Docs
+//   1 Booking · Verify    4 Delivery · Verify
+//   2 Booking · Done      5 Delivered
 function journeyStep(item: Uc03WorkItem): { index: number; pct: number } {
-  if (deliveryDone(item)) return { index: 3, pct: 100 };
-  if (deliveryStarted(item)) return { index: 2, pct: 72 };
-  if (bookingCompleted(item)) return { index: 1, pct: 48 };
-  return { index: 0, pct: item.processingDocumentCount > 0 ? 26 : 14 };
+  if (deliveryDone(item)) return { index: 5, pct: 100 };
+  if (deliveryManualVerification(item)) return { index: 4, pct: 76 };
+  if (deliveryStarted(item)) return { index: 3, pct: 58 };
+  if (bookingManualVerification(item)) return { index: 1, pct: 25 };
+  if (bookingCompleted(item)) return { index: 2, pct: 42 };
+  return { index: 0, pct: item.processingDocumentCount > 0 ? 16 : 8 };
 }
+
+const RAIL_PHASES: { caption: string; steps: string[] }[] = [
+  { caption: 'Booking', steps: ['Docs', 'Verify', 'Done'] },
+  { caption: 'Delivery', steps: ['Docs', 'Verify', 'Done'] },
+];
 
 function classifyCandidate(item: Uc03WorkItem): Candidate | null {
   const ageMs = Math.max(0, Date.now() - new Date(item.latestActivityAtUtc).getTime());
@@ -238,7 +245,33 @@ function presentCard(candidate: Candidate): CardPresentation {
   };
 }
 
-const STEP_LABELS = ['Booking', 'Verify', 'Delivery', 'Delivered'];
+function JourneyRail({ step }: { step: { index: number; pct: number } }) {
+  return (
+    <div className="pcov-track">
+      <div className="pcov-rail">
+        <i style={{ width: `${step.pct}%` }} />
+        <em className="pcov-rail__mid" aria-hidden="true" />
+      </div>
+      <div className="pcov-steps">
+        {RAIL_PHASES.map((phase, phaseIndex) => (
+          <div className="pcov-steps__phase" key={phase.caption}>
+            <b>{phase.caption}</b>
+            <div>
+              {phase.steps.map((label, s) => {
+                const globalIndex = phaseIndex * 3 + s;
+                return (
+                  <span key={label} className={globalIndex === step.index ? 'is-now' : undefined}>
+                    {label}
+                  </span>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 function localIsoDate(value: Date): string {
   return `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, '0')}-${String(value.getDate()).padStart(2, '0')}`;
@@ -272,14 +305,7 @@ function WorkCard({
         <b>{item.customerDisplayName}</b>
         {item.bookingReference ? ` · ${item.bookingReference}` : ''}
       </div>
-      <div className="pcov-track">
-        <div className="pcov-rail"><i style={{ width: `${step.pct}%` }} /></div>
-        <div className="pcov-steps">
-          {STEP_LABELS.map((label, index) => (
-            <span key={label} className={index === step.index ? 'is-now' : undefined}>{label}</span>
-          ))}
-        </div>
-      </div>
+      <JourneyRail step={step} />
       <p className="pcov-card__ask">{presentation.ask}</p>
       <div className="pcov-card__foot">
         <span className={`pcov-chip ${presentation.chipHot ? 'pcov-chip--hot' : 'pcov-chip--soft'}`}>
@@ -564,37 +590,12 @@ export default function PcOverviewPage() {
           ) : (
             <div className="pcov-empty">
               <h2>You&rsquo;re all caught up</h2>
-              <p>Nothing needs your attention right now. Your journeys in progress are below.</p>
+              <p>
+                Nothing needs your attention right now. New bookings and deliveries show up here
+                as soon as there&rsquo;s something to do.
+              </p>
             </div>
           )}
-
-          <div className="pcov-jstrip">
-            <div className="pcov-jstrip__head">
-              <div className="pcov-jstrip__title">
-                Your journeys <span>{journeysInProgress} in progress</span>
-              </div>
-              <Link className="pcov-seeall" to={`${QUEUE}&view=ALL`}>
-                See all
-                <span aria-hidden="true">→</span>
-              </Link>
-            </div>
-            {journeysInProgress > 0 ? (
-              <div className="pcov-jbar" role="img" aria-label={`${bookingsInProgress} in booking, ${deliveriesInProgress} in delivery`}>
-                {bookingsInProgress > 0 && (
-                  <span className="pcov-jbar__bk" style={{ flex: bookingsInProgress }}>
-                    {bookingsInProgress} in booking
-                  </span>
-                )}
-                {deliveriesInProgress > 0 && (
-                  <span className="pcov-jbar__dl" style={{ flex: deliveriesInProgress }}>
-                    {deliveriesInProgress} in delivery
-                  </span>
-                )}
-              </div>
-            ) : (
-              <div className="pcov-jbar__empty">Journeys you start will appear here</div>
-            )}
-          </div>
         </>
       )}
     </div>

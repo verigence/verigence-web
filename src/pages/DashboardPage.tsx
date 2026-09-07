@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 
 import {
   effectiveStageStatus,
@@ -24,7 +24,24 @@ import { enrichUc03WorkItems } from '../services/audit-core/uc03WorkItemEnrichme
 import { useProjectContextStore } from '../store/projectContextStore';
 import { useSessionStore } from '../store/sessionStore';
 
-type LandingView = Uc03WorkType | 'REVIEW_PENDING' | 'FLAGS';
+type LandingView = Uc03WorkType | 'REVIEW_PENDING' | 'FLAGS' | 'VERIFY';
+
+const LANDING_VIEWS: readonly LandingView[] = ['ALL', 'BOOKING', 'DELIVERY', 'REVIEW_PENDING', 'FLAGS', 'VERIFY'];
+
+// A booking / delivery whose documents are captured but the PC has not yet
+// confirmed the values the machine read off them.
+function needsManualVerification(item: Uc03WorkItem): boolean {
+  return Boolean(
+    (item.booking.captureCompletedAtUtc && item.booking.pcVerificationStatus === 'PENDING')
+    || (item.delivery.captureCompletedAtUtc && item.delivery.pcVerificationStatus === 'PENDING'),
+  );
+}
+
+// The PC Overview dashboard tiles deep-link here, e.g. ?view=BOOKING / DELIVERY / FLAGS.
+function initialLandingView(raw: string | null): LandingView {
+  const candidate = (raw || '').toUpperCase();
+  return (LANDING_VIEWS as readonly string[]).includes(candidate) ? (candidate as LandingView) : 'ALL';
+}
 type PcBookingStatus = 'BOOKING_IN_PROGRESS' | 'BOOKING_COMPLETED' | 'BOOKING_UPDATE_REQUIRED';
 
 function friendlyStatus(value?: string | null, fallback = 'Not Started'): string {
@@ -527,7 +544,12 @@ export default function DashboardPage() {
   const project = useProjectContextStore((state) => state.selectedProject);
   const accessToken = useSessionStore((state) => state.accessToken);
   const outletId = useSessionStore((state) => state.outletId);
-  const [view, setView] = useState<LandingView>('ALL');
+  const [searchParams] = useSearchParams();
+  const [view, setView] = useState<LandingView>(() => initialLandingView(searchParams.get('view')));
+  const requestedView = searchParams.get('view');
+  useEffect(() => {
+    if (requestedView) setView(initialLandingView(requestedView));
+  }, [requestedView]);
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
   const [filtersOpen, setFiltersOpen] = useState(false);
@@ -539,7 +561,9 @@ export default function DashboardPage() {
   const pcContextReady = project?.operatingRole !== 'PC' || Boolean(outletId);
   const isPc = project?.operatingRole === 'PC';
   const isTl = project?.operatingRole === 'TL';
-  const workType: Uc03WorkType = view === 'REVIEW_PENDING' || view === 'FLAGS' ? 'ALL' : view;
+  const workType: Uc03WorkType = view === 'REVIEW_PENDING' || view === 'FLAGS' || view === 'VERIFY'
+    ? 'ALL'
+    : view;
 
   const metricsQuery = useQuery({
     queryKey: ['uc03-landing-metrics', project?.tenantId, outletId],
@@ -591,6 +615,8 @@ export default function DashboardPage() {
       items = items.filter((item) => !item.delivery.businessStatus);
     } else if (isPc && view === 'FLAGS') {
       items = items.filter((item) => item.openFlagCount > 0);
+    } else if (isPc && view === 'VERIFY') {
+      items = items.filter(needsManualVerification);
     }
 
     return [...items].sort((left, right) => {
@@ -755,6 +781,7 @@ export default function DashboardPage() {
             ['BOOKING', 'Bookings'],
             ...(isTl ? [['REVIEW_PENDING', 'Review Pending']] : []),
             ['DELIVERY', 'Deliveries'],
+            ...(isPc ? [['VERIFY', 'To verify']] : []),
             ...(isPc ? [['FLAGS', `Observations${metrics ? ` (${metrics.auditFlags})` : ''}`]] : []),
           ] as Array<[LandingView, string]>).map(([value, label]) => (
             <button

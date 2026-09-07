@@ -67,6 +67,20 @@ function dateLabel(v: unknown): string {
   return new Intl.DateTimeFormat('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }).format(d);
 }
 
+// Read a field from a record trying multiple key names in order
+function pick(r: Record<string, unknown>, ...keys: string[]): unknown {
+  for (const k of keys) {
+    const v = r[k];
+    if (v !== null && v !== undefined && v !== '') return v;
+  }
+  return undefined;
+}
+
+function pickStr(r: Record<string, unknown>, ...keys: string[]): string {
+  const v = pick(r, ...keys);
+  return v !== undefined ? String(v) : '';
+}
+
 function Fact({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="journey-360-fact">
@@ -80,10 +94,14 @@ function EmptySection({ children }: { children: React.ReactNode }) {
   return <p className="journey-360-empty">{children}</p>;
 }
 
+// A receipt is pending if it has no amount AND no receipt number (raw document not yet processed)
 function receiptIsPending(r: Record<string, unknown>): boolean {
+  const amt = pick(r, 'amount', 'amount_paid', 'amountPaid');
+  const ref = pick(r, 'receiptNumber', 'receipt_number', 'paymentReference', 'payment_reference');
   return (
-    r.amount === null || r.amount === undefined || r.amount === '' || Number(r.amount) === 0
-  ) && String(r.reviewStatus || '').toUpperCase() !== 'VERIFIED';
+    (amt === null || amt === undefined || amt === '' || Number(amt) === 0) &&
+    (ref === null || ref === undefined || ref === '')
+  );
 }
 
 function DeviationCell({ amount, percent, currency = 'INR' }: { amount: number | null; percent: number | null; currency?: string }) {
@@ -103,9 +121,6 @@ function DeviationCell({ amount, percent, currency = 'INR' }: { amount: number |
 }
 
 // ─── Price Check — verdict-first · visual bars · exception-default ────────────
-//   A: verdict banner answers "clean or not?" before any number is read
-//   C: proportional bar shows standard vs extracted visually
-//   D: only exceptions shown by default — clean rows collapse until toggled
 
 function moneyInt(v: number | null, currency = 'INR'): string {
   if (v === null) return '—';
@@ -304,8 +319,8 @@ function SkuPriceCheckPanel({ pricing }: { pricing: SkuPricing }) {
 }
 
 // ── Receipt Accordion ────────────────────────────────────────────────────────
-// One row per receipt: Receipt No · Date · Mode · Amount → expand for full detail
-// Falls back to reviewedBooking payment fields when no structured receipts exist.
+// One row per receipt: Receipt No · Date · Mode · Amount → expand for full detail.
+// Handles both camelCase and snake_case field names returned by the API.
 
 function ReceiptAccordion({
   receipts,
@@ -319,7 +334,8 @@ function ReceiptAccordion({
   const [openId, setOpenId] = useState<string | null>(null);
 
   const total = receipts.reduce((s, r) => {
-    const a = Number(r.amount ?? 0); return s + (Number.isNaN(a) ? 0 : a);
+    const a = Number(pick(r, 'amount', 'amount_paid', 'amountPaid') ?? 0);
+    return s + (Number.isNaN(a) ? 0 : a);
   }, 0);
 
   if (receipts.length === 0 && pendingReceipts.length === 0) {
@@ -352,24 +368,26 @@ function ReceiptAccordion({
 
       <div className="rcpt-list">
         {receipts.map((r, idx) => {
-          const id = String(r.receiptId || r.documentId || r.evidenceId || idx);
+          const id = String(pick(r, 'receiptId', 'documentId', 'evidenceId') ?? idx);
           const isOpen = openId === id;
 
-          const receiptNo = String(r.receiptNumber || r.paymentReference || '—');
-          const receiptDate = dateLabel(r.receiptDate || r.paymentReferenceDate);
-          const mode = String(r.paymentMode || r.paymentMethodCode || '').toUpperCase() || '—';
-          const amount = money(r.amount, String(r.currencyCode || 'INR'));
-          const viewUrl = r.contentUrl ? String(r.contentUrl) : null;
+          // Field reading — API may return camelCase or snake_case
+          const receiptNo   = pickStr(r, 'receiptNumber', 'receipt_number', 'paymentReference', 'payment_reference') || '—';
+          const receiptDate = dateLabel(pick(r, 'receiptDate', 'receipt_date', 'paymentReferenceDate', 'payment_reference_date'));
+          const mode        = (pickStr(r, 'paymentMode', 'payment_mode', 'paymentMethodCode', 'payment_method_code') || '—').toUpperCase();
+          const amountRaw   = pick(r, 'amount', 'amount_paid', 'amountPaid');
+          const amountStr   = money(amountRaw, String(pick(r, 'currencyCode', 'currency_code') || 'INR'));
+          const viewUrl     = pick(r, 'contentUrl', 'content_url', 'documentUrl', 'document_url');
 
-          const amountInWords = String(r.amountInWords || r.amount_in_words || '');
-          const bankName = String(r.bankName || r.bank_name || '');
-          const bankLocation = String(r.bankLocation || r.bank_location || '');
-          const dealerGstin = String(r.dealerGstin || r.dealer_gstin || '');
-          const remarks = String(r.remarks || '');
-          const bookingPaymentRef = String(r.bookingPaymentReference || r.bookingReference || '');
-          const paymentRefDate = dateLabel(r.paymentReferenceDate);
-          const customerOnReceipt = String(r.customerName || '');
-          const reviewStatus = String(r.reviewStatus || r.verificationStatus || 'VERIFIED');
+          const amountInWords     = pickStr(r, 'amountInWords', 'amount_in_words');
+          const bankName          = pickStr(r, 'bankName', 'bank_name');
+          const bankLocation      = pickStr(r, 'bankLocation', 'bank_location');
+          const dealerGstin       = pickStr(r, 'dealerGstin', 'dealer_gstin');
+          const remarks           = pickStr(r, 'remarks', 'remark', 'notes');
+          const bookingPaymentRef = pickStr(r, 'bookingPaymentReference', 'bookingReference', 'booking_payment_reference');
+          const paymentRefDate    = dateLabel(pick(r, 'paymentReferenceDate', 'payment_reference_date'));
+          const customerOnReceipt = pickStr(r, 'customerName', 'customer_name');
+          const reviewStatus      = pickStr(r, 'reviewStatus', 'review_status', 'verificationStatus', 'verification_status') || 'VERIFIED';
 
           return (
             <div key={id} className={`rcpt-row${isOpen ? ' rcpt-row--open' : ''}`}>
@@ -393,7 +411,7 @@ function ReceiptAccordion({
                   )}
                 </div>
                 <div className="rcpt-trigger__right">
-                  <strong className="rcpt-trigger__amount">{amount}</strong>
+                  <strong className="rcpt-trigger__amount">{amountStr}</strong>
                   <StatusPill value={reviewStatus} compact />
                 </div>
                 <span className="rcpt-trigger__chevron" aria-hidden="true">{isOpen ? '▲' : '▼'}</span>
@@ -404,19 +422,21 @@ function ReceiptAccordion({
                   <div className="journey-360-facts">
                     <Fact label="Receipt Number">{receiptNo}</Fact>
                     <Fact label="Receipt Date">{receiptDate}</Fact>
-                    <Fact label="Payment Ref. Date">{paymentRefDate}</Fact>
+                    {paymentRefDate && paymentRefDate !== receiptDate && (
+                      <Fact label="Payment Ref. Date">{paymentRefDate}</Fact>
+                    )}
                     <Fact label="Payment Mode">{mode}</Fact>
-                    <Fact label="Amount">{amount}</Fact>
+                    <Fact label="Amount">{amountStr}</Fact>
                     {amountInWords && <Fact label="Amount in Words">{amountInWords}</Fact>}
-                    {bankName && <Fact label="Bank Name">{bankName}{bankLocation ? ` · ${bankLocation}` : ''}</Fact>}
+                    {bankName && <Fact label="Bank">{bankName}{bankLocation ? ` · ${bankLocation}` : ''}</Fact>}
                     {dealerGstin && <Fact label="Dealer GSTIN">{dealerGstin}</Fact>}
                     {customerOnReceipt && <Fact label="Customer on Receipt">{customerOnReceipt}</Fact>}
-                    {bookingPaymentRef && <Fact label="Booking Payment Ref.">{bookingPaymentRef}</Fact>}
+                    {bookingPaymentRef && <Fact label="Booking Ref.">{bookingPaymentRef}</Fact>}
                     {remarks && <Fact label="Remarks">{remarks}</Fact>}
                   </div>
                   {viewUrl && (
                     <div className="journey-360-doc-view-row">
-                      <a href={viewUrl} target="_blank" rel="noopener noreferrer" className="journey-360-doc-view-btn">
+                      <a href={String(viewUrl)} target="_blank" rel="noopener noreferrer" className="journey-360-doc-view-btn">
                         View receipt document ↗
                       </a>
                     </div>
@@ -428,12 +448,12 @@ function ReceiptAccordion({
         })}
 
         {pendingReceipts.map((r, idx) => (
-          <div key={String(r.documentId || `pending-${idx}`)} className="rcpt-row rcpt-row--pending">
+          <div key={String(pick(r, 'documentId', 'evidenceId') ?? `pending-${idx}`)} className="rcpt-row rcpt-row--pending">
             <div className="rcpt-trigger rcpt-trigger--pending">
               <span className="rcpt-trigger__mark rcpt-trigger__mark--pending">REC</span>
               <div className="rcpt-trigger__body">
                 <div className="rcpt-trigger__primary">
-                  <span className="rcpt-trigger__ref">{String(r.originalFilename || 'Receipt document')}</span>
+                  <span className="rcpt-trigger__ref">{String(pick(r, 'originalFilename', 'original_filename') ?? 'Receipt document')}</span>
                 </div>
                 <span className="rcpt-trigger__words">DI extraction in progress</span>
               </div>
@@ -543,10 +563,12 @@ export default function Journey360Page() {
   const pendingReceiptRows = useMemo(() => (model?.receipts || []).filter(receiptIsPending), [model?.receipts]);
   const invoiceRows = model?.payments || [];
   const receiptTotal = useMemo(() => receiptRows.reduce((s, r) => {
-    const a = Number(r.amount ?? 0); return s + (Number.isNaN(a) ? 0 : a);
+    const a = Number(pick(r, 'amount', 'amount_paid', 'amountPaid') ?? 0);
+    return s + (Number.isNaN(a) ? 0 : a);
   }, 0), [receiptRows]);
   const invoiceTotal = useMemo(() => invoiceRows.reduce((s, p) => {
-    const a = Number(p.amount ?? 0); return s + (Number.isNaN(a) ? 0 : a);
+    const a = Number(pick(p, 'amount', 'amount_paid', 'amountPaid') ?? 0);
+    return s + (Number.isNaN(a) ? 0 : a);
   }, 0), [invoiceRows]);
 
   if (overviewQuery.isLoading) return <div className="page-loading">Loading complete Journey…</div>;
@@ -560,6 +582,8 @@ export default function Journey360Page() {
   }
 
   const reviewedBooking = objectValue(model.booking, 'reviewedValues');
+  const resolvedValues  = model.resolvedReviewedValues || {};
+
   const capturedCustomerName = preferredText(reviewedBooking, 'customer_name', model.customer, 'enteredName');
   const customerName = value(model.customer, 'legalName') ? String(value(model.customer, 'legalName')) : capturedCustomerName;
   const bookingReference = textValue(model.booking, 'bookingReference');
@@ -569,20 +593,49 @@ export default function Journey360Page() {
   const activeFindings = model.findings.filter((f) => ['OPEN', 'ACKNOWLEDGED'].includes(String(f.findingStatus || '')));
   const reviewedFields = model.reviewedFields || [];
 
-  // SKU — prefer resolved booking field, fall back to pricing panel
+  // ── SKU resolution ──────────────────────────────────────────────────────
+  // Priority: booking.skuCode → resolvedReviewedValues (various keys) → skuPricing
   const resolvedSkuCode = value(model.booking, 'skuCode');
-  const skuDisplay = resolvedSkuCode != null && resolvedSkuCode !== ''
-    ? String(resolvedSkuCode)
-    : model.skuPricing?.skuCode ?? 'Not available';
+  const resolvedSkuFromValues =
+    resolvedValues['vehicle_sku_code']?.value ||
+    resolvedValues['sku_code']?.value ||
+    resolvedValues['booking_sku_code']?.value ||
+    resolvedValues['product_sku']?.value ||
+    null;
+  const skuDisplay = (
+    resolvedSkuCode != null && resolvedSkuCode !== ''
+      ? String(resolvedSkuCode)
+      : resolvedSkuFromValues != null
+      ? String(resolvedSkuFromValues)
+      : model.skuPricing?.skuCode ?? 'Not available'
+  );
   const skuSelectionStatus = value(model.booking, 'selectionStatus') as string | null;
 
-  // Dealer branch — from reviewed booking field, fall back to outlet code
-  const dealerBranch = preferredText(reviewedBooking, 'dealer_branch', model.journey, 'outletCode');
+  // ── Dealer branch resolution ────────────────────────────────────────────
+  // Priority: reviewedBooking.dealer_branch → resolvedReviewedValues → journey.outletCode → outletName
+  const dealerBranchFromBooking = value(reviewedBooking, 'dealer_branch') ||
+    value(reviewedBooking, 'branch_name') ||
+    value(reviewedBooking, 'outlet_code');
+  const dealerBranchFromResolved =
+    resolvedValues['dealer_branch']?.value ||
+    resolvedValues['dealer_outlet_code']?.value ||
+    resolvedValues['branch_code']?.value ||
+    null;
+  const dealerBranchRaw =
+    dealerBranchFromBooking ||
+    dealerBranchFromResolved ||
+    value(model.journey, 'outletCode') ||
+    null;
+  const dealerBranch = dealerBranchRaw ? String(dealerBranchRaw) : textValue(model.journey, 'outletName');
 
-  // Expected delivery — from reviewed booking form
-  const expectedDelivery = dateLabel(
-    value(reviewedBooking, 'expected_delivery_date') || value(reviewedBooking, 'expected_delivery')
-  );
+  // ── Expected delivery resolution ────────────────────────────────────────
+  const expectedDeliveryRaw =
+    value(reviewedBooking, 'expected_delivery_date') ||
+    value(reviewedBooking, 'expected_delivery') ||
+    resolvedValues['expected_delivery_date']?.value ||
+    resolvedValues['delivery_date']?.value ||
+    null;
+  const expectedDelivery = dateLabel(expectedDeliveryRaw);
 
   return (
     <div className="screen-stack journey-360-page">
@@ -614,7 +667,10 @@ export default function Journey360Page() {
         <div>
           <span>Dealer Booking No.</span>
           <strong>{bookingReference}</strong>
-          <small>{dealerBranch !== 'Not available' ? dealerBranch : textValue(model.journey, 'outletName')}</small>
+          {/* Show branch only when it differs from what's already in the header */}
+          {dealerBranch !== textValue(model.journey, 'outletName') && dealerBranch !== 'Not available' && (
+            <small>{dealerBranch}</small>
+          )}
         </div>
         <div>
           <span>SKU</span>
@@ -630,12 +686,12 @@ export default function Journey360Page() {
         <div>
           <span>Receipts collected</span>
           <strong>
-            {receiptRows.length}
+            {receiptRows.length > 0 ? receiptRows.length : (model.receipts?.length ?? 0)}
             {pendingReceiptRows.length > 0 && (
               <span className="journey-360-receipt-pending-badge">{pendingReceiptRows.length} pending</span>
             )}
           </strong>
-          <small>{money(receiptTotal)}</small>
+          <small>{receiptTotal > 0 ? money(receiptTotal) : invoiceTotal > 0 ? money(invoiceTotal) : '—'}</small>
         </div>
         <div>
           <span>Open Findings</span>
@@ -802,11 +858,11 @@ export default function Journey360Page() {
                   <tbody>
                     {invoiceRows.map((p, i) => (
                       <tr key={String(p.paymentId || i)}>
-                        <td>{dateLabel(p.paymentAtUtc || p.paymentDate)}</td>
-                        <td>{String(p.paymentReference || p.referenceNumber || '—')}</td>
-                        <td>{readable(p.paymentMethodCode || p.paymentMode)}</td>
-                        <td>{readable(p.actualStatusCode || p.status)}</td>
-                        <td>{money(p.amount, String(p.currencyCode || 'INR'))}</td>
+                        <td>{dateLabel(pick(p, 'paymentAtUtc', 'payment_at_utc', 'paymentDate', 'payment_date', 'receiptDate', 'receipt_date', 'paymentReferenceDate', 'payment_reference_date'))}</td>
+                        <td>{String(pick(p, 'paymentReference', 'payment_reference', 'referenceNumber', 'reference_number', 'receiptNumber', 'receipt_number') || '—')}</td>
+                        <td>{readable(pick(p, 'paymentMethodCode', 'payment_method_code', 'paymentMode', 'payment_mode'))}</td>
+                        <td>{readable(pick(p, 'actualStatusCode', 'actual_status_code', 'status', 'paymentStatus', 'payment_status', 'reviewStatus', 'review_status'))}</td>
+                        <td>{money(pick(p, 'amount', 'amount_paid', 'amountPaid'), String(pick(p, 'currencyCode', 'currency_code') || 'INR'))}</td>
                       </tr>
                     ))}
                   </tbody>

@@ -5,6 +5,7 @@ dist/
 !.env.example
 .DS_Store
 coverage/
+*.tsbuildinfo
 android/.gradle/
 ios/App/Pods/
 

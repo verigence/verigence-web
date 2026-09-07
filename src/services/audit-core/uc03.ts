@@ -217,6 +217,37 @@ export async function getUc03LandingMetrics(
   );
 }
 
+export interface Uc03PcStats {
+  bookingsCompleted: number;
+  deliveriesCompleted: number;
+  bookingsInProgress: number;
+  deliveriesInProgress: number;
+}
+
+/**
+ * Process Coordinator throughput for a date window. `from`/`to` are inclusive
+ * calendar dates (YYYY-MM-DD) evaluated in the Project timezone by Audit Core.
+ * This is a secondary, non-blocking dashboard signal — call it after first paint.
+ */
+export async function getUc03PcStats(
+  tenantId: string,
+  range: { from: string; to: string },
+  outletId: string | undefined,
+  accessToken?: string,
+): Promise<Uc03PcStats> {
+  const search = new URLSearchParams();
+  search.set('from', range.from);
+  search.set('to', range.to);
+  if (outletId) search.set('outletId', outletId);
+  return auditCoreRequest<Uc03PcStats>(
+    `/v1/tenants/${encodeURIComponent(tenantId)}/uc03/pc-stats?${search.toString()}`,
+    {
+      accessToken: accessTokenRequired(accessToken),
+      cache: 'no-store',
+    },
+  );
+}
+
 export async function listUc03WorkItems(
   tenantId: string,
   filters: Uc03WorkItemFilters,

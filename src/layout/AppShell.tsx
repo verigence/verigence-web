@@ -4,8 +4,9 @@ import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 
 import { verigenceLockup } from '../assets/verigenceLockup';
 import type { OperatingRole, UserRole } from '../domain/models';
-import { clearOperationalProject, resetOperationalContext } from '../features/uc03/projectContext';
+import { clearOperationalProject, resetOperationalContext, selectOperationalOutlet } from '../features/uc03/projectContext';
 import { ANDROID_BACK_EVENT } from '../native/AndroidNativeBridge';
+import type { OperationalOutletScope } from '../services/audit-core/uc03';
 import { getReviewQueueSummary } from '../services/audit-core/uc03Audit';
 import { isDiTestConsoleAvailable } from '../services/di/testConsole';
 import { useProjectContextStore } from '../store/projectContextStore';
@@ -178,6 +179,7 @@ function NavIcon({ mark }: { mark: string }) {
 export default function AppShell({ children }: PropsWithChildren) {
   const sessionRole = useSessionStore((state) => state.role);
   const displayName = useSessionStore((state) => state.displayName);
+  const outletId = useSessionStore((state) => state.outletId);
   const signOut = useSessionStore((state) => state.signOut);
   const selectedProject = useProjectContextStore((state) => state.selectedProject);
   const projects = useProjectContextStore((state) => state.projects);
@@ -276,6 +278,20 @@ export default function AppShell({ children }: PropsWithChildren) {
     setMobileMenuOpen(false);
     navigate('/dashboard', { replace: true });
   };
+
+  // A Process Coordinator works a Dealership with one or more Outlets under it.
+  // Show those Outlets in the shell and let the PC switch between them in place.
+  const pcOutlets: OperationalOutletScope[] = selectedProject?.operatingRole === 'PC'
+    ? selectedProject.scope.outlets
+    : [];
+  const currentDealerName = pcOutlets.find((outlet) => outlet.outletId === outletId)?.dealerName
+    ?? pcOutlets[0]?.dealerName;
+  const handleSwitchOutlet = (outlet: OperationalOutletScope) => {
+    if (!selectedProject || outlet.outletId === outletId) return;
+    selectOperationalOutlet(selectedProject, outlet, queryClient);
+    setMobileMenuOpen(false);
+    navigate('/dashboard', { replace: true });
+  };
   const showLandingSearch = location.pathname === '/dashboard'
     && !createBookingMode
     && (role === 'PC' || role === 'TL' || role === 'PM');
@@ -320,7 +336,7 @@ export default function AppShell({ children }: PropsWithChildren) {
           <div className="enterprise-topbar__trail"><strong>{currentLabel}</strong></div>
         </div>
         <div className="enterprise-topbar__actions">
-          {selectedProject && projects.length > 1 && <button type="button" className="uc03-switch-project-topbar" onClick={handleSwitchProject}>Switch Workspace</button>}
+          {selectedProject && projects.length > 1 && <button type="button" className="uc03-switch-project-topbar" onClick={handleSwitchProject}>Switch Dealership</button>}
           <NavLink to="/profile" className="enterprise-topbar__identity" aria-label="Open profile">
             <span className="enterprise-topbar__avatar">{avatarText}</span>
             <span className="enterprise-topbar__identity-copy"><strong>{visibleName}</strong><small>{roleLabel}</small></span>
@@ -336,8 +352,30 @@ export default function AppShell({ children }: PropsWithChildren) {
         </div>
         {selectedProject && (
           <div className="uc03-shell-project">
-            <span>Current Workspace</span><strong>{roleLabel}</strong>
-            {projects.length > 1 && <button type="button" onClick={handleSwitchProject}>Switch Workspace</button>}
+            <span>Current Dealership</span>
+            <strong>{currentDealerName ?? roleLabel}</strong>
+            {pcOutlets.length > 0 && (
+              <ul className="pcov-outlets" aria-label="Outlets assigned to you">
+                {pcOutlets.map((outlet) => {
+                  const active = outlet.outletId === outletId;
+                  return (
+                    <li key={outlet.outletId}>
+                      <button
+                        type="button"
+                        className={`pcov-outlets__item${active ? ' is-active' : ''}`}
+                        aria-current={active ? 'true' : undefined}
+                        disabled={active}
+                        onClick={() => handleSwitchOutlet(outlet)}
+                      >
+                        <span>{outlet.outletName}</span>
+                        <small>{active ? 'Current' : 'Switch'}</small>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+            {projects.length > 1 && <button type="button" onClick={handleSwitchProject}>Switch Dealership</button>}
           </div>
         )}
         <nav className="enterprise-nav enterprise-nav--accordion" aria-label="Primary navigation">

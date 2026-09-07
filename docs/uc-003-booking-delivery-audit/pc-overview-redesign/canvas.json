@@ -1,0 +1,14 @@
+{
+  "artboards": [
+    { "file": "Main.dc.html", "title": "PC Overview · Web (busy day)", "x": 0, "y": 0, "w": 1440, "h": 900 },
+    { "file": "MainEmpty.dc.html", "title": "PC Overview · Web (start of month)", "x": 0, "y": 1010, "w": 1440, "h": 900 },
+    { "file": "WorkQueueMobile.dc.html", "title": "PC Overview · Mobile (busy day)", "x": 1560, "y": 0, "w": 390, "h": 844 },
+    { "file": "WorkQueueMobileEmpty.dc.html", "title": "PC Overview · Mobile (start of month)", "x": 1560, "y": 954, "w": 390, "h": 844 }
+  ],
+  "annotations": [
+    { "id": "concept", "x": 0, "y": -220, "w": 960, "text": "Verigence · Process Coordinator — a calm co-pilot. It greets the PC, says in one plain sentence what needs them, and hands them their jobs as cards with one obvious button each. Built for someone mid-20s with ordinary computer skills.\n\nSidebar and hero panel share the same gradient (start #00306e, blue→teal). Every journey shows a rail that fills with the brand gradient — blue at booking, mint at done. Type is Manrope. Blue = your action, teal/mint = done, a warm coral only for something old or returned." },
+    { "id": "data-note", "x": 0, "y": -110, "w": 960, "text": "DATA — everything here runs on existing Audit Core APIs except one:\n  • What needs you / journeys / pipeline / open flags → work-items + landing-metrics (have it).\n  • \"Returned by System/TL\" → nextActionCode; urgency shown as flag AGE (createdAtUtc) — there is no SLA field in the model, so no countdown.\n  • \"No action for 7 days\" → computed in the Web UI from latestActivityAtUtc vs a configurable day count. No backend.\n  • The ask sentence → Uc03AuditFlag.description (stored).\n\nONE new endpoint needed: GET /uc03/pc-stats?from&to&outletId → { bookingsCompleted, deliveriesCompleted, bookingsInProgress, deliveriesInProgress }. The UI calls it for the week / month ranges to fill the performance strip. Avg cycle-time tiles were dropped (not in that spec)." },
+    { "id": "empty-note", "x": 0, "y": 910, "w": 620, "text": "START OF MONTH / empty — no flags, no deliveries, nothing in progress. The hero flips to \"You're all caught up\", the counts show 0, and the working area becomes one warm invitation with Capture New Booking and a faint preview of the journey path. The page never looks broken, just quiet." }
+  ],
+  "launch": { "view": "canvas" }
+}

@@ -22,7 +22,6 @@ import '../styles/uc03-attribute-audit-review.css';
 import '../styles/uc03-delivery-capture-v2.css';
 
 const REFRESH_MS = 2 * 60 * 1000;
-// DEF-02 fix (2026-09-07): corrected from 92 to 90 per C-05 (06-Sep-2026 authority).
 const REVIEW_THRESHOLD = 90;
 
 type ReviewGroup = 'CUSTOMER' | 'VEHICLE' | 'FINANCIAL' | 'OTHER';

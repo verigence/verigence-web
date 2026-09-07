@@ -44,6 +44,7 @@ const OemMastersPage = lazy(() => import('./pages/AdminOemMastersPage'));
 const DiTestConsolePage = lazy(() => import('./pages/DiTestConsolePage'));
 const DocumentIntelligenceConfigurationPage = lazy(() => import('./pages/DocumentIntelligenceConfigurationPage'));
 const DashboardPage = lazy(loadDashboardPage);
+const PcOverviewPage = lazy(() => import('./pages/PcOverviewPage'));
 const TeamLeadDashboardPage = lazy(() => import('./pages/TeamLeadDashboardPage'));
 const TeamLeadReviewPage = lazy(() => import('./pages/TeamLeadReviewPage'));
 const CreateBookingV2Page = lazy(loadCreateBookingV2Page);
@@ -75,6 +76,20 @@ const ProjectAdministrationPage = lazy(() => import('./pages/ProjectAdministrati
 const ProfilePage = lazy(() => import('./pages/ProfilePage'));
 
 const routerBase = import.meta.env.BASE_URL === '/' ? undefined : import.meta.env.BASE_URL.replace(/\/$/, '');
+
+/*
+ * ── PC Overview redesign ──────────────────────────────────────────────────────
+ * The new Process Coordinator dashboard lives in ./pages/PcOverviewPage and is
+ * documented under docs/uc-003-booking-delivery-audit/pc-overview-redesign/.
+ * It ONLY replaces the PC landing screen — Team Lead / PM / admin dashboards are
+ * left exactly as they were.
+ *
+ * Falling back to the legacy Work Queue dashboard is deliberately trivial:
+ *   • set PC_OVERVIEW_REDESIGN_ENABLED to false below, or
+ *   • open any dashboard link with ?legacyDashboard=1
+ * The legacy DashboardPage and every dashboard-*.css file are untouched.
+ */
+const PC_OVERVIEW_REDESIGN_ENABLED = true;
 
 function PcJourneyRoutePreloader() {
   const signedIn = useSessionStore((state) => state.signedIn);
@@ -153,6 +168,14 @@ function DashboardEntry() {
   const selectedProject = useProjectContextStore((state) => state.selectedProject);
   if (role === 'SUPER_ADMIN' && !selectedProject) return <PrivatePage><AdminLandingPage /></PrivatePage>;
   if (selectedProject?.operatingRole === 'TL') return <OperationalPage><TeamLeadDashboardPage /></OperationalPage>;
+
+  const legacyOverride = typeof window !== 'undefined'
+    && new URLSearchParams(window.location.search).has('legacyDashboard');
+  const usePcOverview = selectedProject?.operatingRole === 'PC'
+    && PC_OVERVIEW_REDESIGN_ENABLED
+    && !legacyOverride;
+  if (usePcOverview) return <OperationalPage><PcOverviewPage /></OperationalPage>;
+
   return <OperationalPage><DashboardPage /></OperationalPage>;
 }
 

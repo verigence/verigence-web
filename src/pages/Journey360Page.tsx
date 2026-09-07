@@ -377,7 +377,7 @@ function ReceiptAccordion({
           const mode        = (pickStr(r, 'paymentMode', 'payment_mode', 'paymentMethodCode', 'payment_method_code') || '—').toUpperCase();
           const amountRaw   = pick(r, 'amount', 'amount_paid', 'amountPaid');
           const amountStr   = money(amountRaw, String(pick(r, 'currencyCode', 'currency_code') || 'INR'));
-          const viewUrl     = pick(r, 'contentUrl', 'content_url', 'documentUrl', 'document_url');
+          const viewUrl     = pickStr(r, 'contentUrl', 'content_url', 'documentUrl', 'document_url');
 
           const amountInWords     = pickStr(r, 'amountInWords', 'amount_in_words');
           const bankName          = pickStr(r, 'bankName', 'bank_name');
@@ -436,7 +436,7 @@ function ReceiptAccordion({
                   </div>
                   {viewUrl && (
                     <div className="journey-360-doc-view-row">
-                      <a href={String(viewUrl)} target="_blank" rel="noopener noreferrer" className="journey-360-doc-view-btn">
+                      <a href={viewUrl} target="_blank" rel="noopener noreferrer" className="journey-360-doc-view-btn">
                         View receipt document ↗
                       </a>
                     </div>

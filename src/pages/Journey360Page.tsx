@@ -102,76 +102,348 @@ function DeviationCell({ amount, percent, currency = 'INR' }: { amount: number |
   );
 }
 
+// ─── Price Check — verdict-first · visual bars · exception-default ────────────
+//   A: verdict banner answers "clean or not?" before any number is read
+//   C: proportional bar shows standard vs extracted visually
+//   D: only exceptions shown by default — clean rows collapse until toggled
+
+function moneyInt(v: number | null, currency = 'INR'): string {
+  if (v === null) return '—';
+  return new Intl.NumberFormat('en-IN', { style: 'currency', currency, maximumFractionDigits: 0 }).format(v);
+}
+
+function PriceBar({ standard, actual, state }: {
+  standard: number; actual: number | null; state: 'ok' | 'over' | 'under' | 'unknown';
+}) {
+  if (actual === null || standard === 0) {
+    return <div className="pc-bar pc-bar--empty"><span className="pc-bar__label-muted">Not yet extracted</span></div>;
+  }
+  const max = Math.max(standard, actual, 1);
+  return (
+    <div className="pc-bar">
+      <div className="pc-bar__track">
+        <div className="pc-bar__std" style={{ width: `${Math.min((standard / max) * 100, 100)}%` }} />
+        <div className={`pc-bar__act pc-bar__act--${state}`} style={{ width: `${Math.min((actual / max) * 100, 100)}%` }} />
+      </div>
+    </div>
+  );
+}
+
+function PriceCard({ label, standard, actual, deviationAmount, deviationPercent, currency, sourceLabel }: {
+  label: string; standard: number; actual: number | null;
+  deviationAmount: number | null; deviationPercent: number | null;
+  currency: string; sourceLabel?: string;
+}) {
+  const fmt = (v: number | null) => moneyInt(v, currency);
+  const state: 'ok' | 'over' | 'under' | 'unknown' =
+    deviationAmount === null ? 'unknown'
+    : Math.abs(deviationAmount) < 0.01 ? 'ok'
+    : deviationAmount > 0 ? 'over' : 'under';
+  const devLabel = state === 'ok' ? '✓ On standard'
+    : state === 'unknown' ? null
+    : (() => {
+        const sign = deviationAmount! > 0 ? '+' : '';
+        const pct = deviationPercent !== null ? ` (${sign}${deviationPercent.toFixed(1)}%)` : '';
+        return `${sign}${moneyInt(deviationAmount, currency)}${pct}`;
+      })();
+  return (
+    <div className={`pc-card pc-card--${state}`}>
+      <div className="pc-card__top">
+        <span className="pc-card__name">{label}</span>
+        <div className="pc-card__pills">
+          {sourceLabel && <span className="pc-card__source">{sourceLabel}</span>}
+          {devLabel && <span className={`pc-card__dev pc-card__dev--${state}`}>{devLabel}</span>}
+        </div>
+      </div>
+      <PriceBar standard={standard} actual={actual} state={state} />
+      <div className="pc-card__amounts">
+        <div><span>Standard</span><strong>{fmt(standard)}</strong></div>
+        <div>
+          <span>Extracted</span>
+          <strong className={state === 'over' ? 'pc-amt--over' : state === 'under' ? 'pc-amt--under' : ''}>
+            {fmt(actual)}
+          </strong>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function SkuPriceCheckPanel({ pricing }: { pricing: SkuPricing }) {
+  const [showAll, setShowAll] = useState(false);
   const currency = pricing.currencyCode || 'INR';
-  const fmt = (v: number | null) =>
-    v === null ? '—' : new Intl.NumberFormat('en-IN', { style: 'currency', currency, maximumFractionDigits: 0 }).format(v);
-  const statusCls = pricing.selectionStatus === 'CONFIRMED'
-    ? 'journey-360-sku-status journey-360-sku-status--confirmed'
-    : 'journey-360-sku-status journey-360-sku-status--tentative';
   const componentLabel = (k: string) =>
     k.replaceAll('_', ' ').toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
   const rows = pricing.masterComponents as SkuPricingComponent[];
-  const versionShort = pricing.priceListVersionId
-    ? `${pricing.priceListVersionId.slice(0, 8)}…`
-    : 'unknown';
+  const exceptions  = rows.filter((r) => r.deviationAmount !== null && Math.abs(r.deviationAmount) >= 0.01);
+  const clean       = rows.filter((r) => r.deviationAmount !== null && Math.abs(r.deviationAmount) < 0.01);
+  const unextracted = rows.filter((r) => r.deviationAmount === null);
+  const allClean = rows.length > 0 && exceptions.length === 0 && unextracted.length === 0;
+
   return (
-    <div className="journey-360-sku-price-check">
-      <div className="journey-360-sku-meta">
-        <div><span className="journey-360-sku-label">SKU</span><strong>{pricing.skuCode}</strong></div>
-        <div>
-          <span className="journey-360-sku-label">Product</span>
-          <strong>{[pricing.modelName, pricing.variantName, pricing.colourName].filter(Boolean).join(' · ')}</strong>
+    <div className="pc-grid">
+      {/* SKU strip */}
+      <div className="pc-sku-strip">
+        <div className="pc-sku-strip__main">
+          <span className="pc-sku-strip__code">{pricing.skuCode}</span>
+          <span className="pc-sku-strip__product">
+            {[pricing.modelName, pricing.variantName, pricing.colourName].filter(Boolean).join(' · ')}
+          </span>
         </div>
-        <div><span className="journey-360-sku-label">Status</span><span className={statusCls}>{pricing.selectionStatus}</span></div>
-        <div><span className="journey-360-sku-label">Price List</span><strong>{versionShort}</strong></div>
+        <span className={pricing.selectionStatus === 'CONFIRMED'
+          ? 'pc-sku-strip__badge pc-sku-strip__badge--ok'
+          : 'pc-sku-strip__badge pc-sku-strip__badge--warn'}>
+          {pricing.selectionStatus === 'CONFIRMED' ? 'SKU confirmed' : 'SKU tentative'}
+        </span>
       </div>
+
+      {/* Verdict banner */}
+      {allClean ? (
+        <div className="pc-verdict pc-verdict--clean">
+          <span className="pc-verdict__icon">✓</span>
+          <div>
+            <strong>All components match standard</strong>
+            <span>Every extracted value is on standard — no exceptions on this deal.</span>
+          </div>
+        </div>
+      ) : exceptions.length > 0 ? (
+        <div className={`pc-verdict pc-verdict--${(pricing.totalDeviationAmount ?? 0) > 0 ? 'over' : 'under'}`}>
+          <span className="pc-verdict__icon">{(pricing.totalDeviationAmount ?? 0) > 0 ? '↑' : '↓'}</span>
+          <div>
+            <strong>
+              {exceptions.length} component{exceptions.length !== 1 ? 's' : ''} deviate from standard
+              {pricing.totalDeviationAmount !== null ? ` · ${(pricing.totalDeviationAmount > 0 ? '+' : '')}${moneyInt(pricing.totalDeviationAmount, currency)} total` : ''}
+            </strong>
+            <span>Review each flagged line below before signing off this deal.</span>
+          </div>
+        </div>
+      ) : (
+        <div className="pc-verdict pc-verdict--pending">
+          <span className="pc-verdict__icon">◌</span>
+          <div>
+            <strong>No values extracted yet</strong>
+            <span>Complete the Booking document review to compare against master prices.</span>
+          </div>
+        </div>
+      )}
+
+      {/* Exception cards */}
+      {exceptions.length > 0 && (
+        <div className="pc-section">
+          <div className="pc-section__head">
+            <span className="pc-section__title pc-section__title--alert">{exceptions.length} exception{exceptions.length !== 1 ? 's' : ''}</span>
+          </div>
+          <div className="pc-cards">
+            {exceptions.map((row) => (
+              <PriceCard key={row.componentKey} label={componentLabel(row.componentKey)}
+                standard={row.masterAmount} actual={row.bookingAmount}
+                deviationAmount={row.deviationAmount} deviationPercent={row.deviationPercent} currency={currency} />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Show all toggle */}
       {rows.length > 0 && (
-        <div className="journey-360-table-wrap">
-          <table className="journey-360-table journey-360-table--price-check">
-            <thead><tr><th>Component</th><th className="journey-360-col-master">Master (Standard)</th><th className="journey-360-col-booking">Booking / Invoice</th><th className="journey-360-col-deviation">Deviation</th></tr></thead>
-            <tbody>
-              {rows.map((row) => (
-                <tr key={row.componentKey} className={row.deviationAmount !== null && row.deviationAmount !== 0 ? 'journey-360-row--deviated' : ''}>
-                  <td>{componentLabel(row.componentKey)}</td>
-                  <td className="journey-360-col-master">{fmt(row.masterAmount)}</td>
-                  <td className="journey-360-col-booking">{fmt(row.bookingAmount)}</td>
-                  <DeviationCell amount={row.deviationAmount} percent={row.deviationPercent} currency={currency} />
-                </tr>
-              ))}
-            </tbody>
-            <tfoot>
-              <tr className="journey-360-row--total">
-                <td><strong>Total (On-Road)</strong></td>
-                <td className="journey-360-col-master"><strong>{fmt(pricing.masterTotalAmount)}</strong></td>
-                <td className="journey-360-col-booking"><strong>{fmt(pricing.bookingTotalPrice)}</strong></td>
-                <DeviationCell amount={pricing.totalDeviationAmount} percent={pricing.totalDeviationPercent} currency={currency} />
-              </tr>
-              {pricing.bookingNetAmount !== null && (
-                <tr className="journey-360-row--net">
-                  <td><strong>Net Amount (after discounts)</strong></td>
-                  <td className="journey-360-col-master">—</td>
-                  <td className="journey-360-col-booking"><strong>{fmt(pricing.bookingNetAmount)}</strong></td>
-                  <td>—</td>
-                </tr>
+        <div className="pc-showall-row">
+          <button type="button" className="pc-showall-btn" onClick={() => setShowAll((v) => !v)}>
+            {showAll ? `▲ Hide standard components` : `▼ Show all ${rows.length} components`}
+          </button>
+          {!showAll && (
+            <span className="pc-showall-hint">
+              {clean.length > 0 && `${clean.length} on standard`}
+              {clean.length > 0 && unextracted.length > 0 && ' · '}
+              {unextracted.length > 0 && `${unextracted.length} not yet extracted`}
+            </span>
+          )}
+        </div>
+      )}
+
+      {/* Clean rows (shown when expanded) */}
+      {showAll && (clean.length > 0 || unextracted.length > 0) && (
+        <div className="pc-section pc-section--clean">
+          <div className="pc-clean-list">
+            {[...clean, ...unextracted].map((row) => (
+              <div key={row.componentKey} className="pc-clean-row">
+                <span className="pc-clean-row__name">{componentLabel(row.componentKey)}</span>
+                <span className="pc-clean-row__ok">{row.deviationAmount !== null ? '✓' : '◌'}</span>
+                <span className="pc-clean-row__amount">{moneyInt(row.masterAmount, currency)}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Net summary footer */}
+      <div className="pc-net-bar">
+        <div className="pc-net-bar__cell pc-net-bar__cell--std">
+          <span>On-Road Standard</span>
+          <strong>{moneyInt(pricing.masterTotalAmount, currency)}</strong>
+        </div>
+        {pricing.bookingTotalPrice !== null && (
+          <div className="pc-net-bar__cell">
+            <span>Booking Total</span>
+            <strong>{moneyInt(pricing.bookingTotalPrice, currency)}</strong>
+          </div>
+        )}
+        {(pricing.bookingDiscount !== null || pricing.bookingBonus !== null) && (
+          <div className="pc-net-bar__cell pc-net-bar__cell--deduction">
+            <span>Discount / Bonus</span>
+            <strong>{[pricing.bookingDiscount, pricing.bookingBonus].filter((v) => v !== null).map((v) => moneyInt(v, currency)).join(' + ')}</strong>
+          </div>
+        )}
+        {pricing.bookingNetAmount !== null && (
+          <div className="pc-net-bar__cell pc-net-bar__cell--net">
+            <span>Net Payable</span>
+            <strong>{moneyInt(pricing.bookingNetAmount, currency)}</strong>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── Receipt Accordion ────────────────────────────────────────────────────────
+// One row per receipt: Receipt No · Date · Mode · Amount → expand for full detail
+// Falls back to reviewedBooking payment fields when no structured receipts exist.
+
+function ReceiptAccordion({
+  receipts,
+  pendingReceipts,
+  reviewedBooking,
+}: {
+  receipts: Array<Record<string, unknown>>;
+  pendingReceipts: Array<Record<string, unknown>>;
+  reviewedBooking: Record<string, unknown> | null;
+}) {
+  const [openId, setOpenId] = useState<string | null>(null);
+
+  const total = receipts.reduce((s, r) => {
+    const a = Number(r.amount ?? 0); return s + (Number.isNaN(a) ? 0 : a);
+  }, 0);
+
+  if (receipts.length === 0 && pendingReceipts.length === 0) {
+    return (
+      <div>
+        {reviewedBooking && Object.keys(reviewedBooking).length > 0 ? (
+          <div className="journey-360-facts journey-360-facts--single">
+            <Fact label="Amount Paid">{money(value(reviewedBooking, 'booking_amount_paid'))}</Fact>
+            <Fact label="Payment Mode">{readable(value(reviewedBooking, 'mode_of_payment'))}</Fact>
+            <Fact label="Payment Reference">{textValue(reviewedBooking, 'payment_reference_no')}</Fact>
+            <Fact label="Payment Date">{dateLabel(value(reviewedBooking, 'payment_date') || value(reviewedBooking, 'booking_date'))}</Fact>
+            <Fact label="Bank / Instrument">{textValue(reviewedBooking, 'bank_name')}</Fact>
+            <Fact label="Balance Amount">{money(value(reviewedBooking, 'balance_amount'))}</Fact>
+          </div>
+        ) : (
+          <EmptySection>No payment receipts have been extracted yet.</EmptySection>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      {receipts.length > 0 && (
+        <div className="rcpt-total">
+          <span>Total collected (verified)</span>
+          <strong>{money(total)}</strong>
+        </div>
+      )}
+
+      <div className="rcpt-list">
+        {receipts.map((r, idx) => {
+          const id = String(r.receiptId || r.documentId || r.evidenceId || idx);
+          const isOpen = openId === id;
+
+          const receiptNo = String(r.receiptNumber || r.paymentReference || '—');
+          const receiptDate = dateLabel(r.receiptDate || r.paymentReferenceDate);
+          const mode = String(r.paymentMode || r.paymentMethodCode || '').toUpperCase() || '—';
+          const amount = money(r.amount, String(r.currencyCode || 'INR'));
+          const viewUrl = r.contentUrl ? String(r.contentUrl) : null;
+
+          const amountInWords = String(r.amountInWords || r.amount_in_words || '');
+          const bankName = String(r.bankName || r.bank_name || '');
+          const bankLocation = String(r.bankLocation || r.bank_location || '');
+          const dealerGstin = String(r.dealerGstin || r.dealer_gstin || '');
+          const remarks = String(r.remarks || '');
+          const bookingPaymentRef = String(r.bookingPaymentReference || r.bookingReference || '');
+          const paymentRefDate = dateLabel(r.paymentReferenceDate);
+          const customerOnReceipt = String(r.customerName || '');
+          const reviewStatus = String(r.reviewStatus || r.verificationStatus || 'VERIFIED');
+
+          return (
+            <div key={id} className={`rcpt-row${isOpen ? ' rcpt-row--open' : ''}`}>
+              <button
+                type="button"
+                className="rcpt-trigger"
+                onClick={() => setOpenId(isOpen ? null : id)}
+                aria-expanded={isOpen}
+              >
+                <span className="rcpt-trigger__mark">REC</span>
+                <div className="rcpt-trigger__body">
+                  <div className="rcpt-trigger__primary">
+                    <span className="rcpt-trigger__ref">{receiptNo}</span>
+                    <span className="rcpt-trigger__sep">·</span>
+                    <span className="rcpt-trigger__date">{receiptDate}</span>
+                    <span className="rcpt-trigger__sep">·</span>
+                    <span className="rcpt-trigger__mode">{mode}</span>
+                  </div>
+                  {amountInWords && (
+                    <span className="rcpt-trigger__words">{amountInWords}</span>
+                  )}
+                </div>
+                <div className="rcpt-trigger__right">
+                  <strong className="rcpt-trigger__amount">{amount}</strong>
+                  <StatusPill value={reviewStatus} compact />
+                </div>
+                <span className="rcpt-trigger__chevron" aria-hidden="true">{isOpen ? '▲' : '▼'}</span>
+              </button>
+
+              {isOpen && (
+                <div className="rcpt-detail">
+                  <div className="journey-360-facts">
+                    <Fact label="Receipt Number">{receiptNo}</Fact>
+                    <Fact label="Receipt Date">{receiptDate}</Fact>
+                    <Fact label="Payment Ref. Date">{paymentRefDate}</Fact>
+                    <Fact label="Payment Mode">{mode}</Fact>
+                    <Fact label="Amount">{amount}</Fact>
+                    {amountInWords && <Fact label="Amount in Words">{amountInWords}</Fact>}
+                    {bankName && <Fact label="Bank Name">{bankName}{bankLocation ? ` · ${bankLocation}` : ''}</Fact>}
+                    {dealerGstin && <Fact label="Dealer GSTIN">{dealerGstin}</Fact>}
+                    {customerOnReceipt && <Fact label="Customer on Receipt">{customerOnReceipt}</Fact>}
+                    {bookingPaymentRef && <Fact label="Booking Payment Ref.">{bookingPaymentRef}</Fact>}
+                    {remarks && <Fact label="Remarks">{remarks}</Fact>}
+                  </div>
+                  {viewUrl && (
+                    <div className="journey-360-doc-view-row">
+                      <a href={viewUrl} target="_blank" rel="noopener noreferrer" className="journey-360-doc-view-btn">
+                        View receipt document ↗
+                      </a>
+                    </div>
+                  )}
+                </div>
               )}
-            </tfoot>
-          </table>
-        </div>
-      )}
-      {(pricing.bookingDiscount !== null || pricing.bookingBonus !== null) && (
-        <div className="journey-360-sku-deductions">
-          {pricing.bookingDiscount !== null && (
-            <span><span className="journey-360-sku-label">Discount</span> <strong className="journey-360-sku-deduction">{fmt(pricing.bookingDiscount)}</strong></span>
-          )}
-          {pricing.bookingBonus !== null && (
-            <span><span className="journey-360-sku-label">Bonus</span> <strong className="journey-360-sku-deduction">{fmt(pricing.bookingBonus)}</strong></span>
-          )}
-        </div>
-      )}
-      {pricing.selectionStatus === 'TENTATIVE' && (
-        <p className="journey-360-sku-note">⚠ SKU is tentative — multiple matching master rows found. Confirm via Audit Review.</p>
-      )}
+            </div>
+          );
+        })}
+
+        {pendingReceipts.map((r, idx) => (
+          <div key={String(r.documentId || `pending-${idx}`)} className="rcpt-row rcpt-row--pending">
+            <div className="rcpt-trigger rcpt-trigger--pending">
+              <span className="rcpt-trigger__mark rcpt-trigger__mark--pending">REC</span>
+              <div className="rcpt-trigger__body">
+                <div className="rcpt-trigger__primary">
+                  <span className="rcpt-trigger__ref">{String(r.originalFilename || 'Receipt document')}</span>
+                </div>
+                <span className="rcpt-trigger__words">DI extraction in progress</span>
+              </div>
+              <div className="rcpt-trigger__right">
+                <span className="rcpt-pending-badge">Pending</span>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -218,12 +490,7 @@ function DocumentSelector({ documents }: { documents: Array<Record<string, unkno
                 </div>
                 {viewUrl && (
                   <div className="journey-360-doc-view-row">
-                    <a
-                      href={viewUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="journey-360-doc-view-btn"
-                    >
+                    <a href={viewUrl} target="_blank" rel="noopener noreferrer" className="journey-360-doc-view-btn">
                       View document ↗
                     </a>
                   </div>
@@ -271,7 +538,7 @@ export default function Journey360Page() {
 
   const model = overviewQuery.data;
 
-  // ── Payment / Receipt split ─────────────────────────────────────────────
+  // ── Receipt / Payment split ─────────────────────────────────────────────
   const receiptRows = useMemo(() => (model?.receipts || []).filter((r) => !receiptIsPending(r)), [model?.receipts]);
   const pendingReceiptRows = useMemo(() => (model?.receipts || []).filter(receiptIsPending), [model?.receipts]);
   const invoiceRows = model?.payments || [];
@@ -302,11 +569,20 @@ export default function Journey360Page() {
   const activeFindings = model.findings.filter((f) => ['OPEN', 'ACKNOWLEDGED'].includes(String(f.findingStatus || '')));
   const reviewedFields = model.reviewedFields || [];
 
+  // SKU — prefer resolved booking field, fall back to pricing panel
   const resolvedSkuCode = value(model.booking, 'skuCode');
   const skuDisplay = resolvedSkuCode != null && resolvedSkuCode !== ''
     ? String(resolvedSkuCode)
     : model.skuPricing?.skuCode ?? 'Not available';
   const skuSelectionStatus = value(model.booking, 'selectionStatus') as string | null;
+
+  // Dealer branch — from reviewed booking field, fall back to outlet code
+  const dealerBranch = preferredText(reviewedBooking, 'dealer_branch', model.journey, 'outletCode');
+
+  // Expected delivery — from reviewed booking form
+  const expectedDelivery = dateLabel(
+    value(reviewedBooking, 'expected_delivery_date') || value(reviewedBooking, 'expected_delivery')
+  );
 
   return (
     <div className="screen-stack journey-360-page">
@@ -320,7 +596,6 @@ export default function Journey360Page() {
       <div className="journey-360-topline">
         <Link className="journey-360-back" to="/search">← Search results</Link>
         <div className="journey-360-actions">
-          {/* /details renders Journey360Page directly — no capture-gate redirect */}
           <Link to={`/v2/bookings/${journeyId}/details`}>Open Booking</Link>
           <Link to={`/v2/deliveries/${journeyId}`}>Open Delivery</Link>
           <Link className="journey-360-actions__primary" to={`/audit/${journeyId}`}>Audit Review</Link>
@@ -339,9 +614,21 @@ export default function Journey360Page() {
         <div>
           <span>Dealer Booking No.</span>
           <strong>{bookingReference}</strong>
+          <small>{dealerBranch !== 'Not available' ? dealerBranch : textValue(model.journey, 'outletName')}</small>
         </div>
         <div>
-          <span>Receipts (verified)</span>
+          <span>SKU</span>
+          <strong>{skuDisplay}</strong>
+          {skuSelectionStatus === 'TENTATIVE' && (
+            <small style={{ color: '#b45309' }}>Tentative</small>
+          )}
+        </div>
+        <div>
+          <span>Expected Delivery</span>
+          <strong>{expectedDelivery}</strong>
+        </div>
+        <div>
+          <span>Receipts collected</span>
           <strong>
             {receiptRows.length}
             {pendingReceiptRows.length > 0 && (
@@ -349,15 +636,6 @@ export default function Journey360Page() {
             )}
           </strong>
           <small>{money(receiptTotal)}</small>
-        </div>
-        <div>
-          <span>Payments</span>
-          <strong>{invoiceRows.length}</strong>
-          <small>{money(invoiceTotal)}</small>
-        </div>
-        <div>
-          <span>Documents</span>
-          <strong>{model.evidence.length}</strong>
         </div>
         <div>
           <span>Open Findings</span>
@@ -391,7 +669,6 @@ export default function Journey360Page() {
         <SectionCard title="Booking & Vehicle" description="Resolved product facts — Delivery document values take precedence over Booking where both exist.">
           {model.booking ? (
             <div className="journey-360-facts">
-              {/* Dealer Booking No. is already shown in the summary bar — not repeated here */}
               <Fact label="Booking Date">{dateLabel(value(model.booking, 'bookingDate'))}</Fact>
               <Fact label="Model">{preferredText(model.booking, 'modelName', reviewedBooking, 'vehicle_model')}</Fact>
               <Fact label="Variant">{preferredText(model.booking, 'variantName', reviewedBooking, 'vehicle_variant')}</Fact>
@@ -403,11 +680,11 @@ export default function Journey360Page() {
                 )}
               </Fact>
               <Fact label="Sales Consultant">{textValue(reviewedBooking, 'sales_person')}</Fact>
-              <Fact label="Dealer Branch">{textValue(reviewedBooking, 'dealer_branch')}</Fact>
+              <Fact label="Dealer Branch">{dealerBranch}</Fact>
               <Fact label="Deal Type">{preferredText(model.booking, 'dealType', reviewedBooking, 'deal_type')}</Fact>
               <Fact label="Deal Source">{readable(value(model.booking, 'dealSource'))}</Fact>
               <Fact label="Lead Source">{readable(value(model.booking, 'leadSource'))}</Fact>
-              <Fact label="Expected Delivery">{dateLabel(value(reviewedBooking, 'expected_delivery_date') || value(reviewedBooking, 'expected_delivery'))}</Fact>
+              <Fact label="Expected Delivery">{expectedDelivery}</Fact>
               <Fact label="Registration By">{textValue(reviewedBooking, 'registration_by')}</Fact>
               <Fact label="Registration Type">{textValue(reviewedBooking, 'registration_type')}</Fact>
               <Fact label="Insurance By">{textValue(reviewedBooking, 'insurance_by')}</Fact>
@@ -422,13 +699,13 @@ export default function Journey360Page() {
       {model.skuPricing && (
         <SectionCard
           title="Price Check — Master vs Booking"
-          description={`SKU ${model.skuPricing.skuCode} · ${model.skuPricing.selectionStatus}`}
+          description={`SKU ${model.skuPricing.skuCode} · ${model.skuPricing.selectionStatus} · Standard on-road vs extracted booking values`}
         >
           <SkuPriceCheckPanel pricing={model.skuPricing} />
         </SectionCard>
       )}
 
-      {/* ── Row 2: Commercials + Receipts / Payments ── */}
+      {/* ── Row 2: Commercials + Payments ── */}
       <div className="journey-360-grid journey-360-grid--two">
         <SectionCard title="Commercials & Discounts" description="Booking-reviewed amounts from Booking Form. Commercial lines below reflect the Audit Core final view.">
           {reviewedBooking && Object.keys(reviewedBooking).length > 0 && (
@@ -493,112 +770,50 @@ export default function Journey360Page() {
           )}
         </SectionCard>
 
-        {/* ── Payment Receipts + Invoice Payments stacked ── */}
         <div className="journey-360-payment-split">
-          <SectionCard title="Payment Receipts" description="DI-reviewed dealer receipts — amount collected, date, mode and reference.">
-            {receiptRows.length > 0 ? (
-              <>
-                <div className="journey-360-payment-total">
-                  <span>Total collected (verified)</span>
-                  <strong>{money(receiptTotal)}</strong>
-                </div>
-                <div className="journey-360-table-wrap">
-                  <table className="journey-360-table">
-                    <thead>
-                      <tr>
-                        <th>Date</th>
-                        <th>Receipt No.</th>
-                        <th>Mode</th>
-                        <th>Bank</th>
-                        <th>Customer on Receipt</th>
-                        <th>Booking Ref</th>
-                        <th>Amount</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {receiptRows.map((r, i) => (
-                        <tr key={String(r.receiptId || r.documentId || r.evidenceId || i)}>
-                          <td>{dateLabel(r.receiptDate)}</td>
-                          <td>{String(r.receiptNumber || r.paymentReference || '—')}</td>
-                          <td>{readable(r.paymentMethodCode)}</td>
-                          <td>{String(r.bankName || '—')}</td>
-                          <td>{String(r.customerName || '—')}</td>
-                          <td>{String(r.bookingReference || '—')}</td>
-                          <td>{money(r.amount, String(r.currencyCode || 'INR'))}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </>
-            ) : (
-              <div className="journey-360-facts journey-360-facts--single">
-                <Fact label="Booking Amount Paid">{money(value(reviewedBooking, 'booking_amount_paid'))}</Fact>
-                <Fact label="Payment Mode">{readable(value(reviewedBooking, 'mode_of_payment'))}</Fact>
-                <Fact label="Payment Reference">{textValue(reviewedBooking, 'payment_reference_no')}</Fact>
-                <Fact label="Payment Date">{dateLabel(value(reviewedBooking, 'payment_date') || value(reviewedBooking, 'booking_date'))}</Fact>
-                <Fact label="Bank / Instrument">{textValue(reviewedBooking, 'bank_name')}</Fact>
-                <Fact label="Balance Amount">{money(value(reviewedBooking, 'balance_amount'))}</Fact>
-              </div>
-            )}
-            {pendingReceiptRows.length > 0 && (
-              <div className="journey-360-subsection">
-                <strong>Pending extraction ({pendingReceiptRows.length})</strong>
-                <div className="journey-360-table-wrap">
-                  <table className="journey-360-table">
-                    <thead><tr><th>File</th><th>Stage</th><th>Status</th></tr></thead>
-                    <tbody>
-                      {pendingReceiptRows.map((r, i) => (
-                        <tr key={String(r.documentId || i)} className="journey-360-receipt-pending">
-                          <td>{String(r.originalFilename || '—')}</td>
-                          <td>{readable(r.stageCode)}</td>
-                          <td><span className="journey-360-receipt-pending-status">DI extracting…</span></td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
+          <SectionCard
+            title="Payment Receipts"
+            description="DI-reviewed dealer receipts — click any row to see full receipt detail and document."
+          >
+            <ReceiptAccordion
+              receipts={receiptRows}
+              pendingReceipts={pendingReceiptRows}
+              reviewedBooking={reviewedBooking}
+            />
           </SectionCard>
 
-          {/* ── Invoice Payments ── */}
-          <SectionCard title="Invoice Payments" description="Audit Core payment records — booking advance, balance and final settlement.">
-            {invoiceRows.length > 0 ? (
-              <>
-                <div className="journey-360-payment-total">
-                  <span>Total recorded</span>
-                  <strong>{money(invoiceTotal)}</strong>
-                </div>
-                <div className="journey-360-table-wrap">
-                  <table className="journey-360-table">
-                    <thead>
-                      <tr>
-                        <th>Date</th>
-                        <th>Reference</th>
-                        <th>Mode</th>
-                        <th>Status</th>
-                        <th>Amount</th>
+          {invoiceRows.length > 0 && (
+            <SectionCard title="Invoice Payments" description="Audit Core payment ledger — advance, balance and final settlement entries.">
+              <div className="journey-360-payment-total">
+                <span>Total recorded</span>
+                <strong>{money(invoiceTotal)}</strong>
+              </div>
+              <div className="journey-360-table-wrap">
+                <table className="journey-360-table">
+                  <thead>
+                    <tr>
+                      <th>Date</th>
+                      <th>Reference</th>
+                      <th>Mode</th>
+                      <th>Status</th>
+                      <th>Amount</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {invoiceRows.map((p, i) => (
+                      <tr key={String(p.paymentId || i)}>
+                        <td>{dateLabel(p.paymentAtUtc || p.paymentDate)}</td>
+                        <td>{String(p.paymentReference || p.referenceNumber || '—')}</td>
+                        <td>{readable(p.paymentMethodCode || p.paymentMode)}</td>
+                        <td>{readable(p.actualStatusCode || p.status)}</td>
+                        <td>{money(p.amount, String(p.currencyCode || 'INR'))}</td>
                       </tr>
-                    </thead>
-                    <tbody>
-                      {invoiceRows.map((p, i) => (
-                        <tr key={String(p.paymentId || i)}>
-                          <td>{dateLabel(p.paymentAtUtc)}</td>
-                          <td>{String(p.paymentReference || '—')}</td>
-                          <td>{readable(p.paymentMethodCode)}</td>
-                          <td>{readable(p.actualStatusCode)}</td>
-                          <td>{money(p.amount, String(p.currencyCode || 'INR'))}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </>
-            ) : (
-              <EmptySection>No invoice payment records have been posted yet.</EmptySection>
-            )}
-          </SectionCard>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </SectionCard>
+          )}
         </div>
       </div>
 

@@ -338,7 +338,7 @@
 
 .journey-360-summary {
   display: grid;
-  grid-template-columns: 1.6fr repeat(3, 1fr);
+  grid-template-columns: 1.4fr repeat(4, 1fr);
   border: 1px solid var(--journey-search-border);
   border-radius: 18px;
   background: #fff;
@@ -484,6 +484,13 @@
   font-size: 1rem;
 }
 
+/* ── Payment split container: stacks two cards vertically inside the grid cell ── */
+.journey-360-payment-split {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
 .journey-360-list {
   display: grid;
   gap: 8px;
@@ -542,15 +549,97 @@
   justify-self: end;
 }
 
+/* ── Document accordion ─────────────────────────────────────────────────────── */
+
+.journey-360-doc-list {
+  display: grid;
+  gap: 6px;
+}
+
+.journey-360-doc-row {
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  border-radius: 12px;
+  overflow: hidden;
+  background: #fff;
+  transition: border-color 120ms ease;
+}
+
+.journey-360-doc-row--open {
+  border-color: rgba(8, 127, 119, 0.3);
+}
+
+.journey-360-doc-trigger {
+  width: 100%;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+}
+
+.journey-360-doc-trigger:hover {
+  background: rgba(8, 127, 119, 0.04);
+}
+
+.journey-360-doc-trigger__label {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.journey-360-doc-trigger__label strong {
+  color: #172033;
+  font-size: 0.8rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.journey-360-doc-trigger__label small {
+  color: var(--journey-search-muted);
+  font-size: 0.7rem;
+}
+
+.journey-360-doc-trigger__chevron {
+  color: var(--journey-search-muted);
+  font-size: 0.6rem;
+  width: 18px;
+  text-align: center;
+}
+
+.journey-360-doc-detail {
+  padding: 12px 14px 14px;
+  border-top: 1px solid rgba(148, 163, 184, 0.14);
+  background: #f8fafc;
+}
+
+/* ── Pending receipt row ─────────────────────────────────────────────────────── */
+
+.journey-360-receipt-pending td {
+  color: #94a3b8;
+  font-style: italic;
+}
+
+.journey-360-receipt-pending-status {
+  color: #b45309;
+  font-weight: 600;
+  font-style: normal;
+}
+
+/* ── Responsive ─────────────────────────────────────────────────────────────── */
+
 @media (max-width: 1180px) {
   .journey-search-result {
     grid-template-columns: minmax(190px, 1.4fr) minmax(155px, 1fr) minmax(180px, 1fr) auto;
   }
-
   .journey-search-result__status {
     display: none;
   }
-
   .journey-360-grid--three {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -561,115 +650,52 @@
     padding: 16px;
     border-radius: 18px;
   }
-
   .journey-search-panel__heading,
   .journey-360-topline {
     align-items: flex-start;
     flex-direction: column;
   }
-
-  .journey-search-panel__scope {
-    white-space: normal;
-  }
-
-  .journey-search-input-wrap {
-    min-height: 54px;
-  }
-
-  .journey-search-input-wrap__icon {
-    display: none;
-  }
-
+  .journey-search-panel__scope { white-space: normal; }
+  .journey-search-input-wrap { min-height: 54px; }
+  .journey-search-input-wrap__icon { display: none; }
   .journey-search-result {
     grid-template-columns: 1fr auto;
     gap: 12px;
     padding: 15px;
   }
-
   .journey-search-result__identity,
   .journey-search-result__reference,
-  .journey-search-result__location {
-    grid-column: 1 / -1;
-  }
-
+  .journey-search-result__location { grid-column: 1 / -1; }
   .journey-search-result__reference,
-  .journey-search-result__location {
-    padding-left: 53px;
-  }
-
-  .journey-search-result__open {
-    grid-column: 1 / -1;
-    justify-self: stretch;
-  }
-
-  .journey-360-actions {
-    justify-content: flex-start;
-  }
-
-  .journey-360-summary {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .journey-360-summary > div {
-    border-right: 0;
-    border-bottom: 1px solid var(--journey-search-border);
-  }
-
-  .journey-360-summary > div:nth-child(odd) {
-    border-right: 1px solid var(--journey-search-border);
-  }
-
+  .journey-search-result__location { padding-left: 53px; }
+  .journey-search-result__open { grid-column: 1 / -1; justify-self: stretch; }
+  .journey-360-actions { justify-content: flex-start; }
+  .journey-360-summary { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .journey-360-summary > div { border-right: 0; border-bottom: 1px solid var(--journey-search-border); }
+  .journey-360-summary > div:nth-child(3n) { border-right: 0; }
   .journey-360-grid--two,
-  .journey-360-grid--three {
-    grid-template-columns: 1fr;
-  }
+  .journey-360-grid--three { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 520px) {
-  .journey-search-panel__heading strong {
-    font-size: 0.84rem;
-  }
-
-  .journey-search-input-wrap input {
-    font-size: 0.9rem;
-  }
-
+  .journey-search-panel__heading strong { font-size: 0.84rem; }
+  .journey-search-input-wrap input { font-size: 0.9rem; }
   .journey-search-result__reference,
-  .journey-search-result__location {
-    padding-left: 0;
-  }
-
-  .journey-360-summary {
-    grid-template-columns: 1fr;
-  }
-
+  .journey-search-result__location { padding-left: 0; }
+  .journey-360-summary { grid-template-columns: 1fr 1fr; }
   .journey-360-summary > div,
-  .journey-360-summary > div:nth-child(odd) {
-    border-right: 0;
-  }
-
-  .journey-360-facts {
-    grid-template-columns: 1fr;
-  }
-
-  .journey-360-actions {
-    width: 100%;
-  }
-
-  .journey-360-actions a {
-    flex: 1 1 auto;
-    justify-content: center;
-  }
+  .journey-360-summary > div:nth-child(odd) { border-right: 0; }
+  .journey-360-summary > div:nth-child(odd) { border-right: 1px solid var(--journey-search-border); }
+  .journey-360-facts { grid-template-columns: 1fr; }
+  .journey-360-actions { width: 100%; }
+  .journey-360-actions a { flex: 1 1 auto; justify-content: center; }
 }
 
-/* ──────────────────────────────────────────────────────────────────────────
-   Price Check Panel — Master (Standard) vs Booking / Invoice columns
-   ────────────────────────────────────────────────────────────────────────── */
+/* ──────────────────────────────────────────────────────────────────────────────
+   Price Check Panel
+   ────────────────────────────────────────────────────────────────────────────── */
 
-.journey-360-sku-price-check {
-  display: grid;
-  gap: 16px;
-}
+.journey-360-sku-price-check { display: grid; gap: 16px; }
 
 .journey-360-sku-meta {
   display: flex;
@@ -681,11 +707,7 @@
   border: 1px solid rgba(148, 163, 184, 0.18);
 }
 
-.journey-360-sku-meta > div {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
+.journey-360-sku-meta > div { display: flex; flex-direction: column; gap: 2px; }
 
 .journey-360-sku-label {
   font-size: 0.65rem;
@@ -703,78 +725,23 @@
   display: inline-block;
 }
 
-.journey-360-sku-status--confirmed {
-  background: rgba(16, 185, 129, 0.12);
-  color: #065f46;
-}
-
-.journey-360-sku-status--tentative {
-  background: rgba(245, 158, 11, 0.14);
-  color: #92400e;
-}
-
-/* ── Price-check table column alignment ───────────────────────────────────── */
+.journey-360-sku-status--confirmed { background: rgba(16, 185, 129, 0.12); color: #065f46; }
+.journey-360-sku-status--tentative { background: rgba(245, 158, 11, 0.14); color: #92400e; }
 
 .journey-360-table--price-check .journey-360-col-master,
 .journey-360-table--price-check .journey-360-col-booking,
-.journey-360-table--price-check .journey-360-col-deviation {
-  text-align: right;
-  white-space: nowrap;
-}
+.journey-360-table--price-check .journey-360-col-deviation { text-align: right; white-space: nowrap; }
+.journey-360-table--price-check .journey-360-col-master { color: #1e3a5f; }
+.journey-360-table--price-check .journey-360-col-booking { color: #374151; }
 
-.journey-360-table--price-check .journey-360-col-master {
-  color: #1e3a5f;
-}
+.journey-360-deviation { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.journey-360-deviation small { display: block; font-size: 0.62rem; opacity: 0.7; margin-top: 1px; }
+.journey-360-deviation--none { color: #94a3b8; }
+.journey-360-deviation--ok { color: #059669; font-weight: 600; }
+.journey-360-deviation--over { color: #dc2626; font-weight: 700; background: rgba(220, 38, 38, 0.06); border-radius: 4px; }
+.journey-360-deviation--under { color: #d97706; font-weight: 700; background: rgba(217, 119, 6, 0.07); border-radius: 4px; }
 
-.journey-360-table--price-check .journey-360-col-booking {
-  color: #374151;
-}
-
-/* ── Deviation cell states ─────────────────────────────────────────────────── */
-
-.journey-360-deviation {
-  text-align: right;
-  white-space: nowrap;
-  font-variant-numeric: tabular-nums;
-}
-
-.journey-360-deviation small {
-  display: block;
-  font-size: 0.62rem;
-  opacity: 0.7;
-  margin-top: 1px;
-}
-
-.journey-360-deviation--none {
-  color: #94a3b8;
-}
-
-.journey-360-deviation--ok {
-  color: #059669;
-  font-weight: 600;
-}
-
-.journey-360-deviation--over {
-  color: #dc2626;
-  font-weight: 700;
-  background: rgba(220, 38, 38, 0.06);
-  border-radius: 4px;
-}
-
-.journey-360-deviation--under {
-  color: #d97706;
-  font-weight: 700;
-  background: rgba(217, 119, 6, 0.07);
-  border-radius: 4px;
-}
-
-/* ── Highlighted deviated row ──────────────────────────────────────────────── */
-
-.journey-360-table--price-check tbody tr.journey-360-row--deviated {
-  background: rgba(254, 243, 199, 0.45);
-}
-
-/* ── Total / Net footer rows ─────────────────────────────────────────────────── */
+.journey-360-table--price-check tbody tr.journey-360-row--deviated { background: rgba(254, 243, 199, 0.45); }
 
 .journey-360-table--price-check tfoot tr.journey-360-row--total td {
   padding-top: 12px;
@@ -789,8 +756,6 @@
   border-top: 1px solid rgba(148, 163, 184, 0.15);
 }
 
-/* ── Discount / Bonus summary strip ──────────────────────────────────────────── */
-
 .journey-360-sku-deductions {
   display: flex;
   flex-wrap: wrap;
@@ -803,11 +768,7 @@
   color: #475569;
 }
 
-.journey-360-sku-deduction {
-  color: #dc2626;
-}
-
-/* ── Tentative warning note ──────────────────────────────────────────────────── */
+.journey-360-sku-deduction { color: #dc2626; }
 
 .journey-360-sku-note {
   margin: 0;

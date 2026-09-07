@@ -10,7 +10,6 @@ import { getUc03JourneyOverview, type SkuPricing, type SkuPricingComponent } fro
 import { useProjectContextStore } from '../store/projectContextStore';
 import { useSessionStore } from '../store/sessionStore';
 
-// How long the "Booking submitted" success banner stays visible (ms).
 const SUBMIT_BANNER_DURATION_MS = 6_000;
 
 function value(record: Record<string, unknown> | null | undefined, key: string): unknown {
@@ -29,11 +28,7 @@ function textValue(record: Record<string, unknown> | null | undefined, key: stri
   if (current === null || current === undefined || current === '') return 'Not available';
   if (typeof current === 'boolean') return current ? 'Yes' : 'No';
   if (typeof current === 'object') {
-    try {
-      return JSON.stringify(current);
-    } catch {
-      return String(current);
-    }
+    try { return JSON.stringify(current); } catch { return String(current); }
   }
   return String(current);
 }
@@ -49,30 +44,27 @@ function preferredText(
   return textValue(fallback, fallbackKey);
 }
 
-function readable(valueToFormat: unknown): string {
-  if (valueToFormat === null || valueToFormat === undefined || valueToFormat === '') return 'Not available';
-  return String(valueToFormat)
-    .replaceAll('_', ' ')
-    .toLowerCase()
-    .replace(/\b\w/g, (character) => character.toUpperCase());
+function readable(v: unknown): string {
+  if (v === null || v === undefined || v === '') return 'Not available';
+  return String(v).replaceAll('_', ' ').toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
-function money(valueToFormat: unknown, currency = 'INR'): string {
-  if (valueToFormat === null || valueToFormat === undefined || valueToFormat === '') return '—';
-  const amount = Number(valueToFormat);
-  if (Number.isNaN(amount)) return String(valueToFormat);
+function money(v: unknown, currency = 'INR'): string {
+  if (v === null || v === undefined || v === '') return '—';
+  const n = Number(v);
+  if (Number.isNaN(n)) return String(v);
   try {
-    return new Intl.NumberFormat('en-IN', { style: 'currency', currency, maximumFractionDigits: 2 }).format(amount);
+    return new Intl.NumberFormat('en-IN', { style: 'currency', currency, maximumFractionDigits: 2 }).format(n);
   } catch {
-    return new Intl.NumberFormat('en-IN', { maximumFractionDigits: 2 }).format(amount);
+    return new Intl.NumberFormat('en-IN', { maximumFractionDigits: 2 }).format(n);
   }
 }
 
-function dateLabel(valueToFormat: unknown): string {
-  if (!valueToFormat) return 'Not available';
-  const parsed = new Date(String(valueToFormat));
-  if (Number.isNaN(parsed.getTime())) return String(valueToFormat);
-  return new Intl.DateTimeFormat('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }).format(parsed);
+function dateLabel(v: unknown): string {
+  if (!v) return 'Not available';
+  const d = new Date(String(v));
+  if (Number.isNaN(d.getTime())) return String(v);
+  return new Intl.DateTimeFormat('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }).format(d);
 }
 
 function Fact({ label, children }: { label: string; children: React.ReactNode }) {
@@ -88,22 +80,16 @@ function EmptySection({ children }: { children: React.ReactNode }) {
   return <p className="journey-360-empty">{children}</p>;
 }
 
-/** True when the receipt row has no reviewed amount yet (DI still processing). */
-function receiptIsPending(payment: Record<string, unknown>): boolean {
+function receiptIsPending(r: Record<string, unknown>): boolean {
   return (
-    payment.amount === null
-    || payment.amount === undefined
-    || payment.amount === ''
-    || Number(payment.amount) === 0
-  ) && String(payment.reviewStatus || '').toUpperCase() !== 'VERIFIED';
+    r.amount === null || r.amount === undefined || r.amount === '' || Number(r.amount) === 0
+  ) && String(r.reviewStatus || '').toUpperCase() !== 'VERIFIED';
 }
 
 function DeviationCell({ amount, percent, currency = 'INR' }: { amount: number | null; percent: number | null; currency?: string }) {
   if (amount === null) return <td className="journey-360-deviation journey-360-deviation--none">—</td>;
   const sign = amount > 0 ? '+' : '';
-  const cls = amount === 0
-    ? 'journey-360-deviation journey-360-deviation--ok'
-    : Math.abs(amount) < 0.01
+  const cls = Math.abs(amount) < 0.01
     ? 'journey-360-deviation journey-360-deviation--ok'
     : amount > 0
     ? 'journey-360-deviation journey-360-deviation--over'
@@ -120,52 +106,29 @@ function SkuPriceCheckPanel({ pricing }: { pricing: SkuPricing }) {
   const currency = pricing.currencyCode || 'INR';
   const fmt = (v: number | null) =>
     v === null ? '—' : new Intl.NumberFormat('en-IN', { style: 'currency', currency, maximumFractionDigits: 0 }).format(v);
-  const statusCls =
-    pricing.selectionStatus === 'CONFIRMED'
-      ? 'journey-360-sku-status journey-360-sku-status--confirmed'
-      : 'journey-360-sku-status journey-360-sku-status--tentative';
-
-  const componentLabel = (key: string) =>
-    key.replaceAll('_', ' ').toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
-
+  const statusCls = pricing.selectionStatus === 'CONFIRMED'
+    ? 'journey-360-sku-status journey-360-sku-status--confirmed'
+    : 'journey-360-sku-status journey-360-sku-status--tentative';
+  const componentLabel = (k: string) =>
+    k.replaceAll('_', ' ').toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
   const rows = pricing.masterComponents as SkuPricingComponent[];
-
   return (
     <div className="journey-360-sku-price-check">
       <div className="journey-360-sku-meta">
-        <div>
-          <span className="journey-360-sku-label">SKU</span>
-          <strong>{pricing.skuCode}</strong>
-        </div>
+        <div><span className="journey-360-sku-label">SKU</span><strong>{pricing.skuCode}</strong></div>
         <div>
           <span className="journey-360-sku-label">Product</span>
-          <strong>
-            {[pricing.modelName, pricing.variantName, pricing.colourName].filter(Boolean).join(' · ')}
-          </strong>
+          <strong>{[pricing.modelName, pricing.variantName, pricing.colourName].filter(Boolean).join(' · ')}</strong>
         </div>
-        <div>
-          <span className="journey-360-sku-label">SKU Status</span>
-          <span className={statusCls}>{pricing.selectionStatus}</span>
-        </div>
+        <div><span className="journey-360-sku-label">Status</span><span className={statusCls}>{pricing.selectionStatus}</span></div>
       </div>
-
       {rows.length > 0 && (
         <div className="journey-360-table-wrap">
           <table className="journey-360-table journey-360-table--price-check">
-            <thead>
-              <tr>
-                <th>Component</th>
-                <th className="journey-360-col-master">Master (Standard)</th>
-                <th className="journey-360-col-booking">Booking / Invoice</th>
-                <th className="journey-360-col-deviation">Deviation</th>
-              </tr>
-            </thead>
+            <thead><tr><th>Component</th><th className="journey-360-col-master">Master (Standard)</th><th className="journey-360-col-booking">Booking / Invoice</th><th className="journey-360-col-deviation">Deviation</th></tr></thead>
             <tbody>
               {rows.map((row) => (
-                <tr
-                  key={row.componentKey}
-                  className={row.deviationAmount !== null && row.deviationAmount !== 0 ? 'journey-360-row--deviated' : ''}
-                >
+                <tr key={row.componentKey} className={row.deviationAmount !== null && row.deviationAmount !== 0 ? 'journey-360-row--deviated' : ''}>
                   <td>{componentLabel(row.componentKey)}</td>
                   <td className="journey-360-col-master">{fmt(row.masterAmount)}</td>
                   <td className="journey-360-col-booking">{fmt(row.bookingAmount)}</td>
@@ -192,23 +155,67 @@ function SkuPriceCheckPanel({ pricing }: { pricing: SkuPricing }) {
           </table>
         </div>
       )}
-
       {(pricing.bookingDiscount !== null || pricing.bookingBonus !== null) && (
         <div className="journey-360-sku-deductions">
           {pricing.bookingDiscount !== null && (
-            <span><span className="journey-360-sku-label">Booking Discount</span> <strong className="journey-360-sku-deduction">{fmt(pricing.bookingDiscount)}</strong></span>
+            <span><span className="journey-360-sku-label">Discount</span> <strong className="journey-360-sku-deduction">{fmt(pricing.bookingDiscount)}</strong></span>
           )}
           {pricing.bookingBonus !== null && (
             <span><span className="journey-360-sku-label">Bonus</span> <strong className="journey-360-sku-deduction">{fmt(pricing.bookingBonus)}</strong></span>
           )}
         </div>
       )}
-
       {pricing.selectionStatus === 'TENTATIVE' && (
-        <p className="journey-360-sku-note">
-          ⚠ SKU is tentative — multiple matching master rows found. Confirm via Audit Review.
-        </p>
+        <p className="journey-360-sku-note">⚠ SKU is tentative — multiple matching master rows found. Confirm via Audit Review.</p>
       )}
+    </div>
+  );
+}
+
+// ── Accordion document selector ─────────────────────────────────────────────
+function DocumentSelector({ documents }: { documents: Array<Record<string, unknown>> }) {
+  const [openId, setOpenId] = useState<string | null>(null);
+  if (documents.length === 0) return <EmptySection>No active documents are linked to this Journey.</EmptySection>;
+  return (
+    <div className="journey-360-doc-list">
+      {documents.map((doc, idx) => {
+        const id = String(doc.documentId || doc.evidenceId || idx);
+        const isOpen = openId === id;
+        const label = readable(doc.documentTypeKey || doc.requirementKey || doc.originalFilename);
+        const stage = readable(doc.processArea || doc.evidencePurpose);
+        const status = String(doc.reviewStatus || doc.verificationStatus || doc.processingStatus || 'UNKNOWN');
+        return (
+          <div key={id} className={`journey-360-doc-row${isOpen ? ' journey-360-doc-row--open' : ''}`}>
+            <button
+              type="button"
+              className="journey-360-doc-trigger"
+              onClick={() => setOpenId(isOpen ? null : id)}
+              aria-expanded={isOpen}
+            >
+              <span className="journey-360-document-mark">DOC</span>
+              <span className="journey-360-doc-trigger__label">
+                <strong>{label}</strong>
+                <small>{stage}</small>
+              </span>
+              <StatusPill value={status} compact />
+              <span className="journey-360-doc-trigger__chevron" aria-hidden="true">{isOpen ? '▲' : '▼'}</span>
+            </button>
+            {isOpen && (
+              <div className="journey-360-doc-detail">
+                <div className="journey-360-facts journey-360-facts--single">
+                  <Fact label="Document Type">{label}</Fact>
+                  <Fact label="Stage">{stage}</Fact>
+                  <Fact label="Status"><StatusPill value={status} /></Fact>
+                  {doc.originalFilename && <Fact label="File">{String(doc.originalFilename)}</Fact>}
+                  {doc.requirementKey && <Fact label="Requirement">{readable(doc.requirementKey)}</Fact>}
+                  {doc.captureStatus && <Fact label="Capture Status">{readable(doc.captureStatus)}</Fact>}
+                  {doc.linkedAtUtc && <Fact label="Linked">{dateLabel(doc.linkedAtUtc)}</Fact>}
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -221,26 +228,20 @@ export default function Journey360Page() {
   const selectedProject = useProjectContextStore((state) => state.selectedProject);
   const tenantId = selectedProject?.tenantId || '';
 
-  // BUG-4: show a timed success banner when navigated straight from Booking Review submit.
   const arrivedFromSubmit = (location.state as Record<string, unknown> | null)?.bookingSubmitted === true;
   const [showSubmitBanner, setShowSubmitBanner] = useState(arrivedFromSubmit);
   useEffect(() => {
     if (!arrivedFromSubmit) return undefined;
     const timer = window.setTimeout(() => setShowSubmitBanner(false), SUBMIT_BANNER_DURATION_MS);
     return () => window.clearTimeout(timer);
-  // Run once on mount only.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // BUG-1: when navigated from Review submit, force the overview query to
-  // re-fetch immediately rather than serving the 15s stale cache.
   const invalidatedOnArrival = useRef(false);
   useEffect(() => {
     if (!arrivedFromSubmit || invalidatedOnArrival.current) return;
     invalidatedOnArrival.current = true;
-    void queryClient.invalidateQueries({
-      queryKey: ['uc03-journey-overview', tenantId, journeyId],
-    });
+    void queryClient.invalidateQueries({ queryKey: ['uc03-journey-overview', tenantId, journeyId] });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -253,14 +254,20 @@ export default function Journey360Page() {
 
   const model = overviewQuery.data;
 
-  const receiptRows = model?.receipts || [];
-  const paymentRows = receiptRows.length > 0 ? receiptRows : (model?.payments || []);
-  const paymentTotal = useMemo(() => (
-    paymentRows.reduce((sum, payment) => {
-      const amount = Number(payment.amount ?? 0);
-      return sum + (Number.isNaN(amount) ? 0 : amount);
-    }, 0)
-  ), [paymentRows]);
+  // ── Payment / Receipt split ─────────────────────────────────────────────
+  // receipts[]  = DI-reviewed dealer receipts (amount_paid, receipt_number, date, mode)
+  // payments[]  = Audit Core payment records (booking amount, balance, etc.)
+  // When receipts are present use them as the primary list; payments remain a
+  // separate audit-owned record set.
+  const receiptRows = useMemo(() => (model?.receipts || []).filter((r) => !receiptIsPending(r)), [model?.receipts]);
+  const pendingReceiptRows = useMemo(() => (model?.receipts || []).filter(receiptIsPending), [model?.receipts]);
+  const invoiceRows = model?.payments || [];
+  const receiptTotal = useMemo(() => receiptRows.reduce((s, r) => {
+    const a = Number(r.amount ?? 0); return s + (Number.isNaN(a) ? 0 : a);
+  }, 0), [receiptRows]);
+  const invoiceTotal = useMemo(() => invoiceRows.reduce((s, p) => {
+    const a = Number(p.amount ?? 0); return s + (Number.isNaN(a) ? 0 : a);
+  }, 0), [invoiceRows]);
 
   if (overviewQuery.isLoading) return <div className="page-loading">Loading complete Journey…</div>;
   if (overviewQuery.isError || !model) {
@@ -274,17 +281,14 @@ export default function Journey360Page() {
 
   const reviewedBooking = objectValue(model.booking, 'reviewedValues');
   const capturedCustomerName = preferredText(reviewedBooking, 'customer_name', model.customer, 'enteredName');
-  const legalNameRaw = value(model.customer, 'legalName');
-  const customerName = legalNameRaw ? String(legalNameRaw) : capturedCustomerName;
+  const customerName = value(model.customer, 'legalName') ? String(value(model.customer, 'legalName')) : capturedCustomerName;
   const bookingReference = textValue(model.booking, 'bookingReference');
   const productLabel = textValue(model.journey, 'productLabel');
   const bookingStatus = value(model.journey, 'bookingStatus');
   const deliveryStatus = value(model.journey, 'deliveryStatus');
-  const activeFindings = model.findings.filter((finding) => ['OPEN', 'ACKNOWLEDGED'].includes(String(finding.findingStatus || '')));
+  const activeFindings = model.findings.filter((f) => ['OPEN', 'ACKNOWLEDGED'].includes(String(f.findingStatus || '')));
   const reviewedFields = model.reviewedFields || [];
 
-  // SKU: read from the resolved journey_products row (via booking query skuCode),
-  // with a fallback to the skuPricing panel when available.
   const resolvedSkuCode = value(model.booking, 'skuCode');
   const skuDisplay = resolvedSkuCode != null && resolvedSkuCode !== ''
     ? String(resolvedSkuCode)
@@ -318,16 +322,17 @@ export default function Journey360Page() {
 
       <section className="journey-360-summary" aria-label="Journey summary">
         <div><span>Dealer Booking No.</span><strong>{bookingReference}</strong></div>
-        <div><span>Payments / Receipts</span><strong>{paymentRows.length}</strong><small>{money(paymentTotal)}</small></div>
+        <div><span>Receipts</span><strong>{receiptRows.length}</strong><small>{money(receiptTotal)}</small></div>
+        <div><span>Payments</span><strong>{invoiceRows.length}</strong><small>{money(invoiceTotal)}</small></div>
         <div><span>Documents</span><strong>{model.evidence.length}</strong></div>
-        <div><span>Reviewed DI Fields</span><strong>{reviewedFields.length}</strong></div>
         <div><span>Open Findings</span><strong>{activeFindings.length}</strong></div>
       </section>
 
+      {/* ── Row 1: Customer + Booking ── */}
       <div className="journey-360-grid journey-360-grid--two">
-        <SectionCard title="Customer" description="PAN/Aadhaar reviewed identity is the customer source of truth; entered Booking values remain available in the complete source detail below.">
+        <SectionCard title="Customer" description="KYC-reviewed identity is the source of truth for customer details.">
           <div className="journey-360-facts">
-            <Fact label="Customer Name (Booking)">{capturedCustomerName}</Fact>
+            <Fact label="Entered Name">{capturedCustomerName}</Fact>
             <Fact label="Legal / KYC Name">{textValue(model.customer, 'legalName')}</Fact>
             <Fact label="PAN">{textValue(model.customer, 'panNumber')}</Fact>
             <Fact label="Aadhaar">{textValue(model.customer, 'aadhaarNumber')}</Fact>
@@ -335,10 +340,10 @@ export default function Journey360Page() {
             <Fact label="Gender">{readable(value(model.customer, 'gender'))}</Fact>
             <Fact label="Mobile">{preferredText(model.customer, 'mobileNumber', reviewedBooking, 'customer_phone')}</Fact>
             <Fact label="Email">{preferredText(model.customer, 'emailReference', reviewedBooking, 'customer_email')}</Fact>
-            <Fact label="KYC Address">{preferredText(model.customer, 'address', reviewedBooking, 'customer_address')}</Fact>
+            <Fact label="Address">{preferredText(model.customer, 'address', reviewedBooking, 'customer_address')}</Fact>
             <Fact label="Pincode">{textValue(model.customer, 'pincode')}</Fact>
-            <Fact label="KYC State">{textValue(model.customer, 'kycState')}</Fact>
-            <Fact label="KYC District">{textValue(model.customer, 'kycDistrict')}</Fact>
+            <Fact label="State">{textValue(model.customer, 'kycState')}</Fact>
+            <Fact label="District">{textValue(model.customer, 'kycDistrict')}</Fact>
             <Fact label="Relationship">{textValue(model.customer, 'relationshipType')}</Fact>
             <Fact label="Relationship Name">{textValue(model.customer, 'relationshipName')}</Fact>
             <Fact label="Customer Type">{readable(value(model.customer, 'customerType'))}</Fact>
@@ -346,7 +351,7 @@ export default function Journey360Page() {
           </div>
         </SectionCard>
 
-        <SectionCard title="Booking & Vehicle" description="Booking state with reviewed Delivery product facts taking precedence when the same information is extracted again at Delivery.">
+        <SectionCard title="Booking & Vehicle" description="Resolved product facts — Delivery document values take precedence over Booking where both exist.">
           {model.booking ? (
             <div className="journey-360-facts">
               <Fact label="Dealer Booking No.">{bookingReference}</Fact>
@@ -357,13 +362,10 @@ export default function Journey360Page() {
               <Fact label="SKU">
                 {skuDisplay}
                 {skuSelectionStatus === 'TENTATIVE' && (
-                  <small style={{ display: 'block', fontWeight: 'normal', fontSize: '0.78em', color: '#b45309', marginTop: '2px' }}>
-                    Tentative — confirm at Delivery
-                  </small>
+                  <small style={{ display: 'block', fontWeight: 'normal', fontSize: '0.78em', color: '#b45309', marginTop: '2px' }}>Tentative — confirm at Delivery</small>
                 )}
               </Fact>
               <Fact label="Sales Consultant">{textValue(reviewedBooking, 'sales_person')}</Fact>
-              <Fact label="Dealer">{textValue(reviewedBooking, 'dealer_name')}</Fact>
               <Fact label="Dealer Branch">{textValue(reviewedBooking, 'dealer_branch')}</Fact>
               <Fact label="Deal Type">{preferredText(model.booking, 'dealType', reviewedBooking, 'deal_type')}</Fact>
               <Fact label="Deal Source">{readable(value(model.booking, 'dealSource'))}</Fact>
@@ -379,61 +381,57 @@ export default function Journey360Page() {
         </SectionCard>
       </div>
 
+      {/* ── Price Check ── */}
       {model.skuPricing && (
         <SectionCard
           title="Price Check — Master vs Booking"
-          description={`SKU ${model.skuPricing.skuCode} · ${model.skuPricing.selectionStatus} · Price List version ${model.skuPricing.priceListVersionId.slice(0, 8)}…`}
+          description={`SKU ${model.skuPricing.skuCode} · ${model.skuPricing.selectionStatus} · Price List ${model.skuPricing.priceListVersionId.slice(0, 8)}…`}
         >
           <SkuPriceCheckPanel pricing={model.skuPricing} />
         </SectionCard>
       )}
 
+      {/* ── Row 2: Commercials + Receipts ── */}
       <div className="journey-360-grid journey-360-grid--two">
-        <SectionCard title="Commercials & Discounts" description="Current Core-owned commercial lines are the final amounts; Booking reviewed amounts are retained for comparison and audit traceability.">
+        <SectionCard title="Commercials & Discounts" description="Booking-reviewed amounts from Booking Form. Commercial lines below reflect the Audit Core final view.">
           {reviewedBooking && (
-            <div className="journey-360-subsection">
-              <strong>Booking reviewed amounts</strong>
-              <div className="journey-360-facts">
-                <Fact label="Ex-showroom Price">{money(value(reviewedBooking, 'ex_showroom_price'))}</Fact>
-                <Fact label="Insurance Amount">{money(value(reviewedBooking, 'insurance_amount'))}</Fact>
-                <Fact label="Registration Charges">{money(value(reviewedBooking, 'registration_charges'))}</Fact>
-                <Fact label="Road Tax">{money(value(reviewedBooking, 'road_tax_amount'))}</Fact>
-                <Fact label="TCS">{money(value(reviewedBooking, 'tcs_amount'))}</Fact>
-                <Fact label="RSA">{money(value(reviewedBooking, 'rsa_amount'))}</Fact>
-                <Fact label="Additional Warranty">{money(value(reviewedBooking, 'additional_warranty_amount'))}</Fact>
-                <Fact label="Accessories">{money(value(reviewedBooking, 'accessories_cost'))}</Fact>
-                <Fact label="Other Charges">{money(value(reviewedBooking, 'other_charges'))}</Fact>
-                <Fact label="Discount">{money(value(reviewedBooking, 'discount_amount'))}</Fact>
-                <Fact label="Bonus">{money(value(reviewedBooking, 'bonus_amount'))}</Fact>
-                <Fact label="Total Price">{money(value(reviewedBooking, 'total_price'))}</Fact>
-                <Fact label="Net Amount">{money(value(reviewedBooking, 'net_amount'))}</Fact>
-                <Fact label="Booking Amount Paid">{money(value(reviewedBooking, 'booking_amount_paid'))}</Fact>
-                <Fact label="Balance Amount">{money(value(reviewedBooking, 'balance_amount'))}</Fact>
-              </div>
+            <div className="journey-360-facts">
+              <Fact label="Ex-showroom Price">{money(value(reviewedBooking, 'ex_showroom_price'))}</Fact>
+              <Fact label="Insurance">{money(value(reviewedBooking, 'insurance_amount'))}</Fact>
+              <Fact label="Registration">{money(value(reviewedBooking, 'registration_charges'))}</Fact>
+              <Fact label="Road Tax">{money(value(reviewedBooking, 'road_tax_amount'))}</Fact>
+              <Fact label="TCS">{money(value(reviewedBooking, 'tcs_amount'))}</Fact>
+              <Fact label="RSA">{money(value(reviewedBooking, 'rsa_amount'))}</Fact>
+              <Fact label="Warranty">{money(value(reviewedBooking, 'additional_warranty_amount'))}</Fact>
+              <Fact label="Accessories">{money(value(reviewedBooking, 'accessories_cost'))}</Fact>
+              <Fact label="Other Charges">{money(value(reviewedBooking, 'other_charges'))}</Fact>
+              <Fact label="Discount">{money(value(reviewedBooking, 'discount_amount'))}</Fact>
+              <Fact label="Bonus">{money(value(reviewedBooking, 'bonus_amount'))}</Fact>
+              <Fact label="Total Price">{money(value(reviewedBooking, 'total_price'))}</Fact>
+              <Fact label="Net Amount">{money(value(reviewedBooking, 'net_amount'))}</Fact>
+              <Fact label="Booking Amount Paid">{money(value(reviewedBooking, 'booking_amount_paid'))}</Fact>
+              <Fact label="Balance Amount">{money(value(reviewedBooking, 'balance_amount'))}</Fact>
             </div>
           )}
-
-          {model.commercialLines.length > 0 ? (
+          {model.commercialLines.length > 0 && (
             <div className="journey-360-subsection">
-              <strong>Current commercial values</strong>
+              <strong>Audit Core commercial lines</strong>
               <div className="journey-360-table-wrap">
                 <table className="journey-360-table">
-                  <thead><tr><th>Component</th><th>Standard</th><th>Actual</th><th>Source</th></tr></thead>
+                  <thead><tr><th>Component</th><th>Standard</th><th>Actual</th></tr></thead>
                   <tbody>
                     {model.commercialLines.map((line) => (
                       <tr key={String(line.commercialLineId)}>
                         <td>{readable(line.componentKey)}</td>
                         <td>{money(line.standardAmount, String(line.currencyCode || 'INR'))}</td>
                         <td>{money(line.actualAmount, String(line.currencyCode || 'INR'))}</td>
-                        <td>{String(line.sourceReference || readable(line.sourceKind))}</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
             </div>
-          ) : !reviewedBooking && <EmptySection>No reviewed commercial lines are available yet.</EmptySection>}
-
+          )}
           {model.discounts.length > 0 && (
             <div className="journey-360-subsection">
               <strong>Discounts / Benefits</strong>
@@ -441,11 +439,11 @@ export default function Journey360Page() {
                 <table className="journey-360-table">
                   <thead><tr><th>Discount</th><th>Standard Eligible</th><th>Actual</th></tr></thead>
                   <tbody>
-                    {model.discounts.map((discount) => (
-                      <tr key={String(discount.discountApplicationId)}>
-                        <td>{readable(discount.discountKey)}</td>
-                        <td>{money(discount.standardEligibleAmount)}</td>
-                        <td>{money(discount.actualDiscountAmount)}</td>
+                    {model.discounts.map((d) => (
+                      <tr key={String(d.discountApplicationId)}>
+                        <td>{readable(d.discountKey)}</td>
+                        <td>{money(d.standardEligibleAmount)}</td>
+                        <td>{money(d.actualDiscountAmount)}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -453,48 +451,94 @@ export default function Journey360Page() {
               </div>
             </div>
           )}
+          {!reviewedBooking && model.commercialLines.length === 0 && <EmptySection>No commercial data available yet.</EmptySection>}
         </SectionCard>
 
-        <SectionCard title="Payments & Receipts" description="Every uploaded reviewed receipt remains a separate record under this Journey.">
-          {paymentRows.length > 0 ? (
-            <>
-              <div className="journey-360-payment-total"><span>Total recorded</span><strong>{money(paymentTotal)}</strong></div>
-              <div className="journey-360-table-wrap">
-                <table className="journey-360-table">
-                  <thead><tr><th>Date</th><th>Receipt / Reference</th><th>Mode / Status</th><th>Amount</th></tr></thead>
-                  <tbody>
-                    {paymentRows.map((payment, index) => {
-                      const isPending = receiptIsPending(payment);
-                      return (
-                        <tr
-                          key={String(payment.documentId || payment.paymentId || payment.receiptNumber || index)}
-                          className={isPending ? 'journey-360-receipt-pending' : ''}
-                        >
-                          <td>{isPending ? <span className="journey-360-receipt-pending-label">Document received</span> : dateLabel(payment.receiptDate || payment.paymentAtUtc)}</td>
-                          <td>{String(payment.receiptNumber || payment.paymentReference || payment.originalFilename || '—')}</td>
-                          <td>
-                            {isPending
-                              ? <span className="journey-360-receipt-pending-status">DI extracting…</span>
-                              : readable(payment.paymentMethodCode || payment.reviewStatus || payment.actualStatusCode)}
-                          </td>
-                          <td>{isPending ? <span className="journey-360-receipt-pending-label">Pending</span> : money(payment.amount, String(payment.currencyCode || 'INR'))}</td>
+        {/* ── Payment Receipts ── */}
+        <div className="journey-360-payment-split">
+          <SectionCard title="Payment Receipts" description="DI-reviewed dealer receipts — amount collected, date, mode and reference.">
+            {receiptRows.length > 0 ? (
+              <>
+                <div className="journey-360-payment-total">
+                  <span>Total collected</span>
+                  <strong>{money(receiptTotal)}</strong>
+                </div>
+                <div className="journey-360-table-wrap">
+                  <table className="journey-360-table">
+                    <thead><tr><th>Date</th><th>Receipt No.</th><th>Mode</th><th>Amount</th></tr></thead>
+                    <tbody>
+                      {receiptRows.map((r, i) => (
+                        <tr key={String(r.documentId || r.evidenceId || i)}>
+                          <td>{dateLabel(r.receiptDate)}</td>
+                          <td>{String(r.receiptNumber || r.paymentReference || '—')}</td>
+                          <td>{readable(r.paymentMethodCode)}</td>
+                          <td>{money(r.amount, String(r.currencyCode || 'INR'))}</td>
                         </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </>
+            ) : (
+              <div className="journey-360-facts journey-360-facts--single">
+                <Fact label="Booking Amount Paid">{money(value(reviewedBooking, 'booking_amount_paid'))}</Fact>
+                <Fact label="Payment Mode">{readable(value(reviewedBooking, 'mode_of_payment'))}</Fact>
+                <Fact label="Payment Reference">{textValue(reviewedBooking, 'payment_reference_no')}</Fact>
               </div>
-            </>
-          ) : (
-            <div className="journey-360-facts journey-360-facts--single">
-              <Fact label="Booking Amount Paid">{money(value(reviewedBooking, 'booking_amount_paid'))}</Fact>
-              <Fact label="Payment Mode">{readable(value(reviewedBooking, 'mode_of_payment'))}</Fact>
-              <Fact label="Payment Reference">{textValue(reviewedBooking, 'payment_reference_no')}</Fact>
-            </div>
-          )}
-        </SectionCard>
+            )}
+            {pendingReceiptRows.length > 0 && (
+              <div className="journey-360-subsection">
+                <strong>Pending extraction</strong>
+                <div className="journey-360-table-wrap">
+                  <table className="journey-360-table">
+                    <thead><tr><th>File</th><th>Stage</th><th>Status</th></tr></thead>
+                    <tbody>
+                      {pendingReceiptRows.map((r, i) => (
+                        <tr key={String(r.documentId || i)} className="journey-360-receipt-pending">
+                          <td>{String(r.originalFilename || '—')}</td>
+                          <td>{readable(r.stageCode)}</td>
+                          <td><span className="journey-360-receipt-pending-status">DI extracting…</span></td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </SectionCard>
+
+          {/* ── Vehicle / Invoice Payments ── */}
+          <SectionCard title="Invoice Payments" description="Audit Core payment records — booking advance, balance and final settlement.">
+            {invoiceRows.length > 0 ? (
+              <>
+                <div className="journey-360-payment-total">
+                  <span>Total recorded</span>
+                  <strong>{money(invoiceTotal)}</strong>
+                </div>
+                <div className="journey-360-table-wrap">
+                  <table className="journey-360-table">
+                    <thead><tr><th>Date</th><th>Reference</th><th>Status</th><th>Amount</th></tr></thead>
+                    <tbody>
+                      {invoiceRows.map((p, i) => (
+                        <tr key={String(p.paymentId || i)}>
+                          <td>{dateLabel(p.paymentAtUtc)}</td>
+                          <td>{String(p.paymentReference || '—')}</td>
+                          <td>{readable(p.actualStatusCode)}</td>
+                          <td>{money(p.amount, String(p.currencyCode || 'INR'))}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </>
+            ) : (
+              <EmptySection>No invoice payment records have been posted yet.</EmptySection>
+            )}
+          </SectionCard>
+        </div>
       </div>
 
+      {/* ── Row 3: Delivery + Vehicle + Registration ── */}
       <div className="journey-360-grid journey-360-grid--three">
         <SectionCard title="Delivery">
           {model.delivery ? (
@@ -503,7 +547,6 @@ export default function Journey360Page() {
               <Fact label="Planned">{dateLabel(value(model.delivery, 'plannedDeliveryAt'))}</Fact>
               <Fact label="Intimated">{dateLabel(value(model.delivery, 'deliveryIntimatedAt'))}</Fact>
               <Fact label="Delivered">{dateLabel(value(model.delivery, 'actualDeliveredAt'))}</Fact>
-              <Fact label="Source">{readable(value(model.delivery, 'sourceKind'))}</Fact>
             </div>
           ) : <EmptySection>Delivery has not been recorded yet.</EmptySection>}
         </SectionCard>
@@ -516,7 +559,6 @@ export default function Journey360Page() {
               <Fact label="DMS Reference">{textValue(model.vehicle, 'dmsReference')}</Fact>
               <Fact label="Invoice Reference">{textValue(model.vehicle, 'invoiceReference')}</Fact>
               <Fact label="Allocated">{dateLabel(value(model.vehicle, 'allocatedAtUtc'))}</Fact>
-              <Fact label="Source">{readable(value(model.vehicle, 'sourceKind'))}</Fact>
             </div>
           ) : <EmptySection>Vehicle allocation details are not available yet.</EmptySection>}
         </SectionCard>
@@ -531,12 +573,12 @@ export default function Journey360Page() {
               <Fact label="Type">{readable(value(model.registration, 'registrationTypeCode'))}</Fact>
               <Fact label="Category">{readable(value(model.registration, 'registrationCategoryCode'))}</Fact>
               <Fact label="Status">{readable(value(model.registration, 'actualStatusCode'))}</Fact>
-              <Fact label="Source">{readable(value(model.registration, 'sourceKind'))}</Fact>
             </div>
           ) : <EmptySection>Registration details are not available yet.</EmptySection>}
         </SectionCard>
       </div>
 
+      {/* ── Row 4: Finance + Insurance + Trade-in ── */}
       <div className="journey-360-grid journey-360-grid--three">
         <SectionCard title="Finance">
           {model.finance ? (
@@ -547,10 +589,8 @@ export default function Journey360Page() {
               <Fact label="PO Reference">{textValue(model.finance, 'poReference')}</Fact>
               <Fact label="Financed Amount">{money(value(model.finance, 'financedAmount'))}</Fact>
               <Fact label="Status">{readable(value(model.finance, 'actualStatusCode'))}</Fact>
-              <Fact label="Details">{textValue(model.finance, 'details')}</Fact>
-              <Fact label="Source">{readable(value(model.finance, 'sourceKind'))}</Fact>
             </div>
-          ) : <EmptySection>No typed finance record is available. Reviewed finance documents remain visible in Complete Reviewed Document Data.</EmptySection>}
+          ) : <EmptySection>No finance record is available.</EmptySection>}
         </SectionCard>
 
         <SectionCard title="Insurance">
@@ -563,9 +603,8 @@ export default function Journey360Page() {
               <Fact label="Actual Premium">{money(value(model.insurance, 'actualPremiumAmount'))}</Fact>
               <Fact label="Self Insurance">{readable(value(model.insurance, 'selfInsuranceFlag'))}</Fact>
               <Fact label="Status">{readable(value(model.insurance, 'actualStatusCode'))}</Fact>
-              <Fact label="Source">{readable(value(model.insurance, 'sourceKind'))}</Fact>
             </div>
-          ) : <EmptySection>No typed insurance record is available. Reviewed policy data remains visible below.</EmptySection>}
+          ) : <EmptySection>No insurance record is available.</EmptySection>}
         </SectionCard>
 
         <SectionCard title="Trade-in / Exchange">
@@ -577,70 +616,55 @@ export default function Journey360Page() {
               <Fact label="Quoted Value">{money(value(model.tradeIn, 'quotedValue'))}</Fact>
               <Fact label="Actual Value">{money(value(model.tradeIn, 'actualValue'))}</Fact>
               <Fact label="Handover">{dateLabel(value(model.tradeIn, 'handoverAtUtc'))}</Fact>
-              <Fact label="Payment">{dateLabel(value(model.tradeIn, 'paymentAtUtc'))}</Fact>
-              <Fact label="Resale">{dateLabel(value(model.tradeIn, 'resaleAtUtc'))}</Fact>
-              <Fact label="Details">{textValue(model.tradeIn, 'details')}</Fact>
-              <Fact label="Source">{readable(value(model.tradeIn, 'sourceKind'))}</Fact>
+              <Fact label="Payment Date">{dateLabel(value(model.tradeIn, 'paymentAtUtc'))}</Fact>
             </div>
-          ) : <EmptySection>No typed trade-in record is available. Reviewed exchange documents remain visible below.</EmptySection>}
+          ) : <EmptySection>No trade-in record is available.</EmptySection>}
         </SectionCard>
       </div>
 
-      <SectionCard title="Add-ons / Warranty / Accessories" description="Typed Audit Core add-on records. DI-extracted warranty, RSA and accessory invoice fields are also shown in the complete reviewed data section below.">
-        {model.addons.length > 0 ? (
+      {/* ── Add-ons ── */}
+      {model.addons.length > 0 && (
+        <SectionCard title="Add-ons / Warranty / Accessories">
           <div className="journey-360-table-wrap">
             <table className="journey-360-table">
-              <thead><tr><th>Type</th><th>Provider</th><th>Reference</th><th>Standard</th><th>Actual</th><th>Source</th></tr></thead>
+              <thead><tr><th>Type</th><th>Provider</th><th>Reference</th><th>Standard</th><th>Actual</th></tr></thead>
               <tbody>
-                {model.addons.map((addon, index) => (
-                  <tr key={String(addon.journeyAddonId || index)}>
-                    <td>{readable(addon.addonTypeCode)}</td>
-                    <td>{String(addon.providerName || '—')}</td>
-                    <td>{String(addon.referenceNumber || '—')}</td>
-                    <td>{money(addon.standardAmount)}</td>
-                    <td>{money(addon.actualAmount)}</td>
-                    <td>{readable(addon.sourceKind)}</td>
+                {model.addons.map((a, i) => (
+                  <tr key={String(a.journeyAddonId || i)}>
+                    <td>{readable(a.addonTypeCode)}</td>
+                    <td>{String(a.providerName || '—')}</td>
+                    <td>{String(a.referenceNumber || '—')}</td>
+                    <td>{money(a.standardAmount)}</td>
+                    <td>{money(a.actualAmount)}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-        ) : <EmptySection>No typed add-on rows are available yet; reviewed DI add-on fields are retained below.</EmptySection>}
-      </SectionCard>
+        </SectionCard>
+      )}
 
+      {/* ── Reviewed DI fields (full detail) ── */}
       <JourneyReviewedDetails fields={reviewedFields} />
 
+      {/* ── Row 5: Documents (accordion) + Findings ── */}
       <div className="journey-360-grid journey-360-grid--two">
-        <SectionCard title="Documents" description="Booking and Delivery documents already linked to this Journey.">
-          {model.evidence.length > 0 ? (
-            <div className="journey-360-list">
-              {model.evidence.map((document, index) => (
-                <div className="journey-360-list__row" key={String(document.documentId || document.evidenceId || index)}>
-                  <span className="journey-360-document-mark">DOC</span>
-                  <div>
-                    <strong>{readable(document.documentTypeKey || document.requirementKey || document.originalFilename)}</strong>
-                    <small>{readable(document.processArea || document.evidencePurpose)}{document.originalFilename ? ` · ${String(document.originalFilename)}` : ''}</small>
-                  </div>
-                  <div className="journey-360-list__status">
-                    <StatusPill value={String(document.reviewStatus || document.verificationStatus || document.processingStatus || 'UNKNOWN')} compact />
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : <EmptySection>No active documents are linked to this Journey.</EmptySection>}
+        <SectionCard title="Documents" description="Click a document to expand its details.">
+          <DocumentSelector documents={model.evidence} />
         </SectionCard>
 
         <SectionCard title="Audit Findings" description="Current non-voided findings across Booking and Delivery.">
           {model.findings.length > 0 ? (
             <div className="journey-360-list">
-              {model.findings.map((finding) => (
-                <div className="journey-360-list__row" key={String(finding.auditFindingId)}>
+              {model.findings.map((f) => (
+                <div className="journey-360-list__row" key={String(f.auditFindingId)}>
                   <span className="journey-360-finding-mark">!</span>
                   <div>
-                    <strong>{String(finding.title || 'Audit finding')}</strong>
-                    <small>{readable(finding.stageCode)} · {readable(finding.findingStatus)}</small>
+                    <strong>{String(f.title || 'Audit finding')}</strong>
+                    <small>{readable(f.stageCode)} · {readable(f.findingStatus)}</small>
+                    {f.description && <small style={{ marginTop: '2px', color: '#64748b' }}>{String(f.description)}</small>}
                   </div>
-                  <div className="journey-360-list__status"><StatusPill value={String(finding.severity || 'INFO')} compact /></div>
+                  <div className="journey-360-list__status"><StatusPill value={String(f.severity || 'INFO')} compact /></div>
                 </div>
               ))}
             </div>

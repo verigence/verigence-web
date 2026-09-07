@@ -26,18 +26,24 @@ import { useSessionStore } from '../store/sessionStore';
 const STALE_BOOKING_DAYS = 7;
 const STALE_DELIVERY_DAYS = 5;
 
-const MAX_CARDS = 4;
+const MAX_CARDS = 2;
+
+// Where each hero KPI tile deep-links — the legacy work queue, filtered.
+const QUEUE = '/dashboard?legacyDashboard=1';
 
 // Reasons a journey needs the PC, in priority order.
+//
+// Booking and delivery run the same shape: capture documents -> the machine
+// reads the fields -> the PC manually verifies the low-confidence ones and
+// submits. VERIFY_BOOKING / VERIFY_DELIVERY are that manual-verification step
+// for each stage (pcVerificationStatus === 'PENDING' after capture).
 //
 // NOTE — "sent back by the Team Lead" is NOT a reason here yet: audit-core does
 // not surface it on Uc03WorkItem. `nextActionCode` is always null today, and the
 // TL send-back only sets journeys.audit_state = 'SENT_BACK', which the work-items
-// payload does not return. When audit-core exposes that (or populates
-// nextActionCode), add a 'RETURNED' reason at priority 0. Until then a sent-back
-// booking still surfaces here — as FLAGGED (the send-back usually raises
-// findings) or, failing that, as STALE.
-type Reason = 'FLAGGED' | 'VERIFY' | 'DELIVERY' | 'STALE';
+// payload does not return. Until then a sent-back booking still surfaces here —
+// as FLAGGED (the send-back usually raises findings) or, failing that, as STALE.
+type Reason = 'FLAGGED' | 'VERIFY_BOOKING' | 'VERIFY_DELIVERY' | 'DELIVERY' | 'STALE';
 
 interface Candidate {
   item: Uc03WorkItem;
@@ -108,13 +114,21 @@ function bookingCompleted(item: Uc03WorkItem): boolean {
   return status === 'BOOKING_COMPLETED' || BOOKING_DONE_STATUSES.has(status);
 }
 
-function needsVerify(item: Uc03WorkItem): boolean {
-  // Booking documents captured; PC still has to check the extracted details and
-  // submit for review. pc_verification_status is set to PENDING on booking
-  // closure (audit-core migrations 0028 / 0055) and is returned on Uc03WorkItem.
+// A stage whose documents are captured but the PC has not yet confirmed the
+// values the machine read off them (any field below the 90% confidence bar
+// needs a manual check). Same rule for booking and delivery.
+function bookingManualVerification(item: Uc03WorkItem): boolean {
   return Boolean(item.booking.captureCompletedAtUtc)
-    && item.booking.pcVerificationStatus === 'PENDING'
-    && !deliveryStarted(item);
+    && item.booking.pcVerificationStatus === 'PENDING';
+}
+
+function deliveryManualVerification(item: Uc03WorkItem): boolean {
+  return Boolean(item.delivery.captureCompletedAtUtc)
+    && item.delivery.pcVerificationStatus === 'PENDING';
+}
+
+function needsManualVerification(item: Uc03WorkItem): boolean {
+  return bookingManualVerification(item) || deliveryManualVerification(item);
 }
 
 function journeyStep(item: Uc03WorkItem): { index: number; pct: number } {
@@ -129,7 +143,10 @@ function classifyCandidate(item: Uc03WorkItem): Candidate | null {
   const staleDays = daysSince(item.latestActivityAtUtc);
 
   if (item.openFlagCount > 0) return { item, reason: 'FLAGGED', ageMs, staleDays };
-  if (needsVerify(item)) return { item, reason: 'VERIFY', ageMs, staleDays };
+  if (deliveryManualVerification(item)) return { item, reason: 'VERIFY_DELIVERY', ageMs, staleDays };
+  if (bookingManualVerification(item) && !deliveryStarted(item)) {
+    return { item, reason: 'VERIFY_BOOKING', ageMs, staleDays };
+  }
   if (deliveryStarted(item) && !deliveryDone(item)) {
     if (staleDays >= STALE_DELIVERY_DAYS) return { item, reason: 'STALE', ageMs, staleDays };
     return { item, reason: 'DELIVERY', ageMs, staleDays };
@@ -141,7 +158,13 @@ function classifyCandidate(item: Uc03WorkItem): Candidate | null {
   return null;
 }
 
-const REASON_ORDER: Record<Reason, number> = { FLAGGED: 0, VERIFY: 1, DELIVERY: 2, STALE: 3 };
+const REASON_ORDER: Record<Reason, number> = {
+  FLAGGED: 0,
+  VERIFY_DELIVERY: 1,
+  VERIFY_BOOKING: 1,
+  DELIVERY: 2,
+  STALE: 3,
+};
 
 interface CardPresentation {
   ask: string;
@@ -169,14 +192,24 @@ function presentCard(candidate: Candidate): CardPresentation {
       target: 'AUDIT',
     };
   }
-  if (reason === 'VERIFY') {
+  if (reason === 'VERIFY_BOOKING') {
     return {
-      ask: 'Booking documents are in. Check the details that were read off them, then submit for review.',
+      ask: 'Booking documents are in. Verify the values read off them, then submit for review.',
       chip: `Ready ${ageLabel(item.latestActivityAtUtc)}`,
       chipHot: false,
-      actionLabel: 'Review & submit',
+      actionLabel: 'Verify & submit',
       to: `${bookingPath}/review`,
       target: 'BOOKING_REVIEW',
+    };
+  }
+  if (reason === 'VERIFY_DELIVERY') {
+    return {
+      ask: 'Delivery documents are in. Verify the values read off them, then submit for review.',
+      chip: `Ready ${ageLabel(item.latestActivityAtUtc)}`,
+      chipHot: false,
+      actionLabel: 'Verify & submit',
+      to: `${deliveryPath}/review`,
+      target: 'DELIVERY_REVIEW',
     };
   }
   if (reason === 'DELIVERY') {
@@ -356,13 +389,20 @@ export default function PcOverviewPage() {
   const bookingsInProgress = metrics?.bookingsInProgress ?? 0;
   const deliveriesInProgress = metrics?.deliveryInProgress ?? 0;
   const openFlags = metrics?.auditFlags ?? 0;
-  const needsAttention = metrics?.needsAttention ?? 0;
   const journeysInProgress = bookingsInProgress + deliveriesInProgress;
+
+  // "Manual verification required" — journeys where booking *or* delivery
+  // documents are captured but the PC has not yet confirmed the extracted
+  // values. Counted straight off the work items so it is exact (not capped by
+  // the "do these next" list, which prioritises flagged journeys first).
+  const manualVerificationCount = workItems.filter(needsManualVerification).length;
 
   const stats = statsQuery.data;
 
   const flaggedCount = candidates.filter((candidate) => candidate.reason === 'FLAGGED').length;
-  const verifyCount = candidates.filter((candidate) => candidate.reason === 'VERIFY').length;
+  const verifyCount = candidates.filter(
+    (candidate) => candidate.reason === 'VERIFY_BOOKING' || candidate.reason === 'VERIFY_DELIVERY',
+  ).length;
   const staleCount = candidates.filter((candidate) => candidate.reason === 'STALE').length;
 
   const needCount = candidates.length;
@@ -371,7 +411,7 @@ export default function PcOverviewPage() {
 
   const subClauses: string[] = [];
   if (flaggedCount > 0) subClauses.push(`${flaggedCount} with open observations`);
-  if (verifyCount > 0) subClauses.push(`${verifyCount} ready to submit`);
+  if (verifyCount > 0) subClauses.push(`${verifyCount} to verify and submit`);
   if (staleCount > 0) subClauses.push(`${staleCount} with no action for ${STALE_BOOKING_DAYS}+ days`);
 
   const headline = needCount > 0
@@ -404,22 +444,22 @@ export default function PcOverviewPage() {
               : 'Nothing needs your attention right now. New bookings and deliveries will show up here.'}
         </p>
         <div className="pcov-hero__kpis" aria-label="Current work summary">
-          <div className="pcov-kpi">
+          <Link className="pcov-kpi" to={`${QUEUE}&view=BOOKING`}>
             <div className="pcov-kpi__value">{metrics ? bookingsInProgress : '—'}</div>
             <div className="pcov-kpi__label">Bookings in progress</div>
-          </div>
-          <div className="pcov-kpi">
+          </Link>
+          <Link className="pcov-kpi" to={`${QUEUE}&view=DELIVERY`}>
             <div className="pcov-kpi__value">{metrics ? deliveriesInProgress : '—'}</div>
             <div className="pcov-kpi__label">Deliveries in progress</div>
-          </div>
-          <div className="pcov-kpi pcov-kpi--flag">
+          </Link>
+          <Link className="pcov-kpi pcov-kpi--verify" to={`${QUEUE}&view=VERIFY`}>
+            <div className="pcov-kpi__value">{workQuery.data ? manualVerificationCount : '—'}</div>
+            <div className="pcov-kpi__label">Manual verification required</div>
+          </Link>
+          <Link className="pcov-kpi pcov-kpi--flag" to={`${QUEUE}&view=FLAGS`}>
             <div className="pcov-kpi__value">{metrics ? openFlags : '—'}</div>
             <div className="pcov-kpi__label">Open observations</div>
-          </div>
-          <div className="pcov-kpi">
-            <div className="pcov-kpi__value">{metrics ? needsAttention : '—'}</div>
-            <div className="pcov-kpi__label">Journeys needing attention</div>
-          </div>
+          </Link>
         </div>
       </section>
 
@@ -494,8 +534,11 @@ export default function PcOverviewPage() {
         <>
           <div className="pcov-sec-head">
             <h2>Do these next</h2>
-            {candidates.length > MAX_CARDS && (
-              <Link to="/dashboard?legacyDashboard=1">See all {candidates.length} →</Link>
+            {candidates.length > shownCandidates.length && (
+              <Link className="pcov-seeall" to={`${QUEUE}&view=ALL`}>
+                See all {candidates.length}
+                <span aria-hidden="true">→</span>
+              </Link>
             )}
           </div>
 
@@ -521,9 +564,14 @@ export default function PcOverviewPage() {
           )}
 
           <div className="pcov-jstrip">
-            <div className="pcov-jstrip__title">
-              Your journeys
-              <span>{journeysInProgress} in progress</span>
+            <div className="pcov-jstrip__head">
+              <div className="pcov-jstrip__title">
+                Your journeys <span>{journeysInProgress} in progress</span>
+              </div>
+              <Link className="pcov-seeall" to={`${QUEUE}&view=ALL`}>
+                See all
+                <span aria-hidden="true">→</span>
+              </Link>
             </div>
             {journeysInProgress > 0 ? (
               <div className="pcov-jbar" role="img" aria-label={`${bookingsInProgress} in booking, ${deliveriesInProgress} in delivery`}>
@@ -541,11 +589,6 @@ export default function PcOverviewPage() {
             ) : (
               <div className="pcov-jbar__empty">Journeys you start will appear here</div>
             )}
-            <div className="pcov-jlegend">
-              <span><i style={{ background: '#003a82' }} />Booking</span>
-              <span><i style={{ background: '#00b7a8' }} />Delivery</span>
-            </div>
-            <Link to="/dashboard?legacyDashboard=1">See all →</Link>
           </div>
         </>
       )}

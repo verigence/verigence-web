@@ -146,10 +146,16 @@
 .pcov-kpi {
   flex: 1;
   min-width: 120px;
-  background: #f5f8fc;
+  background: #eef2f8;
   border: 1px solid var(--pcov-line);
   border-radius: 14px;
   padding: 11px 14px;
+}
+
+/* the tile that needs action self-identifies with a faint coral wash */
+.pcov-kpi--flag {
+  background: #fbf1ee;
+  border-color: rgba(221, 111, 87, 0.3);
 }
 
 .pcov-kpi__value {

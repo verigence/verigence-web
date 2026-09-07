@@ -112,6 +112,9 @@ function SkuPriceCheckPanel({ pricing }: { pricing: SkuPricing }) {
   const componentLabel = (k: string) =>
     k.replaceAll('_', ' ').toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
   const rows = pricing.masterComponents as SkuPricingComponent[];
+  const versionShort = pricing.priceListVersionId
+    ? `${pricing.priceListVersionId.slice(0, 8)}…`
+    : 'unknown';
   return (
     <div className="journey-360-sku-price-check">
       <div className="journey-360-sku-meta">
@@ -121,6 +124,7 @@ function SkuPriceCheckPanel({ pricing }: { pricing: SkuPricing }) {
           <strong>{[pricing.modelName, pricing.variantName, pricing.colourName].filter(Boolean).join(' · ')}</strong>
         </div>
         <div><span className="journey-360-sku-label">Status</span><span className={statusCls}>{pricing.selectionStatus}</span></div>
+        <div><span className="journey-360-sku-label">Price List</span><strong>{versionShort}</strong></div>
       </div>
       {rows.length > 0 && (
         <div className="journey-360-table-wrap">
@@ -257,8 +261,6 @@ export default function Journey360Page() {
   // ── Payment / Receipt split ─────────────────────────────────────────────
   // receipts[]  = DI-reviewed dealer receipts (amount_paid, receipt_number, date, mode)
   // payments[]  = Audit Core payment records (booking amount, balance, etc.)
-  // When receipts are present use them as the primary list; payments remain a
-  // separate audit-owned record set.
   const receiptRows = useMemo(() => (model?.receipts || []).filter((r) => !receiptIsPending(r)), [model?.receipts]);
   const pendingReceiptRows = useMemo(() => (model?.receipts || []).filter(receiptIsPending), [model?.receipts]);
   const invoiceRows = model?.payments || [];
@@ -299,7 +301,7 @@ export default function Journey360Page() {
     <div className="screen-stack journey-360-page">
       {showSubmitBanner && (
         <div className="journey-360-submit-banner" role="status" aria-live="polite">
-          <span>✔️ Booking submitted successfully.</span>
+          <span>✔ Booking submitted successfully.</span>
           <button type="button" className="journey-360-banner-dismiss" aria-label="Dismiss" onClick={() => setShowSubmitBanner(false)}>×</button>
         </div>
       )}
@@ -320,12 +322,35 @@ export default function Journey360Page() {
         actions={<div className="header-statuses"><StatusPill value={String(bookingStatus || 'NOT_STARTED')} /><StatusPill value={String(deliveryStatus || 'NOT_STARTED')} /></div>}
       />
 
+      {/* ── Summary bar ── */}
       <section className="journey-360-summary" aria-label="Journey summary">
-        <div><span>Dealer Booking No.</span><strong>{bookingReference}</strong></div>
-        <div><span>Receipts</span><strong>{receiptRows.length}</strong><small>{money(receiptTotal)}</small></div>
-        <div><span>Payments</span><strong>{invoiceRows.length}</strong><small>{money(invoiceTotal)}</small></div>
-        <div><span>Documents</span><strong>{model.evidence.length}</strong></div>
-        <div><span>Open Findings</span><strong>{activeFindings.length}</strong></div>
+        <div>
+          <span>Dealer Booking No.</span>
+          <strong>{bookingReference}</strong>
+        </div>
+        <div>
+          <span>Receipts (verified)</span>
+          <strong>
+            {receiptRows.length}
+            {pendingReceiptRows.length > 0 && (
+              <span className="journey-360-receipt-pending-badge">{pendingReceiptRows.length} pending</span>
+            )}
+          </strong>
+          <small>{money(receiptTotal)}</small>
+        </div>
+        <div>
+          <span>Payments</span>
+          <strong>{invoiceRows.length}</strong>
+          <small>{money(invoiceTotal)}</small>
+        </div>
+        <div>
+          <span>Documents</span>
+          <strong>{model.evidence.length}</strong>
+        </div>
+        <div>
+          <span>Open Findings</span>
+          <strong>{activeFindings.length}</strong>
+        </div>
       </section>
 
       {/* ── Row 1: Customer + Booking ── */}
@@ -385,16 +410,16 @@ export default function Journey360Page() {
       {model.skuPricing && (
         <SectionCard
           title="Price Check — Master vs Booking"
-          description={`SKU ${model.skuPricing.skuCode} · ${model.skuPricing.selectionStatus} · Price List ${model.skuPricing.priceListVersionId.slice(0, 8)}…`}
+          description={`SKU ${model.skuPricing.skuCode} · ${model.skuPricing.selectionStatus}`}
         >
           <SkuPriceCheckPanel pricing={model.skuPricing} />
         </SectionCard>
       )}
 
-      {/* ── Row 2: Commercials + Receipts ── */}
+      {/* ── Row 2: Commercials + Receipts / Payments ── */}
       <div className="journey-360-grid journey-360-grid--two">
         <SectionCard title="Commercials & Discounts" description="Booking-reviewed amounts from Booking Form. Commercial lines below reflect the Audit Core final view.">
-          {reviewedBooking && (
+          {reviewedBooking && Object.keys(reviewedBooking).length > 0 && (
             <div className="journey-360-facts">
               <Fact label="Ex-showroom Price">{money(value(reviewedBooking, 'ex_showroom_price'))}</Fact>
               <Fact label="Insurance">{money(value(reviewedBooking, 'insurance_amount'))}</Fact>
@@ -451,16 +476,18 @@ export default function Journey360Page() {
               </div>
             </div>
           )}
-          {!reviewedBooking && model.commercialLines.length === 0 && <EmptySection>No commercial data available yet.</EmptySection>}
+          {(!reviewedBooking || Object.keys(reviewedBooking).length === 0) && model.commercialLines.length === 0 && (
+            <EmptySection>No commercial data available yet. DI review is pending for this booking.</EmptySection>
+          )}
         </SectionCard>
 
-        {/* ── Payment Receipts ── */}
+        {/* ── Payment Receipts + Invoice Payments stacked ── */}
         <div className="journey-360-payment-split">
           <SectionCard title="Payment Receipts" description="DI-reviewed dealer receipts — amount collected, date, mode and reference.">
             {receiptRows.length > 0 ? (
               <>
                 <div className="journey-360-payment-total">
-                  <span>Total collected</span>
+                  <span>Total collected (verified)</span>
                   <strong>{money(receiptTotal)}</strong>
                 </div>
                 <div className="journey-360-table-wrap">
@@ -488,7 +515,7 @@ export default function Journey360Page() {
             )}
             {pendingReceiptRows.length > 0 && (
               <div className="journey-360-subsection">
-                <strong>Pending extraction</strong>
+                <strong>Pending extraction ({pendingReceiptRows.length})</strong>
                 <div className="journey-360-table-wrap">
                   <table className="journey-360-table">
                     <thead><tr><th>File</th><th>Stage</th><th>Status</th></tr></thead>
@@ -507,7 +534,7 @@ export default function Journey360Page() {
             )}
           </SectionCard>
 
-          {/* ── Vehicle / Invoice Payments ── */}
+          {/* ── Invoice Payments ── */}
           <SectionCard title="Invoice Payments" description="Audit Core payment records — booking advance, balance and final settlement.">
             {invoiceRows.length > 0 ? (
               <>

@@ -682,3 +682,26 @@
     border-radius: 0;
   }
 }
+
+/* ── Finding routing / SLA badges (added with the Review Queue work) ────────── */
+.uc03-c3-class {
+  font-weight: 700;
+  font-size: 11px;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  padding: 2px 7px;
+  border-radius: 5px;
+  background: #eef2f7;
+  color: #31506e;
+}
+.uc03-c3-class--violation { background: #fdeaea; color: #a03030; }
+.uc03-c3-class--document_gap { background: #e9f1fb; color: #1f4e8f; }
+.uc03-c3-class--data_gap { background: #eaf5f2; color: #1f6b5f; }
+.uc03-c3-sla { color: #2f855a; font-weight: 600; }
+.uc03-c3-sla-late { color: #c53030; font-weight: 700; }
+.uc03-c3-disposition {
+  margin: 4px 0 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: #31506e;
+}

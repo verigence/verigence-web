@@ -1,17 +1,18 @@
 import { useEffect, useMemo, useState, type FormEvent, type PropsWithChildren } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 
 import { verigenceLockup } from '../assets/verigenceLockup';
 import type { OperatingRole, UserRole } from '../domain/models';
 import { clearOperationalProject, resetOperationalContext } from '../features/uc03/projectContext';
 import { ANDROID_BACK_EVENT } from '../native/AndroidNativeBridge';
+import { getReviewQueueSummary } from '../services/audit-core/uc03Audit';
 import { isDiTestConsoleAvailable } from '../services/di/testConsole';
 import { useProjectContextStore } from '../store/projectContextStore';
 import { useSessionStore } from '../store/sessionStore';
 
 type ShellRole = UserRole | OperatingRole;
-type NavItem = { to: string; label: string; mark: string; roles?: ShellRole[]; devOnly?: boolean };
+type NavItem = { to: string; label: string; mark: string; roles?: ShellRole[]; devOnly?: boolean; badge?: number };
 type NavGroup = { key: string; label: string; items: NavItem[] };
 
 const c0OperatingRoles: OperatingRole[] = ['PC', 'TL', 'PM', 'CRM', 'EXECUTIVE'];
@@ -52,6 +53,13 @@ const feedbackItem: NavItem = {
   label: 'Feedback',
   mark: 'FB',
   roles: ['PC', 'TL', 'PM'],
+};
+
+const reviewQueueItem: NavItem = {
+  to: '/reviews',
+  label: 'Review Queue',
+  mark: 'RV',
+  roles: ['PC', 'TL', 'PM', 'EXECUTIVE'],
 };
 
 const groups: NavGroup[] = [
@@ -177,8 +185,26 @@ export default function AppShell({ children }: PropsWithChildren) {
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
+  const accessToken = useSessionStore((state) => state.accessToken);
   const role: ShellRole = selectedProject?.operatingRole ?? sessionRole;
   const c0OperationalShell = Boolean(selectedProject);
+
+  const reviewQueueSummary = useQuery({
+    queryKey: ['uc03-review-queue-summary', selectedProject?.tenantId],
+    queryFn: () => getReviewQueueSummary(selectedProject!.tenantId, accessToken),
+    enabled: Boolean(
+      selectedProject?.tenantId
+      && accessToken
+      && ['PC', 'TL', 'PM'].includes(String(role)),
+    ),
+    refetchInterval: 120_000,
+    staleTime: 60_000,
+  });
+  const reviewQueueCount = reviewQueueSummary.data
+    ? (['TL', 'PM'].includes(String(role))
+        ? reviewQueueSummary.data.mine + reviewQueueSummary.data.escalatedToMe
+        : reviewQueueSummary.data.mine)
+    : 0;
   const diTestAvailable = isDiTestConsoleAvailable();
   const createBookingMode = location.pathname === '/dashboard'
     && new URLSearchParams(location.search).get('action') === 'create-booking';
@@ -196,6 +222,7 @@ export default function AppShell({ children }: PropsWithChildren) {
       workspaceItems.push({ to: '/daily-ops', label: 'Daily Operations', mark: 'DO', roles: ['PC'] });
     }
     if (role === 'PC' || role === 'TL' || role === 'PM') {
+      workspaceItems.push({ ...reviewQueueItem, badge: reviewQueueCount });
       workspaceItems.push(feedbackItem);
     }
     const workspaceGroup: NavGroup = {
@@ -208,7 +235,7 @@ export default function AppShell({ children }: PropsWithChildren) {
       workspaceGroup,
       { key: 'administration', label: 'Administration', items: [projectAdministrationItem] },
     ];
-  }, [c0OperationalShell, role, sessionRole]);
+  }, [c0OperationalShell, role, sessionRole, reviewQueueCount]);
 
   const activeGroupKey = useMemo(() => {
     return visibleGroups.find((group) => group.items.some((item) => {
@@ -336,7 +363,13 @@ export default function AppShell({ children }: PropsWithChildren) {
                       onClick={() => setMobileMenuOpen(false)}
                       className={({ isActive }) => `enterprise-nav__item${isNavItemActive(item, isActive) ? ' enterprise-nav__item--active' : ''}`}
                     >
-                      <span className="enterprise-nav__mark"><NavIcon mark={item.mark} /></span><span>{item.label}</span>
+                      <span className="enterprise-nav__mark"><NavIcon mark={item.mark} /></span>
+                      <span>{item.label}</span>
+                      {typeof item.badge === 'number' && item.badge > 0 && (
+                        <span className="enterprise-nav__badge" aria-label={`${item.badge} waiting`}>
+                          {item.badge > 99 ? '99+' : item.badge}
+                        </span>
+                      )}
                     </NavLink>
                   ))}
                 </div>

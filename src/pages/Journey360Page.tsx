@@ -210,10 +210,10 @@ function DocumentSelector({ documents }: { documents: Array<Record<string, unkno
                   <Fact label="Document Type">{label}</Fact>
                   <Fact label="Stage">{stage}</Fact>
                   <Fact label="Status"><StatusPill value={status} /></Fact>
-                  {doc.originalFilename && <Fact label="File">{String(doc.originalFilename)}</Fact>}
-                  {doc.requirementKey && <Fact label="Requirement">{readable(doc.requirementKey)}</Fact>}
-                  {doc.captureStatus && <Fact label="Capture Status">{readable(doc.captureStatus)}</Fact>}
-                  {doc.linkedAtUtc && <Fact label="Linked">{dateLabel(doc.linkedAtUtc)}</Fact>}
+                  {Boolean(doc.originalFilename) && <Fact label="File">{String(doc.originalFilename)}</Fact>}
+                  {Boolean(doc.requirementKey) && <Fact label="Requirement">{readable(doc.requirementKey)}</Fact>}
+                  {Boolean(doc.captureStatus) && <Fact label="Capture Status">{readable(doc.captureStatus)}</Fact>}
+                  {Boolean(doc.linkedAtUtc) && <Fact label="Linked">{dateLabel(doc.linkedAtUtc)}</Fact>}
                 </div>
               </div>
             )}
@@ -688,7 +688,7 @@ export default function Journey360Page() {
                   <div>
                     <strong>{String(f.title || 'Audit finding')}</strong>
                     <small>{readable(f.stageCode)} · {readable(f.findingStatus)}</small>
-                    {f.description && <small style={{ marginTop: '2px', color: '#64748b' }}>{String(f.description)}</small>}
+                    {Boolean(f.description) && <small style={{ marginTop: '2px', color: '#64748b' }}>{String(f.description)}</small>}
                   </div>
                   <div className="journey-360-list__status"><StatusPill value={String(f.severity || 'INFO')} compact /></div>
                 </div>

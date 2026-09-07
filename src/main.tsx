@@ -80,6 +80,7 @@ import './styles/uc03-journey-search.css';
 import './styles/uc03-delivery-v2-capture-hotfix.css';
 import './styles/uc03-v2-product-layout.css';
 import './styles/dashboard-workqueue-five-column.css';
+import './styles/uc03-review-queue.css';
 import './styles/ui-governance.css';
 import './ui/pcNavigationMotion';
 

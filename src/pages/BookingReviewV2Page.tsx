@@ -204,11 +204,16 @@ export default function BookingReviewV2Page() {
     setConfirming(true);
     setConfirmationError(undefined);
     try {
+      // Always confirm before submit when Booking has not been submitted yet.
+      // confirmBookingReviewV2 is idempotent (keyed on journeyId + version) and
+      // returns the current authoritative aggregateVersion, eliminating the stale
+      // version window that caused VAC-CONFLICT-005 when DI writes or a prior
+      // confirm had already bumped version_no between page load and Submit click.
+      // The VERIFIED guard is preserved: re-confirming an already-VERIFIED booking
+      // would be a redundant mutation.
       let aggregateVersion = review.aggregateVersion;
-      const shouldConfirmAvailableFacts = review.pcVerificationStatus === 'PENDING'
-        && (requiredDecisionKeys.length > 0 || corrections.size > 0);
 
-      if (shouldConfirmAvailableFacts) {
+      if (!review.captureSubmitted) {
         const confirmed = await confirmBookingReviewV2(
           project.tenantId,
           journeyId,
@@ -218,15 +223,24 @@ export default function BookingReviewV2Page() {
         );
         aggregateVersion = confirmed.aggregateVersion;
         setCorrections(new Map());
-      }
 
-      if (!review.captureSubmitted) {
         await submitSimplifiedBookingV2(
           project.tenantId,
           journeyId,
           aggregateVersion,
           accessToken,
         );
+      } else if (review.pcVerificationStatus !== 'VERIFIED') {
+        // captureSubmitted but not yet VERIFIED: confirm late-arriving DI facts only.
+        const confirmed = await confirmBookingReviewV2(
+          project.tenantId,
+          journeyId,
+          aggregateVersion,
+          [...corrections.values()],
+          accessToken,
+        );
+        aggregateVersion = confirmed.aggregateVersion;
+        setCorrections(new Map());
       }
 
       // View is always the consolidated Journey Detail, whether DI is complete or

@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect, type ReactNode } from 'react';
 import { IonApp } from '@ionic/react';
-import { BrowserRouter, Navigate, Route, Routes, useParams } from 'react-router-dom';
+import { BrowserRouter, Navigate, Route, Routes, useParams, useSearchParams } from 'react-router-dom';
 
 import { verigenceLockup } from './assets/verigenceLockup';
 import { ErrorBoundary } from './components/ErrorBoundary';
@@ -166,14 +166,16 @@ function ProjectAdminPage({ children }: { children: ReactNode }) {
 function DashboardEntry() {
   const role = useSessionStore((state) => state.role);
   const selectedProject = useProjectContextStore((state) => state.selectedProject);
+  const [searchParams] = useSearchParams();
   if (role === 'SUPER_ADMIN' && !selectedProject) return <PrivatePage><AdminLandingPage /></PrivatePage>;
   if (selectedProject?.operatingRole === 'TL') return <OperationalPage><TeamLeadDashboardPage /></OperationalPage>;
 
-  const legacyOverride = typeof window !== 'undefined'
-    && new URLSearchParams(window.location.search).has('legacyDashboard');
+  // useSearchParams (not window.location) so the tiles on PC Overview, which link
+  // to /dashboard?legacyDashboard=1&view=…, actually re-render this into the
+  // legacy work queue instead of a no-op.
   const usePcOverview = selectedProject?.operatingRole === 'PC'
     && PC_OVERVIEW_REDESIGN_ENABLED
-    && !legacyOverride;
+    && !searchParams.has('legacyDashboard');
   if (usePcOverview) return <OperationalPage><PcOverviewPage /></OperationalPage>;
 
   return <OperationalPage><DashboardPage /></OperationalPage>;

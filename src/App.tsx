@@ -40,6 +40,7 @@ const AdminConfigurationPage = lazy(() => import('./pages/AdminConfigurationPage
 const AdminHousekeepingPage = lazy(() => import('./pages/AdminHousekeepingPage'));
 const AdminLandingPage = lazy(() => import('./pages/AdminLandingPage'));
 const AdminFeedbackPage = lazy(() => import('./pages/AdminFeedbackPage'));
+const OemMastersPage = lazy(() => import('./pages/AdminOemMastersPage'));
 const DiTestConsolePage = lazy(() => import('./pages/DiTestConsolePage'));
 const DocumentIntelligenceConfigurationPage = lazy(() => import('./pages/DocumentIntelligenceConfigurationPage'));
 const DashboardPage = lazy(loadDashboardPage);
@@ -264,6 +265,7 @@ export default function App() {
               <Route path="/admin/audit-rules" element={<SuperAdminPage><AdminConfigurationPage section="audit-rules" /></SuperAdminPage>} />
               <Route path="/admin/approval-workflow" element={<SuperAdminPage><AdminConfigurationPage section="approval-workflow" /></SuperAdminPage>} />
               <Route path="/admin/notifications" element={<SuperAdminPage><AdminConfigurationPage section="notifications" /></SuperAdminPage>} />
+              <Route path="/admin/oem-masters" element={<SuperAdminPage><OemMastersPage /></SuperAdminPage>} />
               <Route path="/admin/project" element={<ProjectAdminPage><ProjectAdministrationPage /></ProjectAdminPage>} />
 
               <Route path="/approvals" element={<Navigate to="/admin/users/pending" replace />} />

@@ -29,6 +29,7 @@ export type AspectKey =
   | 'customer'
   | 'registration'
   | 'insurance'
+  | 'finance'
   | 'flags';
 
 export type AspectStatus = 'ok' | 'warn' | 'bad' | 'wait';
@@ -75,6 +76,7 @@ export function findingAspect(finding: Record<string, unknown>): AspectKey {
   if (key.includes('REGISTRATION') || key.includes('RTO')) return 'registration';
   if (key.includes('INSURANCE')) return 'insurance';
   if (key.includes('TRADE') || key.includes('EXCHANGE') || key.includes('SCRAP')) return 'tradeIn';
+  if (key.includes('FINANCE') || key.includes('HYPOTHECATION')) return 'finance';
   if (key.includes('DOCUMENT')) return 'documents';
   return 'flags';
 }
@@ -209,6 +211,7 @@ export function deriveAspects(overview: JourneyOverview): AspectMeta[] {
     metaFor('customer', 'Customer', worst(has(overview.customer) ? 'ok' : 'wait', findingStatus('customer')), 'KYC identity'),
     metaFor('registration', 'Registration', worst(has(overview.registration) ? 'ok' : 'wait', findingStatus('registration')), 'RTO & road tax'),
     metaFor('insurance', 'Insurance', worst(has(overview.insurance) ? 'ok' : 'wait', findingStatus('insurance')), 'Policy & premium'),
+    metaFor('finance', 'Finance', worst(has(overview.finance) ? 'ok' : 'wait', findingStatus('finance')), 'Loan & hypothecation'),
     {
       key: 'flags',
       label: 'Flags',

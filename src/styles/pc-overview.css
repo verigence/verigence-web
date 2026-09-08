@@ -413,8 +413,10 @@
   flex: none;
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 6px;
   height: 34px;
+  min-width: 190px;
   padding: 0 16px;
   border-radius: 9px;
   background: var(--pcov-blue);

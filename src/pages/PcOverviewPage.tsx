@@ -288,6 +288,46 @@ function statsRange(period: 'week' | 'month'): { from: string; to: string } {
   return { from: localIsoDate(start), to: localIsoDate(now) };
 }
 
+// Product labels come straight off the reviewed booking-form snapshot
+// (model_name_snapshot · variant_name_snapshot · colour_name_snapshot). When the
+// model text itself already contains the variant (a common OCR pattern, e.g.
+// "SCORPIO.N.Z8 (S) AT 2WD · Z8 (S) AT 2WD · S. Black"), collapse the repeated
+// segment rather than showing it twice, and present each segment in Title Case.
+function titleCase(segment: string): string {
+  return segment.toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+function dedupeProductLabel(label: string | null | undefined): string {
+  if (!label) return '';
+  const normalize = (s: string) => s.replace(/[.\s]+/g, ' ').trim().toUpperCase();
+  const segments = label.split('·').map((s) => s.trim()).filter(Boolean);
+  const kept: string[] = [];
+  for (const segment of segments) {
+    const normalized = normalize(segment);
+    const alreadyCovered = kept.some((existing) => {
+      const existingNormalized = normalize(existing);
+      return existingNormalized === normalized || existingNormalized.includes(normalized);
+    });
+    if (alreadyCovered) continue;
+    // a later, more specific segment can supersede an earlier duplicate-prefix one
+    const supersededIndex = kept.findIndex((existing) => normalized.includes(normalize(existing)));
+    if (supersededIndex !== -1) kept[supersededIndex] = segment;
+    else kept.push(segment);
+  }
+  return kept.map(titleCase).join(' · ');
+}
+
+// A customer's display name is occasionally seeded as a raw technical
+// identifier (a journey/customer UUID) in test data — never show that to a PC
+// as though it were the customer's name.
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function customerLabel(name: string | null | undefined): string {
+  const trimmed = (name || '').trim();
+  if (!trimmed || UUID_PATTERN.test(trimmed)) return 'Customer name pending';
+  return trimmed;
+}
+
 function WorkCard({
   candidate,
   productLabel,
@@ -300,9 +340,9 @@ function WorkCard({
   const presentation = presentCard(candidate);
   return (
     <article className="pcov-card">
-      <div className="pcov-card__veh">{productLabel}</div>
+      <div className="pcov-card__veh">{dedupeProductLabel(productLabel)}</div>
       <div className="pcov-card__cust">
-        <b>{item.customerDisplayName}</b>
+        <b>{customerLabel(item.customerDisplayName)}</b>
         {item.bookingReference ? ` · ${item.bookingReference}` : ''}
       </div>
       <JourneyRail step={step} />

@@ -130,7 +130,7 @@ function RequirementRow({
         ) : null}
         {document && requirement.canDelete ? (
           <button type="button" disabled={deleting} onClick={() => void onDelete(document.documentId)}>
-            {deleting ? 'Removing\u2026' : 'Delete'}
+            {deleting ? 'Removing…' : 'Delete'}
           </button>
         ) : null}
         {document ? (
@@ -366,7 +366,7 @@ export default function BookingCaptureV2CompactPage() {
     if (readinessStartedAt.current === undefined) readinessStartedAt.current = Date.now();
     setActiveUploadBatches((count) => count + 1);
     setError(undefined);
-    setMessage(`Documents uploading \u00b7 ${files.length} file${files.length === 1 ? '' : 's'}`);
+    setMessage(`Documents uploading · ${files.length} file${files.length === 1 ? '' : 's'}`);
     try {
       await uploadBookingCaptureV2Files(project.tenantId, journeyId, files, accessToken);
       await captureQuery.refetch();
@@ -424,7 +424,7 @@ export default function BookingCaptureV2CompactPage() {
     navigate(`/v2/bookings/${journeyId}/review`);
   };
 
-  if (workspaceQuery.isPending) return <div className="uc03-c1-loading" role="status">Opening Booking\u2026</div>;
+  if (workspaceQuery.isPending) return <div className="uc03-c1-loading" role="status">Opening Booking…</div>;
 
   if (workspaceQuery.isError || !workspaceQuery.data) {
     return (
@@ -449,18 +449,18 @@ export default function BookingCaptureV2CompactPage() {
           <button type="button" className="uc03-c1-back" onClick={() => navigate('/dashboard')}>← Work List</button>
 
         </div>
-        <PageHeader eyebrow="Capture New Booking \u00b7 V2" title={customerName} description="Step 1 of 2 \u00b7 Documents" />
+        <PageHeader eyebrow="Capture New Booking · V2" title={customerName} description="Step 1 of 2 · Documents" />
         <section className="uc03-c1-start-panel">
           <div><span className="uc03-c1-eyebrow">Booking Journey</span><h2>Start Booking Capture</h2></div>
           <button type="button" className="uc03-c1-primary" disabled={startBusy} onClick={() => void handleStart()}>
-            {startBusy ? 'Starting\u2026' : 'Start Booking'}
+            {startBusy ? 'Starting…' : 'Start Booking'}
           </button>
         </section>
       </div>
     );
   }
 
-  if (captureQuery.isPending) return <div className="uc03-c1-loading" role="status">Preparing Booking documents\u2026</div>;
+  if (captureQuery.isPending) return <div className="uc03-c1-loading" role="status">Preparing Booking documents…</div>;
 
   if (captureQuery.isError || !capture) {
     return (
@@ -513,9 +513,9 @@ export default function BookingCaptureV2CompactPage() {
       </div>
 
       <PageHeader
-        eyebrow="Capture New Booking \u00b7 V2"
+        eyebrow="Capture New Booking · V2"
         title={customerName}
-        description="Step 1 of 2 \u00b7 Upload the Booking documents available to you. Verigence identifies the document type automatically."
+        description="Step 1 of 2 · Upload the Booking documents available to you. Verigence identifies the document type automatically."
       />
 
       <nav className="uc03-booking-steps" aria-label="Booking capture steps">
@@ -575,7 +575,7 @@ export default function BookingCaptureV2CompactPage() {
 
           <div className="uc03-v2-upload-actions">
             <label className="uc03-c1-primary" aria-disabled={uploading}>
-              {uploading ? 'Uploading\u2026' : 'Choose Files'}
+              {uploading ? 'Uploading…' : 'Choose Files'}
               <input
                 type="file"
                 accept="image/*,.pdf"
@@ -684,8 +684,8 @@ export default function BookingCaptureV2CompactPage() {
             {unmatchedUploads.map((upload) => (
               <div key={upload.documentId}>
                 <span>
-                  <strong>{upload.originalFilename}</strong> \u00b7 {upload.state.toUpperCase() === 'CLASSIFIED' && upload.classifiedDocumentTypeKey
-                    ? `Classified as ${upload.classifiedDocumentTypeKey} \u00b7 retained as a separate document.`
+                  <strong>{upload.originalFilename}</strong> · {upload.state.toUpperCase() === 'CLASSIFIED' && upload.classifiedDocumentTypeKey
+                    ? `Classified as ${upload.classifiedDocumentTypeKey} · retained as a separate document.`
                     : 'Document received; classification is still being confirmed.'}
                 </span>
                 <button type="button" disabled={busyDocumentId === upload.documentId} onClick={() => void handleDelete(upload.documentId)}>
@@ -701,22 +701,22 @@ export default function BookingCaptureV2CompactPage() {
         <div className="uc03-v2-compact-gate__copy">
           {uploading || busy ? (
             <>
-              <strong>Finishing your current action \u00b7 {formatElapsed(elapsedSeconds)}</strong>
+              <strong>Finishing your current action · {formatElapsed(elapsedSeconds)}</strong>
               <span>Please wait for this upload or update to finish, then continue.</span>
             </>
           ) : classificationInFlight ? (
             <>
-              <strong>Documents being classified \u00b7 {formatElapsed(elapsedSeconds)}</strong>
+              <strong>Documents being classified · {formatElapsed(elapsedSeconds)}</strong>
               <span>You can continue now. Classification and review-value preparation will continue in the background.</span>
             </>
           ) : auditObservations.length > 0 ? (
             <>
-              <strong>Documents received \u00b7 {formatElapsed(elapsedSeconds)}</strong>
+              <strong>Documents received · {formatElapsed(elapsedSeconds)}</strong>
               <span>Some expected evidence is missing or needs audit attention. You can continue the Booking.</span>
             </>
           ) : (
             <>
-              <strong>Documents received \u00b7 {formatElapsed(elapsedSeconds)}</strong>
+              <strong>Documents received · {formatElapsed(elapsedSeconds)}</strong>
               <span>Continue when you are done uploading. Review values can continue to prepare in the background.</span>
             </>
           )}

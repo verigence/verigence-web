@@ -28,7 +28,10 @@
 
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  /* Kept tight on purpose — the hero, KPIs, perf strip and first row of "Do
+     these next" should all sit above the fold on a normal laptop viewport
+     without scrolling to reach them. */
+  gap: 14px;
   width: min(1160px, 100%);
   margin: 0 auto;
   color: var(--pcov-ink);
@@ -51,7 +54,7 @@
   background: var(--pcov-surface);
   border: 1px solid var(--pcov-line);
   color: var(--pcov-ink);
-  padding: 15px 20px 15px 22px;
+  padding: 12px 18px 12px 20px;
   box-shadow: var(--pcov-shadow-s);
 }
 
@@ -88,11 +91,11 @@
 }
 
 .pcov-hero__headline {
-  font-size: 22px;
+  font-size: 20px;
   font-weight: 800;
   color: var(--pcov-head);
   letter-spacing: -0.03em;
-  margin-top: 8px;
+  margin-top: 6px;
   line-height: 1.15;
 }
 
@@ -142,7 +145,7 @@
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  margin-top: 12px;
+  margin-top: 9px;
 }
 
 .pcov-kpi {
@@ -151,7 +154,7 @@
   background: #e5f4f1;
   border: 1px solid rgba(0, 175, 168, 0.26);
   border-radius: 12px;
-  padding: 10px 13px;
+  padding: 8px 13px;
   text-decoration: none;
   color: inherit;
   cursor: pointer;
@@ -204,7 +207,7 @@
   border: 1px solid var(--pcov-line);
   border-radius: 12px;
   box-shadow: var(--pcov-shadow-s);
-  padding: 8px 14px;
+  padding: 6px 14px;
 }
 
 .pcov-perf__toggle {
@@ -282,7 +285,7 @@
 .pcov-cards {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: 14px;
+  gap: 12px;
 }
 
 .pcov-card {
@@ -292,7 +295,7 @@
   border: 1px solid var(--pcov-line);
   border-radius: 14px;
   box-shadow: var(--pcov-shadow-s);
-  padding: 12px 14px;
+  padding: 10px 13px;
 }
 
 .pcov-card__veh {
@@ -416,14 +419,19 @@
   justify-content: center;
   gap: 6px;
   height: 34px;
-  min-width: 190px;
-  padding: 0 16px;
+  /* Fixed (not min-) width so every action button on the rail — "Review
+     observations", "Verify & submit", "Continue delivery", "Open booking" —
+     renders the same size regardless of label length. Sized for the longest
+     label ("Review observations") plus the arrow glyph. */
+  width: 210px;
+  padding: 0 12px;
   border-radius: 9px;
   background: var(--pcov-blue);
   color: #fff;
   font: 800 12.5px Inter, sans-serif;
   border: 0;
   text-decoration: none;
+  white-space: nowrap;
   cursor: pointer;
 }
 

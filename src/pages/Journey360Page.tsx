@@ -54,7 +54,8 @@ function preferredText(
 
 function readable(v: unknown): string {
   if (v === null || v === undefined || v === '') return 'Not available';
-  return String(v).replaceAll('_', ' ').toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
+  return String(v).replaceAll('_', ' ').replaceAll('-', ' ').replace(/\s+/g, ' ').trim()
+    .toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
 function money(v: unknown, currency = 'INR'): string {
@@ -644,11 +645,36 @@ function bankMatchPill(match: Record<string, unknown> | null): React.ReactNode {
 
 // ── Focus panels ───────────────────────────────────────────────────────────
 
+function BookingCommercialFacts({ reviewedBooking }: { reviewedBooking: Record<string, unknown> | null }) {
+  if (!reviewedBooking || Object.keys(reviewedBooking).length === 0) return null;
+  return (
+    <FactList>
+      <JFact label="Ex-showroom Price">{money(value(reviewedBooking, 'ex_showroom_price'))}</JFact>
+      <JFact label="Insurance">{money(value(reviewedBooking, 'insurance_amount'))}</JFact>
+      <JFact label="Registration">{money(value(reviewedBooking, 'registration_charges'))}</JFact>
+      <JFact label="Road Tax">{money(value(reviewedBooking, 'road_tax_amount'))}</JFact>
+      <JFact label="TCS">{money(value(reviewedBooking, 'tcs_amount'))}</JFact>
+      <JFact label="RSA">{money(value(reviewedBooking, 'rsa_amount'))}</JFact>
+      <JFact label="Extended Warranty">{money(value(reviewedBooking, 'additional_warranty_amount'))}</JFact>
+      <JFact label="Accessories">{money(value(reviewedBooking, 'accessories_cost'))}</JFact>
+      <JFact label="Other Charges">{money(value(reviewedBooking, 'other_charges'))}</JFact>
+      <JFact label="Discount">{money(value(reviewedBooking, 'discount_amount'))}</JFact>
+      <JFact label="Bonus">{money(value(reviewedBooking, 'bonus_amount'))}</JFact>
+      <JFact label="Total Price">{money(value(reviewedBooking, 'total_price'))}</JFact>
+      <JFact label="Net Amount">{money(value(reviewedBooking, 'net_amount'))}</JFact>
+      <JFact label="Booking Amount Paid">{money(value(reviewedBooking, 'booking_amount_paid'))}</JFact>
+      <JFact label="Balance Amount">{money(value(reviewedBooking, 'balance_amount'))}</JFact>
+    </FactList>
+  );
+}
+
 function DealPanel({
   model,
+  reviewedBooking,
   modelNotIdentified,
 }: {
   model: JourneyOverview;
+  reviewedBooking: Record<string, unknown> | null;
   modelNotIdentified: Record<string, unknown> | null;
 }) {
   const pricing = model.skuPricing;
@@ -665,6 +691,9 @@ function DealPanel({
         ) : (
           <p className="jline__empty">The price masters have not been resolved for this booking yet. Complete Booking document review.</p>
         )}
+        <div style={{ marginTop: 16 }}>
+          <BookingCommercialFacts reviewedBooking={reviewedBooking} />
+        </div>
       </>
     );
   }
@@ -738,45 +767,83 @@ function PaymentsPanel({
 }) {
   const matched = receipts.filter((r) => String((objectValue(r, 'bankMatch') || {}).status).toUpperCase() === 'MATCHED').length;
   const unmatched = receipts.filter((r) => String((objectValue(r, 'bankMatch') || {}).status).toUpperCase() === 'UNMATCHED').length;
+  const total = receipts.reduce((s, r) => {
+    const a = Number(pick(r, 'amount', 'amount_paid', 'amountPaid') ?? 0);
+    return s + (Number.isNaN(a) ? 0 : a);
+  }, 0);
+
+  // A ledger payment already shown as a reviewed receipt (matched by document)
+  // is not repeated in the ledger table below.
+  const receiptDocumentIds = new Set(
+    receipts.map((r) => pickStr(r, 'documentId', 'evidenceId')).filter(Boolean),
+  );
+  const ledgerOnly = (model.payments || []).filter(
+    (p) => !receiptDocumentIds.has(pickStr(p, 'sourceEvidenceId', 'source_evidence_id')),
+  );
+
   return (
     <>
       <PanelHead
-        title="Payments — receipts & bank match"
-        hint={receipts.length > 0 ? `${matched} bank-matched · ${unmatched} unmatched · ${pendingReceipts.length} pending` : undefined}
+        title="Payments received"
+        hint={receipts.length > 0 ? `${money(total)} across ${receipts.length} receipt${receipts.length !== 1 ? 's' : ''} · ${matched} bank-matched · ${unmatched} unmatched` : undefined}
       />
-      <div className="jline__facts" style={{ marginBottom: 8 }}>
-        {receipts.map((r, idx) => {
-          const bm = objectValue(r, 'bankMatch');
-          return (
-            <div className="jline__fact" key={String(pick(r, 'documentId', 'evidenceId') ?? idx)}>
-              <span>{pickStr(r, 'receiptNumber', 'receipt_number') || 'Receipt'} · {dateLabel(pick(r, 'receiptDate', 'receipt_date'))}</span>
-              <strong>
-                {money(pick(r, 'amount', 'amount_paid'))}
-                {' '}
-                {bankMatchPill(bm)}
-              </strong>
+      {receipts.length === 0 && pendingReceipts.length === 0 && ledgerOnly.length === 0 ? (
+        reviewedBooking && Object.keys(reviewedBooking).length > 0 ? (
+          <FactList>
+            <JFact label="Amount Paid">{money(value(reviewedBooking, 'booking_amount_paid'))}</JFact>
+            <JFact label="Payment Mode">{readable(value(reviewedBooking, 'mode_of_payment'))}</JFact>
+            <JFact label="Payment Reference">{textValue(reviewedBooking, 'payment_reference_no')}</JFact>
+            <JFact label="Balance Amount">{money(value(reviewedBooking, 'balance_amount'))}</JFact>
+          </FactList>
+        ) : (
+          <p className="jline__empty">No payment receipts have been extracted yet.</p>
+        )
+      ) : (
+        <>
+          {receipts.length > 0 && (
+            <div className="jline__tableWrap">
+              <table className="jline__table">
+                <thead>
+                  <tr><th>Receipt No.</th><th>Date</th><th>Mode</th><th>Amount</th><th>Bank match</th></tr>
+                </thead>
+                <tbody>
+                  {receipts.map((r, idx) => (
+                    <tr key={String(pick(r, 'documentId', 'evidenceId') ?? idx)}>
+                      <td>{pickStr(r, 'receiptNumber', 'receipt_number') || '—'}</td>
+                      <td>{dateLabel(pick(r, 'receiptDate', 'receipt_date'))}</td>
+                      <td>{readable(pick(r, 'paymentMode', 'payment_mode', 'paymentMethodCode', 'payment_method_code'))}</td>
+                      <td>{money(pick(r, 'amount', 'amount_paid'), String(pick(r, 'currencyCode', 'currency_code') || 'INR'))}</td>
+                      <td>{bankMatchPill(objectValue(r, 'bankMatch')) ?? '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
-          );
-        })}
-      </div>
-      <ReceiptAccordion receipts={receipts} pendingReceipts={pendingReceipts} reviewedBooking={reviewedBooking} />
-      {(model.payments || []).length > 0 && (
-        <div className="jline__tableWrap" style={{ marginTop: 14 }}>
-          <table className="jline__table">
-            <thead><tr><th>Date</th><th>Reference</th><th>Mode</th><th>Status</th><th>Amount</th></tr></thead>
-            <tbody>
-              {model.payments.map((p, i) => (
-                <tr key={String(p.paymentId || i)}>
-                  <td>{dateLabel(pick(p, 'paymentAtUtc', 'payment_at_utc', 'receiptDate', 'receipt_date'))}</td>
-                  <td>{String(pick(p, 'paymentReference', 'payment_reference', 'receiptNumber', 'receipt_number') || '—')}</td>
-                  <td>{readable(pick(p, 'paymentMethodCode', 'payment_method_code'))}</td>
-                  <td>{readable(pick(p, 'actualStatusCode', 'actual_status_code', 'reviewStatus'))}</td>
-                  <td>{money(pick(p, 'amount', 'amount_paid'))}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+          )}
+          {ledgerOnly.length > 0 && (
+            <div className="jline__tableWrap" style={{ marginTop: 14 }}>
+              <table className="jline__table">
+                <thead><tr><th>Date</th><th>Reference</th><th>Mode</th><th>Status</th><th>Amount</th></tr></thead>
+                <tbody>
+                  {ledgerOnly.map((p, i) => (
+                    <tr key={String(p.paymentId || i)}>
+                      <td>{dateLabel(pick(p, 'paymentAtUtc', 'payment_at_utc'))}</td>
+                      <td>{String(pick(p, 'paymentReference', 'payment_reference') || '—')}</td>
+                      <td>{readable(pick(p, 'paymentMethodCode', 'payment_method_code'))}</td>
+                      <td>{readable(pick(p, 'actualStatusCode', 'actual_status_code'))}</td>
+                      <td>{money(pick(p, 'amount', 'amount_paid'), String(pick(p, 'currencyCode', 'currency_code') || 'INR'))}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+          {(receipts.length > 0 || pendingReceipts.length > 0) && (
+            <div style={{ marginTop: 14 }}>
+              <ReceiptAccordion receipts={receipts} pendingReceipts={pendingReceipts} reviewedBooking={null} />
+            </div>
+          )}
+        </>
       )}
     </>
   );
@@ -886,7 +953,13 @@ function FocusPanel({
   let body: React.ReactNode;
   switch (aspect) {
     case 'deal':
-      body = <DealPanel model={model} modelNotIdentified={modelNotIdentified as Record<string, unknown> | null} />;
+      body = (
+        <DealPanel
+          model={model}
+          reviewedBooking={reviewedBooking}
+          modelNotIdentified={modelNotIdentified as Record<string, unknown> | null}
+        />
+      );
       break;
     case 'payments':
       body = <PaymentsPanel model={model} receipts={receipts} pendingReceipts={pendingReceipts} reviewedBooking={reviewedBooking} />;
@@ -906,7 +979,21 @@ function FocusPanel({
         </>
       );
       break;
-    case 'vehicle':
+    case 'vehicle': {
+      const dealerBranchRaw =
+        value(reviewedBooking, 'dealer_branch') ||
+        value(reviewedBooking, 'branch_name') ||
+        value(reviewedBooking, 'outlet_code') ||
+        model.resolvedReviewedValues?.['dealer_branch']?.value ||
+        value(model.journey, 'outletCode') ||
+        null;
+      const dealerBranch = dealerBranchRaw ? String(dealerBranchRaw) : textValue(model.journey, 'outletName');
+      const expectedDelivery = dateLabel(
+        value(reviewedBooking, 'expected_delivery_date') ||
+        value(reviewedBooking, 'expected_delivery') ||
+        model.resolvedReviewedValues?.['expected_delivery_date']?.value ||
+        null,
+      );
       body = (
         <>
           <PanelHead title="Vehicle" hint="Delivery documents take precedence over Booking." />
@@ -917,18 +1004,42 @@ function FocusPanel({
             <JFact label="SKU">{textValue(model.booking, 'skuCode')}</JFact>
             <JFact label="VIN">{textValue(model.vehicle, 'vin')}</JFact>
             <JFact label="Chassis No.">{textValue(model.vehicle, 'chassisNumber')}</JFact>
+            <JFact label="DMS Reference">{textValue(model.vehicle, 'dmsReference')}</JFact>
             <JFact label="Invoice Reference">{textValue(model.vehicle, 'invoiceReference')}</JFact>
-            <JFact label="Accessories">{money(value(reviewedBooking, 'accessories_cost'))}</JFact>
-            <JFact label="Additional Warranty">{money(value(reviewedBooking, 'additional_warranty_amount'))}</JFact>
-            <JFact label="RSA">{money(value(reviewedBooking, 'rsa_amount'))}</JFact>
+            <JFact label="Allocated">{dateLabel(value(model.vehicle, 'allocatedAtUtc'))}</JFact>
+            <JFact label="Booking Date">{dateLabel(value(model.booking, 'bookingDate'))}</JFact>
+            <JFact label="Sales Consultant">{textValue(reviewedBooking, 'sales_person')}</JFact>
+            <JFact label="Dealer Branch">{dealerBranch}</JFact>
+            <JFact label="Deal Type">{preferredText(model.booking, 'dealType', reviewedBooking, 'deal_type')}</JFact>
+            <JFact label="Deal Source">{readable(value(model.booking, 'dealSource'))}</JFact>
+            <JFact label="Lead Source">{readable(value(model.booking, 'leadSource'))}</JFact>
+            <JFact label="Expected Delivery">{expectedDelivery}</JFact>
           </FactList>
+          <div className="jline__panelHead" style={{ marginTop: 16 }}>
+            <span className="jline__panelTitle" style={{ fontSize: '0.95rem' }}>Delivery execution</span>
+          </div>
+          {model.delivery ? (
+            <FactList>
+              <JFact label="Status">{readable(value(model.delivery, 'actualDeliveryStatusCode'))}</JFact>
+              <JFact label="Planned">{dateLabel(value(model.delivery, 'plannedDeliveryAt'))}</JFact>
+              <JFact label="Intimated">{dateLabel(value(model.delivery, 'deliveryIntimatedAt'))}</JFact>
+              <JFact label="Delivered">{dateLabel(value(model.delivery, 'actualDeliveredAt'))}</JFact>
+            </FactList>
+          ) : (
+            <p className="jline__empty">Delivery has not been recorded yet.</p>
+          )}
         </>
       );
       break;
+    }
     case 'tradeIn':
       body = (
         <>
           <PanelHead title="Trade-in / Scrappage" />
+          <FactList>
+            <JFact label="Exchange Applicable">{readable(value(reviewedBooking, 'exchange_applicable'))}</JFact>
+            <JFact label="Exchange Value">{money(value(reviewedBooking, 'exchange_value'))}</JFact>
+          </FactList>
           {model.tradeIn ? (
             <FactList>
               <JFact label="Status">{readable(value(model.tradeIn, 'actualStatusCode'))}</JFact>
@@ -936,11 +1047,11 @@ function FocusPanel({
               <JFact label="Registration">{textValue(model.tradeIn, 'oldVehicleRegistration')}</JFact>
               <JFact label="Quoted Value">{money(value(model.tradeIn, 'quotedValue'))}</JFact>
               <JFact label="Actual Value">{money(value(model.tradeIn, 'actualValue'))}</JFact>
-              <JFact label="Exchange (booking)">{money(value(reviewedBooking, 'exchange_value'))}</JFact>
               <JFact label="Handover">{dateLabel(value(model.tradeIn, 'handoverAtUtc'))}</JFact>
+              <JFact label="Payment Date">{dateLabel(value(model.tradeIn, 'paymentAtUtc'))}</JFact>
             </FactList>
           ) : (
-            <p className="jline__empty">No trade-in or scrappage recorded on this journey.</p>
+            <p className="jline__empty">No trade-in or scrappage record beyond the booking's exchange fields.</p>
           )}
         </>
       );
@@ -955,9 +1066,15 @@ function FocusPanel({
             <JFact label="PAN">{textValue(model.customer, 'panNumber')}</JFact>
             <JFact label="Aadhaar">{textValue(model.customer, 'aadhaarNumber')}</JFact>
             <JFact label="Date of Birth">{dateLabel(value(model.customer, 'dateOfBirth'))}</JFact>
+            <JFact label="Gender">{readable(value(model.customer, 'gender'))}</JFact>
             <JFact label="Mobile">{preferredText(model.customer, 'mobileNumber', reviewedBooking, 'customer_phone')}</JFact>
             <JFact label="Email">{preferredText(model.customer, 'emailReference', reviewedBooking, 'customer_email')}</JFact>
             <JFact label="Address">{preferredText(model.customer, 'address', reviewedBooking, 'customer_address')}</JFact>
+            <JFact label="Pincode">{textValue(model.customer, 'pincode')}</JFact>
+            <JFact label="State">{textValue(model.customer, 'kycState')}</JFact>
+            <JFact label="District">{textValue(model.customer, 'kycDistrict')}</JFact>
+            <JFact label="Relationship">{textValue(model.customer, 'relationshipType')}</JFact>
+            <JFact label="Relationship Name">{textValue(model.customer, 'relationshipName')}</JFact>
             <JFact label="Customer Type">{readable(value(model.customer, 'customerType'))}</JFact>
             <JFact label="Identity Status">{readable(value(model.customer, 'legalNameStatus'))}</JFact>
           </FactList>
@@ -972,9 +1089,12 @@ function FocusPanel({
             <FactList>
               <JFact label="Registration No.">{textValue(model.registration, 'registrationNumber')}</JFact>
               <JFact label="State">{textValue(model.registration, 'registrationState')}</JFact>
+              <JFact label="Territory">{textValue(model.registration, 'registrationTerritory')}</JFact>
               <JFact label="District">{textValue(model.registration, 'registrationDistrict')}</JFact>
               <JFact label="Type">{readable(value(model.registration, 'registrationTypeCode'))}</JFact>
+              <JFact label="Category">{readable(value(model.registration, 'registrationCategoryCode'))}</JFact>
               <JFact label="Registration By">{textValue(reviewedBooking, 'registration_by')}</JFact>
+              <JFact label="Registration Type (booking)">{textValue(reviewedBooking, 'registration_type')}</JFact>
               <JFact label="Registration Charges">{money(value(reviewedBooking, 'registration_charges'))}</JFact>
               <JFact label="Road Tax">{money(value(reviewedBooking, 'road_tax_amount'))}</JFact>
               <JFact label="Status">{readable(value(model.registration, 'actualStatusCode'))}</JFact>
@@ -993,14 +1113,35 @@ function FocusPanel({
             <FactList>
               <JFact label="Insurer">{textValue(model.insurance, 'insurerName')}</JFact>
               <JFact label="Policy">{textValue(model.insurance, 'policyReference')}</JFact>
+              <JFact label="Cover Note">{textValue(model.insurance, 'coverNoteReference')}</JFact>
               <JFact label="Standard Premium">{money(value(model.insurance, 'standardPremiumAmount'))}</JFact>
               <JFact label="Actual Premium">{money(value(model.insurance, 'actualPremiumAmount'))}</JFact>
               <JFact label="Insurance (booking)">{money(value(reviewedBooking, 'insurance_amount'))}</JFact>
               <JFact label="Insurance By">{textValue(reviewedBooking, 'insurance_by')}</JFact>
+              <JFact label="Self Insurance">{readable(value(model.insurance, 'selfInsuranceFlag'))}</JFact>
               <JFact label="Status">{readable(value(model.insurance, 'actualStatusCode'))}</JFact>
             </FactList>
           ) : (
             <p className="jline__empty">No insurance record is available.</p>
+          )}
+        </>
+      );
+      break;
+    case 'finance':
+      body = (
+        <>
+          <PanelHead title="Finance" />
+          {model.finance ? (
+            <FactList>
+              <JFact label="Type">{readable(value(model.finance, 'financeTypeCode'))}</JFact>
+              <JFact label="Provider">{textValue(model.finance, 'providerName')}</JFact>
+              <JFact label="DO Reference">{textValue(model.finance, 'doReference')}</JFact>
+              <JFact label="PO Reference">{textValue(model.finance, 'poReference')}</JFact>
+              <JFact label="Financed Amount">{money(value(model.finance, 'financedAmount'))}</JFact>
+              <JFact label="Status">{readable(value(model.finance, 'actualStatusCode'))}</JFact>
+            </FactList>
+          ) : (
+            <p className="jline__empty">No finance record is available — this booking is presumed cash/outright purchase.</p>
           )}
         </>
       );

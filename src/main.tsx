@@ -82,6 +82,7 @@ import './styles/uc03-v2-product-layout.css';
 import './styles/dashboard-workqueue-five-column.css';
 import './styles/uc03-review-queue.css';
 import './styles/pc-overview.css';
+import './styles/journey-line.css';
 import './styles/ui-governance.css';
 import './ui/pcNavigationMotion';
 

@@ -1,0 +1,306 @@
+/* journey-line.css — "The Journey Line" view (Journey360Page).
+ * Blue = structure / current step / primary. Teal = done / verified / progress.
+ * Coral = flags / variance / missing. Scoped under .jline. */
+
+.jline {
+  --jl-blue: #003a82;
+  --jl-electric: #0057b8;
+  --jl-teal: #00afa8;
+  --jl-mint: #00d3a7;
+  --jl-coral: #dd6f57;
+  --jl-ink: #1f2937;
+  --jl-muted: #5b6b7c;
+  --jl-line: #d7e4ee;
+  --jl-surface: #ffffff;
+  --jl-ground: #f4f8fb;
+  --jl-ok-bg: #e9f7f5;
+  --jl-warn-bg: #fdf1ec;
+  --jl-bad-bg: #fbe9e4;
+
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  color: var(--jl-ink);
+}
+
+@media (prefers-color-scheme: dark) {
+  .jline:not([data-theme='light']) {
+    --jl-ink: #e8eef5;
+    --jl-muted: #9fb0c2;
+    --jl-line: #2b3b4c;
+    --jl-surface: #131c26;
+    --jl-ground: #0d141c;
+    --jl-ok-bg: #10312d;
+    --jl-warn-bg: #3a271e;
+    --jl-bad-bg: #3d211b;
+  }
+}
+
+.jline__panelCard,
+.jline__strip,
+.jline__lineWrap {
+  background: var(--jl-surface);
+  border: 1px solid var(--jl-line);
+  border-radius: 12px;
+}
+
+/* ── health strip ───────────────────────────────────────────────────────── */
+.jline__strip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px;
+}
+
+.jline__strip--ok { border-left: 4px solid var(--jl-teal); }
+.jline__strip--attention { border-left: 4px solid var(--jl-coral); background: var(--jl-warn-bg); }
+
+.jline__stripText { font-size: 0.95rem; font-weight: 600; }
+.jline__stripText small { display: block; font-weight: 400; color: var(--jl-muted); margin-top: 2px; }
+
+.jline__stripJump {
+  border: 1px solid var(--jl-coral);
+  color: var(--jl-coral);
+  background: transparent;
+  border-radius: 999px;
+  padding: 6px 14px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.jline__stripJump:hover { background: var(--jl-coral); color: #fff; }
+
+/* ── six-step line ──────────────────────────────────────────────────────── */
+.jline__lineWrap { padding: 18px 20px 14px; overflow-x: auto; }
+
+.jline__phases {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(96px, 1fr));
+  gap: 0;
+  min-width: 620px;
+}
+
+.jline__phaseCap {
+  grid-row: 1;
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--jl-muted);
+  font-weight: 700;
+  padding-bottom: 8px;
+}
+.jline__phaseCap--booking { grid-column: 1 / span 3; }
+.jline__phaseCap--delivery { grid-column: 4 / span 3; }
+
+/* dashed divider between the Booking and Delivery halves */
+.jline__step:nth-child(6) { border-left: 1px dashed var(--jl-line); }
+
+.jline__step {
+  grid-row: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  position: relative;
+  padding-top: 18px;
+}
+
+/* connector */
+.jline__step::before {
+  content: '';
+  position: absolute;
+  top: 27px;
+  left: -50%;
+  width: 100%;
+  height: 2px;
+  background: var(--jl-line);
+}
+/* first actual step sits after the two phase-caption spans */
+.jline__step:nth-child(3)::before { display: none; }
+.jline__step--done::before,
+.jline__step--current::before { background: var(--jl-teal); }
+
+.jline__dot {
+  width: 20px;
+  height: 20px;
+  border-radius: 999px;
+  border: 2px solid var(--jl-line);
+  background: var(--jl-surface);
+  display: grid;
+  place-items: center;
+  font-size: 0.62rem;
+  font-weight: 800;
+  color: var(--jl-surface);
+  z-index: 1;
+}
+.jline__step--done .jline__dot { background: var(--jl-teal); border-color: var(--jl-teal); }
+.jline__step--current .jline__dot {
+  background: var(--jl-blue);
+  border-color: var(--jl-blue);
+  box-shadow: 0 0 0 4px rgba(0, 58, 130, 0.15);
+}
+
+.jline__stepLabel { font-size: 0.8rem; font-weight: 600; text-align: center; }
+.jline__step--todo .jline__stepLabel { color: var(--jl-muted); font-weight: 500; }
+.jline__stepAt { font-size: 0.68rem; color: var(--jl-muted); }
+
+/* ── aspect chips ───────────────────────────────────────────────────────── */
+.jline__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.jline__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border: 1px solid var(--jl-line);
+  background: var(--jl-surface);
+  border-radius: 999px;
+  padding: 7px 13px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--jl-ink);
+  cursor: pointer;
+  transition: border-color 0.12s, background 0.12s;
+}
+.jline__chip:hover { border-color: var(--jl-electric); }
+.jline__chip--active {
+  border-color: var(--jl-blue);
+  background: var(--jl-blue);
+  color: #fff;
+}
+.jline__chip--active .jline__chipDot { outline: 2px solid rgba(255, 255, 255, 0.6); }
+
+.jline__chipDot {
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+  background: var(--jl-teal);
+  flex: none;
+}
+.jline__chipDot--warn { background: #e8a13c; }
+.jline__chipDot--bad { background: var(--jl-coral); }
+.jline__chipDot--wait { background: var(--jl-line); }
+
+.jline__chipBadge {
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--jl-coral);
+  color: #fff;
+  font-size: 0.72rem;
+  font-weight: 800;
+  display: grid;
+  place-items: center;
+}
+.jline__chip--active .jline__chipBadge { background: #fff; color: var(--jl-blue); }
+
+/* ── focus panel ───────────────────────────────────────────────────────── */
+.jline__panelCard { padding: 18px 20px; }
+
+.jline__panelHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--jl-line);
+}
+.jline__panelTitle { font-size: 1.05rem; font-weight: 700; color: var(--jl-blue); }
+.jline__panelHint { font-size: 0.82rem; color: var(--jl-muted); }
+
+.jline__facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 12px 20px;
+}
+.jline__fact { display: flex; flex-direction: column; gap: 2px; }
+.jline__fact span { font-size: 0.72rem; letter-spacing: 0.04em; text-transform: uppercase; color: var(--jl-muted); font-weight: 600; }
+.jline__fact strong { font-size: 0.95rem; font-weight: 600; }
+
+.jline__empty { color: var(--jl-muted); font-size: 0.9rem; padding: 8px 0; }
+
+/* mini table */
+.jline__table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+.jline__table th {
+  text-align: left;
+  font-size: 0.7rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--jl-muted);
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--jl-line);
+}
+.jline__table td { padding: 8px 10px; border-bottom: 1px solid var(--jl-line); font-variant-numeric: tabular-nums; }
+.jline__tableWrap { overflow-x: auto; }
+
+.jline__delta--over { color: var(--jl-coral); font-weight: 700; }
+.jline__delta--under { color: var(--jl-electric); font-weight: 700; }
+.jline__delta--ok { color: var(--jl-teal); font-weight: 700; }
+
+/* findings list */
+.jline__findings { display: flex; flex-direction: column; gap: 10px; }
+.jline__finding {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 12px;
+  align-items: start;
+  padding: 12px;
+  border: 1px solid var(--jl-line);
+  border-radius: 10px;
+  background: var(--jl-ground);
+}
+.jline__finding--bad { border-left: 4px solid var(--jl-coral); }
+.jline__finding--warn { border-left: 4px solid #e8a13c; }
+.jline__findingMark {
+  width: 22px; height: 22px; border-radius: 999px;
+  background: var(--jl-coral); color: #fff;
+  display: grid; place-items: center; font-weight: 800; font-size: 0.8rem;
+}
+.jline__findingBody strong { display: block; font-size: 0.92rem; }
+.jline__findingBody small { display: block; color: var(--jl-muted); font-size: 0.78rem; margin-top: 2px; }
+.jline__findingBody code {
+  font-size: 0.72rem;
+  background: var(--jl-line);
+  border-radius: 4px;
+  padding: 1px 5px;
+}
+.jline__findingSla { font-size: 0.76rem; color: var(--jl-coral); font-weight: 700; white-space: nowrap; }
+
+/* model-not-identified callout in the Deal panel */
+.jline__callout {
+  background: var(--jl-warn-bg);
+  border: 1px solid var(--jl-coral);
+  border-radius: 10px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.jline__callout strong { color: var(--jl-coral); }
+
+/* bank match pill on a receipt */
+.jline__bank {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.74rem;
+  font-weight: 700;
+  border-radius: 999px;
+  padding: 2px 8px;
+}
+.jline__bank--matched { background: var(--jl-ok-bg); color: #0a7d73; }
+.jline__bank--unmatched { background: var(--jl-bad-bg); color: #b23c22; }
+.jline__bank--ambiguous { background: var(--jl-warn-bg); color: #a05a1e; }
+.jline__bank--not_applicable { background: var(--jl-line); color: var(--jl-muted); }
+
+@media (max-width: 720px) {
+  .jline__strip { flex-direction: column; align-items: flex-start; }
+  .jline__panelHead { flex-direction: column; }
+}

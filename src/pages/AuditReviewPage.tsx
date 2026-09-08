@@ -452,9 +452,7 @@ export default function AuditReviewPage() {
         description="Review Audit Flags, source comparisons, evidence, decisions and the complete case history without changing the underlying source documents."
       />
 
-      <nav className="uc03-c3-context-links" aria-label="Case workspaces">
-        <Link to={`/bookings/${journeyId}`}>Booking workspace</Link>
-        <Link to={`/deliveries/${journeyId}`}>Delivery workspace</Link>
+      <nav className="uc03-c3-context-links" aria-label="Case navigation">
         <Link to="/dashboard">Project work list</Link>
       </nav>
 

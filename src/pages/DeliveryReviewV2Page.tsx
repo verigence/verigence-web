@@ -89,7 +89,7 @@ function EvidenceSource({ source, onEvidence }: { source: ReviewV2SourceValue; o
       <div className="uc03-delivery-review-source" style={{ cursor: 'default' }}>
         <strong>{source.documentLabel}</strong>
         <span>{displayValue(source.value)}</span>
-        <small>{confidence(source.confidenceScore)} \u00b7 Source location unavailable</small>
+        <small>{confidence(source.confidenceScore)} · Source location unavailable</small>
       </div>
     );
   }
@@ -97,7 +97,7 @@ function EvidenceSource({ source, onEvidence }: { source: ReviewV2SourceValue; o
     <button type="button" className="uc03-delivery-review-source" onClick={() => onEvidence(source)}>
       <strong>{source.documentLabel}</strong>
       <span>{displayValue(source.value)}</span>
-      <small>{confidence(source.confidenceScore)} \u00b7 boxed evidence</small>
+      <small>{confidence(source.confidenceScore)} · boxed evidence</small>
     </button>
   );
 }
@@ -151,7 +151,7 @@ export default function DeliveryReviewV2Page() {
   }, [rawGroups]);
 
   if (!project || !journeyId) return null;
-  if (reviewQuery.isPending || workspaceQuery.isPending) return <div className="uc03-c1-loading" role="status">Loading Delivery Review\u2026</div>;
+  if (reviewQuery.isPending || workspaceQuery.isPending) return <div className="uc03-c1-loading" role="status">Loading Delivery Review…</div>;
   if (reviewQuery.isError || !reviewQuery.data || workspaceQuery.isError || !workspaceQuery.data) {
     return (
       <section className="dashboard-load-state" role="alert">
@@ -228,10 +228,10 @@ export default function DeliveryReviewV2Page() {
     <div className="screen-stack uc03-delivery-review-v2">
       <div className="uc03-c1-topbar">
         <button type="button" className="uc03-c1-back" onClick={() => navigate('/dashboard')}>← Work List</button>
-        <button type="button" className="uc03-v2-review-refresh" disabled={reviewQuery.isFetching} onClick={() => void reviewQuery.refetch()}>{reviewQuery.isFetching ? 'Refreshing\u2026' : 'Refresh Review'}</button>
+        <button type="button" className="uc03-v2-review-refresh" disabled={reviewQuery.isFetching} onClick={() => void reviewQuery.refetch()}>{reviewQuery.isFetching ? 'Refreshing…' : 'Refresh Review'}</button>
       </div>
       <PageHeader
-        eyebrow="Delivery Review \u00b7 Evidence First"
+        eyebrow="Delivery Review · Evidence First"
         title="Review Delivery information"
         description="Review values extracted from Delivery-stage documents. The DI value remains traceable; edit only when the confirmed business value is different."
       />
@@ -290,7 +290,7 @@ export default function DeliveryReviewV2Page() {
           const evidenceSource = rawSource(source);
           return (
             <article key={item.groupKey} className={`uc03-delivery-review-field ${item.needsDecision ? 'is-exception' : ''}`}>
-              <div className="uc03-delivery-review-field__name"><strong>{fieldLabel(item.fieldKey)}</strong><span>DI extracted \u00b7 not mapped \u00b7 {source.documentLabel}</span></div>
+              <div className="uc03-delivery-review-field__name"><strong>{fieldLabel(item.fieldKey)}</strong><span>DI extracted · not mapped · {source.documentLabel}</span></div>
               <div className="uc03-delivery-review-field__value">
                 <ReviewEffectiveValueEditor
                   source={source}
@@ -319,7 +319,7 @@ export default function DeliveryReviewV2Page() {
           <strong>{review.pcVerificationStatus === 'VERIFIED' ? 'Delivery Review verified' : 'Confirm Delivery Review'}</strong>
           <span>{review.pcVerificationStatus === 'VERIFIED' ? 'Original DI values and confirmed effective values are retained in Audit Core.' : review.processingPending ? 'Final Review confirmation becomes available when Delivery document processing finishes.' : failedDocuments.length ? 'Resolve failed Delivery document processing before Review confirmation.' : 'Unchanged fields keep their DI values; saved corrections become the effective values.'}</span>
         </div>
-        {review.pcVerificationStatus !== 'VERIFIED' ? <button type="button" className="uc03-c3-primary" disabled={!canConfirmReview || confirming} onClick={() => void confirmReview()}>{confirming ? 'Confirming\u2026' : 'Confirm reviewed values'}</button> : null}
+        {review.pcVerificationStatus !== 'VERIFIED' ? <button type="button" className="uc03-c3-primary" disabled={!canConfirmReview || confirming} onClick={() => void confirmReview()}>{confirming ? 'Confirming…' : 'Confirm reviewed values'}</button> : null}
       </section>
 
       <section className="uc03-delivery-review-complete">
@@ -327,7 +327,7 @@ export default function DeliveryReviewV2Page() {
           <strong>{deliveryCompleted ? 'Physical Delivery is complete' : 'Record physical Delivery when handover is complete'}</strong>
           <p>Physical Delivery remains independent of audit Review. Open exceptions or an unfinished Review do not block the Delivery event.</p>
         </div>
-        {!deliveryCompleted ? <button type="button" className="uc03-c1-primary" disabled={completing} onClick={() => void completePhysicalDelivery()}>{completing ? 'Recording\u2026' : 'Complete Delivery'}</button> : <button type="button" className="uc03-c1-secondary" onClick={() => navigate(`/audit/${journeyId}`)}>View Audit Flags</button>}
+        {!deliveryCompleted ? <button type="button" className="uc03-c1-primary" disabled={completing} onClick={() => void completePhysicalDelivery()}>{completing ? 'Recording…' : 'Complete Delivery'}</button> : <button type="button" className="uc03-c1-secondary" onClick={() => navigate(`/audit/${journeyId}`)}>View Audit Flags</button>}
       </section>
 
       {selectedSource ? <AttributeEvidenceViewer tenantId={project.tenantId} journeyId={journeyId} accessToken={accessToken} source={selectedSource} onClose={() => setSelectedSource(undefined)} /> : null}

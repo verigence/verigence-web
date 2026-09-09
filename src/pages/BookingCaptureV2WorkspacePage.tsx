@@ -10,7 +10,6 @@ import {
   captureV2HasPendingClassification,
   deleteBookingCaptureV2Document,
   getBookingCaptureV2,
-  setBookingCaptureV2Declaration,
   type BookingCaptureV2,
   type CaptureV2Requirement,
   uploadBookingCaptureV2Files,
@@ -24,12 +23,6 @@ import '../styles/uc03-document-capture-v2-business.css';
 const CAPTURE_STALE_MS = 3_000;
 const CAPTURE_POLL_MS = 1_000;
 const IDENTITY_MARKERS = ['PAN', 'AADHAAR', 'AADHAR'];
-
-const CONDITION_LABELS: Record<string, string> = {
-  gstApplicable: 'Does the customer want to avail GST benefit for this Booking?',
-  corporateCustomer: 'Is this Booking for a Corporate customer?',
-  exchangeTaken: 'Does the customer want to avail Trade-In / Exchange?',
-};
 
 function formatElapsed(totalSeconds: number): string {
   const minutes = Math.floor(totalSeconds / 60).toString().padStart(2, '0');
@@ -69,8 +62,23 @@ function requirementLevel(requirement: CaptureV2Requirement, alternativeSatisfie
   return 'OPTIONAL';
 }
 
+// A document's life after upload: it lands (UPLOADING), DI assigns it a type
+// (CLASSIFIED), then extraction finishes (EXTRACTED) -- surfacing each step
+// rather than jumping straight to "CLASSIFIED" the instant a file lands.
+function documentStage(requirement: CaptureV2Requirement): 'UPLOADING' | 'CLASSIFIED' | 'EXTRACTED' | 'FAILED' | undefined {
+  const document = requirement.document;
+  if (!document) return undefined;
+  const state = document.state.trim().toUpperCase();
+  const processing = document.processingStatus?.trim().toUpperCase();
+  if (state === 'FAILED' || processing === 'FAILED') return 'FAILED';
+  if (state !== 'CLASSIFIED' || !document.classifiedDocumentTypeKey) return 'UPLOADING';
+  if (processing === 'PROCESSED') return 'EXTRACTED';
+  return 'CLASSIFIED';
+}
+
 function documentStatus(requirement: CaptureV2Requirement, alternativeSatisfied = false): string {
-  if (requirement.document) return 'CLASSIFIED';
+  const stage = documentStage(requirement);
+  if (stage) return stage;
   if (alternativeSatisfied) return 'NOT NEEDED';
   if (requirement.state === 'NOT_APPLICABLE') return 'NOT APPLICABLE';
   if (requirement.requirementLevel !== 'REQUIRED') return 'OPTIONAL';
@@ -78,11 +86,11 @@ function documentStatus(requirement: CaptureV2Requirement, alternativeSatisfied 
 }
 
 function requirementMessage(requirement: CaptureV2Requirement, alternativeSatisfied = false): string {
-  if (requirement.document) {
-    return requirement.document.processingStatus?.toUpperCase() === 'PROCESSED'
-      ? 'Document classified · Review values ready'
-      : 'Document classified · Review values being prepared';
-  }
+  const stage = documentStage(requirement);
+  if (stage === 'FAILED') return 'Needs a follow-up look';
+  if (stage === 'UPLOADING') return 'Uploaded · classification starting shortly';
+  if (stage === 'CLASSIFIED') return 'Classified · extracting review values';
+  if (stage === 'EXTRACTED') return 'Extracted · review values ready';
   if (alternativeSatisfied) return 'Customer ID evidence already available';
   if (requirement.state === 'NOT_APPLICABLE') return 'Not applicable to this Booking';
   if (requirement.requirementLevel === 'REQUIRED') return 'Expected for the audit pack · missing evidence will be flagged';
@@ -106,11 +114,12 @@ function RequirementRow({
 }) {
   const document = requirement.document;
   const deleting = document?.documentId === busyDocumentId;
+  const stage = documentStage(requirement);
 
   return (
     <article
       id={`requirement-${requirement.requirementKey}`}
-      className={`uc03-v2-compact-row ${document || alternativeSatisfied ? 'is-ready' : ''}`}
+      className={`uc03-v2-compact-row ${document || alternativeSatisfied ? 'is-ready' : ''} ${stage ? `is-${stage.toLowerCase()}` : ''}`}
     >
       <div className="uc03-v2-compact-row__name">
         <strong>{requirement.label}</strong>
@@ -153,57 +162,6 @@ function RequirementRow({
   );
 }
 
-function OptionalChoiceDialog({
-  conditionKeys,
-  busy,
-  onClose,
-  onSet,
-  onContinue,
-}: {
-  conditionKeys: string[];
-  busy: boolean;
-  onClose: () => void;
-  onSet: (conditionKey: string, applicable: boolean) => Promise<void>;
-  onContinue: () => void;
-}) {
-  return (
-    <div className="uc03-v2-choice-modal-backdrop" role="presentation">
-      <section className="uc03-v2-choice-modal" role="dialog" aria-modal="true" aria-labelledby="optional-choice-title">
-        <header>
-          <div>
-            <span className="uc03-c1-eyebrow">Optional customer information</span>
-            <h2 id="optional-choice-title">Customer choices</h2>
-            <p>
-              No supporting document was found for the items below. Answer only what you know.
-              You can continue without answering; unresolved items remain available for audit follow-up.
-            </p>
-          </div>
-          <button type="button" className="uc03-v2-choice-modal__close" onClick={onClose} aria-label="Close confirmation">×</button>
-        </header>
-
-        <div className="uc03-v2-choice-list">
-          {conditionKeys.map((conditionKey) => (
-            <article key={conditionKey} className="uc03-v2-choice-item">
-              <strong>{CONDITION_LABELS[conditionKey] || conditionKey}</strong>
-              <div className="uc03-v2-compact-choice" role="group" aria-label={CONDITION_LABELS[conditionKey] || conditionKey}>
-                <button type="button" disabled={busy} onClick={() => void onSet(conditionKey, true)}>Yes</button>
-                <button type="button" disabled={busy} onClick={() => void onSet(conditionKey, false)}>No</button>
-              </div>
-            </article>
-          ))}
-        </div>
-
-        <footer>
-          <button type="button" className="uc03-v2-choice-secondary" disabled={busy} onClick={onClose}>Back to documents</button>
-          <button type="button" className="uc03-c1-primary" disabled={busy} onClick={onContinue}>
-            Continue to Review &rarr;
-          </button>
-        </footer>
-      </section>
-    </div>
-  );
-}
-
 export default function BookingCaptureV2CompactPage() {
   const { journeyId } = useParams<{ journeyId: string }>();
   const navigate = useNavigate();
@@ -213,13 +171,11 @@ export default function BookingCaptureV2CompactPage() {
 
   const [startBusy, setStartBusy] = useState(false);
   const [activeUploadBatches, setActiveUploadBatches] = useState(0);
-  const [pendingDeclarations, setPendingDeclarations] = useState(0);
   const [busyDocumentId, setBusyDocumentId] = useState<string>();
   const [message, setMessage] = useState<string>();
   const [error, setError] = useState<string>();
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [helpOpen, setHelpOpen] = useState(false);
-  const [choiceDialogOpen, setChoiceDialogOpen] = useState(false);
   const readinessStartedAt = useRef<number | undefined>(undefined);
 
   const enabled = Boolean(project?.tenantId && journeyId && accessToken);
@@ -246,16 +202,8 @@ export default function BookingCaptureV2CompactPage() {
   const capture = captureQuery.data;
   const uploading = activeUploadBatches > 0;
   const classificationInFlight = hasClassificationInFlight(capture);
-  const busy = pendingDeclarations > 0 || Boolean(busyDocumentId);
+  const busy = Boolean(busyDocumentId);
   const canProceed = Boolean(capture) && !uploading && !busy;
-
-  const unresolvedConditions = useMemo(() => {
-    if (!capture || classificationInFlight) return [];
-    const keys = capture.requirements
-      .filter((requirement) => requirement.needsDecision && requirement.conditionKey && !requirement.document)
-      .map((requirement) => requirement.conditionKey as string);
-    return [...new Set(keys)];
-  }, [capture, classificationInFlight]);
 
   const identityRequirements = useMemo(
     () => capture?.requirements.filter(isIdentityRequirement) ?? [],
@@ -269,10 +217,6 @@ export default function BookingCaptureV2CompactPage() {
   );
   const bookingFormDocuments = mandatoryDocuments.filter(isBookingFormRequirement);
   const otherMandatoryDocuments = mandatoryDocuments.filter((item) => !isBookingFormRequirement(item));
-  const additionalDocuments = useMemo(
-    () => capture?.requirements.filter((item) => item.requirementLevel !== 'REQUIRED' && !isIdentityRequirement(item)) ?? [],
-    [capture],
-  );
 
   const auditObservations = useMemo(() => {
     if (!capture) return [] as Array<{ key: string; text: string; target?: string }>;
@@ -379,26 +323,6 @@ export default function BookingCaptureV2CompactPage() {
     }
   };
 
-  const handleDeclaration = async (conditionKey: string, applicable: boolean) => {
-    setPendingDeclarations((count) => count + 1);
-    setError(undefined);
-    try {
-      const response = await setBookingCaptureV2Declaration(
-        project.tenantId,
-        journeyId,
-        conditionKey,
-        applicable,
-        applicable ? false : null,
-        accessToken,
-      );
-      queryClient.setQueryData<BookingCaptureV2>(captureKey, response);
-    } catch (cause: unknown) {
-      setError(cause instanceof Error ? cause.message : 'We could not save this customer confirmation. You can still continue the Booking.');
-    } finally {
-      setPendingDeclarations((count) => Math.max(0, count - 1));
-    }
-  };
-
   const handleDelete = async (documentId: string) => {
     setBusyDocumentId(documentId);
     setError(undefined);
@@ -415,12 +339,12 @@ export default function BookingCaptureV2CompactPage() {
 
   // DEF-01 fix (2026-09-07): navigate to Review, not Details.
   // Approved flow: Documents -> Review & Submit -> Booking Details (C-01, C-02).
+  // A modal asking the PC to declare GST/Corporate/Trade-In applicability
+  // before continuing added a step with no audit value -- these resolve
+  // from evidence (or stay open for audit follow-up) same as any other
+  // conditional document, never by gating Continue on a manual answer.
   const handleContinue = () => {
     if (!canProceed) return;
-    if (unresolvedConditions.length > 0) {
-      setChoiceDialogOpen(true);
-      return;
-    }
     navigate(`/v2/bookings/${journeyId}/review`);
   };
 
@@ -564,10 +488,6 @@ export default function BookingCaptureV2CompactPage() {
                     {otherMandatoryDocuments.map((item) => <li key={item.requirementKey}>{item.label}</li>)}
                   </ul>
                 </div>
-                <div>
-                  <strong>Additional / if applicable</strong>
-                  <ul>{additionalDocuments.map((item) => <li key={item.requirementKey}>{item.label}</li>)}</ul>
-                </div>
                 <small>Missing documents are recorded as audit exceptions and do not stop the Booking.</small>
               </div>
             ) : null}
@@ -654,29 +574,6 @@ export default function BookingCaptureV2CompactPage() {
               </div>
             ) : null}
           </section>
-
-          {additionalDocuments.length > 0 ? (
-            <section className="uc03-v2-document-group is-additional">
-              <header className="uc03-v2-document-group__header">
-                <div>
-                  <strong>Additional documents</strong>
-                  <span>GST, Corporate and Trade-In documents only when applicable to the customer.</span>
-                </div>
-                <span className="uc03-v2-document-group__badge">If applicable</span>
-              </header>
-              <div className="uc03-v2-compact-list">
-                {additionalDocuments.map((requirement) => (
-                  <RequirementRow
-                    key={requirement.requirementKey}
-                    requirement={requirement}
-                    busyDocumentId={busyDocumentId}
-                    onDelete={handleDelete}
-                    onUpload={handleUpload}
-                  />
-                ))}
-              </div>
-            </section>
-          ) : null}
         </div>
 
         {unmatchedUploads.length ? (
@@ -740,16 +637,6 @@ export default function BookingCaptureV2CompactPage() {
           Continue to Review &rarr;
         </button>
       </section>
-
-      {choiceDialogOpen ? (
-        <OptionalChoiceDialog
-          conditionKeys={unresolvedConditions}
-          busy={pendingDeclarations > 0}
-          onClose={() => setChoiceDialogOpen(false)}
-          onSet={handleDeclaration}
-          onContinue={() => navigate(`/v2/bookings/${journeyId}/review`)}
-        />
-      ) : null}
     </div>
   );
 }

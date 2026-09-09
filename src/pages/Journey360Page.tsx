@@ -880,7 +880,13 @@ function BankPanel({ model }: { model: JourneyOverview }) {
   );
 }
 
-function FlagsPanel({ model }: { model: JourneyOverview }) {
+function FlagsPanel({
+  model,
+  onSelectAspect,
+}: {
+  model: JourneyOverview;
+  onSelectAspect: (key: AspectKey) => void;
+}) {
   const all = model.findings || [];
   const [showResolved, setShowResolved] = useState(false);
   const open = all.filter((f) => ['OPEN', 'ACKNOWLEDGED'].includes(String(f.findingStatus || '')));
@@ -903,8 +909,23 @@ function FlagsPanel({ model }: { model: JourneyOverview }) {
           {shown.map((f) => {
             const sev = String(f.severity || 'INFO').toUpperCase();
             const cls = ['HIGH', 'CRITICAL'].includes(sev) ? 'bad' : 'warn';
+            const targetAspect = findingAspect(f as Record<string, unknown>);
+            const goToTarget = () => onSelectAspect(targetAspect);
             return (
-              <div className={`jline__finding jline__finding--${cls}`} key={String(f.auditFindingId)}>
+              <div
+                className={`jline__finding jline__finding--${cls}`}
+                key={String(f.auditFindingId)}
+                role="button"
+                tabIndex={0}
+                style={{ cursor: 'pointer' }}
+                onClick={goToTarget}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    goToTarget();
+                  }
+                }}
+              >
                 <span className="jline__findingMark" aria-hidden="true">!</span>
                 <div className="jline__findingBody">
                   <strong>{String(f.title || 'Audit finding')}</strong>
@@ -914,7 +935,7 @@ function FlagsPanel({ model }: { model: JourneyOverview }) {
                     {f.findingClass ? <> · {readable(f.findingClass)}</> : null}
                     {f.ownerRoleCode ? <> · owner {readable(f.ownerRoleCode)}</> : null}
                     {f.ruleKey ? <> · <code>{String(f.ruleKey)}</code></> : null}
-                    {' · '}→ {readable(findingAspect(f as Record<string, unknown>))}
+                    {' · '}→ {readable(targetAspect)}
                   </small>
                 </div>
                 <div>
@@ -936,12 +957,14 @@ function FocusPanel({
   receipts,
   pendingReceipts,
   reviewedBooking,
+  onSelectAspect,
 }: {
   aspect: AspectKey;
   model: JourneyOverview;
   receipts: Array<Record<string, unknown>>;
   pendingReceipts: Array<Record<string, unknown>>;
   reviewedBooking: Record<string, unknown> | null;
+  onSelectAspect: (key: AspectKey) => void;
 }) {
   const modelNotIdentified =
     (model.findings || []).find(
@@ -1148,7 +1171,7 @@ function FocusPanel({
       break;
     case 'flags':
     default:
-      body = <FlagsPanel model={model} />;
+      body = <FlagsPanel model={model} onSelectAspect={onSelectAspect} />;
       break;
   }
   return <div className="jline__panelCard">{body}</div>;
@@ -1267,6 +1290,7 @@ export default function Journey360Page() {
           receipts={receiptRows}
           pendingReceipts={pendingReceiptRows}
           reviewedBooking={reviewedBooking}
+          onSelectAspect={setAspect}
         />
       </div>
     </div>

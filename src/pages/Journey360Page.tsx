@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Link, useLocation, useParams, useSearchParams } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 
 import PageHeader from '../components/PageHeader';
 import StatusPill from '../components/StatusPill';
@@ -905,6 +905,8 @@ function FlagsPanel({
   const [showResolved, setShowResolved] = useState(false);
   const open = all.filter((f) => ['OPEN', 'ACKNOWLEDGED'].includes(String(f.findingStatus || '')));
   const shown = showResolved ? all : open;
+  const navigate = useNavigate();
+  const journeyId = String((model.journey as Record<string, unknown>)?.journeyId ?? '');
   return (
     <>
       <PanelHead
@@ -924,7 +926,19 @@ function FlagsPanel({
             const sev = String(f.severity || 'INFO').toUpperCase();
             const cls = ['HIGH', 'CRITICAL'].includes(sev) ? 'bad' : 'warn';
             const targetAspect = findingAspect(f as Record<string, unknown>);
-            const goToTarget = () => onSelectAspect(targetAspect);
+            // A DOCUMENT_GAP finding's actual resolution is uploading the
+            // missing document -- send the PC straight to the live Booking
+            // Capture workspace (Choose Files / Take Photo, auto-classify,
+            // review) instead of just a Journey 360 tab that has no upload
+            // control of its own.
+            const isDocumentGap = String(f.findingClass || '').toUpperCase() === 'DOCUMENT_GAP';
+            const goToTarget = () => {
+              if (isDocumentGap && journeyId) {
+                navigate(`/v2/bookings/${journeyId}`);
+              } else {
+                onSelectAspect(targetAspect);
+              }
+            };
             return (
               <div
                 className={`jline__finding jline__finding--${cls}`}
@@ -949,7 +963,7 @@ function FlagsPanel({
                     {f.findingClass ? <> · {readable(f.findingClass)}</> : null}
                     {f.ownerRoleCode ? <> · owner {readable(f.ownerRoleCode)}</> : null}
                     {f.ruleKey ? <> · <code>{String(f.ruleKey)}</code></> : null}
-                    {' · '}→ {readable(targetAspect)}
+                    {' · '}{isDocumentGap ? '→ Upload document' : <>→ {readable(targetAspect)}</>}
                   </small>
                 </div>
                 <div>

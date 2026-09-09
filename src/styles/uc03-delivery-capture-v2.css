@@ -39,34 +39,61 @@
 /* ── Card-based upload screen (top status bar, centered hero, document cards,
    corner checklist) ─────────────────────────────────────────────────────── */
 
+/* This screen renders on a fresh (lazy-loaded) Delivery bundle where
+   uc03-c1.css may never have loaded, and the app-shell governance stylesheet
+   (loaded last, see ui-governance.css's `.enterprise-content * { min-width: 0 }`)
+   strips the automatic min-content protection every flex child would
+   otherwise get. Every fixed-size chip in this bar is pinned with
+   flex-shrink:0/white-space:nowrap (!important where it shares a class with
+   governance-touched rules) so a narrow card squeezes nothing into unreadable
+   letter-by-letter wrapping -- it wraps onto a new line as a whole chip instead. */
 .uc03-delivery-v2-topbar {
   position: sticky;
   top: 0;
   z-index: 6;
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 12px;
+  gap: 8px 12px;
   padding: 8px 2px;
   background: rgba(255, 255, 255, 0.92);
   backdrop-filter: blur(8px);
 }
 
+.uc03-delivery-v2-back {
+  display: inline-flex !important;
+  flex: 0 0 auto !important;
+  align-items: center !important;
+  min-height: 32px !important;
+  padding: 4px 2px !important;
+  border: 0 !important;
+  background: transparent !important;
+  color: inherit !important;
+  cursor: pointer !important;
+  font: inherit !important;
+  font-weight: 650 !important;
+  white-space: nowrap !important;
+}
+
 .uc03-delivery-v2-topbar__stats {
   display: flex;
-  flex: 1 1 auto;
+  flex: 1 1 240px;
+  flex-wrap: wrap;
   justify-content: center;
   gap: 8px;
 }
 
 .uc03-delivery-v2-stat {
   display: grid;
+  flex: 0 0 auto !important;
   gap: 1px;
-  min-width: 84px;
+  min-width: 84px !important;
   padding: 6px 12px;
   border: 1px solid var(--v2-border);
   border-radius: 999px;
   background: #fff;
   text-align: center;
+  white-space: nowrap;
 }
 
 .uc03-delivery-v2-stat span {
@@ -91,7 +118,8 @@
 }
 
 .uc03-delivery-v2-checklist-toggle {
-  flex: 0 0 auto;
+  flex: 0 0 auto !important;
+  white-space: nowrap !important;
   padding: 7px 12px;
   border: 1px solid var(--v2-border);
   border-radius: 999px;
@@ -124,7 +152,13 @@
 
 .uc03-delivery-v2-hero__actions {
   display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
   gap: 10px;
+}
+
+.uc03-delivery-v2-hero__actions > .uc03-delivery-v2-upload-button {
+  flex: 0 0 auto !important;
 }
 
 .uc03-delivery-v2-hero p {

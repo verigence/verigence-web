@@ -329,7 +329,7 @@ export default function DeliveryCaptureV2Page() {
   return (
     <div className="screen-stack uc03-v2-capture uc03-delivery-v2-page uc03-delivery-v2-page--cards">
       <div className="uc03-delivery-v2-topbar">
-        <button type="button" className="uc03-c1-back" onClick={() => navigate('/dashboard')}>← Work List</button>
+        <button type="button" className="uc03-delivery-v2-back" onClick={() => navigate('/dashboard')}>← Work List</button>
         <div className="uc03-delivery-v2-topbar__stats">
           <div className="uc03-delivery-v2-stat">
             <span>Uploaded</span>

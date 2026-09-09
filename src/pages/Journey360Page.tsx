@@ -694,6 +694,9 @@ function DealPanel({
         <div style={{ marginTop: 16 }}>
           <BookingCommercialFacts reviewedBooking={reviewedBooking} />
         </div>
+        <div style={{ marginTop: 24 }}>
+          <DiscountsPanel model={model} />
+        </div>
       </>
     );
   }
@@ -717,6 +720,9 @@ function DealPanel({
           </table>
         </div>
       )}
+      <div style={{ marginTop: 24 }}>
+        <DiscountsPanel model={model} />
+      </div>
     </>
   );
 }
@@ -772,10 +778,15 @@ function PaymentsPanel({
     return s + (Number.isNaN(a) ? 0 : a);
   }, 0);
 
-  // A ledger payment already shown as a reviewed receipt (matched by document)
-  // is not repeated in the ledger table below.
+  // A ledger payment already shown as a reviewed receipt is not repeated in
+  // the ledger table below. auditcore.payments.source_evidence_id always
+  // points at the evidence row (never the DI document id), so the match set
+  // has to be built from receipts' evidenceId -- matching on documentId
+  // first (as this used to) never found the same receipt, since a payment
+  // never carries a documentId to compare against, and every ledger payment
+  // showed up a second time underneath its own receipt row.
   const receiptDocumentIds = new Set(
-    receipts.map((r) => pickStr(r, 'documentId', 'evidenceId')).filter(Boolean),
+    receipts.flatMap((r) => [pickStr(r, 'evidenceId'), pickStr(r, 'documentId')]).filter(Boolean),
   );
   const ledgerOnly = (model.payments || []).filter(
     (p) => !receiptDocumentIds.has(pickStr(p, 'sourceEvidenceId', 'source_evidence_id')),
@@ -845,6 +856,9 @@ function PaymentsPanel({
           )}
         </>
       )}
+      <div style={{ marginTop: 24 }}>
+        <BankPanel model={model} />
+      </div>
     </>
   );
 }
@@ -985,13 +999,9 @@ function FocusPanel({
       );
       break;
     case 'payments':
+      // Bank statements is a sub-section here now (merged from its own
+      // former tab); Discounts is the same, folded into Deal above.
       body = <PaymentsPanel model={model} receipts={receipts} pendingReceipts={pendingReceipts} reviewedBooking={reviewedBooking} />;
-      break;
-    case 'discounts':
-      body = <DiscountsPanel model={model} />;
-      break;
-    case 'bank':
-      body = <BankPanel model={model} />;
       break;
     case 'documents':
       body = (

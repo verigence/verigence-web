@@ -21,8 +21,6 @@ export interface JourneyStep {
 export type AspectKey =
   | 'deal'
   | 'payments'
-  | 'discounts'
-  | 'bank'
   | 'documents'
   | 'vehicle'
   | 'tradeIn'
@@ -73,7 +71,10 @@ export function findingAspect(finding: Record<string, unknown>): AspectKey {
   if (key.startsWith('PAYMENT_BANK_UNMATCHED') || key.startsWith('PAY_UNVERIFIED') || key.startsWith('PAYMENT')) {
     return 'payments';
   }
-  if (key.includes('DISCOUNT')) return 'discounts';
+  // Discounts and Bank statements are sub-sections of the Deal / Payments
+  // tabs respectively (merged from their own former tabs), not separate
+  // aspects -- their findings route to the tab that now hosts them.
+  if (key.includes('DISCOUNT')) return 'deal';
   if (key.includes('REGISTRATION') || key.includes('RTO')) return 'registration';
   if (key.includes('INSURANCE')) return 'insurance';
   if (key.includes('TRADE') || key.includes('EXCHANGE') || key.includes('SCRAP')) return 'tradeIn';
@@ -182,9 +183,13 @@ export function deriveAspects(overview: JourneyOverview): AspectMeta[] {
   else payments = 'ok';
   payments = worst(payments, findingStatus('payments'));
 
-  // Discounts — over-grant / not-eligible
+  // Discounts — over-grant / not-eligible. Discounts is a Deal sub-section
+  // (merged from its own former tab): a real over-grant/ineligible discount
+  // still worsens the Deal tab's status; discounts simply not present yet
+  // (nothing reconciled) never does, since that's the common, unremarkable
+  // case before invoices/deal sheets land.
   const discounts = list(overview.discounts) as Array<Record<string, unknown>>;
-  let disc: AspectStatus = discounts.length === 0 ? 'wait' : 'ok';
+  let disc: AspectStatus = 'ok';
   for (const d of discounts) {
     const elig = str(d, 'eligibilityResult').toUpperCase();
     const std = num(d['standardEligibleAmount']);
@@ -192,9 +197,12 @@ export function deriveAspects(overview: JourneyOverview): AspectMeta[] {
     if (elig === 'NOT_ELIGIBLE') disc = worst(disc, 'bad');
     else if (std !== null && act !== null && act - std > 1) disc = worst(disc, 'warn');
   }
-  disc = worst(disc, findingStatus('discounts'));
+  deal = worst(deal, disc);
 
-  const bankLines = list((overview as unknown as Record<string, unknown>)['bankStatementLines']);
+  // Bank statements is a Payments sub-section (merged from its own former
+  // tab). A bank statement simply not having arrived yet is expected and
+  // never worsens the Payments tab -- only a real mismatch finding
+  // (already routed to 'payments' above) does.
 
   const metaFor = (
     key: AspectKey,
@@ -209,10 +217,8 @@ export function deriveAspects(overview: JourneyOverview): AspectMeta[] {
   const flagsCount = open.length;
 
   return [
-    metaFor('deal', 'Deal', deal, 'Masters vs offered'),
-    metaFor('payments', 'Payments', payments, 'Receipts & bank match'),
-    metaFor('discounts', 'Discounts', disc, 'Entitled vs given'),
-    metaFor('bank', 'Bank statements', bankLines.length > 0 ? 'ok' : 'wait', 'Extracted credit lines'),
+    metaFor('deal', 'Deal', deal, 'Masters, offered & discounts'),
+    metaFor('payments', 'Payments', payments, 'Receipts, bank match & statements'),
     metaFor('documents', 'Documents', list(overview.evidence).length > 0 ? 'ok' : 'wait', 'Uploaded evidence'),
     metaFor('vehicle', 'Vehicle', worst(has(overview.vehicle) || has(overview.booking) ? 'ok' : 'wait', findingStatus('vehicle')), 'Allocation & specs'),
     metaFor('tradeIn', 'Trade-in / Scrappage', worst(has(overview.tradeIn) ? 'ok' : 'wait', findingStatus('tradeIn')), 'Exchange & scrappage'),

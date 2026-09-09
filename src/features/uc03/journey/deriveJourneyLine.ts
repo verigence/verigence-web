@@ -67,6 +67,7 @@ export function openFindings(overview: JourneyOverview): Array<Record<string, un
 export function findingAspect(finding: Record<string, unknown>): AspectKey {
   const rule = str(finding, 'ruleKey').toUpperCase();
   const type = str(finding, 'findingTypeCode').toUpperCase();
+  const findingClass = str(finding, 'findingClass').toUpperCase();
   const key = rule || type;
   if (key.startsWith('MODEL_NOT_IDENTIFIED')) return 'deal';
   if (key.startsWith('PAYMENT_BANK_UNMATCHED') || key.startsWith('PAY_UNVERIFIED') || key.startsWith('PAYMENT')) {
@@ -77,7 +78,14 @@ export function findingAspect(finding: Record<string, unknown>): AspectKey {
   if (key.includes('INSURANCE')) return 'insurance';
   if (key.includes('TRADE') || key.includes('EXCHANGE') || key.includes('SCRAP')) return 'tradeIn';
   if (key.includes('FINANCE') || key.includes('HYPOTHECATION')) return 'finance';
-  if (key.includes('DOCUMENT')) return 'documents';
+  if (key.includes('DOCUMENT') || key.includes('DOCKET') || key.includes('CAPTURE')) return 'documents';
+  // Catch-all: any finding Audit Core itself classifies as a document gap
+  // (auditcore.uc03_finding_routing._DOCUMENT_GAP_RULE_PREFIXES) belongs on
+  // the Documents tab even if its rule key doesn't match a keyword above --
+  // e.g. BK_DOCKET_PRESENT, BK_CONDITIONAL_DOCS_ADDRESSED,
+  // BK_REQUIRED_CAPTURE_COMPLETE previously fell through to 'flags', a
+  // self-referential no-op when clicked from the Flags panel itself.
+  if (findingClass === 'DOCUMENT_GAP') return 'documents';
   return 'flags';
 }
 

@@ -422,10 +422,19 @@ function WorkItemRow({
       </div>
 
       <div className="uc03-work-row-v2__cell uc03-work-row-v2__status">
-        <strong className={`uc03-work-status-pill ${workStatusTone}`}>
-          {workStatus}
-          {item.openFlagCount > 0 && <span className="uc03-work-status-pill__count">{item.openFlagCount}</span>}
-        </strong>
+        {item.openFlagCount > 0 ? (
+          <Link
+            className={`uc03-work-status-pill uc03-work-status-pill--link ${workStatusTone}`}
+            to={auditPath}
+            state={overviewOpenState(item, 'AUDIT')}
+            title={`View ${item.openFlagCount} open observation${item.openFlagCount === 1 ? '' : 's'}`}
+          >
+            {workStatus}
+            <span className="uc03-work-status-pill__count">{item.openFlagCount}</span>
+          </Link>
+        ) : (
+          <strong className={`uc03-work-status-pill ${workStatusTone}`}>{workStatus}</strong>
+        )}
         {isPc && !isDeliveryWork && <small>{pcBookingCaptureNote(item)}</small>}
         {!isPc && <VerificationBadge stage={primaryStage} />}
       </div>

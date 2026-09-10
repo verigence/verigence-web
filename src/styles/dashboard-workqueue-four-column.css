@@ -180,6 +180,21 @@
   white-space: normal !important;
 }
 
+/* A pill carrying an open-observation count is a real link to the Audit
+   view, not decoration -- give it the same interactive affordance as any
+   other in-row action. */
+.uc03-work-row-v2__status .uc03-work-status-pill--link {
+  text-decoration: none;
+  cursor: pointer;
+  box-shadow: 0 0 0 1px transparent;
+}
+
+.uc03-work-row-v2__status .uc03-work-status-pill--link:hover,
+.uc03-work-row-v2__status .uc03-work-status-pill--link:focus-visible {
+  box-shadow: 0 0 0 1px currentColor;
+  outline: none;
+}
+
 .uc03-work-status-pill__count {
   padding: 1px 7px;
   border-radius: 999px;

@@ -263,41 +263,29 @@
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
-  /* Delivery Details: three compact activity cards fit cleanly inside 1180px. */
+  /* Delivery Details: this used to be a 12-column grid holding three side-by-
+     side activity cards (Delivery confirmation / Vehicle evidence / Payments),
+     each spanning 4 columns. The combined-submission redesign
+     (DeliveryDetailsV2Page) folded those into a single .uc03-booking-step-
+     panel, but this grid was never updated to match -- the lone panel kept
+     its old span-4 width, leaving 8 of 12 columns (two-thirds of the row)
+     empty beside it. Fixed by giving the one remaining panel the full row and
+     letting its own two-column form grid use the reclaimed width. */
   .enterprise-shell--approved-nav .enterprise-content > .screen-stack.uc03-v2-capture.uc03-delivery-v2-page.uc03-booking-journey {
     display: grid;
     width: min(calc(100% - 24px), 1180px) !important;
     max-width: 1180px !important;
-    grid-template-columns: repeat(12, minmax(0, 1fr));
+    grid-template-columns: minmax(0, 1fr);
     gap: 12px;
   }
 
-  .enterprise-shell--approved-nav .enterprise-content > .screen-stack.uc03-v2-capture.uc03-delivery-v2-page.uc03-booking-journey > :is(
-    .uc03-c1-topbar,
-    .page-header,
-    .uc03-booking-steps,
-    .uc03-booking-journey-feedback,
-    .uc03-delivery-v2-summary,
-    .uc03-delivery-v2-submit-bar
-  ) {
-    grid-column: 1 / -1;
-  }
-
   .enterprise-shell--approved-nav .enterprise-content > .screen-stack.uc03-v2-capture.uc03-delivery-v2-page.uc03-booking-journey > .uc03-booking-step-panel {
-    grid-column: span 4;
-    display: flex;
-    flex-direction: column;
     min-width: 0;
-    height: 100%;
-    padding: 13px !important;
-  }
-
-  .enterprise-shell--approved-nav .enterprise-content > .screen-stack.uc03-v2-capture.uc03-delivery-v2-page.uc03-booking-journey > .uc03-booking-step-panel .uc03-booking-step-footer {
-    margin-top: auto;
+    padding: 16px 20px !important;
   }
 
   .enterprise-shell--approved-nav .enterprise-content > .screen-stack.uc03-v2-capture.uc03-delivery-v2-page.uc03-booking-journey > .uc03-booking-step-panel .uc03-booking-details-grid {
-    grid-template-columns: 1fr !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
   }
 }
 

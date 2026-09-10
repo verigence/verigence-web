@@ -113,6 +113,7 @@ export interface DailyOpsRun {
   status: string;
   startedAtUtc: string;
   completedAtUtc?: string | null;
+  versionNo: number;
 }
 
 export interface CrmInteraction {

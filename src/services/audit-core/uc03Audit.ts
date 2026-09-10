@@ -209,12 +209,19 @@ export function addAuditFlagRemark(
 // ── Cross-journey review queue ────────────────────────────────────────────────
 
 export type Uc03QueueScope = 'ALL' | 'MINE' | 'ESCALATED';
+export type Uc03QueueSubjectKind = 'JOURNEY' | 'DAILY_OPS';
 
 export interface Uc03ReviewQueueItem {
   flagId: string;
-  journeyId: string;
+  subjectKind: Uc03QueueSubjectKind;
+  // JOURNEY subject only.
+  journeyId: string | null;
   journeyReference: string | null;
-  stage: Uc03StageCode;
+  stage: Uc03StageCode | null;
+  // DAILY_OPS subject only.
+  dailyOpsRunId: string | null;
+  outletId: string | null;
+  businessDate: string | null;
   findingClass: Uc03FindingClass;
   resolutionMode: Uc03ResolutionMode;
   category: string | null;
@@ -262,13 +269,19 @@ function tenantBase(tenantId: string): string {
 
 export function getReviewQueue(
   tenantId: string,
-  options: { scope?: Uc03QueueScope; findingClass?: Uc03FindingClass; stage?: Uc03StageCode } = {},
+  options: {
+    scope?: Uc03QueueScope;
+    findingClass?: Uc03FindingClass;
+    stage?: Uc03StageCode;
+    subjectKind?: Uc03QueueSubjectKind;
+  } = {},
   accessToken?: string,
 ): Promise<Uc03ReviewQueue> {
   const params = new URLSearchParams();
   if (options.scope && options.scope !== 'ALL') params.set('scope', options.scope);
   if (options.findingClass) params.set('findingClass', options.findingClass);
   if (options.stage) params.set('stage', options.stage);
+  if (options.subjectKind) params.set('subjectKind', options.subjectKind);
   const query = params.toString() ? `?${params.toString()}` : '';
   return auditCoreRequest(`${tenantBase(tenantId)}/review-queue${query}`, {
     accessToken: token(accessToken),
@@ -279,11 +292,25 @@ export function getReviewQueue(
 export function getReviewQueueSummary(
   tenantId: string,
   accessToken?: string,
+  subjectKind?: Uc03QueueSubjectKind,
 ): Promise<Uc03ReviewQueueSummary> {
-  return auditCoreRequest(`${tenantBase(tenantId)}/review-queue/summary`, {
+  const query = subjectKind ? `?subjectKind=${encodeURIComponent(subjectKind)}` : '';
+  return auditCoreRequest(`${tenantBase(tenantId)}/review-queue/summary${query}`, {
     accessToken: token(accessToken),
     cache: 'no-store',
   });
+}
+
+/** Journey and Daily Ops flags share this one action shape, but live under
+ * different resource paths (a Daily Ops flag has no journey to nest
+ * under) -- branch on the item's own subjectKind rather than needing two
+ * call sites to remember which endpoint a given flag belongs to. */
+function queueItemFlagBase(tenantId: string, item: Uc03ReviewQueueItem): string {
+  if (item.subjectKind === 'DAILY_OPS') {
+    return `/v1/tenants/${encodeURIComponent(tenantId)}/outlets/${encodeURIComponent(item.outletId || '')}` +
+      `/daily-ops/${encodeURIComponent(item.dailyOpsRunId || '')}`;
+  }
+  return `/v1/tenants/${encodeURIComponent(tenantId)}/journeys/${encodeURIComponent(item.journeyId || '')}/uc03`;
 }
 
 export function actOnQueueFinding(
@@ -293,7 +320,7 @@ export function actOnQueueFinding(
   remarks: string,
   accessToken?: string,
 ): Promise<FlagMutationResult> {
-  const flagBase = `/v1/tenants/${encodeURIComponent(tenantId)}/journeys/${encodeURIComponent(item.journeyId)}/uc03`;
+  const flagBase = queueItemFlagBase(tenantId, item);
   return auditCoreRequest(`${flagBase}/flags/${encodeURIComponent(item.flagId)}/actions`, {
     method: 'POST',
     accessToken: token(accessToken),
@@ -305,6 +332,51 @@ export function actOnQueueFinding(
         ? remarks
         : null,
       evidenceIds: [],
+    }),
+  });
+}
+
+export interface Uc03DailyOpsFlag {
+  flagId: string;
+  dailyOpsRunId: string;
+  category: string | null;
+  severity: string;
+  status: 'OPEN' | 'ACKNOWLEDGED' | 'RESOLVED' | 'VOIDED';
+  title: string;
+  description: string | null;
+  resolutionReason: string | null;
+  version: number;
+  createdAtUtc: string;
+  updatedAtUtc: string;
+  findingClass: Uc03FindingClass | null;
+  resolutionMode: Uc03ResolutionMode | null;
+  ownerRoleCode: string | null;
+  disposition: Uc03Disposition;
+  slaDueAtUtc: string | null;
+  escalationLevel: number;
+  overdue: boolean;
+  permittedActions: string[];
+}
+
+export function createDailyOpsFlag(
+  tenantId: string,
+  outletId: string,
+  dailyOpsRunId: string,
+  input: { category: string; severity: string; summary: string; remarks?: string },
+  runAggregateVersion: number,
+  accessToken?: string,
+): Promise<{ flag: Uc03DailyOpsFlag; eventId: string; idempotent: boolean }> {
+  const flagBase = `/v1/tenants/${encodeURIComponent(tenantId)}/outlets/${encodeURIComponent(outletId)}` +
+    `/daily-ops/${encodeURIComponent(dailyOpsRunId)}`;
+  return auditCoreRequest(`${flagBase}/flags`, {
+    method: 'POST',
+    accessToken: token(accessToken),
+    headers: commandHeaders('uc03-daily-ops-flag-raise', runAggregateVersion),
+    body: JSON.stringify({
+      category: input.category,
+      severity: input.severity,
+      summary: input.summary,
+      remarks: input.remarks || null,
     }),
   });
 }

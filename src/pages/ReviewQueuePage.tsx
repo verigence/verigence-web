@@ -18,6 +18,7 @@ import {
   type Uc03FindingClass,
   type Uc03FlagAction,
   type Uc03QueueScope,
+  type Uc03QueueSubjectKind,
   type Uc03ReviewQueueItem,
   type Uc03StageCode,
 } from '../services/audit-core/uc03Audit';
@@ -122,26 +123,31 @@ function ManualVerificationPanel({
   accessToken?: string;
   onResolved: () => void;
 }) {
+  // MANUAL_VERIFICATION findings only ever exist on a JOURNEY-subject item
+  // (no Daily Ops flag category maps to one) -- the caller only mounts this
+  // panel after checking isManualVerificationRule, which never matches a
+  // Daily Ops flag's category vocabulary. journeyId is always set here.
+  const journeyId = item.journeyId as string;
   const [expanded, setExpanded] = useState(false);
   const [decisions, setDecisions] = useState<Record<string, FieldDecision>>({});
   const [viewer, setViewer] = useState<ReviewV2SourceValue | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const mvQuery = useQuery({
-    queryKey: ['mv-fields', tenantId, item.journeyId],
+    queryKey: ['mv-fields', tenantId, journeyId],
     enabled: expanded && Boolean(accessToken),
-    queryFn: () => getManualVerification(tenantId, item.journeyId, accessToken),
+    queryFn: () => getManualVerification(tenantId, journeyId, accessToken),
   });
   const reviewQuery = useQuery<{
     attributes: ReviewV2Attribute[];
     unmappedFields: ReviewV2UnmappedField[];
   }>({
-    queryKey: ['mv-review', tenantId, item.journeyId, item.stage],
+    queryKey: ['mv-review', tenantId, journeyId, item.stage],
     enabled: expanded && Boolean(accessToken),
     queryFn: () =>
       item.stage === 'DELIVERY'
-        ? getDeliveryReviewV2(tenantId, item.journeyId, accessToken)
-        : getBookingReviewV2(tenantId, item.journeyId, accessToken),
+        ? getDeliveryReviewV2(tenantId, journeyId, accessToken)
+        : getBookingReviewV2(tenantId, journeyId, accessToken),
   });
 
   const finding = mvQuery.data?.items.find((i) => i.findingId === item.flagId);
@@ -172,7 +178,7 @@ function ManualVerificationPanel({
     mutationFn: () =>
       resolveManualVerification(
         tenantId,
-        item.journeyId,
+        journeyId,
         item.flagId,
         Object.values(decisions),
         accessToken,
@@ -288,7 +294,7 @@ function ManualVerificationPanel({
       {viewer && accessToken && (
         <AttributeEvidenceViewer
           tenantId={tenantId}
-          journeyId={item.journeyId}
+          journeyId={journeyId}
           accessToken={accessToken}
           source={viewer}
           onClose={() => setViewer(null)}
@@ -334,6 +340,7 @@ export default function ReviewQueuePage() {
   const queryClient = useQueryClient();
 
   const role = project?.operatingRole ?? 'PC';
+  const [subjectTab, setSubjectTab] = useState<Uc03QueueSubjectKind>('JOURNEY');
   const [scope, setScope] = useState<Uc03QueueScope>(role === 'PC' ? 'MINE' : 'MINE');
   const [classFilter, setClassFilter] = useState<'ALL' | Uc03FindingClass>('ALL');
   const [stageFilter, setStageFilter] = useState<'ALL' | Uc03StageCode>('ALL');
@@ -344,20 +351,21 @@ export default function ReviewQueuePage() {
   const enabled = Boolean(project?.tenantId && accessToken);
 
   const summaryQuery = useQuery({
-    queryKey: ['uc03-review-queue-summary', project?.tenantId],
-    queryFn: () => getReviewQueueSummary(project!.tenantId, accessToken),
+    queryKey: ['uc03-review-queue-summary', project?.tenantId, subjectTab],
+    queryFn: () => getReviewQueueSummary(project!.tenantId, accessToken, subjectTab),
     enabled,
   });
 
   const queueQuery = useQuery({
-    queryKey: ['uc03-review-queue', project?.tenantId, scope, classFilter, stageFilter],
+    queryKey: ['uc03-review-queue', project?.tenantId, subjectTab, scope, classFilter, stageFilter],
     queryFn: () =>
       getReviewQueue(
         project!.tenantId,
         {
           scope,
+          subjectKind: subjectTab,
           findingClass: classFilter === 'ALL' ? undefined : classFilter,
-          stage: stageFilter === 'ALL' ? undefined : stageFilter,
+          stage: subjectTab === 'DAILY_OPS' || stageFilter === 'ALL' ? undefined : stageFilter,
         },
         accessToken,
       ),
@@ -447,6 +455,21 @@ export default function ReviewQueuePage() {
         </div>
       )}
 
+      <div className="revq-tabs" role="tablist" aria-label="Queue subject">
+        {(['JOURNEY', 'DAILY_OPS'] as const).map((key) => (
+          <button
+            key={key}
+            type="button"
+            role="tab"
+            aria-selected={subjectTab === key}
+            className={subjectTab === key ? 'is-active' : ''}
+            onClick={() => setSubjectTab(key)}
+          >
+            {key === 'JOURNEY' ? 'Journey Audits' : 'Daily Operations'}
+          </button>
+        ))}
+      </div>
+
       <div className="revq-tabs" role="tablist" aria-label="Queue scope">
         {scopeTabs.map((tab) => (
           <button
@@ -475,18 +498,20 @@ export default function ReviewQueuePage() {
             </button>
           ))}
         </div>
-        <div className="revq-chips" role="group" aria-label="Stage">
-          {STAGE_FILTERS.map((f) => (
-            <button
-              key={f.key}
-              type="button"
-              className={stageFilter === f.key ? 'is-active' : ''}
-              onClick={() => setStageFilter(f.key)}
-            >
-              {f.label}
-            </button>
-          ))}
-        </div>
+        {subjectTab === 'JOURNEY' && (
+          <div className="revq-chips" role="group" aria-label="Stage">
+            {STAGE_FILTERS.map((f) => (
+              <button
+                key={f.key}
+                type="button"
+                className={stageFilter === f.key ? 'is-active' : ''}
+                onClick={() => setStageFilter(f.key)}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       {queueQuery.isError && (
@@ -533,16 +558,27 @@ export default function ReviewQueuePage() {
               )}
 
               <div className="revq-item__meta">
-                <span>{item.customerName || 'Customer'}</span>
-                <span>{item.bookingReference || item.journeyReference || '—'}</span>
-                <span>{item.outletName || item.dealerName || '—'}</span>
+                {item.subjectKind === 'DAILY_OPS' ? (
+                  <>
+                    <span>{item.outletName || 'Outlet'}</span>
+                    <span>{item.businessDate ? new Date(item.businessDate).toLocaleDateString('en-IN') : '—'}</span>
+                  </>
+                ) : (
+                  <>
+                    <span>{item.customerName || 'Customer'}</span>
+                    <span>{item.bookingReference || item.journeyReference || '—'}</span>
+                    <span>{item.outletName || item.dealerName || '—'}</span>
+                  </>
+                )}
                 {item.originKind === 'MACHINE' && <span>System check</span>}
               </div>
 
               <div className="revq-item__actions">
-                <Link className="revq-open" to={`/audit/${item.journeyId}`}>
-                  Open case
-                </Link>
+                {item.subjectKind === 'JOURNEY' && (
+                  <Link className="revq-open" to={`/audit/${item.journeyId}`}>
+                    Open case
+                  </Link>
+                )}
 
                 {isManualVerification && (
                   <ManualVerificationPanel
@@ -576,7 +612,7 @@ export default function ReviewQueuePage() {
                   </>
                 )}
 
-                {!isManualVerification && !isAdjudicated && item.findingClass === 'DOCUMENT_GAP' && (
+                {!isManualVerification && !isAdjudicated && item.subjectKind === 'JOURNEY' && item.findingClass === 'DOCUMENT_GAP' && (
                   <Link
                     className="revq-btn revq-btn--accept"
                     to={item.stage === 'DELIVERY' ? `/v2/deliveries/${item.journeyId}` : `/v2/bookings/${item.journeyId}`}

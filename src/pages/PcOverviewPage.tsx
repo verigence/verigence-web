@@ -28,8 +28,8 @@ const STALE_DELIVERY_DAYS = 5;
 
 const MAX_CARDS = 4;
 
-// Where each hero KPI tile deep-links — the legacy work queue, filtered.
-const QUEUE = '/dashboard?legacyDashboard=1';
+// Where each hero KPI tile deep-links — the full Work Queue table, filtered.
+const QUEUE = '/work-queue';
 
 // Reasons a journey needs the PC, in priority order.
 //
@@ -515,19 +515,19 @@ export default function PcOverviewPage() {
               : 'Nothing needs your attention right now. New bookings and deliveries will show up here.'}
         </p>
         <div className="pcov-hero__kpis" aria-label="Current work summary">
-          <Link className="pcov-kpi" to={`${QUEUE}&view=BOOKING`}>
+          <Link className="pcov-kpi" to={`${QUEUE}?view=BOOKING`}>
             <div className="pcov-kpi__value">{metrics ? bookingsInProgress : '—'}</div>
             <div className="pcov-kpi__label">Bookings in progress</div>
           </Link>
-          <Link className="pcov-kpi" to={`${QUEUE}&view=DELIVERY`}>
+          <Link className="pcov-kpi" to={`${QUEUE}?view=DELIVERY`}>
             <div className="pcov-kpi__value">{metrics ? deliveriesInProgress : '—'}</div>
             <div className="pcov-kpi__label">Deliveries in progress</div>
           </Link>
-          <Link className="pcov-kpi pcov-kpi--verify" to={`${QUEUE}&view=VERIFY`}>
+          <Link className="pcov-kpi pcov-kpi--verify" to={`${QUEUE}?view=VERIFY`}>
             <div className="pcov-kpi__value">{workQuery.data ? manualVerificationCount : '—'}</div>
             <div className="pcov-kpi__label">Manual verification required</div>
           </Link>
-          <Link className="pcov-kpi pcov-kpi--flag" to={`${QUEUE}&view=FLAGS`}>
+          <Link className="pcov-kpi pcov-kpi--flag" to={`${QUEUE}?view=FLAGS`}>
             <div className="pcov-kpi__value">{metrics ? openFlags : '—'}</div>
             <div className="pcov-kpi__label">Open observations</div>
           </Link>
@@ -606,7 +606,7 @@ export default function PcOverviewPage() {
           <div className="pcov-sec-head">
             <h2>Do these next</h2>
             {candidates.length > shownCandidates.length && (
-              <Link className="pcov-seeall" to={`${QUEUE}&view=ALL`}>
+              <Link className="pcov-seeall" to={`${QUEUE}?view=ALL`}>
                 See all {candidates.length}
                 <span aria-hidden="true">→</span>
               </Link>

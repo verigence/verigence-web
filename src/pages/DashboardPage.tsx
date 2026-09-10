@@ -15,7 +15,6 @@ import {
   type Uc03WorkItem,
   type Uc03WorkType,
 } from '../services/audit-core/uc03';
-import { getBookingDetailsV2 } from '../services/audit-core/uc03BookingV2';
 import {
   listReviewPending,
   type ReviewPendingItem,
@@ -51,11 +50,6 @@ function friendlyStatus(value?: string | null, fallback = 'Not Started'): string
     .split('_')
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(' ');
-}
-
-function yesNo(value?: boolean | null): string {
-  if (value === null || value === undefined) return 'Not captured';
-  return value ? 'Yes' : 'No';
 }
 
 function statusTone(value?: string | null): string {
@@ -105,6 +99,15 @@ function businessDateLabel(value?: string | null): string {
   }).format(date);
 }
 
+// The backend sends the journey's own id as customerDisplayName when nothing has
+// been captured yet. Detect that (or any UUID-shaped/blank name) and show a calm
+// "not started" placeholder instead of a raw id.
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+function isPlaceholderCustomerName(name: string): boolean {
+  const trimmed = name.trim();
+  return !trimmed || UUID_RE.test(trimmed);
+}
+
 function isVerified(stage: Uc03StageSummary): boolean {
   if (stage.pcVerificationStatus) return stage.pcVerificationStatus === 'VERIFIED';
   return stage.auditState === 'COMPLETE';
@@ -117,18 +120,6 @@ function VerificationBadge({ stage }: { stage: Uc03StageSummary }) {
     <span className={`uc03-verification-badge${verified ? ' is-verified' : ' is-not-verified'}`}>
       {verified ? 'Verified' : pending ? 'Review Pending' : 'Not Verified'}
     </span>
-  );
-}
-
-function StageBlock({ label, item }: { label: string; item: Uc03StageSummary }) {
-  const stageKind = label === 'Delivery' ? 'DELIVERY' : 'BOOKING';
-  return (
-    <div className="uc03-stage-block">
-      <span>{label}</span>
-      <strong>{friendlyStatus(effectiveStageStatus(item, stageKind))}</strong>
-      <VerificationBadge stage={item} />
-      {item.businessDate && <small>{businessDateLabel(item.businessDate)}</small>}
-    </div>
   );
 }
 
@@ -340,12 +331,16 @@ function WorkItemRow({
   flagsView: boolean;
   productLabelOverride?: string;
 }) {
-  const [expanded, setExpanded] = useState(false);
-  const project = useProjectContextStore((state) => state.selectedProject);
-  const accessToken = useSessionStore((state) => state.accessToken);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement | null>(null);
   const bookingPath = `/v2/bookings/${item.journeyId}`;
   const deliveryPath = `/v2/deliveries/${item.journeyId}`;
   const auditPath = `/audit/${item.journeyId}`;
+  // /v2/bookings/:id/details renders the same Journey360Page as
+  // /journeys/:id/overview (see BookingDetailsV2Page) — linking to the
+  // canonical URL directly skips PageHeader's redirect hop.
+  const overviewPath = `/v2/bookings/${item.journeyId}/details`;
+  const complianceReportPath = `/journeys/${item.journeyId}/compliance-report`;
   const presentation = workPresentation(item, isPc, flagsView);
   const isDeliveryWork = presentation.workLabel === 'Delivery';
   const primaryStage = isDeliveryWork ? item.delivery : item.booking;
@@ -363,131 +358,149 @@ function WorkItemRow({
     : '';
   const deliveryEligible = Boolean(item.delivery.businessStatus || item.booking.captureCompletedAtUtc || item.booking.businessStatus === 'BOOKING_CLOSED');
   const auditAvailable = Boolean(item.booking.businessStatus || item.delivery.businessStatus);
-  const productLabel = productLabelOverride || item.productLabel || 'Vehicle not captured';
-  const bookingDetailsQuery = useQuery({
-    queryKey: ['uc03-work-item-booking-details', project?.tenantId, item.journeyId],
-    queryFn: () => getBookingDetailsV2(project!.tenantId, item.journeyId, accessToken),
-    enabled: Boolean(expanded && project?.tenantId && accessToken),
-    retry: false,
-    refetchOnWindowFocus: false,
-    refetchOnReconnect: false,
-  });
-  const bookingDetails = bookingDetailsQuery.data;
+  const looksUncaptured = isPlaceholderCustomerName(item.customerDisplayName);
+  const dealName = looksUncaptured ? 'New booking — details pending' : item.customerDisplayName;
+  const productLabel = productLabelOverride || item.productLabel
+    || (looksUncaptured ? 'Vehicle not yet selected' : 'Vehicle not captured');
+  // Compliance Report is a TL/PM tool (accept/reject authority over raised
+  // violations) — a PC self-serves observations from Raise Observation instead.
+  const showComplianceReport = !isPc;
+
+  useEffect(() => {
+    if (!menuOpen) return undefined;
+    const onPointerDown = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) setMenuOpen(false);
+    };
+    const onKeyDown = (event: KeyboardEvent) => { if (event.key === 'Escape') setMenuOpen(false); };
+    document.addEventListener('mousedown', onPointerDown);
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', onPointerDown);
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, [menuOpen]);
 
   return (
-    <article className={`uc03-work-row-v2${expanded ? ' is-expanded' : ''}${showAttention ? ' has-attention' : ''}${severityClass}`}>
-      <div className="uc03-work-row-v2__cell uc03-work-row-v2__customer">
-        <strong>{item.customerDisplayName}</strong>
-        <span>{item.bookingReference || 'Booking reference not captured'}</span>
-        {item.customerMobileLast4 && <small>Mobile •••• {item.customerMobileLast4}</small>}
-      </div>
-
-      <div className="uc03-work-row-v2__cell uc03-work-row-v2__vehicle">
-        <strong>{productLabel}</strong>
-        <small>{presentation.workLabel} journey</small>
-      </div>
-
-      <div className="uc03-work-row-v2__cell uc03-work-row-v2__dates">
-        <div>
-          <span>Booking date</span>
-          <strong>{businessDateLabel(item.booking.businessDate)}</strong>
+    <article className={`uc03-work-row-v2${showAttention ? ' has-attention' : ''}${severityClass}`}>
+      <div className="uc03-work-row-v2__cell uc03-work-row-v2__deal">
+        <strong className={looksUncaptured ? 'is-placeholder' : undefined}>{dealName}</strong>
+        <span className="uc03-work-row-v2__vehicle-line">{productLabel}</span>
+        <div className="uc03-work-row-v2__tags">
+          {item.bookingReference ? (
+            <span className="uc03-work-row-v2__tag">{item.bookingReference}</span>
+          ) : (
+            <span className="uc03-work-row-v2__tag uc03-work-row-v2__tag--draft">Draft</span>
+          )}
+          {item.customerMobileLast4 && <span className="uc03-work-row-v2__tag">•••• {item.customerMobileLast4}</span>}
         </div>
-        {item.delivery.businessDate && (
-          <div>
-            <span>Delivery date</span>
-            <strong>{businessDateLabel(item.delivery.businessDate)}</strong>
-          </div>
-        )}
+      </div>
+
+      <div className="uc03-work-row-v2__cell uc03-work-row-v2__timeline">
+        <div className="uc03-work-row-v2__timeline-row">
+          <span className="uc03-work-row-v2__timeline-dot" />
+          Booked {businessDateLabel(item.booking.businessDate)}
+        </div>
+        <div className="uc03-work-row-v2__timeline-row">
+          {item.delivery.businessDate ? (
+            <>
+              <span className="uc03-work-row-v2__timeline-dot" />
+              Delivered {businessDateLabel(item.delivery.businessDate)}
+            </>
+          ) : item.delivery.businessStatus ? (
+            <>
+              <span className="uc03-work-row-v2__timeline-dot is-pending" />
+              Delivery in progress
+            </>
+          ) : (
+            <>
+              <span className="uc03-work-row-v2__timeline-dot is-empty" />
+              Not yet delivered
+            </>
+          )}
+        </div>
         <small title={absoluteActivity}>Last activity · {relativeActivity}</small>
       </div>
 
       <div className="uc03-work-row-v2__cell uc03-work-row-v2__status">
-        <strong className={`uc03-work-status-pill ${workStatusTone}`}>{workStatus}</strong>
+        <strong className={`uc03-work-status-pill ${workStatusTone}`}>
+          {workStatus}
+          {item.openFlagCount > 0 && <span className="uc03-work-status-pill__count">{item.openFlagCount}</span>}
+        </strong>
         {isPc && !isDeliveryWork && <small>{pcBookingCaptureNote(item)}</small>}
         {!isPc && <VerificationBadge stage={primaryStage} />}
-        {item.openFlagCount > 0 && <small>{item.openFlagCount} open observation{item.openFlagCount === 1 ? '' : 's'}</small>}
       </div>
 
       <div className="uc03-work-row-v2__cell uc03-work-row-v2__actions">
-        <div className="uc03-work-row-v2__action-buttons">
-          <Link
-            className="uc03-work-card__primary-action"
-            to={presentation.primaryPath}
-            state={overviewOpenState(item, presentation.target)}
-          >
-            {presentation.primaryActionLabel}
-          </Link>
-          {presentation.secondaryActionLabel && presentation.secondaryPath && presentation.secondaryTarget && (
-            <Link
-              className="uc03-work-card__secondary-action"
-              to={presentation.secondaryPath}
-              state={overviewOpenState(item, presentation.secondaryTarget)}
-            >
-              {presentation.secondaryActionLabel}
-            </Link>
-          )}
-        </div>
-        <button
-          type="button"
-          className="uc03-work-row-v2__details-button"
-          aria-expanded={expanded}
-          onClick={() => setExpanded((current) => !current)}
+        <Link
+          className="uc03-work-card__primary-action"
+          to={presentation.primaryPath}
+          state={overviewOpenState(item, presentation.target)}
         >
-          {expanded ? 'Hide Details' : 'View Details'}
-        </button>
-      </div>
+          {presentation.primaryActionLabel}
+        </Link>
 
-      {expanded && (
-        <div className="uc03-work-row-v2__details">
-          {bookingDetailsQuery.isPending && (
-            <div><span>Captured Booking details</span><strong>Loading…</strong></div>
-          )}
-          {bookingDetailsQuery.isError && (
-            <div><span>Captured Booking details</span><strong>Could not load</strong></div>
-          )}
-          {bookingDetails && (
-            <>
-              <div><span>Vehicle</span><strong>{productLabel}</strong></div>
-              <div><span>Customer type</span><strong>{friendlyStatus(bookingDetails.customerType, 'Not captured')}</strong></div>
-              <div><span>Deal type</span><strong>{friendlyStatus(bookingDetails.dealType, 'Not captured')}</strong></div>
-              <div><span>Deal source</span><strong>{friendlyStatus(bookingDetails.dealSource, 'Not captured')}</strong></div>
-              <div><span>Lead source</span><strong>{friendlyStatus(bookingDetails.leadSource, 'Not captured')}</strong></div>
-              <div><span>Registration state</span><strong>{friendlyStatus(bookingDetails.registrationState, 'Not captured')}</strong></div>
-              <div><span>Registration type</span><strong>{friendlyStatus(bookingDetails.registrationType, 'Not captured')}</strong></div>
-              <div><span>Registration category</span><strong>{friendlyStatus(bookingDetails.registrationCategory, 'Not captured')}</strong></div>
-              <div><span>Territory</span><strong>{friendlyStatus(bookingDetails.territoryCategorization, 'Not captured')}</strong></div>
-              <div><span>District</span><strong>{friendlyStatus(bookingDetails.districtName, 'Not captured')}</strong></div>
-              <div><span>Outright purchase</span><strong>{yesNo(bookingDetails.outrightPurchase)}</strong></div>
-              <div><span>Trade-In</span><strong>{yesNo(bookingDetails.tradeIn)}</strong></div>
-              <div><span>GST benefit</span><strong>{yesNo(bookingDetails.gstBenefit)}</strong></div>
-            </>
-          )}
-          {isPc && updateRequired && (
-            <p>Booking requires additional information. Update Booking remains available while Delivery can continue unless a specific business rule blocks it.</p>
-          )}
-          {!isPc && (
-            <div className="uc03-work-row-v2__stages">
-              <StageBlock label="Booking" item={item.booking} />
-              <StageBlock label="Delivery" item={item.delivery} />
+        <div className="uc03-work-row-v2__more" ref={menuRef}>
+          <button
+            type="button"
+            className={`uc03-work-row-v2__more-button${menuOpen ? ' is-open' : ''}`}
+            aria-haspopup="true"
+            aria-expanded={menuOpen}
+            onClick={() => setMenuOpen((current) => !current)}
+          >
+            More ▾
+          </button>
+          {menuOpen && (
+            <div className="uc03-work-row-v2__more-menu" role="menu">
+              {presentation.secondaryActionLabel && presentation.secondaryPath && presentation.secondaryTarget && (
+                <Link
+                  role="menuitem"
+                  to={presentation.secondaryPath}
+                  state={overviewOpenState(item, presentation.secondaryTarget)}
+                  onClick={() => setMenuOpen(false)}
+                >
+                  {presentation.secondaryActionLabel}
+                </Link>
+              )}
+              {/* Journey-level, not Booking-capture-level: one longitudinal Journey
+                  view accumulates customer, vehicle, payments and documents as
+                  Booking progresses into Delivery, rather than a Booking-only
+                  snapshot fetched again from this row. */}
+              <Link role="menuitem" to={overviewPath} onClick={() => setMenuOpen(false)}>
+                View Details
+              </Link>
+              {presentation.primaryPath !== bookingPath && (
+                <Link role="menuitem" to={bookingPath} state={overviewOpenState(item, 'BOOKING')} onClick={() => setMenuOpen(false)}>
+                  Open Booking
+                </Link>
+              )}
+              {deliveryEligible && presentation.primaryPath !== deliveryPath && presentation.secondaryPath !== deliveryPath && (
+                <Link role="menuitem" to={deliveryPath} state={overviewOpenState(item, 'DELIVERY')} onClick={() => setMenuOpen(false)}>
+                  {item.delivery.businessStatus ? 'Open Delivery' : 'Capture Delivery'}
+                </Link>
+              )}
+              {auditAvailable && presentation.primaryPath !== auditPath && (
+                <Link role="menuitem" to={auditPath} state={overviewOpenState(item, 'AUDIT')} onClick={() => setMenuOpen(false)}>
+                  {isPc ? 'Raise Observation' : 'Audit Review'}
+                </Link>
+              )}
+              {showComplianceReport && (
+                <>
+                  <div className="uc03-work-row-v2__more-menu-divider" role="separator" />
+                  <Link
+                    role="menuitem"
+                    className="uc03-work-row-v2__report-link"
+                    to={complianceReportPath}
+                    onClick={() => setMenuOpen(false)}
+                  >
+                    Compliance Report
+                    <span className="uc03-work-row-v2__report-badge">TL / PM</span>
+                  </Link>
+                </>
+              )}
             </div>
           )}
-          <div className="uc03-work-row-v2__detail-links">
-            {presentation.primaryPath !== bookingPath && (
-              <Link to={bookingPath} state={overviewOpenState(item, 'BOOKING')}>Open Booking</Link>
-            )}
-            {deliveryEligible && presentation.primaryPath !== deliveryPath && presentation.secondaryPath !== deliveryPath && (
-              <Link to={deliveryPath} state={overviewOpenState(item, 'DELIVERY')}>
-                {item.delivery.businessStatus ? 'Open Delivery' : 'Capture Delivery'}
-              </Link>
-            )}
-            {auditAvailable && presentation.primaryPath !== auditPath && (
-              <Link to={auditPath} state={overviewOpenState(item, 'AUDIT')}>
-                {isPc ? 'Raise Observation' : 'Audit Review'}
-              </Link>
-            )}
-          </div>
         </div>
-      )}
+      </div>
     </article>
   );
 }
@@ -874,11 +887,10 @@ export default function DashboardPage() {
                 <div className="uc03-work-cards uc03-work-cards--v2">
                   {displayedWorkItems.length > 0 && (
                     <div className="uc03-work-table-head uc03-work-table-head--v2" aria-hidden="true">
-                      <span>Customer</span>
-                      <span>Vehicle</span>
-                      <span>Dates</span>
+                      <span>Deal</span>
+                      <span>Timeline</span>
                       <span>Status</span>
-                      <span>Next Action</span>
+                      <span>Actions</span>
                     </div>
                   )}
                   {displayedWorkItems.map((item) => (

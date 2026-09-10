@@ -1,0 +1,358 @@
+/* Deal Compliance Report — always-live, never-frozen TL/PM view. */
+
+.crpt-page {
+  max-width: 880px;
+  margin: 0 auto;
+  gap: 18px;
+}
+
+.crpt-actionbar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  padding: 10px 4px;
+}
+
+.crpt-back {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #003a82;
+  text-decoration: none;
+}
+
+.crpt-live-note {
+  margin-left: auto;
+  font-size: 0.76rem;
+  color: #5c7590;
+}
+
+.crpt-print {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 8px;
+  background: #0057b8;
+  color: #fff;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.crpt-header {
+  border: 1px solid #d7e1eb;
+  border-radius: 14px;
+  background: #fff;
+  padding: 20px 22px;
+}
+
+.crpt-header__top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 14px;
+}
+
+.crpt-header__eyebrow {
+  display: block;
+  color: #5c7590;
+  font-size: 0.76rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.crpt-header h1 {
+  margin: 4px 0 2px;
+  font-size: 1.4rem;
+  color: #11212f;
+}
+
+.crpt-header p {
+  margin: 0;
+  color: #5c7590;
+  font-size: 0.88rem;
+}
+
+.crpt-role-pill {
+  padding: 5px 12px;
+  border-radius: 999px;
+  background: rgba(0, 87, 184, 0.1);
+  color: #0057b8;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.crpt-header__meta {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(120px, 1fr));
+  gap: 12px 20px;
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid #eef2f6;
+}
+
+.crpt-header__meta div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.crpt-header__meta span {
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: #8ba0b4;
+}
+
+.crpt-header__meta strong {
+  font-size: 0.86rem;
+  color: #11212f;
+}
+
+.crpt-summary {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+}
+
+.crpt-tile {
+  padding: 14px 16px;
+  border: 1px solid #d7e1eb;
+  border-radius: 12px;
+  background: #eaf0f6;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.crpt-tile span {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: #5c7590;
+}
+
+.crpt-tile strong {
+  font-size: 1.5rem;
+  color: #11212f;
+  font-variant-numeric: tabular-nums;
+}
+
+.crpt-tile--attention {
+  background: rgba(200, 86, 63, 0.1);
+  border-color: rgba(200, 86, 63, 0.3);
+}
+
+.crpt-tile--attention span,
+.crpt-tile--attention strong {
+  color: #c8563f;
+}
+
+.crpt-section {
+  border: 1px solid #d7e1eb;
+  border-radius: 14px;
+  background: #fff;
+  padding: 16px 20px;
+}
+
+.crpt-section h2 {
+  margin: 0 0 10px;
+  font-size: 1rem;
+  color: #11212f;
+}
+
+.crpt-lines {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.crpt-line {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  padding: 8px 0;
+  border-bottom: 1px solid #eef2f6;
+}
+
+.crpt-line:last-child {
+  border-bottom: 0;
+}
+
+.crpt-line__label {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.crpt-line__label strong {
+  font-size: 0.88rem;
+  color: #11212f;
+}
+
+.crpt-line__label span {
+  font-size: 0.76rem;
+  color: #5c7590;
+}
+
+.crpt-line__amounts {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  white-space: nowrap;
+}
+
+.crpt-line__standard {
+  font-size: 0.76rem;
+  color: #8ba0b4;
+  text-decoration: line-through;
+}
+
+.crpt-flags {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.crpt-flag {
+  padding: 10px 12px;
+  border-radius: 10px;
+  border-left: 3px solid;
+}
+
+.crpt-flag.is-high { background: rgba(200, 86, 63, 0.08); border-color: #c8563f; }
+.crpt-flag.is-medium { background: rgba(184, 119, 15, 0.08); border-color: #b8770f; }
+.crpt-flag.is-low { background: rgba(0, 175, 168, 0.08); border-color: #00afa8; }
+
+.crpt-flag__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.crpt-flag__severity {
+  font-size: 0.68rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.crpt-flag__class {
+  font-size: 0.68rem;
+  padding: 1px 7px;
+  border-radius: 5px;
+  background: rgba(92, 117, 144, 0.14);
+  color: #5c7590;
+  font-weight: 700;
+}
+
+.crpt-flag__new {
+  font-size: 0.62rem;
+  padding: 1px 6px;
+  border-radius: 5px;
+  background: #0057b8;
+  color: #fff;
+  font-weight: 800;
+}
+
+.crpt-flag__title {
+  margin: 0;
+  font-size: 0.84rem;
+  color: #11212f;
+}
+
+.crpt-flag__meta {
+  display: block;
+  margin-top: 2px;
+  font-size: 0.72rem;
+  color: #8ba0b4;
+}
+
+.crpt-empty {
+  color: #5c7590;
+  font-size: 0.88rem;
+  padding: 12px 4px;
+}
+
+.crpt-history {
+  border: 1px solid #d7e1eb;
+  border-radius: 14px;
+  background: #fff;
+  padding: 14px 20px;
+}
+
+.crpt-history summary {
+  cursor: pointer;
+  font-weight: 700;
+  color: #11212f;
+  font-size: 0.9rem;
+}
+
+.crpt-history__list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.crpt-history__item {
+  padding: 10px 0;
+  border-top: 1px solid #eef2f6;
+}
+
+.crpt-history__title {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.crpt-history__title strong {
+  font-size: 0.86rem;
+  color: #11212f;
+}
+
+.crpt-history__title span {
+  font-size: 0.72rem;
+  color: #5c7590;
+}
+
+.crpt-history__dates {
+  display: flex;
+  gap: 12px;
+  margin-top: 3px;
+  font-size: 0.74rem;
+  color: #8ba0b4;
+}
+
+.crpt-history__item p {
+  margin: 4px 0 0;
+  font-size: 0.82rem;
+  color: #3f5871;
+}
+
+.crpt-footnote {
+  font-size: 0.76rem;
+  color: #8ba0b4;
+  line-height: 1.5;
+  padding: 4px 4px 20px;
+}
+
+@media (max-width: 640px) {
+  .crpt-summary { grid-template-columns: repeat(2, 1fr); }
+  .crpt-header__meta { grid-template-columns: repeat(2, 1fr); }
+}
+
+@media print {
+  .crpt-actionbar { display: none; }
+  .crpt-page { max-width: none; }
+  .crpt-section, .crpt-header, .crpt-history, .crpt-tile { break-inside: avoid; }
+}

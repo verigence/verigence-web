@@ -10,6 +10,7 @@ import {
   deleteDeliveryCaptureV2Document,
   deliveryCaptureV2IsProcessing,
   getDeliveryCaptureV2,
+  resyncDeliveryCaptureV2,
   uploadDeliveryCaptureV2Files,
 } from '../services/audit-core/uc03DeliveryCaptureV2';
 import type { CaptureV2Requirement } from '../services/audit-core/uc03DocumentCaptureV2';
@@ -55,6 +56,7 @@ export default function DeliveryCaptureV2Page() {
   const accessToken = useSessionStore((state) => state.accessToken);
   const [starting, setStarting] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [resyncing, setResyncing] = useState(false);
   const [deletingId, setDeletingId] = useState<string>();
   const [message, setMessage] = useState<string>();
   const [error, setError] = useState<string>();
@@ -132,6 +134,24 @@ export default function DeliveryCaptureV2Page() {
       setError(cause instanceof Error ? cause.message : 'One or more Delivery documents could not be uploaded.');
     } finally {
       setUploading(false);
+    }
+  };
+
+  const handleResync = async () => {
+    setResyncing(true);
+    setError(undefined);
+    try {
+      const result = await resyncDeliveryCaptureV2(project.tenantId, journeyId, accessToken);
+      setMessage(
+        result.queuedDocumentCount > 0
+          ? `Rechecking ${result.queuedDocumentCount} document${result.queuedDocumentCount === 1 ? '' : 's'}…`
+          : 'Every classified document is already up to date.',
+      );
+      await captureQuery.refetch();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Delivery documents could not be rechecked.');
+    } finally {
+      setResyncing(false);
     }
   };
 
@@ -273,6 +293,17 @@ export default function DeliveryCaptureV2Page() {
             <strong>{extracted}</strong>
           </div>
         </div>
+        {extracted < classified ? (
+          <button
+            type="button"
+            className="uc03-delivery-v2-checklist-toggle"
+            disabled={resyncing}
+            onClick={() => void handleResync()}
+            title="A classified document sometimes finishes extracting after the page already stopped watching it. Recheck picks those up."
+          >
+            {resyncing ? 'Rechecking…' : 'Recheck documents'}
+          </button>
+        ) : null}
         <button
           type="button"
           className="uc03-delivery-v2-checklist-toggle"

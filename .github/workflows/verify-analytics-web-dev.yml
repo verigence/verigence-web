@@ -1,0 +1,40 @@
+name: Verify Analytics Web DEV
+
+on:
+  push:
+    branches: [dev]
+    paths:
+      - .github/workflows/verify-analytics-web-dev.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    env:
+      DEV_WEB_URL: https://verigence-web-dev.jbrconsulting-it.workers.dev
+    steps:
+      - name: Prove Analytics health through Web proxy
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error \
+            --dump-header /tmp/analytics-health.headers \
+            --output /tmp/analytics-health.body \
+            "$DEV_WEB_URL/analytics-api/health"
+          grep -Fqi 'x-verigence-proxy: analytics' /tmp/analytics-health.headers
+          grep -Fq '"status":"ok"' /tmp/analytics-health.body
+          echo 'ANALYTICS_WEB_PROXY_HEALTH=PASS'
+      - name: Prove protected Analytics route through Web proxy
+        run: |
+          set -euo pipefail
+          status="$(curl --silent --show-error \
+            --dump-header /tmp/analytics-auth.headers \
+            --output /tmp/analytics-auth.body \
+            --write-out '%{http_code}' \
+            "$DEV_WEB_URL/analytics-api/v1/analytics/tenants/5fbe26ab-6ed7-444a-8488-5bfb81208588/overview")"
+          grep -Fqi 'x-verigence-proxy: analytics' /tmp/analytics-auth.headers
+          [[ "$status" == '401' ]] || { cat /tmp/analytics-auth.body; exit 1; }
+          echo 'ANALYTICS_WEB_PROXY_AUTH_BOUNDARY=PASS'

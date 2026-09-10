@@ -1,9 +1,9 @@
 # Verigence Web DEV — Latest Deployment
 
 - branch: dev
-- run_id: 34438660717
-- run_number: 616
+- run_id: 34441486426
+- run_number: 617
 - run_attempt: 1
-- source_sha: 13ac323b8b4bffef46ef1d091f737dd3533c306a
+- source_sha: bdad732c71e6e626caad0f10573c9ad85e93066d
 - conclusion: success
-- workflow_url: https://github.com/verigence/verigence-web/actions/runs/34438660717
+- workflow_url: https://github.com/verigence/verigence-web/actions/runs/34441486426

@@ -154,18 +154,18 @@ function pivot<T>(
     const label = category(row) || 'UNSPECIFIED';
     const key = seriesKey.get(seriesName(row));
     if (!key) return;
-    const target = grouped.get(label) || { label };
+    const target: Record<string, string | number> = grouped.get(label) || { label };
     target[key] = numeric(target[key]) + value(row);
     grouped.set(label, target);
   });
 
   const chartRows: Array<Record<string, string | number> & { label: string }> = Array.from(grouped.values())
-    .map((row) => ({ ...row, label: String(row.label) }))
     .sort((a, b) => {
       const aTotal = series.reduce((sum, item) => sum + numeric(a[item.key]), 0);
       const bTotal = series.reduce((sum, item) => sum + numeric(b[item.key]), 0);
       return bTotal - aTotal;
-    });
+    })
+    .map((row) => ({ ...row, label: String(row.label) }));
 
   return { chartRows, series };
 }

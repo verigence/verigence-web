@@ -276,7 +276,7 @@ export default function App() {
               <Route path="/activity" element={<LegacyOperationalPage><ActivityTrackerPage /></LegacyOperationalPage>} />
               <Route path="/crm" element={<LegacyOperationalPage><CrmPage /></LegacyOperationalPage>} />
               <Route path="/escalations" element={<LegacyOperationalPage><EscalationsPage /></LegacyOperationalPage>} />
-              <Route path="/analytics" element={<LegacyOperationalPage><AnalyticsPage /></LegacyOperationalPage>} />
+              <Route path="/analytics" element={<OperationalShellPage><AnalyticsPage /></OperationalShellPage>} />
 
               <Route path="/admin/engagements" element={<SuperAdminPage><AdminConfigurationPage section="engagements" /></SuperAdminPage>} />
               <Route path="/admin/document-intelligence" element={<SuperAdminPage><DocumentIntelligenceConfigurationPage /></SuperAdminPage>} />

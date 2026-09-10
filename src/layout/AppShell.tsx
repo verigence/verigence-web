@@ -92,13 +92,16 @@ const analyticsReportLabels: Record<string, string> = {
   productivity: 'Employees',
 };
 
-// PC Overview is "what needs me now"; this opens the full work queue (the legacy
-// dashboard) so a PC can browse every booking and delivery and tab between them.
+// Overview is "what needs me now" (PC and TL each have their own summary page);
+// this opens the full Work Queue table so PC, TL and PM can all browse every
+// booking and delivery and tab between them. Routed at /work-queue (not
+// /dashboard) so it renders the same page for every role, including TL, who
+// Overview always sends to TeamLeadDashboardPage instead.
 const allJourneysItem: NavItem = {
-  to: '/dashboard?legacyDashboard=1&view=ALL',
+  to: '/work-queue',
   label: 'Bookings & Deliveries',
   mark: 'JR',
-  roles: ['PC'],
+  roles: ['PC', 'TL', 'PM'],
 };
 
 const groups: NavGroup[] = [
@@ -140,7 +143,7 @@ const groups: NavGroup[] = [
 ];
 
 const routeLabels: Record<string, string> = {
-  '/dashboard': 'Overview', '/search': 'Search', '/attendance': 'Attendance', '/customers': 'Customers', '/journeys': 'Journeys', '/tasks': 'My Work',
+  '/dashboard': 'Overview', '/work-queue': 'Bookings & Deliveries', '/search': 'Search', '/attendance': 'Attendance', '/customers': 'Customers', '/journeys': 'Journeys', '/tasks': 'My Work',
   '/feedback': 'Feedback',
   '/reviews': 'Review Queue', '/evidence': 'Evidence', '/payments': 'Payment Tracker', '/findings': 'Findings',
   '/daily-ops': 'Daily Operations', '/activity': 'Activity Tracker', '/crm': 'CRM Follow-up', '/escalations': 'Escalations',
@@ -254,10 +257,8 @@ export default function AppShell({ children }: PropsWithChildren) {
     const workspaceItems: NavItem[] = [
       { to: '/dashboard', label: 'Overview', mark: 'OV', roles: c0OperatingRoles },
     ];
-    if (role === 'PC') {
-      workspaceItems.push(allJourneysItem);
-    }
     if (role === 'PC' || role === 'TL' || role === 'PM') {
+      workspaceItems.push(allJourneysItem);
       workspaceItems.push(journeySearchItem);
     }
     workspaceItems.push(attendanceItem);
@@ -339,7 +340,7 @@ export default function AppShell({ children }: PropsWithChildren) {
     setMobileMenuOpen(false);
     navigate('/dashboard', { replace: true });
   };
-  const showLandingSearch = location.pathname === '/dashboard'
+  const showLandingSearch = (location.pathname === '/dashboard' || location.pathname === '/work-queue')
     && !createBookingMode
     && (role === 'PC' || role === 'TL' || role === 'PM');
   const handleLandingSearch = (event: FormEvent<HTMLFormElement>) => {
@@ -373,7 +374,6 @@ export default function AppShell({ children }: PropsWithChildren) {
 
   const isNavItemActive = (item: NavItem, isActive: boolean) => {
     if (item.to === createBookingItem.to) return createBookingMode;
-    if (item.to === allJourneysItem.to) return legacyQueueMode;
     if (item.to === '/dashboard') return isActive && !createBookingMode && !legacyQueueMode;
     if (item.to.split('?')[0] === '/analytics') {
       const itemReport = new URLSearchParams(item.to.split('?')[1] || '').get('report') || 'overview';

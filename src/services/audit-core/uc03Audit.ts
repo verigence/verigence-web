@@ -395,3 +395,85 @@ export function completeStageAudit(
     body: JSON.stringify({ remarks: remarks || null }),
   });
 }
+
+// ---------------------------------------------------------------------------
+// Deal Compliance Report — a lightweight, on-demand, always-live read (never
+// snapshotted) of one journey's commercial line items alongside any open or
+// resolved audit findings. Deliberately its own endpoint, not a reuse of
+// Journey 360's heavy aggregation.
+
+export interface Uc03ComplianceReportLineItem {
+  label: string;
+  detail: string | null;
+  standardAmount: number | null;
+  actualAmount: number | null;
+}
+
+export interface Uc03ComplianceReportFlag {
+  findingId: string;
+  findingTypeCode: string | null;
+  title: string;
+  severity: string;
+  findingClass: Uc03FindingClass | null;
+  status: 'OPEN' | 'ACKNOWLEDGED' | 'RESOLVED' | 'VOIDED';
+  createdAtUtc: string;
+  isNew: boolean;
+}
+
+export interface Uc03ComplianceReportResolvedFinding {
+  findingId: string;
+  findingTypeCode: string | null;
+  title: string;
+  severity: string;
+  createdAtUtc: string;
+  resolvedAtUtc: string | null;
+  resolutionReason: string | null;
+}
+
+export interface Uc03ComplianceReportSection {
+  key: string;
+  label: string;
+  lineItems: Uc03ComplianceReportLineItem[];
+  flags: Uc03ComplianceReportFlag[];
+}
+
+export interface Uc03ComplianceReportHeader {
+  journeyId: string;
+  journeyReference: string | null;
+  bookingReference: string | null;
+  productLabel: string | null;
+  dealerName: string;
+  outletName: string;
+  customerDisplayName: string;
+  vin: string | null;
+  dealType: string | null;
+  financedBy: string | null;
+  bookingDate: string | null;
+  deliveryDate: string | null;
+}
+
+export interface Uc03ComplianceReportSummary {
+  totalFindings: number;
+  openFindings: number;
+  resolvedFindings: number;
+  highOrCriticalOpen: number;
+}
+
+export interface Uc03ComplianceReport {
+  generatedAtUtc: string;
+  header: Uc03ComplianceReportHeader;
+  summary: Uc03ComplianceReportSummary;
+  sections: Uc03ComplianceReportSection[];
+  resolvedHistory: Uc03ComplianceReportResolvedFinding[];
+}
+
+export function getComplianceReport(
+  tenantId: string,
+  journeyId: string,
+  accessToken?: string,
+): Promise<Uc03ComplianceReport> {
+  return auditCoreRequest(
+    `/v1/tenants/${encodeURIComponent(tenantId)}/journeys/${encodeURIComponent(journeyId)}/compliance-report`,
+    { accessToken: token(accessToken), cache: 'no-store' },
+  );
+}

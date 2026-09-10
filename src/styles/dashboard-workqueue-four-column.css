@@ -1,0 +1,368 @@
+/* UC03 Work Queue — 4-column layout (Deal / Timeline / Status / Actions).
+   Replaces the earlier 5-column trial (dashboard-workqueue-five-column.css):
+   Customer + Vehicle merge into one Deal cell, Dates becomes a compact
+   Timeline cell, Status collapses to a single pill with the open-observation
+   count folded in, and secondary links move into a per-row "More" menu
+   instead of only appearing once a row is expanded. No additional data
+   fetches — same Uc03WorkItem fields, presented with less repetition. */
+
+.uc03-work-cards--v2 {
+  overflow: visible;
+  border: 1px solid rgba(20, 61, 98, 0.14);
+  border-radius: 16px;
+  background: #fff;
+}
+
+.uc03-work-table-head--v2 {
+  display: grid !important;
+  grid-template-columns: minmax(230px, 1.7fr) minmax(190px, 1.15fr) minmax(190px, 1.15fr) minmax(210px, 1.2fr) !important;
+  gap: 20px !important;
+  align-items: center;
+  margin: 0 !important;
+  padding: 12px 20px !important;
+  border: 0 !important;
+  border-bottom: 1px solid rgba(20, 61, 98, 0.12) !important;
+  border-radius: 0 !important;
+  background: #f7fafc !important;
+  color: #5d728a !important;
+  font-size: 0.72rem !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.055em;
+  text-transform: uppercase;
+}
+
+.uc03-work-row-v2 {
+  display: grid;
+  grid-template-columns: minmax(230px, 1.7fr) minmax(190px, 1.15fr) minmax(190px, 1.15fr) minmax(210px, 1.2fr);
+  gap: 20px;
+  align-items: center;
+  min-height: 88px;
+  padding: 16px 20px;
+  border-bottom: 1px solid rgba(20, 61, 98, 0.1);
+  background: #fff;
+  position: relative;
+}
+
+.uc03-work-row-v2:last-child {
+  border-bottom: 0;
+}
+
+.uc03-work-row-v2:hover,
+.uc03-work-row-v2:focus-within {
+  background: #f9fcfd;
+  box-shadow: inset 4px 0 0 rgba(0, 143, 154, 0.5);
+}
+
+.uc03-work-row-v2.has-attention {
+  box-shadow: inset 4px 0 0 rgba(187, 89, 39, 0.6);
+}
+
+.uc03-work-row-v2.has-attention.is-severity-high,
+.uc03-work-row-v2.has-attention.is-severity-critical {
+  box-shadow: inset 4px 0 0 rgba(199, 61, 74, 0.75);
+}
+
+.uc03-work-row-v2__cell {
+  min-width: 0;
+}
+
+/* Deal cell: customer, vehicle, and reference — one legible unit instead of
+   two separate cells that each carried their own "not captured" fallback. */
+.uc03-work-row-v2__deal strong {
+  display: block;
+  overflow: hidden;
+  color: #103b67;
+  font-size: 0.96rem;
+  font-weight: 750;
+  line-height: 1.3;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.uc03-work-row-v2__deal strong.is-placeholder {
+  color: #5d728a;
+  font-weight: 650;
+  font-style: normal;
+}
+
+.uc03-work-row-v2__deal span.uc03-work-row-v2__vehicle-line {
+  display: block;
+  margin-top: 4px;
+  overflow: hidden;
+  color: #3f5871;
+  font-size: 0.8rem;
+  line-height: 1.3;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.uc03-work-row-v2__tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.uc03-work-row-v2__tag {
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: rgba(93, 114, 138, 0.1);
+  color: #556b82;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+}
+
+.uc03-work-row-v2__tag--draft {
+  background: rgba(93, 114, 138, 0.14);
+  color: #46617a;
+}
+
+/* Timeline cell: booking → delivery in one compact stack instead of three
+   loosely related lines. */
+.uc03-work-row-v2__timeline-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: #28445f;
+  font-size: 0.78rem;
+  font-weight: 650;
+}
+
+.uc03-work-row-v2__timeline-row + .uc03-work-row-v2__timeline-row {
+  margin-top: 4px;
+}
+
+.uc03-work-row-v2__timeline-dot {
+  width: 6px;
+  height: 6px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: #0a8f7e;
+}
+
+.uc03-work-row-v2__timeline-dot.is-pending {
+  background: #d68a1f;
+}
+
+.uc03-work-row-v2__timeline-dot.is-empty {
+  border: 1.5px dashed #a9b9c8;
+  background: transparent;
+}
+
+.uc03-work-row-v2__timeline small {
+  display: block;
+  margin-top: 6px;
+  color: #8a9aa6;
+  font-size: 0.72rem;
+}
+
+/* Status cell: one pill (with the open-observation count folded into it)
+   plus, at most, one supporting line — instead of up to four stacked pieces. */
+.uc03-work-row-v2__status {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.uc03-work-row-v2__status .uc03-work-status-pill {
+  display: inline-flex !important;
+  align-items: center;
+  gap: 7px;
+  max-width: 100%;
+  margin: 0 !important;
+  padding: 6px 10px !important;
+  border-radius: 999px !important;
+  font-size: 0.74rem !important;
+  line-height: 1.2 !important;
+  white-space: normal !important;
+}
+
+.uc03-work-status-pill__count {
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.14);
+  font-size: 0.68rem;
+  font-weight: 800;
+}
+
+.uc03-work-row-v2__status .uc03-verification-badge {
+  margin: 0;
+}
+
+.uc03-work-row-v2__status small {
+  display: block;
+  color: #6d8297;
+  font-size: 0.74rem;
+  line-height: 1.3;
+}
+
+/* Actions cell: one primary CTA plus a single "More" menu holding
+   everything else (secondary action, details toggle, cross-links,
+   Compliance Report) instead of stacking several buttons per row. */
+.uc03-work-row-v2__actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  position: relative;
+}
+
+.uc03-work-row-v2__actions .uc03-work-card__primary-action {
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  min-height: 36px !important;
+  margin: 0 !important;
+  padding: 8px 14px !important;
+  border-radius: 9px !important;
+  font-size: 0.78rem !important;
+  font-weight: 750;
+  line-height: 1.15 !important;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.uc03-work-row-v2__more {
+  position: relative;
+}
+
+.uc03-work-row-v2__more-button {
+  min-height: 32px;
+  padding: 6px 12px;
+  border: 1px solid rgba(16, 59, 103, 0.22);
+  border-radius: 8px;
+  background: #fff;
+  color: #34566f;
+  font: inherit;
+  font-size: 0.76rem;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.uc03-work-row-v2__more-button:hover,
+.uc03-work-row-v2__more-button.is-open {
+  border-color: rgba(0, 143, 154, 0.5);
+  background: #eef9fa;
+  color: #0a6174;
+}
+
+.uc03-work-row-v2__more-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 20;
+  display: grid;
+  gap: 2px;
+  min-width: 210px;
+  padding: 6px;
+  border: 1px solid rgba(20, 61, 98, 0.16);
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 0 12px 26px rgba(15, 40, 66, 0.16);
+}
+
+.uc03-work-row-v2__more-menu a,
+.uc03-work-row-v2__more-menu button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 34px;
+  padding: 7px 9px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: #244863;
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.uc03-work-row-v2__more-menu a:hover,
+.uc03-work-row-v2__more-menu button:hover {
+  background: #f2f7f8;
+}
+
+.uc03-work-row-v2__more-menu-divider {
+  height: 1px;
+  margin: 4px 2px;
+  background: rgba(20, 61, 98, 0.12);
+}
+
+.uc03-work-row-v2__more-menu a.uc03-work-row-v2__report-link {
+  background: rgba(0, 87, 184, 0.07);
+  color: #0057b8;
+  font-weight: 750;
+}
+
+.uc03-work-row-v2__report-badge {
+  margin-left: auto;
+  padding: 1px 6px;
+  border-radius: 5px;
+  background: #0057b8;
+  color: #fff;
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
+@media (max-width: 1180px) and (min-width: 961px) {
+  .uc03-work-table-head--v2,
+  .uc03-work-row-v2 {
+    grid-template-columns: minmax(200px, 1.5fr) minmax(170px, 1.05fr) minmax(170px, 1.05fr) minmax(190px, 1.1fr) !important;
+    gap: 14px !important;
+  }
+}
+
+@media (max-width: 960px) {
+  .uc03-work-cards--v2 {
+    overflow: visible;
+    border: 0;
+    background: transparent;
+  }
+
+  .uc03-work-table-head--v2 {
+    display: none !important;
+  }
+
+  .uc03-work-row-v2 {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 13px;
+    margin-bottom: 12px;
+    padding: 16px;
+    border: 1px solid rgba(20, 61, 98, 0.14);
+    border-radius: 14px;
+    box-shadow: 0 4px 14px rgba(19, 55, 88, 0.06);
+  }
+
+  .uc03-work-row-v2__more-menu {
+    position: static;
+    margin-top: 6px;
+    box-shadow: none;
+  }
+}
+
+@media (max-width: 560px) {
+  .uc03-work-row-v2__actions {
+    width: 100%;
+  }
+
+  .uc03-work-row-v2__actions .uc03-work-card__primary-action {
+    width: 100%;
+  }
+
+  .uc03-work-row-v2__more {
+    width: 100%;
+  }
+
+  .uc03-work-row-v2__more-button {
+    width: 100%;
+  }
+}

@@ -32,11 +32,13 @@
 
 /* Teal -> blue -> green traces the document's own journey through the
    pipeline; red breaks the sequence on purpose so it reads as an
-   exception, not the next step. */
-.uc03-doc-card.is-uploaded { border-left-color: #00afa8; background: #f0fbfa; }
-.uc03-doc-card.is-classified { border-left-color: #0057b8; background: #f1f6fe; }
-.uc03-doc-card.is-extracted { border-left-color: #17b26a; background: #f0fbf5; }
-.uc03-doc-card.is-failed { border-left-color: #d92d20; background: #fef3f2; }
+   exception, not the next step. Card face stays white throughout -- only
+   the edge and status dot carry the color, so a grid of many cards reads
+   as one clean surface instead of a wash of tinted panels. */
+.uc03-doc-card.is-uploaded { border-left-color: #00afa8; }
+.uc03-doc-card.is-classified { border-left-color: #0057b8; }
+.uc03-doc-card.is-extracted { border-left-color: #17b26a; }
+.uc03-doc-card.is-failed { border-left-color: #d92d20; }
 
 .uc03-doc-card > header {
   display: flex;

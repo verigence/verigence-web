@@ -108,12 +108,36 @@
   font-variant-numeric: tabular-nums;
 }
 
-.uc03-delivery-v2-stat.is-ready {
+/* Uploaded / Classified / Extracted pick up the same brand teal and blue
+   used everywhere else in this pipeline (doc-card edges, PC Overview's
+   sidebar) instead of a flat grey outline -- alternating keeps all three
+   readable as one branded set rather than one accent repeated three times. */
+.uc03-delivery-v2-topbar__stats .uc03-delivery-v2-stat:nth-child(1),
+.uc03-delivery-v2-topbar__stats .uc03-delivery-v2-stat:nth-child(3) {
+  border-color: rgba(0, 211, 167, 0.5);
+  background: rgba(0, 211, 167, 0.08);
+}
+
+.uc03-delivery-v2-topbar__stats .uc03-delivery-v2-stat:nth-child(1) strong,
+.uc03-delivery-v2-topbar__stats .uc03-delivery-v2-stat:nth-child(3) strong {
+  color: #00968f;
+}
+
+.uc03-delivery-v2-topbar__stats .uc03-delivery-v2-stat:nth-child(2) {
+  border-color: rgba(0, 87, 184, 0.42);
+  background: rgba(0, 87, 184, 0.06);
+}
+
+.uc03-delivery-v2-topbar__stats .uc03-delivery-v2-stat:nth-child(2) strong {
+  color: #0057b8;
+}
+
+.uc03-delivery-v2-topbar__stats .uc03-delivery-v2-stat.is-ready {
   border-color: rgba(6, 118, 71, 0.28);
   background: #ecfdf3;
 }
 
-.uc03-delivery-v2-stat.is-ready strong {
+.uc03-delivery-v2-topbar__stats .uc03-delivery-v2-stat.is-ready strong {
   color: #067647;
 }
 

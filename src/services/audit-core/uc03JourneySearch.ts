@@ -117,6 +117,7 @@ export interface JourneyOverview {
   discounts: Array<Record<string, unknown>>;
   payments: Array<Record<string, unknown>>;
   receipts?: Array<Record<string, unknown>>;
+  invoices?: Array<Record<string, unknown>>;
   finance: Record<string, unknown> | null;
   insurance: Record<string, unknown> | null;
   addons: Array<Record<string, unknown>>;

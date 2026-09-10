@@ -20,6 +20,7 @@ export interface JourneyStep {
 
 export type AspectKey =
   | 'deal'
+  | 'invoice'
   | 'payments'
   | 'documents'
   | 'vehicle'
@@ -68,6 +69,7 @@ export function findingAspect(finding: Record<string, unknown>): AspectKey {
   const findingClass = str(finding, 'findingClass').toUpperCase();
   const key = rule || type;
   if (key.startsWith('MODEL_NOT_IDENTIFIED')) return 'deal';
+  if (key.startsWith('CREDIT_NOTE') || key.startsWith('INVOICE')) return 'invoice';
   if (key.startsWith('PAYMENT_BANK_UNMATCHED') || key.startsWith('PAY_UNVERIFIED') || key.startsWith('PAYMENT')) {
     return 'payments';
   }
@@ -216,8 +218,11 @@ export function deriveAspects(overview: JourneyOverview): AspectMeta[] {
 
   const flagsCount = open.length;
 
+  const invoices = list(overview.invoices) as Array<Record<string, unknown>>;
+
   return [
     metaFor('deal', 'Deal', deal, 'Masters, offered & discounts'),
+    metaFor('invoice', 'Invoices', worst(invoices.length > 0 ? 'ok' : 'wait', findingStatus('invoice')), 'Every invoice uploaded'),
     metaFor('payments', 'Payments', payments, 'Receipts, bank match & statements'),
     metaFor('documents', 'Documents', list(overview.evidence).length > 0 ? 'ok' : 'wait', 'Uploaded evidence'),
     metaFor('vehicle', 'Vehicle', worst(has(overview.vehicle) || has(overview.booking) ? 'ok' : 'wait', findingStatus('vehicle')), 'Allocation & specs'),

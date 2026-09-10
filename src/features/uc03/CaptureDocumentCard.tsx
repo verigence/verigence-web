@@ -2,12 +2,13 @@ import { displayName } from '../../utils/displayNames';
 import type { CaptureV2Document, CaptureV2Requirement } from '../../services/audit-core/uc03DocumentCaptureV2';
 import '../../styles/uc03-capture-document-card.css';
 
-export type CardStatus = 'uploaded' | 'classified' | 'extracted' | 'failed';
+export type CardStatus = 'uploaded' | 'classified' | 'extracted' | 'unrecognized' | 'failed';
 
 const CARD_STATUS_LABEL: Record<CardStatus, string> = {
   uploaded: 'Uploaded',
   classified: 'Classified',
   extracted: 'Extracted',
+  unrecognized: 'Unrecognized — needs review',
   failed: 'Needs attention',
 };
 
@@ -15,6 +16,12 @@ export function cardStatus(document: CaptureV2Document): CardStatus {
   const state = document.state.trim().toUpperCase();
   const processing = document.processingStatus?.trim().toUpperCase();
   if (state === 'FAILED' || processing === 'FAILED') return 'failed';
+  // DI genuinely couldn't identify this document (best-guess confidence
+  // never cleared the acceptance threshold) -- distinct from "still being
+  // classified", which is what every other non-CLASSIFIED state means here.
+  // Previously indistinguishable from plain "Uploaded", so a document DI had
+  // already given up on looked identical to one nobody had looked at yet.
+  if (state === 'UNKNOWN') return 'unrecognized';
   if (state !== 'CLASSIFIED' || !document.classifiedDocumentTypeKey) return 'uploaded';
   if (processing === 'PROCESSED') return 'extracted';
   return 'classified';

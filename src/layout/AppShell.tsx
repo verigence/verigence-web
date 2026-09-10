@@ -20,6 +20,7 @@ const c0OperatingRoles: OperatingRole[] = ['PC', 'TL', 'PM', 'CRM', 'EXECUTIVE']
 const operational: ShellRole[] = [...c0OperatingRoles, 'TENANT_ADMIN', 'SUPER_ADMIN'];
 const assurance: ShellRole[] = ['TL', 'PM', 'EXECUTIVE', 'TENANT_ADMIN', 'SUPER_ADMIN'];
 const admin: ShellRole[] = ['TENANT_ADMIN', 'SUPER_ADMIN'];
+const analyticsRoles: ShellRole[] = ['PC', 'TL', 'PM', 'EXECUTIVE', ...admin];
 
 const projectAdministrationItem: NavItem = {
   to: '/admin/project',
@@ -63,11 +64,32 @@ const reviewQueueItem: NavItem = {
   roles: ['PC', 'TL', 'PM', 'EXECUTIVE'],
 };
 
-const analyticsItem: NavItem = {
-  to: '/analytics',
-  label: 'Analytics',
-  mark: 'AN',
-  roles: ['PC', 'TL', 'PM', 'EXECUTIVE', ...admin],
+const analyticsItems: NavItem[] = [
+  { to: '/analytics', label: 'Overview', mark: 'AN', roles: analyticsRoles },
+  { to: '/analytics?report=finance', label: 'Finance', mark: 'PY', roles: analyticsRoles },
+  { to: '/analytics?report=insurance', label: 'Insurance', mark: 'RP', roles: analyticsRoles },
+  { to: '/analytics?report=addons', label: 'Add-ons & VAS', mark: 'DC', roles: analyticsRoles },
+  { to: '/analytics?report=discounts', label: 'Discounts', mark: 'AR', roles: analyticsRoles },
+  { to: '/analytics?report=trade-in', label: 'Trade-in', mark: 'JR', roles: analyticsRoles },
+  { to: '/analytics?report=payments', label: 'Payments', mark: 'PY', roles: analyticsRoles },
+  { to: '/analytics?report=turnaround', label: 'Turnaround', mark: 'AT', roles: analyticsRoles },
+  { to: '/analytics?report=findings', label: 'Audit & Compliance', mark: 'FN', roles: analyticsRoles },
+  { to: '/analytics?report=documents', label: 'Documents', mark: 'EV', roles: analyticsRoles },
+  { to: '/analytics?report=productivity', label: 'Employees', mark: 'US', roles: analyticsRoles },
+];
+
+const analyticsReportLabels: Record<string, string> = {
+  overview: 'Overview',
+  finance: 'Finance',
+  insurance: 'Insurance',
+  addons: 'Add-ons & VAS',
+  discounts: 'Discounts',
+  'trade-in': 'Trade-in',
+  payments: 'Payments',
+  turnaround: 'Turnaround',
+  findings: 'Audit & Compliance',
+  documents: 'Documents',
+  productivity: 'Employees',
 };
 
 // PC Overview is "what needs me now"; this opens the full work queue (the legacy
@@ -99,7 +121,7 @@ const groups: NavGroup[] = [
     { to: '/crm', label: 'CRM Follow-up', mark: 'CR', roles: ['CRM', 'PM', ...admin] },
     { to: '/escalations', label: 'Escalations', mark: 'ES', roles: ['TL', 'PM', 'CRM', 'EXECUTIVE', ...admin] },
   ] },
-  { key: 'insights', label: 'Insights', items: [analyticsItem] },
+  { key: 'insights', label: 'Analytics', items: analyticsItems },
   { key: 'administration', label: 'Administration', items: [
     { to: '/admin/engagements', label: 'Engagements', mark: 'EN', roles: ['SUPER_ADMIN'] },
     { to: '/admin/document-intelligence', label: 'Document Intelligence', mark: 'DC', roles: ['SUPER_ADMIN'] },
@@ -254,8 +276,8 @@ export default function AppShell({ children }: PropsWithChildren) {
     };
     const analyticsGroup: NavGroup = {
       key: 'insights',
-      label: 'Insights',
-      items: [analyticsItem],
+      label: 'Analytics',
+      items: analyticsItems,
     };
     if (sessionRole !== 'TENANT_ADMIN') return [workspaceGroup, analyticsGroup];
     return [
@@ -328,13 +350,16 @@ export default function AppShell({ children }: PropsWithChildren) {
   };
 
   const dynamicLabel = dynamicRouteLabels.find(([prefix]) => location.pathname.startsWith(prefix))?.[1];
+  const analyticsReport = new URLSearchParams(location.search).get('report') || 'overview';
   const currentLabel = createBookingMode
     ? 'Capture New Booking'
     : legacyQueueMode
       ? 'Bookings & Deliveries'
-      : routeLabels[location.pathname]
-        ?? dynamicLabel
-        ?? 'Workspace';
+      : location.pathname === '/analytics'
+        ? `Analytics · ${analyticsReportLabels[analyticsReport] || 'Overview'}`
+        : routeLabels[location.pathname]
+          ?? dynamicLabel
+          ?? 'Workspace';
   const visibleName = displayName || 'User';
   const roleLabel = roleLabels[role];
   const avatarText = initials(visibleName);
@@ -350,6 +375,10 @@ export default function AppShell({ children }: PropsWithChildren) {
     if (item.to === createBookingItem.to) return createBookingMode;
     if (item.to === allJourneysItem.to) return legacyQueueMode;
     if (item.to === '/dashboard') return isActive && !createBookingMode && !legacyQueueMode;
+    if (item.to.split('?')[0] === '/analytics') {
+      const itemReport = new URLSearchParams(item.to.split('?')[1] || '').get('report') || 'overview';
+      return location.pathname === '/analytics' && itemReport === analyticsReport;
+    }
     return isActive;
   };
 

@@ -302,6 +302,87 @@
 .jline__bank--ambiguous { background: var(--jl-warn-bg); color: #a05a1e; }
 .jline__bank--not_applicable { background: var(--jl-line); color: var(--jl-muted); }
 
+/* Accessories/Extended Warranty confirmation + itemized breakdown, top of
+   the Vehicle panel. */
+.jline__accessoriesPanel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 14px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--jl-line);
+}
+.jline__toggles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 8px;
+  background: var(--jl-ground);
+  border: 1px solid var(--jl-line);
+  border-radius: 10px;
+  padding: 4px 12px;
+}
+.jline__toggleRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 0;
+}
+.jline__toggleLabel { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.jline__toggleLabel strong { font-size: 0.84rem; color: var(--jl-ink); }
+.jline__toggleLabel small { font-size: 0.72rem; color: var(--jl-muted); }
+/* The checkbox/slider itself -- a read-only switch (Journey 360 is a
+   display, not a capture screen); state comes straight off the same
+   commercial amount the Delivery requirement gate itself checks
+   (accessoriesTaken/extendedWarrantyTaken), never a separate declared flag. */
+.jline__toggleSwitch {
+  flex: none;
+  position: relative;
+  width: 34px;
+  height: 19px;
+  border-radius: 999px;
+  background: #cdd8e2;
+  transition: background 0.15s ease;
+}
+.jline__toggleSwitch::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.3);
+  transition: left 0.15s ease;
+}
+.jline__toggleSwitch--on { background: var(--jl-teal); }
+.jline__toggleSwitch--on::after { left: 17px; }
+
+.jline__itemList {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.jline__itemListTitle {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--jl-muted);
+}
+.jline__itemRow {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 4px 0;
+  border-bottom: 1px dashed var(--jl-line);
+  font-size: 0.82rem;
+}
+.jline__itemRow:last-child { border-bottom: none; }
+.jline__itemRow strong { color: var(--jl-ink); font-variant-numeric: tabular-nums; white-space: nowrap; }
+
 @media (max-width: 720px) {
   .jline__strip { flex-direction: column; align-items: flex-start; }
   .jline__panelHead { flex-direction: column; }

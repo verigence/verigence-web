@@ -194,6 +194,16 @@
   color: #fff;
 }
 
+/* min-height doesn't apply to a plain inline <a> -- the Audit Flag card's
+   "Upload document" action reuses this class on a router Link, not a
+   button. */
+a.uc03-c3-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: fit-content;
+}
+
 .uc03-c3-primary:disabled,
 .uc03-c3-action-row button:disabled {
   cursor: not-allowed;

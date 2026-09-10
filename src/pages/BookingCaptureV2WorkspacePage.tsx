@@ -348,6 +348,7 @@ export default function BookingCaptureV2CompactPage() {
           <label className="uc03-delivery-v2-upload-button is-primary" aria-disabled={uploading}>
             {uploading ? 'Uploading…' : 'Choose Files'}
             <input
+              className="uc03-delivery-v2-file-input"
               type="file"
               accept="image/*,.pdf"
               multiple
@@ -362,6 +363,7 @@ export default function BookingCaptureV2CompactPage() {
           <label className="uc03-delivery-v2-upload-button" aria-disabled={uploading}>
             Take Photo
             <input
+              className="uc03-delivery-v2-file-input"
               type="file"
               accept="image/*"
               capture="environment"

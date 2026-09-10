@@ -25,6 +25,15 @@ import { useSessionStore } from '../store/sessionStore';
 
 const SUBMIT_BANNER_DURATION_MS = 6_000;
 
+// Same three finding_class values and labels as ReviewQueuePage's
+// CLASS_LABEL -- kept in sync deliberately so a finding reads the same way
+// whether it's seen here or in the Review Queue.
+const FINDING_CLASS_LABEL: Record<string, string> = {
+  DATA_GAP: 'Missing data',
+  DOCUMENT_GAP: 'Missing document',
+  VIOLATION: 'Violation',
+};
+
 function value(record: Record<string, unknown> | null | undefined, key: string): unknown {
   return record?.[key];
 }
@@ -1230,6 +1239,8 @@ function FlagsPanel({
           {shown.map((f) => {
             const sev = String(f.severity || 'INFO').toUpperCase();
             const cls = ['HIGH', 'CRITICAL'].includes(sev) ? 'bad' : 'warn';
+            const findingClass = String(f.findingClass || '').toUpperCase();
+            const ownerRole = String(f.ownerRoleCode || '').toUpperCase();
             const targetAspect = findingAspect(f as Record<string, unknown>);
             // A DOCUMENT_GAP finding's actual resolution is uploading the
             // missing document -- send the PC straight to the live Capture
@@ -1238,11 +1249,22 @@ function FlagsPanel({
             // 360 tab that has no upload control of its own. Previously this
             // always went to Booking's workspace regardless of stage, so a
             // Delivery document-gap flag opened the wrong stage entirely.
-            const isDocumentGap = String(f.findingClass || '').toUpperCase() === 'DOCUMENT_GAP';
+            const isDocumentGap = findingClass === 'DOCUMENT_GAP';
             const isDeliveryStage = String(f.stageCode || '').toUpperCase() === 'DELIVERY';
+            // findingAspect()'s own catch-all is 'flags' -- this exact tab --
+            // whenever no data tab owns the finding (a generic VIOLATION with
+            // no matching keyword, say). Selecting 'flags' from inside the
+            // Flags panel is a no-op the PC/TL can't tell apart from a dead
+            // click: "clicking a flag stays on the same details view instead
+            // of going to the Audit view." Route those to the real Audit
+            // view (/audit/:journeyId) instead, where every finding is
+            // listed and a VIOLATION can actually be accepted/rejected/resolved.
+            const hasNoOwningTab = targetAspect === 'flags';
             const goToTarget = () => {
               if (isDocumentGap && journeyId) {
                 navigate(isDeliveryStage ? `/v2/deliveries/${journeyId}` : `/v2/bookings/${journeyId}`);
+              } else if (hasNoOwningTab && journeyId) {
+                navigate(`/audit/${journeyId}`);
               } else {
                 onSelectAspect(targetAspect);
               }
@@ -1264,14 +1286,20 @@ function FlagsPanel({
               >
                 <span className="jline__findingMark" aria-hidden="true">!</span>
                 <div className="jline__findingBody">
+                  <div className="jline__findingTags">
+                    {findingClass && (
+                      <span className={`revq-tag revq-tag--${findingClass.toLowerCase()}`}>
+                        {FINDING_CLASS_LABEL[findingClass] || readable(findingClass)}
+                      </span>
+                    )}
+                    {ownerRole && <span className="jline__findingOwner">For {ownerRole}</span>}
+                  </div>
                   <strong>{String(f.title || 'Audit finding')}</strong>
                   {Boolean(f.description) && <small>{String(f.description)}</small>}
                   <small>
                     {readable(f.stageCode)} · {readable(f.findingStatus)}
-                    {f.findingClass ? <> · {readable(f.findingClass)}</> : null}
-                    {f.ownerRoleCode ? <> · owner {readable(f.ownerRoleCode)}</> : null}
                     {f.ruleKey ? <> · <code>{String(f.ruleKey)}</code></> : null}
-                    {' · '}{isDocumentGap ? '→ Upload document' : <>→ {readable(targetAspect)}</>}
+                    {' · '}{isDocumentGap ? '→ Upload document' : hasNoOwningTab ? '→ Audit view' : <>→ {readable(targetAspect)}</>}
                   </small>
                 </div>
                 <div>

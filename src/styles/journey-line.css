@@ -265,6 +265,19 @@
   background: var(--jl-coral); color: #fff;
   display: grid; place-items: center; font-weight: 800; font-size: 0.8rem;
 }
+.jline__findingTags { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; flex-wrap: wrap; }
+/* .revq-tag itself comes from uc03-review-queue.css (loaded globally) --
+   reused as-is so a finding's classification reads identically here and in
+   the Review Queue. */
+.jline__findingOwner {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: rgba(0, 58, 130, 0.08);
+  color: var(--jl-blue);
+}
 .jline__findingBody strong { display: block; font-size: 0.92rem; }
 .jline__findingBody small { display: block; color: var(--jl-muted); font-size: 0.78rem; margin-top: 2px; }
 .jline__findingBody code {

@@ -87,8 +87,8 @@
   display: grid;
   flex: 0 0 auto !important;
   gap: 1px;
-  min-width: 84px !important;
-  padding: 6px 12px;
+  min-width: 96px !important;
+  padding: 9px 16px;
   border: 1px solid var(--v2-border);
   border-radius: 999px;
   background: #fff;
@@ -98,13 +98,13 @@
 
 .uc03-delivery-v2-stat span {
   color: var(--v2-muted);
-  font-size: 0.68rem;
-  letter-spacing: 0.02em;
+  font-size: 0.72rem;
+  letter-spacing: 0.03em;
   text-transform: uppercase;
 }
 
 .uc03-delivery-v2-stat strong {
-  font-size: 0.98rem;
+  font-size: 1.4rem;
   font-variant-numeric: tabular-nums;
 }
 

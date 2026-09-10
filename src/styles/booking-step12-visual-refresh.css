@@ -34,7 +34,10 @@
   font-weight: 750;
 }
 
-.uc03-booking-journey .page-header {
+/* Excluded on .uc03-booking-v2-cards: that screen deliberately matches
+   Delivery's plain page-header (same component, same shared card-based
+   redesign) rather than this decorative banner treatment. */
+.uc03-booking-journey:not(.uc03-booking-v2-cards) .page-header {
   position: relative;
   overflow: hidden;
   margin-bottom: 14px;
@@ -48,7 +51,7 @@
   box-shadow: 0 10px 28px rgba(4, 53, 95, 0.05);
 }
 
-.uc03-booking-journey .page-header::after {
+.uc03-booking-journey:not(.uc03-booking-v2-cards) .page-header::after {
   content: '';
   position: absolute;
   inset: 0 0 auto;
@@ -56,14 +59,14 @@
   background: linear-gradient(90deg, var(--booking-navy), var(--booking-teal));
 }
 
-.uc03-booking-journey .page-header .eyebrow {
+.uc03-booking-journey:not(.uc03-booking-v2-cards) .page-header .eyebrow {
   color: var(--booking-teal-strong);
   font-size: 0.78rem;
   font-weight: 800;
   letter-spacing: 0.11em;
 }
 
-.uc03-booking-journey .page-header h1 {
+.uc03-booking-journey:not(.uc03-booking-v2-cards) .page-header h1 {
   margin: 5px 0 5px;
   color: var(--booking-navy-deep);
   font-size: clamp(1.8rem, 2.3vw, 2.25rem);
@@ -71,7 +74,7 @@
   letter-spacing: -0.025em;
 }
 
-.uc03-booking-journey .page-header p {
+.uc03-booking-journey:not(.uc03-booking-v2-cards) .page-header p {
   margin: 0;
   color: var(--booking-muted);
   font-size: 0.97rem;

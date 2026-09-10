@@ -6,6 +6,8 @@ import PageHeader from '../components/PageHeader';
 import StatusPill from '../components/StatusPill';
 import AttributeEvidenceViewer, { hasBoxedEvidence } from '../features/uc03/AttributeEvidenceViewer';
 import AuditSourceComparisonTable from '../features/uc03/AuditSourceComparisonTable';
+import ManualVerificationPanel from '../features/uc03/ManualVerificationPanel';
+import { isManualVerificationRule } from '../services/audit-core/manualVerification';
 import {
   actOnAuditFlag,
   addAuditFlagRemark,
@@ -117,20 +119,28 @@ function StageAuditCard({
 
 function FlagCard({
   flag,
+  journeyId,
+  tenantId,
+  accessToken,
   timezoneName,
   permittedActions,
   busy,
   evidenceOptions,
   onAction,
   onRemark,
+  onResolved,
 }: {
   flag: Uc03AuditFlag;
+  journeyId: string;
+  tenantId: string;
+  accessToken?: string;
   timezoneName: string;
   permittedActions: string[];
   busy: boolean;
   evidenceOptions: EvidenceOption[];
   onAction: (flag: Uc03AuditFlag, action: Uc03FlagAction, remarks: string, evidenceIds: string[]) => Promise<void>;
   onRemark: (flag: Uc03AuditFlag, remarks: string, evidenceIds: string[]) => Promise<void>;
+  onResolved: () => void;
 }) {
   const [remarks, setRemarks] = useState('');
   const [selectedEvidence, setSelectedEvidence] = useState<string[]>([]);
@@ -147,6 +157,8 @@ function FlagCard({
   const canDo = (action: string) =>
     flag.permittedActions.includes(action) || permittedActions.includes(action);
   const isViolation = flag.findingClass === 'VIOLATION';
+  const isDocumentGap = flag.findingClass === 'DOCUMENT_GAP';
+  const isManualVerification = isManualVerificationRule(flag.ruleKey);
   const open = ['OPEN', 'ACKNOWLEDGED'].includes(flag.status);
 
   const availableActions: Array<{ action: Uc03FlagAction; label: string; needsReason?: boolean }> = [];
@@ -159,7 +171,11 @@ function FlagCard({
   if (open && isViolation && canDo('ACCEPT')) {
     availableActions.push({ action: 'ACCEPT', label: 'Accept — confirmed breach', needsReason: true });
   }
-  if (open && !isViolation && canDo('RESOLVE')) {
+  // A document-gap finding is only genuinely fixed by uploading the missing
+  // document (see the "Upload document" action below) -- a self-declared
+  // "Mark fixed" changes nothing about the actual gap and self-heals on its
+  // own once the document is confirmed, so it isn't offered here.
+  if (open && !isViolation && !isDocumentGap && canDo('RESOLVE')) {
     availableActions.push({ action: 'RESOLVE', label: 'Mark fixed', needsReason: true });
   }
   if (open && isViolation && canDo('RESOLVE') && !canDo('ACCEPT')) {
@@ -220,6 +236,26 @@ function FlagCard({
         {flag.blockingCompletion && <strong>Audit completion guard</strong>}
       </div>
       {flag.resolutionReason && <div className="uc03-c3-resolution"><strong>Resolution:</strong> {flag.resolutionReason}</div>}
+
+      {open && isDocumentGap && (
+        <Link
+          className="uc03-c3-primary"
+          to={flag.stage === 'DELIVERY' ? `/v2/deliveries/${journeyId}` : `/v2/bookings/${journeyId}`}
+        >
+          Upload document →
+        </Link>
+      )}
+
+      {open && isManualVerification && (
+        <ManualVerificationPanel
+          journeyId={journeyId}
+          flagId={flag.flagId}
+          stage={flag.stage}
+          tenantId={tenantId}
+          accessToken={accessToken}
+          onResolved={onResolved}
+        />
+      )}
 
       {(permittedActions.includes('REMARK') || availableActions.length > 0) && (
         <div className="uc03-c3-review-box">
@@ -572,12 +608,16 @@ export default function AuditReviewPage() {
             <FlagCard
               key={flag.flagId}
               flag={flag}
+              journeyId={journeyId}
+              tenantId={project.tenantId}
+              accessToken={accessToken}
               timezoneName={project.timezoneName}
               permittedActions={summary?.permittedActions || []}
               busy={busy}
               evidenceOptions={evidenceOptions}
               onAction={actionFlag}
               onRemark={remarkFlag}
+              onResolved={() => { setMessage('Values verified.'); void refresh(); }}
             />
           ))}
           {flagsQuery.data?.length === 0 && <div className="uc03-c3-empty">No Audit Flags match this stage.</div>}

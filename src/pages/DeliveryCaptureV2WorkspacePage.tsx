@@ -4,7 +4,6 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 
 import PageHeader from '../components/PageHeader';
 import { DocumentCard, RequirementChecklistRow } from '../features/uc03/CaptureDocumentCard';
-import CaptureUploadInventory from '../features/uc03/CaptureUploadInventory';
 import { getDeliveryWorkspace, startDelivery } from '../services/audit-core/uc03Delivery';
 import {
   deleteDeliveryCaptureV2Document,
@@ -238,43 +237,6 @@ export default function DeliveryCaptureV2Page() {
   const mandatoryReceived = mandatory.filter((item) => Boolean(item.document)).length;
   const optional = capture.requirements.filter((item) => item.requirementLevel !== 'REQUIRED');
 
-  if (capture.submitted) {
-    return (
-      <div className="screen-stack uc03-v2-capture uc03-delivery-v2-page">
-        <div className="uc03-c1-topbar"><button type="button" className="uc03-c1-back" onClick={() => navigate('/dashboard')}>← Work List</button></div>
-        <PageHeader
-          eyebrow="Delivery · V2"
-          title="Delivery documents"
-          description="Step 1 of 2 · These documents were submitted by the earlier Delivery flow. Continue to Delivery Details; background document processing does not block the journey."
-        />
-        <nav className="uc03-booking-steps" aria-label="Delivery capture steps">
-          <button type="button" className="is-active" disabled>1 <span>Documents</span></button>
-          <button type="button" disabled>2 <span>Delivery Details</span></button>
-        </nav>
-        <section className="uc03-delivery-v2-summary" aria-label="Delivery document status">
-          <div><span>Documents received</span><strong>{capture.uploads.length}</strong></div>
-          <div><span>Documents classified</span><strong>{classified}/{capture.uploads.length}</strong></div>
-          <div><span>Configured mandatory received</span><strong>{mandatoryReceived}/{mandatory.length}</strong></div>
-          <div className={extracted === capture.uploads.length ? 'is-ready' : 'is-processing'}><span>{extracted === capture.uploads.length ? 'All documents extracted' : 'Classification continuing'}</span><strong>{clock}</strong></div>
-        </section>
-        <CaptureUploadInventory uploads={capture.uploads} readOnly title="Submitted Delivery documents" />
-        <section className="uc03-delivery-v2-submit-complete">
-          <div>
-            <strong>Ready for Delivery Details</strong>
-            <span>{classified} of {capture.uploads.length} uploaded document{capture.uploads.length === 1 ? '' : 's'} classified. Classification continues in the background and does not block Next.</span>
-          </div>
-          <button
-            type="button"
-            className="uc03-c1-primary"
-            onClick={() => navigate(`/v2/deliveries/${journeyId}?step=details&captureSubmitted=1`)}
-          >
-            Next →
-          </button>
-        </section>
-      </div>
-    );
-  }
-
   return (
     <div className="screen-stack uc03-v2-capture uc03-delivery-v2-page uc03-delivery-v2-page--cards">
       <div className="uc03-delivery-v2-topbar">
@@ -317,7 +279,11 @@ export default function DeliveryCaptureV2Page() {
       <PageHeader
         eyebrow="Delivery · V2"
         title="Delivery documents"
-        description="Step 1 of 2 · Missing documents and background classification are audit status only and do not block Next."
+        description={
+          capture.submitted
+            ? 'Step 1 of 2 · Already submitted to Delivery Details — you can still add more documents any time. Background classification never blocks the journey.'
+            : 'Step 1 of 2 · Missing documents and background classification are audit status only and do not block Next.'
+        }
       />
 
       {message ? <div className="uc03-booking-journey-feedback is-success" role="status">{message}</div> : null}
@@ -379,7 +345,8 @@ export default function DeliveryCaptureV2Page() {
               document={document}
               index={index}
               busy={deletingId === document.documentId}
-              onDelete={handleDelete}
+              readOnly={capture.submitted}
+              onDelete={capture.submitted ? undefined : handleDelete}
             />
           ))}
         </div>
@@ -410,16 +377,16 @@ export default function DeliveryCaptureV2Page() {
 
       <section className="uc03-delivery-v2-submit-bar">
         <div>
-          <strong>Ready for Delivery Details</strong>
+          <strong>{capture.submitted ? 'Documents step already submitted' : 'Ready for Delivery Details'}</strong>
           <span>{classified} of {capture.uploads.length} uploaded document{capture.uploads.length === 1 ? '' : 's'} classified. Classification continues in the background and does not block Next.</span>
         </div>
         <button
           type="button"
           className="uc03-c1-primary"
           disabled={!canGoNext}
-          onClick={() => navigate(`/v2/deliveries/${journeyId}?step=details`)}
+          onClick={() => navigate(`/v2/deliveries/${journeyId}?step=details${capture.submitted ? '&captureSubmitted=1' : ''}`)}
         >
-          {uploading ? 'Uploading…' : 'Next →'}
+          {uploading ? 'Uploading…' : capture.submitted ? 'Continue to Delivery Details →' : 'Next →'}
         </button>
       </section>
     </div>

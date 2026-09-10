@@ -54,6 +54,17 @@ function clientUploadId(): string {
 }
 
 const PENDING_CLASSIFICATION_STATES = new Set(['RECEIVING', 'STORED', 'CLASSIFYING']);
+// A CLASSIFIED document isn't done yet -- DI still has to extract/confirm it.
+// Keep polling for a bounded window per document so that transition (which
+// can take minutes, not the ~1s classification takes) actually reaches the
+// screen instead of only surfacing on the next unrelated refetch (e.g. the
+// PC uploading another file). Mirrors uc03DocumentCaptureV2.ts's Booking
+// equivalent -- this window was previously missing here, so Delivery's
+// Classified -> Extracted transition never polled and only appeared once
+// something else forced a re-read.
+const PENDING_PROCESSING_STATES = new Set(['NOT_STARTED', 'PROCESSING', 'RETRY_PENDING']);
+const EXTRACTION_POLL_WINDOW_MS = 2 * 60_000;
+const extractionPollStartedAt = new Map<string, number>();
 const LOCAL_CAPTURE_TIMEOUT_MS = 8_000;
 const LIVE_CAPTURE_TIMEOUT_MS = 18_000;
 const LIVE_REFRESH_MIN_INTERVAL_MS = 5_000;
@@ -116,19 +127,39 @@ export function deliveryCaptureV2IsProcessing(capture?: DeliveryCaptureV2): bool
   if (!capture) return false;
 
   const now = Date.now();
+  let pending = false;
+
   if (capture.externalContextRef.startsWith(LOCAL_FALLBACK_PREFIX)) {
     const startedAt = localFallbackPollStartedAt.get(capture.journeyId) ?? now;
     localFallbackPollStartedAt.set(capture.journeyId, startedAt);
-    if (now - startedAt < LOCAL_FALLBACK_POLL_WINDOW_MS) return true;
+    if (now - startedAt < LOCAL_FALLBACK_POLL_WINDOW_MS) pending = true;
   } else {
     localFallbackPollStartedAt.delete(capture.journeyId);
   }
 
-  return capture.uploads.some((document) => {
+  for (const document of capture.uploads) {
     const state = document.state.toUpperCase();
-    if (PENDING_CLASSIFICATION_STATES.has(state)) return true;
-    return state === 'CLASSIFIED' && !document.classifiedDocumentTypeKey;
-  });
+    if (PENDING_CLASSIFICATION_STATES.has(state)) {
+      pending = true;
+      continue;
+    }
+    if (state === 'CLASSIFIED' && !document.classifiedDocumentTypeKey) {
+      pending = true;
+      continue;
+    }
+
+    const processingStatus = document.processingStatus?.toUpperCase();
+    if (state === 'CLASSIFIED' && processingStatus && PENDING_PROCESSING_STATES.has(processingStatus)) {
+      const startedAt = extractionPollStartedAt.get(document.documentId) ?? now;
+      extractionPollStartedAt.set(document.documentId, startedAt);
+      if (now - startedAt < EXTRACTION_POLL_WINDOW_MS) pending = true;
+      continue;
+    }
+
+    extractionPollStartedAt.delete(document.documentId);
+  }
+
+  return pending;
 }
 
 export async function getDeliveryCaptureV2(

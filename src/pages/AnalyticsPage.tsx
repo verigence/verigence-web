@@ -159,7 +159,7 @@ function pivot<T>(
     grouped.set(label, target);
   });
 
-  const chartRows = Array.from(grouped.values())
+  const chartRows: Array<Record<string, string | number> & { label: string }> = Array.from(grouped.values())
     .map((row) => ({ ...row, label: String(row.label) }))
     .sort((a, b) => {
       const aTotal = series.reduce((sum, item) => sum + numeric(a[item.key]), 0);

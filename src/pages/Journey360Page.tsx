@@ -4,7 +4,6 @@ import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'reac
 
 import PageHeader from '../components/PageHeader';
 import StatusPill from '../components/StatusPill';
-import JourneyReviewedDetails from '../features/uc03/JourneyReviewedDetails';
 import {
   deriveAspects,
   deriveSteps,
@@ -14,7 +13,13 @@ import {
   type AspectMeta,
   type JourneyStep,
 } from '../features/uc03/journey/deriveJourneyLine';
-import { getUc03JourneyOverview, type JourneyOverview, type SkuPricing, type SkuPricingComponent } from '../services/audit-core/uc03JourneySearch';
+import {
+  getUc03JourneyOverview,
+  type JourneyOverview,
+  type JourneyReviewedField,
+  type SkuPricing,
+  type SkuPricingComponent,
+} from '../services/audit-core/uc03JourneySearch';
 import { useProjectContextStore } from '../store/projectContextStore';
 import { useSessionStore } from '../store/sessionStore';
 
@@ -477,58 +482,111 @@ function ReceiptAccordion({
   );
 }
 
-// ── Accordion document selector ─────────────────────────────────────────────
-function DocumentSelector({ documents }: { documents: Array<Record<string, unknown>> }) {
-  const [openId, setOpenId] = useState<string | null>(null);
+function formatFieldValue(v: unknown): string {
+  if (v === null || v === undefined || v === '') return '—';
+  if (typeof v === 'boolean') return v ? 'Yes' : 'No';
+  if (typeof v === 'object') {
+    try { return JSON.stringify(v); } catch { return String(v); }
+  }
+  return String(v);
+}
+
+function documentId(doc: Record<string, unknown>, idx: number): string {
+  return String(doc.documentId || doc.evidenceId || idx);
+}
+
+// ── Document dropdown: pick one document, see its own file + its own
+// extracted values only. Replaces a prior design that rendered every
+// document's every reviewed field, in every business category, all at
+// once, regardless of which (if any) document was open -- selecting one
+// document here now actually scopes what's shown to that document. ───────
+function DocumentSelector({
+  documents,
+  reviewedFields,
+}: {
+  documents: Array<Record<string, unknown>>;
+  reviewedFields: JourneyReviewedField[];
+}) {
+  const [selectedId, setSelectedId] = useState<string | null>(
+    documents.length > 0 ? documentId(documents[0], 0) : null,
+  );
   if (documents.length === 0) return <EmptySection>No active documents are linked to this Journey.</EmptySection>;
+
+  const selectedIndex = documents.findIndex((doc, idx) => documentId(doc, idx) === selectedId);
+  const selected = selectedIndex >= 0 ? documents[selectedIndex] : documents[0];
+  const selectedKey = documentId(selected, selectedIndex >= 0 ? selectedIndex : 0);
+
+  const label = readable(selected.documentTypeKey || selected.requirementKey || selected.originalFilename);
+  const stage = readable(selected.processArea || selected.evidencePurpose);
+  const status = String(selected.reviewStatus || selected.verificationStatus || selected.processingStatus || 'UNKNOWN');
+  const viewUrl = selected.contentUrl ? String(selected.contentUrl) : null;
+
+  // Only this document's own extracted values -- not the whole journey's.
+  const fields = reviewedFields
+    .filter((field) => field.documentId === selectedKey)
+    .sort((a, b) => a.semanticKey.localeCompare(b.semanticKey));
+
   return (
-    <div className="journey-360-doc-list">
-      {documents.map((doc, idx) => {
-        const id = String(doc.documentId || doc.evidenceId || idx);
-        const isOpen = openId === id;
-        const label = readable(doc.documentTypeKey || doc.requirementKey || doc.originalFilename);
-        const stage = readable(doc.processArea || doc.evidencePurpose);
-        const status = String(doc.reviewStatus || doc.verificationStatus || doc.processingStatus || 'UNKNOWN');
-        const viewUrl = doc.contentUrl ? String(doc.contentUrl) : null;
-        return (
-          <div key={id} className={`journey-360-doc-row${isOpen ? ' journey-360-doc-row--open' : ''}`}>
-            <button
-              type="button"
-              className="journey-360-doc-trigger"
-              onClick={() => setOpenId(isOpen ? null : id)}
-              aria-expanded={isOpen}
-            >
-              <span className="journey-360-document-mark">DOC</span>
-              <span className="journey-360-doc-trigger__label">
-                <strong>{label}</strong>
-                <small>{stage}</small>
-              </span>
-              <StatusPill value={status} compact />
-              <span className="journey-360-doc-trigger__chevron" aria-hidden="true">{isOpen ? '▲' : '▼'}</span>
-            </button>
-            {isOpen && (
-              <div className="journey-360-doc-detail">
-                <div className="journey-360-facts journey-360-facts--single">
-                  <Fact label="Document Type">{label}</Fact>
-                  <Fact label="Stage">{stage}</Fact>
-                  <Fact label="Status"><StatusPill value={status} /></Fact>
-                  {Boolean(doc.originalFilename) && <Fact label="File">{String(doc.originalFilename)}</Fact>}
-                  {Boolean(doc.requirementKey) && <Fact label="Requirement">{readable(doc.requirementKey)}</Fact>}
-                  {Boolean(doc.captureStatus) && <Fact label="Capture Status">{readable(doc.captureStatus)}</Fact>}
-                  {Boolean(doc.linkedAtUtc) && <Fact label="Linked">{dateLabel(doc.linkedAtUtc)}</Fact>}
-                </div>
-                {viewUrl && (
-                  <div className="journey-360-doc-view-row">
-                    <a href={viewUrl} target="_blank" rel="noopener noreferrer" className="journey-360-doc-view-btn">
-                      View document ↗
-                    </a>
-                  </div>
-                )}
-              </div>
-            )}
+    <div className="journey-360-doc-picker">
+      <label className="journey-360-doc-picker__label" htmlFor="journey-360-doc-select">
+        Select a document ({documents.length} on this Journey)
+      </label>
+      <select
+        id="journey-360-doc-select"
+        className="journey-360-doc-picker__select"
+        value={selectedKey}
+        onChange={(event) => setSelectedId(event.target.value)}
+      >
+        {documents.map((doc, idx) => {
+          const id = documentId(doc, idx);
+          const optLabel = readable(doc.documentTypeKey || doc.requirementKey || doc.originalFilename);
+          const filename = doc.originalFilename ? ` — ${String(doc.originalFilename)}` : '';
+          return <option key={id} value={id}>{optLabel}{filename}</option>;
+        })}
+      </select>
+
+      <div className="journey-360-doc-detail">
+        <div className="journey-360-facts journey-360-facts--single">
+          <Fact label="Document Type">{label}</Fact>
+          <Fact label="Stage">{stage}</Fact>
+          <Fact label="Status"><StatusPill value={status} /></Fact>
+          {Boolean(selected.originalFilename) && <Fact label="File">{String(selected.originalFilename)}</Fact>}
+          {Boolean(selected.requirementKey) && <Fact label="Requirement">{readable(selected.requirementKey)}</Fact>}
+          {Boolean(selected.captureStatus) && <Fact label="Capture Status">{readable(selected.captureStatus)}</Fact>}
+          {Boolean(selected.linkedAtUtc) && <Fact label="Linked">{dateLabel(selected.linkedAtUtc)}</Fact>}
+        </div>
+        {viewUrl && (
+          <div className="journey-360-doc-view-row">
+            <a href={viewUrl} target="_blank" rel="noopener noreferrer" className="journey-360-doc-view-btn">
+              View document ↗
+            </a>
           </div>
-        );
-      })}
+        )}
+        {fields.length > 0 ? (
+          <div className="journey-360-table-wrap">
+            <table className="journey-360-table">
+              <thead>
+                <tr><th>Attribute</th><th>Extracted value</th><th>Confidence</th></tr>
+              </thead>
+              <tbody>
+                {fields.map((field) => (
+                  <tr key={field.reviewedFieldId}>
+                    <td><strong>{readable(field.semanticKey)}</strong></td>
+                    <td>{formatFieldValue(field.displayValue)}</td>
+                    <td>
+                      {field.confidenceScore !== null && field.confidenceScore !== undefined
+                        ? `${field.confidenceScore}${field.confidenceScale ? ` ${field.confidenceScale}` : ''}`
+                        : '—'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <p className="jline__empty">No extracted values retained for this document.</p>
+        )}
+      </div>
     </div>
   );
 }
@@ -949,6 +1007,63 @@ function InvoicesPanel({
   );
 }
 
+function cellText(v: unknown): string {
+  return v === null || v === undefined || v === '' ? '—' : String(v);
+}
+
+/** Every reviewed invoice's own headline amount, with its line items broken
+ * out as a column on the same row (the "additional column" representation
+ * asked for) -- so a PC/TL can see what was invoiced right next to what was
+ * actually collected, without leaving the Payments tab. */
+function InvoiceAmountsTable({ invoices }: { invoices: Array<Record<string, unknown>> }) {
+  if (invoices.length === 0) return null;
+  return (
+    <div className="jline__tableWrap" style={{ marginTop: 14 }}>
+      <table className="jline__table">
+        <thead>
+          <tr>
+            <th>Invoice No.</th>
+            <th>Type</th>
+            <th>Date</th>
+            <th>Seller</th>
+            <th>Financed By</th>
+            <th>Grand Total</th>
+            <th>Line Items</th>
+          </tr>
+        </thead>
+        <tbody>
+          {invoices.map((invoice, idx) => {
+            const items = Array.isArray(invoice.lineItems) ? invoice.lineItems as Array<Record<string, unknown>> : [];
+            const isCreditNote = String(invoice.invoiceNature || '').toUpperCase() === 'CREDIT_NOTE';
+            return (
+              <tr key={String(invoice.invoiceReviewValueId || idx)}>
+                <td>{cellText(invoice.invoiceNumber)}{isCreditNote ? ' (Credit Note)' : ''}</td>
+                <td>{readable(invoice.documentTypeKey)}</td>
+                <td>{dateLabel(invoice.invoiceDate)}</td>
+                <td>{cellText(invoice.sellerName)}</td>
+                <td>{cellText(invoice.financedBy)}</td>
+                <td className={isCreditNote ? 'jline__delta--under' : undefined}>{money(invoice.grandTotalAmount)}</td>
+                <td>
+                  {items.length > 0 ? (
+                    <div className="jline__invoiceItems">
+                      {items.map((item, itemIdx) => (
+                        <div className="jline__invoiceItem" key={itemIdx}>
+                          <span>{lineItemLabel(item)}</span>
+                          <strong>{money(lineItemAmount(item))}</strong>
+                        </div>
+                      ))}
+                    </div>
+                  ) : '—'}
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 function PaymentsPanel({
   model,
   receipts,
@@ -987,6 +1102,7 @@ function PaymentsPanel({
         title="Payments received"
         hint={receipts.length > 0 ? `${money(total)} across ${receipts.length} receipt${receipts.length !== 1 ? 's' : ''} · ${matched} bank-matched · ${unmatched} unmatched` : undefined}
       />
+      <InvoiceAmountsTable invoices={model.invoices || []} />
       {receipts.length === 0 && pendingReceipts.length === 0 && ledgerOnly.length === 0 ? (
         reviewedBooking && Object.keys(reviewedBooking).length > 0 ? (
           <FactList>
@@ -1215,9 +1331,8 @@ function FocusPanel({
     case 'documents':
       body = (
         <>
-          <PanelHead title="Documents" hint="Open a document to see its details, then View to open the file." />
-          <DocumentSelector documents={model.evidence} />
-          <JourneyReviewedDetails fields={model.reviewedFields || []} />
+          <PanelHead title="Documents" hint="Pick a document to open the file and see only its own extracted values." />
+          <DocumentSelector documents={model.evidence} reviewedFields={model.reviewedFields || []} />
         </>
       );
       break;

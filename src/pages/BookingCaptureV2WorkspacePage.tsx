@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useParams } from 'react-router-dom';
 
 import PageHeader from '../components/PageHeader';
-import StatusPill from '../components/StatusPill';
+import { DocumentCard, RequirementChecklistRow } from '../features/uc03/CaptureDocumentCard';
 import { getBookingWorkspace, startBooking } from '../services/audit-core/uc03Booking';
 import { getBookingDetails } from '../services/audit-core/uc03BookingJourney';
 import {
@@ -18,7 +18,10 @@ import { useProjectContextStore } from '../store/projectContextStore';
 import { useSessionStore } from '../store/sessionStore';
 import '../styles/uc03-document-capture-v2.css';
 import '../styles/uc03-document-capture-v2-compact.css';
-import '../styles/uc03-document-capture-v2-business.css';
+// The hero's upload buttons deliberately reuse .uc03-delivery-v2-upload-button
+// (styled globally via uc03-delivery-v2-capture-hotfix.css, loaded in
+// main.tsx) rather than duplicating the same button chrome under a new name.
+import '../styles/uc03-booking-capture-cards.css';
 
 const CAPTURE_STALE_MS = 3_000;
 const CAPTURE_POLL_MS = 1_000;
@@ -55,113 +58,6 @@ function hasClassificationInFlight(capture?: BookingCaptureV2): boolean {
   });
 }
 
-function requirementLevel(requirement: CaptureV2Requirement, alternativeSatisfied = false): string {
-  if (alternativeSatisfied && !requirement.document) return 'ALTERNATIVE MET';
-  if (requirement.requirementLevel === 'REQUIRED') return 'EXPECTED';
-  if (requirement.requirementLevel === 'CONDITIONAL') return 'IF APPLICABLE';
-  return 'OPTIONAL';
-}
-
-// A document's life after upload: it lands (UPLOADING), DI assigns it a type
-// (CLASSIFIED), then extraction finishes (EXTRACTED) -- surfacing each step
-// rather than jumping straight to "CLASSIFIED" the instant a file lands.
-function documentStage(requirement: CaptureV2Requirement): 'UPLOADING' | 'CLASSIFIED' | 'EXTRACTED' | 'FAILED' | undefined {
-  const document = requirement.document;
-  if (!document) return undefined;
-  const state = document.state.trim().toUpperCase();
-  const processing = document.processingStatus?.trim().toUpperCase();
-  if (state === 'FAILED' || processing === 'FAILED') return 'FAILED';
-  if (state !== 'CLASSIFIED' || !document.classifiedDocumentTypeKey) return 'UPLOADING';
-  if (processing === 'PROCESSED') return 'EXTRACTED';
-  return 'CLASSIFIED';
-}
-
-function documentStatus(requirement: CaptureV2Requirement, alternativeSatisfied = false): string {
-  const stage = documentStage(requirement);
-  if (stage) return stage;
-  if (alternativeSatisfied) return 'NOT NEEDED';
-  if (requirement.state === 'NOT_APPLICABLE') return 'NOT APPLICABLE';
-  if (requirement.requirementLevel !== 'REQUIRED') return 'OPTIONAL';
-  return 'NOT UPLOADED';
-}
-
-function requirementMessage(requirement: CaptureV2Requirement, alternativeSatisfied = false): string {
-  const stage = documentStage(requirement);
-  if (stage === 'FAILED') return 'Needs a follow-up look';
-  if (stage === 'UPLOADING') return 'Uploaded · classification starting shortly';
-  if (stage === 'CLASSIFIED') return 'Classified · extracting review values';
-  if (stage === 'EXTRACTED') return 'Extracted · review values ready';
-  if (alternativeSatisfied) return 'Customer ID evidence already available';
-  if (requirement.state === 'NOT_APPLICABLE') return 'Not applicable to this Booking';
-  if (requirement.requirementLevel === 'REQUIRED') return 'Expected for the audit pack · missing evidence will be flagged';
-  return 'Upload only if applicable and available';
-}
-
-function RequirementRow({
-  requirement,
-  busyDocumentId,
-  onDelete,
-  onUpload,
-  alternativeSatisfied = false,
-  levelOverride,
-}: {
-  requirement: CaptureV2Requirement;
-  busyDocumentId?: string;
-  onDelete: (documentId: string) => Promise<void>;
-  onUpload: (files: File[]) => Promise<void>;
-  alternativeSatisfied?: boolean;
-  levelOverride?: string;
-}) {
-  const document = requirement.document;
-  const deleting = document?.documentId === busyDocumentId;
-  const stage = documentStage(requirement);
-
-  return (
-    <article
-      id={`requirement-${requirement.requirementKey}`}
-      className={`uc03-v2-compact-row ${document || alternativeSatisfied ? 'is-ready' : ''} ${stage ? `is-${stage.toLowerCase()}` : ''}`}
-    >
-      <div className="uc03-v2-compact-row__name">
-        <strong>{requirement.label}</strong>
-        <span>{levelOverride || requirementLevel(requirement, alternativeSatisfied)}</span>
-      </div>
-
-      <div className="uc03-v2-compact-row__status">
-        <StatusPill value={documentStatus(requirement, alternativeSatisfied)} compact />
-        <span title={document?.originalFilename || requirement.label}>
-          {requirementMessage(requirement, alternativeSatisfied)}
-        </span>
-      </div>
-
-      <div className="uc03-v2-compact-row__actions">
-        {document && requirement.canView && document.contentUrl ? (
-          <a href={document.contentUrl} target="_blank" rel="noreferrer">View</a>
-        ) : null}
-        {document && requirement.canDelete ? (
-          <button type="button" disabled={deleting} onClick={() => void onDelete(document.documentId)}>
-            {deleting ? 'Removing…' : 'Delete'}
-          </button>
-        ) : null}
-        {document ? (
-          <label aria-disabled={deleting}>
-            Replace
-            <input
-              type="file"
-              accept="image/*,.pdf"
-              disabled={deleting}
-              onChange={(event) => {
-                const files = Array.from(event.currentTarget.files ?? []);
-                event.currentTarget.value = '';
-                void onUpload(files);
-              }}
-            />
-          </label>
-        ) : null}
-      </div>
-    </article>
-  );
-}
-
 export default function BookingCaptureV2CompactPage() {
   const { journeyId } = useParams<{ journeyId: string }>();
   const navigate = useNavigate();
@@ -175,7 +71,7 @@ export default function BookingCaptureV2CompactPage() {
   const [message, setMessage] = useState<string>();
   const [error, setError] = useState<string>();
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
-  const [helpOpen, setHelpOpen] = useState(false);
+  const [checklistOpen, setChecklistOpen] = useState(false);
   const readinessStartedAt = useRef<number | undefined>(undefined);
 
   const enabled = Boolean(project?.tenantId && journeyId && accessToken);
@@ -217,6 +113,7 @@ export default function BookingCaptureV2CompactPage() {
   );
   const bookingFormDocuments = mandatoryDocuments.filter(isBookingFormRequirement);
   const otherMandatoryDocuments = mandatoryDocuments.filter((item) => !isBookingFormRequirement(item));
+  const expectedDocuments = [...bookingFormDocuments, ...otherMandatoryDocuments];
 
   const auditObservations = useMemo(() => {
     if (!capture) return [] as Array<{ key: string; text: string; target?: string }>;
@@ -368,10 +265,9 @@ export default function BookingCaptureV2CompactPage() {
 
   if (!started) {
     return (
-      <div className="screen-stack uc03-booking-journey uc03-v2-capture uc03-v2-compact">
+      <div className="screen-stack uc03-booking-journey uc03-v2-capture uc03-booking-v2-cards">
         <div className="uc03-c1-topbar">
           <button type="button" className="uc03-c1-back" onClick={() => navigate('/dashboard')}>← Work List</button>
-
         </div>
         <PageHeader eyebrow="Capture New Booking · V2" title={customerName} description="Step 1 of 2 · Documents" />
         <section className="uc03-c1-start-panel">
@@ -402,38 +298,35 @@ export default function BookingCaptureV2CompactPage() {
   const uploadedCount = capture.uploads.length;
   const classifiedCount = capture.uploads.filter((item) => item.state.toUpperCase() === 'CLASSIFIED' && item.classifiedDocumentTypeKey).length;
   const extractionReadyCount = capture.uploads.filter((item) => item.processingStatus?.toUpperCase() === 'PROCESSED').length;
-  const unmatchedUploads = capture.uploads.filter((upload) =>
-    !capture.requirements.some((requirement) => requirement.document?.documentId === upload.documentId));
-
-  const businessStatus = uploading
-    ? {
-      title: 'Documents uploading',
-      detail: 'The selected Booking documents are being uploaded.',
-      className: 'is-active',
-    }
-    : classificationInFlight
-      ? {
-        title: 'Documents being classified',
-        detail: `${classifiedCount} of ${uploadedCount} uploaded document${uploadedCount === 1 ? '' : 's'} identified so far. You can continue while this finishes.`,
-        className: 'is-active',
-      }
-      : uploadedCount > 0
-        ? {
-          title: 'Documents uploaded',
-          detail: `${classifiedCount} document${classifiedCount === 1 ? '' : 's'} identified. Review values continue to prepare in the background.`,
-          className: 'is-ready',
-        }
-        : {
-          title: 'Upload Booking documents',
-          detail: 'Upload the documents available to you. Missing evidence will be highlighted for audit follow-up, not used to stop the Booking.',
-          className: '',
-        };
+  const mandatoryTotal = expectedDocuments.length + (identityRequirements.length > 0 ? 1 : 0);
+  const mandatoryReceived = expectedDocuments.filter((item) => item.document).length + (identitySatisfied ? 1 : 0);
 
   return (
-    <div className="screen-stack uc03-booking-journey uc03-v2-capture uc03-v2-compact">
-      <div className="uc03-c1-topbar">
-        <button type="button" className="uc03-c1-back" onClick={() => navigate('/dashboard')}>← Work List</button>
-
+    <div className="screen-stack uc03-booking-journey uc03-v2-capture uc03-booking-v2-cards">
+      <div className="uc03-booking-v2-topbar">
+        <button type="button" className="uc03-booking-v2-back" onClick={() => navigate('/dashboard')}>← Work List</button>
+        <div className="uc03-booking-v2-topbar__stats">
+          <div className="uc03-booking-v2-stat">
+            <span>Uploaded</span>
+            <strong>{uploadedCount}</strong>
+          </div>
+          <div className="uc03-booking-v2-stat">
+            <span>Classified</span>
+            <strong>{classifiedCount}</strong>
+          </div>
+          <div className={`uc03-booking-v2-stat ${uploadedCount > 0 && extractionReadyCount === uploadedCount ? 'is-ready' : ''}`}>
+            <span>Extracted</span>
+            <strong>{extractionReadyCount}</strong>
+          </div>
+        </div>
+        <button
+          type="button"
+          className="uc03-booking-v2-checklist-toggle"
+          aria-expanded={checklistOpen}
+          onClick={() => setChecklistOpen((value) => !value)}
+        >
+          Checklist <em>{mandatoryReceived}/{mandatoryTotal}</em>
+        </button>
       </div>
 
       <PageHeader
@@ -450,149 +343,89 @@ export default function BookingCaptureV2CompactPage() {
       {message ? <div className="uc03-booking-journey-feedback is-success" role="status">{message}</div> : null}
       {error ? <div className="uc03-booking-journey-feedback is-error" role="alert">{error}</div> : null}
 
-      <section className={`uc03-v2-business-status ${businessStatus.className}`} role="status">
-        <div>
-          <strong>{businessStatus.title}</strong>
-          <span>{businessStatus.detail}</span>
+      <section className="uc03-booking-v2-hero">
+        <div className="uc03-booking-v2-hero__actions">
+          <label className="uc03-delivery-v2-upload-button is-primary" aria-disabled={uploading}>
+            {uploading ? 'Uploading…' : 'Choose Files'}
+            <input
+              type="file"
+              accept="image/*,.pdf"
+              multiple
+              disabled={uploading}
+              onChange={(event) => {
+                const files = Array.from(event.currentTarget.files ?? []);
+                event.currentTarget.value = '';
+                void handleUpload(files);
+              }}
+            />
+          </label>
+          <label className="uc03-delivery-v2-upload-button" aria-disabled={uploading}>
+            Take Photo
+            <input
+              type="file"
+              accept="image/*"
+              capture="environment"
+              disabled={uploading}
+              onChange={(event) => {
+                const files = Array.from(event.currentTarget.files ?? []);
+                event.currentTarget.value = '';
+                void handleUpload(files);
+              }}
+            />
+          </label>
         </div>
-        <strong className="uc03-v2-business-status__time">{formatElapsed(elapsedSeconds)}</strong>
+        <p>Select multiple files together — Verigence identifies each document type in the background.</p>
       </section>
 
-      <section className="uc03-v2-compact-summary business-summary" aria-label="Booking document status">
-        <div><strong>{uploadedCount}</strong><span>Documents uploaded</span></div>
-        <div><strong>{classifiedCount}/{uploadedCount || 0}</strong><span>Documents classified</span></div>
-        <div><strong>{extractionReadyCount}/{uploadedCount || 0}</strong><span>Review values ready</span></div>
-      </section>
-
-      <section className="uc03-v2-compact-panel">
-        <div className="uc03-v2-compact-upload">
-          <div className="uc03-v2-upload-copy">
-            <div className="uc03-v2-upload-title-row">
-              <strong>Booking documents</strong>
-              <button
-                type="button"
-                className="uc03-v2-help-button"
-                aria-label="Which Booking documents should I upload?"
-                aria-expanded={helpOpen}
-                onClick={() => setHelpOpen((value) => !value)}
-              >?</button>
-            </div>
-            <span>Upload all available documents together. No document type selection is required.</span>
-            {helpOpen ? (
-              <div className="uc03-v2-document-help uc03-v2-help-summary" role="status">
-                <div>
-                  <strong>Expected audit pack</strong>
-                  <ul>
-                    {bookingFormDocuments.map((item) => <li key={item.requirementKey}>{item.label}</li>)}
-                    <li>Customer ID \u2014 PAN or Aadhaar</li>
-                    {otherMandatoryDocuments.map((item) => <li key={item.requirementKey}>{item.label}</li>)}
-                  </ul>
-                </div>
-                <small>Missing documents are recorded as audit exceptions and do not stop the Booking.</small>
-              </div>
-            ) : null}
-          </div>
-
-          <div className="uc03-v2-upload-actions">
-            <label className="uc03-c1-primary" aria-disabled={uploading}>
-              {uploading ? 'Uploading…' : 'Choose Files'}
-              <input
-                type="file"
-                accept="image/*,.pdf"
-                multiple
-                disabled={uploading}
-                onChange={(event) => {
-                  const files = Array.from(event.currentTarget.files ?? []);
-                  event.currentTarget.value = '';
-                  void handleUpload(files);
-                }}
-              />
-            </label>
-            <label className="uc03-v2-camera-action" aria-disabled={uploading}>
-              Take Photo
-              <input
-                type="file"
-                accept="image/*"
-                capture="environment"
-                disabled={uploading}
-                onChange={(event) => {
-                  const files = Array.from(event.currentTarget.files ?? []);
-                  event.currentTarget.value = '';
-                  void handleUpload(files);
-                }}
-              />
-            </label>
-          </div>
+      {capture.uploads.length > 0 ? (
+        <div className="uc03-doc-card-grid">
+          {capture.uploads.map((document, index) => (
+            <DocumentCard
+              key={document.documentId}
+              document={document}
+              index={index}
+              busy={busyDocumentId === document.documentId}
+              onDelete={handleDelete}
+            />
+          ))}
         </div>
+      ) : (
+        <p className="uc03-doc-card-grid__empty">No documents yet — choose files above to get started.</p>
+      )}
 
-        <div className="uc03-v2-document-groups">
-          <section className="uc03-v2-document-group">
-            <header className="uc03-v2-document-group__header">
-              <div>
-                <strong>Expected audit documents</strong>
-                <span>Booking Form and customer identification are expected evidence. Missing items will be flagged, not blocked.</span>
-              </div>
-              <span className="uc03-v2-document-group__badge">Expected</span>
-            </header>
-
-            <div className="uc03-v2-compact-list">
-              {[...bookingFormDocuments, ...otherMandatoryDocuments].map((requirement) => (
-                <RequirementRow
-                  key={requirement.requirementKey}
-                  requirement={requirement}
-                  busyDocumentId={busyDocumentId}
-                  onDelete={handleDelete}
-                  onUpload={handleUpload}
-                />
+      {checklistOpen ? (
+        <aside className="uc03-capture-checklist-panel" role="dialog" aria-label="Booking document checklist">
+          <header>
+            <strong>Document checklist</strong>
+            <button type="button" onClick={() => setChecklistOpen(false)} aria-label="Close checklist">×</button>
+          </header>
+          <p>These are audit expectations. A missing or still-processing document never blocks Continue.</p>
+          {expectedDocuments.length ? (
+            <section className="uc03-checklist-group">
+              <h3>Expected audit documents <span>{expectedDocuments.length}</span></h3>
+              {expectedDocuments.map((requirement) => (
+                <RequirementChecklistRow key={requirement.requirementKey} requirement={requirement} />
               ))}
-            </div>
-
-            {identityRequirements.length > 0 ? (
-              <div id="identity-document-group" className="uc03-v2-identity-choice">
-                <header className="uc03-v2-identity-choice__header">
-                  <div>
-                    <strong>Customer ID</strong>
-                    <span>PAN or Aadhaar is sufficient when available.</span>
-                  </div>
-                  <span className="uc03-v2-identity-choice__state">
-                    {identitySatisfied ? 'Evidence available' : 'Not uploaded'}
-                  </span>
-                </header>
-                <div className="uc03-v2-compact-list">
-                  {identityRequirements.map((requirement) => (
-                    <RequirementRow
-                      key={requirement.requirementKey}
-                      requirement={requirement}
-                      busyDocumentId={busyDocumentId}
-                      onDelete={handleDelete}
-                      onUpload={handleUpload}
-                      levelOverride="ANY ONE"
-                      alternativeSatisfied={identitySatisfied && !requirement.document}
-                    />
-                  ))}
+            </section>
+          ) : null}
+          {identityRequirements.length > 0 ? (
+            <section className="uc03-checklist-group" id="identity-document-group">
+              <h3>Customer ID <span>Any one</span></h3>
+              <div className={`uc03-checklist-row ${identitySatisfied ? 'is-received' : ''}`}>
+                <span className="uc03-checklist-row__dot" aria-hidden="true" />
+                <div>
+                  <strong>PAN or Aadhaar</strong>
+                  <span>Either is sufficient when available</span>
                 </div>
+                <em>{identitySatisfied ? 'Received' : 'Not received'}</em>
               </div>
-            ) : null}
-          </section>
-        </div>
-
-        {unmatchedUploads.length ? (
-          <div className="uc03-v2-compact-unmatched">
-            {unmatchedUploads.map((upload) => (
-              <div key={upload.documentId}>
-                <span>
-                  <strong>{upload.originalFilename}</strong> · {upload.state.toUpperCase() === 'CLASSIFIED' && upload.classifiedDocumentTypeKey
-                    ? `Classified as ${upload.classifiedDocumentTypeKey} · retained as a separate document.`
-                    : 'Document received; classification is still being confirmed.'}
-                </span>
-                <button type="button" disabled={busyDocumentId === upload.documentId} onClick={() => void handleDelete(upload.documentId)}>
-                  Delete
-                </button>
-              </div>
-            ))}
-          </div>
-        ) : null}
-      </section>
+            </section>
+          ) : null}
+          {expectedDocuments.length === 0 && identityRequirements.length === 0 ? (
+            <p className="uc03-checklist-empty">No configured checklist for this Booking.</p>
+          ) : null}
+        </aside>
+      ) : null}
 
       <section className={`uc03-v2-compact-gate ${canProceed ? 'is-ready' : 'is-blocked'}`}>
         <div className="uc03-v2-compact-gate__copy">

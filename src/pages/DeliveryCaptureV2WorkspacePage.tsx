@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 
 import PageHeader from '../components/PageHeader';
+import { DocumentCard, RequirementChecklistRow } from '../features/uc03/CaptureDocumentCard';
 import CaptureUploadInventory from '../features/uc03/CaptureUploadInventory';
 import { getDeliveryWorkspace, startDelivery } from '../services/audit-core/uc03Delivery';
 import {
@@ -11,7 +12,7 @@ import {
   getDeliveryCaptureV2,
   uploadDeliveryCaptureV2Files,
 } from '../services/audit-core/uc03DeliveryCaptureV2';
-import type { CaptureV2Document, CaptureV2Requirement } from '../services/audit-core/uc03DocumentCaptureV2';
+import type { CaptureV2Requirement } from '../services/audit-core/uc03DocumentCaptureV2';
 import { useProjectContextStore } from '../store/projectContextStore';
 import { useSessionStore } from '../store/sessionStore';
 import DeliveryDetailsV2Page from './DeliveryDetailsV2Page';
@@ -21,14 +22,6 @@ import '../styles/uc03-delivery-capture-v2.css';
 const POLL_MS = 1_000;
 
 type DeliveryGroupKey = 'INVOICES' | 'PAYMENTS' | 'OTHERS';
-type CardStatus = 'uploaded' | 'classified' | 'extracted' | 'failed';
-
-const CARD_STATUS_LABEL: Record<CardStatus, string> = {
-  uploaded: 'Uploaded',
-  classified: 'Classified',
-  extracted: 'Extracted',
-  failed: 'Needs attention',
-};
 
 function normalize(value: string): string {
   return value.replace(/[_-]+/g, ' ').trim().toLowerCase();
@@ -52,70 +45,6 @@ function elapsed(startedAt: number): string {
   const minutes = Math.floor(seconds / 60).toString().padStart(2, '0');
   const remaining = (seconds % 60).toString().padStart(2, '0');
   return `${minutes}:${remaining}`;
-}
-
-function cardStatus(document: CaptureV2Document): CardStatus {
-  const state = document.state.trim().toUpperCase();
-  const processing = document.processingStatus?.trim().toUpperCase();
-  if (state === 'FAILED' || processing === 'FAILED') return 'failed';
-  if (state !== 'CLASSIFIED' || !document.classifiedDocumentTypeKey) return 'uploaded';
-  if (processing === 'PROCESSED') return 'extracted';
-  return 'classified';
-}
-
-function DocumentCard({
-  document,
-  index,
-  busy,
-  readOnly,
-  onDelete,
-}: {
-  document: CaptureV2Document;
-  index: number;
-  busy?: boolean;
-  readOnly?: boolean;
-  onDelete?: (documentId: string) => Promise<void>;
-}) {
-  const status = cardStatus(document);
-  return (
-    <article className={`uc03-doc-card is-${status}`}>
-      <header>
-        <span className="uc03-doc-card__index">Doc {index + 1}</span>
-        {!readOnly && onDelete ? (
-          <button
-            type="button"
-            className="uc03-doc-card__delete"
-            disabled={busy}
-            onClick={() => void onDelete(document.documentId)}
-            aria-label={`Remove ${document.originalFilename}`}
-          >
-            {busy ? '…' : '×'}
-          </button>
-        ) : null}
-      </header>
-      <strong className="uc03-doc-card__name" title={document.originalFilename}>{document.originalFilename}</strong>
-      <div className="uc03-doc-card__status">
-        <span className="uc03-doc-card__dot" aria-hidden="true" />
-        {CARD_STATUS_LABEL[status]}
-      </div>
-      {document.classifiedDocumentTypeKey ? <span className="uc03-doc-card__type">{document.classifiedDocumentTypeKey}</span> : null}
-      {document.contentUrl ? <a className="uc03-doc-card__view" href={document.contentUrl} target="_blank" rel="noreferrer">View original</a> : null}
-    </article>
-  );
-}
-
-function RequirementChecklistRow({ requirement }: { requirement: CaptureV2Requirement }) {
-  const received = Boolean(requirement.document);
-  return (
-    <div className={`uc03-checklist-row ${received ? 'is-received' : ''}`}>
-      <span className="uc03-checklist-row__dot" aria-hidden="true" />
-      <div>
-        <strong>{requirement.label}</strong>
-        <span>{requirement.requirementLevel === 'REQUIRED' ? 'Mandatory' : 'Optional / if applicable'}</span>
-      </div>
-      <em>{received ? 'Received' : 'Not received'}</em>
-    </div>
-  );
 }
 
 export default function DeliveryCaptureV2Page() {
@@ -428,7 +357,7 @@ export default function DeliveryCaptureV2Page() {
       )}
 
       {checklistOpen ? (
-        <aside className="uc03-delivery-v2-checklist-panel" role="dialog" aria-label="Delivery document checklist">
+        <aside className="uc03-capture-checklist-panel" role="dialog" aria-label="Delivery document checklist">
           <header>
             <strong>Document checklist</strong>
             <button type="button" onClick={() => setChecklistOpen(false)} aria-label="Close checklist">×</button>

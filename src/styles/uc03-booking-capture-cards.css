@@ -88,21 +88,21 @@
 }
 
 .uc03-booking-v2-topbar__stats .uc03-booking-v2-stat:nth-child(2) {
-  border-color: rgba(0, 87, 184, 0.42);
-  background: rgba(0, 87, 184, 0.06);
+  border-color: rgba(0, 58, 130, 0.42);
+  background: rgba(0, 58, 130, 0.06);
 }
 
 .uc03-booking-v2-topbar__stats .uc03-booking-v2-stat:nth-child(2) strong {
-  color: #0057b8;
+  color: #003a82;
 }
 
 .uc03-booking-v2-topbar__stats .uc03-booking-v2-stat.is-ready {
-  border-color: rgba(6, 118, 71, 0.28);
-  background: #ecfdf3;
+  border-color: rgba(2, 109, 125, 0.28);
+  background: rgba(2, 109, 125, 0.08);
 }
 
 .uc03-booking-v2-topbar__stats .uc03-booking-v2-stat.is-ready strong {
-  color: #067647;
+  color: #026d7d;
 }
 
 .uc03-booking-v2-checklist-toggle {

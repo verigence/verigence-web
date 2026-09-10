@@ -30,17 +30,18 @@
   box-shadow: 0 6px 16px rgba(15, 23, 42, 0.04);
 }
 
-/* Teal -> blue -> green traces the document's own journey through the
-   pipeline; amber ("unrecognized") and red ("needs attention") both break
-   the sequence on purpose so they read as exceptions, not the next step --
+/* Teal -> dark blue -> dark teal traces the document's own journey through
+   the pipeline, entirely in brand colors (no generic status green/blue);
+   amber ("unrecognized") and red ("needs attention") both break the
+   sequence on purpose so they read as exceptions, not the next step --
    amber for "DI genuinely doesn't know what this is" (a data/classification
    gap the PC can fix by re-uploading correctly), red reserved for an actual
    processing failure. Card face stays white throughout -- only the edge and
    status dot carry the color, so a grid of many cards reads as one clean
    surface instead of a wash of tinted panels. */
 .uc03-doc-card.is-uploaded { border-left-color: #00afa8; }
-.uc03-doc-card.is-classified { border-left-color: #0057b8; }
-.uc03-doc-card.is-extracted { border-left-color: #17b26a; }
+.uc03-doc-card.is-classified { border-left-color: #003a82; }
+.uc03-doc-card.is-extracted { border-left-color: #026d7d; }
 .uc03-doc-card.is-unrecognized { border-left-color: #dc6803; }
 .uc03-doc-card.is-failed { border-left-color: #d92d20; }
 
@@ -103,14 +104,14 @@
 }
 
 .uc03-doc-card.is-uploaded .uc03-doc-card__dot { background: #00afa8; }
-.uc03-doc-card.is-classified .uc03-doc-card__dot { background: #0057b8; }
-.uc03-doc-card.is-extracted .uc03-doc-card__dot { background: #17b26a; }
+.uc03-doc-card.is-classified .uc03-doc-card__dot { background: #003a82; }
+.uc03-doc-card.is-extracted .uc03-doc-card__dot { background: #026d7d; }
 .uc03-doc-card.is-unrecognized .uc03-doc-card__dot { background: #dc6803; }
 .uc03-doc-card.is-failed .uc03-doc-card__dot { background: #d92d20; }
 
 .uc03-doc-card.is-uploaded .uc03-doc-card__status { color: #067b76; }
-.uc03-doc-card.is-classified .uc03-doc-card__status { color: #0057b8; }
-.uc03-doc-card.is-extracted .uc03-doc-card__status { color: #067647; }
+.uc03-doc-card.is-classified .uc03-doc-card__status { color: #003a82; }
+.uc03-doc-card.is-extracted .uc03-doc-card__status { color: #026d7d; }
 .uc03-doc-card.is-unrecognized .uc03-doc-card__status { color: #b54708; }
 .uc03-doc-card.is-failed .uc03-doc-card__status { color: #b42318; }
 
@@ -194,7 +195,7 @@
 
 .uc03-checklist-row.is-received {
   background: #fff;
-  border-color: rgba(6, 118, 71, 0.2);
+  border-color: rgba(2, 109, 125, 0.2);
 }
 
 .uc03-checklist-row__dot {
@@ -205,7 +206,7 @@
 }
 
 .uc03-checklist-row.is-received .uc03-checklist-row__dot {
-  background: #17b26a;
+  background: #026d7d;
 }
 
 .uc03-checklist-row div {

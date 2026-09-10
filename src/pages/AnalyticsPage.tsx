@@ -26,6 +26,7 @@ import { useSessionStore } from '../store/sessionStore';
 import '../styles/analytics.css';
 
 type AnalyticsView = 'overview' | AnalyticsReportKey;
+type InsightTone = 'default' | 'attention' | 'positive';
 
 const reportKeys: AnalyticsReportKey[] = [
   'finance',
@@ -89,6 +90,11 @@ function formatMoney(value: string | number): string {
   }).format(numericValue);
 }
 
+function formatSignedMoney(value: number): string {
+  if (value === 0) return formatMoney(0);
+  return `${value > 0 ? '+' : '−'}${formatMoney(Math.abs(value))}`;
+}
+
 function formatAsOf(value?: string): string {
   if (!value) return 'Unavailable';
   const date = new Date(value);
@@ -105,6 +111,10 @@ function formatShortDate(value: string): string {
 function numeric(value: string | number | null | undefined): number {
   const parsed = Number(value ?? 0);
   return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function percent(part: number, total: number): string {
+  return total > 0 ? `${((part / total) * 100).toFixed(1)}%` : '—';
 }
 
 function humanize(value: string): string {
@@ -139,6 +149,84 @@ function MetricCard({ label, value, detail }: { label: string; value: string; de
       <strong className="metric-card__value">{value}</strong>
       <span className="metric-card__detail">{detail}</span>
     </article>
+  );
+}
+
+function HeroStat({
+  eyebrow,
+  value,
+  title,
+  detail,
+  tone = 'default',
+}: {
+  eyebrow: string;
+  value: string;
+  title: string;
+  detail: string;
+  tone?: InsightTone;
+}) {
+  return (
+    <article className={`analytics-hero-stat analytics-hero-stat--${tone}`}>
+      <span className="analytics-hero-stat__eyebrow">{eyebrow}</span>
+      <strong className="analytics-hero-stat__value">{value}</strong>
+      <h3>{title}</h3>
+      <p>{detail}</p>
+    </article>
+  );
+}
+
+function InsightCard({
+  label,
+  value,
+  detail,
+  tone = 'default',
+}: {
+  label: string;
+  value: string;
+  detail: string;
+  tone?: InsightTone;
+}) {
+  return (
+    <article className={`analytics-insight-card analytics-insight-card--${tone}`}>
+      <span>{label}</span>
+      <strong>{value}</strong>
+      <p>{detail}</p>
+    </article>
+  );
+}
+
+function RankedList({
+  title,
+  description,
+  items,
+}: {
+  title: string;
+  description?: string;
+  items: Array<{ label: string; value: string; meta?: string; tone?: InsightTone }>;
+}) {
+  return (
+    <section className="analytics-ranked-panel">
+      <div className="analytics-ranked-panel__header">
+        <h3>{title}</h3>
+        {description ? <p>{description}</p> : null}
+      </div>
+      {items.length ? (
+        <ol className="analytics-ranked-list">
+          {items.map((item, index) => (
+            <li key={`${item.label}-${index}`} className={`analytics-ranked-list__item analytics-ranked-list__item--${item.tone || 'default'}`}>
+              <span className="analytics-ranked-list__rank">{index + 1}</span>
+              <span className="analytics-ranked-list__copy">
+                <strong>{item.label}</strong>
+                {item.meta ? <small>{item.meta}</small> : null}
+              </span>
+              <span className="analytics-ranked-list__value">{item.value}</span>
+            </li>
+          ))}
+        </ol>
+      ) : (
+        <p className="analytics-empty-copy">No items in the current snapshot.</p>
+      )}
+    </section>
   );
 }
 
@@ -257,60 +345,55 @@ function ReportContent({ payload }: { payload: AnalyticsReportPayload }) {
       const { rows } = payload.data;
       const deals = rows.reduce((sum, row) => sum + row.deal_count, 0);
       const amount = rows.reduce((sum, row) => sum + numeric(row.financed_amount), 0);
-      const providers = new Set(rows.map((row) => row.provider).filter((value) => value !== 'UNSPECIFIED')).size;
-      const hierarchy = rows.map((row) => ({
-        group: humanize(row.finance_type),
-        label: humanize(row.provider),
-        value: row.deal_count,
-      }));
-      const providerPosition = aggregateBubble(
-        rows,
-        (row) => humanize(row.provider),
-        (row) => row.deal_count,
-        (row) => numeric(row.financed_amount),
-      );
+      const providers = aggregate(rows, (row) => humanize(row.provider), (row) => numeric(row.financed_amount));
+      const financeTypes = aggregate(rows, (row) => humanize(row.finance_type), (row) => row.deal_count);
+      const topProvider = providers[0];
+      const topType = financeTypes[0];
+      const hierarchy = rows.map((row) => ({ group: humanize(row.finance_type), label: humanize(row.provider), value: row.deal_count }));
+      const providerPosition = aggregateBubble(rows, (row) => humanize(row.provider), (row) => row.deal_count, (row) => numeric(row.financed_amount));
       return (
         <>
-          <div className="metric-grid analytics-metric-grid">
-            <MetricCard label="Finance Deals" value={formatNumber(deals)} detail="Deals with captured finance records" />
-            <MetricCard label="Financed Amount" value={formatMoney(amount)} detail="Captured financed value" />
-            <MetricCard label="Finance Providers" value={formatNumber(providers)} detail="Distinct captured providers" />
-            <MetricCard label="Average Financed" value={deals ? formatMoney(amount / deals) : '—'} detail="Average financed value per captured deal" />
+          <div className="analytics-finance-hero">
+            <HeroStat eyebrow="Portfolio value" value={formatMoney(amount)} title="Captured financed business" detail={`${formatNumber(deals)} financed deals in the current snapshot.`} />
+            <div className="analytics-insight-stack">
+              <InsightCard label="Leading finance type" value={topType?.label || '—'} detail={topType ? `${percent(topType.value, deals)} of captured finance deals` : 'No finance mix captured'} />
+              <InsightCard label="Leading provider by value" value={topProvider?.label || '—'} detail={topProvider ? `${formatMoney(topProvider.value)} · ${percent(topProvider.value, amount)} of financed value` : 'No provider value captured'} />
+              <InsightCard label="Average financed amount" value={deals ? formatMoney(amount / deals) : '—'} detail="Captured financed value per financed deal" />
+            </div>
           </div>
-          <div className="analytics-layout analytics-layout--finance">
-            <SectionCard title="Finance Mix" description="Finance type at the centre, providers around it; segment size represents deal count.">
-              <AnalyticsSunburstChart rows={hierarchy} valueLabel="Deals" />
-            </SectionCard>
-            <SectionCard title="Provider Positioning" description="Providers compared on deal volume and financed value. Bubble size follows deal count.">
+          <SectionCard title="Finance Portfolio Structure" description="Finance type forms the inner ring and providers the outer ring. Segment size represents deal volume.">
+            <AnalyticsSunburstChart rows={hierarchy} valueLabel="Deals" />
+          </SectionCard>
+          <div className="analytics-split analytics-split--wide-left">
+            <SectionCard title="Provider Positioning" description="Compare providers on deal volume and financed value. Larger bubbles represent more deals.">
               <AnalyticsBubbleChart rows={providerPosition} xLabel="Deals" yLabel="Financed value" yKind="currency" />
             </SectionCard>
+            <RankedList title="Provider value leaderboard" description="Where the captured financed value is concentrated." items={providers.slice(0, 6).map((row) => ({ label: row.label, value: formatMoney(row.value), meta: percent(row.value, amount) }))} />
           </div>
-          <DetailDisclosure headers={['Finance Type', 'Provider', 'Deals', 'Financed Amount']} rows={rows.map((row) => [humanize(row.finance_type), humanize(row.provider), formatNumber(row.deal_count), formatMoney(row.financed_amount)])} />
+          <DetailDisclosure title="View finance transaction summary" headers={['Finance Type', 'Provider', 'Deals', 'Financed Amount']} rows={rows.map((row) => [humanize(row.finance_type), humanize(row.provider), formatNumber(row.deal_count), formatMoney(row.financed_amount)])} />
         </>
       );
     }
+
     case 'insurance': {
       const { rows, duplicate_agent_codes: duplicates } = payload.data;
       const policies = rows.reduce((sum, row) => sum + row.policy_count, 0);
       const premium = rows.reduce((sum, row) => sum + numeric(row.premium_amount), 0);
-      const insurers = new Set(rows.map((row) => row.insurer).filter((value) => value !== 'UNSPECIFIED')).size;
       const sourceMix = aggregate(rows, (row) => humanize(row.insurance_by), (row) => row.policy_count);
-      const insurerPosition = aggregateBubble(
-        rows,
-        (row) => humanize(row.insurer),
-        (row) => row.policy_count,
-        (row) => numeric(row.premium_amount),
-      );
+      const insurerValue = aggregate(rows, (row) => humanize(row.insurer), (row) => numeric(row.premium_amount));
+      const topSource = sourceMix[0];
+      const topInsurer = insurerValue[0];
+      const insurerPosition = aggregateBubble(rows, (row) => humanize(row.insurer), (row) => row.policy_count, (row) => numeric(row.premium_amount));
       return (
         <>
-          <div className="metric-grid analytics-metric-grid">
-            <MetricCard label="Policies" value={formatNumber(policies)} detail="Captured insurance policies" />
-            <MetricCard label="Premium Value" value={formatMoney(premium)} detail="Captured actual premium" />
-            <MetricCard label="Insurers" value={formatNumber(insurers)} detail="Distinct captured insurers" />
-            <MetricCard label="Repeated Agent Codes" value={formatNumber(duplicates.length)} detail="Agent codes reused across bookings" />
+          <div className="analytics-insurance-banner">
+            <HeroStat eyebrow="Insurance book" value={formatMoney(premium)} title={`${formatNumber(policies)} policies captured`} detail={policies ? `${formatMoney(premium / policies)} average captured premium per policy.` : 'No captured policy value.'} />
+            <InsightCard label="Primary sourcing route" value={topSource?.label || '—'} detail={topSource ? `${percent(topSource.value, policies)} of captured policies` : 'No source split captured'} />
+            <InsightCard label="Largest insurer by premium" value={topInsurer?.label || '—'} detail={topInsurer ? `${formatMoney(topInsurer.value)} captured premium` : 'No insurer premium captured'} />
+            <InsightCard label="Repeated agent codes" value={formatNumber(duplicates.length)} detail={duplicates.length ? 'Codes reused across multiple bookings require attention' : 'No repeated agent-code exception in this snapshot'} tone={duplicates.length ? 'attention' : 'positive'} />
           </div>
-          <div className="analytics-layout analytics-layout--insurance">
-            <SectionCard title="Insurance Source Mix" description="Policy mix by in-house, self or external source as captured.">
+          <div className="analytics-split analytics-split--insurance">
+            <SectionCard title="Insurance Source Mix" description="How the captured policies are sourced across in-house, self and external channels.">
               <AnalyticsDonutChart rows={sourceMix} valueLabel="Policies" />
             </SectionCard>
             <SectionCard title="Insurer Portfolio" description="Insurers positioned by policy volume and premium value.">
@@ -318,123 +401,129 @@ function ReportContent({ payload }: { payload: AnalyticsReportPayload }) {
             </SectionCard>
           </div>
           {duplicates.length ? (
-            <SectionCard title="Repeated Agent Code Exceptions" description="Agent codes appearing across more than one booking; these need audit attention.">
-              <ReportTable headers={['Agent Code', 'Bookings']} rows={duplicates.map((row) => [row.agent_code, formatNumber(row.booking_count)])} />
-            </SectionCard>
+            <RankedList title="Agent-code exceptions" description="Repeated codes are shown first because they are directly actionable audit exceptions." items={duplicates.slice(0, 8).map((row) => ({ label: row.agent_code, value: `${formatNumber(row.booking_count)} bookings`, tone: 'attention' }))} />
           ) : null}
           <DetailDisclosure title="View insurance detail" headers={['Insurance By', 'Insurer', 'Policies', 'Premium']} rows={rows.map((row) => [humanize(row.insurance_by), humanize(row.insurer), formatNumber(row.policy_count), formatMoney(row.premium_amount)])} />
         </>
       );
     }
+
     case 'addons': {
       const { rows } = payload.data;
       const attaches = rows.reduce((sum, row) => sum + row.attach_count, 0);
       const value = rows.reduce((sum, row) => sum + numeric(row.actual_amount), 0);
-      const comboRows = rows.map((row) => ({
-        label: humanize(row.addon_type),
-        bar: row.attach_count,
-        line: row.attach_count ? numeric(row.actual_amount) / row.attach_count : 0,
-      }));
+      const comboRows = rows.map((row) => ({ label: humanize(row.addon_type), bar: row.attach_count, line: row.attach_count ? numeric(row.actual_amount) / row.attach_count : 0 }));
+      const economics = rows
+        .map((row) => ({ label: humanize(row.addon_type), count: row.attach_count, value: numeric(row.actual_amount), average: row.attach_count ? numeric(row.actual_amount) / row.attach_count : 0 }))
+        .sort((a, b) => b.value - a.value);
       return (
         <>
-          <div className="metric-grid analytics-metric-grid">
-            <MetricCard label="Add-on Attachments" value={formatNumber(attaches)} detail="EW, RSA, accessories and service packages" />
-            <MetricCard label="Add-on Value" value={formatMoney(value)} detail="Captured actual add-on value" />
-            <MetricCard label="Add-on Types" value={formatNumber(rows.length)} detail="Types represented in snapshot" />
-            <MetricCard label="Average Value" value={attaches ? formatMoney(value / attaches) : '—'} detail="Average per captured attachment" />
+          <div className="analytics-product-summary">
+            <HeroStat eyebrow="VAS captured value" value={formatMoney(value)} title="Add-on economics" detail={`${formatNumber(attaches)} EW, RSA, accessory and service-package attachments captured.`} />
+            <RankedList title="Product contribution" description="Products ranked by captured value, with attach volume shown below." items={economics.slice(0, 6).map((row) => ({ label: row.label, value: formatMoney(row.value), meta: `${formatNumber(row.count)} attaches · ${formatMoney(row.average)} average` }))} />
           </div>
-          <SectionCard title="Attachment Volume vs Average Value" description="Bars show attachment volume; the line shows average captured value per attachment.">
+          <SectionCard title="Volume vs Value per Attachment" description="Bars show attachment volume; the line shows average captured value per attachment, revealing high-volume versus high-value products.">
             <AnalyticsComboChart rows={comboRows} barLabel="Attachments" lineLabel="Average value" lineKind="currency" />
           </SectionCard>
           <DetailDisclosure title="View add-on detail" headers={['Add-on Type', 'Attachments', 'Actual Value']} rows={rows.map((row) => [humanize(row.addon_type), formatNumber(row.attach_count), formatMoney(row.actual_amount)])} />
         </>
       );
     }
+
     case 'discounts': {
       const { rows } = payload.data;
       const applications = rows.reduce((sum, row) => sum + row.application_count, 0);
       const actual = rows.reduce((sum, row) => sum + numeric(row.actual_discount_amount), 0);
       const eligible = rows.reduce((sum, row) => sum + numeric(row.standard_eligible_amount), 0);
-      const variance = rows.map((row) => ({
-        label: humanize(row.discount_key),
-        value: numeric(row.actual_discount_amount) - numeric(row.standard_eligible_amount),
-      }));
+      const gap = actual - eligible;
+      const variance = rows.map((row) => ({ label: humanize(row.discount_key), value: numeric(row.actual_discount_amount) - numeric(row.standard_eligible_amount) }));
+      const exposure = variance.filter((row) => row.value !== 0).sort((a, b) => Math.abs(b.value) - Math.abs(a.value));
       const applicationMix = aggregate(rows, (row) => humanize(row.discount_key), (row) => row.application_count);
       return (
         <>
-          <div className="metric-grid analytics-metric-grid">
-            <MetricCard label="Discount Applications" value={formatNumber(applications)} detail="Captured discount applications" />
-            <MetricCard label="Actual Discount" value={formatMoney(actual)} detail="Total actual discount captured" />
-            <MetricCard label="Standard Eligible" value={formatMoney(eligible)} detail="Total standard eligible basis" />
-            <MetricCard label="Above / Below Basis" value={formatMoney(actual - eligible)} detail="Positive means actual discount exceeds captured standard basis" />
+          <div className="analytics-discount-headline">
+            <HeroStat eyebrow="Net variance" value={formatSignedMoney(gap)} title={gap > 0 ? 'Discount above captured eligible basis' : gap < 0 ? 'Discount below captured eligible basis' : 'Discount matches captured eligible basis'} detail={`${formatMoney(actual)} actual discount across ${formatNumber(applications)} applications versus ${formatMoney(eligible)} captured eligible basis.`} tone={gap > 0 ? 'attention' : gap < 0 ? 'positive' : 'default'} />
+            <RankedList title="Largest discount gaps" description="Types with the largest absolute difference between actual and captured eligible basis." items={exposure.slice(0, 6).map((row) => ({ label: row.label, value: formatSignedMoney(row.value), meta: row.value > 0 ? 'Above basis' : 'Below basis', tone: row.value > 0 ? 'attention' : 'positive' }))} />
           </div>
-          <div className="analytics-layout analytics-layout--discounts">
-            <SectionCard title="Discount Variance" description="Positive bars are above the standard eligible basis; negative bars are below it.">
-              <AnalyticsVarianceChart rows={variance} valueLabel="Actual minus eligible" />
-            </SectionCard>
-            <SectionCard title="Discount Application Mix" description="How frequently each discount type is being applied.">
+          <SectionCard title="Discount Variance by Type" description="The zero line is the captured standard basis. Positive bars deserve immediate commercial review.">
+            <AnalyticsVarianceChart rows={variance} valueLabel="Actual minus eligible" />
+          </SectionCard>
+          <div className="analytics-split analytics-split--compact-right">
+            <SectionCard title="Application Mix" description="How frequently each discount type is being used.">
               <AnalyticsDonutChart rows={applicationMix} valueLabel="Applications" />
             </SectionCard>
+            <div className="analytics-insight-stack">
+              <InsightCard label="Actual discount" value={formatMoney(actual)} detail="Total captured discount granted" />
+              <InsightCard label="Eligible basis" value={formatMoney(eligible)} detail="Total captured standard eligible amount" />
+              <InsightCard label="Applications" value={formatNumber(applications)} detail="Captured discount applications" />
+            </div>
           </div>
           <DetailDisclosure title="View discount detail" headers={['Discount Type', 'Applications', 'Actual', 'Standard Eligible']} rows={rows.map((row) => [humanize(row.discount_key), formatNumber(row.application_count), formatMoney(row.actual_discount_amount), formatMoney(row.standard_eligible_amount)])} />
         </>
       );
     }
+
     case 'trade-in': {
       const { rows } = payload.data;
       const count = rows.reduce((sum, row) => sum + row.trade_in_count, 0);
       const value = rows.reduce((sum, row) => sum + numeric(row.actual_value), 0);
       const statusMix = aggregate(rows, (row) => humanize(row.status), (row) => row.trade_in_count);
-      const statusPosition = rows.map((row) => ({
-        label: humanize(row.status),
-        x: row.trade_in_count,
-        y: numeric(row.actual_value),
-        size: row.trade_in_count,
-      }));
+      const statusValue = rows.map((row) => ({ label: humanize(row.status), value: numeric(row.actual_value), count: row.trade_in_count })).sort((a, b) => b.value - a.value);
+      const statusPosition = rows.map((row) => ({ label: humanize(row.status), x: row.trade_in_count, y: numeric(row.actual_value), size: row.trade_in_count }));
       return (
         <>
-          <div className="metric-grid analytics-metric-grid">
-            <MetricCard label="Trade-ins" value={formatNumber(count)} detail="Captured trade-in cases" />
-            <MetricCard label="Trade-in Value" value={formatMoney(value)} detail="Captured actual trade-in value" />
-            <MetricCard label="Average Trade-in" value={count ? formatMoney(value / count) : '—'} detail="Average actual value per trade-in" />
-            <MetricCard label="Statuses" value={formatNumber(rows.length)} detail="Trade-in statuses represented" />
-          </div>
-          <div className="analytics-layout analytics-layout--tradein">
-            <SectionCard title="Trade-in Status Mix" description="Current case distribution by captured trade-in status.">
+          <div className="analytics-trade-ledger">
+            <div className="analytics-trade-ledger__summary">
+              <span>Captured trade-in book</span>
+              <strong>{formatMoney(value)}</strong>
+              <p>{formatNumber(count)} cases · {count ? `${formatMoney(value / count)} average actual value` : 'no captured cases'}</p>
+            </div>
+            <SectionCard title="Case Status Mix" description="How current captured trade-in cases are distributed by status.">
               <AnalyticsDonutChart rows={statusMix} valueLabel="Cases" />
             </SectionCard>
-            <SectionCard title="Status Volume vs Value" description="Compare the number of trade-ins in each status against their captured value.">
+          </div>
+          <div className="analytics-split analytics-split--trade">
+            <SectionCard title="Status Volume vs Value" description="Statuses with more cases and more trapped value move toward the upper-right of the chart.">
               <AnalyticsBubbleChart rows={statusPosition} xLabel="Cases" yLabel="Trade-in value" yKind="currency" />
             </SectionCard>
+            <RankedList title="Value by status" description="Where the captured trade-in value currently sits." items={statusValue.slice(0, 6).map((row) => ({ label: row.label, value: formatMoney(row.value), meta: `${formatNumber(row.count)} cases · ${percent(row.value, value)} of value` }))} />
           </div>
           <DetailDisclosure title="View trade-in detail" headers={['Status', 'Cases', 'Actual Value']} rows={rows.map((row) => [humanize(row.status), formatNumber(row.trade_in_count), formatMoney(row.actual_value)])} />
         </>
       );
     }
+
     case 'payments': {
       const { rows } = payload.data;
       const count = rows.reduce((sum, row) => sum + row.payment_count, 0);
       const amount = rows.reduce((sum, row) => sum + numeric(row.total_amount), 0);
-      const comboRows = rows.map((row) => ({
-        label: humanize(row.payment_method),
-        bar: numeric(row.total_amount),
-        line: row.payment_count ? numeric(row.total_amount) / row.payment_count : 0,
-      }));
+      const comboRows = rows.map((row) => ({ label: humanize(row.payment_method), bar: numeric(row.total_amount), line: row.payment_count ? numeric(row.total_amount) / row.payment_count : 0 }));
+      const methods = rows
+        .map((row) => ({ label: humanize(row.payment_method), count: row.payment_count, value: numeric(row.total_amount), average: row.payment_count ? numeric(row.total_amount) / row.payment_count : 0 }))
+        .sort((a, b) => b.value - a.value);
       return (
         <>
-          <div className="metric-grid analytics-metric-grid">
-            <MetricCard label="Payments" value={formatNumber(count)} detail="Captured payment entries" />
-            <MetricCard label="Receipt Value" value={formatMoney(amount)} detail="Total captured payment value" />
-            <MetricCard label="Payment Modes" value={formatNumber(rows.length)} detail="Distinct captured payment modes" />
-            <MetricCard label="Average Payment" value={count ? formatMoney(amount / count) : '—'} detail="Average value per payment entry" />
+          <div className="analytics-payment-flow">
+            <div className="analytics-payment-flow__total">
+              <span>Total captured receipts</span>
+              <strong>{formatMoney(amount)}</strong>
+              <p>{formatNumber(count)} payment entries across {formatNumber(rows.length)} captured modes.</p>
+            </div>
+            <div className="analytics-payment-flow__average">
+              <span>Average payment</span>
+              <strong>{count ? formatMoney(amount / count) : '—'}</strong>
+              <p>Captured receipt value per payment entry.</p>
+            </div>
           </div>
-          <SectionCard title="Payment Mode Economics" description="Bars show total receipt value; the line shows average transaction value by payment mode.">
+          <SectionCard title="Payment Mode Economics" description="Total receipt value is shown as bars; average transaction value is shown as the line.">
             <AnalyticsComboChart rows={comboRows} barLabel="Receipt value" lineLabel="Average payment" barKind="currency" lineKind="currency" />
           </SectionCard>
+          <RankedList title="Payment mode contribution" description="Modes ranked by captured receipt value." items={methods.slice(0, 8).map((row) => ({ label: row.label, value: formatMoney(row.value), meta: `${formatNumber(row.count)} payments · ${formatMoney(row.average)} average · ${percent(row.value, amount)} of value` }))} />
           <DetailDisclosure title="View payment detail" headers={['Mode', 'Payments', 'Total Amount']} rows={rows.map((row) => [humanize(row.payment_method), formatNumber(row.payment_count), formatMoney(row.total_amount)])} />
         </>
       );
     }
+
     case 'findings': {
       const { rows } = payload.data;
       const total = rows.reduce((sum, row) => sum + row.finding_count, 0);
@@ -442,124 +531,118 @@ function ReportContent({ payload }: { payload: AnalyticsReportPayload }) {
       const resolved = rows.filter((row) => row.status.toUpperCase() === 'RESOLVED').reduce((sum, row) => sum + row.finding_count, 0);
       const high = rows.filter((row) => row.severity.toUpperCase() === 'HIGH').reduce((sum, row) => sum + row.finding_count, 0);
       const ruleConcentration = aggregate(rows, (row) => humanizeRuleKey(row.rule_key), (row) => row.finding_count);
+      const urgentRules = aggregate(rows.filter((row) => row.status.toUpperCase() === 'OPEN' && row.severity.toUpperCase() === 'HIGH'), (row) => humanizeRuleKey(row.rule_key), (row) => row.finding_count);
       const statuses = Array.from(new Set(rows.map((row) => row.status))).sort();
       const severities = Array.from(new Set(rows.map((row) => row.severity))).sort();
       const matrix = matrixFromRows(rows, statuses, severities, (row) => row.status, (row) => row.severity, (row) => row.finding_count);
       return (
         <>
-          <div className="metric-grid analytics-metric-grid">
-            <MetricCard label="Audit Findings" value={formatNumber(total)} detail="Findings in latest controlled snapshot" />
-            <MetricCard label="Open" value={formatNumber(open)} detail="Open audit findings" />
-            <MetricCard label="High Severity" value={formatNumber(high)} detail="High-severity findings" />
-            <MetricCard label="Resolved" value={formatNumber(resolved)} detail="Resolved findings represented in snapshot" />
+          <div className="analytics-risk-strip">
+            <InsightCard label="Open findings" value={formatNumber(open)} detail={`${percent(open, total)} of all captured findings`} tone={open ? 'attention' : 'positive'} />
+            <InsightCard label="High severity" value={formatNumber(high)} detail={`${percent(high, total)} of all captured findings`} tone={high ? 'attention' : 'positive'} />
+            <InsightCard label="Resolved" value={formatNumber(resolved)} detail={`${percent(resolved, total)} of all captured findings`} tone={resolved ? 'positive' : 'default'} />
           </div>
-          <div className="analytics-layout analytics-layout--findings">
-            <SectionCard title="Exception Concentration" description="Area represents the number of findings generated by each rule or control.">
-              <AnalyticsTreemap rows={ruleConcentration} valueLabel="Findings" />
-            </SectionCard>
-            <SectionCard title="Status × Severity Matrix" description="Where the current finding population is concentrated by status and severity.">
+          <div className="analytics-risk-layout">
+            <RankedList title="Immediate attention" description="Open, high-severity rules ranked by current finding count." items={urgentRules.slice(0, 8).map((row) => ({ label: row.label, value: formatNumber(row.value), meta: 'Open · High severity', tone: 'attention' }))} />
+            <SectionCard title="Status × Severity Matrix" description="A compact risk map of where the finding population sits by workflow status and severity.">
               <AnalyticsHeatmap xLabels={statuses.map(humanize)} yLabels={severities.map(humanize)} cells={matrix} valueLabel="Findings" />
             </SectionCard>
           </div>
+          <SectionCard title="Exception Concentration" description="Area represents the share of captured findings generated by each rule or control.">
+            <AnalyticsTreemap rows={ruleConcentration} valueLabel="Findings" />
+          </SectionCard>
           <DetailDisclosure title="View finding detail" headers={['Rule / Control', 'Status', 'Severity', 'Count']} rows={rows.map((row) => [humanizeRuleKey(row.rule_key), humanize(row.status), humanize(row.severity), formatNumber(row.finding_count)])} />
         </>
       );
     }
+
     case 'documents': {
       const { requirements, missing_document_flags: missing } = payload.data;
       const requirementCount = requirements.reduce((sum, row) => sum + row.requirement_count, 0);
       const missingCount = missing.reduce((sum, row) => sum + row.flag_count, 0);
-      const types = new Set(requirements.map((row) => row.document_type)).size;
+      const missingRules = aggregate(missing, (row) => humanizeRuleKey(row.rule_key), (row) => row.flag_count);
+      const statusMix = aggregate(requirements, (row) => humanize(row.status), (row) => row.requirement_count);
       const documentTotals = aggregate(requirements, (row) => row.document_type, (row) => row.requirement_count);
-      const topDocumentKeys = documentTotals.slice(0, 14).map((row) => row.label);
+      const topDocumentKeys = documentTotals.slice(0, 12).map((row) => row.label);
       const statuses = Array.from(new Set(requirements.map((row) => row.status))).sort();
       const filteredRequirements = requirements.filter((row) => topDocumentKeys.includes(row.document_type));
-      const requirementMatrix = matrixFromRows(
-        filteredRequirements,
-        statuses,
-        topDocumentKeys,
-        (row) => row.status,
-        (row) => row.document_type,
-        (row) => row.requirement_count,
-      );
-      const missingRules = aggregate(missing, (row) => humanizeRuleKey(row.rule_key), (row) => row.flag_count);
-      const topMissing = missingRules[0];
+      const requirementMatrix = matrixFromRows(filteredRequirements, statuses, topDocumentKeys, (row) => row.status, (row) => row.document_type, (row) => row.requirement_count);
       return (
         <>
-          <div className="metric-grid analytics-metric-grid">
-            <MetricCard label="Document Requirements" value={formatNumber(requirementCount)} detail="Requirement records evaluated" />
-            <MetricCard label="Missing Document Flags" value={formatNumber(missingCount)} detail="Audit-rule breaches where expected evidence was missing" />
-            <MetricCard label="Document Types" value={formatNumber(types)} detail="Distinct document types assessed" />
-            <MetricCard label="Top Missing Rule" value={topMissing ? formatNumber(topMissing.value) : '0'} detail={topMissing?.label || 'No missing-document rule breaches'} />
+          <div className="analytics-document-hero">
+            <HeroStat eyebrow="Missing evidence breaches" value={formatNumber(missingCount)} title={missingCount ? 'Document exceptions need attention' : 'No missing-document breach captured'} detail={`${formatNumber(requirementCount)} requirement assessments were evaluated. Missing-rule flags represent ${percent(missingCount, requirementCount)} of those requirement records.`} tone={missingCount ? 'attention' : 'positive'} />
+            <RankedList title="What is actually missing" description="Missing-document audit rules, not the general list of required document types." items={missingRules.slice(0, 7).map((row) => ({ label: row.label, value: formatNumber(row.value), meta: `${percent(row.value, missingCount)} of missing flags`, tone: 'attention' }))} />
           </div>
-          <SectionCard title="Document Assessment Matrix" description="Top document types by requirement volume, split by the assessment status actually recorded. This is not the missing-flag count.">
-            <AnalyticsHeatmap
-              xLabels={statuses.map(humanize)}
-              yLabels={topDocumentKeys.map(humanize)}
-              cells={requirementMatrix}
-              valueLabel="Requirements"
-            />
-          </SectionCard>
-          <SectionCard title="Missing-document Rule Breaches" description="The rules responsible for the missing-document flags. The cumulative line shows how concentrated the problem is in the top rules.">
+          <SectionCard title="Missing-document Concentration" description="Bars rank the rules generating missing-document flags; the line shows cumulative concentration so the biggest causes are immediately visible.">
             <AnalyticsParetoChart rows={missingRules} valueLabel="Missing flags" />
           </SectionCard>
+          <div className="analytics-split analytics-split--documents">
+            <SectionCard title="Requirement Assessment Status" description="Overall assessment outcome mix across all captured document requirements.">
+              <AnalyticsDonutChart rows={statusMix} valueLabel="Requirements" />
+            </SectionCard>
+            <div className="analytics-document-summary">
+              <InsightCard label="Requirements assessed" value={formatNumber(requirementCount)} detail="All captured document requirement records" />
+              <InsightCard label="Document types" value={formatNumber(new Set(requirements.map((row) => row.document_type)).size)} detail="Distinct document types represented" />
+              <InsightCard label="Missing flag rate" value={percent(missingCount, requirementCount)} detail="Missing-document flags as a share of requirement records" tone={missingCount ? 'attention' : 'positive'} />
+            </div>
+          </div>
+          <details className="analytics-detail">
+            <summary>View document assessment matrix</summary>
+            <div className="analytics-detail__body">
+              <p className="analytics-footnote">This matrix shows the assessment-status distribution for the highest-volume document types. It is diagnostic context, not the missing-flag count.</p>
+              <AnalyticsHeatmap xLabels={statuses.map(humanize)} yLabels={topDocumentKeys.map(humanize)} cells={requirementMatrix} valueLabel="Requirements" />
+            </div>
+          </details>
           <DetailDisclosure title="View document requirement detail" headers={['Document Type', 'Assessment Status', 'Requirements']} rows={requirements.map((row) => [humanize(row.document_type), humanize(row.status), formatNumber(row.requirement_count)])} />
         </>
       );
     }
+
     case 'turnaround': {
       const row = payload.data.rows[0];
+      const completed = row?.completed_count || 0;
+      const average = row?.avg_days == null ? null : Number(row.avg_days);
       return (
         <>
-          <div className="metric-grid analytics-metric-grid analytics-turnaround-grid">
-            <MetricCard label="Completed Journeys" value={formatNumber(row?.completed_count || 0)} detail="Journeys with both first receipt and delivery" />
-            <MetricCard label="Average Turnaround" value={row?.avg_days == null ? '—' : `${Number(row.avg_days).toFixed(1)} days`} detail="First receipt to delivery" />
+          <div className="analytics-turnaround-hero">
+            <HeroStat eyebrow="Completed journeys" value={formatNumber(completed)} title="Receipt-to-delivery completion" detail="Journeys with both first receipt and delivery available in the current snapshot." />
+            <HeroStat eyebrow="Average turnaround" value={average == null ? '—' : `${average.toFixed(1)} days`} title="First receipt to delivery" detail={completed ? 'Average across completed journeys represented in this snapshot.' : 'No completed journey has both dates available.'} />
           </div>
-          <SectionCard title="Turnaround Analysis Awaiting Distribution Data" description="The current Analytics endpoint exposes only completed count and average turnaround.">
-            <p className="analytics-note">A slab chart, model comparison or time trend would require bucketed or dated turnaround rows. No synthetic distribution is shown.</p>
-          </SectionCard>
+          <section className="analytics-data-gap">
+            <div>
+              <span>Current data boundary</span>
+              <h3>Distribution and trend analysis are not yet available from this endpoint.</h3>
+              <p>The API currently returns only completed count and average days. Slabs, model-wise comparison and month-on-month movement require bucketed or dated turnaround rows. No synthetic chart is shown.</p>
+            </div>
+          </section>
         </>
       );
     }
+
     case 'productivity': {
       const { rows } = payload.data;
       const activities = rows.reduce((sum, row) => sum + row.activity_count, 0);
-      const employees = new Set(rows.map((row) => row.actor_id).filter((value) => value !== 'UNSPECIFIED')).size;
-      const roles = new Set(rows.map((row) => row.actor_role).filter((value) => value !== 'UNSPECIFIED')).size;
-      const employeeActivity = aggregate(rows, (row) => compactActor(row.actor_id), (row) => row.activity_count);
       const actorTotals = aggregate(rows, (row) => row.actor_id, (row) => row.activity_count);
-      const topActorKeys = actorTotals.slice(0, 12).map((row) => row.label);
-      const dateKeys = Array.from(new Set(rows.map((row) => row.activity_date).filter((value): value is string => Boolean(value))))
-        .sort()
-        .slice(-14);
+      const roleTotals = aggregate(rows, (row) => humanize(row.actor_role), (row) => row.activity_count);
+      const employees = actorTotals.filter((row) => row.label !== 'UNSPECIFIED').length;
+      const topActorKeys = actorTotals.slice(0, 10).map((row) => row.label);
+      const dateKeys = Array.from(new Set(rows.map((row) => row.activity_date).filter((value): value is string => Boolean(value)))).sort().slice(-14);
       const heatRows = rows.filter((row) => topActorKeys.includes(row.actor_id) && row.activity_date && dateKeys.includes(row.activity_date));
-      const activityMatrix = matrixFromRows(
-        heatRows,
-        dateKeys,
-        topActorKeys,
-        (row) => row.activity_date || '',
-        (row) => row.actor_id,
-        (row) => row.activity_count,
-      );
+      const activityMatrix = matrixFromRows(heatRows, dateKeys, topActorKeys, (row) => row.activity_date || '', (row) => row.actor_id, (row) => row.activity_count);
       return (
         <>
-          <div className="metric-grid analytics-metric-grid">
-            <MetricCard label="Recorded Activities" value={formatNumber(activities)} detail="Workflow activities in snapshot" />
-            <MetricCard label="Employees" value={formatNumber(employees)} detail="Distinct actors represented" />
-            <MetricCard label="Roles" value={formatNumber(roles)} detail="Operational roles represented" />
-            <MetricCard label="Average Activities" value={employees ? formatNumber(Math.round(activities / employees)) : '—'} detail="Recorded activities per represented employee" />
+          <div className="analytics-employee-summary">
+            <HeroStat eyebrow="Recorded workflow activity" value={formatNumber(activities)} title={`${formatNumber(employees)} employees represented`} detail={employees ? `${formatNumber(Math.round(activities / employees))} recorded activities per represented employee on average.` : 'No employee activity captured.'} />
+            <RankedList title="Most active employees" description="Current snapshot ranking by recorded workflow activity." items={actorTotals.slice(0, 8).map((row) => ({ label: compactActor(row.label), value: formatNumber(row.value), meta: `${percent(row.value, activities)} of recorded activity` }))} />
           </div>
-          <SectionCard title="Employee Activity Calendar" description="Activity concentration across the most active employees and latest captured dates.">
-            <AnalyticsHeatmap
-              xLabels={dateKeys.map(formatShortDate)}
-              yLabels={topActorKeys.map(compactActor)}
-              cells={activityMatrix}
-              valueLabel="Activities"
-            />
-          </SectionCard>
-          <SectionCard title="Employee Activity Ranking" description="Total recorded workflow activity by employee / actor in the current snapshot.">
-            <AnalyticsBarChart rows={employeeActivity} valueLabel="Activities" />
-          </SectionCard>
+          <div className="analytics-split analytics-split--employees">
+            <SectionCard title="Activity by Role" description="Share of recorded workflow activity by operational role.">
+              <AnalyticsDonutChart rows={roleTotals} valueLabel="Activities" />
+            </SectionCard>
+            <SectionCard title="Employee Activity Calendar" description="Activity concentration across the most active employees and the latest captured dates.">
+              <AnalyticsHeatmap xLabels={dateKeys.map(formatShortDate)} yLabels={topActorKeys.map(compactActor)} cells={activityMatrix} valueLabel="Activities" />
+            </SectionCard>
+          </div>
           <p className="analytics-footnote">Employee names are not present in the current Analytics payload; actor IDs are shown without inventing directory data.</p>
           <DetailDisclosure title="View employee activity detail" headers={['Role', 'Employee / Actor', 'Date', 'Activities']} rows={rows.slice(0, 100).map((row) => [humanize(row.actor_role), row.actor_id, row.activity_date || '—', formatNumber(row.activity_count)])} />
         </>
@@ -629,27 +712,32 @@ export default function AnalyticsPage() {
             ?? data.overview.entities.find((row) => row.source_table === 'bookings')?.row_count
             ?? 0;
           const findingCount = data.findings.rows.reduce((total, row) => total + row.finding_count, 0);
+          const openFindings = data.findings.rows.filter((row) => row.status.toUpperCase() === 'OPEN').reduce((total, row) => total + row.finding_count, 0);
+          const highFindings = data.findings.rows.filter((row) => row.severity.toUpperCase() === 'HIGH').reduce((total, row) => total + row.finding_count, 0);
           const missingDocumentFlags = data.documents.missing_document_flags.reduce((total, row) => total + row.flag_count, 0);
           const paymentTotal = data.payments.rows.reduce((total, row) => total + numeric(row.total_amount), 0);
           const severityMix = aggregate(data.findings.rows, (row) => humanize(row.severity), (row) => row.finding_count);
-          const paymentEconomics = data.payments.rows.map((row) => ({
-            label: humanize(row.payment_method),
-            bar: numeric(row.total_amount),
-            line: row.payment_count ? numeric(row.total_amount) / row.payment_count : 0,
-          }));
+          const paymentEconomics = data.payments.rows.map((row) => ({ label: humanize(row.payment_method), bar: numeric(row.total_amount), line: row.payment_count ? numeric(row.total_amount) / row.payment_count : 0 }));
           const ruleConcentration = aggregate(data.findings.rows, (row) => humanizeRuleKey(row.rule_key), (row) => row.finding_count);
           const missingRules = aggregate(data.documents.missing_document_flags, (row) => humanizeRuleKey(row.rule_key), (row) => row.flag_count);
+          const attentionItems = [
+            ...ruleConcentration.slice(0, 3).map((row) => ({ label: row.label, value: `${formatNumber(row.value)} findings`, meta: 'Top audit concentration', tone: 'attention' as InsightTone })),
+            ...missingRules.slice(0, 2).map((row) => ({ label: row.label, value: `${formatNumber(row.value)} flags`, meta: 'Missing-document breach', tone: 'attention' as InsightTone })),
+          ].sort((a, b) => Number.parseInt(b.value, 10) - Number.parseInt(a.value, 10));
           return (
             <>
-              <div className="metric-grid analytics-metric-grid">
-                <MetricCard label="Audited Journeys" value={formatNumber(journeyCount)} detail="Journeys represented in the latest controlled snapshot" />
-                <MetricCard label="Audit Findings" value={formatNumber(findingCount)} detail="Findings represented in the latest snapshot" />
-                <MetricCard label="Missing Document Flags" value={formatNumber(missingDocumentFlags)} detail="Audit-rule breaches caused by missing expected evidence" />
-                <MetricCard label="Receipt Value" value={formatMoney(paymentTotal)} detail="Captured payment value in the latest snapshot" />
+              <div className="analytics-overview-pulse">
+                <div className="metric-grid analytics-metric-grid analytics-overview-metrics">
+                  <MetricCard label="Audited Journeys" value={formatNumber(journeyCount)} detail="Journeys represented in the latest controlled snapshot" />
+                  <MetricCard label="Audit Findings" value={formatNumber(findingCount)} detail={`${formatNumber(openFindings)} open · ${formatNumber(highFindings)} high severity`} />
+                  <MetricCard label="Missing Document Flags" value={formatNumber(missingDocumentFlags)} detail="Audit-rule breaches caused by missing expected evidence" />
+                  <MetricCard label="Receipt Value" value={formatMoney(paymentTotal)} detail="Captured payment value in the latest snapshot" />
+                </div>
+                <RankedList title="Needs attention now" description="The biggest current audit and missing-document concentrations from this snapshot." items={attentionItems} />
               </div>
 
-              <div className="analytics-layout analytics-layout--overview">
-                <SectionCard title="Finding Severity" description="Current audit finding severity mix.">
+              <div className="analytics-split analytics-split--overview">
+                <SectionCard title="Finding Severity" description="Current finding mix by captured severity.">
                   <AnalyticsDonutChart rows={severityMix} valueLabel="Findings" />
                 </SectionCard>
                 <SectionCard title="Payment Economics" description="Receipt value and average transaction value by payment mode.">
@@ -657,14 +745,9 @@ export default function AnalyticsPage() {
                 </SectionCard>
               </div>
 
-              <div className="analytics-layout analytics-layout--overview-secondary">
-                <SectionCard title="Top Audit Exception Concentration" description="Largest rule/control concentrations in the current snapshot.">
-                  <AnalyticsTreemap rows={ruleConcentration} valueLabel="Findings" />
-                </SectionCard>
-                <SectionCard title="Missing-document Concentration" description="Which missing-document rules account for most of the current flags.">
-                  <AnalyticsParetoChart rows={missingRules} valueLabel="Missing flags" />
-                </SectionCard>
-              </div>
+              <SectionCard title="Where Audit Exceptions Concentrate" description="The largest rule/control concentrations in the current snapshot; bigger blocks represent more findings.">
+                <AnalyticsTreemap rows={ruleConcentration} valueLabel="Findings" />
+              </SectionCard>
 
               <details className="analytics-coverage">
                 <summary>Snapshot data coverage · technical diagnostics</summary>

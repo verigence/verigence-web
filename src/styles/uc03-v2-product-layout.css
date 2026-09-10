@@ -212,15 +212,24 @@
     box-shadow: none;
   }
 
-  /* Delivery Capture: 40/60 split keeps both sides substantial without leaving dead space. */
-  .enterprise-content > .screen-stack.uc03-v2-capture.uc03-delivery-v2-page:not(.uc03-booking-journey) {
+  /* Delivery Capture (legacy list/groups layout): 40/60 split keeps both
+     sides substantial without leaving dead space. Scoped away from the
+     card-based redesign (.uc03-delivery-v2-page--cards) below -- that
+     screen's direct children (.uc03-delivery-v2-topbar, -hero,
+     .uc03-doc-card-grid, ...) aren't in this allow-list, so without the
+     exclusion they silently fell into anonymous 1-of-10 grid cells instead
+     of the full-width rows the redesign's own CSS assumes, corrupting the
+     whole screen at desktop widths. The redesign owns its own layout
+     entirely (a plain single-column screen-stack plus its own internal
+     grids) and needs none of this. */
+  .enterprise-content > .screen-stack.uc03-v2-capture.uc03-delivery-v2-page:not(.uc03-booking-journey):not(.uc03-delivery-v2-page--cards) {
     display: grid;
     grid-template-columns: repeat(10, minmax(0, 1fr));
     gap: 10px 14px;
     align-items: start;
   }
 
-  .enterprise-content > .screen-stack.uc03-v2-capture.uc03-delivery-v2-page:not(.uc03-booking-journey) > :is(
+  .enterprise-content > .screen-stack.uc03-v2-capture.uc03-delivery-v2-page:not(.uc03-booking-journey):not(.uc03-delivery-v2-page--cards) > :is(
     .uc03-c1-topbar,
     .page-header,
     .uc03-booking-steps,
@@ -235,7 +244,7 @@
     grid-column: 1 / -1;
   }
 
-  .enterprise-content > .screen-stack.uc03-v2-capture.uc03-delivery-v2-page:not(.uc03-booking-journey) > .uc03-delivery-v2-upload-panel {
+  .enterprise-content > .screen-stack.uc03-v2-capture.uc03-delivery-v2-page:not(.uc03-booking-journey):not(.uc03-delivery-v2-page--cards) > .uc03-delivery-v2-upload-panel {
     grid-column: span 4;
     position: sticky;
     top: 72px;
@@ -243,13 +252,13 @@
     height: fit-content;
   }
 
-  .enterprise-content > .screen-stack.uc03-v2-capture.uc03-delivery-v2-page:not(.uc03-booking-journey) > .uc03-upload-inventory {
+  .enterprise-content > .screen-stack.uc03-v2-capture.uc03-delivery-v2-page:not(.uc03-booking-journey):not(.uc03-delivery-v2-page--cards) > .uc03-upload-inventory {
     grid-column: span 6;
     min-width: 0;
     margin: 0;
   }
 
-  .enterprise-content > .screen-stack.uc03-v2-capture.uc03-delivery-v2-page:not(.uc03-booking-journey) > .uc03-delivery-v2-groups {
+  .enterprise-content > .screen-stack.uc03-v2-capture.uc03-delivery-v2-page:not(.uc03-booking-journey):not(.uc03-delivery-v2-page--cards) > .uc03-delivery-v2-groups {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }

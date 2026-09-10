@@ -228,6 +228,31 @@ export async function deleteDeliveryCaptureV2Document(
   invalidateCaptureReadState(tenantId, journeyId);
 }
 
+export interface DeliveryCaptureV2ResyncResult {
+  queuedDocumentCount: number;
+}
+
+/**
+ * Forces every already-classified document through the full sync pipeline
+ * again. A document can get stuck with DI having classified (or even fully
+ * extracted) it while audit-core's own durable copy never completed --
+ * DI already got a fast 200 OK for that webhook and will not retry it, so
+ * nothing else re-triggers this. Safe to call any time; a document with
+ * nothing left to do just costs one cheap, idempotent pass.
+ */
+export async function resyncDeliveryCaptureV2(
+  tenantId: string,
+  journeyId: string,
+  accessToken?: string,
+): Promise<DeliveryCaptureV2ResyncResult> {
+  const result = await auditCoreRequest<DeliveryCaptureV2ResyncResult>(`${base(tenantId, journeyId)}/resync`, {
+    method: 'POST',
+    accessToken: token(accessToken),
+  });
+  invalidateCaptureReadState(tenantId, journeyId);
+  return result;
+}
+
 export async function submitDeliveryCaptureV2(
   tenantId: string,
   journeyId: string,

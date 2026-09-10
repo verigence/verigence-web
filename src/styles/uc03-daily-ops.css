@@ -1,0 +1,83 @@
+/* Daily Operations — Raise Flag action and inline form. */
+
+.daily-ops-raise-btn {
+  padding: 6px 12px;
+  border: 1px solid rgba(0, 58, 130, 0.28);
+  border-radius: 8px;
+  background: #fff;
+  color: #003a82;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.daily-ops-raise-btn:hover { background: rgba(0, 58, 130, 0.06); }
+
+.daily-ops-flag-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(140px, 1fr)) auto;
+  gap: 10px 14px;
+  align-items: end;
+  padding: 12px 14px;
+  border: 1px solid rgba(0, 58, 130, 0.18);
+  border-radius: 10px;
+  background: #f4f8fb;
+  margin: 8px 0;
+}
+.daily-ops-flag-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: #5c7590;
+}
+.daily-ops-flag-form select,
+.daily-ops-flag-form textarea {
+  font: inherit;
+  font-size: 0.85rem;
+  padding: 7px 9px;
+  border-radius: 8px;
+  border: 1px solid rgba(15, 23, 42, 0.16);
+  background: #fff;
+  color: #0e2748;
+  text-transform: none;
+  letter-spacing: normal;
+  font-weight: 500;
+}
+.daily-ops-flag-form__summary {
+  grid-column: 1 / -1;
+}
+.daily-ops-flag-form__summary textarea {
+  min-height: 56px;
+  resize: vertical;
+}
+.daily-ops-flag-form button {
+  padding: 9px 16px;
+  border: none;
+  border-radius: 8px;
+  background: #003a82;
+  color: #fff;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.daily-ops-flag-form button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.daily-ops-banner {
+  padding: 10px 14px;
+  border-radius: 10px;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+.daily-ops-banner--ok { background: rgba(0, 175, 168, 0.1); color: #067a72; border: 1px solid rgba(0, 175, 168, 0.28); }
+.daily-ops-banner--err { background: rgba(221, 111, 87, 0.1); color: #b5533d; border: 1px solid rgba(221, 111, 87, 0.28); }
+
+@media (max-width: 720px) {
+  .daily-ops-flag-form { grid-template-columns: 1fr; }
+}

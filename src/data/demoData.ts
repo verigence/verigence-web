@@ -376,6 +376,7 @@ export const demoDailyOps: DailyOpsRun[] = [
     status: 'IN_PROGRESS',
     startedAtUtc: '2026-08-17T03:45:00Z',
     completedAtUtc: null,
+    versionNo: 1,
   },
   {
     runId: '90000000-0000-4000-8000-000000000002',
@@ -386,6 +387,7 @@ export const demoDailyOps: DailyOpsRun[] = [
     status: 'COMPLETED',
     startedAtUtc: '2026-08-16T03:35:00Z',
     completedAtUtc: '2026-08-16T13:02:00Z',
+    versionNo: 1,
   },
 ];
 

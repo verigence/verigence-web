@@ -1,5 +1,5 @@
-import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useSearchParams } from 'react-router-dom';
 
 import PageHeader from '../components/PageHeader';
 import SectionCard from '../components/SectionCard';
@@ -14,34 +14,52 @@ import { useProjectContextStore } from '../store/projectContextStore';
 import { useSessionStore } from '../store/sessionStore';
 import '../styles/analytics.css';
 
-type AnalyticsTab = 'overview' | AnalyticsReportKey;
+type AnalyticsView = 'overview' | AnalyticsReportKey;
 
-const tabs: Array<{ key: AnalyticsTab; label: string }> = [
-  { key: 'overview', label: 'Overview' },
-  { key: 'finance', label: 'Finance' },
-  { key: 'insurance', label: 'Insurance' },
-  { key: 'addons', label: 'Add-ons & VAS' },
-  { key: 'discounts', label: 'Discounts' },
-  { key: 'trade-in', label: 'Trade-in' },
-  { key: 'payments', label: 'Payments' },
-  { key: 'turnaround', label: 'Turnaround' },
-  { key: 'findings', label: 'Audit & Compliance' },
-  { key: 'documents', label: 'Documents' },
-  { key: 'productivity', label: 'Employees' },
+const reportKeys: AnalyticsReportKey[] = [
+  'finance',
+  'insurance',
+  'addons',
+  'discounts',
+  'trade-in',
+  'payments',
+  'turnaround',
+  'findings',
+  'documents',
+  'productivity',
 ];
+
+const reportLabels: Record<AnalyticsView, string> = {
+  overview: 'Business Analytics',
+  finance: 'Finance',
+  insurance: 'Insurance',
+  addons: 'Add-ons & VAS',
+  discounts: 'Discounts',
+  'trade-in': 'Trade-in',
+  payments: 'Payments',
+  turnaround: 'Turnaround',
+  findings: 'Audit & Compliance',
+  documents: 'Documents',
+  productivity: 'Employees',
+};
+
+function parseReport(value: string | null): AnalyticsView {
+  if (value && reportKeys.includes(value as AnalyticsReportKey)) return value as AnalyticsReportKey;
+  return 'overview';
+}
 
 function formatNumber(value: number): string {
   return new Intl.NumberFormat('en-IN').format(value);
 }
 
 function formatMoney(value: string | number): string {
-  const numeric = Number(value);
-  if (!Number.isFinite(numeric)) return String(value);
+  const numericValue = Number(value);
+  if (!Number.isFinite(numericValue)) return String(value);
   return new Intl.NumberFormat('en-IN', {
     style: 'currency',
     currency: 'INR',
     maximumFractionDigits: 0,
-  }).format(numeric);
+  }).format(numericValue);
 }
 
 function formatAsOf(value?: string): string {
@@ -94,13 +112,7 @@ function HorizontalBars({
   );
 }
 
-function ReportTable({
-  headers,
-  rows,
-}: {
-  headers: string[];
-  rows: Array<Array<string | number>>;
-}) {
+function ReportTable({ headers, rows }: { headers: string[]; rows: Array<Array<string | number>> }) {
   if (!rows.length) return <p>No data in the current snapshot.</p>;
   return (
     <div className="data-table-wrap">
@@ -376,7 +388,8 @@ function ReportContent({ payload }: { payload: AnalyticsReportPayload }) {
 }
 
 export default function AnalyticsPage() {
-  const [activeTab, setActiveTab] = useState<AnalyticsTab>('overview');
+  const [searchParams] = useSearchParams();
+  const activeView = parseReport(searchParams.get('report'));
   const accessToken = useSessionStore((state) => state.accessToken);
   const sessionTenantId = useSessionStore((state) => state.tenantId);
   const selectedProject = useProjectContextStore((state) => state.selectedProject);
@@ -384,7 +397,7 @@ export default function AnalyticsPage() {
 
   const overviewQuery = useQuery({
     queryKey: ['analytics', 'dashboard', tenantId],
-    enabled: Boolean(activeTab === 'overview' && tenantId && accessToken),
+    enabled: Boolean(activeView === 'overview' && tenantId && accessToken),
     queryFn: ({ signal }) => getAnalyticsDashboard(tenantId!, accessToken!, signal),
     staleTime: 60_000,
     retry: (failureCount, error) => {
@@ -394,9 +407,9 @@ export default function AnalyticsPage() {
   });
 
   const reportQuery = useQuery({
-    queryKey: ['analytics', 'report', tenantId, activeTab],
-    enabled: Boolean(activeTab !== 'overview' && tenantId && accessToken),
-    queryFn: ({ signal }) => getAnalyticsReport(tenantId!, accessToken!, activeTab as AnalyticsReportKey, signal),
+    queryKey: ['analytics', 'report', tenantId, activeView],
+    enabled: Boolean(activeView !== 'overview' && tenantId && accessToken),
+    queryFn: ({ signal }) => getAnalyticsReport(tenantId!, accessToken!, activeView as AnalyticsReportKey, signal),
     staleTime: 60_000,
     retry: (failureCount, error) => {
       if (error instanceof AnalyticsHttpError && [401, 403, 404].includes(error.status)) return false;
@@ -404,41 +417,27 @@ export default function AnalyticsPage() {
     },
   });
 
+  const currentAsOf = activeView === 'overview' ? overviewQuery.data?.overview.data_as_of : reportAsOf(reportQuery.data);
+  const viewTitle = reportLabels[activeView];
+
   if (!tenantId) {
     return (
-      <div className="screen-stack">
-        <PageHeader eyebrow="Insights" title="Business Analytics" description="Business, audit and employee analytics from controlled Audit Core snapshots." />
+      <div className="screen-stack analytics-screen">
+        <PageHeader eyebrow="Insights · Analytics" title={viewTitle} description="Business, audit and employee analytics from controlled Audit Core snapshots." />
         <SectionCard title="Select a project"><p>Choose a project from the Verigence project selector to load tenant analytics.</p></SectionCard>
       </div>
     );
   }
 
-  const currentAsOf = activeTab === 'overview' ? overviewQuery.data?.overview.data_as_of : reportAsOf(reportQuery.data);
-
   return (
     <div className="screen-stack analytics-screen">
       <PageHeader
-        eyebrow="Insights"
-        title="Business Analytics"
+        eyebrow="Insights · Analytics"
+        title={viewTitle}
         description={`Independent business reporting from controlled Audit Core snapshots${currentAsOf ? `. Data as of ${formatAsOf(currentAsOf)}.` : '.'}`}
       />
 
-      <nav className="analytics-tabs" role="tablist" aria-label="Analytics reports">
-        {tabs.map((tab) => (
-          <button
-            key={tab.key}
-            type="button"
-            role="tab"
-            aria-selected={activeTab === tab.key}
-            className={`analytics-tab${activeTab === tab.key ? ' analytics-tab--active' : ''}`}
-            onClick={() => setActiveTab(tab.key)}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </nav>
-
-      {activeTab === 'overview' ? (
+      {activeView === 'overview' ? (
         overviewQuery.isPending ? (
           <SectionCard title="Loading overview"><p>Loading the latest Analytics snapshot…</p></SectionCard>
         ) : overviewQuery.isError ? (
@@ -475,7 +474,7 @@ export default function AnalyticsPage() {
           );
         })() : null
       ) : reportQuery.isPending ? (
-        <SectionCard title={`Loading ${tabs.find((tab) => tab.key === activeTab)?.label || 'report'}`}><p>Loading this report from the latest controlled snapshot…</p></SectionCard>
+        <SectionCard title={`Loading ${viewTitle}`}><p>Loading this report from the latest controlled snapshot…</p></SectionCard>
       ) : reportQuery.isError ? (
         <ReportError error={reportQuery.error} />
       ) : reportQuery.data ? (

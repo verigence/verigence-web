@@ -576,7 +576,16 @@ export default function ReviewQueuePage() {
                   </>
                 )}
 
-                {!isManualVerification && !isAdjudicated && canResolve && !open && (
+                {!isManualVerification && !isAdjudicated && item.findingClass === 'DOCUMENT_GAP' && (
+                  <Link
+                    className="revq-btn revq-btn--accept"
+                    to={item.stage === 'DELIVERY' ? `/v2/deliveries/${item.journeyId}` : `/v2/bookings/${item.journeyId}`}
+                  >
+                    Upload document →
+                  </Link>
+                )}
+
+                {!isManualVerification && !isAdjudicated && item.findingClass !== 'DOCUMENT_GAP' && canResolve && !open && (
                   <button
                     type="button"
                     className="revq-btn revq-btn--accept"

@@ -236,6 +236,8 @@
 .revq-open:hover { text-decoration: underline; }
 
 .revq-btn {
+  display: inline-flex;
+  align-items: center;
   border: 1px solid var(--v-line, #dbe6ee);
   background: #fff;
   color: var(--v-slate, #31506e);
@@ -243,6 +245,7 @@
   padding: 7px 14px;
   font-size: 13px;
   font-weight: 600;
+  text-decoration: none;
   cursor: pointer;
 }
 .revq-btn:disabled { opacity: 0.5; cursor: not-allowed; }

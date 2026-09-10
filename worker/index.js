@@ -44,6 +44,21 @@ function buildAuditCoreTarget(rawUpstream, incomingUrl) {
   return upstream;
 }
 
+function buildAnalyticsTarget(rawUpstream, incomingUrl) {
+  const upstream = new URL(String(rawUpstream || '').trim());
+  const incoming = new URL(incomingUrl);
+  const proxyPrefix = '/analytics-api';
+  const upstreamPath = upstream.pathname.replace(/\/+$/, '');
+  const incomingPath = incoming.pathname.startsWith(proxyPrefix)
+    ? incoming.pathname.slice(proxyPrefix.length) || '/'
+    : incoming.pathname;
+
+  upstream.pathname = `${upstreamPath}${incomingPath}`.replace(/\/{2,}/g, '/');
+  upstream.search = incoming.search;
+  upstream.hash = '';
+  return upstream;
+}
+
 function buildDiTarget(rawUpstream, incomingUrl) {
   const upstream = new URL(String(rawUpstream || '').trim());
   const incoming = new URL(incomingUrl);
@@ -180,6 +195,14 @@ async function warmRuntime(env, correlationId) {
     }));
   }
 
+  if (String(env.ANALYTICS_UPSTREAM || '').trim()) {
+    requests.push(fetch(buildWarmupTarget(env.ANALYTICS_UPSTREAM, '/health'), {
+      method: 'GET',
+      headers,
+      cache: 'no-store',
+    }));
+  }
+
   await Promise.allSettled(requests);
 }
 
@@ -258,6 +281,39 @@ export default {
       } catch (error) {
         logProxyFailure('audit-core', request, correlationId, 'AUDIT_CORE_UPSTREAM_UNAVAILABLE', error);
         return proxyError(request, 'audit-core', 'AUDIT_CORE_UPSTREAM_UNAVAILABLE', 'Verigence Audit Core could not be reached', 502, correlationId);
+      }
+    }
+
+    if (url.pathname === '/analytics-api' || url.pathname.startsWith('/analytics-api/')) {
+      if (request.method === 'OPTIONS') {
+        return preflightResponse(request);
+      }
+
+      if (!String(env.ANALYTICS_UPSTREAM || '').trim()) {
+        logProxyFailure('analytics', request, correlationId, 'ANALYTICS_UPSTREAM_UNAVAILABLE');
+        return proxyError(request, 'analytics', 'ANALYTICS_UPSTREAM_UNAVAILABLE', 'Verigence Analytics is not configured', 503, correlationId);
+      }
+
+      try {
+        const target = buildAnalyticsTarget(env.ANALYTICS_UPSTREAM, request.url);
+        const proxyStart = performance.now();
+        const response = await fetch(sanitizedUpstreamRequest(target, request, correlationId));
+        if (String(env.LOG_PROXY_SUCCESS || '').toLowerCase() === 'true') {
+          console.log(JSON.stringify({
+            event_name: 'web_proxy_success',
+            service_name: 'verigence-web',
+            proxy: 'analytics',
+            correlation_id: correlationId,
+            http_method: request.method,
+            http_route: new URL(request.url).pathname,
+            upstream_status: response.status,
+            duration_ms: Math.round(performance.now() - proxyStart),
+          }));
+        }
+        return proxyResponse(response, request, 'analytics', correlationId);
+      } catch (error) {
+        logProxyFailure('analytics', request, correlationId, 'ANALYTICS_UPSTREAM_UNAVAILABLE', error);
+        return proxyError(request, 'analytics', 'ANALYTICS_UPSTREAM_UNAVAILABLE', 'Verigence Analytics could not be reached', 502, correlationId);
       }
     }
 

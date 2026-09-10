@@ -23,6 +23,19 @@ function isVehiclePhoto(document: DeliveryDocumentView): boolean {
   return value.includes('CAR_PICTURE') || value.includes('VEHICLE_PICTURE') || value.includes('VEHICLE_PHOTO') || value.includes('CAR_PHOTO');
 }
 
+/**
+ * Step 2 of Delivery capture -- one combined submission, not three separate
+ * ones. Previously each section (intimation, VIN/chassis, photo) saved
+ * itself immediately behind its own "Save" button, and a final, separate
+ * "Submit" button closed out document capture on top of that -- four
+ * distinct network actions for what is conceptually one handover record.
+ * The vehicle photograph still uploads on its own (it's a file, not a form
+ * field, so it has to reach storage before anything else can reference it),
+ * but intimation and VIN/chassis are now plain local fields that travel
+ * together in the single "Submit Delivery Details" action at the bottom --
+ * the same one-continuous-flow, one-action-at-the-end shape as the
+ * Documents step this page follows.
+ */
 export default function DeliveryDetailsV2Page() {
   const { journeyId = '' } = useParams();
   const [searchParams] = useSearchParams();
@@ -33,8 +46,6 @@ export default function DeliveryDetailsV2Page() {
   const [intimationReason, setIntimationReason] = useState('');
   const [vin, setVin] = useState('');
   const [chassisNumber, setChassisNumber] = useState('');
-  const [savingIntimation, setSavingIntimation] = useState(false);
-  const [savingVehicle, setSavingVehicle] = useState(false);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState<string>();
@@ -64,59 +75,12 @@ export default function DeliveryDetailsV2Page() {
   const vehiclePhotoExpected = Boolean(vehiclePhoto && vehiclePhoto.requirementLevel === 'REQUIRED' && vehiclePhoto.applicabilityState !== 'NOT_APPLICABLE');
   const vehiclePhotoAvailable = Boolean(vehiclePhoto?.evidenceId);
   const intimationComplete = intimationAnswer === 'YES' || (intimationAnswer === 'NO' && Boolean(intimationReason.trim()));
-  const canSubmit = intimationComplete && !savingIntimation && !savingVehicle && !uploadingPhoto && !submitting;
+  const canSubmit = intimationComplete && !uploadingPhoto && !submitting;
 
   if (!project || !journeyId) return null;
 
   const refresh = async () => {
     await workspaceQuery.refetch();
-  };
-
-  const saveIntimation = async () => {
-    if (!workspace || !intimationAnswer) return;
-    if (intimationAnswer === 'NO' && !intimationReason.trim()) {
-      setError('Reason is required when Delivery was not intimated.');
-      return;
-    }
-    setSavingIntimation(true);
-    setError(undefined);
-    try {
-      await recordDeliveryIntimation(
-        project.tenantId,
-        journeyId,
-        intimationAnswer,
-        workspace.delivery.aggregateVersion,
-        accessToken,
-        intimationReason,
-      );
-      await refresh();
-      setMessage('Delivery intimation saved.');
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'Delivery intimation could not be saved.');
-    } finally {
-      setSavingIntimation(false);
-    }
-  };
-
-  const saveVehicle = async () => {
-    if (!workspace || (!vin.trim() && !chassisNumber.trim())) return;
-    setSavingVehicle(true);
-    setError(undefined);
-    try {
-      await recordDeliveryVehicleObservation(
-        project.tenantId,
-        journeyId,
-        workspace.delivery.aggregateVersion,
-        { vin, chassisNumber, sourceEvidenceId: vehiclePhoto?.evidenceId || null },
-        accessToken,
-      );
-      await refresh();
-      setMessage('Vehicle details saved.');
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'Vehicle details could not be saved.');
-    } finally {
-      setSavingVehicle(false);
-    }
   };
 
   const uploadVehiclePhoto = async (file?: File) => {
@@ -144,11 +108,42 @@ export default function DeliveryDetailsV2Page() {
     }
   };
 
+  // One action: save whatever intimation/vehicle fields actually changed
+  // (in sequence -- each carries the aggregate version forward from the
+  // last write, since the two share one optimistic-concurrency version),
+  // then close out document capture. Nothing here fires until this single
+  // button is pressed.
   const submit = async () => {
-    if (!canSubmit) return;
+    if (!canSubmit || !workspace) return;
     setSubmitting(true);
     setError(undefined);
     try {
+      let version = workspace.delivery.aggregateVersion;
+
+      const savedAnswer = workspace.intimation.answer === 'UNANSWERED' ? '' : workspace.intimation.answer;
+      if (intimationAnswer && (intimationAnswer !== savedAnswer || intimationReason.trim() !== (workspace.intimation.reason || ''))) {
+        const result = await recordDeliveryIntimation(
+          project.tenantId,
+          journeyId,
+          intimationAnswer,
+          version,
+          accessToken,
+          intimationReason,
+        );
+        version = result.aggregateVersion;
+      }
+
+      if (vin.trim() !== (workspace.vehicle.observedVin || '') || chassisNumber.trim() !== (workspace.vehicle.observedChassisNumber || '')) {
+        const result = await recordDeliveryVehicleObservation(
+          project.tenantId,
+          journeyId,
+          version,
+          { vin, chassisNumber, sourceEvidenceId: vehiclePhoto?.evidenceId || null },
+          accessToken,
+        );
+        version = result.aggregateVersion;
+      }
+
       if (!captureAlreadySubmitted) {
         await submitDeliveryCaptureV2(project.tenantId, journeyId, accessToken);
       }
@@ -156,7 +151,7 @@ export default function DeliveryDetailsV2Page() {
       // must never become the PC's next screen merely because Delivery capture finished.
       navigate('/dashboard', { replace: true });
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'Delivery capture could not be submitted.');
+      setError(cause instanceof Error ? cause.message : 'Delivery details could not be submitted.');
     } finally {
       setSubmitting(false);
     }
@@ -187,7 +182,7 @@ export default function DeliveryDetailsV2Page() {
       <PageHeader
         eyebrow="Delivery · V2"
         title="Delivery Details & Vehicle Evidence"
-        description="Step 2 of 2 · Record the Delivery handover details and any vehicle evidence available, then return to your Work Queue."
+        description="Step 2 of 2 · Fill in what's available below, then submit once at the bottom -- nothing here saves on its own."
       />
 
       <nav className="uc03-booking-steps" aria-label="Delivery capture steps">
@@ -206,8 +201,7 @@ export default function DeliveryDetailsV2Page() {
 
       <section className="uc03-booking-step-panel">
         <header className="uc03-booking-step-heading">
-          <div><span className="uc03-c1-eyebrow">Step 2</span><h2>Delivery intimation</h2></div>
-          <span>Record what happened at handover.</span>
+          <div><span className="uc03-c1-eyebrow">Handover</span><h2>Delivery confirmation</h2></div>
         </header>
 
         <fieldset className="uc03-booking-choice">
@@ -221,46 +215,34 @@ export default function DeliveryDetailsV2Page() {
             <textarea value={intimationReason} onChange={(event) => setIntimationReason(event.target.value)} placeholder="Enter reason" />
           </label>
         ) : null}
-        <div className="uc03-booking-step-footer">
-          <span>{workspace.intimation.answer === 'UNANSWERED' ? 'Save the Delivery intimation before continuing.' : `Saved as ${workspace.intimation.answer}.`}</span>
-          <button type="button" className="uc03-c1-secondary" disabled={savingIntimation || !intimationAnswer} onClick={() => void saveIntimation()}>{savingIntimation ? 'Saving…' : 'Save Intimation'}</button>
-        </div>
-      </section>
 
-      <section className="uc03-booking-step-panel">
-        <header className="uc03-booking-step-heading">
-          <div><span className="uc03-c1-eyebrow">Vehicle</span><h2>VIN / chassis observation</h2></div>
-          <StatusPill value={workspace.vehicle.reconciliationStatus} compact />
-        </header>
-        <div className="uc03-v2-carried-forward">
-          <strong>Expected from the journey</strong>
-          <span>VIN: {workspace.vehicle.expectedVin || 'Not available'}</span>
-          <span>Chassis: {workspace.vehicle.expectedChassisNumber || 'Not available'}</span>
-        </div>
-        <div className="uc03-booking-details-grid">
+        <div className="uc03-booking-details-grid" style={{ marginTop: 14 }}>
           <label className="uc03-booking-field"><span>Observed VIN</span><input value={vin} onChange={(event) => setVin(event.target.value)} placeholder="Enter/read from vehicle" /></label>
           <label className="uc03-booking-field"><span>Observed chassis</span><input value={chassisNumber} onChange={(event) => setChassisNumber(event.target.value)} placeholder="Enter if available" /></label>
         </div>
-        <div className="uc03-booking-step-footer">
-          <span>Record what is visible on the vehicle. Any mismatch remains an audit observation.</span>
-          <button type="button" className="uc03-c1-secondary" disabled={savingVehicle || (!vin.trim() && !chassisNumber.trim())} onClick={() => void saveVehicle()}>{savingVehicle ? 'Saving…' : 'Save Vehicle Details'}</button>
+        <div className="uc03-v2-carried-forward" style={{ marginTop: 8 }}>
+          <strong>Expected from the journey</strong>
+          <span>VIN: {workspace.vehicle.expectedVin || 'Not available'}</span>
+          <span>Chassis: {workspace.vehicle.expectedChassisNumber || 'Not available'}</span>
+          {workspace.vehicle.reconciliationStatus !== 'NOT_EVALUATED' && (
+            <StatusPill value={workspace.vehicle.reconciliationStatus} compact />
+          )}
         </div>
-      </section>
 
-      <section className="uc03-booking-step-panel">
-        <header className="uc03-booking-step-heading">
-          <div><span className="uc03-c1-eyebrow">Evidence</span><h2>Vehicle photograph</h2></div>
-          <StatusPill value={vehiclePhotoAvailable ? 'UPLOADED' : vehiclePhotoExpected ? 'EXPECTED' : 'OPTIONAL'} compact />
-        </header>
-        {vehiclePhoto ? (
-          <div className="uc03-booking-step-footer">
-            <span>{vehiclePhotoAvailable ? 'Vehicle photograph is linked to this Delivery.' : vehiclePhotoExpected ? 'Vehicle photograph is expected audit evidence. If it is unavailable, Delivery can still continue and the missing evidence remains visible for follow-up.' : 'Add a vehicle photograph when available. This is evidence-only and is not part of document classification.'}</span>
-            <label className="uc03-c1-primary" aria-disabled={uploadingPhoto}>
+        <div className="uc03-booking-step-footer" style={{ marginTop: 14 }}>
+          <span>Vehicle photograph (optional evidence, uploads immediately)</span>
+          {vehiclePhoto ? (
+            <label className="uc03-c1-secondary" aria-disabled={uploadingPhoto}>
               {uploadingPhoto ? 'Uploading…' : vehiclePhotoAvailable ? 'Replace Photo' : 'Take / Upload Photo'}
               <input type="file" accept="image/*" capture="environment" disabled={uploadingPhoto} onChange={(event) => { const file = event.currentTarget.files?.[0]; event.currentTarget.value = ''; void uploadVehiclePhoto(file); }} />
             </label>
-          </div>
-        ) : <div className="uc03-booking-journey-feedback is-warning" role="status">Vehicle-photo evidence is not configured for this Delivery.</div>}
+          ) : null}
+        </div>
+        {vehiclePhoto ? (
+          <StatusPill value={vehiclePhotoAvailable ? 'UPLOADED' : vehiclePhotoExpected ? 'EXPECTED' : 'OPTIONAL'} compact />
+        ) : (
+          <div className="uc03-booking-journey-feedback is-warning" role="status">Vehicle-photo evidence is not configured for this Delivery.</div>
+        )}
       </section>
 
       <section className="uc03-delivery-v2-summary" aria-label="Delivery context">
@@ -272,10 +254,10 @@ export default function DeliveryDetailsV2Page() {
 
       <section className="uc03-delivery-v2-submit-bar">
         <div>
-          <strong>{canSubmit ? (captureAlreadySubmitted ? 'Delivery capture ready' : 'Ready to submit Delivery capture') : 'Complete Delivery intimation'}</strong>
-          <span>{!intimationComplete ? 'Delivery intimation is required. ' : vehiclePhotoExpected && !vehiclePhotoAvailable ? 'Expected vehicle-photo evidence is missing; it will not block progression. ' : ''}{captureAlreadySubmitted ? 'Finish this step and return to the Work Queue.' : 'Submitting returns you to the Work Queue. Any TL/system review remains a separate workflow.'}</span>
+          <strong>{canSubmit ? 'Ready to submit Delivery details' : 'Complete Delivery intimation'}</strong>
+          <span>{!intimationComplete ? 'Delivery intimation is required. ' : vehiclePhotoExpected && !vehiclePhotoAvailable ? 'Expected vehicle-photo evidence is missing; it will not block progression. ' : ''}One submission saves intimation, VIN/chassis, and closes out document capture together, then returns you to the Work Queue.</span>
         </div>
-        <button type="button" className="uc03-c1-primary" disabled={!canSubmit} onClick={() => void submit()}>{submitting ? 'Working…' : captureAlreadySubmitted ? 'Finish Delivery Capture' : 'Submit Delivery Capture'}</button>
+        <button type="button" className="uc03-c1-primary" disabled={!canSubmit} onClick={() => void submit()}>{submitting ? 'Submitting…' : 'Submit Delivery Details'}</button>
       </section>
     </div>
   );

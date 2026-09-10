@@ -927,14 +927,17 @@ function FlagsPanel({
             const cls = ['HIGH', 'CRITICAL'].includes(sev) ? 'bad' : 'warn';
             const targetAspect = findingAspect(f as Record<string, unknown>);
             // A DOCUMENT_GAP finding's actual resolution is uploading the
-            // missing document -- send the PC straight to the live Booking
-            // Capture workspace (Choose Files / Take Photo, auto-classify,
-            // review) instead of just a Journey 360 tab that has no upload
-            // control of its own.
+            // missing document -- send the PC straight to the live Capture
+            // workspace for whichever stage actually raised it (Choose Files
+            // / Take Photo, auto-classify, review) instead of just a Journey
+            // 360 tab that has no upload control of its own. Previously this
+            // always went to Booking's workspace regardless of stage, so a
+            // Delivery document-gap flag opened the wrong stage entirely.
             const isDocumentGap = String(f.findingClass || '').toUpperCase() === 'DOCUMENT_GAP';
+            const isDeliveryStage = String(f.stageCode || '').toUpperCase() === 'DELIVERY';
             const goToTarget = () => {
               if (isDocumentGap && journeyId) {
-                navigate(`/v2/bookings/${journeyId}`);
+                navigate(isDeliveryStage ? `/v2/deliveries/${journeyId}` : `/v2/bookings/${journeyId}`);
               } else {
                 onSelectAspect(targetAspect);
               }

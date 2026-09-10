@@ -99,12 +99,5 @@ export async function getAnalyticsDashboard(
   signal?: AbortSignal,
 ): Promise<AnalyticsDashboardData> {
   const root = `/v1/analytics/tenants/${encodeURIComponent(tenantId)}`;
-  const [overview, findings, documents, payments, turnaround] = await Promise.all([
-    analyticsRequest<AnalyticsOverview>(`${root}/overview`, accessToken, signal),
-    analyticsRequest<AnalyticsFindings>(`${root}/findings`, accessToken, signal),
-    analyticsRequest<AnalyticsDocuments>(`${root}/documents`, accessToken, signal),
-    analyticsRequest<AnalyticsPayments>(`${root}/payments`, accessToken, signal),
-    analyticsRequest<AnalyticsTurnaround>(`${root}/turnaround`, accessToken, signal),
-  ]);
-  return { overview, findings, documents, payments, turnaround };
+  return analyticsRequest<AnalyticsDashboardData>(`${root}/dashboard`, accessToken, signal);
 }

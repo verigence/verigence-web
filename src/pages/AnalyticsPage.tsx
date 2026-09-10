@@ -1,40 +1,186 @@
+import { useQuery } from '@tanstack/react-query';
+
 import PageHeader from '../components/PageHeader';
 import SectionCard from '../components/SectionCard';
-import StatusPill from '../components/StatusPill';
+import { AnalyticsHttpError, getAnalyticsDashboard } from '../services/analytics/client';
+import { useProjectContextStore } from '../store/projectContextStore';
+import { useSessionStore } from '../store/sessionStore';
 
-const bars = [68, 82, 54, 91, 73, 87, 64];
-const evidenceSignals = [
-  { documentType: 'Booking Docket', volume: '1,240', straightThrough: '93%', reviewRequired: '7%', signal: 'HEALTHY' },
-  { documentType: 'Payment Receipt', volume: '1,012', straightThrough: '89%', reviewRequired: '11%', signal: 'READY' },
-  { documentType: 'Insurance Cover Note', volume: '928', straightThrough: '81%', reviewRequired: '19%', signal: 'REVIEW_REQUIRED' },
-  { documentType: 'Delivery Note', volume: '846', straightThrough: '91%', reviewRequired: '9%', signal: 'HEALTHY' },
-];
+function formatNumber(value: number): string {
+  return new Intl.NumberFormat('en-IN').format(value);
+}
+
+function formatMoney(value: string | number): string {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) return String(value);
+  return new Intl.NumberFormat('en-IN', {
+    style: 'currency',
+    currency: 'INR',
+    maximumFractionDigits: 0,
+  }).format(numeric);
+}
+
+function formatAsOf(value?: string): string {
+  if (!value) return 'Unavailable';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' });
+}
 
 export default function AnalyticsPage() {
+  const accessToken = useSessionStore((state) => state.accessToken);
+  const sessionTenantId = useSessionStore((state) => state.tenantId);
+  const selectedProject = useProjectContextStore((state) => state.selectedProject);
+  const tenantId = selectedProject?.tenantId || sessionTenantId;
+
+  const analytics = useQuery({
+    queryKey: ['analytics', 'dashboard', tenantId],
+    enabled: Boolean(tenantId && accessToken),
+    queryFn: ({ signal }) => getAnalyticsDashboard(tenantId, accessToken!, signal),
+    staleTime: 60_000,
+    retry: (failureCount, error) => {
+      if (error instanceof AnalyticsHttpError && [401, 403, 404].includes(error.status)) return false;
+      return failureCount < 1;
+    },
+  });
+
+  if (!tenantId) {
+    return (
+      <div className="screen-stack">
+        <PageHeader eyebrow="Insights" title="Audit Analytics" description="Business analytics from the latest controlled Audit Core snapshot." />
+        <SectionCard title="Select a project">
+          <p>Choose a project from the Verigence project selector to load tenant analytics.</p>
+        </SectionCard>
+      </div>
+    );
+  }
+
+  if (analytics.isPending) {
+    return (
+      <div className="screen-stack">
+        <PageHeader eyebrow="Insights" title="Audit Analytics" description="Business analytics from the latest controlled Audit Core snapshot." />
+        <SectionCard title="Loading analytics">
+          <p>Loading the latest Analytics snapshot…</p>
+        </SectionCard>
+      </div>
+    );
+  }
+
+  if (analytics.isError) {
+    const forbidden = analytics.error instanceof AnalyticsHttpError && analytics.error.status === 403;
+    const noDump = analytics.error instanceof AnalyticsHttpError && analytics.error.status === 404;
+    return (
+      <div className="screen-stack">
+        <PageHeader eyebrow="Insights" title="Audit Analytics" description="Business analytics from the latest controlled Audit Core snapshot." />
+        <SectionCard title={forbidden ? 'Analytics access denied' : noDump ? 'No analytics snapshot' : 'Analytics unavailable'}>
+          <p>
+            {forbidden
+              ? 'Your current Security role does not have audit.analytics.read for this tenant.'
+              : noDump
+                ? 'No completed Analytics dump is available for this tenant yet.'
+                : analytics.error instanceof Error
+                  ? analytics.error.message
+                  : 'Analytics could not be loaded.'}
+          </p>
+        </SectionCard>
+      </div>
+    );
+  }
+
+  const data = analytics.data;
+  const snapshotRows = data.overview.entities.reduce((total, row) => total + row.row_count, 0);
+  const findingCount = data.findings.rows.reduce((total, row) => total + row.finding_count, 0);
+  const missingDocumentFlags = data.documents.missing_document_flags.reduce((total, row) => total + row.flag_count, 0);
+  const turnaround = data.turnaround.rows[0];
+  const paymentTotal = data.payments.rows.reduce((total, row) => total + Number(row.total_amount || 0), 0);
+  const dataAsOf = data.overview.data_as_of;
+
   return (
     <div className="screen-stack">
-      <PageHeader eyebrow="Insights" title="Audit Analytics" description="Review audit volume, outcomes, evidence quality and the areas where findings are concentrated." />
+      <PageHeader
+        eyebrow="Insights"
+        title="Audit Analytics"
+        description={`Business analytics from the latest controlled Audit Core snapshot. Data as of ${formatAsOf(dataAsOf)}.`}
+      />
+
       <div className="metric-grid">
-        <article className="metric-card"><span className="metric-card__label">Journeys Audited</span><strong className="metric-card__value">1,284</strong><span className="metric-card__detail">Rolling 30 days</span></article>
-        <article className="metric-card"><span className="metric-card__label">No Breach</span><strong className="metric-card__value">95.2%</strong><span className="metric-card__detail">Final review outcome</span></article>
-        <article className="metric-card"><span className="metric-card__label">Evidence Cleared</span><strong className="metric-card__value">88.6%</strong><span className="metric-card__detail">No additional review needed</span></article>
-        <article className="metric-card"><span className="metric-card__label">Median Review Time</span><strong className="metric-card__value">42m</strong><span className="metric-card__detail">Submission to decision</span></article>
+        <article className="metric-card">
+          <span className="metric-card__label">Snapshot Records</span>
+          <strong className="metric-card__value">{formatNumber(snapshotRows)}</strong>
+          <span className="metric-card__detail">Across {formatNumber(data.overview.entities.length)} business datasets</span>
+        </article>
+        <article className="metric-card">
+          <span className="metric-card__label">Audit Findings</span>
+          <strong className="metric-card__value">{formatNumber(findingCount)}</strong>
+          <span className="metric-card__detail">Latest completed dump</span>
+        </article>
+        <article className="metric-card">
+          <span className="metric-card__label">Missing Document Flags</span>
+          <strong className="metric-card__value">{formatNumber(missingDocumentFlags)}</strong>
+          <span className="metric-card__detail">Document-missing audit flags raised</span>
+        </article>
+        <article className="metric-card">
+          <span className="metric-card__label">Average Turnaround</span>
+          <strong className="metric-card__value">{turnaround?.avg_days == null ? '—' : `${Number(turnaround.avg_days).toFixed(1)}d`}</strong>
+          <span className="metric-card__detail">First receipt to delivery · {formatNumber(turnaround?.completed_count || 0)} completed</span>
+        </article>
       </div>
+
       <div className="dashboard-grid">
-        <SectionCard title="Daily Audit Throughput" description="Relative journey completion trend for the last seven days."><div className="bar-chart" aria-label="Daily audit throughput chart">{bars.map((value, index) => <div className="bar-chart__item" key={index}><div className="bar-chart__bar" style={{ height: `${value}%` }} /><span>{['Mon','Tue','Wed','Thu','Fri','Sat','Sun'][index]}</span></div>)}</div></SectionCard>
-        <SectionCard title="Exception Mix" description="Where current findings are concentrated."><div className="analytics-list"><div><span>Discount / Commercial</span><strong>34%</strong></div><div><span>Payment Sequence</span><strong>24%</strong></div><div><span>Delivery Mismatch</span><strong>18%</strong></div><div><span>Documentation</span><strong>16%</strong></div><div><span>Other</span><strong>8%</strong></div></div></SectionCard>
+        <SectionCard title="Findings by Rule / Control" description="Breach and observation concentration in the latest snapshot.">
+          {data.findings.rows.length === 0 ? <p>No findings in the current snapshot.</p> : (
+            <div className="data-table-wrap">
+              <table className="data-table">
+                <thead><tr><th>Rule / Control</th><th>Status</th><th>Severity</th><th>Count</th></tr></thead>
+                <tbody>{data.findings.rows.slice(0, 12).map((row, index) => (
+                  <tr key={`${row.rule_key}-${row.status}-${row.severity}-${index}`}>
+                    <td>{row.rule_key}</td><td>{row.status}</td><td>{row.severity}</td><td>{formatNumber(row.finding_count)}</td>
+                  </tr>
+                ))}</tbody>
+              </table>
+            </div>
+          )}
+        </SectionCard>
+
+        <SectionCard title="Receipt / Payment Summary" description={`Total captured payment value ${formatMoney(paymentTotal)}.`}>
+          {data.payments.rows.length === 0 ? <p>No payment rows in the current snapshot.</p> : (
+            <div className="data-table-wrap">
+              <table className="data-table">
+                <thead><tr><th>Mode</th><th>Payments</th><th>Total Amount</th></tr></thead>
+                <tbody>{data.payments.rows.map((row) => (
+                  <tr key={row.payment_method}>
+                    <td>{row.payment_method}</td><td>{formatNumber(row.payment_count)}</td><td>{formatMoney(row.total_amount)}</td>
+                  </tr>
+                ))}</tbody>
+              </table>
+            </div>
+          )}
+        </SectionCard>
       </div>
-      <SectionCard title="Evidence Quality">
-        <div className="adaptive-list__desktop">
-          <div className="data-table-wrap"><table className="data-table"><thead><tr><th>Document Type</th><th>Volume</th><th>Cleared</th><th>Review Required</th><th>Signal</th></tr></thead><tbody>{evidenceSignals.map((item) => <tr key={item.documentType}><td>{item.documentType}</td><td>{item.volume}</td><td>{item.straightThrough}</td><td>{item.reviewRequired}</td><td><StatusPill value={item.signal} compact /></td></tr>)}</tbody></table></div>
-        </div>
-        <div className="adaptive-list adaptive-list__mobile">
-          {evidenceSignals.map((item) => (
-            <article className="adaptive-list-card" key={item.documentType}>
-              <div className="adaptive-list-card__head"><div><strong>{item.documentType}</strong><span>{item.volume} documents</span></div><StatusPill value={item.signal} compact /></div>
-              <div className="adaptive-list-card__details"><span>Cleared <strong>{item.straightThrough}</strong></span><span>Review Required <strong>{item.reviewRequired}</strong></span></div>
-            </article>
-          ))}
+
+      <SectionCard title="Document Requirement Status" description="Required-document coverage and audit flags from the current snapshot.">
+        {data.documents.requirements.length === 0 ? <p>No document requirement rows in the current snapshot.</p> : (
+          <div className="data-table-wrap">
+            <table className="data-table">
+              <thead><tr><th>Document Type</th><th>Status</th><th>Requirements</th></tr></thead>
+              <tbody>{data.documents.requirements.map((row, index) => (
+                <tr key={`${row.document_type}-${row.status}-${index}`}>
+                  <td>{row.document_type}</td><td>{row.status}</td><td>{formatNumber(row.requirement_count)}</td>
+                </tr>
+              ))}</tbody>
+            </table>
+          </div>
+        )}
+      </SectionCard>
+
+      <SectionCard title="Snapshot Coverage" description={`Data as of ${formatAsOf(dataAsOf)}. Analytics reads this independent snapshot; it does not query live Audit Core on the request path.`}>
+        <div className="data-table-wrap">
+          <table className="data-table">
+            <thead><tr><th>Dataset</th><th>Rows</th></tr></thead>
+            <tbody>{data.overview.entities.map((row) => (
+              <tr key={row.source_table}><td>{row.source_table}</td><td>{formatNumber(row.row_count)}</td></tr>
+            ))}</tbody>
+          </table>
         </div>
       </SectionCard>
     </div>

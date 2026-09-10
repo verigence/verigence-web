@@ -760,6 +760,65 @@ function DiscountsPanel({ model }: { model: JourneyOverview }) {
   );
 }
 
+function InvoicesPanel({
+  invoices,
+  documents,
+}: {
+  invoices: Array<Record<string, unknown>>;
+  documents: Array<Record<string, unknown>>;
+}) {
+  const urlByDocumentId = new Map<string, string>();
+  for (const doc of documents) {
+    const id = doc.documentId ? String(doc.documentId) : null;
+    if (id && doc.contentUrl) urlByDocumentId.set(id, String(doc.contentUrl));
+  }
+  return (
+    <>
+      <PanelHead title="Invoices" hint={`${invoices.length} invoice${invoices.length !== 1 ? 's' : ''} uploaded`} />
+      {invoices.length === 0 ? (
+        <p className="jline__empty">No invoices have been extracted yet.</p>
+      ) : (
+        <div className="jline__tableWrap">
+          <table className="jline__table">
+            <thead>
+              <tr>
+                <th>Type</th>
+                <th>Invoice No.</th>
+                <th>Date</th>
+                <th>Seller</th>
+                <th>Financed By</th>
+                <th>Taxable</th>
+                <th>Grand Total</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {invoices.map((inv) => {
+                const id = String(inv.invoiceReviewValueId);
+                const documentId = inv.documentId ? String(inv.documentId) : null;
+                const viewUrl = documentId ? urlByDocumentId.get(documentId) : undefined;
+                const isCreditNote = String(inv.invoiceNature || '').toUpperCase() === 'CREDIT_NOTE';
+                return (
+                  <tr key={id}>
+                    <td>{readable(inv.documentTypeKey)}{isCreditNote ? ' (Credit Note)' : ''}</td>
+                    <td>{textValue(inv, 'invoiceNumber') || '—'}</td>
+                    <td>{dateLabel(inv.invoiceDate)}</td>
+                    <td>{textValue(inv, 'sellerName') || '—'}</td>
+                    <td>{textValue(inv, 'financedBy') || '—'}</td>
+                    <td>{money(inv.taxableAmount)}</td>
+                    <td className={isCreditNote ? 'jline__delta--under' : ''}>{money(inv.grandTotalAmount)}</td>
+                    <td>{viewUrl ? <a href={viewUrl} target="_blank" rel="noreferrer">View</a> : null}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </>
+  );
+}
+
 function PaymentsPanel({
   model,
   receipts,
@@ -1014,6 +1073,9 @@ function FocusPanel({
           modelNotIdentified={modelNotIdentified as Record<string, unknown> | null}
         />
       );
+      break;
+    case 'invoice':
+      body = <InvoicesPanel invoices={model.invoices || []} documents={model.evidence} />;
       break;
     case 'payments':
       // Bank statements is a sub-section here now (merged from its own

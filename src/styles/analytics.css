@@ -1,0 +1,132 @@
+.analytics-screen {
+  gap: 18px;
+}
+
+.analytics-tabs {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 4px 2px 10px;
+  scrollbar-width: thin;
+}
+
+.analytics-tab {
+  appearance: none;
+  border: 1px solid rgba(21, 58, 99, 0.16);
+  border-radius: 999px;
+  background: #ffffff;
+  color: #244b78;
+  cursor: pointer;
+  flex: 0 0 auto;
+  font: inherit;
+  font-size: 0.86rem;
+  font-weight: 650;
+  line-height: 1;
+  padding: 10px 15px;
+  transition: background 120ms ease, border-color 120ms ease, color 120ms ease, box-shadow 120ms ease;
+}
+
+.analytics-tab:hover {
+  border-color: rgba(5, 140, 160, 0.48);
+  color: #067f93;
+}
+
+.analytics-tab:focus-visible {
+  outline: 3px solid rgba(5, 140, 160, 0.2);
+  outline-offset: 2px;
+}
+
+.analytics-tab--active {
+  background: #07366b;
+  border-color: #07366b;
+  color: #ffffff;
+  box-shadow: 0 5px 14px rgba(7, 54, 107, 0.16);
+}
+
+.analytics-metric-grid {
+  align-items: stretch;
+}
+
+.analytics-metric-card {
+  min-height: 132px;
+}
+
+.analytics-report-grid {
+  align-items: start;
+}
+
+.analytics-bars {
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+  padding: 4px 0;
+}
+
+.analytics-bar {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+}
+
+.analytics-bar__heading {
+  align-items: baseline;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  color: #31557f;
+  font-size: 0.82rem;
+}
+
+.analytics-bar__heading > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.analytics-bar__heading > strong {
+  color: #0b3465;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+
+.analytics-bar__track {
+  background: #edf3f8;
+  border-radius: 999px;
+  height: 10px;
+  overflow: hidden;
+  position: relative;
+}
+
+.analytics-bar__fill {
+  background: linear-gradient(90deg, #078ba0 0%, #1a73b8 100%);
+  border-radius: inherit;
+  display: block;
+  height: 100%;
+  min-width: 3px;
+}
+
+.analytics-turnaround-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+@media (max-width: 900px) {
+  .analytics-turnaround-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .analytics-tabs {
+    margin-inline: -4px;
+    padding-inline: 4px;
+  }
+
+  .analytics-tab {
+    font-size: 0.8rem;
+    padding: 9px 12px;
+  }
+
+  .analytics-bar__heading {
+    gap: 8px;
+  }
+}

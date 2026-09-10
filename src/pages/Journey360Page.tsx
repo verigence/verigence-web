@@ -1245,26 +1245,27 @@ function FlagsPanel({
             // A DOCUMENT_GAP finding's actual resolution is uploading the
             // missing document -- send the PC straight to the live Capture
             // workspace for whichever stage actually raised it (Choose Files
-            // / Take Photo, auto-classify, review) instead of just a Journey
-            // 360 tab that has no upload control of its own. Previously this
-            // always went to Booking's workspace regardless of stage, so a
-            // Delivery document-gap flag opened the wrong stage entirely.
+            // / Take Photo, auto-classify, review) instead of Audit View,
+            // which has no upload control of its own. Previously this always
+            // went to Booking's workspace regardless of stage, so a Delivery
+            // document-gap flag opened the wrong stage entirely.
             const isDocumentGap = findingClass === 'DOCUMENT_GAP';
             const isDeliveryStage = String(f.stageCode || '').toUpperCase() === 'DELIVERY';
-            // findingAspect()'s own catch-all is 'flags' -- this exact tab --
-            // whenever no data tab owns the finding (a generic VIOLATION with
-            // no matching keyword, say). Selecting 'flags' from inside the
-            // Flags panel is a no-op the PC/TL can't tell apart from a dead
-            // click: "clicking a flag stays on the same details view instead
-            // of going to the Audit view." Route those to the real Audit
-            // view (/audit/:journeyId) instead, where every finding is
-            // listed and a VIOLATION can actually be accepted/rejected/resolved.
-            const hasNoOwningTab = targetAspect === 'flags';
+            // Audit View is the one place a finding is meant to be read in
+            // full context (classification, severity, owner, SLA, history)
+            // and Review Queue is where it's actually acted on -- so every
+            // other finding opens there, not a same-page Journey 360 tab.
+            // Previously only findings with no matching data tab (findingAspect()'s
+            // catch-all, itself named 'flags' -- this exact panel) went to Audit
+            // View; everything else just switched tabs in place, which is
+            // indistinguishable from a dead click ("clicking a flag doesn't open
+            // Audit View"). Deep-links to the specific finding so it's not just
+            // a generic list the reviewer has to search through.
             const goToTarget = () => {
               if (isDocumentGap && journeyId) {
                 navigate(isDeliveryStage ? `/v2/deliveries/${journeyId}` : `/v2/bookings/${journeyId}`);
-              } else if (hasNoOwningTab && journeyId) {
-                navigate(`/audit/${journeyId}`);
+              } else if (journeyId) {
+                navigate(`/audit/${journeyId}?findingId=${encodeURIComponent(String(f.auditFindingId))}`);
               } else {
                 onSelectAspect(targetAspect);
               }
@@ -1299,7 +1300,7 @@ function FlagsPanel({
                   <small>
                     {readable(f.stageCode)} · {readable(f.findingStatus)}
                     {f.ruleKey ? <> · <code>{String(f.ruleKey)}</code></> : null}
-                    {' · '}{isDocumentGap ? '→ Upload document' : hasNoOwningTab ? '→ Audit view' : <>→ {readable(targetAspect)}</>}
+                    {' · '}{isDocumentGap ? '→ Upload document' : '→ Audit view'}
                   </small>
                 </div>
                 <div>

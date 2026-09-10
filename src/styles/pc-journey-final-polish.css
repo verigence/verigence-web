@@ -36,6 +36,21 @@
   contain: inline-size;
 }
 
+/* Only TL ever renders all 4 KPI cards (Bookings/Deliveries/Attention or
+   Observations/Review Pending) -- PC and every other role render exactly 3,
+   which the `grid-column: auto` rule above leaves in a 3-of-4 row with an
+   empty trailing cell. Fill it by having the last card (when it's the 3rd,
+   2nd or 1st) span the remaining columns instead. */
+.enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-landing-metric:last-child:nth-child(3) {
+  grid-column: span 2 !important;
+}
+.enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-landing-metric:last-child:nth-child(2) {
+  grid-column: span 3 !important;
+}
+.enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-landing-metric:last-child:nth-child(1) {
+  grid-column: 1 / -1 !important;
+}
+
 .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-landing-metric__label,
 .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-landing-metric__value,
 .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-landing-metric__detail,
@@ -148,6 +163,14 @@ html.vg-pc-navigating .enterprise-shell--approved-nav .enterprise-content > .scr
   .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-landing-metric::before {
     display: none !important;
     content: none !important;
+  }
+
+  /* Same fix as the desktop 4-column strip above: PC and every non-TL role
+     render exactly 3 KPI cards, which the `grid-column: auto` rule leaves as
+     a lone 3rd card in its own row with an empty cell beside it. */
+  .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-landing-metric:last-child:nth-child(3),
+  .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-landing-metric:last-child:nth-child(1) {
+    grid-column: 1 / -1 !important;
   }
 
   .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-landing-metric__label {

@@ -1,6 +1,6 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 
 import PageHeader from '../components/PageHeader';
 import AttributeEvidenceViewer from '../features/uc03/AttributeEvidenceViewer';
@@ -340,8 +340,14 @@ export default function ReviewQueuePage() {
   const queryClient = useQueryClient();
 
   const role = project?.operatingRole ?? 'PC';
+  // Audit View (a read-only view of one journey's findings) links a specific
+  // flag here to act on it -- ?findingId=. Land on the broadest scope/filter
+  // combination so that one item isn't hidden by whichever bucket/filter
+  // happened to be selected, then scroll to and highlight it once loaded.
+  const [searchParams] = useSearchParams();
+  const findingId = searchParams.get('findingId');
   const [subjectTab, setSubjectTab] = useState<Uc03QueueSubjectKind>('JOURNEY');
-  const [scope, setScope] = useState<Uc03QueueScope>(role === 'PC' ? 'MINE' : 'MINE');
+  const [scope, setScope] = useState<Uc03QueueScope>(findingId ? 'ALL' : role === 'PC' ? 'MINE' : 'MINE');
   const [classFilter, setClassFilter] = useState<'ALL' | Uc03FindingClass>('ALL');
   const [stageFilter, setStageFilter] = useState<'ALL' | Uc03StageCode>('ALL');
   const [decision, setDecision] = useState<DecisionState | null>(null);
@@ -411,6 +417,12 @@ export default function ReviewQueuePage() {
     ],
     [role],
   );
+
+  const findingTarget = findingId ? items.find((item) => item.flagId === findingId) : undefined;
+  useEffect(() => {
+    if (!findingId || !findingTarget) return;
+    document.getElementById(`revq-item-${findingId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }, [findingId, findingTarget]);
 
   if (!project) return null;
 
@@ -533,6 +545,12 @@ export default function ReviewQueuePage() {
         </div>
       )}
 
+      {queueQuery.data && findingId && !findingTarget && (
+        <div className="revq-banner revq-banner--err" role="status">
+          That finding isn't in your actionable queue right now — it may already be resolved, or outside your review scope.
+        </div>
+      )}
+
       <ul className="revq-list">
         {items.map((item) => {
           const sla = slaLabel(item);
@@ -543,7 +561,11 @@ export default function ReviewQueuePage() {
           const canResolve = item.permittedActions.includes('RESOLVE');
           const open = decision?.flagId === item.flagId;
           return (
-            <li key={item.flagId} className={`revq-item revq-item--${item.severity.toLowerCase()}`}>
+            <li
+              key={item.flagId}
+              id={`revq-item-${item.flagId}`}
+              className={`revq-item revq-item--${item.severity.toLowerCase()}${item.flagId === findingId ? ' revq-item--target' : ''}`}
+            >
               <div className="revq-item__head">
                 <span className={`revq-sev revq-sev--${item.severity.toLowerCase()}`} aria-label={`${friendly(item.severity)} severity`} />
                 <span className={`revq-tag revq-tag--${item.findingClass.toLowerCase()}`}>{CLASS_LABEL[item.findingClass]}</span>

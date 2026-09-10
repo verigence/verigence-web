@@ -63,6 +63,13 @@ const reviewQueueItem: NavItem = {
   roles: ['PC', 'TL', 'PM', 'EXECUTIVE'],
 };
 
+const analyticsItem: NavItem = {
+  to: '/analytics',
+  label: 'Analytics',
+  mark: 'AN',
+  roles: ['PC', 'TL', 'PM', 'EXECUTIVE', ...admin],
+};
+
 // PC Overview is "what needs me now"; this opens the full work queue (the legacy
 // dashboard) so a PC can browse every booking and delivery and tab between them.
 const allJourneysItem: NavItem = {
@@ -92,9 +99,7 @@ const groups: NavGroup[] = [
     { to: '/crm', label: 'CRM Follow-up', mark: 'CR', roles: ['CRM', 'PM', ...admin] },
     { to: '/escalations', label: 'Escalations', mark: 'ES', roles: ['TL', 'PM', 'CRM', 'EXECUTIVE', ...admin] },
   ] },
-  { key: 'insights', label: 'Insights', items: [
-    { to: '/analytics', label: 'Analytics', mark: 'AN', roles: ['TL', 'PM', 'EXECUTIVE', ...admin] },
-  ] },
+  { key: 'insights', label: 'Insights', items: [analyticsItem] },
   { key: 'administration', label: 'Administration', items: [
     { to: '/admin/engagements', label: 'Engagements', mark: 'EN', roles: ['SUPER_ADMIN'] },
     { to: '/admin/document-intelligence', label: 'Document Intelligence', mark: 'DC', roles: ['SUPER_ADMIN'] },
@@ -247,9 +252,15 @@ export default function AppShell({ children }: PropsWithChildren) {
       label: 'Workspace',
       items: workspaceItems,
     };
-    if (sessionRole !== 'TENANT_ADMIN') return [workspaceGroup];
+    const analyticsGroup: NavGroup = {
+      key: 'insights',
+      label: 'Insights',
+      items: [analyticsItem],
+    };
+    if (sessionRole !== 'TENANT_ADMIN') return [workspaceGroup, analyticsGroup];
     return [
       workspaceGroup,
+      analyticsGroup,
       { key: 'administration', label: 'Administration', items: [projectAdministrationItem] },
     ];
   }, [c0OperationalShell, role, sessionRole, reviewQueueCount]);

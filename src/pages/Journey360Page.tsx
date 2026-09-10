@@ -632,6 +632,136 @@ function JFact({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 
+// Accessories/Extended Warranty line items live inside each invoice's raw
+// lineItems array (invoice_review_values.line_items, passed through
+// verbatim from DI's snake_case line_category/description_raw/net_amount --
+// unlike the rest of this response, that array is never re-cased).
+function invoiceLineItems(model: JourneyOverview, categories: string[]): Array<Record<string, unknown>> {
+  const invoices = Array.isArray(model.invoices) ? model.invoices : [];
+  const items: Array<Record<string, unknown>> = [];
+  for (const invoice of invoices) {
+    const raw = (invoice as Record<string, unknown> | null)?.lineItems;
+    if (!Array.isArray(raw)) continue;
+    for (const entry of raw) {
+      if (!entry || typeof entry !== 'object') continue;
+      const item = entry as Record<string, unknown>;
+      const category = String(item.line_category || '').toUpperCase();
+      if (categories.includes(category)) items.push(item);
+    }
+  }
+  return items;
+}
+
+function addonByCode(model: JourneyOverview, code: string): Record<string, unknown> | null {
+  const addons = Array.isArray(model.addons) ? model.addons : [];
+  const match = addons.find((a) => String(value(a, 'addonTypeCode') || '').toUpperCase() === code);
+  return match ?? null;
+}
+
+function lineItemLabel(item: Record<string, unknown>): string {
+  const description = item.description_raw;
+  if (typeof description === 'string' && description.trim()) return description.trim();
+  const code = item.item_code;
+  if (typeof code === 'string' && code.trim()) return code.trim();
+  return 'Line item';
+}
+
+function lineItemAmount(item: Record<string, unknown>): unknown {
+  return item.net_amount ?? item.gross_amount ?? item.taxable_amount ?? null;
+}
+
+function nonEmptyText(v: unknown): string | null {
+  return typeof v === 'string' && v.trim() ? v.trim() : null;
+}
+
+/** One "Taken / Not taken" row, styled as the checkbox/slider the user asked
+ * for -- read-only here since Journey 360 is a TL/PM display, not a capture
+ * screen; the underlying state (accessoriesTaken/extendedWarrantyTaken) is
+ * itself already derived from the commercial amount, never a separate
+ * declared flag (see uc03_delivery_documents._resolve_condition). */
+function TakenToggleRow({
+  label,
+  taken,
+  amount,
+  provider,
+}: {
+  label: string;
+  taken: boolean;
+  amount: unknown;
+  provider: string | null;
+}) {
+  return (
+    <div className="jline__toggleRow">
+      <div className="jline__toggleLabel">
+        <strong>{label}</strong>
+        <small>
+          {taken
+            ? `Taken${amount !== null && amount !== undefined ? ` · ${money(amount)}` : ''}${provider ? ` · ${provider}` : ''}`
+            : 'Not taken on this deal'}
+        </small>
+      </div>
+      <span
+        className={`jline__toggleSwitch${taken ? ' jline__toggleSwitch--on' : ''}`}
+        role="img"
+        aria-label={`${label}: ${taken ? 'taken' : 'not taken'}`}
+      />
+    </div>
+  );
+}
+
+function ItemList({ title, items }: { title: string; items: Array<Record<string, unknown>> }) {
+  if (items.length === 0) return null;
+  return (
+    <div className="jline__itemList">
+      <span className="jline__itemListTitle">{title}</span>
+      {items.map((item, index) => (
+        <div className="jline__itemRow" key={index}>
+          <span>{lineItemLabel(item)}</span>
+          <strong>{money(lineItemAmount(item))}</strong>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** Accessories/Extended Warranty confirmation + itemized breakdown, shown
+ * under the Vehicle tab per the explicit ask: "get the list of Accessories
+ * bought ... same if there is extended warranty ... and on top ... a
+ * checkbox or slider which confirms whether this vehicle has EW and
+ * Accessories taken up or not." */
+function AccessoriesWarrantyPanel({ model }: { model: JourneyOverview }) {
+  const accessoriesAddon = addonByCode(model, 'ACCESSORIES_TOTAL');
+  const warrantyAddon = addonByCode(model, 'ADDITIONAL_WARRANTY');
+  const accessoriesAmount = accessoriesAddon ? value(accessoriesAddon, 'actualAmount') : null;
+  const warrantyAmount = warrantyAddon ? value(warrantyAddon, 'actualAmount') : null;
+  const accessoriesTaken = Number(accessoriesAmount) > 0;
+  const warrantyTaken = Number(warrantyAmount) > 0;
+
+  const accessoryItems = invoiceLineItems(model, ['ACCESSORY_GENUINE', 'ACCESSORY_NON_GENUINE']);
+  const warrantyItems = invoiceLineItems(model, ['EXTENDED_WARRANTY']);
+
+  return (
+    <div className="jline__accessoriesPanel">
+      <div className="jline__toggles">
+        <TakenToggleRow
+          label="Accessories"
+          taken={accessoriesTaken}
+          amount={accessoriesAmount}
+          provider={accessoriesAddon ? nonEmptyText(value(accessoriesAddon, 'providerName')) : null}
+        />
+        <TakenToggleRow
+          label="Extended Warranty"
+          taken={warrantyTaken}
+          amount={warrantyAmount}
+          provider={warrantyAddon ? nonEmptyText(value(warrantyAddon, 'providerName')) : null}
+        />
+      </div>
+      {accessoriesTaken && <ItemList title="Accessories bought" items={accessoryItems} />}
+      {warrantyTaken && <ItemList title="Extended Warranty" items={warrantyItems} />}
+    </div>
+  );
+}
+
 function bankMatchPill(match: Record<string, unknown> | null): React.ReactNode {
   if (!match) return null;
   const status = String(match.status || '').toUpperCase();
@@ -1109,6 +1239,7 @@ function FocusPanel({
       body = (
         <>
           <PanelHead title="Vehicle" hint="Delivery documents take precedence over Booking." />
+          <AccessoriesWarrantyPanel model={model} />
           <FactList>
             <JFact label="Model">{preferredText(model.booking, 'modelName', reviewedBooking, 'vehicle_model')}</JFact>
             <JFact label="Variant">{preferredText(model.booking, 'variantName', reviewedBooking, 'vehicle_variant')}</JFact>

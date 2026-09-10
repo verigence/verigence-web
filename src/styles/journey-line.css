@@ -383,6 +383,24 @@
 .jline__itemRow:last-child { border-bottom: none; }
 .jline__itemRow strong { color: var(--jl-ink); font-variant-numeric: tabular-nums; white-space: nowrap; }
 
+/* Line-items-as-a-column, inside the Invoice Amounts table on the Payments
+   tab -- one stacked mini-row per item within the cell. */
+.jline__invoiceItems {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 180px;
+}
+.jline__invoiceItem {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 0.76rem;
+}
+.jline__invoiceItem span { color: var(--jl-muted); }
+.jline__invoiceItem strong { color: var(--jl-ink); font-variant-numeric: tabular-nums; white-space: nowrap; }
+
 @media (max-width: 720px) {
   .jline__strip { flex-direction: column; align-items: flex-start; }
   .jline__panelHead { flex-direction: column; }

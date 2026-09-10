@@ -20,6 +20,7 @@
   "vars": {
     "SECURITY_UPSTREAM": "https://security-dev.up.railway.app",
     "AUDIT_CORE_UPSTREAM": "https://verigence-audit-core-production.up.railway.app",
+    "ANALYTICS_UPSTREAM": "https://analytics-dev.up.railway.app",
     "DI_UPSTREAM": "https://di-api-dev.up.railway.app",
     "LOG_PROXY_SUCCESS": "false"
   },
@@ -27,6 +28,6 @@
     "directory": "./dist/",
     "binding": "ASSETS",
     "not_found_handling": "single-page-application",
-    "run_worker_first": ["/security/*", "/audit-core/*", "/di/*"]
+    "run_worker_first": ["/security/*", "/audit-core/*", "/analytics-api/*", "/di/*"]
   }
 }

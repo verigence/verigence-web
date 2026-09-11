@@ -151,12 +151,79 @@ export interface AnalyticsProductivity {
   }>;
 }
 
+export interface AnalyticsScorecardRow {
+  scope_level: 'DEALER' | 'OUTLET';
+  dealer_id: string;
+  dealer_name: string;
+  outlet_id: string | null;
+  outlet_name: string | null;
+  city: string | null;
+  state_region: string | null;
+  journey_count: number;
+  journeys_with_findings: number;
+  finding_count: number;
+  open_finding_count: number;
+  high_finding_count: number;
+  missing_document_flag_count: number;
+  journeys_with_missing_documents: number;
+  finance_journeys: number;
+  insurance_journeys: number;
+  trade_in_journeys: number;
+  ew_journeys: number;
+  rsa_journeys: number;
+  accessory_journeys: number;
+  corporate_discount_journeys: number;
+  gst_benefit_journeys: number;
+  exchange_discount_journeys: number;
+  payment_amount: number;
+  actual_discount_amount: number;
+  eligible_discount_amount: number;
+  journeys_with_findings_pct: number;
+  journeys_with_missing_documents_pct: number;
+  finance_penetration_pct: number;
+  insurance_penetration_pct: number;
+  trade_in_penetration_pct: number;
+  ew_penetration_pct: number;
+  rsa_penetration_pct: number;
+  accessory_penetration_pct: number;
+  corporate_discount_penetration_pct: number;
+  gst_benefit_penetration_pct: number;
+  exchange_discount_penetration_pct: number;
+}
+
+export interface AnalyticsProjectSummary extends Omit<AnalyticsScorecardRow, 'scope_level' | 'dealer_id' | 'dealer_name' | 'outlet_id' | 'outlet_name' | 'city' | 'state_region'> {
+  dealer_count: number;
+  outlet_count: number;
+  active_dealer_count: number;
+  active_outlet_count: number;
+}
+
+export interface AnalyticsBusinessScorecard {
+  tenant_id: string;
+  data_as_of: string;
+  project_summary: AnalyticsProjectSummary;
+  dealers: AnalyticsScorecardRow[];
+  outlets: AnalyticsScorecardRow[];
+  definitions: {
+    journeys_with_findings_pct: string;
+    journeys_with_missing_documents_pct: string;
+    penetration_pct: string;
+    composite_compliance_score: null;
+  };
+}
+
 export interface AnalyticsDashboardData {
   overview: AnalyticsOverview;
   findings: AnalyticsFindings;
   documents: AnalyticsDocuments;
   payments: AnalyticsPayments;
   turnaround: AnalyticsTurnaround;
+  network: AnalyticsBusinessScorecard;
+}
+
+interface AnalyticsExecutiveDashboardWire {
+  network: AnalyticsBusinessScorecard;
+  overview: Omit<AnalyticsDashboardData, 'network'>;
 }
 
 export type AnalyticsReportKey =
@@ -189,7 +256,8 @@ export async function getAnalyticsDashboard(
   signal?: AbortSignal,
 ): Promise<AnalyticsDashboardData> {
   const root = `/v1/analytics/tenants/${encodeURIComponent(tenantId)}`;
-  return analyticsRequest<AnalyticsDashboardData>(`${root}/dashboard`, accessToken, signal);
+  const wire = await analyticsRequest<AnalyticsExecutiveDashboardWire>(`${root}/executive-dashboard`, accessToken, signal);
+  return { ...wire.overview, network: wire.network };
 }
 
 export async function getAnalyticsReport(

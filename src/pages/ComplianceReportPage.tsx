@@ -129,7 +129,6 @@ export default function ComplianceReportPage() {
                 <h1>{reportQuery.data.header.customerDisplayName}</h1>
                 <p>{reportQuery.data.header.productLabel || 'Vehicle not captured'}</p>
               </div>
-              <span className="crpt-role-pill">TL / PM view</span>
             </div>
             <div className="crpt-header__meta">
               <div><span>Booking Ref</span><strong>{reportQuery.data.header.bookingReference || '—'}</strong></div>

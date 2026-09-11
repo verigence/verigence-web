@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, useLocation, useSearchParams } from 'react-router-dom';
 
 import {
   effectiveStageStatus,
@@ -619,6 +619,15 @@ export default function DashboardPage() {
   const accessToken = useSessionStore((state) => state.accessToken);
   const outletId = useSessionStore((state) => state.outletId);
   const [searchParams] = useSearchParams();
+  const location = useLocation();
+  // PC Overview's own hero KPI tiles link here (QUEUE = '/work-queue' in
+  // PcOverviewPage.tsx) to drill into one filtered list -- having just shown
+  // the PC these same Bookings/Deliveries/Observations counts as its hero,
+  // repeating them here in a differently-styled strip is the exact "same
+  // numbers, different look" duplication reported directly by the user.
+  // '/dashboard' (TL/PM, or the redesign-disabled fallback) is unaffected --
+  // there this is still the only summary on the page.
+  const isPcOverviewDrillDown = location.pathname === '/work-queue';
   const [view, setView] = useState<LandingView>(() => initialLandingView(searchParams.get('view')));
   const requestedView = searchParams.get('view');
   useEffect(() => {
@@ -777,7 +786,7 @@ export default function DashboardPage() {
         showCaptureAction={isPc}
       />
 
-      {metricsQuery.isError ? (
+      {isPcOverviewDrillDown ? null : metricsQuery.isError ? (
         <section className="dashboard-load-state" role="alert">
           <div className="dashboard-load-state__mark" aria-hidden="true">!</div>
           <div className="dashboard-load-state__copy">

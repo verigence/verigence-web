@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { Link, useSearchParams } from 'react-router-dom';
 
@@ -332,8 +333,9 @@ function WorkItemRow({
   productLabelOverride?: string;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
-  const [menuOpensUpward, setMenuOpensUpward] = useState(false);
+  const [menuStyle, setMenuStyle] = useState<{ top?: number; bottom?: number; left: number } | null>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
+  const menuPortalRef = useRef<HTMLDivElement | null>(null);
   const moreButtonRef = useRef<HTMLButtonElement | null>(null);
   const bookingPath = `/v2/bookings/${item.journeyId}`;
   const deliveryPath = `/v2/deliveries/${item.journeyId}`;
@@ -372,15 +374,30 @@ function WorkItemRow({
 
   useEffect(() => {
     if (!menuOpen) return undefined;
+    // The menu itself renders through a portal (see below) -- it is not a
+    // DOM descendant of menuRef even though it's a React child of this
+    // component, so an outside-click check against menuRef alone closes the
+    // menu the instant any item inside it is clicked. Check both.
     const onPointerDown = (event: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(event.target as Node)) setMenuOpen(false);
+      const target = event.target as Node;
+      if (menuRef.current?.contains(target)) return;
+      if (menuPortalRef.current?.contains(target)) return;
+      setMenuOpen(false);
     };
     const onKeyDown = (event: KeyboardEvent) => { if (event.key === 'Escape') setMenuOpen(false); };
+    const onReposition = () => setMenuOpen(false);
     document.addEventListener('mousedown', onPointerDown);
     document.addEventListener('keydown', onKeyDown);
+    // A fixed-position menu stays glued to the viewport, not the row, once
+    // the page scrolls or resizes -- simplest correct behavior is to close
+    // it rather than let it visually detach from the button that opened it.
+    window.addEventListener('scroll', onReposition, true);
+    window.addEventListener('resize', onReposition);
     return () => {
       document.removeEventListener('mousedown', onPointerDown);
       document.removeEventListener('keydown', onKeyDown);
+      window.removeEventListener('scroll', onReposition, true);
+      window.removeEventListener('resize', onReposition);
     };
   }, [menuOpen]);
 
@@ -460,22 +477,41 @@ function WorkItemRow({
             aria-haspopup="true"
             aria-expanded={menuOpen}
             onClick={() => {
-              // Always opening downward left the menu spilling off the
-              // bottom of the card for any row near the end of the loaded
-              // list (nothing near the viewport edge flips) -- open upward
-              // instead whenever there isn't room below for a full menu.
-              if (!menuOpen && moreButtonRef.current) {
-                const rect = moreButtonRef.current.getBoundingClientRect();
-                const estimatedMenuHeight = 260;
-                setMenuOpensUpward(window.innerHeight - rect.bottom < estimatedMenuHeight);
+              if (menuOpen) {
+                setMenuOpen(false);
+                return;
               }
-              setMenuOpen((current) => !current);
+              // Rendered through a portal at fixed viewport coordinates (see
+              // below) instead of position:absolute nested in the row -- a
+              // menu long enough to need the divider + Compliance Report
+              // entry is taller than one row, so anchoring it to the row's
+              // own stacking context always let it visually bleed into
+              // whichever row sits above or below. Fixed positioning avoids
+              // that entirely, at the cost of needing real coordinates.
+              const rect = moreButtonRef.current?.getBoundingClientRect();
+              if (!rect) return;
+              const estimatedMenuHeight = 260;
+              const estimatedMenuWidth = 210;
+              const openUpward = window.innerHeight - rect.bottom < estimatedMenuHeight;
+              const left = Math.min(rect.right - estimatedMenuWidth, window.innerWidth - estimatedMenuWidth - 8);
+              setMenuStyle({
+                left: Math.max(8, left),
+                ...(openUpward
+                  ? { bottom: window.innerHeight - rect.top + 6 }
+                  : { top: rect.bottom + 6 }),
+              });
+              setMenuOpen(true);
             }}
           >
             More ▾
           </button>
-          {menuOpen && (
-            <div className={`uc03-work-row-v2__more-menu${menuOpensUpward ? ' is-open-upward' : ''}`} role="menu">
+          {menuOpen && menuStyle && typeof document !== 'undefined' && createPortal(
+            <div
+              ref={menuPortalRef}
+              className="uc03-work-row-v2__more-menu"
+              role="menu"
+              style={{ position: 'fixed', left: menuStyle.left, top: menuStyle.top, bottom: menuStyle.bottom }}
+            >
               {presentation.secondaryActionLabel && presentation.secondaryPath && presentation.secondaryTarget && (
                 <Link
                   role="menuitem"
@@ -521,7 +557,8 @@ function WorkItemRow({
                   </Link>
                 </>
               )}
-            </div>
+            </div>,
+            document.body,
           )}
         </div>
       </div>

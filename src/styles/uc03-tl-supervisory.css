@@ -384,6 +384,13 @@
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
+  /* Always exactly 5 metric cards -- in a 3-column grid the last row (items
+     4-5) leaves one empty cell. Span the 5th across the remaining 2 columns
+     so the row fills evenly. */
+  .uc03-tl-metrics > :last-child:nth-child(5) {
+    grid-column: span 2;
+  }
+
   .uc03-tl-filters {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -417,6 +424,11 @@
   .uc03-tl-breakdown-grid,
   .uc03-tl-case__details {
     grid-template-columns: 1fr 1fr;
+  }
+
+  /* Same 5-card layout, now 2 columns -- the 5th sits alone in row 3. */
+  .uc03-tl-metrics > :last-child:nth-child(5) {
+    grid-column: 1 / -1;
   }
 
   .uc03-tl-breakdown-grid {

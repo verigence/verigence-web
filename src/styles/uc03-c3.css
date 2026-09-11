@@ -72,6 +72,12 @@
   gap: 14px;
 }
 
+/* Before Delivery starts, only the Booking stage card renders -- without
+   this it sits in a 2-column grid with an empty column beside it. */
+.uc03-c3-stage-grid > .uc03-c3-stage-card:only-child {
+  grid-column: 1 / -1;
+}
+
 .uc03-c3-stage-card {
   padding: 18px;
   display: grid;
@@ -231,6 +237,25 @@
 .uc03-c3-flag-card.severity-low { border-left-color: #3974a9; }
 .uc03-c3-flag-card.severity-info { border-left-color: #56727d; }
 
+/* Deep-linked from Review Queue's "Open case", or scrolled to from this
+   page's own ?findingId= link -- the one flag the reviewer was sent here
+   for. */
+.uc03-c3-flag-card--target {
+  box-shadow: 0 0 0 2px var(--brand-primary, #315fdd);
+}
+
+/* Audit View reads; Review Queue acts. This is the one door between them. */
+.uc03-c3-take-action {
+  justify-self: start;
+  padding: 8px 14px;
+  border-radius: 10px;
+  background: var(--brand-primary, #315fdd);
+  color: #fff;
+  font-weight: 700;
+  font-size: 0.86rem;
+  text-decoration: none;
+}
+
 .uc03-c3-flag-meta,
 .uc03-c3-flag-footnote,
 .uc03-c3-timeline-meta {
@@ -357,6 +382,13 @@
 @media (max-width: 900px) {
   .uc03-c3-overview {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  /* Always exactly 5 tiles (Open/Historical/System/Human flags + Highest
+     severity) -- in a 2-column grid the 5th sits alone with an empty column
+     beside it. */
+  .uc03-c3-overview > div:nth-child(5) {
+    grid-column: 1 / -1;
   }
 
   .uc03-c3-stage-grid,

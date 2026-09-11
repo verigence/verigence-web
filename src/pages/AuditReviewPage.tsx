@@ -1,21 +1,18 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useParams, useSearchParams } from 'react-router-dom';
 
 import PageHeader from '../components/PageHeader';
 import StatusPill from '../components/StatusPill';
 import AttributeEvidenceViewer, { hasBoxedEvidence } from '../features/uc03/AttributeEvidenceViewer';
 import AuditSourceComparisonTable from '../features/uc03/AuditSourceComparisonTable';
 import {
-  actOnAuditFlag,
-  addAuditFlagRemark,
   completeStageAudit,
   getAuditSummary,
   getAuditTimeline,
   listAuditFlags,
   raiseAuditFlag,
   type Uc03AuditFlag,
-  type Uc03FlagAction,
   type Uc03StageAuditView,
   type Uc03StageCode,
 } from '../services/audit-core/uc03Audit';
@@ -119,58 +116,26 @@ function FlagCard({
   flag,
   timezoneName,
   permittedActions,
-  busy,
-  evidenceOptions,
-  onAction,
-  onRemark,
+  isTarget,
 }: {
   flag: Uc03AuditFlag;
   timezoneName: string;
   permittedActions: string[];
-  busy: boolean;
-  evidenceOptions: EvidenceOption[];
-  onAction: (flag: Uc03AuditFlag, action: Uc03FlagAction, remarks: string, evidenceIds: string[]) => Promise<void>;
-  onRemark: (flag: Uc03AuditFlag, remarks: string, evidenceIds: string[]) => Promise<void>;
+  isTarget: boolean;
 }) {
-  const [remarks, setRemarks] = useState('');
-  const [selectedEvidence, setSelectedEvidence] = useState<string[]>([]);
-  const stageEvidence = evidenceOptions.filter((option) => option.stage === flag.stage);
-
-  const toggleEvidence = (id: string) => {
-    setSelectedEvidence((current) => (
-      current.includes(id) ? current.filter((value) => value !== id) : [...current, id]
-    ));
-  };
-
   // Per-finding permitted actions from the server (class-aware); fall back to the
-  // role-level list for the legacy REMARK affordance.
+  // role-level list. Used only to decide whether a "Take action" link is worth
+  // showing at all -- Audit View is a read view of the case (evidence,
+  // classification, severity, SLA, full history); accepting, rejecting,
+  // resolving or remarking on a flag all happen in Review Queue, the
+  // actionable surface, not here.
   const canDo = (action: string) =>
     flag.permittedActions.includes(action) || permittedActions.includes(action);
   const isViolation = flag.findingClass === 'VIOLATION';
   const open = ['OPEN', 'ACKNOWLEDGED'].includes(flag.status);
-
-  const availableActions: Array<{ action: Uc03FlagAction; label: string; needsReason?: boolean }> = [];
-  if (flag.status === 'OPEN' && canDo('ACKNOWLEDGE')) {
-    availableActions.push({ action: 'ACKNOWLEDGE', label: 'Acknowledge' });
-  }
-  if (open && isViolation && canDo('REJECT')) {
-    availableActions.push({ action: 'REJECT', label: 'Reject — not a breach', needsReason: true });
-  }
-  if (open && isViolation && canDo('ACCEPT')) {
-    availableActions.push({ action: 'ACCEPT', label: 'Accept — confirmed breach', needsReason: true });
-  }
-  if (open && !isViolation && canDo('RESOLVE')) {
-    availableActions.push({ action: 'RESOLVE', label: 'Mark fixed', needsReason: true });
-  }
-  if (open && isViolation && canDo('RESOLVE') && !canDo('ACCEPT')) {
-    availableActions.push({ action: 'RESOLVE', label: 'Resolve', needsReason: true });
-  }
-  if (flag.status === 'RESOLVED' && canDo('REOPEN')) {
-    availableActions.push({ action: 'REOPEN', label: 'Reopen', needsReason: true });
-  }
-  if (flag.status !== 'VOIDED' && canDo('VOID')) {
-    availableActions.push({ action: 'VOID', label: 'Void', needsReason: true });
-  }
+  const actionable = open && (
+    canDo('ACKNOWLEDGE') || canDo('ACCEPT') || canDo('REJECT') || canDo('RESOLVE')
+  );
 
   const classLabel = flag.findingClass === 'VIOLATION'
     ? 'Violation'
@@ -189,7 +154,10 @@ function FlagCard({
     : null;
 
   return (
-    <article className={`uc03-c3-flag-card severity-${flag.severity.toLowerCase()}`}>
+    <article
+      id={`audit-finding-${flag.flagId}`}
+      className={`uc03-c3-flag-card severity-${flag.severity.toLowerCase()}${isTarget ? ' uc03-c3-flag-card--target' : ''}`}
+    >
       <header>
         <div>
           <div className="uc03-c3-flag-meta">
@@ -221,61 +189,10 @@ function FlagCard({
       </div>
       {flag.resolutionReason && <div className="uc03-c3-resolution"><strong>Resolution:</strong> {flag.resolutionReason}</div>}
 
-      {(permittedActions.includes('REMARK') || availableActions.length > 0) && (
-        <div className="uc03-c3-review-box">
-          <label>
-            <span>Review remarks</span>
-            <textarea
-              value={remarks}
-              onChange={(event) => setRemarks(event.target.value)}
-              placeholder="Add an audit observation or resolution reason."
-              rows={3}
-            />
-          </label>
-          {stageEvidence.length > 0 && (
-            <fieldset className="uc03-c3-evidence-picker">
-              <legend>Link existing evidence</legend>
-              {stageEvidence.map((option) => (
-                <label key={option.id}>
-                  <input
-                    type="checkbox"
-                    checked={selectedEvidence.includes(option.id)}
-                    onChange={() => toggleEvidence(option.id)}
-                  />
-                  <span>{option.label}</span>
-                </label>
-              ))}
-            </fieldset>
-          )}
-          <div className="uc03-c3-action-row">
-            {permittedActions.includes('REMARK') && (
-              <button
-                type="button"
-                disabled={busy || !remarks.trim()}
-                onClick={() => void onRemark(flag, remarks.trim(), selectedEvidence).then(() => {
-                  setRemarks('');
-                  setSelectedEvidence([]);
-                })}
-              >
-                Add remark
-              </button>
-            )}
-            {availableActions.map(({ action, label, needsReason }) => (
-              <button
-                type="button"
-                key={action}
-                className={['RESOLVE', 'ACCEPT'].includes(action) ? 'uc03-c3-primary' : ['VOID', 'REJECT'].includes(action) ? 'is-danger' : ''}
-                disabled={busy || Boolean(needsReason && !remarks.trim())}
-                onClick={() => void onAction(flag, action, remarks.trim(), selectedEvidence).then(() => {
-                  setRemarks('');
-                  setSelectedEvidence([]);
-                })}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-        </div>
+      {actionable && (
+        <Link className="uc03-c3-take-action" to={`/reviews?findingId=${encodeURIComponent(flag.flagId)}`}>
+          Take action in Review Queue →
+        </Link>
       )}
     </article>
   );
@@ -283,6 +200,8 @@ function FlagCard({
 
 export default function AuditReviewPage() {
   const { journeyId } = useParams<{ journeyId: string }>();
+  const [searchParams] = useSearchParams();
+  const findingId = searchParams.get('findingId');
   const project = useProjectContextStore((state) => state.selectedProject);
   const accessToken = useSessionStore((state) => state.accessToken);
   const [stageFilter, setStageFilter] = useState<StageFilter>('ALL');
@@ -362,6 +281,11 @@ export default function AuditReviewPage() {
     return options;
   }, [bookingWorkspaceQuery.data?.documents, deliveryWorkspaceQuery.data?.documents]);
 
+  useEffect(() => {
+    if (!findingId || !flagsQuery.data?.some((flag) => flag.flagId === findingId)) return;
+    document.getElementById(`audit-finding-${findingId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }, [findingId, flagsQuery.data]);
+
   if (!project || !journeyId) return null;
   const summary = summaryQuery.data;
 
@@ -412,25 +336,6 @@ export default function AuditReviewPage() {
     setNewEvidence([]);
   };
 
-  const actionFlag = async (
-    flag: Uc03AuditFlag,
-    action: Uc03FlagAction,
-    remarks: string,
-    evidenceIds: string[],
-  ) => {
-    await run(
-      () => actOnAuditFlag(project.tenantId, journeyId, flag, action, remarks, accessToken, evidenceIds),
-      `${friendly(action)} recorded in the audit history.`,
-    );
-  };
-
-  const remarkFlag = async (flag: Uc03AuditFlag, remarks: string, evidenceIds: string[]) => {
-    await run(
-      () => addAuditFlagRemark(project.tenantId, journeyId, flag, remarks, accessToken, evidenceIds),
-      'Remark and evidence linkage recorded.',
-    );
-  };
-
   const completeAudit = async (stage: Uc03StageAuditView) => {
     await run(
       () => completeStageAudit(project.tenantId, journeyId, stage, '', accessToken),
@@ -449,7 +354,7 @@ export default function AuditReviewPage() {
       <PageHeader
         eyebrow={`${friendly(summary?.operatingRole || project.operatingRole)} · Audit review`}
         title="Booking & Delivery Audit"
-        description="Review Audit Flags, source comparisons, evidence, decisions and the complete case history without changing the underlying source documents."
+        description="A read-only view of this case -- Audit Flags, source comparisons, evidence and the complete history. Accept, reject or resolve a flag in Review Queue; nothing here changes the underlying source documents or the record."
       />
 
       <nav className="uc03-c3-context-links" aria-label="Case navigation">
@@ -560,7 +465,7 @@ export default function AuditReviewPage() {
 
       <section className="uc03-c3-section" aria-labelledby="flag-register-heading">
         <header className="uc03-c3-section-heading">
-          <div><span>Permanent register</span><h2 id="flag-register-heading">Audit Flags</h2><p>Resolved flags stay visible as historical audit evidence.</p></div>
+          <div><span>Permanent register</span><h2 id="flag-register-heading">Audit Flags</h2><p>Resolved flags stay visible as historical audit evidence. Open flags link to Review Queue to act on them.</p></div>
           <div className="uc03-c3-filter" role="group" aria-label="Audit Flag stage filter">
             {(['ALL', 'BOOKING', 'DELIVERY'] as const).map((value) => (
               <button type="button" key={value} className={stageFilter === value ? 'is-active' : ''} onClick={() => setStageFilter(value)}>{friendly(value)}</button>
@@ -574,10 +479,7 @@ export default function AuditReviewPage() {
               flag={flag}
               timezoneName={project.timezoneName}
               permittedActions={summary?.permittedActions || []}
-              busy={busy}
-              evidenceOptions={evidenceOptions}
-              onAction={actionFlag}
-              onRemark={remarkFlag}
+              isTarget={flag.flagId === findingId}
             />
           ))}
           {flagsQuery.data?.length === 0 && <div className="uc03-c3-empty">No Audit Flags match this stage.</div>}

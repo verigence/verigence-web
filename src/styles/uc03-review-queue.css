@@ -150,6 +150,12 @@
 .revq-item--high { border-left-color: var(--revq-soon); }
 .revq-item--medium { border-left-color: var(--revq-accent); }
 
+/* Deep-linked from Audit View's "Take action" -- the one item the reviewer
+   was sent here for. */
+.revq-item--target {
+  box-shadow: 0 0 0 2px var(--revq-accent, #0057b8);
+}
+
 .revq-item__head {
   display: flex;
   align-items: center;

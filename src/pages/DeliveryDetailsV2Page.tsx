@@ -229,20 +229,18 @@ export default function DeliveryDetailsV2Page() {
           )}
         </div>
 
-        <div className="uc03-booking-step-footer" style={{ marginTop: 14 }}>
-          <span>Vehicle photograph (optional evidence, uploads immediately)</span>
-          {vehiclePhoto ? (
-            <label className="uc03-c1-secondary" aria-disabled={uploadingPhoto}>
-              {uploadingPhoto ? 'Uploading…' : vehiclePhotoAvailable ? 'Replace Photo' : 'Take / Upload Photo'}
-              <input type="file" accept="image/*" capture="environment" disabled={uploadingPhoto} onChange={(event) => { const file = event.currentTarget.files?.[0]; event.currentTarget.value = ''; void uploadVehiclePhoto(file); }} />
-            </label>
-          ) : null}
-        </div>
         {vehiclePhoto ? (
-          <StatusPill value={vehiclePhotoAvailable ? 'UPLOADED' : vehiclePhotoExpected ? 'EXPECTED' : 'OPTIONAL'} compact />
-        ) : (
-          <div className="uc03-booking-journey-feedback is-warning" role="status">Vehicle-photo evidence is not configured for this Delivery.</div>
-        )}
+          <>
+            <div className="uc03-booking-step-footer" style={{ marginTop: 14 }}>
+              <span>Vehicle photograph (optional evidence, uploads immediately)</span>
+              <label className="uc03-c1-secondary" aria-disabled={uploadingPhoto}>
+                {uploadingPhoto ? 'Uploading…' : vehiclePhotoAvailable ? 'Replace Photo' : 'Take / Upload Photo'}
+                <input type="file" accept="image/*" capture="environment" disabled={uploadingPhoto} onChange={(event) => { const file = event.currentTarget.files?.[0]; event.currentTarget.value = ''; void uploadVehiclePhoto(file); }} />
+              </label>
+            </div>
+            <StatusPill value={vehiclePhotoAvailable ? 'UPLOADED' : vehiclePhotoExpected ? 'EXPECTED' : 'OPTIONAL'} compact />
+          </>
+        ) : null}
       </section>
 
       <section className="uc03-delivery-v2-summary" aria-label="Delivery context">

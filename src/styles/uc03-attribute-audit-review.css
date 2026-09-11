@@ -280,6 +280,12 @@
   gap: 14px;
 }
 
+/* A single receipt, or a single unmapped field, is a common, ordinary case
+   -- not an edge case -- and left the lone card beside an empty column. */
+.uc03-raw-review-grid > .uc03-raw-review-card:last-child:nth-child(odd) {
+  grid-column: 1 / -1;
+}
+
 .uc03-raw-review-card {
   display: grid;
   gap: 16px;

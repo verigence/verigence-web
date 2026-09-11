@@ -1587,18 +1587,39 @@ export default function Journey360Page() {
       // uploaded list, re-validates what DI has actually extracted, and
       // reruns the sync for anything classified but not yet durably
       // copied. Each call is a no-op for a stage with nothing uploaded.
-      const [booking, delivery] = await Promise.all([
+      //
+      // Settled independently, not Promise.all: Booking and Delivery are
+      // two separate stages of the same Journey, and it is normal (the
+      // common case, in fact) for one to be unavailable while the other
+      // still has work to do -- e.g. Booking is CLOSED on any Journey that
+      // has moved on to Delivery. A rejection on one side must not hide a
+      // real result on the other.
+      const [bookingResult, deliveryResult] = await Promise.allSettled([
         resyncBookingCaptureV2(tenantId, journeyId, accessToken),
         resyncDeliveryCaptureV2(tenantId, journeyId, accessToken),
       ]);
-      const found = booking.documentsFound + delivery.documentsFound;
-      const resynced = booking.documentsResynced + delivery.documentsResynced;
-      const pending = booking.documentsNotYetExtracted + delivery.documentsNotYetExtracted;
+      const booking = bookingResult.status === 'fulfilled' ? bookingResult.value : undefined;
+      const delivery = deliveryResult.status === 'fulfilled' ? deliveryResult.value : undefined;
+
+      if (!booking && !delivery) {
+        setResyncMessage('Resync could not be started. Try again in a moment.');
+        return;
+      }
+
+      const found = (booking?.documentsFound ?? 0) + (delivery?.documentsFound ?? 0);
+      const resynced = (booking?.documentsResynced ?? 0) + (delivery?.documentsResynced ?? 0);
+      const pending = (booking?.documentsNotYetExtracted ?? 0) + (delivery?.documentsNotYetExtracted ?? 0);
+      const skippedStages = [
+        bookingResult.status === 'rejected' ? 'Booking' : null,
+        deliveryResult.status === 'rejected' ? 'Delivery' : null,
+      ].filter((stage): stage is string => stage !== null);
+
       setResyncMessage(
-        found === 0
+        (found === 0
           ? 'No documents found on this Journey yet.'
           : `${found} document${found === 1 ? '' : 's'} found · ${resynced} resynced` +
-            (pending > 0 ? ` · ${pending} still awaiting extraction` : ''),
+            (pending > 0 ? ` · ${pending} still awaiting extraction` : '')) +
+          (skippedStages.length > 0 ? ` · ${skippedStages.join(' & ')} could not be checked` : ''),
       );
       void queryClient.invalidateQueries({ queryKey: ['uc03-journey-overview', tenantId, journeyId] });
     } catch {

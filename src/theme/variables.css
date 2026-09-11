@@ -6,4 +6,27 @@
   --ion-color-primary-contrast-rgb: 255, 255, 255;
   --ion-color-primary-shade: #003372;
   --ion-color-primary-tint: #1a4e8f;
+
+  /*
+   * Canonical semantic tokens -- one source of truth for the handful of
+   * colors meant to mean the same thing everywhere (brand blue, success,
+   * warning, danger). Not a replacement for the existing shell tokens
+   * (the --v- and --vg- prefixed ones in workspace.css / shell-ui-fixes.css
+   * already have real consumers) -- a fresh, uncontested namespace so new
+   * or updated shared components stop each hand-rolling their own literal
+   * hex for the same role. Brand values match shell-ui-fixes.css's
+   * --vg-navy-950 and --vg-blue-700 (the most-adopted of the several
+   * competing blues found in this app); success/warning/danger match the
+   * admin/DI screens' existing palette (already the most-used pairing for
+   * these roles elsewhere in the app).
+   */
+  --vg-brand-primary: #062b63;
+  --vg-brand-accent: #0b4f8a;
+  --vg-success: #067647;
+  --vg-success-bg: #ecfdf3;
+  --vg-warning: #93370d;
+  --vg-warning-bg: #fff6ed;
+  --vg-danger: #912018;
+  --vg-danger-bg: #fff1f0;
+  --vg-text-muted: #6e879b;
 }

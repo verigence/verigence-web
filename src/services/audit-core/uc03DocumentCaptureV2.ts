@@ -249,6 +249,11 @@ export async function uploadBookingCaptureV2Files(
   const intent = await auditCoreRequest<UploadIntentResponse>(`${base(tenantId, journeyId)}/upload-intents`, {
     method: 'POST',
     accessToken: access,
+    // Only GET/HEAD get a default client timeout otherwise -- this call makes
+    // (up to) two sequential DI round trips server-side (15s budget each), so
+    // without an explicit timeout a slow DI response left the "Uploading…"
+    // state hanging indefinitely with nothing to abort or retry.
+    timeoutMs: 30_000,
     body: JSON.stringify({
       files: prepared.map(({ clientUploadId: id, filename, contentType }) => ({
         clientUploadId: id,
@@ -290,6 +295,7 @@ export async function uploadBookingCaptureV2Files(
         {
           method: 'POST',
           accessToken: access,
+          timeoutMs: 30_000,
         },
       );
       finalized[index] = {

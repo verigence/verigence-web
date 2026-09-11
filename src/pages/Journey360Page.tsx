@@ -13,6 +13,8 @@ import {
   type AspectMeta,
   type JourneyStep,
 } from '../features/uc03/journey/deriveJourneyLine';
+import { resyncBookingCaptureV2 } from '../services/audit-core/uc03DocumentCaptureV2';
+import { resyncDeliveryCaptureV2 } from '../services/audit-core/uc03DeliveryCaptureV2';
 import {
   getUc03JourneyOverview,
   type JourneyOverview,
@@ -1574,6 +1576,38 @@ export default function Journey360Page() {
     staleTime: 15_000,
   });
 
+  const [resyncing, setResyncing] = useState(false);
+  const [resyncMessage, setResyncMessage] = useState<string>();
+  const handleResync = async () => {
+    if (!tenantId || !journeyId) return;
+    setResyncing(true);
+    setResyncMessage(undefined);
+    try {
+      // Every document on this Journey, both stages -- re-checks the
+      // uploaded list, re-validates what DI has actually extracted, and
+      // reruns the sync for anything classified but not yet durably
+      // copied. Each call is a no-op for a stage with nothing uploaded.
+      const [booking, delivery] = await Promise.all([
+        resyncBookingCaptureV2(tenantId, journeyId, accessToken),
+        resyncDeliveryCaptureV2(tenantId, journeyId, accessToken),
+      ]);
+      const found = booking.documentsFound + delivery.documentsFound;
+      const resynced = booking.documentsResynced + delivery.documentsResynced;
+      const pending = booking.documentsNotYetExtracted + delivery.documentsNotYetExtracted;
+      setResyncMessage(
+        found === 0
+          ? 'No documents found on this Journey yet.'
+          : `${found} document${found === 1 ? '' : 's'} found · ${resynced} resynced` +
+            (pending > 0 ? ` · ${pending} still awaiting extraction` : ''),
+      );
+      void queryClient.invalidateQueries({ queryKey: ['uc03-journey-overview', tenantId, journeyId] });
+    } catch {
+      setResyncMessage('Resync could not be started. Try again in a moment.');
+    } finally {
+      setResyncing(false);
+    }
+  };
+
   const model = overviewQuery.data;
 
   const receiptRows = useMemo(() => (model?.receipts || []).filter((r) => !receiptIsPending(r)), [model?.receipts]);
@@ -1631,11 +1665,17 @@ export default function Journey360Page() {
       <div className="journey-360-topline">
         <Link className="journey-360-back" to="/search">← Search results</Link>
         <div className="journey-360-actions">
+          <button type="button" disabled={resyncing} onClick={() => void handleResync()}>
+            {resyncing ? 'Resyncing…' : 'Resync Documents'}
+          </button>
           <Link to={`/v2/bookings/${journeyId}/details`}>Open Booking</Link>
           <Link to={`/v2/deliveries/${journeyId}`}>Open Delivery</Link>
           <Link className="journey-360-actions__primary" to={`/audit/${journeyId}`}>Audit Review</Link>
         </div>
       </div>
+      {resyncMessage && (
+        <p className="journey-360-resync-message" role="status">{resyncMessage}</p>
+      )}
 
       <PageHeader
         eyebrow={`${textValue(model.journey, 'dealerName')} · ${textValue(model.journey, 'outletName')}`}

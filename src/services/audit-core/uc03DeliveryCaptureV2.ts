@@ -265,6 +265,9 @@ export async function deleteDeliveryCaptureV2Document(
 }
 
 export interface DeliveryCaptureV2ResyncResult {
+  documentsFound: number;
+  documentsResynced: number;
+  documentsNotYetExtracted: number;
   queuedDocumentCount: number;
 }
 

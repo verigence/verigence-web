@@ -349,7 +349,8 @@
   gap: 8px;
 }
 
-.journey-360-actions a {
+.journey-360-actions a,
+.journey-360-actions button {
   min-height: 36px;
   display: inline-flex;
   align-items: center;
@@ -361,12 +362,26 @@
   text-decoration: none;
   font-size: 0.76rem;
   font-weight: 750;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.journey-360-actions button:disabled {
+  opacity: 0.6;
+  cursor: default;
 }
 
 .journey-360-actions a.journey-360-actions__primary {
   background: var(--journey-search-accent);
   border-color: var(--journey-search-accent);
   color: #fff;
+}
+
+.journey-360-resync-message {
+  margin: -4px 0 0;
+  font-size: 0.76rem;
+  color: var(--journey-search-accent-dark);
+  text-align: right;
 }
 
 /* ── Journey 360 summary bar ────────────────────────────────────────────────── */

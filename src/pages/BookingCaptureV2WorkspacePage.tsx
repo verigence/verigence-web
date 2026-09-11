@@ -10,6 +10,7 @@ import {
   captureV2HasPendingClassification,
   deleteBookingCaptureV2Document,
   getBookingCaptureV2,
+  resyncBookingCaptureV2,
   type BookingCaptureV2,
   type CaptureV2Requirement,
   uploadBookingCaptureV2Files,
@@ -72,6 +73,7 @@ export default function BookingCaptureV2CompactPage() {
   const [error, setError] = useState<string>();
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [checklistOpen, setChecklistOpen] = useState(false);
+  const [resyncing, setResyncing] = useState(false);
   const readinessStartedAt = useRef<number | undefined>(undefined);
 
   const enabled = Boolean(project?.tenantId && journeyId && accessToken);
@@ -220,6 +222,24 @@ export default function BookingCaptureV2CompactPage() {
     }
   };
 
+  const handleResync = async () => {
+    setResyncing(true);
+    setError(undefined);
+    try {
+      const result = await resyncBookingCaptureV2(project.tenantId, journeyId, accessToken);
+      setMessage(
+        result.documentsResynced > 0
+          ? `Rechecking ${result.documentsResynced} document${result.documentsResynced === 1 ? '' : 's'}…`
+          : 'Every classified document is already up to date.',
+      );
+      await captureQuery.refetch();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Booking documents could not be rechecked.');
+    } finally {
+      setResyncing(false);
+    }
+  };
+
   const handleDelete = async (documentId: string) => {
     setBusyDocumentId(documentId);
     setError(undefined);
@@ -319,6 +339,17 @@ export default function BookingCaptureV2CompactPage() {
             <strong>{extractionReadyCount}</strong>
           </div>
         </div>
+        {extractionReadyCount < classifiedCount ? (
+          <button
+            type="button"
+            className="uc03-booking-v2-checklist-toggle"
+            disabled={resyncing}
+            onClick={() => void handleResync()}
+            title="A classified document sometimes finishes extracting after the page already stopped watching it. Recheck picks those up."
+          >
+            {resyncing ? 'Rechecking…' : 'Recheck documents'}
+          </button>
+        ) : null}
         <button
           type="button"
           className="uc03-booking-v2-checklist-toggle"

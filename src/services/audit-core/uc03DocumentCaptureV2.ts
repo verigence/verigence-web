@@ -365,3 +365,29 @@ export async function completeBookingCaptureV2(
   invalidateCaptureReadState(tenantId, journeyId);
   return result;
 }
+
+export interface BookingCaptureV2ResyncResult {
+  documentsFound: number;
+  documentsResynced: number;
+  documentsNotYetExtracted: number;
+  queuedDocumentCount: number;
+}
+
+/**
+ * Forces every already-classified Booking document through the full sync
+ * pipeline again -- the Booking counterpart of resyncDeliveryCaptureV2.
+ * Safe to call any time; a document with nothing left to do just costs one
+ * cheap, idempotent pass.
+ */
+export async function resyncBookingCaptureV2(
+  tenantId: string,
+  journeyId: string,
+  accessToken?: string,
+): Promise<BookingCaptureV2ResyncResult> {
+  const result = await auditCoreRequest<BookingCaptureV2ResyncResult>(`${base(tenantId, journeyId)}/resync`, {
+    method: 'POST',
+    accessToken: token(accessToken),
+  });
+  invalidateCaptureReadState(tenantId, journeyId);
+  return result;
+}

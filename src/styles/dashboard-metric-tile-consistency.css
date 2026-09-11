@@ -1,0 +1,65 @@
+/*
+ * dashboard-metric-tile-consistency.css — one canonical type scale for the
+ * Work Queue KPI tiles (Bookings / Deliveries / Observations), replacing
+ * ad hoc values scattered across 7 files that had each independently
+ * redefined the same handful of properties over time.
+ *
+ * Before this file, the KPI number alone (.uc03-landing-metric__value) had
+ * 8 different !important font-size declarations across dashboard-workqueue-
+ * ui.css, dashboard-mobile-workqueue-fix.css, dashboard-mobile-card-polish.css,
+ * pc-journey-experience.css, pc-journey-final-polish.css and dashboard-
+ * workqueue-compact-toolbar.css (28/25/23/22/21/19/24px), several at the
+ * SAME @media (max-width: 899px) breakpoint -- the actual rendered size
+ * depended on which file happened to import last, not on design intent.
+ * font-weight was just as scattered (620/650/700/720/760/780/800/810/820/850
+ * across those same files). This is the reported "font sizes big small...
+ * looks clumsy" on this exact screen.
+ *
+ * Deliberately loaded LAST of the dashboard/workqueue stylesheets (see
+ * main.tsx) so these rules are the actual final word regardless of the
+ * older files' own specificity/order -- correctness here does not depend on
+ * also touching those 7 files' still-load-bearing layout properties (grid-
+ * area, padding, border, background, min-height), which are left exactly as
+ * they are. Deleting the now-redundant typography declarations from those
+ * files is a safe follow-up once this is confirmed live, not a precondition
+ * for it.
+ *
+ * Values only for the *type* (size/weight/spacing) axis. Color is left to
+ * the existing files -- those were already reasonably consistent (label
+ * #617a8d, value #123f6a, detail #6c8393, action #087c78, attention #a85a05
+ * repeat near-verbatim throughout), unlike size/weight.
+ */
+
+.enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-landing-metric__label {
+  font-size: var(--vg-metric-label-size) !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.06em !important;
+}
+
+.enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-landing-metric__value {
+  font-size: var(--vg-metric-value-size) !important;
+  font-weight: 800 !important;
+  line-height: 1 !important;
+}
+
+.enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-landing-metric__detail {
+  font-size: var(--vg-metric-detail-size) !important;
+  font-weight: 500 !important;
+}
+
+.enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-landing-metric__action {
+  font-size: var(--vg-metric-action-size) !important;
+  font-weight: 700 !important;
+}
+
+@media (max-width: 899px) {
+  .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-landing-metric__value {
+    font-size: var(--vg-metric-value-size-tablet) !important;
+  }
+}
+
+@media (max-width: 430px) {
+  .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-landing-metric__value {
+    font-size: var(--vg-metric-value-size-phone) !important;
+  }
+}

@@ -83,6 +83,7 @@ import './styles/dashboard-workqueue-four-column.css';
 import './styles/uc03-review-queue.css';
 import './styles/pc-overview.css';
 import './styles/dashboard-metric-tile-consistency.css';
+import './styles/dashboard-workqueue-brand-color.css';
 import './styles/journey-line.css';
 import './styles/ui-governance.css';
 import './ui/pcNavigationMotion';

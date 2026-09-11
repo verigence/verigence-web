@@ -366,31 +366,33 @@
   border-bottom: 1px solid var(--jl-line);
 }
 .jline__toggles {
-  /* One column, always -- an auto-fit grid here used to open a second
-     column on any wide screen, since it only had two rows to place. Each
-     row's own switch stayed correctly paired with its own label in the
-     DOM, but visually the first row's switch landed at the column
-     boundary, right before the second row's label -- reading exactly like
-     it belonged to the WRONG item (an "off" Extended Warranty switch
-     showing on the far right, with the actually-"taken" Accessories
-     switch sitting confusingly next to the Extended Warranty text
-     instead). Stacking removes the ambiguity entirely. */
+  /* One row of compact, self-contained items (label + its own switch,
+     tight together), wrapping only if the screen is too narrow to fit
+     all three. A previous auto-fit grid stretched each item to a full
+     column width, forcing "justify-content: space-between" to push each
+     switch out to the far edge of its own column -- which visually
+     landed the FIRST item's switch right at the column boundary,
+     immediately before the SECOND item's label, reading as if it
+     belonged to the wrong item. Each item below is sized to its own
+     content, not stretched, so its switch always sits right next to its
+     own label with nothing else nearby. */
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: stretch;
   background: var(--jl-ground);
   border: 1px solid var(--jl-line);
   border-radius: 10px;
-  padding: 4px 12px;
+  padding: 4px 8px;
 }
 .jline__toggleRow {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 8px 0;
+  gap: 10px;
+  padding: 8px 16px;
 }
 .jline__toggleRow + .jline__toggleRow {
-  border-top: 1px solid var(--jl-line);
+  border-left: 1px solid var(--jl-line);
 }
 .jline__toggleLabel { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
 .jline__toggleLabel strong { font-size: 0.84rem; color: var(--jl-ink); }

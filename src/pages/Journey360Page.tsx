@@ -817,6 +817,47 @@ function commercialLineByComponentKey(model: JourneyOverview, componentKey: stri
   return match ?? null;
 }
 
+/** The document type that contributed an addon/commercial-line amount --
+ * journey_addons carries it in details.sourceDocumentType (set at write
+ * time by _upsert_addon); commercial_lines carries it packed into
+ * source_reference as "{document_type}:{document_id}" instead (set by
+ * _upsert_commercial_line/_materialize_discount_standards). Either way,
+ * this is the ONLY source-document info consistently available when the
+ * source is a whole single-purpose invoice with nothing itemized inside
+ * it (an "Accessory Invoice" IS the accessory line, not a container of
+ * several) -- there is no invoice line_items row to point at in that
+ * case, by design. */
+function readableSourceDocumentType(source: Record<string, unknown> | null): string | null {
+  if (!source) return null;
+  const details = objectValue(source, 'details');
+  const fromDetails = details ? pickStr(details, 'sourceDocumentType') : '';
+  if (fromDetails) return fromDetails;
+  const sourceReference = pickStr(source, 'sourceReference', 'source_reference');
+  const documentType = sourceReference.split(':')[0]?.trim();
+  return documentType || null;
+}
+
+/** Line items when the source document itemizes this category (a Tax
+ * Invoice bundling vehicle + accessory + insurance lines, say);
+ * otherwise a single fallback "item" built from the source document
+ * itself, so a category showing "Taken" never renders an empty,
+ * unexplained item list underneath -- confirmed live: a standalone
+ * Accessory Invoice or Insurance Policy has nothing in invoice
+ * line_items to match against at all, since the WHOLE document is the
+ * line, not a container of several. */
+function resolvedItems(
+  model: JourneyOverview,
+  categories: string[],
+  source: Record<string, unknown> | null,
+  amount: unknown,
+): Array<Record<string, unknown>> {
+  const lineItems = invoiceLineItems(model, categories);
+  if (lineItems.length > 0) return lineItems;
+  const documentType = readableSourceDocumentType(source);
+  if (!documentType || amount === null || amount === undefined || Number(amount) <= 0) return [];
+  return [{ description_raw: `From ${readable(documentType)}`, net_amount: amount }];
+}
+
 /** Accessories/Extended Warranty/Insurance confirmation + itemized
  * breakdown, shown under the Vehicle tab per the explicit ask: "get the
  * list of Accessories bought ... same if there is extended warranty ...
@@ -837,9 +878,9 @@ function AccessoriesWarrantyPanel({ model }: { model: JourneyOverview }) {
   const warrantyTaken = Number(warrantyAmount) > 0;
   const insuranceTaken = Number(insuranceAmount) > 0;
 
-  const accessoryItems = invoiceLineItems(model, ['ACCESSORY_GENUINE', 'ACCESSORY_NON_GENUINE']);
-  const warrantyItems = invoiceLineItems(model, ['EXTENDED_WARRANTY']);
-  const insuranceItems = invoiceLineItems(model, ['INSURANCE']);
+  const accessoryItems = resolvedItems(model, ['ACCESSORY_GENUINE', 'ACCESSORY_NON_GENUINE'], accessoriesAddon, accessoriesAmount);
+  const warrantyItems = resolvedItems(model, ['EXTENDED_WARRANTY'], warrantyAddon, warrantyAmount);
+  const insuranceItems = resolvedItems(model, ['INSURANCE'], insuranceLine, insuranceAmount);
 
   return (
     <div className="jline__accessoriesPanel">

@@ -15,6 +15,7 @@ import {
 import { useProjectContextStore } from '../store/projectContextStore';
 import { useSessionStore } from '../store/sessionStore';
 import '../styles/analytics.css';
+import '../styles/analytics-project.css';
 
 type AnalyticsView = 'overview' | AnalyticsReportKey;
 

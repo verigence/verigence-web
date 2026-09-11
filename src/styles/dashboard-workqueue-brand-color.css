@@ -1,0 +1,47 @@
+/*
+ * dashboard-workqueue-brand-color.css — real, visible color on the Work
+ * Queue KPI tiles and filter-tab bar, using the app's own already-dominant
+ * palette (--ion-color-primary navy #003a82, used 60x across the app more
+ * than any other blue; the teal already used for links/active states here).
+ *
+ * Follow-up to dashboard-metric-tile-consistency.css: that fix corrected
+ * font-size/weight, but the desktop value only moved 25px -> 26px -- a
+ * 1px difference, invisible in a screenshot. This fix is deliberately a
+ * COLOR change instead: unmistakable regardless of exact pixel rendering.
+ *
+ * Loaded after dashboard-metric-tile-consistency.css (see main.tsx) for the
+ * same reason: wins over the older files' backgrounds/borders without
+ * needing to edit them directly.
+ */
+
+/* Each KPI tile gets a colored top accent naming what it is, the way a
+   real dashboard reads at a glance -- navy for Bookings, teal for
+   Deliveries, amber for Observations (matches its existing attention
+   color, so "needs attention" and "this is the Observations tile" are
+   the same color, not a coincidence). */
+.enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-landing-metric {
+  border-top: 3px solid var(--vg-brand-primary) !important;
+}
+
+.enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-landing-metric:nth-child(2) {
+  border-top-color: #00afa8 !important;
+}
+
+.enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-landing-metric:nth-child(3) {
+  border-top-color: var(--vg-warning) !important;
+}
+
+/* The filter-tab row: replace the flat grey pill background with a clean
+   white bar and a real bottom rule, so the active tab's teal underline
+   reads as a deliberate accent instead of competing with a grey box. */
+.enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-work-filter-tabs--approved {
+  background: #ffffff !important;
+  border: none !important;
+  border-bottom: 2px solid #e4e7ec !important;
+  border-radius: 0 !important;
+}
+
+.enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-work-filter-tabs--approved button.is-active {
+  color: var(--vg-brand-primary) !important;
+  box-shadow: inset 0 -2px #00afa8 !important;
+}

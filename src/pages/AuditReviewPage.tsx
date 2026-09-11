@@ -40,6 +40,13 @@ const FLAG_CATEGORIES = [
 const SEVERITIES = ['INFO', 'LOW', 'MEDIUM', 'HIGH', 'CRITICAL'] as const;
 
 type StageFilter = 'ALL' | Uc03StageCode;
+// System-generated (rule/producer-raised) vs. user-generated (a human's own
+// observation) are genuinely different kinds of record -- a reviewer
+// working through their own raised flags doesn't want to wade through
+// every automatic check, and vice versa. 'ALL' is the combined view,
+// available from day one since it costs nothing extra once the split
+// exists.
+type OriginFilter = 'ALL' | 'MACHINE' | 'HUMAN';
 
 interface EvidenceOption {
   id: string;
@@ -60,6 +67,25 @@ function actorLabel(flag: Uc03AuditFlag): string {
   if (flag.originKind === 'MACHINE') return 'System check';
   if (flag.originRole) return `Raised by ${friendly(flag.originRole)}`;
   return 'Human observation';
+}
+
+/** One group per finding type (category), most-open-first, then by most
+ * recent within a group -- flags of the same kind (every WRONG_DOCUMENT, every
+ * MANUAL_VERIFICATION...) sit together instead of interleaved in one flat,
+ * hard-to-scan list ordered only by creation time. */
+function groupFlagsByCategory(flags: Uc03AuditFlag[]): Array<{ category: string; flags: Uc03AuditFlag[] }> {
+  const byCategory = new Map<string, Uc03AuditFlag[]>();
+  for (const flag of flags) {
+    const key = flag.category || 'OTHER';
+    const bucket = byCategory.get(key);
+    if (bucket) bucket.push(flag);
+    else byCategory.set(key, [flag]);
+  }
+  const openCount = (group: Uc03AuditFlag[]) =>
+    group.filter((f) => f.status === 'OPEN' || f.status === 'ACKNOWLEDGED').length;
+  return Array.from(byCategory.entries())
+    .map(([category, groupFlags]) => ({ category, flags: groupFlags }))
+    .sort((a, b) => openCount(b.flags) - openCount(a.flags) || b.flags.length - a.flags.length);
 }
 
 function formatTime(value: string, timezoneName: string): string {
@@ -205,6 +231,7 @@ export default function AuditReviewPage() {
   const project = useProjectContextStore((state) => state.selectedProject);
   const accessToken = useSessionStore((state) => state.accessToken);
   const [stageFilter, setStageFilter] = useState<StageFilter>('ALL');
+  const [originFilter, setOriginFilter] = useState<OriginFilter>('ALL');
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string>();
   const [error, setError] = useState<string>();
@@ -313,7 +340,7 @@ export default function AuditReviewPage() {
 
   const createFlag = async () => {
     const stage = newStage === 'BOOKING' ? summary?.booking : summary?.delivery;
-    if (!stage || !newSummary.trim()) return;
+    if (!stage || !newSummary.trim() || !newRemarks.trim()) return;
     await run(
       () => raiseAuditFlag(
         project.tenantId,
@@ -324,7 +351,7 @@ export default function AuditReviewPage() {
           category: newCategory,
           severity: newSeverity,
           summary: newSummary.trim(),
-          remarks: newRemarks.trim() || undefined,
+          remarks: newRemarks.trim(),
           evidenceIds: newEvidence,
         },
         accessToken,
@@ -444,7 +471,21 @@ export default function AuditReviewPage() {
               {SEVERITIES.map((value) => <option key={value} value={value}>{friendly(value)}</option>)}
             </select></label>
             <label className="uc03-c3-span"><span>Observation</span><input value={newSummary} maxLength={500} onChange={(event) => setNewSummary(event.target.value)} placeholder="Describe the audit exception" /></label>
-            <label className="uc03-c3-span"><span>Remarks</span><textarea value={newRemarks} maxLength={4000} onChange={(event) => setNewRemarks(event.target.value)} rows={3} placeholder="Add context visible to reviewers" /></label>
+            {/* Required, not optional: this is the ONLY thing that becomes
+                the finding's description once raised -- a flag left with no
+                remarks previously had nothing beyond its one-line
+                Observation to explain it later. */}
+            <label className="uc03-c3-span">
+              <span>Remarks (required)</span>
+              <textarea
+                value={newRemarks}
+                maxLength={4000}
+                onChange={(event) => setNewRemarks(event.target.value)}
+                rows={3}
+                placeholder="Explain what was observed and why it matters -- this is what reviewers will see to identify the flag"
+                required
+              />
+            </label>
           </div>
           {evidenceOptions.filter((option) => option.stage === newStage).length > 0 && (
             <fieldset className="uc03-c3-evidence-picker uc03-c3-new-evidence">
@@ -457,7 +498,12 @@ export default function AuditReviewPage() {
               ))}
             </fieldset>
           )}
-          <button type="button" className="uc03-c3-primary" disabled={busy || !newSummary.trim() || !(newStage === 'BOOKING' ? summary.booking : summary.delivery)} onClick={() => void createFlag()}>
+          <button
+            type="button"
+            className="uc03-c3-primary"
+            disabled={busy || !newSummary.trim() || !newRemarks.trim() || !(newStage === 'BOOKING' ? summary.booking : summary.delivery)}
+            onClick={() => void createFlag()}
+          >
             Raise Audit Flag
           </button>
         </section>
@@ -466,24 +512,58 @@ export default function AuditReviewPage() {
       <section className="uc03-c3-section" aria-labelledby="flag-register-heading">
         <header className="uc03-c3-section-heading">
           <div><span>Permanent register</span><h2 id="flag-register-heading">Audit Flags</h2><p>Resolved flags stay visible as historical audit evidence. Open flags link to Review Queue to act on them.</p></div>
-          <div className="uc03-c3-filter" role="group" aria-label="Audit Flag stage filter">
-            {(['ALL', 'BOOKING', 'DELIVERY'] as const).map((value) => (
-              <button type="button" key={value} className={stageFilter === value ? 'is-active' : ''} onClick={() => setStageFilter(value)}>{friendly(value)}</button>
-            ))}
+          <div className="uc03-c3-filter-group">
+            <div className="uc03-c3-filter" role="group" aria-label="Audit Flag stage filter">
+              {(['ALL', 'BOOKING', 'DELIVERY'] as const).map((value) => (
+                <button type="button" key={value} className={stageFilter === value ? 'is-active' : ''} onClick={() => setStageFilter(value)}>{friendly(value)}</button>
+              ))}
+            </div>
+            {/* System flags (every rule/producer check) vs. Human flags (a
+                person's own observation) -- two different working views on
+                the same register, plus the combined "All" for free. Labels
+                match the System flags / Human flags counts already shown in
+                the overview tiles above, not new terminology. */}
+            <div className="uc03-c3-filter" role="group" aria-label="Audit Flag origin filter">
+              {([
+                { value: 'ALL', label: 'All flags' },
+                { value: 'MACHINE', label: 'System flags' },
+                { value: 'HUMAN', label: 'Human flags' },
+              ] as const).map(({ value, label }) => (
+                <button type="button" key={value} className={originFilter === value ? 'is-active' : ''} onClick={() => setOriginFilter(value)}>{label}</button>
+              ))}
+            </div>
           </div>
         </header>
-        <div className="uc03-c3-flag-list">
-          {flagsQuery.data?.map((flag) => (
-            <FlagCard
-              key={flag.flagId}
-              flag={flag}
-              timezoneName={project.timezoneName}
-              permittedActions={summary?.permittedActions || []}
-              isTarget={flag.flagId === findingId}
-            />
-          ))}
-          {flagsQuery.data?.length === 0 && <div className="uc03-c3-empty">No Audit Flags match this stage.</div>}
-        </div>
+        {(() => {
+          const filtered = (flagsQuery.data || []).filter(
+            (flag) => originFilter === 'ALL' || flag.originKind === originFilter,
+          );
+          const groups = groupFlagsByCategory(filtered);
+          return (
+            <div className="uc03-c3-flag-groups">
+              {groups.map(({ category, flags }) => (
+                <div className="uc03-c3-flag-group" key={category}>
+                  <div className="uc03-c3-flag-group-head">
+                    <span>{friendly(category)}</span>
+                    <span className="uc03-c3-flag-group-count">{flags.length}</span>
+                  </div>
+                  <div className="uc03-c3-flag-list">
+                    {flags.map((flag) => (
+                      <FlagCard
+                        key={flag.flagId}
+                        flag={flag}
+                        timezoneName={project.timezoneName}
+                        permittedActions={summary?.permittedActions || []}
+                        isTarget={flag.flagId === findingId}
+                      />
+                    ))}
+                  </div>
+                </div>
+              ))}
+              {filtered.length === 0 && <div className="uc03-c3-empty">No Audit Flags match this filter.</div>}
+            </div>
+          );
+        })()}
       </section>
 
       <section className="uc03-c3-section" aria-labelledby="timeline-heading">

@@ -142,11 +142,15 @@ export function raiseAuditFlag(
   journeyId: string,
   stage: Uc03StageCode,
   version: number,
+  // remarks is required, not optional: the backend now rejects a human
+  // flag with blank remarks outright (it's the only source of the
+  // finding's description -- see FlagCreateCommand.remarks), so nothing
+  // upstream of this call should be able to send an empty one either.
   payload: {
     category: string;
     severity: string;
     summary: string;
-    remarks?: string;
+    remarks: string;
     evidenceIds?: string[];
   },
   accessToken?: string,
@@ -160,7 +164,7 @@ export function raiseAuditFlag(
       category: payload.category,
       severity: payload.severity,
       summary: payload.summary,
-      remarks: payload.remarks || null,
+      remarks: payload.remarks,
       evidenceIds: payload.evidenceIds || [],
     }),
   });

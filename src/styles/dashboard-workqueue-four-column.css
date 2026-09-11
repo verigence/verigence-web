@@ -280,6 +280,13 @@
   box-shadow: 0 12px 26px rgba(15, 40, 66, 0.16);
 }
 
+/* Opened when there isn't room below the button (e.g. the last row in the
+   loaded list) -- otherwise the menu spilled off the bottom of the card. */
+.uc03-work-row-v2__more-menu.is-open-upward {
+  top: auto;
+  bottom: calc(100% + 6px);
+}
+
 .uc03-work-row-v2__more-menu a,
 .uc03-work-row-v2__more-menu button {
   display: flex;

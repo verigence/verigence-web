@@ -332,7 +332,9 @@ function WorkItemRow({
   productLabelOverride?: string;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [menuOpensUpward, setMenuOpensUpward] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
+  const moreButtonRef = useRef<HTMLButtonElement | null>(null);
   const bookingPath = `/v2/bookings/${item.journeyId}`;
   const deliveryPath = `/v2/deliveries/${item.journeyId}`;
   const auditPath = `/audit/${item.journeyId}`;
@@ -362,9 +364,11 @@ function WorkItemRow({
   const dealName = looksUncaptured ? 'New booking — details pending' : item.customerDisplayName;
   const productLabel = productLabelOverride || item.productLabel
     || (looksUncaptured ? 'Vehicle not yet selected' : 'Vehicle not captured');
-  // Compliance Report is a TL/PM tool (accept/reject authority over raised
-  // violations) — a PC self-serves observations from Raise Observation instead.
-  const showComplianceReport = !isPc;
+  // Previously TL/PM-only, gated on the theory that Compliance Report is an
+  // adjudication tool. It's read-only (no accept/reject lives on that page),
+  // and hiding it from PC repeatedly read as a bug ("where is the compliance
+  // report link") rather than a deliberate boundary. Visible to every role now.
+  const showComplianceReport = true;
 
   useEffect(() => {
     if (!menuOpen) return undefined;
@@ -451,15 +455,27 @@ function WorkItemRow({
         <div className="uc03-work-row-v2__more" ref={menuRef}>
           <button
             type="button"
+            ref={moreButtonRef}
             className={`uc03-work-row-v2__more-button${menuOpen ? ' is-open' : ''}`}
             aria-haspopup="true"
             aria-expanded={menuOpen}
-            onClick={() => setMenuOpen((current) => !current)}
+            onClick={() => {
+              // Always opening downward left the menu spilling off the
+              // bottom of the card for any row near the end of the loaded
+              // list (nothing near the viewport edge flips) -- open upward
+              // instead whenever there isn't room below for a full menu.
+              if (!menuOpen && moreButtonRef.current) {
+                const rect = moreButtonRef.current.getBoundingClientRect();
+                const estimatedMenuHeight = 260;
+                setMenuOpensUpward(window.innerHeight - rect.bottom < estimatedMenuHeight);
+              }
+              setMenuOpen((current) => !current);
+            }}
           >
             More ▾
           </button>
           {menuOpen && (
-            <div className="uc03-work-row-v2__more-menu" role="menu">
+            <div className={`uc03-work-row-v2__more-menu${menuOpensUpward ? ' is-open-upward' : ''}`} role="menu">
               {presentation.secondaryActionLabel && presentation.secondaryPath && presentation.secondaryTarget && (
                 <Link
                   role="menuitem"

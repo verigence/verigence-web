@@ -1,35 +1,19 @@
 /*
- * dashboard-workqueue-brand-color.css — real, visible color on the Work
- * Queue KPI tiles and filter-tab bar, using the app's own already-dominant
- * palette (--ion-color-primary navy #003a82, used 60x across the app more
- * than any other blue; the teal already used for links/active states here).
+ * dashboard-workqueue-brand-color.css — real, visible color and layout
+ * fixes on the Work Queue filter-tab bar, using the app's own
+ * already-dominant palette (--ion-color-primary navy #003a82-family via
+ * --vg-brand-primary; the teal already used for links/active states here).
  *
- * Follow-up to dashboard-metric-tile-consistency.css: that fix corrected
- * font-size/weight, but the desktop value only moved 25px -> 26px -- a
- * 1px difference, invisible in a screenshot. This fix is deliberately a
- * COLOR change instead: unmistakable regardless of exact pixel rendering.
+ * The Bookings/Deliveries/Observations KPI strip this file originally also
+ * colored was removed outright at explicit request (DashboardPage.tsx) --
+ * duplicated PC Overview's own hero summary, and its own font/color entropy
+ * was worse than the count it displayed was worth. Its rules are gone from
+ * here too; nothing below targets it.
  *
- * Loaded after dashboard-metric-tile-consistency.css (see main.tsx) for the
- * same reason: wins over the older files' backgrounds/borders without
- * needing to edit them directly.
+ * Loaded after dashboard-metric-tile-consistency.css / the older dashboard-
+ * workqueue-*.css files (see main.tsx) so these rules win without needing
+ * to edit those files directly.
  */
-
-/* Each KPI tile gets a colored top accent naming what it is, the way a
-   real dashboard reads at a glance -- navy for Bookings, teal for
-   Deliveries, amber for Observations (matches its existing attention
-   color, so "needs attention" and "this is the Observations tile" are
-   the same color, not a coincidence). */
-.enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-landing-metric {
-  border-top: 3px solid var(--vg-brand-primary) !important;
-}
-
-.enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-landing-metric:nth-child(2) {
-  border-top-color: #00afa8 !important;
-}
-
-.enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-landing-metric:nth-child(3) {
-  border-top-color: var(--vg-warning) !important;
-}
 
 /* The filter-tab row: replace the flat grey pill background with a clean
    white bar and a real bottom rule, so the active tab's teal underline
@@ -39,9 +23,32 @@
   border: none !important;
   border-bottom: 2px solid #e4e7ec !important;
   border-radius: 0 !important;
+  /* dashboard-workqueue-ui.css caps this at 430px unconditionally (not
+     inside a @media guard) -- a mobile-width constraint that was also
+     squeezing the whole 5-tab row into the left third of a desktop screen,
+     leaving the rest of the row's width as dead space. Let it use the
+     same width as the KPI/table content beneath it; the narrower mobile
+     breakpoints already set their own explicit widths and are unaffected. */
+  max-width: none !important;
+  width: 100% !important;
+  display: flex !important;
+  gap: 4px !important;
+  padding: 6px !important;
+}
+
+.enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-work-filter-tabs--approved button {
+  flex: 1 1 auto !important;
+  padding: 9px 16px !important;
 }
 
 .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-work-filter-tabs--approved button.is-active {
   color: var(--vg-brand-primary) !important;
   box-shadow: inset 0 -2px #00afa8 !important;
+}
+
+@media (max-width: 899px) {
+  .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-work-filter-tabs--approved {
+    max-width: none !important;
+    width: 100% !important;
+  }
 }

@@ -145,39 +145,11 @@ function pcBookingCaptureNote(item: Uc03WorkItem): string {
   return 'Mandatory Booking documents incomplete';
 }
 
-type LandingMetricProps = {
-  label: string;
-  value: string;
-  detail: string;
-  actionLabel?: string;
-  attention?: boolean;
-  onSelect?: () => void;
-};
-
-function LandingMetric({ label, value, detail, actionLabel, attention, onSelect }: LandingMetricProps) {
-  const content = (
-    <>
-      <span className="uc03-landing-metric__label">{label}</span>
-      <strong className="uc03-landing-metric__value">{value}</strong>
-      <span className="uc03-landing-metric__detail">{detail}</span>
-      {actionLabel && (
-        <span className="uc03-landing-metric__action">
-          {actionLabel}<span aria-hidden="true">→</span>
-        </span>
-      )}
-    </>
-  );
-
-  if (onSelect) {
-    return (
-      <button type="button" className="uc03-landing-metric is-action" onClick={onSelect}>
-        {content}
-      </button>
-    );
-  }
-
-  return <article className={`uc03-landing-metric${attention ? ' is-attention' : ''}`}>{content}</article>;
-}
+// LandingMetric (the Bookings/Deliveries/Observations KPI strip) was
+// removed at explicit request -- it duplicated the same summary PC Overview
+// already shows, and its own font/color entropy was worse than the count
+// it displayed was worth. The underlying metrics query stays: the
+// Observations tab count still reads from it directly.
 
 type DashboardHeroProps = {
   dealershipName: string;
@@ -187,10 +159,9 @@ type DashboardHeroProps = {
 
 function DashboardHero({ dealershipName, outletName, showCaptureAction }: DashboardHeroProps) {
   return (
-    <section className="uc03-dashboard-hero uc03-dashboard-hero--workqueue" aria-labelledby="uc03-dashboard-hero-title">
+    <section className="uc03-dashboard-hero uc03-dashboard-hero--workqueue" aria-label="Work summary">
       <div className="uc03-dashboard-hero__copy">
-        <h1 id="uc03-dashboard-hero-title">Work Queue</h1>
-        <p>{dealershipName}<span aria-hidden="true"> · </span>{outletName}</p>
+        <p className="uc03-dashboard-hero__context">{dealershipName}<span aria-hidden="true"> · </span>{outletName}</p>
       </div>
 
       {showCaptureAction && (
@@ -753,7 +724,6 @@ export default function DashboardPage() {
 
   const metrics = metricsQuery.data;
   const reviewPendingCount = reviewPendingItems.length;
-  const bookingMetricValue = metrics ? String(metrics.bookingsInProgress) : '—';
   const dealershipName = isPc && selectedOutlet ? selectedOutlet.dealerName : 'Authorized Workspace';
   const outletName = isPc && selectedOutlet
     ? selectedOutlet.outletName
@@ -768,7 +738,7 @@ export default function DashboardPage() {
   };
 
   const invalidDateRange = Boolean(fromDate && toDate && fromDate > toDate);
-  const queueTitle = view === 'REVIEW_PENDING' ? 'Review Pending' : view === 'FLAGS' ? 'Observations' : 'Work Queue';
+  const queueTitle = view === 'REVIEW_PENDING' ? 'Review Pending' : view === 'FLAGS' ? 'Observations' : '';
   const queueNote = view === 'REVIEW_PENDING'
     ? `${reviewPendingCount} Booking review${reviewPendingCount === 1 ? '' : 's'} pending`
     : view === 'FLAGS'
@@ -783,7 +753,7 @@ export default function DashboardPage() {
         showCaptureAction={isPc}
       />
 
-      {metricsQuery.isError ? (
+      {metricsQuery.isError && (
         <section className="dashboard-load-state" role="alert">
           <div className="dashboard-load-state__mark" aria-hidden="true">!</div>
           <div className="dashboard-load-state__copy">
@@ -792,55 +762,12 @@ export default function DashboardPage() {
           </div>
           <button type="button" className="user-menu-button" onClick={() => metricsQuery.refetch()}>Try Again</button>
         </section>
-      ) : (
-        <div className="uc03-landing-metrics" aria-label="Current work summary">
-          <LandingMetric
-            label="Bookings"
-            value={bookingMetricValue}
-            detail={isPc ? 'Capture in progress' : 'In progress'}
-            actionLabel="View"
-            onSelect={() => selectWork('BOOKING')}
-          />
-          <LandingMetric
-            label="Deliveries"
-            value={metrics ? String(metrics.deliveryInProgress) : '—'}
-            detail={isPc ? 'Capture in progress' : 'In progress'}
-            actionLabel="View"
-            onSelect={() => selectWork('DELIVERY')}
-          />
-          {isPc ? (
-            <LandingMetric
-              label="Observations"
-              value={metrics ? String(metrics.auditFlags) : '—'}
-              detail="Open items"
-              actionLabel="View"
-              attention={Boolean(metrics?.auditFlags)}
-              onSelect={() => selectWork('FLAGS')}
-            />
-          ) : (
-            <LandingMetric
-              label="Attention"
-              value={metrics ? String(metrics.needsAttention) : '—'}
-              detail="Needs review"
-              attention={Boolean(metrics?.needsAttention)}
-            />
-          )}
-          {isTl && (
-            <LandingMetric
-              label="Review Pending"
-              value={view === 'REVIEW_PENDING' && reviewPendingQuery.data ? String(reviewPendingCount) : '—'}
-              detail="TL review queue"
-              actionLabel="Review"
-              onSelect={() => selectWork('REVIEW_PENDING')}
-            />
-          )}
-        </div>
       )}
 
-      <section className="uc03-work-list" aria-labelledby="uc03-work-list-title">
+      <section className="uc03-work-list" aria-label="Work records">
         <header className="uc03-work-list__heading uc03-work-list__heading--approved">
           <div>
-            <h2 id="uc03-work-list-title">{queueTitle}</h2>
+            {queueTitle && <h2 id="uc03-work-list-title">{queueTitle}</h2>}
             <p className="uc03-work-list__queue-note">{queueNote}</p>
           </div>
           {view !== 'REVIEW_PENDING' && (

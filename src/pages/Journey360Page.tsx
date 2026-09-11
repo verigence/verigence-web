@@ -688,6 +688,24 @@ function PanelHead({ title, hint }: { title: string; hint?: string }) {
   );
 }
 
+/** A named group WITHIN one panel -- e.g. "Invoices" and "Payments /
+ * Receipts" both live under the Payments received panel, but previously
+ * ran straight into each other with no label of their own, reading as one
+ * undifferentiated block of tables. Smaller and quieter than PanelHead
+ * (which names the panel itself), so the hierarchy stays legible: panel,
+ * then its named groups. */
+function SubSection({ title, hint, children }: { title: string; hint?: string; children: React.ReactNode }) {
+  return (
+    <div className="jline__subSection">
+      <div className="jline__subHead">
+        <span className="jline__subTitle">{title}</span>
+        {hint && <span className="jline__subHint">{hint}</span>}
+      </div>
+      {children}
+    </div>
+  );
+}
+
 function FactList({ children }: { children: React.ReactNode }) {
   return <div className="jline__facts">{children}</div>;
 }
@@ -793,21 +811,35 @@ function ItemList({ title, items }: { title: string; items: Array<Record<string,
   );
 }
 
-/** Accessories/Extended Warranty confirmation + itemized breakdown, shown
- * under the Vehicle tab per the explicit ask: "get the list of Accessories
- * bought ... same if there is extended warranty ... and on top ... a
- * checkbox or slider which confirms whether this vehicle has EW and
- * Accessories taken up or not." */
+function commercialLineByComponentKey(model: JourneyOverview, componentKey: string): Record<string, unknown> | null {
+  const lines = Array.isArray(model.commercialLines) ? model.commercialLines : [];
+  const match = lines.find((line) => String(value(line, 'componentKey') || '').toLowerCase() === componentKey);
+  return match ?? null;
+}
+
+/** Accessories/Extended Warranty/Insurance confirmation + itemized
+ * breakdown, shown under the Vehicle tab per the explicit ask: "get the
+ * list of Accessories bought ... same if there is extended warranty ...
+ * and on top ... a checkbox or slider which confirms whether this vehicle
+ * has EW and Accessories taken up or not." Insurance is a commercial line
+ * (commercial_lines.component_key='insurance_amount'), not a journey_addon
+ * like the other two -- reconciliation never routes it through addons --
+ * so it reads from a different part of the model and has no providerName
+ * to show, but the same taken/not-taken + itemized shape still applies. */
 function AccessoriesWarrantyPanel({ model }: { model: JourneyOverview }) {
   const accessoriesAddon = addonByCode(model, 'ACCESSORIES_TOTAL');
   const warrantyAddon = addonByCode(model, 'ADDITIONAL_WARRANTY');
+  const insuranceLine = commercialLineByComponentKey(model, 'insurance_amount');
   const accessoriesAmount = accessoriesAddon ? value(accessoriesAddon, 'actualAmount') : null;
   const warrantyAmount = warrantyAddon ? value(warrantyAddon, 'actualAmount') : null;
+  const insuranceAmount = insuranceLine ? value(insuranceLine, 'actualAmount') : null;
   const accessoriesTaken = Number(accessoriesAmount) > 0;
   const warrantyTaken = Number(warrantyAmount) > 0;
+  const insuranceTaken = Number(insuranceAmount) > 0;
 
   const accessoryItems = invoiceLineItems(model, ['ACCESSORY_GENUINE', 'ACCESSORY_NON_GENUINE']);
   const warrantyItems = invoiceLineItems(model, ['EXTENDED_WARRANTY']);
+  const insuranceItems = invoiceLineItems(model, ['INSURANCE']);
 
   return (
     <div className="jline__accessoriesPanel">
@@ -824,9 +856,16 @@ function AccessoriesWarrantyPanel({ model }: { model: JourneyOverview }) {
           amount={warrantyAmount}
           provider={warrantyAddon ? nonEmptyText(value(warrantyAddon, 'providerName')) : null}
         />
+        <TakenToggleRow
+          label="Insurance"
+          taken={insuranceTaken}
+          amount={insuranceAmount}
+          provider={null}
+        />
       </div>
       {accessoriesTaken && <ItemList title="Accessories bought" items={accessoryItems} />}
       {warrantyTaken && <ItemList title="Extended Warranty" items={warrantyItems} />}
+      {insuranceTaken && <ItemList title="Insurance" items={insuranceItems} />}
     </div>
   );
 }
@@ -1029,7 +1068,7 @@ function cellText(v: unknown): string {
 function InvoiceAmountsTable({ invoices }: { invoices: Array<Record<string, unknown>> }) {
   if (invoices.length === 0) return null;
   return (
-    <div className="jline__tableWrap" style={{ marginTop: 14 }}>
+    <div className="jline__tableWrap">
       <table className="jline__table">
         <thead>
           <tr>
@@ -1106,72 +1145,101 @@ function PaymentsPanel({
   const ledgerOnly = (model.payments || []).filter(
     (p) => !receiptDocumentIds.has(pickStr(p, 'sourceEvidenceId', 'source_evidence_id')),
   );
+  const invoices = model.invoices || [];
+  const invoiceTotal = invoices.reduce((s, inv) => {
+    const a = Number(pick(inv, 'grandTotalAmount', 'grand_total_amount') ?? 0);
+    return s + (Number.isNaN(a) ? 0 : a);
+  }, 0);
+  const noReceiptsAtAll = receipts.length === 0 && pendingReceipts.length === 0 && ledgerOnly.length === 0;
 
   return (
     <>
-      <PanelHead
-        title="Payments received"
-        hint={receipts.length > 0 ? `${money(total)} across ${receipts.length} receipt${receipts.length !== 1 ? 's' : ''} · ${matched} bank-matched · ${unmatched} unmatched` : undefined}
-      />
-      <InvoiceAmountsTable invoices={model.invoices || []} />
-      {receipts.length === 0 && pendingReceipts.length === 0 && ledgerOnly.length === 0 ? (
-        reviewedBooking && Object.keys(reviewedBooking).length > 0 ? (
-          <FactList>
-            <JFact label="Amount Paid">{money(value(reviewedBooking, 'booking_amount_paid'))}</JFact>
-            <JFact label="Payment Mode">{readable(value(reviewedBooking, 'mode_of_payment'))}</JFact>
-            <JFact label="Payment Reference">{textValue(reviewedBooking, 'payment_reference_no')}</JFact>
-            <JFact label="Balance Amount">{money(value(reviewedBooking, 'balance_amount'))}</JFact>
-          </FactList>
+      <PanelHead title="Payments received" />
+      {/* Invoices and Payments/Receipts are two genuinely different kinds of
+          record (what was billed vs. what was actually collected) -- each
+          now gets its own named group with its own summary line, instead of
+          one flat run of tables under a single "Payments received" hint
+          that mixed both totals together. */}
+      <SubSection
+        title="Invoices"
+        hint={invoices.length > 0 ? `${money(invoiceTotal)} across ${invoices.length} invoice${invoices.length !== 1 ? 's' : ''}` : undefined}
+      >
+        {invoices.length > 0 ? (
+          <InvoiceAmountsTable invoices={invoices} />
         ) : (
-          <p className="jline__empty">No payment receipts have been extracted yet.</p>
-        )
-      ) : (
-        <>
-          {receipts.length > 0 && (
-            <div className="jline__tableWrap">
-              <table className="jline__table">
-                <thead>
-                  <tr><th>Receipt No.</th><th>Date</th><th>Mode</th><th>Amount</th><th>Bank match</th></tr>
-                </thead>
-                <tbody>
-                  {receipts.map((r, idx) => (
-                    <tr key={String(pick(r, 'documentId', 'evidenceId') ?? idx)}>
-                      <td>{pickStr(r, 'receiptNumber', 'receipt_number') || '—'}</td>
-                      <td>{dateLabel(pick(r, 'receiptDate', 'receipt_date'))}</td>
-                      <td>{readable(pick(r, 'paymentMode', 'payment_mode', 'paymentMethodCode', 'payment_method_code'))}</td>
-                      <td>{money(pick(r, 'amount', 'amount_paid'), String(pick(r, 'currencyCode', 'currency_code') || 'INR'))}</td>
-                      <td>{bankMatchPill(objectValue(r, 'bankMatch')) ?? '—'}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-          {ledgerOnly.length > 0 && (
-            <div className="jline__tableWrap" style={{ marginTop: 14 }}>
-              <table className="jline__table">
-                <thead><tr><th>Date</th><th>Reference</th><th>Mode</th><th>Status</th><th>Amount</th></tr></thead>
-                <tbody>
-                  {ledgerOnly.map((p, i) => (
-                    <tr key={String(p.paymentId || i)}>
-                      <td>{dateLabel(pick(p, 'paymentAtUtc', 'payment_at_utc'))}</td>
-                      <td>{String(pick(p, 'paymentReference', 'payment_reference') || '—')}</td>
-                      <td>{readable(pick(p, 'paymentMethodCode', 'payment_method_code'))}</td>
-                      <td>{readable(pick(p, 'actualStatusCode', 'actual_status_code'))}</td>
-                      <td>{money(pick(p, 'amount', 'amount_paid'), String(pick(p, 'currencyCode', 'currency_code') || 'INR'))}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-          {(receipts.length > 0 || pendingReceipts.length > 0) && (
-            <div style={{ marginTop: 14 }}>
-              <ReceiptAccordion receipts={receipts} pendingReceipts={pendingReceipts} reviewedBooking={null} />
-            </div>
-          )}
-        </>
-      )}
+          <p className="jline__empty">No invoices have been extracted yet.</p>
+        )}
+      </SubSection>
+      <SubSection
+        title="Payments / Receipts"
+        hint={receipts.length > 0 ? `${money(total)} across ${receipts.length} receipt${receipts.length !== 1 ? 's' : ''} · ${matched} bank-matched · ${unmatched} unmatched` : undefined}
+      >
+        {noReceiptsAtAll ? (
+          reviewedBooking && Object.keys(reviewedBooking).length > 0 ? (
+            <FactList>
+              <JFact label="Amount Paid">{money(value(reviewedBooking, 'booking_amount_paid'))}</JFact>
+              <JFact label="Payment Mode">{readable(value(reviewedBooking, 'mode_of_payment'))}</JFact>
+              <JFact label="Payment Reference">{textValue(reviewedBooking, 'payment_reference_no')}</JFact>
+              <JFact label="Balance Amount">{money(value(reviewedBooking, 'balance_amount'))}</JFact>
+            </FactList>
+          ) : (
+            <p className="jline__empty">No payment receipts have been extracted yet.</p>
+          )
+        ) : (
+          <>
+            {receipts.length > 0 && (
+              <div className="jline__tableWrap">
+                <table className="jline__table">
+                  <thead>
+                    <tr><th>Receipt No.</th><th>Date</th><th>Mode</th><th>Amount</th><th>Bank match</th></tr>
+                  </thead>
+                  <tbody>
+                    {receipts.map((r, idx) => {
+                      const matchStatus = String((objectValue(r, 'bankMatch') || {}).status || '').toUpperCase();
+                      const needsAttention = matchStatus === 'UNMATCHED' || matchStatus === 'AMBIGUOUS';
+                      return (
+                        <tr
+                          key={String(pick(r, 'documentId', 'evidenceId') ?? idx)}
+                          className={needsAttention ? 'jline__row--attention' : undefined}
+                        >
+                          <td>{pickStr(r, 'receiptNumber', 'receipt_number') || '—'}</td>
+                          <td>{dateLabel(pick(r, 'receiptDate', 'receipt_date'))}</td>
+                          <td>{readable(pick(r, 'paymentMode', 'payment_mode', 'paymentMethodCode', 'payment_method_code'))}</td>
+                          <td>{money(pick(r, 'amount', 'amount_paid'), String(pick(r, 'currencyCode', 'currency_code') || 'INR'))}</td>
+                          <td>{bankMatchPill(objectValue(r, 'bankMatch')) ?? '—'}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            {ledgerOnly.length > 0 && (
+              <div className="jline__tableWrap" style={{ marginTop: 14 }}>
+                <table className="jline__table">
+                  <thead><tr><th>Date</th><th>Reference</th><th>Mode</th><th>Status</th><th>Amount</th></tr></thead>
+                  <tbody>
+                    {ledgerOnly.map((p, i) => (
+                      <tr key={String(p.paymentId || i)}>
+                        <td>{dateLabel(pick(p, 'paymentAtUtc', 'payment_at_utc'))}</td>
+                        <td>{String(pick(p, 'paymentReference', 'payment_reference') || '—')}</td>
+                        <td>{readable(pick(p, 'paymentMethodCode', 'payment_method_code'))}</td>
+                        <td>{readable(pick(p, 'actualStatusCode', 'actual_status_code'))}</td>
+                        <td>{money(pick(p, 'amount', 'amount_paid'), String(pick(p, 'currencyCode', 'currency_code') || 'INR'))}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            {(receipts.length > 0 || pendingReceipts.length > 0) && (
+              <div style={{ marginTop: 14 }}>
+                <ReceiptAccordion receipts={receipts} pendingReceipts={pendingReceipts} reviewedBooking={null} />
+              </div>
+            )}
+          </>
+        )}
+      </SubSection>
       <div style={{ marginTop: 24 }}>
         <BankPanel model={model} />
       </div>

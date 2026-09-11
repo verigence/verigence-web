@@ -518,7 +518,6 @@ function WorkItemRow({
                     onClick={() => setMenuOpen(false)}
                   >
                     Compliance Report
-                    <span className="uc03-work-row-v2__report-badge">TL / PM</span>
                   </Link>
                 </>
               )}

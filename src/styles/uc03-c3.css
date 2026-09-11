@@ -219,9 +219,50 @@
   color: #fff;
 }
 
+/* Two filter groups (stage, origin) stacked with a little air between them
+   on the section header's own right-hand side. */
+.uc03-c3-filter-group {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+}
+
 .uc03-c3-flag-list {
   display: grid;
   gap: 12px;
+}
+
+/* One named group per finding type -- same shape as .uc03-c3-flag-list's
+   own card spacing, so a group reads as "a labeled shelf of cards", not a
+   second unrelated list style. */
+.uc03-c3-flag-groups {
+  display: grid;
+  gap: 22px;
+}
+
+.uc03-c3-flag-group-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 10px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--border-subtle, #d8dee8);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted, #5b6b7c);
+}
+
+.uc03-c3-flag-group-count {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: normal;
+  text-transform: none;
+  background: var(--surface-muted, #eef2f8);
+  border-radius: 999px;
+  padding: 1px 8px;
 }
 
 .uc03-c3-flag-card {
@@ -432,6 +473,11 @@
   .uc03-c3-context-links {
     display: grid;
     grid-template-columns: 1fr;
+  }
+
+  .uc03-c3-filter-group {
+    align-items: stretch;
+    width: 100%;
   }
 
   .uc03-c3-filter button,

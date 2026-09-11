@@ -217,6 +217,46 @@
 .jline__panelTitle { font-size: 1.05rem; font-weight: 700; color: var(--jl-blue); }
 .jline__panelHint { font-size: 0.82rem; color: var(--jl-muted); }
 
+/* A named group within one panel -- e.g. "Invoices" and "Payments /
+   Receipts" inside "Payments received". Quieter than .jline__panelHead
+   (an eyebrow, not a heading) so the hierarchy stays legible, and its own
+   left rule + tint mark it as one distinct block at a glance rather than
+   tables running straight into each other. */
+.jline__subSection {
+  background: var(--jl-ground);
+  border: 1px solid var(--jl-line);
+  border-left: 3px solid var(--jl-teal);
+  border-radius: 8px;
+  padding: 12px 14px;
+}
+.jline__subSection + .jline__subSection { margin-top: 16px; }
+.jline__subHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+.jline__subTitle {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--jl-muted);
+}
+.jline__subHint { font-size: 0.8rem; color: var(--jl-ink); font-weight: 600; font-variant-numeric: tabular-nums; }
+/* A table inside a subsection sits on the surface color, not the
+   subsection's own ground tint -- keeps rows readable instead of two
+   layered off-white tints fighting each other. */
+.jline__subSection .jline__tableWrap { background: var(--jl-surface); border-radius: 6px; }
+.jline__subSection .jline__table th { background: var(--jl-surface); }
+
+/* A receipt row whose bank match needs a look -- lifts it out of the flat
+   list the way an unmatched pill alone didn't, at the row's own scale
+   rather than only the pill's. */
+.jline__row--attention { background: var(--jl-bad-bg); }
+.jline__row--attention td { border-bottom-color: var(--jl-line); }
+
 .jline__facts {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
@@ -326,9 +366,17 @@
   border-bottom: 1px solid var(--jl-line);
 }
 .jline__toggles {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 8px;
+  /* One column, always -- an auto-fit grid here used to open a second
+     column on any wide screen, since it only had two rows to place. Each
+     row's own switch stayed correctly paired with its own label in the
+     DOM, but visually the first row's switch landed at the column
+     boundary, right before the second row's label -- reading exactly like
+     it belonged to the WRONG item (an "off" Extended Warranty switch
+     showing on the far right, with the actually-"taken" Accessories
+     switch sitting confusingly next to the Extended Warranty text
+     instead). Stacking removes the ambiguity entirely. */
+  display: flex;
+  flex-direction: column;
   background: var(--jl-ground);
   border: 1px solid var(--jl-line);
   border-radius: 10px;
@@ -340,6 +388,9 @@
   justify-content: space-between;
   gap: 12px;
   padding: 8px 0;
+}
+.jline__toggleRow + .jline__toggleRow {
+  border-top: 1px solid var(--jl-line);
 }
 .jline__toggleLabel { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
 .jline__toggleLabel strong { font-size: 0.84rem; color: var(--jl-ink); }

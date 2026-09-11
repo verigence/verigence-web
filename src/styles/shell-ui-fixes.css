@@ -372,15 +372,12 @@ body {
   background: #f8fbfe;
 }
 
-.status-pill--positive {
-  background: #e8f7f4;
-  color: #08766f;
-}
-
-.status-pill--info {
-  background: #edf4fb;
-  color: var(--vg-navy-800);
-}
+/* .status-pill--positive/--info removed: this was a second, different-
+   colored redeclaration of the same two classes workspace.css already
+   defines (loaded earlier), silently winning everywhere purely because this
+   file loads later -- not an intentional override. workspace.css's own
+   definitions now reference the shared --vg-success/--vg-danger/--vg-warning
+   tokens so there is exactly one definition to keep in sync. */
 
 .evidence-principle-banner {
   border-color: #b9dfdd;

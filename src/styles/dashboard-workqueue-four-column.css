@@ -265,26 +265,22 @@
   color: #0a6174;
 }
 
+/* Position (top/bottom/left) is set inline via React state, computed from
+   the button's real on-screen coordinates each time it opens -- the menu is
+   rendered through a portal straight into <body>, not nested under the row,
+   specifically so a menu taller than one row (divider + Compliance Report
+   pushes it past ~210px) never visually collides with whichever row sits
+   above or below, regardless of where in the list this row falls. */
 .uc03-work-row-v2__more-menu {
-  position: absolute;
-  top: calc(100% + 6px);
-  left: 0;
-  z-index: 20;
+  z-index: 1000;
   display: grid;
   gap: 2px;
-  min-width: 210px;
+  width: 210px;
   padding: 6px;
   border: 1px solid rgba(20, 61, 98, 0.16);
   border-radius: 10px;
   background: #fff;
   box-shadow: 0 12px 26px rgba(15, 40, 66, 0.16);
-}
-
-/* Opened when there isn't room below the button (e.g. the last row in the
-   loaded list) -- otherwise the menu spilled off the bottom of the card. */
-.uc03-work-row-v2__more-menu.is-open-upward {
-  top: auto;
-  bottom: calc(100% + 6px);
 }
 
 .uc03-work-row-v2__more-menu a,
@@ -362,12 +358,6 @@
     border: 1px solid rgba(20, 61, 98, 0.14);
     border-radius: 14px;
     box-shadow: 0 4px 14px rgba(19, 55, 88, 0.06);
-  }
-
-  .uc03-work-row-v2__more-menu {
-    position: static;
-    margin-top: 6px;
-    box-shadow: none;
   }
 }
 

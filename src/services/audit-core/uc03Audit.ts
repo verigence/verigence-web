@@ -5,15 +5,15 @@ export type Uc03StageCode = 'BOOKING' | 'DELIVERY';
 export type Uc03FlagAction =
   | 'ACKNOWLEDGE'
   | 'REVIEW'
-  | 'ACCEPT'
-  | 'REJECT'
+  | 'CONFIRM_BREACH'
+  | 'MARK_FALSE_POSITIVE'
   | 'RESOLVE'
   | 'REOPEN'
   | 'VOID';
 
 export type Uc03FindingClass = 'DATA_GAP' | 'DOCUMENT_GAP' | 'VIOLATION';
 export type Uc03ResolutionMode = 'SELF_SERVICE' | 'ADJUDICATED';
-export type Uc03Disposition = 'FIXED' | 'CONFIRMED_BREACH' | 'NOT_A_BREACH' | null;
+export type Uc03Disposition = 'FIXED' | 'CONFIRMED_BREACH' | 'FALSE_POSITIVE' | null;
 
 export interface Uc03StageAuditView {
   stage: Uc03StageCode;
@@ -186,7 +186,7 @@ export function actOnAuditFlag(
     body: JSON.stringify({
       action,
       remarks: remarks || null,
-      resolutionReason: ['RESOLVE', 'REOPEN', 'VOID', 'ACCEPT', 'REJECT'].includes(action)
+      resolutionReason: ['RESOLVE', 'REOPEN', 'VOID', 'CONFIRM_BREACH', 'MARK_FALSE_POSITIVE'].includes(action)
         ? remarks
         : null,
       evidenceIds,
@@ -332,7 +332,7 @@ export function actOnQueueFinding(
     body: JSON.stringify({
       action,
       remarks: remarks || null,
-      resolutionReason: ['RESOLVE', 'REOPEN', 'VOID', 'ACCEPT', 'REJECT'].includes(action)
+      resolutionReason: ['RESOLVE', 'REOPEN', 'VOID', 'CONFIRM_BREACH', 'MARK_FALSE_POSITIVE'].includes(action)
         ? remarks
         : null,
       evidenceIds: [],

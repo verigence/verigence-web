@@ -481,3 +481,40 @@ export function getComplianceReport(
     { accessToken: token(accessToken), cache: 'no-store' },
   );
 }
+
+// ── unified rule catalog (Phase 1/1.5 of the rule-engine platform) ──────────
+
+export interface Uc03RuleCatalogEntry {
+  ruleCode: string;
+  category: string;
+  title: string;
+  description: string | null;
+  executor: 'AUDIT_CORE' | 'RULE_ENGINE';
+  executionKind: 'CODE' | 'DECLARATIVE';
+  triggerEvents: string[];
+  rerunPolicy: 'RERUNNABLE' | 'ONCE';
+  findingClass: Uc03FindingClass | null;
+  defaultSeverity: string | null;
+  defaultOwnerRole: string | null;
+  resolutionMode: Uc03ResolutionMode | null;
+  boundActions: string[];
+  blockingCompletion: boolean;
+  enabled: boolean;
+}
+
+export interface Uc03RuleCategoryGroup {
+  category: string;
+  rules: Uc03RuleCatalogEntry[];
+}
+
+export interface Uc03RuleCatalog {
+  groups: Uc03RuleCategoryGroup[];
+  ruleEngineReachable: boolean;
+}
+
+export function getRuleCatalog(tenantId: string, accessToken?: string): Promise<Uc03RuleCatalog> {
+  return auditCoreRequest(`${tenantBase(tenantId)}/rule-catalog`, {
+    accessToken: token(accessToken),
+    cache: 'no-store',
+  });
+}

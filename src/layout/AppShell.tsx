@@ -116,6 +116,7 @@ const groups: NavGroup[] = [
   ] },
   { key: 'operations', label: 'Operations & Assurance', items: [
     { to: '/reviews', label: 'Review Queue', mark: 'RV', roles: assurance },
+    { to: '/rule-catalog', label: 'Rule Catalog', mark: 'RC', roles: assurance },
     { to: '/evidence', label: 'Evidence', mark: 'EV', roles: ['PC', 'TL', 'PM', 'EXECUTIVE', ...admin] },
     { to: '/payments', label: 'Payment Tracker', mark: 'PY', roles: ['PC', 'TL', 'PM', 'EXECUTIVE', ...admin] },
     { to: '/findings', label: 'Findings', mark: 'FN', roles: assurance },
@@ -145,7 +146,7 @@ const groups: NavGroup[] = [
 const routeLabels: Record<string, string> = {
   '/dashboard': 'Overview', '/work-queue': 'Bookings & Deliveries', '/search': 'Search', '/attendance': 'Attendance', '/customers': 'Customers', '/journeys': 'Journeys', '/tasks': 'My Work',
   '/feedback': 'Feedback',
-  '/reviews': 'Review Queue', '/evidence': 'Evidence', '/payments': 'Payment Tracker', '/findings': 'Findings',
+  '/reviews': 'Review Queue', '/rule-catalog': 'Rule Catalog', '/evidence': 'Evidence', '/payments': 'Payment Tracker', '/findings': 'Findings',
   '/daily-ops': 'Daily Operations', '/activity': 'Activity Tracker', '/crm': 'CRM Follow-up', '/escalations': 'Escalations',
   '/analytics': 'Analytics', '/admin/engagements': 'Engagements', '/admin/document-intelligence': 'Document Intelligence Configuration',
   '/admin/housekeeping': 'Housekeeping', '/admin/feedback': 'User Feedback', '/admin/di-test': 'DI Test Console', '/admin/users': 'Users',

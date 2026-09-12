@@ -215,6 +215,9 @@ export default function BookingCaptureV2CompactPage() {
       await captureQuery.refetch();
       setMessage('Documents received. They are being classified and prepared for review.');
     } catch (cause: unknown) {
+      // Other files in the same concurrent batch may already have finalized.
+      // Refresh before presenting the failure so the user sees what was received.
+      await captureQuery.refetch().catch(() => undefined);
       setError(cause instanceof Error ? cause.message : 'We could not upload these documents. Please try again.');
       setMessage(undefined);
     } finally {

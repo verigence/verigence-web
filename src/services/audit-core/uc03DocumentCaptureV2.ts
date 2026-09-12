@@ -307,9 +307,14 @@ export async function uploadBookingCaptureV2Files(
   };
 
   const concurrency = Math.min(6, intent.uploads.length);
-  await Promise.all(Array.from({ length: concurrency }, () => uploadWorker()));
-  invalidateCaptureReadState(tenantId, journeyId);
-  return finalized;
+  try {
+    await Promise.all(Array.from({ length: concurrency }, () => uploadWorker()));
+    return finalized;
+  } finally {
+    // A batch can partially finalize before another file fails. Never leave the
+    // capture cache showing the pre-upload 0/0 state after those durable writes.
+    invalidateCaptureReadState(tenantId, journeyId);
+  }
 }
 
 export async function deleteBookingCaptureV2Document(

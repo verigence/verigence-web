@@ -160,7 +160,7 @@ function FlagCard({
   const isViolation = flag.findingClass === 'VIOLATION';
   const open = ['OPEN', 'ACKNOWLEDGED'].includes(flag.status);
   const actionable = open && (
-    canDo('ACKNOWLEDGE') || canDo('ACCEPT') || canDo('REJECT') || canDo('RESOLVE')
+    canDo('ACKNOWLEDGE') || canDo('CONFIRM_BREACH') || canDo('MARK_FALSE_POSITIVE') || canDo('RESOLVE')
   );
 
   const classLabel = flag.findingClass === 'VIOLATION'
@@ -199,7 +199,7 @@ function FlagCard({
           {flag.description && <p>{flag.description}</p>}
           {flag.disposition && (
             <p className="uc03-c3-disposition">
-              {flag.disposition === 'CONFIRMED_BREACH' ? 'Confirmed breach' : flag.disposition === 'NOT_A_BREACH' ? 'Reviewed — not a breach' : 'Fixed'}
+              {flag.disposition === 'CONFIRMED_BREACH' ? 'Confirmed breach' : flag.disposition === 'FALSE_POSITIVE' ? 'Reviewed — false positive' : 'Fixed'}
             </p>
           )}
         </div>
@@ -381,7 +381,7 @@ export default function AuditReviewPage() {
       <PageHeader
         eyebrow={`${friendly(summary?.operatingRole || project.operatingRole)} · Audit review`}
         title="Booking & Delivery Audit"
-        description="A read-only view of this case -- Audit Flags, source comparisons, evidence and the complete history. Accept, reject or resolve a flag in Review Queue; nothing here changes the underlying source documents or the record."
+        description="A read-only view of this case -- Audit Flags, source comparisons, evidence and the complete history. Confirm Breach, Mark False Positive or resolve a flag in Review Queue; nothing here changes the underlying source documents or the record."
       />
 
       <nav className="uc03-c3-context-links" aria-label="Case navigation">

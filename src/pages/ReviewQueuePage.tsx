@@ -389,10 +389,10 @@ export default function ReviewQueuePage() {
       setBanner({
         tone: 'ok',
         text:
-          variables.action === 'ACCEPT'
+          variables.action === 'CONFIRM_BREACH'
             ? 'Recorded as a confirmed breach.'
-            : variables.action === 'REJECT'
-              ? 'Recorded as not a breach.'
+            : variables.action === 'MARK_FALSE_POSITIVE'
+              ? 'Recorded as a false positive.'
               : 'Marked as fixed.',
       });
       setDecision(null);
@@ -557,7 +557,7 @@ export default function ReviewQueuePage() {
           const escalated = escalationLabel(item);
           const isAdjudicated = item.resolutionMode === 'ADJUDICATED';
           const isManualVerification = isManualVerificationRule(item.ruleKey);
-          const canAccept = item.permittedActions.includes('ACCEPT');
+          const canAccept = item.permittedActions.includes('CONFIRM_BREACH');
           const canResolve = item.permittedActions.includes('RESOLVE');
           const open = decision?.flagId === item.flagId;
           return (
@@ -620,16 +620,16 @@ export default function ReviewQueuePage() {
                     <button
                       type="button"
                       className="revq-btn revq-btn--reject"
-                      onClick={() => { setDecision({ flagId: item.flagId, action: 'REJECT' }); setReason(''); }}
+                      onClick={() => { setDecision({ flagId: item.flagId, action: 'MARK_FALSE_POSITIVE' }); setReason(''); }}
                     >
-                      Reject
+                      Mark False Positive
                     </button>
                     <button
                       type="button"
                       className="revq-btn revq-btn--accept"
-                      onClick={() => { setDecision({ flagId: item.flagId, action: 'ACCEPT' }); setReason(''); }}
+                      onClick={() => { setDecision({ flagId: item.flagId, action: 'CONFIRM_BREACH' }); setReason(''); }}
                     >
-                      Accept
+                      Confirm Breach
                     </button>
                   </>
                 )}
@@ -665,10 +665,10 @@ export default function ReviewQueuePage() {
                 >
                   <label>
                     <span>
-                      {decision.action === 'ACCEPT'
+                      {decision.action === 'CONFIRM_BREACH'
                         ? 'Why is this a breach?'
-                        : decision.action === 'REJECT'
-                          ? 'Why is this not a breach?'
+                        : decision.action === 'MARK_FALSE_POSITIVE'
+                          ? 'Why is this a false positive?'
                           : 'What did you fix?'}
                     </span>
                     <textarea
@@ -686,15 +686,15 @@ export default function ReviewQueuePage() {
                     </button>
                     <button
                       type="submit"
-                      className={`revq-btn revq-btn--${decision.action === 'REJECT' ? 'reject' : 'accept'}`}
+                      className={`revq-btn revq-btn--${decision.action === 'MARK_FALSE_POSITIVE' ? 'reject' : 'accept'}`}
                       disabled={!reason.trim() || mutation.isPending}
                     >
                       {mutation.isPending
                         ? 'Saving…'
-                        : decision.action === 'ACCEPT'
-                          ? 'Confirm breach'
-                          : decision.action === 'REJECT'
-                            ? 'Not a breach'
+                        : decision.action === 'CONFIRM_BREACH'
+                          ? 'Confirm Breach'
+                          : decision.action === 'MARK_FALSE_POSITIVE'
+                            ? 'Mark False Positive'
                             : 'Mark fixed'}
                     </button>
                   </div>

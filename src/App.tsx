@@ -65,6 +65,7 @@ const EvidencePage = lazy(() => import('./pages/EvidencePage'));
 const EvidenceDetailPage = lazy(() => import('./pages/EvidenceDetailPage'));
 const ReviewQueuePage = lazy(() => import('./pages/ReviewQueuePage'));
 const RuleCatalogPage = lazy(() => import('./pages/RuleCatalogPage'));
+const RuleAuthoringPage = lazy(() => import('./pages/RuleAuthoringPage'));
 const FindingsPage = lazy(() => import('./pages/FindingsPage'));
 const TasksPage = lazy(() => import('./pages/TasksPage'));
 const PaymentTrackerPage = lazy(() => import('./pages/PaymentTrackerPage'));
@@ -277,6 +278,7 @@ export default function App() {
               <Route path="/journeys/:journeyId/evidence/:evidenceId" element={<LegacyOperationalPage><EvidenceDetailPage /></LegacyOperationalPage>} />
               <Route path="/reviews" element={<OperationalPage><ReviewQueuePage /></OperationalPage>} />
               <Route path="/rule-catalog" element={<OperationalPage><RuleCatalogPage /></OperationalPage>} />
+              <Route path="/rule-catalog/new" element={<OperationalPage><RuleAuthoringPage /></OperationalPage>} />
               <Route path="/evidence" element={<LegacyOperationalPage><EvidencePage /></LegacyOperationalPage>} />
               <Route path="/payments" element={<LegacyOperationalPage><PaymentTrackerPage /></LegacyOperationalPage>} />
               <Route path="/findings" element={<LegacyOperationalPage><FindingsPage /></LegacyOperationalPage>} />

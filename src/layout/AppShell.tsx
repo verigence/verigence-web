@@ -146,7 +146,7 @@ const groups: NavGroup[] = [
 const routeLabels: Record<string, string> = {
   '/dashboard': 'Overview', '/work-queue': 'Bookings & Deliveries', '/search': 'Search', '/attendance': 'Attendance', '/customers': 'Customers', '/journeys': 'Journeys', '/tasks': 'My Work',
   '/feedback': 'Feedback',
-  '/reviews': 'Review Queue', '/rule-catalog': 'Rule Catalog', '/evidence': 'Evidence', '/payments': 'Payment Tracker', '/findings': 'Findings',
+  '/reviews': 'Review Queue', '/rule-catalog': 'Rule Catalog', '/rule-catalog/new': 'Author a Rule', '/evidence': 'Evidence', '/payments': 'Payment Tracker', '/findings': 'Findings',
   '/daily-ops': 'Daily Operations', '/activity': 'Activity Tracker', '/crm': 'CRM Follow-up', '/escalations': 'Escalations',
   '/analytics': 'Analytics', '/admin/engagements': 'Engagements', '/admin/document-intelligence': 'Document Intelligence Configuration',
   '/admin/housekeeping': 'Housekeeping', '/admin/feedback': 'User Feedback', '/admin/di-test': 'DI Test Console', '/admin/users': 'Users',

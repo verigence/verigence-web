@@ -93,17 +93,26 @@ export interface ReviewFieldCorrection {
 
 export type FindingResolutionMode = 'SELF_SERVICE' | 'ADJUDICATED';
 
-export interface FieldCorrectionProposalFlag {
+export interface FieldCorrectionFlag {
   flagId: string;
   stage: 'BOOKING' | 'DELIVERY';
   status: string;
+  severity: string;
   findingClass: string | null;
   resolutionMode: FindingResolutionMode | null;
   ownerRoleCode: string | null;
   version: number;
 }
 
-export interface ProposeFieldCorrectionCommand {
+/**
+ * One endpoint, one shape, for correcting a single DI-extracted field --
+ * behavior branches server-side on confidenceScore (see uc03_document_
+ * field_corrections.py's module docstring):
+ *   <90% (or missing): applied immediately, informational-only finding.
+ *   >=90%: NOT applied yet -- a Team-Lead-adjudicated finding is raised;
+ *          remarks are required in this case (validated server-side too).
+ */
+export interface FieldCorrectionCommand {
   stage: 'BOOKING' | 'DELIVERY';
   documentId: string;
   documentTypeKey: string;
@@ -113,8 +122,8 @@ export interface ProposeFieldCorrectionCommand {
   confidenceScore: number | null;
   evidenceId: string | null;
   originalValue: unknown;
-  proposedValue: unknown;
-  remarks: string;
+  newValue: unknown;
+  remarks?: string;
 }
 
 export interface BookingReviewV2 {
@@ -358,18 +367,22 @@ function idempotencyKey(): string {
 }
 
 /**
- * A DI field extracted at or above the 90% confidence threshold cannot be
- * edited directly (see ReviewEffectiveValueEditor, which only ever handles
- * <90% fields) -- this raises a TL-adjudicated correction proposal instead,
- * exactly like a human-raised audit flag. It resolves to a VIOLATION finding
- * server-side; the caller does not choose the classification.
+ * Correct one DI-extracted field's value from the Journey Documents page.
+ * Deliberately does NOT go through the stage-wide Review Confirm endpoints
+ * (confirmBookingReviewV2 / confirmDeliveryReviewV2) -- those exist for a
+ * different, one-time job (PENDING -> VERIFIED for the whole stage) and
+ * would either mis-flip that status off a single field or, once already
+ * VERIFIED, reject every later correction outright. This call is always
+ * repeatable, per field, per document; see the backend module's docstring
+ * for the full reasoning. Server-side behavior branches on confidenceScore
+ * -- see FieldCorrectionCommand's own doc comment.
  */
-export async function proposeFieldCorrection(
+export async function submitFieldCorrection(
   tenantId: string,
   journeyId: string,
-  command: ProposeFieldCorrectionCommand,
+  command: FieldCorrectionCommand,
   accessToken?: string,
-): Promise<FieldCorrectionProposalFlag> {
+): Promise<FieldCorrectionFlag> {
   const body = await auditCoreRequest<{ flag: Record<string, unknown> }>(
     `/v2/tenants/${encodeURIComponent(tenantId)}/journeys/${encodeURIComponent(journeyId)}/uc03/documents/${encodeURIComponent(command.documentId)}/field-corrections`,
     {
@@ -388,6 +401,7 @@ export async function proposeFieldCorrection(
     flagId: String(flag.flagId),
     stage: flag.stage as 'BOOKING' | 'DELIVERY',
     status: String(flag.status),
+    severity: String(flag.severity),
     findingClass: (flag.findingClass as string | null) ?? null,
     resolutionMode: (flag.resolutionMode as FindingResolutionMode | null) ?? null,
     ownerRoleCode: (flag.ownerRoleCode as string | null) ?? null,

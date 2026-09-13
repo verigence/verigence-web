@@ -4,16 +4,12 @@ import { useNavigate, useParams } from 'react-router-dom';
 
 import PageHeader from '../components/PageHeader';
 import AttributeEvidenceViewer, { hasBoxedEvidence } from '../features/uc03/AttributeEvidenceViewer';
-import ReviewEffectiveValueEditor, { reviewSourceKey } from '../features/uc03/ReviewEffectiveValueEditor';
 import {
-  confirmBookingReviewV2,
-  confirmDeliveryReviewV2,
   getBookingReviewV2,
   getDeliveryReviewV2,
-  proposeFieldCorrection,
+  submitFieldCorrection,
   type BookingReviewV2,
   type DeliveryReviewV2,
-  type ReviewFieldCorrection,
   type ReviewV2Document,
   type ReviewV2Field,
   type ReviewV2SourceValue,
@@ -38,8 +34,8 @@ function displayValue(value: unknown): string {
   try { return JSON.stringify(value); } catch { return String(value); }
 }
 
-function isHighConfidence(field: ReviewV2Field): boolean {
-  return field.confidenceScore !== null && field.confidenceScore !== undefined && field.confidenceScore >= REVIEW_THRESHOLD;
+function isHighConfidence(confidenceScore: number | null): boolean {
+  return confidenceScore !== null && confidenceScore !== undefined && confidenceScore >= REVIEW_THRESHOLD;
 }
 
 function fieldSource(document: ReviewV2Document, field: ReviewV2Field): ReviewV2SourceValue {
@@ -61,85 +57,73 @@ function fieldSource(document: ReviewV2Document, field: ReviewV2Field): ReviewV2
   };
 }
 
-function proposalKey(field: ReviewV2Field): string {
+function fieldRowKey(field: ReviewV2Field): string {
   return `${field.canonicalFieldId}:${field.fieldKey}:${field.sourceFactVersion}`;
 }
 
-/** A small inline form for proposing a correction to a >=90%-confidence
- * field. Not directly editable -- see ProposeFieldCorrectionCommand's own
- * docstring on the backend: this raises a TL-adjudicated finding rather
- * than silently overwriting a high-confidence DI value. */
-function ProposeCorrectionForm({
-  onCancel,
-  onSubmit,
-  busy,
-}: {
-  onCancel: () => void;
-  onSubmit: (proposedValue: string, remarks: string) => void;
-  busy: boolean;
-}) {
-  const [proposedValue, setProposedValue] = useState('');
-  const [remarks, setRemarks] = useState('');
-  return (
-    <form
-      className="uc03-jd-propose-form"
-      onSubmit={(event) => {
-        event.preventDefault();
-        onSubmit(proposedValue, remarks);
-      }}
-    >
-      <label>
-        Corrected value
-        <input value={proposedValue} onChange={(event) => setProposedValue(event.target.value)} required disabled={busy} />
-      </label>
-      <label>
-        Remarks — why is the extracted value wrong?
-        <textarea value={remarks} onChange={(event) => setRemarks(event.target.value)} required rows={2} disabled={busy} />
-      </label>
-      <div className="uc03-jd-propose-actions">
-        <button type="button" onClick={onCancel} disabled={busy}>Cancel</button>
-        <button type="submit" disabled={busy || !proposedValue.trim() || !remarks.trim()}>
-          {busy ? 'Submitting…' : 'Submit for Team Lead review'}
-        </button>
-      </div>
-    </form>
-  );
-}
+type LocalCorrectionState =
+  | { kind: 'APPLIED'; value: unknown }
+  | { kind: 'PENDING' };
 
-function DocumentFieldsPanel({
+/**
+ * One field, one correction action. Every field -- whatever its confidence
+ * -- gets the same inline form; what differs is server-side behavior (see
+ * submitFieldCorrection's doc comment): a <90% save applies immediately and
+ * closes on its own, a >=90% save raises a Team-Lead-adjudicated proposal
+ * and stays visibly pending until someone acts on it. Saving here NEVER
+ * touches the stage's Review Confirm/Submit flow -- each field is its own
+ * small, always-repeatable action, not a batch queued for one big Save.
+ */
+function FieldCorrectionRow({
   stage,
   document,
-  isReadOnly,
-  corrections,
-  onCorrection,
+  field,
+  local,
+  onLocalChange,
   onEvidence,
-  proposed,
-  onProposed,
   tenantId,
   journeyId,
   accessToken,
 }: {
   stage: Stage;
   document: ReviewV2Document;
-  isReadOnly: boolean;
-  corrections: Map<string, ReviewFieldCorrection>;
-  onCorrection: (source: ReviewV2SourceValue, correction: ReviewFieldCorrection | undefined) => void;
+  field: ReviewV2Field;
+  local?: LocalCorrectionState;
+  onLocalChange: (state: LocalCorrectionState) => void;
   onEvidence: (source: ReviewV2SourceValue) => void;
-  proposed: Set<string>;
-  onProposed: (key: string) => void;
   tenantId: string;
   journeyId: string;
   accessToken?: string;
 }) {
-  const [openProposalFor, setOpenProposalFor] = useState<string>();
-  const [proposalError, setProposalError] = useState<string>();
-  const [proposalBusy, setProposalBusy] = useState(false);
+  const [open, setOpen] = useState(false);
+  const [draftValue, setDraftValue] = useState('');
+  const [remarks, setRemarks] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string>();
 
-  const submitProposal = async (field: ReviewV2Field, proposedValue: string, remarks: string) => {
-    setProposalBusy(true);
-    setProposalError(undefined);
+  const currentValue = local?.kind === 'APPLIED' ? local.value : field.value;
+  const highConf = isHighConfidence(field.confidenceScore);
+  const source = fieldSource(document, field);
+  const boxed = hasBoxedEvidence(source);
+  const pending = local?.kind === 'PENDING';
+
+  const openForm = () => {
+    setDraftValue(displayValue(currentValue) === 'Not extracted' ? '' : displayValue(currentValue));
+    setRemarks('');
+    setError(undefined);
+    setOpen(true);
+  };
+
+  const submit = async () => {
+    if (!draftValue.trim()) return;
+    if (highConf && !remarks.trim()) {
+      setError('Remarks are required for a value at or above 90% confidence.');
+      return;
+    }
+    setBusy(true);
+    setError(undefined);
     try {
-      await proposeFieldCorrection(tenantId, journeyId, {
+      await submitFieldCorrection(tenantId, journeyId, {
         stage,
         documentId: document.documentId,
         documentTypeKey: document.documentTypeKey || 'unknown',
@@ -149,18 +133,86 @@ function DocumentFieldsPanel({
         confidenceScore: field.confidenceScore,
         evidenceId: document.evidenceId,
         originalValue: field.value,
-        proposedValue,
-        remarks,
+        newValue: draftValue,
+        remarks: remarks.trim() || undefined,
       }, accessToken);
-      onProposed(proposalKey(field));
-      setOpenProposalFor(undefined);
-    } catch (error) {
-      setProposalError(error instanceof Error ? error.message : 'The correction could not be submitted. Try again.');
+      onLocalChange(highConf ? { kind: 'PENDING' } : { kind: 'APPLIED', value: draftValue });
+      setOpen(false);
+    } catch (submitError) {
+      setError(submitError instanceof Error ? submitError.message : 'This correction could not be saved. Try again.');
     } finally {
-      setProposalBusy(false);
+      setBusy(false);
     }
   };
 
+  return (
+    <tr className={field.reviewState === 'NEEDS_REVIEW' && !local ? 'needs-review' : ''}>
+      <td><strong>{displayFieldKey(field.fieldKey)}</strong></td>
+      <td>
+        {displayValue(currentValue)}
+        {local?.kind === 'APPLIED' ? <span className="uc03-jd-applied-badge">Corrected</span> : null}
+      </td>
+      <td>{field.confidenceScore === null || field.confidenceScore === undefined ? '—' : `${field.confidenceScore.toFixed(field.confidenceScore % 1 === 0 ? 0 : 1)}%`}</td>
+      <td>
+        {boxed ? (
+          <button type="button" className="uc03-attribute-evidence-link" onClick={() => onEvidence(source)}>View boxed evidence</button>
+        ) : <span className="uc03-jd-muted">Location unavailable</span>}
+      </td>
+      <td>
+        {pending ? (
+          <span className="uc03-jd-proposed-badge">Proposed — pending Team Lead review</span>
+        ) : open ? (
+          <form
+            className="uc03-jd-propose-form"
+            onSubmit={(event) => { event.preventDefault(); void submit(); }}
+          >
+            <label>
+              {highConf ? 'Corrected value' : 'New value'}
+              <input value={draftValue} onChange={(event) => setDraftValue(event.target.value)} required disabled={busy} />
+            </label>
+            {highConf ? (
+              <label>
+                Remarks — why is the extracted value wrong?
+                <textarea value={remarks} onChange={(event) => setRemarks(event.target.value)} required rows={2} disabled={busy} />
+              </label>
+            ) : null}
+            <div className="uc03-jd-propose-actions">
+              <button type="button" onClick={() => setOpen(false)} disabled={busy}>Cancel</button>
+              <button type="submit" disabled={busy || !draftValue.trim()}>
+                {busy ? 'Saving…' : highConf ? 'Submit for Team Lead review' : 'Save'}
+              </button>
+            </div>
+            {error ? <div className="uc03-jd-error" role="alert">{error}</div> : null}
+          </form>
+        ) : (
+          <button type="button" className="uc03-jd-propose-link" onClick={openForm}>
+            {highConf ? 'Propose correction' : 'Correct this value'}
+          </button>
+        )}
+      </td>
+    </tr>
+  );
+}
+
+function DocumentFieldsPanel({
+  stage,
+  document,
+  localByField,
+  onLocalChange,
+  onEvidence,
+  tenantId,
+  journeyId,
+  accessToken,
+}: {
+  stage: Stage;
+  document: ReviewV2Document;
+  localByField: Map<string, LocalCorrectionState>;
+  onLocalChange: (key: string, state: LocalCorrectionState) => void;
+  onEvidence: (source: ReviewV2SourceValue) => void;
+  tenantId: string;
+  journeyId: string;
+  accessToken?: string;
+}) {
   if (!document.fields.length) {
     return <p className="uc03-jd-empty">No fields have been extracted from this document yet.</p>;
   }
@@ -171,7 +223,7 @@ function DocumentFieldsPanel({
         <thead>
           <tr>
             <th>Field</th>
-            <th>Extracted value</th>
+            <th>Value</th>
             <th>Confidence</th>
             <th>Evidence</th>
             <th>Action</th>
@@ -179,58 +231,24 @@ function DocumentFieldsPanel({
         </thead>
         <tbody>
           {document.fields.map((field) => {
-            const source = fieldSource(document, field);
-            const key = proposalKey(field);
-            const highConf = isHighConfidence(field);
-            const boxed = hasBoxedEvidence(source);
-            const alreadyProposed = proposed.has(key);
+            const key = fieldRowKey(field);
             return (
-              <tr key={key} className={field.reviewState === 'NEEDS_REVIEW' ? 'needs-review' : ''}>
-                <td><strong>{displayFieldKey(field.fieldKey)}</strong></td>
-                <td>
-                  {!highConf && !isReadOnly ? (
-                    <ReviewEffectiveValueEditor
-                      source={source}
-                      correction={corrections.get(reviewSourceKey(source))}
-                      onChange={(correction) => onCorrection(source, correction)}
-                      disabled={false}
-                    />
-                  ) : displayValue(field.value)}
-                </td>
-                <td>{field.confidenceScore === null || field.confidenceScore === undefined ? '—' : `${field.confidenceScore.toFixed(field.confidenceScore % 1 === 0 ? 0 : 1)}%`}</td>
-                <td>
-                  {boxed ? (
-                    <button type="button" className="uc03-attribute-evidence-link" onClick={() => onEvidence(source)}>View boxed evidence</button>
-                  ) : <span className="uc03-jd-muted">Location unavailable</span>}
-                </td>
-                <td>
-                  {highConf ? (
-                    alreadyProposed ? (
-                      <span className="uc03-jd-proposed-badge">Proposed — pending Team Lead review</span>
-                    ) : isReadOnly ? (
-                      <span className="uc03-jd-muted">—</span>
-                    ) : openProposalFor === key ? null : (
-                      <button type="button" className="uc03-jd-propose-link" onClick={() => { setOpenProposalFor(key); setProposalError(undefined); }}>
-                        Propose correction
-                      </button>
-                    )
-                  ) : (
-                    <span className="uc03-jd-muted">Editable above</span>
-                  )}
-                  {highConf && openProposalFor === key ? (
-                    <ProposeCorrectionForm
-                      busy={proposalBusy}
-                      onCancel={() => setOpenProposalFor(undefined)}
-                      onSubmit={(proposedValue, remarks) => void submitProposal(field, proposedValue, remarks)}
-                    />
-                  ) : null}
-                </td>
-              </tr>
+              <FieldCorrectionRow
+                key={key}
+                stage={stage}
+                document={document}
+                field={field}
+                local={localByField.get(key)}
+                onLocalChange={(state) => onLocalChange(key, state)}
+                onEvidence={onEvidence}
+                tenantId={tenantId}
+                journeyId={journeyId}
+                accessToken={accessToken}
+              />
             );
           })}
         </tbody>
       </table>
-      {proposalError ? <div className="uc03-jd-error" role="alert">{proposalError}</div> : null}
     </div>
   );
 }
@@ -238,59 +256,33 @@ function DocumentFieldsPanel({
 function StagePanel({
   stage,
   review,
+  onEvidence,
   tenantId,
   journeyId,
   accessToken,
-  onEvidence,
 }: {
   stage: Stage;
   review: BookingReviewV2 | DeliveryReviewV2;
+  onEvidence: (source: ReviewV2SourceValue) => void;
   tenantId: string;
   journeyId: string;
   accessToken?: string;
-  onEvidence: (source: ReviewV2SourceValue) => void;
 }) {
   const [activeDocumentId, setActiveDocumentId] = useState<string>();
-  const [corrections, setCorrections] = useState<Map<string, ReviewFieldCorrection>>(new Map());
-  const [proposed, setProposed] = useState<Set<string>>(new Set());
-  const [saving, setSaving] = useState(false);
-  const [saveError, setSaveError] = useState<string>();
-  const [saved, setSaved] = useState(false);
+  const [localByField, setLocalByField] = useState<Map<string, LocalCorrectionState>>(new Map());
 
   const documents = review.documents;
   const currentDocumentId = activeDocumentId && documents.some((document) => document.documentId === activeDocumentId)
     ? activeDocumentId
     : documents[0]?.documentId;
   const currentDocument = documents.find((document) => document.documentId === currentDocumentId);
-  const isReadOnly = review.captureSubmitted && review.pcVerificationStatus === 'VERIFIED';
 
-  const setCorrection = (source: ReviewV2SourceValue, correction: ReviewFieldCorrection | undefined) => {
-    setSaved(false);
-    setCorrections((current) => {
+  const setLocal = (key: string, state: LocalCorrectionState) => {
+    setLocalByField((current) => {
       const next = new Map(current);
-      const key = reviewSourceKey(source);
-      if (correction) next.set(key, correction);
-      else next.delete(key);
+      next.set(key, state);
       return next;
     });
-  };
-
-  const save = async () => {
-    setSaving(true);
-    setSaveError(undefined);
-    try {
-      if (stage === 'BOOKING') {
-        await confirmBookingReviewV2(tenantId, journeyId, review.aggregateVersion, [...corrections.values()], accessToken);
-      } else {
-        await confirmDeliveryReviewV2(tenantId, journeyId, review.aggregateVersion, [...corrections.values()], accessToken);
-      }
-      setCorrections(new Map());
-      setSaved(true);
-    } catch (error) {
-      setSaveError(error instanceof Error ? error.message : 'These corrections could not be saved. Refresh and try again.');
-    } finally {
-      setSaving(false);
-    }
   };
 
   if (!documents.length) {
@@ -329,12 +321,9 @@ function StagePanel({
           <DocumentFieldsPanel
             stage={stage}
             document={currentDocument}
-            isReadOnly={isReadOnly}
-            corrections={corrections}
-            onCorrection={setCorrection}
+            localByField={localByField}
+            onLocalChange={setLocal}
             onEvidence={onEvidence}
-            proposed={proposed}
-            onProposed={(key) => setProposed((current) => new Set(current).add(key))}
             tenantId={tenantId}
             journeyId={journeyId}
             accessToken={accessToken}
@@ -342,27 +331,10 @@ function StagePanel({
         </section>
       ) : null}
 
-      {isReadOnly ? (
-        <p className="uc03-jd-readonly-note">
-          {stage === 'BOOKING' ? 'Booking' : 'Delivery'} Review has already been confirmed. Values below 90% confidence
-          can no longer be edited here — use Propose correction above for any field that needs a further fix.
-        </p>
-      ) : (
-        <div className="uc03-jd-save-bar">
-          <div>
-            <strong>{corrections.size} correction{corrections.size === 1 ? '' : 's'} ready to save</strong>
-            <span>
-              Saving applies every &lt;90%-confidence correction made across all {stage === 'BOOKING' ? 'Booking' : 'Delivery'} documents
-              in this session, not just this tab — it uses the same one-time Review Confirm this stage's Submit flow does.
-            </span>
-          </div>
-          <button type="button" className="uc03-c3-primary" disabled={saving || corrections.size === 0} onClick={() => void save()}>
-            {saving ? 'Saving…' : 'Save reviewed corrections'}
-          </button>
-        </div>
-      )}
-      {saved ? <div className="uc03-jd-success" role="status">Corrections saved.</div> : null}
-      {saveError ? <div className="uc03-jd-error" role="alert">{saveError}</div> : null}
+      <p className="uc03-jd-readonly-note">
+        A correction below 90% confidence is saved and applied immediately — there is nothing further to submit.
+        A correction at or above 90% confidence is sent to a Team Lead for review before it takes effect.
+      </p>
     </div>
   );
 }
@@ -427,7 +399,7 @@ export default function JourneyDocumentsPage() {
       <PageHeader
         eyebrow="Journey Documents"
         title="Review scanned documents & extracted values"
-        description="Every uploaded document, section by section, with the values Document Intelligence extracted from it. Fields below 90% confidence can be corrected directly; fields at or above 90% go through a Team Lead-reviewed correction instead."
+        description="Every uploaded document, section by section, with the values Document Intelligence extracted from it. Fields below 90% confidence can be corrected directly and take effect immediately; fields at or above 90% go through a Team Lead-reviewed correction instead."
       />
 
       <div className="uc03-jd-stage-tabs" role="tablist" aria-label="Journey stage">
@@ -440,10 +412,10 @@ export default function JourneyDocumentsPage() {
       </div>
 
       {activeStage === 'BOOKING' && bookingQuery.data ? (
-        <StagePanel stage="BOOKING" review={bookingQuery.data} tenantId={project.tenantId} journeyId={journeyId} accessToken={accessToken} onEvidence={setSelectedSource} />
+        <StagePanel stage="BOOKING" review={bookingQuery.data} onEvidence={setSelectedSource} tenantId={project.tenantId} journeyId={journeyId} accessToken={accessToken} />
       ) : null}
       {activeStage === 'DELIVERY' && deliveryQuery.data ? (
-        <StagePanel stage="DELIVERY" review={deliveryQuery.data} tenantId={project.tenantId} journeyId={journeyId} accessToken={accessToken} onEvidence={setSelectedSource} />
+        <StagePanel stage="DELIVERY" review={deliveryQuery.data} onEvidence={setSelectedSource} tenantId={project.tenantId} journeyId={journeyId} accessToken={accessToken} />
       ) : null}
 
       {selectedSource ? (

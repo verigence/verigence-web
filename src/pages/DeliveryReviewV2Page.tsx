@@ -228,7 +228,10 @@ export default function DeliveryReviewV2Page() {
     <div className="screen-stack uc03-delivery-review-v2">
       <div className="uc03-c1-topbar">
         <button type="button" className="uc03-c1-back" onClick={() => navigate('/dashboard')}>← Work List</button>
-        <button type="button" className="uc03-v2-review-refresh" disabled={reviewQuery.isFetching} onClick={() => void reviewQuery.refetch()}>{reviewQuery.isFetching ? 'Refreshing…' : 'Refresh Review'}</button>
+        <div className="uc03-v2-review-top-actions">
+          <button type="button" className="uc03-v2-review-refresh" onClick={() => navigate(`/journeys/${journeyId}/documents`)}>Review / View Scanned Docs</button>
+          <button type="button" className="uc03-v2-review-refresh" disabled={reviewQuery.isFetching} onClick={() => void reviewQuery.refetch()}>{reviewQuery.isFetching ? 'Refreshing…' : 'Refresh Review'}</button>
+        </div>
       </div>
       <PageHeader
         eyebrow="Delivery Review · Evidence First"

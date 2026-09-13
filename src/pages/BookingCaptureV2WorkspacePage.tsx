@@ -446,6 +446,15 @@ export default function BookingCaptureV2CompactPage() {
             Checklist <em>{mandatoryReceived}/{mandatoryTotal}</em>
           </button>
         )}
+        {capture && journeyId ? (
+          <button
+            type="button"
+            className="uc03-booking-v2-checklist-toggle"
+            onClick={() => navigate(`/journeys/${journeyId}/documents`)}
+          >
+            Review / View Scanned Docs
+          </button>
+        ) : null}
       </div>
 
       <PageHeader

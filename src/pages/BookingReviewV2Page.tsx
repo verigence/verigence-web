@@ -326,6 +326,7 @@ export default function BookingReviewV2Page() {
         <button type="button" className="uc03-c1-back" onClick={() => navigate('/dashboard')}>← Work List</button>
         <div className="uc03-v2-review-top-actions">
           {hasNewResults ? <button type="button" className="uc03-v2-review-notification" onClick={() => setHasNewResults(false)}>● New review results</button> : null}
+          <button type="button" className="uc03-v2-review-refresh" onClick={() => navigate(`/journeys/${journeyId}/documents`)}>Review / View Scanned Docs</button>
           <button type="button" className="uc03-v2-review-refresh" disabled={reviewQuery.isFetching || decisionsQuery.isFetching} onClick={() => { setHasNewResults(false); void Promise.all([reviewQuery.refetch(), decisionsQuery.refetch()]); }}>{reviewQuery.isFetching || decisionsQuery.isFetching ? 'Refreshing…' : 'Refresh Review'}</button>
         </div>
       </div>

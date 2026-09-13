@@ -518,3 +518,31 @@ export function getRuleCatalog(tenantId: string, accessToken?: string): Promise<
     cache: 'no-store',
   });
 }
+
+// ── Run All Applicable Rules (Phase 5 manual trigger) ───────────────────────
+// Re-evaluates every audit-core rule against data already on file for this
+// Journey -- no DI re-fetch (unlike the Resync buttons, which do fetch DI and
+// re-trigger DOCUMENT_SYNCED as a side effect of that round trip).
+
+export interface Uc03RunAllRulesRuleResult {
+  ruleCode: string;
+  stage: Uc03StageCode;
+  outcome: 'PASS' | 'FAIL' | 'SKIPPED' | 'ERROR';
+}
+
+export interface Uc03RunAllRulesResult {
+  journeyId: string;
+  stagesEvaluated: Uc03StageCode[];
+  results: Uc03RunAllRulesRuleResult[];
+}
+
+export function runAllApplicableRules(
+  tenantId: string,
+  journeyId: string,
+  accessToken?: string,
+): Promise<Uc03RunAllRulesResult> {
+  return auditCoreRequest(`${base(tenantId, journeyId)}/run-all-rules`, {
+    method: 'POST',
+    accessToken: token(accessToken),
+  });
+}

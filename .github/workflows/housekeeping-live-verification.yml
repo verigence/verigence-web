@@ -40,6 +40,13 @@ jobs:
           const base = process.env.DEV_WEB_URL;
           const browser = await chromium.launch({ headless: true });
           const context = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
+          // Login has required a resolved device location since commit cafbc6c
+          // (2026-08-29). Headless Chromium denies an ungranted geolocation
+          // request outright (no prompt), which blocks sign-in forever and
+          // was silently timing out this whole script at the post-login nav
+          // wait below. Grant it up front so login can actually complete.
+          await context.grantPermissions(['geolocation'], { origin: base });
+          await context.setGeolocation({ latitude: 12.9716, longitude: 77.5946 });
           const page = await context.newPage();
 
           const json = async (route, payload, status = 200) => {
@@ -151,11 +158,22 @@ jobs:
 
           await projectScope.click();
           await page.getByRole('heading', { name: 'Delete Complete Project' }).waitFor();
-          await page.getByText('Housekeeping Visual Project', { exact: true }).first().waitFor();
+          // CompleteProjectDeletionPanel confirms by exact tenant ID, not
+          // project name -- it never renders impact.projectName (see
+          // CompleteProjectDeletionPanel.tsx), so assert on what the panel
+          // actually shows once the deletion-impact fetch resolves.
+          await page.getByRole('heading', { name: 'Selected workspace' }).waitFor();
+          await page.getByText('tenant-housekeeping-visual', { exact: true }).first().waitFor();
           await page.screenshot({ path: 'housekeeping-live-output/02-complete-project-desktop.png', fullPage: true });
 
           await journeyScope.click();
           await page.getByRole('heading', { name: 'Choose Journey Deletion Scope' }).waitFor();
+          // No destructive default: the scope selector starts unselected, so
+          // the Project-wide warning only appears once that scope is
+          // actively chosen (see AdminHousekeepingPage.tsx).
+          await page.getByText('Choose a scope above before anything can be previewed or deleted.').waitFor();
+          const journeyScopeSelect = page.locator('select').filter({ has: page.locator('option[value="TENANT"]') }).first();
+          await journeyScopeSelect.selectOption('TENANT');
           await page.getByText('Every Journey for every Dealer and Outlet in this Project.').waitFor();
           await page.screenshot({ path: 'housekeeping-live-output/03-journey-desktop.png', fullPage: true });
 

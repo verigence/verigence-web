@@ -1,9 +1,11 @@
-import { useMemo, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useRef, useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useParams } from 'react-router-dom';
 
 import PageHeader from '../components/PageHeader';
 import AttributeEvidenceViewer, { hasBoxedEvidence } from '../features/uc03/AttributeEvidenceViewer';
+import { getBookingCaptureV2, type CaptureV2Requirement } from '../services/audit-core/uc03DocumentCaptureV2';
+import { getDeliveryCaptureV2 } from '../services/audit-core/uc03DeliveryCaptureV2';
 import {
   getBookingReviewV2,
   getDeliveryReviewV2,
@@ -14,6 +16,7 @@ import {
   type ReviewV2Field,
   type ReviewV2SourceValue,
 } from '../services/audit-core/uc03DocumentReviewV2';
+import { reconcileUnifiedDocuments, uploadUnifiedCaptureFiles } from '../services/audit-core/uc03UnifiedDocumentCapture';
 import { useProjectContextStore } from '../store/projectContextStore';
 import { useSessionStore } from '../store/sessionStore';
 import '../styles/uc03-journey-documents.css';
@@ -253,7 +256,7 @@ function DocumentFieldsPanel({
   );
 }
 
-function StagePanel({
+function StageBucket({
   stage,
   review,
   onEvidence,
@@ -262,7 +265,7 @@ function StagePanel({
   accessToken,
 }: {
   stage: Stage;
-  review: BookingReviewV2 | DeliveryReviewV2;
+  review: BookingReviewV2 | DeliveryReviewV2 | undefined;
   onEvidence: (source: ReviewV2SourceValue) => void;
   tenantId: string;
   journeyId: string;
@@ -271,7 +274,7 @@ function StagePanel({
   const [activeDocumentId, setActiveDocumentId] = useState<string>();
   const [localByField, setLocalByField] = useState<Map<string, LocalCorrectionState>>(new Map());
 
-  const documents = review.documents;
+  const documents = review?.documents ?? [];
   const currentDocumentId = activeDocumentId && documents.some((document) => document.documentId === activeDocumentId)
     ? activeDocumentId
     : documents[0]?.documentId;
@@ -285,57 +288,144 @@ function StagePanel({
     });
   };
 
-  if (!documents.length) {
-    return <p className="uc03-jd-empty">No documents have been uploaded for {stage === 'BOOKING' ? 'Booking' : 'Delivery'} yet.</p>;
-  }
+  return (
+    <section className="uc03-jd-bucket">
+      <header className="uc03-jd-bucket-header">
+        <h2>{stage === 'BOOKING' ? 'Booking documents' : 'Delivery documents'}</h2>
+        <span>{documents.length} uploaded</span>
+      </header>
+
+      {!review ? (
+        <p className="uc03-jd-empty">
+          {stage === 'BOOKING'
+            ? 'Booking has not started on this Journey yet.'
+            : 'No Delivery document has been uploaded yet — Delivery starts automatically once one is.'}
+        </p>
+      ) : !documents.length ? (
+        <p className="uc03-jd-empty">No documents have been uploaded for {stage === 'BOOKING' ? 'Booking' : 'Delivery'} yet.</p>
+      ) : (
+        <div className="uc03-jd-stage-panel">
+          <div className="uc03-jd-doc-tabs" role="tablist" aria-label={`${stage === 'BOOKING' ? 'Booking' : 'Delivery'} documents`}>
+            {documents.map((document) => (
+              <button
+                key={document.documentId}
+                type="button"
+                role="tab"
+                aria-selected={document.documentId === currentDocumentId}
+                className={document.documentId === currentDocumentId ? 'is-active' : ''}
+                onClick={() => setActiveDocumentId(document.documentId)}
+              >
+                {document.label}
+                {document.extractionState === 'PENDING' ? <span className="uc03-jd-tab-flag pending">extracting…</span> : null}
+                {document.extractionState === 'FAILED' ? <span className="uc03-jd-tab-flag failed">failed</span> : null}
+              </button>
+            ))}
+          </div>
+
+          {currentDocument ? (
+            <section className="uc03-jd-document-panel">
+              <header>
+                <div>
+                  <span className="uc03-c1-eyebrow">{currentDocument.documentTypeKey || 'Document'}</span>
+                  <h3>{currentDocument.originalFilename}</h3>
+                </div>
+                {currentDocument.extractionState === 'PENDING' ? <span className="uc03-jd-status pending">Extraction in progress</span> : null}
+                {currentDocument.extractionState === 'FAILED' ? <span className="uc03-jd-status failed">Processing failed</span> : null}
+              </header>
+              <DocumentFieldsPanel
+                stage={stage}
+                document={currentDocument}
+                localByField={localByField}
+                onLocalChange={setLocal}
+                onEvidence={onEvidence}
+                tenantId={tenantId}
+                journeyId={journeyId}
+                accessToken={accessToken}
+              />
+            </section>
+          ) : null}
+        </div>
+      )}
+    </section>
+  );
+}
+
+interface ChecklistEntry extends CaptureV2Requirement {
+  stage: Stage;
+}
+
+function CombinedChecklist({ items }: { items: ChecklistEntry[] }) {
+  const applicable = items.filter((item) => item.applicabilityState !== 'NOT_APPLICABLE');
+  if (!applicable.length) return null;
+  const received = applicable.filter((item) => item.document).length;
 
   return (
-    <div className="uc03-jd-stage-panel">
-      <div className="uc03-jd-doc-tabs" role="tablist" aria-label={`${stage === 'BOOKING' ? 'Booking' : 'Delivery'} documents`}>
-        {documents.map((document) => (
-          <button
-            key={document.documentId}
-            type="button"
-            role="tab"
-            aria-selected={document.documentId === currentDocumentId}
-            className={document.documentId === currentDocumentId ? 'is-active' : ''}
-            onClick={() => setActiveDocumentId(document.documentId)}
-          >
-            {document.label}
-            {document.extractionState === 'PENDING' ? <span className="uc03-jd-tab-flag pending">extracting…</span> : null}
-            {document.extractionState === 'FAILED' ? <span className="uc03-jd-tab-flag failed">failed</span> : null}
-          </button>
+    <section className="uc03-jd-checklist">
+      <header>
+        <h2>Document checklist</h2>
+        <span>{received} of {applicable.length} received</span>
+      </header>
+      <ul>
+        {applicable.map((item) => (
+          <li key={`${item.stage}:${item.requirementKey}`} className={item.document ? 'is-received' : 'is-missing'}>
+            <span className={`uc03-jd-checklist-stage ${item.stage.toLowerCase()}`}>{item.stage === 'BOOKING' ? 'Booking' : 'Delivery'}</span>
+            <span className="uc03-jd-checklist-label">{item.label}</span>
+            {item.requirementLevel !== 'REQUIRED' ? <span className="uc03-jd-checklist-level">{item.requirementLevel.toLowerCase()}</span> : null}
+            <span className="uc03-jd-checklist-status">{item.document ? '✓ Received' : 'Missing'}</span>
+          </li>
         ))}
+      </ul>
+    </section>
+  );
+}
+
+function UploadDropzone({
+  onFilesSelected,
+  busy,
+  message,
+  error,
+}: {
+  onFilesSelected: (files: File[]) => void;
+  busy: boolean;
+  message?: string;
+  error?: string;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [dragOver, setDragOver] = useState(false);
+
+  return (
+    <section
+      className={`uc03-jd-upload ${dragOver ? 'is-dragover' : ''}`}
+      onDragOver={(event) => { event.preventDefault(); setDragOver(true); }}
+      onDragLeave={() => setDragOver(false)}
+      onDrop={(event) => {
+        event.preventDefault();
+        setDragOver(false);
+        const files = Array.from(event.dataTransfer.files || []);
+        if (files.length) onFilesSelected(files);
+      }}
+    >
+      <input
+        ref={inputRef}
+        type="file"
+        multiple
+        hidden
+        onChange={(event) => {
+          const files = Array.from(event.target.files || []);
+          if (files.length) onFilesSelected(files);
+          event.target.value = '';
+        }}
+      />
+      <div>
+        <strong>Upload documents</strong>
+        <p>Drag files here, or choose files. Booking or Delivery — the system figures out which once it's classified.</p>
       </div>
-
-      {currentDocument ? (
-        <section className="uc03-jd-document-panel">
-          <header>
-            <div>
-              <span className="uc03-c1-eyebrow">{currentDocument.documentTypeKey || 'Document'}</span>
-              <h3>{currentDocument.originalFilename}</h3>
-            </div>
-            {currentDocument.extractionState === 'PENDING' ? <span className="uc03-jd-status pending">Extraction in progress</span> : null}
-            {currentDocument.extractionState === 'FAILED' ? <span className="uc03-jd-status failed">Processing failed</span> : null}
-          </header>
-          <DocumentFieldsPanel
-            stage={stage}
-            document={currentDocument}
-            localByField={localByField}
-            onLocalChange={setLocal}
-            onEvidence={onEvidence}
-            tenantId={tenantId}
-            journeyId={journeyId}
-            accessToken={accessToken}
-          />
-        </section>
-      ) : null}
-
-      <p className="uc03-jd-readonly-note">
-        A correction below 90% confidence is saved and applied immediately — there is nothing further to submit.
-        A correction at or above 90% confidence is sent to a Team Lead for review before it takes effect.
-      </p>
-    </div>
+      <button type="button" className="uc03-c3-primary" disabled={busy} onClick={() => inputRef.current?.click()}>
+        {busy ? 'Uploading…' : 'Choose files'}
+      </button>
+      {message ? <div className="uc03-jd-success" role="status">{message}</div> : null}
+      {error ? <div className="uc03-jd-error" role="alert">{error}</div> : null}
+    </section>
   );
 }
 
@@ -344,8 +434,11 @@ export default function JourneyDocumentsPage() {
   const navigate = useNavigate();
   const project = useProjectContextStore((state) => state.selectedProject);
   const accessToken = useSessionStore((state) => state.accessToken);
-  const [stage, setStage] = useState<Stage>('BOOKING');
+  const queryClient = useQueryClient();
   const [selectedSource, setSelectedSource] = useState<ReviewV2SourceValue>();
+  const [uploading, setUploading] = useState(false);
+  const [uploadMessage, setUploadMessage] = useState<string>();
+  const [uploadError, setUploadError] = useState<string>();
 
   const enabled = Boolean(project?.tenantId && journeyId && accessToken);
   const bookingQuery = useQuery({
@@ -362,16 +455,54 @@ export default function JourneyDocumentsPage() {
     retry: false,
     refetchOnWindowFocus: false,
   });
+  const bookingCaptureQuery = useQuery({
+    queryKey: ['uc03-journey-documents-booking-checklist', project?.tenantId, journeyId],
+    queryFn: () => getBookingCaptureV2(project!.tenantId, journeyId!, accessToken),
+    enabled,
+    retry: false,
+    refetchOnWindowFocus: false,
+  });
+  const deliveryCaptureQuery = useQuery({
+    queryKey: ['uc03-journey-documents-delivery-checklist', project?.tenantId, journeyId],
+    queryFn: () => getDeliveryCaptureV2(project!.tenantId, journeyId!, accessToken),
+    enabled,
+    retry: false,
+    refetchOnWindowFocus: false,
+  });
 
   const bookingAvailable = Boolean(bookingQuery.data);
   const deliveryAvailable = Boolean(deliveryQuery.data);
-  const activeStage: Stage = useMemo(() => {
-    if (stage === 'DELIVERY' && deliveryAvailable) return 'DELIVERY';
-    if (stage === 'BOOKING' && bookingAvailable) return 'BOOKING';
-    if (bookingAvailable) return 'BOOKING';
-    if (deliveryAvailable) return 'DELIVERY';
-    return stage;
-  }, [stage, bookingAvailable, deliveryAvailable]);
+
+  const handleUpload = async (files: File[]) => {
+    if (!project || !journeyId) return;
+    setUploading(true);
+    setUploadMessage(undefined);
+    setUploadError(undefined);
+    try {
+      const result = await uploadUnifiedCaptureFiles(project.tenantId, journeyId, files, accessToken);
+      try {
+        await reconcileUnifiedDocuments(project.tenantId, journeyId, accessToken);
+      } catch {
+        // Non-fatal -- the page's own polling / a later reconcile call will
+        // still pick up correct dispatch; the upload itself already succeeded.
+      }
+      setUploadMessage(
+        result.failed
+          ? `${result.uploaded} of ${result.uploaded + result.failed} file(s) uploaded — ${result.failed} failed, try those again.`
+          : `${result.uploaded} file${result.uploaded === 1 ? '' : 's'} uploaded. Extraction is running in the background — check back here shortly.`,
+      );
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['uc03-journey-documents-booking', project.tenantId, journeyId] }),
+        queryClient.invalidateQueries({ queryKey: ['uc03-journey-documents-delivery', project.tenantId, journeyId] }),
+        queryClient.invalidateQueries({ queryKey: ['uc03-journey-documents-booking-checklist', project.tenantId, journeyId] }),
+        queryClient.invalidateQueries({ queryKey: ['uc03-journey-documents-delivery-checklist', project.tenantId, journeyId] }),
+      ]);
+    } catch (error) {
+      setUploadError(error instanceof Error ? error.message : 'These files could not be uploaded. Try again.');
+    } finally {
+      setUploading(false);
+    }
+  };
 
   if (!project || !journeyId) return null;
 
@@ -383,12 +514,17 @@ export default function JourneyDocumentsPage() {
         <div className="dashboard-load-state__mark">!</div>
         <div className="dashboard-load-state__copy">
           <strong>Documents are not available yet.</strong>
-          <p>Start Booking or Delivery capture on this Journey before opening its documents here.</p>
+          <p>Start Booking on this Journey before opening its documents here.</p>
         </div>
         <button type="button" className="user-menu-button" onClick={() => navigate(`/journeys/${journeyId}/overview`)}>Back to Journey Details</button>
       </section>
     );
   }
+
+  const checklist: ChecklistEntry[] = [
+    ...(bookingCaptureQuery.data?.requirements ?? []).map((item) => ({ ...item, stage: 'BOOKING' as const })),
+    ...(deliveryCaptureQuery.data?.requirements ?? []).map((item) => ({ ...item, stage: 'DELIVERY' as const })),
+  ];
 
   return (
     <div className="screen-stack uc03-journey-documents-page">
@@ -398,25 +534,18 @@ export default function JourneyDocumentsPage() {
 
       <PageHeader
         eyebrow="Journey Documents"
-        title="Review scanned documents & extracted values"
-        description="Every uploaded document, section by section, with the values Document Intelligence extracted from it. Fields below 90% confidence can be corrected directly and take effect immediately; fields at or above 90% go through a Team Lead-reviewed correction instead."
+        title="Upload, review & correct documents"
+        description="One place for every Booking and Delivery document. Upload here any time — the system decides which stage a document belongs to once it's classified. Fields below 90% confidence can be corrected directly and take effect immediately; fields at or above 90% go through a Team Lead-reviewed correction instead."
       />
 
-      <div className="uc03-jd-stage-tabs" role="tablist" aria-label="Journey stage">
-        <button type="button" role="tab" aria-selected={activeStage === 'BOOKING'} className={activeStage === 'BOOKING' ? 'is-active' : ''} disabled={!bookingAvailable} onClick={() => setStage('BOOKING')}>
-          Booking
-        </button>
-        <button type="button" role="tab" aria-selected={activeStage === 'DELIVERY'} className={activeStage === 'DELIVERY' ? 'is-active' : ''} disabled={!deliveryAvailable} onClick={() => setStage('DELIVERY')}>
-          Delivery
-        </button>
-      </div>
+      <UploadDropzone onFilesSelected={(files) => void handleUpload(files)} busy={uploading} message={uploadMessage} error={uploadError} />
 
-      {activeStage === 'BOOKING' && bookingQuery.data ? (
-        <StagePanel stage="BOOKING" review={bookingQuery.data} onEvidence={setSelectedSource} tenantId={project.tenantId} journeyId={journeyId} accessToken={accessToken} />
-      ) : null}
-      {activeStage === 'DELIVERY' && deliveryQuery.data ? (
-        <StagePanel stage="DELIVERY" review={deliveryQuery.data} onEvidence={setSelectedSource} tenantId={project.tenantId} journeyId={journeyId} accessToken={accessToken} />
-      ) : null}
+      <CombinedChecklist items={checklist} />
+
+      <div className="uc03-jd-buckets">
+        <StageBucket stage="BOOKING" review={bookingQuery.data} onEvidence={setSelectedSource} tenantId={project.tenantId} journeyId={journeyId} accessToken={accessToken} />
+        <StageBucket stage="DELIVERY" review={deliveryQuery.data} onEvidence={setSelectedSource} tenantId={project.tenantId} journeyId={journeyId} accessToken={accessToken} />
+      </div>
 
       {selectedSource ? (
         <AttributeEvidenceViewer tenantId={project.tenantId} journeyId={journeyId} accessToken={accessToken} source={selectedSource} onClose={() => setSelectedSource(undefined)} />

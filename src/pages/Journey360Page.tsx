@@ -15,6 +15,7 @@ import {
 } from '../features/uc03/journey/deriveJourneyLine';
 import { resyncBookingCaptureV2 } from '../services/audit-core/uc03DocumentCaptureV2';
 import { resyncDeliveryCaptureV2 } from '../services/audit-core/uc03DeliveryCaptureV2';
+import { runAllApplicableRules, type Uc03RunAllRulesRuleResult } from '../services/audit-core/uc03Audit';
 import {
   getUc03JourneyOverview,
   type JourneyOverview,
@@ -1738,6 +1739,41 @@ export default function Journey360Page() {
     }
   };
 
+  const [runningAllRules, setRunningAllRules] = useState(false);
+  const [runAllRulesMessage, setRunAllRulesMessage] = useState<string>();
+  const handleRunAllRules = async () => {
+    if (!tenantId || !journeyId) return;
+    setRunningAllRules(true);
+    setRunAllRulesMessage(undefined);
+    try {
+      // No DI call here -- unlike Resync, this only re-checks rules against
+      // whatever is already durably stored, so it's safe (and cheap) to
+      // press whenever a PC/TL/PM wants a fresh read without waiting for
+      // the next document event.
+      const outcome = await runAllApplicableRules(tenantId, journeyId, accessToken);
+      const byOutcome = outcome.results.reduce<Record<string, number>>((acc, r: Uc03RunAllRulesRuleResult) => {
+        acc[r.outcome] = (acc[r.outcome] || 0) + 1;
+        return acc;
+      }, {});
+      const parts = [
+        byOutcome.FAIL ? `${byOutcome.FAIL} failed` : null,
+        byOutcome.PASS ? `${byOutcome.PASS} passed` : null,
+        byOutcome.SKIPPED ? `${byOutcome.SKIPPED} not applicable` : null,
+        byOutcome.ERROR ? `${byOutcome.ERROR} errored` : null,
+      ].filter((p): p is string => p !== null);
+      setRunAllRulesMessage(
+        outcome.results.length === 0
+          ? 'No applicable rules found for this Journey yet.'
+          : `Ran ${outcome.results.length} rule${outcome.results.length === 1 ? '' : 's'} across ${outcome.stagesEvaluated.join(' & ')} · ${parts.join(' · ')}`,
+      );
+      void queryClient.invalidateQueries({ queryKey: ['uc03-journey-overview', tenantId, journeyId] });
+    } catch {
+      setRunAllRulesMessage('Could not run rules. Try again in a moment.');
+    } finally {
+      setRunningAllRules(false);
+    }
+  };
+
   const model = overviewQuery.data;
 
   const receiptRows = useMemo(() => (model?.receipts || []).filter((r) => !receiptIsPending(r)), [model?.receipts]);
@@ -1798,6 +1834,9 @@ export default function Journey360Page() {
           <button type="button" disabled={resyncing} onClick={() => void handleResync()}>
             {resyncing ? 'Resyncing…' : 'Resync Documents'}
           </button>
+          <button type="button" disabled={runningAllRules} onClick={() => void handleRunAllRules()}>
+            {runningAllRules ? 'Running Rules…' : 'Run All Applicable Rules'}
+          </button>
           <Link to={`/v2/bookings/${journeyId}/details`}>Open Booking</Link>
           <Link to={`/v2/deliveries/${journeyId}`}>Open Delivery</Link>
           <Link className="journey-360-actions__primary" to={`/audit/${journeyId}`}>Audit Review</Link>
@@ -1805,6 +1844,9 @@ export default function Journey360Page() {
       </div>
       {resyncMessage && (
         <p className="journey-360-resync-message" role="status">{resyncMessage}</p>
+      )}
+      {runAllRulesMessage && (
+        <p className="journey-360-resync-message" role="status">{runAllRulesMessage}</p>
       )}
 
       <PageHeader

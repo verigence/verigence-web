@@ -7,6 +7,7 @@ import { DocumentCard, RequirementChecklistRow } from '../features/uc03/CaptureD
 import type { BookingWorkspace } from '../services/audit-core/uc03Booking';
 import { getBookingWorkspace, startBooking } from '../services/audit-core/uc03Booking';
 import { createBooking } from '../services/audit-core/uc03CreateBooking';
+import { submitSimplifiedBookingV2 } from '../services/audit-core/uc03BookingV2';
 import {
   captureV2HasPendingClassification,
   deleteBookingCaptureV2Document,
@@ -97,6 +98,7 @@ export default function BookingCaptureV2CompactPage() {
   const outletId = useSessionStore((state) => state.outletId);
 
   const [startBusy, setStartBusy] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [activeUploadBatches, setActiveUploadBatches] = useState(0);
   const [busyDocumentId, setBusyDocumentId] = useState<string>();
   const [message, setMessage] = useState<string>();
@@ -173,7 +175,7 @@ export default function BookingCaptureV2CompactPage() {
   const uploading = activeUploadBatches > 0;
   const classificationInFlight = hasClassificationInFlight(capture);
   const busy = Boolean(busyDocumentId);
-  const canProceed = Boolean(capture) && !uploading && !busy;
+  const canProceed = Boolean(capture) && !uploading && !busy && !submitting;
 
   const identityRequirements = useMemo(
     () => capture?.requirements.filter(isIdentityRequirement) ?? [],
@@ -343,15 +345,27 @@ export default function BookingCaptureV2CompactPage() {
     }
   };
 
-  // DEF-01 fix (2026-09-07): navigate to Review, not Details.
-  // Approved flow: Documents -> Review & Submit -> Booking Details (C-01, C-02).
-  // A modal asking the PC to declare GST/Corporate/Trade-In applicability
-  // before continuing added a step with no audit value -- these resolve
-  // from evidence (or stay open for audit follow-up) same as any other
-  // conditional document, never by gating Continue on a manual answer.
-  const handleContinue = () => {
-    if (!canProceed || !journeyId) return;
-    navigate(`/v2/bookings/${journeyId}/review`);
+  // 2026-09-13: Review & Submit removed as a separate step -- document
+  // completeness alone is now the sole criterion for Booking to finish
+  // (see uc03_simplified_booking_flow.py::submit_booking_from_review,
+  // relaxed the same day). Confidence review/correction is a permanently
+  // available, separate concern on the Journey Documents page, not a
+  // precondition for Submit, so there is nothing left for an intermediate
+  // Review screen to gate. Submitting now happens directly from here.
+  const handleSubmit = async () => {
+    const version = workspaceQuery.data?.aggregateVersion;
+    if (!canProceed || !journeyId || version === undefined) return;
+    setSubmitting(true);
+    setError(undefined);
+    try {
+      await submitSimplifiedBookingV2(project.tenantId, journeyId, version, accessToken);
+      navigate(`/journeys/${journeyId}/overview`, { replace: true, state: { bookingSubmitted: true } });
+    } catch (cause: unknown) {
+      setError(cause instanceof Error ? cause.message : 'Booking could not be submitted. Please try again.');
+      await workspaceQuery.refetch();
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   if (workspaceQuery.isError) {
@@ -460,13 +474,8 @@ export default function BookingCaptureV2CompactPage() {
       <PageHeader
         eyebrow="Capture New Booking · V2"
         title={customerName}
-        description="Step 1 of 2 · Upload the Booking documents available to you. Verigence identifies the document type automatically."
+        description="Upload the Booking documents available to you — Verigence identifies the document type automatically. Submit once every mandatory document is received; correcting any extracted value happens anytime afterward on Journey Documents."
       />
-
-      <nav className="uc03-booking-steps" aria-label="Booking capture steps">
-        <button type="button" className="is-active" disabled>1 <span>Documents</span></button>
-        <button type="button" disabled>2 <span>Review &amp; Submit</span></button>
-      </nav>
 
       {message ? <div className="uc03-booking-journey-feedback is-success" role="status">{message}</div> : null}
       {error ? <div className="uc03-booking-journey-feedback is-error" role="alert">{error}</div> : null}
@@ -583,17 +592,17 @@ export default function BookingCaptureV2CompactPage() {
           ) : classificationInFlight ? (
             <>
               <strong>Documents being classified · {formatElapsed(elapsedSeconds)}</strong>
-              <span>You can continue now. Classification and review-value preparation will continue in the background.</span>
+              <span>You can submit now. Classification and review-value preparation will continue in the background.</span>
             </>
           ) : auditObservations.length > 0 ? (
             <>
               <strong>Documents received · {formatElapsed(elapsedSeconds)}</strong>
-              <span>Some expected evidence is missing or needs audit attention. You can continue the Booking.</span>
+              <span>Some expected evidence is missing or needs audit attention. You can still submit the Booking.</span>
             </>
           ) : (
             <>
               <strong>Documents received · {formatElapsed(elapsedSeconds)}</strong>
-              <span>Continue when you are done uploading. Review values can continue to prepare in the background.</span>
+              <span>Submit when you are done uploading. Extracted values can be reviewed and corrected anytime afterward on Journey Documents.</span>
             </>
           )}
         </div>
@@ -612,8 +621,8 @@ export default function BookingCaptureV2CompactPage() {
           </div>
         ) : null}
 
-        <button type="button" className="uc03-c1-primary" disabled={!canProceed} onClick={handleContinue}>
-          Continue to Review &rarr;
+        <button type="button" className="uc03-c1-primary" disabled={!canProceed} onClick={() => void handleSubmit()}>
+          {submitting ? 'Submitting…' : 'Submit Booking'}
         </button>
       </section>
     </div>

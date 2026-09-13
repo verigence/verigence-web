@@ -36,7 +36,13 @@ export default function AdminHousekeepingPage() {
   const [diMessage, setDiMessage] = useState<string>();
   const [diError, setDiError] = useState<string>();
 
-  const [journeyScope, setJourneyScope] = useState<JourneyHousekeepingScope>('TENANT');
+  // No destructive default: the most dangerous scope (every Journey in the
+  // Project) must never be pre-selected for a hard-delete confirmation flow.
+  // An admin has to actively choose a scope every time, including right
+  // after switching Project/Tenant (see handleTenantChange, which used to
+  // silently reset this back to 'TENANT' -- exactly the footgun that let a
+  // scoped purge turn into a whole-Project wipe).
+  const [journeyScope, setJourneyScope] = useState<JourneyHousekeepingScope | ''>('');
   const [dealerId, setDealerId] = useState('');
   const [outletId, setOutletId] = useState('');
   const [journeyId, setJourneyId] = useState('');
@@ -103,17 +109,22 @@ export default function AdminHousekeepingPage() {
     if (journeyScope === 'OUTLET') {
       return outletId ? { scope: 'OUTLET' as const, outletId } : undefined;
     }
-    const normalizedJourneyId = journeyId.trim();
-    return normalizedJourneyId
-      ? { scope: 'JOURNEY' as const, journeyId: normalizedJourneyId }
-      : undefined;
+    if (journeyScope === 'JOURNEY') {
+      const normalizedJourneyId = journeyId.trim();
+      return normalizedJourneyId
+        ? { scope: 'JOURNEY' as const, journeyId: normalizedJourneyId }
+        : undefined;
+    }
+    return undefined;
   }, [journeyId, journeyScope, outletId, tenantId]);
 
   const journeyScopeId = journeyScope === 'TENANT'
     ? tenantId
     : journeyScope === 'OUTLET'
       ? outletId
-      : journeyId.trim();
+      : journeyScope === 'JOURNEY'
+        ? journeyId.trim()
+        : '';
 
   const journeyPreviewQuery = useQuery({
     queryKey: ['admin-journey-housekeeping-preview', tenantId, journeySelection],
@@ -142,7 +153,7 @@ export default function AdminHousekeepingPage() {
       && !journeyPurging,
   );
 
-  const resetJourneySelection = (scope: JourneyHousekeepingScope = journeyScope) => {
+  const resetJourneySelection = (scope: JourneyHousekeepingScope | '' = journeyScope) => {
     setJourneyScope(scope);
     setDealerId('');
     setOutletId('');
@@ -159,7 +170,10 @@ export default function AdminHousekeepingPage() {
     setDiConfirmation('');
     setDiMessage(undefined);
     setDiError(undefined);
-    resetJourneySelection('TENANT');
+    // Force a fresh, deliberate scope choice on every Project/Tenant switch
+    // -- never carry over (or default to) a previous scope, and never
+    // silently land on the most destructive option.
+    resetJourneySelection('');
   };
 
   const handleDiPurge = async () => {
@@ -400,11 +414,12 @@ export default function AdminHousekeepingPage() {
                     <select
                       value={journeyScope}
                       disabled={journeyPurging}
-                      onChange={(event) => resetJourneySelection(event.target.value as JourneyHousekeepingScope)}
+                      onChange={(event) => resetJourneySelection(event.target.value as JourneyHousekeepingScope | '')}
                     >
-                      <option value="TENANT">All Journeys in this Project</option>
-                      <option value="OUTLET">All Journeys in one Outlet</option>
+                      <option value="" disabled>Select a scope…</option>
                       <option value="JOURNEY">One Journey by ID</option>
+                      <option value="OUTLET">All Journeys in one Outlet</option>
+                      <option value="TENANT">All Journeys in this Project — irreversible, deletes everything</option>
                     </select>
                   </label>
 
@@ -468,8 +483,11 @@ export default function AdminHousekeepingPage() {
                     </label>
                   ) : null}
 
+                  {journeyScope === '' ? (
+                    <p>Choose a scope above before anything can be previewed or deleted.</p>
+                  ) : null}
                   {journeyScope === 'TENANT' ? (
-                    <p><strong>Selected scope:</strong> Every Journey for every Dealer and Outlet in this Project.</p>
+                    <p className="admin-landing__project-state admin-landing__project-state--error"><strong>Selected scope:</strong> Every Journey for every Dealer and Outlet in this Project. This cannot be undone.</p>
                   ) : null}
                   {journeyScope === 'OUTLET' && outletId ? (
                     <p><strong>Selected Outlet ID:</strong> <code>{outletId}</code></p>

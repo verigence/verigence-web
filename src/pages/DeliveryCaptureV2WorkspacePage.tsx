@@ -10,9 +10,9 @@ import {
   deliveryCaptureV2IsProcessing,
   getDeliveryCaptureV2,
   resyncDeliveryCaptureV2,
-  uploadDeliveryCaptureV2Files,
 } from '../services/audit-core/uc03DeliveryCaptureV2';
 import type { CaptureV2Requirement } from '../services/audit-core/uc03DocumentCaptureV2';
+import { reconcileUnifiedDocuments, uploadUnifiedCaptureFiles } from '../services/audit-core/uc03UnifiedDocumentCapture';
 import { useProjectContextStore } from '../store/projectContextStore';
 import { useSessionStore } from '../store/sessionStore';
 import DeliveryDetailsV2Page from './DeliveryDetailsV2Page';
@@ -126,8 +126,23 @@ export default function DeliveryCaptureV2Page() {
     setError(undefined);
     setMessage('Documents uploading…');
     try {
-      await uploadDeliveryCaptureV2Files(project.tenantId, journeyId, files, accessToken);
-      setMessage('Documents received. Classification continues in the background and does not block Delivery.');
+      // Unified upload path (2026-09-13), same as Booking's own capture
+      // screen: a Booking-relevant file dropped here still classifies and
+      // routes back to Booking correctly instead of being misclassified
+      // against a Delivery-only candidate list. This screen's own
+      // checklist/grid below still shows Delivery documents only.
+      const result = await uploadUnifiedCaptureFiles(project.tenantId, journeyId, files, accessToken);
+      try {
+        await reconcileUnifiedDocuments(project.tenantId, journeyId, accessToken);
+      } catch {
+        // Non-fatal -- this screen's own polling will still pick up
+        // correct dispatch shortly; the upload itself already succeeded.
+      }
+      setMessage(
+        result.failed
+          ? `${result.uploaded} of ${result.uploaded + result.failed} file(s) uploaded — ${result.failed} failed, try those again.`
+          : 'Documents received. Classification continues in the background and does not block Delivery.',
+      );
       await captureQuery.refetch();
     } catch (cause) {
       setMessage(undefined);

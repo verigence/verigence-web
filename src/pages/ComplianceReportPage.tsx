@@ -1,10 +1,13 @@
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link, useParams } from 'react-router-dom';
 
 import {
   getComplianceReport,
+  getRuleStatus,
   type Uc03ComplianceReportFlag,
   type Uc03ComplianceReportSection,
+  type Uc03RuleStatusEntry,
 } from '../services/audit-core/uc03Audit';
 import { useProjectContextStore } from '../store/projectContextStore';
 import { useSessionStore } from '../store/sessionStore';
@@ -83,10 +86,95 @@ function Section({ section }: { section: Uc03ComplianceReportSection }) {
   );
 }
 
+const STATUS_LABEL: Record<Uc03RuleStatusEntry['status'], string> = {
+  EXECUTED: 'Executed',
+  PENDING: 'Pending',
+  NOT_APPLICABLE: 'Not Applicable',
+};
+
+function ruleStatusClass(status: Uc03RuleStatusEntry['status'], outcome: string | null): string {
+  if (status === 'EXECUTED') return outcome === 'FAIL' ? 'is-high' : 'is-low';
+  if (status === 'NOT_APPLICABLE') return 'is-medium';
+  return 'is-pending';
+}
+
+function RuleStatusRow({ rule }: { rule: Uc03RuleStatusEntry }) {
+  return (
+    <div className={`crpt-rule ${ruleStatusClass(rule.status, rule.outcome)}`}>
+      <div className="crpt-rule__head">
+        <span className="crpt-rule__status">
+          {STATUS_LABEL[rule.status]}{rule.status === 'EXECUTED' && rule.outcome ? ` · ${friendly(rule.outcome)}` : ''}
+        </span>
+        <span className="crpt-rule__executor">{rule.executor === 'AUDIT_CORE' ? 'Audit Core' : 'Rule Engine'}</span>
+      </div>
+      <p className="crpt-rule__title">{rule.title}</p>
+      <span className="crpt-rule__code">{rule.ruleCode}</span>
+      {rule.reason && <p className="crpt-rule__note">{rule.reason}</p>}
+      {rule.note && <p className="crpt-rule__note crpt-rule__note--gap">{rule.note}</p>}
+      {rule.evaluatedAtUtc && <span className="crpt-rule__meta">Evaluated {timeLabel(rule.evaluatedAtUtc)}</span>}
+    </div>
+  );
+}
+
+function RuleStatusTab({ tenantId, journeyId, accessToken }: { tenantId: string; journeyId: string; accessToken?: string }) {
+  const query = useQuery({
+    queryKey: ['uc03-rule-status', tenantId, journeyId],
+    queryFn: () => getRuleStatus(tenantId, journeyId, accessToken),
+    enabled: Boolean(tenantId && journeyId && accessToken),
+    retry: 1,
+    refetchOnWindowFocus: false,
+  });
+
+  if (query.isPending) return <div className="page-loading">Loading rule status…</div>;
+  if (query.isError) {
+    return (
+      <section className="dashboard-load-state" role="alert">
+        <div className="dashboard-load-state__mark" aria-hidden="true">!</div>
+        <div className="dashboard-load-state__copy">
+          <strong>We couldn't load the rule status.</strong>
+          <p>Please try again.</p>
+        </div>
+        <button type="button" className="user-menu-button" onClick={() => query.refetch()}>Try Again</button>
+      </section>
+    );
+  }
+
+  const { summary, rules } = query.data;
+  const byCategory = new Map<string, Uc03RuleStatusEntry[]>();
+  for (const rule of rules) {
+    const bucket = byCategory.get(rule.category) ?? [];
+    bucket.push(rule);
+    byCategory.set(rule.category, bucket);
+  }
+
+  return (
+    <>
+      <div className="crpt-summary">
+        <div className="crpt-tile"><span>Executed</span><strong>{summary.executed}</strong></div>
+        <div className="crpt-tile"><span>Pending</span><strong>{summary.pending}</strong></div>
+        <div className="crpt-tile"><span>Not Applicable</span><strong>{summary.notApplicable}</strong></div>
+      </div>
+      {[...byCategory.entries()].map(([category, categoryRules]) => (
+        <section className="crpt-section" key={category}>
+          <h2>{friendly(category)}</h2>
+          <div className="crpt-rules">
+            {categoryRules.map((rule) => <RuleStatusRow key={rule.ruleCode} rule={rule} />)}
+          </div>
+        </section>
+      ))}
+      <footer className="crpt-footnote">
+        Rows with a coverage note are rules the Execution Log doesn't instrument directly yet --
+        their outcome is inferred from Audit Flags where one exists, or shown as Pending otherwise.
+      </footer>
+    </>
+  );
+}
+
 export default function ComplianceReportPage() {
   const { journeyId = '' } = useParams<{ journeyId: string }>();
   const project = useProjectContextStore((state) => state.selectedProject);
   const accessToken = useSessionStore((state) => state.accessToken);
+  const [activeTab, setActiveTab] = useState<'report' | 'rules'>('report');
 
   const reportQuery = useQuery({
     queryKey: ['uc03-compliance-report', project?.tenantId, journeyId],
@@ -105,7 +193,9 @@ export default function ComplianceReportPage() {
         {reportQuery.data && (
           <span className="crpt-live-note">Live as of {timeLabel(reportQuery.data.generatedAtUtc)} · never frozen</span>
         )}
-        <button type="button" className="crpt-print" onClick={() => window.print()}>Download (PDF)</button>
+        {activeTab === 'report' && (
+          <button type="button" className="crpt-print" onClick={() => window.print()}>Download (PDF)</button>
+        )}
       </div>
 
       {reportQuery.isPending && <div className="page-loading">Loading Compliance Report…</div>}
@@ -140,45 +230,72 @@ export default function ComplianceReportPage() {
             </div>
           </header>
 
-          <div className="crpt-summary">
-            <div className="crpt-tile"><span>Total Findings</span><strong>{reportQuery.data.summary.totalFindings}</strong></div>
-            <div className="crpt-tile"><span>Open</span><strong>{reportQuery.data.summary.openFindings}</strong></div>
-            <div className="crpt-tile"><span>Resolved</span><strong>{reportQuery.data.summary.resolvedFindings}</strong></div>
-            <div className="crpt-tile crpt-tile--attention"><span>High / Critical Open</span><strong>{reportQuery.data.summary.highOrCriticalOpen}</strong></div>
+          <div className="crpt-tabs" role="tablist">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={activeTab === 'report'}
+              className={`crpt-tab${activeTab === 'report' ? ' crpt-tab--active' : ''}`}
+              onClick={() => setActiveTab('report')}
+            >
+              Report
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={activeTab === 'rules'}
+              className={`crpt-tab${activeTab === 'rules' ? ' crpt-tab--active' : ''}`}
+              onClick={() => setActiveTab('rules')}
+            >
+              Rule Status
+            </button>
           </div>
 
-          {reportQuery.data.sections.length === 0 && (
-            <p className="crpt-empty">No commercial line items or findings recorded yet for this deal.</p>
-          )}
-          {reportQuery.data.sections.map((section) => <Section key={section.key} section={section} />)}
-
-          {reportQuery.data.resolvedHistory.length > 0 && (
-            <details className="crpt-history">
-              <summary>Resolved History ({reportQuery.data.resolvedHistory.length})</summary>
-              <div className="crpt-history__list">
-                {reportQuery.data.resolvedHistory.map((item) => (
-                  <div className="crpt-history__item" key={item.findingId}>
-                    <div className="crpt-history__title">
-                      <strong>{item.title}</strong>
-                      <span>{friendly(item.severity)}</span>
-                    </div>
-                    <div className="crpt-history__dates">
-                      <span>Raised {dateLabel(item.createdAtUtc)}</span>
-                      {item.resolvedAtUtc && <span>Resolved {dateLabel(item.resolvedAtUtc)}</span>}
-                    </div>
-                    {item.resolutionReason && <p>{item.resolutionReason}</p>}
-                  </div>
-                ))}
+          {activeTab === 'report' ? (
+            <>
+              <div className="crpt-summary">
+                <div className="crpt-tile"><span>Total Findings</span><strong>{reportQuery.data.summary.totalFindings}</strong></div>
+                <div className="crpt-tile"><span>Open</span><strong>{reportQuery.data.summary.openFindings}</strong></div>
+                <div className="crpt-tile"><span>Resolved</span><strong>{reportQuery.data.summary.resolvedFindings}</strong></div>
+                <div className="crpt-tile crpt-tile--attention"><span>High / Critical Open</span><strong>{reportQuery.data.summary.highOrCriticalOpen}</strong></div>
               </div>
-            </details>
-          )}
 
-          <footer className="crpt-footnote">
-            This report is always generated live and is never frozen or snapshotted — new documents
-            (bank statements, RTO paperwork, insurance confirmations) can add or resolve observations
-            after Delivery. Reopen this page any time for the current state. Use your browser's print
-            dialog (Download PDF above) to save a point-in-time copy.
-          </footer>
+              {reportQuery.data.sections.length === 0 && (
+                <p className="crpt-empty">No commercial line items or findings recorded yet for this deal.</p>
+              )}
+              {reportQuery.data.sections.map((section) => <Section key={section.key} section={section} />)}
+
+              {reportQuery.data.resolvedHistory.length > 0 && (
+                <details className="crpt-history">
+                  <summary>Resolved History ({reportQuery.data.resolvedHistory.length})</summary>
+                  <div className="crpt-history__list">
+                    {reportQuery.data.resolvedHistory.map((item) => (
+                      <div className="crpt-history__item" key={item.findingId}>
+                        <div className="crpt-history__title">
+                          <strong>{item.title}</strong>
+                          <span>{friendly(item.severity)}</span>
+                        </div>
+                        <div className="crpt-history__dates">
+                          <span>Raised {dateLabel(item.createdAtUtc)}</span>
+                          {item.resolvedAtUtc && <span>Resolved {dateLabel(item.resolvedAtUtc)}</span>}
+                        </div>
+                        {item.resolutionReason && <p>{item.resolutionReason}</p>}
+                      </div>
+                    ))}
+                  </div>
+                </details>
+              )}
+
+              <footer className="crpt-footnote">
+                This report is always generated live and is never frozen or snapshotted — new documents
+                (bank statements, RTO paperwork, insurance confirmations) can add or resolve observations
+                after Delivery. Reopen this page any time for the current state. Use your browser's print
+                dialog (Download PDF above) to save a point-in-time copy.
+              </footer>
+            </>
+          ) : (
+            <RuleStatusTab tenantId={project?.tenantId ?? ''} journeyId={journeyId} accessToken={accessToken} />
+          )}
         </>
       )}
     </div>

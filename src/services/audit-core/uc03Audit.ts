@@ -482,6 +482,47 @@ export function getComplianceReport(
   );
 }
 
+// ── Rule Status (Compliance Report's Rule Status tab) ───────────────────────
+// Fetched only when that tab is opened -- deliberately not part of
+// Uc03ComplianceReport above, so the main report never pays this call's cost.
+
+export interface Uc03RuleStatusEntry {
+  ruleCode: string;
+  category: string;
+  title: string;
+  executor: 'AUDIT_CORE' | 'RULE_ENGINE';
+  severity: string | null;
+  status: 'EXECUTED' | 'PENDING' | 'NOT_APPLICABLE';
+  outcome: 'PASS' | 'FAIL' | 'ERROR' | null;
+  reason: string | null;
+  evaluatedAtUtc: string | null;
+  auditFindingId: string | null;
+  note: string | null;
+}
+
+export interface Uc03RuleStatusSummary {
+  executed: number;
+  pending: number;
+  notApplicable: number;
+}
+
+export interface Uc03RuleStatus {
+  generatedAtUtc: string;
+  summary: Uc03RuleStatusSummary;
+  rules: Uc03RuleStatusEntry[];
+}
+
+export function getRuleStatus(
+  tenantId: string,
+  journeyId: string,
+  accessToken?: string,
+): Promise<Uc03RuleStatus> {
+  return auditCoreRequest(
+    `/v1/tenants/${encodeURIComponent(tenantId)}/journeys/${encodeURIComponent(journeyId)}/uc03/rule-status`,
+    { accessToken: token(accessToken), cache: 'no-store' },
+  );
+}
+
 // ── unified rule catalog (Phase 1/1.5 of the rule-engine platform) ──────────
 
 export interface Uc03RuleCatalogEntry {

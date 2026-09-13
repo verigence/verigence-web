@@ -4,8 +4,9 @@ import { useNavigate, useParams } from 'react-router-dom';
 
 import PageHeader from '../components/PageHeader';
 import { DocumentCard, RequirementChecklistRow } from '../features/uc03/CaptureDocumentCard';
+import type { BookingWorkspace } from '../services/audit-core/uc03Booking';
 import { getBookingWorkspace, startBooking } from '../services/audit-core/uc03Booking';
-import { getBookingDetails } from '../services/audit-core/uc03BookingJourney';
+import { createBooking } from '../services/audit-core/uc03CreateBooking';
 import {
   captureV2HasPendingClassification,
   deleteBookingCaptureV2Document,
@@ -59,12 +60,41 @@ function hasClassificationInFlight(capture?: BookingCaptureV2): boolean {
   });
 }
 
+function newBookingWorkspace(
+  journeyId: string,
+  businessStatus: string,
+  aggregateVersion: number,
+): BookingWorkspace {
+  return {
+    journeyId,
+    bookingStage: {
+      businessStatus,
+      closureDisposition: null,
+      auditState: 'NOT_STARTED',
+      auditStatus: 'NOT_EVALUATED',
+      closeReasonCode: null,
+      closureRemarks: null,
+    },
+    capture: {},
+    documents: [],
+    proposals: [],
+    flags: [],
+    completion: { ready: false, blockers: [] },
+    processingSummary: { pendingCount: 0, failedCount: 0, readyProposalCount: 0 },
+    flagSummary: { openCount: 0, totalCount: 0 },
+    permittedActions: [],
+    aggregateVersion,
+    operatingRole: 'PC',
+  };
+}
+
 export default function BookingCaptureV2CompactPage() {
-  const { journeyId } = useParams<{ journeyId: string }>();
+  const { journeyId: routeJourneyId } = useParams<{ journeyId: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const project = useProjectContextStore((state) => state.selectedProject);
   const accessToken = useSessionStore((state) => state.accessToken);
+  const outletId = useSessionStore((state) => state.outletId);
 
   const [startBusy, setStartBusy] = useState(false);
   const [activeUploadBatches, setActiveUploadBatches] = useState(0);
@@ -75,6 +105,48 @@ export default function BookingCaptureV2CompactPage() {
   const [checklistOpen, setChecklistOpen] = useState(false);
   const [resyncing, setResyncing] = useState(false);
   const readinessStartedAt = useRef<number | undefined>(undefined);
+
+  // -- New Booking creation, folded into this same screen --------------------
+  // /v2/bookings/new and /v2/bookings/:journeyId both render this exact
+  // component (see App.tsx) so "Capture New Booking" never swaps to a
+  // different screen or component while the Journey is created: the upload
+  // screen's own shell (header, upload buttons) is on screen the instant the
+  // route loads. journeyId itself resolves a moment later via
+  // history.replaceState (a plain browser API, not a router navigation) so
+  // nothing here unmounts or remounts when it does.
+  const [createdJourneyId, setCreatedJourneyId] = useState<string>();
+  const [creatingError, setCreatingError] = useState<string>();
+  const creationStarted = useRef(false);
+  const journeyId = routeJourneyId ?? createdJourneyId;
+
+  const selectedOutlet = useMemo(
+    () => project?.scope.outlets.find((outlet) => outlet.outletId === outletId),
+    [outletId, project?.scope.outlets],
+  );
+
+  useEffect(() => {
+    if (routeJourneyId || creationStarted.current) return;
+    if (!project || !outletId || !accessToken || !selectedOutlet) return;
+    creationStarted.current = true;
+    setCreatingError(undefined);
+    createBooking(project.tenantId, outletId, accessToken)
+      .then((result) => {
+        queryClient.setQueryData<BookingWorkspace>(
+          ['uc03-booking-workspace', project.tenantId, result.journeyId],
+          newBookingWorkspace(result.journeyId, result.businessStatus, result.aggregateVersion),
+        );
+        window.history.replaceState(null, '', `/v2/bookings/${result.journeyId}`);
+        setCreatedJourneyId(result.journeyId);
+      })
+      .catch((cause: unknown) => {
+        creationStarted.current = false;
+        setCreatingError(cause instanceof Error ? cause.message : 'The Booking could not be started.');
+      });
+    // Runs once for the resolved working context; re-checking on every
+    // keystroke-level dependency change would risk a second Journey.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [routeJourneyId, project?.tenantId, outletId, accessToken, selectedOutlet?.outletId]);
+  // ---------------------------------------------------------------------------
 
   const enabled = Boolean(project?.tenantId && journeyId && accessToken);
   const captureKey = ['uc03-document-capture-v2', project?.tenantId, journeyId] as const;
@@ -170,17 +242,32 @@ export default function BookingCaptureV2CompactPage() {
     return () => window.clearInterval(timer);
   }, [capture, started]);
 
-  useEffect(() => {
-    if (!enabled || !started || !project?.tenantId || !journeyId) return;
-    void import('./BookingDetailsV2Page');
-    void queryClient.prefetchQuery({
-      queryKey: ['uc03-booking-details', project.tenantId, journeyId],
-      queryFn: () => getBookingDetails(project.tenantId, journeyId, accessToken),
-      staleTime: 5 * 60_000,
-    });
-  }, [accessToken, enabled, journeyId, project?.tenantId, queryClient, started]);
+  if (!project) return null;
 
-  if (!project || !journeyId) return null;
+  // Still resolving a journeyId (Booking being created) with no route param
+  // to fall back on, and creation itself failed -- nothing to render a
+  // workspace shell against.
+  if (!journeyId && creatingError) {
+    return (
+      <section className="dashboard-load-state" role="alert">
+        <div className="dashboard-load-state__mark">!</div>
+        <div className="dashboard-load-state__copy">
+          <strong>Booking could not be started.</strong>
+          <p>{creatingError}</p>
+        </div>
+        <button
+          type="button"
+          className="user-menu-button"
+          onClick={() => {
+            creationStarted.current = false;
+            setCreatingError(undefined);
+          }}
+        >
+          Try Again
+        </button>
+      </section>
+    );
+  }
 
   const refresh = async () => {
     await Promise.all([workspaceQuery.refetch(), captureQuery.refetch()]);
@@ -188,7 +275,7 @@ export default function BookingCaptureV2CompactPage() {
 
   const handleStart = async () => {
     const version = workspaceQuery.data?.aggregateVersion;
-    if (version === undefined) return;
+    if (version === undefined || !journeyId) return;
     setStartBusy(true);
     setError(undefined);
     try {
@@ -205,7 +292,7 @@ export default function BookingCaptureV2CompactPage() {
   };
 
   const handleUpload = async (files: File[]) => {
-    if (files.length === 0) return;
+    if (files.length === 0 || !journeyId) return;
     if (readinessStartedAt.current === undefined) readinessStartedAt.current = Date.now();
     setActiveUploadBatches((count) => count + 1);
     setError(undefined);
@@ -223,6 +310,7 @@ export default function BookingCaptureV2CompactPage() {
   };
 
   const handleResync = async () => {
+    if (!journeyId) return;
     setResyncing(true);
     setError(undefined);
     try {
@@ -241,6 +329,7 @@ export default function BookingCaptureV2CompactPage() {
   };
 
   const handleDelete = async (documentId: string) => {
+    if (!journeyId) return;
     setBusyDocumentId(documentId);
     setError(undefined);
     try {
@@ -261,13 +350,11 @@ export default function BookingCaptureV2CompactPage() {
   // from evidence (or stay open for audit follow-up) same as any other
   // conditional document, never by gating Continue on a manual answer.
   const handleContinue = () => {
-    if (!canProceed) return;
+    if (!canProceed || !journeyId) return;
     navigate(`/v2/bookings/${journeyId}/review`);
   };
 
-  if (workspaceQuery.isPending) return <div className="uc03-c1-loading" role="status">Opening Booking…</div>;
-
-  if (workspaceQuery.isError || !workspaceQuery.data) {
+  if (workspaceQuery.isError) {
     return (
       <section className="dashboard-load-state" role="alert">
         <div className="dashboard-load-state__mark">!</div>
@@ -281,9 +368,14 @@ export default function BookingCaptureV2CompactPage() {
   }
 
   const workspace = workspaceQuery.data;
-  const customerName = String(workspace.capture.CUSTOMER_NAME || 'Customer');
+  const customerName = workspace ? String(workspace.capture.CUSTOMER_NAME || 'Customer') : 'New Booking';
 
-  if (!started) {
+  // A real, distinct state: an EXISTING Booking that was fetched but hasn't
+  // been started (e.g. a stale draft resumed later) -- not the "Capture New
+  // Booking" hot path, since a freshly created Booking's businessStatus is
+  // already BOOKING_STARTED from the moment createBooking() returns. Kept as
+  // its own small screen since starting it is a genuine, separate action.
+  if (workspace && !started) {
     return (
       <div className="screen-stack uc03-booking-journey uc03-v2-capture uc03-booking-v2-cards">
         <div className="uc03-c1-topbar">
@@ -300,46 +392,40 @@ export default function BookingCaptureV2CompactPage() {
     );
   }
 
-  if (captureQuery.isPending) return <div className="uc03-c1-loading" role="status">Preparing Booking documents…</div>;
-
-  if (captureQuery.isError || !capture) {
-    return (
-      <section className="dashboard-load-state" role="alert">
-        <div className="dashboard-load-state__mark">!</div>
-        <div className="dashboard-load-state__copy">
-          <strong>Booking documents are temporarily unavailable.</strong>
-          <p>{captureQuery.error instanceof Error ? captureQuery.error.message : 'Please try again.'}</p>
-        </div>
-        <button type="button" className="user-menu-button" onClick={() => void captureQuery.refetch()}>Try Again</button>
-      </section>
-    );
-  }
-
-  const uploadedCount = capture.uploads.length;
-  const classifiedCount = capture.uploads.filter((item) => item.state.toUpperCase() === 'CLASSIFIED' && item.classifiedDocumentTypeKey).length;
-  const extractionReadyCount = capture.uploads.filter((item) => item.processingStatus?.toUpperCase() === 'PROCESSED').length;
+  // The one real workspace screen -- rendered immediately whether the
+  // Journey is still being created, its workspace is still loading, or
+  // everything is ready. Upload buttons unblock the moment a journeyId
+  // exists (uploading never actually depended on the capture read below);
+  // the document list and counters hydrate in place once that read resolves.
+  const ready = Boolean(journeyId) && Boolean(workspace) && started;
+  const uploadedCount = capture?.uploads.length ?? 0;
+  const classifiedCount = capture?.uploads.filter((item) => item.state.toUpperCase() === 'CLASSIFIED' && item.classifiedDocumentTypeKey).length ?? 0;
+  const extractionReadyCount = capture?.uploads.filter((item) => item.processingStatus?.toUpperCase() === 'PROCESSED').length ?? 0;
   const mandatoryTotal = expectedDocuments.length + (identityRequirements.length > 0 ? 1 : 0);
   const mandatoryReceived = expectedDocuments.filter((item) => item.document).length + (identitySatisfied ? 1 : 0);
+  const uploadDisabled = !ready || uploading;
 
   return (
     <div className="screen-stack uc03-booking-journey uc03-v2-capture uc03-booking-v2-cards">
       <div className="uc03-booking-v2-topbar">
         <button type="button" className="uc03-booking-v2-back" onClick={() => navigate('/dashboard')}>← Work List</button>
-        <div className="uc03-booking-v2-topbar__stats">
-          <div className="uc03-booking-v2-stat">
-            <span>Uploaded</span>
-            <strong>{uploadedCount}</strong>
+        {capture && (
+          <div className="uc03-booking-v2-topbar__stats">
+            <div className="uc03-booking-v2-stat">
+              <span>Uploaded</span>
+              <strong>{uploadedCount}</strong>
+            </div>
+            <div className="uc03-booking-v2-stat">
+              <span>Classified</span>
+              <strong>{classifiedCount}</strong>
+            </div>
+            <div className={`uc03-booking-v2-stat ${uploadedCount > 0 && extractionReadyCount === uploadedCount ? 'is-ready' : ''}`}>
+              <span>Extracted</span>
+              <strong>{extractionReadyCount}</strong>
+            </div>
           </div>
-          <div className="uc03-booking-v2-stat">
-            <span>Classified</span>
-            <strong>{classifiedCount}</strong>
-          </div>
-          <div className={`uc03-booking-v2-stat ${uploadedCount > 0 && extractionReadyCount === uploadedCount ? 'is-ready' : ''}`}>
-            <span>Extracted</span>
-            <strong>{extractionReadyCount}</strong>
-          </div>
-        </div>
-        {extractionReadyCount < classifiedCount ? (
+        )}
+        {capture && extractionReadyCount < classifiedCount ? (
           <button
             type="button"
             className="uc03-booking-v2-checklist-toggle"
@@ -350,14 +436,16 @@ export default function BookingCaptureV2CompactPage() {
             {resyncing ? 'Rechecking…' : 'Recheck documents'}
           </button>
         ) : null}
-        <button
-          type="button"
-          className="uc03-booking-v2-checklist-toggle"
-          aria-expanded={checklistOpen}
-          onClick={() => setChecklistOpen((value) => !value)}
-        >
-          Checklist <em>{mandatoryReceived}/{mandatoryTotal}</em>
-        </button>
+        {capture && (
+          <button
+            type="button"
+            className="uc03-booking-v2-checklist-toggle"
+            aria-expanded={checklistOpen}
+            onClick={() => setChecklistOpen((value) => !value)}
+          >
+            Checklist <em>{mandatoryReceived}/{mandatoryTotal}</em>
+          </button>
+        )}
       </div>
 
       <PageHeader
@@ -376,14 +464,14 @@ export default function BookingCaptureV2CompactPage() {
 
       <section className="uc03-booking-v2-hero">
         <div className="uc03-booking-v2-hero__actions">
-          <label className="uc03-delivery-v2-upload-button is-primary" aria-disabled={uploading}>
-            {uploading ? 'Uploading…' : 'Choose Files'}
+          <label className="uc03-delivery-v2-upload-button is-primary" aria-disabled={uploadDisabled}>
+            {!ready ? 'Preparing…' : uploading ? 'Uploading…' : 'Choose Files'}
             <input
               className="uc03-delivery-v2-file-input"
               type="file"
               accept="image/*,.pdf"
               multiple
-              disabled={uploading}
+              disabled={uploadDisabled}
               onChange={(event) => {
                 const files = Array.from(event.currentTarget.files ?? []);
                 event.currentTarget.value = '';
@@ -391,14 +479,14 @@ export default function BookingCaptureV2CompactPage() {
               }}
             />
           </label>
-          <label className="uc03-delivery-v2-upload-button" aria-disabled={uploading}>
+          <label className="uc03-delivery-v2-upload-button" aria-disabled={uploadDisabled}>
             Take Photo
             <input
               className="uc03-delivery-v2-file-input"
               type="file"
               accept="image/*"
               capture="environment"
-              disabled={uploading}
+              disabled={uploadDisabled}
               onChange={(event) => {
                 const files = Array.from(event.currentTarget.files ?? []);
                 event.currentTarget.value = '';
@@ -410,7 +498,18 @@ export default function BookingCaptureV2CompactPage() {
         <p>Select multiple files together — Verigence identifies each document type in the background.</p>
       </section>
 
-      {capture.uploads.length > 0 ? (
+      {captureQuery.isError ? (
+        <section className="dashboard-load-state" role="alert">
+          <div className="dashboard-load-state__mark">!</div>
+          <div className="dashboard-load-state__copy">
+            <strong>Booking documents are temporarily unavailable.</strong>
+            <p>{captureQuery.error instanceof Error ? captureQuery.error.message : 'Please try again.'}</p>
+          </div>
+          <button type="button" className="user-menu-button" onClick={() => void captureQuery.refetch()}>Try Again</button>
+        </section>
+      ) : !capture ? (
+        <p className="uc03-doc-card-grid__empty">Preparing the document checklist…</p>
+      ) : capture.uploads.length > 0 ? (
         <div className="uc03-doc-card-grid">
           {capture.uploads.map((document, index) => (
             <DocumentCard
@@ -462,7 +561,12 @@ export default function BookingCaptureV2CompactPage() {
 
       <section className={`uc03-v2-compact-gate ${canProceed ? 'is-ready' : 'is-blocked'}`}>
         <div className="uc03-v2-compact-gate__copy">
-          {uploading || busy ? (
+          {!ready ? (
+            <>
+              <strong>Preparing your Booking…</strong>
+              <span>This only takes a moment.</span>
+            </>
+          ) : uploading || busy ? (
             <>
               <strong>Finishing your current action · {formatElapsed(elapsedSeconds)}</strong>
               <span>Please wait for this upload or update to finish, then continue.</span>

@@ -20,7 +20,6 @@ import { useSessionStore } from './store/sessionStore';
 const loadDashboardPage = () => import('./pages/DashboardPage');
 const loadBookingWorkspacePage = () => import('./pages/BookingWorkspaceFastEntry');
 const loadBookingReviewPage = () => import('./pages/BookingReviewPage');
-const loadCreateBookingV2Page = () => import('./pages/CreateBookingV2Page');
 const loadBookingCaptureV2Page = () => import('./pages/BookingCaptureV2Page');
 const loadBookingDetailsV2Page = () => import('./pages/BookingDetailsV2Page');
 const loadBookingReviewV2Page = () => import('./pages/BookingReviewV2Page');
@@ -47,7 +46,6 @@ const DashboardPage = lazy(loadDashboardPage);
 const PcOverviewPage = lazy(() => import('./pages/PcOverviewPage'));
 const TeamLeadDashboardPage = lazy(() => import('./pages/TeamLeadDashboardPage'));
 const TeamLeadReviewPage = lazy(() => import('./pages/TeamLeadReviewPage'));
-const CreateBookingV2Page = lazy(loadCreateBookingV2Page);
 const BookingCaptureV2Page = lazy(loadBookingCaptureV2Page);
 const BookingDetailsV2Page = lazy(loadBookingDetailsV2Page);
 const BookingReviewV2Page = lazy(loadBookingReviewV2Page);
@@ -118,7 +116,6 @@ function PcJourneyRoutePreloader() {
         void Promise.allSettled([
           loadBookingWorkspacePage(),
           loadBookingReviewPage(),
-          loadCreateBookingV2Page(),
           loadBookingCaptureV2Page(),
           loadBookingDetailsV2Page(),
           loadBookingReviewV2Page(),
@@ -263,7 +260,10 @@ export default function App() {
               <Route path="/tl/cases/:journeyId/review" element={<OperationalPage><TeamLeadReviewPage /></OperationalPage>} />
               <Route path="/bookings/:journeyId" element={<V2JourneyRedirect target="BOOKING" />} />
               <Route path="/bookings/:journeyId/review" element={<V2JourneyRedirect target="BOOKING_REVIEW" />} />
-              <Route path="/v2/bookings/new" element={<OperationalPage><CreateBookingV2Page /></OperationalPage>} />
+              {/* Both routes render the same workspace component -- "Capture New
+                  Booking" never swaps screens while the Journey is created, see
+                  BookingCaptureV2WorkspacePage's own comment for why. */}
+              <Route path="/v2/bookings/new" element={<OperationalPage><BookingCaptureV2Page /></OperationalPage>} />
               <Route path="/v2/bookings/:journeyId" element={<OverviewJourneyPage><BookingCaptureV2Page /></OverviewJourneyPage>} />
               <Route path="/v2/bookings/:journeyId/details" element={<OperationalPage><BookingDetailsV2Page /></OperationalPage>} />
               <Route path="/v2/bookings/:journeyId/review" element={<OverviewJourneyPage><BookingReviewV2Page /></OverviewJourneyPage>} />

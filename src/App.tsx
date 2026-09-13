@@ -62,6 +62,7 @@ const JourneyWorkspacePage = lazy(() => import('./pages/JourneyWorkspacePage'));
 const EvidencePage = lazy(() => import('./pages/EvidencePage'));
 const EvidenceDetailPage = lazy(() => import('./pages/EvidenceDetailPage'));
 const ReviewQueuePage = lazy(() => import('./pages/ReviewQueuePage'));
+const JourneyDocumentsPage = lazy(() => import('./pages/JourneyDocumentsPage'));
 const RuleCatalogPage = lazy(() => import('./pages/RuleCatalogPage'));
 const RuleAuthoringPage = lazy(() => import('./pages/RuleAuthoringPage'));
 const FindingsPage = lazy(() => import('./pages/FindingsPage'));
@@ -255,6 +256,7 @@ export default function App() {
               <Route path="/work-queue" element={<OperationalPage><DashboardPage /></OperationalPage>} />
               <Route path="/search" element={<OperationalPage><JourneySearchPage /></OperationalPage>} />
               <Route path="/journeys/:journeyId/overview" element={<OperationalPage><Journey360Page /></OperationalPage>} />
+              <Route path="/journeys/:journeyId/documents" element={<OperationalPage><JourneyDocumentsPage /></OperationalPage>} />
               <Route path="/journeys/:journeyId/compliance-report" element={<OperationalPage><ComplianceReportPage /></OperationalPage>} />
               <Route path="/attendance" element={<OperationalShellPage><AttendancePage /></OperationalShellPage>} />
               <Route path="/tl/cases/:journeyId/review" element={<OperationalPage><TeamLeadReviewPage /></OperationalPage>} />

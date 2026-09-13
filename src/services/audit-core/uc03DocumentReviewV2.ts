@@ -91,6 +91,32 @@ export interface ReviewFieldCorrection {
   effectiveValue: unknown;
 }
 
+export type FindingResolutionMode = 'SELF_SERVICE' | 'ADJUDICATED';
+
+export interface FieldCorrectionProposalFlag {
+  flagId: string;
+  stage: 'BOOKING' | 'DELIVERY';
+  status: string;
+  findingClass: string | null;
+  resolutionMode: FindingResolutionMode | null;
+  ownerRoleCode: string | null;
+  version: number;
+}
+
+export interface ProposeFieldCorrectionCommand {
+  stage: 'BOOKING' | 'DELIVERY';
+  documentId: string;
+  documentTypeKey: string;
+  fieldKey: string;
+  canonicalFieldId: string;
+  sourceFactVersion: number;
+  confidenceScore: number | null;
+  evidenceId: string | null;
+  originalValue: unknown;
+  proposedValue: unknown;
+  remarks: string;
+}
+
 export interface BookingReviewV2 {
   journeyId: string;
   phase: 'BOOKING';
@@ -324,6 +350,49 @@ export async function getAuditSourceComparisonV2(
       cache: 'no-store',
     },
   );
+}
+
+function idempotencyKey(): string {
+  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) return crypto.randomUUID();
+  return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
+/**
+ * A DI field extracted at or above the 90% confidence threshold cannot be
+ * edited directly (see ReviewEffectiveValueEditor, which only ever handles
+ * <90% fields) -- this raises a TL-adjudicated correction proposal instead,
+ * exactly like a human-raised audit flag. It resolves to a VIOLATION finding
+ * server-side; the caller does not choose the classification.
+ */
+export async function proposeFieldCorrection(
+  tenantId: string,
+  journeyId: string,
+  command: ProposeFieldCorrectionCommand,
+  accessToken?: string,
+): Promise<FieldCorrectionProposalFlag> {
+  const body = await auditCoreRequest<{ flag: Record<string, unknown> }>(
+    `/v2/tenants/${encodeURIComponent(tenantId)}/journeys/${encodeURIComponent(journeyId)}/uc03/documents/${encodeURIComponent(command.documentId)}/field-corrections`,
+    {
+      method: 'POST',
+      accessToken: token(accessToken),
+      headers: {
+        'Content-Type': 'application/json',
+        'Idempotency-Key': idempotencyKey(),
+      },
+      body: JSON.stringify(command),
+      cache: 'no-store',
+    },
+  );
+  const flag = body.flag;
+  return {
+    flagId: String(flag.flagId),
+    stage: flag.stage as 'BOOKING' | 'DELIVERY',
+    status: String(flag.status),
+    findingClass: (flag.findingClass as string | null) ?? null,
+    resolutionMode: (flag.resolutionMode as FindingResolutionMode | null) ?? null,
+    ownerRoleCode: (flag.ownerRoleCode as string | null) ?? null,
+    version: Number(flag.version),
+  };
 }
 
 export async function getReviewDocumentContentV2(

@@ -167,10 +167,14 @@ export default function BookingReviewV2Page() {
   const requiredRawKeys = rawGroups.filter((group) => group.needsDecision).map((group) => group.reviewKey);
   const requiredDecisionKeys = [...requiredMappedKeys, ...requiredRawKeys];
   const unresolvedDecisionKeys = requiredDecisionKeys.filter((key) => !decisionByKey.has(key));
-  const canAct = !decisionsQuery.isPending
-    && !decisionsQuery.isError
-    && failedDocuments.length === 0
-    && unresolvedDecisionKeys.length === 0;
+  // Document completeness (all mandatory documents uploaded and classified,
+  // enforced server-side by _mandatory_booking_documents_complete) is the
+  // sole criterion for Submit -- confidence review is a separate,
+  // always-available concern a PC or TL can act on any time, not a
+  // precondition. Previously required zero failed documents and zero
+  // unresolved decisions; removed so Submit is available as soon as this
+  // page itself has loaded, exactly like Delivery's own Submit already is.
+  const canAct = !decisionsQuery.isPending && !decisionsQuery.isError;
 
   const setCorrection = (source: ReviewV2SourceValue | ReviewV2UnmappedField, correction: ReviewFieldCorrection | undefined) => {
     const key = reviewSourceKey(source);
@@ -329,7 +333,7 @@ export default function BookingReviewV2Page() {
       <PageHeader
         eyebrow="Booking · Step 2 of 2"
         title={review.captureSubmitted ? 'Review extracted Booking information' : 'Review & Submit Booking'}
-        description="Values extracted by DI at 90% confidence or above are ready — no PC action needed. Values below 90% require Accept / Reject or correction."
+        description="Values extracted by DI at 90% confidence or above are ready — no PC action needed. Values below 90% can optionally be Accepted, Rejected, or corrected here any time, before or after submitting."
       />
 
       <section className="uc03-attribute-review-summary" aria-label="Booking review summary">
@@ -339,8 +343,8 @@ export default function BookingReviewV2Page() {
         <div><span>Exceptions pending</span><strong>{unresolvedDecisionKeys.length}</strong></div>
       </section>
 
-      {review.processingPending ? <div className="uc03-v2-review-pending" role="status"><div><strong>Some documents are still being processed.</strong><span>{review.captureSubmitted ? 'Available values are shown now; late DI results will continue to fill Audit Core and Journey Detail automatically.' : 'You may submit after reviewing any currently available fields below 90%. Late DI results will continue to fill Audit Core automatically.'}</span></div><span>{pendingDocuments.length} pending</span></div> : null}
-      {requiredDecisionKeys.length > 0 ? <div className="uc03-v2-review-attention" role="status"><strong>{unresolvedDecisionKeys.length} of {requiredDecisionKeys.length} exception{requiredDecisionKeys.length === 1 ? '' : 's'} still need a decision.</strong><span>Accept or Reject is separate from editing the effective value.</span></div> : null}
+      {review.processingPending ? <div className="uc03-v2-review-pending" role="status"><div><strong>Document extraction is still in progress.</strong><span>Submit is available now — extraction continues in the background regardless. Check back on this page in a few minutes to see the remaining values.</span></div><span>{pendingDocuments.length} pending</span></div> : null}
+      {requiredDecisionKeys.length > 0 ? <div className="uc03-v2-review-attention" role="status"><strong>{unresolvedDecisionKeys.length} of {requiredDecisionKeys.length} exception{requiredDecisionKeys.length === 1 ? '' : 's'} still need a decision.</strong><span>Optional — Accept, Reject, or correct any time. This does not block Submit.</span></div> : null}
 
       {review.missingDeclarations.length ? (
         <section className="uc03-v2-section"><header><div><span className="uc03-c1-eyebrow">Declarations</span><h2>Applicable documents not available</h2></div></header><div className="uc03-v2-review-missing-list">{review.missingDeclarations.map((item) => <div key={item.requirementKey} className="uc03-v2-review-missing-row"><div><strong>{item.label}</strong><span>Applicable · Document not available</span></div><span>Recorded for audit follow-up</span></div>)}</div></section>
@@ -434,7 +438,7 @@ export default function BookingReviewV2Page() {
       <section className="uc03-attribute-confirm-panel">
         <div>
           <strong>{review.captureSubmitted ? (review.pcVerificationStatus === 'VERIFIED' ? 'Booking Review verified' : 'Complete Booking Review') : 'Submit Booking'}</strong>
-          <span>{review.captureSubmitted && review.pcVerificationStatus === 'VERIFIED' ? 'Original DI values, effective values and provenance are retained. Open Journey Detail to see the consolidated record.' : failedDocuments.length ? 'Resolve failed document processing before continuing.' : unresolvedDecisionKeys.length ? `Decide the remaining ${unresolvedDecisionKeys.length} exception${unresolvedDecisionKeys.length === 1 ? '' : 's'} before continuing.` : review.processingPending ? 'Extraction is still running, but it does not block Booking submit. Late results will populate Audit Core and Journey Detail automatically.' : 'All currently available confidence exceptions are resolved. Continue to the consolidated Journey Detail.'}</span>
+          <span>{review.captureSubmitted && review.pcVerificationStatus === 'VERIFIED' ? 'Original DI values, effective values and provenance are retained. Open Journey Detail to see the consolidated record.' : failedDocuments.length ? `${failedDocuments.length} document${failedDocuments.length === 1 ? '' : 's'} failed processing -- this does not block Submit, but review it when convenient.` : unresolvedDecisionKeys.length ? `${unresolvedDecisionKeys.length} exception${unresolvedDecisionKeys.length === 1 ? '' : 's'} still pending -- optional, does not block Submit.` : review.processingPending ? 'Extraction is still running, but it does not block Booking submit. Late results will populate Audit Core and Journey Detail automatically.' : 'All currently available confidence exceptions are resolved. Continue to the consolidated Journey Detail.'}</span>
         </div>
         {review.captureSubmitted && review.pcVerificationStatus === 'VERIFIED' ? (
           <button type="button" className="uc03-c3-primary" onClick={() => navigate(`/journeys/${journeyId}/overview`)}>View Journey Details</button>

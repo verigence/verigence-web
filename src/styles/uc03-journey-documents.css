@@ -216,3 +216,108 @@
   border: 1px dashed var(--v-line, #dbe6ee);
   border-radius: 12px;
 }
+
+.uc03-jd-upload {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  border: 2px dashed var(--v-line, #dbe6ee);
+  border-radius: 14px;
+  padding: 18px 22px;
+  background: #f7fafc;
+  transition: border-color 0.15s, background 0.15s;
+}
+.uc03-jd-upload.is-dragover {
+  border-color: var(--jd-accent);
+  background: color-mix(in srgb, var(--jd-accent) 6%, #f7fafc);
+}
+.uc03-jd-upload > div { max-width: 60ch; }
+.uc03-jd-upload strong { font-size: 15px; }
+.uc03-jd-upload p { margin: 4px 0 0; font-size: 13px; color: var(--v-muted, #6e879b); }
+.uc03-jd-upload .uc03-jd-success,
+.uc03-jd-upload .uc03-jd-error {
+  flex-basis: 100%;
+}
+
+.uc03-jd-success {
+  color: #1c6e3f;
+  background: #e6f6ec;
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 13px;
+}
+
+.uc03-jd-checklist {
+  border: 1px solid var(--v-line, #dbe6ee);
+  border-radius: 12px;
+  padding: 16px 18px;
+  background: #fff;
+}
+.uc03-jd-checklist header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+.uc03-jd-checklist h2 { margin: 0; font-size: 15px; }
+.uc03-jd-checklist header span { font-size: 13px; color: var(--v-muted, #6e879b); font-variant-numeric: tabular-nums; }
+.uc03-jd-checklist ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 6px 16px;
+}
+.uc03-jd-checklist li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--v-line, #eef3f7);
+}
+.uc03-jd-checklist-stage {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  border-radius: 999px;
+  padding: 2px 7px;
+  flex-shrink: 0;
+}
+.uc03-jd-checklist-stage.booking { background: #e6f0ff; color: #1a4d99; }
+.uc03-jd-checklist-stage.delivery { background: #fff0e0; color: #99551a; }
+.uc03-jd-checklist-label { flex: 1; }
+.uc03-jd-checklist-level {
+  font-size: 11px;
+  color: var(--v-muted, #6e879b);
+  text-transform: capitalize;
+}
+.uc03-jd-checklist-status { font-size: 12px; font-weight: 600; white-space: nowrap; }
+.uc03-jd-checklist li.is-received .uc03-jd-checklist-status { color: #1c6e3f; }
+.uc03-jd-checklist li.is-missing .uc03-jd-checklist-status { color: #9c6f00; }
+
+.uc03-jd-buckets {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
+  gap: 20px;
+  align-items: start;
+}
+.uc03-jd-bucket {
+  border: 1px solid var(--v-line, #dbe6ee);
+  border-radius: 14px;
+  padding: 16px;
+  background: #fbfdfe;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.uc03-jd-bucket-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+.uc03-jd-bucket-header h2 { margin: 0; font-size: 15px; }
+.uc03-jd-bucket-header span { font-size: 12px; color: var(--v-muted, #6e879b); }

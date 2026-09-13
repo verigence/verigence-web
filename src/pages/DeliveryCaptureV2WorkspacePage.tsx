@@ -92,7 +92,8 @@ export default function DeliveryCaptureV2Page() {
   // Delivery -- an intermediate "Start Delivery" screen requiring a second,
   // purely mechanical click added no business value. Start it automatically
   // the moment the workspace confirms it isn't started yet, so the very next
-  // thing the PC sees is the real upload screen.
+  // thing the PC sees is the real upload screen -- rendered immediately below
+  // (upload buttons disabled + "Preparing…") rather than a separate screen.
   useEffect(() => {
     if (workspaceQuery.isSuccess && !deliveryStarted && !starting) {
       setStarting(true);
@@ -168,8 +169,9 @@ export default function DeliveryCaptureV2Page() {
     }
   };
 
-  if (workspaceQuery.isPending) return <div className="uc03-c1-loading" role="status">Loading Delivery…</div>;
-
+  // Genuine failures keep their own distinct panel -- these are real dead
+  // ends needing an explicit Retry, not a loading state to fold into the
+  // shell below.
   if (workspaceQuery.isError) {
     return (
       <div className="screen-stack uc03-v2-capture uc03-delivery-v2-page">
@@ -182,28 +184,6 @@ export default function DeliveryCaptureV2Page() {
           <div><span className="uc03-c1-eyebrow">Delivery Journey</span><h2>Retry Delivery</h2></div>
           <button type="button" className="uc03-c1-primary" onClick={() => void workspaceQuery.refetch()}>Retry</button>
         </section>
-      </div>
-    );
-  }
-
-  if (!deliveryStarted) {
-    return (
-      <div className="screen-stack uc03-v2-capture uc03-delivery-v2-page">
-        <div className="uc03-c1-topbar"><button type="button" className="uc03-c1-back" onClick={() => navigate('/dashboard')}>← Work List</button></div>
-        <PageHeader eyebrow="Delivery · V2" title="Delivery documents" description="Starting this Delivery so you can upload whatever evidence is available. Audit observations never block the business process." />
-        {error ? (
-          <div className="uc03-booking-journey-feedback is-error" role="alert">
-            {error}
-            <button
-              type="button"
-              className="uc03-c1-primary"
-              disabled={starting}
-              onClick={() => { setError(undefined); void workspaceQuery.refetch(); }}
-            >{starting ? 'Retrying…' : 'Retry'}</button>
-          </div>
-        ) : (
-          <div className="uc03-c1-loading" role="status">Starting Delivery…</div>
-        )}
       </div>
     );
   }
@@ -224,38 +204,47 @@ export default function DeliveryCaptureV2Page() {
     );
   }
 
-  if (captureQuery.isPending || !capture) return <div className="uc03-c1-loading" role="status">Loading Delivery documents…</div>;
-
-  const classified = capture.uploads.filter((document) => (
+  // The one real workspace screen -- rendered immediately whether the
+  // workspace is still loading, Delivery is still being auto-started, its
+  // document read hasn't resolved yet, or everything is ready. Upload
+  // buttons unblock the moment Delivery has actually started (uploading
+  // depends on that, unlike Booking); the document list and counters
+  // hydrate in place once the capture read resolves.
+  const ready = deliveryStarted && Boolean(capture);
+  const uploadsCount = capture?.uploads.length ?? 0;
+  const classified = capture?.uploads.filter((document) => (
     document.state.toUpperCase() === 'CLASSIFIED' && Boolean(document.classifiedDocumentTypeKey)
-  )).length;
-  const extracted = capture.uploads.filter((document) => (document.processingStatus ?? '').toUpperCase() === 'PROCESSED').length;
+  )).length ?? 0;
+  const extracted = capture?.uploads.filter((document) => (document.processingStatus ?? '').toUpperCase() === 'PROCESSED').length ?? 0;
   // Classification/extraction are asynchronous audit status only. They must never
   // gate progression to Delivery Details.
-  const canGoNext = !uploading && !deletingId;
-  const mandatory = capture.requirements.filter((item) => item.requirementLevel === 'REQUIRED' && item.applicabilityState !== 'NOT_APPLICABLE');
+  const canGoNext = ready && !uploading && !deletingId;
+  const mandatory = capture?.requirements.filter((item) => item.requirementLevel === 'REQUIRED' && item.applicabilityState !== 'NOT_APPLICABLE') ?? [];
   const mandatoryReceived = mandatory.filter((item) => Boolean(item.document)).length;
-  const optional = capture.requirements.filter((item) => item.requirementLevel !== 'REQUIRED');
+  const optional = capture?.requirements.filter((item) => item.requirementLevel !== 'REQUIRED') ?? [];
+  const uploadDisabled = !ready || uploading;
 
   return (
     <div className="screen-stack uc03-v2-capture uc03-delivery-v2-page uc03-delivery-v2-page--cards">
       <div className="uc03-delivery-v2-topbar">
         <button type="button" className="uc03-delivery-v2-back" onClick={() => navigate('/dashboard')}>← Work List</button>
-        <div className="uc03-delivery-v2-topbar__stats">
-          <div className="uc03-delivery-v2-stat">
-            <span>Uploaded</span>
-            <strong>{capture.uploads.length}</strong>
+        {capture && (
+          <div className="uc03-delivery-v2-topbar__stats">
+            <div className="uc03-delivery-v2-stat">
+              <span>Uploaded</span>
+              <strong>{uploadsCount}</strong>
+            </div>
+            <div className="uc03-delivery-v2-stat">
+              <span>Classified</span>
+              <strong>{classified}</strong>
+            </div>
+            <div className={`uc03-delivery-v2-stat ${uploadsCount > 0 && extracted === uploadsCount ? 'is-ready' : ''}`}>
+              <span>Extracted</span>
+              <strong>{extracted}</strong>
+            </div>
           </div>
-          <div className="uc03-delivery-v2-stat">
-            <span>Classified</span>
-            <strong>{classified}</strong>
-          </div>
-          <div className={`uc03-delivery-v2-stat ${capture.uploads.length > 0 && extracted === capture.uploads.length ? 'is-ready' : ''}`}>
-            <span>Extracted</span>
-            <strong>{extracted}</strong>
-          </div>
-        </div>
-        {extracted < classified ? (
+        )}
+        {capture && extracted < classified ? (
           <button
             type="button"
             className="uc03-delivery-v2-checklist-toggle"
@@ -266,23 +255,27 @@ export default function DeliveryCaptureV2Page() {
             {resyncing ? 'Rechecking…' : 'Recheck documents'}
           </button>
         ) : null}
-        <button
-          type="button"
-          className="uc03-delivery-v2-checklist-toggle"
-          aria-expanded={checklistOpen}
-          onClick={() => setChecklistOpen((current) => !current)}
-        >
-          Checklist <em>{mandatoryReceived}/{mandatory.length}</em>
-        </button>
+        {capture && (
+          <button
+            type="button"
+            className="uc03-delivery-v2-checklist-toggle"
+            aria-expanded={checklistOpen}
+            onClick={() => setChecklistOpen((current) => !current)}
+          >
+            Checklist <em>{mandatoryReceived}/{mandatory.length}</em>
+          </button>
+        )}
       </div>
 
       <PageHeader
         eyebrow="Delivery · V2"
         title="Delivery documents"
         description={
-          capture.submitted
-            ? 'Step 1 of 2 · Already submitted to Delivery Details — you can still add more documents any time. Background classification never blocks the journey.'
-            : 'Step 1 of 2 · Missing documents and background classification are audit status only and do not block Next.'
+          !ready
+            ? 'Preparing this Delivery for document capture…'
+            : capture!.submitted
+              ? 'Step 1 of 2 · Already submitted to Delivery Details — you can still add more documents any time. Background classification never blocks the journey.'
+              : 'Step 1 of 2 · Missing documents and background classification are audit status only and do not block Next.'
         }
       />
 
@@ -294,15 +287,15 @@ export default function DeliveryCaptureV2Page() {
           <button
             type="button"
             className="uc03-delivery-v2-upload-button is-primary"
-            disabled={uploading}
+            disabled={uploadDisabled}
             onClick={() => fileInputRef.current?.click()}
           >
-            {uploading ? 'Uploading…' : 'Choose Files'}
+            {!ready ? 'Preparing…' : uploading ? 'Uploading…' : 'Choose Files'}
           </button>
           <button
             type="button"
             className="uc03-delivery-v2-upload-button"
-            disabled={uploading}
+            disabled={uploadDisabled}
             onClick={() => cameraInputRef.current?.click()}
           >
             Take Photo
@@ -313,7 +306,7 @@ export default function DeliveryCaptureV2Page() {
             type="file"
             accept="image/*,.pdf"
             multiple
-            disabled={uploading}
+            disabled={uploadDisabled}
             onChange={(event) => {
               const files = Array.from(event.currentTarget.files ?? []);
               event.currentTarget.value = '';
@@ -326,7 +319,7 @@ export default function DeliveryCaptureV2Page() {
             type="file"
             accept="image/*"
             capture="environment"
-            disabled={uploading}
+            disabled={uploadDisabled}
             onChange={(event) => {
               const files = Array.from(event.currentTarget.files ?? []);
               event.currentTarget.value = '';
@@ -337,7 +330,9 @@ export default function DeliveryCaptureV2Page() {
         <p>Select multiple files together — Verigence identifies each document type in the background.</p>
       </section>
 
-      {capture.uploads.length > 0 ? (
+      {!capture ? (
+        <p className="uc03-doc-card-grid__empty">Preparing the document checklist…</p>
+      ) : capture.uploads.length > 0 ? (
         <div className="uc03-doc-card-grid">
           {capture.uploads.map((document, index) => (
             <DocumentCard
@@ -377,16 +372,20 @@ export default function DeliveryCaptureV2Page() {
 
       <section className="uc03-delivery-v2-submit-bar">
         <div>
-          <strong>{capture.submitted ? 'Documents step already submitted' : 'Ready for Delivery Details'}</strong>
-          <span>{classified} of {capture.uploads.length} uploaded document{capture.uploads.length === 1 ? '' : 's'} classified. Classification continues in the background and does not block Next.</span>
+          <strong>{!ready ? 'Preparing Delivery…' : capture!.submitted ? 'Documents step already submitted' : 'Ready for Delivery Details'}</strong>
+          <span>
+            {ready
+              ? `${classified} of ${uploadsCount} uploaded document${uploadsCount === 1 ? '' : 's'} classified. Classification continues in the background and does not block Next.`
+              : 'This only takes a moment.'}
+          </span>
         </div>
         <button
           type="button"
           className="uc03-c1-primary"
           disabled={!canGoNext}
-          onClick={() => navigate(`/v2/deliveries/${journeyId}?step=details${capture.submitted ? '&captureSubmitted=1' : ''}`)}
+          onClick={() => navigate(`/v2/deliveries/${journeyId}?step=details${capture?.submitted ? '&captureSubmitted=1' : ''}`)}
         >
-          {uploading ? 'Uploading…' : capture.submitted ? 'Continue to Delivery Details →' : 'Next →'}
+          {uploading ? 'Uploading…' : capture?.submitted ? 'Continue to Delivery Details →' : 'Next →'}
         </button>
       </section>
     </div>

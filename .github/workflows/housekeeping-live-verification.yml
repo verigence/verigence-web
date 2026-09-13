@@ -40,6 +40,13 @@ jobs:
           const base = process.env.DEV_WEB_URL;
           const browser = await chromium.launch({ headless: true });
           const context = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
+          // Login has required a resolved device location since commit cafbc6c
+          // (2026-08-29). Headless Chromium denies an ungranted geolocation
+          // request outright (no prompt), which blocks sign-in forever and
+          // was silently timing out this whole script at the post-login nav
+          // wait below. Grant it up front so login can actually complete.
+          await context.grantPermissions(['geolocation'], { origin: base });
+          await context.setGeolocation({ latitude: 12.9716, longitude: 77.5946 });
           const page = await context.newPage();
 
           const json = async (route, payload, status = 200) => {

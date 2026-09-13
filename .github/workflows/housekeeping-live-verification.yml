@@ -156,6 +156,12 @@ jobs:
 
           await journeyScope.click();
           await page.getByRole('heading', { name: 'Choose Journey Deletion Scope' }).waitFor();
+          // No destructive default: the scope selector starts unselected, so
+          // the Project-wide warning only appears once that scope is
+          // actively chosen (see AdminHousekeepingPage.tsx).
+          await page.getByText('Choose a scope above before anything can be previewed or deleted.').waitFor();
+          const journeyScopeSelect = page.locator('select').filter({ has: page.locator('option[value="TENANT"]') }).first();
+          await journeyScopeSelect.selectOption('TENANT');
           await page.getByText('Every Journey for every Dealer and Outlet in this Project.').waitFor();
           await page.screenshot({ path: 'housekeeping-live-output/03-journey-desktop.png', fullPage: true });
 

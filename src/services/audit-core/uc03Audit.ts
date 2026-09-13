@@ -519,6 +519,48 @@ export function getRuleCatalog(tenantId: string, accessToken?: string): Promise<
   });
 }
 
+// ── Declarative rule authoring (Phase 5, third UI piece) ────────────────────
+// New DECLARATIVE (rule-engine) rules only -- audit-core's own CODE rules
+// always require a deploy, there is no authoring path for those.
+
+export interface Uc03DeclarativeRuleDraft {
+  ruleCode: string;
+  category: string;
+  auditScope: 'WITHIN_CASE' | 'CROSS_CASE';
+  phases: string[];
+  leftDocType?: string;
+  leftFieldKey?: string;
+  leftAggregation: 'SINGLE' | 'SUM' | 'MAX' | 'MIN' | 'COUNT';
+  rightDocType?: string;
+  rightFieldKey?: string;
+  rightAggregation: 'SINGLE' | 'SUM' | 'MAX' | 'MIN' | 'COUNT';
+  rightConfigKey?: string;
+  comparator: string;
+  threshold: number;
+  severity: 'CRITICAL' | 'WARNING' | 'INFO';
+  findingMessage: string;
+  conditionExpression?: string;
+  requiresBothDocs: boolean;
+  enabled: boolean;
+}
+
+export interface Uc03DeclarativeRuleCreateResult {
+  created: boolean;
+  ruleCode: string;
+}
+
+export function createDeclarativeRule(
+  tenantId: string,
+  draft: Uc03DeclarativeRuleDraft,
+  accessToken?: string,
+): Promise<Uc03DeclarativeRuleCreateResult> {
+  return auditCoreRequest(`${tenantBase(tenantId)}/declarative-rules`, {
+    method: 'POST',
+    accessToken: token(accessToken),
+    body: JSON.stringify(draft),
+  });
+}
+
 // ── Run All Applicable Rules (Phase 5 manual trigger) ───────────────────────
 // Re-evaluates every audit-core rule against data already on file for this
 // Journey -- no DI re-fetch (unlike the Resync buttons, which do fetch DI and

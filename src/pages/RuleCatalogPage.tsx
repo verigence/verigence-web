@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { Link } from 'react-router-dom';
 
 import PageHeader from '../components/PageHeader';
 import { getRuleCatalog, type Uc03RuleCatalogEntry } from '../services/audit-core/uc03Audit';
@@ -138,6 +139,7 @@ export default function RuleCatalogPage() {
         eyebrow="Assurance"
         title="Rule Catalog"
         description="Every audit rule in one place -- what it checks, when it runs, what happens when it fails."
+        actions={<Link to="/rule-catalog/new" className="rc-new-rule">+ New Rule</Link>}
       />
 
       {!project?.tenantId ? (

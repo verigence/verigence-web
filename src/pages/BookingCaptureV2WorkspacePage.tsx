@@ -15,8 +15,8 @@ import {
   resyncBookingCaptureV2,
   type BookingCaptureV2,
   type CaptureV2Requirement,
-  uploadBookingCaptureV2Files,
 } from '../services/audit-core/uc03DocumentCaptureV2';
+import { reconcileUnifiedDocuments, uploadUnifiedCaptureFiles } from '../services/audit-core/uc03UnifiedDocumentCapture';
 import { useProjectContextStore } from '../store/projectContextStore';
 import { useSessionStore } from '../store/sessionStore';
 import '../styles/uc03-document-capture-v2.css';
@@ -300,9 +300,28 @@ export default function BookingCaptureV2CompactPage() {
     setError(undefined);
     setMessage(`Documents uploading · ${files.length} file${files.length === 1 ? '' : 's'}`);
     try {
-      await uploadBookingCaptureV2Files(project.tenantId, journeyId, files, accessToken);
+      // Unified upload path (2026-09-13): this screen is Booking-labeled,
+      // but a PC does not always have Booking-only documents in hand at
+      // upload time -- the same merged-candidate, classify-then-dispatch
+      // endpoint Journey Documents uses means a Delivery-relevant file
+      // dropped here still classifies and routes correctly (Delivery
+      // auto-starts if needed) instead of being misclassified against a
+      // Booking-only candidate list. This screen's own checklist/grid
+      // below still shows Booking documents only -- anything dispatched
+      // to Delivery appears on Journey Documents' Delivery bucket instead.
+      const result = await uploadUnifiedCaptureFiles(project.tenantId, journeyId, files, accessToken);
+      try {
+        await reconcileUnifiedDocuments(project.tenantId, journeyId, accessToken);
+      } catch {
+        // Non-fatal -- this screen's own polling will still pick up
+        // correct dispatch shortly; the upload itself already succeeded.
+      }
       await captureQuery.refetch();
-      setMessage('Documents received. They are being classified and prepared for review.');
+      setMessage(
+        result.failed
+          ? `${result.uploaded} of ${result.uploaded + result.failed} file(s) uploaded — ${result.failed} failed, try those again.`
+          : 'Documents received. They are being classified and prepared for review.',
+      );
     } catch (cause: unknown) {
       setError(cause instanceof Error ? cause.message : 'We could not upload these documents. Please try again.');
       setMessage(undefined);

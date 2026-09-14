@@ -2016,7 +2016,7 @@ export default function Journey360Page() {
         eyebrow={`${textValue(model.journey, 'dealerName')} · ${textValue(model.journey, 'outletName')}`}
         title={customerName}
         description={`Dealer Booking ${bookingReference} · ${productLabel}`}
-        actions={<div className="header-statuses"><StatusPill value={String(bookingStatus || 'NOT_STARTED')} /><StatusPill value={String(deliveryStatus || 'NOT_STARTED')} /></div>}
+        actions={<div className="header-statuses"><StatusPill value={String(bookingStatus) === 'CLOSED' ? 'BOOKING_COMPLETE' : String(bookingStatus || 'NOT_STARTED')} /><StatusPill value={String(deliveryStatus || 'NOT_STARTED')} /></div>}
       />
 
       <div className="jline">

@@ -1,7 +1,5 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Capacitor } from '@capacitor/core';
-import { useQueryClient } from '@tanstack/react-query';
-import { useLocation } from 'react-router-dom';
 
 import { captureEvidencePhoto } from '../../services/device/camera';
 import {
@@ -11,9 +9,6 @@ import {
   scanDocumentPageUris,
   scannerErrorWasCancellation,
 } from '../../services/device/documentScanner';
-import { reconcileUnifiedDocuments, uploadUnifiedCaptureFiles } from '../../services/audit-core/uc03UnifiedDocumentCapture';
-import { useProjectContextStore } from '../../store/projectContextStore';
-import { useSessionStore } from '../../store/sessionStore';
 import {
   splitPage,
   validatePageQuality,
@@ -28,12 +23,12 @@ import { buildDocumentPdf } from './pdf';
 import type {
   CapturedPage,
   LogicalCapturedDocument,
-  MobileCaptureTarget,
+  MobileCaptureStage,
   PageQualityFailureCode,
 } from './types';
 import '../../styles/mobile-document-capture.css';
 
-type CapturePhase = 'IDLE' | 'PREPARING' | 'SCANNING' | 'PROCESSING' | 'REVIEW' | 'FALLBACK' | 'UPLOADING' | 'DONE';
+type CapturePhase = 'IDLE' | 'PREPARING' | 'SCANNING' | 'PROCESSING' | 'REVIEW' | 'FALLBACK' | 'PACKAGING';
 
 interface SplitTarget {
   documentIndex: number;
@@ -42,18 +37,10 @@ interface SplitTarget {
   percent: number;
 }
 
-function captureTarget(pathname: string): MobileCaptureTarget | undefined {
-  const booking = pathname.match(/^\/v2\/bookings\/(new|[^/]+)$/);
-  if (booking) {
-    return {
-      stage: 'BOOKING',
-      journeyId: booking[1] === 'new' ? undefined : booking[1],
-      routePath: pathname,
-    };
-  }
-  const delivery = pathname.match(/^\/v2\/deliveries\/([^/]+)$/);
-  if (delivery) return { stage: 'DELIVERY', journeyId: delivery[1], routePath: pathname };
-  return undefined;
+interface CaptureContext {
+  input: HTMLInputElement;
+  stage: MobileCaptureStage;
+  journeyToken: string;
 }
 
 function randomId(prefix: string): string {
@@ -74,10 +61,45 @@ function countPages(documents: LogicalCapturedDocument[]): number {
   return documents.reduce((total, document) => total + document.pages.length, 0);
 }
 
+function releasePagePreview(page: CapturedPage): void {
+  if (page.sourceBlob && page.previewUrl.startsWith('blob:')) URL.revokeObjectURL(page.previewUrl);
+}
+
 function releaseBlobPreviews(documents: LogicalCapturedDocument[]): void {
-  documents.forEach((document) => document.pages.forEach((page) => {
-    if (page.sourceBlob && page.previewUrl.startsWith('blob:')) URL.revokeObjectURL(page.previewUrl);
-  }));
+  documents.forEach((document) => document.pages.forEach(releasePagePreview));
+}
+
+function releaseFallbackPreviews(pages: CapturedPage[]): void {
+  pages.forEach(releasePagePreview);
+}
+
+function journeyTokenFromPath(stage: MobileCaptureStage): string {
+  const path = window.location.pathname;
+  const match = stage === 'BOOKING'
+    ? path.match(/^\/v2\/bookings\/([^/]+)$/)
+    : path.match(/^\/v2\/deliveries\/([^/]+)$/);
+  const token = match?.[1];
+  if (token && token !== 'new') return token;
+  return `${stage.toLowerCase()}-${Date.now()}`;
+}
+
+/**
+ * The scanner is deliberately attached to the existing Take Photo input rather
+ * than to a route. Once scanning finishes, the generated PDFs are assigned back
+ * to that input and its existing change handler is fired. Booking and Delivery
+ * therefore keep their existing handleUpload(files) path unchanged.
+ */
+function captureContextForInput(input: HTMLInputElement): CaptureContext | undefined {
+  if (input.type !== 'file' || !input.hasAttribute('capture') || input.disabled) return undefined;
+  if (!input.accept.toLowerCase().includes('image')) return undefined;
+
+  if (input.closest('.uc03-booking-v2-hero')) {
+    return { input, stage: 'BOOKING', journeyToken: journeyTokenFromPath('BOOKING') };
+  }
+  if (input.closest('.uc03-delivery-v2-hero')) {
+    return { input, stage: 'DELIVERY', journeyToken: journeyTokenFromPath('DELIVERY') };
+  }
+  return undefined;
 }
 
 async function analyzedUriPage(uri: string, originalIndex: number): Promise<CapturedPage> {
@@ -107,25 +129,13 @@ async function analyzedBlobPage(blob: Blob, originalIndex: number): Promise<Capt
   };
 }
 
-async function waitForJourneyId(target: MobileCaptureTarget): Promise<string> {
-  if (target.journeyId) return target.journeyId;
-  for (let attempt = 0; attempt < 80; attempt += 1) {
-    const match = window.location.pathname.match(/^\/v2\/bookings\/([^/]+)$/);
-    if (match && match[1] !== 'new') return match[1];
-    await new Promise((resolve) => window.setTimeout(resolve, 250));
-  }
-  throw new Error('The Booking is not ready to receive documents yet.');
-}
-
 export default function MobileDocumentCaptureHost() {
-  const location = useLocation();
-  const queryClient = useQueryClient();
-  const project = useProjectContextStore((state) => state.selectedProject);
-  const accessToken = useSessionStore((state) => state.accessToken);
-  const target = useMemo(() => captureTarget(location.pathname), [location.pathname]);
   const eligible = mobileDocumentScannerEligible();
+  const contextRef = useRef<CaptureContext>();
+  const launchInFlight = useRef(false);
 
   const [open, setOpen] = useState(false);
+  const [stage, setStage] = useState<MobileCaptureStage>('BOOKING');
   const [phase, setPhase] = useState<CapturePhase>('IDLE');
   const [documents, setDocuments] = useState<LogicalCapturedDocument[]>([]);
   const [fallbackPages, setFallbackPages] = useState<CapturedPage[]>([]);
@@ -135,24 +145,32 @@ export default function MobileDocumentCaptureHost() {
   const [error, setError] = useState<string>();
   const [fallbackReason, setFallbackReason] = useState<string>();
   const [splitTarget, setSplitTarget] = useState<SplitTarget>();
-  const [uploadedDocumentIds, setUploadedDocumentIds] = useState<Set<string>>(new Set());
-  const [uploadProgress, setUploadProgress] = useState({ current: 0, total: 0 });
-  const autoOpenedRoute = useRef<string>();
-  const launchInFlight = useRef(false);
 
   const clearSession = useCallback(() => {
-    releaseBlobPreviews(documents);
-    releaseBlobPreviews(buildInitialDocumentGroups(fallbackPages));
-    setDocuments([]);
-    setFallbackPages([]);
-    setUploadedDocumentIds(new Set());
+    setDocuments((current) => {
+      releaseBlobPreviews(current);
+      return [];
+    });
+    setFallbackPages((current) => {
+      releaseFallbackPreviews(current);
+      return [];
+    });
     setSplitTarget(undefined);
     setMessage(undefined);
     setError(undefined);
     setFallbackReason(undefined);
+    setModuleProgress(undefined);
     setProcessing({ current: 0, total: 0 });
-    setUploadProgress({ current: 0, total: 0 });
-  }, [documents, fallbackPages]);
+  }, []);
+
+  const closeCapture = useCallback(() => {
+    contextRef.current = undefined;
+    launchInFlight.current = false;
+    document.documentElement.classList.remove('mobile-document-capture-route');
+    setOpen(false);
+    setPhase('IDLE');
+    clearSession();
+  }, [clearSession]);
 
   const processUris = useCallback(async (uris: string[]) => {
     if (!uris.length) return;
@@ -169,10 +187,9 @@ export default function MobileDocumentCaptureHost() {
     setPhase('REVIEW');
   }, []);
 
-  const beginScanner = useCallback(async () => {
-    if (!target || launchInFlight.current) return;
+  const beginScanner = useCallback(async (retainReviewOnCancel = false) => {
+    if (!contextRef.current || launchInFlight.current) return;
     launchInFlight.current = true;
-    setOpen(true);
     setError(undefined);
     setMessage(undefined);
     setModuleProgress(undefined);
@@ -182,52 +199,62 @@ export default function MobileDocumentCaptureHost() {
       setPhase('SCANNING');
       const uris = await scanDocumentPageUris(20);
       if (!uris.length) {
-        setPhase(documents.length ? 'REVIEW' : 'IDLE');
-        setOpen(documents.length > 0);
+        if (retainReviewOnCancel) setPhase('REVIEW');
+        else closeCapture();
         return;
       }
       await processUris(uris);
     } catch (cause) {
       if (scannerErrorWasCancellation(cause)) {
-        setPhase(documents.length ? 'REVIEW' : 'IDLE');
-        setOpen(documents.length > 0);
+        if (retainReviewOnCancel) setPhase('REVIEW');
+        else closeCapture();
       } else {
         setFallbackReason(cause instanceof Error ? cause.message : 'The Google document scanner is unavailable on this phone.');
         setPhase('FALLBACK');
-        setOpen(true);
       }
     } finally {
       launchInFlight.current = false;
     }
-  }, [documents.length, processUris, target]);
+  }, [closeCapture, processUris]);
 
   useEffect(() => {
-    if (!eligible || !target) {
-      document.documentElement.classList.remove('mobile-document-capture-route');
-      if (open || documents.length || fallbackPages.length) {
-        releaseBlobPreviews(documents);
-        releaseBlobPreviews(buildInitialDocumentGroups(fallbackPages));
-        setOpen(false);
-        setPhase('IDLE');
-        setDocuments([]);
-        setFallbackPages([]);
-        setUploadedDocumentIds(new Set());
-      }
-      return undefined;
-    }
+    if (!eligible) return undefined;
 
-    document.documentElement.classList.add('mobile-document-capture-route');
-    const routeKey = `${target.stage}:${target.routePath}`;
-    if (autoOpenedRoute.current !== routeKey) {
-      autoOpenedRoute.current = routeKey;
-      const timer = window.setTimeout(() => void beginScanner(), 300);
-      return () => window.clearTimeout(timer);
-    }
-    return undefined;
-  }, [beginScanner, documents, eligible, fallbackPages, open, target]);
+    const interceptTakePhoto = (event: MouseEvent) => {
+      const input = event.target instanceof HTMLInputElement ? event.target : undefined;
+      if (!input) return;
+      const context = captureContextForInput(input);
+      if (!context) return;
+
+      // Cancel only the browser/WebView camera picker. The rest of the screen
+      // remains untouched and will receive the final FileList through its
+      // existing change handler after review.
+      event.preventDefault();
+      event.stopPropagation();
+
+      if (contextRef.current || launchInFlight.current) return;
+      clearSession();
+      contextRef.current = context;
+      setStage(context.stage);
+      setOpen(true);
+      document.documentElement.classList.add('mobile-document-capture-route');
+      window.setTimeout(() => void beginScanner(false), 0);
+    };
+
+    document.addEventListener('click', interceptTakePhoto, true);
+    return () => document.removeEventListener('click', interceptTakePhoto, true);
+  }, [beginScanner, clearSession, eligible]);
 
   useEffect(() => () => {
     document.documentElement.classList.remove('mobile-document-capture-route');
+    setDocuments((current) => {
+      releaseBlobPreviews(current);
+      return current;
+    });
+    setFallbackPages((current) => {
+      releaseFallbackPreviews(current);
+      return current;
+    });
   }, []);
 
   const captureFallbackPage = async () => {
@@ -248,7 +275,9 @@ export default function MobileDocumentCaptureHost() {
       setPhase('FALLBACK');
     } catch (cause) {
       setPhase('FALLBACK');
-      setError(cause instanceof Error ? cause.message : 'The page could not be captured.');
+      if (!scannerErrorWasCancellation(cause)) {
+        setError(cause instanceof Error ? cause.message : 'The page could not be captured.');
+      }
     }
   };
 
@@ -278,12 +307,20 @@ export default function MobileDocumentCaptureHost() {
       if (!uri) throw new Error('No replacement page was captured.');
       setPhase('PROCESSING');
       setProcessing({ current: 0, total: 1 });
-      const replacement = await analyzedUriPage(uri, documents[documentIndex].pages[pageIndex].originalIndex);
-      setDocuments((current) => current.map((document, d) => (
-        d !== documentIndex
-          ? document
-          : { ...document, pages: document.pages.map((page, p) => (p === pageIndex ? replacement : page)) }
-      )));
+      const original = documents[documentIndex]?.pages[pageIndex];
+      if (!original) throw new Error('The page to replace is no longer available.');
+      const replacement = await analyzedUriPage(uri, original.originalIndex);
+      setDocuments((current) => current.map((document, d) => {
+        if (d !== documentIndex) return document;
+        return {
+          ...document,
+          pages: document.pages.map((page, p) => {
+            if (p !== pageIndex) return page;
+            releasePagePreview(page);
+            return replacement;
+          }),
+        };
+      }));
       setProcessing({ current: 1, total: 1 });
       setPhase('REVIEW');
     } catch (cause) {
@@ -312,7 +349,7 @@ export default function MobileDocumentCaptureHost() {
       setDocuments((current) => {
         const next = current.map((item) => ({ ...item, pages: [...item.pages] }));
         const original = next[splitTarget.documentIndex];
-        if (original.pages[0].sourceBlob && original.pages[0].previewUrl.startsWith('blob:')) URL.revokeObjectURL(original.pages[0].previewUrl);
+        releasePagePreview(original.pages[0]);
         next.splice(
           splitTarget.documentIndex,
           1,
@@ -327,78 +364,52 @@ export default function MobileDocumentCaptureHost() {
     }
   };
 
-  const pendingDocuments = documents.filter((document) => !uploadedDocumentIds.has(document.id));
-  const invalidPageCount = pendingDocuments.reduce(
+  const invalidPageCount = documents.reduce(
     (total, document) => total + document.pages.filter((page) => !page.quality.passed).length,
     0,
   );
 
-  const upload = async () => {
-    if (!target || !project?.tenantId || !accessToken || !pendingDocuments.length || invalidPageCount > 0) return;
-    setPhase('UPLOADING');
+  const packageAndHandoff = async () => {
+    const context = contextRef.current;
+    if (!context || !documents.length || invalidPageCount > 0) return;
+    setPhase('PACKAGING');
     setError(undefined);
     setMessage(undefined);
-    setUploadProgress({ current: 0, total: pendingDocuments.length });
+    setProcessing({ current: 0, total: documents.length });
     try {
-      const journeyId = await waitForJourneyId(target);
-      const successful = new Set(uploadedDocumentIds);
-      const failed: string[] = [];
-
-      // One logical document per existing upload call. This intentionally
-      // avoids the shared service's six-way fan-out on low-cost phones and
-      // lets us know exactly which local document needs retry.
-      for (let index = 0; index < pendingDocuments.length; index += 1) {
-        const document = pendingDocuments[index];
-        try {
-          const file = await buildDocumentPdf(document, journeyId, documents.indexOf(document) + 1);
-          const result = await uploadUnifiedCaptureFiles(project.tenantId, journeyId, [file], accessToken);
-          if (result.uploaded === 1 && result.failed === 0) successful.add(document.id);
-          else failed.push(document.id);
-        } catch {
-          failed.push(document.id);
-        }
-        setUploadedDocumentIds(new Set(successful));
-        setUploadProgress({ current: index + 1, total: pendingDocuments.length });
+      const files: File[] = [];
+      for (let index = 0; index < documents.length; index += 1) {
+        files.push(await buildDocumentPdf(documents[index], context.journeyToken, index + 1));
+        setProcessing({ current: index + 1, total: documents.length });
       }
 
-      if (successful.size > uploadedDocumentIds.size) {
-        await reconcileUnifiedDocuments(project.tenantId, journeyId, accessToken).catch(() => undefined);
-        await queryClient.invalidateQueries({
-          predicate: (query) => query.queryKey.some((part) => part === journeyId),
-        });
+      if (typeof DataTransfer === 'undefined') {
+        throw new Error('This Android WebView cannot hand captured documents back to the upload screen.');
       }
+      const transfer = new DataTransfer();
+      files.forEach((file) => transfer.items.add(file));
+      context.input.files = transfer.files;
+      const input = context.input;
 
-      if (failed.length) {
-        setPhase('REVIEW');
-        setError(`${failed.length} document${failed.length === 1 ? '' : 's'} could not be uploaded. Successful documents will not be sent again; retry the remaining documents.`);
-      } else {
-        setPhase('DONE');
-        setMessage(`${successful.size} document${successful.size === 1 ? '' : 's'} uploaded. Classification and extraction continue on the server.`);
-      }
+      // Close the mobile-only surface first. The existing screen then receives
+      // a normal change event and executes its unchanged handleUpload(files),
+      // so Web and Android are identical from this boundary onward.
+      contextRef.current = undefined;
+      document.documentElement.classList.remove('mobile-document-capture-route');
+      setOpen(false);
+      setPhase('IDLE');
+      clearSession();
+      window.setTimeout(() => input.dispatchEvent(new Event('change', { bubbles: true })), 0);
     } catch (cause) {
       setPhase('REVIEW');
-      setError(cause instanceof Error ? cause.message : 'The captured documents could not be uploaded.');
+      setError(cause instanceof Error ? cause.message : 'The captured documents could not be prepared.');
     }
   };
 
-  if (!eligible || !target) return null;
+  if (!eligible || !open || !contextRef.current) return null;
 
-  const stageLabel = target.stage === 'BOOKING' ? 'Booking' : 'Delivery';
+  const stageLabel = stage === 'BOOKING' ? 'Booking' : 'Delivery';
   const totalPages = countPages(documents);
-
-  if (!open) {
-    return (
-      <button type="button" className="mobile-doc-capture-launcher" onClick={() => {
-        if (documents.length) {
-          setPhase('REVIEW');
-          setOpen(true);
-        } else void beginScanner();
-      }}>
-        <span aria-hidden="true">▣</span>
-        {documents.length ? `Review ${documents.length} captured document${documents.length === 1 ? '' : 's'}` : `Scan ${stageLabel} documents`}
-      </button>
-    );
-  }
 
   return (
     <section className="mobile-doc-capture" role="dialog" aria-modal="true" aria-label={`${stageLabel} document capture`}>
@@ -407,8 +418,8 @@ export default function MobileDocumentCaptureHost() {
           <span className="mobile-doc-capture__eyebrow">{stageLabel} · Mobile Capture</span>
           <h2>Scan documents</h2>
         </div>
-        {phase !== 'UPLOADING' && phase !== 'PROCESSING' && phase !== 'SCANNING' ? (
-          <button type="button" className="mobile-doc-capture__close" onClick={() => setOpen(false)} aria-label="Close document capture">×</button>
+        {phase !== 'PACKAGING' && phase !== 'PROCESSING' && phase !== 'SCANNING' && phase !== 'PREPARING' ? (
+          <button type="button" className="mobile-doc-capture__close" onClick={closeCapture} aria-label="Close document capture">×</button>
         ) : null}
       </header>
 
@@ -436,7 +447,16 @@ export default function MobileDocumentCaptureHost() {
         <div className="mobile-doc-capture__state">
           <div className="mobile-doc-capture__spinner" aria-hidden="true" />
           <strong>Checking captured pages</strong>
-          <p>Page {Math.max(1, processing.current)} of {Math.max(1, processing.total)} · quality checks and lightweight continuation OCR.</p>
+          <p>Page {Math.max(1, processing.current)} of {Math.max(1, processing.total)} · checking resolution, focus, exposure and document continuity.</p>
+          <progress max={Math.max(1, processing.total)} value={processing.current} />
+        </div>
+      ) : null}
+
+      {phase === 'PACKAGING' ? (
+        <div className="mobile-doc-capture__state">
+          <div className="mobile-doc-capture__spinner" aria-hidden="true" />
+          <strong>Preparing documents</strong>
+          <p>Document {Math.max(1, processing.current)} of {Math.max(1, processing.total)} · creating upload-ready PDFs.</p>
           <progress max={Math.max(1, processing.total)} value={processing.current} />
         </div>
       ) : null}
@@ -447,7 +467,7 @@ export default function MobileDocumentCaptureHost() {
             <strong>Using basic camera mode</strong>
             <span>{fallbackReason || 'The Google document scanner is unavailable on this handset.'}</span>
           </div>
-          <p>Capture one page at a time. Every page still has to pass the same Verigence quality gate before upload.</p>
+          <p>Capture one page at a time. Every page still has to pass the same Verigence quality gate before it can continue.</p>
           <div className="mobile-doc-capture__fallback-count">{fallbackPages.length} / 20 pages captured</div>
           <div className="mobile-doc-capture__footer-actions">
             <button type="button" className="mobile-doc-capture__secondary" disabled={fallbackPages.length >= 20} onClick={() => void captureFallbackPage()}>
@@ -460,7 +480,7 @@ export default function MobileDocumentCaptureHost() {
         </div>
       ) : null}
 
-      {phase === 'REVIEW' || phase === 'UPLOADING' ? (
+      {phase === 'REVIEW' ? (
         <div className="mobile-doc-capture__review">
           <div className="mobile-doc-capture__summary">
             <div><strong>{documents.length}</strong><span>documents</span></div>
@@ -469,113 +489,78 @@ export default function MobileDocumentCaptureHost() {
           </div>
 
           <p className="mobile-doc-capture__hint">
-            Verigence assumes a new document unless local OCR finds strong continuation evidence. No document type is classified on the phone.
+            Check document boundaries carefully. The first page identifies each document for server-side classification. Verigence keeps pages separate unless local evidence strongly indicates a continuation.
           </p>
 
           <div className="mobile-doc-capture__documents">
-            {documents.map((document, documentIndex) => {
-              const uploaded = uploadedDocumentIds.has(document.id);
-              return (
-                <article className={`mobile-doc-capture__document${uploaded ? ' is-uploaded' : ''}`} key={document.id}>
-                  <div className="mobile-doc-capture__document-head">
-                    <div>
-                      <strong>Document {documentIndex + 1}</strong>
-                      <span>{document.pages.length} page{document.pages.length === 1 ? '' : 's'}</span>
-                    </div>
-                    {uploaded ? <em className="mobile-doc-capture__badge is-good">Uploaded</em> : null}
-                    {!uploaded && document.autoGrouped ? <em className="mobile-doc-capture__badge">Multi-page detected</em> : null}
-                    {!uploaded && document.continuationFromPrevious ? (
-                      <button type="button" className="mobile-doc-capture__suggestion" onClick={() => setDocuments((current) => mergeWithPrevious(current, documentIndex))}>
-                        Possible continuation · Merge
-                      </button>
-                    ) : null}
+            {documents.map((document, documentIndex) => (
+              <article className="mobile-doc-capture__document" key={document.id}>
+                <div className="mobile-doc-capture__document-head">
+                  <div>
+                    <strong>Document {documentIndex + 1}</strong>
+                    <span>{document.pages.length} page{document.pages.length === 1 ? '' : 's'}</span>
                   </div>
+                  {document.autoGrouped ? <em className="mobile-doc-capture__badge">Multi-page detected</em> : null}
+                  {document.continuationFromPrevious ? (
+                    <button type="button" className="mobile-doc-capture__suggestion" onClick={() => setDocuments((current) => mergeWithPrevious(current, documentIndex))}>
+                      Possible continuation · Merge
+                    </button>
+                  ) : null}
+                </div>
 
-                  <div className="mobile-doc-capture__pages">
-                    {document.pages.map((page, pageIndex) => (
-                      <div className={`mobile-doc-capture__page${page.quality.passed ? '' : ' is-failed'}`} key={page.id}>
-                        <img src={page.previewUrl} alt={`Document ${documentIndex + 1}, page ${pageIndex + 1}`} />
-                        <span>Page {pageIndex + 1}</span>
-                        {!page.quality.passed ? (
-                          <div className="mobile-doc-capture__quality-fail">
-                            {page.quality.failures.map((failure) => <small key={failure}>{qualityFailureText(failure)}</small>)}
-                            <button type="button" disabled={phase === 'UPLOADING'} onClick={() => void retakePage(documentIndex, pageIndex)}>Retake</button>
-                          </div>
-                        ) : null}
-                        {!uploaded && pageIndex > 0 ? (
-                          <button
-                            type="button"
-                            className="mobile-doc-capture__page-boundary"
-                            disabled={phase === 'UPLOADING'}
-                            onClick={() => setDocuments((current) => startNewDocumentAtPage(current, documentIndex, pageIndex))}
-                          >
-                            Start new document here
-                          </button>
-                        ) : null}
-                      </div>
-                    ))}
-                  </div>
-
-                  {!uploaded ? (
-                    <div className="mobile-doc-capture__document-actions">
-                      {documentIndex > 0 ? (
-                        <button type="button" disabled={phase === 'UPLOADING'} onClick={() => setDocuments((current) => mergeWithPrevious(current, documentIndex))}>
-                          Merge with previous
-                        </button>
+                <div className="mobile-doc-capture__pages">
+                  {document.pages.map((page, pageIndex) => (
+                    <div className={`mobile-doc-capture__page${page.quality.passed ? '' : ' is-failed'}`} key={page.id}>
+                      <img src={page.previewUrl} alt={`Document ${documentIndex + 1}, page ${pageIndex + 1}`} />
+                      <span>{pageIndex === 0 ? 'Page 1 · First page' : `Page ${pageIndex + 1}`}</span>
+                      {!page.quality.passed ? (
+                        <div className="mobile-doc-capture__quality-fail">
+                          {page.quality.failures.map((failure) => <small key={failure}>{qualityFailureText(failure)}</small>)}
+                          <button type="button" onClick={() => void retakePage(documentIndex, pageIndex)}>Retake</button>
+                        </div>
                       ) : null}
-                      {document.pages.length === 1 ? (
+                      {pageIndex > 0 ? (
                         <button
                           type="button"
-                          disabled={phase === 'UPLOADING'}
-                          onClick={() => setSplitTarget({ documentIndex, pageIndex: 0, direction: 'HORIZONTAL', percent: 50 })}
+                          className="mobile-doc-capture__page-boundary"
+                          onClick={() => setDocuments((current) => startNewDocumentAtPage(current, documentIndex, pageIndex))}
                         >
-                          Split page into 2 documents
+                          Start new document here
                         </button>
                       ) : null}
                     </div>
+                  ))}
+                </div>
+
+                <div className="mobile-doc-capture__document-actions">
+                  {documentIndex > 0 ? (
+                    <button type="button" onClick={() => setDocuments((current) => mergeWithPrevious(current, documentIndex))}>
+                      Merge with previous
+                    </button>
                   ) : null}
-                </article>
-              );
-            })}
+                  {document.pages.length === 1 ? (
+                    <button
+                      type="button"
+                      onClick={() => setSplitTarget({ documentIndex, pageIndex: 0, direction: 'HORIZONTAL', percent: 50 })}
+                    >
+                      Split page into 2 documents
+                    </button>
+                  ) : null}
+                </div>
+              </article>
+            ))}
           </div>
 
-          {phase === 'UPLOADING' ? (
-            <div className="mobile-doc-capture__upload-progress">
-              <strong>Uploading document {Math.max(1, uploadProgress.current)} of {Math.max(1, uploadProgress.total)}</strong>
-              <progress max={Math.max(1, uploadProgress.total)} value={uploadProgress.current} />
-            </div>
-          ) : (
-            <div className="mobile-doc-capture__footer-actions is-sticky">
-              <button type="button" className="mobile-doc-capture__secondary" onClick={() => void beginScanner()}>Scan more</button>
-              <button
-                type="button"
-                className="mobile-doc-capture__primary"
-                disabled={!pendingDocuments.length || invalidPageCount > 0}
-                onClick={() => void upload()}
-              >
-                {uploadedDocumentIds.size ? `Upload remaining ${pendingDocuments.length}` : `Upload ${documents.length} document${documents.length === 1 ? '' : 's'}`}
-              </button>
-            </div>
-          )}
-        </div>
-      ) : null}
-
-      {phase === 'DONE' ? (
-        <div className="mobile-doc-capture__state is-done">
-          <div className="mobile-doc-capture__done-mark" aria-hidden="true">✓</div>
-          <strong>Documents sent</strong>
-          <p>{message}</p>
-          <div className="mobile-doc-capture__footer-actions">
-            <button type="button" className="mobile-doc-capture__secondary" onClick={() => {
-              clearSession();
-              setPhase('IDLE');
-              void beginScanner();
-            }}>Scan more documents</button>
-            <button type="button" className="mobile-doc-capture__primary" onClick={() => {
-              clearSession();
-              setPhase('IDLE');
-              setOpen(false);
-            }}>Done</button>
+          <div className="mobile-doc-capture__footer-actions is-sticky">
+            <button type="button" className="mobile-doc-capture__secondary" onClick={() => void beginScanner(true)}>Scan more</button>
+            <button
+              type="button"
+              className="mobile-doc-capture__primary"
+              disabled={!documents.length || invalidPageCount > 0}
+              onClick={() => void packageAndHandoff()}
+            >
+              Upload {documents.length} document{documents.length === 1 ? '' : 's'}
+            </button>
           </div>
         </div>
       ) : null}

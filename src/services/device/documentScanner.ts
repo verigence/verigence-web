@@ -4,7 +4,7 @@ import {
   type GoogleDocumentScannerModuleInstallProgressEvent,
 } from '@capacitor-mlkit/document-scanner';
 import { Script, TextRecognition } from '@capacitor-mlkit/text-recognition';
-import { Capacitor } from '@capacitor/core';
+import { Capacitor, type PluginListenerHandle } from '@capacitor/core';
 
 export interface ScannerPreparationProgress {
   state: GoogleDocumentScannerModuleInstallState;
@@ -22,42 +22,50 @@ export async function ensureGoogleDocumentScanner(
   const availability = await DocumentScanner.isGoogleDocumentScannerModuleAvailable();
   if (availability.available) return;
 
-  await new Promise<void>(async (resolve, reject) => {
+  await new Promise<void>((resolve, reject) => {
     let settled = false;
     let timer: number | undefined;
+    let listener: PluginListenerHandle | undefined;
+
     const finish = (error?: Error) => {
       if (settled) return;
       settled = true;
       if (timer !== undefined) window.clearTimeout(timer);
-      void listener.remove();
+      void listener?.remove();
       if (error) reject(error);
       else resolve();
     };
 
-    const listener = await DocumentScanner.addListener(
-      'googleDocumentScannerModuleInstallProgress',
-      (event: GoogleDocumentScannerModuleInstallProgressEvent) => {
-        onProgress?.(event);
-        if (event.state === GoogleDocumentScannerModuleInstallState.COMPLETED) finish();
-        if (
-          event.state === GoogleDocumentScannerModuleInstallState.FAILED
-          || event.state === GoogleDocumentScannerModuleInstallState.CANCELED
-        ) finish(new Error('Google document scanner setup could not be completed.'));
-      },
-    );
+    void (async () => {
+      try {
+        listener = await DocumentScanner.addListener(
+          'googleDocumentScannerModuleInstallProgress',
+          (event: GoogleDocumentScannerModuleInstallProgressEvent) => {
+            onProgress?.(event);
+            if (event.state === GoogleDocumentScannerModuleInstallState.COMPLETED) finish();
+            if (
+              event.state === GoogleDocumentScannerModuleInstallState.FAILED
+              || event.state === GoogleDocumentScannerModuleInstallState.CANCELED
+            ) finish(new Error('Google document scanner setup could not be completed.'));
+          },
+        );
 
-    timer = window.setTimeout(() => finish(new Error('Google document scanner setup timed out.')), 90_000);
-    try {
-      await DocumentScanner.installGoogleDocumentScannerModule();
-      // Some devices complete between the availability check and listener
-      // delivery. Re-check once the install request itself was accepted.
-      const installed = await DocumentScanner.isGoogleDocumentScannerModuleAvailable();
-      if (installed.available) finish();
-    } catch (cause) {
-      const installed = await DocumentScanner.isGoogleDocumentScannerModuleAvailable().catch(() => ({ available: false }));
-      if (installed.available) finish();
-      else finish(cause instanceof Error ? cause : new Error('Google document scanner setup failed.'));
-    }
+        timer = window.setTimeout(() => finish(new Error('Google document scanner setup timed out.')), 90_000);
+        try {
+          await DocumentScanner.installGoogleDocumentScannerModule();
+          // Some devices complete between the availability check and listener
+          // delivery. Re-check once the install request itself was accepted.
+          const installed = await DocumentScanner.isGoogleDocumentScannerModuleAvailable();
+          if (installed.available) finish();
+        } catch (cause) {
+          const installed = await DocumentScanner.isGoogleDocumentScannerModuleAvailable().catch(() => ({ available: false }));
+          if (installed.available) finish();
+          else finish(cause instanceof Error ? cause : new Error('Google document scanner setup failed.'));
+        }
+      } catch (cause) {
+        finish(cause instanceof Error ? cause : new Error('Google document scanner setup failed.'));
+      }
+    })();
   });
 }
 

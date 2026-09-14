@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 
-import { ANDROID_BACK_EVENT } from '../../native/AndroidNativeBridge';
+import { ANDROID_BACK_EVENT } from '../../native/androidEvents';
 
 /**
  * Keep Android Back inside the capture surface while it is open. Native ML Kit

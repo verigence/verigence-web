@@ -112,9 +112,12 @@ export function scorePageContinuation(previousText: string, currentText: string)
       || previousMarker.total === currentMarker.total
     )
   ) {
-    score += 0.68;
+    const sameExplicitTotal = previousMarker.total !== undefined
+      && currentMarker.total !== undefined
+      && previousMarker.total === currentMarker.total;
+    score += sameExplicitTotal ? 0.82 : 0.66;
     strongContinuationEvidence = true;
-    reasons.push('sequential page numbering');
+    reasons.push(sameExplicitTotal ? 'sequential page numbering with matching total' : 'sequential page numbering');
   }
 
   if (hasSharedReference(previousText, currentText, STRONG_REFERENCE_KEYWORDS)) {

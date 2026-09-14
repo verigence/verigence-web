@@ -15,6 +15,7 @@ import {
 } from '../features/uc03/journey/deriveJourneyLine';
 import { resyncBookingCaptureV2 } from '../services/audit-core/uc03DocumentCaptureV2';
 import { resyncDeliveryCaptureV2 } from '../services/audit-core/uc03DeliveryCaptureV2';
+import { getReviewDocumentContentV2 } from '../services/audit-core/uc03DocumentReviewV2';
 import { runAllApplicableRules, type Uc03RunAllRulesRuleResult } from '../services/audit-core/uc03Audit';
 import {
   getUc03JourneyOverview,
@@ -553,9 +554,15 @@ function documentExtractionCounts(
 // once, regardless of which (if any) document was open -- selecting one
 // document here now actually scopes what's shown to that document. ───────
 function DocumentSelector({
+  tenantId,
+  journeyId,
+  accessToken,
   documents,
   reviewedFields,
 }: {
+  tenantId: string;
+  journeyId: string;
+  accessToken?: string;
   documents: Array<Record<string, unknown>>;
   reviewedFields: JourneyReviewedField[];
 }) {
@@ -571,12 +578,40 @@ function DocumentSelector({
   const label = readable(selected.documentTypeKey || selected.requirementKey || selected.originalFilename);
   const stage = readable(selected.processArea || selected.evidencePurpose);
   const status = String(selected.reviewStatus || selected.verificationStatus || selected.processingStatus || 'UNKNOWN');
-  const viewUrl = selected.contentUrl ? String(selected.contentUrl) : null;
 
   // Only this document's own extracted values -- not the whole journey's.
   const fields = reviewedFields
     .filter((field) => field.documentId === selectedKey)
     .sort((a, b) => a.semanticKey.localeCompare(b.semanticKey));
+
+  // Reuses the same document-content endpoint the Booking/Delivery Review
+  // screens already use (uc03_document_review_v2.py's own
+  // /review/documents/{id}/content) -- generic to any document linked to
+  // the Journey, not gated on review state. Fetched lazily, only for
+  // whichever document is currently selected here, not eagerly for all of
+  // them: the Journey Overview read this page already makes is the
+  // slowest single call on it as it is.
+  const contentQuery = useQuery({
+    queryKey: ['uc03-journey-document-content', tenantId, journeyId, selectedKey],
+    queryFn: () => getReviewDocumentContentV2(tenantId, journeyId, selectedKey, accessToken),
+    enabled: Boolean(tenantId && journeyId && selectedKey),
+    staleTime: 5 * 60 * 1000,
+  });
+  const [objectUrl, setObjectUrl] = useState<string>();
+  useEffect(() => {
+    if (!contentQuery.data?.blob) {
+      setObjectUrl(undefined);
+      return undefined;
+    }
+    const next = URL.createObjectURL(contentQuery.data.blob);
+    setObjectUrl(next);
+    return () => URL.revokeObjectURL(next);
+  }, [contentQuery.data?.blob]);
+
+  const contentType = contentQuery.data?.contentType || '';
+  const filename = String(selected.originalFilename || '').toLowerCase();
+  const isPdf = contentType.includes('pdf') || filename.endsWith('.pdf');
+  const isImage = contentType.startsWith('image/') || /\.(png|jpe?g|webp|gif|bmp)$/i.test(filename);
 
   return (
     <div className="journey-360-doc-picker">
@@ -597,36 +632,47 @@ function DocumentSelector({
         })}
       </select>
 
-      <div className="journey-360-doc-detail">
-        <div className="journey-360-facts journey-360-facts--single">
-          <Fact label="Document Type">{label}</Fact>
-          <Fact label="Stage">{stage}</Fact>
-          <Fact label="Status"><StatusPill value={status} /></Fact>
-          {Boolean(selected.originalFilename) && <Fact label="File">{String(selected.originalFilename)}</Fact>}
-          {Boolean(selected.requirementKey) && <Fact label="Requirement">{readable(selected.requirementKey)}</Fact>}
-          {Boolean(selected.captureStatus) && <Fact label="Capture Status">{readable(selected.captureStatus)}</Fact>}
-          {Boolean(selected.linkedAtUtc) && <Fact label="Linked">{dateLabel(selected.linkedAtUtc)}</Fact>}
-        </div>
-        {viewUrl && (
-          <div className="journey-360-doc-view-row">
-            <a href={viewUrl} target="_blank" rel="noopener noreferrer" className="journey-360-doc-view-btn">
-              View document ↗
+      <div className="journey-360-doc-detail journey-360-doc-detail--boxed">
+        <div className="journey-360-doc-preview">
+          {contentQuery.isPending && <div className="journey-360-doc-preview__message">Loading document…</div>}
+          {contentQuery.isError && <div className="journey-360-doc-preview__message is-error">The document could not be loaded. Try again.</div>}
+          {objectUrl && isImage && <img className="journey-360-doc-preview__image" src={objectUrl} alt={String(selected.originalFilename || label)} />}
+          {objectUrl && isPdf && (
+            <iframe className="journey-360-doc-preview__pdf" src={objectUrl} title={String(selected.originalFilename || label)} />
+          )}
+          {objectUrl && !isImage && !isPdf && (
+            <div className="journey-360-doc-preview__message">A preview isn't available for this file type.</div>
+          )}
+          {objectUrl && (
+            <a href={objectUrl} target="_blank" rel="noopener noreferrer" className="journey-360-doc-view-btn">
+              Open in new tab ↗
             </a>
+          )}
+        </div>
+
+        <div className="journey-360-doc-facts">
+          <div className="journey-360-facts journey-360-facts--single">
+            <Fact label="Document Type">{label}</Fact>
+            <Fact label="Stage">{stage}</Fact>
+            <Fact label="Status"><StatusPill value={status} /></Fact>
+            {Boolean(selected.originalFilename) && <Fact label="File">{String(selected.originalFilename)}</Fact>}
+            {Boolean(selected.requirementKey) && <Fact label="Requirement">{readable(selected.requirementKey)}</Fact>}
+            {Boolean(selected.captureStatus) && <Fact label="Capture Status">{readable(selected.captureStatus)}</Fact>}
+            {Boolean(selected.linkedAtUtc) && <Fact label="Linked">{dateLabel(selected.linkedAtUtc)}</Fact>}
           </div>
-        )}
-        {fields.length > 0 ? (
-          <div className="journey-360-table-wrap">
-            <table className="journey-360-table">
-              <thead>
-                <tr><th>Attribute</th><th>Extracted value</th><th>Confidence</th></tr>
-              </thead>
-              <tbody>
-                {fields.map((field) => (
-                  <tr key={field.reviewedFieldId}>
-                    <td><strong>{readable(field.semanticKey)}</strong></td>
-                    <td>{formatFieldValue(field.displayValue)}</td>
-                    <td>
-                      {field.confidenceScore !== null && field.confidenceScore !== undefined
+          {fields.length > 0 ? (
+            <div className="journey-360-table-wrap">
+              <table className="journey-360-table">
+                <thead>
+                  <tr><th>Attribute</th><th>Extracted value</th><th>Confidence</th></tr>
+                </thead>
+                <tbody>
+                  {fields.map((field) => (
+                    <tr key={field.reviewedFieldId}>
+                      <td><strong>{readable(field.semanticKey)}</strong></td>
+                      <td>{formatFieldValue(field.displayValue)}</td>
+                      <td>
+                        {field.confidenceScore !== null && field.confidenceScore !== undefined
                         ? `${field.confidenceScore}${field.confidenceScale ? ` ${field.confidenceScale}` : ''}`
                         : '—'}
                     </td>
@@ -638,6 +684,7 @@ function DocumentSelector({
         ) : (
           <p className="jline__empty">No extracted values retained for this document.</p>
         )}
+        </div>
       </div>
     </div>
   );
@@ -1532,6 +1579,9 @@ function FocusPanel({
   pendingReceipts,
   reviewedBooking,
   onSelectAspect,
+  tenantId,
+  journeyId,
+  accessToken,
 }: {
   aspect: AspectKey;
   model: JourneyOverview;
@@ -1539,6 +1589,9 @@ function FocusPanel({
   pendingReceipts: Array<Record<string, unknown>>;
   reviewedBooking: Record<string, unknown> | null;
   onSelectAspect: (key: AspectKey) => void;
+  tenantId: string;
+  journeyId: string;
+  accessToken?: string;
 }) {
   const modelNotIdentified =
     (model.findings || []).find(
@@ -1570,7 +1623,13 @@ function FocusPanel({
       body = (
         <>
           <PanelHead title="Documents" hint="Pick a document to open the file and see only its own extracted values." />
-          <DocumentSelector documents={model.evidence} reviewedFields={model.reviewedFields || []} />
+          <DocumentSelector
+            tenantId={tenantId}
+            journeyId={journeyId}
+            accessToken={accessToken}
+            documents={model.evidence}
+            reviewedFields={model.reviewedFields || []}
+          />
         </>
       );
       break;
@@ -1974,6 +2033,9 @@ export default function Journey360Page() {
           pendingReceipts={pendingReceiptRows}
           reviewedBooking={reviewedBooking}
           onSelectAspect={setAspect}
+          tenantId={tenantId}
+          journeyId={journeyId}
+          accessToken={accessToken}
         />
       </div>
     </div>

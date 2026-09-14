@@ -13,6 +13,7 @@ import {
   deleteBookingCaptureV2Document,
   getBookingCaptureV2,
   resyncBookingCaptureV2,
+  seedCaptureReadState,
   type CaptureV2Document,
   type CaptureV2Requirement,
 } from '../services/audit-core/uc03DocumentCaptureV2';
@@ -137,6 +138,17 @@ export default function BookingCaptureV2CompactPage() {
           ['uc03-booking-workspace', project.tenantId, result.journeyId],
           newBookingWorkspace(result.journeyId, result.businessStatus, result.aggregateVersion),
         );
+        // createBooking's own response already carries the checklist/counters
+        // snapshot a brand-new Booking would otherwise need a second, separate
+        // capture round trip to paint -- seed both the capture query's cache
+        // and getBookingCaptureV2's own module-level read cache with it so
+        // that first fetch never happens (reported live as a visible lag on
+        // the counters right after "Capture New Booking").
+        queryClient.setQueryData(
+          ['uc03-document-capture-v2', project.tenantId, result.journeyId],
+          result.booking,
+        );
+        seedCaptureReadState(project.tenantId, result.journeyId, result.booking);
         window.history.replaceState(null, '', `/v2/bookings/${result.journeyId}`);
         setCreatedJourneyId(result.journeyId);
       })

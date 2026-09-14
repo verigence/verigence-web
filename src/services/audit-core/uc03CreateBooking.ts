@@ -1,4 +1,5 @@
 import { auditCoreRequest } from './client';
+import type { BookingCaptureV2 } from './uc03DocumentCaptureV2';
 import { newIdempotencyKey } from './uc03Booking';
 
 export interface CreateBookingResult {
@@ -8,6 +9,12 @@ export interface CreateBookingResult {
   outletId: string;
   businessStatus: string;
   aggregateVersion: number;
+  // The checklist/counters snapshot a brand-new Booking would otherwise need
+  // a second, separate GET /booking/capture round trip to paint -- folded in
+  // here since a fresh Booking has no documents yet and this is cheap to
+  // compute server-side. Callers should seed their capture query/read-state
+  // cache from this instead of letting the first capture fetch re-derive it.
+  booking: BookingCaptureV2;
 }
 
 function token(accessToken?: string): string {

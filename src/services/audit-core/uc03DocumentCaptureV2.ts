@@ -119,6 +119,18 @@ function markLocal(capture: BookingCaptureV2): BookingCaptureV2 {
   return { ...capture, externalContextRef: `${LOCAL_FALLBACK_PREFIX}${capture.externalContextRef}` };
 }
 
+// Exported so a caller that already has a fresh, real BookingCaptureV2
+// snapshot in hand (namely createBooking's own folded-in `booking` field --
+// see uc03CreateBooking.ts) can warm this module's read cache with it
+// instead of leaving the first getBookingCaptureV2 call to redundantly
+// re-fetch the exact same, already-known snapshot over the network.
+export function seedCaptureReadState(tenantId: string, journeyId: string, capture: BookingCaptureV2): void {
+  captureReadState.set(readKey(tenantId, journeyId), {
+    snapshot: capture,
+    lastLiveStartedAt: 0,
+  });
+}
+
 // Exported (as invalidateBookingCaptureReadState) so the unified upload path
 // (uc03UnifiedDocumentCapture.ts), which does not otherwise touch this
 // module at all, can still clear this in-process read cache after a unified

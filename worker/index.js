@@ -17,8 +17,6 @@ function buildSecurityTarget(rawUpstream, incomingUrl) {
   const upstreamPath = upstream.pathname.replace(/\/+$/, '');
   const incomingPath = incoming.pathname;
 
-  // Be tolerant of an existing SECURITY_URL secret that already includes /security
-  // or /security/v1. Do not duplicate that prefix when proxying the browser request.
   const targetPath = upstreamPath && incomingPath.startsWith(`${upstreamPath}/`)
     ? incomingPath
     : `${upstreamPath}${incomingPath}`;
@@ -148,14 +146,11 @@ function sanitizedUpstreamRequest(target, request, correlationId) {
   const upstreamRequest = new Request(target, request);
   const headers = new Headers(upstreamRequest.headers);
 
-  // This is a server-side hop. Do not forward browser-origin routing headers.
   headers.delete('host');
   headers.delete('origin');
   headers.delete('referer');
   headers.set(CORRELATION_HEADER, correlationId);
 
-  // Security's trusted ingress contract reads X-Real-IP. Cloudflare gives the Worker the actual
-  // client address as CF-Connecting-IP, so map it server-side instead of trusting a browser value.
   const connectingIp = request.headers.get('CF-Connecting-IP')?.trim();
   if (connectingIp) headers.set('X-Real-IP', connectingIp);
 
@@ -180,27 +175,13 @@ async function warmRuntime(env, correlationId) {
   const headers = { [CORRELATION_HEADER]: correlationId };
 
   if (String(env.SECURITY_UPSTREAM || '').trim()) {
-    requests.push(fetch(buildWarmupTarget(env.SECURITY_UPSTREAM, '/health/ready'), {
-      method: 'GET',
-      headers,
-      cache: 'no-store',
-    }));
+    requests.push(fetch(buildWarmupTarget(env.SECURITY_UPSTREAM, '/health/ready'), { method: 'GET', headers, cache: 'no-store' }));
   }
-
   if (String(env.AUDIT_CORE_UPSTREAM || '').trim()) {
-    requests.push(fetch(buildWarmupTarget(env.AUDIT_CORE_UPSTREAM, '/health'), {
-      method: 'GET',
-      headers,
-      cache: 'no-store',
-    }));
+    requests.push(fetch(buildWarmupTarget(env.AUDIT_CORE_UPSTREAM, '/health'), { method: 'GET', headers, cache: 'no-store' }));
   }
-
   if (String(env.ANALYTICS_UPSTREAM || '').trim()) {
-    requests.push(fetch(buildWarmupTarget(env.ANALYTICS_UPSTREAM, '/health'), {
-      method: 'GET',
-      headers,
-      cache: 'no-store',
-    }));
+    requests.push(fetch(buildWarmupTarget(env.ANALYTICS_UPSTREAM, '/health'), { method: 'GET', headers, cache: 'no-store' }));
   }
 
   await Promise.allSettled(requests);
@@ -213,41 +194,18 @@ export default {
 
     if (url.pathname === '/runtime-warmup' && request.method === 'GET') {
       await warmRuntime(env, correlationId);
-      return new Response(null, {
-        status: 204,
-        headers: {
-          'Cache-Control': 'no-store',
-          [CORRELATION_HEADER]: correlationId,
-        },
-      });
+      return new Response(null, { status: 204, headers: { 'Cache-Control': 'no-store', [CORRELATION_HEADER]: correlationId } });
     }
 
     if (url.pathname.startsWith('/security/')) {
-      if (request.method === 'OPTIONS') {
-        return preflightResponse(request);
-      }
-
+      if (request.method === 'OPTIONS') return preflightResponse(request);
       if (!String(env.SECURITY_UPSTREAM || '').trim()) {
         logProxyFailure('security', request, correlationId, 'SECURITY_UPSTREAM_UNAVAILABLE');
         return proxyError(request, 'security', 'SECURITY_UPSTREAM_UNAVAILABLE', 'Verigence Security is not configured', 503, correlationId);
       }
-
       try {
         const target = buildSecurityTarget(env.SECURITY_UPSTREAM, request.url);
-        const proxyStart = performance.now();
         const response = await fetch(sanitizedUpstreamRequest(target, request, correlationId));
-        if (String(env.LOG_PROXY_SUCCESS || '').toLowerCase() === 'true') {
-          console.log(JSON.stringify({
-            event_name: 'web_proxy_success',
-            service_name: 'verigence-web',
-            proxy: 'security',
-            correlation_id: correlationId,
-            http_method: request.method,
-            http_route: new URL(request.url).pathname,
-            upstream_status: response.status,
-            duration_ms: Math.round(performance.now() - proxyStart),
-          }));
-        }
         return proxyResponse(response, request, 'security', correlationId);
       } catch (error) {
         logProxyFailure('security', request, correlationId, 'SECURITY_UPSTREAM_UNAVAILABLE', error);
@@ -256,27 +214,14 @@ export default {
     }
 
     if (url.pathname === '/audit-core' || url.pathname.startsWith('/audit-core/')) {
+      if (request.method === 'OPTIONS') return preflightResponse(request);
       if (!String(env.AUDIT_CORE_UPSTREAM || '').trim()) {
         logProxyFailure('audit-core', request, correlationId, 'AUDIT_CORE_UPSTREAM_UNAVAILABLE');
         return proxyError(request, 'audit-core', 'AUDIT_CORE_UPSTREAM_UNAVAILABLE', 'Verigence Audit Core is not configured', 503, correlationId);
       }
-
       try {
         const target = buildAuditCoreTarget(env.AUDIT_CORE_UPSTREAM, request.url);
-        const proxyStart = performance.now();
         const response = await fetch(sanitizedUpstreamRequest(target, request, correlationId));
-        if (String(env.LOG_PROXY_SUCCESS || '').toLowerCase() === 'true') {
-          console.log(JSON.stringify({
-            event_name: 'web_proxy_success',
-            service_name: 'verigence-web',
-            proxy: 'audit-core',
-            correlation_id: correlationId,
-            http_method: request.method,
-            http_route: new URL(request.url).pathname,
-            upstream_status: response.status,
-            duration_ms: Math.round(performance.now() - proxyStart),
-          }));
-        }
         return proxyResponse(response, request, 'audit-core', correlationId);
       } catch (error) {
         logProxyFailure('audit-core', request, correlationId, 'AUDIT_CORE_UPSTREAM_UNAVAILABLE', error);
@@ -285,63 +230,24 @@ export default {
     }
 
     if (url.pathname === '/analytics-api' || url.pathname.startsWith('/analytics-api/')) {
-      if (request.method === 'OPTIONS') {
-        return preflightResponse(request);
-      }
-
-      if (!String(env.ANALYTICS_UPSTREAM || '').trim()) {
-        logProxyFailure('analytics', request, correlationId, 'ANALYTICS_UPSTREAM_UNAVAILABLE');
-        return proxyError(request, 'analytics', 'ANALYTICS_UPSTREAM_UNAVAILABLE', 'Verigence Analytics is not configured', 503, correlationId);
-      }
-
+      if (request.method === 'OPTIONS') return preflightResponse(request);
+      if (!String(env.ANALYTICS_UPSTREAM || '').trim()) return proxyError(request, 'analytics', 'ANALYTICS_UPSTREAM_UNAVAILABLE', 'Verigence Analytics is not configured', 503, correlationId);
       try {
         const target = buildAnalyticsTarget(env.ANALYTICS_UPSTREAM, request.url);
-        const proxyStart = performance.now();
         const response = await fetch(sanitizedUpstreamRequest(target, request, correlationId));
-        if (String(env.LOG_PROXY_SUCCESS || '').toLowerCase() === 'true') {
-          console.log(JSON.stringify({
-            event_name: 'web_proxy_success',
-            service_name: 'verigence-web',
-            proxy: 'analytics',
-            correlation_id: correlationId,
-            http_method: request.method,
-            http_route: new URL(request.url).pathname,
-            upstream_status: response.status,
-            duration_ms: Math.round(performance.now() - proxyStart),
-          }));
-        }
         return proxyResponse(response, request, 'analytics', correlationId);
       } catch (error) {
-        logProxyFailure('analytics', request, correlationId, 'ANALYTICS_UPSTREAM_UNAVAILABLE', error);
         return proxyError(request, 'analytics', 'ANALYTICS_UPSTREAM_UNAVAILABLE', 'Verigence Analytics could not be reached', 502, correlationId);
       }
     }
 
     if (url.pathname === '/di' || url.pathname.startsWith('/di/')) {
-      if (!String(env.DI_UPSTREAM || '').trim()) {
-        logProxyFailure('di', request, correlationId, 'DI_UPSTREAM_UNAVAILABLE');
-        return proxyError(request, 'di', 'DI_UPSTREAM_UNAVAILABLE', 'Verigence Document Intelligence is not configured', 503, correlationId);
-      }
-
+      if (!String(env.DI_UPSTREAM || '').trim()) return proxyError(request, 'di', 'DI_UPSTREAM_UNAVAILABLE', 'Verigence Document Intelligence is not configured', 503, correlationId);
       try {
         const target = buildDiTarget(env.DI_UPSTREAM, request.url);
-        const proxyStart = performance.now();
         const response = await fetch(sanitizedUpstreamRequest(target, request, correlationId));
-        if (String(env.LOG_PROXY_SUCCESS || '').toLowerCase() === 'true') {
-          console.log(JSON.stringify({
-            event_name: 'web_proxy_success',
-            service_name: 'verigence-web',
-            proxy: 'di',
-            correlation_id: correlationId,
-            http_method: request.method,
-            http_route: new URL(request.url).pathname,
-            upstream_status: response.status,
-            duration_ms: Math.round(performance.now() - proxyStart),
-          }));
-        }
         return proxyResponse(response, request, 'di', correlationId);
       } catch (error) {
-        logProxyFailure('di', request, correlationId, 'DI_UPSTREAM_UNAVAILABLE', error);
         return proxyError(request, 'di', 'DI_UPSTREAM_UNAVAILABLE', 'Verigence Document Intelligence could not be reached', 502, correlationId);
       }
     }

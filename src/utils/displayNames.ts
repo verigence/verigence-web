@@ -1,4 +1,5 @@
 const VALUE_LABELS: Record<string, string> = {
+  BOOKING_COMPLETE: 'Booking Complete',
   DI: 'Document Intelligence',
   HUMAN: 'User Entered',
   MACHINE: 'System Extracted',

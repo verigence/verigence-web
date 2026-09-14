@@ -359,7 +359,13 @@ function ReceiptAccordion({
 }) {
   const [openId, setOpenId] = useState<string | null>(null);
 
+  // A duplicate receipt (same physical receipt uploaded more than once --
+  // see the DUPLICATE_RECEIPT audit finding) must never be counted twice
+  // toward what the customer paid. The server already tells us which of
+  // each duplicate pair/group is the excess one (isDuplicate) -- exclude
+  // it from the total here rather than re-deriving the match client-side.
   const total = receipts.reduce((s, r) => {
+    if (pick(r, 'isDuplicate') === true) return s;
     const a = Number(pick(r, 'amount', 'amount_paid', 'amountPaid') ?? 0);
     return s + (Number.isNaN(a) ? 0 : a);
   }, 0);
@@ -414,9 +420,10 @@ function ReceiptAccordion({
           const paymentRefDate    = dateLabel(pick(r, 'paymentReferenceDate', 'payment_reference_date'));
           const customerOnReceipt = pickStr(r, 'customerName', 'customer_name');
           const reviewStatus      = pickStr(r, 'reviewStatus', 'review_status', 'verificationStatus', 'verification_status') || 'VERIFIED';
+          const isDuplicate       = pick(r, 'isDuplicate') === true;
 
           return (
-            <div key={id} className={`rcpt-row${isOpen ? ' rcpt-row--open' : ''}`}>
+            <div key={id} className={`rcpt-row${isOpen ? ' rcpt-row--open' : ''}${isDuplicate ? ' rcpt-row--duplicate' : ''}`}>
               <button
                 type="button"
                 className="rcpt-trigger"
@@ -438,13 +445,20 @@ function ReceiptAccordion({
                 </div>
                 <div className="rcpt-trigger__right">
                   <strong className="rcpt-trigger__amount">{amountStr}</strong>
-                  <StatusPill value={reviewStatus} compact />
+                  {isDuplicate ? <span className="rcpt-duplicate-pill">Duplicate — excluded</span> : <StatusPill value={reviewStatus} compact />}
                 </div>
                 <span className="rcpt-trigger__chevron" aria-hidden="true">{isOpen ? '▲' : '▼'}</span>
               </button>
 
               {isOpen && (
                 <div className="rcpt-detail">
+                  {isDuplicate && (
+                    <div className="rcpt-duplicate-note" role="alert">
+                      This looks like the same receipt as another one above (same receipt number and amount) and
+                      has been excluded from Total collected. A TL must confirm or reject this in Findings before
+                      it counts toward payment again.
+                    </div>
+                  )}
                   <div className="journey-360-facts">
                     <Fact label="Receipt Number">{receiptNo}</Fact>
                     <Fact label="Receipt Date">{receiptDate}</Fact>
@@ -1169,7 +1183,14 @@ function PaymentsPanel({
 }) {
   const matched = receipts.filter((r) => String((objectValue(r, 'bankMatch') || {}).status).toUpperCase() === 'MATCHED').length;
   const unmatched = receipts.filter((r) => String((objectValue(r, 'bankMatch') || {}).status).toUpperCase() === 'UNMATCHED').length;
+  const duplicateCount = receipts.filter((r) => pick(r, 'isDuplicate') === true).length;
+  // A duplicate receipt (same physical receipt uploaded more than once --
+  // see the DUPLICATE_RECEIPT audit finding) must never be counted twice
+  // toward what the customer paid. The server already tells us which of
+  // each duplicate group is the excess one (isDuplicate) -- exclude it
+  // here rather than re-deriving the match client-side.
   const total = receipts.reduce((s, r) => {
+    if (pick(r, 'isDuplicate') === true) return s;
     const a = Number(pick(r, 'amount', 'amount_paid', 'amountPaid') ?? 0);
     return s + (Number.isNaN(a) ? 0 : a);
   }, 0);
@@ -1214,7 +1235,7 @@ function PaymentsPanel({
       </SubSection>
       <SubSection
         title="Payments / Receipts"
-        hint={receipts.length > 0 ? `${money(total)} across ${receipts.length} receipt${receipts.length !== 1 ? 's' : ''} · ${matched} bank-matched · ${unmatched} unmatched` : undefined}
+        hint={receipts.length > 0 ? `${money(total)} verified across ${receipts.length} receipt${receipts.length !== 1 ? 's' : ''} · ${matched} bank-matched · ${unmatched} unmatched${duplicateCount > 0 ? ` · ${duplicateCount} duplicate${duplicateCount === 1 ? '' : 's'} excluded` : ''}` : undefined}
       >
         {noReceiptsAtAll ? (
           reviewedBooking && Object.keys(reviewedBooking).length > 0 ? (
@@ -1238,17 +1259,20 @@ function PaymentsPanel({
                   <tbody>
                     {receipts.map((r, idx) => {
                       const matchStatus = String((objectValue(r, 'bankMatch') || {}).status || '').toUpperCase();
-                      const needsAttention = matchStatus === 'UNMATCHED' || matchStatus === 'AMBIGUOUS';
+                      const isDuplicate = pick(r, 'isDuplicate') === true;
+                      const needsAttention = !isDuplicate && (matchStatus === 'UNMATCHED' || matchStatus === 'AMBIGUOUS');
                       return (
                         <tr
                           key={String(pick(r, 'documentId', 'evidenceId') ?? idx)}
-                          className={needsAttention ? 'jline__row--attention' : undefined}
+                          className={needsAttention ? 'jline__row--attention' : isDuplicate ? 'jline__row--duplicate' : undefined}
                         >
                           <td>{pickStr(r, 'receiptNumber', 'receipt_number') || '—'}</td>
                           <td>{dateLabel(pick(r, 'receiptDate', 'receipt_date'))}</td>
                           <td>{readable(pick(r, 'paymentMode', 'payment_mode', 'paymentMethodCode', 'payment_method_code'))}</td>
-                          <td>{money(pick(r, 'amount', 'amount_paid'), String(pick(r, 'currencyCode', 'currency_code') || 'INR'))}</td>
-                          <td>{bankMatchPill(objectValue(r, 'bankMatch')) ?? '—'}</td>
+                          <td className={isDuplicate ? 'jline__amount--excluded' : undefined}>
+                            {money(pick(r, 'amount', 'amount_paid'), String(pick(r, 'currencyCode', 'currency_code') || 'INR'))}
+                          </td>
+                          <td>{isDuplicate ? <span className="rcpt-duplicate-pill">Duplicate — excluded</span> : (bankMatchPill(objectValue(r, 'bankMatch')) ?? '—')}</td>
                         </tr>
                       );
                     })}

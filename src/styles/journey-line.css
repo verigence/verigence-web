@@ -257,6 +257,14 @@
 .jline__row--attention { background: var(--jl-bad-bg); }
 .jline__row--attention td { border-bottom-color: var(--jl-line); }
 
+/* A duplicate receipt (same physical receipt uploaded more than once) --
+   its amount is excluded from Total collected until a TL confirms or
+   rejects it, so its row and its own amount cell both read as "not
+   counted", distinct from an attention row that is merely unmatched. */
+.jline__row--duplicate { background: var(--jl-bad-bg); }
+.jline__row--duplicate td { border-bottom-color: var(--jl-line); }
+.jline__amount--excluded { text-decoration: line-through; color: #b23c22; opacity: 0.85; }
+
 .jline__facts {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));

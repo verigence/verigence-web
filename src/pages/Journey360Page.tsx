@@ -526,6 +526,27 @@ function documentId(doc: Record<string, unknown>, idx: number): string {
   return String(doc.documentId || doc.evidenceId || idx);
 }
 
+// All three counts come straight out of the same `evidence`/`reviewedFields`
+// arrays the page already fetches in its one overview call -- no extra
+// request, no extra render weight beyond a single pass over data already
+// in memory. "Classified" mirrors the Capture screens' own definition (a
+// real document type was assigned); "Extracted" means at least one field
+// was actually pulled from that specific document, keyed the same way
+// DocumentSelector already matches a document to its own reviewed fields.
+function documentExtractionCounts(
+  documents: Array<Record<string, unknown>>,
+  reviewedFields: JourneyReviewedField[],
+): { uploaded: number; classified: number; extracted: number } {
+  const extractedIds = new Set(reviewedFields.map((field) => field.documentId));
+  let classified = 0;
+  let extracted = 0;
+  documents.forEach((doc, idx) => {
+    if (doc.documentTypeKey) classified += 1;
+    if (extractedIds.has(documentId(doc, idx))) extracted += 1;
+  });
+  return { uploaded: documents.length, classified, extracted };
+}
+
 // ── Document dropdown: pick one document, see its own file + its own
 // extracted values only. Replaces a prior design that rendered every
 // document's every reviewed field, in every business category, all at
@@ -645,6 +666,35 @@ function HealthStrip({
           Go to Flags →
         </button>
       )}
+    </div>
+  );
+}
+
+function DocumentProgressStrip({
+  uploaded,
+  classified,
+  extracted,
+}: {
+  uploaded: number;
+  classified: number;
+  extracted: number;
+}) {
+  if (uploaded === 0) return null;
+  const done = extracted === uploaded;
+  return (
+    <div className="jline__docProgress" role="status">
+      <div className="jline__docStat">
+        <span>Uploaded</span>
+        <strong>{uploaded}</strong>
+      </div>
+      <div className="jline__docStat">
+        <span>Classified</span>
+        <strong>{classified}</strong>
+      </div>
+      <div className={`jline__docStat ${done ? 'jline__docStat--done' : ''}`}>
+        <span>Extracted</span>
+        <strong>{extracted}</strong>
+      </div>
     </div>
   );
 }
@@ -1811,6 +1861,10 @@ export default function Journey360Page() {
   const steps = useMemo(() => (model ? deriveSteps(model).steps : []), [model]);
   const aspects = useMemo(() => (model ? deriveAspects(model) : []), [model]);
   const openCount = useMemo(() => (model ? openFindings(model).length : 0), [model]);
+  const documentCounts = useMemo(
+    () => documentExtractionCounts(model?.evidence || [], model?.reviewedFields || []),
+    [model?.evidence, model?.reviewedFields],
+  );
   const needCount = useMemo(
     () => (model ? openFindings(model).filter((f) => ['DATA_GAP', 'DOCUMENT_GAP'].includes(String(f.findingClass || ''))).length : 0),
     [model],
@@ -1886,6 +1940,7 @@ export default function Journey360Page() {
       />
 
       <div className="jline">
+        <DocumentProgressStrip {...documentCounts} />
         <HealthStrip needCount={needCount} totalOpen={openCount} onJump={() => setAspect('flags')} />
         <JourneyLine steps={steps} />
         <AspectChips aspects={aspects} active={activeAspect} onSelect={setAspect} />

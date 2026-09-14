@@ -90,6 +90,33 @@ describe('Audit Core Capacitor CORS', () => {
     expect(response.headers.get('Access-Control-Allow-Headers')).toContain('X-Correlation-ID');
   });
 
+  it('allows the command headers used by native Booking create and start/update requests', async () => {
+    const request = new Request(
+      'https://verigence-web-dev.example/audit-core/v1/tenants/t1/uc03/bookings',
+      {
+        method: 'OPTIONS',
+        headers: {
+          Origin: 'https://localhost',
+          'Access-Control-Request-Method': 'POST',
+          'Access-Control-Request-Headers': 'authorization,content-type,idempotency-key,if-match,x-correlation-id',
+          'X-Correlation-ID': 'native-booking-command-preflight',
+        },
+      },
+    );
+
+    const response = await worker.fetch(request, {});
+    const allowed = response.headers.get('Access-Control-Allow-Headers') || '';
+
+    expect(response.status).toBe(204);
+    expect(response.headers.get('Access-Control-Allow-Origin')).toBe('https://localhost');
+    expect(response.headers.get('Access-Control-Allow-Methods')).toContain('POST');
+    expect(allowed).toContain('Idempotency-Key');
+    expect(allowed).toContain('If-Match');
+    expect(allowed).toContain('Authorization');
+    expect(allowed).toContain('Content-Type');
+    expect(allowed).toContain('X-Correlation-ID');
+  });
+
   it('rejects an unapproved origin', async () => {
     const request = new Request(
       'https://verigence-web-dev.example/audit-core/v1/me/projects',

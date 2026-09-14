@@ -1,5 +1,6 @@
 // worker/__tests__/index.test.js
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect } from 'vitest';
+import worker from '../index.js';
 
 // ── helpers extracted for unit testing (duplicate key logic here) ─────────
 const CORRELATION_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/;
@@ -64,9 +65,53 @@ describe('buildAuditCoreTarget', () => {
   });
 });
 
+describe('Audit Core Capacitor CORS', () => {
+  it('answers native workspace preflight at the Worker without calling upstream', async () => {
+    const request = new Request(
+      'https://verigence-web-dev.example/audit-core/v1/me/projects',
+      {
+        method: 'OPTIONS',
+        headers: {
+          Origin: 'https://localhost',
+          'Access-Control-Request-Method': 'GET',
+          'Access-Control-Request-Headers': 'authorization,x-correlation-id',
+          'X-Correlation-ID': 'native-preflight-test',
+        },
+      },
+    );
+
+    const response = await worker.fetch(request, {});
+
+    expect(response.status).toBe(204);
+    expect(response.headers.get('Access-Control-Allow-Origin')).toBe('https://localhost');
+    expect(response.headers.get('Access-Control-Allow-Credentials')).toBe('true');
+    expect(response.headers.get('Access-Control-Allow-Methods')).toContain('GET');
+    expect(response.headers.get('Access-Control-Allow-Headers')).toContain('Authorization');
+    expect(response.headers.get('Access-Control-Allow-Headers')).toContain('X-Correlation-ID');
+  });
+
+  it('rejects an unapproved origin', async () => {
+    const request = new Request(
+      'https://verigence-web-dev.example/audit-core/v1/me/projects',
+      {
+        method: 'OPTIONS',
+        headers: {
+          Origin: 'https://evil.example',
+          'Access-Control-Request-Method': 'GET',
+          'Access-Control-Request-Headers': 'authorization',
+          'X-Correlation-ID': 'native-preflight-reject-test',
+        },
+      },
+    );
+
+    const response = await worker.fetch(request, {});
+    expect(response.status).toBe(403);
+  });
+});
+
 describe('CORRELATION_PATTERN', () => {
-  it('accepts UUID-style IDs', () => {
-    expect(CORRELATION_PATTERN.test('550e8400-e29b-41d4-a716-446655440000')).toBe(false); // hyphens not in set
+  it('accepts UUID-style IDs and compact IDs', () => {
+    expect(CORRELATION_PATTERN.test('550e8400-e29b-41d4-a716-446655440000')).toBe(true);
     expect(CORRELATION_PATTERN.test('550e8400e29b41d4a716446655440000')).toBe(true);
   });
 

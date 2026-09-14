@@ -3,12 +3,20 @@ import type { CapturedPage, ContinuationDecision, LogicalCapturedDocument } from
 const HIGH_CONTINUATION_SCORE = 0.75;
 const MEDIUM_CONTINUATION_SCORE = 0.5;
 
-const REFERENCE_KEYWORDS = [
+// References that normally identify the logical document itself. Matching one
+// across adjacent pages is meaningful evidence that the second page continues
+// the first.
+const STRONG_REFERENCE_KEYWORDS = [
   'POLICY', 'POLICY NO', 'POLICY NUMBER', 'INVOICE', 'INVOICE NO', 'INV NO',
   'APPLICATION', 'APPLICATION NO', 'LOAN', 'LOAN NO', 'REFERENCE', 'REF NO',
-  'RECEIPT', 'RECEIPT NO', 'ACCOUNT', 'ACCOUNT NO', 'A/C', 'VIN', 'CHASSIS',
-  'ENGINE', 'ORDER', 'ORDER NO', 'PROPOSAL', 'PROPOSAL NO',
+  'RECEIPT', 'RECEIPT NO', 'ACCOUNT', 'ACCOUNT NO', 'A/C', 'ORDER', 'ORDER NO',
+  'PROPOSAL', 'PROPOSAL NO',
 ];
+
+// Dealer files intentionally repeat these identifiers across unrelated
+// documents. They are useful corroboration, but must never by themselves make
+// an invoice, gate pass, insurance page, etc. one logical document.
+const WEAK_REFERENCE_KEYWORDS = ['VIN', 'CHASSIS', 'ENGINE'];
 
 const STOP_WORDS = new Set([
   'THE', 'AND', 'FOR', 'WITH', 'FROM', 'THIS', 'THAT', 'YOUR', 'PAGE', 'DATE',
@@ -44,10 +52,10 @@ function pageMarker(value: string): PageMarker | undefined {
   return undefined;
 }
 
-function referenceValues(value: string): Set<string> {
+function referenceValues(value: string, keywords: string[]): Set<string> {
   const text = normalizedText(value);
   const refs = new Set<string>();
-  for (const keyword of REFERENCE_KEYWORDS) {
+  for (const keyword of keywords) {
     const escaped = keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s*');
     const pattern = new RegExp(`\\b${escaped}\\s*(?:NUMBER|NO\\.?|#|:|-)?\\s*([A-Z0-9][A-Z0-9/_.-]{4,29})`, 'g');
     for (const match of text.matchAll(pattern)) {
@@ -56,6 +64,12 @@ function referenceValues(value: string): Set<string> {
     }
   }
   return refs;
+}
+
+function hasSharedReference(previousText: string, currentText: string, keywords: string[]): boolean {
+  const previousRefs = referenceValues(previousText, keywords);
+  const currentRefs = referenceValues(currentText, keywords);
+  return Array.from(previousRefs).some((value) => currentRefs.has(value));
 }
 
 function distinctiveTokens(value: string): Set<string> {
@@ -83,6 +97,7 @@ export function scorePageContinuation(previousText: string, currentText: string)
   }
 
   let score = 0;
+  let strongContinuationEvidence = false;
   const reasons: string[] = [];
   const previousMarker = pageMarker(previousText);
   const currentMarker = pageMarker(currentText);
@@ -98,19 +113,24 @@ export function scorePageContinuation(previousText: string, currentText: string)
     )
   ) {
     score += 0.68;
+    strongContinuationEvidence = true;
     reasons.push('sequential page numbering');
   }
 
-  const previousRefs = referenceValues(previousText);
-  const currentRefs = referenceValues(currentText);
-  const sharedRefs = Array.from(previousRefs).filter((value) => currentRefs.has(value));
-  if (sharedRefs.length > 0) {
+  if (hasSharedReference(previousText, currentText, STRONG_REFERENCE_KEYWORDS)) {
     score += 0.58;
+    strongContinuationEvidence = true;
     reasons.push('same document reference');
+  }
+
+  if (hasSharedReference(previousText, currentText, WEAK_REFERENCE_KEYWORDS)) {
+    score += 0.14;
+    reasons.push('same vehicle identifier');
   }
 
   if (/\b(CONTINUED|CONTD|CONTINUATION|CONTINUED ON NEXT PAGE)\b/i.test(previousText)) {
     score += 0.3;
+    strongContinuationEvidence = true;
     reasons.push('continuation wording');
   }
 
@@ -130,7 +150,10 @@ export function scorePageContinuation(previousText: string, currentText: string)
   }
 
   score = Math.min(1, Number(score.toFixed(2)));
-  const confidence = score >= HIGH_CONTINUATION_SCORE
+  // AUTO grouping is deliberately stricter than a numeric similarity score:
+  // generic layout/header text plus the same VIN must not merge two different
+  // dealer documents. HIGH requires at least one real continuation signal.
+  const confidence = strongContinuationEvidence && score >= HIGH_CONTINUATION_SCORE
     ? 'HIGH'
     : score >= MEDIUM_CONTINUATION_SCORE
       ? 'MEDIUM'

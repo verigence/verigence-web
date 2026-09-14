@@ -1,0 +1,787 @@
+/*
+ * Android operational density pass.
+ *
+ * IMPORTANT: every selector in this file is rooted at html.native-android.
+ * The React components, routes, APIs and desktop/Web presentation remain shared.
+ * This file only changes layout/density when AndroidNativeBridge marks the app
+ * as a native Android runtime.
+ */
+
+/* --------------------------------------------------------------------------
+   Shared native operational shell density
+   -------------------------------------------------------------------------- */
+
+html.native-android .enterprise-shell--approved-nav .enterprise-content {
+  padding-inline: 10px !important;
+}
+
+html.native-android .enterprise-shell--approved-nav .screen-stack {
+  gap: 8px !important;
+}
+
+/* Keep the existing shared header, but stop it consuming disproportionate
+   horizontal space on a phone. */
+html.native-android .enterprise-shell--approved-nav .enterprise-topbar {
+  gap: 6px !important;
+  padding-inline: 8px !important;
+}
+
+html.native-android .enterprise-shell--approved-nav .enterprise-topbar__start {
+  gap: 6px !important;
+}
+
+html.native-android .enterprise-shell--approved-nav .enterprise-menu-button {
+  width: 36px !important;
+  min-width: 36px !important;
+  height: 36px !important;
+}
+
+html.native-android .enterprise-shell--approved-nav .enterprise-global-brand img {
+  width: 108px !important;
+}
+
+html.native-android .enterprise-shell--approved-nav .enterprise-topbar__avatar {
+  width: 32px !important;
+  height: 32px !important;
+}
+
+html.native-android .enterprise-shell--approved-nav .user-menu-button {
+  min-height: 32px !important;
+  padding-inline: 8px !important;
+  font-size: 10px !important;
+}
+
+/* --------------------------------------------------------------------------
+   Capture New Booking — SAME BookingCaptureV2WorkspacePage, native layout only
+   -------------------------------------------------------------------------- */
+
+html.native-android .uc03-booking-v2-cards {
+  gap: 7px !important;
+  padding-bottom: max(8px, env(safe-area-inset-bottom));
+}
+
+html.native-android .uc03-booking-v2-cards .uc03-booking-v2-topbar {
+  position: sticky !important;
+  top: 64px !important;
+  z-index: 8 !important;
+  display: flex !important;
+  flex-wrap: wrap !important;
+  align-items: center !important;
+  gap: 5px 7px !important;
+  margin: 0 -2px !important;
+  padding: 5px 2px !important;
+  background: rgba(255, 255, 255, 0.98) !important;
+  box-shadow: 0 1px 0 rgba(24, 40, 62, 0.08) !important;
+  backdrop-filter: blur(8px);
+}
+
+html.native-android .uc03-booking-v2-cards .uc03-booking-v2-back {
+  min-height: 30px !important;
+  padding: 2px 4px !important;
+  font-size: 11px !important;
+}
+
+html.native-android .uc03-booking-v2-cards .uc03-booking-v2-topbar__stats {
+  order: 1 !important;
+  flex: 1 1 210px !important;
+  width: auto !important;
+  display: grid !important;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  gap: 4px !important;
+}
+
+html.native-android .uc03-booking-v2-cards .uc03-booking-v2-stat {
+  min-width: 0 !important;
+  min-height: 38px !important;
+  padding: 4px 5px !important;
+  border-radius: 9px !important;
+}
+
+html.native-android .uc03-booking-v2-cards .uc03-booking-v2-stat span {
+  font-size: 8px !important;
+  letter-spacing: 0.02em !important;
+}
+
+html.native-android .uc03-booking-v2-cards .uc03-booking-v2-stat strong {
+  font-size: 15px !important;
+  line-height: 1 !important;
+}
+
+html.native-android .uc03-booking-v2-cards .uc03-booking-v2-checklist-toggle {
+  order: 2 !important;
+  min-height: 30px !important;
+  padding: 5px 8px !important;
+  border-radius: 8px !important;
+  font-size: 10px !important;
+}
+
+html.native-android .uc03-booking-v2-cards > .page-header {
+  gap: 8px !important;
+  margin: 0 !important;
+  padding: 5px 2px 2px !important;
+}
+
+html.native-android .uc03-booking-v2-cards > .page-header .eyebrow {
+  font-size: 9px !important;
+}
+
+html.native-android .uc03-booking-v2-cards > .page-header h1 {
+  margin: 1px 0 0 !important;
+  font-size: 18px !important;
+  line-height: 1.12 !important;
+}
+
+html.native-android .uc03-booking-v2-cards > .page-header p {
+  margin-top: 3px !important;
+  max-width: none !important;
+  font-size: 10.5px !important;
+  line-height: 1.3 !important;
+}
+
+html.native-android .uc03-booking-v2-cards .uc03-booking-journey-feedback {
+  margin: 0 !important;
+  padding: 7px 9px !important;
+  border-radius: 8px !important;
+  font-size: 10.5px !important;
+  line-height: 1.3 !important;
+}
+
+/* Capture is the primary mobile task. Keep both existing actions, side by side,
+   and visually prioritize Take Photo without changing the shared DOM/handlers. */
+html.native-android .uc03-booking-v2-cards .uc03-booking-v2-hero {
+  gap: 4px !important;
+  padding: 5px 0 7px !important;
+}
+
+html.native-android .uc03-booking-v2-cards .uc03-booking-v2-hero__actions {
+  width: 100% !important;
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  gap: 7px !important;
+}
+
+html.native-android .uc03-booking-v2-cards .uc03-booking-v2-hero__actions > .uc03-delivery-v2-upload-button {
+  width: 100% !important;
+  min-height: 40px !important;
+  padding: 0 8px !important;
+  border-radius: 9px !important;
+  font-size: 12px !important;
+}
+
+html.native-android .uc03-booking-v2-cards .uc03-booking-v2-hero__actions > .uc03-delivery-v2-upload-button:nth-child(1) {
+  order: 2;
+  border-color: rgba(0, 58, 130, 0.25) !important;
+  background: #fff !important;
+  color: #003a82 !important;
+}
+
+html.native-android .uc03-booking-v2-cards .uc03-booking-v2-hero__actions > .uc03-delivery-v2-upload-button:nth-child(2) {
+  order: 1;
+  border-color: #003a82 !important;
+  background: #003a82 !important;
+  color: #fff !important;
+}
+
+html.native-android .uc03-booking-v2-cards .uc03-booking-v2-hero p {
+  font-size: 10px !important;
+  line-height: 1.25 !important;
+}
+
+html.native-android .uc03-booking-v2-cards .uc03-checklist-stage-heading {
+  margin: 2px 0 0 !important;
+  font-size: 9px !important;
+}
+
+html.native-android .uc03-booking-v2-cards .uc03-doc-card-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  gap: 6px !important;
+}
+
+html.native-android .uc03-booking-v2-cards .uc03-doc-card {
+  gap: 3px !important;
+  min-width: 0 !important;
+  padding: 8px !important;
+  border-radius: 10px !important;
+  box-shadow: none !important;
+}
+
+html.native-android .uc03-booking-v2-cards .uc03-doc-card__index,
+html.native-android .uc03-booking-v2-cards .uc03-doc-card__filename {
+  font-size: 9px !important;
+}
+
+html.native-android .uc03-booking-v2-cards .uc03-doc-card__name {
+  font-size: 11px !important;
+}
+
+html.native-android .uc03-booking-v2-cards .uc03-doc-card__status,
+html.native-android .uc03-booking-v2-cards .uc03-doc-card__view {
+  font-size: 10px !important;
+}
+
+html.native-android .uc03-booking-v2-cards .uc03-doc-card-grid__empty {
+  padding: 10px !important;
+  border-radius: 10px !important;
+  font-size: 10.5px !important;
+}
+
+/* Keep Submit continuously reachable. Scrolling is reserved for actual
+   document content, not for finding the primary action again. */
+html.native-android .uc03-booking-v2-cards .uc03-v2-compact-gate {
+  position: sticky !important;
+  bottom: max(6px, env(safe-area-inset-bottom)) !important;
+  z-index: 9 !important;
+  grid-template-columns: minmax(0, 1fr) auto !important;
+  gap: 8px !important;
+  padding: 8px 9px !important;
+  border-radius: 11px !important;
+  box-shadow: 0 6px 20px rgba(15, 23, 42, 0.12) !important;
+}
+
+html.native-android .uc03-booking-v2-cards .uc03-v2-compact-gate__copy {
+  gap: 1px !important;
+  min-width: 0 !important;
+}
+
+html.native-android .uc03-booking-v2-cards .uc03-v2-compact-gate__copy strong {
+  overflow: hidden;
+  font-size: 11px !important;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+html.native-android .uc03-booking-v2-cards .uc03-v2-compact-gate__copy span {
+  overflow: hidden;
+  font-size: 9.5px !important;
+  line-height: 1.2 !important;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+html.native-android .uc03-booking-v2-cards .uc03-v2-compact-gate .uc03-c1-primary {
+  min-height: 38px !important;
+  padding: 0 12px !important;
+  border-radius: 9px !important;
+  font-size: 11px !important;
+  white-space: nowrap;
+}
+
+html.native-android .uc03-booking-v2-cards .uc03-capture-checklist-panel {
+  max-height: 72dvh !important;
+  padding: 11px !important;
+  gap: 7px !important;
+}
+
+/* --------------------------------------------------------------------------
+   Bookings / Deliveries Work Queue — same DashboardPage, native card geometry
+   -------------------------------------------------------------------------- */
+
+html.native-android .enterprise-shell--approved-nav .uc03-landing--workqueue {
+  gap: 7px !important;
+}
+
+html.native-android .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-dashboard-hero--workqueue {
+  min-height: 0 !important;
+  padding: 8px 10px !important;
+  gap: 8px !important;
+  border-radius: 10px !important;
+}
+
+html.native-android .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-dashboard-hero--workqueue p {
+  margin: 0 !important;
+  overflow: hidden !important;
+  font-size: 10.5px !important;
+  line-height: 1.2 !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+
+html.native-android .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-landing__capture-action--workqueue {
+  min-width: 0 !important;
+  min-height: 34px !important;
+  padding: 0 10px !important;
+  border-radius: 8px !important;
+  font-size: 11px !important;
+  white-space: nowrap !important;
+}
+
+html.native-android .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-work-list {
+  padding: 8px !important;
+  border-radius: 10px !important;
+}
+
+html.native-android .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-work-list__heading--approved {
+  min-height: 32px !important;
+  margin-bottom: 5px !important;
+  align-items: center !important;
+}
+
+html.native-android .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-work-list__heading--approved h2 {
+  font-size: 16px !important;
+}
+
+html.native-android .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-work-list__queue-note {
+  margin-top: 1px !important;
+  font-size: 9.5px !important;
+}
+
+html.native-android .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-filter-toggle {
+  min-height: 30px !important;
+  padding: 4px 9px !important;
+  border-radius: 8px !important;
+  font-size: 10px !important;
+}
+
+/* One compact horizontal tab rail instead of wrapping tabs into multiple rows. */
+html.native-android .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-work-filter-tabs--approved {
+  width: 100% !important;
+  max-width: none !important;
+  min-height: 34px !important;
+  margin-bottom: 6px !important;
+  display: flex !important;
+  flex-wrap: nowrap !important;
+  overflow-x: auto !important;
+  overflow-y: hidden !important;
+  scrollbar-width: none;
+}
+
+html.native-android .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-work-filter-tabs--approved::-webkit-scrollbar {
+  display: none;
+}
+
+html.native-android .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-work-filter-tabs--approved button {
+  flex: 0 0 auto !important;
+  min-height: 32px !important;
+  padding: 0 10px !important;
+  font-size: 10.5px !important;
+  white-space: nowrap !important;
+}
+
+html.native-android .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-work-cards--v2 {
+  border: 0 !important;
+  background: transparent !important;
+}
+
+html.native-android .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-work-table-head--v2 {
+  display: none !important;
+}
+
+/* Dense native card: identity + status, then timeline, then actions. */
+html.native-android .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-work-row-v2 {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) auto !important;
+  grid-template-areas:
+    "deal status"
+    "timeline timeline"
+    "actions actions" !important;
+  gap: 6px 8px !important;
+  min-height: 0 !important;
+  margin-bottom: 7px !important;
+  padding: 9px 10px !important;
+  border: 1px solid rgba(20, 61, 98, 0.13) !important;
+  border-radius: 10px !important;
+  box-shadow: none !important;
+}
+
+html.native-android .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-work-row-v2__deal {
+  grid-area: deal;
+}
+
+html.native-android .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-work-row-v2__status {
+  grid-area: status;
+  align-items: flex-end !important;
+  gap: 2px !important;
+  max-width: 132px;
+}
+
+html.native-android .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-work-row-v2__timeline {
+  grid-area: timeline;
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  gap: 2px 8px !important;
+}
+
+html.native-android .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-work-row-v2__timeline small {
+  grid-column: 1 / -1;
+  margin-top: 1px !important;
+}
+
+html.native-android .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-work-row-v2__actions {
+  grid-area: actions;
+  width: 100% !important;
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) auto !important;
+  gap: 6px !important;
+  align-items: center !important;
+}
+
+html.native-android .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-work-row-v2__deal strong {
+  font-size: 12.5px !important;
+  line-height: 1.2 !important;
+}
+
+html.native-android .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-work-row-v2__deal span.uc03-work-row-v2__vehicle-line {
+  margin-top: 2px !important;
+  font-size: 10.5px !important;
+}
+
+html.native-android .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-work-row-v2__tags {
+  gap: 4px !important;
+  margin-top: 3px !important;
+}
+
+html.native-android .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-work-row-v2__tag {
+  padding: 1px 5px !important;
+  font-size: 9px !important;
+}
+
+html.native-android .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-work-row-v2__timeline-row,
+html.native-android .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-work-row-v2__timeline small,
+html.native-android .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-work-row-v2__status small {
+  font-size: 9.5px !important;
+  line-height: 1.2 !important;
+}
+
+html.native-android .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-work-row-v2__status .uc03-work-status-pill {
+  max-width: 132px !important;
+  padding: 4px 7px !important;
+  font-size: 9.5px !important;
+  line-height: 1.15 !important;
+}
+
+html.native-android .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-work-row-v2__status small {
+  max-width: 132px;
+  overflow: hidden;
+  text-align: right;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+html.native-android .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-work-row-v2__actions .uc03-work-card__primary-action {
+  width: 100% !important;
+  min-height: 34px !important;
+  padding: 6px 10px !important;
+  border-radius: 8px !important;
+  font-size: 10.5px !important;
+}
+
+html.native-android .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-work-row-v2__more {
+  width: auto !important;
+}
+
+html.native-android .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-work-row-v2__more-button {
+  width: auto !important;
+  min-height: 34px !important;
+  padding: 5px 10px !important;
+  font-size: 10px !important;
+}
+
+html.native-android .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-lazy-load {
+  padding-block: 6px !important;
+  font-size: 9.5px !important;
+}
+
+/* --------------------------------------------------------------------------
+   View Details / Journey 360 — same Journey360Page, native density only
+   -------------------------------------------------------------------------- */
+
+html.native-android .journey-360-page {
+  gap: 7px !important;
+}
+
+html.native-android .journey-360-page .journey-360-submit-banner {
+  padding: 7px 9px !important;
+  font-size: 10px !important;
+  line-height: 1.3 !important;
+}
+
+html.native-android .journey-360-page .journey-360-topline {
+  display: grid !important;
+  grid-template-columns: 1fr !important;
+  gap: 5px !important;
+}
+
+html.native-android .journey-360-page .journey-360-back {
+  font-size: 10.5px !important;
+}
+
+/* All existing actions stay available; they occupy one horizontal rail rather
+   than four vertical button rows. */
+html.native-android .journey-360-page .journey-360-actions {
+  width: 100% !important;
+  display: flex !important;
+  flex-wrap: nowrap !important;
+  gap: 5px !important;
+  overflow-x: auto !important;
+  overflow-y: hidden !important;
+  padding-bottom: 1px;
+  scrollbar-width: none;
+}
+
+html.native-android .journey-360-page .journey-360-actions::-webkit-scrollbar {
+  display: none;
+}
+
+html.native-android .journey-360-page .journey-360-actions > * {
+  flex: 0 0 auto !important;
+  min-height: 32px !important;
+  padding: 5px 9px !important;
+  border-radius: 8px !important;
+  font-size: 9.5px !important;
+  white-space: nowrap !important;
+}
+
+html.native-android .journey-360-page > .page-header {
+  gap: 6px !important;
+  margin: 0 !important;
+  padding: 3px 1px !important;
+}
+
+html.native-android .journey-360-page > .page-header .eyebrow {
+  font-size: 9px !important;
+}
+
+html.native-android .journey-360-page > .page-header h1 {
+  font-size: 18px !important;
+  line-height: 1.12 !important;
+}
+
+html.native-android .journey-360-page > .page-header p {
+  margin-top: 2px !important;
+  font-size: 10.5px !important;
+  line-height: 1.25 !important;
+}
+
+html.native-android .journey-360-page .header-statuses {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  gap: 4px !important;
+}
+
+html.native-android .journey-360-page .jline {
+  gap: 7px !important;
+}
+
+html.native-android .journey-360-page .jline__docProgress {
+  display: grid !important;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  gap: 5px !important;
+}
+
+html.native-android .journey-360-page .jline__docStat {
+  min-width: 0 !important;
+  gap: 1px !important;
+  padding: 6px 7px !important;
+  border-radius: 8px !important;
+}
+
+html.native-android .journey-360-page .jline__docStat span {
+  font-size: 8px !important;
+  letter-spacing: 0.02em !important;
+}
+
+html.native-android .journey-360-page .jline__docStat strong {
+  font-size: 15px !important;
+}
+
+html.native-android .journey-360-page .jline__strip {
+  min-height: 0 !important;
+  padding: 7px 9px !important;
+  gap: 5px !important;
+  border-radius: 9px !important;
+}
+
+html.native-android .journey-360-page .jline__stripText {
+  font-size: 11px !important;
+}
+
+html.native-android .journey-360-page .jline__stripText small {
+  margin-top: 1px !important;
+  font-size: 9.5px !important;
+}
+
+html.native-android .journey-360-page .jline__stripJump {
+  padding: 4px 8px !important;
+  font-size: 9.5px !important;
+}
+
+html.native-android .journey-360-page .jline__lineWrap {
+  padding: 9px 10px 7px !important;
+  border-radius: 9px !important;
+}
+
+html.native-android .journey-360-page .jline__phases {
+  grid-template-columns: repeat(6, minmax(74px, 1fr)) !important;
+  min-width: 470px !important;
+}
+
+html.native-android .journey-360-page .jline__step {
+  gap: 3px !important;
+  padding-top: 14px !important;
+}
+
+html.native-android .journey-360-page .jline__stepLabel {
+  font-size: 10px !important;
+}
+
+html.native-android .journey-360-page .jline__stepAt,
+html.native-android .journey-360-page .jline__phaseCap {
+  font-size: 8.5px !important;
+}
+
+/* Aspects stay one compact horizontal rail rather than wrapping into several
+   rows and pushing the selected details below the fold. */
+html.native-android .journey-360-page .jline__chips {
+  display: flex !important;
+  flex-wrap: nowrap !important;
+  gap: 5px !important;
+  overflow-x: auto !important;
+  overflow-y: hidden !important;
+  padding-bottom: 1px;
+  scrollbar-width: none;
+}
+
+html.native-android .journey-360-page .jline__chips::-webkit-scrollbar {
+  display: none;
+}
+
+html.native-android .journey-360-page .jline__chip {
+  flex: 0 0 auto !important;
+  gap: 4px !important;
+  padding: 5px 8px !important;
+  font-size: 10px !important;
+}
+
+html.native-android .journey-360-page .jline__chipDot {
+  width: 8px !important;
+  height: 8px !important;
+}
+
+html.native-android .journey-360-page .jline__chipBadge {
+  min-width: 17px !important;
+  height: 17px !important;
+  padding-inline: 4px !important;
+  font-size: 9px !important;
+}
+
+html.native-android .journey-360-page .jline__panelCard {
+  padding: 10px !important;
+  border-radius: 9px !important;
+}
+
+html.native-android .journey-360-page .jline__panelHead {
+  gap: 4px !important;
+  margin-bottom: 8px !important;
+  padding-bottom: 6px !important;
+}
+
+html.native-android .journey-360-page .jline__panelTitle {
+  font-size: 13px !important;
+}
+
+html.native-android .journey-360-page .jline__panelHint {
+  font-size: 9.5px !important;
+}
+
+/* Two facts per row on phone-width Android gives substantially better density
+   without hiding any value. Long values can still wrap inside their own cell. */
+html.native-android .journey-360-page .jline__facts,
+html.native-android .journey-360-page .journey-360-facts {
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  gap: 7px 10px !important;
+}
+
+html.native-android .journey-360-page .jline__fact,
+html.native-android .journey-360-page .journey-360-fact {
+  min-width: 0 !important;
+}
+
+html.native-android .journey-360-page .jline__fact span,
+html.native-android .journey-360-page .journey-360-fact span {
+  font-size: 8.5px !important;
+}
+
+html.native-android .journey-360-page .jline__fact strong,
+html.native-android .journey-360-page .journey-360-fact strong {
+  overflow-wrap: anywhere;
+  font-size: 11px !important;
+  line-height: 1.25 !important;
+}
+
+html.native-android .journey-360-page .jline__subSection {
+  padding: 8px 9px !important;
+  border-radius: 8px !important;
+}
+
+html.native-android .journey-360-page .jline__table {
+  font-size: 10.5px !important;
+}
+
+html.native-android .journey-360-page .jline__table th {
+  padding: 5px 7px !important;
+  font-size: 8.5px !important;
+}
+
+html.native-android .journey-360-page .jline__table td {
+  padding: 6px 7px !important;
+}
+
+html.native-android .journey-360-page .jline__tableWrap,
+html.native-android .journey-360-page .journey-360-table-wrap {
+  max-width: 100%;
+  overflow-x: auto !important;
+  overscroll-behavior-inline: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+html.native-android .journey-360-page .jline__finding {
+  gap: 7px !important;
+  padding: 8px !important;
+  border-radius: 8px !important;
+}
+
+html.native-android .journey-360-page .jline__findingBody strong {
+  font-size: 11px !important;
+}
+
+html.native-android .journey-360-page .jline__findingBody small,
+html.native-android .journey-360-page .jline__findingSla {
+  font-size: 9px !important;
+}
+
+html.native-android .journey-360-page .journey-360-doc-picker {
+  gap: 7px !important;
+}
+
+html.native-android .journey-360-page .journey-360-doc-picker__label,
+html.native-android .journey-360-page .journey-360-doc-picker__select {
+  font-size: 10.5px !important;
+}
+
+html.native-android .journey-360-page .journey-360-doc-detail--boxed {
+  gap: 8px !important;
+}
+
+/* Keep genuine tiny phones readable; nothing else changes — still the same
+   components and same data. */
+@media (max-width: 360px) {
+  html.native-android .uc03-booking-v2-cards .uc03-doc-card-grid,
+  html.native-android .journey-360-page .jline__facts,
+  html.native-android .journey-360-page .journey-360-facts {
+    grid-template-columns: 1fr !important;
+  }
+
+  html.native-android .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-work-row-v2 {
+    grid-template-columns: minmax(0, 1fr) !important;
+    grid-template-areas:
+      "deal"
+      "status"
+      "timeline"
+      "actions" !important;
+  }
+
+  html.native-android .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-work-row-v2__status {
+    align-items: flex-start !important;
+    max-width: none;
+  }
+}

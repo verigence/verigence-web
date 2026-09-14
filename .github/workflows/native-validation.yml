@@ -223,7 +223,8 @@ jobs:
             if git push origin HEAD:dev; then
               exit 0
             fi
-            echo "::warning::Unable to persist Android validation result after retries.'"
+            echo "::warning::Android validation result evidence raced with another dev update; retry ${attempt}/4."
+            sleep $((attempt * 2))
           done
-          echo '::warning::Unable to persist Android validation result after retries.'
+          echo '::warning::Unable to persist Android validation result evidence after retries.'
           exit 1

@@ -256,6 +256,10 @@ export default {
     }
 
     if (url.pathname === '/audit-core' || url.pathname.startsWith('/audit-core/')) {
+      if (request.method === 'OPTIONS') {
+        return preflightResponse(request);
+      }
+
       if (!String(env.AUDIT_CORE_UPSTREAM || '').trim()) {
         logProxyFailure('audit-core', request, correlationId, 'AUDIT_CORE_UPSTREAM_UNAVAILABLE');
         return proxyError(request, 'audit-core', 'AUDIT_CORE_UPSTREAM_UNAVAILABLE', 'Verigence Audit Core is not configured', 503, correlationId);

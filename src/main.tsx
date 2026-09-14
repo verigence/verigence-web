@@ -85,10 +85,10 @@ import './styles/pc-overview.css';
 import './styles/dashboard-workqueue-brand-color.css';
 import './styles/journey-line.css';
 import './styles/nightly-reprocess-tile.css';
-import './styles/ui-governance.css';
-/* Native-only overrides intentionally load after governance; every selector is
-   rooted at html.native-android so browser/Web presentation cannot change. */
+/* Android-only operational layout rules are scoped by html.native-android.
+   ui-governance.css remains the mandatory final stylesheet import. */
 import './styles/android-operational-density.css';
+import './styles/ui-governance.css';
 import './ui/pcNavigationMotion';
 
 import App from './App';

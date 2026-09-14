@@ -129,7 +129,7 @@
   z-index: 20;
   display: grid;
   gap: 10px;
-  width: min(340px, calc(100vw - 32px));
+  width: min(400px, calc(100vw - 32px));
   max-height: 70vh;
   padding: 14px;
   overflow-y: auto;

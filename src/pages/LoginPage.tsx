@@ -15,6 +15,10 @@ import {
   loginErrorMessage,
   loginHuman,
 } from '../services/security/auth';
+import {
+  disableRememberedSession,
+  enableRememberedSession,
+} from '../services/security/rememberSessionLifecycle';
 import { useSessionStore } from '../store/sessionStore';
 
 interface LoginErrorState {
@@ -105,6 +109,16 @@ export default function LoginPage() {
       }
       setPassword('');
       navigate(superAdmin ? '/approvals' : '/dashboard', { replace: true });
+
+      // Deliberately start remembered-session setup only after normal authentication has completed
+      // and navigation has begun. This adds no latency or availability dependency to today's login.
+      if (keepSignedIn) {
+        void enableRememberedSession(login.accessToken, device).then((enabled) => {
+          if (!enabled) console.warn('Keep me signed in could not be enabled.');
+        });
+      } else {
+        void disableRememberedSession(device);
+      }
     } catch (loginError) {
       setError({
         message: loginErrorMessage(loginError),

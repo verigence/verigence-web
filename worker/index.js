@@ -106,7 +106,7 @@ function preflightResponse(request) {
     'Access-Control-Allow-Origin': origin,
     'Access-Control-Allow-Credentials': 'true',
     'Access-Control-Allow-Methods': 'GET,HEAD,POST,PUT,PATCH,DELETE,OPTIONS',
-    'Access-Control-Allow-Headers': `Authorization,Content-Type,X-Onboarding-Key,${CORRELATION_HEADER}`,
+    'Access-Control-Allow-Headers': `Authorization,Content-Type,X-Onboarding-Key,Idempotency-Key,If-Match,${CORRELATION_HEADER}`,
     'Access-Control-Expose-Headers': CORRELATION_HEADER,
     'Access-Control-Max-Age': '86400',
     'Vary': 'Origin',

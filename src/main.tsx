@@ -86,6 +86,11 @@ import './styles/dashboard-workqueue-brand-color.css';
 import './styles/journey-line.css';
 import './styles/nightly-reprocess-tile.css';
 import './styles/mobile-bottom-nav.css';
+/* Android-only operational layout rules are scoped by html.native-android.
+   ui-governance.css remains the mandatory final stylesheet import. */
+import './styles/android-pc-overview-density.css';
+import './styles/android-operational-density.css';
+import './styles/android-operational-readability.css';
 import './styles/ui-governance.css';
 import './ui/pcNavigationMotion';
 

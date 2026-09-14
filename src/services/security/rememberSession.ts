@@ -1,6 +1,7 @@
 import { Capacitor } from '@capacitor/core';
 
 const REMEMBER_HINT_KEY = 'verigence.auth.remember-enabled.v1';
+const REMEMBER_IDENTITY_HINT_KEY = 'verigence.auth.remember-identity.v1';
 const NATIVE_REMEMBER_CREDENTIAL_KEY = 'verigence.auth.remember-credential.v1';
 
 /**
@@ -21,6 +22,24 @@ export function setRememberSessionHint(enabled: boolean): void {
     else window.localStorage.removeItem(REMEMBER_HINT_KEY);
   } catch {
     // A privacy mode can disable localStorage. In that case we simply do not cold-start resume.
+  }
+}
+
+export function rememberedIdentityHint(): string {
+  try {
+    return window.localStorage.getItem(REMEMBER_IDENTITY_HINT_KEY)?.trim() ?? '';
+  } catch {
+    return '';
+  }
+}
+
+export function setRememberedIdentityHint(identifier?: string): void {
+  try {
+    const value = identifier?.trim();
+    if (value) window.localStorage.setItem(REMEMBER_IDENTITY_HINT_KEY, value);
+    else window.localStorage.removeItem(REMEMBER_IDENTITY_HINT_KEY);
+  } catch {
+    // This is display-only metadata and never participates in authorization.
   }
 }
 
@@ -67,5 +86,6 @@ export async function clearNativeRememberCredential(): Promise<void> {
 
 export async function clearRememberSessionLocalState(): Promise<void> {
   setRememberSessionHint(false);
+  setRememberedIdentityHint();
   await clearNativeRememberCredential();
 }

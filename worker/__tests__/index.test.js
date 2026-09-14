@@ -110,8 +110,8 @@ describe('Audit Core Capacitor CORS', () => {
 });
 
 describe('CORRELATION_PATTERN', () => {
-  it('accepts UUID-style IDs', () => {
-    expect(CORRELATION_PATTERN.test('550e8400-e29b-41d4-a716-446655440000')).toBe(false); // hyphens not in set
+  it('accepts UUID-style IDs and compact IDs', () => {
+    expect(CORRELATION_PATTERN.test('550e8400-e29b-41d4-a716-446655440000')).toBe(true);
     expect(CORRELATION_PATTERN.test('550e8400e29b41d4a716446655440000')).toBe(true);
   });
 

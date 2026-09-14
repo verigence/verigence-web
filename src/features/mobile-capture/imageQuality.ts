@@ -3,10 +3,10 @@ import { Capacitor } from '@capacitor/core';
 import type { PageQualityFailureCode, PageQualityMetrics, PageQualityResult } from './types';
 
 /**
- * Initial field-capture floor. These values are intentionally conservative:
- * reject images that are clearly unfit for document understanding without
- * trying to make a cheap handset compete with Gemini's own vision stack.
- * They must be calibrated against the dealer-document UAT corpus before GA.
+ * Field-capture floor for low-cost Android handsets. Reject only pages that are
+ * clearly unfit for document understanding; Gemini still does the actual
+ * document understanding on the server. Values must be calibrated against the
+ * dealer-document UAT corpus before GA.
  */
 export const MOBILE_CAPTURE_QUALITY_POLICY = {
   minShortEdgePx: 1000,
@@ -14,6 +14,10 @@ export const MOBILE_CAPTURE_QUALITY_POLICY = {
   minPixelCount: 1_500_000,
   analysisLongEdgePx: 1024,
   minLaplacianVariance: 35,
+  localContentTileMin: 4,
+  localSharpTileRatio: 0.4,
+  localSharpLaplacianVariance: 25,
+  localSharpEdgeRatio: 0.014,
   tooDarkMeanLuminance: 58,
   tooDarkPixelRatio: 0.58,
   tooBrightMeanLuminance: 244,
@@ -21,7 +25,7 @@ export const MOBILE_CAPTURE_QUALITY_POLICY = {
   nearBlankStdDev: 11,
   nearBlankEdgeRatio: 0.004,
   normalizedLongEdgePx: 2400,
-  jpegQuality: 0.82,
+  jpegQuality: 0.86,
 } as const;
 
 type PageSource = { sourceUri?: string; sourceBlob?: Blob };
@@ -31,6 +35,11 @@ interface DecodedImage {
   width: number;
   height: number;
   cleanup: () => void;
+}
+
+interface TileSignals {
+  contentTileCount: number;
+  sharpContentTileRatio: number;
 }
 
 function makeCanvas(width: number, height: number): HTMLCanvasElement {
@@ -79,6 +88,75 @@ async function decodePage(source: PageSource): Promise<DecodedImage> {
     URL.revokeObjectURL(objectUrl);
     throw error;
   }
+}
+
+/**
+ * Global focus can be fooled by one sharp logo/header while the customer data
+ * below it is motion-blurred. Analyse a small 3x3 grid and require a reasonable
+ * share of content-bearing regions to retain text/edge detail. Blank margins do
+ * not count as content tiles and therefore do not penalise a valid page.
+ */
+function localTileSignals(gray: Uint8Array, width: number, height: number): TileSignals {
+  let contentTileCount = 0;
+  let sharpContentTiles = 0;
+  const columns = 3;
+  const rows = 3;
+
+  for (let row = 0; row < rows; row += 1) {
+    const y0 = Math.max(1, Math.floor((row * height) / rows));
+    const y1 = Math.min(height - 1, Math.floor(((row + 1) * height) / rows));
+    for (let column = 0; column < columns; column += 1) {
+      const x0 = Math.max(1, Math.floor((column * width) / columns));
+      const x1 = Math.min(width - 1, Math.floor(((column + 1) * width) / columns));
+      let count = 0;
+      let sum = 0;
+      let squaredSum = 0;
+      let laplacianSum = 0;
+      let laplacianSquaredSum = 0;
+      let edgePixels = 0;
+
+      for (let y = y0; y < y1; y += 1) {
+        for (let x = x0; x < x1; x += 1) {
+          const index = (y * width) + x;
+          const center = gray[index];
+          sum += center;
+          squaredSum += center * center;
+          const laplacian = (4 * center) - gray[index - 1] - gray[index + 1] - gray[index - width] - gray[index + width];
+          laplacianSum += laplacian;
+          laplacianSquaredSum += laplacian * laplacian;
+          const horizontal = Math.abs(gray[index + 1] - gray[index - 1]);
+          const vertical = Math.abs(gray[index + width] - gray[index - width]);
+          if ((horizontal + vertical) >= 70) edgePixels += 1;
+          count += 1;
+        }
+      }
+
+      if (!count) continue;
+      const mean = sum / count;
+      const stdDev = Math.sqrt(Math.max(0, (squaredSum / count) - (mean * mean)));
+      const edgeRatio = edgePixels / count;
+      const laplacianMean = laplacianSum / count;
+      const laplacianVariance = Math.max(
+        0,
+        (laplacianSquaredSum / count) - (laplacianMean * laplacianMean),
+      );
+
+      // A tile with meaningful tonal variation or edges is likely to contain
+      // printed/handwritten content rather than clean paper margin.
+      const contentBearing = stdDev >= 14 || edgeRatio >= 0.005;
+      if (!contentBearing) continue;
+      contentTileCount += 1;
+      if (
+        laplacianVariance >= MOBILE_CAPTURE_QUALITY_POLICY.localSharpLaplacianVariance
+        || edgeRatio >= MOBILE_CAPTURE_QUALITY_POLICY.localSharpEdgeRatio
+      ) sharpContentTiles += 1;
+    }
+  }
+
+  return {
+    contentTileCount,
+    sharpContentTileRatio: contentTileCount ? sharpContentTiles / contentTileCount : 1,
+  };
 }
 
 function analyzePixels(image: HTMLImageElement, originalWidth: number, originalHeight: number): PageQualityMetrics {
@@ -134,6 +212,7 @@ function analyzePixels(image: HTMLImageElement, originalWidth: number, originalH
   const laplacianVariance = interiorCount
     ? Math.max(0, (laplacianSquaredSum / interiorCount) - (laplacianMean * laplacianMean))
     : 0;
+  const tileSignals = localTileSignals(gray, width, height);
 
   return {
     width: originalWidth,
@@ -145,6 +224,8 @@ function analyzePixels(image: HTMLImageElement, originalWidth: number, originalH
     darkPixelRatio: darkPixels / sampleCount,
     brightPixelRatio: brightPixels / sampleCount,
     edgePixelRatio: interiorCount ? edgePixels / interiorCount : 0,
+    contentTileCount: tileSignals.contentTileCount,
+    sharpContentTileRatio: tileSignals.sharpContentTileRatio,
   };
 }
 
@@ -163,10 +244,17 @@ export async function validatePageQuality(source: PageSource): Promise<PageQuali
       || metrics.pixelCount < MOBILE_CAPTURE_QUALITY_POLICY.minPixelCount
     ) failures.push('LOW_RESOLUTION');
 
-    if (
+    const globallyBlurred = (
       metrics.laplacianVariance < MOBILE_CAPTURE_QUALITY_POLICY.minLaplacianVariance
       && metrics.edgePixelRatio < 0.018
-    ) failures.push('TOO_BLURRY');
+    );
+    const locallyBlurred = (
+      (metrics.contentTileCount ?? 0) >= MOBILE_CAPTURE_QUALITY_POLICY.localContentTileMin
+      && (metrics.sharpContentTileRatio ?? 1) < MOBILE_CAPTURE_QUALITY_POLICY.localSharpTileRatio
+      // Do not let local tiling overrule a page that is globally very sharp.
+      && metrics.laplacianVariance < 90
+    );
+    if (globallyBlurred || locallyBlurred) failures.push('TOO_BLURRY');
 
     if (
       metrics.meanLuminance < MOBILE_CAPTURE_QUALITY_POLICY.tooDarkMeanLuminance

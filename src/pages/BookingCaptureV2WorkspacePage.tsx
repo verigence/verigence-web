@@ -13,10 +13,10 @@ import {
   deleteBookingCaptureV2Document,
   getBookingCaptureV2,
   resyncBookingCaptureV2,
-  type BookingCaptureV2,
+  type CaptureV2Document,
   type CaptureV2Requirement,
 } from '../services/audit-core/uc03DocumentCaptureV2';
-import { getDeliveryCaptureV2 } from '../services/audit-core/uc03DeliveryCaptureV2';
+import { deleteDeliveryCaptureV2Document, getDeliveryCaptureV2 } from '../services/audit-core/uc03DeliveryCaptureV2';
 import { reconcileUnifiedDocuments, uploadUnifiedCaptureFiles } from '../services/audit-core/uc03UnifiedDocumentCapture';
 import { useProjectContextStore } from '../store/projectContextStore';
 import { useSessionStore } from '../store/sessionStore';
@@ -51,9 +51,8 @@ function isBookingFormRequirement(requirement: CaptureV2Requirement): boolean {
   return searchable.includes('BOOKING') && (searchable.includes('FORM') || searchable.includes('DOCKET'));
 }
 
-function hasClassificationInFlight(capture?: BookingCaptureV2): boolean {
-  if (!capture) return false;
-  return capture.uploads.some((document) => {
+function hasClassificationInFlight(documents: CaptureV2Document[]): boolean {
+  return documents.some((document) => {
     const state = document.state.toUpperCase();
     return state === 'RECEIVING'
       || state === 'STORED'
@@ -187,10 +186,22 @@ export default function BookingCaptureV2CompactPage() {
 
   const capture = captureQuery.data;
   const deliveryCapture = deliveryCaptureQuery.data;
+  // Every upload lands here regardless of which stage it's ultimately
+  // classified into (see the unified upload path) -- this must cover both
+  // capture.uploads (Booking) and deliveryCapture.uploads (Delivery), or a
+  // document the system correctly routed to Delivery silently vanished
+  // from every count and classification check on this screen.
+  const allUploads = [...(capture?.uploads ?? []), ...(deliveryCapture?.uploads ?? [])];
   const uploading = activeUploadBatches > 0;
-  const classificationInFlight = hasClassificationInFlight(capture);
+  const classificationInFlight = hasClassificationInFlight(allUploads);
   const busy = Boolean(busyDocumentId);
-  const canProceed = Boolean(capture) && !uploading && !busy && !submitting;
+  // 2026-09-14: reversed from the earlier "submit while classification is
+  // still running in the background" design at the user's explicit request
+  // -- a PC must now wait for every uploaded document to finish classifying
+  // before Submit is clickable. Accepted tradeoff: a slow or failing
+  // extraction (e.g. a Gemini provider timeout) now blocks Submit until it
+  // resolves, rather than letting the PC move on and review later.
+  const canProceed = Boolean(capture) && !uploading && !busy && !submitting && !classificationInFlight;
 
   const identityRequirements = useMemo(
     () => capture?.requirements.filter(isIdentityRequirement) ?? [],
@@ -389,6 +400,21 @@ export default function BookingCaptureV2CompactPage() {
     }
   };
 
+  const handleDeleteDelivery = async (documentId: string) => {
+    if (!journeyId) return;
+    setBusyDocumentId(documentId);
+    setError(undefined);
+    try {
+      await deleteDeliveryCaptureV2Document(project.tenantId, journeyId, documentId, accessToken);
+      await deliveryCaptureQuery.refetch();
+      setMessage('Document removed from this Delivery.');
+    } catch (cause: unknown) {
+      setError(cause instanceof Error ? cause.message : 'We could not remove this document. Please try again.');
+    } finally {
+      setBusyDocumentId(undefined);
+    }
+  };
+
   // 2026-09-13: Review & Submit removed as a separate step -- document
   // completeness alone is now the sole criterion for Booking to finish
   // (see uc03_simplified_booking_flow.py::submit_booking_from_review,
@@ -456,9 +482,9 @@ export default function BookingCaptureV2CompactPage() {
   // exists (uploading never actually depended on the capture read below);
   // the document list and counters hydrate in place once that read resolves.
   const ready = Boolean(journeyId) && Boolean(workspace) && started;
-  const uploadedCount = capture?.uploads.length ?? 0;
-  const classifiedCount = capture?.uploads.filter((item) => item.state.toUpperCase() === 'CLASSIFIED' && item.classifiedDocumentTypeKey).length ?? 0;
-  const extractionReadyCount = capture?.uploads.filter((item) => item.processingStatus?.toUpperCase() === 'PROCESSED').length ?? 0;
+  const uploadedCount = allUploads.length;
+  const classifiedCount = allUploads.filter((item) => item.state.toUpperCase() === 'CLASSIFIED' && item.classifiedDocumentTypeKey).length;
+  const extractionReadyCount = allUploads.filter((item) => item.processingStatus?.toUpperCase() === 'PROCESSED').length;
   const mandatoryTotal = expectedDocuments.length + (identityRequirements.length > 0 ? 1 : 0)
     + deliveryExpectedDocuments.length + (deliveryIdentityRequirements.length > 0 ? 1 : 0);
   const mandatoryReceived = expectedDocuments.filter((item) => item.document).length + (identitySatisfied ? 1 : 0)
@@ -574,20 +600,44 @@ export default function BookingCaptureV2CompactPage() {
       ) : !capture ? (
         <p className="uc03-doc-card-grid__empty">Preparing the document checklist…</p>
       ) : capture.uploads.length > 0 ? (
-        <div className="uc03-doc-card-grid">
-          {capture.uploads.map((document, index) => (
-            <DocumentCard
-              key={document.documentId}
-              document={document}
-              index={index}
-              busy={busyDocumentId === document.documentId}
-              onDelete={handleDelete}
-            />
-          ))}
-        </div>
+        <>
+          <p className="uc03-checklist-stage-heading">Booking</p>
+          <div className="uc03-doc-card-grid">
+            {capture.uploads.map((document, index) => (
+              <DocumentCard
+                key={document.documentId}
+                document={document}
+                index={index}
+                busy={busyDocumentId === document.documentId}
+                onDelete={handleDelete}
+              />
+            ))}
+          </div>
+        </>
       ) : (
         <p className="uc03-doc-card-grid__empty">No documents yet — choose files above to get started.</p>
       )}
+
+      {/* A document uploaded here dispatches to whichever stage it's
+          classified into (see the unified upload path) -- Delivery's own
+          cards must show here too, segregated from Booking's, or a
+          correctly-routed Delivery document is invisible on this screen. */}
+      {deliveryCapture && deliveryCapture.uploads.length > 0 ? (
+        <>
+          <p className="uc03-checklist-stage-heading">Delivery</p>
+          <div className="uc03-doc-card-grid">
+            {deliveryCapture.uploads.map((document, index) => (
+              <DocumentCard
+                key={document.documentId}
+                document={document}
+                index={index}
+                busy={busyDocumentId === document.documentId}
+                onDelete={handleDeleteDelivery}
+              />
+            ))}
+          </div>
+        </>
+      ) : null}
 
       {checklistOpen ? (
         <aside className="uc03-capture-checklist-panel" role="dialog" aria-label="Journey document checklist">
@@ -673,7 +723,7 @@ export default function BookingCaptureV2CompactPage() {
           ) : classificationInFlight ? (
             <>
               <strong>Documents being classified · {formatElapsed(elapsedSeconds)}</strong>
-              <span>You can submit now. Classification and review-value preparation will continue in the background.</span>
+              <span>Submit unlocks once every uploaded document has finished classifying.</span>
             </>
           ) : auditObservations.length > 0 ? (
             <>

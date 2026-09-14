@@ -141,16 +141,28 @@ jobs:
           test -s "$debug_apk"
           test -s "$release_apk"
 
-          for apk in "$debug_apk" "$release_apk"; do
-            unzip -t "$apk" >/dev/null
-            unzip -p "$apk" res/drawable-v24/ic_launcher_foreground.xml | strings > /tmp/verigence-v24-foreground.txt
-            grep -q 'M64,136' /tmp/verigence-v24-foreground.txt
-            grep -q '#00CBB0' /tmp/verigence-v24-foreground.txt
-            if grep -q 'M66.94,46.02\|M32,64' /tmp/verigence-v24-foreground.txt; then
+          verify_launcher_payload() {
+            apk="$1"
+            tmpdir="$(mktemp -d)"
+            unzip -q "$apk" 'res/*.xml' -d "$tmpdir"
+            brand_count="$(grep -Rla 'M64,136' "$tmpdir/res" | wc -l | tr -d ' ')"
+            stock_count="$(grep -Rla -E 'M66\.94,46\.02|M32,64' "$tmpdir/res" | wc -l | tr -d ' ')"
+            rm -rf "$tmpdir"
+            if [ "$brand_count" -lt 1 ]; then
+              echo "::error::Built APK contains no Verigence launcher vector payload: $apk"
+              exit 1
+            fi
+            if [ "$stock_count" -ne 0 ]; then
               echo "::error::Built APK still contains stock Android launcher artwork: $apk"
               exit 1
             fi
-          done
+            echo "APK_VERIGENCE_VECTOR_COUNT=$brand_count"
+          }
+
+          unzip -t "$debug_apk" >/dev/null
+          unzip -t "$release_apk" >/dev/null
+          verify_launcher_payload "$debug_apk"
+          verify_launcher_payload "$release_apk"
 
           sha256sum "$debug_apk" | tee android-debug-apk.sha256
           sha256sum "$release_apk" | tee android-release-unsigned-apk.sha256

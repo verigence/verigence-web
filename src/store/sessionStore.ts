@@ -1,6 +1,8 @@
 import { create } from 'zustand';
 
 import type { UserRole } from '../domain/models';
+import { getVerigenceDeviceContext } from '../services/device/identity';
+import { disableRememberedSession } from '../services/security/rememberSessionLifecycle';
 
 interface BusinessContext {
   tenantId: string;
@@ -26,7 +28,9 @@ interface SessionState extends BusinessContext {
     securityDeviceId: string,
   ) => void;
   signInPreview: (email: string, role?: UserRole) => void;
-  signOut: () => void;
+  // preserveRemember is reserved for automatic short-token expiry/transient renewal failure.
+  // Normal UI sign-out calls this with no argument and therefore revokes remembered sign-in.
+  signOut: (preserveRemember?: boolean) => void;
   setRolePreview: (role: UserRole) => void;
   setAccessToken: (token?: string, expiresAtUtc?: string) => void;
   setBusinessContext: (context: Partial<BusinessContext>) => void;
@@ -81,7 +85,10 @@ export const useSessionStore = create<SessionState>((set) => ({
       securitySessionId: undefined,
       securityDeviceId: undefined,
     }),
-  signOut: () =>
+  signOut: (preserveRemember = false) => {
+    if (!preserveRemember) {
+      void disableRememberedSession(getVerigenceDeviceContext());
+    }
     set({
       signedIn: false,
       email: '',
@@ -94,7 +101,8 @@ export const useSessionStore = create<SessionState>((set) => ({
       accessTokenExpiresAtUtc: undefined,
       securitySessionId: undefined,
       securityDeviceId: undefined,
-    }),
+    });
+  },
   setRolePreview: (role) => set({ role }),
   setAccessToken: (accessToken, accessTokenExpiresAtUtc) => set({
     accessToken,

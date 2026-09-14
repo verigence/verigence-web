@@ -1100,7 +1100,7 @@ function DealPanel({
           <div className="jline__callout">
             <strong>Model not identified</strong>
             <span>{String(modelNotIdentified.description || 'The vehicle could not be matched to the price masters. Confirm the model on the booking so masters can be applied.')}</span>
-            <Link to={`/v2/bookings/${String((model.journey as Record<string, unknown>).journeyId ?? '')}/details`}>Open Booking to confirm model →</Link>
+            <Link to={`/journeys/${String((model.journey as Record<string, unknown>).journeyId ?? '')}/documents`}>Open Documents to confirm model →</Link>
           </div>
         ) : (
           <p className="jline__empty">The price masters have not been resolved for this booking yet. Complete Booking document review.</p>
@@ -2001,8 +2001,7 @@ export default function Journey360Page() {
           <button type="button" disabled={runningAllRules} onClick={() => void handleRunAllRules()}>
             {runningAllRules ? 'Running Rules…' : 'Run All Applicable Rules'}
           </button>
-          <Link to={`/v2/bookings/${journeyId}/details`}>Open Booking</Link>
-          <Link to={`/v2/deliveries/${journeyId}`}>Open Delivery</Link>
+          <Link to={`/journeys/${journeyId}/documents`}>Open Documents</Link>
           <Link className="journey-360-actions__primary" to={`/audit/${journeyId}`}>Audit Review</Link>
         </div>
       </div>

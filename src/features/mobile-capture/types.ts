@@ -18,6 +18,8 @@ export interface PageQualityMetrics {
   darkPixelRatio: number;
   brightPixelRatio: number;
   edgePixelRatio: number;
+  contentTileCount?: number;
+  sharpContentTileRatio?: number;
 }
 
 export interface PageQualityResult {

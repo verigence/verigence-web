@@ -73,6 +73,25 @@ jobs:
           grep -R -q 'capacitor-keyboard' android || grep -R -q 'KeyboardPlugin' android
           echo 'ANDROID_NATIVE_CONFIG=PASS'
 
+      - name: Verify mobile Take Photo unified-flow contract
+        run: |
+          set -euo pipefail
+          host='src/features/mobile-capture/MobileDocumentCaptureHost.tsx'
+          grep -q 'captureContextForInput' "$host"
+          grep -q 'uc03-booking-v2-hero' "$host"
+          grep -q 'uc03-delivery-v2-hero' "$host"
+          grep -q 'new DataTransfer' "$host"
+          grep -q "dispatchEvent(new Event('change'" "$host"
+          if grep -q 'uploadUnifiedCaptureFiles' "$host"; then
+            echo 'Mobile capture must not own upload lifecycle' >&2
+            exit 1
+          fi
+          if grep -q 'waitForJourneyId' "$host"; then
+            echo 'Mobile capture must not wait for or create Journey readiness' >&2
+            exit 1
+          fi
+          echo 'MOBILE_TAKE_PHOTO_UNIFIED_FLOW=PASS'
+
       - name: Verify C2 Delivery camera contract in Web source
         run: |
           set -euo pipefail

@@ -1,0 +1,33 @@
+name: Fetch APK Signer Tool
+
+on:
+  push:
+    branches:
+      - tooling/fetch-apksigner
+    paths:
+      - '.github/workflows/fetch-apksigner-tool.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Download apksigner jar
+        run: |
+          set -euo pipefail
+          curl -fsSL \
+            https://raw.githubusercontent.com/ashishb/adb-enhanced/master/adbe/apksigner.jar \
+            -o apksigner.jar
+          test "$(stat -c%s apksigner.jar)" -eq 352064
+          java -jar apksigner.jar --version
+
+      - name: Upload apksigner jar
+        uses: actions/upload-artifact@v4
+        with:
+          name: apksigner-tool
+          path: apksigner.jar
+          if-no-files-found: error
+          retention-days: 1

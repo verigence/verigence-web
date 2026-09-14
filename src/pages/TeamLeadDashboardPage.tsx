@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 
+import NightlyReprocessingStatusTile from '../components/NightlyReprocessingStatusTile';
 import {
   listAllTlSupervisoryCases,
   tlBusinessStage,
@@ -324,6 +325,8 @@ export default function TeamLeadDashboardPage() {
           <span>PC drafts stay private until submitted. TL review is optional.</span>
         </div>
       </section>
+
+      <NightlyReprocessingStatusTile />
 
       {casesQuery.isError ? (
         <section className="dashboard-load-state" role="alert">

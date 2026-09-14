@@ -670,6 +670,24 @@ function HealthStrip({
   );
 }
 
+// A document only shows here once DI has permanently failed it (and thus
+// backed it out) -- not on a transient in-flight retry. DI's fail_job() and
+// insert_backout_job() happen atomically together, so "processingStatus ===
+// 'FAILED'" on the already-synced evidence record is exactly "this document
+// is sitting in the backout queue" without this page needing to know
+// anything about DI's own backout_jobs table.
+function FailedExtractionBanner({ count }: { count: number }) {
+  if (count === 0) return null;
+  return (
+    <div className="jline__strip jline__strip--attention" role="status">
+      <span className="jline__stripText">
+        {count} document{count !== 1 ? 's' : ''} failed to extract
+        <small>Reviewed automatically each night — no action needed unless it's still failing after a few days.</small>
+      </span>
+    </div>
+  );
+}
+
 function DocumentProgressStrip({
   uploaded,
   classified,
@@ -1869,6 +1887,10 @@ export default function Journey360Page() {
     () => (model ? openFindings(model).filter((f) => ['DATA_GAP', 'DOCUMENT_GAP'].includes(String(f.findingClass || ''))).length : 0),
     [model],
   );
+  const failedExtractionCount = useMemo(
+    () => (model?.evidence || []).filter((doc) => doc.processingStatus === 'FAILED').length,
+    [model?.evidence],
+  );
 
   const requestedAspect = (searchParams.get('aspect') || '') as AspectKey;
   const validAspects = new Set(aspects.map((a) => a.key));
@@ -1941,6 +1963,7 @@ export default function Journey360Page() {
 
       <div className="jline">
         <DocumentProgressStrip {...documentCounts} />
+        <FailedExtractionBanner count={failedExtractionCount} />
         <HealthStrip needCount={needCount} totalOpen={openCount} onJump={() => setAspect('flags')} />
         <JourneyLine steps={steps} />
         <AspectChips aspects={aspects} active={activeAspect} onSelect={setAspect} />

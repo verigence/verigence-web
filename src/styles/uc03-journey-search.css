@@ -729,6 +729,73 @@
   background: var(--journey-search-accent-dark);
 }
 
+/* ── Boxed document preview, alongside its own extracted values (lazy: the
+   file is only ever fetched for whichever document is currently selected
+   below, on GET /v2/.../review/documents/{id}/content -- the same endpoint
+   the Booking/Delivery Review screens already use). ─────────────────────── */
+.journey-360-doc-detail--boxed {
+  display: grid;
+  grid-template-columns: minmax(240px, 360px) minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.journey-360-doc-preview {
+  display: grid;
+  gap: 8px;
+  justify-items: center;
+}
+
+.journey-360-doc-preview__image,
+.journey-360-doc-preview__pdf {
+  width: 100%;
+  height: 420px;
+  border-radius: 10px;
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  background: #fff;
+}
+
+.journey-360-doc-preview__image {
+  object-fit: contain;
+}
+
+.journey-360-doc-preview__message {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 420px;
+  border-radius: 10px;
+  border: 1px dashed rgba(148, 163, 184, 0.4);
+  background: #fff;
+  color: var(--journey-search-muted);
+  font-size: 0.8rem;
+  text-align: center;
+  padding: 12px;
+}
+
+.journey-360-doc-preview__message.is-error {
+  color: #b42318;
+  border-color: rgba(180, 35, 24, 0.3);
+}
+
+.journey-360-doc-facts {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+
+@media (max-width: 760px) {
+  .journey-360-doc-detail--boxed {
+    grid-template-columns: 1fr;
+  }
+
+  .journey-360-doc-preview__image,
+  .journey-360-doc-preview__pdf,
+  .journey-360-doc-preview__message {
+    height: 320px;
+  }
+}
+
 /* ── Document dropdown -- pick one document, see only its own file + own
    extracted values (replaces a prior accordion that rendered every
    document's every field, in every category, all at once). ───────────── */

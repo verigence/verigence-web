@@ -36,19 +36,33 @@
   padding: 6px !important;
 }
 
-.enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-work-filter-tabs--approved button {
-  flex: 1 1 auto !important;
-  padding: 9px 16px !important;
-}
-
 .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-work-filter-tabs--approved button.is-active {
   color: var(--vg-brand-primary) !important;
   box-shadow: inset 0 -2px #00afa8 !important;
+}
+
+/* Desktop only: five roomy, equal-width tabs fill the bar. */
+@media (min-width: 900px) {
+  .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-work-filter-tabs--approved button {
+    flex: 1 1 auto !important;
+    padding: 9px 16px !important;
+  }
 }
 
 @media (max-width: 899px) {
   .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-work-filter-tabs--approved {
     max-width: none !important;
     width: 100% !important;
+  }
+
+  /* pc-journey-final-polish.css's mobile chip-rail (flex: 0 0 auto, nowrap,
+     horizontal scroll) is the correct design here -- restated explicitly
+     so this file (loaded after it) can never silently re-widen tabs to
+     fill the row again the way the old unconditional `flex: 1 1 auto`
+     above did. Equal-fill + nowrap text with no scroll is what clipped
+     "Deliveries" to "Deliverie" and "Observations" to "Observatio". */
+  .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-work-filter-tabs--approved button {
+    flex: 0 0 auto !important;
+    white-space: nowrap !important;
   }
 }

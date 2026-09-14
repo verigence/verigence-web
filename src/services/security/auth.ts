@@ -13,6 +13,14 @@ export interface HumanLoginResponse {
   deviceId: string;
 }
 
+export interface HumanRememberResponse {
+  remembered: true;
+  rememberToken?: string | null;
+  rememberExpiresAtUtc: string;
+}
+
+export interface HumanResumeResponse extends HumanLoginResponse, HumanRememberResponse {}
+
 interface SecurityProblem {
   code?: string;
   title?: string;
@@ -136,6 +144,60 @@ export async function refreshHuman(accessToken: string): Promise<HumanLoginRespo
 
   if (!response.ok) throw errorFrom(response, payload, correlationId);
   return payload as HumanLoginResponse;
+}
+
+export async function rememberHuman(
+  accessToken: string,
+  device: VerigenceDeviceContext,
+): Promise<HumanRememberResponse> {
+  const { response, correlationId } = await securityFetch(securityEndpoint('/security/v1/auth/remember'), {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ device }),
+    cache: 'no-store',
+    credentials: 'include',
+  });
+  const payload = await readPayload(response);
+
+  if (!response.ok) throw errorFrom(response, payload, correlationId);
+  return payload as HumanRememberResponse;
+}
+
+export async function resumeHuman(
+  device: VerigenceDeviceContext,
+  rememberToken?: string,
+): Promise<HumanResumeResponse> {
+  const { response, correlationId } = await securityFetch(securityEndpoint('/security/v1/auth/resume'), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ device, rememberToken }),
+    cache: 'no-store',
+    credentials: 'include',
+  });
+  const payload = await readPayload(response);
+
+  if (!response.ok) throw errorFrom(response, payload, correlationId);
+  return payload as HumanResumeResponse;
+}
+
+export async function logoutHuman(
+  device: VerigenceDeviceContext,
+  rememberToken?: string,
+): Promise<void> {
+  const { response, correlationId } = await securityFetch(securityEndpoint('/security/v1/auth/logout'), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ device, rememberToken }),
+    cache: 'no-store',
+    credentials: 'include',
+    keepalive: true,
+  });
+  if (response.ok) return;
+  const payload = await readPayload(response);
+  throw errorFrom(response, payload, correlationId);
 }
 
 export function loginErrorMessage(error: unknown): string {

@@ -28,9 +28,9 @@ export default function SessionRenewalGate() {
     let cancelled = false;
     let timer: number | undefined;
 
-    const terminateSession = () => {
+    const terminateSession = (preserveRemember = false) => {
       resetOperationalContext(queryClient);
-      useSessionStore.getState().signOut();
+      useSessionStore.getState().signOut(preserveRemember);
     };
 
     const schedule = (delayMs: number) => {
@@ -46,7 +46,10 @@ export default function SessionRenewalGate() {
 
       const expiry = parseExpiry(session.accessTokenExpiresAtUtc);
       if (!expiry || expiry <= Date.now()) {
-        terminateSession();
+        // A remembered session is deliberately longer-lived than the normal API token. Expiry of
+        // that short token must not revoke the remembered credential; cold-start resume can issue a
+        // fresh short token without weakening the existing API-token lifetime.
+        terminateSession(Boolean(expiry));
         return;
       }
 
@@ -74,12 +77,16 @@ export default function SessionRenewalGate() {
         await renewalInFlight;
       } catch (error) {
         if (error instanceof SecurityLoginError && [401, 403].includes(error.status)) {
-          terminateSession();
+          // AUTH_TOKEN_EXPIRED can happen at a renewal race boundary and is not evidence that the
+          // longer-lived remembered session was revoked. Explicit session/user denial is.
+          terminateSession(error.code === 'AUTH_TOKEN_EXPIRED');
           return;
         }
         const currentExpiry = parseExpiry(useSessionStore.getState().accessTokenExpiresAtUtc);
         if (!currentExpiry || currentExpiry <= Date.now() + RETRY_DELAY_MS) {
-          terminateSession();
+          // Transient Security/network failure should not destroy an otherwise valid remembered
+          // session merely because this short token could not be renewed in time.
+          terminateSession(Boolean(currentExpiry));
           return;
         }
         schedule(RETRY_DELAY_MS);

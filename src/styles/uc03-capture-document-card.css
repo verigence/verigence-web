@@ -161,6 +161,15 @@
   font-size: 0.74rem;
 }
 
+.uc03-checklist-stage-heading {
+  margin: 4px 0 0;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--v2-muted);
+}
+
 .uc03-checklist-group {
   display: grid;
   gap: 6px;

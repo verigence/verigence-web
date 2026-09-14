@@ -2,7 +2,6 @@ import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 
-import EvidenceCapture from '../components/EvidenceCapture';
 import PageHeader from '../components/PageHeader';
 import SectionCard from '../components/SectionCard';
 import StatusPill from '../components/StatusPill';
@@ -113,7 +112,15 @@ export default function JourneyWorkspacePage() {
         <div><span>Delivery</span><strong>{readableCode(model.journey.actualDeliveryStatusCode) || 'Not delivered'}</strong></div>
       </div>
 
-      <EvidenceCapture journeyId={journeyId} onUploaded={() => void queryClient.invalidateQueries({ queryKey: ['journey-workspace', journeyId] })} />
+      <div className="evidence-capture">
+        <div>
+          <strong>Add Evidence</strong>
+          <span>Document upload for this journey has moved to the unified Journey Documents screen.</span>
+        </div>
+        <div className="evidence-capture__actions">
+          <Link className="text-link" to={`/journeys/${journeyId}/documents`}>Go to Journey Documents →</Link>
+        </div>
+      </div>
 
       <label className="journey-stage-mobile-picker">
         <span>Journey Stage</span>

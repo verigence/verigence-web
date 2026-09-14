@@ -215,28 +215,6 @@ export function refreshEvidence(
   );
 }
 
-export function uploadEvidence(
-  tenantId: string,
-  journeyId: string,
-  file: File,
-  evidencePurpose: string,
-  documentTypeKey?: string,
-  requirementKey?: string,
-  accessToken?: string,
-) {
-  const form = new FormData();
-  form.set('file', file);
-  form.set('evidencePurpose', evidencePurpose);
-  if (documentTypeKey) form.set('documentTypeKey', documentTypeKey);
-  if (requirementKey) form.set('requirementKey', requirementKey);
-  return auditCoreRequest<EvidenceSummary>(`/v1/tenants/${tenantId}/journeys/${journeyId}/evidence`, {
-    method: 'POST',
-    body: form,
-    headers: { 'Idempotency-Key': crypto.randomUUID() },
-    ...auth(accessToken),
-  });
-}
-
 export function listFindings(tenantId: string, journeyId: string, accessToken?: string) {
   return auditCoreRequest<FindingSummary[]>(
     `/v1/tenants/${tenantId}/journeys/${journeyId}/findings`, auth(accessToken),

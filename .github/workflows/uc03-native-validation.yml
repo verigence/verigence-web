@@ -11,6 +11,7 @@ on:
       - 'capacitor.config.ts'
       - 'package.json'
       - 'scripts/configure-native.mjs'
+      - 'scripts/finalize-native-branding.mjs'
       - 'scripts/stabilize-native-branding.mjs'
       - 'src/**'
 
@@ -58,6 +59,10 @@ jobs:
           npx cap sync android
           npx cap ls android
           node scripts/configure-native.mjs android
+          # Re-apply the already-approved Android branding finalizer. Capacitor
+          # generates a drawable-v24 launcher foreground that overrides the base
+          # drawable on modern devices unless this step replaces it.
+          node scripts/finalize-native-branding.mjs android
 
       - name: Stabilize Android Verigence branding
         run: |
@@ -68,9 +73,16 @@ jobs:
           test ! -e android/app/src/main/res/mipmap-anydpi-v33/ic_launcher.xml
           grep -q '#0A63C7' android/app/src/main/res/drawable/ic_launcher_foreground.xml
           grep -q '#00AFA8' android/app/src/main/res/drawable/ic_launcher_foreground.xml
+          grep -q 'M64,136' android/app/src/main/res/drawable-v24/ic_launcher_foreground.xml
+          grep -q '#00CBB0' android/app/src/main/res/drawable-v24/ic_launcher_foreground.xml
+          if grep -q 'M66.94,46.02\|M32,64' android/app/src/main/res/drawable-v24/ic_launcher_foreground.xml; then
+            echo '::error::Stock Android launcher artwork remains in drawable-v24.'
+            exit 1
+          fi
           grep -q '#0A63C7' android/app/src/main/res/drawable/verigence_splash_mark.xml
           grep -q '#00AFA8' android/app/src/main/res/drawable/verigence_splash_mark.xml
           echo 'ANDROID_VERIGENCE_BRANDING=PASS'
+          echo 'ANDROID_API24_VERIGENCE_LAUNCHER=PASS'
 
       - name: Verify Android native configuration
         run: |
@@ -128,9 +140,34 @@ jobs:
           release_apk='android/app/build/outputs/apk/release/app-release-unsigned.apk'
           test -s "$debug_apk"
           test -s "$release_apk"
+
+          verify_launcher_payload() {
+            apk="$1"
+            tmpdir="$(mktemp -d)"
+            unzip -q "$apk" 'res/*.xml' -d "$tmpdir"
+            brand_count="$( (grep -Rla 'M64,136' "$tmpdir/res" || true) | wc -l | tr -d ' ')"
+            stock_count="$( (grep -Rla -E 'M66\.94,46\.02|M32,64' "$tmpdir/res" || true) | wc -l | tr -d ' ')"
+            rm -rf "$tmpdir"
+            if [ "$brand_count" -lt 1 ]; then
+              echo "::error::Built APK contains no Verigence launcher vector payload: $apk"
+              exit 1
+            fi
+            if [ "$stock_count" -ne 0 ]; then
+              echo "::error::Built APK still contains stock Android launcher artwork: $apk"
+              exit 1
+            fi
+            echo "APK_VERIGENCE_VECTOR_COUNT=$brand_count"
+          }
+
+          unzip -t "$debug_apk" >/dev/null
+          unzip -t "$release_apk" >/dev/null
+          verify_launcher_payload "$debug_apk"
+          verify_launcher_payload "$release_apk"
+
           sha256sum "$debug_apk" | tee android-debug-apk.sha256
           sha256sum "$release_apk" | tee android-release-unsigned-apk.sha256
           ls -lh "$debug_apk" "$release_apk"
+          echo 'ANDROID_APK_VERIGENCE_ICON=PASS'
 
       - name: Upload Android debug APK
         uses: actions/upload-artifact@v4

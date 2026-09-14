@@ -11,7 +11,7 @@ import {
   getDeliveryCaptureV2,
   resyncDeliveryCaptureV2,
 } from '../services/audit-core/uc03DeliveryCaptureV2';
-import type { CaptureV2Requirement } from '../services/audit-core/uc03DocumentCaptureV2';
+import { getBookingCaptureV2, type CaptureV2Requirement } from '../services/audit-core/uc03DocumentCaptureV2';
 import { reconcileUnifiedDocuments, uploadUnifiedCaptureFiles } from '../services/audit-core/uc03UnifiedDocumentCapture';
 import { useProjectContextStore } from '../store/projectContextStore';
 import { useSessionStore } from '../store/sessionStore';
@@ -20,11 +20,17 @@ import '../styles/uc03-document-capture-v2.css';
 import '../styles/uc03-delivery-capture-v2.css';
 
 const POLL_MS = 1_000;
+const IDENTITY_MARKERS = ['PAN', 'AADHAAR', 'AADHAR'];
 
 type DeliveryGroupKey = 'INVOICES' | 'PAYMENTS' | 'OTHERS';
 
 function normalize(value: string): string {
   return value.replace(/[_-]+/g, ' ').trim().toLowerCase();
+}
+
+function isIdentityRequirement(requirement: CaptureV2Requirement): boolean {
+  const searchable = `${requirement.documentTypeKey} ${requirement.requirementKey} ${requirement.label}`.toUpperCase();
+  return IDENTITY_MARKERS.some((marker) => searchable.includes(marker));
 }
 
 function groupFor(requirement: CaptureV2Requirement): DeliveryGroupKey {
@@ -82,6 +88,17 @@ export default function DeliveryCaptureV2Page() {
     refetchOnWindowFocus: false,
     refetchInterval: (query) => deliveryCaptureV2IsProcessing(query.state.data) ? POLL_MS : false,
   });
+  // Read-only for this screen's own checklist: a Booking-relevant file
+  // dropped here already dispatches correctly via the unified upload path
+  // (see handleUpload below) -- this query exists only so the checklist can
+  // show what Booking still needs too, segregated from Delivery's own list.
+  const bookingCaptureQuery = useQuery({
+    queryKey: ['uc03-delivery-v2-booking-checklist', project?.tenantId, journeyId],
+    queryFn: () => getBookingCaptureV2(project!.tenantId, journeyId, accessToken),
+    enabled,
+    retry: false,
+    refetchOnWindowFocus: false,
+  });
 
   useEffect(() => {
     const timer = window.setInterval(() => setClock(elapsed(startedAt.current)), 1_000);
@@ -108,11 +125,22 @@ export default function DeliveryCaptureV2Page() {
   }, [workspaceQuery.isSuccess, deliveryStarted, starting]);
 
   const capture = captureQuery.data;
+  const bookingCapture = bookingCaptureQuery.data;
   const groups = useMemo(() => {
     const result: Record<DeliveryGroupKey, CaptureV2Requirement[]> = { INVOICES: [], PAYMENTS: [], OTHERS: [] };
     capture?.requirements.forEach((requirement) => result[groupFor(requirement)].push(requirement));
     return result;
   }, [capture?.requirements]);
+
+  const bookingIdentityRequirements = useMemo(
+    () => bookingCapture?.requirements.filter(isIdentityRequirement) ?? [],
+    [bookingCapture],
+  );
+  const bookingIdentitySatisfied = bookingIdentityRequirements.some((item) => Boolean(item.document));
+  const bookingMandatoryDocuments = useMemo(
+    () => bookingCapture?.requirements.filter((item) => item.requirementLevel === 'REQUIRED' && !isIdentityRequirement(item)) ?? [],
+    [bookingCapture],
+  );
 
   if (!project || !journeyId) return null;
 
@@ -130,7 +158,8 @@ export default function DeliveryCaptureV2Page() {
       // screen: a Booking-relevant file dropped here still classifies and
       // routes back to Booking correctly instead of being misclassified
       // against a Delivery-only candidate list. This screen's own
-      // checklist/grid below still shows Delivery documents only.
+      // uploaded-document grid below still shows Delivery documents only --
+      // the checklist panel does show Booking's outstanding items too.
       const result = await uploadUnifiedCaptureFiles(project.tenantId, journeyId, files, accessToken);
       try {
         await reconcileUnifiedDocuments(project.tenantId, journeyId, accessToken);
@@ -143,7 +172,7 @@ export default function DeliveryCaptureV2Page() {
           ? `${result.uploaded} of ${result.uploaded + result.failed} file(s) uploaded — ${result.failed} failed, try those again.`
           : 'Documents received. Classification continues in the background and does not block Delivery.',
       );
-      await captureQuery.refetch();
+      await Promise.all([captureQuery.refetch(), bookingCaptureQuery.refetch()]);
     } catch (cause) {
       setMessage(undefined);
       setError(cause instanceof Error ? cause.message : 'One or more Delivery documents could not be uploaded.');
@@ -162,7 +191,7 @@ export default function DeliveryCaptureV2Page() {
           ? `Rechecking ${result.queuedDocumentCount} document${result.queuedDocumentCount === 1 ? '' : 's'}…`
           : 'Every classified document is already up to date.',
       );
-      await captureQuery.refetch();
+      await Promise.all([captureQuery.refetch(), bookingCaptureQuery.refetch()]);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Delivery documents could not be rechecked.');
     } finally {
@@ -237,6 +266,10 @@ export default function DeliveryCaptureV2Page() {
   const mandatory = capture?.requirements.filter((item) => item.requirementLevel === 'REQUIRED' && item.applicabilityState !== 'NOT_APPLICABLE') ?? [];
   const mandatoryReceived = mandatory.filter((item) => Boolean(item.document)).length;
   const optional = capture?.requirements.filter((item) => item.requirementLevel !== 'REQUIRED') ?? [];
+  const combinedMandatoryTotal = mandatory.length + bookingMandatoryDocuments.length
+    + (bookingIdentityRequirements.length > 0 ? 1 : 0);
+  const combinedMandatoryReceived = mandatoryReceived + bookingMandatoryDocuments.filter((item) => item.document).length
+    + (bookingIdentitySatisfied ? 1 : 0);
   const uploadDisabled = !ready || uploading;
 
   return (
@@ -277,7 +310,7 @@ export default function DeliveryCaptureV2Page() {
             aria-expanded={checklistOpen}
             onClick={() => setChecklistOpen((current) => !current)}
           >
-            Checklist <em>{mandatoryReceived}/{mandatory.length}</em>
+            Checklist <em>{combinedMandatoryReceived}/{combinedMandatoryTotal}</em>
           </button>
         )}
         {capture && journeyId ? (
@@ -374,12 +407,42 @@ export default function DeliveryCaptureV2Page() {
       )}
 
       {checklistOpen ? (
-        <aside className="uc03-capture-checklist-panel" role="dialog" aria-label="Delivery document checklist">
+        <aside className="uc03-capture-checklist-panel" role="dialog" aria-label="Journey document checklist">
           <header>
             <strong>Document checklist</strong>
             <button type="button" onClick={() => setChecklistOpen(false)} aria-label="Close checklist">×</button>
           </header>
-          <p>These are audit expectations. A missing or still-processing document never blocks Next.</p>
+          <p>
+            These are audit expectations for this Journey&apos;s Booking and Delivery — whichever documents you
+            have, upload them here. A missing or still-processing document never blocks Next.
+          </p>
+          {bookingMandatoryDocuments.length || bookingIdentityRequirements.length > 0 ? (
+            <>
+              <p className="uc03-checklist-stage-heading">Booking</p>
+              {bookingMandatoryDocuments.length ? (
+                <section className="uc03-checklist-group">
+                  <h3>Expected audit documents <span>{bookingMandatoryDocuments.length}</span></h3>
+                  {bookingMandatoryDocuments.map((requirement) => (
+                    <RequirementChecklistRow key={requirement.requirementKey} requirement={requirement} />
+                  ))}
+                </section>
+              ) : null}
+              {bookingIdentityRequirements.length > 0 ? (
+                <section className="uc03-checklist-group">
+                  <h3>Customer ID <span>Any one</span></h3>
+                  <div className={`uc03-checklist-row ${bookingIdentitySatisfied ? 'is-received' : ''}`}>
+                    <span className="uc03-checklist-row__dot" aria-hidden="true" />
+                    <div>
+                      <strong>PAN or Aadhaar</strong>
+                      <span>Either is sufficient when available</span>
+                    </div>
+                    <em>{bookingIdentitySatisfied ? 'Received' : 'Not received'}</em>
+                  </div>
+                </section>
+              ) : null}
+            </>
+          ) : null}
+          {mandatory.length || optional.length ? <p className="uc03-checklist-stage-heading">Delivery</p> : null}
           {(['INVOICES', 'PAYMENTS', 'OTHERS'] as DeliveryGroupKey[]).map((key) => (
             groups[key].length ? (
               <section key={key} className="uc03-checklist-group">
@@ -390,7 +453,10 @@ export default function DeliveryCaptureV2Page() {
               </section>
             ) : null
           ))}
-          {optional.length === 0 && mandatory.length === 0 ? <p className="uc03-checklist-empty">No configured checklist for this Delivery.</p> : null}
+          {optional.length === 0 && mandatory.length === 0
+            && bookingMandatoryDocuments.length === 0 && bookingIdentityRequirements.length === 0 ? (
+            <p className="uc03-checklist-empty">No configured checklist for this Journey.</p>
+          ) : null}
         </aside>
       ) : null}
 

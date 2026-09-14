@@ -26,7 +26,10 @@ import { useSessionStore } from '../store/sessionStore';
 const STALE_BOOKING_DAYS = 7;
 const STALE_DELIVERY_DAYS = 5;
 
-const MAX_CARDS = 4;
+// Kept small on purpose: the dashboard must fit one mobile screen without
+// scrolling (hero + KPIs + performance + this list), and each card carries a
+// full journey rail -- the rest is one tap away via "See all".
+const MAX_CARDS = 2;
 
 // Where each hero KPI tile deep-links — the full Work Queue table, filtered.
 const QUEUE = '/work-queue';
@@ -179,7 +182,6 @@ const REASON_ORDER: Record<Reason, number> = {
 };
 
 interface CardPresentation {
-  ask: string;
   chip: string;
   chipHot: boolean;
   actionLabel: string;
@@ -196,7 +198,6 @@ function presentCard(candidate: Candidate): CardPresentation {
   if (reason === 'FLAGGED') {
     const n = item.openFlagCount;
     return {
-      ask: `${n} observation${n === 1 ? '' : 's'} raised on this journey. Review and resolve what is needed.`,
       chip: `${n} open`,
       chipHot: true,
       actionLabel: 'Review observations',
@@ -206,7 +207,6 @@ function presentCard(candidate: Candidate): CardPresentation {
   }
   if (reason === 'VERIFY_BOOKING') {
     return {
-      ask: 'Booking documents are in. Verify the values read off them, then submit for review.',
       chip: `Ready ${ageLabel(item.latestActivityAtUtc)}`,
       chipHot: false,
       actionLabel: 'Verify & submit',
@@ -216,7 +216,6 @@ function presentCard(candidate: Candidate): CardPresentation {
   }
   if (reason === 'VERIFY_DELIVERY') {
     return {
-      ask: 'Delivery documents are in. Verify the values read off them, then submit for review.',
       chip: `Ready ${ageLabel(item.latestActivityAtUtc)}`,
       chipHot: false,
       actionLabel: 'Verify & submit',
@@ -226,7 +225,6 @@ function presentCard(candidate: Candidate): CardPresentation {
   }
   if (reason === 'DELIVERY') {
     return {
-      ask: 'Delivery is in progress. Add the remaining photos and documents to complete it.',
       chip: `In delivery · ${ageLabel(item.latestActivityAtUtc)}`,
       chipHot: false,
       actionLabel: 'Continue delivery',
@@ -236,7 +234,6 @@ function presentCard(candidate: Candidate): CardPresentation {
   }
   const started = deliveryStarted(item);
   return {
-    ask: `No action for ${staleDays} days. Check with the customer or move the ${started ? 'delivery' : 'booking'} forward.`,
     chip: `No action · ${staleDays}d`,
     chipHot: true,
     actionLabel: started ? 'Open delivery' : 'Open booking',
@@ -340,13 +337,9 @@ function WorkCard({
   const presentation = presentCard(candidate);
   return (
     <article className="pcov-card">
+      <div className="pcov-card__cust">{customerLabel(item.customerDisplayName)}</div>
       <div className="pcov-card__veh">{dedupeProductLabel(productLabel)}</div>
-      <div className="pcov-card__cust">
-        <b>{customerLabel(item.customerDisplayName)}</b>
-        {item.bookingReference ? ` · ${item.bookingReference}` : ''}
-      </div>
       <JourneyRail step={step} />
-      <p className="pcov-card__ask">{presentation.ask}</p>
       <div className="pcov-card__foot">
         <span className={`pcov-chip ${presentation.chipHot ? 'pcov-chip--hot' : 'pcov-chip--soft'}`}>
           {presentation.chip}
@@ -603,15 +596,14 @@ export default function PcOverviewPage() {
 
       {!loading && hasAnyWork && (
         <>
-          <div className="pcov-sec-head">
-            <h2>Do these next</h2>
-            {candidates.length > shownCandidates.length && (
+          {candidates.length > shownCandidates.length && (
+            <div className="pcov-sec-head">
               <Link className="pcov-seeall" to={`${QUEUE}?view=ALL`}>
-                See all {candidates.length}
+                See all ({candidates.length})
                 <span aria-hidden="true">→</span>
               </Link>
-            )}
-          </div>
+            </div>
+          )}
 
           {shownCandidates.length > 0 ? (
             <div className="pcov-cards">

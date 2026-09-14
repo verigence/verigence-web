@@ -85,6 +85,7 @@ import './styles/pc-overview.css';
 import './styles/dashboard-workqueue-brand-color.css';
 import './styles/journey-line.css';
 import './styles/nightly-reprocess-tile.css';
+import './styles/mobile-bottom-nav.css';
 import './styles/ui-governance.css';
 import './ui/pcNavigationMotion';
 

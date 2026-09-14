@@ -20,6 +20,7 @@ import {
   listReviewPending,
   type ReviewPendingItem,
 } from '../services/audit-core/uc03PcVerification';
+import NightlyReprocessingStatusTile from '../components/NightlyReprocessingStatusTile';
 import { enrichUc03WorkItems } from '../services/audit-core/uc03WorkItemEnrichment';
 import { useProjectContextStore } from '../store/projectContextStore';
 import { useSessionStore } from '../store/sessionStore';
@@ -612,6 +613,7 @@ export default function DashboardPage() {
   const pcContextReady = project?.operatingRole !== 'PC' || Boolean(outletId);
   const isPc = project?.operatingRole === 'PC';
   const isTl = project?.operatingRole === 'TL';
+  const isPm = project?.operatingRole === 'PM';
   const workType: Uc03WorkType = view === 'REVIEW_PENDING' || view === 'FLAGS' || view === 'VERIFY'
     ? 'ALL'
     : view;
@@ -752,6 +754,8 @@ export default function DashboardPage() {
         outletName={outletName}
         showCaptureAction={isPc}
       />
+
+      {isPm && <NightlyReprocessingStatusTile />}
 
       {metricsQuery.isError && (
         <section className="dashboard-load-state" role="alert">

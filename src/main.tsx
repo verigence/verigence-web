@@ -86,6 +86,9 @@ import './styles/dashboard-workqueue-brand-color.css';
 import './styles/journey-line.css';
 import './styles/nightly-reprocess-tile.css';
 import './styles/ui-governance.css';
+/* Native-only overrides intentionally load after governance; every selector is
+   rooted at html.native-android so browser/Web presentation cannot change. */
+import './styles/android-operational-density.css';
 import './ui/pcNavigationMotion';
 
 import App from './App';

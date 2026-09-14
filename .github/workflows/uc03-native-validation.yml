@@ -1,6 +1,7 @@
 name: UC03 Android Validation
 
 # Shared UC03 native evidence gate; current artifact identifies the C2 Delivery checkpoint.
+# Build-only probe: produce an Android release artifact from the current merged DEV application code.
 on:
   pull_request:
     branches:

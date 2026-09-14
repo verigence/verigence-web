@@ -26,7 +26,12 @@ import {
 import { useProjectContextStore } from '../store/projectContextStore';
 import { useSessionStore } from '../store/sessionStore';
 
-const SUBMIT_BANNER_DURATION_MS = 6_000;
+// Longer than a plain confirmation needs -- this banner also carries the
+// only explanation a PC gets, right after Submit, that extraction is a
+// background process (not instant): previously said only "submitted
+// successfully" and gave no reason values on this page might still look
+// incomplete for a few minutes.
+const SUBMIT_BANNER_DURATION_MS = 9_000;
 
 // Same three finding_class values and labels as ReviewQueuePage's
 // CLASS_LABEL -- kept in sync deliberately so a finding reads the same way
@@ -1847,7 +1852,7 @@ export default function Journey360Page() {
     <div className="screen-stack journey-360-page">
       {showSubmitBanner && (
         <div className="journey-360-submit-banner" role="status" aria-live="polite">
-          <span>✔ Booking submitted successfully.</span>
+          <span>✔ Booking submitted successfully. Document extraction is still running in the background — check back in a few minutes and refresh to see extracted values.</span>
           <button type="button" className="journey-360-banner-dismiss" aria-label="Dismiss" onClick={() => setShowSubmitBanner(false)}>×</button>
         </div>
       )}

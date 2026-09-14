@@ -28,6 +28,9 @@ jobs:
       - name: Install
         run: npm install --no-audit --no-fund
 
+      - name: Worker regression tests
+        run: npm test -- worker/__tests__/index.test.js
+
       - name: UI governance
         run: npm run ui:governance
 

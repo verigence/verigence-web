@@ -113,7 +113,7 @@ export default function LoginPage() {
       // Deliberately start remembered-session setup only after normal authentication has completed
       // and navigation has begun. This adds no latency or availability dependency to today's login.
       if (keepSignedIn) {
-        void enableRememberedSession(login.accessToken, device).then((enabled) => {
+        void enableRememberedSession(login.accessToken, device, identifier).then((enabled) => {
           if (!enabled) console.warn('Keep me signed in could not be enabled.');
         });
       } else {

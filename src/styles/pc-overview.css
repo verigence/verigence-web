@@ -191,6 +191,13 @@
   color: var(--pcov-muted);
   font-weight: 600;
   margin-top: 2px;
+  /* Ionic's own reset sets `word-wrap: break-word` on <body>, which is
+     inherited everywhere and lets a single long word ("Bookings") split
+     mid-letter ("Bookin"/"gs") the moment its tile gets tight. Wrap at
+     word boundaries only -- worst case a tile's last word runs slightly
+     long, which reads as normal text, not broken text. */
+  overflow-wrap: normal;
+  word-break: normal;
 }
 
 .pcov-kpi--flag .pcov-kpi__value {
@@ -610,6 +617,20 @@
   .pcov-cards {
     grid-template-columns: 1fr;
   }
+
+  /* A fixed 2-column grid, not flex-wrap + min-width: at anything from a
+     compact phone up to a 900px tablet viewport, 4 tiles squeezed into one
+     row can end up narrower than any single word in their label, which is
+     what was splitting "Bookings" into "Bookin"/"gs" above. Two per row is
+     never ambiguous about how much width each tile actually gets. */
+  .pcov-hero__kpis {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .pcov-kpi {
+    min-width: 0;
+  }
 }
 
 @media (max-width: 560px) {
@@ -620,9 +641,5 @@
 
   .pcov-hero__headline {
     font-size: 23px;
-  }
-
-  .pcov-kpi {
-    min-width: calc(50% - 5px);
   }
 }

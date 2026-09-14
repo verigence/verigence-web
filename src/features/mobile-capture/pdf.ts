@@ -44,6 +44,10 @@ export async function buildDocumentPdf(
   }
 
   const bytes = await pdf.save({ useObjectStreams: true });
+  // TypeScript 7 correctly distinguishes ArrayBufferLike from BlobPart's
+  // ArrayBuffer requirement. Copy once into an owned ArrayBuffer for File.
+  const fileBytes = new Uint8Array(bytes.byteLength);
+  fileBytes.set(bytes);
   const filename = `capture-${safeToken(journeyId)}-${String(documentNumber).padStart(2, '0')}.pdf`;
-  return new File([bytes], filename, { type: 'application/pdf' });
+  return new File([fileBytes.buffer], filename, { type: 'application/pdf' });
 }

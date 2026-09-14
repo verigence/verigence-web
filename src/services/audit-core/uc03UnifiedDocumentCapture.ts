@@ -1,4 +1,24 @@
 import { auditCoreRequest } from './client';
+import { invalidateCaptureReadState as invalidateBookingCaptureReadState } from './uc03DocumentCaptureV2';
+import { invalidateCaptureReadState as invalidateDeliveryCaptureReadState } from './uc03DeliveryCaptureV2';
+
+/**
+ * Booking's and Delivery's own getBookingCaptureV2/getDeliveryCaptureV2 each
+ * keep an in-process read cache (see their own invalidateCaptureReadState)
+ * that only clears when THEIR OWN upload/delete/resync functions call it.
+ * A unified upload/reconcile writes to the exact same
+ * document_capture_v2_documents rows those reads serve, through a
+ * completely different module -- without clearing both caches here, every
+ * screen reading either stage's capture data (Capture New Booking,
+ * Delivery's own screen, Journey Documents) keeps showing whatever it last
+ * saw before this upload, indefinitely (react-query's own refetchInterval
+ * also stops polling once it sees a caught-up-looking empty snapshot, so a
+ * page reload was the only way anything ever caught up).
+ */
+function invalidateBothCaptureReadStates(tenantId: string, journeyId: string): void {
+  invalidateBookingCaptureReadState(tenantId, journeyId);
+  invalidateDeliveryCaptureReadState(tenantId, journeyId);
+}
 
 /**
  * One upload surface for Booking and Delivery alike -- no stage picker.
@@ -113,6 +133,7 @@ export async function uploadUnifiedCaptureFiles(
     }
   };
   await Promise.all(Array.from({ length: Math.min(6, intent.uploads.length) }, () => worker()));
+  if (uploaded > 0) invalidateBothCaptureReadStates(tenantId, journeyId);
   return { uploaded, failed };
 }
 
@@ -133,4 +154,5 @@ export async function reconcileUnifiedDocuments(
     accessToken: token(accessToken),
     timeoutMs: 30_000,
   });
+  invalidateBothCaptureReadStates(tenantId, journeyId);
 }

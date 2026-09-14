@@ -89,7 +89,9 @@ function markLocal(capture: DeliveryCaptureV2): DeliveryCaptureV2 {
   return { ...capture, externalContextRef: `${LOCAL_FALLBACK_PREFIX}${capture.externalContextRef}` };
 }
 
-function invalidateCaptureReadState(tenantId: string, journeyId: string): void {
+// Exported (as invalidateDeliveryCaptureReadState) -- see the matching
+// comment in uc03DocumentCaptureV2.ts's own invalidateCaptureReadState.
+export function invalidateCaptureReadState(tenantId: string, journeyId: string): void {
   captureReadState.delete(readKey(tenantId, journeyId));
   localFallbackPollStartedAt.delete(journeyId);
 }

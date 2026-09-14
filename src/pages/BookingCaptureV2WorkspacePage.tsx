@@ -688,20 +688,6 @@ export default function BookingCaptureV2CompactPage() {
           )}
         </div>
 
-        {auditObservations.length > 0 ? (
-          <div className="uc03-v2-compact-blockers" role="status">
-            {auditObservations.map((observation) => (
-              observation.target ? (
-                <button
-                  key={observation.key}
-                  type="button"
-                  onClick={() => document.getElementById(observation.target!)?.scrollIntoView({ behavior: 'smooth', block: 'center' })}
-                >{observation.text}</button>
-              ) : <span key={observation.key}>{observation.text}</span>
-            ))}
-          </div>
-        ) : null}
-
         <button type="button" className="uc03-c1-primary" disabled={!canProceed} onClick={() => void handleSubmit()}>
           {submitting ? 'Submitting…' : 'Submit Booking'}
         </button>

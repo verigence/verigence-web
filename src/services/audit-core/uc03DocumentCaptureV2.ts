@@ -119,7 +119,13 @@ function markLocal(capture: BookingCaptureV2): BookingCaptureV2 {
   return { ...capture, externalContextRef: `${LOCAL_FALLBACK_PREFIX}${capture.externalContextRef}` };
 }
 
-function invalidateCaptureReadState(tenantId: string, journeyId: string): void {
+// Exported (as invalidateBookingCaptureReadState) so the unified upload path
+// (uc03UnifiedDocumentCapture.ts), which does not otherwise touch this
+// module at all, can still clear this in-process read cache after a unified
+// upload/reconcile -- without it, getBookingCaptureV2 keeps serving the
+// snapshot from before the upload (every other mutation in this file, e.g.
+// uploadBookingCaptureV2Files below, already calls this after itself).
+export function invalidateCaptureReadState(tenantId: string, journeyId: string): void {
   captureReadState.delete(readKey(tenantId, journeyId));
   localFallbackPollStartedAt.delete(journeyId);
 }

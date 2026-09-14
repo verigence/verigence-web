@@ -89,6 +89,7 @@ import './styles/ui-governance.css';
 import './ui/pcNavigationMotion';
 
 import App from './App';
+import SessionBootstrapGate from './components/SessionBootstrapGate';
 import DiFieldViewerEnhancer from './features/di-test/DiFieldViewerEnhancer';
 import { AuditCoreTimeoutError } from './services/audit-core/client';
 
@@ -118,8 +119,10 @@ const queryClient = new QueryClient({
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <QueryClientProvider client={queryClient}>
-      <DiFieldViewerEnhancer />
-      <App />
+      <SessionBootstrapGate>
+        <DiFieldViewerEnhancer />
+        <App />
+      </SessionBootstrapGate>
     </QueryClientProvider>
   </React.StrictMode>,
 );

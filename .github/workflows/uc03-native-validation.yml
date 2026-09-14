@@ -145,8 +145,8 @@ jobs:
             apk="$1"
             tmpdir="$(mktemp -d)"
             unzip -q "$apk" 'res/*.xml' -d "$tmpdir"
-            brand_count="$(grep -Rla 'M64,136' "$tmpdir/res" | wc -l | tr -d ' ')"
-            stock_count="$(grep -Rla -E 'M66\.94,46\.02|M32,64' "$tmpdir/res" | wc -l | tr -d ' ')"
+            brand_count="$( (grep -Rla 'M64,136' "$tmpdir/res" || true) | wc -l | tr -d ' ')"
+            stock_count="$( (grep -Rla -E 'M66\.94,46\.02|M32,64' "$tmpdir/res" || true) | wc -l | tr -d ' ')"
             rm -rf "$tmpdir"
             if [ "$brand_count" -lt 1 ]; then
               echo "::error::Built APK contains no Verigence launcher vector payload: $apk"

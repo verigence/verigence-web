@@ -68,7 +68,8 @@ jobs:
     timeout-minutes: 35
     env:
       VITE_SECURITY_BASE_URL: https://verigence-web-dev.jbrconsulting-it.workers.dev
-      VITE_AUDIT_CORE_BASE_URL: ${{ secrets.AUDIT_CORE_URL }}
+      VITE_AUDIT_CORE_BASE_URL: ""
+      VITE_AUDIT_CORE_PROXY_BASE_URL: https://verigence-web-dev.jbrconsulting-it.workers.dev/audit-core
 
     steps:
       - name: Checkout
@@ -90,6 +91,16 @@ jobs:
 
       - name: Build Android Web assets
         run: npm run build:native:dev
+
+      - name: Verify native Audit Core routing
+        run: |
+          set -euo pipefail
+          grep -R -q 'https://verigence-web-dev.jbrconsulting-it.workers.dev/audit-core' dist/assets
+          if grep -R -q 'verigence-audit-core-production.up.railway.app' dist/assets; then
+            echo '::error::Native bundle contains a direct Railway Audit Core endpoint.'
+            exit 1
+          fi
+          echo 'ANDROID_AUDIT_CORE_WORKER_ROUTE=PASS'
 
       - name: Generate and sync Android
         run: |
@@ -143,11 +154,18 @@ jobs:
             exit 1
           fi
           unzip -p "$apk" resources.arsc | strings | grep -q 'verigence_splash_mark'
+          unzip -p "$apk" 'assets/public/assets/*.js' | strings >/tmp/verigence-native-bundle.txt
+          grep -q 'https://verigence-web-dev.jbrconsulting-it.workers.dev/audit-core' /tmp/verigence-native-bundle.txt
+          if grep -q 'verigence-audit-core-production.up.railway.app' /tmp/verigence-native-bundle.txt; then
+            echo '::error::Built APK contains a direct Railway Audit Core endpoint.'
+            exit 1
+          fi
           sha256sum "$apk" | tee android-apk.sha256
           ls -lh "$apk"
           echo 'ANDROID_APK_ZIP_INTEGRITY=PASS'
           echo 'ANDROID_APK_VERIGENCE_ICON=PASS'
           echo 'ANDROID_APK_VERIGENCE_SPLASH=PASS'
+          echo 'ANDROID_APK_AUDIT_CORE_WORKER_ROUTE=PASS'
 
       - name: Upload Android APK
         uses: actions/upload-artifact@v4

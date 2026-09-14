@@ -1,0 +1,250 @@
+/* Android-only density for the existing PcOverviewPage.
+   No duplicate screen: the same .pcov DOM is reflowed only when Capacitor
+   marks the document as html.native-android. */
+
+html.native-android .pcov {
+  width: 100% !important;
+  gap: 8px !important;
+}
+
+html.native-android .pcov .pcov-hero {
+  padding: 10px 11px 9px 13px !important;
+  border-radius: 12px !important;
+  box-shadow: none !important;
+}
+
+html.native-android .pcov .pcov-hero__top {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) auto !important;
+  align-items: center !important;
+  gap: 8px !important;
+}
+
+html.native-android .pcov .pcov-hero__greet {
+  margin: 0 !important;
+  font-size: 11px !important;
+  line-height: 1.25 !important;
+}
+
+html.native-android .pcov .pcov-hero__place {
+  margin-top: 1px !important;
+  overflow: hidden !important;
+  font-size: 12px !important;
+  line-height: 1.25 !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+
+html.native-android .pcov .pcov-capture {
+  align-self: center !important;
+  width: auto !important;
+  height: 36px !important;
+  padding: 0 11px !important;
+  gap: 5px !important;
+  border-radius: 9px !important;
+  font-size: 11.5px !important;
+  box-shadow: none !important;
+}
+
+html.native-android .pcov .pcov-capture__plus {
+  font-size: 15px !important;
+}
+
+html.native-android .pcov .pcov-hero__headline {
+  margin-top: 5px !important;
+  font-size: 18px !important;
+  line-height: 1.15 !important;
+  letter-spacing: -0.02em !important;
+}
+
+html.native-android .pcov .pcov-hero__sub {
+  margin-top: 3px !important;
+  font-size: 11px !important;
+  line-height: 1.3 !important;
+}
+
+html.native-android .pcov .pcov-hero__kpis {
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  gap: 6px !important;
+  margin-top: 7px !important;
+}
+
+html.native-android .pcov .pcov-kpi {
+  min-width: 0 !important;
+  min-height: 54px !important;
+  padding: 7px 9px !important;
+  border-radius: 9px !important;
+  box-shadow: none !important;
+}
+
+html.native-android .pcov .pcov-kpi__value {
+  font-size: 18px !important;
+  line-height: 1 !important;
+}
+
+html.native-android .pcov .pcov-kpi__label {
+  margin-top: 3px !important;
+  font-size: 10.5px !important;
+  line-height: 1.18 !important;
+}
+
+html.native-android .pcov .pcov-perf {
+  display: grid !important;
+  grid-template-columns: auto repeat(2, minmax(0, 1fr)) !important;
+  align-items: center !important;
+  gap: 7px !important;
+  padding: 6px 8px !important;
+  border-radius: 10px !important;
+  box-shadow: none !important;
+}
+
+html.native-android .pcov .pcov-perf__toggle {
+  border-radius: 8px !important;
+}
+
+html.native-android .pcov .pcov-perf__toggle button {
+  padding: 6px 8px !important;
+  font-size: 10.5px !important;
+  white-space: nowrap !important;
+}
+
+html.native-android .pcov .pcov-perf__stat {
+  display: grid !important;
+  gap: 1px !important;
+}
+
+html.native-android .pcov .pcov-perf__stat b {
+  font-size: 15px !important;
+  line-height: 1 !important;
+}
+
+html.native-android .pcov .pcov-perf__stat span {
+  font-size: 9.5px !important;
+  line-height: 1.15 !important;
+}
+
+html.native-android .pcov .pcov-sec-head {
+  min-height: 28px !important;
+}
+
+html.native-android .pcov .pcov-sec-head h2 {
+  font-size: 15px !important;
+}
+
+html.native-android .pcov .pcov-seeall {
+  padding: 5px 9px !important;
+  border-radius: 7px !important;
+  font-size: 10.5px !important;
+}
+
+html.native-android .pcov .pcov-cards {
+  grid-template-columns: 1fr !important;
+  gap: 7px !important;
+}
+
+html.native-android .pcov .pcov-card {
+  padding: 9px 10px !important;
+  border-radius: 11px !important;
+  box-shadow: none !important;
+}
+
+html.native-android .pcov .pcov-card__veh {
+  font-size: 13px !important;
+  line-height: 1.2 !important;
+}
+
+html.native-android .pcov .pcov-card__cust {
+  margin-top: 1px !important;
+  font-size: 11px !important;
+}
+
+html.native-android .pcov .pcov-track {
+  margin: 6px 0 2px !important;
+}
+
+html.native-android .pcov .pcov-rail {
+  height: 6px !important;
+}
+
+html.native-android .pcov .pcov-steps {
+  gap: 9px !important;
+  margin-top: 4px !important;
+}
+
+html.native-android .pcov .pcov-steps__phase > b,
+html.native-android .pcov .pcov-steps__phase > div {
+  font-size: 9.5px !important;
+}
+
+html.native-android .pcov .pcov-card__ask {
+  margin: 6px 0 0 !important;
+  font-size: 11.5px !important;
+  line-height: 1.3 !important;
+}
+
+html.native-android .pcov .pcov-card__foot {
+  display: grid !important;
+  grid-template-columns: auto minmax(130px, 1fr) !important;
+  gap: 7px !important;
+  margin-top: 7px !important;
+}
+
+html.native-android .pcov .pcov-chip {
+  padding: 5px 8px !important;
+  font-size: 10px !important;
+}
+
+html.native-android .pcov .pcov-card__go {
+  width: 100% !important;
+  min-width: 0 !important;
+  height: 34px !important;
+  padding: 0 9px !important;
+  border-radius: 8px !important;
+  font-size: 11.5px !important;
+}
+
+html.native-android .pcov .pcov-state {
+  gap: 8px !important;
+  padding: 10px !important;
+  border-radius: 10px !important;
+}
+
+html.native-android .pcov .pcov-state p {
+  font-size: 11px !important;
+  line-height: 1.25 !important;
+}
+
+html.native-android .pcov .pcov-state button {
+  height: 34px !important;
+  padding: 0 10px !important;
+  border-radius: 8px !important;
+  font-size: 11px !important;
+}
+
+html.native-android .pcov .pcov-empty {
+  padding: 18px 14px !important;
+  border-radius: 12px !important;
+  box-shadow: none !important;
+}
+
+html.native-android .pcov .pcov-empty h2 {
+  font-size: 18px !important;
+}
+
+html.native-android .pcov .pcov-empty p {
+  margin-top: 5px !important;
+  font-size: 12px !important;
+  line-height: 1.4 !important;
+}
+
+html.native-android .pcov .pcov-empty .pcov-capture {
+  margin-top: 12px !important;
+  height: 38px !important;
+}
+
+html.native-android .pcov .pcov-flowprev {
+  gap: 15px !important;
+  margin-top: 14px !important;
+  font-size: 9.5px !important;
+}

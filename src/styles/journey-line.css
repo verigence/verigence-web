@@ -59,6 +59,45 @@
 .jline__stripText { font-size: 0.95rem; font-weight: 600; }
 .jline__stripText small { display: block; font-weight: 400; color: var(--jl-muted); margin-top: 2px; }
 
+/* ── document progress (Uploaded / Classified / Extracted) ──────────────── */
+.jline__docProgress {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.jline__docStat {
+  flex: 1;
+  min-width: 110px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 14px;
+  background: var(--jl-surface);
+  border: 1px solid var(--jl-line);
+  border-radius: 10px;
+}
+
+.jline__docStat span {
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--jl-muted);
+}
+
+.jline__docStat strong {
+  font-size: 1.15rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.jline__docStat--done {
+  border-color: var(--jl-teal);
+}
+.jline__docStat--done strong {
+  color: var(--jl-teal);
+}
+
 .jline__stripJump {
   border: 1px solid var(--jl-coral);
   color: var(--jl-coral);

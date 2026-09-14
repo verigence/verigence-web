@@ -6,18 +6,57 @@ import {
   resetOperationalContext,
   restoreOperationalContextHint,
 } from '../features/uc03/projectContext';
-import { getVerigenceDeviceContext } from '../services/device/identity';
+import {
+  getVerigenceDeviceContext,
+  type VerigenceDeviceContext,
+} from '../services/device/identity';
 import {
   resumeHuman,
   SecurityLoginError,
+  type HumanResumeResponse,
 } from '../services/security/auth';
 import {
   acceptResumedRememberSession,
   clearRejectedRememberedSession,
   rememberedCredentialForResume,
 } from '../services/security/rememberSessionLifecycle';
-import { hasRememberSessionHint } from '../services/security/rememberSession';
+import {
+  hasRememberSessionHint,
+  rememberedIdentityHint,
+} from '../services/security/rememberSession';
 import { useSessionStore } from '../store/sessionStore';
+
+interface ResumeAttempt {
+  device: VerigenceDeviceContext;
+  resumed?: HumanResumeResponse;
+  error?: unknown;
+  missingNativeCredential?: boolean;
+}
+
+// React StrictMode deliberately remounts effects in development. A rotating credential must never
+// be submitted twice, so all mounts in this JS application lifetime share exactly one cold-start
+// exchange. A real app/browser reload creates a new module instance and therefore a new attempt.
+let coldStartResumeAttempt: Promise<ResumeAttempt> | undefined;
+
+function rememberedResumeAttempt(): Promise<ResumeAttempt> {
+  if (coldStartResumeAttempt) return coldStartResumeAttempt;
+  coldStartResumeAttempt = (async () => {
+    const device = getVerigenceDeviceContext();
+    const nativeCredential = await rememberedCredentialForResume(device);
+    if (device.deviceType === 'MOBILE' && !nativeCredential) {
+      return { device, missingNativeCredential: true };
+    }
+    try {
+      return {
+        device,
+        resumed: await resumeHuman(device, nativeCredential),
+      };
+    } catch (error) {
+      return { device, error };
+    }
+  })();
+  return coldStartResumeAttempt;
+}
 
 /**
  * Cold-start-only remembered-session bootstrap.
@@ -41,48 +80,43 @@ export default function SessionBootstrapGate({ children }: PropsWithChildren) {
     let cancelled = false;
 
     const resume = async () => {
-      const device = getVerigenceDeviceContext();
-      const nativeCredential = await rememberedCredentialForResume(device);
+      const attempt = await rememberedResumeAttempt();
+      if (cancelled) return;
 
-      // A native hint without its Keystore credential cannot resume. Clear the stale hint locally
-      // without creating a failing Security request.
-      if (device.deviceType === 'MOBILE' && !nativeCredential) {
-        await clearRejectedRememberedSession(device);
+      if (attempt.missingNativeCredential) {
+        await clearRejectedRememberedSession(attempt.device);
         if (!cancelled) setReady(true);
         return;
       }
 
-      try {
-        const resumed = await resumeHuman(device, nativeCredential);
-        if (cancelled) return;
-
+      if (attempt.resumed) {
+        const resumed = attempt.resumed;
         resetOperationalContext(queryClient);
         useSessionStore.getState().signInAuthenticated(
-          '',
+          rememberedIdentityHint(),
           resumed.accessToken,
           resumed.isSuperAdmin ? 'SUPER_ADMIN' : 'PC',
           resumed.expiresAtUtc,
           resumed.sessionId,
           resumed.deviceId,
         );
-        // The email is not an authorization input and is intentionally absent from the remember
-        // credential. Preserve a neutral display label until profile/user context supplies one.
-        useSessionStore.setState({ displayName: 'User' });
-
+        if (!rememberedIdentityHint()) {
+          useSessionStore.setState({ displayName: 'User' });
+        }
         if (!resumed.isSuperAdmin) {
           restoreOperationalContextHint(resumed.accessToken, queryClient);
         }
-        await acceptResumedRememberSession(resumed, device);
-      } catch (error) {
-        if (cancelled) return;
-        // Definitive auth/session rejection invalidates local persistence. Transient network/5xx
-        // failures retain the remember credential so a later cold start can try again.
-        if (error instanceof SecurityLoginError && [401, 403].includes(error.status)) {
-          await clearRejectedRememberedSession(device);
-        }
-      } finally {
-        if (!cancelled) setReady(true);
+        await acceptResumedRememberSession(resumed, attempt.device);
+      } else if (
+        attempt.error instanceof SecurityLoginError
+        && [401, 403].includes(attempt.error.status)
+      ) {
+        // Definitive auth/session rejection invalidates persistence. Transient network/5xx failures
+        // retain the credential so a later cold start can try again.
+        await clearRejectedRememberedSession(attempt.device);
       }
+
+      if (!cancelled) setReady(true);
     };
 
     void resume();

@@ -58,6 +58,17 @@ jobs:
           npx cap ls android
           node scripts/configure-native.mjs android
 
+      - name: Stabilize Android splash resource for release packaging
+        run: |
+          set -euo pipefail
+          # AAPT2 8.13 intermittently crashes while recompiling the copied PNG
+          # for release. The already-generated vector contains the same approved
+          # Verigence mark and avoids a second PNG compile path.
+          rm -f android/app/src/main/res/drawable/verigence_splash_mark.png
+          cp android/app/src/main/res/drawable/ic_launcher_foreground.xml \
+            android/app/src/main/res/drawable/verigence_splash_mark.xml
+          test -s android/app/src/main/res/drawable/verigence_splash_mark.xml
+
       - name: Verify Android native configuration
         run: |
           set -euo pipefail

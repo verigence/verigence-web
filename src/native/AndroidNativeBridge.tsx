@@ -5,7 +5,9 @@ import { Keyboard, KeyboardResize } from '@capacitor/keyboard';
 import { StatusBar, Style } from '@capacitor/status-bar';
 import { useLocation, useNavigate } from 'react-router-dom';
 
-const ANDROID_BACK_EVENT = 'verigence:android-back';
+import MobileCaptureBackInterceptor from '../features/mobile-capture/MobileCaptureBackInterceptor';
+import MobileDocumentCaptureHost from '../features/mobile-capture/MobileDocumentCaptureHost';
+import { ANDROID_BACK_EVENT } from './androidEvents';
 
 export default function AndroidNativeBridge() {
   const location = useLocation();
@@ -47,7 +49,12 @@ export default function AndroidNativeBridge() {
     };
   }, [location.pathname, navigate]);
 
-  return null;
+  return (
+    <>
+      <MobileCaptureBackInterceptor />
+      <MobileDocumentCaptureHost />
+    </>
+  );
 }
 
-export { ANDROID_BACK_EVENT };
+export { ANDROID_BACK_EVENT } from './androidEvents';

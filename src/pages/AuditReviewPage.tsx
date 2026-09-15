@@ -598,8 +598,17 @@ export default function AuditReviewPage() {
         })()}
       </section>
 
-      <section className="uc03-c3-section" aria-labelledby="timeline-heading">
-        <header><div><span>Immutable history</span><h2 id="timeline-heading">Audit Timeline</h2><p>Booking, Delivery, flag and review events in one chronological view.</p></div></header>
+      {/* Collapsed by default -- a full case's Timeline can run to dozens of
+          entries, and it was the single largest contributor to this page
+          reading as an endless scroll. The Flags register above is the
+          thing a reviewer actually comes here for; the Timeline is a
+          reference a reviewer opens on demand, not something to page past
+          every time. */}
+      <details className="uc03-c3-section uc03-c3-timeline-details">
+        <summary>
+          <div><span>Immutable history</span><h2>Audit Timeline</h2><p>Booking, Delivery, flag and review events in one chronological view.</p></div>
+          <span className="uc03-c3-flag-group-count">{timelineQuery.data?.length ?? 0}</span>
+        </summary>
         <ol className="uc03-c3-timeline">
           {timelineQuery.data?.map((item, index) => (
             <li key={`${item.occurredAtUtc}-${item.eventType}-${index}`}>
@@ -617,7 +626,7 @@ export default function AuditReviewPage() {
           ))}
           {timelineQuery.data?.length === 0 && <li className="uc03-c3-empty">No audit history has been recorded yet.</li>}
         </ol>
-      </section>
+      </details>
 
       {selectedSource && hasBoxedEvidence(selectedSource) && (
         <AttributeEvidenceViewer

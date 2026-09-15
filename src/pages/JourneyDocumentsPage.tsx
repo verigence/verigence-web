@@ -1,9 +1,10 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 
 import PageHeader from '../components/PageHeader';
 import AttributeEvidenceViewer, { hasBoxedEvidence } from '../features/uc03/AttributeEvidenceViewer';
+import { AuditCoreHttpError } from '../services/audit-core/client';
 import { getBookingCaptureV2, type CaptureV2Requirement } from '../services/audit-core/uc03DocumentCaptureV2';
 import { getDeliveryCaptureV2 } from '../services/audit-core/uc03DeliveryCaptureV2';
 import {
@@ -16,6 +17,10 @@ import {
   type ReviewV2Field,
   type ReviewV2SourceValue,
 } from '../services/audit-core/uc03DocumentReviewV2';
+import {
+  confirmModelResolutionSku,
+  getModelResolutionCandidates,
+} from '../services/audit-core/uc03ModelResolution';
 import { reconcileUnifiedDocuments, uploadUnifiedCaptureFiles } from '../services/audit-core/uc03UnifiedDocumentCapture';
 import { useProjectContextStore } from '../store/projectContextStore';
 import { useSessionStore } from '../store/sessionStore';
@@ -429,6 +434,136 @@ function UploadDropzone({
   );
 }
 
+function formatMoney(amount: string | null): string {
+  if (amount === null) return '—';
+  const value = Number(amount);
+  if (Number.isNaN(value)) return amount;
+  return `₹${value.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`;
+}
+
+/**
+ * Shown only when MODEL_NOT_IDENTIFIED is open for this Journey: the Booking
+ * model text couldn't be resolved to exactly one SKU automatically. Lists
+ * the shortlisted candidates (from the same price masters the automatic
+ * resolver itself matches against) so the PC can pick the one that matches
+ * the scanned Booking Form, open right below in the Booking documents bucket.
+ */
+function ModelResolutionSkuPicker({
+  tenantId,
+  journeyId,
+  accessToken,
+  onResolved,
+}: {
+  tenantId: string;
+  journeyId: string;
+  accessToken?: string;
+  onResolved: () => void;
+}) {
+  const [searchParams] = useSearchParams();
+  const sectionRef = useRef<HTMLElement>(null);
+  const [selectedSkuId, setSelectedSkuId] = useState<string>();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string>();
+  const [done, setDone] = useState<string>();
+
+  const query = useQuery({
+    queryKey: ['uc03-model-resolution-candidates', tenantId, journeyId],
+    queryFn: () => getModelResolutionCandidates(tenantId, journeyId, accessToken),
+    enabled: Boolean(tenantId && journeyId && accessToken),
+    retry: false,
+    refetchOnWindowFocus: false,
+  });
+
+  // Task Queue's "Select SKU →" CTA links here with ?selectSku=1 -- jump to
+  // this section once its data (and so its DOM node) actually exists,
+  // instead of racing the page-level mount.
+  useEffect(() => {
+    if (searchParams.get('selectSku') === '1' && query.data) {
+      sectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, [searchParams, query.data]);
+
+  // A 404 here just means there's no open vehicle-model gap for this
+  // Journey right now -- not an error state, nothing to render.
+  const notApplicable = query.error instanceof AuditCoreHttpError && query.error.status === 404;
+  if (notApplicable || query.isPending || query.isError || !query.data || done) {
+    return done ? (
+      <section id="model-resolution-picker" ref={sectionRef} className="uc03-jd-sku-picker">
+        <div className="uc03-jd-success" role="status">{done}</div>
+      </section>
+    ) : null;
+  }
+
+  const { reviewedModelName, reviewedVariantName, reviewedColourName, candidates } = query.data;
+
+  const confirm = async () => {
+    if (!selectedSkuId) return;
+    setBusy(true);
+    setError(undefined);
+    try {
+      const result = await confirmModelResolutionSku(tenantId, journeyId, selectedSkuId, accessToken);
+      setDone(`Confirmed ${result.modelName}${result.variantName ? ` ${result.variantName}` : ''} as the vehicle for this booking.`);
+      onResolved();
+    } catch (confirmError) {
+      setError(confirmError instanceof Error ? confirmError.message : 'That SKU could not be confirmed. Try again.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <section id="model-resolution-picker" ref={sectionRef} className="uc03-jd-sku-picker">
+      <header>
+        <h2>Select the vehicle SKU</h2>
+        <p>
+          The Booking Form's model text
+          {reviewedModelName ? <> — <strong>“{reviewedModelName}{reviewedVariantName ? ` ${reviewedVariantName}` : ''}{reviewedColourName ? ` (${reviewedColourName})` : ''}”</strong> —</> : null}
+          {' '}matched {candidates.length > 0 ? `${candidates.length} possible SKUs` : 'no SKU'} in the price masters and needs a human pick.
+          Check the scanned Booking Form below, then choose the matching SKU here.
+        </p>
+      </header>
+
+      {candidates.length === 0 ? (
+        <p className="uc03-jd-empty">No SKU in the current price masters matches this model at all — this usually means the model wasn't captured correctly, or the price masters need updating. Correct the Booking Form fields above first.</p>
+      ) : (
+        <ul className="uc03-jd-sku-candidates">
+          {candidates.map((candidate) => (
+            <li key={candidate.productSkuId}>
+              <label className={selectedSkuId === candidate.productSkuId ? 'is-selected' : ''}>
+                <input
+                  type="radio"
+                  name="model-resolution-sku"
+                  value={candidate.productSkuId}
+                  checked={selectedSkuId === candidate.productSkuId}
+                  onChange={() => setSelectedSkuId(candidate.productSkuId)}
+                />
+                <span className="uc03-jd-sku-candidate__label">
+                  <strong>{candidate.modelName}{candidate.variantName ? ` ${candidate.variantName}` : ''}</strong>
+                  {candidate.colourName ? <span className="uc03-jd-sku-candidate__colour">{candidate.colourName}</span> : null}
+                  <span className="uc03-jd-sku-candidate__code">{candidate.skuCode}</span>
+                </span>
+                <span className="uc03-jd-sku-candidate__price">
+                  <span>Ex-showroom {formatMoney(candidate.exShowroomPrice)}</span>
+                  {candidate.totalPrice ? <span className="uc03-jd-sku-candidate__total">On-road {formatMoney(candidate.totalPrice)}</span> : null}
+                </span>
+              </label>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {candidates.length > 0 ? (
+        <div className="uc03-jd-sku-picker__actions">
+          <button type="button" className="uc03-c3-primary" disabled={!selectedSkuId || busy} onClick={() => void confirm()}>
+            {busy ? 'Confirming…' : 'Confirm SKU'}
+          </button>
+        </div>
+      ) : null}
+      {error ? <div className="uc03-jd-error" role="alert">{error}</div> : null}
+    </section>
+  );
+}
+
 export default function JourneyDocumentsPage() {
   const { journeyId } = useParams<{ journeyId: string }>();
   const navigate = useNavigate();
@@ -541,6 +676,16 @@ export default function JourneyDocumentsPage() {
       <UploadDropzone onFilesSelected={(files) => void handleUpload(files)} busy={uploading} message={uploadMessage} error={uploadError} />
 
       <CombinedChecklist items={checklist} />
+
+      <ModelResolutionSkuPicker
+        tenantId={project.tenantId}
+        journeyId={journeyId}
+        accessToken={accessToken}
+        onResolved={() => {
+          void queryClient.invalidateQueries({ queryKey: ['uc03-journey-documents-booking', project.tenantId, journeyId] });
+          void queryClient.invalidateQueries({ queryKey: ['uc03-journey-documents-booking-checklist', project.tenantId, journeyId] });
+        }}
+      />
 
       <div className="uc03-jd-buckets">
         <StageBucket stage="BOOKING" review={bookingQuery.data} onEvidence={setSelectedSource} tenantId={project.tenantId} journeyId={journeyId} accessToken={accessToken} />

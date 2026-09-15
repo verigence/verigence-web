@@ -210,7 +210,11 @@
 }
 
 .revq-item__title { margin: 0; font-size: 15px; font-weight: 650; color: var(--v-ink, #17324d); }
-.revq-item__desc { margin: 0; font-size: 13.5px; color: var(--v-slate, #31506e); line-height: 1.45; }
+/* white-space: pre-line -- a self-serve Task's description can carry a
+   numbered shortlist (see MODEL_NOT_IDENTIFIED's comment text); most
+   descriptions have no literal newline at all, so this only ever affects
+   the ones that do. */
+.revq-item__desc { margin: 0; font-size: 13.5px; color: var(--v-slate, #31506e); line-height: 1.45; white-space: pre-line; }
 
 .revq-item__meta {
   display: flex;

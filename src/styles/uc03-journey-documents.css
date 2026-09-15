@@ -321,3 +321,64 @@
 }
 .uc03-jd-bucket-header h2 { margin: 0; font-size: 15px; }
 .uc03-jd-bucket-header span { font-size: 12px; color: var(--v-muted, #6e879b); }
+
+/* ── Model-resolution SKU picker ─────────────────────────────────────── */
+.uc03-jd-sku-picker {
+  border: 1px solid #f0c982;
+  background: #fff9ec;
+  border-radius: 14px;
+  padding: 18px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  scroll-margin-top: 24px;
+}
+.uc03-jd-sku-picker header h2 { margin: 0 0 6px; font-size: 16px; color: #6b4a02; }
+.uc03-jd-sku-picker header p { margin: 0; font-size: 13.5px; color: #6b5a30; line-height: 1.5; max-width: 72ch; }
+.uc03-jd-sku-candidates {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.uc03-jd-sku-candidates label {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: #fff;
+  border: 1px solid var(--v-line, #dbe6ee);
+  border-radius: 10px;
+  padding: 10px 14px;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+.uc03-jd-sku-candidates label:hover { border-color: var(--jd-accent); }
+.uc03-jd-sku-candidates label.is-selected {
+  border-color: var(--jd-accent);
+  background: color-mix(in srgb, var(--jd-accent) 6%, #fff);
+}
+.uc03-jd-sku-candidates input[type='radio'] { flex-shrink: 0; accent-color: var(--jd-accent); }
+.uc03-jd-sku-candidate__label {
+  flex: 1;
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+  font-size: 13.5px;
+}
+.uc03-jd-sku-candidate__colour { color: var(--v-muted, #6e879b); font-size: 12px; }
+.uc03-jd-sku-candidate__code { font-family: ui-monospace, monospace; font-size: 11.5px; color: var(--v-muted, #6e879b); }
+.uc03-jd-sku-candidate__price {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  font-size: 12.5px;
+  font-variant-numeric: tabular-nums;
+  color: var(--v-slate, #31506e);
+}
+.uc03-jd-sku-candidate__total { color: var(--v-muted, #6e879b); font-size: 11.5px; }
+.uc03-jd-sku-picker__actions { display: flex; justify-content: flex-end; }

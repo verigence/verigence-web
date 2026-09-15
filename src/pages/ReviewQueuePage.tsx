@@ -46,6 +46,14 @@ const STAGE_FILTERS: { key: 'ALL' | Uc03StageCode; label: string }[] = [
   { key: 'DELIVERY', label: 'Delivery' },
 ];
 
+// A self-serve gap's ruleKey stem picks a more specific CTA than the
+// generic "Review documents" link -- e.g. MODEL_NOT_IDENTIFIED sends a PC
+// straight to the SKU picker on Journey Documents instead of leaving them
+// to find it on a page with several other sections.
+function ruleKeyStem(ruleKey: string | null | undefined): string | null {
+  return ruleKey ? ruleKey.split(':')[0] : null;
+}
+
 function friendly(value?: string | null): string {
   if (!value) return '—';
   return value
@@ -393,11 +401,18 @@ export default function ReviewQueuePage() {
                   // actually happens. No separate completion step -- fixing
                   // it there lets the underlying rule re-check and resolve
                   // the Finding on its own, which auto-cancels this Task.
+                  // A vehicle-model gap has a specific fix (pick the SKU) --
+                  // send it straight to that picker instead of the generic
+                  // "review documents" landing.
                   <Link
                     className="revq-btn revq-btn--accept"
-                    to={`/journeys/${item.journeyId}/documents`}
+                    to={
+                      ruleKeyStem(item.ruleKey) === 'MODEL_NOT_IDENTIFIED'
+                        ? `/journeys/${item.journeyId}/documents?selectSku=1`
+                        : `/journeys/${item.journeyId}/documents`
+                    }
                   >
-                    Review documents →
+                    {ruleKeyStem(item.ruleKey) === 'MODEL_NOT_IDENTIFIED' ? 'Select SKU →' : 'Review documents →'}
                   </Link>
                 )}
 

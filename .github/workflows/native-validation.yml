@@ -131,8 +131,20 @@ jobs:
           fi
           grep -q '@drawable/verigence_splash_mark' android/app/src/main/res/drawable/splash.xml
           test -s android/app/src/main/res/drawable/verigence_splash_mark.png
+          # Regression guard: android:background (a no-op on a window theme)
+          # instead of android:windowBackground silently drops the splash
+          # drawable on every API <31 device -- opaque white, no Verigence
+          # mark. See scripts/configure-native.mjs's own comment for the
+          # full story.
+          grep -q 'name="android:windowBackground">@drawable/splash' android/app/src/main/res/values/styles.xml
+          if grep -q 'name="android:background">@drawable/splash' android/app/src/main/res/values/styles.xml; then
+            echo '::error::Launch theme windowBackground regression: android:background instead of android:windowBackground.'
+            exit 1
+          fi
+          grep -q 'SplashScreen.installSplashScreen(this)' android/app/src/main/java/com/verigence/app/MainActivity.java
           echo 'ANDROID_NATIVE_CONFIG=PASS'
           echo 'ANDROID_VERIGENCE_BRANDING_SOURCE=PASS'
+          echo 'ANDROID_SPLASH_WINDOW_BACKGROUND=PASS'
 
       - name: Lint and build Android debug APK
         working-directory: android

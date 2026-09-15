@@ -202,12 +202,31 @@ if (!launchStylePattern.test(stylesXml)) {
   throw new Error('Android launch theme AppTheme.NoActionBarLaunch not found');
 }
 stylesXml = stylesXml.replace(launchStylePattern, (styleBlock) => {
+  // Capacitor's own stock template ships this launch style with
+  // `android:background`, not `android:windowBackground` -- `background`
+  // has no meaning as a THEME attribute for a window (it's a plain View
+  // attribute), so @drawable/splash is silently never applied as the
+  // window's cold-start background. Since BridgeActivity.onCreate() never
+  // calls SplashScreen.installSplashScreen() (verified against
+  // @capacitor/android's own source -- see MainActivity.java below for
+  // the other half of this fix), this drawable is the ONLY splash
+  // mechanism that reaches API <31 devices at all. Below API 31 this typo
+  // is the entire bug: the window falls back to its base theme's default
+  // background (opaque white) and the Verigence mark never renders.
+  let updated = styleBlock.replace(
+    /<item\s+name="android:background"[^>]*>@drawable\/splash<\/item>/,
+    '<item name="android:windowBackground">@drawable/splash</item>',
+  );
+  if (!updated.includes('android:windowBackground">@drawable/splash')) {
+    throw new Error(
+      'Could not fix the launch theme windowBackground -- Capacitor template shape changed.',
+    );
+  }
   const requiredItems = [
     ['windowSplashScreenBackground', '@color/verigence_splash_background'],
     ['windowSplashScreenAnimatedIcon', '@drawable/verigence_splash_mark'],
     ['postSplashScreenTheme', '@style/AppTheme.NoActionBar'],
   ];
-  let updated = styleBlock;
   for (const [name, value] of requiredItems) {
     const itemPattern = new RegExp(`<item\\s+name="${name}"[^>]*>[^<]*<\\/item>`);
     const item = `<item name="${name}">${value}</item>`;
@@ -221,8 +240,54 @@ stylesXml = stylesXml.replace(launchStylePattern, (styleBlock) => {
 });
 fs.writeFileSync(stylesPath, stylesXml);
 
+// The other half of the white-splash fix: BridgeActivity (compiled into
+// @capacitor/android, not something this repo can edit directly) never
+// calls SplashScreen.installSplashScreen() -- confirmed by grepping its
+// source. Without it, the AndroidX compat library's icon/exit-animation
+// support (the windowSplashScreenAnimatedIcon item above) only ever
+// reaches real API 31+ devices via the OS's own native handling; API <31
+// gets nothing from it. installSplashScreen() must run before
+// super.onCreate() per AndroidX's own documented contract.
+const mainActivityGlob = (dir) => {
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      const found = mainActivityGlob(full);
+      if (found) return found;
+    } else if (entry.name === 'MainActivity.java') {
+      return full;
+    }
+  }
+  return null;
+};
+const mainActivityPath = mainActivityGlob(path.resolve('android/app/src/main/java'));
+if (!mainActivityPath) {
+  throw new Error('MainActivity.java not found -- cannot install the splash screen.');
+}
+const mainActivitySource = fs.readFileSync(mainActivityPath, 'utf8');
+const packageMatch = mainActivitySource.match(/^package\s+([\w.]+);/m);
+if (!packageMatch) {
+  throw new Error(`Could not determine the package for ${mainActivityPath}`);
+}
+const patchedMainActivity = `package ${packageMatch[1]};
+
+import android.os.Bundle;
+import androidx.core.splashscreen.SplashScreen;
+import com.getcapacitor.BridgeActivity;
+
+public class MainActivity extends BridgeActivity {
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        SplashScreen.installSplashScreen(this);
+        super.onCreate(savedInstanceState);
+    }
+}
+`;
+fs.writeFileSync(mainActivityPath, patchedMainActivity);
+
 console.log('ANDROID_NATIVE_CONFIGURATION=PASS');
 console.log('ANDROID_BRANDED_LAUNCHER_ICON=PASS');
 console.log('ANDROID_WHITE_LAUNCHER_BACKGROUND=PASS');
 console.log('ANDROID_BRANDED_SPLASH=PASS');
 console.log('ANDROID_WHITE_SYSTEM_SPLASH_BACKGROUND=PASS');
+console.log('ANDROID_SPLASH_SCREEN_INSTALLED=PASS');

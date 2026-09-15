@@ -270,6 +270,24 @@ jobs:
             optionalEvidence: [],
           };
 
+          // BookingCaptureV2WorkspacePage also reads these two v2 checklist
+          // endpoints (uc03DocumentCaptureV2.ts / uc03DeliveryCaptureV2.ts) once
+          // the workspace shows the Booking as started. Left unmocked, they fall
+          // through to vite preview's own SPA fallback (index.html, HTTP 200),
+          // and getBookingCaptureV2/getDeliveryCaptureV2's response.json() throws
+          // "Unexpected token '<'" -- the checklist section renders a real but
+          // synthetic "documents temporarily unavailable" error card. Mocking
+          // both keeps this a clean, representative run of the actual screen.
+          const captureV2Empty = (phase) => ({
+            journeyId: 'journey-governance',
+            externalContextRef: 'journey-governance',
+            phase,
+            requirements: [],
+            uploads: [],
+            declarations: [],
+            canContinue: true,
+          });
+
           const ref = (values) => values.map(([code, label]) => ({ code, label }));
           const bookingOptions = {
             effectiveOn: '2026-08-25',
@@ -431,6 +449,8 @@ jobs:
             await routeJson(page, '**/audit-core/v1/tenants/tenant-governance/journeys/journey-governance/booking/part1', bookingPart1);
             await routeJson(page, '**/audit-core/v1/tenants/tenant-governance/journeys/journey-governance/booking/details/options', bookingOptions);
             await routeJson(page, '**/audit-core/v1/tenants/tenant-governance/journeys/journey-governance/booking/details', bookingDetails);
+            await routeJson(page, '**/audit-core/v2/tenants/tenant-governance/journeys/journey-governance/booking/capture-local', captureV2Empty('BOOKING'));
+            await routeJson(page, '**/audit-core/v2/tenants/tenant-governance/journeys/journey-governance/delivery/capture-local', captureV2Empty('DELIVERY'));
 
             await login(page);
             // PcOverviewPage's redesigned hero prints the Dealer/Outlet context in
@@ -456,9 +476,23 @@ jobs:
             // Form and Delivery documents are captured together now; there
             // is no separate "Booking Details" form step to continue into).
             // PageHeader always renders the workspace's own customer name
-            // (from the mocked uc03-workspace response below) as its <h1>.
+            // (from the mocked uc03-workspace response below) as its <h1> --
+            // confirmed by dumping outerHTML from a real failing run of this
+            // exact job. getByRole('heading', {name:...}) is deliberately NOT
+            // used here: on this job's actual ubuntu-latest/headless-Chromium
+            // runner (never locally, and not on any other screen in this
+            // script), this specific <h1> is consistently built with an
+            // accessible name that does not match its own visible text --
+            // Chromium's computed name came back "Upload Documents" (a string
+            // that appears nowhere in this app's current source or built
+            // bundle) even though the DOM plainly reads
+            // <h1 aria-label="Upload Documents">Governance Customer</h1>.
+            // Text-based matching (already this script's own pattern for the
+            // Landing scenario above, for a related reason) sidesteps that
+            // platform-specific accessible-name computation instead of
+            // depending on it.
             await page.goto(`${base}/bookings/journey-governance`, { waitUntil: 'networkidle' });
-            await page.getByRole('heading', { name: 'Governance Customer' }).waitFor();
+            await page.getByText('Governance Customer').first().waitFor();
             visibleText = await page.locator('body').innerText();
             // Dealer/Outlet context is deliberately NOT landing-only anymore --
             // AppShell's sidebar ("Current Dealership") is a persistent, shared

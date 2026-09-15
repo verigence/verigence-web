@@ -2,6 +2,10 @@ import { Component, ErrorInfo, ReactNode } from 'react';
 
 interface Props {
   children: ReactNode;
+  // Scoped boundaries (e.g. around one page section) pass their own inert
+  // fallback -- null by default -- instead of the full-page message, so one
+  // section's bug doesn't read as the whole page being broken.
+  fallback?: ReactNode;
 }
 
 interface State {
@@ -29,7 +33,7 @@ export class ErrorBoundary extends Component<Props, State> {
 
   render(): ReactNode {
     if (this.state.hasError) {
-      return (
+      return this.props.fallback !== undefined ? this.props.fallback : (
         <div style={{ padding: '2rem', textAlign: 'center' }}>
           <p>Something went wrong. Please refresh the page.</p>
         </div>

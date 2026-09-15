@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 
+import { ErrorBoundary } from '../components/ErrorBoundary';
 import PageHeader from '../components/PageHeader';
 import AttributeEvidenceViewer, { hasBoxedEvidence } from '../features/uc03/AttributeEvidenceViewer';
 import { AuditCoreHttpError } from '../services/audit-core/client';
@@ -677,15 +678,21 @@ export default function JourneyDocumentsPage() {
 
       <CombinedChecklist items={checklist} />
 
-      <ModelResolutionSkuPicker
-        tenantId={project.tenantId}
-        journeyId={journeyId}
-        accessToken={accessToken}
-        onResolved={() => {
-          void queryClient.invalidateQueries({ queryKey: ['uc03-journey-documents-booking', project.tenantId, journeyId] });
-          void queryClient.invalidateQueries({ queryKey: ['uc03-journey-documents-booking-checklist', project.tenantId, journeyId] });
-        }}
-      />
+      {/* Scoped boundary: this section is new and talks to a new endpoint --
+          if it hits a bug, the rest of Journey Documents (uploads, per-field
+          corrections) must stay usable, not take the whole page down with
+          it. */}
+      <ErrorBoundary fallback={null}>
+        <ModelResolutionSkuPicker
+          tenantId={project.tenantId}
+          journeyId={journeyId}
+          accessToken={accessToken}
+          onResolved={() => {
+            void queryClient.invalidateQueries({ queryKey: ['uc03-journey-documents-booking', project.tenantId, journeyId] });
+            void queryClient.invalidateQueries({ queryKey: ['uc03-journey-documents-booking-checklist', project.tenantId, journeyId] });
+          }}
+        />
+      </ErrorBoundary>
 
       <div className="uc03-jd-buckets">
         <StageBucket stage="BOOKING" review={bookingQuery.data} onEvidence={setSelectedSource} tenantId={project.tenantId} journeyId={journeyId} accessToken={accessToken} />

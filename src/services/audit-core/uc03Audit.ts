@@ -214,9 +214,16 @@ export function addAuditFlagRemark(
 
 export type Uc03QueueScope = 'ALL' | 'MINE' | 'ESCALATED';
 export type Uc03QueueSubjectKind = 'JOURNEY' | 'DAILY_OPS';
+export type Uc03QueueItemKind = 'FINDING' | 'EXECUTION_TASK';
 
 export interface Uc03ReviewQueueItem {
   flagId: string;
+  // FINDING: this row IS the finding, flagId is its own id. EXECUTION_TASK:
+  // flagId is the workflow_task_id -- a distinct id from relatedFindingId,
+  // the Finding this Task was spawned to act on. Never post an /actions
+  // request against an EXECUTION_TASK row's flagId -- there is no such
+  // endpoint for a Task yet.
+  itemKind: Uc03QueueItemKind;
   subjectKind: Uc03QueueSubjectKind;
   // JOURNEY subject only.
   journeyId: string | null;
@@ -226,23 +233,31 @@ export interface Uc03ReviewQueueItem {
   dailyOpsRunId: string | null;
   outletId: string | null;
   businessDate: string | null;
-  findingClass: Uc03FindingClass;
-  resolutionMode: Uc03ResolutionMode;
+  // FINDING only -- null for an EXECUTION_TASK row.
+  findingClass: Uc03FindingClass | null;
+  resolutionMode: Uc03ResolutionMode | null;
+  // EXECUTION_TASK only -- the Finding this Task was spawned to act on.
+  relatedFindingId: string | null;
+  // FINDING: finding_type_code. EXECUTION_TASK: task_type (AUTO_SELF_SERVE,
+  // TL_TAKE_ACTION).
   category: string | null;
   severity: string;
-  status: 'OPEN' | 'ACKNOWLEDGED';
+  status: string;
+  isOpen: boolean;
   version: number;
   title: string;
   description: string | null;
   ownerRoleCode: string;
   disposition: Uc03Disposition;
-  originKind: 'MACHINE' | 'HUMAN' | null;
+  originKind: 'MACHINE' | 'HUMAN' | 'SYSTEM' | null;
   ruleKey: string | null;
   createdAtUtc: string;
   slaDueAtUtc: string | null;
   escalationLevel: number;
   overdue: boolean;
   isMine: boolean;
+  // Always [] for an EXECUTION_TASK row today -- there is no Task-level
+  // action endpoint yet (see Uc03ReviewQueueItem's own itemKind note).
   permittedActions: string[];
   customerName: string | null;
   dealerName: string | null;
@@ -265,6 +280,7 @@ export interface Uc03ReviewQueueSummary {
   overdue: number;
   byClass: Record<string, number>;
   byStage: Record<string, number>;
+  byKind: Record<string, number>;
 }
 
 function tenantBase(tenantId: string): string {
@@ -278,6 +294,8 @@ export function getReviewQueue(
     findingClass?: Uc03FindingClass;
     stage?: Uc03StageCode;
     subjectKind?: Uc03QueueSubjectKind;
+    itemKind?: Uc03QueueItemKind;
+    includeTasks?: boolean;
   } = {},
   accessToken?: string,
 ): Promise<Uc03ReviewQueue> {
@@ -286,6 +304,8 @@ export function getReviewQueue(
   if (options.findingClass) params.set('findingClass', options.findingClass);
   if (options.stage) params.set('stage', options.stage);
   if (options.subjectKind) params.set('subjectKind', options.subjectKind);
+  if (options.itemKind) params.set('itemKind', options.itemKind);
+  if (options.includeTasks) params.set('includeTasks', 'true');
   const query = params.toString() ? `?${params.toString()}` : '';
   return auditCoreRequest(`${tenantBase(tenantId)}/review-queue${query}`, {
     accessToken: token(accessToken),
@@ -297,8 +317,12 @@ export function getReviewQueueSummary(
   tenantId: string,
   accessToken?: string,
   subjectKind?: Uc03QueueSubjectKind,
+  includeTasks?: boolean,
 ): Promise<Uc03ReviewQueueSummary> {
-  const query = subjectKind ? `?subjectKind=${encodeURIComponent(subjectKind)}` : '';
+  const params = new URLSearchParams();
+  if (subjectKind) params.set('subjectKind', subjectKind);
+  if (includeTasks) params.set('includeTasks', 'true');
+  const query = params.toString() ? `?${params.toString()}` : '';
   return auditCoreRequest(`${tenantBase(tenantId)}/review-queue/summary${query}`, {
     accessToken: token(accessToken),
     cache: 'no-store',

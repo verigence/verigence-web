@@ -36,7 +36,7 @@ const SUBMIT_BANNER_DURATION_MS = 9_000;
 
 // Same three finding_class values and labels as ReviewQueuePage's
 // CLASS_LABEL -- kept in sync deliberately so a finding reads the same way
-// whether it's seen here or in the Review Queue.
+// whether it's seen here or in the Task Queue.
 const FINDING_CLASS_LABEL: Record<string, string> = {
   DATA_GAP: 'Missing data',
   DOCUMENT_GAP: 'Missing document',
@@ -1509,7 +1509,7 @@ function FlagsPanel({
             const isDeliveryStage = String(f.stageCode || '').toUpperCase() === 'DELIVERY';
             // Audit View is the one place a finding is meant to be read in
             // full context (classification, severity, owner, SLA, history)
-            // and Review Queue is where it's actually acted on -- so every
+            // and Task Queue is where it's actually acted on -- so every
             // other finding opens there, not a same-page Journey 360 tab.
             // Previously only findings with no matching data tab (findingAspect()'s
             // catch-all, itself named 'flags' -- this exact panel) went to Audit

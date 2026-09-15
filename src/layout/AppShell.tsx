@@ -59,8 +59,8 @@ const feedbackItem: NavItem = {
 
 const reviewQueueItem: NavItem = {
   to: '/reviews',
-  label: 'Review Queue',
-  mark: 'RV',
+  label: 'Task Queue',
+  mark: 'TQ',
   roles: ['PC', 'TL', 'PM', 'EXECUTIVE'],
 };
 
@@ -115,7 +115,7 @@ const groups: NavGroup[] = [
     feedbackItem,
   ] },
   { key: 'operations', label: 'Operations & Assurance', items: [
-    { to: '/reviews', label: 'Review Queue', mark: 'RV', roles: assurance },
+    { to: '/reviews', label: 'Task Queue', mark: 'TQ', roles: assurance },
     { to: '/rule-catalog', label: 'Rule Catalog', mark: 'RC', roles: assurance },
     { to: '/evidence', label: 'Evidence', mark: 'EV', roles: ['PC', 'TL', 'PM', 'EXECUTIVE', ...admin] },
     { to: '/payments', label: 'Payment Tracker', mark: 'PY', roles: ['PC', 'TL', 'PM', 'EXECUTIVE', ...admin] },
@@ -146,7 +146,7 @@ const groups: NavGroup[] = [
 const routeLabels: Record<string, string> = {
   '/dashboard': 'Overview', '/work-queue': 'Bookings & Deliveries', '/search': 'Search', '/attendance': 'Attendance', '/customers': 'Customers', '/journeys': 'Journeys', '/tasks': 'My Work',
   '/feedback': 'Feedback',
-  '/reviews': 'Review Queue', '/rule-catalog': 'Rule Catalog', '/rule-catalog/new': 'Author a Rule', '/evidence': 'Evidence', '/payments': 'Payment Tracker', '/findings': 'Findings',
+  '/reviews': 'Task Queue', '/rule-catalog': 'Rule Catalog', '/rule-catalog/new': 'Author a Rule', '/evidence': 'Evidence', '/payments': 'Payment Tracker', '/findings': 'Findings',
   '/daily-ops': 'Daily Operations', '/activity': 'Activity Tracker', '/crm': 'CRM Follow-up', '/escalations': 'Escalations',
   '/analytics': 'Analytics', '/admin/engagements': 'Engagements', '/admin/document-intelligence': 'Document Intelligence Configuration',
   '/admin/housekeeping': 'Housekeeping', '/admin/feedback': 'User Feedback', '/admin/di-test': 'DI Test Console', '/admin/users': 'Users',
@@ -385,7 +385,7 @@ export default function AppShell({ children }: PropsWithChildren) {
 
   // Mobile bottom bar -- fast access to the handful of items a PC (or TL/PM)
   // actually reaches for on a phone: Bookings & Deliveries, Capture New
-  // Booking, Daily Operations, falling back to Review Queue for a role
+  // Booking, Daily Operations, falling back to Task Queue for a role
   // without Daily Operations. Sourced from the same, already role-filtered
   // Workspace group -- no separate role logic to keep in sync, and every
   // icon here already exists in NavIcon (no new glyphs to draw).

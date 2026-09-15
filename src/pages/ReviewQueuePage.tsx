@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useSearchParams } from 'react-router-dom';
 
 import PageHeader from '../components/PageHeader';
+import { taskAction } from '../services/audit-core/operations';
 import { isManualVerificationRule } from '../services/audit-core/manualVerification';
 import {
   actOnQueueFinding,
@@ -18,6 +19,13 @@ import {
 import { useProjectContextStore } from '../store/projectContextStore';
 import { useSessionStore } from '../store/sessionStore';
 import '../styles/uc03-review-queue.css';
+
+// A Task's own task_type (category on an EXECUTION_TASK row) -- a human
+// label for each of the two kinds this session's backend ever produces.
+const TASK_LABEL: Record<string, string> = {
+  AUTO_SELF_SERVE: 'Self-serve gap',
+  TL_TAKE_ACTION: 'Take Action requested',
+};
 
 const CLASS_LABEL: Record<Uc03FindingClass, string> = {
   DATA_GAP: 'Missing data',
@@ -95,7 +103,7 @@ export default function ReviewQueuePage() {
 
   const summaryQuery = useQuery({
     queryKey: ['uc03-review-queue-summary', project?.tenantId, subjectTab],
-    queryFn: () => getReviewQueueSummary(project!.tenantId, accessToken, subjectTab),
+    queryFn: () => getReviewQueueSummary(project!.tenantId, accessToken, subjectTab, true),
     enabled,
   });
 
@@ -109,6 +117,7 @@ export default function ReviewQueuePage() {
           subjectKind: subjectTab,
           findingClass: classFilter === 'ALL' ? undefined : classFilter,
           stage: subjectTab === 'DAILY_OPS' || stageFilter === 'ALL' ? undefined : stageFilter,
+          includeTasks: true,
         },
         accessToken,
       ),
@@ -146,6 +155,25 @@ export default function ReviewQueuePage() {
     },
   });
 
+  // A Task is self-completed by whoever it's assigned to -- no reviewer
+  // gate, and it never touches the Finding it was spawned from (TL/PM
+  // still separately decide the Finding's own fate whenever they choose).
+  const completeTaskMutation = useMutation({
+    mutationFn: (taskId: string) => taskAction(project!.tenantId, taskId, 'complete', accessToken),
+    onSuccess: () => {
+      setBanner({ tone: 'ok', text: 'Task marked done.' });
+      void queryClient.invalidateQueries({ queryKey: ['uc03-review-queue'] });
+      void queryClient.invalidateQueries({ queryKey: ['uc03-review-queue-summary'] });
+    },
+    onError: () => {
+      setBanner({
+        tone: 'err',
+        text: 'That task could not be marked done — it may have changed. Refreshing the queue.',
+      });
+      void queueQuery.refetch();
+    },
+  });
+
   const scopeTabs = useMemo(
     () => [
       { key: 'MINE' as const, label: role === 'PC' ? 'My open items' : 'Awaiting my decision' },
@@ -169,11 +197,11 @@ export default function ReviewQueuePage() {
     <div className="screen-stack revq">
       <PageHeader
         eyebrow="Assurance"
-        title="Review Queue"
+        title="Task Queue"
         description={
           canAdjudicate
-            ? 'Violations waiting on your Accept / Reject decision, plus anything that has passed its SLA and escalated to you.'
-            : 'The data and documents your journeys still need. Fix them here and mark them done.'
+            ? 'Violations waiting on your Accept / Reject decision, plus Tasks you’ve assigned or that have escalated to you.'
+            : 'Everything raised against your journeys — findings to fix and Tasks assigned to you. Fix them here and mark them done.'
         }
       />
 
@@ -292,6 +320,7 @@ export default function ReviewQueuePage() {
         {items.map((item) => {
           const sla = slaLabel(item);
           const escalated = escalationLabel(item);
+          const isTask = item.itemKind === 'EXECUTION_TASK';
           const isAdjudicated = item.resolutionMode === 'ADJUDICATED';
           const isManualVerification = isManualVerificationRule(item.ruleKey);
           const canAccept = item.permittedActions.includes('CONFIRM_BREACH');
@@ -305,7 +334,15 @@ export default function ReviewQueuePage() {
             >
               <div className="revq-item__head">
                 <span className={`revq-sev revq-sev--${item.severity.toLowerCase()}`} aria-label={`${friendly(item.severity)} severity`} />
-                <span className={`revq-tag revq-tag--${item.findingClass.toLowerCase()}`}>{CLASS_LABEL[item.findingClass]}</span>
+                {isTask ? (
+                  <span className="revq-tag revq-tag--task">
+                    {TASK_LABEL[item.category ?? ''] ?? friendly(item.category)}
+                  </span>
+                ) : (
+                  <span className={`revq-tag revq-tag--${(item.findingClass ?? '').toLowerCase()}`}>
+                    {item.findingClass ? CLASS_LABEL[item.findingClass] : friendly(item.category)}
+                  </span>
+                )}
                 <span className={`revq-sla revq-sla--${sla.tone}`}>{sla.text}</span>
                 {escalated && <span className="revq-escalated">{escalated}</span>}
                 <span className="revq-stage">{friendly(item.stage)}</span>
@@ -339,7 +376,39 @@ export default function ReviewQueuePage() {
                   </Link>
                 )}
 
-                {isManualVerification && (
+                {isTask && item.category === 'AUTO_SELF_SERVE' && item.subjectKind === 'JOURNEY' && (
+                  // Same destination as Manual Verification below, for the
+                  // same reason: this Task exists because a document/data
+                  // gap needs fixing, and Journey Documents is where that
+                  // actually happens. No separate completion step -- fixing
+                  // it there lets the underlying rule re-check and resolve
+                  // the Finding on its own, which auto-cancels this Task.
+                  <Link
+                    className="revq-btn revq-btn--accept"
+                    to={`/journeys/${item.journeyId}/documents`}
+                  >
+                    Review documents →
+                  </Link>
+                )}
+
+                {isTask && (item.category !== 'AUTO_SELF_SERVE' || item.subjectKind === 'DAILY_OPS') && (
+                  // Take Action has no auto-resolving rule behind it, and
+                  // Daily Operations has no document screen a self-serve
+                  // gap could route to either way -- both self-complete
+                  // once the requested work is done. Never touches the
+                  // Finding itself; TL/PM still decide its own verdict
+                  // separately, whenever they choose.
+                  <button
+                    type="button"
+                    className="revq-btn revq-btn--accept"
+                    disabled={completeTaskMutation.isPending}
+                    onClick={() => completeTaskMutation.mutate(item.flagId)}
+                  >
+                    {completeTaskMutation.isPending ? 'Marking done…' : 'Mark done'}
+                  </button>
+                )}
+
+                {!isTask && isManualVerification && (
                   // Was an inline mini-editor (verify/correct one field at a
                   // time, no document preview) duplicating a narrower slice
                   // of Journey Documents' own per-field correction screen.
@@ -357,7 +426,7 @@ export default function ReviewQueuePage() {
                   </Link>
                 )}
 
-                {!isManualVerification && isAdjudicated && canAccept && !open && (
+                {!isTask && !isManualVerification && isAdjudicated && canAccept && !open && (
                   <>
                     <button
                       type="button"
@@ -376,7 +445,7 @@ export default function ReviewQueuePage() {
                   </>
                 )}
 
-                {!isManualVerification && !isAdjudicated && item.subjectKind === 'JOURNEY' && item.findingClass === 'DOCUMENT_GAP' && (
+                {!isTask && !isManualVerification && !isAdjudicated && item.subjectKind === 'JOURNEY' && item.findingClass === 'DOCUMENT_GAP' && (
                   <Link
                     className="revq-btn revq-btn--accept"
                     to={item.stage === 'DELIVERY' ? `/v2/deliveries/${item.journeyId}` : `/v2/bookings/${item.journeyId}`}
@@ -385,7 +454,7 @@ export default function ReviewQueuePage() {
                   </Link>
                 )}
 
-                {!isManualVerification && !isAdjudicated && item.findingClass !== 'DOCUMENT_GAP' && canResolve && !open && (
+                {!isTask && !isManualVerification && !isAdjudicated && item.findingClass !== 'DOCUMENT_GAP' && canResolve && !open && (
                   <button
                     type="button"
                     className="revq-btn revq-btn--accept"

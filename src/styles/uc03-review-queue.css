@@ -180,6 +180,7 @@
 .revq-tag--violation { background: #fdeaea; color: #a03030; }
 .revq-tag--document_gap { background: #e9f1fb; color: #1f4e8f; }
 .revq-tag--data_gap { background: #eaf5f2; color: #1f6b5f; }
+.revq-tag--task { background: #f3edfa; color: #5b3a99; }
 
 .revq-sla {
   font-size: 12px;

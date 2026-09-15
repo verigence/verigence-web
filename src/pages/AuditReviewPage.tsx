@@ -153,7 +153,7 @@ function FlagCard({
   // role-level list. Used only to decide whether a "Take action" link is worth
   // showing at all -- Audit View is a read view of the case (evidence,
   // classification, severity, SLA, full history); accepting, rejecting,
-  // resolving or remarking on a flag all happen in Review Queue, the
+  // resolving or remarking on a flag all happen in Task Queue, the
   // actionable surface, not here.
   const canDo = (action: string) =>
     flag.permittedActions.includes(action) || permittedActions.includes(action);
@@ -217,7 +217,7 @@ function FlagCard({
 
       {actionable && (
         <Link className="uc03-c3-take-action" to={`/reviews?findingId=${encodeURIComponent(flag.flagId)}`}>
-          Take action in Review Queue →
+          Take action in Task Queue →
         </Link>
       )}
     </article>
@@ -381,7 +381,7 @@ export default function AuditReviewPage() {
       <PageHeader
         eyebrow={`${friendly(summary?.operatingRole || project.operatingRole)} · Audit review`}
         title="Booking & Delivery Audit"
-        description="A read-only view of this case -- Audit Flags, source comparisons, evidence and the complete history. Confirm Breach, Mark False Positive or resolve a flag in Review Queue; nothing here changes the underlying source documents or the record."
+        description="A read-only view of this case -- Audit Flags, source comparisons, evidence and the complete history. Confirm Breach, Mark False Positive or resolve a flag in Task Queue; nothing here changes the underlying source documents or the record."
       />
 
       <nav className="uc03-c3-context-links" aria-label="Case navigation">
@@ -511,7 +511,7 @@ export default function AuditReviewPage() {
 
       <section className="uc03-c3-section" aria-labelledby="flag-register-heading">
         <header className="uc03-c3-section-heading">
-          <div><span>Permanent register</span><h2 id="flag-register-heading">Audit Flags</h2><p>Resolved flags stay visible as historical audit evidence. Open flags link to Review Queue to act on them.</p></div>
+          <div><span>Permanent register</span><h2 id="flag-register-heading">Audit Flags</h2><p>Resolved flags stay visible as historical audit evidence. Open flags link to Task Queue to act on them.</p></div>
           <div className="uc03-c3-filter-group">
             <div className="uc03-c3-filter" role="group" aria-label="Audit Flag stage filter">
               {(['ALL', 'BOOKING', 'DELIVERY'] as const).map((value) => (

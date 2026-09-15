@@ -371,7 +371,17 @@ export default function ReviewQueuePage() {
 
               <div className="revq-item__actions">
                 {item.subjectKind === 'JOURNEY' && (
-                  <Link className="revq-open" to={`/audit/${item.journeyId}`}>
+                  // A Finding's "Open case" belongs on Audit Review -- that
+                  // page IS the finding's own read view (evidence,
+                  // classification, history). A Task has no per-task content
+                  // there at all, and Audit Review's own "Take action in
+                  // Task Queue" link would send it right back here -- send a
+                  // Task to Journey 360 instead, where there's something to
+                  // actually look at (documents, payments, overall status).
+                  <Link
+                    className="revq-open"
+                    to={isTask ? `/journeys/${item.journeyId}/overview` : `/audit/${item.journeyId}`}
+                  >
                     Open case
                   </Link>
                 )}

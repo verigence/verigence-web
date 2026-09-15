@@ -69,23 +69,51 @@ function actorLabel(flag: Uc03AuditFlag): string {
   return 'Human observation';
 }
 
-/** One group per finding type (category), most-open-first, then by most
- * recent within a group -- flags of the same kind (every WRONG_DOCUMENT, every
- * MANUAL_VERIFICATION...) sit together instead of interleaved in one flat,
- * hard-to-scan list ordered only by creation time. */
-function groupFlagsByCategory(flags: Uc03AuditFlag[]): Array<{ category: string; flags: Uc03AuditFlag[] }> {
-  const byCategory = new Map<string, Uc03AuditFlag[]>();
+// A machine-raised finding's title alone rarely says which rule fired or
+// what field it checked -- "Rule: Price Booking Vs Invoice (Vin Number)"
+// gives a reviewer something to search/ask about beyond the generic title.
+function ruleLabel(ruleKey?: string | null): string | null {
+  if (!ruleKey) return null;
+  const [stem, detail] = ruleKey.split(':');
+  const label = friendly(stem);
+  return detail ? `${label} (${friendly(detail)})` : label;
+}
+
+const CLASS_LABEL: Record<string, string> = {
+  VIOLATION: 'Violation',
+  DOCUMENT_GAP: 'Missing document',
+  DATA_GAP: 'Missing data',
+};
+// Fixed, not popularity-ordered -- a reviewer scanning this page repeatedly
+// wants the same classification in the same place every time, matching the
+// Task Queue and KPI tiles above, which never reorder by count either.
+const CLASS_ORDER = ['VIOLATION', 'DOCUMENT_GAP', 'DATA_GAP', 'UNCLASSIFIED'];
+
+/** One group per finding CLASS (Violation / Missing document / Missing
+ * data) -- the same three-way classification already shown everywhere
+ * else in this app (Task Queue, the KPI tiles above). Grouping by the raw
+ * finding_type_code instead (the previous behaviour) fragmented the
+ * register into many one-item, jargon-named buckets ("PAYMENT UNVERIFIED",
+ * "WRONG DOCUMENT", "DOCUMENT MISSING" as separate headers) with no visible
+ * classification at all. Within a class, flags of the same finding type
+ * still sort together, then most-recent-first. */
+function groupFlagsByClass(flags: Uc03AuditFlag[]): Array<{ findingClass: string; flags: Uc03AuditFlag[] }> {
+  const byClass = new Map<string, Uc03AuditFlag[]>();
   for (const flag of flags) {
-    const key = flag.category || 'OTHER';
-    const bucket = byCategory.get(key);
+    const key = flag.findingClass || 'UNCLASSIFIED';
+    const bucket = byClass.get(key);
     if (bucket) bucket.push(flag);
-    else byCategory.set(key, [flag]);
+    else byClass.set(key, [flag]);
   }
-  const openCount = (group: Uc03AuditFlag[]) =>
-    group.filter((f) => f.status === 'OPEN' || f.status === 'ACKNOWLEDGED').length;
-  return Array.from(byCategory.entries())
-    .map(([category, groupFlags]) => ({ category, flags: groupFlags }))
-    .sort((a, b) => openCount(b.flags) - openCount(a.flags) || b.flags.length - a.flags.length);
+  for (const groupFlags of byClass.values()) {
+    groupFlags.sort((a, b) => (
+      (a.category || '').localeCompare(b.category || '')
+      || new Date(b.createdAtUtc).getTime() - new Date(a.createdAtUtc).getTime()
+    ));
+  }
+  return Array.from(byClass.entries())
+    .map(([findingClass, groupFlags]) => ({ findingClass, flags: groupFlags }))
+    .sort((a, b) => CLASS_ORDER.indexOf(a.findingClass) - CLASS_ORDER.indexOf(b.findingClass));
 }
 
 function formatTime(value: string, timezoneName: string): string {
@@ -122,8 +150,9 @@ function StageAuditCard({
         </div>
       </header>
       <dl>
-        <div><dt>Open flags</dt><dd>{stage.openFlagCount}</dd></div>
-        <div><dt>Historical flags</dt><dd>{stage.totalHistoricalFlagCount}</dd></div>
+        <div><dt>Open</dt><dd>{stage.openFlagCount}</dd></div>
+        <div><dt>Resolved</dt><dd>{stage.totalHistoricalFlagCount - stage.openFlagCount}</dd></div>
+        <div><dt>Total raised</dt><dd>{stage.totalHistoricalFlagCount}</dd></div>
         <div><dt>Completion guards</dt><dd>{stage.blockingOpenFlagCount}</dd></div>
       </dl>
       {stage.auditState !== 'COMPLETE' && canComplete && (
@@ -132,7 +161,7 @@ function StageAuditCard({
         </button>
       )}
       {stage.auditState === 'COMPLETE' && stage.auditStatus === 'FLAGS_RAISED' && (
-        <p className="uc03-c3-note">Audit work is complete. Historical flags remain part of the audit record.</p>
+        <p className="uc03-c3-note">Audit work is complete. Every flag raised, open or resolved, remains part of the audit record.</p>
       )}
     </article>
   );
@@ -163,13 +192,6 @@ function FlagCard({
     canDo('ACKNOWLEDGE') || canDo('CONFIRM_BREACH') || canDo('MARK_FALSE_POSITIVE') || canDo('RESOLVE')
   );
 
-  const classLabel = flag.findingClass === 'VIOLATION'
-    ? 'Violation'
-    : flag.findingClass === 'DOCUMENT_GAP'
-      ? 'Missing document'
-      : flag.findingClass === 'DATA_GAP'
-        ? 'Missing data'
-        : null;
   const slaText = flag.slaDueAtUtc
     ? (() => {
         const diff = new Date(flag.slaDueAtUtc).getTime() - Date.now();
@@ -188,7 +210,9 @@ function FlagCard({
         <div>
           <div className="uc03-c3-flag-meta">
             <span>{friendly(flag.stage)}</span>
-            {classLabel && <span className={`uc03-c3-class uc03-c3-class--${(flag.findingClass || '').toLowerCase()}`}>{classLabel}</span>}
+            {/* Classification is now the group header above this card --
+                repeating it per-card here was redundant clutter. */}
+            {flag.category && <span className="uc03-c3-category">{friendly(flag.category)}</span>}
             <span>{actorLabel(flag)}</span>
             {flag.ownerRoleCode && <span>Owner: {friendly(flag.ownerRoleCode)}</span>}
             {slaText && open && <span className={new Date(flag.slaDueAtUtc || 0).getTime() < Date.now() ? 'uc03-c3-sla-late' : 'uc03-c3-sla'}>{slaText}</span>}
@@ -197,6 +221,13 @@ function FlagCard({
           </div>
           <h3>{flag.title}</h3>
           {flag.description && <p>{flag.description}</p>}
+          {(flag.expectedSummary || flag.observedSummary) && (
+            <dl className="uc03-c3-flag-expected-observed">
+              {flag.expectedSummary && <div><dt>Expected</dt><dd>{flag.expectedSummary}</dd></div>}
+              {flag.observedSummary && <div><dt>Found</dt><dd>{flag.observedSummary}</dd></div>}
+            </dl>
+          )}
+          {ruleLabel(flag.ruleKey) && <p className="uc03-c3-rule-label">Rule: {ruleLabel(flag.ruleKey)}</p>}
           {flag.disposition && (
             <p className="uc03-c3-disposition">
               {flag.disposition === 'CONFIRMED_BREACH' ? 'Confirmed breach' : flag.disposition === 'FALSE_POSITIVE' ? 'Reviewed — false positive' : 'Fixed'}
@@ -406,7 +437,8 @@ export default function AuditReviewPage() {
         <>
           <section className="uc03-c3-overview" aria-label="Audit overview">
             <div><span>Open flags</span><strong>{summary.openFlagCount}</strong></div>
-            <div><span>Historical flags</span><strong>{summary.totalHistoricalFlagCount}</strong></div>
+            <div><span>Resolved flags</span><strong>{summary.totalHistoricalFlagCount - summary.openFlagCount}</strong></div>
+            <div><span>Total raised (all-time)</span><strong>{summary.totalHistoricalFlagCount}</strong></div>
             <div><span>System flags</span><strong>{summary.machineFlagCount}</strong></div>
             <div><span>Human flags</span><strong>{summary.humanFlagCount}</strong></div>
             <div><span>Highest open severity</span><strong>{friendly(summary.highestOpenSeverity || 'NONE')}</strong></div>
@@ -538,13 +570,13 @@ export default function AuditReviewPage() {
           const filtered = (flagsQuery.data || []).filter(
             (flag) => originFilter === 'ALL' || flag.originKind === originFilter,
           );
-          const groups = groupFlagsByCategory(filtered);
+          const groups = groupFlagsByClass(filtered);
           return (
             <div className="uc03-c3-flag-groups">
-              {groups.map(({ category, flags }) => (
-                <div className="uc03-c3-flag-group" key={category}>
-                  <div className="uc03-c3-flag-group-head">
-                    <span>{friendly(category)}</span>
+              {groups.map(({ findingClass, flags }) => (
+                <div className="uc03-c3-flag-group" key={findingClass}>
+                  <div className={`uc03-c3-flag-group-head uc03-c3-flag-group-head--${findingClass.toLowerCase()}`}>
+                    <span>{CLASS_LABEL[findingClass] || 'Unclassified'}</span>
                     <span className="uc03-c3-flag-group-count">{flags.length}</span>
                   </div>
                   <div className="uc03-c3-flag-list">

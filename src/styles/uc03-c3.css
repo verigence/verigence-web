@@ -32,7 +32,7 @@
 
 .uc03-c3-overview {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
   gap: 12px;
 }
 
@@ -108,7 +108,7 @@
 
 .uc03-c3-stage-card dl {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(90px, 1fr));
   gap: 8px;
   margin: 0;
 }
@@ -147,6 +147,36 @@
   margin: 0;
   color: var(--text-muted, #627087);
   line-height: 1.5;
+}
+
+.uc03-c3-flag-expected-observed {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 8px 20px;
+  margin: 8px 0 0;
+  padding: 10px 12px;
+  background: #f6f8fb;
+  border-radius: 8px;
+}
+.uc03-c3-flag-expected-observed > div { display: grid; gap: 2px; }
+.uc03-c3-flag-expected-observed dt {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--text-muted, #627087);
+}
+.uc03-c3-flag-expected-observed dd {
+  margin: 0;
+  font-size: 13px;
+  color: var(--v-slate, #1f2937);
+}
+
+.uc03-c3-rule-label {
+  margin: 8px 0 0;
+  font-size: 12px;
+  color: var(--text-muted, #627087);
+  font-style: italic;
 }
 
 .uc03-c3-flag-form {
@@ -247,12 +277,28 @@
   gap: 8px;
   margin-bottom: 10px;
   padding-bottom: 6px;
-  border-bottom: 1px solid var(--border-subtle, #d8dee8);
-  font-size: 0.78rem;
+  border-bottom: 2px solid var(--border-subtle, #d8dee8);
+  font-size: 0.85rem;
   font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--text-muted, #5b6b7c);
+}
+/* Same three-way classification, same palette, everywhere it appears --
+   Task Queue's tags, each flag card's own class tag, and now the group
+   header a reviewer actually scans first. */
+.uc03-c3-flag-group-head--violation { border-bottom-color: #a03030; color: #a03030; }
+.uc03-c3-flag-group-head--document_gap { border-bottom-color: #1f4e8f; color: #1f4e8f; }
+.uc03-c3-flag-group-head--data_gap { border-bottom-color: #1f6b5f; color: #1f6b5f; }
+
+.uc03-c3-category {
+  background: var(--surface-muted, #eef2f8);
+  border-radius: 999px;
+  padding: 1px 9px;
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: normal;
+  font-size: 0.72rem;
 }
 
 .uc03-c3-flag-group-count {

@@ -503,7 +503,11 @@
 @media (max-width: 899px) {
   .enterprise-shell--approved-nav .uc03-landing--workqueue {
     gap: 10px !important;
-    padding-bottom: calc(82px + env(safe-area-inset-bottom)) !important;
+    /* Was calc(82px + safe-area) to clear the CTA alone; the CTA itself now
+       sits 64px higher (above the bottom nav bar, see .uc03-landing__
+       capture-action--workqueue below), so the list's own reserved space
+       grows by the same 64px to keep clearing it. */
+    padding-bottom: calc(64px + 82px + env(safe-area-inset-bottom)) !important;
   }
 
   .enterprise-shell--approved-nav .uc03-landing--workqueue .uc03-dashboard-hero--workqueue {
@@ -525,7 +529,14 @@
     position: fixed !important;
     left: 14px !important;
     right: 14px !important;
-    bottom: calc(12px + env(safe-area-inset-bottom)) !important;
+    /* Same breakpoint (899px) as mobile-bottom-nav.css's own bar, which
+       reserves 64px of height there (its .enterprise-content padding-bottom
+       uses the identical figure) -- clear it, don't sit on top of it. A
+       fixed 12px offset here used to land this button directly inside the
+       nav bar's own footprint on every mobile/native screen, overlapping
+       whatever the nav bar itself renders in that space (reported: the
+       button visually present but not clickable). */
+    bottom: calc(64px + 12px + env(safe-area-inset-bottom)) !important;
     z-index: 75 !important;
     width: auto !important;
     min-width: 0 !important;

@@ -383,6 +383,29 @@ export default function AppShell({ children }: PropsWithChildren) {
     return isActive;
   };
 
+  // Mobile bottom bar -- fast access to the handful of items a PC (or TL/PM)
+  // actually reaches for on a phone: Bookings & Deliveries, Capture New
+  // Booking, Daily Operations, falling back to Review Queue for a role
+  // without Daily Operations. Sourced from the same, already role-filtered
+  // Workspace group -- no separate role logic to keep in sync, and every
+  // icon here already exists in NavIcon (no new glyphs to draw).
+  const bottomNavWorkspaceItems = (visibleGroups.find((group) => group.key === 'workspace')?.items ?? [])
+    .filter(canSeeItem);
+  const bottomNavByPath = (to: string) => bottomNavWorkspaceItems.find((item) => item.to === to);
+  const bottomNavItems = [
+    bottomNavByPath(allJourneysItem.to),
+    bottomNavByPath(createBookingItem.to),
+    bottomNavByPath('/daily-ops'),
+    bottomNavByPath(reviewQueueItem.to),
+  ].filter((item): item is NavItem => Boolean(item)).slice(0, 3);
+
+  const bottomNavLabels: Record<string, string> = {
+    [allJourneysItem.to]: 'Bookings',
+    [createBookingItem.to]: 'Capture',
+    '/daily-ops': 'Daily Ops',
+    [reviewQueueItem.to]: 'Review',
+  };
+
   return (
     <div className={`enterprise-shell enterprise-shell--approved-nav${mobileMenuOpen ? ' enterprise-shell--menu-open' : ''}`}>
       <button type="button" className="enterprise-mobile-backdrop" aria-label="Close navigation" onClick={() => setMobileMenuOpen(false)} />
@@ -497,6 +520,48 @@ export default function AppShell({ children }: PropsWithChildren) {
           ) : children}
         </main>
       </div>
+
+      {/* Mobile-only (hidden on desktop via CSS) -- the sidebar drawer above
+          remains the full navigation; this is just fast, thumb-reach access
+          to the few things a PC opens constantly on a phone. "More" reuses
+          the exact same drawer the hamburger button already opens. */}
+      {c0OperationalShell && bottomNavItems.length > 0 && (
+        <nav className="enterprise-bottom-nav" aria-label="Quick navigation">
+          <NavLink
+            to="/dashboard"
+            className={`enterprise-bottom-nav__item${
+              location.pathname === '/dashboard' && !createBookingMode && !legacyQueueMode
+                ? ' enterprise-bottom-nav__item--active'
+                : ''
+            }`}
+          >
+            <span className="enterprise-bottom-nav__mark"><NavIcon mark="OV" /></span>
+            <span>Home</span>
+          </NavLink>
+          {bottomNavItems.map((item) => (
+            <NavLink
+              key={item.to}
+              to={item.to}
+              className={({ isActive }) => `enterprise-bottom-nav__item${
+                isNavItemActive(item, isActive) ? ' enterprise-bottom-nav__item--active' : ''
+              }${item.to === createBookingItem.to ? ' enterprise-bottom-nav__item--capture' : ''}`}
+            >
+              <span className="enterprise-bottom-nav__mark"><NavIcon mark={item.mark} /></span>
+              <span>{bottomNavLabels[item.to] ?? item.label}</span>
+            </NavLink>
+          ))}
+          <button
+            type="button"
+            className="enterprise-bottom-nav__item"
+            aria-label="Open navigation"
+            aria-expanded={mobileMenuOpen}
+            onClick={() => setMobileMenuOpen(true)}
+          >
+            <span className="enterprise-bottom-nav__mark" aria-hidden="true">☰</span>
+            <span>More</span>
+          </button>
+        </nav>
+      )}
     </div>
   );
 }

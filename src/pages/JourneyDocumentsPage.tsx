@@ -6,6 +6,7 @@ import { ErrorBoundary } from '../components/ErrorBoundary';
 import PageHeader from '../components/PageHeader';
 import AttributeEvidenceViewer, { hasBoxedEvidence } from '../features/uc03/AttributeEvidenceViewer';
 import { CARD_STATUS_LABEL, cardStatus } from '../features/uc03/CaptureDocumentCard';
+import ModifyModelModal from '../features/uc03/ModifyModelModal';
 import { categoryFor, categoryTitle, FIELD_CATEGORY_ORDER, type FieldCategory } from '../features/uc03/fieldCategoryGroups';
 import { AuditCoreHttpError } from '../services/audit-core/client';
 import {
@@ -620,6 +621,7 @@ export default function JourneyDocumentsPage() {
   const [uploading, setUploading] = useState(false);
   const [uploadMessage, setUploadMessage] = useState<string>();
   const [uploadError, setUploadError] = useState<string>();
+  const [modifyModelOpen, setModifyModelOpen] = useState(false);
 
   const enabled = Boolean(project?.tenantId && journeyId && accessToken);
   const bookingQuery = useQuery({
@@ -774,7 +776,28 @@ export default function JourneyDocumentsPage() {
         eyebrow="Documents"
         title="Upload, review & correct documents"
         description="One place for every Booking and Delivery document. Upload here any time — click any document below to open and edit it. Fields below 90% confidence can be corrected directly and take effect immediately; fields at or above 90% go through a Team Lead-reviewed correction instead."
+        actions={
+          // Wrong vehicle resolved for this Booking? Same popup Journey
+          // 360's Deal tab offers -- reachable from here too, since that's
+          // where a PC is already looking at this Booking's documents.
+          // The other SKU flow on this page (ModelResolutionSkuPicker,
+          // below) only ever appears when nothing has been resolved yet,
+          // so the two never compete for the same moment.
+          <button type="button" className="uc03-jd-modify-model" onClick={() => setModifyModelOpen(true)}>
+            Modify Model
+          </button>
+        }
       />
+
+      {modifyModelOpen && journeyId ? (
+        <ModifyModelModal
+          tenantId={project.tenantId}
+          journeyId={journeyId}
+          accessToken={accessToken}
+          onClose={() => setModifyModelOpen(false)}
+          onProposed={() => { /* the Task Queue is the source of truth from here */ }}
+        />
+      ) : null}
 
       <section className="uc03-jd-section" aria-labelledby="jd-upload-heading">
         <h2 id="jd-upload-heading" className="uc03-jd-section-heading">1. Upload documents</h2>

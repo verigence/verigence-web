@@ -486,3 +486,16 @@
 }
 .uc03-jd-sku-candidate__total { color: var(--v-muted, #6e879b); font-size: 11.5px; }
 .uc03-jd-sku-picker__actions { display: flex; justify-content: flex-end; }
+
+.uc03-jd-modify-model {
+  flex-shrink: 0;
+  border: 1px solid #075f5a;
+  background: #fff;
+  color: #075f5a;
+  border-radius: 999px;
+  padding: 6px 14px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+.uc03-jd-modify-model:hover { background: rgba(7, 95, 90, 0.06); }

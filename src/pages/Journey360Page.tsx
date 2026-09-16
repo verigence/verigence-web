@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 
@@ -19,6 +19,7 @@ import { getReviewDocumentContentV2 } from '../services/audit-core/uc03DocumentR
 import { runAllApplicableRules, type Uc03RunAllRulesRuleResult } from '../services/audit-core/uc03Audit';
 import {
   getUc03JourneyOverview,
+  type DealSourceValue,
   type JourneyOverview,
   type JourneyReviewedField,
   type SkuPricing,
@@ -1082,6 +1083,58 @@ function BookingCommercialFacts({ reviewedBooking }: { reviewedBooking: Record<s
   );
 }
 
+/** Every recorded source for one commercial/discount line, keyed
+ * case-insensitively -- commercial component keys arrive lowercase
+ * ("accessories_cost"), discount keys arrive uppercase ("ACCESSORIES_KIT"),
+ * and dealSourceBreakdown always stores the key lowercased. Only rendered
+ * when a second, disagreeing source actually exists: a single-source line
+ * already shows its one value in the parent row, so listing it again here
+ * would just repeat the same number under a new label. */
+function sourceValuesFor(
+  breakdown: DealSourceValue[] | undefined,
+  lineKind: 'COMMERCIAL' | 'DISCOUNT',
+  componentKey: string,
+): DealSourceValue[] {
+  if (!breakdown || breakdown.length === 0) return [];
+  const key = componentKey.trim().toLowerCase();
+  const matches = breakdown.filter((row) => row.lineKind === lineKind && row.componentKey.trim().toLowerCase() === key);
+  return matches.length > 1 ? matches : [];
+}
+
+// Actual amount lands in column 3 (Component | Standard | Actual) -- Standard
+// never varies by source, so that cell stays blank rather than repeating it.
+function CommercialSourceRows({ sources, currency }: { sources: DealSourceValue[]; currency: string }) {
+  if (sources.length === 0) return null;
+  return (
+    <>
+      {sources.map((source) => (
+        <tr key={`${source.componentKey}-${source.sourceDocumentType}`} className="jline__sourceRow">
+          <td className="jline__sourceRow__label">via {readable(source.sourceDocumentType)}</td>
+          <td />
+          <td className="jline__sourceRow__value">{money(source.amount, currency)}</td>
+        </tr>
+      ))}
+    </>
+  );
+}
+
+// Given amount lands in column 3 (Scheme/benefit | Entitled | Given | Eligibility).
+function DiscountSourceRows({ sources }: { sources: DealSourceValue[] }) {
+  if (sources.length === 0) return null;
+  return (
+    <>
+      {sources.map((source) => (
+        <tr key={`${source.componentKey}-${source.sourceDocumentType}`} className="jline__sourceRow">
+          <td className="jline__sourceRow__label">via {readable(source.sourceDocumentType)}</td>
+          <td />
+          <td className="jline__sourceRow__value">{money(source.amount)}</td>
+          <td />
+        </tr>
+      ))}
+    </>
+  );
+}
+
 function DealPanel({
   model,
   reviewedBooking,
@@ -1123,13 +1176,20 @@ function DealPanel({
           <table className="jline__table">
             <thead><tr><th>Component</th><th>Standard</th><th>Actual</th></tr></thead>
             <tbody>
-              {model.commercialLines.map((line) => (
-                <tr key={String(line.commercialLineId)}>
-                  <td>{readable(line.componentKey)}</td>
-                  <td>{money(line.standardAmount, String(line.currencyCode || 'INR'))}</td>
-                  <td>{money(line.actualAmount, String(line.currencyCode || 'INR'))}</td>
-                </tr>
-              ))}
+              {model.commercialLines.map((line) => {
+                const currency = String(line.currencyCode || 'INR');
+                const sources = sourceValuesFor(model.dealSourceBreakdown, 'COMMERCIAL', String(line.componentKey));
+                return (
+                  <Fragment key={String(line.commercialLineId)}>
+                    <tr>
+                      <td>{readable(line.componentKey)}</td>
+                      <td>{money(line.standardAmount, currency)}</td>
+                      <td>{money(line.actualAmount, currency)}</td>
+                    </tr>
+                    <CommercialSourceRows sources={sources} currency={currency} />
+                  </Fragment>
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -1157,13 +1217,17 @@ function DiscountsPanel({ model }: { model: JourneyOverview }) {
                 const std = d.standardEligibleAmount === null || d.standardEligibleAmount === undefined ? null : Number(d.standardEligibleAmount);
                 const act = d.actualDiscountAmount === null || d.actualDiscountAmount === undefined ? null : Number(d.actualDiscountAmount);
                 const over = std !== null && act !== null && act - std > 1;
+                const sources = sourceValuesFor(model.dealSourceBreakdown, 'DISCOUNT', String(d.discountKey));
                 return (
-                  <tr key={String(d.discountApplicationId)}>
-                    <td>{readable(d.discountKey)}</td>
-                    <td>{money(std)}</td>
-                    <td className={over ? 'jline__delta--over' : String(d.eligibilityResult).toUpperCase() === 'ELIGIBLE_UNCLAIMED' ? 'jline__delta--under' : ''}>{money(act)}</td>
-                    <td>{readable(d.eligibilityResult)}</td>
-                  </tr>
+                  <Fragment key={String(d.discountApplicationId)}>
+                    <tr>
+                      <td>{readable(d.discountKey)}</td>
+                      <td>{money(std)}</td>
+                      <td className={over ? 'jline__delta--over' : String(d.eligibilityResult).toUpperCase() === 'ELIGIBLE_UNCLAIMED' ? 'jline__delta--under' : ''}>{money(act)}</td>
+                      <td>{readable(d.eligibilityResult)}</td>
+                    </tr>
+                    <DiscountSourceRows sources={sources} />
+                  </Fragment>
                 );
               })}
             </tbody>

@@ -7,12 +7,15 @@ import StatusPill from '../components/StatusPill';
 import AttributeEvidenceViewer, { hasBoxedEvidence } from '../features/uc03/AttributeEvidenceViewer';
 import AuditSourceComparisonTable from '../features/uc03/AuditSourceComparisonTable';
 import {
+  actOnAuditFlag,
   completeStageAudit,
   getAuditSummary,
   getAuditTimeline,
   listAuditFlags,
   raiseAuditFlag,
   type Uc03AuditFlag,
+  type Uc03FlagAction,
+  type Uc03RejectionCategory,
   type Uc03StageAuditView,
   type Uc03StageCode,
 } from '../services/audit-core/uc03Audit';
@@ -114,6 +117,21 @@ function groupFlagsByClass(flags: Uc03AuditFlag[]): Array<{ findingClass: string
   return Array.from(byClass.entries())
     .map(([findingClass, groupFlags]) => ({ findingClass, flags: groupFlags }))
     .sort((a, b) => CLASS_ORDER.indexOf(a.findingClass) - CLASS_ORDER.indexOf(b.findingClass));
+}
+
+// Required alongside the free-text remark to Mark False Positive -- the
+// backend rejects the action outright without one.
+const REJECTION_CATEGORY_LABEL: Record<Uc03RejectionCategory, string> = {
+  NOT_APPLICABLE: 'Not applicable',
+  DATA_ALREADY_CORRECT: 'Data is already correct',
+  SYSTEM_MISCLASSIFIED: 'System misclassified this',
+  DUPLICATE: 'Duplicate of another flag',
+  OTHER: 'Other',
+};
+
+interface FlagDecisionState {
+  flagId: string;
+  action: Uc03FlagAction;
 }
 
 const OWNER_ORDER = ['PC', 'TL', 'PM', 'EXECUTIVE'];
@@ -228,37 +246,59 @@ function StageAuditCard({
   );
 }
 
+interface FlagDecisionFormState extends FlagDecisionState {
+  reason: string;
+  rejectionCategory: Uc03RejectionCategory | '';
+  severity: string;
+}
+
 function FlagCard({
   flag,
   journeyId,
   timezoneName,
   permittedActions,
   isTarget,
+  decision,
+  busy,
+  onOpenDecision,
+  onChangeDecision,
+  onCancelDecision,
+  onSubmitDecision,
 }: {
   flag: Uc03AuditFlag;
   journeyId: string;
   timezoneName: string;
   permittedActions: string[];
   isTarget: boolean;
+  decision: FlagDecisionFormState | null;
+  busy: boolean;
+  onOpenDecision: (flagId: string, action: Uc03FlagAction) => void;
+  onChangeDecision: (patch: Partial<Omit<FlagDecisionFormState, 'flagId' | 'action'>>) => void;
+  onCancelDecision: () => void;
+  onSubmitDecision: (flag: Uc03AuditFlag) => void;
 }) {
   // Per-finding permitted actions from the server (class-aware); fall back to the
-  // role-level list. Used only to decide whether a "Take action" link is worth
-  // showing at all -- Audit View is a read view of the case (evidence,
-  // classification, severity, SLA, full history); accepting, rejecting,
-  // resolving or remarking on a flag all happen in Task Queue, the
-  // actionable surface, not here.
+  // role-level list. PC never gets any of these (v1.1 design: a PC never acts
+  // on a Finding directly, only its own Task) -- CONFIRM_BREACH/MARK_FALSE_
+  // POSITIVE/TAKE_ACTION only ever appear in a TL/PM/Executive's own
+  // permittedActions, so this stays correctly read-only for PC with no
+  // separate role check needed here.
   const canDo = (action: string) =>
     flag.permittedActions.includes(action) || permittedActions.includes(action);
   const isViolation = flag.findingClass === 'VIOLATION';
   const open = ['OPEN', 'ACKNOWLEDGED'].includes(flag.status);
+  const canAccept = canDo('CONFIRM_BREACH');
+  const canReject = canDo('MARK_FALSE_POSITIVE');
+  const canTakeAction = canDo('TAKE_ACTION');
   const actionable = open && (
-    canDo('ACKNOWLEDGE') || canDo('CONFIRM_BREACH') || canDo('MARK_FALSE_POSITIVE') || canDo('RESOLVE')
+    canDo('ACKNOWLEDGE') || canAccept || canReject || canDo('RESOLVE')
   );
   // A PC has no RESOLVE permission on a self-serve Finding directly (v1.1
   // design routes that through its Task instead) -- so `actionable` above
   // is false here and this card would otherwise show no action at all.
   // The fix only ever needs the open Finding, so route straight to it.
   const isModelNotIdentified = open && (flag.ruleKey || '').split(':')[0] === 'MODEL_NOT_IDENTIFIED';
+  const isOpenDecision = decision?.flagId === flag.flagId;
 
   const slaText = flag.slaDueAtUtc
     ? (() => {
@@ -319,10 +359,119 @@ function FlagCard({
           Select SKU →
         </Link>
       )}
-      {!isModelNotIdentified && actionable && (
+
+      {/* TL's own verdict on the finding: Accept (Confirm Breach), Reject
+          (Mark False Positive), or Take Action (raises a Task for PC) --
+          right here in context, not a second trip through Task Queue for
+          the exact decision this page already shows every fact needed to
+          make. PC never sees any of these (canAccept/canReject/
+          canTakeAction all come from the server's own per-finding
+          permittedActions, which never grants them to PC). */}
+      {!isModelNotIdentified && (canAccept || canReject || canTakeAction) && !isOpenDecision && (
+        <div className="uc03-c3-flag-actions">
+          {canReject && (
+            <button
+              type="button"
+              className="uc03-c3-decide-btn uc03-c3-decide-btn--reject"
+              onClick={() => onOpenDecision(flag.flagId, 'MARK_FALSE_POSITIVE')}
+            >
+              Reject (False Positive)
+            </button>
+          )}
+          {canAccept && (
+            <button
+              type="button"
+              className="uc03-c3-decide-btn uc03-c3-decide-btn--accept"
+              onClick={() => onOpenDecision(flag.flagId, 'CONFIRM_BREACH')}
+            >
+              Accept
+            </button>
+          )}
+          {canTakeAction && (
+            <button
+              type="button"
+              className="uc03-c3-decide-btn"
+              onClick={() => onOpenDecision(flag.flagId, 'TAKE_ACTION')}
+            >
+              Take Action
+            </button>
+          )}
+        </div>
+      )}
+
+      {!isModelNotIdentified && !(canAccept || canReject || canTakeAction) && actionable && (
         <Link className="uc03-c3-take-action" to={`/reviews?findingId=${encodeURIComponent(flag.flagId)}`}>
           Take action in Task Queue →
         </Link>
+      )}
+
+      {isOpenDecision && decision && (
+        <form
+          className="uc03-c3-decide"
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (!decision.reason.trim()) return;
+            if (decision.action === 'MARK_FALSE_POSITIVE' && !decision.rejectionCategory) return;
+            onSubmitDecision(flag);
+          }}
+        >
+          {decision.action === 'MARK_FALSE_POSITIVE' && (
+            <label>
+              <span>Why doesn't this apply?</span>
+              <select
+                value={decision.rejectionCategory}
+                onChange={(e) => onChangeDecision({ rejectionCategory: e.target.value as Uc03RejectionCategory })}
+                required
+              >
+                <option value="">Select a reason…</option>
+                {Object.entries(REJECTION_CATEGORY_LABEL).map(([value, label]) => (
+                  <option key={value} value={value}>{label}</option>
+                ))}
+              </select>
+            </label>
+          )}
+          {decision.action === 'TAKE_ACTION' && (
+            <label>
+              <span>Severity for PC's Task</span>
+              <select value={decision.severity} onChange={(e) => onChangeDecision({ severity: e.target.value })}>
+                {SEVERITIES.map((value) => <option key={value} value={value}>{friendly(value)}</option>)}
+              </select>
+            </label>
+          )}
+          <label>
+            <span>
+              {decision.action === 'CONFIRM_BREACH'
+                ? 'Why is this a breach?'
+                : decision.action === 'MARK_FALSE_POSITIVE'
+                  ? 'Add a short note'
+                  : 'What does PC need to do?'}
+            </span>
+            <textarea
+              value={decision.reason}
+              rows={2}
+              maxLength={4000}
+              autoFocus
+              onChange={(e) => onChangeDecision({ reason: e.target.value })}
+              placeholder="A short note — kept in the audit history"
+            />
+          </label>
+          <div className="uc03-c3-decide__actions">
+            <button type="button" className="uc03-c3-decide-btn" onClick={onCancelDecision}>Cancel</button>
+            <button
+              type="submit"
+              className={`uc03-c3-decide-btn ${decision.action === 'MARK_FALSE_POSITIVE' ? 'uc03-c3-decide-btn--reject' : 'uc03-c3-decide-btn--accept'}`}
+              disabled={!decision.reason.trim() || (decision.action === 'MARK_FALSE_POSITIVE' && !decision.rejectionCategory) || busy}
+            >
+              {busy
+                ? 'Saving…'
+                : decision.action === 'CONFIRM_BREACH'
+                  ? 'Confirm Breach'
+                  : decision.action === 'MARK_FALSE_POSITIVE'
+                    ? 'Mark False Positive'
+                    : 'Raise Task'}
+            </button>
+          </div>
+        </form>
       )}
     </article>
   );
@@ -346,6 +495,7 @@ export default function AuditReviewPage() {
   const [newRemarks, setNewRemarks] = useState('');
   const [newEvidence, setNewEvidence] = useState<string[]>([]);
   const [selectedSource, setSelectedSource] = useState<ReviewV2SourceValue>();
+  const [flagDecision, setFlagDecision] = useState<FlagDecisionFormState | null>(null);
 
   const enabled = Boolean(project?.tenantId && journeyId && accessToken);
   const summaryQuery = useQuery({
@@ -472,6 +622,37 @@ export default function AuditReviewPage() {
       () => completeStageAudit(project.tenantId, journeyId, stage, '', accessToken),
       `${friendly(stage.stage)} audit marked complete.`,
     );
+  };
+
+  // TL's own verdict on a finding -- see FlagCard's own comment for why
+  // this lives here now instead of only in Task Queue.
+  const openFlagDecision = (flagId: string, action: Uc03FlagAction) => {
+    setFlagDecision({ flagId, action, reason: '', rejectionCategory: '', severity: 'MEDIUM' });
+  };
+  const changeFlagDecision = (patch: Partial<Omit<FlagDecisionFormState, 'flagId' | 'action'>>) => {
+    setFlagDecision((current) => (current ? { ...current, ...patch } : current));
+  };
+  const submitFlagDecision = async (flag: Uc03AuditFlag) => {
+    if (!flagDecision) return;
+    await run(
+      () => actOnAuditFlag(
+        project.tenantId,
+        journeyId,
+        flag,
+        flagDecision.action,
+        flagDecision.reason.trim(),
+        accessToken,
+        [],
+        flagDecision.action === 'TAKE_ACTION' ? flagDecision.severity : undefined,
+        flagDecision.action === 'MARK_FALSE_POSITIVE' ? (flagDecision.rejectionCategory || undefined) : undefined,
+      ),
+      flagDecision.action === 'CONFIRM_BREACH'
+        ? 'Recorded as a confirmed breach.'
+        : flagDecision.action === 'MARK_FALSE_POSITIVE'
+          ? 'Recorded as a false positive.'
+          : 'Task raised for PC.',
+    );
+    setFlagDecision(null);
   };
 
   const toggleNewEvidence = (id: string) => {
@@ -672,6 +853,12 @@ export default function AuditReviewPage() {
                         timezoneName={project.timezoneName}
                         permittedActions={summary?.permittedActions || []}
                         isTarget={flag.flagId === findingId}
+                        decision={flagDecision}
+                        busy={busy}
+                        onOpenDecision={openFlagDecision}
+                        onChangeDecision={changeFlagDecision}
+                        onCancelDecision={() => setFlagDecision(null)}
+                        onSubmitDecision={(f) => void submitFlagDecision(f)}
                       />
                     ))}
                   </div>

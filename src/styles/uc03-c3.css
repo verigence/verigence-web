@@ -416,7 +416,9 @@ a.uc03-c3-chip:hover { border-color: currentColor; }
   box-shadow: 0 0 0 2px var(--brand-primary, #315fdd);
 }
 
-/* Audit View reads; Review Queue acts. This is the one door between them. */
+/* Audit View reads; Review Queue acts. This is the one door between them --
+   for whatever's left that isn't a TL/PM verdict handled inline below
+   (self-serve gaps stay PC's own Task Queue action, not TL's). */
 .uc03-c3-take-action {
   justify-self: start;
   padding: 8px 14px;
@@ -427,6 +429,44 @@ a.uc03-c3-chip:hover { border-color: currentColor; }
   font-size: 0.86rem;
   text-decoration: none;
 }
+
+/* TL's own verdict on a finding, right here in context -- Accept (Confirm
+   Breach), Reject (False Positive), Take Action (raises a Task for PC).
+   PC never sees this at all (see FlagCard's own comment on canAccept/
+   canReject/canTakeAction). */
+.uc03-c3-flag-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.uc03-c3-decide-btn {
+  padding: 7px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--border-subtle, #d8dee8);
+  background: #fff;
+  font-weight: 700;
+  font-size: 0.84rem;
+  color: var(--text-muted, #5b6b7c);
+  cursor: pointer;
+}
+.uc03-c3-decide-btn--accept { background: var(--brand-primary, #315fdd); border-color: var(--brand-primary, #315fdd); color: #fff; }
+.uc03-c3-decide-btn--reject { background: #a03030; border-color: #a03030; color: #fff; }
+
+.uc03-c3-decide {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px 14px;
+  background: var(--surface-muted, #eef2f8);
+  border-radius: 10px;
+}
+.uc03-c3-decide label { display: flex; flex-direction: column; gap: 4px; font-size: 0.8rem; font-weight: 700; color: var(--text-muted, #5b6b7c); }
+.uc03-c3-decide select,
+.uc03-c3-decide textarea {
+  border: 1px solid var(--border-subtle, #d8dee8);
+  border-radius: 6px;
+  padding: 7px 8px;
+  font: inherit;
+  font-size: 0.86rem;
+  resize: vertical;
+}
+.uc03-c3-decide__actions { display: flex; gap: 8px; justify-content: flex-end; }
 
 .uc03-c3-flag-meta,
 .uc03-c3-flag-footnote,

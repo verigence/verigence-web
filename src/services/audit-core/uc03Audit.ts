@@ -7,9 +7,21 @@ export type Uc03FlagAction =
   | 'REVIEW'
   | 'CONFIRM_BREACH'
   | 'MARK_FALSE_POSITIVE'
+  | 'TAKE_ACTION'
+  | 'ESCALATE'
   | 'RESOLVE'
   | 'REOPEN'
   | 'VOID';
+
+// Required alongside the free-text remark to Mark False Positive
+// (uc03_audit_flags.py's _REJECTION_CATEGORIES) -- the backend rejects the
+// action outright without one.
+export type Uc03RejectionCategory =
+  | 'NOT_APPLICABLE'
+  | 'DATA_ALREADY_CORRECT'
+  | 'SYSTEM_MISCLASSIFIED'
+  | 'DUPLICATE'
+  | 'OTHER';
 
 export type Uc03FindingClass = 'DATA_GAP' | 'DOCUMENT_GAP' | 'VIOLATION';
 export type Uc03ResolutionMode = 'SELF_SERVICE' | 'ADJUDICATED';
@@ -178,6 +190,12 @@ export function actOnAuditFlag(
   remarks: string,
   accessToken?: string,
   evidenceIds: string[] = [],
+  // TAKE_ACTION only: the severity TL sets on the Task it spawns for PC.
+  severity?: string,
+  // MARK_FALSE_POSITIVE only: required alongside remarks, or the backend
+  // rejects the action outright (uc03_audit_flags.py's
+  // require_reason_for_terminal_or_reopen validator).
+  rejectionCategory?: Uc03RejectionCategory,
 ): Promise<FlagMutationResult> {
   return auditCoreRequest(`${base(tenantId, journeyId)}/flags/${encodeURIComponent(flag.flagId)}/actions`, {
     method: 'POST',
@@ -186,10 +204,14 @@ export function actOnAuditFlag(
     body: JSON.stringify({
       action,
       remarks: remarks || null,
-      resolutionReason: ['RESOLVE', 'REOPEN', 'VOID', 'CONFIRM_BREACH', 'MARK_FALSE_POSITIVE'].includes(action)
+      resolutionReason: [
+        'RESOLVE', 'REOPEN', 'VOID', 'CONFIRM_BREACH', 'MARK_FALSE_POSITIVE', 'TAKE_ACTION', 'ESCALATE',
+      ].includes(action)
         ? remarks
         : null,
       evidenceIds,
+      severity: action === 'TAKE_ACTION' ? severity || null : null,
+      rejectionCategory: action === 'MARK_FALSE_POSITIVE' ? rejectionCategory || null : null,
     }),
   });
 }
@@ -347,6 +369,13 @@ export function actOnQueueFinding(
   action: Uc03FlagAction,
   remarks: string,
   accessToken?: string,
+  // TAKE_ACTION only: the severity TL sets on the Task it spawns for PC.
+  severity?: string,
+  // MARK_FALSE_POSITIVE only: required alongside remarks, or the backend
+  // rejects the action outright (uc03_audit_flags.py's
+  // require_reason_for_terminal_or_reopen validator) -- confirmed live bug,
+  // this was never being sent at all before.
+  rejectionCategory?: Uc03RejectionCategory,
 ): Promise<FlagMutationResult> {
   const flagBase = queueItemFlagBase(tenantId, item);
   return auditCoreRequest(`${flagBase}/flags/${encodeURIComponent(item.flagId)}/actions`, {
@@ -356,10 +385,14 @@ export function actOnQueueFinding(
     body: JSON.stringify({
       action,
       remarks: remarks || null,
-      resolutionReason: ['RESOLVE', 'REOPEN', 'VOID', 'CONFIRM_BREACH', 'MARK_FALSE_POSITIVE'].includes(action)
+      resolutionReason: [
+        'RESOLVE', 'REOPEN', 'VOID', 'CONFIRM_BREACH', 'MARK_FALSE_POSITIVE', 'TAKE_ACTION', 'ESCALATE',
+      ].includes(action)
         ? remarks
         : null,
       evidenceIds: [],
+      severity: action === 'TAKE_ACTION' ? severity || null : null,
+      rejectionCategory: action === 'MARK_FALSE_POSITIVE' ? rejectionCategory || null : null,
     }),
   });
 }

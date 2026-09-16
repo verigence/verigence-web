@@ -305,14 +305,17 @@
 }
 .revq-decide label { display: flex; flex-direction: column; gap: 4px; }
 .revq-decide label span { font-size: 13px; font-weight: 600; color: var(--v-ink, #17324d); }
-.revq-decide textarea {
+.revq-decide textarea,
+.revq-decide select {
   border: 1px solid var(--v-line, #dbe6ee);
   border-radius: 8px;
   padding: 8px 10px;
   font: inherit;
   font-size: 13.5px;
-  resize: vertical;
+  color: var(--v-ink, #17324d);
+  background: #fff;
 }
+.revq-decide textarea { resize: vertical; }
 .revq-decide__actions { display: flex; gap: 8px; justify-content: flex-end; }
 
 @media (max-width: 720px) {

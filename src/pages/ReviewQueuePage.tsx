@@ -25,6 +25,7 @@ import '../styles/uc03-review-queue.css';
 const TASK_LABEL: Record<string, string> = {
   AUTO_SELF_SERVE: 'Self-serve gap',
   TL_TAKE_ACTION: 'Take Action requested',
+  PC_VERIFY_UNRECOGNIZED_DOCUMENT: 'Verify document',
 };
 
 const CLASS_LABEL: Record<Uc03FindingClass, string> = {
@@ -112,14 +113,24 @@ export default function ReviewQueuePage() {
   // flag here to act on it -- ?findingId=. Land on the broadest scope/filter
   // combination so that one item isn't hidden by whichever bucket/filter
   // happened to be selected, then scroll to and highlight it once loaded.
+  // The Team Lead dashboard's focus-area tiles use the same pattern with
+  // ?class= -- they show a count straight from this page's own summary
+  // endpoint, so the deep link must land on the identical scope/filter that
+  // produced that count, or the numbers would stop matching the moment
+  // someone clicks through.
   const [searchParams] = useSearchParams();
   const findingId = searchParams.get('findingId');
+  const classParam = searchParams.get('class');
+  const initialClassFilter: 'ALL' | Uc03FindingClass | 'MANUAL_VERIFICATION' =
+    classParam === 'DATA_GAP' || classParam === 'DOCUMENT_GAP' || classParam === 'VIOLATION' ? classParam : 'ALL';
   const [subjectTab, setSubjectTab] = useState<Uc03QueueSubjectKind>('JOURNEY');
   // A PC's 'ALL' and 'MINE' scopes are always the identical item set (see
   // scopeTabs below) and a PC has no 'ALL' tab to land on -- always start a
   // PC on 'MINE', deep link or not.
-  const [scope, setScope] = useState<Uc03QueueScope>(role === 'PC' ? 'MINE' : findingId ? 'ALL' : 'MINE');
-  const [classFilter, setClassFilter] = useState<'ALL' | Uc03FindingClass | 'MANUAL_VERIFICATION'>('ALL');
+  const [scope, setScope] = useState<Uc03QueueScope>(
+    role === 'PC' ? 'MINE' : findingId || classParam ? 'ALL' : 'MINE',
+  );
+  const [classFilter, setClassFilter] = useState<'ALL' | Uc03FindingClass | 'MANUAL_VERIFICATION'>(initialClassFilter);
   const [decision, setDecision] = useState<DecisionState | null>(null);
   const [reason, setReason] = useState('');
   const [rejectionCategory, setRejectionCategory] = useState<Uc03RejectionCategory | ''>('');
@@ -203,9 +214,13 @@ export default function ReviewQueuePage() {
   // gate, and it never touches the Finding it was spawned from (TL/PM
   // still separately decide the Finding's own fate whenever they choose).
   const completeTaskMutation = useMutation({
-    mutationFn: (taskId: string) => taskAction(project!.tenantId, taskId, 'complete', accessToken),
-    onSuccess: () => {
-      setBanner({ tone: 'ok', text: 'Task marked done.' });
+    mutationFn: ({ taskId, outcome }: { taskId: string; outcome?: 'CORRECT' | 'INCORRECT' }) =>
+      taskAction(project!.tenantId, taskId, 'complete', accessToken, outcome),
+    onSuccess: (_data, variables) => {
+      setBanner({
+        tone: 'ok',
+        text: variables.outcome === 'INCORRECT' ? 'Document removed.' : 'Task marked done.',
+      });
       void queryClient.invalidateQueries({ queryKey: ['uc03-review-queue'] });
       void queryClient.invalidateQueries({ queryKey: ['uc03-review-queue-summary'] });
     },
@@ -377,7 +392,34 @@ export default function ReviewQueuePage() {
             </Link>
           )}
 
-          {isTask && (item.category !== 'AUTO_SELF_SERVE' || item.subjectKind === 'DAILY_OPS') && (
+          {isTask && item.category === 'PC_VERIFY_UNRECOGNIZED_DOCUMENT' && (
+            // No auto-resolving rule and no generic "Mark done" here --
+            // the backend requires an explicit CORRECT/INCORRECT outcome
+            // to complete this task type (see tasks_api.py::complete_task).
+            // INCORRECT soft-deletes the document server-side; nothing
+            // else to do here beyond sending the outcome.
+            <>
+              <button
+                type="button"
+                className="revq-btn revq-btn--reject"
+                disabled={completeTaskMutation.isPending}
+                onClick={() => completeTaskMutation.mutate({ taskId: item.flagId, outcome: 'INCORRECT' })}
+              >
+                Incorrect — remove
+              </button>
+              <button
+                type="button"
+                className="revq-btn revq-btn--accept"
+                disabled={completeTaskMutation.isPending}
+                onClick={() => completeTaskMutation.mutate({ taskId: item.flagId, outcome: 'CORRECT' })}
+              >
+                Correct — dismiss
+              </button>
+            </>
+          )}
+
+          {isTask && item.category !== 'PC_VERIFY_UNRECOGNIZED_DOCUMENT' &&
+            (item.category !== 'AUTO_SELF_SERVE' || item.subjectKind === 'DAILY_OPS') && (
             // Take Action has no auto-resolving rule behind it, and
             // Daily Operations has no document screen a self-serve
             // gap could route to either way -- both self-complete
@@ -388,7 +430,7 @@ export default function ReviewQueuePage() {
               type="button"
               className="revq-btn revq-btn--accept"
               disabled={completeTaskMutation.isPending}
-              onClick={() => completeTaskMutation.mutate(item.flagId)}
+              onClick={() => completeTaskMutation.mutate({ taskId: item.flagId })}
             >
               {completeTaskMutation.isPending ? 'Marking done…' : 'Mark done'}
             </button>

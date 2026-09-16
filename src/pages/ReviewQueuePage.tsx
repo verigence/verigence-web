@@ -13,6 +13,7 @@ import {
   type Uc03FlagAction,
   type Uc03QueueScope,
   type Uc03QueueSubjectKind,
+  type Uc03RejectionCategory,
   type Uc03ReviewQueueItem,
 } from '../services/audit-core/uc03Audit';
 import { useProjectContextStore } from '../store/projectContextStore';
@@ -89,6 +90,18 @@ interface DecisionState {
   action: Uc03FlagAction;
 }
 
+// Required alongside the free-text remark to Mark False Positive -- the
+// backend rejects the action outright without one (confirmed live bug:
+// this was never being collected/sent at all before).
+const REJECTION_CATEGORY_LABEL: Record<Uc03RejectionCategory, string> = {
+  NOT_APPLICABLE: 'Not applicable',
+  DATA_ALREADY_CORRECT: 'Data is already correct',
+  SYSTEM_MISCLASSIFIED: 'System misclassified this',
+  DUPLICATE: 'Duplicate of another flag',
+  OTHER: 'Other',
+};
+const SEVERITY_OPTIONS = ['INFO', 'LOW', 'MEDIUM', 'HIGH', 'CRITICAL'] as const;
+
 export default function ReviewQueuePage() {
   const project = useProjectContextStore((state) => state.selectedProject);
   const accessToken = useSessionStore((state) => state.accessToken);
@@ -109,6 +122,8 @@ export default function ReviewQueuePage() {
   const [classFilter, setClassFilter] = useState<'ALL' | Uc03FindingClass | 'MANUAL_VERIFICATION'>('ALL');
   const [decision, setDecision] = useState<DecisionState | null>(null);
   const [reason, setReason] = useState('');
+  const [rejectionCategory, setRejectionCategory] = useState<Uc03RejectionCategory | ''>('');
+  const [takeActionSeverity, setTakeActionSeverity] = useState<string>('MEDIUM');
   const [banner, setBanner] = useState<{ tone: 'ok' | 'err'; text: string } | null>(null);
 
   const enabled = Boolean(project?.tenantId && accessToken);
@@ -147,7 +162,15 @@ export default function ReviewQueuePage() {
 
   const mutation = useMutation({
     mutationFn: ({ item, action }: { item: Uc03ReviewQueueItem; action: Uc03FlagAction }) =>
-      actOnQueueFinding(project!.tenantId, item, action, reason.trim(), accessToken),
+      actOnQueueFinding(
+        project!.tenantId,
+        item,
+        action,
+        reason.trim(),
+        accessToken,
+        action === 'TAKE_ACTION' ? takeActionSeverity : undefined,
+        action === 'MARK_FALSE_POSITIVE' ? (rejectionCategory || undefined) : undefined,
+      ),
     onSuccess: (_data, variables) => {
       setBanner({
         tone: 'ok',
@@ -156,10 +179,14 @@ export default function ReviewQueuePage() {
             ? 'Recorded as a confirmed breach.'
             : variables.action === 'MARK_FALSE_POSITIVE'
               ? 'Recorded as a false positive.'
-              : 'Marked as fixed.',
+              : variables.action === 'TAKE_ACTION'
+                ? 'Task raised for PC.'
+                : 'Marked as fixed.',
       });
       setDecision(null);
       setReason('');
+      setRejectionCategory('');
+      setTakeActionSeverity('MEDIUM');
       void queryClient.invalidateQueries({ queryKey: ['uc03-review-queue'] });
       void queryClient.invalidateQueries({ queryKey: ['uc03-review-queue-summary'] });
     },
@@ -390,7 +417,7 @@ export default function ReviewQueuePage() {
               <button
                 type="button"
                 className="revq-btn revq-btn--reject"
-                onClick={() => { setDecision({ flagId: item.flagId, action: 'MARK_FALSE_POSITIVE' }); setReason(''); }}
+                onClick={() => { setDecision({ flagId: item.flagId, action: 'MARK_FALSE_POSITIVE' }); setReason(''); setRejectionCategory(''); }}
               >
                 Mark False Positive
               </button>
@@ -401,6 +428,20 @@ export default function ReviewQueuePage() {
               >
                 Confirm Breach
               </button>
+              {item.permittedActions.includes('TAKE_ACTION') && (
+                // Raises a TL_TAKE_ACTION Task assigned to PC (or, when no
+                // specific submitter resolves, any PC with business-scope
+                // access) -- the bridge from "TL decided this needs work"
+                // to an actual Task Queue item, without changing the
+                // Finding's own verdict.
+                <button
+                  type="button"
+                  className="revq-btn"
+                  onClick={() => { setDecision({ flagId: item.flagId, action: 'TAKE_ACTION' }); setReason(''); setTakeActionSeverity('MEDIUM'); }}
+                >
+                  Take Action
+                </button>
+              )}
             </>
           )}
 
@@ -445,16 +486,42 @@ export default function ReviewQueuePage() {
             onSubmit={(e) => {
               e.preventDefault();
               if (!reason.trim()) return;
+              if (decision.action === 'MARK_FALSE_POSITIVE' && !rejectionCategory) return;
               mutation.mutate({ item, action: decision.action });
             }}
           >
+            {decision.action === 'MARK_FALSE_POSITIVE' && (
+              <label>
+                <span>Why doesn't this apply?</span>
+                <select
+                  value={rejectionCategory}
+                  onChange={(e) => setRejectionCategory(e.target.value as Uc03RejectionCategory)}
+                  required
+                >
+                  <option value="">Select a reason…</option>
+                  {Object.entries(REJECTION_CATEGORY_LABEL).map(([value, label]) => (
+                    <option key={value} value={value}>{label}</option>
+                  ))}
+                </select>
+              </label>
+            )}
+            {decision.action === 'TAKE_ACTION' && (
+              <label>
+                <span>Severity for PC's Task</span>
+                <select value={takeActionSeverity} onChange={(e) => setTakeActionSeverity(e.target.value)}>
+                  {SEVERITY_OPTIONS.map((value) => <option key={value} value={value}>{friendly(value)}</option>)}
+                </select>
+              </label>
+            )}
             <label>
               <span>
                 {decision.action === 'CONFIRM_BREACH'
                   ? 'Why is this a breach?'
                   : decision.action === 'MARK_FALSE_POSITIVE'
-                    ? 'Why is this a false positive?'
-                    : 'What did you fix?'}
+                    ? 'Add a short note'
+                    : decision.action === 'TAKE_ACTION'
+                      ? 'What does PC need to do?'
+                      : 'What did you fix?'}
               </span>
               <textarea
                 value={reason}
@@ -466,13 +533,13 @@ export default function ReviewQueuePage() {
               />
             </label>
             <div className="revq-decide__actions">
-              <button type="button" className="revq-btn" onClick={() => { setDecision(null); setReason(''); }}>
+              <button type="button" className="revq-btn" onClick={() => { setDecision(null); setReason(''); setRejectionCategory(''); }}>
                 Cancel
               </button>
               <button
                 type="submit"
                 className={`revq-btn revq-btn--${decision.action === 'MARK_FALSE_POSITIVE' ? 'reject' : 'accept'}`}
-                disabled={!reason.trim() || mutation.isPending}
+                disabled={!reason.trim() || (decision.action === 'MARK_FALSE_POSITIVE' && !rejectionCategory) || mutation.isPending}
               >
                 {mutation.isPending
                   ? 'Saving…'
@@ -480,7 +547,9 @@ export default function ReviewQueuePage() {
                     ? 'Confirm Breach'
                     : decision.action === 'MARK_FALSE_POSITIVE'
                       ? 'Mark False Positive'
-                      : 'Mark fixed'}
+                      : decision.action === 'TAKE_ACTION'
+                        ? 'Raise Task'
+                        : 'Mark fixed'}
               </button>
             </div>
           </form>

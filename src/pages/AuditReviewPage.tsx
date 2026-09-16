@@ -116,6 +116,67 @@ function groupFlagsByClass(flags: Uc03AuditFlag[]): Array<{ findingClass: string
     .sort((a, b) => CLASS_ORDER.indexOf(a.findingClass) - CLASS_ORDER.indexOf(b.findingClass));
 }
 
+const OWNER_ORDER = ['PC', 'TL', 'PM', 'EXECUTIVE'];
+const OWNER_LABEL: Record<string, string> = { PC: 'PC', TL: 'Team Lead', PM: 'Project Manager', EXECUTIVE: 'Executive' };
+
+/** The two data points asked for directly, in one compact strip: who
+ * currently owns each open flag (self-serve PC gaps vs. TL/PM-adjudicated
+ * violations), and how the whole register breaks down by classification --
+ * both computed from the exact same (VOIDED-excluded) list the register
+ * below renders, so these numbers can never drift from what's on screen. */
+function AuditBreakdown({ flags }: { flags: Uc03AuditFlag[] }) {
+  const live = flags.filter((flag) => flag.status !== 'VOIDED');
+  const open = live.filter((flag) => flag.status === 'OPEN' || flag.status === 'ACKNOWLEDGED');
+
+  const byOwner = new Map<string, number>();
+  for (const flag of open) {
+    const owner = (flag.ownerRoleCode || '').toUpperCase();
+    byOwner.set(owner, (byOwner.get(owner) || 0) + 1);
+  }
+  const ownerChips = OWNER_ORDER
+    .filter((role) => (byOwner.get(role) || 0) > 0)
+    .map((role) => ({ role, count: byOwner.get(role) || 0 }));
+
+  const byClass = new Map<string, number>();
+  for (const flag of live) {
+    const key = flag.findingClass || 'UNCLASSIFIED';
+    byClass.set(key, (byClass.get(key) || 0) + 1);
+  }
+  const classChips = CLASS_ORDER
+    .filter((key) => (byClass.get(key) || 0) > 0)
+    .map((key) => ({ key, count: byClass.get(key) || 0 }));
+
+  if (ownerChips.length === 0 && classChips.length === 0) return null;
+  return (
+    <section className="uc03-c3-breakdown" aria-label="Audit flag breakdown">
+      {ownerChips.length > 0 && (
+        <div className="uc03-c3-breakdown-group">
+          <span>Awaiting action from</span>
+          <div className="uc03-c3-breakdown-chips">
+            {ownerChips.map(({ role, count }) => (
+              <span key={role} className={`uc03-c3-chip uc03-c3-chip--owner-${role.toLowerCase()}`}>
+                {OWNER_LABEL[role] || friendly(role)} <strong>{count}</strong>
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+      {classChips.length > 0 && (
+        <div className="uc03-c3-breakdown-group">
+          <span>By classification</span>
+          <div className="uc03-c3-breakdown-chips">
+            {classChips.map(({ key, count }) => (
+              <a key={key} href={`#flag-group-${key.toLowerCase()}`} className={`uc03-c3-chip uc03-c3-chip--class-${key.toLowerCase()}`}>
+                {CLASS_LABEL[key] || 'Unclassified'} <strong>{count}</strong>
+              </a>
+            ))}
+          </div>
+        </div>
+      )}
+    </section>
+  );
+}
+
 function formatTime(value: string, timezoneName: string): string {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return 'Time unavailable';
@@ -456,6 +517,8 @@ export default function AuditReviewPage() {
             <div><span>Highest open severity</span><strong>{friendly(summary.highestOpenSeverity || 'NONE')}</strong></div>
           </section>
 
+          {flagsQuery.data && <AuditBreakdown flags={flagsQuery.data} />}
+
           <section className="uc03-c3-stage-grid" aria-label="Stage audit status">
             {summary.booking && (
               <StageAuditCard
@@ -579,15 +642,24 @@ export default function AuditReviewPage() {
           </div>
         </header>
         {(() => {
+          // VOIDED is excluded everywhere else this same finding is counted
+          // (this page's own "Total raised (all-time)" tile, Journey 360's
+          // Flags tab) -- rendering it here too silently inflated this
+          // register beyond what those numbers promised, breaking the one
+          // thing a reviewer actually relies on: the counts matching
+          // wherever the same finding is shown.
           const filtered = (flagsQuery.data || []).filter(
-            (flag) => originFilter === 'ALL' || flag.originKind === originFilter,
+            (flag) => flag.status !== 'VOIDED' && (originFilter === 'ALL' || flag.originKind === originFilter),
           );
           const groups = groupFlagsByClass(filtered);
           return (
             <div className="uc03-c3-flag-groups">
               {groups.map(({ findingClass, flags }) => (
                 <div className="uc03-c3-flag-group" key={findingClass}>
-                  <div className={`uc03-c3-flag-group-head uc03-c3-flag-group-head--${findingClass.toLowerCase()}`}>
+                  <div
+                    id={`flag-group-${findingClass.toLowerCase()}`}
+                    className={`uc03-c3-flag-group-head uc03-c3-flag-group-head--${findingClass.toLowerCase()}`}
+                  >
                     <span>{CLASS_LABEL[findingClass] || 'Unclassified'}</span>
                     <span className="uc03-c3-flag-group-count">{flags.length}</span>
                   </div>

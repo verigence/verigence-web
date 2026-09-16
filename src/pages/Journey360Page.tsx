@@ -1244,9 +1244,21 @@ function DealPanel({
         <PanelHead title="Deal — masters vs offered" />
         {modelNotIdentified ? (
           <div className="jline__callout">
-            <strong>Model not identified</strong>
+            {/* Same finding, same title, same severity as its Audit Review
+                card -- previously this was fixed, generic copy with no
+                visible link between the two, so a reviewer had no way to
+                tell "this box" and "that card" were the same record. */}
+            <strong>{String(modelNotIdentified.title || 'Model not identified')}</strong>
             <span>{String(modelNotIdentified.description || 'The vehicle could not be matched to the price masters. Confirm the model on the booking so masters can be applied.')}</span>
-            <Link to={`/journeys/${String((model.journey as Record<string, unknown>).journeyId ?? '')}/documents`}>Open Documents to confirm model →</Link>
+            <span className="jline__calloutMeta">
+              {readable(modelNotIdentified.severity)} · Owner {readable(modelNotIdentified.ownerRoleCode)}
+            </span>
+            <div className="jline__calloutActions">
+              <Link to={`/journeys/${String((model.journey as Record<string, unknown>).journeyId ?? '')}/documents`}>Open Documents to confirm model →</Link>
+              <Link to={`/audit/${String((model.journey as Record<string, unknown>).journeyId ?? '')}?findingId=${encodeURIComponent(String(modelNotIdentified.auditFindingId))}`}>
+                View in Audit Review →
+              </Link>
+            </div>
           </div>
         ) : (
           <p className="jline__empty">The price masters have not been resolved for this booking yet. Complete Booking document review.</p>

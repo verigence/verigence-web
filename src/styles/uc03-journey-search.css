@@ -535,6 +535,19 @@
   vertical-align: top;
 }
 
+.journey-360-field-group + .journey-360-field-group {
+  margin-top: 18px;
+}
+
+.journey-360-field-group__title {
+  margin: 0 0 6px;
+  font-size: 0.72rem;
+  font-weight: 750;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #026d7d;
+}
+
 /* ── Payment totals chip ────────────────────────────────────────────────────── */
 
 .journey-360-payment-total {

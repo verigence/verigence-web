@@ -4,6 +4,7 @@ import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'reac
 
 import PageHeader from '../components/PageHeader';
 import StatusPill from '../components/StatusPill';
+import { categoryFor, categoryTitle, FIELD_CATEGORY_ORDER, type FieldCategory } from '../features/uc03/fieldCategoryGroups';
 import {
   deriveAspects,
   deriveSteps,
@@ -581,9 +582,20 @@ function DocumentSelector({
   const status = String(selected.reviewStatus || selected.verificationStatus || selected.processingStatus || 'UNKNOWN');
 
   // Only this document's own extracted values -- not the whole journey's.
-  const fields = reviewedFields
-    .filter((field) => field.documentId === selectedKey)
-    .sort((a, b) => a.semanticKey.localeCompare(b.semanticKey));
+  // Grouped (Customer / Vehicle / Financial / Other) rather than a flat
+  // alphabetical list -- payment-related fields, say, land together
+  // instead of scattered between unrelated ones.
+  const fields = reviewedFields.filter((field) => field.documentId === selectedKey);
+  const fieldsByCategory = new Map<FieldCategory, JourneyReviewedField[]>();
+  for (const field of fields) {
+    const category = categoryFor(field.semanticKey, field.semanticKey);
+    const bucket = fieldsByCategory.get(category) ?? [];
+    bucket.push(field);
+    fieldsByCategory.set(category, bucket);
+  }
+  for (const bucket of fieldsByCategory.values()) {
+    bucket.sort((a, b) => a.semanticKey.localeCompare(b.semanticKey));
+  }
 
   // Reuses the same document-content endpoint the Booking/Delivery Review
   // screens already use (uc03_document_review_v2.py's own
@@ -663,25 +675,25 @@ function DocumentSelector({
           </div>
           {fields.length > 0 ? (
             <div className="journey-360-table-wrap">
-              <table className="journey-360-table">
-                <thead>
-                  <tr><th>Attribute</th><th>Extracted value</th><th>Confidence</th></tr>
-                </thead>
-                <tbody>
-                  {fields.map((field) => (
-                    <tr key={field.reviewedFieldId}>
-                      <td><strong>{readable(field.semanticKey)}</strong></td>
-                      <td>{formatFieldValue(field.displayValue)}</td>
-                      <td>
-                        {field.confidenceScore !== null && field.confidenceScore !== undefined
-                        ? `${field.confidenceScore}${field.confidenceScale ? ` ${field.confidenceScale}` : ''}`
-                        : '—'}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+              {FIELD_CATEGORY_ORDER.filter((category) => fieldsByCategory.has(category)).map((category) => (
+                <div key={category} className="journey-360-field-group">
+                  <h4 className="journey-360-field-group__title">{categoryTitle(category)}</h4>
+                  <table className="journey-360-table">
+                    <thead>
+                      <tr><th>Attribute</th><th>Extracted value</th></tr>
+                    </thead>
+                    <tbody>
+                      {(fieldsByCategory.get(category) ?? []).map((field) => (
+                        <tr key={field.reviewedFieldId}>
+                          <td><strong>{readable(field.semanticKey)}</strong></td>
+                          <td>{formatFieldValue(field.displayValue)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ))}
+            </div>
         ) : (
           <p className="jline__empty">No extracted values retained for this document.</p>
         )}

@@ -658,6 +658,17 @@ export default function JourneyDocumentsPage() {
 
   const bookingAvailable = Boolean(bookingQuery.data);
   const deliveryAvailable = Boolean(deliveryQuery.data);
+  // A journey that has progressed to Delivery has a CLOSED Booking by
+  // design (uc03_document_capture_v2.py::_require_active_booking correctly
+  // 409s GET .../booking/capture for a closed Booking) -- that is not "no
+  // documents exist", it's "look at Delivery's capture data instead". Real
+  // bug this fixes: the gate below checked only the *review* endpoints
+  // (bookingQuery/deliveryQuery, populated only once PC has reviewed/
+  // confirmed a document), so a journey with real, uploaded Delivery
+  // documents still awaiting review was wrongly told to "Start Booking"
+  // first, even though the checklist below already reads capture data too.
+  const bookingCaptureAvailable = Boolean(bookingCaptureQuery.data);
+  const deliveryCaptureAvailable = Boolean(deliveryCaptureQuery.data);
 
   const handleUpload = async (files: File[]) => {
     if (!project || !journeyId) return;
@@ -698,9 +709,11 @@ export default function JourneyDocumentsPage() {
 
   if (!project || !journeyId) return null;
 
-  const loading = bookingQuery.isPending || deliveryQuery.isPending;
+  const loading =
+    bookingQuery.isPending || deliveryQuery.isPending
+    || bookingCaptureQuery.isPending || deliveryCaptureQuery.isPending;
   if (loading) return <div className="uc03-c1-loading" role="status">Loading Journey Documents…</div>;
-  if (!bookingAvailable && !deliveryAvailable) {
+  if (!bookingAvailable && !deliveryAvailable && !bookingCaptureAvailable && !deliveryCaptureAvailable) {
     // A journey can have an open MODEL_NOT_IDENTIFIED gap (and so a real
     // reason to be here) without its Booking/Delivery V2 review data being
     // available -- an older Booking captured before the V2 review flow

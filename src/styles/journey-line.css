@@ -329,6 +329,18 @@
 .jline__table td { padding: 8px 10px; border-bottom: 1px solid var(--jl-line); font-variant-numeric: tabular-nums; }
 .jline__tableWrap { overflow-x: auto; }
 
+/* per-source breakdown row: a disagreeing booking-form/invoice value shown
+   under its parent component line, not silently collapsed to one winner */
+.jline__sourceRow td {
+  padding: 4px 10px 4px 22px;
+  border-bottom: 1px solid var(--jl-line);
+  font-size: 0.8rem;
+  color: var(--jl-muted);
+  font-variant-numeric: tabular-nums;
+}
+.jline__sourceRow__label { font-style: italic; }
+.jline__sourceRow__value { text-align: left; }
+
 .jline__delta--over { color: var(--jl-coral); font-weight: 700; }
 .jline__delta--under { color: var(--jl-electric); font-weight: 700; }
 .jline__delta--ok { color: var(--jl-teal); font-weight: 700; }

@@ -130,6 +130,21 @@ export interface JourneyOverview {
   reviewedFields?: JourneyReviewedField[];
   resolvedReviewedValues?: Record<string, JourneyResolvedReviewedValue>;
   skuPricing: SkuPricing | null;
+  /** One row per (lineKind, componentKey, sourceDocumentType) whenever more
+   * than one document has ever reported a value for a commercial-line or
+   * discount amount -- e.g. what the booking form said vs. what a later
+   * invoice said for the same component. */
+  dealSourceBreakdown?: DealSourceValue[];
+}
+
+export interface DealSourceValue {
+  lineKind: 'COMMERCIAL' | 'DISCOUNT';
+  componentKey: string;
+  sourceDocumentType: string;
+  amount: number;
+  sourceEvidenceId?: string | null;
+  sourceDocumentId?: string | null;
+  updatedAtUtc?: string;
 }
 
 function accessTokenRequired(accessToken?: string): string {

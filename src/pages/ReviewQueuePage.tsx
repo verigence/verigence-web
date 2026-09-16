@@ -470,7 +470,22 @@ export default function ReviewQueuePage() {
                   </>
                 )}
 
-                {!isTask && !isManualVerification && !isAdjudicated && item.subjectKind === 'JOURNEY' && item.findingClass === 'DOCUMENT_GAP' && (
+                {!isTask && !isManualVerification && !isAdjudicated && item.subjectKind === 'JOURNEY' && ruleKeyStem(item.ruleKey) === 'MODEL_NOT_IDENTIFIED' && (
+                  // A bare Finding with no Task yet (e.g. one raised before
+                  // its self-serve Task existed) would otherwise leave a PC
+                  // with only "Open case" -> Audit Review, which has no fix
+                  // action for a self-serve gap. The SKU picker only ever
+                  // needs the open Finding, not a Task, so route here
+                  // directly regardless of whether one exists.
+                  <Link
+                    className="revq-btn revq-btn--accept"
+                    to={`/journeys/${item.journeyId}/documents?selectSku=1`}
+                  >
+                    Select SKU →
+                  </Link>
+                )}
+
+                {!isTask && !isManualVerification && !isAdjudicated && item.subjectKind === 'JOURNEY' && item.findingClass === 'DOCUMENT_GAP' && ruleKeyStem(item.ruleKey) !== 'MODEL_NOT_IDENTIFIED' && (
                   <Link
                     className="revq-btn revq-btn--accept"
                     to={item.stage === 'DELIVERY' ? `/v2/deliveries/${item.journeyId}` : `/v2/bookings/${item.journeyId}`}
@@ -479,7 +494,7 @@ export default function ReviewQueuePage() {
                   </Link>
                 )}
 
-                {!isTask && !isManualVerification && !isAdjudicated && item.findingClass !== 'DOCUMENT_GAP' && canResolve && !open && (
+                {!isTask && !isManualVerification && !isAdjudicated && item.findingClass !== 'DOCUMENT_GAP' && ruleKeyStem(item.ruleKey) !== 'MODEL_NOT_IDENTIFIED' && canResolve && !open && (
                   <button
                     type="button"
                     className="revq-btn revq-btn--accept"

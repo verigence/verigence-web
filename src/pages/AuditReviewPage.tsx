@@ -169,11 +169,13 @@ function StageAuditCard({
 
 function FlagCard({
   flag,
+  journeyId,
   timezoneName,
   permittedActions,
   isTarget,
 }: {
   flag: Uc03AuditFlag;
+  journeyId: string;
   timezoneName: string;
   permittedActions: string[];
   isTarget: boolean;
@@ -191,6 +193,11 @@ function FlagCard({
   const actionable = open && (
     canDo('ACKNOWLEDGE') || canDo('CONFIRM_BREACH') || canDo('MARK_FALSE_POSITIVE') || canDo('RESOLVE')
   );
+  // A PC has no RESOLVE permission on a self-serve Finding directly (v1.1
+  // design routes that through its Task instead) -- so `actionable` above
+  // is false here and this card would otherwise show no action at all.
+  // The fix only ever needs the open Finding, so route straight to it.
+  const isModelNotIdentified = open && (flag.ruleKey || '').split(':')[0] === 'MODEL_NOT_IDENTIFIED';
 
   const slaText = flag.slaDueAtUtc
     ? (() => {
@@ -246,7 +253,12 @@ function FlagCard({
       </div>
       {flag.resolutionReason && <div className="uc03-c3-resolution"><strong>Resolution:</strong> {flag.resolutionReason}</div>}
 
-      {actionable && (
+      {isModelNotIdentified && (
+        <Link className="uc03-c3-take-action" to={`/journeys/${journeyId}/documents?selectSku=1`}>
+          Select SKU →
+        </Link>
+      )}
+      {!isModelNotIdentified && actionable && (
         <Link className="uc03-c3-take-action" to={`/reviews?findingId=${encodeURIComponent(flag.flagId)}`}>
           Take action in Task Queue →
         </Link>
@@ -584,6 +596,7 @@ export default function AuditReviewPage() {
                       <FlagCard
                         key={flag.flagId}
                         flag={flag}
+                        journeyId={journeyId}
                         timezoneName={project.timezoneName}
                         permittedActions={summary?.permittedActions || []}
                         isTarget={flag.flagId === findingId}

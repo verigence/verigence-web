@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type RefObject } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 
@@ -269,6 +269,9 @@ function StageBucket({
   tenantId,
   journeyId,
   accessToken,
+  activeDocumentId,
+  onActiveDocumentChange,
+  sectionRef,
 }: {
   stage: Stage;
   review: BookingReviewV2 | DeliveryReviewV2 | undefined;
@@ -276,8 +279,10 @@ function StageBucket({
   tenantId: string;
   journeyId: string;
   accessToken?: string;
+  activeDocumentId: string | undefined;
+  onActiveDocumentChange: (documentId: string) => void;
+  sectionRef: RefObject<HTMLElement | null>;
 }) {
-  const [activeDocumentId, setActiveDocumentId] = useState<string>();
   const [localByField, setLocalByField] = useState<Map<string, LocalCorrectionState>>(new Map());
 
   const documents = review?.documents ?? [];
@@ -295,7 +300,7 @@ function StageBucket({
   };
 
   return (
-    <section className="uc03-jd-bucket">
+    <section className="uc03-jd-bucket" ref={sectionRef}>
       <header className="uc03-jd-bucket-header">
         <h2>{stage === 'BOOKING' ? 'Booking documents' : 'Delivery documents'}</h2>
         <span>{documents.length} uploaded</span>
@@ -319,7 +324,7 @@ function StageBucket({
                 role="tab"
                 aria-selected={document.documentId === currentDocumentId}
                 className={document.documentId === currentDocumentId ? 'is-active' : ''}
-                onClick={() => setActiveDocumentId(document.documentId)}
+                onClick={() => onActiveDocumentChange(document.documentId)}
               >
                 {document.label}
                 {document.extractionState === 'PENDING' ? <span className="uc03-jd-tab-flag pending">extracting…</span> : null}
@@ -360,7 +365,13 @@ interface ChecklistEntry extends CaptureV2Requirement {
   stage: Stage;
 }
 
-function CombinedChecklist({ items }: { items: ChecklistEntry[] }) {
+function CombinedChecklist({
+  items,
+  onSelectDocument,
+}: {
+  items: ChecklistEntry[];
+  onSelectDocument: (stage: Stage, documentId: string) => void;
+}) {
   const applicable = items.filter((item) => item.applicabilityState !== 'NOT_APPLICABLE');
   if (!applicable.length) return null;
   const received = applicable.filter((item) => item.document).length;
@@ -372,14 +383,31 @@ function CombinedChecklist({ items }: { items: ChecklistEntry[] }) {
         <span>{received} of {applicable.length} received</span>
       </header>
       <ul>
-        {applicable.map((item) => (
-          <li key={`${item.stage}:${item.requirementKey}`} className={item.document ? 'is-received' : 'is-missing'}>
-            <span className={`uc03-jd-checklist-stage ${item.stage.toLowerCase()}`}>{item.stage === 'BOOKING' ? 'Booking' : 'Delivery'}</span>
-            <span className="uc03-jd-checklist-label">{item.label}</span>
-            {item.requirementLevel !== 'REQUIRED' ? <span className="uc03-jd-checklist-level">{item.requirementLevel.toLowerCase()}</span> : null}
-            <span className="uc03-jd-checklist-status">{item.document ? '✓ Received' : 'Missing'}</span>
-          </li>
-        ))}
+        {applicable.map((item) => {
+          const documentId = item.document?.documentId;
+          const content = (
+            <>
+              <span className={`uc03-jd-checklist-stage ${item.stage.toLowerCase()}`}>{item.stage === 'BOOKING' ? 'Booking' : 'Delivery'}</span>
+              <span className="uc03-jd-checklist-label">{item.label}</span>
+              {item.requirementLevel !== 'REQUIRED' ? <span className="uc03-jd-checklist-level">{item.requirementLevel.toLowerCase()}</span> : null}
+              <span className="uc03-jd-checklist-status">{documentId ? '✓ Received' : 'Missing'}</span>
+            </>
+          );
+          return (
+            <li key={`${item.stage}:${item.requirementKey}`} className={documentId ? 'is-received' : 'is-missing'}>
+              {documentId ? (
+                // Opens the document already scanned in, in the same
+                // Booking/Delivery viewer below -- no separate preview to
+                // build or keep in sync with it.
+                <button type="button" onClick={() => onSelectDocument(item.stage, documentId)}>
+                  {content}
+                </button>
+              ) : (
+                <div>{content}</div>
+              )}
+            </li>
+          );
+        })}
       </ul>
     </section>
   );
@@ -575,6 +603,24 @@ export default function JourneyDocumentsPage() {
   const [uploading, setUploading] = useState(false);
   const [uploadMessage, setUploadMessage] = useState<string>();
   const [uploadError, setUploadError] = useState<string>();
+  const [activeDocumentByStage, setActiveDocumentByStage] = useState<Record<Stage, string | undefined>>({
+    BOOKING: undefined,
+    DELIVERY: undefined,
+  });
+  const bookingBucketRef = useRef<HTMLElement>(null);
+  const deliveryBucketRef = useRef<HTMLElement>(null);
+  const bucketRefByStage: Record<Stage, RefObject<HTMLElement | null>> = {
+    BOOKING: bookingBucketRef,
+    DELIVERY: deliveryBucketRef,
+  };
+
+  // The checklist is an index into the documents already scanned in below --
+  // not a second place to view one. Selecting a received item there jumps
+  // straight to its tab in the matching Booking/Delivery viewer.
+  const selectDocument = (stage: Stage, documentId: string) => {
+    setActiveDocumentByStage((current) => ({ ...current, [stage]: documentId }));
+    bucketRefByStage[stage].current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
 
   const enabled = Boolean(project?.tenantId && journeyId && accessToken);
   const bookingQuery = useQuery({
@@ -691,35 +737,62 @@ export default function JourneyDocumentsPage() {
       </div>
 
       <PageHeader
-        eyebrow="Journey Documents"
+        eyebrow="Documents"
         title="Upload, review & correct documents"
         description="One place for every Booking and Delivery document. Upload here any time — the system decides which stage a document belongs to once it's classified. Fields below 90% confidence can be corrected directly and take effect immediately; fields at or above 90% go through a Team Lead-reviewed correction instead."
       />
 
-      <UploadDropzone onFilesSelected={(files) => void handleUpload(files)} busy={uploading} message={uploadMessage} error={uploadError} />
+      <section className="uc03-jd-section" aria-labelledby="jd-upload-heading">
+        <h2 id="jd-upload-heading" className="uc03-jd-section-heading">1. Upload documents</h2>
+        <UploadDropzone onFilesSelected={(files) => void handleUpload(files)} busy={uploading} message={uploadMessage} error={uploadError} />
+      </section>
 
-      <CombinedChecklist items={checklist} />
+      <section className="uc03-jd-section" aria-labelledby="jd-existing-heading">
+        <h2 id="jd-existing-heading" className="uc03-jd-section-heading">2. Existing documents</h2>
 
-      {/* Scoped boundary: this section is new and talks to a new endpoint --
-          if it hits a bug, the rest of Journey Documents (uploads, per-field
-          corrections) must stay usable, not take the whole page down with
-          it. */}
-      <ErrorBoundary fallback={null}>
-        <ModelResolutionSkuPicker
-          tenantId={project.tenantId}
-          journeyId={journeyId}
-          accessToken={accessToken}
-          onResolved={() => {
-            void queryClient.invalidateQueries({ queryKey: ['uc03-journey-documents-booking', project.tenantId, journeyId] });
-            void queryClient.invalidateQueries({ queryKey: ['uc03-journey-documents-booking-checklist', project.tenantId, journeyId] });
-          }}
-        />
-      </ErrorBoundary>
+        {/* Scoped boundary: this section is new and talks to a new endpoint --
+            if it hits a bug, the rest of Journey Documents (uploads, per-field
+            corrections) must stay usable, not take the whole page down with
+            it. */}
+        <ErrorBoundary fallback={null}>
+          <ModelResolutionSkuPicker
+            tenantId={project.tenantId}
+            journeyId={journeyId}
+            accessToken={accessToken}
+            onResolved={() => {
+              void queryClient.invalidateQueries({ queryKey: ['uc03-journey-documents-booking', project.tenantId, journeyId] });
+              void queryClient.invalidateQueries({ queryKey: ['uc03-journey-documents-booking-checklist', project.tenantId, journeyId] });
+            }}
+          />
+        </ErrorBoundary>
 
-      <div className="uc03-jd-buckets">
-        <StageBucket stage="BOOKING" review={bookingQuery.data} onEvidence={setSelectedSource} tenantId={project.tenantId} journeyId={journeyId} accessToken={accessToken} />
-        <StageBucket stage="DELIVERY" review={deliveryQuery.data} onEvidence={setSelectedSource} tenantId={project.tenantId} journeyId={journeyId} accessToken={accessToken} />
-      </div>
+        <CombinedChecklist items={checklist} onSelectDocument={selectDocument} />
+
+        <div className="uc03-jd-buckets">
+          <StageBucket
+            stage="BOOKING"
+            review={bookingQuery.data}
+            onEvidence={setSelectedSource}
+            tenantId={project.tenantId}
+            journeyId={journeyId}
+            accessToken={accessToken}
+            activeDocumentId={activeDocumentByStage.BOOKING}
+            onActiveDocumentChange={(documentId) => setActiveDocumentByStage((current) => ({ ...current, BOOKING: documentId }))}
+            sectionRef={bookingBucketRef}
+          />
+          <StageBucket
+            stage="DELIVERY"
+            review={deliveryQuery.data}
+            onEvidence={setSelectedSource}
+            tenantId={project.tenantId}
+            journeyId={journeyId}
+            accessToken={accessToken}
+            activeDocumentId={activeDocumentByStage.DELIVERY}
+            onActiveDocumentChange={(documentId) => setActiveDocumentByStage((current) => ({ ...current, DELIVERY: documentId }))}
+            sectionRef={deliveryBucketRef}
+          />
+        </div>
+      </section>
 
       {selectedSource ? (
         <AttributeEvidenceViewer tenantId={project.tenantId} journeyId={journeyId} accessToken={accessToken} source={selectedSource} onClose={() => setSelectedSource(undefined)} />

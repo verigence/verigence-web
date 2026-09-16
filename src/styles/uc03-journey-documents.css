@@ -249,17 +249,34 @@
   font-size: 13px;
 }
 
+/* Two clearly separate steps -- Upload, then Existing documents -- instead
+   of one long undifferentiated stack. Each section's own cards (dropzone,
+   checklist, buckets) keep their existing borders; this wrapper is just a
+   heading + spacing grouping, not another nested card. */
+.uc03-jd-section {
+  display: grid;
+  gap: 14px;
+}
+.uc03-jd-section-heading {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--v-muted, #6e879b);
+}
+
 .uc03-jd-checklist {
   border: 1px solid var(--v-line, #dbe6ee);
   border-radius: 12px;
-  padding: 16px 18px;
+  padding: 18px 20px;
   background: #fff;
 }
 .uc03-jd-checklist header {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  margin-bottom: 10px;
+  margin-bottom: 14px;
 }
 .uc03-jd-checklist h2 { margin: 0; font-size: 15px; }
 .uc03-jd-checklist header span { font-size: 13px; color: var(--v-muted, #6e879b); font-variant-numeric: tabular-nums; }
@@ -268,16 +285,34 @@
   margin: 0;
   padding: 0;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-  gap: 6px 16px;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 10px 20px;
 }
 .uc03-jd-checklist li {
+  border-bottom: 1px solid var(--v-line, #eef3f7);
+}
+.uc03-jd-checklist li > button,
+.uc03-jd-checklist li > div {
+  width: 100%;
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: 13px;
-  padding: 6px 0;
-  border-bottom: 1px solid var(--v-line, #eef3f7);
+  gap: 10px;
+  font-size: 13.5px;
+  padding: 8px 4px;
+}
+.uc03-jd-checklist li > button {
+  background: none;
+  border: none;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+  border-radius: 8px;
+  transition: background-color 0.12s;
+}
+.uc03-jd-checklist li > button:hover,
+.uc03-jd-checklist li > button:focus-visible {
+  background: var(--surface-muted, #f1f6fa);
 }
 .uc03-jd-checklist-stage {
   font-size: 10px;
@@ -313,6 +348,7 @@
   display: flex;
   flex-direction: column;
   gap: 14px;
+  scroll-margin-top: 24px;
 }
 .uc03-jd-bucket-header {
   display: flex;

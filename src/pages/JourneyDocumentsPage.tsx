@@ -1,19 +1,24 @@
-import { useEffect, useRef, useState, type RefObject } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 
 import { ErrorBoundary } from '../components/ErrorBoundary';
 import PageHeader from '../components/PageHeader';
 import AttributeEvidenceViewer, { hasBoxedEvidence } from '../features/uc03/AttributeEvidenceViewer';
+import { CARD_STATUS_LABEL, cardStatus } from '../features/uc03/CaptureDocumentCard';
+import { categoryFor, categoryTitle, FIELD_CATEGORY_ORDER, type FieldCategory } from '../features/uc03/fieldCategoryGroups';
 import { AuditCoreHttpError } from '../services/audit-core/client';
-import { getBookingCaptureV2, type CaptureV2Requirement } from '../services/audit-core/uc03DocumentCaptureV2';
-import { getDeliveryCaptureV2 } from '../services/audit-core/uc03DeliveryCaptureV2';
+import {
+  captureV2HasPendingClassification,
+  getBookingCaptureV2,
+  type CaptureV2Document,
+  type CaptureV2Requirement,
+} from '../services/audit-core/uc03DocumentCaptureV2';
+import { deliveryCaptureV2IsProcessing, getDeliveryCaptureV2 } from '../services/audit-core/uc03DeliveryCaptureV2';
 import {
   getBookingReviewV2,
   getDeliveryReviewV2,
   submitFieldCorrection,
-  type BookingReviewV2,
-  type DeliveryReviewV2,
   type ReviewV2Document,
   type ReviewV2Field,
   type ReviewV2SourceValue,
@@ -29,6 +34,7 @@ import '../styles/uc03-journey-documents.css';
 
 type Stage = 'BOOKING' | 'DELIVERY';
 const REVIEW_THRESHOLD = 90;
+const POLL_MS = 3_000;
 
 function displayFieldKey(fieldKey: string): string {
   return fieldKey
@@ -79,9 +85,9 @@ type LocalCorrectionState =
  * -- gets the same inline form; what differs is server-side behavior (see
  * submitFieldCorrection's doc comment): a <90% save applies immediately and
  * closes on its own, a >=90% save raises a Team-Lead-adjudicated proposal
- * and stays visibly pending until someone acts on it. Saving here NEVER
- * touches the stage's Review Confirm/Submit flow -- each field is its own
- * small, always-repeatable action, not a batch queued for one big Save.
+ * (the finding TL sees carries the old value, the new value, and this
+ * document's own name/type already) and stays visibly pending until someone
+ * acts on it.
  */
 function FieldCorrectionRow({
   stage,
@@ -203,6 +209,9 @@ function FieldCorrectionRow({
   );
 }
 
+/** One document's fields, grouped (Customer / Vehicle / Financial / Other)
+ * instead of a single flat list -- payment-related fields, say, land
+ * together instead of scattered between unrelated ones. */
 function DocumentFieldsPanel({
   stage,
   document,
@@ -226,71 +235,79 @@ function DocumentFieldsPanel({
     return <p className="uc03-jd-empty">No fields have been extracted from this document yet.</p>;
   }
 
+  const byCategory = new Map<FieldCategory, ReviewV2Field[]>();
+  for (const field of document.fields) {
+    const category = categoryFor(field.fieldKey, field.fieldKey);
+    const bucket = byCategory.get(category) ?? [];
+    bucket.push(field);
+    byCategory.set(category, bucket);
+  }
+
   return (
-    <div className="uc03-jd-fields-table-wrap">
-      <table className="uc03-jd-fields-table">
-        <thead>
-          <tr>
-            <th>Field</th>
-            <th>Value</th>
-            <th>Confidence</th>
-            <th>Evidence</th>
-            <th>Action</th>
-          </tr>
-        </thead>
-        <tbody>
-          {document.fields.map((field) => {
-            const key = fieldRowKey(field);
-            return (
-              <FieldCorrectionRow
-                key={key}
-                stage={stage}
-                document={document}
-                field={field}
-                local={localByField.get(key)}
-                onLocalChange={(state) => onLocalChange(key, state)}
-                onEvidence={onEvidence}
-                tenantId={tenantId}
-                journeyId={journeyId}
-                accessToken={accessToken}
-              />
-            );
-          })}
-        </tbody>
-      </table>
-    </div>
+    <>
+      {FIELD_CATEGORY_ORDER.filter((category) => byCategory.has(category)).map((category) => (
+        <div key={category} className="uc03-jd-field-group">
+          <h4 className="uc03-jd-field-group__title">{categoryTitle(category)}</h4>
+          <div className="uc03-jd-fields-table-wrap">
+            <table className="uc03-jd-fields-table">
+              <thead>
+                <tr>
+                  <th>Field</th>
+                  <th>Value</th>
+                  <th>Confidence</th>
+                  <th>Evidence</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(byCategory.get(category) ?? []).map((field) => {
+                  const key = fieldRowKey(field);
+                  return (
+                    <FieldCorrectionRow
+                      key={key}
+                      stage={stage}
+                      document={document}
+                      field={field}
+                      local={localByField.get(key)}
+                      onLocalChange={(state) => onLocalChange(key, state)}
+                      onEvidence={onEvidence}
+                      tenantId={tenantId}
+                      journeyId={journeyId}
+                      accessToken={accessToken}
+                    />
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ))}
+    </>
   );
 }
 
-function StageBucket({
+/** The boxed view a document opens into: one document, its fields grouped
+ * and editable, nothing else on screen competing for attention. Replaces
+ * the page's own always-visible document panel -- there is now exactly one
+ * place a document's values are shown, opened on demand. */
+function DocumentReviewModal({
   stage,
-  review,
+  document,
+  onClose,
   onEvidence,
   tenantId,
   journeyId,
   accessToken,
-  activeDocumentId,
-  onActiveDocumentChange,
-  sectionRef,
 }: {
   stage: Stage;
-  review: BookingReviewV2 | DeliveryReviewV2 | undefined;
+  document: ReviewV2Document;
+  onClose: () => void;
   onEvidence: (source: ReviewV2SourceValue) => void;
   tenantId: string;
   journeyId: string;
   accessToken?: string;
-  activeDocumentId: string | undefined;
-  onActiveDocumentChange: (documentId: string) => void;
-  sectionRef: RefObject<HTMLElement | null>;
 }) {
   const [localByField, setLocalByField] = useState<Map<string, LocalCorrectionState>>(new Map());
-
-  const documents = review?.documents ?? [];
-  const currentDocumentId = activeDocumentId && documents.some((document) => document.documentId === activeDocumentId)
-    ? activeDocumentId
-    : documents[0]?.documentId;
-  const currentDocument = documents.find((document) => document.documentId === currentDocumentId);
-
   const setLocal = (key: string, state: LocalCorrectionState) => {
     setLocalByField((current) => {
       const next = new Map(current);
@@ -300,64 +317,37 @@ function StageBucket({
   };
 
   return (
-    <section className="uc03-jd-bucket" ref={sectionRef}>
-      <header className="uc03-jd-bucket-header">
-        <h2>{stage === 'BOOKING' ? 'Booking documents' : 'Delivery documents'}</h2>
-        <span>{documents.length} uploaded</span>
-      </header>
-
-      {!review ? (
-        <p className="uc03-jd-empty">
-          {stage === 'BOOKING'
-            ? 'Booking has not started on this Journey yet.'
-            : 'No Delivery document has been uploaded yet — Delivery starts automatically once one is.'}
-        </p>
-      ) : !documents.length ? (
-        <p className="uc03-jd-empty">No documents have been uploaded for {stage === 'BOOKING' ? 'Booking' : 'Delivery'} yet.</p>
-      ) : (
-        <div className="uc03-jd-stage-panel">
-          <div className="uc03-jd-doc-tabs" role="tablist" aria-label={`${stage === 'BOOKING' ? 'Booking' : 'Delivery'} documents`}>
-            {documents.map((document) => (
-              <button
-                key={document.documentId}
-                type="button"
-                role="tab"
-                aria-selected={document.documentId === currentDocumentId}
-                className={document.documentId === currentDocumentId ? 'is-active' : ''}
-                onClick={() => onActiveDocumentChange(document.documentId)}
-              >
-                {document.label}
-                {document.extractionState === 'PENDING' ? <span className="uc03-jd-tab-flag pending">extracting…</span> : null}
-                {document.extractionState === 'FAILED' ? <span className="uc03-jd-tab-flag failed">failed</span> : null}
-              </button>
-            ))}
+    <div className="uc03-jd-modal-backdrop" role="presentation" onClick={onClose}>
+      <div
+        className="uc03-jd-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-label={document.originalFilename}
+        onClick={(event) => event.stopPropagation()}
+      >
+        <header className="uc03-jd-modal__header">
+          <div>
+            <span className="uc03-c1-eyebrow">{document.documentTypeKey || 'Document'}</span>
+            <h3>{document.originalFilename}</h3>
           </div>
-
-          {currentDocument ? (
-            <section className="uc03-jd-document-panel">
-              <header>
-                <div>
-                  <span className="uc03-c1-eyebrow">{currentDocument.documentTypeKey || 'Document'}</span>
-                  <h3>{currentDocument.originalFilename}</h3>
-                </div>
-                {currentDocument.extractionState === 'PENDING' ? <span className="uc03-jd-status pending">Extraction in progress</span> : null}
-                {currentDocument.extractionState === 'FAILED' ? <span className="uc03-jd-status failed">Processing failed</span> : null}
-              </header>
-              <DocumentFieldsPanel
-                stage={stage}
-                document={currentDocument}
-                localByField={localByField}
-                onLocalChange={setLocal}
-                onEvidence={onEvidence}
-                tenantId={tenantId}
-                journeyId={journeyId}
-                accessToken={accessToken}
-              />
-            </section>
-          ) : null}
+          <button type="button" className="uc03-jd-modal__close" onClick={onClose} aria-label="Close">×</button>
+        </header>
+        {document.extractionState === 'PENDING' ? <span className="uc03-jd-status pending">Extraction in progress</span> : null}
+        {document.extractionState === 'FAILED' ? <span className="uc03-jd-status failed">Processing failed</span> : null}
+        <div className="uc03-jd-modal__body">
+          <DocumentFieldsPanel
+            stage={stage}
+            document={document}
+            localByField={localByField}
+            onLocalChange={setLocal}
+            onEvidence={onEvidence}
+            tenantId={tenantId}
+            journeyId={journeyId}
+            accessToken={accessToken}
+          />
         </div>
-      )}
-    </section>
+      </div>
+    </div>
   );
 }
 
@@ -365,49 +355,74 @@ interface ChecklistEntry extends CaptureV2Requirement {
   stage: Stage;
 }
 
-function CombinedChecklist({
+function statusClass(document: CaptureV2Document | null): string {
+  return document ? `is-${cardStatus(document)}` : 'is-missing';
+}
+
+function statusLabel(document: CaptureV2Document | null): string {
+  return document ? CARD_STATUS_LABEL[cardStatus(document)] : 'Missing';
+}
+
+interface ExtraDocument {
+  stage: Stage;
+  document: ReviewV2Document;
+}
+
+/** The one list of every document on this Journey -- required/conditional/
+ * optional checklist items (received or not, and if received, its live
+ * Uploaded → Classified → Extracted status), plus any uploaded document
+ * that isn't tied to a specific requirement (e.g. a second payment
+ * receipt). Clicking a received document opens it in the boxed review
+ * modal; nothing here duplicates what the modal shows. */
+function DocumentList({
   items,
-  onSelectDocument,
+  extraDocuments,
+  onOpenDocument,
 }: {
   items: ChecklistEntry[];
-  onSelectDocument: (stage: Stage, documentId: string) => void;
+  extraDocuments: ExtraDocument[];
+  onOpenDocument: (stage: Stage, documentId: string) => void;
 }) {
   const applicable = items.filter((item) => item.applicabilityState !== 'NOT_APPLICABLE');
-  if (!applicable.length) return null;
+  if (!applicable.length && !extraDocuments.length) return null;
   const received = applicable.filter((item) => item.document).length;
 
   return (
     <section className="uc03-jd-checklist">
       <header>
-        <h2>Document checklist</h2>
+        <h2>Documents</h2>
         <span>{received} of {applicable.length} received</span>
       </header>
       <ul>
         {applicable.map((item) => {
           const documentId = item.document?.documentId;
-          const content = (
+          const row = (
             <>
               <span className={`uc03-jd-checklist-stage ${item.stage.toLowerCase()}`}>{item.stage === 'BOOKING' ? 'Booking' : 'Delivery'}</span>
               <span className="uc03-jd-checklist-label">{item.label}</span>
               {item.requirementLevel !== 'REQUIRED' ? <span className="uc03-jd-checklist-level">{item.requirementLevel.toLowerCase()}</span> : null}
-              <span className="uc03-jd-checklist-status">{documentId ? '✓ Received' : 'Missing'}</span>
+              <span className={`uc03-jd-checklist-status ${statusClass(item.document)}`}>{statusLabel(item.document)}</span>
             </>
           );
           return (
             <li key={`${item.stage}:${item.requirementKey}`} className={documentId ? 'is-received' : 'is-missing'}>
               {documentId ? (
-                // Opens the document already scanned in, in the same
-                // Booking/Delivery viewer below -- no separate preview to
-                // build or keep in sync with it.
-                <button type="button" onClick={() => onSelectDocument(item.stage, documentId)}>
-                  {content}
-                </button>
-              ) : (
-                <div>{content}</div>
-              )}
+                <button type="button" onClick={() => onOpenDocument(item.stage, documentId)}>{row}</button>
+              ) : <div>{row}</div>}
             </li>
           );
         })}
+        {extraDocuments.map(({ stage, document }) => (
+          <li key={`extra:${document.documentId}`} className="is-received">
+            <button type="button" onClick={() => onOpenDocument(stage, document.documentId)}>
+              <span className={`uc03-jd-checklist-stage ${stage.toLowerCase()}`}>{stage === 'BOOKING' ? 'Booking' : 'Delivery'}</span>
+              <span className="uc03-jd-checklist-label">{document.label}</span>
+              <span className={`uc03-jd-checklist-status ${document.extractionState === 'FAILED' ? 'is-failed' : document.extractionState === 'PENDING' ? 'is-classified' : 'is-extracted'}`}>
+                {document.extractionState === 'FAILED' ? 'Needs attention' : document.extractionState === 'PENDING' ? 'Extracting…' : 'Extracted'}
+              </span>
+            </button>
+          </li>
+        ))}
       </ul>
     </section>
   );
@@ -475,7 +490,7 @@ function formatMoney(amount: string | null): string {
  * model text couldn't be resolved to exactly one SKU automatically. Lists
  * the shortlisted candidates (from the same price masters the automatic
  * resolver itself matches against) so the PC can pick the one that matches
- * the scanned Booking Form, open right below in the Booking documents bucket.
+ * the scanned Booking Form.
  */
 function ModelResolutionSkuPicker({
   tenantId,
@@ -548,7 +563,7 @@ function ModelResolutionSkuPicker({
           The Booking Form's model text
           {reviewedModelName ? <> — <strong>“{reviewedModelName}{reviewedVariantName ? ` ${reviewedVariantName}` : ''}{reviewedColourName ? ` (${reviewedColourName})` : ''}”</strong> —</> : null}
           {' '}matched {candidates.length > 0 ? `${candidates.length} possible SKUs` : 'no SKU'} in the price masters and needs a human pick.
-          Check the scanned Booking Form below, then choose the matching SKU here.
+          Open the matching document below to check the scanned Booking Form, then choose the matching SKU here.
         </p>
       </header>
 
@@ -596,31 +611,15 @@ function ModelResolutionSkuPicker({
 export default function JourneyDocumentsPage() {
   const { journeyId } = useParams<{ journeyId: string }>();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const project = useProjectContextStore((state) => state.selectedProject);
   const accessToken = useSessionStore((state) => state.accessToken);
   const queryClient = useQueryClient();
   const [selectedSource, setSelectedSource] = useState<ReviewV2SourceValue>();
+  const [openDocument, setOpenDocument] = useState<{ stage: Stage; document: ReviewV2Document }>();
   const [uploading, setUploading] = useState(false);
   const [uploadMessage, setUploadMessage] = useState<string>();
   const [uploadError, setUploadError] = useState<string>();
-  const [activeDocumentByStage, setActiveDocumentByStage] = useState<Record<Stage, string | undefined>>({
-    BOOKING: undefined,
-    DELIVERY: undefined,
-  });
-  const bookingBucketRef = useRef<HTMLElement>(null);
-  const deliveryBucketRef = useRef<HTMLElement>(null);
-  const bucketRefByStage: Record<Stage, RefObject<HTMLElement | null>> = {
-    BOOKING: bookingBucketRef,
-    DELIVERY: deliveryBucketRef,
-  };
-
-  // The checklist is an index into the documents already scanned in below --
-  // not a second place to view one. Selecting a received item there jumps
-  // straight to its tab in the matching Booking/Delivery viewer.
-  const selectDocument = (stage: Stage, documentId: string) => {
-    setActiveDocumentByStage((current) => ({ ...current, [stage]: documentId }));
-    bucketRefByStage[stage].current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  };
 
   const enabled = Boolean(project?.tenantId && journeyId && accessToken);
   const bookingQuery = useQuery({
@@ -643,6 +642,10 @@ export default function JourneyDocumentsPage() {
     enabled,
     retry: false,
     refetchOnWindowFocus: false,
+    // Keeps polling only while a just-uploaded document is still being
+    // classified/extracted, so its status chip in the list below actually
+    // advances (Uploaded → Classified → Extracted) without a manual reload.
+    refetchInterval: (query) => (captureV2HasPendingClassification(query.state.data) ? POLL_MS : false),
   });
   const deliveryCaptureQuery = useQuery({
     queryKey: ['uc03-journey-documents-delivery-checklist', project?.tenantId, journeyId],
@@ -650,6 +653,7 @@ export default function JourneyDocumentsPage() {
     enabled,
     retry: false,
     refetchOnWindowFocus: false,
+    refetchInterval: (query) => (deliveryCaptureV2IsProcessing(query.state.data) ? POLL_MS : false),
   });
 
   const bookingAvailable = Boolean(bookingQuery.data);
@@ -671,7 +675,7 @@ export default function JourneyDocumentsPage() {
       setUploadMessage(
         result.failed
           ? `${result.uploaded} of ${result.uploaded + result.failed} file(s) uploaded — ${result.failed} failed, try those again.`
-          : `${result.uploaded} file${result.uploaded === 1 ? '' : 's'} uploaded. Extraction is running in the background — check back here shortly.`,
+          : `${result.uploaded} file${result.uploaded === 1 ? '' : 's'} uploaded — see its status in the list below.`,
       );
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['uc03-journey-documents-booking', project.tenantId, journeyId] }),
@@ -684,6 +688,12 @@ export default function JourneyDocumentsPage() {
     } finally {
       setUploading(false);
     }
+  };
+
+  const openDocumentById = (stage: Stage, documentId: string) => {
+    const review = stage === 'BOOKING' ? bookingQuery.data : deliveryQuery.data;
+    const document = review?.documents.find((candidate) => candidate.documentId === documentId);
+    if (document) setOpenDocument({ stage, document });
   };
 
   if (!project || !journeyId) return null;
@@ -729,6 +739,17 @@ export default function JourneyDocumentsPage() {
     ...(bookingCaptureQuery.data?.requirements ?? []).map((item) => ({ ...item, stage: 'BOOKING' as const })),
     ...(deliveryCaptureQuery.data?.requirements ?? []).map((item) => ({ ...item, stage: 'DELIVERY' as const })),
   ];
+  const coveredDocumentIds = new Set(
+    checklist.map((item) => item.document?.documentId).filter((id): id is string => Boolean(id)),
+  );
+  const extraDocuments: ExtraDocument[] = [
+    ...(bookingQuery.data?.documents ?? [])
+      .filter((document) => !coveredDocumentIds.has(document.documentId))
+      .map((document) => ({ stage: 'BOOKING' as const, document })),
+    ...(deliveryQuery.data?.documents ?? [])
+      .filter((document) => !coveredDocumentIds.has(document.documentId))
+      .map((document) => ({ stage: 'DELIVERY' as const, document })),
+  ];
 
   return (
     <div className="screen-stack uc03-journey-documents-page">
@@ -739,7 +760,7 @@ export default function JourneyDocumentsPage() {
       <PageHeader
         eyebrow="Documents"
         title="Upload, review & correct documents"
-        description="One place for every Booking and Delivery document. Upload here any time — the system decides which stage a document belongs to once it's classified. Fields below 90% confidence can be corrected directly and take effect immediately; fields at or above 90% go through a Team Lead-reviewed correction instead."
+        description="One place for every Booking and Delivery document. Upload here any time — click any document below to open and edit it. Fields below 90% confidence can be corrected directly and take effect immediately; fields at or above 90% go through a Team Lead-reviewed correction instead."
       />
 
       <section className="uc03-jd-section" aria-labelledby="jd-upload-heading">
@@ -748,12 +769,12 @@ export default function JourneyDocumentsPage() {
       </section>
 
       <section className="uc03-jd-section" aria-labelledby="jd-existing-heading">
-        <h2 id="jd-existing-heading" className="uc03-jd-section-heading">2. Existing documents</h2>
+        <h2 id="jd-existing-heading" className="uc03-jd-section-heading">2. Documents</h2>
 
-        {/* Scoped boundary: this section is new and talks to a new endpoint --
-            if it hits a bug, the rest of Journey Documents (uploads, per-field
-            corrections) must stay usable, not take the whole page down with
-            it. */}
+        {/* Scoped boundary: this section talks to a newer endpoint --
+            if it hits a bug, the rest of Journey Documents (uploads, the
+            document list itself) must stay usable, not take the whole
+            page down with it. */}
         <ErrorBoundary fallback={null}>
           <ModelResolutionSkuPicker
             tenantId={project.tenantId}
@@ -766,33 +787,23 @@ export default function JourneyDocumentsPage() {
           />
         </ErrorBoundary>
 
-        <CombinedChecklist items={checklist} onSelectDocument={selectDocument} />
-
-        <div className="uc03-jd-buckets">
-          <StageBucket
-            stage="BOOKING"
-            review={bookingQuery.data}
-            onEvidence={setSelectedSource}
-            tenantId={project.tenantId}
-            journeyId={journeyId}
-            accessToken={accessToken}
-            activeDocumentId={activeDocumentByStage.BOOKING}
-            onActiveDocumentChange={(documentId) => setActiveDocumentByStage((current) => ({ ...current, BOOKING: documentId }))}
-            sectionRef={bookingBucketRef}
-          />
-          <StageBucket
-            stage="DELIVERY"
-            review={deliveryQuery.data}
-            onEvidence={setSelectedSource}
-            tenantId={project.tenantId}
-            journeyId={journeyId}
-            accessToken={accessToken}
-            activeDocumentId={activeDocumentByStage.DELIVERY}
-            onActiveDocumentChange={(documentId) => setActiveDocumentByStage((current) => ({ ...current, DELIVERY: documentId }))}
-            sectionRef={deliveryBucketRef}
-          />
-        </div>
+        <DocumentList items={checklist} extraDocuments={extraDocuments} onOpenDocument={openDocumentById} />
+        {!checklist.length && !extraDocuments.length ? (
+          <p className="uc03-jd-empty">No documents have been uploaded for this Journey yet.</p>
+        ) : null}
       </section>
+
+      {openDocument ? (
+        <DocumentReviewModal
+          stage={openDocument.stage}
+          document={openDocument.document}
+          onClose={() => setOpenDocument(undefined)}
+          onEvidence={setSelectedSource}
+          tenantId={project.tenantId}
+          journeyId={journeyId}
+          accessToken={accessToken}
+        />
+      ) : null}
 
       {selectedSource ? (
         <AttributeEvidenceViewer tenantId={project.tenantId} journeyId={journeyId} accessToken={accessToken} source={selectedSource} onClose={() => setSelectedSource(undefined)} />

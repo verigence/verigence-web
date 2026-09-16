@@ -4,6 +4,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 
 import PageHeader from '../components/PageHeader';
 import AttributeEvidenceViewer, { hasBoxedEvidence } from '../features/uc03/AttributeEvidenceViewer';
+import { categoryFor as groupFor, categoryTitle as groupTitle, type FieldCategory as ReviewGroup } from '../features/uc03/fieldCategoryGroups';
 import ReviewEffectiveValueEditor, { reviewSourceKey } from '../features/uc03/ReviewEffectiveValueEditor';
 import { buildRawReviewGroups } from '../features/uc03/reviewFieldGroups';
 import { completeDelivery, getDeliveryWorkspace } from '../services/audit-core/uc03Delivery';
@@ -24,8 +25,6 @@ import '../styles/uc03-delivery-capture-v2.css';
 const REFRESH_MS = 2 * 60 * 1000;
 const REVIEW_THRESHOLD = 90;
 
-type ReviewGroup = 'CUSTOMER' | 'VEHICLE' | 'FINANCIAL' | 'OTHER';
-
 function hasExtractedValue(value: unknown): boolean {
   return value !== null && value !== undefined && value !== '';
 }
@@ -41,21 +40,6 @@ function fieldLabel(fieldKey: string): string {
     .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
     .replace(/[_-]+/g, ' ')
     .replace(/\b\w/g, (character) => character.toUpperCase());
-}
-
-function groupFor(key: string, label: string): ReviewGroup {
-  const text = `${key} ${label}`.toLowerCase();
-  if (/(customer|name|mobile|phone|email|address|pan|aadhaar|identity|dob)/.test(text)) return 'CUSTOMER';
-  if (/(vehicle|model|variant|colour|color|vin|chassis|engine|registration|invoice|dealer|outlet)/.test(text)) return 'VEHICLE';
-  if (/(price|amount|payment|receipt|discount|tax|gst|insurance|finance|balance|total|ex showroom|ex_showroom)/.test(text)) return 'FINANCIAL';
-  return 'OTHER';
-}
-
-function groupTitle(group: ReviewGroup): string {
-  if (group === 'CUSTOMER') return 'Customer Details';
-  if (group === 'VEHICLE') return 'Vehicle & Invoice Details';
-  if (group === 'FINANCIAL') return 'Price & Payment Details';
-  return 'Other Extracted Details';
 }
 
 function confidence(value: number | null): string {

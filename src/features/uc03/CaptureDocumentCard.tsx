@@ -4,7 +4,7 @@ import '../../styles/uc03-capture-document-card.css';
 
 export type CardStatus = 'uploaded' | 'classified' | 'extracted' | 'unrecognized' | 'failed';
 
-const CARD_STATUS_LABEL: Record<CardStatus, string> = {
+export const CARD_STATUS_LABEL: Record<CardStatus, string> = {
   uploaded: 'Uploaded',
   classified: 'Classified',
   extracted: 'Extracted',

@@ -645,15 +645,37 @@ export default function JourneyDocumentsPage() {
   const loading = bookingQuery.isPending || deliveryQuery.isPending;
   if (loading) return <div className="uc03-c1-loading" role="status">Loading Journey Documents…</div>;
   if (!bookingAvailable && !deliveryAvailable) {
+    // A journey can have an open MODEL_NOT_IDENTIFIED gap (and so a real
+    // reason to be here) without its Booking/Delivery V2 review data being
+    // available -- an older Booking captured before the V2 review flow
+    // existed, for one. The picker needs only the open Finding, not this
+    // page's own document-review data, so it must render here too instead
+    // of this early return hiding it entirely.
     return (
-      <section className="dashboard-load-state" role="alert">
-        <div className="dashboard-load-state__mark">!</div>
-        <div className="dashboard-load-state__copy">
-          <strong>Documents are not available yet.</strong>
-          <p>Start Booking on this Journey before opening its documents here.</p>
+      <div className="screen-stack uc03-journey-documents-page">
+        <div className="uc03-c1-topbar">
+          <button type="button" className="uc03-c1-back" onClick={() => navigate(`/journeys/${journeyId}/overview`)}>← Journey Details</button>
         </div>
-        <button type="button" className="user-menu-button" onClick={() => navigate(`/journeys/${journeyId}/overview`)}>Back to Journey Details</button>
-      </section>
+        <ErrorBoundary fallback={null}>
+          <ModelResolutionSkuPicker
+            tenantId={project.tenantId}
+            journeyId={journeyId}
+            accessToken={accessToken}
+            onResolved={() => {
+              void queryClient.invalidateQueries({ queryKey: ['uc03-journey-documents-booking', project.tenantId, journeyId] });
+              void queryClient.invalidateQueries({ queryKey: ['uc03-journey-documents-booking-checklist', project.tenantId, journeyId] });
+            }}
+          />
+        </ErrorBoundary>
+        <section className="dashboard-load-state" role="alert">
+          <div className="dashboard-load-state__mark">!</div>
+          <div className="dashboard-load-state__copy">
+            <strong>Documents are not available yet.</strong>
+            <p>Start Booking on this Journey before opening its documents here.</p>
+          </div>
+          <button type="button" className="user-menu-button" onClick={() => navigate(`/journeys/${journeyId}/overview`)}>Back to Journey Details</button>
+        </section>
+      </div>
     );
   }
 

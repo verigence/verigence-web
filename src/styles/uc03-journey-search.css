@@ -939,6 +939,18 @@
 .pc-sku-strip__badge { font-size: 0.68rem; font-weight: 700; padding: 3px 10px; border-radius: 999px; white-space: nowrap; flex-shrink: 0; }
 .pc-sku-strip__badge--ok   { background: rgba(5,150,105,0.12); color: #065f46; }
 .pc-sku-strip__badge--warn { background: rgba(217,119,6,0.13);  color: #92400e; }
+.pc-sku-strip__modify {
+  flex-shrink: 0;
+  border: 1px solid #075f5a;
+  background: #fff;
+  color: #075f5a;
+  border-radius: 999px;
+  padding: 4px 12px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+.pc-sku-strip__modify:hover { background: rgba(7,95,90,0.06); }
 
 .pc-verdict {
   display: flex; align-items: flex-start; gap: 14px;

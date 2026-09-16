@@ -1,5 +1,5 @@
 .uc03-c3-audit {
-  gap: 16px;
+  gap: 18px;
 }
 
 .uc03-c3-context-links {
@@ -131,7 +131,7 @@
 }
 
 .uc03-c3-section {
-  padding: 16px 18px;
+  padding: 18px 20px;
   display: grid;
   gap: 14px;
 }
@@ -285,7 +285,7 @@
 
 .uc03-c3-flag-list {
   display: grid;
-  gap: 12px;
+  gap: 14px;
 }
 
 /* One named group per finding type -- same shape as .uc03-c3-flag-list's
@@ -346,9 +346,9 @@
 }
 
 .uc03-c3-flag-card {
-  padding: 14px 16px;
+  padding: 18px 20px;
   display: grid;
-  gap: 10px;
+  gap: 13px;
   border-left-width: 5px;
 }
 

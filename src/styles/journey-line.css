@@ -345,6 +345,55 @@
 .jline__delta--under { color: var(--jl-electric); font-weight: 700; }
 .jline__delta--ok { color: var(--jl-teal); font-weight: 700; }
 
+/* Retail/Tax invoice columns: a component whose invoice column falls back
+   to the Booking Form (no invoice has covered it yet) gets a small quiet
+   annotation, not a full extra row. */
+.jline__invoiceColFallback { color: var(--jl-muted); font-size: 0.76rem; font-weight: 400; }
+
+/* Discount applicability badge (evidence_status) -- a plain cash or
+   value-in-kind discount has no such concept and shows no badge at all. */
+.jline__statusCell { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.jline__evidence {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  padding: 2px 8px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+.jline__evidence--ok { background: rgba(0, 175, 168, 0.14); color: var(--jl-teal); }
+.jline__evidence--missing { background: var(--jl-warn-bg); color: var(--jl-coral); }
+.jline__evidence--pending { background: rgba(91, 107, 124, 0.12); color: var(--jl-muted); }
+
+/* Total Standard vs Total Actual strip */
+.jline__totalsStrip {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1px;
+  margin-top: 16px;
+  background: var(--jl-line);
+  border: 1px solid var(--jl-line);
+  border-radius: 10px;
+  overflow: hidden;
+}
+.jline__totalsStrip__cell {
+  background: var(--jl-surface);
+  padding: 10px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.jline__totalsStrip__cell span { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--jl-muted); }
+.jline__totalsStrip__cell strong { font-size: 1.05rem; font-variant-numeric: tabular-nums; }
+.jline__totalsStrip__variance em { font-style: normal; font-size: 0.76rem; color: var(--jl-muted); }
+.jline__totalsStrip--over .jline__totalsStrip__variance strong { color: var(--jl-electric); }
+.jline__totalsStrip--under .jline__totalsStrip__variance strong,
+.jline__totalsStrip--flagged .jline__totalsStrip__variance strong { color: var(--jl-coral); }
+.jline__totalsStrip--flagged .jline__totalsStrip__variance em { color: var(--jl-coral); font-weight: 700; }
+.jline__totalsStrip--flagged { border-color: var(--jl-coral); }
+.jline__totalsStrip--flagged .jline__totalsStrip__variance { background: var(--jl-warn-bg); }
+
 /* findings list */
 .jline__findings { display: flex; flex-direction: column; gap: 10px; }
 .jline__finding {

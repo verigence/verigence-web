@@ -1145,21 +1145,64 @@ function sourceValuesFor(
   return matches.length > 1 ? matches : [];
 }
 
-// Actual amount lands in column 3 (Component | Standard | Actual) -- Standard
-// never varies by source, so that cell stays blank rather than repeating it.
-function CommercialSourceRows({ sources, currency }: { sources: DealSourceValue[]; currency: string }) {
-  if (sources.length === 0) return null;
-  return (
-    <>
-      {sources.map((source) => (
-        <tr key={`${source.componentKey}-${source.sourceDocumentType}`} className="jline__sourceRow">
-          <td className="jline__sourceRow__label">via {readable(source.sourceDocumentType)}</td>
-          <td />
-          <td className="jline__sourceRow__value">{money(source.amount, currency)}</td>
-        </tr>
-      ))}
-    </>
-  );
+// ── Retail / Tax invoice columns ─────────────────────────────────────────────
+// Every value a document has ever reported for this component, regardless of
+// whether a second source disagrees (unlike sourceValuesFor above, which only
+// returns rows when there's a real disagreement to show) -- the Retail/Tax
+// columns need the one-and-only source too, not just disagreements.
+function allSourceValuesFor(
+  breakdown: DealSourceValue[] | undefined,
+  componentKey: string,
+): DealSourceValue[] {
+  if (!breakdown || breakdown.length === 0) return [];
+  const key = componentKey.trim().toLowerCase();
+  return breakdown.filter((row) => row.lineKind === 'COMMERCIAL' && row.componentKey.trim().toLowerCase() === key);
+}
+
+// Retail Invoice is the customer's own bill -- the main sale invoice plus
+// whichever add-on invoices roll into it (accessories, extended warranty,
+// RSA, a credit note adjustment), per explicit instruction: "update
+// accessories/EW or any other additional invoice under the Retail invoice
+// only". Tax Invoice is the separate statutory GST document. Wholesale
+// (dealer<->OEM) invoices are neither -- a different transaction entirely,
+// excluded from both.
+const RETAIL_INVOICE_TYPES = new Set([
+  'customer_invoice_dms', 'customer_invoice_dms_v2', 'invoice_generic',
+  'accessory_invoice_dms', 'accessory_invoice_tally', 'ew_invoice', 'rsa_invoice', 'credit_note',
+]);
+const TAX_INVOICE_TYPES = new Set(['tax_invoice_tally', 'tax_invoice', 'tax_invoice_dms']);
+
+function invoiceColumnBucket(sourceDocumentType: string): 'RETAIL' | 'TAX' | null {
+  const t = sourceDocumentType.trim().toLowerCase();
+  if (RETAIL_INVOICE_TYPES.has(t)) return 'RETAIL';
+  if (TAX_INVOICE_TYPES.has(t)) return 'TAX';
+  return null;
+}
+
+interface InvoiceColumns {
+  retail: DealSourceValue | null;
+  tax: DealSourceValue | null;
+}
+
+function bucketInvoiceColumns(sources: DealSourceValue[]): InvoiceColumns {
+  let retail: DealSourceValue | null = null;
+  let tax: DealSourceValue | null = null;
+  for (const source of sources) {
+    const bucket = invoiceColumnBucket(source.sourceDocumentType);
+    if (bucket === 'RETAIL') retail = source;
+    else if (bucket === 'TAX') tax = source;
+  }
+  return { retail, tax };
+}
+
+/** Whether ANY commercial line on this deal has reported a Retail or Tax
+ * invoice value yet -- gates whether the table shows those two columns at
+ * all. Before any invoice exists the table stays exactly as simple as
+ * before (Standard | Actual); the moment one invoice line lands, every row
+ * gains the two columns so the table never jumps around per-row. */
+function dealHasAnyInvoiceColumn(breakdown: DealSourceValue[] | undefined): boolean {
+  if (!breakdown || breakdown.length === 0) return false;
+  return breakdown.some((row) => row.lineKind === 'COMMERCIAL' && invoiceColumnBucket(row.sourceDocumentType) !== null);
 }
 
 // Given amount lands in column 3 (Scheme/benefit | Entitled | Given | Eligibility).
@@ -1217,27 +1260,61 @@ function DealPanel({
       </>
     );
   }
+  const invoiceColumnsOn = dealHasAnyInvoiceColumn(model.dealSourceBreakdown);
   return (
     <>
       <PanelHead title="Deal — masters vs offered" hint={`SKU ${pricing.skuCode} · ${readable(pricing.selectionStatus)}`} />
       <SkuPriceCheckPanel pricing={pricing} tenantId={tenantId} journeyId={journeyId} accessToken={accessToken} />
+      <DealTotalsStrip model={model} />
       {model.commercialLines.length > 0 && (
         <div className="jline__tableWrap" style={{ marginTop: 16 }}>
           <table className="jline__table">
-            <thead><tr><th>Component</th><th>Standard</th><th>Actual</th></tr></thead>
+            <thead>
+              <tr>
+                <th>Component</th>
+                <th>Standard</th>
+                {invoiceColumnsOn ? (
+                  <>
+                    <th>Retail Invoice</th>
+                    <th>Tax Invoice</th>
+                  </>
+                ) : (
+                  <th>Actual</th>
+                )}
+              </tr>
+            </thead>
             <tbody>
               {model.commercialLines.map((line) => {
                 const currency = String(line.currencyCode || 'INR');
-                const sources = sourceValuesFor(model.dealSourceBreakdown, 'COMMERCIAL', String(line.componentKey));
-                return (
-                  <Fragment key={String(line.commercialLineId)}>
-                    <tr>
-                      <td>{readable(line.componentKey)}</td>
+                const componentKey = String(line.componentKey);
+                if (!invoiceColumnsOn) {
+                  return (
+                    <tr key={String(line.commercialLineId)}>
+                      <td>{readable(componentKey)}</td>
                       <td>{money(line.standardAmount, currency)}</td>
                       <td>{money(line.actualAmount, currency)}</td>
                     </tr>
-                    <CommercialSourceRows sources={sources} currency={currency} />
-                  </Fragment>
+                  );
+                }
+                const sources = allSourceValuesFor(model.dealSourceBreakdown, componentKey);
+                const { retail, tax } = bucketInvoiceColumns(sources);
+                // Neither invoice bucket has reported this line yet -- fall
+                // back to whatever is currently known (the Booking Form,
+                // since an invoice always wins once one exists) so the row
+                // never goes blank just because no invoice covers it yet.
+                const retailValue = retail ? retail.amount : line.actualAmount;
+                const retailIsFallback = !retail && line.actualAmount !== null && line.actualAmount !== undefined;
+                const disagree = retail && tax && Math.abs(retail.amount - tax.amount) > 1;
+                return (
+                  <tr key={String(line.commercialLineId)}>
+                    <td>{readable(componentKey)}</td>
+                    <td>{money(line.standardAmount, currency)}</td>
+                    <td className={disagree ? 'jline__delta--over' : undefined}>
+                      {money(retailValue, currency)}
+                      {retailIsFallback ? <span className="jline__invoiceColFallback"> (Booking Form)</span> : null}
+                    </td>
+                    <td className={disagree ? 'jline__delta--over' : undefined}>{tax ? money(tax.amount, currency) : '—'}</td>
+                  </tr>
                 );
               })}
             </tbody>
@@ -1251,6 +1328,17 @@ function DealPanel({
   );
 }
 
+/** Applicable = evidence_status: MISSING/PENDING/VERIFIED reflect only
+ * conditional discounts (corporate/exchange/scrappage); a plain cash or
+ * value-in-kind discount has no such concept and shows nothing here. */
+function evidenceBadge(status: unknown): React.ReactNode {
+  const s = String(status || '').toUpperCase();
+  if (s === 'VERIFIED') return <span className="jline__evidence jline__evidence--ok">Applicable</span>;
+  if (s === 'MISSING') return <span className="jline__evidence jline__evidence--missing">Not Applicable</span>;
+  if (s === 'PENDING') return <span className="jline__evidence jline__evidence--pending">Pending</span>;
+  return null;
+}
+
 function DiscountsPanel({ model }: { model: JourneyOverview }) {
   const rows = model.discounts || [];
   return (
@@ -1261,7 +1349,7 @@ function DiscountsPanel({ model }: { model: JourneyOverview }) {
       ) : (
         <div className="jline__tableWrap">
           <table className="jline__table">
-            <thead><tr><th>Scheme / benefit</th><th>Entitled</th><th>Given</th><th>Eligibility</th></tr></thead>
+            <thead><tr><th>Scheme / benefit</th><th>Entitled</th><th>Given</th><th>Status</th></tr></thead>
             <tbody>
               {rows.map((d) => {
                 const std = d.standardEligibleAmount === null || d.standardEligibleAmount === undefined ? null : Number(d.standardEligibleAmount);
@@ -1274,7 +1362,12 @@ function DiscountsPanel({ model }: { model: JourneyOverview }) {
                       <td>{readable(d.discountKey)}</td>
                       <td>{money(std)}</td>
                       <td className={over ? 'jline__delta--over' : String(d.eligibilityResult).toUpperCase() === 'ELIGIBLE_UNCLAIMED' ? 'jline__delta--under' : ''}>{money(act)}</td>
-                      <td>{readable(d.eligibilityResult)}</td>
+                      <td>
+                        <span className="jline__statusCell">
+                          <span>{readable(d.eligibilityResult)}</span>
+                          {evidenceBadge(d.evidenceStatus)}
+                        </span>
+                      </td>
                     </tr>
                     <DiscountSourceRows sources={sources} />
                   </Fragment>
@@ -1285,6 +1378,56 @@ function DiscountsPanel({ model }: { model: JourneyOverview }) {
         </div>
       )}
     </>
+  );
+}
+
+/** Total Standard vs Total Actual, net of discounts -- the same figures
+ * uc03_deal_reconciliation.py::_sync_total_variance computes server-side
+ * (which is what actually raises the flag below); this just presents the
+ * same two sums for the deal already loaded, so it stays in lockstep with
+ * the backend by construction rather than a second, possibly-drifting
+ * computation. */
+function DealTotalsStrip({ model }: { model: JourneyOverview }) {
+  const lines = model.commercialLines || [];
+  const discounts = model.discounts || [];
+  const hasAnyActual = lines.some((l) => l.actualAmount !== null && l.actualAmount !== undefined);
+  if (!hasAnyActual) return null;
+
+  const sum = (values: Array<unknown>) =>
+    values.reduce((total: number, v) => total + (v === null || v === undefined ? 0 : Number(v)), 0);
+  const standardNet = sum(lines.map((l) => l.standardAmount)) - sum(discounts.map((d) => d.standardEligibleAmount));
+  const actualNet = sum(lines.map((l) => l.actualAmount)) - sum(discounts.map((d) => d.actualDiscountAmount));
+  const variance = actualNet - standardNet;
+
+  const flagged = (model.findings || []).find(
+    (f) =>
+      String(f.ruleKey || '') === 'DEAL_TOTAL_VARIANCE_NEGATIVE' &&
+      ['OPEN', 'ACKNOWLEDGED'].includes(String(f.findingStatus || '')),
+  );
+
+  const tone = flagged ? 'flagged' : variance > 1 ? 'over' : variance < -1 ? 'under' : 'even';
+  const label =
+    tone === 'flagged' ? 'Below standard — flagged for Team Lead'
+    : tone === 'over' ? 'Above standard'
+    : tone === 'under' ? 'Below standard'
+    : 'Matches standard';
+
+  return (
+    <div className={`jline__totalsStrip jline__totalsStrip--${tone}`}>
+      <div className="jline__totalsStrip__cell">
+        <span>Total Standard</span>
+        <strong>{money(standardNet)}</strong>
+      </div>
+      <div className="jline__totalsStrip__cell">
+        <span>Total Actual</span>
+        <strong>{money(actualNet)}</strong>
+      </div>
+      <div className="jline__totalsStrip__cell jline__totalsStrip__variance">
+        <span>Variance</span>
+        <strong>{variance > 0 ? '+' : ''}{money(variance)}</strong>
+        <em>{label}</em>
+      </div>
+    </div>
   );
 }
 

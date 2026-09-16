@@ -291,10 +291,17 @@ export function taskAction(
   taskId: string,
   action: 'claim' | 'start' | 'complete',
   accessToken?: string,
+  // PC_VERIFY_UNRECOGNIZED_DOCUMENT only today: 'CORRECT' (dismiss) or
+  // 'INCORRECT' (soft-deletes the document) -- required by the backend for
+  // that one task type, ignored (and omitted) for every other completion.
+  outcome?: 'CORRECT' | 'INCORRECT',
 ) {
   const headers = action === 'complete' ? { 'Idempotency-Key': crypto.randomUUID() } : undefined;
   return auditCoreRequest<WorkTask>(`/v1/tenants/${tenantId}/tasks/${taskId}/${action}`, {
-    method: 'POST', headers, ...auth(accessToken),
+    method: 'POST',
+    headers,
+    body: outcome ? JSON.stringify({ outcome }) : undefined,
+    ...auth(accessToken),
   });
 }
 

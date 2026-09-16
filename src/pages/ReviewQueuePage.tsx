@@ -14,7 +14,6 @@ import {
   type Uc03QueueScope,
   type Uc03QueueSubjectKind,
   type Uc03ReviewQueueItem,
-  type Uc03StageCode,
 } from '../services/audit-core/uc03Audit';
 import { useProjectContextStore } from '../store/projectContextStore';
 import { useSessionStore } from '../store/sessionStore';
@@ -33,17 +32,20 @@ const CLASS_LABEL: Record<Uc03FindingClass, string> = {
   VIOLATION: 'Violation',
 };
 
-const CLASS_FILTERS: { key: 'ALL' | Uc03FindingClass; label: string }[] = [
+// 'MANUAL_VERIFICATION' is a client-side-only value -- it's a rule, not a
+// finding_class, so it can't be sent as the backend's findingClass filter
+// (see classFilterParam below). Kept in the same row as the three real
+// classes rather than a separate control: this is the one dimension that
+// actually helps a reviewer decide what to work on next. The stage
+// (Booking/Delivery) split that used to sit in its own row was dropped
+// entirely -- it never helped anyone pick what to work on, per direct
+// feedback that it "won't make sense" as a filter here.
+const CLASS_FILTERS: { key: 'ALL' | Uc03FindingClass | 'MANUAL_VERIFICATION'; label: string }[] = [
   { key: 'ALL', label: 'Everything' },
   { key: 'DOCUMENT_GAP', label: 'Documents' },
   { key: 'DATA_GAP', label: 'Data' },
   { key: 'VIOLATION', label: 'Violations' },
-];
-
-const STAGE_FILTERS: { key: 'ALL' | Uc03StageCode; label: string }[] = [
-  { key: 'ALL', label: 'All stages' },
-  { key: 'BOOKING', label: 'Booking' },
-  { key: 'DELIVERY', label: 'Delivery' },
+  { key: 'MANUAL_VERIFICATION', label: 'Manual Verification' },
 ];
 
 // A self-serve gap's ruleKey stem picks a more specific CTA than the
@@ -100,14 +102,20 @@ export default function ReviewQueuePage() {
   const [searchParams] = useSearchParams();
   const findingId = searchParams.get('findingId');
   const [subjectTab, setSubjectTab] = useState<Uc03QueueSubjectKind>('JOURNEY');
-  const [scope, setScope] = useState<Uc03QueueScope>(findingId ? 'ALL' : role === 'PC' ? 'MINE' : 'MINE');
-  const [classFilter, setClassFilter] = useState<'ALL' | Uc03FindingClass>('ALL');
-  const [stageFilter, setStageFilter] = useState<'ALL' | Uc03StageCode>('ALL');
+  // A PC's 'ALL' and 'MINE' scopes are always the identical item set (see
+  // scopeTabs below) and a PC has no 'ALL' tab to land on -- always start a
+  // PC on 'MINE', deep link or not.
+  const [scope, setScope] = useState<Uc03QueueScope>(role === 'PC' ? 'MINE' : findingId ? 'ALL' : 'MINE');
+  const [classFilter, setClassFilter] = useState<'ALL' | Uc03FindingClass | 'MANUAL_VERIFICATION'>('ALL');
   const [decision, setDecision] = useState<DecisionState | null>(null);
   const [reason, setReason] = useState('');
   const [banner, setBanner] = useState<{ tone: 'ok' | 'err'; text: string } | null>(null);
 
   const enabled = Boolean(project?.tenantId && accessToken);
+  // 'MANUAL_VERIFICATION' is a rule, not a findingClass the backend query
+  // understands -- fetch DATA_GAP broadly (every Manual Verification finding
+  // is one) and narrow to the rule client-side below.
+  const classFilterParam = classFilter === 'ALL' || classFilter === 'MANUAL_VERIFICATION' ? undefined : classFilter;
 
   const summaryQuery = useQuery({
     queryKey: ['uc03-review-queue-summary', project?.tenantId, subjectTab],
@@ -116,15 +124,14 @@ export default function ReviewQueuePage() {
   });
 
   const queueQuery = useQuery({
-    queryKey: ['uc03-review-queue', project?.tenantId, subjectTab, scope, classFilter, stageFilter],
+    queryKey: ['uc03-review-queue', project?.tenantId, subjectTab, scope, classFilterParam],
     queryFn: () =>
       getReviewQueue(
         project!.tenantId,
         {
           scope,
           subjectKind: subjectTab,
-          findingClass: classFilter === 'ALL' ? undefined : classFilter,
-          stage: subjectTab === 'DAILY_OPS' || stageFilter === 'ALL' ? undefined : stageFilter,
+          findingClass: classFilterParam,
           includeTasks: true,
         },
         accessToken,
@@ -132,7 +139,9 @@ export default function ReviewQueuePage() {
     enabled,
   });
 
-  const items = queueQuery.data?.items ?? [];
+  const items = (queueQuery.data?.items ?? []).filter(
+    (item) => classFilter !== 'MANUAL_VERIFICATION' || isManualVerificationRule(item.ruleKey),
+  );
   const roles = queueQuery.data?.roles ?? summaryQuery.data?.roles ?? [];
   const canAdjudicate = roles.some((r) => r === 'TL' || r === 'PM' || r === 'EXECUTIVE');
 
@@ -182,12 +191,25 @@ export default function ReviewQueuePage() {
     },
   });
 
+  // Escalation only ever flows UP the role ladder (PC -> TL -> PM ->
+  // EXECUTIVE) -- nothing is below PC, so nothing can ever be "escalated to"
+  // a PC (uc03_finding_routing.py::visible_to_role structurally can't
+  // satisfy that for the lowest-ranked role). And because a PC only ever
+  // owns/is assigned what a PC can see in the first place, "All in my
+  // scope" and "My open items" are mathematically the same set for a PC --
+  // showing three tabs where two are always either empty or a duplicate of
+  // the first is exactly the "doesn't make sense" confusion reported. A PC
+  // gets the one tab that means something; TL/PM/Executive, where escalation
+  // and a broader scope are both real and different, keep all three.
   const scopeTabs = useMemo(
-    () => [
-      { key: 'MINE' as const, label: role === 'PC' ? 'My open items' : 'Awaiting my decision' },
-      { key: 'ESCALATED' as const, label: 'Escalated to me' },
-      { key: 'ALL' as const, label: 'All in my scope' },
-    ],
+    () =>
+      role === 'PC'
+        ? [{ key: 'MINE' as const, label: 'My open items' }]
+        : [
+            { key: 'MINE' as const, label: 'Awaiting my decision' },
+            { key: 'ESCALATED' as const, label: 'Escalated to me' },
+            { key: 'ALL' as const, label: 'All in my scope' },
+          ],
     [role],
   );
 
@@ -197,9 +219,275 @@ export default function ReviewQueuePage() {
     document.getElementById(`revq-item-${findingId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }, [findingId, findingTarget]);
 
+  // Grouped by Journey by default -- a reviewer working through a deal
+  // wants everything raised against it handled together, not scattered
+  // across a flat list interleaved with unrelated journeys. Busiest/most
+  // urgent journeys first: any overdue item bumps the whole journey to the
+  // top, then earliest SLA due date. Daily Operations items have no
+  // journey to group by, so that tab stays a flat list.
+  const journeyGroups = useMemo(() => {
+    if (subjectTab !== 'JOURNEY') return [];
+    const byJourney = new Map<string, { journeyId: string; journeyReference: string | null; customerName: string | null; bookingReference: string | null; items: Uc03ReviewQueueItem[] }>();
+    for (const item of items) {
+      const key = item.journeyId || 'unknown';
+      let group = byJourney.get(key);
+      if (!group) {
+        group = {
+          journeyId: item.journeyId || key,
+          journeyReference: item.journeyReference,
+          customerName: item.customerName,
+          bookingReference: item.bookingReference,
+          items: [],
+        };
+        byJourney.set(key, group);
+      }
+      group.items.push(item);
+    }
+    return Array.from(byJourney.values()).sort((a, b) => {
+      const aOverdue = a.items.some((i) => i.overdue);
+      const bOverdue = b.items.some((i) => i.overdue);
+      if (aOverdue !== bOverdue) return aOverdue ? -1 : 1;
+      const earliestDue = (group: typeof a) =>
+        Math.min(...group.items.map((i) => (i.slaDueAtUtc ? new Date(i.slaDueAtUtc).getTime() : Infinity)));
+      return earliestDue(a) - earliestDue(b);
+    });
+  }, [items, subjectTab]);
+
   if (!project) return null;
 
   const summary = summaryQuery.data;
+
+  // Same item card either way -- grouping by Journey only changes how
+  // items are bucketed above the list, never the card itself or its actions.
+  const renderItem = (item: Uc03ReviewQueueItem) => {
+    const sla = slaLabel(item);
+    const escalated = escalationLabel(item);
+    const isTask = item.itemKind === 'EXECUTION_TASK';
+    const isAdjudicated = item.resolutionMode === 'ADJUDICATED';
+    const isManualVerification = isManualVerificationRule(item.ruleKey);
+    const canAccept = item.permittedActions.includes('CONFIRM_BREACH');
+    const canResolve = item.permittedActions.includes('RESOLVE');
+    const open = decision?.flagId === item.flagId;
+    return (
+      <li
+        key={item.flagId}
+        id={`revq-item-${item.flagId}`}
+        className={`revq-item revq-item--${item.severity.toLowerCase()}${item.flagId === findingId ? ' revq-item--target' : ''}`}
+      >
+        <div className="revq-item__head">
+          <span className={`revq-sev revq-sev--${item.severity.toLowerCase()}`} aria-label={`${friendly(item.severity)} severity`} />
+          {isTask ? (
+            <span className="revq-tag revq-tag--task">
+              {TASK_LABEL[item.category ?? ''] ?? friendly(item.category)}
+            </span>
+          ) : (
+            <span className={`revq-tag revq-tag--${(item.findingClass ?? '').toLowerCase()}`}>
+              {item.findingClass ? CLASS_LABEL[item.findingClass] : friendly(item.category)}
+            </span>
+          )}
+          <span className={`revq-sla revq-sla--${sla.tone}`}>{sla.text}</span>
+          {escalated && <span className="revq-escalated">{escalated}</span>}
+          <span className="revq-stage">{friendly(item.stage)}</span>
+        </div>
+
+        <h3 className="revq-item__title">{item.title}</h3>
+        {item.description && item.description !== item.title && (
+          <p className="revq-item__desc">{item.description}</p>
+        )}
+
+        <div className="revq-item__meta">
+          {item.subjectKind === 'DAILY_OPS' ? (
+            <>
+              <span>{item.outletName || 'Outlet'}</span>
+              <span>{item.businessDate ? new Date(item.businessDate).toLocaleDateString('en-IN') : '—'}</span>
+            </>
+          ) : (
+            <>
+              <span>{item.customerName || 'Customer'}</span>
+              <span>{item.bookingReference || item.journeyReference || '—'}</span>
+              <span>{item.outletName || item.dealerName || '—'}</span>
+            </>
+          )}
+          {item.originKind === 'MACHINE' && <span>System check</span>}
+        </div>
+
+        <div className="revq-item__actions">
+          {item.subjectKind === 'JOURNEY' && (
+            // A Finding's "Open case" belongs on Audit Review -- that
+            // page IS the finding's own read view (evidence,
+            // classification, history). A Task has no per-task content
+            // there at all, and Audit Review's own "Take action in
+            // Task Queue" link would send it right back here -- send a
+            // Task to Journey 360 instead, where there's something to
+            // actually look at (documents, payments, overall status).
+            <Link
+              className="revq-open"
+              to={isTask ? `/journeys/${item.journeyId}/overview` : `/audit/${item.journeyId}`}
+            >
+              Open case
+            </Link>
+          )}
+
+          {isTask && item.category === 'AUTO_SELF_SERVE' && item.subjectKind === 'JOURNEY' && (
+            // Same destination as Manual Verification below, for the
+            // same reason: this Task exists because a document/data
+            // gap needs fixing, and Journey Documents is where that
+            // actually happens. No separate completion step -- fixing
+            // it there lets the underlying rule re-check and resolve
+            // the Finding on its own, which auto-cancels this Task.
+            // A vehicle-model gap has a specific fix (pick the SKU) --
+            // send it straight to that picker instead of the generic
+            // "review documents" landing.
+            <Link
+              className="revq-btn revq-btn--accept"
+              to={
+                ruleKeyStem(item.ruleKey) === 'MODEL_NOT_IDENTIFIED'
+                  ? `/journeys/${item.journeyId}/documents?selectSku=1`
+                  : `/journeys/${item.journeyId}/documents`
+              }
+            >
+              {ruleKeyStem(item.ruleKey) === 'MODEL_NOT_IDENTIFIED' ? 'Select SKU →' : 'Review documents →'}
+            </Link>
+          )}
+
+          {isTask && (item.category !== 'AUTO_SELF_SERVE' || item.subjectKind === 'DAILY_OPS') && (
+            // Take Action has no auto-resolving rule behind it, and
+            // Daily Operations has no document screen a self-serve
+            // gap could route to either way -- both self-complete
+            // once the requested work is done. Never touches the
+            // Finding itself; TL/PM still decide its own verdict
+            // separately, whenever they choose.
+            <button
+              type="button"
+              className="revq-btn revq-btn--accept"
+              disabled={completeTaskMutation.isPending}
+              onClick={() => completeTaskMutation.mutate(item.flagId)}
+            >
+              {completeTaskMutation.isPending ? 'Marking done…' : 'Mark done'}
+            </button>
+          )}
+
+          {!isTask && isManualVerification && (
+            // Was an inline mini-editor (verify/correct one field at a
+            // time, no document preview) duplicating a narrower slice
+            // of Journey Documents' own per-field correction screen.
+            // Route there instead: every document on the Journey,
+            // side by side with its extracted values, corrections
+            // split by confidence -- the same page Journey 360 and the
+            // unified capture flow already send PCs/TLs to for this
+            // exact job, so Manual Verification stops being a second,
+            // smaller review surface.
+            <Link
+              className="revq-btn revq-btn--accept"
+              to={`/journeys/${item.journeyId}/documents`}
+            >
+              Review documents →
+            </Link>
+          )}
+
+          {!isTask && !isManualVerification && isAdjudicated && canAccept && !open && (
+            <>
+              <button
+                type="button"
+                className="revq-btn revq-btn--reject"
+                onClick={() => { setDecision({ flagId: item.flagId, action: 'MARK_FALSE_POSITIVE' }); setReason(''); }}
+              >
+                Mark False Positive
+              </button>
+              <button
+                type="button"
+                className="revq-btn revq-btn--accept"
+                onClick={() => { setDecision({ flagId: item.flagId, action: 'CONFIRM_BREACH' }); setReason(''); }}
+              >
+                Confirm Breach
+              </button>
+            </>
+          )}
+
+          {!isTask && !isManualVerification && !isAdjudicated && item.subjectKind === 'JOURNEY' && ruleKeyStem(item.ruleKey) === 'MODEL_NOT_IDENTIFIED' && (
+            // A bare Finding with no Task yet (e.g. one raised before
+            // its self-serve Task existed) would otherwise leave a PC
+            // with only "Open case" -> Audit Review, which has no fix
+            // action for a self-serve gap. The SKU picker only ever
+            // needs the open Finding, not a Task, so route here
+            // directly regardless of whether one exists.
+            <Link
+              className="revq-btn revq-btn--accept"
+              to={`/journeys/${item.journeyId}/documents?selectSku=1`}
+            >
+              Select SKU →
+            </Link>
+          )}
+
+          {!isTask && !isManualVerification && !isAdjudicated && item.subjectKind === 'JOURNEY' && item.findingClass === 'DOCUMENT_GAP' && ruleKeyStem(item.ruleKey) !== 'MODEL_NOT_IDENTIFIED' && (
+            <Link
+              className="revq-btn revq-btn--accept"
+              to={item.stage === 'DELIVERY' ? `/v2/deliveries/${item.journeyId}` : `/v2/bookings/${item.journeyId}`}
+            >
+              Upload document →
+            </Link>
+          )}
+
+          {!isTask && !isManualVerification && !isAdjudicated && item.findingClass !== 'DOCUMENT_GAP' && ruleKeyStem(item.ruleKey) !== 'MODEL_NOT_IDENTIFIED' && canResolve && !open && (
+            <button
+              type="button"
+              className="revq-btn revq-btn--accept"
+              onClick={() => { setDecision({ flagId: item.flagId, action: 'RESOLVE' }); setReason(''); }}
+            >
+              Mark fixed
+            </button>
+          )}
+        </div>
+
+        {open && decision && (
+          <form
+            className="revq-decide"
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (!reason.trim()) return;
+              mutation.mutate({ item, action: decision.action });
+            }}
+          >
+            <label>
+              <span>
+                {decision.action === 'CONFIRM_BREACH'
+                  ? 'Why is this a breach?'
+                  : decision.action === 'MARK_FALSE_POSITIVE'
+                    ? 'Why is this a false positive?'
+                    : 'What did you fix?'}
+              </span>
+              <textarea
+                value={reason}
+                rows={2}
+                maxLength={4000}
+                autoFocus
+                onChange={(e) => setReason(e.target.value)}
+                placeholder="A short note — kept in the audit history"
+              />
+            </label>
+            <div className="revq-decide__actions">
+              <button type="button" className="revq-btn" onClick={() => { setDecision(null); setReason(''); }}>
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className={`revq-btn revq-btn--${decision.action === 'MARK_FALSE_POSITIVE' ? 'reject' : 'accept'}`}
+                disabled={!reason.trim() || mutation.isPending}
+              >
+                {mutation.isPending
+                  ? 'Saving…'
+                  : decision.action === 'CONFIRM_BREACH'
+                    ? 'Confirm Breach'
+                    : decision.action === 'MARK_FALSE_POSITIVE'
+                      ? 'Mark False Positive'
+                      : 'Mark fixed'}
+              </button>
+            </div>
+          </form>
+        )}
+      </li>
+    );
+  };
 
   return (
     <div className="screen-stack revq">
@@ -223,14 +511,23 @@ export default function ReviewQueuePage() {
             <span>{role === 'PC' ? 'Assigned to me' : 'My decisions'}</span>
             <strong>{summary.mine}</strong>
           </div>
-          <div className={summary.escalatedToMe > 0 ? 'is-escalated' : ''}>
-            <span>Escalated to me</span>
-            <strong>{summary.escalatedToMe}</strong>
-          </div>
-          <div>
-            <span>In my scope</span>
-            <strong>{summary.total}</strong>
-          </div>
+          {/* Escalation only ever flows PC -> TL -> PM -> Executive, and a
+              PC's own scope is always identical to their own assignments
+              (see scopeTabs above) -- both tiles are either always-zero or
+              a plain duplicate of "Assigned to me" for a PC, so neither is
+              shown to that role. */}
+          {role !== 'PC' && (
+            <div className={summary.escalatedToMe > 0 ? 'is-escalated' : ''}>
+              <span>Escalated to me</span>
+              <strong>{summary.escalatedToMe}</strong>
+            </div>
+          )}
+          {role !== 'PC' && (
+            <div>
+              <span>In my scope</span>
+              <strong>{summary.total}</strong>
+            </div>
+          )}
         </div>
       )}
 
@@ -283,20 +580,6 @@ export default function ReviewQueuePage() {
             </button>
           ))}
         </div>
-        {subjectTab === 'JOURNEY' && (
-          <div className="revq-chips" role="group" aria-label="Stage">
-            {STAGE_FILTERS.map((f) => (
-              <button
-                key={f.key}
-                type="button"
-                className={stageFilter === f.key ? 'is-active' : ''}
-                onClick={() => setStageFilter(f.key)}
-              >
-                {f.label}
-              </button>
-            ))}
-          </div>
-        )}
       </div>
 
       {queueQuery.isError && (
@@ -324,237 +607,25 @@ export default function ReviewQueuePage() {
         </div>
       )}
 
-      <ul className="revq-list">
-        {items.map((item) => {
-          const sla = slaLabel(item);
-          const escalated = escalationLabel(item);
-          const isTask = item.itemKind === 'EXECUTION_TASK';
-          const isAdjudicated = item.resolutionMode === 'ADJUDICATED';
-          const isManualVerification = isManualVerificationRule(item.ruleKey);
-          const canAccept = item.permittedActions.includes('CONFIRM_BREACH');
-          const canResolve = item.permittedActions.includes('RESOLVE');
-          const open = decision?.flagId === item.flagId;
-          return (
-            <li
-              key={item.flagId}
-              id={`revq-item-${item.flagId}`}
-              className={`revq-item revq-item--${item.severity.toLowerCase()}${item.flagId === findingId ? ' revq-item--target' : ''}`}
-            >
-              <div className="revq-item__head">
-                <span className={`revq-sev revq-sev--${item.severity.toLowerCase()}`} aria-label={`${friendly(item.severity)} severity`} />
-                {isTask ? (
-                  <span className="revq-tag revq-tag--task">
-                    {TASK_LABEL[item.category ?? ''] ?? friendly(item.category)}
-                  </span>
-                ) : (
-                  <span className={`revq-tag revq-tag--${(item.findingClass ?? '').toLowerCase()}`}>
-                    {item.findingClass ? CLASS_LABEL[item.findingClass] : friendly(item.category)}
-                  </span>
-                )}
-                <span className={`revq-sla revq-sla--${sla.tone}`}>{sla.text}</span>
-                {escalated && <span className="revq-escalated">{escalated}</span>}
-                <span className="revq-stage">{friendly(item.stage)}</span>
-              </div>
-
-              <h3 className="revq-item__title">{item.title}</h3>
-              {item.description && item.description !== item.title && (
-                <p className="revq-item__desc">{item.description}</p>
-              )}
-
-              <div className="revq-item__meta">
-                {item.subjectKind === 'DAILY_OPS' ? (
-                  <>
-                    <span>{item.outletName || 'Outlet'}</span>
-                    <span>{item.businessDate ? new Date(item.businessDate).toLocaleDateString('en-IN') : '—'}</span>
-                  </>
-                ) : (
-                  <>
-                    <span>{item.customerName || 'Customer'}</span>
-                    <span>{item.bookingReference || item.journeyReference || '—'}</span>
-                    <span>{item.outletName || item.dealerName || '—'}</span>
-                  </>
-                )}
-                {item.originKind === 'MACHINE' && <span>System check</span>}
-              </div>
-
-              <div className="revq-item__actions">
-                {item.subjectKind === 'JOURNEY' && (
-                  // A Finding's "Open case" belongs on Audit Review -- that
-                  // page IS the finding's own read view (evidence,
-                  // classification, history). A Task has no per-task content
-                  // there at all, and Audit Review's own "Take action in
-                  // Task Queue" link would send it right back here -- send a
-                  // Task to Journey 360 instead, where there's something to
-                  // actually look at (documents, payments, overall status).
-                  <Link
-                    className="revq-open"
-                    to={isTask ? `/journeys/${item.journeyId}/overview` : `/audit/${item.journeyId}`}
-                  >
-                    Open case
-                  </Link>
-                )}
-
-                {isTask && item.category === 'AUTO_SELF_SERVE' && item.subjectKind === 'JOURNEY' && (
-                  // Same destination as Manual Verification below, for the
-                  // same reason: this Task exists because a document/data
-                  // gap needs fixing, and Journey Documents is where that
-                  // actually happens. No separate completion step -- fixing
-                  // it there lets the underlying rule re-check and resolve
-                  // the Finding on its own, which auto-cancels this Task.
-                  // A vehicle-model gap has a specific fix (pick the SKU) --
-                  // send it straight to that picker instead of the generic
-                  // "review documents" landing.
-                  <Link
-                    className="revq-btn revq-btn--accept"
-                    to={
-                      ruleKeyStem(item.ruleKey) === 'MODEL_NOT_IDENTIFIED'
-                        ? `/journeys/${item.journeyId}/documents?selectSku=1`
-                        : `/journeys/${item.journeyId}/documents`
-                    }
-                  >
-                    {ruleKeyStem(item.ruleKey) === 'MODEL_NOT_IDENTIFIED' ? 'Select SKU →' : 'Review documents →'}
-                  </Link>
-                )}
-
-                {isTask && (item.category !== 'AUTO_SELF_SERVE' || item.subjectKind === 'DAILY_OPS') && (
-                  // Take Action has no auto-resolving rule behind it, and
-                  // Daily Operations has no document screen a self-serve
-                  // gap could route to either way -- both self-complete
-                  // once the requested work is done. Never touches the
-                  // Finding itself; TL/PM still decide its own verdict
-                  // separately, whenever they choose.
-                  <button
-                    type="button"
-                    className="revq-btn revq-btn--accept"
-                    disabled={completeTaskMutation.isPending}
-                    onClick={() => completeTaskMutation.mutate(item.flagId)}
-                  >
-                    {completeTaskMutation.isPending ? 'Marking done…' : 'Mark done'}
-                  </button>
-                )}
-
-                {!isTask && isManualVerification && (
-                  // Was an inline mini-editor (verify/correct one field at a
-                  // time, no document preview) duplicating a narrower slice
-                  // of Journey Documents' own per-field correction screen.
-                  // Route there instead: every document on the Journey,
-                  // side by side with its extracted values, corrections
-                  // split by confidence -- the same page Journey 360 and the
-                  // unified capture flow already send PCs/TLs to for this
-                  // exact job, so Manual Verification stops being a second,
-                  // smaller review surface.
-                  <Link
-                    className="revq-btn revq-btn--accept"
-                    to={`/journeys/${item.journeyId}/documents`}
-                  >
-                    Review documents →
-                  </Link>
-                )}
-
-                {!isTask && !isManualVerification && isAdjudicated && canAccept && !open && (
-                  <>
-                    <button
-                      type="button"
-                      className="revq-btn revq-btn--reject"
-                      onClick={() => { setDecision({ flagId: item.flagId, action: 'MARK_FALSE_POSITIVE' }); setReason(''); }}
-                    >
-                      Mark False Positive
-                    </button>
-                    <button
-                      type="button"
-                      className="revq-btn revq-btn--accept"
-                      onClick={() => { setDecision({ flagId: item.flagId, action: 'CONFIRM_BREACH' }); setReason(''); }}
-                    >
-                      Confirm Breach
-                    </button>
-                  </>
-                )}
-
-                {!isTask && !isManualVerification && !isAdjudicated && item.subjectKind === 'JOURNEY' && ruleKeyStem(item.ruleKey) === 'MODEL_NOT_IDENTIFIED' && (
-                  // A bare Finding with no Task yet (e.g. one raised before
-                  // its self-serve Task existed) would otherwise leave a PC
-                  // with only "Open case" -> Audit Review, which has no fix
-                  // action for a self-serve gap. The SKU picker only ever
-                  // needs the open Finding, not a Task, so route here
-                  // directly regardless of whether one exists.
-                  <Link
-                    className="revq-btn revq-btn--accept"
-                    to={`/journeys/${item.journeyId}/documents?selectSku=1`}
-                  >
-                    Select SKU →
-                  </Link>
-                )}
-
-                {!isTask && !isManualVerification && !isAdjudicated && item.subjectKind === 'JOURNEY' && item.findingClass === 'DOCUMENT_GAP' && ruleKeyStem(item.ruleKey) !== 'MODEL_NOT_IDENTIFIED' && (
-                  <Link
-                    className="revq-btn revq-btn--accept"
-                    to={item.stage === 'DELIVERY' ? `/v2/deliveries/${item.journeyId}` : `/v2/bookings/${item.journeyId}`}
-                  >
-                    Upload document →
-                  </Link>
-                )}
-
-                {!isTask && !isManualVerification && !isAdjudicated && item.findingClass !== 'DOCUMENT_GAP' && ruleKeyStem(item.ruleKey) !== 'MODEL_NOT_IDENTIFIED' && canResolve && !open && (
-                  <button
-                    type="button"
-                    className="revq-btn revq-btn--accept"
-                    onClick={() => { setDecision({ flagId: item.flagId, action: 'RESOLVE' }); setReason(''); }}
-                  >
-                    Mark fixed
-                  </button>
-                )}
-              </div>
-
-              {open && decision && (
-                <form
-                  className="revq-decide"
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    if (!reason.trim()) return;
-                    mutation.mutate({ item, action: decision.action });
-                  }}
-                >
-                  <label>
-                    <span>
-                      {decision.action === 'CONFIRM_BREACH'
-                        ? 'Why is this a breach?'
-                        : decision.action === 'MARK_FALSE_POSITIVE'
-                          ? 'Why is this a false positive?'
-                          : 'What did you fix?'}
-                    </span>
-                    <textarea
-                      value={reason}
-                      rows={2}
-                      maxLength={4000}
-                      autoFocus
-                      onChange={(e) => setReason(e.target.value)}
-                      placeholder="A short note — kept in the audit history"
-                    />
-                  </label>
-                  <div className="revq-decide__actions">
-                    <button type="button" className="revq-btn" onClick={() => { setDecision(null); setReason(''); }}>
-                      Cancel
-                    </button>
-                    <button
-                      type="submit"
-                      className={`revq-btn revq-btn--${decision.action === 'MARK_FALSE_POSITIVE' ? 'reject' : 'accept'}`}
-                      disabled={!reason.trim() || mutation.isPending}
-                    >
-                      {mutation.isPending
-                        ? 'Saving…'
-                        : decision.action === 'CONFIRM_BREACH'
-                          ? 'Confirm Breach'
-                          : decision.action === 'MARK_FALSE_POSITIVE'
-                            ? 'Mark False Positive'
-                            : 'Mark fixed'}
-                    </button>
-                  </div>
-                </form>
-              )}
-            </li>
-          );
-        })}
-      </ul>
+      {subjectTab === 'JOURNEY' ? (
+        <div className="revq-groups">
+          {journeyGroups.map((group) => (
+            <section key={group.journeyId} className="revq-group">
+              <header className="revq-group__head">
+                <Link className="revq-group__title" to={`/journeys/${group.journeyId}/overview`}>
+                  {group.customerName || 'Journey'}
+                </Link>
+                <span className="revq-group__ref">{group.bookingReference || group.journeyReference || '—'}</span>
+                <span className="revq-group__count">{group.items.length} item{group.items.length === 1 ? '' : 's'}</span>
+                {group.items.some((i) => i.overdue) && <span className="revq-group__overdue">Overdue</span>}
+              </header>
+              <ul className="revq-list">{group.items.map(renderItem)}</ul>
+            </section>
+          ))}
+        </div>
+      ) : (
+        <ul className="revq-list">{items.map(renderItem)}</ul>
+      )}
     </div>
   );
 }

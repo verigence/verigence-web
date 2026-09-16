@@ -125,6 +125,39 @@
   color: #fff;
 }
 
+/* Grouped by Journey -- everything raised against one deal handled
+   together, busiest/most-overdue journeys surfaced first (see
+   ReviewQueuePage.tsx's journeyGroups sort). */
+.revq-groups { display: flex; flex-direction: column; gap: 20px; }
+.revq-group__head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 6px 2px 8px;
+  border-bottom: 2px solid var(--v-line, #dbe6ee);
+  margin-bottom: 10px;
+}
+.revq-group__title { font-size: 15px; font-weight: 700; color: var(--revq-accent); text-decoration: none; }
+.revq-group__title:hover { text-decoration: underline; }
+.revq-group__ref { font-size: 12px; color: var(--v-muted, #6e879b); }
+.revq-group__count {
+  font-size: 11px;
+  font-weight: 700;
+  background: var(--surface-muted, #eef2f8);
+  border-radius: 999px;
+  padding: 2px 9px;
+  color: var(--v-slate, #31506e);
+}
+.revq-group__overdue {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--revq-late);
+  margin-left: auto;
+}
+
 /* List */
 .revq-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
 .revq-empty {

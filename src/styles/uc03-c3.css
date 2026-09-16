@@ -345,6 +345,57 @@
   padding: 1px 8px;
 }
 
+/* Breakdown strip: who's holding each open flag, and how the whole
+   register classifies -- the two data points a reviewer otherwise has to
+   count by scrolling the full register for. */
+.uc03-c3-breakdown {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px 28px;
+  padding: 12px 16px;
+  background: var(--surface, #fff);
+  border: 1px solid var(--border-subtle, #d8dee8);
+  border-radius: 14px;
+}
+.uc03-c3-breakdown-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.uc03-c3-breakdown-group > span:first-child {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted, #627087);
+}
+.uc03-c3-breakdown-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.uc03-c3-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: var(--surface-muted, #eef2f8);
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-muted, #5b6b7c);
+  text-decoration: none;
+  border: 1px solid transparent;
+}
+a.uc03-c3-chip:hover { border-color: currentColor; }
+.uc03-c3-chip strong { font-size: 0.9rem; }
+.uc03-c3-chip--owner-pc { color: #1f4e8f; }
+.uc03-c3-chip--owner-tl { color: #a77a00; }
+.uc03-c3-chip--owner-pm { color: #6b3fa0; }
+.uc03-c3-chip--owner-executive { color: #a03030; }
+/* Same three-way palette as .uc03-c3-flag-group-head, so a chip and the
+   section it jumps to always read as the same thing. */
+.uc03-c3-chip--class-violation { color: #a03030; }
+.uc03-c3-chip--class-document_gap { color: #1f4e8f; }
+.uc03-c3-chip--class-data_gap { color: #1f6b5f; }
+
 .uc03-c3-flag-card {
   padding: 18px 20px;
   display: grid;

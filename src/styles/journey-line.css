@@ -447,6 +447,8 @@
   gap: 6px;
 }
 .jline__callout strong { color: var(--jl-coral); }
+.jline__calloutMeta { font-size: 0.76rem; color: var(--jl-muted); text-transform: uppercase; letter-spacing: 0.03em; }
+.jline__calloutActions { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 2px; }
 
 /* bank match pill on a receipt */
 .jline__bank {

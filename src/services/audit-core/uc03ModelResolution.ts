@@ -1,5 +1,10 @@
 import { auditCoreRequest } from './client';
 
+function idempotencyKey(): string {
+  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) return crypto.randomUUID();
+  return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
 export interface ModelResolutionCandidate {
   productSkuId: string;
   skuCode: string;
@@ -74,6 +79,82 @@ export async function confirmModelResolutionSku(
       accessToken: token(accessToken),
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ productSkuId }),
+      cache: 'no-store',
+    },
+  );
+}
+
+export interface ModelCatalogSku {
+  productSkuId: string;
+  skuCode: string;
+  modelName: string;
+  variantName: string | null;
+  colourName: string | null;
+  fuel: string | null;
+  transmission: string | null;
+  drive: string | null;
+  seater: string | null;
+  exShowroomPrice: string | null;
+  totalPrice: string | null;
+}
+
+export interface ModelCatalogResponse {
+  journeyId: string;
+  skus: ModelCatalogSku[];
+}
+
+/**
+ * GET /v2/tenants/{tenantId}/journeys/{journeyId}/booking/model-resolution/catalog
+ *
+ * Every SKU in the Journey's currently effective price list, unconditionally
+ * -- unlike getModelResolutionCandidates, works whether or not the Journey's
+ * own SKU is already confirmed. Backs the "Modify Model" picker used to
+ * propose a correction to an already-confirmed selection.
+ */
+export async function getModelCatalog(
+  tenantId: string,
+  journeyId: string,
+  accessToken?: string,
+): Promise<ModelCatalogResponse> {
+  return auditCoreRequest<ModelCatalogResponse>(
+    `/v2/tenants/${encodeURIComponent(tenantId)}/journeys/${encodeURIComponent(journeyId)}/booking/model-resolution/catalog`,
+    { method: 'GET', accessToken: token(accessToken), cache: 'no-store' },
+  );
+}
+
+export interface ModelSelectionCorrectionTask {
+  taskId: string;
+  journeyId: string;
+  previousProductSkuId: string;
+  proposedProductSkuId: string;
+  proposedSkuCode: string;
+  reason: string;
+}
+
+/**
+ * POST /v2/tenants/{tenantId}/journeys/{journeyId}/booking/model-resolution/propose-correction
+ *
+ * A PC's proposed correction to an already-CONFIRMED SKU. Creates a Task
+ * assigned to the Team Lead (Task Queue, not Audit Review) -- Completing it
+ * reassigns the SKU and recomputes the deal; Cancelling it leaves the
+ * original SKU untouched.
+ */
+export async function proposeModelSelectionCorrection(
+  tenantId: string,
+  journeyId: string,
+  input: { productSkuId: string; reason: string },
+  accessToken?: string,
+): Promise<ModelSelectionCorrectionTask> {
+  return auditCoreRequest<ModelSelectionCorrectionTask>(
+    `/v2/tenants/${encodeURIComponent(tenantId)}/journeys/${encodeURIComponent(journeyId)}/booking/model-resolution/propose-correction`,
+    {
+      method: 'POST',
+      accessToken: token(accessToken),
+      headers: {
+        'Content-Type': 'application/json',
+        'Idempotency-Key': idempotencyKey(),
+      },
+      body: JSON.stringify(input),
       cache: 'no-store',
     },
   );

@@ -14,6 +14,7 @@ import {
   type AspectMeta,
   type JourneyStep,
 } from '../features/uc03/journey/deriveJourneyLine';
+import ModifyModelModal from '../features/uc03/ModifyModelModal';
 import { resyncBookingCaptureV2 } from '../services/audit-core/uc03DocumentCaptureV2';
 import { resyncDeliveryCaptureV2 } from '../services/audit-core/uc03DeliveryCaptureV2';
 import { getReviewDocumentContentV2 } from '../services/audit-core/uc03DocumentReviewV2';
@@ -218,8 +219,19 @@ function PriceCard({ label, standard, actual, deviationAmount, deviationPercent,
   );
 }
 
-function SkuPriceCheckPanel({ pricing }: { pricing: SkuPricing }) {
+function SkuPriceCheckPanel({
+  pricing,
+  tenantId,
+  journeyId,
+  accessToken,
+}: {
+  pricing: SkuPricing;
+  tenantId: string;
+  journeyId: string;
+  accessToken?: string;
+}) {
   const [showAll, setShowAll] = useState(false);
+  const [modifyOpen, setModifyOpen] = useState(false);
   const currency = pricing.currencyCode || 'INR';
   const componentLabel = (k: string) =>
     k.replaceAll('_', ' ').toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
@@ -244,7 +256,27 @@ function SkuPriceCheckPanel({ pricing }: { pricing: SkuPricing }) {
           : 'pc-sku-strip__badge pc-sku-strip__badge--warn'}>
           {pricing.selectionStatus === 'CONFIRMED' ? 'SKU confirmed' : 'SKU tentative'}
         </span>
+        {/* Wrong vehicle already confirmed? A simple trigger, not a heavy
+            inline section -- the whole "pick the right one" job happens in
+            its own popup (ModifyModelModal). Only makes sense once
+            something is actually CONFIRMED to correct; the tentative case
+            already has its own picker on the Documents page. */}
+        {pricing.selectionStatus === 'CONFIRMED' ? (
+          <button type="button" className="pc-sku-strip__modify" onClick={() => setModifyOpen(true)}>
+            Modify Model
+          </button>
+        ) : null}
       </div>
+
+      {modifyOpen ? (
+        <ModifyModelModal
+          tenantId={tenantId}
+          journeyId={journeyId}
+          accessToken={accessToken}
+          onClose={() => setModifyOpen(false)}
+          onProposed={() => { /* the Task Queue is the source of truth from here */ }}
+        />
+      ) : null}
 
       {/* Verdict banner */}
       {allClean ? (
@@ -1151,10 +1183,16 @@ function DealPanel({
   model,
   reviewedBooking,
   modelNotIdentified,
+  tenantId,
+  journeyId,
+  accessToken,
 }: {
   model: JourneyOverview;
   reviewedBooking: Record<string, unknown> | null;
   modelNotIdentified: Record<string, unknown> | null;
+  tenantId: string;
+  journeyId: string;
+  accessToken?: string;
 }) {
   const pricing = model.skuPricing;
   if (!pricing) {
@@ -1182,7 +1220,7 @@ function DealPanel({
   return (
     <>
       <PanelHead title="Deal — masters vs offered" hint={`SKU ${pricing.skuCode} · ${readable(pricing.selectionStatus)}`} />
-      <SkuPriceCheckPanel pricing={pricing} />
+      <SkuPriceCheckPanel pricing={pricing} tenantId={tenantId} journeyId={journeyId} accessToken={accessToken} />
       {model.commercialLines.length > 0 && (
         <div className="jline__tableWrap" style={{ marginTop: 16 }}>
           <table className="jline__table">
@@ -1684,6 +1722,9 @@ function FocusPanel({
           model={model}
           reviewedBooking={reviewedBooking}
           modelNotIdentified={modelNotIdentified as Record<string, unknown> | null}
+          tenantId={tenantId}
+          journeyId={journeyId}
+          accessToken={accessToken}
         />
       );
       break;

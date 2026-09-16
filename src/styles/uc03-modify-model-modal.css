@@ -1,0 +1,115 @@
+/* A simple, single popup for proposing a different vehicle -- kept
+   deliberately small and self-contained, never a heavy inline section on
+   the page itself. */
+.uc03-mm-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.45);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 8vh 20px;
+  z-index: 60;
+  overflow-y: auto;
+}
+.uc03-mm-modal {
+  background: #fff;
+  border-radius: 16px;
+  width: min(520px, 100%);
+  max-height: 84vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.28);
+}
+.uc03-mm-modal__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 18px 22px 12px;
+  border-bottom: 1px solid var(--v-line, #dbe6ee);
+}
+.uc03-mm-modal__header h3 { margin: 0; font-size: 16px; }
+.uc03-mm-modal__close {
+  border: 0;
+  background: var(--surface-muted, #f1f6fa);
+  color: var(--v-slate, #31506e);
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  font-size: 17px;
+  line-height: 1;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.uc03-mm-modal__body {
+  padding: 16px 22px 20px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.uc03-mm-intro { margin: 0; font-size: 13px; color: var(--v-muted, #6e879b); }
+.uc03-mm-fields {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px 14px;
+}
+.uc03-mm-fields label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--v-slate, #31506e);
+}
+.uc03-mm-fields select {
+  border: 1px solid var(--v-line, #dbe6ee);
+  border-radius: 6px;
+  padding: 7px 8px;
+  font-size: 13px;
+  font-family: inherit;
+  background: #fff;
+}
+.uc03-mm-fields select:disabled { background: #f7fafc; color: var(--v-muted, #6e879b); }
+.uc03-mm-fields label:last-child { grid-column: 1 / -1; }
+
+.uc03-mm-selected {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px 14px;
+  background: #f7fafc;
+  border: 1px solid var(--v-line, #dbe6ee);
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-size: 13px;
+}
+.uc03-mm-selected strong { font-size: 14px; }
+.uc03-mm-selected span { color: var(--v-muted, #6e879b); }
+
+.uc03-mm-reason {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--v-slate, #31506e);
+}
+.uc03-mm-reason textarea {
+  border: 1px solid var(--v-line, #dbe6ee);
+  border-radius: 6px;
+  padding: 8px;
+  font-size: 13px;
+  font-family: inherit;
+  resize: vertical;
+}
+
+.uc03-mm-actions { display: flex; gap: 8px; justify-content: flex-end; }
+.uc03-mm-actions button[type='button']:not(.uc03-c3-primary) {
+  background: transparent;
+  border: 1px solid var(--v-line, #dbe6ee);
+  border-radius: 6px;
+  padding: 7px 16px;
+  cursor: pointer;
+}

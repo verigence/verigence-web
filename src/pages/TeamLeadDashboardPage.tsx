@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 
 import NightlyReprocessingStatusTile from '../components/NightlyReprocessingStatusTile';
+import { getReviewQueueSummary } from '../services/audit-core/uc03Audit';
 import {
   listAllTlSupervisoryCases,
   tlBusinessStage,
@@ -67,6 +68,47 @@ function MetricCard({ label, value, detail }: { label: string; value: number; de
       <strong>{value}</strong>
       <small>{detail}</small>
     </article>
+  );
+}
+
+// The three places a TL's day-to-day work actually happens -- deciding
+// audit flags, working the cross-journey action queue, and logging outlet
+// operations. A TL never captures a Booking/Delivery (that stays PC-only),
+// so this dashboard's own job is routing attention to these three, not
+// offering a fourth place to do capture work. Every count here comes
+// straight from the same /review-queue/summary endpoint Task Queue itself
+// reads (see ReviewQueuePage.tsx) -- clicking through lands on the exact
+// scope/filter that produced the number, so nothing here can drift from
+// what the destination page shows.
+type FocusTone = 'violation' | 'queue' | 'ops';
+
+function FocusCard({
+  tone,
+  eyebrow,
+  title,
+  value,
+  detail,
+  cta,
+  loading,
+  onOpen,
+}: {
+  tone: FocusTone;
+  eyebrow: string;
+  title: string;
+  value: number;
+  detail: string;
+  cta: string;
+  loading: boolean;
+  onOpen: () => void;
+}) {
+  return (
+    <button type="button" className={`uc03-tl-focus uc03-tl-focus--${tone}`} onClick={onOpen}>
+      <span className="uc03-tl-focus__eyebrow">{eyebrow}</span>
+      <strong className="uc03-tl-focus__title">{title}</strong>
+      <span className="uc03-tl-focus__value">{loading ? '—' : value}</span>
+      <span className="uc03-tl-focus__detail">{detail}</span>
+      <span className="uc03-tl-focus__cta">{cta} →</span>
+    </button>
   );
 }
 
@@ -204,18 +246,35 @@ function CaseRow({ item, timezoneName }: { item: TlSupervisoryCase; timezoneName
 export default function TeamLeadDashboardPage() {
   const project = useProjectContextStore((state) => state.selectedProject);
   const accessToken = useSessionStore((state) => state.accessToken);
+  const navigate = useNavigate();
   const [search, setSearch] = useState('');
   const [outletId, setOutletId] = useState('');
   const [pcActorId, setPcActorId] = useState('');
   const [stageFilter, setStageFilter] = useState<StageFilter>('ALL');
 
+  const enabled = Boolean(project?.tenantId && accessToken && project?.operatingRole === 'TL');
+
   const casesQuery = useQuery({
     queryKey: ['uc03-tl-supervisory-cases', project?.tenantId],
     queryFn: () => listAllTlSupervisoryCases(project!.tenantId, accessToken),
-    enabled: Boolean(project?.tenantId && accessToken && project?.operatingRole === 'TL'),
+    enabled,
     retry: 1,
     refetchOnWindowFocus: true,
     refetchOnReconnect: true,
+  });
+
+  // Same summary endpoint Task Queue's own KPI tiles read from (see
+  // ReviewQueuePage.tsx) -- one query per subjectKind, exactly mirroring
+  // how that page fetches its own two tabs' worth of counts.
+  const journeyQueueSummaryQuery = useQuery({
+    queryKey: ['uc03-review-queue-summary', project?.tenantId, 'JOURNEY'],
+    queryFn: () => getReviewQueueSummary(project!.tenantId, accessToken, 'JOURNEY', true),
+    enabled,
+  });
+  const dailyOpsSummaryQuery = useQuery({
+    queryKey: ['uc03-review-queue-summary', project?.tenantId, 'DAILY_OPS'],
+    queryFn: () => getReviewQueueSummary(project!.tenantId, accessToken, 'DAILY_OPS', true),
+    enabled,
   });
 
   const cases = casesQuery.data ?? [];
@@ -312,6 +371,13 @@ export default function TeamLeadDashboardPage() {
     setStageFilter('ALL');
   };
 
+  const journeySummary = journeyQueueSummaryQuery.data;
+  const dailyOpsSummary = dailyOpsSummaryQuery.data;
+  const violationCount = journeySummary?.byClass?.VIOLATION ?? 0;
+  const queueTotal = journeySummary?.total ?? 0;
+  const queueOverdue = journeySummary?.overdue ?? 0;
+  const dailyOpsOpen = dailyOpsSummary?.total ?? 0;
+
   return (
     <div className="screen-stack uc03-tl-dashboard">
       <section className="uc03-tl-hero">
@@ -324,6 +390,44 @@ export default function TeamLeadDashboardPage() {
           <strong>Submitted work only</strong>
           <span>PC drafts stay private until submitted. TL review is optional.</span>
         </div>
+      </section>
+
+      {/* A TL never captures a Booking/Delivery -- that stays PC-only. These
+          three are where a TL's day actually happens, so they lead the
+          dashboard, ahead of the booking/delivery breakdown below. Counts
+          come straight from the same summary endpoint each destination page
+          itself reads, so what's promised here is what's found there. */}
+      <section className="uc03-tl-focus-grid" aria-label="Your focus areas">
+        <FocusCard
+          tone="violation"
+          eyebrow="Audit"
+          title="Audit View"
+          value={violationCount}
+          detail={violationCount === 1 ? 'violation awaiting your decision' : 'violations awaiting your decision'}
+          cta="Review violations"
+          loading={journeyQueueSummaryQuery.isPending}
+          onOpen={() => navigate('/reviews?class=VIOLATION')}
+        />
+        <FocusCard
+          tone="queue"
+          eyebrow="Actionable"
+          title="Task Queue"
+          value={queueTotal}
+          detail={queueOverdue > 0 ? `${queueOverdue} overdue` : 'open across your scope'}
+          cta="Open Task Queue"
+          loading={journeyQueueSummaryQuery.isPending}
+          onOpen={() => navigate('/reviews')}
+        />
+        <FocusCard
+          tone="ops"
+          eyebrow="Outlets"
+          title="Daily Operations"
+          value={dailyOpsOpen}
+          detail={dailyOpsOpen === 1 ? 'open item' : 'open items'}
+          cta="Open Daily Operations"
+          loading={dailyOpsSummaryQuery.isPending}
+          onOpen={() => navigate('/daily-ops')}
+        />
       </section>
 
       <NightlyReprocessingStatusTile />

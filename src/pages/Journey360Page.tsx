@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { Link, useLocation, useParams, useSearchParams } from 'react-router-dom';
 
 import PageHeader from '../components/PageHeader';
 import StatusPill from '../components/StatusPill';
@@ -8,7 +8,6 @@ import { categoryFor, categoryTitle, FIELD_CATEGORY_ORDER, type FieldCategory } 
 import {
   deriveAspects,
   deriveSteps,
-  findingAspect,
   openFindings,
   type AspectKey,
   type AspectMeta,
@@ -1229,6 +1228,7 @@ function DealPanel({
   tenantId,
   journeyId,
   accessToken,
+  role,
 }: {
   model: JourneyOverview;
   reviewedBooking: Record<string, unknown> | null;
@@ -1236,6 +1236,7 @@ function DealPanel({
   tenantId: string;
   journeyId: string;
   accessToken?: string;
+  role?: string;
 }) {
   const pricing = model.skuPricing;
   if (!pricing) {
@@ -1255,9 +1256,11 @@ function DealPanel({
             </span>
             <div className="jline__calloutActions">
               <Link to={`/journeys/${String((model.journey as Record<string, unknown>).journeyId ?? '')}/documents`}>Open Documents to confirm model →</Link>
-              <Link to={`/audit/${String((model.journey as Record<string, unknown>).journeyId ?? '')}?findingId=${encodeURIComponent(String(modelNotIdentified.auditFindingId))}`}>
-                View in Audit Review →
-              </Link>
+              {role !== 'PC' && (
+                <Link to={`/audit/${String((model.journey as Record<string, unknown>).journeyId ?? '')}?findingId=${encodeURIComponent(String(modelNotIdentified.auditFindingId))}`}>
+                  View in Audit Review →
+                </Link>
+              )}
             </div>
           </div>
         ) : (
@@ -1733,109 +1736,60 @@ function BankPanel({ model }: { model: JourneyOverview }) {
   );
 }
 
-function FlagsPanel({
-  model,
-  onSelectAspect,
-}: {
-  model: JourneyOverview;
-  onSelectAspect: (key: AspectKey) => void;
-}) {
+// A summary, not a third full list. This used to render every finding as
+// its own card, independently of both Audit Review (/audit/:id) and Task
+// Queue -- three separately-styled implementations of "show findings for
+// a journey" that could (and did) drift out of sync with each other, and
+// for every finding except a plain document gap, clicking the card just
+// jumped straight to Audit Review anyway (an extra click, no extra info).
+// A PC's permittedActions never include anything on a Violation -- the
+// only thing a PC can ever act on is a self-serve gap, and that's fixed
+// on Journey Documents, not read about here -- so PC gets a document-gap
+// count + a direct link there; TL/PM get the full open/severity breakdown
+// (their actual oversight job) + a link into the real register, Audit
+// Review, rather than a duplicate of it.
+function FlagsPanel({ model, role }: { model: JourneyOverview; role?: string }) {
   const all = model.findings || [];
-  const [showResolved, setShowResolved] = useState(false);
   const open = all.filter((f) => ['OPEN', 'ACKNOWLEDGED'].includes(String(f.findingStatus || '')));
-  const shown = showResolved ? all : open;
-  const navigate = useNavigate();
   const journeyId = String((model.journey as Record<string, unknown>)?.journeyId ?? '');
+  const isPc = role === 'PC';
+  const counts: Record<string, number> = {};
+  for (const f of open) {
+    const key = String(f.findingClass || 'UNCLASSIFIED').toUpperCase();
+    counts[key] = (counts[key] || 0) + 1;
+  }
+  const gapCount = (counts.DATA_GAP || 0) + (counts.DOCUMENT_GAP || 0);
+  const relevantCount = isPc ? gapCount : open.length;
+  const destination = isPc ? `/journeys/${journeyId}/documents` : `/audit/${journeyId}`;
+  const destinationLabel = isPc ? 'Review documents' : 'Open in Audit Review';
+
   return (
     <>
       <PanelHead
-        title="Flags — open audit findings"
+        title="Flags — audit findings"
         hint={`${open.length} open of ${all.length}`}
       />
-      {all.length > open.length && (
-        <label style={{ fontSize: '0.82rem', display: 'block', marginBottom: 10 }}>
-          <input type="checkbox" checked={showResolved} onChange={(e) => setShowResolved(e.target.checked)} /> Show resolved
-        </label>
-      )}
-      {shown.length === 0 ? (
-        <p className="jline__empty">No audit findings on this journey.</p>
+      {relevantCount === 0 ? (
+        <p className="jline__empty">
+          {isPc ? 'No missing data or documents on this journey.' : 'No open audit findings on this journey.'}
+        </p>
       ) : (
-        <div className="jline__findings">
-          {shown.map((f) => {
-            const sev = String(f.severity || 'INFO').toUpperCase();
-            const cls = ['HIGH', 'CRITICAL'].includes(sev) ? 'bad' : 'warn';
-            const findingClass = String(f.findingClass || '').toUpperCase();
-            const ownerRole = String(f.ownerRoleCode || '').toUpperCase();
-            const targetAspect = findingAspect(f as Record<string, unknown>);
-            // A DOCUMENT_GAP finding's actual resolution is uploading the
-            // missing document -- send the PC straight to the live Capture
-            // workspace for whichever stage actually raised it (Choose Files
-            // / Take Photo, auto-classify, review) instead of Audit View,
-            // which has no upload control of its own. Previously this always
-            // went to Booking's workspace regardless of stage, so a Delivery
-            // document-gap flag opened the wrong stage entirely.
-            const isDocumentGap = findingClass === 'DOCUMENT_GAP';
-            const isDeliveryStage = String(f.stageCode || '').toUpperCase() === 'DELIVERY';
-            // Audit View is the one place a finding is meant to be read in
-            // full context (classification, severity, owner, SLA, history)
-            // and Task Queue is where it's actually acted on -- so every
-            // other finding opens there, not a same-page Journey 360 tab.
-            // Previously only findings with no matching data tab (findingAspect()'s
-            // catch-all, itself named 'flags' -- this exact panel) went to Audit
-            // View; everything else just switched tabs in place, which is
-            // indistinguishable from a dead click ("clicking a flag doesn't open
-            // Audit View"). Deep-links to the specific finding so it's not just
-            // a generic list the reviewer has to search through.
-            const goToTarget = () => {
-              if (isDocumentGap && journeyId) {
-                navigate(isDeliveryStage ? `/v2/deliveries/${journeyId}` : `/v2/bookings/${journeyId}`);
-              } else if (journeyId) {
-                navigate(`/audit/${journeyId}?findingId=${encodeURIComponent(String(f.auditFindingId))}`);
-              } else {
-                onSelectAspect(targetAspect);
-              }
-            };
-            return (
-              <div
-                className={`jline__finding jline__finding--${cls}`}
-                key={String(f.auditFindingId)}
-                role="button"
-                tabIndex={0}
-                style={{ cursor: 'pointer' }}
-                onClick={goToTarget}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    goToTarget();
-                  }
-                }}
-              >
-                <span className="jline__findingMark" aria-hidden="true">!</span>
-                <div className="jline__findingBody">
-                  <div className="jline__findingTags">
-                    {findingClass && (
-                      <span className={`revq-tag revq-tag--${findingClass.toLowerCase()}`}>
-                        {FINDING_CLASS_LABEL[findingClass] || readable(findingClass)}
-                      </span>
-                    )}
-                    {ownerRole && <span className="jline__findingOwner">For {ownerRole}</span>}
-                  </div>
-                  <strong>{String(f.title || 'Audit finding')}</strong>
-                  {Boolean(f.description) && <small>{String(f.description)}</small>}
-                  <small>
-                    {readable(f.stageCode)} · {readable(f.findingStatus)}
-                    {f.ruleKey ? <> · <code>{String(f.ruleKey)}</code></> : null}
-                    {' · '}{isDocumentGap ? '→ Upload document' : '→ Audit view'}
-                  </small>
-                </div>
-                <div>
-                  <StatusPill value={sev} compact />
-                  {Boolean(f.slaDueAtUtc) && <div className="jline__findingSla">SLA {dateLabel(f.slaDueAtUtc)}</div>}
-                </div>
-              </div>
-            );
-          })}
+        <div className="jline__flagsSummary">
+          {isPc ? (
+            <span className="jline__flagsSummaryChip jline__flagsSummaryChip--document_gap">
+              Needs your action <strong>{gapCount}</strong>
+            </span>
+          ) : (
+            Object.entries(counts).map(([key, count]) => (
+              <span key={key} className={`jline__flagsSummaryChip jline__flagsSummaryChip--${key.toLowerCase()}`}>
+                {FINDING_CLASS_LABEL[key] || readable(key)} <strong>{count}</strong>
+              </span>
+            ))
+          )}
         </div>
+      )}
+      {relevantCount > 0 && (
+        <Link className="jline__flagsSummaryLink" to={destination}>{destinationLabel} →</Link>
       )}
     </>
   );
@@ -1847,20 +1801,20 @@ function FocusPanel({
   receipts,
   pendingReceipts,
   reviewedBooking,
-  onSelectAspect,
   tenantId,
   journeyId,
   accessToken,
+  role,
 }: {
   aspect: AspectKey;
   model: JourneyOverview;
   receipts: Array<Record<string, unknown>>;
   pendingReceipts: Array<Record<string, unknown>>;
   reviewedBooking: Record<string, unknown> | null;
-  onSelectAspect: (key: AspectKey) => void;
   tenantId: string;
   journeyId: string;
   accessToken?: string;
+  role?: string;
 }) {
   const modelNotIdentified =
     (model.findings || []).find(
@@ -1880,6 +1834,7 @@ function FocusPanel({
           tenantId={tenantId}
           journeyId={journeyId}
           accessToken={accessToken}
+          role={role}
         />
       );
       break;
@@ -2075,7 +2030,7 @@ function FocusPanel({
       break;
     case 'flags':
     default:
-      body = <FlagsPanel model={model} onSelectAspect={onSelectAspect} />;
+      body = <FlagsPanel model={model} role={role} />;
       break;
   }
   return <div className="jline__panelCard">{body}</div>;
@@ -2274,7 +2229,9 @@ export default function Journey360Page() {
             {runningAllRules ? 'Running Rules…' : 'Run All Applicable Rules'}
           </button>
           <Link to={`/journeys/${journeyId}/documents`}>Open Documents</Link>
-          <Link className="journey-360-actions__primary" to={`/audit/${journeyId}`}>Audit Review</Link>
+          {selectedProject?.operatingRole !== 'PC' && (
+            <Link className="journey-360-actions__primary" to={`/audit/${journeyId}`}>Audit Review</Link>
+          )}
         </div>
       </div>
       {resyncMessage && (
@@ -2303,10 +2260,10 @@ export default function Journey360Page() {
           receipts={receiptRows}
           pendingReceipts={pendingReceiptRows}
           reviewedBooking={reviewedBooking}
-          onSelectAspect={setAspect}
           tenantId={tenantId}
           journeyId={journeyId}
           accessToken={accessToken}
+          role={selectedProject?.operatingRole}
         />
       </div>
     </div>

@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Link, useLocation, useParams, useSearchParams } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 
 import PageHeader from '../components/PageHeader';
 import StatusPill from '../components/StatusPill';
@@ -8,6 +8,7 @@ import { categoryFor, categoryTitle, FIELD_CATEGORY_ORDER, type FieldCategory } 
 import {
   deriveAspects,
   deriveSteps,
+  findingAspect,
   openFindings,
   type AspectKey,
   type AspectMeta,
@@ -1748,20 +1749,28 @@ function BankPanel({ model }: { model: JourneyOverview }) {
 // count + a direct link there; TL/PM get the full open/severity breakdown
 // (their actual oversight job) + a link into the real register, Audit
 // Review, rather than a duplicate of it.
-function FlagsPanel({ model, role }: { model: JourneyOverview; role?: string }) {
+// Shows every open finding, not just a count -- a count alone answers
+// "how many" but not "what", which is the actual reason to look here.
+// What changed instead: a PC's own Violations (which they can never act on
+// anywhere -- Audit Review redirects them away entirely, see #286) are
+// listed but not clickable, since there's genuinely nowhere useful to send
+// that click; a self-serve gap (DATA_GAP/DOCUMENT_GAP) still opens the
+// capture screen for every role, and TL/PM's Violations still open Audit
+// Review, exactly as before.
+function FlagsPanel({ model, role, onSelectAspect }: { model: JourneyOverview; role?: string; onSelectAspect: (key: AspectKey) => void }) {
   const all = model.findings || [];
+  const [showResolved, setShowResolved] = useState(false);
   const open = all.filter((f) => ['OPEN', 'ACKNOWLEDGED'].includes(String(f.findingStatus || '')));
+  const shown = showResolved ? all : open;
+  const navigate = useNavigate();
   const journeyId = String((model.journey as Record<string, unknown>)?.journeyId ?? '');
   const isPc = role === 'PC';
+
   const counts: Record<string, number> = {};
   for (const f of open) {
     const key = String(f.findingClass || 'UNCLASSIFIED').toUpperCase();
     counts[key] = (counts[key] || 0) + 1;
   }
-  const gapCount = (counts.DATA_GAP || 0) + (counts.DOCUMENT_GAP || 0);
-  const relevantCount = isPc ? gapCount : open.length;
-  const destination = isPc ? `/journeys/${journeyId}/documents` : `/audit/${journeyId}`;
-  const destinationLabel = isPc ? 'Review documents' : 'Open in Audit Review';
 
   return (
     <>
@@ -1769,27 +1778,92 @@ function FlagsPanel({ model, role }: { model: JourneyOverview; role?: string }) 
         title="Flags — audit findings"
         hint={`${open.length} open of ${all.length}`}
       />
-      {relevantCount === 0 ? (
-        <p className="jline__empty">
-          {isPc ? 'No missing data or documents on this journey.' : 'No open audit findings on this journey.'}
-        </p>
-      ) : (
+      {open.length > 0 && (
         <div className="jline__flagsSummary">
-          {isPc ? (
-            <span className="jline__flagsSummaryChip jline__flagsSummaryChip--document_gap">
-              Needs your action <strong>{gapCount}</strong>
+          {Object.entries(counts).map(([key, count]) => (
+            <span key={key} className={`jline__flagsSummaryChip jline__flagsSummaryChip--${key.toLowerCase()}`}>
+              {FINDING_CLASS_LABEL[key] || readable(key)} <strong>{count}</strong>
             </span>
-          ) : (
-            Object.entries(counts).map(([key, count]) => (
-              <span key={key} className={`jline__flagsSummaryChip jline__flagsSummaryChip--${key.toLowerCase()}`}>
-                {FINDING_CLASS_LABEL[key] || readable(key)} <strong>{count}</strong>
-              </span>
-            ))
-          )}
+          ))}
         </div>
       )}
-      {relevantCount > 0 && (
-        <Link className="jline__flagsSummaryLink" to={destination}>{destinationLabel} →</Link>
+      {all.length > open.length && (
+        <label style={{ fontSize: '0.82rem', display: 'block', marginBottom: 10 }}>
+          <input type="checkbox" checked={showResolved} onChange={(e) => setShowResolved(e.target.checked)} /> Show resolved
+        </label>
+      )}
+      {shown.length === 0 ? (
+        <p className="jline__empty">No audit findings on this journey.</p>
+      ) : (
+        <div className="jline__findings">
+          {shown.map((f) => {
+            const sev = String(f.severity || 'INFO').toUpperCase();
+            const cls = ['HIGH', 'CRITICAL'].includes(sev) ? 'bad' : 'warn';
+            const findingClass = String(f.findingClass || '').toUpperCase();
+            const ownerRole = String(f.ownerRoleCode || '').toUpperCase();
+            const targetAspect = findingAspect(f as Record<string, unknown>);
+            const isOpen = ['OPEN', 'ACKNOWLEDGED'].includes(String(f.findingStatus || ''));
+            const isDocumentGap = findingClass === 'DOCUMENT_GAP' || findingClass === 'DATA_GAP';
+            const isDeliveryStage = String(f.stageCode || '').toUpperCase() === 'DELIVERY';
+            // PC can never act on a Violation anywhere -- Audit Review
+            // redirects them straight back here (#286) -- so a Violation
+            // row is informational only for PC, not a dead-end click.
+            const clickable = isOpen && (isDocumentGap || !isPc);
+            const goToTarget = () => {
+              if (!clickable) return;
+              if (isDocumentGap && journeyId) {
+                navigate(isDeliveryStage ? `/v2/deliveries/${journeyId}` : `/v2/bookings/${journeyId}`);
+              } else if (journeyId) {
+                navigate(`/audit/${journeyId}?findingId=${encodeURIComponent(String(f.auditFindingId))}`);
+              } else {
+                onSelectAspect(targetAspect);
+              }
+            };
+            return (
+              <div
+                className={`jline__finding jline__finding--${cls}`}
+                key={String(f.auditFindingId)}
+                role={clickable ? 'button' : undefined}
+                tabIndex={clickable ? 0 : undefined}
+                style={{ cursor: clickable ? 'pointer' : 'default' }}
+                onClick={clickable ? goToTarget : undefined}
+                onKeyDown={
+                  clickable
+                    ? (e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          goToTarget();
+                        }
+                      }
+                    : undefined
+                }
+              >
+                <span className="jline__findingMark" aria-hidden="true">!</span>
+                <div className="jline__findingBody">
+                  <div className="jline__findingTags">
+                    {findingClass && (
+                      <span className={`revq-tag revq-tag--${findingClass.toLowerCase()}`}>
+                        {FINDING_CLASS_LABEL[findingClass] || readable(findingClass)}
+                      </span>
+                    )}
+                    {ownerRole && <span className="jline__findingOwner">For {ownerRole}</span>}
+                  </div>
+                  <strong>{String(f.title || 'Audit finding')}</strong>
+                  {Boolean(f.description) && <small>{String(f.description)}</small>}
+                  <small>
+                    {readable(f.stageCode)} · {readable(f.findingStatus)}
+                    {f.ruleKey ? <> · <code>{String(f.ruleKey)}</code></> : null}
+                    {clickable ? <>{' · '}{isDocumentGap ? '→ Upload document' : '→ Audit view'}</> : null}
+                  </small>
+                </div>
+                <div>
+                  <StatusPill value={sev} compact />
+                  {Boolean(f.slaDueAtUtc) && isOpen && <div className="jline__findingSla">SLA {dateLabel(f.slaDueAtUtc)}</div>}
+                </div>
+              </div>
+            );
+          })}
+        </div>
       )}
     </>
   );
@@ -1801,6 +1875,7 @@ function FocusPanel({
   receipts,
   pendingReceipts,
   reviewedBooking,
+  onSelectAspect,
   tenantId,
   journeyId,
   accessToken,
@@ -1811,6 +1886,7 @@ function FocusPanel({
   receipts: Array<Record<string, unknown>>;
   pendingReceipts: Array<Record<string, unknown>>;
   reviewedBooking: Record<string, unknown> | null;
+  onSelectAspect: (key: AspectKey) => void;
   tenantId: string;
   journeyId: string;
   accessToken?: string;
@@ -2030,7 +2106,7 @@ function FocusPanel({
       break;
     case 'flags':
     default:
-      body = <FlagsPanel model={model} role={role} />;
+      body = <FlagsPanel model={model} role={role} onSelectAspect={onSelectAspect} />;
       break;
   }
   return <div className="jline__panelCard">{body}</div>;
@@ -2260,6 +2336,7 @@ export default function Journey360Page() {
           receipts={receiptRows}
           pendingReceipts={pendingReceiptRows}
           reviewedBooking={reviewedBooking}
+          onSelectAspect={setAspect}
           tenantId={tenantId}
           journeyId={journeyId}
           accessToken={accessToken}

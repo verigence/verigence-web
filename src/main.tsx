@@ -91,6 +91,7 @@ import './styles/mobile-bottom-nav.css';
 import './styles/android-pc-overview-density.css';
 import './styles/android-operational-density.css';
 import './styles/android-operational-readability.css';
+import './styles/signup-responsive.css';
 import './styles/ui-governance.css';
 import './ui/pcNavigationMotion';
 

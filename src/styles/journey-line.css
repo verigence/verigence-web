@@ -436,6 +436,33 @@
 }
 .jline__findingSla { font-size: 0.76rem; color: var(--jl-coral); font-weight: 700; white-space: nowrap; }
 
+/* Flags summary -- a count by classification, not a third full list of
+   finding cards (Audit Review and Task Queue already are that). */
+.jline__flagsSummary { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+.jline__flagsSummaryChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: var(--jl-ground);
+  border: 1px solid var(--jl-line);
+  color: var(--jl-ink);
+  font-size: 0.82rem;
+}
+.jline__flagsSummaryChip strong { color: var(--jl-blue); font-size: 0.9rem; }
+.jline__flagsSummaryChip--violation { border-color: var(--jl-coral); }
+.jline__flagsSummaryChip--violation strong { color: var(--jl-coral); }
+.jline__flagsSummaryChip--document_gap strong,
+.jline__flagsSummaryChip--data_gap strong { color: #e8a13c; }
+.jline__flagsSummaryLink {
+  display: inline-block;
+  font-weight: 700;
+  color: var(--jl-electric);
+  text-decoration: none;
+}
+.jline__flagsSummaryLink:hover { text-decoration: underline; }
+
 /* model-not-identified callout in the Deal panel */
 .jline__callout {
   background: var(--jl-warn-bg);

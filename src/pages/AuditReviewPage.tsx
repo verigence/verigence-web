@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Link, useParams, useSearchParams } from 'react-router-dom';
+import { Link, Navigate, useParams, useSearchParams } from 'react-router-dom';
 
 import PageHeader from '../components/PageHeader';
 import StatusPill from '../components/StatusPill';
@@ -497,7 +497,9 @@ export default function AuditReviewPage() {
   const [selectedSource, setSelectedSource] = useState<ReviewV2SourceValue>();
   const [flagDecision, setFlagDecision] = useState<FlagDecisionFormState | null>(null);
 
-  const enabled = Boolean(project?.tenantId && journeyId && accessToken);
+  // PC is redirected away below before rendering anything -- disabled here
+  // too, so a PC never fires these fetches at all, not just never sees them.
+  const enabled = Boolean(project?.tenantId && journeyId && accessToken && project?.operatingRole !== 'PC');
   const summaryQuery = useQuery({
     queryKey: ['uc03-audit-summary', project?.tenantId, journeyId],
     queryFn: () => getAuditSummary(project!.tenantId, journeyId!, accessToken),
@@ -568,6 +570,15 @@ export default function AuditReviewPage() {
   }, [findingId, flagsQuery.data]);
 
   if (!project || !journeyId) return null;
+  // A PC's permittedActions here never grant Accept/Reject/Take Action --
+  // this whole page has always been read-only for them, and everything
+  // it shows (open flags, what's blocking the case) is already on the
+  // journey's own Overview. Rather than leave a page that does nothing
+  // for PC reachable by a stale link or the back button, send them
+  // straight to where their actual work is.
+  if (project.operatingRole === 'PC') {
+    return <Navigate to={`/journeys/${journeyId}/overview`} replace />;
+  }
   const summary = summaryQuery.data;
 
   const refresh = async () => {

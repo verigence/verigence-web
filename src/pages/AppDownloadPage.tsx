@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 
 import { verigenceLockup } from '../assets/verigenceLockup';
 import { useSessionStore } from '../store/sessionStore';
@@ -255,7 +255,7 @@ export default function AppDownloadPage() {
   );
 }
 
-function Icon({ children }: { children: React.ReactNode }) {
+function Icon({ children }: { children: ReactNode }) {
   return <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">{children}</svg>;
 }
 

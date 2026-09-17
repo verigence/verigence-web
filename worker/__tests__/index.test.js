@@ -24,6 +24,27 @@ function buildAuditCoreTarget(rawUpstream, incomingUrl) {
   return upstream;
 }
 
+function fakeReleaseBucket({ metadata, apkBytes } = {}) {
+  return {
+    async get(key) {
+      if (key === 'android/latest.json') {
+        if (!metadata) return null;
+        return {
+          async json() { return metadata; },
+        };
+      }
+      if (metadata?.objectKey && key === metadata.objectKey && apkBytes) {
+        const bytes = apkBytes instanceof Uint8Array ? apkBytes : new Uint8Array(apkBytes);
+        return {
+          size: bytes.byteLength,
+          body: new Blob([bytes]).stream(),
+        };
+      }
+      return null;
+    },
+  };
+}
+
 // ── tests ─────────────────────────────────────────────────────────────────
 
 describe('correlationIdFor', () => {
@@ -137,11 +158,26 @@ describe('Audit Core Capacitor CORS', () => {
 });
 
 describe('authenticated app distribution', () => {
+  const metadata = {
+    version: '1.2.3',
+    build: '456',
+    size: '54 MB',
+    sizeBytes: 4,
+    sha256: 'abc123',
+    minAndroid: 'Android 8+',
+    releasedAt: '2026-09-17T08:00:00Z',
+    objectKey: 'android/releases/Verigence-1.2.3-456.apk',
+    packageName: 'com.verigence.app',
+  };
+
   it('rejects unauthenticated release metadata requests', async () => {
     const upstream = vi.spyOn(globalThis, 'fetch');
     const response = await worker.fetch(
       new Request('https://verigence-web-dev.example/app-distribution/metadata'),
-      { SECURITY_UPSTREAM: 'https://security.example' },
+      {
+        SECURITY_UPSTREAM: 'https://security.example',
+        APP_RELEASES: fakeReleaseBucket({ metadata }),
+      },
     );
 
     expect(response.status).toBe(401);
@@ -163,10 +199,7 @@ describe('authenticated app distribution', () => {
       }),
       {
         SECURITY_UPSTREAM: 'https://security.example',
-        ANDROID_APK_URL: 'https://downloads.example/Verigence.apk',
-        ANDROID_APP_VERSION: '1.2.3',
-        ANDROID_APP_BUILD: '456',
-        ANDROID_APP_SHA256: 'abc123',
+        APP_RELEASES: fakeReleaseBucket({ metadata }),
       },
     );
 
@@ -184,14 +217,9 @@ describe('authenticated app distribution', () => {
     upstream.mockRestore();
   });
 
-  it('streams the configured APK only after Security validates the bearer token', async () => {
+  it('streams the private R2 APK only after Security validates the bearer token', async () => {
     const apkBytes = new Uint8Array([0x50, 0x4b, 0x03, 0x04]);
-    const upstream = vi.spyOn(globalThis, 'fetch')
-      .mockResolvedValueOnce(new Response('{}', { status: 200 }))
-      .mockResolvedValueOnce(new Response(apkBytes, {
-        status: 200,
-        headers: { 'Content-Length': String(apkBytes.byteLength) },
-      }));
+    const upstream = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(new Response('{}', { status: 200 }));
 
     const response = await worker.fetch(
       new Request('https://verigence-web-dev.example/app-distribution/latest', {
@@ -199,9 +227,7 @@ describe('authenticated app distribution', () => {
       }),
       {
         SECURITY_UPSTREAM: 'https://security.example',
-        ANDROID_APK_URL: 'https://downloads.example/Verigence.apk',
-        ANDROID_APP_VERSION: '1.2.3',
-        ANDROID_APP_SHA256: 'abc123',
+        APP_RELEASES: fakeReleaseBucket({ metadata, apkBytes }),
       },
     );
 
@@ -210,17 +236,20 @@ describe('authenticated app distribution', () => {
     expect(response.headers.get('Content-Disposition')).toContain('Verigence-1.2.3.apk');
     expect(response.headers.get('X-Verigence-SHA256')).toBe('abc123');
     expect(new Uint8Array(await response.arrayBuffer())).toEqual(apkBytes);
-    expect(upstream).toHaveBeenCalledTimes(2);
+    expect(upstream).toHaveBeenCalledTimes(1);
     upstream.mockRestore();
   });
 
-  it('reports not-published when a valid user has no configured APK object', async () => {
+  it('reports not-published when a valid user has no R2 release metadata', async () => {
     const upstream = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(new Response('{}', { status: 200 }));
     const response = await worker.fetch(
       new Request('https://verigence-web-dev.example/app-distribution/latest', {
         headers: { Authorization: 'Bearer valid-user-token' },
       }),
-      { SECURITY_UPSTREAM: 'https://security.example' },
+      {
+        SECURITY_UPSTREAM: 'https://security.example',
+        APP_RELEASES: fakeReleaseBucket(),
+      },
     );
 
     expect(response.status).toBe(503);

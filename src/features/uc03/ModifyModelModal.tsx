@@ -28,12 +28,17 @@ function distinctValues(skus: ModelCatalogSku[], pick: (sku: ModelCatalogSku) =>
 
 /**
  * A simple, single popup for the whole "propose a different vehicle" job --
- * deliberately not a heavy inline section on the page itself. Six dropdowns
- * (Model, Fuel, Transmission, Drive, Seater, Variant), each narrowing the
- * next from the tenant's own currently effective price list, resolving to
- * one exact SKU; a required reason; Save proposes it. What actually happens
- * next (a Team Lead reviewing and applying/rejecting it) lives entirely on
- * the ordinary Task Queue -- this popup's only job is to raise that.
+ * deliberately not a heavy inline section on the page itself. Seven dropdowns
+ * (Model, Trim, Fuel, Transmission, Drive, Seater, Variant), each narrowing
+ * the next from the tenant's own currently effective price list, resolving
+ * to one exact SKU; a required reason; Save proposes it. Trim (e.g. Z4, Z8 S,
+ * Z8T on the same model) is the masters' own column, distinct from Variant
+ * (the full descriptive string) -- several different trims routinely share
+ * an identical fuel/transmission/drive/seater combination, so without Trim
+ * as its own step the Variant list mixed unrelated trims together with no
+ * way to narrow to the right one first. What actually happens next (a Team
+ * Lead reviewing and applying/rejecting it) lives entirely on the ordinary
+ * Task Queue -- this popup's only job is to raise that.
  */
 export default function ModifyModelModal({
   tenantId,
@@ -49,6 +54,7 @@ export default function ModifyModelModal({
   onProposed: () => void;
 }) {
   const [model, setModel] = useState('');
+  const [trim, setTrim] = useState('');
   const [fuel, setFuel] = useState('');
   const [transmission, setTransmission] = useState('');
   const [drive, setDrive] = useState('');
@@ -69,20 +75,24 @@ export default function ModifyModelModal({
 
   const skus = query.data?.skus ?? [];
   const afterModel = model ? skus.filter((s) => s.modelName === model) : skus;
-  const afterFuel = fuel ? afterModel.filter((s) => s.fuel === fuel) : afterModel;
+  const afterTrim = trim ? afterModel.filter((s) => s.trim === trim) : afterModel;
+  const afterFuel = fuel ? afterTrim.filter((s) => s.fuel === fuel) : afterTrim;
   const afterTransmission = transmission ? afterFuel.filter((s) => s.transmission === transmission) : afterFuel;
   const afterDrive = drive ? afterTransmission.filter((s) => s.drive === drive) : afterTransmission;
   const afterSeater = seater ? afterDrive.filter((s) => s.seater === seater) : afterDrive;
 
   const models = useMemo(() => [...new Set(skus.map((s) => s.modelName))].sort(), [skus]);
-  const fuels = useMemo(() => distinctValues(afterModel, (s) => s.fuel), [afterModel]);
+  // Trim (e.g. Z4, Z8 S, Z8T) is the masters' own column -- distinct SKUs on
+  // the same model routinely share every other structured attribute, so
+  // this has to narrow before fuel/transmission/drive/seater can mean
+  // anything, not after.
+  const trims = useMemo(() => distinctValues(afterModel, (s) => s.trim), [afterModel]);
+  const fuels = useMemo(() => distinctValues(afterTrim, (s) => s.fuel), [afterTrim]);
   const transmissions = useMemo(() => distinctValues(afterFuel, (s) => s.transmission), [afterFuel]);
   const drives = useMemo(() => distinctValues(afterTransmission, (s) => s.drive), [afterTransmission]);
   const seaters = useMemo(() => distinctValues(afterDrive, (s) => s.seater), [afterDrive]);
-  // Model/fuel/transmission/drive/seater narrow this far; whatever's left
-  // differs only by trim/colour -- the master's own variant name (which
-  // already encodes trim) is the final pick, not a made-up 7th field
-  // nothing in the masters actually stores separately.
+  // Whatever's left after trim/fuel/transmission/drive/seater differs only
+  // by colour -- the master's own variant name is the final pick.
   const variantOptions = useMemo(
     () => afterSeater.map((s) => ({ key: `${s.variantName ?? ''}|${s.colourName ?? ''}`, sku: s })),
     [afterSeater],
@@ -90,8 +100,9 @@ export default function ModifyModelModal({
   const selectedSku = variantOptions.find((option) => option.key === variantKey)?.sku
     ?? (afterSeater.length === 1 ? afterSeater[0] : undefined);
 
-  const resetBelow = (level: 'model' | 'fuel' | 'transmission' | 'drive' | 'seater') => {
-    if (level === 'model') { setFuel(''); setTransmission(''); setDrive(''); setSeater(''); setVariantKey(''); }
+  const resetBelow = (level: 'model' | 'trim' | 'fuel' | 'transmission' | 'drive' | 'seater') => {
+    if (level === 'model') { setTrim(''); setFuel(''); setTransmission(''); setDrive(''); setSeater(''); setVariantKey(''); }
+    if (level === 'trim') { setFuel(''); setTransmission(''); setDrive(''); setSeater(''); setVariantKey(''); }
     if (level === 'fuel') { setTransmission(''); setDrive(''); setSeater(''); setVariantKey(''); }
     if (level === 'transmission') { setDrive(''); setSeater(''); setVariantKey(''); }
     if (level === 'drive') { setSeater(''); setVariantKey(''); }
@@ -149,8 +160,15 @@ export default function ModifyModelModal({
                 </select>
               </label>
               <label>
+                Trim
+                <select value={trim} onChange={(event) => { setTrim(event.target.value); resetBelow('trim'); }} disabled={!model}>
+                  <option value="">{trims.length ? 'Select trim…' : 'No trim on this model'}</option>
+                  {trims.map((value) => <option key={value} value={value}>{value}</option>)}
+                </select>
+              </label>
+              <label>
                 Fuel
-                <select value={fuel} onChange={(event) => { setFuel(event.target.value); resetBelow('fuel'); }} disabled={!model}>
+                <select value={fuel} onChange={(event) => { setFuel(event.target.value); resetBelow('fuel'); }} disabled={!model || (trims.length > 0 && !trim)}>
                   <option value="">Select fuel…</option>
                   {fuels.map((value) => <option key={value} value={value}>{readable(value)}</option>)}
                 </select>

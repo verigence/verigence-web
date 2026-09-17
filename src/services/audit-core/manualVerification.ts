@@ -1,78 +1,11 @@
-import { auditCoreRequest } from './client';
-
-function auth(accessToken?: string) {
-  return accessToken ? { accessToken } : {};
-}
-
-export interface ManualVerificationField {
-  extractedFieldId: string;
-  fieldKey: string;
-  canonicalFieldId: string | null;
-  extractedValue: unknown;
-  effectiveValue: unknown;
-  confidence: number | null;
-  sourceFactRef: string | null;
-  sourceFactVersion: number;
-}
-
-export interface ManualVerificationItem {
-  findingId: string;
-  stageCode: 'BOOKING' | 'DELIVERY';
-  diDocumentId: string;
-  documentLabel: string;
-  severity: string;
-  ownerRoleCode: string | null;
-  slaDueAtUtc: string | null;
-  createdAtUtc: string;
-  fields: ManualVerificationField[];
-}
-
-export interface ManualVerificationView {
-  journeyId: string;
-  items: ManualVerificationItem[];
-}
-
-export interface FieldDecision {
-  extractedFieldId: string;
-  action: 'CONFIRM' | 'CORRECT';
-  effectiveValue?: unknown;
-}
-
-export interface ResolveManualVerificationResponse {
-  findingId: string;
-  findingStatus: string;
-  fieldsVerified: number;
-  stageManualVerificationOpen: number;
-}
-
+// audit-core#304 moved manual verification off Audit onto the Task Queue
+// (MANUAL_VERIFICATION_REVIEW task, resolved entirely through the standalone
+// Documents page's own field-correction flow -- see that PR's module
+// docstring). The dedicated GET/resolve endpoints this file used to call
+// were never actually wired to any UI and are gone; this helper survives
+// because ReviewQueuePage.tsx still uses it to recognize the rule-key shape
+// a MANUAL_VERIFICATION_REVIEW task's payload carries, same as it did for
+// the finding this task type replaced.
 export function isManualVerificationRule(ruleKey: string | null | undefined): boolean {
   return Boolean(ruleKey && ruleKey.startsWith('MANUAL_VERIFICATION:'));
-}
-
-export function getManualVerification(
-  tenantId: string,
-  journeyId: string,
-  accessToken?: string,
-) {
-  return auditCoreRequest<ManualVerificationView>(
-    `/v1/tenants/${encodeURIComponent(tenantId)}/journeys/${journeyId}/manual-verification`,
-    auth(accessToken),
-  );
-}
-
-export function resolveManualVerification(
-  tenantId: string,
-  journeyId: string,
-  findingId: string,
-  decisions: FieldDecision[],
-  accessToken?: string,
-) {
-  return auditCoreRequest<ResolveManualVerificationResponse>(
-    `/v1/tenants/${encodeURIComponent(tenantId)}/journeys/${journeyId}/manual-verification/${findingId}/resolve`,
-    {
-      method: 'POST',
-      body: JSON.stringify({ decisions }),
-      ...auth(accessToken),
-    },
-  );
 }

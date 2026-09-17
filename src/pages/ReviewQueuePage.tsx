@@ -290,8 +290,22 @@ export default function ReviewQueuePage() {
   );
 
   const findingTarget = findingId ? items.find((item) => item.flagId === findingId) : undefined;
+  // Compact rows collapse to one line by default (severity, tag, title, SLA,
+  // a primary action) -- a click on the row (or its caret) expands it to the
+  // full description/meta/closes-when/actions card. Independent of `decision`
+  // below: a row also counts as expanded while its own decision form is open,
+  // so opening a decision from within an already-expanded row never collapses
+  // out from under the reviewer mid-decision.
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+  const toggleExpanded = (flagId: string) =>
+    setExpandedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(flagId)) next.delete(flagId); else next.add(flagId);
+      return next;
+    });
   useEffect(() => {
     if (!findingId || !findingTarget) return;
+    setExpandedIds((prev) => (prev.has(findingId) ? prev : new Set(prev).add(findingId)));
     document.getElementById(`revq-item-${findingId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }, [findingId, findingTarget]);
 
@@ -348,13 +362,66 @@ export default function ReviewQueuePage() {
     const canResolve = item.permittedActions.includes('RESOLVE');
     const open = decision?.flagId === item.flagId;
     const closesWhen = closesWhenLabel(item, { isTask, isManualVerification, isAdjudicated, canResolve });
+    // Collapsed by default -- expanded by an explicit click (row or caret),
+    // by carrying the deep-linked ?findingId (see the effect above), or
+    // whenever this item's own decision form is open (never collapse out
+    // from under a reviewer mid-decision).
+    const isExpanded = expandedIds.has(item.flagId) || open;
+    const stem = ruleKeyStem(item.ruleKey);
+
+    // The one safe, single-click action worth surfacing on the collapsed
+    // row -- mirrors the same conditions the full actions block below is
+    // gated on, so the row never offers something the expanded card
+    // wouldn't also offer. Multi-way choices (adjudicating a Violation,
+    // Correct/Incorrect on an unrecognized document) are deliberately left
+    // null -- those are judgment calls, not a one-click affordance, and
+    // clicking through to expand is the honest way to present them.
+    let primaryAction: { kind: 'link'; to: string; label: string } | { kind: 'button'; label: string; onClick: () => void; pending?: boolean } | null = null;
+    if (isTask && item.category === 'AUTO_SELF_SERVE' && item.subjectKind === 'JOURNEY') {
+      primaryAction = stem === 'MODEL_NOT_IDENTIFIED'
+        ? { kind: 'link', to: `/journeys/${item.journeyId}/documents?selectSku=1`, label: 'Select SKU →' }
+        : { kind: 'link', to: `/journeys/${item.journeyId}/documents`, label: 'Review documents →' };
+    } else if (isTask && item.category !== 'PC_VERIFY_UNRECOGNIZED_DOCUMENT' &&
+      (item.category !== 'AUTO_SELF_SERVE' || item.subjectKind === 'DAILY_OPS')) {
+      primaryAction = {
+        kind: 'button',
+        label: completeTaskMutation.isPending ? 'Marking done…' : 'Mark done',
+        pending: completeTaskMutation.isPending,
+        onClick: () => completeTaskMutation.mutate({ taskId: item.flagId }),
+      };
+    } else if (!isTask && isManualVerification) {
+      primaryAction = { kind: 'link', to: `/journeys/${item.journeyId}/documents`, label: 'Review documents →' };
+    } else if (!isTask && !isManualVerification && !isAdjudicated && item.subjectKind === 'JOURNEY' && stem === 'MODEL_NOT_IDENTIFIED') {
+      primaryAction = { kind: 'link', to: `/journeys/${item.journeyId}/documents?selectSku=1`, label: 'Select SKU →' };
+    } else if (!isTask && !isManualVerification && !isAdjudicated && item.subjectKind === 'JOURNEY' && item.findingClass === 'DOCUMENT_GAP' && stem !== 'MODEL_NOT_IDENTIFIED') {
+      primaryAction = {
+        kind: 'link',
+        to: item.stage === 'DELIVERY' ? `/v2/deliveries/${item.journeyId}` : `/v2/bookings/${item.journeyId}`,
+        label: 'Upload document →',
+      };
+    } else if (!isTask && !isManualVerification && !isAdjudicated && item.findingClass !== 'DOCUMENT_GAP' && stem !== 'MODEL_NOT_IDENTIFIED' && canResolve) {
+      primaryAction = {
+        kind: 'button',
+        label: 'Mark fixed',
+        onClick: () => { setDecision({ flagId: item.flagId, action: 'RESOLVE' }); setReason(''); },
+      };
+    }
+    const rowHint = isAdjudicated && canAccept ? 'Decide →' : 'Review →';
+
     return (
       <li
         key={item.flagId}
         id={`revq-item-${item.flagId}`}
-        className={`revq-item revq-item--${item.severity.toLowerCase()}${item.flagId === findingId ? ' revq-item--target' : ''}`}
+        className={`revq-item revq-item--${item.severity.toLowerCase()}${isExpanded ? ' is-expanded' : ''}${item.flagId === findingId ? ' revq-item--target' : ''}`}
       >
-        <div className="revq-item__head">
+        <div
+          className="revq-item__row"
+          onClick={() => toggleExpanded(item.flagId)}
+          role="button"
+          tabIndex={0}
+          aria-expanded={isExpanded}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleExpanded(item.flagId); } }}
+        >
           <span className={`revq-sev revq-sev--${item.severity.toLowerCase()}`} aria-label={`${friendly(item.severity)} severity`} />
           {isTask ? (
             <span className="revq-tag revq-tag--task">
@@ -365,12 +432,40 @@ export default function ReviewQueuePage() {
               {item.findingClass ? CLASS_LABEL[item.findingClass] : friendly(item.category)}
             </span>
           )}
+          <span className="revq-item__row-title">{item.title}</span>
           <span className={`revq-sla revq-sla--${sla.tone}`}>{sla.text}</span>
           {escalated && <span className="revq-escalated">{escalated}</span>}
-          <span className="revq-stage">{friendly(item.stage)}</span>
+          {!isExpanded && (
+            <span className="revq-item__row-action" onClick={(e) => e.stopPropagation()}>
+              {primaryAction?.kind === 'link' && (
+                <Link className="revq-btn revq-btn--accept revq-btn--sm" to={primaryAction.to}>{primaryAction.label}</Link>
+              )}
+              {primaryAction?.kind === 'button' && (
+                <button
+                  type="button"
+                  className="revq-btn revq-btn--accept revq-btn--sm"
+                  disabled={primaryAction.pending}
+                  onClick={primaryAction.onClick}
+                >
+                  {primaryAction.label}
+                </button>
+              )}
+              {!primaryAction && <span className="revq-item__hint">{rowHint}</span>}
+            </span>
+          )}
+          <button
+            type="button"
+            className="revq-item__caret"
+            aria-expanded={isExpanded}
+            aria-label={isExpanded ? 'Collapse' : 'Expand'}
+            onClick={(e) => { e.stopPropagation(); toggleExpanded(item.flagId); }}
+          >
+            {isExpanded ? '▾' : '▸'}
+          </button>
         </div>
 
-        <h3 className="revq-item__title">{item.title}</h3>
+        {isExpanded && (
+        <div className="revq-item__body">
         {item.description && item.description !== item.title && (
           <p className="revq-item__desc">{item.description}</p>
         )}
@@ -378,22 +473,28 @@ export default function ReviewQueuePage() {
         <div className="revq-item__meta">
           {item.subjectKind === 'DAILY_OPS' ? (
             <>
-              <span>{item.outletName || 'Outlet'}</span>
+              {/* A PC operates exactly one outlet (their own login scope) --
+                  naming it on every single card teaches them nothing new.
+                  TL/PM/Executive genuinely work across outlets, so it stays
+                  for them. */}
+              {role !== 'PC' && <span>{item.outletName || 'Outlet'}</span>}
               <span>{item.businessDate ? new Date(item.businessDate).toLocaleDateString('en-IN') : '—'}</span>
             </>
           ) : grouped ? (
             // Customer name and booking reference are already on the
             // journey group's own header above -- only what it doesn't
-            // carry (dealer/outlet) belongs here too.
-            <span>{item.outletName || item.dealerName || '—'}</span>
+            // carry (dealer/outlet, and only for a role that actually
+            // spans more than one) belongs here too.
+            role !== 'PC' && <span>{item.outletName || item.dealerName || '—'}</span>
           ) : (
             <>
               <span>{item.customerName || 'Customer'}</span>
               <span>{item.bookingReference || item.journeyReference || '—'}</span>
-              <span>{item.outletName || item.dealerName || '—'}</span>
+              {role !== 'PC' && <span>{item.outletName || item.dealerName || '—'}</span>}
             </>
           )}
           {item.originKind === 'MACHINE' && <span>System check</span>}
+          <span>{friendly(item.stage)}</span>
         </div>
 
         <p className="revq-item__closes">{closesWhen}</p>
@@ -640,6 +741,8 @@ export default function ReviewQueuePage() {
               </button>
             </div>
           </form>
+        )}
+        </div>
         )}
       </li>
     );

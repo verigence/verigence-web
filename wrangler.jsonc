@@ -24,10 +24,16 @@
     "DI_UPSTREAM": "https://di-api-dev.up.railway.app",
     "LOG_PROXY_SUCCESS": "false"
   },
+  "r2_buckets": [
+    {
+      "binding": "APP_RELEASES",
+      "bucket_name": "verigence-app-releases"
+    }
+  ],
   "assets": {
     "directory": "./dist/",
     "binding": "ASSETS",
     "not_found_handling": "single-page-application",
-    "run_worker_first": ["/security/*", "/audit-core/*", "/analytics-api/*", "/di/*"]
+    "run_worker_first": ["/security/*", "/audit-core/*", "/analytics-api/*", "/di/*", "/app-distribution/*"]
   }
 }

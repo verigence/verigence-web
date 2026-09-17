@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 
 import { verigenceLockup } from '../assets/verigenceLockup';
 import {
@@ -38,6 +38,7 @@ function locationRequiredMessage(error: unknown): string {
 
 export default function LoginPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const queryClient = useQueryClient();
   const signInAuthenticated = useSessionStore((state) => state.signInAuthenticated);
   const locationRequest = useRef<ReturnType<typeof getCurrentLocation> | null>(null);
@@ -47,6 +48,10 @@ export default function LoginPage() {
   const [keepSignedIn, setKeepSignedIn] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<LoginErrorState>();
+
+  // Only known first-party destinations may be restored after login. Do not accept
+  // an arbitrary URL/query value here, otherwise the login page becomes an open redirect.
+  const returnTo = searchParams.get('returnTo') === '/apps' ? '/apps' : undefined;
 
   const requireLocation = async () => {
     if (!locationRequest.current) {
@@ -108,7 +113,7 @@ export default function LoginPage() {
         restoreOperationalContextHint(login.accessToken, queryClient);
       }
       setPassword('');
-      navigate(superAdmin ? '/approvals' : '/dashboard', { replace: true });
+      navigate(returnTo ?? (superAdmin ? '/approvals' : '/dashboard'), { replace: true });
 
       // Deliberately start remembered-session setup only after normal authentication has completed
       // and navigation has begun. This adds no latency or availability dependency to today's login.

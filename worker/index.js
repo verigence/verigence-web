@@ -4,6 +4,7 @@ const CAPACITOR_ORIGINS = new Set([
 ]);
 const CORRELATION_HEADER = 'X-Correlation-ID';
 const CORRELATION_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/;
+const APP_RELEASE_METADATA_KEY = 'android/latest.json';
 
 function correlationIdFor(request) {
   const supplied = request.headers.get(CORRELATION_HEADER)?.trim();
@@ -206,6 +207,185 @@ async function warmRuntime(env, correlationId) {
   await Promise.allSettled(requests);
 }
 
+function appDistributionJson(payload, status, correlationId) {
+  return new Response(JSON.stringify(payload), {
+    status,
+    headers: {
+      'Content-Type': 'application/json',
+      'Cache-Control': 'no-store',
+      [CORRELATION_HEADER]: correlationId,
+    },
+  });
+}
+
+async function appDistributionAuthorization(request, env, correlationId) {
+  const authorization = request.headers.get('Authorization')?.trim();
+  if (!authorization?.startsWith('Bearer ')) {
+    return { ok: false, status: 401 };
+  }
+  if (!String(env.SECURITY_UPSTREAM || '').trim()) {
+    return { ok: false, status: 503 };
+  }
+
+  try {
+    // Security owns human account state. The portal intentionally asks only whether the
+    // bearer represents a currently-valid Verigence USER; no role/project/workspace gate
+    // is evaluated here. The refresh endpoint already performs that account-state check.
+    const origin = new URL(request.url).origin;
+    const target = buildSecurityTarget(env.SECURITY_UPSTREAM, `${origin}/security/v1/auth/refresh`);
+    const headers = new Headers({
+      Authorization: authorization,
+      [CORRELATION_HEADER]: correlationId,
+    });
+    const connectingIp = request.headers.get('CF-Connecting-IP')?.trim();
+    if (connectingIp) headers.set('X-Real-IP', connectingIp);
+
+    const response = await fetch(target, {
+      method: 'POST',
+      headers,
+      cache: 'no-store',
+    });
+    if (response.ok) return { ok: true, status: 200 };
+    if (response.status === 401 || response.status === 403) return { ok: false, status: 401 };
+    return { ok: false, status: 503 };
+  } catch (error) {
+    logProxyFailure('app-distribution-auth', request, correlationId, 'APP_DISTRIBUTION_AUTH_UNAVAILABLE', error);
+    return { ok: false, status: 503 };
+  }
+}
+
+function normalizedReleaseMetadata(raw) {
+  if (!raw || typeof raw !== 'object') return null;
+  const objectKey = typeof raw.objectKey === 'string' ? raw.objectKey.trim() : '';
+  if (!objectKey || objectKey === APP_RELEASE_METADATA_KEY) return null;
+  return {
+    available: true,
+    appName: 'Verigence',
+    platform: 'Android',
+    version: typeof raw.version === 'string' ? raw.version : null,
+    build: typeof raw.build === 'string' ? raw.build : null,
+    size: typeof raw.size === 'string' ? raw.size : null,
+    sizeBytes: Number.isFinite(raw.sizeBytes) ? raw.sizeBytes : null,
+    sha256: typeof raw.sha256 === 'string' ? raw.sha256 : null,
+    minAndroid: typeof raw.minAndroid === 'string' ? raw.minAndroid : null,
+    releasedAt: typeof raw.releasedAt === 'string' ? raw.releasedAt : null,
+    packageName: 'com.verigence.app',
+    objectKey,
+  };
+}
+
+async function loadPublishedRelease(env) {
+  if (!env.APP_RELEASES || typeof env.APP_RELEASES.get !== 'function') return null;
+  const object = await env.APP_RELEASES.get(APP_RELEASE_METADATA_KEY);
+  if (!object) return null;
+  try {
+    return normalizedReleaseMetadata(await object.json());
+  } catch {
+    return null;
+  }
+}
+
+function publicReleaseMetadata(metadata) {
+  if (!metadata) {
+    return {
+      available: false,
+      appName: 'Verigence',
+      platform: 'Android',
+      version: null,
+      build: null,
+      size: null,
+      sha256: null,
+      minAndroid: null,
+      releasedAt: null,
+      packageName: 'com.verigence.app',
+    };
+  }
+  const { objectKey: _objectKey, sizeBytes: _sizeBytes, ...publicMetadata } = metadata;
+  return publicMetadata;
+}
+
+async function handleAppDistribution(request, env, correlationId) {
+  if (request.method !== 'GET') {
+    return appDistributionJson({ code: 'METHOD_NOT_ALLOWED', status: 405 }, 405, correlationId);
+  }
+
+  const auth = await appDistributionAuthorization(request, env, correlationId);
+  if (!auth.ok) {
+    const code = auth.status === 401 ? 'AUTH_REQUIRED' : 'APP_DISTRIBUTION_AUTH_UNAVAILABLE';
+    const title = auth.status === 401
+      ? 'A valid Verigence sign-in is required.'
+      : 'Verigence authentication is temporarily unavailable.';
+    return appDistributionJson({ code, title, status: auth.status, correlationId }, auth.status, correlationId);
+  }
+
+  let metadata;
+  try {
+    metadata = await loadPublishedRelease(env);
+  } catch (error) {
+    logProxyFailure('app-distribution', request, correlationId, 'ANDROID_RELEASE_METADATA_UNAVAILABLE', error);
+    return appDistributionJson({
+      code: 'ANDROID_RELEASE_UNAVAILABLE',
+      title: 'Android release information is temporarily unavailable.',
+      status: 502,
+      correlationId,
+    }, 502, correlationId);
+  }
+
+  const url = new URL(request.url);
+  if (url.pathname === '/app-distribution/metadata') {
+    return appDistributionJson(publicReleaseMetadata(metadata), 200, correlationId);
+  }
+
+  if (url.pathname !== '/app-distribution/latest') {
+    return appDistributionJson({ code: 'NOT_FOUND', status: 404 }, 404, correlationId);
+  }
+
+  if (!metadata || !env.APP_RELEASES || typeof env.APP_RELEASES.get !== 'function') {
+    return appDistributionJson({
+      code: 'ANDROID_RELEASE_NOT_PUBLISHED',
+      title: 'No Android release has been published to the Verigence App Portal yet.',
+      status: 503,
+      correlationId,
+    }, 503, correlationId);
+  }
+
+  try {
+    const object = await env.APP_RELEASES.get(metadata.objectKey);
+    if (!object?.body) {
+      return appDistributionJson({
+        code: 'ANDROID_RELEASE_UNAVAILABLE',
+        title: 'The current Android release could not be retrieved.',
+        status: 502,
+        correlationId,
+      }, 502, correlationId);
+    }
+
+    const safeVersion = metadata.version ? `-${metadata.version.replace(/[^A-Za-z0-9._-]/g, '-')}` : '';
+    const filename = `Verigence${safeVersion}.apk`;
+    const headers = new Headers({
+      'Content-Type': 'application/vnd.android.package-archive',
+      'Content-Disposition': `attachment; filename="${filename}"`,
+      'Cache-Control': 'private, no-store',
+      'X-Content-Type-Options': 'nosniff',
+      'X-Verigence-Filename': filename,
+      [CORRELATION_HEADER]: correlationId,
+    });
+    const size = Number.isFinite(object.size) ? object.size : metadata.sizeBytes;
+    if (Number.isFinite(size)) headers.set('Content-Length', String(size));
+    if (metadata.sha256) headers.set('X-Verigence-SHA256', metadata.sha256);
+
+    return new Response(object.body, { status: 200, headers });
+  } catch (error) {
+    logProxyFailure('app-distribution', request, correlationId, 'ANDROID_RELEASE_UNAVAILABLE', error);
+    return appDistributionJson({
+      code: 'ANDROID_RELEASE_UNAVAILABLE',
+      title: 'The current Android release could not be retrieved.',
+      status: 502,
+      correlationId,
+    }, 502, correlationId);
+  }
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -220,6 +400,10 @@ export default {
           [CORRELATION_HEADER]: correlationId,
         },
       });
+    }
+
+    if (url.pathname === '/app-distribution' || url.pathname.startsWith('/app-distribution/')) {
+      return handleAppDistribution(request, env, correlationId);
     }
 
     if (url.pathname.startsWith('/security/')) {

@@ -1,0 +1,266 @@
+name: Publish Verigence Android App
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_notes:
+        description: 'Short release note shown in release evidence'
+        required: false
+        type: string
+  # Bootstrap the private distribution bucket and prove the publisher while this
+  # feature is under review. After merge, normal publication is workflow_dispatch.
+  push:
+    branches:
+      - feature/verigence-app-portal
+    paths:
+      - '.github/workflows/publish-android-app.yml'
+
+concurrency:
+  group: publish-verigence-android
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Build, sign, verify and publish Android release
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    env:
+      VITE_SECURITY_BASE_URL: https://verigence-web-dev.jbrconsulting-it.workers.dev
+      VITE_AUDIT_CORE_BASE_URL: ""
+      VITE_AUDIT_CORE_PROXY_BASE_URL: https://verigence-web-dev.jbrconsulting-it.workers.dev/audit-core
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      ANDROID_RELEASE_STORE_PASSWORD: ${{ secrets.ANDROID_RELEASE_STORE_PASSWORD }}
+      ANDROID_RELEASE_KEY_PASSWORD: ${{ secrets.ANDROID_RELEASE_KEY_PASSWORD }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Validate required publication secrets
+        shell: bash
+        run: |
+          set -euo pipefail
+          missing=0
+          for name in CLOUDFLARE_API_TOKEN CLOUDFLARE_ACCOUNT_ID ANDROID_RELEASE_STORE_PASSWORD ANDROID_RELEASE_KEY_PASSWORD; do
+            if [ -z "${!name:-}" ]; then
+              echo "::error::Required GitHub secret $name is not configured."
+              missing=1
+            fi
+          done
+          if [ -z "${{ secrets.ANDROID_RELEASE_KEYSTORE_BASE64 }}" ]; then
+            echo '::error::Required GitHub secret ANDROID_RELEASE_KEYSTORE_BASE64 is not configured.'
+            missing=1
+          fi
+          test "$missing" -eq 0
+
+      - name: Build native Web assets
+        run: npm run build:native:dev
+
+      - name: Generate Android project and approved branding
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx cap add android
+          npx cap sync android
+          node scripts/configure-native.mjs android
+          node scripts/finalize-native-branding.mjs android
+          node scripts/stabilize-native-branding.mjs
+
+          grep -q 'M64,136' android/app/src/main/res/drawable-v24/ic_launcher_foreground.xml
+          if grep -q 'M66.94,46.02\|M32,64' android/app/src/main/res/drawable-v24/ic_launcher_foreground.xml; then
+            echo '::error::Stock Android launcher artwork remains in drawable-v24.'
+            exit 1
+          fi
+          echo 'ANDROID_RELEASE_BRANDING=PASS'
+
+      - name: Assign release version and build number
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP_VERSION="$(node -p "require('./package.json').version")"
+          VERSION_CODE="$GITHUB_RUN_NUMBER"
+          export APP_VERSION VERSION_CODE
+
+          node <<'NODE'
+          const fs = require('node:fs');
+          const path = 'android/app/build.gradle';
+          let text = fs.readFileSync(path, 'utf8');
+          const versionCode = process.env.VERSION_CODE;
+          const versionName = process.env.APP_VERSION;
+          if (!/versionCode\s+\d+/.test(text) || !/versionName\s+"[^"]+"/.test(text)) {
+            throw new Error('Generated Android build.gradle version fields were not found.');
+          }
+          text = text.replace(/versionCode\s+\d+/, `versionCode ${versionCode}`);
+          text = text.replace(/versionName\s+"[^"]+"/, `versionName "${versionName}"`);
+          fs.writeFileSync(path, text);
+          NODE
+
+          echo "APP_VERSION=$APP_VERSION" >> "$GITHUB_ENV"
+          echo "VERSION_CODE=$VERSION_CODE" >> "$GITHUB_ENV"
+          echo "ANDROID_VERSION=$APP_VERSION+$VERSION_CODE"
+
+      - name: Build unsigned Android release
+        working-directory: android
+        shell: bash
+        run: |
+          set -euo pipefail
+          chmod +x gradlew
+          ./gradlew lintRelease assembleRelease --stacktrace
+
+      - name: Restore release signing key
+        shell: bash
+        run: |
+          set -euo pipefail
+          KEYSTORE=/tmp/verigence-release.jks
+          printf '%s' '${{ secrets.ANDROID_RELEASE_KEYSTORE_BASE64 }}' | base64 --decode > "$KEYSTORE"
+          test -s "$KEYSTORE"
+          chmod 600 "$KEYSTORE"
+          echo "KEYSTORE=$KEYSTORE" >> "$GITHUB_ENV"
+
+      - name: Zipalign, sign and verify release APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          UNSIGNED='android/app/build/outputs/apk/release/app-release-unsigned.apk'
+          ALIGNED='/tmp/Verigence-aligned.apk'
+          SIGNED="/tmp/Verigence-${APP_VERSION}-${VERSION_CODE}.apk"
+          test -s "$UNSIGNED"
+
+          BUILD_TOOLS="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n 1)"
+          test -x "$BUILD_TOOLS/zipalign"
+          test -x "$BUILD_TOOLS/apksigner"
+
+          "$BUILD_TOOLS/zipalign" -f -v 4 "$UNSIGNED" "$ALIGNED"
+          "$BUILD_TOOLS/apksigner" sign \
+            --ks "$KEYSTORE" \
+            --ks-key-alias verigence-release \
+            --ks-pass env:ANDROID_RELEASE_STORE_PASSWORD \
+            --key-pass env:ANDROID_RELEASE_KEY_PASSWORD \
+            --v1-signing-enabled true \
+            --v2-signing-enabled true \
+            --v3-signing-enabled true \
+            --out "$SIGNED" \
+            "$ALIGNED"
+
+          "$BUILD_TOOLS/apksigner" verify --verbose --print-certs "$SIGNED" | tee /tmp/apksigner-verification.txt
+          grep -q 'Verified using v2 scheme (APK Signature Scheme v2): true' /tmp/apksigner-verification.txt
+          grep -q 'Verified using v3 scheme (APK Signature Scheme v3): true' /tmp/apksigner-verification.txt
+          unzip -t "$SIGNED" >/dev/null
+
+          unzip -p "$SIGNED" res/drawable-v24/ic_launcher_foreground.xml | strings > /tmp/release-v24-foreground.txt
+          grep -q 'M64,136' /tmp/release-v24-foreground.txt
+          if grep -q 'M66.94,46.02\|M32,64' /tmp/release-v24-foreground.txt; then
+            echo '::error::Signed release contains stock Android launcher artwork.'
+            exit 1
+          fi
+
+          SHA256="$(sha256sum "$SIGNED" | awk '{print $1}')"
+          SIZE_BYTES="$(stat -c '%s' "$SIGNED")"
+          SIZE_MB="$(awk -v bytes="$SIZE_BYTES" 'BEGIN { printf "%.1f MB", bytes / 1048576 }')"
+          MIN_SDK="$(sed -nE 's/^[[:space:]]*minSdkVersion[[:space:]]*=[[:space:]]*([0-9]+).*/\1/p' android/variables.gradle | head -n 1)"
+          [ -n "$MIN_SDK" ] || MIN_SDK='23'
+
+          echo "SIGNED_APK=$SIGNED" >> "$GITHUB_ENV"
+          echo "SHA256=$SHA256" >> "$GITHUB_ENV"
+          echo "SIZE_BYTES=$SIZE_BYTES" >> "$GITHUB_ENV"
+          echo "SIZE_MB=$SIZE_MB" >> "$GITHUB_ENV"
+          echo "MIN_SDK=$MIN_SDK" >> "$GITHUB_ENV"
+          echo "SIGNED_ANDROID_RELEASE=PASS sha256=$SHA256 size=$SIZE_BYTES minSdk=$MIN_SDK"
+
+      - name: Create release metadata
+        shell: bash
+        env:
+          RELEASE_NOTES: ${{ inputs.release_notes }}
+        run: |
+          set -euo pipefail
+          OBJECT_KEY="android/releases/Verigence-${APP_VERSION}-${VERSION_CODE}.apk"
+          RELEASED_AT="$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+          export OBJECT_KEY RELEASED_AT RELEASE_NOTES
+          node <<'NODE'
+          const fs = require('node:fs');
+          const metadata = {
+            version: process.env.APP_VERSION,
+            build: process.env.VERSION_CODE,
+            size: process.env.SIZE_MB,
+            sizeBytes: Number(process.env.SIZE_BYTES),
+            sha256: process.env.SHA256,
+            minAndroid: `Android API ${process.env.MIN_SDK}+`,
+            releasedAt: process.env.RELEASED_AT,
+            objectKey: process.env.OBJECT_KEY,
+            packageName: 'com.verigence.app',
+            sourceSha: process.env.GITHUB_SHA,
+            releaseNotes: process.env.RELEASE_NOTES || null,
+          };
+          fs.writeFileSync('/tmp/latest.json', `${JSON.stringify(metadata, null, 2)}\n`);
+          NODE
+          cat /tmp/latest.json
+          echo "OBJECT_KEY=$OBJECT_KEY" >> "$GITHUB_ENV"
+
+      - name: Ensure private Verigence release bucket
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx wrangler r2 bucket list > /tmp/r2-buckets.txt
+          if grep -Fq 'verigence-app-releases' /tmp/r2-buckets.txt; then
+            echo 'VERIGENCE_APP_RELEASE_BUCKET=EXISTS'
+          else
+            npx wrangler r2 bucket create verigence-app-releases
+            npx wrangler r2 bucket list > /tmp/r2-buckets-after.txt
+            grep -Fq 'verigence-app-releases' /tmp/r2-buckets-after.txt
+            echo 'VERIGENCE_APP_RELEASE_BUCKET=CREATED'
+          fi
+
+      - name: Publish APK and latest metadata to private R2
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx wrangler r2 object put "verigence-app-releases/$OBJECT_KEY" \
+            --file "$SIGNED_APK" \
+            --content-type application/vnd.android.package-archive \
+            --remote
+          npx wrangler r2 object put 'verigence-app-releases/android/latest.json' \
+            --file /tmp/latest.json \
+            --content-type application/json \
+            --remote
+
+          npx wrangler r2 object get 'verigence-app-releases/android/latest.json' \
+            --file /tmp/published-latest.json \
+            --remote
+          cmp /tmp/latest.json /tmp/published-latest.json
+          echo 'VERIGENCE_ANDROID_R2_PUBLICATION=PASS'
+
+      - name: Upload signed release evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: verigence-android-published-${{ env.APP_VERSION }}-${{ env.VERSION_CODE }}
+          path: |
+            ${{ env.SIGNED_APK }}
+            /tmp/latest.json
+            /tmp/apksigner-verification.txt
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Remove release signing key
+        if: always()
+        shell: bash
+        run: |
+          if [ -n "${KEYSTORE:-}" ] && [ -f "$KEYSTORE" ]; then
+            shred -u "$KEYSTORE" 2>/dev/null || rm -f "$KEYSTORE"
+          fi

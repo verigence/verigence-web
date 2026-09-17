@@ -291,9 +291,12 @@ export function taskAction(
   taskId: string,
   action: 'claim' | 'start' | 'complete',
   accessToken?: string,
-  // PC_VERIFY_UNRECOGNIZED_DOCUMENT only today: 'CORRECT' (dismiss) or
-  // 'INCORRECT' (soft-deletes the document) -- required by the backend for
-  // that one task type, ignored (and omitted) for every other completion.
+  // PC_VERIFY_UNRECOGNIZED_DOCUMENT: 'CORRECT' (dismiss) or 'INCORRECT'
+  // (soft-deletes the document). WRONG_DOCUMENT_REVIEW reuses the same
+  // vocabulary: 'CORRECT' (false match, release the hold) or 'INCORRECT'
+  // (genuinely the wrong document, void it and ask for a reupload).
+  // Required by the backend for these two task types, ignored (and
+  // omitted) for every other completion.
   outcome?: 'CORRECT' | 'INCORRECT',
 ) {
   const headers = action === 'complete' ? { 'Idempotency-Key': crypto.randomUUID() } : undefined;

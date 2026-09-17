@@ -33,6 +33,7 @@ const SignupPage = lazy(() => import('./pages/SignupPage'));
 const ForgotPasswordPage = lazy(() => import('./pages/ForgotPasswordPage'));
 const TermsPage = lazy(() => import('./pages/TermsPage'));
 const PrivacyPage = lazy(() => import('./pages/PrivacyPage'));
+const AppDownloadPage = lazy(() => import('./pages/AppDownloadPage'));
 const ApprovalQueuePage = lazy(() => import('./pages/ApprovalQueuePage'));
 const AdminUsersPage = lazy(() => import('./pages/AdminUsersPage'));
 const AdminConfigurationPage = lazy(() => import('./pages/AdminConfigurationPage'));
@@ -148,6 +149,15 @@ function Authenticated({ children }: { children: ReactNode }) {
   return children;
 }
 
+function AppDistributionRoute() {
+  const signedIn = useSessionStore((state) => state.signedIn);
+  const accessToken = useSessionStore((state) => state.accessToken);
+  if (!signedIn || !accessToken) return <Navigate to="/login?returnTo=%2Fapps" replace />;
+  // Intentionally no role, project, workspace, or operating-persona gate here.
+  // Any authenticated Verigence USER may download an approved mobile release.
+  return <AppDownloadPage />;
+}
+
 function PrivatePage({ children }: { children: ReactNode }) {
   return <Authenticated><AppShell>{children}</AppShell></Authenticated>;
 }
@@ -248,6 +258,8 @@ export default function App() {
               <Route path="/forgot-password" element={<ForgotPasswordPage />} />
               <Route path="/terms" element={<TermsPage />} />
               <Route path="/privacy" element={<PrivacyPage />} />
+              <Route path="/apps" element={<AppDistributionRoute />} />
+              <Route path="/download" element={<Navigate to="/apps" replace />} />
               <Route path="/dashboard" element={<DashboardEntry />} />
               {/* Dedicated "Bookings & Deliveries" sidebar destination — renders the
                   Work Queue table directly for every operating role (PC, TL, PM),

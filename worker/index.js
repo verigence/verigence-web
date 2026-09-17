@@ -206,6 +206,144 @@ async function warmRuntime(env, correlationId) {
   await Promise.allSettled(requests);
 }
 
+function appDistributionJson(payload, status, correlationId) {
+  return new Response(JSON.stringify(payload), {
+    status,
+    headers: {
+      'Content-Type': 'application/json',
+      'Cache-Control': 'no-store',
+      [CORRELATION_HEADER]: correlationId,
+    },
+  });
+}
+
+async function appDistributionAuthorization(request, env, correlationId) {
+  const authorization = request.headers.get('Authorization')?.trim();
+  if (!authorization?.startsWith('Bearer ')) {
+    return { ok: false, status: 401 };
+  }
+  if (!String(env.SECURITY_UPSTREAM || '').trim()) {
+    return { ok: false, status: 503 };
+  }
+
+  try {
+    // Security already owns USER authentication and account-state validation. Reuse its
+    // existing refresh boundary strictly as a token-validity check instead of duplicating
+    // JWT verification logic or introducing a role/project requirement in this Worker.
+    const origin = new URL(request.url).origin;
+    const target = buildSecurityTarget(env.SECURITY_UPSTREAM, `${origin}/security/v1/auth/refresh`);
+    const headers = new Headers({
+      Authorization: authorization,
+      [CORRELATION_HEADER]: correlationId,
+    });
+    const connectingIp = request.headers.get('CF-Connecting-IP')?.trim();
+    if (connectingIp) headers.set('X-Real-IP', connectingIp);
+
+    const response = await fetch(target, {
+      method: 'POST',
+      headers,
+      cache: 'no-store',
+    });
+    if (response.ok) return { ok: true, status: 200 };
+    if (response.status === 401 || response.status === 403) return { ok: false, status: 401 };
+    return { ok: false, status: 503 };
+  } catch (error) {
+    logProxyFailure('app-distribution-auth', request, correlationId, 'APP_DISTRIBUTION_AUTH_UNAVAILABLE', error);
+    return { ok: false, status: 503 };
+  }
+}
+
+function appDistributionMetadata(env) {
+  const apkUrl = String(env.ANDROID_APK_URL || '').trim();
+  return {
+    available: Boolean(apkUrl),
+    appName: 'Verigence',
+    platform: 'Android',
+    version: String(env.ANDROID_APP_VERSION || '').trim() || null,
+    build: String(env.ANDROID_APP_BUILD || '').trim() || null,
+    size: String(env.ANDROID_APP_SIZE || '').trim() || null,
+    sha256: String(env.ANDROID_APP_SHA256 || '').trim() || null,
+    minAndroid: String(env.ANDROID_MIN_ANDROID || '').trim() || null,
+    releasedAt: String(env.ANDROID_APP_RELEASED_AT || '').trim() || null,
+    packageName: 'com.verigence.app',
+  };
+}
+
+async function handleAppDistribution(request, env, correlationId) {
+  if (request.method !== 'GET') {
+    return appDistributionJson({ code: 'METHOD_NOT_ALLOWED', status: 405 }, 405, correlationId);
+  }
+
+  const auth = await appDistributionAuthorization(request, env, correlationId);
+  if (!auth.ok) {
+    const code = auth.status === 401 ? 'AUTH_REQUIRED' : 'APP_DISTRIBUTION_AUTH_UNAVAILABLE';
+    const title = auth.status === 401
+      ? 'A valid Verigence sign-in is required.'
+      : 'Verigence authentication is temporarily unavailable.';
+    return appDistributionJson({ code, title, status: auth.status, correlationId }, auth.status, correlationId);
+  }
+
+  const url = new URL(request.url);
+  if (url.pathname === '/app-distribution/metadata') {
+    return appDistributionJson(appDistributionMetadata(env), 200, correlationId);
+  }
+
+  if (url.pathname !== '/app-distribution/latest') {
+    return appDistributionJson({ code: 'NOT_FOUND', status: 404 }, 404, correlationId);
+  }
+
+  const apkUrl = String(env.ANDROID_APK_URL || '').trim();
+  if (!apkUrl) {
+    return appDistributionJson({
+      code: 'ANDROID_RELEASE_NOT_PUBLISHED',
+      title: 'No Android release has been published to the Verigence App Portal yet.',
+      status: 503,
+      correlationId,
+    }, 503, correlationId);
+  }
+
+  try {
+    const upstream = await fetch(apkUrl, {
+      method: 'GET',
+      cache: 'no-store',
+      redirect: 'follow',
+    });
+    if (!upstream.ok || !upstream.body) {
+      return appDistributionJson({
+        code: 'ANDROID_RELEASE_UNAVAILABLE',
+        title: 'The current Android release could not be retrieved.',
+        status: 502,
+        correlationId,
+      }, 502, correlationId);
+    }
+
+    const metadata = appDistributionMetadata(env);
+    const safeVersion = metadata.version ? `-${metadata.version.replace(/[^A-Za-z0-9._-]/g, '-')}` : '';
+    const filename = `Verigence${safeVersion}.apk`;
+    const headers = new Headers({
+      'Content-Type': 'application/vnd.android.package-archive',
+      'Content-Disposition': `attachment; filename="${filename}"`,
+      'Cache-Control': 'private, no-store',
+      'X-Content-Type-Options': 'nosniff',
+      'X-Verigence-Filename': filename,
+      [CORRELATION_HEADER]: correlationId,
+    });
+    const contentLength = upstream.headers.get('Content-Length');
+    if (contentLength) headers.set('Content-Length', contentLength);
+    if (metadata.sha256) headers.set('X-Verigence-SHA256', metadata.sha256);
+
+    return new Response(upstream.body, { status: 200, headers });
+  } catch (error) {
+    logProxyFailure('app-distribution', request, correlationId, 'ANDROID_RELEASE_UNAVAILABLE', error);
+    return appDistributionJson({
+      code: 'ANDROID_RELEASE_UNAVAILABLE',
+      title: 'The current Android release could not be retrieved.',
+      status: 502,
+      correlationId,
+    }, 502, correlationId);
+  }
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -220,6 +358,10 @@ export default {
           [CORRELATION_HEADER]: correlationId,
         },
       });
+    }
+
+    if (url.pathname === '/app-distribution' || url.pathname.startsWith('/app-distribution/')) {
+      return handleAppDistribution(request, env, correlationId);
     }
 
     if (url.pathname.startsWith('/security/')) {

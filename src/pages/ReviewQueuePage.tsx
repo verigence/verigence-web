@@ -15,6 +15,7 @@ import {
   type Uc03QueueSubjectKind,
   type Uc03RejectionCategory,
   type Uc03ReviewQueueItem,
+  type Uc03ReviewQueueSummary,
 } from '../services/audit-core/uc03Audit';
 import { useProjectContextStore } from '../store/projectContextStore';
 import { useSessionStore } from '../store/sessionStore';
@@ -43,12 +44,45 @@ const CLASS_LABEL: Record<Uc03FindingClass, string> = {
 // entirely -- it never helped anyone pick what to work on, per direct
 // feedback that it "won't make sense" as a filter here.
 const CLASS_FILTERS: { key: 'ALL' | Uc03FindingClass | 'MANUAL_VERIFICATION'; label: string }[] = [
-  { key: 'ALL', label: 'Everything' },
+  { key: 'ALL', label: 'All' },
   { key: 'DOCUMENT_GAP', label: 'Documents' },
   { key: 'DATA_GAP', label: 'Data' },
   { key: 'VIOLATION', label: 'Violations' },
   { key: 'MANUAL_VERIFICATION', label: 'Manual Verification' },
 ];
+
+// Each chip's count, computed from the summary endpoint -- always the full,
+// unfiltered total for that class (not scoped to the currently selected
+// scope tab), matching what the revq-kpis "In my scope" tile already means.
+function chipCount(summary: Uc03ReviewQueueSummary | undefined, key: (typeof CLASS_FILTERS)[number]['key']): number | undefined {
+  if (!summary) return undefined;
+  if (key === 'ALL') return summary.total;
+  if (key === 'MANUAL_VERIFICATION') return summary.manualVerification;
+  return summary.byClass[key] ?? 0;
+}
+
+// What actually closes this item, and how -- the question raised directly:
+// "how the tasks will be closed.. what is trigger to close the task". Mirrors
+// the exact same conditions the action buttons below are gated on, so the
+// hint never claims a mechanism the card doesn't actually offer.
+function closesWhenLabel(item: Uc03ReviewQueueItem, opts: { isTask: boolean; isManualVerification: boolean; isAdjudicated: boolean; canResolve: boolean }): string {
+  const stem = ruleKeyStem(item.ruleKey);
+  if (opts.isTask) {
+    if (item.category === 'PC_VERIFY_UNRECOGNIZED_DOCUMENT') return 'Closes when you choose Correct or Incorrect, below.';
+    if (item.category === 'AUTO_SELF_SERVE') {
+      return stem === 'MODEL_NOT_IDENTIFIED'
+        ? 'Closes automatically once a vehicle SKU is selected.'
+        : 'Closes automatically once the underlying gap is fixed.';
+    }
+    return 'Closes when you mark it done, below.';
+  }
+  if (opts.isManualVerification) return 'Closes automatically once every field is confirmed or corrected on Journey Documents.';
+  if (opts.isAdjudicated) return 'Closes when a Team Lead or PM records Confirm Breach or Mark False Positive.';
+  if (stem === 'MODEL_NOT_IDENTIFIED') return 'Closes automatically once a vehicle SKU is selected.';
+  if (item.findingClass === 'DOCUMENT_GAP') return 'Closes automatically once the document is uploaded and re-verified.';
+  if (opts.canResolve) return 'Closes when you mark it fixed, below.';
+  return 'Closes automatically once the underlying issue is resolved.';
+}
 
 // A self-serve gap's ruleKey stem picks a more specific CTA than the
 // generic "Review documents" link -- e.g. MODEL_NOT_IDENTIFIED sends a PC
@@ -301,7 +335,10 @@ export default function ReviewQueuePage() {
 
   // Same item card either way -- grouping by Journey only changes how
   // items are bucketed above the list, never the card itself or its actions.
-  const renderItem = (item: Uc03ReviewQueueItem) => {
+  // `grouped` is set only in the Journey-grouped layout below, where the
+  // section header already carries customer/booking reference -- repeating
+  // them on every card underneath was the exact duplication reported.
+  const renderItem = (item: Uc03ReviewQueueItem, grouped = false) => {
     const sla = slaLabel(item);
     const escalated = escalationLabel(item);
     const isTask = item.itemKind === 'EXECUTION_TASK';
@@ -310,6 +347,7 @@ export default function ReviewQueuePage() {
     const canAccept = item.permittedActions.includes('CONFIRM_BREACH');
     const canResolve = item.permittedActions.includes('RESOLVE');
     const open = decision?.flagId === item.flagId;
+    const closesWhen = closesWhenLabel(item, { isTask, isManualVerification, isAdjudicated, canResolve });
     return (
       <li
         key={item.flagId}
@@ -343,6 +381,11 @@ export default function ReviewQueuePage() {
               <span>{item.outletName || 'Outlet'}</span>
               <span>{item.businessDate ? new Date(item.businessDate).toLocaleDateString('en-IN') : '—'}</span>
             </>
+          ) : grouped ? (
+            // Customer name and booking reference are already on the
+            // journey group's own header above -- only what it doesn't
+            // carry (dealer/outlet) belongs here too.
+            <span>{item.outletName || item.dealerName || '—'}</span>
           ) : (
             <>
               <span>{item.customerName || 'Customer'}</span>
@@ -352,6 +395,8 @@ export default function ReviewQueuePage() {
           )}
           {item.originKind === 'MACHINE' && <span>System check</span>}
         </div>
+
+        <p className="revq-item__closes">{closesWhen}</p>
 
         <div className="revq-item__actions">
           {item.subjectKind === 'JOURNEY' && (
@@ -680,16 +725,20 @@ export default function ReviewQueuePage() {
 
       <div className="revq-filters">
         <div className="revq-chips" role="group" aria-label="Type">
-          {CLASS_FILTERS.map((f) => (
-            <button
-              key={f.key}
-              type="button"
-              className={classFilter === f.key ? 'is-active' : ''}
-              onClick={() => setClassFilter(f.key)}
-            >
-              {f.label}
-            </button>
-          ))}
+          {CLASS_FILTERS.map((f) => {
+            const count = chipCount(summary, f.key);
+            return (
+              <button
+                key={f.key}
+                type="button"
+                className={classFilter === f.key ? 'is-active' : ''}
+                onClick={() => setClassFilter(f.key)}
+              >
+                {f.label}
+                {count !== undefined && <span className="revq-chip__count">{count}</span>}
+              </button>
+            );
+          })}
         </div>
       </div>
 
@@ -730,12 +779,12 @@ export default function ReviewQueuePage() {
                 <span className="revq-group__count">{group.items.length} item{group.items.length === 1 ? '' : 's'}</span>
                 {group.items.some((i) => i.overdue) && <span className="revq-group__overdue">Overdue</span>}
               </header>
-              <ul className="revq-list">{group.items.map(renderItem)}</ul>
+              <ul className="revq-list">{group.items.map((item) => renderItem(item, true))}</ul>
             </section>
           ))}
         </div>
       ) : (
-        <ul className="revq-list">{items.map(renderItem)}</ul>
+        <ul className="revq-list">{items.map((item) => renderItem(item))}</ul>
       )}
     </div>
   );

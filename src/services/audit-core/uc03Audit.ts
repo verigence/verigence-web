@@ -303,6 +303,10 @@ export interface Uc03ReviewQueueSummary {
   byClass: Record<string, number>;
   byStage: Record<string, number>;
   byKind: Record<string, number>;
+  // A rule-key-based subset of byClass.DATA_GAP, not its own findingClass --
+  // computed server-side (not derivable from byClass alone) so it stays
+  // accurate regardless of which class filter the client currently has active.
+  manualVerification: number;
 }
 
 function tenantBase(tenantId: string): string {

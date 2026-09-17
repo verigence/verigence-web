@@ -111,10 +111,13 @@
 }
 .revq-chips { display: flex; gap: 6px; flex-wrap: wrap; }
 .revq-chips button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   border: 1px solid var(--v-line, #dbe6ee);
   background: #fff;
   border-radius: 999px;
-  padding: 5px 12px;
+  padding: 5px 8px 5px 12px;
   font-size: 13px;
   color: var(--v-slate, #31506e);
   cursor: pointer;
@@ -122,6 +125,24 @@
 .revq-chips button.is-active {
   background: var(--revq-accent);
   border-color: var(--revq-accent);
+  color: #fff;
+}
+/* Per-classification count, right on the same control that filters by it --
+   "give more counters or else don't give it" -- one clickable object, not a
+   separate KPI tile duplicating what the chip row already means. */
+.revq-chip__count {
+  min-width: 18px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  background: var(--surface-muted, #eef2f8);
+  color: var(--v-slate, #31506e);
+  text-align: center;
+}
+.revq-chips button.is-active .revq-chip__count {
+  background: rgba(255, 255, 255, 0.25);
   color: #fff;
 }
 
@@ -261,6 +282,16 @@
   content: '·';
   position: absolute;
   left: -9px;
+}
+
+/* "What is trigger to close the task" -- answered inline on every card
+   instead of left implicit. Deliberately quiet (not another tag/badge) --
+   it's a fact about the item, not something that needs attention. */
+.revq-item__closes {
+  margin: 0;
+  font-size: 12px;
+  font-style: italic;
+  color: var(--v-muted, #6e879b);
 }
 
 .revq-item__actions {

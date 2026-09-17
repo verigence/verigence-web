@@ -22,11 +22,12 @@ import { useSessionStore } from '../store/sessionStore';
 import '../styles/uc03-review-queue.css';
 
 // A Task's own task_type (category on an EXECUTION_TASK row) -- a human
-// label for each of the two kinds this session's backend ever produces.
+// label for each kind the backend produces.
 const TASK_LABEL: Record<string, string> = {
   AUTO_SELF_SERVE: 'Self-serve gap',
   TL_TAKE_ACTION: 'Take Action requested',
   PC_VERIFY_UNRECOGNIZED_DOCUMENT: 'Verify document',
+  FIELD_CORRECTION_REVIEW: 'Review proposed field correction',
 };
 
 const CLASS_LABEL: Record<Uc03FindingClass, string> = {

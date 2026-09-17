@@ -93,24 +93,27 @@ export interface ReviewFieldCorrection {
 
 export type FindingResolutionMode = 'SELF_SERVICE' | 'ADJUDICATED';
 
-export interface FieldCorrectionFlag {
-  flagId: string;
-  stage: 'BOOKING' | 'DELIVERY';
-  status: string;
-  severity: string;
-  findingClass: string | null;
-  resolutionMode: FindingResolutionMode | null;
-  ownerRoleCode: string | null;
-  version: number;
+export interface FieldCorrectionResult {
+  documentId: string;
+  fieldKey: string;
+  // true: applied immediately (<90% confidence), nothing pending -- no
+  // finding, no task. false: a FIELD_CORRECTION_REVIEW task was raised on
+  // the Task Queue instead (taskId set); the value isn't written until a
+  // Team Lead completes it there.
+  applied: boolean;
+  taskId: string | null;
 }
 
 /**
  * One endpoint, one shape, for correcting a single DI-extracted field --
  * behavior branches server-side on confidenceScore (see uc03_document_
  * field_corrections.py's module docstring):
- *   <90% (or missing): applied immediately, informational-only finding.
- *   >=90%: NOT applied yet -- a Team-Lead-adjudicated finding is raised;
- *          remarks are required in this case (validated server-side too).
+ *   <90% (or missing): applied immediately, no finding or task raised --
+ *          nothing left pending, just the module's own audit-trail record.
+ *   >=90%: NOT applied yet -- a Team-Lead-owned Task Queue item is raised
+ *          instead; remarks are required in this case (validated
+ *          server-side too). This is a Task Queue item, not a
+ *          rule-classified audit finding.
  */
 export interface FieldCorrectionCommand {
   stage: 'BOOKING' | 'DELIVERY';
@@ -382,8 +385,8 @@ export async function submitFieldCorrection(
   journeyId: string,
   command: FieldCorrectionCommand,
   accessToken?: string,
-): Promise<FieldCorrectionFlag> {
-  const body = await auditCoreRequest<{ flag: Record<string, unknown> }>(
+): Promise<FieldCorrectionResult> {
+  return auditCoreRequest<FieldCorrectionResult>(
     `/v2/tenants/${encodeURIComponent(tenantId)}/journeys/${encodeURIComponent(journeyId)}/uc03/documents/${encodeURIComponent(command.documentId)}/field-corrections`,
     {
       method: 'POST',
@@ -396,17 +399,6 @@ export async function submitFieldCorrection(
       cache: 'no-store',
     },
   );
-  const flag = body.flag;
-  return {
-    flagId: String(flag.flagId),
-    stage: flag.stage as 'BOOKING' | 'DELIVERY',
-    status: String(flag.status),
-    severity: String(flag.severity),
-    findingClass: (flag.findingClass as string | null) ?? null,
-    resolutionMode: (flag.resolutionMode as FindingResolutionMode | null) ?? null,
-    ownerRoleCode: (flag.ownerRoleCode as string | null) ?? null,
-    version: Number(flag.version),
-  };
 }
 
 export async function getReviewDocumentContentV2(

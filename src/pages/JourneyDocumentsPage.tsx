@@ -85,10 +85,10 @@ type LocalCorrectionState =
  * One field, one correction action. Every field -- whatever its confidence
  * -- gets the same inline form; what differs is server-side behavior (see
  * submitFieldCorrection's doc comment): a <90% save applies immediately and
- * closes on its own, a >=90% save raises a Team-Lead-adjudicated proposal
- * (the finding TL sees carries the old value, the new value, and this
- * document's own name/type already) and stays visibly pending until someone
- * acts on it.
+ * closes on its own, a >=90% save raises a Task Queue item owned by a Team
+ * Lead (carrying the old value, the new value, and this document's own
+ * name/type already) and stays visibly pending until someone completes or
+ * cancels it there.
  */
 function FieldCorrectionRow({
   stage,

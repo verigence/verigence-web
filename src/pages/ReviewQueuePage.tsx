@@ -29,6 +29,9 @@ const TASK_LABEL: Record<string, string> = {
   PC_VERIFY_UNRECOGNIZED_DOCUMENT: 'Verify document',
   FIELD_CORRECTION_REVIEW: 'Review proposed field correction',
   MANUAL_VERIFICATION_REVIEW: 'Verify low-confidence fields',
+  DUPLICATE_RECEIPT_NOTICE: "Duplicate receipt -- won't be counted",
+  WRONG_DOCUMENT_REVIEW: 'Verify customer name mismatch',
+  WRONG_DOCUMENT_DEALER_NOTICE: 'Receipt dealer name mismatch',
 };
 
 const CLASS_LABEL: Record<Uc03FindingClass, string> = {
@@ -71,6 +74,7 @@ function closesWhenLabel(item: Uc03ReviewQueueItem, opts: { isTask: boolean; isM
   const stem = ruleKeyStem(item.ruleKey);
   if (opts.isTask) {
     if (item.category === 'PC_VERIFY_UNRECOGNIZED_DOCUMENT') return 'Closes when you choose Correct or Incorrect, below.';
+    if (item.category === 'WRONG_DOCUMENT_REVIEW') return 'Closes when you choose Correct or Incorrect, below.';
     if (item.category === 'AUTO_SELF_SERVE') {
       return stem === 'MODEL_NOT_IDENTIFIED'
         ? 'Closes automatically once a vehicle SKU is selected.'
@@ -391,6 +395,7 @@ export default function ReviewQueuePage() {
       primaryAction = { kind: 'link', to: `/journeys/${item.journeyId}/documents`, label: 'Review documents →' };
     } else if (isTask && item.category !== 'PC_VERIFY_UNRECOGNIZED_DOCUMENT' &&
       item.category !== 'MANUAL_VERIFICATION_REVIEW' &&
+      item.category !== 'WRONG_DOCUMENT_REVIEW' &&
       (item.category !== 'AUTO_SELF_SERVE' || item.subjectKind === 'DAILY_OPS')) {
       primaryAction = {
         kind: 'button',
@@ -583,8 +588,36 @@ export default function ReviewQueuePage() {
             </>
           )}
 
+          {isTask && item.category === 'WRONG_DOCUMENT_REVIEW' && (
+            // Same shape as PC_VERIFY_UNRECOGNIZED_DOCUMENT above: the
+            // backend requires an explicit CORRECT/INCORRECT outcome to
+            // complete this task type. INCORRECT voids the document and
+            // asks PC to upload the right one; CORRECT releases the
+            // materialization hold (this check's fuzzy name match
+            // under-scored a legitimate variant).
+            <>
+              <button
+                type="button"
+                className="revq-btn revq-btn--reject"
+                disabled={completeTaskMutation.isPending}
+                onClick={() => completeTaskMutation.mutate({ taskId: item.flagId, outcome: 'INCORRECT' })}
+              >
+                Incorrect — wrong document
+              </button>
+              <button
+                type="button"
+                className="revq-btn revq-btn--accept"
+                disabled={completeTaskMutation.isPending}
+                onClick={() => completeTaskMutation.mutate({ taskId: item.flagId, outcome: 'CORRECT' })}
+              >
+                Correct — false match
+              </button>
+            </>
+          )}
+
           {isTask && item.category !== 'PC_VERIFY_UNRECOGNIZED_DOCUMENT' &&
             item.category !== 'MANUAL_VERIFICATION_REVIEW' &&
+            item.category !== 'WRONG_DOCUMENT_REVIEW' &&
             (item.category !== 'AUTO_SELF_SERVE' || item.subjectKind === 'DAILY_OPS') && (
             // Take Action has no auto-resolving rule behind it, and
             // Daily Operations has no document screen a self-serve

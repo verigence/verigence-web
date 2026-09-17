@@ -62,6 +62,7 @@ const JourneyWorkspacePage = lazy(() => import('./pages/JourneyWorkspacePage'));
 const EvidencePage = lazy(() => import('./pages/EvidencePage'));
 const EvidenceDetailPage = lazy(() => import('./pages/EvidenceDetailPage'));
 const ReviewQueuePage = lazy(() => import('./pages/ReviewQueuePage'));
+const DuplicateBookingsPage = lazy(() => import('./pages/DuplicateBookingsPage'));
 const JourneyDocumentsPage = lazy(() => import('./pages/JourneyDocumentsPage'));
 const RuleCatalogPage = lazy(() => import('./pages/RuleCatalogPage'));
 const RuleAuthoringPage = lazy(() => import('./pages/RuleAuthoringPage'));
@@ -279,6 +280,7 @@ export default function App() {
               <Route path="/journeys/:journeyId" element={<LegacyOperationalPage><JourneyWorkspacePage /></LegacyOperationalPage>} />
               <Route path="/journeys/:journeyId/evidence/:evidenceId" element={<LegacyOperationalPage><EvidenceDetailPage /></LegacyOperationalPage>} />
               <Route path="/reviews" element={<OperationalPage><ReviewQueuePage /></OperationalPage>} />
+              <Route path="/duplicate-bookings" element={<OperationalPage><DuplicateBookingsPage /></OperationalPage>} />
               <Route path="/rule-catalog" element={<OperationalPage><RuleCatalogPage /></OperationalPage>} />
               <Route path="/rule-catalog/new" element={<OperationalPage><RuleAuthoringPage /></OperationalPage>} />
               <Route path="/evidence" element={<LegacyOperationalPage><EvidencePage /></LegacyOperationalPage>} />

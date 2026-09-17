@@ -116,6 +116,12 @@ const groups: NavGroup[] = [
   ] },
   { key: 'operations', label: 'Operations & Assurance', items: [
     { to: '/reviews', label: 'Task Queue', mark: 'TQ', roles: assurance },
+    // PC included deliberately -- a PC needs to see exactly this when
+    // their own booking gets flagged as a duplicate, even when the other
+    // side belongs to a different dealer they have no other visibility
+    // into. Purely informational (compare both sides); adjudicating the
+    // finding itself still only ever happens on the Task Queue.
+    { to: '/duplicate-bookings', label: 'Duplicate Bookings', mark: 'DB', roles: ['PC', 'TL', 'PM', 'EXECUTIVE', 'TENANT_ADMIN', 'SUPER_ADMIN'] },
     { to: '/rule-catalog', label: 'Rule Catalog', mark: 'RC', roles: assurance },
     { to: '/evidence', label: 'Evidence', mark: 'EV', roles: ['PC', 'TL', 'PM', 'EXECUTIVE', ...admin] },
     { to: '/payments', label: 'Payment Tracker', mark: 'PY', roles: ['PC', 'TL', 'PM', 'EXECUTIVE', ...admin] },
@@ -146,7 +152,7 @@ const groups: NavGroup[] = [
 const routeLabels: Record<string, string> = {
   '/dashboard': 'Overview', '/work-queue': 'Bookings & Deliveries', '/search': 'Search', '/attendance': 'Attendance', '/customers': 'Customers', '/journeys': 'Journeys', '/tasks': 'My Work',
   '/feedback': 'Feedback',
-  '/reviews': 'Task Queue', '/rule-catalog': 'Rule Catalog', '/rule-catalog/new': 'Author a Rule', '/evidence': 'Evidence', '/payments': 'Payment Tracker', '/findings': 'Findings',
+  '/reviews': 'Task Queue', '/duplicate-bookings': 'Duplicate Bookings', '/rule-catalog': 'Rule Catalog', '/rule-catalog/new': 'Author a Rule', '/evidence': 'Evidence', '/payments': 'Payment Tracker', '/findings': 'Findings',
   '/daily-ops': 'Daily Operations', '/activity': 'Activity Tracker', '/crm': 'CRM Follow-up', '/escalations': 'Escalations',
   '/analytics': 'Analytics', '/admin/engagements': 'Engagements', '/admin/document-intelligence': 'Document Intelligence Configuration',
   '/admin/housekeeping': 'Housekeeping', '/admin/feedback': 'User Feedback', '/admin/di-test': 'DI Test Console', '/admin/users': 'Users',

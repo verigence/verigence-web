@@ -28,6 +28,7 @@ const TASK_LABEL: Record<string, string> = {
   TL_TAKE_ACTION: 'Take Action requested',
   PC_VERIFY_UNRECOGNIZED_DOCUMENT: 'Verify document',
   FIELD_CORRECTION_REVIEW: 'Review proposed field correction',
+  MANUAL_VERIFICATION_REVIEW: 'Verify low-confidence fields',
 };
 
 const CLASS_LABEL: Record<Uc03FindingClass, string> = {
@@ -75,6 +76,7 @@ function closesWhenLabel(item: Uc03ReviewQueueItem, opts: { isTask: boolean; isM
         ? 'Closes automatically once a vehicle SKU is selected.'
         : 'Closes automatically once the underlying gap is fixed.';
     }
+    if (item.category === 'MANUAL_VERIFICATION_REVIEW') return 'Closes automatically once every field is confirmed or corrected on Journey Documents.';
     return 'Closes when you mark it done, below.';
   }
   if (opts.isManualVerification) return 'Closes automatically once every field is confirmed or corrected on Journey Documents.';
@@ -382,7 +384,13 @@ export default function ReviewQueuePage() {
       primaryAction = stem === 'MODEL_NOT_IDENTIFIED'
         ? { kind: 'link', to: `/journeys/${item.journeyId}/documents?selectSku=1`, label: 'Select SKU →' }
         : { kind: 'link', to: `/journeys/${item.journeyId}/documents`, label: 'Review documents →' };
+    } else if (isTask && item.category === 'MANUAL_VERIFICATION_REVIEW' && item.subjectKind === 'JOURNEY') {
+      // Same shape as AUTO_SELF_SERVE -- no manual "mark done" here either:
+      // this Task only ever closes by a PC actually reviewing the flagged
+      // fields on Journey Documents, which self-heals it automatically.
+      primaryAction = { kind: 'link', to: `/journeys/${item.journeyId}/documents`, label: 'Review documents →' };
     } else if (isTask && item.category !== 'PC_VERIFY_UNRECOGNIZED_DOCUMENT' &&
+      item.category !== 'MANUAL_VERIFICATION_REVIEW' &&
       (item.category !== 'AUTO_SELF_SERVE' || item.subjectKind === 'DAILY_OPS')) {
       primaryAction = {
         kind: 'button',
@@ -539,6 +547,16 @@ export default function ReviewQueuePage() {
             </Link>
           )}
 
+          {isTask && item.category === 'MANUAL_VERIFICATION_REVIEW' && item.subjectKind === 'JOURNEY' && (
+            // Same shape as AUTO_SELF_SERVE above: this Task only ever
+            // closes by a PC reviewing the flagged fields on Journey
+            // Documents (confirm or correct each) -- that write self-heals
+            // this Task automatically, so there's no separate "mark done".
+            <Link className="revq-btn revq-btn--accept" to={`/journeys/${item.journeyId}/documents`}>
+              Review documents →
+            </Link>
+          )}
+
           {isTask && item.category === 'PC_VERIFY_UNRECOGNIZED_DOCUMENT' && (
             // No auto-resolving rule and no generic "Mark done" here --
             // the backend requires an explicit CORRECT/INCORRECT outcome
@@ -566,6 +584,7 @@ export default function ReviewQueuePage() {
           )}
 
           {isTask && item.category !== 'PC_VERIFY_UNRECOGNIZED_DOCUMENT' &&
+            item.category !== 'MANUAL_VERIFICATION_REVIEW' &&
             (item.category !== 'AUTO_SELF_SERVE' || item.subjectKind === 'DAILY_OPS') && (
             // Take Action has no auto-resolving rule behind it, and
             // Daily Operations has no document screen a self-serve

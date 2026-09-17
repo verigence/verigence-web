@@ -190,15 +190,17 @@
   color: var(--v-muted, #6e879b);
 }
 
+/* Compact by default -- one dense row (severity, tag, title, SLA, a single
+   safe action) per item; a click on the row or its caret expands to the
+   full card (description, meta, closes-when, every action, the decision
+   form). Reported directly: too much vertical space per item once a queue
+   has more than a handful of rows. */
 .revq-item {
   background: #fff;
   border: 1px solid var(--v-line, #dbe6ee);
   border-left: 4px solid var(--v-line, #dbe6ee);
   border-radius: 12px;
-  padding: 14px 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+  overflow: hidden;
 }
 .revq-item--critical { border-left-color: var(--revq-late); }
 .revq-item--high { border-left-color: var(--revq-soon); }
@@ -210,12 +212,53 @@
   box-shadow: 0 0 0 2px var(--revq-accent, #0057b8);
 }
 
-.revq-item__head {
+.revq-item__row {
   display: flex;
   align-items: center;
   gap: 8px;
-  flex-wrap: wrap;
+  padding: 10px 12px;
+  cursor: pointer;
 }
+.revq-item__row:hover { background: var(--surface-muted, #f6f9fc); }
+.revq-item__row:focus-visible { outline: 2px solid var(--revq-accent); outline-offset: -2px; }
+.revq-item__row-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 14px;
+  font-weight: 650;
+  color: var(--v-ink, #17324d);
+}
+.revq-item__row-action { flex: none; display: flex; }
+.revq-item__hint {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--v-muted, #6e879b);
+  white-space: nowrap;
+}
+.revq-btn--sm { padding: 4px 10px; font-size: 12px; }
+.revq-item__caret {
+  flex: none;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  padding: 2px 4px;
+  font-size: 12px;
+  color: var(--v-muted, #6e879b);
+  line-height: 1;
+}
+
+.revq-item__body {
+  padding: 0 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border-top: 1px solid var(--v-line, #dbe6ee);
+  padding-top: 10px;
+}
+
 .revq-sev { width: 9px; height: 9px; border-radius: 50%; background: var(--v-muted); flex: none; }
 .revq-sev--critical { background: var(--revq-late); }
 .revq-sev--high { background: var(--revq-soon); }
@@ -255,15 +298,6 @@
   padding: 2px 8px;
   border-radius: 6px;
 }
-.revq-stage {
-  margin-left: auto;
-  font-size: 12px;
-  color: var(--v-muted, #6e879b);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-
-.revq-item__title { margin: 0; font-size: 15px; font-weight: 650; color: var(--v-ink, #17324d); }
 /* white-space: pre-line -- a self-serve Task's description can carry a
    numbered shortlist (see MODEL_NOT_IDENTIFIED's comment text); most
    descriptions have no literal newline at all, so this only ever affects
@@ -351,10 +385,9 @@
 
 @media (max-width: 720px) {
   .revq-kpis { grid-template-columns: repeat(2, 1fr); }
-  .revq-stage { margin-left: 0; width: 100%; }
   .revq-item__actions { flex-direction: column; align-items: stretch; }
   .revq-open { margin-right: 0; text-align: center; padding: 6px 0; }
-  .revq-btn { width: 100%; }
+  .revq-item__actions .revq-btn { width: 100%; }
 }
 
 /* ---------- Manual verification panel ---------- */

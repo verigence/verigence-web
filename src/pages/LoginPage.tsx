@@ -215,6 +215,9 @@ export default function LoginPage() {
         <p className="frozen-auth-footer frozen-auth-footer--login">
           New to Verigence? <Link to="/signup">Register Now</Link>
         </p>
+        <p className="frozen-auth-footer frozen-auth-footer--login">
+          Using Android? <Link to="/apps">Download the Verigence app</Link>
+        </p>
         <p className="frozen-auth-footer frozen-auth-footer--legal">
           For security and audit controls, Verigence records the device and location from which the application is accessed. Location access is required to use the application.
         </p>

@@ -1,3 +1,5 @@
+import { Link } from 'react-router-dom';
+
 import PageHeader from '../components/PageHeader';
 import SectionCard from '../components/SectionCard';
 import { useSessionStore } from '../store/sessionStore';
@@ -33,6 +35,10 @@ export default function ProfilePage() {
             <div><dt>Dealer</dt><dd>{assigned(state.dealerId)}</dd></div>
             <div><dt>Outlet</dt><dd>{assigned(state.outletId)}</dd></div>
           </dl>
+        </SectionCard>
+        <SectionCard title="Verigence Mobile App">
+          <p>Install the official Verigence Android application from our secure app portal.</p>
+          <Link className="button-primary" to="/apps">Download Android App</Link>
         </SectionCard>
       </div>
     </div>

@@ -94,6 +94,7 @@ export interface ModelCatalogSku {
   transmission: string | null;
   drive: string | null;
   seater: string | null;
+  trim: string | null;
   exShowroomPrice: string | null;
   totalPrice: string | null;
 }

@@ -164,8 +164,22 @@ jobs:
           grep -q 'Verified using v3 scheme (APK Signature Scheme v3): true' /tmp/apksigner-verification.txt
           unzip -t "$SIGNED" >/dev/null
 
-          unzip -p "$SIGNED" res/drawable-v24/ic_launcher_foreground.xml | strings > /tmp/release-v24-foreground.txt
-          grep -q 'M64,136' /tmp/release-v24-foreground.txt
+          # AGP's release packaging shortens res/ entry names in the signed APK (e.g.
+          # res/drawable-v24/ic_launcher_foreground.xml -> res/zR.xml) -- the original path
+          # from the source tree (still checked, unrenamed, by the earlier "Generate Android
+          # project and approved branding" step) does not survive into the built artifact.
+          # Locate the same resource by its own unique path-data content instead of a fixed name.
+          rm -f /tmp/release-v24-foreground.txt
+          while IFS= read -r entry; do
+            if unzip -p "$SIGNED" "$entry" | strings | grep -q 'M64,136'; then
+              unzip -p "$SIGNED" "$entry" | strings > /tmp/release-v24-foreground.txt
+              break
+            fi
+          done < <(unzip -Z1 "$SIGNED" 'res/*.xml')
+          test -s /tmp/release-v24-foreground.txt || {
+            echo '::error::Could not locate the approved Android launcher foreground drawable (by content) in the signed APK.'
+            exit 1
+          }
           if grep -q 'M66.94,46.02\|M32,64' /tmp/release-v24-foreground.txt; then
             echo '::error::Signed release contains stock Android launcher artwork.'
             exit 1

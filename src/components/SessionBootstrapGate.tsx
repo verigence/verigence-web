@@ -24,6 +24,7 @@ import {
   hasRememberSessionHint,
   rememberedIdentityHint,
 } from '../services/security/rememberSession';
+import { rememberLog } from '../services/security/rememberDebugLog';
 import { useSessionStore } from '../store/sessionStore';
 
 interface ResumeAttempt {
@@ -38,20 +39,37 @@ interface ResumeAttempt {
 // exchange. A real app/browser reload creates a new module instance and therefore a new attempt.
 let coldStartResumeAttempt: Promise<ResumeAttempt> | undefined;
 
+// TEMPORARY DIAGNOSTIC (remember-me investigation, 2026-09-18): remove once the root
+// cause of a real failed "Keep me signed in" attempt is confirmed and fixed.
+function rememberLogError(step: string, error: unknown): void {
+  if (error instanceof SecurityLoginError) {
+    rememberLog(step, {
+      status: error.status,
+      code: error.code,
+      message: error.message,
+      correlationId: error.correlationId,
+    });
+    return;
+  }
+  rememberLog(step, { error: String(error) });
+}
+
 function rememberedResumeAttempt(): Promise<ResumeAttempt> {
   if (coldStartResumeAttempt) return coldStartResumeAttempt;
   coldStartResumeAttempt = (async () => {
     const device = getVerigenceDeviceContext();
     const nativeCredential = await rememberedCredentialForResume(device);
+    rememberLog('bootstrap.cold-start', { deviceType: device.deviceType, hasNativeCredential: Boolean(nativeCredential) });
     if (device.deviceType === 'MOBILE' && !nativeCredential) {
+      rememberLog('bootstrap.missing-native-credential');
       return { device, missingNativeCredential: true };
     }
     try {
-      return {
-        device,
-        resumed: await resumeHuman(device, nativeCredential),
-      };
+      const resumed = await resumeHuman(device, nativeCredential);
+      rememberLog('bootstrap.resume-ok', { deviceType: device.deviceType });
+      return { device, resumed };
     } catch (error) {
+      rememberLogError('bootstrap.resume-threw', error);
       return { device, error };
     }
   })();
@@ -84,6 +102,7 @@ export default function SessionBootstrapGate({ children }: PropsWithChildren) {
       if (cancelled) return;
 
       if (attempt.missingNativeCredential) {
+        rememberLog('bootstrap.reject.missing-native-credential', { deviceType: attempt.device.deviceType });
         await clearRejectedRememberedSession(attempt.device);
         if (!cancelled) setReady(true);
         return;
@@ -91,6 +110,7 @@ export default function SessionBootstrapGate({ children }: PropsWithChildren) {
 
       if (attempt.resumed) {
         const resumed = attempt.resumed;
+        rememberLog('bootstrap.accept', { deviceType: attempt.device.deviceType, isSuperAdmin: resumed.isSuperAdmin });
         resetOperationalContext(queryClient);
         useSessionStore.getState().signInAuthenticated(
           rememberedIdentityHint(),
@@ -113,7 +133,14 @@ export default function SessionBootstrapGate({ children }: PropsWithChildren) {
       ) {
         // Definitive auth/session rejection invalidates persistence. Transient network/5xx failures
         // retain the credential so a later cold start can try again.
+        rememberLog('bootstrap.reject.definitive', {
+          deviceType: attempt.device.deviceType,
+          status: attempt.error.status,
+          code: attempt.error.code,
+        });
         await clearRejectedRememberedSession(attempt.device);
+      } else if (attempt.error) {
+        rememberLog('bootstrap.transient-error-kept-credential', { deviceType: attempt.device.deviceType });
       }
 
       if (!cancelled) setReady(true);

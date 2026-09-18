@@ -2,6 +2,7 @@ import type { VerigenceDeviceContext } from '../device/identity';
 import {
   logoutHuman,
   rememberHuman,
+  SecurityLoginError,
   type HumanResumeResponse,
 } from './auth';
 import {
@@ -12,17 +13,34 @@ import {
   setRememberSessionHint,
   storeNativeRememberCredential,
 } from './rememberSession';
+import { rememberLog } from './rememberDebugLog';
+
+function errorDetail(error: unknown): Record<string, unknown> {
+  if (error instanceof SecurityLoginError) {
+    return { status: error.status, code: error.code, message: error.message, correlationId: error.correlationId };
+  }
+  return { error: String(error) };
+}
 
 export async function enableRememberedSession(
   accessToken: string,
   device: VerigenceDeviceContext,
   identifier: string,
 ): Promise<boolean> {
+  rememberLog('enable.start', { deviceType: device.deviceType });
   try {
     const remembered = await rememberHuman(accessToken, device);
+    rememberLog('enable.remember-call-ok', {
+      deviceType: device.deviceType,
+      hasRememberToken: Boolean(remembered.rememberToken),
+    });
     if (device.deviceType === 'MOBILE') {
       const credential = remembered.rememberToken?.trim();
+      if (!credential) {
+        rememberLog('enable.mobile-no-token-in-response');
+      }
       if (!credential || !(await storeNativeRememberCredential(credential))) {
+        rememberLog('enable.mobile-store-failed');
         setRememberSessionHint(false);
         setRememberedIdentityHint();
         await clearNativeRememberCredential();
@@ -32,8 +50,10 @@ export async function enableRememberedSession(
     }
     setRememberedIdentityHint(identifier);
     setRememberSessionHint(true);
+    rememberLog('enable.success', { deviceType: device.deviceType });
     return true;
-  } catch {
+  } catch (error) {
+    rememberLog('enable.threw', { deviceType: device.deviceType, ...errorDetail(error) });
     setRememberSessionHint(false);
     setRememberedIdentityHint();
     await clearNativeRememberCredential();
@@ -55,27 +75,38 @@ export async function disableRememberedSession(
     : undefined;
   await clearNativeRememberCredential();
 
+  rememberLog('disable', { deviceType: device.deviceType, hadHint, hadNativeCredential: Boolean(nativeCredential) });
   if (hadHint || nativeCredential) {
-    void logoutHuman(device, nativeCredential).catch(() => undefined);
+    void logoutHuman(device, nativeCredential).catch((error) => rememberLog('disable.logout-threw', errorDetail(error)));
   }
 }
 
 export async function rememberedCredentialForResume(
   device: VerigenceDeviceContext,
 ): Promise<string | undefined> {
-  if (!hasRememberSessionHint()) return undefined;
+  if (!hasRememberSessionHint()) {
+    rememberLog('resume-credential.no-hint', { deviceType: device.deviceType });
+    return undefined;
+  }
   if (device.deviceType !== 'MOBILE') return undefined;
-  return readNativeRememberCredential();
+  const credential = await readNativeRememberCredential();
+  rememberLog('resume-credential.mobile', { found: Boolean(credential) });
+  return credential;
 }
 
 export async function acceptResumedRememberSession(
   resumed: HumanResumeResponse,
   device: VerigenceDeviceContext,
 ): Promise<boolean> {
-  if (!resumed.remembered) return false;
+  if (!resumed.remembered) {
+    rememberLog('accept-resume.not-remembered', { deviceType: device.deviceType });
+    return false;
+  }
   if (device.deviceType === 'MOBILE') {
     const rotated = resumed.rememberToken?.trim();
+    if (!rotated) rememberLog('accept-resume.mobile-no-rotated-token');
     if (!rotated || !(await storeNativeRememberCredential(rotated))) {
+      rememberLog('accept-resume.mobile-store-failed');
       setRememberSessionHint(false);
       setRememberedIdentityHint();
       await clearNativeRememberCredential();
@@ -84,6 +115,7 @@ export async function acceptResumedRememberSession(
     }
   }
   setRememberSessionHint(true);
+  rememberLog('accept-resume.success', { deviceType: device.deviceType });
   return true;
 }
 
@@ -96,7 +128,8 @@ export async function clearRejectedRememberedSession(
   setRememberSessionHint(false);
   setRememberedIdentityHint();
   await clearNativeRememberCredential();
+  rememberLog('clear-rejected', { deviceType: device.deviceType });
   // For Web this call clears the HttpOnly cookie. For Mobile it also revokes a credential if the
   // server can still identify it. Failures are intentionally ignored after a definitive rejection.
-  void logoutHuman(device, nativeCredential).catch(() => undefined);
+  void logoutHuman(device, nativeCredential).catch((error) => rememberLog('clear-rejected.logout-threw', errorDetail(error)));
 }

@@ -23,6 +23,7 @@ export default function AndroidNativeBridge() {
     void StatusBar.setStyle({ style: Style.Dark }).catch(() => undefined);
     void Keyboard.setResizeMode({ mode: KeyboardResize.Native }).catch(() => undefined);
 
+    let aborted = false;
     let backHandle: PluginListenerHandle | undefined;
     void CapacitorApp.addListener('backButton', ({ canGoBack }) => {
       const intercepted = new Event(ANDROID_BACK_EVENT, { cancelable: true });
@@ -40,10 +41,15 @@ export default function AndroidNativeBridge() {
         navigate('/dashboard', { replace: true });
       }
     }).then((handle) => {
-      backHandle = handle;
+      if (aborted) {
+        void handle.remove();
+      } else {
+        backHandle = handle;
+      }
     }).catch(() => undefined);
 
     return () => {
+      aborted = true;
       document.documentElement.classList.remove('native-android');
       void backHandle?.remove();
     };

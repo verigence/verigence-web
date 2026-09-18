@@ -499,3 +499,40 @@
   cursor: pointer;
 }
 .uc03-jd-modify-model:hover { background: rgba(7, 95, 90, 0.06); }
+
+/* ── Phone viewports ──────────────────────────────────────────────────
+   .uc03-jd-buckets' minmax(420px, 1fr) track cannot shrink below 420px,
+   which overflows the page horizontally on any phone. Collapse to one
+   column, and let header rows wrap instead of clipping a long title
+   against a fixed-width badge/button. */
+@media (max-width: 900px) {
+  .uc03-jd-buckets {
+    grid-template-columns: 1fr;
+  }
+  .uc03-jd-modal-backdrop {
+    padding: 0;
+    align-items: stretch;
+  }
+  .uc03-jd-modal {
+    width: 100%;
+    max-height: 100vh;
+    height: 100%;
+    border-radius: 0;
+  }
+  .uc03-jd-document-panel > header,
+  .uc03-jd-modal__header,
+  .uc03-jd-checklist header,
+  .uc03-jd-bucket-header {
+    flex-wrap: wrap;
+  }
+  .uc03-jd-checklist,
+  .uc03-jd-sku-picker {
+    padding: 14px;
+  }
+  .uc03-jd-checklist ul {
+    grid-template-columns: 1fr;
+  }
+  .uc03-jd-upload {
+    padding: 14px;
+  }
+}

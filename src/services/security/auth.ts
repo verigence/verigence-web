@@ -127,6 +127,7 @@ export async function loginHuman(
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ identifier, password, device }),
     cache: 'no-store',
+    credentials: 'include',
   });
   const payload = await readPayload(response);
 
@@ -139,6 +140,7 @@ export async function refreshHuman(accessToken: string): Promise<HumanLoginRespo
     method: 'POST',
     headers: { Authorization: `Bearer ${accessToken}` },
     cache: 'no-store',
+    credentials: 'include',
   });
   const payload = await readPayload(response);
 

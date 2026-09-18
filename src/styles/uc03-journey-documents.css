@@ -408,6 +408,15 @@
   gap: 20px;
   align-items: start;
 }
+
+/* This file had no responsive rules at all: the 420px column minimum above
+   does not fit any phone viewport, so on mobile the grid overflowed the
+   screen horizontally instead of stacking. */
+@media (max-width: 900px) {
+  .uc03-jd-buckets {
+    grid-template-columns: 1fr;
+  }
+}
 .uc03-jd-bucket {
   border: 1px solid var(--v-line, #dbe6ee);
   border-radius: 14px;

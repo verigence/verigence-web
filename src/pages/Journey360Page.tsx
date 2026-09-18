@@ -1676,14 +1676,15 @@ function PaymentsPanel({
             {ledgerOnly.length > 0 && (
               <div className="jline__tableWrap" style={{ marginTop: 14 }}>
                 <table className="jline__table">
-                  <thead><tr><th>Date</th><th>Reference</th><th>Mode</th><th>Status</th><th>Amount</th></tr></thead>
+                  <thead><tr><th>Date</th><th>Receipt No.</th><th>Reference</th><th>Mode</th><th>Status</th><th>Amount</th></tr></thead>
                   <tbody>
                     {ledgerOnly.map((p, i) => (
                       <tr key={String(p.paymentId || i)}>
                         <td>{dateLabel(pick(p, 'paymentAtUtc', 'payment_at_utc'))}</td>
+                        <td>{String(pick(p, 'receiptNumber', 'receipt_number') || '—')}</td>
                         <td>{String(pick(p, 'paymentReference', 'payment_reference') || '—')}</td>
                         <td>{readable(pick(p, 'paymentMethodCode', 'payment_method_code'))}</td>
-                        <td>{readable(pick(p, 'actualStatusCode', 'actual_status_code'))}</td>
+                        <td>{readable(pick(p, 'verificationResult', 'verification_result'))}</td>
                         <td>{money(pick(p, 'amount', 'amount_paid'), String(pick(p, 'currencyCode', 'currency_code') || 'INR'))}</td>
                       </tr>
                     ))}

@@ -533,7 +533,7 @@ function ReceiptAccordion({
               <span className="rcpt-trigger__mark rcpt-trigger__mark--pending">REC</span>
               <div className="rcpt-trigger__body">
                 <div className="rcpt-trigger__primary">
-                  <span className="rcpt-trigger__ref">{String(pick(r, 'originalFilename', 'original_filename') ?? 'Receipt document')}</span>
+                  <span className="rcpt-trigger__ref">Receipt document</span>
                 </div>
                 <span className="rcpt-trigger__words">DI extraction in progress</span>
               </div>
@@ -1601,6 +1601,19 @@ function PaymentsPanel({
   const ledgerOnly = (model.payments || []).filter(
     (p) => !receiptDocumentIds.has(pickStr(p, 'sourceEvidenceId', 'source_evidence_id')),
   );
+  // A journey whose payments were all reconciled straight off the bank
+  // statement (no separately-reviewed receipt document) has receipts.length
+  // === 0, which used to blank out the "Payments / Receipts" hint entirely
+  // -- the section header showed no total at all even though the
+  // ledger-only table below it lists real amounts. Sum across both so the
+  // sum-of-payments total is always there regardless of which of the two
+  // tables actually holds this journey's payments.
+  const ledgerOnlyTotal = ledgerOnly.reduce((s, p) => {
+    const a = Number(pick(p, 'amount', 'amount_paid') ?? 0);
+    return s + (Number.isNaN(a) ? 0 : a);
+  }, 0);
+  const combinedTotal = total + ledgerOnlyTotal;
+  const combinedCount = receipts.filter((r) => pick(r, 'isDuplicate') !== true).length + ledgerOnly.length;
   const invoices = model.invoices || [];
   const invoiceTotal = invoices.reduce((s, inv) => {
     const a = Number(pick(inv, 'grandTotalAmount', 'grand_total_amount') ?? 0);
@@ -1628,7 +1641,7 @@ function PaymentsPanel({
       </SubSection>
       <SubSection
         title="Payments / Receipts"
-        hint={receipts.length > 0 ? `${money(total)} verified across ${receipts.length} receipt${receipts.length !== 1 ? 's' : ''} · ${matched} bank-matched · ${unmatched} unmatched${duplicateCount > 0 ? ` · ${duplicateCount} duplicate${duplicateCount === 1 ? '' : 's'} excluded` : ''}` : undefined}
+        hint={combinedCount > 0 ? `${money(combinedTotal)} collected across ${combinedCount} payment${combinedCount !== 1 ? 's' : ''}${receipts.length > 0 ? ` · ${matched} bank-matched · ${unmatched} unmatched` : ''}${duplicateCount > 0 ? ` · ${duplicateCount} duplicate${duplicateCount === 1 ? '' : 's'} excluded` : ''}` : undefined}
       >
         {noReceiptsAtAll ? (
           reviewedBooking && Object.keys(reviewedBooking).length > 0 ? (

@@ -64,6 +64,23 @@ const reviewQueueItem: NavItem = {
   roles: ['PC', 'TL', 'PM', 'EXECUTIVE'],
 };
 
+// PC included deliberately -- a PC needs to see exactly this when their own
+// booking gets flagged as a duplicate, even when the other side belongs to a
+// different dealer they have no other visibility into. Purely informational
+// (compare both sides); adjudicating the finding itself still only ever
+// happens on the Task Queue. Shared between the full nav groups below and
+// the reduced C0-shell workspace list -- confirmed live: the C0 list had its
+// own hand-picked item set that predated this feature and never got it
+// added, so a PC signed in without a selected project (the c0OperationalShell
+// branch) had no way to reach it at all despite the role being explicitly
+// intended to.
+const duplicateBookingsItem: NavItem = {
+  to: '/duplicate-bookings',
+  label: 'Duplicate Bookings',
+  mark: 'DB',
+  roles: ['PC', 'TL', 'PM', 'EXECUTIVE', 'TENANT_ADMIN', 'SUPER_ADMIN'],
+};
+
 const analyticsItems: NavItem[] = [
   { to: '/analytics', label: 'Overview', mark: 'AN', roles: analyticsRoles },
   { to: '/analytics?report=finance', label: 'Finance', mark: 'PY', roles: analyticsRoles },
@@ -116,12 +133,7 @@ const groups: NavGroup[] = [
   ] },
   { key: 'operations', label: 'Operations & Assurance', items: [
     { to: '/reviews', label: 'Task Queue', mark: 'TQ', roles: assurance },
-    // PC included deliberately -- a PC needs to see exactly this when
-    // their own booking gets flagged as a duplicate, even when the other
-    // side belongs to a different dealer they have no other visibility
-    // into. Purely informational (compare both sides); adjudicating the
-    // finding itself still only ever happens on the Task Queue.
-    { to: '/duplicate-bookings', label: 'Duplicate Bookings', mark: 'DB', roles: ['PC', 'TL', 'PM', 'EXECUTIVE', 'TENANT_ADMIN', 'SUPER_ADMIN'] },
+    duplicateBookingsItem,
     { to: '/rule-catalog', label: 'Rule Catalog', mark: 'RC', roles: assurance },
     { to: '/evidence', label: 'Evidence', mark: 'EV', roles: ['PC', 'TL', 'PM', 'EXECUTIVE', ...admin] },
     { to: '/payments', label: 'Payment Tracker', mark: 'PY', roles: ['PC', 'TL', 'PM', 'EXECUTIVE', ...admin] },
@@ -275,6 +287,7 @@ export default function AppShell({ children }: PropsWithChildren) {
     }
     if (role === 'PC' || role === 'TL' || role === 'PM') {
       workspaceItems.push({ ...reviewQueueItem, badge: reviewQueueCount });
+      workspaceItems.push(duplicateBookingsItem);
       workspaceItems.push(feedbackItem);
     }
     const workspaceGroup: NavGroup = {

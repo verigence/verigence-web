@@ -15,6 +15,8 @@ import {
   type JourneyStep,
 } from '../features/uc03/journey/deriveJourneyLine';
 import ModifyModelModal from '../features/uc03/ModifyModelModal';
+import { AuditCoreHttpError } from '../services/audit-core/client';
+import { getFinance, getInsurance } from '../services/audit-core/operations';
 import { resyncBookingCaptureV2 } from '../services/audit-core/uc03DocumentCaptureV2';
 import { resyncDeliveryCaptureV2 } from '../services/audit-core/uc03DeliveryCaptureV2';
 import { getReviewDocumentContentV2 } from '../services/audit-core/uc03DocumentReviewV2';
@@ -2159,6 +2161,45 @@ export default function Journey360Page() {
     staleTime: 15_000,
   });
 
+  // The main overview response never carried insurance/finance at all --
+  // confirmed live, reported repeatedly ("insurance fields extracted but
+  // not shown in Journey 360"): the Insurance/Finance panels below and the
+  // JourneyOverview type itself have always expected model.insurance/
+  // model.finance, but nothing populated either field -- not a display bug,
+  // a genuinely missing fetch. get_insurance/get_finance (dedicated GET
+  // endpoints, already reading auditcore.insurance_records/finance_records)
+  // and their web callers (getInsurance/getFinance in operations.ts) both
+  // already existed and worked; this page just never called them. Both
+  // 404 when no record exists yet (the normal case before Insurance Cover/
+  // a financier's document is confirmed) -- treated as "no record" (null),
+  // not a query error, matching what the panels below already render for.
+  const insuranceQuery = useQuery({
+    queryKey: ['uc03-journey-insurance', tenantId, journeyId],
+    queryFn: async () => {
+      try {
+        return await getInsurance(tenantId, journeyId, accessToken);
+      } catch (error) {
+        if (error instanceof AuditCoreHttpError && error.status === 404) return null;
+        throw error;
+      }
+    },
+    enabled: Boolean(accessToken && tenantId && journeyId),
+    staleTime: 15_000,
+  });
+  const financeQuery = useQuery({
+    queryKey: ['uc03-journey-finance', tenantId, journeyId],
+    queryFn: async () => {
+      try {
+        return await getFinance(tenantId, journeyId, accessToken);
+      } catch (error) {
+        if (error instanceof AuditCoreHttpError && error.status === 404) return null;
+        throw error;
+      }
+    },
+    enabled: Boolean(accessToken && tenantId && journeyId),
+    staleTime: 15_000,
+  });
+
   const [resyncing, setResyncing] = useState(false);
   const [resyncMessage, setResyncMessage] = useState<string>();
   const handleResync = async () => {
@@ -2247,7 +2288,9 @@ export default function Journey360Page() {
     }
   };
 
-  const model = overviewQuery.data;
+  const model = overviewQuery.data
+    ? { ...overviewQuery.data, insurance: insuranceQuery.data ?? null, finance: financeQuery.data ?? null }
+    : undefined;
 
   const receiptRows = useMemo(() => (model?.receipts || []).filter((r) => !receiptIsPending(r)), [model?.receipts]);
   const pendingReceiptRows = useMemo(() => (model?.receipts || []).filter(receiptIsPending), [model?.receipts]);

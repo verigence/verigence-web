@@ -69,6 +69,12 @@ function textValue(record: Record<string, unknown> | null | undefined, key: stri
   return String(current);
 }
 
+function listText(record: Record<string, unknown> | null | undefined, key: string): string {
+  const current = value(record, key);
+  if (!Array.isArray(current) || current.length === 0) return 'Not available';
+  return current.map((item) => (typeof item === 'string' ? item : String(item))).join(', ');
+}
+
 function preferredText(
   primary: Record<string, unknown> | null | undefined,
   primaryKey: string,
@@ -927,6 +933,32 @@ function addonByCode(model: JourneyOverview, code: string): Record<string, unkno
   return match ?? null;
 }
 
+// Any journey_addon whose type isn't already one of the two named toggles
+// below (Accessories/Extended Warranty) -- driven off the addon's own code
+// rather than a hardcoded allowlist, so a new addon type materialized on
+// the backend (uc03_v2_review_materialization._ADDON_TYPE_BY_FIELD) shows
+// up here automatically instead of silently never being displayed, per
+// explicit repeated complaint: "extracted fields... always it is less."
+const _ADDON_LABELS: Record<string, string> = {
+  EXTENDED_WARRANTY: 'Extended Warranty (Addon)',
+  ESSENTIAL_KIT: 'Essential Kit',
+  GENUINE_ACCESSORIES: 'Genuine Accessories',
+  NON_GENUINE_ACCESSORIES: 'Non-Genuine Accessories',
+  SERVICE_PACKAGE: 'Service Package',
+  RSA: 'RSA',
+  FASTAG: 'FASTag',
+};
+
+function otherAddons(model: JourneyOverview, exclude: string[]): Array<Record<string, unknown>> {
+  const addons = Array.isArray(model.addons) ? model.addons : [];
+  return addons.filter((a) => {
+    const code = String(value(a, 'addonTypeCode') || '').toUpperCase();
+    if (exclude.includes(code)) return false;
+    const amount = value(a, 'actualAmount');
+    return amount !== null && amount !== undefined && Number(amount) > 0;
+  });
+}
+
 function lineItemLabel(item: Record<string, unknown>): string {
   const description = item.description_raw;
   if (typeof description === 'string' && description.trim()) return description.trim();
@@ -1063,6 +1095,7 @@ function AccessoriesWarrantyPanel({ model }: { model: JourneyOverview }) {
   const accessoryItems = resolvedItems(model, ['ACCESSORY_GENUINE', 'ACCESSORY_NON_GENUINE'], accessoriesAddon, accessoriesAmount);
   const warrantyItems = resolvedItems(model, ['EXTENDED_WARRANTY'], warrantyAddon, warrantyAmount);
   const insuranceItems = resolvedItems(model, ['INSURANCE'], insuranceLine, insuranceAmount);
+  const otherAddonRows = otherAddons(model, ['ACCESSORIES_TOTAL', 'ADDITIONAL_WARRANTY']);
 
   return (
     <div className="jline__accessoriesPanel">
@@ -1085,6 +1118,18 @@ function AccessoriesWarrantyPanel({ model }: { model: JourneyOverview }) {
           amount={insuranceAmount}
           provider={null}
         />
+        {otherAddonRows.map((addon, index) => {
+          const code = String(value(addon, 'addonTypeCode') || '').toUpperCase();
+          return (
+            <TakenToggleRow
+              key={`${code}-${index}`}
+              label={_ADDON_LABELS[code] || readable(code)}
+              taken
+              amount={value(addon, 'actualAmount')}
+              provider={nonEmptyText(value(addon, 'providerName'))}
+            />
+          );
+        })}
       </div>
       {accessoriesTaken && <ItemList title="Accessories bought" items={accessoryItems} />}
       {warrantyTaken && <ItemList title="Extended Warranty" items={warrantyItems} />}
@@ -2092,6 +2137,10 @@ function FocusPanel({
               <JFact label="Actual Premium">{money(value(model.insurance, 'actualPremiumAmount'))}</JFact>
               <JFact label="Insurance (booking)">{money(value(reviewedBooking, 'insurance_amount'))}</JFact>
               <JFact label="Insurance By">{textValue(reviewedBooking, 'insurance_by')}</JFact>
+              <JFact label="Agent/Intermediary">{textValue(model.insurance, 'agentIntermediaryName')}</JFact>
+              <JFact label="Agent/Intermediary Code">{textValue(model.insurance, 'agentIntermediaryCode')}</JFact>
+              <JFact label="MISP Code">{textValue(model.insurance, 'mispCode')}</JFact>
+              <JFact label="Add-ons Taken">{listText(model.insurance, 'insuranceAddOns')}</JFact>
               <JFact label="Self Insurance">{readable(value(model.insurance, 'selfInsuranceFlag'))}</JFact>
               <JFact label="Status">{readable(value(model.insurance, 'actualStatusCode'))}</JFact>
             </FactList>

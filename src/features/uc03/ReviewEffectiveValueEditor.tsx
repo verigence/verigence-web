@@ -24,6 +24,21 @@ function displayValue(value: unknown): string {
   }
 }
 
+// The review API doesn't carry the canonical field's own data_type through
+// to this editor (ReviewV2SourceValue/ReviewV2UnmappedField have no such
+// property) -- a plain string is otherwise indistinguishable from any other
+// text field. Every date field in this codebase's own naming convention
+// ends in "_date" (invoice_date, receipt_date, payment_reference_date,
+// coverage_start_date, coverage_end_date, delivery_date, ...), and DI always
+// normalizes a date to ISO-8601 (date_dd_mm_yyyy normalization -> YYYY-MM-DD)
+// before it ever reaches this value -- both together is a safe signal
+// without a backend/type-plumbing change just to render the right input.
+function isLikelyDateField(fieldKey: string, value: unknown): boolean {
+  if (!/_date$/i.test(fieldKey)) return false;
+  if (value === null || value === undefined || value === '') return true;
+  return typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value);
+}
+
 function valuesEqual(left: unknown, right: unknown): boolean {
   if (Object.is(left, right)) return true;
   try {
@@ -131,7 +146,11 @@ export default function ReviewEffectiveValueEditor({
             <textarea rows={5} value={draft} disabled={disabled} onChange={(event) => setDraft(event.target.value)} />
           ) : (
             <input
-              type={typeof source.value === 'number' ? 'number' : 'text'}
+              type={
+                isLikelyDateField(source.fieldKey, source.value) ? 'date'
+                  : typeof source.value === 'number' ? 'number'
+                  : 'text'
+              }
               value={draft}
               disabled={disabled}
               onChange={(event) => setDraft(event.target.value)}

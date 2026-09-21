@@ -152,6 +152,16 @@ export default function AppDownloadPage() {
               allowFullScreen
             />
           </div>
+          {/* Same card as the video, not a second heavy section -- four
+              short titles in a tight 2x2 grid, no descriptive sentences.
+              The video already shows how; this is just the checklist to
+              glance back at. */}
+          <ol className="app-install-steps">
+            <li><span>1</span>Download</li>
+            <li><span>2</span>Allow this source</li>
+            <li><span>3</span>Install</li>
+            <li><span>4</span>Open Verigence</li>
+          </ol>
         </article>
       </section>
     </main>

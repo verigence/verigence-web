@@ -14,12 +14,19 @@ on:
       - 'scripts/finalize-native-branding.mjs'
       - 'scripts/stabilize-native-branding.mjs'
       - 'src/**'
+  # PR runs build + sign + verify (see the release-signing step's own
+  # secrets, available to same-repo PRs) but never publish -- only a push
+  # to dev (a merge) hands out a new "latest" download, so an in-review
+  # PR's build can never overwrite what the App Portal is serving.
+  push:
+    branches:
+      - dev
 
 permissions:
   contents: read
 
 concurrency:
-  group: uc03-android-${{ github.event.pull_request.number }}
+  group: uc03-android-${{ github.event.pull_request.number || github.sha }}
   cancel-in-progress: true
 
 jobs:
@@ -138,8 +145,39 @@ jobs:
           grep -q '/delivery/workspace' src/services/audit-core/uc03Delivery.ts
           echo 'UC03_C2_ANDROID_DELIVERY_CONTRACT=PASS'
 
+      - name: Configure Android release signing
+        env:
+          ANDROID_RELEASE_KEYSTORE_BASE64: ${{ secrets.ANDROID_RELEASE_KEYSTORE_BASE64 }}
+          ANDROID_RELEASE_STORE_PASSWORD: ${{ secrets.ANDROID_RELEASE_STORE_PASSWORD }}
+        run: |
+          set -euo pipefail
+          keystore_path="$GITHUB_WORKSPACE/android/app/release-signing.keystore"
+          echo "$ANDROID_RELEASE_KEYSTORE_BASE64" | base64 --decode > "$keystore_path"
+          test -s "$keystore_path"
+
+          # No key-alias secret exists -- a release signing keystore has
+          # exactly one purpose-built entry, so read the alias directly out
+          # of the keystore itself instead of depending on someone also
+          # having typed it correctly into a fourth secret.
+          alias_count="$(keytool -list -v -keystore "$keystore_path" -storepass "$ANDROID_RELEASE_STORE_PASSWORD" 2>/dev/null | grep -c 'Alias name:')"
+          if [ "$alias_count" -ne 1 ]; then
+            echo "::error::Expected exactly one alias in the release keystore, found $alias_count."
+            exit 1
+          fi
+          key_alias="$(keytool -list -v -keystore "$keystore_path" -storepass "$ANDROID_RELEASE_STORE_PASSWORD" 2>/dev/null | grep 'Alias name:' | sed 's/Alias name: //')"
+
+          echo "ANDROID_RELEASE_KEYSTORE_PATH=$keystore_path" >> "$GITHUB_ENV"
+          echo "ANDROID_RELEASE_KEY_ALIAS=$key_alias" >> "$GITHUB_ENV"
+
+          node scripts/configure-android-signing.mjs android
+          grep -q 'ANDROID_RELEASE_KEYSTORE_PATH' android/app/build.gradle
+          echo 'ANDROID_RELEASE_SIGNING_CONFIGURED=PASS'
+
       - name: Lint and build Android debug and release APKs
         working-directory: android
+        env:
+          ANDROID_RELEASE_STORE_PASSWORD: ${{ secrets.ANDROID_RELEASE_STORE_PASSWORD }}
+          ANDROID_RELEASE_KEY_PASSWORD: ${{ secrets.ANDROID_RELEASE_KEY_PASSWORD }}
         run: |
           set -euo pipefail
           chmod +x gradlew
@@ -149,9 +187,17 @@ jobs:
         run: |
           set -euo pipefail
           debug_apk='android/app/build/outputs/apk/debug/app-debug.apk'
-          release_apk='android/app/build/outputs/apk/release/app-release-unsigned.apk'
+          release_apk='android/app/build/outputs/apk/release/app-release.apk'
           test -s "$debug_apk"
           test -s "$release_apk"
+
+          apksigner_bin="$(find "$ANDROID_HOME/build-tools" -maxdepth 2 -name apksigner | sort -V | tail -1)"
+          if [ -z "$apksigner_bin" ]; then
+            echo "::error::apksigner not found under ANDROID_HOME/build-tools"
+            exit 1
+          fi
+          "$apksigner_bin" verify --print-certs "$release_apk"
+          echo 'ANDROID_RELEASE_APK_SIGNED=PASS'
 
           verify_launcher_payload() {
             apk="$1"
@@ -177,7 +223,7 @@ jobs:
           verify_launcher_payload "$release_apk"
 
           sha256sum "$debug_apk" | tee android-debug-apk.sha256
-          sha256sum "$release_apk" | tee android-release-unsigned-apk.sha256
+          sha256sum "$release_apk" | tee android-release-apk.sha256
           ls -lh "$debug_apk" "$release_apk"
           echo 'ANDROID_APK_VERIGENCE_ICON=PASS'
 
@@ -191,12 +237,54 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
-      - name: Upload Android unsigned release APK
+      - name: Upload Android signed release APK
         uses: actions/upload-artifact@v4
         with:
-          name: verigence-android-release-unsigned
+          name: verigence-android-release-signed
           path: |
-            android/app/build/outputs/apk/release/app-release-unsigned.apk
-            android-release-unsigned-apk.sha256
+            android/app/build/outputs/apk/release/app-release.apk
+            android-release-apk.sha256
           if-no-files-found: error
           retention-days: 14
+
+      - name: Publish Android release to the App Portal
+        # Only after a real merge (see the workflow's own push trigger) --
+        # never on a PR run, so an in-review branch's build can't become
+        # what /app-distribution/latest hands out.
+        if: github.event_name == 'push'
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          set -euo pipefail
+          release_apk='android/app/build/outputs/apk/release/app-release.apk'
+          bucket='verigence-app-releases'
+          build_id="${GITHUB_SHA:0:7}"
+          object_key="android/verigence-${build_id}.apk"
+          version_name="$(grep -oE 'versionName "[^"]+"' android/app/build.gradle | head -1 | sed -E 's/versionName "([^"]+)"/\1/')"
+          size_bytes="$(stat -c%s "$release_apk")"
+          size_human="$(numfmt --to=iec --suffix=B "$size_bytes")"
+          sha256_hex="$(sha256sum "$release_apk" | cut -d' ' -f1)"
+          released_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+
+          npx wrangler r2 object put "$bucket/$object_key" \
+            --file "$release_apk" \
+            --content-type application/vnd.android.package-archive \
+            --remote
+
+          metadata_file="$(mktemp)"
+          jq -n \
+            --arg objectKey "$object_key" \
+            --arg version "$version_name" \
+            --arg build "$build_id" \
+            --arg size "$size_human" \
+            --argjson sizeBytes "$size_bytes" \
+            --arg sha256 "$sha256_hex" \
+            --arg releasedAt "$released_at" \
+            '{objectKey: $objectKey, version: $version, build: $build, size: $size, sizeBytes: $sizeBytes, sha256: $sha256, releasedAt: $releasedAt}' \
+            > "$metadata_file"
+          npx wrangler r2 object put "$bucket/android/latest.json" \
+            --file "$metadata_file" \
+            --content-type application/json \
+            --remote
+          echo "ANDROID_RELEASE_PUBLISHED=$object_key"

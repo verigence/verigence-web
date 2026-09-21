@@ -83,16 +83,6 @@
 }
 .uc03-jd-document-panel h3 { margin: 2px 0 0; font-size: 16px; }
 
-.uc03-jd-status {
-  font-size: 11px;
-  font-weight: 700;
-  text-transform: uppercase;
-  border-radius: 999px;
-  padding: 3px 10px;
-  white-space: nowrap;
-}
-.uc03-jd-status.pending { background: #fff3cd; color: #8a6d00; }
-.uc03-jd-status.failed { background: #fde2e1; color: #9c2b26; }
 
 .uc03-jd-fields-table-wrap { overflow-x: auto; }
 .uc03-jd-fields-table {
@@ -390,7 +380,7 @@
   flex-direction: column;
   gap: 20px;
 }
-.uc03-jd-modal .uc03-jd-status { margin: 0 24px; align-self: flex-start; }
+.uc03-jd-modal__statusCard { margin: 0 24px; align-self: flex-start; max-width: 220px; }
 
 .uc03-jd-field-group + .uc03-jd-field-group { margin-top: 4px; }
 .uc03-jd-field-group__title {

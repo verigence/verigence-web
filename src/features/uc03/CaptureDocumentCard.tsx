@@ -1,5 +1,6 @@
 import { displayName } from '../../utils/displayNames';
 import type { CaptureV2Document, CaptureV2Requirement } from '../../services/audit-core/uc03DocumentCaptureV2';
+import type { ReviewV2Document } from '../../services/audit-core/uc03DocumentReviewV2';
 import '../../styles/uc03-capture-document-card.css';
 
 export type CardStatus = 'uploaded' | 'classified' | 'extracted' | 'unrecognized' | 'failed';
@@ -25,6 +26,20 @@ export function cardStatus(document: CaptureV2Document): CardStatus {
   if (state !== 'CLASSIFIED' || !document.classifiedDocumentTypeKey) return 'uploaded';
   if (processing === 'PROCESSED') return 'extracted';
   return 'classified';
+}
+
+/** Same status model as cardStatus() above, adapted for the Review V2 shape
+ * (uc03DocumentReviewV2.ts's own 3-state extractionState, not capture's
+ * richer 5-state one) -- the Edit Document modal reads a document this way,
+ * not the way the capture screens do, but a PC reviewing an already-
+ * uploaded document deserves the exact same Uploaded/Classified/Extracted/
+ * Unrecognized/Failed card the capture screen showed them minutes earlier,
+ * not a bare "Extraction in progress" text line with no way to tell whether
+ * DI even recognized the document at all. */
+export function reviewCardStatus(document: ReviewV2Document): CardStatus {
+  if (document.extractionState === 'FAILED') return 'failed';
+  if (!document.documentTypeKey) return document.extractionState === 'READY' ? 'unrecognized' : 'uploaded';
+  return document.extractionState === 'READY' ? 'extracted' : 'classified';
 }
 
 /**
@@ -66,6 +81,33 @@ export function DocumentCard({
           </button>
         ) : null}
       </header>
+      <strong className="uc03-doc-card__name" title={classifiedLabel ? document.originalFilename : undefined}>
+        {classifiedLabel || document.originalFilename}
+      </strong>
+      {classifiedLabel ? (
+        <span className="uc03-doc-card__filename" title={document.originalFilename}>{document.originalFilename}</span>
+      ) : null}
+      <div className="uc03-doc-card__status">
+        <span className="uc03-doc-card__dot" aria-hidden="true" />
+        {CARD_STATUS_LABEL[status]}
+      </div>
+      {document.contentUrl ? <a className="uc03-doc-card__view" href={document.contentUrl} target="_blank" rel="noreferrer">View original</a> : null}
+    </article>
+  );
+}
+
+/** Same card, same CSS, for a document already opened in the Edit Document
+ * (Review V2) modal -- no index/delete affordance (this document is already
+ * received; deleting belongs to the checklist, not here), but otherwise
+ * the identical Uploaded/Classified/Extracted/Unrecognized/Failed status
+ * card the capture screen shows, per explicit instruction that a PC editing
+ * a document should see the same classification/status information they
+ * saw while uploading it, not a plainer view. */
+export function ReviewDocumentStatusCard({ document }: { document: ReviewV2Document }) {
+  const status = reviewCardStatus(document);
+  const classifiedLabel = document.documentTypeKey ? displayName(document.documentTypeKey) : null;
+  return (
+    <article className={`uc03-doc-card is-${status}`}>
       <strong className="uc03-doc-card__name" title={classifiedLabel ? document.originalFilename : undefined}>
         {classifiedLabel || document.originalFilename}
       </strong>

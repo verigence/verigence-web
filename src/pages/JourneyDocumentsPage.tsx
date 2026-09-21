@@ -5,7 +5,7 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { ErrorBoundary } from '../components/ErrorBoundary';
 import PageHeader from '../components/PageHeader';
 import AttributeEvidenceViewer, { hasBoxedEvidence } from '../features/uc03/AttributeEvidenceViewer';
-import { CARD_STATUS_LABEL, cardStatus } from '../features/uc03/CaptureDocumentCard';
+import { CARD_STATUS_LABEL, cardStatus, ReviewDocumentStatusCard } from '../features/uc03/CaptureDocumentCard';
 import ModifyModelModal from '../features/uc03/ModifyModelModal';
 import { LoanDisbursementModal } from '../features/uc03/LoanDisbursementPicker';
 import { categoryFor, categoryTitle, FIELD_CATEGORY_ORDER, type FieldCategory } from '../features/uc03/fieldCategoryGroups';
@@ -334,8 +334,9 @@ function DocumentReviewModal({
           </div>
           <button type="button" className="uc03-jd-modal__close" onClick={onClose} aria-label="Close">×</button>
         </header>
-        {document.extractionState === 'PENDING' ? <span className="uc03-jd-status pending">Extraction in progress</span> : null}
-        {document.extractionState === 'FAILED' ? <span className="uc03-jd-status failed">Processing failed</span> : null}
+        <div className="uc03-jd-modal__statusCard">
+          <ReviewDocumentStatusCard document={document} />
+        </div>
         <div className="uc03-jd-modal__body">
           <DocumentFieldsPanel
             stage={stage}

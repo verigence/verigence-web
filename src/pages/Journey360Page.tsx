@@ -2100,7 +2100,23 @@ function FocusPanel({
         </>
       );
       break;
-    case 'registration':
+    case 'registration': {
+      // registration_charges/road_tax_amount are both canonical commercial-
+      // line components (uc03_v2_review_materialization._COMMERCIAL_LINE_
+      // FIELDS) -- auditcore.commercial_lines.actual_amount already carries
+      // whatever the invoice reconciliation program resolved (invoice
+      // precedence over the raw booking form, per-source breakdown
+      // available). Reading reviewedBooking directly here always showed the
+      // stale, pre-reconciliation booking-form value instead, the same gap
+      // already fixed for Insurance/Accessories/Finance elsewhere on this
+      // page. Falls back to the booking form only when no commercial line
+      // has been materialized yet (e.g. before any invoice is uploaded).
+      const registrationChargesLine = commercialLineByComponentKey(model, 'registration_charges');
+      const roadTaxLine = commercialLineByComponentKey(model, 'road_tax_amount');
+      const registrationCharges = registrationChargesLine
+        ? value(registrationChargesLine, 'actualAmount')
+        : value(reviewedBooking, 'registration_charges');
+      const roadTax = roadTaxLine ? value(roadTaxLine, 'actualAmount') : value(reviewedBooking, 'road_tax_amount');
       body = (
         <>
           <PanelHead title="Registration" />
@@ -2114,8 +2130,8 @@ function FocusPanel({
               <JFact label="Category">{readable(value(model.registration, 'registrationCategoryCode'))}</JFact>
               <JFact label="Registration By">{textValue(reviewedBooking, 'registration_by')}</JFact>
               <JFact label="Registration Type (booking)">{textValue(reviewedBooking, 'registration_type')}</JFact>
-              <JFact label="Registration Charges">{money(value(reviewedBooking, 'registration_charges'))}</JFact>
-              <JFact label="Road Tax">{money(value(reviewedBooking, 'road_tax_amount'))}</JFact>
+              <JFact label="Registration Charges">{money(registrationCharges)}</JFact>
+              <JFact label="Road Tax">{money(roadTax)}</JFact>
               <JFact label="Status">{readable(value(model.registration, 'actualStatusCode'))}</JFact>
             </FactList>
           ) : (
@@ -2124,6 +2140,7 @@ function FocusPanel({
         </>
       );
       break;
+    }
     case 'insurance':
       body = (
         <>

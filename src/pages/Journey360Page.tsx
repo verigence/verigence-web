@@ -2211,7 +2211,25 @@ function FocusPanel({
         </>
       );
       break;
-    case 'finance':
+    case 'finance': {
+      // "Financed Amount" here is deliberately the RTO Challan's own
+      // hypothecation charges (materialize_delivery_finance), not the loan
+      // principal -- confirmed correct, per explicit ask. Registration
+      // charges is a separate commercial-line component (same reconciled,
+      // invoice-precedence source the Registration tab reads, #308) that
+      // never showed anywhere on this tab even though it combines with
+      // hypothecation charges into what the dealer actually collects for
+      // registration/financing together.
+      const registrationChargesLine = commercialLineByComponentKey(model, 'registration_charges');
+      const registrationCharges = registrationChargesLine
+        ? value(registrationChargesLine, 'actualAmount')
+        : value(reviewedBooking, 'registration_charges');
+      const financedAmount = value(model.finance, 'financedAmount');
+      const hasEitherCharge = financedAmount !== null && financedAmount !== undefined
+        || (registrationCharges !== null && registrationCharges !== undefined);
+      const totalCharges = hasEitherCharge
+        ? (Number(financedAmount) || 0) + (Number(registrationCharges) || 0)
+        : null;
       body = (
         <>
           <PanelHead title="Finance" />
@@ -2221,7 +2239,9 @@ function FocusPanel({
               <JFact label="Provider">{textValue(model.finance, 'providerName')}</JFact>
               <JFact label="DO Reference">{textValue(model.finance, 'doReference')}</JFact>
               <JFact label="PO Reference">{textValue(model.finance, 'poReference')}</JFact>
-              <JFact label="Financed Amount">{money(value(model.finance, 'financedAmount'))}</JFact>
+              <JFact label="Financed Amount (Hypothecation Charges)">{money(financedAmount)}</JFact>
+              <JFact label="Registration Charges">{money(registrationCharges)}</JFact>
+              <JFact label="Total Charges">{totalCharges === null ? '—' : money(totalCharges)}</JFact>
               <JFact label="Status">{readable(value(model.finance, 'actualStatusCode'))}</JFact>
             </FactList>
           ) : (
@@ -2230,6 +2250,7 @@ function FocusPanel({
         </>
       );
       break;
+    }
     case 'flags':
     default:
       body = <FlagsPanel model={model} role={role} onSelectAspect={onSelectAspect} />;

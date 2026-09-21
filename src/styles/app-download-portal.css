@@ -135,6 +135,41 @@
   border: 0;
 }
 
+.app-install-steps {
+  margin: 14px 0 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px 12px;
+}
+
+.app-install-steps li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  color: #23425f;
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.app-install-steps li span {
+  flex: 0 0 auto;
+  width: 20px;
+  height: 20px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: #00a79f;
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 800;
+}
+
 @media (max-width: 560px) {
   .app-portal-content {
     padding: 16px 0 28px;

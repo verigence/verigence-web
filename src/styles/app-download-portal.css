@@ -192,8 +192,30 @@
   color: #5c4409;
 }
 
-.app-video-card h2 {
+.app-video-card__heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
   margin: 0 0 14px;
+}
+
+.app-video-external-link {
+  flex: none;
+  font-size: 13px;
+  font-weight: 700;
+  color: #0b4f8a;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.app-video-external-link:hover,
+.app-video-external-link:focus-visible {
+  text-decoration: underline;
+}
+
+.app-video-card h2 {
+  margin: 0;
   font-size: 16px;
   font-weight: 800;
   color: #0e2c50;

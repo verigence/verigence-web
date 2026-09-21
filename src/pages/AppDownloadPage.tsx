@@ -29,6 +29,17 @@ const INSTALL_VIDEO_URL = (
   || 'https://www.youtube.com/embed/n1d5p6ioxo0?rel=0'
 );
 
+// A work phone's own network (corporate wifi, an MDM-managed device) can
+// block or badly throttle an embedded youtube.com iframe outright -- it
+// then just renders as empty space, with nothing telling a first-time
+// installer a video was ever there. A plain youtube.com/watch link opens
+// in the phone's own YouTube app/browser tab instead of an iframe, so it
+// works even when the embed doesn't.
+function watchUrl(embedUrl: string): string {
+  const match = embedUrl.match(/\/embed\/([^/?]+)/);
+  return match ? `https://www.youtube.com/watch?v=${match[1]}` : embedUrl;
+}
+
 /**
  * This portal's actual audience is graduate hires installing a work app
  * for the first time in their life, from outside the Play Store -- not a
@@ -160,7 +171,17 @@ export default function AppDownloadPage() {
         </article>
 
         <article className="app-video-card">
-          <h2>How to install it</h2>
+          <div className="app-video-card__heading">
+            <h2>How to install it</h2>
+            <a
+              className="app-video-external-link"
+              href={watchUrl(INSTALL_VIDEO_URL)}
+              target="_blank"
+              rel="noreferrer"
+            >
+              Watch on YouTube ↗
+            </a>
+          </div>
           <ol className="app-install-steps">
             <li>
               <span>1</span>
@@ -189,7 +210,6 @@ export default function AppDownloadPage() {
               allowFullScreen
             />
           </div>
-          <p className="app-video-caption">Prefer to watch? The video above walks through the same four steps.</p>
         </article>
       </section>
     </main>

@@ -1268,107 +1268,117 @@ function DealPanel({
   role?: string;
 }) {
   const pricing = model.skuPricing;
-  if (!pricing) {
-    return (
-      <>
-        <PanelHead title="Deal — masters vs offered" />
-        {modelNotIdentified ? (
-          <div className="jline__callout">
-            {/* Same finding, same title, same severity as its Audit Review
-                card -- previously this was fixed, generic copy with no
-                visible link between the two, so a reviewer had no way to
-                tell "this box" and "that card" were the same record. */}
-            <strong>{String(modelNotIdentified.title || 'Model not identified')}</strong>
-            <span>{String(modelNotIdentified.description || 'The vehicle could not be matched to the price masters. Confirm the model on the booking so masters can be applied.')}</span>
-            <span className="jline__calloutMeta">
-              {readable(modelNotIdentified.severity)} · Owner {readable(modelNotIdentified.ownerRoleCode)}
-            </span>
-            <div className="jline__calloutActions">
-              <Link to={`/journeys/${String((model.journey as Record<string, unknown>).journeyId ?? '')}/documents`}>Open Documents to confirm model →</Link>
-              {role !== 'PC' && (
-                <Link to={`/audit/${String((model.journey as Record<string, unknown>).journeyId ?? '')}?findingId=${encodeURIComponent(String(modelNotIdentified.auditFindingId))}`}>
-                  View in Audit Review →
-                </Link>
-              )}
-            </div>
+  // Regression: commercial lines / invoice amounts (auditcore.commercial_lines)
+  // and discounts are materialized independent of SKU resolution -- confirmed
+  // live, a journey with an unresolved SKU (MODEL_NOT_IDENTIFIED still open)
+  // already had a real accessories_cost commercial line with a genuine
+  // actualAmount from the Invoice. Only the master-vs-offered price CHECK
+  // (SkuPriceCheckPanel) genuinely needs a resolved SKU to compare against --
+  // everything else below must render exactly as it would once resolved,
+  // per explicit instruction: map the price from the Booking Form and
+  // Invoice even when the SKU isn't available yet.
+  return (
+    <>
+      <PanelHead
+        title="Deal — masters vs offered"
+        hint={pricing ? `SKU ${pricing.skuCode} · ${readable(pricing.selectionStatus)}` : undefined}
+      />
+      {pricing ? (
+        <SkuPriceCheckPanel pricing={pricing} tenantId={tenantId} journeyId={journeyId} accessToken={accessToken} />
+      ) : modelNotIdentified ? (
+        <div className="jline__callout">
+          {/* Same finding, same title, same severity as its Audit Review
+              card -- previously this was fixed, generic copy with no
+              visible link between the two, so a reviewer had no way to
+              tell "this box" and "that card" were the same record. */}
+          <strong>{String(modelNotIdentified.title || 'Model not identified')}</strong>
+          <span>{String(modelNotIdentified.description || 'The vehicle could not be matched to the price masters. Confirm the model on the booking so masters can be applied.')}</span>
+          <span className="jline__calloutMeta">
+            {readable(modelNotIdentified.severity)} · Owner {readable(modelNotIdentified.ownerRoleCode)}
+          </span>
+          <div className="jline__calloutActions">
+            <Link to={`/journeys/${String((model.journey as Record<string, unknown>).journeyId ?? '')}/documents`}>Open Documents to confirm model →</Link>
+            {role !== 'PC' && (
+              <Link to={`/audit/${String((model.journey as Record<string, unknown>).journeyId ?? '')}?findingId=${encodeURIComponent(String(modelNotIdentified.auditFindingId))}`}>
+                View in Audit Review →
+              </Link>
+            )}
           </div>
-        ) : (
-          <p className="jline__empty">The price masters have not been resolved for this booking yet. Complete Booking document review.</p>
-        )}
+        </div>
+      ) : (
+        <p className="jline__empty">The price masters have not been resolved for this booking yet. Complete Booking document review.</p>
+      )}
+      {!pricing && (
         <div style={{ marginTop: 16 }}>
           <BookingCommercialFacts reviewedBooking={reviewedBooking} />
         </div>
-        <div style={{ marginTop: 24 }}>
-          <DiscountsPanel model={model} />
-        </div>
-      </>
-    );
-  }
-  const invoiceColumnsOn = dealHasAnyInvoiceColumn(model.dealSourceBreakdown);
-  return (
-    <>
-      <PanelHead title="Deal — masters vs offered" hint={`SKU ${pricing.skuCode} · ${readable(pricing.selectionStatus)}`} />
-      <SkuPriceCheckPanel pricing={pricing} tenantId={tenantId} journeyId={journeyId} accessToken={accessToken} />
-      <DealTotalsStrip model={model} />
-      {model.commercialLines.length > 0 && (
-        <div className="jline__tableWrap" style={{ marginTop: 16 }}>
-          <table className="jline__table">
-            <thead>
-              <tr>
-                <th>Component</th>
-                <th>Standard</th>
-                {invoiceColumnsOn ? (
-                  <>
-                    <th>Retail Invoice</th>
-                    <th>Tax Invoice</th>
-                  </>
-                ) : (
-                  <th>Actual</th>
-                )}
-              </tr>
-            </thead>
-            <tbody>
-              {model.commercialLines.map((line) => {
-                const currency = String(line.currencyCode || 'INR');
-                const componentKey = String(line.componentKey);
-                if (!invoiceColumnsOn) {
-                  return (
-                    <tr key={String(line.commercialLineId)}>
-                      <td>{readable(componentKey)}</td>
-                      <td>{money(line.standardAmount, currency)}</td>
-                      <td>{money(line.actualAmount, currency)}</td>
-                    </tr>
-                  );
-                }
-                const sources = allSourceValuesFor(model.dealSourceBreakdown, componentKey);
-                const { retail, tax } = bucketInvoiceColumns(sources);
-                // Neither invoice bucket has reported this line yet -- fall
-                // back to whatever is currently known (the Booking Form,
-                // since an invoice always wins once one exists) so the row
-                // never goes blank just because no invoice covers it yet.
-                const retailValue = retail ? retail.amount : line.actualAmount;
-                const retailIsFallback = !retail && line.actualAmount !== null && line.actualAmount !== undefined;
-                const disagree = retail && tax && Math.abs(retail.amount - tax.amount) > 1;
-                return (
-                  <tr key={String(line.commercialLineId)}>
-                    <td>{readable(componentKey)}</td>
-                    <td>{money(line.standardAmount, currency)}</td>
-                    <td className={disagree ? 'jline__delta--over' : undefined}>
-                      {money(retailValue, currency)}
-                      {retailIsFallback ? <span className="jline__invoiceColFallback"> (Booking Form)</span> : null}
-                    </td>
-                    <td className={disagree ? 'jline__delta--over' : undefined}>{tax ? money(tax.amount, currency) : '—'}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
       )}
+      <DealTotalsStrip model={model} />
+      <CommercialLinesTable model={model} />
       <div style={{ marginTop: 24 }}>
         <DiscountsPanel model={model} />
       </div>
     </>
+  );
+}
+
+function CommercialLinesTable({ model }: { model: JourneyOverview }) {
+  if (model.commercialLines.length === 0) return null;
+  const invoiceColumnsOn = dealHasAnyInvoiceColumn(model.dealSourceBreakdown);
+  return (
+    <div className="jline__tableWrap" style={{ marginTop: 16 }}>
+      <table className="jline__table">
+        <thead>
+          <tr>
+            <th>Component</th>
+            <th>Standard</th>
+            {invoiceColumnsOn ? (
+              <>
+                <th>Retail Invoice</th>
+                <th>Tax Invoice</th>
+              </>
+            ) : (
+              <th>Actual</th>
+            )}
+          </tr>
+        </thead>
+        <tbody>
+          {model.commercialLines.map((line) => {
+            const currency = String(line.currencyCode || 'INR');
+            const componentKey = String(line.componentKey);
+            if (!invoiceColumnsOn) {
+              return (
+                <tr key={String(line.commercialLineId)}>
+                  <td>{readable(componentKey)}</td>
+                  <td>{money(line.standardAmount, currency)}</td>
+                  <td>{money(line.actualAmount, currency)}</td>
+                </tr>
+              );
+            }
+            const sources = allSourceValuesFor(model.dealSourceBreakdown, componentKey);
+            const { retail, tax } = bucketInvoiceColumns(sources);
+            // Neither invoice bucket has reported this line yet -- fall
+            // back to whatever is currently known (the Booking Form,
+            // since an invoice always wins once one exists) so the row
+            // never goes blank just because no invoice covers it yet.
+            const retailValue = retail ? retail.amount : line.actualAmount;
+            const retailIsFallback = !retail && line.actualAmount !== null && line.actualAmount !== undefined;
+            const disagree = retail && tax && Math.abs(retail.amount - tax.amount) > 1;
+            return (
+              <tr key={String(line.commercialLineId)}>
+                <td>{readable(componentKey)}</td>
+                <td>{money(line.standardAmount, currency)}</td>
+                <td className={disagree ? 'jline__delta--over' : undefined}>
+                  {money(retailValue, currency)}
+                  {retailIsFallback ? <span className="jline__invoiceColFallback"> (Booking Form)</span> : null}
+                </td>
+                <td className={disagree ? 'jline__delta--over' : undefined}>{tax ? money(tax.amount, currency) : '—'}</td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
   );
 }
 

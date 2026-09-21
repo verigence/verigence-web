@@ -188,10 +188,19 @@ export default function BookingCaptureV2CompactPage() {
   // (see handleUpload below) -- this query exists only so the checklist can
   // show what Delivery still needs too, segregated from Booking's own list,
   // instead of looking Booking-only when both stages' documents can land here.
+  //
+  // Gated on `started`, not just `enabled`: Delivery's own capture-local
+  // endpoint 404s (VAC-NF-005 "Start Delivery before capturing Delivery
+  // documents") until Delivery has actually started, which is never true
+  // for a Booking that was just created -- confirmed live, this fired the
+  // instant a brand new booking's POST /bookings response came back.
+  // Harmless to the user (only .data is ever read; the error is never
+  // rendered), but a guaranteed-to-fail request logged as a server warning
+  // on every single booking creation was pure noise worth not sending.
   const deliveryCaptureQuery = useQuery({
     queryKey: ['uc03-booking-v2-delivery-checklist', project?.tenantId, journeyId],
     queryFn: () => getDeliveryCaptureV2(project!.tenantId, journeyId!, accessToken),
-    enabled,
+    enabled: enabled && started,
     retry: false,
     refetchOnWindowFocus: false,
   });

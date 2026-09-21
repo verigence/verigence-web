@@ -3,7 +3,7 @@ import { IonApp } from '@ionic/react';
 import { BrowserRouter, Navigate, Route, Routes, useParams, useSearchParams } from 'react-router-dom';
 
 import { verigenceLockup } from './assets/verigenceLockup';
-import { ErrorBoundary } from './components/ErrorBoundary';
+import { ErrorBoundary, STALE_CHUNK_RELOAD_FLAG } from './components/ErrorBoundary';
 import ProjectContextGate from './components/ProjectContextGate';
 import SessionRenewalGate from './components/SessionRenewalGate';
 import AttendanceShellSlot from './features/attendance/AttendanceShellSlot';
@@ -242,6 +242,19 @@ function Loading() {
 }
 
 export default function App() {
+  // Proves this boot actually got past ErrorBoundary's own stale-chunk
+  // auto-reload (see there) -- clearing it here, not right after that
+  // reload fires, is what lets a LATER deploy get its own one free reload
+  // in the same tab instead of being silently suppressed by a flag left
+  // over from hours earlier.
+  useEffect(() => {
+    try {
+      sessionStorage.removeItem(STALE_CHUNK_RELOAD_FLAG);
+    } catch {
+      // sessionStorage unavailable -- nothing to clear.
+    }
+  }, []);
+
   return (
     <ErrorBoundary>
       <IonApp>

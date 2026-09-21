@@ -22,6 +22,12 @@ ion-app {
   min-height: 100vh;
   height: auto !important;
   overflow: visible !important;
+  /* Ionic's own .ion-page rule sets `contain: layout size style` on this
+     same element -- size containment pins the box to min-height regardless
+     of height:auto/overflow:visible above, so an unshelled page taller than
+     one viewport has nowhere to scroll. See ui-governance.css's own copy of
+     this override for the full story (found live on the App Portal). */
+  contain: layout style !important;
 }
 
 .enterprise-shell,

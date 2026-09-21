@@ -524,6 +524,21 @@
     width: 140px;
   }
 
+  /* A full landing-page hero (eyebrow + large heading + a sentence of copy)
+     reads as a marketing site, not a compact app-install screen -- on a
+     phone the download button is the entire job. */
+  .app-portal-hero {
+    padding: 20px 18px 16px;
+  }
+
+  .app-portal-hero h1 {
+    font-size: 22px;
+  }
+
+  .app-portal-subtitle {
+    display: none;
+  }
+
   .app-release-card,
   .app-guide-card,
   .app-video-card,

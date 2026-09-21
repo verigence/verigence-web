@@ -235,16 +235,6 @@ export default function AppDownloadPage() {
             <p className="app-video-caption">Menu names vary by Android version and phone manufacturer.</p>
           </article>
         </div>
-
-        <section className="app-safety-card">
-          <div className="app-safety-heading"><ShieldIcon /><h2>Before you install</h2></div>
-          <div className="app-safety-grid">
-            <div><strong>Use this portal only</strong><span>Do not install Verigence APKs received over chat, email or file-sharing links.</span></div>
-            <div><strong>Updating an existing app</strong><span>A newer APK signed with the same Verigence signing identity should install over the existing release.</span></div>
-            <div><strong>“App not installed”</strong><span>Check that the existing app is a Verigence release build and that enough storage is available.</span></div>
-            <div><strong>Turn permission back off</strong><span>After installation, you can disable “Allow from this source” for the browser or file manager.</span></div>
-          </div>
-        </section>
       </section>
 
       <footer className="app-portal-footer">

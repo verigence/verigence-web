@@ -81,6 +81,20 @@ ion-app {
   height: auto !important;
   max-height: none !important;
   overflow: visible !important;
+  /* Ionic's own .ion-page rule (unconditionally applied to IonApp's root
+     element) sets `contain: layout size style` -- CSS size containment
+     makes the box's height a fixed, content-independent quantity (it
+     resolves to min-height here) regardless of height:auto/overflow:visible
+     above. A page taller than one viewport that isn't wrapped in
+     .enterprise-shell's own internal scroll owner (see
+     authenticated-scroll-owner.css) has nowhere left to scroll: body/#root/
+     ion-app's own scrollHeight all get capped at the viewport, content
+     paints past the fold but is never reachable. Found live on the App
+     Portal (/apps) -- verified in a real browser that forcing contain:none
+     on ion-app alone fixes it. `layout style` are still fine to keep;
+     `size` is the one containment value that causes this.
+  */
+  contain: layout style !important;
   touch-action: pan-y;
 }
 

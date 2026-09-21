@@ -38,9 +38,20 @@ interface UploadIntentResult {
   expiresAtUtc: string;
 }
 
+interface UploadIntentFailure {
+  clientUploadId: string;
+  errorCode: string;
+  detail: string;
+}
+
 interface UploadIntentResponse {
   externalContextRef: string;
   uploads: UploadIntentResult[];
+  // DI isolates each file on its own SAVEPOINT -- a problem with one file
+  // (e.g. a stale conflicting intent) no longer fails every other file in
+  // the same batch; it shows up here instead. Always present, but treat a
+  // missing/undefined value as empty for safety against an older deploy.
+  failures?: UploadIntentFailure[];
 }
 
 interface FinalizeResponse {
@@ -66,6 +77,10 @@ function clientUploadId(): string {
 export interface UnifiedUploadResult {
   uploaded: number;
   failed: number;
+  // One entry per failed file, in whatever order they failed -- the intent
+  // step's per-file failures (a stale conflicting intent, DI unreachable)
+  // first, then any PUT/finalize failures. Empty when failed === 0.
+  failureReasons: string[];
 }
 
 /**
@@ -81,7 +96,7 @@ export async function uploadUnifiedCaptureFiles(
   files: File[],
   accessToken?: string,
 ): Promise<UnifiedUploadResult> {
-  if (!files.length) return { uploaded: 0, failed: 0 };
+  if (!files.length) return { uploaded: 0, failed: 0, failureReasons: [] };
   const access = token(accessToken);
   const prepared = files.map((file) => ({
     clientUploadId: clientUploadId(),
@@ -104,8 +119,15 @@ export async function uploadUnifiedCaptureFiles(
   });
 
   const byClientId = new Map(prepared.map((item) => [item.clientUploadId, item]));
+  const byUploadClientId = new Map(prepared.map((item) => [item.clientUploadId, item.filename]));
   let uploaded = 0;
-  let failed = 0;
+  // Seed with the intent step's own per-file failures (DI isolates each
+  // file on its own SAVEPOINT) -- these files never got a upload slot at
+  // all, so the worker below never sees them.
+  const failureReasons: string[] = (intent.failures ?? []).map(
+    (failure) => `${byUploadClientId.get(failure.clientUploadId) ?? failure.clientUploadId}: ${failure.detail}`,
+  );
+  let failed = failureReasons.length;
   let nextIndex = 0;
   const worker = async () => {
     for (;;) {
@@ -115,6 +137,7 @@ export async function uploadUnifiedCaptureFiles(
       const local = byClientId.get(upload.clientUploadId);
       if (!local) {
         failed += 1;
+        failureReasons.push(`${upload.clientUploadId}: This file could not be matched to what was uploaded.`);
         continue;
       }
       try {
@@ -127,14 +150,16 @@ export async function uploadUnifiedCaptureFiles(
           { method: 'POST', accessToken: access, timeoutMs: 30_000 },
         );
         uploaded += 1;
-      } catch {
+      } catch (error) {
         failed += 1;
+        const reason = error instanceof Error ? error.message : 'This file could not be uploaded.';
+        failureReasons.push(`${local.filename}: ${reason}`);
       }
     }
   };
   await Promise.all(Array.from({ length: Math.min(6, intent.uploads.length) }, () => worker()));
   if (uploaded > 0) invalidateBothCaptureReadStates(tenantId, journeyId);
-  return { uploaded, failed };
+  return { uploaded, failed, failureReasons };
 }
 
 /**

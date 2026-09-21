@@ -687,11 +687,14 @@ export default function JourneyDocumentsPage() {
         // Non-fatal -- the page's own polling / a later reconcile call will
         // still pick up correct dispatch; the upload itself already succeeded.
       }
-      setUploadMessage(
-        result.failed
-          ? `${result.uploaded} of ${result.uploaded + result.failed} file(s) uploaded — ${result.failed} failed, try those again.`
-          : `${result.uploaded} file${result.uploaded === 1 ? '' : 's'} uploaded — see its status in the list below.`,
-      );
+      if (result.failed) {
+        setUploadMessage(
+          result.uploaded ? `${result.uploaded} of ${result.uploaded + result.failed} file(s) uploaded.` : undefined,
+        );
+        setUploadError(result.failureReasons.join(' '));
+      } else {
+        setUploadMessage(`${result.uploaded} file${result.uploaded === 1 ? '' : 's'} uploaded — see its status in the list below.`);
+      }
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['uc03-journey-documents-booking', project.tenantId, journeyId] }),
         queryClient.invalidateQueries({ queryKey: ['uc03-journey-documents-delivery', project.tenantId, journeyId] }),

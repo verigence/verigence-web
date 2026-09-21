@@ -1646,7 +1646,16 @@ function PaymentsPanel({
     receipts.flatMap((r) => [pickStr(r, 'evidenceId'), pickStr(r, 'documentId')]).filter(Boolean),
   );
   const ledgerOnly = (model.payments || []).filter(
-    (p) => !receiptDocumentIds.has(pickStr(p, 'sourceEvidenceId', 'source_evidence_id')),
+    (p) =>
+      !receiptDocumentIds.has(pickStr(p, 'sourceEvidenceId', 'source_evidence_id')) &&
+      // A receipt materialized straight into auditcore.payments without a
+      // dealer_receipt_review_values row (see _receipts()'s own fallback)
+      // never carries a sourceEvidenceId match against the receipts list --
+      // its identity there is the DI document id, not an evidence id -- so
+      // without this it showed up a second time here too, with a "Status:
+      // Not available" ledger row duplicating the already-correct receipt
+      // row above it.
+      !receiptDocumentIds.has(pickStr(p, 'sourceDiDocumentId', 'source_di_document_id')),
   );
   // A journey whose payments were all reconciled straight off the bank
   // statement (no separately-reviewed receipt document) has receipts.length

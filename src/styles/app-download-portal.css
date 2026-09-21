@@ -1,3 +1,7 @@
+/* Three things only, per explicit instruction: Download, its version/size,
+   and the install video. See AppDownloadPage.tsx's own comment for why
+   this is deliberately this small. */
+
 .app-portal-shell {
   min-height: 100vh;
   background:
@@ -8,12 +12,10 @@
 }
 
 .app-portal-topbar {
-  min-height: 76px;
+  min-height: 64px;
   padding: 14px clamp(22px, 4vw, 64px);
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 24px;
   background: rgba(255, 255, 255, 0.96);
   border-bottom: 1px solid #e2eaf2;
   box-shadow: 0 1px 8px rgba(6, 43, 99, 0.04);
@@ -21,208 +23,66 @@
 
 .app-portal-logo {
   display: block;
-  width: min(184px, 42vw);
+  width: min(160px, 42vw);
   height: auto;
 }
 
-.app-portal-secure-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  border: 1px solid #cceae7;
-  background: #f1fbfa;
-  color: #086b68;
-  padding: 8px 12px;
-  border-radius: 999px;
-  font-size: 13px;
-  font-weight: 700;
-  white-space: nowrap;
-}
-
-.app-portal-secure-badge svg,
-.app-card-icon svg,
-.app-download-button svg,
-.app-trust-strip svg,
-.app-safety-heading svg,
-.app-help-link svg,
-.app-release-meta svg {
-  width: 18px;
-  height: 18px;
-  flex: 0 0 auto;
-}
-
-.app-portal-hero {
-  padding: 56px clamp(22px, 7vw, 104px) 34px;
-  background:
-    linear-gradient(130deg, rgba(6, 43, 99, 0.98), rgba(11, 79, 138, 0.95)),
-    #062b63;
-  color: #ffffff;
-}
-
-.app-portal-hero > div {
-  width: min(1080px, 100%);
-  margin: 0 auto;
-}
-
-.app-portal-eyebrow,
-.app-card-kicker {
-  margin: 0 0 8px;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  font-size: 12px;
-  font-weight: 800;
-}
-
-.app-portal-eyebrow {
-  color: #7ee3dc;
-}
-
-.app-portal-hero h1 {
-  margin: 0;
-  font-size: clamp(30px, 4vw, 48px);
-  line-height: 1.1;
-  font-weight: 800;
-  letter-spacing: -0.025em;
-}
-
-.app-portal-subtitle {
-  max-width: 720px;
-  margin: 14px 0 0;
-  color: #d9e8f6;
-  font-size: clamp(16px, 1.6vw, 19px);
-  line-height: 1.55;
-}
-
 .app-portal-content {
-  width: min(1120px, calc(100% - 40px));
+  width: min(560px, calc(100% - 32px));
   margin: 0 auto;
-  padding: 34px 0 52px;
+  padding: 22px 0 40px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
 }
 
 .app-release-card,
-.app-guide-card,
-.app-video-card,
-.app-safety-card {
+.app-video-card {
   background: #ffffff;
   border: 1px solid #dce6f0;
-  border-radius: 18px;
+  border-radius: 16px;
   box-shadow: 0 12px 35px rgba(6, 43, 99, 0.07);
+  padding: 20px;
 }
 
-.app-release-card {
-  padding: 26px;
-}
-
-.app-release-main {
-  display: flex;
-  align-items: center;
-  gap: 20px;
-}
-
-.app-release-icon {
-  width: 78px;
-  height: 78px;
-  flex: 0 0 78px;
-  border-radius: 18px;
-  overflow: hidden;
-  box-shadow: 0 7px 20px rgba(6, 43, 99, 0.16);
-}
-
-.app-release-icon svg {
-  width: 100%;
-  height: 100%;
-  display: block;
-}
-
-.app-release-copy {
-  flex: 1 1 auto;
-  min-width: 0;
-}
-
-.app-release-title-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 18px;
-}
-
-.app-release-title-row h2 {
+.app-release-card h1 {
   margin: 0;
-  color: #062b63;
-  font-size: 24px;
-  line-height: 1.2;
-}
-
-.app-release-title-row p {
-  margin: 5px 0 0;
-  color: #5e7389;
-  font-size: 14px;
-  font-weight: 600;
-}
-
-.app-release-status {
-  display: inline-flex;
-  padding: 6px 10px;
-  border-radius: 999px;
-  font-size: 12px;
+  font-size: 21px;
   font-weight: 800;
-  white-space: nowrap;
+  color: #0e2c50;
 }
 
-.app-release-status.is-ready {
-  color: #067647;
-  background: #ecfdf3;
-  border: 1px solid #abefc6;
-}
-
-.app-release-status.is-pending {
-  color: #6e879b;
-  background: #f4f7fa;
-  border: 1px solid #dce5ed;
-}
-
-.app-release-meta {
-  margin-top: 13px;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px 16px;
-  color: #52677e;
+.app-release-note {
+  margin: 6px 0 0;
+  color: #6a7f93;
   font-size: 13px;
 }
 
-.app-release-meta span {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.app-release-actions {
-  margin-top: 25px;
-  padding-top: 22px;
-  border-top: 1px solid #e5ecf3;
-  display: flex;
-  align-items: center;
-  gap: 18px;
-  flex-wrap: wrap;
-}
-
 .app-download-button {
+  margin-top: 16px;
   border: 0;
   border-radius: 11px;
   background: #0b4f8a;
   color: #ffffff;
-  min-height: 46px;
+  min-height: 48px;
+  width: 100%;
   padding: 0 22px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 9px;
   font: inherit;
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 800;
   cursor: pointer;
   box-shadow: 0 8px 18px rgba(11, 79, 138, 0.2);
   transition: transform 140ms ease, background 140ms ease, box-shadow 140ms ease;
+}
+
+.app-download-button svg {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
 }
 
 .app-download-button:hover:not(:disabled) {
@@ -231,8 +91,7 @@
   box-shadow: 0 10px 22px rgba(11, 79, 138, 0.25);
 }
 
-.app-download-button:focus-visible,
-.app-help-link:focus-visible {
+.app-download-button:focus-visible {
   outline: 3px solid rgba(0, 175, 168, 0.35);
   outline-offset: 3px;
 }
@@ -243,21 +102,8 @@
   cursor: not-allowed;
 }
 
-.app-release-note {
-  margin: 0;
-  color: #6a7f93;
-  font-size: 13px;
-}
-
-.app-release-note code {
-  color: #203d5a;
-  background: #f3f6f9;
-  border-radius: 5px;
-  padding: 2px 5px;
-}
-
 .app-portal-message {
-  margin-top: 18px;
+  margin-top: 14px;
   padding: 11px 13px;
   border-radius: 9px;
   background: #eef7ff;
@@ -267,151 +113,14 @@
   line-height: 1.45;
 }
 
-.app-trust-strip {
-  margin-top: 22px;
-  padding-top: 19px;
-  border-top: 1px solid #e8eef4;
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 12px;
-}
-
-.app-trust-strip > div {
-  min-width: 0;
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  color: #416076;
-  font-size: 12px;
-  font-weight: 650;
-}
-
-.app-trust-strip svg {
-  color: #00a58f;
-}
-
-.app-trust-strip span {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.app-install-grid {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  gap: 22px;
-  margin-top: 22px;
-}
-
-.app-guide-card,
-.app-video-card,
-.app-safety-card {
-  padding: 24px;
-}
-
-.app-card-heading {
-  display: flex;
-  align-items: center;
-  gap: 13px;
-}
-
-.app-card-icon {
-  width: 42px;
-  height: 42px;
-  border-radius: 11px;
-  display: grid;
-  place-items: center;
-  background: #edf6ff;
-  color: #0b4f8a;
-  flex: 0 0 42px;
-}
-
-.app-card-heading h2,
-.app-safety-heading h2 {
-  margin: 0;
-  color: #102f55;
-  font-size: 19px;
-  line-height: 1.25;
-}
-
-.app-card-kicker {
-  color: #6d8398;
-  font-size: 10px;
-  margin-bottom: 4px;
-}
-
-.app-install-steps {
-  margin: 23px 0 0;
-  padding: 0;
-  list-style: none;
-  counter-reset: install-step;
-  display: grid;
-  gap: 16px;
-}
-
-.app-install-steps li {
-  position: relative;
-  padding-left: 42px;
-  min-height: 32px;
-  counter-increment: install-step;
-}
-
-.app-install-steps li::before {
-  content: counter(install-step);
-  position: absolute;
-  left: 0;
-  top: 0;
-  width: 29px;
-  height: 29px;
-  border-radius: 50%;
-  display: grid;
-  place-items: center;
-  color: #ffffff;
-  background: #00a79f;
-  font-size: 12px;
+.app-video-card h2 {
+  margin: 0 0 12px;
+  font-size: 16px;
   font-weight: 800;
-}
-
-.app-install-steps strong,
-.app-install-steps span {
-  display: block;
-}
-
-.app-install-steps strong {
-  color: #15395f;
-  font-size: 14px;
-  margin-bottom: 3px;
-}
-
-.app-install-steps span {
-  color: #657b90;
-  font-size: 13px;
-  line-height: 1.45;
-}
-
-.app-help-link {
-  width: fit-content;
-  margin-top: 21px;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  color: #0b4f8a;
-  text-decoration: none;
-  font-size: 13px;
-  font-weight: 750;
-}
-
-.app-help-link:hover {
-  text-decoration: underline;
-}
-
-.app-help-link svg {
-  width: 14px;
-  height: 14px;
+  color: #0e2c50;
 }
 
 .app-video-frame {
-  margin-top: 20px;
   aspect-ratio: 16 / 9;
   overflow: hidden;
   border-radius: 12px;
@@ -426,196 +135,19 @@
   border: 0;
 }
 
-.app-video-caption {
-  margin: 12px 0 0;
-  color: #6e8295;
-  font-size: 12px;
-  line-height: 1.45;
-}
-
-.app-safety-card {
-  margin-top: 22px;
-}
-
-.app-safety-heading {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  color: #0b4f8a;
-}
-
-.app-safety-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 15px 22px;
-  margin-top: 20px;
-}
-
-.app-safety-grid > div {
-  padding: 15px 16px;
-  border-radius: 11px;
-  background: #f8fafc;
-  border: 1px solid #e6edf4;
-}
-
-.app-safety-grid strong,
-.app-safety-grid span {
-  display: block;
-}
-
-.app-safety-grid strong {
-  color: #183b60;
-  font-size: 13px;
-  margin-bottom: 5px;
-}
-
-.app-safety-grid span {
-  color: #63798e;
-  font-size: 12px;
-  line-height: 1.45;
-}
-
-.app-portal-footer {
-  padding: 22px clamp(22px, 4vw, 64px);
-  border-top: 1px solid #e0e8ef;
-  background: #ffffff;
-  color: #71869a;
-  display: flex;
-  justify-content: space-between;
-  gap: 20px;
-  font-size: 12px;
-}
-
-@media (max-width: 820px) {
-  .app-portal-topbar {
-    min-height: 66px;
-    padding: 12px 18px;
-  }
-
-  .app-portal-secure-badge span {
-    display: none;
-  }
-
-  .app-portal-secure-badge {
-    padding: 8px;
-  }
-
-  .app-portal-hero {
-    padding: 36px 20px 28px;
-  }
-
-  .app-portal-content {
-    width: min(100% - 24px, 720px);
-    padding: 20px 0 32px;
-  }
-
-  .app-install-grid,
-  .app-safety-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .app-trust-strip {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-
 @media (max-width: 560px) {
-  .app-portal-logo {
-    width: 140px;
-  }
-
-  /* A full landing-page hero (eyebrow + large heading + a sentence of copy)
-     reads as a marketing site, not a compact app-install screen -- on a
-     phone the download button is the entire job. */
-  .app-portal-hero {
-    padding: 20px 18px 16px;
-  }
-
-  .app-portal-hero h1 {
-    font-size: 22px;
-  }
-
-  .app-portal-subtitle {
-    display: none;
-  }
-
-  .app-release-card,
-  .app-guide-card,
-  .app-video-card,
-  .app-safety-card {
-    border-radius: 14px;
-  }
-
-  .app-release-card {
-    padding: 18px;
-  }
-
-  .app-release-main {
-    align-items: flex-start;
+  .app-portal-content {
+    padding: 16px 0 28px;
     gap: 14px;
   }
 
-  .app-release-icon {
-    width: 58px;
-    height: 58px;
-    flex-basis: 58px;
+  .app-release-card,
+  .app-video-card {
+    padding: 16px;
     border-radius: 14px;
   }
 
-  .app-release-title-row {
-    display: block;
-  }
-
-  .app-release-title-row h2 {
-    font-size: 20px;
-  }
-
-  .app-release-status {
-    margin-top: 9px;
-  }
-
-  .app-release-actions {
-    display: block;
-    margin-top: 18px;
-    padding-top: 16px;
-  }
-
-  .app-download-button {
-    width: 100%;
-  }
-
-  .app-release-note {
-    margin-top: 10px;
-    text-align: center;
-  }
-
-  .app-trust-strip {
-    margin-top: 17px;
-    padding-top: 16px;
-    grid-template-columns: 1fr;
-    gap: 8px;
-  }
-
-  .app-trust-strip span {
-    white-space: normal;
-  }
-
-  .app-guide-card,
-  .app-video-card,
-  .app-safety-card {
-    padding: 18px;
-  }
-
-  .app-portal-footer {
-    display: block;
-    padding: 18px;
-  }
-
-  .app-portal-footer span {
-    display: block;
-  }
-
-  .app-portal-footer span + span {
-    margin-top: 5px;
+  .app-release-card h1 {
+    font-size: 19px;
   }
 }

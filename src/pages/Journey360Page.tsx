@@ -398,11 +398,9 @@ function SkuPriceCheckPanel({
 
 function ReceiptAccordion({
   receipts,
-  pendingReceipts,
   reviewedBooking,
 }: {
   receipts: Array<Record<string, unknown>>;
-  pendingReceipts: Array<Record<string, unknown>>;
   reviewedBooking: Record<string, unknown> | null;
 }) {
   const [openId, setOpenId] = useState<string | null>(null);
@@ -418,7 +416,7 @@ function ReceiptAccordion({
     return s + (Number.isNaN(a) ? 0 : a);
   }, 0);
 
-  if (receipts.length === 0 && pendingReceipts.length === 0) {
+  if (receipts.length === 0) {
     return (
       <div>
         {reviewedBooking && Object.keys(reviewedBooking).length > 0 ? (
@@ -534,23 +532,6 @@ function ReceiptAccordion({
             </div>
           );
         })}
-
-        {pendingReceipts.map((r, idx) => (
-          <div key={String(pick(r, 'documentId', 'evidenceId') ?? `pending-${idx}`)} className="rcpt-row rcpt-row--pending">
-            <div className="rcpt-trigger rcpt-trigger--pending">
-              <span className="rcpt-trigger__mark rcpt-trigger__mark--pending">REC</span>
-              <div className="rcpt-trigger__body">
-                <div className="rcpt-trigger__primary">
-                  <span className="rcpt-trigger__ref">Receipt document</span>
-                </div>
-                <span className="rcpt-trigger__words">DI extraction in progress</span>
-              </div>
-              <div className="rcpt-trigger__right">
-                <span className="rcpt-pending-badge">Pending</span>
-              </div>
-            </div>
-          </div>
-        ))}
       </div>
     </div>
   );
@@ -1613,12 +1594,10 @@ function InvoiceAmountsTable({ invoices }: { invoices: Array<Record<string, unkn
 function PaymentsPanel({
   model,
   receipts,
-  pendingReceipts,
   reviewedBooking,
 }: {
   model: JourneyOverview;
   receipts: Array<Record<string, unknown>>;
-  pendingReceipts: Array<Record<string, unknown>>;
   reviewedBooking: Record<string, unknown> | null;
 }) {
   const matched = receipts.filter((r) => String((objectValue(r, 'bankMatch') || {}).status).toUpperCase() === 'MATCHED').length;
@@ -1675,7 +1654,7 @@ function PaymentsPanel({
     const a = Number(pick(inv, 'grandTotalAmount', 'grand_total_amount') ?? 0);
     return s + (Number.isNaN(a) ? 0 : a);
   }, 0);
-  const noReceiptsAtAll = receipts.length === 0 && pendingReceipts.length === 0 && ledgerOnly.length === 0;
+  const noReceiptsAtAll = receipts.length === 0 && ledgerOnly.length === 0;
 
   return (
     <>
@@ -1761,9 +1740,9 @@ function PaymentsPanel({
                 </table>
               </div>
             )}
-            {(receipts.length > 0 || pendingReceipts.length > 0) && (
+            {receipts.length > 0 && (
               <div style={{ marginTop: 14 }}>
-                <ReceiptAccordion receipts={receipts} pendingReceipts={pendingReceipts} reviewedBooking={null} />
+                <ReceiptAccordion receipts={receipts} reviewedBooking={null} />
               </div>
             )}
           </>
@@ -1943,7 +1922,6 @@ function FocusPanel({
   aspect,
   model,
   receipts,
-  pendingReceipts,
   reviewedBooking,
   onSelectAspect,
   tenantId,
@@ -1954,7 +1932,6 @@ function FocusPanel({
   aspect: AspectKey;
   model: JourneyOverview;
   receipts: Array<Record<string, unknown>>;
-  pendingReceipts: Array<Record<string, unknown>>;
   reviewedBooking: Record<string, unknown> | null;
   onSelectAspect: (key: AspectKey) => void;
   tenantId: string;
@@ -1990,7 +1967,7 @@ function FocusPanel({
     case 'payments':
       // Bank statements is a sub-section here now (merged from its own
       // former tab); Discounts is the same, folded into Deal above.
-      body = <PaymentsPanel model={model} receipts={receipts} pendingReceipts={pendingReceipts} reviewedBooking={reviewedBooking} />;
+      body = <PaymentsPanel model={model} receipts={receipts} reviewedBooking={reviewedBooking} />;
       break;
     case 'documents':
       body = (
@@ -2427,7 +2404,6 @@ export default function Journey360Page() {
     : undefined;
 
   const receiptRows = useMemo(() => (model?.receipts || []).filter((r) => !receiptIsPending(r)), [model?.receipts]);
-  const pendingReceiptRows = useMemo(() => (model?.receipts || []).filter(receiptIsPending), [model?.receipts]);
 
   const steps = useMemo(() => (model ? deriveSteps(model).steps : []), [model]);
   const aspects = useMemo(() => (model ? deriveAspects(model) : []), [model]);
@@ -2525,7 +2501,6 @@ export default function Journey360Page() {
           aspect={activeAspect}
           model={model}
           receipts={receiptRows}
-          pendingReceipts={pendingReceiptRows}
           reviewedBooking={reviewedBooking}
           onSelectAspect={setAspect}
           tenantId={tenantId}

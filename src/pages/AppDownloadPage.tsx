@@ -40,11 +40,6 @@ function formatReleaseDate(value?: string | null): string {
   }).format(parsed);
 }
 
-function shortChecksum(value?: string | null): string {
-  if (!value) return 'Published with the release';
-  return value.length > 26 ? `${value.slice(0, 13)}…${value.slice(-13)}` : value;
-}
-
 export default function AppDownloadPage() {
   const accessToken = useSessionStore((state) => state.accessToken);
   const [metadata, setMetadata] = useState<AndroidReleaseMetadata>(DEFAULT_METADATA);
@@ -182,38 +177,18 @@ export default function AppDownloadPage() {
           {message && <div className="app-portal-message" role="status">{message}</div>}
 
           <div className="app-trust-strip">
-            <div><CheckIcon /><span>Authenticated access</span></div>
-            <div><CheckIcon /><span>Official Verigence build</span></div>
-            <div><CheckIcon /><span>Signed Android package</span></div>
-            <div title={metadata.sha256 || undefined}><CheckIcon /><span>SHA-256: {shortChecksum(metadata.sha256)}</span></div>
+            <div><CheckIcon /><span>Authenticated</span></div>
+            <div><CheckIcon /><span>Official build</span></div>
+            <div><CheckIcon /><span>Signed package</span></div>
           </div>
         </article>
 
         <div className="app-install-grid">
-          <article className="app-guide-card">
-            <div className="app-card-heading">
-              <span className="app-card-icon"><PhoneIcon /></span>
-              <div>
-                <p className="app-card-kicker">FIRST-TIME INSTALL</p>
-                <h2>Install in four steps</h2>
-              </div>
-            </div>
-            <ol className="app-install-steps">
-              <li><strong>Download</strong><span>Tap Download APK above and wait for the file to finish downloading.</span></li>
-              <li><strong>Allow this source</strong><span>If Android asks, allow your current browser or file manager to install apps from this source.</span></li>
-              <li><strong>Install</strong><span>Open the downloaded APK and tap Install. Android or Play Protect may show a confirmation.</span></li>
-              <li><strong>Open Verigence</strong><span>Launch the app and sign in with your normal Verigence work account.</span></li>
-            </ol>
-            <a
-              className="app-help-link"
-              href="https://support.google.com/android/answer/9457058"
-              target="_blank"
-              rel="noreferrer"
-            >
-              Android installation guidance <ExternalIcon />
-            </a>
-          </article>
-
+          {/* Video first, not the text steps -- it was rendering a full
+              screen below the fold with nothing on screen hinting it was
+              there at all. Immediately after the download button is the
+              one placement a PC will actually scroll into without being
+              told to. */}
           <article className="app-video-card">
             <div className="app-card-heading">
               <span className="app-card-icon"><PlayIcon /></span>
@@ -232,7 +207,30 @@ export default function AppDownloadPage() {
                 allowFullScreen
               />
             </div>
-            <p className="app-video-caption">Menu names vary by Android version and phone manufacturer.</p>
+          </article>
+
+          <article className="app-guide-card">
+            <div className="app-card-heading">
+              <span className="app-card-icon"><PhoneIcon /></span>
+              <div>
+                <p className="app-card-kicker">FIRST-TIME INSTALL</p>
+                <h2>Install in four steps</h2>
+              </div>
+            </div>
+            <ol className="app-install-steps">
+              <li><strong>Download</strong></li>
+              <li><strong>Allow this source</strong></li>
+              <li><strong>Install</strong></li>
+              <li><strong>Open Verigence</strong></li>
+            </ol>
+            <a
+              className="app-help-link"
+              href="https://support.google.com/android/answer/9457058"
+              target="_blank"
+              rel="noreferrer"
+            >
+              Android installation guidance <ExternalIcon />
+            </a>
           </article>
         </div>
       </section>

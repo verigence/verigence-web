@@ -30,13 +30,18 @@ const INSTALL_VIDEO_URL = (
 );
 
 /**
- * Exactly three things, per explicit instruction: the download button,
- * its version/size, and how to use it (the install video). Everything
- * this page used to carry beyond that -- a hero banner, a trust-badge
- * strip, a separate written install-steps card, package/checksum detail --
- * was cut, not just visually shrunk, after repeated direct feedback that
- * a marketing-style page pushed the one thing a PC actually needs (the
- * video) below the fold with no hint it existed.
+ * This portal's actual audience is graduate hires installing a work app
+ * for the first time in their life, from outside the Play Store -- not a
+ * marketing page, and not a bare-minimum utility either. Two earlier
+ * passes over-corrected: first too much (a hero banner, a four-badge
+ * trust strip, a separate install-steps card) pushed the video below the
+ * fold with no hint it existed; then too little (three bare facts, no
+ * guidance) left a first-time installer with no idea what Android's
+ * "unrecognized app"/Play Protect warnings even mean or that they're
+ * expected. This version keeps every piece of real guidance a first-time
+ * installer needs -- what the file is, why Android will warn them, and
+ * exactly what to tap -- laid out so scrolling to read it is fine, but
+ * nothing is bulked up with marketing copy for its own sake.
  */
 export default function AppDownloadPage() {
   const accessToken = useSessionStore((state) => state.accessToken);
@@ -116,16 +121,20 @@ export default function AppDownloadPage() {
     <main className="app-portal-shell">
       <header className="app-portal-topbar">
         <img src={verigenceLockup} alt="Verigence" className="app-portal-logo" />
+        <span className="app-portal-badge"><ShieldIcon /><span>Official distribution</span></span>
       </header>
 
       <section className="app-portal-content" aria-label="Verigence Android download">
         <article className="app-release-card">
-          <h1>{metadata.appName} for Android</h1>
-          {(versionSize || loading) && (
-            <p className="app-release-note">
-              {loading ? 'Checking for a release…' : !metadata.available ? 'Not published yet.' : versionSize}
-            </p>
-          )}
+          <div className="app-release-heading">
+            <span className="app-release-icon" aria-hidden="true"><VerigenceAppIcon /></span>
+            <div>
+              <h1>{metadata.appName} for Android</h1>
+              <p className="app-release-note">
+                {loading ? 'Checking for a release…' : !metadata.available ? 'Not published yet.' : versionSize}
+              </p>
+            </div>
+          </div>
 
           <button
             className="app-download-button"
@@ -136,12 +145,40 @@ export default function AppDownloadPage() {
             <DownloadIcon />
             {downloading ? 'Preparing download…' : 'Download APK'}
           </button>
+          <p className="app-release-trust"><CheckIcon /> Signed and verified by Verigence IT</p>
 
           {message && <div className="app-portal-message" role="status">{message}</div>}
         </article>
 
+        <article className="app-warning-card">
+          <p>
+            <strong>Android will show a warning during install — that's expected.</strong> This
+            app comes directly from Verigence, not the Play Store, so Android flags it as
+            "unrecognized" and Play Protect may ask you to confirm. The steps below cover exactly
+            what to tap.
+          </p>
+        </article>
+
         <article className="app-video-card">
           <h2>How to install it</h2>
+          <ol className="app-install-steps">
+            <li>
+              <span>1</span>
+              <div><strong>Download</strong><small>Tap Download APK above.</small></div>
+            </li>
+            <li>
+              <span>2</span>
+              <div><strong>Allow this source</strong><small>Android will ask once — tap Settings, then allow this browser.</small></div>
+            </li>
+            <li>
+              <span>3</span>
+              <div><strong>Install</strong><small>Open the downloaded file and tap Install. Play Protect may ask again — tap Install anyway.</small></div>
+            </li>
+            <li>
+              <span>4</span>
+              <div><strong>Open Verigence</strong><small>Sign in with the work account you were given.</small></div>
+            </li>
+          </ol>
           <div className="app-video-frame">
             <iframe
               src={INSTALL_VIDEO_URL}
@@ -152,16 +189,7 @@ export default function AppDownloadPage() {
               allowFullScreen
             />
           </div>
-          {/* Same card as the video, not a second heavy section -- four
-              short titles in a tight 2x2 grid, no descriptive sentences.
-              The video already shows how; this is just the checklist to
-              glance back at. */}
-          <ol className="app-install-steps">
-            <li><span>1</span>Download</li>
-            <li><span>2</span>Allow this source</li>
-            <li><span>3</span>Install</li>
-            <li><span>4</span>Open Verigence</li>
-          </ol>
+          <p className="app-video-caption">Prefer to watch? The video above walks through the same four steps.</p>
         </article>
       </section>
     </main>
@@ -173,3 +201,16 @@ function Icon({ children }: { children: ReactNode }) {
 }
 
 function DownloadIcon() { return <Icon><path d="M12 3v12" /><path d="m7 10 5 5 5-5" /><path d="M5 21h14" /></Icon>; }
+function ShieldIcon() { return <Icon><path d="M12 3 20 6v6c0 5-3.4 8-8 9-4.6-1-8-4-8-9V6l8-3Z" /><path d="m8.7 12 2.1 2.1 4.7-5" /></Icon>; }
+function CheckIcon() { return <Icon><path d="m5 12 4 4L19 6" /></Icon>; }
+
+function VerigenceAppIcon() {
+  return (
+    <svg viewBox="0 0 64 64" aria-hidden="true">
+      <rect width="64" height="64" rx="15" fill="#062b63" />
+      <path d="M16 18h32L42 32l6 14H16l6-14-6-14Z" fill="#ffffff" opacity=".98" />
+      <path d="M23 25h18l-4.5 10H27.5L23 25Z" fill="#00afa8" />
+      <path d="M29 18h6l-1 7h-4l-1-7Z" fill="#0a63c7" />
+    </svg>
+  );
+}

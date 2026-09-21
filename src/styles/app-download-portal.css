@@ -1,6 +1,7 @@
-/* Three things only, per explicit instruction: Download, its version/size,
-   and the install video. See AppDownloadPage.tsx's own comment for why
-   this is deliberately this small. */
+/* Built for the actual audience: a graduate hire installing a work app
+   for the first time, from outside the Play Store. Scrolling to read
+   real guidance is fine; padding it out with marketing copy is not.
+   See AppDownloadPage.tsx's own comment for the fuller reasoning. */
 
 .app-portal-shell {
   min-height: 100vh;
@@ -16,6 +17,8 @@
   padding: 14px clamp(22px, 4vw, 64px);
   display: flex;
   align-items: center;
+  justify-content: space-between;
+  gap: 12px;
   background: rgba(255, 255, 255, 0.96);
   border-bottom: 1px solid #e2eaf2;
   box-shadow: 0 1px 8px rgba(6, 43, 99, 0.04);
@@ -23,8 +26,28 @@
 
 .app-portal-logo {
   display: block;
-  width: min(160px, 42vw);
+  width: min(160px, 38vw);
   height: auto;
+}
+
+.app-portal-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid #cceae7;
+  background: #f1fbfa;
+  color: #086b68;
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.app-portal-badge svg {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 auto;
 }
 
 .app-portal-content {
@@ -33,10 +56,11 @@
   padding: 22px 0 40px;
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 16px;
 }
 
 .app-release-card,
+.app-warning-card,
 .app-video-card {
   background: #ffffff;
   border: 1px solid #dce6f0;
@@ -45,15 +69,36 @@
   padding: 20px;
 }
 
+.app-release-heading {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.app-release-icon {
+  flex: 0 0 auto;
+  width: 52px;
+  height: 52px;
+  border-radius: 13px;
+  overflow: hidden;
+  box-shadow: 0 6px 16px rgba(6, 43, 99, 0.16);
+}
+
+.app-release-icon svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
 .app-release-card h1 {
   margin: 0;
-  font-size: 21px;
+  font-size: 20px;
   font-weight: 800;
   color: #0e2c50;
 }
 
 .app-release-note {
-  margin: 6px 0 0;
+  margin: 3px 0 0;
   color: #6a7f93;
   font-size: 13px;
 }
@@ -102,6 +147,23 @@
   cursor: not-allowed;
 }
 
+.app-release-trust {
+  margin: 10px 0 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #416076;
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.app-release-trust svg {
+  width: 15px;
+  height: 15px;
+  color: #00a58f;
+  flex: 0 0 auto;
+}
+
 .app-portal-message {
   margin-top: 14px;
   padding: 11px 13px;
@@ -113,11 +175,74 @@
   line-height: 1.45;
 }
 
+.app-warning-card {
+  background: #fffaf0;
+  border-color: #f3e3bd;
+  padding: 14px 16px;
+}
+
+.app-warning-card p {
+  margin: 0;
+  color: #7a5b12;
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.app-warning-card strong {
+  color: #5c4409;
+}
+
 .app-video-card h2 {
-  margin: 0 0 12px;
+  margin: 0 0 14px;
   font-size: 16px;
   font-weight: 800;
   color: #0e2c50;
+}
+
+.app-install-steps {
+  margin: 0 0 16px;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.app-install-steps li {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.app-install-steps li span {
+  flex: 0 0 auto;
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: #00a79f;
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.app-install-steps li div {
+  min-width: 0;
+}
+
+.app-install-steps strong {
+  display: block;
+  color: #15395f;
+  font-size: 14px;
+}
+
+.app-install-steps small {
+  display: block;
+  margin-top: 2px;
+  color: #657b90;
+  font-size: 12.5px;
+  line-height: 1.4;
 }
 
 .app-video-frame {
@@ -135,54 +260,31 @@
   border: 0;
 }
 
-.app-install-steps {
-  margin: 14px 0 0;
-  padding: 0;
-  list-style: none;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px 12px;
-}
-
-.app-install-steps li {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-  color: #23425f;
-  font-size: 13px;
-  font-weight: 700;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.app-install-steps li span {
-  flex: 0 0 auto;
-  width: 20px;
-  height: 20px;
-  display: grid;
-  place-items: center;
-  border-radius: 50%;
-  background: #00a79f;
-  color: #ffffff;
-  font-size: 11px;
-  font-weight: 800;
+.app-video-caption {
+  margin: 10px 0 0;
+  color: #6e8295;
+  font-size: 12px;
+  line-height: 1.4;
 }
 
 @media (max-width: 560px) {
+  .app-portal-badge span {
+    display: none;
+  }
+
   .app-portal-content {
     padding: 16px 0 28px;
-    gap: 14px;
+    gap: 12px;
   }
 
   .app-release-card,
+  .app-warning-card,
   .app-video-card {
     padding: 16px;
     border-radius: 14px;
   }
 
   .app-release-card h1 {
-    font-size: 19px;
+    font-size: 18px;
   }
 }

@@ -2051,7 +2051,18 @@ function FocusPanel({
       );
       break;
     }
-    case 'tradeIn':
+    case 'tradeIn': {
+      // scrappageCertificates (auditcore.scrappage_certificate_review_
+      // values) is a separate concept from tradeIn (auditcore.trade_in_
+      // cases) -- a customer scrapping their old vehicle via an RVSF is not
+      // the same transaction as trading it in to the dealer against this
+      // deal's price -- but this panel is titled "Trade-in / Scrappage" and
+      // previously only ever read tradeIn, so a fully extracted, fully
+      // materialized Scrappage Certificate of Deposit (certificate number,
+      // old-vehicle details, current holder) never showed anywhere on this
+      // page. The backend has exposed this on JourneyOverview all along
+      // (_scrappage_certificates); this panel simply never read it.
+      const scrappageCertificates = model.scrappageCertificates || [];
       body = (
         <>
           <PanelHead title="Trade-in / Scrappage" />
@@ -2069,12 +2080,36 @@ function FocusPanel({
               <JFact label="Handover">{dateLabel(value(model.tradeIn, 'handoverAtUtc'))}</JFact>
               <JFact label="Payment Date">{dateLabel(value(model.tradeIn, 'paymentAtUtc'))}</JFact>
             </FactList>
-          ) : (
+          ) : scrappageCertificates.length === 0 ? (
             <p className="jline__empty">No trade-in or scrappage record beyond the booking's exchange fields.</p>
-          )}
+          ) : null}
+          {scrappageCertificates.map((cert, idx) => (
+            <div key={String(pick(cert, 'scrappageCertificateReviewValueId') ?? idx)} style={{ marginTop: idx === 0 && !model.tradeIn ? 0 : 16 }}>
+              <PanelHead title={readable(pickStr(cert, 'certificateVariant') || 'Scrappage Certificate')} />
+              <FactList>
+                <JFact label="Certificate No.">{textValue(cert, 'certificateNumber')}</JFact>
+                <JFact label="Issue Date">{dateLabel(value(cert, 'certificateIssueDate'))}</JFact>
+                <JFact label="Valid Until">{dateLabel(value(cert, 'certificateValidUntilDate'))}</JFact>
+                <JFact label="Old Vehicle Reg. No.">{textValue(cert, 'oldVehicleRegistrationNumber')}</JFact>
+                <JFact label="Old Vehicle Make">{textValue(cert, 'oldVehicleMake')}</JFact>
+                <JFact label="Old Vehicle Model">{textValue(cert, 'oldVehicleModel')}</JFact>
+                <JFact label="Old Vehicle Type">{textValue(cert, 'oldVehicleType')}</JFact>
+                <JFact label="Fuel Type">{textValue(cert, 'oldVehicleFuelType')}</JFact>
+                <JFact label="Year of Manufacture">{textValue(cert, 'oldVehicleYearOfManufacturing')}</JFact>
+                <JFact label="Original Owner">{textValue(cert, 'originalOwnerName')}</JFact>
+                <JFact label="Current Holder">{textValue(cert, 'currentHolderName')}</JFact>
+                <JFact label="Trade No.">{textValue(cert, 'tradeNumber')}</JFact>
+                <JFact label="Trade Date">{dateLabel(value(cert, 'tradeDate'))}</JFact>
+                <JFact label="Scrapping Facility">{textValue(cert, 'scrappingFacilityName')}</JFact>
+                <JFact label="RVSF Registration No.">{textValue(cert, 'rvsfRegistrationNumber')}</JFact>
+                <JFact label="State of Scrapping">{textValue(cert, 'stateOfScrapping')}</JFact>
+              </FactList>
+            </div>
+          ))}
         </>
       );
       break;
+    }
     case 'customer':
       body = (
         <>

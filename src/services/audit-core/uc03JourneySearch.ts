@@ -122,6 +122,7 @@ export interface JourneyOverview {
   insurance: Record<string, unknown> | null;
   addons: Array<Record<string, unknown>>;
   tradeIn: Record<string, unknown> | null;
+  scrappageCertificates?: Array<Record<string, unknown>>;
   vehicle: Record<string, unknown> | null;
   registration: Record<string, unknown> | null;
   delivery: Record<string, unknown> | null;

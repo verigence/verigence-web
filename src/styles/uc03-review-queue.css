@@ -25,10 +25,12 @@
   --revq-accent: var(--v-deep, #003a82);
 }
 
-/* KPI strip */
+/* KPI strip -- auto-fit so a role with more counters (Overdue, Mine,
+   Needs attention, Documents, Data, Violations, In my scope) wraps onto a
+   second row instead of squeezing into a fixed 4 columns. */
 .revq-kpis {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
   gap: 12px;
 }
 .revq-kpis > div {
@@ -38,16 +40,16 @@
   padding: 14px 16px;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 5px;
 }
 .revq-kpis > div span {
-  font-size: 12px;
-  letter-spacing: 0.04em;
+  font-size: 13px;
+  letter-spacing: 0.03em;
   text-transform: uppercase;
   color: var(--v-muted, #6e879b);
 }
 .revq-kpis > div strong {
-  font-size: 26px;
+  font-size: 28px;
   font-weight: 700;
   color: var(--v-ink, #17324d);
   font-variant-numeric: tabular-nums;
@@ -91,7 +93,7 @@
   border: 0;
   background: transparent;
   padding: 10px 14px;
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 600;
   color: var(--v-muted, #6e879b);
   border-bottom: 2px solid transparent;
@@ -113,12 +115,13 @@
 .revq-chips button {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 7px;
   border: 1px solid var(--v-line, #dbe6ee);
   background: #fff;
   border-radius: 999px;
-  padding: 5px 8px 5px 12px;
-  font-size: 13px;
+  padding: 7px 10px 7px 14px;
+  font-size: 14px;
+  font-weight: 500;
   color: var(--v-slate, #31506e);
   cursor: pointer;
 }
@@ -131,10 +134,10 @@
    "give more counters or else don't give it" -- one clickable object, not a
    separate KPI tile duplicating what the chip row already means. */
 .revq-chip__count {
-  min-width: 18px;
-  padding: 1px 6px;
+  min-width: 20px;
+  padding: 2px 7px;
   border-radius: 999px;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   background: var(--surface-muted, #eef2f8);
@@ -289,15 +292,6 @@
 .revq-sla--soon { color: var(--revq-soon); background: #fdf6ea; }
 .revq-sla--late { color: var(--revq-late); background: #fdeeee; }
 
-.revq-escalated {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--revq-soon);
-  background: #fdf6ea;
-  border: 1px solid #f0d9b5;
-  padding: 2px 8px;
-  border-radius: 6px;
-}
 /* white-space: pre-line -- a self-serve Task's description can carry a
    numbered shortlist (see MODEL_NOT_IDENTIFIED's comment text); most
    descriptions have no literal newline at all, so this only ever affects
@@ -368,6 +362,11 @@
   flex-direction: column;
   gap: 8px;
 }
+
+/* Hosts the shared LoanDisbursementPicker inline inside a Task card --
+   the picker brings its own list/radio/button styling (uc03-jd-sku-*),
+   this just gives it card-appropriate width and spacing. */
+.revq-inline-picker { width: 100%; padding-top: 4px; }
 .revq-decide label { display: flex; flex-direction: column; gap: 4px; }
 .revq-decide label span { font-size: 13px; font-weight: 600; color: var(--v-ink, #17324d); }
 .revq-decide textarea,
@@ -384,7 +383,7 @@
 .revq-decide__actions { display: flex; gap: 8px; justify-content: flex-end; }
 
 @media (max-width: 720px) {
-  .revq-kpis { grid-template-columns: repeat(2, 1fr); }
+  .revq-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .revq-item__actions { flex-direction: column; align-items: stretch; }
   .revq-open { margin-right: 0; text-align: center; padding: 6px 0; }
   .revq-item__actions .revq-btn { width: 100%; }

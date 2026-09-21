@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useSearchParams } from 'react-router-dom';
 
 import PageHeader from '../components/PageHeader';
+import LoanDisbursementPicker from '../features/uc03/LoanDisbursementPicker';
 import { taskAction } from '../services/audit-core/operations';
 import { isManualVerificationRule } from '../services/audit-core/manualVerification';
 import {
@@ -32,6 +33,8 @@ const TASK_LABEL: Record<string, string> = {
   DUPLICATE_RECEIPT_NOTICE: "Duplicate receipt -- won't be counted",
   WRONG_DOCUMENT_REVIEW: 'Verify customer name mismatch',
   WRONG_DOCUMENT_DEALER_NOTICE: 'Receipt dealer name mismatch',
+  FINANCE_DISBURSEMENT_REVIEW: 'Confirm loan disbursement amount',
+  FINANCE_DISBURSEMENT_CONFIRMED_NOTICE: 'Loan disbursement amount confirmed',
 };
 
 const CLASS_LABEL: Record<Uc03FindingClass, string> = {
@@ -75,6 +78,7 @@ function closesWhenLabel(item: Uc03ReviewQueueItem, opts: { isTask: boolean; isM
   if (opts.isTask) {
     if (item.category === 'PC_VERIFY_UNRECOGNIZED_DOCUMENT') return 'Closes when you choose Correct or Incorrect, below.';
     if (item.category === 'WRONG_DOCUMENT_REVIEW') return 'Closes when you choose Correct or Incorrect, below.';
+    if (item.category === 'FINANCE_DISBURSEMENT_REVIEW') return 'Closes when you pick the loan disbursement payment, below.';
     if (item.category === 'AUTO_SELF_SERVE') {
       return stem === 'MODEL_NOT_IDENTIFIED'
         ? 'Closes automatically once a vehicle SKU is selected.'
@@ -117,14 +121,6 @@ function slaLabel(item: Uc03ReviewQueueItem): { text: string; tone: 'ok' | 'soon
   if (diffMs < 0) return { text: `Overdue ${human}`, tone: 'late' };
   if (diffMs < 4 * 3_600_000) return { text: `Due in ${human}`, tone: 'soon' };
   return { text: `Due in ${human}`, tone: 'ok' };
-}
-
-function escalationLabel(item: Uc03ReviewQueueItem): string | null {
-  if (item.escalationLevel <= 0) return null;
-  const ladder = ['PC', 'TL', 'PM', 'EXECUTIVE'];
-  const ownerIdx = ladder.indexOf(item.ownerRoleCode);
-  const reached = ladder[Math.min(ownerIdx + item.escalationLevel, ladder.length - 1)];
-  return `Escalated to ${friendly(reached)}`;
 }
 
 interface DecisionState {
@@ -255,12 +251,16 @@ export default function ReviewQueuePage() {
   // gate, and it never touches the Finding it was spawned from (TL/PM
   // still separately decide the Finding's own fate whenever they choose).
   const completeTaskMutation = useMutation({
-    mutationFn: ({ taskId, outcome }: { taskId: string; outcome?: 'CORRECT' | 'INCORRECT' }) =>
-      taskAction(project!.tenantId, taskId, 'complete', accessToken, outcome),
+    mutationFn: ({ taskId, outcome, paymentId }: { taskId: string; outcome?: 'CORRECT' | 'INCORRECT'; paymentId?: string }) =>
+      taskAction(project!.tenantId, taskId, 'complete', accessToken, outcome, paymentId),
     onSuccess: (_data, variables) => {
       setBanner({
         tone: 'ok',
-        text: variables.outcome === 'INCORRECT' ? 'Document removed.' : 'Task marked done.',
+        text: variables.outcome === 'INCORRECT'
+          ? 'Document removed.'
+          : variables.paymentId
+            ? 'Loan disbursement amount confirmed.'
+            : 'Task marked done.',
       });
       void queryClient.invalidateQueries({ queryKey: ['uc03-review-queue'] });
       void queryClient.invalidateQueries({ queryKey: ['uc03-review-queue-summary'] });
@@ -290,7 +290,7 @@ export default function ReviewQueuePage() {
         ? [{ key: 'MINE' as const, label: 'My open items' }]
         : [
             { key: 'MINE' as const, label: 'Awaiting my decision' },
-            { key: 'ESCALATED' as const, label: 'Escalated to me' },
+            { key: 'ESCALATED' as const, label: 'Needs my attention' },
             { key: 'ALL' as const, label: 'All in my scope' },
           ],
     [role],
@@ -361,7 +361,6 @@ export default function ReviewQueuePage() {
   // them on every card underneath was the exact duplication reported.
   const renderItem = (item: Uc03ReviewQueueItem, grouped = false) => {
     const sla = slaLabel(item);
-    const escalated = escalationLabel(item);
     const isTask = item.itemKind === 'EXECUTION_TASK';
     const isAdjudicated = item.resolutionMode === 'ADJUDICATED';
     const isManualVerification = isManualVerificationRule(item.ruleKey);
@@ -396,6 +395,7 @@ export default function ReviewQueuePage() {
     } else if (isTask && item.category !== 'PC_VERIFY_UNRECOGNIZED_DOCUMENT' &&
       item.category !== 'MANUAL_VERIFICATION_REVIEW' &&
       item.category !== 'WRONG_DOCUMENT_REVIEW' &&
+      item.category !== 'FINANCE_DISBURSEMENT_REVIEW' &&
       (item.category !== 'AUTO_SELF_SERVE' || item.subjectKind === 'DAILY_OPS')) {
       primaryAction = {
         kind: 'button',
@@ -448,7 +448,6 @@ export default function ReviewQueuePage() {
           )}
           <span className="revq-item__row-title">{item.title}</span>
           <span className={`revq-sla revq-sla--${sla.tone}`}>{sla.text}</span>
-          {escalated && <span className="revq-escalated">{escalated}</span>}
           {!isExpanded && (
             <span className="revq-item__row-action" onClick={(e) => e.stopPropagation()}>
               {primaryAction?.kind === 'link' && (
@@ -615,9 +614,32 @@ export default function ReviewQueuePage() {
             </>
           )}
 
+          {isTask && item.category === 'FINANCE_DISBURSEMENT_REVIEW' && item.journeyId && (
+            // No auto-resolving rule and no generic "Mark done" here --
+            // the system already tried to decide this automatically and
+            // couldn't, so a PC picks from exactly the same narrowed set
+            // of payments the resolver itself considered (never a
+            // free-form amount). Shared with the standalone correction on
+            // Journey Documents (see LoanDisbursementPicker) so both entry
+            // points are the identical UI, per explicit instruction.
+            <div className="revq-inline-picker">
+              <LoanDisbursementPicker
+                tenantId={project!.tenantId}
+                journeyId={item.journeyId}
+                accessToken={accessToken}
+                confirmLabel="Confirm loan disbursement"
+                showSuccessMessage={false}
+                onConfirm={(paymentId) =>
+                  completeTaskMutation.mutateAsync({ taskId: item.flagId, paymentId })
+                }
+              />
+            </div>
+          )}
+
           {isTask && item.category !== 'PC_VERIFY_UNRECOGNIZED_DOCUMENT' &&
             item.category !== 'MANUAL_VERIFICATION_REVIEW' &&
             item.category !== 'WRONG_DOCUMENT_REVIEW' &&
+            item.category !== 'FINANCE_DISBURSEMENT_REVIEW' &&
             (item.category !== 'AUTO_SELF_SERVE' || item.subjectKind === 'DAILY_OPS') && (
             // Take Action has no auto-resolving rule behind it, and
             // Daily Operations has no document screen a self-serve
@@ -825,15 +847,27 @@ export default function ReviewQueuePage() {
           </div>
           {/* Escalation only ever flows PC -> TL -> PM -> Executive, and a
               PC's own scope is always identical to their own assignments
-              (see scopeTabs above) -- both tiles are either always-zero or
-              a plain duplicate of "Assigned to me" for a PC, so neither is
+              (see scopeTabs above) -- this tile is either always-zero or a
+              plain duplicate of "Assigned to me" for a PC, so it isn't
               shown to that role. */}
           {role !== 'PC' && (
             <div className={summary.escalatedToMe > 0 ? 'is-escalated' : ''}>
-              <span>Escalated to me</span>
+              <span>Needs attention</span>
               <strong>{summary.escalatedToMe}</strong>
             </div>
           )}
+          <div>
+            <span>Documents</span>
+            <strong>{summary.byClass.DOCUMENT_GAP ?? 0}</strong>
+          </div>
+          <div>
+            <span>Data</span>
+            <strong>{summary.byClass.DATA_GAP ?? 0}</strong>
+          </div>
+          <div>
+            <span>Violations</span>
+            <strong>{summary.byClass.VIOLATION ?? 0}</strong>
+          </div>
           {role !== 'PC' && (
             <div>
               <span>In my scope</span>
@@ -909,7 +943,7 @@ export default function ReviewQueuePage() {
       {queueQuery.data && items.length === 0 && (
         <div className="revq-empty">
           {scope === 'ESCALATED'
-            ? 'Nothing has escalated to you. '
+            ? 'Nothing needs your attention right now. '
             : scope === 'MINE'
               ? 'Nothing is waiting on you right now. '
               : 'No open items in your scope. '}

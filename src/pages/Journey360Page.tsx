@@ -2243,6 +2243,9 @@ function FocusPanel({
               <JFact label="Registration Charges">{money(registrationCharges)}</JFact>
               <JFact label="Total Charges">{totalCharges === null ? '—' : money(totalCharges)}</JFact>
               <JFact label="Status">{readable(value(model.finance, 'actualStatusCode'))}</JFact>
+              <JFact label="Loan Disbursement Amount">{money(value(model.finance, 'loanDisbursementAmount'))}</JFact>
+              <JFact label="Loan Disbursement Confidence">{readable(value(model.finance, 'loanDisbursementConfidence'))}</JFact>
+              <JFact label="Loan Disbursement Basis">{textValue(model.finance, 'loanDisbursementMatchBasis')}</JFact>
             </FactList>
           ) : (
             <p className="jline__empty">No finance record is available — this booking is presumed cash/outright purchase.</p>

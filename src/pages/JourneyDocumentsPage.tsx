@@ -7,6 +7,7 @@ import PageHeader from '../components/PageHeader';
 import AttributeEvidenceViewer, { hasBoxedEvidence } from '../features/uc03/AttributeEvidenceViewer';
 import { CARD_STATUS_LABEL, cardStatus } from '../features/uc03/CaptureDocumentCard';
 import ModifyModelModal from '../features/uc03/ModifyModelModal';
+import { LoanDisbursementModal } from '../features/uc03/LoanDisbursementPicker';
 import { categoryFor, categoryTitle, FIELD_CATEGORY_ORDER, type FieldCategory } from '../features/uc03/fieldCategoryGroups';
 import { AuditCoreHttpError } from '../services/audit-core/client';
 import {
@@ -622,6 +623,7 @@ export default function JourneyDocumentsPage() {
   const [uploadMessage, setUploadMessage] = useState<string>();
   const [uploadError, setUploadError] = useState<string>();
   const [modifyModelOpen, setModifyModelOpen] = useState(false);
+  const [loanDisbursementOpen, setLoanDisbursementOpen] = useState(false);
 
   const enabled = Boolean(project?.tenantId && journeyId && accessToken);
   const bookingQuery = useQuery({
@@ -783,9 +785,14 @@ export default function JourneyDocumentsPage() {
           // The other SKU flow on this page (ModelResolutionSkuPicker,
           // below) only ever appears when nothing has been resolved yet,
           // so the two never compete for the same moment.
-          <button type="button" className="uc03-jd-modify-model" onClick={() => setModifyModelOpen(true)}>
-            Modify Model
-          </button>
+          <>
+            <button type="button" className="uc03-jd-modify-model" onClick={() => setModifyModelOpen(true)}>
+              Modify Model
+            </button>
+            <button type="button" className="uc03-jd-modify-model" onClick={() => setLoanDisbursementOpen(true)}>
+              Update Loan Amount
+            </button>
+          </>
         }
       />
 
@@ -796,6 +803,16 @@ export default function JourneyDocumentsPage() {
           accessToken={accessToken}
           onClose={() => setModifyModelOpen(false)}
           onProposed={() => { /* the Task Queue is the source of truth from here */ }}
+        />
+      ) : null}
+
+      {loanDisbursementOpen && journeyId ? (
+        <LoanDisbursementModal
+          tenantId={project.tenantId}
+          journeyId={journeyId}
+          accessToken={accessToken}
+          onClose={() => setLoanDisbursementOpen(false)}
+          onUpdated={() => { /* Journey 360's Finance tab re-reads on its own next open */ }}
         />
       ) : null}
 

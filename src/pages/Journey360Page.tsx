@@ -726,31 +726,6 @@ function DocumentSelector({
 
 // ── The Journey Line building blocks ────────────────────────────────────────
 
-function HealthStrip({
-  needCount,
-  totalOpen,
-  onJump,
-}: {
-  needCount: number;
-  totalOpen: number;
-  onJump: () => void;
-}) {
-  const clean = totalOpen === 0;
-  return (
-    <div className={`jline__strip ${clean ? 'jline__strip--ok' : 'jline__strip--attention'}`} role="status">
-      <span className="jline__stripText">
-        {clean ? 'No open audit findings on this journey.' : `${needCount} of ${totalOpen} finding${totalOpen !== 1 ? 's' : ''} need you`}
-        <small>{clean ? 'Every checked aspect is on standard.' : 'Data and document gaps are yours to fix; violations route to your TL.'}</small>
-      </span>
-      {!clean && (
-        <button type="button" className="jline__stripJump" onClick={onJump}>
-          Go to Flags →
-        </button>
-      )}
-    </div>
-  );
-}
-
 // A document only shows here once DI has permanently failed it (and thus
 // backed it out) -- not on a transient in-flight retry. DI's fail_job() and
 // insert_backout_job() happen atomically together, so "processingStatus ===
@@ -2422,10 +2397,6 @@ export default function Journey360Page() {
     () => documentExtractionCounts(model?.evidence || [], model?.reviewedFields || []),
     [model?.evidence, model?.reviewedFields],
   );
-  const needCount = useMemo(
-    () => (model ? openFindings(model).filter((f) => ['DATA_GAP', 'DOCUMENT_GAP'].includes(String(f.findingClass || ''))).length : 0),
-    [model],
-  );
   const failedExtractionCount = useMemo(
     () => (model?.evidence || []).filter((doc) => doc.processingStatus === 'FAILED').length,
     [model?.evidence],
@@ -2504,7 +2475,6 @@ export default function Journey360Page() {
       <div className="jline">
         <DocumentProgressStrip {...documentCounts} />
         <FailedExtractionBanner count={failedExtractionCount} />
-        <HealthStrip needCount={needCount} totalOpen={openCount} onJump={() => setAspect('flags')} />
         <JourneyLine steps={steps} />
         <AspectChips aspects={aspects} active={activeAspect} onSelect={setAspect} />
         <FocusPanel

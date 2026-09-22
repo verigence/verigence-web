@@ -70,7 +70,6 @@ export interface TlReuploadRequestResponse {
   requirementRef: string;
   documentId: string;
   taskId: string;
-  findingId: string;
   assignedPcActorId: string;
   status: 'REQUESTED';
 }

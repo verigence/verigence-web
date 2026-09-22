@@ -715,6 +715,20 @@ export default function JourneyDocumentsPage() {
     if (document) setOpenDocument({ stage, document });
   };
 
+  // The Review Queue's "Manual Verification" CTA links here with
+  // ?openDocument=<diDocumentId>&stage=<BOOKING|DELIVERY> so a PC lands
+  // straight in that document's Edit Document modal instead of the plain
+  // document list -- jump the moment the relevant stage's review data
+  // (and so openDocumentById's own lookup) actually exists.
+  useEffect(() => {
+    const documentId = searchParams.get('openDocument');
+    if (!documentId) return;
+    const stage: Stage = searchParams.get('stage') === 'DELIVERY' ? 'DELIVERY' : 'BOOKING';
+    const review = stage === 'BOOKING' ? bookingQuery.data : deliveryQuery.data;
+    if (review) openDocumentById(stage, documentId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams, bookingQuery.data, deliveryQuery.data]);
+
   if (!project || !journeyId) return null;
 
   const loading =

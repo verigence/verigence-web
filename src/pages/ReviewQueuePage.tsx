@@ -103,6 +103,17 @@ function ruleKeyStem(ruleKey: string | null | undefined): string | null {
   return ruleKey ? ruleKey.split(':')[0] : null;
 }
 
+// A MANUAL_VERIFICATION_REVIEW task's own ruleKey is always shaped
+// "MANUAL_VERIFICATION:<stage>:<diDocumentId>" (see
+// uc03_manual_verification.py::_rule_key) -- pulled apart here so the CTA
+// can deep-link straight to the one document that needs review, instead of
+// dropping the PC on Journey Documents to go find it themselves.
+function manualVerificationDocumentId(ruleKey: string | null | undefined): string | null {
+  if (!ruleKey || !ruleKey.startsWith('MANUAL_VERIFICATION:')) return null;
+  const parts = ruleKey.split(':');
+  return parts.length === 3 ? parts[2] : null;
+}
+
 function friendly(value?: string | null): string {
   if (!value) return '—';
   return value
@@ -391,7 +402,16 @@ export default function ReviewQueuePage() {
       // Same shape as AUTO_SELF_SERVE -- no manual "mark done" here either:
       // this Task only ever closes by a PC actually reviewing the flagged
       // fields on Journey Documents, which self-heals it automatically.
-      primaryAction = { kind: 'link', to: `/journeys/${item.journeyId}/documents`, label: 'Review documents →' };
+      // openDocument/stage deep-links straight into that document's Edit
+      // Document modal instead of landing on the page's document list.
+      const manualVerificationDocId = manualVerificationDocumentId(item.ruleKey);
+      primaryAction = {
+        kind: 'link',
+        to: manualVerificationDocId
+          ? `/journeys/${item.journeyId}/documents?openDocument=${manualVerificationDocId}&stage=${item.stage ?? 'BOOKING'}`
+          : `/journeys/${item.journeyId}/documents`,
+        label: 'Review documents →',
+      };
     } else if (isTask && item.category !== 'PC_VERIFY_UNRECOGNIZED_DOCUMENT' &&
       item.category !== 'MANUAL_VERIFICATION_REVIEW' &&
       item.category !== 'WRONG_DOCUMENT_REVIEW' &&
@@ -556,7 +576,14 @@ export default function ReviewQueuePage() {
             // closes by a PC reviewing the flagged fields on Journey
             // Documents (confirm or correct each) -- that write self-heals
             // this Task automatically, so there's no separate "mark done".
-            <Link className="revq-btn revq-btn--accept" to={`/journeys/${item.journeyId}/documents`}>
+            <Link
+              className="revq-btn revq-btn--accept"
+              to={
+                manualVerificationDocumentId(item.ruleKey)
+                  ? `/journeys/${item.journeyId}/documents?openDocument=${manualVerificationDocumentId(item.ruleKey)}&stage=${item.stage ?? 'BOOKING'}`
+                  : `/journeys/${item.journeyId}/documents`
+              }
+            >
               Review documents →
             </Link>
           )}

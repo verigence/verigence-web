@@ -1120,14 +1120,26 @@ function DealPanel({
   role?: string;
 }) {
   const pricing = model.skuPricing;
-  // booking_amount_paid is a payment record, not a priced deal component --
-  // it has no "standard" price to compare against and belongs on the
-  // Payments panel (already shown there). Filtered here only, for the two
-  // Deal-tab consumers below -- commercialLineByComponentKey's own generic
-  // lookups elsewhere are unaffected.
+  // uc03_v2_review_materialization.py's _COMMERCIAL_LINE_FIELDS writes every
+  // booking-form money field into commercial_lines, not just genuine priced
+  // components -- including booking_amount_paid (a payment, already shown
+  // on the Payments panel), discount_amount/bonus_amount (already shown on
+  // this same panel's own "Discounts -- entitled vs given" section below),
+  // and balance_amount, total_price, net_amount (pure sums OF the other
+  // fields, never a component to add alongside them). Direct bug found live
+  // (2026-09-23): total_price/net_amount both having actual values added
+  // the same total into the sum three times over -- an earlier fix only
+  // caught booking_amount_paid; this excludes the whole set with no
+  // standard price of its own, not just the one instance already reported.
+  const _NON_PRICE_COMMERCIAL_FIELDS = new Set([
+    'booking_amount_paid', 'discount_amount', 'bonus_amount', 'balance_amount',
+    'total_price', 'net_amount',
+  ]);
   const dealModel: JourneyOverview = {
     ...model,
-    commercialLines: model.commercialLines.filter((line) => line.componentKey !== 'booking_amount_paid'),
+    commercialLines: model.commercialLines.filter(
+      (line) => !_NON_PRICE_COMMERCIAL_FIELDS.has(String(line.componentKey)),
+    ),
   };
   // Regression: commercial lines / invoice amounts (auditcore.commercial_lines)
   // and discounts are materialized independent of SKU resolution -- confirmed

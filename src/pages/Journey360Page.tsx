@@ -250,9 +250,15 @@ function SkuPriceCheckPanel({
   const componentLabel = (k: string) =>
     k.replaceAll('_', ' ').toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
   const rows = pricing.masterComponents as SkuPricingComponent[];
-  const exceptions  = rows.filter((r) => r.deviationAmount !== null && Math.abs(r.deviationAmount) > 1);
-  const clean       = rows.filter((r) => r.deviationAmount !== null && Math.abs(r.deviationAmount) <= 1);
-  const unextracted = rows.filter((r) => r.deviationAmount === null);
+  const exceptions   = rows.filter((r) => !r.isAlternative && r.deviationAmount !== null && Math.abs(r.deviationAmount) > 1);
+  const clean        = rows.filter((r) => !r.isAlternative && r.deviationAmount !== null && Math.abs(r.deviationAmount) <= 1);
+  // A tier the price list offers but the actual amount didn't match --
+  // e.g. the extended-warranty tier not taken. Genuinely different from
+  // "not yet extracted": there is nothing pending here, this option was
+  // simply not the one selected. Direct user directive (2026-09-23):
+  // show it, don't hide it or flag it as a deviation.
+  const notSelected  = rows.filter((r) => r.isAlternative);
+  const unextracted  = rows.filter((r) => !r.isAlternative && r.deviationAmount === null);
   const allClean = rows.length > 0 && exceptions.length === 0 && unextracted.length === 0;
 
   return (
@@ -347,7 +353,9 @@ function SkuPriceCheckPanel({
           {!showAll && (
             <span className="pc-showall-hint">
               {clean.length > 0 && `${clean.length} on standard`}
-              {clean.length > 0 && unextracted.length > 0 && ' · '}
+              {clean.length > 0 && (notSelected.length > 0 || unextracted.length > 0) && ' · '}
+              {notSelected.length > 0 && `${notSelected.length} not selected`}
+              {notSelected.length > 0 && unextracted.length > 0 && ' · '}
               {unextracted.length > 0 && `${unextracted.length} not yet extracted`}
             </span>
           )}
@@ -355,13 +363,15 @@ function SkuPriceCheckPanel({
       )}
 
       {/* Clean rows (shown when expanded) */}
-      {showAll && (clean.length > 0 || unextracted.length > 0) && (
+      {showAll && (clean.length > 0 || notSelected.length > 0 || unextracted.length > 0) && (
         <div className="pc-section pc-section--clean">
           <div className="pc-clean-list">
-            {[...clean, ...unextracted].map((row) => (
-              <div key={row.componentKey} className="pc-clean-row">
+            {[...clean, ...notSelected, ...unextracted].map((row) => (
+              <div key={row.componentKey} className={`pc-clean-row${row.isAlternative ? ' pc-clean-row--alternative' : ''}`}>
                 <span className="pc-clean-row__name">{componentLabel(row.componentKey)}</span>
-                <span className="pc-clean-row__ok">{row.deviationAmount !== null ? '✓' : '◌'}</span>
+                <span className="pc-clean-row__ok">
+                  {row.isAlternative ? 'Not selected' : row.deviationAmount !== null ? '✓' : '◌'}
+                </span>
                 <span className="pc-clean-row__amount">{moneyInt(row.masterAmount, currency)}</span>
               </div>
             ))}

@@ -1032,6 +1032,12 @@
 .pc-clean-row__ok     { color: #059669; font-size: 0.8rem; }
 .pc-clean-row__amount { color: #334155; font-variant-numeric: tabular-nums; font-weight: 600; }
 
+/* A price-list option that exists but wasn't the one taken (e.g. the
+   extended-warranty tier not selected) -- genuinely neutral, not a
+   deviation (green check) or a pending extraction (muted dot). */
+.pc-clean-row--alternative .pc-clean-row__ok { color: #94a3b8; font-style: italic; }
+.pc-clean-row--alternative .pc-clean-row__name { color: #94a3b8; }
+
 .pc-showall-row { display: flex; align-items: center; gap: 12px; padding: 10px 20px; border-top: 1px solid rgba(148,163,184,0.18); background: #fafafa; }
 .pc-showall-btn { border: 0; background: transparent; font: inherit; font-size: 0.74rem; font-weight: 700; color: #075f5a; cursor: pointer; padding: 0; }
 .pc-showall-btn:hover { text-decoration: underline; }

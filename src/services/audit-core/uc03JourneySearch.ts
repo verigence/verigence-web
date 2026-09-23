@@ -87,6 +87,11 @@ export interface SkuPricingComponent {
   deviationAmount: number | null;
   deviationPercent: number | null;
   currencyCode: string;
+  // True when this row shares its commercial key with another master
+  // component (today, only the two extended-warranty tiers) and the
+  // actual amount matched the OTHER one instead -- a genuine, still-
+  // relevant alternative the price list offers, not a deviation.
+  isAlternative: boolean;
 }
 
 export interface SkuPricing {

@@ -193,9 +193,15 @@ function PriceCard({ label, standard, actual, deviationAmount, deviationPercent,
   currency: string; sourceLabel?: string;
 }) {
   const fmt = (v: number | null) => moneyInt(v, currency);
+  // A ₹1 dead-band for rounding noise between a master price stored with
+  // paisa precision and a document-extracted whole-rupee amount -- the
+  // same threshold this file already uses everywhere else a standard is
+  // compared to an actual (see the invoice-disagreement and discount-over
+  // checks below). 0.01 flagged a one-paisa rounding difference (TCS,
+  // Ex Showroom) as a real "exception" needing PC/TL attention.
   const state: 'ok' | 'over' | 'under' | 'unknown' =
     deviationAmount === null ? 'unknown'
-    : Math.abs(deviationAmount) < 0.01 ? 'ok'
+    : Math.abs(deviationAmount) <= 1 ? 'ok'
     : deviationAmount > 0 ? 'over' : 'under';
   const devLabel = state === 'ok' ? '✓ On standard'
     : state === 'unknown' ? null
@@ -244,8 +250,8 @@ function SkuPriceCheckPanel({
   const componentLabel = (k: string) =>
     k.replaceAll('_', ' ').toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
   const rows = pricing.masterComponents as SkuPricingComponent[];
-  const exceptions  = rows.filter((r) => r.deviationAmount !== null && Math.abs(r.deviationAmount) >= 0.01);
-  const clean       = rows.filter((r) => r.deviationAmount !== null && Math.abs(r.deviationAmount) < 0.01);
+  const exceptions  = rows.filter((r) => r.deviationAmount !== null && Math.abs(r.deviationAmount) > 1);
+  const clean       = rows.filter((r) => r.deviationAmount !== null && Math.abs(r.deviationAmount) <= 1);
   const unextracted = rows.filter((r) => r.deviationAmount === null);
   const allClean = rows.length > 0 && exceptions.length === 0 && unextracted.length === 0;
 

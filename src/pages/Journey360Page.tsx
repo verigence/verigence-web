@@ -1120,6 +1120,15 @@ function DealPanel({
   role?: string;
 }) {
   const pricing = model.skuPricing;
+  // booking_amount_paid is a payment record, not a priced deal component --
+  // it has no "standard" price to compare against and belongs on the
+  // Payments panel (already shown there). Filtered here only, for the two
+  // Deal-tab consumers below -- commercialLineByComponentKey's own generic
+  // lookups elsewhere are unaffected.
+  const dealModel: JourneyOverview = {
+    ...model,
+    commercialLines: model.commercialLines.filter((line) => line.componentKey !== 'booking_amount_paid'),
+  };
   // Regression: commercial lines / invoice amounts (auditcore.commercial_lines)
   // and discounts are materialized independent of SKU resolution -- confirmed
   // live, a journey with an unresolved SKU (MODEL_NOT_IDENTIFIED still open)
@@ -1165,8 +1174,11 @@ function DealPanel({
           <BookingCommercialFacts reviewedBooking={reviewedBooking} />
         </div>
       )}
-      <DealTotalsStrip model={model} />
-      <CommercialLinesTable model={model} />
+      {/* booking_amount_paid is a payment, not a priced deal component --
+          it belongs on the Payments panel (already shown there), not
+          compared against a "standard" price it never had. */}
+      <DealTotalsStrip model={dealModel} />
+      <CommercialLinesTable model={dealModel} />
       <div style={{ marginTop: 24 }}>
         <DiscountsPanel model={model} />
       </div>

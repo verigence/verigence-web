@@ -560,15 +560,25 @@ function documentId(doc: Record<string, unknown>, idx: number): string {
 function documentExtractionCounts(
   documents: Array<Record<string, unknown>>,
   reviewedFields: JourneyReviewedField[],
-): { uploaded: number; classified: number; extracted: number } {
+): { uploaded: number; classified: number; extracted: number; duplicates: number } {
   const extractedIds = new Set(reviewedFields.map((field) => field.documentId));
   let classified = 0;
   let extracted = 0;
+  let duplicates = 0;
   documents.forEach((doc, idx) => {
-    if (doc.documentTypeKey) classified += 1;
+    if (doc.documentTypeKey) {
+      classified += 1;
+      // Classified but never bound to an open requirement slot (see
+      // audit_core._requirements_with_open_slot) -- an extra copy of a
+      // single-document requirement that's already filled. requirementKey
+      // comes straight off document_capture_v2_documents (see
+      // uc03_journey_overview_projection._documents), same signal
+      // JourneyDocumentsPage's own "Extra copies" summary uses.
+      if (!doc.requirementKey) duplicates += 1;
+    }
     if (extractedIds.has(documentId(doc, idx))) extracted += 1;
   });
-  return { uploaded: documents.length, classified, extracted };
+  return { uploaded: documents.length, classified, extracted, duplicates };
 }
 
 // ── Document dropdown: pick one document, see its own file + its own
@@ -748,26 +758,32 @@ function DocumentProgressStrip({
   uploaded,
   classified,
   extracted,
+  duplicates,
 }: {
   uploaded: number;
   classified: number;
   extracted: number;
+  duplicates: number;
 }) {
   if (uploaded === 0) return null;
   const done = extracted === uploaded;
   return (
     <div className="jline__docProgress" role="status">
-      <div className="jline__docStat">
+      <div className="jline__docStat jline__docStat--uploaded">
         <span>Uploaded</span>
         <strong>{uploaded}</strong>
       </div>
-      <div className="jline__docStat">
+      <div className="jline__docStat jline__docStat--classified">
         <span>Classified</span>
         <strong>{classified}</strong>
       </div>
-      <div className={`jline__docStat ${done ? 'jline__docStat--done' : ''}`}>
+      <div className={`jline__docStat jline__docStat--extracted ${done ? 'jline__docStat--done' : ''}`}>
         <span>Extracted</span>
         <strong>{extracted}</strong>
+      </div>
+      <div className={`jline__docStat jline__docStat--duplicate ${duplicates > 0 ? 'jline__docStat--duplicate-active' : ''}`}>
+        <span>Duplicates</span>
+        <strong>{duplicates}</strong>
       </div>
     </div>
   );

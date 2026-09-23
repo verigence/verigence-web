@@ -58,7 +58,12 @@
 .jline__stripText { font-size: 0.95rem; font-weight: 600; }
 .jline__stripText small { display: block; font-weight: 400; color: var(--jl-muted); margin-top: 2px; }
 
-/* ── document progress (Uploaded / Classified / Extracted) ──────────────── */
+/* ── document progress (Uploaded / Classified / Extracted / Duplicates) ──
+   Colors follow this file's own convention (see .jline__row--attention,
+   .jline__evidence--ok/--missing, .jline__bank--matched/--unmatched
+   below): teal = success/complete, electric = in-progress/info,
+   coral + warn-bg = needs attention -- same "grey KPI tiles + one
+   coral attention tile" pattern as the PC Overview dashboard. ────────── */
 .jline__docProgress {
   display: flex;
   gap: 10px;
@@ -90,11 +95,27 @@
   font-variant-numeric: tabular-nums;
 }
 
+.jline__docStat--classified strong {
+  color: var(--jl-electric);
+}
+
+.jline__docStat--extracted strong {
+  color: var(--jl-teal);
+}
+
 .jline__docStat--done {
   border-color: var(--jl-teal);
 }
 .jline__docStat--done strong {
   color: var(--jl-teal);
+}
+
+.jline__docStat--duplicate-active {
+  border-color: var(--jl-coral);
+  background: var(--jl-warn-bg);
+}
+.jline__docStat--duplicate-active strong {
+  color: var(--jl-coral);
 }
 
 /* ── six-step line ──────────────────────────────────────────────────────── */

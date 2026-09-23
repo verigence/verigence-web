@@ -270,40 +270,56 @@
 }
 .uc03-jd-checklist h2 { margin: 0; font-size: 15px; }
 .uc03-jd-checklist header span { font-size: 13px; color: var(--v-muted, #6e879b); font-variant-numeric: tabular-nums; }
-.uc03-jd-checklist ul {
-  list-style: none;
-  margin: 0;
-  padding: 0;
+
+/* Each received document renders as the same status card the Booking/
+   Delivery capture screens show while uploading (.uc03-doc-card, from
+   uc03-capture-document-card.css -- its CSS ships as a side-effect of
+   importing DocumentCard/ReviewDocumentStatusCard, no separate import
+   needed here) -- per explicit instruction that this view shouldn't look
+   different from the upload screen showing the same documents. */
+.uc03-jd-card-slot {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 10px 20px;
+  gap: 6px;
+  align-content: start;
 }
-.uc03-jd-checklist li {
-  border-bottom: 1px solid var(--v-line, #eef3f7);
-}
-.uc03-jd-checklist li > button,
-.uc03-jd-checklist li > div {
-  width: 100%;
+.uc03-jd-card-slot__badges {
   display: flex;
   align-items: center;
-  gap: 10px;
-  font-size: 13.5px;
-  padding: 8px 4px;
+  gap: 6px;
 }
-.uc03-jd-checklist li > button {
-  background: none;
+.uc03-doc-card-trigger {
+  display: block;
+  width: 100%;
+  padding: 0;
   border: none;
+  background: none;
   font: inherit;
   color: inherit;
-  cursor: pointer;
   text-align: left;
-  border-radius: 8px;
-  transition: background-color 0.12s;
+  cursor: pointer;
+  border-radius: 14px;
+  transition: box-shadow 0.12s;
 }
-.uc03-jd-checklist li > button:hover,
-.uc03-jd-checklist li > button:focus-visible {
-  background: var(--surface-muted, #f1f6fa);
+.uc03-doc-card-trigger:hover,
+.uc03-doc-card-trigger:focus-visible {
+  box-shadow: 0 0 0 2px rgba(7, 95, 90, 0.25);
 }
+.uc03-doc-card-trigger:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+/* A checklist requirement nothing has been uploaded for yet -- same base
+   card, dashed and muted rather than one of DocumentCard's live pipeline
+   colors, since "missing" isn't a stage a document has ever reached. */
+.uc03-doc-card.is-missing {
+  border-style: dashed;
+  border-left-style: dashed;
+  border-left-color: var(--v2-border);
+  color: var(--v-muted, #6e879b);
+  box-shadow: none;
+}
+.uc03-doc-card.is-missing .uc03-doc-card__dot { background: var(--v2-border); }
+
 .uc03-jd-checklist-stage {
   font-size: 10px;
   font-weight: 700;
@@ -314,22 +330,49 @@
 }
 .uc03-jd-checklist-stage.booking { background: #e6f0ff; color: #1a4d99; }
 .uc03-jd-checklist-stage.delivery { background: #fff0e0; color: #99551a; }
-.uc03-jd-checklist-label { flex: 1; }
 .uc03-jd-checklist-level {
   font-size: 11px;
   color: var(--v-muted, #6e879b);
   text-transform: capitalize;
 }
-.uc03-jd-checklist-status { font-size: 12px; font-weight: 600; white-space: nowrap; }
-/* Traces a document's own live progress (Uploaded -> Classified ->
-   Extracted, or an exception) with the same colors the Booking/Delivery
-   capture screens' own document cards use, so the two never drift. */
-.uc03-jd-checklist-status.is-missing { color: #9c6f00; }
-.uc03-jd-checklist-status.is-uploaded { color: #00847d; }
-.uc03-jd-checklist-status.is-classified { color: #003a82; }
-.uc03-jd-checklist-status.is-extracted { color: #1c6e3f; }
-.uc03-jd-checklist-status.is-unrecognized { color: #dc6803; }
-.uc03-jd-checklist-status.is-failed { color: #d92d20; }
+
+/* ── Editing-blocked banner (classification still settling) ─────────── */
+.uc03-jd-block-banner {
+  border: 1px solid #f2d68a;
+  border-radius: 10px;
+  background: #fff9ec;
+  color: #7a5b00;
+  padding: 10px 14px;
+  font-size: 13px;
+}
+
+/* ── Extra/duplicate copies summary ──────────────────────────────────── */
+.uc03-jd-duplicates {
+  margin-top: 14px;
+  border: 1px dashed var(--v-line, #dbe6ee);
+  border-radius: 12px;
+  padding: 14px 20px;
+}
+.uc03-jd-duplicates header {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.uc03-jd-duplicates h2 { margin: 0; font-size: 14px; }
+.uc03-jd-duplicates header span { font-size: 12px; color: var(--v-muted, #6e879b); }
+.uc03-jd-duplicates ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.uc03-jd-duplicates li {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+  padding: 4px 0;
+}
+.uc03-jd-duplicates__count {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--v-muted, #6e879b);
+}
 
 /* ── Boxed document review modal ─────────────────────────────────────── */
 .uc03-jd-modal-backdrop {

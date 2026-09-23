@@ -5,15 +5,15 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { ErrorBoundary } from '../components/ErrorBoundary';
 import PageHeader from '../components/PageHeader';
 import AttributeEvidenceViewer, { hasBoxedEvidence } from '../features/uc03/AttributeEvidenceViewer';
-import { CARD_STATUS_LABEL, cardStatus, ReviewDocumentStatusCard } from '../features/uc03/CaptureDocumentCard';
+import { DocumentCard, ReviewDocumentStatusCard } from '../features/uc03/CaptureDocumentCard';
 import ModifyModelModal from '../features/uc03/ModifyModelModal';
 import { LoanDisbursementModal } from '../features/uc03/LoanDisbursementPicker';
 import { categoryFor, categoryTitle, FIELD_CATEGORY_ORDER, type FieldCategory } from '../features/uc03/fieldCategoryGroups';
+import { displayName } from '../utils/displayNames';
 import { AuditCoreHttpError } from '../services/audit-core/client';
 import {
   captureV2HasPendingClassification,
   getBookingCaptureV2,
-  type CaptureV2Document,
   type CaptureV2Requirement,
 } from '../services/audit-core/uc03DocumentCaptureV2';
 import { deliveryCaptureV2IsProcessing, getDeliveryCaptureV2 } from '../services/audit-core/uc03DeliveryCaptureV2';
@@ -37,6 +37,13 @@ import '../styles/uc03-journey-documents.css';
 type Stage = 'BOOKING' | 'DELIVERY';
 const REVIEW_THRESHOLD = 90;
 const POLL_MS = 3_000;
+// Classification/extraction is a background DI step, not instant -- editing
+// a document before its own status has settled risks correcting a value
+// that's about to be overwritten by the real extraction. Blocks edits while
+// any document is still short of Classified/Extracted/Failed/Unrecognized,
+// but only for up to this long -- a document DI never manages to classify
+// must not trap the PC on this page forever.
+const EDIT_BLOCK_TIMEOUT_MS = 5 * 60 * 1000;
 
 function displayFieldKey(fieldKey: string): string {
   return fieldKey
@@ -358,14 +365,6 @@ interface ChecklistEntry extends CaptureV2Requirement {
   stage: Stage;
 }
 
-function statusClass(document: CaptureV2Document | null): string {
-  return document ? `is-${cardStatus(document)}` : 'is-missing';
-}
-
-function statusLabel(document: CaptureV2Document | null): string {
-  return document ? CARD_STATUS_LABEL[cardStatus(document)] : 'Missing';
-}
-
 interface ExtraDocument {
   stage: Stage;
   document: ReviewV2Document;
@@ -376,15 +375,24 @@ interface ExtraDocument {
  * Uploaded → Classified → Extracted status), plus any uploaded document
  * that isn't tied to a specific requirement (e.g. a second payment
  * receipt). Clicking a received document opens it in the boxed review
- * modal; nothing here duplicates what the modal shows. */
+ * modal; nothing here duplicates what the modal shows.
+ *
+ * Renders each received document as the exact same status card the
+ * Booking/Delivery capture screens show while uploading -- per explicit
+ * instruction that this view shouldn't look different from the upload
+ * screen it's showing the same documents from. `locked` disables opening
+ * a document (but not uploading more) while classification is still
+ * settling -- see EDIT_BLOCK_TIMEOUT_MS above. */
 function DocumentList({
   items,
   extraDocuments,
   onOpenDocument,
+  locked,
 }: {
   items: ChecklistEntry[];
   extraDocuments: ExtraDocument[];
   onOpenDocument: (stage: Stage, documentId: string) => void;
+  locked: boolean;
 }) {
   const applicable = items.filter((item) => item.applicabilityState !== 'NOT_APPLICABLE');
   if (!applicable.length && !extraDocuments.length) return null;
@@ -396,34 +404,75 @@ function DocumentList({
         <h2>Documents</h2>
         <span>{received} of {applicable.length} received</span>
       </header>
-      <ul>
-        {applicable.map((item) => {
+      <div className="uc03-doc-card-grid">
+        {applicable.map((item, index) => {
           const documentId = item.document?.documentId;
-          const row = (
-            <>
-              <span className={`uc03-jd-checklist-stage ${item.stage.toLowerCase()}`}>{item.stage === 'BOOKING' ? 'Booking' : 'Delivery'}</span>
-              <span className="uc03-jd-checklist-label">{item.label}</span>
-              {item.requirementLevel !== 'REQUIRED' ? <span className="uc03-jd-checklist-level">{item.requirementLevel.toLowerCase()}</span> : null}
-              <span className={`uc03-jd-checklist-status ${statusClass(item.document)}`}>{statusLabel(item.document)}</span>
-            </>
-          );
           return (
-            <li key={`${item.stage}:${item.requirementKey}`} className={documentId ? 'is-received' : 'is-missing'}>
-              {documentId ? (
-                <button type="button" onClick={() => onOpenDocument(item.stage, documentId)}>{row}</button>
-              ) : <div>{row}</div>}
-            </li>
+            <div key={`${item.stage}:${item.requirementKey}`} className="uc03-jd-card-slot">
+              <div className="uc03-jd-card-slot__badges">
+                <span className={`uc03-jd-checklist-stage ${item.stage.toLowerCase()}`}>{item.stage === 'BOOKING' ? 'Booking' : 'Delivery'}</span>
+                {item.requirementLevel !== 'REQUIRED' ? <span className="uc03-jd-checklist-level">{item.requirementLevel.toLowerCase()}</span> : null}
+              </div>
+              {item.document && documentId ? (
+                <button
+                  type="button"
+                  className="uc03-doc-card-trigger"
+                  disabled={locked}
+                  onClick={() => onOpenDocument(item.stage, documentId)}
+                >
+                  <DocumentCard document={item.document} index={index} />
+                </button>
+              ) : (
+                <div className="uc03-doc-card is-missing">
+                  <strong className="uc03-doc-card__name">{item.label}</strong>
+                  <div className="uc03-doc-card__status">
+                    <span className="uc03-doc-card__dot" aria-hidden="true" />
+                    Missing
+                  </div>
+                </div>
+              )}
+            </div>
           );
         })}
         {extraDocuments.map(({ stage, document }) => (
-          <li key={`extra:${document.documentId}`} className="is-received">
-            <button type="button" onClick={() => onOpenDocument(stage, document.documentId)}>
+          <div key={`extra:${document.documentId}`} className="uc03-jd-card-slot">
+            <div className="uc03-jd-card-slot__badges">
               <span className={`uc03-jd-checklist-stage ${stage.toLowerCase()}`}>{stage === 'BOOKING' ? 'Booking' : 'Delivery'}</span>
-              <span className="uc03-jd-checklist-label">{document.label}</span>
-              <span className={`uc03-jd-checklist-status ${document.extractionState === 'FAILED' ? 'is-failed' : document.extractionState === 'PENDING' ? 'is-classified' : 'is-extracted'}`}>
-                {document.extractionState === 'FAILED' ? 'Needs attention' : document.extractionState === 'PENDING' ? 'Extracting…' : 'Extracted'}
-              </span>
+            </div>
+            <button
+              type="button"
+              className="uc03-doc-card-trigger"
+              disabled={locked}
+              onClick={() => onOpenDocument(stage, document.documentId)}
+            >
+              <ReviewDocumentStatusCard document={document} />
             </button>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+/** Extra copies of a single-document requirement that's already filled --
+ * classified (DI still identifies what they are) but never sent for
+ * extraction, so there is nothing on them to open or review. One line per
+ * document type, not a card per copy -- unlike a real repeatable document
+ * (payment receipts, bank statements), which still gets its own full card
+ * in the list above. */
+function DuplicateDocumentsSummary({ counts }: { counts: Map<string, number> }) {
+  if (counts.size === 0) return null;
+  return (
+    <section className="uc03-jd-duplicates" aria-label="Extra copies not sent for extraction">
+      <header>
+        <h2>Extra copies</h2>
+        <span>not sent for extraction</span>
+      </header>
+      <ul>
+        {[...counts.entries()].map(([documentTypeKey, count]) => (
+          <li key={documentTypeKey}>
+            <span className="uc03-jd-duplicates__type">{displayName(documentTypeKey)}</span>
+            <span className="uc03-jd-duplicates__count">{count}</span>
           </li>
         ))}
       </ul>
@@ -661,6 +710,32 @@ export default function JourneyDocumentsPage() {
     refetchInterval: (query) => (deliveryCaptureV2IsProcessing(query.state.data) ? POLL_MS : false),
   });
 
+  // Same "still settling" signal the polling above already uses, reused
+  // here to gate editing rather than just refetch cadence -- see
+  // EDIT_BLOCK_TIMEOUT_MS's own comment for why this needs a fallback.
+  const pendingClassification =
+    captureV2HasPendingClassification(bookingCaptureQuery.data)
+    || deliveryCaptureV2IsProcessing(deliveryCaptureQuery.data);
+  const blockStartRef = useRef<number | null>(null);
+  const [editBlockTimedOut, setEditBlockTimedOut] = useState(false);
+  useEffect(() => {
+    if (!pendingClassification) {
+      blockStartRef.current = null;
+      setEditBlockTimedOut(false);
+      return undefined;
+    }
+    blockStartRef.current ??= Date.now();
+    const remaining = EDIT_BLOCK_TIMEOUT_MS - (Date.now() - blockStartRef.current);
+    if (remaining <= 0) {
+      setEditBlockTimedOut(true);
+      return undefined;
+    }
+    setEditBlockTimedOut(false);
+    const timer = setTimeout(() => setEditBlockTimedOut(true), remaining);
+    return () => clearTimeout(timer);
+  }, [pendingClassification]);
+  const editsBlocked = pendingClassification && !editBlockTimedOut;
+
   const bookingAvailable = Boolean(bookingQuery.data);
   const deliveryAvailable = Boolean(deliveryQuery.data);
   // A journey that has progressed to Delivery has a CLOSED Booking by
@@ -777,6 +852,29 @@ export default function JourneyDocumentsPage() {
   const coveredDocumentIds = new Set(
     checklist.map((item) => item.document?.documentId).filter((id): id is string => Boolean(id)),
   );
+  // Extra copies of a single-document requirement that's already filled --
+  // DI still classifies them (so their type is known), but per the backend
+  // fix they're never sent for extraction at all. Distinguished from a
+  // legitimate repeatable document (e.g. a 2nd/3rd payment receipt, which
+  // DOES get extracted and shows as its own full card below) by checking
+  // whether it ever reached the documents-with-fields data at all -- a
+  // duplicate never will, a repeatable one already has. Counted and
+  // labelled, not shown as individual cards: there is nothing on them to
+  // open or review.
+  const reviewedDocumentIds = new Set([
+    ...(bookingQuery.data?.documents ?? []).map((document) => document.documentId),
+    ...(deliveryQuery.data?.documents ?? []).map((document) => document.documentId),
+  ]);
+  const duplicateCounts = new Map<string, number>();
+  for (const upload of [
+    ...(bookingCaptureQuery.data?.uploads ?? []),
+    ...(deliveryCaptureQuery.data?.uploads ?? []),
+  ]) {
+    if (!upload.classifiedDocumentTypeKey) continue;
+    if (coveredDocumentIds.has(upload.documentId) || reviewedDocumentIds.has(upload.documentId)) continue;
+    const key = upload.classifiedDocumentTypeKey;
+    duplicateCounts.set(key, (duplicateCounts.get(key) ?? 0) + 1);
+  }
   const extraDocuments: ExtraDocument[] = [
     ...(bookingQuery.data?.documents ?? [])
       .filter((document) => !coveredDocumentIds.has(document.documentId))
@@ -804,15 +902,22 @@ export default function JourneyDocumentsPage() {
           // below) only ever appears when nothing has been resolved yet,
           // so the two never compete for the same moment.
           <>
-            <button type="button" className="uc03-jd-modify-model" onClick={() => setModifyModelOpen(true)}>
+            <button type="button" className="uc03-jd-modify-model" disabled={editsBlocked} onClick={() => setModifyModelOpen(true)}>
               Modify Model
             </button>
-            <button type="button" className="uc03-jd-modify-model" onClick={() => setLoanDisbursementOpen(true)}>
+            <button type="button" className="uc03-jd-modify-model" disabled={editsBlocked} onClick={() => setLoanDisbursementOpen(true)}>
               Update Loan Amount
             </button>
           </>
         }
       />
+
+      {editsBlocked ? (
+        <div className="uc03-jd-block-banner" role="status">
+          Finishing document classification — editing and corrections unlock automatically once every
+          document is classified (usually a few minutes). You can still upload more documents.
+        </div>
+      ) : null}
 
       {modifyModelOpen && journeyId ? (
         <ModifyModelModal
@@ -858,7 +963,8 @@ export default function JourneyDocumentsPage() {
           />
         </ErrorBoundary>
 
-        <DocumentList items={checklist} extraDocuments={extraDocuments} onOpenDocument={openDocumentById} />
+        <DocumentList items={checklist} extraDocuments={extraDocuments} onOpenDocument={openDocumentById} locked={editsBlocked} />
+        <DuplicateDocumentsSummary counts={duplicateCounts} />
         {!checklist.length && !extraDocuments.length ? (
           <p className="uc03-jd-empty">No documents have been uploaded for this Journey yet.</p>
         ) : null}

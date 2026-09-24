@@ -162,9 +162,35 @@ function scheduleLiveRefresh(
       state.snapshot = live;
       localFallbackPollStartedAt.delete(journeyId);
     })
-    .catch(() => {
-      // Durable Audit Core state remains usable. DI status is supplementary to first paint.
-    })
+    .catch(() =>
+      // Root-caused live (2026-09-24): the live endpoint 409s permanently
+      // once a journey's Booking is closed (VAC-CONFLICT-004, "The Booking
+      // must be active before capture or extraction work can change") --
+      // every journey that's progressed to Delivery. Once that first live
+      // refresh fails, this function's own 5s throttle (lastLiveStartedAt)
+      // keeps retrying it forever, always failing the same way, and the
+      // cached snapshot this whole module exists to serve NEVER updates
+      // again -- polling calls this function every second, but it just
+      // returns the same stale object every time, no matter how long that
+      // continues, since nothing else ever refreshes it. Falling back to
+      // the local (DB-only) read here means an upload's own reconcile
+      // pass -- which writes straight to the database regardless of the
+      // live endpoint's own Booking-active gate -- eventually surfaces
+      // even when the live endpoint can never succeed again for this
+      // journey.
+      auditCoreRequest<BookingCaptureV2>(`${bookingBase}/capture-local`, {
+        accessToken,
+        cache: 'no-store',
+        timeoutMs: LOCAL_CAPTURE_TIMEOUT_MS,
+      })
+        .then((local) => {
+          state.snapshot = markLocal(local);
+        })
+        .catch(() => {
+          // Durable Audit Core state remains usable either way -- this is
+          // a background refresh, never the first paint's own source.
+        }),
+    )
     .finally(() => {
       if (state.liveInFlight === refresh) state.liveInFlight = undefined;
     });

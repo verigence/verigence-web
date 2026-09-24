@@ -116,9 +116,27 @@ function scheduleLiveRefresh(
       state.snapshot = live;
       localFallbackPollStartedAt.delete(journeyId);
     })
-    .catch(() => {
-      // Durable Audit Core state remains usable. DI status is supplementary to first paint.
-    })
+    .catch(() =>
+      // See the matching comment in uc03DocumentCaptureV2.ts's own
+      // scheduleLiveRefresh -- same fix, same reason (a journey whose
+      // Booking has closed makes Booking's own live endpoint 409
+      // permanently; falling back to the local read here keeps THIS
+      // module's cache from getting stuck the same way once that
+      // happens, even though Delivery's own live endpoint itself isn't
+      // gated the same way).
+      auditCoreRequest<DeliveryCaptureV2>(`${deliveryBase}/capture-local`, {
+        accessToken,
+        cache: 'no-store',
+        timeoutMs: LOCAL_CAPTURE_TIMEOUT_MS,
+      })
+        .then((local) => {
+          state.snapshot = markLocal(local);
+        })
+        .catch(() => {
+          // Durable Audit Core state remains usable either way -- this is
+          // a background refresh, never the first paint's own source.
+        }),
+    )
     .finally(() => {
       if (state.liveInFlight === refresh) state.liveInFlight = undefined;
     });

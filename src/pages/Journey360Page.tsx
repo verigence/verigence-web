@@ -1023,32 +1023,6 @@ function invoiceColumnBucket(sourceDocumentType: string): 'RETAIL' | 'TAX' | nul
   return null;
 }
 
-interface InvoiceColumns {
-  retail: DealSourceValue | null;
-  tax: DealSourceValue | null;
-}
-
-function bucketInvoiceColumns(sources: DealSourceValue[]): InvoiceColumns {
-  let retail: DealSourceValue | null = null;
-  let tax: DealSourceValue | null = null;
-  for (const source of sources) {
-    const bucket = invoiceColumnBucket(source.sourceDocumentType);
-    if (bucket === 'RETAIL') retail = source;
-    else if (bucket === 'TAX') tax = source;
-  }
-  return { retail, tax };
-}
-
-/** Whether ANY commercial line on this deal has reported a Retail or Tax
- * invoice value yet -- gates whether the table shows those two columns at
- * all. Before any invoice exists the table stays exactly as simple as
- * before (Standard | Actual); the moment one invoice line lands, every row
- * gains the two columns so the table never jumps around per-row. */
-function dealHasAnyInvoiceColumn(breakdown: DealSourceValue[] | undefined): boolean {
-  if (!breakdown || breakdown.length === 0) return false;
-  return breakdown.some((row) => row.lineKind === 'COMMERCIAL' && invoiceColumnBucket(row.sourceDocumentType) !== null);
-}
-
 // Given amount lands in column 3 (Scheme/benefit | Entitled | Given | Eligibility).
 function DiscountSourceRows({ sources }: { sources: DealSourceValue[] }) {
   if (sources.length === 0) return null;
@@ -1190,22 +1164,21 @@ function DealPanel({
       ) : (
         <p className="jline__empty">The price masters have not been resolved for this booking yet. Complete Booking document review.</p>
       )}
-      {/* Direct user correction (2026-09-24): DealTotalsStrip and
-          CommercialLinesTable duplicated exactly what SkuPriceCheckPanel
-          already shows -- the same components listed twice, once with a
-          tick mark and once as a plain Standard/Actual row, with two
-          different (and disagreeing) totals. Only needed as a fallback
-          for a journey with no resolved SKU yet, when SkuPriceCheckPanel
-          has nothing to show at all. */}
+      {/* BookingCommercialFacts is a raw-facts fallback for a journey with
+          no resolved SKU yet; SkuPriceCheckPanel below replaces it once a
+          SKU exists. DealTotalsStrip/CommercialLinesTable are the
+          Standard/Booking/Invoice variance view and belong on screen
+          either way -- per direct user correction (2026-09-24), removing
+          them entirely was overcorrecting: the fix for the duplicate
+          display was to drop the tick-list's own separate Standard/Actual
+          total (done in SkuPriceCheckPanel), not to hide this table. */}
       {!pricing && (
-        <>
-          <div style={{ marginTop: 16 }}>
-            <BookingCommercialFacts reviewedBooking={reviewedBooking} />
-          </div>
-          <DealTotalsStrip model={dealModel} />
-          <CommercialLinesTable model={dealModel} />
-        </>
+        <div style={{ marginTop: 16 }}>
+          <BookingCommercialFacts reviewedBooking={reviewedBooking} />
+        </div>
       )}
+      <DealTotalsStrip model={dealModel} />
+      <CommercialLinesTable model={dealModel} />
       <div style={{ marginTop: 24 }}>
         <DiscountsPanel
           model={model}
@@ -1217,9 +1190,19 @@ function DealPanel({
   );
 }
 
+const BOOKING_SOURCE_TYPES = new Set(['booking_form', 'booking_docket']);
+
+/** Direct user correction (2026-09-24): "who said to remove column... we
+ * need to keep column otherwise how the variance will be identified... I
+ * asked you to have three column Standard Booking Invoice and invoice
+ * always get the precedence over booking." Three fixed columns, always
+ * present -- not a conditional Retail/Tax split. Invoice wins whenever
+ * both exist (commercialLines.actualAmount is already invoice-prioritized
+ * by _upsert_commercial_line's own source_priority), but both raw values
+ * stay visible side by side so a Booking/Invoice disagreement is exactly
+ * where the variance shows up, not collapsed away. */
 function CommercialLinesTable({ model }: { model: JourneyOverview }) {
   if (model.commercialLines.length === 0) return null;
-  const invoiceColumnsOn = dealHasAnyInvoiceColumn(model.dealSourceBreakdown);
   return (
     <div className="jline__tableWrap" style={{ marginTop: 16 }}>
       <table className="jline__table">
@@ -1227,47 +1210,36 @@ function CommercialLinesTable({ model }: { model: JourneyOverview }) {
           <tr>
             <th>Component</th>
             <th>Standard</th>
-            {invoiceColumnsOn ? (
-              <>
-                <th>Retail Invoice</th>
-                <th>Tax Invoice</th>
-              </>
-            ) : (
-              <th>Actual</th>
-            )}
+            <th>Booking</th>
+            <th>Invoice</th>
           </tr>
         </thead>
         <tbody>
           {model.commercialLines.map((line) => {
             const currency = String(line.currencyCode || 'INR');
             const componentKey = String(line.componentKey);
-            if (!invoiceColumnsOn) {
-              return (
-                <tr key={String(line.commercialLineId)}>
-                  <td>{readable(componentKey)}</td>
-                  <td>{money(line.standardAmount, currency)}</td>
-                  <td>{money(line.actualAmount, currency)}</td>
-                </tr>
-              );
-            }
             const sources = allSourceValuesFor(model.dealSourceBreakdown, componentKey);
-            const { retail, tax } = bucketInvoiceColumns(sources);
-            // Neither invoice bucket has reported this line yet -- fall
-            // back to whatever is currently known (the Booking Form,
-            // since an invoice always wins once one exists) so the row
-            // never goes blank just because no invoice covers it yet.
-            const retailValue = retail ? retail.amount : line.actualAmount;
-            const retailIsFallback = !retail && line.actualAmount !== null && line.actualAmount !== undefined;
-            const disagree = retail && tax && Math.abs(retail.amount - tax.amount) > 1;
+            const bookingSource = sources.find((s) => BOOKING_SOURCE_TYPES.has(s.sourceDocumentType.trim().toLowerCase()));
+            const invoiceSource = sources.find((s) => invoiceColumnBucket(s.sourceDocumentType) !== null);
+            // No breakdown row at all means only one source has ever
+            // reported this line -- since an invoice always wins once one
+            // exists, that single source can only be the Booking Form.
+            const noDisagreementYet = sources.length === 0;
+            const actualAmount =
+              line.actualAmount === null || line.actualAmount === undefined ? null : Number(line.actualAmount);
+            const bookingValue: number | null = bookingSource
+              ? bookingSource.amount
+              : noDisagreementYet
+                ? actualAmount
+                : null;
+            const invoiceValue: number | null = invoiceSource ? invoiceSource.amount : null;
+            const disagree = bookingValue !== null && invoiceValue !== null && Math.abs(bookingValue - invoiceValue) > 1;
             return (
               <tr key={String(line.commercialLineId)}>
                 <td>{readable(componentKey)}</td>
                 <td>{money(line.standardAmount, currency)}</td>
-                <td className={disagree ? 'jline__delta--over' : undefined}>
-                  {money(retailValue, currency)}
-                  {retailIsFallback ? <span className="jline__invoiceColFallback"> (Booking Form)</span> : null}
-                </td>
-                <td className={disagree ? 'jline__delta--over' : undefined}>{tax ? money(tax.amount, currency) : '—'}</td>
+                <td className={disagree ? 'jline__delta--over' : undefined}>{money(bookingValue, currency)}</td>
+                <td className={disagree ? 'jline__delta--over' : undefined}>{money(invoiceValue, currency)}</td>
               </tr>
             );
           })}

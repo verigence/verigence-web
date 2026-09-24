@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 
@@ -384,11 +384,6 @@ interface ExtraDocument {
  * a document (but not uploading more) while classification is still
  * settling -- see EDIT_BLOCK_TIMEOUT_MS above. */
 const _LEVEL_ORDER = ['REQUIRED', 'CONDITIONAL', 'OPTIONAL'] as const;
-const _LEVEL_LABEL: Record<string, string> = {
-  REQUIRED: 'Mandatory',
-  CONDITIONAL: 'Conditional',
-  OPTIONAL: 'Optional',
-};
 
 function ChecklistCard({
   item,
@@ -404,10 +399,17 @@ function ChecklistCard({
   const documentId = item.document?.documentId;
   return (
     <div className="uc03-jd-card-slot">
-      <div className="uc03-jd-card-slot__badges">
-        <span className={`uc03-jd-checklist-stage ${item.stage.toLowerCase()}`}>{item.stage === 'BOOKING' ? 'Booking' : 'Delivery'}</span>
-        {item.requirementLevel !== 'REQUIRED' ? <span className="uc03-jd-checklist-level">{item.requirementLevel.toLowerCase()}</span> : null}
-      </div>
+      {/* Direct user correction (2026-09-24): the stage badge repeated on
+          every single card what the section heading right above the grid
+          already says -- removed. The level badge stays: it's real
+          per-card information (this specific item is Optional/Conditional)
+          that the shared "Booking"/"Delivery" heading can't carry once
+          Mandatory and Optional items sit in the same row. */}
+      {item.requirementLevel !== 'REQUIRED' ? (
+        <div className="uc03-jd-card-slot__badges">
+          <span className="uc03-jd-checklist-level">{item.requirementLevel.toLowerCase()}</span>
+        </div>
+      ) : null}
       {item.document && documentId ? (
         <button
           type="button"
@@ -430,35 +432,39 @@ function ChecklistCard({
   );
 }
 
-/** One Stage × Level bucket (e.g. "Booking — Mandatory"), rendered only
- * when it has at least one applicable requirement. Left-accent color
- * carries both signals at once: hue = stage (blue/orange, same as the
- * existing badge colors), strength = level (solid for Mandatory, fading
- * toward Optional) -- so the segregation the eye needs ("what stage,
- * how urgent") doesn't depend on reading every badge individually. */
+/** One Stage bucket ("Booking" / "Delivery"), rendered only when it has at
+ * least one applicable requirement. Direct user correction (2026-09-24):
+ * previously split further into a separate Mandatory/Optional/Conditional
+ * row per stage, each repeating "Booking"/"Delivery" in its own heading --
+ * too many small headings for what is, visually, one list of documents.
+ * Mandatory items sort first within the single row; each item still
+ * carries its own level badge (ChecklistCard) when it isn't Mandatory, so
+ * that distinction isn't lost, just no longer its own heading. */
 function ChecklistSection({
   stage,
-  level,
   items,
   onOpenDocument,
   locked,
 }: {
   stage: Stage;
-  level: string;
   items: ChecklistEntry[];
   onOpenDocument: (stage: Stage, documentId: string) => void;
   locked: boolean;
 }) {
   if (items.length === 0) return null;
   const received = items.filter((item) => item.document).length;
+  const ordered = [...items].sort(
+    (a, b) => _LEVEL_ORDER.indexOf(a.requirementLevel as typeof _LEVEL_ORDER[number])
+      - _LEVEL_ORDER.indexOf(b.requirementLevel as typeof _LEVEL_ORDER[number]),
+  );
   return (
-    <div className={`uc03-jd-section uc03-jd-section--${stage.toLowerCase()} uc03-jd-section--${level.toLowerCase()}`}>
+    <div className={`uc03-jd-section uc03-jd-section--${stage.toLowerCase()}`}>
       <div className="uc03-jd-section__head">
-        <h3>{stage === 'BOOKING' ? 'Booking' : 'Delivery'} · {_LEVEL_LABEL[level] || level}</h3>
+        <h3>{stage === 'BOOKING' ? 'Booking' : 'Delivery'}</h3>
         <span>{received} of {items.length}</span>
       </div>
       <div className="uc03-doc-card-grid">
-        {items.map((item, index) => (
+        {ordered.map((item, index) => (
           <ChecklistCard
             key={`${item.stage}:${item.requirementKey}`}
             item={item}
@@ -494,18 +500,13 @@ function DocumentList({
         <span>{received} of {applicable.length} received</span>
       </header>
       {(['BOOKING', 'DELIVERY'] as const).map((stage) => (
-        <Fragment key={stage}>
-          {_LEVEL_ORDER.map((level) => (
-            <ChecklistSection
-              key={`${stage}:${level}`}
-              stage={stage}
-              level={level}
-              items={applicable.filter((item) => item.stage === stage && item.requirementLevel === level)}
-              onOpenDocument={onOpenDocument}
-              locked={locked}
-            />
-          ))}
-        </Fragment>
+        <ChecklistSection
+          key={stage}
+          stage={stage}
+          items={applicable.filter((item) => item.stage === stage)}
+          onOpenDocument={onOpenDocument}
+          locked={locked}
+        />
       ))}
       {extraDocuments.length > 0 ? (
         <div className="uc03-jd-section uc03-jd-section--extra">

@@ -336,12 +336,13 @@
   text-transform: capitalize;
 }
 
-/* ── Stage x Level sections ────────────────────────────────────────────
-   Segregates the checklist into Booking/Delivery, each split by Mandatory/
-   Conditional/Optional, plus a separate Duplicates & Unclassified bucket --
-   left-accent color carries both stage (hue: blue booking / orange
-   delivery) and level (strength: solid Mandatory fading to Optional) so
-   the two signals read at a glance without inspecting every card. */
+/* ── Stage sections ─────────────────────────────────────────────────────
+   Segregates the checklist into Booking/Delivery, plus a separate
+   Duplicates & Unclassified bucket. Direct user correction (2026-09-24):
+   previously one section per Stage x Level (Mandatory/Conditional/
+   Optional), each repeating the stage name in its own heading -- now one
+   section per stage; each card carries its own level badge instead when
+   it isn't Mandatory (see ChecklistCard). */
 .uc03-jd-section { margin-top: 18px; }
 .uc03-jd-section:first-of-type { margin-top: 0; }
 .uc03-jd-section__head {
@@ -366,19 +367,11 @@
   font-variant-numeric: tabular-nums;
 }
 
-.uc03-jd-section--booking.uc03-jd-section--required .uc03-jd-section__head { border-left-color: #1a4d99; }
-.uc03-jd-section--booking.uc03-jd-section--required h3 { color: #1a4d99; }
-.uc03-jd-section--booking.uc03-jd-section--conditional .uc03-jd-section__head { border-left-color: #6f97d1; }
-.uc03-jd-section--booking.uc03-jd-section--conditional h3 { color: #4d6fa8; }
-.uc03-jd-section--booking.uc03-jd-section--optional .uc03-jd-section__head { border-left-color: #b7cbec; }
-.uc03-jd-section--booking.uc03-jd-section--optional h3 { color: #7891bd; }
+.uc03-jd-section--booking .uc03-jd-section__head { border-left-color: #1a4d99; }
+.uc03-jd-section--booking h3 { color: #1a4d99; }
 
-.uc03-jd-section--delivery.uc03-jd-section--required .uc03-jd-section__head { border-left-color: #99551a; }
-.uc03-jd-section--delivery.uc03-jd-section--required h3 { color: #99551a; }
-.uc03-jd-section--delivery.uc03-jd-section--conditional .uc03-jd-section__head { border-left-color: #cf9a5c; }
-.uc03-jd-section--delivery.uc03-jd-section--conditional h3 { color: #a97b3f; }
-.uc03-jd-section--delivery.uc03-jd-section--optional .uc03-jd-section__head { border-left-color: #e6c8a3; }
-.uc03-jd-section--delivery.uc03-jd-section--optional h3 { color: #b89468; }
+.uc03-jd-section--delivery .uc03-jd-section__head { border-left-color: #99551a; }
+.uc03-jd-section--delivery h3 { color: #99551a; }
 
 .uc03-jd-section--extra .uc03-jd-section__head { border-left-color: #94a3b8; }
 .uc03-jd-section--extra h3 { color: #64748b; }

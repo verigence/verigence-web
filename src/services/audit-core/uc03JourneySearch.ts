@@ -141,6 +141,19 @@ export interface JourneyOverview {
    * discount amount -- e.g. what the booking form said vs. what a later
    * invoice said for the same component. */
   dealSourceBreakdown?: DealSourceValue[];
+  /** Present only when the primary vehicle-sale invoice's own date differs
+   * from the Booking date AND actually resolves to a different price-list
+   * or discount-scheme version -- i.e. there's a genuine choice to
+   * surface, not just two different dates that happen to land on the same
+   * masters. Booking date is always the one currently applied. */
+  dealPricePointOptions?: DealPricePointOptions | null;
+}
+
+export interface DealPricePointOptions {
+  bookingDate: string;
+  invoiceDate: string;
+  priceListDiffers: boolean;
+  discountsDiffer: boolean;
 }
 
 export interface DealSourceValue {

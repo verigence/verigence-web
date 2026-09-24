@@ -170,69 +170,6 @@ function moneyInt(v: number | null, currency = 'INR'): string {
   return new Intl.NumberFormat('en-IN', { style: 'currency', currency, maximumFractionDigits: 0 }).format(v);
 }
 
-function PriceBar({ standard, actual, state }: {
-  standard: number; actual: number | null; state: 'ok' | 'over' | 'under' | 'unknown';
-}) {
-  if (actual === null || standard === 0) {
-    return <div className="pc-bar pc-bar--empty"><span className="pc-bar__label-muted">Not yet extracted</span></div>;
-  }
-  const max = Math.max(standard, actual, 1);
-  return (
-    <div className="pc-bar">
-      <div className="pc-bar__track">
-        <div className="pc-bar__std" style={{ width: `${Math.min((standard / max) * 100, 100)}%` }} />
-        <div className={`pc-bar__act pc-bar__act--${state}`} style={{ width: `${Math.min((actual / max) * 100, 100)}%` }} />
-      </div>
-    </div>
-  );
-}
-
-function PriceCard({ label, standard, actual, deviationAmount, deviationPercent, currency, sourceLabel }: {
-  label: string; standard: number; actual: number | null;
-  deviationAmount: number | null; deviationPercent: number | null;
-  currency: string; sourceLabel?: string;
-}) {
-  const fmt = (v: number | null) => moneyInt(v, currency);
-  // A ₹1 dead-band for rounding noise between a master price stored with
-  // paisa precision and a document-extracted whole-rupee amount -- the
-  // same threshold this file already uses everywhere else a standard is
-  // compared to an actual (see the invoice-disagreement and discount-over
-  // checks below). 0.01 flagged a one-paisa rounding difference (TCS,
-  // Ex Showroom) as a real "exception" needing PC/TL attention.
-  const state: 'ok' | 'over' | 'under' | 'unknown' =
-    deviationAmount === null ? 'unknown'
-    : Math.abs(deviationAmount) <= 1 ? 'ok'
-    : deviationAmount > 0 ? 'over' : 'under';
-  const devLabel = state === 'ok' ? '✓ On standard'
-    : state === 'unknown' ? null
-    : (() => {
-        const sign = deviationAmount! > 0 ? '+' : '';
-        const pct = deviationPercent !== null ? ` (${sign}${deviationPercent.toFixed(1)}%)` : '';
-        return `${sign}${moneyInt(deviationAmount, currency)}${pct}`;
-      })();
-  return (
-    <div className={`pc-card pc-card--${state}`}>
-      <div className="pc-card__top">
-        <span className="pc-card__name">{label}</span>
-        <div className="pc-card__pills">
-          {sourceLabel && <span className="pc-card__source">{sourceLabel}</span>}
-          {devLabel && <span className={`pc-card__dev pc-card__dev--${state}`}>{devLabel}</span>}
-        </div>
-      </div>
-      <PriceBar standard={standard} actual={actual} state={state} />
-      <div className="pc-card__amounts">
-        <div><span>Standard</span><strong>{fmt(standard)}</strong></div>
-        <div>
-          <span>Extracted</span>
-          <strong className={state === 'over' ? 'pc-amt--over' : state === 'under' ? 'pc-amt--under' : ''}>
-            {fmt(actual)}
-          </strong>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 function SkuPriceCheckPanel({
   pricing,
   tenantId,
@@ -250,8 +187,13 @@ function SkuPriceCheckPanel({
   const componentLabel = (k: string) =>
     k.replaceAll('_', ' ').toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
   const rows = pricing.masterComponents as SkuPricingComponent[];
-  const exceptions   = rows.filter((r) => !r.isAlternative && r.deviationAmount !== null && Math.abs(r.deviationAmount) > 1);
-  const clean        = rows.filter((r) => !r.isAlternative && r.deviationAmount !== null && Math.abs(r.deviationAmount) <= 1);
+  // Direct user correction (2026-09-24): a component priced at ₹0 actual
+  // against a standard that assumes it was taken (accessories, extended
+  // warranty, RSA, etc.) isn't a deviation needing review -- the customer
+  // simply didn't take it, an ordinary, expected outcome. No magnitude
+  // threshold splits these into "exceptions" anymore; every reviewed
+  // component renders the same neutral way.
+  const clean        = rows.filter((r) => !r.isAlternative && r.deviationAmount !== null);
   // A tier the price list offers but the actual amount didn't match --
   // e.g. the extended-warranty tier not taken. Genuinely different from
   // "not yet extracted": there is nothing pending here, this option was
@@ -259,7 +201,7 @@ function SkuPriceCheckPanel({
   // show it, don't hide it or flag it as a deviation.
   const notSelected  = rows.filter((r) => r.isAlternative);
   const unextracted  = rows.filter((r) => !r.isAlternative && r.deviationAmount === null);
-  const allClean = rows.length > 0 && exceptions.length === 0 && unextracted.length === 0;
+  const allClean = rows.length > 0 && unextracted.length === 0;
 
   return (
     <div className="pc-grid">
@@ -298,48 +240,29 @@ function SkuPriceCheckPanel({
         />
       ) : null}
 
-      {/* Verdict banner */}
+      {/* Direct user correction (2026-09-24): a component the customer
+          simply didn't take (e.g. accessories, extended warranty, RSA --
+          genuinely optional add-ons priced at ₹0 actual against a
+          standard that assumes they were taken) isn't a deviation needing
+          review -- it's an expected, ordinary outcome. Flagging it as a
+          scary "exception" was noise, not signal, so this panel no longer
+          singles individual components out as exceptions at all; every
+          extracted value renders the same neutral way, available under
+          "Show all" below. */}
       {allClean ? (
         <div className="pc-verdict pc-verdict--clean">
           <span className="pc-verdict__icon">✓</span>
           <div>
-            <strong>All components match standard</strong>
-            <span>Every extracted value is on standard — no exceptions on this deal.</span>
+            <strong>All components reviewed</strong>
+            <span>Every price line has an extracted actual to compare against standard.</span>
           </div>
         </div>
-      ) : exceptions.length > 0 ? (
-        <div className={`pc-verdict pc-verdict--${(pricing.totalDeviationAmount ?? 0) > 0 ? 'over' : 'under'}`}>
-          <span className="pc-verdict__icon">{(pricing.totalDeviationAmount ?? 0) > 0 ? '↑' : '↓'}</span>
-          <div>
-            <strong>
-              {exceptions.length} component{exceptions.length !== 1 ? 's' : ''} deviate from standard
-              {pricing.totalDeviationAmount !== null ? ` · ${(pricing.totalDeviationAmount > 0 ? '+' : '')}${moneyInt(pricing.totalDeviationAmount, currency)} total` : ''}
-            </strong>
-            <span>Review each flagged line below before signing off this deal.</span>
-          </div>
-        </div>
-      ) : (
+      ) : clean.length > 0 ? null : (
         <div className="pc-verdict pc-verdict--pending">
           <span className="pc-verdict__icon">◌</span>
           <div>
             <strong>No values extracted yet</strong>
             <span>Complete the Booking document review to compare against master prices.</span>
-          </div>
-        </div>
-      )}
-
-      {/* Exception cards */}
-      {exceptions.length > 0 && (
-        <div className="pc-section">
-          <div className="pc-section__head">
-            <span className="pc-section__title pc-section__title--alert">{exceptions.length} exception{exceptions.length !== 1 ? 's' : ''}</span>
-          </div>
-          <div className="pc-cards">
-            {exceptions.map((row) => (
-              <PriceCard key={row.componentKey} label={componentLabel(row.componentKey)}
-                standard={row.masterAmount} actual={row.bookingAmount}
-                deviationAmount={row.deviationAmount} deviationPercent={row.deviationPercent} currency={currency} />
-            ))}
           </div>
         </div>
       )}
@@ -1183,9 +1106,17 @@ function DealPanel({
   // Invoice even when the SKU isn't available yet.
   return (
     <>
+      {/* Direct user request (2026-09-24): price and discount standards are
+          resolved against whichever master version was effective on the
+          Booking's own date (uc03_deal_reconciliation.py's _context reads
+          COALESCE(bookings.booking_date, CURRENT_DATE)) -- surfaced here so
+          it's clear which date "standard" is being priced as of, not an
+          unstated assumption. */}
       <PanelHead
         title="Deal — masters vs offered"
-        hint={pricing ? `SKU ${pricing.skuCode} · ${readable(pricing.selectionStatus)}` : undefined}
+        hint={pricing
+          ? `SKU ${pricing.skuCode} · ${readable(pricing.selectionStatus)} · Priced as of ${dateLabel(value(model.booking, 'bookingDate'))}`
+          : undefined}
       />
       {pricing ? (
         <SkuPriceCheckPanel pricing={pricing} tenantId={tenantId} journeyId={journeyId} accessToken={accessToken} />

@@ -344,6 +344,29 @@ function SkuPriceCheckPanel({
         </div>
       )}
 
+      {/* Direct user directive (2026-09-24): a component the price list
+          offers as an alternative to the one actually selected (today,
+          only the two extended-warranty tiers) must always be visible next
+          to the selected one -- never hidden behind "Show all", since
+          which one applies depends entirely on what the Invoice/Booking
+          Form actually shows, not something to discover only on request. */}
+      {notSelected.length > 0 && (
+        <div className="pc-section pc-section--clean pc-section--alternatives">
+          <div className="pc-section__head">
+            <span className="pc-section__title">Also available on this price list</span>
+          </div>
+          <div className="pc-clean-list">
+            {notSelected.map((row) => (
+              <div key={row.componentKey} className="pc-clean-row pc-clean-row--alternative">
+                <span className="pc-clean-row__name">{componentLabel(row.componentKey)}</span>
+                <span className="pc-clean-row__ok">Not selected</span>
+                <span className="pc-clean-row__amount">{moneyInt(row.masterAmount, currency)}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Show all toggle */}
       {rows.length > 0 && (
         <div className="pc-showall-row">
@@ -353,9 +376,7 @@ function SkuPriceCheckPanel({
           {!showAll && (
             <span className="pc-showall-hint">
               {clean.length > 0 && `${clean.length} on standard`}
-              {clean.length > 0 && (notSelected.length > 0 || unextracted.length > 0) && ' · '}
-              {notSelected.length > 0 && `${notSelected.length} not selected`}
-              {notSelected.length > 0 && unextracted.length > 0 && ' · '}
+              {clean.length > 0 && unextracted.length > 0 && ' · '}
               {unextracted.length > 0 && `${unextracted.length} not yet extracted`}
             </span>
           )}
@@ -363,14 +384,14 @@ function SkuPriceCheckPanel({
       )}
 
       {/* Clean rows (shown when expanded) */}
-      {showAll && (clean.length > 0 || notSelected.length > 0 || unextracted.length > 0) && (
+      {showAll && (clean.length > 0 || unextracted.length > 0) && (
         <div className="pc-section pc-section--clean">
           <div className="pc-clean-list">
-            {[...clean, ...notSelected, ...unextracted].map((row) => (
-              <div key={row.componentKey} className={`pc-clean-row${row.isAlternative ? ' pc-clean-row--alternative' : ''}`}>
+            {[...clean, ...unextracted].map((row) => (
+              <div key={row.componentKey} className="pc-clean-row">
                 <span className="pc-clean-row__name">{componentLabel(row.componentKey)}</span>
                 <span className="pc-clean-row__ok">
-                  {row.isAlternative ? 'Not selected' : row.deviationAmount !== null ? '✓' : '◌'}
+                  {row.deviationAmount !== null ? '✓' : '◌'}
                 </span>
                 <span className="pc-clean-row__amount">{moneyInt(row.masterAmount, currency)}</span>
               </div>

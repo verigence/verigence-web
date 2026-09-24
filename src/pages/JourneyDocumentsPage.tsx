@@ -36,7 +36,13 @@ import '../styles/uc03-journey-documents.css';
 
 type Stage = 'BOOKING' | 'DELIVERY';
 const REVIEW_THRESHOLD = 90;
-const POLL_MS = 3_000;
+// Matches BookingCaptureV2WorkspacePage's CAPTURE_POLL_MS -- direct user
+// correction (2026-09-24): this screen shares the exact same status card
+// and the exact same getBookingCaptureV2/getDeliveryCaptureV2 read
+// functions as Capture New Booking, so status transitions (Uploaded ->
+// Classified -> Extracted) should visibly advance at the same pace, not
+// lag three times behind it for no reason.
+const POLL_MS = 1_000;
 // Classification/extraction is a background DI step, not instant -- editing
 // a document before its own status has settled risks correcting a value
 // that's about to be overwritten by the real extraction. Blocks edits while

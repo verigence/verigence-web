@@ -1154,7 +1154,11 @@ function DealPanel({
       <DealTotalsStrip model={dealModel} />
       <CommercialLinesTable model={dealModel} />
       <div style={{ marginTop: 24 }}>
-        <DiscountsPanel model={model} skuResolved={Boolean(pricing)} />
+        <DiscountsPanel
+          model={model}
+          skuResolved={Boolean(pricing)}
+          effectiveOn={dateLabel(value(model.booking, 'bookingDate'))}
+        />
       </div>
     </>
   );
@@ -1231,7 +1235,7 @@ function evidenceBadge(status: unknown): React.ReactNode {
   return null;
 }
 
-function DiscountsPanel({ model, skuResolved }: { model: JourneyOverview; skuResolved: boolean }) {
+function DiscountsPanel({ model, skuResolved, effectiveOn }: { model: JourneyOverview; skuResolved: boolean; effectiveOn: string }) {
   const rows = model.discounts || [];
   return (
     <>
@@ -1243,9 +1247,17 @@ function DiscountsPanel({ model, skuResolved }: { model: JourneyOverview; skuRes
         // is a real, final answer ("no scheme covers this deal"), not a
         // pending state, and must read as one. Only say "not reconciled
         // yet" while the SKU itself is still unresolved, when reconciliation
-        // genuinely hasn't had a chance to run at all.
+        // genuinely hasn't had a chance to run at all. The date is spelled
+        // out explicitly (not left to the Deal panel's own separate
+        // "Priced as of" hint) since which discount scheme applies is
+        // resolved against the Booking's own date
+        // (uc03_deal_reconciliation.py's _context), and "no discounts
+        // available" reads as a permanent, universal answer unless it says
+        // for which period.
         <p className="jline__empty">
-          {skuResolved ? 'No discounts/offers available for this deal.' : 'No discount lines have been reconciled yet.'}
+          {skuResolved
+            ? `No discounts/offers available for this deal as of ${effectiveOn}.`
+            : 'No discount lines have been reconciled yet.'}
         </p>
       ) : (
         <div className="jline__tableWrap">

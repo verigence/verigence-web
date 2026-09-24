@@ -483,11 +483,13 @@ function DocumentList({
   extraDocuments,
   onOpenDocument,
   locked,
+  syncing,
 }: {
   items: ChecklistEntry[];
   extraDocuments: ExtraDocument[];
   onOpenDocument: (stage: Stage, documentId: string) => void;
   locked: boolean;
+  syncing?: boolean;
 }) {
   const applicable = items.filter((item) => item.applicabilityState !== 'NOT_APPLICABLE');
   if (!applicable.length && !extraDocuments.length) return null;
@@ -497,7 +499,12 @@ function DocumentList({
     <section className="uc03-jd-checklist">
       <header>
         <h2>Documents</h2>
-        <span>{received} of {applicable.length} received</span>
+        {/* Direct user observation (2026-09-24): right after an upload, the
+            list can briefly show stale/pre-upload data while the checklist
+            re-fetches (React Query's invalidate is async) -- a blank beat
+            with no feedback before the new documents' real status appears.
+            This keeps the header saying SOMETHING the whole time. */}
+        <span>{syncing ? 'Syncing latest uploads…' : `${received} of ${applicable.length} received`}</span>
       </header>
       {(['BOOKING', 'DELIVERY'] as const).map((stage) => (
         <ChecklistSection
@@ -1072,7 +1079,13 @@ export default function JourneyDocumentsPage() {
           />
         </ErrorBoundary>
 
-        <DocumentList items={checklist} extraDocuments={extraDocuments} onOpenDocument={openDocumentById} locked={editsBlocked} />
+        <DocumentList
+          items={checklist}
+          extraDocuments={extraDocuments}
+          onOpenDocument={openDocumentById}
+          locked={editsBlocked}
+          syncing={uploading || bookingCaptureQuery.isFetching || deliveryCaptureQuery.isFetching}
+        />
         <DuplicateDocumentsSummary counts={duplicateCounts} />
         {!checklist.length && !extraDocuments.length ? (
           <p className="uc03-jd-empty">No documents have been uploaded for this Journey yet.</p>

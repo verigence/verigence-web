@@ -1223,7 +1223,7 @@ function DealPanel({
       <DealTotalsStrip model={dealModel} />
       <CommercialLinesTable model={dealModel} />
       <div style={{ marginTop: 24 }}>
-        <DiscountsPanel model={model} />
+        <DiscountsPanel model={model} skuResolved={Boolean(pricing)} />
       </div>
     </>
   );
@@ -1300,13 +1300,22 @@ function evidenceBadge(status: unknown): React.ReactNode {
   return null;
 }
 
-function DiscountsPanel({ model }: { model: JourneyOverview }) {
+function DiscountsPanel({ model, skuResolved }: { model: JourneyOverview; skuResolved: boolean }) {
   const rows = model.discounts || [];
   return (
     <>
       <PanelHead title="Discounts — entitled vs given" hint={`${readable(value(model.customer, 'customerType'))} customer`} />
       {rows.length === 0 ? (
-        <p className="jline__empty">No discount lines have been reconciled yet.</p>
+        // Direct user correction (2026-09-24): once the SKU is resolved,
+        // reconciliation has definitely run at least once (it's triggered
+        // by SKU resolution itself) -- a still-empty result at that point
+        // is a real, final answer ("no scheme covers this deal"), not a
+        // pending state, and must read as one. Only say "not reconciled
+        // yet" while the SKU itself is still unresolved, when reconciliation
+        // genuinely hasn't had a chance to run at all.
+        <p className="jline__empty">
+          {skuResolved ? 'No discounts/offers available for this deal.' : 'No discount lines have been reconciled yet.'}
+        </p>
       ) : (
         <div className="jline__tableWrap">
           <table className="jline__table">

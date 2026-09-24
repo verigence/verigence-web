@@ -768,6 +768,22 @@ export default function JourneyDocumentsPage() {
   const [uploading, setUploading] = useState(false);
   const [uploadMessage, setUploadMessage] = useState<string>();
   const [uploadError, setUploadError] = useState<string>();
+  // Root-caused live (2026-09-24): a unified-capture upload always files
+  // with DI under phase=BOOKING first, regardless of its true destination
+  // (uc03_document_capture_v2.py's _reconcile_documents) -- a Delivery-
+  // bound document is genuinely invisible in Delivery's own .uploads list
+  // until Booking's own poll or an explicit reconcile relocates it there.
+  // deliveryCaptureV2IsProcessing has no way to know that from Delivery's
+  // own (correctly empty) snapshot alone, so it reports "not processing"
+  // and refetchInterval shuts Delivery's polling off immediately -- it
+  // never turns back on (refetchOnWindowFocus is off), so a document that
+  // relocates to Delivery a few seconds later is never noticed. Keeping
+  // BOTH queries polling for a fixed window after any upload, independent
+  // of either side's own snapshot, covers exactly this blind spot.
+  const lastUploadAtRef = useRef<number | null>(null);
+  const UPLOAD_KEEP_POLLING_MS = 120_000;
+  const recentlyUploaded = () =>
+    lastUploadAtRef.current !== null && Date.now() - lastUploadAtRef.current < UPLOAD_KEEP_POLLING_MS;
   const [modifyModelOpen, setModifyModelOpen] = useState(false);
   const [loanDisbursementOpen, setLoanDisbursementOpen] = useState(false);
 
@@ -795,7 +811,11 @@ export default function JourneyDocumentsPage() {
     // Keeps polling only while a just-uploaded document is still being
     // classified/extracted, so its status chip in the list below actually
     // advances (Uploaded → Classified → Extracted) without a manual reload.
-    refetchInterval: (query) => (captureV2HasPendingClassification(query.state.data) ? POLL_MS : false),
+    // Also stays alive for a fixed window after ANY upload regardless of
+    // this query's own snapshot -- see recentlyUploaded's comment above.
+    refetchInterval: (query) => (
+      captureV2HasPendingClassification(query.state.data) || recentlyUploaded() ? POLL_MS : false
+    ),
   });
   const deliveryCaptureQuery = useQuery({
     queryKey: ['uc03-journey-documents-delivery-checklist', project?.tenantId, journeyId],
@@ -803,7 +823,9 @@ export default function JourneyDocumentsPage() {
     enabled,
     retry: false,
     refetchOnWindowFocus: false,
-    refetchInterval: (query) => (deliveryCaptureV2IsProcessing(query.state.data) ? POLL_MS : false),
+    refetchInterval: (query) => (
+      deliveryCaptureV2IsProcessing(query.state.data) || recentlyUploaded() ? POLL_MS : false
+    ),
   });
 
   // Same "still settling" signal the polling above already uses, reused
@@ -848,6 +870,7 @@ export default function JourneyDocumentsPage() {
 
   const handleUpload = async (files: File[]) => {
     if (!project || !journeyId) return;
+    lastUploadAtRef.current = Date.now();
     setUploading(true);
     setUploadMessage(undefined);
     setUploadError(undefined);

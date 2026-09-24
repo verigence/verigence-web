@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { Fragment, useEffect, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 
@@ -383,6 +383,95 @@ interface ExtraDocument {
  * screen it's showing the same documents from. `locked` disables opening
  * a document (but not uploading more) while classification is still
  * settling -- see EDIT_BLOCK_TIMEOUT_MS above. */
+const _LEVEL_ORDER = ['REQUIRED', 'CONDITIONAL', 'OPTIONAL'] as const;
+const _LEVEL_LABEL: Record<string, string> = {
+  REQUIRED: 'Mandatory',
+  CONDITIONAL: 'Conditional',
+  OPTIONAL: 'Optional',
+};
+
+function ChecklistCard({
+  item,
+  index,
+  onOpenDocument,
+  locked,
+}: {
+  item: ChecklistEntry;
+  index: number;
+  onOpenDocument: (stage: Stage, documentId: string) => void;
+  locked: boolean;
+}) {
+  const documentId = item.document?.documentId;
+  return (
+    <div className="uc03-jd-card-slot">
+      <div className="uc03-jd-card-slot__badges">
+        <span className={`uc03-jd-checklist-stage ${item.stage.toLowerCase()}`}>{item.stage === 'BOOKING' ? 'Booking' : 'Delivery'}</span>
+        {item.requirementLevel !== 'REQUIRED' ? <span className="uc03-jd-checklist-level">{item.requirementLevel.toLowerCase()}</span> : null}
+      </div>
+      {item.document && documentId ? (
+        <button
+          type="button"
+          className="uc03-doc-card-trigger"
+          disabled={locked}
+          onClick={() => onOpenDocument(item.stage, documentId)}
+        >
+          <DocumentCard document={item.document} index={index} />
+        </button>
+      ) : (
+        <div className="uc03-doc-card is-missing">
+          <strong className="uc03-doc-card__name">{item.label}</strong>
+          <div className="uc03-doc-card__status">
+            <span className="uc03-doc-card__dot" aria-hidden="true" />
+            Missing
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** One Stage × Level bucket (e.g. "Booking — Mandatory"), rendered only
+ * when it has at least one applicable requirement. Left-accent color
+ * carries both signals at once: hue = stage (blue/orange, same as the
+ * existing badge colors), strength = level (solid for Mandatory, fading
+ * toward Optional) -- so the segregation the eye needs ("what stage,
+ * how urgent") doesn't depend on reading every badge individually. */
+function ChecklistSection({
+  stage,
+  level,
+  items,
+  onOpenDocument,
+  locked,
+}: {
+  stage: Stage;
+  level: string;
+  items: ChecklistEntry[];
+  onOpenDocument: (stage: Stage, documentId: string) => void;
+  locked: boolean;
+}) {
+  if (items.length === 0) return null;
+  const received = items.filter((item) => item.document).length;
+  return (
+    <div className={`uc03-jd-section uc03-jd-section--${stage.toLowerCase()} uc03-jd-section--${level.toLowerCase()}`}>
+      <div className="uc03-jd-section__head">
+        <h3>{stage === 'BOOKING' ? 'Booking' : 'Delivery'} · {_LEVEL_LABEL[level] || level}</h3>
+        <span>{received} of {items.length}</span>
+      </div>
+      <div className="uc03-doc-card-grid">
+        {items.map((item, index) => (
+          <ChecklistCard
+            key={`${item.stage}:${item.requirementKey}`}
+            item={item}
+            index={index}
+            onOpenDocument={onOpenDocument}
+            locked={locked}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function DocumentList({
   items,
   extraDocuments,
@@ -404,52 +493,45 @@ function DocumentList({
         <h2>Documents</h2>
         <span>{received} of {applicable.length} received</span>
       </header>
-      <div className="uc03-doc-card-grid">
-        {applicable.map((item, index) => {
-          const documentId = item.document?.documentId;
-          return (
-            <div key={`${item.stage}:${item.requirementKey}`} className="uc03-jd-card-slot">
-              <div className="uc03-jd-card-slot__badges">
-                <span className={`uc03-jd-checklist-stage ${item.stage.toLowerCase()}`}>{item.stage === 'BOOKING' ? 'Booking' : 'Delivery'}</span>
-                {item.requirementLevel !== 'REQUIRED' ? <span className="uc03-jd-checklist-level">{item.requirementLevel.toLowerCase()}</span> : null}
-              </div>
-              {item.document && documentId ? (
+      {(['BOOKING', 'DELIVERY'] as const).map((stage) => (
+        <Fragment key={stage}>
+          {_LEVEL_ORDER.map((level) => (
+            <ChecklistSection
+              key={`${stage}:${level}`}
+              stage={stage}
+              level={level}
+              items={applicable.filter((item) => item.stage === stage && item.requirementLevel === level)}
+              onOpenDocument={onOpenDocument}
+              locked={locked}
+            />
+          ))}
+        </Fragment>
+      ))}
+      {extraDocuments.length > 0 ? (
+        <div className="uc03-jd-section uc03-jd-section--extra">
+          <div className="uc03-jd-section__head">
+            <h3>Duplicates &amp; Unclassified</h3>
+            <span>not tied to a checklist requirement</span>
+          </div>
+          <div className="uc03-doc-card-grid">
+            {extraDocuments.map(({ stage, document }) => (
+              <div key={`extra:${document.documentId}`} className="uc03-jd-card-slot">
+                <div className="uc03-jd-card-slot__badges">
+                  <span className={`uc03-jd-checklist-stage ${stage.toLowerCase()}`}>{stage === 'BOOKING' ? 'Booking' : 'Delivery'}</span>
+                </div>
                 <button
                   type="button"
                   className="uc03-doc-card-trigger"
                   disabled={locked}
-                  onClick={() => onOpenDocument(item.stage, documentId)}
+                  onClick={() => onOpenDocument(stage, document.documentId)}
                 >
-                  <DocumentCard document={item.document} index={index} />
+                  <ReviewDocumentStatusCard document={document} />
                 </button>
-              ) : (
-                <div className="uc03-doc-card is-missing">
-                  <strong className="uc03-doc-card__name">{item.label}</strong>
-                  <div className="uc03-doc-card__status">
-                    <span className="uc03-doc-card__dot" aria-hidden="true" />
-                    Missing
-                  </div>
-                </div>
-              )}
-            </div>
-          );
-        })}
-        {extraDocuments.map(({ stage, document }) => (
-          <div key={`extra:${document.documentId}`} className="uc03-jd-card-slot">
-            <div className="uc03-jd-card-slot__badges">
-              <span className={`uc03-jd-checklist-stage ${stage.toLowerCase()}`}>{stage === 'BOOKING' ? 'Booking' : 'Delivery'}</span>
-            </div>
-            <button
-              type="button"
-              className="uc03-doc-card-trigger"
-              disabled={locked}
-              onClick={() => onOpenDocument(stage, document.documentId)}
-            >
-              <ReviewDocumentStatusCard document={document} />
-            </button>
+              </div>
+            ))}
           </div>
-        ))}
-      </div>
+        </div>
+      ) : null}
     </section>
   );
 }

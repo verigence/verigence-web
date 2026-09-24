@@ -346,6 +346,13 @@
   font-size: 13px;
 }
 
+/* ── Checklist load-error banner (Booking or Delivery half failed) ───── */
+.uc03-jd-block-banner--error {
+  border-color: #f2b3a8;
+  background: #fdecea;
+  color: #8a2c1e;
+}
+
 /* ── Extra/duplicate copies summary ──────────────────────────────────── */
 .uc03-jd-duplicates {
   margin-top: 14px;

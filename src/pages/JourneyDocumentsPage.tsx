@@ -919,6 +919,32 @@ export default function JourneyDocumentsPage() {
         </div>
       ) : null}
 
+      {/* Direct user correction (2026-09-24): each half of the checklist
+          used to fail silently (retry: false, no banner) -- a real backend
+          error on just the Delivery side left every card looking like a
+          normal, fully-BOOKING journey with no sign anything was wrong.
+          Surface it instead of hiding it. */}
+      {bookingCaptureQuery.isError || deliveryCaptureQuery.isError ? (
+        <div className="uc03-jd-block-banner uc03-jd-block-banner--error" role="alert">
+          {bookingCaptureQuery.isError && deliveryCaptureQuery.isError
+            ? 'Could not load the Booking or Delivery document checklist.'
+            : bookingCaptureQuery.isError
+              ? 'Could not load the Booking document checklist.'
+              : 'Could not load the Delivery document checklist.'}
+          {' '}Documents may be missing below until this is fixed.{' '}
+          <button
+            type="button"
+            className="uc03-jd-modify-model"
+            onClick={() => {
+              void bookingCaptureQuery.refetch();
+              void deliveryCaptureQuery.refetch();
+            }}
+          >
+            Retry
+          </button>
+        </div>
+      ) : null}
+
       {modifyModelOpen && journeyId ? (
         <ModifyModelModal
           tenantId={project.tenantId}

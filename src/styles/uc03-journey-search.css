@@ -1043,6 +1043,11 @@
 .pc-showall-btn:hover { text-decoration: underline; }
 .pc-showall-hint { font-size: 0.70rem; color: #64748b; }
 
+.pc-price-point-picker { display: flex; align-items: center; gap: 10px; padding: 10px 20px; flex-wrap: wrap; }
+.pc-price-point-picker label { font-size: 0.72rem; font-weight: 700; color: #475569; text-transform: uppercase; letter-spacing: 0.02em; }
+.pc-price-point-picker select { font: inherit; font-size: 0.8rem; padding: 4px 8px; border: 1px solid rgba(148,163,184,0.4); border-radius: 6px; background: #fff; color: #1e293b; }
+.pc-price-point-picker__note { font-size: 0.7rem; color: #b45309; }
+
 .pc-net-bar { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); border-top: 2px solid rgba(148,163,184,0.18); background: #f8fafc; }
 .pc-net-bar__cell { display: flex; flex-direction: column; gap: 3px; padding: 14px 20px; border-right: 1px solid rgba(148,163,184,0.18); }
 .pc-net-bar__cell:last-child { border-right: 0; }

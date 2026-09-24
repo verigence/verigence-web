@@ -23,6 +23,7 @@ import { getReviewDocumentContentV2 } from '../services/audit-core/uc03DocumentR
 import { runAllApplicableRules, type Uc03RunAllRulesRuleResult } from '../services/audit-core/uc03Audit';
 import {
   getUc03JourneyOverview,
+  type DealPricePointOptions,
   type DealSourceValue,
   type JourneyOverview,
   type JourneyReviewedField,
@@ -1056,6 +1057,42 @@ function DiscountSourceRows({ sources }: { sources: DealSourceValue[] }) {
   );
 }
 
+/** Direct user request (2026-09-24): Booking date is always the default,
+ * currently-applied price point -- this only ever renders when the
+ * primary vehicle-sale invoice's own date resolves to a genuinely
+ * different price-list or discount-scheme version (uc03_journey_overview_
+ * projection.py's _deal_price_point_options, itself a pure read against
+ * the same wef-date lookups Booking-date resolution already uses -- no
+ * new master-data logic). Deliberately not wired to actually recompute or
+ * persist anything yet -- surfaces the choice first; selecting it says so
+ * plainly rather than silently doing nothing. */
+function DealPricePointPicker({ options }: { options?: DealPricePointOptions | null }) {
+  const [selected, setSelected] = useState<'BOOKING' | 'INVOICE'>('BOOKING');
+  if (!options) return null;
+  const differs = [
+    options.priceListDiffers ? 'price list' : null,
+    options.discountsDiffer ? 'discounts' : null,
+  ].filter((v): v is string => Boolean(v)).join(' & ');
+  return (
+    <div className="pc-price-point-picker">
+      <label htmlFor="deal-price-point-select">Price point date</label>
+      <select
+        id="deal-price-point-select"
+        value={selected}
+        onChange={(event) => setSelected(event.target.value as 'BOOKING' | 'INVOICE')}
+      >
+        <option value="BOOKING">Booking date ({dateLabel(options.bookingDate)}) — applied</option>
+        <option value="INVOICE">Invoice date ({dateLabel(options.invoiceDate)}) — different {differs} available</option>
+      </select>
+      {selected === 'INVOICE' && (
+        <span className="pc-price-point-picker__note">
+          Not yet applied — switching the price point is not wired up yet.
+        </span>
+      )}
+    </div>
+  );
+}
+
 function DealPanel({
   model,
   reviewedBooking,
@@ -1118,6 +1155,7 @@ function DealPanel({
           ? `SKU ${pricing.skuCode} · ${readable(pricing.selectionStatus)} · Priced as of ${dateLabel(value(model.booking, 'bookingDate'))}`
           : undefined}
       />
+      <DealPricePointPicker options={model.dealPricePointOptions} />
       {pricing ? (
         <SkuPriceCheckPanel pricing={pricing} tenantId={tenantId} journeyId={journeyId} accessToken={accessToken} />
       ) : modelNotIdentified ? (

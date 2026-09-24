@@ -2405,7 +2405,21 @@ export default function Journey360Page() {
         eyebrow={`${textValue(model.journey, 'dealerName')} · ${textValue(model.journey, 'outletName')}`}
         title={customerName}
         description={`Dealer Booking ${bookingReference} · ${productLabel}`}
-        actions={<div className="header-statuses"><StatusPill value={String(bookingStatus) === 'CLOSED' ? 'BOOKING_COMPLETE' : String(bookingStatus || 'NOT_STARTED')} /><StatusPill value={String(deliveryStatus || 'NOT_STARTED')} /></div>}
+        actions={<div className="header-statuses">
+          {/* Direct user correction (2026-09-24): the real
+              journey_stage_states.business_status values are
+              BOOKING_IN_PROGRESS/BOOKING_CLOSED and DELIVERY_STARTED (the
+              only three that exist anywhere in the system) -- this used to
+              check bookingStatus === 'CLOSED', which never matches the
+              real 'BOOKING_CLOSED' value, so it always fell through to the
+              raw value ("Booking Closed") instead of the intended
+              "Booking Complete". Delivery had no equivalent mapping at
+              all, showing the literal "Delivery Started" instead of
+              "Delivery In Progress" -- there is no "not started" concept
+              to distinguish it from once Delivery exists at all. */}
+          <StatusPill value={String(bookingStatus) === 'BOOKING_CLOSED' ? 'BOOKING_COMPLETE' : String(bookingStatus || 'NOT_STARTED')} />
+          <StatusPill value={String(deliveryStatus) === 'DELIVERY_STARTED' ? 'DELIVERY_IN_PROGRESS' : String(deliveryStatus || 'NOT_STARTED')} />
+        </div>}
       />
 
       <div className="jline">

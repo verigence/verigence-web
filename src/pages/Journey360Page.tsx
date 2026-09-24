@@ -324,11 +324,20 @@ function SkuPriceCheckPanel({
         </div>
       )}
 
-      {/* Net summary footer */}
+      {/* Net summary footer.
+          Direct user correction (2026-09-24): "On-Road Standard" used to
+          be the master's own unconditional total (every component the
+          price list offers, taken or not) compared against the Booking
+          Form's reported total -- not apples to apples, since an item
+          nobody took (accessories, extended warranty, RSA...) still
+          counted toward "Standard" while contributing nothing to what was
+          actually charged. Now sums only the ticked (taken) components --
+          the exact same set already shown with a checkmark above -- so
+          both sides of this comparison cover the same items. */}
       <div className="pc-net-bar">
         <div className="pc-net-bar__cell pc-net-bar__cell--std">
-          <span>On-Road Standard</span>
-          <strong>{moneyInt(pricing.masterTotalAmount, currency)}</strong>
+          <span>Standard (taken items)</span>
+          <strong>{moneyInt(clean.reduce((sum, r) => sum + r.masterAmount, 0), currency)}</strong>
         </div>
         {pricing.bookingTotalPrice !== null && (
           <div className="pc-net-bar__cell">
@@ -1181,16 +1190,22 @@ function DealPanel({
       ) : (
         <p className="jline__empty">The price masters have not been resolved for this booking yet. Complete Booking document review.</p>
       )}
+      {/* Direct user correction (2026-09-24): DealTotalsStrip and
+          CommercialLinesTable duplicated exactly what SkuPriceCheckPanel
+          already shows -- the same components listed twice, once with a
+          tick mark and once as a plain Standard/Actual row, with two
+          different (and disagreeing) totals. Only needed as a fallback
+          for a journey with no resolved SKU yet, when SkuPriceCheckPanel
+          has nothing to show at all. */}
       {!pricing && (
-        <div style={{ marginTop: 16 }}>
-          <BookingCommercialFacts reviewedBooking={reviewedBooking} />
-        </div>
+        <>
+          <div style={{ marginTop: 16 }}>
+            <BookingCommercialFacts reviewedBooking={reviewedBooking} />
+          </div>
+          <DealTotalsStrip model={dealModel} />
+          <CommercialLinesTable model={dealModel} />
+        </>
       )}
-      {/* booking_amount_paid is a payment, not a priced deal component --
-          it belongs on the Payments panel (already shown there), not
-          compared against a "standard" price it never had. */}
-      <DealTotalsStrip model={dealModel} />
-      <CommercialLinesTable model={dealModel} />
       <div style={{ marginTop: 24 }}>
         <DiscountsPanel
           model={model}

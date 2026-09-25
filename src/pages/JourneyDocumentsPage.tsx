@@ -1658,6 +1658,8 @@ export default function JourneyDocumentsPage() {
     ...(bookingQuery.data?.documents ?? []).map((document) => document.documentId),
     ...(deliveryQuery.data?.documents ?? []).map((document) => document.documentId),
   ]);
+  // Only count as duplicates if literally the same document ID appears multiple times
+  const uploadIdCounts = new Map<string, number>();
   const duplicateCounts = new Map<string, number>();
   for (const upload of [
     ...(bookingCaptureQuery.data?.uploads ?? []),
@@ -1665,8 +1667,13 @@ export default function JourneyDocumentsPage() {
   ]) {
     if (!upload.classifiedDocumentTypeKey) continue;
     if (coveredDocumentIds.has(upload.documentId) || reviewedDocumentIds.has(upload.documentId)) continue;
-    const key = upload.classifiedDocumentTypeKey;
-    duplicateCounts.set(key, (duplicateCounts.get(key) ?? 0) + 1);
+    const uploadCount = (uploadIdCounts.get(upload.documentId) ?? 0) + 1;
+    uploadIdCounts.set(upload.documentId, uploadCount);
+    // Only count as duplicate if this same documentId appears more than once
+    if (uploadCount > 1) {
+      const key = upload.classifiedDocumentTypeKey;
+      duplicateCounts.set(key, (duplicateCounts.get(key) ?? 0) + 1);
+    }
   }
   const extraDocuments: ExtraDocument[] = [
     ...(bookingQuery.data?.documents ?? [])

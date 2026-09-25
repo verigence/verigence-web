@@ -1802,13 +1802,13 @@ export default function JourneyDocumentsPage() {
           <div className="uc03-jd-stat">
             <div className="uc03-jd-stat-label">Classified</div>
             <div className={`uc03-jd-stat-value ${pendingClassification ? 'busy' : 'done'}`}>
-              {(bookingCaptureQuery.data?.uploads.filter((u) => u.classifiedDocumentTypeKey).length ?? 0)}/{(bookingCaptureQuery.data?.uploads.length ?? 0) + (deliveryCaptureQuery.data?.uploads.length ?? 0)}
+              {((bookingCaptureQuery.data?.uploads.filter((u) => u.classifiedDocumentTypeKey).length ?? 0) + (deliveryCaptureQuery.data?.uploads.filter((u) => u.classifiedDocumentTypeKey).length ?? 0))}/{(bookingCaptureQuery.data?.uploads.length ?? 0) + (deliveryCaptureQuery.data?.uploads.length ?? 0)}
             </div>
           </div>
           <div className="uc03-jd-stat">
             <div className="uc03-jd-stat-label">Extracted</div>
             <div className="uc03-jd-stat-value done">
-              {(bookingCaptureQuery.data?.uploads.filter((u) => u.classifiedDocumentTypeKey).length ?? 0)}
+              {((bookingQuery.data?.documents.filter((d) => d.extractionState === 'READY').length ?? 0) + (deliveryQuery.data?.documents.filter((d) => d.extractionState === 'READY').length ?? 0))}
             </div>
           </div>
         </div>

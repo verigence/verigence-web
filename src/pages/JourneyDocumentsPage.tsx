@@ -1705,26 +1705,6 @@ export default function JourneyDocumentsPage() {
       <div className="uc03-jd-submit-bar">
         <span className="uc03-jd-submit-bar-label">Ready to submit?</span>
         <div className="uc03-jd-submit-bar-actions">
-          {bookingCaptureAvailable ? (
-            <>
-              <button
-                type="button"
-                className="uc03-jd-action-btn"
-                disabled={editsBlocked}
-                onClick={() => setModifyModelOpen(true)}
-              >
-                Resolve SKU
-              </button>
-              <button
-                type="button"
-                className="uc03-jd-action-btn"
-                disabled={editsBlocked}
-                onClick={() => setLoanDisbursementOpen(true)}
-              >
-                Loan Amount
-              </button>
-            </>
-          ) : null}
           <button
             type="button"
             className="uc03-jd-submit-button-primary"

@@ -335,11 +335,9 @@ forbid(
 requireText('src/pages/BookingDetailsV2Page.tsx', 'Audit exceptions do not stop the business process.', 'Booking V2 must state the non-blocking audit rule.');
 
 /* Extracted-field review must only open source evidence when a reliable box exists. */
-// BookingReviewV2Page/DeliveryReviewV2Page retired -- their Accept/Reject/
-// Confirm-reviewed-values flow (including this exact hasBoxedEvidence gate)
-// was folded into JourneyDocumentsPage's own BookingReviewSection.
 for (const relativePath of [
-  'src/pages/JourneyDocumentsPage.tsx',
+  'src/pages/BookingReviewV2Page.tsx',
+  'src/pages/DeliveryReviewV2Page.tsx',
   'src/pages/TeamLeadReviewPage.tsx',
   'src/pages/AuditReviewPage.tsx',
 ]) {

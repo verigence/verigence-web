@@ -9,38 +9,21 @@ import { DocumentCard, ReviewDocumentStatusCard } from '../features/uc03/Capture
 import ModifyModelModal from '../features/uc03/ModifyModelModal';
 import { LoanDisbursementModal } from '../features/uc03/LoanDisbursementPicker';
 import { categoryFor, categoryTitle, FIELD_CATEGORY_ORDER, type FieldCategory } from '../features/uc03/fieldCategoryGroups';
-import { buildRawReviewGroups } from '../features/uc03/reviewFieldGroups';
-import ReviewEffectiveValueEditor, { reviewSourceKey } from '../features/uc03/ReviewEffectiveValueEditor';
 import { displayName } from '../utils/displayNames';
 import { AuditCoreHttpError } from '../services/audit-core/client';
-import { getBookingWorkspace, startBooking } from '../services/audit-core/uc03Booking';
-import { submitSimplifiedBookingV2 } from '../services/audit-core/uc03BookingV2';
 import {
   captureV2HasPendingClassification,
-  deleteBookingCaptureV2Document,
   getBookingCaptureV2,
-  resyncBookingCaptureV2,
   type CaptureV2Requirement,
 } from '../services/audit-core/uc03DocumentCaptureV2';
+import { deliveryCaptureV2IsProcessing, getDeliveryCaptureV2 } from '../services/audit-core/uc03DeliveryCaptureV2';
 import {
-  deleteDeliveryCaptureV2Document,
-  deliveryCaptureV2IsProcessing,
-  getDeliveryCaptureV2,
-} from '../services/audit-core/uc03DeliveryCaptureV2';
-import {
-  confirmBookingReviewV2,
-  getBookingReviewDecisionsV2,
   getBookingReviewV2,
   getDeliveryReviewV2,
-  setBookingReviewDecisionV2,
   submitFieldCorrection,
-  type ReviewDecisionValue,
-  type ReviewFieldCorrection,
-  type ReviewV2Attribute,
   type ReviewV2Document,
   type ReviewV2Field,
   type ReviewV2SourceValue,
-  type ReviewV2UnmappedField,
 } from '../services/audit-core/uc03DocumentReviewV2';
 import {
   confirmModelResolutionSku,
@@ -50,7 +33,6 @@ import { reconcileUnifiedDocuments, uploadUnifiedCaptureFiles } from '../service
 import { useProjectContextStore } from '../store/projectContextStore';
 import { useSessionStore } from '../store/sessionStore';
 import '../styles/uc03-journey-documents.css';
-import '../styles/uc03-attribute-audit-review.css';
 
 type Stage = 'BOOKING' | 'DELIVERY';
 const REVIEW_THRESHOLD = 90;
@@ -84,59 +66,6 @@ function displayValue(value: unknown): string {
 
 function isHighConfidence(confidenceScore: number | null): boolean {
   return confidenceScore !== null && confidenceScore !== undefined && confidenceScore >= REVIEW_THRESHOLD;
-}
-
-// Ported from the retired BookingReviewV2Page (the Accept/Reject +
-// Confirm-reviewed-values flow, still live via the Dashboard's "Review
-// Booking" work-queue card, the global review-ready notification, and the
-// legacy Booking workspace page) -- same logic, now a section of this page
-// instead of a separate destination.
-const RECEIPT_DOCUMENT_TYPE = 'dealer_receipt';
-
-function hasExtractedValue(attribute: ReviewV2Attribute): boolean {
-  return attribute.resolvedValue !== null && attribute.resolvedValue !== undefined && attribute.resolvedValue !== '';
-}
-
-function needsAttributeDecision(attribute: ReviewV2Attribute): boolean {
-  return hasExtractedValue(attribute) && attribute.reviewState === 'NEEDS_REVIEW';
-}
-
-function rawSource(field: ReviewV2UnmappedField): ReviewV2SourceValue {
-  return {
-    canonicalFieldId: field.canonicalFieldId,
-    fieldKey: field.fieldKey,
-    value: field.value,
-    confidenceScore: field.confidenceScore,
-    sourceFactVersion: field.sourceFactVersion,
-    reviewState: field.confidenceScore !== null && field.confidenceScore >= REVIEW_THRESHOLD ? 'READY' : 'NEEDS_REVIEW',
-    documentId: field.documentId,
-    evidenceId: null,
-    documentTypeKey: field.documentTypeKey,
-    documentLabel: field.documentLabel,
-    originalFilename: field.originalFilename,
-    contentUrl: null,
-    pageNo: field.pageNo,
-    evidenceRegion: field.evidenceRegion,
-  };
-}
-
-function DecisionButtons({
-  reviewKey,
-  decision,
-  busy,
-  onDecision,
-}: {
-  reviewKey: string;
-  decision?: ReviewDecisionValue;
-  busy: boolean;
-  onDecision: (reviewKey: string, decision: ReviewDecisionValue) => void;
-}) {
-  return (
-    <div className="uc03-review-decision-buttons" aria-label="Review decision">
-      <button type="button" className={decision === 'ACCEPTED' ? 'is-selected accept' : 'accept'} disabled={busy} onClick={() => onDecision(reviewKey, 'ACCEPTED')}>✓ Accept</button>
-      <button type="button" className={decision === 'REJECTED' ? 'is-selected reject' : 'reject'} disabled={busy} onClick={() => onDecision(reviewKey, 'REJECTED')}>✕ Reject</button>
-    </div>
-  );
 }
 
 function fieldSource(document: ReviewV2Document, field: ReviewV2Field): ReviewV2SourceValue {
@@ -466,15 +395,11 @@ function ChecklistCard({
   item,
   index,
   onOpenDocument,
-  onDelete,
-  deleteBusyId,
   locked,
 }: {
   item: ChecklistEntry;
   index: number;
   onOpenDocument: (stage: Stage, documentId: string) => void;
-  onDelete: (stage: Stage, documentId: string) => void;
-  deleteBusyId?: string;
   locked: boolean;
 }) {
   const documentId = item.document?.documentId;
@@ -492,29 +417,14 @@ function ChecklistCard({
         </div>
       ) : null}
       {item.document && documentId ? (
-        <div className="uc03-jd-card-with-delete">
-          <button
-            type="button"
-            className="uc03-doc-card-trigger"
-            disabled={locked}
-            onClick={() => onOpenDocument(item.stage, documentId)}
-          >
-            <DocumentCard document={item.document} index={index} />
-          </button>
-          {/* A document occupying a REQUIRED/CONDITIONAL slot may still be
-              deleted -- per the approved unification plan, delete is valid
-              until the stage itself is marked complete (server-enforced),
-              not gated by which requirement it fills. */}
-          <button
-            type="button"
-            className="uc03-jd-card-delete"
-            disabled={deleteBusyId === documentId}
-            aria-label={`Remove ${item.label}`}
-            onClick={() => onDelete(item.stage, documentId)}
-          >
-            {deleteBusyId === documentId ? '…' : '×'}
-          </button>
-        </div>
+        <button
+          type="button"
+          className="uc03-doc-card-trigger"
+          disabled={locked}
+          onClick={() => onOpenDocument(item.stage, documentId)}
+        >
+          <DocumentCard document={item.document} index={index} />
+        </button>
       ) : (
         <div className="uc03-doc-card is-missing">
           <strong className="uc03-doc-card__name">{item.label}</strong>
@@ -540,15 +450,11 @@ function ChecklistSection({
   stage,
   items,
   onOpenDocument,
-  onDelete,
-  deleteBusyId,
   locked,
 }: {
   stage: Stage;
   items: ChecklistEntry[];
   onOpenDocument: (stage: Stage, documentId: string) => void;
-  onDelete: (stage: Stage, documentId: string) => void;
-  deleteBusyId?: string;
   locked: boolean;
 }) {
   if (items.length === 0) return null;
@@ -570,8 +476,6 @@ function ChecklistSection({
             item={item}
             index={index}
             onOpenDocument={onOpenDocument}
-            onDelete={onDelete}
-            deleteBusyId={deleteBusyId}
             locked={locked}
           />
         ))}
@@ -584,16 +488,12 @@ function DocumentList({
   items,
   extraDocuments,
   onOpenDocument,
-  onDelete,
-  deleteBusyId,
   locked,
   syncing,
 }: {
   items: ChecklistEntry[];
   extraDocuments: ExtraDocument[];
   onOpenDocument: (stage: Stage, documentId: string) => void;
-  onDelete: (stage: Stage, documentId: string) => void;
-  deleteBusyId?: string;
   locked: boolean;
   syncing?: boolean;
 }) {
@@ -618,8 +518,6 @@ function DocumentList({
           stage={stage}
           items={applicable.filter((item) => item.stage === stage)}
           onOpenDocument={onOpenDocument}
-          onDelete={onDelete}
-          deleteBusyId={deleteBusyId}
           locked={locked}
         />
       ))}
@@ -627,13 +525,7 @@ function DocumentList({
         <div className="uc03-jd-section uc03-jd-section--extra">
           <div className="uc03-jd-section__head">
             <h3>Duplicates &amp; Unclassified</h3>
-            {/* Direct business rule: when a duplicate copy of a non-repeatable
-                document type is uploaded, the FIRST one wins the checklist
-                slot above -- this bucket holds the extra copy(ies). Deleting
-                whichever one the PC doesn't want (first or the later one)
-                promotes the remaining copy to the checklist slot automatically
-                on the very next read; the server dispatches its sync too. */}
-            <span>not tied to a checklist requirement — delete to promote a different copy</span>
+            <span>not tied to a checklist requirement</span>
           </div>
           <div className="uc03-doc-card-grid">
             {extraDocuments.map(({ stage, document }) => (
@@ -641,25 +533,14 @@ function DocumentList({
                 <div className="uc03-jd-card-slot__badges">
                   <span className={`uc03-jd-checklist-stage ${stage.toLowerCase()}`}>{stage === 'BOOKING' ? 'Booking' : 'Delivery'}</span>
                 </div>
-                <div className="uc03-jd-card-with-delete">
-                  <button
-                    type="button"
-                    className="uc03-doc-card-trigger"
-                    disabled={locked}
-                    onClick={() => onOpenDocument(stage, document.documentId)}
-                  >
-                    <ReviewDocumentStatusCard document={document} />
-                  </button>
-                  <button
-                    type="button"
-                    className="uc03-jd-card-delete"
-                    disabled={deleteBusyId === document.documentId}
-                    aria-label={`Remove ${document.originalFilename}`}
-                    onClick={() => onDelete(stage, document.documentId)}
-                  >
-                    {deleteBusyId === document.documentId ? '…' : '×'}
-                  </button>
-                </div>
+                <button
+                  type="button"
+                  className="uc03-doc-card-trigger"
+                  disabled={locked}
+                  onClick={() => onOpenDocument(stage, document.documentId)}
+                >
+                  <ReviewDocumentStatusCard document={document} />
+                </button>
               </div>
             ))}
           </div>
@@ -875,311 +756,6 @@ function ModelResolutionSkuPicker({
   );
 }
 
-/**
- * Accept/Reject each low-confidence extracted value, then Submit (first
- * time) or Confirm reviewed values (once already submitted but not yet
- * PC-verified) -- ported verbatim from the retired BookingReviewV2Page, now
- * a section of the one Documents page instead of a separate destination.
- * Reuses the already-fetched booking review query rather than a second
- * network round trip for the same data.
- */
-function BookingReviewSection({
-  review,
-  tenantId,
-  journeyId,
-  accessToken,
-  onEvidence,
-  onChanged,
-}: {
-  review: import('../services/audit-core/uc03DocumentReviewV2').BookingReviewV2;
-  tenantId: string;
-  journeyId: string;
-  accessToken?: string;
-  onEvidence: (source: ReviewV2SourceValue) => void;
-  onChanged: () => void;
-}) {
-  const decisionsQuery = useQuery({
-    queryKey: ['uc03-journey-documents-booking-decisions', tenantId, journeyId],
-    queryFn: () => getBookingReviewDecisionsV2(tenantId, journeyId, accessToken),
-    refetchOnWindowFocus: false,
-  });
-  const [decisionBusyKey, setDecisionBusyKey] = useState<string>();
-  const [decisionError, setDecisionError] = useState<string>();
-  const [corrections, setCorrections] = useState<Map<string, ReviewFieldCorrection>>(new Map());
-  const [confirming, setConfirming] = useState(false);
-  const [confirmationError, setConfirmationError] = useState<string>();
-
-  const decisionByKey = new Map(
-    (decisionsQuery.data?.decisions ?? []).map((item) => [item.reviewKey, item.decision] as const),
-  );
-  const rawGroups = buildRawReviewGroups(review.unmappedFields, REVIEW_THRESHOLD);
-  const receiptGroups = rawGroups.filter((group) => group.selected.documentTypeKey?.trim().toLowerCase() === RECEIPT_DOCUMENT_TYPE);
-  const additionalRawGroups = rawGroups.filter((group) => group.selected.documentTypeKey?.trim().toLowerCase() !== RECEIPT_DOCUMENT_TYPE);
-  const populatedAttributes = review.attributes.filter(hasExtractedValue);
-  const requiredMappedKeys = populatedAttributes.filter(needsAttributeDecision).map((attribute) => `attribute:${attribute.attributeKey}`);
-  const requiredRawKeys = rawGroups.filter((group) => group.needsDecision).map((group) => group.reviewKey);
-  const requiredDecisionKeys = [...requiredMappedKeys, ...requiredRawKeys];
-  const unresolvedDecisionKeys = requiredDecisionKeys.filter((key) => !decisionByKey.has(key));
-  const failedDocuments = review.documents.filter((document) => document.extractionState === 'FAILED');
-  // Document completeness is the sole criterion for Submit -- confidence
-  // review is a separate, always-available concern, not a precondition.
-  const canAct = !decisionsQuery.isPending && !decisionsQuery.isError;
-  const isReadOnly = review.captureSubmitted && review.pcVerificationStatus === 'VERIFIED';
-
-  const setCorrection = (source: ReviewV2SourceValue | ReviewV2UnmappedField, correction: ReviewFieldCorrection | undefined) => {
-    const key = reviewSourceKey(source);
-    setCorrections((current) => {
-      const next = new Map(current);
-      if (correction) next.set(key, correction);
-      else next.delete(key);
-      return next;
-    });
-  };
-
-  const setDecision = async (reviewKey: string, decision: ReviewDecisionValue) => {
-    setDecisionBusyKey(reviewKey);
-    setDecisionError(undefined);
-    setConfirmationError(undefined);
-    try {
-      await setBookingReviewDecisionV2(tenantId, journeyId, reviewKey, decision, accessToken);
-      await decisionsQuery.refetch();
-    } catch (error) {
-      setDecisionError(error instanceof Error ? error.message : 'The review decision could not be saved.');
-      await decisionsQuery.refetch();
-    } finally {
-      setDecisionBusyKey(undefined);
-    }
-  };
-
-  const finishReviewOrSubmit = async () => {
-    setConfirming(true);
-    setConfirmationError(undefined);
-    try {
-      let aggregateVersion = review.aggregateVersion;
-      if (!review.captureSubmitted) {
-        const confirmed = await confirmBookingReviewV2(tenantId, journeyId, aggregateVersion, [...corrections.values()], accessToken);
-        aggregateVersion = confirmed.aggregateVersion;
-        setCorrections(new Map());
-        await submitSimplifiedBookingV2(tenantId, journeyId, aggregateVersion, accessToken);
-      } else if (review.pcVerificationStatus !== 'VERIFIED') {
-        await confirmBookingReviewV2(tenantId, journeyId, aggregateVersion, [...corrections.values()], accessToken);
-        setCorrections(new Map());
-      }
-      onChanged();
-    } catch (error) {
-      setConfirmationError(error instanceof Error ? error.message : 'Booking could not be submitted. Refresh and try again.');
-    } finally {
-      setConfirming(false);
-    }
-  };
-
-  const renderRawGroups = (groups: typeof rawGroups) => (
-    <div className="uc03-raw-review-grid">
-      {groups.map((group) => {
-        const decision = decisionByKey.get(group.reviewKey);
-        const source = group.selected;
-        const evidenceSource = rawSource(source);
-        const selectedHasBox = hasBoxedEvidence(evidenceSource);
-        const highConf = source.confidenceScore !== null && source.confidenceScore !== undefined && source.confidenceScore >= REVIEW_THRESHOLD;
-        return (
-          <article key={group.groupKey} className={`uc03-raw-review-card ${group.needsDecision && !decision ? 'needs-review' : ''}`}>
-            <header>
-              <div>
-                <span className="uc03-attribute-evidence-kicker">DI extracted field</span>
-                <h3>{displayFieldKey(group.fieldKey)}</h3>
-                <small>{source.documentLabel}</small>
-              </div>
-              <span className={`uc03-attribute-status ${decision === 'REJECTED' ? 'rejected' : group.needsDecision && !decision ? 'needs-review' : 'ready'}`}>
-                {decision === 'ACCEPTED' ? 'Accepted' : decision === 'REJECTED' ? 'Rejected' : group.mismatch ? 'Source Mismatch' : group.needsDecision ? 'Needs Review' : 'Ready'}
-              </span>
-            </header>
-            {!highConf && !isReadOnly && decision !== 'REJECTED' ? (
-              <ReviewEffectiveValueEditor
-                source={source}
-                correction={corrections.get(reviewSourceKey(source))}
-                onChange={(correction) => setCorrection(source, correction)}
-                disabled={false}
-              />
-            ) : (
-              <div className="uc03-raw-review-selected">
-                <span>Extracted value</span>
-                <strong>{displayValue(source.value)}</strong>
-              </div>
-            )}
-            <div className="uc03-raw-review-selected">
-              <span>DI source</span>
-              <strong>{source.documentLabel}</strong>
-            </div>
-            {group.sources.length > 1 ? (
-              <div className="uc03-raw-review-sources">
-                <span>Available source values</span>
-                {group.sources.map((item) => {
-                  const itemSource = rawSource(item);
-                  const boxed = hasBoxedEvidence(itemSource);
-                  return (
-                    <button
-                      type="button"
-                      key={`${item.documentId}:${item.canonicalFieldId}:${item.sourceFactVersion}`}
-                      disabled={!boxed}
-                      onClick={() => boxed && onEvidence(itemSource)}
-                    >
-                      <strong>{displayValue(item.value)}</strong>
-                      <small>{item.documentLabel}</small>
-                    </button>
-                  );
-                })}
-              </div>
-            ) : null}
-            <div className="uc03-raw-review-actions">
-              {selectedHasBox ? <button type="button" className="uc03-attribute-evidence-link" onClick={() => onEvidence(evidenceSource)}>View boxed evidence</button> : <span>Source location unavailable</span>}
-              {group.needsDecision ? <DecisionButtons reviewKey={group.reviewKey} decision={decision} busy={decisionBusyKey === group.reviewKey} onDecision={(key, value) => void setDecision(key, value)} /> : <span className="uc03-review-auto-cleared">No action needed</span>}
-            </div>
-          </article>
-        );
-      })}
-    </div>
-  );
-
-  return (
-    <section className="uc03-jd-section uc03-attribute-review-page" aria-labelledby="jd-review-heading">
-      <h2 id="jd-review-heading" className="uc03-jd-section-heading">3. Review &amp; Submit Booking</h2>
-
-      <section className="uc03-attribute-review-summary" aria-label="Booking review summary">
-        <div><span>Mapped values</span><strong>{populatedAttributes.length}</strong></div>
-        <div><span>Receipt values</span><strong>{receiptGroups.length}</strong></div>
-        <div><span>PC corrections</span><strong>{corrections.size}</strong></div>
-        <div><span>Exceptions pending</span><strong>{unresolvedDecisionKeys.length}</strong></div>
-      </section>
-
-      {review.processingPending ? (
-        <div className="uc03-v2-review-pending" role="status">
-          <div><strong>Document extraction is still in progress.</strong><span>Submit is available now — extraction continues in the background regardless.</span></div>
-        </div>
-      ) : null}
-      {requiredDecisionKeys.length > 0 ? (
-        <div className="uc03-v2-review-attention" role="status">
-          <strong>{unresolvedDecisionKeys.length} of {requiredDecisionKeys.length} exception{requiredDecisionKeys.length === 1 ? '' : 's'} still need a decision.</strong>
-          <span>Optional — Accept, Reject, or correct any time. This does not block Submit.</span>
-        </div>
-      ) : null}
-
-      {review.missingDeclarations.length ? (
-        <section className="uc03-v2-section">
-          <header><div><span className="uc03-c1-eyebrow">Declarations</span><h2>Applicable documents not available</h2></div></header>
-          <div className="uc03-v2-review-missing-list">
-            {review.missingDeclarations.map((item) => (
-              <div key={item.requirementKey} className="uc03-v2-review-missing-row">
-                <div><strong>{item.label}</strong><span>Applicable · Document not available</span></div>
-                <span>Recorded for audit follow-up</span>
-              </div>
-            ))}
-          </div>
-        </section>
-      ) : null}
-
-      <section className="uc03-v2-section uc03-attribute-table-section">
-        <header className="uc03-v2-section-header">
-          <div>
-            <span className="uc03-c1-eyebrow">Extracted Booking attributes</span>
-            <h2>Business attribute review</h2>
-            <p>Only values below 90% confidence can be edited. Original DI value and provenance are always retained.</p>
-          </div>
-        </header>
-        <div className="uc03-attribute-table-wrap">
-          <table className="uc03-attribute-table uc03-booking-review-table">
-            <thead>
-              <tr><th>Attribute</th><th>Value</th><th>Source evidence</th><th>Decision</th></tr>
-            </thead>
-            <tbody>
-              {populatedAttributes.length ? populatedAttributes.map((attribute) => {
-                const source = attribute.resolvedSource;
-                const reviewKey = `attribute:${attribute.attributeKey}`;
-                const decision = decisionByKey.get(reviewKey);
-                const needsDecision = needsAttributeDecision(attribute);
-                const highConf = isHighConfidence(attribute.confidenceScore);
-                const locked = isReadOnly || decision === 'REJECTED';
-                return (
-                  <tr key={attribute.attributeKey} className={needsDecision && !decision ? 'needs-review' : ''}>
-                    <td className="uc03-attribute-name-cell"><strong>{attribute.label}</strong></td>
-                    <td>
-                      {source && !highConf && !locked ? (
-                        <ReviewEffectiveValueEditor
-                          source={source}
-                          correction={corrections.get(reviewSourceKey(source))}
-                          onChange={(correction) => setCorrection(source, correction)}
-                          requireValue
-                          disabled={false}
-                        />
-                      ) : displayValue(attribute.resolvedValue)}
-                    </td>
-                    <td>
-                      {source ? (
-                        <div className="uc03-attribute-source-cell">
-                          <strong>{source.documentLabel}</strong>
-                          <span>{source.documentTypeKey || source.originalFilename}</span>
-                          {hasBoxedEvidence(source) ? (
-                            <button type="button" className="uc03-attribute-evidence-link" onClick={() => onEvidence(source)}>View boxed evidence</button>
-                          ) : <span>Source location unavailable</span>}
-                        </div>
-                      ) : '—'}
-                    </td>
-                    <td>
-                      {needsDecision ? (
-                        <DecisionButtons reviewKey={reviewKey} decision={decision} busy={decisionBusyKey === reviewKey} onDecision={(key, value) => void setDecision(key, value)} />
-                      ) : <span className="uc03-review-auto-cleared">No action needed</span>}
-                    </td>
-                  </tr>
-                );
-              }) : <tr><td colSpan={4} className="uc03-review-empty-table">No mapped Booking values have been extracted yet.</td></tr>}
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-      {receiptGroups.length ? (
-        <section className="uc03-v2-section uc03-raw-review-section">
-          <header className="uc03-v2-section-header"><div><span className="uc03-c1-eyebrow">Payment receipts</span><h2>Dealer receipt evidence</h2></div><span>{receiptGroups.length} value{receiptGroups.length === 1 ? '' : 's'}</span></header>
-          {renderRawGroups(receiptGroups)}
-        </section>
-      ) : null}
-      {additionalRawGroups.length ? (
-        <section className="uc03-v2-section uc03-raw-review-section">
-          <header className="uc03-v2-section-header"><div><span className="uc03-c1-eyebrow">Additional extracted evidence</span><h2>Additional DI fields</h2></div><span>{additionalRawGroups.length} field{additionalRawGroups.length === 1 ? '' : 's'}</span></header>
-          {renderRawGroups(additionalRawGroups)}
-        </section>
-      ) : null}
-
-      {decisionError ? <div className="uc03-c3-error" role="alert">{decisionError}</div> : null}
-      {decisionsQuery.isError ? <div className="uc03-c3-error" role="alert">Review decisions could not be loaded. Refresh before confirming.</div> : null}
-      {confirmationError ? <div className="uc03-c3-error" role="alert">{confirmationError}</div> : null}
-
-      <section className="uc03-attribute-confirm-panel">
-        <div>
-          <strong>{review.captureSubmitted ? (review.pcVerificationStatus === 'VERIFIED' ? 'Booking Review verified' : 'Complete Booking Review') : 'Submit Booking'}</strong>
-          <span>
-            {review.captureSubmitted && review.pcVerificationStatus === 'VERIFIED'
-              ? 'Original DI values, effective values and provenance are retained.'
-              : failedDocuments.length
-                ? `${failedDocuments.length} document${failedDocuments.length === 1 ? '' : 's'} failed processing — this does not block Submit.`
-                : unresolvedDecisionKeys.length
-                  ? `${unresolvedDecisionKeys.length} exception${unresolvedDecisionKeys.length === 1 ? '' : 's'} still pending — optional, does not block Submit.`
-                  : review.processingPending
-                    ? 'Extraction is still running, but it does not block Booking submit.'
-                    : 'All currently available confidence exceptions are resolved.'}
-          </span>
-        </div>
-        {review.captureSubmitted && review.pcVerificationStatus === 'VERIFIED' ? null : (
-          <button type="button" className="uc03-c3-primary" disabled={!canAct || confirming} onClick={() => void finishReviewOrSubmit()}>
-            {confirming ? (review.captureSubmitted ? 'Confirming…' : 'Submitting…') : (review.captureSubmitted ? 'Confirm reviewed values' : 'Submit Booking')}
-          </button>
-        )}
-      </section>
-
-      {failedDocuments.length ? <div className="uc03-v2-review-failed-summary">{failedDocuments.length} document{failedDocuments.length === 1 ? '' : 's'} could not be processed and require follow-up.</div> : null}
-    </section>
-  );
-}
-
 export default function JourneyDocumentsPage() {
   const { journeyId } = useParams<{ journeyId: string }>();
   const navigate = useNavigate();
@@ -1210,10 +786,6 @@ export default function JourneyDocumentsPage() {
     lastUploadAtRef.current !== null && Date.now() - lastUploadAtRef.current < UPLOAD_KEEP_POLLING_MS;
   const [modifyModelOpen, setModifyModelOpen] = useState(false);
   const [loanDisbursementOpen, setLoanDisbursementOpen] = useState(false);
-  const [startBusy, setStartBusy] = useState(false);
-  const [startError, setStartError] = useState<string>();
-  const [resyncing, setResyncing] = useState(false);
-  const [deleteBusyId, setDeleteBusyId] = useState<string>();
 
   const enabled = Boolean(project?.tenantId && journeyId && accessToken);
   const bookingQuery = useQuery({
@@ -1295,79 +867,6 @@ export default function JourneyDocumentsPage() {
   // first, even though the checklist below already reads capture data too.
   const bookingCaptureAvailable = Boolean(bookingCaptureQuery.data);
   const deliveryCaptureAvailable = Boolean(deliveryCaptureQuery.data);
-
-  // Rare edge case (a stale draft Booking resumed later, per
-  // BookingCaptureV2WorkspacePage's own former comment) -- a Booking stage
-  // row exists but was never started, so none of the four queries above
-  // have data at all. Only fetched when nothing else is available, so the
-  // common case (a Booking already started, which is true from the moment
-  // it's created) never pays for this extra round trip.
-  const noDataAtAll = !bookingAvailable && !deliveryAvailable && !bookingCaptureAvailable && !deliveryCaptureAvailable;
-  const workspaceQuery = useQuery({
-    queryKey: ['uc03-journey-documents-workspace', project?.tenantId, journeyId],
-    queryFn: () => getBookingWorkspace(project!.tenantId, journeyId!, accessToken),
-    enabled: enabled && noDataAtAll,
-    retry: false,
-    refetchOnWindowFocus: false,
-  });
-  const notStarted = Boolean(workspaceQuery.data) && !workspaceQuery.data!.bookingStage.businessStatus;
-
-  const handleStart = async () => {
-    const version = workspaceQuery.data?.aggregateVersion;
-    if (!project || !journeyId || version === undefined) return;
-    setStartBusy(true);
-    setStartError(undefined);
-    try {
-      await startBooking(project.tenantId, journeyId, version, accessToken);
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['uc03-journey-documents-booking-checklist', project.tenantId, journeyId] }),
-        queryClient.invalidateQueries({ queryKey: ['uc03-journey-documents-workspace', project.tenantId, journeyId] }),
-      ]);
-    } catch (error) {
-      setStartError(error instanceof Error ? error.message : 'This Booking could not be started.');
-    } finally {
-      setStartBusy(false);
-    }
-  };
-
-  const handleResync = async () => {
-    if (!project || !journeyId) return;
-    setResyncing(true);
-    try {
-      await resyncBookingCaptureV2(project.tenantId, journeyId, accessToken);
-      await Promise.all([bookingCaptureQuery.refetch(), deliveryCaptureQuery.refetch()]);
-    } finally {
-      setResyncing(false);
-    }
-  };
-
-  const handleDeleteBooking = async (documentId: string) => {
-    if (!project || !journeyId) return;
-    setDeleteBusyId(documentId);
-    try {
-      await deleteBookingCaptureV2Document(project.tenantId, journeyId, documentId, accessToken);
-      await Promise.all([
-        bookingCaptureQuery.refetch(),
-        queryClient.invalidateQueries({ queryKey: ['uc03-journey-documents-booking', project.tenantId, journeyId] }),
-      ]);
-    } finally {
-      setDeleteBusyId(undefined);
-    }
-  };
-
-  const handleDeleteDelivery = async (documentId: string) => {
-    if (!project || !journeyId) return;
-    setDeleteBusyId(documentId);
-    try {
-      await deleteDeliveryCaptureV2Document(project.tenantId, journeyId, documentId, accessToken);
-      await Promise.all([
-        deliveryCaptureQuery.refetch(),
-        queryClient.invalidateQueries({ queryKey: ['uc03-journey-documents-delivery', project.tenantId, journeyId] }),
-      ]);
-    } finally {
-      setDeleteBusyId(undefined);
-    }
-  };
 
   const handleUpload = async (files: File[]) => {
     if (!project || !journeyId) return;
@@ -1457,14 +956,8 @@ export default function JourneyDocumentsPage() {
           <div className="dashboard-load-state__mark">!</div>
           <div className="dashboard-load-state__copy">
             <strong>Documents are not available yet.</strong>
-            <p>{notStarted ? 'This Booking exists but has not been started yet.' : 'Start Booking on this Journey before opening its documents here.'}</p>
-            {startError ? <p className="uc03-jd-error" role="alert">{startError}</p> : null}
+            <p>Start Booking on this Journey before opening its documents here.</p>
           </div>
-          {notStarted ? (
-            <button type="button" className="uc03-c1-primary" disabled={startBusy} onClick={() => void handleStart()}>
-              {startBusy ? 'Starting…' : 'Start Booking'}
-            </button>
-          ) : null}
           <button type="button" className="user-menu-button" onClick={() => navigate(`/journeys/${journeyId}/overview`)}>Back to Journey Details</button>
         </section>
       </div>
@@ -1528,17 +1021,6 @@ export default function JourneyDocumentsPage() {
           // below) only ever appears when nothing has been resolved yet,
           // so the two never compete for the same moment.
           <>
-            {bookingCaptureAvailable ? (
-              <button
-                type="button"
-                className="uc03-jd-modify-model"
-                disabled={resyncing}
-                onClick={() => void handleResync()}
-                title="A classified document sometimes finishes extracting after the page already stopped watching it. Recheck picks those up."
-              >
-                {resyncing ? 'Rechecking…' : 'Recheck documents'}
-              </button>
-            ) : null}
             <button type="button" className="uc03-jd-modify-model" disabled={editsBlocked} onClick={() => setModifyModelOpen(true)}>
               Modify Model
             </button>
@@ -1630,8 +1112,6 @@ export default function JourneyDocumentsPage() {
           items={checklist}
           extraDocuments={extraDocuments}
           onOpenDocument={openDocumentById}
-          onDelete={(stage, documentId) => void (stage === 'BOOKING' ? handleDeleteBooking(documentId) : handleDeleteDelivery(documentId))}
-          deleteBusyId={deleteBusyId}
           locked={editsBlocked}
           syncing={uploading || bookingCaptureQuery.isFetching || deliveryCaptureQuery.isFetching}
         />
@@ -1640,22 +1120,6 @@ export default function JourneyDocumentsPage() {
           <p className="uc03-jd-empty">No documents have been uploaded for this Journey yet.</p>
         ) : null}
       </section>
-
-      {bookingQuery.data ? (
-        <ErrorBoundary fallback={null}>
-          <BookingReviewSection
-            review={bookingQuery.data}
-            tenantId={project.tenantId}
-            journeyId={journeyId}
-            accessToken={accessToken}
-            onEvidence={setSelectedSource}
-            onChanged={() => {
-              void bookingQuery.refetch();
-              void queryClient.invalidateQueries({ queryKey: ['uc03-journey-documents-workspace', project.tenantId, journeyId] });
-            }}
-          />
-        </ErrorBoundary>
-      ) : null}
 
       {openDocument ? (
         <DocumentReviewModal

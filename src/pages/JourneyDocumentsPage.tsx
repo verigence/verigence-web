@@ -496,7 +496,7 @@ function ChecklistCard({
                 ) : null}
               </header>
               <strong className="uc03-doc-card__name">
-                {item.document.classifiedDocumentTypeKey ? displayName(item.document.classifiedDocumentTypeKey) : item.document.originalFilename}
+                {item.document.classifiedDocumentTypeKey ? displayName(item.document.classifiedDocumentTypeKey) : 'Classifying…'}
               </strong>
               <div className="uc03-doc-card__status">
                 <span className="uc03-doc-card__dot" aria-hidden="true" />

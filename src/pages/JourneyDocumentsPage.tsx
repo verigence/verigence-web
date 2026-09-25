@@ -488,7 +488,7 @@ function ChecklistCard({
             disabled={locked}
             onClick={() => onOpenDocument(item.stage, documentId)}
           >
-            <article className={`uc03-doc-card is-${cardStatus(item.document)}`}>
+            <article className={`uc03-doc-card is-${cardStatus(item.document)} is-${item.requirementLevel.toLowerCase()}`}>
               <header>
                 <span className="uc03-doc-card__label">{item.label}</span>
                 {item.requirementLevel !== 'REQUIRED' ? (
@@ -515,7 +515,7 @@ function ChecklistCard({
           </button>
         </div>
       ) : (
-        <div className="uc03-doc-card is-missing">
+        <div className={`uc03-doc-card is-missing is-${item.requirementLevel.toLowerCase()}`}>
           <strong className="uc03-doc-card__name">{item.label}</strong>
           {item.requirementLevel !== 'REQUIRED' ? (
             <span className="uc03-doc-card__level">{item.requirementLevel.toLowerCase()}</span>

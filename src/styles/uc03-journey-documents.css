@@ -289,6 +289,19 @@
   background: var(--vg-error);
 }
 
+/* Requirement Level Color Coding */
+.uc03-doc-card.is-required {
+  border-left: 4px solid var(--vg-brand-navy);
+}
+
+.uc03-doc-card.is-conditional {
+  border-left: 4px solid var(--vg-brand-teal);
+}
+
+.uc03-doc-card.is-optional {
+  border-left: 4px solid var(--vg-brand-mint);
+}
+
 .uc03-doc-card.is-missing {
   border: 2px dashed var(--vg-border);
   background: #fafbfc;

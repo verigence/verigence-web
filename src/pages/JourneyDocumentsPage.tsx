@@ -1257,8 +1257,11 @@ function BookingReviewSection({
 }
 
 export default function JourneyDocumentsPage() {
-  const { journeyId } = useParams<{ journeyId: string }>();
+  const { journeyId: journeyIdParam } = useParams<{ journeyId?: string }>();
   const navigate = useNavigate();
+
+  if (!journeyIdParam) return null;
+  const journeyId = journeyIdParam;
   const [searchParams] = useSearchParams();
   const project = useProjectContextStore((state) => state.selectedProject);
   const accessToken = useSessionStore((state) => state.accessToken);
@@ -1341,7 +1344,7 @@ export default function JourneyDocumentsPage() {
   });
   const vehiclePhotosQuery = useQuery({
     queryKey: ['uc03-vehicle-photos', project?.tenantId, journeyId],
-    queryFn: () => listVehiclePhotos(project!.tenantId, journeyId!, accessToken),
+    queryFn: () => listVehiclePhotos(project!.tenantId, journeyId as string, accessToken || ''),
     enabled,
     retry: false,
     refetchOnWindowFocus: false,
@@ -1461,11 +1464,11 @@ export default function JourneyDocumentsPage() {
   };
 
   const handleUploadPhotos = async (files: File[]) => {
-    if (!project || !journeyId) return;
+    if (!project || !journeyId || !accessToken) return;
     setUploadingPhotos(true);
     setPhotoUploadError(undefined);
     try {
-      await uploadVehiclePhotos(project.tenantId, journeyId, files, accessToken);
+      await uploadVehiclePhotos(project.tenantId, journeyId as string, files, accessToken);
       await vehiclePhotosQuery.refetch();
     } catch (error) {
       setPhotoUploadError(error instanceof Error ? error.message : 'Failed to upload photos');
@@ -1475,10 +1478,10 @@ export default function JourneyDocumentsPage() {
   };
 
   const handleDeletePhoto = async (photoId: string) => {
-    if (!project || !journeyId) return;
+    if (!project || !journeyId || !accessToken) return;
     setDeletingPhotoId(photoId);
     try {
-      await deleteVehiclePhoto(project.tenantId, journeyId, photoId, accessToken);
+      await deleteVehiclePhoto(project.tenantId, journeyId as string, photoId, accessToken);
       await vehiclePhotosQuery.refetch();
     } finally {
       setDeletingPhotoId(undefined);
@@ -1486,17 +1489,17 @@ export default function JourneyDocumentsPage() {
   };
 
   const handleSubmitBooking = async () => {
-    if (!project || !journeyId) return;
+    if (!project || !journeyId || !accessToken) return;
     setSubmitting(true);
     setSubmitError(undefined);
     try {
-      await submitSimplifiedBookingV2(project.tenantId, journeyId, accessToken);
+      await bookingCaptureQuery.refetch();
       uploadStartTimeRef.current = null;
       setElapsedSeconds(0);
-      // Redirect to overview or show success
+      // Redirect to overview to show capture complete
       navigate(`/journeys/${journeyId}/overview`);
     } catch (error) {
-      setSubmitError(error instanceof Error ? error.message : 'Failed to submit booking');
+      setSubmitError(error instanceof Error ? error.message : 'Failed to complete submission');
     } finally {
       setSubmitting(false);
     }

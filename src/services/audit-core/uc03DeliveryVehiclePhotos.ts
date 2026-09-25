@@ -1,4 +1,4 @@
-import { AuditCoreHttpError, client } from './client';
+import { AuditCoreHttpError, auditCoreRequest } from './client';
 
 export interface VehiclePhoto {
   photoId: string;
@@ -20,11 +20,11 @@ export async function listVehiclePhotos(
   accessToken: string,
 ): Promise<VehiclePhoto[]> {
   try {
-    const response = await client.get<VehiclePhotoListResponse>(
+    const response = await auditCoreRequest<VehiclePhotoListResponse>(
       `/v2/tenants/${tenantId}/journeys/${journeyId}/delivery/vehicle-photos`,
-      { headers: { Authorization: `Bearer ${accessToken}` } },
+      { accessToken, method: 'GET' },
     );
-    return response.data.photos;
+    return response.photos;
   } catch (error) {
     if (error instanceof AuditCoreHttpError) throw error;
     throw new Error(`Failed to list vehicle photos: ${error}`);
@@ -42,17 +42,11 @@ export async function uploadVehiclePhotos(
     for (const file of files) {
       formData.append('files', file);
     }
-    const response = await client.post<VehiclePhotoListResponse>(
+    const response = await auditCoreRequest<VehiclePhotoListResponse>(
       `/v2/tenants/${tenantId}/journeys/${journeyId}/delivery/vehicle-photos`,
-      formData,
-      {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          'Content-Type': 'multipart/form-data',
-        },
-      },
+      { accessToken, method: 'POST', body: formData },
     );
-    return response.data.photos;
+    return response.photos;
   } catch (error) {
     if (error instanceof AuditCoreHttpError) throw error;
     throw new Error(`Failed to upload vehicle photos: ${error}`);
@@ -66,9 +60,9 @@ export async function deleteVehiclePhoto(
   accessToken: string,
 ): Promise<void> {
   try {
-    await client.delete(
+    await auditCoreRequest<void>(
       `/v2/tenants/${tenantId}/journeys/${journeyId}/delivery/vehicle-photos/${photoId}`,
-      { headers: { Authorization: `Bearer ${accessToken}` } },
+      { accessToken, method: 'DELETE' },
     );
   } catch (error) {
     if (error instanceof AuditCoreHttpError) throw error;

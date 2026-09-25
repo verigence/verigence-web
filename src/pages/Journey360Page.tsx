@@ -2274,7 +2274,23 @@ export default function Journey360Page() {
   const steps = useMemo(() => (model ? deriveSteps(model).steps : []), [model]);
   const aspects = useMemo(() => (model ? deriveAspects(model) : []), [model]);
   const openCount = useMemo(() => (model ? openFindings(model).length : 0), [model]);
-  const documentCounts = model?.documentCounts ?? { uploaded: 0, classified: 0, extracted: 0, duplicates: 0 };
+  const documentCounts = useMemo(() => {
+    if (!model?.evidence) return { uploaded: 0, classified: 0, extracted: 0, duplicates: 0 };
+    const counts = { uploaded: 0, classified: 0, extracted: 0, duplicates: 0 };
+    const seenByType = new Map<string, boolean>();
+    for (const doc of model.evidence as Array<Record<string, unknown>>) {
+      counts.uploaded++;
+      const docType = doc.documentType as string | undefined;
+      if (docType && !seenByType.has(docType)) {
+        seenByType.set(docType, true);
+      } else if (docType) {
+        counts.duplicates++;
+      }
+      if (doc.classifiedDocumentType) counts.classified++;
+      if (Array.isArray(doc.reviewedFields) && doc.reviewedFields.length > 0) counts.extracted++;
+    }
+    return counts;
+  }, [model?.evidence]);
   const failedExtractionCount = useMemo(
     () => (model?.evidence || []).filter((doc) => doc.processingStatus === 'FAILED').length,
     [model?.evidence],

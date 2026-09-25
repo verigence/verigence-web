@@ -1867,7 +1867,7 @@ export default function JourneyDocumentsPage() {
           onOpenDocument={openDocumentById}
           onDelete={(stage, documentId) => void (stage === 'BOOKING' ? handleDeleteBooking(documentId) : handleDeleteDelivery(documentId))}
           deleteBusyId={deleteBusyId}
-          locked={editsBlocked}
+          locked={false}
           syncing={uploading || bookingCaptureQuery.isFetching || deliveryCaptureQuery.isFetching}
         />
         <DuplicateDocumentsSummary counts={duplicateCounts} />

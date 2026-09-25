@@ -1679,36 +1679,57 @@ export default function JourneyDocumentsPage() {
 
       <PageHeader
         eyebrow="Documents"
-        title="Upload, review & correct documents"
-        description="One place for every Booking and Delivery document. Upload here any time — click any document below to open and edit it. Fields below 90% confidence can be corrected directly and take effect immediately; fields at or above 90% go through a Team Lead-reviewed correction instead."
+        title="Upload & Review Documents"
+        description="Upload documents and vehicle photos · click any document to edit its extracted values"
         actions={
-          // Wrong vehicle resolved for this Booking? Same popup Journey
-          // 360's Deal tab offers -- reachable from here too, since that's
-          // where a PC is already looking at this Booking's documents.
-          // The other SKU flow on this page (ModelResolutionSkuPicker,
-          // below) only ever appears when nothing has been resolved yet,
-          // so the two never compete for the same moment.
-          <>
-            {bookingCaptureAvailable ? (
-              <button
-                type="button"
-                className="uc03-jd-modify-model"
-                disabled={resyncing}
-                onClick={() => void handleResync()}
-                title="A classified document sometimes finishes extracting after the page already stopped watching it. Recheck picks those up."
-              >
-                {resyncing ? 'Rechecking…' : 'Recheck documents'}
-              </button>
-            ) : null}
-            <button type="button" className="uc03-jd-modify-model" disabled={editsBlocked} onClick={() => setModifyModelOpen(true)}>
-              Modify Model
+          bookingCaptureAvailable ? (
+            <button
+              type="button"
+              className="uc03-jd-modify-model"
+              disabled={resyncing}
+              onClick={() => void handleResync()}
+              title="A classified document sometimes finishes extracting after the page already stopped watching it. Recheck picks those up."
+            >
+              {resyncing ? 'Rechecking…' : 'Recheck documents'}
             </button>
-            <button type="button" className="uc03-jd-modify-model" disabled={editsBlocked} onClick={() => setLoanDisbursementOpen(true)}>
-              Update Loan Amount
-            </button>
-          </>
+          ) : null
         }
       />
+
+      <div className="uc03-jd-submit-bar">
+        <span className="uc03-jd-submit-bar-label">Ready to submit?</span>
+        <div className="uc03-jd-submit-bar-actions">
+          {bookingCaptureAvailable ? (
+            <>
+              <button
+                type="button"
+                className="uc03-jd-action-btn"
+                disabled={editsBlocked}
+                onClick={() => setModifyModelOpen(true)}
+              >
+                Resolve SKU
+              </button>
+              <button
+                type="button"
+                className="uc03-jd-action-btn"
+                disabled={editsBlocked}
+                onClick={() => setLoanDisbursementOpen(true)}
+              >
+                Loan Amount
+              </button>
+            </>
+          ) : null}
+          <button
+            type="button"
+            className="uc03-jd-submit-button-primary"
+            disabled={!canSubmit || submitting}
+            onClick={() => void handleSubmitBooking()}
+            title={!canSubmit ? `Submit unlocks when documents are classified or timer expires (${Math.floor(timerSeconds / 60)}:${String(Math.floor(timerSeconds % 60)).padStart(2, '0')} remaining)` : ''}
+          >
+            {submitting ? 'Submitting…' : 'Submit Documents'}
+          </button>
+        </div>
+      </div>
 
       {editsBlocked ? (
         <div className="uc03-jd-block-banner" role="status">
@@ -1784,40 +1805,38 @@ export default function JourneyDocumentsPage() {
       </section>
 
       <section className="uc03-jd-section uc03-jd-status-section">
-        <h2>Upload Status</h2>
-        <div className="uc03-jd-status-indicators">
-          <div className="uc03-jd-status-item">
-            <span className={`uc03-jd-status-label ${uploading ? 'uploading' : 'complete'}`}>
-              {uploading ? '⏳ Uploading' : '✓ Uploaded'}
-            </span>
-            <span className="uc03-jd-status-count">{(bookingCaptureQuery.data?.uploads.length ?? 0) + (deliveryCaptureQuery.data?.uploads.length ?? 0)} documents</span>
-          </div>
-          <div className="uc03-jd-status-item">
-            <span className={`uc03-jd-status-label ${pendingClassification ? 'pending' : 'complete'}`}>
-              {pendingClassification ? '⏳ Classifying' : '✓ Classified'}
-            </span>
-            <span className="uc03-jd-status-count">{(bookingCaptureQuery.data?.uploads.filter((u) => u.classifiedDocumentTypeKey).length ?? 0) + (deliveryCaptureQuery.data?.uploads.filter((u) => u.classifiedDocumentTypeKey).length ?? 0)} of {(bookingCaptureQuery.data?.uploads.length ?? 0) + (deliveryCaptureQuery.data?.uploads.length ?? 0)}</span>
-          </div>
-          {(uploading || pendingClassification) && timerSeconds > 0 ? (
-            <div className="uc03-jd-status-timer">
-              Auto-unlock in {Math.floor(timerSeconds / 60)}:{String(Math.floor(timerSeconds % 60)).padStart(2, '0')}
+        <h3 className="uc03-jd-section-label">Processing</h3>
+        <div className="uc03-jd-status-row">
+          <div className="uc03-jd-stat">
+            <div className="uc03-jd-stat-label">Uploaded</div>
+            <div className={`uc03-jd-stat-value ${uploading ? 'busy' : 'done'}`}>
+              {(bookingCaptureQuery.data?.uploads.length ?? 0) + (deliveryCaptureQuery.data?.uploads.length ?? 0)}
             </div>
-          ) : null}
+          </div>
+          <div className="uc03-jd-stat">
+            <div className="uc03-jd-stat-label">Classified</div>
+            <div className={`uc03-jd-stat-value ${pendingClassification ? 'busy' : 'done'}`}>
+              {(bookingCaptureQuery.data?.uploads.filter((u) => u.classifiedDocumentTypeKey).length ?? 0)}/{(bookingCaptureQuery.data?.uploads.length ?? 0) + (deliveryCaptureQuery.data?.uploads.length ?? 0)}
+            </div>
+          </div>
+          <div className="uc03-jd-stat">
+            <div className="uc03-jd-stat-label">Extracted</div>
+            <div className="uc03-jd-stat-value done">
+              {(bookingCaptureQuery.data?.uploads.filter((u) => u.classifiedDocumentTypeKey).length ?? 0)}
+            </div>
+          </div>
         </div>
+        {(uploading || pendingClassification) && timerSeconds > 0 ? (
+          <div className="uc03-jd-timer-bar">
+            <span>Submit unlocks automatically</span>
+            <span className="uc03-jd-timer-value">{Math.floor(timerSeconds / 60)}:{String(Math.floor(timerSeconds % 60)).padStart(2, '0')}</span>
+          </div>
+        ) : null}
         {submitError ? (
           <div className="uc03-jd-block-banner uc03-jd-block-banner--error" role="alert">
             {submitError}
           </div>
         ) : null}
-        <button
-          type="button"
-          className="uc03-jd-submit-button"
-          disabled={!canSubmit || submitting}
-          onClick={() => void handleSubmitBooking()}
-          title={!canSubmit ? `Submit unlocks when documents are classified or timer expires (${Math.floor(timerSeconds / 60)}:${String(Math.floor(timerSeconds % 60)).padStart(2, '0')} remaining)` : ''}
-        >
-          {submitting ? 'Submitting…' : 'Submit Documents'}
-        </button>
       </section>
 
       <section className="uc03-jd-section" aria-labelledby="jd-existing-heading">

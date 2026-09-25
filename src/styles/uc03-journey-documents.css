@@ -377,27 +377,156 @@
   padding: 8px 0;
 }
 
-.uc03-jd-submit-button {
-  background: var(--jd-accent);
+.uc03-jd-submit-bar {
+  background: var(--v-page, #f4f8fb);
+  border-top: 1px solid var(--v-line, #dbe6ee);
+  border-bottom: 2px solid #0057b8;
+  padding: 12px 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 0 -20px;
+}
+
+.uc03-jd-submit-bar-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--v-muted, #6e879b);
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.uc03-jd-submit-bar-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.uc03-jd-action-btn {
+  background: rgba(0, 87, 184, 0.08);
+  border: 1px solid #bfdbfe;
+  color: #0057b8;
+  border-radius: 8px;
+  padding: 9px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.uc03-jd-action-btn:hover:not(:disabled) {
+  background: rgba(0, 87, 184, 0.12);
+  border-color: #0057b8;
+}
+
+.uc03-jd-action-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.uc03-jd-submit-button-primary {
+  background: #0057b8;
   color: #fff;
   border: 0;
   border-radius: 8px;
-  padding: 12px 24px;
-  font-size: 15px;
-  font-weight: 600;
+  padding: 10px 20px;
+  font-size: 14px;
+  font-weight: 700;
   cursor: pointer;
-  transition: opacity 0.2s;
-  width: 100%;
-  max-width: 300px;
+  box-shadow: 0 3px 12px rgba(0, 87, 184, 0.18);
+  transition: all 0.2s;
 }
 
-.uc03-jd-submit-button:hover:not(:disabled) {
-  opacity: 0.9;
+.uc03-jd-submit-button-primary:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(0, 87, 184, 0.25);
 }
 
-.uc03-jd-submit-button:disabled {
+.uc03-jd-submit-button-primary:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+  box-shadow: none;
+}
+
+.uc03-jd-status-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.uc03-jd-stat {
+  border: 1px solid var(--v-line, #dbe6ee);
+  border-radius: 10px;
+  padding: 9px 8px;
+  text-align: center;
+  background: var(--v-subtle, #f7fafc);
+}
+
+.uc03-jd-stat-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--v-muted, #6e879b);
+}
+
+.uc03-jd-stat-value {
+  font-size: 17px;
+  font-weight: 800;
+  margin-top: 2px;
+  letter-spacing: -0.3px;
+}
+
+.uc03-jd-stat-value.done {
+  color: #067647;
+}
+
+.uc03-jd-stat-value.busy {
+  color: #93370d;
+}
+
+.uc03-jd-stat.done {
+  background: #ecfdf3;
+  border-color: #a6e9c5;
+}
+
+.uc03-jd-stat.busy {
+  background: #fff6ed;
+  border-color: #f7c99b;
+}
+
+.uc03-jd-timer-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  background: #fff6ed;
+  border: 1px solid #f7c99b;
+  color: #93370d;
+  border-radius: 10px;
+  padding: 8px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  margin-bottom: 12px;
+}
+
+.uc03-jd-timer-value {
+  font-size: 16px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.uc03-jd-section-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--v-muted, #6e879b);
+  margin-bottom: 12px;
 }
 
 /* Two clearly separate steps -- Upload, then Existing documents -- instead

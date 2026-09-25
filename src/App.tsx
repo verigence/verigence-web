@@ -22,10 +22,8 @@ const loadBookingWorkspacePage = () => import('./pages/BookingWorkspaceFastEntry
 const loadBookingReviewPage = () => import('./pages/BookingReviewPage');
 const loadBookingCaptureV2Page = () => import('./pages/BookingCaptureV2Page');
 const loadBookingDetailsV2Page = () => import('./pages/BookingDetailsV2Page');
-const loadBookingReviewV2Page = () => import('./pages/BookingReviewV2Page');
 const loadDeliveryWorkspacePage = () => import('./pages/DeliveryWorkspacePage');
 const loadDeliveryCaptureV2Page = () => import('./pages/DeliveryCaptureV2Page');
-const loadDeliveryReviewV2Page = () => import('./pages/DeliveryReviewV2Page');
 const loadAuditReviewPage = () => import('./pages/AuditReviewPage');
 
 const LoginPage = lazy(() => import('./pages/LoginPage'));
@@ -49,9 +47,7 @@ const TeamLeadDashboardPage = lazy(() => import('./pages/TeamLeadDashboardPage')
 const TeamLeadReviewPage = lazy(() => import('./pages/TeamLeadReviewPage'));
 const BookingCaptureV2Page = lazy(loadBookingCaptureV2Page);
 const BookingDetailsV2Page = lazy(loadBookingDetailsV2Page);
-const BookingReviewV2Page = lazy(loadBookingReviewV2Page);
 const DeliveryCaptureV2Page = lazy(loadDeliveryCaptureV2Page);
-const DeliveryReviewV2Page = lazy(loadDeliveryReviewV2Page);
 const AuditReviewPage = lazy(loadAuditReviewPage);
 const AttendancePage = lazy(() => import('./pages/AttendancePage'));
 const CustomersPage = lazy(() => import('./pages/CustomersPage'));
@@ -121,10 +117,8 @@ function PcJourneyRoutePreloader() {
           loadBookingReviewPage(),
           loadBookingCaptureV2Page(),
           loadBookingDetailsV2Page(),
-          loadBookingReviewV2Page(),
           loadDeliveryWorkspacePage(),
           loadDeliveryCaptureV2Page(),
-          loadDeliveryReviewV2Page(),
           loadAuditReviewPage(),
         ]);
       }, 150);
@@ -229,12 +223,26 @@ function LegacyOperationalPage({ children }: { children: ReactNode }) {
 function V2JourneyRedirect({ target }: { target: 'BOOKING' | 'BOOKING_REVIEW' | 'DELIVERY' }) {
   const { journeyId = '' } = useParams();
   if (!journeyId) return <Navigate to="/dashboard" replace />;
-  const path = target === 'BOOKING'
-    ? `/v2/bookings/${journeyId}`
-    : target === 'BOOKING_REVIEW'
-      ? `/v2/bookings/${journeyId}/review`
-      : `/v2/deliveries/${journeyId}`;
+  // BOOKING and BOOKING_REVIEW both land on the one unified Documents page
+  // now -- BookingCaptureV2WorkspacePage's own upload/checklist/Submit UI
+  // and BookingReviewV2Page's Accept/Reject/Confirm-reviewed-values flow
+  // were both folded into JourneyDocumentsPage, so there is nothing left
+  // for either former destination to render.
+  const path = target === 'DELIVERY'
+    ? `/v2/deliveries/${journeyId}`
+    : `/journeys/${journeyId}/documents`;
   return <Navigate to={path} replace />;
+}
+
+/** /v2/bookings/:journeyId (an EXISTING Booking) used to render the capture
+ * workspace directly; that screen's functionality now lives on
+ * JourneyDocumentsPage, so this route is a plain redirect. /v2/bookings/new
+ * (no journeyId yet) still renders BookingCaptureV2Page for the actual
+ * creation step -- see its own docstring. */
+function JourneyDocumentsRedirect() {
+  const { journeyId = '' } = useParams();
+  if (!journeyId) return <Navigate to="/dashboard" replace />;
+  return <Navigate to={`/journeys/${journeyId}/documents`} replace />;
 }
 
 function Loading() {
@@ -288,16 +296,22 @@ export default function App() {
               <Route path="/tl/cases/:journeyId/review" element={<OperationalPage><TeamLeadReviewPage /></OperationalPage>} />
               <Route path="/bookings/:journeyId" element={<V2JourneyRedirect target="BOOKING" />} />
               <Route path="/bookings/:journeyId/review" element={<V2JourneyRedirect target="BOOKING_REVIEW" />} />
-              {/* Both routes render the same workspace component -- "Capture New
-                  Booking" never swaps screens while the Journey is created, see
-                  BookingCaptureV2WorkspacePage's own comment for why. */}
+              {/* /new creates the Journey then hands off to JourneyDocumentsPage
+                  (see BookingCaptureV2WorkspacePage's own docstring); an
+                  EXISTING Booking now redirects straight there too -- its
+                  former workspace UI was folded in. */}
               <Route path="/v2/bookings/new" element={<OperationalPage><BookingCaptureV2Page /></OperationalPage>} />
-              <Route path="/v2/bookings/:journeyId" element={<OverviewJourneyPage><BookingCaptureV2Page /></OverviewJourneyPage>} />
+              <Route path="/v2/bookings/:journeyId" element={<JourneyDocumentsRedirect />} />
               <Route path="/v2/bookings/:journeyId/details" element={<OperationalPage><BookingDetailsV2Page /></OperationalPage>} />
-              <Route path="/v2/bookings/:journeyId/review" element={<OverviewJourneyPage><BookingReviewV2Page /></OverviewJourneyPage>} />
+              <Route path="/v2/bookings/:journeyId/review" element={<JourneyDocumentsRedirect />} />
               <Route path="/deliveries/:journeyId" element={<V2JourneyRedirect target="DELIVERY" />} />
               <Route path="/v2/deliveries/:journeyId" element={<OverviewJourneyPage><DeliveryCaptureV2Page /></OverviewJourneyPage>} />
-              <Route path="/v2/deliveries/:journeyId/review" element={<OverviewJourneyPage><DeliveryReviewV2Page /></OverviewJourneyPage>} />
+              {/* DeliveryReviewV2Page's Accept/Reject/Confirm flow was never
+                  reachable in production (no real Link/navigate anywhere
+                  pointed at this route, confirmed by an exhaustive search) --
+                  redirected rather than left to 404 in case anything
+                  unexpected still links here. */}
+              <Route path="/v2/deliveries/:journeyId/review" element={<JourneyDocumentsRedirect />} />
               <Route path="/audit/:journeyId" element={<OperationalPage><AuditReviewPage /></OperationalPage>} />
               <Route path="/feedback" element={<OperationalShellPage><FeedbackPage /></OperationalShellPage>} />
               <Route path="/customers" element={<LegacyOperationalPage><CustomersPage /></LegacyOperationalPage>} />

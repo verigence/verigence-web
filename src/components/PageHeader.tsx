@@ -1,5 +1,4 @@
-import { useEffect, type ReactNode } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import type { ReactNode } from 'react';
 import type { DataBacking } from '../domain/models';
 
 type Props = {
@@ -10,34 +9,25 @@ type Props = {
   actions?: ReactNode;
 };
 
+/* This component must stay purely presentational -- never route, redirect or
+ * rewrite the copy its caller passed in. It is rendered by nearly every page,
+ * so a path-conditional navigate() here hijacks whichever page happens to
+ * mount it. That is exactly what broke Journey 360: an earlier version
+ * redirected /journeys/:id/overview -> /v2/bookings/:id/details, a rule added
+ * when that path was a retired route. It later became the live Journey 360
+ * route (App.tsx), so every entry point into Journey 360 -- the PC dashboard
+ * journey click, work queue, Journey Search, Review Queue, and the Documents
+ * page's "Journey Details" back buttons -- silently bounced to Booking Details
+ * instead. Route-specific behaviour belongs in the route or the page. */
 export default function PageHeader({ eyebrow, title, description, actions }: Props) {
-  const location = useLocation();
-  const navigate = useNavigate();
-  const legacyOverviewMatch = location.pathname.match(/^\/journeys\/([^/]+)\/overview\/?$/);
-  const bookingDetailsSurface = Boolean(legacyOverviewMatch)
-    || /^\/v2\/bookings\/[^/]+\/details\/?$/.test(location.pathname);
-
-  useEffect(() => {
-    if (!legacyOverviewMatch) return;
-    navigate(`/v2/bookings/${legacyOverviewMatch[1]}/details`, { replace: true });
-  }, [legacyOverviewMatch, navigate]);
-
-  const effectiveEyebrow = bookingDetailsSurface ? 'Booking Details' : eyebrow;
-  const effectiveTitle = bookingDetailsSurface && title === 'Journey unavailable'
-    ? 'Booking Details unavailable'
-    : title;
-  const effectiveDescription = bookingDetailsSurface && description === 'This Journey was not found in your current authorized Project scope.'
-    ? 'Booking details could not be loaded for the current authorized Project scope.'
-    : description;
-
   return (
     <header className="page-header">
       <div className="page-header__copy">
-        <span className="eyebrow">{effectiveEyebrow}</span>
+        <span className="eyebrow">{eyebrow}</span>
         <div className="page-header__title-row">
-          <h1>{effectiveTitle}</h1>
+          <h1>{title}</h1>
         </div>
-        {effectiveDescription && <p>{effectiveDescription}</p>}
+        {description && <p>{description}</p>}
       </div>
       {actions && <div className="page-header__actions">{actions}</div>}
     </header>

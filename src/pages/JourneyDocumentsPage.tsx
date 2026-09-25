@@ -5,7 +5,7 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { ErrorBoundary } from '../components/ErrorBoundary';
 import PageHeader from '../components/PageHeader';
 import AttributeEvidenceViewer, { hasBoxedEvidence } from '../features/uc03/AttributeEvidenceViewer';
-import { DocumentCard, ReviewDocumentStatusCard } from '../features/uc03/CaptureDocumentCard';
+import { DocumentCard, ReviewDocumentStatusCard, cardStatus, CARD_STATUS_LABEL } from '../features/uc03/CaptureDocumentCard';
 import ModifyModelModal from '../features/uc03/ModifyModelModal';
 import { LoanDisbursementModal } from '../features/uc03/LoanDisbursementPicker';
 import { categoryFor, categoryTitle, FIELD_CATEGORY_ORDER, type FieldCategory } from '../features/uc03/fieldCategoryGroups';
@@ -466,14 +466,12 @@ const _LEVEL_ORDER = ['REQUIRED', 'CONDITIONAL', 'OPTIONAL'] as const;
 
 function ChecklistCard({
   item,
-  index,
   onOpenDocument,
   onDelete,
   deleteBusyId,
   locked,
 }: {
   item: ChecklistEntry;
-  index: number;
   onOpenDocument: (stage: Stage, documentId: string) => void;
   onDelete: (stage: Stage, documentId: string) => void;
   deleteBusyId?: string;
@@ -482,17 +480,6 @@ function ChecklistCard({
   const documentId = item.document?.documentId;
   return (
     <div className="uc03-jd-card-slot">
-      {/* Direct user correction (2026-09-24): the stage badge repeated on
-          every single card what the section heading right above the grid
-          already says -- removed. The level badge stays: it's real
-          per-card information (this specific item is Optional/Conditional)
-          that the shared "Booking"/"Delivery" heading can't carry once
-          Mandatory and Optional items sit in the same row. */}
-      {item.requirementLevel !== 'REQUIRED' ? (
-        <div className="uc03-jd-card-slot__badges">
-          <span className="uc03-jd-checklist-level">{item.requirementLevel.toLowerCase()}</span>
-        </div>
-      ) : null}
       {item.document && documentId ? (
         <div className="uc03-jd-card-with-delete">
           <button
@@ -501,12 +488,22 @@ function ChecklistCard({
             disabled={locked}
             onClick={() => onOpenDocument(item.stage, documentId)}
           >
-            <DocumentCard document={item.document} index={index} />
+            <article className={`uc03-doc-card is-${cardStatus(item.document)}`}>
+              <header>
+                <span className="uc03-doc-card__label">{item.label}</span>
+                {item.requirementLevel !== 'REQUIRED' ? (
+                  <span className="uc03-doc-card__level">{item.requirementLevel.toLowerCase()}</span>
+                ) : null}
+              </header>
+              <strong className="uc03-doc-card__name">
+                {item.document.classifiedDocumentTypeKey ? displayName(item.document.classifiedDocumentTypeKey) : item.document.originalFilename}
+              </strong>
+              <div className="uc03-doc-card__status">
+                <span className="uc03-doc-card__dot" aria-hidden="true" />
+                {CARD_STATUS_LABEL[cardStatus(item.document)]}
+              </div>
+            </article>
           </button>
-          {/* A document occupying a REQUIRED/CONDITIONAL slot may still be
-              deleted -- per the approved unification plan, delete is valid
-              until the stage itself is marked complete (server-enforced),
-              not gated by which requirement it fills. */}
           <button
             type="button"
             className="uc03-jd-card-delete"
@@ -520,6 +517,9 @@ function ChecklistCard({
       ) : (
         <div className="uc03-doc-card is-missing">
           <strong className="uc03-doc-card__name">{item.label}</strong>
+          {item.requirementLevel !== 'REQUIRED' ? (
+            <span className="uc03-doc-card__level">{item.requirementLevel.toLowerCase()}</span>
+          ) : null}
           <div className="uc03-doc-card__status">
             <span className="uc03-doc-card__dot" aria-hidden="true" />
             Missing
@@ -566,11 +566,10 @@ function ChecklistSection({
         <span>{received} of {items.length}</span>
       </div>
       <div className="uc03-doc-card-grid">
-        {ordered.map((item, index) => (
+        {ordered.map((item) => (
           <ChecklistCard
             key={`${item.stage}:${item.requirementKey}`}
             item={item}
-            index={index}
             onOpenDocument={onOpenDocument}
             onDelete={onDelete}
             deleteBusyId={deleteBusyId}
@@ -1436,7 +1435,7 @@ export default function JourneyDocumentsPage() {
   };
 
   const handleDeleteBooking = async (documentId: string) => {
-    if (!project || !journeyId) return;
+    if (!project || !journeyId || !accessToken) return;
     setDeleteBusyId(documentId);
     try {
       await deleteBookingCaptureV2Document(project.tenantId, journeyId, documentId, accessToken);
@@ -1444,13 +1443,15 @@ export default function JourneyDocumentsPage() {
         bookingCaptureQuery.refetch(),
         queryClient.invalidateQueries({ queryKey: ['uc03-journey-documents-booking', project.tenantId, journeyId] }),
       ]);
+    } catch (error) {
+      console.error('Failed to delete booking document:', error);
     } finally {
       setDeleteBusyId(undefined);
     }
   };
 
   const handleDeleteDelivery = async (documentId: string) => {
-    if (!project || !journeyId) return;
+    if (!project || !journeyId || !accessToken) return;
     setDeleteBusyId(documentId);
     try {
       await deleteDeliveryCaptureV2Document(project.tenantId, journeyId, documentId, accessToken);
@@ -1458,6 +1459,8 @@ export default function JourneyDocumentsPage() {
         deliveryCaptureQuery.refetch(),
         queryClient.invalidateQueries({ queryKey: ['uc03-journey-documents-delivery', project.tenantId, journeyId] }),
       ]);
+    } catch (error) {
+      console.error('Failed to delete delivery document:', error);
     } finally {
       setDeleteBusyId(undefined);
     }

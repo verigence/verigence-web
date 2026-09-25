@@ -231,7 +231,7 @@
   background: #fff;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
   transition: all 0.2s;
 }
 
@@ -241,27 +241,15 @@
 }
 
 .uc03-doc-card header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 8px;
+  display: none;
 }
 
 .uc03-doc-card__label {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--vg-text-muted);
+  display: none;
 }
 
 .uc03-doc-card__level {
-  font-size: 10px;
-  font-weight: 700;
-  text-transform: uppercase;
-  padding: 2px 6px;
-  background: color-mix(in srgb, var(--vg-brand-teal) 15%, transparent);
-  color: var(--vg-brand-teal);
-  border-radius: 4px;
-  letter-spacing: 0.05em;
+  display: none;
 }
 
 .uc03-doc-card__name {
@@ -269,22 +257,27 @@
   font-weight: 700;
   color: var(--vg-brand-navy);
   margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .uc03-doc-card__status {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 12px;
+  font-size: 13px;
+  font-weight: 500;
   color: var(--vg-text-muted);
 }
 
 .uc03-doc-card__dot {
   display: inline-block;
-  width: 6px;
-  height: 6px;
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
   background: var(--vg-warning);
+  flex-shrink: 0;
 }
 
 .uc03-doc-card.is-classified .uc03-doc-card__dot,
@@ -357,7 +350,7 @@
 
 .uc03-doc-card-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
   gap: 12px;
 }
 

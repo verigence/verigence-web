@@ -223,11 +223,9 @@ function LegacyOperationalPage({ children }: { children: ReactNode }) {
 function V2JourneyRedirect({ target }: { target: 'BOOKING' | 'BOOKING_REVIEW' | 'DELIVERY' }) {
   const { journeyId = '' } = useParams();
   if (!journeyId) return <Navigate to="/dashboard" replace />;
-  // BOOKING and BOOKING_REVIEW both land on the one unified Documents page
-  // now -- BookingCaptureV2WorkspacePage's own upload/checklist/Submit UI
-  // and BookingReviewV2Page's Accept/Reject/Confirm-reviewed-values flow
-  // were both folded into JourneyDocumentsPage, so there is nothing left
-  // for either former destination to render.
+  // BOOKING and BOOKING_REVIEW both land on the one unified Documents page.
+  // BookingCaptureV2WorkspacePage and BookingReviewV2Page were folded into
+  // JourneyDocumentsPage; no separate destination to render.
   const path = target === 'DELIVERY'
     ? `/v2/deliveries/${journeyId}`
     : `/journeys/${journeyId}/documents`;
@@ -306,11 +304,8 @@ export default function App() {
               <Route path="/v2/bookings/:journeyId/review" element={<JourneyDocumentsRedirect />} />
               <Route path="/deliveries/:journeyId" element={<V2JourneyRedirect target="DELIVERY" />} />
               <Route path="/v2/deliveries/:journeyId" element={<OverviewJourneyPage><DeliveryCaptureV2Page /></OverviewJourneyPage>} />
-              {/* DeliveryReviewV2Page's Accept/Reject/Confirm flow was never
-                  reachable in production (no real Link/navigate anywhere
-                  pointed at this route, confirmed by an exhaustive search) --
-                  redirected rather than left to 404 in case anything
-                  unexpected still links here. */}
+              {/* Delivery review routes redirect to JourneyDocumentsPage
+                  (was never reachable in production). */}
               <Route path="/v2/deliveries/:journeyId/review" element={<JourneyDocumentsRedirect />} />
               <Route path="/audit/:journeyId" element={<OperationalPage><AuditReviewPage /></OperationalPage>} />
               <Route path="/feedback" element={<OperationalShellPage><FeedbackPage /></OperationalShellPage>} />

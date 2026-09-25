@@ -1,10 +1,7 @@
 /**
  * Shared field-category classifier: buckets any extracted/reviewed field
  * into one of four business categories by its key/label text, purely via
- * keyword matching (no fuzzy scoring, no server round trip). Originally
- * inline in DeliveryReviewV2Page.tsx; extracted so JourneyDocumentsPage.tsx
- * groups its own per-document field list (e.g. payment fields together)
- * the same way instead of drifting into its own copy.
+ * keyword matching. Used across review pages to group fields consistently.
  */
 export type FieldCategory = 'CUSTOMER' | 'VEHICLE' | 'FINANCIAL' | 'OTHER';
 

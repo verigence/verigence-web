@@ -86,11 +86,7 @@ function isHighConfidence(confidenceScore: number | null): boolean {
   return confidenceScore !== null && confidenceScore !== undefined && confidenceScore >= REVIEW_THRESHOLD;
 }
 
-// Ported from the retired BookingReviewV2Page (the Accept/Reject +
-// Confirm-reviewed-values flow, still live via the Dashboard's "Review
-// Booking" work-queue card, the global review-ready notification, and the
-// legacy Booking workspace page) -- same logic, now a section of this page
-// instead of a separate destination.
+// Accept/Reject + Confirm-reviewed-values flow for booking review
 const RECEIPT_DOCUMENT_TYPE = 'dealer_receipt';
 
 function hasExtractedValue(attribute: ReviewV2Attribute): boolean {
@@ -876,12 +872,9 @@ function ModelResolutionSkuPicker({
 }
 
 /**
- * Accept/Reject each low-confidence extracted value, then Submit (first
- * time) or Confirm reviewed values (once already submitted but not yet
- * PC-verified) -- ported verbatim from the retired BookingReviewV2Page, now
- * a section of the one Documents page instead of a separate destination.
+ * Accept/Reject extracted values, then Submit or Confirm reviewed values.
  * Reuses the already-fetched booking review query rather than a second
- * network round trip for the same data.
+ * network round trip.
  */
 function BookingReviewSection({
   review,

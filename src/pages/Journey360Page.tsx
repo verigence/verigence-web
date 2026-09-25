@@ -382,7 +382,7 @@ function documentId(doc: Record<string, unknown>, idx: number): string {
 // real document type was assigned); "Extracted" means at least one field
 // was actually pulled from that specific document, keyed the same way
 // DocumentSelector already matches a document to its own reviewed fields.
-=ing>
+
 // ── Document dropdown: pick one document, see its own file + its own
 // extracted values only. Replaces a prior design that rendered every
 // document's every reviewed field, in every business category, all at

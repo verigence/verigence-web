@@ -382,30 +382,7 @@ function documentId(doc: Record<string, unknown>, idx: number): string {
 // real document type was assigned); "Extracted" means at least one field
 // was actually pulled from that specific document, keyed the same way
 // DocumentSelector already matches a document to its own reviewed fields.
-function documentExtractionCounts(
-  documents: Array<Record<string, unknown>>,
-  reviewedFields: JourneyReviewedField[],
-): { uploaded: number; classified: number; extracted: number; duplicates: number } {
-  const extractedIds = new Set(reviewedFields.map((field) => field.documentId));
-  let classified = 0;
-  let extracted = 0;
-  let duplicates = 0;
-  documents.forEach((doc, idx) => {
-    if (doc.documentTypeKey) {
-      classified += 1;
-      // Classified but never bound to an open requirement slot (see
-      // audit_core._requirements_with_open_slot) -- an extra copy of a
-      // single-document requirement that's already filled. requirementKey
-      // comes straight off document_capture_v2_documents (see
-      // uc03_journey_overview_projection._documents), same signal
-      // JourneyDocumentsPage's own "Extra copies" summary uses.
-      if (!doc.requirementKey) duplicates += 1;
-    }
-    if (extractedIds.has(documentId(doc, idx))) extracted += 1;
-  });
-  return { uploaded: documents.length, classified, extracted, duplicates };
-}
-
+=ing>
 // ── Document dropdown: pick one document, see its own file + its own
 // extracted values only. Replaces a prior design that rendered every
 // document's every reviewed field, in every business category, all at
@@ -2297,10 +2274,7 @@ export default function Journey360Page() {
   const steps = useMemo(() => (model ? deriveSteps(model).steps : []), [model]);
   const aspects = useMemo(() => (model ? deriveAspects(model) : []), [model]);
   const openCount = useMemo(() => (model ? openFindings(model).length : 0), [model]);
-  const documentCounts = useMemo(
-    () => documentExtractionCounts(model?.evidence || [], model?.reviewedFields || []),
-    [model?.evidence, model?.reviewedFields],
-  );
+  const documentCounts = model?.documentCounts ?? { uploaded: 0, classified: 0, extracted: 0, duplicates: 0 };
   const failedExtractionCount = useMemo(
     () => (model?.evidence || []).filter((doc) => doc.processingStatus === 'FAILED').length,
     [model?.evidence],

@@ -613,18 +613,17 @@ function DocumentList({
             This keeps the header saying SOMETHING the whole time. */}
         <span>{syncing ? 'Syncing latest uploads…' : `${received} of ${applicable.length} received`}</span>
       </header>
-      <div className="uc03-doc-card-grid">
-        {applicable.map((item) => (
-          <ChecklistCard
-            key={`${item.stage}:${item.requirementKey}`}
-            item={item}
-            onOpenDocument={onOpenDocument}
-            onDelete={onDelete}
-            deleteBusyId={deleteBusyId}
-            locked={locked}
-          />
-        ))}
-      </div>
+      {(['BOOKING', 'DELIVERY'] as const).map((stage) => (
+        <ChecklistSection
+          key={stage}
+          stage={stage}
+          items={applicable.filter((item) => item.stage === stage)}
+          onOpenDocument={onOpenDocument}
+          onDelete={onDelete}
+          deleteBusyId={deleteBusyId}
+          locked={locked}
+        />
+      ))}
       {extraDocuments.length > 0 ? (
         <div className="uc03-jd-section uc03-jd-section--extra">
           <div className="uc03-jd-section__head">

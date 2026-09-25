@@ -43,6 +43,12 @@ import {
   type ReviewV2UnmappedField,
 } from '../services/audit-core/uc03DocumentReviewV2';
 import {
+  deleteVehiclePhoto,
+  listVehiclePhotos,
+  uploadVehiclePhotos,
+  type VehiclePhoto,
+} from '../services/audit-core/uc03DeliveryVehiclePhotos';
+import {
   confirmModelResolutionSku,
   getModelResolutionCandidates,
 } from '../services/audit-core/uc03ModelResolution';
@@ -691,6 +697,83 @@ function DuplicateDocumentsSummary({ counts }: { counts: Map<string, number> }) 
   );
 }
 
+function CarPhotosSection({
+  photos,
+  onUpload,
+  onDelete,
+  uploading,
+  deletingPhotoId,
+}: {
+  photos: VehiclePhoto[];
+  onUpload: (files: File[]) => void;
+  onDelete: (photoId: string) => void;
+  uploading: boolean;
+  deletingPhotoId?: string;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [dragOver, setDragOver] = useState(false);
+
+  return (
+    <>
+      <div
+        className={`uc03-jd-upload ${dragOver ? 'is-dragover' : ''}`}
+        onDragOver={(event) => { event.preventDefault(); setDragOver(true); }}
+        onDragLeave={() => setDragOver(false)}
+        onDrop={(event) => {
+          event.preventDefault();
+          setDragOver(false);
+          const files = Array.from(event.dataTransfer.files || []);
+          if (files.length) onUpload(files);
+        }}
+      >
+        <input
+          ref={inputRef}
+          type="file"
+          multiple
+          accept="image/*"
+          hidden
+          onChange={(event) => {
+            const files = Array.from(event.currentTarget.files || []);
+            if (files.length) onUpload(files);
+            event.currentTarget.value = '';
+          }}
+        />
+        <button
+          type="button"
+          className="uc03-jd-upload-button"
+          disabled={uploading}
+          onClick={() => inputRef.current?.click()}
+        >
+          {uploading ? 'Uploading…' : '+ Add photos'}
+        </button>
+      </div>
+
+      {photos.length > 0 ? (
+        <div className="uc03-jd-photos-gallery">
+          {photos.map((photo) => (
+            <div key={photo.photoId} className="uc03-jd-photo-card">
+              <img src={photo.contentUrl} alt={photo.originalFilename} />
+              <button
+                type="button"
+                className="uc03-jd-photo-delete"
+                onClick={() => onDelete(photo.photoId)}
+                disabled={deletingPhotoId === photo.photoId}
+                title="Delete photo"
+              >
+                ✕
+              </button>
+            </div>
+          ))}
+        </div>
+      ) : null}
+
+      {photos.length === 0 ? (
+        <p className="uc03-jd-empty">No vehicle photos yet.</p>
+      ) : null}
+    </>
+  );
+}
+
 function UploadDropzone({
   onFilesSelected,
   busy,
@@ -1207,6 +1290,9 @@ export default function JourneyDocumentsPage() {
   const [startError, setStartError] = useState<string>();
   const [resyncing, setResyncing] = useState(false);
   const [deleteBusyId, setDeleteBusyId] = useState<string>();
+  const [uploadingPhotos, setUploadingPhotos] = useState(false);
+  const [photoUploadError, setPhotoUploadError] = useState<string>();
+  const [deletingPhotoId, setDeletingPhotoId] = useState<string>();
 
   const enabled = Boolean(project?.tenantId && journeyId && accessToken);
   const bookingQuery = useQuery({
@@ -1247,6 +1333,13 @@ export default function JourneyDocumentsPage() {
     refetchInterval: (query) => (
       deliveryCaptureV2IsProcessing(query.state.data) || recentlyUploaded() ? POLL_MS : false
     ),
+  });
+  const vehiclePhotosQuery = useQuery({
+    queryKey: ['uc03-vehicle-photos', project?.tenantId, journeyId],
+    queryFn: () => listVehiclePhotos(project!.tenantId, journeyId!, accessToken),
+    enabled,
+    retry: false,
+    refetchOnWindowFocus: false,
   });
 
   // Same "still settling" signal the polling above already uses, reused
@@ -1359,6 +1452,31 @@ export default function JourneyDocumentsPage() {
       ]);
     } finally {
       setDeleteBusyId(undefined);
+    }
+  };
+
+  const handleUploadPhotos = async (files: File[]) => {
+    if (!project || !journeyId) return;
+    setUploadingPhotos(true);
+    setPhotoUploadError(undefined);
+    try {
+      await uploadVehiclePhotos(project.tenantId, journeyId, files, accessToken);
+      await vehiclePhotosQuery.refetch();
+    } catch (error) {
+      setPhotoUploadError(error instanceof Error ? error.message : 'Failed to upload photos');
+    } finally {
+      setUploadingPhotos(false);
+    }
+  };
+
+  const handleDeletePhoto = async (photoId: string) => {
+    if (!project || !journeyId) return;
+    setDeletingPhotoId(photoId);
+    try {
+      await deleteVehiclePhoto(project.tenantId, journeyId, photoId, accessToken);
+      await vehiclePhotosQuery.refetch();
+    } finally {
+      setDeletingPhotoId(undefined);
     }
   };
 
@@ -1632,6 +1750,35 @@ export default function JourneyDocumentsPage() {
         {!checklist.length && !extraDocuments.length ? (
           <p className="uc03-jd-empty">No documents have been uploaded for this Journey yet.</p>
         ) : null}
+      </section>
+
+      <section className="uc03-jd-section" aria-labelledby="jd-photos-heading">
+        <h2 id="jd-photos-heading" className="uc03-jd-section-heading">3. Vehicle photos</h2>
+        {vehiclePhotosQuery.isError ? (
+          <div className="uc03-jd-block-banner uc03-jd-block-banner--error" role="alert">
+            Could not load vehicle photos.
+            {' '}
+            <button
+              type="button"
+              className="uc03-jd-modify-model"
+              onClick={() => void vehiclePhotosQuery.refetch()}
+            >
+              Retry
+            </button>
+          </div>
+        ) : null}
+        {photoUploadError ? (
+          <div className="uc03-jd-block-banner uc03-jd-block-banner--error" role="alert">
+            {photoUploadError}
+          </div>
+        ) : null}
+        <CarPhotosSection
+          photos={vehiclePhotosQuery.data ?? []}
+          onUpload={(files) => void handleUploadPhotos(files)}
+          onDelete={(photoId) => void handleDeletePhoto(photoId)}
+          uploading={uploadingPhotos}
+          deletingPhotoId={deletingPhotoId}
+        />
       </section>
 
       {bookingQuery.data ? (

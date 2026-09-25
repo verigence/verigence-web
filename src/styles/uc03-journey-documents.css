@@ -239,6 +239,80 @@
   font-size: 13px;
 }
 
+.uc03-jd-upload-button {
+  background: var(--jd-accent);
+  color: #fff;
+  border: 0;
+  border-radius: 8px;
+  padding: 10px 16px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+.uc03-jd-upload-button:hover:not(:disabled) {
+  opacity: 0.9;
+}
+.uc03-jd-upload-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.uc03-jd-photos-gallery {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 12px;
+}
+
+.uc03-jd-photo-card {
+  position: relative;
+  border-radius: 8px;
+  overflow: hidden;
+  aspect-ratio: 1;
+  background: #f0f0f0;
+  border: 1px solid var(--v-line, #dbe6ee);
+}
+
+.uc03-jd-photo-card img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.uc03-jd-photo-delete {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  border: 0;
+  border-radius: 4px;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  font-size: 18px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.uc03-jd-photo-card:hover .uc03-jd-photo-delete {
+  opacity: 1;
+}
+
+.uc03-jd-photo-delete:hover:not(:disabled) {
+  background: rgba(0, 0, 0, 0.8);
+}
+
+.uc03-jd-photo-delete:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
 /* Two clearly separate steps -- Upload, then Existing documents -- instead
    of one long undifferentiated stack. Each section's own cards (dropzone,
    checklist, buckets) keep their existing borders; this wrapper is just a
@@ -645,5 +719,8 @@
   }
   .uc03-jd-upload {
     padding: 14px;
+  }
+  .uc03-jd-photos-gallery {
+    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
   }
 }

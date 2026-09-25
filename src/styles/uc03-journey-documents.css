@@ -313,6 +313,93 @@
   opacity: 0.5;
 }
 
+.uc03-jd-upload-container {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+.uc03-jd-upload-column h3 {
+  margin: 0 0 12px 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--v-slate, #31506e);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.uc03-jd-status-section {
+  background: #f9fafb;
+  border: 1px solid var(--v-line, #dbe6ee);
+  border-radius: 12px;
+  padding: 16px;
+}
+
+.uc03-jd-status-indicators {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.uc03-jd-status-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.uc03-jd-status-label {
+  font-size: 13px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.uc03-jd-status-label.uploading,
+.uc03-jd-status-label.pending {
+  color: #f59e0b;
+}
+
+.uc03-jd-status-label.complete {
+  color: #10b981;
+}
+
+.uc03-jd-status-count {
+  font-size: 12px;
+  color: var(--v-muted, #6e879b);
+}
+
+.uc03-jd-status-timer {
+  font-size: 13px;
+  font-weight: 600;
+  color: #f59e0b;
+  padding: 8px 0;
+}
+
+.uc03-jd-submit-button {
+  background: var(--jd-accent);
+  color: #fff;
+  border: 0;
+  border-radius: 8px;
+  padding: 12px 24px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.2s;
+  width: 100%;
+  max-width: 300px;
+}
+
+.uc03-jd-submit-button:hover:not(:disabled) {
+  opacity: 0.9;
+}
+
+.uc03-jd-submit-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 /* Two clearly separate steps -- Upload, then Existing documents -- instead
    of one long undifferentiated stack. Each section's own cards (dropzone,
    checklist, buckets) keep their existing borders; this wrapper is just a
@@ -722,5 +809,8 @@
   }
   .uc03-jd-photos-gallery {
     grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+  }
+  .uc03-jd-upload-container {
+    grid-template-columns: 1fr;
   }
 }

@@ -1293,6 +1293,11 @@ export default function JourneyDocumentsPage() {
   const [uploadingPhotos, setUploadingPhotos] = useState(false);
   const [photoUploadError, setPhotoUploadError] = useState<string>();
   const [deletingPhotoId, setDeletingPhotoId] = useState<string>();
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string>();
+  const uploadStartTimeRef = useRef<number | null>(null);
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const SUBMIT_UNLOCK_TIMER_MS = 3 * 60 * 1000;
 
   const enabled = Boolean(project?.tenantId && journeyId && accessToken);
   const bookingQuery = useQuery({
@@ -1480,9 +1485,54 @@ export default function JourneyDocumentsPage() {
     }
   };
 
+  const handleSubmitBooking = async () => {
+    if (!project || !journeyId) return;
+    setSubmitting(true);
+    setSubmitError(undefined);
+    try {
+      await submitSimplifiedBookingV2(project.tenantId, journeyId, accessToken);
+      uploadStartTimeRef.current = null;
+      setElapsedSeconds(0);
+      // Redirect to overview or show success
+      navigate(`/journeys/${journeyId}/overview`);
+    } catch (error) {
+      setSubmitError(error instanceof Error ? error.message : 'Failed to submit booking');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const timerSeconds = Math.max(0, SUBMIT_UNLOCK_TIMER_MS / 1000 - elapsedSeconds);
+  const canSubmit = !pendingClassification || timerSeconds <= 0;
+
+  // Timer to show upload elapsed time and 3-minute unlock
+  useEffect(() => {
+    if (!uploading && uploadStartTimeRef.current === null) return undefined;
+    if (uploading && uploadStartTimeRef.current === null) {
+      uploadStartTimeRef.current = Date.now();
+    }
+    const timer = setInterval(() => {
+      if (uploadStartTimeRef.current) {
+        const elapsed = Math.floor((Date.now() - uploadStartTimeRef.current) / 1000);
+        setElapsedSeconds(elapsed);
+      }
+    }, 100);
+    return () => clearInterval(timer);
+  }, [uploading]);
+
+  // Reset timer when upload completes or docs are classified
+  useEffect(() => {
+    if (!uploading && !pendingClassification) {
+      uploadStartTimeRef.current = null;
+      setElapsedSeconds(0);
+    }
+  }, [uploading, pendingClassification]);
+
   const handleUpload = async (files: File[]) => {
     if (!project || !journeyId) return;
     lastUploadAtRef.current = Date.now();
+    uploadStartTimeRef.current = Date.now();
+    setElapsedSeconds(0);
     setUploading(true);
     setUploadMessage(undefined);
     setUploadError(undefined);
@@ -1714,12 +1764,64 @@ export default function JourneyDocumentsPage() {
       ) : null}
 
       <section className="uc03-jd-section" aria-labelledby="jd-upload-heading">
-        <h2 id="jd-upload-heading" className="uc03-jd-section-heading">1. Upload documents</h2>
-        <UploadDropzone onFilesSelected={(files) => void handleUpload(files)} busy={uploading} message={uploadMessage} error={uploadError} />
+        <h2 id="jd-upload-heading" className="uc03-jd-section-heading">1. Upload documents & photos</h2>
+        <div className="uc03-jd-upload-container">
+          <div className="uc03-jd-upload-column">
+            <h3>Documents</h3>
+            <UploadDropzone onFilesSelected={(files) => void handleUpload(files)} busy={uploading} message={uploadMessage} error={uploadError} />
+          </div>
+          <div className="uc03-jd-upload-column">
+            <h3>Vehicle Photos</h3>
+            <CarPhotosSection
+              photos={vehiclePhotosQuery.data ?? []}
+              onUpload={(files) => void handleUploadPhotos(files)}
+              onDelete={(photoId) => void handleDeletePhoto(photoId)}
+              uploading={uploadingPhotos}
+              deletingPhotoId={deletingPhotoId}
+            />
+          </div>
+        </div>
+      </section>
+
+      <section className="uc03-jd-section uc03-jd-status-section">
+        <h2>Upload Status</h2>
+        <div className="uc03-jd-status-indicators">
+          <div className="uc03-jd-status-item">
+            <span className={`uc03-jd-status-label ${uploading ? 'uploading' : 'complete'}`}>
+              {uploading ? '⏳ Uploading' : '✓ Uploaded'}
+            </span>
+            <span className="uc03-jd-status-count">{(bookingCaptureQuery.data?.uploads.length ?? 0) + (deliveryCaptureQuery.data?.uploads.length ?? 0)} documents</span>
+          </div>
+          <div className="uc03-jd-status-item">
+            <span className={`uc03-jd-status-label ${pendingClassification ? 'pending' : 'complete'}`}>
+              {pendingClassification ? '⏳ Classifying' : '✓ Classified'}
+            </span>
+            <span className="uc03-jd-status-count">{(bookingCaptureQuery.data?.uploads.filter((u) => u.classifiedDocumentTypeKey).length ?? 0) + (deliveryCaptureQuery.data?.uploads.filter((u) => u.classifiedDocumentTypeKey).length ?? 0)} of {(bookingCaptureQuery.data?.uploads.length ?? 0) + (deliveryCaptureQuery.data?.uploads.length ?? 0)}</span>
+          </div>
+          {(uploading || pendingClassification) && timerSeconds > 0 ? (
+            <div className="uc03-jd-status-timer">
+              Auto-unlock in {Math.floor(timerSeconds / 60)}:{String(Math.floor(timerSeconds % 60)).padStart(2, '0')}
+            </div>
+          ) : null}
+        </div>
+        {submitError ? (
+          <div className="uc03-jd-block-banner uc03-jd-block-banner--error" role="alert">
+            {submitError}
+          </div>
+        ) : null}
+        <button
+          type="button"
+          className="uc03-jd-submit-button"
+          disabled={!canSubmit || submitting}
+          onClick={() => void handleSubmitBooking()}
+          title={!canSubmit ? `Submit unlocks when documents are classified or timer expires (${Math.floor(timerSeconds / 60)}:${String(Math.floor(timerSeconds % 60)).padStart(2, '0')} remaining)` : ''}
+        >
+          {submitting ? 'Submitting…' : 'Submit Documents'}
+        </button>
       </section>
 
       <section className="uc03-jd-section" aria-labelledby="jd-existing-heading">
-        <h2 id="jd-existing-heading" className="uc03-jd-section-heading">2. Documents</h2>
+        <h2 id="jd-existing-heading" className="uc03-jd-section-heading">2. Review uploaded documents</h2>
 
         {/* Scoped boundary: this section talks to a newer endpoint --
             if it hits a bug, the rest of Journey Documents (uploads, the
@@ -1751,51 +1853,6 @@ export default function JourneyDocumentsPage() {
           <p className="uc03-jd-empty">No documents have been uploaded for this Journey yet.</p>
         ) : null}
       </section>
-
-      <section className="uc03-jd-section" aria-labelledby="jd-photos-heading">
-        <h2 id="jd-photos-heading" className="uc03-jd-section-heading">3. Vehicle photos</h2>
-        {vehiclePhotosQuery.isError ? (
-          <div className="uc03-jd-block-banner uc03-jd-block-banner--error" role="alert">
-            Could not load vehicle photos.
-            {' '}
-            <button
-              type="button"
-              className="uc03-jd-modify-model"
-              onClick={() => void vehiclePhotosQuery.refetch()}
-            >
-              Retry
-            </button>
-          </div>
-        ) : null}
-        {photoUploadError ? (
-          <div className="uc03-jd-block-banner uc03-jd-block-banner--error" role="alert">
-            {photoUploadError}
-          </div>
-        ) : null}
-        <CarPhotosSection
-          photos={vehiclePhotosQuery.data ?? []}
-          onUpload={(files) => void handleUploadPhotos(files)}
-          onDelete={(photoId) => void handleDeletePhoto(photoId)}
-          uploading={uploadingPhotos}
-          deletingPhotoId={deletingPhotoId}
-        />
-      </section>
-
-      {bookingQuery.data ? (
-        <ErrorBoundary fallback={null}>
-          <BookingReviewSection
-            review={bookingQuery.data}
-            tenantId={project.tenantId}
-            journeyId={journeyId}
-            accessToken={accessToken}
-            onEvidence={setSelectedSource}
-            onChanged={() => {
-              void bookingQuery.refetch();
-              void queryClient.invalidateQueries({ queryKey: ['uc03-journey-documents-workspace', project.tenantId, journeyId] });
-            }}
-          />
-        </ErrorBoundary>
-      ) : null}
 
       {openDocument ? (
         <DocumentReviewModal

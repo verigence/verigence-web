@@ -9,14 +9,19 @@ import type { CaptureV2Applicability, CaptureV2Document } from './uc03DocumentCa
  * (reconcileUnifiedDocuments below).
  *
  * Phase 4 unification: this module now also owns the single GET/DELETE/
- * resync surface for both stages (uc03DocumentCaptureV2.ts's/
- * uc03DeliveryCaptureV2.ts's own getBookingCaptureV2/getDeliveryCaptureV2/
- * deleteBookingCaptureV2Document/deleteDeliveryCaptureV2Document/
- * resyncBookingCaptureV2/resyncDeliveryCaptureV2 are gone -- the backend
- * endpoints they called no longer exist). Those two files now export only
- * the shared types and the stage-specific actions that remain genuinely
- * different (completeBookingCaptureV2/submitDeliveryCaptureV2 -- different
- * concurrency model and confirmation checks, not stage-duplicated logic).
+ * resync surface for both stages (uc03DocumentCaptureV2.ts's own
+ * getBookingCaptureV2/getDeliveryCaptureV2/deleteBookingCaptureV2Document/
+ * deleteDeliveryCaptureV2Document/resyncBookingCaptureV2/
+ * resyncDeliveryCaptureV2 are gone -- the backend endpoints they called no
+ * longer exist, and uc03DeliveryCaptureV2.ts itself was deleted once its
+ * own submitDeliveryCaptureV2 lost its only caller when
+ * DeliveryCaptureV2WorkspacePage/DeliveryDetailsV2Page were retired --
+ * document submission is now a placeholder confirmation gesture, not a
+ * backend call; individual and group rules already run per document as it
+ * uploads). uc03DocumentCaptureV2.ts still exports the shared types and
+ * completeBookingCaptureV2 (genuinely different concurrency model and
+ * confirmation checks from Delivery's own history, not stage-duplicated
+ * logic).
  */
 
 interface UploadIntentResult {

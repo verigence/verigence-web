@@ -14,6 +14,7 @@ import ReviewEffectiveValueEditor, { reviewSourceKey } from '../features/uc03/Re
 import { displayName } from '../utils/displayNames';
 import { AuditCoreHttpError } from '../services/audit-core/client';
 import { getBookingWorkspace, startBooking } from '../services/audit-core/uc03Booking';
+import { getDeliveryWorkspace, startDelivery } from '../services/audit-core/uc03Delivery';
 import { submitSimplifiedBookingV2 } from '../services/audit-core/uc03BookingV2';
 import {
   confirmBookingReviewV2,
@@ -56,11 +57,9 @@ import '../styles/uc03-attribute-audit-review.css';
 
 type Stage = 'BOOKING' | 'DELIVERY';
 const REVIEW_THRESHOLD = 90;
-// Matches DeliveryCaptureV2WorkspacePage's CAPTURE_POLL_MS -- direct user
-// correction (2026-09-24): this screen shares the exact same status card
-// and the exact same getUnifiedCaptureV2 read function as Delivery's own
-// workspace, so status transitions (Uploaded -> Classified -> Extracted)
-// should visibly advance at the same pace, not lag behind it for no reason.
+// Direct user correction (2026-09-24): status transitions (Uploaded ->
+// Classified -> Extracted) should visibly advance at a brisk, consistent
+// pace, not lag behind for no reason.
 const POLL_MS = 1_000;
 // Classification/extraction is a background DI step, not instant -- editing
 // a document before its own status has settled risks correcting a value
@@ -1437,6 +1436,49 @@ export default function JourneyDocumentsPage() {
       setStartBusy(false);
     }
   };
+
+  // Direct product instruction: retiring DeliveryCaptureV2WorkspacePage
+  // (folded into this page, mirroring Booking's own earlier unification)
+  // moves its one real side effect here too. Arriving via the Delivery
+  // entry route (App.tsx's V2JourneyRedirect/JourneyDocumentsRedirect for
+  // target="DELIVERY") is already the user's explicit intent to work on
+  // Delivery -- an intermediate "Start Delivery" screen requiring a second,
+  // purely mechanical click added no business value on the old workspace
+  // page either, so this starts it automatically the moment the workspace
+  // confirms it isn't started yet, same as before. Booking's own start
+  // stays a manual button (handleStart above) since that's the genuinely
+  // rare "stale draft resumed later" edge case, not every arrival.
+  const autoStartDelivery = searchParams.get('autoStart') === 'DELIVERY';
+  const [deliveryStarting, setDeliveryStarting] = useState(false);
+  const deliveryWorkspaceQuery = useQuery({
+    queryKey: ['uc03-journey-documents-delivery-workspace', project?.tenantId, journeyId],
+    queryFn: () => getDeliveryWorkspace(project!.tenantId, journeyId!, accessToken),
+    enabled: enabled && autoStartDelivery,
+    retry: false,
+    refetchOnWindowFocus: false,
+  });
+  useEffect(() => {
+    if (!autoStartDelivery || !project || !journeyId) return;
+    if (!deliveryWorkspaceQuery.isSuccess || deliveryStarting) return;
+    if (deliveryWorkspaceQuery.data.delivery.businessStatus) return;
+    setDeliveryStarting(true);
+    startDelivery(project.tenantId, journeyId, accessToken)
+      .then(() =>
+        Promise.all([
+          queryClient.invalidateQueries({ queryKey: ['uc03-journey-documents-checklist', project.tenantId, journeyId] }),
+          queryClient.invalidateQueries({ queryKey: ['uc03-journey-documents-review', project.tenantId, journeyId] }),
+          deliveryWorkspaceQuery.refetch(),
+        ]),
+      )
+      .catch(() => {
+        // Best-effort: a failed auto-start leaves the checklist exactly as
+        // it was (no documents to show yet either way) rather than
+        // blocking the page -- nothing here to explicitly retry on, since
+        // this isn't a PC-facing action with its own error banner.
+      })
+      .finally(() => setDeliveryStarting(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoStartDelivery, deliveryWorkspaceQuery.isSuccess, deliveryWorkspaceQuery.data]);
 
   const handleResync = async () => {
     if (!project || !journeyId) return;

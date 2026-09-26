@@ -9,7 +9,6 @@ import SessionRenewalGate from './components/SessionRenewalGate';
 import AttendanceShellSlot from './features/attendance/AttendanceShellSlot';
 import ProjectAdminOutletLocationEnhancer from './features/project-admin/ProjectAdminOutletLocationEnhancer';
 import ProjectMasterActionOverlay from './features/project-admin/ProjectMasterActionOverlay';
-import OverviewOpenBoundary from './features/uc03/OverviewOpenBoundary';
 import ReviewReadinessWatcher from './features/uc03/ReviewReadinessWatcher';
 import AppShell from './layout/AppShell';
 import AndroidNativeBridge from './native/AndroidNativeBridge';
@@ -23,7 +22,6 @@ const loadBookingReviewPage = () => import('./pages/BookingReviewPage');
 const loadBookingCaptureV2Page = () => import('./pages/BookingCaptureV2Page');
 const loadBookingDetailsV2Page = () => import('./pages/BookingDetailsV2Page');
 const loadDeliveryWorkspacePage = () => import('./pages/DeliveryWorkspacePage');
-const loadDeliveryCaptureV2Page = () => import('./pages/DeliveryCaptureV2Page');
 const loadAuditReviewPage = () => import('./pages/AuditReviewPage');
 
 const LoginPage = lazy(() => import('./pages/LoginPage'));
@@ -47,7 +45,6 @@ const TeamLeadDashboardPage = lazy(() => import('./pages/TeamLeadDashboardPage')
 const TeamLeadReviewPage = lazy(() => import('./pages/TeamLeadReviewPage'));
 const BookingCaptureV2Page = lazy(loadBookingCaptureV2Page);
 const BookingDetailsV2Page = lazy(loadBookingDetailsV2Page);
-const DeliveryCaptureV2Page = lazy(loadDeliveryCaptureV2Page);
 const AuditReviewPage = lazy(loadAuditReviewPage);
 const AttendancePage = lazy(() => import('./pages/AttendancePage'));
 const CustomersPage = lazy(() => import('./pages/CustomersPage'));
@@ -118,7 +115,6 @@ function PcJourneyRoutePreloader() {
           loadBookingCaptureV2Page(),
           loadBookingDetailsV2Page(),
           loadDeliveryWorkspacePage(),
-          loadDeliveryCaptureV2Page(),
           loadAuditReviewPage(),
         ]);
       }, 150);
@@ -200,14 +196,6 @@ function OperationalPage({ children }: { children: ReactNode }) {
   );
 }
 
-function OverviewJourneyPage({ children }: { children: ReactNode }) {
-  return (
-    <OperationalPage>
-      <OverviewOpenBoundary>{children}</OverviewOpenBoundary>
-    </OperationalPage>
-  );
-}
-
 function OperationalShellPage({ children }: { children: ReactNode }) {
   return <Authenticated><ProjectContextGate><AppShell>{children}</AppShell></ProjectContextGate></Authenticated>;
 }
@@ -224,10 +212,13 @@ function V2JourneyRedirect({ target }: { target: 'BOOKING' | 'BOOKING_REVIEW' | 
   const { journeyId = '' } = useParams();
   if (!journeyId) return <Navigate to="/dashboard" replace />;
   // BOOKING and BOOKING_REVIEW both land on the one unified Documents page.
-  // BookingCaptureV2WorkspacePage and BookingReviewV2Page were folded into
-  // JourneyDocumentsPage; no separate destination to render.
+  // BookingCaptureV2WorkspacePage, BookingReviewV2Page, and (per the same
+  // unification) DeliveryCaptureV2WorkspacePage were all folded into
+  // JourneyDocumentsPage; no separate destination to render. DELIVERY still
+  // carries the autoStart param its former workspace's own auto-start side
+  // effect needs -- see JourneyDocumentsRedirect's own comment.
   const path = target === 'DELIVERY'
-    ? `/v2/deliveries/${journeyId}`
+    ? `/journeys/${journeyId}/documents?autoStart=DELIVERY`
     : `/journeys/${journeyId}/documents`;
   return <Navigate to={path} replace />;
 }
@@ -236,11 +227,19 @@ function V2JourneyRedirect({ target }: { target: 'BOOKING' | 'BOOKING_REVIEW' | 
  * workspace directly; that screen's functionality now lives on
  * JourneyDocumentsPage, so this route is a plain redirect. /v2/bookings/new
  * (no journeyId yet) still renders BookingCaptureV2Page for the actual
- * creation step -- see its own docstring. */
-function JourneyDocumentsRedirect() {
+ * creation step -- see its own docstring. /v2/deliveries/:journeyId used to
+ * render DeliveryCaptureV2WorkspacePage the same way -- now folded into
+ * JourneyDocumentsPage too, per the same unification. target="DELIVERY"
+ * carries over that former workspace's one real side effect (auto-starting
+ * Delivery the moment the page confirms it isn't started yet) via a query
+ * param JourneyDocumentsPage itself reads -- see its own comment. */
+function JourneyDocumentsRedirect({ target }: { target?: 'DELIVERY' } = {}) {
   const { journeyId = '' } = useParams();
   if (!journeyId) return <Navigate to="/dashboard" replace />;
-  return <Navigate to={`/journeys/${journeyId}/documents`} replace />;
+  const path = target === 'DELIVERY'
+    ? `/journeys/${journeyId}/documents?autoStart=DELIVERY`
+    : `/journeys/${journeyId}/documents`;
+  return <Navigate to={path} replace />;
 }
 
 function Loading() {
@@ -303,7 +302,7 @@ export default function App() {
               <Route path="/v2/bookings/:journeyId/details" element={<OperationalPage><BookingDetailsV2Page /></OperationalPage>} />
               <Route path="/v2/bookings/:journeyId/review" element={<JourneyDocumentsRedirect />} />
               <Route path="/deliveries/:journeyId" element={<V2JourneyRedirect target="DELIVERY" />} />
-              <Route path="/v2/deliveries/:journeyId" element={<OverviewJourneyPage><DeliveryCaptureV2Page /></OverviewJourneyPage>} />
+              <Route path="/v2/deliveries/:journeyId" element={<JourneyDocumentsRedirect target="DELIVERY" />} />
               {/* Delivery review routes redirect to JourneyDocumentsPage
                   (was never reachable in production). */}
               <Route path="/v2/deliveries/:journeyId/review" element={<JourneyDocumentsRedirect />} />

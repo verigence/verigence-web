@@ -392,11 +392,13 @@ function DocumentFieldsPanel({
   );
 }
 
-/** The boxed view a document opens into: one document, its fields grouped
- * and editable, nothing else on screen competing for attention. Replaces
- * the page's own always-visible document panel -- there is now exactly one
- * place a document's values are shown, opened on demand. */
-function DocumentReviewModal({
+/** The panel a document opens into, inline on this same page directly
+ * beneath the document list -- not a modal. Direct product instruction:
+ * clicking a document opens its boxed values right here, where the PC can
+ * edit them, instead of covering the page with an overlay. Scrolls itself
+ * into view on open, since on a long list the panel would otherwise appear
+ * below the fold and look like nothing happened. */
+function DocumentReviewPanel({
   stage,
   document,
   onClose,
@@ -414,6 +416,7 @@ function DocumentReviewModal({
   accessToken?: string;
 }) {
   const [localByField, setLocalByField] = useState<Map<string, LocalCorrectionState>>(new Map());
+  const panelRef = useRef<HTMLElement>(null);
   const setLocal = (key: string, state: LocalCorrectionState) => {
     setLocalByField((current) => {
       const next = new Map(current);
@@ -422,39 +425,38 @@ function DocumentReviewModal({
     });
   };
 
+  // Re-runs when a different document is opened from the list, not just on
+  // first mount -- switching documents keeps the panel mounted.
+  useEffect(() => {
+    panelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    setLocalByField(new Map());
+  }, [document.documentId]);
+
   return (
-    <div className="uc03-jd-modal-backdrop" role="presentation" onClick={onClose}>
-      <div
-        className="uc03-jd-modal"
-        role="dialog"
-        aria-modal="true"
-        aria-label={document.originalFilename}
-        onClick={(event) => event.stopPropagation()}
-      >
-        <header className="uc03-jd-modal__header">
-          <div>
-            <span className="uc03-c1-eyebrow">{document.documentTypeKey || 'Document'}</span>
-            <h3>{document.originalFilename}</h3>
-          </div>
-          <button type="button" className="uc03-jd-modal__close" onClick={onClose} aria-label="Close">×</button>
-        </header>
-        <div className="uc03-jd-modal__statusCard">
+    <section ref={panelRef} className="uc03-jd-review-panel" aria-label={document.originalFilename}>
+      <header className="uc03-jd-review-panel__head">
+        <div>
+          <span className="uc03-c1-eyebrow">{document.documentTypeKey || 'Document'}</span>
+          <h3>{document.originalFilename}</h3>
+        </div>
+        <div className="uc03-jd-review-panel__head-actions">
           <ReviewDocumentStatusCard document={document} />
+          <button type="button" className="uc03-jd-review-panel__close" onClick={onClose}>
+            Close
+          </button>
         </div>
-        <div className="uc03-jd-modal__body">
-          <DocumentFieldsPanel
-            stage={stage}
-            document={document}
-            localByField={localByField}
-            onLocalChange={setLocal}
-            onEvidence={onEvidence}
-            tenantId={tenantId}
-            journeyId={journeyId}
-            accessToken={accessToken}
-          />
-        </div>
-      </div>
-    </div>
+      </header>
+      <DocumentFieldsPanel
+        stage={stage}
+        document={document}
+        localByField={localByField}
+        onLocalChange={setLocal}
+        onEvidence={onEvidence}
+        tenantId={tenantId}
+        journeyId={journeyId}
+        accessToken={accessToken}
+      />
+    </section>
   );
 }
 
@@ -1949,19 +1951,22 @@ export default function JourneyDocumentsPage() {
         {!checklist.length && !extraDocuments.length ? (
           <p className="uc03-jd-empty">No documents have been uploaded for this Journey yet.</p>
         ) : null}
-      </section>
 
-      {openDocument ? (
-        <DocumentReviewModal
-          stage={openDocument.stage}
-          document={openDocument.document}
-          onClose={() => setOpenDocument(undefined)}
-          onEvidence={setSelectedSource}
-          tenantId={project.tenantId}
-          journeyId={journeyId}
-          accessToken={accessToken}
-        />
-      ) : null}
+        {/* Inline, directly beneath the list the document was clicked in --
+            per direct instruction, the values open on this same page for
+            editing rather than behind a modal overlay. */}
+        {openDocument ? (
+          <DocumentReviewPanel
+            stage={openDocument.stage}
+            document={openDocument.document}
+            onClose={() => setOpenDocument(undefined)}
+            onEvidence={setSelectedSource}
+            tenantId={project.tenantId}
+            journeyId={journeyId}
+            accessToken={accessToken}
+          />
+        ) : null}
+      </section>
 
       {selectedSource ? (
         <AttributeEvidenceViewer tenantId={project.tenantId} journeyId={journeyId} accessToken={accessToken} source={selectedSource} onClose={() => setSelectedSource(undefined)} />

@@ -417,6 +417,262 @@
   color: var(--vg-brand-teal);
 }
 
+/* Document review panel -- opens inline beneath the document list when a
+   document is clicked (not a modal), showing its extracted values as boxed,
+   editable rows. The markup existed with no stylesheet behind it at all,
+   which is why clicking a document appeared to do nothing. */
+.uc03-jd-review-panel {
+  margin-top: 20px;
+  padding: 20px;
+  background: #fff;
+  border: 1px solid var(--vg-border);
+  border-left: 3px solid var(--vg-brand-teal);
+  border-radius: 8px;
+  scroll-margin-top: 16px;
+}
+
+.uc03-jd-review-panel__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--vg-border);
+}
+
+.uc03-jd-review-panel__head h3 {
+  margin: 2px 0 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--vg-brand-navy);
+  word-break: break-word;
+}
+
+.uc03-jd-review-panel__head-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.uc03-jd-review-panel__close {
+  padding: 8px 18px;
+  background: #fff;
+  color: var(--vg-brand-navy);
+  border: 1px solid var(--vg-border);
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.uc03-jd-review-panel__close:hover {
+  border-color: var(--vg-brand-navy);
+  background: var(--vg-bg-light);
+}
+
+/* Field groups (Customer / Vehicle / Financial / Other) */
+.uc03-jd-field-group + .uc03-jd-field-group {
+  margin-top: 24px;
+}
+
+.uc03-jd-field-group__title {
+  margin: 0 0 10px;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--vg-text-muted);
+}
+
+.uc03-jd-fields-table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--vg-border);
+  border-radius: 8px;
+}
+
+.uc03-jd-fields-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.uc03-jd-fields-table th {
+  padding: 10px 14px;
+  text-align: left;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--vg-text-muted);
+  background: var(--vg-bg-light);
+  border-bottom: 1px solid var(--vg-border);
+  white-space: nowrap;
+}
+
+.uc03-jd-fields-table td {
+  padding: 12px 14px;
+  vertical-align: top;
+  border-bottom: 1px solid var(--vg-border);
+  color: var(--vg-brand-navy);
+}
+
+.uc03-jd-fields-table tr:last-child td {
+  border-bottom: none;
+}
+
+.uc03-jd-fields-table tr.needs-review td {
+  background: #fff9f0;
+}
+
+/* Value state badges */
+.uc03-jd-applied-badge,
+.uc03-jd-proposed-badge {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.uc03-jd-applied-badge {
+  background: #ecfdf3;
+  color: var(--vg-success);
+}
+
+.uc03-jd-proposed-badge {
+  margin-left: 0;
+  background: #fff6ed;
+  color: var(--vg-warning);
+  white-space: normal;
+}
+
+.uc03-jd-muted {
+  color: var(--vg-text-muted);
+  font-size: 12px;
+}
+
+/* Inline correction form */
+.uc03-jd-propose-link {
+  padding: 6px 12px;
+  background: #fff;
+  color: var(--vg-brand-blue);
+  border: 1px solid var(--vg-brand-blue);
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s;
+}
+
+.uc03-jd-propose-link:hover {
+  background: var(--vg-brand-blue);
+  color: #fff;
+}
+
+.uc03-jd-propose-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 240px;
+}
+
+.uc03-jd-propose-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--vg-text-muted);
+}
+
+.uc03-jd-propose-form input,
+.uc03-jd-propose-form textarea {
+  padding: 8px 10px;
+  border: 1px solid var(--vg-border);
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: normal;
+  color: var(--vg-brand-navy);
+  font-family: inherit;
+}
+
+.uc03-jd-propose-form input:focus,
+.uc03-jd-propose-form textarea:focus {
+  outline: none;
+  border-color: var(--vg-brand-blue);
+  box-shadow: 0 0 0 3px rgba(0, 87, 184, 0.12);
+}
+
+.uc03-jd-propose-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.uc03-jd-propose-actions button {
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.uc03-jd-propose-actions button[type='button'] {
+  background: #fff;
+  color: var(--vg-text-muted);
+  border: 1px solid var(--vg-border);
+}
+
+.uc03-jd-propose-actions button[type='submit'] {
+  background: var(--vg-brand-blue);
+  color: #fff;
+  border: none;
+}
+
+.uc03-jd-propose-actions button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* Inline feedback */
+.uc03-jd-error,
+.uc03-jd-success {
+  padding: 10px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.uc03-jd-error {
+  background: #fff1f0;
+  color: var(--vg-error);
+}
+
+.uc03-jd-success {
+  background: #ecfdf3;
+  color: var(--vg-success);
+}
+
+.uc03-jd-empty {
+  margin: 0;
+  padding: 16px;
+  background: var(--vg-bg-light);
+  border-radius: 8px;
+  color: var(--vg-text-muted);
+  font-size: 13px;
+}
+
 /* Responsive */
 @media (max-width: 768px) {
   .uc03-jd-upload-container {
@@ -438,5 +694,31 @@
 
   .uc03-doc-card-grid {
     grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  }
+
+  .uc03-jd-review-panel {
+    padding: 16px;
+  }
+
+  .uc03-jd-review-panel__head {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .uc03-jd-review-panel__head-actions {
+    justify-content: space-between;
+  }
+
+  .uc03-jd-fields-table {
+    font-size: 12px;
+  }
+
+  .uc03-jd-fields-table th,
+  .uc03-jd-fields-table td {
+    padding: 10px;
+  }
+
+  .uc03-jd-propose-form {
+    min-width: 0;
   }
 }

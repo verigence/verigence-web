@@ -1538,23 +1538,49 @@ export default function JourneyDocumentsPage() {
     }
   };
 
+  // Root-caused live (2026-09-26): the checklist's own stage label (from
+  // the unified capture read, document_capture_v2_documents.stage_code --
+  // corrected on every reconcile) can genuinely diverge from which stage
+  // uc03_document_review_v2.py's own review data files a document under.
+  // That backend derives stage two different ways -- a DI phase-scoped
+  // list_documents(phase=stage) call (DI never updates a document's phase
+  // after audit-core relocates it, the exact same gap already fixed in the
+  // unified capture read) and, for documents that fall through to its
+  // "legacy" fallback, evidence.journey_document_requirement_id (set once
+  // at initial link time, never corrected when a document is later
+  // reclassified to a different stage). A relocated document can end up
+  // filed under review's stale, original stage while the checklist already
+  // correctly shows its new one -- looking it up only in the checklist's
+  // named stage then finds nothing and the click silently does nothing.
+  // Checking both stages here fixes the visible symptom without touching
+  // uc03_document_review_v2.py, which is shared by the whole PC review/
+  // correction/confirm workflow far beyond this modal. Opening with
+  // whichever stage's data actually had the document (not the checklist's
+  // label) is also the correct choice for the modal's own subsequent save/
+  // correct calls, since those are themselves review-endpoint-scoped.
   const openDocumentById = (stage: Stage, documentId: string) => {
-    const review = stage === 'BOOKING' ? bookingQuery.data : deliveryQuery.data;
-    const document = review?.documents.find((candidate) => candidate.documentId === documentId);
-    if (document) setOpenDocument({ stage, document });
+    const preferred = stage === 'BOOKING' ? bookingQuery.data : deliveryQuery.data;
+    const fallback = stage === 'BOOKING' ? deliveryQuery.data : bookingQuery.data;
+    const fallbackStage: Stage = stage === 'BOOKING' ? 'DELIVERY' : 'BOOKING';
+    const inPreferred = preferred?.documents.find((candidate) => candidate.documentId === documentId);
+    if (inPreferred) {
+      setOpenDocument({ stage, document: inPreferred });
+      return;
+    }
+    const inFallback = fallback?.documents.find((candidate) => candidate.documentId === documentId);
+    if (inFallback) setOpenDocument({ stage: fallbackStage, document: inFallback });
   };
 
   // The Review Queue's "Manual Verification" CTA links here with
   // ?openDocument=<diDocumentId>&stage=<BOOKING|DELIVERY> so a PC lands
   // straight in that document's Edit Document modal instead of the plain
-  // document list -- jump the moment the relevant stage's review data
-  // (and so openDocumentById's own lookup) actually exists.
+  // document list -- jump once either stage's review data has loaded
+  // (openDocumentById itself checks both, see its own comment above).
   useEffect(() => {
     const documentId = searchParams.get('openDocument');
     if (!documentId) return;
     const stage: Stage = searchParams.get('stage') === 'DELIVERY' ? 'DELIVERY' : 'BOOKING';
-    const review = stage === 'BOOKING' ? bookingQuery.data : deliveryQuery.data;
-    if (review) openDocumentById(stage, documentId);
+    if (bookingQuery.data || deliveryQuery.data) openDocumentById(stage, documentId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams, bookingQuery.data, deliveryQuery.data]);
 

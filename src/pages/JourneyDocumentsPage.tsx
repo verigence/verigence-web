@@ -1493,9 +1493,10 @@ export default function JourneyDocumentsPage() {
 
   // One handler for both stages -- the backend resolves which stage a
   // document belongs to from its own row, not from anything passed here.
-  // Both review-data query keys are invalidated since the frontend has no
+  // The unified review query is invalidated since the frontend has no
   // reliable way to know which stage owned the deleted document without
-  // re-deriving it from the checklist first.
+  // re-deriving it from the checklist first (and it now covers both stages
+  // in one read anyway).
   const handleDeleteDocument = async (documentId: string) => {
     if (!project || !journeyId || !accessToken) return;
     setDeleteBusyId(documentId);
@@ -1503,8 +1504,7 @@ export default function JourneyDocumentsPage() {
       await deleteUnifiedCaptureV2Document(project.tenantId, journeyId, documentId, accessToken);
       await Promise.all([
         captureQuery.refetch(),
-        queryClient.invalidateQueries({ queryKey: ['uc03-journey-documents-booking', project.tenantId, journeyId] }),
-        queryClient.invalidateQueries({ queryKey: ['uc03-journey-documents-delivery', project.tenantId, journeyId] }),
+        queryClient.invalidateQueries({ queryKey: ['uc03-journey-documents-review', project.tenantId, journeyId] }),
       ]);
     } catch (error) {
       console.error('Failed to delete document:', error);
@@ -1606,8 +1606,7 @@ export default function JourneyDocumentsPage() {
         setUploadMessage(`${result.uploaded} file${result.uploaded === 1 ? '' : 's'} uploaded — see its status in the list below.`);
       }
       await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['uc03-journey-documents-booking', project.tenantId, journeyId] }),
-        queryClient.invalidateQueries({ queryKey: ['uc03-journey-documents-delivery', project.tenantId, journeyId] }),
+        queryClient.invalidateQueries({ queryKey: ['uc03-journey-documents-review', project.tenantId, journeyId] }),
         queryClient.invalidateQueries({ queryKey: ['uc03-journey-documents-checklist', project.tenantId, journeyId] }),
       ]);
     } catch (error) {
@@ -1712,7 +1711,7 @@ export default function JourneyDocumentsPage() {
             journeyId={journeyId}
             accessToken={accessToken}
             onResolved={() => {
-              void queryClient.invalidateQueries({ queryKey: ['uc03-journey-documents-booking', project.tenantId, journeyId] });
+              void queryClient.invalidateQueries({ queryKey: ['uc03-journey-documents-review', project.tenantId, journeyId] });
               void queryClient.invalidateQueries({ queryKey: ['uc03-journey-documents-checklist', project.tenantId, journeyId] });
             }}
           />
@@ -1931,7 +1930,7 @@ export default function JourneyDocumentsPage() {
             journeyId={journeyId}
             accessToken={accessToken}
             onResolved={() => {
-              void queryClient.invalidateQueries({ queryKey: ['uc03-journey-documents-booking', project.tenantId, journeyId] });
+              void queryClient.invalidateQueries({ queryKey: ['uc03-journey-documents-review', project.tenantId, journeyId] });
               void queryClient.invalidateQueries({ queryKey: ['uc03-journey-documents-checklist', project.tenantId, journeyId] });
             }}
           />

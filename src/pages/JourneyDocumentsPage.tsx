@@ -1297,14 +1297,30 @@ export default function JourneyDocumentsPage() {
     queryKey: ['uc03-journey-documents-booking', project?.tenantId, journeyId],
     queryFn: () => getBookingReviewV2(project!.tenantId, journeyId!, accessToken),
     enabled,
-    retry: false,
+    // Root-caused live (2026-09-26): retry:false everywhere on this page is
+    // deliberate for a REAL backend response (Delivery's own review 404s
+    // legitimately before Delivery has started -- retrying that would just
+    // waste a round trip). But it also meant a purely transport-level
+    // hiccup -- e.g. the browser cancelling this exact request
+    // (NS_BINDING_ABORTED) because a duplicate fetch to the same URL fired
+    // moments later and superseded it -- permanently left bookingQuery.data
+    // undefined for the rest of this page load, since nothing else ever
+    // re-triggers it. openDocumentById then has nothing to find in EITHER
+    // stage no matter how it searches, so click-to-open silently failed
+    // for the whole session, not just once. Retry up to twice, but only for
+    // a transport-level failure (AuditCoreNetworkError/AuditCoreTimeoutError,
+    // or a raw fetch abort) -- never for AuditCoreHttpError, which means
+    // the backend actually answered.
+    retry: (failureCount, error) => !(error instanceof AuditCoreHttpError) && failureCount < 2,
     refetchOnWindowFocus: false,
   });
   const deliveryQuery = useQuery({
     queryKey: ['uc03-journey-documents-delivery', project?.tenantId, journeyId],
     queryFn: () => getDeliveryReviewV2(project!.tenantId, journeyId!, accessToken),
     enabled,
-    retry: false,
+    // See bookingQuery's own comment above -- same fix, same reason. A real
+    // 404 (Delivery not started) still never retries.
+    retry: (failureCount, error) => !(error instanceof AuditCoreHttpError) && failureCount < 2,
     refetchOnWindowFocus: false,
   });
   const captureQuery = useQuery({

@@ -40,6 +40,7 @@ import {
   confirmModelResolutionSku,
   getModelResolutionCandidates,
 } from '../services/audit-core/uc03ModelResolution';
+import type { CaptureV2Document } from '../services/audit-core/uc03DocumentCaptureV2';
 import {
   deleteUnifiedCaptureV2Document,
   getUnifiedCaptureV2,
@@ -134,6 +135,30 @@ function DecisionButtons({
       <button type="button" className={decision === 'REJECTED' ? 'is-selected reject' : 'reject'} disabled={busy} onClick={() => onDecision(reviewKey, 'REJECTED')}>✕ Reject</button>
     </div>
   );
+}
+
+/** Builds a ReviewV2Document-shaped stand-in for a checklist document that
+ * has no entry yet in either stage's review dataset (see openDocumentById's
+ * own comment) -- reuses cardStatus, the exact same status classification
+ * the checklist card itself already applied, so the modal that opens shows
+ * the identical status the card showed, just with no fields yet. */
+function fallbackReviewDocument(document: CaptureV2Document, requirementKey: string | null): ReviewV2Document {
+  const status = cardStatus(document);
+  const extractionState: ReviewV2Document['extractionState'] =
+    status === 'failed' ? 'FAILED' : status === 'extracted' || status === 'unrecognized' ? 'READY' : 'PENDING';
+  const documentTypeKey = status === 'uploaded' || status === 'unrecognized' ? null : document.classifiedDocumentTypeKey;
+  return {
+    documentId: document.documentId,
+    evidenceId: null,
+    requirementKey,
+    label: documentTypeKey ? displayName(documentTypeKey) : document.originalFilename,
+    documentTypeKey,
+    originalFilename: document.originalFilename,
+    contentUrl: document.contentUrl,
+    processingStatus: document.processingStatus ?? document.state,
+    extractionState,
+    fields: [],
+  };
 }
 
 function fieldSource(document: ReviewV2Document, field: ReviewV2Field): ReviewV2SourceValue {
@@ -1584,7 +1609,33 @@ export default function JourneyDocumentsPage() {
       return;
     }
     const inFallback = fallback?.documents.find((candidate) => candidate.documentId === documentId);
-    if (inFallback) setOpenDocument({ stage: fallbackStage, document: inFallback });
+    if (inFallback) {
+      setOpenDocument({ stage: fallbackStage, document: inFallback });
+      return;
+    }
+    // Root-caused live (2026-09-26): uc03_document_review_v2.py only ever
+    // lists a document whose DI state is exactly CLASSIFIED (it skips
+    // everything else outright) -- but the checklist above renders and
+    // makes clickable every document regardless of status (Uploaded,
+    // Classified, Extracted, Unrecognized, Failed; see cardStatus in
+    // CaptureDocumentCard.tsx). Any document not yet classified, or one DI
+    // never managed to classify at all, is real and visible in the
+    // checklist but has no entry in EITHER review dataset above -- the
+    // click previously found nothing in both stages and did nothing at
+    // all, with no error shown. Falling back to the checklist's own
+    // capture data keeps the click always working, opening the exact same
+    // status card the checklist itself already shows (the modal already
+    // renders an empty field list gracefully -- "No fields have been
+    // extracted from this document yet.").
+    const captureMatch = (captureQuery.data?.requirements ?? []).find(
+      (item) => item.document?.documentId === documentId,
+    );
+    if (captureMatch?.document) {
+      setOpenDocument({
+        stage: captureMatch.stageCode,
+        document: fallbackReviewDocument(captureMatch.document, captureMatch.requirementKey),
+      });
+    }
   };
 
   // The Review Queue's "Manual Verification" CTA links here with

@@ -16,18 +16,6 @@ import { AuditCoreHttpError } from '../services/audit-core/client';
 import { getBookingWorkspace, startBooking } from '../services/audit-core/uc03Booking';
 import { submitSimplifiedBookingV2 } from '../services/audit-core/uc03BookingV2';
 import {
-  captureV2HasPendingClassification,
-  deleteBookingCaptureV2Document,
-  getBookingCaptureV2,
-  resyncBookingCaptureV2,
-  type CaptureV2Requirement,
-} from '../services/audit-core/uc03DocumentCaptureV2';
-import {
-  deleteDeliveryCaptureV2Document,
-  deliveryCaptureV2IsProcessing,
-  getDeliveryCaptureV2,
-} from '../services/audit-core/uc03DeliveryCaptureV2';
-import {
   confirmBookingReviewV2,
   getBookingReviewDecisionsV2,
   getBookingReviewV2,
@@ -52,7 +40,15 @@ import {
   confirmModelResolutionSku,
   getModelResolutionCandidates,
 } from '../services/audit-core/uc03ModelResolution';
-import { reconcileUnifiedDocuments, uploadUnifiedCaptureFiles } from '../services/audit-core/uc03UnifiedDocumentCapture';
+import {
+  deleteUnifiedCaptureV2Document,
+  getUnifiedCaptureV2,
+  reconcileUnifiedDocuments,
+  resyncUnifiedCaptureV2,
+  unifiedCaptureV2IsProcessing,
+  uploadUnifiedCaptureFiles,
+  type UnifiedCaptureV2Requirement,
+} from '../services/audit-core/uc03UnifiedDocumentCapture';
 import { useProjectContextStore } from '../store/projectContextStore';
 import { useSessionStore } from '../store/sessionStore';
 import '../styles/uc03-journey-documents.css';
@@ -60,12 +56,11 @@ import '../styles/uc03-attribute-audit-review.css';
 
 type Stage = 'BOOKING' | 'DELIVERY';
 const REVIEW_THRESHOLD = 90;
-// Matches BookingCaptureV2WorkspacePage's CAPTURE_POLL_MS -- direct user
+// Matches DeliveryCaptureV2WorkspacePage's CAPTURE_POLL_MS -- direct user
 // correction (2026-09-24): this screen shares the exact same status card
-// and the exact same getBookingCaptureV2/getDeliveryCaptureV2 read
-// functions as Capture New Booking, so status transitions (Uploaded ->
-// Classified -> Extracted) should visibly advance at the same pace, not
-// lag three times behind it for no reason.
+// and the exact same getUnifiedCaptureV2 read function as Delivery's own
+// workspace, so status transitions (Uploaded -> Classified -> Extracted)
+// should visibly advance at the same pace, not lag behind it for no reason.
 const POLL_MS = 1_000;
 // Classification/extraction is a background DI step, not instant -- editing
 // a document before its own status has settled risks correcting a value
@@ -440,7 +435,7 @@ function DocumentReviewModal({
   );
 }
 
-interface ChecklistEntry extends CaptureV2Requirement {
+interface ChecklistEntry extends Omit<UnifiedCaptureV2Requirement, 'stageCode'> {
   stage: Stage;
 }
 
@@ -1270,18 +1265,14 @@ export default function JourneyDocumentsPage() {
   const [uploading, setUploading] = useState(false);
   const [uploadMessage, setUploadMessage] = useState<string>();
   const [uploadError, setUploadError] = useState<string>();
-  // Root-caused live (2026-09-24): a unified-capture upload always files
-  // with DI under phase=BOOKING first, regardless of its true destination
-  // (uc03_document_capture_v2.py's _reconcile_documents) -- a Delivery-
-  // bound document is genuinely invisible in Delivery's own .uploads list
-  // until Booking's own poll or an explicit reconcile relocates it there.
-  // deliveryCaptureV2IsProcessing has no way to know that from Delivery's
-  // own (correctly empty) snapshot alone, so it reports "not processing"
-  // and refetchInterval shuts Delivery's polling off immediately -- it
-  // never turns back on (refetchOnWindowFocus is off), so a document that
-  // relocates to Delivery a few seconds later is never noticed. Keeping
-  // BOTH queries polling for a fixed window after any upload, independent
-  // of either side's own snapshot, covers exactly this blind spot.
+  // Safety net independent of unifiedCaptureV2IsProcessing's own read of
+  // the query snapshot: right after an upload, there can be a brief window
+  // before the first refetch lands where the snapshot doesn't yet reflect
+  // the new document at all (still RECEIVING at DI, or the reconcile pass
+  // hasn't run yet) -- refetchOnWindowFocus is off, so polling would
+  // otherwise not resume on its own until something else forces a refetch.
+  // Keeping the query polling for a fixed window after ANY upload,
+  // independent of what the snapshot currently shows, covers that gap.
   const lastUploadAtRef = useRef<number | null>(null);
   const UPLOAD_KEEP_POLLING_MS = 120_000;
   const recentlyUploaded = () =>
@@ -1316,9 +1307,9 @@ export default function JourneyDocumentsPage() {
     retry: false,
     refetchOnWindowFocus: false,
   });
-  const bookingCaptureQuery = useQuery({
-    queryKey: ['uc03-journey-documents-booking-checklist', project?.tenantId, journeyId],
-    queryFn: () => getBookingCaptureV2(project!.tenantId, journeyId!, accessToken),
+  const captureQuery = useQuery({
+    queryKey: ['uc03-journey-documents-checklist', project?.tenantId, journeyId],
+    queryFn: () => getUnifiedCaptureV2(project!.tenantId, journeyId!, accessToken),
     enabled,
     retry: false,
     refetchOnWindowFocus: false,
@@ -1328,17 +1319,7 @@ export default function JourneyDocumentsPage() {
     // Also stays alive for a fixed window after ANY upload regardless of
     // this query's own snapshot -- see recentlyUploaded's comment above.
     refetchInterval: (query) => (
-      captureV2HasPendingClassification(query.state.data) || recentlyUploaded() ? POLL_MS : false
-    ),
-  });
-  const deliveryCaptureQuery = useQuery({
-    queryKey: ['uc03-journey-documents-delivery-checklist', project?.tenantId, journeyId],
-    queryFn: () => getDeliveryCaptureV2(project!.tenantId, journeyId!, accessToken),
-    enabled,
-    retry: false,
-    refetchOnWindowFocus: false,
-    refetchInterval: (query) => (
-      deliveryCaptureV2IsProcessing(query.state.data) || recentlyUploaded() ? POLL_MS : false
+      unifiedCaptureV2IsProcessing(query.state.data) || recentlyUploaded() ? POLL_MS : false
     ),
   });
   const vehiclePhotosQuery = useQuery({
@@ -1352,9 +1333,7 @@ export default function JourneyDocumentsPage() {
   // Same "still settling" signal the polling above already uses, reused
   // here to gate editing rather than just refetch cadence -- see
   // EDIT_BLOCK_TIMEOUT_MS's own comment for why this needs a fallback.
-  const pendingClassification =
-    captureV2HasPendingClassification(bookingCaptureQuery.data)
-    || deliveryCaptureV2IsProcessing(deliveryCaptureQuery.data);
+  const pendingClassification = unifiedCaptureV2IsProcessing(captureQuery.data);
   const blockStartRef = useRef<number | null>(null);
   const [editBlockTimedOut, setEditBlockTimedOut] = useState(false);
   useEffect(() => {
@@ -1386,16 +1365,15 @@ export default function JourneyDocumentsPage() {
   // confirmed a document), so a journey with real, uploaded Delivery
   // documents still awaiting review was wrongly told to "Start Booking"
   // first, even though the checklist below already reads capture data too.
-  const bookingCaptureAvailable = Boolean(bookingCaptureQuery.data);
-  const deliveryCaptureAvailable = Boolean(deliveryCaptureQuery.data);
+  const captureAvailable = Boolean(captureQuery.data);
 
   // Rare edge case (a stale draft Booking resumed later, per
   // BookingCaptureV2WorkspacePage's own former comment) -- a Booking stage
-  // row exists but was never started, so none of the four queries above
+  // row exists but was never started, so none of the three queries above
   // have data at all. Only fetched when nothing else is available, so the
   // common case (a Booking already started, which is true from the moment
   // it's created) never pays for this extra round trip.
-  const noDataAtAll = !bookingAvailable && !deliveryAvailable && !bookingCaptureAvailable && !deliveryCaptureAvailable;
+  const noDataAtAll = !bookingAvailable && !deliveryAvailable && !captureAvailable;
   const workspaceQuery = useQuery({
     queryKey: ['uc03-journey-documents-workspace', project?.tenantId, journeyId],
     queryFn: () => getBookingWorkspace(project!.tenantId, journeyId!, accessToken),
@@ -1413,7 +1391,7 @@ export default function JourneyDocumentsPage() {
     try {
       await startBooking(project.tenantId, journeyId, version, accessToken);
       await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['uc03-journey-documents-booking-checklist', project.tenantId, journeyId] }),
+        queryClient.invalidateQueries({ queryKey: ['uc03-journey-documents-checklist', project.tenantId, journeyId] }),
         queryClient.invalidateQueries({ queryKey: ['uc03-journey-documents-workspace', project.tenantId, journeyId] }),
       ]);
     } catch (error) {
@@ -1427,40 +1405,30 @@ export default function JourneyDocumentsPage() {
     if (!project || !journeyId) return;
     setResyncing(true);
     try {
-      await resyncBookingCaptureV2(project.tenantId, journeyId, accessToken);
-      await Promise.all([bookingCaptureQuery.refetch(), deliveryCaptureQuery.refetch()]);
+      await resyncUnifiedCaptureV2(project.tenantId, journeyId, accessToken);
+      await captureQuery.refetch();
     } finally {
       setResyncing(false);
     }
   };
 
-  const handleDeleteBooking = async (documentId: string) => {
+  // One handler for both stages -- the backend resolves which stage a
+  // document belongs to from its own row, not from anything passed here.
+  // Both review-data query keys are invalidated since the frontend has no
+  // reliable way to know which stage owned the deleted document without
+  // re-deriving it from the checklist first.
+  const handleDeleteDocument = async (documentId: string) => {
     if (!project || !journeyId || !accessToken) return;
     setDeleteBusyId(documentId);
     try {
-      await deleteBookingCaptureV2Document(project.tenantId, journeyId, documentId, accessToken);
+      await deleteUnifiedCaptureV2Document(project.tenantId, journeyId, documentId, accessToken);
       await Promise.all([
-        bookingCaptureQuery.refetch(),
+        captureQuery.refetch(),
         queryClient.invalidateQueries({ queryKey: ['uc03-journey-documents-booking', project.tenantId, journeyId] }),
-      ]);
-    } catch (error) {
-      console.error('Failed to delete booking document:', error);
-    } finally {
-      setDeleteBusyId(undefined);
-    }
-  };
-
-  const handleDeleteDelivery = async (documentId: string) => {
-    if (!project || !journeyId || !accessToken) return;
-    setDeleteBusyId(documentId);
-    try {
-      await deleteDeliveryCaptureV2Document(project.tenantId, journeyId, documentId, accessToken);
-      await Promise.all([
-        deliveryCaptureQuery.refetch(),
         queryClient.invalidateQueries({ queryKey: ['uc03-journey-documents-delivery', project.tenantId, journeyId] }),
       ]);
     } catch (error) {
-      console.error('Failed to delete delivery document:', error);
+      console.error('Failed to delete document:', error);
     } finally {
       setDeleteBusyId(undefined);
     }
@@ -1496,7 +1464,7 @@ export default function JourneyDocumentsPage() {
     setSubmitting(true);
     setSubmitError(undefined);
     try {
-      await bookingCaptureQuery.refetch();
+      await captureQuery.refetch();
       uploadStartTimeRef.current = null;
       setElapsedSeconds(0);
       // Redirect to overview to show capture complete
@@ -1561,8 +1529,7 @@ export default function JourneyDocumentsPage() {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['uc03-journey-documents-booking', project.tenantId, journeyId] }),
         queryClient.invalidateQueries({ queryKey: ['uc03-journey-documents-delivery', project.tenantId, journeyId] }),
-        queryClient.invalidateQueries({ queryKey: ['uc03-journey-documents-booking-checklist', project.tenantId, journeyId] }),
-        queryClient.invalidateQueries({ queryKey: ['uc03-journey-documents-delivery-checklist', project.tenantId, journeyId] }),
+        queryClient.invalidateQueries({ queryKey: ['uc03-journey-documents-checklist', project.tenantId, journeyId] }),
       ]);
     } catch (error) {
       setUploadError(error instanceof Error ? error.message : 'These files could not be uploaded. Try again.');
@@ -1594,10 +1561,9 @@ export default function JourneyDocumentsPage() {
   if (!project || !journeyId) return null;
 
   const loading =
-    bookingQuery.isPending || deliveryQuery.isPending
-    || bookingCaptureQuery.isPending || deliveryCaptureQuery.isPending;
+    bookingQuery.isPending || deliveryQuery.isPending || captureQuery.isPending;
   if (loading) return <div className="uc03-c1-loading" role="status">Loading Journey Documents…</div>;
-  if (!bookingAvailable && !deliveryAvailable && !bookingCaptureAvailable && !deliveryCaptureAvailable) {
+  if (!bookingAvailable && !deliveryAvailable && !captureAvailable) {
     // A journey can have an open MODEL_NOT_IDENTIFIED gap (and so a real
     // reason to be here) without its Booking/Delivery V2 review data being
     // available -- an older Booking captured before the V2 review flow
@@ -1616,7 +1582,7 @@ export default function JourneyDocumentsPage() {
             accessToken={accessToken}
             onResolved={() => {
               void queryClient.invalidateQueries({ queryKey: ['uc03-journey-documents-booking', project.tenantId, journeyId] });
-              void queryClient.invalidateQueries({ queryKey: ['uc03-journey-documents-booking-checklist', project.tenantId, journeyId] });
+              void queryClient.invalidateQueries({ queryKey: ['uc03-journey-documents-checklist', project.tenantId, journeyId] });
             }}
           />
         </ErrorBoundary>
@@ -1638,10 +1604,10 @@ export default function JourneyDocumentsPage() {
     );
   }
 
-  const checklist: ChecklistEntry[] = [
-    ...(bookingCaptureQuery.data?.requirements ?? []).map((item) => ({ ...item, stage: 'BOOKING' as const })),
-    ...(deliveryCaptureQuery.data?.requirements ?? []).map((item) => ({ ...item, stage: 'DELIVERY' as const })),
-  ];
+  const checklist: ChecklistEntry[] = (captureQuery.data?.requirements ?? []).map((item) => {
+    const { stageCode, ...rest } = item;
+    return { ...rest, stage: stageCode };
+  });
   const coveredDocumentIds = new Set(
     checklist.map((item) => item.document?.documentId).filter((id): id is string => Boolean(id)),
   );
@@ -1661,10 +1627,7 @@ export default function JourneyDocumentsPage() {
   // Only count as duplicates if literally the same document ID appears multiple times
   const uploadIdCounts = new Map<string, number>();
   const duplicateCounts = new Map<string, number>();
-  for (const upload of [
-    ...(bookingCaptureQuery.data?.uploads ?? []),
-    ...(deliveryCaptureQuery.data?.uploads ?? []),
-  ]) {
+  for (const upload of captureQuery.data?.uploads ?? []) {
     if (!upload.classifiedDocumentTypeKey) continue;
     if (coveredDocumentIds.has(upload.documentId) || reviewedDocumentIds.has(upload.documentId)) continue;
     const uploadCount = (uploadIdCounts.get(upload.documentId) ?? 0) + 1;
@@ -1695,7 +1658,7 @@ export default function JourneyDocumentsPage() {
         title="Upload & Review Documents"
         description="Upload documents and vehicle photos · click any document to edit its extracted values"
         actions={
-          bookingCaptureAvailable ? (
+          captureAvailable ? (
             <button
               type="button"
               className="uc03-jd-modify-model"
@@ -1731,26 +1694,18 @@ export default function JourneyDocumentsPage() {
         </div>
       ) : null}
 
-      {/* Direct user correction (2026-09-24): each half of the checklist
-          used to fail silently (retry: false, no banner) -- a real backend
-          error on just the Delivery side left every card looking like a
-          normal, fully-BOOKING journey with no sign anything was wrong.
-          Surface it instead of hiding it. */}
-      {bookingCaptureQuery.isError || deliveryCaptureQuery.isError ? (
+      {/* Direct user correction (2026-09-24): the checklist used to fail
+          silently (retry: false, no banner) -- a real backend error left
+          every card looking like a normal journey with no sign anything
+          was wrong. Surface it instead of hiding it. */}
+      {captureQuery.isError ? (
         <div className="uc03-jd-block-banner uc03-jd-block-banner--error" role="alert">
-          {bookingCaptureQuery.isError && deliveryCaptureQuery.isError
-            ? 'Could not load the Booking or Delivery document checklist.'
-            : bookingCaptureQuery.isError
-              ? 'Could not load the Booking document checklist.'
-              : 'Could not load the Delivery document checklist.'}
+          Could not load the document checklist.
           {' '}Documents may be missing below until this is fixed.{' '}
           <button
             type="button"
             className="uc03-jd-modify-model"
-            onClick={() => {
-              void bookingCaptureQuery.refetch();
-              void deliveryCaptureQuery.refetch();
-            }}
+            onClick={() => void captureQuery.refetch()}
           >
             Retry
           </button>
@@ -1803,13 +1758,13 @@ export default function JourneyDocumentsPage() {
           <div className="uc03-jd-stat">
             <div className="uc03-jd-stat-label">Uploaded</div>
             <div className={`uc03-jd-stat-value ${uploading ? 'busy' : 'done'}`}>
-              {(bookingCaptureQuery.data?.uploads.length ?? 0) + (deliveryCaptureQuery.data?.uploads.length ?? 0)}
+              {captureQuery.data?.uploads.length ?? 0}
             </div>
           </div>
           <div className="uc03-jd-stat">
             <div className="uc03-jd-stat-label">Classified</div>
             <div className={`uc03-jd-stat-value ${pendingClassification ? 'busy' : 'done'}`}>
-              {((bookingCaptureQuery.data?.uploads.filter((u) => u.classifiedDocumentTypeKey).length ?? 0) + (deliveryCaptureQuery.data?.uploads.filter((u) => u.classifiedDocumentTypeKey).length ?? 0))}/{(bookingCaptureQuery.data?.uploads.length ?? 0) + (deliveryCaptureQuery.data?.uploads.length ?? 0)}
+              {captureQuery.data?.uploads.filter((u) => u.classifiedDocumentTypeKey).length ?? 0}/{captureQuery.data?.uploads.length ?? 0}
             </div>
           </div>
           <div className="uc03-jd-stat">
@@ -1846,7 +1801,7 @@ export default function JourneyDocumentsPage() {
             accessToken={accessToken}
             onResolved={() => {
               void queryClient.invalidateQueries({ queryKey: ['uc03-journey-documents-booking', project.tenantId, journeyId] });
-              void queryClient.invalidateQueries({ queryKey: ['uc03-journey-documents-booking-checklist', project.tenantId, journeyId] });
+              void queryClient.invalidateQueries({ queryKey: ['uc03-journey-documents-checklist', project.tenantId, journeyId] });
             }}
           />
         </ErrorBoundary>
@@ -1855,10 +1810,10 @@ export default function JourneyDocumentsPage() {
           items={checklist}
           extraDocuments={extraDocuments}
           onOpenDocument={openDocumentById}
-          onDelete={(stage, documentId) => void (stage === 'BOOKING' ? handleDeleteBooking(documentId) : handleDeleteDelivery(documentId))}
+          onDelete={(_stage, documentId) => void handleDeleteDocument(documentId)}
           deleteBusyId={deleteBusyId}
           locked={false}
-          syncing={uploading || bookingCaptureQuery.isFetching || deliveryCaptureQuery.isFetching}
+          syncing={uploading || captureQuery.isFetching}
         />
         <DuplicateDocumentsSummary counts={duplicateCounts} />
         {!checklist.length && !extraDocuments.length ? (

@@ -17,10 +17,9 @@ import {
 import ModifyModelModal from '../features/uc03/ModifyModelModal';
 import { AuditCoreHttpError } from '../services/audit-core/client';
 import { getFinance, getInsurance } from '../services/audit-core/operations';
-import { resyncBookingCaptureV2 } from '../services/audit-core/uc03DocumentCaptureV2';
-import { resyncDeliveryCaptureV2 } from '../services/audit-core/uc03DeliveryCaptureV2';
 import { getReviewDocumentContentV2 } from '../services/audit-core/uc03DocumentReviewV2';
 import { runAllApplicableRules, type Uc03RunAllRulesRuleResult } from '../services/audit-core/uc03Audit';
+import { resyncUnifiedCaptureV2 } from '../services/audit-core/uc03UnifiedDocumentCapture';
 import {
   getUc03JourneyOverview,
   type DealPricePointOptions,
@@ -2184,43 +2183,21 @@ export default function Journey360Page() {
     setResyncing(true);
     setResyncMessage(undefined);
     try {
-      // Every document on this Journey, both stages -- re-checks the
-      // uploaded list, re-validates what DI has actually extracted, and
-      // reruns the sync for anything classified but not yet durably
-      // copied. Each call is a no-op for a stage with nothing uploaded.
-      //
-      // Settled independently, not Promise.all: Booking and Delivery are
-      // two separate stages of the same Journey, and it is normal (the
-      // common case, in fact) for one to be unavailable while the other
-      // still has work to do -- e.g. Booking is CLOSED on any Journey that
-      // has moved on to Delivery. A rejection on one side must not hide a
-      // real result on the other.
-      const [bookingResult, deliveryResult] = await Promise.allSettled([
-        resyncBookingCaptureV2(tenantId, journeyId, accessToken),
-        resyncDeliveryCaptureV2(tenantId, journeyId, accessToken),
-      ]);
-      const booking = bookingResult.status === 'fulfilled' ? bookingResult.value : undefined;
-      const delivery = deliveryResult.status === 'fulfilled' ? deliveryResult.value : undefined;
-
-      if (!booking && !delivery) {
-        setResyncMessage('Resync could not be started. Try again in a moment.');
-        return;
-      }
-
-      const found = (booking?.documentsFound ?? 0) + (delivery?.documentsFound ?? 0);
-      const resynced = (booking?.documentsResynced ?? 0) + (delivery?.documentsResynced ?? 0);
-      const pending = (booking?.documentsNotYetExtracted ?? 0) + (delivery?.documentsNotYetExtracted ?? 0);
-      const skippedStages = [
-        bookingResult.status === 'rejected' ? 'Booking' : null,
-        deliveryResult.status === 'rejected' ? 'Delivery' : null,
-      ].filter((stage): stage is string => stage !== null);
+      // Every document on this Journey, both stages, in one call -- see
+      // uc03_unified_document_capture.resync_unified_documents. Unlike the
+      // former separate Booking/Delivery resync calls, this one endpoint
+      // never gates on either stage's own business_status (it authorizes
+      // via _scope only), so a Journey whose Booking has closed after
+      // moving on to Delivery no longer needs its own partial-failure
+      // handling here -- both stages are always checked together.
+      const result = await resyncUnifiedCaptureV2(tenantId, journeyId, accessToken);
+      const { documentsFound: found, documentsResynced: resynced, documentsNotYetExtracted: pending } = result;
 
       setResyncMessage(
-        (found === 0
+        found === 0
           ? 'No documents found on this Journey yet.'
           : `${found} document${found === 1 ? '' : 's'} found · ${resynced} resynced` +
-            (pending > 0 ? ` · ${pending} still awaiting extraction` : '')) +
-          (skippedStages.length > 0 ? ` · ${skippedStages.join(' & ')} could not be checked` : ''),
+            (pending > 0 ? ` · ${pending} still awaiting extraction` : ''),
       );
       void queryClient.invalidateQueries({ queryKey: ['uc03-journey-overview', tenantId, journeyId] });
     } catch {

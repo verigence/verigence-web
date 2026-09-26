@@ -1,33 +1,22 @@
 import { auditCoreRequest } from './client';
-import { invalidateCaptureReadState as invalidateBookingCaptureReadState } from './uc03DocumentCaptureV2';
-import { invalidateCaptureReadState as invalidateDeliveryCaptureReadState } from './uc03DeliveryCaptureV2';
-
-/**
- * Booking's and Delivery's own getBookingCaptureV2/getDeliveryCaptureV2 each
- * keep an in-process read cache (see their own invalidateCaptureReadState)
- * that only clears when THEIR OWN upload/delete/resync functions call it.
- * A unified upload/reconcile writes to the exact same
- * document_capture_v2_documents rows those reads serve, through a
- * completely different module -- without clearing both caches here, every
- * screen reading either stage's capture data (Capture New Booking,
- * Delivery's own screen, Journey Documents) keeps showing whatever it last
- * saw before this upload, indefinitely (react-query's own refetchInterval
- * also stops polling once it sees a caught-up-looking empty snapshot, so a
- * page reload was the only way anything ever caught up).
- */
-function invalidateBothCaptureReadStates(tenantId: string, journeyId: string): void {
-  invalidateBookingCaptureReadState(tenantId, journeyId);
-  invalidateDeliveryCaptureReadState(tenantId, journeyId);
-}
+import type { CaptureV2Applicability, CaptureV2Document } from './uc03DocumentCaptureV2';
 
 /**
  * One upload surface for Booking and Delivery alike -- no stage picker.
  * The backend (uc03_unified_document_capture.py) merges both stages'
  * candidate document types into a single DI classification call and
  * decides Booking vs. Delivery itself once each document classifies
- * (reconcileUnifiedDocuments below). Deliberately parallel to, and
- * independent of, uc03DocumentCaptureV2.ts / uc03DeliveryCaptureV2.ts --
- * neither of those (nor the screens built on them) are touched.
+ * (reconcileUnifiedDocuments below).
+ *
+ * Phase 4 unification: this module now also owns the single GET/DELETE/
+ * resync surface for both stages (uc03DocumentCaptureV2.ts's/
+ * uc03DeliveryCaptureV2.ts's own getBookingCaptureV2/getDeliveryCaptureV2/
+ * deleteBookingCaptureV2Document/deleteDeliveryCaptureV2Document/
+ * resyncBookingCaptureV2/resyncDeliveryCaptureV2 are gone -- the backend
+ * endpoints they called no longer exist). Those two files now export only
+ * the shared types and the stage-specific actions that remain genuinely
+ * different (completeBookingCaptureV2/submitDeliveryCaptureV2 -- different
+ * concurrency model and confirmation checks, not stage-duplicated logic).
  */
 
 interface UploadIntentResult {
@@ -81,6 +70,238 @@ export interface UnifiedUploadResult {
   // step's per-file failures (a stale conflicting intent, DI unreachable)
   // first, then any PUT/finalize failures. Empty when failed === 0.
   failureReasons: string[];
+}
+
+export interface UnifiedCaptureV2Requirement {
+  requirementKey: string;
+  stageCode: 'BOOKING' | 'DELIVERY';
+  label: string;
+  documentTypeKey: string;
+  requirementLevel: 'REQUIRED' | 'CONDITIONAL' | 'OPTIONAL' | string;
+  conditionKey: string | null;
+  applicabilityState: CaptureV2Applicability;
+  state: string;
+  document: CaptureV2Document | null;
+  canView: boolean;
+  canDelete: boolean;
+}
+
+export interface UnifiedCaptureV2Upload extends CaptureV2Document {
+  stageCode: 'BOOKING' | 'DELIVERY';
+}
+
+export interface UnifiedCaptureV2 {
+  journeyId: string;
+  externalContextRef: string;
+  requirements: UnifiedCaptureV2Requirement[];
+  uploads: UnifiedCaptureV2Upload[];
+  bookingSubmitted: boolean;
+  deliverySubmitted: boolean;
+}
+
+const EXTRACTION_POLL_WINDOW_MS = 2 * 60_000;
+const LOCAL_CAPTURE_TIMEOUT_MS = 8_000;
+const LIVE_CAPTURE_TIMEOUT_MS = 18_000;
+const LIVE_REFRESH_MIN_INTERVAL_MS = 5_000;
+const LOCAL_FALLBACK_POLL_WINDOW_MS = 30_000;
+const LOCAL_FALLBACK_PREFIX = 'fallback:';
+const PENDING_CLASSIFICATION_STATES = new Set(['RECEIVING', 'STORED', 'CLASSIFYING']);
+const PENDING_PROCESSING_STATES = new Set(['NOT_STARTED', 'PROCESSING', 'RETRY_PENDING']);
+const extractionPollStartedAt = new Map<string, number>();
+const localFallbackPollStartedAt = new Map<string, number>();
+
+interface UnifiedCaptureReadState {
+  snapshot?: UnifiedCaptureV2;
+  liveInFlight?: Promise<void>;
+  lastLiveStartedAt: number;
+}
+
+const captureReadState = new Map<string, UnifiedCaptureReadState>();
+
+function readKey(tenantId: string, journeyId: string): string {
+  return `${tenantId}:${journeyId}`;
+}
+
+function markLocal(capture: UnifiedCaptureV2): UnifiedCaptureV2 {
+  if (capture.externalContextRef.startsWith(LOCAL_FALLBACK_PREFIX)) return capture;
+  return { ...capture, externalContextRef: `${LOCAL_FALLBACK_PREFIX}${capture.externalContextRef}` };
+}
+
+// Every mutation below (upload, delete, resync, reconcile) calls this so a
+// screen's next read picks up the change instead of serving a stale
+// snapshot -- react-query's own refetchInterval also stops polling once it
+// sees a caught-up-looking snapshot, so without this a page reload would be
+// the only way anything ever caught up.
+export function invalidateUnifiedCaptureReadState(tenantId: string, journeyId: string): void {
+  captureReadState.delete(readKey(tenantId, journeyId));
+  localFallbackPollStartedAt.delete(journeyId);
+}
+
+function scheduleLiveRefresh(
+  tenantId: string,
+  journeyId: string,
+  accessToken: string,
+  state: UnifiedCaptureReadState,
+): void {
+  const now = Date.now();
+  if (state.liveInFlight || now - state.lastLiveStartedAt < LIVE_REFRESH_MIN_INTERVAL_MS) return;
+
+  state.lastLiveStartedAt = now;
+  const captureBase = base(tenantId, journeyId);
+  const refresh = auditCoreRequest<UnifiedCaptureV2>(`${captureBase}/capture`, {
+    accessToken,
+    cache: 'no-store',
+    timeoutMs: LIVE_CAPTURE_TIMEOUT_MS,
+  })
+    .then((live) => {
+      state.snapshot = live;
+      localFallbackPollStartedAt.delete(journeyId);
+    })
+    .catch(() =>
+      // Local (DB-only) fallback if the live call fails for any reason
+      // (DI slow/unreachable) -- a background refresh must never leave the
+      // screen stuck on nothing; the next scheduled refresh tries live again.
+      auditCoreRequest<UnifiedCaptureV2>(`${captureBase}/capture-local`, {
+        accessToken,
+        cache: 'no-store',
+        timeoutMs: LOCAL_CAPTURE_TIMEOUT_MS,
+      })
+        .then((local) => {
+          state.snapshot = markLocal(local);
+        })
+        .catch(() => {
+          // Durable Audit Core state remains usable either way -- this is
+          // a background refresh, never the first paint's own source.
+        }),
+    )
+    .finally(() => {
+      if (state.liveInFlight === refresh) state.liveInFlight = undefined;
+    });
+  state.liveInFlight = refresh;
+}
+
+/**
+ * Keep the checklist query live while either classification or the
+ * extraction launched by an accepted classification is still moving, for
+ * either stage's documents.
+ */
+export function unifiedCaptureV2IsProcessing(capture?: UnifiedCaptureV2): boolean {
+  if (!capture) return false;
+  const now = Date.now();
+  let pending = false;
+
+  if (capture.externalContextRef.startsWith(LOCAL_FALLBACK_PREFIX)) {
+    const startedAt = localFallbackPollStartedAt.get(capture.journeyId) ?? now;
+    localFallbackPollStartedAt.set(capture.journeyId, startedAt);
+    if (now - startedAt < LOCAL_FALLBACK_POLL_WINDOW_MS) pending = true;
+  } else {
+    localFallbackPollStartedAt.delete(capture.journeyId);
+  }
+
+  for (const document of capture.uploads) {
+    const state = document.state.toUpperCase();
+    if (PENDING_CLASSIFICATION_STATES.has(state)) {
+      pending = true;
+      continue;
+    }
+    if (state === 'CLASSIFIED' && !document.classifiedDocumentTypeKey) {
+      pending = true;
+      continue;
+    }
+
+    const processingStatus = document.processingStatus?.toUpperCase();
+    if (state === 'CLASSIFIED' && processingStatus && PENDING_PROCESSING_STATES.has(processingStatus)) {
+      const startedAt = extractionPollStartedAt.get(document.documentId) ?? now;
+      extractionPollStartedAt.set(document.documentId, startedAt);
+      if (now - startedAt < EXTRACTION_POLL_WINDOW_MS) pending = true;
+      continue;
+    }
+
+    extractionPollStartedAt.delete(document.documentId);
+  }
+
+  return pending;
+}
+
+/**
+ * Reads the unified checklist: durable (DB-only) data first for fast, always-
+ * available first paint, then a background live refresh (merging DI's two
+ * phases -- see the backend's own section docstring for why that fixes the
+ * "Missing"/lost-contentUrl bug a single-phase read had) that falls back to
+ * the same local read if DI is slow or unreachable.
+ */
+export async function getUnifiedCaptureV2(
+  tenantId: string,
+  journeyId: string,
+  accessToken?: string,
+): Promise<UnifiedCaptureV2> {
+  const access = token(accessToken);
+  const key = readKey(tenantId, journeyId);
+  const existing = captureReadState.get(key);
+
+  if (existing?.snapshot) {
+    scheduleLiveRefresh(tenantId, journeyId, access, existing);
+    return existing.snapshot;
+  }
+
+  const captureBase = base(tenantId, journeyId);
+  const local = markLocal(await auditCoreRequest<UnifiedCaptureV2>(`${captureBase}/capture-local`, {
+    accessToken: access,
+    cache: 'no-store',
+    timeoutMs: LOCAL_CAPTURE_TIMEOUT_MS,
+  }));
+  const state: UnifiedCaptureReadState = {
+    snapshot: local,
+    lastLiveStartedAt: 0,
+  };
+  captureReadState.set(key, state);
+  scheduleLiveRefresh(tenantId, journeyId, access, state);
+  return local;
+}
+
+/**
+ * Deletes one document regardless of which stage it belongs to -- the
+ * backend resolves that from its own row, not from anything passed here.
+ */
+export async function deleteUnifiedCaptureV2Document(
+  tenantId: string,
+  journeyId: string,
+  documentId: string,
+  accessToken?: string,
+): Promise<void> {
+  await auditCoreRequest<void>(
+    `${base(tenantId, journeyId)}/${encodeURIComponent(documentId)}`,
+    {
+      method: 'DELETE',
+      accessToken: token(accessToken),
+    },
+  );
+  invalidateUnifiedCaptureReadState(tenantId, journeyId);
+}
+
+export interface UnifiedResyncResult {
+  documentsFound: number;
+  documentsResynced: number;
+  documentsNotYetExtracted: number;
+  queuedDocumentCount: number;
+}
+
+/**
+ * Forces every already-classified document, either stage, through the full
+ * sync pipeline again. Safe to call any time; a document with nothing left
+ * to do just costs one cheap, idempotent pass.
+ */
+export async function resyncUnifiedCaptureV2(
+  tenantId: string,
+  journeyId: string,
+  accessToken?: string,
+): Promise<UnifiedResyncResult> {
+  const result = await auditCoreRequest<UnifiedResyncResult>(`${base(tenantId, journeyId)}/resync`, {
+    method: 'POST',
+    accessToken: token(accessToken),
+  });
+  invalidateUnifiedCaptureReadState(tenantId, journeyId);
+  return result;
 }
 
 /**
@@ -158,7 +379,7 @@ export async function uploadUnifiedCaptureFiles(
     }
   };
   await Promise.all(Array.from({ length: Math.min(6, intent.uploads.length) }, () => worker()));
-  if (uploaded > 0) invalidateBothCaptureReadStates(tenantId, journeyId);
+  if (uploaded > 0) invalidateUnifiedCaptureReadState(tenantId, journeyId);
   return { uploaded, failed, failureReasons };
 }
 
@@ -179,5 +400,5 @@ export async function reconcileUnifiedDocuments(
     accessToken: token(accessToken),
     timeoutMs: 30_000,
   });
-  invalidateBothCaptureReadStates(tenantId, journeyId);
+  invalidateUnifiedCaptureReadState(tenantId, journeyId);
 }

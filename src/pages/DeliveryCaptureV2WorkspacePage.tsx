@@ -6,13 +6,14 @@ import PageHeader from '../components/PageHeader';
 import { DocumentCard, RequirementChecklistRow } from '../features/uc03/CaptureDocumentCard';
 import { getDeliveryWorkspace, startDelivery } from '../services/audit-core/uc03Delivery';
 import {
-  deleteDeliveryCaptureV2Document,
-  deliveryCaptureV2IsProcessing,
-  getDeliveryCaptureV2,
-  resyncDeliveryCaptureV2,
-} from '../services/audit-core/uc03DeliveryCaptureV2';
-import { getBookingCaptureV2, type CaptureV2Requirement } from '../services/audit-core/uc03DocumentCaptureV2';
-import { reconcileUnifiedDocuments, uploadUnifiedCaptureFiles } from '../services/audit-core/uc03UnifiedDocumentCapture';
+  deleteUnifiedCaptureV2Document,
+  getUnifiedCaptureV2,
+  reconcileUnifiedDocuments,
+  resyncUnifiedCaptureV2,
+  unifiedCaptureV2IsProcessing,
+  uploadUnifiedCaptureFiles,
+  type UnifiedCaptureV2Requirement,
+} from '../services/audit-core/uc03UnifiedDocumentCapture';
 import { useProjectContextStore } from '../store/projectContextStore';
 import { useSessionStore } from '../store/sessionStore';
 import DeliveryDetailsV2Page from './DeliveryDetailsV2Page';
@@ -28,12 +29,12 @@ function normalize(value: string): string {
   return value.replace(/[_-]+/g, ' ').trim().toLowerCase();
 }
 
-function isIdentityRequirement(requirement: CaptureV2Requirement): boolean {
+function isIdentityRequirement(requirement: UnifiedCaptureV2Requirement): boolean {
   const searchable = `${requirement.documentTypeKey} ${requirement.requirementKey} ${requirement.label}`.toUpperCase();
   return IDENTITY_MARKERS.some((marker) => searchable.includes(marker));
 }
 
-function groupFor(requirement: CaptureV2Requirement): DeliveryGroupKey {
+function groupFor(requirement: UnifiedCaptureV2Requirement): DeliveryGroupKey {
   const text = normalize(`${requirement.requirementKey} ${requirement.documentTypeKey} ${requirement.label}`);
   if (text.includes('invoice')) return 'INVOICES';
   if (text.includes('payment') || text.includes('receipt') || text.includes('transaction') || text.includes('bank')) return 'PAYMENTS';
@@ -80,24 +81,24 @@ export default function DeliveryCaptureV2Page() {
     refetchOnWindowFocus: false,
   });
   const deliveryStarted = Boolean(workspaceQuery.data?.delivery.businessStatus);
+  // One unified read for both stages -- this screen's own document grid/
+  // counters/submitted-gate show Delivery's slice of it only (derived
+  // below as `capture`); the checklist panel additionally shows Booking's
+  // outstanding items from the same response (`bookingCapture`), segregated
+  // by stageCode instead of a second, Booking-only network call.
   const captureQuery = useQuery({
     queryKey: ['uc03-delivery-capture-v2', project?.tenantId, journeyId],
-    queryFn: () => getDeliveryCaptureV2(project!.tenantId, journeyId, accessToken),
-    enabled: enabled && deliveryStarted,
-    retry: false,
-    refetchOnWindowFocus: false,
-    refetchInterval: (query) => deliveryCaptureV2IsProcessing(query.state.data) ? POLL_MS : false,
-  });
-  // Read-only for this screen's own checklist: a Booking-relevant file
-  // dropped here already dispatches correctly via the unified upload path
-  // (see handleUpload below) -- this query exists only so the checklist can
-  // show what Booking still needs too, segregated from Delivery's own list.
-  const bookingCaptureQuery = useQuery({
-    queryKey: ['uc03-delivery-v2-booking-checklist', project?.tenantId, journeyId],
-    queryFn: () => getBookingCaptureV2(project!.tenantId, journeyId, accessToken),
+    queryFn: () => getUnifiedCaptureV2(project!.tenantId, journeyId, accessToken),
+    // Not gated on deliveryStarted: the backend's own read (unlike a
+    // mutation) is safe before Delivery has started -- matches the former
+    // bookingCaptureQuery's own ungated behavior, so the checklist panel's
+    // Booking section still loads immediately rather than waiting on the
+    // (usually brief) auto-start below. `ready`/`uploadDisabled` still gate
+    // the actual upload UI on deliveryStarted separately.
     enabled,
     retry: false,
     refetchOnWindowFocus: false,
+    refetchInterval: (query) => unifiedCaptureV2IsProcessing(query.state.data) ? POLL_MS : false,
   });
 
   useEffect(() => {
@@ -124,10 +125,29 @@ export default function DeliveryCaptureV2Page() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [workspaceQuery.isSuccess, deliveryStarted, starting]);
 
-  const capture = captureQuery.data;
-  const bookingCapture = bookingCaptureQuery.data;
+  // This screen's own document grid/counters/submitted-gate show Delivery's
+  // slice of the unified response only -- a Booking-relevant file dropped
+  // here still classifies and routes back to Booking correctly (see
+  // handleUpload below), it just isn't shown in this screen's own grid.
+  const capture = useMemo(() => {
+    const unified = captureQuery.data;
+    if (!unified) return undefined;
+    return {
+      requirements: unified.requirements.filter((item) => item.stageCode === 'DELIVERY'),
+      uploads: unified.uploads.filter((item) => item.stageCode === 'DELIVERY'),
+      submitted: unified.deliverySubmitted,
+    };
+  }, [captureQuery.data]);
+  // The checklist panel additionally shows what Booking still needs,
+  // segregated by stageCode from the same unified response instead of a
+  // second, Booking-only network call.
+  const bookingCapture = useMemo(() => {
+    const unified = captureQuery.data;
+    if (!unified) return undefined;
+    return { requirements: unified.requirements.filter((item) => item.stageCode === 'BOOKING') };
+  }, [captureQuery.data]);
   const groups = useMemo(() => {
-    const result: Record<DeliveryGroupKey, CaptureV2Requirement[]> = { INVOICES: [], PAYMENTS: [], OTHERS: [] };
+    const result: Record<DeliveryGroupKey, UnifiedCaptureV2Requirement[]> = { INVOICES: [], PAYMENTS: [], OTHERS: [] };
     capture?.requirements.forEach((requirement) => result[groupFor(requirement)].push(requirement));
     return result;
   }, [capture?.requirements]);
@@ -172,7 +192,7 @@ export default function DeliveryCaptureV2Page() {
           ? `${result.uploaded} of ${result.uploaded + result.failed} file(s) uploaded — ${result.failed} failed, try those again.`
           : 'Documents received. Classification continues in the background and does not block Delivery.',
       );
-      await Promise.all([captureQuery.refetch(), bookingCaptureQuery.refetch()]);
+      await captureQuery.refetch();
     } catch (cause) {
       setMessage(undefined);
       setError(cause instanceof Error ? cause.message : 'One or more Delivery documents could not be uploaded.');
@@ -185,13 +205,13 @@ export default function DeliveryCaptureV2Page() {
     setResyncing(true);
     setError(undefined);
     try {
-      const result = await resyncDeliveryCaptureV2(project.tenantId, journeyId, accessToken);
+      const result = await resyncUnifiedCaptureV2(project.tenantId, journeyId, accessToken);
       setMessage(
         result.queuedDocumentCount > 0
           ? `Rechecking ${result.queuedDocumentCount} document${result.queuedDocumentCount === 1 ? '' : 's'}…`
           : 'Every classified document is already up to date.',
       );
-      await Promise.all([captureQuery.refetch(), bookingCaptureQuery.refetch()]);
+      await captureQuery.refetch();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Delivery documents could not be rechecked.');
     } finally {
@@ -203,7 +223,7 @@ export default function DeliveryCaptureV2Page() {
     setDeletingId(documentId);
     setError(undefined);
     try {
-      await deleteDeliveryCaptureV2Document(project.tenantId, journeyId, documentId, accessToken);
+      await deleteUnifiedCaptureV2Document(project.tenantId, journeyId, documentId, accessToken);
       await captureQuery.refetch();
       setMessage('Document removed from this Delivery submission.');
     } catch (cause) {

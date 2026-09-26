@@ -156,6 +156,18 @@ export interface DeliveryReviewV2 {
   documents: ReviewV2Document[];
 }
 
+// Direct instruction (2026-09-26): Review gets the same GET unification
+// Capture already has -- one HTTP call, one shared backend DI context,
+// both stages tagged in the one response, replacing what used to be two
+// separate calls (GET .../booking/review and GET .../delivery/review --
+// the latter had 404'd unconditionally for every Journey; see
+// uc03_document_review_v2.py's UnifiedReviewV2Response for the full story).
+export interface UnifiedReviewV2 {
+  journeyId: string;
+  booking: BookingReviewV2;
+  delivery: DeliveryReviewV2;
+}
+
 export interface BookingReviewDecision {
   reviewKey: string;
   reviewKind: ReviewDecisionKind;
@@ -243,13 +255,13 @@ export function scopeRepeatedReceiptReviewFields(review: BookingReviewV2): Booki
   };
 }
 
-export async function getBookingReviewV2(
+export async function getUnifiedReviewV2(
   tenantId: string,
   journeyId: string,
   accessToken?: string,
-): Promise<BookingReviewV2> {
-  return auditCoreRequest<BookingReviewV2>(
-    `/v2/tenants/${encodeURIComponent(tenantId)}/journeys/${encodeURIComponent(journeyId)}/booking/review`,
+): Promise<UnifiedReviewV2> {
+  return auditCoreRequest<UnifiedReviewV2>(
+    `/v2/tenants/${encodeURIComponent(tenantId)}/journeys/${encodeURIComponent(journeyId)}/uc03/documents/review`,
     {
       accessToken: token(accessToken),
       cache: 'no-store',
@@ -308,20 +320,6 @@ export async function confirmBookingReviewV2(
         'Idempotency-Key': `booking-review-${journeyId}-${aggregateVersion}`,
       },
       body: JSON.stringify({ corrections }),
-      cache: 'no-store',
-    },
-  );
-}
-
-export async function getDeliveryReviewV2(
-  tenantId: string,
-  journeyId: string,
-  accessToken?: string,
-): Promise<DeliveryReviewV2> {
-  return auditCoreRequest<DeliveryReviewV2>(
-    `/v2/tenants/${encodeURIComponent(tenantId)}/journeys/${encodeURIComponent(journeyId)}/delivery/review`,
-    {
-      accessToken: token(accessToken),
       cache: 'no-store',
     },
   );

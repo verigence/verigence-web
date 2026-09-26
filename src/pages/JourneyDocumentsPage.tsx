@@ -18,8 +18,7 @@ import { submitSimplifiedBookingV2 } from '../services/audit-core/uc03BookingV2'
 import {
   confirmBookingReviewV2,
   getBookingReviewDecisionsV2,
-  getBookingReviewV2,
-  getDeliveryReviewV2,
+  getUnifiedReviewV2,
   setBookingReviewDecisionV2,
   submitFieldCorrection,
   type ReviewDecisionValue,
@@ -1318,36 +1317,33 @@ export default function JourneyDocumentsPage() {
   const SUBMIT_UNLOCK_TIMER_MS = 3 * 60 * 1000;
 
   const enabled = Boolean(project?.tenantId && journeyId && accessToken);
-  const bookingQuery = useQuery({
-    queryKey: ['uc03-journey-documents-booking', project?.tenantId, journeyId],
-    queryFn: () => getBookingReviewV2(project!.tenantId, journeyId!, accessToken),
+  // Direct instruction (2026-09-26): Booking and Delivery review are one
+  // unified read (GET /uc03/documents/review) instead of two separate
+  // stage-scoped queries -- one HTTP round trip, one shared backend DI
+  // context, instead of Delivery's own call permanently 404ing (it never
+  // existed as a route until this same change; see uc03_document_review_v2
+  // .py's UnifiedReviewV2Response for the full story).
+  const reviewQuery = useQuery({
+    queryKey: ['uc03-journey-documents-review', project?.tenantId, journeyId],
+    queryFn: () => getUnifiedReviewV2(project!.tenantId, journeyId!, accessToken),
     enabled,
-    // Root-caused live (2026-09-26): retry:false everywhere on this page is
-    // deliberate for a REAL backend response (Delivery's own review 404s
-    // legitimately before Delivery has started -- retrying that would just
-    // waste a round trip). But it also meant a purely transport-level
-    // hiccup -- e.g. the browser cancelling this exact request
-    // (NS_BINDING_ABORTED) because a duplicate fetch to the same URL fired
-    // moments later and superseded it -- permanently left bookingQuery.data
-    // undefined for the rest of this page load, since nothing else ever
-    // re-triggers it. openDocumentById then has nothing to find in EITHER
-    // stage no matter how it searches, so click-to-open silently failed
-    // for the whole session, not just once. Retry up to twice, but only for
-    // a transport-level failure (AuditCoreNetworkError/AuditCoreTimeoutError,
+    // Root-caused live (2026-09-26): retry:false was deliberate for a REAL
+    // backend response, but it also meant a purely transport-level hiccup
+    // -- e.g. the browser cancelling this exact request (NS_BINDING_ABORTED)
+    // because a duplicate fetch to the same URL fired moments later and
+    // superseded it -- permanently left this query's data undefined for the
+    // rest of this page load, since nothing else ever re-triggers it.
+    // openDocumentById then had nothing to find in either stage no matter
+    // how it searches, so click-to-open silently failed for the whole
+    // session, not just once. Retry up to twice, but only for a
+    // transport-level failure (AuditCoreNetworkError/AuditCoreTimeoutError,
     // or a raw fetch abort) -- never for AuditCoreHttpError, which means
     // the backend actually answered.
     retry: (failureCount, error) => !(error instanceof AuditCoreHttpError) && failureCount < 2,
     refetchOnWindowFocus: false,
   });
-  const deliveryQuery = useQuery({
-    queryKey: ['uc03-journey-documents-delivery', project?.tenantId, journeyId],
-    queryFn: () => getDeliveryReviewV2(project!.tenantId, journeyId!, accessToken),
-    enabled,
-    // See bookingQuery's own comment above -- same fix, same reason. A real
-    // 404 (Delivery not started) still never retries.
-    retry: (failureCount, error) => !(error instanceof AuditCoreHttpError) && failureCount < 2,
-    refetchOnWindowFocus: false,
-  });
+  const bookingReview = reviewQuery.data?.booking;
+  const deliveryReview = reviewQuery.data?.delivery;
   const captureQuery = useQuery({
     queryKey: ['uc03-journey-documents-checklist', project?.tenantId, journeyId],
     queryFn: () => getUnifiedCaptureV2(project!.tenantId, journeyId!, accessToken),
@@ -1395,14 +1391,14 @@ export default function JourneyDocumentsPage() {
   }, [pendingClassification]);
   const editsBlocked = pendingClassification && !editBlockTimedOut;
 
-  const bookingAvailable = Boolean(bookingQuery.data);
-  const deliveryAvailable = Boolean(deliveryQuery.data);
+  const bookingAvailable = Boolean(bookingReview);
+  const deliveryAvailable = Boolean(deliveryReview);
   // A journey that has progressed to Delivery has a CLOSED Booking by
   // design (uc03_document_capture_v2.py::_require_active_booking correctly
   // 409s GET .../booking/capture for a closed Booking) -- that is not "no
   // documents exist", it's "look at Delivery's capture data instead". Real
-  // bug this fixes: the gate below checked only the *review* endpoints
-  // (bookingQuery/deliveryQuery, populated only once PC has reviewed/
+  // bug this fixes: the gate below checked only the *review* data
+  // (bookingReview/deliveryReview, populated only once PC has reviewed/
   // confirmed a document), so a journey with real, uploaded Delivery
   // documents still awaiting review was wrongly told to "Start Booking"
   // first, even though the checklist below already reads capture data too.
@@ -1600,8 +1596,8 @@ export default function JourneyDocumentsPage() {
   // label) is also the correct choice for the modal's own subsequent save/
   // correct calls, since those are themselves review-endpoint-scoped.
   const openDocumentById = (stage: Stage, documentId: string) => {
-    const preferred = stage === 'BOOKING' ? bookingQuery.data : deliveryQuery.data;
-    const fallback = stage === 'BOOKING' ? deliveryQuery.data : bookingQuery.data;
+    const preferred = stage === 'BOOKING' ? bookingReview : deliveryReview;
+    const fallback = stage === 'BOOKING' ? deliveryReview : bookingReview;
     const fallbackStage: Stage = stage === 'BOOKING' ? 'DELIVERY' : 'BOOKING';
     const inPreferred = preferred?.documents.find((candidate) => candidate.documentId === documentId);
     if (inPreferred) {
@@ -1647,14 +1643,14 @@ export default function JourneyDocumentsPage() {
     const documentId = searchParams.get('openDocument');
     if (!documentId) return;
     const stage: Stage = searchParams.get('stage') === 'DELIVERY' ? 'DELIVERY' : 'BOOKING';
-    if (bookingQuery.data || deliveryQuery.data) openDocumentById(stage, documentId);
+    if (bookingReview || deliveryReview) openDocumentById(stage, documentId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams, bookingQuery.data, deliveryQuery.data]);
+  }, [searchParams, bookingReview, deliveryReview]);
 
   if (!project || !journeyId) return null;
 
   const loading =
-    bookingQuery.isPending || deliveryQuery.isPending || captureQuery.isPending;
+    reviewQuery.isPending || captureQuery.isPending;
   if (loading) return <div className="uc03-c1-loading" role="status">Loading Journey Documents…</div>;
   if (!bookingAvailable && !deliveryAvailable && !captureAvailable) {
     // A journey can have an open MODEL_NOT_IDENTIFIED gap (and so a real
@@ -1714,8 +1710,8 @@ export default function JourneyDocumentsPage() {
   // labelled, not shown as individual cards: there is nothing on them to
   // open or review.
   const reviewedDocumentIds = new Set([
-    ...(bookingQuery.data?.documents ?? []).map((document) => document.documentId),
-    ...(deliveryQuery.data?.documents ?? []).map((document) => document.documentId),
+    ...(bookingReview?.documents ?? []).map((document) => document.documentId),
+    ...(deliveryReview?.documents ?? []).map((document) => document.documentId),
   ]);
   // Only count as duplicates if literally the same document ID appears multiple times
   const uploadIdCounts = new Map<string, number>();
@@ -1732,10 +1728,10 @@ export default function JourneyDocumentsPage() {
     }
   }
   const extraDocuments: ExtraDocument[] = [
-    ...(bookingQuery.data?.documents ?? [])
+    ...(bookingReview?.documents ?? [])
       .filter((document) => !coveredDocumentIds.has(document.documentId))
       .map((document) => ({ stage: 'BOOKING' as const, document })),
-    ...(deliveryQuery.data?.documents ?? [])
+    ...(deliveryReview?.documents ?? [])
       .filter((document) => !coveredDocumentIds.has(document.documentId))
       .map((document) => ({ stage: 'DELIVERY' as const, document })),
   ];
@@ -1863,7 +1859,7 @@ export default function JourneyDocumentsPage() {
           <div className="uc03-jd-stat">
             <div className="uc03-jd-stat-label">Extracted</div>
             <div className="uc03-jd-stat-value done">
-              {((bookingQuery.data?.documents.filter((d) => d.extractionState === 'READY').length ?? 0) + (deliveryQuery.data?.documents.filter((d) => d.extractionState === 'READY').length ?? 0))}
+              {((bookingReview?.documents.filter((d) => d.extractionState === 'READY').length ?? 0) + (deliveryReview?.documents.filter((d) => d.extractionState === 'READY').length ?? 0))}
             </div>
           </div>
         </div>

@@ -3,9 +3,11 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useSearchParams } from 'react-router-dom';
 
 import PageHeader from '../components/PageHeader';
+import DeliveryVehicleObservationForm, { DeliveryVinObservationReview } from '../features/uc03/DeliveryVehicleObservationForm';
 import LoanDisbursementPicker from '../features/uc03/LoanDisbursementPicker';
 import { taskAction } from '../services/audit-core/operations';
 import { isManualVerificationRule } from '../services/audit-core/manualVerification';
+import { proposeDeliveryVehicleObservation } from '../services/audit-core/uc03Delivery';
 import {
   actOnQueueFinding,
   getReviewQueue,
@@ -35,6 +37,8 @@ const TASK_LABEL: Record<string, string> = {
   WRONG_DOCUMENT_DEALER_NOTICE: 'Receipt dealer name mismatch',
   FINANCE_DISBURSEMENT_REVIEW: 'Confirm loan disbursement amount',
   FINANCE_DISBURSEMENT_CONFIRMED_NOTICE: 'Loan disbursement amount confirmed',
+  DELIVERY_VEHICLE_PHOTOS_MISSING: 'Provide Delivery vehicle proof',
+  DELIVERY_VIN_MANUAL_ENTRY_REVIEW: 'Approve manually-entered VIN/Chassis',
 };
 
 const CLASS_LABEL: Record<Uc03FindingClass, string> = {
@@ -79,6 +83,8 @@ function closesWhenLabel(item: Uc03ReviewQueueItem, opts: { isTask: boolean; isM
     if (item.category === 'PC_VERIFY_UNRECOGNIZED_DOCUMENT') return 'Closes when you choose Correct or Incorrect, below.';
     if (item.category === 'WRONG_DOCUMENT_REVIEW') return 'Closes when you choose Correct or Incorrect, below.';
     if (item.category === 'FINANCE_DISBURSEMENT_REVIEW') return 'Closes when you pick the loan disbursement payment, below.';
+    if (item.category === 'DELIVERY_VEHICLE_PHOTOS_MISSING') return 'Closes when you upload a vehicle photo on Documents, or enter VIN/Chassis manually, below.';
+    if (item.category === 'DELIVERY_VIN_MANUAL_ENTRY_REVIEW') return 'Closes when you approve or reject the proposed VIN/Chassis, below.';
     if (item.category === 'AUTO_SELF_SERVE') {
       return stem === 'MODEL_NOT_IDENTIFIED'
         ? 'Closes automatically once a vehicle SKU is selected.'
@@ -262,16 +268,18 @@ export default function ReviewQueuePage() {
   // gate, and it never touches the Finding it was spawned from (TL/PM
   // still separately decide the Finding's own fate whenever they choose).
   const completeTaskMutation = useMutation({
-    mutationFn: ({ taskId, outcome, paymentId }: { taskId: string; outcome?: 'CORRECT' | 'INCORRECT'; paymentId?: string }) =>
+    mutationFn: ({ taskId, outcome, paymentId }: { taskId: string; outcome?: 'CORRECT' | 'INCORRECT'; paymentId?: string; category?: string }) =>
       taskAction(project!.tenantId, taskId, 'complete', accessToken, outcome, paymentId),
     onSuccess: (_data, variables) => {
       setBanner({
         tone: 'ok',
-        text: variables.outcome === 'INCORRECT'
-          ? 'Document removed.'
-          : variables.paymentId
-            ? 'Loan disbursement amount confirmed.'
-            : 'Task marked done.',
+        text: variables.category === 'DELIVERY_VIN_MANUAL_ENTRY_REVIEW'
+          ? (variables.outcome === 'CORRECT' ? 'VIN/Chassis approved and recorded.' : 'VIN/Chassis rejected — nothing recorded.')
+          : variables.outcome === 'INCORRECT'
+            ? 'Document removed.'
+            : variables.paymentId
+              ? 'Loan disbursement amount confirmed.'
+              : 'Task marked done.',
       });
       void queryClient.invalidateQueries({ queryKey: ['uc03-review-queue'] });
       void queryClient.invalidateQueries({ queryKey: ['uc03-review-queue-summary'] });
@@ -280,6 +288,28 @@ export default function ReviewQueuePage() {
       setBanner({
         tone: 'err',
         text: 'That task could not be marked done — it may have changed. Refreshing the queue.',
+      });
+      void queueQuery.refetch();
+    },
+  });
+
+  // Direct product instruction: a PC provides VIN/Chassis manually here
+  // instead of on a standalone form -- this never writes the observation
+  // itself (see propose_delivery_vehicle_observation's own docstring); it
+  // raises a DELIVERY_VIN_MANUAL_ENTRY_REVIEW task for a TL and closes this
+  // task on the PC's side immediately.
+  const proposeVehicleObservationMutation = useMutation({
+    mutationFn: ({ journeyId, aggregateVersion, vin, chassisNumber }: { journeyId: string; aggregateVersion: number; vin: string; chassisNumber: string }) =>
+      proposeDeliveryVehicleObservation(project!.tenantId, journeyId, aggregateVersion, { vin, chassisNumber }, accessToken),
+    onSuccess: () => {
+      setBanner({ tone: 'ok', text: 'Sent for Team Lead approval.' });
+      void queryClient.invalidateQueries({ queryKey: ['uc03-review-queue'] });
+      void queryClient.invalidateQueries({ queryKey: ['uc03-review-queue-summary'] });
+    },
+    onError: () => {
+      setBanner({
+        tone: 'err',
+        text: 'That could not be submitted — the Delivery may have changed. Refreshing the queue.',
       });
       void queueQuery.refetch();
     },
@@ -416,6 +446,8 @@ export default function ReviewQueuePage() {
       item.category !== 'MANUAL_VERIFICATION_REVIEW' &&
       item.category !== 'WRONG_DOCUMENT_REVIEW' &&
       item.category !== 'FINANCE_DISBURSEMENT_REVIEW' &&
+      item.category !== 'DELIVERY_VEHICLE_PHOTOS_MISSING' &&
+      item.category !== 'DELIVERY_VIN_MANUAL_ENTRY_REVIEW' &&
       (item.category !== 'AUTO_SELF_SERVE' || item.subjectKind === 'DAILY_OPS')) {
       primaryAction = {
         kind: 'button',
@@ -663,10 +695,48 @@ export default function ReviewQueuePage() {
             </div>
           )}
 
+          {isTask && item.category === 'DELIVERY_VEHICLE_PHOTOS_MISSING' && item.journeyId && (
+            // Direct product instruction: PC's own upload flow stays 100%
+            // entry-free -- these two fields (only reachable through this
+            // Task Queue card) are the one exception. A photo, uploaded
+            // from the Documents page's own Vehicle Photos widget, also
+            // closes this task automatically; this form is the fallback
+            // when a photo isn't available.
+            <div className="revq-inline-picker">
+              <p className="uc03-jd-empty">
+                Upload a vehicle photo from the <Link to={`/journeys/${item.journeyId}/documents`}>Documents page</Link>, or
+                enter VIN/Chassis manually below if a photo isn't available.
+              </p>
+              <DeliveryVehicleObservationForm
+                tenantId={project!.tenantId}
+                journeyId={item.journeyId}
+                accessToken={accessToken}
+                onSubmit={(aggregateVersion, vin, chassisNumber) =>
+                  proposeVehicleObservationMutation.mutateAsync({ journeyId: item.journeyId!, aggregateVersion, vin, chassisNumber })
+                }
+              />
+            </div>
+          )}
+
+          {isTask && item.category === 'DELIVERY_VIN_MANUAL_ENTRY_REVIEW' && item.journeyId && (
+            <div className="revq-inline-picker">
+              <DeliveryVinObservationReview
+                tenantId={project!.tenantId}
+                journeyId={item.journeyId}
+                workflowTaskId={item.flagId}
+                accessToken={accessToken}
+                busy={completeTaskMutation.isPending}
+                onDecide={(outcome) => completeTaskMutation.mutate({ taskId: item.flagId, outcome, category: item.category ?? undefined })}
+              />
+            </div>
+          )}
+
           {isTask && item.category !== 'PC_VERIFY_UNRECOGNIZED_DOCUMENT' &&
             item.category !== 'MANUAL_VERIFICATION_REVIEW' &&
             item.category !== 'WRONG_DOCUMENT_REVIEW' &&
             item.category !== 'FINANCE_DISBURSEMENT_REVIEW' &&
+            item.category !== 'DELIVERY_VEHICLE_PHOTOS_MISSING' &&
+            item.category !== 'DELIVERY_VIN_MANUAL_ENTRY_REVIEW' &&
             (item.category !== 'AUTO_SELF_SERVE' || item.subjectKind === 'DAILY_OPS') && (
             // Take Action has no auto-resolving rule behind it, and
             // Daily Operations has no document screen a self-serve

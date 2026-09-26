@@ -256,6 +256,51 @@ export async function recordDeliveryVehicleObservation(
   });
 }
 
+// Direct product instruction: a PC who can't get a vehicle photo enters
+// VIN/Chassis manually via the DELIVERY_VEHICLE_PHOTOS_MISSING Task Queue
+// card, not a standalone form -- this never writes the observation itself,
+// it records intimation=NO and raises a DELIVERY_VIN_MANUAL_ENTRY_REVIEW
+// task for a TL to approve before it's written (see uc03_delivery_
+// commands.py's propose_delivery_vehicle_observation for the full flow).
+export async function proposeDeliveryVehicleObservation(
+  tenantId: string,
+  journeyId: string,
+  version: number,
+  payload: { vin?: string; chassisNumber?: string },
+  accessToken?: string,
+): Promise<{ taskId: string; computedReconciliationStatus: 'MATCH' | 'MISMATCH' | 'REVIEW_REQUIRED'; aggregateVersion: number }> {
+  return auditCoreRequest(`${base(tenantId, journeyId)}/delivery/vehicle-observation/propose`, {
+    method: 'POST',
+    accessToken: token(accessToken),
+    headers: commandHeaders('uc03-delivery-vehicle-propose', version),
+    body: JSON.stringify({
+      vin: payload.vin?.trim() || null,
+      chassisNumber: payload.chassisNumber?.trim() || null,
+    }),
+  });
+}
+
+// Lets a TL's DELIVERY_VIN_MANUAL_ENTRY_REVIEW Task Queue card show what
+// the PC actually proposed before approving it -- the shared review-queue
+// list carries no per-task-type payload, so this is its own dedicated read.
+export async function getDeliveryVehicleObservationProposal(
+  tenantId: string,
+  journeyId: string,
+  workflowTaskId: string,
+  accessToken?: string,
+): Promise<{
+  workflowTaskId: string;
+  observedVin: string | null;
+  observedChassisNumber: string | null;
+  computedReconciliationStatus: 'MATCH' | 'MISMATCH' | 'REVIEW_REQUIRED';
+  appliedAtUtc: string | null;
+}> {
+  return auditCoreRequest(
+    `${base(tenantId, journeyId)}/delivery/vehicle-observation/proposals/${encodeURIComponent(workflowTaskId)}`,
+    { accessToken: token(accessToken), cache: 'no-store' },
+  );
+}
+
 export async function completeDelivery(
   tenantId: string,
   journeyId: string,

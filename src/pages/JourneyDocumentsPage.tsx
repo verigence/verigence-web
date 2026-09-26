@@ -1345,6 +1345,10 @@ export default function JourneyDocumentsPage() {
   });
   const bookingReview = reviewQuery.data?.booking;
   const deliveryReview = reviewQuery.data?.delivery;
+  const deliveryAvailable = Boolean(deliveryReview);
+  // Arriving via the Delivery entry route already carries this -- see
+  // deliveryWorkspaceQuery's own use of it below.
+  const autoStartDelivery = searchParams.get('autoStart') === 'DELIVERY';
   const captureQuery = useQuery({
     queryKey: ['uc03-journey-documents-checklist', project?.tenantId, journeyId],
     queryFn: () => getUnifiedCaptureV2(project!.tenantId, journeyId!, accessToken),
@@ -1360,10 +1364,16 @@ export default function JourneyDocumentsPage() {
       unifiedCaptureV2IsProcessing(query.state.data) || recentlyUploaded() ? POLL_MS : false
     ),
   });
+  // Root-caused live (2026-09-26): fired unconditionally the instant the
+  // page mounted, even for a Journey that has never reached Delivery --
+  // vehicle photos are a Delivery-only concept (deliberately outside DI,
+  // see vehicle_photo_storage.py), so a Booking-only Journey is guaranteed
+  // to have none yet. Same signal deliveryWorkspaceQuery below already uses
+  // for "Delivery is actually relevant on this page load".
   const vehiclePhotosQuery = useQuery({
     queryKey: ['uc03-vehicle-photos', project?.tenantId, journeyId],
     queryFn: () => listVehiclePhotos(project!.tenantId, journeyId as string, accessToken || ''),
-    enabled,
+    enabled: enabled && (autoStartDelivery || deliveryAvailable),
     retry: false,
     refetchOnWindowFocus: false,
   });
@@ -1393,7 +1403,6 @@ export default function JourneyDocumentsPage() {
   const editsBlocked = pendingClassification && !editBlockTimedOut;
 
   const bookingAvailable = Boolean(bookingReview);
-  const deliveryAvailable = Boolean(deliveryReview);
   // A journey that has progressed to Delivery has a CLOSED Booking by
   // design (uc03_document_capture_v2.py::_require_active_booking correctly
   // 409s GET .../booking/capture for a closed Booking) -- that is not "no
@@ -1450,7 +1459,6 @@ export default function JourneyDocumentsPage() {
   // confirms it isn't started yet, same as before. Booking's own start
   // stays a manual button (handleStart above) since that's the genuinely
   // rare "stale draft resumed later" edge case, not every arrival.
-  const autoStartDelivery = searchParams.get('autoStart') === 'DELIVERY';
   const [deliveryStarting, setDeliveryStarting] = useState(false);
   const deliveryWorkspaceQuery = useQuery({
     queryKey: ['uc03-journey-documents-delivery-workspace', project?.tenantId, journeyId],

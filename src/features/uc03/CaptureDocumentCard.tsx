@@ -124,7 +124,16 @@ export function ReviewDocumentStatusCard({ document }: { document: ReviewV2Docum
 }
 
 /** One row in a collapsed document-checklist panel: received or not, mandatory or optional. */
-export function RequirementChecklistRow({ requirement }: { requirement: CaptureV2Requirement }) {
+export function RequirementChecklistRow({
+  requirement,
+}: {
+  // Narrowed to just the fields actually read below (not the full
+  // CaptureV2Requirement shape) so this also accepts a
+  // UnifiedCaptureV2Requirement (uc03UnifiedDocumentCapture.ts), which has
+  // no needsDecision/blocksContinue -- those were confirmed dead in every
+  // UI consumer, not carried into the unified type.
+  requirement: Pick<CaptureV2Requirement, 'document' | 'label' | 'requirementLevel'>;
+}) {
   const received = Boolean(requirement.document);
   return (
     <div className={`uc03-checklist-row ${received ? 'is-received' : ''}`}>

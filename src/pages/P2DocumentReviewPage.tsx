@@ -181,7 +181,7 @@ export default function P2DocumentReviewPage() {
                         <td>{confidenceLabel(field.confidenceScore)}</td>
                         <td><StatusPill value={state} compact /></td>
                         <td>
-                          {hasP2BoxedEvidence(field) && document.contentAvailable ? (
+                          {hasP2BoxedEvidence(field, document.originalFilename) && document.contentAvailable ? (
                             <button className="p2-link-button" type="button" onClick={() => setEvidence(field)}>
                               View boxed evidence
                             </button>

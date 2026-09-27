@@ -1032,6 +1032,24 @@ export default function JourneyDocumentsPage() {
     // the backend actually answered.
     retry: (failureCount, error) => !(error instanceof AuditCoreHttpError) && failureCount < 2,
     refetchOnWindowFocus: false,
+    // Root-caused live (2026-09-27): this query only ever fetched once on
+    // mount -- unlike captureQuery below, it had no refetchInterval at all.
+    // extractedDocumentIds (and the boxed field-review panel) are sourced
+    // from THIS query, not captureQuery, so a document finishing extraction
+    // never updated the "Extracted" count or badge until something else
+    // forced a refetch (a manual page reload). captureQuery kept polling and
+    // advancing Uploaded/Classified live, which is why those looked correct
+    // while Extracted stayed frozen. Same pattern as captureQuery: keep
+    // polling while any document is still PENDING, or within the same
+    // post-upload grace window.
+    refetchInterval: (query) => {
+      const data = query.state.data;
+      const stillExtracting = [
+        ...(data?.booking?.documents ?? []),
+        ...(data?.delivery?.documents ?? []),
+      ].some((document) => document.extractionState === 'PENDING');
+      return stillExtracting || recentlyUploaded() ? POLL_MS : false;
+    },
   });
   const bookingReview = reviewQuery.data?.booking;
   const deliveryReview = reviewQuery.data?.delivery;

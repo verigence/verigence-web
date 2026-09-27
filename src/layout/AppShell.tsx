@@ -59,7 +59,7 @@ const feedbackItem: NavItem = {
 
 const reviewQueueItem: NavItem = {
   to: '/reviews',
-  label: 'Tasks',
+  label: 'Task Queue',
   mark: 'TQ',
   roles: ['PC', 'TL', 'PM', 'EXECUTIVE'],
 };
@@ -131,7 +131,7 @@ const p2WorkQueueItem: NavItem = {
 
 const p2TasksItem: NavItem = {
   to: '/p2/tasks',
-  label: 'Task Queue',
+  label: 'Tasks',
   mark: 'TQ',
   roles: ['PC', 'TL', 'PM'],
 };

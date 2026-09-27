@@ -1481,3 +1481,187 @@
     gap: 3px;
   }
 }
+
+
+/* Phase 2 mobile operational cards */
+@media (max-width: 720px) {
+  .p2-journey-list,
+  .p2-documents-table,
+  .p2-task-table,
+  .p2-field-table,
+  .p2-history-table {
+    border-collapse: separate;
+    border-spacing: 0 10px;
+  }
+
+  .p2-journey-list thead,
+  .p2-documents-table thead,
+  .p2-task-table thead,
+  .p2-field-table thead,
+  .p2-history-table thead {
+    display: none;
+  }
+
+  .p2-journey-list tbody,
+  .p2-documents-table tbody,
+  .p2-task-table tbody,
+  .p2-field-table tbody,
+  .p2-history-table tbody {
+    display: grid;
+    gap: 10px;
+  }
+
+  .p2-journey-list tbody > tr,
+  .p2-documents-table tbody > tr,
+  .p2-task-table tbody > tr:not(.p2-task-detail),
+  .p2-field-table tbody > tr:not(.p2-field-edit),
+  .p2-history-table tbody > tr {
+    display: grid;
+    overflow: hidden;
+    border: 1px solid #e1e7ef;
+    border-radius: 10px;
+    background: #fff;
+    box-shadow: 0 1px 2px rgb(15 23 42 / 4%);
+  }
+
+  .p2-journey-list tbody > tr > td,
+  .p2-documents-table tbody > tr > td,
+  .p2-task-table tbody > tr:not(.p2-task-detail) > td,
+  .p2-field-table tbody > tr:not(.p2-field-edit) > td,
+  .p2-history-table tbody > tr > td {
+    display: grid;
+    grid-template-columns: minmax(108px, .42fr) minmax(0, 1fr);
+    gap: 10px;
+    align-items: start;
+    padding: 9px 11px;
+    border: 0;
+    border-bottom: 1px solid #edf1f5;
+    text-align: left;
+    white-space: normal;
+  }
+
+  .p2-journey-list tbody > tr > td:last-child,
+  .p2-documents-table tbody > tr > td:last-child,
+  .p2-task-table tbody > tr:not(.p2-task-detail) > td:last-child,
+  .p2-field-table tbody > tr:not(.p2-field-edit) > td:last-child,
+  .p2-history-table tbody > tr > td:last-child {
+    border-bottom: 0;
+  }
+
+  .p2-journey-list td::before,
+  .p2-documents-table td::before,
+  .p2-task-table tr:not(.p2-task-detail) td::before,
+  .p2-field-table tr:not(.p2-field-edit) td::before,
+  .p2-history-table td::before {
+    color: #7a8799;
+    font-size: .65rem;
+    font-weight: 800;
+    letter-spacing: .035em;
+    line-height: 1.35;
+    text-transform: uppercase;
+  }
+
+  .p2-journey-list td:nth-child(1)::before { content: 'Customer / Vehicle'; }
+  .p2-journey-list td:nth-child(2)::before { content: 'Stage'; }
+  .p2-journey-list td:nth-child(3)::before { content: 'Booking'; }
+  .p2-journey-list td:nth-child(4)::before { content: 'Delivery'; }
+  .p2-journey-list td:nth-child(5)::before { content: 'Documents'; }
+  .p2-journey-list td:nth-child(6)::before { content: 'Needs action'; }
+  .p2-journey-list td:nth-child(7)::before { content: 'Action'; }
+
+  .p2-documents-table td:nth-child(1)::before { content: 'File / Page'; }
+  .p2-documents-table td:nth-child(2)::before { content: 'Document type'; }
+  .p2-documents-table td:nth-child(3)::before { content: 'Stage'; }
+  .p2-documents-table td:nth-child(4)::before { content: 'Processing'; }
+  .p2-documents-table td:nth-child(5)::before { content: 'Review / Issue'; }
+  .p2-documents-table td:nth-child(6)::before { content: 'Action'; }
+
+  .p2-task-table tr:not(.p2-task-detail) td:nth-child(1)::before { content: 'Priority'; }
+  .p2-task-table tr:not(.p2-task-detail) td:nth-child(2)::before { content: 'Severity'; }
+  .p2-task-table tr:not(.p2-task-detail) td:nth-child(3)::before { content: 'Task / Why'; }
+  .p2-task-table tr:not(.p2-task-detail) td:nth-child(4)::before { content: 'Journey / Customer'; }
+  .p2-task-table tr:not(.p2-task-detail) td:nth-child(5)::before { content: 'Owner / SLA'; }
+  .p2-task-table tr:not(.p2-task-detail) td:nth-child(6)::before { content: 'Status'; }
+  .p2-task-table tr:not(.p2-task-detail) td:nth-child(7)::before { content: 'Action'; }
+
+  .p2-field-table tr:not(.p2-field-edit) td:nth-child(1)::before { content: 'Field'; }
+  .p2-field-table tr:not(.p2-field-edit) td:nth-child(2)::before { content: 'Effective value'; }
+  .p2-field-table tr:not(.p2-field-edit) td:nth-child(3)::before { content: 'Confidence'; }
+  .p2-field-table tr:not(.p2-field-edit) td:nth-child(4)::before { content: 'State'; }
+  .p2-field-table tr:not(.p2-field-edit) td:nth-child(5)::before { content: 'Evidence'; }
+  .p2-field-table tr:not(.p2-field-edit) td:nth-child(6)::before { content: 'Action'; }
+
+  .p2-history-table td:nth-child(1)::before { content: 'Field'; }
+  .p2-history-table td:nth-child(2)::before { content: 'Extracted'; }
+  .p2-history-table td:nth-child(3)::before { content: 'Effective'; }
+  .p2-history-table td:nth-child(4)::before { content: 'Reviewed'; }
+
+  .p2-journey-list .p2-row-actions,
+  .p2-task-table .p2-task-row-actions {
+    width: 100%;
+    display: grid;
+    grid-template-columns: 1fr;
+    justify-items: stretch;
+  }
+
+  .p2-journey-list .p2-primary-link,
+  .p2-documents-table .p2-primary-link,
+  .p2-task-table .p2-primary-link,
+  .p2-task-table .p2-primary-action,
+  .p2-field-table .p2-primary-action,
+  .p2-field-table .p2-secondary-action {
+    width: 100%;
+  }
+
+  .p2-task-detail,
+  .p2-field-edit {
+    display: block;
+  }
+
+  .p2-task-detail > td,
+  .p2-field-edit > td {
+    display: block !important;
+    padding: 0 !important;
+    border: 0 !important;
+  }
+
+  .p2-task-detail__body,
+  .p2-field-edit__form {
+    margin-top: -2px;
+    border-radius: 10px;
+  }
+
+  .p2-empty {
+    display: block !important;
+    border: 1px dashed #d6dee8 !important;
+    border-radius: 10px !important;
+  }
+
+  .p2-empty::before {
+    display: none !important;
+  }
+
+  .p2-stage-line {
+    grid-template-columns: repeat(6, minmax(96px, 1fr));
+    overflow-x: auto;
+    justify-content: start;
+    scroll-snap-type: x proximity;
+  }
+
+  .p2-stage-line li {
+    scroll-snap-align: start;
+  }
+
+  .p2-stage-line__text strong {
+    white-space: normal;
+  }
+
+  .p2-business-panel .p2-table-wrap {
+    border: 1px solid #e5eaf1;
+    border-radius: 9px;
+  }
+
+  .p2-business-panel .p2-table {
+    min-width: 620px;
+  }
+}

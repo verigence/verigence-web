@@ -91,6 +91,52 @@ export type P2Overview = {
     open: number;
     resolved: number;
   };
+  statistics: {
+    booking: {
+      documentsRequired: number;
+      documentsReceived: number;
+      pages: number;
+      pagesProcessed: number;
+      paymentReceipts: number;
+      paymentReceived: string;
+      minimumPayment: string;
+      manualVerificationPending: number;
+      controls: P2ControlStatistics;
+    };
+    delivery: {
+      documentsRequired: number;
+      documentsReceived: number;
+      pages: number;
+      pagesProcessed: number;
+      invoices: number;
+      paymentReceipts: number;
+      financeRecords: number;
+      insuranceRecords: number;
+      vehicleRecords: number;
+      registrationRecords: number;
+      controls: P2ControlStatistics;
+    };
+    journey: {
+      uploads: number;
+      reuploads: number | null;
+      supersededDocuments: number;
+      extractionFailures: number;
+      retries: number;
+      correctedFields: number;
+      openFindings: number;
+      totalTasks: number;
+      slaBreaches: number;
+    };
+  };
+};
+
+export type P2ControlStatistics = {
+  expected: number;
+  passed: number;
+  failed: number;
+  waiting: number;
+  retryPending: number;
+  errors: number;
 };
 
 export type P2DocumentPage = {

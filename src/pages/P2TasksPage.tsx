@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useParams } from 'react-router-dom';
+import '../styles/uc03-p2.css';
 
 import PageHeader from '../components/PageHeader';
 import SectionCard from '../components/SectionCard';

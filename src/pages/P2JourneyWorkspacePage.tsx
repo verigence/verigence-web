@@ -124,8 +124,6 @@ export default function P2JourneyWorkspacePage() {
   const paymentGate = booking?.gates.MINIMUM_BOOKING_PAYMENT;
   const paid = Number(booking?.bookingReceiptTotal || 0);
   const minimum = Number(booking?.minimumBookingAmount || 0);
-  const currentStage = booking?.stage ?? '';
-  const uploadStage = currentStage.startsWith('DELIVERY') || currentStage === 'BOOKING_COMPLETE' ? 'DELIVERY' : 'BOOKING';
   const removeName = rows.find((row) => row.documentId === removeTarget)?.name ?? 'this document';
 
   return (
@@ -188,7 +186,7 @@ export default function P2JourneyWorkspacePage() {
       <div className="p2w-layout">
         <div className="p2w-layout__list">
           {tenantId ? (
-            <P2UploadPanel journeyId={journeyId} stage={uploadStage} transport={transport} onAccepted={refresh} />
+            <P2UploadPanel journeyId={journeyId} transport={transport} onAccepted={refresh} />
           ) : null}
           {documents.isLoading ? <div className="p2w-skeleton" aria-busy="true">Loading documents…</div> : (
             <P2DocumentList

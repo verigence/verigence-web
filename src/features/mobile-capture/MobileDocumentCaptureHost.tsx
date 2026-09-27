@@ -41,6 +41,8 @@ interface CaptureContext {
   input: HTMLInputElement;
   stage: MobileCaptureStage;
   journeyToken: string;
+  /** Screen title; Phase 2 captures are stage-neutral (the document type decides). */
+  label?: string;
 }
 
 function randomId(prefix: string): string {
@@ -95,8 +97,12 @@ function captureContextForInput(input: HTMLInputElement): CaptureContext | undef
 
   const p2 = input.closest<HTMLElement>('.p2-capture');
   if (p2) {
-    const stage = p2.dataset.p2Stage === 'DELIVERY' ? 'DELIVERY' : 'BOOKING';
-    return { input, stage, journeyToken: p2.dataset.p2Journey || journeyTokenFromPath(stage) };
+    return {
+      input,
+      stage: 'BOOKING',
+      journeyToken: p2.dataset.p2Journey || `journey-${Date.now()}`,
+      label: 'Journey documents',
+    };
   }
   if (input.closest('.uc03-booking-v2-hero')) {
     return { input, stage: 'BOOKING', journeyToken: journeyTokenFromPath('BOOKING') };
@@ -141,6 +147,7 @@ export default function MobileDocumentCaptureHost() {
 
   const [open, setOpen] = useState(false);
   const [stage, setStage] = useState<MobileCaptureStage>('BOOKING');
+  const [label, setLabel] = useState<string>();
   const [phase, setPhase] = useState<CapturePhase>('IDLE');
   const [documents, setDocuments] = useState<LogicalCapturedDocument[]>([]);
   const [fallbackPages, setFallbackPages] = useState<CapturedPage[]>([]);
@@ -241,6 +248,7 @@ export default function MobileDocumentCaptureHost() {
       clearSession();
       contextRef.current = context;
       setStage(context.stage);
+      setLabel(context.label);
       setOpen(true);
       document.documentElement.classList.add('mobile-document-capture-route');
       window.setTimeout(() => void beginScanner(false), 0);
@@ -413,7 +421,7 @@ export default function MobileDocumentCaptureHost() {
 
   if (!eligible || !open || !contextRef.current) return null;
 
-  const stageLabel = stage === 'BOOKING' ? 'Booking' : 'Delivery';
+  const stageLabel = label ?? (stage === 'BOOKING' ? 'Booking' : 'Delivery');
   const totalPages = countPages(documents);
 
   return (

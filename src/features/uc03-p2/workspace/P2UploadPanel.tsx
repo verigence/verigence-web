@@ -23,12 +23,10 @@ const PHASE_LABEL: Record<UploadItem['phase'], string> = {
 
 export default function P2UploadPanel({
   journeyId,
-  stage,
   transport,
   onAccepted,
 }: {
   journeyId: string;
-  stage: 'BOOKING' | 'DELIVERY';
   transport: UploadTransport;
   onAccepted: () => void;
 }) {
@@ -105,7 +103,7 @@ export default function P2UploadPanel({
         accept(Array.from(event.dataTransfer.files));
       }}
     >
-      <div className="p2w-upload__drop p2-capture" data-p2-stage={stage} data-p2-journey={journeyId}>
+      <div className="p2w-upload__drop p2-capture" data-p2-journey={journeyId}>
         <div className="p2w-upload__copy">
           <strong>Add documents</strong>
           <span>Drop files here, or photograph them. A PDF with many documents is sorted automatically.</span>

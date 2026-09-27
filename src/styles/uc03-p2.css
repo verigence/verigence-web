@@ -459,6 +459,29 @@
   text-decoration: none;
 }
 
+.p2-secondary-link {
+  min-height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 14px;
+  border: 1px solid #cfd9e6;
+  border-radius: 8px;
+  background: #fff;
+  color: #173e69;
+  font-size: .8rem;
+  font-weight: 750;
+  text-decoration: none;
+}
+
+.p2-secondary-link:hover,
+.p2-secondary-link:focus-visible {
+  border-color: #9fb4cc;
+  background: #f7fafd;
+  color: #0f3158;
+  text-decoration: none;
+}
+
 
 .p2-document-review-head {
   display: grid;
@@ -1605,6 +1628,7 @@
   }
 
   .p2-journey-list .p2-primary-link,
+  .p2-journey-list .p2-secondary-link,
   .p2-documents-table .p2-primary-link,
   .p2-task-table .p2-primary-link,
   .p2-task-table .p2-primary-action,

@@ -202,7 +202,7 @@ export default function P2JourneyDocumentsPage() {
 
       <SectionCard>
         <div className="p2-table-wrap">
-          <table className="p2-table">
+          <table className="p2-table p2-documents-table">
             <thead>
               <tr>
                 <th>File / Page</th>

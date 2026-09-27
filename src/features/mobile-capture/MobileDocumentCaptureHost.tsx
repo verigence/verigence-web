@@ -93,6 +93,11 @@ function captureContextForInput(input: HTMLInputElement): CaptureContext | undef
   if (input.type !== 'file' || !input.hasAttribute('capture') || input.disabled) return undefined;
   if (!input.accept.toLowerCase().includes('image')) return undefined;
 
+  const p2 = input.closest<HTMLElement>('.p2-capture');
+  if (p2) {
+    const stage = p2.dataset.p2Stage === 'DELIVERY' ? 'DELIVERY' : 'BOOKING';
+    return { input, stage, journeyToken: p2.dataset.p2Journey || journeyTokenFromPath(stage) };
+  }
   if (input.closest('.uc03-booking-v2-hero')) {
     return { input, stage: 'BOOKING', journeyToken: journeyTokenFromPath('BOOKING') };
   }

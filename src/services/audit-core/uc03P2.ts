@@ -1,3 +1,4 @@
+import { xhrPut } from '../../features/uc03-p2/workspace/p2Uploader';
 import { auditCoreRawRequest, auditCoreRequest } from './client';
 
 export type P2JourneyListItem = {
@@ -25,10 +26,16 @@ export type P2JourneyListResponse = { items: P2JourneyListItem[] };
 
 export type P2BookingGate = {
   passed: boolean;
+  label?: string;
+  kind?: string;
+  action?: string;
   documentCount?: number;
   receiptTotal?: string;
   minimumAmount?: string;
+  shortfall?: string;
+  receiptCount?: number;
   pendingCount?: number;
+  documents?: string[] | Record<string, number>;
 };
 
 export type P2BookingStage = {
@@ -146,6 +153,14 @@ export type P2ControlStatistics = {
 
 export type P2DocumentPage = {
   queueId: string;
+  unitKind?: 'PAGE' | 'GROUP';
+  pageNumbers?: number[];
+  mergedIntoQueueId?: string | null;
+  groupSource?: 'SYSTEM' | 'PC' | null;
+  templateKey?: string | null;
+  displayName?: string | null;
+  requirement?: string | null;
+  status_reason?: string | null;
   page_number: number;
   client_upload_id: string;
   diDocumentId?: string;
@@ -167,9 +182,11 @@ export type P2DocumentBatch = {
   sha256?: string | null;
   page_count: number;
   batch_status: string;
+  grouping_status?: string;
   created_at_utc: string;
   updated_at_utc: string;
   pages: P2DocumentPage[];
+  documents?: Array<P2DocumentPage & { memberPages: P2DocumentPage[] }>;
 };
 
 export type P2DocumentLineage = {
@@ -184,12 +201,56 @@ export type P2DocumentLineage = {
   confirmation_status_cache?: string | null;
   linked_at_utc: string;
   original_filename?: string | null;
+  templateKey?: string;
+  displayName?: string;
+  requirement?: string;
+};
+
+export type P2ChecklistItem = {
+  templateKey: string;
+  displayName: string;
+  stage: 'BOOKING' | 'DELIVERY';
+  requirement: 'REQUIRED' | 'OPTIONAL' | 'CONDITIONAL' | 'SUPPORTING';
+  status: 'RECEIVED' | 'MISSING';
+  readyCount: number;
+  documentIds: string[];
 };
 
 export type P2DocumentsResponse = {
   journeyId: string;
   batches: P2DocumentBatch[];
   documents?: P2DocumentLineage[];
+  checklist?: P2ChecklistItem[];
+  conditions?: string[];
+};
+
+export type P2TemplateField = {
+  key: string;
+  label: string;
+  type: string;
+  required: boolean;
+  isKey: boolean;
+  reviewThreshold: number;
+};
+
+export type P2Template = {
+  key: string;
+  displayName: string;
+  stage: string;
+  requirement: string;
+  condition?: string | null;
+  pageShape: string;
+  maxPages: number;
+  diTypes: string[];
+  reviewThreshold: number;
+  keyFields: string[];
+  fields: P2TemplateField[];
+};
+
+export type P2TemplatesResponse = {
+  version: number;
+  templates: P2Template[];
+  stages: Array<{ code: string; states: string[]; gates: Array<{ key: string; kind: string; label: string; action: string }> }>;
 };
 
 
@@ -310,6 +371,58 @@ function stableClientUploadId(journeyId: string, file: File, index: number): str
   return `web-p2-${(hash >>> 0).toString(36)}-${file.size.toString(36)}`;
 }
 
+
+export function getP2Templates(tenantId: string, accessToken?: string): Promise<P2TemplatesResponse> {
+  return auditCoreRequest<P2TemplatesResponse>(path(tenantId, '/templates'), { accessToken });
+}
+
+export function p2UploadTransport(tenantId: string, journeyId: string, accessToken?: string) {
+  const journey = `/journeys/${encodeURIComponent(journeyId)}`;
+  return {
+    init: async (files: Array<{ filename: string; contentType: string; sizeBytes: number; clientUploadId: string }>) =>
+      (await auditCoreRequest<UploadInitResult>(path(tenantId, `${journey}/uploads:init`), {
+        method: 'POST', accessToken, body: JSON.stringify({ files }),
+      })).uploads,
+    put: xhrPut,
+    finalize: async (batchId: string) => {
+      await auditCoreRequest(path(tenantId, `${journey}/uploads/${encodeURIComponent(batchId)}:finalize`), {
+        method: 'POST', accessToken,
+      });
+    },
+  };
+}
+
+export function confirmP2Field(
+  tenantId: string,
+  journeyId: string,
+  documentId: string,
+  field: { fieldKey: string; canonicalFieldId: string; sourceFactVersion: number },
+  accessToken?: string,
+): Promise<{ confirmed: boolean }> {
+  return auditCoreRequest(
+    path(tenantId, `/journeys/${encodeURIComponent(journeyId)}/documents/${encodeURIComponent(documentId)}/fields/${encodeURIComponent(field.fieldKey)}:confirm`),
+    {
+      method: 'POST', accessToken, cache: 'no-store',
+      body: JSON.stringify({ canonicalFieldId: field.canonicalFieldId, sourceFactVersion: field.sourceFactVersion }),
+    },
+  );
+}
+
+export function retryP2Page(tenantId: string, journeyId: string, queueId: string, accessToken?: string) {
+  return auditCoreRequest(
+    path(tenantId, `/journeys/${encodeURIComponent(journeyId)}/pages/${encodeURIComponent(queueId)}:retry`),
+    { method: 'POST', accessToken },
+  );
+}
+
+export function setP2PageType(
+  tenantId: string, journeyId: string, queueId: string, templateKey: string, accessToken?: string,
+) {
+  return auditCoreRequest(
+    path(tenantId, `/journeys/${encodeURIComponent(journeyId)}/pages/${encodeURIComponent(queueId)}:set-type`),
+    { method: 'POST', accessToken, body: JSON.stringify({ templateKey }) },
+  );
+}
 
 export function getP2Journeys(
   tenantId: string,
@@ -585,17 +698,27 @@ export async function submitP2TaskAction(
   );
 }
 
+export type P2Event = {
+  event_id: number;
+  event_type: string;
+  subject_type?: string | null;
+  subject_id?: string | null;
+  details: Record<string, unknown>;
+  created_at_utc: string;
+  occurred_at_utc?: string;
+};
+
 export async function getP2Events(
   tenantId: string,
   journeyId: string,
   after: number,
   accessToken?: string,
-): Promise<{ events: Array<Record<string, unknown>> }> {
+  options: { latest?: boolean; limit?: number } = {},
+): Promise<{ events: P2Event[]; cursor?: number }> {
+  const params = new URLSearchParams({ after: String(Math.max(0, after)), limit: String(options.limit ?? 100) });
+  if (options.latest) params.set('latest', 'true');
   return auditCoreRequest(
-    path(
-      tenantId,
-      `/journeys/${encodeURIComponent(journeyId)}/events?after=${Math.max(0, after)}&limit=100`,
-    ),
+    path(tenantId, `/journeys/${encodeURIComponent(journeyId)}/events?${params.toString()}`),
     { accessToken, timeoutMs: 5_000 },
   );
 }

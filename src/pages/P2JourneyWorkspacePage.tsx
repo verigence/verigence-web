@@ -1,0 +1,258 @@
+import { useCallback, useMemo, useRef, useState } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import '../styles/uc03-p2.css';
+import '../styles/uc03-p2-workspace.css';
+
+import PageHeader from '../components/PageHeader';
+import P2JourneyTabs from '../features/uc03-p2/P2JourneyTabs';
+import P2DocumentEditor from '../features/uc03-p2/workspace/P2DocumentEditor';
+import P2DocumentList, { buildDocumentRows } from '../features/uc03-p2/workspace/P2DocumentList';
+import P2UploadPanel from '../features/uc03-p2/workspace/P2UploadPanel';
+import { BATCH_IN_FLIGHT, formatInr, PAGE_IN_FLIGHT } from '../features/uc03-p2/workspace/p2Format';
+import { useP2EventFeed } from '../features/uc03-p2/workspace/useP2EventFeed';
+import {
+  deleteP2Document,
+  getP2Documents,
+  getP2Stage,
+  getP2Templates,
+  p2UploadTransport,
+  replaceP2Document,
+  retryP2Page,
+  setP2PageType,
+} from '../services/audit-core/uc03P2';
+import { useProjectContextStore } from '../store/projectContextStore';
+import { useSessionStore } from '../store/sessionStore';
+
+function errorText(cause: unknown, fallback: string): string {
+  return cause instanceof Error && cause.message ? cause.message : fallback;
+}
+
+export default function P2JourneyWorkspacePage() {
+  const { journeyId = '', documentId } = useParams();
+  const [search] = useSearchParams();
+  const navigate = useNavigate();
+  const tenantId = useProjectContextStore((s) => s.selectedProject?.tenantId);
+  const accessToken = useSessionStore((s) => s.accessToken);
+  const queryClient = useQueryClient();
+  const replaceInput = useRef<HTMLInputElement>(null);
+  const [replaceTarget, setReplaceTarget] = useState<string>();
+  const [removeTarget, setRemoveTarget] = useState<string>();
+  const [notice, setNotice] = useState<{ tone: 'success' | 'error'; text: string }>();
+  const [busyKey, setBusyKey] = useState<string>();
+  const enabled = Boolean(tenantId && journeyId && accessToken);
+
+  const documents = useQuery({
+    queryKey: ['p2-documents', tenantId, journeyId],
+    queryFn: () => getP2Documents(tenantId!, journeyId, accessToken),
+    enabled,
+    staleTime: 3_000,
+  });
+  const stage = useQuery({
+    queryKey: ['p2-stage', tenantId, journeyId],
+    queryFn: () => getP2Stage(tenantId!, journeyId, accessToken),
+    enabled,
+    staleTime: 3_000,
+  });
+  const templates = useQuery({
+    queryKey: ['p2-templates', tenantId],
+    queryFn: () => getP2Templates(tenantId!, accessToken),
+    enabled,
+    staleTime: 60 * 60_000,
+  });
+
+  const rows = useMemo(
+    () => buildDocumentRows(documents.data?.batches ?? [], documents.data?.documents ?? []),
+    [documents.data],
+  );
+  const inFlight = rows.some((row) => PAGE_IN_FLIGHT.has(row.status))
+    || (documents.data?.batches ?? []).some((batch) => BATCH_IN_FLIGHT.has(batch.batch_status));
+  const { degraded } = useP2EventFeed({
+    tenantId, journeyId, accessToken, active: inFlight,
+    queryKeys: [['p2-documents', tenantId, journeyId], ['p2-stage', tenantId, journeyId], ['p2-tasks', tenantId],
+      ['p2-overview', tenantId, journeyId], ['p2-document-review', tenantId, journeyId]],
+  });
+
+  const refresh = useCallback(() => {
+    void queryClient.invalidateQueries({ queryKey: ['p2-documents', tenantId, journeyId] });
+    void queryClient.invalidateQueries({ queryKey: ['p2-stage', tenantId, journeyId] });
+  }, [journeyId, queryClient, tenantId]);
+
+  const transport = useMemo(
+    () => p2UploadTransport(tenantId ?? '', journeyId, accessToken),
+    [accessToken, journeyId, tenantId],
+  );
+
+  const openDocument = (id: string) => navigate(`/p2/journeys/${journeyId}/documents/${id}`);
+  const closeDocument = () => navigate(`/p2/journeys/${journeyId}/documents`);
+
+  const retry = useMutation({
+    mutationFn: (queueId: string) => retryP2Page(tenantId!, journeyId, queueId, accessToken),
+    onMutate: (queueId) => setBusyKey(queueId),
+    onSettled: () => setBusyKey(undefined),
+    onSuccess: () => { setNotice({ tone: 'success', text: 'Sent for processing again.' }); refresh(); },
+    onError: (cause) => setNotice({ tone: 'error', text: errorText(cause, 'The page could not be retried.') }),
+  });
+  const setType = useMutation({
+    mutationFn: ({ queueId, templateKey }: { queueId: string; templateKey: string }) =>
+      setP2PageType(tenantId!, journeyId, queueId, templateKey, accessToken),
+    onSuccess: () => { setNotice({ tone: 'success', text: 'Document type set. It is being read again.' }); refresh(); },
+    onError: (cause) => setNotice({ tone: 'error', text: errorText(cause, 'The document type could not be set.') }),
+  });
+  const replace = useMutation({
+    mutationFn: ({ id, file }: { id: string; file: File }) => replaceP2Document(tenantId!, journeyId, id, file, accessToken),
+    onSuccess: () => {
+      setNotice({ tone: 'success', text: 'Replacement received. The current document stays until the new one is ready.' });
+      refresh();
+    },
+    onError: (cause) => setNotice({ tone: 'error', text: errorText(cause, 'The replacement could not be uploaded.') }),
+  });
+  const remove = useMutation({
+    mutationFn: (id: string) => deleteP2Document(tenantId!, journeyId, id, accessToken),
+    onSuccess: () => {
+      setRemoveTarget(undefined);
+      setNotice({ tone: 'success', text: 'Document removed from the Journey. It stays in the audit history.' });
+      closeDocument();
+      refresh();
+    },
+    onError: (cause) => setNotice({ tone: 'error', text: errorText(cause, 'The document could not be removed.') }),
+  });
+
+  const booking = stage.data?.booking;
+  const gates = booking ? Object.entries(booking.gates) : [];
+  const nextGate = gates.find(([, gate]) => !gate.passed)?.[1];
+  const paymentGate = booking?.gates.MINIMUM_BOOKING_PAYMENT;
+  const paid = Number(booking?.bookingReceiptTotal || 0);
+  const minimum = Number(booking?.minimumBookingAmount || 0);
+  const currentStage = booking?.stage ?? '';
+  const uploadStage = currentStage.startsWith('DELIVERY') || currentStage === 'BOOKING_COMPLETE' ? 'DELIVERY' : 'BOOKING';
+  const removeName = rows.find((row) => row.documentId === removeTarget)?.name ?? 'this document';
+
+  return (
+    <div className={`screen-stack p2-screen p2w${documentId ? ' has-selection' : ''}`}>
+      <PageHeader
+        eyebrow="Journey"
+        title="Documents"
+        description="Upload, check and correct documents in one place."
+        actions={<Link className="text-link" to="/p2/work-queue">All journeys</Link>}
+      />
+      <P2JourneyTabs />
+
+      {booking ? (
+        <section className="p2w-readiness" aria-label="Booking readiness">
+          <details className="p2w-readiness__summary">
+            <summary>
+              {gates.filter(([, gate]) => gate.passed).length} of {gates.length} booking checks done
+            </summary>
+          </details>
+          <ol className="p2w-gates">
+            {gates.map(([key, gate]) => (
+              <li key={key} className={gate.passed ? 'is-done' : 'is-open'} title={gate.passed ? undefined : gate.action}>
+                <span aria-hidden="true">{gate.passed ? '✓' : '•'}</span>{gate.label || key}
+              </li>
+            ))}
+          </ol>
+          <div className="p2w-readiness__next">
+            {booking.bookingCompletionState === 'COMPLETE' ? (
+              <strong className="p2w-tone p2w-tone--success">Booking complete</strong>
+            ) : (
+              <>
+                <span>Next</span>
+                <strong>{nextGate?.action || 'Verify the highlighted fields.'}</strong>
+              </>
+            )}
+          </div>
+          {paymentGate ? (
+            <div className="p2w-readiness__payment" aria-label="Booking payment">
+              <span>{formatInr(paid)} of {formatInr(minimum)}</span>
+              <progress max={Math.max(1, minimum)} value={Math.min(paid, minimum)} />
+            </div>
+          ) : null}
+        </section>
+      ) : null}
+
+      {documents.isError ? (
+        <div className="p2w-alert p2w-alert--error" role="alert">
+          Documents could not be loaded. {errorText(documents.error, '')}
+          <button type="button" className="p2w-link" onClick={() => void documents.refetch()}>Try again</button>
+        </div>
+      ) : null}
+      {degraded ? <div className="p2w-alert">Live updates are delayed; the screen refreshes automatically.</div> : null}
+      {notice ? (
+        <div className={`p2w-alert p2w-alert--${notice.tone}`} role="status">
+          {notice.text}
+          <button type="button" className="p2w-link" onClick={() => setNotice(undefined)} aria-label="Dismiss">×</button>
+        </div>
+      ) : null}
+
+      <div className="p2w-layout">
+        <div className="p2w-layout__list">
+          {tenantId ? (
+            <P2UploadPanel journeyId={journeyId} stage={uploadStage} transport={transport} onAccepted={refresh} />
+          ) : null}
+          {documents.isLoading ? <div className="p2w-skeleton" aria-busy="true">Loading documents…</div> : (
+            <P2DocumentList
+              rows={rows}
+              checklist={documents.data?.checklist ?? []}
+              templates={templates.data?.templates ?? []}
+              selectedDocumentId={documentId}
+              onOpen={openDocument}
+              onRetry={(queueId) => retry.mutate(queueId)}
+              onSetType={(queueId, templateKey) => setType.mutate({ queueId, templateKey })}
+              busyKey={busyKey}
+            />
+          )}
+        </div>
+        <div className="p2w-layout__editor">
+          {documentId && tenantId ? (
+            <P2DocumentEditor
+              key={documentId}
+              tenantId={tenantId}
+              journeyId={journeyId}
+              documentId={documentId}
+              accessToken={accessToken}
+              templates={templates.data?.templates ?? []}
+              focusField={search.get('field') ?? undefined}
+              onClose={closeDocument}
+              onReplace={(id) => { setReplaceTarget(id); replaceInput.current?.click(); }}
+              onRemove={(id) => setRemoveTarget(id)}
+            />
+          ) : (
+            <div className="p2w-editor-placeholder">
+              <strong>Select a document to check it</strong>
+              <span>Values read from the page are boxed on the preview. Confirm what is right, correct what is not.</span>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <input
+        ref={replaceInput}
+        className="p2w-hidden-input"
+        type="file"
+        accept="application/pdf,image/jpeg,image/png"
+        onChange={(event) => {
+          const file = event.target.files?.[0];
+          if (file && replaceTarget) replace.mutate({ id: replaceTarget, file });
+          event.currentTarget.value = '';
+        }}
+      />
+
+      {removeTarget ? (
+        <div className="p2w-dialog-backdrop" role="presentation" onMouseDown={(event) => {
+          if (event.target === event.currentTarget) setRemoveTarget(undefined);
+        }}>
+          <div className="p2w-dialog" role="alertdialog" aria-modal="true" aria-labelledby="p2w-remove-title">
+            <h3 id="p2w-remove-title">Remove {removeName}?</h3>
+            <p>It will no longer count for this Journey. The original stays in the audit history.</p>
+            <div className="p2w-dialog__actions">
+              <button type="button" className="p2w-button p2w-button--ghost" autoFocus onClick={() => setRemoveTarget(undefined)}>Keep</button>
+              <button type="button" className="p2w-button p2w-button--danger" disabled={remove.isPending}
+                onClick={() => remove.mutate(removeTarget)}>{remove.isPending ? 'Removing…' : 'Remove'}</button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}

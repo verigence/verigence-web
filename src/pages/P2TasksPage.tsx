@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import '../styles/uc03-p2.css';
 
 import PageHeader from '../components/PageHeader';
@@ -18,8 +18,38 @@ function dueLabel(value?: string | null) {
   }).format(new Date(value));
 }
 
+const DOCUMENT_NAVIGATION_ACTIONS = new Set([
+  'REVIEW_DOCUMENT',
+  'CORRECT_EXTRACTED_FIELD',
+  'UPLOAD_DOCUMENT',
+  'REUPLOAD_DOCUMENT',
+  'ADD_EVIDENCE',
+]);
+
 function primaryAction(task: P2Task): string | undefined {
-  return task.allowed_actions.find((action) => !['ADD_COMMENT', 'PROVIDE_FEEDBACK'].includes(action));
+  return task.allowed_actions.find((action) => ![
+    'ADD_COMMENT',
+    'PROVIDE_FEEDBACK',
+    'REJECT',
+  ].includes(action));
+}
+
+function referenceValue(reference: Record<string, unknown>, ...keys: string[]): string | undefined {
+  for (const key of keys) {
+    const value = reference[key];
+    if (typeof value === 'string' && value.trim()) return value;
+  }
+  return undefined;
+}
+
+function documentActionPath(task: P2Task): string {
+  const params = new URLSearchParams();
+  const documentId = referenceValue(task.reference, 'documentId', 'document_id');
+  const fieldKey = referenceValue(task.reference, 'fieldKey', 'field_key');
+  if (documentId) params.set('focusDocument', documentId);
+  if (fieldKey) params.set('focusField', fieldKey);
+  const suffix = params.toString() ? `?${params.toString()}` : '';
+  return `/p2/journeys/${task.journey_id}/documents${suffix}`;
 }
 
 export default function P2TasksPage() {
@@ -27,6 +57,7 @@ export default function P2TasksPage() {
   const tenantId = useProjectContextStore((s) => s.selectedProject?.tenantId);
   const accessToken = useSessionStore((s) => s.accessToken);
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const [openTask, setOpenTask] = useState<string>();
   const [comment, setComment] = useState('');
 
@@ -129,14 +160,39 @@ export default function P2TasksPage() {
                                   Provide Feedback
                                 </button>
                               ) : null}
+                              {task.allowed_actions.includes('REJECT') ? (
+                                <button
+                                  type="button"
+                                  className="p2-secondary-action"
+                                  disabled={!comment.trim() || action.isPending}
+                                  title={!comment.trim() ? 'A rejection comment is required.' : undefined}
+                                  onClick={() => action.mutate({
+                                    taskId: task.task_id,
+                                    actionName: 'REJECT',
+                                    note: comment,
+                                  })}
+                                >
+                                  Reject
+                                </button>
+                              ) : null}
                               {primary ? (
                                 <button
                                   type="button"
                                   className="p2-primary-action"
                                   disabled={action.isPending}
-                                  onClick={() => action.mutate({ taskId: task.task_id, actionName: primary, note: comment || undefined })}
+                                  onClick={() => {
+                                    if (DOCUMENT_NAVIGATION_ACTIONS.has(primary)) {
+                                      navigate(documentActionPath(task));
+                                      return;
+                                    }
+                                    action.mutate({
+                                      taskId: task.task_id,
+                                      actionName: primary,
+                                      note: comment || undefined,
+                                    });
+                                  }}
                                 >
-                                  {primary.replaceAll('_', ' ')}
+                                  {primary === 'ACCEPT' ? 'Accept' : primary.replaceAll('_', ' ')}
                                 </button>
                               ) : null}
                             </div>

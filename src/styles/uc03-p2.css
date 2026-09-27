@@ -43,9 +43,9 @@
 }
 
 .p2-journey-tabs__item.is-active {
-  color: #fff;
-  background: linear-gradient(135deg, #003a82, #0057b8);
-  box-shadow: inset 0 -2px 0 #00afa8, 0 3px 10px rgb(30 94 168 / 14%);
+  color: #0b5f75;
+  background: #dff3f6;
+  box-shadow: inset 0 0 0 1px #c3e7ee;
 }
 
 .p2-toolbar,
@@ -310,7 +310,7 @@
 .p2-primary-action {
   padding: 0 14px;
   border: 0;
-  background: linear-gradient(135deg, #003a82, #0057b8);
+  background: #0b7a94;
   color: #fff;
 }
 
@@ -446,7 +446,7 @@
   justify-content: center;
   padding: 0 14px;
   border-radius: 8px;
-  background: linear-gradient(135deg, #003a82, #0057b8);
+  background: #0b7a94;
   color: #fff;
   font-size: .8rem;
   font-weight: 750;

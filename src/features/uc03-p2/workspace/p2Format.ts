@@ -101,8 +101,9 @@ export function taskStatus(status: string | null | undefined): { label: string; 
   return TASK_STATUS[String(status || '')] ?? { label: humanizeKey(status || ''), tone: 'neutral' };
 }
 
+/** Low confidence means "please check" (calm blue), never an alarm; red is
+ * reserved for real failures. */
 export function confidenceTone(confidence: number | null, threshold: number): Tone {
-  if (confidence === null || confidence === undefined) return 'danger';
-  if (confidence < threshold) return confidence < threshold - 20 ? 'danger' : 'warning';
+  if (confidence === null || confidence === undefined || confidence < threshold) return 'warning';
   return 'success';
 }

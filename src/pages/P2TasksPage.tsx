@@ -27,11 +27,21 @@ const DOCUMENT_NAVIGATION_ACTIONS = new Set([
 ]);
 
 function primaryAction(task: P2Task): string | undefined {
+  if (task.source_system !== 'P2') return undefined;
   return task.allowed_actions.find((action) => ![
     'ADD_COMMENT',
     'PROVIDE_FEEDBACK',
     'REJECT',
   ].includes(action));
+}
+
+function priorityLabel(task: P2Task): string {
+  if (task.source_system === 'LEGACY') {
+    return task.priority_rank !== null && task.priority_rank !== undefined
+      ? `Priority ${task.priority_rank}`
+      : 'Existing priority';
+  }
+  return task.priority || 'NORMAL';
 }
 
 function referenceValue(reference: Record<string, unknown>, ...keys: string[]): string | undefined {
@@ -108,14 +118,18 @@ export default function P2TasksPage() {
                 const expanded = openTask === task.task_id;
                 return [
                   <tr key={task.task_id}>
-                    <td><StatusPill value={task.priority} compact /></td>
+                    <td>
+                      {task.source_system === 'P2'
+                        ? <StatusPill value={priorityLabel(task)} compact />
+                        : <span className="p2-native-priority">{priorityLabel(task)}</span>}
+                    </td>
                     <td><StatusPill value={task.severity} compact /></td>
                     <td>
                       <strong>{task.title}</strong>
                       <small>{task.description}</small>
                     </td>
                     <td>
-                      <strong>{task.origin_kind}</strong>
+                      <strong>{task.source_system === 'LEGACY' ? 'Existing workflow' : task.origin_kind}</strong>
                       <small>{task.source_code || task.source_type}</small>
                     </td>
                     <td>{dueLabel(task.due_at_utc)}</td>
@@ -135,72 +149,89 @@ export default function P2TasksPage() {
                             <pre>{JSON.stringify(task.reference, null, 2)}</pre>
                           </div>
                           <div className="p2-task-detail__actions">
-                            <label>
-                              Comment / feedback
-                              <textarea value={comment} onChange={(event) => setComment(event.target.value)} rows={3} />
-                            </label>
-                            <div className="button-row">
-                              {task.allowed_actions.includes('ADD_COMMENT') ? (
-                                <button
-                                  type="button"
-                                  className="p2-secondary-action"
-                                  disabled={!comment.trim() || action.isPending}
-                                  onClick={() => action.mutate({ taskId: task.task_id, actionName: 'ADD_COMMENT', note: comment })}
-                                >
-                                  Add Comment
-                                </button>
-                              ) : null}
-                              {task.allowed_actions.includes('PROVIDE_FEEDBACK') ? (
-                                <button
-                                  type="button"
-                                  className="p2-secondary-action"
-                                  disabled={!comment.trim() || action.isPending}
-                                  onClick={() => action.mutate({ taskId: task.task_id, actionName: 'PROVIDE_FEEDBACK', note: comment })}
-                                >
-                                  Provide Feedback
-                                </button>
-                              ) : null}
-                              {task.allowed_actions.includes('REJECT') ? (
-                                <button
-                                  type="button"
-                                  className="p2-secondary-action"
-                                  disabled={!comment.trim() || action.isPending}
-                                  title={!comment.trim() ? 'A rejection comment is required.' : undefined}
-                                  onClick={() => action.mutate({
-                                    taskId: task.task_id,
-                                    actionName: 'REJECT',
-                                    note: comment,
-                                  })}
-                                >
-                                  Reject
-                                </button>
-                              ) : null}
-                              {primary ? (
-                                <button
-                                  type="button"
-                                  className="p2-primary-action"
-                                  disabled={action.isPending}
-                                  onClick={() => {
-                                    if (DOCUMENT_NAVIGATION_ACTIONS.has(primary)) {
-                                      navigate(documentActionPath(task));
-                                      return;
-                                    }
-                                    action.mutate({
-                                      taskId: task.task_id,
-                                      actionName: primary,
-                                      note: comment || undefined,
-                                    });
-                                  }}
-                                >
-                                  {primary === 'ACCEPT' ? 'Accept' : primary.replaceAll('_', ' ')}
-                                </button>
-                              ) : null}
-                            </div>
-                            {task.journey_id ? (
-                              <Link className="text-link" to={`/p2/journeys/${task.journey_id}/overview`}>Open Journey</Link>
-                            ) : null}
-                          </div>
-                        </div>
+                            {task.source_system === 'LEGACY' ? (
+                              <>
+                                <p className="p2-note">
+                                  This task remains owned by the existing Verigence workflow so its current business action and completion rules are preserved.
+                                </p>
+                                <div className="button-row">
+                                  <Link className="p2-primary-link" to={task.legacy_queue_url || '/reviews'}>
+                                    Open Existing Task Queue
+                                  </Link>
+                                  <Link className="text-link" to={`/p2/journeys/${task.journey_id}/overview`}>
+                                    Open Journey
+                                  </Link>
+                                </div>
+                              </>
+                            ) : (
+                              <>
+                                <label>
+                                  Comment / feedback
+                                  <textarea value={comment} onChange={(event) => setComment(event.target.value)} rows={3} />
+                                </label>
+                                <div className="button-row">
+                                  {task.allowed_actions.includes('ADD_COMMENT') ? (
+                                    <button
+                                      type="button"
+                                      className="p2-secondary-action"
+                                      disabled={!comment.trim() || action.isPending}
+                                      onClick={() => action.mutate({ taskId: task.task_id, actionName: 'ADD_COMMENT', note: comment })}
+                                    >
+                                      Add Comment
+                                    </button>
+                                  ) : null}
+                                  {task.allowed_actions.includes('PROVIDE_FEEDBACK') ? (
+                                    <button
+                                      type="button"
+                                      className="p2-secondary-action"
+                                      disabled={!comment.trim() || action.isPending}
+                                      onClick={() => action.mutate({ taskId: task.task_id, actionName: 'PROVIDE_FEEDBACK', note: comment })}
+                                    >
+                                      Provide Feedback
+                                    </button>
+                                  ) : null}
+                                  {task.allowed_actions.includes('REJECT') ? (
+                                    <button
+                                      type="button"
+                                      className="p2-secondary-action"
+                                      disabled={!comment.trim() || action.isPending}
+                                      title={!comment.trim() ? 'A rejection comment is required.' : undefined}
+                                      onClick={() => action.mutate({
+                                        taskId: task.task_id,
+                                        actionName: 'REJECT',
+                                        note: comment,
+                                      })}
+                                    >
+                                      Reject
+                                    </button>
+                                  ) : null}
+                                  {primary ? (
+                                    <button
+                                      type="button"
+                                      className="p2-primary-action"
+                                      disabled={action.isPending}
+                                      onClick={() => {
+                                        if (DOCUMENT_NAVIGATION_ACTIONS.has(primary)) {
+                                          navigate(documentActionPath(task));
+                                          return;
+                                        }
+                                        action.mutate({
+                                          taskId: task.task_id,
+                                          actionName: primary,
+                                          note: comment || undefined,
+                                        });
+                                      }}
+                                    >
+                                      {primary === 'ACCEPT' ? 'Accept' : primary.replaceAll('_', ' ')}
+                                    </button>
+                                  ) : null}
+                                </div>
+                                {task.journey_id ? (
+                                  <Link className="text-link" to={`/p2/journeys/${task.journey_id}/overview`}>Open Journey</Link>
+                                ) : null}
+                              </>
+                            )}
+                          </div>                       </div>
                       </td>
                     </tr>
                   ) : null,

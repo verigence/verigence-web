@@ -145,7 +145,7 @@ export default function P2TasksPage() {
         eyebrow="Phase 2"
         title={journeyId ? 'Journey Tasks' : 'Tasks'}
         description="Work requiring attention, ordered around urgency, due date and the action needed."
-        actions={<Link className="text-link" to={journeyId ? `/journeys/${journeyId}/overview` : '/p2/work-queue'}>Back</Link>}
+        actions={<Link className="text-link" to={journeyId ? `/p2/journeys/${journeyId}/overview` : '/p2/work-queue'}>Back</Link>}
       />
       {journeyId ? <P2JourneyTabs /> : null}
 
@@ -248,7 +248,7 @@ export default function P2TasksPage() {
                           {task.source_system === 'LEGACY' ? (
                             <div className="p2-task-detail__actions">
                               <p className="p2-note">This task stays on the existing Verigence workflow so its established business action and completion behavior are preserved.</p>
-                              <Link className="text-link" to={`/journeys/${task.journey_id}/overview`}>Open Journey 360</Link>
+                              <Link className="text-link" to={`/p2/journeys/${task.journey_id}/overview`}>Open Journey 360</Link>
                             </div>
                           ) : (
                             <div className="p2-task-detail__actions">
@@ -289,7 +289,7 @@ export default function P2TasksPage() {
                                   </button>
                                 ) : null}
                               </div>
-                              <Link className="text-link" to={`/journeys/${task.journey_id}/overview`}>Open Journey 360</Link>
+                              <Link className="text-link" to={`/p2/journeys/${task.journey_id}/overview`}>Open Journey 360</Link>
                             </div>
                           )}
                         </div>

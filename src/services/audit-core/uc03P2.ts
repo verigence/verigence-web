@@ -1,4 +1,4 @@
-import { auditCoreRawRequest, auditCoreRequest } from './client';
+import { auditCoreRequest } from './client';
 
 export type P2JourneyListItem = {
   journey_id: string;
@@ -147,6 +147,16 @@ function path(tenantId: string, suffix: string) {
   return `/p2/v1/tenants/${encodeURIComponent(tenantId)}${suffix}`;
 }
 
+function contentTypeForFile(file: File): string {
+  if (file.type) return file.type;
+  const name = file.name.toLowerCase();
+  if (name.endsWith('.pdf')) return 'application/pdf';
+  if (name.endsWith('.jpg') || name.endsWith('.jpeg')) return 'image/jpeg';
+  if (name.endsWith('.png')) return 'image/png';
+  return 'application/octet-stream';
+}
+
+
 export function getP2Journeys(
   tenantId: string,
   accessToken?: string,
@@ -201,24 +211,29 @@ export async function uploadP2Files(
   files: File[],
   accessToken?: string,
 ): Promise<void> {
+  const timestamp = Date.now();
+  const uploadSources = files.map((file, index) => ({
+    file,
+    clientUploadId: `web-p2-${timestamp}-${index}`,
+  }));
   const prepared = await auditCoreRequest<UploadInitResult>(
     path(tenantId, `/journeys/${encodeURIComponent(journeyId)}/uploads:init`),
     {
       method: 'POST',
       accessToken,
       body: JSON.stringify({
-        files: files.map((file, index) => ({
+        files: uploadSources.map(({ file, clientUploadId }) => ({
           filename: file.name,
-          contentType: file.type || 'application/octet-stream',
+          contentType: contentTypeForFile(file),
           sizeBytes: file.size,
-          clientUploadId: `web-p2-${Date.now()}-${index}`,
+          clientUploadId,
         })),
       }),
     },
   );
 
   for (const item of prepared.uploads) {
-    const source = files.find((file) => file.name === item.filename);
+    const source = uploadSources.find((candidate) => candidate.clientUploadId === item.clientUploadId)?.file;
     if (!source) throw new Error(`Prepared upload source missing: ${item.filename}`);
     const uploadResponse = await fetch(item.uploadUrl, {
       method: 'PUT',

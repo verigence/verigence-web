@@ -140,8 +140,14 @@ jobs:
       - name: Verify C2 Delivery camera contract in Web source
         run: |
           set -euo pipefail
-          grep -q 'capture=' src/pages/DeliveryWorkspacePage.tsx
-          grep -q "requirementKey === 'CAR_PICTURES'" src/pages/DeliveryWorkspacePage.tsx
+          # DeliveryWorkspacePage.tsx (unrouted, superseded by the unified
+          # JourneyDocumentsPage.tsx -- see that retirement commit) owned
+          # this contract until 2026-09-27; CarPhotosSection there now does,
+          # unconditionally rather than gated on requirementKey ===
+          # 'CAR_PICTURES', since every photo through it is a vehicle photo.
+          page='src/pages/JourneyDocumentsPage.tsx'
+          grep -q 'function CarPhotosSection' "$page"
+          grep -q "capture=\"environment\"" "$page"
           grep -q '/delivery/workspace' src/services/audit-core/uc03Delivery.ts
           echo 'UC03_C2_ANDROID_DELIVERY_CONTRACT=PASS'
 

@@ -735,6 +735,13 @@ function CarPhotosSection({
           type="file"
           multiple
           accept="image/*"
+          // Root-caused live (2026-09-27): lost when DeliveryWorkspacePage.tsx
+          // (the old, unrouted page) was retired -- it had this same attribute
+          // gated on requirementKey === 'CAR_PICTURES'. Every photo through
+          // this component is a vehicle photo, so it applies unconditionally
+          // here: opens the device's rear camera directly on Android/mobile
+          // instead of a generic file/gallery picker.
+          capture="environment"
           hidden
           onChange={(event) => {
             const files = Array.from(event.currentTarget.files || []);

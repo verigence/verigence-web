@@ -4,7 +4,6 @@ import '../styles/uc03-p2.css';
 
 import PageHeader from '../components/PageHeader';
 import StatusPill from '../components/StatusPill';
-import P2JourneyTabs from '../features/uc03-p2/P2JourneyTabs';
 import { getP2Events, getP2Overview, type P2ControlStatistics } from '../services/audit-core/uc03P2';
 import {
   getFinance,
@@ -297,9 +296,8 @@ export default function P2JourneyOverviewPage() {
           data?.journey.dealer_name,
           data?.journey.outlet_name,
         ].filter(Boolean).join(' · ') || 'Loading Journey context…'}
-        actions={<Link className="text-link" to="/p2/work-queue">All journeys</Link>}
+        actions={<><Link className="text-link" to={`/p2/journeys/${journeyId}/documents`}>Documents</Link> <Link className="text-link" to="/p2/journey-360">All journeys</Link></>}
       />
-      <P2JourneyTabs />
 
       {query.isError ? (
         <div className="form-alert form-alert--error">

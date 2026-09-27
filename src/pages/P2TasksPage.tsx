@@ -6,7 +6,6 @@ import '../styles/uc03-p2.css';
 import PageHeader from '../components/PageHeader';
 import SectionCard from '../components/SectionCard';
 import StatusPill from '../components/StatusPill';
-import P2JourneyTabs from '../features/uc03-p2/P2JourneyTabs';
 import { getP2Tasks, submitP2TaskAction, type P2Task } from '../services/audit-core/uc03P2';
 import { useProjectContextStore } from '../store/projectContextStore';
 import { useSessionStore } from '../store/sessionStore';
@@ -145,9 +144,8 @@ export default function P2TasksPage() {
         eyebrow="Phase 2"
         title={journeyId ? 'Journey Tasks' : 'Tasks'}
         description="Work requiring attention, ordered around urgency, due date and the action needed."
-        actions={<Link className="text-link" to={journeyId ? `/p2/journeys/${journeyId}/overview` : '/p2/work-queue'}>Back</Link>}
+        actions={<Link className="text-link" to={journeyId ? `/p2/journeys/${journeyId}/overview` : '/p2/bookings'}>Back</Link>}
       />
-      {journeyId ? <P2JourneyTabs /> : null}
 
       {query.isError ? (
         <div className="form-alert form-alert--error">

@@ -23,11 +23,12 @@ const PHASE_LABEL: Record<UploadItem['phase'], string> = {
 
 export default function P2UploadPanel({
   journeyId,
-  transport,
+  getTransport,
   onAccepted,
 }: {
-  journeyId: string;
-  transport: UploadTransport;
+  journeyId?: string;
+  /** Resolves the Journey to upload into (a new booking creates it here). */
+  getTransport: () => Promise<{ journeyId: string; transport: UploadTransport }>;
   onAccepted: () => void;
 }) {
   const fileInput = useRef<HTMLInputElement>(null);
@@ -36,24 +37,33 @@ export default function P2UploadPanel({
   const [dragging, setDragging] = useState(false);
   const [photoChoice, setPhotoChoice] = useState<File[]>();
   const [combining, setCombining] = useState(false);
+  const [problem, setProblem] = useState<string>();
 
-  const start = useCallback(async (next: UploadItem[]) => {
+  const start = useCallback(async (next: UploadItem[], target: { journeyId: string; transport: UploadTransport }) => {
     setItems((current) => [...current.filter((item) => item.phase !== 'ACCEPTED'), ...next]);
-    const results = await runUploads(next, transport, (changed) =>
+    const results = await runUploads(next, target.transport, (changed) =>
       setItems((current) => current.map((item) => (item.id === changed.id ? changed : item))));
     if (results.some((item) => item.phase === 'ACCEPTED')) onAccepted();
-  }, [onAccepted, transport]);
+  }, [onAccepted]);
 
-  const queueFiles = useCallback((files: File[]) => {
+  const queueFiles = useCallback(async (files: File[]) => {
     if (!files.length) return;
+    setProblem(undefined);
+    let target: { journeyId: string; transport: UploadTransport };
+    try {
+      target = await getTransport();
+    } catch (cause) {
+      setProblem(cause instanceof Error ? cause.message : 'The booking could not be started.');
+      return;
+    }
     void start(files.map((file) => ({
       id: nextId(),
       file,
-      clientUploadId: stableClientUploadId(journeyId, file),
+      clientUploadId: stableClientUploadId(target.journeyId, file),
       phase: 'WAITING' as const,
       progress: 0,
-    })));
-  }, [journeyId, start]);
+    })), target);
+  }, [getTransport, start]);
 
   const accept = useCallback((files: File[]) => {
     const images = files.filter((file) => contentTypeForFile(file).startsWith('image/'));
@@ -63,29 +73,33 @@ export default function P2UploadPanel({
       setPhotoChoice(images);
       return;
     }
-    queueFiles(files);
+    void queueFiles(files);
   }, [queueFiles]);
 
   const uploadPhotos = async (asOne: boolean) => {
     const photos = photoChoice ?? [];
     setPhotoChoice(undefined);
     if (!asOne) {
-      queueFiles(photos);
+      void queueFiles(photos);
       return;
     }
     setCombining(true);
     try {
       const stamp = new Date().toISOString().slice(0, 16).replace(/[-:T]/g, '');
-      queueFiles([await combineImagesToPdf(photos, `photos-${stamp}.pdf`)]);
+      await queueFiles([await combineImagesToPdf(photos, `photos-${stamp}.pdf`)]);
     } finally {
       setCombining(false);
     }
   };
 
-  const retry = (item: UploadItem) => {
+  const retry = async (item: UploadItem) => {
     setItems((current) => current.filter((existing) => existing.id !== item.id));
     // Same clientUploadId: a retried file can never be accepted twice.
-    void start([{ ...item, id: nextId(), phase: 'WAITING', progress: 0, error: undefined }]);
+    try {
+      void start([{ ...item, id: nextId(), phase: 'WAITING', progress: 0, error: undefined }], await getTransport());
+    } catch (cause) {
+      setProblem(cause instanceof Error ? cause.message : 'The upload could not be retried.');
+    }
   };
 
   const active = items.filter((item) => item.phase !== 'ACCEPTED');
@@ -103,7 +117,7 @@ export default function P2UploadPanel({
         accept(Array.from(event.dataTransfer.files));
       }}
     >
-      <div className="p2w-upload__drop p2-capture" data-p2-journey={journeyId}>
+      <div className="p2w-upload__drop p2-capture" data-p2-journey={journeyId || 'new'}>
         <div className="p2w-upload__copy">
           <strong>Add documents</strong>
           <span>Drop files here, or photograph them. A PDF with many documents is sorted automatically.</span>
@@ -151,6 +165,7 @@ export default function P2UploadPanel({
         </div>
       ) : null}
       {combining ? <div className="p2w-alert" role="status">Combining photos…</div> : null}
+      {problem ? <div className="p2w-alert p2w-alert--error" role="alert">{problem}</div> : null}
 
       {items.length ? (
         <ul className="p2w-upload__list" aria-live="polite">
@@ -161,7 +176,7 @@ export default function P2UploadPanel({
                 <span>{item.phase === 'FAILED' ? item.error : PHASE_LABEL[item.phase]}</span>
               </div>
               {item.phase === 'FAILED' ? (
-                <button type="button" className="p2w-button p2w-button--secondary" onClick={() => retry(item)}>Retry</button>
+                <button type="button" className="p2w-button p2w-button--secondary" onClick={() => void retry(item)}>Retry</button>
               ) : (
                 <progress max={1} value={item.phase === 'UPLOADING' ? item.progress : item.phase === 'FINALIZING' ? 1 : undefined}
                   aria-label={`${item.file.name} upload progress`} />

@@ -5,13 +5,13 @@ import '../styles/uc03-p2.css';
 import '../styles/uc03-p2-workspace.css';
 
 import PageHeader from '../components/PageHeader';
-import P2JourneyTabs from '../features/uc03-p2/P2JourneyTabs';
 import P2DocumentEditor from '../features/uc03-p2/workspace/P2DocumentEditor';
 import P2DocumentList, { buildDocumentRows } from '../features/uc03-p2/workspace/P2DocumentList';
 import P2UploadPanel from '../features/uc03-p2/workspace/P2UploadPanel';
 import { BATCH_IN_FLIGHT, formatInr, PAGE_IN_FLIGHT } from '../features/uc03-p2/workspace/p2Format';
 import { useP2EventFeed } from '../features/uc03-p2/workspace/useP2EventFeed';
 import {
+  createP2Journey,
   deleteP2Document,
   getP2Documents,
   getP2Stage,
@@ -29,12 +29,23 @@ function errorText(cause: unknown, fallback: string): string {
 }
 
 export default function P2JourneyWorkspacePage() {
-  const { journeyId = '', documentId } = useParams();
+  const { journeyId: routeJourneyId = '', documentId } = useParams();
   const [search] = useSearchParams();
   const navigate = useNavigate();
   const tenantId = useProjectContextStore((s) => s.selectedProject?.tenantId);
   const accessToken = useSessionStore((s) => s.accessToken);
+  const workingOutletId = useSessionStore((s) => s.outletId);
+  const outlets = useProjectContextStore((s) => s.selectedProject?.scope.outlets ?? []);
   const queryClient = useQueryClient();
+  // New booking and an existing booking are the same screen: until the first
+  // upload creates the Journey, the route carries "new".
+  const [createdJourneyId, setCreatedJourneyId] = useState<string>();
+  const isNew = routeJourneyId === 'new' && !createdJourneyId;
+  const journeyId = createdJourneyId ?? (routeJourneyId === 'new' ? '' : routeJourneyId);
+  const [customerName, setCustomerName] = useState('');
+  const [outletId, setOutletId] = useState(workingOutletId || outlets[0]?.outletId || '');
+  const idempotencyKey = useRef(`p2-new-booking-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`);
+  const creating = useRef<Promise<string> | null>(null);
   const replaceInput = useRef<HTMLInputElement>(null);
   const [replaceTarget, setReplaceTarget] = useState<string>();
   const [removeTarget, setRemoveTarget] = useState<string>();
@@ -78,10 +89,27 @@ export default function P2JourneyWorkspacePage() {
     void queryClient.invalidateQueries({ queryKey: ['p2-stage', tenantId, journeyId] });
   }, [journeyId, queryClient, tenantId]);
 
-  const transport = useMemo(
-    () => p2UploadTransport(tenantId ?? '', journeyId, accessToken),
-    [accessToken, journeyId, tenantId],
-  );
+  const getTransport = useCallback(async () => {
+    let target = journeyId;
+    if (!target) {
+      const name = customerName.trim();
+      if (!name) throw new Error("Enter the customer's name to start the booking.");
+      if (!outletId) throw new Error('Choose the outlet for this booking.');
+      // One creation even if several files are dropped at once (idempotent key).
+      creating.current ??= createP2Journey(tenantId!, { outletId, customerName: name }, idempotencyKey.current, accessToken)
+        .then((result) => result.journeyId);
+      try {
+        target = await creating.current;
+      } catch (cause) {
+        creating.current = null;
+        throw cause;
+      }
+      setCreatedJourneyId(target);
+      navigate(`/p2/journeys/${target}/documents`, { replace: true });
+      void queryClient.invalidateQueries({ queryKey: ['p2-journeys', tenantId] });
+    }
+    return { journeyId: target, transport: p2UploadTransport(tenantId ?? '', target, accessToken) };
+  }, [accessToken, customerName, journeyId, navigate, outletId, queryClient, tenantId]);
 
   const openDocument = (id: string) => navigate(`/p2/journeys/${journeyId}/documents/${id}`);
   const closeDocument = () => navigate(`/p2/journeys/${journeyId}/documents`);
@@ -129,12 +157,40 @@ export default function P2JourneyWorkspacePage() {
   return (
     <div className={`screen-stack p2-screen p2w${documentId ? ' has-selection' : ''}`}>
       <PageHeader
-        eyebrow="Journey"
-        title="Documents"
-        description="Upload, check and correct documents in one place."
-        actions={<Link className="text-link" to="/p2/work-queue">All journeys</Link>}
+        eyebrow={isNew ? 'New booking' : 'Booking'}
+        title={isNew ? 'New booking' : 'Documents'}
+        description={isNew
+          ? "Enter the customer's name and add the booking documents. Everything else is read from the documents."
+          : 'Upload, check and correct documents in one place.'}
+        actions={(
+          <div className="p2w-header-links">
+            {!isNew ? <Link className="p2w-link" to={`/p2/journeys/${journeyId}/overview`}>Journey 360</Link> : null}
+            {!isNew ? <Link className="p2w-link" to={`/p2/journeys/${journeyId}/tasks`}>Tasks</Link> : null}
+            <Link className="p2w-link" to="/p2/bookings">All bookings</Link>
+          </div>
+        )}
       />
-      <P2JourneyTabs />
+
+      {isNew ? (
+        <section className="p2w-start" aria-label="Start booking">
+          <label>
+            <span>Customer name</span>
+            <input value={customerName} onChange={(event) => setCustomerName(event.target.value)}
+              autoComplete="off" autoFocus placeholder="As written on the booking form" />
+          </label>
+          {outlets.length > 1 ? (
+            <label>
+              <span>Outlet</span>
+              <select value={outletId} onChange={(event) => setOutletId(event.target.value)}>
+                {outlets.map((outlet) => (
+                  <option key={outlet.outletId} value={outlet.outletId}>{outlet.outletName}</option>
+                ))}
+              </select>
+            </label>
+          ) : null}
+          <p>The booking is created as soon as you add the first document.</p>
+        </section>
+      ) : null}
 
       {booking ? (
         <section className="p2w-readiness" aria-label="Booking readiness">
@@ -186,9 +242,9 @@ export default function P2JourneyWorkspacePage() {
       <div className="p2w-layout">
         <div className="p2w-layout__list">
           {tenantId ? (
-            <P2UploadPanel journeyId={journeyId} transport={transport} onAccepted={refresh} />
+            <P2UploadPanel journeyId={journeyId || undefined} getTransport={getTransport} onAccepted={refresh} />
           ) : null}
-          {documents.isLoading ? <div className="p2w-skeleton" aria-busy="true">Loading documents…</div> : (
+          {isNew ? null : documents.isLoading ? <div className="p2w-skeleton" aria-busy="true">Loading documents…</div> : (
             <P2DocumentList
               rows={rows}
               checklist={documents.data?.checklist ?? []}

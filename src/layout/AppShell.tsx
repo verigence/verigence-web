@@ -122,24 +122,33 @@ const allJourneysItem: NavItem = {
 };
 
 
-const p2WorkQueueItem: NavItem = {
-  to: '/p2/work-queue',
-  label: 'Journeys',
-  mark: 'JR',
+// Three independent sections. New booking and adding/editing documents are
+// one screen (Bookings -> New booking or an existing booking).
+const p2BookingsItem: NavItem = {
+  to: '/p2/bookings',
+  label: 'Bookings',
+  mark: 'BK',
+  roles: ['PC', 'TL', 'PM'],
+};
+
+const p2Journey360Item: NavItem = {
+  to: '/p2/journey-360',
+  label: 'Journey 360',
+  mark: '360',
   roles: ['PC', 'TL', 'PM'],
 };
 
 const p2TasksItem: NavItem = {
   to: '/p2/tasks',
-  label: 'Tasks',
+  label: 'Task Queue',
   mark: 'TQ',
   roles: ['PC', 'TL', 'PM'],
 };
 
 const p2Group: NavGroup = {
   key: 'phase2',
-  label: 'Phase 2',
-  items: [p2WorkQueueItem, p2TasksItem],
+  label: 'Audit',
+  items: [p2BookingsItem, p2Journey360Item, p2TasksItem],
 };
 
 const groups: NavGroup[] = [
@@ -188,7 +197,7 @@ const routeLabels: Record<string, string> = {
   '/feedback': 'Feedback',
   '/reviews': 'Task Queue', '/duplicate-bookings': 'Duplicate Bookings', '/rule-catalog': 'Rule Catalog', '/rule-catalog/new': 'Author a Rule', '/evidence': 'Evidence', '/payments': 'Payment Tracker', '/findings': 'Findings',
   '/daily-ops': 'Daily Operations', '/activity': 'Activity Tracker', '/crm': 'CRM Follow-up', '/escalations': 'Escalations',
-  '/analytics': 'Analytics', '/p2/work-queue': 'Phase 2 · Journeys', '/p2/tasks': 'Phase 2 · Tasks', '/admin/engagements': 'Engagements', '/admin/document-intelligence': 'Document Intelligence Configuration',
+  '/analytics': 'Analytics', '/p2/bookings': 'Bookings', '/p2/journey-360': 'Journey 360', '/p2/tasks': 'Task Queue', '/admin/engagements': 'Engagements', '/admin/document-intelligence': 'Document Intelligence Configuration',
   '/admin/housekeeping': 'Housekeeping', '/admin/feedback': 'User Feedback', '/admin/di-test': 'DI Test Console', '/admin/users': 'Users',
   '/admin/users/pending': 'Pending Approvals', '/admin/activity-log': 'User Activity Log',
   '/admin/roles-permissions': 'Roles & Permissions', '/admin/audit-rules': 'Audit Rule Config',
@@ -197,7 +206,7 @@ const routeLabels: Record<string, string> = {
 };
 
 const dynamicRouteLabels: Array<[string, string]> = [
-  ['/p2/journeys/', 'Phase 2 · Journey'],
+  ['/p2/journeys/', 'Booking'],
   ['/bookings/', 'Booking'],
   ['/deliveries/', 'Delivery'],
   ['/audit/', 'Audit Review'],

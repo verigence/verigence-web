@@ -68,7 +68,7 @@ const AnalyticsPage = lazy(() => import('./pages/AnalyticsPage'));
 const FeedbackPage = lazy(() => import('./pages/FeedbackPage'));
 const ProjectAdministrationPage = lazy(() => import('./pages/ProjectAdministrationV2Page'));
 const ProfilePage = lazy(() => import('./pages/ProfilePage'));
-const P2WorkQueuePage = lazy(() => import('./pages/P2WorkQueuePage'));
+const P2JourneyListPage = lazy(() => import('./pages/P2JourneyListPage'));
 const P2JourneyOverviewPage = lazy(() => import('./pages/P2JourneyOverviewPage'));
 const P2JourneyWorkspacePage = lazy(() => import('./pages/P2JourneyWorkspacePage'));
 const P2TasksPage = lazy(() => import('./pages/P2TasksPage'));
@@ -325,7 +325,9 @@ export default function App() {
               <Route path="/analytics" element={<OperationalShellPage><AnalyticsPage /></OperationalShellPage>} />
 
               {/* Phase 2 is additive. Existing links/routes above remain unchanged. */}
-              <Route path="/p2/work-queue" element={<OperationalPage><P2WorkQueuePage /></OperationalPage>} />
+              <Route path="/p2/bookings" element={<OperationalPage><P2JourneyListPage mode="bookings" /></OperationalPage>} />
+              <Route path="/p2/journey-360" element={<OperationalPage><P2JourneyListPage mode="journey360" /></OperationalPage>} />
+              <Route path="/p2/work-queue" element={<Navigate to="/p2/bookings" replace />} />
               <Route path="/p2/tasks" element={<OperationalPage><P2TasksPage /></OperationalPage>} />
               <Route path="/p2/journeys/:journeyId/overview" element={<OperationalPage><P2JourneyOverviewPage /></OperationalPage>} />
               <Route path="/p2/journeys/:journeyId/documents" element={<OperationalPage><P2JourneyWorkspacePage /></OperationalPage>} />

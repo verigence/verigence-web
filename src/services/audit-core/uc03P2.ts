@@ -424,6 +424,20 @@ export function setP2PageType(
   );
 }
 
+export async function createP2Journey(
+  tenantId: string,
+  command: { outletId: string; customerName: string },
+  idempotencyKey: string,
+  accessToken?: string,
+): Promise<{ journeyId: string }> {
+  return auditCoreRequest(path(tenantId, '/journeys'), {
+    method: 'POST',
+    accessToken,
+    headers: { 'Idempotency-Key': idempotencyKey },
+    body: JSON.stringify(command),
+  });
+}
+
 export function getP2Journeys(
   tenantId: string,
   accessToken?: string,

@@ -863,3 +863,23 @@
     justify-items: start;
   }
 }
+
+
+.p2-stage-strip--readiness {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(220px, 1.15fr);
+}
+
+@media (max-width: 900px) {
+  .p2-stage-strip--readiness {
+    grid-template-columns: 1fr;
+  }
+
+  .p2-stage-strip--readiness > div {
+    border-right: 0;
+    border-bottom: 1px solid #e6ebf2;
+  }
+
+  .p2-stage-strip--readiness > div:last-child {
+    border-bottom: 0;
+  }
+}

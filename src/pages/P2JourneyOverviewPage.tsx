@@ -148,6 +148,49 @@ function sourceRows(overview?: JourneyOverview): DealSourceValue[] {
   return overview?.dealSourceBreakdown ?? [];
 }
 
+
+const BOOKING_DEAL_SOURCES = new Set(['booking_form', 'booking_docket']);
+const INVOICE_DEAL_SOURCES = new Set([
+  'customer_invoice_dms',
+  'customer_invoice_dms_v2',
+  'invoice_generic',
+  'tax_invoice_tally',
+  'tax_invoice',
+  'tax_invoice_dms',
+]);
+
+function componentSources(overview: JourneyOverview | undefined, componentKey: string) {
+  const key = componentKey.trim().toLowerCase();
+  return sourceRows(overview).filter(
+    (source) => source.lineKind === 'COMMERCIAL'
+      && source.componentKey.trim().toLowerCase() === key,
+  );
+}
+
+function dealSourceAmounts(
+  overview: JourneyOverview,
+  line: Record<string, unknown>,
+): { booking: number | null; invoice: number | null; disagree: boolean } {
+  const componentKey = String(line.componentKey || '');
+  const sources = componentSources(overview, componentKey);
+  const bookingSource = sources.find(
+    (source) => BOOKING_DEAL_SOURCES.has(source.sourceDocumentType.trim().toLowerCase()),
+  );
+  const invoiceSource = sources.find(
+    (source) => INVOICE_DEAL_SOURCES.has(source.sourceDocumentType.trim().toLowerCase()),
+  );
+  const actual = line.actualAmount === null || line.actualAmount === undefined
+    ? null
+    : Number(line.actualAmount);
+  const booking = bookingSource?.amount ?? (sources.length === 0 ? actual : null);
+  const invoice = invoiceSource?.amount ?? null;
+  return {
+    booking,
+    invoice,
+    disagree: booking !== null && invoice !== null && Math.abs(booking - invoice) > 1,
+  };
+}
+
 function recordValue(record: Record<string, unknown>, ...keys: string[]): unknown {
   for (const key of keys) {
     const value = record[key];
@@ -418,6 +461,32 @@ export default function P2JourneyOverviewPage() {
                 </div>
                 {businessOverviewQuery.isLoading ? <p className="p2-note">Loading commercial sources…</p> : null}
                 {businessOverviewQuery.isError ? <p className="p2-note p2-attention">Commercial detail could not be loaded.</p> : null}
+                {businessOverviewQuery.data?.commercialLines?.length ? (
+                  <div className="p2-table-wrap">
+                    <table className="p2-table">
+                      <thead>
+                        <tr><th>Component</th><th>Standard</th><th>Booking</th><th>Invoice</th></tr>
+                      </thead>
+                      <tbody>
+                        {businessOverviewQuery.data.commercialLines.map((line, index) => {
+                          const source = dealSourceAmounts(businessOverviewQuery.data!, line);
+                          return (
+                            <tr key={String(line.commercialLineId || line.componentKey || index)}>
+                              <td><strong>{labelKey(String(line.componentKey || 'Commercial'))}</strong></td>
+                              <td>{money(line.standardAmount === null || line.standardAmount === undefined ? null : String(line.standardAmount))}</td>
+                              <td className={source.disagree ? 'p2-attention' : undefined}>
+                                {money(source.booking === null ? null : String(source.booking))}
+                              </td>
+                              <td className={source.disagree ? 'p2-attention' : undefined}>
+                                {money(source.invoice === null ? null : String(source.invoice))}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : null}
                 {businessOverviewQuery.data?.skuPricing ? (
                   <div className="p2-table-wrap">
                     <table className="p2-table">

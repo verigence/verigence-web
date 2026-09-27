@@ -3,12 +3,10 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 
 import PageHeader from '../components/PageHeader';
-import '../styles/uc03-p2.css';
 import StatusPill from '../components/StatusPill';
 import { categoryFor, categoryTitle, FIELD_CATEGORY_ORDER, type FieldCategory } from '../features/uc03/fieldCategoryGroups';
 import {
   deriveAspects,
-  deriveP2Steps,
   deriveSteps,
   findingAspect,
   openFindings,
@@ -21,7 +19,6 @@ import { AuditCoreHttpError } from '../services/audit-core/client';
 import { getFinance, getInsurance } from '../services/audit-core/operations';
 import { getReviewDocumentContentV2 } from '../services/audit-core/uc03DocumentReviewV2';
 import { runAllApplicableRules, type Uc03RunAllRulesRuleResult } from '../services/audit-core/uc03Audit';
-import { getP2Overview } from '../services/audit-core/uc03P2';
 import { resyncUnifiedCaptureV2 } from '../services/audit-core/uc03UnifiedDocumentCapture';
 import {
   getUc03JourneyOverview,
@@ -2140,14 +2137,6 @@ export default function Journey360Page() {
     staleTime: 15_000,
   });
 
-  const p2OverviewQuery = useQuery({
-    queryKey: ['p2-overview', tenantId, journeyId],
-    queryFn: () => getP2Overview(tenantId, journeyId, accessToken),
-    enabled: Boolean(accessToken && tenantId && journeyId),
-    staleTime: 10_000,
-    retry: 1,
-  });
-
   // The main overview response never carried insurance/finance at all --
   // confirmed live, reported repeatedly ("insurance fields extracted but
   // not shown in Journey 360"): the Insurance/Finance panels below and the
@@ -2259,13 +2248,7 @@ export default function Journey360Page() {
 
   const receiptRows = useMemo(() => (model?.receipts || []).filter((r) => !receiptIsPending(r)), [model?.receipts]);
 
-  const legacySteps = useMemo(() => (model ? deriveSteps(model).steps : []), [model]);
-  const steps = useMemo(
-    () => p2OverviewQuery.data
-      ? deriveP2Steps(p2OverviewQuery.data.stage.stage).steps
-      : legacySteps,
-    [legacySteps, p2OverviewQuery.data],
-  );
+  const steps = useMemo(() => (model ? deriveSteps(model).steps : []), [model]);
   const aspects = useMemo(() => (model ? deriveAspects(model) : []), [model]);
   const openCount = useMemo(() => (model ? openFindings(model).length : 0), [model]);
   const documentCounts = useMemo(() => {
@@ -2373,79 +2356,6 @@ export default function Journey360Page() {
           <StatusPill value={String(deliveryStatus) === 'DELIVERY_STARTED' ? 'DELIVERY_IN_PROGRESS' : String(deliveryStatus || 'NOT_STARTED')} />
         </div>}
       />
-
-      {p2OverviewQuery.data ? (
-        <div className="p2-stage-strip p2-stage-strip--readiness" aria-label="Journey readiness">
-          <div>
-            <span>Booking</span>
-            <strong>{p2OverviewQuery.data.stage.bookingCompletionState.replaceAll('_', ' ')}</strong>
-          </div>
-          <div>
-            <span>Delivery</span>
-            <strong>{p2OverviewQuery.data.stage.deliveryCompletionState.replaceAll('_', ' ')}</strong>
-          </div>
-          <div className={(p2OverviewQuery.data.tasks.overdue || p2OverviewQuery.data.findings.open) ? 'p2-stage-strip__blocker' : ''}>
-            <span>Needs attention</span>
-            <strong>
-              {p2OverviewQuery.data.tasks.open} task{p2OverviewQuery.data.tasks.open === 1 ? '' : 's'} · {p2OverviewQuery.data.findings.open} finding{p2OverviewQuery.data.findings.open === 1 ? '' : 's'}
-            </strong>
-          </div>
-        </div>
-      ) : null}
-
-      {p2OverviewQuery.data ? (
-        <div className="p2-journey-stats" aria-label="Booking, Delivery and Journey statistics">
-          <div className="p2-journey-stats__group">
-            <strong>Booking</strong>
-            <span>Docs {p2OverviewQuery.data.statistics.booking.documentsReceived}/{p2OverviewQuery.data.statistics.booking.documentsRequired}</span>
-            <span>Pages {p2OverviewQuery.data.statistics.booking.pagesProcessed}/{p2OverviewQuery.data.statistics.booking.pages}</span>
-            <span>Payment {money(p2OverviewQuery.data.statistics.booking.paymentReceived)} / {money(p2OverviewQuery.data.statistics.booking.minimumPayment)}</span>
-            <span>Verify {p2OverviewQuery.data.statistics.booking.manualVerificationPending}</span>
-            <span className={
-              p2OverviewQuery.data.statistics.booking.controls.failed
-              || p2OverviewQuery.data.statistics.booking.controls.retryPending
-              || p2OverviewQuery.data.statistics.booking.controls.errors
-                ? 'p2-attention'
-                : undefined
-            }>
-              Controls {p2OverviewQuery.data.statistics.booking.controls.passed}/{p2OverviewQuery.data.statistics.booking.controls.expected}
-            </span>
-          </div>
-
-          <div className="p2-journey-stats__group">
-            <strong>Delivery</strong>
-            <span>Docs {p2OverviewQuery.data.statistics.delivery.documentsReceived}/{p2OverviewQuery.data.statistics.delivery.documentsRequired}</span>
-            <span>Invoices {p2OverviewQuery.data.statistics.delivery.invoices}</span>
-            <span>Receipts {p2OverviewQuery.data.statistics.delivery.paymentReceipts}</span>
-            <span>
-              F/I/V-R {p2OverviewQuery.data.statistics.delivery.financeRecords}/
-              {p2OverviewQuery.data.statistics.delivery.insuranceRecords}/
-              {p2OverviewQuery.data.statistics.delivery.vehicleRecords + p2OverviewQuery.data.statistics.delivery.registrationRecords}
-            </span>
-            <span className={
-              p2OverviewQuery.data.statistics.delivery.controls.failed
-              || p2OverviewQuery.data.statistics.delivery.controls.retryPending
-              || p2OverviewQuery.data.statistics.delivery.controls.errors
-                ? 'p2-attention'
-                : undefined
-            }>
-              Controls {p2OverviewQuery.data.statistics.delivery.controls.passed}/{p2OverviewQuery.data.statistics.delivery.controls.expected}
-            </span>
-          </div>
-
-          <div className="p2-journey-stats__group">
-            <strong>Journey</strong>
-            <span>Uploads {p2OverviewQuery.data.statistics.journey.uploads}</span>
-            <span>Failures {p2OverviewQuery.data.statistics.journey.extractionFailures}</span>
-            <span>Retries {p2OverviewQuery.data.statistics.journey.retries}</span>
-            <span>Corrections {p2OverviewQuery.data.statistics.journey.correctedFields}</span>
-            <span>Findings {p2OverviewQuery.data.statistics.journey.openFindings}</span>
-            <span className={p2OverviewQuery.data.statistics.journey.slaBreaches ? 'p2-attention' : undefined}>
-              SLA {p2OverviewQuery.data.statistics.journey.slaBreaches}
-            </span>
-          </div>
-        </div>
-      ) : null}
 
       <div className="jline">
         <DocumentProgressStrip {...documentCounts} />

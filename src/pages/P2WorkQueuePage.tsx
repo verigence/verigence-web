@@ -38,11 +38,14 @@ export default function P2WorkQueuePage() {
     <div className="screen-stack p2-screen">
       <PageHeader
         eyebrow="Phase 2"
-        title="Journey Work Queue"
-        description="Operational view of Booking and Delivery readiness. Existing Verigence journeys and links remain unchanged."
+        title="Capture"
+        description="Start with a journey, upload documents, and follow them through classification, extraction, processing, rules and tasks."
       />
 
       <SectionCard>
+        <div className="p2-pipeline" aria-label="Phase 2 processing flow">
+          <span>Capture</span><b>→</b><span>Classify</span><b>→</b><span>Extract</span><b>→</b><span>Process</span><b>→</b><span>Rules</span><b>→</b><span>Audit</span><b>→</b><span>Tasks</span>
+        </div>
         <div className="p2-toolbar">
           <label className="p2-search">
             <span>Search journeys</span>
@@ -104,9 +107,14 @@ export default function P2WorkQueuePage() {
                   </td>
                   <td>{item.open_findings}</td>
                   <td className="p2-table__action">
-                    <Link className="text-link" to={`/p2/journeys/${item.journey_id}/overview`}>
-                      Open
-                    </Link>
+                    <div className="p2-row-actions">
+                      <Link className="p2-primary-link" to={`/p2/journeys/${item.journey_id}/documents`}>
+                        Upload
+                      </Link>
+                      <Link className="text-link" to={`/p2/journeys/${item.journey_id}/overview`}>
+                        Journey 360
+                      </Link>
+                    </div>
                   </td>
                 </tr>
               ))}

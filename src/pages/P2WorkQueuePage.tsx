@@ -38,8 +38,8 @@ export default function P2WorkQueuePage() {
     <div className="screen-stack p2-screen">
       <PageHeader
         eyebrow="Phase 2"
-        title="Documents"
-        description="Upload and review journey documents. Processing continues in the background and items needing attention are highlighted."
+        title="Journeys"
+        description="Open a Journey to upload or review documents, or go directly to Journey 360."
       />
 
       <SectionCard>
@@ -104,9 +104,9 @@ export default function P2WorkQueuePage() {
                   <td className="p2-table__action">
                     <div className="p2-row-actions">
                       <Link className="p2-primary-link" to={`/p2/journeys/${item.journey_id}/documents`}>
-                        Open Documents
+                        Upload / Documents
                       </Link>
-                      <Link className="text-link" to={`/p2/journeys/${item.journey_id}/overview`}>
+                      <Link className="p2-secondary-link" to={`/p2/journeys/${item.journey_id}/overview`}>
                         Journey 360
                       </Link>
                     </div>
@@ -114,7 +114,7 @@ export default function P2WorkQueuePage() {
                 </tr>
               ))}
               {!query.isLoading && (query.data?.items.length ?? 0) === 0 ? (
-                <tr><td colSpan={7} className="p2-empty">No journeys match the current search.</td></tr>
+                <tr><td colSpan={7} className="p2-empty">No journeys are available for the current dealership or search.</td></tr>
               ) : null}
             </tbody>
           </table>

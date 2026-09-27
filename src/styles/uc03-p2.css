@@ -1689,3 +1689,81 @@
     min-width: 620px;
   }
 }
+
+
+/* Compact P2 document batch + audit-history presentation. */
+.p2-document-batch-row > td {
+  padding-block: 9px;
+  background: #f8fafc;
+}
+
+.p2-batch-summary {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.p2-batch-summary > div {
+  display: grid;
+  gap: 3px;
+}
+
+.p2-batch-summary strong {
+  color: #173e69;
+  font-size: .79rem;
+}
+
+.p2-batch-summary small {
+  display: flex;
+  gap: 7px;
+  align-items: center;
+  color: var(--p2-muted);
+  font-size: .69rem;
+}
+
+.p2-document-history {
+  border: 1px solid var(--p2-border);
+  border-radius: 10px;
+  background: #fff;
+}
+
+.p2-document-history > summary {
+  cursor: pointer;
+  padding: 11px 14px;
+  color: #52647a;
+  font-size: .74rem;
+  font-weight: 750;
+  list-style-position: inside;
+}
+
+.p2-document-history[open] > summary {
+  border-bottom: 1px solid #edf1f5;
+}
+
+.p2-document-history .p2-table-wrap {
+  border: 0;
+  border-radius: 0 0 10px 10px;
+}
+
+@media (max-width: 720px) {
+  .p2-document-batch-row {
+    display: table-row !important;
+    border: 0 !important;
+    box-shadow: none !important;
+  }
+
+  .p2-document-batch-row > td {
+    display: table-cell !important;
+    padding: 9px !important;
+    border: 0 !important;
+  }
+
+  .p2-document-batch-row > td::before {
+    display: none !important;
+  }
+
+  .p2-batch-summary {
+    align-items: flex-start;
+  }
+}

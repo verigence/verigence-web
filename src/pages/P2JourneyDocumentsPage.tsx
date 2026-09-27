@@ -7,7 +7,14 @@ import PageHeader from '../components/PageHeader';
 import SectionCard from '../components/SectionCard';
 import StatusPill from '../components/StatusPill';
 import P2JourneyTabs from '../features/uc03-p2/P2JourneyTabs';
-import { getP2Documents, getP2Events, getP2Stage, uploadP2Files } from '../services/audit-core/uc03P2';
+import {
+  deleteP2Document,
+  getP2Documents,
+  getP2Events,
+  getP2Stage,
+  replaceP2Document,
+  uploadP2Files,
+} from '../services/audit-core/uc03P2';
 import { useProjectContextStore } from '../store/projectContextStore';
 import { useSessionStore } from '../store/sessionStore';
 
@@ -31,8 +38,11 @@ export default function P2JourneyDocumentsPage() {
   const accessToken = useSessionStore((s) => s.accessToken);
   const queryClient = useQueryClient();
   const inputRef = useRef<HTMLInputElement>(null);
+  const replaceInputRef = useRef<HTMLInputElement>(null);
   const eventCursorRef = useRef(0);
   const [message, setMessage] = useState('');
+  const [replaceTarget, setReplaceTarget] = useState<string>();
+  const [expandedBatches, setExpandedBatches] = useState<Set<string>>(() => new Set());
 
   const query = useQuery({
     queryKey: ['p2-documents', tenantId, journeyId],
@@ -103,6 +113,28 @@ export default function P2JourneyDocumentsPage() {
     },
   });
 
+  const replaceDocument = useMutation({
+    mutationFn: ({ documentId, file }: { documentId: string; file: File }) =>
+      replaceP2Document(tenantId!, journeyId, documentId, file, accessToken),
+    onSuccess: () => {
+      setMessage('Replacement accepted. The current document remains in the audit trail until the replacement is ready.');
+      setReplaceTarget(undefined);
+      void queryClient.invalidateQueries({ queryKey: ['p2-documents', tenantId, journeyId] });
+      void queryClient.invalidateQueries({ queryKey: ['p2-overview', tenantId, journeyId] });
+    },
+  });
+
+  const removeDocument = useMutation({
+    mutationFn: (documentId: string) =>
+      deleteP2Document(tenantId!, journeyId, documentId, accessToken),
+    onSuccess: () => {
+      setMessage('Document removed from the active Journey. Audit history has been retained.');
+      void queryClient.invalidateQueries({ queryKey: ['p2-documents', tenantId, journeyId] });
+      void queryClient.invalidateQueries({ queryKey: ['p2-overview', tenantId, journeyId] });
+      void queryClient.invalidateQueries({ queryKey: ['p2-stage', tenantId, journeyId] });
+    },
+  });
+
   const totals = useMemo(() => {
     const batches = query.data?.batches ?? [];
     const pages = batches.flatMap((batch) => batch.pages);
@@ -111,6 +143,25 @@ export default function P2JourneyDocumentsPage() {
       pages: pages.length,
       ready: pages.filter((page) => page.queue_status === 'READY').length,
       attention: pages.filter((page) => ['NEEDS_REVIEW', 'FAILED', 'DEAD_LETTER'].includes(page.queue_status)).length,
+    };
+  }, [query.data]);
+
+  const documentLineage = useMemo(() => {
+    const batchDocumentIds = new Set(
+      (query.data?.batches ?? [])
+        .flatMap((batch) => batch.pages)
+        .map((page) => page.diDocumentId)
+        .filter((value): value is string => Boolean(value)),
+    );
+    const documents = query.data?.documents ?? [];
+    return {
+      existingActive: documents.filter(
+        (document) => document.association_status === 'ACTIVE'
+          && !batchDocumentIds.has(document.documentId),
+      ),
+      superseded: documents.filter(
+        (document) => document.association_status === 'SUPERSEDED',
+      ),
     };
   }, [query.data]);
 
@@ -177,6 +228,19 @@ export default function P2JourneyDocumentsPage() {
               event.currentTarget.value = '';
             }}
           />
+          <input
+            ref={replaceInputRef}
+            className="p2-file-input"
+            type="file"
+            accept="application/pdf,image/jpeg,image/png"
+            onChange={(event) => {
+              const file = event.target.files?.[0];
+              if (file && replaceTarget) {
+                replaceDocument.mutate({ documentId: replaceTarget, file });
+              }
+              event.currentTarget.value = '';
+            }}
+          />
           <button
             className="p2-primary-action"
             type="button"
@@ -187,9 +251,15 @@ export default function P2JourneyDocumentsPage() {
           </button>
         </div>
         {message ? <div className="form-alert form-alert--success">{message}</div> : null}
-        {upload.isError ? (
+        {upload.isError || replaceDocument.isError || removeDocument.isError ? (
           <div className="form-alert form-alert--error">
-            {upload.error instanceof Error ? upload.error.message : 'Upload failed.'}
+            {upload.error instanceof Error
+              ? upload.error.message
+              : replaceDocument.error instanceof Error
+                ? replaceDocument.error.message
+                : removeDocument.error instanceof Error
+                  ? removeDocument.error.message
+                  : 'Document action failed.'}
           </div>
         ) : null}
       </SectionCard>
@@ -214,58 +284,196 @@ export default function P2JourneyDocumentsPage() {
               </tr>
             </thead>
             <tbody>
-              {(query.data?.batches ?? []).flatMap((batch) => (
-                batch.pages.length ? batch.pages.map((page) => (
-                  <tr key={page.queueId}>
-                    <td>
-                      <strong>{batch.original_filename}</strong>
-                      <small>Page {page.page_number} of {batch.page_count || batch.pages.length}</small>
-                    </td>
-                    <td>{page.classified_document_type?.replaceAll('_', ' ') || 'Pending classification'}</td>
-                    <td>{page.business_stage || '—'}</td>
-                    <td>
-                      <StatusPill value={page.queue_status} compact />
-                      {page.last_error ? <small className="p2-attention">{page.last_error}</small> : null}
-                    </td>
-                    <td>
-                      {page.queue_status === 'READY' ? (
-                        <>
-                          <strong>Ready</strong>
-                          <small>{page.extracted_field_count} fields extracted</small>
-                        </>
-                      ) : ['NEEDS_REVIEW', 'FAILED', 'DEAD_LETTER'].includes(page.queue_status) ? (
-                        <>
-                          <strong className="p2-attention">{page.queue_status === 'NEEDS_REVIEW' ? 'Review required' : 'Attention required'}</strong>
-                          {page.last_error ? <small>{page.last_error}</small> : null}
-                        </>
-                      ) : (
-                        <span>Processing</span>
-                      )}
-                    </td>
-                    <td className="p2-table__action">
-                      {page.diDocumentId && ['READY', 'NEEDS_REVIEW'].includes(page.queue_status) ? (
-                        <Link className="p2-primary-link" to={`/p2/journeys/${journeyId}/documents/${page.diDocumentId}`}>
-                          {page.queue_status === 'NEEDS_REVIEW' ? 'Review & Correct' : 'Review'}
-                        </Link>
-                      ) : null}
-                    </td>
-                  </tr>
-                )) : [(
-                  <tr key={batch.batchId}>
-                    <td><strong>{batch.original_filename}</strong></td>
-                    <td>—</td><td>—</td>
-                    <td><StatusPill value={batch.batch_status} compact /></td>
-                    <td>—</td><td />
-                  </tr>
-                )]
+              {(query.data?.batches ?? []).flatMap((batch) => {
+                const isMultiPage = (batch.page_count || batch.pages.length) > 1;
+                const expanded = expandedBatches.has(batch.batchId);
+                const rows = [];
+
+                if (isMultiPage) {
+                  rows.push(
+                    <tr className="p2-document-batch-row" key={`${batch.batchId}-summary`}>
+                      <td colSpan={6}>
+                        <div className="p2-batch-summary">
+                          <div>
+                            <strong>{batch.original_filename}</strong>
+                            <small>{batch.page_count || batch.pages.length} pages · <StatusPill value={batch.batch_status} compact /></small>
+                          </div>
+                          <button
+                            type="button"
+                            className="p2-link-button"
+                            onClick={() => setExpandedBatches((current) => {
+                              const next = new Set(current);
+                              if (next.has(batch.batchId)) next.delete(batch.batchId);
+                              else next.add(batch.batchId);
+                              return next;
+                            })}
+                          >
+                            {expanded ? 'Hide pages' : `Show ${batch.page_count || batch.pages.length} pages`}
+                          </button>
+                        </div>
+                      </td>
+                    </tr>,
+                  );
+                }
+
+                if (!isMultiPage || expanded) {
+                  if (batch.pages.length) {
+                    rows.push(...batch.pages.map((page) => (
+                      <tr key={page.queueId}>
+                        <td>
+                          <strong>{batch.original_filename}</strong>
+                          <small>{isMultiPage ? `Page ${page.page_number} of ${batch.page_count || batch.pages.length}` : 'Single document'}</small>
+                        </td>
+                        <td>{page.classified_document_type?.replaceAll('_', ' ') || 'Pending classification'}</td>
+                        <td>{page.business_stage || '—'}</td>
+                        <td>
+                          <StatusPill value={page.queue_status} compact />
+                          {page.last_error ? <small className="p2-attention">{page.last_error}</small> : null}
+                        </td>
+                        <td>
+                          {page.queue_status === 'READY' ? (
+                            <>
+                              <strong>Ready</strong>
+                              <small>{page.extracted_field_count} fields extracted</small>
+                            </>
+                          ) : ['NEEDS_REVIEW', 'FAILED', 'DEAD_LETTER'].includes(page.queue_status) ? (
+                            <>
+                              <strong className="p2-attention">{page.queue_status === 'NEEDS_REVIEW' ? 'Review required' : 'Attention required'}</strong>
+                              {page.last_error ? <small>{page.last_error}</small> : null}
+                            </>
+                          ) : (
+                            <span>Processing</span>
+                          )}
+                        </td>
+                        <td className="p2-table__action">
+                          <div className="p2-row-actions">
+                            {page.diDocumentId && ['READY', 'NEEDS_REVIEW'].includes(page.queue_status) ? (
+                              <Link className="p2-primary-link" to={`/p2/journeys/${journeyId}/documents/${page.diDocumentId}`}>
+                                {page.queue_status === 'NEEDS_REVIEW' ? 'Review & Correct' : 'Review'}
+                              </Link>
+                            ) : null}
+                            {page.diDocumentId ? (
+                              <>
+                                <button
+                                  className="p2-link-button"
+                                  type="button"
+                                  disabled={replaceDocument.isPending}
+                                  onClick={() => {
+                                    setReplaceTarget(page.diDocumentId);
+                                    replaceInputRef.current?.click();
+                                  }}
+                                >
+                                  Replace
+                                </button>
+                                <button
+                                  className="p2-link-button"
+                                  type="button"
+                                  disabled={removeDocument.isPending}
+                                  onClick={() => {
+                                    if (window.confirm('Remove this document from the active Journey? Audit history will be retained.')) {
+                                      removeDocument.mutate(page.diDocumentId!);
+                                    }
+                                  }}
+                                >
+                                  Remove
+                                </button>
+                              </>
+                            ) : null}
+                          </div>
+                        </td>
+                      </tr>
+                    )));
+                  } else {
+                    rows.push(
+                      <tr key={batch.batchId}>
+                        <td><strong>{batch.original_filename}</strong></td>
+                        <td>—</td><td>—</td>
+                        <td><StatusPill value={batch.batch_status} compact /></td>
+                        <td>—</td><td />
+                      </tr>,
+                    );
+                  }
+                }
+                return rows;
+              })}
+              {documentLineage.existingActive.map((document) => (
+                <tr key={`existing-${document.documentId}`}>
+                  <td>
+                    <strong>{document.original_filename || 'Existing document'}</strong>
+                    <small>Existing Journey evidence</small>
+                  </td>
+                  <td>{document.document_type_key?.replaceAll('_', ' ') || 'Document'}</td>
+                  <td>{document.process_area || '—'}</td>
+                  <td><StatusPill value={document.processing_status_cache || 'READY'} compact /></td>
+                  <td>
+                    <strong>{document.verification_status_cache?.replaceAll('_', ' ') || 'Available for review'}</strong>
+                    {document.confirmation_status_cache ? <small>{document.confirmation_status_cache.replaceAll('_', ' ')}</small> : null}
+                  </td>
+                  <td className="p2-table__action">
+                    <div className="p2-row-actions">
+                      <Link className="p2-primary-link" to={`/p2/journeys/${journeyId}/documents/${document.documentId}`}>
+                        Review
+                      </Link>
+                      <button
+                        className="p2-link-button"
+                        type="button"
+                        disabled={replaceDocument.isPending}
+                        onClick={() => {
+                          setReplaceTarget(document.documentId);
+                          replaceInputRef.current?.click();
+                        }}
+                      >
+                        Replace
+                      </button>
+                      <button
+                        className="p2-link-button"
+                        type="button"
+                        disabled={removeDocument.isPending}
+                        onClick={() => {
+                          if (window.confirm('Remove this document from the active Journey? Audit history will be retained.')) {
+                            removeDocument.mutate(document.documentId);
+                          }
+                        }}
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  </td>
+                </tr>
               ))}
-              {!query.isLoading && (query.data?.batches.length ?? 0) === 0 ? (
-                <tr><td colSpan={6} className="p2-empty">No Phase 2 uploads yet.</td></tr>
+              {!query.isLoading
+                && (query.data?.batches.length ?? 0) === 0
+                && documentLineage.existingActive.length === 0 ? (
+                <tr><td colSpan={6} className="p2-empty">No documents have been uploaded for this Journey.</td></tr>
               ) : null}
             </tbody>
           </table>
         </div>
       </SectionCard>
+
+      {documentLineage.superseded.length > 0 ? (
+        <details className="p2-document-history">
+          <summary>Document history · {documentLineage.superseded.length} replaced</summary>
+          <div className="p2-table-wrap">
+            <table className="p2-table">
+              <thead><tr><th>Document</th><th>Type</th><th>Stage</th><th>Status</th></tr></thead>
+              <tbody>
+                {documentLineage.superseded.map((document) => (
+                  <tr key={`history-${document.evidenceId}`}>
+                    <td>
+                      <strong>{document.original_filename || 'Document'}</strong>
+                      <small>{document.documentId.slice(0, 8)}</small>
+                    </td>
+                    <td>{document.document_type_key?.replaceAll('_', ' ') || '—'}</td>
+                    <td>{document.process_area || '—'}</td>
+                    <td><StatusPill value="SUPERSEDED" compact /></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </details>
+      ) : null}
     </div>
   );
 }

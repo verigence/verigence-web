@@ -172,9 +172,24 @@ export type P2DocumentBatch = {
   pages: P2DocumentPage[];
 };
 
+export type P2DocumentLineage = {
+  evidenceId: string;
+  documentId: string;
+  document_type_key?: string | null;
+  process_area?: string | null;
+  association_status: 'ACTIVE' | 'SUPERSEDED' | 'VOIDED' | 'UNLINKED';
+  supersedesEvidenceId?: string | null;
+  processing_status_cache?: string | null;
+  verification_status_cache?: string | null;
+  confirmation_status_cache?: string | null;
+  linked_at_utc: string;
+  original_filename?: string | null;
+};
+
 export type P2DocumentsResponse = {
   journeyId: string;
   batches: P2DocumentBatch[];
+  documents?: P2DocumentLineage[];
 };
 
 
@@ -424,7 +439,7 @@ export function getP2DocumentReview(
   return auditCoreRequest<P2DocumentReview>(
     path(
       tenantId,
-      `/journeys/${encodeURIComponent(journeyId)}/documents/${encodeURIComponent(documentId)}/review`,
+      `/journeys/${encodeURIComponent(journeyId)}/documents/${encodeURIComponent(documentId)}`,
     ),
     { accessToken, cache: 'no-store' },
   );
@@ -465,16 +480,79 @@ export function correctP2DocumentField(
   return auditCoreRequest<P2FieldCorrectionResult>(
     path(
       tenantId,
-      `/journeys/${encodeURIComponent(journeyId)}/documents/${encodeURIComponent(documentId)}/field-corrections`,
+      `/journeys/${encodeURIComponent(journeyId)}/documents/${encodeURIComponent(documentId)}/fields/${encodeURIComponent(command.fieldKey)}`,
     ),
     {
-      method: 'POST',
+      method: 'PATCH',
       accessToken,
       body: JSON.stringify(command),
       cache: 'no-store',
     },
   );
 }
+
+
+export async function replaceP2Document(
+  tenantId: string,
+  journeyId: string,
+  documentId: string,
+  file: File,
+  accessToken?: string,
+): Promise<void> {
+  const clientUploadId = stableClientUploadId(journeyId, file, 0) + '-replace';
+  const prepared = await auditCoreRequest<{
+    batchId: string;
+    clientUploadId: string;
+    uploadUrl: string;
+    uploadHeaders: Record<string, string>;
+  }>(
+    path(
+      tenantId,
+      `/journeys/${encodeURIComponent(journeyId)}/documents/${encodeURIComponent(documentId)}/replace`,
+    ),
+    {
+      method: 'POST',
+      accessToken,
+      body: JSON.stringify({
+        filename: file.name,
+        contentType: contentTypeForFile(file),
+        sizeBytes: file.size,
+        clientUploadId,
+      }),
+    },
+  );
+  const uploadResponse = await fetch(prepared.uploadUrl, {
+    method: 'PUT',
+    headers: prepared.uploadHeaders,
+    body: file,
+  });
+  if (!uploadResponse.ok) {
+    throw new Error(`Replacement upload failed (HTTP ${uploadResponse.status}).`);
+  }
+  await auditCoreRequest(
+    path(
+      tenantId,
+      `/journeys/${encodeURIComponent(journeyId)}/uploads/${encodeURIComponent(prepared.batchId)}:finalize`,
+    ),
+    { method: 'POST', accessToken },
+  );
+}
+
+export async function deleteP2Document(
+  tenantId: string,
+  journeyId: string,
+  documentId: string,
+  accessToken?: string,
+): Promise<void> {
+  await auditCoreRequest(
+    path(
+      tenantId,
+      `/journeys/${encodeURIComponent(journeyId)}/documents/${encodeURIComponent(documentId)}`,
+    ),
+    { method: 'DELETE', accessToken },
+  );
+}
+
 
 export function getP2Tasks(
   tenantId: string,

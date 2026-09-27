@@ -389,7 +389,7 @@ export async function uploadP2Files(
   const prepared = await auditCoreRequest<UploadInitResult>(
     path(tenantId, `/journeys/${encodeURIComponent(journeyId)}/uploads:init`),
     {
-      method: 'PATCH',
+      method: 'POST',
       accessToken,
       body: JSON.stringify({
         files: descriptors.map(({ file, clientUploadId }) => ({
@@ -483,7 +483,7 @@ export function correctP2DocumentField(
       `/journeys/${encodeURIComponent(journeyId)}/documents/${encodeURIComponent(documentId)}/fields/${encodeURIComponent(command.fieldKey)}`,
     ),
     {
-      method: 'POST',
+      method: 'PATCH',
       accessToken,
       body: JSON.stringify(command),
       cache: 'no-store',

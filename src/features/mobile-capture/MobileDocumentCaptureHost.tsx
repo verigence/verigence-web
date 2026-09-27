@@ -95,6 +95,8 @@ function captureContextForInput(input: HTMLInputElement): CaptureContext | undef
   if (input.type !== 'file' || !input.hasAttribute('capture') || input.disabled) return undefined;
   if (!input.accept.toLowerCase().includes('image')) return undefined;
 
+  // Vehicle photos are plain pictures of the car, never scanned documents.
+  if (input.closest('[data-p2-photo]')) return undefined;
   const p2 = input.closest<HTMLElement>('.p2-capture');
   if (p2) {
     return {

@@ -761,3 +761,241 @@ export async function getP2Events(
     { accessToken, timeoutMs: 5_000 },
   );
 }
+
+// ── Journey 360 ─────────────────────────────────────────────────────────────
+export type Money = string | null;
+
+export type P2DealSource = { document: string; documentType: string; amount: Money; documentId?: string | null };
+
+export type P2DealRow = {
+  key: string;
+  label: string;
+  standard: Money;
+  booking: Money;
+  billed: Money;
+  ledger: Money;
+  quote?: Money;
+  effective: Money;
+  effectiveSource?: string | null;
+  variance: Money;
+  bookingVsBilled?: Money;
+  flags: string[];
+  sources: P2DealSource[];
+};
+
+export type P2DealCategory = {
+  code: string;
+  label: string;
+  components: P2DealRow[];
+  totals: Record<'standard' | 'booking' | 'billed' | 'ledger' | 'effective', Money>;
+};
+
+export type P2DiscountRow = Omit<P2DealRow, 'standard' | 'quote' | 'effectiveSource' | 'bookingVsBilled'> & {
+  entitled: Money;
+  scheme?: {
+    code?: string | null; name?: string | null; category?: string | null; version?: number | null;
+    validFrom?: string | null; validTo?: string | null; combinability?: string | null;
+  } | null;
+  eligibility?: string | null;
+  evidenceStatus?: string | null;
+  proof?: { documentType: string; document: string; onFile: boolean } | null;
+};
+
+export type P2DealSummary = {
+  /** "current" = billed where invoiced, else the booking offer. */
+  gross: Record<'standard' | 'booking' | 'current' | 'billed' | 'ledger', Money>;
+  discounts: Record<'standard' | 'booking' | 'current' | 'billed', Money>;
+  net: Record<'standard' | 'booking' | 'current', Money>;
+  /** Compared only where both sides have a value. */
+  variance: { bookingVsStandard: Money; currentVsStandard: Money; billedVsBooking: Money };
+  invoicedComponents: number;
+  components: number;
+  paid: { receipts: string; loan: string; total: string };
+  payable: Money;
+  balanceDue: Money;
+};
+
+export type P2Deal = {
+  sku: {
+    skuCode?: string | null; model?: string | null; variant?: string | null; colour?: string | null;
+    resolution?: string | null; method?: string | null; priceList?: string | null;
+    priceListVersion?: number | null; priceListEffectiveFrom?: string | null;
+  };
+  categories: P2DealCategory[];
+  discounts: P2DiscountRow[];
+  declared: Array<{ key: string; label: string; booking: Money; billed: Money; ledger: Money; quote: Money; sources: P2DealSource[] }>;
+  summary: P2DealSummary;
+  flagged: number;
+};
+
+export type P2ControlItem = {
+  code: string;
+  label: string;
+  category: string;
+  severity?: string | null;
+  executor?: string;
+  status: string;
+  reason: string;
+  evaluatedAtUtc?: string | null;
+  leftValue?: unknown;
+  rightValue?: unknown;
+};
+
+export type P2ControlStats = Record<'total' | 'pass' | 'fail' | 'waiting' | 'notApplicable' | 'retry' | 'error', number>;
+
+export type P2Journey360 = {
+  journey: {
+    journeyId: string; reference?: string | null; customerName: string; customerType?: string | null;
+    mobileLast4?: string | null; dealerName: string; outletName: string; city?: string | null;
+    vehicle?: string | null; skuCode?: string | null; vehicleResolution?: string | null; vin?: string | null;
+    registrationNumber?: string | null; financier?: string | null; insurer?: string | null;
+    createdAtUtc: string; deliveredAtUtc?: string | null;
+  };
+  stage: P2BookingStage & { delivery?: { passed: boolean; requiredCount?: number; receivedCount?: number; missing?: Array<{ key: string; label: string }> } };
+  money: P2DealSummary & { flagged: number; minimumBookingAmount?: Money; bookingReceiptTotal?: Money };
+  numbers: { documents: number; vehiclePhotos: number; openTasks: number; overdueTasks: number; openFindings: number };
+  controls: Record<'BOOKING' | 'DELIVERY', P2ControlStats>;
+  sections: string[];
+};
+
+export type P2Record = Record<string, unknown>;
+
+export type P2Addons = {
+  insurance: { records: P2Record[]; charges?: P2DealCategory | null; discount?: P2DiscountRow | null };
+  accessories: { records: P2Record[]; charges?: P2DealCategory | null; discount?: P2DiscountRow | null };
+  protection: { records: P2Record[]; charges?: P2DealCategory | null; discounts: P2DiscountRow[] };
+  finance: { records: P2Record[] };
+  exchange: { records: P2Record[]; discount?: P2DiscountRow | null };
+  scrappage: { discounts: P2DiscountRow[] };
+};
+
+export type P2DocumentFieldView = {
+  key: string; label: string; value: unknown; machineValue: unknown; corrected: boolean;
+  confidence: number | null; reviewed: boolean; needsReview: boolean; keyField: boolean;
+};
+
+export type P2Documents360 = {
+  documents: Array<{
+    documentId: string; evidenceId: string; queueId?: string | null; documentType?: string | null;
+    templateKey: string; label: string; stage: string; pages: number[]; linkedAtUtc?: string | null;
+    fields: P2DocumentFieldView[]; fieldCount: number; needsReview: number; corrected: number;
+  }>;
+};
+
+export type P2Payments360 = {
+  items: Array<{
+    paymentId: string; amount: Money; receiptNumber?: string | null; receiptDate?: string | null;
+    mode?: string | null; stage?: string | null; bank?: string | null; reference?: string | null;
+    documentId?: string | null; document?: string | null; counted: boolean; notCountedReason?: string | null;
+    bankMatch?: string | null;
+  }>;
+  receiptsTotal: string; loanDisbursed: string; paidTotal: string; byStage: Record<string, string>;
+};
+
+export type P2DuplicatePair = {
+  findingId: string;
+  role: 'THIS_IS_DUPLICATE' | 'THIS_HOLDS_BOOKING';
+  severity: string; status: string; raisedAtUtc: string;
+  matchBasis?: string | null; matchBasisLabel?: string | null; matchConfidencePercent?: number | null; matchConfidenceLabel?: string | null;
+  originalityBasis?: string | null;
+  otherJourney: { journey_id: string; journey_reference?: string | null; customer_name?: string | null;
+    outlet_name?: string | null; vehicle?: string | null; created_at_utc?: string | null };
+};
+
+export type P2Compliance360 = {
+  stages: Record<'BOOKING' | 'DELIVERY', P2ControlItem[]>;
+  statistics: Record<'BOOKING' | 'DELIVERY', P2ControlStats>;
+};
+
+export type P2ComplianceReport = {
+  generatedAtUtc: string;
+  header: Record<string, string | null>;
+  summary: { totalFindings: number; openFindings: number; resolvedFindings: number; highOrCriticalOpen: number };
+  sections: Array<{
+    key: string; label: string;
+    lineItems: Array<{ label: string; detail?: string | null; standardAmount?: number | null; actualAmount?: number | null }>;
+    flags: Array<{ findingId: string; findingTypeCode: string; title: string; severity: string; findingClass?: string | null; status: string; createdAtUtc: string; isNew: boolean }>;
+  }>;
+  resolvedHistory: Array<{ findingId: string; findingTypeCode: string; title: string; severity: string; createdAtUtc: string; resolvedAtUtc?: string | null; resolutionReason?: string | null }>;
+  verdict: { code: 'COMPLIANT' | 'INCOMPLETE' | 'NON_COMPLIANT'; label: string; failedControls: number; incompleteControls: number; openTasks: number; duplicatePairs: number; highOrCriticalFindings: number };
+  stage: { code: string; gates: Record<string, P2BookingGate>; delivery?: P2Journey360['stage']['delivery'] };
+  controls: Partial<Record<'BOOKING' | 'DELIVERY', P2ControlItem[]>>;
+  controlStatistics: Record<'BOOKING' | 'DELIVERY', P2ControlStats>;
+  deal: { summary: P2DealSummary; sku: P2Deal['sku']; flaggedLines: Array<{ label: string; category: string; standard: Money; booking: Money; billed: Money; ledger: Money; variance: Money; flags: string[] }> };
+  duplicates: P2DuplicatePair[];
+  openTasks: Array<{ task_id: string; title: string; task_type: string; priority?: string | null; assigned_role_code?: string | null; task_status: string; due_at_utc?: string | null }>;
+};
+
+export type P2SectionMap = {
+  deal: P2Deal;
+  addons: P2Addons;
+  documents: P2Documents360;
+  payments: P2Payments360;
+  vehicle: { product: P2Record | null; units: P2Record[]; photoCount: number };
+  registration: { records: P2Record[]; charges?: P2DealCategory | null };
+  delivery: { readiness?: P2Journey360['stage']['delivery']; records: P2Record[] };
+  compliance: P2Compliance360;
+  activity: { events: Array<{ event_id: number; event_type: string; subject_type?: string | null; subject_id?: string | null; details?: Record<string, unknown> | null; created_at_utc: string }> };
+  duplicates: { pairs: P2DuplicatePair[] };
+  'compliance-report': P2ComplianceReport;
+};
+
+export function getP2Journey360(tenantId: string, journeyId: string, accessToken?: string): Promise<P2Journey360> {
+  return auditCoreRequest<P2Journey360>(path(tenantId, `/journeys/${encodeURIComponent(journeyId)}/360`), { accessToken });
+}
+
+export function getP2Journey360Section<K extends keyof P2SectionMap>(
+  tenantId: string, journeyId: string, section: K, accessToken?: string,
+): Promise<P2SectionMap[K]> {
+  return auditCoreRequest<P2SectionMap[K]>(
+    path(tenantId, `/journeys/${encodeURIComponent(journeyId)}/360/${section}`), { accessToken },
+  );
+}
+
+// ── Vehicle photos (no DI, no classification) ───────────────────────────────
+export type P2VehiclePhoto = {
+  photoId: string; filename: string; contentType: string; sizeBytes: number; viewCode?: string | null;
+  uploadedByActorId: string; uploadedAtUtc?: string | null; url?: string | null;
+};
+
+export type P2VehiclePhotoList = { photos: P2VehiclePhoto[]; limit: number; maxBytes: number; views: string[] };
+
+export function getP2VehiclePhotos(tenantId: string, journeyId: string, accessToken?: string): Promise<P2VehiclePhotoList> {
+  return auditCoreRequest<P2VehiclePhotoList>(
+    path(tenantId, `/journeys/${encodeURIComponent(journeyId)}/vehicle-photos`), { accessToken, cache: 'no-store' },
+  );
+}
+
+export function p2PhotoTransport(tenantId: string, journeyId: string, accessToken?: string) {
+  const base = path(tenantId, `/journeys/${encodeURIComponent(journeyId)}/vehicle-photos`);
+  return {
+    intents: async (files: Array<{ clientUploadId: string; filename: string; contentType: string; sizeBytes: number; viewCode?: string | null }>) =>
+      (await auditCoreRequest<{ uploads: Array<{ clientUploadId: string; uploadUrl?: string; uploadHeaders?: Record<string, string>; photoId?: string; alreadyStored: boolean }> }>(
+        `${base}:upload-intents`, { method: 'POST', accessToken, body: JSON.stringify({ files }) },
+      )).uploads,
+    put: xhrPut,
+    finalize: (file: { clientUploadId: string; filename: string; contentType: string; viewCode?: string | null }) =>
+      auditCoreRequest<P2VehiclePhoto>(`${base}:finalize`, { method: 'POST', accessToken, body: JSON.stringify(file) }),
+    remove: (photoId: string) =>
+      auditCoreRequest<void>(`${base}/${encodeURIComponent(photoId)}`, { method: 'DELETE', accessToken }),
+  };
+}
+
+// ── Duplicate bookings (tenant-wide, existing Audit Core report) ────────────
+export type DuplicateBookingSide = {
+  journeyId: string; journeyReference?: string | null; customerName?: string | null; dealerName?: string | null;
+  outletName?: string | null; productLabel?: string | null; bookingReference?: string | null; bookingConfirmDate?: string | null;
+};
+
+export type DuplicateBookingPair = {
+  findingId: string; status: string; severity: string; raisedAtUtc: string; matchBasis?: string | null;
+  matchBasisLabel?: string | null; matchConfidencePercent?: number | null; matchConfidenceLabel?: string | null;
+  duplicate: DuplicateBookingSide; holder: DuplicateBookingSide;
+};
+
+export function getDuplicateBookings(tenantId: string, accessToken?: string, includeClosed = false) {
+  return auditCoreRequest<{ generatedAtUtc: string; pairs: DuplicateBookingPair[] }>(
+    `/v1/tenants/${encodeURIComponent(tenantId)}/uc03/duplicate-bookings?includeClosed=${includeClosed ? 'true' : 'false'}`,
+    { accessToken },
+  );
+}

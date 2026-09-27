@@ -5,6 +5,7 @@ import '../styles/uc03-p2.css';
 import '../styles/uc03-p2-workspace.css';
 
 import PageHeader from '../components/PageHeader';
+import P2VehiclePhotos from '../features/uc03-p2/photos/P2VehiclePhotos';
 import P2DocumentEditor from '../features/uc03-p2/workspace/P2DocumentEditor';
 import P2DocumentList, { buildDocumentRows } from '../features/uc03-p2/workspace/P2DocumentList';
 import P2UploadPanel from '../features/uc03-p2/workspace/P2UploadPanel';
@@ -30,7 +31,8 @@ function errorText(cause: unknown, fallback: string): string {
 
 export default function P2JourneyWorkspacePage() {
   const { journeyId: routeJourneyId = '', documentId } = useParams();
-  const [search] = useSearchParams();
+  const [search, setSearch] = useSearchParams();
+  const tab = search.get('tab') === 'photos' ? 'photos' : 'documents';
   const navigate = useNavigate();
   const tenantId = useProjectContextStore((s) => s.selectedProject?.tenantId);
   const accessToken = useSessionStore((s) => s.accessToken);
@@ -89,7 +91,7 @@ export default function P2JourneyWorkspacePage() {
     void queryClient.invalidateQueries({ queryKey: ['p2-stage', tenantId, journeyId] });
   }, [journeyId, queryClient, tenantId]);
 
-  const getTransport = useCallback(async () => {
+  const ensureJourney = useCallback(async () => {
     let target = journeyId;
     if (!target) {
       const name = customerName.trim();
@@ -105,11 +107,22 @@ export default function P2JourneyWorkspacePage() {
         throw cause;
       }
       setCreatedJourneyId(target);
-      navigate(`/p2/journeys/${target}/documents`, { replace: true });
+      navigate(`/p2/journeys/${target}/documents${tab === 'photos' ? '?tab=photos' : ''}`, { replace: true });
       void queryClient.invalidateQueries({ queryKey: ['p2-journeys', tenantId] });
     }
+    return target;
+  }, [accessToken, customerName, journeyId, navigate, outletId, queryClient, tab, tenantId]);
+
+  const getTransport = useCallback(async () => {
+    const target = await ensureJourney();
     return { journeyId: target, transport: p2UploadTransport(tenantId ?? '', target, accessToken) };
-  }, [accessToken, customerName, journeyId, navigate, outletId, queryClient, tenantId]);
+  }, [accessToken, ensureJourney, tenantId]);
+
+  const switchTab = (next: 'documents' | 'photos') => {
+    const params = new URLSearchParams(search);
+    if (next === 'photos') params.set('tab', 'photos'); else params.delete('tab');
+    setSearch(params, { replace: true });
+  };
 
   const openDocument = (id: string) => navigate(`/p2/journeys/${journeyId}/documents/${id}`);
   const closeDocument = () => navigate(`/p2/journeys/${journeyId}/documents`);
@@ -239,7 +252,19 @@ export default function P2JourneyWorkspacePage() {
         </div>
       ) : null}
 
-      <div className="p2w-layout">
+      <div className="p2w-segment p2w-tabs-main" role="tablist" aria-label="What to add">
+        <button type="button" role="tab" aria-selected={tab === 'documents'} className={tab === 'documents' ? 'is-active' : ''}
+          onClick={() => switchTab('documents')}>Documents{rows.length ? <b>{rows.length}</b> : null}</button>
+        <button type="button" role="tab" aria-selected={tab === 'photos'} className={tab === 'photos' ? 'is-active' : ''}
+          onClick={() => switchTab('photos')}>Vehicle photos</button>
+      </div>
+
+      {tab === 'photos' && tenantId ? (
+        <P2VehiclePhotos tenantId={tenantId} journeyId={journeyId || undefined} accessToken={accessToken}
+          ensureJourney={ensureJourney} />
+      ) : null}
+
+      <div className="p2w-layout" hidden={tab === 'photos'}>
         <div className="p2w-layout__list">
           {tenantId ? (
             <P2UploadPanel journeyId={journeyId || undefined} getTransport={getTransport} onAccepted={refresh} />

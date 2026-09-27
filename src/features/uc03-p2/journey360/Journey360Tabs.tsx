@@ -1,0 +1,409 @@
+import { useMemo, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { Link } from 'react-router-dom';
+
+import {
+  getP2VehiclePhotos,
+  type P2Addons,
+  type P2Compliance360,
+  type P2Documents360,
+  type P2DuplicatePair,
+  type P2Payments360,
+  type P2Record,
+  type P2SectionMap,
+} from '../../../services/audit-core/uc03P2';
+import { VIEW_LABELS } from '../photos/p2PhotoUploader';
+import { displayValue, formatDateTime, humanizeKey } from '../workspace/p2Format';
+import { ChargeTable, DiscountTable } from './DealTab';
+import { CONTROL_STATUS, eventLabel, money, recordField, signedMoney, varianceTone } from './j360Format';
+
+const NOISE_KEYS = new Set(['label', 'source_kind', 'addon_type_code']);
+
+const isEmpty = (value: unknown) => value === null || value === undefined || value === '' || value === false
+  || (Array.isArray(value) && !value.length);
+
+/** Label/value facts. Empty values are left out so a record shows what is
+ * known, not a wall of dashes. */
+function Facts({ record, labels, skip = [] }: { record: P2Record; labels?: Record<string, string>; skip?: string[] }) {
+  const entries = Object.entries(record).filter(([key, value]) => !skip.includes(key) && !NOISE_KEYS.has(key) && !isEmpty(value));
+  if (!entries.length) return <p className="p2w-muted">No details read yet.</p>;
+  return (
+    <dl className="j360-facts">
+      {entries.map(([key, value]) => (
+        <div key={key}><dt>{labels?.[key] ?? humanizeKey(key)}</dt><dd>{recordField(key, value)}</dd></div>
+      ))}
+    </dl>
+  );
+}
+
+function Empty({ children }: { children: React.ReactNode }) {
+  return <div className="p2w-empty">{children}</div>;
+}
+
+// ── Add-ons ─────────────────────────────────────────────────────────────────
+const INSURANCE_LABELS: Record<string, string> = {
+  insurer_name: 'Insurer', policy_reference: 'Policy number', cover_note_reference: 'Cover note',
+  insurance_by: 'Insurance by', self_insurance_flag: 'Customer arranged', agent_intermediary_name: 'Agent',
+  agent_intermediary_code: 'Agent code', misp_code: 'MISP code', standard_premium_amount: 'Standard premium',
+  actual_premium_amount: 'Premium charged', add_ons: 'Cover add-ons', actual_status_code: 'Status',
+  premium_variance: 'Premium variance',
+};
+const FINANCE_LABELS: Record<string, string> = {
+  finance_type_code: 'Finance type', provider_name: 'Financier', financed_amount: 'Loan amount',
+  loan_disbursement_amount: 'Disbursed', loan_disbursement_confidence: 'Disbursement match',
+  loan_disbursement_match_basis: 'Matched by', do_reference: 'Delivery order', po_reference: 'Purchase order',
+  actual_status_code: 'Status', disbursement_date: 'Disbursed on', disbursement_reference: 'Payment reference',
+  disbursement_gap: 'Not yet disbursed',
+};
+
+export function AddonsTab({ addons, journeyId }: { addons: P2Addons; journeyId: string }) {
+  const nothing = !addons.insurance.records.length && !addons.insurance.charges && !addons.accessories.charges
+    && !addons.accessories.records.length && !addons.protection.charges && !addons.protection.records.length
+    && !addons.finance.records.length && !addons.exchange.records.length && !addons.scrappage.discounts.length;
+  if (nothing) return <Empty>No add-ons yet. Insurance, accessories, warranty, loan and exchange details appear as their documents are read.</Empty>;
+  return (
+    <div className="j360-grid">
+      <section className="j360-card" aria-label="Insurance">
+        <h3 className="j360-h3">Insurance</h3>
+        {addons.insurance.records.length ? addons.insurance.records.map((record, index) => (
+          <Facts key={index} record={record} labels={INSURANCE_LABELS} />
+        )) : <p className="p2w-muted">No insurance cover read yet.</p>}
+        {addons.insurance.charges ? <ChargeTable category={addons.insurance.charges} journeyId={journeyId} compact /> : null}
+        {addons.insurance.discount ? <DiscountTable rows={[addons.insurance.discount]} journeyId={journeyId} caption="Insurance discount" /> : null}
+      </section>
+
+      <section className="j360-card" aria-label="Loan and finance">
+        <h3 className="j360-h3">Loan / finance</h3>
+        {addons.finance.records.length ? addons.finance.records.map((record, index) => (
+          <div key={index} className="j360-finance">
+            <Facts record={record} labels={FINANCE_LABELS} />
+            {Number(record.disbursement_gap ?? 0) > 0 ? (
+              <p className="p2w-alert" role="note">{money(record.disbursement_gap as string)} of the loan has not been received yet.</p>
+            ) : null}
+          </div>
+        )) : <p className="p2w-muted">Cash purchase, or no loan documents read yet.</p>}
+      </section>
+
+      <section className="j360-card" aria-label="Accessories">
+        <h3 className="j360-h3">Accessories</h3>
+        {addons.accessories.charges ? <ChargeTable category={addons.accessories.charges} journeyId={journeyId} compact /> : <p className="p2w-muted">No accessories charged.</p>}
+        {addons.accessories.records.map((record, index) => <Facts key={index} record={record} skip={['addon_type_code']} />)}
+        {addons.accessories.discount ? <DiscountTable rows={[addons.accessories.discount]} journeyId={journeyId} caption="Free accessories" /> : null}
+      </section>
+
+      <section className="j360-card" aria-label="Warranty and protection">
+        <h3 className="j360-h3">Warranty &amp; protection plans</h3>
+        {addons.protection.charges ? <ChargeTable category={addons.protection.charges} journeyId={journeyId} compact /> : <p className="p2w-muted">No extended warranty, RSA or service package charged.</p>}
+        {addons.protection.records.map((record, index) => (
+          <div key={index} className="j360-addon">
+            <strong>{String(record.label ?? '')}</strong>
+            <span>{recordField('provider_name', record.provider_name)}</span>
+            <span>{money(record.actual_amount as string)} <em className={`j360-variance ${varianceTone(record.variance as string)}`}>{signedMoney(record.variance as string)}</em></span>
+          </div>
+        ))}
+        {addons.protection.discounts.length ? <DiscountTable rows={addons.protection.discounts} journeyId={journeyId} caption="Free warranty" /> : null}
+      </section>
+
+      {addons.exchange.records.length || addons.exchange.discount ? (
+        <section className="j360-card" aria-label="Exchange">
+          <h3 className="j360-h3">Exchange</h3>
+          {addons.exchange.records.map((record, index) => <Facts key={index} record={record} />)}
+          {addons.exchange.discount ? <DiscountTable rows={[addons.exchange.discount]} journeyId={journeyId} caption="Exchange bonus" /> : null}
+        </section>
+      ) : null}
+
+      {addons.scrappage.discounts.length ? (
+        <section className="j360-card" aria-label="Scrappage">
+          <h3 className="j360-h3">Scrappage</h3>
+          <DiscountTable rows={addons.scrappage.discounts} journeyId={journeyId} caption="Scrappage bonus" />
+        </section>
+      ) : null}
+    </div>
+  );
+}
+
+// ── Payments ────────────────────────────────────────────────────────────────
+export function PaymentsTab({ payments, journeyId }: { payments: P2Payments360; journeyId: string }) {
+  return (
+    <div className="j360-stack">
+      <dl className="j360-paid j360-card">
+        <div><dt>Receipts counted</dt><dd>{money(payments.receiptsTotal)}</dd></div>
+        <div><dt>Loan disbursed</dt><dd>{money(payments.loanDisbursed)}</dd></div>
+        <div><dt>Total received</dt><dd>{money(payments.paidTotal)}</dd></div>
+        {Object.entries(payments.byStage).map(([stage, amount]) => (
+          <div key={stage}><dt>{humanizeKey(stage)} receipts</dt><dd>{money(amount)}</dd></div>
+        ))}
+      </dl>
+      {payments.items.length ? (
+        <div className="j360-card j360-table-wrap">
+          <table className="j360-table">
+            <thead>
+              <tr>
+                <th scope="col">Receipt</th><th scope="col">Date</th><th scope="col">Mode</th>
+                <th scope="col" className="is-num">Amount</th><th scope="col">Bank match</th><th scope="col">Counted</th>
+              </tr>
+            </thead>
+            <tbody>
+              {payments.items.map((item) => (
+                <tr key={item.paymentId} className={item.counted ? '' : 'is-muted'}>
+                  <th scope="row">
+                    {item.documentId ? <Link className="p2w-link" to={`/p2/journeys/${journeyId}/documents/${item.documentId}`}>{item.receiptNumber || item.document || 'Receipt'}</Link>
+                      : item.receiptNumber || 'Receipt'}
+                    <small className="p2w-muted">{[item.stage && humanizeKey(item.stage), item.bank, item.reference].filter(Boolean).join(' · ')}</small>
+                  </th>
+                  <td data-label="Date">{recordField('receipt_date', item.receiptDate)}</td>
+                  <td data-label="Mode">{item.mode ? humanizeKey(item.mode) : '—'}</td>
+                  <td className="is-num" data-label="Amount">{money(item.amount)}</td>
+                  <td data-label="Bank match">{item.bankMatch ? humanizeKey(item.bankMatch) : '—'}</td>
+                  <td data-label="Counted">{item.counted ? <span className="p2w-chip p2w-chip--success">Counted</span>
+                    : <span className="p2w-chip p2w-chip--neutral" title={item.notCountedReason ?? undefined}>Not counted</span>}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : <Empty>No payments recorded yet. Upload receipts or the customer ledger.</Empty>}
+    </div>
+  );
+}
+
+// ── Documents with every extracted field ────────────────────────────────────
+export function DocumentsTab({ data, journeyId }: { data: P2Documents360; journeyId: string }) {
+  const [selected, setSelected] = useState(data.documents[0]?.documentId);
+  const [query, setQuery] = useState('');
+  const document = data.documents.find((d) => d.documentId === selected) ?? data.documents[0];
+  const fields = useMemo(() => {
+    const needle = query.trim().toLowerCase();
+    return (document?.fields ?? []).filter((f) => !needle || f.label.toLowerCase().includes(needle)
+      || displayValue(f.value).toLowerCase().includes(needle));
+  }, [document, query]);
+  if (!data.documents.length) return <Empty>No documents yet.</Empty>;
+  return (
+    <div className="j360-docs">
+      <ul className="j360-docs__list" aria-label="Documents">
+        {data.documents.map((doc) => (
+          <li key={doc.documentId}>
+            <button type="button" className={doc.documentId === document?.documentId ? 'is-active' : ''}
+              onClick={() => setSelected(doc.documentId)}>
+              <strong>{doc.label}</strong>
+              <span className="p2w-muted">{humanizeKey(doc.stage)} · {doc.fieldCount} values{doc.pages.length ? ` · page ${doc.pages.join(', ')}` : ''}</span>
+              {doc.needsReview ? <span className="p2w-chip p2w-chip--info">{doc.needsReview} to verify</span> : null}
+              {doc.corrected ? <span className="p2w-chip p2w-chip--neutral">{doc.corrected} corrected</span> : null}
+            </button>
+          </li>
+        ))}
+      </ul>
+      {document ? (
+        <section className="j360-card j360-docs__fields" aria-label={`${document.label} values`}>
+          <header className="j360-docs__head">
+            <h3 className="j360-h3">{document.label}</h3>
+            <input type="search" placeholder="Find a value" value={query} onChange={(e) => setQuery(e.target.value)} aria-label="Find a value" />
+            <Link className="p2w-button p2w-button--secondary" to={`/p2/journeys/${journeyId}/documents/${document.documentId}`}>Open with page</Link>
+          </header>
+          <div className="j360-table-wrap">
+            <table className="j360-table">
+              <thead><tr><th scope="col">Field</th><th scope="col">Value</th><th scope="col" className="is-num">Confidence</th><th scope="col">Status</th></tr></thead>
+              <tbody>
+                {fields.map((field) => (
+                  <tr key={field.key} className={field.needsReview ? 'is-review' : ''}>
+                    <th scope="row">{field.label}{field.keyField ? <small className="p2w-muted">Key field</small> : null}</th>
+                    <td data-label="Value" className="j360-value">
+                      {displayValue(field.value)}
+                      {field.corrected ? <small className="p2w-muted">Read as {displayValue(field.machineValue)}</small> : null}
+                    </td>
+                    <td className="is-num" data-label="Confidence">{field.confidence === null ? '—' : `${Math.round(field.confidence)}%`}</td>
+                    <td data-label="Status">
+                      {field.corrected ? <span className="p2w-chip p2w-chip--neutral">Corrected</span>
+                        : field.needsReview ? <span className="p2w-chip p2w-chip--info">To verify</span>
+                          : field.reviewed ? <span className="p2w-chip p2w-chip--success">Verified</span>
+                            : <span className="p2w-chip p2w-chip--success">Read</span>}
+                    </td>
+                  </tr>
+                ))}
+                {!fields.length ? <tr><td colSpan={4} className="p2w-muted">No values{query ? ' match' : ' were read from this document'}.</td></tr> : null}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      ) : null}
+    </div>
+  );
+}
+
+// ── Vehicle ─────────────────────────────────────────────────────────────────
+const PRODUCT_LABELS: Record<string, string> = {
+  model: 'Model', variant: 'Variant', colour: 'Colour', model_code: 'Model code', variant_code: 'Variant code',
+  colour_code: 'Colour code', selection_status: 'Identification', selection_method: 'Identified by',
+  selection_score: 'Match score', sku_resolution_remarks: 'Notes', sku_code: 'SKU',
+};
+
+export function VehicleTab({ data, tenantId, journeyId, accessToken }: {
+  data: P2SectionMap['vehicle']; tenantId: string; journeyId: string; accessToken?: string;
+}) {
+  const photos = useQuery({
+    queryKey: ['p2-vehicle-photos', tenantId, journeyId],
+    queryFn: () => getP2VehiclePhotos(tenantId, journeyId, accessToken),
+    staleTime: 60_000,
+  });
+  return (
+    <div className="j360-grid">
+      <section className="j360-card" aria-label="Vehicle">
+        <h3 className="j360-h3">Vehicle</h3>
+        {data.product ? <Facts record={data.product} labels={PRODUCT_LABELS} /> : <p className="p2w-muted">Not identified yet.</p>}
+      </section>
+      <section className="j360-card" aria-label="Allocated unit">
+        <h3 className="j360-h3">Allocated unit</h3>
+        {data.units.length ? data.units.map((unit, index) => (
+          <Facts key={index} record={unit} labels={{ vin: 'VIN', chassis_number: 'Chassis number', dms_reference: 'DMS reference',
+            invoice_reference: 'Invoice', allocated_at_utc: 'Allocated', source_kind: 'Source' }} />
+        )) : <p className="p2w-muted">No VIN or chassis number read yet.</p>}
+      </section>
+      <section className="j360-card j360-span" aria-label="Vehicle photos">
+        <header className="j360-docs__head">
+          <h3 className="j360-h3">Vehicle photos ({photos.data?.photos.length ?? data.photoCount})</h3>
+          <Link className="p2w-button p2w-button--secondary" to={`/p2/journeys/${journeyId}/documents?tab=photos`}>Add photos</Link>
+        </header>
+        {photos.data?.photos.length ? (
+          <ul className="p2w-photos__grid">
+            {photos.data.photos.map((photo) => (
+              <li key={photo.photoId}>
+                <a className="p2w-photos__thumb" href={photo.url ?? undefined} target="_blank" rel="noreferrer">
+                  {photo.url ? <img src={photo.url} alt={photo.viewCode ? VIEW_LABELS[photo.viewCode] : 'Vehicle photo'} loading="lazy" /> : null}
+                </a>
+                <span className="p2w-photos__caption"><strong>{photo.viewCode ? VIEW_LABELS[photo.viewCode] : 'Photo'}</strong>
+                  <span className="p2w-muted">{formatDateTime(photo.uploadedAtUtc)}</span></span>
+              </li>
+            ))}
+          </ul>
+        ) : <p className="p2w-muted">No photos yet.</p>}
+      </section>
+    </div>
+  );
+}
+
+// ── Registration and delivery ───────────────────────────────────────────────
+export function RegistrationTab({ data, journeyId }: { data: P2SectionMap['registration']; journeyId: string }) {
+  return (
+    <div className="j360-stack">
+      <section className="j360-card" aria-label="Registration">
+        <h3 className="j360-h3">Registration</h3>
+        {data.records.length ? data.records.map((record, index) => <Facts key={index} record={record} />)
+          : <p className="p2w-muted">No RTO documents read yet.</p>}
+      </section>
+      {data.charges ? <section className="j360-card"><ChargeTable category={data.charges} journeyId={journeyId} /></section> : null}
+    </div>
+  );
+}
+
+export function DeliveryTab({ data }: { data: P2SectionMap['delivery'] }) {
+  const readiness = data.readiness;
+  return (
+    <div className="j360-grid">
+      <section className="j360-card" aria-label="Delivery readiness">
+        <h3 className="j360-h3">Ready for delivery?</h3>
+        {readiness ? (
+          <>
+            <p><strong className={readiness.passed ? 'p2w-tone p2w-tone--success' : 'p2w-tone p2w-tone--warning'}>
+              {readiness.passed ? 'Everything needed is on file' : `${readiness.receivedCount ?? 0} of ${readiness.requiredCount ?? 0} received`}
+            </strong></p>
+            {readiness.missing?.length ? (
+              <ul className="j360-missing">{readiness.missing.map((item) => <li key={item.key}>{item.label}</li>)}</ul>
+            ) : null}
+          </>
+        ) : <p className="p2w-muted">Delivery has not started.</p>}
+      </section>
+      <section className="j360-card" aria-label="Delivery">
+        <h3 className="j360-h3">Delivery</h3>
+        {data.records.length ? data.records.map((record, index) => <Facts key={index} record={record} />)
+          : <p className="p2w-muted">No delivery recorded yet.</p>}
+      </section>
+    </div>
+  );
+}
+
+// ── Checks (control ledger) ─────────────────────────────────────────────────
+export function ChecksTab({ data }: { data: P2Compliance360 }) {
+  const [issuesOnly, setIssuesOnly] = useState(true);
+  return (
+    <div className="j360-stack">
+      <label className="p2w-check"><input type="checkbox" checked={issuesOnly} onChange={(e) => setIssuesOnly(e.target.checked)} /> Only checks that need attention</label>
+      {(['BOOKING', 'DELIVERY'] as const).map((stage) => {
+        const stats = data.statistics[stage];
+        const items = data.stages[stage].filter((item) => !issuesOnly || !['PASS', 'NOT_APPLICABLE'].includes(item.status));
+        return (
+          <section key={stage} className="j360-card" aria-label={`${humanizeKey(stage)} checks`}>
+            <header className="j360-docs__head">
+              <h3 className="j360-h3">{humanizeKey(stage)} checks</h3>
+              <span className="j360-stats">
+                <span className="p2w-tone p2w-tone--success">{stats.pass} passed</span>
+                {stats.fail ? <span className="p2w-tone p2w-tone--danger">{stats.fail} issues</span> : null}
+                <span className="p2w-muted">{stats.waiting} waiting · {stats.notApplicable} n/a{stats.retry + stats.error ? ` · ${stats.retry + stats.error} not run` : ''}</span>
+              </span>
+            </header>
+            <ul className="j360-controls">
+              {items.map((item) => {
+                const status = CONTROL_STATUS[item.status] ?? { label: humanizeKey(item.status), tone: 'neutral' };
+                return (
+                  <li key={`${stage}-${item.code}`} className={`is-${status.tone}`}>
+                    <span className={`p2w-chip p2w-chip--${status.tone}`}>{status.label}</span>
+                    <span className="j360-controls__body">
+                      <strong>{item.label}</strong>
+                      <span className="p2w-muted">{item.reason}</span>
+                      {item.leftValue !== undefined && item.leftValue !== null ? (
+                        <span className="j360-compare">Found {displayValue(item.leftValue)} · compared with {displayValue(item.rightValue)}</span>
+                      ) : null}
+                    </span>
+                    <span className="p2w-muted j360-controls__meta">{humanizeKey(item.category)}{item.severity ? ` · ${humanizeKey(item.severity)}` : ''}</span>
+                  </li>
+                );
+              })}
+              {!items.length ? <li className="p2w-empty p2w-empty--success">No {humanizeKey(stage).toLowerCase()} check needs attention.</li> : null}
+            </ul>
+          </section>
+        );
+      })}
+    </div>
+  );
+}
+
+// ── Activity ────────────────────────────────────────────────────────────────
+export function ActivityTab({ data }: { data: P2SectionMap['activity'] }) {
+  if (!data.events.length) return <Empty>No activity yet.</Empty>;
+  return (
+    <ol className="j360-timeline j360-card">
+      {data.events.map((event) => {
+        const details = event.details ?? {};
+        const summary = [details.documentType && humanizeKey(String(details.documentType)), details.to && `→ ${humanizeKey(String(details.to))}`,
+          details.reason && typeof details.reason === 'string' && details.reason.length < 120 ? details.reason : null,
+          details.filename].filter(Boolean).join(' · ');
+        return (
+          <li key={event.event_id}>
+            <time dateTime={event.created_at_utc}>{formatDateTime(event.created_at_utc)}</time>
+            <strong>{eventLabel(event.event_type)}{event.event_type === 'CONTROL_CHANGED' && event.subject_id ? `: ${humanizeKey(event.subject_id)}` : ''}</strong>
+            {summary ? <span className="p2w-muted">{summary}</span> : null}
+          </li>
+        );
+      })}
+    </ol>
+  );
+}
+
+// ── Duplicate booking banner ────────────────────────────────────────────────
+export function DuplicatesBanner({ pairs }: { pairs: P2DuplicatePair[] }) {
+  if (!pairs.length) return null;
+  return (
+    <section className="p2w-alert p2w-alert--error j360-dupes" role="alert" aria-label="Possible duplicate booking">
+      <strong>Possible duplicate booking</strong>
+      <ul>
+        {pairs.map((pair) => (
+          <li key={pair.findingId}>
+            {pair.role === 'THIS_IS_DUPLICATE' ? 'This booking matches an earlier booking' : 'A later booking matches this one'}
+            {' '}— {pair.otherJourney.customer_name ?? 'another customer'}{pair.otherJourney.outlet_name ? `, ${pair.otherJourney.outlet_name}` : ''}
+            {' '}({pair.matchBasisLabel ?? humanizeKey(pair.matchBasis ?? 'match')}{pair.matchConfidencePercent ? `, ${pair.matchConfidencePercent}%` : ''}).{' '}
+            <Link className="p2w-link" to={`/p2/journeys/${pair.otherJourney.journey_id}/overview`}>Open the other booking</Link>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}

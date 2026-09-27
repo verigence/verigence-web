@@ -145,10 +145,17 @@ const p2TasksItem: NavItem = {
   roles: ['PC', 'TL', 'PM'],
 };
 
+const p2DuplicatesItem: NavItem = {
+  to: '/p2/duplicate-bookings',
+  label: 'Duplicate bookings',
+  mark: 'DB',
+  roles: ['PC', 'TL', 'PM'],
+};
+
 const p2Group: NavGroup = {
   key: 'phase2',
   label: 'Audit',
-  items: [p2BookingsItem, p2Journey360Item, p2TasksItem],
+  items: [p2BookingsItem, p2Journey360Item, p2TasksItem, p2DuplicatesItem],
 };
 
 const groups: NavGroup[] = [
@@ -197,7 +204,7 @@ const routeLabels: Record<string, string> = {
   '/feedback': 'Feedback',
   '/reviews': 'Task Queue', '/duplicate-bookings': 'Duplicate Bookings', '/rule-catalog': 'Rule Catalog', '/rule-catalog/new': 'Author a Rule', '/evidence': 'Evidence', '/payments': 'Payment Tracker', '/findings': 'Findings',
   '/daily-ops': 'Daily Operations', '/activity': 'Activity Tracker', '/crm': 'CRM Follow-up', '/escalations': 'Escalations',
-  '/analytics': 'Analytics', '/p2/bookings': 'Bookings', '/p2/journey-360': 'Journey 360', '/p2/tasks': 'Task Queue', '/admin/engagements': 'Engagements', '/admin/document-intelligence': 'Document Intelligence Configuration',
+  '/analytics': 'Analytics', '/p2/bookings': 'Bookings', '/p2/journey-360': 'Journey 360', '/p2/tasks': 'Task Queue', '/p2/duplicate-bookings': 'Duplicate bookings', '/admin/engagements': 'Engagements', '/admin/document-intelligence': 'Document Intelligence Configuration',
   '/admin/housekeeping': 'Housekeeping', '/admin/feedback': 'User Feedback', '/admin/di-test': 'DI Test Console', '/admin/users': 'Users',
   '/admin/users/pending': 'Pending Approvals', '/admin/activity-log': 'User Activity Log',
   '/admin/roles-permissions': 'Roles & Permissions', '/admin/audit-rules': 'Audit Rule Config',

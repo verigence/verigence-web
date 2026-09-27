@@ -605,3 +605,81 @@
   .p2w-task__meta { justify-items: start; grid-auto-flow: column; justify-content: start; gap: 8px; }
   .p2w-task__actions .p2w-button, .p2w-task__quick .p2w-button { flex: 1; width: 100%; }
 }
+
+/* ------------------------------------------------------- vehicle photos */
+.p2w .p2w-layout[hidden] { display: none; }
+.p2w .p2w-tabs-main { align-self: flex-start; }
+.p2w-photos {
+  display: grid;
+  gap: 14px;
+  padding: 16px;
+  border: 1px solid var(--p2w-line);
+  border-radius: var(--p2w-radius);
+  background: #fff;
+  box-shadow: var(--p2w-shadow);
+}
+.p2w-photos__head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+.p2w-photos__head h2 { margin: 0; font-size: 1.1rem; }
+.p2w-photos__head > span { white-space: nowrap; }
+.p2w-photos__head p { margin: 4px 0 0; color: var(--p2w-muted); font-size: .9rem; }
+.p2w-photos__views { display: flex; flex-wrap: wrap; gap: 6px; }
+.p2w-photos__views button {
+  min-height: 36px;
+  padding: 0 12px;
+  border: 1px solid var(--p2w-line);
+  border-radius: 999px;
+  background: var(--p2w-soft);
+  color: var(--p2w-muted);
+  font-weight: 700;
+  cursor: pointer;
+}
+.p2w-photos__views button.is-active { background: var(--p2w-action-soft); border-color: var(--p2w-action-line); color: var(--p2w-action-soft-text); }
+.p2w-photos__views button b { margin-left: 6px; color: var(--p2w-success); }
+.p2w-photos__actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.p2w-photos__hint { margin: 0; font-size: .88rem; }
+.p2w-photos__progress { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.p2w-photos__progress li {
+  display: grid;
+  grid-template-columns: 56px 1fr auto;
+  gap: 10px;
+  align-items: center;
+  padding: 8px;
+  border: 1px solid var(--p2w-line);
+  border-radius: 10px;
+  background: var(--p2w-soft);
+}
+.p2w-photos__progress li.is-failed { border-color: #f3c9c6; background: var(--p2w-danger-bg); color: var(--p2w-danger); }
+.p2w-photos__progress img, .p2w-photos__blank { width: 56px; height: 42px; object-fit: cover; border-radius: 6px; background: var(--p2w-line); display: block; }
+.p2w-photos__name { display: grid; gap: 2px; min-width: 0; font-size: .88rem; }
+.p2w-photos__name strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.p2w-photos__name progress { width: 100%; height: 6px; accent-color: var(--p2w-accent); }
+.p2w-photos__grid {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 12px;
+}
+.p2w-photos__grid li { display: grid; gap: 6px; }
+.p2w-photos__thumb {
+  padding: 0;
+  border: 1px solid var(--p2w-line);
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--p2w-soft);
+  aspect-ratio: 4 / 3;
+  cursor: zoom-in;
+}
+.p2w-photos__thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.p2w-photos__thumb .p2w-photos__blank { width: 100%; height: 100%; }
+.p2w-photos__caption { display: flex; justify-content: space-between; gap: 6px; font-size: .82rem; }
+.p2w-photo-viewer { width: min(960px, 100%); }
+.p2w-photo-viewer img { width: 100%; max-height: 70vh; object-fit: contain; border-radius: 8px; background: #0f1b28; }
+.p2w-photo-viewer .p2w-dialog__actions { align-items: center; }
+.p2w-photo-viewer .p2w-dialog__actions span { margin-right: auto; }
+@media (max-width: 640px) {
+  .p2w-photos { padding: 12px; }
+  .p2w-photos__actions .p2w-button { flex: 1 1 140px; }
+  .p2w-photos__grid { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+}

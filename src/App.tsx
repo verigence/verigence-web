@@ -72,6 +72,8 @@ const P2JourneyListPage = lazy(() => import('./pages/P2JourneyListPage'));
 const P2JourneyOverviewPage = lazy(() => import('./pages/P2JourneyOverviewPage'));
 const P2JourneyWorkspacePage = lazy(() => import('./pages/P2JourneyWorkspacePage'));
 const P2TasksPage = lazy(() => import('./pages/P2TasksPage'));
+const P2ComplianceReportPage = lazy(() => import('./pages/P2ComplianceReportPage'));
+const P2DuplicateBookingsPage = lazy(() => import('./pages/P2DuplicateBookingsPage'));
 
 const routerBase = import.meta.env.BASE_URL === '/' ? undefined : import.meta.env.BASE_URL.replace(/\/$/, '');
 
@@ -329,6 +331,8 @@ export default function App() {
               <Route path="/p2/journey-360" element={<OperationalPage><P2JourneyListPage mode="journey360" /></OperationalPage>} />
               <Route path="/p2/work-queue" element={<Navigate to="/p2/bookings" replace />} />
               <Route path="/p2/tasks" element={<OperationalPage><P2TasksPage /></OperationalPage>} />
+              <Route path="/p2/duplicate-bookings" element={<OperationalPage><P2DuplicateBookingsPage /></OperationalPage>} />
+              <Route path="/p2/journeys/:journeyId/compliance-report" element={<OperationalPage><P2ComplianceReportPage /></OperationalPage>} />
               <Route path="/p2/journeys/:journeyId/overview" element={<OperationalPage><P2JourneyOverviewPage /></OperationalPage>} />
               <Route path="/p2/journeys/:journeyId/documents" element={<OperationalPage><P2JourneyWorkspacePage /></OperationalPage>} />
               <Route path="/p2/journeys/:journeyId/documents/:documentId" element={<OperationalPage><P2JourneyWorkspacePage /></OperationalPage>} />

@@ -58,6 +58,10 @@ function documentActionPath(task: P2Task): string {
   const fieldKey = referenceValue(task.reference, 'fieldKey', 'field_key');
   if (documentId) params.set('focusDocument', documentId);
   if (fieldKey) params.set('focusField', fieldKey);
+  if (documentId) {
+    const suffix = fieldKey ? `?focusField=${encodeURIComponent(fieldKey)}` : '';
+    return `/p2/journeys/${task.journey_id}/documents/${encodeURIComponent(documentId)}${suffix}`;
+  }
   const suffix = params.toString() ? `?${params.toString()}` : '';
   return `/p2/journeys/${task.journey_id}/documents${suffix}`;
 }

@@ -71,6 +71,7 @@ const ProfilePage = lazy(() => import('./pages/ProfilePage'));
 const P2WorkQueuePage = lazy(() => import('./pages/P2WorkQueuePage'));
 const P2JourneyOverviewPage = lazy(() => import('./pages/P2JourneyOverviewPage'));
 const P2JourneyDocumentsPage = lazy(() => import('./pages/P2JourneyDocumentsPage'));
+const P2DocumentReviewPage = lazy(() => import('./pages/P2DocumentReviewPage'));
 const P2TasksPage = lazy(() => import('./pages/P2TasksPage'));
 
 const routerBase = import.meta.env.BASE_URL === '/' ? undefined : import.meta.env.BASE_URL.replace(/\/$/, '');
@@ -329,6 +330,7 @@ export default function App() {
               <Route path="/p2/tasks" element={<OperationalPage><P2TasksPage /></OperationalPage>} />
               <Route path="/p2/journeys/:journeyId/overview" element={<OperationalPage><P2JourneyOverviewPage /></OperationalPage>} />
               <Route path="/p2/journeys/:journeyId/documents" element={<OperationalPage><P2JourneyDocumentsPage /></OperationalPage>} />
+              <Route path="/p2/journeys/:journeyId/documents/:documentId" element={<OperationalPage><P2DocumentReviewPage /></OperationalPage>} />
               <Route path="/p2/journeys/:journeyId/tasks" element={<OperationalPage><P2TasksPage /></OperationalPage>} />
 
               <Route path="/admin/engagements" element={<SuperAdminPage><AdminConfigurationPage section="engagements" /></SuperAdminPage>} />

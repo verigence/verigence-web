@@ -278,8 +278,33 @@ function DocumentFieldsPanel({
   journeyId: string;
   accessToken?: string;
 }) {
-  if (!document.fields.length) {
-    return <p className="uc03-jd-empty">No fields have been extracted from this document yet.</p>;
+  // Direct instruction (2026-09-27): boxed, editable field values are for a
+  // genuinely extracted document only (extractionState === 'READY', DI's
+  // own confirmationStatus === 'CONFIRMED' -- see extractedDocumentIds'
+  // comment above). Before that, there is nothing reliable to box or edit
+  // yet -- show the uploaded document itself instead of an empty table, so
+  // clicking a not-yet-confirmed document is still useful, not a dead end.
+  if (document.extractionState !== 'READY' || !document.fields.length) {
+    return (
+      <div className="uc03-jd-raw-content">
+        {document.extractionState === 'FAILED' ? (
+          <p className="uc03-jd-error" role="alert">Extraction failed for this document. It can still be viewed below.</p>
+        ) : (
+          <p className="uc03-jd-empty">
+            Still finalizing extraction -- the uploaded document is shown below; boxed values will appear here once ready.
+          </p>
+        )}
+        {document.contentUrl ? (
+          <iframe
+            className="uc03-jd-raw-content__frame"
+            src={document.contentUrl}
+            title={document.originalFilename}
+          />
+        ) : (
+          <p className="uc03-jd-empty">The uploaded document isn't available to preview yet.</p>
+        )}
+      </div>
+    );
   }
 
   const byCategory = new Map<FieldCategory, ReviewV2Field[]>();
@@ -427,21 +452,34 @@ const _LEVEL_ORDER = ['REQUIRED', 'CONDITIONAL', 'OPTIONAL'] as const;
 
 function ChecklistCard({
   item,
+  extractedDocumentIds,
   onOpenDocument,
   onDelete,
   deleteBusyId,
   locked,
 }: {
   item: ChecklistEntry;
+  extractedDocumentIds: Set<string>;
   onOpenDocument: (stage: Stage, documentId: string) => void;
   onDelete: (stage: Stage, documentId: string) => void;
   deleteBusyId?: string;
   locked: boolean;
 }) {
   const documentId = item.document?.documentId;
+  // Root-caused live (2026-09-27): cardStatus() alone calls a document
+  // 'extracted' as soon as processingStatus === 'PROCESSED', but DI's own
+  // confirmationStatus -- required before facts are ever fetched or shown
+  // in the click-to-open panel -- can still be pending at that point. A
+  // card could say "Extracted" while opening it showed nothing. Cap the
+  // displayed status at 'classified' until extractedDocumentIds (the same
+  // confirmed signal the panel and the stat above use) agrees.
+  const rawStatus = item.document ? cardStatus(item.document) : undefined;
+  const status = rawStatus === 'extracted' && documentId && !extractedDocumentIds.has(documentId)
+    ? 'classified'
+    : rawStatus;
   return (
     <div className="uc03-jd-card-slot">
-      {item.document && documentId ? (
+      {item.document && documentId && status ? (
         <div className="uc03-jd-card-with-delete">
           <button
             type="button"
@@ -449,7 +487,7 @@ function ChecklistCard({
             disabled={locked}
             onClick={() => onOpenDocument(item.stage, documentId)}
           >
-            <article className={`uc03-doc-card is-${cardStatus(item.document)} is-${item.requirementLevel.toLowerCase()}`}>
+            <article className={`uc03-doc-card is-${status} is-${item.requirementLevel.toLowerCase()}`}>
               <header>
                 <span className="uc03-doc-card__label">{item.label}</span>
                 {item.requirementLevel !== 'REQUIRED' ? (
@@ -461,7 +499,7 @@ function ChecklistCard({
               </strong>
               <div className="uc03-doc-card__status">
                 <span className="uc03-doc-card__dot" aria-hidden="true" />
-                {CARD_STATUS_LABEL[cardStatus(item.document)]}
+                {CARD_STATUS_LABEL[status]}
               </div>
             </article>
           </button>
@@ -502,6 +540,7 @@ function ChecklistCard({
 function ChecklistSection({
   stage,
   items,
+  extractedDocumentIds,
   onOpenDocument,
   onDelete,
   deleteBusyId,
@@ -509,6 +548,7 @@ function ChecklistSection({
 }: {
   stage: Stage;
   items: ChecklistEntry[];
+  extractedDocumentIds: Set<string>;
   onOpenDocument: (stage: Stage, documentId: string) => void;
   onDelete: (stage: Stage, documentId: string) => void;
   deleteBusyId?: string;
@@ -531,6 +571,7 @@ function ChecklistSection({
           <ChecklistCard
             key={`${item.stage}:${item.requirementKey}`}
             item={item}
+            extractedDocumentIds={extractedDocumentIds}
             onOpenDocument={onOpenDocument}
             onDelete={onDelete}
             deleteBusyId={deleteBusyId}
@@ -545,6 +586,7 @@ function ChecklistSection({
 function DocumentList({
   items,
   extraDocuments,
+  extractedDocumentIds,
   onOpenDocument,
   onDelete,
   deleteBusyId,
@@ -553,6 +595,7 @@ function DocumentList({
 }: {
   items: ChecklistEntry[];
   extraDocuments: ExtraDocument[];
+  extractedDocumentIds: Set<string>;
   onOpenDocument: (stage: Stage, documentId: string) => void;
   onDelete: (stage: Stage, documentId: string) => void;
   deleteBusyId?: string;
@@ -579,6 +622,7 @@ function DocumentList({
           key={stage}
           stage={stage}
           items={applicable.filter((item) => item.stage === stage)}
+          extractedDocumentIds={extractedDocumentIds}
           onOpenDocument={onOpenDocument}
           onDelete={onDelete}
           deleteBusyId={deleteBusyId}
@@ -984,6 +1028,17 @@ export default function JourneyDocumentsPage() {
   });
   const bookingReview = reviewQuery.data?.booking;
   const deliveryReview = reviewQuery.data?.delivery;
+  // Single source of truth for "is this document genuinely extracted" --
+  // extractionState === 'READY' already encodes DI's confirmationStatus ===
+  // 'CONFIRMED' gate (see uc03_document_review_v2._review_document). Shared
+  // by the stat above the checklist and every card's own badge below, so
+  // neither can say something different from the other for the same
+  // document.
+  const extractedDocumentIds = new Set(
+    [...(bookingReview?.documents ?? []), ...(deliveryReview?.documents ?? [])]
+      .filter((d) => d.extractionState === 'READY')
+      .map((d) => d.documentId),
+  );
   const deliveryAvailable = Boolean(deliveryReview);
   // Arriving via the Delivery entry route already carries this -- see
   // deliveryWorkspaceQuery's own use of it below.
@@ -1549,7 +1604,18 @@ export default function JourneyDocumentsPage() {
           <div className="uc03-jd-stat">
             <div className="uc03-jd-stat-label">Extracted</div>
             <div className="uc03-jd-stat-value done">
-              {((bookingReview?.documents.filter((d) => d.extractionState === 'READY').length ?? 0) + (deliveryReview?.documents.filter((d) => d.extractionState === 'READY').length ?? 0))}
+              {/* Root-caused live (2026-09-27): DI reports processingStatus
+                  (OCR ran) and confirmationStatus (DI's own later signal
+                  that the extraction is final) separately -- fields are
+                  only ever fetched once confirmationStatus === 'CONFIRMED'
+                  (see uc03_document_review_v2._review_document and the
+                  same pattern in uc03_confidence_review_policy). This count
+                  and the card badges below (extractedDocumentIds) both key
+                  off extractionState === 'READY', which already encodes
+                  that confirmed gate -- kept as the single source of truth
+                  instead of the capture checklist's own processingStatus,
+                  which turns 'PROCESSED' before confirmation lands. */}
+              {extractedDocumentIds.size}
             </div>
           </div>
         </div>
@@ -1588,6 +1654,7 @@ export default function JourneyDocumentsPage() {
         <DocumentList
           items={checklist}
           extraDocuments={extraDocuments}
+          extractedDocumentIds={extractedDocumentIds}
           onOpenDocument={openDocumentById}
           onDelete={(_stage, documentId) => void handleDeleteDocument(documentId)}
           deleteBusyId={deleteBusyId}

@@ -673,6 +673,22 @@
   font-size: 13px;
 }
 
+/* Raw document preview -- shown in place of boxed field values until a
+   document is genuinely extracted (extractionState === 'READY'). */
+.uc03-jd-raw-content {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.uc03-jd-raw-content__frame {
+  width: 100%;
+  min-height: 480px;
+  border: 1px solid var(--vg-border);
+  border-radius: 8px;
+  background: var(--vg-bg-light);
+}
+
 /* Responsive */
 @media (max-width: 768px) {
   .uc03-jd-upload-container {

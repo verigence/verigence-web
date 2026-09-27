@@ -1054,7 +1054,16 @@ export default function JourneyDocumentsPage() {
     queryKey: ['uc03-journey-documents-checklist', project?.tenantId, journeyId],
     queryFn: () => getUnifiedCaptureV2(project!.tenantId, journeyId!, accessToken),
     enabled,
-    retry: false,
+    // Root-caused live (2026-09-27): retry:false was deliberate for a REAL
+    // backend response, but left a purely transport-level abort (the same
+    // browser-cancels-a-request-under-connection-pressure pattern reviewQuery
+    // was fixed for earlier) permanently unrecovered -- captureAvailable
+    // stayed false for the rest of this page load, which (combined with
+    // bookingAvailable/deliveryAvailable also false if review aborted too)
+    // wrongly showed "Documents are not available yet / Start Booking" on a
+    // Journey whose Booking was already started. Same fix, same scope: retry
+    // only a transport-level failure, never a real HTTP response.
+    retry: (failureCount, error) => !(error instanceof AuditCoreHttpError) && failureCount < 2,
     refetchOnWindowFocus: false,
     // Keeps polling only while a just-uploaded document is still being
     // classified/extracted, so its status chip in the list below actually

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useParams } from 'react-router-dom';
 import '../styles/uc03-p2.css';
@@ -6,19 +6,15 @@ import '../styles/uc03-p2.css';
 import PageHeader from '../components/PageHeader';
 import SectionCard from '../components/SectionCard';
 import StatusPill from '../components/StatusPill';
-import AttributeEvidenceViewer, { hasBoxedEvidence } from '../features/uc03/AttributeEvidenceViewer';
+import P2EvidenceViewer, { hasP2BoxedEvidence } from '../features/uc03-p2/P2EvidenceViewer';
 import P2JourneyTabs from '../features/uc03-p2/P2JourneyTabs';
 import {
-  getUnifiedReviewV2,
-  submitFieldCorrection,
-  type ReviewV2Document,
-  type ReviewV2Field,
-  type ReviewV2SourceValue,
-} from '../services/audit-core/uc03DocumentReviewV2';
+  correctP2DocumentField,
+  getP2DocumentReview,
+  type P2DocumentReviewField,
+} from '../services/audit-core/uc03P2';
 import { useProjectContextStore } from '../store/projectContextStore';
 import { useSessionStore } from '../store/sessionStore';
-
-type Stage = 'BOOKING' | 'DELIVERY';
 
 function displayField(value: string) {
   return value
@@ -35,26 +31,7 @@ function displayValue(value: unknown): string {
 
 function confidenceLabel(value: number | null): string {
   if (value === null || value === undefined) return '—';
-  return `${value.toFixed(value % 1 === 0 ? 0 : 1)}%`;
-}
-
-function source(document: ReviewV2Document, field: ReviewV2Field): ReviewV2SourceValue {
-  return {
-    canonicalFieldId: field.canonicalFieldId,
-    fieldKey: field.fieldKey,
-    value: field.value,
-    confidenceScore: field.confidenceScore,
-    sourceFactVersion: field.sourceFactVersion,
-    reviewState: field.reviewState,
-    documentId: document.documentId,
-    evidenceId: document.evidenceId,
-    documentTypeKey: document.documentTypeKey,
-    documentLabel: document.label,
-    originalFilename: document.originalFilename,
-    contentUrl: document.contentUrl,
-    pageNo: field.pageNo,
-    evidenceRegion: field.evidenceRegion,
-  };
+  return String(value) + '%';
 }
 
 export default function P2DocumentReviewPage() {
@@ -62,58 +39,49 @@ export default function P2DocumentReviewPage() {
   const tenantId = useProjectContextStore((s) => s.selectedProject?.tenantId);
   const accessToken = useSessionStore((s) => s.accessToken);
   const queryClient = useQueryClient();
-  const [evidence, setEvidence] = useState<ReviewV2SourceValue>();
-  const [editing, setEditing] = useState<ReviewV2Field>();
+  const [evidence, setEvidence] = useState<P2DocumentReviewField>();
+  const [editing, setEditing] = useState<P2DocumentReviewField>();
   const [draft, setDraft] = useState('');
   const [remarks, setRemarks] = useState('');
   const [message, setMessage] = useState('');
 
   const query = useQuery({
     queryKey: ['p2-document-review', tenantId, journeyId, documentId],
-    queryFn: () => getUnifiedReviewV2(tenantId!, journeyId, accessToken),
+    queryFn: () => getP2DocumentReview(tenantId!, journeyId, documentId, accessToken),
     enabled: Boolean(tenantId && journeyId && documentId && accessToken),
     staleTime: 5_000,
   });
 
-  const selected = useMemo(() => {
-    if (!query.data) return undefined;
-    const booking = query.data.booking.documents.find((document) => document.documentId === documentId);
-    if (booking) return { document: booking, stage: 'BOOKING' as Stage };
-    const delivery = query.data.delivery.documents.find((document) => document.documentId === documentId);
-    if (delivery) return { document: delivery, stage: 'DELIVERY' as Stage };
-    return undefined;
-  }, [documentId, query.data]);
-
   const correction = useMutation({
-    mutationFn: async ({ field, value, note }: { field: ReviewV2Field; value: string; note: string }) => {
-      if (!selected) throw new Error('Document is no longer available for review.');
-      return submitFieldCorrection(
-        tenantId!,
-        journeyId,
-        {
-          stage: selected.stage,
-          documentId: selected.document.documentId,
-          documentTypeKey: selected.document.documentTypeKey || 'unknown',
-          fieldKey: field.fieldKey,
-          canonicalFieldId: field.canonicalFieldId,
-          sourceFactVersion: field.sourceFactVersion,
-          confidenceScore: field.confidenceScore,
-          evidenceId: selected.document.evidenceId,
-          originalValue: field.value,
-          newValue: value,
-          remarks: note.trim() || undefined,
-        },
-        accessToken,
-      );
-    },
+    mutationFn: async ({
+      field,
+      value,
+      note,
+    }: {
+      field: P2DocumentReviewField;
+      value: string;
+      note: string;
+    }) => correctP2DocumentField(
+      tenantId!,
+      journeyId,
+      documentId,
+      {
+        canonicalFieldId: field.canonicalFieldId,
+        fieldKey: field.fieldKey,
+        sourceFactVersion: field.sourceFactVersion,
+        newValue: value,
+        remarks: note.trim() || undefined,
+      },
+      accessToken,
+    ),
     onSuccess: (result) => {
       setEditing(undefined);
       setDraft('');
       setRemarks('');
       setMessage(
         result.applied
-          ? 'Correction saved. Journey facts will be re-evaluated from the corrected value.'
-          : 'Correction submitted for Team Lead review. The original value remains effective until it is approved.',
+          ? 'Correction saved. The effective value has been updated and downstream Journey processing is re-evaluated.'
+          : 'Correction submitted for Team Lead review. The current effective value remains unchanged until approval.',
       );
       void queryClient.invalidateQueries({ queryKey: ['p2-document-review', tenantId, journeyId, documentId] });
       void queryClient.invalidateQueries({ queryKey: ['p2-documents', tenantId, journeyId] });
@@ -122,28 +90,25 @@ export default function P2DocumentReviewPage() {
     },
   });
 
-  const document = selected?.document;
+  const document = query.data;
+  const needsReview = document?.fields.filter((field) => field.confidenceScore !== null && field.confidenceScore < 90).length ?? 0;
+  const modified = document?.fields.filter((field) => field.isModified).length ?? 0;
 
   return (
     <div className="screen-stack p2-screen">
       <PageHeader
         eyebrow="Phase 2 · Document Review"
-        title={document?.label || 'Document'}
+        title={document?.documentTypeKey?.replaceAll('_', ' ') || 'Document'}
         description={document
-          ? `${document.originalFilename} · ${selected?.stage === 'DELIVERY' ? 'Delivery' : 'Booking'}`
+          ? document.originalFilename + ' · ' + document.stage
           : 'Loading extracted document…'}
-        actions={<Link className="text-link" to={`/p2/journeys/${journeyId}/documents`}>Back to Documents</Link>}
+        actions={<Link className="text-link" to={'/p2/journeys/' + journeyId + '/documents'}>Back to Documents</Link>}
       />
       <P2JourneyTabs />
 
       {query.isError ? (
         <div className="form-alert form-alert--error">
           {query.error instanceof Error ? query.error.message : 'The document could not be loaded.'}
-        </div>
-      ) : null}
-      {!query.isLoading && query.data && !selected ? (
-        <div className="form-alert form-alert--error">
-          This document is not available in the current Journey review set.
         </div>
       ) : null}
       {message ? <div className="form-alert form-alert--success">{message}</div> : null}
@@ -159,26 +124,31 @@ export default function P2DocumentReviewPage() {
             <div className="p2-document-review-head">
               <div>
                 <span className="eyebrow">Document</span>
-                <strong>{document.documentTypeKey?.replaceAll('_', ' ') || 'Classification unavailable'}</strong>
+                <strong>{document.originalFilename}</strong>
               </div>
               <div>
-                <span className="eyebrow">Extraction</span>
-                <StatusPill value={document.extractionState} compact />
+                <span className="eyebrow">Processing</span>
+                <StatusPill value={document.processingStatus || 'READY'} compact />
               </div>
               <div>
                 <span className="eyebrow">Fields</span>
                 <strong>{document.fields.length}</strong>
               </div>
               <div>
-                <span className="eyebrow">Needs review</span>
-                <strong>{document.fields.filter((field) => field.reviewState === 'NEEDS_REVIEW').length}</strong>
+                <span className="eyebrow">Attention</span>
+                <strong>{needsReview} review · {modified} corrected</strong>
               </div>
             </div>
+            {document.diReadError ? (
+              <div className="p2-review-warning">
+                Live DI field locations are temporarily unavailable. Durable Audit Core values are still shown; boxed evidence will return when DI recovers.
+              </div>
+            ) : null}
           </SectionCard>
 
           <SectionCard
             title="Extracted fields"
-            description="Review only what needs attention. Source evidence is shown only when Document Intelligence returned a reliable location."
+            description="Focus on values that require attention. Original extraction is retained even when an effective value is corrected."
           >
             <div className="p2-table-wrap">
               <table className="p2-table p2-field-table">
@@ -187,27 +157,32 @@ export default function P2DocumentReviewPage() {
                     <th>Field</th>
                     <th>Effective value</th>
                     <th>Confidence</th>
-                    <th>Review</th>
+                    <th>State</th>
                     <th>Evidence</th>
                     <th aria-label="Action" />
                   </tr>
                 </thead>
                 <tbody>
                   {document.fields.map((field) => {
-                    const fieldSource = source(document, field);
                     const highConfidence = field.confidenceScore !== null && field.confidenceScore >= 90;
+                    const lowConfidence = field.confidenceScore !== null && field.confidenceScore < 90;
                     const isEditing = editing?.canonicalFieldId === field.canonicalFieldId
                       && editing?.fieldKey === field.fieldKey
                       && editing?.sourceFactVersion === field.sourceFactVersion;
+                    const state = field.isModified ? 'CORRECTED' : lowConfidence ? 'NEEDS_REVIEW' : 'READY';
+
                     return [
-                      <tr key={`${field.canonicalFieldId}:${field.fieldKey}:${field.sourceFactVersion}`}>
-                        <td><strong>{displayField(field.fieldKey)}</strong></td>
-                        <td>{displayValue(field.value)}</td>
-                        <td>{confidenceLabel(field.confidenceScore)}</td>
-                        <td><StatusPill value={field.reviewState} compact /></td>
+                      <tr key={field.canonicalFieldId + ':' + field.fieldKey + ':' + field.sourceFactVersion}>
                         <td>
-                          {hasBoxedEvidence(fieldSource) ? (
-                            <button className="p2-link-button" type="button" onClick={() => setEvidence(fieldSource)}>
+                          <strong>{displayField(field.fieldKey)}</strong>
+                          {field.isModified ? <small>DI: {displayValue(field.extractedValue)}</small> : null}
+                        </td>
+                        <td>{displayValue(field.effectiveValue)}</td>
+                        <td>{confidenceLabel(field.confidenceScore)}</td>
+                        <td><StatusPill value={state} compact /></td>
+                        <td>
+                          {hasP2BoxedEvidence(field) && document.contentAvailable ? (
+                            <button className="p2-link-button" type="button" onClick={() => setEvidence(field)}>
                               View boxed evidence
                             </button>
                           ) : <span className="p2-muted">Location unavailable</span>}
@@ -218,7 +193,7 @@ export default function P2DocumentReviewPage() {
                             type="button"
                             onClick={() => {
                               setEditing(isEditing ? undefined : field);
-                              setDraft(isEditing ? '' : displayValue(field.value) === 'Not extracted' ? '' : displayValue(field.value));
+                              setDraft(isEditing ? '' : displayValue(field.effectiveValue) === 'Not extracted' ? '' : displayValue(field.effectiveValue));
                               setRemarks('');
                               setMessage('');
                             }}
@@ -228,7 +203,7 @@ export default function P2DocumentReviewPage() {
                         </td>
                       </tr>,
                       isEditing ? (
-                        <tr className="p2-field-edit" key={`${field.canonicalFieldId}:${field.fieldKey}:edit`}>
+                        <tr className="p2-field-edit" key={field.canonicalFieldId + ':' + field.fieldKey + ':edit'}>
                           <td colSpan={6}>
                             <form
                               className="p2-field-edit__form"
@@ -236,30 +211,28 @@ export default function P2DocumentReviewPage() {
                                 event.preventDefault();
                                 if (!draft.trim()) return;
                                 if (highConfidence && !remarks.trim()) return;
-                                correction.mutate({ field, value: draft, note: remarks });
+                                correction.mutate({ field, value: draft.trim(), note: remarks });
                               }}
                             >
                               <label>
                                 Corrected value
                                 <input value={draft} onChange={(event) => setDraft(event.target.value)} required />
                               </label>
-                              {highConfidence ? (
-                                <label>
-                                  Reason for correction
-                                  <textarea
-                                    value={remarks}
-                                    onChange={(event) => setRemarks(event.target.value)}
-                                    rows={2}
-                                    required
-                                    placeholder="Required because DI confidence is 90% or higher"
-                                  />
-                                </label>
-                              ) : null}
+                              <label>
+                                Remarks{highConfidence ? ' — required for high-confidence extraction' : ''}
+                                <textarea
+                                  value={remarks}
+                                  onChange={(event) => setRemarks(event.target.value)}
+                                  rows={2}
+                                  required={highConfidence}
+                                  placeholder={highConfidence ? 'Explain why the high-confidence extraction is incorrect' : 'Optional comment'}
+                                />
+                              </label>
                               <div className="p2-field-edit__actions">
                                 <span>
                                   {highConfidence
-                                    ? 'This correction requires Team Lead review before it becomes effective.'
-                                    : 'This correction can be applied immediately.'}
+                                    ? 'A Team Lead task will be created; the current value remains effective until approval.'
+                                    : 'Low-confidence correction is applied immediately and retained in the audit trail.'}
                                 </span>
                                 <button
                                   type="submit"
@@ -285,12 +258,14 @@ export default function P2DocumentReviewPage() {
         </>
       ) : null}
 
-      {evidence && tenantId ? (
-        <AttributeEvidenceViewer
+      {evidence && document && tenantId ? (
+        <P2EvidenceViewer
           tenantId={tenantId}
           journeyId={journeyId}
+          documentId={documentId}
+          originalFilename={document.originalFilename}
           accessToken={accessToken}
-          source={evidence}
+          field={evidence}
           onClose={() => setEvidence(undefined)}
         />
       ) : null}

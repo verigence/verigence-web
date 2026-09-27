@@ -60,7 +60,10 @@ export type P2Overview = {
     created_at_utc: string;
     updated_at_utc: string;
   };
-  stage: P2BookingStage;
+  stage: P2BookingStage & {
+    deliveryCompletionState: string;
+    deliveryConfiguration: string;
+  };
   documents: {
     total_active: number;
     superseded: number;

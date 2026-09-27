@@ -187,6 +187,8 @@ export type P2DocumentReviewField = {
   effectiveValue: unknown;
   confidenceScore: number | null;
   isModified: boolean;
+  reviewedByActorId?: string | null;
+  reviewedAtUtc?: string | null;
   pageNo: number | null;
   evidenceRegion: Record<string, unknown> | null;
 };
@@ -202,6 +204,25 @@ export type P2DocumentReview = {
   contentAvailable: boolean;
   diReadError: string | null;
   fields: P2DocumentReviewField[];
+  correctionHistory: Array<{
+    fieldKey: string;
+    canonicalFieldId?: string | null;
+    sourceFactVersion: number;
+    extractedValue: unknown;
+    effectiveValue: unknown;
+    reviewedByActorId?: string | null;
+    reviewedAtUtc?: string | null;
+  }>;
+  relatedTasks: Array<{
+    taskId: string;
+    taskType: string;
+    title: string;
+    status: string;
+    sourceType: string;
+    sourceCode?: string | null;
+    createdAtUtc: string;
+  }>;
+  relatedRules: string[];
 };
 
 export type P2FieldCorrectionResult = {

@@ -1407,3 +1407,77 @@
     flex-direction: column;
   }
 }
+
+
+/* Document review lineage stays secondary to the field-action table. */
+.p2-review-lineage {
+  display: grid;
+  gap: 16px;
+}
+
+.p2-review-lineage__group {
+  display: grid;
+  gap: 8px;
+}
+
+.p2-review-lineage__group > strong {
+  color: #173e69;
+  font-size: .78rem;
+}
+
+.p2-review-links {
+  display: grid;
+  gap: 6px;
+}
+
+.p2-review-links a {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 9px 11px;
+  border: 1px solid #e5eaf1;
+  border-radius: 8px;
+  background: #fff;
+  color: var(--p2-ink);
+  text-decoration: none;
+}
+
+.p2-review-links a:hover {
+  border-color: #c8d5e5;
+  background: #f9fbfd;
+}
+
+.p2-review-links span {
+  font-size: .78rem;
+  font-weight: 700;
+}
+
+.p2-review-links small {
+  color: var(--p2-muted);
+  font-size: .68rem;
+}
+
+.p2-reference-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.p2-reference-chips span {
+  padding: 5px 8px;
+  border: 1px solid #dce4ee;
+  border-radius: 999px;
+  background: #f7f9fc;
+  color: #49617b;
+  font-size: .68rem;
+  font-weight: 700;
+}
+
+@media (max-width: 560px) {
+  .p2-review-links a {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 3px;
+  }
+}

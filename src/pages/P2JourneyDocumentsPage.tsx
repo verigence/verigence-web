@@ -7,9 +7,17 @@ import PageHeader from '../components/PageHeader';
 import SectionCard from '../components/SectionCard';
 import StatusPill from '../components/StatusPill';
 import P2JourneyTabs from '../features/uc03-p2/P2JourneyTabs';
-import { getP2Documents, getP2Events, uploadP2Files } from '../services/audit-core/uc03P2';
+import { getP2Documents, getP2Events, getP2Stage, uploadP2Files } from '../services/audit-core/uc03P2';
 import { useProjectContextStore } from '../store/projectContextStore';
 import { useSessionStore } from '../store/sessionStore';
+
+const BOOKING_GATE_LABELS: Record<string, string> = {
+  BOOKING_FORM_EXTRACTED: 'Booking Form',
+  PAN_EXTRACTED: 'PAN',
+  AADHAAR_EXTRACTED: 'Aadhaar',
+  MINIMUM_BOOKING_PAYMENT: 'Minimum Booking payment',
+  NO_MANUAL_VERIFICATION_PENDING: 'Manual verification',
+};
 
 const ACTIVE = new Set([
   'AWAITING_UPLOAD', 'UPLOADED', 'SPLITTING', 'PROCESSING',
@@ -29,6 +37,13 @@ export default function P2JourneyDocumentsPage() {
   const query = useQuery({
     queryKey: ['p2-documents', tenantId, journeyId],
     queryFn: () => getP2Documents(tenantId!, journeyId, accessToken),
+    enabled: Boolean(tenantId && journeyId && accessToken),
+    staleTime: 5_000,
+  });
+
+  const stageQuery = useQuery({
+    queryKey: ['p2-stage', tenantId, journeyId],
+    queryFn: () => getP2Stage(tenantId!, journeyId, accessToken),
     enabled: Boolean(tenantId && journeyId && accessToken),
     staleTime: 5_000,
   });
@@ -61,6 +76,7 @@ export default function P2JourneyDocumentsPage() {
           eventCursorRef.current = Math.max(eventCursorRef.current, ...ids);
           void queryClient.invalidateQueries({ queryKey: ['p2-documents', tenantId, journeyId] });
           void queryClient.invalidateQueries({ queryKey: ['p2-overview', tenantId, journeyId] });
+          void queryClient.invalidateQueries({ queryKey: ['p2-stage', tenantId, journeyId] });
           void queryClient.invalidateQueries({ queryKey: ['p2-tasks', tenantId] });
         }
       } catch {
@@ -83,6 +99,7 @@ export default function P2JourneyDocumentsPage() {
     onSuccess: () => {
       setMessage('Upload accepted. Processing continues in the background.');
       void queryClient.invalidateQueries({ queryKey: ['p2-documents', tenantId, journeyId] });
+      void queryClient.invalidateQueries({ queryKey: ['p2-stage', tenantId, journeyId] });
     },
   });
 
@@ -97,6 +114,20 @@ export default function P2JourneyDocumentsPage() {
     };
   }, [query.data]);
 
+  const bookingReadiness = useMemo(() => {
+    const booking = stageQuery.data?.booking;
+    if (!booking) return undefined;
+    const gates = Object.entries(booking.gates);
+    const passed = gates.filter(([, gate]) => gate.passed).length;
+    const blocker = gates.find(([, gate]) => !gate.passed)?.[0];
+    return {
+      booking,
+      passed,
+      total: gates.length,
+      blocker: blocker ? BOOKING_GATE_LABELS[blocker] || blocker.replaceAll('_', ' ') : undefined,
+    };
+  }, [stageQuery.data]);
+
   return (
     <div className="screen-stack p2-screen">
       <PageHeader
@@ -106,6 +137,27 @@ export default function P2JourneyDocumentsPage() {
         actions={<Link className="text-link" to="/p2/work-queue">Back to Phase 2 queue</Link>}
       />
       <P2JourneyTabs />
+
+      {bookingReadiness ? (
+        <div className="p2-stage-strip">
+          <div>
+            <span>Current stage</span>
+            <StatusPill value={bookingReadiness.booking.stage} compact />
+          </div>
+          <div>
+            <span>Booking readiness</span>
+            <strong>{bookingReadiness.passed}/{bookingReadiness.total} checks complete</strong>
+          </div>
+          <div>
+            <span>Booking payment</span>
+            <strong>{new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(Number(bookingReadiness.booking.bookingReceiptTotal || 0))} / {new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(Number(bookingReadiness.booking.minimumBookingAmount || 0))}</strong>
+          </div>
+          <div className={bookingReadiness.blocker ? 'p2-stage-strip__blocker' : ''}>
+            <span>{bookingReadiness.blocker ? 'Next blocker' : 'Booking'}</span>
+            <strong>{bookingReadiness.blocker || 'Ready to complete'}</strong>
+          </div>
+        </div>
+      ) : null}
 
       <SectionCard>
         <div className="p2-upload-row">

@@ -8,6 +8,7 @@ import StatusPill from '../components/StatusPill';
 import { categoryFor, categoryTitle, FIELD_CATEGORY_ORDER, type FieldCategory } from '../features/uc03/fieldCategoryGroups';
 import {
   deriveAspects,
+  deriveP2Steps,
   deriveSteps,
   findingAspect,
   openFindings,
@@ -2258,7 +2259,13 @@ export default function Journey360Page() {
 
   const receiptRows = useMemo(() => (model?.receipts || []).filter((r) => !receiptIsPending(r)), [model?.receipts]);
 
-  const steps = useMemo(() => (model ? deriveSteps(model).steps : []), [model]);
+  const legacySteps = useMemo(() => (model ? deriveSteps(model).steps : []), [model]);
+  const steps = useMemo(
+    () => p2OverviewQuery.data
+      ? deriveP2Steps(p2OverviewQuery.data.stage.stage).steps
+      : legacySteps,
+    [legacySteps, p2OverviewQuery.data],
+  );
   const aspects = useMemo(() => (model ? deriveAspects(model) : []), [model]);
   const openCount = useMemo(() => (model ? openFindings(model).length : 0), [model]);
   const documentCounts = useMemo(() => {
@@ -2368,21 +2375,17 @@ export default function Journey360Page() {
       />
 
       {p2OverviewQuery.data ? (
-        <div className="p2-stage-strip" aria-label="Journey readiness">
+        <div className="p2-stage-strip p2-stage-strip--readiness" aria-label="Journey readiness">
           <div>
-            <span>Current stage</span>
-            <strong>{p2OverviewQuery.data.stage.stage.replaceAll('_', ' ')}</strong>
-          </div>
-          <div>
-            <span>Booking readiness</span>
+            <span>Booking</span>
             <strong>{p2OverviewQuery.data.stage.bookingCompletionState.replaceAll('_', ' ')}</strong>
           </div>
           <div>
-            <span>Delivery readiness</span>
+            <span>Delivery</span>
             <strong>{p2OverviewQuery.data.stage.deliveryCompletionState.replaceAll('_', ' ')}</strong>
           </div>
           <div className={(p2OverviewQuery.data.tasks.overdue || p2OverviewQuery.data.findings.open) ? 'p2-stage-strip__blocker' : ''}>
-            <span>Action</span>
+            <span>Needs attention</span>
             <strong>
               {p2OverviewQuery.data.tasks.open} task{p2OverviewQuery.data.tasks.open === 1 ? '' : 's'} · {p2OverviewQuery.data.findings.open} finding{p2OverviewQuery.data.findings.open === 1 ? '' : 's'}
             </strong>

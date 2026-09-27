@@ -121,6 +121,27 @@ const allJourneysItem: NavItem = {
   roles: ['PC', 'TL', 'PM'],
 };
 
+
+const p2WorkQueueItem: NavItem = {
+  to: '/p2/work-queue',
+  label: 'Journeys',
+  mark: 'JR',
+  roles: ['PC', 'TL', 'PM'],
+};
+
+const p2TasksItem: NavItem = {
+  to: '/p2/tasks',
+  label: 'Task Queue',
+  mark: 'TQ',
+  roles: ['PC', 'TL', 'PM'],
+};
+
+const p2Group: NavGroup = {
+  key: 'phase2',
+  label: 'Phase 2',
+  items: [p2WorkQueueItem, p2TasksItem],
+};
+
 const groups: NavGroup[] = [
   { key: 'workspace', label: 'Workspace', items: [
     { to: '/dashboard', label: 'Overview', mark: 'OV', roles: operational },
@@ -143,6 +164,7 @@ const groups: NavGroup[] = [
     { to: '/crm', label: 'CRM Follow-up', mark: 'CR', roles: ['CRM', 'PM', ...admin] },
     { to: '/escalations', label: 'Escalations', mark: 'ES', roles: ['TL', 'PM', 'CRM', 'EXECUTIVE', ...admin] },
   ] },
+  p2Group,
   { key: 'insights', label: 'Analytics', items: analyticsItems },
   { key: 'administration', label: 'Administration', items: [
     { to: '/admin/engagements', label: 'Engagements', mark: 'EN', roles: ['SUPER_ADMIN'] },
@@ -166,7 +188,7 @@ const routeLabels: Record<string, string> = {
   '/feedback': 'Feedback',
   '/reviews': 'Task Queue', '/duplicate-bookings': 'Duplicate Bookings', '/rule-catalog': 'Rule Catalog', '/rule-catalog/new': 'Author a Rule', '/evidence': 'Evidence', '/payments': 'Payment Tracker', '/findings': 'Findings',
   '/daily-ops': 'Daily Operations', '/activity': 'Activity Tracker', '/crm': 'CRM Follow-up', '/escalations': 'Escalations',
-  '/analytics': 'Analytics', '/admin/engagements': 'Engagements', '/admin/document-intelligence': 'Document Intelligence Configuration',
+  '/analytics': 'Analytics', '/p2/work-queue': 'Phase 2 · Journeys', '/p2/tasks': 'Phase 2 · Task Queue', '/admin/engagements': 'Engagements', '/admin/document-intelligence': 'Document Intelligence Configuration',
   '/admin/housekeeping': 'Housekeeping', '/admin/feedback': 'User Feedback', '/admin/di-test': 'DI Test Console', '/admin/users': 'Users',
   '/admin/users/pending': 'Pending Approvals', '/admin/activity-log': 'User Activity Log',
   '/admin/roles-permissions': 'Roles & Permissions', '/admin/audit-rules': 'Audit Rule Config',
@@ -175,6 +197,7 @@ const routeLabels: Record<string, string> = {
 };
 
 const dynamicRouteLabels: Array<[string, string]> = [
+  ['/p2/journeys/', 'Phase 2 · Journey'],
   ['/bookings/', 'Booking'],
   ['/deliveries/', 'Delivery'],
   ['/audit/', 'Audit Review'],
@@ -300,10 +323,15 @@ export default function AppShell({ children }: PropsWithChildren) {
       label: 'Analytics',
       items: analyticsItems,
     };
-    if (sessionRole !== 'TENANT_ADMIN') return [workspaceGroup, analyticsGroup];
+    const phase2Group: NavGroup | null = ['PC', 'TL', 'PM'].includes(String(role))
+      ? p2Group
+      : null;
+    const operationalGroups = phase2Group
+      ? [workspaceGroup, phase2Group, analyticsGroup]
+      : [workspaceGroup, analyticsGroup];
+    if (sessionRole !== 'TENANT_ADMIN') return operationalGroups;
     return [
-      workspaceGroup,
-      analyticsGroup,
+      ...operationalGroups,
       { key: 'administration', label: 'Administration', items: [projectAdministrationItem] },
     ];
   }, [c0OperationalShell, role, sessionRole, reviewQueueCount]);

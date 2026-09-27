@@ -131,10 +131,10 @@ export default function P2JourneyDocumentsPage() {
   return (
     <div className="screen-stack p2-screen">
       <PageHeader
-        eyebrow="Phase 2 · Documents"
-        title="Upload & Verify"
-        description="Upload individual files or a multi-page PDF. Each page is durably queued, classified and extracted through the existing DI service."
-        actions={<Link className="text-link" to="/p2/work-queue">Back to Phase 2 queue</Link>}
+        eyebrow="Phase 2"
+        title="Documents"
+        description="Upload documents and review processing or verification issues that need attention."
+        actions={<Link className="text-link" to="/p2/work-queue">All journeys</Link>}
       />
       <P2JourneyTabs />
 
@@ -195,8 +195,7 @@ export default function P2JourneyDocumentsPage() {
       </SectionCard>
 
       <div className="p2-inline-stats">
-        <span><strong>{totals.batches}</strong> batches</span>
-        <span><strong>{totals.pages}</strong> document pages</span>
+        <span><strong>{totals.pages}</strong> pages</span>
         <span><strong>{totals.ready}</strong> ready</span>
         <span className={totals.attention ? 'p2-attention' : ''}><strong>{totals.attention}</strong> need attention</span>
       </div>
@@ -207,10 +206,10 @@ export default function P2JourneyDocumentsPage() {
             <thead>
               <tr>
                 <th>File / Page</th>
-                <th>Classified as</th>
+                <th>Document type</th>
                 <th>Stage</th>
                 <th>Processing</th>
-                <th>Extracted fields</th>
+                <th>Review / Issue</th>
                 <th aria-label="Action" />
               </tr>
             </thead>
@@ -228,10 +227,26 @@ export default function P2JourneyDocumentsPage() {
                       <StatusPill value={page.queue_status} compact />
                       {page.last_error ? <small className="p2-attention">{page.last_error}</small> : null}
                     </td>
-                    <td>{page.extracted_field_count}</td>
+                    <td>
+                      {page.queue_status === 'READY' ? (
+                        <>
+                          <strong>Ready</strong>
+                          <small>{page.extracted_field_count} fields extracted</small>
+                        </>
+                      ) : ['NEEDS_REVIEW', 'FAILED', 'DEAD_LETTER'].includes(page.queue_status) ? (
+                        <>
+                          <strong className="p2-attention">{page.queue_status === 'NEEDS_REVIEW' ? 'Review required' : 'Attention required'}</strong>
+                          {page.last_error ? <small>{page.last_error}</small> : null}
+                        </>
+                      ) : (
+                        <span>Processing</span>
+                      )}
+                    </td>
                     <td className="p2-table__action">
-                      {page.queue_status === 'READY' && page.diDocumentId ? (
-                        <Link className="text-link" to={`/p2/journeys/${journeyId}/documents/${page.diDocumentId}`}>Review</Link>
+                      {page.diDocumentId && ['READY', 'NEEDS_REVIEW'].includes(page.queue_status) ? (
+                        <Link className="p2-primary-link" to={`/p2/journeys/${journeyId}/documents/${page.diDocumentId}`}>
+                          {page.queue_status === 'NEEDS_REVIEW' ? 'Review & Correct' : 'Review'}
+                        </Link>
                       ) : null}
                     </td>
                   </tr>

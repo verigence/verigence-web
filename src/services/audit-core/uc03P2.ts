@@ -40,6 +40,16 @@ export type P2BookingStage = {
   gates: Record<string, P2BookingGate>;
 };
 
+export type P2StageResponse = {
+  journeyId: string;
+  booking: P2BookingStage;
+  delivery: {
+    completionState: string;
+    configuration: string;
+    gates: Array<Record<string, unknown>>;
+  };
+};
+
 export type P2Overview = {
   journey: {
     journey_id: string;
@@ -196,6 +206,16 @@ function contentTypeForFile(file: File): string {
   return 'application/octet-stream';
 }
 
+function stableClientUploadId(journeyId: string, file: File, index: number): string {
+  const seed = [journeyId, file.name, file.size, file.lastModified, index].join('|');
+  let hash = 2166136261;
+  for (let i = 0; i < seed.length; i += 1) {
+    hash ^= seed.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  return `web-p2-${(hash >>> 0).toString(36)}-${file.size.toString(36)}`;
+}
+
 
 export function getP2Journeys(
   tenantId: string,
@@ -208,6 +228,17 @@ export function getP2Journeys(
   return auditCoreRequest<P2JourneyListResponse>(
     `${path(tenantId, '/journeys')}?${params.toString()}`,
     { accessToken },
+  );
+}
+
+export function getP2Stage(
+  tenantId: string,
+  journeyId: string,
+  accessToken?: string,
+): Promise<P2StageResponse> {
+  return auditCoreRequest<P2StageResponse>(
+    path(tenantId, `/journeys/${encodeURIComponent(journeyId)}/stage`),
+    { accessToken, cache: 'no-store' },
   );
 }
 
@@ -253,12 +284,10 @@ export async function uploadP2Files(
   files: File[],
   accessToken?: string,
 ): Promise<void> {
-  const descriptors = files.map((file, index) => {
-    const clientUploadId = typeof crypto !== 'undefined' && 'randomUUID' in crypto
-      ? `web-p2-${crypto.randomUUID()}`
-      : `web-p2-${Date.now()}-${index}-${Math.random().toString(36).slice(2)}`;
-    return { file, clientUploadId };
-  });
+  const descriptors = files.map((file, index) => ({
+    file,
+    clientUploadId: stableClientUploadId(journeyId, file, index),
+  }));
   const sourceByClientId = new Map(
     descriptors.map(({ file, clientUploadId }) => [clientUploadId, file] as const),
   );

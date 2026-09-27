@@ -574,3 +574,34 @@
 }
 
 .p2w-header-links { display: flex; gap: 4px; flex-wrap: wrap; align-items: center; }
+
+/* -------------------------------------------------------------- task queue */
+.p2w-filters { display: flex; gap: 14px; flex-wrap: wrap; }
+.p2w-check { display: inline-flex; align-items: center; gap: 6px; min-height: var(--p2w-tap); font-size: .88rem; color: var(--p2w-muted); font-weight: 600; }
+.p2w-tasks { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.p2w-task { border: 1px solid var(--p2w-line); border-left: 4px solid #b8d3ef; border-radius: var(--p2w-radius); background: #fff; box-shadow: var(--p2w-shadow); }
+.p2w-task--urgent { border-left-color: #e5484d; }
+.p2w-task--high { border-left-color: #8fb1ee; }
+.p2w-task--low { border-left-color: var(--p2w-line); }
+.p2w-task.is-open { border-color: #cbe9ef; }
+.p2w-task__row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px; width: 100%; padding: 12px 14px; border: 0; background: none; text-align: left; color: inherit; cursor: pointer; }
+.p2w-task__main { display: grid; gap: 3px; min-width: 0; }
+.p2w-task__main > span { color: var(--p2w-muted); font-size: .84rem; }
+.p2w-task__why { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.p2w-task__meta { display: grid; gap: 4px; justify-items: end; align-content: start; font-size: .8rem; }
+.p2w-task__quick { padding: 0 14px 12px; }
+.p2w-task__detail { display: grid; gap: 10px; padding: 0 14px 14px; }
+.p2w-task__description { margin: 0; line-height: 1.5; }
+.p2w-task__compare { display: flex; gap: 24px; margin: 0; }
+.p2w-task__compare dt { color: var(--p2w-muted); font-size: .76rem; font-weight: 700; }
+.p2w-task__compare dd { margin: 0; font-weight: 800; }
+.p2w-task__comment { display: grid; gap: 4px; font-size: .8rem; font-weight: 700; color: var(--p2w-muted); }
+.p2w-task__comment textarea { padding: 8px 10px; border: 1px solid #cfe0ea; border-radius: 8px; font-size: 1rem; }
+.p2w-task__actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.p2w-history { display: grid; gap: 6px; margin: 0; padding-left: 18px; font-size: .86rem; }
+.p2w-history li { display: grid; gap: 2px; }
+@media (max-width: 560px) {
+  .p2w-task__row { grid-template-columns: 1fr; }
+  .p2w-task__meta { justify-items: start; grid-auto-flow: column; justify-content: start; gap: 8px; }
+  .p2w-task__actions .p2w-button, .p2w-task__quick .p2w-button { flex: 1; width: 100%; }
+}

@@ -341,7 +341,22 @@ export type P2Task = {
   dealer_name?: string | null;
   outlet_name?: string | null;
   vehicle?: string | null;
+  comment_count?: number;
+  verified_at_utc?: string | null;
+  completion_result?: Record<string, unknown>;
 };
+
+export type P2TaskEvent = {
+  task_event_id: number;
+  event_type: string;
+  actor_id?: string | null;
+  actor_role_code?: string | null;
+  comment?: string | null;
+  details?: Record<string, unknown>;
+  created_at_utc: string;
+};
+
+export type P2TaskDetail = P2Task & { events: P2TaskEvent[] };
 
 export type P2TasksResponse = {
   items: P2Task[];
@@ -685,14 +700,24 @@ export function getP2Tasks(
   tenantId: string,
   accessToken?: string,
   journeyId?: string,
+  options: { view?: 'open' | 'done' | 'all'; role?: string; includeLegacy?: boolean } = {},
 ): Promise<P2TasksResponse> {
   const params = new URLSearchParams();
   if (journeyId) params.set('journey_id', journeyId);
+  if (options.view) params.set('view', options.view);
+  if (options.role) params.set('role', options.role);
+  if (options.includeLegacy) params.set('includeLegacy', 'true');
   const query = params.toString();
   return auditCoreRequest<P2TasksResponse>(
     `${path(tenantId, '/tasks')}${query ? `?${query}` : ''}`,
     { accessToken },
   );
+}
+
+export function getP2Task(tenantId: string, taskId: string, accessToken?: string): Promise<P2TaskDetail> {
+  return auditCoreRequest<P2TaskDetail>(path(tenantId, `/tasks/${encodeURIComponent(taskId)}`), {
+    accessToken, cache: 'no-store',
+  });
 }
 
 export async function submitP2TaskAction(

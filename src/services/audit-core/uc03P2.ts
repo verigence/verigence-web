@@ -60,7 +60,10 @@ export type P2Overview = {
     created_at_utc: string;
     updated_at_utc: string;
   };
-  stage: P2BookingStage;
+  stage: P2BookingStage & {
+    deliveryCompletionState: string;
+    deliveryConfiguration: string;
+  };
   documents: {
     total_active: number;
     superseded: number;
@@ -88,6 +91,57 @@ export type P2Overview = {
     open: number;
     resolved: number;
   };
+  statistics: {
+    booking: {
+      documentsRequired: number;
+      documentsReceived: number;
+      pages: number;
+      pagesProcessed: number;
+      paymentReceipts: number;
+      paymentReceived: string;
+      minimumPayment: string;
+      manualVerificationPending: number;
+      controls: P2ControlStatistics;
+      tasksOpen: number;
+      tasksCompleted: number;
+    };
+    delivery: {
+      documentsRequired: number;
+      documentsReceived: number;
+      pages: number;
+      pagesProcessed: number;
+      invoices: number;
+      paymentReceipts: number;
+      financeRecords: number;
+      insuranceRecords: number;
+      vehicleRecords: number;
+      registrationRecords: number;
+      controls: P2ControlStatistics;
+      tasksOpen: number;
+      tasksCompleted: number;
+    };
+    journey: {
+      uploads: number;
+      reuploads: number | null;
+      supersededDocuments: number;
+      extractionFailures: number;
+      retries: number;
+      correctedFields: number;
+      openFindings: number;
+      totalTasks: number;
+      slaBreaches: number;
+      controls: P2ControlStatistics;
+    };
+  };
+};
+
+export type P2ControlStatistics = {
+  tracked: number;
+  passed: number;
+  failed: number;
+  waiting: number;
+  retryPending: number;
+  errors: number;
 };
 
 export type P2DocumentPage = {
@@ -133,6 +187,8 @@ export type P2DocumentReviewField = {
   effectiveValue: unknown;
   confidenceScore: number | null;
   isModified: boolean;
+  reviewedByActorId?: string | null;
+  reviewedAtUtc?: string | null;
   pageNo: number | null;
   evidenceRegion: Record<string, unknown> | null;
 };
@@ -148,6 +204,25 @@ export type P2DocumentReview = {
   contentAvailable: boolean;
   diReadError: string | null;
   fields: P2DocumentReviewField[];
+  correctionHistory: Array<{
+    fieldKey: string;
+    canonicalFieldId?: string | null;
+    sourceFactVersion: number;
+    extractedValue: unknown;
+    effectiveValue: unknown;
+    reviewedByActorId?: string | null;
+    reviewedAtUtc?: string | null;
+  }>;
+  relatedTasks: Array<{
+    taskId: string;
+    taskType: string;
+    title: string;
+    status: string;
+    sourceType: string;
+    sourceCode?: string | null;
+    createdAtUtc: string;
+  }>;
+  relatedRules: string[];
 };
 
 export type P2FieldCorrectionResult = {
@@ -186,6 +261,10 @@ export type P2Task = {
   due_at_utc?: string | null;
   created_at_utc: string;
   updated_at_utc: string;
+  customer_name?: string | null;
+  dealer_name?: string | null;
+  outlet_name?: string | null;
+  vehicle?: string | null;
 };
 
 export type P2TasksResponse = {

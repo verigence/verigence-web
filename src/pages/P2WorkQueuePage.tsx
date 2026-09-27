@@ -38,8 +38,8 @@ export default function P2WorkQueuePage() {
     <div className="screen-stack p2-screen">
       <PageHeader
         eyebrow="Phase 2"
-        title="Journey Work Queue"
-        description="Operational view of Booking and Delivery readiness. Existing Verigence journeys and links remain unchanged."
+        title="Documents"
+        description="Upload and review journey documents. Processing continues in the background and items needing attention are highlighted."
       />
 
       <SectionCard>
@@ -65,16 +65,15 @@ export default function P2WorkQueuePage() {
         ) : null}
 
         <div className="p2-table-wrap">
-          <table className="p2-table">
+          <table className="p2-table p2-journey-list">
             <thead>
               <tr>
                 <th>Customer / Vehicle</th>
-                <th>Stage</th>
-                <th>Booking</th>
-                <th>Delivery</th>
+                <th>Journey stage</th>
+                <th>Booking readiness</th>
+                <th>Delivery readiness</th>
                 <th>Documents</th>
-                <th>Tasks</th>
-                <th>Findings</th>
+                <th>Needs action</th>
                 <th aria-label="Action" />
               </tr>
             </thead>
@@ -85,33 +84,37 @@ export default function P2WorkQueuePage() {
                     <strong>{item.customer_name}</strong>
                     <small>{item.vehicle || 'Vehicle not resolved'}</small>
                     <small>{item.dealer_name} · {item.outlet_name}</small>
+                    <small>Journey {item.journey_id.slice(0, 8)}</small>
                   </td>
                   <td><StatusPill value={item.current_stage} compact /></td>
                   <td>
-                    <strong>{money(item.booking_receipt_total)}</strong>
-                    <small>
-                      Minimum {money(item.booking_minimum_amount)}
-                      {item.manual_verification_pending_count > 0
-                        ? ` · ${item.manual_verification_pending_count} verification pending`
-                        : ''}
-                    </small>
+                    <StatusPill value={item.booking_completion_state} compact />
+                    <small>{money(item.booking_receipt_total)} / {money(item.booking_minimum_amount)}</small>
+                    {item.manual_verification_pending_count > 0
+                      ? <small>{item.manual_verification_pending_count} verification pending</small>
+                      : null}
                   </td>
                   <td><StatusPill value={item.delivery_completion_state} compact /></td>
-                  <td>{item.documents}</td>
+                  <td><strong>{item.documents}</strong></td>
                   <td>
-                    <strong>{item.open_tasks}</strong>
+                    <strong>{item.open_tasks + item.open_findings}</strong>
+                    <small>{item.open_tasks} tasks · {item.open_findings} findings</small>
                     {item.overdue_tasks > 0 ? <small className="p2-attention">{item.overdue_tasks} overdue</small> : null}
                   </td>
-                  <td>{item.open_findings}</td>
                   <td className="p2-table__action">
-                    <Link className="text-link" to={`/p2/journeys/${item.journey_id}/overview`}>
-                      Open
-                    </Link>
+                    <div className="p2-row-actions">
+                      <Link className="p2-primary-link" to={`/p2/journeys/${item.journey_id}/documents`}>
+                        Open Documents
+                      </Link>
+                      <Link className="text-link" to={`/p2/journeys/${item.journey_id}/overview`}>
+                        Journey 360
+                      </Link>
+                    </div>
                   </td>
                 </tr>
               ))}
               {!query.isLoading && (query.data?.items.length ?? 0) === 0 ? (
-                <tr><td colSpan={8} className="p2-empty">No journeys match the current search.</td></tr>
+                <tr><td colSpan={7} className="p2-empty">No journeys match the current search.</td></tr>
               ) : null}
             </tbody>
           </table>

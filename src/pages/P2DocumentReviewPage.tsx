@@ -255,6 +255,68 @@ export default function P2DocumentReviewPage() {
               </table>
             </div>
           </SectionCard>
+
+          {(document.correctionHistory.length > 0 || document.relatedTasks.length > 0 || document.relatedRules.length > 0) ? (
+            <SectionCard
+              title="History & References"
+              description="Durable correction history and the workflow or rule references linked to this document."
+            >
+              <div className="p2-review-lineage">
+                {document.correctionHistory.length > 0 ? (
+                  <div className="p2-review-lineage__group">
+                    <strong>Corrections</strong>
+                    <div className="p2-table-wrap">
+                      <table className="p2-table p2-history-table">
+                        <thead>
+                          <tr><th>Field</th><th>Extracted</th><th>Effective</th><th>Reviewed</th></tr>
+                        </thead>
+                        <tbody>
+                          {document.correctionHistory.map((item) => (
+                            <tr key={`${item.fieldKey}:${item.sourceFactVersion}`}>
+                              <td>{displayField(item.fieldKey)}</td>
+                              <td>{displayValue(item.extractedValue)}</td>
+                              <td>{displayValue(item.effectiveValue)}</td>
+                              <td>
+                                {item.reviewedAtUtc
+                                  ? new Intl.DateTimeFormat('en-IN', {
+                                      day: '2-digit', month: 'short', year: 'numeric',
+                                      hour: '2-digit', minute: '2-digit',
+                                    }).format(new Date(item.reviewedAtUtc))
+                                  : 'Recorded'}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                ) : null}
+
+                {document.relatedTasks.length > 0 ? (
+                  <div className="p2-review-lineage__group">
+                    <strong>Related tasks</strong>
+                    <div className="p2-review-links">
+                      {document.relatedTasks.map((task) => (
+                        <Link key={task.taskId} to={`/p2/journeys/${journeyId}/tasks`}>
+                          <span>{task.title}</span>
+                          <small>{displayField(task.taskType)} · {displayField(task.status)}</small>
+                        </Link>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
+
+                {document.relatedRules.length > 0 ? (
+                  <div className="p2-review-lineage__group">
+                    <strong>Related rules</strong>
+                    <div className="p2-reference-chips">
+                      {document.relatedRules.map((rule) => <span key={rule}>{displayField(rule)}</span>)}
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+            </SectionCard>
+          ) : null}
         </>
       ) : null}
 

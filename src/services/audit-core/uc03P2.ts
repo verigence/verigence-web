@@ -186,6 +186,10 @@ export type P2Task = {
   due_at_utc?: string | null;
   created_at_utc: string;
   updated_at_utc: string;
+  customer_name?: string | null;
+  dealer_name?: string | null;
+  outlet_name?: string | null;
+  vehicle?: string | null;
 };
 
 export type P2TasksResponse = {

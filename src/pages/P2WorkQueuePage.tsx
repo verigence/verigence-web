@@ -1,6 +1,7 @@
 import { useDeferredValue, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
+import '../styles/uc03-p2.css';
 
 import PageHeader from '../components/PageHeader';
 import SectionCard from '../components/SectionCard';

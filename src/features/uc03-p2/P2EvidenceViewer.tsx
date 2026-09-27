@@ -25,8 +25,12 @@ function normalizedBox(region: Record<string, unknown> | null): Box | null {
 
 export function hasP2BoxedEvidence(
   field: Pick<P2DocumentReviewField, 'pageNo' | 'evidenceRegion'>,
+  originalFilename: string,
 ): boolean {
-  return Boolean(normalizedBox(field.evidenceRegion) && field.pageNo && field.pageNo > 0);
+  if (!normalizedBox(field.evidenceRegion)) return false;
+  return originalFilename.toLowerCase().endsWith('.pdf')
+    ? Boolean(field.pageNo && field.pageNo > 0)
+    : true;
 }
 
 function displayField(value: string) {

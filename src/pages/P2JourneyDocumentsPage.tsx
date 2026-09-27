@@ -137,7 +137,7 @@ export default function P2JourneyDocumentsPage() {
                     <td>{page.extracted_field_count}</td>
                     <td className="p2-table__action">
                       {page.queue_status === 'READY' ? (
-                        <Link className="text-link" to={`/journeys/${journeyId}/documents`}>Review</Link>
+                        <Link className="text-link" to={`/p2/journeys/${journeyId}/documents/${page.diDocumentId}`}>Review</Link>
                       ) : null}
                     </td>
                   </tr>

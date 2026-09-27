@@ -2394,12 +2394,56 @@ export default function Journey360Page() {
       ) : null}
 
       {p2OverviewQuery.data ? (
-        <div className="p2-inline-stats" aria-label="Journey statistics">
-          <span><strong>{p2OverviewQuery.data.documents.total_active}</strong> documents</span>
-          <span><strong>{p2OverviewQuery.data.uploads.pages}</strong> pages processed</span>
-          <span><strong>{p2OverviewQuery.data.payments.booking_receipts}</strong> Booking receipts</span>
-          <span><strong>{p2OverviewQuery.data.payments.delivery_receipts}</strong> Delivery receipts</span>
-          <span><strong>{p2OverviewQuery.data.tasks.overdue}</strong> overdue tasks</span>
+        <div className="p2-journey-stats" aria-label="Booking, Delivery and Journey statistics">
+          <div className="p2-journey-stats__group">
+            <strong>Booking</strong>
+            <span>Docs {p2OverviewQuery.data.statistics.booking.documentsReceived}/{p2OverviewQuery.data.statistics.booking.documentsRequired}</span>
+            <span>Pages {p2OverviewQuery.data.statistics.booking.pagesProcessed}/{p2OverviewQuery.data.statistics.booking.pages}</span>
+            <span>Payment {money(p2OverviewQuery.data.statistics.booking.paymentReceived)} / {money(p2OverviewQuery.data.statistics.booking.minimumPayment)}</span>
+            <span>Verify {p2OverviewQuery.data.statistics.booking.manualVerificationPending}</span>
+            <span className={
+              p2OverviewQuery.data.statistics.booking.controls.failed
+              || p2OverviewQuery.data.statistics.booking.controls.retryPending
+              || p2OverviewQuery.data.statistics.booking.controls.errors
+                ? 'p2-attention'
+                : undefined
+            }>
+              Controls {p2OverviewQuery.data.statistics.booking.controls.passed}/{p2OverviewQuery.data.statistics.booking.controls.expected}
+            </span>
+          </div>
+
+          <div className="p2-journey-stats__group">
+            <strong>Delivery</strong>
+            <span>Docs {p2OverviewQuery.data.statistics.delivery.documentsReceived}/{p2OverviewQuery.data.statistics.delivery.documentsRequired}</span>
+            <span>Invoices {p2OverviewQuery.data.statistics.delivery.invoices}</span>
+            <span>Receipts {p2OverviewQuery.data.statistics.delivery.paymentReceipts}</span>
+            <span>
+              F/I/V-R {p2OverviewQuery.data.statistics.delivery.financeRecords}/
+              {p2OverviewQuery.data.statistics.delivery.insuranceRecords}/
+              {p2OverviewQuery.data.statistics.delivery.vehicleRecords + p2OverviewQuery.data.statistics.delivery.registrationRecords}
+            </span>
+            <span className={
+              p2OverviewQuery.data.statistics.delivery.controls.failed
+              || p2OverviewQuery.data.statistics.delivery.controls.retryPending
+              || p2OverviewQuery.data.statistics.delivery.controls.errors
+                ? 'p2-attention'
+                : undefined
+            }>
+              Controls {p2OverviewQuery.data.statistics.delivery.controls.passed}/{p2OverviewQuery.data.statistics.delivery.controls.expected}
+            </span>
+          </div>
+
+          <div className="p2-journey-stats__group">
+            <strong>Journey</strong>
+            <span>Uploads {p2OverviewQuery.data.statistics.journey.uploads}</span>
+            <span>Failures {p2OverviewQuery.data.statistics.journey.extractionFailures}</span>
+            <span>Retries {p2OverviewQuery.data.statistics.journey.retries}</span>
+            <span>Corrections {p2OverviewQuery.data.statistics.journey.correctedFields}</span>
+            <span>Findings {p2OverviewQuery.data.statistics.journey.openFindings}</span>
+            <span className={p2OverviewQuery.data.statistics.journey.slaBreaches ? 'p2-attention' : undefined}>
+              SLA {p2OverviewQuery.data.statistics.journey.slaBreaches}
+            </span>
+          </div>
         </div>
       ) : null}
 

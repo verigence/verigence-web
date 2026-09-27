@@ -65,7 +65,7 @@ export default function P2WorkQueuePage() {
         ) : null}
 
         <div className="p2-table-wrap">
-          <table className="p2-table">
+          <table className="p2-table p2-journey-list">
             <thead>
               <tr>
                 <th>Customer / Vehicle</th>

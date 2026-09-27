@@ -205,7 +205,9 @@ type UploadInitResult = {
     batchId: string;
     clientUploadId?: string | null;
     filename: string;
-    uploadUrl: string;
+    status: string;
+    alreadyAccepted: boolean;
+    uploadUrl: string | null;
     uploadHeaders: Record<string, string>;
     expiresInSeconds: number;
   }>;
@@ -217,20 +219,25 @@ export async function uploadP2Files(
   files: File[],
   accessToken?: string,
 ): Promise<void> {
-  const timestamp = Date.now();
-  const uploadSources = files.map((file, index) => ({
-    file,
-    clientUploadId: `web-p2-${timestamp}-${index}`,
-  }));
+  const descriptors = files.map((file, index) => {
+    const clientUploadId = typeof crypto !== 'undefined' && 'randomUUID' in crypto
+      ? `web-p2-${crypto.randomUUID()}`
+      : `web-p2-${Date.now()}-${index}-${Math.random().toString(36).slice(2)}`;
+    return { file, clientUploadId };
+  });
+  const sourceByClientId = new Map(
+    descriptors.map(({ file, clientUploadId }) => [clientUploadId, file] as const),
+  );
+
   const prepared = await auditCoreRequest<UploadInitResult>(
     path(tenantId, `/journeys/${encodeURIComponent(journeyId)}/uploads:init`),
     {
       method: 'POST',
       accessToken,
       body: JSON.stringify({
-        files: uploadSources.map(({ file, clientUploadId }) => ({
+        files: descriptors.map(({ file, clientUploadId }) => ({
           filename: file.name,
-          contentType: contentTypeForFile(file),
+          contentType: file.type || 'application/octet-stream',
           sizeBytes: file.size,
           clientUploadId,
         })),
@@ -239,8 +246,14 @@ export async function uploadP2Files(
   );
 
   for (const item of prepared.uploads) {
-    const source = uploadSources.find((candidate) => candidate.clientUploadId === item.clientUploadId)?.file;
-    if (!source) throw new Error(`Prepared upload source missing: ${item.filename}`);
+    if (item.alreadyAccepted) continue;
+    if (!item.uploadUrl || !item.clientUploadId) {
+      throw new Error(`Prepared upload is incomplete for ${item.filename}.`);
+    }
+    const source = sourceByClientId.get(item.clientUploadId);
+    if (!source) {
+      throw new Error(`Prepared upload source missing for ${item.filename}.`);
+    }
     const uploadResponse = await fetch(item.uploadUrl, {
       method: 'PUT',
       headers: item.uploadHeaders,

@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 
 import PageHeader from '../components/PageHeader';
+import '../styles/uc03-p2.css';
 import StatusPill from '../components/StatusPill';
 import { categoryFor, categoryTitle, FIELD_CATEGORY_ORDER, type FieldCategory } from '../features/uc03/fieldCategoryGroups';
 import {
@@ -19,6 +20,7 @@ import { AuditCoreHttpError } from '../services/audit-core/client';
 import { getFinance, getInsurance } from '../services/audit-core/operations';
 import { getReviewDocumentContentV2 } from '../services/audit-core/uc03DocumentReviewV2';
 import { runAllApplicableRules, type Uc03RunAllRulesRuleResult } from '../services/audit-core/uc03Audit';
+import { getP2Overview } from '../services/audit-core/uc03P2';
 import { resyncUnifiedCaptureV2 } from '../services/audit-core/uc03UnifiedDocumentCapture';
 import {
   getUc03JourneyOverview,
@@ -2137,6 +2139,14 @@ export default function Journey360Page() {
     staleTime: 15_000,
   });
 
+  const p2OverviewQuery = useQuery({
+    queryKey: ['p2-overview', tenantId, journeyId],
+    queryFn: () => getP2Overview(tenantId, journeyId, accessToken),
+    enabled: Boolean(accessToken && tenantId && journeyId),
+    staleTime: 10_000,
+    retry: 1,
+  });
+
   // The main overview response never carried insurance/finance at all --
   // confirmed live, reported repeatedly ("insurance fields extracted but
   // not shown in Journey 360"): the Insurance/Finance panels below and the
@@ -2356,6 +2366,39 @@ export default function Journey360Page() {
           <StatusPill value={String(deliveryStatus) === 'DELIVERY_STARTED' ? 'DELIVERY_IN_PROGRESS' : String(deliveryStatus || 'NOT_STARTED')} />
         </div>}
       />
+
+      {p2OverviewQuery.data ? (
+        <div className="p2-stage-strip" aria-label="Journey readiness">
+          <div>
+            <span>Current stage</span>
+            <strong>{p2OverviewQuery.data.stage.stage.replaceAll('_', ' ')}</strong>
+          </div>
+          <div>
+            <span>Booking readiness</span>
+            <strong>{p2OverviewQuery.data.stage.bookingCompletionState.replaceAll('_', ' ')}</strong>
+          </div>
+          <div>
+            <span>Delivery readiness</span>
+            <strong>{p2OverviewQuery.data.stage.deliveryCompletionState.replaceAll('_', ' ')}</strong>
+          </div>
+          <div className={(p2OverviewQuery.data.tasks.overdue || p2OverviewQuery.data.findings.open) ? 'p2-stage-strip__blocker' : ''}>
+            <span>Action</span>
+            <strong>
+              {p2OverviewQuery.data.tasks.open} task{p2OverviewQuery.data.tasks.open === 1 ? '' : 's'} · {p2OverviewQuery.data.findings.open} finding{p2OverviewQuery.data.findings.open === 1 ? '' : 's'}
+            </strong>
+          </div>
+        </div>
+      ) : null}
+
+      {p2OverviewQuery.data ? (
+        <div className="p2-inline-stats" aria-label="Journey statistics">
+          <span><strong>{p2OverviewQuery.data.documents.total_active}</strong> documents</span>
+          <span><strong>{p2OverviewQuery.data.uploads.pages}</strong> pages processed</span>
+          <span><strong>{p2OverviewQuery.data.payments.booking_receipts}</strong> Booking receipts</span>
+          <span><strong>{p2OverviewQuery.data.payments.delivery_receipts}</strong> Delivery receipts</span>
+          <span><strong>{p2OverviewQuery.data.tasks.overdue}</strong> overdue tasks</span>
+        </div>
+      ) : null}
 
       <div className="jline">
         <DocumentProgressStrip {...documentCounts} />

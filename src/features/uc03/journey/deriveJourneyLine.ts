@@ -132,43 +132,6 @@ export function deriveSteps(overview: JourneyOverview): { steps: JourneyStep[]; 
   return { steps, currentIndex };
 }
 
-
-/** Drive the existing six-step Journey Line from the isolated P2 stage model.
- * Unknown values deliberately fall back to Booking Documents rather than
- * inventing progression. */
-export function deriveP2Steps(currentStage: string): { steps: JourneyStep[]; currentIndex: number } {
-  const normalized = currentStage.trim().toUpperCase();
-  const indexByStage: Record<string, number> = {
-    BOOKING_DOCUMENT_UPLOAD: 0,
-    BOOKING_DOCUMENTS: 0,
-    BOOKING_VERIFY_DOCUMENTS: 1,
-    BOOKING_VERIFICATION: 1,
-    BOOKING_COMPLETE: 2,
-    DELIVERY_DOCUMENT_UPLOAD: 3,
-    DELIVERY_DOCUMENTS: 3,
-    DELIVERY_VERIFY_DOCUMENTS: 4,
-    DELIVERY_VERIFICATION: 4,
-    DELIVERY_COMPLETE: 5,
-  };
-  const currentIndex = indexByStage[normalized] ?? 0;
-  const defs: Array<{ key: string; phase: 'Booking' | 'Delivery'; label: string }> = [
-    { key: 'b-docs', phase: 'Booking', label: 'Documents' },
-    { key: 'b-verify', phase: 'Booking', label: 'Verify' },
-    { key: 'b-done', phase: 'Booking', label: 'Complete' },
-    { key: 'd-docs', phase: 'Delivery', label: 'Documents' },
-    { key: 'd-verify', phase: 'Delivery', label: 'Verify' },
-    { key: 'd-done', phase: 'Delivery', label: 'Complete' },
-  ];
-  return {
-    currentIndex,
-    steps: defs.map((definition, index) => ({
-      ...definition,
-      at: null,
-      state: index < currentIndex ? 'done' : index === currentIndex ? 'current' : 'todo',
-    })),
-  };
-}
-
 // ── aspect chips ────────────────────────────────────────────────────────────
 function worst(a: AspectStatus, b: AspectStatus): AspectStatus {
   const order: AspectStatus[] = ['ok', 'wait', 'warn', 'bad'];

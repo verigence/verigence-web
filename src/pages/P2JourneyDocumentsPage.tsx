@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useParams } from 'react-router-dom';
 import '../styles/uc03-p2.css';
@@ -7,7 +7,7 @@ import PageHeader from '../components/PageHeader';
 import SectionCard from '../components/SectionCard';
 import StatusPill from '../components/StatusPill';
 import P2JourneyTabs from '../features/uc03-p2/P2JourneyTabs';
-import { getP2Documents, uploadP2Files } from '../services/audit-core/uc03P2';
+import { getP2Documents, getP2Events, uploadP2Files } from '../services/audit-core/uc03P2';
 import { useProjectContextStore } from '../store/projectContextStore';
 import { useSessionStore } from '../store/sessionStore';
 
@@ -23,18 +23,60 @@ export default function P2JourneyDocumentsPage() {
   const accessToken = useSessionStore((s) => s.accessToken);
   const queryClient = useQueryClient();
   const inputRef = useRef<HTMLInputElement>(null);
+  const eventCursorRef = useRef(0);
   const [message, setMessage] = useState('');
 
   const query = useQuery({
     queryKey: ['p2-documents', tenantId, journeyId],
     queryFn: () => getP2Documents(tenantId!, journeyId, accessToken),
     enabled: Boolean(tenantId && journeyId && accessToken),
-    refetchInterval: (state) => {
-      const batches = state.state.data?.batches ?? [];
-      return batches.some((batch) => ACTIVE.has(batch.batch_status)
-        || batch.pages.some((page) => ACTIVE.has(page.queue_status))) ? 1_000 : false;
-    },
+    staleTime: 5_000,
   });
+
+  const processingActive = useMemo(() => {
+    const batches = query.data?.batches ?? [];
+    return batches.some((batch) => ACTIVE.has(batch.batch_status)
+      || batch.pages.some((page) => ACTIVE.has(page.queue_status)));
+  }, [query.data]);
+
+  useEffect(() => {
+    if (!processingActive || !tenantId || !journeyId || !accessToken) return undefined;
+
+    let cancelled = false;
+    let timer: number | undefined;
+
+    const poll = async () => {
+      try {
+        const response = await getP2Events(
+          tenantId,
+          journeyId,
+          eventCursorRef.current,
+          accessToken,
+        );
+        if (cancelled) return;
+        const ids = response.events
+          .map((event) => Number(event.event_id))
+          .filter((value) => Number.isFinite(value));
+        if (ids.length > 0) {
+          eventCursorRef.current = Math.max(eventCursorRef.current, ...ids);
+          void queryClient.invalidateQueries({ queryKey: ['p2-documents', tenantId, journeyId] });
+          void queryClient.invalidateQueries({ queryKey: ['p2-overview', tenantId, journeyId] });
+          void queryClient.invalidateQueries({ queryKey: ['p2-tasks', tenantId] });
+        }
+      } catch {
+        // The durable queue remains authoritative. A transient event-feed
+        // failure is retried on the next cursor poll rather than turning the
+        // processing screen into an error state.
+      }
+      if (!cancelled) timer = window.setTimeout(() => void poll(), 1_000);
+    };
+
+    void poll();
+    return () => {
+      cancelled = true;
+      if (timer !== undefined) window.clearTimeout(timer);
+    };
+  }, [accessToken, journeyId, processingActive, queryClient, tenantId]);
 
   const upload = useMutation({
     mutationFn: (files: File[]) => uploadP2Files(tenantId!, journeyId, files, accessToken),
@@ -136,7 +178,7 @@ export default function P2JourneyDocumentsPage() {
                     </td>
                     <td>{page.extracted_field_count}</td>
                     <td className="p2-table__action">
-                      {page.queue_status === 'READY' ? (
+                      {page.queue_status === 'READY' && page.diDocumentId ? (
                         <Link className="text-link" to={`/p2/journeys/${journeyId}/documents/${page.diDocumentId}`}>Review</Link>
                       ) : null}
                     </td>

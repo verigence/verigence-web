@@ -69,7 +69,6 @@ const FeedbackPage = lazy(() => import('./pages/FeedbackPage'));
 const ProjectAdministrationPage = lazy(() => import('./pages/ProjectAdministrationV2Page'));
 const ProfilePage = lazy(() => import('./pages/ProfilePage'));
 const P2WorkQueuePage = lazy(() => import('./pages/P2WorkQueuePage'));
-const P2JourneyOverviewPage = lazy(() => import('./pages/P2JourneyOverviewPage'));
 const P2JourneyDocumentsPage = lazy(() => import('./pages/P2JourneyDocumentsPage'));
 const P2DocumentReviewPage = lazy(() => import('./pages/P2DocumentReviewPage'));
 const P2TasksPage = lazy(() => import('./pages/P2TasksPage'));
@@ -232,6 +231,12 @@ function V2JourneyRedirect({ target }: { target: 'BOOKING' | 'BOOKING_REVIEW' | 
  * carries over that former workspace's one real side effect (auto-starting
  * Delivery the moment the page confirms it isn't started yet) via a query
  * param JourneyDocumentsPage itself reads -- see its own comment. */
+function P2Journey360Redirect() {
+  const { journeyId = '' } = useParams();
+  if (!journeyId) return <Navigate to="/p2/work-queue" replace />;
+  return <Navigate to={`/journeys/${journeyId}/overview`} replace />;
+}
+
 function JourneyDocumentsRedirect({ target }: { target?: 'DELIVERY' } = {}) {
   const { journeyId = '' } = useParams();
   if (!journeyId) return <Navigate to="/dashboard" replace />;
@@ -328,7 +333,7 @@ export default function App() {
               {/* Phase 2 is additive. Existing links/routes above remain unchanged. */}
               <Route path="/p2/work-queue" element={<OperationalPage><P2WorkQueuePage /></OperationalPage>} />
               <Route path="/p2/tasks" element={<OperationalPage><P2TasksPage /></OperationalPage>} />
-              <Route path="/p2/journeys/:journeyId/overview" element={<OperationalPage><P2JourneyOverviewPage /></OperationalPage>} />
+              <Route path="/p2/journeys/:journeyId/overview" element={<OperationalPage><P2Journey360Redirect /></OperationalPage>} />
               <Route path="/p2/journeys/:journeyId/documents" element={<OperationalPage><P2JourneyDocumentsPage /></OperationalPage>} />
               <Route path="/p2/journeys/:journeyId/documents/:documentId" element={<OperationalPage><P2DocumentReviewPage /></OperationalPage>} />
               <Route path="/p2/journeys/:journeyId/tasks" element={<OperationalPage><P2TasksPage /></OperationalPage>} />

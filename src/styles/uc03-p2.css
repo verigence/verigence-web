@@ -815,3 +815,31 @@
     border-bottom: 0;
   }
 }
+
+
+.p2-pipeline {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 16px;
+  color: var(--p2-muted);
+  font-size: .78rem;
+  font-weight: 700;
+}
+
+.p2-pipeline span {
+  color: var(--p2-ink);
+}
+
+.p2-pipeline b {
+  color: #9aa7b8;
+  font-weight: 600;
+}
+
+.p2-row-actions {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  justify-content: flex-end;
+}

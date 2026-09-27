@@ -1,4 +1,4 @@
-import { auditCoreRequest } from './client';
+import { auditCoreRawRequest, auditCoreRequest } from './client';
 
 export type P2JourneyListItem = {
   journey_id: string;
@@ -111,6 +111,40 @@ export type P2DocumentBatch = {
 export type P2DocumentsResponse = {
   journeyId: string;
   batches: P2DocumentBatch[];
+};
+
+
+export type P2DocumentReviewField = {
+  canonicalFieldId: string;
+  fieldKey: string;
+  sourceFactVersion: number;
+  extractedValue: unknown;
+  modifiedValue: unknown;
+  effectiveValue: unknown;
+  confidenceScore: number | null;
+  isModified: boolean;
+  pageNo: number | null;
+  evidenceRegion: Record<string, unknown> | null;
+};
+
+export type P2DocumentReview = {
+  journeyId: string;
+  documentId: string;
+  documentTypeKey: string | null;
+  stage: 'BOOKING' | 'DELIVERY';
+  originalFilename: string;
+  processingStatus: string | null;
+  confirmationStatus: string | null;
+  contentAvailable: boolean;
+  diReadError: string | null;
+  fields: P2DocumentReviewField[];
+};
+
+export type P2FieldCorrectionResult = {
+  documentId: string;
+  fieldKey: string;
+  applied: boolean;
+  taskId: string | null;
 };
 
 export type P2Task = {
@@ -237,7 +271,7 @@ export async function uploadP2Files(
       body: JSON.stringify({
         files: descriptors.map(({ file, clientUploadId }) => ({
           filename: file.name,
-          contentType: file.type || 'application/octet-stream',
+          contentType: contentTypeForFile(file),
           sizeBytes: file.size,
           clientUploadId,
         })),
@@ -270,6 +304,68 @@ export async function uploadP2Files(
       { method: 'POST', accessToken },
     );
   }
+}
+
+
+export function getP2DocumentReview(
+  tenantId: string,
+  journeyId: string,
+  documentId: string,
+  accessToken?: string,
+): Promise<P2DocumentReview> {
+  return auditCoreRequest<P2DocumentReview>(
+    path(
+      tenantId,
+      `/journeys/${encodeURIComponent(journeyId)}/documents/${encodeURIComponent(documentId)}/review`,
+    ),
+    { accessToken, cache: 'no-store' },
+  );
+}
+
+export async function getP2DocumentContent(
+  tenantId: string,
+  journeyId: string,
+  documentId: string,
+  accessToken?: string,
+): Promise<{ blob: Blob; contentType: string }> {
+  const response = await auditCoreRawRequest(
+    path(
+      tenantId,
+      `/journeys/${encodeURIComponent(journeyId)}/documents/${encodeURIComponent(documentId)}/content`,
+    ),
+    { accessToken, cache: 'no-store' },
+  );
+  return {
+    blob: await response.blob(),
+    contentType: response.headers.get('content-type') || 'application/octet-stream',
+  };
+}
+
+export function correctP2DocumentField(
+  tenantId: string,
+  journeyId: string,
+  documentId: string,
+  command: {
+    canonicalFieldId: string;
+    fieldKey: string;
+    sourceFactVersion: number;
+    newValue: unknown;
+    remarks?: string;
+  },
+  accessToken?: string,
+): Promise<P2FieldCorrectionResult> {
+  return auditCoreRequest<P2FieldCorrectionResult>(
+    path(
+      tenantId,
+      `/journeys/${encodeURIComponent(journeyId)}/documents/${encodeURIComponent(documentId)}/field-corrections`,
+    ),
+    {
+      method: 'POST',
+      accessToken,
+      body: JSON.stringify(command),
+      cache: 'no-store',
+    },
+  );
 }
 
 export function getP2Tasks(

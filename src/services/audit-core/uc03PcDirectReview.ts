@@ -44,33 +44,6 @@ export interface PcDirectReviewState {
   reviewComplete: boolean;
 }
 
-export interface PcDirectExtractedField {
-  fieldKey: string;
-  sourceFactRef: string;
-  sourceFactVersion: number;
-  extractedValue: unknown;
-  modifiedValue: unknown | null;
-  confidenceScore: number | null;
-}
-
-export interface PcDirectDocumentReviewResponse {
-  journeyId: string;
-  requirementRef: string;
-  documentId: string;
-  aggregateVersion: number;
-  reviewEventId: string;
-  storedFieldCount: number;
-  modifiedFieldCount: number;
-  projectedFieldCount: number;
-  projectionFailureCount: number;
-}
-
-export interface PcDirectVerificationResponse {
-  journeyId: string;
-  pcVerificationStatus: 'PENDING' | 'VERIFIED';
-  aggregateVersion: number;
-}
-
 type WarmEntry<T> = {
   expiresAt: number;
   promise: Promise<T>;
@@ -92,20 +65,6 @@ function base(tenantId: string, journeyId: string): string {
 
 function warmKey(tenantId: string, journeyId: string, accessToken?: string): string {
   return `${tenantId}:${journeyId}:${token(accessToken)}`;
-}
-
-function newIdempotencyKey(prefix: string): string {
-  const random = globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-  return `${prefix}-${random}`;
-}
-
-function stableDocumentReviewKey(tenantId: string, journeyId: string, documentId: string): string {
-  const storageKey = `uc03-direct-review-fields:${tenantId}:${journeyId}:${documentId}`;
-  const existing = sessionStorage.getItem(storageKey);
-  if (existing) return existing;
-  const created = newIdempotencyKey('uc03-booking-direct-review-fields');
-  sessionStorage.setItem(storageKey, created);
-  return created;
 }
 
 function byRegisteredAt(left: PcBookingDocumentStatus, right: PcBookingDocumentStatus): number {
@@ -168,20 +127,6 @@ function selectCurrentDocuments(
   }
 
   return result.sort((left, right) => left.registeredAtUtc.localeCompare(right.registeredAtUtc));
-}
-
-function clearWarmState(tenantId: string, journeyId: string, accessToken?: string): void {
-  stateWarmCache.delete(warmKey(tenantId, journeyId, accessToken));
-}
-
-export function clearPcBookingReviewWarmCache(
-  tenantId: string,
-  journeyId: string,
-  accessToken?: string,
-): void {
-  const key = warmKey(tenantId, journeyId, accessToken);
-  snapshotWarmCache.delete(key);
-  stateWarmCache.delete(key);
 }
 
 export function getPcBookingReviewSnapshot(
@@ -309,38 +254,3 @@ export async function warmPcBookingReview(
   ]);
 }
 
-export async function submitPcDirectDocumentReview(
-  tenantId: string,
-  journeyId: string,
-  requirementRef: string,
-  documentId: string,
-  fields: PcDirectExtractedField[],
-  accessToken?: string,
-): Promise<PcDirectDocumentReviewResponse> {
-  const result = await auditCoreRequest<PcDirectDocumentReviewResponse>(`${base(tenantId, journeyId)}/booking/direct-document-review-fields`, {
-    method: 'POST',
-    accessToken: token(accessToken),
-    headers: { 'Idempotency-Key': stableDocumentReviewKey(tenantId, journeyId, documentId) },
-    body: JSON.stringify({ requirementRef, documentId, fields }),
-  });
-  clearWarmState(tenantId, journeyId, accessToken);
-  return result;
-}
-
-export async function verifyPcBookingDirect(
-  tenantId: string,
-  journeyId: string,
-  version: number,
-  accessToken?: string,
-): Promise<PcDirectVerificationResponse> {
-  const result = await auditCoreRequest<PcDirectVerificationResponse>(`${base(tenantId, journeyId)}/pc-verification/verify-direct`, {
-    method: 'POST',
-    accessToken: token(accessToken),
-    headers: {
-      'Idempotency-Key': newIdempotencyKey('uc03-pc-verify-direct'),
-      'If-Match': `"${version}"`,
-    },
-  });
-  clearPcBookingReviewWarmCache(tenantId, journeyId, accessToken);
-  return result;
-}

@@ -17,11 +17,8 @@ import { useProjectContextStore } from './store/projectContextStore';
 import { useSessionStore } from './store/sessionStore';
 
 const loadDashboardPage = () => import('./pages/DashboardPage');
-const loadBookingWorkspacePage = () => import('./pages/BookingWorkspaceFastEntry');
-const loadBookingReviewPage = () => import('./pages/BookingReviewPage');
 const loadBookingCaptureV2Page = () => import('./pages/BookingCaptureV2Page');
 const loadBookingDetailsV2Page = () => import('./pages/BookingDetailsV2Page');
-const loadDeliveryWorkspacePage = () => import('./pages/DeliveryWorkspacePage');
 const loadAuditReviewPage = () => import('./pages/AuditReviewPage');
 
 const LoginPage = lazy(() => import('./pages/LoginPage'));
@@ -110,11 +107,8 @@ function PcJourneyRoutePreloader() {
       if (fallbackTimer !== undefined) window.clearTimeout(fallbackTimer);
       preloadTimer = window.setTimeout(() => {
         void Promise.allSettled([
-          loadBookingWorkspacePage(),
-          loadBookingReviewPage(),
           loadBookingCaptureV2Page(),
           loadBookingDetailsV2Page(),
-          loadDeliveryWorkspacePage(),
           loadAuditReviewPage(),
         ]);
       }, 150);

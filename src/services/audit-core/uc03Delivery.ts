@@ -100,16 +100,6 @@ function commandHeaders(prefix: string, version: number): HeadersInit {
   };
 }
 
-function stableDeliveryUploadKey(journeyId: string, requirementKey: string, file: File): string {
-  const fingerprint = `${journeyId}:${requirementKey}:${file.name}:${file.size}:${file.lastModified}`;
-  const storageKey = `uc03-delivery-upload:${fingerprint}`;
-  const existing = sessionStorage.getItem(storageKey);
-  if (existing) return existing;
-  const created = newIdempotencyKey('uc03-delivery-upload');
-  sessionStorage.setItem(storageKey, created);
-  return created;
-}
-
 function preStartWorkspace(journeyId: string): DeliveryWorkspace {
   return {
     journeyId,
@@ -178,84 +168,6 @@ export async function startDelivery(
   });
 }
 
-export async function recordDeliveryIntimation(
-  tenantId: string,
-  journeyId: string,
-  answer: 'YES' | 'NO',
-  version: number,
-  accessToken?: string,
-  reason?: string,
-): Promise<{ aggregateVersion: number; flagId: string | null }> {
-  return auditCoreRequest(`${base(tenantId, journeyId)}/delivery/intimation`, {
-    method: 'PUT',
-    accessToken: token(accessToken),
-    headers: commandHeaders('uc03-delivery-intimation', version),
-    body: JSON.stringify({ answer, reason: reason?.trim() || null }),
-  });
-}
-
-export async function assessDeliveryDocument(
-  tenantId: string,
-  journeyId: string,
-  requirementKey: string,
-  answer: DeliveryDocumentAnswer,
-  version: number,
-  accessToken?: string,
-  evidenceId?: string | null,
-  remarks?: string,
-): Promise<{ aggregateVersion: number; flagId: string | null }> {
-  return auditCoreRequest(
-    `${base(tenantId, journeyId)}/stages/DELIVERY/documents/${encodeURIComponent(requirementKey)}`,
-    {
-      method: 'PUT',
-      accessToken: token(accessToken),
-      headers: commandHeaders(`uc03-delivery-doc-${requirementKey.toLowerCase()}`, version),
-      body: JSON.stringify({ answer, evidenceId: evidenceId || null, remarks: remarks?.trim() || null }),
-    },
-  );
-}
-
-export async function uploadDeliveryEvidence(
-  tenantId: string,
-  journeyId: string,
-  document: DeliveryDocumentView,
-  file: File,
-  accessToken?: string,
-): Promise<{ evidenceId: string; processingStatus: string }> {
-  const form = new FormData();
-  form.append('file', file);
-  form.append('evidencePurpose', `UC03_DELIVERY:${document.requirementKey}`);
-  form.append('requirementKey', document.requirementKey);
-  form.append('documentTypeKey', document.documentTypeKey);
-  return auditCoreRequest(`${base(tenantId, journeyId)}/evidence`, {
-    method: 'POST',
-    accessToken: token(accessToken),
-    headers: {
-      'Idempotency-Key': stableDeliveryUploadKey(journeyId, document.requirementKey, file),
-    },
-    body: form,
-  });
-}
-
-export async function recordDeliveryVehicleObservation(
-  tenantId: string,
-  journeyId: string,
-  version: number,
-  payload: { vin?: string; chassisNumber?: string; sourceEvidenceId?: string | null },
-  accessToken?: string,
-): Promise<{ aggregateVersion: number; reconciliationStatus: string; flagId: string | null }> {
-  return auditCoreRequest(`${base(tenantId, journeyId)}/delivery/vehicle-observation`, {
-    method: 'PUT',
-    accessToken: token(accessToken),
-    headers: commandHeaders('uc03-delivery-vehicle', version),
-    body: JSON.stringify({
-      vin: payload.vin?.trim() || null,
-      chassisNumber: payload.chassisNumber?.trim() || null,
-      sourceEvidenceId: payload.sourceEvidenceId || null,
-    }),
-  });
-}
-
 // Direct product instruction: a PC who can't get a vehicle photo enters
 // VIN/Chassis manually via the DELIVERY_VEHICLE_PHOTOS_MISSING Task Queue
 // card, not a standalone form -- this never writes the observation itself,
@@ -299,17 +211,4 @@ export async function getDeliveryVehicleObservationProposal(
     `${base(tenantId, journeyId)}/delivery/vehicle-observation/proposals/${encodeURIComponent(workflowTaskId)}`,
     { accessToken: token(accessToken), cache: 'no-store' },
   );
-}
-
-export async function completeDelivery(
-  tenantId: string,
-  journeyId: string,
-  version: number,
-  accessToken?: string,
-): Promise<DeliveryCommandResult> {
-  return auditCoreRequest(`${base(tenantId, journeyId)}/delivery/complete`, {
-    method: 'POST',
-    accessToken: token(accessToken),
-    headers: commandHeaders('uc03-delivery-complete', version),
-  });
 }

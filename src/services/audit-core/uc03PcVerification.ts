@@ -1,22 +1,5 @@
 import { auditCoreRequest } from './client';
 import { awaitPrimaryUc03WorkQueue } from './uc03';
-import { newIdempotencyKey } from './uc03Booking';
-
-export type PcVerificationStatus = 'NOT_SUBMITTED' | 'PENDING' | 'VERIFIED';
-
-export interface PcVerificationView {
-  journeyId: string;
-  captureSubmitted: boolean;
-  pcVerificationStatus: PcVerificationStatus;
-  reviewReady: boolean;
-  linkedDocumentCount: number;
-  pendingDocumentCount: number;
-  failedDocumentCount: number;
-  pendingProposalCount: number;
-  aggregateVersion: number;
-  captureCompletedAtUtc: string | null;
-  latestActivityAtUtc: string;
-}
 
 export interface ReviewPendingItem {
   journeyId: string;
@@ -39,56 +22,6 @@ function token(accessToken?: string): string {
   const value = accessToken?.trim();
   if (!value) throw new Error('A Security human access token is required.');
   return value;
-}
-
-function base(tenantId: string, journeyId: string): string {
-  return `/v1/tenants/${encodeURIComponent(tenantId)}/journeys/${encodeURIComponent(journeyId)}/pc-verification`;
-}
-
-function commandHeaders(prefix: string, version: number): HeadersInit {
-  return {
-    'Idempotency-Key': newIdempotencyKey(prefix),
-    'If-Match': `"${version}"`,
-  };
-}
-
-export function getPcVerification(
-  tenantId: string,
-  journeyId: string,
-  accessToken?: string,
-): Promise<PcVerificationView> {
-  return auditCoreRequest(base(tenantId, journeyId), {
-    accessToken: token(accessToken),
-    cache: 'no-store',
-  });
-}
-
-export function submitPcBookingCapture(
-  tenantId: string,
-  journeyId: string,
-  version: number,
-  values: Record<string, unknown>,
-  accessToken?: string,
-): Promise<PcVerificationView> {
-  return auditCoreRequest(`${base(tenantId, journeyId)}/submit`, {
-    method: 'POST',
-    accessToken: token(accessToken),
-    headers: commandHeaders('uc03-pc-capture-submit', version),
-    body: JSON.stringify({ values }),
-  });
-}
-
-export function verifyPcBooking(
-  tenantId: string,
-  journeyId: string,
-  version: number,
-  accessToken?: string,
-): Promise<PcVerificationView> {
-  return auditCoreRequest(`${base(tenantId, journeyId)}/verify`, {
-    method: 'POST',
-    accessToken: token(accessToken),
-    headers: commandHeaders('uc03-pc-verify', version),
-  });
 }
 
 export async function listReviewPending(

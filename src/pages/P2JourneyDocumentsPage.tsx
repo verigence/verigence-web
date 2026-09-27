@@ -146,6 +146,25 @@ export default function P2JourneyDocumentsPage() {
     };
   }, [query.data]);
 
+  const documentLineage = useMemo(() => {
+    const batchDocumentIds = new Set(
+      (query.data?.batches ?? [])
+        .flatMap((batch) => batch.pages)
+        .map((page) => page.diDocumentId)
+        .filter((value): value is string => Boolean(value)),
+    );
+    const documents = query.data?.documents ?? [];
+    return {
+      existingActive: documents.filter(
+        (document) => document.association_status === 'ACTIVE'
+          && !batchDocumentIds.has(document.documentId),
+      ),
+      superseded: documents.filter(
+        (document) => document.association_status === 'SUPERSEDED',
+      ),
+    };
+  }, [query.data]);
+
   const bookingReadiness = useMemo(() => {
     const booking = stageQuery.data?.booking;
     if (!booking) return undefined;
@@ -377,13 +396,84 @@ export default function P2JourneyDocumentsPage() {
                 }
                 return rows;
               })}
-              {!query.isLoading && (query.data?.batches.length ?? 0) === 0 ? (
-                <tr><td colSpan={6} className="p2-empty">No Phase 2 uploads yet.</td></tr>
+              {documentLineage.existingActive.map((document) => (
+                <tr key={`existing-${document.documentId}`}>
+                  <td>
+                    <strong>{document.original_filename || 'Existing document'}</strong>
+                    <small>Existing Journey evidence</small>
+                  </td>
+                  <td>{document.document_type_key?.replaceAll('_', ' ') || 'Document'}</td>
+                  <td>{document.process_area || '—'}</td>
+                  <td><StatusPill value={document.processing_status_cache || 'READY'} compact /></td>
+                  <td>
+                    <strong>{document.verification_status_cache?.replaceAll('_', ' ') || 'Available for review'}</strong>
+                    {document.confirmation_status_cache ? <small>{document.confirmation_status_cache.replaceAll('_', ' ')}</small> : null}
+                  </td>
+                  <td className="p2-table__action">
+                    <div className="p2-row-actions">
+                      <Link className="p2-primary-link" to={`/p2/journeys/${journeyId}/documents/${document.documentId}`}>
+                        Review
+                      </Link>
+                      <button
+                        className="p2-link-button"
+                        type="button"
+                        disabled={replaceDocument.isPending}
+                        onClick={() => {
+                          setReplaceTarget(document.documentId);
+                          replaceInputRef.current?.click();
+                        }}
+                      >
+                        Replace
+                      </button>
+                      <button
+                        className="p2-link-button"
+                        type="button"
+                        disabled={removeDocument.isPending}
+                        onClick={() => {
+                          if (window.confirm('Remove this document from the active Journey? Audit history will be retained.')) {
+                            removeDocument.mutate(document.documentId);
+                          }
+                        }}
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+              {!query.isLoading
+                && (query.data?.batches.length ?? 0) === 0
+                && documentLineage.existingActive.length === 0 ? (
+                <tr><td colSpan={6} className="p2-empty">No documents have been uploaded for this Journey.</td></tr>
               ) : null}
             </tbody>
           </table>
         </div>
       </SectionCard>
+
+      {documentLineage.superseded.length > 0 ? (
+        <details className="p2-document-history">
+          <summary>Document history · {documentLineage.superseded.length} replaced</summary>
+          <div className="p2-table-wrap">
+            <table className="p2-table">
+              <thead><tr><th>Document</th><th>Type</th><th>Stage</th><th>Status</th></tr></thead>
+              <tbody>
+                {documentLineage.superseded.map((document) => (
+                  <tr key={`history-${document.evidenceId}`}>
+                    <td>
+                      <strong>{document.original_filename || 'Document'}</strong>
+                      <small>{document.documentId.slice(0, 8)}</small>
+                    </td>
+                    <td>{document.document_type_key?.replaceAll('_', ' ') || '—'}</td>
+                    <td>{document.process_area || '—'}</td>
+                    <td><StatusPill value="SUPERSEDED" compact /></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </details>
+      ) : null}
     </div>
   );
 }

@@ -102,6 +102,8 @@ export type P2Overview = {
       minimumPayment: string;
       manualVerificationPending: number;
       controls: P2ControlStatistics;
+      tasksOpen: number;
+      tasksCompleted: number;
     };
     delivery: {
       documentsRequired: number;
@@ -115,6 +117,8 @@ export type P2Overview = {
       vehicleRecords: number;
       registrationRecords: number;
       controls: P2ControlStatistics;
+      tasksOpen: number;
+      tasksCompleted: number;
     };
     journey: {
       uploads: number;
@@ -126,12 +130,13 @@ export type P2Overview = {
       openFindings: number;
       totalTasks: number;
       slaBreaches: number;
+      controls: P2ControlStatistics;
     };
   };
 };
 
 export type P2ControlStatistics = {
-  expected: number;
+  tracked: number;
   passed: number;
   failed: number;
   waiting: number;

@@ -32,7 +32,19 @@ function primaryAction(task: P2Task): string | undefined {
     'ADD_COMMENT',
     'PROVIDE_FEEDBACK',
     'REJECT',
+    'REJECT_CORRECTION',
   ].includes(action));
+}
+
+function rejectAction(task: P2Task): string | undefined {
+  return task.allowed_actions.find((action) => action === 'REJECT' || action === 'REJECT_CORRECTION');
+}
+
+function actionLabel(action: string): string {
+  if (action === 'ACCEPT') return 'Accept';
+  if (action === 'APPROVE_CORRECTION') return 'Approve correction';
+  if (action === 'REJECT_CORRECTION') return 'Reject correction';
+  return action.replaceAll('_', ' ').toLowerCase().replace(/w/g, (character) => character.toUpperCase());
 }
 
 function priorityLabel(task: P2Task): string {
@@ -119,6 +131,7 @@ export default function P2TasksPage() {
             <tbody>
               {(query.data?.items ?? []).map((task) => {
                 const primary = primaryAction(task);
+                const reject = rejectAction(task);
                 const expanded = openTask === task.task_id;
                 return [
                   <tr key={task.task_id}>
@@ -194,7 +207,7 @@ export default function P2TasksPage() {
                                       Provide Feedback
                                     </button>
                                   ) : null}
-                                  {task.allowed_actions.includes('REJECT') ? (
+                                  {reject ? (
                                     <button
                                       type="button"
                                       className="p2-secondary-action"
@@ -202,11 +215,11 @@ export default function P2TasksPage() {
                                       title={!comment.trim() ? 'A rejection comment is required.' : undefined}
                                       onClick={() => action.mutate({
                                         taskId: task.task_id,
-                                        actionName: 'REJECT',
+                                        actionName: reject,
                                         note: comment,
                                       })}
                                     >
-                                      Reject
+                                      {actionLabel(reject)}
                                     </button>
                                   ) : null}
                                   {primary ? (
@@ -226,7 +239,7 @@ export default function P2TasksPage() {
                                         });
                                       }}
                                     >
-                                      {primary === 'ACCEPT' ? 'Accept' : primary.replaceAll('_', ' ')}
+                                      {actionLabel(primary)}
                                     </button>
                                   ) : null}
                                 </div>

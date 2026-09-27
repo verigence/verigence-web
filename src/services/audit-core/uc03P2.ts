@@ -114,6 +114,9 @@ export type P2DocumentsResponse = {
 };
 
 export type P2Task = {
+  source_system: 'P2' | 'LEGACY';
+  legacy_queue_url?: string | null;
+  priority_rank?: number | null;
   task_id: string;
   journey_id: string;
   root_task_id?: string | null;
@@ -128,7 +131,7 @@ export type P2Task = {
   description: string;
   reference: Record<string, unknown>;
   severity: string;
-  priority: string;
+  priority?: string | null;
   assigned_role_code: string;
   assigned_actor_id?: string | null;
   raised_by_actor_id?: string | null;
@@ -141,7 +144,10 @@ export type P2Task = {
   updated_at_utc: string;
 };
 
-export type P2TasksResponse = { items: P2Task[] };
+export type P2TasksResponse = {
+  items: P2Task[];
+  sources?: { p2: number; legacy: number };
+};
 
 function path(tenantId: string, suffix: string) {
   return `/p2/v1/tenants/${encodeURIComponent(tenantId)}${suffix}`;

@@ -124,7 +124,7 @@ const allJourneysItem: NavItem = {
 
 const p2WorkQueueItem: NavItem = {
   to: '/p2/work-queue',
-  label: 'Capture',
+  label: 'Documents',
   mark: 'JR',
   roles: ['PC', 'TL', 'PM'],
 };
@@ -188,7 +188,7 @@ const routeLabels: Record<string, string> = {
   '/feedback': 'Feedback',
   '/reviews': 'Task Queue', '/duplicate-bookings': 'Duplicate Bookings', '/rule-catalog': 'Rule Catalog', '/rule-catalog/new': 'Author a Rule', '/evidence': 'Evidence', '/payments': 'Payment Tracker', '/findings': 'Findings',
   '/daily-ops': 'Daily Operations', '/activity': 'Activity Tracker', '/crm': 'CRM Follow-up', '/escalations': 'Escalations',
-  '/analytics': 'Analytics', '/p2/work-queue': 'Phase 2 · Capture', '/p2/tasks': 'Phase 2 · Tasks', '/admin/engagements': 'Engagements', '/admin/document-intelligence': 'Document Intelligence Configuration',
+  '/analytics': 'Analytics', '/p2/work-queue': 'Phase 2 · Documents', '/p2/tasks': 'Phase 2 · Tasks', '/admin/engagements': 'Engagements', '/admin/document-intelligence': 'Document Intelligence Configuration',
   '/admin/housekeeping': 'Housekeeping', '/admin/feedback': 'User Feedback', '/admin/di-test': 'DI Test Console', '/admin/users': 'Users',
   '/admin/users/pending': 'Pending Approvals', '/admin/activity-log': 'User Activity Log',
   '/admin/roles-permissions': 'Roles & Permissions', '/admin/audit-rules': 'Audit Rule Config',

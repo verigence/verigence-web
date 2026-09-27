@@ -266,7 +266,7 @@ export default function P2DocumentReviewPage() {
                   <div className="p2-review-lineage__group">
                     <strong>Corrections</strong>
                     <div className="p2-table-wrap">
-                      <table className="p2-table">
+                      <table className="p2-table p2-history-table">
                         <thead>
                           <tr><th>Field</th><th>Extracted</th><th>Effective</th><th>Reviewed</th></tr>
                         </thead>

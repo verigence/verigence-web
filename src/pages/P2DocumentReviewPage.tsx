@@ -91,7 +91,7 @@ export default function P2DocumentReviewPage() {
   });
 
   const document = query.data;
-  const needsReview = document?.fields.filter((field) => field.confidenceScore !== null && field.confidenceScore < 90).length ?? 0;
+  const needsReview = document?.fields.filter((field) => field.confidenceScore === null || field.confidenceScore < 90).length ?? 0;
   const modified = document?.fields.filter((field) => field.isModified).length ?? 0;
 
   return (
@@ -165,7 +165,7 @@ export default function P2DocumentReviewPage() {
                 <tbody>
                   {document.fields.map((field) => {
                     const highConfidence = field.confidenceScore !== null && field.confidenceScore >= 90;
-                    const lowConfidence = field.confidenceScore !== null && field.confidenceScore < 90;
+                    const lowConfidence = field.confidenceScore === null || field.confidenceScore < 90;
                     const isEditing = editing?.canonicalFieldId === field.canonicalFieldId
                       && editing?.fieldKey === field.fieldKey
                       && editing?.sourceFactVersion === field.sourceFactVersion;

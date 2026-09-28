@@ -175,7 +175,7 @@ export default function P2JourneyWorkspacePage() {
     <div className={`screen-stack p2-screen p2w${documentId ? ' has-selection' : ''}`}>
       <PageHeader
         eyebrow={isNew ? 'New booking' : 'Booking'}
-        title={isNew ? 'New booking' : 'Complete journey'}
+        title={isNew ? 'New booking' : 'Upload / Edit Documents'}
         description={isNew
           ? "Enter the customer's name and add the booking documents. Everything else is read from the documents."
           : 'Add what is missing and check what needs review. Booking and Delivery complete on their own once the documents are read.'}
@@ -230,12 +230,12 @@ export default function P2JourneyWorkspacePage() {
       ) : null}
 
       {!isNew && tenantId && journeyId ? (
-        <P2UploadStatus counts={documents.data?.counts} live={live.connected} processing={processing.map((row) => ({ key: row.key, name: row.name === 'Identifying document…' ? row.subtitle : row.name, status: row.status }))} />
+        <P2UploadStatus counts={documents.data?.counts} rows={rows} live={live.connected} processing={processing.map((row) => ({ key: row.key, name: row.name === 'Identifying document…' ? row.subtitle : row.name, status: row.status }))} />
       ) : null}
 
       <div className="p2w-segment p2w-tabs-main" role="tablist" aria-label="What to add">
         <button type="button" role="tab" aria-selected={tab === 'documents'} className={tab === 'documents' ? 'is-active' : ''}
-          onClick={() => switchTab('documents')}>Documents{rows.length ? <b>{rows.length}</b> : null}</button>
+          onClick={() => switchTab('documents')}>Documents</button>
         <button type="button" role="tab" aria-selected={tab === 'photos'} className={tab === 'photos' ? 'is-active' : ''}
           onClick={() => switchTab('photos')}>Vehicle photos</button>
       </div>

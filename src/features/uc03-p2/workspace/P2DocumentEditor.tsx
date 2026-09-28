@@ -257,7 +257,7 @@ export default function P2DocumentEditor({
               onClick={() => setFilter('ALL')}>All fields <b>{fields.length}</b></button>
           </div>
           {filter === 'REVIEW' && !pending.length && fields.length ? (
-            <p className="p2w-empty p2w-empty--success">Every field on this document is verified.</p>
+            <p className="p2w-empty p2w-empty--success">No value on this document needs a check.</p>
           ) : null}
           {!fields.length && !review.isLoading ? <p className="p2w-empty">No fields have been extracted yet.</p> : null}
 

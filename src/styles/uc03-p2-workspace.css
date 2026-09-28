@@ -592,6 +592,16 @@
 .p2w-task--urgent { border-left-color: #e5484d; }
 .p2w-task--high { border-left-color: #8fb1ee; }
 .p2w-task--low { border-left-color: var(--p2w-line); }
+/* Colour by the kind of work, which wins over priority on the edge. */
+.p2w-task--documents { border-left-color: #d97706; }
+.p2w-task--verify { border-left-color: var(--p2w-review); }
+.p2w-task--data { border-left-color: #7c3aed; }
+.p2w-task--check { border-left-color: var(--p2w-danger); }
+.p2w-task__kind { display: inline-block; width: fit-content; justify-self: start; margin-bottom: 2px; padding: 1px 8px; border-radius: 999px; font-size: .68rem; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; }
+.p2w-task--documents .p2w-task__kind { background: #fff3e0; color: #b45309; }
+.p2w-task--verify .p2w-task__kind { background: var(--p2w-review-bg); color: var(--p2w-review); }
+.p2w-task--data .p2w-task__kind { background: #f1e9fe; color: #6d28d9; }
+.p2w-task--check .p2w-task__kind { background: var(--p2w-danger-bg); color: var(--p2w-danger); }
 .p2w-task.is-open { border-color: #cbe9ef; }
 .p2w-task__row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px; width: 100%; padding: 12px 14px; border: 0; background: none; text-align: left; color: inherit; cursor: pointer; }
 .p2w-task__main { display: grid; gap: 3px; min-width: 0; }

@@ -216,7 +216,6 @@ function RowBody({ row, actions, expanded, onToggle }: {
         {PAGE_IN_FLIGHT.has(row.status) ? <i className="p2w-spinner" aria-hidden="true" /> : null}
         {status.label}
       </span>
-      <DocumentProgress status={row.status} />
       {row.reason ? <p className="p2w-reqcard__why">{row.reason}</p> : null}
       {actions.typing === row.key && row.unit ? (
         <div className="p2w-doc__type">
@@ -336,8 +335,7 @@ export default function P2DocumentList({
               <li key={item.key} className={`p2w-reqcard is-${state}${optional ? ' is-optional' : ' is-required'}${selected ? ' is-selected' : ''}`}>
                 <div className="p2w-reqcard__head">
                   <span className="p2w-reqcard__label">{item.label}</span>
-                  {item.conditional && item.requirement === 'REQUIRED' ? <span className="p2w-reqcard__tag">Needed for this deal</span>
-                    : optional ? <span className="p2w-reqcard__tag p2w-reqcard__tag--optional">Optional</span> : null}
+                  {optional ? <span className="p2w-reqcard__tag p2w-reqcard__tag--optional">Optional</span> : null}
                 </div>
                 {lead ? (
                   <RowBody row={lead} actions={actions} expanded={expanded.has(lead.key)} onToggle={() => toggle(lead.key)} />

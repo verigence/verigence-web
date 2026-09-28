@@ -114,6 +114,17 @@ describe('document-driven tasks', () => {
     expect(plan.secondary.map((a) => a.label)).toContain('Comment');
   });
 
+  it('lets the Team Lead confirm or reject the finding behind a violation', async () => {
+    const { taskPlan } = await import('../../tasks/p2TaskPlan');
+    const plan = taskPlan({ ...base, task_id: 't', journey_id: 'j1', title: 'Deal charged below the standard price',
+      assigned_role_code: 'TL', task_type: 'FINDING_REVIEW',
+      allowed_actions: ['CONFIRM_BREACH', 'MARK_FALSE_POSITIVE', 'ACCEPT_EXCEPTION', 'ADD_COMMENT'],
+      reference: { findingId: 'f1', sourceCode: 'DEAL_UNDERCHARGED' } }, 'TL');
+    expect(plan.primary).toMatchObject({ label: 'Confirm breach', action: 'CONFIRM_BREACH', requiresComment: true });
+    expect(plan.secondary[0]).toMatchObject({ label: 'Reject as false positive', action: 'MARK_FALSE_POSITIVE',
+      details: { rejectionCategory: 'OTHER' } });
+  });
+
   it('validates the vehicle number like the server', async () => {
     const { vehicleIdentityError } = await import('../../tasks/p2TaskPlan');
     expect(vehicleIdentityError({ vin: '', chassisNumber: '', engineNumber: '' })).toMatch(/Enter/);

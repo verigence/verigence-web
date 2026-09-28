@@ -257,7 +257,7 @@ export default function P2JourneyWorkspacePage() {
       {failed.length && !isNew ? (
         <div className="p2w-alert p2w-alert--error p2w-alert--stack" role="alert">
           <strong>{failed.length === 1 ? 'One page' : `${failed.length} pages`} could not be processed.</strong>
-          <ul>{failed.map((row) => <li key={row.key}><b>{row.name}</b>{row.reason ? ` · ${row.reason}` : ''}</li>)}</ul>
+          <ul>{failed.map((row) => <li key={row.key}><b>{row.subtitle || row.name}</b>{row.reason ? ` · ${row.reason}` : ''}</li>)}</ul>
           <span>Retry the page from its card, remove the upload and add the file again, or delete this booking if nothing on it can be used. Deleting keeps the documents and history in the audit record and tells your Team Lead.</span>
           <button type="button" className="p2w-button p2w-button--danger" onClick={() => setDeleting(true)}>Delete this booking</button>
         </div>

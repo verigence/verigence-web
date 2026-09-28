@@ -11,15 +11,14 @@ import P2RecheckButton from '../features/uc03-p2/workspace/P2RecheckButton';
 import P2UploadStatus from '../features/uc03-p2/workspace/P2UploadStatus';
 import { useP2LiveStatus } from '../features/uc03-p2/workspace/useP2LiveStatus';
 import P2DocumentEditor from '../features/uc03-p2/workspace/P2DocumentEditor';
-import P2DocumentList, { buildDocumentRows, checklistRequirements } from '../features/uc03-p2/workspace/P2DocumentList';
+import P2DocumentList, { buildDocumentRows } from '../features/uc03-p2/workspace/P2DocumentList';
 import P2UploadPanel, { type P2UploadPanelHandle } from '../features/uc03-p2/workspace/P2UploadPanel';
-import { BATCH_IN_FLIGHT, formatInr, PAGE_IN_FLIGHT } from '../features/uc03-p2/workspace/p2Format';
+import { BATCH_IN_FLIGHT, PAGE_IN_FLIGHT } from '../features/uc03-p2/workspace/p2Format';
 import { useP2EventFeed } from '../features/uc03-p2/workspace/useP2EventFeed';
 import {
   createP2Journey,
   deleteP2Document,
   getP2Documents,
-  getP2Stage,
   getP2Templates,
   p2UploadTransport,
   replaceP2Document,
@@ -66,12 +65,6 @@ export default function P2JourneyWorkspacePage() {
     enabled,
     staleTime: 3_000,
   });
-  const stage = useQuery({
-    queryKey: ['p2-stage', tenantId, journeyId],
-    queryFn: () => getP2Stage(tenantId!, journeyId, accessToken),
-    enabled,
-    staleTime: 3_000,
-  });
   const templates = useQuery({
     queryKey: ['p2-templates', tenantId],
     queryFn: () => getP2Templates(tenantId!, accessToken),
@@ -83,8 +76,6 @@ export default function P2JourneyWorkspacePage() {
     () => buildDocumentRows(documents.data?.batches ?? [], documents.data?.documents ?? []),
     [documents.data],
   );
-  const checklist = documents.data?.checklist;
-  const requirements = useMemo(() => checklistRequirements(checklist ?? []), [checklist]);
   const inFlight = rows.some((row) => PAGE_IN_FLIGHT.has(row.status))
     || (documents.data?.batches ?? []).some((batch) => BATCH_IN_FLIGHT.has(batch.batch_status));
   const detailKeys = [['p2-documents', tenantId, journeyId], ['p2-stage', tenantId, journeyId], ['p2-tasks', tenantId],
@@ -169,43 +160,8 @@ export default function P2JourneyWorkspacePage() {
     onError: (cause) => setNotice({ tone: 'error', text: errorText(cause, 'The document could not be removed.') }),
   });
 
-  const booking = stage.data?.booking;
-  const gates = booking ? Object.entries(booking.gates) : [];
-  const nextGate = gates.find(([, gate]) => !gate.passed)?.[1];
-  const paymentGate = booking?.gates.MINIMUM_BOOKING_PAYMENT;
-  const paid = Number(booking?.bookingReceiptTotal || 0);
-  const minimum = Number(booking?.minimumBookingAmount || 0);
   const removeName = rows.find((row) => row.documentId === removeTarget)?.name ?? 'this document';
-
-  // What to do next, most urgent first: failed uploads, documents to check,
-  // required documents still missing for the stage in hand, then the next
-  // booking gate. The cards below carry the same facts one by one.
-  const bookingDone = booking?.bookingCompletionState === 'COMPLETE';
-  const stageNow = bookingDone ? 'DELIVERY' : 'BOOKING';
-  const failedRows = rows.filter((row) => row.status === 'FAILED' || row.status === 'DEAD_LETTER');
-  const reviewRows = rows.filter((row) => row.status === 'NEEDS_REVIEW');
-  const missingRequired = requirements.filter((item) => item.stage === stageNow && item.status === 'MISSING' && item.requirement !== 'OPTIONAL');
-  const names = (list: string[]) => (list.length > 3 ? `${list.slice(0, 3).join(', ')} +${list.length - 3}` : list.join(', '));
-  const receivedHere = requirements.filter((item) => item.stage === stageNow && item.status === 'RECEIVED');
-  // A gate about a document ("Customer KYC received") repeats that
-  // document's own line; keep the gate only when no document line covers it.
-  const firstWord = (label: string) => label.split(/[\s(]/)[0].toLowerCase();
-  const coveredBy = (labels: string[], gate: { label?: string; action?: string }) =>
-    labels.some((label) => `${gate.label ?? ''} ${gate.action ?? ''}`.toLowerCase().includes(firstWord(label)));
-  const todo: Array<{ key: string; tone: string; text: string }> = [];
-  if (failedRows.length) todo.push({ key: 'failed', tone: 'danger', text: `Retry ${failedRows.length} failed upload${failedRows.length === 1 ? '' : 's'}` });
-  if (reviewRows.length) todo.push({ key: 'review', tone: 'review', text: `Check ${names(reviewRows.map((row) => row.name))}` });
-  if (missingRequired.length) todo.push({ key: 'missing', tone: 'missing', text: `Add ${names(missingRequired.map((item) => item.label))}` });
-  if (!bookingDone) {
-    gates.filter(([, gate]) => !gate.passed && !coveredBy(missingRequired.map((item) => item.label), gate))
-      .forEach(([key, gate]) => todo.push({ key: `gate:${key}`, tone: 'next', text: gate.action || gate.label || key }));
-  }
-  if (!todo.length && !bookingDone) todo.push({ key: 'gate', tone: 'next', text: nextGate?.action || 'Verify the highlighted fields.' });
-  const done: string[] = [
-    ...receivedHere.map((item) => item.label),
-    ...gates.filter(([, gate]) => gate.passed && !coveredBy(receivedHere.map((item) => item.label), gate)).map(([key, gate]) => gate.label || key),
-  ];
-  if (bookingDone) done.unshift('Booking complete');
+  const processing = rows.filter((row) => PAGE_IN_FLIGHT.has(row.status));
 
   return (
     <div className={`screen-stack p2-screen p2w${documentId ? ' has-selection' : ''}`}>
@@ -247,33 +203,6 @@ export default function P2JourneyWorkspacePage() {
         </section>
       ) : null}
 
-      {booking ? (
-        <section className="p2w-readiness" aria-label="Booking readiness">
-          <div className="p2w-readiness__col is-done">
-            <span className="p2w-readiness__title">Done <b>{done.length}</b></span>
-            {done.length ? (
-              <ul className="p2w-donelist">
-                {done.map((text) => <li key={text}>{text}</li>)}
-              </ul>
-            ) : <p className="p2w-muted">Nothing yet.</p>}
-          </div>
-          <div className="p2w-readiness__col is-todo">
-            <span className="p2w-readiness__title">To do <b>{todo.length}</b></span>
-            {todo.length ? (
-              <ol className="p2w-todo">
-                {todo.map((entry) => <li key={entry.key} className={`is-${entry.tone}`}>{entry.text}</li>)}
-              </ol>
-            ) : <p className="p2w-tone p2w-tone--success">All done for now.</p>}
-          </div>
-          {paymentGate ? (
-            <div className="p2w-readiness__payment" aria-label="Booking payment">
-              <span>{formatInr(paid)} of {formatInr(minimum)}</span>
-              <progress max={Math.max(1, minimum)} value={Math.min(paid, minimum)} />
-            </div>
-          ) : null}
-        </section>
-      ) : null}
-
       {documents.isError ? (
         <div className="p2w-alert p2w-alert--error" role="alert">
           <span>
@@ -294,7 +223,7 @@ export default function P2JourneyWorkspacePage() {
       ) : null}
 
       {!isNew && tenantId && journeyId ? (
-        <P2UploadStatus counts={documents.data?.counts} live={live.connected} />
+        <P2UploadStatus counts={documents.data?.counts} live={live.connected} processing={processing.map((row) => ({ key: row.key, name: row.name === 'Identifying document…' ? row.subtitle : row.name, status: row.status }))} />
       ) : null}
 
       <div className="p2w-segment p2w-tabs-main" role="tablist" aria-label="What to add">

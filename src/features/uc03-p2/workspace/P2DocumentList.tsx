@@ -209,8 +209,6 @@ function DocumentCard({ title, level, rows, reason, actions, onAdd }: {
   const busy = Boolean(lead && actions.busyKey === lead.key);
   const why = lead?.reason || (!lead ? reason : null);
   const more = lead ? rows.filter((row) => row !== lead) : [];
-  // What was received, unless the title already says it.
-  const file = lead ? [lead.name !== title ? lead.name : '', lead.subtitle !== title ? lead.subtitle : ''].filter(Boolean).join(' · ') : '';
 
   const open = () => {
     if (lead?.documentId && openable) actions.onOpen(lead.documentId);
@@ -219,7 +217,7 @@ function DocumentCard({ title, level, rows, reason, actions, onAdd }: {
   const clickable = openable || (!lead && Boolean(onAdd));
 
   return (
-    <li className={`p2w-dcard is-${state} is-${level}${selected ? ' is-selected' : ''}`}>
+    <li className={`p2w-dcard is-${state} is-${level}${selected ? ' is-selected' : ''}`} title={why || undefined}>
       <button type="button" className="p2w-dcard__main" disabled={!clickable} onClick={open}
         aria-current={selected ? 'true' : undefined}
         aria-label={!lead ? `Add ${title}` : openable ? `Open ${title}` : undefined}>
@@ -227,13 +225,11 @@ function DocumentCard({ title, level, rows, reason, actions, onAdd }: {
           <strong className="p2w-dcard__name">{title}</strong>
           {level === 'optional' ? <em className="p2w-dcard__level">Optional</em> : null}
         </span>
-        {file ? <span className="p2w-dcard__file">{file}</span> : null}
         <span className="p2w-dcard__status">
           {state === 'progress' ? <i className="p2w-spinner" aria-hidden="true" /> : <i className="p2w-dcard__dot" aria-hidden="true" />}
           {stateLabel(state, lead?.status ?? '')}
           {!lead && onAdd ? <b className="p2w-dcard__add">+ Add</b> : null}
         </span>
-        {why ? <span className="p2w-dcard__why">{why}</span> : null}
       </button>
 
       {lead && actions.typing === lead.key && lead.unit ? (

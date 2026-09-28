@@ -13,6 +13,13 @@ type ProjectDirectoryCache = {
 let projectDirectoryCache: ProjectDirectoryCache | null = null;
 let projectDirectoryInFlight: { accessToken: string; promise: Promise<ProjectSelection[]> } | null = null;
 const refreshedMissingProjects = new Set<string>();
+const directoryListeners = new Set<() => void>();
+
+/** Drop the cached Project list and reload it in every mounted selector (e.g. after an onboarding import). */
+export function refreshProjectDirectory() {
+  projectDirectoryCache = null;
+  directoryListeners.forEach((listener) => listener());
+}
 
 function cachedProjectDirectory(accessToken: string): ProjectSelection[] | null {
   return projectDirectoryCache?.accessToken === accessToken ? projectDirectoryCache.values : null;
@@ -68,7 +75,16 @@ export default function ProjectSelector({
   );
   const [loading, setLoading] = useState(false);
   const [loadWarning, setLoadWarning] = useState('');
+  const [directoryVersion, setDirectoryVersion] = useState(0);
   const onSelectionChangeRef = useRef(onSelectionChange);
+
+  useEffect(() => {
+    const listener = () => setDirectoryVersion((version) => version + 1);
+    directoryListeners.add(listener);
+    return () => {
+      directoryListeners.delete(listener);
+    };
+  }, []);
 
   useEffect(() => {
     onSelectionChangeRef.current = onSelectionChange;
@@ -127,7 +143,7 @@ export default function ProjectSelector({
     return () => {
       cancelled = true;
     };
-  }, [accessToken, tenantAdmin]);
+  }, [accessToken, tenantAdmin, directoryVersion]);
 
   useEffect(() => {
     if (tenantAdmin || !accessToken || !tenantId) return;

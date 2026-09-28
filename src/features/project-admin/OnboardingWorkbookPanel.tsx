@@ -1,3 +1,4 @@
+import { useQueryClient } from '@tanstack/react-query';
 import { useRef, useState } from 'react';
 
 import {
@@ -9,6 +10,7 @@ import {
   type OnboardingResultRow,
 } from '../../services/audit-core/projectOnboardingWorkbook';
 import { auditCoreErrorMessage } from '../../services/audit-core/errorMessage';
+import { refreshProjectDirectory } from './ProjectSelector';
 
 type Tab = 'projects' | 'dealers' | 'outlets';
 
@@ -72,6 +74,7 @@ export default function OnboardingWorkbookPanel({ accessToken, onApplied }: {
   onApplied: () => void;
 }) {
   const fileInput = useRef<HTMLInputElement>(null);
+  const queryClient = useQueryClient();
   const [busy, setBusy] = useState<'template' | 'export' | 'upload' | 'apply' | null>(null);
   const [error, setError] = useState('');
   const [upload, setUpload] = useState<OnboardingImport | null>(null);
@@ -117,6 +120,9 @@ export default function OnboardingWorkbookPanel({ accessToken, onApplied }: {
     setBusy('apply');
     try {
       setUpload(await applyOnboardingImport(upload.importId, accessToken));
+      refreshProjectDirectory();
+      void queryClient.invalidateQueries({ queryKey: ['admin-projects'] });
+      void queryClient.invalidateQueries({ queryKey: ['admin-housekeeping-projects'] });
       onApplied();
     } catch (cause) {
       setError(auditCoreErrorMessage(cause));

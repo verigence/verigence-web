@@ -799,3 +799,9 @@
 @media (max-width: 640px) { .p2w .p2w-vehicle-id__fields { grid-template-columns: 1fr; } }
 .p2w .p2w-live { margin-right: 8px; color: var(--p2w-success); font-weight: 700; }
 .p2w .p2w-vehicle-id input::placeholder { text-transform: none; letter-spacing: normal; font-weight: 500; }
+
+/* A failure the PC must act on: reasons listed, the delete beneath. */
+.p2w .p2w-alert--stack { display: grid; justify-content: stretch; gap: 8px; }
+.p2w .p2w-alert--stack ul { margin: 0; padding-left: 18px; }
+.p2w .p2w-alert--stack li + li { margin-top: 4px; }
+.p2w .p2w-alert--stack .p2w-button { justify-self: start; }

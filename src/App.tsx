@@ -327,8 +327,8 @@ export default function App() {
               <Route path="/analytics" element={<OperationalShellPage><AnalyticsPage /></OperationalShellPage>} />
 
               {/* Phase 2 is additive. Existing links/routes above remain unchanged. */}
-              <Route path="/p2/bookings" element={<OperationalPage><P2JourneyListPage mode="bookings" /></OperationalPage>} />
-              <Route path="/p2/journey-360" element={<OperationalPage><P2JourneyListPage mode="journey360" /></OperationalPage>} />
+              <Route path="/p2/bookings" element={<OperationalPage><P2JourneyListPage /></OperationalPage>} />
+              <Route path="/p2/journey-360" element={<Navigate to="/p2/bookings" replace />} />
               <Route path="/p2/work-queue" element={<Navigate to="/p2/bookings" replace />} />
               <Route path="/p2/tasks" element={<OperationalPage><P2TasksPage /></OperationalPage>} />
               <Route path="/p2/duplicate-bookings" element={<OperationalPage><P2DuplicateBookingsPage /></OperationalPage>} />

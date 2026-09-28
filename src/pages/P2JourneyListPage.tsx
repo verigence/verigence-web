@@ -26,73 +26,44 @@ function useJourneys(tenantId: string | undefined, accessToken: string | undefin
 }
 
 /**
- * Two screens on the same data, each with its own job:
- * - Booking & Delivery: the operational list -- what is open now, the week
- *   and month at a glance, one card per journey with its progress and open
- *   work, and New booking.
- * - Journey 360: find a customer journey; the search leads and the cards
- *   are its results.
+ * Booking & Delivery: every open journey as one card (customer, vehicle,
+ * where it stands, what waits on the PC), the week and month at a glance,
+ * search, and New booking. Each card opens Documents (the working screen)
+ * or Journey 360 (the full picture); there is no separate Journey 360 list.
  */
-export default function P2JourneyListPage({ mode }: { mode: 'bookings' | 'journey360' }) {
+export default function P2JourneyListPage() {
   const tenantId = useProjectContextStore((s) => s.selectedProject?.tenantId);
   const accessToken = useSessionStore((s) => s.accessToken);
-  const bookings = mode === 'bookings';
   const [search, setSearch] = useState('');
   const [showClosed, setShowClosed] = useState(false);
   const deferredSearch = useDeferredValue(search);
   const searching = Boolean(deferredSearch.trim());
   const open = useJourneys(tenantId, accessToken, deferredSearch, 'open');
   const closed = useJourneys(tenantId, accessToken, deferredSearch, 'closed', showClosed || searching);
-  // The list is what the screen is for; the summary tiles follow once the
+  // The list is what the screen is for; the summary strip follows once the
   // list has answered (either way) so the two tenant-wide reads never
   // compete for the same Audit Core worker threads and database connections
-  // on a page open. Journey 360 is a search screen and has no tiles.
+  // on a page open.
   const summary = useQuery({
     queryKey: ['p2-bookings-summary', tenantId],
     queryFn: () => getP2BookingsSummary(tenantId!, accessToken),
-    enabled: Boolean(bookings && tenantId && accessToken && open.isFetched),
+    enabled: Boolean(tenantId && accessToken && open.isFetched),
     staleTime: 60_000,
   });
   const s = summary.data;
   const openItems = open.data?.items ?? [];
   const closedItems = closed.data?.items ?? [];
 
-  const visible = openItems;
-
-  const searchBox = (
-    <label className="p2w-search">
-      <span className="p2w-visually-hidden">Search</span>
-      <input type="search" value={search} onChange={(event) => setSearch(event.target.value)} autoFocus={!bookings}
-        placeholder="Search customer, vehicle, outlet or Journey ID" />
-    </label>
-  );
-
-  const errorAlert = open.isError ? (
-    <div className="p2w-alert p2w-alert--error" role="alert">
-      <span>
-        {bookings ? 'Bookings and deliveries could not be loaded.' : 'Journeys could not be loaded.'}
-        {open.error instanceof Error && open.error.message ? <small>{open.error.message}</small> : null}
-      </span>
-      <button type="button" className="p2w-link" onClick={() => void open.refetch()} disabled={open.isFetching}>
-        {open.isFetching ? 'Trying…' : 'Try again'}
-      </button>
-    </div>
-  ) : null;
-
   return (
     <div className="screen-stack p2-screen p2w">
       <PageHeader
-        eyebrow={bookings ? 'Booking & Delivery' : 'Journey 360'}
-        title={bookings ? 'Booking & Delivery' : 'Journey 360'}
-        description={bookings
-          ? 'Every open booking and delivery at a glance. Open one to add documents or see its Journey 360.'
-          : 'Find a customer journey to see its complete picture.'}
-        actions={bookings ? (
-          <Link className="p2w-button p2w-button--primary p2w-button--lg" to="/p2/journeys/new/documents">New booking</Link>
-        ) : undefined}
+        eyebrow="Booking & Delivery"
+        title="Booking & Delivery"
+        description="Every open booking and delivery. Open one to add documents, or see its Journey 360."
+        actions={<Link className="p2w-button p2w-button--primary p2w-button--lg" to="/p2/journeys/new/documents">New booking</Link>}
       />
 
-      {bookings && s ? (
+      {s ? (
         <dl className="p2w-stats" aria-label="Summary">
           <div><dt>Open bookings</dt><dd>{s.open.bookings}</dd></div>
           <div><dt>Open deliveries</dt><dd>{s.open.deliveries}</dd></div>
@@ -103,31 +74,35 @@ export default function P2JourneyListPage({ mode }: { mode: 'bookings' | 'journe
         </dl>
       ) : null}
 
-      {bookings ? (
-        <div className="p2w-listbar">
-          {searchBox}
-          {open.isFetching ? <span className="p2w-muted">Loading…</span> : null}
-        </div>
-      ) : (
-        <section className="p2w-hero-search" aria-label="Find a journey">
-          {searchBox}
-          <p>{searching
-            ? (open.isFetching || closed.isFetching ? 'Searching…' : `${openItems.length + closedItems.length} journeys match`)
-            : 'Type a customer name, vehicle, outlet or Journey ID. Open and recently closed journeys are shown below.'}</p>
-        </section>
-      )}
+      <div className="p2w-listbar">
+        <label className="p2w-search">
+          <span className="p2w-visually-hidden">Search</span>
+          <input type="search" value={search} onChange={(event) => setSearch(event.target.value)}
+            placeholder="Search customer, vehicle, outlet or Journey ID" />
+        </label>
+        {open.isFetching ? <span className="p2w-muted">Loading…</span> : null}
+      </div>
 
-      {errorAlert}
+      {open.isError ? (
+        <div className="p2w-alert p2w-alert--error" role="alert">
+          <span>
+            Bookings and deliveries could not be loaded.
+            {open.error instanceof Error && open.error.message ? <small>{open.error.message}</small> : null}
+          </span>
+          <button type="button" className="p2w-link" onClick={() => void open.refetch()} disabled={open.isFetching}>
+            {open.isFetching ? 'Trying…' : 'Try again'}
+          </button>
+        </div>
+      ) : null}
 
       <section aria-label="Open">
         <h2 className="p2w-section-title">Open {open.isError ? null : <span className="p2w-muted">{openItems.length}</span>}</h2>
         <ul className="p2w-jgrid">
-          {visible.map((item) => <JourneyCard key={item.journey_id} item={item} mode={mode} />)}
+          {openItems.map((item) => <JourneyCard key={item.journey_id} item={item} />)}
           {open.isLoading ? <li className="p2w-skeleton">Loading…</li> : null}
-          {!open.isLoading && !visible.length && !open.isError ? (
+          {!open.isLoading && !openItems.length && !open.isError ? (
             <li className="p2w-empty">
-              {searching ? 'No open journeys match this search.'
-                : bookings ? 'No open bookings. Start one with New booking.' : 'No open journeys.'}
+              {searching ? 'No open journeys match this search.' : 'No open bookings. Start one with New booking.'}
             </li>
           ) : null}
         </ul>
@@ -143,7 +118,7 @@ export default function P2JourneyListPage({ mode }: { mode: 'bookings' | 'journe
         </h2>
         {showClosed || searching ? (
           <ul className="p2w-jgrid">
-            {closedItems.map((item) => <JourneyCard key={item.journey_id} item={item} mode={mode} />)}
+            {closedItems.map((item) => <JourneyCard key={item.journey_id} item={item} />)}
             {closed.isLoading ? <li className="p2w-skeleton">Loading…</li> : null}
             {!closed.isLoading && !closedItems.length ? <li className="p2w-empty">No closed journeys{searching ? ' match this search' : ''}.</li> : null}
           </ul>

@@ -1,125 +1,131 @@
-/* UC03 Phase 2 — card layouts.
-   1. Booking & Delivery: one card per Journey led by what it needs next
-      (customer, vehicle, the next action and its priority, a Booking/
-      Delivery stage track, Complete journey / Journey 360 / tasks).
-   2. Documents ("Complete journey"): one card per required document, the
-      way the Phase 1 capture screen showed them (name, status dot, left
-      stripe by requirement level, dashed when missing).
+/* UC03 Phase 2 — list and card layouts.
+   1. Booking & Delivery: one row per Journey (customer and vehicle,
+      reference and outlet, six steps, what it needs next, dates, an
+      Actions menu), a priority strip above. Rows stack on a phone.
+   2. Complete journey (documents): one card per required document with
+      a plain status (Missing / Uploaded / Extracted), full width until a
+      document is opened, then beside the editor.
    Scoped to .p2w; colours come from the .p2w tokens. */
 
-/* --------------------------------------------------------- journey cards */
-.p2w .p2w-jgrid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(330px, 1fr));
-  gap: 14px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-.p2w .p2w-jcard {
-  display: grid;
-  gap: 6px;
-  min-width: 0;
-  padding: 16px;
-  border: 1px solid var(--p2w-line);
-  border-radius: 16px;
-  background: #fff;
-  box-shadow: var(--p2w-shadow);
-}
-.p2w .p2w-jcard.is-overdue { border-color: #f2c1bc; }
-.p2w .p2w-jcard.is-closed { background: var(--p2w-soft); box-shadow: none; }
-.p2w .p2w-jcard__head { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
-.p2w .p2w-jcard__name { min-width: 0; overflow: hidden; color: inherit; font-size: 1.08rem; font-weight: 800; letter-spacing: -.01em; text-decoration: none; text-overflow: ellipsis; white-space: nowrap; }
-.p2w .p2w-jcard__name:hover { color: var(--p2w-link); text-decoration: underline; }
-.p2w .p2w-jcard__line { overflow: hidden; font-size: .88rem; text-overflow: ellipsis; white-space: nowrap; }
-.p2w .p2w-jcard__line.p2w-muted { white-space: normal; }
-.p2w .p2w-jcard .is-unknown { color: var(--p2w-muted); font-style: italic; }
-
-/* The next action, coloured by who it waits on. */
-.p2w .p2w-jcard__next {
-  display: grid;
-  gap: 2px;
-  margin-top: 6px;
-  padding: 10px 12px;
-  border-left: 4px solid var(--p2w-muted);
-  border-radius: 10px;
-  background: var(--p2w-soft);
-}
-.p2w .p2w-jcard__next strong { font-size: .95rem; line-height: 1.3; }
-.p2w .p2w-jcard__flag { font-size: .7rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--p2w-muted); }
-.p2w .p2w-jcard__detail { color: var(--p2w-muted); font-size: .82rem; }
-.p2w .p2w-jcard.is-overdue .p2w-jcard__next { border-color: var(--p2w-danger); background: var(--p2w-danger-bg); }
-.p2w .p2w-jcard.is-overdue .p2w-jcard__flag { color: var(--p2w-danger); }
-.p2w .p2w-jcard.is-action .p2w-jcard__next { border-color: var(--p2w-action); background: var(--p2w-action-soft); }
-.p2w .p2w-jcard.is-action .p2w-jcard__flag { color: var(--p2w-action-soft-text); }
-.p2w .p2w-jcard.is-waiting .p2w-jcard__next { border-color: var(--p2w-review); background: var(--p2w-review-bg); }
-.p2w .p2w-jcard.is-waiting .p2w-jcard__flag { color: var(--p2w-review); }
-.p2w .p2w-jcard.is-ok .p2w-jcard__next { border-color: var(--p2w-success); background: var(--p2w-success-bg); }
-.p2w .p2w-jcard.is-ok .p2w-jcard__flag { color: var(--p2w-success); }
-.p2w .p2w-jcard.is-closed .p2w-jcard__next { background: #fff; }
-
-.p2w .p2w-jcard__foot { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; padding-top: 12px; border-top: 1px solid var(--p2w-line); }
-.p2w .p2w-jcard__foot .p2w-button { flex: 1 1 auto; min-height: 36px; padding: 0 12px; font-size: .84rem; white-space: nowrap; }
-.p2w .p2w-jcard__count { margin-left: 6px; padding: 0 7px; border-radius: 999px; background: var(--p2w-action); color: #fff; font-size: .74rem; line-height: 18px; }
-
-/* Stage track: Booking and Delivery, three pips each. */
-.p2w .p2w-jstage { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 4px; }
-.p2w .p2w-jstage__phase { display: grid; gap: 5px; min-width: 0; }
-.p2w .p2w-jstage__phase + .p2w-jstage__phase { position: relative; }
-.p2w .p2w-jstage__phase + .p2w-jstage__phase::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: -7px;
-  border-left: 1px solid var(--p2w-line);
-}
-.p2w .p2w-jstage__name { font-size: .7rem; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; color: var(--p2w-muted); }
-.p2w .p2w-jstage__phase.is-active .p2w-jstage__name { color: var(--p2w-action-soft-text); }
-.p2w .p2w-jstage__phase.is-done .p2w-jstage__name { color: var(--p2w-success); }
-.p2w .p2w-jstage__phase.is-done .p2w-jstage__name::after { content: ' ✓'; }
-.p2w .p2w-jstage__pips { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; margin: 0; padding: 0; list-style: none; }
-.p2w .p2w-jstage__pips li {
-  overflow: hidden;
-  padding: 3px 4px;
-  border-radius: 6px;
-  background: var(--p2w-soft);
+/* ---------------------------------------------------------- journey rows */
+.p2w .p2w-jtable { width: 100%; table-layout: fixed; border-collapse: separate; border-spacing: 0 6px; }
+.p2w .p2w-jtable th:nth-child(1) { width: 26%; }
+.p2w .p2w-jtable th:nth-child(2) { width: 16%; }
+.p2w .p2w-jtable th:nth-child(3) { width: 13%; }
+.p2w .p2w-jtable th:nth-child(4) { width: 25%; }
+.p2w .p2w-jtable th:nth-child(5) { width: 13%; }
+.p2w .p2w-jtable th:nth-child(6) { width: 112px; }
+.p2w .p2w-jtable thead th {
+  padding: 0 12px 2px;
   color: var(--p2w-muted);
-  font-size: .68rem;
-  font-weight: 700;
-  line-height: 1.2;
-  text-align: center;
-  text-overflow: ellipsis;
+  font-size: .72rem;
+  font-weight: 800;
+  letter-spacing: .05em;
+  text-align: left;
+  text-transform: uppercase;
+}
+.p2w .p2w-jrow td {
+  padding: 10px 12px;
+  border-top: 1px solid var(--p2w-line);
+  border-bottom: 1px solid var(--p2w-line);
+  background: #fff;
+  vertical-align: middle;
+}
+.p2w .p2w-jrow td:first-child { border-left: 4px solid var(--p2w-line); border-radius: 10px 0 0 10px; }
+.p2w .p2w-jrow td:last-child { border-right: 1px solid var(--p2w-line); border-radius: 0 10px 10px 0; }
+.p2w .p2w-jrow.is-overdue td:first-child { border-left-color: var(--p2w-danger); }
+.p2w .p2w-jrow.is-action td:first-child { border-left-color: var(--p2w-action); }
+.p2w .p2w-jrow.is-waiting td:first-child { border-left-color: var(--p2w-review); }
+.p2w .p2w-jrow.is-ok td:first-child { border-left-color: var(--p2w-success); }
+.p2w .p2w-jrow.is-closed td { background: var(--p2w-soft); }
+.p2w .p2w-jrow td > span:not(.p2w-chip), .p2w .p2w-jrow td > strong { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.p2w .p2w-jrow td > span:not(.p2w-chip) { font-size: .84rem; }
+.p2w .p2w-jrow .is-unknown { color: var(--p2w-muted); font-style: italic; }
+.p2w .p2w-jrow td { overflow: hidden; }
+.p2w .p2w-jrow__name { display: block; overflow: hidden; color: inherit; font-size: .98rem; font-weight: 800; text-decoration: none; text-overflow: ellipsis; white-space: nowrap; }
+.p2w .p2w-jrow__name:hover { color: var(--p2w-link); text-decoration: underline; }
+.p2w .p2w-jrow__stage .p2w-chip { margin-bottom: 6px; }
+.p2w .p2w-jrow__next strong { font-size: .9rem; line-height: 1.3; }
+.p2w .p2w-jrow__flag { font-size: .68rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--p2w-muted); }
+.p2w .p2w-jrow.is-overdue .p2w-jrow__flag { color: var(--p2w-danger); }
+.p2w .p2w-jrow.is-action .p2w-jrow__flag { color: var(--p2w-action-soft-text); }
+.p2w .p2w-jrow.is-waiting .p2w-jrow__flag { color: var(--p2w-review); }
+.p2w .p2w-jrow.is-ok .p2w-jrow__flag { color: var(--p2w-success); }
+.p2w .p2w-jrow td.p2w-jrow__act { overflow: visible; text-align: right; white-space: nowrap; }
+
+/* Six steps in one line, Booking then Delivery. */
+.p2w .p2w-jsteps { display: grid; gap: 3px; }
+.p2w .p2w-jsteps ol { display: grid; grid-template-columns: repeat(6, 1fr); gap: 3px; margin: 0; padding: 0; list-style: none; }
+.p2w .p2w-jsteps li { height: 6px; border-radius: 999px; background: var(--p2w-line); }
+.p2w .p2w-jsteps li.is-delivery { margin-left: 4px; }
+.p2w .p2w-jsteps li.is-done { background: var(--p2w-success); }
+.p2w .p2w-jsteps li.is-active { background: var(--p2w-action); box-shadow: 0 0 0 2px rgb(52 184 200 / 25%); }
+.p2w .p2w-jsteps span { color: var(--p2w-muted); font-size: .74rem; font-weight: 700; }
+.p2w .p2w-jrow.is-closed .p2w-jsteps li.is-done { background: #9fb3c2; }
+
+/* Actions menu: a native details element, no script to open it. */
+/* Reset whatever a page-level details rule adds: the menu is the button only. */
+.p2w .p2w-menu { position: relative; display: inline-block; width: auto; min-width: 0; margin: 0; padding: 0; border: 0; border-radius: 0; background: none; box-shadow: none; }
+.p2w .p2w-menu summary { list-style: none; min-height: 36px; padding: 0 12px; font-size: .84rem; cursor: pointer; }
+.p2w .p2w-menu summary::-webkit-details-marker { display: none; }
+.p2w .p2w-menu summary::after { content: ' ▾'; }
+.p2w .p2w-menu[open] { z-index: 30; }
+.p2w .p2w-menu[open] summary { background: var(--p2w-action); color: #fff; border-color: var(--p2w-action); }
+.p2w .p2w-menu:not([open]) > .p2w-menu__list { display: none; }
+.p2w .p2w-menu__list {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  z-index: 20;
+  display: grid;
+  min-width: 200px;
+  padding: 6px;
+  border: 1px solid var(--p2w-line);
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 0 8px 24px rgb(16 42 67 / 15%);
+  text-align: left;
+}
+.p2w .p2w-menu__list a {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 10px;
+  border-radius: 6px;
+  color: var(--p2w-ink);
+  font-size: .9rem;
+  font-weight: 600;
+  text-decoration: none;
   white-space: nowrap;
 }
-.p2w .p2w-jstage__pips li.is-done { background: var(--p2w-success-bg); color: var(--p2w-success); }
-.p2w .p2w-jstage__pips li.is-active { background: var(--p2w-action-soft); color: var(--p2w-action-soft-text); box-shadow: inset 0 0 0 1.5px var(--p2w-action); }
-.p2w .p2w-jcard.is-closed .p2w-jstage__pips li.is-done { background: #eef2f5; color: var(--p2w-muted); }
-.p2w .p2w-jcard.is-closed .p2w-jstage__phase.is-done .p2w-jstage__name { color: var(--p2w-muted); }
+.p2w .p2w-menu__list a:hover, .p2w .p2w-menu__list a:focus-visible { background: var(--p2w-action-soft); color: var(--p2w-action-soft-text); outline: none; }
+.p2w .p2w-menu__list a:first-child { color: var(--p2w-action-soft-text); }
+.p2w .p2w-menu__list a b { padding: 0 7px; border-radius: 999px; background: var(--p2w-action); color: #fff; font-size: .74rem; line-height: 18px; }
 
 /* Priority strip: how many journeys wait on whom; tap to filter. */
 .p2w .p2w-prio { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
 .p2w .p2w-prio__item {
-  display: grid;
-  gap: 2px;
-  padding: 10px 14px;
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+  padding: 8px 14px;
   border: 1px solid var(--p2w-line);
-  border-top: 4px solid var(--p2w-muted);
-  border-radius: 12px;
+  border-left: 4px solid var(--p2w-muted);
+  border-radius: 10px;
   background: #fff;
   color: inherit;
   font: inherit;
   text-align: left;
   cursor: pointer;
-  box-shadow: var(--p2w-shadow);
 }
-.p2w .p2w-prio__item:disabled { cursor: default; opacity: .55; box-shadow: none; }
-.p2w .p2w-prio__item strong { font-size: 1.4rem; font-weight: 800; line-height: 1.1; }
-.p2w .p2w-prio__item span { color: var(--p2w-muted); font-size: .78rem; font-weight: 700; }
-.p2w .p2w-prio__item.is-overdue { border-top-color: var(--p2w-danger); }
-.p2w .p2w-prio__item.is-action { border-top-color: var(--p2w-action); }
-.p2w .p2w-prio__item.is-waiting { border-top-color: var(--p2w-review); }
-.p2w .p2w-prio__item.is-ok { border-top-color: var(--p2w-success); }
+.p2w .p2w-prio__item:disabled { cursor: default; opacity: .55; }
+.p2w .p2w-prio__item strong { font-size: 1.3rem; font-weight: 800; line-height: 1.1; }
+.p2w .p2w-prio__item span { color: var(--p2w-muted); font-size: .8rem; font-weight: 700; }
+.p2w .p2w-prio__item.is-overdue { border-left-color: var(--p2w-danger); }
+.p2w .p2w-prio__item.is-action { border-left-color: var(--p2w-action); }
+.p2w .p2w-prio__item.is-waiting { border-left-color: var(--p2w-review); }
+.p2w .p2w-prio__item.is-ok { border-left-color: var(--p2w-success); }
 .p2w .p2w-prio__item.is-on { outline: 2px solid var(--p2w-action); outline-offset: -1px; background: var(--p2w-action-soft); }
 .p2w .p2w-prio__item.is-on span { color: var(--p2w-action-soft-text); }
 
@@ -143,6 +149,12 @@
 .p2w .p2w-todo li.is-danger::before { background: var(--p2w-danger); }
 .p2w .p2w-todo li.is-review::before { background: var(--p2w-review); }
 .p2w .p2w-todo li.is-missing::before { background: #93370d; }
+
+/* Until a document is opened the cards have the whole width; the editor
+   appears beside them once one is. */
+.p2w:not(.has-selection) .p2w-layout { grid-template-columns: minmax(0, 1fr); }
+.p2w:not(.has-selection) .p2w-layout__editor { display: none; }
+.p2w:not(.has-selection) .p2w-dgrid { grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); }
 
 /* ------------------------------------------------------- document cards */
 .p2w .p2w-dsection { display: grid; gap: 8px; }
@@ -195,7 +207,7 @@
 .p2w .p2w-dcard.is-missing .p2w-dcard__name { color: var(--p2w-ink); }
 .p2w .p2w-dcard__level { flex: 0 0 auto; color: var(--p2w-muted); font-size: .7rem; font-style: normal; font-weight: 600; }
 .p2w .p2w-dcard__file { overflow: hidden; color: var(--p2w-muted); font-size: .76rem; text-overflow: ellipsis; white-space: nowrap; }
-.p2w .p2w-dcard__status { display: flex; align-items: center; gap: 6px; color: var(--p2w-muted); font-size: .8rem; font-weight: 600; }
+.p2w .p2w-dcard__status { display: flex; align-items: center; gap: 6px; color: var(--p2w-muted); font-size: .8rem; font-weight: 700; }
 .p2w .p2w-dcard__dot { flex: 0 0 auto; width: 8px; height: 8px; border-radius: 50%; background: #98a2b3; }
 .p2w .p2w-dcard.is-ready .p2w-dcard__status { color: var(--p2w-success); }
 .p2w .p2w-dcard.is-ready .p2w-dcard__dot { background: var(--p2w-success); }
@@ -216,8 +228,51 @@
   .p2w .p2w-statusbar { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .p2w .p2w-readiness { grid-template-columns: 1fr; }
 }
-@media (max-width: 640px) {
-  .p2w .p2w-jgrid { grid-template-columns: 1fr; }
+/* Tablet: drop the Dates column so the rest can breathe. */
+@media (max-width: 1100px) and (min-width: 761px) {
+  .p2w .p2w-jtable th:nth-child(1) { width: 30%; }
+  .p2w .p2w-jtable th:nth-child(2) { width: 20%; }
+  .p2w .p2w-jtable th:nth-child(3) { width: 17%; }
+  .p2w .p2w-jtable th:nth-child(4) { width: 33%; }
+  .p2w .p2w-jtable th:nth-child(5), .p2w .p2w-jrow__when { display: none; }
+}
+/* Phone: each row becomes a small stacked card; the Actions menu stays. */
+@media (max-width: 760px) {
+  .p2w .p2w-jtable, .p2w .p2w-jtable tbody, .p2w .p2w-jrow { display: block; }
+  .p2w .p2w-jtable thead { display: none; }
+  .p2w .p2w-jrow {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 6px 10px;
+    margin-bottom: 8px;
+    padding: 12px 12px 12px 14px;
+    border: 1px solid var(--p2w-line);
+    border-left: 4px solid var(--p2w-line);
+    border-radius: 12px;
+    background: #fff;
+  }
+  .p2w .p2w-jrow.is-overdue { border-left-color: var(--p2w-danger); }
+  .p2w .p2w-jrow.is-action { border-left-color: var(--p2w-action); }
+  .p2w .p2w-jrow.is-waiting { border-left-color: var(--p2w-review); }
+  .p2w .p2w-jrow.is-ok { border-left-color: var(--p2w-success); }
+  .p2w .p2w-jrow td { display: block; width: auto; padding: 0; border: 0; border-radius: 0; background: none; }
+  .p2w .p2w-jrow td > span, .p2w .p2w-jrow td > strong, .p2w .p2w-jrow__name { white-space: normal; }
+  .p2w .p2w-jrow td.p2w-jrow__act { justify-self: end; overflow: visible; }
+  .p2w .p2w-jrow td:first-child, .p2w .p2w-jrow td:last-child { border: 0; border-radius: 0; }
+  .p2w .p2w-jrow__who { grid-column: 1; }
+  .p2w .p2w-jrow__act { grid-column: 2; grid-row: 1; }
+  .p2w .p2w-jrow__ref, .p2w .p2w-jrow__stage, .p2w .p2w-jrow__next, .p2w .p2w-jrow__when { grid-column: 1 / -1; }
+  .p2w .p2w-jrow__ref span, .p2w .p2w-jrow__when span { display: inline; }
+  .p2w .p2w-jrow__ref span + span::before, .p2w .p2w-jrow__when span + span::before { content: ' · '; }
+  .p2w .p2w-jrow__stage { display: flex; gap: 10px; align-items: center; }
+  .p2w .p2w-jrow__stage .p2w-chip { margin: 0; }
+  .p2w .p2w-jrow__stage .p2w-jsteps { flex: 1; }
+  .p2w .p2w-jrow__next { padding: 8px 10px; border-radius: 8px; background: var(--p2w-soft); }
+  .p2w .p2w-jrow.is-overdue .p2w-jrow__next { background: var(--p2w-danger-bg); }
+  .p2w .p2w-jrow.is-action .p2w-jrow__next { background: var(--p2w-action-soft); }
+  .p2w .p2w-jrow.is-waiting .p2w-jrow__next { background: var(--p2w-review-bg); }
+  .p2w .p2w-jrow.is-ok .p2w-jrow__next { background: var(--p2w-success-bg); }
+  .p2w .p2w-jrow__next strong { white-space: normal; }
   .p2w .p2w-prio { grid-template-columns: 1fr 1fr; }
   .p2w .p2w-dgrid { grid-template-columns: 1fr 1fr; }
 }

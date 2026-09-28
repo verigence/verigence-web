@@ -151,14 +151,16 @@ function cardState(tone: Tone, status: string): CardState {
   return 'progress';
 }
 
-/** The status line of a card, in the PC's words. */
+/** The status line of a card, in three plain words: a document is missing,
+ * uploaded (still being read), or extracted (read; "check" when a value
+ * needs a look). */
 function stateLabel(state: CardState, status: string): string {
   switch (state) {
     case 'missing': return 'Missing';
-    case 'ready': return status === 'SUPPORTING' ? 'Supporting' : 'Received';
-    case 'review': return 'Needs review';
+    case 'ready': return status === 'SUPPORTING' ? 'Uploaded · supporting' : 'Extracted';
+    case 'review': return 'Extracted · check';
     case 'failed': return 'Failed';
-    default: return `${pageStatus(status).label}…`;
+    default: return `Uploaded · ${pageStatus(status).label.toLowerCase()}…`;
   }
 }
 

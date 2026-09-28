@@ -151,7 +151,10 @@ export default function JourneyRow({ item, role }: { item: P2JourneyListItem; ro
       </td>
       <td className="p2w-jrow__ref" data-label="Journey">
         <span>{item.journey_reference || '—'}</span>
-        <span className="p2w-muted">{item.outlet_name}</span>
+        {/* A PC works one outlet and knows it; a TL or PM covers several
+            and needs to see which dealer and outlet each journey is at. */}
+        {role !== 'PC' ? <span className="p2w-muted">{item.dealer_name}</span> : null}
+        {role !== 'PC' ? <span className="p2w-muted">{item.outlet_name}</span> : null}
       </td>
       <td className="p2w-jrow__stage" data-label="Stage">
         {stageChip}

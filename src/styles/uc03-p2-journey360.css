@@ -38,6 +38,14 @@
 .j360 .j360-facts dt { font-size: .75rem; color: var(--p2w-muted); font-weight: 600; }
 .j360 .j360-facts dd { margin: 2px 0 0; font-weight: 600; overflow-wrap: anywhere; }
 .j360 .j360-facts--inline { flex: 1 1 520px; }
+.j360 .j360-facts--customer { grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 14px 20px; }
+.j360 .j360-facts--customer dt { text-transform: uppercase; letter-spacing: .04em; font-size: .7rem; }
+.j360 .j360-facts--customer dd { font-weight: 700; color: var(--p2w-navy); }
+.j360 .j360-facts--customer .is-wide { grid-column: span 2; }
+.j360 .j360-facts--customer dd.is-document_verified, .j360 .j360-facts--customer dd.is-verified { color: var(--p2w-success); }
+.j360 .j360-facts--customer dd.is-conflict { color: var(--p2w-danger); }
+.j360 .j360-card__head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 10px; }
+.j360 .j360-card__head .j360-h3 { margin: 0; color: var(--p2w-navy); font-weight: 800; }
 .j360 .j360-money {
   display: grid;
   grid-template-columns: repeat(6, minmax(0, 1fr));

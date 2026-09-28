@@ -922,6 +922,14 @@ export type P2Journey360 = {
 
 export type P2Record = Record<string, unknown>;
 
+/** The Customer tab: one row per fact in display order, with the document
+ * the KYC-reviewed value came from when it did. */
+export type P2Customer360 = {
+  fields: Array<{ key: string; label: string; value: unknown; source?: string | null }>;
+  identityStatus: 'DOCUMENT_VERIFIED' | 'VERIFIED' | 'CONFLICT' | 'PENDING';
+  kycDocuments: string[];
+};
+
 export type P2Addons = {
   insurance: { records: P2Record[]; charges?: P2DealCategory | null; discount?: P2DiscountRow | null };
   accessories: { records: P2Record[]; charges?: P2DealCategory | null; discount?: P2DiscountRow | null };
@@ -994,6 +1002,7 @@ export type P2SectionMap = {
   documents: P2Documents360;
   payments: P2Payments360;
   vehicle: { product: P2Record | null; units: P2Record[]; photoCount: number };
+  customer: P2Customer360;
   registration: { records: P2Record[]; charges?: P2DealCategory | null };
   delivery: { readiness?: P2Journey360['stage']['delivery']; records: P2Record[] };
   compliance: P2Compliance360;

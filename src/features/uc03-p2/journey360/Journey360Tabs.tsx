@@ -290,6 +290,49 @@ export function VehicleTab({ data, tenantId, journeyId, accessToken }: {
 }
 
 // ── Registration and delivery ───────────────────────────────────────────────
+const IDENTITY_TEXT: Record<string, string> = {
+  DOCUMENT_VERIFIED: 'Document verified', VERIFIED: 'Verified', CONFLICT: 'Conflict', PENDING: 'Pending',
+};
+const CUSTOMER_TYPE_TEXT: Record<string, string> = { INDIVIDUAL: 'Individual', CORPORATE: 'Corporate', PENDING: 'Pending' };
+
+/** The customer as the KYC establishes them, Phase 1's panel: entered
+ * name beside the legal name, PAN, Aadhaar, contact (masked) and address. */
+export function CustomerTab({ data }: { data: P2SectionMap['customer'] }) {
+  const shown = data.fields.filter((f) => !isEmpty(f.value) || ['enteredName', 'legalName', 'pan', 'aadhaar', 'identityStatus'].includes(f.key));
+  const text = (key: string, value: unknown) => {
+    if (isEmpty(value)) return <span className="p2w-muted">{key === 'legalName' ? 'Not established yet' : 'Not on file'}</span>;
+    if (key === 'identityStatus') return IDENTITY_TEXT[String(value)] ?? String(value);
+    if (key === 'customerType') return CUSTOMER_TYPE_TEXT[String(value)] ?? humanizeKey(String(value));
+    if (key === 'dateOfBirth' && /^\d{4}-\d{2}-\d{2}/.test(String(value))) {
+      const [y, m, d] = String(value).slice(0, 10).split('-').map(Number);
+      return new Date(y, m - 1, d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+    }
+    return recordField(key, value);
+  };
+  return (
+    <div className="j360-stack">
+      <section className="j360-card" aria-label="Customer">
+        <div className="j360-card__head">
+          <h3 className="j360-h3">Customer</h3>
+          <span className="p2w-muted">
+            {data.identityStatus === 'DOCUMENT_VERIFIED'
+              ? 'KYC-reviewed identity is the source of truth.'
+              : 'Identity is pending until the PAN or Aadhaar is read.'}
+          </span>
+        </div>
+        <dl className="j360-facts j360-facts--customer">
+          {shown.map((field) => (
+            <div key={field.key} className={field.key === 'address' ? 'is-wide' : undefined}>
+              <dt>{field.label}</dt>
+              <dd className={field.key === 'identityStatus' ? `is-${data.identityStatus.toLowerCase()}` : undefined}>{text(field.key, field.value)}</dd>
+            </div>
+          ))}
+        </dl>
+      </section>
+    </div>
+  );
+}
+
 export function RegistrationTab({ data, journeyId }: { data: P2SectionMap['registration']; journeyId: string }) {
   return (
     <div className="j360-stack">

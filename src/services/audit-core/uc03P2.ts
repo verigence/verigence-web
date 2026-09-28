@@ -1112,6 +1112,10 @@ export function recheckP2Journey(tenantId: string, journeyId: string, accessToke
 // ── Bookings summary, submission, timeline ──────────────────────────────────
 export type P2BookingsSummary = {
   open: { bookings: number; deliveries: number };
+  /** All-time closed stages and open tasks across the journeys in scope
+   * (added 2026-09-28; absent from an older Audit Core). */
+  closed?: { bookings: number; deliveries: number };
+  tasks?: { open: number };
   week: { bookingsStarted: number; bookingsCompleted: number; deliveriesCompleted: number };
   month: { bookingsStarted: number; bookingsCompleted: number; deliveriesCompleted: number; avgBookingHours: number | null; avgDeliveryHours: number | null };
 };

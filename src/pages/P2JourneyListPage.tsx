@@ -82,10 +82,14 @@ export default function P2JourneyListPage({ mode }: { mode: 'bookings' | 'journe
   const deferredSearch = useDeferredValue(search);
   const open = useJourneys(tenantId, accessToken, deferredSearch, 'open');
   const closed = useJourneys(tenantId, accessToken, deferredSearch, 'closed', showClosed || Boolean(deferredSearch));
+  // The list is what the screen is for; the summary tiles follow once the
+  // list has answered (either way) so the two tenant-wide reads never
+  // compete for the same Audit Core worker threads and database connections
+  // on a page open.
   const summary = useQuery({
     queryKey: ['p2-bookings-summary', tenantId],
     queryFn: () => getP2BookingsSummary(tenantId!, accessToken),
-    enabled: Boolean(tenantId && accessToken),
+    enabled: Boolean(tenantId && accessToken && open.isFetched),
     staleTime: 60_000,
   });
   const bookings = mode === 'bookings';
@@ -96,10 +100,10 @@ export default function P2JourneyListPage({ mode }: { mode: 'bookings' | 'journe
   return (
     <div className="screen-stack p2-screen p2w">
       <PageHeader
-        eyebrow={bookings ? 'Bookings' : 'Journey 360'}
-        title={bookings ? 'Bookings' : 'Journey 360'}
+        eyebrow={bookings ? 'Booking & Delivery' : 'Journey 360'}
+        title={bookings ? 'Booking & Delivery' : 'Journey 360'}
         description={bookings
-          ? 'Open bookings first. Open one to see its Journey 360, or add documents.'
+          ? 'Open bookings and deliveries first. Open one to see its Journey 360, or add documents.'
           : 'Find a customer journey to see its complete picture.'}
         actions={bookings ? (
           <Link className="p2w-button p2w-button--primary p2w-button--lg" to="/p2/journeys/new/documents">New booking</Link>
@@ -142,18 +146,23 @@ export default function P2JourneyListPage({ mode }: { mode: 'bookings' | 'journe
           <input type="search" value={search} onChange={(event) => setSearch(event.target.value)}
             placeholder="Search customer, vehicle, outlet or Journey ID" />
         </label>
-        <span className="p2w-muted">{open.isFetching ? 'Refreshing…' : `${openItems.length} open`}</span>
+        <span className="p2w-muted">{open.isFetching ? 'Loading…' : open.isError ? '' : `${openItems.length} open`}</span>
       </div>
 
       {open.isError ? (
         <div className="p2w-alert p2w-alert--error" role="alert">
-          Journeys could not be loaded. {open.error instanceof Error ? open.error.message : ''}
-          <button type="button" className="p2w-link" onClick={() => void open.refetch()}>Try again</button>
+          <span>
+            {bookings ? 'Bookings and deliveries could not be loaded.' : 'Journeys could not be loaded.'}
+            {open.error instanceof Error && open.error.message ? <small>{open.error.message}</small> : null}
+          </span>
+          <button type="button" className="p2w-link" onClick={() => void open.refetch()} disabled={open.isFetching}>
+            {open.isFetching ? 'Trying…' : 'Try again'}
+          </button>
         </div>
       ) : null}
 
       <section aria-label="Open">
-        <h2 className="p2w-section-title">Open <span className="p2w-muted">{openItems.length}</span></h2>
+        <h2 className="p2w-section-title">Open {open.isError ? null : <span className="p2w-muted">{openItems.length}</span>}</h2>
         <ul className="p2w-journeys">
           {openItems.map((item) => <JourneyRow key={item.journey_id} item={item} supervisor={supervisor} />)}
           {open.isLoading ? <li className="p2w-skeleton">Loading…</li> : null}

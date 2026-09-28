@@ -127,6 +127,11 @@
 }
 .p2w .p2w-alert--success { background: var(--p2w-success-bg); color: var(--p2w-success); }
 .p2w .p2w-alert--error { background: var(--p2w-danger-bg); color: var(--p2w-danger); }
+/* Message grows and wraps; the action stays one whole button on the right
+   ("Try again" used to break into two lines beside a long error text). */
+.p2w .p2w-alert > span { flex: 1 1 auto; min-width: 0; }
+.p2w .p2w-alert > span > small { display: block; margin-top: 2px; font-size: .82em; font-weight: 500; overflow-wrap: anywhere; }
+.p2w .p2w-alert > .p2w-link, .p2w .p2w-alert > .p2w-button { flex: 0 0 auto; white-space: nowrap; }
 
 .p2w .p2w-segment {
   display: inline-flex;

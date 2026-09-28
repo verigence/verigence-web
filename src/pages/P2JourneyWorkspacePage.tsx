@@ -30,9 +30,27 @@ import {
   replaceP2Document,
   retryP2Page,
   setP2PageType,
+  type P2ChecklistItem,
+  type P2Template,
 } from '../services/audit-core/uc03P2';
 import { useProjectContextStore } from '../store/projectContextStore';
 import { useSessionStore } from '../store/sessionStore';
+
+const KYC_GROUP = new Set(['pan_card', 'aadhaar']);
+
+/** The checklist a Journey starts with: every document the templates expect,
+ * none received yet. PAN and Aadhaar share one requirement, as they do once
+ * the Journey exists. */
+export function expectedDocuments(templates: P2Template[]): P2ChecklistItem[] {
+  return templates
+    .filter((t) => t.requirement !== 'SUPPORTING' && (t.stage === 'BOOKING' || t.stage === 'DELIVERY'))
+    .map((t) => ({
+      templateKey: t.key, displayName: t.displayName, stage: t.stage as 'BOOKING' | 'DELIVERY',
+      requirement: t.requirement === 'CONDITIONAL' ? 'REQUIRED' : (t.requirement as P2ChecklistItem['requirement']),
+      conditional: t.requirement === 'CONDITIONAL', reason: t.condition ?? null, status: 'MISSING', readyCount: 0, documentIds: [],
+      group: KYC_GROUP.has(t.key) ? 'KYC' : null, groupLabel: KYC_GROUP.has(t.key) ? 'PAN Card or Aadhaar' : null,
+    }));
+}
 
 function errorText(cause: unknown, fallback: string): string {
   return cause instanceof Error && cause.message ? cause.message : fallback;
@@ -54,7 +72,6 @@ export default function P2JourneyWorkspacePage() {
   const [createdJourneyId, setCreatedJourneyId] = useState<string>();
   const isNew = routeJourneyId === 'new' && !createdJourneyId;
   const journeyId = createdJourneyId ?? (routeJourneyId === 'new' ? '' : routeJourneyId);
-  const [customerName, setCustomerName] = useState('');
   const [outletId, setOutletId] = useState(workingOutletId || outlets[0]?.outletId || '');
   const idempotencyKey = useRef(`p2-new-booking-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`);
   const creating = useRef<Promise<string> | null>(null);
@@ -76,7 +93,7 @@ export default function P2JourneyWorkspacePage() {
   const templates = useQuery({
     queryKey: ['p2-templates', tenantId],
     queryFn: () => getP2Templates(tenantId!, accessToken),
-    enabled,
+    enabled: Boolean(tenantId && accessToken),
     staleTime: 60 * 60_000,
   });
 
@@ -84,6 +101,9 @@ export default function P2JourneyWorkspacePage() {
     () => buildDocumentRows(documents.data?.batches ?? [], documents.data?.documents ?? []),
     [documents.data],
   );
+  // A new booking lists the documents the Journey expects before any is
+  // uploaded: the same list the edit view shows, all still missing.
+  const expectedChecklist = useMemo(() => expectedDocuments(templates.data?.templates ?? []), [templates.data]);
   const inFlight = rows.some((row) => PAGE_IN_FLIGHT.has(row.status))
     || (documents.data?.batches ?? []).some((batch) => BATCH_IN_FLIGHT.has(batch.batch_status));
   const detailKeys = [['p2-documents', tenantId, journeyId], ['p2-stage', tenantId, journeyId], ['p2-tasks', tenantId],
@@ -103,11 +123,10 @@ export default function P2JourneyWorkspacePage() {
   const ensureJourney = useCallback(async () => {
     let target = journeyId;
     if (!target) {
-      const name = customerName.trim();
-      if (!name) throw new Error("Enter the customer's name to start the booking.");
       if (!outletId) throw new Error('Choose the outlet for this booking.');
-      // One creation even if several files are dropped at once (idempotent key).
-      creating.current ??= createP2Journey(tenantId!, { outletId, customerName: name, createdByName: signedInName || undefined }, idempotencyKey.current, accessToken)
+      // One creation even if several files are dropped at once (idempotent
+      // key). No name is asked for: the customer is named from the documents.
+      creating.current ??= createP2Journey(tenantId!, { outletId, createdByName: signedInName || undefined }, idempotencyKey.current, accessToken)
         .then((result) => result.journeyId);
       try {
         target = await creating.current;
@@ -120,7 +139,7 @@ export default function P2JourneyWorkspacePage() {
       void queryClient.invalidateQueries({ queryKey: ['p2-journeys', tenantId] });
     }
     return target;
-  }, [accessToken, customerName, journeyId, navigate, outletId, queryClient, signedInName, tab, tenantId]);
+  }, [accessToken, journeyId, navigate, outletId, queryClient, signedInName, tab, tenantId]);
 
   const getTransport = useCallback(async () => {
     const target = await ensureJourney();
@@ -177,7 +196,7 @@ export default function P2JourneyWorkspacePage() {
         eyebrow={isNew ? 'New booking' : 'Booking'}
         title={isNew ? 'New booking' : 'Upload / Edit Documents'}
         description={isNew
-          ? "Enter the customer's name and add the booking documents. Everything else is read from the documents."
+          ? 'Add the booking documents. The customer, the vehicle and the prices are read from the documents.'
           : 'Add what is missing and check what needs review. Booking and Delivery complete on their own once the documents are read.'}
         actions={(
           <div className="p2w-header-links">
@@ -189,13 +208,8 @@ export default function P2JourneyWorkspacePage() {
         )}
       />
 
-      {isNew ? (
+      {isNew && outlets.length > 1 ? (
         <section className="p2w-start" aria-label="Start booking">
-          <label>
-            <span>Customer name</span>
-            <input value={customerName} onChange={(event) => setCustomerName(event.target.value)}
-              autoComplete="off" autoFocus placeholder="As written on the booking form" />
-          </label>
           {outlets.length > 1 ? (
             <label>
               <span>Outlet</span>
@@ -250,10 +264,10 @@ export default function P2JourneyWorkspacePage() {
           {tenantId ? (
             <P2UploadPanel ref={uploadPanel} journeyId={journeyId || undefined} getTransport={getTransport} onAccepted={refresh} />
           ) : null}
-          {isNew ? null : documents.isLoading ? <div className="p2w-skeleton" aria-busy="true">Loading documents…</div> : (
+          {!isNew && documents.isLoading ? <div className="p2w-skeleton" aria-busy="true">Loading documents…</div> : (
             <P2DocumentList
               rows={rows}
-              checklist={documents.data?.checklist ?? []}
+              checklist={isNew ? expectedChecklist : (documents.data?.checklist ?? [])}
               templates={templates.data?.templates ?? []}
               selectedDocumentId={documentId}
               onOpen={openDocument}

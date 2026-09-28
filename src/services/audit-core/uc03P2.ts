@@ -498,7 +498,7 @@ export function setP2PageType(
 
 export async function createP2Journey(
   tenantId: string,
-  command: { outletId: string; customerName: string; createdByName?: string },
+  command: { outletId: string; customerName?: string; createdByName?: string },
   idempotencyKey: string,
   accessToken?: string,
 ): Promise<{ journeyId: string }> {

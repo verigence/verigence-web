@@ -171,6 +171,29 @@ jobs:
           }
           echo "WEB_ENTRY_ASSET_DEPLOYED=PASS|$asset_path"
 
+          # A hashed asset can lag the entry chunk by a few seconds at the
+          # edge right after a deploy; until it lands the Worker answers the
+          # asset path with index.html (HTTP 200), so --fail passes and the
+          # content check fails. Seen twice on 2026-09-28 (the DI console
+          # chunk at 06:22, the logo chunk at 07:47), each fine on the next
+          # deploy. Wait for the content, not just a 200.
+          fetch_asset_with() {
+            local asset="$1" marker="$2" out="$3" attempt
+            for attempt in $(seq 1 12); do
+              curl --fail --silent --show-error --location \
+                --header 'Cache-Control: no-cache' \
+                --header 'Pragma: no-cache' \
+                --output "$out" \
+                "$DEV_WEB_URL$asset?$cache_bust&try=$attempt" || true
+              if [ -s "$out" ] && grep -q "$marker" "$out"; then
+                return 0
+              fi
+              echo "Deployed asset $asset not ready yet (attempt $attempt)"
+              sleep 5
+            done
+            return 1
+          }
+
           echo "--- Approved logo deployed chunk ---"
           logo_chunk="$(grep -Rl 'data:image/png;base64,' dist/assets --include='*.js' | head -n 1)"
           [ -n "$logo_chunk" ] || {
@@ -178,25 +201,16 @@ jobs:
             exit 1
           }
           logo_asset="/assets/$(basename "$logo_chunk")"
-          curl --fail --silent --show-error --location \
-            --header 'Cache-Control: no-cache' \
-            --header 'Pragma: no-cache' \
-            --output /tmp/logo-chunk.js \
-            "$DEV_WEB_URL$logo_asset?$cache_bust"
-          if ! grep -q 'data:image/png;base64,' /tmp/logo-chunk.js; then
+          fetch_asset_with "$logo_asset" 'data:image/png;base64,' /tmp/logo-chunk.js || {
             echo "Deployed logo-bearing chunk does not contain the approved bundled PNG lockup: $logo_asset"
             exit 1
-          fi
+          }
           echo "VERIGENCE_LOGO_DEPLOYED_BUNDLE=PASS|$logo_asset"
 
           echo "--- DI Test Console deployed chunk ---"
           di_chunk="$(find dist/assets -maxdepth 1 -type f -name 'DiTestConsolePage-*.js' | head -n 1)"
           di_asset="/assets/$(basename "$di_chunk")"
-          curl --fail --silent --show-error --location \
-            --header 'Cache-Control: no-cache' \
-            --output /tmp/di-test-console.js \
-            "$DEV_WEB_URL$di_asset?$cache_bust"
-          grep -q 'DI Test Console' /tmp/di-test-console.js || {
+          fetch_asset_with "$di_asset" 'DI Test Console' /tmp/di-test-console.js || {
             echo 'Deployed DI Test Console asset does not match the built console chunk.'
             exit 1
           }

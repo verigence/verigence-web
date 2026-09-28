@@ -534,7 +534,7 @@
 .p2w-journeys { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
 .p2w-journey {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto;
+  grid-template-columns: minmax(0, 1fr) auto auto auto;
   gap: 12px;
   align-items: center;
   padding: 12px 16px;
@@ -550,6 +550,9 @@
 .p2w-journey__who { display: grid; gap: 2px; min-width: 0; }
 .p2w-journey__who strong { font-size: 1rem; }
 .p2w-journey__who span { font-size: .84rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.p2w-journey__dates { display: grid; grid-template-columns: repeat(2, minmax(110px, auto)); gap: 2px 16px; margin: 0; font-size: .84rem; }
+.p2w-journey__dates dt { color: var(--p2w-muted); font-size: .74rem; font-weight: 600; }
+.p2w-journey__dates dd { margin: 0; font-weight: 700; }
 .p2w-journey__facts { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; justify-content: flex-end; font-size: .84rem; color: var(--p2w-muted); }
 
 /* ------------------------------------------------------------ start booking */
@@ -568,7 +571,8 @@
 
 @media (max-width: 700px) {
   .p2w-journey { grid-template-columns: minmax(0, 1fr) auto; }
-  .p2w-journey__facts { grid-column: 1 / -1; grid-row: 2; justify-content: flex-start; }
+  .p2w-journey__dates { grid-column: 1 / -1; grid-row: 2; }
+  .p2w-journey__facts { grid-column: 1 / -1; grid-row: 3; justify-content: flex-start; }
   .p2w-journey .p2w-doc__chevron { grid-column: 2; grid-row: 1; }
   .p2w-start { grid-template-columns: 1fr; }
 }
@@ -683,3 +687,13 @@
   .p2w-photos__actions .p2w-button { flex: 1 1 140px; }
   .p2w-photos__grid { grid-template-columns: repeat(2, 1fr); gap: 8px; }
 }
+
+/* ----------------------------------------------------- task queue groups */
+.p2w .p2w-task-groups { display: grid; gap: 12px; }
+.p2w .p2w-task-group { border: 1px solid var(--p2w-line); border-radius: var(--p2w-radius); background: var(--p2w-soft); overflow: hidden; }
+.p2w .p2w-task-group__head { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; justify-content: space-between; padding: 10px 14px; background: #fff; border-bottom: 1px solid var(--p2w-line); }
+.p2w .p2w-task-group__toggle { display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; padding: 0; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; min-height: var(--p2w-tap); }
+.p2w .p2w-task-group__toggle strong { font-size: 1rem; }
+.p2w .p2w-task-group__toggle span[aria-hidden] { color: var(--p2w-action-soft-text); width: 12px; }
+.p2w .p2w-task-group__meta { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.p2w .p2w-task-group .p2w-tasks { margin: 0; padding: 8px; }

@@ -6,6 +6,7 @@ import '../styles/uc03-p2-workspace.css';
 
 import PageHeader from '../components/PageHeader';
 import P2VehiclePhotos from '../features/uc03-p2/photos/P2VehiclePhotos';
+import P2RecheckButton from '../features/uc03-p2/workspace/P2RecheckButton';
 import P2DocumentEditor from '../features/uc03-p2/workspace/P2DocumentEditor';
 import P2DocumentList, { buildDocumentRows } from '../features/uc03-p2/workspace/P2DocumentList';
 import P2UploadPanel from '../features/uc03-p2/workspace/P2UploadPanel';
@@ -177,6 +178,8 @@ export default function P2JourneyWorkspacePage() {
           : 'Upload, check and correct documents in one place.'}
         actions={(
           <div className="p2w-header-links">
+            {!isNew && tenantId ? <P2RecheckButton tenantId={tenantId} journeyId={journeyId} accessToken={accessToken}
+              onDone={(text, tone) => { setNotice({ text, tone }); refresh(); }} /> : null}
             {!isNew ? <Link className="p2w-link" to={`/p2/journeys/${journeyId}/overview`}>Journey 360</Link> : null}
             {!isNew ? <Link className="p2w-link" to={`/p2/journeys/${journeyId}/tasks`}>Tasks</Link> : null}
             <Link className="p2w-link" to="/p2/bookings">All bookings</Link>

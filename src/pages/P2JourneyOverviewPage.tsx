@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import '../styles/uc03-p2.css';
@@ -6,6 +7,7 @@ import '../styles/uc03-p2-journey360.css';
 
 import PageHeader from '../components/PageHeader';
 import DealTab from '../features/uc03-p2/journey360/DealTab';
+import P2RecheckButton from '../features/uc03-p2/workspace/P2RecheckButton';
 import {
   ActivityTab,
   AddonsTab,
@@ -91,6 +93,7 @@ export default function P2JourneyOverviewPage() {
   const compliance = useSection('compliance', tenantId, journeyId, accessToken, tab === 'compliance');
   const activity = useSection('activity', tenantId, journeyId, accessToken, tab === 'activity');
 
+  const [notice, setNotice] = useState<{ text: string; tone: 'success' | 'error' }>();
   const data = summary.data;
   const j = data?.journey;
   const m = data?.money;
@@ -113,8 +116,8 @@ export default function P2JourneyOverviewPage() {
       </div>
     );
   } else if (journeyId && tenantId) {
-    if (tab === 'deal' && deal.data) body = <DealTab deal={deal.data} journeyId={journeyId} />;
-    if (tab === 'addons' && addons.data) body = <AddonsTab addons={addons.data} journeyId={journeyId} />;
+    if (tab === 'deal' && deal.data) body = <DealTab deal={deal.data} journeyId={journeyId} tenantId={tenantId} accessToken={accessToken} />;
+    if (tab === 'addons' && addons.data) body = <AddonsTab addons={addons.data} journeyId={journeyId} tenantId={tenantId} accessToken={accessToken} />;
     if (tab === 'payments' && payments.data) body = <PaymentsTab payments={payments.data} journeyId={journeyId} />;
     if (tab === 'documents' && documents.data) body = <DocumentsTab data={documents.data} journeyId={journeyId} />;
     if (tab === 'vehicle' && vehicle.data) body = <VehicleTab data={vehicle.data} tenantId={tenantId} journeyId={journeyId} accessToken={accessToken} />;
@@ -135,6 +138,8 @@ export default function P2JourneyOverviewPage() {
             <Link className="p2w-link" to={`/p2/journeys/${journeyId}/documents`}>Documents</Link>
             <Link className="p2w-link" to={`/p2/journeys/${journeyId}/documents?tab=photos`}>Photos</Link>
             <Link className="p2w-link" to={`/p2/journeys/${journeyId}/tasks`}>Tasks{data?.numbers.openTasks ? ` (${data.numbers.openTasks})` : ''}</Link>
+            {tenantId ? <P2RecheckButton tenantId={tenantId} journeyId={journeyId} accessToken={accessToken}
+              onDone={(text, tone) => setNotice({ text, tone })} /> : null}
             <Link className="p2w-button p2w-button--secondary" to={`/p2/journeys/${journeyId}/compliance-report`}>Compliance report</Link>
           </div>
         ) : undefined}
@@ -147,6 +152,11 @@ export default function P2JourneyOverviewPage() {
         </div>
       ) : null}
 
+      {notice ? (
+        <div className={`p2w-alert p2w-alert--${notice.tone}`} role="status">
+          {notice.text}<button type="button" className="p2w-link" onClick={() => setNotice(undefined)} aria-label="Dismiss">×</button>
+        </div>
+      ) : null}
       <DuplicatesBanner pairs={duplicates.data?.pairs ?? []} />
 
       {data && j && m ? (

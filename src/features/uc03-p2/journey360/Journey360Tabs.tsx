@@ -15,6 +15,7 @@ import {
 import { VIEW_LABELS } from '../photos/p2PhotoUploader';
 import { displayValue, formatDateTime, humanizeKey } from '../workspace/p2Format';
 import { ChargeTable, DiscountTable } from './DealTab';
+import { LoanDisbursementDialog } from './DealControls';
 import { CONTROL_STATUS, eventLabel, money, recordField, signedMoney, varianceTone } from './j360Format';
 
 const NOISE_KEYS = new Set(['label', 'source_kind', 'addon_type_code']);
@@ -56,7 +57,10 @@ const FINANCE_LABELS: Record<string, string> = {
   disbursement_gap: 'Not yet disbursed',
 };
 
-export function AddonsTab({ addons, journeyId }: { addons: P2Addons; journeyId: string }) {
+export function AddonsTab({ addons, journeyId, tenantId, accessToken }: {
+  addons: P2Addons; journeyId: string; tenantId: string; accessToken?: string;
+}) {
+  const [loanOpen, setLoanOpen] = useState(false);
   const nothing = !addons.insurance.records.length && !addons.insurance.charges && !addons.accessories.charges
     && !addons.accessories.records.length && !addons.protection.charges && !addons.protection.records.length
     && !addons.finance.records.length && !addons.exchange.records.length && !addons.scrappage.discounts.length;
@@ -73,7 +77,11 @@ export function AddonsTab({ addons, journeyId }: { addons: P2Addons; journeyId: 
       </section>
 
       <section className="j360-card" aria-label="Loan and finance">
-        <h3 className="j360-h3">Loan / finance</h3>
+        <header className="j360-docs__head">
+          <h3 className="j360-h3">Loan / finance</h3>
+          <button type="button" className="p2w-button p2w-button--secondary" onClick={() => setLoanOpen(true)}>Set loan amount</button>
+        </header>
+        {loanOpen ? <LoanDisbursementDialog tenantId={tenantId} journeyId={journeyId} accessToken={accessToken} onClose={() => setLoanOpen(false)} /> : null}
         {addons.finance.records.length ? addons.finance.records.map((record, index) => (
           <div key={index} className="j360-finance">
             <Facts record={record} labels={FINANCE_LABELS} />

@@ -3,6 +3,13 @@ import { auditCoreRawRequest, auditCoreRequest } from './client';
 
 export type P2JourneyListItem = {
   journey_id: string;
+  journey_reference?: string | null;
+  booking_confirm_date?: string | null;
+  delivered_at?: string | null;
+  planned_delivery_at?: string | null;
+  created_at_utc?: string;
+  /** False for an existing (Phase 1) journey Phase 2 has not processed yet. */
+  phase2?: boolean;
   customer_name: string;
   mobile_last4?: string | null;
   dealer_name: string;
@@ -341,6 +348,8 @@ export type P2Task = {
   dealer_name?: string | null;
   outlet_name?: string | null;
   vehicle?: string | null;
+  journey_reference?: string | null;
+  queue_tab?: 'DOCUMENTS' | 'MANUAL_VERIFICATION' | 'OTHER';
   comment_count?: number;
   verified_at_utc?: string | null;
   completion_result?: Record<string, unknown>;
@@ -358,8 +367,11 @@ export type P2TaskEvent = {
 
 export type P2TaskDetail = P2Task & { events: P2TaskEvent[] };
 
+export type P2TaskTab = 'ALL' | 'DOCUMENTS' | 'MANUAL_VERIFICATION';
+
 export type P2TasksResponse = {
   items: P2Task[];
+  counts?: Record<P2TaskTab, number>;
   sources?: { p2: number; legacy: number };
 };
 
@@ -700,13 +712,14 @@ export function getP2Tasks(
   tenantId: string,
   accessToken?: string,
   journeyId?: string,
-  options: { view?: 'open' | 'done' | 'all'; role?: string; includeLegacy?: boolean } = {},
+  options: { view?: 'open' | 'done' | 'all'; role?: string; includeLegacy?: boolean; tab?: P2TaskTab } = {},
 ): Promise<P2TasksResponse> {
   const params = new URLSearchParams();
   if (journeyId) params.set('journey_id', journeyId);
   if (options.view) params.set('view', options.view);
   if (options.role) params.set('role', options.role);
-  if (options.includeLegacy) params.set('includeLegacy', 'true');
+  if (options.includeLegacy !== undefined) params.set('includeLegacy', String(options.includeLegacy));
+  if (options.tab && options.tab !== 'ALL') params.set('tab', options.tab);
   const query = params.toString();
   return auditCoreRequest<P2TasksResponse>(
     `${path(tenantId, '/tasks')}${query ? `?${query}` : ''}`,
@@ -997,5 +1010,60 @@ export function getDuplicateBookings(tenantId: string, accessToken?: string, inc
   return auditCoreRequest<{ generatedAtUtc: string; pairs: DuplicateBookingPair[] }>(
     `/v1/tenants/${encodeURIComponent(tenantId)}/uc03/duplicate-bookings?includeClosed=${includeClosed ? 'true' : 'false'}`,
     { accessToken },
+  );
+}
+
+// ── Deal actions: pricing date, model catalogue by date, recheck ────────────
+export type P2PriceListRef = {
+  priceListVersionId: string; priceList?: string | null; version?: number | null;
+  effectiveFrom?: string | null; effectiveTo?: string | null;
+} | null;
+
+export type P2Pricing = {
+  bookingDate?: string | null;
+  invoiceDate?: string | null;
+  appliedDate: string;
+  basis: 'BOOKING_DATE' | 'INVOICE_DATE' | 'CUSTOM';
+  reason?: string | null;
+  setByActorId?: string | null;
+  setAtUtc?: string | null;
+  appliedPriceList: P2PriceListRef;
+  appliedSchemeCount: number;
+  options: Array<{ basis: 'BOOKING_DATE' | 'INVOICE_DATE'; date: string; priceList: P2PriceListRef; schemeVersions: string[]; differsFromApplied: boolean }>;
+  sku: { productSkuId?: string | null; skuCode?: string | null; model?: string | null; variant?: string | null; colour?: string | null; selectionStatus?: string | null };
+  modelChange: 'CONFIRM_SKU' | 'PROPOSE_CORRECTION';
+  repriced?: boolean;
+  repriceNote?: string | null;
+};
+
+export type P2CatalogSku = {
+  productSkuId: string; skuCode: string; modelName: string; variantName: string | null; colourName: string | null;
+  fuel: string | null; transmission: string | null; drive: string | null; seater: string | null; trim: string | null;
+  exShowroomPrice: string | null; totalPrice: string | null;
+};
+
+export function getP2Pricing(tenantId: string, journeyId: string, accessToken?: string) {
+  return auditCoreRequest<P2Pricing>(path(tenantId, `/journeys/${encodeURIComponent(journeyId)}/pricing`), { accessToken, cache: 'no-store' });
+}
+
+export function setP2Pricing(
+  tenantId: string, journeyId: string,
+  command: { basis: P2Pricing['basis']; onDate?: string; reason?: string }, accessToken?: string,
+) {
+  return auditCoreRequest<P2Pricing>(path(tenantId, `/journeys/${encodeURIComponent(journeyId)}/pricing`), {
+    method: 'PUT', accessToken, body: JSON.stringify(command),
+  });
+}
+
+export function getP2PricingCatalog(tenantId: string, journeyId: string, onDate?: string, accessToken?: string) {
+  const query = onDate ? `?onDate=${encodeURIComponent(onDate)}` : '';
+  return auditCoreRequest<{ onDate: string; priceList: P2PriceListRef; skus: P2CatalogSku[] }>(
+    `${path(tenantId, `/journeys/${encodeURIComponent(journeyId)}/pricing/catalog`)}${query}`, { accessToken, cache: 'no-store' },
+  );
+}
+
+export function recheckP2Journey(tenantId: string, journeyId: string, accessToken?: string) {
+  return auditCoreRequest<{ journeyId: string; factVersion: number; checks: string[] }>(
+    path(tenantId, `/journeys/${encodeURIComponent(journeyId)}:recheck`), { method: 'POST', accessToken },
   );
 }

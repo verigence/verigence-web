@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 
 import type { P2Deal, P2DealCategory, P2DealRow, P2DiscountRow } from '../../../services/audit-core/uc03P2';
 import { humanizeKey } from '../workspace/p2Format';
+import { PricingPanel } from './DealControls';
 import { FLAG_LABELS, money, signedMoney, varianceTone } from './j360Format';
 
 function Flags({ flags }: { flags: string[] }) {
@@ -149,37 +150,27 @@ export function DiscountTable({ rows, journeyId, caption = 'Discounts and scheme
   );
 }
 
-export default function DealTab({ deal, journeyId }: { deal: P2Deal; journeyId: string }) {
-  const { summary, sku } = deal;
+export default function DealTab({ deal, journeyId, tenantId, accessToken }: {
+  deal: P2Deal; journeyId: string; tenantId: string; accessToken?: string;
+}) {
+  const { summary } = deal;
   const columns = [
     ['standard', 'Standard (masters)'], ['booking', 'Booking offer'], ['current', 'Current deal'],
   ] as const;
+  const pricing = <PricingPanel tenantId={tenantId} journeyId={journeyId} accessToken={accessToken} />;
   if (!deal.categories.length && !deal.discounts.length) {
     return (
-      <div className="p2w-empty">
-        No prices yet. They appear once the booking form or an invoice has been read and the vehicle SKU is identified.
+      <div className="j360-stack">
+        {pricing}
+        <div className="p2w-empty">
+          No prices yet. They appear once the booking form or an invoice has been read and the vehicle model is identified.
+        </div>
       </div>
     );
   }
   return (
     <div className="j360-stack">
-      <section className="j360-card j360-sku" aria-label="Vehicle SKU and price list">
-        <div>
-          <span className="j360-label">SKU</span>
-          <strong>{[sku.model, sku.variant, sku.colour].filter(Boolean).join(' · ') || 'Not identified yet'}</strong>
-          <span className="p2w-muted">{sku.skuCode ?? ''}</span>
-        </div>
-        <div>
-          <span className="j360-label">Price list</span>
-          <strong>{sku.priceList ?? '—'}{sku.priceListVersion ? ` · v${sku.priceListVersion}` : ''}</strong>
-          <span className="p2w-muted">{sku.priceListEffectiveFrom ? `effective ${sku.priceListEffectiveFrom}` : ''}</span>
-        </div>
-        <div>
-          <span className="j360-label">Identification</span>
-          <strong>{sku.resolution ? humanizeKey(sku.resolution) : '—'}</strong>
-          <span className="p2w-muted">{sku.method ? humanizeKey(sku.method) : ''}</span>
-        </div>
-      </section>
+      {pricing}
 
       <section className="j360-card" aria-label="Deal summary">
         <div className="j360-table-wrap">

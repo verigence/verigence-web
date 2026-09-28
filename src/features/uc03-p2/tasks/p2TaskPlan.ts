@@ -42,7 +42,12 @@ export function documentLink(task: P2Task): string | undefined {
  */
 export function taskPlan(task: P2Task, operatingRole?: string | null): TaskPlan {
   if (task.source_system === 'LEGACY') {
-    return { primary: { label: 'Open in legacy queue', to: task.legacy_queue_url || '/reviews', tone: 'secondary' }, secondary: [] };
+    // An existing (Phase 1) task: fix it on the booking's documents; its own
+    // action buttons still live in the Phase 1 queue.
+    return {
+      primary: { label: 'Open documents', to: `/p2/journeys/${task.journey_id}/documents`, tone: 'primary' },
+      secondary: [{ label: 'Open in old Task Queue', to: task.legacy_queue_url || '/reviews', tone: 'ghost' }],
+    };
   }
   const allowed = new Set(task.allowed_actions ?? []);
   const secondary: TaskAction[] = [];
@@ -114,4 +119,32 @@ export function compareTasks(a: P2Task, b: P2Task, now = Date.now()): number {
   const status = (STATUS_RANK[a.task_status] ?? 9) - (STATUS_RANK[b.task_status] ?? 9);
   if (status) return status;
   return new Date(a.created_at_utc).getTime() - new Date(b.created_at_utc).getTime();
+}
+
+export type TaskGroup = {
+  journeyId: string;
+  customerName?: string | null;
+  reference?: string | null;
+  vehicle?: string | null;
+  outletName?: string | null;
+  tasks: P2Task[];
+  overdue: number;
+};
+
+/** Tasks grouped by Journey, as in the Phase 1 queue: a Journey with anything
+ * overdue first, then the earliest due task; tasks inside keep worklist order. */
+export function groupByJourney(tasks: P2Task[], now = Date.now()): TaskGroup[] {
+  const groups = new Map<string, TaskGroup>();
+  for (const task of [...tasks].sort((a, b) => compareTasks(a, b, now))) {
+    let group = groups.get(task.journey_id);
+    if (!group) {
+      group = { journeyId: task.journey_id, customerName: task.customer_name, reference: task.journey_reference,
+        vehicle: task.vehicle, outletName: task.outlet_name, tasks: [], overdue: 0 };
+      groups.set(task.journey_id, group);
+    }
+    group.tasks.push(task);
+    if (task.due_at_utc && new Date(task.due_at_utc).getTime() < now) group.overdue += 1;
+  }
+  const earliest = (g: TaskGroup) => Math.min(...g.tasks.map((t) => (t.due_at_utc ? new Date(t.due_at_utc).getTime() : Infinity)));
+  return [...groups.values()].sort((a, b) => Number(b.overdue > 0) - Number(a.overdue > 0) || earliest(a) - earliest(b));
 }

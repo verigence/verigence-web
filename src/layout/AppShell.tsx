@@ -326,7 +326,8 @@ export default function AppShell({ children }: PropsWithChildren) {
     }
     if (role === 'PC' || role === 'TL' || role === 'PM') {
       workspaceItems.push({ ...reviewQueueItem, badge: reviewQueueCount });
-      workspaceItems.push(duplicateBookingsItem);
+      // Phase 2's Audit group has its own Duplicate bookings (opening the
+      // Phase 2 Journey 360); the Phase 1 page stays reachable by URL.
       workspaceItems.push(feedbackItem);
     }
     const workspaceGroup: NavGroup = {

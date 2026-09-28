@@ -57,3 +57,21 @@ describe('vehicle photo upload', () => {
     expect(finalizeCalls).toBe(2);
   });
 });
+
+describe('Task Queue grouping', () => {
+  it('groups by journey, overdue journeys first', async () => {
+    const { groupByJourney } = await import('../../tasks/p2TaskPlan');
+    const base = { source_system: 'P2', round_number: 1, category: 'X', origin_kind: 'SYSTEM', source_type: 'RULE', description: '',
+      reference: {}, severity: 'MEDIUM', assigned_role_code: 'PC', allowed_actions: [], completion_protocol: 'MACHINE_VERIFIED',
+      task_status: 'READY', created_at_utc: '2026-09-01T00:00:00Z', updated_at_utc: '2026-09-01T00:00:00Z', task_type: 'T' } as const;
+    const now = Date.parse('2026-09-28T00:00:00Z');
+    const groups = groupByJourney([
+      { ...base, task_id: 'a', journey_id: 'j1', title: 'A', due_at_utc: '2026-10-01T00:00:00Z', customer_name: 'One' },
+      { ...base, task_id: 'b', journey_id: 'j2', title: 'B', due_at_utc: '2026-09-20T00:00:00Z', customer_name: 'Two' },
+      { ...base, task_id: 'c', journey_id: 'j1', title: 'C', due_at_utc: '2026-09-30T00:00:00Z' },
+    ], now);
+    expect(groups.map((g) => g.journeyId)).toEqual(['j2', 'j1']);
+    expect(groups[0].overdue).toBe(1);
+    expect(groups[1].tasks.map((t) => t.task_id)).toEqual(['c', 'a']);
+  });
+});

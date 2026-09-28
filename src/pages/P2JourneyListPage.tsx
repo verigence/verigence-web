@@ -6,6 +6,12 @@ import '../styles/uc03-p2-workspace.css';
 
 import PageHeader from '../components/PageHeader';
 import { formatInr, humanizeKey } from '../features/uc03-p2/workspace/p2Format';
+
+function shortDate(value?: string | null): string | null {
+  if (!value) return null;
+  const date = new Date(value.length === 10 ? `${value}T00:00:00` : value);
+  return Number.isNaN(date.getTime()) ? value : new Intl.DateTimeFormat('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }).format(date);
+}
 import { getP2Journeys, type P2JourneyListItem } from '../services/audit-core/uc03P2';
 import { useProjectContextStore } from '../store/projectContextStore';
 import { useSessionStore } from '../store/sessionStore';
@@ -85,8 +91,15 @@ export default function P2JourneyListPage({ mode }: { mode: 'bookings' | 'journe
                 <div className="p2w-journey__who">
                   <strong>{item.customer_name}</strong>
                   <span>{item.vehicle || 'Vehicle not identified yet'}</span>
-                  <span className="p2w-muted">{item.outlet_name}</span>
+                  <span className="p2w-muted">{[item.outlet_name, item.journey_reference].filter(Boolean).join(' · ')}</span>
                 </div>
+                <dl className="p2w-journey__dates">
+                  <div><dt>Booking confirmed</dt><dd>{shortDate(item.booking_confirm_date) ?? '—'}</dd></div>
+                  <div>
+                    <dt>{item.delivered_at ? 'Delivered' : 'Delivery due'}</dt>
+                    <dd>{shortDate(item.delivered_at ?? item.planned_delivery_at) ?? '—'}</dd>
+                  </div>
+                </dl>
                 <div className="p2w-journey__facts">
                   <span className={`p2w-chip p2w-chip--${stageTone(item)}`}>
                     {STAGE_LABEL[item.current_stage] ?? humanizeKey(item.current_stage)}

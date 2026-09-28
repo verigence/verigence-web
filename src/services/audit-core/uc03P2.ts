@@ -315,6 +315,10 @@ export type P2DocumentReviewField = {
   reviewedAtUtc?: string | null;
   pageNo: number | null;
   evidenceRegion: Record<string, unknown> | null;
+  /** Why Audit Core wants this value looked at (LOW_CONFIDENCE,
+   * DATE_BEFORE_FLOOR, DATE_UNREADABLE); empty when it stands as read.
+   * Absent from an older Audit Core, in which case the confidence decides. */
+  reviewReasons?: string[];
 };
 
 export type P2DocumentReview = {

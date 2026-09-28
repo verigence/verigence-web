@@ -46,6 +46,7 @@ export default function P2JourneyWorkspacePage() {
   const tenantId = useProjectContextStore((s) => s.selectedProject?.tenantId);
   const accessToken = useSessionStore((s) => s.accessToken);
   const workingOutletId = useSessionStore((s) => s.outletId);
+  const signedInName = useSessionStore((s) => s.displayName);
   const outlets = useProjectContextStore((s) => s.selectedProject?.scope.outlets ?? []);
   const queryClient = useQueryClient();
   // New booking and an existing booking are the same screen: until the first
@@ -106,7 +107,7 @@ export default function P2JourneyWorkspacePage() {
       if (!name) throw new Error("Enter the customer's name to start the booking.");
       if (!outletId) throw new Error('Choose the outlet for this booking.');
       // One creation even if several files are dropped at once (idempotent key).
-      creating.current ??= createP2Journey(tenantId!, { outletId, customerName: name }, idempotencyKey.current, accessToken)
+      creating.current ??= createP2Journey(tenantId!, { outletId, customerName: name, createdByName: signedInName || undefined }, idempotencyKey.current, accessToken)
         .then((result) => result.journeyId);
       try {
         target = await creating.current;
@@ -119,7 +120,7 @@ export default function P2JourneyWorkspacePage() {
       void queryClient.invalidateQueries({ queryKey: ['p2-journeys', tenantId] });
     }
     return target;
-  }, [accessToken, customerName, journeyId, navigate, outletId, queryClient, tab, tenantId]);
+  }, [accessToken, customerName, journeyId, navigate, outletId, queryClient, signedInName, tab, tenantId]);
 
   const getTransport = useCallback(async () => {
     const target = await ensureJourney();

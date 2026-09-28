@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 
 import type { P2JourneyListItem } from '../../../services/audit-core/uc03P2';
+import { signedMoney, varianceTone } from '../journey360/j360Format';
 
 /** The six steps of a Journey, Booking then Delivery. */
 export const JOURNEY_STEPS = [
@@ -45,12 +46,14 @@ export function customerLabel(name: string | null | undefined): { text: string; 
   return { text: trimmed, known: true };
 }
 
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+/** "27 Sep": short enough for a table cell, unambiguous for a PC. */
 export function shortDate(value?: string | null): string | null {
   if (!value) return null;
   const date = new Date(value.length === 10 ? `${value}T00:00:00` : value);
-  return Number.isNaN(date.getTime())
-    ? value
-    : new Intl.DateTimeFormat('en-IN', { day: '2-digit', month: 'short' }).format(date);
+  if (Number.isNaN(date.getTime())) return value;
+  return `${String(date.getDate()).padStart(2, '0')} ${MONTHS[date.getMonth()]}`;
 }
 
 export type Priority = 'overdue' | 'action' | 'waiting' | 'ok' | 'closed';
@@ -124,9 +127,10 @@ function Steps({ active, cancelled }: { active: number; cancelled: boolean }) {
 }
 
 /**
- * One journey per row: who and which car, the reference and outlet, how far
- * along, what it needs next, the dates, and an Actions menu (Complete
- * journey, Journey 360, the tasks for your role).
+ * One journey per row: who and which car, the price against standard, how
+ * far along, what it needs next, the booking and gate pass dates, for a TL
+ * or PM the dealer, outlet and PC, and an Actions menu (Complete journey,
+ * Journey 360, the tasks for your role).
  */
 export default function JourneyRow({ item, role }: { item: P2JourneyListItem; role?: string }) {
   const delivered = Boolean(item.delivery_completed_at);
@@ -149,12 +153,15 @@ export default function JourneyRow({ item, role }: { item: P2JourneyListItem; ro
         <Link to={item.closed ? overview : documents} className={`p2w-jrow__name${customer.known ? '' : ' is-unknown'}`}>{customer.text}</Link>
         <span className={item.vehicle ? '' : 'is-unknown'}>{item.vehicle || 'Vehicle not identified yet'}</span>
       </td>
-      <td className="p2w-jrow__ref" data-label="Journey">
-        <span>{item.journey_reference || '—'}</span>
-        {/* A PC works one outlet and knows it; a TL or PM covers several
-            and needs to see which dealer and outlet each journey is at. */}
-        {role !== 'PC' ? <span className="p2w-muted">{item.dealer_name}</span> : null}
-        {role !== 'PC' ? <span className="p2w-muted">{item.outlet_name}</span> : null}
+      <td className="p2w-jrow__price" data-label="Price">
+        {item.price_variance === null || item.price_variance === undefined ? (
+          <span className="p2w-muted">Not priced yet</span>
+        ) : (
+          <>
+            <strong className={varianceTone(item.price_variance)}>{signedMoney(item.price_variance)}</strong>
+            <span className="p2w-muted">{Number(item.price_variance) === 0 ? 'At standard' : Number(item.price_variance) < 0 ? 'Below standard' : 'Above standard'}</span>
+          </>
+        )}
       </td>
       <td className="p2w-jrow__stage" data-label="Stage">
         {stageChip}
@@ -166,12 +173,16 @@ export default function JourneyRow({ item, role }: { item: P2JourneyListItem; ro
         {next.detail ? <span className="p2w-muted">{next.detail}</span> : null}
       </td>
       <td className="p2w-jrow__when" data-label="Dates">
-        <span>{item.booking_confirm_date ? `Booked ${shortDate(item.booking_confirm_date)}` : `Started ${shortDate(item.created_at_utc) ?? '—'}`}</span>
-        <span className="p2w-muted">
-          {item.delivery_completed_at ? `Delivered ${shortDate(item.delivery_completed_at)}`
-            : item.planned_delivery_at ? `Delivery ${shortDate(item.planned_delivery_at)}` : 'No delivery date'}
-        </span>
+        <span>{item.booking_confirm_date ? `Booked ${shortDate(item.booking_confirm_date)}` : 'Not booked yet'}</span>
+        <span className="p2w-muted">{item.delivered_at ? `Gate pass ${shortDate(item.delivered_at)}` : 'No gate pass yet'}</span>
       </td>
+      {role !== 'PC' ? (
+        <td className="p2w-jrow__where" data-label="Where">
+          <span>{item.dealer_name}</span>
+          <span className="p2w-muted">{item.outlet_name}</span>
+          <span className="p2w-muted">{item.pc_name ? `PC ${item.pc_name}` : 'PC not recorded'}</span>
+        </td>
+      ) : null}
       <td className="p2w-jrow__act">
         <details className="p2w-menu">
           <summary className="p2w-button p2w-button--secondary" aria-label={`Actions for ${customer.text}`}>Actions</summary>

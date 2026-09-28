@@ -184,6 +184,28 @@
 .j360 .j360-timeline li { display: grid; grid-template-columns: 160px 1fr; gap: 2px 12px; padding: 9px 0; border-top: 1px solid var(--p2w-line); }
 .j360 .j360-timeline li:first-child { border-top: 0; }
 .j360 .j360-timeline time { grid-row: span 2; color: var(--p2w-muted); font-size: .85rem; }
+.j360 .j360-kind { display: inline-block; margin-right: 8px; padding: 1px 7px; border-radius: 999px; background: var(--p2w-soft); color: var(--p2w-muted); font-size: .7rem; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; vertical-align: middle; }
+.j360 .j360-kind.is-document { background: var(--p2w-progress-bg); color: var(--p2w-progress); }
+.j360 .j360-kind.is-task { background: var(--p2w-review-bg); color: var(--p2w-review); }
+.j360 .j360-kind.is-stage { background: var(--p2w-success-bg); color: var(--p2w-success); }
+.j360 .j360-kind.is-check { background: #fff4e0; color: #8a5a00; }
+.j360 .j360-kind.is-review { background: var(--p2w-action-soft); color: var(--p2w-action-soft-text); }
+
+/* Milestones: a vertical line of steps with the time between them. */
+.j360 .j360-miles { list-style: none; margin: 0; padding: 0; display: grid; }
+.j360 .j360-miles li { position: relative; display: grid; grid-template-columns: 140px 1fr; gap: 0 12px; padding: 8px 0 8px 22px; }
+.j360 .j360-miles li::before { content: ''; position: absolute; left: 4px; top: 14px; width: 10px; height: 10px; border-radius: 50%; background: var(--p2w-success); box-shadow: 0 0 0 3px var(--p2w-success-bg); }
+.j360 .j360-miles li::after { content: ''; position: absolute; left: 8px; top: 26px; bottom: -10px; border-left: 2px solid var(--p2w-line); }
+.j360 .j360-miles li:last-child::after { display: none; }
+.j360 .j360-miles li.is-todo::before { background: #fff; box-shadow: inset 0 0 0 2px var(--p2w-line); }
+.j360 .j360-miles li.is-todo strong { color: var(--p2w-muted); font-weight: 600; }
+.j360 .j360-miles time { grid-row: span 2; color: var(--p2w-muted); font-size: .85rem; }
+.j360 .j360-miles strong { font-size: .95rem; }
+.j360 .j360-miles span { font-size: .82rem; }
+@media (max-width: 640px) {
+  .j360 .j360-miles li { grid-template-columns: 1fr; }
+  .j360 .j360-miles time { grid-row: auto; }
+}
 
 .j360 .j360-dupes { display: block; }
 .j360 .j360-dupes ul { margin: 6px 0 0; padding-left: 18px; }

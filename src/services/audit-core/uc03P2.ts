@@ -997,6 +997,24 @@ export type P2SectionMap = {
   duplicates: { pairs: P2DuplicatePair[] };
   'compliance-report': P2ComplianceReport;
   timeline: P2Timeline;
+  audit: P2AuditTrail;
+};
+
+export type P2AuditTrail = {
+  pc?: string | null;
+  milestones: Array<{ key: string; label: string; atUtc: string; who?: string | null; hoursSincePrevious: number | null }>;
+  pending: Array<{ key: string; label: string }>;
+  tasks: {
+    summary: { opened: number; closed: number; open: number; avgHoursToClose: number | null };
+    items: Array<{
+      taskId: string; title: string; category: string; taskType: string; role: string; raisedBy?: string | null;
+      severity: string; status: string; openedAtUtc: string; closedAtUtc?: string | null; hoursOpen: number | null;
+    }>;
+  };
+  events: Array<{
+    atUtc: string; kind: 'journey' | 'document' | 'review' | 'stage' | 'check' | 'task' | 'other';
+    type: string; subject?: string | null; who?: string | null; details?: Record<string, unknown> | null;
+  }>;
 };
 
 export function getP2Journey360(tenantId: string, journeyId: string, accessToken?: string): Promise<P2Journey360> {

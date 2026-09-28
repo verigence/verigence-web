@@ -153,7 +153,7 @@ export default function JourneyRow({ item, role }: { item: P2JourneyListItem; ro
         <Link to={item.closed ? overview : documents} className={`p2w-jrow__name${customer.known ? '' : ' is-unknown'}`}>{customer.text}</Link>
         <span className={item.vehicle ? '' : 'is-unknown'}>{item.vehicle || 'Vehicle not identified yet'}</span>
       </td>
-      <td className="p2w-jrow__price" data-label="Price">
+      <td className="p2w-jrow__price" data-label="Price variance">
         {item.price_variance === null || item.price_variance === undefined ? (
           <span className="p2w-muted">Not priced yet</span>
         ) : (

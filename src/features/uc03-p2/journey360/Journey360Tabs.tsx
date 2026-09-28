@@ -396,6 +396,129 @@ export function ActivityTab({ data }: { data: P2SectionMap['activity'] }) {
   );
 }
 
+// ── Audit trail: milestones, tasks and every event, in order ────────────────
+function elapsed(hours: number | null | undefined): string {
+  if (hours === null || hours === undefined) return '';
+  if (hours < 1) return `${Math.max(1, Math.round(hours * 60))} min`;
+  if (hours < 48) return `${hours.toFixed(1)} h`;
+  return `${(hours / 24).toFixed(1)} days`;
+}
+
+const KIND_LABEL: Record<string, string> = {
+  journey: 'Journey', document: 'Documents', review: 'Review', stage: 'Stages', check: 'Checks', task: 'Tasks', other: 'Other',
+};
+
+const TASK_STATUS_LABEL: Record<string, string> = {
+  READY: 'Open', IN_PROGRESS: 'In progress', RETURNED: 'Returned', VERIFYING: 'Verifying', ACTION_COMPLETED: 'Verifying',
+  AWAITING_REQUESTER_REVIEW: 'Awaiting review', VERIFIED_COMPLETE: 'Closed', CANCELLED: 'Cancelled', FAILED: 'Failed', DEAD_LETTER: 'Failed',
+};
+
+function eventSummary(event: P2SectionMap['audit']['events'][number]): string {
+  const d = event.details ?? {};
+  const bits = [
+    event.kind === 'task' && event.subject ? event.subject : null,
+    event.kind === 'check' && event.subject ? humanizeKey(event.subject) : null,
+    typeof d.documentType === 'string' ? humanizeKey(d.documentType) : null,
+    typeof d.filename === 'string' ? d.filename : null,
+    typeof d.to === 'string' ? `→ ${humanizeKey(d.to)}` : null,
+    typeof d.reason === 'string' && d.reason.length < 140 ? d.reason : null,
+    typeof d.comment === 'string' ? `“${d.comment}”` : null,
+    event.kind === 'stage' && event.subject ? humanizeKey(event.subject) : null,
+  ].filter(Boolean);
+  return bits.join(' · ');
+}
+
+export function AuditTab({ data }: { data: P2SectionMap['audit'] }) {
+  const [kind, setKind] = useState<string>('all');
+  const counts = useMemo(() => {
+    const out: Record<string, number> = {};
+    data.events.forEach((e) => { out[e.kind] = (out[e.kind] ?? 0) + 1; });
+    return out;
+  }, [data.events]);
+  const events = kind === 'all' ? data.events : data.events.filter((e) => e.kind === kind);
+  const t = data.tasks.summary;
+  const total = data.milestones.length > 1
+    ? (new Date(data.milestones[data.milestones.length - 1].atUtc).getTime() - new Date(data.milestones[0].atUtc).getTime()) / 3_600_000
+    : null;
+  return (
+    <div className="j360-stack">
+      <div className="j360-grid">
+        <section className="j360-card" aria-label="Milestones">
+          <h3 className="j360-h3">Milestones{total !== null ? <span className="p2w-muted"> · {elapsed(total)} so far</span> : null}</h3>
+          <ol className="j360-miles">
+            {data.milestones.map((m) => (
+              <li key={m.key} className="is-done">
+                <time dateTime={m.atUtc}>{formatDateTime(m.atUtc)}</time>
+                <strong>{m.label}</strong>
+                <span className="p2w-muted">
+                  {m.who ? m.who : ''}{m.who && m.hoursSincePrevious !== null ? ' · ' : ''}
+                  {m.hoursSincePrevious !== null ? `${elapsed(m.hoursSincePrevious)} after the previous step` : ''}
+                </span>
+              </li>
+            ))}
+            {data.pending.map((m) => (
+              <li key={m.key} className="is-todo">
+                <time>—</time>
+                <strong>{m.label}</strong>
+                <span className="p2w-muted">Not yet</span>
+              </li>
+            ))}
+          </ol>
+        </section>
+        <section className="j360-card" aria-label="Tasks">
+          <h3 className="j360-h3">Tasks</h3>
+          <dl className="j360-facts">
+            <div><dt>Opened</dt><dd>{t.opened}</dd></div>
+            <div><dt>Closed</dt><dd>{t.closed}</dd></div>
+            <div><dt>Still open</dt><dd>{t.open}</dd></div>
+            <div><dt>Avg. time to close</dt><dd>{t.avgHoursToClose === null ? '—' : elapsed(t.avgHoursToClose)}</dd></div>
+          </dl>
+          {data.tasks.items.length ? (
+            <div className="j360-table-wrap">
+              <table className="j360-table">
+                <thead><tr><th scope="col">Task</th><th scope="col">For</th><th scope="col">Opened</th><th scope="col">Closed</th><th scope="col" className="is-num">Time open</th></tr></thead>
+                <tbody>
+                  {data.tasks.items.map((task) => (
+                    <tr key={task.taskId}>
+                      <th scope="row">{task.title}<span className="p2w-muted"> · {TASK_STATUS_LABEL[task.status] ?? humanizeKey(task.status)}</span></th>
+                      <td data-label="For">{task.role}{task.raisedBy ? <span className="p2w-muted"> · by {task.raisedBy}</span> : null}</td>
+                      <td data-label="Opened">{formatDateTime(task.openedAtUtc)}</td>
+                      <td data-label="Closed">{task.closedAtUtc ? formatDateTime(task.closedAtUtc) : '—'}</td>
+                      <td className="is-num" data-label="Time open">{task.hoursOpen === null ? 'still open' : elapsed(task.hoursOpen)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : <p className="p2w-muted">No tasks were raised on this journey.</p>}
+        </section>
+      </div>
+      <section className="j360-card" aria-label="Everything that happened">
+        <div className="j360-docs__head">
+          <h3 className="j360-h3">Everything that happened</h3>
+          <div className="p2w-segment" role="tablist" aria-label="Filter events">
+            <button type="button" role="tab" aria-selected={kind === 'all'} className={kind === 'all' ? 'is-active' : ''} onClick={() => setKind('all')}>All <b>{data.events.length}</b></button>
+            {Object.entries(KIND_LABEL).filter(([key]) => counts[key]).map(([key, label]) => (
+              <button key={key} type="button" role="tab" aria-selected={kind === key} className={kind === key ? 'is-active' : ''} onClick={() => setKind(key)}>{label} <b>{counts[key]}</b></button>
+            ))}
+          </div>
+        </div>
+        {events.length ? (
+          <ol className="j360-timeline">
+            {events.map((event, index) => (
+              <li key={`${event.atUtc}-${index}`}>
+                <time dateTime={event.atUtc}>{formatDateTime(event.atUtc)}</time>
+                <strong><span className={`j360-kind is-${event.kind}`}>{KIND_LABEL[event.kind] ?? 'Other'}</span>{eventLabel(event.type)}{event.who ? <span className="p2w-muted"> · {event.who}</span> : null}</strong>
+                {eventSummary(event) ? <span className="p2w-muted">{eventSummary(event)}</span> : null}
+              </li>
+            ))}
+          </ol>
+        ) : <Empty>Nothing recorded yet.</Empty>}
+      </section>
+    </div>
+  );
+}
+
 // ── Duplicate booking banner ────────────────────────────────────────────────
 export function DuplicatesBanner({ pairs }: { pairs: P2DuplicatePair[] }) {
   if (!pairs.length) return null;

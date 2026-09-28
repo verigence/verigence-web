@@ -17,6 +17,7 @@ import {
   DeliveryTab,
   DocumentsTab,
   DuplicatesBanner,
+  InvoicesTab,
   PaymentsTab,
   RegistrationTab,
   TimelineTab,
@@ -35,6 +36,7 @@ import { useSessionStore } from '../store/sessionStore';
 
 const TABS = [
   { key: 'deal', label: 'Deal' },
+  { key: 'invoices', label: 'Invoices' },
   { key: 'addons', label: 'Add-ons' },
   { key: 'payments', label: 'Payments' },
   { key: 'documents', label: 'Documents' },
@@ -92,6 +94,7 @@ export default function P2JourneyOverviewPage() {
   });
   const duplicates = useSection('duplicates', tenantId, journeyId, accessToken);
   const deal = useSection('deal', tenantId, journeyId, accessToken, tab === 'deal');
+  const invoices = useSection('invoices', tenantId, journeyId, accessToken, tab === 'invoices');
   const addons = useSection('addons', tenantId, journeyId, accessToken, tab === 'addons');
   const payments = useSection('payments', tenantId, journeyId, accessToken, tab === 'payments');
   const documents = useSection('documents', tenantId, journeyId, accessToken, tab === 'documents');
@@ -117,7 +120,7 @@ export default function P2JourneyOverviewPage() {
     setSearch(params, { replace: true });
   };
 
-  const active = { deal, addons, payments, documents, vehicle, tradein, customer, registration, delivery, compliance, activity, timeline, audit }[tab];
+  const active = { deal, invoices, addons, payments, documents, vehicle, tradein, customer, registration, delivery, compliance, activity, timeline, audit }[tab];
   let body: React.ReactNode = null;
   if (active.isLoading) body = <div className="p2w-skeleton" aria-busy="true">Loading…</div>;
   else if (active.isError) {
@@ -133,6 +136,7 @@ export default function P2JourneyOverviewPage() {
     if (tab === 'payments' && payments.data) body = <PaymentsTab payments={payments.data} journeyId={journeyId} />;
     if (tab === 'documents' && documents.data) body = <DocumentsTab data={documents.data} journeyId={journeyId} />;
     if (tab === 'vehicle' && vehicle.data) body = <VehicleTab data={vehicle.data} tenantId={tenantId} journeyId={journeyId} accessToken={accessToken} />;
+    if (tab === 'invoices' && invoices.data) body = <InvoicesTab data={invoices.data} journeyId={journeyId} />;
     if (tab === 'tradein' && tradein.data) body = <TradeInTab data={tradein.data} />;
     if (tab === 'customer' && customer.data) body = <CustomerTab data={customer.data} />;
     if (tab === 'registration' && registration.data) body = <RegistrationTab data={registration.data} journeyId={journeyId} />;

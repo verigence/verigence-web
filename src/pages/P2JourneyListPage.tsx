@@ -1,4 +1,4 @@
-import { useDeferredValue, useState } from 'react';
+import { useDeferredValue, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import '../styles/uc03-p2.css';
@@ -6,15 +6,13 @@ import '../styles/uc03-p2-workspace.css';
 import '../styles/uc03-p2-cards.css';
 
 import PageHeader from '../components/PageHeader';
-import JourneyCard from '../features/uc03-p2/bookings/JourneyCard';
-import { getP2BookingsSummary, getP2Journeys } from '../services/audit-core/uc03P2';
+import JourneyCard, { nextAction, PRIORITY_LABEL, type Priority } from '../features/uc03-p2/bookings/JourneyCard';
+import { getP2Journeys, type P2JourneyListItem } from '../services/audit-core/uc03P2';
 import { useProjectContextStore } from '../store/projectContextStore';
 import { useSessionStore } from '../store/sessionStore';
 
-function hours(value?: number | null): string {
-  if (value === null || value === undefined) return '—';
-  return value >= 48 ? `${(value / 24).toFixed(1)} days` : `${value.toFixed(1)} h`;
-}
+const RANK: Record<Priority, number> = { overdue: 0, action: 1, waiting: 2, ok: 3, closed: 4 };
+const FILTERS: Priority[] = ['overdue', 'action', 'waiting', 'ok'];
 
 function useJourneys(tenantId: string | undefined, accessToken: string | undefined, search: string, state: 'open' | 'closed', enabled = true) {
   return useQuery({
@@ -26,32 +24,33 @@ function useJourneys(tenantId: string | undefined, accessToken: string | undefin
 }
 
 /**
- * Booking & Delivery: every open journey as one card (customer, vehicle,
- * where it stands, what waits on the PC), the week and month at a glance,
- * search, and New booking. Each card opens Documents (the working screen)
- * or Journey 360 (the full picture); there is no separate Journey 360 list.
+ * Booking & Delivery: every open journey as one card, most urgent first,
+ * each led by what it needs next. From a card: Complete journey (the
+ * documents workspace), Journey 360, and the tasks for your role.
  */
 export default function P2JourneyListPage() {
   const tenantId = useProjectContextStore((s) => s.selectedProject?.tenantId);
+  const role = useProjectContextStore((s) => s.selectedProject?.operatingRole);
   const accessToken = useSessionStore((s) => s.accessToken);
   const [search, setSearch] = useState('');
+  const [filter, setFilter] = useState<Priority>();
   const [showClosed, setShowClosed] = useState(false);
   const deferredSearch = useDeferredValue(search);
   const searching = Boolean(deferredSearch.trim());
   const open = useJourneys(tenantId, accessToken, deferredSearch, 'open');
   const closed = useJourneys(tenantId, accessToken, deferredSearch, 'closed', showClosed || searching);
-  // The list is what the screen is for; the summary strip follows once the
-  // list has answered (either way) so the two tenant-wide reads never
-  // compete for the same Audit Core worker threads and database connections
-  // on a page open.
-  const summary = useQuery({
-    queryKey: ['p2-bookings-summary', tenantId],
-    queryFn: () => getP2BookingsSummary(tenantId!, accessToken),
-    enabled: Boolean(tenantId && accessToken && open.isFetched),
-    staleTime: 60_000,
-  });
-  const s = summary.data;
-  const openItems = open.data?.items ?? [];
+
+  const ranked = useMemo(() => {
+    const items = (open.data?.items ?? []).map((item) => ({ item, priority: nextAction(item, role).priority }));
+    items.sort((a, b) => RANK[a.priority] - RANK[b.priority]);
+    return items;
+  }, [open.data, role]);
+  const tally = useMemo(() => {
+    const counts: Record<Priority, number> = { overdue: 0, action: 0, waiting: 0, ok: 0, closed: 0 };
+    ranked.forEach(({ priority }) => { counts[priority] += 1; });
+    return counts;
+  }, [ranked]);
+  const visible: P2JourneyListItem[] = ranked.filter(({ priority }) => !filter || priority === filter).map(({ item }) => item);
   const closedItems = closed.data?.items ?? [];
 
   return (
@@ -59,20 +58,9 @@ export default function P2JourneyListPage() {
       <PageHeader
         eyebrow="Booking & Delivery"
         title="Booking & Delivery"
-        description="Every open booking and delivery. Open one to add documents, or see its Journey 360."
+        description="Every open journey, most urgent first. Each card says what it needs next."
         actions={<Link className="p2w-button p2w-button--primary p2w-button--lg" to="/p2/journeys/new/documents">New booking</Link>}
       />
-
-      {s ? (
-        <dl className="p2w-stats" aria-label="Summary">
-          <div><dt>Open bookings</dt><dd>{s.open.bookings}</dd></div>
-          <div><dt>Open deliveries</dt><dd>{s.open.deliveries}</dd></div>
-          <div><dt>New this week</dt><dd>{s.week.bookingsStarted}</dd></div>
-          <div><dt>Completed this week</dt><dd>{s.week.bookingsCompleted + s.week.deliveriesCompleted}</dd></div>
-          <div><dt>New this month</dt><dd>{s.month.bookingsStarted}</dd></div>
-          <div><dt>Avg. booking time</dt><dd>{hours(s.month.avgBookingHours)}</dd></div>
-        </dl>
-      ) : null}
 
       <div className="p2w-listbar">
         <label className="p2w-search">
@@ -82,6 +70,18 @@ export default function P2JourneyListPage() {
         </label>
         {open.isFetching ? <span className="p2w-muted">Loading…</span> : null}
       </div>
+
+      {open.data ? (
+        <div className="p2w-prio" role="group" aria-label="Priority">
+          {FILTERS.map((key) => (
+            <button key={key} type="button" className={`p2w-prio__item is-${key}${filter === key ? ' is-on' : ''}`}
+              aria-pressed={filter === key} disabled={!tally[key] && filter !== key}
+              onClick={() => setFilter((current) => (current === key ? undefined : key))}>
+              <strong>{tally[key]}</strong><span>{PRIORITY_LABEL[key]}</span>
+            </button>
+          ))}
+        </div>
+      ) : null}
 
       {open.isError ? (
         <div className="p2w-alert p2w-alert--error" role="alert">
@@ -96,13 +96,18 @@ export default function P2JourneyListPage() {
       ) : null}
 
       <section aria-label="Open">
-        <h2 className="p2w-section-title">Open {open.isError ? null : <span className="p2w-muted">{openItems.length}</span>}</h2>
+        <h2 className="p2w-section-title">
+          {filter ? PRIORITY_LABEL[filter] : 'Open'} {open.isError ? null : <span className="p2w-muted">{visible.length}</span>}
+          {filter ? <button type="button" className="p2w-link" onClick={() => setFilter(undefined)}>Show all</button> : null}
+        </h2>
         <ul className="p2w-jgrid">
-          {openItems.map((item) => <JourneyCard key={item.journey_id} item={item} />)}
+          {visible.map((item) => <JourneyCard key={item.journey_id} item={item} role={role} />)}
           {open.isLoading ? <li className="p2w-skeleton">Loading…</li> : null}
-          {!open.isLoading && !openItems.length && !open.isError ? (
+          {!open.isLoading && !visible.length && !open.isError ? (
             <li className="p2w-empty">
-              {searching ? 'No open journeys match this search.' : 'No open bookings. Start one with New booking.'}
+              {searching ? 'No open journeys match this search.'
+                : filter ? `Nothing ${PRIORITY_LABEL[filter].toLowerCase()} right now.`
+                  : 'No open bookings. Start one with New booking.'}
             </li>
           ) : null}
         </ul>
@@ -118,7 +123,7 @@ export default function P2JourneyListPage() {
         </h2>
         {showClosed || searching ? (
           <ul className="p2w-jgrid">
-            {closedItems.map((item) => <JourneyCard key={item.journey_id} item={item} />)}
+            {closedItems.map((item) => <JourneyCard key={item.journey_id} item={item} role={role} />)}
             {closed.isLoading ? <li className="p2w-skeleton">Loading…</li> : null}
             {!closed.isLoading && !closedItems.length ? <li className="p2w-empty">No closed journeys{searching ? ' match this search' : ''}.</li> : null}
           </ul>

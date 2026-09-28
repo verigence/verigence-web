@@ -11,7 +11,7 @@ import P2RecheckButton from '../features/uc03-p2/workspace/P2RecheckButton';
 import P2UploadStatus from '../features/uc03-p2/workspace/P2UploadStatus';
 import { useP2LiveStatus } from '../features/uc03-p2/workspace/useP2LiveStatus';
 import P2DocumentEditor from '../features/uc03-p2/workspace/P2DocumentEditor';
-import P2DocumentList, { buildDocumentRows } from '../features/uc03-p2/workspace/P2DocumentList';
+import P2DocumentList, { buildDocumentRows, checklistRequirements } from '../features/uc03-p2/workspace/P2DocumentList';
 import P2UploadPanel, { type P2UploadPanelHandle } from '../features/uc03-p2/workspace/P2UploadPanel';
 import { BATCH_IN_FLIGHT, formatInr, PAGE_IN_FLIGHT } from '../features/uc03-p2/workspace/p2Format';
 import { useP2EventFeed } from '../features/uc03-p2/workspace/useP2EventFeed';
@@ -83,6 +83,8 @@ export default function P2JourneyWorkspacePage() {
     () => buildDocumentRows(documents.data?.batches ?? [], documents.data?.documents ?? []),
     [documents.data],
   );
+  const checklist = documents.data?.checklist;
+  const requirements = useMemo(() => checklistRequirements(checklist ?? []), [checklist]);
   const inFlight = rows.some((row) => PAGE_IN_FLIGHT.has(row.status))
     || (documents.data?.batches ?? []).some((batch) => BATCH_IN_FLIGHT.has(batch.batch_status));
   const detailKeys = [['p2-documents', tenantId, journeyId], ['p2-stage', tenantId, journeyId], ['p2-tasks', tenantId],
@@ -175,14 +177,29 @@ export default function P2JourneyWorkspacePage() {
   const minimum = Number(booking?.minimumBookingAmount || 0);
   const removeName = rows.find((row) => row.documentId === removeTarget)?.name ?? 'this document';
 
+  // What to do next, most urgent first: failed uploads, documents to check,
+  // required documents still missing for the stage in hand, then the next
+  // booking gate. The cards below carry the same facts one by one.
+  const bookingDone = booking?.bookingCompletionState === 'COMPLETE';
+  const stageNow = bookingDone ? 'DELIVERY' : 'BOOKING';
+  const failedRows = rows.filter((row) => row.status === 'FAILED' || row.status === 'DEAD_LETTER');
+  const reviewRows = rows.filter((row) => row.status === 'NEEDS_REVIEW');
+  const missingRequired = requirements.filter((item) => item.stage === stageNow && item.status === 'MISSING' && item.requirement !== 'OPTIONAL');
+  const names = (list: string[]) => (list.length > 3 ? `${list.slice(0, 3).join(', ')} +${list.length - 3}` : list.join(', '));
+  const todo: Array<{ key: string; tone: string; text: string }> = [];
+  if (failedRows.length) todo.push({ key: 'failed', tone: 'danger', text: `Retry ${failedRows.length} failed upload${failedRows.length === 1 ? '' : 's'}` });
+  if (reviewRows.length) todo.push({ key: 'review', tone: 'review', text: `Check ${names(reviewRows.map((row) => row.name))}` });
+  if (missingRequired.length) todo.push({ key: 'missing', tone: 'missing', text: `Add ${names(missingRequired.map((item) => item.label))}` });
+  if (!todo.length && !bookingDone) todo.push({ key: 'gate', tone: 'next', text: nextGate?.action || 'Verify the highlighted fields.' });
+
   return (
     <div className={`screen-stack p2-screen p2w${documentId ? ' has-selection' : ''}`}>
       <PageHeader
         eyebrow={isNew ? 'New booking' : 'Booking'}
-        title={isNew ? 'New booking' : 'Documents'}
+        title={isNew ? 'New booking' : 'Complete journey'}
         description={isNew
           ? "Enter the customer's name and add the booking documents. Everything else is read from the documents."
-          : 'Upload, check and correct documents in one place.'}
+          : 'Add what is missing and check what needs review. Booking and Delivery complete on their own once the documents are read.'}
         actions={(
           <div className="p2w-header-links">
             {!isNew && tenantId ? <P2RecheckButton tenantId={tenantId} journeyId={journeyId} accessToken={accessToken}
@@ -230,12 +247,14 @@ export default function P2JourneyWorkspacePage() {
             ))}
           </ol>
           <div className="p2w-readiness__next">
-            {booking.bookingCompletionState === 'COMPLETE' ? (
+            {bookingDone && !todo.length ? (
               <strong className="p2w-tone p2w-tone--success">Booking complete</strong>
             ) : (
               <>
-                <span>Next</span>
-                <strong>{nextGate?.action || 'Verify the highlighted fields.'}</strong>
+                <span>{bookingDone ? 'Next · Delivery' : 'Next'}</span>
+                <ol className="p2w-todo">
+                  {todo.map((entry) => <li key={entry.key} className={`is-${entry.tone}`}>{entry.text}</li>)}
+                </ol>
               </>
             )}
           </div>

@@ -26,14 +26,13 @@ export function activeStep(stage: string, delivered?: boolean): number {
   }
 }
 
-/** What the journey is waiting for, in the PC's words. */
 const STEP_NOW: Record<number, string> = {
-  0: 'Booking: add documents',
-  1: 'Booking: verify documents',
-  2: 'Booking: completing',
-  3: 'Delivery: add documents',
-  4: 'Delivery: verify documents',
-  5: 'Delivery: completing',
+  0: 'Add the booking documents',
+  1: 'Verify the booking documents',
+  2: 'Booking is completing',
+  3: 'Add the delivery documents',
+  4: 'Verify the delivery documents',
+  5: 'Delivery is completing',
 };
 
 const PHASES = [
@@ -56,11 +55,65 @@ export function shortDate(value?: string | null): string | null {
   const date = new Date(value.length === 10 ? `${value}T00:00:00` : value);
   return Number.isNaN(date.getTime())
     ? value
-    : new Intl.DateTimeFormat('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }).format(date);
+    : new Intl.DateTimeFormat('en-IN', { day: '2-digit', month: 'short' }).format(date);
+}
+
+export type Priority = 'overdue' | 'action' | 'waiting' | 'ok' | 'closed';
+
+export const PRIORITY_LABEL: Record<Priority, string> = {
+  overdue: 'Overdue',
+  action: 'Your move',
+  waiting: 'Waiting on others',
+  ok: 'On track',
+  closed: 'Closed',
+};
+
+const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`;
+
+/**
+ * What this journey needs next and from whom, ranked so the list can put
+ * the most urgent first. `role` is the signed-in user's operating role.
+ */
+export function nextAction(item: P2JourneyListItem, role?: string): { priority: Priority; title: string; detail?: string } {
+  const delivered = Boolean(item.delivery_completed_at);
+  const active = activeStep(item.current_stage, delivered);
+  const pc = item.pc_open_tasks ?? 0;
+  const tl = item.tl_open_tasks ?? 0;
+  const overdue = item.overdue_tasks ?? 0;
+  const toVerify = item.manual_verification_pending_count ?? 0;
+  const mine = role === 'TL' ? tl : role === 'PC' ? pc : pc + tl;
+  const others = role === 'TL' ? pc : role === 'PC' ? tl : 0;
+  const othersRole = role === 'TL' ? 'PC' : 'TL';
+
+  if (item.cancelled) return { priority: 'closed', title: 'Cancelled' };
+  if (delivered || item.closed) {
+    return { priority: 'closed', title: 'Delivered', detail: item.delivery_reviewed_at ? 'Reviewed by TL' : 'Awaiting TL review' };
+  }
+  if (overdue) {
+    return { priority: 'overdue', title: `Clear ${plural(overdue, 'overdue task')}`, detail: mine ? `${plural(mine, 'task')} for you` : `With ${othersRole}` };
+  }
+  if (mine) {
+    return { priority: 'action', title: `${plural(mine, 'task')} waiting for you`, detail: toVerify ? `${plural(toVerify, 'document')} to verify` : undefined };
+  }
+  if (toVerify && role !== 'PC') {
+    return { priority: 'action', title: `Verify ${plural(toVerify, 'document')}` };
+  }
+  if (others) {
+    return { priority: 'waiting', title: `${plural(others, 'task')} with ${othersRole}`, detail: STEP_NOW[active] };
+  }
+  if (toVerify) {
+    return { priority: 'waiting', title: `${plural(toVerify, 'document')} being verified`, detail: 'Nothing for you right now' };
+  }
+  const upload = active === 0 || active === 3;
+  return {
+    priority: upload ? 'action' : 'ok',
+    title: STEP_NOW[active],
+    detail: upload ? (item.documents ? `${plural(item.documents, 'document')} in so far` : 'Nothing uploaded yet') : 'Nothing for you right now',
+  };
 }
 
 /** Booking and Delivery as two short tracks of three pips: done, current,
- * still to come. The text under it names the current step. */
+ * still to come. */
 function StageTrack({ active, cancelled }: { active: number; cancelled: boolean }) {
   return (
     <div className="p2w-jstage" role="img" aria-label={cancelled ? 'Cancelled' : `Step ${Math.min(active, 6)} of 6: ${JOURNEY_STEPS[Math.min(active, 5)]}`}>
@@ -84,65 +137,53 @@ function StageTrack({ active, cancelled }: { active: number; cancelled: boolean 
 }
 
 /**
- * One journey: who, which car, where it stands, and whether anything waits
- * on the PC. Documents is the working screen; Journey 360 is the full
- * picture.
+ * One journey, led by what it needs next. Three ways in: Complete journey
+ * (the documents workspace), Journey 360, and the tasks for your role.
  */
-export default function JourneyCard({ item }: { item: P2JourneyListItem }) {
+export default function JourneyCard({ item, role }: { item: P2JourneyListItem; role?: string }) {
   const delivered = Boolean(item.delivery_completed_at);
   const cancelled = Boolean(item.cancelled);
   const active = cancelled ? -1 : activeStep(item.current_stage, delivered);
   const customer = customerLabel(item.customer_name);
+  const next = nextAction(item, role);
   const overview = `/p2/journeys/${item.journey_id}/overview`;
   const documents = `/p2/journeys/${item.journey_id}/documents`;
-  const pc = item.pc_open_tasks ?? 0;
-  const tl = item.tl_open_tasks ?? 0;
-  const overdue = item.overdue_tasks ?? 0;
-  const toVerify = item.manual_verification_pending_count ?? 0;
+  const tasks = `/p2/journeys/${item.journey_id}/tasks`;
+  const myTasks = role === 'TL' ? (item.tl_open_tasks ?? 0) : role === 'PC' ? (item.pc_open_tasks ?? 0) : (item.open_tasks ?? 0);
 
-  const now = cancelled ? 'Cancelled'
-    : active >= 6 ? (item.delivery_reviewed_at ? 'Delivered · reviewed' : 'Delivered · awaiting TL review')
-      : STEP_NOW[active];
-
-  const facts: string[] = [];
-  if (item.booking_confirm_date) facts.push(`Booked ${shortDate(item.booking_confirm_date)}`);
-  if (item.delivery_completed_at) facts.push(`Delivered ${shortDate(item.delivery_completed_at)}`);
-  else if (item.planned_delivery_at) facts.push(`Delivery due ${shortDate(item.planned_delivery_at)}`);
-  if (!facts.length && item.created_at_utc) facts.push(`Started ${shortDate(item.created_at_utc)}`);
-
-  const work: string[] = [];
-  if (pc) work.push(`${pc} PC task${pc === 1 ? '' : 's'}`);
-  if (tl) work.push(`${tl} TL task${tl === 1 ? '' : 's'}`);
-  if (toVerify) work.push(`${toVerify} to verify`);
-
-  const primary = item.closed ? overview : documents;
-  const tone = cancelled || item.closed ? ' is-closed' : overdue ? ' is-overdue' : '';
+  const when: string[] = [];
+  if (item.booking_confirm_date) when.push(`Booked ${shortDate(item.booking_confirm_date)}`);
+  if (item.delivery_completed_at) when.push(`Delivered ${shortDate(item.delivery_completed_at)}`);
+  else if (item.planned_delivery_at) when.push(`Delivery ${shortDate(item.planned_delivery_at)}`);
 
   return (
-    <li className={`p2w-jcard${tone}`}>
+    <li className={`p2w-jcard is-${next.priority}`}>
       <div className="p2w-jcard__head">
-        <Link to={primary} className={`p2w-jcard__name${customer.known ? '' : ' is-unknown'}`}>{customer.text}</Link>
+        <Link to={item.closed ? overview : documents} className={`p2w-jcard__name${customer.known ? '' : ' is-unknown'}`}>{customer.text}</Link>
         {cancelled ? <span className="p2w-chip p2w-chip--neutral">Cancelled</span>
           : delivered ? <span className="p2w-chip p2w-chip--success">Delivered</span>
             : active >= 3 ? <span className="p2w-chip p2w-chip--info">Delivery</span>
               : <span className="p2w-chip p2w-chip--progress">Booking</span>}
       </div>
       <div className={`p2w-jcard__line${item.vehicle ? '' : ' is-unknown'}`}>{item.vehicle || 'Vehicle not identified yet'}</div>
-      <div className="p2w-jcard__line p2w-muted">{[item.journey_reference, item.outlet_name].filter(Boolean).join(' · ')}</div>
+      <div className="p2w-jcard__line p2w-muted">{[item.journey_reference, item.outlet_name, ...when].filter(Boolean).join(' · ')}</div>
+
+      <div className="p2w-jcard__next">
+        <span className="p2w-jcard__flag">{PRIORITY_LABEL[next.priority]}</span>
+        <strong>{next.title}</strong>
+        {next.detail ? <span className="p2w-jcard__detail">{next.detail}</span> : null}
+      </div>
 
       <StageTrack active={active} cancelled={cancelled} />
-      <div className="p2w-jcard__now">{now}</div>
-
-      {facts.length ? <div className="p2w-jcard__line p2w-muted">{facts.join(' · ')}</div> : null}
 
       <div className="p2w-jcard__foot">
-        <span className={overdue ? 'p2w-tone p2w-tone--danger' : work.length ? 'p2w-jcard__work' : 'p2w-muted'}>
-          {overdue ? `${overdue} overdue` : work.length ? work.join(' · ') : 'Nothing waiting'}
-        </span>
-        <span className="p2w-jcard__actions">
-          <Link className="p2w-link" to={overview}>Journey 360</Link>
-          {!item.closed ? <Link className="p2w-button p2w-button--secondary" to={documents}>Documents</Link> : null}
-        </span>
+        {!item.closed ? <Link className="p2w-button p2w-button--primary" to={documents}>Complete journey</Link> : null}
+        <Link className="p2w-button p2w-button--secondary" to={overview}>Journey 360</Link>
+        {!item.closed ? (
+          <Link className="p2w-button p2w-button--secondary" to={tasks}>
+            {role ? `${role} tasks` : 'Tasks'}{myTasks ? <b className="p2w-jcard__count">{myTasks}</b> : null}
+          </Link>
+        ) : null}
       </div>
     </li>
   );

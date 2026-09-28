@@ -127,6 +127,19 @@ describe('field review', () => {
     expect(views.map((v) => [v.fieldKey, v.needsReview])).toEqual([['amount_paid', true], ['receipt_date', false]]);
   });
 
+  it('takes Audit Core\'s word on why a value needs a look', () => {
+    const views = buildFieldViews([
+      field('receipt_date', 99, { reviewReasons: ['DATE_BEFORE_FLOOR'] }),
+      field('amount_paid', 80, { reviewReasons: [] }),
+      field('receipt_number', 60, { reviewReasons: ['LOW_CONFIDENCE'] }),
+    ], template);
+    expect(views.map((v) => [v.fieldKey, v.needsReview, v.why ?? null])).toEqual([
+      ['receipt_number', true, null],
+      ['receipt_date', true, 'Date is before this programme started. Probably misread, check the page.'],
+      ['amount_paid', false, null],
+    ]);
+  });
+
   it('treats confirmed or corrected fields as reviewed', () => {
     const views = buildFieldViews([
       field('amount_paid', 50, { reviewedAtUtc: '2026-09-27' }),

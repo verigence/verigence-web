@@ -441,6 +441,7 @@
 .p2w-field__label i { margin-left: 4px; color: var(--p2w-link); font-style: normal; }
 .p2w-field__value { grid-column: 1; font-size: 1rem; font-weight: 700; word-break: break-word; }
 .p2w-field__origin { grid-column: 1; color: var(--p2w-muted); font-size: .78rem; }
+.p2w-field__why { grid-column: 1; color: var(--p2w-danger); font-size: .78rem; font-weight: 600; }
 .p2w-field__meta { grid-column: 2; grid-row: 1 / span 3; display: grid; gap: 4px; justify-items: end; align-content: start; }
 .p2w-field__actions { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
 .p2w-field__edit { display: grid; gap: 8px; }

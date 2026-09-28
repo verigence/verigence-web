@@ -27,7 +27,14 @@ type FieldView = P2DocumentReviewField & {
   threshold: number;
   isKey: boolean;
   needsReview: boolean;
+  /** Plain words for why the value needs a look, beyond its confidence. */
+  why?: string;
   state: 'NEEDS_REVIEW' | 'CONFIRMED' | 'CORRECTED' | 'OK';
+};
+
+const REASON_TEXT: Record<string, string> = {
+  DATE_BEFORE_FLOOR: 'Date is before this programme started. Probably misread, check the page.',
+  DATE_UNREADABLE: 'Not a readable date. Check the page.',
 };
 
 function fieldId(field: P2DocumentReviewField): string {
@@ -49,7 +56,12 @@ export function buildFieldViews(fields: P2DocumentReviewField[], template?: P2Te
     const hasValue = field.effectiveValue !== null && field.effectiveValue !== undefined && field.effectiveValue !== '';
     const lowConfidence = field.confidenceScore === null || field.confidenceScore < threshold;
     const reviewed = Boolean(field.reviewedAtUtc) || field.isModified;
-    const needsReview = hasValue && lowConfidence && !reviewed;
+    // Audit Core says why a value needs a look (a date before the programme
+    // started is wrong however confident the reading); without its word the
+    // confidence alone decides.
+    const flagged = field.reviewReasons ? field.reviewReasons.length > 0 : lowConfidence;
+    const needsReview = hasValue && flagged && !reviewed;
+    const why = needsReview ? (field.reviewReasons ?? []).map((reason) => REASON_TEXT[reason]).find(Boolean) : undefined;
     return {
       ...field,
       id: fieldId(field),
@@ -57,6 +69,7 @@ export function buildFieldViews(fields: P2DocumentReviewField[], template?: P2Te
       threshold,
       isKey: Boolean(info?.isKey),
       needsReview,
+      why,
       state: field.isModified ? 'CORRECTED' : needsReview ? 'NEEDS_REVIEW' : reviewed ? 'CONFIRMED' : 'OK',
     } as FieldView;
   });
@@ -274,10 +287,12 @@ export default function P2DocumentEditor({
                     <span className="p2w-field__label">{field.label}{field.isKey ? <i aria-label="key field">•</i> : null}</span>
                     <span className="p2w-field__value">{displayValue(field.effectiveValue)}</span>
                     {field.isModified ? <span className="p2w-field__origin">Read as {displayValue(field.extractedValue)}</span> : null}
+                    {field.why ? <span className="p2w-field__why">{field.why}</span> : null}
                     <span className="p2w-field__meta">
-                      <span className={`p2w-chip p2w-chip--${field.needsReview ? tone : 'success'}`}>
+                      <span className={`p2w-chip p2w-chip--${field.needsReview ? (field.why ? 'danger' : tone) : 'success'}`}>
                         {field.confidenceScore === null ? 'No confidence' : `${Math.round(field.confidenceScore)}%`}
                       </span>
+                      {field.why ? <span className="p2w-chip p2w-chip--danger">Check date</span> : null}
                       {field.state === 'CORRECTED' ? <span className="p2w-chip p2w-chip--info">Corrected</span> : null}
                       {field.state === 'CONFIRMED' ? <span className="p2w-chip p2w-chip--success">Confirmed</span> : null}
                     </span>

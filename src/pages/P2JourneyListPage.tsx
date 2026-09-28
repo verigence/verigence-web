@@ -47,7 +47,6 @@ export default function P2JourneyListPage() {
   const accessToken = useSessionStore((s) => s.accessToken);
   const displayName = useSessionStore((s) => s.displayName);
   const email = useSessionStore((s) => s.email);
-  const outletId = useSessionStore((s) => s.outletId);
   const [search, setSearch] = useState('');
   const [showClosed, setShowClosed] = useState(false);
   const deferredSearch = useDeferredValue(search);
@@ -82,9 +81,6 @@ export default function P2JourneyListPage() {
   const closedItems = closed.data?.items ?? [];
   const needCount = ranked.filter(({ priority }) => priority === 'overdue' || priority === 'action').length;
   const overdueCount = ranked.filter(({ priority }) => priority === 'overdue').length;
-  const selectedOutlet = project?.scope.outlets.find((outlet) => outlet.outletId === outletId) ?? project?.scope.outlets[0];
-  const dealerName = selectedOutlet?.dealerName || 'Your dealership';
-  const outletName = selectedOutlet?.outletName || 'your outlet';
   const subClauses = [
     overdueCount ? `${overdueCount} overdue` : null,
     s?.tasks?.open ? `${s.tasks.open} open task${s.tasks.open === 1 ? '' : 's'}` : null,
@@ -100,10 +96,7 @@ export default function P2JourneyListPage() {
 
       <section className="p2w-hero" aria-labelledby="p2w-hero-title">
         <div className="p2w-hero__top">
-          <div>
-            <p className="p2w-hero__greet">{greeting()}, {firstName(displayName, email)}</p>
-            <p className="p2w-hero__place"><b>{dealerName}</b> · {outletName}</p>
-          </div>
+          <p className="p2w-hero__greet">{greeting()}, {firstName(displayName, email)}</p>
           <Link className="p2w-hero__capture" to="/p2/journeys/new/documents">
             <span aria-hidden="true">＋</span>
             <span>Capture new booking</span>

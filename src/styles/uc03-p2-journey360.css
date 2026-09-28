@@ -274,7 +274,6 @@
   .j360 .j360-card { padding: 12px; }
   .j360 .j360-grid { grid-template-columns: 1fr; }
   .j360 .j360-taken { width: 100%; border-right: 0; border-bottom: 1px solid var(--p2w-line); }
-  .j360 .j360-lines th:nth-child(2), .j360 .j360-lines td:nth-child(2), .j360 .j360-lines th:nth-child(4), .j360 .j360-lines td:nth-child(4), .j360 .j360-lines th:nth-child(5), .j360 .j360-lines td:nth-child(5) { display: none; }
   .j360 .j360-taken:last-child { border-bottom: 0; }
   /* comparison tables become stacked cards: each value keeps its column name */
   .j360 .j360-table thead { display: none; }
@@ -361,3 +360,73 @@
   .j360 .j360-pricing__actions { justify-content: flex-start; }
   .j360-picker__grid { grid-template-columns: 1fr 1fr; }
 }
+
+/* Invoice line items read top to bottom: fields down the side, one column
+   per line item. */
+.j360 .j360-lines-wrap { overflow-x: auto; margin: 14px 0 0; }
+.j360 .j360-lines--vertical { margin: 0; table-layout: auto; }
+.j360 .j360-lines--vertical thead th { min-width: 150px; max-width: 260px; color: var(--p2w-navy); font-size: .84rem; text-transform: none; letter-spacing: 0; vertical-align: bottom; }
+.j360 .j360-lines--vertical thead th:first-child { min-width: 96px; color: var(--p2w-muted); font-size: .7rem; text-transform: uppercase; letter-spacing: .04em; }
+.j360 .j360-lines--vertical tbody th { padding: 7px 8px; border-bottom: 1px solid #eef2f6; color: var(--p2w-muted); font-size: .72rem; font-weight: 700; letter-spacing: .04em; text-align: left; text-transform: uppercase; white-space: nowrap; }
+.j360 .j360-lines--vertical tr.is-total td, .j360 .j360-lines--vertical tr.is-total th { font-weight: 800; color: var(--p2w-navy); border-top: 2px solid var(--p2w-line); }
+
+/* The price sheet: what the price master says, what the booking offered,
+   what the invoice bills, and a slider showing where the offer landed. */
+.j360 .j360-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; margin: 0 0 14px; }
+.j360 .j360-tiles div { display: grid; gap: 2px; padding: 12px 14px; border: 1px solid var(--p2w-line); border-radius: 12px; background: var(--p2w-soft); min-width: 0; }
+.j360 .j360-tiles dt { font-size: .72rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--p2w-muted); }
+.j360 .j360-tiles dd { margin: 0; font-size: 1.3rem; font-weight: 800; color: var(--p2w-navy); font-variant-numeric: tabular-nums; }
+.j360 .j360-tiles small { color: var(--p2w-muted); font-size: .78rem; }
+.j360 .j360-tiles .is-truth { border-color: var(--p2w-action-line); background: var(--p2w-action-soft); }
+.j360 .j360-tiles .is-truth dt { color: var(--p2w-action-soft-text); }
+.j360 .j360-tiles .is-offer { background: #fff; }
+.j360 .j360-tiles .is-offer.is-adverse dd, .j360 .j360-tiles .is-offer.is-adverse small { color: var(--j360-adverse); }
+.j360 .j360-tiles .is-offer.is-favourable dd, .j360 .j360-tiles .is-offer.is-favourable small { color: var(--j360-favourable); }
+.j360 .j360-paid small { display: block; margin-top: 2px; color: var(--p2w-muted); font-size: .76rem; font-weight: 500; }
+.j360 .j360-offer { display: grid; gap: 4px; min-width: 0; padding-top: 4px; }
+.j360 .j360-sheet th:nth-child(5) { width: 19%; }
+@media (max-width: 900px) { .j360 .j360-sheet th:first-child { width: 21%; } .j360 .j360-sheet th:nth-child(5) { width: 17%; } .j360 .j360-offer small { white-space: normal; } }
+.j360 .j360-offer__track { position: relative; display: block; height: 8px; border-radius: 999px; background: #e3eaf0; }
+.j360 .j360-offer__fill { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 999px; background: #00afa8; }
+.j360 .j360-offer.is-adverse .j360-offer__fill { background: var(--j360-adverse); }
+.j360 .j360-offer.is-favourable .j360-offer__fill { background: var(--j360-favourable); }
+.j360 .j360-offer__std { position: absolute; top: -4px; width: 3px; height: 16px; margin-left: -1px; border-radius: 2px; background: var(--p2w-navy); }
+.j360 .j360-offer__bk { position: absolute; top: -3px; width: 14px; height: 14px; margin-left: -7px; border: 2px solid var(--p2w-navy); border-radius: 50%; background: #fff; box-sizing: border-box; }
+.j360 .j360-offer small { color: var(--p2w-muted); font-size: .72rem; font-weight: 600; white-space: nowrap; }
+.j360 .j360-offer.is-adverse small { color: var(--j360-adverse); }
+.j360 .j360-offer.is-favourable small { color: var(--j360-favourable); }
+.j360 .j360-offer--large { padding: 10px 8px 0; }
+.j360 .j360-offer--large .j360-offer__track { height: 14px; }
+.j360 .j360-offer--large .j360-offer__std { top: -5px; height: 24px; width: 4px; }
+.j360 .j360-offer--large .j360-offer__bk { top: -2px; width: 18px; height: 18px; margin-left: -9px; }
+.j360 .j360-offer--large small { font-size: .84rem; }
+.j360 .j360-sheet__legend { display: flex; flex-wrap: wrap; gap: 6px 18px; margin: 6px 0 0; font-size: .8rem; color: var(--p2w-muted); }
+.j360 .j360-sheet__legend span { display: inline-flex; align-items: center; gap: 8px; }
+.j360 .j360-sheet__legend i { position: static; display: inline-block; margin: 0; }
+.j360 .j360-sheet__legend .j360-offer__std { height: 14px; }
+.j360 .j360-sheet th:first-child { width: 24%; }
+.j360 .j360-sheet .j360-sheet__group th { padding: 16px 10px 6px; background: none; color: var(--p2w-navy); font-size: .78rem; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; border-bottom: 2px solid var(--p2w-line); }
+.j360 .j360-sheet .j360-sheet__group th small { display: inline; margin-left: 8px; color: var(--p2w-muted); font-weight: 600; text-transform: none; letter-spacing: 0; }
+.j360 .j360-sheet td.is-truth { font-weight: 800; color: var(--p2w-navy); }
+.j360 .j360-sheet tfoot th, .j360 .j360-sheet tfoot td { border-top: 2px solid var(--p2w-navy); font-size: 1rem; }
+.j360 .j360-invoices { list-style: none; margin: 0; padding: 0; display: grid; }
+.j360 .j360-invoices li { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: baseline; padding: 9px 0; border-top: 1px solid var(--p2w-line); }
+.j360 .j360-invoices li b { margin-left: auto; font-variant-numeric: tabular-nums; }
+.j360 .j360-bank__ref { display: block; margin-top: 3px; font-size: .76rem; color: var(--p2w-muted); }
+@media (max-width: 640px) {
+  .j360 .j360-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .j360 .j360-tiles dd { font-size: 1.1rem; }
+  .j360 .j360-sheet .j360-sheet__group th { display: block; width: auto; }
+  .j360 .j360-sheet th:first-child { width: auto; }
+  .j360 .j360-table caption { display: block; width: auto; }
+  .j360 .j360-sheet td.is-blank { display: none; }
+  .j360 .j360-offer small { white-space: normal; }
+}
+@container (max-width: 560px) {
+  .j360 .j360-sheet th:first-child, .j360 .j360-sheet .j360-sheet__group th { width: auto; }
+  .j360 .j360-table caption { display: block; width: auto; }
+}
+.j360 .j360-cell { display: inline-grid; gap: 3px; justify-items: start; }
+.j360 .j360-cell .j360-bank__ref { margin-top: 0; }
+.j360 .j360-mt { margin-top: 14px; }
+@media (max-width: 640px) { .j360 .j360-cell { justify-items: end; text-align: right; } }

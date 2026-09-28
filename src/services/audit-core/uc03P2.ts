@@ -885,6 +885,8 @@ export type P2Deal = {
   };
   categories: P2DealCategory[];
   discounts: P2DiscountRow[];
+  /** The invoices consolidated into the sheet: retail, tax, accessory, warranty... */
+  invoices?: Array<{ documentId: string; documentType: string; label: string; number?: unknown; date?: unknown; total: Money }>;
   declared: Array<{ key: string; label: string; booking: Money; billed: Money; ledger: Money; quote: Money; sources: P2DealSource[] }>;
   summary: P2DealSummary;
   flagged: number;
@@ -925,10 +927,15 @@ export type P2Record = Record<string, unknown>;
 /** The Customer tab: one row per fact in display order, with the document
  * the KYC-reviewed value came from when it did. */
 /** What was taken with the car, with the invoice items bought. */
-export type P2TakenAddon = { taken: boolean; amount: string | null; provider?: string | null;
+export type P2TakenAddon = { taken: boolean; amount: string | null;
+  /** Where the amount comes from: the invoice or cover note, an add-on record, or only the booking form. */
+  amountSource?: 'billed' | 'record' | 'booking' | null;
+  provider?: string | null;
   items: Array<{ name: string; amount: string | null; quantity?: unknown; itemCode?: string | null; documentId: string }>;
   /** What the cover note, warranty invoice or add-on record says. */
-  details: Record<string, unknown> };
+  details: Record<string, unknown>;
+  /** The documents that prove it was taken. */
+  documentIds?: string[] };
 
 export type P2InvoiceLine = { description?: string | null; category?: string | null; itemCode?: string | null; hsnSac?: string | null;
   quantity?: unknown; unitRate?: string | null; grossAmount?: string | null; discountAmount?: string | null; taxableAmount?: string | null;
@@ -962,6 +969,8 @@ export type P2Customer360 = {
 };
 
 export type P2Addons = {
+  /** The same answer the Vehicle tab gives: taken or not, and for how much. */
+  taken?: { accessories: P2TakenAddon; warranty: P2TakenAddon; insurance: P2TakenAddon };
   insurance: { records: P2Record[]; charges?: P2DealCategory | null; discount?: P2DiscountRow | null };
   accessories: { records: P2Record[]; charges?: P2DealCategory | null; discount?: P2DiscountRow | null };
   protection: { records: P2Record[]; charges?: P2DealCategory | null; discounts: P2DiscountRow[] };
@@ -983,14 +992,41 @@ export type P2Documents360 = {
   }>;
 };
 
+/** How a receipt meets the bank statement. */
+export type P2BankMatch = {
+  status: 'MATCHED' | 'UNMATCHED' | 'AMBIGUOUS' | 'NOT_APPLICABLE' | 'NO_STATEMENT';
+  method?: 'REFERENCE' | 'UTR' | 'AMOUNT_DATE' | null;
+  documentId?: string | null; date?: string | null; reference?: string | null;
+  /** True when the reconciliation had already recorded this match. */
+  recorded: boolean;
+};
+
+/** One bank statement entry as the statement prints it. */
+export type P2BankLine = {
+  documentId: string; bank?: string | null; accountHolder?: string | null; accountNumber?: string | null;
+  date?: string | null; description?: string | null; reference?: string | null; counterparty?: string | null;
+  credit: Money; debit: Money; balance: Money;
+  matchedPaymentId?: string | null; matchedReceipt?: string | null; matchMethod?: string | null;
+};
+
+export type P2PaymentItem = {
+  paymentId: string; amount: Money; receiptNumber?: string | null; receiptDate?: string | null;
+  mode?: string | null; stage?: string | null; bank?: string | null; reference?: string | null;
+  documentId?: string | null; document?: string | null; counted: boolean; notCountedReason?: string | null;
+  /** The earlier receipt this one repeats (same number, amount and date). */
+  duplicateOf?: string | null;
+  bankMatch?: string | null;
+  bankStatement?: P2BankMatch | null;
+};
+
 export type P2Payments360 = {
-  items: Array<{
-    paymentId: string; amount: Money; receiptNumber?: string | null; receiptDate?: string | null;
-    mode?: string | null; stage?: string | null; bank?: string | null; reference?: string | null;
-    documentId?: string | null; document?: string | null; counted: boolean; notCountedReason?: string | null;
-    bankMatch?: string | null;
-  }>;
+  items: P2PaymentItem[];
   receiptsTotal: string; loanDisbursed: string; paidTotal: string; byStage: Record<string, string>;
+  duplicates?: number;
+  bankStatement?: {
+    lines: P2BankLine[]; creditsTotal: string; matchedTotal: string;
+    matched: number; unmatchedCredits: number; receiptsWithoutCredit: number;
+  };
 };
 
 export type P2DuplicatePair = {
@@ -1037,12 +1073,9 @@ export type P2SectionMap = {
   tradein: P2TradeIn360;
   customer: P2Customer360;
   registration: { records: P2Record[]; charges?: P2DealCategory | null };
-  delivery: { readiness?: P2Journey360['stage']['delivery']; records: P2Record[] };
   compliance: P2Compliance360;
-  activity: { events: Array<{ event_id: number; event_type: string; subject_type?: string | null; subject_id?: string | null; details?: Record<string, unknown> | null; created_at_utc: string }> };
   duplicates: { pairs: P2DuplicatePair[] };
   'compliance-report': P2ComplianceReport;
-  timeline: P2Timeline;
   audit: P2AuditTrail;
 };
 
@@ -1050,6 +1083,9 @@ export type P2AuditTrail = {
   pc?: string | null;
   milestones: Array<{ key: string; label: string; atUtc: string; who?: string | null; hoursSincePrevious: number | null }>;
   pending: Array<{ key: string; label: string }>;
+  /** How long each stage took and the time each role spent. */
+  stages?: P2Timeline['stages'];
+  roles?: P2Timeline['roles'];
   tasks: {
     summary: { opened: number; closed: number; open: number; avgHoursToClose: number | null };
     items: Array<{

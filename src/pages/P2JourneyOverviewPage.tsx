@@ -9,18 +9,15 @@ import PageHeader from '../components/PageHeader';
 import DealTab from '../features/uc03-p2/journey360/DealTab';
 import P2RecheckButton from '../features/uc03-p2/workspace/P2RecheckButton';
 import {
-  ActivityTab,
   AddonsTab,
   AuditTab,
   ChecksTab,
   CustomerTab,
-  DeliveryTab,
   DocumentsTab,
   DuplicatesBanner,
   InvoicesTab,
   PaymentsTab,
   RegistrationTab,
-  TimelineTab,
   TradeInTab,
   VehicleTab,
 } from '../features/uc03-p2/journey360/Journey360Tabs';
@@ -44,11 +41,8 @@ const TABS = [
   { key: 'tradein', label: 'Trade-in / Scrappage' },
   { key: 'customer', label: 'Customer' },
   { key: 'registration', label: 'Registration' },
-  { key: 'delivery', label: 'Delivery' },
   { key: 'compliance', label: 'Checks' },
   { key: 'audit', label: 'Audit trail' },
-  { key: 'timeline', label: 'Timeline' },
-  { key: 'activity', label: 'Activity' },
 ] as const;
 
 type TabKey = (typeof TABS)[number]['key'];
@@ -102,10 +96,7 @@ export default function P2JourneyOverviewPage() {
   const tradein = useSection('tradein', tenantId, journeyId, accessToken, tab === 'tradein');
   const customer = useSection('customer', tenantId, journeyId, accessToken, tab === 'customer');
   const registration = useSection('registration', tenantId, journeyId, accessToken, tab === 'registration');
-  const delivery = useSection('delivery', tenantId, journeyId, accessToken, tab === 'delivery');
   const compliance = useSection('compliance', tenantId, journeyId, accessToken, tab === 'compliance');
-  const activity = useSection('activity', tenantId, journeyId, accessToken, tab === 'activity');
-  const timeline = useSection('timeline', tenantId, journeyId, accessToken, tab === 'timeline');
   const audit = useSection('audit', tenantId, journeyId, accessToken, tab === 'audit');
 
   const [notice, setNotice] = useState<{ text: string; tone: 'success' | 'error' }>();
@@ -120,7 +111,7 @@ export default function P2JourneyOverviewPage() {
     setSearch(params, { replace: true });
   };
 
-  const active = { deal, invoices, addons, payments, documents, vehicle, tradein, customer, registration, delivery, compliance, activity, timeline, audit }[tab];
+  const active = { deal, invoices, addons, payments, documents, vehicle, tradein, customer, registration, compliance, audit }[tab];
   let body: React.ReactNode = null;
   if (active.isLoading) body = <div className="p2w-skeleton" aria-busy="true">Loading…</div>;
   else if (active.isError) {
@@ -140,10 +131,7 @@ export default function P2JourneyOverviewPage() {
     if (tab === 'tradein' && tradein.data) body = <TradeInTab data={tradein.data} />;
     if (tab === 'customer' && customer.data) body = <CustomerTab data={customer.data} />;
     if (tab === 'registration' && registration.data) body = <RegistrationTab data={registration.data} journeyId={journeyId} />;
-    if (tab === 'delivery' && delivery.data) body = <DeliveryTab data={delivery.data} />;
     if (tab === 'compliance' && compliance.data) body = <ChecksTab data={compliance.data} />;
-    if (tab === 'activity' && activity.data) body = <ActivityTab data={activity.data} />;
-    if (tab === 'timeline' && timeline.data) body = <TimelineTab data={timeline.data} />;
     if (tab === 'audit' && audit.data) body = <AuditTab data={audit.data} />;
   }
 

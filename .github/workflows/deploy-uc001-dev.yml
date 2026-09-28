@@ -46,21 +46,27 @@ jobs:
       - name: Validate DEV upstreams
         run: |
           set -euo pipefail
-          echo "Checking $SECURITY_UPSTREAM/health/live"
-          curl --fail --silent --show-error \
-            --header 'Accept: application/json' \
-            "$SECURITY_UPSTREAM/health/live"
-          echo
-          echo "Checking $AUDIT_CORE_UPSTREAM/health"
-          curl --fail --silent --show-error \
-            --header 'Accept: application/json' \
-            "$AUDIT_CORE_UPSTREAM/health"
-          echo
-          echo "Checking $DI_UPSTREAM/health/ready"
-          curl --fail --silent --show-error \
-            --header 'Accept: application/json' \
-            "$DI_UPSTREAM/health/ready"
-          echo
+          # An upstream that is redeploying answers 502 for a minute or two
+          # (Audit Core and the web deploy usually land together), so each
+          # check waits for it rather than failing the whole deploy.
+          check() {
+            local label="$1" url="$2" attempt
+            echo "Checking $label $url"
+            for attempt in $(seq 1 18); do
+              if curl --fail --silent --show-error --max-time 20 \
+                   --header 'Accept: application/json' "$url"; then
+                echo
+                return 0
+              fi
+              echo " (attempt $attempt/18: not healthy yet, retrying in 10s)"
+              sleep 10
+            done
+            echo "::error::$label at $url did not become healthy within 3 minutes"
+            return 1
+          }
+          check "Security DEV" "$SECURITY_UPSTREAM/health/live"
+          check "Audit Core DEV" "$AUDIT_CORE_UPSTREAM/health"
+          check "DI DEV" "$DI_UPSTREAM/health/ready"
 
       - name: Verify exact approved Verigence logo source
         shell: bash

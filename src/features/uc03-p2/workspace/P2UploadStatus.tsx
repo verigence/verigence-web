@@ -1,5 +1,8 @@
 import type { P2UploadCounts } from '../../../services/audit-core/uc03P2';
-import { pageStatus } from './p2Format';
+import type { DocumentRow } from './P2DocumentList';
+import { PAGE_IN_FLIGHT, pageStatus } from './p2Format';
+
+const BEFORE_CLASSIFICATION = new Set(['QUEUED', 'PREPARING_PAGE', 'DI_UPLOAD_PREPARING', 'DI_UPLOADING', 'DI_FINALIZING', 'CLASSIFYING', 'RETRY_WAIT']);
 
 export type ProcessingItem = { key: string; name: string; status: string };
 
@@ -10,18 +13,26 @@ export type ProcessingItem = { key: string; name: string; status: string };
  * from upload to classification to extraction. There is no submit step:
  * Booking and Delivery complete from the documents and the rules.
  */
-export default function P2UploadStatus({ counts, live, processing = [] }: {
-  counts?: P2UploadCounts; live?: boolean; processing?: ProcessingItem[];
+export default function P2UploadStatus({ counts, rows, live, processing = [] }: {
+  counts?: P2UploadCounts; rows?: DocumentRow[]; live?: boolean; processing?: ProcessingItem[];
 }) {
   if (!counts) return null;
   const shown = processing.slice(0, 4);
+  // Count what the screen lists. The server's counts cover the Phase 2
+  // upload queue only, so documents linked earlier (an existing journey,
+  // a re-linked evidence) showed a row of zeros above a full grid.
+  const listed = rows ?? [];
+  const uploaded = listed.length + counts.uploading;
+  const classified = listed.filter((row) => !BEFORE_CLASSIFICATION.has(row.status) && row.status !== 'FAILED' && row.status !== 'DEAD_LETTER').length;
+  const extracted = listed.filter((row) => row.status === 'READY' || row.status === 'NEEDS_REVIEW').length;
+  const notClassified = listed.filter((row) => PAGE_IN_FLIGHT.has(row.status) && BEFORE_CLASSIFICATION.has(row.status)).length + counts.uploading;
   return (
     <section className="p2w-statusbar" aria-label="Upload status" aria-live="polite">
-      <div><span>Uploaded</span><strong>{counts.documents + counts.uploading}</strong></div>
-      <div><span>Classified</span><strong>{counts.classified}</strong></div>
-      <div className={counts.extracted ? 'is-good' : ''}><span>Extracted</span><strong>{counts.extracted}</strong></div>
+      <div><span>Uploaded</span><strong>{uploaded}</strong></div>
+      <div><span>Classified</span><strong>{classified}</strong></div>
+      <div className={extracted ? 'is-good' : ''}><span>Extracted</span><strong>{extracted}</strong></div>
       <div className={counts.duplicates ? 'is-warn' : ''}><span>Duplicates</span><strong>{counts.duplicates}</strong></div>
-      <div className={counts.notClassified ? 'is-warn' : ''}><span>Not classified</span><strong>{counts.notClassified}</strong></div>
+      <div className={notClassified ? 'is-warn' : ''}><span>Not classified</span><strong>{notClassified}</strong></div>
       <p className="p2w-statusbar__note" role="status">
         <span className={`p2w-live${live ? ' is-on' : ''}`} title={live ? 'Updates arrive the moment a document changes' : 'Refreshing every few seconds'}>
           ● {live ? 'Live' : 'Auto-refresh'}

@@ -162,9 +162,10 @@ function TaskRow({ task, open, onToggle, view, tenantId, accessToken, operatingR
   const due = relativeDue(task.due_at_utc);
   const plan = taskPlan(task, operatingRole);
   return (
-    <li className={`p2w-task p2w-task--${(task.priority || 'NORMAL').toLowerCase()}${open ? ' is-open' : ''}`}>
+    <li className={`p2w-task p2w-task--${(task.priority || 'NORMAL').toLowerCase()} p2w-task--${taskKind(task).key}${open ? ' is-open' : ''}`}>
       <button type="button" className="p2w-task__row" aria-expanded={open} onClick={onToggle}>
         <span className="p2w-task__main">
+          <span className="p2w-task__kind">{taskKind(task).label}</span>
           <strong>{task.title}</strong>
           {!open ? <span className="p2w-task__why">{task.description}</span> : null}
         </span>
@@ -186,6 +187,18 @@ function TaskRow({ task, open, onToggle, view, tenantId, accessToken, operatingR
       ) : null}
     </li>
   );
+}
+
+
+/** What kind of work a task is, for the colour on its card: a document to
+ * upload, a value to verify by hand, data the audit could not find, or a
+ * check that failed. */
+export function taskKind(task: P2Task): { key: 'documents' | 'verify' | 'data' | 'check'; label: string } {
+  if (task.queue_tab === 'MANUAL_VERIFICATION') return { key: 'verify', label: 'Manual verification' };
+  if (task.queue_tab === 'DOCUMENTS') return { key: 'documents', label: 'Document missing' };
+  const text = `${task.task_type} ${task.category}`.toUpperCase();
+  if (/MISSING|GAP|EMPTY|DATA/.test(text)) return { key: 'data', label: 'Data missing' };
+  return { key: 'check', label: 'Check failed' };
 }
 
 export default function P2TasksPage() {

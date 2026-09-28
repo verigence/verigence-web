@@ -924,6 +924,28 @@ export type P2Record = Record<string, unknown>;
 
 /** The Customer tab: one row per fact in display order, with the document
  * the KYC-reviewed value came from when it did. */
+/** What was taken with the car, with the invoice items bought. */
+export type P2TakenAddon = { taken: boolean; amount: string | null; provider?: string | null;
+  items: Array<{ name: string; amount: string | null; quantity?: unknown; itemCode?: string | null; documentId: string }> };
+
+export type P2Vehicle360 = {
+  product: P2Record | null;
+  units: P2Record[];
+  photoCount: number;
+  addons: { accessories: P2TakenAddon; warranty: P2TakenAddon; insurance: P2TakenAddon };
+  booking: { bookingReference?: string | null; bookingDate?: string | null; salesConsultant?: string | null;
+    dealerBranch?: string | null; dealType?: string | null; dealSource?: string | null; leadSource?: string | null;
+    expectedDelivery?: string | null };
+  delivery: P2Record | null;
+};
+
+export type P2TradeIn360 = {
+  exchange: { applicable: boolean | null; value: string | null };
+  tradeIn: P2Record | null;
+  certificates: P2Record[];
+  valuations: P2Record[];
+};
+
 export type P2Customer360 = {
   fields: Array<{ key: string; label: string; value: unknown; source?: string | null }>;
   identityStatus: 'DOCUMENT_VERIFIED' | 'VERIFIED' | 'CONFLICT' | 'PENDING';
@@ -1001,7 +1023,8 @@ export type P2SectionMap = {
   addons: P2Addons;
   documents: P2Documents360;
   payments: P2Payments360;
-  vehicle: { product: P2Record | null; units: P2Record[]; photoCount: number };
+  vehicle: P2Vehicle360;
+  tradein: P2TradeIn360;
   customer: P2Customer360;
   registration: { records: P2Record[]; charges?: P2DealCategory | null };
   delivery: { readiness?: P2Journey360['stage']['delivery']; records: P2Record[] };

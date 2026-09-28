@@ -11,6 +11,8 @@ import {
   type P2Payments360,
   type P2Record,
   type P2SectionMap,
+  type P2TakenAddon,
+  type P2Vehicle360,
 } from '../../../services/audit-core/uc03P2';
 import { VIEW_LABELS } from '../photos/p2PhotoUploader';
 import { displayValue, formatDateTime, humanizeKey } from '../workspace/p2Format';
@@ -245,6 +247,85 @@ const PRODUCT_LABELS: Record<string, string> = {
   selection_score: 'Match score', sku_resolution_remarks: 'Notes', sku_code: 'SKU',
 };
 
+function TakenRow({ label, addon }: { label: string; addon: P2TakenAddon }) {
+  return (
+    <div className="j360-taken">
+      <div>
+        <strong>{label}</strong>
+        <small>{addon.taken
+          ? `Taken${addon.amount ? ` · ${rupees(addon.amount)}` : ''}${addon.provider ? ` · ${addon.provider}` : ''}`
+          : 'Not taken on this deal'}</small>
+      </div>
+      <span className={`j360-switch${addon.taken ? ' is-on' : ''}`} role="img" aria-label={`${label}: ${addon.taken ? 'taken' : 'not taken'}`} />
+    </div>
+  );
+}
+
+function ItemList({ title, addon }: { title: string; addon: P2TakenAddon }) {
+  if (!addon.taken || !addon.items.length) return null;
+  return (
+    <div className="j360-items">
+      <span className="j360-items__title">{title}</span>
+      <ul>
+        {addon.items.map((item, index) => (
+          <li key={`${item.documentId}-${index}`}><span>{item.name}</span><b>{rupees(item.amount)}</b></li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+const VEHICLE_FACT_LABELS: Array<[string, string]> = [
+  ['model', 'Model'], ['variant', 'Variant'], ['colour', 'Colour'], ['sku_code', 'SKU'],
+];
+const UNIT_LABELS: Array<[string, string]> = [
+  ['vin', 'VIN'], ['chassis_number', 'Chassis no.'], ['dms_reference', 'DMS reference'], ['invoice_reference', 'Invoice reference'],
+  ['allocated_at_utc', 'Allocated'],
+];
+const BOOKING_LABELS: Array<[keyof P2Vehicle360['booking'], string]> = [
+  ['bookingDate', 'Booking date'], ['salesConsultant', 'Sales consultant'], ['dealerBranch', 'Dealer branch'],
+  ['dealType', 'Deal type'], ['dealSource', 'Deal source'], ['leadSource', 'Lead source'], ['expectedDelivery', 'Expected delivery'],
+];
+const DELIVERY_LABELS: Array<[string, string]> = [
+  ['actual_delivery_status_code', 'Status'], ['planned_delivery_at', 'Planned'], ['delivery_intimated_at', 'Intimated'],
+  ['actual_delivered_at', 'Delivered'],
+];
+
+const ISO_DAY = /^\d{4}-\d{2}-\d{2}(T|$)/;
+
+/** A fact as Phase 1 prints it: dates as "31 Aug 2026", money with paise
+ * when the document carries them, and "Not available" for a blank. */
+function factText(key: string, value: unknown): React.ReactNode {
+  if (isEmpty(value)) return <span className="p2w-muted">Not available</span>;
+  if (typeof value === 'string' && ISO_DAY.test(value)) {
+    const [y, m, d] = value.slice(0, 10).split('-').map(Number);
+    const date = new Date(y, m - 1, d);
+    if (!Number.isNaN(date.getTime())) return date.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+  }
+  return recordField(key, value);
+}
+
+/** Rupees keeping the paise a document printed (₹3,812.01), whole otherwise. */
+function rupees(value: string | number | null | undefined): string {
+  if (value === null || value === undefined || value === '') return '—';
+  const amount = Number(value);
+  if (Number.isNaN(amount)) return String(value);
+  const whole = Number.isInteger(amount);
+  return `₹${amount.toLocaleString('en-IN', { minimumFractionDigits: whole ? 0 : 2, maximumFractionDigits: 2 })}`;
+}
+
+function Fact({ label, value, fieldKey }: { label: string; value: unknown; fieldKey: string }) {
+  return (
+    <div>
+      <dt>{label}</dt>
+      <dd>{factText(fieldKey, value)}</dd>
+    </div>
+  );
+}
+
+/** Phase 1's Vehicle panel: what was taken with the car and the items
+ * bought, then the vehicle, the allocated unit, the booking facts and how
+ * the delivery went. Delivery documents take precedence over Booking. */
 export function VehicleTab({ data, tenantId, journeyId, accessToken }: {
   data: P2SectionMap['vehicle']; tenantId: string; journeyId: string; accessToken?: string;
 }) {
@@ -253,20 +334,39 @@ export function VehicleTab({ data, tenantId, journeyId, accessToken }: {
     queryFn: () => getP2VehiclePhotos(tenantId, journeyId, accessToken),
     staleTime: 60_000,
   });
+  const product = data.product ?? {};
+  const unit = data.units[0] ?? {};
   return (
-    <div className="j360-grid">
+    <div className="j360-stack">
       <section className="j360-card" aria-label="Vehicle">
-        <h3 className="j360-h3">Vehicle</h3>
-        {data.product ? <Facts record={data.product} labels={PRODUCT_LABELS} /> : <p className="p2w-muted">Not identified yet.</p>}
+        <div className="j360-card__head">
+          <h3 className="j360-h3">Vehicle</h3>
+          <span className="p2w-muted">Delivery documents take precedence over Booking.</span>
+        </div>
+        <div className="j360-taken-strip">
+          <TakenRow label="Accessories" addon={data.addons.accessories} />
+          <TakenRow label="Extended Warranty" addon={data.addons.warranty} />
+          <TakenRow label="Insurance" addon={data.addons.insurance} />
+        </div>
+        <ItemList title="Accessories bought" addon={data.addons.accessories} />
+        <ItemList title="Extended Warranty" addon={data.addons.warranty} />
+        <ItemList title="Insurance" addon={data.addons.insurance} />
+        <dl className="j360-facts j360-facts--customer">
+          {VEHICLE_FACT_LABELS.map(([key, label]) => <Fact key={key} label={label} fieldKey={key} value={product[key]} />)}
+          {UNIT_LABELS.map(([key, label]) => <Fact key={key} label={label} fieldKey={key} value={unit[key]} />)}
+          {BOOKING_LABELS.map(([key, label]) => <Fact key={key} label={label} fieldKey={key} value={data.booking[key]} />)}
+        </dl>
+        {data.product?.selection_status && data.product.selection_status !== 'RESOLVED' ? (
+          <p className="p2w-muted">Identification: {humanizeKey(String(data.product.selection_status))}{data.product.sku_resolution_remarks ? ` · ${String(data.product.sku_resolution_remarks)}` : ''}</p>
+        ) : null}
+        <h4 className="j360-h4">Delivery execution</h4>
+        {data.delivery ? (
+          <dl className="j360-facts j360-facts--customer">
+            {DELIVERY_LABELS.map(([key, label]) => <Fact key={key} label={label} fieldKey={key} value={data.delivery?.[key]} />)}
+          </dl>
+        ) : <p className="p2w-muted">Delivery has not been recorded yet.</p>}
       </section>
-      <section className="j360-card" aria-label="Allocated unit">
-        <h3 className="j360-h3">Allocated unit</h3>
-        {data.units.length ? data.units.map((unit, index) => (
-          <Facts key={index} record={unit} labels={{ vin: 'VIN', chassis_number: 'Chassis number', dms_reference: 'DMS reference',
-            invoice_reference: 'Invoice', allocated_at_utc: 'Allocated', source_kind: 'Source' }} />
-        )) : <p className="p2w-muted">No VIN or chassis number read yet.</p>}
-      </section>
-      <section className="j360-card j360-span" aria-label="Vehicle photos">
+      <section className="j360-card" aria-label="Vehicle photos">
         <header className="j360-docs__head">
           <h3 className="j360-h3">Vehicle photos ({photos.data?.photos.length ?? data.photoCount})</h3>
           <Link className="p2w-button p2w-button--secondary" to={`/p2/journeys/${journeyId}/documents?tab=photos`}>Add photos</Link>
@@ -284,6 +384,68 @@ export function VehicleTab({ data, tenantId, journeyId, accessToken }: {
             ))}
           </ul>
         ) : <p className="p2w-muted">No photos yet.</p>}
+      </section>
+    </div>
+  );
+}
+
+const CERTIFICATE_LABELS: Array<[string, string]> = [
+  ['certificateNumber', 'Certificate no.'], ['certificateIssueDate', 'Issue date'], ['certificateValidUntilDate', 'Valid until'],
+  ['oldVehicleRegistrationNumber', 'Old vehicle reg. no.'], ['oldVehicleMake', 'Old vehicle make'], ['oldVehicleModel', 'Old vehicle model'],
+  ['oldVehicleType', 'Old vehicle type'], ['oldVehicleFuelType', 'Fuel type'], ['oldVehicleYearOfManufacturing', 'Year of manufacture'],
+  ['originalOwnerName', 'Original owner'], ['currentHolderName', 'Current holder'], ['tradeNumber', 'Trade no.'], ['tradeDate', 'Trade date'],
+  ['scrappingFacilityName', 'Scrapping facility'], ['rvsfRegistrationNumber', 'RVSF registration no.'], ['stateOfScrapping', 'State of scrapping'],
+];
+const TRADE_IN_LABELS: Array<[string, string]> = [
+  ['actual_status_code', 'Status'], ['old_vehicle_make_model', 'Old vehicle'], ['old_vehicle_registration', 'Registration'],
+  ['quoted_value', 'Quoted value'], ['actual_value', 'Actual value'], ['handover_at_utc', 'Handover'], ['payment_at_utc', 'Payment date'],
+];
+const VALUATION_LABELS: Array<[string, string]> = [
+  ['reportNumber', 'Report no.'], ['valuationDate', 'Valuation date'], ['evaluatorName', 'Evaluator'], ['registrationNumber', 'Registration'],
+  ['make', 'Make'], ['model', 'Model'], ['variant', 'Variant'], ['fuelType', 'Fuel type'], ['manufactureMonthYear', 'Manufactured'],
+  ['odometerKm', 'Odometer (km)'], ['numberOfOwners', 'Owners'], ['overallGrade', 'Grade'], ['baseMarketValue', 'Base market value'],
+  ['finalOfferValue', 'Final offer'], ['loanOutstandingOnVehicle', 'Loan outstanding'],
+];
+
+/** Trade-in / Scrappage as Phase 1 lays it out: the booking's exchange
+ * fields, the trade-in case, every Scrappage Certificate of Deposit and
+ * any valuation of the old vehicle. */
+export function TradeInTab({ data }: { data: P2SectionMap['tradein'] }) {
+  const nothing = !data.tradeIn && !data.certificates.length && !data.valuations.length;
+  return (
+    <div className="j360-stack">
+      <section className="j360-card" aria-label="Trade-in / Scrappage">
+        <div className="j360-card__head"><h3 className="j360-h3">Trade-in / Scrappage</h3></div>
+        <dl className="j360-facts j360-facts--customer">
+          <div><dt>Exchange applicable</dt><dd>{data.exchange.applicable === null ? <span className="p2w-muted">Not available</span> : data.exchange.applicable ? 'Yes' : 'No'}
+            {data.tradeIn?.actual_status_code ? <span className="j360-facts__note">{humanizeKey(String(data.tradeIn.actual_status_code))}</span> : null}</dd></div>
+          <div><dt>Exchange value</dt><dd>{data.exchange.value ? rupees(data.exchange.value) : '—'}</dd></div>
+        </dl>
+        {data.tradeIn ? (
+          <>
+            <h4 className="j360-h4">Trade-in</h4>
+            <dl className="j360-facts j360-facts--customer">
+              {TRADE_IN_LABELS.map(([key, label]) => <Fact key={key} label={label} fieldKey={key} value={data.tradeIn?.[key]} />)}
+            </dl>
+          </>
+        ) : null}
+        {data.certificates.map((certificate, index) => (
+          <div key={String(certificate.documentId ?? index)}>
+            <h4 className="j360-h4">{certificate.certificateVariant ? String(certificate.certificateVariant) : 'Scrappage certificate'}</h4>
+            <dl className="j360-facts j360-facts--customer">
+              {CERTIFICATE_LABELS.map(([key, label]) => <Fact key={key} label={label} fieldKey={key} value={certificate[key]} />)}
+            </dl>
+          </div>
+        ))}
+        {data.valuations.map((valuation, index) => (
+          <div key={String(valuation.documentId ?? index)}>
+            <h4 className="j360-h4">Old vehicle valuation</h4>
+            <dl className="j360-facts j360-facts--customer">
+              {VALUATION_LABELS.map(([key, label]) => <Fact key={key} label={label} fieldKey={key} value={valuation[key]} />)}
+            </dl>
+          </div>
+        ))}
+        {nothing ? <p className="p2w-muted">No trade-in or scrappage record beyond the booking's exchange fields.</p> : null}
       </section>
     </div>
   );

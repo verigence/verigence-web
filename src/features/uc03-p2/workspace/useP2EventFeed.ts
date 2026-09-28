@@ -4,7 +4,8 @@ import { useQueryClient } from '@tanstack/react-query';
 import { getP2Events } from '../../../services/audit-core/uc03P2';
 
 /**
- * Incremental Journey activity feed.
+ * Incremental Journey activity feed -- the fallback while the pushed live
+ * status (useP2LiveStatus) is not connected; ``paused`` stops it entirely.
  *
  * - starts from the newest event (never replays history on each visit)
  * - polls quickly while work is in flight, slowly otherwise
@@ -16,12 +17,14 @@ export function useP2EventFeed({
   journeyId,
   accessToken,
   active,
+  paused = false,
   queryKeys,
 }: {
   tenantId?: string;
   journeyId: string;
   accessToken?: string;
   active: boolean;
+  paused?: boolean;
   queryKeys: unknown[][];
 }): { lastEventAt?: string; degraded: boolean } {
   const queryClient = useQueryClient();
@@ -33,7 +36,7 @@ export function useP2EventFeed({
   keysRef.current = queryKeys;
 
   useEffect(() => {
-    if (!tenantId || !journeyId || !accessToken) return undefined;
+    if (!tenantId || !journeyId || !accessToken || paused) return undefined;
     let cancelled = false;
     let timer: number | undefined;
 
@@ -72,7 +75,7 @@ export function useP2EventFeed({
       cancelled = true;
       if (timer !== undefined) window.clearTimeout(timer);
     };
-  }, [accessToken, active, journeyId, queryClient, tenantId]);
+  }, [accessToken, active, journeyId, paused, queryClient, tenantId]);
 
   return { lastEventAt, degraded };
 }

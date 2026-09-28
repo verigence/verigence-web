@@ -135,3 +135,26 @@ describe('field review', () => {
     expect(views.every((v) => !v.needsReview)).toBe(true);
   });
 });
+
+describe('live status push', () => {
+  it('parses complete server-sent events and keeps the partial rest', async () => {
+    const { parseSse } = await import('../useP2LiveStatus');
+    const { messages, rest } = parseSse('retry: 2000\n\n: keep-alive\n\nevent: status\ndata: {"a":1}\n\nevent: sta');
+    expect(messages).toEqual([{ event: 'status', data: '{"a":1}' }]);
+    expect(rest).toBe('event: sta');
+  });
+
+  it('applies pushed statuses and counts to the documents on screen', async () => {
+    const { applyLiveStatus } = await import('../useP2LiveStatus');
+    const page = { queueId: 'q1', page_number: 1, client_upload_id: 'c', queue_status: 'CLASSIFYING', attempt_count: 0,
+      extracted_field_count: 0, created_at_utc: '', updated_at_utc: '' };
+    const current = { journeyId: 'j', batches: [{ batchId: 'b', original_filename: 'a.pdf', size_bytes: 1, page_count: 1,
+      batch_status: 'PROCESSING', created_at_utc: '', updated_at_utc: '', pages: [page], documents: [{ ...page, memberPages: [page] }] }] };
+    const counts = { documents: 1, pages: 1, uploading: 0, classified: 1, extracted: 1, supporting: 0, notExtracted: 0, notClassified: 0, duplicates: 0 };
+    const next = applyLiveStatus(current, { counts, units: [{ queueId: 'q1', batchId: 'b', pageNumbers: [1], status: 'READY', templateKey: 'booking_docket' }] });
+    expect(next?.counts?.extracted).toBe(1);
+    expect(next?.batches[0].pages[0].queue_status).toBe('READY');
+    expect(next?.batches[0].documents?.[0].memberPages[0].queue_status).toBe('READY');
+    expect(next?.batches[0].pages[0].templateKey).toBe('booking_docket');
+  });
+});

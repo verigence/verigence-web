@@ -77,3 +77,50 @@ describe('Task Queue grouping', () => {
     expect(groups[1].tasks.map((t) => t.task_id)).toEqual(['c', 'a']);
   });
 });
+
+describe('document-driven tasks', () => {
+  const base: Omit<P2Task, 'task_id' | 'journey_id' | 'title' | 'task_type' | 'allowed_actions'> = {
+    source_system: 'P2', round_number: 1, category: 'X', origin_kind: 'SYSTEM', source_type: 'EVIDENCE', description: '',
+    reference: {}, severity: 'HIGH', assigned_role_code: 'PC', completion_protocol: 'MACHINE_VERIFIED',
+    task_status: 'READY', created_at_utc: '2026-09-01T00:00:00Z', updated_at_utc: '2026-09-01T00:00:00Z',
+  };
+
+  it('offers photos or a VIN / engine number when the car has no pictures', async () => {
+    const { taskPlan } = await import('../../tasks/p2TaskPlan');
+    const plan = taskPlan({ ...base, task_id: 't', journey_id: 'j1', title: 'Add pictures',
+      task_type: 'DELIVERY_VEHICLE_PHOTOS_MISSING', allowed_actions: ['UPLOAD_DOCUMENT', 'PROVIDE_VEHICLE_ID', 'ADD_COMMENT'] }, 'PC');
+    expect(plan.vehicleId).toBe(true);
+    expect(plan.primary?.to).toBe('/p2/journeys/j1/documents?tab=photos');
+  });
+
+  it('lets the Team Lead mark a completed delivery reviewed', async () => {
+    const { taskPlan } = await import('../../tasks/p2TaskPlan');
+    const plan = taskPlan({ ...base, task_id: 't', journey_id: 'j1', title: 'Review', source_type: 'REVIEW',
+      assigned_role_code: 'TL', task_type: 'DELIVERY_REVIEW', allowed_actions: ['COMPLETE_ACTION', 'ADD_COMMENT'] }, 'TL');
+    expect(plan.primary).toMatchObject({ label: 'Mark delivery reviewed', action: 'COMPLETE_ACTION' });
+    expect(plan.secondary.map((a) => a.label)).toContain('Compliance report');
+  });
+
+  it('validates the vehicle number like the server', async () => {
+    const { vehicleIdentityError } = await import('../../tasks/p2TaskPlan');
+    expect(vehicleIdentityError({ vin: '', chassisNumber: '', engineNumber: '' })).toMatch(/Enter/);
+    expect(vehicleIdentityError({ vin: 'MA3SHORT', chassisNumber: '', engineNumber: '' })).toMatch(/17/);
+    expect(vehicleIdentityError({ vin: '', chassisNumber: '', engineNumber: 'k12n-7654321' })).toBeUndefined();
+  });
+
+  it('shows PAN or Aadhaar as one requirement met by either', async () => {
+    const { checklistRequirements } = await import('../../workspace/P2DocumentList');
+    const rows = checklistRequirements([
+      { templateKey: 'pan_card', displayName: 'PAN Card', stage: 'BOOKING', requirement: 'REQUIRED', group: 'KYC',
+        groupLabel: 'PAN Card or Aadhaar', status: 'MISSING', readyCount: 0, documentIds: [] },
+      { templateKey: 'aadhaar', displayName: 'Aadhaar', stage: 'BOOKING', requirement: 'REQUIRED', group: 'KYC',
+        groupLabel: 'PAN Card or Aadhaar', status: 'RECEIVED', readyCount: 1, documentIds: ['d1'] },
+      { templateKey: 'corporate_id', displayName: 'Corporate ID', stage: 'DELIVERY', requirement: 'REQUIRED', conditional: true,
+        reason: 'The booking form shows a corporate discount.', status: 'MISSING', readyCount: 0, documentIds: [] },
+    ]);
+    expect(rows.map((r) => [r.label, r.status])).toEqual([
+      ['PAN Card or Aadhaar', 'RECEIVED'], ['Corporate ID', 'MISSING']]);
+    expect(rows[0].documentIds).toEqual(['d1']);
+    expect(rows[1].conditional).toBe(true);
+  });
+});

@@ -31,7 +31,13 @@ function Line({ label, at, cancelled }: { label: string; at: number; cancelled?:
   );
 }
 
-export default function JourneyStageLines({ stage, cancelled, delivered }: { stage: string; cancelled?: boolean; delivered?: boolean }) {
+export default function JourneyStageLines({ stage, cancelled, delivered, review }: {
+  stage: string;
+  cancelled?: boolean;
+  delivered?: boolean;
+  /** A completed delivery is marked for the Team Lead's review. */
+  review?: 'PENDING' | 'DONE';
+}) {
   const at = position(stage);
   const delivery = delivered ? 3 : at.delivery;
   return (
@@ -39,6 +45,11 @@ export default function JourneyStageLines({ stage, cancelled, delivered }: { sta
       <Line label="Booking" at={at.booking} cancelled={cancelled} />
       {cancelled ? <span className="p2w-chip p2w-chip--neutral">Cancelled</span>
         : <Line label="Delivery" at={delivery} />}
+      {!cancelled && review ? (
+        <span className={`p2w-chip p2w-chip--${review === 'DONE' ? 'success' : 'warning'}`}>
+          {review === 'DONE' ? 'TL reviewed' : 'Awaiting TL review'}
+        </span>
+      ) : null}
     </div>
   );
 }

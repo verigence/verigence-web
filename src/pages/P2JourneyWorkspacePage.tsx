@@ -8,6 +8,7 @@ import PageHeader from '../components/PageHeader';
 import P2VehiclePhotos from '../features/uc03-p2/photos/P2VehiclePhotos';
 import P2RecheckButton from '../features/uc03-p2/workspace/P2RecheckButton';
 import P2UploadStatus from '../features/uc03-p2/workspace/P2UploadStatus';
+import { useP2LiveStatus } from '../features/uc03-p2/workspace/useP2LiveStatus';
 import P2DocumentEditor from '../features/uc03-p2/workspace/P2DocumentEditor';
 import P2DocumentList, { buildDocumentRows } from '../features/uc03-p2/workspace/P2DocumentList';
 import P2UploadPanel from '../features/uc03-p2/workspace/P2UploadPanel';
@@ -82,10 +83,13 @@ export default function P2JourneyWorkspacePage() {
   );
   const inFlight = rows.some((row) => PAGE_IN_FLIGHT.has(row.status))
     || (documents.data?.batches ?? []).some((batch) => BATCH_IN_FLIGHT.has(batch.batch_status));
+  const detailKeys = [['p2-documents', tenantId, journeyId], ['p2-stage', tenantId, journeyId], ['p2-tasks', tenantId],
+    ['p2-overview', tenantId, journeyId], ['p2-document-review', tenantId, journeyId]];
+  // Pushed the moment a page is uploaded, identified or read; polling only
+  // while the push stream is down.
+  const live = useP2LiveStatus({ tenantId, journeyId, accessToken, detailKeys });
   const { degraded } = useP2EventFeed({
-    tenantId, journeyId, accessToken, active: inFlight,
-    queryKeys: [['p2-documents', tenantId, journeyId], ['p2-stage', tenantId, journeyId], ['p2-tasks', tenantId],
-      ['p2-overview', tenantId, journeyId], ['p2-document-review', tenantId, journeyId]],
+    tenantId, journeyId, accessToken, active: inFlight, paused: live.connected, queryKeys: detailKeys,
   });
 
   const refresh = useCallback(() => {
@@ -248,7 +252,7 @@ export default function P2JourneyWorkspacePage() {
           <button type="button" className="p2w-link" onClick={() => void documents.refetch()}>Try again</button>
         </div>
       ) : null}
-      {degraded ? <div className="p2w-alert">Live updates are delayed; the screen refreshes automatically.</div> : null}
+      {degraded && !live.connected ? <div className="p2w-alert">Live updates are delayed; the screen refreshes automatically.</div> : null}
       {notice ? (
         <div className={`p2w-alert p2w-alert--${notice.tone}`} role="status">
           {notice.text}
@@ -257,9 +261,7 @@ export default function P2JourneyWorkspacePage() {
       ) : null}
 
       {!isNew && tenantId && journeyId ? (
-        <P2UploadStatus tenantId={tenantId} journeyId={journeyId} accessToken={accessToken}
-          counts={documents.data?.counts} submission={documents.data?.submission}
-          onSubmitted={(text, tone) => setNotice({ text, tone })} onRefresh={refresh} />
+        <P2UploadStatus counts={documents.data?.counts} live={live.connected} />
       ) : null}
 
       <div className="p2w-segment p2w-tabs-main" role="tablist" aria-label="What to add">

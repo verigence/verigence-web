@@ -8,7 +8,7 @@ export type TaskAction = {
   tone: 'primary' | 'secondary' | 'confirm' | 'danger' | 'ghost';
 };
 
-export type TaskPlan = { primary?: TaskAction; secondary: TaskAction[]; waiting?: string };
+export type TaskPlan = { primary?: TaskAction; secondary: TaskAction[]; waiting?: string; vehicleId?: boolean };
 
 const WAITING: Record<string, string> = {
   VERIFYING: 'Checking your fix automatically…',
@@ -77,6 +77,27 @@ export function taskPlan(task: P2Task, operatingRole?: string | null): TaskPlan 
     };
   }
 
+  if (task.task_type === 'DELIVERY_REVIEW') {
+    // The Team Lead's review of a completed delivery: look, then mark it reviewed.
+    return {
+      primary: { label: 'Mark delivery reviewed', action: 'COMPLETE_ACTION', tone: 'confirm' },
+      secondary: [
+        { label: 'Open Journey 360', to: `/p2/journeys/${task.journey_id}/overview`, tone: 'secondary' },
+        { label: 'Compliance report', to: `/p2/journeys/${task.journey_id}/compliance-report`, tone: 'ghost' },
+        ...(canComment ? [{ label: 'Comment', action: 'ADD_COMMENT', requiresComment: true, tone: 'ghost' as const }] : []),
+      ],
+    };
+  }
+  if (allowed.has('PROVIDE_VEHICLE_ID')) {
+    // No pictures of the car: upload them, or enter the VIN / engine number
+    // in the form under the description (TaskDetail).
+    return {
+      primary: { label: 'Add car photos', to: `/p2/journeys/${task.journey_id}/documents?tab=photos`, tone: 'primary' },
+      secondary: canComment ? [{ label: 'Comment', action: 'ADD_COMMENT', requiresComment: true, tone: 'ghost' }] : [],
+      vehicleId: true,
+    };
+  }
+
   const link = documentLink(task);
   const completion = ['CORRECT_EXTRACTED_FIELD', 'REVIEW_DOCUMENT', 'UPLOAD_DOCUMENT', 'REUPLOAD_DOCUMENT', 'ADD_EVIDENCE', 'COMPLETE_ACTION']
     .find((action) => allowed.has(action));
@@ -87,7 +108,8 @@ export function taskPlan(task: P2Task, operatingRole?: string | null): TaskPlan 
   }
   if (completion) {
     const done: TaskAction = {
-      label: task.completion_protocol === 'MACHINE_VERIFIED' ? "I've fixed it — re-check" : 'Mark as done',
+      label: task.task_type === 'DOCUMENT_MISSING' ? "I've uploaded it — re-check"
+        : task.completion_protocol === 'MACHINE_VERIFIED' ? "I've fixed it — re-check" : 'Mark as done',
       action: completion,
       requiresComment: task.completion_protocol !== 'MACHINE_VERIFIED',
       tone: primary ? 'secondary' : 'primary',
@@ -147,4 +169,19 @@ export function groupByJourney(tasks: P2Task[], now = Date.now()): TaskGroup[] {
   }
   const earliest = (g: TaskGroup) => Math.min(...g.tasks.map((t) => (t.due_at_utc ? new Date(t.due_at_utc).getTime() : Infinity)));
   return [...groups.values()].sort((a, b) => Number(b.overdue > 0) - Number(a.overdue > 0) || earliest(a) - earliest(b));
+}
+
+export type VehicleIdentity = { vin: string; chassisNumber: string; engineNumber: string };
+
+const cleanId = (value: string) => value.replace(/[^a-z0-9]/gi, '').toUpperCase();
+
+/** Same rule as the server: at least one value, 5-25 letters or digits
+ * each, and a VIN is exactly 17 characters. */
+export function vehicleIdentityError(values: VehicleIdentity): string | undefined {
+  const vin = cleanId(values.vin);
+  const all = [vin, cleanId(values.chassisNumber), cleanId(values.engineNumber)];
+  if (!all.some(Boolean)) return 'Enter the VIN, chassis number or engine number.';
+  if (all.some((v) => v && (v.length < 5 || v.length > 25))) return 'Each number has 5 to 25 letters or digits.';
+  if (vin && vin.length !== 17) return 'A VIN has 17 characters.';
+  return undefined;
 }

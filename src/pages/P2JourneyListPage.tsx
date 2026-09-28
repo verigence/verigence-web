@@ -32,7 +32,8 @@ function JourneyRow({ item, supervisor }: { item: P2JourneyListItem; supervisor:
           <span>{item.vehicle || 'Vehicle not identified yet'}</span>
           <span className="p2w-muted">{[item.journey_reference, item.outlet_name].filter(Boolean).join(' · ')}</span>
         </div>
-        <JourneyStageLines stage={item.current_stage} cancelled={item.cancelled} delivered={delivered} />
+        <JourneyStageLines stage={item.current_stage} cancelled={item.cancelled} delivered={delivered}
+          review={delivered && !item.cancelled ? (item.delivery_reviewed_at ? 'DONE' : 'PENDING') : undefined} />
         <dl className="p2w-journey__dates">
           <div><dt>Booking confirmed</dt><dd>{shortDate(item.booking_confirm_date) ?? '—'}</dd></div>
           <div>

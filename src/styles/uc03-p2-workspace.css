@@ -712,20 +712,19 @@
 @keyframes p2w-pulse { 50% { box-shadow: 0 0 0 3px rgb(31 95 168 / 18%); } }
 @media (prefers-reduced-motion: reduce) { .p2w .p2w-progress li.is-active span { animation: none; } }
 
-.p2w .p2w-statusbar { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)) auto; gap: 1px; align-items: stretch;
+.p2w .p2w-statusbar { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 1px; align-items: stretch;
   border: 1px solid var(--p2w-line); border-radius: var(--p2w-radius); overflow: hidden; background: var(--p2w-line); }
 .p2w .p2w-statusbar > div { padding: 8px 12px; background: #fff; }
 .p2w .p2w-statusbar > div > span { display: block; font-size: .72rem; color: var(--p2w-muted); font-weight: 700; }
 .p2w .p2w-statusbar > div > strong { display: block; margin-top: 2px; font-size: 1.15rem; font-weight: 800; }
 .p2w .p2w-statusbar .is-warn strong { color: var(--p2w-danger); }
 .p2w .p2w-statusbar .is-good strong { color: var(--p2w-success); }
-.p2w .p2w-statusbar .p2w-submit__timer { display: inline; font-size: .85rem; font-weight: 500; }
-.p2w .p2w-submit { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; justify-content: flex-end; padding: 8px 12px !important; }
-.p2w .p2w-submit__timer { font-variant-numeric: tabular-nums; font-size: .85rem; color: var(--p2w-muted); }
+.p2w .p2w-statusbar__note { grid-column: 1 / -1; margin: 0; padding: 6px 12px; background: var(--p2w-soft); color: var(--p2w-muted); font-size: .82rem; }
 @media (max-width: 900px) {
   .p2w .p2w-statusbar { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-  .p2w .p2w-submit { grid-column: 1 / -1; justify-content: space-between; }
 }
+.p2w .p2w-checklist__items li { flex-wrap: wrap; }
+.p2w .p2w-checklist__tag { padding: 1px 6px; border-radius: 999px; background: var(--p2w-review-bg); color: var(--p2w-review); font-size: .7rem; font-weight: 700; }
 
 /* ------------------------------------------------ bookings: summary + rows */
 .p2w .p2w-summary { display: grid; grid-template-columns: minmax(0, .8fr) minmax(0, 1.7fr) minmax(0, 2.6fr); gap: 12px; }
@@ -773,3 +772,14 @@
   .p2w .p2w-journey__tasks, .p2w .p2w-journey__actions { justify-content: flex-start; }
   .p2w .p2w-summary { grid-template-columns: 1fr; }
 }
+
+/* ------------------------------------------ task: VIN / chassis / engine */
+.p2w .p2w-vehicle-id { display: grid; gap: 8px; margin: 8px 0; padding: 10px 12px; border: 1px solid var(--p2w-line); border-radius: var(--p2w-radius); background: var(--p2w-soft); }
+.p2w .p2w-vehicle-id p { margin: 0; }
+.p2w .p2w-vehicle-id__fields { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.p2w .p2w-vehicle-id label { display: grid; gap: 4px; font-size: .78rem; font-weight: 700; color: var(--p2w-muted); }
+.p2w .p2w-vehicle-id input { min-height: 36px; padding: 6px 10px; border: 1px solid var(--p2w-line); border-radius: 8px; background: #fff; color: inherit; font: inherit; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; }
+.p2w .p2w-vehicle-id .p2w-button { justify-self: start; }
+@media (max-width: 640px) { .p2w .p2w-vehicle-id__fields { grid-template-columns: 1fr; } }
+.p2w .p2w-live { margin-right: 8px; color: var(--p2w-success); font-weight: 700; }
+.p2w .p2w-vehicle-id input::placeholder { text-transform: none; letter-spacing: normal; font-weight: 500; }

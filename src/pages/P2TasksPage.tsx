@@ -5,7 +5,9 @@ import '../styles/uc03-p2.css';
 import '../styles/uc03-p2-workspace.css';
 
 import PageHeader from '../components/PageHeader';
-import { groupByJourney, taskPlan, type TaskAction } from '../features/uc03-p2/tasks/p2TaskPlan';
+import {
+  groupByJourney, taskPlan, vehicleIdentityError, type TaskAction, type VehicleIdentity,
+} from '../features/uc03-p2/tasks/p2TaskPlan';
 import { formatDateTime, humanizeKey, relativeDue, taskStatus } from '../features/uc03-p2/workspace/p2Format';
 import { getP2Task, getP2Tasks, submitP2TaskAction, type P2Task, type P2TaskTab } from '../services/audit-core/uc03P2';
 import { useProjectContextStore } from '../store/projectContextStore';
@@ -15,6 +17,37 @@ type View = 'open' | 'done';
 
 function errorText(cause: unknown): string {
   return cause instanceof Error && cause.message ? cause.message : 'The action could not be completed.';
+}
+
+function VehicleIdForm({ busy, onSubmit }: { busy: boolean; onSubmit: (values: VehicleIdentity) => void }) {
+  const [values, setValues] = useState<VehicleIdentity>({ vin: '', chassisNumber: '', engineNumber: '' });
+  const [error, setError] = useState<string>();
+  const field = (key: keyof VehicleIdentity, label: string, hint: string) => (
+    <label>
+      <span>{label}</span>
+      <input value={values[key]} autoComplete="off" spellCheck={false} placeholder={hint}
+        onChange={(event) => { setValues({ ...values, [key]: event.target.value }); setError(undefined); }} />
+    </label>
+  );
+  return (
+    <form className="p2w-vehicle-id" onSubmit={(event) => {
+      event.preventDefault();
+      const problem = vehicleIdentityError(values);
+      if (problem) { setError(problem); return; }
+      onSubmit(values);
+    }}>
+      <p className="p2w-muted">No pictures? Enter the number from the car instead. The Team Lead sees it in the delivery review.</p>
+      <div className="p2w-vehicle-id__fields">
+        {field('vin', 'VIN', '17 characters')}
+        {field('chassisNumber', 'Chassis number', 'Optional')}
+        {field('engineNumber', 'Engine number', 'Optional')}
+      </div>
+      {error ? <div className="p2w-alert p2w-alert--error" role="alert">{error}</div> : null}
+      <button type="submit" className="p2w-button p2w-button--secondary" disabled={busy}>
+        {busy ? 'Saving…' : 'Save vehicle number'}
+      </button>
+    </form>
+  );
 }
 
 function TaskDetail({ task, tenantId, accessToken, operatingRole, onDone }: {
@@ -35,14 +68,16 @@ function TaskDetail({ task, tenantId, accessToken, operatingRole, onDone }: {
   });
   const plan = taskPlan(task, operatingRole);
   const run = useMutation({
-    mutationFn: (action: TaskAction) =>
-      submitP2TaskAction(tenantId, task.task_id, action.action!, accessToken, comment.trim() || undefined),
+    mutationFn: (action: TaskAction & { details?: Record<string, unknown> }) =>
+      submitP2TaskAction(tenantId, task.task_id, action.action!, accessToken, comment.trim() || undefined, action.details),
     onSuccess: (_, action) => {
       setComment('');
       setError(undefined);
       void queryClient.invalidateQueries({ queryKey: ['p2-tasks', tenantId] });
       void queryClient.invalidateQueries({ queryKey: ['p2-task', tenantId, task.task_id] });
       onDone(action.action === 'ADD_COMMENT' ? 'Comment added.'
+        : action.action === 'PROVIDE_VEHICLE_ID' ? 'Vehicle number saved. The task closes itself once it is checked.'
+        : task.task_type === 'DELIVERY_REVIEW' ? 'Delivery marked as reviewed.'
         : action.action === 'ACCEPT_EXCEPTION' ? 'Accepted as an exception.'
           : task.completion_protocol === 'MACHINE_VERIFIED' && !['APPROVE_CORRECTION', 'REJECT_CORRECTION'].includes(action.action!)
             ? 'Sent for re-check. The task closes itself once the check passes.'
@@ -73,6 +108,10 @@ function TaskDetail({ task, tenantId, accessToken, operatingRole, onDone }: {
       ) : null}
       {task.source_code ? <p className="p2w-muted">Reference: {humanizeKey(task.source_code)} · round {task.round_number}</p> : null}
       {plan.waiting ? <div className="p2w-alert" role="status"><i className="p2w-spinner" aria-hidden="true" /> {plan.waiting}</div> : null}
+      {plan.vehicleId ? (
+        <VehicleIdForm busy={run.isPending}
+          onSubmit={(values) => run.mutate({ label: 'Save vehicle number', action: 'PROVIDE_VEHICLE_ID', tone: 'secondary', details: values })} />
+      ) : null}
       {task.source_system !== 'LEGACY' ? (
         <label className="p2w-task__comment">
           <span>Comment</span>
@@ -91,11 +130,11 @@ function TaskDetail({ task, tenantId, accessToken, operatingRole, onDone }: {
           </button>
         ))}
       </div>
-      {detail.data?.events.length ? (
+      {detail.data?.events?.length ? (
         <details className="p2w-disclosure">
-          <summary>History ({detail.data.events.length})</summary>
+          <summary>History ({detail.data.events?.length})</summary>
           <ol className="p2w-history">
-            {detail.data.events.map((event) => (
+            {(detail.data.events ?? []).map((event) => (
               <li key={event.task_event_id}>
                 <span>{humanizeKey(event.event_type)}</span>
                 <span className="p2w-muted">{event.actor_role_code === 'SYSTEM' ? 'Audit' : event.actor_role_code || ''} · {formatDateTime(event.created_at_utc)}</span>

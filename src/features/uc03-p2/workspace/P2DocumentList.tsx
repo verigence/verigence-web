@@ -103,6 +103,41 @@ export function DocumentProgress({ status }: { status: string }) {
   );
 }
 
+export type ChecklistRequirement = {
+  key: string;
+  stage: P2ChecklistItem['stage'];
+  label: string;
+  requirement: P2ChecklistItem['requirement'];
+  conditional: boolean;
+  reason?: string | null;
+  status: 'RECEIVED' | 'MISSING';
+  documentIds: string[];
+};
+
+/** One row per requirement: documents of a group ("PAN Card or Aadhaar")
+ * are one requirement that any of them meets. */
+export function checklistRequirements(checklist: P2ChecklistItem[]): ChecklistRequirement[] {
+  const byKey = new Map<string, ChecklistRequirement>();
+  for (const item of checklist) {
+    const key = `${item.stage}:${item.group ?? item.templateKey}`;
+    const received = item.status !== 'MISSING';
+    const existing = byKey.get(key);
+    if (!existing) {
+      byKey.set(key, {
+        key, stage: item.stage, label: item.groupLabel || item.displayName, requirement: item.requirement,
+        conditional: Boolean(item.conditional), reason: item.reason, status: received ? 'RECEIVED' : 'MISSING',
+        documentIds: item.status === 'RECEIVED' ? [...item.documentIds] : [],
+      });
+      continue;
+    }
+    if (received) existing.status = 'RECEIVED';
+    if (item.status === 'RECEIVED') existing.documentIds.push(...item.documentIds);
+    existing.conditional = existing.conditional || Boolean(item.conditional);
+    existing.reason = existing.reason || item.reason;
+  }
+  return [...byKey.values()];
+}
+
 export default function P2DocumentList({
   rows,
   checklist,
@@ -123,7 +158,7 @@ export default function P2DocumentList({
   busyKey?: string;
 }) {
   const [stage, setStage] = useState<'BOOKING' | 'DELIVERY'>(() =>
-    checklist.some((item) => item.stage === 'DELIVERY' && item.status === 'RECEIVED') ? 'DELIVERY' : 'BOOKING');
+    checklist.some((item) => item.stage === 'DELIVERY' && item.status !== 'MISSING') ? 'DELIVERY' : 'BOOKING');
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
   const [typing, setTyping] = useState<string>();
   const typeOptions = useMemo(
@@ -132,7 +167,8 @@ export default function P2DocumentList({
       .sort((a, b) => a.displayName.localeCompare(b.displayName)),
     [templates],
   );
-  const stageItems = checklist.filter((item) => item.stage === stage);
+  const requirements = useMemo(() => checklistRequirements(checklist), [checklist]);
+  const stageItems = requirements.filter((item) => item.stage === stage);
   const missingRequired = stageItems.filter((item) => item.status === 'MISSING' && item.requirement !== 'OPTIONAL');
 
   return (
@@ -140,7 +176,7 @@ export default function P2DocumentList({
       <section className="p2w-checklist" aria-label="Document checklist">
         <div className="p2w-segment" role="tablist">
           {(['BOOKING', 'DELIVERY'] as const).map((code) => {
-            const items = checklist.filter((item) => item.stage === code && item.requirement !== 'OPTIONAL');
+            const items = requirements.filter((item) => item.stage === code && item.requirement !== 'OPTIONAL');
             const received = items.filter((item) => item.status === 'RECEIVED').length;
             return (
               <button key={code} type="button" role="tab" aria-selected={stage === code}
@@ -152,13 +188,14 @@ export default function P2DocumentList({
         </div>
         <ul className="p2w-checklist__items">
           {stageItems.map((item) => (
-            <li key={item.templateKey} className={`is-${item.status.toLowerCase()} is-${item.requirement.toLowerCase()}`}>
+            <li key={item.key} className={`is-${item.status.toLowerCase()} is-${item.requirement.toLowerCase()}`}>
               <span aria-hidden="true">{item.status === 'RECEIVED' ? '✓' : item.requirement === 'OPTIONAL' ? '○' : '!'}</span>
               {item.status === 'RECEIVED' && item.documentIds[0] ? (
-                <button type="button" className="p2w-link" onClick={() => onOpen(item.documentIds[0])}>{item.displayName}</button>
+                <button type="button" className="p2w-link" onClick={() => onOpen(item.documentIds[0])}>{item.label}</button>
               ) : (
-                <span>{item.displayName}{item.requirement === 'OPTIONAL' ? ' (optional)' : ''}</span>
+                <span>{item.label}{item.requirement === 'OPTIONAL' ? ' (optional)' : ''}</span>
               )}
+              {item.conditional && item.requirement === 'REQUIRED' ? <span className="p2w-checklist__tag">Needed for this deal</span> : null}
               {item.reason && item.status === 'MISSING' ? <small className="p2w-checklist__why">{item.reason}</small> : null}
             </li>
           ))}

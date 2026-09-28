@@ -16,6 +16,8 @@ export type P2JourneyListItem = {
   booking_status?: string | null;
   booking_completed_at?: string | null;
   delivery_completed_at?: string | null;
+  /** The Team Lead reviewed the completed delivery. */
+  delivery_reviewed_at?: string | null;
   booking_submitted_at?: string | null;
   delivery_submitted_at?: string | null;
   pc_open_tasks?: number;
@@ -230,7 +232,13 @@ export type P2ChecklistItem = {
   requirement: 'REQUIRED' | 'OPTIONAL' | 'CONDITIONAL' | 'SUPPORTING';
   /** Why a conditional document is needed, e.g. "The deal claims a corporate discount." */
   reason?: string | null;
-  status: 'RECEIVED' | 'MISSING';
+  /** COVERED: another document of the same group met it (PAN or Aadhaar). */
+  status: 'RECEIVED' | 'COVERED' | 'MISSING';
+  /** A conditional document; `requirement` is REQUIRED once evidence triggered it. */
+  conditional?: boolean;
+  /** Documents where any one meets the requirement share a group. */
+  group?: string | null;
+  groupLabel?: string | null;
   readyCount: number;
   documentIds: string[];
 };
@@ -242,7 +250,6 @@ export type P2DocumentsResponse = {
   checklist?: P2ChecklistItem[];
   conditions?: string[];
   counts?: P2UploadCounts;
-  submission?: P2Submission;
 };
 
 export type P2TemplateField = {
@@ -756,13 +763,14 @@ export async function submitP2TaskAction(
   action: string,
   accessToken?: string,
   comment?: string,
+  details: Record<string, unknown> = {},
 ): Promise<Record<string, unknown>> {
   return auditCoreRequest(
     path(tenantId, `/tasks/${encodeURIComponent(taskId)}/actions`),
     {
       method: 'POST',
       accessToken,
-      body: JSON.stringify({ action, comment: comment || null, details: {} }),
+      body: JSON.stringify({ action, comment: comment || null, details }),
     },
   );
 }
@@ -1101,17 +1109,6 @@ export type P2UploadCounts = {
   documents: number; pages: number; uploading: number; classified: number; extracted: number;
   supporting: number; notExtracted: number; notClassified: number; duplicates: number;
 };
-
-export type P2Submission = {
-  stage: 'BOOKING' | 'DELIVERY'; canSubmit: boolean; reason: string; windowStartedAtUtc?: string | null;
-  secondsElapsed: number; unlockAfterSeconds: number; secondsRemaining: number; submittedAtUtc?: string | null;
-};
-
-export function submitP2Documents(tenantId: string, journeyId: string, accessToken?: string) {
-  return auditCoreRequest<{ journeyId: string; stage: string; submittedAtUtc: string }>(
-    path(tenantId, `/journeys/${encodeURIComponent(journeyId)}:submit`), { method: 'POST', accessToken, body: '{}' },
-  );
-}
 
 export type P2Timeline = {
   stages: Record<'BOOKING' | 'DELIVERY', {

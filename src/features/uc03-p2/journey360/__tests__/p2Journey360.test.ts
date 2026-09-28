@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { money, recordValue, signedMoney, varianceTone } from '../j360Format';
 import { newPhotoItem, photoPreflight, runPhotoUploads, type PhotoTransport } from '../../photos/p2PhotoUploader';
+import type { P2Task } from '../../../../services/audit-core/uc03P2';
 
 describe('Journey 360 formatting', () => {
   it('never shows a missing amount as zero', () => {
@@ -61,9 +62,10 @@ describe('vehicle photo upload', () => {
 describe('Task Queue grouping', () => {
   it('groups by journey, overdue journeys first', async () => {
     const { groupByJourney } = await import('../../tasks/p2TaskPlan');
-    const base = { source_system: 'P2', round_number: 1, category: 'X', origin_kind: 'SYSTEM', source_type: 'RULE', description: '',
-      reference: {}, severity: 'MEDIUM', assigned_role_code: 'PC', allowed_actions: [], completion_protocol: 'MACHINE_VERIFIED',
-      task_status: 'READY', created_at_utc: '2026-09-01T00:00:00Z', updated_at_utc: '2026-09-01T00:00:00Z', task_type: 'T' } as const;
+    const base: Omit<P2Task, 'task_id' | 'journey_id' | 'title'> = { source_system: 'P2', round_number: 1, category: 'X',
+      origin_kind: 'SYSTEM', source_type: 'RULE', description: '', reference: {}, severity: 'MEDIUM', assigned_role_code: 'PC',
+      allowed_actions: [], completion_protocol: 'MACHINE_VERIFIED', task_status: 'READY',
+      created_at_utc: '2026-09-01T00:00:00Z', updated_at_utc: '2026-09-01T00:00:00Z', task_type: 'T' };
     const now = Date.parse('2026-09-28T00:00:00Z');
     const groups = groupByJourney([
       { ...base, task_id: 'a', journey_id: 'j1', title: 'A', due_at_utc: '2026-10-01T00:00:00Z', customer_name: 'One' },

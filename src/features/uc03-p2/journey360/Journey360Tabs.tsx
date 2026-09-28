@@ -415,3 +415,68 @@ export function DuplicatesBanner({ pairs }: { pairs: P2DuplicatePair[] }) {
     </section>
   );
 }
+
+// ── Timeline (existing journey workflow) ────────────────────────────────────
+function duration(hoursValue?: number | null): string {
+  if (hoursValue === null || hoursValue === undefined) return '—';
+  return hoursValue >= 48 ? `${(hoursValue / 24).toFixed(1)} days` : `${hoursValue.toFixed(1)} h`;
+}
+
+export function TimelineTab({ data }: { data: P2SectionMap['timeline'] }) {
+  return (
+    <div className="j360-stack">
+      <div className="j360-grid">
+        {(['BOOKING', 'DELIVERY'] as const).map((code) => {
+          const stage = data.stages[code];
+          return (
+            <section key={code} className="j360-card" aria-label={`${humanizeKey(code)} timeline`}>
+              <h3 className="j360-h3">{humanizeKey(code)}{stage.cancelled ? ' · cancelled' : ''}</h3>
+              <dl className="j360-facts">
+                <div><dt>Started</dt><dd>{formatDateTime(stage.startedAtUtc)}</dd></div>
+                <div><dt>Documents submitted</dt><dd>{formatDateTime(stage.submittedAtUtc)}</dd></div>
+                <div><dt>Completed</dt><dd>{formatDateTime(stage.completedAtUtc)}</dd></div>
+                {code === 'BOOKING' ? <div><dt>Booking confirmed</dt><dd>{recordField('booking_confirm_date', stage.bookingConfirmDate)}</dd></div> : null}
+                <div><dt>Time to submit</dt><dd>{duration(stage.hoursToSubmit)}</dd></div>
+                <div><dt>Time to complete</dt><dd>{duration(stage.hoursToComplete)}</dd></div>
+                {stage.status ? <div><dt>Status</dt><dd>{humanizeKey(stage.status)}</dd></div> : null}
+              </dl>
+            </section>
+          );
+        })}
+      </div>
+      <section className="j360-card" aria-label="Time by role">
+        <h3 className="j360-h3">Tasks and time by role</h3>
+        {data.roles.length ? (
+          <div className="j360-table-wrap">
+            <table className="j360-table">
+              <thead><tr><th scope="col">Role</th><th scope="col" className="is-num">Tasks</th><th scope="col" className="is-num">Open</th>
+                <th scope="col" className="is-num">Avg. time to close</th><th scope="col" className="is-num">Total time on tasks</th></tr></thead>
+              <tbody>
+                {data.roles.map((r) => (
+                  <tr key={r.role}>
+                    <th scope="row">{r.role}</th>
+                    <td className="is-num" data-label="Tasks">{r.tasks}</td>
+                    <td className="is-num" data-label="Open">{r.open}</td>
+                    <td className="is-num" data-label="Avg. time to close">{duration(r.avgHoursToClose)}</td>
+                    <td className="is-num" data-label="Total time on tasks">{duration(r.totalHours)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : <p className="p2w-muted">No tasks on this journey yet.</p>}
+      </section>
+      {data.workflowEvents.length ? (
+        <ol className="j360-timeline j360-card" aria-label="Workflow">
+          {data.workflowEvents.map((e, index) => (
+            <li key={`${e.occurred_at_utc}-${index}`}>
+              <time dateTime={e.occurred_at_utc}>{formatDateTime(e.occurred_at_utc)}</time>
+              <strong>{humanizeKey(e.event_type.replace(/^P2_/, ''))}</strong>
+              <span className="p2w-muted">{humanizeKey(e.stage_code)}{e.actor_role_snapshot ? ` · ${e.actor_role_snapshot}` : e.source_kind === 'MACHINE' ? ' · automatic' : ''}</span>
+            </li>
+          ))}
+        </ol>
+      ) : null}
+    </div>
+  );
+}

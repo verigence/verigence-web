@@ -78,6 +78,31 @@ export function buildDocumentRows(
   return rows;
 }
 
+const NOT_IDENTIFIED = new Set(['QUEUED', 'PREPARING_PAGE', 'DI_UPLOAD_PREPARING', 'DI_UPLOADING', 'DI_FINALIZING', 'CLASSIFYING', 'RETRY_WAIT']);
+const FAILED = new Set(['FAILED', 'DEAD_LETTER']);
+
+/** Uploaded -> Identified -> Read, for one document card. */
+export function DocumentProgress({ status }: { status: string }) {
+  const identified = !NOT_IDENTIFIED.has(status) && !FAILED.has(status);
+  const read = status === 'READY';
+  const steps: Array<[string, 'done' | 'active' | 'todo' | 'failed' | 'skipped']> = [
+    ['Uploaded', 'done'],
+    ['Identified', identified ? 'done' : FAILED.has(status) ? 'failed' : 'active'],
+    ['Read', read ? 'done' : status === 'SUPPORTING' ? 'skipped' : status === 'NEEDS_REVIEW' ? 'failed'
+      : identified ? 'active' : 'todo'],
+  ];
+  return (
+    <ol className="p2w-progress" aria-label="Document progress">
+      {steps.map(([label, state]) => (
+        <li key={label} className={`is-${state}`}>
+          <span aria-hidden="true">{state === 'done' ? '✓' : state === 'failed' ? '!' : state === 'skipped' ? '–' : ''}</span>
+          {label}{state === 'skipped' ? ' (supporting)' : ''}
+        </li>
+      ))}
+    </ol>
+  );
+}
+
 export default function P2DocumentList({
   rows,
   checklist,
@@ -134,6 +159,7 @@ export default function P2DocumentList({
               ) : (
                 <span>{item.displayName}{item.requirement === 'OPTIONAL' ? ' (optional)' : ''}</span>
               )}
+              {item.reason && item.status === 'MISSING' ? <small className="p2w-checklist__why">{item.reason}</small> : null}
             </li>
           ))}
         </ul>
@@ -166,6 +192,7 @@ export default function P2DocumentList({
                 </span>
                 {openable ? <span className="p2w-doc__chevron" aria-hidden="true">›</span> : null}
               </div>
+              <DocumentProgress status={row.status} />
               {row.reason ? <p className="p2w-doc__reason">{row.reason}</p> : null}
               {typing === row.key && row.unit ? (
                 <div className="p2w-doc__type">

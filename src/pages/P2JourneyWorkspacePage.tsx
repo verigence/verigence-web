@@ -7,6 +7,7 @@ import '../styles/uc03-p2-workspace.css';
 import PageHeader from '../components/PageHeader';
 import P2VehiclePhotos from '../features/uc03-p2/photos/P2VehiclePhotos';
 import P2RecheckButton from '../features/uc03-p2/workspace/P2RecheckButton';
+import P2UploadStatus from '../features/uc03-p2/workspace/P2UploadStatus';
 import P2DocumentEditor from '../features/uc03-p2/workspace/P2DocumentEditor';
 import P2DocumentList, { buildDocumentRows } from '../features/uc03-p2/workspace/P2DocumentList';
 import P2UploadPanel from '../features/uc03-p2/workspace/P2UploadPanel';
@@ -253,6 +254,12 @@ export default function P2JourneyWorkspacePage() {
           {notice.text}
           <button type="button" className="p2w-link" onClick={() => setNotice(undefined)} aria-label="Dismiss">×</button>
         </div>
+      ) : null}
+
+      {!isNew && tenantId && journeyId ? (
+        <P2UploadStatus tenantId={tenantId} journeyId={journeyId} accessToken={accessToken}
+          counts={documents.data?.counts} submission={documents.data?.submission}
+          onSubmitted={(text, tone) => setNotice({ text, tone })} onRefresh={refresh} />
       ) : null}
 
       <div className="p2w-segment p2w-tabs-main" role="tablist" aria-label="What to add">

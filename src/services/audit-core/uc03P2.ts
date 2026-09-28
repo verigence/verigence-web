@@ -10,6 +10,16 @@ export type P2JourneyListItem = {
   created_at_utc?: string;
   /** False for an existing (Phase 1) journey Phase 2 has not processed yet. */
   phase2?: boolean;
+  /** Delivered, cancelled, duplicate or closed without delivery. */
+  closed?: boolean;
+  cancelled?: boolean;
+  booking_status?: string | null;
+  booking_completed_at?: string | null;
+  delivery_completed_at?: string | null;
+  booking_submitted_at?: string | null;
+  delivery_submitted_at?: string | null;
+  pc_open_tasks?: number;
+  tl_open_tasks?: number;
   customer_name: string;
   mobile_last4?: string | null;
   dealer_name: string;
@@ -218,6 +228,8 @@ export type P2ChecklistItem = {
   displayName: string;
   stage: 'BOOKING' | 'DELIVERY';
   requirement: 'REQUIRED' | 'OPTIONAL' | 'CONDITIONAL' | 'SUPPORTING';
+  /** Why a conditional document is needed, e.g. "The deal claims a corporate discount." */
+  reason?: string | null;
   status: 'RECEIVED' | 'MISSING';
   readyCount: number;
   documentIds: string[];
@@ -229,6 +241,8 @@ export type P2DocumentsResponse = {
   documents?: P2DocumentLineage[];
   checklist?: P2ChecklistItem[];
   conditions?: string[];
+  counts?: P2UploadCounts;
+  submission?: P2Submission;
 };
 
 export type P2TemplateField = {
@@ -469,10 +483,13 @@ export function getP2Journeys(
   tenantId: string,
   accessToken?: string,
   search = '',
+  state: 'open' | 'closed' | 'all' = 'all',
+  limit = 100,
 ): Promise<P2JourneyListResponse> {
   const params = new URLSearchParams();
   if (search.trim()) params.set('q', search.trim());
-  params.set('limit', '100');
+  params.set('limit', String(limit));
+  if (state !== 'all') params.set('state', state);
   return auditCoreRequest<P2JourneyListResponse>(
     `${path(tenantId, '/journeys')}?${params.toString()}`,
     { accessToken },
@@ -951,6 +968,7 @@ export type P2SectionMap = {
   activity: { events: Array<{ event_id: number; event_type: string; subject_type?: string | null; subject_id?: string | null; details?: Record<string, unknown> | null; created_at_utc: string }> };
   duplicates: { pairs: P2DuplicatePair[] };
   'compliance-report': P2ComplianceReport;
+  timeline: P2Timeline;
 };
 
 export function getP2Journey360(tenantId: string, journeyId: string, accessToken?: string): Promise<P2Journey360> {
@@ -1067,3 +1085,39 @@ export function recheckP2Journey(tenantId: string, journeyId: string, accessToke
     path(tenantId, `/journeys/${encodeURIComponent(journeyId)}:recheck`), { method: 'POST', accessToken },
   );
 }
+
+// ── Bookings summary, submission, timeline ──────────────────────────────────
+export type P2BookingsSummary = {
+  open: { bookings: number; deliveries: number };
+  week: { bookingsStarted: number; bookingsCompleted: number; deliveriesCompleted: number };
+  month: { bookingsStarted: number; bookingsCompleted: number; deliveriesCompleted: number; avgBookingHours: number | null; avgDeliveryHours: number | null };
+};
+
+export function getP2BookingsSummary(tenantId: string, accessToken?: string) {
+  return auditCoreRequest<P2BookingsSummary>(path(tenantId, '/journeys:summary'), { accessToken });
+}
+
+export type P2UploadCounts = {
+  documents: number; pages: number; uploading: number; classified: number; extracted: number;
+  supporting: number; notExtracted: number; notClassified: number; duplicates: number;
+};
+
+export type P2Submission = {
+  stage: 'BOOKING' | 'DELIVERY'; canSubmit: boolean; reason: string; windowStartedAtUtc?: string | null;
+  secondsElapsed: number; unlockAfterSeconds: number; secondsRemaining: number; submittedAtUtc?: string | null;
+};
+
+export function submitP2Documents(tenantId: string, journeyId: string, accessToken?: string) {
+  return auditCoreRequest<{ journeyId: string; stage: string; submittedAtUtc: string }>(
+    path(tenantId, `/journeys/${encodeURIComponent(journeyId)}:submit`), { method: 'POST', accessToken, body: '{}' },
+  );
+}
+
+export type P2Timeline = {
+  stages: Record<'BOOKING' | 'DELIVERY', {
+    status?: string | null; startedAtUtc?: string | null; submittedAtUtc?: string | null; completedAtUtc?: string | null;
+    cancelled: boolean; hoursToSubmit?: number | null; hoursToComplete?: number | null; bookingConfirmDate?: string | null;
+  }>;
+  roles: Array<{ role: string; tasks: number; open: number; avgHoursToClose: number | null; totalHours: number }>;
+  workflowEvents: Array<{ stage_code: string; event_type: string; source_kind: string; actor_role_snapshot?: string | null; occurred_at_utc: string }>;
+};

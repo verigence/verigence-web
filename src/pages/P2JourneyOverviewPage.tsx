@@ -11,6 +11,7 @@ import P2RecheckButton from '../features/uc03-p2/workspace/P2RecheckButton';
 import {
   ActivityTab,
   AddonsTab,
+  AuditTab,
   ChecksTab,
   DeliveryTab,
   DocumentsTab,
@@ -39,6 +40,7 @@ const TABS = [
   { key: 'registration', label: 'Registration' },
   { key: 'delivery', label: 'Delivery' },
   { key: 'compliance', label: 'Checks' },
+  { key: 'audit', label: 'Audit trail' },
   { key: 'timeline', label: 'Timeline' },
   { key: 'activity', label: 'Activity' },
 ] as const;
@@ -95,6 +97,7 @@ export default function P2JourneyOverviewPage() {
   const compliance = useSection('compliance', tenantId, journeyId, accessToken, tab === 'compliance');
   const activity = useSection('activity', tenantId, journeyId, accessToken, tab === 'activity');
   const timeline = useSection('timeline', tenantId, journeyId, accessToken, tab === 'timeline');
+  const audit = useSection('audit', tenantId, journeyId, accessToken, tab === 'audit');
 
   const [notice, setNotice] = useState<{ text: string; tone: 'success' | 'error' }>();
   const data = summary.data;
@@ -108,7 +111,7 @@ export default function P2JourneyOverviewPage() {
     setSearch(params, { replace: true });
   };
 
-  const active = { deal, addons, payments, documents, vehicle, registration, delivery, compliance, activity, timeline }[tab];
+  const active = { deal, addons, payments, documents, vehicle, registration, delivery, compliance, activity, timeline, audit }[tab];
   let body: React.ReactNode = null;
   if (active.isLoading) body = <div className="p2w-skeleton" aria-busy="true">Loading…</div>;
   else if (active.isError) {
@@ -129,6 +132,7 @@ export default function P2JourneyOverviewPage() {
     if (tab === 'compliance' && compliance.data) body = <ChecksTab data={compliance.data} />;
     if (tab === 'activity' && activity.data) body = <ActivityTab data={activity.data} />;
     if (tab === 'timeline' && timeline.data) body = <TimelineTab data={timeline.data} />;
+    if (tab === 'audit' && audit.data) body = <AuditTab data={audit.data} />;
   }
 
   return (

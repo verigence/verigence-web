@@ -131,25 +131,6 @@
 
 /* ----------------------------------------------- complete journey (docs) */
 .p2w .p2w-statusbar { grid-template-columns: repeat(5, minmax(0, 1fr)); }
-.p2w .p2w-readiness { grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr) auto; align-items: start; }
-.p2w .p2w-readiness__col { display: grid; gap: 6px; min-width: 0; padding: 10px 12px; border-radius: 10px; }
-.p2w .p2w-readiness__col.is-done { background: var(--p2w-success-bg); }
-.p2w .p2w-readiness__col.is-todo { background: var(--p2w-action-soft); }
-.p2w .p2w-readiness__title { font-size: .72rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
-.p2w .p2w-readiness__col.is-done .p2w-readiness__title { color: var(--p2w-success); }
-.p2w .p2w-readiness__col.is-todo .p2w-readiness__title { color: var(--p2w-action-soft-text); }
-.p2w .p2w-readiness__title b { margin-left: 4px; padding: 0 6px; border-radius: 999px; background: #fff; }
-.p2w .p2w-readiness__col p { margin: 0; font-size: .88rem; }
-.p2w .p2w-donelist { display: grid; gap: 4px; margin: 0; padding: 0; list-style: none; }
-.p2w .p2w-donelist li { display: flex; gap: 8px; align-items: baseline; color: var(--p2w-success); font-size: .9rem; font-weight: 700; }
-.p2w .p2w-donelist li::before { content: '✓'; flex: 0 0 18px; height: 18px; border-radius: 50%; background: var(--p2w-success); color: #fff; font-size: .7rem; line-height: 18px; text-align: center; }
-.p2w .p2w-todo { display: grid; gap: 4px; margin: 0; padding: 0; list-style: none; counter-reset: todo; }
-.p2w .p2w-todo li { display: flex; gap: 8px; align-items: baseline; font-size: .92rem; font-weight: 700; }
-.p2w .p2w-todo li::before { content: counter(todo); counter-increment: todo; flex: 0 0 18px; height: 18px; border-radius: 50%; background: var(--p2w-action); color: #fff; font-size: .7rem; line-height: 18px; text-align: center; }
-.p2w .p2w-todo li.is-danger::before { background: var(--p2w-danger); }
-.p2w .p2w-todo li.is-review::before { background: var(--p2w-review); }
-.p2w .p2w-todo li.is-missing::before { background: #93370d; }
-
 /* Until a document is opened the cards have the whole width; the editor
    appears beside them once one is. */
 .p2w:not(.has-selection) .p2w-layout { grid-template-columns: minmax(0, 1fr); }
@@ -168,31 +149,35 @@
   padding: 0;
   list-style: none;
 }
+/* One colour per state, top to bottom: grey missing, blue uploaded,
+   green extracted, amber check, red failed. */
 .p2w .p2w-dcard {
+  --dc-line: #d5dee6;
+  --dc-ink: var(--p2w-muted);
+  --dc-bg: #f8fafc;
   display: grid;
   align-content: start;
   min-width: 0;
-  border: 2px solid var(--p2w-line);
-  border-left: 4px solid #003a82;
-  border-radius: 8px;
-  background: #fff;
-  transition: border-color .15s, box-shadow .15s;
+  border: 1.5px solid var(--dc-line);
+  border-top: 4px solid var(--dc-line);
+  border-radius: 10px;
+  background: var(--dc-bg);
+  transition: border-color .15s, box-shadow .15s, transform .15s;
 }
-.p2w .p2w-dcard.is-conditional { border-left-color: #00afa8; }
-.p2w .p2w-dcard.is-optional,
-.p2w .p2w-dcard.is-extra { border-left-color: #00d3a7; }
-.p2w .p2w-dcard.is-missing { border-style: dashed; border-left-style: solid; background: #fafbfc; }
-.p2w .p2w-dcard.is-ready { background: #f3fbf9; }
-.p2w .p2w-dcard.is-review { background: var(--p2w-review-bg); }
-.p2w .p2w-dcard.is-failed { background: var(--p2w-danger-bg); }
-.p2w .p2w-dcard:has(.p2w-dcard__main:not(:disabled):hover) { border-color: var(--p2w-link); box-shadow: 0 4px 12px rgb(0 87 184 / 10%); }
-.p2w .p2w-dcard.is-selected { border-color: var(--p2w-link); box-shadow: 0 0 0 3px rgb(0 87 184 / 15%); }
+.p2w .p2w-dcard.is-missing { border-style: dashed; border-top-style: solid; }
+.p2w .p2w-dcard.is-progress { --dc-line: #7fb0e8; --dc-ink: var(--p2w-progress); --dc-bg: #eef5ff; }
+.p2w .p2w-dcard.is-ready { --dc-line: #5fc2a4; --dc-ink: var(--p2w-success); --dc-bg: #edf9f4; }
+.p2w .p2w-dcard.is-review { --dc-line: #e8b84d; --dc-ink: #8a5a00; --dc-bg: #fff8e8; }
+.p2w .p2w-dcard.is-failed { --dc-line: #e69a94; --dc-ink: var(--p2w-danger); --dc-bg: var(--p2w-danger-bg); }
+.p2w .p2w-dcard:has(.p2w-dcard__main:not(:disabled):hover) { box-shadow: 0 6px 16px rgb(16 42 67 / 12%); transform: translateY(-1px); }
+.p2w .p2w-dcard.is-selected { box-shadow: 0 0 0 3px rgb(11 122 148 / 25%); }
 .p2w .p2w-dcard__main {
   display: grid;
-  gap: 6px;
+  gap: 8px;
   width: 100%;
   min-width: 0;
-  padding: 10px 12px;
+  min-height: 74px;
+  padding: 12px 12px 10px;
   border: 0;
   background: none;
   color: inherit;
@@ -201,32 +186,30 @@
   cursor: pointer;
 }
 .p2w .p2w-dcard__main:disabled { cursor: default; }
-.p2w .p2w-dcard__main:focus-visible { outline: 2px solid var(--p2w-accent); outline-offset: -2px; border-radius: 6px; }
+.p2w .p2w-dcard__main:focus-visible { outline: 2px solid var(--p2w-accent); outline-offset: -2px; border-radius: 8px; }
 .p2w .p2w-dcard__head { display: flex; justify-content: space-between; align-items: baseline; gap: 6px; min-width: 0; }
-.p2w .p2w-dcard__name { overflow: hidden; color: #003a82; font-size: .9rem; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
-.p2w .p2w-dcard.is-missing .p2w-dcard__name { color: var(--p2w-ink); }
-.p2w .p2w-dcard__level { flex: 0 0 auto; color: var(--p2w-muted); font-size: .7rem; font-style: normal; font-weight: 600; }
-.p2w .p2w-dcard__file { overflow: hidden; color: var(--p2w-muted); font-size: .76rem; text-overflow: ellipsis; white-space: nowrap; }
-.p2w .p2w-dcard__status { display: flex; align-items: center; gap: 6px; color: var(--p2w-muted); font-size: .8rem; font-weight: 700; }
-.p2w .p2w-dcard__dot { flex: 0 0 auto; width: 8px; height: 8px; border-radius: 50%; background: #98a2b3; }
-.p2w .p2w-dcard.is-ready .p2w-dcard__status { color: var(--p2w-success); }
-.p2w .p2w-dcard.is-ready .p2w-dcard__dot { background: var(--p2w-success); }
-.p2w .p2w-dcard.is-review .p2w-dcard__status { color: var(--p2w-review); }
-.p2w .p2w-dcard.is-review .p2w-dcard__dot { background: var(--p2w-review); }
-.p2w .p2w-dcard.is-failed .p2w-dcard__status { color: var(--p2w-danger); }
-.p2w .p2w-dcard.is-failed .p2w-dcard__dot { background: var(--p2w-danger); }
-.p2w .p2w-dcard.is-progress .p2w-dcard__status { color: var(--p2w-progress); }
-.p2w .p2w-dcard.is-missing.is-required .p2w-dcard__dot { background: #93370d; }
-.p2w .p2w-dcard__add { margin-left: auto; color: var(--p2w-link); font-weight: 700; }
-.p2w .p2w-dcard__why { color: var(--p2w-muted); font-size: .76rem; line-height: 1.35; }
-.p2w .p2w-dcard.is-failed .p2w-dcard__why { color: var(--p2w-danger); }
+.p2w .p2w-dcard__name { overflow: hidden; color: var(--p2w-ink); font-size: .92rem; font-weight: 700; line-height: 1.25; text-overflow: ellipsis; white-space: nowrap; }
+.p2w .p2w-dcard.is-missing .p2w-dcard__name { color: var(--p2w-muted); }
+.p2w .p2w-dcard__level { flex: 0 0 auto; color: var(--p2w-muted); font-size: .68rem; font-style: normal; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; }
+.p2w .p2w-dcard__status { display: flex; align-items: center; gap: 6px; color: var(--dc-ink); font-size: .8rem; font-weight: 700; }
+.p2w .p2w-dcard__dot { flex: 0 0 auto; width: 8px; height: 8px; border-radius: 50%; background: var(--dc-line); }
+.p2w .p2w-dcard.is-missing.is-required .p2w-dcard__dot,
+.p2w .p2w-dcard.is-missing.is-conditional .p2w-dcard__dot { background: #93370d; }
+.p2w .p2w-dcard__add { margin-left: auto; color: var(--p2w-link); font-weight: 800; }
 .p2w .p2w-dcard__actions { display: flex; flex-wrap: wrap; gap: 4px 12px; padding: 0 12px 10px; font-size: .8rem; }
 .p2w .p2w-dcard .p2w-doc__type { padding: 0 12px 10px; }
 .p2w .p2w-dcard .p2w-spinner { width: 10px; height: 10px; }
 
+/* Live processing line under the counts. */
+.p2w .p2w-statusbar__note { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: center; }
+.p2w .p2w-live { margin: 0; color: var(--p2w-muted); font-weight: 700; }
+.p2w .p2w-live.is-on { color: var(--p2w-success); }
+.p2w .p2w-statusbar__working { display: flex; flex-wrap: wrap; gap: 4px 14px; }
+.p2w .p2w-statusbar__item { display: inline-flex; align-items: center; gap: 6px; color: var(--p2w-progress); font-weight: 700; }
+.p2w .p2w-statusbar__item .p2w-spinner { width: 10px; height: 10px; }
+
 @media (max-width: 900px) {
   .p2w .p2w-statusbar { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-  .p2w .p2w-readiness { grid-template-columns: 1fr; }
 }
 /* Tablet: drop the Dates column so the rest can breathe. */
 @media (max-width: 1100px) and (min-width: 761px) {

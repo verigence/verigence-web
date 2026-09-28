@@ -12,6 +12,7 @@ import {
   type GlobalUserLifecycleStatus,
 } from '../services/security/onboardingAdmin';
 import { useSessionStore } from '../store/sessionStore';
+import { canBulkDelete, isTestAccount } from './adminUsersBulk';
 
 type StatusAction = {
   kind: 'status';
@@ -32,14 +33,44 @@ type LifecycleAction = StatusAction | DeleteAction;
 
 const lifecycleStatuses = ['ALL', 'PENDING', 'REJECTED', 'ACTIVE', 'SUSPENDED', 'DISABLED'] as const;
 
+type BulkFailure = { user: GlobalUserDirectoryItem; message: string };
+type BulkRun = { done: number; total: number; failures: BulkFailure[]; finished: boolean };
+
+/** The governed delete: record the deletion request (ACTIVE/REJECTED), then hard-delete in Security. */
+async function deleteUser(accessToken: string, user: GlobalUserDirectoryItem, reasonText: string) {
+  const current = user.status.toUpperCase();
+  let requestedInThisOperation = false;
+
+  if (current === 'ACTIVE' || current === 'REJECTED') {
+    await requestGlobalUserDeletion(accessToken, user.userId, reasonText);
+    requestedInThisOperation = true;
+  } else if (current !== 'DISABLED') {
+    throw new Error('Only an ACTIVE, REJECTED or DISABLED user can be permanently deleted.');
+  }
+
+  try {
+    return await hardDeleteGlobalUser(accessToken, user.userId);
+  } catch (error) {
+    if (requestedInThisOperation) {
+      const detail = error instanceof Error ? error.message : 'Security hard delete failed.';
+      throw new Error(`The deletion request was recorded, but permanent deletion did not complete. ${detail}`);
+    }
+    throw error;
+  }
+}
+
 export default function AdminUsersPage() {
   const accessToken = useSessionStore((state) => state.accessToken);
+  const signedInEmail = useSessionStore((state) => state.email);
   const queryClient = useQueryClient();
   const [query, setQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<(typeof lifecycleStatuses)[number]>('ALL');
   const [action, setAction] = useState<LifecycleAction | null>(null);
   const [reason, setReason] = useState('');
   const [feedback, setFeedback] = useState('');
+  const [selected, setSelected] = useState<Set<string>>(() => new Set());
+  const [bulkOpen, setBulkOpen] = useState(false);
+  const [bulkRun, setBulkRun] = useState<BulkRun | null>(null);
 
   const usersQuery = useQuery({
     queryKey: ['security', 'platform-users', 'all'],
@@ -62,27 +93,8 @@ export default function AdminUsersPage() {
   });
 
   const deletion = useMutation({
-    mutationFn: async ({ user, reasonText }: { user: GlobalUserDirectoryItem; reasonText: string }) => {
-      const current = user.status.toUpperCase();
-      let requestedInThisOperation = false;
-
-      if (current === 'ACTIVE' || current === 'REJECTED') {
-        await requestGlobalUserDeletion(accessToken!, user.userId, reasonText);
-        requestedInThisOperation = true;
-      } else if (current !== 'DISABLED') {
-        throw new Error('Only an ACTIVE, REJECTED or DISABLED user can be permanently deleted.');
-      }
-
-      try {
-        return await hardDeleteGlobalUser(accessToken!, user.userId);
-      } catch (error) {
-        if (requestedInThisOperation) {
-          const detail = error instanceof Error ? error.message : 'Security hard delete failed.';
-          throw new Error(`The deletion request was recorded, but permanent deletion did not complete. ${detail}`);
-        }
-        throw error;
-      }
-    },
+    mutationFn: ({ user, reasonText }: { user: GlobalUserDirectoryItem; reasonText: string }) =>
+      deleteUser(accessToken!, user, reasonText),
     onSuccess: async () => {
       setFeedback('User permanently deleted.');
       setAction(null);
@@ -105,6 +117,68 @@ export default function AdminUsersPage() {
       return matchesStatus && matchesQuery;
     });
   }, [query, statusFilter, users]);
+
+  const selectableVisible = visibleUsers.filter((user) => canBulkDelete(user, signedInEmail));
+  const selectedUsers = users.filter((user) => selected.has(user.userId));
+  const allVisibleSelected = selectableVisible.length > 0 && selectableVisible.every((user) => selected.has(user.userId));
+  const bulkRunning = Boolean(bulkRun && !bulkRun.finished);
+
+  const toggleUser = (userId: string) => {
+    setSelected((current) => {
+      const next = new Set(current);
+      if (next.has(userId)) next.delete(userId);
+      else next.add(userId);
+      return next;
+    });
+  };
+
+  const toggleAllVisible = () => {
+    setSelected((current) => {
+      const next = new Set(current);
+      selectableVisible.forEach((user) => (allVisibleSelected ? next.delete(user.userId) : next.add(user.userId)));
+      return next;
+    });
+  };
+
+  const selectTestAccounts = () => {
+    setSelected(new Set(users.filter((user) => canBulkDelete(user, signedInEmail) && isTestAccount(user)).map((user) => user.userId)));
+  };
+
+  const openBulkDelete = () => {
+    resetActionState();
+    setBulkRun(null);
+    setBulkOpen(true);
+  };
+
+  const runBulkDelete = async () => {
+    if (!accessToken || selectedUsers.length === 0) return;
+    const queue = [...selectedUsers];
+    const failures: BulkFailure[] = [];
+    setBulkRun({ done: 0, total: queue.length, failures, finished: false });
+    for (const [index, user] of queue.entries()) {
+      try {
+        await deleteUser(accessToken, user, reason);
+        setSelected((current) => {
+          const next = new Set(current);
+          next.delete(user.userId);
+          return next;
+        });
+      } catch (error) {
+        failures.push({ user, message: error instanceof Error ? error.message : 'Delete failed.' });
+      }
+      setBulkRun({ done: index + 1, total: queue.length, failures: [...failures], finished: false });
+    }
+    setBulkRun({ done: queue.length, total: queue.length, failures: [...failures], finished: true });
+    const deleted = queue.length - failures.length;
+    setFeedback(`${deleted} user${deleted === 1 ? '' : 's'} permanently deleted${failures.length ? `, ${failures.length} failed` : ''}.`);
+    await queryClient.invalidateQueries({ queryKey: ['security', 'platform-users'] });
+  };
+
+  const closeBulkDialog = () => {
+    setBulkOpen(false);
+    setBulkRun(null);
+    setReason('');
+  };
 
   const pendingCount = users.filter((user) => user.status.toUpperCase() === 'PENDING').length;
   const activeCount = users.filter((user) => user.status.toUpperCase() === 'ACTIVE').length;
@@ -201,6 +275,28 @@ export default function AdminUsersPage() {
         </button>
       </div>
 
+      {accessToken && users.length > 0 && (
+        <div className="uc01-admin-bulkbar" aria-label="Bulk actions">
+          <span>{selectedUsers.length ? `${selectedUsers.length} selected` : 'Select users to delete several at once.'}</span>
+          <button type="button" className="uc01-admin-button uc01-admin-button--compact" onClick={selectTestAccounts}>
+            Select test users
+          </button>
+          {selectedUsers.length > 0 && (
+            <button type="button" className="uc01-admin-button uc01-admin-button--compact" onClick={() => setSelected(new Set())}>
+              Clear
+            </button>
+          )}
+          <button
+            type="button"
+            className="uc01-admin-button uc01-admin-button--compact uc01-admin-button--danger-primary"
+            disabled={selectedUsers.length === 0}
+            onClick={openBulkDelete}
+          >
+            Delete selected{selectedUsers.length ? ` (${selectedUsers.length})` : ''}
+          </button>
+        </div>
+      )}
+
       {!accessToken && (
         <div className="uc01-admin-state uc01-admin-state--error">A Security-authenticated administrator session is required.</div>
       )}
@@ -218,6 +314,15 @@ export default function AdminUsersPage() {
           <table className="uc01-admin-table">
             <thead>
               <tr>
+                <th className="uc01-admin-select">
+                  <input
+                    type="checkbox"
+                    aria-label="Select all users shown"
+                    checked={allVisibleSelected}
+                    disabled={selectableVisible.length === 0}
+                    onChange={toggleAllVisible}
+                  />
+                </th>
                 <th>User</th>
                 <th>Contact</th>
                 <th>Status</th>
@@ -230,7 +335,16 @@ export default function AdminUsersPage() {
               {visibleUsers.map((user) => {
                 const currentStatus = user.status.toUpperCase();
                 return (
-                  <tr key={user.userId}>
+                  <tr key={user.userId} className={selected.has(user.userId) ? 'is-selected' : undefined}>
+                    <td className="uc01-admin-select" data-label="Select">
+                      <input
+                        type="checkbox"
+                        aria-label={`Select ${user.displayName}`}
+                        checked={selected.has(user.userId)}
+                        disabled={!canBulkDelete(user, signedInEmail)}
+                        onChange={() => toggleUser(user.userId)}
+                      />
+                    </td>
                     <td data-label="User">
                       <strong>{user.displayName}</strong>
                       <small>{user.userId}</small>
@@ -292,10 +406,76 @@ export default function AdminUsersPage() {
                 );
               })}
               {visibleUsers.length === 0 && (
-                <tr><td colSpan={6}><div className="uc01-admin-empty">No users match the current filters.</div></td></tr>
+                <tr><td colSpan={7}><div className="uc01-admin-empty">No users match the current filters.</div></td></tr>
               )}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {bulkOpen && (
+        <div className="uc01-admin-dialog-backdrop" role="presentation">
+          <section className="uc01-admin-dialog" role="dialog" aria-modal="true" aria-labelledby="uc01-bulk-delete-title">
+            <div>
+              <span className="eyebrow">User Lifecycle</span>
+              <h2 id="uc01-bulk-delete-title">
+                {bulkRun?.finished ? 'Bulk delete finished' : `Permanently delete ${bulkRun?.total ?? selectedUsers.length} users`}
+              </h2>
+              <p>
+                Each user goes through the same governed delete as a single delete: Security records the deletion request,
+                then removes the live USER and Clerk identity while retaining audit/tombstone evidence. This cannot be undone.
+              </p>
+            </div>
+            {!bulkRun && (
+              <>
+                <ul className="uc01-admin-bulklist">
+                  {selectedUsers.map((user) => (
+                    <li key={user.userId}>
+                      <strong>{user.displayName}</strong>
+                      <span>{user.primaryEmail ?? 'No email'}</span>
+                    </li>
+                  ))}
+                </ul>
+                <label className="uc01-admin-reason">
+                  <span>Deletion reason <small>(optional)</small></span>
+                  <textarea value={reason} maxLength={1000} onChange={(event) => setReason(event.target.value)} placeholder="e.g. Test accounts clean-up" />
+                </label>
+              </>
+            )}
+            {bulkRun && (
+              <div className="uc01-admin-bulkprogress" role="status" aria-live="polite">
+                <progress max={bulkRun.total} value={bulkRun.done} />
+                <span>{bulkRun.done} of {bulkRun.total} processed{bulkRun.failures.length ? ` · ${bulkRun.failures.length} failed` : ''}</span>
+                {bulkRun.failures.length > 0 && (
+                  <ul className="uc01-admin-bulklist uc01-admin-bulklist--failed">
+                    {bulkRun.failures.map(({ user, message }) => (
+                      <li key={user.userId}>
+                        <strong>{user.displayName}</strong>
+                        <span>{message}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
+            <div className="uc01-admin-dialog__actions">
+              {bulkRun?.finished ? (
+                <button type="button" className="uc01-admin-button uc01-admin-button--primary" onClick={closeBulkDialog}>Done</button>
+              ) : (
+                <>
+                  <button type="button" className="uc01-admin-button" disabled={bulkRunning} onClick={closeBulkDialog}>Cancel</button>
+                  <button
+                    type="button"
+                    className="uc01-admin-button uc01-admin-button--primary uc01-admin-button--danger-primary"
+                    disabled={bulkRunning || selectedUsers.length === 0}
+                    onClick={() => void runBulkDelete()}
+                  >
+                    {bulkRunning ? 'Deleting…' : `Delete ${selectedUsers.length} users`}
+                  </button>
+                </>
+              )}
+            </div>
+          </section>
         </div>
       )}
 

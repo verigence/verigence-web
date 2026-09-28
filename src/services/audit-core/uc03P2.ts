@@ -1,6 +1,20 @@
 import { xhrPut } from '../../features/uc03-p2/workspace/p2Uploader';
 import { auditCoreRawRequest, auditCoreRequest } from './client';
 
+/**
+ * Budget for the tenant-wide list reads (Booking & Delivery / Journey 360
+ * list, Bookings summary, Task Queue, Duplicate bookings). Audit Core gives
+ * each SQL statement 10 seconds of its own (statement_timeout) on top of the
+ * pool wait, Security permission check and serialisation. The default 10 s
+ * client budget therefore gave up before Audit Core did on a slow Railway
+ * database (WEB-AC-TIMEOUT with nothing shown): the browser aborted, the
+ * statement kept running server-side, and every retry / page change added
+ * one more running copy. Waiting a little longer than the server's own
+ * budget lets a slow-but-working read succeed and, when it does fail, lets
+ * Audit Core's own error (with its reference) reach the screen.
+ */
+const LIST_READ_TIMEOUT_MS = 20_000;
+
 export type P2JourneyListItem = {
   journey_id: string;
   journey_reference?: string | null;
@@ -499,7 +513,7 @@ export function getP2Journeys(
   if (state !== 'all') params.set('state', state);
   return auditCoreRequest<P2JourneyListResponse>(
     `${path(tenantId, '/journeys')}?${params.toString()}`,
-    { accessToken },
+    { accessToken, timeoutMs: LIST_READ_TIMEOUT_MS },
   );
 }
 
@@ -747,7 +761,7 @@ export function getP2Tasks(
   const query = params.toString();
   return auditCoreRequest<P2TasksResponse>(
     `${path(tenantId, '/tasks')}${query ? `?${query}` : ''}`,
-    { accessToken },
+    { accessToken, timeoutMs: LIST_READ_TIMEOUT_MS },
   );
 }
 
@@ -1035,7 +1049,7 @@ export type DuplicateBookingPair = {
 export function getDuplicateBookings(tenantId: string, accessToken?: string, includeClosed = false) {
   return auditCoreRequest<{ generatedAtUtc: string; pairs: DuplicateBookingPair[] }>(
     `/v1/tenants/${encodeURIComponent(tenantId)}/uc03/duplicate-bookings?includeClosed=${includeClosed ? 'true' : 'false'}`,
-    { accessToken },
+    { accessToken, timeoutMs: LIST_READ_TIMEOUT_MS },
   );
 }
 
@@ -1102,7 +1116,7 @@ export type P2BookingsSummary = {
 };
 
 export function getP2BookingsSummary(tenantId: string, accessToken?: string) {
-  return auditCoreRequest<P2BookingsSummary>(path(tenantId, '/journeys:summary'), { accessToken });
+  return auditCoreRequest<P2BookingsSummary>(path(tenantId, '/journeys:summary'), { accessToken, timeoutMs: LIST_READ_TIMEOUT_MS });
 }
 
 export type P2UploadCounts = {

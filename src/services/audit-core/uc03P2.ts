@@ -1061,6 +1061,18 @@ export type P2AuditTrail = {
     atUtc: string; kind: 'journey' | 'document' | 'review' | 'stage' | 'check' | 'task' | 'other';
     type: string; subject?: string | null; who?: string | null; details?: Record<string, unknown> | null;
   }>;
+  /** How each stage completed: the gates the stage engine evaluated and
+   * every rule that ran for it. Absent from an older Audit Core. */
+  completion?: Record<'booking' | 'delivery', P2StageCompletion>;
+};
+
+export type P2StageCompletion = {
+  completedAtUtc?: string | null;
+  status?: string | null;
+  gates: Array<{ key: string; label: string; kind: string; status: 'WAITING' | 'PASS' | 'FAIL'; evaluatedAtUtc?: string | null; details: Record<string, unknown> }>;
+  controls: Array<{ code: string; label: string; executor: string; status: string; reason?: string | null; evaluatedAtUtc?: string | null;
+    evaluations: number; leftValue?: unknown; rightValue?: unknown }>;
+  counts: { fired: number; passed: number; failed: number; waiting: number };
 };
 
 export function getP2Journey360(tenantId: string, journeyId: string, accessToken?: string): Promise<P2Journey360> {

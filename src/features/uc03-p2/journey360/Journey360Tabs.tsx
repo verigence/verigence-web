@@ -11,6 +11,7 @@ import {
   type P2Payments360,
   type P2Record,
   type P2SectionMap,
+  type P2StageCompletion,
   type P2TakenAddon,
   type P2Vehicle360,
 } from '../../../services/audit-core/uc03P2';
@@ -732,6 +733,50 @@ function eventSummary(event: P2SectionMap['audit']['events'][number]): string {
   return bits.join(' · ');
 }
 
+const GATE_STATUS_TEXT: Record<string, string> = { PASS: 'Passed', FAIL: 'Not met', WAITING: 'Waiting' };
+
+/** How a stage completed: which gates the stage engine evaluated and
+ * when, and every rule that ran for the stage with what it found. */
+function StageCompletion({ stage, data }: { stage: 'booking' | 'delivery'; data: P2StageCompletion }) {
+  const title = stage === 'booking' ? 'How the Booking completed' : 'How the Delivery completed';
+  const c = data.counts;
+  return (
+    <section className="j360-card" aria-label={title}>
+      <div className="j360-card__head">
+        <h3 className="j360-h3">{title}</h3>
+        <span className="p2w-muted">{data.completedAtUtc ? `Completed ${formatDateTime(data.completedAtUtc)}` : 'Not completed yet'}</span>
+      </div>
+      <span className="j360-items__title">Gates</span>
+      <ul className="j360-gates">
+        {data.gates.map((gate) => (
+          <li key={gate.key} className={`is-${gate.status.toLowerCase()}`}>
+            <span className="j360-gates__mark" aria-hidden="true">{gate.status === 'PASS' ? '✓' : gate.status === 'FAIL' ? '✕' : '…'}</span>
+            <span className="j360-gates__label">{gate.label}</span>
+            <span className="p2w-muted">{GATE_STATUS_TEXT[gate.status] ?? gate.status}{gate.evaluatedAtUtc ? ` · ${formatDateTime(gate.evaluatedAtUtc)}` : ''}</span>
+          </li>
+        ))}
+      </ul>
+      <span className="j360-items__title">Rules fired · {c.fired}{c.fired ? ` (${c.passed} passed, ${c.failed} failed, ${c.waiting} waiting)` : ''}</span>
+      {data.controls.length ? (
+        <ul className="j360-gates j360-gates--rules">
+          {data.controls.map((rule) => (
+            <li key={rule.code} className={`is-${rule.status === 'PASS' ? 'pass' : rule.status === 'FAIL' ? 'fail' : 'waiting'}`}>
+              <span className="j360-gates__mark" aria-hidden="true">{rule.status === 'PASS' ? '✓' : rule.status === 'FAIL' ? '✕' : '…'}</span>
+              <span className="j360-gates__label">{rule.label}<small> {rule.executor === 'EXTERNAL_RULE_ENGINE' ? 'Rule Engine' : 'Audit Core'} · {rule.code}</small></span>
+              <span className="p2w-muted">
+                {CONTROL_STATUS[rule.status]?.label ?? humanizeKey(rule.status)}
+                {rule.evaluatedAtUtc ? ` · ${formatDateTime(rule.evaluatedAtUtc)}` : ''}
+                {rule.evaluations > 1 ? ` · ran ${rule.evaluations} times` : ''}
+                {rule.status === 'FAIL' && rule.reason ? <><br />{rule.reason}</> : null}
+              </span>
+            </li>
+          ))}
+        </ul>
+      ) : <p className="p2w-muted">No rule has run for this stage yet.</p>}
+    </section>
+  );
+}
+
 export function AuditTab({ data }: { data: P2SectionMap['audit'] }) {
   const [kind, setKind] = useState<string>('all');
   const counts = useMemo(() => {
@@ -797,6 +842,11 @@ export function AuditTab({ data }: { data: P2SectionMap['audit'] }) {
           ) : <p className="p2w-muted">No tasks were raised on this journey.</p>}
         </section>
       </div>
+      {data.completion ? (
+        <div className="j360-grid">
+          {(['booking', 'delivery'] as const).map((stage) => <StageCompletion key={stage} stage={stage} data={data.completion![stage]} />)}
+        </div>
+      ) : null}
       <section className="j360-card" aria-label="Everything that happened">
         <div className="j360-docs__head">
           <h3 className="j360-h3">Everything that happened</h3>

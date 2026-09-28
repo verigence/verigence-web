@@ -17,6 +17,8 @@ export interface Uc02ProjectSegment {
 export interface Uc02Project {
   tenantId: string;
   projectCode: string;
+  /** The Project Code people use (e.g. JBR-01); projectCode is the Security tenant code. */
+  businessCode?: string | null;
   projectName: string;
   oemId: string;
   productCategoryId?: string | null;
@@ -41,6 +43,7 @@ export interface ProjectSelection {
 
 export interface ProjectCreateInput {
   projectName: string;
+  businessCode?: string | null;
   oemId: string;
   segmentIds: string[];
   effectiveStartDate: string;
@@ -235,7 +238,7 @@ export function getProjectAdmin(tenantId: string, accessToken?: string) {
 export function patchProjectAdmin(
   tenantId: string,
   versionNo: number,
-  payload: Partial<Pick<Uc02Project, 'projectName' | 'effectiveEndDate' | 'timezoneName' | 'regionCode'>> & {
+  payload: Partial<Pick<Uc02Project, 'projectName' | 'businessCode' | 'effectiveEndDate' | 'timezoneName' | 'regionCode'>> & {
     oemId?: string;
     segmentIds?: string[];
     effectiveStartDate?: string;
@@ -256,7 +259,7 @@ export function listDealersAdmin(tenantId: string, accessToken?: string) {
 
 export function createDealerAdmin(
   tenantId: string,
-  payload: { dealerName: string; legalName?: string | null },
+  payload: { dealerName: string; legalName?: string | null; dealerCode?: string | null },
   accessToken?: string,
 ) {
   return auditCoreRequest<DealerAdmin>(`/v1/tenants/${tenantId}/dealers`, {
@@ -276,6 +279,7 @@ export function createOutletAdmin(
   dealerId: string,
   payload: {
     outletName: string;
+    outletCode?: string | null;
     outletClassification: 'ONSITE' | 'SATELLITE';
     addressText?: string | null;
     city?: string | null;

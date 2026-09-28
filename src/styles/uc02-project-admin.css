@@ -309,3 +309,28 @@
   .uc02-outlet-location__map-wrap,
   .uc02-outlet-location__map { min-height: 260px; height: 260px; }
 }
+
+/* ---------------------------------------------- Excel onboarding panel */
+.uc02-onboarding { display: flex; flex-direction: column; gap: 12px; }
+.uc02-onboarding__summary small { font-size: 11px; color: var(--uc02-muted); }
+.uc02-onboarding__summary { grid-template-columns: repeat(3, 1fr); }
+.uc02-onboarding__tabs { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.uc02-onboarding__tabs button { border: 1px solid var(--uc02-border); background: #fff; border-radius: 999px; padding: 6px 12px; font-weight: 700; color: var(--uc02-text); cursor: pointer; }
+.uc02-onboarding__tabs button b { margin-left: 4px; color: var(--uc02-muted); }
+.uc02-onboarding__tabs button.is-active { border-color: var(--uc02-accent); color: var(--uc02-accent); background: var(--uc02-soft); }
+.uc02-onboarding__filter { margin-left: auto; display: inline-flex; gap: 6px; align-items: center; font-size: 12px; color: var(--uc02-muted); }
+.uc02-onboarding__chip { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 800; white-space: nowrap; background: #f1f5f9; color: #475569; }
+.uc02-onboarding__chip.is-create { background: #e0f2fe; color: #075985; }
+.uc02-onboarding__chip.is-update { background: #ccfbf1; color: #115e59; }
+.uc02-onboarding__chip.is-error { background: #fee4e2; color: #b42318; }
+.uc02-onboarding__changes { margin: 0; padding: 0; list-style: none; font-size: 12px; }
+.uc02-onboarding__changes span { color: var(--uc02-muted); font-weight: 700; }
+.uc02-onboarding__error { color: #b42318; font-size: 12px; font-weight: 700; }
+.uc02-onboarding__warning { color: #93370d; font-size: 12px; }
+.uc02-onboarding__note { color: var(--uc02-muted); font-size: 12px; }
+.uc02-onboarding__messages { margin: 0; padding-left: 18px; color: #b42318; font-weight: 700; }
+.uc02-onboarding tr.is-error td { background: #fffbfa; }
+@media (max-width: 760px) {
+  .uc02-onboarding__summary { grid-template-columns: 1fr; }
+  .uc02-onboarding__filter { margin-left: 0; }
+}

@@ -58,10 +58,26 @@
 .j360 .j360-switch.is-on { background: #00afa8; }
 .j360 .j360-switch.is-on::after { left: 21px; }
 .j360 .j360-items { margin: 0 0 16px; }
+.j360 .j360-facts + .j360-items { margin-top: 16px; }
 .j360 .j360-items__title { display: block; margin-bottom: 4px; color: var(--p2w-muted); font-size: .7rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
 .j360 .j360-items ul { margin: 0; padding: 0; list-style: none; }
 .j360 .j360-items li { display: flex; justify-content: space-between; gap: 16px; padding: 7px 0; border-bottom: 1px solid #eef2f6; font-size: .9rem; }
 .j360 .j360-items li b { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.j360 .j360-items__text { margin: 0; font-size: .9rem; }
+.j360 .j360-taken-strip--head { margin: -4px 0 12px; padding: 4px 0; border: 0; background: none; }
+.j360 .j360-taken-strip--head .j360-taken { padding-left: 0; border-right: 0; }
+.j360 .j360-taken-strip--head .j360-taken strong { font-size: 1rem; color: var(--p2w-navy); font-weight: 800; }
+.j360 .j360-h3__ref { color: var(--p2w-muted); font-weight: 600; }
+.j360 .j360-lines { width: 100%; margin: 14px 0 0; border-collapse: collapse; font-size: .9rem; }
+.j360 .j360-lines th { padding: 6px 8px; border-bottom: 1px solid var(--p2w-line); color: var(--p2w-muted); font-size: .7rem; font-weight: 700; letter-spacing: .04em; text-align: left; text-transform: uppercase; }
+.j360 .j360-lines td { padding: 7px 8px; border-bottom: 1px solid #eef2f6; vertical-align: top; }
+.j360 .j360-lines td small { color: var(--p2w-muted); }
+.j360 .j360-lines .is-num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.j360 .j360-totals { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px 22px; margin: 12px 0 0; }
+.j360 .j360-totals div { display: grid; text-align: right; }
+.j360 .j360-totals dt { color: var(--p2w-muted); font-size: .7rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; }
+.j360 .j360-totals dd { margin: 0; font-weight: 700; font-variant-numeric: tabular-nums; }
+.j360 .j360-totals .is-grand dd { color: var(--p2w-navy); font-size: 1.05rem; font-weight: 800; }
 .j360 .j360-money {
   display: grid;
   grid-template-columns: repeat(6, minmax(0, 1fr));
@@ -250,6 +266,7 @@
   .j360 .j360-card { padding: 12px; }
   .j360 .j360-grid { grid-template-columns: 1fr; }
   .j360 .j360-taken { width: 100%; border-right: 0; border-bottom: 1px solid var(--p2w-line); }
+  .j360 .j360-lines th:nth-child(2), .j360 .j360-lines td:nth-child(2), .j360 .j360-lines th:nth-child(4), .j360 .j360-lines td:nth-child(4), .j360 .j360-lines th:nth-child(5), .j360 .j360-lines td:nth-child(5) { display: none; }
   .j360 .j360-taken:last-child { border-bottom: 0; }
   /* comparison tables become stacked cards: each value keeps its column name */
   .j360 .j360-table thead { display: none; }

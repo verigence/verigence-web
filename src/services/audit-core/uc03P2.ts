@@ -926,7 +926,16 @@ export type P2Record = Record<string, unknown>;
  * the KYC-reviewed value came from when it did. */
 /** What was taken with the car, with the invoice items bought. */
 export type P2TakenAddon = { taken: boolean; amount: string | null; provider?: string | null;
-  items: Array<{ name: string; amount: string | null; quantity?: unknown; itemCode?: string | null; documentId: string }> };
+  items: Array<{ name: string; amount: string | null; quantity?: unknown; itemCode?: string | null; documentId: string }>;
+  /** What the cover note, warranty invoice or add-on record says. */
+  details: Record<string, unknown> };
+
+export type P2InvoiceLine = { description?: string | null; category?: string | null; itemCode?: string | null; hsnSac?: string | null;
+  quantity?: unknown; unitRate?: string | null; grossAmount?: string | null; discountAmount?: string | null; taxableAmount?: string | null;
+  taxRate?: unknown; taxAmount?: string | null; netAmount?: string | null };
+
+export type P2Invoice360 = { documentId: string; documentType: string; label: string; linkedAtUtc?: string | null;
+  header: Record<string, unknown>; totals: Record<string, string | null>; particulars?: unknown; lineItems: P2InvoiceLine[] };
 
 export type P2Vehicle360 = {
   product: P2Record | null;
@@ -1024,6 +1033,7 @@ export type P2SectionMap = {
   documents: P2Documents360;
   payments: P2Payments360;
   vehicle: P2Vehicle360;
+  invoices: { documents: P2Invoice360[]; count: number };
   tradein: P2TradeIn360;
   customer: P2Customer360;
   registration: { records: P2Record[]; charges?: P2DealCategory | null };

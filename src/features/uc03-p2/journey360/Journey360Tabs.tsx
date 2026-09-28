@@ -262,7 +262,7 @@ function TakenRow({ label, addon }: { label: string; addon: P2TakenAddon }) {
 }
 
 function ItemList({ title, addon }: { title: string; addon: P2TakenAddon }) {
-  if (!addon.taken || !addon.items.length) return null;
+  if (!addon.items.length) return null;
   return (
     <div className="j360-items">
       <span className="j360-items__title">{title}</span>
@@ -290,6 +290,16 @@ const DELIVERY_LABELS: Array<[string, string]> = [
   ['actual_delivery_status_code', 'Status'], ['planned_delivery_at', 'Planned'], ['delivery_intimated_at', 'Intimated'],
   ['actual_delivered_at', 'Delivered'],
 ];
+const INSURANCE_DETAIL_LABELS: Array<[string, string]> = [
+  ['insurerName', 'Insurer'], ['policyNumber', 'Policy no.'], ['policyType', 'Policy type'], ['coverNoteReference', 'Cover note'],
+  ['insuranceBy', 'Insurance by'], ['policyStartDate', 'Policy start'], ['policyEndDate', 'Policy end'], ['issueDate', 'Issue date'],
+  ['idvAmount', 'IDV'], ['standardPremium', 'Standard premium'], ['actualPremium', 'Premium charged'], ['agentName', 'Agent'],
+  ['agentCode', 'Agent code'], ['mispCode', 'MISP code'],
+];
+const WARRANTY_DETAIL_LABELS: Array<[string, string]> = [
+  ['planName', 'Plan'], ['providerName', 'Provider'], ['invoiceNumber', 'Invoice no.'], ['invoiceDate', 'Invoice date'],
+  ['coverageStartDate', 'Coverage from'], ['coverageEndDate', 'Coverage to'], ['tenureMonths', 'Tenure (months)'],
+];
 
 const ISO_DAY = /^\d{4}-\d{2}-\d{2}(T|$)/;
 
@@ -302,6 +312,8 @@ function factText(key: string, value: unknown): React.ReactNode {
     const date = new Date(y, m - 1, d);
     if (!Number.isNaN(date.getTime())) return date.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
   }
+  if (Array.isArray(value)) return value.map((v) => (typeof v === 'object' && v ? JSON.stringify(v) : String(v))).join(', ');
+  if (/amount|premium|idv|value$/i.test(key) && !Number.isNaN(Number(value))) return rupees(value as string);
   return recordField(key, value);
 }
 
@@ -323,9 +335,33 @@ function Fact({ label, value, fieldKey }: { label: string; value: unknown; field
   );
 }
 
-/** Phase 1's Vehicle panel: what was taken with the car and the items
- * bought, then the vehicle, the allocated unit, the booking facts and how
- * the delivery went. Delivery documents take precedence over Booking. */
+/** One add-on block: taken or not, what the record says, the items bought. */
+function AddonBlock({ label, addon, labels, itemsTitle }: {
+  label: string; addon: P2TakenAddon; labels: Array<[string, string]>; itemsTitle: string;
+}) {
+  const known = labels.filter(([key]) => !isEmpty(addon.details[key]));
+  return (
+    <section className="j360-card" aria-label={label}>
+      <div className="j360-taken-strip j360-taken-strip--head"><TakenRow label={label} addon={addon} /></div>
+      {known.length ? (
+        <dl className="j360-facts j360-facts--customer">
+          {known.map(([key, text]) => <Fact key={key} label={text} fieldKey={key} value={addon.details[key]} />)}
+        </dl>
+      ) : null}
+      {addon.details.addOns && !isEmpty(addon.details.addOns) ? (
+        <div className="j360-items"><span className="j360-items__title">Add-on covers</span>
+          <p className="j360-items__text">{factText('addOns', addon.details.addOns)}</p></div>
+      ) : null}
+      <ItemList title={itemsTitle} addon={addon} />
+      {!addon.taken && !known.length ? <p className="p2w-muted">Not taken on this deal.</p> : null}
+    </section>
+  );
+}
+
+/** Phase 1's Vehicle panel in one view: the vehicle, the allocated unit,
+ * the booking facts and the delivery, then what was taken with the car
+ * (accessories, insurance, extended warranty), each with its details and
+ * the items bought. Delivery documents take precedence over Booking. */
 export function VehicleTab({ data, tenantId, journeyId, accessToken }: {
   data: P2SectionMap['vehicle']; tenantId: string; journeyId: string; accessToken?: string;
 }) {
@@ -343,14 +379,6 @@ export function VehicleTab({ data, tenantId, journeyId, accessToken }: {
           <h3 className="j360-h3">Vehicle</h3>
           <span className="p2w-muted">Delivery documents take precedence over Booking.</span>
         </div>
-        <div className="j360-taken-strip">
-          <TakenRow label="Accessories" addon={data.addons.accessories} />
-          <TakenRow label="Extended Warranty" addon={data.addons.warranty} />
-          <TakenRow label="Insurance" addon={data.addons.insurance} />
-        </div>
-        <ItemList title="Accessories bought" addon={data.addons.accessories} />
-        <ItemList title="Extended Warranty" addon={data.addons.warranty} />
-        <ItemList title="Insurance" addon={data.addons.insurance} />
         <dl className="j360-facts j360-facts--customer">
           {VEHICLE_FACT_LABELS.map(([key, label]) => <Fact key={key} label={label} fieldKey={key} value={product[key]} />)}
           {UNIT_LABELS.map(([key, label]) => <Fact key={key} label={label} fieldKey={key} value={unit[key]} />)}
@@ -366,6 +394,15 @@ export function VehicleTab({ data, tenantId, journeyId, accessToken }: {
           </dl>
         ) : <p className="p2w-muted">Delivery has not been recorded yet.</p>}
       </section>
+      <div className="j360-taken-strip">
+        <TakenRow label="Accessories" addon={data.addons.accessories} />
+        <TakenRow label="Insurance" addon={data.addons.insurance} />
+        <TakenRow label="Extended Warranty" addon={data.addons.warranty} />
+      </div>
+      <AddonBlock label="Accessories" addon={data.addons.accessories} itemsTitle="Accessories bought"
+        labels={[['invoiceNumbers', 'Invoice no.']]} />
+      <AddonBlock label="Insurance" addon={data.addons.insurance} itemsTitle="Insurance lines" labels={INSURANCE_DETAIL_LABELS} />
+      <AddonBlock label="Extended Warranty" addon={data.addons.warranty} itemsTitle="Warranty lines" labels={WARRANTY_DETAIL_LABELS} />
       <section className="j360-card" aria-label="Vehicle photos">
         <header className="j360-docs__head">
           <h3 className="j360-h3">Vehicle photos ({photos.data?.photos.length ?? data.photoCount})</h3>
@@ -385,6 +422,68 @@ export function VehicleTab({ data, tenantId, journeyId, accessToken }: {
           </ul>
         ) : <p className="p2w-muted">No photos yet.</p>}
       </section>
+    </div>
+  );
+}
+
+const INVOICE_HEADER_LABELS: Array<[string, string]> = [
+  ['invoiceNumber', 'Invoice no.'], ['invoiceDate', 'Invoice date'], ['invoiceNature', 'Nature'], ['sourceSystem', 'Source'],
+  ['sellerName', 'Seller'], ['sellerGstin', 'Seller GSTIN'], ['buyerName', 'Buyer'], ['buyerGstin', 'Buyer GSTIN'],
+  ['financedBy', 'Financed by'], ['modelNameRaw', 'Model'], ['variantRaw', 'Variant'], ['vinNumber', 'VIN'],
+  ['chassisNumber', 'Chassis no.'], ['engineNumber', 'Engine no.'], ['vehicleRegistrationNumber', 'Registration'],
+  ['planName', 'Plan'], ['coverageStartDate', 'Coverage from'], ['coverageEndDate', 'Coverage to'], ['tenureMonths', 'Tenure (months)'],
+];
+const INVOICE_TOTAL_LABELS: Array<[string, string]> = [
+  ['grossAmountBeforeDiscount', 'Gross'], ['invoiceDiscountAmount', 'Discount'], ['taxableAmount', 'Taxable'], ['cgstAmount', 'CGST'],
+  ['sgstAmount', 'SGST'], ['igstAmount', 'IGST'], ['cessAmount', 'Cess'], ['tcsAmount', 'TCS'], ['roundOffAmount', 'Round off'],
+  ['grandTotalAmount', 'Grand total'],
+];
+
+/** Every invoice read on the Journey with its header, totals and the line
+ * items as printed: vehicle, accessories, warranty, RSA, wholesale, credit
+ * and debit notes. */
+export function InvoicesTab({ data, journeyId }: { data: P2SectionMap['invoices']; journeyId: string }) {
+  if (!data.documents.length) return <Empty>No invoices read yet. Upload the customer invoice, Tally invoice or accessory invoices.</Empty>;
+  return (
+    <div className="j360-stack">
+      {data.documents.map((invoice) => {
+        const header = INVOICE_HEADER_LABELS.filter(([key]) => !isEmpty(invoice.header[key]));
+        const totals = INVOICE_TOTAL_LABELS.filter(([key]) => !isEmpty(invoice.totals[key]));
+        return (
+          <section key={invoice.documentId} className="j360-card" aria-label={invoice.label}>
+            <div className="j360-card__head">
+              <h3 className="j360-h3">{invoice.label}{invoice.header.invoiceNumber ? <span className="j360-h3__ref"> · {String(invoice.header.invoiceNumber)}</span> : null}</h3>
+              <Link className="p2w-link" to={`/p2/journeys/${journeyId}/documents/${invoice.documentId}`}>Open document</Link>
+            </div>
+            <dl className="j360-facts j360-facts--customer">
+              {header.map(([key, label]) => <Fact key={key} label={label} fieldKey={key} value={invoice.header[key]} />)}
+            </dl>
+            {invoice.lineItems.length ? (
+              <table className="j360-lines">
+                <thead><tr><th>Item</th><th>Category</th><th className="is-num">Qty</th><th className="is-num">Rate</th><th className="is-num">Tax</th><th className="is-num">Amount</th></tr></thead>
+                <tbody>
+                  {invoice.lineItems.map((line, index) => (
+                    <tr key={index}>
+                      <td>{line.description ?? <span className="p2w-muted">—</span>}{line.itemCode ? <small> {line.itemCode}</small> : null}</td>
+                      <td>{line.category ? humanizeKey(String(line.category)) : ''}</td>
+                      <td className="is-num">{isEmpty(line.quantity) ? '' : String(line.quantity)}</td>
+                      <td className="is-num">{line.unitRate ? rupees(line.unitRate) : ''}</td>
+                      <td className="is-num">{line.taxAmount ? rupees(line.taxAmount) : ''}</td>
+                      <td className="is-num"><b>{rupees(line.netAmount ?? line.grossAmount)}</b></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ) : <p className="p2w-muted">No line items read on this invoice.</p>}
+            {typeof invoice.particulars === 'string' && invoice.particulars ? <p className="j360-items__text">{invoice.particulars}</p> : null}
+            {totals.length ? (
+              <dl className="j360-totals">
+                {totals.map(([key, label]) => <div key={key} className={key === 'grandTotalAmount' ? 'is-grand' : undefined}><dt>{label}</dt><dd>{rupees(invoice.totals[key])}</dd></div>)}
+              </dl>
+            ) : null}
+          </section>
+        );
+      })}
     </div>
   );
 }

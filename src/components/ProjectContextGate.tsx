@@ -9,9 +9,25 @@ import {
   selectOperationalOutlet,
   selectOperationalProject,
 } from '../features/uc03/projectContext';
+import { AuditCoreHttpError } from '../services/audit-core/client';
 import { listMyOperationalProjects } from '../services/audit-core/uc03';
 import { useProjectContextStore } from '../store/projectContextStore';
 import { useSessionStore } from '../store/sessionStore';
+
+// The workspace list is the gate to every screen, so a failure here is a
+// dead end ("We couldn't load your workspaces"). An HTTP answer from Audit
+// Core (401, 403, 500...) is final and is shown at once. A request that
+// never got an answer -- the connection dropped, the browser aborted it,
+// Audit Core was restarting during a deploy (seen live 2026-09-28: a page
+// opened while the DEV service was being replaced) -- is retried a few
+// times with a short pause first, which rides through a restart window
+// instead of asking the user to click Try Again.
+const TRANSIENT_RETRIES = 3;
+const TRANSIENT_RETRY_DELAYS_MS = [1_500, 3_000, 5_000];
+
+function isTransient(error: unknown): boolean {
+  return !(error instanceof AuditCoreHttpError);
+}
 
 const roleLabels: Record<OperatingRole, string> = {
   PC: 'Process Coordinator',
@@ -36,7 +52,8 @@ export default function ProjectContextGate({ children }: PropsWithChildren) {
     queryFn: () => listMyOperationalProjects(accessToken),
     staleTime: Infinity,
     gcTime: Infinity,
-    retry: false,
+    retry: (failureCount, error) => isTransient(error) && failureCount < TRANSIENT_RETRIES,
+    retryDelay: (attempt) => TRANSIENT_RETRY_DELAYS_MS[Math.min(attempt, TRANSIENT_RETRY_DELAYS_MS.length - 1)],
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
   });

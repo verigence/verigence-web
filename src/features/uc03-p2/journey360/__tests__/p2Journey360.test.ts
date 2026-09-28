@@ -101,6 +101,19 @@ describe('document-driven tasks', () => {
     expect(plan.secondary.map((a) => a.label)).toContain('Compliance report');
   });
 
+  it('turns a check\'s question into one button per answer, yes first', async () => {
+    const { taskPlan } = await import('../../tasks/p2TaskPlan');
+    const plan = taskPlan({ ...base, task_id: 't', journey_id: 'j1', title: 'Confirm the cash collection was intimated',
+      task_type: 'PC_CONFIRMATION', allowed_actions: ['COMPLETE_ACTION', 'ADD_COMMENT'],
+      reference: { question: 'Was it intimated?', answers: [
+        { value: 'YES', label: 'Yes, it was intimated' },
+        { value: 'NO', label: 'No, it was not intimated', requiresComment: true },
+      ] } }, 'PC');
+    expect(plan.primary).toMatchObject({ label: 'Yes, it was intimated', action: 'COMPLETE_ACTION', details: { answer: 'YES' } });
+    expect(plan.secondary[0]).toMatchObject({ label: 'No, it was not intimated', details: { answer: 'NO' }, requiresComment: true });
+    expect(plan.secondary.map((a) => a.label)).toContain('Comment');
+  });
+
   it('validates the vehicle number like the server', async () => {
     const { vehicleIdentityError } = await import('../../tasks/p2TaskPlan');
     expect(vehicleIdentityError({ vin: '', chassisNumber: '', engineNumber: '' })).toMatch(/Enter/);

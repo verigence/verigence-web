@@ -5,8 +5,20 @@ export type TaskAction = {
   action?: string;
   to?: string;
   requiresComment?: boolean;
+  /** Sent with the action: a question's answer, a form's values. */
+  details?: Record<string, unknown>;
   tone: 'primary' | 'secondary' | 'confirm' | 'danger' | 'ghost';
 };
+
+type Answer = { value: string; label: string; requiresComment?: boolean };
+
+/** The answers a check offers when it needs the PC to confirm something. */
+export function taskAnswers(task: P2Task): Answer[] {
+  const raw = task.reference?.answers;
+  if (!Array.isArray(raw)) return [];
+  return raw.filter((a): a is Answer => Boolean(a) && typeof a === 'object'
+    && typeof (a as Answer).value === 'string' && typeof (a as Answer).label === 'string');
+}
 
 export type TaskPlan = { primary?: TaskAction; secondary: TaskAction[]; waiting?: string; vehicleId?: boolean };
 
@@ -61,6 +73,23 @@ export function taskPlan(task: P2Task, operatingRole?: string | null): TaskPlan 
     return { waiting, secondary: canComment ? [{ label: 'Comment', action: 'ADD_COMMENT', requiresComment: true, tone: 'ghost' }] : [] };
   }
 
+  const answers = taskAnswers(task);
+  if (answers.length && allowed.has('COMPLETE_ACTION')) {
+    // A yes/no question from a check (cash intimated? declaration on file?
+    // NDC signed in your presence?): each answer is one button, "yes" first.
+    const [first, ...rest] = answers;
+    const answer = (item: Answer, tone: TaskAction['tone']): TaskAction => ({
+      label: item.label, action: 'COMPLETE_ACTION', details: { answer: item.value },
+      requiresComment: Boolean(item.requiresComment), tone,
+    });
+    return {
+      primary: answer(first, 'confirm'),
+      secondary: [
+        ...rest.map((item) => answer(item, 'danger')),
+        ...(canComment ? [{ label: 'Comment', action: 'ADD_COMMENT', requiresComment: true, tone: 'ghost' as const }] : []),
+      ],
+    };
+  }
   if (allowed.has('APPROVE_CORRECTION')) {
     return {
       primary: { label: 'Approve correction', action: 'APPROVE_CORRECTION', tone: 'confirm' },

@@ -23,6 +23,34 @@ interface State {
 // "something went wrong" page. Found live: a browser tab open across
 // several deploys in one evening got exactly this on /apps.
 export const STALE_CHUNK_RELOAD_FLAG = 'verigence-stale-chunk-reload';
+const STALE_CHUNK_RELOAD_AT = 'verigence-stale-chunk-reload-at';
+const STALE_CHUNK_RELOAD_COOLDOWN_MS = 60_000;
+
+/**
+ * Reload to the current bundle, at most once a minute per tab. The
+ * per-boot flag above is cleared by App.tsx once the app has rendered,
+ * which is right for a deploy (the next one gets its own reload) but not
+ * for a chunk that keeps failing for another reason: reload, boot, clear,
+ * fail, reload... Seen while screenshotting this app with an asset
+ * blocked on purpose: the tab reloaded /dashboard every second. The
+ * cooldown stamp is never cleared by the app, so a persistent failure ends
+ * on the ordinary error message instead of a reload loop. Returns whether a
+ * reload was started.
+ */
+export function reloadForStaleChunk(): boolean {
+  try {
+    const last = Number(sessionStorage.getItem(STALE_CHUNK_RELOAD_AT) || 0);
+    if (Date.now() - last < STALE_CHUNK_RELOAD_COOLDOWN_MS) return false;
+    sessionStorage.setItem(STALE_CHUNK_RELOAD_AT, String(Date.now()));
+    sessionStorage.setItem(STALE_CHUNK_RELOAD_FLAG, '1');
+  } catch {
+    // sessionStorage unavailable (private browsing, blocked storage): no
+    // way to bound the reloads, so do not start one.
+    return false;
+  }
+  window.location.reload();
+  return true;
+}
 
 function isStaleChunkLoadError(error: Error): boolean {
   const message = error.message || '';
@@ -52,19 +80,19 @@ export class ErrorBoundary extends Component<Props, State> {
     );
 
     if (isStaleChunkLoadError(error)) {
+      // Reload once per stale bundle -- App.tsx clears the per-boot flag
+      // once the app has actually rendered past boot, so a LATER deploy
+      // hitting this same tab still gets its own one free reload instead
+      // of being silently suppressed by a flag from hours earlier; the
+      // helper's cooldown keeps a chunk that fails for any other reason
+      // from reloading the tab in a loop. No reload: the fallback UI below.
+      let flagged = false;
       try {
-        // Reload exactly once per stale bundle -- App.tsx clears this flag
-        // once the app has actually rendered past boot, so a LATER deploy
-        // hitting this same tab still gets its own one free reload instead
-        // of being silently suppressed by a flag from hours earlier.
-        if (!sessionStorage.getItem(STALE_CHUNK_RELOAD_FLAG)) {
-          sessionStorage.setItem(STALE_CHUNK_RELOAD_FLAG, '1');
-          window.location.reload();
-        }
+        flagged = Boolean(sessionStorage.getItem(STALE_CHUNK_RELOAD_FLAG));
       } catch {
-        // sessionStorage unavailable (private browsing, blocked storage) --
-        // fall through to the ordinary fallback UI below.
+        flagged = true;
       }
+      if (!flagged) reloadForStaleChunk();
     }
   }
 

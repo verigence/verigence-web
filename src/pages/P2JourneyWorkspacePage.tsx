@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import '../styles/uc03-p2.css';
 import '../styles/uc03-p2-workspace.css';
+import '../styles/uc03-p2-cards.css';
 
 import PageHeader from '../components/PageHeader';
 import P2VehiclePhotos from '../features/uc03-p2/photos/P2VehiclePhotos';
@@ -11,7 +12,7 @@ import P2UploadStatus from '../features/uc03-p2/workspace/P2UploadStatus';
 import { useP2LiveStatus } from '../features/uc03-p2/workspace/useP2LiveStatus';
 import P2DocumentEditor from '../features/uc03-p2/workspace/P2DocumentEditor';
 import P2DocumentList, { buildDocumentRows } from '../features/uc03-p2/workspace/P2DocumentList';
-import P2UploadPanel from '../features/uc03-p2/workspace/P2UploadPanel';
+import P2UploadPanel, { type P2UploadPanelHandle } from '../features/uc03-p2/workspace/P2UploadPanel';
 import { BATCH_IN_FLIGHT, formatInr, PAGE_IN_FLIGHT } from '../features/uc03-p2/workspace/p2Format';
 import { useP2EventFeed } from '../features/uc03-p2/workspace/useP2EventFeed';
 import {
@@ -52,6 +53,7 @@ export default function P2JourneyWorkspacePage() {
   const idempotencyKey = useRef(`p2-new-booking-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`);
   const creating = useRef<Promise<string> | null>(null);
   const replaceInput = useRef<HTMLInputElement>(null);
+  const uploadPanel = useRef<P2UploadPanelHandle>(null);
   const [replaceTarget, setReplaceTarget] = useState<string>();
   const [removeTarget, setRemoveTarget] = useState<string>();
   const [notice, setNotice] = useState<{ tone: 'success' | 'error'; text: string }>();
@@ -248,8 +250,13 @@ export default function P2JourneyWorkspacePage() {
 
       {documents.isError ? (
         <div className="p2w-alert p2w-alert--error" role="alert">
-          Documents could not be loaded. {errorText(documents.error, '')}
-          <button type="button" className="p2w-link" onClick={() => void documents.refetch()}>Try again</button>
+          <span>
+            Documents could not be loaded.
+            {errorText(documents.error, '') ? <small>{errorText(documents.error, '')}</small> : null}
+          </span>
+          <button type="button" className="p2w-link" onClick={() => void documents.refetch()} disabled={documents.isFetching}>
+            {documents.isFetching ? 'Trying…' : 'Try again'}
+          </button>
         </div>
       ) : null}
       {degraded && !live.connected ? <div className="p2w-alert">Live updates are delayed; the screen refreshes automatically.</div> : null}
@@ -279,7 +286,7 @@ export default function P2JourneyWorkspacePage() {
       <div className="p2w-layout" hidden={tab === 'photos'}>
         <div className="p2w-layout__list">
           {tenantId ? (
-            <P2UploadPanel journeyId={journeyId || undefined} getTransport={getTransport} onAccepted={refresh} />
+            <P2UploadPanel ref={uploadPanel} journeyId={journeyId || undefined} getTransport={getTransport} onAccepted={refresh} />
           ) : null}
           {isNew ? null : documents.isLoading ? <div className="p2w-skeleton" aria-busy="true">Loading documents…</div> : (
             <P2DocumentList
@@ -290,6 +297,7 @@ export default function P2JourneyWorkspacePage() {
               onOpen={openDocument}
               onRetry={(queueId) => retry.mutate(queueId)}
               onSetType={(queueId, templateKey) => setType.mutate({ queueId, templateKey })}
+              onAdd={() => uploadPanel.current?.openFiles()}
               busyKey={busyKey}
             />
           )}

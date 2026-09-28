@@ -96,7 +96,7 @@ import './styles/ui-governance.css';
 import './ui/pcNavigationMotion';
 
 import App from './App';
-import { STALE_CHUNK_RELOAD_FLAG } from './components/ErrorBoundary';
+import { reloadForStaleChunk, STALE_CHUNK_RELOAD_FLAG } from './components/ErrorBoundary';
 import RememberMeDebugOverlay from './components/RememberMeDebugOverlay';
 import SessionBootstrapGate from './components/SessionBootstrapGate';
 import DiFieldViewerEnhancer from './features/di-test/DiFieldViewerEnhancer';
@@ -115,14 +115,14 @@ setupIonicReact({ mode: 'md' });
 // 2026-09-28: Duplicate bookings opened in a tab that predated that
 // morning's deploy ended on a dead-end error screen; a manual reload worked.
 window.addEventListener('vite:preloadError', (event) => {
+  let flagged = false;
   try {
-    if (sessionStorage.getItem(STALE_CHUNK_RELOAD_FLAG)) return;
-    sessionStorage.setItem(STALE_CHUNK_RELOAD_FLAG, '1');
+    flagged = Boolean(sessionStorage.getItem(STALE_CHUNK_RELOAD_FLAG));
   } catch {
     return; // no sessionStorage: let the import failure surface as usual
   }
-  event.preventDefault();
-  window.location.reload();
+  if (flagged) return;
+  if (reloadForStaleChunk()) event.preventDefault();
 });
 
 window.addEventListener('unhandledrejection', (event) => {

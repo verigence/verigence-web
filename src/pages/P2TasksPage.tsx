@@ -78,6 +78,7 @@ function TaskDetail({ task, tenantId, accessToken, operatingRole, onDone }: {
       onDone(action.action === 'ADD_COMMENT' ? 'Comment added.'
         : action.action === 'PROVIDE_VEHICLE_ID' ? 'Vehicle number saved. The task closes itself once it is checked.'
         : task.task_type === 'DELIVERY_REVIEW' ? 'Delivery marked as reviewed.'
+        : action.details && 'answer' in action.details ? 'Answer recorded. The task closes itself once it is checked.'
         : action.action === 'ACCEPT_EXCEPTION' ? 'Accepted as an exception.'
           : task.completion_protocol === 'MACHINE_VERIFIED' && !['APPROVE_CORRECTION', 'REJECT_CORRECTION'].includes(action.action!)
             ? 'Sent for re-check. The task closes itself once the check passes.'

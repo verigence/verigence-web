@@ -70,6 +70,7 @@ const PAGE_STATUS: Record<string, { label: string; tone: Tone }> = {
   FAILED: { label: 'Failed', tone: 'danger' },
   DEAD_LETTER: { label: 'Failed', tone: 'danger' },
   CANCELLED: { label: 'Removed', tone: 'neutral' },
+  DUPLICATE: { label: 'Already uploaded', tone: 'neutral' },
   MERGED: { label: 'Combined', tone: 'neutral' },
 };
 

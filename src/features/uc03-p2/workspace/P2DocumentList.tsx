@@ -7,7 +7,7 @@ import type {
   P2DocumentPage,
   P2Template,
 } from '../../../services/audit-core/uc03P2';
-import { humanizeKey, pageStatus, PAGE_IN_FLIGHT, type Tone } from './p2Format';
+import { formatDateTime, humanizeKey, pageStatus, PAGE_IN_FLIGHT, type Tone } from './p2Format';
 
 export type DocumentRow = {
   key: string;
@@ -41,10 +41,18 @@ export function buildDocumentRows(
       .filter((page) => page.queue_status !== 'MERGED')
       .map((page) => ({ ...page, memberPages: [] as P2DocumentPage[] }));
     if (!units.length) {
+      if (batch.duplicateOf) {
+        rows.push({
+          key: `batch:${batch.batchId}`, batch, memberPages: [], name: batch.original_filename, status: 'DUPLICATE',
+          subtitle: `Same file as ${batch.duplicateOf.filename}, already uploaded`,
+          reason: `This file was already uploaded on ${formatDateTime(batch.duplicateOf.uploadedAtUtc)} as ${batch.duplicateOf.filename}, so it was ignored.`,
+        });
+        continue;
+      }
       rows.push({
         key: `batch:${batch.batchId}`, batch, memberPages: [], name: batch.original_filename,
         subtitle: batch.batch_status === 'SPLITTING' ? 'Splitting pages…' : 'Uploading…',
-        status: batch.batch_status === 'FAILED' ? 'FAILED' : 'QUEUED',
+        status: batch.batch_status === 'FAILED' ? 'FAILED' : batch.batch_status === 'CANCELLED' ? 'CANCELLED' : 'QUEUED',
       });
       continue;
     }

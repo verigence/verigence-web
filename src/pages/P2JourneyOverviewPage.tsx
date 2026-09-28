@@ -21,6 +21,7 @@ import {
   TradeInTab,
   VehicleTab,
 } from '../features/uc03-p2/journey360/Journey360Tabs';
+import { customerLabel } from '../features/uc03-p2/bookings/JourneyRow';
 import { money, signedMoney, varianceTone } from '../features/uc03-p2/journey360/j360Format';
 import { formatDateTime, humanizeKey } from '../features/uc03-p2/workspace/p2Format';
 import {
@@ -104,6 +105,9 @@ export default function P2JourneyOverviewPage() {
   const j = data?.journey;
   const m = data?.money;
   const failed = (data?.controls.BOOKING.fail ?? 0) + (data?.controls.DELIVERY.fail ?? 0);
+  // Journey 360 is built from the documents; without the customer's KYC
+  // there is no customer to show it for.
+  const kycMissing = data?.stage?.gates?.KYC_EXTRACTED?.passed === false;
   const passed = data?.controls.BOOKING.pass ?? 0;
   const setTab = (key: TabKey) => {
     const params = new URLSearchParams(search);
@@ -139,7 +143,7 @@ export default function P2JourneyOverviewPage() {
     <div className="screen-stack p2-screen p2w j360">
       <PageHeader
         eyebrow="Journey 360"
-        title={j?.customerName ?? 'Journey 360'}
+        title={j ? customerLabel(j.customerName).text : 'Journey 360'}
         description={j ? [j.vehicle ?? 'Vehicle not identified yet', j.outletName, j.reference].filter(Boolean).join(' · ') : 'Loading the journey…'}
         actions={journeyId ? (
           <div className="p2w-header-links">
@@ -167,7 +171,13 @@ export default function P2JourneyOverviewPage() {
       ) : null}
       <DuplicatesBanner pairs={duplicates.data?.pairs ?? []} />
 
-      {data && j && m ? (
+      {data && j && m && kycMissing ? (
+        <section className="p2w-empty j360-gate" role="status" aria-label="KYC required">
+          <strong>Journey 360 needs the customer's KYC first.</strong>
+          <span>The PAN Card or Aadhaar has not been read yet. Journey 360 is built from the documents, so it opens once the customer is known.</span>
+          <Link className="p2w-button" to={`/p2/journeys/${journeyId}/documents`}>Upload the PAN Card or Aadhaar</Link>
+        </section>
+      ) : data && j && m ? (
         <>
           <section className="j360-head" aria-label="Journey summary">
             <div className="j360-head__facts">

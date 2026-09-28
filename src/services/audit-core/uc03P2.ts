@@ -224,6 +224,8 @@ export type P2DocumentBatch = {
   grouping_status?: string;
   created_at_utc: string;
   updated_at_utc: string;
+  /** Set when this upload was refused as the same file as an earlier one. */
+  duplicateOf?: { batchId: string; filename: string; uploadedAtUtc: string } | null;
   pages: P2DocumentPage[];
   documents?: Array<P2DocumentPage & { memberPages: P2DocumentPage[] }>;
 };

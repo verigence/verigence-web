@@ -1,11 +1,17 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { lazy, Suspense, useCallback, useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import '../styles/uc03-p2.css';
 import '../styles/uc03-p2-workspace.css';
 import '../styles/uc03-p2-cards.css';
 
 import PageHeader from '../components/PageHeader';
+
+// The two Phase 1 corrections a PC still makes by hand: the loan amount
+// (when no sanction letter covers it) and the vehicle SKU (when the
+// documents disagree). Loaded only when opened.
+const ModifyModelModal = lazy(() => import('../features/uc03/ModifyModelModal'));
+const LoanDisbursementModal = lazy(() => import('../features/uc03/LoanDisbursementPicker').then((m) => ({ default: m.LoanDisbursementModal })));
 import P2VehiclePhotos from '../features/uc03-p2/photos/P2VehiclePhotos';
 import P2RecheckButton from '../features/uc03-p2/workspace/P2RecheckButton';
 import P2UploadStatus from '../features/uc03-p2/workspace/P2UploadStatus';
@@ -57,6 +63,7 @@ export default function P2JourneyWorkspacePage() {
   const [removeTarget, setRemoveTarget] = useState<string>();
   const [notice, setNotice] = useState<{ tone: 'success' | 'error'; text: string }>();
   const [busyKey, setBusyKey] = useState<string>();
+  const [dialog, setDialog] = useState<'loan' | 'sku'>();
   const enabled = Boolean(tenantId && journeyId && accessToken);
 
   const documents = useQuery({
@@ -175,9 +182,8 @@ export default function P2JourneyWorkspacePage() {
           <div className="p2w-header-links">
             {!isNew && tenantId ? <P2RecheckButton tenantId={tenantId} journeyId={journeyId} accessToken={accessToken}
               onDone={(text, tone) => { setNotice({ text, tone }); refresh(); }} /> : null}
-            {!isNew ? <Link className="p2w-link" to={`/p2/journeys/${journeyId}/overview`}>Journey 360</Link> : null}
-            {!isNew ? <Link className="p2w-link" to={`/p2/journeys/${journeyId}/tasks`}>Tasks</Link> : null}
-            <Link className="p2w-link" to="/p2/bookings">All bookings</Link>
+            {!isNew ? <button type="button" className="p2w-button p2w-button--secondary" onClick={() => setDialog('loan')}>Loan amount</button> : null}
+            {!isNew ? <button type="button" className="p2w-button p2w-button--secondary" onClick={() => setDialog('sku')}>Resolve SKU</button> : null}
           </div>
         )}
       />
@@ -291,6 +297,20 @@ export default function P2JourneyWorkspacePage() {
           event.currentTarget.value = '';
         }}
       />
+
+      {dialog && tenantId && journeyId ? (
+        <Suspense fallback={null}>
+          {dialog === 'loan' ? (
+            <LoanDisbursementModal tenantId={tenantId} journeyId={journeyId} accessToken={accessToken}
+              onClose={() => setDialog(undefined)}
+              onUpdated={() => { setNotice({ tone: 'success', text: 'Loan amount updated.' }); refresh(); }} />
+          ) : (
+            <ModifyModelModal tenantId={tenantId} journeyId={journeyId} accessToken={accessToken}
+              onClose={() => setDialog(undefined)}
+              onProposed={() => setNotice({ tone: 'success', text: 'SKU change proposed. The Team Lead reviews it from the Task Queue.' })} />
+          )}
+        </Suspense>
+      ) : null}
 
       {removeTarget ? (
         <div className="p2w-dialog-backdrop" role="presentation" onMouseDown={(event) => {

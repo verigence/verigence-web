@@ -7,6 +7,18 @@
       document is opened, then beside the editor.
    Scoped to .p2w; colours come from the .p2w tokens. */
 
+/* Palette on these screens: deep navy for what matters most (names,
+   headings, counts, primary actions), teal for links and secondary
+   actions, green / amber / red only for status. */
+.p2w { --p2w-navy: #003a82; --p2w-navy-hover: #0057b8; }
+.p2w .p2w-button--primary { background: var(--p2w-navy); }
+.p2w .p2w-button--primary:hover:not(:disabled) { background: var(--p2w-navy-hover); }
+.p2w .p2w-section-title { color: var(--p2w-navy); font-weight: 800; }
+.p2w .p2w-statusbar > div > strong { color: var(--p2w-navy); }
+.p2w .p2w-statusbar > div { border-top: 3px solid var(--p2w-navy); }
+.p2w .p2w-statusbar .is-good { border-top-color: var(--p2w-success); }
+.p2w .p2w-statusbar .is-warn { border-top-color: var(--p2w-danger); }
+
 /* ---------------------------------------------------------- journey rows */
 .p2w .p2w-jtable { width: 100%; table-layout: fixed; border-collapse: separate; border-spacing: 0 6px; }
 .p2w .p2w-jtable th:nth-child(1) { width: 26%; }
@@ -17,7 +29,7 @@
 .p2w .p2w-jtable th:nth-child(6) { width: 112px; }
 .p2w .p2w-jtable thead th {
   padding: 0 12px 2px;
-  color: var(--p2w-muted);
+  color: var(--p2w-navy);
   font-size: .72rem;
   font-weight: 800;
   letter-spacing: .05em;
@@ -42,10 +54,10 @@
 .p2w .p2w-jrow td > span:not(.p2w-chip) { font-size: .84rem; }
 .p2w .p2w-jrow .is-unknown { color: var(--p2w-muted); font-style: italic; }
 .p2w .p2w-jrow td { overflow: hidden; }
-.p2w .p2w-jrow__name { display: block; overflow: hidden; color: inherit; font-size: .98rem; font-weight: 800; text-decoration: none; text-overflow: ellipsis; white-space: nowrap; }
+.p2w .p2w-jrow__name { display: block; overflow: hidden; color: var(--p2w-navy); font-size: .98rem; font-weight: 800; text-decoration: none; text-overflow: ellipsis; white-space: nowrap; }
 .p2w .p2w-jrow__name:hover { color: var(--p2w-link); text-decoration: underline; }
 .p2w .p2w-jrow__stage .p2w-chip { margin-bottom: 6px; }
-.p2w .p2w-jrow__next strong { font-size: .9rem; line-height: 1.3; }
+.p2w .p2w-jrow__next strong { color: var(--p2w-navy); font-size: .9rem; line-height: 1.3; }
 .p2w .p2w-jrow__flag { font-size: .68rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--p2w-muted); }
 .p2w .p2w-jrow.is-overdue .p2w-jrow__flag { color: var(--p2w-danger); }
 .p2w .p2w-jrow.is-action .p2w-jrow__flag { color: var(--p2w-action-soft-text); }
@@ -100,7 +112,7 @@
   white-space: nowrap;
 }
 .p2w .p2w-menu__list a:hover, .p2w .p2w-menu__list a:focus-visible { background: var(--p2w-action-soft); color: var(--p2w-action-soft-text); outline: none; }
-.p2w .p2w-menu__list a:first-child { color: var(--p2w-action-soft-text); }
+.p2w .p2w-menu__list a:first-child { color: var(--p2w-navy); }
 .p2w .p2w-menu__list a b { padding: 0 7px; border-radius: 999px; background: var(--p2w-action); color: #fff; font-size: .74rem; line-height: 18px; }
 
 /* Priority strip: how many journeys wait on whom; tap to filter. */
@@ -120,7 +132,7 @@
   cursor: pointer;
 }
 .p2w .p2w-prio__item:disabled { cursor: default; opacity: .55; }
-.p2w .p2w-prio__item strong { font-size: 1.3rem; font-weight: 800; line-height: 1.1; }
+.p2w .p2w-prio__item strong { color: var(--p2w-navy); font-size: 1.3rem; font-weight: 800; line-height: 1.1; }
 .p2w .p2w-prio__item span { color: var(--p2w-muted); font-size: .8rem; font-weight: 700; }
 .p2w .p2w-prio__item.is-overdue { border-left-color: var(--p2w-danger); }
 .p2w .p2w-prio__item.is-action { border-left-color: var(--p2w-action); }
@@ -139,7 +151,7 @@
 
 /* ------------------------------------------------------- document cards */
 .p2w .p2w-dsection { display: grid; gap: 8px; }
-.p2w .p2w-dsection h3 { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin: 4px 0 0; font-size: .92rem; font-weight: 800; }
+.p2w .p2w-dsection h3 { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin: 4px 0 0; padding-left: 10px; border-left: 4px solid var(--p2w-navy); color: var(--p2w-navy); font-size: .95rem; font-weight: 800; }
 .p2w .p2w-dsection h3 span { color: var(--p2w-muted); font-size: .8rem; font-weight: 600; }
 .p2w .p2w-dgrid {
   display: grid;
@@ -188,7 +200,7 @@
 .p2w .p2w-dcard__main:disabled { cursor: default; }
 .p2w .p2w-dcard__main:focus-visible { outline: 2px solid var(--p2w-accent); outline-offset: -2px; border-radius: 8px; }
 .p2w .p2w-dcard__head { display: flex; justify-content: space-between; align-items: baseline; gap: 6px; min-width: 0; }
-.p2w .p2w-dcard__name { overflow: hidden; color: var(--p2w-ink); font-size: .92rem; font-weight: 700; line-height: 1.25; text-overflow: ellipsis; white-space: nowrap; }
+.p2w .p2w-dcard__name { overflow: hidden; color: var(--p2w-navy); font-size: .92rem; font-weight: 700; line-height: 1.25; text-overflow: ellipsis; white-space: nowrap; }
 .p2w .p2w-dcard.is-missing .p2w-dcard__name { color: var(--p2w-muted); }
 .p2w .p2w-dcard__level { flex: 0 0 auto; color: var(--p2w-muted); font-size: .68rem; font-style: normal; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; }
 .p2w .p2w-dcard__status { display: flex; align-items: center; gap: 6px; color: var(--dc-ink); font-size: .8rem; font-weight: 700; }

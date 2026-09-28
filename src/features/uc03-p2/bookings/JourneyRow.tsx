@@ -119,7 +119,6 @@ function Steps({ active, cancelled }: { active: number; cancelled: boolean }) {
           return <li key={step} className={`is-${state}${index === 3 ? ' is-delivery' : ''}`} title={step} />;
         })}
       </ol>
-      <span>{cancelled ? 'Cancelled' : `${done} of 6 done`}</span>
     </div>
   );
 }

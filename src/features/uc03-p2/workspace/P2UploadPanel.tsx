@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useImperativeHandle, useRef, useState, type Ref } from 'react';
 
 import {
   combineImagesToPdf,
@@ -21,18 +21,27 @@ const PHASE_LABEL: Record<UploadItem['phase'], string> = {
   FAILED: 'Failed',
 };
 
+/** Lets a document card that is still missing open the same pickers. */
+export type P2UploadPanelHandle = { openFiles: () => void; openCamera: () => void };
+
 export default function P2UploadPanel({
   journeyId,
   getTransport,
   onAccepted,
+  ref,
 }: {
   journeyId?: string;
   /** Resolves the Journey to upload into (a new booking creates it here). */
   getTransport: () => Promise<{ journeyId: string; transport: UploadTransport }>;
   onAccepted: () => void;
+  ref?: Ref<P2UploadPanelHandle>;
 }) {
   const fileInput = useRef<HTMLInputElement>(null);
   const cameraInput = useRef<HTMLInputElement>(null);
+  useImperativeHandle(ref, () => ({
+    openFiles: () => fileInput.current?.click(),
+    openCamera: () => cameraInput.current?.click(),
+  }), []);
   const [items, setItems] = useState<UploadItem[]>([]);
   const [dragging, setDragging] = useState(false);
   const [photoChoice, setPhotoChoice] = useState<File[]>();

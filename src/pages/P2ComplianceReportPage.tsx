@@ -35,7 +35,7 @@ export default function P2ComplianceReportPage() {
   const h = r?.header ?? {};
 
   return (
-    <div className="screen-stack p2-screen p2w j360 j360-report">
+    <div className={`screen-stack p2-screen p2w j360 j360-report${r && r.review?.status !== 'REVIEWED' ? ' is-draft' : ''}`}>
       <PageHeader
         eyebrow="Compliance report"
         title={h.customerDisplayName ?? 'Compliance report'}
@@ -61,6 +61,13 @@ export default function P2ComplianceReportPage() {
               <span className="j360-label">Verdict</span>
               <strong className={`p2w-tone p2w-tone--${VERDICT_TONE[r.verdict.code]}`}>{r.verdict.label}</strong>
               <span className="p2w-muted">Generated {formatDateTime(r.generatedAtUtc)} · stage {humanizeKey(r.stage.code)}</span>
+              {r.review ? (
+                <span className={`j360-review-status p2w-tone p2w-tone--${r.review.status === 'REVIEWED' ? 'success' : 'progress'}`}>
+                  {r.review.status === 'REVIEWED' && r.review.reviewedAtUtc
+                    ? `${r.review.label} on ${formatDateTime(r.review.reviewedAtUtc)}`
+                    : r.review.label}
+                </span>
+              ) : null}
             </div>
             <dl className="j360-facts">
               <div><dt>Checks with issues</dt><dd>{r.verdict.failedControls}</dd></div>

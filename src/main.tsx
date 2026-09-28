@@ -96,12 +96,34 @@ import './styles/ui-governance.css';
 import './ui/pcNavigationMotion';
 
 import App from './App';
+import { STALE_CHUNK_RELOAD_FLAG } from './components/ErrorBoundary';
 import RememberMeDebugOverlay from './components/RememberMeDebugOverlay';
 import SessionBootstrapGate from './components/SessionBootstrapGate';
 import DiFieldViewerEnhancer from './features/di-test/DiFieldViewerEnhancer';
 import { AuditCoreTimeoutError } from './services/audit-core/client';
 
 setupIonicReact({ mode: 'md' });
+
+// A tab left open across a deploy still runs the previous bundle. Its first
+// visit to a not-yet-loaded screen asks for that bundle's hashed chunk (or
+// a stylesheet the chunk depends on), which no longer exists after the
+// deploy; the asset host answers with index.html instead. Vite reports the
+// failed dependency preload as this event before the import itself
+// rejects. Reload once to the current bundle, using the same one-per-boot
+// flag ErrorBoundary uses for the import failures it catches in render, so
+// the user sees the new build instead of a broken screen. Seen live on
+// 2026-09-28: Duplicate bookings opened in a tab that predated that
+// morning's deploy ended on a dead-end error screen; a manual reload worked.
+window.addEventListener('vite:preloadError', (event) => {
+  try {
+    if (sessionStorage.getItem(STALE_CHUNK_RELOAD_FLAG)) return;
+    sessionStorage.setItem(STALE_CHUNK_RELOAD_FLAG, '1');
+  } catch {
+    return; // no sessionStorage: let the import failure surface as usual
+  }
+  event.preventDefault();
+  window.location.reload();
+});
 
 window.addEventListener('unhandledrejection', (event) => {
   console.error(

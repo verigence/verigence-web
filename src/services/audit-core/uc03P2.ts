@@ -2,8 +2,9 @@ import { xhrPut } from '../../features/uc03-p2/workspace/p2Uploader';
 import { auditCoreRawRequest, auditCoreRequest } from './client';
 
 /**
- * Budget for the tenant-wide list reads (Booking & Delivery / Journey 360
- * list, Bookings summary, Task Queue, Duplicate bookings). Audit Core gives
+ * Budget for the heavier Audit Core reads (Booking & Delivery / Journey 360
+ * list, Bookings summary, Task Queue, Duplicate bookings, and a Journey's
+ * documents, stage, overview and Journey 360 read model). Audit Core gives
  * each SQL statement 10 seconds of its own (statement_timeout) on top of the
  * pool wait, Security permission check and serialisation. The default 10 s
  * client budget therefore gave up before Audit Core did on a slow Railway
@@ -524,7 +525,7 @@ export function getP2Stage(
 ): Promise<P2StageResponse> {
   return auditCoreRequest<P2StageResponse>(
     path(tenantId, `/journeys/${encodeURIComponent(journeyId)}/stage`),
-    { accessToken, cache: 'no-store' },
+    { accessToken, cache: 'no-store', timeoutMs: LIST_READ_TIMEOUT_MS },
   );
 }
 
@@ -535,7 +536,7 @@ export function getP2Overview(
 ): Promise<P2Overview> {
   return auditCoreRequest<P2Overview>(
     path(tenantId, `/journeys/${encodeURIComponent(journeyId)}/overview`),
-    { accessToken },
+    { accessToken, timeoutMs: LIST_READ_TIMEOUT_MS },
   );
 }
 
@@ -546,7 +547,7 @@ export function getP2Documents(
 ): Promise<P2DocumentsResponse> {
   return auditCoreRequest<P2DocumentsResponse>(
     path(tenantId, `/journeys/${encodeURIComponent(journeyId)}/documents`),
-    { accessToken },
+    { accessToken, timeoutMs: LIST_READ_TIMEOUT_MS },
   );
 }
 
@@ -994,14 +995,14 @@ export type P2SectionMap = {
 };
 
 export function getP2Journey360(tenantId: string, journeyId: string, accessToken?: string): Promise<P2Journey360> {
-  return auditCoreRequest<P2Journey360>(path(tenantId, `/journeys/${encodeURIComponent(journeyId)}/360`), { accessToken });
+  return auditCoreRequest<P2Journey360>(path(tenantId, `/journeys/${encodeURIComponent(journeyId)}/360`), { accessToken, timeoutMs: LIST_READ_TIMEOUT_MS });
 }
 
 export function getP2Journey360Section<K extends keyof P2SectionMap>(
   tenantId: string, journeyId: string, section: K, accessToken?: string,
 ): Promise<P2SectionMap[K]> {
   return auditCoreRequest<P2SectionMap[K]>(
-    path(tenantId, `/journeys/${encodeURIComponent(journeyId)}/360/${section}`), { accessToken },
+    path(tenantId, `/journeys/${encodeURIComponent(journeyId)}/360/${section}`), { accessToken, timeoutMs: LIST_READ_TIMEOUT_MS },
   );
 }
 

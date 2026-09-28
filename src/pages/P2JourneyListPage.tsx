@@ -28,10 +28,26 @@ function useJourneys(tenantId: string | undefined, accessToken: string | undefin
  * journey (the documents workspace), Journey 360, or the tasks for your
  * role. Fifty bookings a week stay one screen.
  */
+function greeting(): string {
+  const hour = new Date().getHours();
+  if (hour < 12) return 'Good morning';
+  if (hour < 17) return 'Good afternoon';
+  return 'Good evening';
+}
+
+function firstName(displayName: string, email: string): string {
+  const source = (displayName || email.split('@')[0] || '').replace(/[._-]+/g, ' ').trim();
+  return source.split(/\s+/)[0] || 'there';
+}
+
 export default function P2JourneyListPage() {
-  const tenantId = useProjectContextStore((s) => s.selectedProject?.tenantId);
-  const role = useProjectContextStore((s) => s.selectedProject?.operatingRole);
+  const project = useProjectContextStore((s) => s.selectedProject);
+  const tenantId = project?.tenantId;
+  const role = project?.operatingRole;
   const accessToken = useSessionStore((s) => s.accessToken);
+  const displayName = useSessionStore((s) => s.displayName);
+  const email = useSessionStore((s) => s.email);
+  const outletId = useSessionStore((s) => s.outletId);
   const [search, setSearch] = useState('');
   const [showClosed, setShowClosed] = useState(false);
   const deferredSearch = useDeferredValue(search);
@@ -64,15 +80,53 @@ export default function P2JourneyListPage() {
   }, [open.data, role]);
   const visible: P2JourneyListItem[] = ranked.map(({ item }) => item);
   const closedItems = closed.data?.items ?? [];
+  const needCount = ranked.filter(({ priority }) => priority === 'overdue' || priority === 'action').length;
+  const overdueCount = ranked.filter(({ priority }) => priority === 'overdue').length;
+  const selectedOutlet = project?.scope.outlets.find((outlet) => outlet.outletId === outletId) ?? project?.scope.outlets[0];
+  const dealerName = selectedOutlet?.dealerName || 'Your dealership';
+  const outletName = selectedOutlet?.outletName || 'your outlet';
+  const subClauses = [
+    overdueCount ? `${overdueCount} overdue` : null,
+    s?.tasks?.open ? `${s.tasks.open} open task${s.tasks.open === 1 ? '' : 's'}` : null,
+  ].filter(Boolean);
 
   return (
     <div className="screen-stack p2-screen p2w">
       <PageHeader
         eyebrow="Booking & Delivery"
         title="Booking & Delivery"
-        description="Every open journey, most urgent first. Each card says what it needs next."
-        actions={<Link className="p2w-button p2w-button--primary p2w-button--lg" to="/p2/journeys/new/documents">New booking</Link>}
+        description="Every open journey, most urgent first. Each row says what it needs next."
       />
+
+      <section className="p2w-hero" aria-labelledby="p2w-hero-title">
+        <div className="p2w-hero__top">
+          <div>
+            <p className="p2w-hero__greet">{greeting()}, {firstName(displayName, email)}</p>
+            <p className="p2w-hero__place"><b>{dealerName}</b> · {outletName}</p>
+          </div>
+          <Link className="p2w-hero__capture" to="/p2/journeys/new/documents">
+            <span aria-hidden="true">＋</span>
+            <span>Capture new booking</span>
+          </Link>
+        </div>
+        <h2 id="p2w-hero-title" className="p2w-hero__headline">
+          {open.isLoading ? 'Loading your work…'
+            : needCount ? <>{`${needCount} thing${needCount === 1 ? '' : 's'} `}<b>need{needCount === 1 ? 's' : ''} you</b>{' right now'}</>
+              : <b>You&rsquo;re all caught up</b>}
+        </h2>
+        <p className="p2w-hero__sub">
+          {open.isLoading ? 'Counting bookings and deliveries…'
+            : subClauses.length ? subClauses.join(' · ')
+              : 'Nothing needs your attention right now. New bookings and deliveries will show up here.'}
+        </p>
+        <div className="p2w-hero__kpis" aria-label="Summary">
+          <div className="p2w-kpi"><b>{s ? s.open.bookings : '—'}</b><span>Bookings open</span></div>
+          <div className="p2w-kpi"><b>{s ? s.open.deliveries : '—'}</b><span>Deliveries open</span></div>
+          <div className="p2w-kpi"><b>{s ? s.closed?.bookings ?? '—' : '—'}</b><span>Bookings closed</span></div>
+          <div className="p2w-kpi"><b>{s ? s.closed?.deliveries ?? '—' : '—'}</b><span>Deliveries closed</span></div>
+          <Link className={`p2w-kpi${s?.tasks?.open ? ' p2w-kpi--flag' : ''}`} to="/p2/tasks"><b>{s ? s.tasks?.open ?? '—' : '—'}</b><span>Tasks open</span></Link>
+        </div>
+      </section>
 
       <div className="p2w-listbar">
         <label className="p2w-search">
@@ -82,16 +136,6 @@ export default function P2JourneyListPage() {
         </label>
         {open.isFetching ? <span className="p2w-muted">Loading…</span> : null}
       </div>
-
-      {s ? (
-        <dl className="p2w-stats" aria-label="Summary">
-          <div><dt>Bookings open</dt><dd>{s.open.bookings}</dd></div>
-          <div><dt>Deliveries open</dt><dd>{s.open.deliveries}</dd></div>
-          <div><dt>Bookings closed</dt><dd>{s.closed?.bookings ?? '—'}</dd></div>
-          <div><dt>Deliveries closed</dt><dd>{s.closed?.deliveries ?? '—'}</dd></div>
-          <div className="is-tasks"><dt>Tasks open</dt><dd>{s.tasks?.open ?? '—'}</dd></div>
-        </dl>
-      ) : null}
 
       {open.isError ? (
         <div className="p2w-alert p2w-alert--error" role="alert">

@@ -1,6 +1,6 @@
 import { lazy, Suspense, useCallback, useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import '../styles/uc03-p2.css';
 import '../styles/uc03-p2-workspace.css';
 import '../styles/uc03-p2-cards.css';
@@ -217,6 +217,7 @@ export default function P2JourneyWorkspacePage() {
               onDone={(text, tone) => { setNotice({ text, tone }); refresh(); }} /> : null}
             {!isNew ? <button type="button" className="p2w-button p2w-button--secondary" onClick={() => setDialog('loan')}>Loan amount</button> : null}
             {!isNew ? <button type="button" className="p2w-button p2w-button--secondary" onClick={() => setDialog('sku')}>Resolve SKU</button> : null}
+            {!isNew ? <Link className="p2w-button p2w-button--secondary" to={`/p2/journeys/${journeyId}/compliance-report`}>View compliance report</Link> : null}
           </div>
         )}
       />

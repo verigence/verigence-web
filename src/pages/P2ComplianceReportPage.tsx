@@ -60,7 +60,7 @@ export default function P2ComplianceReportPage() {
             <div>
               <span className="j360-label">Verdict</span>
               <strong className={`p2w-tone p2w-tone--${VERDICT_TONE[r.verdict.code]}`}>{r.verdict.label}</strong>
-              <span className="p2w-muted">Generated {formatDateTime(r.generatedAtUtc)} · stage {humanizeKey(r.stage.code)}</span>
+              <span className="p2w-muted">As at {formatDateTime(r.generatedAtUtc)} · stage {humanizeKey(r.stage.code)} · checks re-run every night while the delivery is in progress</span>
               {r.review ? (
                 <span className={`j360-review-status p2w-tone p2w-tone--${r.review.status === 'REVIEWED' ? 'success' : 'progress'}`}>
                   {r.review.status === 'REVIEWED' && r.review.reviewedAtUtc

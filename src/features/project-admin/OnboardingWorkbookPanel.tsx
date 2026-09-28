@@ -165,7 +165,7 @@ export default function OnboardingWorkbookPanel({ accessToken, onApplied }: {
       {error ? <div className="uc02-onboarding__alert" role="alert"><strong>Could not complete</strong><span>{error}</span></div> : null}
 
       {upload && plan && summary ? (
-        <div className="uc02-step-body">
+        <div className="uc02-onboarding__body">
           <div className={`uc02-readiness-banner ${summary.errors ? 'blocked' : 'ready'}`} role="status">
             <strong>
               {applied ? (upload.status === 'APPLIED' ? 'Applied' : 'Applied with errors')
@@ -174,6 +174,16 @@ export default function OnboardingWorkbookPanel({ accessToken, onApplied }: {
             </strong>
             <span>{upload.filename}</span>
           </div>
+          {!applied ? (
+            <div className="uc02-actions uc02-onboarding__actions">
+              <button className="uc02-button" type="button" onClick={() => setUpload(null)} disabled={busy !== null}>Discard</button>
+              <button className="uc02-button uc02-button--primary" type="button" onClick={() => void apply()}
+                disabled={busy !== null || summary.errors > 0 || upload.status !== 'PREVIEW_READY' || changes === 0}
+                title={summary.errors ? 'Fix the errors in the workbook and upload it again.' : undefined}>
+                {busy === 'apply' ? 'Applying…' : `Apply ${changes} change${changes === 1 ? '' : 's'}`}
+              </button>
+            </div>
+          ) : null}
           {plan.fileErrors.length ? <ul className="uc02-onboarding__messages">{plan.fileErrors.map((m) => <li key={m}>{m}</li>)}</ul> : null}
 
           <div className="uc02-import-summary uc02-onboarding__summary">
@@ -198,7 +208,7 @@ export default function OnboardingWorkbookPanel({ accessToken, onApplied }: {
             </label>
           </div>
 
-          <div className="uc02-table-wrap">
+          <div className="uc02-table-wrap uc02-onboarding__table">
             {tab === 'projects' ? (
               <table className="uc02-table">
                 <thead><tr><th>Row</th><th>Code</th><th>Project</th><th>OEM</th><th>Active</th><th>Status</th><th>Details</th></tr></thead>
@@ -261,16 +271,6 @@ export default function OnboardingWorkbookPanel({ accessToken, onApplied }: {
             )}
           </div>
 
-          {!applied ? (
-            <div className="uc02-actions">
-              <button className="uc02-button" type="button" onClick={() => setUpload(null)} disabled={busy !== null}>Discard</button>
-              <button className="uc02-button uc02-button--primary" type="button" onClick={() => void apply()}
-                disabled={busy !== null || summary.errors > 0 || upload.status !== 'PREVIEW_READY' || changes === 0}
-                title={summary.errors ? 'Fix the errors in the workbook and upload it again.' : undefined}>
-                {busy === 'apply' ? 'Applying…' : `Apply ${changes} change${changes === 1 ? '' : 's'}`}
-              </button>
-            </div>
-          ) : null}
         </div>
       ) : null}
     </section>

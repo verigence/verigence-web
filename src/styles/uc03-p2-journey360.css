@@ -430,3 +430,8 @@
 .j360 .j360-cell .j360-bank__ref { margin-top: 0; }
 .j360 .j360-mt { margin-top: 14px; }
 @media (max-width: 640px) { .j360 .j360-cell { justify-items: end; text-align: right; } }
+
+/* Journey 360 waits for the KYC. */
+.j360 .j360-gate { display: grid; gap: 8px; justify-items: start; padding: 22px; text-align: left; }
+.j360 .j360-gate strong { font-size: 1.1rem; color: var(--p2w-navy); }
+.j360 .j360-gate .p2w-button { margin-top: 6px; }

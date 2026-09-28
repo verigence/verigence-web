@@ -48,6 +48,7 @@ const EVENT_LABELS: Record<string, string> = {
   FIELD_CORRECTED: 'Value corrected',
   FIELD_CONFIRMED: 'Value confirmed',
   UPLOAD_ACCEPTED: 'Upload received',
+  UPLOAD_DUPLICATE: 'Upload ignored: same file as an earlier upload',
   VEHICLE_PHOTO_ADDED: 'Vehicle photo added',
   VEHICLE_PHOTO_REMOVED: 'Vehicle photo removed',
   DOCUMENT_REMOVED: 'Document removed',

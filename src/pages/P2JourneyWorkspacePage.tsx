@@ -22,6 +22,7 @@ import P2UploadPanel, { type P2UploadPanelHandle } from '../features/uc03-p2/wor
 import { BATCH_IN_FLIGHT, PAGE_IN_FLIGHT } from '../features/uc03-p2/workspace/p2Format';
 import { useP2EventFeed } from '../features/uc03-p2/workspace/useP2EventFeed';
 import {
+  cancelP2Journey,
   createP2Journey,
   deleteP2Document,
   getP2Documents,
@@ -189,6 +190,18 @@ export default function P2JourneyWorkspacePage() {
 
   const removeName = rows.find((row) => row.documentId === removeTarget)?.name ?? 'this document';
   const processing = rows.filter((row) => PAGE_IN_FLIGHT.has(row.status));
+  // Pages waiting for an automatic retry, and pages whose retries are spent.
+  const retrying = rows.filter((row) => row.status === 'RETRY_WAIT');
+  const failed = rows.filter((row) => row.status === 'FAILED' || row.status === 'DEAD_LETTER');
+  const [deleting, setDeleting] = useState(false);
+  const cancelJourney = useMutation({
+    mutationFn: () => cancelP2Journey(tenantId!, journeyId, undefined, accessToken),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['p2-journeys', tenantId] });
+      navigate('/p2/bookings', { replace: true });
+    },
+    onError: (cause) => { setDeleting(false); setNotice({ tone: 'error', text: errorText(cause, 'The booking could not be deleted.') }); },
+  });
 
   return (
     <div className={`screen-stack p2-screen p2w${documentId ? ' has-selection' : ''}`}>
@@ -236,6 +249,19 @@ export default function P2JourneyWorkspacePage() {
         </div>
       ) : null}
       {degraded && !live.connected ? <div className="p2w-alert">Live updates are delayed; the screen refreshes automatically.</div> : null}
+      {retrying.length && !isNew ? (
+        <div className="p2w-alert" role="status">
+          <span>{retrying.length === 1 ? 'One page' : `${retrying.length} pages`} could not be processed just now and will be retried automatically over the next hour. You can leave this page and check back later.</span>
+        </div>
+      ) : null}
+      {failed.length && !isNew ? (
+        <div className="p2w-alert p2w-alert--error p2w-alert--stack" role="alert">
+          <strong>{failed.length === 1 ? 'One page' : `${failed.length} pages`} could not be processed.</strong>
+          <ul>{failed.map((row) => <li key={row.key}><b>{row.name}</b>{row.reason ? ` · ${row.reason}` : ''}</li>)}</ul>
+          <span>Retry the page from its card, remove the upload and add the file again, or delete this booking if nothing on it can be used. Deleting keeps the documents and history in the audit record and tells your Team Lead.</span>
+          <button type="button" className="p2w-button p2w-button--danger" onClick={() => setDeleting(true)}>Delete this booking</button>
+        </div>
+      ) : null}
       {notice ? (
         <div className={`p2w-alert p2w-alert--${notice.tone}`} role="status">
           {notice.text}
@@ -327,6 +353,21 @@ export default function P2JourneyWorkspacePage() {
         </Suspense>
       ) : null}
 
+      {deleting ? (
+        <div className="p2w-dialog-backdrop" role="presentation" onMouseDown={(event) => {
+          if (event.target === event.currentTarget) setDeleting(false);
+        }}>
+          <div className="p2w-dialog" role="alertdialog" aria-modal="true" aria-labelledby="p2w-delete-title">
+            <h3 id="p2w-delete-title">Delete this booking?</h3>
+            <p>The booking closes as cancelled because its document upload failed. Its documents and history stay in the audit record, and your Team Lead is told.</p>
+            <div className="p2w-dialog__actions">
+              <button type="button" className="p2w-button p2w-button--ghost" autoFocus onClick={() => setDeleting(false)}>Keep</button>
+              <button type="button" className="p2w-button p2w-button--danger" disabled={cancelJourney.isPending}
+                onClick={() => cancelJourney.mutate()}>{cancelJourney.isPending ? 'Deleting…' : 'Delete booking'}</button>
+            </div>
+          </div>
+        </div>
+      ) : null}
       {removeTarget ? (
         <div className="p2w-dialog-backdrop" role="presentation" onMouseDown={(event) => {
           if (event.target === event.currentTarget) setRemoveTarget(undefined);

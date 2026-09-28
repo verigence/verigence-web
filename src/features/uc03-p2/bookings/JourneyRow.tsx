@@ -87,6 +87,12 @@ export function nextAction(item: P2JourneyListItem, role?: string): { priority: 
   if (delivered || item.closed) {
     return { priority: 'closed', title: 'Delivered', detail: item.delivery_reviewed_at ? 'Reviewed by TL' : 'Awaiting TL review' };
   }
+  if (item.failed_pages) {
+    return { priority: 'overdue', title: 'Upload failed: fix or delete the booking', detail: `${plural(item.failed_pages, 'page')} could not be processed` };
+  }
+  if (item.retrying_pages) {
+    return { priority: 'waiting', title: 'Documents being retried', detail: `${plural(item.retrying_pages, 'page')} retrying automatically, check back later` };
+  }
   if (overdue) {
     return { priority: 'overdue', title: `Clear ${plural(overdue, 'overdue task')}`, detail: mine ? `${plural(mine, 'task')} for you` : `With ${othersRole}` };
   }

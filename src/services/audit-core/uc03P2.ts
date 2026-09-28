@@ -28,6 +28,9 @@ export type P2JourneyListItem = {
   /** Delivered, cancelled, duplicate or closed without delivery. */
   closed?: boolean;
   cancelled?: boolean;
+  /** Pages or uploads whose processing failed for good, and pages waiting for a retry. */
+  failed_pages?: number;
+  retrying_pages?: number;
   booking_status?: string | null;
   booking_completed_at?: string | null;
   delivery_completed_at?: string | null;
@@ -495,6 +498,15 @@ export function setP2PageType(
   return auditCoreRequest(
     path(tenantId, `/journeys/${encodeURIComponent(journeyId)}/pages/${encodeURIComponent(queueId)}:set-type`),
     { method: 'POST', accessToken, body: JSON.stringify({ templateKey }) },
+  );
+}
+
+/** Delete a booking a failed document upload left stuck: it closes as
+ * cancelled, documents and history kept, and the Team Lead is told. */
+export function cancelP2Journey(tenantId: string, journeyId: string, reason: string | undefined, accessToken?: string) {
+  return auditCoreRequest<{ journeyId: string; status: string }>(
+    path(tenantId, `/journeys/${encodeURIComponent(journeyId)}:cancel`),
+    { method: 'POST', accessToken, body: JSON.stringify({ reason: reason || undefined }) },
   );
 }
 

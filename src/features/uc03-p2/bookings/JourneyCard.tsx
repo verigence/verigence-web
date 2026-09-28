@@ -36,8 +36,8 @@ const STEP_NOW: Record<number, string> = {
 };
 
 const PHASES = [
-  { name: 'Booking', offset: 0, steps: ['Documents', 'Verified', 'Complete'] },
-  { name: 'Delivery', offset: 3, steps: ['Documents', 'Verified', 'Delivered'] },
+  { name: 'Booking', offset: 0, steps: ['Docs', 'Check', 'Done'] },
+  { name: 'Delivery', offset: 3, steps: ['Docs', 'Check', 'Done'] },
 ] as const;
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -62,7 +62,7 @@ export type Priority = 'overdue' | 'action' | 'waiting' | 'ok' | 'closed';
 
 export const PRIORITY_LABEL: Record<Priority, string> = {
   overdue: 'Overdue',
-  action: 'Your move',
+  action: 'To do',
   waiting: 'Waiting on others',
   ok: 'On track',
   closed: 'Closed',
@@ -112,8 +112,8 @@ export function nextAction(item: P2JourneyListItem, role?: string): { priority: 
   };
 }
 
-/** Booking and Delivery as two short tracks of three pips: done, current,
- * still to come. */
+/** Booking and Delivery as two rows of three labelled steps (Docs, Check,
+ * Done): ticked when done, highlighted when in hand, grey when to come. */
 function StageTrack({ active, cancelled }: { active: number; cancelled: boolean }) {
   return (
     <div className="p2w-jstage" role="img" aria-label={cancelled ? 'Cancelled' : `Step ${Math.min(active, 6)} of 6: ${JOURNEY_STEPS[Math.min(active, 5)]}`}>
@@ -126,7 +126,7 @@ function StageTrack({ active, cancelled }: { active: number; cancelled: boolean 
               {phase.steps.map((step, i) => {
                 const index = phase.offset + i;
                 const pip = cancelled ? 'todo' : index < active ? 'done' : index === active ? 'active' : 'todo';
-                return <li key={step} className={`is-${pip}`} title={`${phase.name}: ${step}`} />;
+                return <li key={step} className={`is-${pip}`} title={`${phase.name}: ${JOURNEY_STEPS[index]}${pip === 'done' ? ' (done)' : pip === 'active' ? ' (in hand)' : ''}`}>{step}</li>;
               })}
             </ol>
           </div>

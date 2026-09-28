@@ -79,10 +79,22 @@
 .p2w .p2w-jstage__phase.is-done .p2w-jstage__name { color: var(--p2w-success); }
 .p2w .p2w-jstage__phase.is-done .p2w-jstage__name::after { content: ' ✓'; }
 .p2w .p2w-jstage__pips { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; margin: 0; padding: 0; list-style: none; }
-.p2w .p2w-jstage__pips li { height: 6px; border-radius: 999px; background: var(--p2w-line); }
-.p2w .p2w-jstage__pips li.is-done { background: var(--p2w-success); }
-.p2w .p2w-jstage__pips li.is-active { background: var(--p2w-action); box-shadow: 0 0 0 2px rgb(52 184 200 / 25%); }
-.p2w .p2w-jcard.is-closed .p2w-jstage__pips li.is-done { background: #9fb3c2; }
+.p2w .p2w-jstage__pips li {
+  overflow: hidden;
+  padding: 3px 4px;
+  border-radius: 6px;
+  background: var(--p2w-soft);
+  color: var(--p2w-muted);
+  font-size: .68rem;
+  font-weight: 700;
+  line-height: 1.2;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.p2w .p2w-jstage__pips li.is-done { background: var(--p2w-success-bg); color: var(--p2w-success); }
+.p2w .p2w-jstage__pips li.is-active { background: var(--p2w-action-soft); color: var(--p2w-action-soft-text); box-shadow: inset 0 0 0 1.5px var(--p2w-action); }
+.p2w .p2w-jcard.is-closed .p2w-jstage__pips li.is-done { background: #eef2f5; color: var(--p2w-muted); }
 .p2w .p2w-jcard.is-closed .p2w-jstage__phase.is-done .p2w-jstage__name { color: var(--p2w-muted); }
 
 /* Priority strip: how many journeys wait on whom; tap to filter. */
@@ -113,6 +125,18 @@
 
 /* ----------------------------------------------- complete journey (docs) */
 .p2w .p2w-statusbar { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+.p2w .p2w-readiness { grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr) auto; align-items: start; }
+.p2w .p2w-readiness__col { display: grid; gap: 6px; min-width: 0; padding: 10px 12px; border-radius: 10px; }
+.p2w .p2w-readiness__col.is-done { background: var(--p2w-success-bg); }
+.p2w .p2w-readiness__col.is-todo { background: var(--p2w-action-soft); }
+.p2w .p2w-readiness__title { font-size: .72rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
+.p2w .p2w-readiness__col.is-done .p2w-readiness__title { color: var(--p2w-success); }
+.p2w .p2w-readiness__col.is-todo .p2w-readiness__title { color: var(--p2w-action-soft-text); }
+.p2w .p2w-readiness__title b { margin-left: 4px; padding: 0 6px; border-radius: 999px; background: #fff; }
+.p2w .p2w-readiness__col p { margin: 0; font-size: .88rem; }
+.p2w .p2w-donelist { display: grid; gap: 4px; margin: 0; padding: 0; list-style: none; }
+.p2w .p2w-donelist li { display: flex; gap: 8px; align-items: baseline; color: var(--p2w-success); font-size: .9rem; font-weight: 700; }
+.p2w .p2w-donelist li::before { content: '✓'; flex: 0 0 18px; height: 18px; border-radius: 50%; background: var(--p2w-success); color: #fff; font-size: .7rem; line-height: 18px; text-align: center; }
 .p2w .p2w-todo { display: grid; gap: 4px; margin: 0; padding: 0; list-style: none; counter-reset: todo; }
 .p2w .p2w-todo li { display: flex; gap: 8px; align-items: baseline; font-size: .92rem; font-weight: 700; }
 .p2w .p2w-todo li::before { content: counter(todo); counter-increment: todo; flex: 0 0 18px; height: 18px; border-radius: 50%; background: var(--p2w-action); color: #fff; font-size: .7rem; line-height: 18px; text-align: center; }
@@ -190,6 +214,7 @@
 
 @media (max-width: 900px) {
   .p2w .p2w-statusbar { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .p2w .p2w-readiness { grid-template-columns: 1fr; }
 }
 @media (max-width: 640px) {
   .p2w .p2w-jgrid { grid-template-columns: 1fr; }

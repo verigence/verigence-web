@@ -305,7 +305,17 @@
 .j360 .j360-dup-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .j360 .j360-dup-side { display: grid; gap: 3px; padding: 10px 12px; border-radius: 10px; background: var(--p2w-soft); }
 @media (max-width: 640px) { .j360 .j360-dup-pair { grid-template-columns: 1fr; } }
+.j360-review-status { display: block; margin-top: 4px; font-size: 0.9rem; }
+/* A printed draft says so on every page. */
+.j360-report.is-draft { position: relative; }
+.j360-report.is-draft::before {
+  content: 'DRAFT';
+  position: fixed; inset: 40% 0 auto 0; text-align: center;
+  font-size: 7rem; font-weight: 800; letter-spacing: 0.3em; opacity: 0.08;
+  pointer-events: none; z-index: 0; display: none;
+}
 @media print {
+  .j360-report.is-draft::before { display: block; }
   .j360-report .j360-card { box-shadow: none; break-inside: avoid; }
   .j360-report .p2w-header-links { display: none; }
 }

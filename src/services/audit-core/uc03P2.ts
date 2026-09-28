@@ -1060,6 +1060,8 @@ export type P2Compliance360 = {
 
 export type P2ComplianceReport = {
   generatedAtUtc: string;
+  /** Draft until the Team Lead reviews the completed delivery. */
+  review?: { status: 'DRAFT' | 'REVIEWED'; reviewedAtUtc: string | null; reviewerRole: string | null; label: string };
   header: Record<string, string | null>;
   summary: { totalFindings: number; openFindings: number; resolvedFindings: number; highOrCriticalOpen: number };
   sections: Array<{

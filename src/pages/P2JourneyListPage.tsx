@@ -110,8 +110,8 @@ export default function P2JourneyListPage() {
           Open {open.isError ? null : <span className="p2w-muted">{visible.length}</span>}
         </h2>
         {visible.length ? (
-          <table className="p2w-jtable">
-            <thead><tr><th>Customer</th><th>Journey</th><th>Stage</th><th>Next</th><th>Dates</th><th><span className="p2w-visually-hidden">Actions</span></th></tr></thead>
+          <table className={`p2w-jtable${role !== 'PC' ? ' has-where' : ''}`}>
+            <thead><tr><th className="col-customer">Customer</th><th className="col-price">Price</th><th className="col-stage">Stage</th><th className="col-next">Next</th><th className="col-when">Dates</th>{role !== 'PC' ? <th className="col-where">Dealer · Outlet · PC</th> : null}<th className="col-act"><span className="p2w-visually-hidden">Actions</span></th></tr></thead>
             <tbody>
               {visible.map((item) => <JourneyRow key={item.journey_id} item={item} role={role} />)}
             </tbody>
@@ -136,8 +136,8 @@ export default function P2JourneyListPage() {
         {showClosed || searching ? (
           <>
             {closedItems.length ? (
-              <table className="p2w-jtable">
-            <thead><tr><th>Customer</th><th>Journey</th><th>Stage</th><th>Next</th><th>Dates</th><th><span className="p2w-visually-hidden">Actions</span></th></tr></thead>
+              <table className={`p2w-jtable${role !== 'PC' ? ' has-where' : ''}`}>
+            <thead><tr><th className="col-customer">Customer</th><th className="col-price">Price</th><th className="col-stage">Stage</th><th className="col-next">Next</th><th className="col-when">Dates</th>{role !== 'PC' ? <th className="col-where">Dealer · Outlet · PC</th> : null}<th className="col-act"><span className="p2w-visually-hidden">Actions</span></th></tr></thead>
             <tbody>
                   {closedItems.map((item) => <JourneyRow key={item.journey_id} item={item} role={role} />)}
                 </tbody>

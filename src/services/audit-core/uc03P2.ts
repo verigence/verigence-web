@@ -54,6 +54,11 @@ export type P2JourneyListItem = {
   overdue_tasks: number;
   open_findings: number;
   updated_at_utc: string;
+  /** Actual net minus standard net across the deal; null until every
+   * priced line has an actual. Absent from an older Audit Core. */
+  price_variance?: string | null;
+  /** The PC who started the journey, as their app named them. */
+  pc_name?: string | null;
 };
 
 export type P2JourneyListResponse = { items: P2JourneyListItem[] };
@@ -489,7 +494,7 @@ export function setP2PageType(
 
 export async function createP2Journey(
   tenantId: string,
-  command: { outletId: string; customerName: string },
+  command: { outletId: string; customerName: string; createdByName?: string },
   idempotencyKey: string,
   accessToken?: string,
 ): Promise<{ journeyId: string }> {

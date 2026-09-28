@@ -78,30 +78,8 @@ export function buildDocumentRows(
   return rows;
 }
 
-const NOT_IDENTIFIED = new Set(['QUEUED', 'PREPARING_PAGE', 'DI_UPLOAD_PREPARING', 'DI_UPLOADING', 'DI_FINALIZING', 'CLASSIFYING', 'RETRY_WAIT']);
 const FAILED = new Set(['FAILED', 'DEAD_LETTER']);
-
-/** Uploaded -> Identified -> Read, for one document card. */
-export function DocumentProgress({ status }: { status: string }) {
-  const identified = !NOT_IDENTIFIED.has(status) && !FAILED.has(status);
-  const read = status === 'READY';
-  const steps: Array<[string, 'done' | 'active' | 'todo' | 'failed' | 'skipped']> = [
-    ['Uploaded', 'done'],
-    ['Identified', identified ? 'done' : FAILED.has(status) ? 'failed' : 'active'],
-    ['Read', read ? 'done' : status === 'SUPPORTING' ? 'skipped' : status === 'NEEDS_REVIEW' ? 'failed'
-      : identified ? 'active' : 'todo'],
-  ];
-  return (
-    <ol className="p2w-progress" aria-label="Document progress">
-      {steps.map(([label, state]) => (
-        <li key={label} className={`is-${state}`}>
-          <span aria-hidden="true">{state === 'done' ? '✓' : state === 'failed' ? '!' : state === 'skipped' ? '–' : ''}</span>
-          {label}{state === 'skipped' ? ' (supporting)' : ''}
-        </li>
-      ))}
-    </ol>
-  );
-}
+const OPENABLE = new Set(['READY', 'NEEDS_REVIEW', 'SUPPORTING']);
 
 export type ChecklistRequirement = {
   key: string;
@@ -168,9 +146,20 @@ type CardState = 'missing' | 'progress' | 'review' | 'ready' | 'failed';
 
 function cardState(tone: Tone, status: string): CardState {
   if (FAILED.has(status) || tone === 'danger') return 'failed';
-  if (tone === 'success') return 'ready';
+  if (tone === 'success' || tone === 'info') return 'ready';
   if (tone === 'warning' || status === 'NEEDS_REVIEW') return 'review';
   return 'progress';
+}
+
+/** The status line of a card, in the PC's words. */
+function stateLabel(state: CardState, status: string): string {
+  switch (state) {
+    case 'missing': return 'Missing';
+    case 'ready': return status === 'SUPPORTING' ? 'Supporting' : 'Received';
+    case 'review': return 'Needs review';
+    case 'failed': return 'Failed';
+    default: return `${pageStatus(status).label}…`;
+  }
 }
 
 /** The row that best describes a requirement's state: something failed
@@ -194,36 +183,64 @@ type RowActions = {
   setTyping: (key?: string) => void;
 };
 
-function RowBody({ row, actions, expanded, onToggle }: {
-  row: DocumentRow; actions: RowActions; expanded: boolean; onToggle: () => void;
+/**
+ * One document card, the way the Phase 1 capture screen showed them: the
+ * document's name, a status dot, and nothing else unless something needs
+ * doing. Tapping the card opens the document.
+ */
+function DocumentCard({ title, level, rows, reason, actions, onAdd }: {
+  title: string;
+  /** How the card is marked: required (navy), conditional (teal), optional
+   * (mint, tagged), or an extra upload that answers no requirement. */
+  level: 'required' | 'conditional' | 'optional' | 'extra';
+  rows: DocumentRow[];
+  reason?: string | null;
+  actions: RowActions;
+  onAdd?: () => void;
 }) {
-  const status = pageStatus(row.status);
-  const openable = Boolean(row.documentId) && ['READY', 'NEEDS_REVIEW', 'SUPPORTING'].includes(row.status);
-  const retryable = row.unit && ['FAILED', 'DEAD_LETTER'].includes(row.status);
-  const typeable = row.unit && ['SUPPORTING', 'NEEDS_REVIEW'].includes(row.status);
-  const busy = actions.busyKey === row.key;
-  const hasMembers = row.memberPages.length > 1;
+  const lead = rows.length ? leadRow(rows) : undefined;
+  const state: CardState = lead ? cardState(pageStatus(lead.status).tone, lead.status) : 'missing';
+  const selected = rows.some((row) => row.documentId && row.documentId === actions.selectedDocumentId);
+  const openable = Boolean(lead?.documentId && OPENABLE.has(lead.status));
+  const retryable = Boolean(lead?.unit && FAILED.has(lead.status));
+  const typeable = Boolean(lead?.unit && ['SUPPORTING', 'NEEDS_REVIEW'].includes(lead.status));
+  const busy = Boolean(lead && actions.busyKey === lead.key);
+  const why = lead?.reason || (!lead ? reason : null);
+  const more = lead ? rows.filter((row) => row !== lead) : [];
+  // What was received, unless the title already says it.
+  const file = lead ? [lead.name !== title ? lead.name : '', lead.subtitle !== title ? lead.subtitle : ''].filter(Boolean).join(' · ') : '';
+
+  const open = () => {
+    if (lead?.documentId && openable) actions.onOpen(lead.documentId);
+    else if (!lead && onAdd) onAdd();
+  };
+  const clickable = openable || (!lead && Boolean(onAdd));
+
   return (
-    <>
-      <button type="button" className="p2w-reqcard__open" disabled={!openable}
-        onClick={() => row.documentId && actions.onOpen(row.documentId)}
-        aria-current={row.documentId && row.documentId === actions.selectedDocumentId ? 'true' : undefined}
-        aria-label={openable ? `Open ${row.name}` : undefined}>
-        <strong>{row.name}</strong>
-        <span>{row.subtitle}</span>
+    <li className={`p2w-dcard is-${state} is-${level}${selected ? ' is-selected' : ''}`}>
+      <button type="button" className="p2w-dcard__main" disabled={!clickable} onClick={open}
+        aria-current={selected ? 'true' : undefined}
+        aria-label={!lead ? `Add ${title}` : openable ? `Open ${title}` : undefined}>
+        <span className="p2w-dcard__head">
+          <strong className="p2w-dcard__name">{title}</strong>
+          {level === 'optional' ? <em className="p2w-dcard__level">Optional</em> : null}
+        </span>
+        {file ? <span className="p2w-dcard__file">{file}</span> : null}
+        <span className="p2w-dcard__status">
+          {state === 'progress' ? <i className="p2w-spinner" aria-hidden="true" /> : <i className="p2w-dcard__dot" aria-hidden="true" />}
+          {stateLabel(state, lead?.status ?? '')}
+          {!lead && onAdd ? <b className="p2w-dcard__add">+ Add</b> : null}
+        </span>
+        {why ? <span className="p2w-dcard__why">{why}</span> : null}
       </button>
-      <span className={`p2w-chip p2w-chip--${status.tone}`}>
-        {PAGE_IN_FLIGHT.has(row.status) ? <i className="p2w-spinner" aria-hidden="true" /> : null}
-        {status.label}
-      </span>
-      {row.reason ? <p className="p2w-reqcard__why">{row.reason}</p> : null}
-      {actions.typing === row.key && row.unit ? (
+
+      {lead && actions.typing === lead.key && lead.unit ? (
         <div className="p2w-doc__type">
           <label>
             <span>What is this document?</span>
             <select defaultValue="" onChange={(event) => {
-              if (event.target.value && row.unit) {
-                actions.onSetType(row.unit.queueId, event.target.value);
+              if (event.target.value && lead.unit) {
+                actions.onSetType(lead.unit.queueId, event.target.value);
                 actions.setTyping(undefined);
               }
             }}>
@@ -234,33 +251,29 @@ function RowBody({ row, actions, expanded, onToggle }: {
           <button type="button" className="p2w-link" onClick={() => actions.setTyping(undefined)}>Cancel</button>
         </div>
       ) : null}
-      <div className="p2w-reqcard__actions">
-        {openable ? (
-          <button type="button" className="p2w-button p2w-button--secondary" onClick={() => row.documentId && actions.onOpen(row.documentId)}>
-            {row.status === 'NEEDS_REVIEW' ? 'Check' : 'Open'}
-          </button>
-        ) : null}
-        {retryable ? (
-          <button type="button" className="p2w-button p2w-button--primary" disabled={busy}
-            onClick={() => actions.onRetry(row.unit!.queueId)}>{busy ? 'Retrying…' : 'Retry'}</button>
-        ) : null}
-        {typeable && actions.typing !== row.key ? (
-          <button type="button" className="p2w-button p2w-button--ghost" onClick={() => actions.setTyping(row.key)}>Set type</button>
-        ) : null}
-        {hasMembers ? (
-          <button type="button" className="p2w-link" aria-expanded={expanded} onClick={onToggle}>
-            {expanded ? 'Hide pages' : `${row.memberPages.length} pages`}
-          </button>
-        ) : null}
-      </div>
-      {hasMembers && expanded ? (
-        <ul className="p2w-reqcard__pages">
-          {row.memberPages.map((page) => (
-            <li key={page.queueId}>Page {page.page_number} · {page.classified_document_type ? humanizeKey(page.classified_document_type) : 'unclassified'}</li>
-          ))}
-        </ul>
+
+      {(retryable || (typeable && actions.typing !== lead?.key) || more.length) ? (
+        <div className="p2w-dcard__actions">
+          {retryable && lead?.unit ? (
+            <button type="button" className="p2w-link" disabled={busy} onClick={() => actions.onRetry(lead.unit!.queueId)}>
+              {busy ? 'Retrying…' : 'Retry'}
+            </button>
+          ) : null}
+          {typeable && lead && actions.typing !== lead.key ? (
+            <button type="button" className="p2w-link" onClick={() => actions.setTyping(lead.key)}>Set type</button>
+          ) : null}
+          {more.map((row) => {
+            const rowOpenable = Boolean(row.documentId && OPENABLE.has(row.status));
+            return (
+              <button key={row.key} type="button" className="p2w-link" disabled={!rowOpenable}
+                onClick={() => row.documentId && actions.onOpen(row.documentId)}>
+                {row.name}{rowOpenable ? '' : ` (${pageStatus(row.status).label.toLowerCase()})`}
+              </button>
+            );
+          })}
+        </div>
       ) : null}
-    </>
+    </li>
   );
 }
 
@@ -286,9 +299,6 @@ export default function P2DocumentList({
   onAdd?: () => void;
   busyKey?: string;
 }) {
-  const [stage, setStage] = useState<'BOOKING' | 'DELIVERY'>(() =>
-    checklist.some((item) => item.stage === 'DELIVERY' && item.status !== 'MISSING') ? 'DELIVERY' : 'BOOKING');
-  const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
   const [typing, setTyping] = useState<string>();
   const typeOptions = useMemo(
     () => templates.filter((t) => t.requirement !== 'SUPPORTING' || t.key === 'upi_screenshot')
@@ -298,106 +308,50 @@ export default function P2DocumentList({
   );
   const requirements = useMemo(() => checklistRequirements(checklist), [checklist]);
   const { matched, other } = useMemo(() => assignRowsToRequirements(requirements, rows), [requirements, rows]);
-  const stageItems = requirements.filter((item) => item.stage === stage);
-  const otherHere = other.filter((row) => !row.stage || row.stage === stage);
-  const missingRequired = stageItems.filter((item) => item.status === 'MISSING' && !matched.get(item.key)?.length && item.requirement !== 'OPTIONAL');
-  const toggle = (key: string) => setExpanded((current) => {
-    const next = new Set(current);
-    if (next.has(key)) next.delete(key); else next.add(key);
-    return next;
-  });
   const actions: RowActions = { selectedDocumentId, busyKey, typing, typeOptions, onOpen, onRetry, onSetType, setTyping };
+
+  const stages = (['BOOKING', 'DELIVERY'] as const)
+    .map((code) => {
+      const items = requirements.filter((item) => item.stage === code);
+      const required = items.filter((item) => item.requirement !== 'OPTIONAL');
+      const received = required.filter((item) => item.status === 'RECEIVED' || matched.get(item.key)?.length).length;
+      const extras = other.filter((row) => row.stage === code);
+      return { code, items, required: required.length, received, extras };
+    })
+    .filter((stage) => stage.items.length || stage.extras.length);
+  const unplaced = other.filter((row) => !row.stage || !['BOOKING', 'DELIVERY'].includes(row.stage));
+
+  if (!rows.length && !requirements.length) {
+    return <div className="p2w-list"><p className="p2w-empty">Nothing uploaded yet. Add the booking documents above.</p></div>;
+  }
 
   return (
     <div className="p2w-list">
-      <div className="p2w-segment" role="tablist" aria-label="Stage">
-        {(['BOOKING', 'DELIVERY'] as const).map((code) => {
-          const items = requirements.filter((item) => item.stage === code && item.requirement !== 'OPTIONAL');
-          const received = items.filter((item) => item.status === 'RECEIVED' || matched.get(item.key)?.length).length;
-          return (
-            <button key={code} type="button" role="tab" aria-selected={stage === code}
-              className={stage === code ? 'is-active' : ''} onClick={() => setStage(code)}>
-              {humanizeKey(code)} <b>{received}/{items.length}</b>
-            </button>
-          );
-        })}
-      </div>
-
-      <section className="p2w-reqsection" aria-label={`${humanizeKey(stage)} documents`}>
-        <ul className="p2w-reqgrid">
-          {stageItems.map((item) => {
-            const mine = matched.get(item.key) ?? [];
-            const lead = mine.length ? leadRow(mine) : undefined;
-            const state: CardState = lead ? cardState(pageStatus(lead.status).tone, lead.status) : 'missing';
-            const optional = item.requirement === 'OPTIONAL';
-            const selected = mine.some((row) => row.documentId && row.documentId === selectedDocumentId);
-            return (
-              <li key={item.key} className={`p2w-reqcard is-${state}${optional ? ' is-optional' : ' is-required'}${selected ? ' is-selected' : ''}`}>
-                <div className="p2w-reqcard__head">
-                  <span className="p2w-reqcard__label">{item.label}</span>
-                  {optional ? <span className="p2w-reqcard__tag p2w-reqcard__tag--optional">Optional</span> : null}
-                </div>
-                {lead ? (
-                  <RowBody row={lead} actions={actions} expanded={expanded.has(lead.key)} onToggle={() => toggle(lead.key)} />
-                ) : (
-                  <div className="p2w-reqcard__missing">
-                    <strong>Not received</strong>
-                    {item.reason ? <p className="p2w-reqcard__why">{item.reason}</p> : null}
-                    {onAdd ? (
-                      <div className="p2w-reqcard__actions">
-                        <button type="button" className={`p2w-button ${optional ? 'p2w-button--ghost' : 'p2w-button--secondary'}`} onClick={onAdd}>Add</button>
-                      </div>
-                    ) : null}
-                  </div>
-                )}
-                {mine.length > 1 && lead ? (
-                  <ul className="p2w-reqcard__more" aria-label="More documents for this requirement">
-                    {mine.filter((row) => row !== lead).map((row) => {
-                      const status = pageStatus(row.status);
-                      const openable = Boolean(row.documentId) && ['READY', 'NEEDS_REVIEW', 'SUPPORTING'].includes(row.status);
-                      return (
-                        <li key={row.key}>
-                          <button type="button" className="p2w-reqcard__open" disabled={!openable}
-                            onClick={() => row.documentId && onOpen(row.documentId)}>
-                            <strong>{row.name}</strong>
-                            <span>{row.subtitle}</span>
-                          </button>
-                          <span className={`p2w-chip p2w-chip--${status.tone}`}>{status.label}</span>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                ) : null}
-              </li>
-            );
-          })}
-        </ul>
-        {missingRequired.length ? (
-          <p className="p2w-muted">{missingRequired.length} required document{missingRequired.length === 1 ? '' : 's'} still to upload.</p>
-        ) : null}
-      </section>
-
-      {otherHere.length ? (
-        <section className="p2w-reqsection" aria-label="Other uploads">
+      {stages.map((stage) => (
+        <section key={stage.code} className="p2w-dsection" aria-label={`${humanizeKey(stage.code)} documents`}>
+          <h3>{humanizeKey(stage.code)} {stage.required ? <span>{stage.received} of {stage.required} received</span> : null}</h3>
+          <ul className="p2w-dgrid">
+            {stage.items.map((item) => (
+              <DocumentCard key={item.key} title={item.label}
+                level={item.requirement === 'OPTIONAL' ? 'optional' : item.conditional ? 'conditional' : 'required'}
+                rows={matched.get(item.key) ?? []} reason={item.reason} actions={actions} onAdd={onAdd} />
+            ))}
+            {stage.extras.map((row) => (
+              <DocumentCard key={row.key} title={PAGE_IN_FLIGHT.has(row.status) ? row.subtitle : row.name} level="extra" rows={[row]} actions={actions} />
+            ))}
+          </ul>
+        </section>
+      ))}
+      {unplaced.length ? (
+        <section className="p2w-dsection" aria-label="Other uploads">
           <h3>Other uploads</h3>
-          <ul className="p2w-reqgrid">
-            {otherHere.map((row) => {
-              const state = cardState(pageStatus(row.status).tone, row.status);
-              const selected = Boolean(row.documentId && row.documentId === selectedDocumentId);
-              return (
-                <li key={row.key} className={`p2w-reqcard is-${state}${selected ? ' is-selected' : ''}`}>
-                  <div className="p2w-reqcard__head">
-                    <span className="p2w-reqcard__label">{PAGE_IN_FLIGHT.has(row.status) ? 'Being identified' : row.status === 'SUPPORTING' ? 'Supporting' : 'Upload'}</span>
-                  </div>
-                  <RowBody row={row} actions={actions} expanded={expanded.has(row.key)} onToggle={() => toggle(row.key)} />
-                </li>
-              );
-            })}
+          <ul className="p2w-dgrid">
+            {unplaced.map((row) => (
+              <DocumentCard key={row.key} title={PAGE_IN_FLIGHT.has(row.status) ? row.subtitle : row.name} level="extra" rows={[row]} actions={actions} />
+            ))}
           </ul>
         </section>
       ) : null}
-
-      {!rows.length && !stageItems.length ? <p className="p2w-empty">Nothing uploaded yet. Add the booking documents above.</p> : null}
     </div>
   );
 }

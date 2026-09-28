@@ -152,7 +152,7 @@ export default function P2JourneyOverviewPage() {
             <Link className="p2w-link" to={`/p2/journeys/${journeyId}/tasks`}>Tasks{data?.numbers.openTasks ? ` (${data.numbers.openTasks})` : ''}</Link>
             {tenantId ? <P2RecheckButton tenantId={tenantId} journeyId={journeyId} accessToken={accessToken}
               onDone={(text, tone) => setNotice({ text, tone })} /> : null}
-            <Link className="p2w-button p2w-button--secondary" to={`/p2/journeys/${journeyId}/compliance-report`}>Compliance report</Link>
+            <Link className="p2w-button p2w-button--secondary" to={`/p2/journeys/${journeyId}/compliance-report`}>View compliance report</Link>
           </div>
         ) : undefined}
       />

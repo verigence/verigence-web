@@ -27,6 +27,16 @@ export function activeStep(stage: string, delivered?: boolean): number {
   }
 }
 
+/** What the journey is waiting for, in the PC's words. */
+const STEP_NOW: Record<number, string> = {
+  0: 'Booking: add documents',
+  1: 'Booking: verify documents',
+  2: 'Booking: completing',
+  3: 'Delivery: add documents',
+  4: 'Delivery: verify documents',
+  5: 'Delivery: completing',
+};
+
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /** A journey created before the customer was named carries an id where the
@@ -45,9 +55,13 @@ export function shortDate(value?: string | null): string | null {
     : new Intl.DateTimeFormat('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }).format(date);
 }
 
-export default function JourneyCard({ item, supervisor, mode }: {
+/**
+ * One journey, kept to what a PC scans for: who, which car, how far along,
+ * what money is in, and whether anything waits on them. One action.
+ */
+export default function JourneyCard({ item, mode }: {
   item: P2JourneyListItem;
-  supervisor: boolean;
+  supervisor?: boolean;
   mode: 'bookings' | 'journey360';
 }) {
   const delivered = Boolean(item.delivery_completed_at);
@@ -63,92 +77,53 @@ export default function JourneyCard({ item, supervisor, mode }: {
   const overdue = item.overdue_tasks ?? 0;
   const toVerify = item.manual_verification_pending_count ?? 0;
 
-  const stepLabel = cancelled
-    ? 'Cancelled'
-    : active >= 6
-      ? (item.delivery_reviewed_at ? 'Delivered · TL reviewed' : 'Delivered · awaiting TL review')
-      : JOURNEY_STEPS[active];
+  const now = cancelled ? 'Cancelled'
+    : active >= 6 ? (item.delivery_reviewed_at ? 'Delivered · reviewed' : 'Delivered · awaiting TL review')
+      : STEP_NOW[active];
+  const percent = cancelled ? 0 : Math.round((Math.min(active, 6) / 6) * 100);
 
-  const facts: Array<{ label: string; value: string; progress?: [number, number] }> = [];
-  if (item.booking_confirm_date) facts.push({ label: 'Booking confirmed', value: shortDate(item.booking_confirm_date) ?? item.booking_confirm_date });
-  if (item.delivery_completed_at) facts.push({ label: 'Delivered', value: shortDate(item.delivery_completed_at) ?? '' });
-  else if (item.planned_delivery_at) facts.push({ label: 'Delivery due', value: shortDate(item.planned_delivery_at) ?? '' });
-  if (minimum > 0) facts.push({ label: 'Booking amount', value: `${formatInr(paid)} of ${formatInr(minimum)}`, progress: [paid, minimum] });
-  else if (paid > 0) facts.push({ label: 'Booking amount', value: formatInr(paid) });
-  if (facts.length < 2 && item.created_at_utc) facts.push({ label: 'Started', value: shortDate(item.created_at_utc) ?? '' });
+  const facts: string[] = [];
+  if (item.booking_confirm_date) facts.push(`Booked ${shortDate(item.booking_confirm_date)}`);
+  if (item.delivery_completed_at) facts.push(`Delivered ${shortDate(item.delivery_completed_at)}`);
+  else if (item.planned_delivery_at) facts.push(`Delivery due ${shortDate(item.planned_delivery_at)}`);
+  if (minimum > 0) facts.push(`${formatInr(paid)} of ${formatInr(minimum)} received`);
+  else if (paid > 0) facts.push(`${formatInr(paid)} received`);
+  if (!facts.length && item.created_at_utc) facts.push(`Started ${shortDate(item.created_at_utc)}`);
 
-  const tone = cancelled || item.closed ? ' is-closed' : overdue ? ' is-overdue' : pc || tl ? ' is-attention' : '';
+  const work: string[] = [];
+  if (pc) work.push(`${pc} PC task${pc === 1 ? '' : 's'}`);
+  if (tl) work.push(`${tl} TL task${tl === 1 ? '' : 's'}`);
+  if (toVerify) work.push(`${toVerify} to verify`);
+
+  const primary = mode === 'bookings' && !item.closed ? documents : overview;
+  const tone = cancelled || item.closed ? ' is-closed' : overdue ? ' is-overdue' : '';
 
   return (
-    <li className={`p2w-jcard${tone}${cancelled ? ' is-cancelled' : ''}`}>
+    <li className={`p2w-jcard${tone}`}>
       <div className="p2w-jcard__head">
-        <div className="p2w-jcard__who">
-          <Link to={overview} className={customer.known ? undefined : 'is-unknown'} aria-label={`Open Journey 360 for ${customer.text}`}>
-            {customer.text}
-          </Link>
-          <span className={item.vehicle ? undefined : 'is-unknown'}>{item.vehicle || 'Vehicle not identified yet'}</span>
-          <div className="p2w-jcard__meta">
-            {item.journey_reference ? <span>{item.journey_reference}</span> : null}
-            {item.outlet_name ? <span>{item.outlet_name}</span> : null}
-            {item.mobile_last4 ? <span>Mobile ····{item.mobile_last4}</span> : null}
-          </div>
-        </div>
+        <Link to={primary} className={`p2w-jcard__name${customer.known ? '' : ' is-unknown'}`}>{customer.text}</Link>
         {cancelled ? <span className="p2w-chip p2w-chip--neutral">Cancelled</span>
-          : delivered ? <span className={`p2w-chip p2w-chip--${item.delivery_reviewed_at ? 'success' : 'warning'}`}>{item.delivery_reviewed_at ? 'TL reviewed' : 'Awaiting TL review'}</span>
+          : delivered ? <span className="p2w-chip p2w-chip--success">Delivered</span>
             : active >= 3 ? <span className="p2w-chip p2w-chip--info">Delivery</span>
               : <span className="p2w-chip p2w-chip--progress">Booking</span>}
       </div>
+      <div className={`p2w-jcard__line${item.vehicle ? '' : ' is-unknown'}`}>{item.vehicle || 'Vehicle not identified yet'}</div>
+      <div className="p2w-jcard__line p2w-muted">{[item.journey_reference, item.outlet_name].filter(Boolean).join(' · ')}</div>
 
-      <div>
-        <ol className="p2w-jcard__steps" aria-label="Journey progress">
-          {JOURNEY_STEPS.map((step, index) => (
-            <li key={step} className={index < active ? 'is-done' : index === active ? 'is-active' : ''}
-              aria-current={index === active ? 'step' : undefined} title={step} />
-          ))}
-        </ol>
-        <div className="p2w-jcard__step">
-          <strong>{stepLabel}</strong>
-          {!cancelled ? <span>Step {Math.min(active + 1, 6)} of 6</span> : null}
-        </div>
+      <div className="p2w-jcard__progress" aria-label={`Progress: ${now}`}>
+        <div className="p2w-jcard__bar"><span style={{ width: `${percent}%` }} /></div>
+        <span>{now}</span>
       </div>
 
-      {facts.length ? (
-        <dl className="p2w-jcard__facts">
-          {facts.map((fact) => (
-            <div key={fact.label}>
-              <dt>{fact.label}</dt>
-              <dd>
-                {fact.value}
-                {fact.progress ? <progress max={Math.max(1, fact.progress[1])} value={Math.min(fact.progress[0], fact.progress[1])} /> : null}
-              </dd>
-            </div>
-          ))}
-        </dl>
-      ) : null}
+      {facts.length ? <div className="p2w-jcard__line">{facts.join(' · ')}</div> : null}
 
       <div className="p2w-jcard__foot">
-        <div className="p2w-jcard__tasks" aria-label="Open work">
-          {pc ? <span className="p2w-chip p2w-chip--warning">PC {pc}</span> : null}
-          {tl ? <span className="p2w-chip p2w-chip--warning">TL {tl}</span> : null}
-          {overdue ? <span className="p2w-chip p2w-chip--danger">{overdue} overdue</span> : null}
-          {toVerify ? <span className="p2w-chip p2w-chip--info">{toVerify} to verify</span> : null}
-          {!pc && !tl && !overdue && !toVerify ? <span>No open tasks</span> : null}
-          {item.documents ? <span>· {item.documents} document{item.documents === 1 ? '' : 's'}</span> : null}
-        </div>
-        <div className="p2w-jcard__actions">
-          {mode === 'bookings' ? (
-            <>
-              {!item.closed ? <Link className="p2w-button p2w-button--primary" to={documents}>Documents</Link> : null}
-              <Link className="p2w-button p2w-button--secondary" to={overview}>Journey 360</Link>
-            </>
-          ) : (
-            <>
-              <Link className="p2w-button p2w-button--primary" to={overview}>Journey 360</Link>
-              {!item.closed ? <Link className="p2w-button p2w-button--secondary" to={documents}>Documents</Link> : null}
-            </>
-          )}
-          {supervisor ? <Link className="p2w-button p2w-button--ghost" to={`/p2/journeys/${item.journey_id}/compliance-report`}>Report</Link> : null}
-        </div>
+        <span className={overdue ? 'p2w-tone p2w-tone--danger' : work.length ? 'p2w-jcard__work' : 'p2w-muted'}>
+          {overdue ? `${overdue} overdue` : work.length ? work.join(' · ') : 'Nothing waiting'}
+        </span>
+        <Link className="p2w-button p2w-button--secondary" to={primary}>
+          {primary === documents ? 'Documents' : 'Journey 360'}
+        </Link>
       </div>
     </li>
   );

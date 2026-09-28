@@ -1,4 +1,4 @@
-import { useDeferredValue, useMemo, useState } from 'react';
+import { useDeferredValue, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import '../styles/uc03-p2.css';
@@ -7,7 +7,7 @@ import '../styles/uc03-p2-cards.css';
 
 import PageHeader from '../components/PageHeader';
 import JourneyCard from '../features/uc03-p2/bookings/JourneyCard';
-import { getP2BookingsSummary, getP2Journeys, type P2JourneyListItem } from '../services/audit-core/uc03P2';
+import { getP2BookingsSummary, getP2Journeys } from '../services/audit-core/uc03P2';
 import { useProjectContextStore } from '../store/projectContextStore';
 import { useSessionStore } from '../store/sessionStore';
 
@@ -25,8 +25,6 @@ function useJourneys(tenantId: string | undefined, accessToken: string | undefin
   });
 }
 
-type Filter = 'all' | 'mine' | 'overdue';
-
 /**
  * Two screens on the same data, each with its own job:
  * - Booking & Delivery: the operational list -- what is open now, the week
@@ -37,13 +35,10 @@ type Filter = 'all' | 'mine' | 'overdue';
  */
 export default function P2JourneyListPage({ mode }: { mode: 'bookings' | 'journey360' }) {
   const tenantId = useProjectContextStore((s) => s.selectedProject?.tenantId);
-  const role = useProjectContextStore((s) => s.selectedProject?.operatingRole);
   const accessToken = useSessionStore((s) => s.accessToken);
-  const supervisor = role === 'TL' || role === 'PM';
   const bookings = mode === 'bookings';
   const [search, setSearch] = useState('');
   const [showClosed, setShowClosed] = useState(false);
-  const [filter, setFilter] = useState<Filter>('all');
   const deferredSearch = useDeferredValue(search);
   const searching = Boolean(deferredSearch.trim());
   const open = useJourneys(tenantId, accessToken, deferredSearch, 'open');
@@ -62,15 +57,7 @@ export default function P2JourneyListPage({ mode }: { mode: 'bookings' | 'journe
   const openItems = open.data?.items ?? [];
   const closedItems = closed.data?.items ?? [];
 
-  const mine = (item: P2JourneyListItem) => (supervisor ? (item.tl_open_tasks ?? 0) > 0 : (item.pc_open_tasks ?? 0) > 0);
-  const counts = useMemo(() => ({
-    all: openItems.length,
-    mine: openItems.filter(mine).length,
-    overdue: openItems.filter((item) => (item.overdue_tasks ?? 0) > 0).length,
-  }), [openItems, supervisor]); // eslint-disable-line react-hooks/exhaustive-deps
-  const visible = filter === 'mine' ? openItems.filter(mine)
-    : filter === 'overdue' ? openItems.filter((item) => (item.overdue_tasks ?? 0) > 0)
-      : openItems;
+  const visible = openItems;
 
   const searchBox = (
     <label className="p2w-search">
@@ -106,39 +93,20 @@ export default function P2JourneyListPage({ mode }: { mode: 'bookings' | 'journe
       />
 
       {bookings && s ? (
-        <section className="p2w-summary" aria-label="Summary">
-          <div className="p2w-summary__group">
-            <h2>Open now</h2>
-            <dl>
-              <div><dt>Bookings</dt><dd>{s.open.bookings}</dd></div>
-              <div><dt>Deliveries</dt><dd>{s.open.deliveries}</dd></div>
-            </dl>
-          </div>
-          <div className="p2w-summary__group">
-            <h2>This week</h2>
-            <dl>
-              <div><dt>New bookings</dt><dd>{s.week.bookingsStarted}</dd></div>
-              <div><dt>Bookings completed</dt><dd>{s.week.bookingsCompleted}</dd></div>
-              <div><dt>Deliveries completed</dt><dd>{s.week.deliveriesCompleted}</dd></div>
-            </dl>
-          </div>
-          <div className="p2w-summary__group">
-            <h2>This month</h2>
-            <dl>
-              <div><dt>New bookings</dt><dd>{s.month.bookingsStarted}</dd></div>
-              <div><dt>Bookings completed</dt><dd>{s.month.bookingsCompleted}</dd></div>
-              <div><dt>Deliveries completed</dt><dd>{s.month.deliveriesCompleted}</dd></div>
-              <div><dt>Avg. booking time</dt><dd>{hours(s.month.avgBookingHours)}</dd></div>
-              <div><dt>Avg. delivery time</dt><dd>{hours(s.month.avgDeliveryHours)}</dd></div>
-            </dl>
-          </div>
-        </section>
+        <dl className="p2w-stats" aria-label="Summary">
+          <div><dt>Open bookings</dt><dd>{s.open.bookings}</dd></div>
+          <div><dt>Open deliveries</dt><dd>{s.open.deliveries}</dd></div>
+          <div><dt>New this week</dt><dd>{s.week.bookingsStarted}</dd></div>
+          <div><dt>Completed this week</dt><dd>{s.week.bookingsCompleted + s.week.deliveriesCompleted}</dd></div>
+          <div><dt>New this month</dt><dd>{s.month.bookingsStarted}</dd></div>
+          <div><dt>Avg. booking time</dt><dd>{hours(s.month.avgBookingHours)}</dd></div>
+        </dl>
       ) : null}
 
       {bookings ? (
         <div className="p2w-listbar">
           {searchBox}
-          <span className="p2w-muted">{open.isFetching ? 'Loading…' : open.isError ? '' : `${openItems.length} open`}</span>
+          {open.isFetching ? <span className="p2w-muted">Loading…</span> : null}
         </div>
       ) : (
         <section className="p2w-hero-search" aria-label="Find a journey">
@@ -152,22 +120,14 @@ export default function P2JourneyListPage({ mode }: { mode: 'bookings' | 'journe
       {errorAlert}
 
       <section aria-label="Open">
-        <div className="p2w-filters-row" role="group" aria-label="Show">
-          {([['all', 'All open'], ['mine', supervisor ? 'Needs TL action' : 'Needs my action'], ['overdue', 'Overdue']] as Array<[Filter, string]>).map(([key, label]) => (
-            <button key={key} type="button" className={`p2w-chipbtn${filter === key ? ' is-active' : ''}`}
-              aria-pressed={filter === key} onClick={() => setFilter(key)}>
-              {label}<b>{counts[key]}</b>
-            </button>
-          ))}
-        </div>
+        <h2 className="p2w-section-title">Open {open.isError ? null : <span className="p2w-muted">{openItems.length}</span>}</h2>
         <ul className="p2w-jgrid">
-          {visible.map((item) => <JourneyCard key={item.journey_id} item={item} supervisor={supervisor} mode={mode} />)}
+          {visible.map((item) => <JourneyCard key={item.journey_id} item={item} mode={mode} />)}
           {open.isLoading ? <li className="p2w-skeleton">Loading…</li> : null}
           {!open.isLoading && !visible.length && !open.isError ? (
             <li className="p2w-empty">
               {searching ? 'No open journeys match this search.'
-                : filter !== 'all' ? 'Nothing here right now.'
-                  : bookings ? 'No open bookings. Start one with New booking.' : 'No open journeys.'}
+                : bookings ? 'No open bookings. Start one with New booking.' : 'No open journeys.'}
             </li>
           ) : null}
         </ul>
@@ -183,7 +143,7 @@ export default function P2JourneyListPage({ mode }: { mode: 'bookings' | 'journe
         </h2>
         {showClosed || searching ? (
           <ul className="p2w-jgrid">
-            {closedItems.map((item) => <JourneyCard key={item.journey_id} item={item} supervisor={supervisor} mode={mode} />)}
+            {closedItems.map((item) => <JourneyCard key={item.journey_id} item={item} mode={mode} />)}
             {closed.isLoading ? <li className="p2w-skeleton">Loading…</li> : null}
             {!closed.isLoading && !closedItems.length ? <li className="p2w-empty">No closed journeys{searching ? ' match this search' : ''}.</li> : null}
           </ul>

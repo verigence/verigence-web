@@ -334,3 +334,5 @@
   .uc02-onboarding__summary { grid-template-columns: 1fr; }
   .uc02-onboarding__filter { margin-left: 0; }
 }
+.uc02-onboarding__alert { display: flex; flex-wrap: wrap; gap: 6px 10px; padding: 10px 14px; border-radius: 12px; border: 1px solid #fecdca; background: #fef3f2; color: #b42318; font-size: 13px; }
+.uc02-onboarding__alert strong { font-weight: 800; }

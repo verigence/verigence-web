@@ -8,6 +8,7 @@ import {
   type OnboardingImport,
   type OnboardingResultRow,
 } from '../../services/audit-core/projectOnboardingWorkbook';
+import { auditCoreErrorMessage } from '../../services/audit-core/errorMessage';
 
 type Tab = 'projects' | 'dealers' | 'outlets';
 
@@ -85,7 +86,7 @@ export default function OnboardingWorkbookPanel({ accessToken, onApplied }: {
       const today = new Date().toISOString().slice(0, 10);
       saveBlob(blob, withData ? `verigence-onboarding-${today}.xlsx` : 'verigence-onboarding-template.xlsx');
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'The workbook could not be downloaded.');
+      setError(auditCoreErrorMessage(cause));
     } finally {
       setBusy(null);
     }
@@ -102,7 +103,7 @@ export default function OnboardingWorkbookPanel({ accessToken, onApplied }: {
         .find((key) => result.plan[key].some((row) => row.action === 'ERROR'));
       setTab(firstWithErrors ?? (result.plan.projects.length ? 'projects' : 'outlets'));
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'The workbook could not be read.');
+      setError(auditCoreErrorMessage(cause));
     } finally {
       setBusy(null);
       if (fileInput.current) fileInput.current.value = '';
@@ -118,7 +119,7 @@ export default function OnboardingWorkbookPanel({ accessToken, onApplied }: {
       setUpload(await applyOnboardingImport(upload.importId, accessToken));
       onApplied();
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'The changes could not be applied.');
+      setError(auditCoreErrorMessage(cause));
     } finally {
       setBusy(null);
     }
@@ -159,7 +160,9 @@ export default function OnboardingWorkbookPanel({ accessToken, onApplied }: {
         </div>
       </div>
 
-      {error ? <div className="uc02-message uc02-message--error" role="alert"><strong>Action Required</strong><span>{error}</span></div> : null}
+      {/* Its own alert: the admin screens' generic error box hides the text,
+          and an upload's errors are the user's to fix. */}
+      {error ? <div className="uc02-onboarding__alert" role="alert"><strong>Could not complete</strong><span>{error}</span></div> : null}
 
       {upload && plan && summary ? (
         <div className="uc02-step-body">

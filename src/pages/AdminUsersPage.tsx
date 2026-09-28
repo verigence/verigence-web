@@ -12,6 +12,7 @@ import {
   type GlobalUserLifecycleStatus,
 } from '../services/security/onboardingAdmin';
 import { useSessionStore } from '../store/sessionStore';
+import AdminUsersBulkCreateDialog from './AdminUsersBulkCreateDialog';
 import { canBulkDelete, isTestAccount } from './adminUsersBulk';
 
 type StatusAction = {
@@ -71,6 +72,7 @@ export default function AdminUsersPage() {
   const [selected, setSelected] = useState<Set<string>>(() => new Set());
   const [bulkOpen, setBulkOpen] = useState(false);
   const [bulkRun, setBulkRun] = useState<BulkRun | null>(null);
+  const [bulkCreateOpen, setBulkCreateOpen] = useState(false);
 
   const usersQuery = useQuery({
     queryKey: ['security', 'platform-users', 'all'],
@@ -234,9 +236,19 @@ export default function AdminUsersPage() {
         title="Users"
         description="Review the global Verigence user directory, account status and administrative access. Operational project roles remain in UC02 Project Role Mapping."
         actions={(
-          <Link className="uc01-admin-button uc01-admin-button--primary" to="/admin/users/pending">
-            Pending Approvals{pendingCount > 0 ? ` (${pendingCount})` : ''}
-          </Link>
+          <>
+            <button
+              type="button"
+              className="uc01-admin-button"
+              disabled={!accessToken || usersQuery.isLoading}
+              onClick={() => { resetActionState(); setBulkCreateOpen(true); }}
+            >
+              Bulk create users
+            </button>
+            <Link className="uc01-admin-button uc01-admin-button--primary" to="/admin/users/pending">
+              Pending Approvals{pendingCount > 0 ? ` (${pendingCount})` : ''}
+            </Link>
+          </>
         )}
       />
 
@@ -411,6 +423,15 @@ export default function AdminUsersPage() {
             </tbody>
           </table>
         </div>
+      )}
+
+      {bulkCreateOpen && accessToken && (
+        <AdminUsersBulkCreateDialog
+          accessToken={accessToken}
+          existingUsers={users}
+          onClose={() => setBulkCreateOpen(false)}
+          onCreated={() => void queryClient.invalidateQueries({ queryKey: ['security', 'platform-users'] })}
+        />
       )}
 
       {bulkOpen && (

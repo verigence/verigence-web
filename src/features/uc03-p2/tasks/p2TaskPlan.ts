@@ -62,6 +62,7 @@ export function taskPlan(task: P2Task, operatingRole?: string | null): TaskPlan 
     };
   }
   const allowed = new Set(task.allowed_actions ?? []);
+  const ref = task.reference ?? {};
   const secondary: TaskAction[] = [];
   const canComment = allowed.has('ADD_COMMENT');
   const supervisor = operatingRole === 'TL' || operatingRole === 'PM';
@@ -86,6 +87,21 @@ export function taskPlan(task: P2Task, operatingRole?: string | null): TaskPlan 
       primary: answer(first, 'confirm'),
       secondary: [
         ...rest.map((item) => answer(item, 'danger')),
+        ...(canComment ? [{ label: 'Comment', action: 'ADD_COMMENT', requiresComment: true, tone: 'ghost' as const }] : []),
+      ],
+    };
+  }
+  if (allowed.has('CONFIRM_BREACH') && typeof ref.findingId === 'string') {
+    // A violation for the Team Lead: give the verdict on its finding, or fix
+    // the facts and let the check pass.
+    return {
+      primary: { label: 'Confirm breach', action: 'CONFIRM_BREACH', requiresComment: true, tone: 'danger' },
+      secondary: [
+        { label: 'Reject as false positive', action: 'MARK_FALSE_POSITIVE', requiresComment: true, tone: 'secondary',
+          details: { rejectionCategory: 'OTHER' } },
+        { label: 'Open Journey 360', to: `/p2/journeys/${task.journey_id}/overview`, tone: 'ghost' },
+        ...(supervisor && allowed.has('ACCEPT_EXCEPTION')
+          ? [{ label: 'Accept as exception', action: 'ACCEPT_EXCEPTION', requiresComment: true, tone: 'ghost' as const }] : []),
         ...(canComment ? [{ label: 'Comment', action: 'ADD_COMMENT', requiresComment: true, tone: 'ghost' as const }] : []),
       ],
     };

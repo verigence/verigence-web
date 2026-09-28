@@ -157,10 +157,14 @@ function cardState(tone: Tone, status: string): CardState {
 function stateLabel(state: CardState, status: string): string {
   switch (state) {
     case 'missing': return 'Missing';
-    case 'ready': return status === 'SUPPORTING' ? 'Uploaded · supporting' : 'Extracted';
+    case 'ready': return status === 'SUPPORTING' ? 'Classified · supporting' : 'Extracted';
     case 'review': return 'Extracted · check';
     case 'failed': return 'Failed';
-    default: return `Uploaded · ${pageStatus(status).label.toLowerCase()}…`;
+    default:
+      // Uploaded until the type is known, Classified while it is being read.
+      return ['EXTRACTING', 'SYNCING_TO_AUDIT_CORE'].includes(status)
+        ? 'Classified · extracting…'
+        : `Uploaded · ${pageStatus(status).label.toLowerCase()}…`;
   }
 }
 

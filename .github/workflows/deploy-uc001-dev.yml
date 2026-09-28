@@ -136,6 +136,13 @@ jobs:
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          # Without a lockfile, npm occasionally installs wrangler without
+          # the workerd binary for the runner; the action then treats the
+          # project's wrangler as broken and falls back to its bundled
+          # 3.90.0, which cannot read wrangler.jsonc ("Missing
+          # entry-point", 2026-09-28 08:45). Pin the 4.x line the project
+          # declares so the action installs a working copy instead.
+          wranglerVersion: "4.123.0"
           command: deploy
 
       - name: Smoke test deployed Web and backend proxies

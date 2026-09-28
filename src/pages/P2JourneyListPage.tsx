@@ -1,4 +1,4 @@
-import { useDeferredValue, useMemo, useState } from 'react';
+import { useDeferredValue, useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import '../styles/uc03-p2.css';
@@ -6,7 +6,7 @@ import '../styles/uc03-p2-workspace.css';
 import '../styles/uc03-p2-cards.css';
 
 import PageHeader from '../components/PageHeader';
-import JourneyCard, { nextAction, PRIORITY_LABEL, type Priority } from '../features/uc03-p2/bookings/JourneyCard';
+import JourneyRow, { nextAction, PRIORITY_LABEL, type Priority } from '../features/uc03-p2/bookings/JourneyRow';
 import { getP2Journeys, type P2JourneyListItem } from '../services/audit-core/uc03P2';
 import { useProjectContextStore } from '../store/projectContextStore';
 import { useSessionStore } from '../store/sessionStore';
@@ -24,9 +24,10 @@ function useJourneys(tenantId: string | undefined, accessToken: string | undefin
 }
 
 /**
- * Booking & Delivery: every open journey as one card, most urgent first,
- * each led by what it needs next. From a card: Complete journey (the
- * documents workspace), Journey 360, and the tasks for your role.
+ * Booking & Delivery: every open journey as one row, most urgent first,
+ * each saying what it needs next. The row's Actions menu opens Complete
+ * journey (the documents workspace), Journey 360, or the tasks for your
+ * role. Fifty bookings a week stay one screen.
  */
 export default function P2JourneyListPage() {
   const tenantId = useProjectContextStore((s) => s.selectedProject?.tenantId);
@@ -36,6 +37,15 @@ export default function P2JourneyListPage() {
   const [filter, setFilter] = useState<Priority>();
   const [showClosed, setShowClosed] = useState(false);
   const deferredSearch = useDeferredValue(search);
+  useEffect(() => {
+    const close = (event: MouseEvent) => {
+      document.querySelectorAll<HTMLDetailsElement>('details.p2w-menu[open]').forEach((menu) => {
+        if (!menu.contains(event.target as Node)) menu.removeAttribute('open');
+      });
+    };
+    document.addEventListener('click', close);
+    return () => document.removeEventListener('click', close);
+  }, []);
   const searching = Boolean(deferredSearch.trim());
   const open = useJourneys(tenantId, accessToken, deferredSearch, 'open');
   const closed = useJourneys(tenantId, accessToken, deferredSearch, 'closed', showClosed || searching);
@@ -100,17 +110,22 @@ export default function P2JourneyListPage() {
           {filter ? PRIORITY_LABEL[filter] : 'Open'} {open.isError ? null : <span className="p2w-muted">{visible.length}</span>}
           {filter ? <button type="button" className="p2w-link" onClick={() => setFilter(undefined)}>Show all</button> : null}
         </h2>
-        <ul className="p2w-jgrid">
-          {visible.map((item) => <JourneyCard key={item.journey_id} item={item} role={role} />)}
-          {open.isLoading ? <li className="p2w-skeleton">Loading…</li> : null}
-          {!open.isLoading && !visible.length && !open.isError ? (
-            <li className="p2w-empty">
-              {searching ? 'No open journeys match this search.'
-                : filter ? `Nothing ${PRIORITY_LABEL[filter].toLowerCase()} right now.`
-                  : 'No open bookings. Start one with New booking.'}
-            </li>
-          ) : null}
-        </ul>
+        {visible.length ? (
+          <table className="p2w-jtable">
+            <thead><tr><th>Customer</th><th>Journey</th><th>Stage</th><th>Next</th><th>Dates</th><th><span className="p2w-visually-hidden">Actions</span></th></tr></thead>
+            <tbody>
+              {visible.map((item) => <JourneyRow key={item.journey_id} item={item} role={role} />)}
+            </tbody>
+          </table>
+        ) : null}
+        {open.isLoading ? <div className="p2w-skeleton">Loading…</div> : null}
+        {!open.isLoading && !visible.length && !open.isError ? (
+          <p className="p2w-empty">
+            {searching ? 'No open journeys match this search.'
+              : filter ? `Nothing ${PRIORITY_LABEL[filter].toLowerCase()} right now.`
+                : 'No open bookings. Start one with New booking.'}
+          </p>
+        ) : null}
       </section>
 
       <section aria-label="Closed">
@@ -122,11 +137,18 @@ export default function P2JourneyListPage() {
           {closed.data ? <span className="p2w-muted">{closedItems.length}{closedItems.length === 50 ? '+' : ''}</span> : null}
         </h2>
         {showClosed || searching ? (
-          <ul className="p2w-jgrid">
-            {closedItems.map((item) => <JourneyCard key={item.journey_id} item={item} role={role} />)}
-            {closed.isLoading ? <li className="p2w-skeleton">Loading…</li> : null}
-            {!closed.isLoading && !closedItems.length ? <li className="p2w-empty">No closed journeys{searching ? ' match this search' : ''}.</li> : null}
-          </ul>
+          <>
+            {closedItems.length ? (
+              <table className="p2w-jtable">
+            <thead><tr><th>Customer</th><th>Journey</th><th>Stage</th><th>Next</th><th>Dates</th><th><span className="p2w-visually-hidden">Actions</span></th></tr></thead>
+            <tbody>
+                  {closedItems.map((item) => <JourneyRow key={item.journey_id} item={item} role={role} />)}
+                </tbody>
+              </table>
+            ) : null}
+            {closed.isLoading ? <div className="p2w-skeleton">Loading…</div> : null}
+            {!closed.isLoading && !closedItems.length ? <p className="p2w-empty">No closed journeys{searching ? ' match this search' : ''}.</p> : null}
+          </>
         ) : null}
       </section>
     </div>

@@ -35,11 +35,6 @@ const STEP_NOW: Record<number, string> = {
   5: 'Delivery is completing',
 };
 
-const PHASES = [
-  { name: 'Booking', offset: 0, steps: ['Docs', 'Check', 'Done'] },
-  { name: 'Delivery', offset: 3, steps: ['Docs', 'Check', 'Done'] },
-] as const;
-
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /** A journey created before the customer was named carries an id where the
@@ -112,35 +107,29 @@ export function nextAction(item: P2JourneyListItem, role?: string): { priority: 
   };
 }
 
-/** Booking and Delivery as two rows of three labelled steps (Docs, Check,
- * Done): ticked when done, highlighted when in hand, grey when to come. */
-function StageTrack({ active, cancelled }: { active: number; cancelled: boolean }) {
+/** Six small steps, Booking then Delivery: green done, outlined in hand,
+ * grey to come, plus "n of 6 done" for anyone who prefers words. */
+function Steps({ active, cancelled }: { active: number; cancelled: boolean }) {
+  const done = cancelled ? 0 : Math.min(active, 6);
   return (
-    <div className="p2w-jstage" role="img" aria-label={cancelled ? 'Cancelled' : `Step ${Math.min(active, 6)} of 6: ${JOURNEY_STEPS[Math.min(active, 5)]}`}>
-      {PHASES.map((phase) => {
-        const state = cancelled ? 'todo' : active >= phase.offset + 3 ? 'done' : active >= phase.offset ? 'active' : 'todo';
-        return (
-          <div key={phase.name} className={`p2w-jstage__phase is-${state}`}>
-            <span className="p2w-jstage__name">{phase.name}</span>
-            <ol className="p2w-jstage__pips">
-              {phase.steps.map((step, i) => {
-                const index = phase.offset + i;
-                const pip = cancelled ? 'todo' : index < active ? 'done' : index === active ? 'active' : 'todo';
-                return <li key={step} className={`is-${pip}`} title={`${phase.name}: ${JOURNEY_STEPS[index]}${pip === 'done' ? ' (done)' : pip === 'active' ? ' (in hand)' : ''}`}>{step}</li>;
-              })}
-            </ol>
-          </div>
-        );
-      })}
+    <div className="p2w-jsteps" role="img" aria-label={cancelled ? 'Cancelled' : `${done} of 6 steps done`}>
+      <ol>
+        {JOURNEY_STEPS.map((step, index) => {
+          const state = cancelled ? 'todo' : index < active ? 'done' : index === active ? 'active' : 'todo';
+          return <li key={step} className={`is-${state}${index === 3 ? ' is-delivery' : ''}`} title={step} />;
+        })}
+      </ol>
+      <span>{cancelled ? 'Cancelled' : `${done} of 6 done`}</span>
     </div>
   );
 }
 
 /**
- * One journey, led by what it needs next. Three ways in: Complete journey
- * (the documents workspace), Journey 360, and the tasks for your role.
+ * One journey per row: who and which car, the reference and outlet, how far
+ * along, what it needs next, the dates, and an Actions menu (Complete
+ * journey, Journey 360, the tasks for your role).
  */
-export default function JourneyCard({ item, role }: { item: P2JourneyListItem; role?: string }) {
+export default function JourneyRow({ item, role }: { item: P2JourneyListItem; role?: string }) {
   const delivered = Boolean(item.delivery_completed_at);
   const cancelled = Boolean(item.cancelled);
   const active = cancelled ? -1 : activeStep(item.current_stage, delivered);
@@ -150,41 +139,49 @@ export default function JourneyCard({ item, role }: { item: P2JourneyListItem; r
   const documents = `/p2/journeys/${item.journey_id}/documents`;
   const tasks = `/p2/journeys/${item.journey_id}/tasks`;
   const myTasks = role === 'TL' ? (item.tl_open_tasks ?? 0) : role === 'PC' ? (item.pc_open_tasks ?? 0) : (item.open_tasks ?? 0);
-
-  const when: string[] = [];
-  if (item.booking_confirm_date) when.push(`Booked ${shortDate(item.booking_confirm_date)}`);
-  if (item.delivery_completed_at) when.push(`Delivered ${shortDate(item.delivery_completed_at)}`);
-  else if (item.planned_delivery_at) when.push(`Delivery ${shortDate(item.planned_delivery_at)}`);
+  const stageChip = cancelled ? <span className="p2w-chip p2w-chip--neutral">Cancelled</span>
+    : delivered ? <span className="p2w-chip p2w-chip--success">Delivered</span>
+      : active >= 3 ? <span className="p2w-chip p2w-chip--info">Delivery</span>
+        : <span className="p2w-chip p2w-chip--progress">Booking</span>;
 
   return (
-    <li className={`p2w-jcard is-${next.priority}`}>
-      <div className="p2w-jcard__head">
-        <Link to={item.closed ? overview : documents} className={`p2w-jcard__name${customer.known ? '' : ' is-unknown'}`}>{customer.text}</Link>
-        {cancelled ? <span className="p2w-chip p2w-chip--neutral">Cancelled</span>
-          : delivered ? <span className="p2w-chip p2w-chip--success">Delivered</span>
-            : active >= 3 ? <span className="p2w-chip p2w-chip--info">Delivery</span>
-              : <span className="p2w-chip p2w-chip--progress">Booking</span>}
-      </div>
-      <div className={`p2w-jcard__line${item.vehicle ? '' : ' is-unknown'}`}>{item.vehicle || 'Vehicle not identified yet'}</div>
-      <div className="p2w-jcard__line p2w-muted">{[item.journey_reference, item.outlet_name, ...when].filter(Boolean).join(' · ')}</div>
-
-      <div className="p2w-jcard__next">
-        <span className="p2w-jcard__flag">{PRIORITY_LABEL[next.priority]}</span>
+    <tr className={`p2w-jrow is-${next.priority}`}>
+      <td className="p2w-jrow__who" data-label="Customer">
+        <Link to={item.closed ? overview : documents} className={`p2w-jrow__name${customer.known ? '' : ' is-unknown'}`}>{customer.text}</Link>
+        <span className={item.vehicle ? '' : 'is-unknown'}>{item.vehicle || 'Vehicle not identified yet'}</span>
+      </td>
+      <td className="p2w-jrow__ref" data-label="Journey">
+        <span>{item.journey_reference || '—'}</span>
+        <span className="p2w-muted">{item.outlet_name}</span>
+      </td>
+      <td className="p2w-jrow__stage" data-label="Stage">
+        {stageChip}
+        <Steps active={active} cancelled={cancelled} />
+      </td>
+      <td className="p2w-jrow__next" data-label="Next">
+        <span className="p2w-jrow__flag">{PRIORITY_LABEL[next.priority]}</span>
         <strong>{next.title}</strong>
-        {next.detail ? <span className="p2w-jcard__detail">{next.detail}</span> : null}
-      </div>
-
-      <StageTrack active={active} cancelled={cancelled} />
-
-      <div className="p2w-jcard__foot">
-        {!item.closed ? <Link className="p2w-button p2w-button--primary" to={documents}>Complete journey</Link> : null}
-        <Link className="p2w-button p2w-button--secondary" to={overview}>Journey 360</Link>
-        {!item.closed ? (
-          <Link className="p2w-button p2w-button--secondary" to={tasks}>
-            {role ? `${role} tasks` : 'Tasks'}{myTasks ? <b className="p2w-jcard__count">{myTasks}</b> : null}
-          </Link>
-        ) : null}
-      </div>
-    </li>
+        {next.detail ? <span className="p2w-muted">{next.detail}</span> : null}
+      </td>
+      <td className="p2w-jrow__when" data-label="Dates">
+        <span>{item.booking_confirm_date ? `Booked ${shortDate(item.booking_confirm_date)}` : `Started ${shortDate(item.created_at_utc) ?? '—'}`}</span>
+        <span className="p2w-muted">
+          {item.delivery_completed_at ? `Delivered ${shortDate(item.delivery_completed_at)}`
+            : item.planned_delivery_at ? `Delivery ${shortDate(item.planned_delivery_at)}` : 'No delivery date'}
+        </span>
+      </td>
+      <td className="p2w-jrow__act">
+        <details className="p2w-menu">
+          <summary className="p2w-button p2w-button--secondary" aria-label={`Actions for ${customer.text}`}>Actions</summary>
+          <div className="p2w-menu__list" role="menu">
+            {!item.closed ? <Link role="menuitem" to={documents}>Complete journey</Link> : null}
+            <Link role="menuitem" to={overview}>View Journey 360</Link>
+            {!item.closed ? (
+              <Link role="menuitem" to={tasks}>View {role ? `${role} tasks` : 'tasks'}{myTasks ? <b>{myTasks}</b> : null}</Link>
+            ) : null}
+          </div>
+        </details>
+      </td>
+    </tr>
   );
 }

@@ -186,11 +186,26 @@ export default function P2JourneyWorkspacePage() {
   const reviewRows = rows.filter((row) => row.status === 'NEEDS_REVIEW');
   const missingRequired = requirements.filter((item) => item.stage === stageNow && item.status === 'MISSING' && item.requirement !== 'OPTIONAL');
   const names = (list: string[]) => (list.length > 3 ? `${list.slice(0, 3).join(', ')} +${list.length - 3}` : list.join(', '));
+  const receivedHere = requirements.filter((item) => item.stage === stageNow && item.status === 'RECEIVED');
+  // A gate about a document ("Customer KYC received") repeats that
+  // document's own line; keep the gate only when no document line covers it.
+  const firstWord = (label: string) => label.split(/[\s(]/)[0].toLowerCase();
+  const coveredBy = (labels: string[], gate: { label?: string; action?: string }) =>
+    labels.some((label) => `${gate.label ?? ''} ${gate.action ?? ''}`.toLowerCase().includes(firstWord(label)));
   const todo: Array<{ key: string; tone: string; text: string }> = [];
   if (failedRows.length) todo.push({ key: 'failed', tone: 'danger', text: `Retry ${failedRows.length} failed upload${failedRows.length === 1 ? '' : 's'}` });
   if (reviewRows.length) todo.push({ key: 'review', tone: 'review', text: `Check ${names(reviewRows.map((row) => row.name))}` });
   if (missingRequired.length) todo.push({ key: 'missing', tone: 'missing', text: `Add ${names(missingRequired.map((item) => item.label))}` });
+  if (!bookingDone) {
+    gates.filter(([, gate]) => !gate.passed && !coveredBy(missingRequired.map((item) => item.label), gate))
+      .forEach(([key, gate]) => todo.push({ key: `gate:${key}`, tone: 'next', text: gate.action || gate.label || key }));
+  }
   if (!todo.length && !bookingDone) todo.push({ key: 'gate', tone: 'next', text: nextGate?.action || 'Verify the highlighted fields.' });
+  const done: string[] = [
+    ...receivedHere.map((item) => item.label),
+    ...gates.filter(([, gate]) => gate.passed && !coveredBy(receivedHere.map((item) => item.label), gate)).map(([key, gate]) => gate.label || key),
+  ];
+  if (bookingDone) done.unshift('Booking complete');
 
   return (
     <div className={`screen-stack p2-screen p2w${documentId ? ' has-selection' : ''}`}>
@@ -234,29 +249,21 @@ export default function P2JourneyWorkspacePage() {
 
       {booking ? (
         <section className="p2w-readiness" aria-label="Booking readiness">
-          <details className="p2w-readiness__summary">
-            <summary>
-              {gates.filter(([, gate]) => gate.passed).length} of {gates.length} booking checks done
-            </summary>
-          </details>
-          <ol className="p2w-gates">
-            {gates.map(([key, gate]) => (
-              <li key={key} className={gate.passed ? 'is-done' : 'is-open'} title={gate.passed ? undefined : gate.action}>
-                <span aria-hidden="true">{gate.passed ? '✓' : '•'}</span>{gate.label || key}
-              </li>
-            ))}
-          </ol>
-          <div className="p2w-readiness__next">
-            {bookingDone && !todo.length ? (
-              <strong className="p2w-tone p2w-tone--success">Booking complete</strong>
-            ) : (
-              <>
-                <span>{bookingDone ? 'Next · Delivery' : 'Next'}</span>
-                <ol className="p2w-todo">
-                  {todo.map((entry) => <li key={entry.key} className={`is-${entry.tone}`}>{entry.text}</li>)}
-                </ol>
-              </>
-            )}
+          <div className="p2w-readiness__col is-done">
+            <span className="p2w-readiness__title">Done <b>{done.length}</b></span>
+            {done.length ? (
+              <ul className="p2w-donelist">
+                {done.map((text) => <li key={text}>{text}</li>)}
+              </ul>
+            ) : <p className="p2w-muted">Nothing yet.</p>}
+          </div>
+          <div className="p2w-readiness__col is-todo">
+            <span className="p2w-readiness__title">To do <b>{todo.length}</b></span>
+            {todo.length ? (
+              <ol className="p2w-todo">
+                {todo.map((entry) => <li key={entry.key} className={`is-${entry.tone}`}>{entry.text}</li>)}
+              </ol>
+            ) : <p className="p2w-tone p2w-tone--success">All done for now.</p>}
           </div>
           {paymentGate ? (
             <div className="p2w-readiness__payment" aria-label="Booking payment">

@@ -67,7 +67,7 @@ export function buildDocumentRows(
         name: unit.displayName
           || (unit.classified_document_type ? humanizeKey(unit.classified_document_type) : PAGE_IN_FLIGHT.has(unit.queue_status) ? 'Identifying document…' : 'Document'),
         subtitle: pagesLabel(unit, batch),
-        status: unit.queue_status,
+        status: unit.queue_status === 'CANCELLED' && unit.last_error === 'DUPLICATE_PAGE' ? 'DUPLICATE' : unit.queue_status,
         reason: unit.status_reason || (unit.queue_status === 'FAILED' ? unit.last_error : null),
         stage: unit.business_stage,
         templateKey: unit.templateKey,

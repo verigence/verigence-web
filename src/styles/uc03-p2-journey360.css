@@ -61,7 +61,7 @@
 .j360 .j360-switch--small::after { top: 2px; left: 2px; width: 12px; height: 12px; }
 .j360 .j360-switch--small.is-on::after { left: 16px; }
 .j360 .j360-opted { display: inline-flex; align-items: center; gap: 6px; color: var(--p2w-muted); font-weight: 600; }
-.j360 .j360-sheet td.j360-opted-cell { text-align: center; vertical-align: middle; }
+.j360 .j360-sheet td.j360-opted-cell, .j360 .j360-sheet th.j360-opted-cell { text-align: center; vertical-align: middle; }
 .j360 .j360-sheet td.j360-opted-cell .j360-opted { justify-content: center; }
 .j360 .j360-opted small { font-size: .72rem; }
 .j360 .j360-sheet tr.is-excluded th, .j360 .j360-sheet tr.is-excluded td { opacity: .55; }
@@ -411,8 +411,8 @@
 .j360 .j360-tiles .is-offer.is-favourable dd, .j360 .j360-tiles .is-offer.is-favourable small { color: var(--j360-favourable); }
 .j360 .j360-paid small { display: block; margin-top: 2px; color: var(--p2w-muted); font-size: .76rem; font-weight: 500; }
 .j360 .j360-offer { display: grid; gap: 4px; min-width: 0; padding-top: 4px; }
-.j360 .j360-sheet th:nth-child(5) { width: 19%; }
-@media (max-width: 900px) { .j360 .j360-sheet th:first-child { width: 21%; } .j360 .j360-sheet th:nth-child(5) { width: 17%; } .j360 .j360-offer small { white-space: normal; } }
+.j360 .j360-sheet th:nth-child(3) { width: 11%; }
+@media (max-width: 900px) { .j360 .j360-sheet th:first-child { width: 21%; } .j360 .j360-sheet th:nth-child(3) { width: 12%; } .j360 .j360-offer small { white-space: normal; } }
 .j360 .j360-offer__track { position: relative; display: block; height: 8px; border-radius: 999px; background: #e3eaf0; }
 .j360 .j360-offer__fill { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 999px; background: #00afa8; }
 .j360 .j360-offer.is-adverse .j360-offer__fill { background: var(--j360-adverse); }

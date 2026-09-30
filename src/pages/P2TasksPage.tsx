@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import '../styles/uc03-p2.css';
@@ -184,6 +184,18 @@ const TABS: Array<{ key: P2TaskTab; label: string }> = [
   { key: 'ALL', label: 'All' },
 ];
 
+/** How serious a task is, as a chip the PC can read at a glance. */
+export function severityChip(severity?: string | null): { label: string; tone: 'danger' | 'warning' | 'info' | 'neutral' } {
+  switch (String(severity || '').toUpperCase()) {
+    case 'CRITICAL': return { label: 'Critical', tone: 'danger' };
+    case 'HIGH': return { label: 'High', tone: 'danger' };
+    case 'MEDIUM': return { label: 'Medium', tone: 'warning' };
+    case 'LOW': return { label: 'Low', tone: 'neutral' };
+    case 'INFO': return { label: 'Info', tone: 'info' };
+    default: return { label: 'Medium', tone: 'warning' };
+  }
+}
+
 function TaskRow({ task, open, onToggle, view, tenantId, accessToken, operatingRole, onDone }: {
   task: P2Task; open: boolean; onToggle: () => void; view: View; tenantId?: string; accessToken?: string;
   operatingRole?: string; onDone: (message: string) => void;
@@ -200,6 +212,9 @@ function TaskRow({ task, open, onToggle, view, tenantId, accessToken, operatingR
           {!open ? <span className="p2w-task__why">{task.description}</span> : null}
         </span>
         <span className="p2w-task__meta">
+          <span className={`p2w-chip p2w-chip--${severityChip(task.severity).tone}`} title="Severity">
+            {severityChip(task.severity).label}
+          </span>
           <span className={`p2w-chip p2w-chip--${status.tone}`}>
             {['VERIFYING', 'ACTION_COMPLETED'].includes(task.task_status) ? <i className="p2w-spinner" aria-hidden="true" /> : null}
             {status.label}
@@ -267,6 +282,14 @@ export default function P2TasksPage() {
   });
   const all = query.data?.items ?? [];
   const tasks = useMemo(() => (tab === 'ALL' ? all : all.filter((t) => t.queue_tab === tab)), [all, tab]);
+  // A link can name the kind of task to open (the Upload / Edit banner
+  // opens the file's "pages to upload again" task): expand the first one.
+  const openType = search.get('open');
+  useEffect(() => {
+    if (!openType || expanded || !all.length) return;
+    const wanted = all.find((t) => t.task_type === openType);
+    if (wanted) setExpanded(wanted.task_id);
+  }, [openType, expanded, all]);
   const groups = useMemo(() => groupByJourney(tasks), [tasks]);
   const counts = query.data?.counts;
   const overdue = view === 'open' ? tasks.filter((task) => relativeDue(task.due_at_utc).overdue).length : 0;

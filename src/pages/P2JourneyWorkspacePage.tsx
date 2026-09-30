@@ -278,7 +278,7 @@ export default function P2JourneyWorkspacePage() {
         <div className="p2w-alert p2w-alert--stack" role="status">
           <span>
             <strong>{failed.length === 1 ? 'One page' : `${failed.length} pages`} could not be processed:</strong> {failedSummary(failed)}.
-            {' '}Your task says which pages to upload again. <Link className="p2w-link" to={`/p2/journeys/${journeyId}/tasks`}>Open tasks</Link>
+            {' '}Your task says which pages to upload again. <Link className="p2w-link" to={`/p2/journeys/${journeyId}/tasks?tab=DOCUMENTS&open=PC_UPLOAD_STATUS`}>Open the task</Link>
           </span>
           <button type="button" className="p2w-button p2w-button--danger" onClick={() => setDeleting(true)}>Delete this booking</button>
         </div>

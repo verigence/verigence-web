@@ -13,12 +13,14 @@ import { FLAG_LABELS, money, recordField, signedMoney, varianceTone } from './j3
 /** What the customer opted for on this line, as a small switch: on is
  * taken, read from the invoice once the deal has one, else the booking. */
 function Opted({ opted }: { opted?: P2DealOpted | null }) {
-  if (!opted) return null;
-  const text = `${opted.taken ? 'Taken' : 'Opted out'}${opted.source ? ` per ${opted.source === 'invoice' ? 'invoice' : 'booking form'}` : ''}`;
+  if (!opted) return null;  // a mandatory line: nothing to opt
+  const label = opted.source === 'insurance' ? (opted.taken ? 'Inhouse' : 'Self') : opted.taken ? 'Taken' : 'Opted out';
+  const text = opted.source === 'insurance' ? `Insurance ${label.toLowerCase()}`
+    : `${label}${opted.source ? ` per ${opted.source === 'invoice' ? 'invoice' : 'booking form'}` : ''}`;
   return (
     <span className="j360-opted" title={text}>
       <span className={`j360-switch j360-switch--small${opted.taken ? ' is-on' : ''}`} role="img" aria-label={text} />
-      <small>{opted.taken ? 'Taken' : 'Opted out'}</small>
+      <small>{label}</small>
     </span>
   );
 }
@@ -282,11 +284,9 @@ function ComponentRow({ row, journeyId, open, onToggle }: { row: P2DealRow; jour
           </button>
         </th>
         <td className={`is-num${row.standard === null ? ' is-blank' : ''}`} data-label="Price master">{money(row.standard)}</td>
+        <td data-label="Opted" className="j360-opted-cell"><Opted opted={row.opted} /></td>
         <td className={`is-num${row.booking === null ? ' is-blank' : ''}`} data-label="Booking">{money(row.booking)}</td>
         <td className={`is-num is-truth${row.billed === null ? ' is-blank' : ''}`} data-label="Invoice">{money(row.billed)}</td>
-        <td data-label={row.opted ? 'Opted' : 'Offered vs standard'} className={row.opted ? 'j360-opted-cell' : ''}>
-          {row.opted ? <Opted opted={row.opted} /> : <OfferBar standard={row.standard} booking={row.booking} billed={row.billed} />}
-        </td>
         <td className={`is-num j360-variance ${varianceTone(row.variance)}${signedMoney(row.variance) === '—' ? ' is-blank' : ''}`} data-label="Variance">{signedMoney(row.variance)}</td>
       </tr>
       {open ? (
@@ -308,7 +308,6 @@ function ComponentRow({ row, journeyId, open, onToggle }: { row: P2DealRow; jour
 }
 
 function DiscountRow({ row, journeyId, open, onToggle }: { row: P2DiscountRow; journeyId: string; open: boolean; onToggle: () => void }) {
-  const given = row.billed ?? row.booking ?? row.effective;
   return (
     <Fragment>
       <tr className={row.flags.length ? 'is-flagged' : ''}>
@@ -320,12 +319,9 @@ function DiscountRow({ row, journeyId, open, onToggle }: { row: P2DiscountRow; j
           </button>
         </th>
         <td className={`is-num${row.entitled === null ? ' is-blank' : ''}`} data-label="Entitled">{money(row.entitled)}</td>
+        <td data-label="Opted" className="j360-opted-cell"><Opted opted={row.opted} /></td>
         <td className={`is-num${row.booking === null ? ' is-blank' : ''}`} data-label="Booking">{money(row.booking)}</td>
         <td className={`is-num is-truth${row.billed === null ? ' is-blank' : ''}`} data-label="Invoice">{money(row.billed)}</td>
-        <td data-label="Opted" className="j360-opted-cell">
-          {row.opted ? <Opted opted={row.opted} />
-            : <OfferBar standard={row.entitled} booking={row.booking} billed={row.billed ?? (row.booking === null ? given : null)} kind="discount" />}
-        </td>
         <td className={`is-num j360-variance ${varianceTone(row.variance, 'discount')}${signedMoney(row.variance) === '—' ? ' is-blank' : ''}`} data-label="Variance">{signedMoney(row.variance)}</td>
       </tr>
       {open ? (
@@ -426,9 +422,9 @@ export default function DealTab({ deal, journeyId, tenantId, accessToken }: {
               <tr>
                 <th scope="col">Component</th>
                 <th scope="col" className="is-num">Price master</th>
+                <th scope="col" className="j360-opted-cell">Opted</th>
                 <th scope="col" className="is-num">Booking</th>
                 <th scope="col" className="is-num">Invoice</th>
-                <th scope="col">Offered vs standard · opted</th>
                 <th scope="col" className="is-num">Variance</th>
               </tr>
             </thead>
@@ -449,9 +445,9 @@ export default function DealTab({ deal, journeyId, tenantId, accessToken }: {
                   <tr className="is-total">
                     <th scope="row">{category.label} subtotal</th>
                     <td className="is-num" data-label="Price master">{money(category.totals.standard)}</td>
+                    <td />
                     <td className="is-num" data-label="Booking">{money(category.totals.booking)}</td>
                     <td className="is-num is-truth" data-label="Invoice">{money(category.totals.billed)}</td>
-                    <td />
                     <td />
                   </tr>
                 ) : null}
@@ -469,9 +465,9 @@ export default function DealTab({ deal, journeyId, tenantId, accessToken }: {
               <tr>
                 <th scope="row">Net payable</th>
                 <td className="is-num" data-label="Price master">{money(summary.net.standard)}</td>
+                <td />
                 <td className="is-num" data-label="Booking">{money(summary.net.booking)}</td>
                 <td className="is-num is-truth" data-label="Invoice">{money(netBilled)}</td>
-                <td data-label="Offered"><strong>{money(summary.net.current)}</strong></td>
                 <td className={`is-num j360-variance ${varianceTone(variance)}`} data-label="Variance">{signedMoney(variance)}</td>
               </tr>
             </tfoot>
@@ -479,7 +475,7 @@ export default function DealTab({ deal, journeyId, tenantId, accessToken }: {
         </div>
         <p className="p2w-muted j360-footnote">
           The invoice is the source of truth: where a component has been invoiced its billed value stands, the booking figure holds only until then.
-          On a discount, the accessories and the extended warranty the switch shows what the customer opted for (per the invoice once one is read, else per the booking form); those lines carry no bar.
+          Opted: the optional lines (insurance, accessories, extended warranty, every discount) show whether the customer took them, per the invoice once one is read, else per the booking form; insurance follows the Inhouse / Self choice. Mandatory lines have nothing to opt.
           Variances compare a line only where both sides price it.
           {deal.insurance?.source === 'SELF' ? ' The customer arranged their own insurance: the premium is shown but kept out of every total.' : ''}
           {summary.variance.billedVsBooking && Number(summary.variance.billedVsBooking) !== 0

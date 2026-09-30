@@ -197,6 +197,7 @@ export default function JourneyRow({ item, role }: { item: P2JourneyListItem; ro
           <div className="p2w-menu__list" role="menu">
             {!item.closed ? <Link role="menuitem" to={documents}>Upload / edit documents</Link> : null}
             <Link role="menuitem" to={overview}>View Journey 360</Link>
+            <Link role="menuitem" to={`/p2/journeys/${item.journey_id}/compliance-report`}>View compliance report</Link>
             {!item.closed ? (
               <Link role="menuitem" to={tasks}>View {role ? `${role} tasks` : 'tasks'}{myTasks ? <b>{myTasks}</b> : null}</Link>
             ) : null}

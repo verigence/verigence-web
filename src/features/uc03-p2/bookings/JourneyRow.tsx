@@ -48,23 +48,15 @@ export function customerLabel(name: string | null | undefined): { text: string; 
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
-/** "27 Sep": short enough for a table cell, unambiguous for a PC. */
-export function shortDate(value?: string | null): string | null {
+/** "27 Sep 2026": the full date, as the list shows every date. */
+export function fullDate(value?: string | null): string | null {
   if (!value) return null;
   const date = new Date(value.length === 10 ? `${value}T00:00:00` : value);
   if (Number.isNaN(date.getTime())) return value;
-  return `${String(date.getDate()).padStart(2, '0')} ${MONTHS[date.getMonth()]}`;
+  return `${String(date.getDate()).padStart(2, '0')} ${MONTHS[date.getMonth()]} ${date.getFullYear()}`;
 }
 
 export type Priority = 'overdue' | 'action' | 'waiting' | 'ok' | 'closed';
-
-export const PRIORITY_LABEL: Record<Priority, string> = {
-  overdue: 'Overdue',
-  action: 'To do',
-  waiting: 'Waiting on others',
-  ok: 'On track',
-  closed: 'Closed',
-};
 
 const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`;
 
@@ -136,9 +128,14 @@ function Steps({ active, cancelled }: { active: number; cancelled: boolean }) {
 
 /**
  * One journey per row: who and which car, the price against standard, how
- * far along, what it needs next, the booking and gate pass dates, for a TL
- * or PM the dealer, outlet and PC, and an Actions menu (Complete journey,
- * Journey 360, the tasks for your role).
+ * far along (a PC) or which PC and outlet (a TL or PM), what it needs next,
+ * the booking and delivery dates, when the journey opened and closed for
+ * the reader's role, for a TL or PM the dealer and outlet, and an Actions
+ * menu (Complete journey, Journey 360, the tasks for your role).
+ *
+ * The PC's journey opens with the first upload and closes when the rule
+ * engine completes the delivery. The TL's journey starts there and closes
+ * with the TL's delivery review (its own closing rules are still to come).
  */
 export default function JourneyRow({ item, role }: { item: P2JourneyListItem; role?: string }) {
   const delivered = Boolean(item.delivery_completed_at);
@@ -171,24 +168,42 @@ export default function JourneyRow({ item, role }: { item: P2JourneyListItem; ro
           </>
         )}
       </td>
-      <td className="p2w-jrow__stage" data-label="Stage">
-        {stageChip}
-        <Steps active={active} cancelled={cancelled} />
-      </td>
+      {role === 'PC' ? (
+        <td className="p2w-jrow__stage" data-label="Stage">
+          {stageChip}
+          <Steps active={active} cancelled={cancelled} />
+        </td>
+      ) : (
+        <td className="p2w-jrow__stage" data-label="PC and outlet">
+          <span className={item.pc_name ? '' : 'is-unknown'}>{item.pc_name || 'PC not recorded'}</span>
+          <span className="p2w-muted">{item.outlet_code ? `Outlet ${item.outlet_code}` : 'Outlet ID not recorded'}</span>
+        </td>
+      )}
       <td className="p2w-jrow__next" data-label="Next">
-        <span className="p2w-jrow__flag">{PRIORITY_LABEL[next.priority]}</span>
         <strong>{next.title}</strong>
         {next.detail ? <span className="p2w-muted">{next.detail}</span> : null}
       </td>
-      <td className="p2w-jrow__when" data-label="Dates">
-        <span>{item.booking_confirm_date ? `Booked ${shortDate(item.booking_confirm_date)}` : 'Not booked yet'}</span>
-        <span className="p2w-muted">{item.delivered_at ? `Gate pass ${shortDate(item.delivered_at)}` : 'No gate pass yet'}</span>
+      <td className="p2w-jrow__when" data-label="Booking and delivery">
+        <span>{item.booking_confirm_date ? `Booking ${fullDate(item.booking_confirm_date)}` : 'Not booked yet'}</span>
+        <span className="p2w-muted">{item.delivery_completed_at ? `Delivery ${fullDate(item.delivery_completed_at)}` : 'Not delivered yet'}</span>
+      </td>
+      <td className="p2w-jrow__journey" data-label="Journey">
+        {role === 'PC' ? (
+          <>
+            <span>{item.opened_at ? `Opened ${fullDate(item.opened_at)}` : 'Not opened yet'}</span>
+            <span className="p2w-muted">{item.delivery_completed_at ? `Closed ${fullDate(item.delivery_completed_at)}` : cancelled ? 'Cancelled' : 'Open'}</span>
+          </>
+        ) : (
+          <>
+            <span>{item.delivery_completed_at ? `Started ${fullDate(item.delivery_completed_at)}` : cancelled ? 'Cancelled' : 'Not started yet'}</span>
+            <span className="p2w-muted">{item.delivery_reviewed_at ? `Closed ${fullDate(item.delivery_reviewed_at)}` : item.delivery_completed_at ? 'Open' : 'With PC'}</span>
+          </>
+        )}
       </td>
       {role !== 'PC' ? (
         <td className="p2w-jrow__where" data-label="Where">
           <span>{item.dealer_name}</span>
           <span className="p2w-muted">{item.outlet_name}</span>
-          <span className="p2w-muted">{item.pc_name ? `PC ${item.pc_name}` : 'PC not recorded'}</span>
         </td>
       ) : null}
       <td className="p2w-jrow__act">

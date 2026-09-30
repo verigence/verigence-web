@@ -62,6 +62,10 @@ export type P2JourneyListItem = {
   price_variance?: string | null;
   /** The PC who started the journey, as their app named them. */
   pc_name?: string | null;
+  /** The outlet's own id (code), for the TL's columns. */
+  outlet_code?: string | null;
+  /** When the journey opened for the PC: the first document uploaded. */
+  opened_at?: string | null;
 };
 
 export type P2JourneyListResponse = { items: P2JourneyListItem[] };

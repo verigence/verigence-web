@@ -805,3 +805,21 @@
 .p2w .p2w-alert--stack ul { margin: 0; padding-left: 18px; }
 .p2w .p2w-alert--stack li + li { margin-top: 4px; }
 .p2w .p2w-alert--stack .p2w-button { justify-self: start; }
+
+/* ------------------------------------------------------- raise a task */
+.p2w .p2w-raise { width: min(560px, 100%); display: grid; gap: 12px; max-height: calc(100vh - 32px); overflow: auto; }
+.p2w .p2w-raise p { margin: 0; }
+.p2w .p2w-raise__field { display: grid; gap: 4px; font-size: .8rem; font-weight: 700; color: var(--p2w-muted); }
+.p2w .p2w-raise__field input, .p2w .p2w-raise__field select, .p2w .p2w-raise__field textarea {
+  min-height: 38px; padding: 6px 10px; border: 1px solid var(--p2w-line); border-radius: 8px; background: #fff;
+  color: var(--p2w-ink); font: inherit; font-weight: 500;
+}
+.p2w .p2w-raise__field textarea { resize: vertical; }
+.p2w .p2w-raise__row { display: grid; grid-template-columns: 1fr 2fr; gap: 10px; }
+.p2w .p2w-raise__kinds { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; padding: 0; border: 0; }
+.p2w .p2w-raise__kinds legend { padding: 0; margin-bottom: 4px; font-size: .8rem; font-weight: 700; color: var(--p2w-muted); width: 100%; }
+.p2w .p2w-raise__kind { display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 0 12px; border: 1px solid var(--p2w-line); border-radius: 999px; font-size: .85rem; font-weight: 700; cursor: pointer; }
+.p2w .p2w-raise__kind.is-active { border-color: var(--p2w-action-line); background: var(--p2w-action-soft); color: var(--p2w-action-soft-text); }
+.p2w .p2w-raise__kind input { margin: 0; }
+.p2w .p2w-raise__hint { width: 100%; font-size: .8rem; font-weight: 500; }
+@media (max-width: 640px) { .p2w .p2w-raise__row { grid-template-columns: 1fr; } }

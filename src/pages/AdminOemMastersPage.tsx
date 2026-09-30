@@ -13,10 +13,6 @@ import {
 import { useSessionStore } from '../store/sessionStore';
 import '../styles/oem-masters.css';
 
-function today(): string {
-  return new Date().toISOString().slice(0, 10);
-}
-
 function errorText(error: unknown): string {
   return error instanceof Error ? error.message : 'Something went wrong.';
 }
@@ -141,7 +137,7 @@ function MasterCard({
   onPublished: () => void;
 }) {
   const [file, setFile] = useState<File | null>(null);
-  const [effectiveFrom, setEffectiveFrom] = useState(today());
+  const [effectiveFrom, setEffectiveFrom] = useState('');
   const [preview, setPreview] = useState<OemMasterUploadPreview | null>(null);
 
   const previewMutation = useMutation({
@@ -186,6 +182,7 @@ function MasterCard({
             value={effectiveFrom}
             onChange={(event) => setEffectiveFrom(event.target.value)}
           />
+          <small>Leave blank to take the date from the file; a date entered here wins.</small>
         </label>
       </div>
 

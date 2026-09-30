@@ -8,14 +8,15 @@ export type OemMasterKind =
   | 'PRICE_LIST'
   | 'CONSUMER_SCHEME'
   | 'EXCHANGE_SCHEME'
-  | 'CORPORATE_POLICY';
+  | 'CORPORATE_POLICY'
+  | 'DISCOUNT_GRID';
 
 export const OEM_MASTER_KINDS: { kind: OemMasterKind; label: string; accept: string; hint: string }[] = [
   {
     kind: 'PRICE_LIST',
-    label: 'Consolidated price list',
+    label: 'Price list',
     accept: '.xlsx',
-    hint: 'One row per variant with every price component. Defines the vehicle catalogue.',
+    hint: 'The OEM consolidated list, or the dealer\'s per-model price sheets (PV/CV and EV layouts). A file with only the changed models still makes a complete version.',
   },
   {
     kind: 'CONSUMER_SCHEME',
@@ -35,6 +36,12 @@ export const OEM_MASTER_KINDS: { kind: OemMasterKind; label: string; accept: str
     accept: '.xlsx',
     hint: 'Privilege matrix per category × brand, plus the corporate customer list.',
   },
+  {
+    kind: 'DISCOUNT_GRID',
+    label: 'Dealer discount grid',
+    accept: '.xlsx',
+    hint: 'Per model: booking protection days, agreed buffer, insurance OD % (a maximum for now), out-of-territory addition; plus the policy parameters.',
+  },
 ];
 
 export interface OemMasterUploadPreview {
@@ -43,6 +50,8 @@ export interface OemMasterUploadPreview {
   oemCode: string;
   masterKind: OemMasterKind;
   effectiveFrom: string;
+  /** ADMIN when entered, else SHEET or FILENAME: where the applied date came from. */
+  effectiveFromSource?: string;
   sourceFilename: string;
   sourceSha256: string;
   status: string;
@@ -76,7 +85,7 @@ function uploadForm(
   const body = new FormData();
   body.append('tenantId', tenantId);
   body.append('masterKind', masterKind);
-  body.append('effectiveFrom', effectiveFrom);
+  if (effectiveFrom) body.append('effectiveFrom', effectiveFrom);
   body.append('file', file);
   return body;
 }

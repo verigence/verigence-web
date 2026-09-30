@@ -8,6 +8,7 @@ import {
 } from '../../../services/audit-core/uc03P2';
 import { humanizeKey } from '../workspace/p2Format';
 import { PricingPanel, useRefreshDeal } from './DealControls';
+import StandardBlock from './StandardBlock';
 import { FLAG_LABELS, money, recordField, signedMoney, varianceTone } from './j360Format';
 
 /** What the customer opted for on this line, as a small switch: on is
@@ -354,7 +355,12 @@ export default function DealTab({ deal, journeyId, tenantId, accessToken }: {
   const { summary } = deal;
   const [open, setOpen] = useState<string>();
   const toggle = (key: string) => setOpen(open === key ? undefined : key);
-  const pricing = <PricingPanel tenantId={tenantId} journeyId={journeyId} accessToken={accessToken} />;
+  const pricing = (
+    <>
+      <PricingPanel tenantId={tenantId} journeyId={journeyId} accessToken={accessToken} />
+      <StandardBlock tenantId={tenantId} journeyId={journeyId} accessToken={accessToken} />
+    </>
+  );
   if (!deal.categories.length && !deal.discounts.length) {
     return (
       <div className="j360-stack">

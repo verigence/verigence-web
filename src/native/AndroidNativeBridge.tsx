@@ -30,7 +30,7 @@ export default function AndroidNativeBridge() {
       window.dispatchEvent(intercepted);
       if (intercepted.defaultPrevented) return;
 
-      if (location.pathname === '/login' || location.pathname === '/dashboard') {
+      if (location.pathname === '/login' || location.pathname === '/dashboard' || location.pathname === '/p2/bookings') {
         void CapacitorApp.exitApp();
         return;
       }
@@ -38,7 +38,7 @@ export default function AndroidNativeBridge() {
       if (canGoBack) {
         navigate(-1);
       } else {
-        navigate('/dashboard', { replace: true });
+        navigate('/home', { replace: true });
       }
     }).then((handle) => {
       if (aborted) {

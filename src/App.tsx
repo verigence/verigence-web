@@ -200,6 +200,15 @@ function OperationalShellPage({ children }: { children: ReactNode }) {
   return <Authenticated><ProjectContextGate><AppShell>{children}</AppShell></ProjectContextGate></Authenticated>;
 }
 
+/** Where a signed-in user lands (2026-09-30): PC, TL and PM start on the
+ * Phase 2 Booking & Delivery list; everyone else on the Phase 1 Overview. */
+function HomeEntry() {
+  const selectedProject = useProjectContextStore((state) => state.selectedProject);
+  const operatingRole = selectedProject?.operatingRole;
+  const home = operatingRole === 'PC' || operatingRole === 'TL' || operatingRole === 'PM' ? '/p2/bookings' : '/dashboard';
+  return <Authenticated><ProjectContextGate><Navigate to={home} replace /></ProjectContextGate></Authenticated>;
+}
+
 function LegacyOperationalPage({ children }: { children: ReactNode }) {
   const role = useSessionStore((state) => state.role);
   const selectedProject = useProjectContextStore((state) => state.selectedProject);
@@ -279,6 +288,7 @@ export default function App() {
               <Route path="/privacy" element={<PrivacyPage />} />
               <Route path="/apps" element={<AppDistributionRoute />} />
               <Route path="/download" element={<Navigate to="/apps" replace />} />
+              <Route path="/home" element={<HomeEntry />} />
               <Route path="/dashboard" element={<DashboardEntry />} />
               {/* Dedicated "Bookings & Deliveries" sidebar destination — renders the
                   Work Queue table directly for every operating role (PC, TL, PM),
@@ -361,7 +371,7 @@ export default function App() {
               <Route path="/profile" element={<PrivatePage><ProfilePage /></PrivatePage>} />
               <Route path="/workspace" element={<Navigate to="/dashboard" replace />} />
               <Route path="/" element={<Navigate to="/login" replace />} />
-              <Route path="*" element={<Navigate to="/dashboard" replace />} />
+              <Route path="*" element={<Navigate to="/home" replace />} />
             </Routes>
           </Suspense>
         </BrowserRouter>

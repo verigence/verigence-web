@@ -61,6 +61,8 @@
 .j360 .j360-switch--small::after { top: 2px; left: 2px; width: 12px; height: 12px; }
 .j360 .j360-switch--small.is-on::after { left: 16px; }
 .j360 .j360-opted { display: inline-flex; align-items: center; gap: 6px; color: var(--p2w-muted); font-weight: 600; }
+.j360 .j360-sheet td.j360-opted-cell { text-align: center; vertical-align: middle; }
+.j360 .j360-sheet td.j360-opted-cell .j360-opted { justify-content: center; }
 .j360 .j360-opted small { font-size: .72rem; }
 .j360 .j360-sheet tr.is-excluded th, .j360 .j360-sheet tr.is-excluded td { opacity: .55; }
 .j360 .j360-sheet tbody.is-excluded tr.is-total th, .j360 .j360-sheet tbody.is-excluded tr.is-total td { opacity: .55; }

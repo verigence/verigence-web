@@ -142,9 +142,37 @@ describe('document-driven tasks', () => {
       { templateKey: 'corporate_id', displayName: 'Corporate ID', stage: 'DELIVERY', requirement: 'REQUIRED', conditional: true,
         reason: 'The booking form shows a corporate discount.', status: 'MISSING', readyCount: 0, documentIds: [] },
     ]);
-    expect(rows.map((r) => [r.label, r.status])).toEqual([
-      ['PAN Card or Aadhaar', 'RECEIVED'], ['Corporate ID', 'MISSING']]);
-    expect(rows[0].documentIds).toEqual(['d1']);
-    expect(rows[1].conditional).toBe(true);
+    // Aadhaar is in: it gets its own card; PAN is covered by it and only
+    // shows if a PAN page is uploaded too (Issue 4, 2026-09-30).
+    expect(rows.map((r) => [r.label, r.status, Boolean(r.covered)])).toEqual([
+      ['PAN Card', 'MISSING', true], ['Aadhaar', 'RECEIVED', false], ['Corporate ID', 'MISSING', false]]);
+    expect(rows[1].documentIds).toEqual(['d1']);
+    expect(rows[0].groupKey).toBe('BOOKING:KYC');
+    expect(rows[1].groupKey).toBe('BOOKING:KYC');
+    expect(rows[2].conditional).toBe(true);
+  });
+
+  it('asks for PAN or Aadhaar on one card while neither is in', async () => {
+    const { checklistRequirements } = await import('../../workspace/P2DocumentList');
+    const rows = checklistRequirements([
+      { templateKey: 'pan_card', displayName: 'PAN Card', stage: 'BOOKING', requirement: 'REQUIRED', group: 'KYC',
+        groupLabel: 'PAN Card or Aadhaar', status: 'MISSING', readyCount: 0, documentIds: [] },
+      { templateKey: 'aadhaar', displayName: 'Aadhaar', stage: 'BOOKING', requirement: 'REQUIRED', group: 'KYC',
+        groupLabel: 'PAN Card or Aadhaar', status: 'MISSING', readyCount: 0, documentIds: [] },
+    ]);
+    expect(rows.map((r) => [r.label, r.status, r.templateKeys])).toEqual([
+      ['PAN Card or Aadhaar', 'MISSING', ['pan_card', 'aadhaar']]]);
+  });
+
+  it('shows PAN and Aadhaar as two cards when the customer gave both', async () => {
+    const { checklistRequirements } = await import('../../workspace/P2DocumentList');
+    const rows = checklistRequirements([
+      { templateKey: 'pan_card', displayName: 'PAN Card', stage: 'BOOKING', requirement: 'REQUIRED', group: 'KYC',
+        groupLabel: 'PAN Card or Aadhaar', status: 'RECEIVED', readyCount: 1, documentIds: ['p1'] },
+      { templateKey: 'aadhaar', displayName: 'Aadhaar', stage: 'BOOKING', requirement: 'REQUIRED', group: 'KYC',
+        groupLabel: 'PAN Card or Aadhaar', status: 'RECEIVED', readyCount: 1, documentIds: ['a1'] },
+    ]);
+    expect(rows.map((r) => [r.label, r.status, r.documentIds, Boolean(r.covered)])).toEqual([
+      ['PAN Card', 'RECEIVED', ['p1'], false], ['Aadhaar', 'RECEIVED', ['a1'], false]]);
   });
 });

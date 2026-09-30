@@ -202,6 +202,8 @@ export type P2DocumentPage = {
   templateKey?: string | null;
   displayName?: string | null;
   requirement?: string | null;
+  /** The PC set this page's type (or kept it as Others). */
+  typeSetByPc?: boolean;
   status_reason?: string | null;
   page_number: number;
   client_upload_id: string;
@@ -967,6 +969,8 @@ export type P2Vehicle360 = {
     dealerBranch?: string | null; dealType?: string | null; dealSource?: string | null; leadSource?: string | null;
     expectedDelivery?: string | null };
   delivery: P2Record | null;
+  /** Registration, financier, insurer on file and when the journey started. */
+  journey?: { startedAtUtc?: string | null; registrationNumber?: string | null; financier?: string | null; insurer?: string | null };
 };
 
 export type P2TradeIn360 = {

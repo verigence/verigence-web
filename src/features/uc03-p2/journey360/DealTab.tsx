@@ -295,7 +295,7 @@ export default function DealTab({ deal, journeyId, tenantId, accessToken }: {
       <div className="j360-stack">
         {pricing}
         <div className="p2w-empty">
-          No prices yet. They appear once the booking form or an invoice has been read and the vehicle model is identified.
+          No prices yet. The standard prices come from the price master once the vehicle model is identified: pick the model above if it is not.
         </div>
       </div>
     );

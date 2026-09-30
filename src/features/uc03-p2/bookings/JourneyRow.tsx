@@ -87,11 +87,13 @@ export function nextAction(item: P2JourneyListItem, role?: string): { priority: 
   if (delivered || item.closed) {
     return { priority: 'closed', title: 'Delivered', detail: item.delivery_reviewed_at ? 'Reviewed by TL' : 'Awaiting TL review' };
   }
+  // A page that could not be processed is work to do (its task says which
+  // page to upload again), not an overdue task; overdue means a missed SLA.
   if (item.failed_pages) {
-    return { priority: 'overdue', title: 'Upload failed: fix or delete the booking', detail: `${plural(item.failed_pages, 'page')} could not be processed` };
+    return { priority: 'action', title: `Upload ${plural(item.failed_pages, 'page')} again`, detail: 'See the task for which page' };
   }
   if (item.retrying_pages) {
-    return { priority: 'waiting', title: 'Documents being retried', detail: `${plural(item.retrying_pages, 'page')} retrying automatically, check back later` };
+    return { priority: 'waiting', title: 'Documents being retried', detail: `${plural(item.retrying_pages, 'page')} retrying automatically, check back in 60 minutes` };
   }
   if (overdue) {
     return { priority: 'overdue', title: `Clear ${plural(overdue, 'overdue task')}`, detail: mine ? `${plural(mine, 'task')} for you` : `With ${othersRole}` };

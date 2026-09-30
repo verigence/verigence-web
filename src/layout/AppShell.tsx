@@ -8,6 +8,7 @@ import { clearOperationalProject, resetOperationalContext, selectOperationalOutl
 import { ANDROID_BACK_EVENT } from '../native/AndroidNativeBridge';
 import type { OperationalOutletScope } from '../services/audit-core/uc03';
 import { getReviewQueueSummary } from '../services/audit-core/uc03Audit';
+import { getP2Tasks } from '../services/audit-core/uc03P2';
 import { isDiTestConsoleAvailable } from '../services/di/testConsole';
 import { useProjectContextStore } from '../store/projectContextStore';
 import { useSessionStore } from '../store/sessionStore';
@@ -299,6 +300,15 @@ export default function AppShell({ children }: PropsWithChildren) {
         ? reviewQueueSummary.data.mine + reviewQueueSummary.data.escalatedToMe
         : reviewQueueSummary.data.mine)
     : 0;
+  // The Audit group's Task Queue badge: open Phase 2 tasks for this role.
+  const p2TaskSummary = useQuery({
+    queryKey: ['p2-tasks-badge', selectedProject?.tenantId, role],
+    queryFn: () => getP2Tasks(selectedProject!.tenantId, accessToken, undefined, { view: 'open', role: String(role) }),
+    enabled: Boolean(selectedProject?.tenantId && accessToken && ['PC', 'TL', 'PM'].includes(String(role))),
+    refetchInterval: 120_000,
+    staleTime: 60_000,
+  });
+  const p2TaskCount = p2TaskSummary.data?.counts?.ALL ?? p2TaskSummary.data?.items.length ?? 0;
   const diTestAvailable = isDiTestConsoleAvailable();
   const createBookingMode = location.pathname === '/dashboard'
     && new URLSearchParams(location.search).get('action') === 'create-booking';
@@ -306,23 +316,38 @@ export default function AppShell({ children }: PropsWithChildren) {
     && new URLSearchParams(location.search).get('legacyDashboard') === '1';
   const visibleGroups = useMemo<NavGroup[]>(() => {
     if (!c0OperationalShell) return groups;
+    const auditRole = role === 'PC' || role === 'TL' || role === 'PM';
+    const dailyOpsItem: NavItem = { to: '/daily-ops', label: 'Daily Operations', mark: 'DO', roles: ['PC'] };
+    // The Phase 2 Audit group is the main one (2026-09-30): the day's work
+    // (bookings, tasks, attendance, daily operations, feedback) lives there.
+    const phase2Group: NavGroup | null = auditRole
+      ? {
+          ...p2Group,
+          items: [
+            p2BookingsItem,
+            { ...p2TasksItem, badge: p2TaskCount },
+            p2DuplicatesItem,
+            attendanceItem,
+            ...(role === 'PC' ? [dailyOpsItem] : []),
+            feedbackItem,
+          ],
+        }
+      : null;
     const workspaceItems: NavItem[] = [
       { to: '/dashboard', label: 'Overview', mark: 'OV', roles: c0OperatingRoles },
     ];
-    if (role === 'PC' || role === 'TL' || role === 'PM') {
+    if (auditRole) {
       workspaceItems.push(allJourneysItem);
       workspaceItems.push(journeySearchItem);
     }
-    workspaceItems.push(attendanceItem);
+    if (!phase2Group) workspaceItems.push(attendanceItem);
     if (role === 'PC') {
       workspaceItems.push(createBookingItem);
-      workspaceItems.push({ to: '/daily-ops', label: 'Daily Operations', mark: 'DO', roles: ['PC'] });
     }
-    if (role === 'PC' || role === 'TL' || role === 'PM') {
+    if (auditRole) {
       workspaceItems.push({ ...reviewQueueItem, badge: reviewQueueCount });
       // Phase 2's Audit group has its own Duplicate bookings (opening the
       // Phase 2 Journey 360); the Phase 1 page stays reachable by URL.
-      workspaceItems.push(feedbackItem);
     }
     const workspaceGroup: NavGroup = {
       key: 'workspace',
@@ -334,18 +359,15 @@ export default function AppShell({ children }: PropsWithChildren) {
       label: 'Analytics',
       items: analyticsItems,
     };
-    const phase2Group: NavGroup | null = ['PC', 'TL', 'PM'].includes(String(role))
-      ? p2Group
-      : null;
     const operationalGroups = phase2Group
-      ? [workspaceGroup, phase2Group, analyticsGroup]
+      ? [phase2Group, workspaceGroup, analyticsGroup]
       : [workspaceGroup, analyticsGroup];
     if (sessionRole !== 'TENANT_ADMIN') return operationalGroups;
     return [
       ...operationalGroups,
       { key: 'administration', label: 'Administration', items: [projectAdministrationItem] },
     ];
-  }, [c0OperationalShell, role, sessionRole, reviewQueueCount]);
+  }, [c0OperationalShell, role, sessionRole, reviewQueueCount, p2TaskCount]);
 
   const activeGroupKey = useMemo(() => {
     return visibleGroups.find((group) => group.items.some((item) => {
@@ -447,7 +469,10 @@ export default function AppShell({ children }: PropsWithChildren) {
   // without Daily Operations. Sourced from the same, already role-filtered
   // Workspace group -- no separate role logic to keep in sync, and every
   // icon here already exists in NavIcon (no new glyphs to draw).
-  const bottomNavWorkspaceItems = (visibleGroups.find((group) => group.key === 'workspace')?.items ?? [])
+  // Daily Operations now sits in the Audit group, so look across both.
+  const bottomNavWorkspaceItems = visibleGroups
+    .filter((group) => group.key === 'workspace' || group.key === 'phase2')
+    .flatMap((group) => group.items)
     .filter(canSeeItem);
   const bottomNavByPath = (to: string) => bottomNavWorkspaceItems.find((item) => item.to === to);
   const bottomNavItems = [

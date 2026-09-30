@@ -17,7 +17,7 @@ import P2RecheckButton from '../features/uc03-p2/workspace/P2RecheckButton';
 import P2UploadStatus from '../features/uc03-p2/workspace/P2UploadStatus';
 import { useP2LiveStatus } from '../features/uc03-p2/workspace/useP2LiveStatus';
 import P2DocumentEditor from '../features/uc03-p2/workspace/P2DocumentEditor';
-import P2DocumentList, { buildDocumentRows } from '../features/uc03-p2/workspace/P2DocumentList';
+import P2DocumentList, { buildDocumentRows, OTHER_DOCUMENT_TEMPLATE } from '../features/uc03-p2/workspace/P2DocumentList';
 import P2UploadPanel, { type P2UploadPanelHandle } from '../features/uc03-p2/workspace/P2UploadPanel';
 import { BATCH_IN_FLIGHT, PAGE_IN_FLIGHT } from '../features/uc03-p2/workspace/p2Format';
 import { useP2EventFeed } from '../features/uc03-p2/workspace/useP2EventFeed';
@@ -166,7 +166,12 @@ export default function P2JourneyWorkspacePage() {
   const setType = useMutation({
     mutationFn: ({ queueId, templateKey }: { queueId: string; templateKey: string }) =>
       setP2PageType(tenantId!, journeyId, queueId, templateKey, accessToken),
-    onSuccess: () => { setNotice({ tone: 'success', text: 'Document type set. It is being read again.' }); refresh(); },
+    onSuccess: (_result, { templateKey }) => {
+      setNotice({ tone: 'success', text: templateKey === OTHER_DOCUMENT_TEMPLATE
+        ? 'Kept as Others. It stays on file and is not read.'
+        : 'Document type set. It is being read again.' });
+      refresh();
+    },
     onError: (cause) => setNotice({ tone: 'error', text: errorText(cause, 'The document type could not be set.') }),
   });
   const replace = useMutation({

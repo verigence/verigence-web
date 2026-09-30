@@ -22,8 +22,7 @@ import {
   VehicleTab,
 } from '../features/uc03-p2/journey360/Journey360Tabs';
 import { customerLabel } from '../features/uc03-p2/bookings/JourneyRow';
-import { money, signedMoney, varianceTone } from '../features/uc03-p2/journey360/j360Format';
-import { formatDateTime, humanizeKey } from '../features/uc03-p2/workspace/p2Format';
+import { humanizeKey } from '../features/uc03-p2/workspace/p2Format';
 import {
   getP2Journey360,
   getP2Journey360Section,
@@ -179,32 +178,15 @@ export default function P2JourneyOverviewPage() {
         </section>
       ) : data && j && m ? (
         <>
+          {/* The facts strip (SKU, VIN, registration, financier, insurer,
+              customer, dates) and the money strip were removed on
+              2026-09-30: the Vehicle, Customer and Deal tabs carry them. */}
           <section className="j360-head" aria-label="Journey summary">
             <div className="j360-head__facts">
               <span className={`p2w-chip p2w-chip--${data.stage.stage.endsWith('COMPLETE') ? 'success' : 'progress'}`}>
                 {STAGE_LABEL[data.stage.stage] ?? humanizeKey(data.stage.stage)}
               </span>
-              <dl className="j360-facts j360-facts--inline">
-                <div><dt>SKU</dt><dd>{j.skuCode ?? '—'}</dd></div>
-                <div><dt>VIN / chassis</dt><dd>{j.vin ?? '—'}</dd></div>
-                <div><dt>Registration</dt><dd>{j.registrationNumber ?? '—'}</dd></div>
-                <div><dt>Financier</dt><dd>{j.financier ?? 'Cash / not known'}</dd></div>
-                <div><dt>Insurer</dt><dd>{j.insurer ?? '—'}</dd></div>
-                <div><dt>Customer</dt><dd>{humanizeKey(j.customerType ?? '') || '—'}{j.mobileLast4 ? ` · ••${j.mobileLast4}` : ''}</dd></div>
-                <div><dt>Started</dt><dd>{formatDateTime(j.createdAtUtc)}</dd></div>
-                {j.deliveredAtUtc ? <div><dt>Delivered</dt><dd>{formatDateTime(j.deliveredAtUtc)}</dd></div> : null}
-              </dl>
             </div>
-            <dl className="j360-money" aria-label="Money">
-              <div><dt>Standard</dt><dd>{money(m.net.standard)}</dd></div>
-              <div><dt>Booking offer</dt><dd>{money(m.net.booking)}</dd></div>
-              <div><dt>Current deal</dt><dd>{money(m.net.current)}</dd></div>
-              <div><dt>Received</dt><dd>{money(m.paid.total)}</dd></div>
-              <div className={Number(m.balanceDue ?? 0) > 0 ? 'is-due' : ''}><dt>Balance due</dt><dd>{money(m.balanceDue)}</dd></div>
-              <div className={`j360-variance ${varianceTone(m.variance.currentVsStandard)}`}>
-                <dt>Variance vs standard</dt><dd>{signedMoney(m.variance.currentVsStandard)}</dd>
-              </div>
-            </dl>
             <ul className="j360-counts" aria-label="Status">
               <li className={failed ? 'is-danger' : 'is-success'}>
                 <button type="button" onClick={() => setTab('compliance')}>

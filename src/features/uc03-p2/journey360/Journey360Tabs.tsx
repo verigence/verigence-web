@@ -487,7 +487,11 @@ export function VehicleTab({ data, tenantId, journeyId, accessToken }: {
         <dl className="j360-facts j360-facts--customer">
           {VEHICLE_FACT_LABELS.map(([key, label]) => <Fact key={key} label={label} fieldKey={key} value={product[key]} />)}
           {UNIT_LABELS.map(([key, label]) => <Fact key={key} label={label} fieldKey={key} value={unit[key]} />)}
+          <Fact label="Registration" fieldKey="registration_number" value={data.journey?.registrationNumber} />
+          <Fact label="Financier" fieldKey="financier" value={data.journey?.financier ?? 'Cash / not known'} />
+          <Fact label="Insurer" fieldKey="insurer" value={data.journey?.insurer} />
           {BOOKING_LABELS.map(([key, label]) => <Fact key={key} label={label} fieldKey={key} value={data.booking[key]} />)}
+          <div><dt>Journey started</dt><dd>{data.journey?.startedAtUtc ? formatDateTime(data.journey.startedAtUtc) : <span className="p2w-muted">Not available</span>}</dd></div>
         </dl>
         {data.product?.selection_status && data.product.selection_status !== 'RESOLVED' ? (
           <p className="p2w-muted">Identification: {humanizeKey(String(data.product.selection_status))}{data.product.sku_resolution_remarks ? ` · ${String(data.product.sku_resolution_remarks)}` : ''}</p>

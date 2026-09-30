@@ -26,6 +26,12 @@ function errorText(cause: unknown, fallback: string): string {
   return cause instanceof Error && cause.message ? cause.message : fallback;
 }
 
+/** "Price list name v3 · effective from 01 Jul 2026": which master applies. */
+function priceListLabel(ref: P2Pricing['appliedPriceList']): string {
+  if (!ref) return 'no price list effective';
+  return `${ref.priceList ?? 'Price list'} v${ref.version ?? '?'} · effective from ${dateLabel(ref.effectiveFrom)}`;
+}
+
 function dateLabel(value?: string | null): string {
   if (!value) return '—';
   const date = new Date(`${value}T00:00:00`);
@@ -45,9 +51,11 @@ function useRefreshDeal(tenantId: string, journeyId: string) {
 /**
  * Which price masters price this deal. Standard prices and scheme
  * entitlements come from the price-list and scheme versions effective on
- * the pricing date -- the booking date unless someone applies the invoice
- * date or another date with a reason. The model is picked from the price
- * masters of that same date.
+ * the pricing date -- the booking date on the booking form unless someone
+ * applies the invoice date with a reason; no other date is offered. With
+ * no booking date the deal is not priced (never on today): a task asks the
+ * PC to enter it on the form. The model is picked from the price masters
+ * of that same date.
  */
 export function PricingPanel({ tenantId, journeyId, accessToken }: Props) {
   const refresh = useRefreshDeal(tenantId, journeyId);
@@ -77,11 +85,20 @@ export function PricingPanel({ tenantId, journeyId, accessToken }: Props) {
         </div>
         <div>
           <span className="j360-label">Priced on</span>
-          <strong>{dateLabel(p.appliedDate)} <span className="p2w-muted">({p.basis === 'BOOKING_DATE' ? 'booking date' : p.basis === 'INVOICE_DATE' ? 'invoice date' : 'chosen date'})</span></strong>
-          <span className="p2w-muted">
-            {p.appliedPriceList ? `${p.appliedPriceList.priceList ?? 'Price list'} v${p.appliedPriceList.version ?? '?'} · from ${dateLabel(p.appliedPriceList.effectiveFrom)}` : 'No price list effective on this date'}
-            {` · ${p.appliedSchemeCount} scheme${p.appliedSchemeCount === 1 ? '' : 's'}`}
-          </span>
+          {p.appliedDate ? (
+            <>
+              <strong>{dateLabel(p.appliedDate)} <span className="p2w-muted">({p.basis === 'INVOICE_DATE' ? 'invoice date' : 'booking date'})</span></strong>
+              <span className="p2w-muted">
+                {p.appliedPriceList ? priceListLabel(p.appliedPriceList) : 'No price list effective on this date'}
+                {` · ${p.appliedSchemeCount} scheme${p.appliedSchemeCount === 1 ? '' : 's'}`}
+              </span>
+            </>
+          ) : (
+            <>
+              <strong>Not priced yet</strong>
+              <span className="p2w-muted">The booking form has no booking date. A task asks the PC to enter it on the form.</span>
+            </>
+          )}
         </div>
         <div className="j360-pricing__actions">
           <button type="button" className="p2w-button p2w-button--secondary" onClick={() => setPicking(true)}>
@@ -93,7 +110,7 @@ export function PricingPanel({ tenantId, journeyId, accessToken }: Props) {
       {invoiceOption?.differsFromApplied && p.basis !== 'INVOICE_DATE' ? (
         <p className="p2w-alert" role="note">
           The invoice is dated {dateLabel(invoiceOption.date)}, when different price masters were effective
-          {invoiceOption.priceList ? ` (${invoiceOption.priceList.priceList ?? 'price list'} v${invoiceOption.priceList.version ?? '?'})` : ''}.
+          {invoiceOption.priceList ? ` (${priceListLabel(invoiceOption.priceList)})` : ''}.
           Apply the invoice date if the deal belongs under those.
         </p>
       ) : null}
@@ -118,37 +135,40 @@ function PricingDateForm({ pricing, tenantId, journeyId, accessToken, onDone }: 
   pricing: P2Pricing; onDone: (message: string) => void;
 }) {
   const [basis, setBasis] = useState<P2Pricing['basis']>(pricing.basis);
-  const [onDate, setOnDate] = useState(pricing.basis === 'CUSTOM' ? pricing.appliedDate : '');
   const [reason, setReason] = useState('');
   const save = useMutation({
-    mutationFn: () => setP2Pricing(tenantId, journeyId, {
-      basis, onDate: basis === 'CUSTOM' ? onDate : undefined, reason: reason.trim() || undefined,
-    }, accessToken),
+    mutationFn: () => setP2Pricing(tenantId, journeyId, { basis, reason: reason.trim() || undefined }, accessToken),
     onSuccess: (result) => onDone(result.repriced
       ? `Deal re-priced on ${dateLabel(result.appliedDate)}. The checks are running again.`
       : `Pricing date set to ${dateLabel(result.appliedDate)}. Prices update once the model is identified.`),
   });
   const needsReason = basis !== 'BOOKING_DATE';
+  const bookingOption = pricing.options.find((o) => o.basis === 'BOOKING_DATE');
+  const invoiceOption = pricing.options.find((o) => o.basis === 'INVOICE_DATE');
+  // Two choices only: the booking date on the booking form, or the invoice date.
   return (
     <form className="j360-pricing__form" onSubmit={(event) => { event.preventDefault(); save.mutate(); }}>
       <fieldset>
         <legend>Price the deal on</legend>
-        <label className="p2w-check"><input type="radio" checked={basis === 'BOOKING_DATE'} onChange={() => setBasis('BOOKING_DATE')} /> Booking date ({dateLabel(pricing.bookingDate)})</label>
-        <label className="p2w-check"><input type="radio" checked={basis === 'INVOICE_DATE'} disabled={!pricing.invoiceDate} onChange={() => setBasis('INVOICE_DATE')} /> Invoice date ({pricing.invoiceDate ? dateLabel(pricing.invoiceDate) : 'no invoice read yet'})</label>
-        <label className="p2w-check"><input type="radio" checked={basis === 'CUSTOM'} onChange={() => setBasis('CUSTOM')} /> Another date
-          <input type="date" value={onDate} disabled={basis !== 'CUSTOM'} onChange={(e) => setOnDate(e.target.value)} aria-label="Pricing date" />
+        <label className="p2w-check">
+          <input type="radio" checked={basis === 'BOOKING_DATE'} disabled={!pricing.bookingDate} onChange={() => setBasis('BOOKING_DATE')} />
+          {' '}Booking date{pricing.bookingDate ? ` (${dateLabel(pricing.bookingDate)}) · ${priceListLabel(bookingOption?.priceList ?? null)}` : ' (not on the booking form yet: enter it there first)'}
+        </label>
+        <label className="p2w-check">
+          <input type="radio" checked={basis === 'INVOICE_DATE'} disabled={!pricing.invoiceDate} onChange={() => setBasis('INVOICE_DATE')} />
+          {' '}Invoice date{pricing.invoiceDate ? ` (${dateLabel(pricing.invoiceDate)}) · ${priceListLabel(invoiceOption?.priceList ?? null)}` : ' (no invoice read yet)'}
         </label>
       </fieldset>
       {needsReason ? (
         <label className="j360-pricing__reason">
           <span>Reason</span>
-          <textarea rows={2} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Why this deal belongs under another price master" required />
+          <textarea rows={2} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Why this deal belongs under the invoice date's price master" required />
         </label>
       ) : null}
       {save.isError ? <div className="p2w-alert p2w-alert--error" role="alert">{errorText(save.error, 'The pricing date could not be saved.')}</div> : null}
       <div className="p2w-dialog__actions">
         <button type="submit" className="p2w-button p2w-button--primary"
-          disabled={save.isPending || (needsReason && reason.trim().length < 5) || (basis === 'CUSTOM' && !onDate)}>
+          disabled={save.isPending || (needsReason && reason.trim().length < 5) || (basis === 'BOOKING_DATE' && !pricing.bookingDate)}>
           {save.isPending ? 'Saving…' : 'Apply'}
         </button>
       </div>
@@ -172,7 +192,8 @@ type StepKey = (typeof STEPS)[number][0];
 function ModelPickerDialog({ pricing, tenantId, journeyId, accessToken, onClose, onDone }: Props & {
   pricing: P2Pricing; onClose: () => void; onDone: (message: string) => void;
 }) {
-  const [onDate, setOnDate] = useState(pricing.appliedDate);
+  // No pricing date yet: the catalogue shows today's masters for picking the model.
+  const [onDate, setOnDate] = useState(pricing.appliedDate ?? new Date().toISOString().slice(0, 10));
   const [picked, setPicked] = useState<Partial<Record<StepKey, string>>>({});
   const [skuId, setSkuId] = useState('');
   const [reason, setReason] = useState('');

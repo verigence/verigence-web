@@ -147,7 +147,12 @@ export function taskPlan(task: P2Task, operatingRole?: string | null): TaskPlan 
   const completion = ['CORRECT_EXTRACTED_FIELD', 'REVIEW_DOCUMENT', 'UPLOAD_DOCUMENT', 'REUPLOAD_DOCUMENT', 'ADD_EVIDENCE', 'COMPLETE_ACTION']
     .find((action) => allowed.has(action));
   let primary: TaskAction | undefined;
-  if (link) primary = { label: task.source_type === 'DOCUMENT_FIELD' ? 'Verify fields' : 'Open document', to: link, tone: 'primary' };
+  if (link) {
+    // The booking date task opens the booking form on that field.
+    const label = task.task_type === 'PC_BOOKING_DATE_MISSING' ? 'Enter booking date'
+      : task.source_type === 'DOCUMENT_FIELD' ? 'Verify fields' : 'Open document';
+    primary = { label, to: link, tone: 'primary' };
+  }
   else if (task.task_type === 'PC_VERIFY_UNRECOGNIZED_DOCUMENT') {
     // A page DI could not classify: its type is set on the card in Upload /
     // Edit Documents, and the task closes itself once it is.

@@ -1199,13 +1199,16 @@ export type P2PriceListRef = {
 
 export type P2Pricing = {
   bookingDate?: string | null;
+  /** No booking date on the booking form (nor entered by hand): the deal is
+   * not priced until the PC enters it; a Medium task asks. */
+  bookingDateMissing?: boolean;
   invoiceDate?: string | null;
-  appliedDate: string;
-  basis: 'BOOKING_DATE' | 'INVOICE_DATE' | 'CUSTOM';
+  appliedDate: string | null;
+  basis: 'BOOKING_DATE' | 'INVOICE_DATE';
   reason?: string | null;
   setByActorId?: string | null;
   setAtUtc?: string | null;
-  appliedPriceList: P2PriceListRef;
+  appliedPriceList: P2PriceListRef | null;
   appliedSchemeCount: number;
   options: Array<{ basis: 'BOOKING_DATE' | 'INVOICE_DATE'; date: string; priceList: P2PriceListRef; schemeVersions: string[]; differsFromApplied: boolean }>;
   sku: { productSkuId?: string | null; skuCode?: string | null; model?: string | null; variant?: string | null; colour?: string | null; selectionStatus?: string | null };
@@ -1226,7 +1229,7 @@ export function getP2Pricing(tenantId: string, journeyId: string, accessToken?: 
 
 export function setP2Pricing(
   tenantId: string, journeyId: string,
-  command: { basis: P2Pricing['basis']; onDate?: string; reason?: string }, accessToken?: string,
+  command: { basis: P2Pricing['basis']; reason?: string }, accessToken?: string,
 ) {
   return auditCoreRequest<P2Pricing>(path(tenantId, `/journeys/${encodeURIComponent(journeyId)}/pricing`), {
     method: 'PUT', accessToken, body: JSON.stringify(command),

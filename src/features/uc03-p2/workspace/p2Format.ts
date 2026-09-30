@@ -71,6 +71,7 @@ const PAGE_STATUS: Record<string, { label: string; tone: Tone }> = {
   DEAD_LETTER: { label: 'Failed', tone: 'danger' },
   CANCELLED: { label: 'Removed', tone: 'neutral' },
   DUPLICATE: { label: 'Already uploaded', tone: 'neutral' },
+  SUPERSEDED: { label: 'Uploaded again', tone: 'neutral' },
   MERGED: { label: 'Combined', tone: 'neutral' },
 };
 

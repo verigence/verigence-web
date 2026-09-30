@@ -24,7 +24,8 @@ export default function P2UploadStatus({ counts, rows, live, processing = [] }: 
   const listed = rows ?? [];
   const uploaded = listed.length + counts.uploading;
   const classified = listed.filter((row) => !BEFORE_CLASSIFICATION.has(row.status) && row.status !== 'FAILED' && row.status !== 'DEAD_LETTER').length;
-  const extracted = listed.filter((row) => row.status === 'READY' || row.status === 'NEEDS_REVIEW').length;
+  // Extracted means Audit Core holds the page's values; a page read empty is not extracted.
+  const extracted = listed.filter((row) => row.status === 'READY').length;
   const notClassified = listed.filter((row) => PAGE_IN_FLIGHT.has(row.status) && BEFORE_CLASSIFICATION.has(row.status)).length + counts.uploading;
   return (
     <section className="p2w-statusbar" aria-label="Upload status" aria-live="polite">

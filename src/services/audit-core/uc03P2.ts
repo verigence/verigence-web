@@ -852,7 +852,7 @@ export type P2DealSource = { document: string; documentType: string; amount: Mon
 
 /** What the customer opted for on a line: taken or not, read from the
  * invoice once the deal has one, else from the booking form. */
-export type P2DealOpted = { taken: boolean; source: 'invoice' | 'booking' | null };
+export type P2DealOpted = { taken: boolean; source: 'invoice' | 'booking' | 'insurance' | null };
 
 export type P2DealRow = {
   key: string;

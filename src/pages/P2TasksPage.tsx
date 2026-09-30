@@ -185,14 +185,15 @@ const TABS: Array<{ key: P2TaskTab; label: string }> = [
 ];
 
 /** How serious a task is, as a chip the PC can read at a glance. */
-export function severityChip(severity?: string | null): { label: string; tone: 'danger' | 'warning' | 'info' | 'neutral' } {
+export function severityChip(severity?: string | null): { label: string; tone: 'critical' | 'high' | 'medium' | 'low' | 'info' } {
+  // Soft tones on purpose (2026-09-30): a queue full of red is hard on
+  // the eyes; the chip ranks tasks, it does not shout.
   switch (String(severity || '').toUpperCase()) {
-    case 'CRITICAL': return { label: 'Critical', tone: 'danger' };
-    case 'HIGH': return { label: 'High', tone: 'danger' };
-    case 'MEDIUM': return { label: 'Medium', tone: 'warning' };
-    case 'LOW': return { label: 'Low', tone: 'neutral' };
+    case 'CRITICAL': return { label: 'Critical', tone: 'critical' };
+    case 'HIGH': return { label: 'High', tone: 'high' };
+    case 'LOW': return { label: 'Low', tone: 'low' };
     case 'INFO': return { label: 'Info', tone: 'info' };
-    default: return { label: 'Medium', tone: 'warning' };
+    default: return { label: 'Medium', tone: 'medium' };
   }
 }
 
@@ -212,7 +213,7 @@ function TaskRow({ task, open, onToggle, view, tenantId, accessToken, operatingR
           {!open ? <span className="p2w-task__why">{task.description}</span> : null}
         </span>
         <span className="p2w-task__meta">
-          <span className={`p2w-chip p2w-chip--${severityChip(task.severity).tone}`} title="Severity">
+          <span className={`p2w-chip p2w-chip--sev-${severityChip(task.severity).tone}`} title="Severity">
             {severityChip(task.severity).label}
           </span>
           <span className={`p2w-chip p2w-chip--${status.tone}`}>

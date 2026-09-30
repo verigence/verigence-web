@@ -823,3 +823,10 @@
 .p2w .p2w-raise__kind input { margin: 0; }
 .p2w .p2w-raise__hint { width: 100%; font-size: .8rem; font-weight: 500; }
 @media (max-width: 640px) { .p2w .p2w-raise__row { grid-template-columns: 1fr; } }
+
+/* severity chips: muted, no red (2026-09-30) */
+.p2w .p2w-chip--sev-critical { color: #7c2d12; background: #fdece4; }
+.p2w .p2w-chip--sev-high { color: #9a5b00; background: #fff3dc; }
+.p2w .p2w-chip--sev-medium { color: #6b5d00; background: #fbf6dc; }
+.p2w .p2w-chip--sev-low { color: var(--p2w-muted); background: var(--p2w-soft); }
+.p2w .p2w-chip--sev-info { color: var(--p2w-progress); background: var(--p2w-progress-bg); }

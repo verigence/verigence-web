@@ -218,9 +218,50 @@ type RowActions = {
   typeOptions: P2Template[];
   onOpen: (documentId: string) => void;
   onRetry: (queueId: string) => void;
-  onSetType: (queueId: string, templateKey: string) => void;
+  onSetType: (queueId: string, templateKey: string, name?: string) => void;
   setTyping: (key?: string) => void;
 };
+
+/** The Set type control: a checklist type reads the page again at once;
+ * Others asks for the name the page is kept under (decision 2026-09-30). */
+function TypePicker({ queueId, actions }: { queueId: string; actions: RowActions }) {
+  const [choice, setChoice] = useState('');
+  const [name, setName] = useState('');
+  const trimmed = name.trim();
+  return (
+    <div className="p2w-doc__type">
+      <label>
+        <span>What is this document?</span>
+        <select value={choice} onChange={(event) => {
+          const value = event.target.value;
+          setChoice(value);
+          if (value && value !== OTHER_DOCUMENT_TEMPLATE) {
+            actions.onSetType(queueId, value);
+            actions.setTyping(undefined);
+          }
+        }}>
+          <option value="" disabled>Choose a type…</option>
+          {actions.typeOptions.map((option) => <option key={option.key} value={option.key}>{option.displayName}</option>)}
+          <option value={OTHER_DOCUMENT_TEMPLATE}>Others (not a checklist document: kept, not read)</option>
+        </select>
+      </label>
+      {choice === OTHER_DOCUMENT_TEMPLATE ? (
+        <>
+          <label>
+            <span>Name it (shown on the card and in Journey 360)</span>
+            <input type="text" value={name} maxLength={120} placeholder="e.g. Employer letter" autoFocus
+              onChange={(event) => setName(event.target.value)} />
+          </label>
+          <button type="button" className="p2w-button p2w-button--secondary" disabled={trimmed.length < 2}
+            onClick={() => { actions.onSetType(queueId, OTHER_DOCUMENT_TEMPLATE, trimmed); actions.setTyping(undefined); }}>
+            Keep as Others
+          </button>
+        </>
+      ) : null}
+      <button type="button" className="p2w-link" onClick={() => actions.setTyping(undefined)}>Cancel</button>
+    </div>
+  );
+}
 
 /**
  * One document card, the way the Phase 1 capture screen showed them: the
@@ -271,24 +312,7 @@ function DocumentCard({ title, level, rows, reason, actions, onAdd }: {
         </span>
       </button>
 
-      {lead && actions.typing === lead.key && lead.unit ? (
-        <div className="p2w-doc__type">
-          <label>
-            <span>What is this document?</span>
-            <select defaultValue="" onChange={(event) => {
-              if (event.target.value && lead.unit) {
-                actions.onSetType(lead.unit.queueId, event.target.value);
-                actions.setTyping(undefined);
-              }
-            }}>
-              <option value="" disabled>Choose a type…</option>
-              {actions.typeOptions.map((option) => <option key={option.key} value={option.key}>{option.displayName}</option>)}
-              <option value={OTHER_DOCUMENT_TEMPLATE}>Others (not a checklist document: kept, not read)</option>
-            </select>
-          </label>
-          <button type="button" className="p2w-link" onClick={() => actions.setTyping(undefined)}>Cancel</button>
-        </div>
-      ) : null}
+      {lead && actions.typing === lead.key && lead.unit ? <TypePicker queueId={lead.unit.queueId} actions={actions} /> : null}
 
       {(retryable || (typeable && actions.typing !== lead?.key) || more.length) ? (
         <div className="p2w-dcard__actions">
@@ -332,7 +356,7 @@ export default function P2DocumentList({
   selectedDocumentId?: string;
   onOpen: (documentId: string) => void;
   onRetry: (queueId: string) => void;
-  onSetType: (queueId: string, templateKey: string) => void;
+  onSetType: (queueId: string, templateKey: string, name?: string) => void;
   /** Opens the file picker for a document that is still missing. */
   onAdd?: () => void;
   busyKey?: string;

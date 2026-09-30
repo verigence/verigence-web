@@ -494,12 +494,13 @@ export function retryP2Page(tenantId: string, journeyId: string, queueId: string
   );
 }
 
+/** `name` is the name a page kept as Others is shown under (required for Others). */
 export function setP2PageType(
-  tenantId: string, journeyId: string, queueId: string, templateKey: string, accessToken?: string,
+  tenantId: string, journeyId: string, queueId: string, templateKey: string, accessToken?: string, name?: string,
 ) {
   return auditCoreRequest(
     path(tenantId, `/journeys/${encodeURIComponent(journeyId)}/pages/${encodeURIComponent(queueId)}:set-type`),
-    { method: 'POST', accessToken, body: JSON.stringify({ templateKey }) },
+    { method: 'POST', accessToken, body: JSON.stringify(name ? { templateKey, name } : { templateKey }) },
   );
 }
 
@@ -1004,7 +1005,7 @@ export type P2DocumentFieldView = {
 
 export type P2Documents360 = {
   documents: Array<{
-    documentId: string; evidenceId: string; queueId?: string | null; documentType?: string | null;
+    documentId: string; evidenceId: string | null; queueId?: string | null; documentType?: string | null;
     templateKey: string; label: string; stage: string; pages: number[]; linkedAtUtc?: string | null;
     fields: P2DocumentFieldView[]; fieldCount: number; needsReview: number; corrected: number;
   }>;

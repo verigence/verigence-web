@@ -164,11 +164,11 @@ export default function P2JourneyWorkspacePage() {
     onError: (cause) => setNotice({ tone: 'error', text: errorText(cause, 'The page could not be retried.') }),
   });
   const setType = useMutation({
-    mutationFn: ({ queueId, templateKey }: { queueId: string; templateKey: string }) =>
-      setP2PageType(tenantId!, journeyId, queueId, templateKey, accessToken),
-    onSuccess: (_result, { templateKey }) => {
+    mutationFn: ({ queueId, templateKey, name }: { queueId: string; templateKey: string; name?: string }) =>
+      setP2PageType(tenantId!, journeyId, queueId, templateKey, accessToken, name),
+    onSuccess: (_result, { templateKey, name }) => {
       setNotice({ tone: 'success', text: templateKey === OTHER_DOCUMENT_TEMPLATE
-        ? 'Kept as Others. It stays on file and is not read.'
+        ? `Kept as Others (${name}). It stays on file under that name and is not read.`
         : 'Document type set. It is being read again.' });
       refresh();
     },
@@ -304,7 +304,7 @@ export default function P2JourneyWorkspacePage() {
               selectedDocumentId={documentId}
               onOpen={openDocument}
               onRetry={(queueId) => retry.mutate(queueId)}
-              onSetType={(queueId, templateKey) => setType.mutate({ queueId, templateKey })}
+              onSetType={(queueId, templateKey, name) => setType.mutate({ queueId, templateKey, name })}
               onAdd={() => uploadPanel.current?.openFiles()}
               busyKey={busyKey}
             />

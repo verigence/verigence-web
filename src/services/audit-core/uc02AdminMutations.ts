@@ -21,7 +21,7 @@ export function patchDealerAdmin(
   tenantId: string,
   dealerId: string,
   versionNo: number,
-  payload: { dealerName?: string; legalName?: string | null; status?: string },
+  payload: { dealerName?: string; dealerCode?: string; legalName?: string | null; status?: string },
   accessToken?: string,
 ) {
   return auditCoreRequest<DealerAdmin>(`/v1/tenants/${tenantId}/dealers/${dealerId}`, {
@@ -63,6 +63,7 @@ export function patchOutletAdmin(
   versionNo: number,
   payload: {
     outletName?: string;
+    outletCode?: string;
     outletClassification?: 'ONSITE' | 'SATELLITE';
     addressText?: string | null;
     city?: string | null;

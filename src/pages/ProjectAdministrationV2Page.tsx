@@ -7,6 +7,9 @@ import MahindraMasterUploads from '../features/project-admin/MahindraMasterUploa
 import ProjectAdminStepper, { projectAdminSteps } from '../features/project-admin/ProjectAdminStepper';
 import ProjectReferenceFields from '../features/project-admin/ProjectReferenceFields';
 import ProjectSelector from '../features/project-admin/ProjectSelector';
+import OnboardingWorkbookPanel from '../features/project-admin/OnboardingWorkbookPanel';
+import { suggestedDealerCode } from '../features/project-admin/onboardingCodes';
+import { getProjectReferenceData } from '../services/audit-core/projectReferenceData';
 import {
   activateProject,
   confirmMasterImport,
@@ -137,6 +140,7 @@ function targetStepForCheck(check: ReadinessCheck): number | null {
 
 const emptyProjectForm = () => ({
   projectName: '',
+  businessCode: '',
   oemId: '',
   segmentIds: [] as string[],
   effectiveStartDate: '',
@@ -144,10 +148,11 @@ const emptyProjectForm = () => ({
   timezoneName: 'Asia/Kolkata',
   regionCode: '',
 });
-const emptyDealerForm = () => ({ dealerName: '', legalName: '', status: 'ACTIVE' });
+const emptyDealerForm = () => ({ dealerName: '', dealerCode: '', legalName: '', status: 'ACTIVE' });
 const emptyOutletForm = () => ({
   dealerId: '',
   outletName: '',
+  outletCode: '',
   outletClassification: 'ONSITE' as 'ONSITE' | 'SATELLITE',
   addressText: '',
   city: '',
@@ -211,6 +216,14 @@ export default function ProjectAdministrationV2Page() {
   const [masterResetVersion, setMasterResetVersion] = useState(0);
 
   const [readiness, setReadiness] = useState<ProjectReadiness | null>(null);
+  const [oemCodes, setOemCodes] = useState<Record<string, string>>({});
+  useEffect(() => {
+    if (!accessToken) return;
+    void getProjectReferenceData(accessToken)
+      .then((data) => setOemCodes(Object.fromEntries(data.oems.map((oem) => [oem.oemId, oem.oemCode]))))
+      .catch(() => setOemCodes({}));
+  }, [accessToken]);
+  const projectOemCode = project ? oemCodes[project.oemId] : undefined;
   const [deletionImpact, setDeletionImpact] = useState<ProjectDeletionImpact | null>(null);
   const [deleteConfirmation, setDeleteConfirmation] = useState('');
 
@@ -292,6 +305,7 @@ export default function ProjectAdministrationV2Page() {
       setProject(value);
       setProjectForm({
         projectName: value.projectName,
+        businessCode: value.businessCode || '',
         oemId: value.oemId,
         segmentIds: value.segments.map((segment) => segment.segmentId),
         effectiveStartDate: value.effectiveStartDate,
@@ -402,6 +416,7 @@ export default function ProjectAdministrationV2Page() {
           project.versionNo,
           {
             projectName: projectForm.projectName.trim(),
+            ...(projectForm.businessCode.trim() ? { businessCode: projectForm.businessCode.trim() } : {}),
             effectiveEndDate: projectForm.effectiveEndDate || null,
             timezoneName: projectForm.timezoneName.trim(),
             regionCode: projectForm.regionCode.trim() || null,
@@ -415,6 +430,7 @@ export default function ProjectAdministrationV2Page() {
         const result = await createProject(
           {
             projectName: projectForm.projectName.trim(),
+            businessCode: projectForm.businessCode.trim() || null,
             oemId: projectForm.oemId.trim(),
             segmentIds: projectForm.segmentIds,
             effectiveStartDate: projectForm.effectiveStartDate,
@@ -485,7 +501,7 @@ export default function ProjectAdministrationV2Page() {
 
   function openEditDealer(item: DealerAdmin) {
     clearFeedback();
-    setDealerForm({ dealerName: item.dealerName, legalName: item.legalName || '', status: item.status });
+    setDealerForm({ dealerName: item.dealerName, dealerCode: /^[0-9a-f]{32}$/.test(item.dealerCode) ? '' : item.dealerCode, legalName: item.legalName || '', status: item.status });
     setDealerEditor({ mode: 'edit', item });
   }
 
@@ -498,7 +514,7 @@ export default function ProjectAdministrationV2Page() {
       if (dealerEditor.mode === 'new') {
         const created = await createDealerAdmin(
           tenantId,
-          { dealerName: dealerForm.dealerName.trim(), legalName: dealerForm.legalName.trim() || null },
+          { dealerName: dealerForm.dealerName.trim(), legalName: dealerForm.legalName.trim() || null, dealerCode: dealerForm.dealerCode.trim() || null },
           accessToken,
         );
         setDealers((current) => [...current.filter((item) => item.dealerId !== created.dealerId), created]);
@@ -510,6 +526,7 @@ export default function ProjectAdministrationV2Page() {
           dealerEditor.item.versionNo,
           {
             dealerName: dealerForm.dealerName.trim(),
+            ...(dealerForm.dealerCode.trim() ? { dealerCode: dealerForm.dealerCode.trim() } : {}),
             legalName: dealerForm.legalName.trim() || null,
             status: dealerForm.status,
           },
@@ -587,6 +604,7 @@ export default function ProjectAdministrationV2Page() {
     setOutletForm({
       dealerId: item.dealerId,
       outletName: item.outletName,
+      outletCode: /^[0-9a-f]{32}$/.test(item.outletCode) ? '' : item.outletCode,
       outletClassification: item.outletClassification === 'SATELLITE' ? 'SATELLITE' : 'ONSITE',
       addressText: item.addressText || '',
       city: item.city || '',
@@ -611,6 +629,7 @@ export default function ProjectAdministrationV2Page() {
       const longitude = longitudeText ? Number(longitudeText) : null;
       const payload = {
         outletName: outletForm.outletName.trim(),
+        ...(outletForm.outletCode.trim() ? { outletCode: outletForm.outletCode.trim() } : {}),
         outletClassification: outletForm.outletClassification,
         addressText: outletForm.addressText.trim() || null,
         city: outletForm.city.trim() || null,
@@ -942,6 +961,15 @@ export default function ProjectAdministrationV2Page() {
         <div><span>Setup Progress</span><strong>Step {activeStep} of 8</strong></div>
       </div>
 
+      {canCreateProject && (
+        <OnboardingWorkbookPanel accessToken={accessToken ?? undefined} onApplied={() => {
+          void loadProject();
+          setDealersLoaded(false);
+          setLoadedOutletDealerIds([]);
+          setNotice('Excel onboarding applied. Project, dealer and outlet lists are refreshed.');
+        }} />
+      )}
+
       <ProjectAdminStepper activeStep={activeStep} onChange={goToStep} projectConfigured={projectConfigured} />
 
       {(pageError || notice) && (
@@ -962,6 +990,7 @@ export default function ProjectAdministrationV2Page() {
               <form className="uc02-card uc02-card--form" onSubmit={submitProject}>
                 <div className="uc02-card__title"><h3>{project ? 'Project Details' : 'Create Project'}</h3><p>Project creation provisions Security, Audit Core and DI together.</p></div>
                 <div className="uc02-form-grid">
+                  <Field label="Project Code" hint="e.g. JBR-01 — unique across Projects"><input value={projectForm.businessCode} maxLength={40} pattern="[A-Za-z0-9][A-Za-z0-9_.\-]*" onChange={(event) => setProjectForm({ ...projectForm, businessCode: event.target.value })} /></Field>
                   <Field label="Project Name"><input required value={projectForm.projectName} onChange={(event) => setProjectForm({ ...projectForm, projectName: event.target.value })} /></Field>
                   <ProjectReferenceFields
                     oemId={projectForm.oemId}
@@ -1013,7 +1042,7 @@ export default function ProjectAdministrationV2Page() {
               <div className="uc02-list-toolbar"><div className="uc02-card__title"><h3>Project Dealers</h3><p>{dealers.length} configured</p></div><button className="uc02-button uc02-button--primary" type="button" onClick={openNewDealer} disabled={busy}>Add Dealer</button></div>
               {dealers.length ? <div className="uc02-table-wrap"><table className="uc02-table"><thead><tr><th>Dealer</th><th>Legal Name</th><th>Code</th><th>Status</th><th>Actions</th></tr></thead><tbody>{dealers.map((item) => <tr key={item.dealerId}><td><strong>{item.dealerName}</strong></td><td>{item.legalName || '—'}</td><td><code>{item.dealerCode}</code></td><td><StatusPill value={item.status} compact /></td><td><div className="uc02-row-actions"><button className="uc02-link-button" type="button" onClick={() => openEditDealer(item)}>Edit</button><button className="uc02-link-button uc02-link-button--danger" type="button" onClick={() => void removeDealer(item)} disabled={busy}>Delete</button></div></td></tr>)}</tbody></table></div> : <EmptyMessage>No dealers configured yet.</EmptyMessage>}
             </div>
-            {dealerEditor && <form className="uc02-card uc02-editor-panel" onSubmit={submitDealer}><div className="uc02-list-toolbar"><div className="uc02-card__title"><h3>{dealerEditor.mode === 'new' ? 'Add Dealer' : `Edit ${dealerEditor.item.dealerName}`}</h3></div><button className="uc02-button" type="button" onClick={() => setDealerEditor(null)}>Close</button></div><div className="uc02-form-grid"><Field label="Dealer Name"><input required value={dealerForm.dealerName} onChange={(event) => setDealerForm({ ...dealerForm, dealerName: event.target.value })} /></Field><Field label="Legal Name"><input value={dealerForm.legalName} onChange={(event) => setDealerForm({ ...dealerForm, legalName: event.target.value })} /></Field>{dealerEditor.mode === 'edit' && <Field label="Status"><select value={dealerForm.status} onChange={(event) => setDealerForm({ ...dealerForm, status: event.target.value })}><option value="ACTIVE">Active</option><option value="INACTIVE">Inactive</option></select></Field>}</div><div className="uc02-actions"><button className="uc02-button uc02-button--primary" disabled={busy}>{busy ? 'Saving…' : 'Save Dealer'}</button></div></form>}
+            {dealerEditor && <form className="uc02-card uc02-editor-panel" onSubmit={submitDealer}><div className="uc02-list-toolbar"><div className="uc02-card__title"><h3>{dealerEditor.mode === 'new' ? 'Add Dealer' : `Edit ${dealerEditor.item.dealerName}`}</h3></div><button className="uc02-button" type="button" onClick={() => setDealerEditor(null)}>Close</button></div><div className="uc02-form-grid"><Field label="Dealer Name"><input required value={dealerForm.dealerName} onChange={(event) => setDealerForm({ ...dealerForm, dealerName: event.target.value })} /></Field><Field label="Dealer Code" hint="Blank: initials + OEM, e.g. AM-MAH"><input value={dealerForm.dealerCode} maxLength={60} pattern="[A-Za-z0-9][A-Za-z0-9_.\-]*" placeholder={suggestedDealerCode(dealerForm.dealerName, projectOemCode)} onChange={(event) => setDealerForm({ ...dealerForm, dealerCode: event.target.value })} /></Field><Field label="Legal Name"><input value={dealerForm.legalName} onChange={(event) => setDealerForm({ ...dealerForm, legalName: event.target.value })} /></Field>{dealerEditor.mode === 'edit' && <Field label="Status"><select value={dealerForm.status} onChange={(event) => setDealerForm({ ...dealerForm, status: event.target.value })}><option value="ACTIVE">Active</option><option value="INACTIVE">Inactive</option></select></Field>}</div><div className="uc02-actions"><button className="uc02-button uc02-button--primary" disabled={busy}>{busy ? 'Saving…' : 'Save Dealer'}</button></div></form>}
           </div>
         )}
 
@@ -1024,9 +1053,9 @@ export default function ProjectAdministrationV2Page() {
                 <div className="uc02-card__title"><h3>Dealer Outlets</h3><p>Outlets load only for the selected Dealer and are cached for this page session.</p></div>
                 <div className="uc02-toolbar-actions"><label className="uc02-filter"><span>Dealer</span><select value={outletDealerId} onChange={(event) => void selectOutletDealer(event.target.value)}><option value="">Select Dealer</option>{dealers.map((dealer) => <option value={dealer.dealerId} key={dealer.dealerId}>{dealer.dealerName}</option>)}</select></label><button className="uc02-button uc02-button--primary" type="button" onClick={openNewOutlet} disabled={busy || !outletDealerId}>Add Outlet</button></div>
               </div>
-              {outletDealerId ? (outletList.length ? <div className="uc02-table-wrap"><table className="uc02-table"><thead><tr><th>Outlet</th><th>Location</th><th>Class</th><th>Status</th><th>Actions</th></tr></thead><tbody>{outletList.map((item) => <tr key={item.outletId}><td><strong>{item.outletName}</strong><small>{item.outletCode}</small></td><td>{[item.addressText, item.city, item.stateRegion, item.postalCode].filter(Boolean).join(', ') || '—'}</td><td>{item.outletClassification}</td><td><StatusPill value={item.status} compact /></td><td><div className="uc02-row-actions"><button className="uc02-link-button" type="button" onClick={() => openEditOutlet(item)}>Edit / Map</button><button className="uc02-link-button uc02-link-button--danger" type="button" onClick={() => void removeOutlet(item)} disabled={busy}>Delete</button></div></td></tr>)}</tbody></table></div> : <EmptyMessage>No outlets configured for this Dealer.</EmptyMessage>) : <EmptyMessage>Select a Dealer to load its outlets.</EmptyMessage>}
+              {outletDealerId ? (outletList.length ? <div className="uc02-table-wrap"><table className="uc02-table"><thead><tr><th>Outlet</th><th>Location</th><th>PC Presence</th><th>Status</th><th>Actions</th></tr></thead><tbody>{outletList.map((item) => <tr key={item.outletId}><td><strong>{item.outletName}</strong><small>{item.outletCode}</small></td><td>{[item.addressText, item.city, item.stateRegion, item.postalCode].filter(Boolean).join(', ') || '—'}</td><td>{item.outletClassification === 'SATELLITE' ? 'Satellite' : 'Onsite'}</td><td><StatusPill value={item.status} compact /></td><td><div className="uc02-row-actions"><button className="uc02-link-button" type="button" onClick={() => openEditOutlet(item)}>Edit / Map</button><button className="uc02-link-button uc02-link-button--danger" type="button" onClick={() => void removeOutlet(item)} disabled={busy}>Delete</button></div></td></tr>)}</tbody></table></div> : <EmptyMessage>No outlets configured for this Dealer.</EmptyMessage>) : <EmptyMessage>Select a Dealer to load its outlets.</EmptyMessage>}
             </div>
-            {outletEditor && <form key={outletEditor.mode === 'edit' ? outletEditor.item.outletId : 'new-outlet'} className="uc02-card uc02-editor-panel uc02-outlet-editor" data-uc02-outlet-editor="true" onSubmit={submitOutlet}><div className="uc02-list-toolbar"><div className="uc02-card__title"><h3>{outletEditor.mode === 'new' ? 'Add Dealer Outlet' : `Edit ${outletEditor.item.outletName}`}</h3><p>Manual address, Google Maps preview and exact GPS pinning are supported.</p></div><button className="uc02-button" type="button" onClick={() => setOutletEditor(null)}>Close</button></div><div className="uc02-form-grid"><Field label="Dealer"><select required disabled value={outletForm.dealerId}>{dealers.map((item) => <option key={item.dealerId} value={item.dealerId}>{item.dealerName}</option>)}</select></Field><Field label="Outlet Name"><input required value={outletForm.outletName} onChange={(event) => setOutletForm({ ...outletForm, outletName: event.target.value })} /></Field><Field label="Classification"><select value={outletForm.outletClassification} onChange={(event) => setOutletForm({ ...outletForm, outletClassification: event.target.value as 'ONSITE' | 'SATELLITE' })}><option value="ONSITE">Onsite</option><option value="SATELLITE">Satellite</option></select></Field>{outletEditor.mode === 'edit' && <Field label="Status"><select value={outletForm.status} onChange={(event) => setOutletForm({ ...outletForm, status: event.target.value })}><option value="ACTIVE">Active</option><option value="INACTIVE">Inactive</option></select></Field>}</div><Field label="Address"><textarea value={outletForm.addressText} onChange={(event) => setOutletForm({ ...outletForm, addressText: event.target.value })} /></Field><div className="uc02-form-grid"><Field label="City"><input value={outletForm.city} onChange={(event) => setOutletForm({ ...outletForm, city: event.target.value })} /></Field><Field label="State / Region"><input value={outletForm.stateRegion} onChange={(event) => setOutletForm({ ...outletForm, stateRegion: event.target.value })} /></Field><Field label="Postal Code"><input value={outletForm.postalCode} onChange={(event) => setOutletForm({ ...outletForm, postalCode: event.target.value })} /></Field><Field label="Monthly Vehicle Volume"><input type="number" min="0" value={outletForm.monthlyVehicleVolume} onChange={(event) => setOutletForm({ ...outletForm, monthlyVehicleVolume: event.target.value })} /></Field></div><input type="hidden" name="latitude" defaultValue={outletEditor.mode === 'edit' && outletEditor.item.latitude != null ? String(outletEditor.item.latitude) : ''} /><input type="hidden" name="longitude" defaultValue={outletEditor.mode === 'edit' && outletEditor.item.longitude != null ? String(outletEditor.item.longitude) : ''} /><div className="uc02-actions"><button className="uc02-button uc02-button--primary" disabled={busy}>{busy ? 'Saving…' : 'Save Outlet'}</button></div></form>}
+            {outletEditor && <form key={outletEditor.mode === 'edit' ? outletEditor.item.outletId : 'new-outlet'} className="uc02-card uc02-editor-panel uc02-outlet-editor" data-uc02-outlet-editor="true" onSubmit={submitOutlet}><div className="uc02-list-toolbar"><div className="uc02-card__title"><h3>{outletEditor.mode === 'new' ? 'Add Dealer Outlet' : `Edit ${outletEditor.item.outletName}`}</h3><p>Manual address, Google Maps preview and exact GPS pinning are supported.</p></div><button className="uc02-button" type="button" onClick={() => setOutletEditor(null)}>Close</button></div><div className="uc02-form-grid"><Field label="Dealer"><select required disabled value={outletForm.dealerId}>{dealers.map((item) => <option key={item.dealerId} value={item.dealerId}>{item.dealerName}</option>)}</select></Field><Field label="Outlet Name"><input required value={outletForm.outletName} onChange={(event) => setOutletForm({ ...outletForm, outletName: event.target.value })} /></Field><Field label="Outlet Code" hint="e.g. AM-MAH-CUBE"><input value={outletForm.outletCode} maxLength={80} pattern="[A-Za-z0-9][A-Za-z0-9_.\-]*" onChange={(event) => setOutletForm({ ...outletForm, outletCode: event.target.value })} /></Field><Field label="PC Presence"><select value={outletForm.outletClassification} onChange={(event) => setOutletForm({ ...outletForm, outletClassification: event.target.value as 'ONSITE' | 'SATELLITE' })}><option value="ONSITE">Onsite</option><option value="SATELLITE">Satellite</option></select></Field>{outletEditor.mode === 'edit' && <Field label="Status"><select value={outletForm.status} onChange={(event) => setOutletForm({ ...outletForm, status: event.target.value })}><option value="ACTIVE">Active</option><option value="INACTIVE">Inactive</option></select></Field>}</div><Field label="Address"><textarea value={outletForm.addressText} onChange={(event) => setOutletForm({ ...outletForm, addressText: event.target.value })} /></Field><div className="uc02-form-grid"><Field label="City"><input value={outletForm.city} onChange={(event) => setOutletForm({ ...outletForm, city: event.target.value })} /></Field><Field label="State / Region"><input value={outletForm.stateRegion} onChange={(event) => setOutletForm({ ...outletForm, stateRegion: event.target.value })} /></Field><Field label="Postal Code"><input value={outletForm.postalCode} onChange={(event) => setOutletForm({ ...outletForm, postalCode: event.target.value })} /></Field><Field label="Monthly Car Sales Volume"><input type="number" min="0" value={outletForm.monthlyVehicleVolume} onChange={(event) => setOutletForm({ ...outletForm, monthlyVehicleVolume: event.target.value })} /></Field></div><input type="hidden" name="latitude" defaultValue={outletEditor.mode === 'edit' && outletEditor.item.latitude != null ? String(outletEditor.item.latitude) : ''} /><input type="hidden" name="longitude" defaultValue={outletEditor.mode === 'edit' && outletEditor.item.longitude != null ? String(outletEditor.item.longitude) : ''} /><div className="uc02-actions"><button className="uc02-button uc02-button--primary" disabled={busy}>{busy ? 'Saving…' : 'Save Outlet'}</button></div></form>}
           </div>
         )}
 

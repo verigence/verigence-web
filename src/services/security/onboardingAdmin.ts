@@ -88,6 +88,27 @@ async function readResponse<T>(response: Response): Promise<T> {
   return payload as T;
 }
 
+export interface GlobalUserCreateInput {
+  firstName: string;
+  lastName: string;
+  email: string;
+  mobile: string;
+  password: string;
+}
+
+/** SuperAdmin: create an ACTIVE user directly (no self-registration or email OTP). */
+export async function createGlobalUser(
+  accessToken: string,
+  input: GlobalUserCreateInput,
+): Promise<GlobalUserDirectoryItem> {
+  const response = await fetch(endpoint('/security/v1/platform/users'), {
+    method: 'POST',
+    headers: authHeaders(accessToken, true),
+    body: JSON.stringify(input),
+  });
+  return readResponse<GlobalUserDirectoryItem>(response);
+}
+
 /** Read the authoritative Security v2 global USER directory. */
 export async function listGlobalUsers(
   accessToken: string,

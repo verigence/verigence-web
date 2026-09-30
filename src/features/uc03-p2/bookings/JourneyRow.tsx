@@ -186,7 +186,6 @@ export default function JourneyRow({ item, role }: { item: P2JourneyListItem; ro
         ) : (
           <Link to={tasks} className="p2w-jrow__count" aria-label={`${myTasks} open ${role === 'TL' || role === 'PM' ? role : 'PC'} task${myTasks === 1 ? '' : 's'}`}>
             <strong>{myTasks}</strong>
-            <span className="p2w-muted">{myTasks === 1 ? 'open task' : 'open tasks'}</span>
           </Link>
         )}
         {!item.closed && role !== 'PC' ? <span className="p2w-muted">PC {item.pc_open_tasks ?? 0}</span> : null}

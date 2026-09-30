@@ -852,7 +852,22 @@ export type P2DealSource = { document: string; documentType: string; amount: Mon
 
 /** What the customer opted for on a line: taken or not, read from the
  * invoice once the deal has one, else from the booking form. */
-export type P2DealOpted = { taken: boolean; source: 'invoice' | 'booking' | 'insurance' | null };
+export type P2DealOpted = { taken: boolean; source: 'invoice' | 'booking' | 'insurance' | 'tl' | null };
+
+/** The Management Referral (MR) discount as the Team Lead set it. */
+export type P2ManagementReferral = {
+  opted: boolean; amount: string | null; reason: string | null;
+  setBy: string | null; setByRole: string | null; setAt: string | null;
+};
+
+export function setP2ManagementReferral(
+  tenantId: string, journeyId: string,
+  command: { opted: boolean; amount?: string; reason: string }, accessToken?: string,
+) {
+  return auditCoreRequest<P2ManagementReferral>(path(tenantId, `/journeys/${encodeURIComponent(journeyId)}/management-referral`), {
+    method: 'PUT', accessToken, body: JSON.stringify(command),
+  });
+}
 
 export type P2DealRow = {
   key: string;
@@ -891,6 +906,8 @@ export type P2DiscountRow = Omit<P2DealRow, 'standard' | 'quote' | 'effectiveSou
   eligibility?: string | null;
   evidenceStatus?: string | null;
   proof?: { documentType: string; document: string; onFile: boolean } | null;
+  /** On the MANAGEMENT_REFERRAL line only. */
+  management?: P2ManagementReferral;
 };
 
 export type P2DealSummary = {

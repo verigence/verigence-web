@@ -3,7 +3,7 @@ import { useMutation } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 
 import {
-  setP2InsuranceSource, setP2ManagementReferral,
+  raiseP2ManagementReferralTask, setP2InsuranceSource, setP2ManagementReferral,
   type Money, type P2Deal, type P2DealCategory, type P2DealInsurance, type P2DealOpted, type P2DealRow, type P2DiscountRow,
 } from '../../../services/audit-core/uc03P2';
 import { useProjectContextStore } from '../../../store/projectContextStore';
@@ -311,40 +311,54 @@ function ComponentRow({ row, journeyId, open, onToggle }: { row: P2DealRow; jour
   );
 }
 
-/** The Management Referral (MR) discount: opted out until a Team Lead opts
- * the journey in with the approved amount and a reason (decision
- * 2026-09-30; the TL's process follows). Nobody else can change it. */
+/** The Management Referral (MR) discount: opted out until a Team Lead
+ * raises the Enable MR task and completes it with the approved amount and
+ * a reason (decision 2026-09-30; the TL's process follows). The TL can
+ * opt the journey out again here. Nobody else can change it. */
 function ManagementReferral({ row, tenantId, journeyId, accessToken }: { row: P2DiscountRow; tenantId: string; journeyId: string; accessToken?: string }) {
   const role = useProjectContextStore((s) => s.selectedProject?.operatingRole);
   const refresh = useRefreshDeal(tenantId, journeyId);
   const current = row.management;
-  const [amount, setAmount] = useState(current?.amount ?? '');
+  const [amount, setAmount] = useState('');
   const [reason, setReason] = useState('');
-  const save = useMutation({
-    mutationFn: (command: { opted: boolean; amount?: string; reason: string }) => setP2ManagementReferral(tenantId, journeyId, command, accessToken),
+  const raise = useMutation({
+    mutationFn: (command: { amount: string; reason: string }) => raiseP2ManagementReferralTask(tenantId, journeyId, command, accessToken),
+    onSuccess: () => { setAmount(''); setReason(''); refresh(); },
+  });
+  const optOut = useMutation({
+    mutationFn: (command: { opted: false; reason: string }) => setP2ManagementReferral(tenantId, journeyId, command, accessToken),
     onSuccess: () => { setReason(''); refresh(); },
   });
+  const supervisor = role === 'TL' || role === 'PM';
   const note = current?.opted
     ? `Approved ${money(current.amount)} by ${current.setByRole ?? 'TL'}${current.reason ? `: ${current.reason}` : ''}`
-    : current?.setAt ? `Opted out by ${current.setByRole ?? 'TL'}${current.reason ? `: ${current.reason}` : ''}` : 'Opted out by default; no document carries it. A Team Lead opts a special case in.';
-  if (role !== 'TL' && role !== 'PM') return <p className="p2w-muted">{note}</p>;
+    : current?.task ? `Enable MR task open (proposed ${current.task.proposedAmount ? money(current.task.proposedAmount) : '—'}); it enables MR once the Team Lead completes it.`
+      : current?.setAt ? `Opted out by ${current.setByRole ?? 'TL'}${current.reason ? `: ${current.reason}` : ''}`
+        : 'Opted out by default; no document carries it. A Team Lead raises the Enable MR task for a special case.';
+  const error = raise.error ?? optOut.error;
   return (
     <div className="j360-mr">
       <p className="p2w-muted">{note}</p>
-      <div className="j360-mr__form">
-        <label>Approved amount<input type="number" min={1} step="1" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="₹" /></label>
-        <label>Reason<input type="text" maxLength={200} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Why this referral (required)" /></label>
-        <button type="button" className="p2w-button p2w-button--secondary"
-          disabled={save.isPending || reason.trim().length < 5 || !(Number(amount) > 0)}
-          onClick={() => save.mutate({ opted: true, amount: String(Number(amount)), reason: reason.trim() })}>
-          {save.isPending ? 'Saving…' : current?.opted ? 'Update MR' : 'Approve MR'}
-        </button>
-        {current?.opted ? (
-          <button type="button" className="p2w-button p2w-button--ghost" disabled={save.isPending || reason.trim().length < 5}
-            onClick={() => save.mutate({ opted: false, reason: reason.trim() })}>Opt out</button>
-        ) : null}
-      </div>
-      {save.isError ? <small className="j360-insurance-source__error">{save.error instanceof Error ? save.error.message : 'Could not save.'}</small> : null}
+      {current?.task ? <Link className="p2w-link" to="/p2/tasks">Open the task queue</Link> : null}
+      {supervisor && !current?.opted && !current?.task ? (
+        <div className="j360-mr__form">
+          <label>Proposed amount<input type="number" min={1} step="1" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="₹" /></label>
+          <label>Reason<input type="text" maxLength={200} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Why this referral (required)" /></label>
+          <button type="button" className="p2w-button p2w-button--secondary"
+            disabled={raise.isPending || reason.trim().length < 5 || !(Number(amount) > 0)}
+            onClick={() => raise.mutate({ amount: String(Number(amount)), reason: reason.trim() })}>
+            {raise.isPending ? 'Raising…' : 'Raise Enable MR task'}
+          </button>
+        </div>
+      ) : null}
+      {supervisor && current?.opted ? (
+        <div className="j360-mr__form">
+          <label>Reason<input type="text" maxLength={200} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Why MR is withdrawn (required)" /></label>
+          <button type="button" className="p2w-button p2w-button--ghost" disabled={optOut.isPending || reason.trim().length < 5}
+            onClick={() => optOut.mutate({ opted: false, reason: reason.trim() })}>{optOut.isPending ? 'Saving…' : 'Opt out'}</button>
+        </div>
+      ) : null}
+      {error ? <small className="j360-insurance-source__error">{error instanceof Error ? error.message : 'Could not save.'}</small> : null}
     </div>
   );
 }

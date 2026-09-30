@@ -5,6 +5,7 @@ import '../styles/uc03-p2.css';
 import '../styles/uc03-p2-workspace.css';
 
 import PageHeader from '../components/PageHeader';
+import RaiseTaskDialog from '../features/uc03-p2/tasks/RaiseTaskDialog';
 import {
   groupByJourney, taskPlan, vehicleIdentityError, type TaskAction, type VehicleIdentity,
 } from '../features/uc03-p2/tasks/p2TaskPlan';
@@ -204,7 +205,10 @@ function TaskRow({ task, open, onToggle, view, tenantId, accessToken, operatingR
             {status.label}
           </span>
           {view === 'open' ? <span className={due.overdue ? 'p2w-tone p2w-tone--danger' : 'p2w-muted'}>{due.label}</span> : null}
-          <span className="p2w-muted">{task.source_system === 'LEGACY' ? 'Phase 1 · ' : ''}{task.assigned_role_code}</span>
+          <span className="p2w-muted">
+            {task.source_system === 'LEGACY' ? 'Phase 1 · ' : ''}{task.assigned_role_code}
+            {task.origin_kind === 'HUMAN' && task.raised_by_role_code ? ` · raised by ${task.raised_by_role_code}` : ''}
+          </span>
           {task.comment_count ? <span className="p2w-muted">{task.comment_count} comment{task.comment_count === 1 ? '' : 's'}</span> : null}
         </span>
       </button>
@@ -223,6 +227,8 @@ function TaskRow({ task, open, onToggle, view, tenantId, accessToken, operatingR
  * upload, a value to verify by hand, data the audit could not find, or a
  * check that failed. */
 export function taskKind(task: P2Task): { key: 'documents' | 'verify' | 'data' | 'check'; label: string } {
+  if (task.task_type === 'TL_MANAGEMENT_REFERRAL') return { key: 'check', label: 'System task' };
+  if (task.task_type === 'TL_DATA_VIOLATION') return { key: 'check', label: 'Data violation' };
   if (task.queue_tab === 'MANUAL_VERIFICATION') return { key: 'verify', label: 'Manual verification' };
   if (task.queue_tab === 'DOCUMENTS') return { key: 'documents', label: 'Document missing' };
   const text = `${task.task_type} ${task.category}`.toUpperCase();
@@ -244,6 +250,8 @@ export default function P2TasksPage() {
   const [expanded, setExpanded] = useState<string | undefined>(search.get('task') ?? undefined);
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [notice, setNotice] = useState<string>();
+  const [raising, setRaising] = useState(false);
+  const supervisor = operatingRole === 'TL' || operatingRole === 'PM';
 
   const query = useQuery({
     queryKey: ['p2-tasks', tenantId, journeyId, view, mine ? operatingRole : 'all'],
@@ -279,13 +287,20 @@ export default function P2TasksPage() {
         eyebrow="Task Queue"
         title={journeyId ? 'Tasks for this booking' : 'Task Queue'}
         description="Everything that needs your action, grouped by booking, most urgent first. Tasks raised by the audit close themselves once the fix is verified."
-        actions={journeyId ? (
+        actions={journeyId || supervisor ? (
           <div className="p2w-header-links">
-            <Link className="p2w-link" to={`/p2/journeys/${journeyId}/documents`}>Documents</Link>
-            <Link className="p2w-link" to="/p2/tasks">All tasks</Link>
+            {supervisor && tenantId ? (
+              <button type="button" className="p2w-button p2w-button--primary" onClick={() => setRaising(true)}>Raise a task</button>
+            ) : null}
+            {journeyId ? <Link className="p2w-link" to={`/p2/journeys/${journeyId}/documents`}>Documents</Link> : null}
+            {journeyId ? <Link className="p2w-link" to="/p2/tasks">All tasks</Link> : null}
           </div>
         ) : undefined}
       />
+      {raising && tenantId ? (
+        <RaiseTaskDialog tenantId={tenantId} accessToken={accessToken} journeyId={journeyId}
+          onClose={() => setRaising(false)} onRaised={(message) => { setRaising(false); setNotice(message); }} />
+      ) : null}
 
       <div className="p2w-segment p2w-tabs-main" role="tablist" aria-label="Task type">
         {TABS.map((item) => (

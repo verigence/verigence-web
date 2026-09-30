@@ -879,6 +879,55 @@ export function raiseP2ManagementReferralTask(
   });
 }
 
+/** The kinds of task a Team Lead or PMO raises by hand on a journey
+ * (decision 2026-09-30). The System task enables Management Referral. */
+export type P2RaisedTaskKind = 'DOCUMENT_UPLOAD' | 'MANUAL_VERIFICATION' | 'DATA_VIOLATION' | 'SYSTEM_MR';
+
+export const P2_RAISED_TASK_KINDS: Array<{ kind: P2RaisedTaskKind; label: string; hint: string }> = [
+  { kind: 'DOCUMENT_UPLOAD', label: 'Document Upload', hint: 'The PC uploads a document that is missing or wrong.' },
+  { kind: 'MANUAL_VERIFICATION', label: 'Manual Verification', hint: 'The PC checks a value by hand and confirms it.' },
+  { kind: 'DATA_VIOLATION', label: 'Data Violation', hint: 'The PC corrects data that breaks a rule.' },
+  { kind: 'SYSTEM_MR', label: 'System Task · Enable MR', hint: 'A Team Lead enables the Management Referral discount on the journey.' },
+];
+
+const RAISED_TASK_TYPE: Record<Exclude<P2RaisedTaskKind, 'SYSTEM_MR'>, { taskType: string; title: string }> = {
+  DOCUMENT_UPLOAD: { taskType: 'TL_DOCUMENT_UPLOAD', title: 'Upload a document' },
+  MANUAL_VERIFICATION: { taskType: 'TL_MANUAL_VERIFICATION', title: 'Verify manually' },
+  DATA_VIOLATION: { taskType: 'TL_DATA_VIOLATION', title: 'Correct a data violation' },
+};
+
+export type P2Assignee = { actorId: string; displayName?: string | null; roleCode: string; journeyPc: boolean };
+
+/** The people a task on this journey can go to (active assignments in that role on its outlet). */
+export function getP2JourneyAssignees(tenantId: string, journeyId: string, accessToken?: string, role = 'PC') {
+  return auditCoreRequest<{ items: P2Assignee[] }>(
+    `${path(tenantId, `/journeys/${encodeURIComponent(journeyId)}/assignees`)}?role=${encodeURIComponent(role)}`,
+    { accessToken, cache: 'no-store' },
+  );
+}
+
+/** Raise a task by hand on a journey. The server takes the tab, the owner
+ * and the actions from the task template; a PC cannot call this. */
+export function raiseP2Task(
+  tenantId: string, journeyId: string,
+  command: { kind: P2RaisedTaskKind; description: string; assignedActorId?: string; priority?: 'NORMAL' | 'HIGH'; amount?: string; reason?: string },
+  accessToken?: string,
+) {
+  if (command.kind === 'SYSTEM_MR') {
+    return raiseP2ManagementReferralTask(tenantId, journeyId, { amount: command.amount ?? '', reason: command.reason ?? command.description }, accessToken);
+  }
+  const { taskType, title } = RAISED_TASK_TYPE[command.kind];
+  return auditCoreRequest<{ taskId: string; status: string }>(path(tenantId, `/journeys/${encodeURIComponent(journeyId)}/tasks`), {
+    method: 'POST', accessToken,
+    body: JSON.stringify({
+      taskType, category: 'HUMAN', title, description: command.description,
+      severity: command.priority === 'HIGH' ? 'HIGH' : 'MEDIUM', priority: command.priority ?? 'NORMAL',
+      assignedRoleCode: 'PC', assignedActorId: command.assignedActorId ?? null,
+      allowedActions: [], reference: { kind: command.kind },
+    }),
+  });
+}
+
 export function setP2ManagementReferral(
   tenantId: string, journeyId: string,
   command: { opted: boolean; amount?: string; reason: string }, accessToken?: string,

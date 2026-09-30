@@ -57,6 +57,18 @@
 .j360 .j360-switch::after { content: ''; position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(0, 0, 0, .25); transition: left .15s; }
 .j360 .j360-switch.is-on { background: #00afa8; }
 .j360 .j360-switch.is-on::after { left: 21px; }
+.j360 .j360-switch--small { width: 30px; height: 16px; }
+.j360 .j360-switch--small::after { top: 2px; left: 2px; width: 12px; height: 12px; }
+.j360 .j360-switch--small.is-on::after { left: 16px; }
+.j360 .j360-opted { display: inline-flex; align-items: center; gap: 6px; color: var(--p2w-muted); font-weight: 600; }
+.j360 .j360-opted small { font-size: .72rem; }
+.j360 .j360-sheet tr.is-excluded th, .j360 .j360-sheet tr.is-excluded td { opacity: .55; }
+.j360 .j360-sheet tbody.is-excluded tr.is-total th, .j360 .j360-sheet tbody.is-excluded tr.is-total td { opacity: .55; }
+.j360 .j360-insurance-source { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin-left: 12px; font-weight: 600; letter-spacing: 0; text-transform: none; }
+.j360 .j360-insurance-source select, .j360 .j360-insurance-source input { min-height: 30px; padding: 2px 8px; border: 1px solid var(--p2w-line); border-radius: 6px; font: inherit; font-size: .82rem; }
+.j360 .j360-insurance-source input { min-width: 220px; }
+.j360 .j360-insurance-source small { color: var(--p2w-muted); font-size: .74rem; }
+.j360 .j360-insurance-source__error { color: var(--p2w-danger); }
 .j360 .j360-items { margin: 0 0 16px; }
 .j360 .j360-facts + .j360-items { margin-top: 16px; }
 .j360 .j360-items__title { display: block; margin-bottom: 4px; color: var(--p2w-muted); font-size: .7rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }

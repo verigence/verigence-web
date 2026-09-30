@@ -75,6 +75,20 @@ export function taskPlan(task: P2Task, operatingRole?: string | null): TaskPlan 
   }
 
   const answers = taskAnswers(task);
+  if (answers.length && allowed.has('COMPLETE_ACTION') && ref.uploadFirst === true) {
+    // The check wants a document first (the insurance invoice); its answer
+    // is the way out when there is none to upload.
+    return {
+      primary: { label: 'Upload document', to: `/p2/journeys/${task.journey_id}/documents`, tone: 'primary' },
+      secondary: [
+        ...answers.map((item): TaskAction => ({
+          label: item.label, action: 'COMPLETE_ACTION', details: { answer: item.value },
+          requiresComment: Boolean(item.requiresComment), tone: 'danger',
+        })),
+        ...(canComment ? [{ label: 'Comment', action: 'ADD_COMMENT', requiresComment: true, tone: 'ghost' as const }] : []),
+      ],
+    };
+  }
   if (answers.length && allowed.has('COMPLETE_ACTION')) {
     // A yes/no question from a check (cash intimated? declaration on file?
     // NDC signed in your presence?): each answer is one button, "yes" first.

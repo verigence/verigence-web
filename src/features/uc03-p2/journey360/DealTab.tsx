@@ -1,10 +1,72 @@
 import { Fragment, useState } from 'react';
+import { useMutation } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 
-import type { Money, P2Deal, P2DealCategory, P2DealRow, P2DiscountRow } from '../../../services/audit-core/uc03P2';
+import {
+  setP2InsuranceSource,
+  type Money, type P2Deal, type P2DealCategory, type P2DealInsurance, type P2DealOpted, type P2DealRow, type P2DiscountRow,
+} from '../../../services/audit-core/uc03P2';
 import { humanizeKey } from '../workspace/p2Format';
-import { PricingPanel } from './DealControls';
+import { PricingPanel, useRefreshDeal } from './DealControls';
 import { FLAG_LABELS, money, recordField, signedMoney, varianceTone } from './j360Format';
+
+/** What the customer opted for on this line, as a small switch: on is
+ * taken, read from the invoice once the deal has one, else the booking. */
+function Opted({ opted }: { opted?: P2DealOpted | null }) {
+  if (!opted) return null;
+  const text = `${opted.taken ? 'Taken' : 'Opted out'}${opted.source ? ` per ${opted.source === 'invoice' ? 'invoice' : 'booking form'}` : ''}`;
+  return (
+    <span className="j360-opted" title={text}>
+      <span className={`j360-switch j360-switch--small${opted.taken ? ' is-on' : ''}`} role="img" aria-label={text} />
+      <small>{opted.taken ? 'Taken' : 'Opted out'}</small>
+    </span>
+  );
+}
+
+/** Inhouse (through the dealership; the premium is part of the deal) or
+ * Self (the customer arranged it; the premium is not). Inhouse until the
+ * PC says otherwise; Self needs a word on how they know. */
+function InsuranceSource({ insurance, tenantId, journeyId, accessToken }: {
+  insurance: P2DealInsurance; tenantId: string; journeyId: string; accessToken?: string;
+}) {
+  const refresh = useRefreshDeal(tenantId, journeyId);
+  const [choice, setChoice] = useState<P2DealInsurance['source']>(insurance.source);
+  const [reason, setReason] = useState('');
+  const save = useMutation({
+    mutationFn: (command: { source: P2DealInsurance['source']; reason?: string }) =>
+      setP2InsuranceSource(tenantId, journeyId, command, accessToken),
+    onSuccess: () => { setReason(''); refresh(); },
+  });
+  const pending = choice === 'SELF' && insurance.source !== 'SELF';
+  return (
+    <span className="j360-insurance-source" onClick={(event) => event.stopPropagation()}>
+      <label>
+        <span className="p2w-visually-hidden">Insurance</span>
+        <select value={choice} disabled={save.isPending}
+          onChange={(event) => {
+            const source = event.target.value as P2DealInsurance['source'];
+            setChoice(source);
+            if (source === 'INHOUSE' && insurance.source !== 'INHOUSE') save.mutate({ source });
+          }}>
+          <option value="INHOUSE">Inhouse</option>
+          <option value="SELF">Self</option>
+        </select>
+      </label>
+      {pending ? (
+        <>
+          <input type="text" value={reason} placeholder="How do you know? (required)" maxLength={200}
+            onChange={(event) => setReason(event.target.value)} />
+          <button type="button" className="p2w-button p2w-button--secondary" disabled={reason.trim().length < 5 || save.isPending}
+            onClick={() => save.mutate({ source: 'SELF', reason: reason.trim() })}>{save.isPending ? 'Saving…' : 'Confirm Self'}</button>
+        </>
+      ) : (
+        <small>{insurance.source === 'SELF' ? 'Self: premium not in the deal' : 'Inhouse: premium in the deal'}
+          {insurance.decidedBy === 'PC' ? ' · confirmed by PC' : ' · assumed'}</small>
+      )}
+      {save.isError ? <small className="j360-insurance-source__error">{save.error instanceof Error ? save.error.message : 'Could not save.'}</small> : null}
+    </span>
+  );
+}
 
 function Flags({ flags }: { flags: string[] }) {
   if (!flags.length) return null;
@@ -211,10 +273,12 @@ const SHEET_COLUMNS = 6;
 function ComponentRow({ row, journeyId, open, onToggle }: { row: P2DealRow; journeyId: string; open: boolean; onToggle: () => void }) {
   return (
     <Fragment>
-      <tr className={row.flags.length ? 'is-flagged' : ''}>
+      <tr className={`${row.flags.length ? 'is-flagged' : ''}${row.excluded ? ' is-excluded' : ''}`}>
         <th scope="row">
           <button type="button" className="j360-rowbtn" aria-expanded={open} onClick={onToggle}>
             <span>{row.label}</span>
+            <Opted opted={row.opted} />
+            {row.excluded ? <small className="p2w-muted">Self insurance, not in the deal</small> : null}
             <Flags flags={row.flags} />
           </button>
         </th>
@@ -250,6 +314,7 @@ function DiscountRow({ row, journeyId, open, onToggle }: { row: P2DiscountRow; j
         <th scope="row">
           <button type="button" className="j360-rowbtn" aria-expanded={open} onClick={onToggle}>
             <span>{row.label}</span>
+            <Opted opted={row.opted} />
             {row.scheme?.name ? <small className="p2w-muted">{row.scheme.name}{row.scheme.version ? ` · v${row.scheme.version}` : ''}</small> : null}
             <Flags flags={row.flags} />
           </button>
@@ -365,8 +430,15 @@ export default function DealTab({ deal, journeyId, tenantId, accessToken }: {
               </tr>
             </thead>
             {deal.categories.map((category) => (
-              <tbody key={category.code}>
-                <tr className="j360-sheet__group"><th scope="rowgroup" colSpan={SHEET_COLUMNS}>{category.label}</th></tr>
+              <tbody key={category.code} className={category.excluded ? 'is-excluded' : ''}>
+                <tr className="j360-sheet__group">
+                  <th scope="rowgroup" colSpan={SHEET_COLUMNS}>
+                    {category.label}
+                    {category.code === 'INSURANCE' && deal.insurance ? (
+                      <InsuranceSource insurance={deal.insurance} tenantId={tenantId} journeyId={journeyId} accessToken={accessToken} />
+                    ) : null}
+                  </th>
+                </tr>
                 {category.components.map((row) => (
                   <ComponentRow key={row.key} row={row} journeyId={journeyId} open={open === row.key} onToggle={() => toggle(row.key)} />
                 ))}
@@ -404,7 +476,9 @@ export default function DealTab({ deal, journeyId, tenantId, accessToken }: {
         </div>
         <p className="p2w-muted j360-footnote">
           The invoice is the source of truth: where a component has been invoiced its billed value stands, the booking figure holds only until then.
+          The switch on a discount, the accessories and the extended warranty shows what the customer opted for, per the invoice once one is read, else per the booking form.
           Variances compare a line only where both sides price it.
+          {deal.insurance?.source === 'SELF' ? ' The customer arranged their own insurance: the premium is shown but kept out of every total.' : ''}
           {summary.variance.billedVsBooking && Number(summary.variance.billedVsBooking) !== 0
             ? ` Invoiced lines differ from the booking by ${signedMoney(summary.variance.billedVsBooking)}.` : ''}
         </p>

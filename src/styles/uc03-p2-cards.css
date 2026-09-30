@@ -21,20 +21,20 @@
 
 /* ---------------------------------------------------------- journey rows */
 .p2w .p2w-jtable { width: 100%; table-layout: fixed; border-collapse: separate; border-spacing: 0 6px; }
-.p2w .p2w-jtable th.col-customer { width: 22%; }
-.p2w .p2w-jtable th.col-price { width: 12%; }
-.p2w .p2w-jtable th.col-stage { width: 12%; }
-.p2w .p2w-jtable th.col-next { width: 22%; }
-.p2w .p2w-jtable th.col-when { width: 16%; }
-.p2w .p2w-jtable th.col-journey { width: 16%; }
+.p2w .p2w-jtable th.col-customer { width: 24%; }
+.p2w .p2w-jtable th.col-price { width: 13%; }
+.p2w .p2w-jtable th.col-stage { width: 14%; }
+.p2w .p2w-jtable th.col-next { width: 10%; }
+.p2w .p2w-jtable th.col-when { width: 19%; }
+.p2w .p2w-jtable th.col-journey { width: 20%; }
 .p2w .p2w-jtable th.col-act { width: 112px; }
-.p2w .p2w-jtable.has-where th.col-customer { width: 18%; }
-.p2w .p2w-jtable.has-where th.col-price { width: 10%; }
-.p2w .p2w-jtable.has-where th.col-stage { width: 12%; }
-.p2w .p2w-jtable.has-where th.col-next { width: 17%; }
-.p2w .p2w-jtable.has-where th.col-when { width: 15%; }
-.p2w .p2w-jtable.has-where th.col-journey { width: 14%; }
-.p2w .p2w-jtable.has-where th.col-where { width: 14%; }
+.p2w .p2w-jtable.has-where th.col-customer { width: 19%; }
+.p2w .p2w-jtable.has-where th.col-price { width: 11%; }
+.p2w .p2w-jtable.has-where th.col-stage { width: 13%; }
+.p2w .p2w-jtable.has-where th.col-next { width: 9%; }
+.p2w .p2w-jtable.has-where th.col-when { width: 16%; }
+.p2w .p2w-jtable.has-where th.col-journey { width: 16%; }
+.p2w .p2w-jtable.has-where th.col-where { width: 16%; }
 .p2w .p2w-jtable thead th {
   padding: 0 12px 2px;
   color: var(--p2w-navy);
@@ -71,7 +71,7 @@
 .p2w .p2w-jrow__price strong.is-favourable { color: var(--p2w-success); }
 .p2w .p2w-jrow__next strong { color: var(--p2w-navy); font-size: .9rem; line-height: 1.3; }
 .p2w .p2w-jrow__count { display: flex; align-items: baseline; gap: 6px; color: inherit; text-decoration: none; }
-.p2w .p2w-jrow__count strong { font-size: 1.3rem; font-weight: 800; }
+.p2w .p2w-jrow__count strong { font-size: 1.3rem; font-weight: 800; line-height: 1.2; }
 .p2w .p2w-jrow__count:hover strong { color: var(--p2w-link); text-decoration: underline; }
 .p2w .p2w-jrow__overdue { color: var(--p2w-danger); font-weight: 700; }
 .p2w .p2w-jrow td.p2w-jrow__act { overflow: visible; text-align: right; white-space: nowrap; }

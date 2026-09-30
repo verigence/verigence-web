@@ -71,6 +71,9 @@
 .j360 .j360-insurance-source__error { color: var(--p2w-danger); }
 .j360 .j360-items { margin: 0 0 16px; }
 .j360 .j360-facts + .j360-items { margin-top: 16px; }
+.j360 .j360-standard { display: grid; gap: 16px; margin-top: 12px; }
+.j360 .j360-standard .j360-items li.is-muted { opacity: .55; }
+.j360 .j360-standard .j360-items li small { display: block; font-weight: 400; }
 .j360 .j360-items__title { display: block; margin-bottom: 4px; color: var(--p2w-muted); font-size: .7rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
 .j360 .j360-items ul { margin: 0; padding: 0; list-style: none; }
 .j360 .j360-items li { display: flex; justify-content: space-between; gap: 16px; padding: 7px 0; border-bottom: 1px solid #eef2f6; font-size: .9rem; }

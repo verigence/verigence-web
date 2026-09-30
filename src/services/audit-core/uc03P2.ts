@@ -942,6 +942,51 @@ export function setP2InsuranceSource(
   });
 }
 
+/** One master line in the SKU standard (decision 2026-09-30). */
+export type P2StandardBenefit = {
+  key: string; label: string; amount: string | null; percentage: string | null;
+  scheme: { code: string; name: string; category: string; version: number; validFrom: string | null; validTo: string | null; combinability: string | null };
+  scope: 'MODEL' | 'VARIANT'; section: string | null; schemeType: string | null; oldVehicleModel: string | null;
+  description: string | null; contributions: Record<string, string> | null;
+};
+
+export type P2JourneyStandard = {
+  journeyId: string;
+  on: string | null;
+  skuCode?: string | null;
+  model?: string | null;
+  variant?: string | null;
+  available: boolean;
+  reason?: string;
+  basis?: 'INDIVIDUAL' | 'CORPORATE';
+  sku?: { productSkuId: string; skuCode: string; model: string; variant: string; trim: string | null; fuel: string | null;
+    transmission: string | null; drive: string | null; seater: string | null; category: string | null };
+  priceList?: {
+    priceListVersionId: string; priceList: string | null; version: number | null; effectiveFrom: string | null; effectiveTo: string | null;
+    components: Array<{ key: string; label: string; commercialKey: string | null; amount: string | null; priceSince: string | null }>;
+    onRoad: { individual: string | null; corporate: string | null; basis: string; amount: string | null };
+  };
+  consumerScheme?: { benefits: P2StandardBenefit[]; total: string | null } | null;
+  exchangeScheme?: { scenario: string; benefits: P2StandardBenefit[]; applicable: P2StandardBenefit[]; applicableMax: string | null } | null;
+  corporate?: {
+    byCategory: Record<string, P2StandardBenefit>; range: { min: string | null; max: string | null } | null;
+    corporate: { lookedUp: string; found: boolean; code?: string; name?: string; type?: string | null; privilegeCategory?: string } | null;
+    exact: P2StandardBenefit | null;
+  } | null;
+  grid?: {
+    version: number; effectiveFrom: string | null; effectiveTo: string | null; modelAsWritten: string; inScope: boolean;
+    bookingProtectionDays: number | null; agreedBuffer: string | null; insuranceOdPercentMax: string | null;
+    outOfTerritory: string | null; parameters: Array<{ parameter: string; note: string }>;
+  } | null;
+  summary?: { onRoad: string | null; consumerBenefits: string | null; exchangeBenefit: string | null; corporateBenefit: string | null;
+    standardNet: string | null; standardNetForQuantity: string | null };
+  unknown?: string[];
+};
+
+export function getP2JourneyStandard(tenantId: string, journeyId: string, accessToken?: string) {
+  return auditCoreRequest<P2JourneyStandard>(path(tenantId, `/journeys/${encodeURIComponent(journeyId)}/standard`), { accessToken });
+}
+
 export type P2ControlItem = {
   code: string;
   label: string;

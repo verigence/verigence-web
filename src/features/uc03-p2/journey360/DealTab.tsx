@@ -3,9 +3,10 @@ import { useMutation } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 
 import {
-  setP2InsuranceSource,
+  setP2InsuranceSource, setP2ManagementReferral,
   type Money, type P2Deal, type P2DealCategory, type P2DealInsurance, type P2DealOpted, type P2DealRow, type P2DiscountRow,
 } from '../../../services/audit-core/uc03P2';
+import { useProjectContextStore } from '../../../store/projectContextStore';
 import { humanizeKey } from '../workspace/p2Format';
 import { PricingPanel, useRefreshDeal } from './DealControls';
 import { FLAG_LABELS, money, recordField, signedMoney, varianceTone } from './j360Format';
@@ -14,9 +15,12 @@ import { FLAG_LABELS, money, recordField, signedMoney, varianceTone } from './j3
  * taken, read from the invoice once the deal has one, else the booking. */
 function Opted({ opted }: { opted?: P2DealOpted | null }) {
   if (!opted) return null;  // a mandatory line: nothing to opt
-  const label = opted.source === 'insurance' ? (opted.taken ? 'Inhouse' : 'Self') : opted.taken ? 'Taken' : 'Opted out';
+  const label = opted.source === 'insurance' ? (opted.taken ? 'Inhouse' : 'Self')
+    : opted.source === 'tl' ? (opted.taken ? 'Approved' : 'Not approved')
+      : opted.taken ? 'Taken' : 'Opted out';
   const text = opted.source === 'insurance' ? `Insurance ${label.toLowerCase()}`
-    : `${label}${opted.source ? ` per ${opted.source === 'invoice' ? 'invoice' : 'booking form'}` : ''}`;
+    : opted.source === 'tl' ? `${label} by the Team Lead`
+      : `${label}${opted.source ? ` per ${opted.source === 'invoice' ? 'invoice' : 'booking form'}` : ''}`;
   return (
     <span className="j360-opted" title={text}>
       <span className={`j360-switch j360-switch--small${opted.taken ? ' is-on' : ''}`} role="img" aria-label={text} />
@@ -307,7 +311,47 @@ function ComponentRow({ row, journeyId, open, onToggle }: { row: P2DealRow; jour
   );
 }
 
-function DiscountRow({ row, journeyId, open, onToggle }: { row: P2DiscountRow; journeyId: string; open: boolean; onToggle: () => void }) {
+/** The Management Referral (MR) discount: opted out until a Team Lead opts
+ * the journey in with the approved amount and a reason (decision
+ * 2026-09-30; the TL's process follows). Nobody else can change it. */
+function ManagementReferral({ row, tenantId, journeyId, accessToken }: { row: P2DiscountRow; tenantId: string; journeyId: string; accessToken?: string }) {
+  const role = useProjectContextStore((s) => s.selectedProject?.operatingRole);
+  const refresh = useRefreshDeal(tenantId, journeyId);
+  const current = row.management;
+  const [amount, setAmount] = useState(current?.amount ?? '');
+  const [reason, setReason] = useState('');
+  const save = useMutation({
+    mutationFn: (command: { opted: boolean; amount?: string; reason: string }) => setP2ManagementReferral(tenantId, journeyId, command, accessToken),
+    onSuccess: () => { setReason(''); refresh(); },
+  });
+  const note = current?.opted
+    ? `Approved ${money(current.amount)} by ${current.setByRole ?? 'TL'}${current.reason ? `: ${current.reason}` : ''}`
+    : current?.setAt ? `Opted out by ${current.setByRole ?? 'TL'}${current.reason ? `: ${current.reason}` : ''}` : 'Opted out by default; no document carries it. A Team Lead opts a special case in.';
+  if (role !== 'TL' && role !== 'PM') return <p className="p2w-muted">{note}</p>;
+  return (
+    <div className="j360-mr">
+      <p className="p2w-muted">{note}</p>
+      <div className="j360-mr__form">
+        <label>Approved amount<input type="number" min={1} step="1" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="₹" /></label>
+        <label>Reason<input type="text" maxLength={200} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Why this referral (required)" /></label>
+        <button type="button" className="p2w-button p2w-button--secondary"
+          disabled={save.isPending || reason.trim().length < 5 || !(Number(amount) > 0)}
+          onClick={() => save.mutate({ opted: true, amount: String(Number(amount)), reason: reason.trim() })}>
+          {save.isPending ? 'Saving…' : current?.opted ? 'Update MR' : 'Approve MR'}
+        </button>
+        {current?.opted ? (
+          <button type="button" className="p2w-button p2w-button--ghost" disabled={save.isPending || reason.trim().length < 5}
+            onClick={() => save.mutate({ opted: false, reason: reason.trim() })}>Opt out</button>
+        ) : null}
+      </div>
+      {save.isError ? <small className="j360-insurance-source__error">{save.error instanceof Error ? save.error.message : 'Could not save.'}</small> : null}
+    </div>
+  );
+}
+
+function DiscountRow({ row, journeyId, tenantId, accessToken, open, onToggle }: {
+  row: P2DiscountRow; journeyId: string; tenantId: string; accessToken?: string; open: boolean; onToggle: () => void;
+}) {
   return (
     <Fragment>
       <tr className={row.flags.length ? 'is-flagged' : ''}>
@@ -327,8 +371,12 @@ function DiscountRow({ row, journeyId, open, onToggle }: { row: P2DiscountRow; j
       {open ? (
         <tr className="j360-detail">
           <td colSpan={SHEET_COLUMNS}>
-            <p><Eligibility row={row} /></p>
-            <SchemeNote row={row} />
+            {row.key === 'MANAGEMENT_REFERRAL' ? <ManagementReferral row={row} tenantId={tenantId} journeyId={journeyId} accessToken={accessToken} /> : (
+              <>
+                <p><Eligibility row={row} /></p>
+                <SchemeNote row={row} />
+              </>
+            )}
             <Sources row={row} journeyId={journeyId} />
           </td>
         </tr>
@@ -457,7 +505,7 @@ export default function DealTab({ deal, journeyId, tenantId, accessToken }: {
               <tbody>
                 <tr className="j360-sheet__group"><th scope="rowgroup" colSpan={SHEET_COLUMNS}>Less discounts and scheme benefits <small>entitled · booking · invoice</small></th></tr>
                 {deal.discounts.map((row) => (
-                  <DiscountRow key={row.key} row={row} journeyId={journeyId} open={open === `d:${row.key}`} onToggle={() => toggle(`d:${row.key}`)} />
+                  <DiscountRow key={row.key} row={row} journeyId={journeyId} tenantId={tenantId} accessToken={accessToken} open={open === `d:${row.key}`} onToggle={() => toggle(`d:${row.key}`)} />
                 ))}
               </tbody>
             ) : null}

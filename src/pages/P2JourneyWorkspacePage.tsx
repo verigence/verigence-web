@@ -17,7 +17,7 @@ import P2RecheckButton from '../features/uc03-p2/workspace/P2RecheckButton';
 import P2UploadStatus from '../features/uc03-p2/workspace/P2UploadStatus';
 import { useP2LiveStatus } from '../features/uc03-p2/workspace/useP2LiveStatus';
 import P2DocumentEditor from '../features/uc03-p2/workspace/P2DocumentEditor';
-import P2DocumentList, { buildDocumentRows, OTHER_DOCUMENT_TEMPLATE } from '../features/uc03-p2/workspace/P2DocumentList';
+import P2DocumentList, { buildDocumentRows, type DocumentRow, OTHER_DOCUMENT_TEMPLATE } from '../features/uc03-p2/workspace/P2DocumentList';
 import P2UploadPanel, { type P2UploadPanelHandle } from '../features/uc03-p2/workspace/P2UploadPanel';
 import { BATCH_IN_FLIGHT, PAGE_IN_FLIGHT } from '../features/uc03-p2/workspace/p2Format';
 import { useP2EventFeed } from '../features/uc03-p2/workspace/useP2EventFeed';
@@ -55,6 +55,20 @@ export function expectedDocuments(templates: P2Template[]): P2ChecklistItem[] {
 
 function errorText(cause: unknown, fallback: string): string {
   return cause instanceof Error && cause.message ? cause.message : fallback;
+}
+
+/** "file.pdf pages 11, 13, 15" per file: the task carries the rest. */
+function failedSummary(rows: DocumentRow[]): string {
+  const byFile = new Map<string, number[]>();
+  for (const row of rows) {
+    const file = row.batch?.original_filename || row.name;
+    const pages = row.unit ? (row.unit.pageNumbers?.length ? row.unit.pageNumbers : [row.unit.page_number]) : [];
+    byFile.set(file, [...(byFile.get(file) ?? []), ...pages.filter((n): n is number => typeof n === 'number')]);
+  }
+  return [...byFile.entries()].map(([file, pages]) => {
+    const sorted = [...new Set(pages)].sort((a, b) => a - b);
+    return sorted.length ? `${file} ${sorted.length === 1 ? 'page' : 'pages'} ${sorted.join(', ')}` : file;
+  }).join('; ');
 }
 
 export default function P2JourneyWorkspacePage() {
@@ -261,10 +275,11 @@ export default function P2JourneyWorkspacePage() {
         </div>
       ) : null}
       {failed.length && !isNew ? (
-        <div className="p2w-alert p2w-alert--error p2w-alert--stack" role="alert">
-          <strong>{failed.length === 1 ? 'One page' : `${failed.length} pages`} could not be processed.</strong>
-          <ul>{failed.map((row) => <li key={row.key}><b>{row.subtitle || row.name}</b>{row.reason ? ` · ${row.reason}` : ''}</li>)}</ul>
-          <span>Retry the page from its card, remove the upload and add the file again, or delete this booking if nothing on it can be used. Deleting keeps the documents and history in the audit record and tells your Team Lead.</span>
+        <div className="p2w-alert p2w-alert--stack" role="status">
+          <span>
+            <strong>{failed.length === 1 ? 'One page' : `${failed.length} pages`} could not be processed:</strong> {failedSummary(failed)}.
+            {' '}Your task says which pages to upload again. <Link className="p2w-link" to={`/p2/journeys/${journeyId}/tasks`}>Open tasks</Link>
+          </span>
           <button type="button" className="p2w-button p2w-button--danger" onClick={() => setDeleting(true)}>Delete this booking</button>
         </div>
       ) : null}

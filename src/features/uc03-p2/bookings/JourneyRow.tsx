@@ -129,7 +129,8 @@ function Steps({ active, cancelled }: { active: number; cancelled: boolean }) {
 /**
  * One journey per row: who and which car, the price against standard, how
  * far along (a PC) or which PC and outlet (a TL or PM), what it needs next,
- * the booking and delivery dates, when the journey opened and closed for
+ * the booking confirmation (minimum amount received) and gate pass dates,
+ * when the journey opened and closed for
  * the reader's role, for a TL or PM the dealer and outlet, and an Actions
  * menu (Complete journey, Journey 360, the tasks for your role).
  *
@@ -185,7 +186,7 @@ export default function JourneyRow({ item, role }: { item: P2JourneyListItem; ro
       </td>
       <td className="p2w-jrow__when" data-label="Booking and delivery">
         <span>{item.booking_confirm_date ? `Booking ${fullDate(item.booking_confirm_date)}` : 'Not booked yet'}</span>
-        <span className="p2w-muted">{item.delivery_completed_at ? `Delivery ${fullDate(item.delivery_completed_at)}` : 'Not delivered yet'}</span>
+        <span className="p2w-muted">{item.delivered_at ? `Delivery ${fullDate(item.delivered_at)}` : 'No gate pass yet'}</span>
       </td>
       <td className="p2w-jrow__journey" data-label="Journey">
         {role === 'PC' ? (

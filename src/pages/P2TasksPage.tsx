@@ -50,6 +50,25 @@ function VehicleIdForm({ busy, onSubmit }: { busy: boolean; onSubmit: (values: V
   );
 }
 
+function ManagementReferralForm({ busy, proposedAmount, proposedReason, onSubmit }: {
+  busy: boolean; proposedAmount?: string; proposedReason?: string; onSubmit: (values: { amount: string; reason: string }) => void;
+}) {
+  const [amount, setAmount] = useState(proposedAmount ?? '');
+  const [reason, setReason] = useState(proposedReason ?? '');
+  return (
+    <form className="p2w-vehicle-id" onSubmit={(event) => { event.preventDefault(); onSubmit({ amount: String(Number(amount)), reason: reason.trim() }); }}>
+      <p className="p2w-muted">Completing this task enables the Management Referral discount on the journey for the amount below.</p>
+      <div className="p2w-vehicle-id__fields">
+        <label><span>Approved amount (₹)</span><input type="number" min={1} step="1" value={amount} onChange={(e) => setAmount(e.target.value)} /></label>
+        <label><span>Reason</span><input value={reason} maxLength={200} onChange={(e) => setReason(e.target.value)} placeholder="Why this referral" /></label>
+      </div>
+      <button type="submit" className="p2w-button p2w-button--confirm" disabled={busy || !(Number(amount) > 0) || reason.trim().length < 5}>
+        {busy ? 'Enabling…' : 'Enable MR'}
+      </button>
+    </form>
+  );
+}
+
 function TaskDetail({ task, tenantId, accessToken, operatingRole, onDone }: {
   task: P2Task;
   tenantId: string;
@@ -77,6 +96,7 @@ function TaskDetail({ task, tenantId, accessToken, operatingRole, onDone }: {
       void queryClient.invalidateQueries({ queryKey: ['p2-task', tenantId, task.task_id] });
       onDone(action.action === 'ADD_COMMENT' ? 'Comment added.'
         : action.action === 'PROVIDE_VEHICLE_ID' ? 'Vehicle number saved. The task closes itself once it is checked.'
+        : task.task_type === 'TL_MANAGEMENT_REFERRAL' && action.action === 'COMPLETE_ACTION' ? 'Management Referral enabled on the journey.'
         : task.task_type === 'DELIVERY_REVIEW' ? 'Delivery marked as reviewed.'
         : action.action === 'CONFIRM_BREACH' ? 'Breach confirmed. The finding is closed with your verdict.'
         : action.action === 'MARK_FALSE_POSITIVE' ? 'Rejected as a false positive. The finding is closed.'
@@ -114,6 +134,12 @@ function TaskDetail({ task, tenantId, accessToken, operatingRole, onDone }: {
       {plan.vehicleId ? (
         <VehicleIdForm busy={run.isPending}
           onSubmit={(values) => run.mutate({ label: 'Save vehicle number', action: 'PROVIDE_VEHICLE_ID', tone: 'secondary', details: values })} />
+      ) : null}
+      {plan.managementReferral ? (
+        <ManagementReferralForm busy={run.isPending}
+          proposedAmount={typeof ref.proposedAmount === 'string' ? ref.proposedAmount : undefined}
+          proposedReason={typeof ref.reason === 'string' ? ref.reason : undefined}
+          onSubmit={(values) => run.mutate({ label: 'Enable MR', action: 'COMPLETE_ACTION', tone: 'confirm', details: values })} />
       ) : null}
       {task.source_system !== 'LEGACY' ? (
         <label className="p2w-task__comment">

@@ -20,7 +20,11 @@ export function taskAnswers(task: P2Task): Answer[] {
     && typeof (a as Answer).value === 'string' && typeof (a as Answer).label === 'string');
 }
 
-export type TaskPlan = { primary?: TaskAction; secondary: TaskAction[]; waiting?: string; vehicleId?: boolean };
+export type TaskPlan = {
+  primary?: TaskAction; secondary: TaskAction[]; waiting?: string; vehicleId?: boolean;
+  /** The Enable MR task: a Team Lead completes it with the amount and reason (form in TaskDetail). */
+  managementReferral?: boolean;
+};
 
 const WAITING: Record<string, string> = {
   VERIFYING: 'Checking your fix automatically…',
@@ -145,6 +149,15 @@ export function taskPlan(task: P2Task, operatingRole?: string | null): TaskPlan 
         { label: 'Compliance report', to: `/p2/journeys/${task.journey_id}/compliance-report`, tone: 'ghost' },
         ...(canComment ? [{ label: 'Comment', action: 'ADD_COMMENT', requiresComment: true, tone: 'ghost' as const }] : []),
       ],
+    };
+  }
+  if (task.task_type === 'TL_MANAGEMENT_REFERRAL') {
+    return {
+      secondary: [
+        { label: 'Open Journey 360', to: `/p2/journeys/${task.journey_id}/overview?tab=deal`, tone: 'ghost' },
+        ...(canComment ? [{ label: 'Comment', action: 'ADD_COMMENT', requiresComment: true, tone: 'ghost' as const }] : []),
+      ],
+      managementReferral: supervisor,
     };
   }
   if (allowed.has('PROVIDE_VEHICLE_ID')) {

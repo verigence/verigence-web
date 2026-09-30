@@ -858,7 +858,26 @@ export type P2DealOpted = { taken: boolean; source: 'invoice' | 'booking' | 'ins
 export type P2ManagementReferral = {
   opted: boolean; amount: string | null; reason: string | null;
   setBy: string | null; setByRole: string | null; setAt: string | null;
+  /** The open "Enable MR" task, when a Team Lead has raised one. */
+  task?: { taskId: string; status: string; proposedAmount?: string | null; reason?: string | null } | null;
 };
+
+/** A Team Lead raises the MR task on a journey; completing it enables MR. */
+export function raiseP2ManagementReferralTask(
+  tenantId: string, journeyId: string, command: { amount: string; reason: string }, accessToken?: string,
+) {
+  return auditCoreRequest<{ taskId: string; status: string }>(path(tenantId, `/journeys/${encodeURIComponent(journeyId)}/tasks`), {
+    method: 'POST', accessToken,
+    body: JSON.stringify({
+      taskType: 'TL_MANAGEMENT_REFERRAL', category: 'PROCESS_CONFIRMATION',
+      title: 'Enable Management Referral (MR)',
+      description: `Enable the Management Referral discount of ₹${command.amount} on this journey. ${command.reason}`,
+      severity: 'MEDIUM', priority: 'HIGH', assignedRoleCode: 'TL',
+      allowedActions: ['COMPLETE_ACTION', 'ADD_COMMENT'],
+      reference: { kind: 'MANAGEMENT_REFERRAL', proposedAmount: command.amount, reason: command.reason },
+    }),
+  });
+}
 
 export function setP2ManagementReferral(
   tenantId: string, journeyId: string,

@@ -29,7 +29,7 @@ function errorText(cause: unknown, fallback: string): string {
 /** "Price list name v3 · effective from 01 Jul 2026": which master applies. */
 function priceListLabel(ref: P2Pricing['appliedPriceList']): string {
   if (!ref) return 'no price list effective';
-  return `${ref.priceList ?? 'Price list'} v${ref.version ?? '?'} · effective from ${dateLabel(ref.effectiveFrom)}`;
+  return `${ref.priceList ?? 'Price list'} v${ref.version ?? '?'}`;
 }
 
 function dateLabel(value?: string | null): string {
@@ -99,6 +99,10 @@ export function PricingPanel({ tenantId, journeyId, accessToken }: Props) {
               <span className="p2w-muted">The booking form has no booking date. A task asks the PC to enter it on the form.</span>
             </>
           )}
+        </div>
+        <div>
+          <span className="j360-label">Price master w.e.f.</span>
+          <strong>{p.appliedPriceList?.effectiveFrom ? dateLabel(p.appliedPriceList.effectiveFrom) : '—'}</strong>
         </div>
         <div className="j360-pricing__actions">
           <button type="button" className="p2w-button p2w-button--secondary" onClick={() => setPicking(true)}>

@@ -148,7 +148,7 @@ export default function P2JourneyListPage() {
         </h2>
         {visible.length ? (
           <table className={`p2w-jtable${role !== 'PC' ? ' has-where' : ''}`}>
-            <thead><tr><th className="col-customer">Customer</th><th className="col-price">Price variance</th><th className="col-stage">{role === 'PC' ? 'Stage' : 'PC · Outlet ID'}</th><th className="col-next">Next</th><th className="col-when">Booking · Delivery</th><th className="col-journey">Journey</th>{role !== 'PC' ? <th className="col-where">Dealer · Outlet</th> : null}<th className="col-act"><span className="p2w-visually-hidden">Actions</span></th></tr></thead>
+            <thead><tr><th className="col-customer">Customer</th><th className="col-price">Price variance</th><th className="col-stage">{role === 'PC' ? 'Stage' : 'PC · Outlet ID'}</th><th className="col-next">Open tasks</th><th className="col-when">Deal period</th><th className="col-journey">Audit timeline · Open / Close</th>{role !== 'PC' ? <th className="col-where">Dealer · Outlet</th> : null}<th className="col-act"><span className="p2w-visually-hidden">Actions</span></th></tr></thead>
             <tbody>
               {visible.map((item) => <JourneyRow key={item.journey_id} item={item} role={role} />)}
             </tbody>
@@ -174,7 +174,7 @@ export default function P2JourneyListPage() {
           <>
             {closedItems.length ? (
               <table className={`p2w-jtable${role !== 'PC' ? ' has-where' : ''}`}>
-            <thead><tr><th className="col-customer">Customer</th><th className="col-price">Price variance</th><th className="col-stage">{role === 'PC' ? 'Stage' : 'PC · Outlet ID'}</th><th className="col-next">Next</th><th className="col-when">Booking · Delivery</th><th className="col-journey">Journey</th>{role !== 'PC' ? <th className="col-where">Dealer · Outlet</th> : null}<th className="col-act"><span className="p2w-visually-hidden">Actions</span></th></tr></thead>
+            <thead><tr><th className="col-customer">Customer</th><th className="col-price">Price variance</th><th className="col-stage">{role === 'PC' ? 'Stage' : 'PC · Outlet ID'}</th><th className="col-next">Open tasks</th><th className="col-when">Deal period</th><th className="col-journey">Audit timeline · Open / Close</th>{role !== 'PC' ? <th className="col-where">Dealer · Outlet</th> : null}<th className="col-act"><span className="p2w-visually-hidden">Actions</span></th></tr></thead>
             <tbody>
                   {closedItems.map((item) => <JourneyRow key={item.journey_id} item={item} role={role} />)}
                 </tbody>

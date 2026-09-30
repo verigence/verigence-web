@@ -70,6 +70,10 @@
 .p2w .p2w-jrow__price strong.is-adverse { color: var(--p2w-danger); }
 .p2w .p2w-jrow__price strong.is-favourable { color: var(--p2w-success); }
 .p2w .p2w-jrow__next strong { color: var(--p2w-navy); font-size: .9rem; line-height: 1.3; }
+.p2w .p2w-jrow__count { display: flex; align-items: baseline; gap: 6px; color: inherit; text-decoration: none; }
+.p2w .p2w-jrow__count strong { font-size: 1.3rem; font-weight: 800; }
+.p2w .p2w-jrow__count:hover strong { color: var(--p2w-link); text-decoration: underline; }
+.p2w .p2w-jrow__overdue { color: var(--p2w-danger); font-weight: 700; }
 .p2w .p2w-jrow td.p2w-jrow__act { overflow: visible; text-align: right; white-space: nowrap; }
 
 /* Six steps in one line, Booking then Delivery. */

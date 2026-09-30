@@ -143,7 +143,7 @@ export default function JourneyRow({ item, role }: { item: P2JourneyListItem; ro
   const cancelled = Boolean(item.cancelled);
   const active = cancelled ? -1 : activeStep(item.current_stage, delivered);
   const customer = customerLabel(item.customer_name);
-  const next = nextAction(item, role);
+  const next = nextAction(item, role);  // its priority colours the row
   const overview = `/p2/journeys/${item.journey_id}/overview`;
   const documents = `/p2/journeys/${item.journey_id}/documents`;
   const tasks = `/p2/journeys/${item.journey_id}/tasks`;
@@ -180,24 +180,32 @@ export default function JourneyRow({ item, role }: { item: P2JourneyListItem; ro
           <span className="p2w-muted">{item.outlet_code ? `Outlet ${item.outlet_code}` : 'Outlet ID not recorded'}</span>
         </td>
       )}
-      <td className="p2w-jrow__next" data-label="Next">
-        <strong>{next.title}</strong>
-        {next.detail ? <span className="p2w-muted">{next.detail}</span> : null}
+      <td className="p2w-jrow__next" data-label="Open tasks">
+        {item.closed ? (
+          <strong>{cancelled ? 'Cancelled' : 'Delivered'}</strong>
+        ) : (
+          <Link to={tasks} className="p2w-jrow__count" aria-label={`${myTasks} open ${role === 'TL' || role === 'PM' ? role : 'PC'} task${myTasks === 1 ? '' : 's'}`}>
+            <strong>{myTasks}</strong>
+            <span className="p2w-muted">{myTasks === 1 ? 'open task' : 'open tasks'}</span>
+          </Link>
+        )}
+        {!item.closed && role !== 'PC' ? <span className="p2w-muted">PC {item.pc_open_tasks ?? 0}</span> : null}
+        {!item.closed && item.overdue_tasks ? <span className="p2w-jrow__overdue">{item.overdue_tasks} overdue</span> : null}
       </td>
-      <td className="p2w-jrow__when" data-label="Booking and delivery">
+      <td className="p2w-jrow__when" data-label="Deal period">
         <span>{item.booking_confirm_date ? `Booking ${fullDate(item.booking_confirm_date)}` : 'Not booked yet'}</span>
         <span className="p2w-muted">{item.delivered_at ? `Delivery ${fullDate(item.delivered_at)}` : 'No gate pass yet'}</span>
       </td>
-      <td className="p2w-jrow__journey" data-label="Journey">
+      <td className="p2w-jrow__journey" data-label="Audit timeline">
         {role === 'PC' ? (
           <>
-            <span>{item.opened_at ? `Opened ${fullDate(item.opened_at)}` : 'Not opened yet'}</span>
-            <span className="p2w-muted">{item.delivery_completed_at ? `Closed ${fullDate(item.delivery_completed_at)}` : cancelled ? 'Cancelled' : 'Open'}</span>
+            <span>{item.opened_at ? `Open ${fullDate(item.opened_at)}` : 'Not opened yet'}</span>
+            <span className="p2w-muted">{item.delivery_completed_at ? `Close ${fullDate(item.delivery_completed_at)}` : cancelled ? 'Cancelled' : 'Not closed yet'}</span>
           </>
         ) : (
           <>
-            <span>{item.delivery_completed_at ? `Started ${fullDate(item.delivery_completed_at)}` : cancelled ? 'Cancelled' : 'Not started yet'}</span>
-            <span className="p2w-muted">{item.delivery_reviewed_at ? `Closed ${fullDate(item.delivery_reviewed_at)}` : item.delivery_completed_at ? 'Open' : 'With PC'}</span>
+            <span>{item.delivery_completed_at ? `Open ${fullDate(item.delivery_completed_at)}` : cancelled ? 'Cancelled' : 'Not open yet, with PC'}</span>
+            <span className="p2w-muted">{item.delivery_reviewed_at ? `Close ${fullDate(item.delivery_reviewed_at)}` : 'Not closed yet'}</span>
           </>
         )}
       </td>

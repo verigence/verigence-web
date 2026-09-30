@@ -850,9 +850,17 @@ export type Money = string | null;
 
 export type P2DealSource = { document: string; documentType: string; amount: Money; documentId?: string | null };
 
+/** What the customer opted for on a line: taken or not, read from the
+ * invoice once the deal has one, else from the booking form. */
+export type P2DealOpted = { taken: boolean; source: 'invoice' | 'booking' | null };
+
 export type P2DealRow = {
   key: string;
   label: string;
+  /** Present on the discounts, accessories and extended warranty only. */
+  opted?: P2DealOpted | null;
+  /** Insurance the customer arranged (Self): shown, kept out of every total. */
+  excluded?: boolean;
   standard: Money;
   booking: Money;
   billed: Money;
@@ -869,6 +877,7 @@ export type P2DealRow = {
 export type P2DealCategory = {
   code: string;
   label: string;
+  excluded?: boolean;
   components: P2DealRow[];
   totals: Record<'standard' | 'booking' | 'billed' | 'ledger' | 'effective', Money>;
 };
@@ -906,12 +915,32 @@ export type P2Deal = {
   };
   categories: P2DealCategory[];
   discounts: P2DiscountRow[];
+  /** Inhouse (through the dealership, premium in the deal) or Self (the
+   * customer arranged it, premium out). Inhouse until the PC says otherwise. */
+  insurance?: P2DealInsurance;
   /** The invoices consolidated into the sheet: retail, tax, accessory, warranty... */
   invoices?: Array<{ documentId: string; documentType: string; label: string; number?: unknown; date?: unknown; total: Money }>;
   declared: Array<{ key: string; label: string; booking: Money; billed: Money; ledger: Money; quote: Money; sources: P2DealSource[] }>;
   summary: P2DealSummary;
   flagged: number;
 };
+
+export type P2DealInsurance = {
+  source: 'INHOUSE' | 'SELF';
+  decidedBy: 'PC' | 'DEFAULT';
+  decidedAt?: string | null;
+  invoiceOnFile: boolean;
+  vehicleInvoiced: boolean;
+};
+
+export function setP2InsuranceSource(
+  tenantId: string, journeyId: string,
+  command: { source: P2DealInsurance['source']; reason?: string }, accessToken?: string,
+) {
+  return auditCoreRequest<P2DealInsurance>(path(tenantId, `/journeys/${encodeURIComponent(journeyId)}/insurance-source`), {
+    method: 'PUT', accessToken, body: JSON.stringify(command),
+  });
+}
 
 export type P2ControlItem = {
   code: string;

@@ -38,7 +38,7 @@ function dateLabel(value?: string | null): string {
   return Number.isNaN(date.getTime()) ? value : new Intl.DateTimeFormat('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }).format(date);
 }
 
-function useRefreshDeal(tenantId: string, journeyId: string) {
+export function useRefreshDeal(tenantId: string, journeyId: string) {
   const queryClient = useQueryClient();
   return () => {
     void queryClient.invalidateQueries({ queryKey: ['p2-pricing', tenantId, journeyId] });

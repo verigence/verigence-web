@@ -45,6 +45,11 @@ export default function P2UploadStatus({ counts, rows, live, processing = [] }: 
               </span>
             ))}
             {processing.length > shown.length ? <span className="p2w-muted">+{processing.length - shown.length} more</span> : null}
+            {processing.length > 1 ? (
+              <span className="p2w-muted">
+                A file with many pages takes a few minutes. You can leave this page: if it is still not done after an hour, a task tells you.
+              </span>
+            ) : null}
           </span>
         ) : <span className="p2w-muted">Nothing being processed. Add a document and its progress shows here.</span>}
       </p>

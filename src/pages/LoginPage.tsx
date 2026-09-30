@@ -114,7 +114,7 @@ export default function LoginPage() {
         restoreOperationalContextHint(login.accessToken, queryClient);
       }
       setPassword('');
-      navigate(returnTo ?? (superAdmin ? '/approvals' : '/dashboard'), { replace: true });
+      navigate(returnTo ?? (superAdmin ? '/approvals' : '/home'), { replace: true });
 
       // Deliberately start remembered-session setup only after normal authentication has completed
       // and navigation has begun. This adds no latency or availability dependency to today's login.

@@ -287,7 +287,7 @@ export default function P2JourneyWorkspacePage() {
       {degraded && !live.connected ? <div className="p2w-alert">Live updates are delayed; the screen refreshes automatically.</div> : null}
       {retrying.length && !isNew ? (
         <div className="p2w-alert" role="status">
-          <span>{retrying.length === 1 ? 'One page' : `${retrying.length} pages`} could not be processed just now and will be retried automatically over the next hour. You can leave this page and check back later.</span>
+          <span>{retrying.length === 1 ? 'One page' : `${retrying.length} pages`} could not be processed just now and will be retried automatically over the next few hours (15, 30, 60 and 120 minutes apart). You can leave this page and check back later.</span>
         </div>
       ) : null}
       {failed.length && !isNew ? (

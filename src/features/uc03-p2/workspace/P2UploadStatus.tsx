@@ -1,23 +1,41 @@
-import type { P2UploadCounts } from '../../../services/audit-core/uc03P2';
+import type { P2DocumentDefect, P2DocumentHealthSummary, P2UploadCounts } from '../../../services/audit-core/uc03P2';
 import type { DocumentRow } from './P2DocumentList';
-import { PAGE_IN_FLIGHT, pageStatus } from './p2Format';
+import { PAGE_IN_FLIGHT } from './p2Format';
 
 const BEFORE_CLASSIFICATION = new Set(['QUEUED', 'PREPARING_PAGE', 'DI_UPLOAD_PREPARING', 'DI_UPLOADING', 'DI_FINALIZING', 'CLASSIFYING', 'RETRY_WAIT']);
 
 export type ProcessingItem = { key: string; name: string; status: string };
+export type DocumentHealth = { summary: P2DocumentHealthSummary; defects: P2DocumentDefect[] };
+
+const pages = (n: number) => (n === 1 ? '1 page' : `${n} pages`);
+
+/** The issues the pipeline owes an answer for, in the order a PC acts on
+ * them (decision 2026-10-01). Each names its action; the cards offer it. */
+export function healthIssues(summary?: P2DocumentHealthSummary | null): string[] {
+  if (!summary) return [];
+  const issues: string[] = [];
+  if (summary.stuck) issues.push(`${pages(summary.stuck)} waiting on the document service for over 8 hours (Re-sync asks again; retried tonight)`);
+  if (summary.notRead) issues.push(`${pages(summary.notRead)} classified but not read (Read again)`);
+  if (summary.nothingRead) issues.push(`${pages(summary.nothingRead)} read with nothing found (Read again)`);
+  if (summary.rejected) issues.push(`${pages(summary.rejected)} rejected for quality (Upload again)`);
+  if (summary.failed) issues.push(`${pages(summary.failed)} failed (Retry)`);
+  if (summary.unclassified) issues.push(`${pages(summary.unclassified)} not classified (Set type)`);
+  return issues;
+}
 
 /**
  * The five numbers a PC or TL watches while documents are processed
- * (uploaded, classified, extracted, duplicates, not classified), and under
- * them what is being worked on right now, updated live as each page moves
- * from upload to classification to extraction. There is no submit step:
+ * (uploaded, classified, extracted, duplicates, not classified), how many
+ * pages are being worked on right now, and the issues the pipeline still
+ * owes an answer for. The cards below show each page's own state, so the
+ * strip never lists pages one by one (issue 16). There is no submit step:
  * Booking and Delivery complete from the documents and the rules.
  */
-export default function P2UploadStatus({ counts, rows, live, processing = [] }: {
-  counts?: P2UploadCounts; rows?: DocumentRow[]; live?: boolean; processing?: ProcessingItem[];
+export default function P2UploadStatus({ counts, rows, live, processing = [], health }: {
+  counts?: P2UploadCounts; rows?: DocumentRow[]; live?: boolean; processing?: ProcessingItem[]; health?: DocumentHealth | null;
 }) {
   if (!counts) return null;
-  const shown = processing.slice(0, 4);
+  const issues = healthIssues(health?.summary);
   // Count what the screen lists. The server's counts cover the Phase 2
   // upload queue only, so documents linked earlier (an existing journey,
   // a re-linked evidence) showed a row of zeros above a full grid.
@@ -40,20 +58,22 @@ export default function P2UploadStatus({ counts, rows, live, processing = [] }: 
         </span>
         {processing.length ? (
           <span className="p2w-statusbar__working">
-            {shown.map((item) => (
-              <span key={item.key} className="p2w-statusbar__item">
-                <i className="p2w-spinner" aria-hidden="true" />{item.name} · {pageStatus(item.status).label.toLowerCase()}…
-              </span>
-            ))}
-            {processing.length > shown.length ? <span className="p2w-muted">+{processing.length - shown.length} more</span> : null}
+            <span className="p2w-statusbar__item">
+              <i className="p2w-spinner" aria-hidden="true" />{pages(processing.length)} being identified or read…
+            </span>
             {processing.length > 1 ? (
               <span className="p2w-muted">
                 A file with many pages takes a few minutes. You can leave this page: if it is still not done after an hour, a task tells you.
               </span>
             ) : null}
           </span>
-        ) : <span className="p2w-muted">Nothing being processed. Add a document and its progress shows here.</span>}
+        ) : issues.length ? null : <span className="p2w-muted">Nothing being processed. Add a document and its progress shows here.</span>}
       </p>
+      {issues.length ? (
+        <ul className="p2w-statusbar__issues" aria-label="Document issues">
+          {issues.map((issue) => <li key={issue}>{issue}</li>)}
+        </ul>
+      ) : null}
     </section>
   );
 }

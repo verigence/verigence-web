@@ -171,3 +171,42 @@ describe('live status push', () => {
     expect(next?.batches[0].pages[0].templateKey).toBe('booking_docket');
   });
 });
+
+describe('document health (decision 2026-10-01)', () => {
+  it('carries each page\'s health and the evidence it is linked under onto its row', async () => {
+    const { buildDocumentRows } = await import('../P2DocumentList');
+    const page = (queueId: string, status: string, health: NonNullable<import('../../../../services/audit-core/uc03P2').P2DocumentPage['health']>) => ({
+      queueId, page_number: 1, client_upload_id: `u-${queueId}`, diDocumentId: `doc-${queueId}`, queue_status: status,
+      attempt_count: 1, extracted_field_count: 0, created_at_utc: '2026-10-01T00:00:00Z', updated_at_utc: '2026-10-01T00:00:00Z',
+      templateKey: 'pan_card', health,
+    });
+    const rows = buildDocumentRows(
+      [{
+        batchId: 'b1', original_filename: 'scan.pdf', size_bytes: 1, page_count: 2, batch_status: 'PROCESSING',
+        created_at_utc: '2026-10-01T00:00:00Z', updated_at_utc: '2026-10-01T00:00:00Z',
+        pages: [
+          page('q1', 'READY', { state: 'SUPERSEDED', action: 'RESTORE', ageSeconds: 10 }),
+          page('q2', 'EXTRACTING', { state: 'STUCK', action: 'READ_AGAIN', ageSeconds: 9 * 3600 }),
+        ],
+      }],
+      [{ evidenceId: 'e1', documentId: 'doc-q1', association_status: 'SUPERSEDED', linked_at_utc: '2026-10-01T00:00:00Z' }],
+    );
+    expect(rows.map((row) => [row.key, row.health?.state, row.health?.action, row.evidenceId])).toEqual([
+      ['q1', 'SUPERSEDED', 'RESTORE', 'e1'],
+      ['q2', 'STUCK', 'READ_AGAIN', undefined],
+    ]);
+  });
+
+  it('names every issue the pipeline owes an answer for, with its action', async () => {
+    const { healthIssues } = await import('../P2UploadStatus');
+    expect(healthIssues(undefined)).toEqual([]);
+    expect(healthIssues({
+      read: 3, waiting: 1, stuck: 2, notRead: 1, nothingRead: 0, rejected: 1, failed: 0, unclassified: 1, others: 0, superseded: 0, defects: 3,
+    })).toEqual([
+      '2 pages waiting on the document service for over 8 hours (Re-sync asks again; retried tonight)',
+      '1 page classified but not read (Read again)',
+      '1 page rejected for quality (Upload again)',
+      '1 page not classified (Set type)',
+    ]);
+  });
+});

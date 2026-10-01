@@ -146,6 +146,8 @@ export interface AnalyticsProductivity {
   rows: Array<{
     actor_role: string;
     actor_id: string;
+    actor_name: string;
+    staff_role_code: string | null;
     activity_date: string | null;
     activity_count: number;
   }>;

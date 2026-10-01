@@ -366,24 +366,27 @@ export default function AnalyticsReportViews({ payload }: { payload: AnalyticsRe
     case 'productivity': {
       const { rows } = payload.data;
       const activities = rows.reduce((sum, row) => sum + row.activity_count, 0);
-      const actorTotals = aggregate(rows, (row) => row.actor_id, (row) => row.activity_count);
+      // Group by actor_name (resolved display name) for display; fall back to actor_id
+      const actorTotals = aggregate(rows, (row) => row.actor_name || row.actor_id, (row) => row.activity_count);
       const roleTotals = aggregate(rows, (row) => humanize(row.actor_role), (row) => row.activity_count);
       const employees = actorTotals.filter((row) => row.label !== 'UNSPECIFIED').length;
-      const topActorKeys = actorTotals.slice(0, 10).map((row) => row.label);
+      const topActorNames = actorTotals.slice(0, 10).map((row) => row.label);
       const dateKeys = Array.from(new Set(rows.map((row) => row.activity_date).filter((value): value is string => Boolean(value)))).sort().slice(-14);
-      const heatRows = rows.filter((row) => topActorKeys.includes(row.actor_id) && row.activity_date && dateKeys.includes(row.activity_date));
-      const activityMatrix = matrixFromRows(heatRows, dateKeys, topActorKeys, (row) => row.activity_date || '', (row) => row.actor_id, (row) => row.activity_count);
+      const heatRows = rows.filter((row) => {
+        const name = row.actor_name || row.actor_id;
+        return topActorNames.includes(name) && row.activity_date && dateKeys.includes(row.activity_date);
+      });
+      const activityMatrix = matrixFromRows(heatRows, dateKeys, topActorNames, (row) => row.activity_date || '', (row) => row.actor_name || row.actor_id, (row) => row.activity_count);
       return <>
         <div className="analytics-employee-summary">
           <HeroStat eyebrow="Recorded workflow activity" value={formatNumber(activities)} title={`${formatNumber(employees)} employees represented`} detail={employees ? `${formatNumber(Math.round(activities / employees))} recorded activities per represented employee on average.` : 'No employee activity captured.'} />
-          <RankedList title="Most active employees" description="Current snapshot ranking by recorded workflow activity." items={actorTotals.slice(0, 8).map((row) => ({ label: compactActor(row.label), value: formatNumber(row.value), meta: `${percent(row.value, activities)} of recorded activity` }))} />
+          <RankedList title="Most active employees" description="Current snapshot ranking by recorded workflow activity." items={actorTotals.slice(0, 8).map((row) => ({ label: row.label, value: formatNumber(row.value), meta: `${percent(row.value, activities)} of recorded activity` }))} />
         </div>
         <div className="analytics-split analytics-split--employees">
           <SectionCard title="Activity by Role" description="Share of recorded workflow activity by operational role."><AnalyticsDonutChart rows={roleTotals} valueLabel="Activities" /></SectionCard>
-          <SectionCard title="Employee Activity Calendar" description="Activity concentration across the most active employees and the latest captured dates."><AnalyticsHeatmap xLabels={dateKeys.map(formatShortDate)} yLabels={topActorKeys.map(compactActor)} cells={activityMatrix} valueLabel="Activities" /></SectionCard>
+          <SectionCard title="Employee Activity Calendar" description="Activity concentration across the most active employees and the latest captured dates."><AnalyticsHeatmap xLabels={dateKeys.map(formatShortDate)} yLabels={topActorNames} cells={activityMatrix} valueLabel="Activities" /></SectionCard>
         </div>
-        <p className="analytics-footnote">Employee names are not present in the current Analytics payload; actor IDs are shown without inventing directory data.</p>
-        <DetailDisclosure title="View employee activity detail" headers={['Role', 'Employee / Actor', 'Date', 'Activities']} rows={rows.slice(0, 100).map((row) => [humanize(row.actor_role), row.actor_id, row.activity_date || '—', formatNumber(row.activity_count)])} />
+        <DetailDisclosure title="View employee activity detail" headers={['Role', 'Employee', 'Date', 'Activities']} rows={rows.slice(0, 200).map((row) => [humanize(row.actor_role), row.actor_name || row.actor_id, row.activity_date || '—', formatNumber(row.activity_count)])} />
       </>;
     }
   }

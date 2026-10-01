@@ -29,6 +29,8 @@ import {
   getP2Templates,
   p2UploadTransport,
   replaceP2Document,
+  rereadP2Page,
+  restoreP2DocumentCopy,
   retryP2Page,
   setP2PageType,
   type P2ChecklistItem,
@@ -170,6 +172,20 @@ export default function P2JourneyWorkspacePage() {
   const openDocument = (id: string) => navigate(`/p2/journeys/${journeyId}/documents/${id}`);
   const closeDocument = () => navigate(`/p2/journeys/${journeyId}/documents`);
 
+  const reread = useMutation({
+    mutationFn: (queueId: string) => rereadP2Page(tenantId!, journeyId, queueId, accessToken),
+    onMutate: (queueId) => setBusyKey(queueId),
+    onSettled: () => setBusyKey(undefined),
+    onSuccess: () => { setNotice({ tone: 'success', text: 'Document Intelligence is asked to read this page again. Nothing is uploaded again.' }); refresh(); },
+    onError: (cause) => setNotice({ tone: 'error', text: errorText(cause, 'The page could not be sent for reading again.') }),
+  });
+  const restore = useMutation({
+    mutationFn: (evidenceId: string) => restoreP2DocumentCopy(tenantId!, journeyId, evidenceId, accessToken),
+    onMutate: (evidenceId) => setBusyKey(rows.find((row) => row.evidenceId === evidenceId)?.key),
+    onSettled: () => setBusyKey(undefined),
+    onSuccess: () => { setNotice({ tone: 'success', text: 'The earlier copy is in use again; the newer one is kept as replaced.' }); refresh(); },
+    onError: (cause) => setNotice({ tone: 'error', text: errorText(cause, 'The copy could not be restored.') }),
+  });
   const retry = useMutation({
     mutationFn: (queueId: string) => retryP2Page(tenantId!, journeyId, queueId, accessToken),
     onMutate: (queueId) => setBusyKey(queueId),
@@ -291,7 +307,8 @@ export default function P2JourneyWorkspacePage() {
       ) : null}
 
       {!isNew && tenantId && journeyId ? (
-        <P2UploadStatus counts={documents.data?.counts} rows={rows} live={live.connected} processing={processing.map((row) => ({ key: row.key, name: row.name === 'Identifying document…' ? row.subtitle : row.name, status: row.status }))} />
+        <P2UploadStatus counts={documents.data?.counts} rows={rows} live={live.connected} health={documents.data?.documentHealth}
+          processing={processing.map((row) => ({ key: row.key, name: row.name === 'Identifying document…' ? row.subtitle : row.name, status: row.status }))} />
       ) : null}
 
       <div className="p2w-segment p2w-tabs-main" role="tablist" aria-label="What to add">
@@ -319,6 +336,8 @@ export default function P2JourneyWorkspacePage() {
               selectedDocumentId={documentId}
               onOpen={openDocument}
               onRetry={(queueId) => retry.mutate(queueId)}
+              onReread={(queueId) => reread.mutate(queueId)}
+              onRestore={(evidenceId) => restore.mutate(evidenceId)}
               onSetType={(queueId, templateKey, name) => setType.mutate({ queueId, templateKey, name })}
               onAdd={() => uploadPanel.current?.openFiles()}
               busyKey={busyKey}

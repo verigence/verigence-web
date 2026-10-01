@@ -197,8 +197,29 @@ export type P2ControlStatistics = {
   errors: number;
 };
 
+/** One page's health (decision 2026-10-01): a classified page holds values
+ * within eight hours or names the one action a person can take. */
+export type P2PageHealthState =
+  | 'READ' | 'WAITING' | 'STUCK' | 'NOT_READ' | 'NOTHING_READ' | 'REJECTED' | 'FAILED'
+  | 'UNCLASSIFIED' | 'OTHERS' | 'SUPERSEDED' | 'HIDDEN';
+export type P2PageHealthAction = 'READ_AGAIN' | 'UPLOAD_AGAIN' | 'RETRY' | 'SET_TYPE' | 'RESTORE';
+export type P2PageHealth = {
+  state: P2PageHealthState;
+  action: P2PageHealthAction | null;
+  since?: string | null;
+  ageSeconds: number;
+};
+export type P2DocumentHealthSummary = Record<
+  'read' | 'waiting' | 'stuck' | 'notRead' | 'nothingRead' | 'rejected' | 'failed'
+  | 'unclassified' | 'others' | 'superseded' | 'defects', number>;
+export type P2DocumentDefect = {
+  queueId: string; batchId: string; filename: string; pageNumbers: number[];
+  templateKey?: string | null; state: P2PageHealthState; since?: string | null;
+};
+
 export type P2DocumentPage = {
   queueId: string;
+  health?: P2PageHealth | null;
   unitKind?: 'PAGE' | 'GROUP';
   pageNumbers?: number[];
   mergedIntoQueueId?: string | null;
@@ -281,6 +302,7 @@ export type P2DocumentsResponse = {
   checklist?: P2ChecklistItem[];
   conditions?: string[];
   counts?: P2UploadCounts;
+  documentHealth?: { summary: P2DocumentHealthSummary; defects: P2DocumentDefect[] };
 };
 
 export type P2TemplateField = {
@@ -494,6 +516,31 @@ export function confirmP2Field(
 export function retryP2Page(tenantId: string, journeyId: string, queueId: string, accessToken?: string) {
   return auditCoreRequest(
     path(tenantId, `/journeys/${encodeURIComponent(journeyId)}/pages/${encodeURIComponent(queueId)}:retry`),
+    { method: 'POST', accessToken },
+  );
+}
+
+/** Ask Document Intelligence to read a page it already holds once more
+ * (never a re-upload). 409 when the page is already read. */
+export function rereadP2Page(tenantId: string, journeyId: string, queueId: string, accessToken?: string) {
+  return auditCoreRequest<{ queueId: string; status: string }>(
+    path(tenantId, `/journeys/${encodeURIComponent(journeyId)}/pages/${encodeURIComponent(queueId)}:reread`),
+    { method: 'POST', accessToken },
+  );
+}
+
+/** Copy a page's values from Document Intelligence again, with no new reading. */
+export function resyncP2Page(tenantId: string, journeyId: string, queueId: string, accessToken?: string) {
+  return auditCoreRequest<{ queueId: string; status: string }>(
+    path(tenantId, `/journeys/${encodeURIComponent(journeyId)}/pages/${encodeURIComponent(queueId)}:resync`),
+    { method: 'POST', accessToken },
+  );
+}
+
+/** Make a superseded copy of a single-slot document the active one again. */
+export function restoreP2DocumentCopy(tenantId: string, journeyId: string, evidenceId: string, accessToken?: string) {
+  return auditCoreRequest<{ evidenceId: string; documentId: string; status: string; supersededEvidenceId: string | null }>(
+    path(tenantId, `/journeys/${encodeURIComponent(journeyId)}/documents/${encodeURIComponent(evidenceId)}:restore`),
     { method: 'POST', accessToken },
   );
 }
@@ -1408,7 +1455,10 @@ export function getP2PricingCatalog(tenantId: string, journeyId: string, onDate?
 }
 
 export function recheckP2Journey(tenantId: string, journeyId: string, accessToken?: string) {
-  return auditCoreRequest<{ journeyId: string; factVersion: number; checks: string[] }>(
+  return auditCoreRequest<{
+    journeyId: string; factVersion: number; checks: string[];
+    pagesReread?: number; documentHealth?: P2DocumentHealthSummary;
+  }>(
     path(tenantId, `/journeys/${encodeURIComponent(journeyId)}:recheck`), { method: 'POST', accessToken },
   );
 }

@@ -5,6 +5,7 @@ import type {
   P2DocumentBatch,
   P2DocumentLineage,
   P2DocumentPage,
+  P2PageHealth,
   P2Template,
 } from '../../../services/audit-core/uc03P2';
 import { formatDateTime, humanizeKey, pageStatus, PAGE_IN_FLIGHT, type Tone } from './p2Format';
@@ -21,6 +22,10 @@ export type DocumentRow = {
   reason?: string | null;
   stage?: string | null;
   templateKey?: string | null;
+  /** The page's health from Audit Core (decision 2026-10-01); absent for an earlier upload. */
+  health?: P2PageHealth | null;
+  /** The evidence row this page's document is linked under, when known (needed to restore a superseded copy). */
+  evidenceId?: string;
 };
 
 function pagesLabel(unit: P2DocumentPage, batch: P2DocumentBatch): string {
@@ -36,6 +41,7 @@ export function buildDocumentRows(
 ): DocumentRow[] {
   const rows: DocumentRow[] = [];
   const seenDocuments = new Set<string>();
+  const evidenceByDocument = new Map(lineage.map((document) => [document.documentId, document.evidenceId]));
   for (const batch of batches) {
     const units = batch.documents ?? batch.pages
       .filter((page) => page.queue_status !== 'MERGED')
@@ -72,6 +78,8 @@ export function buildDocumentRows(
         reason: unit.status_reason || (unit.queue_status === 'FAILED' ? unit.last_error : null),
         stage: unit.business_stage,
         templateKey: unit.templateKey,
+        health: unit.health ?? null,
+        evidenceId: unit.diDocumentId ? evidenceByDocument.get(unit.diDocumentId) : undefined,
       });
     }
   }
@@ -175,7 +183,14 @@ export function assignRowsToRequirements(
 
 type CardState = 'missing' | 'progress' | 'review' | 'ready' | 'failed';
 
-function cardState(tone: Tone, status: string): CardState {
+function cardState(tone: Tone, status: string, health?: P2PageHealth | null): CardState {
+  // Audit Core's health names the state when it is there (decision 2026-10-01).
+  switch (health?.state) {
+    case 'REJECTED': case 'FAILED': return 'failed';
+    case 'STUCK': case 'NOT_READ': case 'NOTHING_READ': return 'review';
+    case 'SUPERSEDED': return 'ready';
+    default: break;
+  }
   if (FAILED.has(status) || tone === 'danger') return 'failed';
   if (tone === 'success' || tone === 'info') return 'ready';
   if (tone === 'warning' || status === 'NEEDS_REVIEW') return 'review';
@@ -186,7 +201,20 @@ function cardState(tone: Tone, status: string): CardState {
  * uploaded (still being read), or extracted. A page DI could not classify
  * says so (or "Others" once the PC kept it as one); a classified page
  * nothing could be read from says that, not "extracted". */
-function stateLabel(state: CardState, status: string, typeSetByPc = false): string {
+function hours(seconds: number): string {
+  const h = Math.floor(seconds / 3600);
+  return h < 48 ? `${h}h` : `${Math.floor(h / 24)}d`;
+}
+
+function stateLabel(state: CardState, status: string, typeSetByPc = false, health?: P2PageHealth | null): string {
+  switch (health?.state) {
+    case 'STUCK': return `Waiting on the document service for ${hours(health.ageSeconds)}`;
+    case 'NOT_READ': return 'Classified · not read';
+    case 'NOTHING_READ': return 'Classified · nothing read';
+    case 'REJECTED': return 'Rejected · upload again';
+    case 'SUPERSEDED': return 'Replaced by a newer copy';
+    default: break;
+  }
   switch (state) {
     case 'missing': return 'Missing';
     case 'ready':
@@ -206,7 +234,9 @@ function stateLabel(state: CardState, status: string, typeSetByPc = false): stri
  * beats something to check beats something in progress beats done. */
 function leadRow(rows: DocumentRow[]): DocumentRow {
   const rank = (row: DocumentRow) => {
-    const state = cardState(pageStatus(row.status).tone, row.status);
+    // A replaced copy never leads: the newer copy describes the card.
+    if (row.health?.state === 'SUPERSEDED') return 4;
+    const state = cardState(pageStatus(row.status).tone, row.status, row.health);
     return state === 'failed' ? 0 : state === 'review' ? 1 : state === 'progress' ? 2 : 3;
   };
   return [...rows].sort((a, b) => rank(a) - rank(b))[0];
@@ -219,6 +249,8 @@ type RowActions = {
   typeOptions: P2Template[];
   onOpen: (documentId: string) => void;
   onRetry: (queueId: string) => void;
+  onReread: (queueId: string) => void;
+  onRestore: (evidenceId: string) => void;
   onSetType: (queueId: string, templateKey: string, name?: string) => void;
   setTyping: (key?: string) => void;
 };
@@ -280,13 +312,19 @@ function DocumentCard({ title, level, rows, reason, actions, onAdd }: {
   onAdd?: () => void;
 }) {
   const lead = rows.length ? leadRow(rows) : undefined;
-  const state: CardState = lead ? cardState(pageStatus(lead.status).tone, lead.status) : 'missing';
+  const health = lead?.health ?? null;
+  const state: CardState = lead ? cardState(pageStatus(lead.status).tone, lead.status, health) : 'missing';
   const selected = rows.some((row) => row.documentId && row.documentId === actions.selectedDocumentId);
   const openable = Boolean(lead?.documentId && OPENABLE.has(lead.status));
-  const retryable = Boolean(lead?.unit && RETRYABLE.has(lead.status));
+  // One action per card, named by Audit Core's health when it is there;
+  // the older rules decide for a page without one (an earlier upload).
+  const action = health?.action ?? null;
+  const retryable = Boolean(lead?.unit && (health ? action === 'RETRY' : RETRYABLE.has(lead.status)));
+  const rereadable = Boolean(lead?.unit && action === 'READ_AGAIN');
+  const uploadAgain = Boolean(lead && action === 'UPLOAD_AGAIN' && onAdd);
   // Only a page DI could not classify asks for its type; a classified page
   // never does, and one the PC already kept as Others is settled.
-  const typeable = Boolean(lead?.unit && lead.status === 'SUPPORTING' && !lead.unit.typeSetByPc);
+  const typeable = Boolean(lead?.unit && (health ? action === 'SET_TYPE' : lead.status === 'SUPPORTING' && !lead.unit.typeSetByPc));
   const busy = Boolean(lead && actions.busyKey === lead.key);
   const why = lead?.reason || (!lead ? reason : null);
   const more = lead ? rows.filter((row) => row !== lead) : [];
@@ -308,30 +346,49 @@ function DocumentCard({ title, level, rows, reason, actions, onAdd }: {
         </span>
         <span className="p2w-dcard__status">
           {state === 'progress' ? <i className="p2w-spinner" aria-hidden="true" /> : <i className="p2w-dcard__dot" aria-hidden="true" />}
-          {stateLabel(state, lead?.status ?? '', Boolean(lead?.unit?.typeSetByPc))}
+          {stateLabel(state, lead?.status ?? '', Boolean(lead?.unit?.typeSetByPc), health)}
           {!lead && onAdd ? <b className="p2w-dcard__add">+ Add</b> : null}
         </span>
       </button>
 
       {lead && actions.typing === lead.key && lead.unit ? <TypePicker queueId={lead.unit.queueId} actions={actions} /> : null}
 
-      {(retryable || (typeable && actions.typing !== lead?.key) || more.length) ? (
+      {(retryable || rereadable || uploadAgain || (typeable && actions.typing !== lead?.key) || more.length) ? (
         <div className="p2w-dcard__actions">
           {retryable && lead?.unit ? (
             <button type="button" className="p2w-link" disabled={busy} onClick={() => actions.onRetry(lead.unit!.queueId)}>
               {busy ? 'Retrying…' : 'Retry'}
             </button>
           ) : null}
+          {rereadable && lead?.unit ? (
+            <button type="button" className="p2w-link" disabled={busy} onClick={() => actions.onReread(lead.unit!.queueId)}
+              title="Asks Document Intelligence to read this page again. Nothing is uploaded again.">
+              {busy ? 'Asking…' : 'Read again'}
+            </button>
+          ) : null}
+          {uploadAgain ? (
+            <button type="button" className="p2w-link" onClick={onAdd}>Upload again</button>
+          ) : null}
           {typeable && lead && actions.typing !== lead.key ? (
             <button type="button" className="p2w-link" onClick={() => actions.setTyping(lead.key)}>Set type</button>
           ) : null}
           {more.map((row) => {
+            const replaced = row.health?.state === 'SUPERSEDED';
             const rowOpenable = Boolean(row.documentId && OPENABLE.has(row.status));
             return (
-              <button key={row.key} type="button" className="p2w-link" disabled={!rowOpenable}
-                onClick={() => row.documentId && actions.onOpen(row.documentId)}>
-                {row.name}{rowOpenable ? '' : ` (${pageStatus(row.status).label.toLowerCase()})`}
-              </button>
+              <span key={row.key} className="p2w-dcard__more">
+                <button type="button" className="p2w-link" disabled={!rowOpenable}
+                  onClick={() => row.documentId && actions.onOpen(row.documentId)}>
+                  {row.name}{replaced ? ' (replaced)' : rowOpenable ? '' : ` (${pageStatus(row.status).label.toLowerCase()})`}
+                </button>
+                {replaced && row.evidenceId ? (
+                  <button type="button" className="p2w-link" disabled={actions.busyKey === row.key}
+                    onClick={() => actions.onRestore(row.evidenceId!)}
+                    title="Makes this earlier copy the one in use again; the newer copy is kept as replaced.">
+                    {actions.busyKey === row.key ? 'Restoring…' : 'Restore'}
+                  </button>
+                ) : null}
+              </span>
             );
           })}
         </div>
@@ -347,6 +404,8 @@ export default function P2DocumentList({
   selectedDocumentId,
   onOpen,
   onRetry,
+  onReread,
+  onRestore,
   onSetType,
   onAdd,
   busyKey,
@@ -357,6 +416,10 @@ export default function P2DocumentList({
   selectedDocumentId?: string;
   onOpen: (documentId: string) => void;
   onRetry: (queueId: string) => void;
+  /** Ask Document Intelligence to read a page it holds once more. */
+  onReread: (queueId: string) => void;
+  /** Make a replaced copy the one in use again. */
+  onRestore: (evidenceId: string) => void;
   onSetType: (queueId: string, templateKey: string, name?: string) => void;
   /** Opens the file picker for a document that is still missing. */
   onAdd?: () => void;
@@ -371,7 +434,7 @@ export default function P2DocumentList({
   );
   const requirements = useMemo(() => checklistRequirements(checklist), [checklist]);
   const { matched, other } = useMemo(() => assignRowsToRequirements(requirements, rows), [requirements, rows]);
-  const actions: RowActions = { selectedDocumentId, busyKey, typing, typeOptions, onOpen, onRetry, onSetType, setTyping };
+  const actions: RowActions = { selectedDocumentId, busyKey, typing, typeOptions, onOpen, onRetry, onReread, onRestore, onSetType, setTyping };
 
   const stages = (['BOOKING', 'DELIVERY'] as const)
     .map((code) => {
@@ -411,8 +474,8 @@ export default function P2DocumentList({
         </section>
       ))}
       {unplaced.length ? (
-        <section className="p2w-dsection" aria-label="Other uploads">
-          <h3>Other uploads</h3>
+        <section className="p2w-dsection" aria-label="Additional documents">
+          <h3>Additional documents</h3>
           <ul className="p2w-dgrid">
             {unplaced.map((row) => (
               <DocumentCard key={row.key} title={PAGE_IN_FLIGHT.has(row.status) ? row.subtitle : row.name} level="extra" rows={[row]} actions={actions} />

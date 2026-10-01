@@ -223,6 +223,9 @@
 .p2w .p2w-live { margin: 0; color: var(--p2w-muted); font-weight: 700; }
 .p2w .p2w-live.is-on { color: var(--p2w-success); }
 .p2w .p2w-statusbar__working { display: flex; flex-wrap: wrap; gap: 4px 14px; }
+.p2w .p2w-statusbar__issues { grid-column: 1 / -1; margin: 0; padding: 6px 0 0 18px; color: #8a5a00; font-size: .82rem; font-weight: 600; }
+.p2w .p2w-statusbar__issues li + li { margin-top: 2px; }
+.p2w .p2w-dcard__more { display: inline-flex; gap: 8px; }
 .p2w .p2w-statusbar__item { display: inline-flex; align-items: center; gap: 6px; color: var(--p2w-progress); font-weight: 700; }
 .p2w .p2w-statusbar__item .p2w-spinner { width: 10px; height: 10px; }
 

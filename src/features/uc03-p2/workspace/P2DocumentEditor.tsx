@@ -60,7 +60,8 @@ export function buildFieldViews(fields: P2DocumentReviewField[], template?: P2Te
     // started is wrong however confident the reading); without its word the
     // confidence alone decides.
     const flagged = field.reviewReasons ? field.reviewReasons.length > 0 : lowConfidence;
-    const needsReview = hasValue && flagged && !reviewed;
+    // A correction already sent to the Team Lead is the PC's answer: nothing more to review.
+    const needsReview = hasValue && flagged && !reviewed && !field.pendingCorrection;
     const why = needsReview ? (field.reviewReasons ?? []).map((reason) => REASON_TEXT[reason]).find(Boolean) : undefined;
     return {
       ...field,
@@ -288,11 +289,17 @@ export default function P2DocumentEditor({
                     <span className="p2w-field__value">{displayValue(field.effectiveValue)}</span>
                     {field.isModified ? <span className="p2w-field__origin">Read as {displayValue(field.extractedValue)}</span> : null}
                     {field.why ? <span className="p2w-field__why">{field.why}</span> : null}
+                    {field.pendingCorrection ? (
+                      <span className="p2w-field__why p2w-field__why--waiting">
+                        You proposed {displayValue(field.pendingCorrection.proposedValue)}. Waiting for the Team Lead to approve or reject it.
+                      </span>
+                    ) : null}
                     <span className="p2w-field__meta">
                       <span className={`p2w-chip p2w-chip--${field.needsReview ? (field.why ? 'danger' : tone) : 'success'}`}>
                         {field.confidenceScore === null ? 'No confidence' : `${Math.round(field.confidenceScore)}%`}
                       </span>
                       {field.why ? <span className="p2w-chip p2w-chip--danger">Check date</span> : null}
+                      {field.pendingCorrection ? <span className="p2w-chip p2w-chip--info">Awaiting Team Lead</span> : null}
                       {field.state === 'CORRECTED' ? <span className="p2w-chip p2w-chip--info">Corrected</span> : null}
                       {field.state === 'CONFIRMED' ? <span className="p2w-chip p2w-chip--success">Confirmed</span> : null}
                     </span>
@@ -321,7 +328,7 @@ export default function P2DocumentEditor({
                         </button>
                       </div>
                     </form>
-                  ) : (
+                  ) : field.pendingCorrection ? null : (
                     <div className="p2w-field__actions">
                       {field.needsReview ? (
                         <button type="button" className="p2w-button p2w-button--confirm" disabled={confirm.isPending}

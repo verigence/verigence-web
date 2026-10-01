@@ -140,6 +140,17 @@ describe('field review', () => {
     ]);
   });
 
+  it('leaves nothing to review on a field whose correction waits for the Team Lead', () => {
+    const views = buildFieldViews([
+      field('receipt_date', 92, {
+        reviewReasons: ['DATE_BEFORE_FLOOR'],
+        pendingCorrection: { taskId: 't-1', proposedValue: '2026-08-11', proposedAtUtc: '2026-10-01T10:12:19Z' },
+      }),
+    ], template);
+    expect(views[0].needsReview).toBe(false);
+    expect(views[0].pendingCorrection?.proposedValue).toBe('2026-08-11');
+  });
+
   it('treats confirmed or corrected fields as reviewed', () => {
     const views = buildFieldViews([
       field('amount_paid', 50, { reviewedAtUtc: '2026-09-27' }),

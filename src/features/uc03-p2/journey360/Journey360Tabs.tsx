@@ -587,33 +587,59 @@ function LineItems({ lines }: { lines: P2InvoiceLine[] }) {
   );
 }
 
-/** Every invoice read on the Journey with its header, totals and the line
- * items as printed: vehicle, accessories, warranty, RSA, wholesale, credit
- * and debit notes. */
+/** The kind of invoice, which sets the colour of its border: the vehicle
+ * invoices, accessories, warranty / RSA, and credit or debit notes. */
+const INVOICE_KIND: Record<string, string> = {
+  customer_invoice_dms: 'vehicle', tax_invoice_tally: 'vehicle', wholesale_invoice: 'vehicle', invoice_generic: 'vehicle',
+  accessory_invoice_dms: 'accessory', accessory_invoice_tally: 'accessory',
+  ew_invoice: 'cover', rsa_invoice: 'cover',
+  credit_note: 'note', debit_note: 'note',
+};
+
+/** Every invoice read on the Journey, each collapsed to one line (kind,
+ * number, date, total) until it is opened: header, totals and the line
+ * items as printed. */
 export function InvoicesTab({ data, journeyId }: { data: P2SectionMap['invoices']; journeyId: string }) {
   if (!data.documents.length) return <Empty>No invoices read yet. Upload the customer invoice, Tally invoice or accessory invoices.</Empty>;
+  const count = data.documents.length;
   return (
     <div className="j360-stack">
+      <p className="j360-invoice-count" role="status">
+        <strong>{count}</strong> {count === 1 ? 'invoice' : 'invoices'} on this deal. Open one to see its details.
+      </p>
       {data.documents.map((invoice) => {
         const header = INVOICE_HEADER_LABELS.filter(([key]) => !isEmpty(invoice.header[key]));
         const totals = INVOICE_TOTAL_LABELS.filter(([key]) => !isEmpty(invoice.totals[key]));
+        const kind = INVOICE_KIND[invoice.documentType] ?? 'vehicle';
+        const grand = invoice.totals.grandTotalAmount;
         return (
-          <section key={invoice.documentId} className="j360-card" aria-label={invoice.label}>
-            <div className="j360-card__head">
-              <h3 className="j360-h3">{invoice.label}{invoice.header.invoiceNumber ? <span className="j360-h3__ref"> · {String(invoice.header.invoiceNumber)}</span> : null}</h3>
-              <Link className="p2w-link" to={`/p2/journeys/${journeyId}/documents/${invoice.documentId}`}>Open document</Link>
-            </div>
-            <dl className="j360-facts j360-facts--customer">
-              {header.map(([key, label]) => <Fact key={key} label={label} fieldKey={key} value={invoice.header[key]} />)}
-            </dl>
-            {invoice.lineItems.length ? <LineItems lines={invoice.lineItems} /> : <p className="p2w-muted">No line items read on this invoice.</p>}
-            {typeof invoice.particulars === 'string' && invoice.particulars ? <p className="j360-items__text">{invoice.particulars}</p> : null}
-            {totals.length ? (
-              <dl className="j360-totals">
-                {totals.map(([key, label]) => <div key={key} className={key === 'grandTotalAmount' ? 'is-grand' : undefined}><dt>{label}</dt><dd>{rupees(invoice.totals[key])}</dd></div>)}
+          <details key={invoice.documentId} className={`j360-card j360-invoice j360-invoice--${kind}`} aria-label={invoice.label}>
+            <summary className="j360-invoice__summary">
+              <span className="j360-invoice__title">
+                {invoice.label}{invoice.header.invoiceNumber ? <span className="j360-h3__ref"> · {String(invoice.header.invoiceNumber)}</span> : null}
+              </span>
+              <span className="j360-invoice__meta">
+                {!isEmpty(invoice.header.invoiceDate) ? <span>{factText('invoiceDate', invoice.header.invoiceDate)}</span> : null}
+                {!isEmpty(grand) ? <b>{rupees(grand)}</b> : null}
+              </span>
+            </summary>
+            <div className="j360-invoice__body">
+              <div className="j360-card__head">
+                <span className="p2w-muted">Read from the document</span>
+                <Link className="p2w-link" to={`/p2/journeys/${journeyId}/documents/${invoice.documentId}`}>Open document</Link>
+              </div>
+              <dl className="j360-facts j360-facts--customer">
+                {header.map(([key, label]) => <Fact key={key} label={label} fieldKey={key} value={invoice.header[key]} />)}
               </dl>
-            ) : null}
-          </section>
+              {invoice.lineItems.length ? <LineItems lines={invoice.lineItems} /> : <p className="p2w-muted">No line items read on this invoice.</p>}
+              {typeof invoice.particulars === 'string' && invoice.particulars ? <p className="j360-items__text">{invoice.particulars}</p> : null}
+              {totals.length ? (
+                <dl className="j360-totals">
+                  {totals.map(([key, label]) => <div key={key} className={key === 'grandTotalAmount' ? 'is-grand' : undefined}><dt>{label}</dt><dd>{rupees(invoice.totals[key])}</dd></div>)}
+                </dl>
+              ) : null}
+            </div>
+          </details>
         );
       })}
     </div>

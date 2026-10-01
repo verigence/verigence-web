@@ -466,3 +466,22 @@
 .j360 .j360-gate { display: grid; gap: 8px; justify-items: start; padding: 22px; text-align: left; }
 .j360 .j360-gate strong { font-size: 1.1rem; color: var(--p2w-navy); }
 .j360 .j360-gate .p2w-button { margin-top: 6px; }
+
+/* Invoices tab: one collapsed card per invoice, the border colour says the kind. */
+.j360 .j360-invoice-count { margin: 0; color: var(--p2w-muted); font-size: .92rem; }
+.j360 .j360-invoice-count strong { color: var(--p2w-navy); font-size: 1.05rem; }
+.j360 .j360-invoice { --j360-kind: var(--p2w-link); padding: 0; border-left: 5px solid var(--j360-kind); }
+.j360 .j360-invoice--vehicle { --j360-kind: var(--p2w-link); }
+.j360 .j360-invoice--accessory { --j360-kind: var(--p2w-review); }
+.j360 .j360-invoice--cover { --j360-kind: var(--p2w-success); }
+.j360 .j360-invoice--note { --j360-kind: #9a6700; }
+.j360 .j360-invoice__summary { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 6px 16px; padding: 12px 16px; cursor: pointer; list-style: none; }
+.j360 .j360-invoice__summary::-webkit-details-marker { display: none; }
+.j360 .j360-invoice__summary::before { content: '▸'; margin-right: 8px; color: var(--j360-kind); transition: transform .12s; }
+.j360 .j360-invoice[open] > .j360-invoice__summary::before { transform: rotate(90deg); display: inline-block; }
+.j360 .j360-invoice__summary:focus-visible { outline: 2px solid var(--j360-kind); outline-offset: -2px; border-radius: var(--p2w-radius); }
+.j360 .j360-invoice__title { flex: 1 1 auto; color: var(--p2w-navy); font-weight: 800; }
+.j360 .j360-invoice__meta { display: inline-flex; gap: 16px; align-items: baseline; color: var(--p2w-muted); font-size: .9rem; }
+.j360 .j360-invoice__meta b { color: var(--p2w-navy); font-variant-numeric: tabular-nums; }
+.j360 .j360-invoice__body { padding: 0 16px 14px; border-top: 1px solid var(--p2w-line); }
+.j360 .j360-invoice__body .j360-card__head { margin: 10px 0; }

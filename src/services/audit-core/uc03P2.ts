@@ -352,6 +352,9 @@ export type P2DocumentReviewField = {
    * DATE_BEFORE_FLOOR, DATE_UNREADABLE); empty when it stands as read.
    * Absent from an older Audit Core, in which case the confidence decides. */
   reviewReasons?: string[];
+  /** A correction the PC proposed that the Team Lead has not decided yet.
+   * While it is open the field is neither edited nor confirmed again. */
+  pendingCorrection?: { taskId: string; proposedValue: unknown; proposedAtUtc: string | null } | null;
 };
 
 export type P2DocumentReview = {

@@ -44,16 +44,15 @@ const journeySearchItem: NavItem = {
   roles: ['PC', 'TL', 'PM'],
 };
 
-const employeeServicesItem: NavItem = {
-  to: '/employee-attendance',
-  label: 'Attendance',
-  mark: 'AD',
-};
-
 const employeeServicesGroup: NavGroup = {
   key: 'employee-services',
   label: 'Employee',
-  items: [employeeServicesItem],
+  items: [
+    { to: '/employee/attendance', label: 'Attendance', mark: 'AT' },
+    { to: '/employee/leave', label: 'Leave', mark: 'LV' },
+    { to: '/employee/reimbursements', label: 'Reimbursements', mark: 'RE' },
+    { to: '/employee/salary', label: 'Salary & Payslips', mark: 'SL' },
+  ],
 };
 
 const feedbackItem: NavItem = {
@@ -201,7 +200,7 @@ const groups: NavGroup[] = [
 ];
 
 const routeLabels: Record<string, string> = {
-  '/dashboard': 'Overview', '/work-queue': 'Bookings & Deliveries', '/search': 'Search', '/attendance': 'Attendance', '/employee-attendance': 'Attendance', '/customers': 'Customers', '/journeys': 'Journeys', '/tasks': 'My Work',
+  '/dashboard': 'Overview', '/work-queue': 'Bookings & Deliveries', '/search': 'Search', '/attendance': 'Attendance', '/employee-attendance': 'Attendance', '/employee/attendance': 'Attendance', '/employee/leave': 'Leave', '/employee/reimbursements': 'Reimbursements', '/employee/salary': 'Salary & Payslips', '/customers': 'Customers', '/journeys': 'Journeys', '/tasks': 'My Work',
   '/feedback': 'Feedback',
   '/reviews': 'Task Queue', '/duplicate-bookings': 'Duplicate Bookings', '/rule-catalog': 'Rule Catalog', '/rule-catalog/new': 'Author a Rule', '/evidence': 'Evidence', '/payments': 'Payment Tracker', '/findings': 'Findings',
   '/daily-ops': 'Daily Operations', '/activity': 'Activity Tracker', '/crm': 'CRM Follow-up', '/escalations': 'Escalations',

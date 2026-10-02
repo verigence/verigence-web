@@ -461,7 +461,7 @@ export default function EmployeeServicesPage() {
               <p>Read-only view for employees assigned to you. Approval remains with HR/Finance.</p>
               <div className="employee-services__table-wrap">
                 <table>
-                  <thead><tr><th>Employee</th><th>Date</th><th>Category</th><th>Amount</th><th>Receipt</th><th>Status</th></tr></thead>
+                  <thead><tr><th>Employee</th><th>Date</th><th>Category</th><th>Claimed</th><th>Receipt</th><th>Approval</th><th>Payment</th><th>Paid on</th></tr></thead>
                   <tbody>
                     {(teamReimbursements.data ?? []).map((item) => (
                       <tr key={item.claimId}>
@@ -471,9 +471,11 @@ export default function EmployeeServicesPage() {
                         <td>{money(item.amount)}</td>
                         <td>{item.receiptUrl ? <a href={item.receiptUrl} target="_blank" rel="noreferrer">View</a> : '—'}</td>
                         <td>{item.status.replaceAll('_', ' ')}</td>
+                        <td>{item.paymentStatus.replaceAll('_', ' ')}</td>
+                        <td>{item.paidAtUtc ? formatDateTime(item.paidAtUtc) : '—'}</td>
                       </tr>
                     ))}
-                    {!teamReimbursements.data?.length && <tr><td colSpan={6}>No team reimbursement claims.</td></tr>}
+                    {!teamReimbursements.data?.length && <tr><td colSpan={8}>No team reimbursement claims.</td></tr>}
                   </tbody>
                 </table>
               </div>
@@ -483,18 +485,22 @@ export default function EmployeeServicesPage() {
           <h3>My claims</h3>
           <div className="employee-services__table-wrap">
             <table>
-              <thead><tr><th>Date</th><th>Category</th><th>Amount</th><th>Receipt</th><th>Status</th></tr></thead>
+              <thead><tr><th>Date</th><th>Category</th><th>Claimed</th><th>Approved/Paid</th><th>Receipt</th><th>Approval</th><th>Payment</th><th>Paid on</th><th>Reference</th></tr></thead>
               <tbody>
                 {(reimbursements.data ?? []).map((item) => (
                   <tr key={item.claimId}>
                     <td>{item.expenseDate}</td>
                     <td>{item.category}</td>
                     <td>{money(item.amount)}</td>
+                    <td>{item.paidAmount != null ? money(item.paidAmount) : '—'}</td>
                     <td>{item.receiptUrl ? <a href={item.receiptUrl} target="_blank" rel="noreferrer">View</a> : '—'}</td>
                     <td>{item.status.replaceAll('_', ' ')}</td>
+                    <td>{item.paymentStatus.replaceAll('_', ' ')}</td>
+                    <td>{item.paidAtUtc ? formatDateTime(item.paidAtUtc) : '—'}</td>
+                    <td>{item.paymentReference ?? '—'}</td>
                   </tr>
                 ))}
-                {!reimbursements.data?.length && <tr><td colSpan={5}>No reimbursement claims yet.</td></tr>}
+                {!reimbursements.data?.length && <tr><td colSpan={9}>No reimbursement claims yet.</td></tr>}
               </tbody>
             </table>
           </div>

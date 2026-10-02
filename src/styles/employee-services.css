@@ -84,3 +84,13 @@
   .employee-payroll__profile summary{align-items:flex-start;display:grid}
   .employee-payroll__profile summary>span:last-child{font-size:.8rem}
 }
+
+.employee-leave__approval-actions{display:grid;gap:8px;min-width:min(360px,100%)}
+.employee-leave__approval-actions textarea{width:100%;min-height:66px;border:1px solid var(--border,#dbe3ec);border-radius:8px;background:var(--surface,#fff);color:inherit;padding:8px 10px;font:inherit;resize:vertical}
+.employee-leave__approval-actions>div{display:flex;gap:8px;justify-content:flex-end}
+.employee-leave__reviews{display:grid;gap:4px;margin-top:6px;padding:8px 10px;border-radius:8px;background:var(--surface-subtle,#f8fafc)}
+.employee-leave__reviews small{color:var(--text-muted,#64748b)}
+@media(max-width:767px){
+  .employee-leave__approval-actions{width:100%;min-width:0}
+  .employee-leave__approval-actions>div{display:grid;grid-template-columns:1fr 1fr;width:100%}
+}

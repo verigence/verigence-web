@@ -22,6 +22,7 @@ import {
   getModuleConfig,
   getPayrollItems,
   getPayrollProfiles,
+  getPayrollStatutoryConfig,
   getReimbursementClaimQueue,
   getReimbursementPaymentQueue,
   getWorkLocations,
@@ -30,10 +31,12 @@ import {
   reviewReimbursementClaim,
   updateModuleConfig,
   updatePayrollProfile,
+  updatePayrollStatutoryConfig,
   updateReimbursementPayment,
   type BulkImport,
   type LeaveRequest,
   type PayrollProfile,
+  type PayrollStatutoryConfig,
   type PayrollSummary,
   type ReimbursementClaim,
 } from '../../services/employee-attendance/client';
@@ -101,6 +104,36 @@ type PayrollProfileDraft = {
   esicNumberMasked: string;
 };
 
+type PayrollStatutoryDraft = {
+  effectiveFrom: string;
+  pfEmployeeRatePct: string;
+  pfEmployerRatePct: string;
+  pfWageCeiling: string;
+  epsEmployerRatePct: string;
+  epsWageCeiling: string;
+  esiEmployeeRatePct: string;
+  esiEmployerRatePct: string;
+  esiWageCeiling: string;
+  gratuityProvisionRatePct: string;
+  salaryTdsSection: string;
+};
+
+function statutoryDraftFrom(config?: PayrollStatutoryConfig): PayrollStatutoryDraft {
+  return {
+    effectiveFrom: config?.effectiveFrom ?? today(),
+    pfEmployeeRatePct: String(Number(config?.pfEmployeeRate ?? 0.12) * 100),
+    pfEmployerRatePct: String(Number(config?.pfEmployerRate ?? 0.12) * 100),
+    pfWageCeiling: String(config?.pfWageCeiling ?? 25000),
+    epsEmployerRatePct: String(Number(config?.epsEmployerRate ?? 0.0833) * 100),
+    epsWageCeiling: String(config?.epsWageCeiling ?? 15000),
+    esiEmployeeRatePct: String(Number(config?.esiEmployeeRate ?? 0.0075) * 100),
+    esiEmployerRatePct: String(Number(config?.esiEmployerRate ?? 0.0325) * 100),
+    esiWageCeiling: String(config?.esiWageCeiling ?? 21000),
+    gratuityProvisionRatePct: String(Number(config?.gratuityProvisionRate ?? 0.048077) * 100),
+    salaryTdsSection: config?.salaryTdsSection ?? '392(1)',
+  };
+}
+
 export default function EmployeeAdministrationPage() {
   const native = Capacitor.isNativePlatform();
   const token = useSessionStore((state) => state.accessToken);
@@ -132,6 +165,8 @@ export default function EmployeeAdministrationPage() {
   const [payrollMonth, setPayrollMonth] = useState(monthStart());
   const [payroll, setPayroll] = useState<PayrollSummary | null>(null);
   const [payrollProfileDrafts, setPayrollProfileDrafts] = useState<Record<string, PayrollProfileDraft>>({});
+  const [payrollProfileSearch, setPayrollProfileSearch] = useState('');
+  const [payrollStatutoryDraft, setPayrollStatutoryDraft] = useState<PayrollStatutoryDraft>(() => statutoryDraftFrom());
   const [reportStart, setReportStart] = useState(weekStart());
   const [reportEnd, setReportEnd] = useState(today());
   const [threshold, setThreshold] = useState('3000');
@@ -267,12 +302,24 @@ export default function EmployeeAdministrationPage() {
     if (Array.isArray(offs)) setWeeklyOffs(offs.join(','));
   }, [config.data]);
 
+  const payrollStatutory = useQuery({
+    queryKey: ['employee-attendance', 'payroll-statutory-config'],
+    queryFn: () => getPayrollStatutoryConfig(token!),
+    enabled: Boolean(token && capabilities.data?.configManage),
+    retry: false,
+  });
+
   const payrollProfiles = useQuery({
     queryKey: ['employee-attendance', 'payroll-profiles'],
     queryFn: () => getPayrollProfiles(token!),
     enabled: Boolean(token && capabilities.data?.payrollManage),
     retry: false,
   });
+
+  useEffect(() => {
+    const latest = payrollStatutory.data?.[0];
+    if (latest) setPayrollStatutoryDraft(statutoryDraftFrom(latest));
+  }, [payrollStatutory.data]);
 
   const payrollItems = useQuery({
     queryKey: ['employee-attendance', 'payroll-items', payroll?.payrollRunId],
@@ -294,6 +341,7 @@ export default function EmployeeAdministrationPage() {
       queryClient.invalidateQueries({ queryKey: ['employee-attendance', 'admin-leave-types'] }),
       queryClient.invalidateQueries({ queryKey: ['employee-attendance', 'admin-holidays'] }),
       queryClient.invalidateQueries({ queryKey: ['employee-attendance', 'payroll-profiles'] }),
+      queryClient.invalidateQueries({ queryKey: ['employee-attendance', 'payroll-statutory-config'] }),
     ]);
   };
 
@@ -469,6 +517,44 @@ export default function EmployeeAdministrationPage() {
       setPaymentAmount('');
       setPaymentReference('');
       setPaymentComment('');
+      await refreshAdmin();
+    },
+  });
+
+  const payrollStatutoryMutation = useMutation({
+    mutationFn: () => {
+      const rate = (value: string, label: string) => {
+        const parsed = Number(value);
+        if (!Number.isFinite(parsed) || parsed < 0 || parsed > 100) {
+          throw new Error(`${label} must be between 0 and 100%.`);
+        }
+        return parsed / 100;
+      };
+      const moneyValue = (value: string, label: string) => {
+        const parsed = Number(value);
+        if (!Number.isFinite(parsed) || parsed <= 0) {
+          throw new Error(`${label} must be greater than zero.`);
+        }
+        return parsed;
+      };
+      if (!payrollStatutoryDraft.salaryTdsSection.trim()) {
+        throw new Error('Salary TDS section/reference is required.');
+      }
+      return updatePayrollStatutoryConfig(token!, {
+        effectiveFrom: payrollStatutoryDraft.effectiveFrom,
+        pfEmployeeRate: rate(payrollStatutoryDraft.pfEmployeeRatePct, 'PF employee rate'),
+        pfEmployerRate: rate(payrollStatutoryDraft.pfEmployerRatePct, 'PF employer rate'),
+        pfWageCeiling: moneyValue(payrollStatutoryDraft.pfWageCeiling, 'PF wage ceiling'),
+        epsEmployerRate: rate(payrollStatutoryDraft.epsEmployerRatePct, 'EPS employer rate'),
+        epsWageCeiling: moneyValue(payrollStatutoryDraft.epsWageCeiling, 'EPS wage ceiling'),
+        esiEmployeeRate: rate(payrollStatutoryDraft.esiEmployeeRatePct, 'ESI employee rate'),
+        esiEmployerRate: rate(payrollStatutoryDraft.esiEmployerRatePct, 'ESI employer rate'),
+        esiWageCeiling: moneyValue(payrollStatutoryDraft.esiWageCeiling, 'ESI wage ceiling'),
+        gratuityProvisionRate: rate(payrollStatutoryDraft.gratuityProvisionRatePct, 'Gratuity provision rate'),
+        salaryTdsSection: payrollStatutoryDraft.salaryTdsSection.trim(),
+      });
+    },
+    onSuccess: async () => {
       await refreshAdmin();
     },
   });

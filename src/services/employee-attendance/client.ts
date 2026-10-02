@@ -22,11 +22,14 @@ export type EmployeeProfile = {
 };
 
 export type AttendanceDay = {
+  attendanceDayId: string;
   attendanceDate: string;
   status: string;
   presentFraction: string | number;
   checkInAtUtc?: string | null;
   checkOutAtUtc?: string | null;
+  hrReviewStatus: string;
+  hrReviewComment?: string | null;
 };
 
 export type TeamAttendance = {
@@ -37,6 +40,30 @@ export type TeamAttendance = {
   presentFraction: string | number;
   checkInAtUtc?: string | null;
   checkOutAtUtc?: string | null;
+  hrReviewStatus: string;
+};
+
+export type AttendanceFlag = {
+  attendanceFlagId: string;
+  flagType: 'OUTSIDE_GEOFENCE' | 'LATE_CHECK_IN' | 'EARLY_CHECK_OUT';
+  flagDetail?: string | null;
+  employeeReason?: string | null;
+  resolutionStatus: string;
+  createdAtUtc: string;
+};
+
+export type AttendanceHrReview = {
+  attendanceDayId: string;
+  employeeId: string;
+  employeeCode: string;
+  employeeName: string;
+  attendanceDate: string;
+  presentFraction: string | number;
+  checkInAtUtc?: string | null;
+  checkOutAtUtc?: string | null;
+  hrReviewStatus: string;
+  hrReviewComment?: string | null;
+  flags: AttendanceFlag[];
 };
 
 export type LeaveBalance = {
@@ -164,6 +191,7 @@ export type Payslip = {
 
 export type AdminCapabilities = {
   employeeManage: boolean;
+  attendanceReview: boolean;
   leaveHrApprove: boolean;
   reimbursementHrApprove: boolean;
   reimbursementFinanceApprove: boolean;
@@ -313,6 +341,7 @@ export async function recordAttendance(
     capturedAt: string;
     photo: Blob;
     filename: string;
+    exceptionReason?: string;
   },
 ) {
   const body = new FormData();
@@ -321,12 +350,30 @@ export async function recordAttendance(
   body.set('accuracyMeters', String(input.accuracyMeters));
   body.set('capturedAt', input.capturedAt);
   body.set('photo', input.photo, input.filename);
+  if (input.exceptionReason?.trim()) body.set('exceptionReason', input.exceptionReason.trim());
   return request(
     `/employee-attendance/v1/me/attendance/${action}`,
     token,
     { method: 'POST', body },
   );
 }
+
+export const getHrAttendanceReviewQueue = (token: string) =>
+  request<AttendanceHrReview[]>('/employee-attendance/v1/admin/attendance/reviews', token);
+
+export const decideHrAttendanceReview = (
+  token: string,
+  attendanceDayId: string,
+  input: {
+    decision: 'APPROVE' | 'ADJUST' | 'REJECT';
+    presentFraction?: number;
+    comment?: string;
+  },
+) => request<AttendanceHrReview>(
+  `/employee-attendance/v1/admin/attendance/${attendanceDayId}/review`,
+  token,
+  { method: 'POST', body: JSON.stringify(input) },
+);
 
 export const getLeaveBalances = (token: string) =>
   request<LeaveBalance[]>('/employee-attendance/v1/me/leave-balances', token);

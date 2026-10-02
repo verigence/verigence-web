@@ -5,7 +5,6 @@ import PageHeader from '../components/PageHeader';
 import SectionCard from '../components/SectionCard';
 import AnalyticsBusinessOverviewPanels from '../features/analytics/AnalyticsBusinessOverviewPanels';
 import AnalyticsBusinessReportViews from '../features/analytics/AnalyticsBusinessReportViews';
-import AnalyticsProjectOverview from '../features/analytics/AnalyticsProjectOverview';
 import AnalyticsReportViews from '../features/analytics/AnalyticsReportViews';
 import {
   type AnalyticsBusinessReportKey,
@@ -175,10 +174,7 @@ export default function AnalyticsPage() {
         ) : overviewQuery.isError ? (
           <ReportError error={overviewQuery.error} />
         ) : overviewQuery.data ? (
-          <>
-            <AnalyticsBusinessOverviewPanels data={overviewQuery.data} />
-            <AnalyticsProjectOverview data={overviewQuery.data.legacy} />
-          </>
+          <AnalyticsBusinessOverviewPanels data={overviewQuery.data} />
         ) : null
       ) : businessView ? (
         businessReportQuery.isPending ? (

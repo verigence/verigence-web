@@ -1,5 +1,5 @@
 const configuredBaseUrl = import.meta.env.VITE_ANALYTICS_PROXY_BASE_URL?.trim() || '/analytics-api';
-const DEFAULT_TIMEOUT_MS = 10_000;
+const DEFAULT_TIMEOUT_MS = 30_000;
 
 export class AnalyticsHttpError extends Error {
   readonly status: number;
@@ -140,17 +140,34 @@ export interface AnalyticsTradeIn {
   }>;
 }
 
+export interface AnalyticsProductivityEmployee {
+  employee_name: string;
+  actor_id: string;
+  journeys_created: number;
+  bookings: number;
+  bookings_with_date: number;
+  deliveries_started: number;
+  deliveries_completed: number;
+  avg_days_journey_to_delivery: number | null;
+  avg_days_to_completion: number | null;
+}
+
+export interface AnalyticsProductivityJourney {
+  journey_ref: string;
+  employee_name: string;
+  created_date: string | null;
+  booking_date: string | null;
+  booking_ref: string | null;
+  delivery_status: string | null;
+  delivered_date: string | null;
+  days_to_delivery: number | null;
+}
+
 export interface AnalyticsProductivity {
   tenant_id: string;
   data_as_of: string;
-  rows: Array<{
-    actor_role: string;
-    actor_id: string;
-    actor_name: string;
-    staff_role_code: string | null;
-    activity_date: string | null;
-    activity_count: number;
-  }>;
+  summary: AnalyticsProductivityEmployee[];
+  journeys: AnalyticsProductivityJourney[];
 }
 
 export interface AnalyticsScorecardRow {

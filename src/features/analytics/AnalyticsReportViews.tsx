@@ -364,29 +364,87 @@ export default function AnalyticsReportViews({ payload }: { payload: AnalyticsRe
     }
 
     case 'productivity': {
-      const { rows } = payload.data;
-      const activities = rows.reduce((sum, row) => sum + row.activity_count, 0);
-      // Group by actor_name (resolved display name) for display; fall back to actor_id
-      const actorTotals = aggregate(rows, (row) => row.actor_name || row.actor_id, (row) => row.activity_count);
-      const roleTotals = aggregate(rows, (row) => humanize(row.actor_role), (row) => row.activity_count);
-      const employees = actorTotals.filter((row) => row.label !== 'UNSPECIFIED').length;
-      const topActorNames = actorTotals.slice(0, 10).map((row) => row.label);
-      const dateKeys = Array.from(new Set(rows.map((row) => row.activity_date).filter((value): value is string => Boolean(value)))).sort().slice(-14);
-      const heatRows = rows.filter((row) => {
-        const name = row.actor_name || row.actor_id;
-        return topActorNames.includes(name) && row.activity_date && dateKeys.includes(row.activity_date);
-      });
-      const activityMatrix = matrixFromRows(heatRows, dateKeys, topActorNames, (row) => row.activity_date || '', (row) => row.actor_name || row.actor_id, (row) => row.activity_count);
+      const { summary, journeys } = payload.data;
+      const totalJourneys = summary.reduce((s, r) => s + r.journeys_created, 0);
+      const totalBookings = summary.reduce((s, r) => s + r.bookings, 0);
+      const totalDeliveries = summary.reduce((s, r) => s + r.deliveries_started, 0);
+      const totalCompleted = summary.reduce((s, r) => s + r.deliveries_completed, 0);
+      const completedWithDays = journeys.filter((j) => j.days_to_delivery != null);
+      const avgDays = completedWithDays.length
+        ? Math.round(completedWithDays.reduce((s, j) => s + (j.days_to_delivery ?? 0), 0) / completedWithDays.length * 10) / 10
+        : null;
+
       return <>
         <div className="analytics-employee-summary">
-          <HeroStat eyebrow="Recorded workflow activity" value={formatNumber(activities)} title={`${formatNumber(employees)} employees represented`} detail={employees ? `${formatNumber(Math.round(activities / employees))} recorded activities per represented employee on average.` : 'No employee activity captured.'} />
-          <RankedList title="Most active employees" description="Current snapshot ranking by recorded workflow activity." items={actorTotals.slice(0, 8).map((row) => ({ label: row.label, value: formatNumber(row.value), meta: `${percent(row.value, activities)} of recorded activity` }))} />
+          <HeroStat eyebrow="Journeys captured" value={formatNumber(totalJourneys)} title={`${summary.length} employee${summary.length !== 1 ? 's' : ''}`} detail={`${formatNumber(totalBookings)} bookings · ${formatNumber(totalDeliveries)} deliveries started · ${formatNumber(totalCompleted)} completed`} />
+          <div className="analytics-insight-stack">
+            <InsightCard label="Bookings" value={formatNumber(totalBookings)} detail={`${formatNumber(totalBookings - summary.reduce((s,r)=>s+r.bookings_with_date,0))} missing booking date`} />
+            <InsightCard label="Deliveries started" value={formatNumber(totalDeliveries)} detail={`${formatNumber(totalCompleted)} with actual delivery date`} />
+            <InsightCard label="Avg days to delivery" value={avgDays != null ? `${avgDays} days` : '—'} detail="Journey created → actual delivery date (where captured)" />
+          </div>
         </div>
-        <div className="analytics-split analytics-split--employees">
-          <SectionCard title="Activity by Role" description="Share of recorded workflow activity by operational role."><AnalyticsDonutChart rows={roleTotals} valueLabel="Activities" /></SectionCard>
-          <SectionCard title="Employee Activity Calendar" description="Activity concentration across the most active employees and the latest captured dates."><AnalyticsHeatmap xLabels={dateKeys.map(formatShortDate)} yLabels={topActorNames} cells={activityMatrix} valueLabel="Activities" /></SectionCard>
-        </div>
-        <DetailDisclosure title="View employee activity detail" headers={['Role', 'Employee', 'Date', 'Activities']} rows={rows.slice(0, 200).map((row) => [humanize(row.actor_role), row.actor_name || row.actor_id, row.activity_date || '—', formatNumber(row.activity_count)])} />
+
+        <SectionCard title="Employee Scorecard" description="Journeys captured, bookings, deliveries and average time to delivery per PC.">
+          <div className="data-table-wrap analytics-table-wrap">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Employee</th>
+                  <th>Journeys</th>
+                  <th>Bookings</th>
+                  <th>Deliveries Started</th>
+                  <th>Deliveries Completed</th>
+                  <th>Avg Days to Delivery</th>
+                </tr>
+              </thead>
+              <tbody>
+                {summary.map((row) => (
+                  <tr key={row.actor_id}>
+                    <td><strong>{row.employee_name}</strong></td>
+                    <td>{formatNumber(row.journeys_created)}</td>
+                    <td>{formatNumber(row.bookings)}</td>
+                    <td>{formatNumber(row.deliveries_started)}</td>
+                    <td>{formatNumber(row.deliveries_completed)}</td>
+                    <td>{row.avg_days_to_completion != null ? `${row.avg_days_to_completion} days` : '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </SectionCard>
+
+        <SectionCard title="All Journeys" description="Every journey in the snapshot — booking reference, booking date, delivery status and days taken.">
+          <div className="data-table-wrap analytics-table-wrap">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Journey Ref</th>
+                  <th>PC</th>
+                  <th>Captured On</th>
+                  <th>Booking Date</th>
+                  <th>Booking Ref</th>
+                  <th>Delivery Status</th>
+                  <th>Delivered On</th>
+                  <th>Days Taken</th>
+                </tr>
+              </thead>
+              <tbody>
+                {journeys.map((j, i) => (
+                  <tr key={i}>
+                    <td><strong>{j.journey_ref}</strong></td>
+                    <td>{j.employee_name}</td>
+                    <td>{j.created_date ? formatShortDate(j.created_date) : '—'}</td>
+                    <td>{j.booking_date ? formatShortDate(j.booking_date) : '—'}</td>
+                    <td>{j.booking_ref || '—'}</td>
+                    <td>{j.delivery_status ? humanize(j.delivery_status) : '—'}</td>
+                    <td>{j.delivered_date ? formatShortDate(j.delivered_date) : '—'}</td>
+                    <td>{j.days_to_delivery != null ? `${j.days_to_delivery}d` : '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </SectionCard>
       </>;
     }
   }

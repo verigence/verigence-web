@@ -6,155 +6,147 @@ import {
 
 export type NumericValue = number | string | null;
 
+export interface ProjectAuditorSummary {
+  total_journeys: number;
+  delivered_cars: number;
+  delivery_records: number;
+  total_standard_discount: NumericValue;
+  total_actual_discount: NumericValue;
+  total_excess_discount: NumericValue;
+  journeys_with_excess_discount: number;
+  total_cash_discount: NumericValue;
+  total_exchange_bonus: NumericValue;
+  exchange_journeys: number;
+  total_scrappage_bonus: NumericValue;
+  scrappage_journeys: number;
+  total_corporate_discount: NumericValue;
+  total_mr_discount: NumericValue;
+  total_other_discount: NumericValue;
+  insured_journeys: number;
+  inhouse_insurance_journeys: number;
+  outside_insurance_journeys: number;
+  total_insurance_premium: NumericValue;
+  accessory_journeys: number;
+  total_accessories_value: NumericValue;
+  ew_journeys: number;
+  total_ew_value: NumericValue;
+  rsa_journeys: number;
+  total_rsa_value: NumericValue;
+  trade_in_journeys: number;
+  total_trade_in_value: NumericValue;
+  finance_journeys: number;
+  total_payment_collected: NumericValue;
+  booking_payment_collected: NumericValue;
+  delivery_payment_collected: NumericValue;
+  avg_booking_to_delivery_days: NumericValue;
+  median_booking_to_delivery_days: NumericValue;
+  journeys_with_findings: number;
+  journeys_with_missing_docs: number;
+}
+
+export interface DealerAuditorRow {
+  dealer_id: string;
+  dealer_name: string;
+  booked_cars: number;
+  delivered_cars: number;
+  standard_discount: NumericValue;
+  actual_discount: NumericValue;
+  excess_discount: NumericValue;
+  excess_discount_journeys: number;
+  exchange_bonus: NumericValue;
+  exchange_journeys: number;
+  scrappage_bonus: NumericValue;
+  scrappage_journeys: number;
+  total_insured: number;
+  inhouse_insurance: number;
+  outside_insurance: number;
+  accessories_value: NumericValue;
+  ew_value: NumericValue;
+  rsa_value: NumericValue;
+  payment_collected: NumericValue;
+  avg_delivery_days: NumericValue;
+  median_delivery_days: NumericValue;
+  journeys_with_findings: number;
+}
+
+export interface OutletAuditorRow extends DealerAuditorRow {
+  outlet_id: string;
+  outlet_name: string;
+  city: string | null;
+  state_region: string | null;
+}
+
+export interface ModelVelocityRow {
+  model_name: string;
+  booked_units: number;
+  delivered_units: number;
+  standard_discount: NumericValue;
+  actual_discount: NumericValue;
+  excess_discount: NumericValue;
+  avg_discount_per_car: NumericValue;
+  avg_delivery_days: NumericValue;
+  median_delivery_days: NumericValue;
+  min_delivery_days: number | null;
+  max_delivery_days: number | null;
+}
+
+export interface PincodePlacementRow {
+  customer_pincode: string;
+  dealer_name: string;
+  outlet_name: string;
+  car_count: number;
+  delivered_count: number;
+  total_discount: NumericValue;
+  excess_discount: NumericValue;
+  payment_collected: NumericValue;
+}
+
+export interface DiscountSchemeRow {
+  discount_key: string;
+  application_count: number;
+  journey_count: number;
+  actual_discount_amount: NumericValue;
+  standard_eligible_amount: NumericValue;
+  excess_discount_amount: NumericValue;
+}
+
+export interface AccessoryBreakdownRow {
+  addon_type: string;
+  record_count: number;
+  journey_count: number;
+  actual_amount: NumericValue;
+  avg_amount: NumericValue;
+}
+
+export interface AuditorProjectDashboard {
+  tenant_id: string;
+  data_as_of: string;
+  summary: ProjectAuditorSummary;
+  dealers: DealerAuditorRow[];
+  outlets: OutletAuditorRow[];
+  models: ModelVelocityRow[];
+  pincodes: PincodePlacementRow[];
+  discount_schemes: DiscountSchemeRow[];
+  accessories: AccessoryBreakdownRow[];
+}
+
+export async function getBusinessProjectDashboard(
+  tenantId: string,
+  accessToken: string,
+  signal?: AbortSignal,
+): Promise<AuditorProjectDashboard> {
+  const root = `/v1/analytics/tenants/${encodeURIComponent(tenantId)}/business-intelligence`;
+  return analyticsRequest<AuditorProjectDashboard>(
+    `${root}/project-dashboard`,
+    accessToken,
+    signal,
+  );
+}
+
 export interface AnalyticsCoverageMetric {
   available: number;
   total: number;
   coverage_pct: number | null;
-}
-
-export interface AnalyticsBusinessOverviewSummary {
-  journeys: number;
-  delivery_records: number;
-  actual_deliveries: number;
-  finance_journeys: number;
-  insurance_journeys: number;
-  trade_in_journeys: number;
-  accessory_journeys: number;
-  ew_journeys: number;
-  rsa_journeys: number;
-  journeys_with_findings: number;
-  journeys_with_missing_documents: number;
-  payment_amount: NumericValue;
-  discount_amount: NumericValue;
-  insurance_premium_amount: NumericValue;
-  accessories_value: NumericValue;
-  rsa_value: NumericValue;
-  ew_value: NumericValue;
-  finance_penetration_pct: number | null;
-  insurance_penetration_pct: number | null;
-  trade_in_penetration_pct: number | null;
-  accessory_penetration_pct: number | null;
-  ew_penetration_pct: number | null;
-  rsa_penetration_pct: number | null;
-  journeys_with_findings_pct: number | null;
-  journeys_with_missing_documents_pct: number | null;
-}
-
-export interface AnalyticsBusinessOverview {
-  tenant_id: string;
-  data_as_of: string;
-  summary: AnalyticsBusinessOverviewSummary;
-  top_models: Array<{
-    model_name: string;
-    journey_count: number;
-    actual_deliveries: number;
-    discount_amount: NumericValue;
-  }>;
-  outlets: Array<{
-    dealer_id: string;
-    dealer_name: string;
-    outlet_id: string;
-    outlet_name: string;
-    journey_count: number;
-    actual_deliveries: number;
-    journeys_with_findings: number;
-    finance_journeys: number;
-    insurance_journeys: number;
-    accessory_journeys: number;
-    finding_rate_pct: number | null;
-    finance_penetration_pct: number | null;
-    insurance_penetration_pct: number | null;
-    accessory_penetration_pct: number | null;
-  }>;
-}
-
-export interface AnalyticsBusinessCoverage {
-  tenant_id: string;
-  data_as_of: string;
-  journeys: number;
-  metrics: Record<string, AnalyticsCoverageMetric>;
-  interpretation: string;
-}
-
-export interface AnalyticsSalesProduct {
-  tenant_id: string;
-  data_as_of: string;
-  by_outlet: Array<{
-    dealer_id: string;
-    dealer_name: string;
-    outlet_id: string;
-    outlet_name: string;
-    journey_count: number;
-    delivery_records: number;
-    actual_deliveries: number;
-    payment_amount: NumericValue;
-  }>;
-  by_model_variant: Array<{
-    model_name: string;
-    variant_name: string;
-    journey_count: number;
-    actual_deliveries: number;
-    discount_amount: NumericValue;
-    payment_amount: NumericValue;
-  }>;
-  by_colour: Array<{ colour_name: string; journey_count: number }>;
-  delivery_definition: Record<string, string>;
-}
-
-export interface AnalyticsBusinessGeography {
-  tenant_id: string;
-  data_as_of: string;
-  coverage: AnalyticsCoverageMetric;
-  available: boolean;
-  rows: Array<{
-    customer_pincode: string;
-    dealer_name: string;
-    outlet_name: string;
-    model_name: string;
-    journey_count: number;
-    actual_deliveries: number;
-    finance_journeys: number;
-    insurance_journeys: number;
-    accessory_journeys: number;
-    avg_discount: NumericValue;
-  }>;
-  privacy: string;
-}
-
-export interface AnalyticsCommercialComponents {
-  tenant_id: string;
-  data_as_of: string;
-  rows: Array<{
-    component_key: string;
-    record_count: number;
-    journey_count: number;
-    standard_amount: NumericValue;
-    actual_amount: NumericValue;
-    avg_actual_amount: NumericValue;
-  }>;
-  note: string;
-}
-
-interface AnalyticsProjectDashboardWire {
-  executive: {
-    network: AnalyticsBusinessScorecard;
-    overview: Omit<AnalyticsDashboardData, 'network'>;
-  };
-  business: AnalyticsBusinessOverview;
-  coverage: AnalyticsBusinessCoverage;
-  sales_product: AnalyticsSalesProduct;
-  geography: AnalyticsBusinessGeography;
-  commercial_components: AnalyticsCommercialComponents;
-}
-
-export interface AnalyticsBusinessProjectDashboard {
-  data_as_of: string;
-  legacy: AnalyticsDashboardData;
-  business: AnalyticsBusinessOverview;
-  coverage: AnalyticsBusinessCoverage;
-  salesProduct: AnalyticsSalesProduct;
-  geography: AnalyticsBusinessGeography;
-  commercialComponents: AnalyticsCommercialComponents;
 }
 
 export interface AnalyticsBusinessDelivery {
@@ -232,28 +224,31 @@ export interface AnalyticsBusinessInsurance {
   summary: {
     journeys: number;
     insurance_journeys: number;
-    premium_populated: number;
     premium_amount: NumericValue;
+    premium_populated: number;
     avg_premium: NumericValue;
-    self_insurance_journeys: number;
     policies_with_add_ons: number;
     insurance_penetration_pct: number | null;
     add_on_policy_attach_pct: number | null;
+    add_on_journey_penetration_pct: number | null;
   };
   by_insurer: Array<{
     insurer_name: string;
     policy_count: number;
-    premium_populated: number;
     premium_amount: NumericValue;
     avg_premium: NumericValue;
   }>;
-  by_source: Array<{ insurance_by: string; policy_count: number }>;
+  by_source: Array<{
+    insurance_by: string;
+    policy_count: number;
+  }>;
   add_ons: Array<{
     add_on_name: string;
     policy_count: number;
     policy_attach_pct: number | null;
     journey_penetration_pct: number | null;
   }>;
+  definition: string;
 }
 
 export interface AnalyticsBusinessVas {
@@ -321,28 +316,6 @@ export type AnalyticsBusinessReportPayload =
   | { kind: 'discounts'; data: AnalyticsBusinessDiscounts }
   | { kind: 'turnaround'; data: AnalyticsBusinessDelivery }
   | { kind: 'findings'; data: AnalyticsBusinessCompliance };
-
-export async function getBusinessProjectDashboard(
-  tenantId: string,
-  accessToken: string,
-  signal?: AbortSignal,
-): Promise<AnalyticsBusinessProjectDashboard> {
-  const root = `/v1/analytics/tenants/${encodeURIComponent(tenantId)}`;
-  const wire = await analyticsRequest<AnalyticsProjectDashboardWire>(
-    `${root}/business-intelligence/project-dashboard`,
-    accessToken,
-    signal,
-  );
-  return {
-    data_as_of: wire.business.data_as_of,
-    legacy: { ...wire.executive.overview, network: wire.executive.network },
-    business: wire.business,
-    coverage: wire.coverage,
-    salesProduct: wire.sales_product,
-    geography: wire.geography,
-    commercialComponents: wire.commercial_components,
-  };
-}
 
 export async function getBusinessAnalyticsReport(
   tenantId: string,

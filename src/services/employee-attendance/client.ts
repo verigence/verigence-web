@@ -1,4 +1,9 @@
-const configuredBaseUrl = import.meta.env.VITE_EMPLOYEE_ATTENDANCE_BASE_URL?.trim();
+const configuredBaseUrl = (
+  import.meta.env.VITE_EMPLOYEE_ATTENDANCE_BASE_URL?.trim()
+  || import.meta.env.VITE_ATTENDANCE_BASE_URL?.trim()
+);
+const DEV_WEB_HOST = 'verigence-web-dev.jbrconsulting-it.workers.dev';
+const DEV_ATTENDANCE_BASE_URL = 'https://attendance-dev.up.railway.app';
 const REQUEST_TIMEOUT_MS = 12_000;
 
 export type EmployeeProfile = {
@@ -146,8 +151,16 @@ export class EmployeeAttendanceHttpError extends Error {
 }
 
 function baseUrl(): string {
-  if (!configuredBaseUrl) throw new Error('Employee Attendance service is not configured.');
-  return configuredBaseUrl.replace(/\/$/, '');
+  if (configuredBaseUrl) return configuredBaseUrl.replace(/\/$/, '');
+  if (typeof window !== 'undefined' && window.location.hostname === DEV_WEB_HOST) {
+    return DEV_ATTENDANCE_BASE_URL;
+  }
+  throw new Error('Attendance service is not configured.');
+}
+
+export function employeeAttendanceFileUrl(path: string): string {
+  if (/^https?:\/\//i.test(path)) return path;
+  return `${baseUrl()}${path.startsWith('/') ? path : `/${path}`}`;
 }
 
 async function request<T>(

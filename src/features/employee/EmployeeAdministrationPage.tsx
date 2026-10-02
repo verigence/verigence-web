@@ -9,7 +9,6 @@ import {
   createLeaveType,
   createWorkLocation,
   decideHrLeave,
-  decideReimbursement,
   downloadAttendanceReport,
   downloadEmployeeTemplate,
   downloadPayrollReport,
@@ -20,15 +19,17 @@ import {
   getLeaveTypes,
   getModuleConfig,
   getPayrollItems,
+  getReimbursementClaimQueue,
   getReimbursementPaymentQueue,
-  getReimbursementQueue,
   getWorkLocations,
   listAdminEmployees,
   previewEmployeeImport,
+  reviewReimbursementClaim,
   updateModuleConfig,
   updateReimbursementPayment,
   type BulkImport,
   type PayrollSummary,
+  type ReimbursementClaim,
 } from '../../services/employee-attendance/client';
 import { useSessionStore } from '../../store/sessionStore';
 import '../../styles/employee-services.css';
@@ -74,6 +75,12 @@ function money(value: string | number): string {
   }).format(Number(value));
 }
 
+type ExpenseReviewDraft = {
+  decision: 'APPROVE' | 'ADJUST' | 'REJECT';
+  approvedAmount: string;
+  comment: string;
+};
+
 export default function EmployeeAdministrationPage() {
   const native = Capacitor.isNativePlatform();
   const token = useSessionStore((state) => state.accessToken);
@@ -83,6 +90,7 @@ export default function EmployeeAdministrationPage() {
   const [section, setSection] = useState<Section>('employees');
   const [importPlan, setImportPlan] = useState<BulkImport | null>(null);
   const [reimbursementStage, setReimbursementStage] = useState<'HR' | 'FINANCE'>('HR');
+  const [expenseReviewDrafts, setExpenseReviewDrafts] = useState<Record<string, Record<string, ExpenseReviewDraft>>>({});
   const [reimbursementView, setReimbursementView] = useState<'APPROVALS' | 'PAYMENTS'>('APPROVALS');
   const [paymentQueueStatus, setPaymentQueueStatus] = useState<'PENDING_PAYMENT' | 'PROCESSED'>('PENDING_PAYMENT');
   const [paymentClaimId, setPaymentClaimId] = useState<string | null>(null);
@@ -156,9 +164,9 @@ export default function EmployeeAdministrationPage() {
     retry: false,
   });
 
-  const reimbursementQueue = useQuery({
-    queryKey: ['employee-attendance', 'admin-reimbursements', reimbursementStage],
-    queryFn: () => getReimbursementQueue(token!, reimbursementStage),
+  const reimbursementClaimQueue = useQuery({
+    queryKey: ['employee-attendance', 'admin-reimbursement-claims', reimbursementStage],
+    queryFn: () => getReimbursementClaimQueue(token!, reimbursementStage),
     enabled: Boolean(
       token
       && (
@@ -229,6 +237,7 @@ export default function EmployeeAdministrationPage() {
       queryClient.invalidateQueries({ queryKey: ['employee-attendance', 'admin-employees'] }),
       queryClient.invalidateQueries({ queryKey: ['employee-attendance', 'admin-leave'] }),
       queryClient.invalidateQueries({ queryKey: ['employee-attendance', 'admin-reimbursements'] }),
+      queryClient.invalidateQueries({ queryKey: ['employee-attendance', 'admin-reimbursement-claims'] }),
       queryClient.invalidateQueries({ queryKey: ['employee-attendance', 'admin-reimbursement-payments'] }),
       queryClient.invalidateQueries({ queryKey: ['employee-attendance', 'admin-config'] }),
       queryClient.invalidateQueries({ queryKey: ['employee-attendance', 'admin-work-locations'] }),
@@ -253,11 +262,49 @@ export default function EmployeeAdministrationPage() {
       decideHrLeave(token!, id, decision),
     onSuccess: refreshAdmin,
   });
-  const reimbursementMutation = useMutation({
-    mutationFn: ({ id, decision }: { id: string; decision: 'APPROVE' | 'REJECT' }) =>
-      decideReimbursement(token!, id, reimbursementStage, decision),
-    onSuccess: refreshAdmin,
+  const reimbursementReviewMutation = useMutation({
+    mutationFn: (claim: ReimbursementClaim) => {
+      const claimDrafts = expenseReviewDrafts[claim.claimId] ?? {};
+      const lineDecisions = claim.lines.map((line) => {
+        const baseAmount = reimbursementStage === 'HR'
+          ? Number(line.claimedAmount)
+          : Number(line.approvedAmount ?? line.claimedAmount);
+        const draft = claimDrafts[line.reimbursementItemId] ?? {
+          decision: 'APPROVE' as const,
+          approvedAmount: String(baseAmount),
+          comment: '',
+        };
+        const approvedAmount = Number(draft.approvedAmount);
+        if (!Number.isFinite(approvedAmount) || approvedAmount < 0) {
+          throw new Error(`Enter a valid approved amount for line ${line.lineNumber}.`);
+        }
+        if ((draft.decision === 'ADJUST' || draft.decision === 'REJECT') && !draft.comment.trim()) {
+          throw new Error(`Reason is required for line ${line.lineNumber} when adjusting or rejecting.`);
+        }
+        return {
+          reimbursementItemId: line.reimbursementItemId,
+          decision: draft.decision,
+          approvedAmount,
+          comment: draft.comment.trim() || undefined,
+        };
+      });
+      return reviewReimbursementClaim(
+        token!,
+        claim.claimId,
+        reimbursementStage,
+        lineDecisions,
+      );
+    },
+    onSuccess: async (claim) => {
+      setExpenseReviewDrafts((current) => {
+        const next = { ...current };
+        delete next[claim.claimId];
+        return next;
+      });
+      await refreshAdmin();
+    },
   });
+
   const paymentMutation = useMutation({
     mutationFn: () => {
       if (!paymentClaimId) throw new Error('Select a reimbursement to pay.');
@@ -346,7 +393,37 @@ export default function EmployeeAdministrationPage() {
   });
 
   if (native) {
-    return (
+    const reviewDraftFor = (claim: ReimbursementClaim, itemId: string, baseAmount: number): ExpenseReviewDraft => (
+    expenseReviewDrafts[claim.claimId]?.[itemId] ?? {
+      decision: 'APPROVE',
+      approvedAmount: String(baseAmount),
+      comment: '',
+    }
+  );
+
+  const updateReviewDraft = (
+    claimId: string,
+    itemId: string,
+    baseAmount: number,
+    patch: Partial<ExpenseReviewDraft>,
+  ) => {
+    setExpenseReviewDrafts((current) => ({
+      ...current,
+      [claimId]: {
+        ...(current[claimId] ?? {}),
+        [itemId]: {
+          ...(current[claimId]?.[itemId] ?? {
+            decision: 'APPROVE',
+            approvedAmount: String(baseAmount),
+            comment: '',
+          }),
+          ...patch,
+        },
+      },
+    }));
+  };
+
+  return (
       <section className="employee-services">
         <div className="employee-services__panel">
           <h1>Employee Administration</h1>
@@ -505,32 +582,101 @@ export default function EmployeeAdministrationPage() {
             <>
               <div className="employee-admin-toolbar">
                 {capabilities.data?.reimbursementHrApprove && (
-                  <button className="employee-admin-button" type="button" onClick={() => setReimbursementStage('HR')}>HR Queue</button>
+                  <button className={`employee-admin-button ${reimbursementStage === 'HR' ? 'is-primary' : ''}`} type="button" onClick={() => setReimbursementStage('HR')}>HR Review</button>
                 )}
                 {capabilities.data?.reimbursementFinanceApprove && (
-                  <button className="employee-admin-button" type="button" onClick={() => setReimbursementStage('FINANCE')}>Finance Queue</button>
+                  <button className={`employee-admin-button ${reimbursementStage === 'FINANCE' ? 'is-primary' : ''}`} type="button" onClick={() => setReimbursementStage('FINANCE')}>Finance Review</button>
                 )}
               </div>
-              <div className="employee-services__table-wrap">
-                <table>
-                  <thead><tr><th>Employee</th><th>Date</th><th>Category</th><th>Claimed</th><th>Receipt</th><th>Action</th></tr></thead>
-                  <tbody>
-                    {(reimbursementQueue.data ?? []).map((item) => (
-                      <tr key={item.claimId}>
-                        <td>{item.employeeName}</td><td>{item.expenseDate}</td><td>{item.category}</td><td>{money(item.amount)}</td>
-                        <td>{item.receiptUrl ? <a href={item.receiptUrl} target="_blank" rel="noreferrer">View</a> : '—'}</td>
-                        <td>
-                          <div className="employee-admin-toolbar">
-                            <button className="employee-admin-button is-primary" type="button" onClick={() => reimbursementMutation.mutate({ id: item.claimId, decision: 'APPROVE' })}>Approve</button>
-                            <button className="employee-admin-button" type="button" onClick={() => reimbursementMutation.mutate({ id: item.claimId, decision: 'REJECT' })}>Reject</button>
+
+              <div className="employee-expense__claim-list">
+                {(reimbursementClaimQueue.data ?? []).map((claim) => (
+                  <article className="employee-expense__claim employee-expense__review" key={claim.claimId}>
+                    <div className="employee-expense__claim-head">
+                      <div>
+                        <strong>{claim.employeeName} · {claim.claimNumber}</strong>
+                        <span>{claim.purpose} · {claim.lines.length} line{claim.lines.length === 1 ? '' : 's'}</span>
+                      </div>
+                      <div>
+                        <strong>{money(claim.claimedTotal)}</strong>
+                        <span>{reimbursementStage} review</span>
+                      </div>
+                    </div>
+
+                    <div className="employee-expense__review-lines">
+                      {claim.lines.map((line) => {
+                        const baseAmount = reimbursementStage === 'HR'
+                          ? Number(line.claimedAmount)
+                          : Number(line.approvedAmount ?? line.claimedAmount);
+                        const draft = reviewDraftFor(claim, line.reimbursementItemId, baseAmount);
+                        return (
+                          <div className="employee-expense__review-line" key={line.reimbursementItemId}>
+                            <div className="employee-expense__review-evidence">
+                              <strong>#{line.lineNumber} · {line.category.replaceAll('_', ' ')}</strong>
+                              <span>{line.expenseDate} · Claimed {money(line.claimedAmount)}</span>
+                              {line.vendorName && <small>{line.vendorName}</small>}
+                              {(line.travelFrom || line.travelTo) && <small>{line.travelFrom ?? '—'} → {line.travelTo ?? '—'} · {line.transportMode?.replaceAll('_', ' ') ?? '—'}</small>}
+                              {line.description && <small>{line.description}</small>}
+                              {line.receiptUrl && <a href={line.receiptUrl} target="_blank" rel="noreferrer">Open receipt</a>}
+                            </div>
+                            <div className="employee-expense__review-controls">
+                              <label>
+                                Decision
+                                <select
+                                  value={draft.decision}
+                                  onChange={(event) => {
+                                    const decision = event.target.value as ExpenseReviewDraft['decision'];
+                                    updateReviewDraft(claim.claimId, line.reimbursementItemId, baseAmount, {
+                                      decision,
+                                      approvedAmount: decision === 'REJECT' ? '0' : decision === 'APPROVE' ? String(baseAmount) : draft.approvedAmount,
+                                    });
+                                  }}
+                                >
+                                  <option value="APPROVE">Approve</option>
+                                  <option value="ADJUST">Adjust / Partial</option>
+                                  <option value="REJECT">Reject</option>
+                                </select>
+                              </label>
+                              <label>
+                                Approved amount (₹)
+                                <input
+                                  type="number"
+                                  min="0"
+                                  max={baseAmount}
+                                  step="0.01"
+                                  disabled={draft.decision !== 'ADJUST'}
+                                  value={draft.approvedAmount}
+                                  onChange={(event) => updateReviewDraft(claim.claimId, line.reimbursementItemId, baseAmount, { approvedAmount: event.target.value })}
+                                />
+                              </label>
+                              <label className="employee-expense__review-comment">
+                                Review reason / comment
+                                <textarea
+                                  placeholder={draft.decision === 'APPROVE' ? 'Optional' : 'Required'}
+                                  value={draft.comment}
+                                  onChange={(event) => updateReviewDraft(claim.claimId, line.reimbursementItemId, baseAmount, { comment: event.target.value })}
+                                />
+                              </label>
+                            </div>
                           </div>
-                        </td>
-                      </tr>
-                    ))}
-                    {!reimbursementQueue.data?.length && <tr><td colSpan={6}>No {reimbursementStage.toLowerCase()} approvals are pending.</td></tr>}
-                  </tbody>
-                </table>
+                        );
+                      })}
+                    </div>
+
+                    <div className="employee-services__actions">
+                      <button
+                        type="button"
+                        disabled={reimbursementReviewMutation.isPending}
+                        onClick={() => reimbursementReviewMutation.mutate(claim)}
+                      >
+                        {reimbursementReviewMutation.isPending ? 'Saving review…' : `Submit ${reimbursementStage} Review`}
+                      </button>
+                    </div>
+                  </article>
+                ))}
+                {!reimbursementClaimQueue.data?.length && <p>No claims are waiting for {reimbursementStage.toLowerCase()} review.</p>}
               </div>
+              {reimbursementReviewMutation.error && <div className="employee-services__error">{errorMessage(reimbursementReviewMutation.error)}</div>}
             </>
           )}
 

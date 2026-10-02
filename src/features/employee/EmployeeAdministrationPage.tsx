@@ -481,31 +481,151 @@ export default function EmployeeAdministrationPage() {
       )}
 
       {section === 'reimbursements' && (
-        <div className="employee-services__panel">
+        <div className="employee-services__panel employee-admin-section">
           <div className="employee-services__panel-head">
-            <div><h2>Reimbursement approvals</h2><p>Finance sees only claims that crossed the monthly threshold and were approved by HR.</p></div>
-            {capabilities.data?.reimbursementHrApprove && capabilities.data?.reimbursementFinanceApprove && (
+            <div>
+              <h2>Reimbursements</h2>
+              <p>Approval and payment are separate, auditable stages.</p>
+            </div>
+            <div className="employee-admin-toolbar">
+              {(capabilities.data?.reimbursementHrApprove || capabilities.data?.reimbursementFinanceApprove) && (
+                <button
+                  className={`employee-admin-button ${reimbursementView === 'APPROVALS' ? 'is-primary' : ''}`}
+                  type="button"
+                  onClick={() => setReimbursementView('APPROVALS')}
+                >
+                  Approval Queue
+                </button>
+              )}
+              {capabilities.data?.reimbursementPaymentManage && (
+                <button
+                  className={`employee-admin-button ${reimbursementView === 'PAYMENTS' ? 'is-primary' : ''}`}
+                  type="button"
+                  onClick={() => setReimbursementView('PAYMENTS')}
+                >
+                  Payment Queue
+                </button>
+              )}
+            </div>
+          </div>
+
+          {reimbursementView === 'APPROVALS' && (
+            <>
               <div className="employee-admin-toolbar">
-                <button className="employee-admin-button" type="button" onClick={() => setReimbursementStage('HR')}>HR Queue</button>
-                <button className="employee-admin-button" type="button" onClick={() => setReimbursementStage('FINANCE')}>Finance Queue</button>
+                {capabilities.data?.reimbursementHrApprove && (
+                  <button className="employee-admin-button" type="button" onClick={() => setReimbursementStage('HR')}>HR Queue</button>
+                )}
+                {capabilities.data?.reimbursementFinanceApprove && (
+                  <button className="employee-admin-button" type="button" onClick={() => setReimbursementStage('FINANCE')}>Finance Queue</button>
+                )}
               </div>
-            )}
-          </div>
-          <div className="employee-services__table-wrap">
-            <table>
-              <thead><tr><th>Employee</th><th>Date</th><th>Category</th><th>Amount</th><th>Receipt</th><th>Action</th></tr></thead>
-              <tbody>
-                {(reimbursementQueue.data ?? []).map((item) => (
-                  <tr key={item.claimId}>
-                    <td>{item.employeeName}</td><td>{item.expenseDate}</td><td>{item.category}</td><td>{money(item.amount)}</td>
-                    <td>{item.receiptUrl ? <a href={item.receiptUrl} target="_blank" rel="noreferrer">View</a> : '—'}</td>
-                    <td><div className="employee-admin-toolbar"><button className="employee-admin-button is-primary" type="button" onClick={() => reimbursementMutation.mutate({ id: item.claimId, decision: 'APPROVE' })}>Approve</button><button className="employee-admin-button" type="button" onClick={() => reimbursementMutation.mutate({ id: item.claimId, decision: 'REJECT' })}>Reject</button></div></td>
-                  </tr>
+              <div className="employee-services__table-wrap">
+                <table>
+                  <thead><tr><th>Employee</th><th>Date</th><th>Category</th><th>Claimed</th><th>Receipt</th><th>Action</th></tr></thead>
+                  <tbody>
+                    {(reimbursementQueue.data ?? []).map((item) => (
+                      <tr key={item.claimId}>
+                        <td>{item.employeeName}</td><td>{item.expenseDate}</td><td>{item.category}</td><td>{money(item.amount)}</td>
+                        <td>{item.receiptUrl ? <a href={item.receiptUrl} target="_blank" rel="noreferrer">View</a> : '—'}</td>
+                        <td>
+                          <div className="employee-admin-toolbar">
+                            <button className="employee-admin-button is-primary" type="button" onClick={() => reimbursementMutation.mutate({ id: item.claimId, decision: 'APPROVE' })}>Approve</button>
+                            <button className="employee-admin-button" type="button" onClick={() => reimbursementMutation.mutate({ id: item.claimId, decision: 'REJECT' })}>Reject</button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                    {!reimbursementQueue.data?.length && <tr><td colSpan={6}>No {reimbursementStage.toLowerCase()} approvals are pending.</td></tr>}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
+
+          {reimbursementView === 'PAYMENTS' && capabilities.data?.reimbursementPaymentManage && (
+            <>
+              <div className="employee-admin-toolbar">
+                <label>
+                  Payment status
+                  <select value={paymentQueueStatus} onChange={(event) => setPaymentQueueStatus(event.target.value as typeof paymentQueueStatus)}>
+                    <option value="PENDING">Pending payment</option>
+                    <option value="PROCESSING">Processing</option>
+                    <option value="FAILED">Failed</option>
+                    <option value="PAID">Paid</option>
+                  </select>
+                </label>
+              </div>
+
+              <div className="employee-services__approval-list">
+                {(reimbursementPayments.data ?? []).map((item) => (
+                  <article key={item.claimId}>
+                    <div>
+                      <strong>{item.employeeName} · {money(item.amount)}</strong>
+                      <span>{item.expenseDate} · {item.category} · {item.paymentStatus.replaceAll('_', ' ')}</span>
+                      {item.paidAtUtc && <small>Paid {new Date(item.paidAtUtc).toLocaleString()} · {item.paymentReference ?? 'No reference'}</small>}
+                    </div>
+                    <div>
+                      {item.paymentStatus !== 'PAID' && item.paymentStatus !== 'PROCESSING' && (
+                        <button
+                          type="button"
+                          disabled={paymentProcessingMutation.isPending}
+                          onClick={() => paymentProcessingMutation.mutate(item.claimId)}
+                        >
+                          Mark Processing
+                        </button>
+                      )}
+                      {item.paymentStatus !== 'PAID' && (
+                        <button
+                          type="button"
+                          className="is-secondary"
+                          onClick={() => {
+                            setPaymentClaimId(item.claimId);
+                            setPaymentAmount(String(item.amount));
+                            setPaymentReference('');
+                            setPaymentComment('');
+                            setPaymentPaidAt(new Date().toISOString().slice(0, 16));
+                          }}
+                        >
+                          Record Payment
+                        </button>
+                      )}
+                    </div>
+                  </article>
                 ))}
-                {!reimbursementQueue.data?.length && <tr><td colSpan={6}>No {reimbursementStage.toLowerCase()} approvals are pending.</td></tr>}
-              </tbody>
-            </table>
-          </div>
+                {!reimbursementPayments.data?.length && <p>No reimbursements in this payment state.</p>}
+              </div>
+
+              {paymentClaimId && (
+                <div className="employee-admin-payment-form">
+                  <h3>Record payment</h3>
+                  <div className="employee-admin-form">
+                    <label>Paid amount (₹)<input type="number" min="0.01" step="0.01" value={paymentAmount} onChange={(event) => setPaymentAmount(event.target.value)} /></label>
+                    <label>Paid date/time<input type="datetime-local" value={paymentPaidAt} onChange={(event) => setPaymentPaidAt(event.target.value)} /></label>
+                    <label>
+                      Payment mode
+                      <select value={paymentMode} onChange={(event) => setPaymentMode(event.target.value)}>
+                        <option value="BANK_TRANSFER">Bank transfer</option>
+                        <option value="NEFT">NEFT</option>
+                        <option value="IMPS">IMPS</option>
+                        <option value="UPI">UPI</option>
+                        <option value="CASH">Cash</option>
+                        <option value="OTHER">Other</option>
+                      </select>
+                    </label>
+                    <label>Payment reference / UTR<input value={paymentReference} onChange={(event) => setPaymentReference(event.target.value)} /></label>
+                    <label className="span">Finance comment<textarea value={paymentComment} onChange={(event) => setPaymentComment(event.target.value)} /></label>
+                  </div>
+                  <div className="employee-services__actions">
+                    <button type="button" disabled={paymentMutation.isPending} onClick={() => paymentMutation.mutate()}>
+                      {paymentMutation.isPending ? 'Recording…' : 'Mark Paid'}
+                    </button>
+                    <button type="button" className="is-secondary" onClick={() => setPaymentClaimId(null)}>Cancel</button>
+                  </div>
+                  {paymentMutation.error && <div className="employee-services__error">{errorMessage(paymentMutation.error)}</div>}
+                </div>
+              )}
+            </>
+          )}
         </div>
       )}
 

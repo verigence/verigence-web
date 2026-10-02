@@ -8,6 +8,7 @@ import {
   createHoliday,
   createLeaveType,
   createWorkLocation,
+  decideHrAttendanceReview,
   decideHrLeave,
   downloadAttendanceReport,
   downloadEmployeeTemplate,
@@ -15,6 +16,7 @@ import {
   finalizePayroll,
   getAdminCapabilities,
   getHolidays,
+  getHrAttendanceReviewQueue,
   getHrLeaveQueue,
   getLeaveTypes,
   getModuleConfig,
@@ -34,7 +36,7 @@ import {
 import { useSessionStore } from '../../store/sessionStore';
 import '../../styles/employee-services.css';
 
-type Section = 'employees' | 'leave' | 'reimbursements' | 'payroll' | 'reports' | 'config';
+type Section = 'employees' | 'attendance' | 'leave' | 'reimbursements' | 'payroll' | 'reports' | 'config';
 
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : 'Employee Administration is temporarily unavailable.';
@@ -89,6 +91,11 @@ export default function EmployeeAdministrationPage() {
 
   const [section, setSection] = useState<Section>('employees');
   const [importPlan, setImportPlan] = useState<BulkImport | null>(null);
+  const [attendanceReviewDrafts, setAttendanceReviewDrafts] = useState<Record<string, {
+    decision: 'APPROVE' | 'ADJUST' | 'REJECT';
+    presentFraction: string;
+    comment: string;
+  }>>({});
   const [reimbursementStage, setReimbursementStage] = useState<'HR' | 'FINANCE'>('HR');
   const [expenseReviewDrafts, setExpenseReviewDrafts] = useState<Record<string, Record<string, ExpenseReviewDraft>>>({});
   const [reimbursementView, setReimbursementView] = useState<'APPROVALS' | 'PAYMENTS'>('APPROVALS');
@@ -132,6 +139,7 @@ export default function EmployeeAdministrationPage() {
     if (!value) return [] as Section[];
     const items: Section[] = [];
     if (value.employeeManage) items.push('employees');
+    if (value.attendanceReview) items.push('attendance');
     if (value.leaveHrApprove) items.push('leave');
     if (value.reimbursementHrApprove || value.reimbursementFinanceApprove || value.reimbursementPaymentManage) items.push('reimbursements');
     if (value.payrollManage) items.push('payroll');
@@ -154,6 +162,13 @@ export default function EmployeeAdministrationPage() {
     queryKey: ['employee-attendance', 'admin-employees'],
     queryFn: () => listAdminEmployees(token!),
     enabled: Boolean(token && capabilities.data?.employeeManage),
+    retry: false,
+  });
+
+  const hrAttendance = useQuery({
+    queryKey: ['employee-attendance', 'admin-attendance-review'],
+    queryFn: () => getHrAttendanceReviewQueue(token!),
+    enabled: Boolean(token && capabilities.data?.attendanceReview),
     retry: false,
   });
 
@@ -235,6 +250,7 @@ export default function EmployeeAdministrationPage() {
   const refreshAdmin = async () => {
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: ['employee-attendance', 'admin-employees'] }),
+      queryClient.invalidateQueries({ queryKey: ['employee-attendance', 'admin-attendance-review'] }),
       queryClient.invalidateQueries({ queryKey: ['employee-attendance', 'admin-leave'] }),
       queryClient.invalidateQueries({ queryKey: ['employee-attendance', 'admin-reimbursements'] }),
       queryClient.invalidateQueries({ queryKey: ['employee-attendance', 'admin-reimbursement-claims'] }),
@@ -257,6 +273,41 @@ export default function EmployeeAdministrationPage() {
       await refreshAdmin();
     },
   });
+  const attendanceReviewMutation = useMutation({
+    mutationFn: (attendanceDayId: string) => {
+      const draft = attendanceReviewDrafts[attendanceDayId] ?? {
+        decision: 'APPROVE' as const,
+        presentFraction: '1',
+        comment: '',
+      };
+      const presentFraction = draft.decision === 'ADJUST'
+        ? Number(draft.presentFraction)
+        : undefined;
+      if (
+        draft.decision === 'ADJUST'
+        && (!Number.isFinite(presentFraction) || presentFraction! < 0 || presentFraction! > 1)
+      ) {
+        throw new Error('Attendance credit must be between 0 and 1.');
+      }
+      if ((draft.decision === 'ADJUST' || draft.decision === 'REJECT') && !draft.comment.trim()) {
+        throw new Error('A reason is required when attendance is adjusted or rejected.');
+      }
+      return decideHrAttendanceReview(token!, attendanceDayId, {
+        decision: draft.decision,
+        presentFraction,
+        comment: draft.comment.trim() || undefined,
+      });
+    },
+    onSuccess: async (result) => {
+      setAttendanceReviewDrafts((current) => {
+        const next = { ...current };
+        delete next[result.attendanceDayId];
+        return next;
+      });
+      await refreshAdmin();
+    },
+  });
+
   const leaveMutation = useMutation({
     mutationFn: ({ id, decision }: { id: string; decision: 'APPROVE' | 'REJECT' }) =>
       decideHrLeave(token!, id, decision),
@@ -463,7 +514,8 @@ export default function EmployeeAdministrationPage() {
         {visibleSections.map((item) => (
           <button key={item} type="button" className={section === item ? 'is-active' : ''} onClick={() => setSection(item)}>
             {item === 'employees' ? 'Employees'
-              : item === 'leave' ? 'Leave'
+              : item === 'attendance' ? 'Attendance Review'
+                : item === 'leave' ? 'Leave'
                 : item === 'reimbursements' ? 'Reimbursements'
                   : item === 'payroll' ? 'Payroll'
                     : item === 'reports' ? 'Reports'
@@ -529,6 +581,111 @@ export default function EmployeeAdministrationPage() {
               </tbody>
             </table>
           </div>
+        </div>
+      )}
+
+      {section === 'attendance' && capabilities.data?.attendanceReview && (
+        <div className="employee-services__panel employee-admin-section">
+          <div className="employee-services__panel-head">
+            <div>
+              <h2>Attendance review</h2>
+              <p>Review geofence exceptions, late check-ins and early check-outs. Attendance remains counted unless HR adjusts or rejects the credit.</p>
+            </div>
+            <span className="employee-services__status">{hrAttendance.data?.length ?? 0} pending</span>
+          </div>
+
+          <div className="employee-attendance__review-list">
+            {(hrAttendance.data ?? []).map((item) => {
+              const draft = attendanceReviewDrafts[item.attendanceDayId] ?? {
+                decision: 'APPROVE' as const,
+                presentFraction: String(item.presentFraction),
+                comment: '',
+              };
+              return (
+                <article className="employee-attendance__review-card" key={item.attendanceDayId}>
+                  <div className="employee-attendance__review-head">
+                    <div>
+                      <strong>{item.employeeCode} · {item.employeeName}</strong>
+                      <span>{item.attendanceDate} · In {item.checkInAtUtc ? new Date(item.checkInAtUtc).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—'} · Out {item.checkOutAtUtc ? new Date(item.checkOutAtUtc).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—'}</span>
+                    </div>
+                    <strong>{Number(item.presentFraction) * 100}% credit</strong>
+                  </div>
+
+                  <div className="employee-attendance__flags">
+                    {item.flags.map((flag) => (
+                      <div key={flag.attendanceFlagId}>
+                        <strong>{flag.flagType.replaceAll('_', ' ')}</strong>
+                        {flag.flagDetail && <span>{flag.flagDetail}</span>}
+                        {flag.employeeReason && <small>Employee reason: {flag.employeeReason}</small>}
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="employee-admin-form">
+                    <label>
+                      HR decision
+                      <select
+                        value={draft.decision}
+                        onChange={(event) => {
+                          const decision = event.target.value as 'APPROVE' | 'ADJUST' | 'REJECT';
+                          setAttendanceReviewDrafts((current) => ({
+                            ...current,
+                            [item.attendanceDayId]: {
+                              ...draft,
+                              decision,
+                              presentFraction: decision === 'REJECT' ? '0' : draft.presentFraction,
+                            },
+                          }));
+                        }}
+                      >
+                        <option value="APPROVE">Approve attendance as recorded</option>
+                        <option value="ADJUST">Adjust attendance credit</option>
+                        <option value="REJECT">Reject attendance credit</option>
+                      </select>
+                    </label>
+                    {draft.decision === 'ADJUST' && (
+                      <label>
+                        Attendance credit
+                        <select
+                          value={draft.presentFraction}
+                          onChange={(event) => setAttendanceReviewDrafts((current) => ({
+                            ...current,
+                            [item.attendanceDayId]: { ...draft, presentFraction: event.target.value },
+                          }))}
+                        >
+                          <option value="1">Full day (1.0)</option>
+                          <option value="0.5">Half day (0.5)</option>
+                          <option value="0">No credit (0.0)</option>
+                        </select>
+                      </label>
+                    )}
+                    <label className="span">
+                      HR comment
+                      <textarea
+                        placeholder={draft.decision === 'APPROVE' ? 'Optional' : 'Required'}
+                        value={draft.comment}
+                        onChange={(event) => setAttendanceReviewDrafts((current) => ({
+                          ...current,
+                          [item.attendanceDayId]: { ...draft, comment: event.target.value },
+                        }))}
+                      />
+                    </label>
+                  </div>
+                  <div className="employee-services__actions">
+                    <button
+                      type="button"
+                      disabled={attendanceReviewMutation.isPending}
+                      onClick={() => attendanceReviewMutation.mutate(item.attendanceDayId)}
+                    >
+                      {attendanceReviewMutation.isPending ? 'Saving…' : 'Complete HR Review'}
+                    </button>
+                  </div>
+                </article>
+              );
+            })}
+            {!hrAttendance.data?.length && <p>No attendance exceptions are waiting for HR.</p>}
+          </div>
+          {attendanceReviewMutation.error && <div className="employee-services__error">{errorMessage(attendanceReviewMutation.error)}</div>}
         </div>
       )}
 

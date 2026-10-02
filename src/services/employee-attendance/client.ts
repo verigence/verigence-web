@@ -99,9 +99,28 @@ export type LeaveRequest = {
   startDate: string;
   endDate: string;
   requestedDays: string | number;
+  calculatedDays: string | number;
+  dayMode: 'FULL_DAY' | 'HALF_DAY';
+  halfDaySession?: 'FIRST_HALF' | 'SECOND_HALF' | null;
+  approvedDays?: string | number | null;
+  approvalOutcome?: 'APPROVED' | 'ADJUSTED' | 'REJECTED' | null;
   reason?: string | null;
   status: string;
   createdAtUtc: string;
+};
+
+export type LeaveType = {
+  leaveTypeId: string;
+  leaveCode: string;
+  leaveName: string;
+  isPaid: boolean;
+  defaultEntitlementDays: string | number;
+  allowHalfDay: boolean;
+  minNoticeDays: number;
+  maxConsecutiveDays?: string | number | null;
+  requiresReason: boolean;
+  allowNegativeBalance: boolean;
+  status: string;
 };
 
 export type ReimbursementLineReview = {
@@ -398,7 +417,8 @@ export const applyLeave = (
     leaveTypeId: string;
     startDate: string;
     endDate: string;
-    requestedDays: number;
+    dayMode: 'FULL_DAY' | 'HALF_DAY';
+    halfDaySession?: 'FIRST_HALF' | 'SECOND_HALF';
     reason?: string;
   },
 ) => request<LeaveRequest>('/employee-attendance/v1/me/leave', token, {
@@ -533,12 +553,15 @@ export const getHrLeaveQueue = (token: string) =>
 export const decideHrLeave = (
   token: string,
   leaveId: string,
-  decision: 'APPROVE' | 'REJECT',
-  comment?: string,
+  input: {
+    decision: 'APPROVE' | 'ADJUST' | 'REJECT';
+    approvedDays?: number;
+    comment?: string;
+  },
 ) => request<LeaveRequest>(
   `/employee-attendance/v1/admin/leave/${leaveId}/decision`,
   token,
-  { method: 'POST', body: JSON.stringify({ decision, comment }) },
+  { method: 'POST', body: JSON.stringify(input) },
 );
 
 export const getReimbursementQueue = (token: string, stage: 'HR' | 'FINANCE') =>
@@ -639,7 +662,7 @@ export const getWorkLocations = (token: string) =>
   request<Array<Record<string, unknown>>>('/employee-attendance/v1/admin/work-locations', token);
 
 export const getLeaveTypes = (token: string) =>
-  request<Array<Record<string, unknown>>>('/employee-attendance/v1/admin/leave-types', token);
+  request<LeaveType[]>('/employee-attendance/v1/admin/leave-types', token);
 
 export const getHolidays = (token: string) =>
   request<Array<Record<string, unknown>>>('/employee-attendance/v1/admin/holidays', token);
@@ -702,6 +725,10 @@ export const createLeaveType = (
     isPaid: boolean;
     defaultEntitlementDays: number;
     allowHalfDay: boolean;
+    minNoticeDays: number;
+    maxConsecutiveDays?: number;
+    requiresReason: boolean;
+    allowNegativeBalance: boolean;
   },
 ) => request<Record<string, unknown>>('/employee-attendance/v1/admin/leave-types', token, {
   method: 'POST',

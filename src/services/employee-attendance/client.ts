@@ -77,6 +77,13 @@ export type Reimbursement = {
   status: string;
   financeApprovalRequired: boolean;
   receiptUrl?: string | null;
+  paymentStatus: 'NOT_READY' | 'PENDING' | 'PROCESSING' | 'PAID' | 'FAILED';
+  paymentInitiatedAtUtc?: string | null;
+  paidAtUtc?: string | null;
+  paidAmount?: string | number | null;
+  paymentMode?: string | null;
+  paymentReference?: string | null;
+  paymentComment?: string | null;
   createdAtUtc: string;
 };
 
@@ -93,6 +100,7 @@ export type AdminCapabilities = {
   leaveHrApprove: boolean;
   reimbursementHrApprove: boolean;
   reimbursementFinanceApprove: boolean;
+  reimbursementPaymentManage: boolean;
   payrollManage: boolean;
   reportRead: boolean;
   configManage: boolean;
@@ -361,6 +369,31 @@ export const decideReimbursement = (
   `/employee-attendance/v1/admin/reimbursements/${claimId}/decision?stage=${stage}`,
   token,
   { method: 'POST', body: JSON.stringify({ decision, comment }) },
+);
+
+export const getReimbursementPaymentQueue = (
+  token: string,
+  paymentStatus: 'PENDING' | 'PROCESSING' | 'FAILED' | 'PAID' = 'PENDING',
+) => request<Reimbursement[]>(
+  `/employee-attendance/v1/admin/reimbursements/payments?paymentStatus=${paymentStatus}`,
+  token,
+);
+
+export const updateReimbursementPayment = (
+  token: string,
+  claimId: string,
+  input: {
+    paymentStatus: 'PROCESSING' | 'PAID' | 'FAILED';
+    paidAmount?: number;
+    paidAtUtc?: string;
+    paymentMode?: string;
+    paymentReference?: string;
+    comment?: string;
+  },
+) => request<Reimbursement>(
+  `/employee-attendance/v1/admin/reimbursements/${claimId}/payment`,
+  token,
+  { method: 'POST', body: JSON.stringify(input) },
 );
 
 export const downloadEmployeeTemplate = (token: string) =>

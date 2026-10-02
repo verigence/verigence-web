@@ -391,3 +391,79 @@ export const getLeaveTypes = (token: string) =>
 
 export const getHolidays = (token: string) =>
   request<Array<Record<string, unknown>>>('/employee-attendance/v1/admin/holidays', token);
+
+
+export const createAdminEmployee = (
+  token: string,
+  body: {
+    securityUserId: string;
+    employeeCode: string;
+    displayName: string;
+    primaryEmail?: string;
+    mobile?: string;
+    joiningDate: string;
+    tlUserId?: string;
+    pmoUserId?: string;
+    projectTenantId?: string;
+    workLocationId?: string;
+    basicSalary: number;
+    hra: number;
+    allowances: number;
+    otherEarnings: number;
+    fixedDeductions: number;
+    bankAccountMasked?: string;
+    panMasked?: string;
+    aadhaarMasked?: string;
+  },
+) => request<EmployeeProfile>('/employee-attendance/v1/admin/employees', token, {
+  method: 'POST',
+  body: JSON.stringify(body),
+});
+
+export const updateModuleConfig = (token: string, key: string, value: unknown) =>
+  request<Record<string, unknown>>(
+    `/employee-attendance/v1/admin/config/${encodeURIComponent(key)}`,
+    token,
+    { method: 'PUT', body: JSON.stringify({ value }) },
+  );
+
+export const createWorkLocation = (
+  token: string,
+  body: {
+    locationCode: string;
+    locationName: string;
+    addressText?: string;
+    latitude: number;
+    longitude: number;
+    geofenceRadiusMeters: number;
+  },
+) => request<Record<string, unknown>>('/employee-attendance/v1/admin/work-locations', token, {
+  method: 'POST',
+  body: JSON.stringify(body),
+});
+
+export const createLeaveType = (
+  token: string,
+  body: {
+    leaveCode: string;
+    leaveName: string;
+    isPaid: boolean;
+    defaultEntitlementDays: number;
+    allowHalfDay: boolean;
+  },
+) => request<Record<string, unknown>>('/employee-attendance/v1/admin/leave-types', token, {
+  method: 'POST',
+  body: JSON.stringify(body),
+});
+
+export const createHoliday = (
+  token: string,
+  body: {
+    holidayDate: string;
+    holidayName: string;
+    workLocationId?: string;
+  },
+) => request<Record<string, unknown>>('/employee-attendance/v1/admin/holidays', token, {
+  method: 'POST',
+  body: JSON.stringify(body),
+});

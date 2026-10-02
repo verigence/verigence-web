@@ -392,36 +392,38 @@ export default function EmployeeAdministrationPage() {
     },
   });
 
-  if (native) {
-    const reviewDraftFor = (claim: ReimbursementClaim, itemId: string, baseAmount: number): ExpenseReviewDraft => (
-    expenseReviewDrafts[claim.claimId]?.[itemId] ?? {
-      decision: 'APPROVE',
-      approvedAmount: String(baseAmount),
-      comment: '',
-    }
+  const reviewDraftFor = (claim: ReimbursementClaim, itemId: string, baseAmount: number): ExpenseReviewDraft => (
+  expenseReviewDrafts[claim.claimId]?.[itemId] ?? {
+    decision: 'APPROVE',
+    approvedAmount: String(baseAmount),
+    comment: '',
+  }
   );
 
   const updateReviewDraft = (
-    claimId: string,
-    itemId: string,
-    baseAmount: number,
-    patch: Partial<ExpenseReviewDraft>,
+  claimId: string,
+  itemId: string,
+  baseAmount: number,
+  patch: Partial<ExpenseReviewDraft>,
   ) => {
-    setExpenseReviewDrafts((current) => ({
-      ...current,
-      [claimId]: {
-        ...(current[claimId] ?? {}),
-        [itemId]: {
-          ...(current[claimId]?.[itemId] ?? {
-            decision: 'APPROVE',
-            approvedAmount: String(baseAmount),
-            comment: '',
-          }),
-          ...patch,
-        },
+  setExpenseReviewDrafts((current) => ({
+    ...current,
+    [claimId]: {
+      ...(current[claimId] ?? {}),
+      [itemId]: {
+        ...(current[claimId]?.[itemId] ?? {
+          decision: 'APPROVE',
+          approvedAmount: String(baseAmount),
+          comment: '',
+        }),
+        ...patch,
       },
-    }));
+    },
+  }));
   };
+
+  if (native) {
+
 
   return (
       <section className="employee-services">

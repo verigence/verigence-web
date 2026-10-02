@@ -16,6 +16,7 @@ import {
   getMyProfile,
   getMyReimbursements,
   getTeamLeave,
+  getTeamReimbursements,
   recordAttendance,
   submitReimbursement,
   type LeaveRequest,
@@ -103,6 +104,12 @@ export default function EmployeeServicesPage() {
     queryKey: ['employee-attendance', 'reimbursements'],
     queryFn: () => getMyReimbursements(token!),
     enabled: Boolean(token && profile.data),
+    retry: false,
+  });
+  const teamReimbursements = useQuery({
+    queryKey: ['employee-attendance', 'team-reimbursements'],
+    queryFn: () => getTeamReimbursements(token!),
+    enabled: Boolean(token && role === 'PM'),
     retry: false,
   });
   const payslips = useQuery({
@@ -417,6 +424,30 @@ export default function EmployeeServicesPage() {
             </button>
           </div>
           {reimbursementMutation.error && <div className="employee-services__error">{message(reimbursementMutation.error)}</div>}
+
+          {role === 'PM' && (
+            <>
+              <h3>Team reimbursements</h3>
+              <p>Read-only view for employees assigned to you. Approval remains with HR/Finance.</p>
+              <div className="employee-services__table-wrap">
+                <table>
+                  <thead><tr><th>Employee</th><th>Date</th><th>Category</th><th>Amount</th><th>Status</th></tr></thead>
+                  <tbody>
+                    {(teamReimbursements.data ?? []).map((item) => (
+                      <tr key={item.claimId}>
+                        <td>{item.employeeName}</td>
+                        <td>{item.expenseDate}</td>
+                        <td>{item.category}</td>
+                        <td>{money(item.amount)}</td>
+                        <td>{item.status.replaceAll('_', ' ')}</td>
+                      </tr>
+                    ))}
+                    {!teamReimbursements.data?.length && <tr><td colSpan={5}>No team reimbursement claims.</td></tr>}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
 
           <h3>My claims</h3>
           <div className="employee-services__table-wrap">

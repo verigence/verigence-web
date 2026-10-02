@@ -68,3 +68,19 @@
   .employee-admin-summary{grid-template-columns:1fr}
   .employee-services__panel,.employee-expense__line,.employee-expense__claim,.employee-attendance__review-card,.employee-leave__request,.employee-leave__admin-card{border-radius:10px}
 }
+
+.employee-payroll__run-head{margin-top:10px;padding-top:18px;border-top:1px solid var(--border,#dbe3ec)}
+.employee-payroll__search{width:min(320px,100%);min-height:40px;border:1px solid var(--border,#dbe3ec);border-radius:8px;background:var(--surface,#fff);color:inherit;padding:8px 10px;font:inherit}
+.employee-payroll__profiles{display:grid;gap:10px}
+.employee-payroll__profile{border:1px solid var(--border,#dbe3ec);border-radius:10px;background:var(--surface,#fff);overflow:hidden}
+.employee-payroll__profile summary{display:flex;justify-content:space-between;align-items:center;gap:14px;padding:13px 14px;cursor:pointer;list-style:none}
+.employee-payroll__profile summary::-webkit-details-marker{display:none}
+.employee-payroll__profile summary>span{display:grid;gap:3px}
+.employee-payroll__profile summary small,.employee-payroll__profile summary>span:last-child{color:var(--text-muted,#64748b)}
+.employee-payroll__profile-form{padding:14px;border-top:1px solid var(--border,#e7edf3)}
+.employee-payroll__profile>.employee-services__actions{padding:0 14px 14px;margin:0}
+@media(max-width:767px){
+  .employee-payroll__search{width:100%}
+  .employee-payroll__profile summary{align-items:flex-start;display:grid}
+  .employee-payroll__profile summary>span:last-child{font-size:.8rem}
+}

@@ -84,7 +84,7 @@ export default function EmployeeAdministrationPage() {
   const [importPlan, setImportPlan] = useState<BulkImport | null>(null);
   const [reimbursementStage, setReimbursementStage] = useState<'HR' | 'FINANCE'>('HR');
   const [reimbursementView, setReimbursementView] = useState<'APPROVALS' | 'PAYMENTS'>('APPROVALS');
-  const [paymentQueueStatus, setPaymentQueueStatus] = useState<'PENDING' | 'PROCESSING' | 'FAILED' | 'PAID'>('PENDING');
+  const [paymentQueueStatus, setPaymentQueueStatus] = useState<'PENDING_PAYMENT' | 'PROCESSED'>('PENDING_PAYMENT');
   const [paymentClaimId, setPaymentClaimId] = useState<string | null>(null);
   const [paymentAmount, setPaymentAmount] = useState('');
   const [paymentMode, setPaymentMode] = useState('BANK_TRANSFER');
@@ -258,13 +258,6 @@ export default function EmployeeAdministrationPage() {
       decideReimbursement(token!, id, reimbursementStage, decision),
     onSuccess: refreshAdmin,
   });
-  const paymentProcessingMutation = useMutation({
-    mutationFn: (claimId: string) => updateReimbursementPayment(token!, claimId, {
-      paymentStatus: 'PROCESSING',
-    }),
-    onSuccess: refreshAdmin,
-  });
-
   const paymentMutation = useMutation({
     mutationFn: () => {
       if (!paymentClaimId) throw new Error('Select a reimbursement to pay.');
@@ -272,7 +265,6 @@ export default function EmployeeAdministrationPage() {
       if (!Number.isFinite(amount) || amount <= 0) throw new Error('Enter a valid paid amount.');
       if (!paymentReference.trim()) throw new Error('Payment reference is required.');
       return updateReimbursementPayment(token!, paymentClaimId, {
-        paymentStatus: 'PAID',
         paidAmount: amount,
         paidAtUtc: new Date(paymentPaidAt).toISOString(),
         paymentMode,
@@ -548,10 +540,8 @@ export default function EmployeeAdministrationPage() {
                 <label>
                   Payment status
                   <select value={paymentQueueStatus} onChange={(event) => setPaymentQueueStatus(event.target.value as typeof paymentQueueStatus)}>
-                    <option value="PENDING">Pending payment</option>
-                    <option value="PROCESSING">Processing</option>
-                    <option value="FAILED">Failed</option>
-                    <option value="PAID">Paid</option>
+                    <option value="PENDING_PAYMENT">Pending Payment</option>
+                    <option value="PROCESSED">Processed</option>
                   </select>
                 </label>
               </div>
@@ -565,16 +555,7 @@ export default function EmployeeAdministrationPage() {
                       {item.paidAtUtc && <small>Paid {new Date(item.paidAtUtc).toLocaleString()} · {item.paymentReference ?? 'No reference'}</small>}
                     </div>
                     <div>
-                      {item.paymentStatus !== 'PAID' && item.paymentStatus !== 'PROCESSING' && (
-                        <button
-                          type="button"
-                          disabled={paymentProcessingMutation.isPending}
-                          onClick={() => paymentProcessingMutation.mutate(item.claimId)}
-                        >
-                          Mark Processing
-                        </button>
-                      )}
-                      {item.paymentStatus !== 'PAID' && (
+                      {item.paymentStatus !== 'PROCESSED' && (
                         <button
                           type="button"
                           className="is-secondary"
@@ -586,7 +567,7 @@ export default function EmployeeAdministrationPage() {
                             setPaymentPaidAt(new Date().toISOString().slice(0, 16));
                           }}
                         >
-                          Record Payment
+                          Mark Processed
                         </button>
                       )}
                     </div>
@@ -597,7 +578,7 @@ export default function EmployeeAdministrationPage() {
 
               {paymentClaimId && (
                 <div className="employee-admin-payment-form">
-                  <h3>Record payment</h3>
+                  <h3>Process reimbursement payment</h3>
                   <div className="employee-admin-form">
                     <label>Paid amount (₹)<input type="number" min="0.01" step="0.01" value={paymentAmount} onChange={(event) => setPaymentAmount(event.target.value)} /></label>
                     <label>Paid date/time<input type="datetime-local" value={paymentPaidAt} onChange={(event) => setPaymentPaidAt(event.target.value)} /></label>
@@ -617,7 +598,7 @@ export default function EmployeeAdministrationPage() {
                   </div>
                   <div className="employee-services__actions">
                     <button type="button" disabled={paymentMutation.isPending} onClick={() => paymentMutation.mutate()}>
-                      {paymentMutation.isPending ? 'Recording…' : 'Mark Paid'}
+                      {paymentMutation.isPending ? 'Processing…' : 'Confirm Processed'}
                     </button>
                     <button type="button" className="is-secondary" onClick={() => setPaymentClaimId(null)}>Cancel</button>
                   </div>

@@ -21,6 +21,17 @@ export type EmployeeProfile = {
   workLocationName?: string | null;
 };
 
+export type AttendanceEvent = {
+  attendanceEventId: string;
+  attendanceDate: string;
+  eventType: 'CHECK_IN' | 'CHECK_OUT';
+  capturedAtUtc: string;
+  distanceMeters?: number | null;
+  geofenceRadiusMeters?: number | null;
+  geofenceResult: 'WITHIN' | 'OUTSIDE' | 'UNVERIFIABLE';
+  hrReviewRequired: boolean;
+};
+
 export type AttendanceDay = {
   attendanceDayId: string;
   attendanceDate: string;
@@ -351,7 +362,7 @@ export async function recordAttendance(
   body.set('capturedAt', input.capturedAt);
   body.set('photo', input.photo, input.filename);
   if (input.exceptionReason?.trim()) body.set('exceptionReason', input.exceptionReason.trim());
-  return request(
+  return request<AttendanceEvent>(
     `/employee-attendance/v1/me/attendance/${action}`,
     token,
     { method: 'POST', body },

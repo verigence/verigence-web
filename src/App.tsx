@@ -366,7 +366,7 @@ export default function App() {
               <Route path="/admin/notifications" element={<SuperAdminPage><AdminConfigurationPage section="notifications" /></SuperAdminPage>} />
               <Route path="/admin/oem-masters" element={<SuperAdminPage><OemMastersPage /></SuperAdminPage>} />
               <Route path="/admin/project" element={<ProjectAdminPage><ProjectAdministrationPage /></ProjectAdminPage>} />
-              <Route path="/admin/employees" element={<SuperAdminPage><EmployeeAdministrationPage /></SuperAdminPage>} />
+              <Route path="/admin/employees" element={<PrivatePage><EmployeeAdministrationPage /></PrivatePage>} />
 
               <Route path="/approvals" element={<Navigate to="/admin/users/pending" replace />} />
               <Route path="/admin/project-provisioning" element={<Navigate to="/admin/project" replace />} />

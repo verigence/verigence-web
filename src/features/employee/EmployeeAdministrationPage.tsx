@@ -551,7 +551,7 @@ export default function EmployeeAdministrationPage() {
                   <article key={item.claimId}>
                     <div>
                       <strong>{item.employeeName} · {money(item.amount)}</strong>
-                      <span>{item.expenseDate} · {item.category} · {item.paymentStatus.replaceAll('_', ' ')}</span>
+                      <span>{item.expenseDate} · {item.category} · {item.paymentStatus ? item.paymentStatus.replaceAll('_', ' ') : '—'}</span>
                       {item.paidAtUtc && <small>Paid {new Date(item.paidAtUtc).toLocaleString()} · {item.paymentReference ?? 'No reference'}</small>}
                     </div>
                     <div>

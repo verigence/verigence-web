@@ -142,7 +142,6 @@ export default function EmployeeAdministrationPage() {
   const [locationAddress, setLocationAddress] = useState('');
   const [locationLat, setLocationLat] = useState('');
   const [locationLng, setLocationLng] = useState('');
-  const [locationRadius, setLocationRadius] = useState('500');
   const [leaveCode, setLeaveCode] = useState('');
   const [leaveName, setLeaveName] = useState('');
   const [leaveEntitlement, setLeaveEntitlement] = useState('0');
@@ -533,7 +532,7 @@ export default function EmployeeAdministrationPage() {
       addressText: locationAddress || undefined,
       latitude: Number(locationLat),
       longitude: Number(locationLng),
-      geofenceRadiusMeters: Number(locationRadius),
+      geofenceRadiusMeters: 500,
     }),
     onSuccess: async () => {
       setLocationCode('');
@@ -1198,7 +1197,7 @@ export default function EmployeeAdministrationPage() {
             <label className="span">Address<input value={locationAddress} onChange={(event) => setLocationAddress(event.target.value)} /></label>
             <label>Latitude<input type="number" step="any" value={locationLat} onChange={(event) => setLocationLat(event.target.value)} /></label>
             <label>Longitude<input type="number" step="any" value={locationLng} onChange={(event) => setLocationLng(event.target.value)} /></label>
-            <label>Geofence (m)<input type="number" min="50" max="5000" value={locationRadius} onChange={(event) => setLocationRadius(event.target.value)} /></label>
+            <label>PC geofence<input value="500 m" readOnly aria-label="PC geofence fixed at 500 metres" /></label>
           </div>
           <div className="employee-services__actions"><button type="button" onClick={() => locationMutation.mutate()}>Add Work Location</button></div>
           <div className="employee-services__table-wrap"><table><thead><tr><th>Code</th><th>Location</th><th>Radius</th></tr></thead><tbody>{(locations.data ?? []).map((item) => <tr key={String(item.locationId)}><td>{String(item.locationCode)}</td><td>{String(item.locationName)}</td><td>{String(item.geofenceRadiusMeters)} m</td></tr>)}</tbody></table></div>

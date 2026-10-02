@@ -56,13 +56,6 @@ const employeeServicesGroup: NavGroup = {
   items: [employeeServicesItem],
 };
 
-const attendanceItem: NavItem = {
-  to: '/attendance',
-  label: 'Attendance',
-  mark: 'AD',
-  roles: c0OperatingRoles,
-};
-
 const feedbackItem: NavItem = {
   to: '/feedback',
   label: 'Feedback',
@@ -170,7 +163,6 @@ const groups: NavGroup[] = [
   { key: 'workspace', label: 'Workspace', items: [
     { to: '/dashboard', label: 'Overview', mark: 'OV', roles: operational },
     journeySearchItem,
-    attendanceItem,
     { to: '/customers', label: 'Customers', mark: 'CU', roles: ['PC', 'TL', 'PM', 'EXECUTIVE', ...admin] },
     { to: '/journeys', label: 'Journeys', mark: 'JR', roles: ['PC', 'TL', 'PM', 'EXECUTIVE', ...admin] },
     { to: '/tasks', label: 'My Work', mark: 'WK', roles: operational },
@@ -341,7 +333,6 @@ export default function AppShell({ children }: PropsWithChildren) {
             p2BookingsItem,
             { ...p2TasksItem, badge: p2TaskCount },
             p2DuplicatesItem,
-            attendanceItem,
             ...(role === 'PC' ? [dailyOpsItem] : []),
             feedbackItem,
           ],
@@ -354,7 +345,6 @@ export default function AppShell({ children }: PropsWithChildren) {
       workspaceItems.push(allJourneysItem);
       workspaceItems.push(journeySearchItem);
     }
-    if (!phase2Group) workspaceItems.push(attendanceItem);
     if (role === 'PC') {
       workspaceItems.push(createBookingItem);
     }
@@ -374,8 +364,8 @@ export default function AppShell({ children }: PropsWithChildren) {
       items: analyticsItems,
     };
     const operationalGroups = phase2Group
-      ? [phase2Group, workspaceGroup, analyticsGroup]
-      : [workspaceGroup, analyticsGroup];
+      ? [employeeServicesGroup, phase2Group, workspaceGroup, analyticsGroup]
+      : [employeeServicesGroup, workspaceGroup, analyticsGroup];
     if (sessionRole !== 'TENANT_ADMIN') return operationalGroups;
     return [
       ...operationalGroups,

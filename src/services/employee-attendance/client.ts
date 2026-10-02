@@ -72,6 +72,7 @@ export type Reimbursement = {
   description?: string | null;
   status: string;
   financeApprovalRequired: boolean;
+  receiptUrl?: string | null;
   createdAtUtc: string;
 };
 

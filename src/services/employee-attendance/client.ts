@@ -25,6 +25,16 @@ export type AttendanceDay = {
   checkOutAtUtc?: string | null;
 };
 
+export type TeamAttendance = {
+  employeeId: string;
+  employeeName: string;
+  attendanceDate: string;
+  status: string;
+  presentFraction: string | number;
+  checkInAtUtc?: string | null;
+  checkOutAtUtc?: string | null;
+};
+
 export type LeaveBalance = {
   leaveTypeId: string;
   leaveCode: string;
@@ -249,6 +259,12 @@ export const applyLeave = (
   method: 'POST',
   body: JSON.stringify(body),
 });
+
+export const getTeamAttendance = (token: string, attendanceDate?: string) =>
+  request<TeamAttendance[]>(
+    `/employee-attendance/v1/team/attendance${attendanceDate ? `?attendanceDate=${encodeURIComponent(attendanceDate)}` : ''}`,
+    token,
+  );
 
 export const getTeamLeave = (token: string) =>
   request<LeaveRequest[]>('/employee-attendance/v1/team/leave', token);

@@ -26,7 +26,7 @@ import { useProjectContextStore } from '../../store/projectContextStore';
 import { useSessionStore } from '../../store/sessionStore';
 import '../../styles/employee-services.css';
 
-type Tab = 'attendance' | 'leave' | 'reimbursements' | 'payslips' | 'approvals';
+export type EmployeeSection = 'attendance' | 'leave' | 'reimbursements' | 'payslips';
 
 function message(error: unknown): string {
   return error instanceof Error ? error.message : 'Employee Attendance is temporarily unavailable.';
@@ -54,7 +54,7 @@ function money(value: string | number): string {
   }).format(Number(value));
 }
 
-export default function EmployeeServicesPage() {
+export default function EmployeeServicesPage({ section }: { section: EmployeeSection }) {
   const token = useSessionStore((state) => state.accessToken);
   const sessionRole = useSessionStore((state) => state.role);
   const projectRole = useProjectContextStore((state) => state.selectedProject?.operatingRole);
@@ -64,7 +64,6 @@ export default function EmployeeServicesPage() {
   const native = Capacitor.isNativePlatform();
   const canApproveTeamLeave = role === 'TL' || role === 'PM';
 
-  const [tab, setTab] = useState<Tab>('attendance');
   const [leaveTypeId, setLeaveTypeId] = useState('');
   const [leaveStart, setLeaveStart] = useState(today());
   const [leaveEnd, setLeaveEnd] = useState(today());
@@ -236,20 +235,12 @@ export default function EmployeeServicesPage() {
   const checkedIn = Boolean(todayRecord?.checkInAtUtc);
   const checkedOut = Boolean(todayRecord?.checkOutAtUtc);
 
-  const tabs: Array<{ key: Tab; label: string; visible: boolean }> = [
-    { key: 'attendance', label: 'Attendance', visible: true },
-    { key: 'leave', label: 'Leave', visible: true },
-    { key: 'reimbursements', label: 'Reimbursements', visible: true },
-    { key: 'payslips', label: 'Salary & Payslips', visible: true },
-    { key: 'approvals', label: 'Pending Approvals', visible: canApproveTeamLeave },
-  ];
-
   return (
     <section className="employee-services">
       <header className="employee-services__header">
         <div>
           <span className="employee-services__eyebrow">Employee Services</span>
-          <h1>{tabs.find((item) => item.key === tab)?.label ?? 'Attendance'}</h1>
+          <h1>{section === 'attendance' ? 'Attendance' : section === 'leave' ? 'Leave' : section === 'reimbursements' ? 'Reimbursements' : 'Salary & Payslips'}</h1>
           <p>
             {profile.data
               ? `${profile.data.displayName} · ${profile.data.employeeCode}${profile.data.workLocationName ? ` · ${profile.data.workLocationName}` : ''}`
@@ -275,23 +266,9 @@ export default function EmployeeServicesPage() {
         </div>
       )}
 
-      <nav className="employee-services__tabs" aria-label="Employee services">
-        {tabs.filter((item) => item.visible).map((item) => (
-          <button
-            key={item.key}
-            type="button"
-            className={tab === item.key ? 'is-active' : ''}
-            onClick={() => setTab(item.key)}
-          >
-            {item.label}
-            {item.key === 'approvals' && approvals.data?.length ? (
-              <span className="employee-services__badge">{approvals.data.length}</span>
-            ) : null}
-          </button>
-        ))}
-      </nav>
 
-      {tab === 'attendance' && (
+
+      {section === 'attendance' && (
         <div className="employee-services__panel">
           <div className="employee-services__panel-head">
             <div>
@@ -384,7 +361,7 @@ export default function EmployeeServicesPage() {
         </div>
       )}
 
-      {tab === 'leave' && (
+      {section === 'leave' && (
         <div className="employee-services__panel">
           <h2>Apply leave</h2>
           <div className="employee-services__form-grid">
@@ -431,7 +408,7 @@ export default function EmployeeServicesPage() {
         </div>
       )}
 
-      {tab === 'reimbursements' && (
+      {section === 'reimbursements' && (
         <div className="employee-services__panel">
           <h2>New reimbursement</h2>
           <div className="employee-services__form-grid">
@@ -507,7 +484,7 @@ export default function EmployeeServicesPage() {
         </div>
       )}
 
-      {tab === 'payslips' && (
+      {section === 'payslips' && (
         <div className="employee-services__panel">
           <h2>Salary & Payslips</h2>
           <div className="employee-services__table-wrap">
@@ -528,7 +505,7 @@ export default function EmployeeServicesPage() {
         </div>
       )}
 
-      {tab === 'approvals' && canApproveTeamLeave && (
+      {section === 'leave' && canApproveTeamLeave && (
         <div className="employee-services__panel">
           <h2>Pending leave approvals</h2>
           <p>Only employees explicitly assigned to you are shown here.</p>

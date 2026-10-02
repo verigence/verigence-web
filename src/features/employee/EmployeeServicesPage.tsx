@@ -95,6 +95,7 @@ export default function EmployeeServicesPage({ section }: { section: EmployeeSec
   const [leaveDayMode, setLeaveDayMode] = useState<'FULL_DAY' | 'HALF_DAY'>('FULL_DAY');
   const [leaveHalfDaySession, setLeaveHalfDaySession] = useState<'FIRST_HALF' | 'SECOND_HALF'>('FIRST_HALF');
   const [leaveReason, setLeaveReason] = useState('');
+  const [teamLeaveComments, setTeamLeaveComments] = useState<Record<string, string>>({});
   const [attendanceExceptionAction, setAttendanceExceptionAction] = useState<'check-in' | 'check-out' | null>(null);
   const [attendanceExceptionReason, setAttendanceExceptionReason] = useState('');
   const [claimPurpose, setClaimPurpose] = useState('');
@@ -285,9 +286,21 @@ export default function EmployeeServicesPage({ section }: { section: EmployeeSec
   });
 
   const approvalMutation = useMutation({
-    mutationFn: ({ item, decision }: { item: LeaveRequest; decision: 'APPROVE' | 'REJECT' }) =>
-      decideTeamLeave(token!, item.leaveRequestId, decision),
-    onSuccess: refreshEmployee,
+    mutationFn: ({ item, decision }: { item: LeaveRequest; decision: 'APPROVE' | 'REJECT' }) => {
+      const comment = teamLeaveComments[item.leaveRequestId]?.trim() || undefined;
+      if (decision === 'REJECT' && !comment) {
+        throw new Error('A rejection reason is required.');
+      }
+      return decideTeamLeave(token!, item.leaveRequestId, decision, comment);
+    },
+    onSuccess: async (result) => {
+      setTeamLeaveComments((current) => {
+        const next = { ...current };
+        delete next[result.leaveRequestId];
+        return next;
+      });
+      await refreshEmployee();
+    },
   });
 
   const selectedLeaveBalance = balances.data?.find((item) => item.leaveTypeId === leaveTypeId)
@@ -574,9 +587,21 @@ export default function EmployeeServicesPage({ section }: { section: EmployeeSec
                       </span>
                       {item.reason && <small>{item.reason}</small>}
                     </div>
-                    <div>
-                      <button type="button" disabled={approvalMutation.isPending} onClick={() => approvalMutation.mutate({ item, decision: 'APPROVE' })}>Approve</button>
-                      <button type="button" className="is-secondary" disabled={approvalMutation.isPending} onClick={() => approvalMutation.mutate({ item, decision: 'REJECT' })}>Reject</button>
+                    <div className="employee-leave__approval-actions">
+                      <textarea
+                        value={teamLeaveComments[item.leaveRequestId] ?? ''}
+                        maxLength={2000}
+                        placeholder="Comment (required for rejection)"
+                        aria-label={`Comment for ${item.employeeName} leave request`}
+                        onChange={(event) => setTeamLeaveComments((current) => ({
+                          ...current,
+                          [item.leaveRequestId]: event.target.value,
+                        }))}
+                      />
+                      <div>
+                        <button type="button" disabled={approvalMutation.isPending} onClick={() => approvalMutation.mutate({ item, decision: 'APPROVE' })}>Approve</button>
+                        <button type="button" className="is-secondary" disabled={approvalMutation.isPending} onClick={() => approvalMutation.mutate({ item, decision: 'REJECT' })}>Reject</button>
+                      </div>
                     </div>
                   </article>
                 ))}
@@ -596,6 +621,17 @@ export default function EmployeeServicesPage({ section }: { section: EmployeeSec
                     {' · '}{item.dayMode === 'HALF_DAY' ? item.halfDaySession?.replaceAll('_', ' ') : `${item.calculatedDays} day(s)`}
                   </span>
                   {item.reason && <small>{item.reason}</small>}
+                  {item.reviews?.length > 0 && (
+                    <div className="employee-leave__reviews">
+                      {item.reviews.map((review) => (
+                        <small key={`${review.stage}-${review.decidedAtUtc}`}>
+                          {review.stage.replaceAll('_', ' ')} · {review.decision}
+                          {review.approvedDays != null ? ` · ${review.approvedDays} day(s)` : ''}
+                          {review.comment ? ` · ${review.comment}` : ''}
+                        </small>
+                      ))}
+                    </div>
+                  )}
                 </div>
                 <div>
                   <strong>{item.approvalOutcome?.replaceAll('_', ' ') ?? item.status.replaceAll('_', ' ')}</strong>

@@ -444,15 +444,16 @@ export default function EmployeeAdministrationPage() {
           </div>
           <div className="employee-services__table-wrap">
             <table>
-              <thead><tr><th>Employee</th><th>Date</th><th>Category</th><th>Amount</th><th>Action</th></tr></thead>
+              <thead><tr><th>Employee</th><th>Date</th><th>Category</th><th>Amount</th><th>Receipt</th><th>Action</th></tr></thead>
               <tbody>
                 {(reimbursementQueue.data ?? []).map((item) => (
                   <tr key={item.claimId}>
                     <td>{item.employeeName}</td><td>{item.expenseDate}</td><td>{item.category}</td><td>{money(item.amount)}</td>
+                    <td>{item.receiptUrl ? <a href={item.receiptUrl} target="_blank" rel="noreferrer">View</a> : '—'}</td>
                     <td><div className="employee-admin-toolbar"><button className="employee-admin-button is-primary" type="button" onClick={() => reimbursementMutation.mutate({ id: item.claimId, decision: 'APPROVE' })}>Approve</button><button className="employee-admin-button" type="button" onClick={() => reimbursementMutation.mutate({ id: item.claimId, decision: 'REJECT' })}>Reject</button></div></td>
                   </tr>
                 ))}
-                {!reimbursementQueue.data?.length && <tr><td colSpan={5}>No {reimbursementStage.toLowerCase()} approvals are pending.</td></tr>}
+                {!reimbursementQueue.data?.length && <tr><td colSpan={6}>No {reimbursementStage.toLowerCase()} approvals are pending.</td></tr>}
               </tbody>
             </table>
           </div>

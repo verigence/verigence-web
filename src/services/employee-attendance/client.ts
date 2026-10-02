@@ -66,6 +66,74 @@ export type LeaveRequest = {
   createdAtUtc: string;
 };
 
+export type ReimbursementLineReview = {
+  stage: 'HR' | 'FINANCE';
+  decision: 'APPROVE' | 'ADJUST' | 'REJECT';
+  previousAmount?: string | number | null;
+  approvedAmount: string | number;
+  actorRole: string;
+  comment?: string | null;
+  decidedAtUtc: string;
+};
+
+export type ReimbursementClaimLine = {
+  reimbursementItemId: string;
+  lineNumber: number;
+  expenseDate: string;
+  category: 'TRAVEL' | 'FOOD' | 'LODGING' | 'LOCAL_CONVEYANCE' | 'OTHER';
+  claimedAmount: string | number;
+  approvedAmount?: string | number | null;
+  vendorName?: string | null;
+  description?: string | null;
+  receiptUrl?: string | null;
+  travelFrom?: string | null;
+  travelTo?: string | null;
+  transportMode?: string | null;
+  distanceKm?: string | number | null;
+  ticketReference?: string | null;
+  mealType?: string | null;
+  lineStatus: string;
+  reviews: ReimbursementLineReview[];
+};
+
+export type ReimbursementClaim = {
+  claimId: string;
+  claimNumber: string;
+  employeeId: string;
+  employeeName: string;
+  purpose: string;
+  claimMonth: string;
+  status: string;
+  approvalOutcome?: 'APPROVED' | 'PARTIALLY_APPROVED' | 'REJECTED' | null;
+  financeApprovalRequired: boolean;
+  claimedTotal: string | number;
+  approvedTotal?: string | number | null;
+  adjustedTotal: string | number;
+  paymentStatus?: 'PENDING_PAYMENT' | 'PROCESSED' | null;
+  paidAtUtc?: string | null;
+  paidAmount?: string | number | null;
+  paymentMode?: string | null;
+  paymentReference?: string | null;
+  paymentComment?: string | null;
+  submittedAtUtc: string;
+  lines: ReimbursementClaimLine[];
+};
+
+export type ReimbursementClaimLineInput = {
+  expenseDate: string;
+  category: 'TRAVEL' | 'FOOD' | 'LODGING' | 'LOCAL_CONVEYANCE' | 'OTHER';
+  claimedAmount: number;
+  vendorName?: string;
+  description?: string;
+  receipt?: File;
+  travelFrom?: string;
+  travelTo?: string;
+  transportMode?: 'AIR' | 'RAIL' | 'CAB' | 'AUTO' | 'BUS' | 'METRO' | 'PERSONAL_CAR' | 'PERSONAL_BIKE' | 'OTHER';
+  distanceKm?: number;
+  ticketReference?: string;
+  mealType?: 'BREAKFAST' | 'LUNCH' | 'DINNER' | 'SNACKS' | 'OTHER';
+};
+
 export type Reimbursement = {
   claimId: string;
   employeeId: string;
@@ -298,6 +366,69 @@ export const decideTeamLeave = (
   `/employee-attendance/v1/team/leave/${leaveId}/decision`,
   token,
   { method: 'POST', body: JSON.stringify({ decision, comment }) },
+);
+
+export const getMyReimbursementClaims = (token: string) =>
+  request<ReimbursementClaim[]>('/employee-attendance/v1/me/reimbursement-claims', token);
+
+export const getTeamReimbursementClaims = (token: string) =>
+  request<ReimbursementClaim[]>('/employee-attendance/v1/team/reimbursement-claims', token);
+
+export async function submitReimbursementClaim(
+  token: string,
+  input: { purpose: string; lines: ReimbursementClaimLineInput[] },
+) {
+  const receipts: File[] = [];
+  const lines = input.lines.map((line) => {
+    const receiptIndex = line.receipt ? receipts.push(line.receipt) - 1 : undefined;
+    return {
+      expenseDate: line.expenseDate,
+      category: line.category,
+      claimedAmount: line.claimedAmount,
+      vendorName: line.vendorName || undefined,
+      description: line.description || undefined,
+      receiptIndex,
+      travelFrom: line.travelFrom || undefined,
+      travelTo: line.travelTo || undefined,
+      transportMode: line.transportMode || undefined,
+      distanceKm: line.distanceKm,
+      ticketReference: line.ticketReference || undefined,
+      mealType: line.mealType || undefined,
+    };
+  });
+  const body = new FormData();
+  body.set('payload', JSON.stringify({ purpose: input.purpose, lines }));
+  receipts.forEach((receipt) => body.append('receipts', receipt, receipt.name));
+  return request<ReimbursementClaim>(
+    '/employee-attendance/v1/me/reimbursement-claims',
+    token,
+    { method: 'POST', body },
+  );
+}
+
+export const getReimbursementClaimQueue = (
+  token: string,
+  stage: 'HR' | 'FINANCE',
+) => request<ReimbursementClaim[]>(
+  `/employee-attendance/v1/admin/reimbursement-claims?stage=${stage}`,
+  token,
+);
+
+export const reviewReimbursementClaim = (
+  token: string,
+  claimId: string,
+  stage: 'HR' | 'FINANCE',
+  lineDecisions: Array<{
+    reimbursementItemId: string;
+    decision: 'APPROVE' | 'ADJUST' | 'REJECT';
+    approvedAmount: number;
+    comment?: string;
+  }>,
+  comment?: string,
+) => request<ReimbursementClaim>(
+  `/employee-attendance/v1/admin/reimbursement-claims/${claimId}/review?stage=${stage}`,
+  token,
+  { method: 'POST', body: JSON.stringify({ lineDecisions, comment }) },
 );
 
 export const getMyReimbursements = (token: string) =>

@@ -20,11 +20,13 @@ import {
   getLeaveTypes,
   getModuleConfig,
   getPayrollItems,
+  getReimbursementPaymentQueue,
   getReimbursementQueue,
   getWorkLocations,
   listAdminEmployees,
   previewEmployeeImport,
   updateModuleConfig,
+  updateReimbursementPayment,
   type BulkImport,
   type PayrollSummary,
 } from '../../services/employee-attendance/client';
@@ -81,6 +83,14 @@ export default function EmployeeAdministrationPage() {
   const [section, setSection] = useState<Section>('employees');
   const [importPlan, setImportPlan] = useState<BulkImport | null>(null);
   const [reimbursementStage, setReimbursementStage] = useState<'HR' | 'FINANCE'>('HR');
+  const [reimbursementView, setReimbursementView] = useState<'APPROVALS' | 'PAYMENTS'>('APPROVALS');
+  const [paymentQueueStatus, setPaymentQueueStatus] = useState<'PENDING' | 'PROCESSING' | 'FAILED' | 'PAID'>('PENDING');
+  const [paymentClaimId, setPaymentClaimId] = useState<string | null>(null);
+  const [paymentAmount, setPaymentAmount] = useState('');
+  const [paymentMode, setPaymentMode] = useState('BANK_TRANSFER');
+  const [paymentReference, setPaymentReference] = useState('');
+  const [paymentPaidAt, setPaymentPaidAt] = useState(() => new Date().toISOString().slice(0, 16));
+  const [paymentComment, setPaymentComment] = useState('');
   const [payrollMonth, setPayrollMonth] = useState(monthStart());
   const [payroll, setPayroll] = useState<PayrollSummary | null>(null);
   const [reportStart, setReportStart] = useState(weekStart());
@@ -115,7 +125,7 @@ export default function EmployeeAdministrationPage() {
     const items: Section[] = [];
     if (value.employeeManage) items.push('employees');
     if (value.leaveHrApprove) items.push('leave');
-    if (value.reimbursementHrApprove || value.reimbursementFinanceApprove) items.push('reimbursements');
+    if (value.reimbursementHrApprove || value.reimbursementFinanceApprove || value.reimbursementPaymentManage) items.push('reimbursements');
     if (value.payrollManage) items.push('payroll');
     if (value.reportRead) items.push('reports');
     if (value.configManage) items.push('config');
@@ -157,6 +167,13 @@ export default function EmployeeAdministrationPage() {
           : capabilities.data?.reimbursementFinanceApprove
       )
     ),
+    retry: false,
+  });
+
+  const reimbursementPayments = useQuery({
+    queryKey: ['employee-attendance', 'admin-reimbursement-payments', paymentQueueStatus],
+    queryFn: () => getReimbursementPaymentQueue(token!, paymentQueueStatus),
+    enabled: Boolean(token && capabilities.data?.reimbursementPaymentManage && reimbursementView === 'PAYMENTS'),
     retry: false,
   });
 
@@ -212,6 +229,7 @@ export default function EmployeeAdministrationPage() {
       queryClient.invalidateQueries({ queryKey: ['employee-attendance', 'admin-employees'] }),
       queryClient.invalidateQueries({ queryKey: ['employee-attendance', 'admin-leave'] }),
       queryClient.invalidateQueries({ queryKey: ['employee-attendance', 'admin-reimbursements'] }),
+      queryClient.invalidateQueries({ queryKey: ['employee-attendance', 'admin-reimbursement-payments'] }),
       queryClient.invalidateQueries({ queryKey: ['employee-attendance', 'admin-config'] }),
       queryClient.invalidateQueries({ queryKey: ['employee-attendance', 'admin-work-locations'] }),
       queryClient.invalidateQueries({ queryKey: ['employee-attendance', 'admin-leave-types'] }),
@@ -240,6 +258,37 @@ export default function EmployeeAdministrationPage() {
       decideReimbursement(token!, id, reimbursementStage, decision),
     onSuccess: refreshAdmin,
   });
+  const paymentProcessingMutation = useMutation({
+    mutationFn: (claimId: string) => updateReimbursementPayment(token!, claimId, {
+      paymentStatus: 'PROCESSING',
+    }),
+    onSuccess: refreshAdmin,
+  });
+
+  const paymentMutation = useMutation({
+    mutationFn: () => {
+      if (!paymentClaimId) throw new Error('Select a reimbursement to pay.');
+      const amount = Number(paymentAmount);
+      if (!Number.isFinite(amount) || amount <= 0) throw new Error('Enter a valid paid amount.');
+      if (!paymentReference.trim()) throw new Error('Payment reference is required.');
+      return updateReimbursementPayment(token!, paymentClaimId, {
+        paymentStatus: 'PAID',
+        paidAmount: amount,
+        paidAtUtc: new Date(paymentPaidAt).toISOString(),
+        paymentMode,
+        paymentReference: paymentReference.trim(),
+        comment: paymentComment.trim() || undefined,
+      });
+    },
+    onSuccess: async () => {
+      setPaymentClaimId(null);
+      setPaymentAmount('');
+      setPaymentReference('');
+      setPaymentComment('');
+      await refreshAdmin();
+    },
+  });
+
   const payrollMutation = useMutation({
     mutationFn: () => calculatePayroll(token!, payrollMonth),
     onSuccess: (result) => setPayroll(result),

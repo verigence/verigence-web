@@ -14,13 +14,14 @@ import {
   getMyLeave,
   getMyPayslips,
   getMyProfile,
-  getMyReimbursements,
+  getMyReimbursementClaims,
   getTeamAttendance,
   getTeamLeave,
-  getTeamReimbursements,
+  getTeamReimbursementClaims,
   recordAttendance,
-  submitReimbursement,
+  submitReimbursementClaim,
   type LeaveRequest,
+  type ReimbursementClaimLineInput,
 } from '../../services/employee-attendance/client';
 import { useProjectContextStore } from '../../store/projectContextStore';
 import { useSessionStore } from '../../store/sessionStore';
@@ -54,6 +55,29 @@ function money(value: string | number): string {
   }).format(Number(value));
 }
 
+type ExpenseLineDraft = Omit<ReimbursementClaimLineInput, 'claimedAmount' | 'distanceKm'> & {
+  key: string;
+  claimedAmount: string;
+  distanceKm: string;
+};
+
+function newExpenseLine(): ExpenseLineDraft {
+  return {
+    key: crypto.randomUUID(),
+    expenseDate: today(),
+    category: 'TRAVEL',
+    claimedAmount: '',
+    vendorName: '',
+    description: '',
+    travelFrom: '',
+    travelTo: '',
+    transportMode: 'CAB',
+    distanceKm: '',
+    ticketReference: '',
+    mealType: 'LUNCH',
+  };
+}
+
 export default function EmployeeServicesPage({ section }: { section: EmployeeSection }) {
   const token = useSessionStore((state) => state.accessToken);
   const sessionRole = useSessionStore((state) => state.role);
@@ -69,11 +93,8 @@ export default function EmployeeServicesPage({ section }: { section: EmployeeSec
   const [leaveEnd, setLeaveEnd] = useState(today());
   const [leaveDays, setLeaveDays] = useState(1);
   const [leaveReason, setLeaveReason] = useState('');
-  const [expenseDate, setExpenseDate] = useState(today());
-  const [expenseCategory, setExpenseCategory] = useState('TRAVEL');
-  const [expenseAmount, setExpenseAmount] = useState('');
-  const [expenseDescription, setExpenseDescription] = useState('');
-  const [receipt, setReceipt] = useState<File | null>(null);
+  const [claimPurpose, setClaimPurpose] = useState('');
+  const [expenseLines, setExpenseLines] = useState<ExpenseLineDraft[]>([newExpenseLine()]);
   const [notice, setNotice] = useState('');
 
   const profile = useQuery({
@@ -100,15 +121,15 @@ export default function EmployeeServicesPage({ section }: { section: EmployeeSec
     enabled: Boolean(token && profile.data),
     retry: false,
   });
-  const reimbursements = useQuery({
+  const reimbursementClaims = useQuery({
     queryKey: ['employee-attendance', 'reimbursements'],
-    queryFn: () => getMyReimbursements(token!),
+    queryFn: () => getMyReimbursementClaims(token!),
     enabled: Boolean(token && profile.data),
     retry: false,
   });
-  const teamReimbursements = useQuery({
+  const teamReimbursementClaims = useQuery({
     queryKey: ['employee-attendance', 'team-reimbursements'],
-    queryFn: () => getTeamReimbursements(token!),
+    queryFn: () => getTeamReimbursementClaims(token!),
     enabled: Boolean(token && role === 'PM'),
     retry: false,
   });
@@ -200,26 +221,41 @@ export default function EmployeeServicesPage({ section }: { section: EmployeeSec
 
   const reimbursementMutation = useMutation({
     mutationFn: () => {
-      const amount = Number(expenseAmount);
-      if (!Number.isFinite(amount) || amount <= 0) throw new Error('Enter a valid amount.');
-      return submitReimbursement(token!, {
-        expenseDate,
-        category: expenseCategory,
-        amount,
-        description: expenseDescription.trim() || undefined,
-        receipt: receipt ?? undefined,
-        filename: receipt?.name,
+      if (!claimPurpose.trim()) throw new Error('Enter the purpose of the claim.');
+      const lines = expenseLines.map((line, index) => {
+        const claimedAmount = Number(line.claimedAmount);
+        if (!Number.isFinite(claimedAmount) || claimedAmount <= 0) {
+          throw new Error(`Enter a valid amount for expense line ${index + 1}.`);
+        }
+        const distanceKm = line.distanceKm ? Number(line.distanceKm) : undefined;
+        return {
+          expenseDate: line.expenseDate,
+          category: line.category,
+          claimedAmount,
+          vendorName: line.vendorName?.trim() || undefined,
+          description: line.description?.trim() || undefined,
+          receipt: line.receipt,
+          travelFrom: line.travelFrom?.trim() || undefined,
+          travelTo: line.travelTo?.trim() || undefined,
+          transportMode: line.transportMode,
+          distanceKm: Number.isFinite(distanceKm) ? distanceKm : undefined,
+          ticketReference: line.ticketReference?.trim() || undefined,
+          mealType: line.mealType,
+        } satisfies ReimbursementClaimLineInput;
+      });
+      return submitReimbursementClaim(token!, {
+        purpose: claimPurpose.trim(),
+        lines,
       });
     },
     onSuccess: async (claim) => {
       setNotice(
         claim.financeApprovalRequired
-          ? 'Claim submitted. HR approval followed by Finance approval is required.'
-          : 'Claim submitted for HR approval.',
+          ? 'Claim submitted for HR review. Finance review will follow where required.'
+          : 'Claim submitted for HR review.',
       );
-      setExpenseAmount('');
-      setExpenseDescription('');
-      setReceipt(null);
+      setClaimPurpose('');
+      setExpenseLines([newExpenseLine()]);
       await refreshEmployee();
     },
   });
@@ -409,23 +445,155 @@ export default function EmployeeServicesPage({ section }: { section: EmployeeSec
       )}
 
       {section === 'reimbursements' && (
-        <div className="employee-services__panel">
-          <h2>New reimbursement</h2>
-          <div className="employee-services__form-grid">
-            <label>Date<input type="date" value={expenseDate} onChange={(event) => setExpenseDate(event.target.value)} /></label>
-            <label>
-              Category
-              <select value={expenseCategory} onChange={(event) => setExpenseCategory(event.target.value)}>
-                <option value="TRAVEL">Travel</option>
-                <option value="FOOD">Food</option>
-                <option value="OTHER">Other</option>
-              </select>
-            </label>
-            <label>Amount (₹)<input type="number" min="0.01" step="0.01" value={expenseAmount} onChange={(event) => setExpenseAmount(event.target.value)} /></label>
-            <label>Receipt<input type="file" accept="image/*,application/pdf" onChange={(event) => setReceipt(event.target.files?.[0] ?? null)} /></label>
-            <label className="employee-services__span">Description<textarea value={expenseDescription} onChange={(event) => setExpenseDescription(event.target.value)} /></label>
+        <div className="employee-services__panel employee-expense">
+          <div className="employee-services__panel-head">
+            <div>
+              <h2>Create expense claim</h2>
+              <p>Add each expense separately. Receipts, travel details and review decisions remain attached to the individual line.</p>
+            </div>
+            <span className="employee-services__status">
+              {expenseLines.length} line{expenseLines.length === 1 ? '' : 's'} · {money(expenseLines.reduce((sum, line) => sum + (Number(line.claimedAmount) || 0), 0))}
+            </span>
           </div>
+
+          <div className="employee-services__form-grid">
+            <label className="employee-services__span">
+              Claim purpose
+              <input
+                value={claimPurpose}
+                maxLength={240}
+                placeholder="e.g. Client visit – Bhubaneswar"
+                onChange={(event) => setClaimPurpose(event.target.value)}
+              />
+            </label>
+          </div>
+
+          <div className="employee-expense__lines">
+            {expenseLines.map((line, index) => (
+              <article className="employee-expense__line" key={line.key}>
+                <div className="employee-expense__line-head">
+                  <div>
+                    <span className="employee-services__eyebrow">Expense line {index + 1}</span>
+                    <strong>{line.category.replaceAll('_', ' ')}</strong>
+                  </div>
+                  {expenseLines.length > 1 && (
+                    <button
+                      type="button"
+                      className="employee-admin-button"
+                      onClick={() => setExpenseLines((items) => items.filter((item) => item.key !== line.key))}
+                    >
+                      Remove
+                    </button>
+                  )}
+                </div>
+
+                <div className="employee-services__form-grid">
+                  <label>
+                    Expense date
+                    <input
+                      type="date"
+                      value={line.expenseDate}
+                      onChange={(event) => setExpenseLines((items) => items.map((item) => item.key === line.key ? { ...item, expenseDate: event.target.value } : item))}
+                    />
+                  </label>
+                  <label>
+                    Category
+                    <select
+                      value={line.category}
+                      onChange={(event) => setExpenseLines((items) => items.map((item) => item.key === line.key ? { ...item, category: event.target.value as ExpenseLineDraft['category'] } : item))}
+                    >
+                      <option value="TRAVEL">Travel</option>
+                      <option value="LOCAL_CONVEYANCE">Local conveyance</option>
+                      <option value="FOOD">Food</option>
+                      <option value="LODGING">Lodging</option>
+                      <option value="OTHER">Other</option>
+                    </select>
+                  </label>
+                  <label>
+                    Claimed amount (₹)
+                    <input
+                      type="number"
+                      min="0.01"
+                      step="0.01"
+                      value={line.claimedAmount}
+                      onChange={(event) => setExpenseLines((items) => items.map((item) => item.key === line.key ? { ...item, claimedAmount: event.target.value } : item))}
+                    />
+                  </label>
+                  <label>
+                    Vendor / merchant
+                    <input
+                      value={line.vendorName ?? ''}
+                      onChange={(event) => setExpenseLines((items) => items.map((item) => item.key === line.key ? { ...item, vendorName: event.target.value } : item))}
+                    />
+                  </label>
+
+                  {(line.category === 'TRAVEL' || line.category === 'LOCAL_CONVEYANCE') && (
+                    <>
+                      <label>
+                        From
+                        <input value={line.travelFrom ?? ''} onChange={(event) => setExpenseLines((items) => items.map((item) => item.key === line.key ? { ...item, travelFrom: event.target.value } : item))} />
+                      </label>
+                      <label>
+                        To
+                        <input value={line.travelTo ?? ''} onChange={(event) => setExpenseLines((items) => items.map((item) => item.key === line.key ? { ...item, travelTo: event.target.value } : item))} />
+                      </label>
+                      <label>
+                        Mode of transport
+                        <select value={line.transportMode ?? 'CAB'} onChange={(event) => setExpenseLines((items) => items.map((item) => item.key === line.key ? { ...item, transportMode: event.target.value as ExpenseLineDraft['transportMode'] } : item))}>
+                          <option value="AIR">Air</option>
+                          <option value="RAIL">Rail</option>
+                          <option value="CAB">Cab / Taxi</option>
+                          <option value="AUTO">Auto</option>
+                          <option value="BUS">Bus</option>
+                          <option value="METRO">Metro</option>
+                          <option value="PERSONAL_CAR">Personal car</option>
+                          <option value="PERSONAL_BIKE">Personal bike</option>
+                          <option value="OTHER">Other</option>
+                        </select>
+                      </label>
+                      <label>
+                        Distance (km)
+                        <input type="number" min="0" step="0.1" value={line.distanceKm} onChange={(event) => setExpenseLines((items) => items.map((item) => item.key === line.key ? { ...item, distanceKm: event.target.value } : item))} />
+                      </label>
+                      <label>
+                        Ticket / booking reference
+                        <input value={line.ticketReference ?? ''} onChange={(event) => setExpenseLines((items) => items.map((item) => item.key === line.key ? { ...item, ticketReference: event.target.value } : item))} />
+                      </label>
+                    </>
+                  )}
+
+                  {line.category === 'FOOD' && (
+                    <label>
+                      Meal type
+                      <select value={line.mealType ?? 'LUNCH'} onChange={(event) => setExpenseLines((items) => items.map((item) => item.key === line.key ? { ...item, mealType: event.target.value as ExpenseLineDraft['mealType'] } : item))}>
+                        <option value="BREAKFAST">Breakfast</option>
+                        <option value="LUNCH">Lunch</option>
+                        <option value="DINNER">Dinner</option>
+                        <option value="SNACKS">Snacks</option>
+                        <option value="OTHER">Other</option>
+                      </select>
+                    </label>
+                  )}
+
+                  <label>
+                    Receipt
+                    <input
+                      type="file"
+                      accept="image/*,application/pdf"
+                      onChange={(event) => setExpenseLines((items) => items.map((item) => item.key === line.key ? { ...item, receipt: event.target.files?.[0] } : item))}
+                    />
+                  </label>
+                  <label className="employee-services__span">
+                    Description / business justification
+                    <textarea value={line.description ?? ''} onChange={(event) => setExpenseLines((items) => items.map((item) => item.key === line.key ? { ...item, description: event.target.value } : item))} />
+                  </label>
+                </div>
+              </article>
+            ))}
+          </div>
+
           <div className="employee-services__actions">
+            <button type="button" className="is-secondary" onClick={() => setExpenseLines((items) => [...items, newExpenseLine()])}>+ Add Expense Line</button>
             <button type="button" disabled={reimbursementMutation.isPending || !profile.data} onClick={() => reimbursementMutation.mutate()}>
               {reimbursementMutation.isPending ? 'Submitting…' : 'Submit Claim'}
             </button>
@@ -434,52 +602,76 @@ export default function EmployeeServicesPage({ section }: { section: EmployeeSec
 
           {role === 'PM' && (
             <>
-              <h3>Team reimbursements</h3>
-              <p>Read-only view for employees assigned to you. Approval remains with HR/Finance.</p>
-              <div className="employee-services__table-wrap">
-                <table>
-                  <thead><tr><th>Employee</th><th>Date</th><th>Category</th><th>Claimed</th><th>Receipt</th><th>Approval</th><th>Payment</th><th>Paid on</th></tr></thead>
-                  <tbody>
-                    {(teamReimbursements.data ?? []).map((item) => (
-                      <tr key={item.claimId}>
-                        <td>{item.employeeName}</td>
-                        <td>{item.expenseDate}</td>
-                        <td>{item.category}</td>
-                        <td>{money(item.amount)}</td>
-                        <td>{item.receiptUrl ? <a href={item.receiptUrl} target="_blank" rel="noreferrer">View</a> : '—'}</td>
-                        <td>{item.status.replaceAll('_', ' ')}</td>
-                        <td>{item.paymentStatus ? item.paymentStatus.replaceAll('_', ' ') : '—'}</td>
-                        <td>{item.paidAtUtc ? formatDateTime(item.paidAtUtc) : '—'}</td>
-                      </tr>
-                    ))}
-                    {!teamReimbursements.data?.length && <tr><td colSpan={8}>No team reimbursement claims.</td></tr>}
-                  </tbody>
-                </table>
+              <h3>Team expense claims</h3>
+              <p>Read-only visibility for employees assigned to you.</p>
+              <div className="employee-expense__claim-list">
+                {(teamReimbursementClaims.data ?? []).map((claim) => (
+                  <article className="employee-expense__claim" key={claim.claimId}>
+                    <div className="employee-expense__claim-head">
+                      <div><strong>{claim.employeeName} · {claim.claimNumber}</strong><span>{claim.purpose}</span></div>
+                      <div><strong>{money(claim.claimedTotal)}</strong><span>{claim.approvalOutcome?.replaceAll('_', ' ') ?? claim.status.replaceAll('_', ' ')}</span></div>
+                    </div>
+                    <small>{claim.lines.length} expense line{claim.lines.length === 1 ? '' : 's'} · Payment: {claim.paymentStatus?.replaceAll('_', ' ') ?? '—'}</small>
+                  </article>
+                ))}
+                {!teamReimbursementClaims.data?.length && <p>No team expense claims.</p>}
               </div>
             </>
           )}
 
-          <h3>My claims</h3>
-          <div className="employee-services__table-wrap">
-            <table>
-              <thead><tr><th>Date</th><th>Category</th><th>Claimed</th><th>Approved/Paid</th><th>Receipt</th><th>Approval</th><th>Payment</th><th>Paid on</th><th>Reference</th></tr></thead>
-              <tbody>
-                {(reimbursements.data ?? []).map((item) => (
-                  <tr key={item.claimId}>
-                    <td>{item.expenseDate}</td>
-                    <td>{item.category}</td>
-                    <td>{money(item.amount)}</td>
-                    <td>{item.paidAmount != null ? money(item.paidAmount) : '—'}</td>
-                    <td>{item.receiptUrl ? <a href={item.receiptUrl} target="_blank" rel="noreferrer">View</a> : '—'}</td>
-                    <td>{item.status.replaceAll('_', ' ')}</td>
-                    <td>{item.paymentStatus ? item.paymentStatus.replaceAll('_', ' ') : '—'}</td>
-                    <td>{item.paidAtUtc ? formatDateTime(item.paidAtUtc) : '—'}</td>
-                    <td>{item.paymentReference ?? '—'}</td>
-                  </tr>
-                ))}
-                {!reimbursements.data?.length && <tr><td colSpan={9}>No reimbursement claims yet.</td></tr>}
-              </tbody>
-            </table>
+          <h3>My expense claims</h3>
+          <div className="employee-expense__claim-list">
+            {(reimbursementClaims.data ?? []).map((claim) => (
+              <article className="employee-expense__claim" key={claim.claimId}>
+                <div className="employee-expense__claim-head">
+                  <div>
+                    <strong>{claim.claimNumber}</strong>
+                    <span>{claim.purpose} · {new Date(claim.submittedAtUtc).toLocaleDateString()}</span>
+                  </div>
+                  <div>
+                    <strong>{money(claim.claimedTotal)}</strong>
+                    <span>{claim.approvalOutcome?.replaceAll('_', ' ') ?? claim.status.replaceAll('_', ' ')}</span>
+                  </div>
+                </div>
+                <div className="employee-admin-summary employee-expense__summary">
+                  <div><strong>{money(claim.claimedTotal)}</strong><span>Claimed</span></div>
+                  <div><strong>{claim.approvedTotal != null ? money(claim.approvedTotal) : '—'}</strong><span>Approved</span></div>
+                  <div><strong>{money(claim.adjustedTotal)}</strong><span>Adjusted / Rejected</span></div>
+                  <div><strong>{claim.paymentStatus?.replaceAll('_', ' ') ?? '—'}</strong><span>Payment</span></div>
+                </div>
+                <div className="employee-expense__line-list">
+                  {claim.lines.map((item) => (
+                    <div className="employee-expense__history-line" key={item.reimbursementItemId}>
+                      <div>
+                        <strong>#{item.lineNumber} · {item.category.replaceAll('_', ' ')}</strong>
+                        <span>{item.expenseDate}{item.vendorName ? ` · ${item.vendorName}` : ''}</span>
+                        {(item.travelFrom || item.travelTo) && <small>{item.travelFrom ?? '—'} → {item.travelTo ?? '—'}{item.transportMode ? ` · ${item.transportMode.replaceAll('_', ' ')}` : ''}</small>}
+                      </div>
+                      <div>
+                        <strong>{money(item.claimedAmount)}</strong>
+                        <span>{item.approvedAmount != null ? `Approved ${money(item.approvedAmount)}` : item.lineStatus.replaceAll('_', ' ')}</span>
+                        {item.receiptUrl && <a href={item.receiptUrl} target="_blank" rel="noreferrer">Receipt</a>}
+                      </div>
+                      {item.reviews.length > 0 && (
+                        <div className="employee-expense__reviews">
+                          {item.reviews.map((review) => (
+                            <small key={`${review.stage}-${review.decidedAtUtc}`}>
+                              {review.stage}: {review.decision} · {money(review.approvedAmount)}{review.comment ? ` · ${review.comment}` : ''}
+                            </small>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                {claim.paymentStatus === 'PROCESSED' && (
+                  <div className="employee-services__notice">
+                    Payment processed {formatDateTime(claim.paidAtUtc)} · {claim.paidAmount != null ? money(claim.paidAmount) : '—'} · {claim.paymentReference ?? 'No reference'}
+                  </div>
+                )}
+              </article>
+            ))}
+            {!reimbursementClaims.data?.length && <p>No expense claims yet.</p>}
           </div>
         </div>
       )}

@@ -20,6 +20,7 @@ import {
   getTeamReimbursementClaims,
   recordAttendance,
   submitReimbursementClaim,
+  EmployeeAttendanceHttpError,
   type LeaveRequest,
   type ReimbursementClaimLineInput,
 } from '../../services/employee-attendance/client';
@@ -93,6 +94,8 @@ export default function EmployeeServicesPage({ section }: { section: EmployeeSec
   const [leaveEnd, setLeaveEnd] = useState(today());
   const [leaveDays, setLeaveDays] = useState(1);
   const [leaveReason, setLeaveReason] = useState('');
+  const [attendanceExceptionAction, setAttendanceExceptionAction] = useState<'check-in' | 'check-out' | null>(null);
+  const [attendanceExceptionReason, setAttendanceExceptionReason] = useState('');
   const [claimPurpose, setClaimPurpose] = useState('');
   const [expenseLines, setExpenseLines] = useState<ExpenseLineDraft[]>([newExpenseLine()]);
   const [notice, setNotice] = useState('');
@@ -192,11 +195,30 @@ export default function EmployeeServicesPage({ section }: { section: EmployeeSec
         capturedAt: new Date().toISOString(),
         photo: blob,
         filename: `attendance.${photo.format || 'jpeg'}`,
+        exceptionReason: attendanceExceptionAction === action
+          ? attendanceExceptionReason.trim() || undefined
+          : undefined,
       });
     },
-    onSuccess: async (_, action) => {
-      setNotice(action === 'check-in' ? 'Checked in successfully.' : 'Checked out successfully.');
+    onSuccess: async (result, action) => {
+      setNotice(
+        result.hrReviewRequired
+          ? `${action === 'check-in' ? 'Check-in' : 'Check-out'} recorded and sent to HR for review.`
+          : action === 'check-in'
+            ? 'Checked in successfully.'
+            : 'Checked out successfully.',
+      );
+      setAttendanceExceptionAction(null);
+      setAttendanceExceptionReason('');
       await refreshEmployee();
+    },
+    onError: (error, action) => {
+      if (
+        error instanceof EmployeeAttendanceHttpError
+        && error.code === 'GEOFENCE_EXCEPTION_REASON_REQUIRED'
+      ) {
+        setAttendanceExceptionAction(action);
+      }
     },
   });
 
@@ -348,7 +370,41 @@ export default function EmployeeServicesPage({ section }: { section: EmployeeSec
               Check-in/out is performed from the mobile app using live camera + GPS.
             </div>
           )}
-          {attendanceMutation.error && (
+          {attendanceExceptionAction && (
+            <div className="employee-attendance__exception">
+              <strong>Different work location detected</strong>
+              <p>Your attendance can still be recorded, but HR must review the exception. Explain why you are outside the assigned geofence.</p>
+              <label>
+                Reason for different location
+                <textarea
+                  value={attendanceExceptionReason}
+                  maxLength={2000}
+                  placeholder="e.g. Client visit, field audit, dealership visit…"
+                  onChange={(event) => setAttendanceExceptionReason(event.target.value)}
+                />
+              </label>
+              <div className="employee-services__actions">
+                <button
+                  type="button"
+                  disabled={attendanceMutation.isPending || !attendanceExceptionReason.trim()}
+                  onClick={() => attendanceMutation.mutate(attendanceExceptionAction)}
+                >
+                  {attendanceMutation.isPending ? 'Capturing…' : `Submit & ${attendanceExceptionAction === 'check-in' ? 'Check In' : 'Check Out'}`}
+                </button>
+                <button
+                  type="button"
+                  className="is-secondary"
+                  onClick={() => {
+                    setAttendanceExceptionAction(null);
+                    setAttendanceExceptionReason('');
+                  }}
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
+          {attendanceMutation.error && !attendanceExceptionAction && (
             <div className="employee-services__error">{message(attendanceMutation.error)}</div>
           )}
 
@@ -358,7 +414,7 @@ export default function EmployeeServicesPage({ section }: { section: EmployeeSec
               <p>Today only. Employees explicitly assigned to you are shown.</p>
               <div className="employee-services__table-wrap">
                 <table>
-                  <thead><tr><th>Employee</th><th>Check in</th><th>Check out</th><th>Status</th></tr></thead>
+                  <thead><tr><th>Employee</th><th>Check in</th><th>Check out</th><th>Status</th><th>HR Review</th></tr></thead>
                   <tbody>
                     {(teamAttendance.data ?? []).map((row) => (
                       <tr key={row.employeeId}>
@@ -366,9 +422,10 @@ export default function EmployeeServicesPage({ section }: { section: EmployeeSec
                         <td>{formatDateTime(row.checkInAtUtc)}</td>
                         <td>{formatDateTime(row.checkOutAtUtc)}</td>
                         <td>{row.status.replaceAll('_', ' ')}</td>
+                        <td>{row.hrReviewStatus.replaceAll('_', ' ')}</td>
                       </tr>
                     ))}
-                    {!teamAttendance.data?.length && <tr><td colSpan={4}>No assigned employees.</td></tr>}
+                    {!teamAttendance.data?.length && <tr><td colSpan={5}>No assigned employees.</td></tr>}
                   </tbody>
                 </table>
               </div>
@@ -379,7 +436,7 @@ export default function EmployeeServicesPage({ section }: { section: EmployeeSec
           <div className="employee-services__table-wrap">
             <table>
               <thead>
-                <tr><th>Date</th><th>Check in</th><th>Check out</th><th>Status</th></tr>
+                <tr><th>Date</th><th>Check in</th><th>Check out</th><th>Status</th><th>HR Review</th></tr>
               </thead>
               <tbody>
                 {(attendance.data ?? []).map((row) => (
@@ -388,9 +445,10 @@ export default function EmployeeServicesPage({ section }: { section: EmployeeSec
                     <td>{formatDateTime(row.checkInAtUtc)}</td>
                     <td>{formatDateTime(row.checkOutAtUtc)}</td>
                     <td>{row.status.replaceAll('_', ' ')}</td>
+                    <td>{row.hrReviewStatus.replaceAll('_', ' ')}</td>
                   </tr>
                 ))}
-                {!attendance.data?.length && <tr><td colSpan={4}>No attendance recorded yet.</td></tr>}
+                {!attendance.data?.length && <tr><td colSpan={5}>No attendance recorded yet.</td></tr>}
               </tbody>
             </table>
           </div>

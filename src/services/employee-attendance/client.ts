@@ -265,9 +265,42 @@ export type PayrollItem = {
   paidLeaveDays: string | number;
   unpaidLeaveDays: string | number;
   payableDays: string | number;
+  basicAmount: string | number;
+  hraAmount: string | number;
+  allowancesAmount: string | number;
+  otherEarningsAmount: string | number;
+  lopAmount: string | number;
   grossAmount: string | number;
+  employeePf: string | number;
+  employeeEsi: string | number;
+  professionalTax: string | number;
+  tdsAmount: string | number;
+  otherDeductions: string | number;
   deductionAmount: string | number;
   netAmount: string | number;
+  employerPf: string | number;
+  employerEps: string | number;
+  employerEsi: string | number;
+  gratuityProvision: string | number;
+  employerCost: string | number;
+};
+
+export type PayrollProfile = {
+  employeeId: string;
+  employeeCode?: string | null;
+  employeeName?: string | null;
+  effectiveFrom: string;
+  effectiveTo?: string | null;
+  pfApplicable: boolean;
+  pfOnActualWages: boolean;
+  esiApplicable: boolean;
+  professionalTaxState?: string | null;
+  professionalTaxMonthly: string | number;
+  tdsMonthly: string | number;
+  taxRegime: 'NEW' | 'OLD';
+  gratuityApplicable: boolean;
+  uanMasked?: string | null;
+  esicNumberMasked?: string | null;
 };
 
 export class EmployeeAttendanceHttpError extends Error {
@@ -625,6 +658,31 @@ export const applyEmployeeImport = (token: string, importId: string) =>
     token,
     { method: 'POST' },
   );
+
+export const getPayrollProfiles = (token: string) =>
+  request<PayrollProfile[]>('/employee-attendance/v1/admin/payroll-profiles', token);
+
+export const updatePayrollProfile = (
+  token: string,
+  employeeId: string,
+  input: {
+    effectiveFrom: string;
+    pfApplicable: boolean;
+    pfOnActualWages: boolean;
+    esiApplicable: boolean;
+    professionalTaxState?: string;
+    professionalTaxMonthly: number;
+    tdsMonthly: number;
+    taxRegime: 'NEW' | 'OLD';
+    gratuityApplicable: boolean;
+    uanMasked?: string;
+    esicNumberMasked?: string;
+  },
+) => request<PayrollProfile>(
+  `/employee-attendance/v1/admin/payroll-profiles/${employeeId}`,
+  token,
+  { method: 'PUT', body: JSON.stringify(input) },
+);
 
 export const calculatePayroll = (token: string, month: string) =>
   request<PayrollSummary>(

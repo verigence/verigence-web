@@ -92,7 +92,8 @@ export default function EmployeeServicesPage({ section }: { section: EmployeeSec
   const [leaveTypeId, setLeaveTypeId] = useState('');
   const [leaveStart, setLeaveStart] = useState(today());
   const [leaveEnd, setLeaveEnd] = useState(today());
-  const [leaveDays, setLeaveDays] = useState(1);
+  const [leaveDayMode, setLeaveDayMode] = useState<'FULL_DAY' | 'HALF_DAY'>('FULL_DAY');
+  const [leaveHalfDaySession, setLeaveHalfDaySession] = useState<'FIRST_HALF' | 'SECOND_HALF'>('FIRST_HALF');
   const [leaveReason, setLeaveReason] = useState('');
   const [attendanceExceptionAction, setAttendanceExceptionAction] = useState<'check-in' | 'check-out' | null>(null);
   const [attendanceExceptionReason, setAttendanceExceptionReason] = useState('');
@@ -229,8 +230,9 @@ export default function EmployeeServicesPage({ section }: { section: EmployeeSec
       return applyLeave(token!, {
         leaveTypeId: selected,
         startDate: leaveStart,
-        endDate: leaveEnd,
-        requestedDays: leaveDays,
+        endDate: leaveDayMode === 'HALF_DAY' ? leaveStart : leaveEnd,
+        dayMode: leaveDayMode,
+        halfDaySession: leaveDayMode === 'HALF_DAY' ? leaveHalfDaySession : undefined,
         reason: leaveReason.trim() || undefined,
       });
     },
@@ -287,6 +289,9 @@ export default function EmployeeServicesPage({ section }: { section: EmployeeSec
       decideTeamLeave(token!, item.leaveRequestId, decision),
     onSuccess: refreshEmployee,
   });
+
+  const selectedLeaveBalance = balances.data?.find((item) => item.leaveTypeId === leaveTypeId)
+    ?? balances.data?.[0];
 
   const latest = attendance.data?.[0];
   const todayRecord = latest?.attendanceDate === today() ? latest : undefined;
@@ -456,12 +461,30 @@ export default function EmployeeServicesPage({ section }: { section: EmployeeSec
       )}
 
       {section === 'leave' && (
-        <div className="employee-services__panel">
-          <h2>Apply leave</h2>
+        <div className="employee-services__panel employee-leave">
+          <div className="employee-services__panel-head">
+            <div>
+              <h2>Apply leave</h2>
+              <p>Working days are calculated by the system using weekly offs and configured holidays.</p>
+            </div>
+            {selectedLeaveBalance && (
+              <span className="employee-services__status">
+                {selectedLeaveBalance.availableDays} days available
+              </span>
+            )}
+          </div>
+
           <div className="employee-services__form-grid">
             <label>
               Leave type
-              <select value={leaveTypeId} onChange={(event) => setLeaveTypeId(event.target.value)}>
+              <select
+                value={leaveTypeId}
+                onChange={(event) => {
+                  setLeaveTypeId(event.target.value);
+                  const balance = balances.data?.find((item) => item.leaveTypeId === event.target.value);
+                  if (balance && !balance.allowHalfDay) setLeaveDayMode('FULL_DAY');
+                }}
+              >
                 <option value="">Select leave</option>
                 {(balances.data ?? []).map((item) => (
                   <option key={item.leaveTypeId} value={item.leaveTypeId}>
@@ -470,34 +493,121 @@ export default function EmployeeServicesPage({ section }: { section: EmployeeSec
                 ))}
               </select>
             </label>
-            <label>From<input type="date" value={leaveStart} onChange={(event) => setLeaveStart(event.target.value)} /></label>
-            <label>To<input type="date" value={leaveEnd} onChange={(event) => setLeaveEnd(event.target.value)} /></label>
-            <label>Days<input type="number" min="0.5" step="0.5" value={leaveDays} onChange={(event) => setLeaveDays(Number(event.target.value))} /></label>
-            <label className="employee-services__span">Reason<textarea value={leaveReason} onChange={(event) => setLeaveReason(event.target.value)} /></label>
+
+            <label>
+              Duration
+              <select
+                value={leaveDayMode}
+                onChange={(event) => setLeaveDayMode(event.target.value as 'FULL_DAY' | 'HALF_DAY')}
+              >
+                <option value="FULL_DAY">Full day(s)</option>
+                {selectedLeaveBalance?.allowHalfDay && <option value="HALF_DAY">Half day</option>}
+              </select>
+            </label>
+
+            <label>
+              From
+              <input
+                type="date"
+                value={leaveStart}
+                onChange={(event) => {
+                  setLeaveStart(event.target.value);
+                  if (leaveDayMode === 'HALF_DAY') setLeaveEnd(event.target.value);
+                }}
+              />
+            </label>
+
+            {leaveDayMode === 'FULL_DAY' ? (
+              <label>
+                To
+                <input
+                  type="date"
+                  min={leaveStart}
+                  value={leaveEnd}
+                  onChange={(event) => setLeaveEnd(event.target.value)}
+                />
+              </label>
+            ) : (
+              <label>
+                Half-day session
+                <select value={leaveHalfDaySession} onChange={(event) => setLeaveHalfDaySession(event.target.value as 'FIRST_HALF' | 'SECOND_HALF')}>
+                  <option value="FIRST_HALF">First half</option>
+                  <option value="SECOND_HALF">Second half</option>
+                </select>
+              </label>
+            )}
+
+            <label className="employee-services__span">
+              Reason
+              <textarea
+                value={leaveReason}
+                maxLength={2000}
+                placeholder="Reason for leave"
+                onChange={(event) => setLeaveReason(event.target.value)}
+              />
+            </label>
           </div>
+
+          <div className="employee-services__hint">
+            Final leave days are calculated after excluding configured weekly offs and holidays.
+          </div>
+
           <div className="employee-services__actions">
             <button type="button" disabled={leaveMutation.isPending || !profile.data} onClick={() => leaveMutation.mutate()}>
-              {leaveMutation.isPending ? 'Submitting…' : 'Submit Leave'}
+              {leaveMutation.isPending ? 'Submitting…' : 'Submit Leave Request'}
             </button>
           </div>
           {leaveMutation.error && <div className="employee-services__error">{message(leaveMutation.error)}</div>}
 
-          <h3>My requests</h3>
-          <div className="employee-services__table-wrap">
-            <table>
-              <thead><tr><th>Leave</th><th>Dates</th><th>Days</th><th>Status</th></tr></thead>
-              <tbody>
-                {(leave.data ?? []).map((item) => (
-                  <tr key={item.leaveRequestId}>
-                    <td>{item.leaveTypeName}</td>
-                    <td>{item.startDate} → {item.endDate}</td>
-                    <td>{item.requestedDays}</td>
-                    <td>{item.status.replaceAll('_', ' ')}</td>
-                  </tr>
+          {canApproveTeamLeave && (
+            <>
+              <h3>Pending approvals</h3>
+              <div className="employee-services__approval-list">
+                {(approvals.data ?? []).map((item) => (
+                  <article key={item.leaveRequestId}>
+                    <div>
+                      <strong>{item.employeeName}</strong>
+                      <span>
+                        {item.leaveTypeName} · {item.startDate}
+                        {item.endDate !== item.startDate ? ` → ${item.endDate}` : ''}
+                        {' · '}{item.calculatedDays} day(s)
+                      </span>
+                      {item.reason && <small>{item.reason}</small>}
+                    </div>
+                    <div>
+                      <button type="button" disabled={approvalMutation.isPending} onClick={() => approvalMutation.mutate({ item, decision: 'APPROVE' })}>Approve</button>
+                      <button type="button" className="is-secondary" disabled={approvalMutation.isPending} onClick={() => approvalMutation.mutate({ item, decision: 'REJECT' })}>Reject</button>
+                    </div>
+                  </article>
                 ))}
-                {!leave.data?.length && <tr><td colSpan={4}>No leave requests yet.</td></tr>}
-              </tbody>
-            </table>
+                {!approvals.data?.length && <p>No leave requests are waiting for your approval.</p>}
+              </div>
+            </>
+          )}
+
+          <h3>My requests</h3>
+          <div className="employee-leave__request-list">
+            {(leave.data ?? []).map((item) => (
+              <article className="employee-leave__request" key={item.leaveRequestId}>
+                <div>
+                  <strong>{item.leaveTypeName}</strong>
+                  <span>
+                    {item.startDate}{item.endDate !== item.startDate ? ` → ${item.endDate}` : ''}
+                    {' · '}{item.dayMode === 'HALF_DAY' ? item.halfDaySession?.replaceAll('_', ' ') : `${item.calculatedDays} day(s)`}
+                  </span>
+                  {item.reason && <small>{item.reason}</small>}
+                </div>
+                <div>
+                  <strong>{item.approvalOutcome?.replaceAll('_', ' ') ?? item.status.replaceAll('_', ' ')}</strong>
+                  <span>
+                    {item.approvedDays != null
+                      ? `${item.approvedDays} approved`
+                      : `${item.calculatedDays} requested`}
+                  </span>
+                </div>
+              </article>
+            ))}
+            {!leave.data?.length && <p>No leave requests yet.</p>}
           </div>
         </div>
       )}

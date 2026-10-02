@@ -448,7 +448,7 @@ export default function EmployeeServicesPage({ section }: { section: EmployeeSec
                         <td>{money(item.amount)}</td>
                         <td>{item.receiptUrl ? <a href={item.receiptUrl} target="_blank" rel="noreferrer">View</a> : '—'}</td>
                         <td>{item.status.replaceAll('_', ' ')}</td>
-                        <td>{item.paymentStatus.replaceAll('_', ' ')}</td>
+                        <td>{item.paymentStatus ? item.paymentStatus.replaceAll('_', ' ') : '—'}</td>
                         <td>{item.paidAtUtc ? formatDateTime(item.paidAtUtc) : '—'}</td>
                       </tr>
                     ))}
@@ -472,7 +472,7 @@ export default function EmployeeServicesPage({ section }: { section: EmployeeSec
                     <td>{item.paidAmount != null ? money(item.paidAmount) : '—'}</td>
                     <td>{item.receiptUrl ? <a href={item.receiptUrl} target="_blank" rel="noreferrer">View</a> : '—'}</td>
                     <td>{item.status.replaceAll('_', ' ')}</td>
-                    <td>{item.paymentStatus.replaceAll('_', ' ')}</td>
+                    <td>{item.paymentStatus ? item.paymentStatus.replaceAll('_', ' ') : '—'}</td>
                     <td>{item.paidAtUtc ? formatDateTime(item.paidAtUtc) : '—'}</td>
                     <td>{item.paymentReference ?? '—'}</td>
                   </tr>

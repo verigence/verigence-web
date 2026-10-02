@@ -303,6 +303,24 @@ export type PayrollProfile = {
   esicNumberMasked?: string | null;
 };
 
+
+export type PayrollStatutoryConfig = {
+  statutoryConfigId: string;
+  effectiveFrom: string;
+  effectiveTo?: string | null;
+  pfEmployeeRate: string | number;
+  pfEmployerRate: string | number;
+  pfWageCeiling: string | number;
+  epsEmployerRate: string | number;
+  epsWageCeiling: string | number;
+  esiEmployeeRate: string | number;
+  esiEmployerRate: string | number;
+  esiWageCeiling: string | number;
+  gratuityProvisionRate: string | number;
+  salaryTdsSection: string;
+  createdAtUtc: string;
+};
+
 export class EmployeeAttendanceHttpError extends Error {
   status: number;
   code?: string;
@@ -658,6 +676,33 @@ export const applyEmployeeImport = (token: string, importId: string) =>
     token,
     { method: 'POST' },
   );
+
+export const getPayrollStatutoryConfig = (token: string) =>
+  request<PayrollStatutoryConfig[]>(
+    '/employee-attendance/v1/admin/payroll-statutory-config',
+    token,
+  );
+
+export const updatePayrollStatutoryConfig = (
+  token: string,
+  input: {
+    effectiveFrom: string;
+    pfEmployeeRate: number;
+    pfEmployerRate: number;
+    pfWageCeiling: number;
+    epsEmployerRate: number;
+    epsWageCeiling: number;
+    esiEmployeeRate: number;
+    esiEmployerRate: number;
+    esiWageCeiling: number;
+    gratuityProvisionRate: number;
+    salaryTdsSection: string;
+  },
+) => request<PayrollStatutoryConfig>(
+  '/employee-attendance/v1/admin/payroll-statutory-config',
+  token,
+  { method: 'PUT', body: JSON.stringify(input) },
+);
 
 export const getPayrollProfiles = (token: string) =>
   request<PayrollProfile[]>('/employee-attendance/v1/admin/payroll-profiles', token);

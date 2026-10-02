@@ -44,6 +44,18 @@ const journeySearchItem: NavItem = {
   roles: ['PC', 'TL', 'PM'],
 };
 
+const employeeServicesItem: NavItem = {
+  to: '/employee-attendance',
+  label: 'Attendance',
+  mark: 'AD',
+};
+
+const employeeServicesGroup: NavGroup = {
+  key: 'employee-services',
+  label: 'Employee',
+  items: [employeeServicesItem],
+};
+
 const attendanceItem: NavItem = {
   to: '/attendance',
   label: 'Attendance',

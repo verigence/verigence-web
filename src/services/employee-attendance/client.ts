@@ -77,7 +77,7 @@ export type Reimbursement = {
   status: string;
   financeApprovalRequired: boolean;
   receiptUrl?: string | null;
-  paymentStatus: 'NOT_READY' | 'PENDING' | 'PROCESSING' | 'PAID' | 'FAILED';
+  paymentStatus?: 'PENDING_PAYMENT' | 'PROCESSED' | null;
   paymentInitiatedAtUtc?: string | null;
   paidAtUtc?: string | null;
   paidAmount?: string | number | null;
@@ -373,7 +373,7 @@ export const decideReimbursement = (
 
 export const getReimbursementPaymentQueue = (
   token: string,
-  paymentStatus: 'PENDING' | 'PROCESSING' | 'FAILED' | 'PAID' = 'PENDING',
+  paymentStatus: 'PENDING_PAYMENT' | 'PROCESSED' = 'PENDING_PAYMENT',
 ) => request<Reimbursement[]>(
   `/employee-attendance/v1/admin/reimbursements/payments?paymentStatus=${paymentStatus}`,
   token,
@@ -383,11 +383,10 @@ export const updateReimbursementPayment = (
   token: string,
   claimId: string,
   input: {
-    paymentStatus: 'PROCESSING' | 'PAID' | 'FAILED';
-    paidAmount?: number;
-    paidAtUtc?: string;
-    paymentMode?: string;
-    paymentReference?: string;
+    paidAmount: number;
+    paidAtUtc: string;
+    paymentMode: string;
+    paymentReference: string;
     comment?: string;
   },
 ) => request<Reimbursement>(

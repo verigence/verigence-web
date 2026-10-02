@@ -267,6 +267,9 @@ export const decideTeamLeave = (
 export const getMyReimbursements = (token: string) =>
   request<Reimbursement[]>('/employee-attendance/v1/me/reimbursements', token);
 
+export const getTeamReimbursements = (token: string) =>
+  request<Reimbursement[]>('/employee-attendance/v1/team/reimbursements', token);
+
 export async function submitReimbursement(
   token: string,
   input: {

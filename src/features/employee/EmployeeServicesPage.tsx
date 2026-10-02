@@ -15,6 +15,7 @@ import {
   getMyPayslips,
   getMyProfile,
   getMyReimbursements,
+  getTeamAttendance,
   getTeamLeave,
   getTeamReimbursements,
   recordAttendance,
@@ -116,6 +117,12 @@ export default function EmployeeServicesPage() {
     queryKey: ['employee-attendance', 'payslips'],
     queryFn: () => getMyPayslips(token!),
     enabled: Boolean(token && profile.data),
+    retry: false,
+  });
+  const teamAttendance = useQuery({
+    queryKey: ['employee-attendance', 'team-attendance', today()],
+    queryFn: () => getTeamAttendance(token!, today()),
+    enabled: Boolean(token && canApproveTeamLeave),
     retry: false,
   });
   const approvals = useQuery({
@@ -330,6 +337,29 @@ export default function EmployeeServicesPage() {
           )}
           {attendanceMutation.error && (
             <div className="employee-services__error">{message(attendanceMutation.error)}</div>
+          )}
+
+          {canApproveTeamLeave && (
+            <>
+              <h3>Team attendance</h3>
+              <p>Today only. Employees explicitly assigned to you are shown.</p>
+              <div className="employee-services__table-wrap">
+                <table>
+                  <thead><tr><th>Employee</th><th>Check in</th><th>Check out</th><th>Status</th></tr></thead>
+                  <tbody>
+                    {(teamAttendance.data ?? []).map((row) => (
+                      <tr key={row.employeeId}>
+                        <td>{row.employeeName}</td>
+                        <td>{formatDateTime(row.checkInAtUtc)}</td>
+                        <td>{formatDateTime(row.checkOutAtUtc)}</td>
+                        <td>{row.status.replaceAll('_', ' ')}</td>
+                      </tr>
+                    ))}
+                    {!teamAttendance.data?.length && <tr><td colSpan={4}>No assigned employees.</td></tr>}
+                  </tbody>
+                </table>
+              </div>
+            </>
           )}
 
           <h3>Recent attendance</h3>

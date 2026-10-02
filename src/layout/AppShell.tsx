@@ -153,7 +153,8 @@ const p2Group: NavGroup = {
   items: [p2BookingsItem, p2TasksItem, p2DuplicatesItem],
 };
 
-const groups: NavGroup[] = [\n  employeeServicesGroup,
+const groups: NavGroup[] = [
+  employeeServicesGroup,
   { key: 'workspace', label: 'Workspace', items: [
     { to: '/dashboard', label: 'Overview', mark: 'OV', roles: operational },
     journeySearchItem,
@@ -189,7 +190,8 @@ const groups: NavGroup[] = [\n  employeeServicesGroup,
     { to: '/admin/audit-rules', label: 'Audit Rule Config', mark: 'AR', roles: ['SUPER_ADMIN'] },
     { to: '/admin/approval-workflow', label: 'Approval Workflow Config', mark: 'AW', roles: ['SUPER_ADMIN'] },
     { to: '/admin/notifications', label: 'Notification Settings', mark: 'NS', roles: ['SUPER_ADMIN'] },
-    { to: '/admin/oem-masters', label: 'OEM Masters', mark: 'OM', roles: ['SUPER_ADMIN'] },\n    { to: '/admin/employees', label: 'Employee Management', mark: 'US', roles: ['SUPER_ADMIN'] },
+    { to: '/admin/oem-masters', label: 'OEM Masters', mark: 'OM', roles: ['SUPER_ADMIN'] },
+    { to: '/admin/employees', label: 'Employee Management', mark: 'US', roles: ['SUPER_ADMIN'] },
     projectAdministrationItem,
   ] },
 ];

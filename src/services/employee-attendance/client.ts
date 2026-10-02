@@ -1,4 +1,8 @@
-const configuredBaseUrl = import.meta.env.VITE_EMPLOYEE_ATTENDANCE_BASE_URL?.trim();
+const configuredBaseUrl =
+  import.meta.env.VITE_EMPLOYEE_ATTENDANCE_BASE_URL?.trim()
+  || import.meta.env.VITE_ATTENDANCE_BASE_URL?.trim();
+const DEV_WEB_HOST = 'verigence-web-dev.jbrconsulting-it.workers.dev';
+const DEV_ATTENDANCE_BASE_URL = 'https://attendance-dev.up.railway.app';
 const REQUEST_TIMEOUT_MS = 12_000;
 
 export type EmployeeProfile = {
@@ -146,8 +150,16 @@ export class EmployeeAttendanceHttpError extends Error {
 }
 
 function baseUrl(): string {
-  if (!configuredBaseUrl) throw new Error('Employee Attendance service is not configured.');
-  return configuredBaseUrl.replace(/\/$/, '');
+  if (configuredBaseUrl) return configuredBaseUrl.replace(/\/$/, '');
+
+  // Employee/HR/payroll APIs are hosted by the existing isolated Attendance service.
+  // Reuse the same DEV fallback as the legacy Attendance client so Web DEV needs no
+  // second service or second runtime setting.
+  if (typeof window !== 'undefined' && window.location.hostname === DEV_WEB_HOST) {
+    return DEV_ATTENDANCE_BASE_URL;
+  }
+
+  throw new Error('Employee Attendance service is not configured.');
 }
 
 async function request<T>(

@@ -21,6 +21,7 @@ import {
   getLeaveTypes,
   getModuleConfig,
   getPayrollItems,
+  getPayrollProfiles,
   getReimbursementClaimQueue,
   getReimbursementPaymentQueue,
   getWorkLocations,
@@ -28,9 +29,11 @@ import {
   previewEmployeeImport,
   reviewReimbursementClaim,
   updateModuleConfig,
+  updatePayrollProfile,
   updateReimbursementPayment,
   type BulkImport,
   type LeaveRequest,
+  type PayrollProfile,
   type PayrollSummary,
   type ReimbursementClaim,
 } from '../../services/employee-attendance/client';
@@ -84,6 +87,20 @@ type ExpenseReviewDraft = {
   comment: string;
 };
 
+type PayrollProfileDraft = {
+  effectiveFrom: string;
+  pfApplicable: boolean;
+  pfOnActualWages: boolean;
+  esiApplicable: boolean;
+  professionalTaxState: string;
+  professionalTaxMonthly: string;
+  tdsMonthly: string;
+  taxRegime: 'NEW' | 'OLD';
+  gratuityApplicable: boolean;
+  uanMasked: string;
+  esicNumberMasked: string;
+};
+
 export default function EmployeeAdministrationPage() {
   const native = Capacitor.isNativePlatform();
   const token = useSessionStore((state) => state.accessToken);
@@ -114,6 +131,7 @@ export default function EmployeeAdministrationPage() {
   const [paymentComment, setPaymentComment] = useState('');
   const [payrollMonth, setPayrollMonth] = useState(monthStart());
   const [payroll, setPayroll] = useState<PayrollSummary | null>(null);
+  const [payrollProfileDrafts, setPayrollProfileDrafts] = useState<Record<string, PayrollProfileDraft>>({});
   const [reportStart, setReportStart] = useState(weekStart());
   const [reportEnd, setReportEnd] = useState(today());
   const [threshold, setThreshold] = useState('3000');
@@ -250,6 +268,13 @@ export default function EmployeeAdministrationPage() {
     if (Array.isArray(offs)) setWeeklyOffs(offs.join(','));
   }, [config.data]);
 
+  const payrollProfiles = useQuery({
+    queryKey: ['employee-attendance', 'payroll-profiles'],
+    queryFn: () => getPayrollProfiles(token!),
+    enabled: Boolean(token && capabilities.data?.payrollManage),
+    retry: false,
+  });
+
   const payrollItems = useQuery({
     queryKey: ['employee-attendance', 'payroll-items', payroll?.payrollRunId],
     queryFn: () => getPayrollItems(token!, payroll!.payrollRunId),
@@ -269,7 +294,37 @@ export default function EmployeeAdministrationPage() {
       queryClient.invalidateQueries({ queryKey: ['employee-attendance', 'admin-work-locations'] }),
       queryClient.invalidateQueries({ queryKey: ['employee-attendance', 'admin-leave-types'] }),
       queryClient.invalidateQueries({ queryKey: ['employee-attendance', 'admin-holidays'] }),
+      queryClient.invalidateQueries({ queryKey: ['employee-attendance', 'payroll-profiles'] }),
     ]);
+  };
+
+  const payrollProfileDraftFor = (profile: PayrollProfile): PayrollProfileDraft => (
+    payrollProfileDrafts[profile.employeeId] ?? {
+      effectiveFrom: profile.effectiveFrom,
+      pfApplicable: profile.pfApplicable,
+      pfOnActualWages: profile.pfOnActualWages,
+      esiApplicable: profile.esiApplicable,
+      professionalTaxState: profile.professionalTaxState ?? '',
+      professionalTaxMonthly: String(profile.professionalTaxMonthly ?? 0),
+      tdsMonthly: String(profile.tdsMonthly ?? 0),
+      taxRegime: profile.taxRegime,
+      gratuityApplicable: profile.gratuityApplicable,
+      uanMasked: profile.uanMasked ?? '',
+      esicNumberMasked: profile.esicNumberMasked ?? '',
+    }
+  );
+
+  const updatePayrollProfileDraft = (
+    profile: PayrollProfile,
+    patch: Partial<PayrollProfileDraft>,
+  ) => {
+    setPayrollProfileDrafts((current) => ({
+      ...current,
+      [profile.employeeId]: {
+        ...payrollProfileDraftFor(profile),
+        ...patch,
+      },
+    }));
   };
 
   const previewMutation = useMutation({
@@ -415,6 +470,38 @@ export default function EmployeeAdministrationPage() {
       setPaymentAmount('');
       setPaymentReference('');
       setPaymentComment('');
+      await refreshAdmin();
+    },
+  });
+
+  const payrollProfileMutation = useMutation({
+    mutationFn: (profile: PayrollProfile) => {
+      const draft = payrollProfileDraftFor(profile);
+      const pt = Number(draft.professionalTaxMonthly);
+      const tds = Number(draft.tdsMonthly);
+      if (!Number.isFinite(pt) || pt < 0 || !Number.isFinite(tds) || tds < 0) {
+        throw new Error('Professional Tax and TDS must be zero or positive amounts.');
+      }
+      return updatePayrollProfile(token!, profile.employeeId, {
+        effectiveFrom: draft.effectiveFrom,
+        pfApplicable: draft.pfApplicable,
+        pfOnActualWages: draft.pfOnActualWages,
+        esiApplicable: draft.esiApplicable,
+        professionalTaxState: draft.professionalTaxState.trim() || undefined,
+        professionalTaxMonthly: pt,
+        tdsMonthly: tds,
+        taxRegime: draft.taxRegime,
+        gratuityApplicable: draft.gratuityApplicable,
+        uanMasked: draft.uanMasked.trim() || undefined,
+        esicNumberMasked: draft.esicNumberMasked.trim() || undefined,
+      });
+    },
+    onSuccess: async (result) => {
+      setPayrollProfileDrafts((current) => {
+        const next = { ...current };
+        delete next[result.employeeId];
+        return next;
+      });
       await refreshAdmin();
     },
   });

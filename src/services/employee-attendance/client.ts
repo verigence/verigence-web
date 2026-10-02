@@ -78,7 +78,6 @@ export type Reimbursement = {
   financeApprovalRequired: boolean;
   receiptUrl?: string | null;
   paymentStatus?: 'PENDING_PAYMENT' | 'PROCESSED' | null;
-  paymentInitiatedAtUtc?: string | null;
   paidAtUtc?: string | null;
   paidAmount?: string | number | null;
   paymentMode?: string | null;

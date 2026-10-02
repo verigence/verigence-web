@@ -8,6 +8,7 @@ import { getCurrentLocation } from '../../services/device/location';
 import {
   applyLeave,
   decideTeamLeave,
+  employeeAttendanceFileUrl,
   getAdminCapabilities,
   getLeaveBalances,
   getMyAttendance,
@@ -469,7 +470,7 @@ export default function EmployeeServicesPage() {
                         <td>{item.expenseDate}</td>
                         <td>{item.category}</td>
                         <td>{money(item.amount)}</td>
-                        <td>{item.receiptUrl ? <a href={item.receiptUrl} target="_blank" rel="noreferrer">View</a> : '—'}</td>
+                        <td>{item.receiptUrl ? <a href={employeeAttendanceFileUrl(item.receiptUrl)} target="_blank" rel="noreferrer">View</a> : '—'}</td>
                         <td>{item.status.replaceAll('_', ' ')}</td>
                       </tr>
                     ))}
@@ -490,7 +491,7 @@ export default function EmployeeServicesPage() {
                     <td>{item.expenseDate}</td>
                     <td>{item.category}</td>
                     <td>{money(item.amount)}</td>
-                    <td>{item.receiptUrl ? <a href={item.receiptUrl} target="_blank" rel="noreferrer">View</a> : '—'}</td>
+                    <td>{item.receiptUrl ? <a href={employeeAttendanceFileUrl(item.receiptUrl)} target="_blank" rel="noreferrer">View</a> : '—'}</td>
                     <td>{item.status.replaceAll('_', ' ')}</td>
                   </tr>
                 ))}
@@ -512,7 +513,7 @@ export default function EmployeeServicesPage() {
                   <tr key={item.payslipId}>
                     <td>{new Date(item.payrollMonth).toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}</td>
                     <td>{money(item.netAmount)}</td>
-                    <td><a href={item.downloadUrl} target="_blank" rel="noreferrer">Download PDF</a></td>
+                    <td><a href={employeeAttendanceFileUrl(item.downloadUrl)} target="_blank" rel="noreferrer">Download PDF</a></td>
                   </tr>
                 ))}
                 {!payslips.data?.length && <tr><td colSpan={3}>No finalized payslips yet.</td></tr>}

@@ -1071,8 +1071,8 @@ export default function EmployeeAdministrationPage() {
                 {(reimbursementPayments.data ?? []).map((item) => (
                   <article key={item.claimId}>
                     <div>
-                      <strong>{item.employeeName} · {money(item.amount)}</strong>
-                      <span>{item.expenseDate} · {item.category} · {item.paymentStatus ? item.paymentStatus.replaceAll('_', ' ') : '—'}</span>
+                      <strong>{item.employeeName} · {item.claimNumber}</strong>
+                      <span>{item.purpose} · Approved {money(item.approvedTotal ?? item.claimedTotal)} · {item.paymentStatus ? item.paymentStatus.replaceAll('_', ' ') : '—'}</span>
                       {item.paidAtUtc && <small>Paid {new Date(item.paidAtUtc).toLocaleString()} · {item.paymentReference ?? 'No reference'}</small>}
                     </div>
                     <div>
@@ -1082,7 +1082,7 @@ export default function EmployeeAdministrationPage() {
                           className="is-secondary"
                           onClick={() => {
                             setPaymentClaimId(item.claimId);
-                            setPaymentAmount(String(item.amount));
+                            setPaymentAmount(String(item.approvedTotal ?? item.claimedTotal));
                             setPaymentReference('');
                             setPaymentComment('');
                             setPaymentPaidAt(new Date().toISOString().slice(0, 16));

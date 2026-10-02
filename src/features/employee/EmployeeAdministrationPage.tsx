@@ -10,6 +10,7 @@ import {
   createWorkLocation,
   decideHrLeave,
   decideReimbursement,
+  employeeAttendanceFileUrl,
   downloadAttendanceReport,
   downloadEmployeeTemplate,
   downloadPayrollReport,
@@ -449,7 +450,7 @@ export default function EmployeeAdministrationPage() {
                 {(reimbursementQueue.data ?? []).map((item) => (
                   <tr key={item.claimId}>
                     <td>{item.employeeName}</td><td>{item.expenseDate}</td><td>{item.category}</td><td>{money(item.amount)}</td>
-                    <td>{item.receiptUrl ? <a href={item.receiptUrl} target="_blank" rel="noreferrer">View</a> : '—'}</td>
+                    <td>{item.receiptUrl ? <a href={employeeAttendanceFileUrl(item.receiptUrl)} target="_blank" rel="noreferrer">View</a> : '—'}</td>
                     <td><div className="employee-admin-toolbar"><button className="employee-admin-button is-primary" type="button" onClick={() => reimbursementMutation.mutate({ id: item.claimId, decision: 'APPROVE' })}>Approve</button><button className="employee-admin-button" type="button" onClick={() => reimbursementMutation.mutate({ id: item.claimId, decision: 'REJECT' })}>Reject</button></div></td>
                   </tr>
                 ))}

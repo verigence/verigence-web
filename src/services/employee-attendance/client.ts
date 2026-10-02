@@ -618,7 +618,7 @@ export const decideReimbursement = (
 export const getReimbursementPaymentQueue = (
   token: string,
   paymentStatus: 'PENDING_PAYMENT' | 'PROCESSED' = 'PENDING_PAYMENT',
-) => request<Reimbursement[]>(
+) => request<ReimbursementClaim[]>(
   `/employee-attendance/v1/admin/reimbursements/payments?paymentStatus=${paymentStatus}`,
   token,
 );
@@ -633,7 +633,7 @@ export const updateReimbursementPayment = (
     paymentReference: string;
     comment?: string;
   },
-) => request<Reimbursement>(
+) => request<ReimbursementClaim>(
   `/employee-attendance/v1/admin/reimbursements/${claimId}/payment`,
   token,
   { method: 'POST', body: JSON.stringify(input) },

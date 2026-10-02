@@ -30,6 +30,7 @@ import {
   updateModuleConfig,
   updateReimbursementPayment,
   type BulkImport,
+  type LeaveRequest,
   type PayrollSummary,
   type ReimbursementClaim,
 } from '../../services/employee-attendance/client';
@@ -96,6 +97,11 @@ export default function EmployeeAdministrationPage() {
     presentFraction: string;
     comment: string;
   }>>({});
+  const [leaveReviewDrafts, setLeaveReviewDrafts] = useState<Record<string, {
+    decision: 'APPROVE' | 'ADJUST' | 'REJECT';
+    approvedDays: string;
+    comment: string;
+  }>>({});
   const [reimbursementStage, setReimbursementStage] = useState<'HR' | 'FINANCE'>('HR');
   const [expenseReviewDrafts, setExpenseReviewDrafts] = useState<Record<string, Record<string, ExpenseReviewDraft>>>({});
   const [reimbursementView, setReimbursementView] = useState<'APPROVALS' | 'PAYMENTS'>('APPROVALS');
@@ -124,6 +130,10 @@ export default function EmployeeAdministrationPage() {
   const [leaveEntitlement, setLeaveEntitlement] = useState('0');
   const [leavePaid, setLeavePaid] = useState(true);
   const [leaveHalfDay, setLeaveHalfDay] = useState(true);
+  const [leaveMinNoticeDays, setLeaveMinNoticeDays] = useState('0');
+  const [leaveMaxConsecutiveDays, setLeaveMaxConsecutiveDays] = useState('');
+  const [leaveRequiresReason, setLeaveRequiresReason] = useState(true);
+  const [leaveAllowNegativeBalance, setLeaveAllowNegativeBalance] = useState(false);
   const [holidayDate, setHolidayDate] = useState(today());
   const [holidayName, setHolidayName] = useState('');
 
@@ -309,9 +319,39 @@ export default function EmployeeAdministrationPage() {
   });
 
   const leaveMutation = useMutation({
-    mutationFn: ({ id, decision }: { id: string; decision: 'APPROVE' | 'REJECT' }) =>
-      decideHrLeave(token!, id, decision),
-    onSuccess: refreshAdmin,
+    mutationFn: (item: LeaveRequest) => {
+      const requestedDays = Number(item.calculatedDays ?? item.requestedDays);
+      const draft = leaveReviewDrafts[item.leaveRequestId] ?? {
+        decision: 'APPROVE' as const,
+        approvedDays: String(requestedDays),
+        comment: '',
+      };
+      const approvedDays = draft.decision === 'ADJUST'
+        ? Number(draft.approvedDays)
+        : undefined;
+      if (
+        draft.decision === 'ADJUST'
+        && (!Number.isFinite(approvedDays) || approvedDays! <= 0 || approvedDays! >= requestedDays)
+      ) {
+        throw new Error('Adjusted leave days must be greater than zero and lower than requested days.');
+      }
+      if ((draft.decision === 'ADJUST' || draft.decision === 'REJECT') && !draft.comment.trim()) {
+        throw new Error('A reason is required when leave is adjusted or rejected.');
+      }
+      return decideHrLeave(token!, item.leaveRequestId, {
+        decision: draft.decision,
+        approvedDays,
+        comment: draft.comment.trim() || undefined,
+      });
+    },
+    onSuccess: async (result) => {
+      setLeaveReviewDrafts((current) => {
+        const next = { ...current };
+        delete next[result.leaveRequestId];
+        return next;
+      });
+      await refreshAdmin();
+    },
   });
   const reimbursementReviewMutation = useMutation({
     mutationFn: (claim: ReimbursementClaim) => {
@@ -424,11 +464,19 @@ export default function EmployeeAdministrationPage() {
       isPaid: leavePaid,
       defaultEntitlementDays: Number(leaveEntitlement),
       allowHalfDay: leaveHalfDay,
+      minNoticeDays: Number(leaveMinNoticeDays),
+      maxConsecutiveDays: leaveMaxConsecutiveDays ? Number(leaveMaxConsecutiveDays) : undefined,
+      requiresReason: leaveRequiresReason,
+      allowNegativeBalance: leaveAllowNegativeBalance,
     }),
     onSuccess: async () => {
       setLeaveCode('');
       setLeaveName('');
       setLeaveEntitlement('0');
+      setLeaveMinNoticeDays('0');
+      setLeaveMaxConsecutiveDays('');
+      setLeaveRequiresReason(true);
+      setLeaveAllowNegativeBalance(false);
       await refreshAdmin();
     },
   });
@@ -690,21 +738,102 @@ export default function EmployeeAdministrationPage() {
       )}
 
       {section === 'leave' && capabilities.data?.leaveHrApprove && (
-        <div className="employee-services__panel">
-          <h2>HR leave validation</h2>
-          <p>Requests reach HR only after TL or PMO approval.</p>
-          <div className="employee-services__approval-list">
-            {(hrLeave.data ?? []).map((item) => (
-              <article key={item.leaveRequestId}>
-                <div><strong>{item.employeeName}</strong><span>{item.leaveTypeName} · {item.startDate} → {item.endDate} · {item.requestedDays} day(s)</span>{item.reason && <small>{item.reason}</small>}</div>
-                <div>
-                  <button type="button" disabled={leaveMutation.isPending} onClick={() => leaveMutation.mutate({ id: item.leaveRequestId, decision: 'APPROVE' })}>Validate</button>
-                  <button type="button" className="is-secondary" disabled={leaveMutation.isPending} onClick={() => leaveMutation.mutate({ id: item.leaveRequestId, decision: 'REJECT' })}>Reject</button>
-                </div>
-              </article>
-            ))}
+        <div className="employee-services__panel employee-admin-section">
+          <div className="employee-services__panel-head">
+            <div>
+              <h2>HR leave validation</h2>
+              <p>Requests reach HR only after TL or PM approval. HR may approve, adjust approved days, or reject with an audit reason.</p>
+            </div>
+            <span className="employee-services__status">{hrLeave.data?.length ?? 0} pending</span>
+          </div>
+
+          <div className="employee-leave__admin-list">
+            {(hrLeave.data ?? []).map((item) => {
+              const requestedDays = Number(item.calculatedDays ?? item.requestedDays);
+              const draft = leaveReviewDrafts[item.leaveRequestId] ?? {
+                decision: 'APPROVE' as const,
+                approvedDays: String(requestedDays),
+                comment: '',
+              };
+              return (
+                <article className="employee-leave__admin-card" key={item.leaveRequestId}>
+                  <div className="employee-leave__admin-head">
+                    <div>
+                      <strong>{item.employeeName} · {item.leaveTypeName}</strong>
+                      <span>
+                        {item.startDate}{item.endDate !== item.startDate ? ` → ${item.endDate}` : ''}
+                        {' · '}{requestedDays} day(s)
+                        {item.dayMode === 'HALF_DAY' && item.halfDaySession ? ` · ${item.halfDaySession.replaceAll('_', ' ')}` : ''}
+                      </span>
+                      {item.reason && <small>{item.reason}</small>}
+                    </div>
+                    <strong>{requestedDays} requested</strong>
+                  </div>
+
+                  <div className="employee-admin-form">
+                    <label>
+                      HR decision
+                      <select
+                        value={draft.decision}
+                        onChange={(event) => {
+                          const decision = event.target.value as 'APPROVE' | 'ADJUST' | 'REJECT';
+                          setLeaveReviewDrafts((current) => ({
+                            ...current,
+                            [item.leaveRequestId]: {
+                              ...draft,
+                              decision,
+                              approvedDays: decision === 'REJECT' ? '0' : decision === 'APPROVE' ? String(requestedDays) : draft.approvedDays,
+                            },
+                          }));
+                        }}
+                      >
+                        <option value="APPROVE">Approve</option>
+                        <option value="ADJUST">Adjust approved days</option>
+                        <option value="REJECT">Reject</option>
+                      </select>
+                    </label>
+
+                    {draft.decision === 'ADJUST' && (
+                      <label>
+                        Approved days
+                        <input
+                          type="number"
+                          min="0.5"
+                          max={Math.max(0.5, requestedDays - 0.5)}
+                          step="0.5"
+                          value={draft.approvedDays}
+                          onChange={(event) => setLeaveReviewDrafts((current) => ({
+                            ...current,
+                            [item.leaveRequestId]: { ...draft, approvedDays: event.target.value },
+                          }))}
+                        />
+                      </label>
+                    )}
+
+                    <label className="span">
+                      HR comment
+                      <textarea
+                        value={draft.comment}
+                        placeholder={draft.decision === 'APPROVE' ? 'Optional' : 'Required'}
+                        onChange={(event) => setLeaveReviewDrafts((current) => ({
+                          ...current,
+                          [item.leaveRequestId]: { ...draft, comment: event.target.value },
+                        }))}
+                      />
+                    </label>
+                  </div>
+
+                  <div className="employee-services__actions">
+                    <button type="button" disabled={leaveMutation.isPending} onClick={() => leaveMutation.mutate(item)}>
+                      {leaveMutation.isPending ? 'Saving…' : 'Complete HR Review'}
+                    </button>
+                  </div>
+                </article>
+              );
+            })}
             {!hrLeave.data?.length && <p>No leave requests are waiting for HR.</p>}
           </div>
+          {leaveMutation.error && <div className="employee-services__error">{errorMessage(leaveMutation.error)}</div>}
         </div>
       )}
 
@@ -987,16 +1116,38 @@ export default function EmployeeAdministrationPage() {
           <div className="employee-services__actions"><button type="button" onClick={() => locationMutation.mutate()}>Add Work Location</button></div>
           <div className="employee-services__table-wrap"><table><thead><tr><th>Code</th><th>Location</th><th>Radius</th></tr></thead><tbody>{(locations.data ?? []).map((item) => <tr key={String(item.locationId)}><td>{String(item.locationCode)}</td><td>{String(item.locationName)}</td><td>{String(item.geofenceRadiusMeters)} m</td></tr>)}</tbody></table></div>
 
-          <h3>Leave types</h3>
+          <h3>Leave types & policy</h3>
           <div className="employee-admin-form">
             <label>Code<input value={leaveCode} onChange={(event) => setLeaveCode(event.target.value)} /></label>
             <label>Name<input value={leaveName} onChange={(event) => setLeaveName(event.target.value)} /></label>
             <label>Annual entitlement<input type="number" min="0" step="0.5" value={leaveEntitlement} onChange={(event) => setLeaveEntitlement(event.target.value)} /></label>
+            <label>Minimum notice (days)<input type="number" min="0" max="365" value={leaveMinNoticeDays} onChange={(event) => setLeaveMinNoticeDays(event.target.value)} /></label>
+            <label>Maximum days / request<input type="number" min="0.5" step="0.5" value={leaveMaxConsecutiveDays} placeholder="No limit" onChange={(event) => setLeaveMaxConsecutiveDays(event.target.value)} /></label>
             <label><span>Paid leave</span><input type="checkbox" checked={leavePaid} onChange={(event) => setLeavePaid(event.target.checked)} /></label>
             <label><span>Allow half day</span><input type="checkbox" checked={leaveHalfDay} onChange={(event) => setLeaveHalfDay(event.target.checked)} /></label>
+            <label><span>Reason mandatory</span><input type="checkbox" checked={leaveRequiresReason} onChange={(event) => setLeaveRequiresReason(event.target.checked)} /></label>
+            <label><span>Allow negative balance</span><input type="checkbox" checked={leaveAllowNegativeBalance} onChange={(event) => setLeaveAllowNegativeBalance(event.target.checked)} /></label>
           </div>
-          <div className="employee-services__actions"><button type="button" onClick={() => leaveTypeMutation.mutate()}>Add Leave Type</button></div>
-          <div className="employee-services__table-wrap"><table><thead><tr><th>Code</th><th>Leave</th><th>Entitlement</th><th>Half day</th></tr></thead><tbody>{(leaveTypes.data ?? []).map((item) => <tr key={String(item.leaveTypeId)}><td>{String(item.leaveCode)}</td><td>{String(item.leaveName)}</td><td>{String(item.defaultEntitlementDays)}</td><td>{item.allowHalfDay ? 'Yes' : 'No'}</td></tr>)}</tbody></table></div>
+          <div className="employee-services__actions"><button type="button" disabled={leaveTypeMutation.isPending} onClick={() => leaveTypeMutation.mutate()}>{leaveTypeMutation.isPending ? 'Saving…' : 'Add Leave Type'}</button></div>
+          {leaveTypeMutation.error && <div className="employee-services__error">{errorMessage(leaveTypeMutation.error)}</div>}
+          <div className="employee-services__table-wrap">
+            <table>
+              <thead><tr><th>Code</th><th>Leave</th><th>Entitlement</th><th>Half day</th><th>Notice</th><th>Max/request</th><th>Reason</th></tr></thead>
+              <tbody>
+                {(leaveTypes.data ?? []).map((item) => (
+                  <tr key={item.leaveTypeId}>
+                    <td>{item.leaveCode}</td>
+                    <td>{item.leaveName}</td>
+                    <td>{String(item.defaultEntitlementDays)}</td>
+                    <td>{item.allowHalfDay ? 'Yes' : 'No'}</td>
+                    <td>{item.minNoticeDays} day(s)</td>
+                    <td>{item.maxConsecutiveDays ?? 'No limit'}</td>
+                    <td>{item.requiresReason ? 'Required' : 'Optional'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
 
           <h3>Holidays</h3>
           <div className="employee-admin-form">

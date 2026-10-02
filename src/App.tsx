@@ -43,7 +43,7 @@ const TeamLeadReviewPage = lazy(() => import('./pages/TeamLeadReviewPage'));
 const BookingCaptureV2Page = lazy(loadBookingCaptureV2Page);
 const BookingDetailsV2Page = lazy(loadBookingDetailsV2Page);
 const AuditReviewPage = lazy(loadAuditReviewPage);
-const AttendancePage = lazy(() => import('./pages/AttendancePage'));
+const AttendancePage = lazy(() => import('./pages/AttendancePage'));\nconst EmployeeServicesPage = lazy(() => import('./features/employee/EmployeeServicesPage'));\nconst EmployeeAdministrationPage = lazy(() => import('./features/employee/EmployeeAdministrationPage'));
 const CustomersPage = lazy(() => import('./pages/CustomersPage'));
 const JourneysPage = lazy(() => import('./pages/JourneysPage'));
 const JourneySearchPage = lazy(() => import('./pages/JourneySearchPage'));
@@ -299,7 +299,7 @@ export default function App() {
               <Route path="/journeys/:journeyId/overview" element={<OperationalPage><Journey360Page /></OperationalPage>} />
               <Route path="/journeys/:journeyId/documents" element={<OperationalPage><JourneyDocumentsPage /></OperationalPage>} />
               <Route path="/journeys/:journeyId/compliance-report" element={<OperationalPage><ComplianceReportPage /></OperationalPage>} />
-              <Route path="/attendance" element={<OperationalShellPage><AttendancePage /></OperationalShellPage>} />
+              <Route path="/attendance" element={<OperationalShellPage><AttendancePage /></OperationalShellPage>} />\n              {/* Additive employee product: intentionally outside ProjectContextGate. */}\n              <Route path="/employee-attendance" element={<PrivatePage><EmployeeServicesPage /></PrivatePage>} />
               <Route path="/tl/cases/:journeyId/review" element={<OperationalPage><TeamLeadReviewPage /></OperationalPage>} />
               <Route path="/bookings/:journeyId" element={<V2JourneyRedirect target="BOOKING" />} />
               <Route path="/bookings/:journeyId/review" element={<V2JourneyRedirect target="BOOKING_REVIEW" />} />
@@ -361,7 +361,7 @@ export default function App() {
               <Route path="/admin/approval-workflow" element={<SuperAdminPage><AdminConfigurationPage section="approval-workflow" /></SuperAdminPage>} />
               <Route path="/admin/notifications" element={<SuperAdminPage><AdminConfigurationPage section="notifications" /></SuperAdminPage>} />
               <Route path="/admin/oem-masters" element={<SuperAdminPage><OemMastersPage /></SuperAdminPage>} />
-              <Route path="/admin/project" element={<ProjectAdminPage><ProjectAdministrationPage /></ProjectAdminPage>} />
+              <Route path="/admin/project" element={<ProjectAdminPage><ProjectAdministrationPage /></ProjectAdminPage>} />\n              <Route path="/admin/employees" element={<SuperAdminPage><EmployeeAdministrationPage /></SuperAdminPage>} />
 
               <Route path="/approvals" element={<Navigate to="/admin/users/pending" replace />} />
               <Route path="/admin/project-provisioning" element={<Navigate to="/admin/project" replace />} />

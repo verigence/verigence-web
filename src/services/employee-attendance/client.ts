@@ -90,6 +90,15 @@ export type LeaveBalance = {
   availableDays: string | number;
 };
 
+export type LeaveReview = {
+  stage: 'TL_OR_PMO' | 'HR' | 'EMPLOYEE';
+  decision: 'APPROVE' | 'ADJUST' | 'REJECT' | 'CANCEL';
+  approvedDays?: string | number | null;
+  actorRole: string;
+  comment?: string | null;
+  decidedAtUtc: string;
+};
+
 export type LeaveRequest = {
   leaveRequestId: string;
   employeeId: string;
@@ -107,6 +116,7 @@ export type LeaveRequest = {
   reason?: string | null;
   status: string;
   createdAtUtc: string;
+  reviews: LeaveReview[];
 };
 
 export type LeaveType = {

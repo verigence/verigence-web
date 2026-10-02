@@ -1219,7 +1219,65 @@ export default function EmployeeAdministrationPage() {
       {section === 'payroll' && capabilities.data?.payrollManage && (
         <div className="employee-services__panel employee-admin-section">
           <div className="employee-services__panel-head">
-            <div><h2>Monthly payroll</h2><p>Calculate from attendance, approved leave, holidays and the effective salary structure.</p></div>
+            <div>
+              <h2>Employee statutory payroll profiles</h2>
+              <p>Effective-dated PF, ESI, Professional Tax, TDS and gratuity applicability for each employee.</p>
+            </div>
+            <input
+              className="employee-payroll__search"
+              value={payrollProfileSearch}
+              placeholder="Search employee"
+              onChange={(event) => setPayrollProfileSearch(event.target.value)}
+            />
+          </div>
+
+          <div className="employee-payroll__profiles">
+            {(payrollProfiles.data ?? [])
+              .filter((profile) => {
+                const search = payrollProfileSearch.trim().toLowerCase();
+                if (!search) return true;
+                return `${profile.employeeCode ?? ''} ${profile.employeeName ?? ''}`.toLowerCase().includes(search);
+              })
+              .map((profile) => {
+                const draft = payrollProfileDraftFor(profile);
+                return (
+                  <details className="employee-payroll__profile" key={profile.employeeId}>
+                    <summary>
+                      <span>
+                        <strong>{profile.employeeCode ?? '—'} · {profile.employeeName ?? 'Employee'}</strong>
+                        <small>
+                          PF {draft.pfApplicable ? 'Yes' : 'No'} · ESI {draft.esiApplicable ? 'Yes' : 'No'} · {draft.taxRegime} regime
+                        </small>
+                      </span>
+                      <span>Effective {draft.effectiveFrom}</span>
+                    </summary>
+                    <div className="employee-admin-form employee-payroll__profile-form">
+                      <label>Effective from<input type="date" value={draft.effectiveFrom} onChange={(event) => updatePayrollProfileDraft(profile, { effectiveFrom: event.target.value })} /></label>
+                      <label>Tax regime<select value={draft.taxRegime} onChange={(event) => updatePayrollProfileDraft(profile, { taxRegime: event.target.value as 'NEW' | 'OLD' })}><option value="NEW">New</option><option value="OLD">Old</option></select></label>
+                      <label><span>PF applicable</span><input type="checkbox" checked={draft.pfApplicable} onChange={(event) => updatePayrollProfileDraft(profile, { pfApplicable: event.target.checked })} /></label>
+                      <label><span>PF on actual wages</span><input type="checkbox" checked={draft.pfOnActualWages} disabled={!draft.pfApplicable} onChange={(event) => updatePayrollProfileDraft(profile, { pfOnActualWages: event.target.checked })} /></label>
+                      <label><span>ESI applicable</span><input type="checkbox" checked={draft.esiApplicable} onChange={(event) => updatePayrollProfileDraft(profile, { esiApplicable: event.target.checked })} /></label>
+                      <label><span>Gratuity provision</span><input type="checkbox" checked={draft.gratuityApplicable} onChange={(event) => updatePayrollProfileDraft(profile, { gratuityApplicable: event.target.checked })} /></label>
+                      <label>Professional Tax state<input value={draft.professionalTaxState} placeholder="e.g. KA, MH" onChange={(event) => updatePayrollProfileDraft(profile, { professionalTaxState: event.target.value })} /></label>
+                      <label>Professional Tax / month (₹)<input type="number" min="0" step="0.01" value={draft.professionalTaxMonthly} onChange={(event) => updatePayrollProfileDraft(profile, { professionalTaxMonthly: event.target.value })} /></label>
+                      <label>TDS / month (₹)<input type="number" min="0" step="0.01" value={draft.tdsMonthly} onChange={(event) => updatePayrollProfileDraft(profile, { tdsMonthly: event.target.value })} /></label>
+                      <label>UAN (masked)<input value={draft.uanMasked} placeholder="XXXX1234" onChange={(event) => updatePayrollProfileDraft(profile, { uanMasked: event.target.value })} /></label>
+                      <label>ESIC number (masked)<input value={draft.esicNumberMasked} placeholder="XXXX1234" onChange={(event) => updatePayrollProfileDraft(profile, { esicNumberMasked: event.target.value })} /></label>
+                    </div>
+                    <div className="employee-services__actions">
+                      <button type="button" disabled={payrollProfileMutation.isPending} onClick={() => payrollProfileMutation.mutate(profile)}>
+                        {payrollProfileMutation.isPending ? 'Saving…' : 'Save Payroll Profile'}
+                      </button>
+                    </div>
+                  </details>
+                );
+              })}
+            {!payrollProfiles.data?.length && <p>No active employees are available for payroll profiles.</p>}
+          </div>
+          {payrollProfileMutation.error && <div className="employee-services__error">{errorMessage(payrollProfileMutation.error)}</div>}
+
+          <div className="employee-services__panel-head employee-payroll__run-head">
+            <div><h2>Monthly payroll</h2><p>Calculate from attendance, approved leave, holidays, salary structure and effective statutory profiles. Payroll is blocked while attendance/leave approvals are pending.</p></div>
             <div className="employee-admin-toolbar">
               <input type="date" value={payrollMonth} onChange={(event) => setPayrollMonth(event.target.value)} />
               <button className="employee-admin-button is-primary" type="button" disabled={payrollMutation.isPending} onClick={() => payrollMutation.mutate()}>Calculate</button>
@@ -1239,10 +1297,24 @@ export default function EmployeeAdministrationPage() {
               </div>
               <div className="employee-services__table-wrap">
                 <table>
-                  <thead><tr><th>Employee</th><th>Present</th><th>Paid Leave</th><th>Payable</th><th>Gross</th><th>Net</th></tr></thead>
+                  <thead><tr><th>Employee</th><th>Present</th><th>Paid Leave</th><th>Payable</th><th>LOP</th><th>Gross</th><th>PF</th><th>ESI</th><th>PT</th><th>TDS</th><th>Deductions</th><th>Net</th><th>Employer Cost</th></tr></thead>
                   <tbody>
                     {(payrollItems.data ?? []).map((item) => (
-                      <tr key={item.payrollItemId}><td>{item.employeeCode} · {item.employeeName}</td><td>{item.presentDays}</td><td>{item.paidLeaveDays}</td><td>{item.payableDays}/{item.scheduledDays}</td><td>{money(item.grossAmount)}</td><td>{money(item.netAmount)}</td></tr>
+                      <tr key={item.payrollItemId}>
+                        <td>{item.employeeCode} · {item.employeeName}</td>
+                        <td>{item.presentDays}</td>
+                        <td>{item.paidLeaveDays}</td>
+                        <td>{item.payableDays}/{item.scheduledDays}</td>
+                        <td>{money(item.lopAmount)}</td>
+                        <td>{money(item.grossAmount)}</td>
+                        <td>{money(item.employeePf)}</td>
+                        <td>{money(item.employeeEsi)}</td>
+                        <td>{money(item.professionalTax)}</td>
+                        <td>{money(item.tdsAmount)}</td>
+                        <td>{money(item.deductionAmount)}</td>
+                        <td><strong>{money(item.netAmount)}</strong></td>
+                        <td>{money(item.employerCost)}</td>
+                      </tr>
                     ))}
                   </tbody>
                 </table>
@@ -1275,6 +1347,48 @@ export default function EmployeeAdministrationPage() {
             <label className="span">Weekly-off ISO weekdays (1=Mon … 7=Sun)<input value={weeklyOffs} onChange={(event) => setWeeklyOffs(event.target.value)} /></label>
           </div>
           <div className="employee-services__actions"><button type="button" disabled={configMutation.isPending} onClick={() => configMutation.mutate()}>Save Configuration</button></div>
+
+          <h3>India statutory payroll rules</h3>
+          <p>Effective-dated statutory values. Add a new effective date when government rules change; prior payroll keeps the historical rule set.</p>
+          <div className="employee-admin-form">
+            <label>Effective from<input type="date" value={payrollStatutoryDraft.effectiveFrom} onChange={(event) => setPayrollStatutoryDraft((current) => ({ ...current, effectiveFrom: event.target.value }))} /></label>
+            <label>Salary TDS section/reference<input value={payrollStatutoryDraft.salaryTdsSection} onChange={(event) => setPayrollStatutoryDraft((current) => ({ ...current, salaryTdsSection: event.target.value }))} /></label>
+            <label>PF employee rate (%)<input type="number" min="0" max="100" step="0.0001" value={payrollStatutoryDraft.pfEmployeeRatePct} onChange={(event) => setPayrollStatutoryDraft((current) => ({ ...current, pfEmployeeRatePct: event.target.value }))} /></label>
+            <label>PF employer rate (%)<input type="number" min="0" max="100" step="0.0001" value={payrollStatutoryDraft.pfEmployerRatePct} onChange={(event) => setPayrollStatutoryDraft((current) => ({ ...current, pfEmployerRatePct: event.target.value }))} /></label>
+            <label>PF wage ceiling (₹)<input type="number" min="1" step="1" value={payrollStatutoryDraft.pfWageCeiling} onChange={(event) => setPayrollStatutoryDraft((current) => ({ ...current, pfWageCeiling: event.target.value }))} /></label>
+            <label>EPS employer rate (%)<input type="number" min="0" max="100" step="0.0001" value={payrollStatutoryDraft.epsEmployerRatePct} onChange={(event) => setPayrollStatutoryDraft((current) => ({ ...current, epsEmployerRatePct: event.target.value }))} /></label>
+            <label>EPS wage ceiling (₹)<input type="number" min="1" step="1" value={payrollStatutoryDraft.epsWageCeiling} onChange={(event) => setPayrollStatutoryDraft((current) => ({ ...current, epsWageCeiling: event.target.value }))} /></label>
+            <label>ESI employee rate (%)<input type="number" min="0" max="100" step="0.0001" value={payrollStatutoryDraft.esiEmployeeRatePct} onChange={(event) => setPayrollStatutoryDraft((current) => ({ ...current, esiEmployeeRatePct: event.target.value }))} /></label>
+            <label>ESI employer rate (%)<input type="number" min="0" max="100" step="0.0001" value={payrollStatutoryDraft.esiEmployerRatePct} onChange={(event) => setPayrollStatutoryDraft((current) => ({ ...current, esiEmployerRatePct: event.target.value }))} /></label>
+            <label>ESI wage ceiling (₹)<input type="number" min="1" step="1" value={payrollStatutoryDraft.esiWageCeiling} onChange={(event) => setPayrollStatutoryDraft((current) => ({ ...current, esiWageCeiling: event.target.value }))} /></label>
+            <label>Gratuity provision rate (%)<input type="number" min="0" max="100" step="0.0001" value={payrollStatutoryDraft.gratuityProvisionRatePct} onChange={(event) => setPayrollStatutoryDraft((current) => ({ ...current, gratuityProvisionRatePct: event.target.value }))} /></label>
+          </div>
+          <div className="employee-services__actions">
+            <button type="button" disabled={payrollStatutoryMutation.isPending} onClick={() => payrollStatutoryMutation.mutate()}>
+              {payrollStatutoryMutation.isPending ? 'Saving…' : 'Save Effective-Dated Statutory Rules'}
+            </button>
+          </div>
+          {payrollStatutoryMutation.error && <div className="employee-services__error">{errorMessage(payrollStatutoryMutation.error)}</div>}
+          <div className="employee-services__table-wrap">
+            <table>
+              <thead><tr><th>Effective</th><th>PF</th><th>PF Ceiling</th><th>EPS</th><th>EPS Ceiling</th><th>ESI</th><th>ESI Ceiling</th><th>Gratuity</th><th>TDS Ref</th></tr></thead>
+              <tbody>
+                {(payrollStatutory.data ?? []).map((item) => (
+                  <tr key={item.statutoryConfigId}>
+                    <td>{item.effectiveFrom}{item.effectiveTo ? ` → ${item.effectiveTo}` : ' → Current'}</td>
+                    <td>{(Number(item.pfEmployeeRate) * 100).toFixed(2)}% / {(Number(item.pfEmployerRate) * 100).toFixed(2)}%</td>
+                    <td>{money(item.pfWageCeiling)}</td>
+                    <td>{(Number(item.epsEmployerRate) * 100).toFixed(2)}%</td>
+                    <td>{money(item.epsWageCeiling)}</td>
+                    <td>{(Number(item.esiEmployeeRate) * 100).toFixed(2)}% / {(Number(item.esiEmployerRate) * 100).toFixed(2)}%</td>
+                    <td>{money(item.esiWageCeiling)}</td>
+                    <td>{(Number(item.gratuityProvisionRate) * 100).toFixed(4)}%</td>
+                    <td>{item.salaryTdsSection}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
 
           <h3>Work locations</h3>
           <div className="employee-admin-form">

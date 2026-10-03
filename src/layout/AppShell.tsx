@@ -44,17 +44,6 @@ const journeySearchItem: NavItem = {
   roles: ['PC', 'TL', 'PM'],
 };
 
-const employeeServicesGroup: NavGroup = {
-  key: 'employee-services',
-  label: 'Employee',
-  items: [
-    { to: '/employee/attendance', label: 'Attendance', mark: 'AT' },
-    { to: '/employee/leave', label: 'Leave', mark: 'LV' },
-    { to: '/employee/reimbursements', label: 'Reimbursements', mark: 'RE' },
-    { to: '/employee/salary', label: 'Salary & Payslips', mark: 'SL' },
-  ],
-};
-
 const feedbackItem: NavItem = {
   to: '/feedback',
   label: 'Feedback',
@@ -158,7 +147,6 @@ const p2Group: NavGroup = {
 };
 
 const groups: NavGroup[] = [
-  employeeServicesGroup,
   { key: 'workspace', label: 'Workspace', items: [
     { to: '/dashboard', label: 'Overview', mark: 'OV', roles: operational },
     journeySearchItem,
@@ -194,13 +182,12 @@ const groups: NavGroup[] = [
     { to: '/admin/approval-workflow', label: 'Approval Workflow Config', mark: 'AW', roles: ['SUPER_ADMIN'] },
     { to: '/admin/notifications', label: 'Notification Settings', mark: 'NS', roles: ['SUPER_ADMIN'] },
     { to: '/admin/oem-masters', label: 'OEM Masters', mark: 'OM', roles: ['SUPER_ADMIN'] },
-    { to: '/admin/employees', label: 'Employee Management', mark: 'US', roles: ['SUPER_ADMIN'] },
     projectAdministrationItem,
   ] },
 ];
 
 const routeLabels: Record<string, string> = {
-  '/dashboard': 'Overview', '/work-queue': 'Bookings & Deliveries', '/search': 'Search', '/attendance': 'Attendance', '/employee-attendance': 'Attendance', '/employee/attendance': 'Attendance', '/employee/leave': 'Leave', '/employee/reimbursements': 'Reimbursements', '/employee/salary': 'Salary & Payslips', '/customers': 'Customers', '/journeys': 'Journeys', '/tasks': 'My Work',
+  '/dashboard': 'Overview', '/work-queue': 'Bookings & Deliveries', '/search': 'Search', '/customers': 'Customers', '/journeys': 'Journeys', '/tasks': 'My Work',
   '/feedback': 'Feedback',
   '/reviews': 'Task Queue', '/duplicate-bookings': 'Duplicate Bookings', '/rule-catalog': 'Rule Catalog', '/rule-catalog/new': 'Author a Rule', '/evidence': 'Evidence', '/payments': 'Payment Tracker', '/findings': 'Findings',
   '/daily-ops': 'Daily Operations', '/activity': 'Activity Tracker', '/crm': 'CRM Follow-up', '/escalations': 'Escalations',
@@ -209,7 +196,7 @@ const routeLabels: Record<string, string> = {
   '/admin/users/pending': 'Pending Approvals', '/admin/activity-log': 'User Activity Log',
   '/admin/roles-permissions': 'Roles & Permissions', '/admin/audit-rules': 'Audit Rule Config',
   '/admin/approval-workflow': 'Approval Workflow Config', '/admin/notifications': 'Notification Settings',
-  '/admin/oem-masters': 'OEM Masters', '/admin/employees': 'Employee Management', '/admin/project': 'Project Administration', '/profile': 'Profile',
+  '/admin/oem-masters': 'OEM Masters', '/admin/project': 'Project Administration', '/profile': 'Profile',
 };
 
 const dynamicRouteLabels: Array<[string, string]> = [
@@ -363,8 +350,8 @@ export default function AppShell({ children }: PropsWithChildren) {
       items: analyticsItems,
     };
     const operationalGroups = phase2Group
-      ? [employeeServicesGroup, phase2Group, workspaceGroup, analyticsGroup]
-      : [employeeServicesGroup, workspaceGroup, analyticsGroup];
+      ? [phase2Group, workspaceGroup, analyticsGroup]
+      : [workspaceGroup, analyticsGroup];
     if (sessionRole !== 'TENANT_ADMIN') return operationalGroups;
     return [
       ...operationalGroups,

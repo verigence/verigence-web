@@ -6,7 +6,6 @@ import { verigenceLockup } from './assets/verigenceLockup';
 import { ErrorBoundary, STALE_CHUNK_RELOAD_FLAG } from './components/ErrorBoundary';
 import ProjectContextGate from './components/ProjectContextGate';
 import SessionRenewalGate from './components/SessionRenewalGate';
-import AttendanceShellSlot from './features/attendance/AttendanceShellSlot';
 import ProjectAdminOutletLocationEnhancer from './features/project-admin/ProjectAdminOutletLocationEnhancer';
 import ProjectMasterActionOverlay from './features/project-admin/ProjectMasterActionOverlay';
 import ReviewReadinessWatcher from './features/uc03/ReviewReadinessWatcher';
@@ -43,9 +42,6 @@ const TeamLeadReviewPage = lazy(() => import('./pages/TeamLeadReviewPage'));
 const BookingCaptureV2Page = lazy(loadBookingCaptureV2Page);
 const BookingDetailsV2Page = lazy(loadBookingDetailsV2Page);
 const AuditReviewPage = lazy(loadAuditReviewPage);
-const AttendancePage = lazy(() => import('./pages/AttendancePage'));
-const EmployeeServicesPage = lazy(() => import('./features/employee/EmployeeServicesPage'));
-const EmployeeAdministrationPage = lazy(() => import('./features/employee/EmployeeAdministrationPage'));
 const CustomersPage = lazy(() => import('./pages/CustomersPage'));
 const JourneysPage = lazy(() => import('./pages/JourneysPage'));
 const JourneySearchPage = lazy(() => import('./pages/JourneySearchPage'));
@@ -280,7 +276,6 @@ export default function App() {
           <AndroidNativeBridge />
           <ProjectAdminOutletLocationEnhancer />
           <ProjectMasterActionOverlay />
-          <AttendanceShellSlot />
           <Suspense fallback={<Loading />}>
             <Routes>
               <Route path="/login" element={<LoginPage />} />
@@ -301,13 +296,6 @@ export default function App() {
               <Route path="/journeys/:journeyId/overview" element={<OperationalPage><Journey360Page /></OperationalPage>} />
               <Route path="/journeys/:journeyId/documents" element={<OperationalPage><JourneyDocumentsPage /></OperationalPage>} />
               <Route path="/journeys/:journeyId/compliance-report" element={<OperationalPage><ComplianceReportPage /></OperationalPage>} />
-              <Route path="/attendance" element={<OperationalShellPage><AttendancePage /></OperationalShellPage>} />
-              {/* Additive Employee product: intentionally outside ProjectContextGate. */}
-              <Route path="/employee-attendance" element={<Navigate to="/employee/attendance" replace />} />
-              <Route path="/employee/attendance" element={<PrivatePage><EmployeeServicesPage section="attendance" /></PrivatePage>} />
-              <Route path="/employee/leave" element={<PrivatePage><EmployeeServicesPage section="leave" /></PrivatePage>} />
-              <Route path="/employee/reimbursements" element={<PrivatePage><EmployeeServicesPage section="reimbursements" /></PrivatePage>} />
-              <Route path="/employee/salary" element={<PrivatePage><EmployeeServicesPage section="payslips" /></PrivatePage>} />
               <Route path="/tl/cases/:journeyId/review" element={<OperationalPage><TeamLeadReviewPage /></OperationalPage>} />
               <Route path="/bookings/:journeyId" element={<V2JourneyRedirect target="BOOKING" />} />
               <Route path="/bookings/:journeyId/review" element={<V2JourneyRedirect target="BOOKING_REVIEW" />} />
@@ -370,7 +358,6 @@ export default function App() {
               <Route path="/admin/notifications" element={<SuperAdminPage><AdminConfigurationPage section="notifications" /></SuperAdminPage>} />
               <Route path="/admin/oem-masters" element={<SuperAdminPage><OemMastersPage /></SuperAdminPage>} />
               <Route path="/admin/project" element={<ProjectAdminPage><ProjectAdministrationPage /></ProjectAdminPage>} />
-              <Route path="/admin/employees" element={<PrivatePage><EmployeeAdministrationPage /></PrivatePage>} />
 
               <Route path="/approvals" element={<Navigate to="/admin/users/pending" replace />} />
               <Route path="/admin/project-provisioning" element={<Navigate to="/admin/project" replace />} />

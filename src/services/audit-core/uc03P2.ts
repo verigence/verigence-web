@@ -40,6 +40,11 @@ export type P2JourneyListItem = {
   delivery_submitted_at?: string | null;
   pc_open_tasks?: number;
   tl_open_tasks?: number;
+  /** What a Phase 2 journey holds, from the stage engine's gate records; null until they are evaluated. */
+  kyc_status?: 'PASS' | 'WAITING' | 'FAIL' | null;
+  vehicle_proof_status?: 'PASS' | 'WAITING' | 'FAIL' | null;
+  docs_required?: number | null;
+  docs_received?: number | null;
   customer_name: string;
   mobile_last4?: string | null;
   dealer_name: string;
@@ -1475,6 +1480,8 @@ export type P2BookingsSummary = {
   /** Open tasks of the open journeys as the rows count them: all roles, the PC's and the
    * Team Lead's (`pc` and `tl` absent from an older Audit Core). */
   tasks?: { open: number; pc?: number; tl?: number };
+  /** The open journeys and what they lack, with no Booking or Delivery split. */
+  journeys?: { open: number; kycMissing: number; documentsPending: number };
   week: { bookingsStarted: number; bookingsCompleted: number; deliveriesCompleted: number };
   month: { bookingsStarted: number; bookingsCompleted: number; deliveriesCompleted: number; avgBookingHours: number | null; avgDeliveryHours: number | null };
 };

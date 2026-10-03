@@ -71,6 +71,8 @@ export default function P2JourneyListPage() {
     staleTime: 60_000,
   });
   const s = summary.data;
+  // The signed-in role's open tasks, counted the way each row counts them.
+  const heroTasks = s?.tasks ? (role === 'TL' ? s.tasks.tl : role === 'PC' ? s.tasks.pc : s.tasks.open) ?? s.tasks.open : undefined;
 
   const ranked = useMemo(() => {
     const items = (open.data?.items ?? []).map((item) => ({ item, priority: nextAction(item, role).priority }));
@@ -83,7 +85,7 @@ export default function P2JourneyListPage() {
   const overdueCount = ranked.filter(({ priority }) => priority === 'overdue').length;
   const subClauses = [
     overdueCount ? `${overdueCount} overdue` : null,
-    s?.tasks?.open ? `${s.tasks.open} open task${s.tasks.open === 1 ? '' : 's'}` : null,
+    heroTasks ? `${heroTasks} open task${heroTasks === 1 ? '' : 's'}` : null,
   ].filter(Boolean);
 
   return (
@@ -117,7 +119,7 @@ export default function P2JourneyListPage() {
           <div className="p2w-kpi"><b>{s ? s.open.deliveries : '—'}</b><span>Deliveries open</span></div>
           <div className="p2w-kpi"><b>{s ? s.closed?.bookings ?? '—' : '—'}</b><span>Bookings closed</span></div>
           <div className="p2w-kpi"><b>{s ? s.closed?.deliveries ?? '—' : '—'}</b><span>Deliveries closed</span></div>
-          <Link className={`p2w-kpi${s?.tasks?.open ? ' p2w-kpi--flag' : ''}`} to="/p2/tasks"><b>{s ? s.tasks?.open ?? '—' : '—'}</b><span>Tasks open</span></Link>
+          <Link className={`p2w-kpi${heroTasks ? ' p2w-kpi--flag' : ''}`} to="/p2/tasks"><b>{s ? heroTasks ?? '—' : '—'}</b><span>Tasks open</span></Link>
         </div>
       </section>
 

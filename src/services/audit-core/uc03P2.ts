@@ -1472,7 +1472,9 @@ export type P2BookingsSummary = {
   /** All-time closed stages and open tasks across the journeys in scope
    * (added 2026-09-28; absent from an older Audit Core). */
   closed?: { bookings: number; deliveries: number };
-  tasks?: { open: number };
+  /** Open tasks of the open journeys as the rows count them: all roles, the PC's and the
+   * Team Lead's (`pc` and `tl` absent from an older Audit Core). */
+  tasks?: { open: number; pc?: number; tl?: number };
   week: { bookingsStarted: number; bookingsCompleted: number; deliveriesCompleted: number };
   month: { bookingsStarted: number; bookingsCompleted: number; deliveriesCompleted: number; avgBookingHours: number | null; avgDeliveryHours: number | null };
 };

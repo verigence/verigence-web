@@ -40,6 +40,10 @@ export type P2JourneyListItem = {
   delivery_submitted_at?: string | null;
   pc_open_tasks?: number;
   tl_open_tasks?: number;
+  /** What a Phase 2 journey holds, from the stage engine's gate records; null until they are evaluated. */
+  kyc_status?: 'PASS' | 'WAITING' | 'FAIL' | null;
+  docs_required?: number | null;
+  docs_received?: number | null;
   customer_name: string;
   mobile_last4?: string | null;
   dealer_name: string;

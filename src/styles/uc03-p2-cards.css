@@ -290,3 +290,7 @@
 @media (max-width: 400px) {
   .p2w .p2w-dgrid { grid-template-columns: 1fr; }
 }
+
+/* What a journey holds and lacks (KYC, required documents, vehicle proof), in place of a step bar. */
+.p2w .p2w-holds { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
+.p2w .p2w-holds .p2w-chip { margin-bottom: 0; }

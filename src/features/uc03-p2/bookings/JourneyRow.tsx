@@ -60,6 +60,30 @@ export type Priority = 'overdue' | 'action' | 'waiting' | 'ok' | 'closed';
 
 const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`;
 
+/** What a Phase 2 journey holds and lacks, from the stage engine's gate records:
+ * customer KYC read or missing, and required documents in against required.
+ * Each is null until the gate has been evaluated (never a guess). */
+export function holds(item: P2JourneyListItem): {
+  kyc: 'in' | 'missing' | null;
+  documents: { received: number; required: number } | null;
+} {
+  return {
+    kyc: item.kyc_status ? (item.kyc_status === 'PASS' ? 'in' : 'missing') : null,
+    documents: item.docs_required == null ? null : { received: item.docs_received ?? 0, required: item.docs_required },
+  };
+}
+
+/** The most important thing a Phase 2 journey still lacks, or null when nothing is missing. */
+export function lacks(item: P2JourneyListItem): { title: string; detail: string } | null {
+  const h = holds(item);
+  if (h.kyc === 'missing') return { title: 'KYC missing', detail: "Upload the customer's PAN card or Aadhaar" };
+  if (h.documents && h.documents.received < h.documents.required) {
+    const missing = h.documents.required - h.documents.received;
+    return { title: `${plural(missing, 'required document')} missing`, detail: `${h.documents.received} of ${h.documents.required} in` };
+  }
+  return null;
+}
+
 /**
  * What this journey needs next and from whom, ranked so the list can put
  * the most urgent first. `role` is the signed-in user's operating role.
@@ -102,12 +126,29 @@ export function nextAction(item: P2JourneyListItem, role?: string): { priority: 
   if (toVerify) {
     return { priority: 'waiting', title: `${plural(toVerify, 'document')} being verified`, detail: 'Nothing for you right now' };
   }
+  if (item.phase2) {
+    // A missing KYC or required document is what the journey needs next.
+    const missing = lacks(item);
+    if (missing) return { priority: 'action', title: missing.title, detail: missing.detail };
+  }
   const upload = active === 0 || active === 3;
   return {
     priority: upload ? 'action' : 'ok',
     title: STEP_NOW[active],
     detail: upload ? (item.documents ? `${plural(item.documents, 'document')} in so far` : 'Nothing uploaded yet') : 'Nothing for you right now',
   };
+}
+
+/** KYC missing and the required documents in so far, under the steps. */
+function HoldsCell({ item }: { item: P2JourneyListItem }) {
+  const h = holds(item);
+  if (h.kyc !== 'missing' && !h.documents) return null;
+  return (
+    <div className="p2w-holds">
+      {h.kyc === 'missing' ? <span className="p2w-chip p2w-chip--warning">KYC missing</span> : null}
+      {h.documents ? <span className="p2w-muted">{h.documents.received} of {h.documents.required} required documents</span> : null}
+    </div>
+  );
 }
 
 /** Six small steps, Booking then Delivery: green done, outlined in hand,
@@ -173,6 +214,7 @@ export default function JourneyRow({ item, role }: { item: P2JourneyListItem; ro
         <td className="p2w-jrow__stage" data-label="Stage">
           {stageChip}
           <Steps active={active} cancelled={cancelled} />
+          {item.phase2 && !item.closed ? <HoldsCell item={item} /> : null}
         </td>
       ) : (
         <td className="p2w-jrow__stage" data-label="PC and outlet">

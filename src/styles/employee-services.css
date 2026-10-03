@@ -1,1 +1,96 @@
 .employee-services{display:grid;gap:18px;max-width:1240px;margin:0 auto;padding:4px 0 28px}.employee-services__header{display:flex;justify-content:space-between;align-items:flex-end;gap:16px}.employee-services__header h1{margin:4px 0 6px;font-size:clamp(1.6rem,3vw,2.25rem)}.employee-services__header p,.employee-services__panel p,.employee-admin-grid p{margin:0;color:var(--text-muted,#64748b)}.employee-services__eyebrow{font-size:.75rem;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--text-muted,#64748b)}.employee-services__admin-link{min-height:42px;padding:0 16px;border:1px solid var(--border,#dbe3ec);border-radius:10px;background:var(--surface,#fff);font:inherit;font-weight:700;cursor:pointer}.employee-services__tabs{display:flex;gap:8px;overflow-x:auto;padding-bottom:2px}.employee-services__tabs button{display:inline-flex;align-items:center;gap:7px;white-space:nowrap;border:1px solid var(--border,#dbe3ec);background:var(--surface,#fff);border-radius:10px;padding:10px 14px;font:inherit;cursor:pointer}.employee-services__tabs button.is-active{font-weight:700;border-color:currentColor}.employee-services__badge{display:inline-grid;place-items:center;min-width:20px;height:20px;padding:0 6px;border-radius:999px;background:currentColor;color:var(--surface,#fff);font-size:.72rem}.employee-services__panel,.employee-admin-grid article{border:1px solid var(--border,#dbe3ec);background:var(--surface,#fff);border-radius:14px;padding:20px}.employee-services__panel h2,.employee-admin-grid h2{margin:0 0 8px;font-size:1.05rem}.employee-services__panel h3{margin:24px 0 10px;font-size:.96rem}.employee-services__panel-head{display:flex;justify-content:space-between;align-items:flex-start;gap:16px}.employee-services__status{display:inline-flex;align-items:center;min-height:30px;padding:0 10px;border-radius:999px;border:1px solid var(--border,#dbe3ec);font-size:.78rem;font-weight:700}.employee-services__actions{display:flex;gap:10px;flex-wrap:wrap;margin:18px 0 8px}.employee-services__actions button,.employee-services__approval-list button,.employee-admin-button{min-height:42px;padding:0 16px;border:1px solid transparent;border-radius:10px;font:inherit;font-weight:700;cursor:pointer}.employee-services__actions button:not(.is-secondary),.employee-services__approval-list button:not(.is-secondary),.employee-admin-button.is-primary{background:var(--text,#172033);color:var(--surface,#fff)}.employee-services__actions button.is-secondary,.employee-services__approval-list button.is-secondary,.employee-admin-button{background:var(--surface,#fff);color:inherit;border-color:var(--border,#dbe3ec)}.employee-services button:disabled{opacity:.55;cursor:not-allowed}.employee-services__notice,.employee-services__error,.employee-services__hint{border-radius:10px;padding:11px 13px;font-size:.9rem}.employee-services__notice,.employee-services__hint{background:var(--surface-subtle,#f6f8fb);border:1px solid var(--border,#dbe3ec)}.employee-services__error{background:var(--surface-subtle,#f6f8fb);border:1px solid currentColor}.employee-services__form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:14px}.employee-services__form-grid label,.employee-admin-form label{display:grid;gap:6px;font-size:.82rem;font-weight:700}.employee-services__form-grid input,.employee-services__form-grid select,.employee-services__form-grid textarea,.employee-admin-form input,.employee-admin-form select,.employee-admin-form textarea{width:100%;min-height:40px;border:1px solid var(--border,#dbe3ec);border-radius:8px;background:var(--surface,#fff);color:inherit;padding:8px 10px;font:inherit}.employee-services__form-grid textarea,.employee-admin-form textarea{min-height:82px;resize:vertical}.employee-services__span{grid-column:1/-1}.employee-services__table-wrap{overflow:auto;border:1px solid var(--border,#dbe3ec);border-radius:10px}.employee-services__table-wrap table{width:100%;border-collapse:collapse;min-width:620px}.employee-services__table-wrap th,.employee-services__table-wrap td{padding:10px 12px;border-bottom:1px solid var(--border,#e7edf3);text-align:left;font-size:.84rem;vertical-align:top}.employee-services__table-wrap th{font-size:.73rem;text-transform:uppercase;letter-spacing:.045em;color:var(--text-muted,#64748b);background:var(--surface-subtle,#f8fafc)}.employee-services__table-wrap tr:last-child td{border-bottom:0}.employee-services__approval-list{display:grid;gap:10px;margin-top:14px}.employee-services__approval-list article{display:flex;justify-content:space-between;gap:18px;align-items:center;padding:14px;border:1px solid var(--border,#dbe3ec);border-radius:10px}.employee-services__approval-list article>div:first-child{display:grid;gap:4px}.employee-services__approval-list article>div:last-child{display:flex;gap:8px}.employee-services__approval-list span,.employee-services__approval-list small{color:var(--text-muted,#64748b)}.employee-admin-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.employee-admin-toolbar{display:flex;gap:8px;flex-wrap:wrap}.employee-admin-section{display:grid;gap:14px}.employee-admin-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}.employee-admin-summary div{padding:14px;border:1px solid var(--border,#dbe3ec);border-radius:10px;background:var(--surface,#fff)}.employee-admin-summary strong{display:block;font-size:1.25rem}.employee-admin-summary span{font-size:.75rem;color:var(--text-muted,#64748b)}.employee-admin-import-rows{display:grid;gap:6px}.employee-admin-import-row{display:grid;grid-template-columns:70px 1fr 90px 2fr;gap:10px;padding:8px 10px;border-bottom:1px solid var(--border,#e7edf3);font-size:.82rem}.employee-admin-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.employee-admin-form .span{grid-column:1/-1}@media(max-width:767px){.employee-services{padding:0 0 88px}.employee-services__header{align-items:flex-start}.employee-services__admin-link{display:none}.employee-admin-grid,.employee-services__form-grid,.employee-admin-form,.employee-admin-summary{grid-template-columns:1fr}.employee-services__tabs{margin-inline:-4px}.employee-services__panel{padding:16px}.employee-services__approval-list article{align-items:flex-start;flex-direction:column}.employee-admin-import-row{grid-template-columns:54px 1fr}.employee-admin-import-row>*:nth-child(n+3){grid-column:2}}
+/* Employee v2 — professional responsive workflows */
+.employee-expense__lines,.employee-expense__claim-list,.employee-expense__line-list,.employee-expense__review-lines,.employee-attendance__review-list,.employee-leave__request-list,.employee-leave__admin-list{display:grid;gap:12px}
+.employee-expense__line,.employee-expense__claim,.employee-attendance__review-card,.employee-leave__request,.employee-leave__admin-card,.employee-admin-payment-form{border:1px solid var(--border,#dbe3ec);border-radius:12px;background:var(--surface,#fff);padding:16px}
+.employee-expense__line-head,.employee-expense__claim-head,.employee-attendance__review-head,.employee-leave__admin-head{display:flex;justify-content:space-between;align-items:flex-start;gap:16px}
+.employee-expense__line-head>div,.employee-expense__claim-head>div,.employee-attendance__review-head>div,.employee-leave__admin-head>div{display:grid;gap:4px}
+.employee-expense__line-head span,.employee-expense__claim-head span,.employee-expense__claim-head small,.employee-attendance__review-head span,.employee-leave__request span,.employee-leave__admin-head span{color:var(--text-muted,#64748b)}
+.employee-expense__summary{margin-top:12px}
+.employee-expense__history-line{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(160px,.7fr);gap:12px;padding:12px 0;border-top:1px solid var(--border,#e7edf3)}
+.employee-expense__history-line>div{display:grid;gap:4px}
+.employee-expense__history-line>div:nth-child(2){text-align:right;justify-items:end}
+.employee-expense__reviews{grid-column:1/-1;display:grid;gap:4px;padding:8px 10px;border-radius:8px;background:var(--surface-subtle,#f8fafc)}
+.employee-expense__reviews small{color:var(--text-muted,#64748b)}
+.employee-expense__review-line{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(300px,.9fr);gap:18px;padding:14px;border:1px solid var(--border,#dbe3ec);border-radius:10px}
+.employee-expense__review-evidence{display:grid;align-content:start;gap:5px}
+.employee-expense__review-evidence span,.employee-expense__review-evidence small{color:var(--text-muted,#64748b)}
+.employee-expense__review-controls{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.employee-expense__review-controls label{display:grid;gap:6px;font-size:.82rem;font-weight:700}
+.employee-expense__review-controls input,.employee-expense__review-controls select,.employee-expense__review-controls textarea{width:100%;min-height:40px;border:1px solid var(--border,#dbe3ec);border-radius:8px;background:var(--surface,#fff);color:inherit;padding:8px 10px;font:inherit}
+.employee-expense__review-comment{grid-column:1/-1}
+.employee-expense__review-comment textarea{min-height:72px;resize:vertical}
+.employee-attendance__exception{display:grid;gap:10px;margin-top:14px;padding:14px;border:1px solid var(--border,#dbe3ec);border-radius:10px;background:var(--surface-subtle,#f8fafc)}
+.employee-attendance__exception label{display:grid;gap:6px;font-size:.82rem;font-weight:700}
+.employee-attendance__exception textarea{width:100%;min-height:88px;border:1px solid var(--border,#dbe3ec);border-radius:8px;background:var(--surface,#fff);color:inherit;padding:9px 10px;font:inherit;resize:vertical}
+.employee-attendance__flags{display:grid;gap:8px;margin:12px 0}
+.employee-attendance__flags>div{display:grid;gap:3px;padding:10px 12px;border-left:3px solid currentColor;border-radius:0 8px 8px 0;background:var(--surface-subtle,#f8fafc)}
+.employee-attendance__flags span,.employee-attendance__flags small{color:var(--text-muted,#64748b)}
+.employee-leave__request{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(150px,.5fr);gap:12px}
+.employee-leave__request>div{display:grid;gap:4px}
+.employee-leave__request>div:last-child{text-align:right}
+.employee-admin-payment-form{display:grid;gap:12px;margin-top:12px}
+.employee-services__table-wrap{max-width:100%;-webkit-overflow-scrolling:touch}
+.employee-services__table-wrap a{font-weight:700}
+.employee-admin-toolbar label{display:grid;gap:5px;font-size:.8rem;font-weight:700}
+.employee-admin-toolbar select,.employee-admin-toolbar input{min-height:40px;border:1px solid var(--border,#dbe3ec);border-radius:8px;background:var(--surface,#fff);color:inherit;padding:7px 9px;font:inherit}
+.employee-services__actions button,.employee-admin-button{touch-action:manipulation}
+
+@media(max-width:900px){
+  .employee-expense__review-line{grid-template-columns:1fr}
+  .employee-expense__review-controls{grid-template-columns:1fr 1fr}
+  .employee-services__panel-head{align-items:flex-start}
+}
+
+@media(max-width:767px){
+  .employee-services{gap:12px;padding-bottom:max(88px,calc(env(safe-area-inset-bottom) + 72px))}
+  .employee-services__header{display:grid;gap:8px}
+  .employee-services__header h1{font-size:1.55rem}
+  .employee-services__panel,.employee-expense__line,.employee-expense__claim,.employee-attendance__review-card,.employee-leave__request,.employee-leave__admin-card,.employee-admin-payment-form{padding:14px}
+  .employee-services__panel-head,.employee-expense__line-head,.employee-expense__claim-head,.employee-attendance__review-head,.employee-leave__admin-head{display:grid;gap:8px}
+  .employee-services__status{justify-self:start}
+  .employee-services__actions{display:grid;grid-template-columns:1fr;gap:8px}
+  .employee-services__actions button,.employee-admin-button{width:100%;min-height:46px}
+  .employee-admin-toolbar{display:grid;grid-template-columns:1fr;width:100%}
+  .employee-expense__history-line,.employee-leave__request{grid-template-columns:1fr}
+  .employee-expense__history-line>div:nth-child(2),.employee-leave__request>div:last-child{text-align:left;justify-items:start}
+  .employee-expense__review-controls{grid-template-columns:1fr}
+  .employee-expense__review-comment{grid-column:auto}
+  .employee-admin-summary{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .employee-services__table-wrap{margin-inline:-2px}
+  .employee-services__table-wrap table{min-width:560px}
+  .employee-services__table-wrap th,.employee-services__table-wrap td{padding:9px 10px}
+  .employee-services__form-grid input,.employee-services__form-grid select,.employee-services__form-grid textarea,.employee-admin-form input,.employee-admin-form select,.employee-admin-form textarea,.employee-expense__review-controls input,.employee-expense__review-controls select,.employee-expense__review-controls textarea{font-size:16px}
+  .employee-services__tabs{scrollbar-width:none}
+  .employee-services__tabs::-webkit-scrollbar{display:none}
+}
+
+@media(max-width:420px){
+  .employee-admin-summary{grid-template-columns:1fr}
+  .employee-services__panel,.employee-expense__line,.employee-expense__claim,.employee-attendance__review-card,.employee-leave__request,.employee-leave__admin-card{border-radius:10px}
+}
+
+.employee-payroll__run-head{margin-top:10px;padding-top:18px;border-top:1px solid var(--border,#dbe3ec)}
+.employee-payroll__search{width:min(320px,100%);min-height:40px;border:1px solid var(--border,#dbe3ec);border-radius:8px;background:var(--surface,#fff);color:inherit;padding:8px 10px;font:inherit}
+.employee-payroll__profiles{display:grid;gap:10px}
+.employee-payroll__profile{border:1px solid var(--border,#dbe3ec);border-radius:10px;background:var(--surface,#fff);overflow:hidden}
+.employee-payroll__profile summary{display:flex;justify-content:space-between;align-items:center;gap:14px;padding:13px 14px;cursor:pointer;list-style:none}
+.employee-payroll__profile summary::-webkit-details-marker{display:none}
+.employee-payroll__profile summary>span{display:grid;gap:3px}
+.employee-payroll__profile summary small,.employee-payroll__profile summary>span:last-child{color:var(--text-muted,#64748b)}
+.employee-payroll__profile-form{padding:14px;border-top:1px solid var(--border,#e7edf3)}
+.employee-payroll__profile>.employee-services__actions{padding:0 14px 14px;margin:0}
+@media(max-width:767px){
+  .employee-payroll__search{width:100%}
+  .employee-payroll__profile summary{align-items:flex-start;display:grid}
+  .employee-payroll__profile summary>span:last-child{font-size:.8rem}
+}
+
+.employee-leave__approval-actions{display:grid;gap:8px;min-width:min(360px,100%)}
+.employee-leave__approval-actions textarea{width:100%;min-height:66px;border:1px solid var(--border,#dbe3ec);border-radius:8px;background:var(--surface,#fff);color:inherit;padding:8px 10px;font:inherit;resize:vertical}
+.employee-leave__approval-actions>div{display:flex;gap:8px;justify-content:flex-end}
+.employee-leave__reviews{display:grid;gap:4px;margin-top:6px;padding:8px 10px;border-radius:8px;background:var(--surface-subtle,#f8fafc)}
+.employee-leave__reviews small{color:var(--text-muted,#64748b)}
+@media(max-width:767px){
+  .employee-leave__approval-actions{width:100%;min-width:0}
+  .employee-leave__approval-actions>div{display:grid;grid-template-columns:1fr 1fr;width:100%}
+}

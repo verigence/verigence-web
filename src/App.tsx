@@ -302,8 +302,12 @@ export default function App() {
               <Route path="/journeys/:journeyId/documents" element={<OperationalPage><JourneyDocumentsPage /></OperationalPage>} />
               <Route path="/journeys/:journeyId/compliance-report" element={<OperationalPage><ComplianceReportPage /></OperationalPage>} />
               <Route path="/attendance" element={<OperationalShellPage><AttendancePage /></OperationalShellPage>} />
-              {/* Additive employee product: intentionally outside ProjectContextGate. */}
-              <Route path="/employee-attendance" element={<PrivatePage><EmployeeServicesPage /></PrivatePage>} />
+              {/* Additive Employee product: intentionally outside ProjectContextGate. */}
+              <Route path="/employee-attendance" element={<Navigate to="/employee/attendance" replace />} />
+              <Route path="/employee/attendance" element={<PrivatePage><EmployeeServicesPage section="attendance" /></PrivatePage>} />
+              <Route path="/employee/leave" element={<PrivatePage><EmployeeServicesPage section="leave" /></PrivatePage>} />
+              <Route path="/employee/reimbursements" element={<PrivatePage><EmployeeServicesPage section="reimbursements" /></PrivatePage>} />
+              <Route path="/employee/salary" element={<PrivatePage><EmployeeServicesPage section="payslips" /></PrivatePage>} />
               <Route path="/tl/cases/:journeyId/review" element={<OperationalPage><TeamLeadReviewPage /></OperationalPage>} />
               <Route path="/bookings/:journeyId" element={<V2JourneyRedirect target="BOOKING" />} />
               <Route path="/bookings/:journeyId/review" element={<V2JourneyRedirect target="BOOKING_REVIEW" />} />

@@ -8,30 +8,42 @@ import {
   createHoliday,
   createLeaveType,
   createWorkLocation,
+  decideHrAttendanceReview,
   decideHrLeave,
-  decideReimbursement,
   downloadAttendanceReport,
   downloadEmployeeTemplate,
   downloadPayrollReport,
   finalizePayroll,
   getAdminCapabilities,
   getHolidays,
+  getHrAttendanceReviewQueue,
   getHrLeaveQueue,
   getLeaveTypes,
   getModuleConfig,
   getPayrollItems,
-  getReimbursementQueue,
+  getPayrollProfiles,
+  getPayrollStatutoryConfig,
+  getReimbursementClaimQueue,
+  getReimbursementPaymentQueue,
   getWorkLocations,
   listAdminEmployees,
   previewEmployeeImport,
+  reviewReimbursementClaim,
   updateModuleConfig,
+  updatePayrollProfile,
+  updatePayrollStatutoryConfig,
+  updateReimbursementPayment,
   type BulkImport,
+  type LeaveRequest,
+  type PayrollProfile,
+  type PayrollStatutoryConfig,
   type PayrollSummary,
+  type ReimbursementClaim,
 } from '../../services/employee-attendance/client';
 import { useSessionStore } from '../../store/sessionStore';
 import '../../styles/employee-services.css';
 
-type Section = 'employees' | 'leave' | 'reimbursements' | 'payroll' | 'reports' | 'config';
+type Section = 'employees' | 'attendance' | 'leave' | 'reimbursements' | 'payroll' | 'reports' | 'config';
 
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : 'Employee Administration is temporarily unavailable.';
@@ -72,6 +84,56 @@ function money(value: string | number): string {
   }).format(Number(value));
 }
 
+type ExpenseReviewDraft = {
+  decision: 'APPROVE' | 'ADJUST' | 'REJECT';
+  approvedAmount: string;
+  comment: string;
+};
+
+type PayrollProfileDraft = {
+  effectiveFrom: string;
+  pfApplicable: boolean;
+  pfOnActualWages: boolean;
+  esiApplicable: boolean;
+  professionalTaxState: string;
+  professionalTaxMonthly: string;
+  tdsMonthly: string;
+  taxRegime: 'NEW' | 'OLD';
+  gratuityApplicable: boolean;
+  uanMasked: string;
+  esicNumberMasked: string;
+};
+
+type PayrollStatutoryDraft = {
+  effectiveFrom: string;
+  pfEmployeeRatePct: string;
+  pfEmployerRatePct: string;
+  pfWageCeiling: string;
+  epsEmployerRatePct: string;
+  epsWageCeiling: string;
+  esiEmployeeRatePct: string;
+  esiEmployerRatePct: string;
+  esiWageCeiling: string;
+  gratuityProvisionRatePct: string;
+  salaryTdsSection: string;
+};
+
+function statutoryDraftFrom(config?: PayrollStatutoryConfig): PayrollStatutoryDraft {
+  return {
+    effectiveFrom: config?.effectiveFrom ?? today(),
+    pfEmployeeRatePct: String(Number(config?.pfEmployeeRate ?? 0.12) * 100),
+    pfEmployerRatePct: String(Number(config?.pfEmployerRate ?? 0.12) * 100),
+    pfWageCeiling: String(config?.pfWageCeiling ?? 25000),
+    epsEmployerRatePct: String(Number(config?.epsEmployerRate ?? 0.0833) * 100),
+    epsWageCeiling: String(config?.epsWageCeiling ?? 15000),
+    esiEmployeeRatePct: String(Number(config?.esiEmployeeRate ?? 0.0075) * 100),
+    esiEmployerRatePct: String(Number(config?.esiEmployerRate ?? 0.0325) * 100),
+    esiWageCeiling: String(config?.esiWageCeiling ?? 21000),
+    gratuityProvisionRatePct: String(Number(config?.gratuityProvisionRate ?? 0.048077) * 100),
+    salaryTdsSection: config?.salaryTdsSection ?? '392(1)',
+  };
+}
+
 export default function EmployeeAdministrationPage() {
   const native = Capacitor.isNativePlatform();
   const token = useSessionStore((state) => state.accessToken);
@@ -80,9 +142,31 @@ export default function EmployeeAdministrationPage() {
 
   const [section, setSection] = useState<Section>('employees');
   const [importPlan, setImportPlan] = useState<BulkImport | null>(null);
+  const [attendanceReviewDrafts, setAttendanceReviewDrafts] = useState<Record<string, {
+    decision: 'APPROVE' | 'ADJUST' | 'REJECT';
+    presentFraction: string;
+    comment: string;
+  }>>({});
+  const [leaveReviewDrafts, setLeaveReviewDrafts] = useState<Record<string, {
+    decision: 'APPROVE' | 'ADJUST' | 'REJECT';
+    approvedDays: string;
+    comment: string;
+  }>>({});
   const [reimbursementStage, setReimbursementStage] = useState<'HR' | 'FINANCE'>('HR');
+  const [expenseReviewDrafts, setExpenseReviewDrafts] = useState<Record<string, Record<string, ExpenseReviewDraft>>>({});
+  const [reimbursementView, setReimbursementView] = useState<'APPROVALS' | 'PAYMENTS'>('APPROVALS');
+  const [paymentQueueStatus, setPaymentQueueStatus] = useState<'PENDING_PAYMENT' | 'PROCESSED'>('PENDING_PAYMENT');
+  const [paymentClaimId, setPaymentClaimId] = useState<string | null>(null);
+  const [paymentAmount, setPaymentAmount] = useState('');
+  const [paymentMode, setPaymentMode] = useState('BANK_TRANSFER');
+  const [paymentReference, setPaymentReference] = useState('');
+  const [paymentPaidAt, setPaymentPaidAt] = useState(() => new Date().toISOString().slice(0, 16));
+  const [paymentComment, setPaymentComment] = useState('');
   const [payrollMonth, setPayrollMonth] = useState(monthStart());
   const [payroll, setPayroll] = useState<PayrollSummary | null>(null);
+  const [payrollProfileDrafts, setPayrollProfileDrafts] = useState<Record<string, PayrollProfileDraft>>({});
+  const [payrollProfileSearch, setPayrollProfileSearch] = useState('');
+  const [payrollStatutoryDraft, setPayrollStatutoryDraft] = useState<PayrollStatutoryDraft>(() => statutoryDraftFrom());
   const [reportStart, setReportStart] = useState(weekStart());
   const [reportEnd, setReportEnd] = useState(today());
   const [threshold, setThreshold] = useState('3000');
@@ -93,12 +177,15 @@ export default function EmployeeAdministrationPage() {
   const [locationAddress, setLocationAddress] = useState('');
   const [locationLat, setLocationLat] = useState('');
   const [locationLng, setLocationLng] = useState('');
-  const [locationRadius, setLocationRadius] = useState('500');
   const [leaveCode, setLeaveCode] = useState('');
   const [leaveName, setLeaveName] = useState('');
   const [leaveEntitlement, setLeaveEntitlement] = useState('0');
   const [leavePaid, setLeavePaid] = useState(true);
   const [leaveHalfDay, setLeaveHalfDay] = useState(true);
+  const [leaveMinNoticeDays, setLeaveMinNoticeDays] = useState('0');
+  const [leaveMaxConsecutiveDays, setLeaveMaxConsecutiveDays] = useState('');
+  const [leaveRequiresReason, setLeaveRequiresReason] = useState(true);
+  const [leaveAllowNegativeBalance, setLeaveAllowNegativeBalance] = useState(false);
   const [holidayDate, setHolidayDate] = useState(today());
   const [holidayName, setHolidayName] = useState('');
 
@@ -114,8 +201,9 @@ export default function EmployeeAdministrationPage() {
     if (!value) return [] as Section[];
     const items: Section[] = [];
     if (value.employeeManage) items.push('employees');
+    if (value.attendanceReview) items.push('attendance');
     if (value.leaveHrApprove) items.push('leave');
-    if (value.reimbursementHrApprove || value.reimbursementFinanceApprove) items.push('reimbursements');
+    if (value.reimbursementHrApprove || value.reimbursementFinanceApprove || value.reimbursementPaymentManage) items.push('reimbursements');
     if (value.payrollManage) items.push('payroll');
     if (value.reportRead) items.push('reports');
     if (value.configManage) items.push('config');
@@ -139,6 +227,13 @@ export default function EmployeeAdministrationPage() {
     retry: false,
   });
 
+  const hrAttendance = useQuery({
+    queryKey: ['employee-attendance', 'admin-attendance-review'],
+    queryFn: () => getHrAttendanceReviewQueue(token!),
+    enabled: Boolean(token && capabilities.data?.attendanceReview),
+    retry: false,
+  });
+
   const hrLeave = useQuery({
     queryKey: ['employee-attendance', 'admin-leave'],
     queryFn: () => getHrLeaveQueue(token!),
@@ -146,9 +241,9 @@ export default function EmployeeAdministrationPage() {
     retry: false,
   });
 
-  const reimbursementQueue = useQuery({
-    queryKey: ['employee-attendance', 'admin-reimbursements', reimbursementStage],
-    queryFn: () => getReimbursementQueue(token!, reimbursementStage),
+  const reimbursementClaimQueue = useQuery({
+    queryKey: ['employee-attendance', 'admin-reimbursement-claims', reimbursementStage],
+    queryFn: () => getReimbursementClaimQueue(token!, reimbursementStage),
     enabled: Boolean(
       token
       && (
@@ -157,6 +252,13 @@ export default function EmployeeAdministrationPage() {
           : capabilities.data?.reimbursementFinanceApprove
       )
     ),
+    retry: false,
+  });
+
+  const reimbursementPayments = useQuery({
+    queryKey: ['employee-attendance', 'admin-reimbursement-payments', paymentQueueStatus],
+    queryFn: () => getReimbursementPaymentQueue(token!, paymentQueueStatus),
+    enabled: Boolean(token && capabilities.data?.reimbursementPaymentManage && reimbursementView === 'PAYMENTS'),
     retry: false,
   });
 
@@ -200,6 +302,25 @@ export default function EmployeeAdministrationPage() {
     if (Array.isArray(offs)) setWeeklyOffs(offs.join(','));
   }, [config.data]);
 
+  const payrollStatutory = useQuery({
+    queryKey: ['employee-attendance', 'payroll-statutory-config'],
+    queryFn: () => getPayrollStatutoryConfig(token!),
+    enabled: Boolean(token && capabilities.data?.configManage),
+    retry: false,
+  });
+
+  const payrollProfiles = useQuery({
+    queryKey: ['employee-attendance', 'payroll-profiles'],
+    queryFn: () => getPayrollProfiles(token!),
+    enabled: Boolean(token && capabilities.data?.payrollManage),
+    retry: false,
+  });
+
+  useEffect(() => {
+    const latest = payrollStatutory.data?.[0];
+    if (latest) setPayrollStatutoryDraft(statutoryDraftFrom(latest));
+  }, [payrollStatutory.data]);
+
   const payrollItems = useQuery({
     queryKey: ['employee-attendance', 'payroll-items', payroll?.payrollRunId],
     queryFn: () => getPayrollItems(token!, payroll!.payrollRunId),
@@ -210,13 +331,47 @@ export default function EmployeeAdministrationPage() {
   const refreshAdmin = async () => {
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: ['employee-attendance', 'admin-employees'] }),
+      queryClient.invalidateQueries({ queryKey: ['employee-attendance', 'admin-attendance-review'] }),
       queryClient.invalidateQueries({ queryKey: ['employee-attendance', 'admin-leave'] }),
       queryClient.invalidateQueries({ queryKey: ['employee-attendance', 'admin-reimbursements'] }),
+      queryClient.invalidateQueries({ queryKey: ['employee-attendance', 'admin-reimbursement-claims'] }),
+      queryClient.invalidateQueries({ queryKey: ['employee-attendance', 'admin-reimbursement-payments'] }),
       queryClient.invalidateQueries({ queryKey: ['employee-attendance', 'admin-config'] }),
       queryClient.invalidateQueries({ queryKey: ['employee-attendance', 'admin-work-locations'] }),
       queryClient.invalidateQueries({ queryKey: ['employee-attendance', 'admin-leave-types'] }),
       queryClient.invalidateQueries({ queryKey: ['employee-attendance', 'admin-holidays'] }),
+      queryClient.invalidateQueries({ queryKey: ['employee-attendance', 'payroll-profiles'] }),
+      queryClient.invalidateQueries({ queryKey: ['employee-attendance', 'payroll-statutory-config'] }),
     ]);
+  };
+
+  const payrollProfileDraftFor = (profile: PayrollProfile): PayrollProfileDraft => (
+    payrollProfileDrafts[profile.employeeId] ?? {
+      effectiveFrom: profile.effectiveFrom,
+      pfApplicable: profile.pfApplicable,
+      pfOnActualWages: profile.pfOnActualWages,
+      esiApplicable: profile.esiApplicable,
+      professionalTaxState: profile.professionalTaxState ?? '',
+      professionalTaxMonthly: String(profile.professionalTaxMonthly ?? 0),
+      tdsMonthly: String(profile.tdsMonthly ?? 0),
+      taxRegime: profile.taxRegime,
+      gratuityApplicable: profile.gratuityApplicable,
+      uanMasked: profile.uanMasked ?? '',
+      esicNumberMasked: profile.esicNumberMasked ?? '',
+    }
+  );
+
+  const updatePayrollProfileDraft = (
+    profile: PayrollProfile,
+    patch: Partial<PayrollProfileDraft>,
+  ) => {
+    setPayrollProfileDrafts((current) => ({
+      ...current,
+      [profile.employeeId]: {
+        ...payrollProfileDraftFor(profile),
+        ...patch,
+      },
+    }));
   };
 
   const previewMutation = useMutation({
@@ -230,16 +385,212 @@ export default function EmployeeAdministrationPage() {
       await refreshAdmin();
     },
   });
+  const attendanceReviewMutation = useMutation({
+    mutationFn: (attendanceDayId: string) => {
+      const draft = attendanceReviewDrafts[attendanceDayId] ?? {
+        decision: 'APPROVE' as const,
+        presentFraction: '1',
+        comment: '',
+      };
+      const presentFraction = draft.decision === 'ADJUST'
+        ? Number(draft.presentFraction)
+        : undefined;
+      if (
+        draft.decision === 'ADJUST'
+        && (!Number.isFinite(presentFraction) || presentFraction! < 0 || presentFraction! > 1)
+      ) {
+        throw new Error('Attendance credit must be between 0 and 1.');
+      }
+      if ((draft.decision === 'ADJUST' || draft.decision === 'REJECT') && !draft.comment.trim()) {
+        throw new Error('A reason is required when attendance is adjusted or rejected.');
+      }
+      return decideHrAttendanceReview(token!, attendanceDayId, {
+        decision: draft.decision,
+        presentFraction,
+        comment: draft.comment.trim() || undefined,
+      });
+    },
+    onSuccess: async (result) => {
+      setAttendanceReviewDrafts((current) => {
+        const next = { ...current };
+        delete next[result.attendanceDayId];
+        return next;
+      });
+      await refreshAdmin();
+    },
+  });
+
   const leaveMutation = useMutation({
-    mutationFn: ({ id, decision }: { id: string; decision: 'APPROVE' | 'REJECT' }) =>
-      decideHrLeave(token!, id, decision),
-    onSuccess: refreshAdmin,
+    mutationFn: (item: LeaveRequest) => {
+      const requestedDays = Number(item.calculatedDays ?? item.requestedDays);
+      const draft = leaveReviewDrafts[item.leaveRequestId] ?? {
+        decision: 'APPROVE' as const,
+        approvedDays: String(requestedDays),
+        comment: '',
+      };
+      const approvedDays = draft.decision === 'ADJUST'
+        ? Number(draft.approvedDays)
+        : undefined;
+      if (
+        draft.decision === 'ADJUST'
+        && (!Number.isFinite(approvedDays) || approvedDays! <= 0 || approvedDays! >= requestedDays)
+      ) {
+        throw new Error('Adjusted leave days must be greater than zero and lower than requested days.');
+      }
+      if ((draft.decision === 'ADJUST' || draft.decision === 'REJECT') && !draft.comment.trim()) {
+        throw new Error('A reason is required when leave is adjusted or rejected.');
+      }
+      return decideHrLeave(token!, item.leaveRequestId, {
+        decision: draft.decision,
+        approvedDays,
+        comment: draft.comment.trim() || undefined,
+      });
+    },
+    onSuccess: async (result) => {
+      setLeaveReviewDrafts((current) => {
+        const next = { ...current };
+        delete next[result.leaveRequestId];
+        return next;
+      });
+      await refreshAdmin();
+    },
   });
-  const reimbursementMutation = useMutation({
-    mutationFn: ({ id, decision }: { id: string; decision: 'APPROVE' | 'REJECT' }) =>
-      decideReimbursement(token!, id, reimbursementStage, decision),
-    onSuccess: refreshAdmin,
+  const reimbursementReviewMutation = useMutation({
+    mutationFn: (claim: ReimbursementClaim) => {
+      const claimDrafts = expenseReviewDrafts[claim.claimId] ?? {};
+      const lineDecisions = claim.lines.map((line) => {
+        const baseAmount = reimbursementStage === 'HR'
+          ? Number(line.claimedAmount)
+          : Number(line.approvedAmount ?? line.claimedAmount);
+        const draft = claimDrafts[line.reimbursementItemId] ?? {
+          decision: 'APPROVE' as const,
+          approvedAmount: String(baseAmount),
+          comment: '',
+        };
+        const approvedAmount = Number(draft.approvedAmount);
+        if (!Number.isFinite(approvedAmount) || approvedAmount < 0) {
+          throw new Error(`Enter a valid approved amount for line ${line.lineNumber}.`);
+        }
+        if ((draft.decision === 'ADJUST' || draft.decision === 'REJECT') && !draft.comment.trim()) {
+          throw new Error(`Reason is required for line ${line.lineNumber} when adjusting or rejecting.`);
+        }
+        return {
+          reimbursementItemId: line.reimbursementItemId,
+          decision: draft.decision,
+          approvedAmount,
+          comment: draft.comment.trim() || undefined,
+        };
+      });
+      return reviewReimbursementClaim(
+        token!,
+        claim.claimId,
+        reimbursementStage,
+        lineDecisions,
+      );
+    },
+    onSuccess: async (claim) => {
+      setExpenseReviewDrafts((current) => {
+        const next = { ...current };
+        delete next[claim.claimId];
+        return next;
+      });
+      await refreshAdmin();
+    },
   });
+
+  const paymentMutation = useMutation({
+    mutationFn: () => {
+      if (!paymentClaimId) throw new Error('Select a reimbursement to pay.');
+      const amount = Number(paymentAmount);
+      if (!Number.isFinite(amount) || amount <= 0) throw new Error('Enter a valid paid amount.');
+      if (!paymentReference.trim()) throw new Error('Payment reference is required.');
+      return updateReimbursementPayment(token!, paymentClaimId, {
+        paidAmount: amount,
+        paidAtUtc: new Date(paymentPaidAt).toISOString(),
+        paymentMode,
+        paymentReference: paymentReference.trim(),
+        comment: paymentComment.trim() || undefined,
+      });
+    },
+    onSuccess: async () => {
+      setPaymentClaimId(null);
+      setPaymentAmount('');
+      setPaymentReference('');
+      setPaymentComment('');
+      await refreshAdmin();
+    },
+  });
+
+  const payrollStatutoryMutation = useMutation({
+    mutationFn: () => {
+      const rate = (value: string, label: string) => {
+        const parsed = Number(value);
+        if (!Number.isFinite(parsed) || parsed < 0 || parsed > 100) {
+          throw new Error(`${label} must be between 0 and 100%.`);
+        }
+        return parsed / 100;
+      };
+      const moneyValue = (value: string, label: string) => {
+        const parsed = Number(value);
+        if (!Number.isFinite(parsed) || parsed <= 0) {
+          throw new Error(`${label} must be greater than zero.`);
+        }
+        return parsed;
+      };
+      if (!payrollStatutoryDraft.salaryTdsSection.trim()) {
+        throw new Error('Salary TDS section/reference is required.');
+      }
+      return updatePayrollStatutoryConfig(token!, {
+        effectiveFrom: payrollStatutoryDraft.effectiveFrom,
+        pfEmployeeRate: rate(payrollStatutoryDraft.pfEmployeeRatePct, 'PF employee rate'),
+        pfEmployerRate: rate(payrollStatutoryDraft.pfEmployerRatePct, 'PF employer rate'),
+        pfWageCeiling: moneyValue(payrollStatutoryDraft.pfWageCeiling, 'PF wage ceiling'),
+        epsEmployerRate: rate(payrollStatutoryDraft.epsEmployerRatePct, 'EPS employer rate'),
+        epsWageCeiling: moneyValue(payrollStatutoryDraft.epsWageCeiling, 'EPS wage ceiling'),
+        esiEmployeeRate: rate(payrollStatutoryDraft.esiEmployeeRatePct, 'ESI employee rate'),
+        esiEmployerRate: rate(payrollStatutoryDraft.esiEmployerRatePct, 'ESI employer rate'),
+        esiWageCeiling: moneyValue(payrollStatutoryDraft.esiWageCeiling, 'ESI wage ceiling'),
+        gratuityProvisionRate: rate(payrollStatutoryDraft.gratuityProvisionRatePct, 'Gratuity provision rate'),
+        salaryTdsSection: payrollStatutoryDraft.salaryTdsSection.trim(),
+      });
+    },
+    onSuccess: async () => {
+      await refreshAdmin();
+    },
+  });
+
+  const payrollProfileMutation = useMutation({
+    mutationFn: (profile: PayrollProfile) => {
+      const draft = payrollProfileDraftFor(profile);
+      const pt = Number(draft.professionalTaxMonthly);
+      const tds = Number(draft.tdsMonthly);
+      if (!Number.isFinite(pt) || pt < 0 || !Number.isFinite(tds) || tds < 0) {
+        throw new Error('Professional Tax and TDS must be zero or positive amounts.');
+      }
+      return updatePayrollProfile(token!, profile.employeeId, {
+        effectiveFrom: draft.effectiveFrom,
+        pfApplicable: draft.pfApplicable,
+        pfOnActualWages: draft.pfOnActualWages,
+        esiApplicable: draft.esiApplicable,
+        professionalTaxState: draft.professionalTaxState.trim() || undefined,
+        professionalTaxMonthly: pt,
+        tdsMonthly: tds,
+        taxRegime: draft.taxRegime,
+        gratuityApplicable: draft.gratuityApplicable,
+        uanMasked: draft.uanMasked.trim() || undefined,
+        esicNumberMasked: draft.esicNumberMasked.trim() || undefined,
+      });
+    },
+    onSuccess: async (result) => {
+      setPayrollProfileDrafts((current) => {
+        const next = { ...current };
+        delete next[result.employeeId];
+        return next;
+      });
+      await refreshAdmin();
+    },
+  });
+
   const payrollMutation = useMutation({
     mutationFn: () => calculatePayroll(token!, payrollMonth),
     onSuccess: (result) => setPayroll(result),
@@ -267,7 +618,7 @@ export default function EmployeeAdministrationPage() {
       addressText: locationAddress || undefined,
       latitude: Number(locationLat),
       longitude: Number(locationLng),
-      geofenceRadiusMeters: Number(locationRadius),
+      geofenceRadiusMeters: 500,
     }),
     onSuccess: async () => {
       setLocationCode('');
@@ -285,11 +636,19 @@ export default function EmployeeAdministrationPage() {
       isPaid: leavePaid,
       defaultEntitlementDays: Number(leaveEntitlement),
       allowHalfDay: leaveHalfDay,
+      minNoticeDays: Number(leaveMinNoticeDays),
+      maxConsecutiveDays: leaveMaxConsecutiveDays ? Number(leaveMaxConsecutiveDays) : undefined,
+      requiresReason: leaveRequiresReason,
+      allowNegativeBalance: leaveAllowNegativeBalance,
     }),
     onSuccess: async () => {
       setLeaveCode('');
       setLeaveName('');
       setLeaveEntitlement('0');
+      setLeaveMinNoticeDays('0');
+      setLeaveMaxConsecutiveDays('');
+      setLeaveRequiresReason(true);
+      setLeaveAllowNegativeBalance(false);
       await refreshAdmin();
     },
   });
@@ -304,8 +663,40 @@ export default function EmployeeAdministrationPage() {
     },
   });
 
+  const reviewDraftFor = (claim: ReimbursementClaim, itemId: string, baseAmount: number): ExpenseReviewDraft => (
+  expenseReviewDrafts[claim.claimId]?.[itemId] ?? {
+    decision: 'APPROVE',
+    approvedAmount: String(baseAmount),
+    comment: '',
+  }
+  );
+
+  const updateReviewDraft = (
+  claimId: string,
+  itemId: string,
+  baseAmount: number,
+  patch: Partial<ExpenseReviewDraft>,
+  ) => {
+  setExpenseReviewDrafts((current) => ({
+    ...current,
+    [claimId]: {
+      ...(current[claimId] ?? {}),
+      [itemId]: {
+        ...(current[claimId]?.[itemId] ?? {
+          decision: 'APPROVE',
+          approvedAmount: String(baseAmount),
+          comment: '',
+        }),
+        ...patch,
+      },
+    },
+  }));
+  };
+
   if (native) {
-    return (
+
+
+  return (
       <section className="employee-services">
         <div className="employee-services__panel">
           <h1>Employee Administration</h1>
@@ -343,7 +734,8 @@ export default function EmployeeAdministrationPage() {
         {visibleSections.map((item) => (
           <button key={item} type="button" className={section === item ? 'is-active' : ''} onClick={() => setSection(item)}>
             {item === 'employees' ? 'Employees'
-              : item === 'leave' ? 'Leave'
+              : item === 'attendance' ? 'Attendance Review'
+                : item === 'leave' ? 'Leave'
                 : item === 'reimbursements' ? 'Reimbursements'
                   : item === 'payroll' ? 'Payroll'
                     : item === 'reports' ? 'Reports'
@@ -412,58 +804,480 @@ export default function EmployeeAdministrationPage() {
         </div>
       )}
 
+      {section === 'attendance' && capabilities.data?.attendanceReview && (
+        <div className="employee-services__panel employee-admin-section">
+          <div className="employee-services__panel-head">
+            <div>
+              <h2>Attendance review</h2>
+              <p>Review geofence exceptions, late check-ins and early check-outs. Attendance remains counted unless HR adjusts or rejects the credit.</p>
+            </div>
+            <span className="employee-services__status">{hrAttendance.data?.length ?? 0} pending</span>
+          </div>
+
+          <div className="employee-attendance__review-list">
+            {(hrAttendance.data ?? []).map((item) => {
+              const draft = attendanceReviewDrafts[item.attendanceDayId] ?? {
+                decision: 'APPROVE' as const,
+                presentFraction: String(item.presentFraction),
+                comment: '',
+              };
+              return (
+                <article className="employee-attendance__review-card" key={item.attendanceDayId}>
+                  <div className="employee-attendance__review-head">
+                    <div>
+                      <strong>{item.employeeCode} · {item.employeeName}</strong>
+                      <span>{item.attendanceDate} · In {item.checkInAtUtc ? new Date(item.checkInAtUtc).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—'} · Out {item.checkOutAtUtc ? new Date(item.checkOutAtUtc).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—'}</span>
+                    </div>
+                    <strong>{Number(item.presentFraction) * 100}% credit</strong>
+                  </div>
+
+                  <div className="employee-attendance__flags">
+                    {item.flags.map((flag) => (
+                      <div key={flag.attendanceFlagId}>
+                        <strong>{flag.flagType.replaceAll('_', ' ')}</strong>
+                        {flag.flagDetail && <span>{flag.flagDetail}</span>}
+                        {flag.employeeReason && <small>Employee reason: {flag.employeeReason}</small>}
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="employee-admin-form">
+                    <label>
+                      HR decision
+                      <select
+                        value={draft.decision}
+                        onChange={(event) => {
+                          const decision = event.target.value as 'APPROVE' | 'ADJUST' | 'REJECT';
+                          setAttendanceReviewDrafts((current) => ({
+                            ...current,
+                            [item.attendanceDayId]: {
+                              ...draft,
+                              decision,
+                              presentFraction: decision === 'REJECT' ? '0' : draft.presentFraction,
+                            },
+                          }));
+                        }}
+                      >
+                        <option value="APPROVE">Approve attendance as recorded</option>
+                        <option value="ADJUST">Adjust attendance credit</option>
+                        <option value="REJECT">Reject attendance credit</option>
+                      </select>
+                    </label>
+                    {draft.decision === 'ADJUST' && (
+                      <label>
+                        Attendance credit
+                        <select
+                          value={draft.presentFraction}
+                          onChange={(event) => setAttendanceReviewDrafts((current) => ({
+                            ...current,
+                            [item.attendanceDayId]: { ...draft, presentFraction: event.target.value },
+                          }))}
+                        >
+                          <option value="1">Full day (1.0)</option>
+                          <option value="0.5">Half day (0.5)</option>
+                          <option value="0">No credit (0.0)</option>
+                        </select>
+                      </label>
+                    )}
+                    <label className="span">
+                      HR comment
+                      <textarea
+                        placeholder={draft.decision === 'APPROVE' ? 'Optional' : 'Required'}
+                        value={draft.comment}
+                        onChange={(event) => setAttendanceReviewDrafts((current) => ({
+                          ...current,
+                          [item.attendanceDayId]: { ...draft, comment: event.target.value },
+                        }))}
+                      />
+                    </label>
+                  </div>
+                  <div className="employee-services__actions">
+                    <button
+                      type="button"
+                      disabled={attendanceReviewMutation.isPending}
+                      onClick={() => attendanceReviewMutation.mutate(item.attendanceDayId)}
+                    >
+                      {attendanceReviewMutation.isPending ? 'Saving…' : 'Complete HR Review'}
+                    </button>
+                  </div>
+                </article>
+              );
+            })}
+            {!hrAttendance.data?.length && <p>No attendance exceptions are waiting for HR.</p>}
+          </div>
+          {attendanceReviewMutation.error && <div className="employee-services__error">{errorMessage(attendanceReviewMutation.error)}</div>}
+        </div>
+      )}
+
       {section === 'leave' && capabilities.data?.leaveHrApprove && (
-        <div className="employee-services__panel">
-          <h2>HR leave validation</h2>
-          <p>Requests reach HR only after TL or PMO approval.</p>
-          <div className="employee-services__approval-list">
-            {(hrLeave.data ?? []).map((item) => (
-              <article key={item.leaveRequestId}>
-                <div><strong>{item.employeeName}</strong><span>{item.leaveTypeName} · {item.startDate} → {item.endDate} · {item.requestedDays} day(s)</span>{item.reason && <small>{item.reason}</small>}</div>
-                <div>
-                  <button type="button" disabled={leaveMutation.isPending} onClick={() => leaveMutation.mutate({ id: item.leaveRequestId, decision: 'APPROVE' })}>Validate</button>
-                  <button type="button" className="is-secondary" disabled={leaveMutation.isPending} onClick={() => leaveMutation.mutate({ id: item.leaveRequestId, decision: 'REJECT' })}>Reject</button>
-                </div>
-              </article>
-            ))}
+        <div className="employee-services__panel employee-admin-section">
+          <div className="employee-services__panel-head">
+            <div>
+              <h2>HR leave validation</h2>
+              <p>Requests reach HR only after TL or PM approval. HR may approve, adjust approved days, or reject with an audit reason.</p>
+            </div>
+            <span className="employee-services__status">{hrLeave.data?.length ?? 0} pending</span>
+          </div>
+
+          <div className="employee-leave__admin-list">
+            {(hrLeave.data ?? []).map((item) => {
+              const requestedDays = Number(item.calculatedDays ?? item.requestedDays);
+              const draft = leaveReviewDrafts[item.leaveRequestId] ?? {
+                decision: 'APPROVE' as const,
+                approvedDays: String(requestedDays),
+                comment: '',
+              };
+              return (
+                <article className="employee-leave__admin-card" key={item.leaveRequestId}>
+                  <div className="employee-leave__admin-head">
+                    <div>
+                      <strong>{item.employeeName} · {item.leaveTypeName}</strong>
+                      <span>
+                        {item.startDate}{item.endDate !== item.startDate ? ` → ${item.endDate}` : ''}
+                        {' · '}{requestedDays} day(s)
+                        {item.dayMode === 'HALF_DAY' && item.halfDaySession ? ` · ${item.halfDaySession.replaceAll('_', ' ')}` : ''}
+                      </span>
+                      {item.reason && <small>{item.reason}</small>}
+                    </div>
+                    <strong>{requestedDays} requested</strong>
+                  </div>
+
+                  <div className="employee-admin-form">
+                    <label>
+                      HR decision
+                      <select
+                        value={draft.decision}
+                        onChange={(event) => {
+                          const decision = event.target.value as 'APPROVE' | 'ADJUST' | 'REJECT';
+                          setLeaveReviewDrafts((current) => ({
+                            ...current,
+                            [item.leaveRequestId]: {
+                              ...draft,
+                              decision,
+                              approvedDays: decision === 'REJECT' ? '0' : decision === 'APPROVE' ? String(requestedDays) : draft.approvedDays,
+                            },
+                          }));
+                        }}
+                      >
+                        <option value="APPROVE">Approve</option>
+                        <option value="ADJUST">Adjust approved days</option>
+                        <option value="REJECT">Reject</option>
+                      </select>
+                    </label>
+
+                    {draft.decision === 'ADJUST' && (
+                      <label>
+                        Approved days
+                        <input
+                          type="number"
+                          min="0.5"
+                          max={Math.max(0.5, requestedDays - 0.5)}
+                          step="0.5"
+                          value={draft.approvedDays}
+                          onChange={(event) => setLeaveReviewDrafts((current) => ({
+                            ...current,
+                            [item.leaveRequestId]: { ...draft, approvedDays: event.target.value },
+                          }))}
+                        />
+                      </label>
+                    )}
+
+                    <label className="span">
+                      HR comment
+                      <textarea
+                        value={draft.comment}
+                        placeholder={draft.decision === 'APPROVE' ? 'Optional' : 'Required'}
+                        onChange={(event) => setLeaveReviewDrafts((current) => ({
+                          ...current,
+                          [item.leaveRequestId]: { ...draft, comment: event.target.value },
+                        }))}
+                      />
+                    </label>
+                  </div>
+
+                  <div className="employee-services__actions">
+                    <button type="button" disabled={leaveMutation.isPending} onClick={() => leaveMutation.mutate(item)}>
+                      {leaveMutation.isPending ? 'Saving…' : 'Complete HR Review'}
+                    </button>
+                  </div>
+                </article>
+              );
+            })}
             {!hrLeave.data?.length && <p>No leave requests are waiting for HR.</p>}
           </div>
+          {leaveMutation.error && <div className="employee-services__error">{errorMessage(leaveMutation.error)}</div>}
         </div>
       )}
 
       {section === 'reimbursements' && (
-        <div className="employee-services__panel">
+        <div className="employee-services__panel employee-admin-section">
           <div className="employee-services__panel-head">
-            <div><h2>Reimbursement approvals</h2><p>Finance sees only claims that crossed the monthly threshold and were approved by HR.</p></div>
-            {capabilities.data?.reimbursementHrApprove && capabilities.data?.reimbursementFinanceApprove && (
+            <div>
+              <h2>Reimbursements</h2>
+              <p>Approval and payment are separate, auditable stages.</p>
+            </div>
+            <div className="employee-admin-toolbar">
+              {(capabilities.data?.reimbursementHrApprove || capabilities.data?.reimbursementFinanceApprove) && (
+                <button
+                  className={`employee-admin-button ${reimbursementView === 'APPROVALS' ? 'is-primary' : ''}`}
+                  type="button"
+                  onClick={() => setReimbursementView('APPROVALS')}
+                >
+                  Approval Queue
+                </button>
+              )}
+              {capabilities.data?.reimbursementPaymentManage && (
+                <button
+                  className={`employee-admin-button ${reimbursementView === 'PAYMENTS' ? 'is-primary' : ''}`}
+                  type="button"
+                  onClick={() => setReimbursementView('PAYMENTS')}
+                >
+                  Payment Queue
+                </button>
+              )}
+            </div>
+          </div>
+
+          {reimbursementView === 'APPROVALS' && (
+            <>
               <div className="employee-admin-toolbar">
-                <button className="employee-admin-button" type="button" onClick={() => setReimbursementStage('HR')}>HR Queue</button>
-                <button className="employee-admin-button" type="button" onClick={() => setReimbursementStage('FINANCE')}>Finance Queue</button>
+                {capabilities.data?.reimbursementHrApprove && (
+                  <button className={`employee-admin-button ${reimbursementStage === 'HR' ? 'is-primary' : ''}`} type="button" onClick={() => setReimbursementStage('HR')}>HR Review</button>
+                )}
+                {capabilities.data?.reimbursementFinanceApprove && (
+                  <button className={`employee-admin-button ${reimbursementStage === 'FINANCE' ? 'is-primary' : ''}`} type="button" onClick={() => setReimbursementStage('FINANCE')}>Finance Review</button>
+                )}
               </div>
-            )}
-          </div>
-          <div className="employee-services__table-wrap">
-            <table>
-              <thead><tr><th>Employee</th><th>Date</th><th>Category</th><th>Amount</th><th>Receipt</th><th>Action</th></tr></thead>
-              <tbody>
-                {(reimbursementQueue.data ?? []).map((item) => (
-                  <tr key={item.claimId}>
-                    <td>{item.employeeName}</td><td>{item.expenseDate}</td><td>{item.category}</td><td>{money(item.amount)}</td>
-                    <td>{item.receiptUrl ? <a href={item.receiptUrl} target="_blank" rel="noreferrer">View</a> : '—'}</td>
-                    <td><div className="employee-admin-toolbar"><button className="employee-admin-button is-primary" type="button" onClick={() => reimbursementMutation.mutate({ id: item.claimId, decision: 'APPROVE' })}>Approve</button><button className="employee-admin-button" type="button" onClick={() => reimbursementMutation.mutate({ id: item.claimId, decision: 'REJECT' })}>Reject</button></div></td>
-                  </tr>
+
+              <div className="employee-expense__claim-list">
+                {(reimbursementClaimQueue.data ?? []).map((claim) => (
+                  <article className="employee-expense__claim employee-expense__review" key={claim.claimId}>
+                    <div className="employee-expense__claim-head">
+                      <div>
+                        <strong>{claim.employeeName} · {claim.claimNumber}</strong>
+                        <span>{claim.purpose} · {claim.lines.length} line{claim.lines.length === 1 ? '' : 's'}</span>
+                      </div>
+                      <div>
+                        <strong>{money(claim.claimedTotal)}</strong>
+                        <span>{reimbursementStage} review</span>
+                      </div>
+                    </div>
+
+                    <div className="employee-expense__review-lines">
+                      {claim.lines.map((line) => {
+                        const baseAmount = reimbursementStage === 'HR'
+                          ? Number(line.claimedAmount)
+                          : Number(line.approvedAmount ?? line.claimedAmount);
+                        const draft = reviewDraftFor(claim, line.reimbursementItemId, baseAmount);
+                        return (
+                          <div className="employee-expense__review-line" key={line.reimbursementItemId}>
+                            <div className="employee-expense__review-evidence">
+                              <strong>#{line.lineNumber} · {line.category.replaceAll('_', ' ')}</strong>
+                              <span>{line.expenseDate} · Claimed {money(line.claimedAmount)}</span>
+                              {line.vendorName && <small>{line.vendorName}</small>}
+                              {(line.travelFrom || line.travelTo) && <small>{line.travelFrom ?? '—'} → {line.travelTo ?? '—'} · {line.transportMode?.replaceAll('_', ' ') ?? '—'}</small>}
+                              {line.description && <small>{line.description}</small>}
+                              {line.receiptUrl && <a href={line.receiptUrl} target="_blank" rel="noreferrer">Open receipt</a>}
+                            </div>
+                            <div className="employee-expense__review-controls">
+                              <label>
+                                Decision
+                                <select
+                                  value={draft.decision}
+                                  onChange={(event) => {
+                                    const decision = event.target.value as ExpenseReviewDraft['decision'];
+                                    updateReviewDraft(claim.claimId, line.reimbursementItemId, baseAmount, {
+                                      decision,
+                                      approvedAmount: decision === 'REJECT' ? '0' : decision === 'APPROVE' ? String(baseAmount) : draft.approvedAmount,
+                                    });
+                                  }}
+                                >
+                                  <option value="APPROVE">Approve</option>
+                                  <option value="ADJUST">Adjust / Partial</option>
+                                  <option value="REJECT">Reject</option>
+                                </select>
+                              </label>
+                              <label>
+                                Approved amount (₹)
+                                <input
+                                  type="number"
+                                  min="0"
+                                  max={baseAmount}
+                                  step="0.01"
+                                  disabled={draft.decision !== 'ADJUST'}
+                                  value={draft.approvedAmount}
+                                  onChange={(event) => updateReviewDraft(claim.claimId, line.reimbursementItemId, baseAmount, { approvedAmount: event.target.value })}
+                                />
+                              </label>
+                              <label className="employee-expense__review-comment">
+                                Review reason / comment
+                                <textarea
+                                  placeholder={draft.decision === 'APPROVE' ? 'Optional' : 'Required'}
+                                  value={draft.comment}
+                                  onChange={(event) => updateReviewDraft(claim.claimId, line.reimbursementItemId, baseAmount, { comment: event.target.value })}
+                                />
+                              </label>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    <div className="employee-services__actions">
+                      <button
+                        type="button"
+                        disabled={reimbursementReviewMutation.isPending}
+                        onClick={() => reimbursementReviewMutation.mutate(claim)}
+                      >
+                        {reimbursementReviewMutation.isPending ? 'Saving review…' : `Submit ${reimbursementStage} Review`}
+                      </button>
+                    </div>
+                  </article>
                 ))}
-                {!reimbursementQueue.data?.length && <tr><td colSpan={6}>No {reimbursementStage.toLowerCase()} approvals are pending.</td></tr>}
-              </tbody>
-            </table>
-          </div>
+                {!reimbursementClaimQueue.data?.length && <p>No claims are waiting for {reimbursementStage.toLowerCase()} review.</p>}
+              </div>
+              {reimbursementReviewMutation.error && <div className="employee-services__error">{errorMessage(reimbursementReviewMutation.error)}</div>}
+            </>
+          )}
+
+          {reimbursementView === 'PAYMENTS' && capabilities.data?.reimbursementPaymentManage && (
+            <>
+              <div className="employee-admin-toolbar">
+                <label>
+                  Payment status
+                  <select value={paymentQueueStatus} onChange={(event) => setPaymentQueueStatus(event.target.value as typeof paymentQueueStatus)}>
+                    <option value="PENDING_PAYMENT">Pending Payment</option>
+                    <option value="PROCESSED">Processed</option>
+                  </select>
+                </label>
+              </div>
+
+              <div className="employee-services__approval-list">
+                {(reimbursementPayments.data ?? []).map((item) => (
+                  <article key={item.claimId}>
+                    <div>
+                      <strong>{item.employeeName} · {item.claimNumber}</strong>
+                      <span>{item.purpose} · Approved {money(item.approvedTotal ?? item.claimedTotal)} · {item.paymentStatus ? item.paymentStatus.replaceAll('_', ' ') : '—'}</span>
+                      {item.paidAtUtc && <small>Paid {new Date(item.paidAtUtc).toLocaleString()} · {item.paymentReference ?? 'No reference'}</small>}
+                    </div>
+                    <div>
+                      {item.paymentStatus !== 'PROCESSED' && (
+                        <button
+                          type="button"
+                          className="is-secondary"
+                          onClick={() => {
+                            setPaymentClaimId(item.claimId);
+                            setPaymentAmount(String(item.approvedTotal ?? item.claimedTotal));
+                            setPaymentReference('');
+                            setPaymentComment('');
+                            setPaymentPaidAt(new Date().toISOString().slice(0, 16));
+                          }}
+                        >
+                          Mark Processed
+                        </button>
+                      )}
+                    </div>
+                  </article>
+                ))}
+                {!reimbursementPayments.data?.length && <p>No reimbursements in this payment state.</p>}
+              </div>
+
+              {paymentClaimId && (
+                <div className="employee-admin-payment-form">
+                  <h3>Process reimbursement payment</h3>
+                  <div className="employee-admin-form">
+                    <label>Paid amount (₹)<input type="number" min="0.01" step="0.01" value={paymentAmount} onChange={(event) => setPaymentAmount(event.target.value)} /></label>
+                    <label>Paid date/time<input type="datetime-local" value={paymentPaidAt} onChange={(event) => setPaymentPaidAt(event.target.value)} /></label>
+                    <label>
+                      Payment mode
+                      <select value={paymentMode} onChange={(event) => setPaymentMode(event.target.value)}>
+                        <option value="BANK_TRANSFER">Bank transfer</option>
+                        <option value="NEFT">NEFT</option>
+                        <option value="IMPS">IMPS</option>
+                        <option value="UPI">UPI</option>
+                        <option value="CASH">Cash</option>
+                        <option value="OTHER">Other</option>
+                      </select>
+                    </label>
+                    <label>Payment reference / UTR<input value={paymentReference} onChange={(event) => setPaymentReference(event.target.value)} /></label>
+                    <label className="span">Finance comment<textarea value={paymentComment} onChange={(event) => setPaymentComment(event.target.value)} /></label>
+                  </div>
+                  <div className="employee-services__actions">
+                    <button type="button" disabled={paymentMutation.isPending} onClick={() => paymentMutation.mutate()}>
+                      {paymentMutation.isPending ? 'Processing…' : 'Confirm Processed'}
+                    </button>
+                    <button type="button" className="is-secondary" onClick={() => setPaymentClaimId(null)}>Cancel</button>
+                  </div>
+                  {paymentMutation.error && <div className="employee-services__error">{errorMessage(paymentMutation.error)}</div>}
+                </div>
+              )}
+            </>
+          )}
         </div>
       )}
 
       {section === 'payroll' && capabilities.data?.payrollManage && (
         <div className="employee-services__panel employee-admin-section">
           <div className="employee-services__panel-head">
-            <div><h2>Monthly payroll</h2><p>Calculate from attendance, approved leave, holidays and the effective salary structure.</p></div>
+            <div>
+              <h2>Employee statutory payroll profiles</h2>
+              <p>Effective-dated PF, ESI, Professional Tax, TDS and gratuity applicability for each employee.</p>
+            </div>
+            <input
+              className="employee-payroll__search"
+              value={payrollProfileSearch}
+              placeholder="Search employee"
+              onChange={(event) => setPayrollProfileSearch(event.target.value)}
+            />
+          </div>
+
+          <div className="employee-payroll__profiles">
+            {(payrollProfiles.data ?? [])
+              .filter((profile) => {
+                const search = payrollProfileSearch.trim().toLowerCase();
+                if (!search) return true;
+                return `${profile.employeeCode ?? ''} ${profile.employeeName ?? ''}`.toLowerCase().includes(search);
+              })
+              .map((profile) => {
+                const draft = payrollProfileDraftFor(profile);
+                return (
+                  <details className="employee-payroll__profile" key={profile.employeeId}>
+                    <summary>
+                      <span>
+                        <strong>{profile.employeeCode ?? '—'} · {profile.employeeName ?? 'Employee'}</strong>
+                        <small>
+                          PF {draft.pfApplicable ? 'Yes' : 'No'} · ESI {draft.esiApplicable ? 'Yes' : 'No'} · {draft.taxRegime} regime
+                        </small>
+                      </span>
+                      <span>Effective {draft.effectiveFrom}</span>
+                    </summary>
+                    <div className="employee-admin-form employee-payroll__profile-form">
+                      <label>Effective from<input type="date" value={draft.effectiveFrom} onChange={(event) => updatePayrollProfileDraft(profile, { effectiveFrom: event.target.value })} /></label>
+                      <label>Tax regime<select value={draft.taxRegime} onChange={(event) => updatePayrollProfileDraft(profile, { taxRegime: event.target.value as 'NEW' | 'OLD' })}><option value="NEW">New</option><option value="OLD">Old</option></select></label>
+                      <label><span>PF applicable</span><input type="checkbox" checked={draft.pfApplicable} onChange={(event) => updatePayrollProfileDraft(profile, { pfApplicable: event.target.checked })} /></label>
+                      <label><span>PF on actual wages</span><input type="checkbox" checked={draft.pfOnActualWages} disabled={!draft.pfApplicable} onChange={(event) => updatePayrollProfileDraft(profile, { pfOnActualWages: event.target.checked })} /></label>
+                      <label><span>ESI applicable</span><input type="checkbox" checked={draft.esiApplicable} onChange={(event) => updatePayrollProfileDraft(profile, { esiApplicable: event.target.checked })} /></label>
+                      <label><span>Gratuity provision</span><input type="checkbox" checked={draft.gratuityApplicable} onChange={(event) => updatePayrollProfileDraft(profile, { gratuityApplicable: event.target.checked })} /></label>
+                      <label>Professional Tax state<input value={draft.professionalTaxState} placeholder="e.g. KA, MH" onChange={(event) => updatePayrollProfileDraft(profile, { professionalTaxState: event.target.value })} /></label>
+                      <label>Professional Tax / month (₹)<input type="number" min="0" step="0.01" value={draft.professionalTaxMonthly} onChange={(event) => updatePayrollProfileDraft(profile, { professionalTaxMonthly: event.target.value })} /></label>
+                      <label>TDS / month (₹)<input type="number" min="0" step="0.01" value={draft.tdsMonthly} onChange={(event) => updatePayrollProfileDraft(profile, { tdsMonthly: event.target.value })} /></label>
+                      <label>UAN (masked)<input value={draft.uanMasked} placeholder="XXXX1234" onChange={(event) => updatePayrollProfileDraft(profile, { uanMasked: event.target.value })} /></label>
+                      <label>ESIC number (masked)<input value={draft.esicNumberMasked} placeholder="XXXX1234" onChange={(event) => updatePayrollProfileDraft(profile, { esicNumberMasked: event.target.value })} /></label>
+                    </div>
+                    <div className="employee-services__actions">
+                      <button type="button" disabled={payrollProfileMutation.isPending} onClick={() => payrollProfileMutation.mutate(profile)}>
+                        {payrollProfileMutation.isPending ? 'Saving…' : 'Save Payroll Profile'}
+                      </button>
+                    </div>
+                  </details>
+                );
+              })}
+            {!payrollProfiles.data?.length && <p>No active employees are available for payroll profiles.</p>}
+          </div>
+          {payrollProfileMutation.error && <div className="employee-services__error">{errorMessage(payrollProfileMutation.error)}</div>}
+
+          <div className="employee-services__panel-head employee-payroll__run-head">
+            <div><h2>Monthly payroll</h2><p>Calculate from attendance, approved leave, holidays, salary structure and effective statutory profiles. Payroll is blocked while attendance/leave approvals are pending.</p></div>
             <div className="employee-admin-toolbar">
               <input type="date" value={payrollMonth} onChange={(event) => setPayrollMonth(event.target.value)} />
               <button className="employee-admin-button is-primary" type="button" disabled={payrollMutation.isPending} onClick={() => payrollMutation.mutate()}>Calculate</button>
@@ -483,10 +1297,24 @@ export default function EmployeeAdministrationPage() {
               </div>
               <div className="employee-services__table-wrap">
                 <table>
-                  <thead><tr><th>Employee</th><th>Present</th><th>Paid Leave</th><th>Payable</th><th>Gross</th><th>Net</th></tr></thead>
+                  <thead><tr><th>Employee</th><th>Present</th><th>Paid Leave</th><th>Payable</th><th>LOP</th><th>Gross</th><th>PF</th><th>ESI</th><th>PT</th><th>TDS</th><th>Deductions</th><th>Net</th><th>Employer Cost</th></tr></thead>
                   <tbody>
                     {(payrollItems.data ?? []).map((item) => (
-                      <tr key={item.payrollItemId}><td>{item.employeeCode} · {item.employeeName}</td><td>{item.presentDays}</td><td>{item.paidLeaveDays}</td><td>{item.payableDays}/{item.scheduledDays}</td><td>{money(item.grossAmount)}</td><td>{money(item.netAmount)}</td></tr>
+                      <tr key={item.payrollItemId}>
+                        <td>{item.employeeCode} · {item.employeeName}</td>
+                        <td>{item.presentDays}</td>
+                        <td>{item.paidLeaveDays}</td>
+                        <td>{item.payableDays}/{item.scheduledDays}</td>
+                        <td>{money(item.lopAmount)}</td>
+                        <td>{money(item.grossAmount)}</td>
+                        <td>{money(item.employeePf)}</td>
+                        <td>{money(item.employeeEsi)}</td>
+                        <td>{money(item.professionalTax)}</td>
+                        <td>{money(item.tdsAmount)}</td>
+                        <td>{money(item.deductionAmount)}</td>
+                        <td><strong>{money(item.netAmount)}</strong></td>
+                        <td>{money(item.employerCost)}</td>
+                      </tr>
                     ))}
                   </tbody>
                 </table>
@@ -520,6 +1348,48 @@ export default function EmployeeAdministrationPage() {
           </div>
           <div className="employee-services__actions"><button type="button" disabled={configMutation.isPending} onClick={() => configMutation.mutate()}>Save Configuration</button></div>
 
+          <h3>India statutory payroll rules</h3>
+          <p>Effective-dated statutory values. Add a new effective date when government rules change; prior payroll keeps the historical rule set.</p>
+          <div className="employee-admin-form">
+            <label>Effective from<input type="date" value={payrollStatutoryDraft.effectiveFrom} onChange={(event) => setPayrollStatutoryDraft((current) => ({ ...current, effectiveFrom: event.target.value }))} /></label>
+            <label>Salary TDS section/reference<input value={payrollStatutoryDraft.salaryTdsSection} onChange={(event) => setPayrollStatutoryDraft((current) => ({ ...current, salaryTdsSection: event.target.value }))} /></label>
+            <label>PF employee rate (%)<input type="number" min="0" max="100" step="0.0001" value={payrollStatutoryDraft.pfEmployeeRatePct} onChange={(event) => setPayrollStatutoryDraft((current) => ({ ...current, pfEmployeeRatePct: event.target.value }))} /></label>
+            <label>PF employer rate (%)<input type="number" min="0" max="100" step="0.0001" value={payrollStatutoryDraft.pfEmployerRatePct} onChange={(event) => setPayrollStatutoryDraft((current) => ({ ...current, pfEmployerRatePct: event.target.value }))} /></label>
+            <label>PF wage ceiling (₹)<input type="number" min="1" step="1" value={payrollStatutoryDraft.pfWageCeiling} onChange={(event) => setPayrollStatutoryDraft((current) => ({ ...current, pfWageCeiling: event.target.value }))} /></label>
+            <label>EPS employer rate (%)<input type="number" min="0" max="100" step="0.0001" value={payrollStatutoryDraft.epsEmployerRatePct} onChange={(event) => setPayrollStatutoryDraft((current) => ({ ...current, epsEmployerRatePct: event.target.value }))} /></label>
+            <label>EPS wage ceiling (₹)<input type="number" min="1" step="1" value={payrollStatutoryDraft.epsWageCeiling} onChange={(event) => setPayrollStatutoryDraft((current) => ({ ...current, epsWageCeiling: event.target.value }))} /></label>
+            <label>ESI employee rate (%)<input type="number" min="0" max="100" step="0.0001" value={payrollStatutoryDraft.esiEmployeeRatePct} onChange={(event) => setPayrollStatutoryDraft((current) => ({ ...current, esiEmployeeRatePct: event.target.value }))} /></label>
+            <label>ESI employer rate (%)<input type="number" min="0" max="100" step="0.0001" value={payrollStatutoryDraft.esiEmployerRatePct} onChange={(event) => setPayrollStatutoryDraft((current) => ({ ...current, esiEmployerRatePct: event.target.value }))} /></label>
+            <label>ESI wage ceiling (₹)<input type="number" min="1" step="1" value={payrollStatutoryDraft.esiWageCeiling} onChange={(event) => setPayrollStatutoryDraft((current) => ({ ...current, esiWageCeiling: event.target.value }))} /></label>
+            <label>Gratuity provision rate (%)<input type="number" min="0" max="100" step="0.0001" value={payrollStatutoryDraft.gratuityProvisionRatePct} onChange={(event) => setPayrollStatutoryDraft((current) => ({ ...current, gratuityProvisionRatePct: event.target.value }))} /></label>
+          </div>
+          <div className="employee-services__actions">
+            <button type="button" disabled={payrollStatutoryMutation.isPending} onClick={() => payrollStatutoryMutation.mutate()}>
+              {payrollStatutoryMutation.isPending ? 'Saving…' : 'Save Effective-Dated Statutory Rules'}
+            </button>
+          </div>
+          {payrollStatutoryMutation.error && <div className="employee-services__error">{errorMessage(payrollStatutoryMutation.error)}</div>}
+          <div className="employee-services__table-wrap">
+            <table>
+              <thead><tr><th>Effective</th><th>PF</th><th>PF Ceiling</th><th>EPS</th><th>EPS Ceiling</th><th>ESI</th><th>ESI Ceiling</th><th>Gratuity</th><th>TDS Ref</th></tr></thead>
+              <tbody>
+                {(payrollStatutory.data ?? []).map((item) => (
+                  <tr key={item.statutoryConfigId}>
+                    <td>{item.effectiveFrom}{item.effectiveTo ? ` → ${item.effectiveTo}` : ' → Current'}</td>
+                    <td>{(Number(item.pfEmployeeRate) * 100).toFixed(2)}% / {(Number(item.pfEmployerRate) * 100).toFixed(2)}%</td>
+                    <td>{money(item.pfWageCeiling)}</td>
+                    <td>{(Number(item.epsEmployerRate) * 100).toFixed(2)}%</td>
+                    <td>{money(item.epsWageCeiling)}</td>
+                    <td>{(Number(item.esiEmployeeRate) * 100).toFixed(2)}% / {(Number(item.esiEmployerRate) * 100).toFixed(2)}%</td>
+                    <td>{money(item.esiWageCeiling)}</td>
+                    <td>{(Number(item.gratuityProvisionRate) * 100).toFixed(4)}%</td>
+                    <td>{item.salaryTdsSection}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
           <h3>Work locations</h3>
           <div className="employee-admin-form">
             <label>Code<input value={locationCode} onChange={(event) => setLocationCode(event.target.value)} /></label>
@@ -527,21 +1397,43 @@ export default function EmployeeAdministrationPage() {
             <label className="span">Address<input value={locationAddress} onChange={(event) => setLocationAddress(event.target.value)} /></label>
             <label>Latitude<input type="number" step="any" value={locationLat} onChange={(event) => setLocationLat(event.target.value)} /></label>
             <label>Longitude<input type="number" step="any" value={locationLng} onChange={(event) => setLocationLng(event.target.value)} /></label>
-            <label>Geofence (m)<input type="number" min="50" max="5000" value={locationRadius} onChange={(event) => setLocationRadius(event.target.value)} /></label>
+            <label>PC geofence<input value="500 m" readOnly aria-label="PC geofence fixed at 500 metres" /></label>
           </div>
           <div className="employee-services__actions"><button type="button" onClick={() => locationMutation.mutate()}>Add Work Location</button></div>
           <div className="employee-services__table-wrap"><table><thead><tr><th>Code</th><th>Location</th><th>Radius</th></tr></thead><tbody>{(locations.data ?? []).map((item) => <tr key={String(item.locationId)}><td>{String(item.locationCode)}</td><td>{String(item.locationName)}</td><td>{String(item.geofenceRadiusMeters)} m</td></tr>)}</tbody></table></div>
 
-          <h3>Leave types</h3>
+          <h3>Leave types & policy</h3>
           <div className="employee-admin-form">
             <label>Code<input value={leaveCode} onChange={(event) => setLeaveCode(event.target.value)} /></label>
             <label>Name<input value={leaveName} onChange={(event) => setLeaveName(event.target.value)} /></label>
             <label>Annual entitlement<input type="number" min="0" step="0.5" value={leaveEntitlement} onChange={(event) => setLeaveEntitlement(event.target.value)} /></label>
+            <label>Minimum notice (days)<input type="number" min="0" max="365" value={leaveMinNoticeDays} onChange={(event) => setLeaveMinNoticeDays(event.target.value)} /></label>
+            <label>Maximum days / request<input type="number" min="0.5" step="0.5" value={leaveMaxConsecutiveDays} placeholder="No limit" onChange={(event) => setLeaveMaxConsecutiveDays(event.target.value)} /></label>
             <label><span>Paid leave</span><input type="checkbox" checked={leavePaid} onChange={(event) => setLeavePaid(event.target.checked)} /></label>
             <label><span>Allow half day</span><input type="checkbox" checked={leaveHalfDay} onChange={(event) => setLeaveHalfDay(event.target.checked)} /></label>
+            <label><span>Reason mandatory</span><input type="checkbox" checked={leaveRequiresReason} onChange={(event) => setLeaveRequiresReason(event.target.checked)} /></label>
+            <label><span>Allow negative balance</span><input type="checkbox" checked={leaveAllowNegativeBalance} onChange={(event) => setLeaveAllowNegativeBalance(event.target.checked)} /></label>
           </div>
-          <div className="employee-services__actions"><button type="button" onClick={() => leaveTypeMutation.mutate()}>Add Leave Type</button></div>
-          <div className="employee-services__table-wrap"><table><thead><tr><th>Code</th><th>Leave</th><th>Entitlement</th><th>Half day</th></tr></thead><tbody>{(leaveTypes.data ?? []).map((item) => <tr key={String(item.leaveTypeId)}><td>{String(item.leaveCode)}</td><td>{String(item.leaveName)}</td><td>{String(item.defaultEntitlementDays)}</td><td>{item.allowHalfDay ? 'Yes' : 'No'}</td></tr>)}</tbody></table></div>
+          <div className="employee-services__actions"><button type="button" disabled={leaveTypeMutation.isPending} onClick={() => leaveTypeMutation.mutate()}>{leaveTypeMutation.isPending ? 'Saving…' : 'Add Leave Type'}</button></div>
+          {leaveTypeMutation.error && <div className="employee-services__error">{errorMessage(leaveTypeMutation.error)}</div>}
+          <div className="employee-services__table-wrap">
+            <table>
+              <thead><tr><th>Code</th><th>Leave</th><th>Entitlement</th><th>Half day</th><th>Notice</th><th>Max/request</th><th>Reason</th></tr></thead>
+              <tbody>
+                {(leaveTypes.data ?? []).map((item) => (
+                  <tr key={item.leaveTypeId}>
+                    <td>{item.leaveCode}</td>
+                    <td>{item.leaveName}</td>
+                    <td>{String(item.defaultEntitlementDays)}</td>
+                    <td>{item.allowHalfDay ? 'Yes' : 'No'}</td>
+                    <td>{item.minNoticeDays} day(s)</td>
+                    <td>{item.maxConsecutiveDays ?? 'No limit'}</td>
+                    <td>{item.requiresReason ? 'Required' : 'Optional'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
 
           <h3>Holidays</h3>
           <div className="employee-admin-form">

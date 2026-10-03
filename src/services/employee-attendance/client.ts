@@ -21,12 +21,26 @@ export type EmployeeProfile = {
   workLocationName?: string | null;
 };
 
+export type AttendanceEvent = {
+  attendanceEventId: string;
+  attendanceDate: string;
+  eventType: 'CHECK_IN' | 'CHECK_OUT';
+  capturedAtUtc: string;
+  distanceMeters?: number | null;
+  geofenceRadiusMeters?: number | null;
+  geofenceResult: 'WITHIN' | 'OUTSIDE' | 'UNVERIFIABLE';
+  hrReviewRequired: boolean;
+};
+
 export type AttendanceDay = {
+  attendanceDayId: string;
   attendanceDate: string;
   status: string;
   presentFraction: string | number;
   checkInAtUtc?: string | null;
   checkOutAtUtc?: string | null;
+  hrReviewStatus: string;
+  hrReviewComment?: string | null;
 };
 
 export type TeamAttendance = {
@@ -37,6 +51,30 @@ export type TeamAttendance = {
   presentFraction: string | number;
   checkInAtUtc?: string | null;
   checkOutAtUtc?: string | null;
+  hrReviewStatus: string;
+};
+
+export type AttendanceFlag = {
+  attendanceFlagId: string;
+  flagType: 'OUTSIDE_GEOFENCE' | 'LATE_CHECK_IN' | 'EARLY_CHECK_OUT';
+  flagDetail?: string | null;
+  employeeReason?: string | null;
+  resolutionStatus: string;
+  createdAtUtc: string;
+};
+
+export type AttendanceHrReview = {
+  attendanceDayId: string;
+  employeeId: string;
+  employeeCode: string;
+  employeeName: string;
+  attendanceDate: string;
+  presentFraction: string | number;
+  checkInAtUtc?: string | null;
+  checkOutAtUtc?: string | null;
+  hrReviewStatus: string;
+  hrReviewComment?: string | null;
+  flags: AttendanceFlag[];
 };
 
 export type LeaveBalance = {
@@ -52,6 +90,15 @@ export type LeaveBalance = {
   availableDays: string | number;
 };
 
+export type LeaveReview = {
+  stage: 'TL_OR_PMO' | 'HR' | 'EMPLOYEE';
+  decision: 'APPROVE' | 'ADJUST' | 'REJECT' | 'CANCEL';
+  approvedDays?: string | number | null;
+  actorRole: string;
+  comment?: string | null;
+  decidedAtUtc: string;
+};
+
 export type LeaveRequest = {
   leaveRequestId: string;
   employeeId: string;
@@ -61,9 +108,97 @@ export type LeaveRequest = {
   startDate: string;
   endDate: string;
   requestedDays: string | number;
+  calculatedDays: string | number;
+  dayMode: 'FULL_DAY' | 'HALF_DAY';
+  halfDaySession?: 'FIRST_HALF' | 'SECOND_HALF' | null;
+  approvedDays?: string | number | null;
+  approvalOutcome?: 'APPROVED' | 'ADJUSTED' | 'REJECTED' | null;
   reason?: string | null;
   status: string;
   createdAtUtc: string;
+  reviews: LeaveReview[];
+};
+
+export type LeaveType = {
+  leaveTypeId: string;
+  leaveCode: string;
+  leaveName: string;
+  isPaid: boolean;
+  defaultEntitlementDays: string | number;
+  allowHalfDay: boolean;
+  minNoticeDays: number;
+  maxConsecutiveDays?: string | number | null;
+  requiresReason: boolean;
+  allowNegativeBalance: boolean;
+  status: string;
+};
+
+export type ReimbursementLineReview = {
+  stage: 'HR' | 'FINANCE';
+  decision: 'APPROVE' | 'ADJUST' | 'REJECT';
+  previousAmount?: string | number | null;
+  approvedAmount: string | number;
+  actorRole: string;
+  comment?: string | null;
+  decidedAtUtc: string;
+};
+
+export type ReimbursementClaimLine = {
+  reimbursementItemId: string;
+  lineNumber: number;
+  expenseDate: string;
+  category: 'TRAVEL' | 'FOOD' | 'LODGING' | 'LOCAL_CONVEYANCE' | 'OTHER';
+  claimedAmount: string | number;
+  approvedAmount?: string | number | null;
+  vendorName?: string | null;
+  description?: string | null;
+  receiptUrl?: string | null;
+  travelFrom?: string | null;
+  travelTo?: string | null;
+  transportMode?: string | null;
+  distanceKm?: string | number | null;
+  ticketReference?: string | null;
+  mealType?: string | null;
+  lineStatus: string;
+  reviews: ReimbursementLineReview[];
+};
+
+export type ReimbursementClaim = {
+  claimId: string;
+  claimNumber: string;
+  employeeId: string;
+  employeeName: string;
+  purpose: string;
+  claimMonth: string;
+  status: string;
+  approvalOutcome?: 'APPROVED' | 'PARTIALLY_APPROVED' | 'REJECTED' | null;
+  financeApprovalRequired: boolean;
+  claimedTotal: string | number;
+  approvedTotal?: string | number | null;
+  adjustedTotal: string | number;
+  paymentStatus?: 'PENDING_PAYMENT' | 'PROCESSED' | null;
+  paidAtUtc?: string | null;
+  paidAmount?: string | number | null;
+  paymentMode?: string | null;
+  paymentReference?: string | null;
+  paymentComment?: string | null;
+  submittedAtUtc: string;
+  lines: ReimbursementClaimLine[];
+};
+
+export type ReimbursementClaimLineInput = {
+  expenseDate: string;
+  category: 'TRAVEL' | 'FOOD' | 'LODGING' | 'LOCAL_CONVEYANCE' | 'OTHER';
+  claimedAmount: number;
+  vendorName?: string;
+  description?: string;
+  receipt?: File;
+  travelFrom?: string;
+  travelTo?: string;
+  transportMode?: 'AIR' | 'RAIL' | 'CAB' | 'AUTO' | 'BUS' | 'METRO' | 'PERSONAL_CAR' | 'PERSONAL_BIKE' | 'OTHER';
+  distanceKm?: number;
+  ticketReference?: string;
+  mealType?: 'BREAKFAST' | 'LUNCH' | 'DINNER' | 'SNACKS' | 'OTHER';
 };
 
 export type Reimbursement = {
@@ -77,6 +212,12 @@ export type Reimbursement = {
   status: string;
   financeApprovalRequired: boolean;
   receiptUrl?: string | null;
+  paymentStatus?: 'PENDING_PAYMENT' | 'PROCESSED' | null;
+  paidAtUtc?: string | null;
+  paidAmount?: string | number | null;
+  paymentMode?: string | null;
+  paymentReference?: string | null;
+  paymentComment?: string | null;
   createdAtUtc: string;
 };
 
@@ -90,9 +231,11 @@ export type Payslip = {
 
 export type AdminCapabilities = {
   employeeManage: boolean;
+  attendanceReview: boolean;
   leaveHrApprove: boolean;
   reimbursementHrApprove: boolean;
   reimbursementFinanceApprove: boolean;
+  reimbursementPaymentManage: boolean;
   payrollManage: boolean;
   reportRead: boolean;
   configManage: boolean;
@@ -132,9 +275,60 @@ export type PayrollItem = {
   paidLeaveDays: string | number;
   unpaidLeaveDays: string | number;
   payableDays: string | number;
+  basicAmount: string | number;
+  hraAmount: string | number;
+  allowancesAmount: string | number;
+  otherEarningsAmount: string | number;
+  lopAmount: string | number;
   grossAmount: string | number;
+  employeePf: string | number;
+  employeeEsi: string | number;
+  professionalTax: string | number;
+  tdsAmount: string | number;
+  otherDeductions: string | number;
   deductionAmount: string | number;
   netAmount: string | number;
+  employerPf: string | number;
+  employerEps: string | number;
+  employerEsi: string | number;
+  gratuityProvision: string | number;
+  employerCost: string | number;
+};
+
+export type PayrollProfile = {
+  employeeId: string;
+  employeeCode?: string | null;
+  employeeName?: string | null;
+  effectiveFrom: string;
+  effectiveTo?: string | null;
+  pfApplicable: boolean;
+  pfOnActualWages: boolean;
+  esiApplicable: boolean;
+  professionalTaxState?: string | null;
+  professionalTaxMonthly: string | number;
+  tdsMonthly: string | number;
+  taxRegime: 'NEW' | 'OLD';
+  gratuityApplicable: boolean;
+  uanMasked?: string | null;
+  esicNumberMasked?: string | null;
+};
+
+
+export type PayrollStatutoryConfig = {
+  statutoryConfigId: string;
+  effectiveFrom: string;
+  effectiveTo?: string | null;
+  pfEmployeeRate: string | number;
+  pfEmployerRate: string | number;
+  pfWageCeiling: string | number;
+  epsEmployerRate: string | number;
+  epsWageCeiling: string | number;
+  esiEmployeeRate: string | number;
+  esiEmployerRate: string | number;
+  esiWageCeiling: string | number;
+  gratuityProvisionRate: string | number;
+  salaryTdsSection: string;
+  createdAtUtc: string;
 };
 
 export class EmployeeAttendanceHttpError extends Error {
@@ -238,6 +432,7 @@ export async function recordAttendance(
     capturedAt: string;
     photo: Blob;
     filename: string;
+    exceptionReason?: string;
   },
 ) {
   const body = new FormData();
@@ -246,12 +441,30 @@ export async function recordAttendance(
   body.set('accuracyMeters', String(input.accuracyMeters));
   body.set('capturedAt', input.capturedAt);
   body.set('photo', input.photo, input.filename);
-  return request(
+  if (input.exceptionReason?.trim()) body.set('exceptionReason', input.exceptionReason.trim());
+  return request<AttendanceEvent>(
     `/employee-attendance/v1/me/attendance/${action}`,
     token,
     { method: 'POST', body },
   );
 }
+
+export const getHrAttendanceReviewQueue = (token: string) =>
+  request<AttendanceHrReview[]>('/employee-attendance/v1/admin/attendance/reviews', token);
+
+export const decideHrAttendanceReview = (
+  token: string,
+  attendanceDayId: string,
+  input: {
+    decision: 'APPROVE' | 'ADJUST' | 'REJECT';
+    presentFraction?: number;
+    comment?: string;
+  },
+) => request<AttendanceHrReview>(
+  `/employee-attendance/v1/admin/attendance/${attendanceDayId}/review`,
+  token,
+  { method: 'POST', body: JSON.stringify(input) },
+);
 
 export const getLeaveBalances = (token: string) =>
   request<LeaveBalance[]>('/employee-attendance/v1/me/leave-balances', token);
@@ -265,7 +478,8 @@ export const applyLeave = (
     leaveTypeId: string;
     startDate: string;
     endDate: string;
-    requestedDays: number;
+    dayMode: 'FULL_DAY' | 'HALF_DAY';
+    halfDaySession?: 'FIRST_HALF' | 'SECOND_HALF';
     reason?: string;
   },
 ) => request<LeaveRequest>('/employee-attendance/v1/me/leave', token, {
@@ -291,6 +505,69 @@ export const decideTeamLeave = (
   `/employee-attendance/v1/team/leave/${leaveId}/decision`,
   token,
   { method: 'POST', body: JSON.stringify({ decision, comment }) },
+);
+
+export const getMyReimbursementClaims = (token: string) =>
+  request<ReimbursementClaim[]>('/employee-attendance/v1/me/reimbursement-claims', token);
+
+export const getTeamReimbursementClaims = (token: string) =>
+  request<ReimbursementClaim[]>('/employee-attendance/v1/team/reimbursement-claims', token);
+
+export async function submitReimbursementClaim(
+  token: string,
+  input: { purpose: string; lines: ReimbursementClaimLineInput[] },
+) {
+  const receipts: File[] = [];
+  const lines = input.lines.map((line) => {
+    const receiptIndex = line.receipt ? receipts.push(line.receipt) - 1 : undefined;
+    return {
+      expenseDate: line.expenseDate,
+      category: line.category,
+      claimedAmount: line.claimedAmount,
+      vendorName: line.vendorName || undefined,
+      description: line.description || undefined,
+      receiptIndex,
+      travelFrom: line.travelFrom || undefined,
+      travelTo: line.travelTo || undefined,
+      transportMode: line.transportMode || undefined,
+      distanceKm: line.distanceKm,
+      ticketReference: line.ticketReference || undefined,
+      mealType: line.mealType || undefined,
+    };
+  });
+  const body = new FormData();
+  body.set('payload', JSON.stringify({ purpose: input.purpose, lines }));
+  receipts.forEach((receipt) => body.append('receipts', receipt, receipt.name));
+  return request<ReimbursementClaim>(
+    '/employee-attendance/v1/me/reimbursement-claims',
+    token,
+    { method: 'POST', body },
+  );
+}
+
+export const getReimbursementClaimQueue = (
+  token: string,
+  stage: 'HR' | 'FINANCE',
+) => request<ReimbursementClaim[]>(
+  `/employee-attendance/v1/admin/reimbursement-claims?stage=${stage}`,
+  token,
+);
+
+export const reviewReimbursementClaim = (
+  token: string,
+  claimId: string,
+  stage: 'HR' | 'FINANCE',
+  lineDecisions: Array<{
+    reimbursementItemId: string;
+    decision: 'APPROVE' | 'ADJUST' | 'REJECT';
+    approvedAmount: number;
+    comment?: string;
+  }>,
+  comment?: string,
+) => request<ReimbursementClaim>(
+  `/employee-attendance/v1/admin/reimbursement-claims/${claimId}/review?stage=${stage}`,
+  token,
+  { method: 'POST', body: JSON.stringify({ lineDecisions, comment }) },
 );
 
 export const getMyReimbursements = (token: string) =>
@@ -337,12 +614,15 @@ export const getHrLeaveQueue = (token: string) =>
 export const decideHrLeave = (
   token: string,
   leaveId: string,
-  decision: 'APPROVE' | 'REJECT',
-  comment?: string,
+  input: {
+    decision: 'APPROVE' | 'ADJUST' | 'REJECT';
+    approvedDays?: number;
+    comment?: string;
+  },
 ) => request<LeaveRequest>(
   `/employee-attendance/v1/admin/leave/${leaveId}/decision`,
   token,
-  { method: 'POST', body: JSON.stringify({ decision, comment }) },
+  { method: 'POST', body: JSON.stringify(input) },
 );
 
 export const getReimbursementQueue = (token: string, stage: 'HR' | 'FINANCE') =>
@@ -361,6 +641,30 @@ export const decideReimbursement = (
   `/employee-attendance/v1/admin/reimbursements/${claimId}/decision?stage=${stage}`,
   token,
   { method: 'POST', body: JSON.stringify({ decision, comment }) },
+);
+
+export const getReimbursementPaymentQueue = (
+  token: string,
+  paymentStatus: 'PENDING_PAYMENT' | 'PROCESSED' = 'PENDING_PAYMENT',
+) => request<ReimbursementClaim[]>(
+  `/employee-attendance/v1/admin/reimbursements/payments?paymentStatus=${paymentStatus}`,
+  token,
+);
+
+export const updateReimbursementPayment = (
+  token: string,
+  claimId: string,
+  input: {
+    paidAmount: number;
+    paidAtUtc: string;
+    paymentMode: string;
+    paymentReference: string;
+    comment?: string;
+  },
+) => request<ReimbursementClaim>(
+  `/employee-attendance/v1/admin/reimbursements/${claimId}/payment`,
+  token,
+  { method: 'POST', body: JSON.stringify(input) },
 );
 
 export const downloadEmployeeTemplate = (token: string) =>
@@ -382,6 +686,58 @@ export const applyEmployeeImport = (token: string, importId: string) =>
     token,
     { method: 'POST' },
   );
+
+export const getPayrollStatutoryConfig = (token: string) =>
+  request<PayrollStatutoryConfig[]>(
+    '/employee-attendance/v1/admin/payroll-statutory-config',
+    token,
+  );
+
+export const updatePayrollStatutoryConfig = (
+  token: string,
+  input: {
+    effectiveFrom: string;
+    pfEmployeeRate: number;
+    pfEmployerRate: number;
+    pfWageCeiling: number;
+    epsEmployerRate: number;
+    epsWageCeiling: number;
+    esiEmployeeRate: number;
+    esiEmployerRate: number;
+    esiWageCeiling: number;
+    gratuityProvisionRate: number;
+    salaryTdsSection: string;
+  },
+) => request<PayrollStatutoryConfig>(
+  '/employee-attendance/v1/admin/payroll-statutory-config',
+  token,
+  { method: 'PUT', body: JSON.stringify(input) },
+);
+
+export const getPayrollProfiles = (token: string) =>
+  request<PayrollProfile[]>('/employee-attendance/v1/admin/payroll-profiles', token);
+
+export const updatePayrollProfile = (
+  token: string,
+  employeeId: string,
+  input: {
+    effectiveFrom: string;
+    pfApplicable: boolean;
+    pfOnActualWages: boolean;
+    esiApplicable: boolean;
+    professionalTaxState?: string;
+    professionalTaxMonthly: number;
+    tdsMonthly: number;
+    taxRegime: 'NEW' | 'OLD';
+    gratuityApplicable: boolean;
+    uanMasked?: string;
+    esicNumberMasked?: string;
+  },
+) => request<PayrollProfile>(
+  `/employee-attendance/v1/admin/payroll-profiles/${employeeId}`,
+  token,
+  { method: 'PUT', body: JSON.stringify(input) },
+);
 
 export const calculatePayroll = (token: string, month: string) =>
   request<PayrollSummary>(
@@ -419,7 +775,7 @@ export const getWorkLocations = (token: string) =>
   request<Array<Record<string, unknown>>>('/employee-attendance/v1/admin/work-locations', token);
 
 export const getLeaveTypes = (token: string) =>
-  request<Array<Record<string, unknown>>>('/employee-attendance/v1/admin/leave-types', token);
+  request<LeaveType[]>('/employee-attendance/v1/admin/leave-types', token);
 
 export const getHolidays = (token: string) =>
   request<Array<Record<string, unknown>>>('/employee-attendance/v1/admin/holidays', token);
@@ -482,6 +838,10 @@ export const createLeaveType = (
     isPaid: boolean;
     defaultEntitlementDays: number;
     allowHalfDay: boolean;
+    minNoticeDays: number;
+    maxConsecutiveDays?: number;
+    requiresReason: boolean;
+    allowNegativeBalance: boolean;
   },
 ) => request<Record<string, unknown>>('/employee-attendance/v1/admin/leave-types', token, {
   method: 'POST',

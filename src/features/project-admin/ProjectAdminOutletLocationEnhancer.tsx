@@ -2,12 +2,21 @@ import { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Capacitor } from '@capacitor/core';
 import { Geolocation } from '@capacitor/geolocation';
+import { geocodeOutletAddress, type OutletGeocodeResult } from '../../services/audit-core/outletGeocode';
+import { useSessionStore } from '../../store/sessionStore';
 
 type Coordinates = {
   latitude: number;
   longitude: number;
   accuracy?: number;
 };
+
+type LocationSource = 'GPS' | 'ADDRESS';
+
+type LookupState =
+  | { status: 'idle' }
+  | { status: 'loading' }
+  | { status: 'found'; result: OutletGeocodeResult };
 
 type FieldControl = HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement;
 
@@ -72,6 +81,10 @@ function OutletLocationPanel({ form }: { form: HTMLFormElement }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [coordinates, setCoordinates] = useState<Coordinates | null>(() => readInitialCoordinates(form));
   const [locating, setLocating] = useState(false);
+  const [source, setSource] = useState<LocationSource>('GPS');
+  const [lookup, setLookup] = useState<LookupState>({ status: 'idle' });
+  const accessToken = useSessionStore((state) => state.accessToken);
+  const tenantId = useSessionStore((state) => state.tenantId);
   const [message, setMessage] = useState<MessageState>({ kind: 'idle', message: '' });
 
   useEffect(() => {
@@ -133,6 +146,8 @@ function OutletLocationPanel({ form }: { form: HTMLFormElement }) {
   };
 
   const applyCoordinates = (next: Coordinates) => {
+    setSource('GPS');
+    setLookup({ status: 'idle' });
     setCoordinates(next);
     setSearchQuery('');
     setLocating(false);
@@ -140,6 +155,57 @@ function OutletLocationPanel({ form }: { form: HTMLFormElement }) {
       kind: 'success',
       message: `Exact device location pinned${Number.isFinite(next.accuracy) ? ` (accuracy ±${Math.round(next.accuracy ?? 0)} m)` : ''}.`,
     });
+  };
+
+  const findFromAddress = async () => {
+    if (lookup.status === 'loading') return;
+    const parts = {
+      addressText: readField(form, 'Address'),
+      city: readField(form, 'City'),
+      stateRegion: readField(form, 'State / Region'),
+      postalCode: readField(form, 'Postal Code'),
+    };
+    if (!Object.values(parts).some(Boolean)) {
+      setMessage({ kind: 'error', message: 'Enter the outlet address, city and PIN code first.' });
+      return;
+    }
+    if (!tenantId || !accessToken) {
+      setMessage({ kind: 'error', message: 'Select a project and sign in again to look up a location.' });
+      return;
+    }
+    setLookup({ status: 'loading' });
+    setMessage({ kind: 'info', message: 'Looking up the address…' });
+    try {
+      const result = await geocodeOutletAddress(tenantId, parts, accessToken);
+      setLookup({ status: 'found', result });
+      // Show the suggestion on the map; nothing is stored until the admin confirms.
+      setSearchQuery(`${result.latitude},${result.longitude}`);
+      setMessage({ kind: 'idle', message: '' });
+    } catch (error) {
+      setLookup({ status: 'idle' });
+      setMessage({ kind: 'error', message: errorText(error) });
+    }
+  };
+
+  const useFoundLocation = () => {
+    if (lookup.status !== 'found') return;
+    const { result } = lookup;
+    setCoordinates({ latitude: result.latitude, longitude: result.longitude });
+    setSource('ADDRESS');
+    setSearchQuery('');
+    setLookup({ status: 'idle' });
+    setMessage({
+      kind: 'success',
+      message: result.approximate
+        ? 'Location set from the address (approximate). Save the outlet, or pin the exact spot on site for more accuracy.'
+        : 'Location set from the address. Save the outlet to keep it.',
+    });
+  };
+
+  const dismissFoundLocation = () => {
+    setLookup({ status: 'idle' });
+    setSearchQuery('');
+    setMessage({ kind: 'idle', message: '' });
   };
 
   const pinCurrentLocation = async () => {
@@ -195,7 +261,15 @@ function OutletLocationPanel({ form }: { form: HTMLFormElement }) {
           <span>Search by place or landmark, use the entered address, or pin the device GPS location. The map canvas is intentionally large for location verification.</span>
         </div>
         <div className="uc02-outlet-location__actions">
-          <button className="uc02-button" type="button" onClick={() => void pinCurrentLocation()} disabled={locating}>
+          <button
+            className="uc02-button uc02-button--primary"
+            type="button"
+            onClick={() => void findFromAddress()}
+            disabled={lookup.status === 'loading' || locating}
+          >
+            {lookup.status === 'loading' ? 'Looking up…' : 'Find location from address'}
+          </button>
+          <button className="uc02-button" type="button" onClick={() => void pinCurrentLocation()} disabled={locating || lookup.status === 'loading'}>
             {locating ? 'Locating…' : 'Pin current location'}
           </button>
           {openMapsUrl && <a className="uc02-button uc02-outlet-location__maps-link" href={openMapsUrl} target="_blank" rel="noreferrer">Open in Google Maps</a>}
@@ -228,13 +302,41 @@ function OutletLocationPanel({ form }: { form: HTMLFormElement }) {
             referrerPolicy="no-referrer-when-downgrade"
             allowFullScreen
           />
-          <div className="uc02-outlet-location__pin-label"><span aria-hidden="true">●</span>{coordinates ? 'Exact GPS pin stored' : 'Map preview — coordinates not stored'}</div>
+          <div className="uc02-outlet-location__pin-label"><span aria-hidden="true">●</span>{coordinates ? (source === 'ADDRESS' ? 'Location from address (approximate) — save to keep' : 'Exact GPS pin stored') : lookup.status === 'found' ? 'Suggested location — not stored until you confirm' : 'Map preview — coordinates not stored'}</div>
         </div>
       ) : (
         <div className="uc02-outlet-location__empty">Search a place above, enter the outlet address, or choose <strong>Pin current location</strong> to show the map.</div>
       )}
 
-      {coordinates && <div className="uc02-outlet-location__coordinates"><span>Latitude <strong>{coordinates.latitude.toFixed(6)}</strong></span><span>Longitude <strong>{coordinates.longitude.toFixed(6)}</strong></span></div>}
+      {lookup.status === 'found' && (
+        <div className="uc02-outlet-location__suggestion" role="group" aria-label="Suggested outlet location">
+          <div className="uc02-outlet-location__suggestion-body">
+            <div className="uc02-outlet-location__suggestion-title">
+              <strong>Suggested location</strong>
+              <span className={`uc02-outlet-location__chip ${lookup.result.approximate ? 'uc02-outlet-location__chip--warn' : 'uc02-outlet-location__chip--ok'}`}>
+                {lookup.result.approximate ? 'Approximate area' : 'Exact building'}
+              </span>
+            </div>
+            <p>{lookup.result.formattedAddress}</p>
+            <div className="uc02-outlet-location__coordinates">
+              <span>Latitude <strong>{lookup.result.latitude.toFixed(6)}</strong></span>
+              <span>Longitude <strong>{lookup.result.longitude.toFixed(6)}</strong></span>
+            </div>
+            {(lookup.result.approximate || lookup.result.partialMatch || lookup.result.resultCount > 1) && (
+              <small>
+                Check the map. {lookup.result.approximate ? 'This is an area estimate, not the showroom door. ' : ''}
+                {lookup.result.partialMatch ? 'Google matched only part of the address. ' : ''}
+                {lookup.result.resultCount > 1 ? 'More than one place matched; the closest was chosen.' : ''}
+              </small>
+            )}
+          </div>
+          <div className="uc02-outlet-location__suggestion-actions">
+            <button className="uc02-button uc02-button--primary" type="button" onClick={useFoundLocation}>Use this location</button>
+            <button className="uc02-button" type="button" onClick={dismissFoundLocation}>Dismiss</button>
+          </div>
+        </div>
+      )}
+      {coordinates && lookup.status !== 'found' && <div className="uc02-outlet-location__coordinates"><span>Latitude <strong>{coordinates.latitude.toFixed(6)}</strong></span><span>Longitude <strong>{coordinates.longitude.toFixed(6)}</strong></span></div>}
       {message.message && <div className={`uc02-outlet-location__message uc02-outlet-location__message--${message.kind}`} role="status">{message.message}</div>}
       <small className="uc02-outlet-location__note">Text search is for visual confirmation. Use Pin current location when exact latitude/longitude must be stored with the outlet.</small>
     </section>

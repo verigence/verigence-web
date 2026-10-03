@@ -12,14 +12,14 @@ const item = (extra: Partial<P2JourneyListItem> = {}): P2JourneyListItem => ({
 }) as P2JourneyListItem;
 
 describe('what a journey holds and lacks (no stage)', () => {
-  it('reads KYC, required documents and vehicle proof from the gate records', () => {
-    expect(holds(item({ kyc_status: 'PASS', docs_required: 8, docs_received: 3, vehicle_proof_status: 'WAITING' }))).toEqual({
-      kyc: 'in', documents: { received: 3, required: 8 }, vehicleProof: 'missing',
+  it('reads KYC and required documents from the gate records', () => {
+    expect(holds(item({ kyc_status: 'PASS', docs_required: 8, docs_received: 3 }))).toEqual({
+      kyc: 'in', documents: { received: 3, required: 8 },
     });
   });
 
   it('never guesses before the gates are evaluated', () => {
-    expect(holds(item())).toEqual({ kyc: null, documents: null, vehicleProof: null });
+    expect(holds(item())).toEqual({ kyc: null, documents: null });
     expect(lacks(item())).toBeNull();
   });
 
@@ -31,14 +31,15 @@ describe('what a journey holds and lacks (no stage)', () => {
     expect(lacks(item({ kyc_status: 'PASS', docs_required: 8, docs_received: 8 }))).toBeNull();
   });
 
-  it('the next action follows what is lacking, with no step text', () => {
-    const missingKyc = nextAction(item({ kyc_status: 'WAITING', docs_required: 8, docs_received: 3 }), 'PC');
-    expect(missingKyc).toMatchObject({ priority: 'action', title: 'KYC missing' });
-    const complete = nextAction(item({ kyc_status: 'PASS', docs_required: 8, docs_received: 8, documents: 8 }), 'PC');
-    expect(complete).toEqual({ priority: 'ok', title: 'Nothing for you right now', detail: '8 documents in so far' });
-    for (const text of [missingKyc.title, missingKyc.detail ?? '', complete.title, complete.detail ?? '']) {
-      expect(text).not.toMatch(/(Add the (booking|delivery) documents|Verify the (booking|delivery) documents|is completing)/);
-    }
+  it('the next action names what is lacking, and is otherwise unchanged', () => {
+    expect(nextAction(item({ kyc_status: 'WAITING', docs_required: 8, docs_received: 3 }), 'PC'))
+      .toMatchObject({ priority: 'action', title: 'KYC missing' });
+    expect(nextAction(item({ kyc_status: 'PASS', docs_required: 8, docs_received: 3 }), 'PC'))
+      .toMatchObject({ priority: 'action', title: '5 required documents missing', detail: '3 of 8 in' });
+    // Nothing lacking (or not a Phase 2 journey): the same text as before.
+    expect(nextAction(item({ kyc_status: 'PASS', docs_required: 8, docs_received: 8, documents: 8 }), 'PC').title)
+      .toBe('Add the delivery documents');
+    expect(nextAction(item({ phase2: false, kyc_status: 'WAITING' }), 'PC').title).toBe('Add the delivery documents');
   });
 
   it('a task for you still ranks ahead of a missing document', () => {

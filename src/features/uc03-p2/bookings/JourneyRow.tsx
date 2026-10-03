@@ -61,17 +61,15 @@ export type Priority = 'overdue' | 'action' | 'waiting' | 'ok' | 'closed';
 const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`;
 
 /** What a Phase 2 journey holds and lacks, from the stage engine's gate records:
- * customer KYC read or missing, required documents in against required, and the
- * vehicle proof. Each is null until the gate has been evaluated (never a guess). */
+ * customer KYC read or missing, and required documents in against required.
+ * Each is null until the gate has been evaluated (never a guess). */
 export function holds(item: P2JourneyListItem): {
   kyc: 'in' | 'missing' | null;
   documents: { received: number; required: number } | null;
-  vehicleProof: 'in' | 'missing' | null;
 } {
   return {
     kyc: item.kyc_status ? (item.kyc_status === 'PASS' ? 'in' : 'missing') : null,
     documents: item.docs_required == null ? null : { received: item.docs_received ?? 0, required: item.docs_required },
-    vehicleProof: item.vehicle_proof_status ? (item.vehicle_proof_status === 'PASS' ? 'in' : 'missing') : null,
   };
 }
 
@@ -123,19 +121,15 @@ export function nextAction(item: P2JourneyListItem, role?: string): { priority: 
     return { priority: 'action', title: `Verify ${plural(toVerify, 'document')}` };
   }
   if (others) {
-    return { priority: 'waiting', title: `${plural(others, 'task')} with ${othersRole}`, detail: item.phase2 ? lacks(item)?.title : STEP_NOW[active] };
+    return { priority: 'waiting', title: `${plural(others, 'task')} with ${othersRole}`, detail: STEP_NOW[active] };
   }
   if (toVerify) {
     return { priority: 'waiting', title: `${plural(toVerify, 'document')} being verified`, detail: 'Nothing for you right now' };
   }
   if (item.phase2) {
-    // No stage: what the journey lacks, or nothing.
+    // A missing KYC or required document is what the journey needs next.
     const missing = lacks(item);
     if (missing) return { priority: 'action', title: missing.title, detail: missing.detail };
-    return {
-      priority: 'ok', title: 'Nothing for you right now',
-      detail: item.documents ? `${plural(item.documents, 'document')} in so far` : undefined,
-    };
   }
   const upload = active === 0 || active === 3;
   return {
@@ -145,15 +139,14 @@ export function nextAction(item: P2JourneyListItem, role?: string): { priority: 
   };
 }
 
-/** What the journey holds and lacks, in place of a step bar. */
+/** KYC missing and the required documents in so far, under the steps. */
 function HoldsCell({ item }: { item: P2JourneyListItem }) {
   const h = holds(item);
-  if (!h.kyc && !h.documents && !h.vehicleProof) return <span className="p2w-muted">Not checked yet</span>;
+  if (h.kyc !== 'missing' && !h.documents) return null;
   return (
     <div className="p2w-holds">
-      {h.kyc ? <span className={`p2w-chip ${h.kyc === 'in' ? 'p2w-chip--success' : 'p2w-chip--warning'}`}>{h.kyc === 'in' ? 'KYC in' : 'KYC missing'}</span> : null}
+      {h.kyc === 'missing' ? <span className="p2w-chip p2w-chip--warning">KYC missing</span> : null}
       {h.documents ? <span className="p2w-muted">{h.documents.received} of {h.documents.required} required documents</span> : null}
-      {h.vehicleProof ? <span className="p2w-muted">Vehicle proof {h.vehicleProof === 'in' ? 'in' : 'missing'}</span> : null}
     </div>
   );
 }
@@ -218,13 +211,10 @@ export default function JourneyRow({ item, role }: { item: P2JourneyListItem; ro
         )}
       </td>
       {role === 'PC' ? (
-        <td className="p2w-jrow__stage" data-label="Status">
-          {item.phase2 && !item.closed ? <HoldsCell item={item} /> : (
-            <>
-              {item.phase2 ? <span className={`p2w-chip ${cancelled ? 'p2w-chip--neutral' : 'p2w-chip--success'}`}>{cancelled ? 'Cancelled' : 'Delivered'}</span> : stageChip}
-              {item.phase2 ? null : <Steps active={active} cancelled={cancelled} />}
-            </>
-          )}
+        <td className="p2w-jrow__stage" data-label="Stage">
+          {stageChip}
+          <Steps active={active} cancelled={cancelled} />
+          {item.phase2 && !item.closed ? <HoldsCell item={item} /> : null}
         </td>
       ) : (
         <td className="p2w-jrow__stage" data-label="PC and outlet">

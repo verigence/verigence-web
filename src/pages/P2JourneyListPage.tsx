@@ -115,10 +115,10 @@ export default function P2JourneyListPage() {
               : 'Nothing needs your attention right now. New bookings and deliveries will show up here.'}
         </p>
         <div className="p2w-hero__kpis" aria-label="Summary">
-          <div className="p2w-kpi"><b>{s ? s.journeys?.open ?? s.open.bookings + s.open.deliveries : '—'}</b><span>Journeys open</span></div>
-          <div className={`p2w-kpi${s?.journeys?.kycMissing ? ' p2w-kpi--flag' : ''}`}><b>{s ? s.journeys?.kycMissing ?? '—' : '—'}</b><span>KYC missing</span></div>
-          <div className={`p2w-kpi${s?.journeys?.documentsPending ? ' p2w-kpi--flag' : ''}`}><b>{s ? s.journeys?.documentsPending ?? '—' : '—'}</b><span>Documents pending</span></div>
-          <div className="p2w-kpi"><b>{s ? s.closed?.deliveries ?? '—' : '—'}</b><span>Delivered</span></div>
+          <div className="p2w-kpi"><b>{s ? s.open.bookings : '—'}</b><span>Bookings open</span></div>
+          <div className="p2w-kpi"><b>{s ? s.open.deliveries : '—'}</b><span>Deliveries open</span></div>
+          <div className="p2w-kpi"><b>{s ? s.closed?.bookings ?? '—' : '—'}</b><span>Bookings closed</span></div>
+          <div className="p2w-kpi"><b>{s ? s.closed?.deliveries ?? '—' : '—'}</b><span>Deliveries closed</span></div>
           <Link className={`p2w-kpi${heroTasks ? ' p2w-kpi--flag' : ''}`} to="/p2/tasks"><b>{s ? heroTasks ?? '—' : '—'}</b><span>Tasks open</span></Link>
         </div>
       </section>
@@ -150,7 +150,7 @@ export default function P2JourneyListPage() {
         </h2>
         {visible.length ? (
           <table className={`p2w-jtable${role !== 'PC' ? ' has-where' : ''}`}>
-            <thead><tr><th className="col-customer">Customer</th><th className="col-price">Price variance</th><th className="col-stage">{role === 'PC' ? 'Status' : 'PC · Outlet ID'}</th><th className="col-next">Open tasks</th><th className="col-when">Deal period</th><th className="col-journey">Audit timeline</th>{role !== 'PC' ? <th className="col-where">Dealer · Outlet</th> : null}<th className="col-act"><span className="p2w-visually-hidden">Actions</span></th></tr></thead>
+            <thead><tr><th className="col-customer">Customer</th><th className="col-price">Price variance</th><th className="col-stage">{role === 'PC' ? 'Stage' : 'PC · Outlet ID'}</th><th className="col-next">Open tasks</th><th className="col-when">Deal period</th><th className="col-journey">Audit timeline</th>{role !== 'PC' ? <th className="col-where">Dealer · Outlet</th> : null}<th className="col-act"><span className="p2w-visually-hidden">Actions</span></th></tr></thead>
             <tbody>
               {visible.map((item) => <JourneyRow key={item.journey_id} item={item} role={role} />)}
             </tbody>
@@ -176,7 +176,7 @@ export default function P2JourneyListPage() {
           <>
             {closedItems.length ? (
               <table className={`p2w-jtable${role !== 'PC' ? ' has-where' : ''}`}>
-            <thead><tr><th className="col-customer">Customer</th><th className="col-price">Price variance</th><th className="col-stage">{role === 'PC' ? 'Status' : 'PC · Outlet ID'}</th><th className="col-next">Open tasks</th><th className="col-when">Deal period</th><th className="col-journey">Audit timeline</th>{role !== 'PC' ? <th className="col-where">Dealer · Outlet</th> : null}<th className="col-act"><span className="p2w-visually-hidden">Actions</span></th></tr></thead>
+            <thead><tr><th className="col-customer">Customer</th><th className="col-price">Price variance</th><th className="col-stage">{role === 'PC' ? 'Stage' : 'PC · Outlet ID'}</th><th className="col-next">Open tasks</th><th className="col-when">Deal period</th><th className="col-journey">Audit timeline</th>{role !== 'PC' ? <th className="col-where">Dealer · Outlet</th> : null}<th className="col-act"><span className="p2w-visually-hidden">Actions</span></th></tr></thead>
             <tbody>
                   {closedItems.map((item) => <JourneyRow key={item.journey_id} item={item} role={role} />)}
                 </tbody>

@@ -399,7 +399,7 @@ export default function AppShell({ children }: PropsWithChildren) {
     if (anyOf('hr.salary.propose', 'hr.salary.approve', 'hr.payroll.read')) items.push({ to: '/hr/payroll/salaries', label: 'Salaries', mark: 'HY' });
     if (anyOf('hr.salary.propose', 'hr.salary.approve', 'hr.payroll.read', 'hr.settings.manage')) items.push({ to: '/hr/payroll/settings', label: 'Payroll Settings', mark: 'HS' });
     if (can('hr.settings.manage')) items.push({ to: '/hr/settings', label: 'HR Settings', mark: 'HS' });
-    return items.length ? { key: 'hr', label: 'HR', items } : null;
+    return items.length ? { key: 'hr', label: 'My HR', items } : null;
   }, [hrAccess.can, hrAccess.canReadEmployees, hrAccess.isEmployee]);
   const visibleGroups = useMemo<NavGroup[]>(
     () => (hrGroup ? [...baseGroups, hrGroup] : baseGroups),

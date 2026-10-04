@@ -54,8 +54,18 @@ jobs:
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add docs/visual-evidence/VISUAL_DEV_LATEST.md
           git commit -m 'chore(ui): record visual validation start [skip ci]' || exit 0
-          git pull --rebase origin dev
-          git push origin HEAD:dev
+          # Several dev workflows push their evidence at the same moment, so a push can be
+          # rejected as stale. Pull again and push, as the Android validation does.
+          for attempt in 1 2 3 4; do
+            git pull --rebase origin dev
+            if git push origin HEAD:dev; then
+              exit 0
+            fi
+            echo "::warning::Visual validation start evidence raced with another dev update; retry ${attempt}/4."
+            sleep $((attempt * 2))
+          done
+          echo '::warning::Unable to persist visual validation start evidence after retries.'
+          exit 1
 
   validate:
     needs: start
@@ -287,6 +297,15 @@ jobs:
             canContinue: true,
           });
 
+          const unifiedCaptureEmpty = {
+            journeyId: 'journey-governance',
+            externalContextRef: 'journey-governance',
+            requirements: [],
+            uploads: [],
+            bookingSubmitted: false,
+            deliverySubmitted: false,
+          };
+
           const ref = (values) => values.map(([code, label]) => ({ code, label }));
           const bookingOptions = {
             effectiveOn: '2026-08-25',
@@ -445,7 +464,12 @@ jobs:
             await routeJson(page, '**/audit-core/v1/tenants/tenant-governance/uc03/work-items**', workItemsFast);
             await routeJson(page, '**/audit-core/v1/tenants/tenant-governance/uc03/pc-stats**', pcStats);
             await routeJson(page, '**/audit-core/v1/tenants/tenant-governance/journeys/journey-governance/uc03-workspace', bookingWorkspace);
-            await routeJson(page, '**/audit-core/v1/tenants/tenant-governance/journeys/journey-governance/booking/part1', bookingPart1);
+            // /bookings/:journeyId now ends at JourneyDocumentsPage, which reads the
+          // unified capture checklist from this v2 endpoint. Left unmocked it falls
+          // through to the preview server's index.html and the page shows the
+          // "Documents are not available yet" card instead of the documents screen.
+          await routeJson(page, '**/audit-core/v2/tenants/tenant-governance/journeys/journey-governance/uc03/documents/capture-local', unifiedCaptureEmpty);
+          await routeJson(page, '**/audit-core/v1/tenants/tenant-governance/journeys/journey-governance/booking/part1', bookingPart1);
             await routeJson(page, '**/audit-core/v1/tenants/tenant-governance/journeys/journey-governance/booking/details/options', bookingOptions);
             await routeJson(page, '**/audit-core/v1/tenants/tenant-governance/journeys/journey-governance/booking/details', bookingDetails);
             await routeJson(page, '**/audit-core/v2/tenants/tenant-governance/journeys/journey-governance/booking/capture-local', captureV2Empty('BOOKING'));
@@ -474,24 +498,12 @@ jobs:
             // retired with the unified single-screen capture flow (Booking
             // Form and Delivery documents are captured together now; there
             // is no separate "Booking Details" form step to continue into).
-            // PageHeader always renders the workspace's own customer name
-            // (from the mocked uc03-workspace response below) as its <h1> --
-            // confirmed by dumping outerHTML from a real failing run of this
-            // exact job. getByRole('heading', {name:...}) is deliberately NOT
-            // used here: on this job's actual ubuntu-latest/headless-Chromium
-            // runner (never locally, and not on any other screen in this
-            // script), this specific <h1> is consistently built with an
-            // accessible name that does not match its own visible text --
-            // Chromium's computed name came back "Upload Documents" (a string
-            // that appears nowhere in this app's current source or built
-            // bundle) even though the DOM plainly reads
-            // <h1 aria-label="Upload Documents">Governance Customer</h1>.
-            // Text-based matching (already this script's own pattern for the
-            // Landing scenario above, for a related reason) sidesteps that
-            // platform-specific accessible-name computation instead of
-            // depending on it.
-            await page.goto(`${base}/bookings/journey-governance`, { waitUntil: 'networkidle' });
-            await page.getByText('Governance Customer').first().waitFor();
+            // JourneyDocumentsPage's PageHeader prints the fixed title below (it no
+          // longer prints the customer name). Text matching is used rather than
+          // getByRole('heading'): on this runner Chromium computed a different
+          // accessible name for this <h1> than its visible text.
+          await page.goto(`${base}/bookings/journey-governance`, { waitUntil: 'networkidle' });
+          await page.getByText('Upload & Review Documents').first().waitFor();
             visibleText = await page.locator('body').innerText();
             // Dealer/Outlet context is deliberately NOT landing-only anymore --
             // AppShell's sidebar ("Current Dealership") is a persistent, shared
@@ -562,5 +574,15 @@ jobs:
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add docs/visual-evidence/VISUAL_DEV_LATEST.md
           git commit -m 'chore(ui): record visual validation result [skip ci]' || exit 0
-          git pull --rebase origin dev
-          git push origin HEAD:dev
+          # Several dev workflows push their evidence at the same moment, so a push can be
+          # rejected as stale. Pull again and push, as the Android validation does.
+          for attempt in 1 2 3 4; do
+            git pull --rebase origin dev
+            if git push origin HEAD:dev; then
+              exit 0
+            fi
+            echo "::warning::Visual validation result evidence raced with another dev update; retry ${attempt}/4."
+            sleep $((attempt * 2))
+          done
+          echo '::warning::Unable to persist visual validation result evidence after retries.'
+          exit 1

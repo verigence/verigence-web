@@ -98,7 +98,6 @@ import './ui/pcNavigationMotion';
 
 import App from './App';
 import { reloadForStaleChunk, STALE_CHUNK_RELOAD_FLAG } from './components/ErrorBoundary';
-import RememberMeDebugOverlay from './components/RememberMeDebugOverlay';
 import SessionBootstrapGate from './components/SessionBootstrapGate';
 import DiFieldViewerEnhancer from './features/di-test/DiFieldViewerEnhancer';
 import { AuditCoreTimeoutError } from './services/audit-core/client';
@@ -154,9 +153,6 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
         <DiFieldViewerEnhancer />
         <App />
       </SessionBootstrapGate>
-      {/* TEMPORARY DIAGNOSTIC (remember-me investigation, 2026-09-18): remove alongside
-          RememberMeDebugOverlay once the root cause is confirmed and fixed. */}
-      <RememberMeDebugOverlay />
     </QueryClientProvider>
   </React.StrictMode>,
 );

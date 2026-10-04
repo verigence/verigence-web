@@ -252,7 +252,8 @@ function HomeEntry() {
   const selectedProject = useProjectContextStore((state) => state.selectedProject);
   const operatingRole = selectedProject?.operatingRole;
   const home = operatingRole === 'PC' || operatingRole === 'TL' || operatingRole === 'PM' ? '/p2/bookings' : '/dashboard';
-  return <Authenticated><ProjectContextGate><Navigate to={home} replace /></ProjectContextGate></Authenticated>;
+  // People without the Audit switch who have HR land on My HR, as the plain landing page does.
+  return <Authenticated><ProjectContextGate><HrLanding><Navigate to={home} replace /></HrLanding></ProjectContextGate></Authenticated>;
 }
 
 function LegacyOperationalPage({ children }: { children: ReactNode }) {

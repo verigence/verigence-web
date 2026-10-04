@@ -1,11 +1,27 @@
-// TEMPORARY DIAGNOSTIC (remember-me investigation, 2026-09-18): a shared, on-device log buffer
-// for the "Keep me signed in" flow. adb/logcat is impractical to get from a real Android tester,
-// so this persists to localStorage (survives the app being fully killed and reopened, which is
-// exactly the cold-start moment we need to observe) and is rendered by RememberMeDebugOverlay so
-// the outcome can be read straight off the phone screen and copied from there.
-// Remove this module, its overlay, and every call site once the root cause is confirmed and fixed.
+// Optional on-device diagnostic log for the "Keep me signed in" flow, off by default and never shown on
+// screen. When SuperAdmin switches device diagnostics on, entries are kept here (localStorage survives the
+// app being killed and reopened, the cold-start moment worth seeing) and sent to the server once signed in.
 
 const STORAGE_KEY = 'verigence.debug.remember-log.v1';
+/** Set by the diagnostics setting from the server; absent means off, so nothing is captured by default. */
+const ENABLED_KEY = 'verigence.diagnostics.enabled';
+
+export function isDiagnosticsEnabled(): boolean {
+  try {
+    return window.localStorage.getItem(ENABLED_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
+export function setDiagnosticsEnabled(enabled: boolean): void {
+  try {
+    if (enabled) window.localStorage.setItem(ENABLED_KEY, '1');
+    else window.localStorage.removeItem(ENABLED_KEY);
+  } catch {
+    // Storage can be unavailable; diagnostics then simply stay off.
+  }
+}
 const MAX_ENTRIES = 60;
 
 export interface RememberLogEntry {
@@ -38,6 +54,7 @@ function writeEntries(entries: RememberLogEntry[]): void {
 }
 
 export function rememberLog(step: string, detail: Record<string, unknown> = {}): void {
+  if (!isDiagnosticsEnabled()) return;
   try {
     console.warn('[remember-me]', step, detail);
   } catch {

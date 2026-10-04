@@ -780,3 +780,35 @@ html.native-android .journey-360-page .journey-360-doc-detail--boxed {
     max-width: none;
   }
 }
+
+/* Newer Android draws the app behind the status bar (clock, wifi, signal), so the header must clear it or the
+   avatar and name collide with those icons. The inset is 0 wherever the system already pads the app. */
+@media (max-width: 899px) {
+  html.native-android .enterprise-shell.enterprise-shell--approved-nav {
+    grid-template-rows: calc(64px + env(safe-area-inset-top, 0px)) minmax(calc(100dvh - 64px - env(safe-area-inset-top, 0px)), auto) !important;
+  }
+
+  html.native-android .enterprise-shell--approved-nav .enterprise-topbar {
+    height: calc(64px + env(safe-area-inset-top, 0px)) !important;
+    min-height: calc(64px + env(safe-area-inset-top, 0px));
+    padding-top: env(safe-area-inset-top, 0px) !important;
+    box-sizing: border-box;
+  }
+
+  /* The drawer, its backdrop and the scrolling page start below the taller header. */
+  html.native-android .enterprise-shell--approved-nav .enterprise-sidebar {
+    top: calc(64px + env(safe-area-inset-top, 0px)) !important;
+    height: calc(100dvh - 64px - env(safe-area-inset-top, 0px)) !important;
+    max-height: calc(100dvh - 64px - env(safe-area-inset-top, 0px)) !important;
+  }
+
+  html.native-android .enterprise-shell--approved-nav.enterprise-shell--menu-open .enterprise-mobile-backdrop {
+    top: calc(64px + env(safe-area-inset-top, 0px)) !important;
+  }
+
+  html.native-android .enterprise-shell.enterprise-shell--approved-nav > .enterprise-main {
+    height: calc(100dvh - 64px - env(safe-area-inset-top, 0px)) !important;
+    max-height: calc(100dvh - 64px - env(safe-area-inset-top, 0px)) !important;
+    min-height: calc(100dvh - 64px - env(safe-area-inset-top, 0px)) !important;
+  }
+}

@@ -46,7 +46,7 @@ export function setRememberedIdentityHint(identifier?: string): void {
 }
 
 // TEMPORARY DIAGNOSTIC (remember-me investigation, 2026-09-18): logs every native
-// secure-storage read/write outcome, on-device (see RememberMeDebugOverlay), so a real failed
+// secure-storage read/write outcome, on-device (only when device diagnostics are switched on), so a real failed
 // "Keep me signed in" attempt shows exactly where it broke without needing adb/logcat.
 // Remove once the root cause is confirmed and fixed.
 function rememberLog(step: string, detail: Record<string, unknown> = {}): void {

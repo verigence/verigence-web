@@ -48,13 +48,6 @@ const journeySearchItem: NavItem = {
   roles: ['PC', 'TL', 'PM'],
 };
 
-const feedbackItem: NavItem = {
-  to: '/feedback',
-  label: 'Feedback',
-  mark: 'FB',
-  roles: ['PC', 'TL', 'PM'],
-};
-
 const reviewQueueItem: NavItem = {
   to: '/reviews',
   label: 'Task Queue',
@@ -157,7 +150,6 @@ const groups: NavGroup[] = [
     { to: '/customers', label: 'Customers', mark: 'CU', roles: ['PC', 'TL', 'PM', 'EXECUTIVE', ...admin] },
     { to: '/journeys', label: 'Journeys', mark: 'JR', roles: ['PC', 'TL', 'PM', 'EXECUTIVE', ...admin] },
     { to: '/tasks', label: 'My Work', mark: 'WK', roles: operational },
-    feedbackItem,
   ] },
   { key: 'operations', label: 'Operations & Assurance', items: [
     { to: '/reviews', label: 'Task Queue', mark: 'TQ', roles: assurance },
@@ -194,7 +186,7 @@ const groups: NavGroup[] = [
 
 const routeLabels: Record<string, string> = {
   '/dashboard': 'Overview', '/work-queue': 'Bookings & Deliveries', '/search': 'Search', '/customers': 'Customers', '/journeys': 'Journeys', '/tasks': 'My Work',
-  '/feedback': 'Feedback',
+  '/feedback': 'Feedback & Support', '/hr/support': 'Feedback & Support', '/hr/support/new': 'Raise a ticket',
   '/reviews': 'Task Queue', '/duplicate-bookings': 'Duplicate Bookings', '/rule-catalog': 'Rule Catalog', '/rule-catalog/new': 'Author a Rule', '/evidence': 'Evidence', '/payments': 'Payment Tracker', '/findings': 'Findings',
   '/daily-ops': 'Daily Operations', '/activity': 'Activity Tracker', '/crm': 'CRM Follow-up', '/escalations': 'Escalations',
   '/analytics': 'Analytics', '/p2/bookings': 'Booking & Delivery', '/p2/tasks': 'Task Queue', '/p2/duplicate-bookings': 'Duplicate bookings', '/admin/engagements': 'Engagements', '/admin/document-intelligence': 'Document Intelligence Configuration',
@@ -345,7 +337,6 @@ export default function AppShell({ children }: PropsWithChildren) {
             { ...p2TasksItem, badge: p2TaskCount },
             p2DuplicatesItem,
             ...(role === 'PC' ? [dailyOpsItem] : []),
-            feedbackItem,
           ],
         }
       : null;
@@ -401,6 +392,7 @@ export default function AppShell({ children }: PropsWithChildren) {
       items.push({ to: '/hr/salary', label: 'My Salary', mark: 'MS' });
       items.push({ to: '/hr/me', label: 'My Employee Profile', mark: 'HP' });
     }
+    if (hrAccess.isEmployee || can('hr.support.manage')) items.push({ to: '/hr/support', label: 'Feedback & Support', mark: 'FB' });
     if (hrAccess.canReadEmployees) items.push({ to: '/hr/employees', label: 'Employees', mark: 'HE' });
     if (hrAccess.canReadEmployees) items.push({ to: '/hr/assignments', label: 'Project Assignments', mark: 'HJ' });
     if (can('hr.attendance.read_all')) items.push({ to: '/hr/attendance/team', label: 'Team Attendance', mark: 'HT' });
@@ -628,7 +620,6 @@ export default function AppShell({ children }: PropsWithChildren) {
                     <NavLink
                       key={item.to}
                       to={item.to}
-                      state={item.to === '/feedback' ? { from: `${location.pathname}${location.search}` } : undefined}
                       onClick={() => setMobileMenuOpen(false)}
                       className={({ isActive }) => `enterprise-nav__item${isNavItemActive(item, isActive) ? ' enterprise-nav__item--active' : ''}`}
                     >

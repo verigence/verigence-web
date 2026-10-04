@@ -46,16 +46,6 @@ export default function TodayCard({ today, onStart, disabled = false }: Props) {
         </div>
       )}
 
-      <div className="hr-att-day__sides">
-        <SideBlock label="Check-in" event="CHECK_IN" side={day?.checkIn ?? null} attendanceId={day?.attendanceId ?? ''} caption={caption} autoLoadPhoto />
-        <SideBlock label="Check-out" event="CHECK_OUT" side={day?.checkOut ?? null} attendanceId={day?.attendanceId ?? ''} caption={caption} autoLoadPhoto />
-      </div>
-
-      {day && <ExceptionList exceptions={day.exceptions} viewer="self" caption={caption} />}
-      {pending && (
-        <p className="hr-att-hint">{approver.charAt(0).toUpperCase() + approver.slice(1)} has been asked to approve this. You can still check out.</p>
-      )}
-
       {working && (
         <div className="hr-att-today__actions">
           {!checkedIn && (
@@ -72,6 +62,18 @@ export default function TodayCard({ today, onStart, disabled = false }: Props) {
         </div>
       )}
 
+      <div className="hr-att-day__sides">
+        <SideBlock label="Check-in" event="CHECK_IN" side={day?.checkIn ?? null} attendanceId={day?.attendanceId ?? ''} caption={caption} autoLoadPhoto />
+        <SideBlock label="Check-out" event="CHECK_OUT" side={day?.checkOut ?? null} attendanceId={day?.attendanceId ?? ''} caption={caption} autoLoadPhoto />
+      </div>
+
+      {day && <ExceptionList exceptions={day.exceptions} viewer="self" caption={caption} />}
+      {pending && (
+        <p className="hr-att-hint">{approver.charAt(0).toUpperCase() + approver.slice(1)} has been asked to approve this. You can still check out.</p>
+      )}
+
+      <details className="hr-att-rules">
+        <summary>Timings and rules</summary>
       <dl className="hr-att-facts">
         <div>
           <dt>Check-in</dt>
@@ -92,16 +94,17 @@ export default function TodayCard({ today, onStart, disabled = false }: Props) {
           </div>
         )}
       </dl>
+      </details>
 
       {today.geofenced && today.outlets.length === 0 && (
         <div className="uc01-admin-message uc01-admin-message--info">
-          No outlet is assigned to you right now. You can still check in with a reason, and it will go for approval.
+          No outlet is assigned to you right now. Check in as usual. HR will see this and sort it out.
         </div>
       )}
       {missingLocation.length > 0 && (
         <div className="uc01-admin-message uc01-admin-message--info">
-          No location is on file for {missingLocation.map((o) => o.outletName ?? 'an outlet').join(', ')}. Checking in there needs a
-          reason and goes for approval.
+          No location is on file for {missingLocation.map((o) => o.outletName ?? 'an outlet').join(', ')}. Check in as usual. HR will see
+          this and add the location.
         </div>
       )}
       {today.workContextAgeHours !== null && today.workContextAgeHours > 36 && (

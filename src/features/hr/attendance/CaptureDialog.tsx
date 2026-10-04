@@ -51,8 +51,8 @@ type CameraState = { status: 'starting' | 'ready' | 'error'; message?: string };
 type LocationState = { status: 'loading' | 'ready' | 'error'; fix?: GeoFix; message?: string };
 interface Shot { blob: Blob; token: string; issuedAt: number; ttlMs: number }
 
-/** A fix older than this is refreshed before sending: the server refuses fixes older than a minute. */
-const FRESH_FIX_SECONDS = 20;
+/** A fix older than this is refreshed before sending. The server refuses fixes older than a minute, so this leaves room for the person to look at the photo without waiting for a new fix. */
+const FRESH_FIX_SECONDS = 40;
 
 /**
  * Check in / check out: live camera, location, then one request. A late or early event only needs
@@ -80,6 +80,7 @@ export default function CaptureDialog({ event, today, clockSkewMs, onClose }: Pr
   const video = useRef<HTMLVideoElement>(null);
   const alive = useRef(true);
   const refresh = useRef(false);
+  const locating = useRef<Promise<GeoFix | null> | null>(null);
   const shotUrl = useObjectUrl(shot?.blob);
 
   useEffect(() => {
@@ -126,17 +127,25 @@ export default function CaptureDialog({ event, today, clockSkewMs, onClose }: Pr
     };
   }, [step, cameraRun]);
 
-  const findLocation = useCallback(async (): Promise<GeoFix | null> => {
+  // One lookup at a time: sending while the first one is still running waits for it instead of starting another.
+  const findLocation = useCallback((): Promise<GeoFix | null> => {
+    if (locating.current) return locating.current;
     setLocation({ status: 'loading' });
-    try {
-      const fix = await locate();
-      if (alive.current) setLocation({ status: 'ready', fix });
-      return fix;
-    } catch (error) {
-      const message = locationMessage(error instanceof LocationError ? error.problem : 'UNAVAILABLE');
-      if (alive.current) setLocation({ status: 'error', message });
-      return null;
-    }
+    const run = (async (): Promise<GeoFix | null> => {
+      try {
+        const fix = await locate();
+        if (alive.current) setLocation({ status: 'ready', fix });
+        return fix;
+      } catch (error) {
+        const message = locationMessage(error instanceof LocationError ? error.problem : 'UNAVAILABLE');
+        if (alive.current) setLocation({ status: 'error', message });
+        return null;
+      }
+    })().finally(() => {
+      locating.current = null;
+    });
+    locating.current = run;
+    return run;
   }, []);
 
   useEffect(() => {
@@ -148,8 +157,8 @@ export default function CaptureDialog({ event, today, clockSkewMs, onClose }: Pr
     setBusy('photo');
     setProblem(null);
     try {
-      const blob = await captureFrame(video.current);
-      const issued = await requestCaptureToken(accessToken, event);
+      // The frame and the one-time permission are fetched together, not one after the other.
+      const [blob, issued] = await Promise.all([captureFrame(video.current), requestCaptureToken(accessToken, event)]);
       if (!alive.current) return;
       setShot({ blob, token: issued.token, issuedAt: Date.now(), ttlMs: issued.ttlSeconds * 1000 });
       setStep('review');
@@ -221,7 +230,8 @@ export default function CaptureDialog({ event, today, clockSkewMs, onClose }: Pr
 
   const expected = expectedException(event, hhmmIst(new Date(Date.now() + clockSkewMs)), today.standardTimes);
   const locked = busy !== null;
-  const canTakePhoto = camera.status === 'ready' && location.status === 'ready' && !busy;
+  // The photo does not wait for the location: it is only needed when the photo is sent.
+  const canTakePhoto = camera.status === 'ready' && location.status !== 'error' && !busy;
 
   // ---- done ------------------------------------------------------------------------------------
   if (step === 'done' && result) {

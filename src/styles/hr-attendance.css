@@ -145,3 +145,22 @@
   .hr-daily-table td, .hr-assign-table td { grid-template-columns: 92px minmax(0, 1fr); gap: 8px; padding: 5px 0; }
   .hr-daily-table td::before, .hr-assign-table td::before { margin-bottom: 0; }
 }
+
+/* Phone: less to scroll. The action is first, the two sides sit together, the rules fold away. */
+.hr-att-rules { border: 1px solid #e4e7ec; border-radius: 10px; background: #f9fafb; }
+.hr-att-rules > summary { cursor: pointer; padding: 10px 12px; font-size: 12px; font-weight: 700; color: #475467; min-height: 24px; }
+.hr-att-rules > .hr-att-facts { padding: 0 10px 10px; }
+.hr-att-rules > .hr-att-facts > div { background: #fff; }
+.hr-att-today__actions .hr-att-hint { text-align: center; }
+@media (max-width: 599px) {
+  .hr-att-page .page-header__copy > p { display: none; }
+  .hr-att-page .page-header { margin-bottom: 4px; }
+  .hr-att-today { gap: 10px; }
+  .hr-att-today .hr-att-day__sides, .hr-att-day .hr-att-day__sides { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .hr-att-side { padding: 8px 10px; gap: 3px; }
+  .hr-att-side__time { font-size: 16px; }
+  .hr-att-thumb { width: 36px; height: 36px; border-radius: 8px; }
+  .hr-att-side__address { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .hr-att-exceptions li { padding: 6px 8px; }
+  .hr-att-day { padding: 10px; gap: 8px; }
+}

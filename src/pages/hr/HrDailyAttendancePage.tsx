@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 
 import PageHeader from '../../components/PageHeader';
@@ -8,6 +8,7 @@ import { hrErrorMessage } from '../../services/hr/client';
 import { HR_PERMISSION } from '../../services/hr/employees';
 import { getWorkAssignments } from '../../services/hr/workAssignments';
 import { useSessionStore } from '../../store/sessionStore';
+import PhotoThumb from '../../features/hr/attendance/PhotoThumb';
 import ReportDialog from '../../features/hr/attendance/ReportDialog';
 import { formatDistance, formatTimeIst, formatWorkDate, todayIst } from '../../features/hr/attendance/attendanceFormat';
 import {
@@ -25,14 +26,22 @@ import '../../styles/hr-attendance.css';
 
 interface Project { code: string; name: string }
 
-function Side({ at, outlet, distance }: { at: string | null; outlet: string | null; distance: number | null }) {
+function Side({ at, outlet, distance, photo }: { at: string | null; outlet: string | null; distance: number | null; photo?: ReactNode }) {
   const far = formatDistance(distance);
   return (
     <span className="hr-daily-cell">
       <strong>{formatTimeIst(at)}</strong>
       {at && (outlet || far) && <small>{[outlet, far].filter(Boolean).join(' · ')}</small>}
+      {photo}
     </span>
   );
+}
+
+/** The stamped photo, opened only when tapped (and recorded when HR looks at it). */
+function photoFor(row: DailyRow, event: 'CHECK_IN' | 'CHECK_OUT') {
+  const has = event === 'CHECK_IN' ? row.hasCheckInPhoto : row.hasCheckOutPhoto;
+  if (!row.attendanceId || !has) return null;
+  return <PhotoThumb attendanceId={row.attendanceId} event={event} hasPhoto caption={`${row.employeeName}, ${formatWorkDate(row.workDate)}`} />;
 }
 
 function RowLine({ row }: { row: DailyRow }) {
@@ -40,8 +49,8 @@ function RowLine({ row }: { row: DailyRow }) {
     <tr className={needsAttention(row) ? 'hr-daily-row--attention' : undefined}>
       <td data-label="Employee"><span className="hr-daily-cell"><strong>{row.employeeName}</strong><small>{row.employeeCode}</small></span></td>
       <td data-label="Role">{row.roles.length ? row.roles.join(', ') : '—'}</td>
-      <td data-label="Check-in"><Side at={row.checkInAt} outlet={row.checkInOutlet} distance={row.checkInDistanceM} /></td>
-      <td data-label="Check-out"><Side at={row.checkOutAt} outlet={row.checkOutOutlet} distance={row.checkOutDistanceM} /></td>
+      <td data-label="Check-in"><Side at={row.checkInAt} outlet={row.checkInOutlet} distance={row.checkInDistanceM} photo={photoFor(row, 'CHECK_IN')} /></td>
+      <td data-label="Check-out"><Side at={row.checkOutAt} outlet={row.checkOutOutlet} distance={row.checkOutDistanceM} photo={photoFor(row, 'CHECK_OUT')} /></td>
       <td data-label="Hours">{formatHours(row.hoursWorked)}</td>
       <td data-label="Status">
         <span className={`uc01-admin-status${dailyStatusTone[row.status] ? ` uc01-admin-status--${dailyStatusTone[row.status]}` : ''}`}>
@@ -50,8 +59,13 @@ function RowLine({ row }: { row: DailyRow }) {
       </td>
       <td data-label="Delinquencies">
         {row.delinquencies.length === 0 ? <span className="hr-muted">None</span> : (
-          <span className="hr-flags">
-            {row.delinquencies.map((d) => <span key={d.code} className="hr-flag">{delinquencyText(d)}</span>)}
+          <span className="hr-daily-cell">
+            <span className="hr-flags">
+              {row.delinquencies.map((d, i) => <span key={`${d.code}-${i}`} className="hr-flag">{delinquencyText(d)}</span>)}
+            </span>
+            {row.delinquencies.filter((d) => d.reason).map((d, i) => (
+              <small key={`${d.code}-reason-${i}`}>Reason given: {d.reason}</small>
+            ))}
           </span>
         )}
       </td>

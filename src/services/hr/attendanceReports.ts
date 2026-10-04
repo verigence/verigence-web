@@ -18,6 +18,8 @@ export interface Delinquency {
   code: string;
   label: string;
   decision: DelinquencyDecision | null;
+  /** What the person wrote when they were not at their tagged location, late, or early. */
+  reason?: string | null;
 }
 
 export interface DailyRow {
@@ -37,6 +39,9 @@ export interface DailyRow {
   checkInDistanceM: number | null;
   checkOutDistanceM: number | null;
   hoursWorked: number | null;
+  attendanceId?: string | null;
+  hasCheckInPhoto?: boolean;
+  hasCheckOutPhoto?: boolean;
   delinquencies: Delinquency[];
 }
 

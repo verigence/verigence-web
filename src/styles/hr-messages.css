@@ -109,3 +109,22 @@
 /* Space between the parts inside each card */
 .hrm-page .section-card > * + * { margin-top: 12px; }
 .hrm-page .section-card > .hrm-run__actions { margin-top: 14px; }
+
+/* Users list: filter, employee tag */
+.hrm-filter select { min-height: 44px; font-size: 16px; }
+.hrm-picker-tools .uc01-admin-search input { min-height: 44px; font-size: 16px; }
+.hrm-tag { display: inline-flex; padding: 4px 8px; border-radius: 999px; background: #e6f6fa; color: #0b5566; font-size: 10px; font-weight: 800; letter-spacing: .02em; }
+
+/* Send me a test */
+.hrm-test { display: flex; flex-direction: column; gap: 8px; margin-top: 16px; padding: 14px; border: 1px dashed #cfd6df; border-radius: 12px; background: #fbfcfd; }
+.hrm-test__note { margin: 0; font-size: 12px; line-height: 1.5; color: #475467; }
+.hrm-test__row { display: flex; flex-direction: column; gap: 10px; }
+.hrm-test__button { align-self: stretch; }
+.hrm-history-tools { grid-template-columns: 1fr; }
+@media (min-width: 640px) {
+  .hrm-picker-tools .hrm-filter { flex: 0 0 200px; }
+  .hrm-test__row { flex-direction: row; align-items: flex-end; }
+  .hrm-test__row .hr-field { flex: 1 1 280px; max-width: 420px; }
+  .hrm-test__button { align-self: flex-end; }
+  .hrm-history-tools { grid-template-columns: minmax(0, 420px) auto; }
+}

@@ -32,14 +32,15 @@ export interface MessageTemplateList {
 export interface SendMessageInput {
   channel: MessageChannel;
   template: MessageTemplateCode;
-  employee_ids: string[];
+  /** Verigence user ids (the Users group), at most MESSAGE_BATCH_LIMIT per request. */
+  user_ids: string[];
   /** Only for GENERAL: wording for this one send. The saved template is not changed. */
   subject?: string;
   body?: string;
 }
 
 export interface SendMessageResult {
-  employeeId: string;
+  userId: string;
   name: string | null;
   status: MessageResultStatus;
   code: string | null;
@@ -48,15 +49,40 @@ export interface SendMessageResult {
 
 export interface MessageLogEntry {
   logId: number;
-  employeeId: string;
-  employeeCode: string;
-  employeeName: string;
+  userId: string | null;
+  employeeId: string | null;
+  name: string | null;
   channel: MessageChannel | string;
   template: MessageTemplateCode | string;
   status: MessageResultStatus | string;
   reason: string | null;
   sentBy: string;
   sentAt: string;
+}
+
+/** One person of the Verigence Users group. Employees are tagged, not required. */
+export interface MessageRecipient {
+  userId: string;
+  displayName: string | null;
+  email: string | null;
+  status: string;
+  isEmployee: boolean;
+  employeeId: string | null;
+}
+
+export interface SendTestInput {
+  channel: MessageChannel;
+  template: MessageTemplateCode;
+  to: string;
+  /** Only for GENERAL: the same one-off wording as a real send. */
+  subject?: string;
+  body?: string;
+}
+
+export interface SendTestResult {
+  status: 'SENT' | 'FAILED';
+  code: string | null;
+  message: string | null;
 }
 
 const base = '/hr/v1/messages';
@@ -83,9 +109,25 @@ export const sendMessages = (token: string, input: SendMessageInput) =>
     body: input as unknown as Record<string, unknown>,
   });
 
-export const listMessageLog = (token: string, params: { employeeId?: string; limit?: number } = {}) => {
+export const listMessageLog = (token: string, params: { userId?: string; limit?: number } = {}) => {
   const query = new URLSearchParams();
-  if (params.employeeId) query.set('employee_id', params.employeeId);
+  if (params.userId) query.set('user_id', params.userId);
   query.set('limit', String(params.limit ?? 50));
   return hrRequest<{ items: MessageLogEntry[] }>(`${base}/log?${query.toString()}`, { accessToken: token });
 };
+
+export const listMessageRecipients = (token: string, params: { q?: string; limit?: number; offset?: number }) => {
+  const query = new URLSearchParams();
+  if (params.q?.trim()) query.set('q', params.q.trim());
+  query.set('limit', String(params.limit ?? 100));
+  query.set('offset', String(params.offset ?? 0));
+  return hrRequest<{ items: MessageRecipient[] }>(`${base}/recipients?${query.toString()}`, { accessToken: token });
+};
+
+/** One test email to an address HR types. Uses a fake password, changes no login, is not logged. */
+export const sendMessageTest = (token: string, input: SendTestInput) =>
+  hrRequest<SendTestResult>(`${base}/test`, {
+    accessToken: token,
+    method: 'POST',
+    body: input as unknown as Record<string, unknown>,
+  });

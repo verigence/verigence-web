@@ -1,9 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 
 import SectionCard from '../../../components/SectionCard';
 import { hrErrorMessage } from '../../../services/hr/client';
-import { listEmployees } from '../../../services/hr/employees';
 import { listMessageLog, type MessageLogEntry } from '../../../services/hr/messages';
 import { formatDateTime } from '../hrLabels';
 import { messageKeys } from './messageKeys';
@@ -22,56 +21,32 @@ function senderLabel(sentBy: string, myUserId: string | null): string {
 }
 
 export default function HistoryTab({ accessToken, myUserId }: Props) {
-  const [employeeId, setEmployeeId] = useState('');
   const [search, setSearch] = useState('');
-  const [query, setQuery] = useState('');
 
-  useEffect(() => {
-    const timer = window.setTimeout(() => setQuery(search.trim()), 350);
-    return () => window.clearTimeout(timer);
-  }, [search]);
-
-  const people = useQuery({
-    queryKey: messageKeys.people(query),
-    queryFn: () => listEmployees(accessToken, { q: query, limit: 100 }),
-    retry: false,
-    refetchOnWindowFocus: false,
-    placeholderData: (previous) => previous,
-  });
+  // One request for the 50 latest messages. The name box below only narrows what is already loaded.
   const log = useQuery({
-    queryKey: messageKeys.log(employeeId),
-    queryFn: () => listMessageLog(accessToken, { employeeId: employeeId || undefined, limit: 50 }),
+    queryKey: messageKeys.log,
+    queryFn: () => listMessageLog(accessToken, { limit: 50 }),
     retry: false,
     refetchOnWindowFocus: false,
   });
 
-  const options = people.data?.items ?? [];
-  const items = log.data?.items ?? [];
-  const chosenName = items.find((i) => i.employeeId === employeeId)?.employeeName;
+  const all = log.data?.items ?? [];
+  const needle = search.trim().toLowerCase();
+  const items = needle ? all.filter((row) => (row.name ?? '').toLowerCase().includes(needle)) : all;
 
   return (
     <div className="hrm-panel">
-      <SectionCard title="Message history" description="The 50 most recent messages. Passwords are never recorded here.">
+      <SectionCard title="Message history" description="The 50 most recent messages. Passwords are never recorded here. Test emails are not listed.">
         <div className="hrm-history-tools">
           <label className="uc01-admin-search">
-            <span>Find a person</span>
-            <input type="search" value={search} placeholder="Name, code or email" onChange={(e) => setSearch(e.target.value)} />
-          </label>
-          <label className="uc01-admin-filter">
-            <span>Show messages for</span>
-            <select value={employeeId} onChange={(e) => setEmployeeId(e.target.value)}>
-              <option value="">Everyone</option>
-              {employeeId && !options.some((o) => o.employeeId === employeeId) && (
-                <option value={employeeId}>{chosenName ?? 'Chosen person'}</option>
-              )}
-              {options.map((o) => <option key={o.employeeId} value={o.employeeId}>{o.fullName} ({o.employeeCode})</option>)}
-            </select>
+            <span>Find a user in this list</span>
+            <input type="search" value={search} placeholder="Name" onChange={(e) => setSearch(e.target.value)} />
           </label>
           <button type="button" className="uc01-admin-button" onClick={() => log.refetch()} disabled={log.isFetching}>
             {log.isFetching ? 'Refreshing…' : 'Refresh'}
           </button>
         </div>
-        {people.isError && <p className="hr-muted" role="alert">The list of people could not be loaded. {hrErrorMessage(people.error)}</p>}
       </SectionCard>
 
       {log.isLoading && <div className="uc01-admin-state">Loading history…</div>}
@@ -86,12 +61,15 @@ export default function HistoryTab({ accessToken, myUserId }: Props) {
         <div className="uc01-admin-table-wrap">
           <table className="uc01-admin-table hr-table hrm-table">
             <thead>
-              <tr><th>Person</th><th>Channel</th><th>Message</th><th>Status</th><th>Reason</th><th>Sent by</th><th>When (IST)</th></tr>
+              <tr><th>User</th><th>Channel</th><th>Message</th><th>Status</th><th>Reason</th><th>Sent by</th><th>When (IST)</th></tr>
             </thead>
             <tbody>
               {items.map((row: MessageLogEntry) => (
                 <tr key={row.logId}>
-                  <td data-label="Person"><strong>{row.employeeName}</strong><small>{row.employeeCode}</small></td>
+                  <td data-label="User">
+                    <strong>{row.name ?? 'Unknown user'}</strong>
+                    {row.employeeId && <small>Employee</small>}
+                  </td>
                   <td data-label="Channel"><span>{channelText[row.channel] ?? row.channel}</span></td>
                   <td data-label="Message"><span>{templateText[row.template] ?? row.template}</span></td>
                   <td data-label="Status">
@@ -106,7 +84,7 @@ export default function HistoryTab({ accessToken, myUserId }: Props) {
               ))}
               {items.length === 0 && (
                 <tr><td colSpan={7} className="uc01-admin-empty">
-                  {employeeId ? 'No messages have been sent to this person yet.' : 'No messages have been sent yet.'}
+                  {needle ? 'No one in the latest 50 messages matches this name.' : 'No messages have been sent yet.'}
                 </td></tr>
               )}
             </tbody>

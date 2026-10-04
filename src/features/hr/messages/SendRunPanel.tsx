@@ -48,7 +48,7 @@ export default function SendRunPanel({ run, onStop, onSendRest, onSelectNotSent,
   const rest = notFinishedIds(run);
   const notSent = notSentIds(run);
   const current = run.batches.findIndex((b) => b.status === 'sending');
-  const nameOf = (id: string, fallback: string | null) => run.people[id]?.fullName ?? fallback ?? 'Unknown employee';
+  const nameOf = (id: string, fallback: string | null) => run.people[id]?.name ?? fallback ?? 'Unknown user';
 
   return (
     <SectionCard
@@ -60,8 +60,8 @@ export default function SendRunPanel({ run, onStop, onSendRest, onSelectNotSent,
         <progress max={total} value={done} aria-label="Sending progress" />
         <span>
           {running
-            ? `${done} of ${countLabel(total, 'person', 'people')} done${current >= 0 ? ` (sending group ${current + 1} of ${run.batches.length})` : ''}. Please keep this page open.`
-            : `${done} of ${countLabel(total, 'person', 'people')} were processed.`}
+            ? `${done} of ${countLabel(total, 'user', 'users')} done${current >= 0 ? ` (sending group ${current + 1} of ${run.batches.length})` : ''}. Please keep this page open.`
+            : `${done} of ${countLabel(total, 'user', 'users')} were processed.`}
         </span>
       </div>
 
@@ -81,13 +81,13 @@ export default function SendRunPanel({ run, onStop, onSendRest, onSelectNotSent,
 
       {run.phase === 'failed' && (
         <div className="uc01-admin-message uc01-admin-message--error" role="alert">
-          The run stopped because a request failed. Nothing more was sent. {countLabel(rest.length, 'person was', 'people were')} not
+          The run stopped because a request failed. Nothing more was sent. {countLabel(rest.length, 'user was', 'users were')} not
           confirmed as sent (listed below). You decide whether to send to them again.
         </div>
       )}
       {run.phase === 'stopped' && (
         <div className="uc01-admin-message uc01-admin-message--info" role="status">
-          You stopped the run. {countLabel(rest.length, 'person was', 'people were')} not sent yet.
+          You stopped the run. {countLabel(rest.length, 'user was', 'users were')} not sent yet.
         </div>
       )}
       {run.phase === 'done' && notSent.length === 0 && (
@@ -106,17 +106,17 @@ export default function SendRunPanel({ run, onStop, onSendRest, onSelectNotSent,
                 <p>{batch.error}</p>
                 <p>
                   {batch.maybeSent
-                    ? 'We cannot tell whether some of these people were sent. Check the History tab before sending to them again.'
-                    : 'Nothing was sent to these people.'}
+                    ? 'We cannot tell whether some of these users were sent. Check the History tab before sending to them again.'
+                    : 'Nothing was sent to these users.'}
                 </p>
               </div>
             )}
             {batch.results.length > 0 ? (
               <ul className="hrm-results">
                 {batch.results.map((r) => (
-                  <li key={r.employeeId} className="hrm-result">
+                  <li key={r.userId} className="hrm-result">
                     <div className="hrm-result__top">
-                      <strong>{nameOf(r.employeeId, r.name)}</strong>
+                      <strong>{nameOf(r.userId, r.name)}</strong>
                       <span className={`uc01-admin-status uc01-admin-status--${resultStatusClass[r.status]}`}>{resultStatusText[r.status]}</span>
                     </div>
                     {r.message && <p className="hrm-result__message">{r.message}</p>}
@@ -146,12 +146,12 @@ export default function SendRunPanel({ run, onStop, onSendRest, onSelectNotSent,
         <div className="hr-actions hrm-run__actions">
           {rest.length > 0 && (
             <button type="button" className="uc01-admin-button uc01-admin-button--primary" onClick={() => onSendRest(rest)}>
-              Send to the {countLabel(rest.length, 'person', 'people')} not finished
+              Send to the {countLabel(rest.length, 'user', 'users')} not finished
             </button>
           )}
           {notSent.length > 0 && (
             <button type="button" className="uc01-admin-button" onClick={() => onSelectNotSent(notSent)}>
-              Select the {countLabel(notSent.length, 'person', 'people')} not sent
+              Select the {countLabel(notSent.length, 'user', 'users')} not sent
             </button>
           )}
           <button type="button" className="uc01-admin-button" onClick={onClear}>Clear results</button>

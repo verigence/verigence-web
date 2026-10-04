@@ -1,4 +1,3 @@
-import type { LoginStatus } from '../../../services/hr/employees';
 import type {
   MessageResultStatus,
   MessageTemplateCode,
@@ -78,7 +77,7 @@ export function validateWording(
 export const MASKED_PASSWORD = '••••••••';
 
 export interface PreviewPerson {
-  fullName: string;
+  name: string;
 }
 
 /**
@@ -88,7 +87,7 @@ export interface PreviewPerson {
  */
 export function renderPreview(text: string, person: PreviewPerson): string {
   const values: Record<string, string> = {
-    name: person.fullName,
+    name: person.name,
     company: '[company name]',
     sign_in_link: '[sign-in link]',
     app_link: '[app download link]',
@@ -114,10 +113,11 @@ export const resultStatusClass: Record<MessageResultStatus, string> = {
 
 /** What a reason code means for HR. Codes come from the HR service; unknown ones are shown as they are. */
 export const reasonText: Record<string, string> = {
-  NOT_FOUND: 'This employee was not found.',
-  NOT_ACTIVE: 'The employee is not active.',
+  NOT_FOUND: 'This user was not found.',
+  NOT_ACTIVE: 'The user is not active.',
+  NO_EMAIL: 'The user has no email address.',
   NO_LOGIN: 'There is no Verigence login yet.',
-  LOGIN_NOT_ACTIVE: 'The login is waiting for SuperAdmin to allow it.',
+  LOGIN_NOT_ACTIVE: 'Waiting for SuperAdmin to allow this user.',
   MAIL_UNAVAILABLE: 'The mail server could not be reached.',
   MAIL_AUTH_FAILED: 'The mail account refused the sign-in.',
   MAIL_RECIPIENT_REFUSED: 'The email address was refused.',
@@ -161,11 +161,55 @@ export function countLabel(n: number, one: string, many: string): string {
   return `${n} ${n === 1 ? one : many}`;
 }
 
-/** A person chosen to receive a message: only what the screen needs. */
+/** A Verigence user chosen to receive a message: only what the screen needs. */
 export interface Recipient {
-  employeeId: string;
-  fullName: string;
-  employeeCode: string;
-  personalEmail: string;
-  loginStatus: LoginStatus;
+  userId: string;
+  /** The display name, or the email when the user has no name. */
+  name: string;
+  email: string | null;
+  status: string;
+  isEmployee: boolean;
+}
+
+export type RecipientFilter = 'all' | 'employees' | 'others';
+
+export const recipientFilterText: Record<RecipientFilter, string> = {
+  all: 'All users',
+  employees: 'Employees only',
+  others: 'Not employees',
+};
+
+export function filterRecipients<T extends { isEmployee: boolean }>(items: T[], filter: RecipientFilter): T[] {
+  if (filter === 'employees') return items.filter((i) => i.isEmployee);
+  if (filter === 'others') return items.filter((i) => !i.isEmployee);
+  return items;
+}
+
+export function toRecipient(user: {
+  userId: string;
+  displayName: string | null;
+  email: string | null;
+  status: string;
+  isEmployee: boolean;
+}): Recipient {
+  return {
+    userId: user.userId,
+    name: user.displayName?.trim() || user.email || 'Unnamed user',
+    email: user.email,
+    status: user.status,
+    isEmployee: user.isEmployee,
+  };
+}
+
+export function recipientStatusText(status: string): string {
+  if (status === 'ACTIVE') return 'Active';
+  if (status === 'PENDING') return 'Pending';
+  return status ? status.charAt(0) + status.slice(1).toLowerCase() : 'Unknown';
+}
+
+export const recipientStatusClass = (status: string) => (status === 'ACTIVE' ? 'active' : status === 'PENDING' ? 'pending' : 'rejected');
+
+/** The shape of an email address only. The HR service decides whether it is acceptable. */
+export function looksLikeEmail(value: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
 }

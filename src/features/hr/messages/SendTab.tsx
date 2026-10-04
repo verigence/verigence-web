@@ -10,6 +10,7 @@ import {
 import ConfirmSendDialog from './ConfirmSendDialog';
 import RecipientPicker from './RecipientPicker';
 import SendRunPanel from './SendRunPanel';
+import TestSendBox from './TestSendBox';
 import WordingEditor from './WordingEditor';
 import { channelText, countLabel, renderPreview, templateText, toBatches, validateWording, type Recipient } from './messagePlan';
 import { useSendRun, type StartInput } from './useSendRun';
@@ -57,11 +58,18 @@ export default function SendTab({ accessToken, templates, mailConfigured }: Prop
   const blocker = !mailConfigured
     ? 'Email is not set up yet, so nothing can be sent.'
     : selected.length === 0
-      ? 'Choose at least one person.'
+      ? 'Choose at least one user.'
       : wordingProblem && code === 'GENERAL'
         ? wordingProblem
         : '';
   const canSend = !running && !blocker;
+  const testBlocker = running
+    ? 'A send is running. Tests are off until it finishes.'
+    : !mailConfigured
+      ? 'Email is not set up yet.'
+      : code === 'GENERAL' && wordingProblem
+        ? wordingProblem
+        : '';
   const askToSend = () =>
     setConfirm({
       people: selected,
@@ -170,7 +178,7 @@ export default function SendTab({ accessToken, templates, mailConfigured }: Prop
 
       <SectionCard
         title="3. Preview and send"
-        description={first ? `Preview for ${first.fullName}, the first person chosen.` : undefined}
+        description={first ? `Preview for ${first.name}, the first user chosen.` : undefined}
       >
         {preview ? (
           <div className="hrm-preview" aria-label="Preview">
@@ -185,7 +193,7 @@ export default function SendTab({ accessToken, templates, mailConfigured }: Prop
             </small>
           </div>
         ) : (
-          <div className="uc01-admin-state">Choose at least one person to see a preview.</div>
+          <div className="uc01-admin-state">Choose at least one user to see a preview.</div>
         )}
 
         <div className="hrm-sendbar">
@@ -195,10 +203,19 @@ export default function SendTab({ accessToken, templates, mailConfigured }: Prop
             disabled={!canSend}
             onClick={askToSend}
           >
-            {running ? 'Sending…' : selected.length > 0 ? `Send to ${countLabel(selected.length, 'person', 'people')}` : 'Send'}
+            {running ? 'Sending…' : selected.length > 0 ? `Send to ${countLabel(selected.length, 'user', 'users')}` : 'Send'}
           </button>
           {blocker && !running && <span className="hr-muted" role="status">{blocker}</span>}
         </div>
+
+        <TestSendBox
+          accessToken={accessToken}
+          template={code}
+          channel={channel}
+          {...(code === 'GENERAL' ? { subject, body } : {})}
+          disabled={Boolean(testBlocker)}
+          disabledReason={testBlocker}
+        />
       </SectionCard>
 
       {run && (
@@ -208,7 +225,7 @@ export default function SendTab({ accessToken, templates, mailConfigured }: Prop
       {confirm && (
         <ConfirmSendDialog
           people={confirm.people.length}
-          groups={toBatches(confirm.people.map((p) => p.employeeId), MESSAGE_BATCH_LIMIT).length}
+          groups={toBatches(confirm.people.map((p) => p.userId), MESSAGE_BATCH_LIMIT).length}
           messageName={templateText[confirm.template]}
           channelName={channelText[confirm.channel]}
           isWelcome={confirm.template === 'WELCOME'}

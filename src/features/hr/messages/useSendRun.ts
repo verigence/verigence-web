@@ -64,11 +64,11 @@ export function useSendRun(accessToken: string | null) {
       if (busy.current || !accessToken) return;
       busy.current = true;
       stopRequested.current = false;
-      const groups = toBatches(input.people.map((p) => p.employeeId));
+      const groups = toBatches(input.people.map((p) => p.userId));
       setRun({
         template: input.template,
         channel: input.channel,
-        people: Object.fromEntries(input.people.map((p) => [p.employeeId, p])),
+        people: Object.fromEntries(input.people.map((p) => [p.userId, p])),
         subject: input.subject,
         body: input.body,
         batches: groups.map((ids) => ({ ids, status: 'waiting', results: [] })),
@@ -86,7 +86,7 @@ export function useSendRun(accessToken: string | null) {
             const response = await sendMessages(accessToken, {
               channel: input.channel,
               template: input.template,
-              employee_ids: groups[i],
+              user_ids: groups[i],
               ...(input.template === 'GENERAL' ? { subject: input.subject, body: input.body } : {}),
             });
             patchBatch(i, { status: 'done', results: response.results });
@@ -124,7 +124,7 @@ export function notSentIds(run: RunState): string[] {
   const out: string[] = [];
   for (const batch of run.batches) {
     if (batch.status !== 'done') out.push(...batch.ids);
-    else out.push(...batch.results.filter((r) => r.status !== 'SENT').map((r) => r.employeeId));
+    else out.push(...batch.results.filter((r) => r.status !== 'SENT').map((r) => r.userId));
   }
   return Array.from(new Set(out));
 }

@@ -29,9 +29,9 @@ export default function ConfirmSendDialog({ people, groups, messageName, channel
       <section className="uc01-admin-dialog hrm-dialog" role="dialog" aria-modal="true" aria-labelledby="hrm-confirm-title">
         <div>
           <span className="eyebrow">Confirm</span>
-          <h2 id="hrm-confirm-title">Send to {countLabel(people, 'person', 'people')}?</h2>
+          <h2 id="hrm-confirm-title">Send to {countLabel(people, 'user', 'users')}?</h2>
           <p>
-            <strong>{messageName}</strong> will be sent by {channelName} to <strong>{countLabel(people, 'person', 'people')}</strong>.
+            <strong>{messageName}</strong> will be sent by {channelName} to <strong>{countLabel(people, 'user', 'users')}</strong>.
             {groups > 1 ? ` It goes out in ${groups} groups of up to 5, one group after another.` : ''}
           </p>
         </div>
@@ -48,7 +48,7 @@ export default function ConfirmSendDialog({ people, groups, messageName, channel
         <div className="uc01-admin-dialog__actions">
           <button ref={cancel} type="button" className="uc01-admin-button" onClick={onCancel}>Cancel</button>
           <button type="button" className="uc01-admin-button uc01-admin-button--primary" onClick={onConfirm}>
-            Send to {countLabel(people, 'person', 'people')}
+            Send to {countLabel(people, 'user', 'users')}
           </button>
         </div>
       </section>

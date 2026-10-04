@@ -42,7 +42,7 @@ export default function HrMessagesPage() {
         <PageHeader eyebrow="HR" title="Employee messages" />
         <div className="uc01-admin-state uc01-admin-state--error">
           <strong>You do not have access to employee messages.</strong>
-          <span>Ask an administrator to give you an HR role that can manage employees.</span>
+          <span>Ask an administrator to give you an HR role that can send messages.</span>
         </div>
       </section>
     );
@@ -55,7 +55,7 @@ export default function HrMessagesPage() {
       <PageHeader
         eyebrow="HR"
         title="Employee messages"
-        description="Email employees a general message or their login details, edit the saved wording, and see what was sent."
+        description="Email Verigence users a general message or their login details, edit the saved wording, and see what was sent."
       />
 
       <div className="hr-tabs" role="tablist" aria-label="Message sections">

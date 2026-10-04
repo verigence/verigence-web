@@ -83,7 +83,7 @@ function TemplateEditor({ accessToken, template, canEdit }: { accessToken: strin
       <ul className="hrm-rules">
         <li>The temporary password can only be in the message body, never the subject.</li>
         {isWelcome && <li>The message must keep {'{{login_id}}'} and {'{{temp_password}}'}, or it would not carry the login.</li>}
-        <li>Any other {'{{placeholder}}'} is refused, so a typing mistake cannot reach employees.</li>
+        <li>Any other {'{{placeholder}}'} is refused, so a typing mistake cannot reach users.</li>
       </ul>
 
       <WordingEditor

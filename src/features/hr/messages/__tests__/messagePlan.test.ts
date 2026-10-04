@@ -2,13 +2,17 @@ import { describe, expect, it } from 'vitest';
 
 import {
   countLabel,
+  filterRecipients,
   insertAtSelection,
+  looksLikeEmail,
   MASKED_PASSWORD,
   nothingWasSent,
   reasonLabel,
+  recipientStatusText,
   renderPreview,
   summariseSend,
   toBatches,
+  toRecipient,
   usedPlaceholders,
   validateWording,
 } from '../messagePlan';
@@ -75,7 +79,7 @@ describe('validateWording', () => {
 
 describe('renderPreview', () => {
   it('uses the name and never shows a password', () => {
-    const out = renderPreview('Dear {{name}}, ID {{login_id}}, pw {{ temp_password }}', { fullName: 'Asha Rao' });
+    const out = renderPreview('Dear {{name}}, ID {{login_id}}, pw {{ temp_password }}', { name: 'Asha Rao' });
     expect(out).toContain('Dear Asha Rao');
     expect(out).toContain(`pw ${MASKED_PASSWORD}`);
     expect(out).not.toContain('{{');
@@ -85,16 +89,17 @@ describe('renderPreview', () => {
 describe('results in plain words', () => {
   it('explains known codes and shows unknown ones as they are', () => {
     expect(reasonLabel('LOGIN_NOT_ACTIVE')).toMatch(/SuperAdmin/);
+    expect(reasonLabel('NO_EMAIL')).toMatch(/no email/);
     expect(reasonLabel('SOMETHING_NEW')).toContain('SOMETHING_NEW');
     expect(reasonLabel(null)).toBe('');
   });
   it('counts statuses', () => {
-    const r = (status: 'SENT' | 'SKIPPED' | 'FAILED') => ({ employeeId: 'x', name: null, status, code: null, message: null });
+    const r = (status: 'SENT' | 'SKIPPED' | 'FAILED') => ({ userId: 'x', name: null, status, code: null, message: null });
     expect(summariseSend([r('SENT'), r('SENT'), r('SKIPPED'), r('FAILED')])).toEqual({ sent: 2, skipped: 1, failed: 1 });
   });
   it('pluralises', () => {
-    expect(countLabel(1, 'person', 'people')).toBe('1 person');
-    expect(countLabel(7, 'person', 'people')).toBe('7 people');
+    expect(countLabel(1, 'user', 'users')).toBe('1 user');
+    expect(countLabel(7, 'user', 'users')).toBe('7 users');
   });
 });
 
@@ -119,8 +124,8 @@ describe('what was not sent', () => {
         ids: ['a', 'b'],
         status: 'done',
         results: [
-          { employeeId: 'a', name: 'A', status: 'SENT', code: null, message: null },
-          { employeeId: 'b', name: 'B', status: 'FAILED', code: 'MAIL_UNAVAILABLE', message: 'x' },
+          { userId: 'a', name: 'A', status: 'SENT', code: null, message: null },
+          { userId: 'b', name: 'B', status: 'FAILED', code: 'MAIL_UNAVAILABLE', message: 'x' },
         ],
       },
       { ids: ['c', 'd'], status: 'failed', results: [], error: 'x', maybeSent: true },
@@ -132,5 +137,36 @@ describe('what was not sent', () => {
   });
   it('also lists people who failed inside a finished group', () => {
     expect(notSentIds(run)).toEqual(['b', 'c', 'd', 'e']);
+  });
+});
+
+describe('users list', () => {
+  const user = (userId: string, isEmployee: boolean, over: Record<string, unknown> = {}) => ({
+    userId, displayName: `Name ${userId}`, email: `${userId}@example.com`, status: 'ACTIVE', isEmployee, ...over,
+  });
+  const list = [user('a', true), user('b', false), user('c', true)];
+  it('filters the loaded list by employee tag', () => {
+    expect(filterRecipients(list, 'all')).toHaveLength(3);
+    expect(filterRecipients(list, 'employees').map((u) => u.userId)).toEqual(['a', 'c']);
+    expect(filterRecipients(list, 'others').map((u) => u.userId)).toEqual(['b']);
+  });
+  it('shows a name, or the email when there is none', () => {
+    expect(toRecipient(user('a', true)).name).toBe('Name a');
+    expect(toRecipient(user('b', false, { displayName: null })).name).toBe('b@example.com');
+    expect(toRecipient(user('c', false, { displayName: ' ', email: null })).name).toBe('Unnamed user');
+  });
+  it('words the status', () => {
+    expect(recipientStatusText('ACTIVE')).toBe('Active');
+    expect(recipientStatusText('PENDING')).toBe('Pending');
+    expect(recipientStatusText('SUSPENDED')).toBe('Suspended');
+  });
+});
+
+describe('looksLikeEmail', () => {
+  it('checks only the shape', () => {
+    expect(looksLikeEmail(' me@example.com ')).toBe(true);
+    expect(looksLikeEmail('me@example')).toBe(false);
+    expect(looksLikeEmail('not-an-email')).toBe(false);
+    expect(looksLikeEmail('')).toBe(false);
   });
 });

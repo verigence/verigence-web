@@ -181,6 +181,7 @@ const groups: NavGroup[] = [
     { to: '/admin/di-test', label: 'DI Test Console', mark: 'DI', roles: ['SUPER_ADMIN'], devOnly: true },
     { to: '/admin/users', label: 'Users', mark: 'US', roles: ['SUPER_ADMIN'] },
     { to: '/admin/features', label: 'Feature Rollout', mark: 'FR', roles: ['SUPER_ADMIN'] },
+    { to: '/admin/announcements', label: 'Announcements', mark: 'AN', roles: ['SUPER_ADMIN'] },
     { to: '/admin/activity-log', label: 'User Activity Log', mark: 'UA', roles: ['SUPER_ADMIN'] },
     { to: '/admin/roles-permissions', label: 'Roles & Permissions', mark: 'RP', roles: ['SUPER_ADMIN'] },
     { to: '/admin/audit-rules', label: 'Audit Rule Config', mark: 'AR', roles: ['SUPER_ADMIN'] },
@@ -197,7 +198,7 @@ const routeLabels: Record<string, string> = {
   '/reviews': 'Task Queue', '/duplicate-bookings': 'Duplicate Bookings', '/rule-catalog': 'Rule Catalog', '/rule-catalog/new': 'Author a Rule', '/evidence': 'Evidence', '/payments': 'Payment Tracker', '/findings': 'Findings',
   '/daily-ops': 'Daily Operations', '/activity': 'Activity Tracker', '/crm': 'CRM Follow-up', '/escalations': 'Escalations',
   '/analytics': 'Analytics', '/p2/bookings': 'Booking & Delivery', '/p2/tasks': 'Task Queue', '/p2/duplicate-bookings': 'Duplicate bookings', '/admin/engagements': 'Engagements', '/admin/document-intelligence': 'Document Intelligence Configuration',
-  '/admin/housekeeping': 'Housekeeping', '/admin/feedback': 'User Feedback', '/admin/di-test': 'DI Test Console', '/admin/users': 'Users', '/admin/features': 'Feature Rollout',
+  '/admin/housekeeping': 'Housekeeping', '/admin/feedback': 'User Feedback', '/admin/di-test': 'DI Test Console', '/admin/users': 'Users', '/admin/features': 'Feature Rollout', '/admin/announcements': 'Announcements',
   '/admin/users/pending': 'Pending Approvals', '/admin/activity-log': 'User Activity Log',
   '/admin/roles-permissions': 'Roles & Permissions', '/admin/audit-rules': 'Audit Rule Config',
   '/admin/approval-workflow': 'Approval Workflow Config', '/admin/notifications': 'Notification Settings',
@@ -259,6 +260,7 @@ function NavIcon({ mark }: { mark: string }) {
     case 'DC': glyph = <><path d="M6 3h8l4 4v14H6z" /><path d="M14 3v5h5M9 12h6m-6 4h6" /></>; break;
     case 'HK': glyph = <><path d="M14.5 6.5a4 4 0 0 0-5 5L4 17l3 3 5.5-5.5a4 4 0 0 0 5-5l-3 3-3-3z" /></>; break;
     case 'DI': glyph = <><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5" /><path d="M8 12h8M12 8v8" /></>; break;
+    case 'AN': glyph = <><path d="M4 10v4h3l5 4V6L7 10H4z" /><path d="M16 9a4 4 0 0 1 0 6" /></>; break;
     case 'FR': glyph = <><rect x="3" y="8" width="18" height="8" rx="4" /><circle cx="16" cy="12" r="2.5" /></>; break;
     case 'US': glyph = <><circle cx="9" cy="8" r="3" /><circle cx="17" cy="9" r="2" /><path d="M3 19c.7-3.2 2.7-5 6-5s5.3 1.8 6 5M15 14c2.9 0 4.7 1.3 5.5 4" /></>; break;
     case 'UA': glyph = <><path d="M3 12h4l2-4 4 8 2-4h6" /></>; break;

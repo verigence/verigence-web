@@ -1,6 +1,7 @@
 import { lazy, Suspense, useEffect, type ReactNode } from 'react';
 import { IonApp } from '@ionic/react';
 import { BrowserRouter, Navigate, Route, Routes, useParams, useSearchParams } from 'react-router-dom';
+import AppGate from './features/announcements/AppGate';
 import { useHrAccess } from './features/hr/hrQueries';
 import { landingDecision } from './features/rollout/landing';
 import { useMyFeatures } from './features/rollout/featureFlags';
@@ -50,6 +51,7 @@ const HrDailyAttendancePage = lazy(() => import('./pages/hr/HrDailyAttendancePag
 const HrAssignmentsPage = lazy(() => import('./pages/hr/HrAssignmentsPage'));
 const HrDesignationSalaryImportPage = lazy(() => import('./pages/hr/HrDesignationSalaryImportPage'));
 const AdminFeatureRolloutPage = lazy(() => import('./pages/AdminFeatureRolloutPage'));
+const AdminAnnouncementsPage = lazy(() => import('./pages/AdminAnnouncementsPage'));
 const HrMySalaryPage = lazy(() => import('./pages/hr/HrMySalaryPage'));
 const HrPayrollPage = lazy(() => import('./pages/hr/HrPayrollPage'));
 const HrSalariesPage = lazy(() => import('./pages/hr/HrSalariesPage'));
@@ -320,6 +322,7 @@ export default function App() {
           <AndroidNativeBridge />
           <ProjectAdminOutletLocationEnhancer />
           <ProjectMasterActionOverlay />
+          <AppGate>
           <Suspense fallback={<Loading />}>
             <Routes>
               <Route path="/login" element={<LoginPage />} />
@@ -395,6 +398,7 @@ export default function App() {
               <Route path="/admin/di-test" element={<SuperAdminPage><DiTestConsolePage /></SuperAdminPage>} />
               <Route path="/admin/users" element={<SuperAdminPage><AdminUsersPage /></SuperAdminPage>} />
               <Route path="/admin/features" element={<SuperAdminPage><AdminFeatureRolloutPage /></SuperAdminPage>} />
+              <Route path="/admin/announcements" element={<SuperAdminPage><AdminAnnouncementsPage /></SuperAdminPage>} />
               <Route path="/admin/users/pending" element={<SuperAdminPage><ApprovalQueuePage /></SuperAdminPage>} />
               <Route path="/admin/activity-log" element={<SuperAdminPage><AdminConfigurationPage section="activity" /></SuperAdminPage>} />
               <Route path="/admin/roles-permissions" element={<SuperAdminPage><AdminConfigurationPage section="roles" /></SuperAdminPage>} />
@@ -441,6 +445,7 @@ export default function App() {
               <Route path="*" element={<Navigate to="/home" replace />} />
             </Routes>
           </Suspense>
+          </AppGate>
         </BrowserRouter>
       </IonApp>
     </ErrorBoundary>

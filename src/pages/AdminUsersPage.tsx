@@ -12,6 +12,7 @@ import {
   type GlobalUserLifecycleStatus,
 } from '../services/security/onboardingAdmin';
 import { useSessionStore } from '../store/sessionStore';
+import EmployeeSyncDialog from '../features/hr/EmployeeSyncDialog';
 import HrRolesDialog from '../features/hr/HrRolesDialog';
 import AdminUsersBulkCreateDialog from './AdminUsersBulkCreateDialog';
 import { canBulkDelete, isTestAccount } from './adminUsersBulk';
@@ -65,6 +66,7 @@ export default function AdminUsersPage() {
   const accessToken = useSessionStore((state) => state.accessToken);
   const signedInEmail = useSessionStore((state) => state.email);
   const queryClient = useQueryClient();
+  const [employeeSyncOpen, setEmployeeSyncOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<(typeof lifecycleStatuses)[number]>('ALL');
   const [action, setAction] = useState<LifecycleAction | null>(null);
@@ -246,6 +248,14 @@ export default function AdminUsersPage() {
               onClick={() => { resetActionState(); setBulkCreateOpen(true); }}
             >
               Bulk create users
+            </button>
+            <button
+              type="button"
+              className="uc01-admin-button"
+              disabled={!accessToken || usersQuery.isLoading}
+              onClick={() => { resetActionState(); setEmployeeSyncOpen(true); }}
+            >
+              Sync Employee Information
             </button>
             <Link className="uc01-admin-button uc01-admin-button--primary" to="/admin/users/pending">
               Pending Approvals{pendingCount > 0 ? ` (${pendingCount})` : ''}
@@ -438,6 +448,14 @@ export default function AdminUsersPage() {
             </tbody>
           </table>
         </div>
+      )}
+
+      {employeeSyncOpen && accessToken && (
+        <EmployeeSyncDialog
+          accessToken={accessToken}
+          onClose={() => setEmployeeSyncOpen(false)}
+          onApplied={() => void queryClient.invalidateQueries({ queryKey: ['security', 'platform-users'] })}
+        />
       )}
 
       {hrRolesUser && accessToken && (

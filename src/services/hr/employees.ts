@@ -187,6 +187,52 @@ export const updateEmployee = (token: string, id: string, input: EmployeeUpdateI
     body: input as unknown as Record<string, unknown>,
   });
 
+export interface EmployeeSyncItem {
+  employeeId: string;
+  code: string;
+  name: string;
+  employmentStatus: EmploymentStatus;
+  userId: string;
+  userName: string | null;
+  userStatus: string;
+  link: boolean;
+  tick: boolean;
+  suspend: boolean;
+  attention: string[];
+  done?: { linked: boolean; ticked: boolean; suspended: boolean; note: string | null };
+}
+
+export interface EmployeeSyncUnmatched {
+  employeeId: string;
+  code: string;
+  name: string;
+  reason: 'NO_LOGIN' | 'LINKED_USER_MISSING' | 'LOGIN_IN_USE';
+}
+
+export interface EmployeeSyncResult {
+  applied: boolean;
+  summary: {
+    employees: number;
+    matched: number;
+    toLink: number;
+    toTick: number;
+    toSuspend: number;
+    unmatched: number;
+    needAttention: number;
+  };
+  items: EmployeeSyncItem[];
+  unmatched: EmployeeSyncUnmatched[];
+}
+
+/** Compares HR employees with Verigence users. Without apply it only reports what would change. */
+export const syncEmployeeUsers = (token: string, apply: boolean) =>
+  hrRequest<EmployeeSyncResult>(`${base}/employees/sync-users`, {
+    accessToken: token,
+    method: 'POST',
+    body: { apply },
+    timeoutMs: 120_000,
+  });
+
 export const retryEmployeeLogin = (token: string, id: string) =>
   hrRequest<RetryLoginResult>(`${base}/employees/${id}/login`, { accessToken: token, method: 'POST' });
 

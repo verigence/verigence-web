@@ -21,7 +21,7 @@ export const loginLabels: Record<LoginStatus, string> = {
 
 /** What HR should do about a login that could not be created. Codes come from the HR service. */
 export const loginProblemText: Record<string, string> = {
-  EMAIL_OR_MOBILE_EXISTS: 'This email or mobile already has a Verigence login. Check the details, then try again.',
+  EMAIL_OR_MOBILE_EXISTS: 'This email or mobile already has a Verigence login. Use "Link existing login" to connect it to this employee.',
   CONTACT_NOT_VALID: 'A valid mobile number is needed. Add it, then create the login.',
   NOT_PERMITTED: 'Verigence Security has not allowed HR to create logins yet.',
   SECURITY_UNAVAILABLE: 'Verigence Security could not be reached. Try again in a few minutes.',

@@ -100,6 +100,7 @@
 
 /* Login banner and one-time credential */
 .hr-login-banner { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 16px; border: 1px solid #fedf89; border-radius: 12px; background: #fffaeb; color: #93370d; font-size: 13px; }
+.hr-login-banner .hr-link-form { flex: 1 1 100%; display: flex; flex-direction: column; gap: 10px; padding-top: 12px; border-top: 1px solid #fedf89; }
 .hr-login-banner > div { display: flex; flex-direction: column; gap: 4px; min-width: 0; flex: 1 1 220px; }
 .hr-banner-error { color: #912018; }
 .hr-credential { display: flex; flex-direction: column; gap: 12px; align-items: flex-start; }

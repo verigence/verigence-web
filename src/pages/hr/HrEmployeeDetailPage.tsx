@@ -11,6 +11,7 @@ import {
   removeQualification,
   replaceQualification,
   retryEmployeeLogin,
+  linkEmployeeLogin,
   revealEmployeeSensitive,
   updateEmployee,
   uploadEmployeePhoto,
@@ -90,6 +91,19 @@ export default function HrEmployeeDetailPage() {
     onSuccess: (data) => {
       store(data.employee as EmployeeDetail);
       setCredential(data.initialPassword ?? null);
+    },
+    onSettled: () => void queryClient.invalidateQueries({ queryKey: hrKeys.employee(employeeId) }),
+  });
+
+  const [linkOpen, setLinkOpen] = useState(false);
+  const [linkEmail, setLinkEmail] = useState('');
+  const linkLogin = useMutation({
+    mutationFn: () => linkEmployeeLogin(accessToken!, employeeId, linkEmail.trim() || undefined),
+    onSuccess: (data) => {
+      store(data.employee as EmployeeDetail);
+      setLinkOpen(false);
+      setLinkEmail('');
+      setNotice('Linked to the existing Verigence login. The employee signs in with that login.');
     },
     onSettled: () => void queryClient.invalidateQueries({ queryKey: hrKeys.employee(employeeId) }),
   });
@@ -211,9 +225,44 @@ export default function HrEmployeeDetailPage() {
             <span>{employee.loginStatus === 'FAILED' ? loginProblem(employee.loginErrorCode) : 'Create it to let them sign in.'}</span>
             {retryLogin.isError && <span className="hr-banner-error">{hrErrorMessage(retryLogin.error)}</span>}
           </div>
-          <button type="button" className="uc01-admin-button uc01-admin-button--primary" disabled={retryLogin.isPending} onClick={() => { setCredential(null); retryLogin.mutate(); }}>
-            {retryLogin.isPending ? 'Creating…' : 'Create login'}
-          </button>
+          <div className="hr-actions">
+            <button type="button" className="uc01-admin-button uc01-admin-button--primary" disabled={retryLogin.isPending || linkLogin.isPending} onClick={() => { setCredential(null); retryLogin.mutate(); }}>
+              {retryLogin.isPending ? 'Creating…' : 'Create login'}
+            </button>
+            <button type="button" className="uc01-admin-button" disabled={retryLogin.isPending || linkLogin.isPending} onClick={() => setLinkOpen((open) => !open)}>
+              Link existing login
+            </button>
+          </div>
+          {linkOpen && (
+            <form
+              className="hr-link-form"
+              onSubmit={(event) => {
+                event.preventDefault();
+                linkLogin.mutate();
+              }}
+            >
+              <div className="hr-field">
+                <label htmlFor="hr-link-email">Email of the existing Verigence login</label>
+                <input
+                  id="hr-link-email"
+                  type="email"
+                  inputMode="email"
+                  autoComplete="off"
+                  value={linkEmail}
+                  placeholder={employee.personalEmail}
+                  onChange={(event) => setLinkEmail(event.target.value)}
+                />
+                <span className="hr-field__hint">Leave it empty to use the employee&apos;s email. The login must already exist, be active, and not be linked to anyone else.</span>
+              </div>
+              {linkLogin.isError && <span className="hr-banner-error" role="alert">{hrErrorMessage(linkLogin.error)}</span>}
+              <div className="hr-actions">
+                <button type="submit" className="uc01-admin-button uc01-admin-button--primary" disabled={linkLogin.isPending}>
+                  {linkLogin.isPending ? 'Linking…' : 'Link login'}
+                </button>
+                <button type="button" className="uc01-admin-button" disabled={linkLogin.isPending} onClick={() => setLinkOpen(false)}>Cancel</button>
+              </div>
+            </form>
+          )}
         </div>
       )}
       {credential && (

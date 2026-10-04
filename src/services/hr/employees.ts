@@ -190,6 +190,14 @@ export const updateEmployee = (token: string, id: string, input: EmployeeUpdateI
 export const retryEmployeeLogin = (token: string, id: string) =>
   hrRequest<RetryLoginResult>(`${base}/employees/${id}/login`, { accessToken: token, method: 'POST' });
 
+/** Links the employee to a Verigence login that already exists. Matches by email (the employee's own, or the one given). */
+export const linkEmployeeLogin = (token: string, id: string, email?: string) =>
+  hrRequest<{ employee: Employee }>(`${base}/employees/${id}/link-login`, {
+    accessToken: token,
+    method: 'POST',
+    body: email ? { email } : {},
+  });
+
 export const revealEmployeeSensitive = (token: string, id: string) =>
   hrRequest<{ pan: string | null; aadhaar: string | null }>(`${base}/employees/${id}/sensitive`, {
     accessToken: token,

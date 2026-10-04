@@ -31,6 +31,7 @@ import EmployeeSummary from '../../features/hr/EmployeeSummary';
 import ExperiencePanel from '../../features/hr/ExperiencePanel';
 import AssignmentLines from '../../features/hr/AssignmentLines';
 import PhotoPicker from '../../features/hr/PhotoPicker';
+import ProjectHistoryPanel from '../../features/hr/ProjectHistoryPanel';
 import QualificationsPanel from '../../features/hr/QualificationsPanel';
 import SalaryPanel from '../../features/hr/SalaryPanel';
 import SensitiveNumbers from '../../features/hr/SensitiveNumbers';
@@ -385,6 +386,7 @@ export default function HrEmployeeDetailPage() {
                   <AssignmentLines assignments={projects.data.employees.find((x) => x.employeeId === employeeId)?.assignments ?? []} />
                 )}
               </SectionCard>
+              <ProjectHistoryPanel employeeId={employeeId} />
               <QualificationsPanel qualifications={employee.qualifications} degrees={degrees.data ?? []} editing={qualificationEditing} />
               <ExperiencePanel experiences={employee.experiences ?? []} editing={experienceEditing} />
               <SensitiveNumbers employee={employee} canReveal={access.canRevealSensitive} reveal={() => revealEmployeeSensitive(accessToken!, employeeId)} />

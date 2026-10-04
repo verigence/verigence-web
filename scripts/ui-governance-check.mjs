@@ -232,6 +232,7 @@ for (const rootSelector of ['html {', 'body {', '#root {', 'ion-app {']) {
 const projectNameViews = new Set([
   'src/pages/ProfilePage.tsx',
   'src/features/hr/AssignmentLines.tsx',
+  'src/features/hr/ProjectHistoryPanel.tsx',
   'src/pages/hr/HrAssignmentsPage.tsx',
   'src/pages/hr/HrDailyAttendancePage.tsx',
 ]);

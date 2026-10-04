@@ -39,3 +39,24 @@ export const getWorkAssignments = (token: string, params: { projectCode?: string
   const text = query.toString();
   return hrRequest<WorkAssignments>(`/hr/v1/work-assignments${text ? `?${text}` : ''}`, { accessToken: token });
 };
+
+/** Every project a person is, or was, tagged to, folded to one line per project, role and outlet (hr.employee.read). */
+export interface ProjectHistoryLine {
+  projectCode: string | null;
+  projectName: string | null;
+  role: string;
+  dealerName: string | null;
+  outletName: string | null;
+  since: string;
+  until: string | null;
+  current: boolean;
+}
+
+export interface ProjectHistory {
+  linked: boolean;
+  syncedAt: string | null;
+  items: ProjectHistoryLine[];
+}
+
+export const getProjectHistory = (token: string, employeeId: string) =>
+  hrRequest<ProjectHistory>(`/hr/v1/employees/${encodeURIComponent(employeeId)}/project-history`, { accessToken: token });

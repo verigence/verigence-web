@@ -136,3 +136,7 @@
 @media (max-width: 460px) {
   .hr-page .uc01-admin-metrics { grid-template-columns: 1fr 1fr; }
 }
+
+/* HR roles dialog (Users screen) */
+.hr-role-list { display: flex; flex-direction: column; gap: 10px; }
+.hr-role-option { padding: 12px; border: 1px solid #e4e7ec; border-radius: 10px; }

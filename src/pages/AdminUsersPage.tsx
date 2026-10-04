@@ -12,6 +12,7 @@ import {
   type GlobalUserLifecycleStatus,
 } from '../services/security/onboardingAdmin';
 import { useSessionStore } from '../store/sessionStore';
+import HrRolesDialog from '../features/hr/HrRolesDialog';
 import AdminUsersBulkCreateDialog from './AdminUsersBulkCreateDialog';
 import { canBulkDelete, isTestAccount } from './adminUsersBulk';
 
@@ -73,6 +74,7 @@ export default function AdminUsersPage() {
   const [bulkOpen, setBulkOpen] = useState(false);
   const [bulkRun, setBulkRun] = useState<BulkRun | null>(null);
   const [bulkCreateOpen, setBulkCreateOpen] = useState(false);
+  const [hrRolesUser, setHrRolesUser] = useState<GlobalUserDirectoryItem | null>(null);
 
   const usersQuery = useQuery({
     queryKey: ['security', 'platform-users', 'all'],
@@ -373,6 +375,15 @@ export default function AdminUsersPage() {
                     <td data-label="Updated"><span>{formatDate(user.updatedAtUtc)}</span></td>
                     <td data-label="Actions">
                       <div className="uc01-admin-row-actions">
+                        {currentStatus === 'ACTIVE' && (
+                          <button
+                            type="button"
+                            className="uc01-admin-button uc01-admin-button--compact"
+                            onClick={() => setHrRolesUser(user)}
+                          >
+                            HR roles
+                          </button>
+                        )}
                         {currentStatus === 'PENDING' && (
                           <Link className="uc01-admin-button uc01-admin-button--compact" to="/admin/users/pending">Review</Link>
                         )}
@@ -423,6 +434,10 @@ export default function AdminUsersPage() {
             </tbody>
           </table>
         </div>
+      )}
+
+      {hrRolesUser && accessToken && (
+        <HrRolesDialog accessToken={accessToken} user={hrRolesUser} onClose={() => setHrRolesUser(null)} />
       )}
 
       {bulkCreateOpen && accessToken && (

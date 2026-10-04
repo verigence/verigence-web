@@ -4,6 +4,17 @@ export type Gender = 'MALE' | 'FEMALE' | 'OTHER';
 export type EmploymentStatus = 'ACTIVE' | 'INACTIVE' | 'EXITED';
 export type LoginStatus = 'NOT_CREATED' | 'CREATED' | 'FAILED';
 export type DataFlag = 'PAN_MISSING' | 'PAN_DUPLICATE' | 'AADHAAR_MISSING' | 'MOBILE_MISSING';
+/** Computed by the HR service on every read from the data it holds (not stored). */
+export type SalaryStatus = 'NONE' | 'WAITING_FINANCE' | 'APPROVED' | 'APPROVED_FROM_LATER';
+export type MissingDetail =
+  | 'STATE'
+  | 'DISTRICT'
+  | 'PINCODE'
+  | 'EMERGENCY_CONTACT'
+  | 'EXPERIENCE'
+  | 'QUALIFICATION'
+  | 'UNIVERSITY_COLLEGE'
+  | 'SALARY';
 
 export const HR_PERMISSION = {
   employeeRead: 'hr.employee.read',
@@ -26,6 +37,8 @@ export interface Qualification {
   level: string;
   percentage: number;
   yearOfPassing: number;
+  university: string | null;
+  college: string | null;
 }
 
 export interface Employee {
@@ -43,6 +56,7 @@ export interface Employee {
   designation: string | null;
   address: string | null;
   state: string | null;
+  district: string | null;
   pincode: string | null;
   totalExperienceYears: number | null;
   emergencyContactName: string | null;
@@ -56,6 +70,9 @@ export interface Employee {
   panMasked: string | null;
   aadhaarMasked: string | null;
   dataFlags: DataFlag[];
+  salaryStatus: SalaryStatus;
+  /** Details still to be filled in; empty when the record is complete. */
+  missingDetails: MissingDetail[];
 }
 
 export interface EmployeeDetail extends Employee {
@@ -83,6 +100,8 @@ export interface QualificationInput {
   degree_other?: string | null;
   percentage: number;
   year_of_passing: number;
+  university?: string | null;
+  college?: string | null;
 }
 
 /** Fields HR may send when creating an employee. Empty values are omitted by the caller. */
@@ -97,6 +116,7 @@ export interface EmployeeCreateInput {
   department?: string;
   address?: string;
   state?: string;
+  district?: string;
   pincode?: string;
   total_experience_years?: number;
   emergency_contact_name?: string;
@@ -120,6 +140,7 @@ export type EmployeeUpdateInput = Partial<
 export interface SelfUpdateInput {
   address?: string | null;
   state?: string | null;
+  district?: string | null;
   pincode?: string | null;
   emergency_contact_name?: string | null;
   emergency_contact_number?: string | null;
@@ -342,6 +363,9 @@ export interface ImportPreviewRow {
   gender: Gender | null;
   department: string | null;
   qualification: string | null;
+  state: string | null;
+  district: string | null;
+  pincode: string | null;
   panMasked: string | null;
   aadhaarMasked: string | null;
   notes: string[];

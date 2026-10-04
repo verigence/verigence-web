@@ -5,7 +5,7 @@ import { chunk, credentialsText, IMPORT_BATCH_SIZE, readyRowNumbers, summariseRe
 
 const row = (n: number, status: ImportPreviewRow['status']): ImportPreviewRow => ({
   row: n, status, employeeCode: `E${n}`, fullName: 'N', personalEmail: 'a@b.co', mobile: null, dateOfBirth: null,
-  gender: null, department: null, qualification: null, panMasked: null, aadhaarMasked: null, notes: [], errors: [],
+  gender: null, department: null, qualification: null, state: null, district: null, pincode: null, panMasked: null, aadhaarMasked: null, notes: [], errors: [],
 });
 
 describe('import plan', () => {

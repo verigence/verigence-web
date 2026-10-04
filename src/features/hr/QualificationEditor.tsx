@@ -21,7 +21,7 @@ interface Props {
   onCancel?: () => void;
 }
 
-/** One degree: its name from the catalogue, marks as a percentage, and the year passed. */
+/** One degree: its name from the catalogue, marks as a percentage, the year passed, and where it was studied. */
 export default function QualificationEditor({
   degrees,
   initial = emptyQualification,
@@ -69,6 +69,12 @@ export default function QualificationEditor({
         </Field>
         <Field label="Year of passing" htmlFor={`${idPrefix}-year`} error={errors.yearOfPassing} required>
           <input id={`${idPrefix}-year`} inputMode="numeric" maxLength={4} value={values.yearOfPassing} onChange={(e) => set('yearOfPassing', e.target.value)} />
+        </Field>
+        <Field label="University" htmlFor={`${idPrefix}-university`} error={errors.university} required hint="If left empty, it is listed under Pending details.">
+          <input id={`${idPrefix}-university`} value={values.university} maxLength={150} autoComplete="off" aria-required="true" onChange={(e) => set('university', e.target.value)} />
+        </Field>
+        <Field label="College" htmlFor={`${idPrefix}-college`} error={errors.college} required hint="If left empty, it is listed under Pending details.">
+          <input id={`${idPrefix}-college`} value={values.college} maxLength={150} autoComplete="off" aria-required="true" onChange={(e) => set('college', e.target.value)} />
         </Field>
       </div>
       {serverError && <div className="uc01-admin-message uc01-admin-message--error" role="alert">{serverError}</div>}

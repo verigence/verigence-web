@@ -17,13 +17,16 @@ import {
   uploadEmployeePhoto,
   type EmployeeDetail,
 } from '../../services/hr/employees';
+import { PAYROLL_PERMISSION } from '../../services/hr/payroll';
 import { useSessionStore } from '../../store/sessionStore';
 import AuditHistory from '../../features/hr/AuditHistory';
+import { PendingDetailsNotice } from '../../features/hr/EmployeeBadges';
 import EmployeeAvatar from '../../features/hr/EmployeeAvatar';
 import EmployeeFormFields from '../../features/hr/EmployeeFormFields';
 import EmployeeSummary from '../../features/hr/EmployeeSummary';
 import PhotoPicker from '../../features/hr/PhotoPicker';
 import QualificationsPanel from '../../features/hr/QualificationsPanel';
+import SalaryPanel from '../../features/hr/SalaryPanel';
 import SensitiveNumbers from '../../features/hr/SensitiveNumbers';
 import {
   buildUpdatePayload,
@@ -217,6 +220,7 @@ export default function HrEmployeeDetailPage() {
       </div>
 
       {notice && <div className="uc01-admin-message uc01-admin-message--success" role="status">{notice}</div>}
+      <PendingDetailsNotice missing={employee.missingDetails} />
 
       {employee.loginStatus !== 'CREATED' && canManage && (
         <div className="hr-login-banner" role="status">
@@ -320,6 +324,18 @@ export default function HrEmployeeDetailPage() {
           </div>
           {tab === 'profile' && (
             <div className="hr-sections">
+              <SalaryPanel
+                employeeId={employee.employeeId}
+                fullName={employee.fullName}
+                status={employee.salaryStatus}
+                canPropose={access.can(PAYROLL_PERMISSION.salaryPropose)}
+                canViewSalaries={
+                  access.can(PAYROLL_PERMISSION.salaryPropose) ||
+                  access.can(PAYROLL_PERMISSION.salaryApprove) ||
+                  access.can(PAYROLL_PERMISSION.payrollRead)
+                }
+                joiningDate={employee.dateOfJoining}
+              />
               <EmployeeSummary employee={employee} scope="hr" />
               <SensitiveNumbers employee={employee} canReveal={access.canRevealSensitive} reveal={() => revealEmployeeSensitive(accessToken!, employeeId)} />
             </div>

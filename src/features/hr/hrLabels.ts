@@ -1,10 +1,37 @@
-import type { DataFlag, EmploymentStatus, LoginStatus } from '../../services/hr/employees';
+import type { DataFlag, EmploymentStatus, LoginStatus, MissingDetail, SalaryStatus } from '../../services/hr/employees';
 
 export const dataFlagLabels: Record<DataFlag, string> = {
   PAN_MISSING: 'PAN missing',
   PAN_DUPLICATE: 'PAN repeated',
   AADHAAR_MISSING: 'Aadhaar missing',
   MOBILE_MISSING: 'Mobile missing',
+};
+
+/** Human names for the HR service's "pending details" codes. */
+export const missingDetailLabels: Record<MissingDetail, string> = {
+  STATE: 'State',
+  DISTRICT: 'District',
+  PINCODE: 'Pincode',
+  EMERGENCY_CONTACT: 'Emergency contact',
+  EXPERIENCE: 'Years of experience',
+  QUALIFICATION: 'Qualification',
+  UNIVERSITY_COLLEGE: 'University and college',
+  SALARY: 'Salary',
+};
+
+export const salaryStatusLabels: Record<SalaryStatus, string> = {
+  NONE: 'No salary',
+  WAITING_FINANCE: 'Waiting for Finance approval',
+  APPROVED: 'Salary approved',
+  APPROVED_FROM_LATER: 'Salary approved (starts later)',
+};
+
+/** Badge tone, matching the hr-pay-pill colours. */
+export const salaryStatusTone: Record<SalaryStatus, 'rejected' | 'pending' | 'approved'> = {
+  NONE: 'rejected',
+  WAITING_FINANCE: 'pending',
+  APPROVED: 'approved',
+  APPROVED_FROM_LATER: 'approved',
 };
 
 export const statusLabels: Record<EmploymentStatus, string> = {

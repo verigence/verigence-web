@@ -7,6 +7,7 @@ import { hrErrorMessage } from '../../services/hr/client';
 import { listEmployees, type EmploymentStatus } from '../../services/hr/employees';
 import { useSessionStore } from '../../store/sessionStore';
 import { initialsOf } from '../../features/hr/EmployeeAvatar';
+import { PendingCountBadge, SalaryStatusBadge } from '../../features/hr/EmployeeBadges';
 import { dataFlagLabels, loginLabels, statusLabels } from '../../features/hr/hrLabels';
 import { hrKeys, useHrAccess } from '../../features/hr/hrQueries';
 
@@ -19,6 +20,8 @@ export default function HrEmployeesPage() {
   const [query, setQuery] = useState('');
   const [status, setStatus] = useState<'' | EmploymentStatus>('');
   const [page, setPage] = useState(0);
+  // Applies to the page already loaded; the service does not filter on it.
+  const [pendingOnly, setPendingOnly] = useState(false);
 
   // One request after the person stops typing, not one per keystroke.
   useEffect(() => {
@@ -51,7 +54,8 @@ export default function HrEmployeesPage() {
     );
   }
 
-  const items = list.data?.items ?? [];
+  const loaded = list.data?.items ?? [];
+  const items = pendingOnly ? loaded.filter((e) => e.missingDetails.length > 0) : loaded;
   const total = list.data?.total ?? 0;
   const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
@@ -81,6 +85,13 @@ export default function HrEmployeesPage() {
             {(Object.keys(statusLabels) as EmploymentStatus[]).map((s) => <option key={s} value={s}>{statusLabels[s]}</option>)}
           </select>
         </label>
+        <label className="uc01-admin-filter">
+          <span>Pending details</span>
+          <select value={pendingOnly ? 'pending' : ''} onChange={(e) => setPendingOnly(e.target.value === 'pending')}>
+            <option value="">All</option>
+            <option value="pending">Only with pending details</option>
+          </select>
+        </label>
         <button type="button" className="uc01-admin-button" onClick={() => list.refetch()} disabled={list.isFetching}>
           {list.isFetching ? 'Refreshing…' : 'Refresh'}
         </button>
@@ -97,7 +108,7 @@ export default function HrEmployeesPage() {
 
       {!list.isLoading && !list.isError && (
         <>
-          <p className="hr-count" aria-live="polite">{total === 1 ? '1 employee' : `${total} employees`}</p>
+          <p className="hr-count" aria-live="polite">{total === 1 ? '1 employee' : `${total} employees`}{pendingOnly ? ` · ${items.length} of the ${loaded.length} on this page have pending details` : ''}</p>
           <div className="uc01-admin-table-wrap">
             <table className="uc01-admin-table hr-table">
               <thead>
@@ -108,7 +119,7 @@ export default function HrEmployeesPage() {
                   <th>Contact</th>
                   <th>Status</th>
                   <th>Login</th>
-                  <th>Needs attention</th>
+                  <th>Salary and pending</th>
                 </tr>
               </thead>
               <tbody>
@@ -135,18 +146,18 @@ export default function HrEmployeesPage() {
                     <td data-label="Login">
                       <span className={`uc01-admin-status uc01-admin-status--${e.loginStatus === 'CREATED' ? 'active' : e.loginStatus === 'FAILED' ? 'pending' : 'rejected'}`}>{loginLabels[e.loginStatus]}</span>
                     </td>
-                    <td data-label="Needs attention">
-                      {e.dataFlags.length === 0 ? <span className="hr-muted">—</span> : (
-                        <span className="hr-flags">
-                          {e.dataFlags.map((f) => <span key={f} className="hr-flag">{dataFlagLabels[f]}</span>)}
-                        </span>
-                      )}
+                    <td data-label="Salary and pending">
+                      <span className="hr-flags">
+                        <SalaryStatusBadge status={e.salaryStatus} />
+                        <PendingCountBadge missing={e.missingDetails} />
+                        {e.dataFlags.map((f) => <span key={f} className="hr-flag">{dataFlagLabels[f]}</span>)}
+                      </span>
                     </td>
                   </tr>
                 ))}
                 {items.length === 0 && (
                   <tr><td colSpan={7} className="uc01-admin-empty">
-                    {query || status ? 'No employees match this search.' : 'No employees yet.'}
+                    {query || status || pendingOnly ? 'No employees match this search.' : 'No employees yet.'}
                   </td></tr>
                 )}
               </tbody>

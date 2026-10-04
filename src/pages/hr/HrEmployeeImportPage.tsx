@@ -155,7 +155,7 @@ export default function HrEmployeeImportPage() {
       {error && <div className="uc01-admin-message uc01-admin-message--error" role="alert">{error}</div>}
 
       {(phase === 'choose' || phase === 'checking') && (
-        <SectionCard title="1. Choose the sheet" description="The first sheet is read. It needs columns for Employee ID, Employee Name and Personal Email; DOB, Gender, Contact Number, Qualification, Department, PAN, Aadhaar and Address are used when present.">
+        <SectionCard title="1. Choose the sheet" description="The first sheet is read. It needs columns for Employee ID, Employee Name and Personal Email. These are used when present: DOB, Gender, Contact Number, Qualification, Department, PAN, Aadhaar, Address, State, District, Pincode, Years of Experience, Emergency Contact Name, Emergency Contact Number, Degree, Percentage, Year of Passing, University and College Name.">
           <input
             ref={input}
             type="file"
@@ -170,6 +170,7 @@ export default function HrEmployeeImportPage() {
           <button type="button" className="uc01-admin-button uc01-admin-button--primary" disabled={phase === 'checking'} onClick={() => input.current?.click()}>
             {phase === 'checking' ? 'Checking the sheet…' : 'Choose Excel file'}
           </button>
+          <p className="hr-muted">A degree is saved only when Degree matches a degree in the list (by code or name) and both Percentage and Year of Passing are given; otherwise the row shows a note. Anything left out is listed as a pending detail on the employee. Salary is added after import, from each employee page.</p>
           <p className="hr-muted">Do not keep this file in shared places: it holds PAN and Aadhaar numbers.</p>
         </SectionCard>
       )}
@@ -266,6 +267,7 @@ export default function HrEmployeeImportPage() {
                       <td data-label="Employee">
                         <strong>{r.fullName || '—'}</strong>
                         <small>{r.employeeCode || 'No ID'}{r.personalEmail ? ` · ${r.personalEmail}` : ''}</small>
+                        {(r.state || r.district || r.pincode) && <small>{[r.state, r.district, r.pincode].filter(Boolean).join(' · ')}</small>}
                       </td>
                       <td data-label="Mobile"><span>{r.mobile ?? '—'}</span></td>
                       <td data-label="Status"><span className={`uc01-admin-status uc01-admin-status--${statusClass[shown]}`}>{statusText[shown]}</span></td>

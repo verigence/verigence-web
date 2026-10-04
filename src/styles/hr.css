@@ -141,3 +141,36 @@
 /* HR roles dialog (Users screen) */
 .hr-role-list { display: flex; flex-direction: column; gap: 10px; }
 .hr-role-option { padding: 12px; border: 1px solid #e4e7ec; border-radius: 10px; }
+
+/* Guided add-employee flow, pending-details note and salary panel */
+.hr-pending { display: flex; flex-direction: column; gap: 6px; padding: 12px 14px; border: 1px solid #fedf89; border-radius: 12px; background: #fffaeb; color: #93370d; font-size: 13px; }
+.hr-pending ul { margin: 0; padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: 6px; }
+.hr-pending li { padding: 4px 9px; border-radius: 999px; background: #fff; border: 1px solid #fedf89; font-size: 12px; font-weight: 700; }
+.hr-pending small { color: #7a2e0e; font-size: 12px; line-height: 1.4; }
+.hr-salary { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-bottom: 10px; }
+
+.hr-stepper { list-style: none; margin: 0; padding: 0; display: flex; gap: 6px; }
+.hr-stepper li { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 4px; text-align: center; color: #66717d; font-size: 11px; font-weight: 700; position: relative; }
+.hr-stepper li + li::before { content: ''; position: absolute; top: 14px; right: calc(50% + 18px); left: calc(-50% + 18px); height: 2px; background: #dfe5ec; }
+.hr-stepper li.is-done + li::before,
+.hr-stepper li.is-active::before { background: #0e7490; }
+.hr-stepper__dot { width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; border: 2px solid #cbd3dd; background: #fff; color: #52606d; font: inherit; font-size: 12px; font-weight: 800; padding: 0; position: relative; z-index: 1; }
+button.hr-stepper__dot { cursor: pointer; }
+.hr-stepper li.is-active .hr-stepper__dot { background: #0e7490; border-color: #0e7490; color: #fff; }
+.hr-stepper li.is-done .hr-stepper__dot { background: #ecfdf3; border-color: #067647; color: #067647; }
+.hr-stepper li.is-active { color: #0b5566; }
+.hr-wizard { padding-bottom: 8px; }
+/* Back / Next stay in reach on a long step */
+.hr-wizard__nav { position: sticky; bottom: 0; z-index: 5; display: flex; flex-wrap: wrap; gap: 8px; justify-content: space-between; padding: 10px 0; margin-top: 4px; background: #f4f8fb; border-top: 1px solid #dfe5ec; }
+.hr-wizard__nav .uc01-admin-button { min-height: 44px; flex: 1 1 110px; }
+
+@media (max-width: 639px) {
+  .hr-stepper li:not(.is-active) .hr-stepper__label { display: none; }
+  .hr-stepper li.is-active { flex-grow: 3; }
+  .hr-stepper li + li::before { right: calc(50% + 18px); left: calc(-50% + 18px); }
+}
+@media (min-width: 640px) {
+  .hr-wizard__nav { justify-content: flex-end; }
+  .hr-wizard__nav .uc01-admin-button { flex: 0 0 auto; min-width: 120px; }
+  .hr-wizard__nav .uc01-admin-button:first-child { margin-right: auto; }
+}

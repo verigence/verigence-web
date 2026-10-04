@@ -21,7 +21,7 @@ export default function QualificationsPanel({ qualifications, degrees, editing }
   const [mode, setMode] = useState<{ kind: 'add' } | { kind: 'edit'; id: string } | null>(null);
 
   return (
-    <SectionCard title="Qualifications" description="Degree, marks and year of passing.">
+    <SectionCard title="Qualifications" description="Degree, marks, year of passing, university and college.">
       {qualifications.length === 0 && mode?.kind !== 'add' && <p className="hr-muted">No qualifications recorded.</p>}
       {qualifications.length > 0 && (
         <ul className="hr-qualification-list">
@@ -39,6 +39,8 @@ export default function QualificationsPanel({ qualifications, degrees, editing }
                     degreeOther: q.degreeCode === 'OTHER' ? q.degree : '',
                     percentage: String(q.percentage),
                     yearOfPassing: String(q.yearOfPassing),
+                    university: q.university ?? '',
+                    college: q.college ?? '',
                   }}
                   onSubmit={async (input) => {
                     try {
@@ -55,6 +57,9 @@ export default function QualificationsPanel({ qualifications, degrees, editing }
                   <span>
                     <strong>{q.degree}</strong>
                     <small>{q.level} · {q.percentage}% · {q.yearOfPassing}</small>
+                    <small>
+                      {q.university ?? 'University not given'} · {q.college ?? 'College not given'}
+                    </small>
                   </span>
                   {editing && (
                     <span className="hr-row-actions">

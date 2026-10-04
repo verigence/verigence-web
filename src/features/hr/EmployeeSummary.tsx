@@ -38,6 +38,7 @@ export default function EmployeeSummary({ employee: e, scope }: Props) {
           <div><dt>Mobile</dt><dd>{dash(e.mobile)}</dd></div>
           <div className="hr-definitions__wide"><dt>Address</dt><dd>{dash(e.address)}</dd></div>
           <div><dt>State</dt><dd>{dash(e.state)}</dd></div>
+          <div><dt>District</dt><dd>{dash(e.district)}</dd></div>
           <div><dt>Pincode</dt><dd>{dash(e.pincode)}</dd></div>
         </dl>
       </SectionCard>

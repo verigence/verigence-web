@@ -11,6 +11,7 @@ import {
   normaliseMobile,
   selfFormFromEmployee,
   toQualificationInput,
+  previewMissingDetails,
   validateEmployeeForm,
   validateQualification,
   validateSelfForm,
@@ -31,6 +32,7 @@ const employee: Employee = {
   designation: null,
   address: '12 Main Road',
   state: 'Odisha',
+  district: 'Khordha',
   pincode: '751001',
   totalExperienceYears: 3.5,
   emergencyContactName: 'Ravi Rao',
@@ -44,6 +46,8 @@ const employee: Employee = {
   panMasked: 'XXXXX1234F',
   aadhaarMasked: null,
   dataFlags: ['AADHAAR_MISSING'],
+  salaryStatus: 'NONE',
+  missingDetails: ['SALARY'],
 };
 
 const valid = {
@@ -114,10 +118,18 @@ describe('buildCreatePayload', () => {
     });
   });
   it('carries qualifications', () => {
-    const q = toQualificationInput({ degreeCode: 'BCOM', degreeOther: '', percentage: '72.5', yearOfPassing: '2016' });
+    const q = toQualificationInput({ degreeCode: 'BCOM', degreeOther: '', percentage: '72.5', yearOfPassing: '2016', university: '', college: '' });
     expect(buildCreatePayload(valid, [q]).qualifications).toEqual([
-      { degree_code: 'BCOM', degree_other: null, percentage: 72.5, year_of_passing: 2016 },
+      { degree_code: 'BCOM', degree_other: null, percentage: 72.5, year_of_passing: 2016, university: null, college: null },
     ]);
+  });
+  it('carries university and college, trimmed', () => {
+    const q = toQualificationInput({ degreeCode: 'BCOM', degreeOther: '', percentage: '72.5', yearOfPassing: '2016', university: '  Utkal   University ', college: 'Ravenshaw' });
+    expect(q.university).toBe('Utkal University');
+    expect(q.college).toBe('Ravenshaw');
+  });
+  it('sends the district', () => {
+    expect(buildCreatePayload({ ...valid, district: ' Khordha ' }, []).district).toBe('Khordha');
   });
 });
 
@@ -132,6 +144,10 @@ describe('buildUpdatePayload', () => {
       address: null,
       designation_code: 'AUDITOR',
     });
+  });
+  it('sends a changed or cleared district', () => {
+    expect(buildUpdatePayload(employee, { ...formFromEmployee(employee), district: 'Cuttack' })).toEqual({ district: 'Cuttack' });
+    expect(buildUpdatePayload(employee, { ...formFromEmployee(employee), district: '' })).toEqual({ district: null });
   });
   it('sends PAN only when a new one is typed', () => {
     const form = { ...formFromEmployee(employee), pan: ' abcde1234f ' };
@@ -169,12 +185,33 @@ describe('self service form', () => {
 describe('validateQualification', () => {
   const today = new Date('2026-10-04T00:00:00Z');
   it('accepts a good row', () => {
-    expect(validateQualification({ degreeCode: 'BCOM', degreeOther: '', percentage: '72.5', yearOfPassing: '2016' }, today)).toEqual({});
+    expect(validateQualification({ degreeCode: 'BCOM', degreeOther: '', percentage: '72.5', yearOfPassing: '2016', university: '', college: '' }, today)).toEqual({});
+  });
+  it('does not block an empty university or college, but limits their length', () => {
+    const good = { degreeCode: 'BCOM', degreeOther: '', percentage: '72.5', yearOfPassing: '2016', university: '', college: '' };
+    expect(validateQualification(good, today)).toEqual({});
+    expect(validateQualification({ ...good, university: 'x'.repeat(151) }, today).university).toBeTruthy();
   });
   it('needs a name for Other, sane marks and a past year', () => {
-    const e = validateQualification({ degreeCode: 'OTHER', degreeOther: '', percentage: '101', yearOfPassing: '2099' }, today);
+    const e = validateQualification({ degreeCode: 'OTHER', degreeOther: '', percentage: '101', yearOfPassing: '2099', university: '', college: '' }, today);
     expect(e.degreeOther).toBeTruthy();
     expect(e.percentage).toBeTruthy();
     expect(e.yearOfPassing).toBeTruthy();
+  });
+});
+
+describe('district and pending details', () => {
+  it('does not block saving when the district is empty, but limits its length', () => {
+    expect(validateEmployeeForm({ ...valid, district: '' }, 'create')).toEqual({});
+    expect(validateEmployeeForm({ ...valid, district: 'x'.repeat(81) }, 'create').district).toBeTruthy();
+  });
+  it('previews what will be noted as pending', () => {
+    expect(previewMissingDetails(valid, [], false)).toEqual([
+      'STATE', 'DISTRICT', 'PINCODE', 'EMERGENCY_CONTACT', 'EXPERIENCE', 'QUALIFICATION', 'UNIVERSITY_COLLEGE', 'SALARY',
+    ]);
+    const full = { ...valid, state: 'Odisha', district: 'Khordha', pincode: '751001', totalExperienceYears: '2', emergencyContactName: 'R', emergencyContactNumber: '9123456780' };
+    const q = { degree_code: 'BCOM', percentage: 70, year_of_passing: 2016, university: 'Utkal', college: 'Ravenshaw' };
+    expect(previewMissingDetails(full, [q], true)).toEqual([]);
+    expect(previewMissingDetails(full, [{ ...q, college: null }], true)).toEqual(['UNIVERSITY_COLLEGE']);
   });
 });

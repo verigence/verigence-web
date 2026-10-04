@@ -3,6 +3,7 @@ import type {
   EmployeeCreateInput,
   EmployeeUpdateInput,
   Gender,
+  MissingDetail,
   QualificationInput,
   SelfUpdateInput,
 } from '../../services/hr/employees';
@@ -28,6 +29,7 @@ export interface EmployeeFormValues {
   employmentStatus: string;
   address: string;
   state: string;
+  district: string;
   pincode: string;
   totalExperienceYears: string;
   emergencyContactName: string;
@@ -54,6 +56,7 @@ export const emptyEmployeeForm: EmployeeFormValues = {
   employmentStatus: 'ACTIVE',
   address: '',
   state: '',
+  district: '',
   pincode: '',
   totalExperienceYears: '',
   emergencyContactName: '',
@@ -79,6 +82,7 @@ export function formFromEmployee(e: Employee): EmployeeFormValues {
     employmentStatus: e.employmentStatus,
     address: e.address ?? '',
     state: e.state ?? '',
+    district: e.district ?? '',
     pincode: e.pincode ?? '',
     totalExperienceYears: e.totalExperienceYears === null ? '' : String(e.totalExperienceYears),
     emergencyContactName: e.emergencyContactName ?? '',
@@ -137,6 +141,7 @@ export function validateEmployeeForm(
   if (v.dateOfJoining && Number.isNaN(new Date(`${v.dateOfJoining}T00:00:00`).getTime())) {
     e.dateOfJoining = 'Enter a valid date.';
   }
+  if (clean(v.district).length > 80) e.district = 'Keep the district within 80 characters.';
   if (v.pincode.trim() && !isPincode(v.pincode)) e.pincode = 'Pincode must be 6 digits and cannot start with 0.';
   if (v.totalExperienceYears.trim()) {
     const years = Number(v.totalExperienceYears);
@@ -176,6 +181,7 @@ export function buildCreatePayload(
     ['department', v.department],
     ['address', v.address],
     ['state', v.state],
+    ['district', v.district],
     ['emergency_contact_name', v.emergencyContactName],
     ['emergency_contact_address', v.emergencyContactAddress],
   ];
@@ -214,6 +220,7 @@ export function buildUpdatePayload(original: Employee, v: EmployeeFormValues): E
   if ((original.designationCode ?? '') !== v.designationCode) out.designation_code = v.designationCode || null;
   nullable('address', original.address, v.address);
   nullable('state', original.state, v.state);
+  nullable('district', original.district, v.district);
   const pincode = v.pincode.trim() || null;
   if ((original.pincode ?? null) !== pincode) out.pincode = pincode;
   const years = v.totalExperienceYears.trim() ? Number(v.totalExperienceYears) : null;
@@ -286,6 +293,8 @@ export interface QualificationFormValues {
   degreeOther: string;
   percentage: string;
   yearOfPassing: string;
+  university: string;
+  college: string;
 }
 
 export const emptyQualification: QualificationFormValues = {
@@ -293,6 +302,8 @@ export const emptyQualification: QualificationFormValues = {
   degreeOther: '',
   percentage: '',
   yearOfPassing: '',
+  university: '',
+  college: '',
 };
 
 export function validateQualification(v: QualificationFormValues, today: Date = new Date()) {
@@ -309,6 +320,9 @@ export function validateQualification(v: QualificationFormValues, today: Date = 
   if (!/^\d{4}$/.test(v.yearOfPassing.trim()) || year < 1950 || year > today.getFullYear()) {
     e.yearOfPassing = `Enter a year between 1950 and ${today.getFullYear()}.`;
   }
+  // University and college are expected but may be left empty; they are then listed as pending.
+  if (clean(v.university).length > 150) e.university = 'Keep the university within 150 characters.';
+  if (clean(v.college).length > 150) e.college = 'Keep the college within 150 characters.';
   return e;
 }
 
@@ -318,5 +332,28 @@ export function toQualificationInput(v: QualificationFormValues): QualificationI
     degree_other: v.degreeCode === 'OTHER' ? clean(v.degreeOther) : null,
     percentage: Number(v.percentage),
     year_of_passing: Number(v.yearOfPassing),
+    university: clean(v.university) || null,
+    college: clean(v.college) || null,
   };
+}
+
+/**
+ * What the HR service will most likely list as "pending details" for a record about to be created.
+ * A preview for the review step only; after saving, the service's own list is what is shown.
+ */
+export function previewMissingDetails(
+  v: EmployeeFormValues,
+  qualifications: QualificationInput[],
+  salaryEntered: boolean,
+): MissingDetail[] {
+  const out: MissingDetail[] = [];
+  if (!clean(v.state)) out.push('STATE');
+  if (!clean(v.district)) out.push('DISTRICT');
+  if (!v.pincode.trim()) out.push('PINCODE');
+  if (!clean(v.emergencyContactName) || !v.emergencyContactNumber.trim()) out.push('EMERGENCY_CONTACT');
+  if (!v.totalExperienceYears.trim()) out.push('EXPERIENCE');
+  if (qualifications.length === 0) out.push('QUALIFICATION');
+  if (qualifications.length === 0 || qualifications.some((q) => !q.university || !q.college)) out.push('UNIVERSITY_COLLEGE');
+  if (!salaryEntered) out.push('SALARY');
+  return out;
 }

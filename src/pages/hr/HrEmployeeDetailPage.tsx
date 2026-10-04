@@ -267,7 +267,7 @@ export default function HrEmployeeDetailPage() {
       )}
       {credential && (
         <SectionCard title="New login created">
-          <p>Share this with the employee securely. <strong>The password is shown only now and cannot be shown again.</strong></p>
+          <p>The login waits for SuperAdmin to allow it (Users → Pending Approvals); the employee can sign in only after that. Share this with the employee securely. <strong>The password is shown only now and cannot be shown again.</strong></p>
           <dl className="definition-list">
             <div><dt>Sign-in email</dt><dd>{employee.personalEmail}</dd></div>
             <div><dt>Initial password</dt><dd><code className="hr-password">{credential}</code></dd></div>

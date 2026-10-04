@@ -231,7 +231,7 @@ export default function HrEmployeeImportPage() {
               {withPasswords > 0 && (
                 <div className="hr-credential">
                   <div className="uc01-admin-message uc01-admin-message--info">
-                    The initial passwords are shown only now and are not stored. Download them and share them securely; delete the download afterwards.
+                    The initial passwords are shown only now and are not stored. Download them and share them securely; delete the download afterwards. The new logins wait for SuperAdmin to allow them (Users → Pending Approvals).
                   </div>
                   <button type="button" className="uc01-admin-button uc01-admin-button--primary" onClick={download}>Download login details (.txt)</button>
                 </div>

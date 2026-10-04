@@ -6,6 +6,8 @@ export interface GlobalUserDirectoryItem {
   status: string;
   clerkSubject: string | null;
   onboardingStatus: string | null;
+  /** Ticked automatically when the person comes through HR employee onboarding. */
+  isEmployee?: boolean;
   createdAtUtc: string;
   updatedAtUtc: string;
 }

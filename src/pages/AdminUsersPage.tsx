@@ -340,6 +340,7 @@ export default function AdminUsersPage() {
                 <th>User</th>
                 <th>Contact</th>
                 <th>Status</th>
+                <th>Is employee</th>
                 <th>Administrative roles</th>
                 <th>Updated</th>
                 <th aria-label="Actions" />
@@ -368,6 +369,9 @@ export default function AdminUsersPage() {
                       <small>{user.primaryMobile ?? 'Mobile unavailable'}</small>
                     </td>
                     <td data-label="Status"><StatusBadge status={user.status} /></td>
+                    <td data-label="Is employee">
+                      <input type="checkbox" checked={Boolean(user.isEmployee)} disabled readOnly aria-label={`${user.displayName} is ${user.isEmployee ? '' : 'not '}an employee`} />
+                    </td>
                     <td data-label="Administrative roles">
                       <Link to={`/admin/roles-permissions?userId=${encodeURIComponent(user.userId)}`}>Manage roles</Link>
                       <small>Project Admin / Module Admin</small>
@@ -429,7 +433,7 @@ export default function AdminUsersPage() {
                 );
               })}
               {visibleUsers.length === 0 && (
-                <tr><td colSpan={7}><div className="uc01-admin-empty">No users match the current filters.</div></td></tr>
+                <tr><td colSpan={8}><div className="uc01-admin-empty">No users match the current filters.</div></td></tr>
               )}
             </tbody>
           </table>

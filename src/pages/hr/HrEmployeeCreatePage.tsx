@@ -118,7 +118,7 @@ export default function HrEmployeeCreatePage() {
         <SectionCard title="Verigence login">
           {loginOk ? (
             <div className="hr-credential">
-              <p>The login is ready. Share these details with the employee securely. <strong>The password is shown only now and cannot be shown again.</strong></p>
+              <p>The login is created and waits for SuperAdmin to allow it (Users → Pending Approvals); the employee can sign in only after that. Share these details with the employee securely. <strong>The password is shown only now and cannot be shown again.</strong></p>
               <dl className="definition-list">
                 <div><dt>Sign-in email</dt><dd>{employee.personalEmail}</dd></div>
                 <div><dt>Initial password</dt><dd><code className="hr-password">{initialPassword}</code></dd></div>

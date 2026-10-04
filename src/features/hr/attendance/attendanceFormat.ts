@@ -34,6 +34,7 @@ export const flagLabels: Record<string, string> = {
   NO_OUTLET_LOCATION: 'No outlet location on file',
   PHOTO_TIME_MISMATCH: 'Photo time did not match',
   NO_ADDRESS: 'Address not found',
+  MISSING_CHECK_OUT: 'Missing check-out',
 };
 
 export const exceptionLabels: Record<ExceptionKind, string> = {
@@ -42,6 +43,13 @@ export const exceptionLabels: Record<ExceptionKind, string> = {
   OUT_OF_FENCE: 'Outside outlet area',
   NO_OUTLET_LOCATION: 'No outlet location on file',
 };
+
+/** Who decides the exceptions an event created: a missing outlet location goes to HR, the rest to the Team Lead or Project Manager. */
+export function approverPhrase(kinds: string[]): string {
+  const hr = kinds.filter((k) => k === 'NO_OUTLET_LOCATION').length;
+  if (hr === 0) return 'your Team Lead or Project Manager';
+  return hr === kinds.length ? 'HR' : 'your Team Lead, Project Manager or HR';
+}
 
 export const exceptionStatusLabels: Record<ExceptionStatus, string> = {
   PENDING: 'Waiting for a decision',

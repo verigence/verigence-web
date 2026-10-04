@@ -1,0 +1,238 @@
+import { useEffect, useMemo, useState } from 'react';
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
+
+import PageHeader from '../../components/PageHeader';
+import { ATTENDANCE_PERMISSION } from '../../services/hr/attendance';
+import { getDailyAttendance, type DailyRow } from '../../services/hr/attendanceReports';
+import { hrErrorMessage } from '../../services/hr/client';
+import { HR_PERMISSION } from '../../services/hr/employees';
+import { getWorkAssignments } from '../../services/hr/workAssignments';
+import { useSessionStore } from '../../store/sessionStore';
+import ReportDialog from '../../features/hr/attendance/ReportDialog';
+import { formatDistance, formatTimeIst, formatWorkDate, todayIst } from '../../features/hr/attendance/attendanceFormat';
+import {
+  dailyKeys,
+  dailyStatusLabels,
+  dailyStatusTone,
+  delinquencyText,
+  formatHours,
+  groupByProject,
+  needsAttention,
+  shiftDate,
+} from '../../features/hr/attendance/dailyAttendance';
+import { useHrAccess } from '../../features/hr/hrQueries';
+import '../../styles/hr-attendance.css';
+
+interface Project { code: string; name: string }
+
+function Side({ at, outlet, distance }: { at: string | null; outlet: string | null; distance: number | null }) {
+  const far = formatDistance(distance);
+  return (
+    <span className="hr-daily-cell">
+      <strong>{formatTimeIst(at)}</strong>
+      {at && (outlet || far) && <small>{[outlet, far].filter(Boolean).join(' · ')}</small>}
+    </span>
+  );
+}
+
+function RowLine({ row }: { row: DailyRow }) {
+  return (
+    <tr className={needsAttention(row) ? 'hr-daily-row--attention' : undefined}>
+      <td data-label="Employee"><span className="hr-daily-cell"><strong>{row.employeeName}</strong><small>{row.employeeCode}</small></span></td>
+      <td data-label="Role">{row.roles.length ? row.roles.join(', ') : '—'}</td>
+      <td data-label="Check-in"><Side at={row.checkInAt} outlet={row.checkInOutlet} distance={row.checkInDistanceM} /></td>
+      <td data-label="Check-out"><Side at={row.checkOutAt} outlet={row.checkOutOutlet} distance={row.checkOutDistanceM} /></td>
+      <td data-label="Hours">{formatHours(row.hoursWorked)}</td>
+      <td data-label="Status">
+        <span className={`uc01-admin-status${dailyStatusTone[row.status] ? ` uc01-admin-status--${dailyStatusTone[row.status]}` : ''}`}>
+          {dailyStatusLabels[row.status] ?? row.status}
+        </span>
+      </td>
+      <td data-label="Delinquencies">
+        {row.delinquencies.length === 0 ? <span className="hr-muted">None</span> : (
+          <span className="hr-flags">
+            {row.delinquencies.map((d) => <span key={d.code} className="hr-flag">{delinquencyText(d)}</span>)}
+          </span>
+        )}
+      </td>
+    </tr>
+  );
+}
+
+/** HR / Finance / CEO: who checked in on a day, by project, with what needs attention marked. */
+export default function HrDailyAttendancePage() {
+  const accessToken = useSessionStore((state) => state.accessToken);
+  const access = useHrAccess();
+  const allowed = access.can(ATTENDANCE_PERMISSION.readAll);
+  const today = todayIst();
+  const [date, setDate] = useState(today);
+  const [project, setProject] = useState('');
+  const [onlyDelinquent, setOnlyDelinquent] = useState(false);
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  const [reportOpen, setReportOpen] = useState(false);
+  const [known, setKnown] = useState<Map<string, string>>(new Map());
+
+  const query = useQuery({
+    queryKey: dailyKeys.day(date, project),
+    queryFn: () => getDailyAttendance(accessToken!, date, project || undefined),
+    enabled: Boolean(accessToken) && allowed,
+    retry: false,
+    refetchOnWindowFocus: false,
+    placeholderData: keepPreviousData,
+  });
+  // The project list for the filter, when the person may also read assignments.
+  const assigned = useQuery({
+    queryKey: dailyKeys.assignments(''),
+    queryFn: () => getWorkAssignments(accessToken!),
+    enabled: Boolean(accessToken) && allowed && access.can(HR_PERMISSION.employeeRead),
+    retry: false,
+    refetchOnWindowFocus: false,
+    staleTime: 10 * 60_000,
+  });
+  const data = query.data;
+
+  // Projects seen in any answer, so choosing one does not empty the list to choose from.
+  useEffect(() => {
+    if (!data) return;
+    setKnown((current) => {
+      const next = new Map(current);
+      for (const r of data.rows) if (r.projectCode) next.set(r.projectCode, r.projectName ?? r.projectCode);
+      return next.size === current.size ? current : next;
+    });
+  }, [data]);
+  const projects = useMemo<Project[]>(() => {
+    const all = new Map(known);
+    for (const p of assigned.data?.projects ?? []) all.set(p.projectCode, p.projectName);
+    return [...all].map(([code, name]) => ({ code, name })).sort((a, b) => a.name.localeCompare(b.name));
+  }, [known, assigned.data]);
+
+  const rows = useMemo(() => (data?.rows ?? []).filter((r) => !onlyDelinquent || needsAttention(r)), [data, onlyDelinquent]);
+  const groups = useMemo(() => groupByProject(rows), [rows]);
+  const toggle = (key: string) => setCollapsed((current) => {
+    const next = new Set(current);
+    if (!next.delete(key)) next.add(key);
+    return next;
+  });
+
+  if (access.loading) return <div className="uc01-admin-state">Loading…</div>;
+  if (!allowed) {
+    return (
+      <section className="uc01-admin-page" aria-label="Daily attendance">
+        <PageHeader eyebrow="HR" title="Daily attendance" />
+        <div className="uc01-admin-state uc01-admin-state--error">
+          <strong>You do not have access to everyone&apos;s attendance.</strong>
+          <span>Ask an administrator to give you an HR role.</span>
+        </div>
+      </section>
+    );
+  }
+
+  const s = data?.summary;
+  const tiles: Array<[string, number | undefined, string?]> = [
+    ['Employees', s?.employees],
+    ['Checked in', s?.checkedIn],
+    ['Completed', s?.completed],
+    ['Not checked in / absent', s ? s.notCheckedIn + s.absent : undefined, s ? `${s.notCheckedIn} not in, ${s.absent} absent` : undefined],
+    ['On leave', s?.onLeave],
+    ['Pending approval', s?.pendingApproval],
+    ['With delinquencies', s?.withDelinquencies],
+  ];
+
+  return (
+    <section className="uc01-admin-page hr-page hr-att-page hr-daily" aria-label="Daily attendance">
+      <PageHeader
+        eyebrow="HR"
+        title="Daily attendance"
+        description="Who checked in on a day, by project. Times are in IST."
+        actions={<button type="button" className="uc01-admin-button uc01-admin-button--primary hr-daily__download" onClick={() => setReportOpen(true)}>Download report</button>}
+      />
+
+      <div className="hr-daily__toolbar">
+        <div className="hr-att-months" role="group" aria-label="Day">
+          <button type="button" className="uc01-admin-button hr-att-months__step" aria-label="Previous day" onClick={() => setDate(shiftDate(date, -1))}>‹</button>
+          <label className="hr-att-months__select">
+            <span className="hr-visually-hidden">Choose day</span>
+            <input type="date" className="hr-daily__date" value={date} max={today} onChange={(e) => e.target.value && e.target.value <= today && setDate(e.target.value)} />
+          </label>
+          <button type="button" className="uc01-admin-button hr-att-months__step" aria-label="Next day" disabled={date >= today} onClick={() => setDate(shiftDate(date, 1))}>›</button>
+        </div>
+        <div className="hr-daily__quick">
+          <button type="button" className="uc01-admin-button" disabled={date === today} onClick={() => setDate(today)}>Today</button>
+          <button type="button" className="uc01-admin-button" disabled={date === shiftDate(today, -1)} onClick={() => setDate(shiftDate(today, -1))}>Yesterday</button>
+        </div>
+        <label className="uc01-admin-filter">
+          <span>Project</span>
+          <select value={project} onChange={(e) => setProject(e.target.value)}>
+            <option value="">All projects</option>
+            {projects.map((p) => <option key={p.code} value={p.code}>{p.name}</option>)}
+          </select>
+        </label>
+        <label className="hr-daily__toggle">
+          <input type="checkbox" checked={onlyDelinquent} onChange={(e) => setOnlyDelinquent(e.target.checked)} />
+          <span>Only show delinquencies</span>
+        </label>
+      </div>
+
+      <p className="hr-count" aria-live="polite">{formatWorkDate(date)}</p>
+      {data?.dayKind === 'SUNDAY' && <div className="uc01-admin-message uc01-admin-message--info">Sunday is the weekly off.</div>}
+      {data?.dayKind === 'HOLIDAY' && <div className="uc01-admin-message uc01-admin-message--info">Holiday{data.holiday ? `: ${data.holiday}` : ''}.</div>}
+
+      {query.isLoading && <div className="uc01-admin-state">Loading attendance…</div>}
+      {query.isError && (
+        <div className="uc01-admin-state uc01-admin-state--error" role="alert">
+          <strong>Attendance could not be loaded.</strong>
+          <span>{hrErrorMessage(query.error)}</span>
+          <button type="button" className="uc01-admin-button" onClick={() => query.refetch()}>Try again</button>
+        </div>
+      )}
+
+      {data && !query.isError && (
+        <>
+          <div className="hr-daily__tiles">
+            {tiles.map(([label, value, sub]) => (
+              <div key={label} className={label === 'With delinquencies' && value ? 'is-attention' : undefined}>
+                <span>{label}</span>
+                <strong>{value ?? '—'}</strong>
+                {sub && <small>{sub}</small>}
+              </div>
+            ))}
+          </div>
+
+          {groups.length === 0 ? (
+            <div className="uc01-admin-state">{onlyDelinquent ? 'No delinquencies on this day.' : 'No attendance to show for this day.'}</div>
+          ) : (
+            groups.map((g) => {
+              const open = !collapsed.has(g.key);
+              return (
+                <section key={g.key || 'none'} className="hr-daily-group" aria-label={g.name}>
+                  <button type="button" className="hr-daily-group__head" aria-expanded={open} onClick={() => toggle(g.key)}>
+                    <span className="hr-daily-group__caret" aria-hidden="true">{open ? '▾' : '▸'}</span>
+                    <strong>{g.name}</strong>
+                    <span className="hr-muted">
+                      {g.rows.length === 1 ? '1 person' : `${g.rows.length} people`}
+                      {g.delinquent > 0 && ` · ${g.delinquent} with delinquencies`}
+                    </span>
+                  </button>
+                  {open && (
+                    <div className="uc01-admin-table-wrap">
+                      <table className="uc01-admin-table hr-table hr-daily-table">
+                        <thead>
+                          <tr>
+                            <th>Employee</th><th>Role</th><th>Check-in</th><th>Check-out</th><th>Hours</th><th>Status</th><th>Delinquencies</th>
+                          </tr>
+                        </thead>
+                        <tbody>{g.rows.map((r) => <RowLine key={`${r.employeeId}-${r.projectCode ?? ''}`} row={r} />)}</tbody>
+                      </table>
+                    </div>
+                  )}
+                </section>
+              );
+            })
+          )}
+        </>
+      )}
+
+      {reportOpen && <ReportDialog date={date} projects={projects} onClose={() => setReportOpen(false)} />}
+    </section>
+  );
+}

@@ -24,6 +24,7 @@ import {
 } from './attendanceDevice';
 import {
   CAMERA_UNAVAILABLE_MESSAGE,
+  approverPhrase,
   cameraMessage,
   describeAttendanceError,
   exceptionLabel,
@@ -249,8 +250,8 @@ export default function CaptureDialog({ event, today, clockSkewMs, onClose }: Pr
         )}
         {result.needsApproval.length > 0 && (
           <div className="uc01-admin-message uc01-admin-message--info" role="status">
-            {result.needsApproval.map(exceptionLabel).join(' and ')} noted. It has gone to your Team Lead or Project Manager
-            for approval. Your status will show &ldquo;Awaiting approval&rdquo; until they decide.
+            {result.needsApproval.map(exceptionLabel).join(' and ')} noted. It has gone to {approverPhrase(result.needsApproval)}
+            for approval. Your status will show &ldquo;Awaiting approval&rdquo; until it is decided.
           </div>
         )}
         <div className="uc01-admin-dialog__actions">

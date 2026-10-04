@@ -30,7 +30,7 @@ export const statusTone: Record<AttendanceDayStatus, string> = {
 export const flagLabels: Record<string, string> = {
   LATE: 'Late check-in',
   EARLY: 'Early check-out',
-  OUT_OF_FENCE: 'Outside outlet area',
+  OUT_OF_FENCE: 'Not in tagged location',
   NO_OUTLET_LOCATION: 'No outlet location on file',
   PHOTO_TIME_MISMATCH: 'Photo time did not match',
   NO_ADDRESS: 'Address not found',
@@ -40,7 +40,7 @@ export const flagLabels: Record<string, string> = {
 export const exceptionLabels: Record<ExceptionKind, string> = {
   LATE_CHECK_IN: 'Late check-in',
   EARLY_CHECK_OUT: 'Early check-out',
-  OUT_OF_FENCE: 'Outside outlet area',
+  OUT_OF_FENCE: 'Not in tagged location',
   NO_OUTLET_LOCATION: 'No outlet location on file',
 };
 

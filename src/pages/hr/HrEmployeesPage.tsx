@@ -9,7 +9,7 @@ import { PAYROLL_PERMISSION } from '../../services/hr/payroll';
 import { useSessionStore } from '../../store/sessionStore';
 import { initialsOf } from '../../features/hr/EmployeeAvatar';
 import { PendingCountBadge, SalaryStatusBadge } from '../../features/hr/EmployeeBadges';
-import { dataFlagLabels, loginLabels, statusLabels } from '../../features/hr/hrLabels';
+import { dataFlagLabels, statusLabels } from '../../features/hr/hrLabels';
 import { hrKeys, useHrAccess } from '../../features/hr/hrQueries';
 
 const PAGE_SIZE = 25;
@@ -120,9 +120,9 @@ export default function HrEmployeesPage() {
                   <th>Employee</th>
                   <th>Department</th>
                   <th>Designation</th>
+                  <th>Project</th>
                   <th>Contact</th>
                   <th>Status</th>
-                  <th>Login</th>
                   <th>Salary and pending</th>
                   {access.canManageEmployees && <th>Action</th>}
                 </tr>
@@ -141,15 +141,13 @@ export default function HrEmployeesPage() {
                     </td>
                     <td data-label="Department"><span>{e.department ?? '—'}</span></td>
                     <td data-label="Designation"><span>{e.designation ?? 'Not set'}</span></td>
+                    <td data-label="Project"><span>{e.projects && e.projects.length > 0 ? e.projects.join(', ') : '—'}</span></td>
                     <td data-label="Contact">
                       <strong>{e.mobile ?? 'No mobile'}</strong>
                       <small>{e.personalEmail}</small>
                     </td>
                     <td data-label="Status">
                       <span className={`uc01-admin-status uc01-admin-status--${e.employmentStatus === 'ACTIVE' ? 'active' : 'rejected'}`}>{statusLabels[e.employmentStatus]}</span>
-                    </td>
-                    <td data-label="Login">
-                      <span className={`uc01-admin-status uc01-admin-status--${e.loginStatus === 'CREATED' ? 'active' : e.loginStatus === 'FAILED' ? 'pending' : 'rejected'}`}>{loginLabels[e.loginStatus]}</span>
                     </td>
                     <td data-label="Salary and pending">
                       <span className="hr-flags">

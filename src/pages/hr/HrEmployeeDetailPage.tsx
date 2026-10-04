@@ -46,7 +46,7 @@ import { dataFlagLabels, loginLabels, loginProblem, statusLabels } from '../../f
 import { hrKeys, useHrAccess } from '../../features/hr/hrQueries';
 import { useDegrees, useDepartments, useDesignations, useStates } from '../../features/hr/referenceData';
 
-type Tab = 'profile' | 'qualifications' | 'history';
+type Tab = 'profile' | 'history';
 
 export default function HrEmployeeDetailPage() {
   const { employeeId = '' } = useParams();
@@ -228,7 +228,6 @@ export default function HrEmployeeDetailPage() {
 
   const tabs: Array<{ key: Tab; label: string }> = [
     { key: 'profile', label: 'Profile' },
-    { key: 'qualifications', label: `Qualifications and experience (${employee.qualifications.length + (employee.experiences ?? []).length})` },
     ...(access.canReadAudit ? [{ key: 'history' as const, label: 'History' }] : []),
   ];
 
@@ -386,13 +385,9 @@ export default function HrEmployeeDetailPage() {
                   <AssignmentLines assignments={projects.data.employees.find((x) => x.employeeId === employeeId)?.assignments ?? []} />
                 )}
               </SectionCard>
-              <SensitiveNumbers employee={employee} canReveal={access.canRevealSensitive} reveal={() => revealEmployeeSensitive(accessToken!, employeeId)} />
-            </div>
-          )}
-          {tab === 'qualifications' && (
-            <div className="hr-sections">
               <QualificationsPanel qualifications={employee.qualifications} degrees={degrees.data ?? []} editing={qualificationEditing} />
               <ExperiencePanel experiences={employee.experiences ?? []} editing={experienceEditing} />
+              <SensitiveNumbers employee={employee} canReveal={access.canRevealSensitive} reveal={() => revealEmployeeSensitive(accessToken!, employeeId)} />
             </div>
           )}
           {tab === 'history' && access.canReadAudit && <AuditHistory employeeId={employeeId} />}

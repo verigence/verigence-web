@@ -1,26 +1,40 @@
 import { describe, expect, it } from 'vitest';
 
-import { buildProposal, isInBand, parseGross, validateProposal, type ProposalForm } from '../salaryRules';
+import { buildProposal, hasMidTemplate, isInBand, parseGross, validateProposal, type ProposalForm } from '../salaryRules';
 
 const form = (over: Partial<ProposalForm> = {}): ProposalForm => ({
   employeeId: 'e1', gross: '30000', effectiveFrom: '2026-10-01', templateId: '', bandConfirmed: false, note: '', ...over,
 });
 
-describe('the 21,001 to 25,000 band', () => {
+describe('the 21,001 to 24,999 band', () => {
   it('includes both edges and nothing outside them', () => {
     expect(isInBand('21001')).toBe(true);
-    expect(isInBand('25000')).toBe(true);
+    expect(isInBand('24999')).toBe(true);
+    expect(isInBand('24999.99')).toBe(true);
     expect(isInBand('22000.50')).toBe(true);
     expect(isInBand('21000')).toBe(false);
     expect(isInBand('21000.99')).toBe(false);
+    expect(isInBand('25000')).toBe(false);
     expect(isInBand('25000.01')).toBe(false);
-    expect(isInBand('25001')).toBe(false);
   });
 
   it('needs a chosen template and an explicit tick', () => {
     expect(validateProposal(form({ gross: '22000' })).templateId).toBeTruthy();
     expect(validateProposal(form({ gross: '22000', templateId: 't1' })).bandConfirmed).toBeTruthy();
     expect(validateProposal(form({ gross: '22000', templateId: 't1', bandConfirmed: true }))).toEqual({});
+  });
+
+  it('asks for no choice when the band template exists, and sends no template or tick', () => {
+    expect(hasMidTemplate([{ code: 'MID_21K_25K', active: true }])).toBe(true);
+    expect(hasMidTemplate([{ code: 'MID_21K_25K', active: false }, { code: 'OTHER', active: true }])).toBe(false);
+    expect(validateProposal(form({ gross: '22000' }), false)).toEqual({});
+    expect(buildProposal(form({ gross: '22000', templateId: 't1', bandConfirmed: true }), false)).toEqual({
+      employee_id: 'e1', gross_monthly: '22000', effective_from: '2026-10-01',
+    });
+  });
+
+  it('treats 25,000 as an ordinary salary', () => {
+    expect(validateProposal(form({ gross: '25000' }))).toEqual({});
   });
 
   it('does not ask outside the band', () => {

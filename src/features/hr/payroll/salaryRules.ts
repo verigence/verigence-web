@@ -1,8 +1,10 @@
 import { compareDecimal } from './money';
 
-/** From the HR service: a gross in this band (inclusive) has no default template. */
+/** From the HR service: a gross in this band (inclusive) is covered by the MID_21K_25K template, which HR creates. */
 export const BAND_LOW = '21001';
-export const BAND_HIGH = '25000';
+export const BAND_HIGH = '24999.99';
+export const MID_TEMPLATE_CODE = 'MID_21K_25K';
+export const TEMPLATE_PENDING_HINT = 'Needs the ₹21,001–₹24,999 template first';
 export const MAX_GROSS = '10000000';
 
 export type GrossResult = { ok: true; value: string } | { ok: false; error: string };
@@ -16,6 +18,10 @@ export function parseGross(input: string): GrossResult {
   if ((compareDecimal(text, MAX_GROSS) ?? 0) > 0) return { ok: false, error: 'That is above the largest amount the system accepts.' };
   return { ok: true, value: text };
 }
+
+/** True when an active template with the reserved band code exists: the service then picks it, so nobody has to choose. */
+export const hasMidTemplate = (templates: Array<{ code: string; active: boolean }>) =>
+  templates.some((t) => t.active && t.code === MID_TEMPLATE_CODE);
 
 export function isInBand(gross: string): boolean {
   const low = compareDecimal(gross, BAND_LOW);
@@ -34,21 +40,22 @@ export interface ProposalForm {
 
 export type ProposalErrors = Partial<Record<'employeeId' | 'gross' | 'effectiveFrom' | 'templateId' | 'bandConfirmed' | 'note', string>>;
 
-export function validateProposal(form: ProposalForm): ProposalErrors {
+/** `bandNeedsChoice` is false when the band template exists and the service picks it. */
+export function validateProposal(form: ProposalForm, bandNeedsChoice = true): ProposalErrors {
   const errors: ProposalErrors = {};
   if (!form.employeeId) errors.employeeId = 'Choose the person.';
   const gross = parseGross(form.gross);
   if (!gross.ok) errors.gross = gross.error;
   if (!/^\d{4}-\d{2}-\d{2}$/.test(form.effectiveFrom)) errors.effectiveFrom = 'Choose the date it starts from.';
   if (form.note.trim().length > 300) errors.note = 'Keep the note within 300 characters.';
-  if (gross.ok && isInBand(gross.value)) {
+  if (gross.ok && isInBand(gross.value) && bandNeedsChoice) {
     if (!form.templateId) errors.templateId = 'This salary needs a template. Choose one yourself.';
     else if (!form.bandConfirmed) errors.bandConfirmed = 'Tick the box to confirm you chose this template on purpose.';
   }
   return errors;
 }
 
-export function buildProposal(form: ProposalForm): {
+export function buildProposal(form: ProposalForm, bandNeedsChoice = true): {
   employee_id: string;
   gross_monthly: string;
   effective_from: string;
@@ -62,8 +69,9 @@ export function buildProposal(form: ProposalForm): {
     gross_monthly: gross.ok ? gross.value : form.gross.trim(),
     effective_from: form.effectiveFrom,
   };
-  if (form.templateId) body.template_id = form.templateId;
-  if (gross.ok && isInBand(gross.value) && form.bandConfirmed) body.band_confirmed = true;
+  const picked = gross.ok && isInBand(gross.value) && !bandNeedsChoice ? '' : form.templateId; // the service picks the band template
+  if (picked) body.template_id = picked;
+  if (gross.ok && isInBand(gross.value) && bandNeedsChoice && form.bandConfirmed) body.band_confirmed = true;
   if (form.note.trim()) body.note = form.note.trim();
   return body;
 }

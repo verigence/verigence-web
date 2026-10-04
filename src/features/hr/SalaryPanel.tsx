@@ -10,7 +10,7 @@ import { SalaryStatusBadge } from './EmployeeBadges';
 import SalaryEntryFields, { emptySalaryDraft, validateSalaryDraft, type SalaryDraft } from './SalaryEntryFields';
 import Modal from './payroll/Modal';
 import { payrollErrorMessage } from './payroll/payrollErrors';
-import { buildProposal, type ProposalErrors } from './payroll/salaryRules';
+import { buildProposal, hasMidTemplate, type ProposalErrors } from './payroll/salaryRules';
 import { hrKeys } from './hrQueries';
 
 interface Props {
@@ -27,6 +27,7 @@ interface Props {
 const hints: Record<SalaryStatus, string> = {
   NONE: 'No salary is on record. Salary is needed before payroll can include this person.',
   WAITING_FINANCE: 'A salary has been proposed and waits for Finance to approve it.',
+  TEMPLATE_PENDING: 'A salary is saved but waits for the ₹21,001–₹24,999 template before Finance can approve it.',
   APPROVED: 'A salary is approved and counts for payroll.',
   APPROVED_FROM_LATER: 'A salary is approved and starts from a later date.',
 };
@@ -49,8 +50,10 @@ export default function SalaryPanel({ employeeId, fullName, status, canPropose, 
     refetchOnWindowFocus: false,
   });
 
+  const bandNeedsChoice = !hasMidTemplate(templates.data?.items ?? []);
+
   const propose = useMutation({
-    mutationFn: () => proposeStructure(accessToken!, buildProposal({ ...draft, employeeId })),
+    mutationFn: () => proposeStructure(accessToken!, buildProposal({ ...draft, employeeId }, bandNeedsChoice)),
     onSuccess: async () => {
       setOpen(false);
       setNotice('Salary proposed. It now waits for Finance to approve it.');
@@ -72,7 +75,7 @@ export default function SalaryPanel({ employeeId, fullName, status, canPropose, 
   };
 
   const submit = () => {
-    const found = validateSalaryDraft(draft);
+    const found = validateSalaryDraft(draft, bandNeedsChoice);
     setErrors(found);
     if (Object.keys(found).length > 0) {
       setProblem('Some details need attention. They are marked below.');

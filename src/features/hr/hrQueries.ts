@@ -13,6 +13,7 @@ export const hrKeys = {
   degrees: ['hr', 'degrees'] as const,
   states: ['hr', 'states'] as const,
   designations: ['hr', 'designations'] as const,
+  departments: ['hr', 'departments'] as const,
 };
 
 export interface HrAccess {

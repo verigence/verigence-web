@@ -31,7 +31,7 @@ import SalaryEntryFields, {
   validateSalaryDraft,
   type SalaryDraft,
 } from '../../features/hr/SalaryEntryFields';
-import { buildProposal, type ProposalErrors } from '../../features/hr/payroll/salaryRules';
+import { buildProposal, hasMidTemplate, type ProposalErrors } from '../../features/hr/payroll/salaryRules';
 import { payrollErrorMessage } from '../../features/hr/payroll/payrollErrors';
 import {
   buildCreatePayload,
@@ -43,7 +43,7 @@ import {
 } from '../../features/hr/employeeValidation';
 import { formatDate, loginProblem, missingDetailLabels } from '../../features/hr/hrLabels';
 import { hrKeys, useHrAccess } from '../../features/hr/hrQueries';
-import { useDegrees, useDesignations, useStates } from '../../features/hr/referenceData';
+import { useDegrees, useDepartments, useDesignations, useStates } from '../../features/hr/referenceData';
 
 interface PendingQualification {
   input: QualificationInput;
@@ -80,6 +80,7 @@ const serverFieldMap: Record<string, keyof EmployeeFormValues> = {
   pincode: 'pincode',
   state: 'state',
   district: 'district',
+  department: 'department',
   emergency_contact_number: 'emergencyContactNumber',
   total_experience_years: 'totalExperienceYears',
 };
@@ -93,6 +94,7 @@ export default function HrEmployeeCreatePage() {
   const degrees = useDegrees();
   const states = useStates();
   const designations = useDesignations();
+  const departments = useDepartments();
   const canPropose = access.can(PAYROLL_PERMISSION.salaryPropose);
 
   const [step, setStep] = useState(0);
@@ -121,6 +123,8 @@ export default function HrEmployeeCreatePage() {
     refetchOnWindowFocus: false,
   });
 
+  const bandNeedsChoice = !hasMidTemplate(templates.data?.items ?? []);
+
   const create = useMutation({
     mutationFn: async () => {
       const data = await createEmployee(accessToken!, buildCreatePayload(values, qualifications.map((q) => q.input)));
@@ -135,7 +139,7 @@ export default function HrEmployeeCreatePage() {
       let outcome: SalaryOutcome = { kind: 'none' };
       if (salaryEntered) {
         try {
-          await proposeStructure(accessToken!, buildProposal({ ...salary, employeeId: data.employee.employeeId }));
+          await proposeStructure(accessToken!, buildProposal({ ...salary, employeeId: data.employee.employeeId }, bandNeedsChoice));
           outcome = { kind: 'proposed' };
         } catch (problem) {
           // The employee is already saved: never lose it because the salary was refused.
@@ -311,7 +315,7 @@ export default function HrEmployeeCreatePage() {
     }
     if (current === 'salary') {
       if (canPropose && !isSalaryDraftEmpty(salary)) {
-        const found = validateSalaryDraft(salary);
+        const found = validateSalaryDraft(salary, bandNeedsChoice);
         setSalaryErrors(found);
         if (Object.keys(found).length > 0) {
           setFormError('Some salary details need attention. They are marked below.');
@@ -390,7 +394,7 @@ export default function HrEmployeeCreatePage() {
           <>
             <PersonalSection mode="create" values={values} errors={errors} onChange={patch} withExperience={false} />
             <ContactSection mode="create" values={values} errors={errors} onChange={patch} states={[]} withAddress={false} />
-            <EmploymentSection mode="create" values={values} errors={errors} onChange={patch} designations={designations.data ?? []} />
+            <EmploymentSection mode="create" values={values} errors={errors} onChange={patch} designations={designations.data ?? []} departments={departments.data ?? []} />
             <IdentitySection mode="create" values={values} errors={errors} onChange={patch} />
             <SectionCard title="Photo (optional)">
               <div className="hr-photo-row">

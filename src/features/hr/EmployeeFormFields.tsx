@@ -5,9 +5,6 @@ import SectionCard from '../../components/SectionCard';
 import Field from './Field';
 import type { EmployeeFormValues, FormErrors } from './employeeValidation';
 
-/** Departments seen in the company's current employee list; any other text is accepted too. */
-const DEPARTMENT_SUGGESTIONS = ['PC', 'RM', 'HR', 'CRM'];
-
 interface SectionProps {
   mode: 'create' | 'edit';
   values: EmployeeFormValues;
@@ -123,16 +120,17 @@ export function EmergencySection({ values, errors, onChange }: Omit<SectionProps
   );
 }
 
-export function EmploymentSection({ mode, values, errors, onChange, designations }: SectionProps & { designations: Designation[] }) {
+export function EmploymentSection({ mode, values, errors, onChange, designations, departments }: SectionProps & { designations: Designation[]; departments: string[] }) {
   const text = (key: keyof EmployeeFormValues) => textOf(onChange, key);
   return (
     <SectionCard title="Employment">
       <div className="hr-form-grid">
         <Field label="Department" htmlFor="hr-dept" error={errors.department}>
-          <input id="hr-dept" list="hr-dept-options" value={values.department} maxLength={60} onChange={text('department')} />
-          <datalist id="hr-dept-options">
-            {DEPARTMENT_SUGGESTIONS.map((d) => <option key={d} value={d} />)}
-          </datalist>
+          {/* An older record may hold some other text; it shows as "Choose a department" until a listed one is picked. */}
+          <select id="hr-dept" value={departments.includes(values.department) ? values.department : ''} onChange={text('department')}>
+            <option value="">Choose a department</option>
+            {departments.map((d) => <option key={d} value={d}>{d}</option>)}
+          </select>
         </Field>
         <Field label="Designation" htmlFor="hr-designation" error={errors.designationCode} hint="Set by HR. Separate from the project role (PC, TL, PM).">
           <select id="hr-designation" value={values.designationCode} onChange={text('designationCode')}>
@@ -200,19 +198,20 @@ export function IdentitySection({
 interface Props extends SectionProps {
   states: string[];
   designations: Designation[];
+  departments: string[];
   panMasked?: string | null;
   aadhaarMasked?: string | null;
 }
 
 /** The whole record in one form (used when editing an employee). */
-export default function EmployeeFormFields({ mode, values, errors, states, designations, onChange, panMasked, aadhaarMasked }: Props) {
+export default function EmployeeFormFields({ mode, values, errors, states, designations, departments, onChange, panMasked, aadhaarMasked }: Props) {
   const common = { mode, values, errors, onChange };
   return (
     <>
       <PersonalSection {...common} />
       <ContactSection {...common} states={states} />
       <EmergencySection {...common} />
-      <EmploymentSection {...common} designations={designations} />
+      <EmploymentSection {...common} designations={designations} departments={departments} />
       <IdentitySection {...common} panMasked={panMasked} aadhaarMasked={aadhaarMasked} />
     </>
   );

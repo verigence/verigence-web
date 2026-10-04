@@ -5,6 +5,7 @@ import { Link } from 'react-router-dom';
 import PageHeader from '../../components/PageHeader';
 import { hrErrorMessage } from '../../services/hr/client';
 import { listEmployees, type EmploymentStatus } from '../../services/hr/employees';
+import { PAYROLL_PERMISSION } from '../../services/hr/payroll';
 import { useSessionStore } from '../../store/sessionStore';
 import { initialsOf } from '../../features/hr/EmployeeAvatar';
 import { PendingCountBadge, SalaryStatusBadge } from '../../features/hr/EmployeeBadges';
@@ -68,6 +69,9 @@ export default function HrEmployeesPage() {
         actions={access.canManageEmployees ? (
           <>
             <Link className="uc01-admin-button" to="/hr/employees/import">Import from Excel</Link>
+            {access.can(PAYROLL_PERMISSION.salaryPropose) && (
+              <Link className="uc01-admin-button" to="/hr/employees/designation-salary-import">Import designation and salary</Link>
+            )}
             <Link className="uc01-admin-button uc01-admin-button--primary" to="/hr/employees/new">Add employee</Link>
           </>
         ) : undefined}

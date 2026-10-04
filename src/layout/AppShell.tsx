@@ -10,6 +10,8 @@ import type { OperationalOutletScope } from '../services/audit-core/uc03';
 import { getReviewQueueSummary } from '../services/audit-core/uc03Audit';
 import { getP2Tasks } from '../services/audit-core/uc03P2';
 import { useHrAccess } from '../features/hr/hrQueries';
+import { useMyHrIdentity } from '../features/hr/myIdentity';
+import { chooseDisplayName } from '../features/profile/workContext';
 import { isDiTestConsoleAvailable } from '../services/di/testConsole';
 import { useProjectContextStore } from '../store/projectContextStore';
 import { useSessionStore } from '../store/sessionStore';
@@ -380,6 +382,7 @@ export default function AppShell({ children }: PropsWithChildren) {
   // HR is company-level and appears only for people the HR service says have an HR role or an
   // employee record. If HR cannot be reached the group is simply absent.
   const hrAccess = useHrAccess();
+  const myIdentity = useMyHrIdentity();
   const hrGroup = useMemo<NavGroup | null>(() => {
     const items: NavItem[] = [];
     const can = hrAccess.can;
@@ -484,7 +487,7 @@ export default function AppShell({ children }: PropsWithChildren) {
         : routeLabels[location.pathname]
           ?? dynamicLabel
           ?? 'Workspace';
-  const visibleName = displayName || 'User';
+  const visibleName = chooseDisplayName(myIdentity.fullName, displayName) || 'User';
   const roleLabel = roleLabels[role];
   const avatarText = initials(visibleName);
 
@@ -553,7 +556,7 @@ export default function AppShell({ children }: PropsWithChildren) {
         <div className="enterprise-topbar__actions">
           {selectedProject && projects.length > 1 && <button type="button" className="uc03-switch-project-topbar" onClick={handleSwitchProject}>Switch Dealership</button>}
           <NavLink to="/profile" className="enterprise-topbar__identity" aria-label="Open profile">
-            <span className="enterprise-topbar__avatar">{avatarText}</span>
+            <span className="enterprise-topbar__avatar">{myIdentity.photoUrl ? <img className="enterprise-topbar__avatar-photo" src={myIdentity.photoUrl} alt="" /> : avatarText}</span>
             <span className="enterprise-topbar__identity-copy"><strong>{visibleName}</strong><small>{roleLabel}</small></span>
           </NavLink>
           <button type="button" className="user-menu-button" onClick={handleSignOut}>Sign Out</button>

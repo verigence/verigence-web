@@ -225,17 +225,19 @@ for (const rootSelector of ['html {', 'body {', '#root {', 'ion-app {']) {
 }
 
 /* Project Name is internal context and must never leak into operational UI. */
-// HR administration shows which projects each employee works on. These files are only reachable
-// with HR permissions (attendance read-all / employee read), never by a PC, so they are named
-// here one by one rather than exempting all of src/pages/hr.
-const hrProjectViews = new Set([
+// These pages may show a Project Name: the HR project views (HR administration shows which projects
+// each employee works on; only reachable with HR permissions, never by a PC) and the user's own
+// Profile page (shown only to the signed-in person, about themselves). They are named here one by
+// one rather than exempting whole folders.
+const projectNameViews = new Set([
+  'src/pages/ProfilePage.tsx',
   'src/features/hr/AssignmentLines.tsx',
   'src/pages/hr/HrAssignmentsPage.tsx',
   'src/pages/hr/HrDailyAttendancePage.tsx',
 ]);
 const operationalTsx = filesUnder('src', (relativePath) => {
   if (!relativePath.endsWith('.tsx')) return false;
-  if (hrProjectViews.has(relativePath)) return false;
+  if (projectNameViews.has(relativePath)) return false;
   if (relativePath.startsWith('src/pages/Admin')) return false;
   if (relativePath.startsWith('src/pages/ProjectAdministration')) return false;
   if (relativePath.startsWith('src/features/project-admin/')) return false;

@@ -201,7 +201,7 @@ const routeLabels: Record<string, string> = {
   '/hr/employees': 'Employees', '/hr/employees/new': 'Add Employee', '/hr/employees/import': 'Import Employees', '/hr/me': 'My Employee Profile',
   '/hr/attendance': 'Attendance', '/hr/attendance/team': 'Team Attendance', '/hr/leave': 'Leave', '/hr/leave/overview': 'Leave Overview',
   '/hr/claims': 'Reimbursements', '/hr/claims/new': 'New Claim', '/hr/claims/all': 'All Claims', '/hr/approvals': 'Approvals',
-  '/hr/payslips': 'Payslips', '/hr/payroll': 'Payroll', '/hr/payroll/salaries': 'Salaries', '/hr/payroll/settings': 'Payroll Settings', '/hr/settings': 'HR Settings',
+  '/hr/payslips': 'Payslips', '/hr/messages': 'Employee Messages', '/hr/payroll': 'Payroll', '/hr/payroll/salaries': 'Salaries', '/hr/payroll/settings': 'Payroll Settings', '/hr/settings': 'HR Settings',
 };
 
 const dynamicRouteLabels: Array<[string, string]> = [
@@ -270,6 +270,7 @@ function NavIcon({ mark }: { mark: string }) {
     case 'HV': glyph = <><circle cx="12" cy="12" r="8" /><path d="m8.5 12 2.5 2.5 4.5-5" /></>; break;
     case 'HT': glyph = <><circle cx="9" cy="8" r="3" /><circle cx="17" cy="9" r="2" /><path d="M3 19c.7-3.2 2.7-5 6-5s5.3 1.8 6 5" /></>; break;
     case 'HY': glyph = <><rect x="3" y="6" width="18" height="12" rx="2" /><circle cx="12" cy="12" r="2.5" /></>; break;
+    case 'HM': glyph = <><rect x="3" y="5" width="18" height="14" rx="2" /><path d="m3 7 9 6 9-6" /></>; break;
     case 'HS': glyph = <><circle cx="12" cy="12" r="3" /><path d="M12 3v3m0 12v3M3 12h3m12 0h3M5.6 5.6l2.1 2.1m8.6 8.6 2.1 2.1m0-12.8-2.1 2.1m-8.6 8.6-2.1 2.1" /></>; break;
     case 'CB': glyph = <><rect x="4" y="4" width="16" height="16" rx="3" /><path d="M12 8v8M8 12h8" /></>; break;
     default: glyph = <circle cx="12" cy="12" r="7" />;
@@ -398,6 +399,7 @@ export default function AppShell({ children }: PropsWithChildren) {
     if (can('hr.payroll.read')) items.push({ to: '/hr/payroll', label: 'Payroll', mark: 'HY' });
     if (anyOf('hr.salary.propose', 'hr.salary.approve', 'hr.payroll.read')) items.push({ to: '/hr/payroll/salaries', label: 'Salaries', mark: 'HY' });
     if (anyOf('hr.salary.propose', 'hr.salary.approve', 'hr.payroll.read', 'hr.settings.manage')) items.push({ to: '/hr/payroll/settings', label: 'Payroll Settings', mark: 'HS' });
+    if (can('hr.employee.manage')) items.push({ to: '/hr/messages', label: 'Employee Messages', mark: 'HM' });
     if (can('hr.settings.manage')) items.push({ to: '/hr/settings', label: 'HR Settings', mark: 'HS' });
     return items.length ? { key: 'hr', label: 'My HR', items } : null;
   }, [hrAccess.can, hrAccess.canReadEmployees, hrAccess.isEmployee]);

@@ -48,6 +48,7 @@ const HrSalariesPage = lazy(() => import('./pages/hr/HrSalariesPage'));
 const HrPayrollSettingsPage = lazy(() => import('./pages/hr/HrPayrollSettingsPage'));
 const HrPayrollRunPage = lazy(() => import('./pages/hr/HrPayrollRunPage'));
 const HrSettingsPage = lazy(() => import('./pages/hr/HrSettingsPage'));
+const HrMessagesPage = lazy(() => import('./pages/hr/HrMessagesPage'));
 const AdminConfigurationPage = lazy(() => import('./pages/AdminConfigurationPage'));
 const AdminHousekeepingPage = lazy(() => import('./pages/AdminHousekeepingPage'));
 const AdminLandingPage = lazy(() => import('./pages/AdminLandingPage'));
@@ -406,6 +407,7 @@ export default function App() {
               <Route path="/hr/payroll/settings" element={<PrivatePage><HrPayrollSettingsPage /></PrivatePage>} />
               <Route path="/hr/payroll/runs/:runId" element={<PrivatePage><HrPayrollRunPage /></PrivatePage>} />
               <Route path="/hr/settings" element={<PrivatePage><HrSettingsPage /></PrivatePage>} />
+              <Route path="/hr/messages" element={<PrivatePage><HrMessagesPage /></PrivatePage>} />
               <Route path="/workspace" element={<Navigate to="/dashboard" replace />} />
               <Route path="/" element={<Navigate to="/login" replace />} />
               <Route path="*" element={<Navigate to="/home" replace />} />

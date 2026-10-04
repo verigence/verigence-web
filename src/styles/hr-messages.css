@@ -1,0 +1,111 @@
+/* Employee messages (/hr/messages). Reuses hr-* and uc01-admin-* from hr.css; only the extras live here.
+   Mobile first: 44px touch targets, nothing wider than the screen. */
+
+.hrm-page { min-width: 0; }
+.hrm-page .hr-tab { min-height: 44px; }
+.hrm-page .uc01-admin-button { min-height: 44px; }
+.hrm-page .hr-actions .uc01-admin-button { min-height: 44px; }
+.hrm-panel { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.hrm-panel > * { min-width: 0; }
+.hrm-intro { margin: 0; color: #475467; font-size: 13px; line-height: 1.55; }
+.hrm-label { display: block; font-size: 11px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; color: #66717d; }
+.hrm-banner { font-size: 13px; }
+
+/* Message and channel choice */
+.hrm-choices { display: grid; grid-template-columns: 1fr; gap: 10px; }
+.hrm-choice { display: flex; align-items: flex-start; gap: 12px; padding: 12px 14px; min-height: 44px; border: 1px solid #cfd6df; border-radius: 12px; background: #fff; cursor: pointer; }
+.hrm-choice input { width: 20px; height: 20px; margin: 2px 0 0; accent-color: #0e7490; flex: none; }
+.hrm-choice > span { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.hrm-choice strong { font-size: 14px; color: #18212b; }
+.hrm-choice small { font-size: 12px; line-height: 1.45; color: #66717d; }
+.hrm-choice.is-selected { border-color: #0e7490; background: #f3fafc; box-shadow: 0 0 0 2px rgba(14, 116, 144, .12); }
+.hrm-channel { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; }
+.hrm-channel__label { font-size: 12px; font-weight: 700; color: #344054; }
+.hrm-channel__option { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; font-size: 13px; font-weight: 700; color: #24303c; }
+.hrm-channel__option input { width: 20px; height: 20px; margin: 0; accent-color: #0e7490; }
+.hrm-channel__option.is-disabled { color: #98a2b3; cursor: not-allowed; }
+
+/* Wording editor */
+.hrm-wording { display: flex; flex-direction: column; gap: 12px; }
+.hrm-wording .hr-field textarea { min-height: 160px; line-height: 1.5; }
+.hrm-wording input[readonly], .hrm-wording textarea[readonly] { background: #f9fafb; }
+.hrm-insert { display: flex; flex-direction: column; gap: 6px; }
+.hrm-insert__label { font-size: 12px; font-weight: 700; color: #344054; }
+.hrm-insert__buttons { display: flex; flex-wrap: wrap; gap: 8px; }
+.hrm-chipbutton { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; }
+
+/* Read-only text blocks */
+.hrm-readonly, .hrm-preview { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.hrm-readonly__subject, .hrm-preview__subject { margin: 0; font-size: 14px; font-weight: 700; color: #18212b; overflow-wrap: anywhere; }
+.hrm-text { margin: 0; padding: 12px 14px; max-height: 340px; overflow: auto; border: 1px solid #e4e7ec; border-radius: 10px; background: #f9fafb; color: #24303c; font: inherit; font-size: 13px; line-height: 1.55; white-space: pre-wrap; overflow-wrap: anywhere; }
+
+/* Recipients */
+.hrm-picker-tools { display: flex; flex-direction: column; gap: 10px; }
+.hrm-people { list-style: none; margin: 0; padding: 0; max-height: 380px; overflow-y: auto; border: 1px solid #e4e7ec; border-radius: 12px; background: #fff; }
+.hrm-people li + li { border-top: 1px solid #eef1f4; }
+.hrm-person { display: grid; grid-template-columns: 24px minmax(0, 1fr); align-items: center; gap: 4px 12px; min-height: 56px; padding: 8px 12px; cursor: pointer; }
+.hrm-person input { width: 20px; height: 20px; margin: 0; accent-color: #0e7490; grid-row: 1 / span 2; align-self: start; margin-top: 4px; }
+.hrm-person.is-selected { background: #f3fafc; }
+.hrm-person__text { display: flex; flex-direction: column; min-width: 0; }
+.hrm-person__text strong { font-size: 13px; color: #18212b; overflow-wrap: anywhere; }
+.hrm-person__text small { font-size: 11px; color: #66717d; overflow-wrap: anywhere; }
+.hrm-person__chip { grid-column: 2; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.hrm-person__chip small { color: #93370d; font-size: 11px; }
+
+/* Send bar */
+.hrm-sendbar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; padding-top: 4px; }
+.hrm-sendbutton { flex: 1 1 100%; }
+
+/* Progress and results */
+.hrm-summary { display: flex; flex-wrap: wrap; gap: 6px; }
+.hrm-groups { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
+.hrm-group { border: 1px solid #e4e7ec; border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.hrm-group__head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; font-size: 13px; }
+.hrm-group__error { padding: 10px 12px; border-radius: 10px; background: #fff1f0; color: #912018; font-size: 12px; line-height: 1.5; }
+.hrm-group__error p { margin: 0; }
+.hrm-group__error p + p { margin-top: 4px; font-weight: 700; }
+.hrm-results { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.hrm-result { display: flex; flex-direction: column; gap: 3px; padding: 9px 0; border-top: 1px solid #eef1f4; min-width: 0; }
+.hrm-result:first-child { border-top: 0; }
+.hrm-result--plain { flex-direction: row; flex-wrap: wrap; justify-content: space-between; gap: 6px; }
+.hrm-result__top { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px; font-size: 13px; }
+.hrm-result__top strong { min-width: 0; overflow-wrap: anywhere; }
+.hrm-result__message { margin: 0; font-size: 12px; color: #475467; line-height: 1.45; overflow-wrap: anywhere; }
+.hrm-result__code { font-size: 11px; color: #66717d; overflow-wrap: anywhere; }
+.hrm-result__code span { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+.hrm-run__actions .uc01-admin-button { flex: 1 1 200px; }
+
+/* Templates */
+.hrm-placeholders ul { list-style: none; margin: 6px 0 0; padding: 0; display: grid; grid-template-columns: 1fr; gap: 6px; }
+.hrm-placeholders li { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; font-size: 12px; color: #475467; }
+.hrm-placeholders code { padding: 3px 7px; border-radius: 6px; background: #eef4f7; color: #0b5566; font-size: 12px; }
+.hrm-rules { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 4px; color: #475467; font-size: 12px; line-height: 1.5; }
+.hrm-template .section-card__heading { align-items: flex-start; }
+
+/* History */
+.hrm-history-tools { display: grid; grid-template-columns: 1fr; gap: 10px; align-items: end; }
+.hrm-history-tools .uc01-admin-filter select { min-height: 44px; font-size: 16px; }
+.hrm-history-tools .uc01-admin-search input { min-height: 44px; font-size: 16px; }
+.hrm-table td > small { margin-top: 2px; }
+
+.hrm-dialog { max-height: calc(100vh - 40px); overflow: auto; }
+
+@media (min-width: 640px) {
+  .hrm-choices { grid-template-columns: 1fr 1fr; }
+  .hrm-picker-tools { flex-direction: row; align-items: flex-end; justify-content: space-between; }
+  .hrm-picker-tools .uc01-admin-search { flex: 1 1 280px; max-width: 420px; }
+  .hrm-sendbutton { flex: 0 0 auto; min-width: 220px; }
+  .hrm-placeholders ul { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .hrm-history-tools { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto; }
+  .hrm-person { grid-template-columns: 24px minmax(0, 1fr) auto; }
+  .hrm-person input { grid-row: auto; margin-top: 0; align-self: center; }
+  .hrm-person__chip { grid-column: auto; justify-content: flex-end; }
+}
+
+.hrm-run .hr-progress, .hrm-run .hr-actions, .hrm-run .hrm-summary, .hrm-run .uc01-admin-message, .hrm-run .hrm-groups { margin-top: 12px; }
+.hrm-run .hr-progress { margin-bottom: 0; }
+.hrm-result--plain strong { font-size: 13px; }
+
+/* Space between the parts inside each card */
+.hrm-page .section-card > * + * { margin-top: 12px; }
+.hrm-page .section-card > .hrm-run__actions { margin-top: 14px; }

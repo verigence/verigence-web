@@ -7,13 +7,14 @@ import { useSessionStore } from '../../../store/sessionStore';
 import { formatDate } from '../hrLabels';
 import Field from '../Field';
 import ComponentsTable from './ComponentsTable';
+import PfApplicableField from './PfApplicableField';
 import EmployeePicker, { type PickedEmployee } from './EmployeePicker';
 import { formatRupees } from './money';
 import { payrollErrorMessage } from './payrollErrors';
-import { buildProposal, hasMidTemplate, isInBand, parseGross, validateProposal, type ProposalErrors, type ProposalForm } from './salaryRules';
+import { buildProposal, hasMidTemplate, isInBand, parseGross, pfIsOptional, validateProposal, type ProposalErrors, type ProposalForm } from './salaryRules';
 import { describeComponent } from './templateForm';
 
-const empty: ProposalForm = { employeeId: '', gross: '', effectiveFrom: '', templateId: '', bandConfirmed: false, note: '' };
+const empty: ProposalForm = { employeeId: '', gross: '', effectiveFrom: '', templateId: '', bandConfirmed: false, pfApplicable: true, note: '' };
 
 interface Props {
   templates: SalaryTemplate[];
@@ -92,7 +93,7 @@ export default function ProposeSalaryForm({ templates, templatesLoading, templat
           </div>
           <Field label="Monthly gross (₹)" htmlFor="propose-gross" required error={errors.gross} hint="Before any deductions. Digits, with up to two decimals.">
             <input id="propose-gross" inputMode="decimal" autoComplete="off" value={form.gross} disabled={propose.isPending}
-              onChange={(e) => set({ gross: e.target.value })} aria-invalid={Boolean(errors.gross)} />
+              onChange={(e) => set({ gross: e.target.value, ...(pfIsOptional(e.target.value) ? {} : { pfApplicable: true }) })} aria-invalid={Boolean(errors.gross)} />
           </Field>
           <Field label="Effective from" htmlFor="propose-from" required error={errors.effectiveFrom}>
             <input id="propose-from" type="date" value={form.effectiveFrom} disabled={propose.isPending}
@@ -143,6 +144,8 @@ export default function ProposeSalaryForm({ templates, templatesLoading, templat
             <small>The rupee amounts are worked out by the HR service when you propose, and shown here afterwards.</small>
           </div>
         )}
+
+        {pfIsOptional(form.gross) && <PfApplicableField id="propose-pf" checked={form.pfApplicable} disabled={propose.isPending} onChange={(pfApplicable) => set({ pfApplicable })} />}
 
         <Field label="Note for Finance (optional)" htmlFor="propose-note" error={errors.note} hint="Up to 300 characters." wide>
           <textarea id="propose-note" rows={2} maxLength={300} value={form.note} disabled={propose.isPending} onChange={(e) => set({ note: e.target.value })} />

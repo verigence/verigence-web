@@ -6,6 +6,8 @@ export const BAND_HIGH = '24999.99';
 export const MID_TEMPLATE_CODE = 'MID_21K_25K';
 export const TEMPLATE_PENDING_HINT = 'Needs the ₹21,001–₹24,999 template first';
 export const MAX_GROSS = '10000000';
+/** From this gross upwards Provident Fund is optional; below it, it always applies. */
+export const PF_OPTIONAL_FROM = '25000';
 
 export type GrossResult = { ok: true; value: string } | { ok: false; error: string };
 
@@ -23,6 +25,12 @@ export function parseGross(input: string): GrossResult {
 export const hasMidTemplate = (templates: Array<{ code: string; active: boolean }>) =>
   templates.some((t) => t.active && t.code === MID_TEMPLATE_CODE);
 
+/** Whether the "Provident Fund applies" choice is offered for the gross as typed. */
+export function pfIsOptional(gross: string): boolean {
+  const parsed = parseGross(gross);
+  return parsed.ok && (compareDecimal(parsed.value, PF_OPTIONAL_FROM) ?? -1) >= 0;
+}
+
 export function isInBand(gross: string): boolean {
   const low = compareDecimal(gross, BAND_LOW);
   const high = compareDecimal(gross, BAND_HIGH);
@@ -35,10 +43,12 @@ export interface ProposalForm {
   effectiveFrom: string;
   templateId: string;
   bandConfirmed: boolean;
+  /** Provident Fund applies (the default). Only ever sent as false, and only for a gross of 25,000 or more. */
+  pfApplicable: boolean;
   note: string;
 }
 
-export type ProposalErrors = Partial<Record<'employeeId' | 'gross' | 'effectiveFrom' | 'templateId' | 'bandConfirmed' | 'note', string>>;
+export type ProposalErrors = Partial<Record<'employeeId' | 'gross' | 'effectiveFrom' | 'templateId' | 'bandConfirmed' | 'pfApplicable' | 'note', string>>;
 
 /** `bandNeedsChoice` is false when the band template exists and the service picks it. */
 export function validateProposal(form: ProposalForm, bandNeedsChoice = true): ProposalErrors {
@@ -61,6 +71,7 @@ export function buildProposal(form: ProposalForm, bandNeedsChoice = true): {
   effective_from: string;
   template_id?: string;
   band_confirmed?: boolean;
+  pf_applicable?: boolean;
   note?: string;
 } {
   const gross = parseGross(form.gross);
@@ -72,6 +83,7 @@ export function buildProposal(form: ProposalForm, bandNeedsChoice = true): {
   const picked = gross.ok && isInBand(gross.value) && !bandNeedsChoice ? '' : form.templateId; // the service picks the band template
   if (picked) body.template_id = picked;
   if (gross.ok && isInBand(gross.value) && bandNeedsChoice && form.bandConfirmed) body.band_confirmed = true;
+  if (!form.pfApplicable && pfIsOptional(form.gross)) body.pf_applicable = false;
   if (form.note.trim()) body.note = form.note.trim();
   return body;
 }

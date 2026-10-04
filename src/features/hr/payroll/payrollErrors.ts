@@ -6,6 +6,7 @@ export const STATUTORY_UNCONFIRMED_TEXT =
   'Send it back to HR: they confirm the settings with the CA, recompute the run and submit it again.';
 
 const overrides: Record<string, string> = {
+  PF_NOT_OPTIONAL: 'Provident Fund can only be switched off for a gross of ₹25,000 or more.',
   PAYROLL_STATUTORY_UNCONFIRMED: STATUTORY_UNCONFIRMED_TEXT,
 };
 

@@ -35,9 +35,9 @@ export default function TodayCard({ today, onStart, disabled = false }: Props) {
         )}
       </div>
 
-      {dayKind === 'SUNDAY' && <div className="uc01-admin-message uc01-admin-message--info">Sunday is the weekly off. There is no check-in today.</div>}
+      {dayKind === 'SUNDAY' && <div className="uc01-admin-message uc01-admin-message--info">Sunday is the weekly off. If you work today, it goes for approval.</div>}
       {dayKind === 'HOLIDAY' && (
-        <div className="uc01-admin-message uc01-admin-message--info">Today is a holiday{today.holidayName ? `: ${today.holidayName}` : ''}. There is no check-in today.</div>
+        <div className="uc01-admin-message uc01-admin-message--info">Today is a holiday{today.holidayName ? `: ${today.holidayName}` : ''}. If you work today, it goes for approval.</div>
       )}
       {today.tentativeHoliday && (
         <div className="uc01-admin-message uc01-admin-message--info">
@@ -45,21 +45,19 @@ export default function TodayCard({ today, onStart, disabled = false }: Props) {
         </div>
       )}
 
-      {working && (
-        <div className="hr-att-today__actions">
-          {!checkedIn && (
-            <button type="button" className="uc01-admin-button uc01-admin-button--primary hr-att-big" disabled={disabled} onClick={() => onStart('CHECK_IN')}>
-              Check in
-            </button>
-          )}
-          {checkedIn && !checkedOut && (
-            <button type="button" className="uc01-admin-button uc01-admin-button--primary hr-att-big" disabled={disabled} onClick={() => onStart('CHECK_OUT')}>
-              Check out
-            </button>
-          )}
-          {checkedIn && checkedOut && <p className="hr-att-hint">You have checked in and out today. Nothing more to do.</p>}
-        </div>
-      )}
+      <div className="hr-att-today__actions">
+        {!checkedIn && (
+          <button type="button" className="uc01-admin-button uc01-admin-button--primary hr-att-big" disabled={disabled} onClick={() => onStart('CHECK_IN')}>
+            Check in
+          </button>
+        )}
+        {checkedIn && !checkedOut && (
+          <button type="button" className="uc01-admin-button uc01-admin-button--primary hr-att-big" disabled={disabled} onClick={() => onStart('CHECK_OUT')}>
+            Check out
+          </button>
+        )}
+        {checkedIn && checkedOut && <p className="hr-att-hint">You have checked in and out today. Nothing more to do.</p>}
+      </div>
 
       <div className="hr-att-day__sides">
         <SideBlock label="Check-in" event="CHECK_IN" side={day?.checkIn ?? null} attendanceId={day?.attendanceId ?? ''} caption={caption} autoLoadPhoto />

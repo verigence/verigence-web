@@ -194,3 +194,6 @@
 @media (max-width: 599px) {
   .hr-att-side .hr-flags { display: none; }
 }
+
+.hr-att-absent { color: #b42318; }
+.hr-daily-table td[data-label="Employee"]::before { content: none; }

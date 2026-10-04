@@ -23,7 +23,7 @@ export const ATTENDANCE_ERROR = {
 export type AttendanceEvent = 'CHECK_IN' | 'CHECK_OUT';
 export type AttendanceDayStatus = 'ABSENT' | 'PENDING_APPROVAL' | 'EXCEPTION_REJECTED' | 'CHECKED_IN' | 'COMPLETE';
 export type AttendanceDayKind = 'WORKING' | 'SUNDAY' | 'HOLIDAY';
-export type ExceptionKind = 'OUT_OF_FENCE' | 'NO_OUTLET_LOCATION' | 'LATE_CHECK_IN' | 'EARLY_CHECK_OUT';
+export type ExceptionKind = 'OUT_OF_FENCE' | 'NO_OUTLET_LOCATION' | 'LATE_CHECK_IN' | 'EARLY_CHECK_OUT' | 'OFF_DAY_WORK';
 export type ExceptionStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
 
 export interface CaptureToken {
@@ -96,10 +96,26 @@ export interface TeamAttendanceEmployee {
   daysCheckedIn: number;
   daysCheckedOut: number;
   pendingExceptions: number;
+  /** Working days they checked in. */
+  daysPresent: number;
+  /** Check-ins on a Sunday or a declared holiday. */
+  offDayWorked: number;
+  /** Approved leave days up to today (a half day is 0.5). */
+  daysOnLeave: number;
+  /** Working days before today with no check-in and no leave. */
+  daysAbsent: number;
+}
+
+export interface TeamAttendanceSummary {
+  workingDays: number;
+  workingDaysSoFar: number;
+  sundays: number;
+  holidays: Array<{ date: string; name: string }>;
 }
 
 export interface TeamAttendance {
   month: string;
+  summary: TeamAttendanceSummary;
   employees: TeamAttendanceEmployee[];
 }
 

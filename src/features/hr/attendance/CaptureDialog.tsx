@@ -228,7 +228,9 @@ export default function CaptureDialog({ event, today, clockSkewMs, onClose }: Pr
     onClose();
   };
 
-  const expected = expectedException(event, hhmmIst(new Date(Date.now() + clockSkewMs)), today.standardTimes);
+  const offDay = today.dayKind !== 'WORKING';
+  // Late and early mean nothing on a day off.
+  const expected = offDay ? null : expectedException(event, hhmmIst(new Date(Date.now() + clockSkewMs)), today.standardTimes);
   const locked = busy !== null;
   // The photo does not wait for the location: it is only needed when the photo is sent.
   const canTakePhoto = camera.status === 'ready' && location.status !== 'error' && !busy;
@@ -309,6 +311,11 @@ export default function CaptureDialog({ event, today, clockSkewMs, onClose }: Pr
             <p className="hr-att-hint">
               You need to be within {today.geofenceRadiusM} m of one of your outlets. The distance is worked out by the server.
             </p>
+          )}
+          {offDay && event === 'CHECK_IN' && (
+            <div className="uc01-admin-message uc01-admin-message--info">
+              Today is a day off, so this check-in will be sent for approval.
+            </div>
           )}
           {expected && (
             <div className="uc01-admin-message uc01-admin-message--info">

@@ -47,7 +47,7 @@ interface Items<T> {
 // ---- attendance exceptions -------------------------------------------------------------------
 
 export type AttendanceEvent = 'CHECK_IN' | 'CHECK_OUT';
-export type AttendanceExceptionKind = 'LATE_CHECK_IN' | 'EARLY_CHECK_OUT' | 'OUT_OF_FENCE' | 'NO_OUTLET_LOCATION';
+export type AttendanceExceptionKind = 'LATE_CHECK_IN' | 'EARLY_CHECK_OUT' | 'OUT_OF_FENCE' | 'NO_OUTLET_LOCATION' | 'OFF_DAY_WORK';
 
 export interface AttendanceApproval {
   exceptionId: string;

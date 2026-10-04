@@ -11,11 +11,10 @@ import {
 } from '../../services/hr/attendance';
 import { hrErrorMessage } from '../../services/hr/client';
 import { useSessionStore } from '../../store/sessionStore';
-import { initialsOf } from '../../features/hr/EmployeeAvatar';
 import MonthPanel from '../../features/hr/attendance/MonthPanel';
 import MonthSwitcher from '../../features/hr/attendance/MonthSwitcher';
 import { attendanceKeys } from '../../features/hr/attendance/attendanceQueries';
-import { currentMonthIst, formatMonth } from '../../features/hr/attendance/attendanceFormat';
+import { currentMonthIst, formatMonth, formatWorkDate } from '../../features/hr/attendance/attendanceFormat';
 import { useHrAccess } from '../../features/hr/hrQueries';
 import '../../styles/hr-attendance.css';
 
@@ -80,7 +79,7 @@ export default function HrTeamAttendancePage() {
         <SectionCard
           title={formatMonth(month)}
           description={current
-            ? `${current.daysCheckedIn} checked in, ${current.daysCheckedOut} checked out${current.pendingExceptions ? `, ${current.pendingExceptions} waiting for a decision` : ''}.`
+            ? `${current.daysPresent} present, ${current.daysOnLeave} on leave, ${current.daysAbsent} absent${current.offDayWorked ? `, ${current.offDayWorked} on a day off` : ''}${current.pendingExceptions ? `, ${current.pendingExceptions} waiting for a decision` : ''}.`
             : undefined}
           action={<MonthSwitcher month={month} onChange={setMonth} />}
         >
@@ -96,7 +95,7 @@ export default function HrTeamAttendancePage() {
       <PageHeader
         eyebrow="HR"
         title="Team attendance"
-        description="Every active employee's attendance for a month. Tap a person to see their days and photos."
+        description="The month at a glance: working days, holidays, and each person's present, leave and absent days. Tap a person for their days and photos."
       />
 
       <div className="hr-att-toolbar">
@@ -121,33 +120,47 @@ export default function HrTeamAttendancePage() {
 
       {team.data && (
         <>
-          <p className="hr-count" aria-live="polite">
-            {shown.length === 1 ? '1 employee' : `${shown.length} employees`}
-            {pendingTotal > 0 && ` · ${pendingTotal} ${pendingTotal === 1 ? 'request is' : 'requests are'} waiting for a decision`}
-          </p>
+          <div className="hr-daily__tiles">
+            <div><span>Working days</span><strong>{team.data.summary.workingDays}</strong><small>{team.data.summary.workingDaysSoFar} so far</small></div>
+            <div><span>Sundays</span><strong>{team.data.summary.sundays}</strong></div>
+            <div>
+              <span>Holidays</span>
+              <strong>{team.data.summary.holidays.length}</strong>
+              {team.data.summary.holidays.length > 0 && (
+                <small>{team.data.summary.holidays.map((h) => `${formatWorkDate(h.date)} ${h.name}`).join(' · ')}</small>
+              )}
+            </div>
+            <div className={pendingTotal > 0 ? 'is-attention' : undefined}><span>Waiting for a decision</span><strong>{pendingTotal}</strong></div>
+          </div>
+          <p className="hr-count" aria-live="polite">{shown.length === 1 ? '1 employee' : `${shown.length} employees`}</p>
           {shown.length === 0 ? (
             <div className="uc01-admin-state">{search ? 'No employees match this search.' : 'No active employees.'}</div>
           ) : (
-            <ul className="hr-att-people">
-              {shown.map((p) => (
-                <li key={p.employeeId}>
-                  <button type="button" className="hr-att-person" onClick={() => setSelected(p)}>
-                    <span className="hr-avatar hr-avatar--sm" aria-hidden="true"><span>{initialsOf(p.fullName)}</span></span>
-                    <span className="hr-att-person__who">
-                      <strong>{p.fullName}</strong>
-                      <small>{p.employeeCode}</small>
-                    </span>
-                    <span className="hr-att-person__counts">
-                      <span><strong>{p.daysCheckedIn}</strong> in</span>
-                      <span><strong>{p.daysCheckedOut}</strong> out</span>
-                      {p.pendingExceptions > 0 && (
-                        <span className="uc01-admin-status uc01-admin-status--pending">{p.pendingExceptions} pending</span>
-                      )}
-                    </span>
-                  </button>
-                </li>
-              ))}
-            </ul>
+            <div className="uc01-admin-table-wrap">
+              <table className="uc01-admin-table hr-table hr-daily-table">
+                <thead>
+                  <tr><th>Employee</th><th>Present</th><th>On leave</th><th>Absent</th><th>Off-day work</th><th>Pending</th></tr>
+                </thead>
+                <tbody>
+                  {shown.map((p) => (
+                    <tr key={p.employeeId} className={p.pendingExceptions > 0 ? 'hr-daily-row--attention' : undefined}>
+                      <td data-label="Employee">
+                        <button type="button" className="hr-daily-open" onClick={() => setSelected(p)} aria-label={`Open ${p.fullName}, ${p.employeeCode}`}>
+                          <span className="hr-daily-cell"><strong>{p.fullName}</strong><small>{p.employeeCode}</small></span>
+                        </button>
+                      </td>
+                      <td data-label="Present">{p.daysPresent}</td>
+                      <td data-label="On leave">{p.daysOnLeave}</td>
+                      <td data-label="Absent">{p.daysAbsent > 0 ? <strong className="hr-att-absent">{p.daysAbsent}</strong> : 0}</td>
+                      <td data-label="Off-day work">{p.offDayWorked}</td>
+                      <td data-label="Pending">
+                        {p.pendingExceptions > 0 ? <span className="uc01-admin-status uc01-admin-status--pending">{p.pendingExceptions}</span> : 0}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
         </>
       )}

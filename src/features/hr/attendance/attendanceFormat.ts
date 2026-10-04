@@ -35,6 +35,7 @@ export const flagLabels: Record<string, string> = {
   PHOTO_TIME_MISMATCH: 'Photo time did not match',
   NO_ADDRESS: 'Address not found',
   NO_FACE: 'No face found in photo',
+  OFF_DAY: 'Worked on a day off',
   MISSING_CHECK_OUT: 'Missing check-out',
 };
 
@@ -43,10 +44,12 @@ export const exceptionLabels: Record<ExceptionKind, string> = {
   EARLY_CHECK_OUT: 'Early check-out',
   OUT_OF_FENCE: 'Not in tagged location',
   NO_OUTLET_LOCATION: 'No outlet location on file',
+  OFF_DAY_WORK: 'Worked on a day off',
 };
 
 /** Who decides the exceptions an event created: a missing outlet location goes to HR, the rest to the Team Lead or Project Manager. */
 export function approverPhrase(kinds: string[]): string {
+  if (kinds.includes('OFF_DAY_WORK')) return 'your Team Lead, Project Manager or HR';
   const hr = kinds.filter((k) => k === 'NO_OUTLET_LOCATION').length;
   if (hr === 0) return 'your Team Lead or Project Manager';
   return hr === kinds.length ? 'HR' : 'your Team Lead, Project Manager or HR';

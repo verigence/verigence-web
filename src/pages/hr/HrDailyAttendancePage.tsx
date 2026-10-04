@@ -8,6 +8,7 @@ import { hrErrorMessage } from '../../services/hr/client';
 import { HR_PERMISSION } from '../../services/hr/employees';
 import { getWorkAssignments } from '../../services/hr/workAssignments';
 import { useSessionStore } from '../../store/sessionStore';
+import DailyDetailDialog from '../../features/hr/attendance/DailyDetailDialog';
 import PhotoThumb from '../../features/hr/attendance/PhotoThumb';
 import ReportDialog from '../../features/hr/attendance/ReportDialog';
 import { formatDistance, formatTimeIst, formatWorkDate, todayIst } from '../../features/hr/attendance/attendanceFormat';
@@ -44,10 +45,14 @@ function photoFor(row: DailyRow, event: 'CHECK_IN' | 'CHECK_OUT') {
   return <PhotoThumb attendanceId={row.attendanceId} event={event} hasPhoto caption={`${row.employeeName}, ${formatWorkDate(row.workDate)}`} />;
 }
 
-function RowLine({ row }: { row: DailyRow }) {
+function RowLine({ row, onOpen }: { row: DailyRow; onOpen: (row: DailyRow) => void }) {
   return (
     <tr className={needsAttention(row) ? 'hr-daily-row--attention' : undefined}>
-      <td data-label="Employee"><span className="hr-daily-cell"><strong>{row.employeeName}</strong><small>{row.employeeCode}</small></span></td>
+      <td data-label="Employee">
+        <button type="button" className="hr-daily-open" onClick={() => onOpen(row)} aria-label={`Open ${row.employeeName}, ${row.employeeCode}`}>
+          <span className="hr-daily-cell"><strong>{row.employeeName}</strong><small>{row.employeeCode}</small></span>
+        </button>
+      </td>
       <td data-label="Role">{row.roles.length ? row.roles.join(', ') : '—'}</td>
       <td data-label="Check-in"><Side at={row.checkInAt} outlet={row.checkInOutlet} distance={row.checkInDistanceM} photo={photoFor(row, 'CHECK_IN')} /></td>
       <td data-label="Check-out"><Side at={row.checkOutAt} outlet={row.checkOutOutlet} distance={row.checkOutDistanceM} photo={photoFor(row, 'CHECK_OUT')} /></td>
@@ -84,6 +89,7 @@ export default function HrDailyAttendancePage() {
   const [onlyDelinquent, setOnlyDelinquent] = useState(false);
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [reportOpen, setReportOpen] = useState(false);
+  const [openRow, setOpenRow] = useState<DailyRow | null>(null);
   const [known, setKnown] = useState<Map<string, string>>(new Map());
 
   const query = useQuery({
@@ -235,7 +241,7 @@ export default function HrDailyAttendancePage() {
                             <th>Employee</th><th>Role</th><th>Check-in</th><th>Check-out</th><th>Hours</th><th>Status</th><th>Delinquencies</th>
                           </tr>
                         </thead>
-                        <tbody>{g.rows.map((r) => <RowLine key={`${r.employeeId}-${r.projectCode ?? ''}`} row={r} />)}</tbody>
+                        <tbody>{g.rows.map((r) => <RowLine key={`${r.employeeId}-${r.projectCode ?? ''}`} row={r} onOpen={setOpenRow} />)}</tbody>
                       </table>
                     </div>
                   )}
@@ -246,6 +252,7 @@ export default function HrDailyAttendancePage() {
         </>
       )}
 
+      {openRow && <DailyDetailDialog row={openRow} onClose={() => setOpenRow(null)} />}
       {reportOpen && <ReportDialog date={date} projects={projects} onClose={() => setReportOpen(false)} />}
     </section>
   );

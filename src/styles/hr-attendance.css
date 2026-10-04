@@ -164,3 +164,8 @@
   .hr-att-exceptions li { padding: 6px 8px; }
   .hr-att-day { padding: 10px; gap: 8px; }
 }
+
+.hr-daily-open { display: block; width: 100%; padding: 0; border: 0; background: transparent; font: inherit; color: inherit; text-align: left; cursor: pointer; min-height: 44px; }
+.hr-daily-open:hover strong, .hr-daily-open:focus-visible strong { color: #0e7490; text-decoration: underline; }
+.hr-daily-open:focus-visible { outline: 2px solid #315df5; outline-offset: 2px; border-radius: 6px; }
+.hr-daily-detail__photo { max-height: 42vh; }

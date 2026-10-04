@@ -81,6 +81,8 @@ export interface Employee {
   aadhaarMasked: string | null;
   dataFlags: DataFlag[];
   salaryStatus: SalaryStatus;
+  /** Projects the employee is assigned to now (employee list only). */
+  projects?: string[];
   /** Details still to be filled in; empty when the record is complete. */
   missingDetails: MissingDetail[];
 }

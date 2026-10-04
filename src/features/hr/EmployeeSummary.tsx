@@ -1,6 +1,6 @@
 import SectionCard from '../../components/SectionCard';
 import type { Employee } from '../../services/hr/employees';
-import { experienceLabel, formatDate, statusLabels } from './hrLabels';
+import { experienceLabel, formatDate, loginLabels, statusLabels } from './hrLabels';
 
 const genderLabels = { MALE: 'Male', FEMALE: 'Female', OTHER: 'Other' } as const;
 const dash = (v: string | null | undefined) => (v && v.trim() ? v : '—');
@@ -29,6 +29,7 @@ export default function EmployeeSummary({ employee: e, scope }: Props) {
           <div><dt>Designation</dt><dd>{e.designation ?? 'Not set'}</dd></div>
           <div><dt>Date of joining</dt><dd>{formatDate(e.dateOfJoining)}</dd></div>
           {scope === 'hr' && <div><dt>Status</dt><dd>{statusLabels[e.employmentStatus]}</dd></div>}
+          {scope === 'hr' && <div><dt>Verigence login</dt><dd>{loginLabels[e.loginStatus]}</dd></div>}
         </dl>
       </SectionCard>
       <SectionCard title="Contact">

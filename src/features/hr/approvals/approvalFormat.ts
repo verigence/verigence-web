@@ -124,7 +124,7 @@ export function formatBytes(bytes: number): string {
 export const attendanceKindLabels: Record<string, string> = {
   LATE_CHECK_IN: 'Late check-in',
   EARLY_CHECK_OUT: 'Early check-out',
-  OUT_OF_FENCE: 'Outside the outlet area',
+  OUT_OF_FENCE: 'Not in tagged location',
   NO_OUTLET_LOCATION: 'No outlet location on file',
 };
 

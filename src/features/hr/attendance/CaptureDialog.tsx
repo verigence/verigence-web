@@ -348,7 +348,7 @@ export default function CaptureDialog({ event, today, clockSkewMs, onClose }: Pr
                 maxLength={500}
                 rows={3}
                 disabled={locked}
-                placeholder={needsReason ? 'Why are you not at your outlet?' : 'Anything your approver should know'}
+                placeholder={needsReason ? 'Why are you not at your tagged location?' : 'Anything your approver should know'}
                 onChange={(e) => {
                   setReason(e.target.value);
                   setReasonMissing(false);

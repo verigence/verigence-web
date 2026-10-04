@@ -34,7 +34,7 @@ describe('groupByProject', () => {
 describe('labels and formats', () => {
   it('shows the decision in brackets and falls back to a readable code', () => {
     expect(delinquencyText({ code: 'X', label: 'Late check-in', decision: 'PENDING' })).toBe('Late check-in (pending)');
-    expect(delinquencyText({ code: 'OUT_OF_FENCE', label: '', decision: null })).toBe('Outside outlet area');
+    expect(delinquencyText({ code: 'OUT_OF_FENCE', label: '', decision: null })).toBe('Not in tagged location');
   });
   it('has a clear label for a missing outlet location', () => {
     expect(exceptionLabel('NO_OUTLET_LOCATION')).toBe('No outlet location on file');

@@ -34,6 +34,7 @@ export const flagLabels: Record<string, string> = {
   NO_OUTLET_LOCATION: 'No outlet location on file',
   PHOTO_TIME_MISMATCH: 'Photo time did not match',
   NO_ADDRESS: 'Address not found',
+  NO_FACE: 'No face found in photo',
   MISSING_CHECK_OUT: 'Missing check-out',
 };
 

@@ -19,7 +19,6 @@ export default function TodayCard({ today, onStart, disabled = false }: Props) {
   const waiting = day?.exceptions.filter((e) => e.status === 'PENDING') ?? [];
   const pending = waiting.length > 0;
   const approver = approverPhrase(waiting.map((e) => e.kind));
-  const missingLocation = today.outlets.filter((o) => !o.hasLocation);
 
   return (
     <div className="hr-att-today">
@@ -96,17 +95,6 @@ export default function TodayCard({ today, onStart, disabled = false }: Props) {
       </dl>
       </details>
 
-      {today.geofenced && today.outlets.length === 0 && (
-        <div className="uc01-admin-message uc01-admin-message--info">
-          No outlet is assigned to you right now. Check in as usual. HR will see this and sort it out.
-        </div>
-      )}
-      {missingLocation.length > 0 && (
-        <div className="uc01-admin-message uc01-admin-message--info">
-          No location is on file for {missingLocation.map((o) => o.outletName ?? 'an outlet').join(', ')}. Check in as usual. HR will see
-          this and add the location.
-        </div>
-      )}
       {today.workContextAgeHours !== null && today.workContextAgeHours > 36 && (
         <p className="hr-att-hint">Your project assignments were last refreshed about {Math.round(today.workContextAgeHours)} hours ago.</p>
       )}

@@ -169,3 +169,28 @@
 .hr-daily-open:hover strong, .hr-daily-open:focus-visible strong { color: #0e7490; text-decoration: underline; }
 .hr-daily-open:focus-visible { outline: 2px solid #315df5; outline-offset: 2px; border-radius: 6px; }
 .hr-daily-detail__photo { max-height: 42vh; }
+
+/* Phone, sober and short: one clean card, plain rows, no long address lines. */
+@media (max-width: 599px) {
+  .hr-att-page .page-header .eyebrow { display: none; }
+  .hr-att-page .page-header h1 { font-size: 22px; margin: 0; }
+  .hr-att-page .page-header__actions, .hr-att-page .page-header > :last-child:not(.page-header__copy) { margin-top: 6px; }
+  .hr-att-page .section-card { padding: 12px; border-radius: 12px; box-shadow: none; }
+  .hr-att-page .section-card__heading { margin-bottom: 8px; gap: 6px; }
+  .hr-att-page .section-card__heading h2 { font-size: 14px; }
+  .hr-att-page .section-card__heading p { display: none; }
+  .hr-att-page .section-card__heading .uc01-admin-button { min-height: 32px; padding: 0 10px; font-size: 12px; }
+  .hr-att-today__date { font-size: 15px; }
+  .hr-att-page .hr-att-big { min-height: 48px; }
+  .hr-att-side__meta, .hr-att-side__address { display: none; }
+  .hr-att-today .hr-att-hint { display: none; }
+  .hr-att-day { box-shadow: none; }
+  .hr-att-day__head > strong { font-size: 13px; }
+  .hr-att-exceptions li { border-left-width: 2px; }
+  .hr-att-exceptions__row { font-size: 12px; }
+  .hr-att-page .hr-att-months { gap: 4px; }
+  .hr-att-page .hr-att-months .hr-att-months__step, .hr-att-months__select select { min-height: 36px; }
+}
+@media (max-width: 599px) {
+  .hr-att-side .hr-flags { display: none; }
+}

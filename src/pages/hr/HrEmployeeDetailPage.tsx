@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useParams, useSearchParams } from 'react-router-dom';
 
 import PageHeader from '../../components/PageHeader';
 import SectionCard from '../../components/SectionCard';
@@ -50,6 +50,8 @@ type Tab = 'profile' | 'qualifications' | 'history';
 
 export default function HrEmployeeDetailPage() {
   const { employeeId = '' } = useParams();
+  const [searchParams] = useSearchParams();
+  const openedForEdit = useRef(false);
   const accessToken = useSessionStore((state) => state.accessToken);
   const access = useHrAccess();
   const queryClient = useQueryClient();
@@ -74,6 +76,14 @@ export default function HrEmployeeDetailPage() {
     refetchOnWindowFocus: false,
   });
   const employee = employeeQuery.data;
+
+  // The Edit link on the Employees list opens this page straight into edit mode, once.
+  useEffect(() => {
+    if (openedForEdit.current || searchParams.get('edit') !== '1' || !employee || !access.canManageEmployees) return;
+    openedForEdit.current = true;
+    setValues(formFromEmployee(employee));
+    setEditing(true);
+  }, [employee, searchParams, access.canManageEmployees]);
 
   const store = (data: EmployeeDetail | Omit<EmployeeDetail, 'qualifications' | 'experiences'>) => {
     queryClient.setQueryData<EmployeeDetail>(hrKeys.employee(employeeId), (old) => ({

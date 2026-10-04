@@ -217,7 +217,7 @@ export default function HrDesignationSalaryImportPage() {
           <div className="uc01-admin-table-wrap">
             <table className="uc01-admin-table hr-table">
               <thead>
-                <tr><th>Row</th><th>Employee</th><th>New designation</th><th>Salary</th><th>Status</th><th>Notes</th></tr>
+                <tr><th>Row</th><th>Employee</th><th>New designation</th><th>Salary per month</th><th>Status</th><th>Notes</th></tr>
               </thead>
               <tbody>
                 {preview.rows.map((r) => {
@@ -234,7 +234,7 @@ export default function HrDesignationSalaryImportPage() {
                       <td data-label="Salary">
                         {r.salaryAction ? (
                           <span className="hr-daily-cell">
-                            {r.salary !== null && <strong>{formatRupees(r.salary)} a month</strong>}
+                            {r.salary !== null && <strong>{formatRupees(r.salary)}</strong>}
                             <small>
                               {dsSalaryActionText[r.salaryAction]}
                               {r.effectiveFrom && r.salaryAction === 'PROPOSE' ? ` from ${formatDate(r.effectiveFrom)}` : ''}

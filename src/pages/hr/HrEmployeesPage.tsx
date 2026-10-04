@@ -124,6 +124,7 @@ export default function HrEmployeesPage() {
                   <th>Status</th>
                   <th>Login</th>
                   <th>Salary and pending</th>
+                  {access.canManageEmployees && <th>Action</th>}
                 </tr>
               </thead>
               <tbody>
@@ -157,10 +158,15 @@ export default function HrEmployeesPage() {
                         {e.dataFlags.map((f) => <span key={f} className="hr-flag">{dataFlagLabels[f]}</span>)}
                       </span>
                     </td>
+                    {access.canManageEmployees && (
+                      <td data-label="Action">
+                        <Link className="uc01-admin-button" to={`/hr/employees/${e.employeeId}?edit=1`}>Edit</Link>
+                      </td>
+                    )}
                   </tr>
                 ))}
                 {items.length === 0 && (
-                  <tr><td colSpan={7} className="uc01-admin-empty">
+                  <tr><td colSpan={access.canManageEmployees ? 8 : 7} className="uc01-admin-empty">
                     {query || status || pendingOnly ? 'No employees match this search.' : 'No employees yet.'}
                   </td></tr>
                 )}

@@ -201,7 +201,7 @@ const routeLabels: Record<string, string> = {
   '/hr/employees': 'Employees', '/hr/employees/new': 'Add Employee', '/hr/employees/import': 'Import Employees', '/hr/me': 'My Employee Profile',
   '/hr/attendance': 'Attendance', '/hr/attendance/team': 'Team Attendance', '/hr/leave': 'Leave', '/hr/leave/overview': 'Leave Overview',
   '/hr/claims': 'Reimbursements', '/hr/claims/new': 'New Claim', '/hr/claims/all': 'All Claims', '/hr/approvals': 'Approvals',
-  '/hr/payslips': 'Payslips', '/hr/messages': 'Employee Messages', '/hr/payroll': 'Payroll', '/hr/payroll/salaries': 'Salaries', '/hr/payroll/settings': 'Payroll Settings', '/hr/settings': 'HR Settings',
+  '/hr/payslips': 'Payslips', '/hr/salary': 'My Salary', '/hr/messages': 'Employee Messages', '/hr/payroll': 'Payroll', '/hr/payroll/salaries': 'Salaries', '/hr/payroll/settings': 'Payroll Settings', '/hr/settings': 'HR Settings',
 };
 
 const dynamicRouteLabels: Array<[string, string]> = [
@@ -390,6 +390,7 @@ export default function AppShell({ children }: PropsWithChildren) {
       items.push({ to: '/hr/claims', label: 'Reimbursements', mark: 'HR' });
       items.push({ to: '/hr/approvals', label: 'Approvals', mark: 'HV' });
       items.push({ to: '/hr/payslips', label: 'Payslips', mark: 'HY' });
+      items.push({ to: '/hr/salary', label: 'My Salary', mark: 'MS' });
       items.push({ to: '/hr/me', label: 'My Employee Profile', mark: 'HP' });
     }
     if (hrAccess.canReadEmployees) items.push({ to: '/hr/employees', label: 'Employees', mark: 'HE' });

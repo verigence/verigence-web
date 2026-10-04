@@ -89,6 +89,15 @@ a.hr-pay-button { text-decoration: none; }
 .hr-pay-slip__actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .hr-pay-slip__actions .hr-pay-button { flex: 1 1 130px; }
 
+/* My salary */
+.hr-pay-salary { display: flex; flex-direction: column; gap: 4px; padding: 16px; border: 1px solid #dfe5ec; border-radius: 14px; background: #fff; min-width: 0; }
+.hr-pay-salary__label { font-size: 10px; text-transform: uppercase; letter-spacing: .04em; color: #66717d; font-weight: 750; }
+.hr-pay-salary__gross { font-size: 26px; font-weight: 800; color: #18212b; }
+.hr-pay-salary__upcoming { color: #93370d; font-size: 12px; font-weight: 700; }
+.hr-pay-salary__components { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; border: 1px solid #e4e7ec; border-radius: 10px; }
+.hr-pay-salary__components li { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 10px 12px; border-bottom: 1px solid #eef1f4; font-size: 14px; min-width: 0; }
+.hr-pay-salary__components li:last-child { border-bottom: 0; }
+
 /* Template and slab editors */
 .hr-pay-dialog { max-height: calc(100dvh - 40px); overflow-y: auto; min-width: 0; outline: none; }
 .hr-pay-dialog h3 { font-size: 14px; }

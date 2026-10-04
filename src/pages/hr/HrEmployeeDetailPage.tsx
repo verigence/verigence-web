@@ -6,9 +6,12 @@ import PageHeader from '../../components/PageHeader';
 import SectionCard from '../../components/SectionCard';
 import { hrErrorMessage, HrHttpError } from '../../services/hr/client';
 import {
+  addExperience,
   addQualification,
   getEmployee,
+  removeExperience,
   removeQualification,
+  replaceExperience,
   replaceQualification,
   retryEmployeeLogin,
   linkEmployeeLogin,
@@ -24,6 +27,7 @@ import { PendingDetailsNotice } from '../../features/hr/EmployeeBadges';
 import EmployeeAvatar from '../../features/hr/EmployeeAvatar';
 import EmployeeFormFields from '../../features/hr/EmployeeFormFields';
 import EmployeeSummary from '../../features/hr/EmployeeSummary';
+import ExperiencePanel from '../../features/hr/ExperiencePanel';
 import PhotoPicker from '../../features/hr/PhotoPicker';
 import QualificationsPanel from '../../features/hr/QualificationsPanel';
 import SalaryPanel from '../../features/hr/SalaryPanel';
@@ -67,7 +71,7 @@ export default function HrEmployeeDetailPage() {
   });
   const employee = employeeQuery.data;
 
-  const store = (data: EmployeeDetail | Omit<EmployeeDetail, 'qualifications'>) => {
+  const store = (data: EmployeeDetail | Omit<EmployeeDetail, 'qualifications' | 'experiences'>) => {
     queryClient.setQueryData<EmployeeDetail>(hrKeys.employee(employeeId), (old) => ({
       ...(old as EmployeeDetail),
       ...data,
@@ -121,6 +125,11 @@ export default function HrEmployeeDetailPage() {
   });
 
   const qualificationChange = useMutation({
+    mutationFn: (run: () => Promise<EmployeeDetail>) => run(),
+    onSuccess: (data) => store(data),
+  });
+
+  const experienceChange = useMutation({
     mutationFn: (run: () => Promise<EmployeeDetail>) => run(),
     onSuccess: (data) => store(data),
   });
@@ -185,9 +194,19 @@ export default function HrEmployeeDetailPage() {
       }
     : undefined;
 
+  const experienceEditing = canManage
+    ? {
+        busy: experienceChange.isPending,
+        error: experienceChange.isError ? hrErrorMessage(experienceChange.error) : undefined,
+        onAdd: (input: Parameters<typeof addExperience>[2]) => experienceChange.mutateAsync(() => addExperience(accessToken!, employeeId, input)),
+        onReplace: (id: string, input: Parameters<typeof addExperience>[2]) => experienceChange.mutateAsync(() => replaceExperience(accessToken!, employeeId, id, input)),
+        onRemove: (id: string) => experienceChange.mutateAsync(() => removeExperience(accessToken!, employeeId, id)),
+      }
+    : undefined;
+
   const tabs: Array<{ key: Tab; label: string }> = [
     { key: 'profile', label: 'Profile' },
-    { key: 'qualifications', label: `Qualifications (${employee.qualifications.length})` },
+    { key: 'qualifications', label: `Qualifications and experience (${employee.qualifications.length + (employee.experiences ?? []).length})` },
     ...(access.canReadAudit ? [{ key: 'history' as const, label: 'History' }] : []),
   ];
 
@@ -341,7 +360,10 @@ export default function HrEmployeeDetailPage() {
             </div>
           )}
           {tab === 'qualifications' && (
-            <QualificationsPanel qualifications={employee.qualifications} degrees={degrees.data ?? []} editing={qualificationEditing} />
+            <div className="hr-sections">
+              <QualificationsPanel qualifications={employee.qualifications} degrees={degrees.data ?? []} editing={qualificationEditing} />
+              <ExperiencePanel experiences={employee.experiences ?? []} editing={experienceEditing} />
+            </div>
           )}
           {tab === 'history' && access.canReadAudit && <AuditHistory employeeId={employeeId} />}
         </>

@@ -246,6 +246,12 @@ export interface RunPayslip {
   employeeName: string;
 }
 
+/** The signed-in employee's own approved salary. Nobody else's is ever returned by this endpoint. */
+export interface MySalary {
+  current: { grossMonthly: number; components: StructureComponent[]; effectiveFrom: string } | null;
+  upcomingFrom: string | null;
+}
+
 // ---- keys -----------------------------------------------------------------------------------
 
 export const payrollKeys = {
@@ -259,6 +265,7 @@ export const payrollKeys = {
   line: (runId: string, employeeId: string) => ['hr', 'payroll', 'run', runId, 'line', employeeId] as const,
   runPayslips: (id: string) => ['hr', 'payroll', 'run', id, 'payslips'] as const,
   myPayslips: ['hr', 'payslips'] as const,
+  mySalary: ['hr', 'my-salary'] as const,
   pickEmployees: (q: string) => ['hr', 'payroll', 'pick-employees', q] as const,
 };
 
@@ -351,6 +358,8 @@ export const markRunPaid = (token: string, runId: string, paymentDate: string) =
   });
 
 // ---- payslips -------------------------------------------------------------------------------
+
+export const getMySalary = (token: string) => hrRequest<MySalary>(`${base}/me/salary`, { accessToken: token });
 
 export const listMyPayslips = (token: string) => hrRequest<{ items: MyPayslip[] }>(`${base}/payslips`, { accessToken: token });
 

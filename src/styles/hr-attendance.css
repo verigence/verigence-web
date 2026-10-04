@@ -100,3 +100,48 @@
   .hr-att-dialog { padding: 16px; border-radius: 14px; }
   .hr-att-backdrop { padding: 12px; }
 }
+
+/* Daily attendance and project assignments */
+.hr-daily__toolbar { display: grid; grid-template-columns: 1fr; gap: 10px; align-items: end; }
+.hr-daily__quick { display: flex; gap: 8px; }
+.hr-daily__quick .uc01-admin-button, .hr-daily__download { min-height: 44px; }
+.hr-daily__quick .uc01-admin-button { flex: 1; }
+.hr-daily__date { width: 100%; min-height: 44px; box-sizing: border-box; border: 1px solid #cfd6df; border-radius: 9px; background: #fff; color: #17202a; padding: 0 10px; font: inherit; font-size: 14px; font-weight: 600; }
+.hr-daily__toolbar .hr-att-months__select { flex: 1; }
+.hr-daily__toolbar .hr-att-months { justify-content: space-between; }
+.hr-daily__toggle { display: flex; align-items: center; gap: 8px; min-height: 44px; font-size: 13px; font-weight: 700; color: #344054; }
+.hr-daily__toggle input { width: 18px; height: 18px; }
+.hr-daily__tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.hr-daily__tiles > div { display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; border: 1px solid #dfe5ec; border-radius: 12px; background: #fff; min-width: 0; }
+.hr-daily__tiles span { font-size: 10px; text-transform: uppercase; letter-spacing: .04em; color: #66717d; font-weight: 750; }
+.hr-daily__tiles strong { font-size: 22px; color: #18212b; }
+.hr-daily__tiles small { font-size: 10px; color: #66717d; }
+.hr-daily__tiles .is-attention { border-color: #fedf89; background: #fffaeb; }
+.hr-daily__tiles .is-attention strong { color: #93370d; }
+.hr-daily-group { display: flex; flex-direction: column; gap: 8px; }
+.hr-daily-group__head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; width: 100%; min-height: 44px; padding: 8px 12px; border: 1px solid #dfe5ec; border-radius: 12px; background: #f7f9fb; font: inherit; color: #18212b; text-align: left; cursor: pointer; }
+.hr-daily-group__head:focus-visible { outline: 2px solid #315df5; outline-offset: 2px; }
+.hr-daily-group__caret { width: 14px; color: #52606d; }
+.hr-daily-cell strong { display: block; color: #18212b; overflow-wrap: anywhere; }
+.hr-daily-cell small { display: block; margin-top: 2px; color: #66717d; font-size: 10px; overflow-wrap: anywhere; }
+.hr-daily-table .hr-daily-row--attention td:first-child { box-shadow: inset 3px 0 0 #f79009; }
+.hr-daily-table .hr-daily-row--attention { background: #fffcf5; }
+.hr-assign-lines { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.hr-assign-lines strong { display: block; color: #18212b; font-size: 13px; }
+.hr-assign-lines small { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; color: #66717d; font-size: 11px; margin-top: 2px; }
+.hr-assign-badge { font-size: 10px; }
+
+@media (min-width: 700px) {
+  .hr-daily__toolbar { grid-template-columns: auto auto minmax(200px, 260px) auto; }
+  .hr-daily__toolbar--two { grid-template-columns: minmax(220px, 1fr) minmax(200px, 260px); }
+  .hr-daily__tiles { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .hr-assign-lines { gap: 10px; }
+}
+@media (min-width: 1000px) {
+  .hr-daily__tiles { grid-template-columns: repeat(7, minmax(0, 1fr)); }
+}
+.hr-daily-table td[data-label="Hours"] { white-space: nowrap; }
+@media (max-width: 460px) {
+  .hr-daily-table td, .hr-assign-table td { grid-template-columns: 92px minmax(0, 1fr); gap: 8px; padding: 5px 0; }
+  .hr-daily-table td::before, .hr-assign-table td::before { margin-bottom: 0; }
+}

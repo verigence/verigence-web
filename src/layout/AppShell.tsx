@@ -199,7 +199,7 @@ const routeLabels: Record<string, string> = {
   '/admin/approval-workflow': 'Approval Workflow Config', '/admin/notifications': 'Notification Settings',
   '/admin/oem-masters': 'OEM Masters', '/admin/project': 'Project Administration', '/profile': 'Profile',
   '/hr/employees': 'Employees', '/hr/employees/new': 'Add Employee', '/hr/employees/import': 'Import Employees', '/hr/me': 'My Employee Profile',
-  '/hr/attendance': 'Attendance', '/hr/attendance/team': 'Team Attendance', '/hr/leave': 'Leave', '/hr/leave/overview': 'Leave Overview',
+  '/hr/attendance': 'Attendance', '/hr/attendance/team': 'Team Attendance', '/hr/attendance/daily': 'Daily Attendance', '/hr/assignments': 'Project Assignments', '/hr/leave': 'Leave', '/hr/leave/overview': 'Leave Overview',
   '/hr/claims': 'Reimbursements', '/hr/claims/new': 'New Claim', '/hr/claims/all': 'All Claims', '/hr/approvals': 'Approvals',
   '/hr/payslips': 'Payslips', '/hr/salary': 'My Salary', '/hr/messages': 'Employee Messages', '/hr/payroll': 'Payroll', '/hr/payroll/salaries': 'Salaries', '/hr/payroll/settings': 'Payroll Settings', '/hr/settings': 'HR Settings',
 };
@@ -394,7 +394,9 @@ export default function AppShell({ children }: PropsWithChildren) {
       items.push({ to: '/hr/me', label: 'My Employee Profile', mark: 'HP' });
     }
     if (hrAccess.canReadEmployees) items.push({ to: '/hr/employees', label: 'Employees', mark: 'HE' });
+    if (hrAccess.canReadEmployees) items.push({ to: '/hr/assignments', label: 'Project Assignments', mark: 'HJ' });
     if (can('hr.attendance.read_all')) items.push({ to: '/hr/attendance/team', label: 'Team Attendance', mark: 'HT' });
+    if (can('hr.attendance.read_all')) items.push({ to: '/hr/attendance/daily', label: 'Daily Attendance', mark: 'HD' });
     if (can('hr.leave.review')) items.push({ to: '/hr/leave/overview', label: 'Leave Overview', mark: 'HL' });
     if (anyOf('hr.claim.review', 'hr.claim.review_finance', 'hr.payroll.approve')) items.push({ to: '/hr/claims/all', label: 'All Claims', mark: 'HR' });
     if (can('hr.payroll.read')) items.push({ to: '/hr/payroll', label: 'Payroll', mark: 'HY' });

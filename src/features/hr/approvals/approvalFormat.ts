@@ -125,7 +125,7 @@ export const attendanceKindLabels: Record<string, string> = {
   LATE_CHECK_IN: 'Late check-in',
   EARLY_CHECK_OUT: 'Early check-out',
   OUT_OF_FENCE: 'Outside the outlet area',
-  NO_OUTLET_LOCATION: 'Outlet location not on record',
+  NO_OUTLET_LOCATION: 'No outlet location on file',
 };
 
 export const attendanceEventLabels: Record<string, string> = { CHECK_IN: 'Check-in', CHECK_OUT: 'Check-out' };

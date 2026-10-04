@@ -1,6 +1,6 @@
 import type { AttendanceEvent, AttendanceToday } from '../../../services/hr/attendance';
 import { ExceptionList, SideBlock, StatusChip } from './DayList';
-import { formatClock, formatWorkDate } from './attendanceFormat';
+import { approverPhrase, formatClock, formatWorkDate } from './attendanceFormat';
 
 interface Props {
   today: AttendanceToday;
@@ -16,7 +16,9 @@ export default function TodayCard({ today, onStart, disabled = false }: Props) {
   const checkedIn = Boolean(day?.checkIn);
   const checkedOut = Boolean(day?.checkOut);
   const caption = formatWorkDate(today.workDate);
-  const pending = day?.exceptions.some((e) => e.status === 'PENDING') ?? false;
+  const waiting = day?.exceptions.filter((e) => e.status === 'PENDING') ?? [];
+  const pending = waiting.length > 0;
+  const approver = approverPhrase(waiting.map((e) => e.kind));
   const missingLocation = today.outlets.filter((o) => !o.hasLocation);
 
   return (
@@ -51,7 +53,7 @@ export default function TodayCard({ today, onStart, disabled = false }: Props) {
 
       {day && <ExceptionList exceptions={day.exceptions} viewer="self" caption={caption} />}
       {pending && (
-        <p className="hr-att-hint">Your Team Lead or Project Manager has been asked to approve this. You can still check out.</p>
+        <p className="hr-att-hint">{approver.charAt(0).toUpperCase() + approver.slice(1)} has been asked to approve this. You can still check out.</p>
       )}
 
       {working && (

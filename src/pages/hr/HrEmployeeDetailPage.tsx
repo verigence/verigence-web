@@ -21,6 +21,7 @@ import {
   type EmployeeDetail,
 } from '../../services/hr/employees';
 import { PAYROLL_PERMISSION } from '../../services/hr/payroll';
+import { getWorkAssignments } from '../../services/hr/workAssignments';
 import { useSessionStore } from '../../store/sessionStore';
 import AuditHistory from '../../features/hr/AuditHistory';
 import { PendingDetailsNotice } from '../../features/hr/EmployeeBadges';
@@ -28,6 +29,7 @@ import EmployeeAvatar from '../../features/hr/EmployeeAvatar';
 import EmployeeFormFields from '../../features/hr/EmployeeFormFields';
 import EmployeeSummary from '../../features/hr/EmployeeSummary';
 import ExperiencePanel from '../../features/hr/ExperiencePanel';
+import AssignmentLines from '../../features/hr/AssignmentLines';
 import PhotoPicker from '../../features/hr/PhotoPicker';
 import QualificationsPanel from '../../features/hr/QualificationsPanel';
 import SalaryPanel from '../../features/hr/SalaryPanel';
@@ -39,6 +41,7 @@ import {
   type EmployeeFormValues,
   type FormErrors,
 } from '../../features/hr/employeeValidation';
+import { dailyKeys } from '../../features/hr/attendance/dailyAttendance';
 import { dataFlagLabels, loginLabels, loginProblem, statusLabels } from '../../features/hr/hrLabels';
 import { hrKeys, useHrAccess } from '../../features/hr/hrQueries';
 import { useDegrees, useDesignations, useStates } from '../../features/hr/referenceData';
@@ -122,6 +125,14 @@ export default function HrEmployeeDetailPage() {
       await queryClient.invalidateQueries({ queryKey: hrKeys.photo(employeeId) });
       setNotice('Photo updated.');
     },
+  });
+
+  const projects = useQuery({
+    queryKey: dailyKeys.assignments(employeeId),
+    queryFn: () => getWorkAssignments(accessToken!, { employeeId }),
+    enabled: Boolean(accessToken) && access.canReadEmployees && Boolean(employeeId),
+    retry: false,
+    refetchOnWindowFocus: false,
   });
 
   const qualificationChange = useMutation({
@@ -356,6 +367,13 @@ export default function HrEmployeeDetailPage() {
                 joiningDate={employee.dateOfJoining}
               />
               <EmployeeSummary employee={employee} scope="hr" />
+              <SectionCard title="Projects" description="From Audit Core. Changes are made there and arrive in HR daily.">
+                {projects.isLoading && <p className="hr-muted">Loading…</p>}
+                {projects.isError && <p className="hr-muted">Projects could not be loaded.</p>}
+                {projects.isSuccess && (
+                  <AssignmentLines assignments={projects.data.employees.find((x) => x.employeeId === employeeId)?.assignments ?? []} />
+                )}
+              </SectionCard>
               <SensitiveNumbers employee={employee} canReveal={access.canRevealSensitive} reveal={() => revealEmployeeSensitive(accessToken!, employeeId)} />
             </div>
           )}

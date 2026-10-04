@@ -1,0 +1,24 @@
+.hrs-count { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 0 0 12px; }
+.hrs-count strong { font-size: 1rem; }
+.hrs-summary { max-width: 420px; }
+.hrs-summary small, .hrs-person small { display: block; color: var(--text-muted, #6b7280); overflow-wrap: anywhere; }
+.hrs-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.hrs-note { max-width: 240px; overflow-wrap: anywhere; }
+.hrs-files { display: grid; gap: 6px; }
+.hrs-files__list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.hrs-files__list li { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.hrs-error { color: var(--danger, #b42318); margin: 0; }
+.hrs-form { display: grid; gap: 14px; max-width: 720px; }
+.hrs-form textarea { width: 100%; }
+.hrs-thread { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+.hrs-msg { border: 1px solid var(--border, #e5e7eb); border-radius: 12px; padding: 12px 14px; max-width: 760px; background: var(--surface, #fff); }
+.hrs-msg--support { margin-left: auto; background: var(--surface-soft, #f3f6fb); }
+.hrs-msg header { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-bottom: 6px; }
+.hrs-msg header small { color: var(--text-muted, #6b7280); }
+.hrs-msg p { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.hrs-msg__files { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+.hrs-meta { display: flex; gap: 8px 18px; flex-wrap: wrap; margin: 0 0 12px; }
+@media (max-width: 720px) {
+  .hrs-msg, .hrs-msg--support { margin-left: 0; max-width: none; }
+  .hrs-summary, .hrs-note { max-width: none; }
+}

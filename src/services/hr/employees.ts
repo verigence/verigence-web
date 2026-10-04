@@ -22,6 +22,7 @@ export const HR_PERMISSION = {
   sensitiveRead: 'hr.sensitive.read',
   auditRead: 'hr.audit.read',
   settingsManage: 'hr.settings.manage',
+  supportManage: 'hr.support.manage',
 } as const;
 
 export interface HrMe {

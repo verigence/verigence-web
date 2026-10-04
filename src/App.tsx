@@ -94,7 +94,9 @@ const ActivityTrackerPage = lazy(() => import('./pages/ActivityTrackerPage'));
 const CrmPage = lazy(() => import('./pages/CrmPage'));
 const EscalationsPage = lazy(() => import('./pages/EscalationsPage'));
 const AnalyticsPage = lazy(() => import('./pages/AnalyticsPage'));
-const FeedbackPage = lazy(() => import('./pages/FeedbackPage'));
+const HrSupportPage = lazy(() => import('./pages/hr/HrSupportPage'));
+const HrSupportNewPage = lazy(() => import('./pages/hr/HrSupportNewPage'));
+const HrSupportTicketPage = lazy(() => import('./pages/hr/HrSupportTicketPage'));
 const ProjectAdministrationPage = lazy(() => import('./pages/ProjectAdministrationV2Page'));
 const ProfilePage = lazy(() => import('./pages/ProfilePage'));
 const P2JourneyListPage = lazy(() => import('./pages/P2JourneyListPage'));
@@ -360,7 +362,7 @@ export default function App() {
                   (was never reachable in production). */}
               <Route path="/v2/deliveries/:journeyId/review" element={<JourneyDocumentsRedirect />} />
               <Route path="/audit/:journeyId" element={<OperationalPage><AuditReviewPage /></OperationalPage>} />
-              <Route path="/feedback" element={<OperationalShellPage><FeedbackPage /></OperationalShellPage>} />
+              <Route path="/feedback" element={<Navigate to="/hr/support" replace />} />
               <Route path="/customers" element={<LegacyOperationalPage><CustomersPage /></LegacyOperationalPage>} />
               <Route path="/journeys" element={<LegacyOperationalPage><JourneysPage /></LegacyOperationalPage>} />
               <Route path="/journeys/:journeyId" element={<LegacyOperationalPage><JourneyWorkspacePage /></LegacyOperationalPage>} />
@@ -440,6 +442,9 @@ export default function App() {
               <Route path="/hr/payroll/runs/:runId" element={<PrivatePage><HrPayrollRunPage /></PrivatePage>} />
               <Route path="/hr/settings" element={<PrivatePage><HrSettingsPage /></PrivatePage>} />
               <Route path="/hr/messages" element={<PrivatePage><HrMessagesPage /></PrivatePage>} />
+              <Route path="/hr/support" element={<PrivatePage><HrSupportPage /></PrivatePage>} />
+              <Route path="/hr/support/new" element={<PrivatePage><HrSupportNewPage /></PrivatePage>} />
+              <Route path="/hr/support/:ticketId" element={<PrivatePage><HrSupportTicketPage /></PrivatePage>} />
               <Route path="/workspace" element={<Navigate to="/dashboard" replace />} />
               <Route path="/" element={<Navigate to="/login" replace />} />
               <Route path="*" element={<Navigate to="/home" replace />} />

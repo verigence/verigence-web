@@ -43,6 +43,7 @@ const HrClaimsAllPage = lazy(() => import('./pages/hr/HrClaimsAllPage'));
 const HrClaimDetailPage = lazy(() => import('./pages/hr/HrClaimDetailPage'));
 const HrApprovalsPage = lazy(() => import('./pages/hr/HrApprovalsPage'));
 const HrPayslipsPage = lazy(() => import('./pages/hr/HrPayslipsPage'));
+const HrMySalaryPage = lazy(() => import('./pages/hr/HrMySalaryPage'));
 const HrPayrollPage = lazy(() => import('./pages/hr/HrPayrollPage'));
 const HrSalariesPage = lazy(() => import('./pages/hr/HrSalariesPage'));
 const HrPayrollSettingsPage = lazy(() => import('./pages/hr/HrPayrollSettingsPage'));
@@ -402,6 +403,7 @@ export default function App() {
               <Route path="/hr/claims/:claimId" element={<PrivatePage><HrClaimDetailPage /></PrivatePage>} />
               <Route path="/hr/approvals" element={<PrivatePage><HrApprovalsPage /></PrivatePage>} />
               <Route path="/hr/payslips" element={<PrivatePage><HrPayslipsPage /></PrivatePage>} />
+              <Route path="/hr/salary" element={<PrivatePage><HrMySalaryPage /></PrivatePage>} />
               <Route path="/hr/payroll" element={<PrivatePage><HrPayrollPage /></PrivatePage>} />
               <Route path="/hr/payroll/salaries" element={<PrivatePage><HrSalariesPage /></PrivatePage>} />
               <Route path="/hr/payroll/settings" element={<PrivatePage><HrPayrollSettingsPage /></PrivatePage>} />

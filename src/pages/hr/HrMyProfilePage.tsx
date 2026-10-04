@@ -6,11 +6,15 @@ import PageHeader from '../../components/PageHeader';
 import SectionCard from '../../components/SectionCard';
 import { hrErrorMessage, HrHttpError } from '../../services/hr/client';
 import {
+  addMyQualification,
   getMyEmployee,
+  removeMyQualification,
+  replaceMyQualification,
   revealMySensitive,
   updateMyEmployee,
   uploadMyPhoto,
   type EmployeeDetail,
+  type QualificationInput,
 } from '../../services/hr/employees';
 import { useSessionStore } from '../../store/sessionStore';
 import EmployeeAvatar from '../../features/hr/EmployeeAvatar';
@@ -40,6 +44,9 @@ export default function HrMyProfilePage() {
   const [editing, setEditing] = useState(false);
   const [values, setValues] = useState<SelfFormValues | null>(null);
   const [errors, setErrors] = useState<Errors>({});
+  // District is not part of the shared self form values, so it is kept beside them here.
+  const [district, setDistrict] = useState('');
+  const [districtError, setDistrictError] = useState('');
   const [formError, setFormError] = useState('');
   const [notice, setNotice] = useState('');
 
@@ -68,11 +75,14 @@ export default function HrMyProfilePage() {
         const map: Record<string, keyof SelfFormValues> = {
           pincode: 'pincode',
           state: 'state',
+          address: 'address',
           emergency_contact_number: 'emergencyContactNumber',
           secondary_email: 'secondaryEmail',
         };
         for (const p of error.problems) {
-          const key = map[p.field.split('.').pop() ?? ''];
+          const field = p.field.split('.').pop() ?? '';
+          if (field === 'district') setDistrictError(p.message);
+          const key = map[field];
           if (key) next[key] = p.message;
         }
         setErrors(next);
@@ -88,6 +98,11 @@ export default function HrMyProfilePage() {
       await queryClient.invalidateQueries({ queryKey: hrKeys.photo('me') });
       setNotice('Your photo is updated.');
     },
+  });
+
+  const qualificationChange = useMutation({
+    mutationFn: (run: () => Promise<EmployeeDetail>) => run(),
+    onSuccess: (data) => queryClient.setQueryData<EmployeeDetail>(hrKeys.myEmployee, data),
   });
 
   if (access.loading) return <div className="uc01-admin-state">Loading…</div>;
@@ -124,12 +139,16 @@ export default function HrMyProfilePage() {
   const submit = () => {
     if (!values) return;
     const found = validateSelfForm(values);
+    const districtProblem = district.trim().length > 80 ? 'Keep the district within 80 characters.' : '';
     setErrors(found);
-    if (Object.keys(found).length > 0) {
+    setDistrictError(districtProblem);
+    if (Object.keys(found).length > 0 || districtProblem) {
       setFormError('Some details need attention. They are marked below.');
       return;
     }
-    const payload = buildSelfPayload(employee, values);
+    const payload: ReturnType<typeof buildSelfPayload> = buildSelfPayload(employee, values);
+    const nextDistrict = district.trim().replace(/\s+/g, ' ');
+    if ((employee.district ?? '') !== nextDistrict) payload.district = nextDistrict || null;
     if (Object.keys(payload).length === 0) {
       setEditing(false);
       setNotice('Nothing was changed.');
@@ -139,15 +158,23 @@ export default function HrMyProfilePage() {
     save.mutate(payload);
   };
 
+  const qualificationEditing = {
+    busy: qualificationChange.isPending,
+    error: qualificationChange.isError ? hrErrorMessage(qualificationChange.error) : undefined,
+    onAdd: (input: QualificationInput) => qualificationChange.mutateAsync(() => addMyQualification(accessToken!, input)),
+    onReplace: (id: string, input: QualificationInput) => qualificationChange.mutateAsync(() => replaceMyQualification(accessToken!, id, input)),
+    onRemove: (id: string) => qualificationChange.mutateAsync(() => removeMyQualification(accessToken!, id)),
+  };
+
   return (
     <section className="uc01-admin-page hr-page" aria-label="My employee profile">
       <PageHeader
         eyebrow="HR"
         title="My employee profile"
-        description="Your details on record with HR. Contact HR to correct anything you cannot change here."
+        description="Your details on record with HR. You can update your address, emergency contact and qualifications. For anything else, contact HR."
         actions={!editing ? (
-          <button type="button" className="uc01-admin-button uc01-admin-button--primary" onClick={() => { setValues(selfFormFromEmployee(employee)); setErrors({}); setFormError(''); setNotice(''); setEditing(true); }}>
-            Update my contact details
+          <button type="button" className="uc01-admin-button uc01-admin-button--primary" onClick={() => { setValues(selfFormFromEmployee(employee)); setDistrict(employee.district ?? ''); setDistrictError(''); setErrors({}); setFormError(''); setNotice(''); setEditing(true); }}>
+            Update my details
           </button>
         ) : undefined}
       />
@@ -174,7 +201,12 @@ export default function HrMyProfilePage() {
             submit();
           }}
         >
-          <SectionCard title="Contact" description="Only these details can be changed by you. Name, mobile, PAN and Aadhaar are kept by HR.">
+          <SectionCard title="Contact" description="You can change your address and secondary email. Name, PAN and Aadhaar are kept by HR.">
+            <dl className="definition-list hr-definitions">
+              <div><dt>Personal email</dt><dd>{employee.personalEmail}</dd></div>
+              <div><dt>Mobile</dt><dd>{employee.mobile || '—'}</dd></div>
+            </dl>
+            <p className="hr-muted hr-form-note">To change your email or mobile, contact HR.</p>
             <div className="hr-form-grid">
               <Field label="Secondary email" htmlFor="me-email2" error={errors.secondaryEmail}>
                 <input id="me-email2" type="email" inputMode="email" value={values.secondaryEmail} onChange={set('secondaryEmail')} />
@@ -187,6 +219,9 @@ export default function HrMyProfilePage() {
                   <option value="">Choose a state…</option>
                   {(states.data ?? []).map((s) => <option key={s} value={s}>{s}</option>)}
                 </select>
+              </Field>
+              <Field label="District" htmlFor="me-district" error={districtError}>
+                <input id="me-district" maxLength={80} autoComplete="off" value={district} onChange={(event) => { setDistrict(event.target.value); setDistrictError(''); }} />
               </Field>
               <Field label="Pincode" htmlFor="me-pincode" error={errors.pincode}>
                 <input id="me-pincode" inputMode="numeric" maxLength={6} value={values.pincode} onChange={set('pincode')} />
@@ -214,9 +249,10 @@ export default function HrMyProfilePage() {
         </form>
       ) : (
         <div className="hr-sections">
+          <p className="hr-muted">To change your email or mobile, contact HR.</p>
           <EmployeeSummary employee={employee} scope="self" />
           <SensitiveNumbers employee={employee} canReveal reveal={() => revealMySensitive(accessToken!)} />
-          <QualificationsPanel qualifications={employee.qualifications} degrees={degrees.data ?? []} />
+          <QualificationsPanel qualifications={employee.qualifications} degrees={degrees.data ?? []} editing={qualificationEditing} />
         </div>
       )}
       <p className="hr-muted">

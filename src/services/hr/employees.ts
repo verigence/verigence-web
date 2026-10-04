@@ -331,6 +331,26 @@ export const updateMyEmployee = (token: string, input: SelfUpdateInput) =>
     body: input as unknown as Record<string, unknown>,
   });
 
+export const addMyQualification = (token: string, input: QualificationInput) =>
+  hrRequest<EmployeeDetail>(`${base}/me/employee/qualifications`, {
+    accessToken: token,
+    method: 'POST',
+    body: input as unknown as Record<string, unknown>,
+  });
+
+export const replaceMyQualification = (token: string, qid: string, input: QualificationInput) =>
+  hrRequest<EmployeeDetail>(`${base}/me/employee/qualifications/${qid}`, {
+    accessToken: token,
+    method: 'PUT',
+    body: input as unknown as Record<string, unknown>,
+  });
+
+export const removeMyQualification = (token: string, qid: string) =>
+  hrRequest<EmployeeDetail>(`${base}/me/employee/qualifications/${qid}`, {
+    accessToken: token,
+    method: 'DELETE',
+  });
+
 export const revealMySensitive = (token: string) =>
   hrRequest<{ pan: string | null; aadhaar: string | null }>(`${base}/me/employee/sensitive`, {
     accessToken: token,

@@ -3,6 +3,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 
 import { verigenceLockup } from '../assets/verigenceLockup';
+import { useMaintenance } from '../features/announcements/announcementHooks';
 import {
   resetOperationalContext,
   restoreOperationalContextHint,
@@ -35,6 +36,17 @@ function locationRequiredMessage(error: unknown): string {
     return 'Location access is required to use Verigence. Please allow location access in your browser and try again.';
   }
   return 'Verigence could not determine your location. Please enable location services and try again.';
+}
+
+/** A slim note on the sign-in page while maintenance is on, so people understand what they will see after signing in. */
+function MaintenanceNotice() {
+  const { maintenance } = useMaintenance();
+  if (!maintenance) return null;
+  return (
+    <div className="uc01-admin-message uc01-admin-message--info" role="status">
+      <strong>Maintenance in progress.</strong> {maintenance.title}
+    </div>
+  );
 }
 
 export default function LoginPage() {
@@ -150,6 +162,7 @@ export default function LoginPage() {
           <h1 id="sign-in-title">Sign in</h1>
           <p>Use your work email.</p>
         </header>
+        <MaintenanceNotice />
 
         <form className="frozen-auth-form" onSubmit={submit}>
           <label className="frozen-auth-field">

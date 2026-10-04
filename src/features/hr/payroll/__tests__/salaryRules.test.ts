@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 
-import { buildProposal, hasMidTemplate, isInBand, parseGross, validateProposal, type ProposalForm } from '../salaryRules';
+import { buildProposal, hasMidTemplate, isInBand, parseGross, pfIsOptional, validateProposal, type ProposalForm } from '../salaryRules';
 
 const form = (over: Partial<ProposalForm> = {}): ProposalForm => ({
-  employeeId: 'e1', gross: '30000', effectiveFrom: '2026-10-01', templateId: '', bandConfirmed: false, note: '', ...over,
+  employeeId: 'e1', gross: '30000', effectiveFrom: '2026-10-01', templateId: '', bandConfirmed: false, pfApplicable: true, note: '', ...over,
 });
 
 describe('the 21,001 to 24,999 band', () => {
@@ -69,5 +69,23 @@ describe('the gross', () => {
     const e = validateProposal(form({ employeeId: '', effectiveFrom: '' }));
     expect(e.employeeId).toBeTruthy();
     expect(e.effectiveFrom).toBeTruthy();
+  });
+});
+
+describe('Provident Fund choice', () => {
+  it('is offered only from a gross of 25,000', () => {
+    expect(pfIsOptional('25000')).toBe(true);
+    expect(pfIsOptional('25,000.50')).toBe(true);
+    expect(pfIsOptional('100000')).toBe(true);
+    expect(pfIsOptional('24999.99')).toBe(false);
+    expect(pfIsOptional('')).toBe(false);
+    expect(pfIsOptional('abc')).toBe(false);
+  });
+
+  it('sends pf_applicable only when unticked for a gross of 25,000 or more', () => {
+    expect(buildProposal(form({ gross: '30000', pfApplicable: false }))).toHaveProperty('pf_applicable', false);
+    expect(buildProposal(form({ gross: '30000', pfApplicable: true }))).not.toHaveProperty('pf_applicable');
+    // An untick left over from a higher amount is not sent for a lower one.
+    expect(buildProposal(form({ gross: '20000', pfApplicable: false }))).not.toHaveProperty('pf_applicable');
   });
 });

@@ -1,12 +1,13 @@
 import type { SalaryTemplate } from '../../services/hr/payroll';
 import Field from './Field';
-import { hasMidTemplate, isInBand, parseGross, validateProposal, type ProposalErrors, type ProposalForm } from './payroll/salaryRules';
+import PfApplicableField from './payroll/PfApplicableField';
+import { hasMidTemplate, isInBand, parseGross, pfIsOptional, validateProposal, type ProposalErrors, type ProposalForm } from './payroll/salaryRules';
 import '../../styles/hr-payroll.css';
 
 /** The salary a person fills in; the employee is added when it is sent. */
 export type SalaryDraft = Omit<ProposalForm, 'employeeId'>;
 
-export const emptySalaryDraft: SalaryDraft = { gross: '', effectiveFrom: '', templateId: '', bandConfirmed: false, note: '' };
+export const emptySalaryDraft: SalaryDraft = { gross: '', effectiveFrom: '', templateId: '', bandConfirmed: false, pfApplicable: true, note: '' };
 
 /** Nothing typed in the required fields: the salary is being left for later. */
 export const isSalaryDraftEmpty = (d: SalaryDraft) => !d.gross.trim() && !d.effectiveFrom && !d.templateId;
@@ -42,7 +43,7 @@ export default function SalaryEntryFields({ idPrefix, draft, errors, disabled, t
     <div className="hr-form">
       <div className="hr-form-grid hr-pay-grid">
         <Field label="Monthly gross (₹)" htmlFor={id('gross')} required error={errors.gross} hint="Before any deductions. Digits, with up to two decimals.">
-          <input id={id('gross')} inputMode="decimal" autoComplete="off" value={draft.gross} disabled={disabled} aria-invalid={Boolean(errors.gross)} onChange={(e) => onChange({ gross: e.target.value })} />
+          <input id={id('gross')} inputMode="decimal" autoComplete="off" value={draft.gross} disabled={disabled} aria-invalid={Boolean(errors.gross)} onChange={(e) => onChange({ gross: e.target.value, ...(pfIsOptional(e.target.value) ? {} : { pfApplicable: true }) })} />
         </Field>
         <Field label="Effective from" htmlFor={id('from')} required error={errors.effectiveFrom}>
           <input id={id('from')} type="date" value={draft.effectiveFrom} disabled={disabled} aria-invalid={Boolean(errors.effectiveFrom)} onChange={(e) => onChange({ effectiveFrom: e.target.value })} />
@@ -80,6 +81,8 @@ export default function SalaryEntryFields({ idPrefix, draft, errors, disabled, t
           {errors.bandConfirmed && <span className="hr-field__error" role="alert">{errors.bandConfirmed}</span>}
         </div>
       )}
+
+      {pfIsOptional(draft.gross) && <PfApplicableField id={id('pf')} checked={draft.pfApplicable} disabled={disabled} onChange={(pfApplicable) => onChange({ pfApplicable })} />}
 
       <Field label="Note for Finance (optional)" htmlFor={id('note')} error={errors.note} hint="Up to 300 characters." wide>
         <textarea id={id('note')} rows={2} maxLength={300} value={draft.note} disabled={disabled} onChange={(e) => onChange({ note: e.target.value })} />

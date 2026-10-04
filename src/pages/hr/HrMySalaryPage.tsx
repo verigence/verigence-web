@@ -61,6 +61,7 @@ export default function HrMySalaryPage() {
             <span className="hr-pay-salary__label">Gross salary per month</span>
             <strong className="hr-pay-salary__gross hr-pay-money">{formatRupees(current.grossMonthly)}</strong>
             <small className="hr-muted">Effective from {formatDate(current.effectiveFrom)}</small>
+            {current.pfApplicable === false && <small className="hr-muted">PF not applied</small>}
             {upcomingFrom && <small className="hr-pay-salary__upcoming">A new salary applies from {formatDate(upcomingFrom)}.</small>}
           </div>
           <SectionCard title="Breakdown" description="How your monthly gross is made up.">

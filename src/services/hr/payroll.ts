@@ -81,6 +81,8 @@ export interface SalaryStructure {
   decisionNote: string | null;
   /** True when it has no components yet (the ₹21,001–₹24,999 template does not exist). It cannot be approved. */
   templatePending: boolean;
+  /** False when the employee has opted out of Provident Fund (only possible from a gross of ₹25,000). */
+  pfApplicable: boolean;
 }
 
 export interface SalaryStructureListItem extends SalaryStructure {
@@ -94,6 +96,7 @@ export interface ProposeStructureInput {
   effective_from: string;
   template_id?: string;
   band_confirmed?: boolean;
+  pf_applicable?: boolean;
   note?: string;
 }
 
@@ -250,7 +253,7 @@ export interface RunPayslip {
 
 /** The signed-in employee's own approved salary. Nobody else's is ever returned by this endpoint. */
 export interface MySalary {
-  current: { grossMonthly: number; components: StructureComponent[]; effectiveFrom: string } | null;
+  current: { grossMonthly: number; components: StructureComponent[]; effectiveFrom: string; pfApplicable?: boolean } | null;
   upcomingFrom: string | null;
 }
 

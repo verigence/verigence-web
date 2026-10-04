@@ -30,6 +30,7 @@ export default function StructureCard({ item, showPerson, actions }: Props) {
           {!showPerson && <strong className="hr-pay-card__title">From {formatDate(item.effectiveFrom)}</strong>}
         </div>
         <span className="hr-pay-card__pills">
+          {item.pfApplicable === false && <span className="hr-pay-pill hr-pay-pill--draft">PF not applied</span>}
           {item.templatePending && <span className="hr-pay-pill hr-pay-pill--pending">Template pending</span>}
           {!(item.templatePending && item.status === 'PROPOSED') && <span className={`hr-pay-pill hr-pay-pill--${status.tone}`}>{status.label}</span>}
         </span>

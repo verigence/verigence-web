@@ -1,6 +1,9 @@
 import { lazy, Suspense, useEffect, type ReactNode } from 'react';
 import { IonApp } from '@ionic/react';
 import { BrowserRouter, Navigate, Route, Routes, useParams, useSearchParams } from 'react-router-dom';
+import { useHrAccess } from './features/hr/hrQueries';
+import { landingDecision } from './features/rollout/landing';
+import { useMyFeatures } from './features/rollout/featureFlags';
 
 import { verigenceLockup } from './assets/verigenceLockup';
 import { ErrorBoundary, STALE_CHUNK_RELOAD_FLAG } from './components/ErrorBoundary';
@@ -189,6 +192,21 @@ function ProjectAdminPage({ children }: { children: ReactNode }) {
   return <PrivatePage>{children}</PrivatePage>;
 }
 
+/** The plain landing: people without the Audit switch who have HR go to HR. Everyone else, and any failure, gets the page as before. */
+function HrLanding({ children }: { children: ReactNode }) {
+  const [searchParams] = useSearchParams();
+  const myFeatures = useMyFeatures();
+  const hr = useHrAccess();
+  const decision = landingDecision({
+    features: { status: myFeatures.status, audit: myFeatures.features?.AUDIT },
+    hr: { loading: hr.loading, available: hr.available, isEmployee: hr.isEmployee, canReadEmployees: hr.canReadEmployees },
+    searchParams,
+  });
+  if (decision.kind === 'wait') return <Loading />;
+  if (decision.kind === 'go') return <Navigate to={decision.to} replace />;
+  return children;
+}
+
 function DashboardEntry() {
   const role = useSessionStore((state) => state.role);
   const selectedProject = useProjectContextStore((state) => state.selectedProject);
@@ -311,8 +329,8 @@ export default function App() {
               <Route path="/privacy" element={<PrivacyPage />} />
               <Route path="/apps" element={<AppDistributionRoute />} />
               <Route path="/download" element={<Navigate to="/apps" replace />} />
-              <Route path="/home" element={<HomeEntry />} />
-              <Route path="/dashboard" element={<DashboardEntry />} />
+              <Route path="/home" element={<Authenticated><HrLanding><HomeEntry /></HrLanding></Authenticated>} />
+              <Route path="/dashboard" element={<Authenticated><HrLanding><DashboardEntry /></HrLanding></Authenticated>} />
               {/* Dedicated "Bookings & Deliveries" sidebar destination — renders the
                   Work Queue table directly for every operating role (PC, TL, PM),
                   independent of DashboardEntry's Overview role-branching (which

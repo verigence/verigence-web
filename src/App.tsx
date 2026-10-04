@@ -28,6 +28,10 @@ const PrivacyPage = lazy(() => import('./pages/PrivacyPage'));
 const AppDownloadPage = lazy(() => import('./pages/AppDownloadPage'));
 const ApprovalQueuePage = lazy(() => import('./pages/ApprovalQueuePage'));
 const AdminUsersPage = lazy(() => import('./pages/AdminUsersPage'));
+const HrEmployeesPage = lazy(() => import('./pages/hr/HrEmployeesPage'));
+const HrEmployeeCreatePage = lazy(() => import('./pages/hr/HrEmployeeCreatePage'));
+const HrEmployeeDetailPage = lazy(() => import('./pages/hr/HrEmployeeDetailPage'));
+const HrMyProfilePage = lazy(() => import('./pages/hr/HrMyProfilePage'));
 const AdminConfigurationPage = lazy(() => import('./pages/AdminConfigurationPage'));
 const AdminHousekeepingPage = lazy(() => import('./pages/AdminHousekeepingPage'));
 const AdminLandingPage = lazy(() => import('./pages/AdminLandingPage'));
@@ -365,6 +369,11 @@ export default function App() {
               <Route path="/admin/team" element={<Navigate to="/admin/project?step=5" replace />} />
               <Route path="/admin/masters" element={<Navigate to="/admin/project?step=6" replace />} />
               <Route path="/profile" element={<PrivatePage><ProfilePage /></PrivatePage>} />
+              {/* HR is company-level: no project or outlet is needed, and every call is checked by the HR service. */}
+              <Route path="/hr/me" element={<PrivatePage><HrMyProfilePage /></PrivatePage>} />
+              <Route path="/hr/employees" element={<PrivatePage><HrEmployeesPage /></PrivatePage>} />
+              <Route path="/hr/employees/new" element={<PrivatePage><HrEmployeeCreatePage /></PrivatePage>} />
+              <Route path="/hr/employees/:employeeId" element={<PrivatePage><HrEmployeeDetailPage /></PrivatePage>} />
               <Route path="/workspace" element={<Navigate to="/dashboard" replace />} />
               <Route path="/" element={<Navigate to="/login" replace />} />
               <Route path="*" element={<Navigate to="/home" replace />} />

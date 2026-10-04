@@ -1,0 +1,129 @@
+/* HR screens (Employees, Add employee, My employee profile).
+   Buttons, tables, messages and dialogs reuse the uc01-admin-* vocabulary so HR looks like the
+   rest of Administration; only HR-specific pieces are defined here. Mobile first. */
+
+.hr-page { min-width: 0; }
+.hr-page .section-card { min-width: 0; }
+.hr-muted { color: #66717d; font-size: 12px; }
+.hr-count { margin: 0; color: #52606d; font-size: 12px; font-weight: 700; }
+
+/* Forms */
+.hr-form { display: flex; flex-direction: column; gap: 16px; }
+.hr-form-grid { display: grid; grid-template-columns: 1fr; gap: 14px; }
+.hr-field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.hr-field > label { font-size: 12px; font-weight: 700; color: #344054; }
+.hr-field__required { color: #b42318; }
+.hr-field input,
+.hr-field select,
+.hr-field textarea {
+  width: 100%;
+  min-height: 44px; /* comfortable touch target */
+  border: 1px solid #cfd6df;
+  border-radius: 9px;
+  background: #fff;
+  color: #17202a;
+  padding: 10px 11px;
+  font: inherit;
+  font-size: 16px; /* stops iOS zooming into the field */
+  font-weight: 500;
+  outline: none;
+  box-sizing: border-box;
+}
+.hr-field textarea { resize: vertical; min-height: 72px; }
+.hr-field input:focus,
+.hr-field select:focus,
+.hr-field textarea:focus { border-color: #315df5; box-shadow: 0 0 0 3px rgba(49, 93, 245, .12); }
+.hr-field input:disabled { background: #f2f4f7; color: #667085; }
+.hr-field--error input,
+.hr-field--error select,
+.hr-field--error textarea { border-color: #d92d20; }
+.hr-field__error { color: #b42318; font-size: 12px; line-height: 1.4; }
+.hr-field__hint { color: #66717d; font-size: 11px; line-height: 1.4; }
+
+.hr-check { display: flex; gap: 10px; align-items: flex-start; font-size: 13px; font-weight: 700; color: #24303c; cursor: pointer; }
+.hr-check input { width: 20px; height: 20px; margin-top: 1px; accent-color: #0e7490; flex: none; }
+.hr-check small { display: block; margin-top: 3px; color: #66717d; font-weight: 500; font-size: 12px; line-height: 1.45; }
+
+.hr-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.hr-actions .uc01-admin-button { min-height: 40px; }
+.hr-actions--form { padding-top: 4px; }
+.hr-visually-hidden { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+
+/* Photo */
+.hr-avatar { display: inline-grid; place-items: center; overflow: hidden; border-radius: 50%; background: #e6f6fa; color: #0b5566; font-weight: 800; flex: none; }
+.hr-avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.hr-avatar--sm { width: 34px; height: 34px; font-size: 12px; }
+.hr-avatar--md { width: 48px; height: 48px; font-size: 15px; }
+.hr-avatar--lg { width: 84px; height: 84px; font-size: 26px; }
+.hr-photo-picker { display: flex; flex-direction: column; gap: 6px; align-items: flex-start; }
+.hr-photo-row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+
+.hr-identity { display: flex; flex-wrap: wrap; align-items: center; gap: 14px 18px; padding: 16px; border: 1px solid #dfe5ec; border-radius: 14px; background: #fff; }
+.hr-identity__facts { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; flex: 1 1 200px; min-width: 0; }
+.hr-identity__name { font-size: 16px; color: #18212b; flex-basis: 100%; }
+.hr-identity__photo { margin-left: auto; }
+
+/* Lists in tables */
+.hr-table td > .hr-employee-link { display: flex; align-items: center; gap: 10px; color: inherit; text-decoration: none; }
+.hr-table td > .hr-employee-link strong { display: block; color: #18212b; }
+.hr-table td > .hr-employee-link small { display: block; color: #66717d; font-size: 11px; margin-top: 2px; }
+.hr-table td > .hr-employee-link:hover strong { color: #315df5; text-decoration: underline; }
+.hr-flags { display: flex; flex-wrap: wrap; gap: 4px; }
+.hr-flag { display: inline-flex; width: max-content; padding: 4px 8px; border-radius: 999px; background: #fff6ed; color: #93370d; font-size: 10px; font-weight: 800; }
+.hr-pager { display: flex; align-items: center; justify-content: center; gap: 12px; font-size: 12px; color: #52606d; }
+
+/* Tabs */
+.hr-tabs { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 2px; -webkit-overflow-scrolling: touch; scrollbar-width: thin; }
+.hr-tab { flex: none; min-height: 40px; padding: 8px 14px; border: 1px solid #cbd3dd; border-radius: 999px; background: #fff; color: #24303c; font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; }
+.hr-tab.is-active { background: #0e7490; border-color: #0e7490; color: #fff; }
+.hr-sections { display: flex; flex-direction: column; gap: 16px; }
+
+/* Definition lists: label above value on phones, side by side from tablet up */
+.hr-page .hr-definitions > div { grid-template-columns: 1fr; gap: 4px; }
+.hr-page .hr-definitions dt { font-size: 10px; }
+.hr-page .hr-definitions dd { font-size: 14px; }
+
+/* Qualifications */
+.hr-qualification-list { list-style: none; margin: 0 0 12px; padding: 0; display: flex; flex-direction: column; border: 1px solid #e4e7ec; border-radius: 10px; }
+.hr-qualification-list li { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 12px; border-bottom: 1px solid #eef1f4; }
+.hr-qualification-list li:last-child { border-bottom: 0; }
+.hr-qualification-list li > span { display: flex; flex-direction: column; min-width: 0; }
+.hr-qualification-list small { color: #66717d; font-size: 12px; margin-top: 2px; }
+.hr-qualification-list .hr-qualification-editor { width: 100%; }
+.hr-row-actions { display: flex; flex-direction: row !important; gap: 6px; }
+.hr-qualification-editor { display: flex; flex-direction: column; gap: 12px; margin-top: 4px; }
+
+/* Login banner and one-time credential */
+.hr-login-banner { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 16px; border: 1px solid #fedf89; border-radius: 12px; background: #fffaeb; color: #93370d; font-size: 13px; }
+.hr-login-banner > div { display: flex; flex-direction: column; gap: 4px; min-width: 0; flex: 1 1 220px; }
+.hr-banner-error { color: #912018; }
+.hr-credential { display: flex; flex-direction: column; gap: 12px; align-items: flex-start; }
+.hr-password { display: inline-block; padding: 8px 12px; border-radius: 8px; background: #f2f4f7; font-size: 16px; letter-spacing: .04em; user-select: all; overflow-wrap: anywhere; }
+
+/* History */
+.hr-history { list-style: none; margin: 0 0 12px; padding: 0; display: flex; flex-direction: column; }
+.hr-history li { display: flex; flex-direction: column; gap: 2px; padding: 10px 0 10px 14px; border-left: 2px solid #cfe8ee; position: relative; }
+.hr-history li::before { content: ''; position: absolute; left: -5px; top: 15px; width: 8px; height: 8px; border-radius: 50%; background: #0e7490; }
+.hr-history strong { font-size: 13px; color: #18212b; }
+.hr-history small { color: #66717d; font-size: 11px; }
+.hr-history span { color: #475467; font-size: 12px; overflow-wrap: anywhere; }
+
+@media (min-width: 640px) {
+  .hr-form-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .hr-field--wide { grid-column: 1 / -1; }
+  .hr-definitions { grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 24px; }
+  .hr-page .hr-definitions > div { grid-template-columns: 1fr; }
+  .hr-definitions__wide { grid-column: 1 / -1; }
+  .hr-field input, .hr-field select, .hr-field textarea { font-size: 14px; min-height: 40px; }
+}
+
+@media (min-width: 1000px) {
+  .hr-form-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .hr-definitions { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
+@media (max-width: 760px) {
+  .hr-identity__photo { margin-left: 0; flex-basis: 100%; }
+  .hr-actions--form .uc01-admin-button { flex: 1 1 140px; }
+  .hr-table td > .hr-employee-link { justify-content: flex-start; }
+}

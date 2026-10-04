@@ -157,6 +157,53 @@ describe('Audit Core Capacitor CORS', () => {
   });
 });
 
+describe('HR proxy', () => {
+  it('forwards /hr-api/* to the HR upstream without the prefix', async () => {
+    const calls = [];
+    const original = globalThis.fetch;
+    globalThis.fetch = vi.fn(async (req) => {
+      calls.push(req);
+      return new Response('{"ok":true}', { status: 200, headers: { 'Content-Type': 'application/json' } });
+    });
+    try {
+      const request = new Request('https://verigence-web-dev.example/hr-api/hr/v1/me?x=1', {
+        headers: { Authorization: 'Bearer t', Origin: 'https://verigence-web-dev.example' },
+      });
+      const response = await worker.fetch(request, { HR_UPSTREAM: 'https://hr.example' });
+      expect(response.status).toBe(200);
+      expect(calls).toHaveLength(1);
+      const forwarded = new URL(calls[0].url);
+      expect(forwarded.origin).toBe('https://hr.example');
+      expect(forwarded.pathname).toBe('/hr/v1/me');
+      expect(forwarded.search).toBe('?x=1');
+      expect(calls[0].headers.get('Authorization')).toBe('Bearer t');
+      expect(calls[0].headers.get('Origin')).toBeNull();
+    } finally {
+      globalThis.fetch = original;
+    }
+  });
+
+  it('answers 503 when the HR upstream is not configured', async () => {
+    const request = new Request('https://verigence-web-dev.example/hr-api/hr/v1/me');
+    const response = await worker.fetch(request, {});
+    expect(response.status).toBe(503);
+  });
+
+  it('answers a native preflight at the Worker', async () => {
+    const request = new Request('https://verigence-web-dev.example/hr-api/hr/v1/me', {
+      method: 'OPTIONS',
+      headers: {
+        Origin: 'https://localhost',
+        'Access-Control-Request-Method': 'GET',
+        'Access-Control-Request-Headers': 'authorization',
+      },
+    });
+    const response = await worker.fetch(request, {});
+    expect(response.status).toBe(204);
+    expect(response.headers.get('Access-Control-Allow-Origin')).toBe('https://localhost');
+  });
+});
+
 describe('authenticated app distribution', () => {
   const metadata = {
     version: '1.2.3',

@@ -14,6 +14,7 @@ import './styles/global.css';
 import './styles/approval.css';
 import './styles/approval-uc001.css';
 import './styles/uc01-administration.css';
+import './styles/hr.css';
 import './styles/di-test-console.css';
 import './styles/di-configuration.css';
 import './styles/workspace.css';

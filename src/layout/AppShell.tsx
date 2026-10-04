@@ -9,6 +9,7 @@ import { ANDROID_BACK_EVENT } from '../native/AndroidNativeBridge';
 import type { OperationalOutletScope } from '../services/audit-core/uc03';
 import { getReviewQueueSummary } from '../services/audit-core/uc03Audit';
 import { getP2Tasks } from '../services/audit-core/uc03P2';
+import { useHrAccess } from '../features/hr/hrQueries';
 import { isDiTestConsoleAvailable } from '../services/di/testConsole';
 import { useProjectContextStore } from '../store/projectContextStore';
 import { useSessionStore } from '../store/sessionStore';
@@ -197,6 +198,7 @@ const routeLabels: Record<string, string> = {
   '/admin/roles-permissions': 'Roles & Permissions', '/admin/audit-rules': 'Audit Rule Config',
   '/admin/approval-workflow': 'Approval Workflow Config', '/admin/notifications': 'Notification Settings',
   '/admin/oem-masters': 'OEM Masters', '/admin/project': 'Project Administration', '/profile': 'Profile',
+  '/hr/employees': 'Employees', '/hr/employees/new': 'Add Employee', '/hr/me': 'My Employee Profile',
 };
 
 const dynamicRouteLabels: Array<[string, string]> = [
@@ -211,6 +213,7 @@ const dynamicRouteLabels: Array<[string, string]> = [
   ['/findings/', 'Finding'],
   ['/reviews/', 'Review'],
   ['/tasks/', 'Work Item'],
+  ['/hr/employees/', 'Employee'],
 ];
 
 const roleLabels: Record<ShellRole, string> = {
@@ -254,6 +257,8 @@ function NavIcon({ mark }: { mark: string }) {
     case 'AW': glyph = <><circle cx="5" cy="6" r="2" /><circle cx="19" cy="6" r="2" /><circle cx="12" cy="18" r="2" /><path d="M7 6h10M6.5 7.5 11 16m6.5-8.5L13 16" /></>; break;
     case 'NS': glyph = <><path d="M6 16h12l-1.5-2v-4a4.5 4.5 0 0 0-9 0v4z" /><path d="M10 19h4" /></>; break;
     case 'PA': glyph = <><path d="M4 20h16M6 20V8l6-4 6 4v12M9 11h2m2 0h2M9 15h2m2 0h2" /></>; break;
+    case 'HE': glyph = <><circle cx="9" cy="8" r="3" /><path d="M3.5 19c.6-3.2 2.5-5 5.5-5s4.9 1.8 5.5 5" /><rect x="15" y="6" width="6" height="8" rx="1" /><path d="M17 9h2m-2 3h2" /></>; break;
+    case 'HP': glyph = <><circle cx="12" cy="8" r="3.5" /><path d="M5 20c.8-4 3.4-6 7-6s6.2 2 7 6" /></>; break;
     case 'CB': glyph = <><rect x="4" y="4" width="16" height="16" rx="3" /><path d="M12 8v8M8 12h8" /></>; break;
     default: glyph = <circle cx="12" cy="12" r="7" />;
   }
@@ -306,7 +311,7 @@ export default function AppShell({ children }: PropsWithChildren) {
     && new URLSearchParams(location.search).get('action') === 'create-booking';
   const legacyQueueMode = location.pathname === '/dashboard'
     && new URLSearchParams(location.search).get('legacyDashboard') === '1';
-  const visibleGroups = useMemo<NavGroup[]>(() => {
+  const baseGroups = useMemo<NavGroup[]>(() => {
     if (!c0OperationalShell) return groups;
     const auditRole = role === 'PC' || role === 'TL' || role === 'PM';
     const dailyOpsItem: NavItem = { to: '/daily-ops', label: 'Daily Operations', mark: 'DO', roles: ['PC'] };
@@ -358,6 +363,20 @@ export default function AppShell({ children }: PropsWithChildren) {
       { key: 'administration', label: 'Administration', items: [projectAdministrationItem] },
     ];
   }, [c0OperationalShell, role, sessionRole, reviewQueueCount, p2TaskCount]);
+
+  // HR is company-level and appears only for people the HR service says have an HR role or an
+  // employee record. If HR cannot be reached the group is simply absent.
+  const hrAccess = useHrAccess();
+  const hrGroup = useMemo<NavGroup | null>(() => {
+    const items: NavItem[] = [];
+    if (hrAccess.canReadEmployees) items.push({ to: '/hr/employees', label: 'Employees', mark: 'HE' });
+    if (hrAccess.isEmployee) items.push({ to: '/hr/me', label: 'My Employee Profile', mark: 'HP' });
+    return items.length ? { key: 'hr', label: 'HR', items } : null;
+  }, [hrAccess.canReadEmployees, hrAccess.isEmployee]);
+  const visibleGroups = useMemo<NavGroup[]>(
+    () => (hrGroup ? [...baseGroups, hrGroup] : baseGroups),
+    [baseGroups, hrGroup],
+  );
 
   const activeGroupKey = useMemo(() => {
     return visibleGroups.find((group) => group.items.some((item) => {

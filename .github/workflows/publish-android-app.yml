@@ -30,6 +30,7 @@ jobs:
       VITE_SECURITY_BASE_URL: https://verigence-web-dev.jbrconsulting-it.workers.dev
       VITE_AUDIT_CORE_BASE_URL: ""
       VITE_AUDIT_CORE_PROXY_BASE_URL: https://verigence-web-dev.jbrconsulting-it.workers.dev/audit-core
+      VITE_HR_PROXY_BASE_URL: https://verigence-web-dev.jbrconsulting-it.workers.dev/hr-api
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
       ANDROID_RELEASE_STORE_PASSWORD: ${{ secrets.ANDROID_RELEASE_STORE_PASSWORD }}

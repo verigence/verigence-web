@@ -60,6 +60,21 @@ function buildAnalyticsTarget(rawUpstream, incomingUrl) {
   return upstream;
 }
 
+function buildHrTarget(rawUpstream, incomingUrl) {
+  const upstream = new URL(String(rawUpstream || '').trim());
+  const incoming = new URL(incomingUrl);
+  const proxyPrefix = '/hr-api';
+  const upstreamPath = upstream.pathname.replace(/\/+$/, '');
+  const incomingPath = incoming.pathname.startsWith(proxyPrefix)
+    ? incoming.pathname.slice(proxyPrefix.length) || '/'
+    : incoming.pathname;
+
+  upstream.pathname = `${upstreamPath}${incomingPath}`.replace(/\/{2,}/g, '/');
+  upstream.search = incoming.search;
+  upstream.hash = '';
+  return upstream;
+}
+
 function buildDiTarget(rawUpstream, incomingUrl) {
   const upstream = new URL(String(rawUpstream || '').trim());
   const incoming = new URL(incomingUrl);
@@ -502,6 +517,39 @@ export default {
       } catch (error) {
         logProxyFailure('analytics', request, correlationId, 'ANALYTICS_UPSTREAM_UNAVAILABLE', error);
         return proxyError(request, 'analytics', 'ANALYTICS_UPSTREAM_UNAVAILABLE', 'Verigence Analytics could not be reached', 502, correlationId);
+      }
+    }
+
+    if (url.pathname === '/hr-api' || url.pathname.startsWith('/hr-api/')) {
+      if (request.method === 'OPTIONS') {
+        return preflightResponse(request);
+      }
+
+      if (!String(env.HR_UPSTREAM || '').trim()) {
+        logProxyFailure('hr', request, correlationId, 'HR_UPSTREAM_UNAVAILABLE');
+        return proxyError(request, 'hr', 'HR_UPSTREAM_UNAVAILABLE', 'Verigence HR is not configured', 503, correlationId);
+      }
+
+      try {
+        const target = buildHrTarget(env.HR_UPSTREAM, request.url);
+        const proxyStart = performance.now();
+        const response = await fetch(sanitizedUpstreamRequest(target, request, correlationId));
+        if (String(env.LOG_PROXY_SUCCESS || '').toLowerCase() === 'true') {
+          console.log(JSON.stringify({
+            event_name: 'web_proxy_success',
+            service_name: 'verigence-web',
+            proxy: 'hr',
+            correlation_id: correlationId,
+            http_method: request.method,
+            http_route: new URL(request.url).pathname,
+            upstream_status: response.status,
+            duration_ms: Math.round(performance.now() - proxyStart),
+          }));
+        }
+        return proxyResponse(response, request, 'hr', correlationId);
+      } catch (error) {
+        logProxyFailure('hr', request, correlationId, 'HR_UPSTREAM_UNAVAILABLE', error);
+        return proxyError(request, 'hr', 'HR_UPSTREAM_UNAVAILABLE', 'Verigence HR could not be reached', 502, correlationId);
       }
     }
 

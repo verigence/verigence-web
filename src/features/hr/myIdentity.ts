@@ -44,6 +44,7 @@ export function useMyHrIdentity() {
     /** True when the HR service says an employee record is linked to this login. */
     hasRecord: access.isEmployee,
     fullName: employee.data?.fullName ?? null,
+    designation: employee.data?.designation ?? null,
     hasPhoto,
     photoUrl,
   };

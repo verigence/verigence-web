@@ -5,7 +5,7 @@ import SectionCard from '../components/SectionCard';
 import { initialsOf } from '../features/hr/EmployeeAvatar';
 import PhotoPicker from '../features/hr/PhotoPicker';
 import { useMyHrIdentity, useUploadMyPhoto } from '../features/hr/myIdentity';
-import { chooseDisplayName, workContextLabels } from '../features/profile/workContext';
+import { chooseDisplayName, roleOrDesignation, workContextLabels } from '../features/profile/workContext';
 import { useProjectContextStore } from '../store/projectContextStore';
 import { useSessionStore } from '../store/sessionStore';
 
@@ -26,6 +26,7 @@ export default function ProfilePage() {
   const upload = useUploadMyPhoto();
   const name = chooseDisplayName(me.fullName, state.displayName);
   const context = workContextLabels(selectedProject, state.outletId);
+  const title = roleOrDesignation(me.hasRecord, me.designation, roleLabels[state.role] || state.role);
 
   return (
     <div className="screen-stack profile-page">
@@ -43,7 +44,7 @@ export default function ProfilePage() {
           <dl className="definition-list">
             <div><dt>Name</dt><dd>{name || 'Not available'}</dd></div>
             <div><dt>Email</dt><dd>{state.email || 'Not available'}</dd></div>
-            <div><dt>Role</dt><dd>{roleLabels[state.role] || state.role}</dd></div>
+            <div><dt>{title.label}</dt><dd>{title.value}</dd></div>
           </dl>
         </SectionCard>
         <SectionCard title="Work Context">

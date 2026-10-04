@@ -32,3 +32,16 @@ export function workContextLabels(project: OperationalProject | undefined, selec
     outlet: outletNames.length ? outletNames.join(', ') : wide ? 'All outlets' : NOT_ASSIGNED,
   };
 }
+
+/**
+ * The line under the person's name: an employee shows their designation (HR sets it), not the
+ * system role; someone without an employee record keeps showing the role.
+ */
+export function roleOrDesignation(
+  hasRecord: boolean,
+  designation: string | null | undefined,
+  roleLabel: string,
+): { label: 'Designation' | 'Role'; value: string } {
+  if (hasRecord) return { label: 'Designation', value: designation?.trim() || 'Not set yet' };
+  return { label: 'Role', value: roleLabel };
+}

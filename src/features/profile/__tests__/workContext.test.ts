@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import type { OperationalProject } from '../../../services/audit-core/uc03';
-import { chooseDisplayName, workContextLabels } from '../workContext';
+import { chooseDisplayName, roleOrDesignation, workContextLabels } from '../workContext';
 
 const outlet = (id: string, name: string, dealer = 'Mahindra Odisha') => ({ dealerId: `d-${dealer}`, dealerName: dealer, outletId: id, outletName: name, outletClassification: 'SALES' });
 const project = (outlets: ReturnType<typeof outlet>[], over: Partial<OperationalProject['scope']> = {}): OperationalProject => ({
@@ -36,5 +36,19 @@ describe('workContextLabels', () => {
     expect(workContextLabels(project([], { allDealers: true }), '')).toMatchObject({ dealer: 'All dealers', outlet: 'All outlets' });
     expect(workContextLabels(project([]), '')).toMatchObject({ dealer: 'Not assigned', outlet: 'Not assigned' });
     expect(workContextLabels(undefined, '')).toEqual({ project: 'Not assigned', dealer: 'Not assigned', outlet: 'Not assigned' });
+  });
+});
+
+
+describe('roleOrDesignation', () => {
+  it('shows the designation for an employee, not the role', () => {
+    expect(roleOrDesignation(true, 'Senior Analyst', 'Process Consultant')).toEqual({ label: 'Designation', value: 'Senior Analyst' });
+  });
+  it('says so when an employee has no designation yet', () => {
+    expect(roleOrDesignation(true, null, 'Process Consultant')).toEqual({ label: 'Designation', value: 'Not set yet' });
+    expect(roleOrDesignation(true, '  ', 'Process Consultant').value).toBe('Not set yet');
+  });
+  it('keeps the role for someone without an employee record', () => {
+    expect(roleOrDesignation(false, null, 'Team Lead')).toEqual({ label: 'Role', value: 'Team Lead' });
   });
 });

@@ -567,7 +567,7 @@ export default function AppShell({ children }: PropsWithChildren) {
           {selectedProject && projects.length > 1 && <button type="button" className="uc03-switch-project-topbar" onClick={handleSwitchProject}>Switch Dealership</button>}
           <NavLink to="/profile" className="enterprise-topbar__identity" aria-label="Open profile">
             <span className="enterprise-topbar__avatar">{myIdentity.photoUrl ? <img className="enterprise-topbar__avatar-photo" src={myIdentity.photoUrl} alt="" /> : avatarText}</span>
-            <span className="enterprise-topbar__identity-copy"><strong>{visibleName}</strong><small>{roleLabel}</small></span>
+            <span className="enterprise-topbar__identity-copy"><strong>{visibleName}</strong><small>{(myIdentity.hasRecord && myIdentity.designation) || roleLabel}</small></span>
           </NavLink>
           <button type="button" className="user-menu-button" onClick={handleSignOut}>Sign Out</button>
         </div>

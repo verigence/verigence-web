@@ -12,7 +12,7 @@ export const featureKeys = {
  * Which switchable features are on for the signed-in person. `features` is undefined while loading
  * and when the request failed, which hides the gated groups rather than flashing them.
  */
-export function useMyFeatures(): { features: MyFeatures['features'] | undefined } {
+export function useMyFeatures(): { features: MyFeatures['features'] | undefined; status: 'loading' | 'ready' | 'error' } {
   const accessToken = useSessionStore((state) => state.accessToken);
   const query = useQuery({
     queryKey: featureKeys.mine,
@@ -21,7 +21,10 @@ export function useMyFeatures(): { features: MyFeatures['features'] | undefined 
     retry: false,
     staleTime: 3 * 60_000,
   });
-  return { features: query.isSuccess ? query.data.features : undefined };
+  return {
+    features: query.isSuccess ? query.data.features : undefined,
+    status: query.isSuccess ? 'ready' : query.isError ? 'error' : 'loading',
+  };
 }
 
 /** Nav group key to the feature that has to be on for it to show. The old "workspace" group is retired. */

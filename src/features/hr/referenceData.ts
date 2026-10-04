@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 
-import { getDegrees, getDesignations, getStates } from '../../services/hr/employees';
+import { getDegrees, getDepartments, getDesignations, getStates } from '../../services/hr/employees';
 import { useSessionStore } from '../../store/sessionStore';
 import { hrKeys } from './hrQueries';
 
@@ -19,4 +19,10 @@ export function useStates() {
 export function useDesignations() {
   const token = useSessionStore((s) => s.accessToken);
   return useQuery({ queryKey: hrKeys.designations, queryFn: () => getDesignations(token!), enabled: Boolean(token), ...reference });
+}
+
+/** The departments HR may choose from (a fixed list kept by the HR service). */
+export function useDepartments() {
+  const token = useSessionStore((s) => s.accessToken);
+  return useQuery({ queryKey: hrKeys.departments, queryFn: () => getDepartments(token!), enabled: Boolean(token), ...reference });
 }

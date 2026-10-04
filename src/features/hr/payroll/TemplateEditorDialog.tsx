@@ -24,15 +24,17 @@ import {
 interface Props {
   /** The template being edited, or null to create a new one. */
   template: SalaryTemplate | null;
+  /** For a new template: a code to start with (the ₹21,001–₹24,999 shortcut). */
+  initialCode?: string;
   onClose: () => void;
   onSaved: (message: string) => void;
 }
 
-export default function TemplateEditorDialog({ template, onClose, onSaved }: Props) {
+export default function TemplateEditorDialog({ template, initialCode, onClose, onSaved }: Props) {
   const accessToken = useSessionStore((s) => s.accessToken);
   const queryClient = useQueryClient();
   const mode = template ? 'edit' : 'create';
-  const [form, setForm] = useState<TemplateForm>(() => (template ? formFromTemplate(template) : blankTemplateForm()));
+  const [form, setForm] = useState<TemplateForm>(() => (template ? formFromTemplate(template) : { ...blankTemplateForm(), code: initialCode ?? '' }));
   const [errors, setErrors] = useState<TemplateErrors>({ rows: {} });
   const [problem, setProblem] = useState('');
 

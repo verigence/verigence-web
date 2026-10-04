@@ -44,7 +44,7 @@ import {
 import { dailyKeys } from '../../features/hr/attendance/dailyAttendance';
 import { dataFlagLabels, loginLabels, loginProblem, statusLabels } from '../../features/hr/hrLabels';
 import { hrKeys, useHrAccess } from '../../features/hr/hrQueries';
-import { useDegrees, useDesignations, useStates } from '../../features/hr/referenceData';
+import { useDegrees, useDepartments, useDesignations, useStates } from '../../features/hr/referenceData';
 
 type Tab = 'profile' | 'qualifications' | 'history';
 
@@ -56,6 +56,7 @@ export default function HrEmployeeDetailPage() {
   const degrees = useDegrees();
   const states = useStates();
   const designations = useDesignations();
+  const departments = useDepartments();
 
   const [tab, setTab] = useState<Tab>('profile');
   const [editing, setEditing] = useState(false);
@@ -328,6 +329,7 @@ export default function HrEmployeeDetailPage() {
             errors={errors}
             states={states.data ?? []}
             designations={designations.data ?? []}
+            departments={departments.data ?? []}
             panMasked={employee.panMasked}
             aadhaarMasked={employee.aadhaarMasked}
             onChange={(change) => {

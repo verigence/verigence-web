@@ -18,6 +18,7 @@ a.hr-pay-button { text-decoration: none; }
 
 /* Status pills */
 .hr-pay-pill { display: inline-flex; width: max-content; max-width: 100%; padding: 5px 9px; border-radius: 999px; font-size: 11px; font-weight: 800; background: #edf1f5; color: #52606d; }
+.hr-pay-card__pills { display: flex; flex-wrap: wrap; gap: 4px; justify-content: flex-end; }
 .hr-pay-pill--draft { background: #edf1f5; color: #475467; }
 .hr-pay-pill--pending { background: #fff6ed; color: #93370d; }
 .hr-pay-pill--approved { background: #ecfdf3; color: #067647; }

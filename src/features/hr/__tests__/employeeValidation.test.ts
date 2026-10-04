@@ -31,7 +31,7 @@ const employee: Employee = {
   personalEmail: 'asha@example.com',
   secondaryEmail: null,
   qualification: 'B Com',
-  department: 'PC',
+  department: 'Finance',
   designationCode: null,
   designation: null,
   address: '12 Main Road',
@@ -142,9 +142,9 @@ describe('buildUpdatePayload', () => {
     expect(buildUpdatePayload(employee, formFromEmployee(employee))).toEqual({});
   });
   it('sends only the fields that changed and clears a blanked one', () => {
-    const form = { ...formFromEmployee(employee), department: 'RM', address: '', designationCode: 'AUDITOR' };
+    const form = { ...formFromEmployee(employee), department: 'IT', address: '', designationCode: 'AUDITOR' };
     expect(buildUpdatePayload(employee, form)).toEqual({
-      department: 'RM',
+      department: 'IT',
       address: null,
       designation_code: 'AUDITOR',
     });

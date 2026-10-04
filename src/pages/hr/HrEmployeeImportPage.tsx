@@ -155,7 +155,7 @@ export default function HrEmployeeImportPage() {
       {error && <div className="uc01-admin-message uc01-admin-message--error" role="alert">{error}</div>}
 
       {(phase === 'choose' || phase === 'checking') && (
-        <SectionCard title="1. Choose the sheet" description="The first sheet is read. It needs columns for Employee ID, Employee Name and Personal Email. These are used when present: DOB, Gender, Contact Number, Qualification, Department, PAN, Aadhaar, Address, State, District, Pincode, Years of Experience, Emergency Contact Name, Emergency Contact Number, Degree, Percentage, Year of Passing, University and College Name.">
+        <SectionCard title="1. Choose the sheet" description="The first sheet is read. It needs columns for Employee ID, Employee Name and Personal Email. These are used when present: DOB, Gender, Contact Number, Qualification, Department (one of Finance, CRM, HR, Audit or IT; anything else is left empty with a note), PAN, Aadhaar, Address, State, District, Pincode, Years of Experience, Emergency Contact Name, Emergency Contact Number, Degree, Percentage, Year of Passing, University and College Name.">
           <input
             ref={input}
             type="file"

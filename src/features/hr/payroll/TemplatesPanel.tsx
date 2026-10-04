@@ -5,11 +5,13 @@ import { getTemplates, payrollKeys, type SalaryTemplate } from '../../../service
 import { useSessionStore } from '../../../store/sessionStore';
 import { EmptyState, ErrorState, LoadingState } from './PayrollStates';
 import TemplateEditorDialog from './TemplateEditorDialog';
+import { MID_TEMPLATE_CODE } from './salaryRules';
 import { describeComponent } from './templateForm';
 
 export default function TemplatesPanel({ canEdit }: { canEdit: boolean }) {
   const accessToken = useSessionStore((s) => s.accessToken);
   const [editing, setEditing] = useState<SalaryTemplate | 'new' | null>(null);
+  const [startCode, setStartCode] = useState('');
   const [notice, setNotice] = useState('');
 
   const list = useQuery({
@@ -29,7 +31,17 @@ export default function TemplatesPanel({ canEdit }: { canEdit: boolean }) {
           Changing a template never changes a salary that was already proposed.
         </p>
         {list.data?.bandNote && <p className="hr-pay-note">{list.data.bandNote}</p>}
-        {canEdit && <button type="button" className="uc01-admin-button uc01-admin-button--primary hr-pay-button" onClick={() => { setNotice(''); setEditing('new'); }}>New template</button>}
+        <p className="hr-pay-note">
+          Create the template for gross ₹21,001–₹24,999 with the code {MID_TEMPLATE_CODE}; salaries waiting for it will fill in automatically.
+        </p>
+        {canEdit && (
+          <div className="hr-actions">
+            <button type="button" className="uc01-admin-button uc01-admin-button--primary hr-pay-button" onClick={() => { setNotice(''); setStartCode(''); setEditing('new'); }}>New template</button>
+            {list.isSuccess && !items.some((t) => t.code === MID_TEMPLATE_CODE) && (
+              <button type="button" className="uc01-admin-button hr-pay-button" onClick={() => { setNotice(''); setStartCode(MID_TEMPLATE_CODE); setEditing('new'); }}>Create the 21,001–24,999 template</button>
+            )}
+          </div>
+        )}
       </div>
 
       {notice && <div className="uc01-admin-message uc01-admin-message--success" role="status">{notice}</div>}
@@ -68,6 +80,7 @@ export default function TemplatesPanel({ canEdit }: { canEdit: boolean }) {
       {editing && (
         <TemplateEditorDialog
           template={editing === 'new' ? null : editing}
+          initialCode={editing === 'new' ? startCode : undefined}
           onClose={() => setEditing(null)}
           onSaved={(message) => { setEditing(null); setNotice(message); }}
         />

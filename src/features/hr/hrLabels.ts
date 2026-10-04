@@ -22,6 +22,7 @@ export const missingDetailLabels: Record<MissingDetail, string> = {
 export const salaryStatusLabels: Record<SalaryStatus, string> = {
   NONE: 'No salary',
   WAITING_FINANCE: 'Waiting for Finance approval',
+  TEMPLATE_PENDING: 'Template pending',
   APPROVED: 'Salary approved',
   APPROVED_FROM_LATER: 'Salary approved (starts later)',
 };
@@ -30,6 +31,7 @@ export const salaryStatusLabels: Record<SalaryStatus, string> = {
 export const salaryStatusTone: Record<SalaryStatus, 'rejected' | 'pending' | 'approved'> = {
   NONE: 'rejected',
   WAITING_FINANCE: 'pending',
+  TEMPLATE_PENDING: 'pending',
   APPROVED: 'approved',
   APPROVED_FROM_LATER: 'approved',
 };

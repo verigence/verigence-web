@@ -12,6 +12,7 @@ import EmployeePicker, { type PickedEmployee } from '../../features/hr/payroll/E
 import { payrollErrorMessage } from '../../features/hr/payroll/payrollErrors';
 import { EmptyState, ErrorState, LoadingState, NoAccess } from '../../features/hr/payroll/PayrollStates';
 import ProposeSalaryForm from '../../features/hr/payroll/ProposeSalaryForm';
+import { TEMPLATE_PENDING_HINT } from '../../features/hr/payroll/salaryRules';
 import StructureCard from '../../features/hr/payroll/StructureCard';
 import '../../styles/hr-payroll.css';
 
@@ -101,7 +102,7 @@ export default function HrSalariesPage() {
                 showPerson
                 actions={(
                   <>
-                    {canDecide && <button type="button" className="uc01-admin-button uc01-admin-button--primary hr-pay-button" onClick={() => { setNotice(''); setDeciding({ item, decision: 'APPROVE' }); }}>Approve</button>}
+                    {canDecide && <button type="button" className="uc01-admin-button uc01-admin-button--primary hr-pay-button" disabled={item.templatePending} title={item.templatePending ? TEMPLATE_PENDING_HINT : undefined} onClick={() => { setNotice(''); setDeciding({ item, decision: 'APPROVE' }); }}>Approve</button>}
                     {canDecide && <button type="button" className="uc01-admin-button uc01-admin-button--danger hr-pay-button" onClick={() => { setNotice(''); setDeciding({ item, decision: 'REJECT' }); }}>Reject</button>}
                     <button type="button" className="uc01-admin-button hr-pay-button" onClick={() => showHistory(item)}>History</button>
                   </>

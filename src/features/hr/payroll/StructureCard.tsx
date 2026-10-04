@@ -4,6 +4,7 @@ import type { SalaryStructureListItem, StructureStatus } from '../../../services
 import { formatDate, formatDateTime } from '../hrLabels';
 import ComponentsTable from './ComponentsTable';
 import { formatRupees } from './money';
+import { TEMPLATE_PENDING_HINT } from './salaryRules';
 
 export const STRUCTURE_STATUS: Record<StructureStatus, { label: string; tone: string }> = {
   PROPOSED: { label: 'Waiting for Finance', tone: 'pending' },
@@ -28,7 +29,10 @@ export default function StructureCard({ item, showPerson, actions }: Props) {
           {showPerson && <small>{item.employeeCode}</small>}
           {!showPerson && <strong className="hr-pay-card__title">From {formatDate(item.effectiveFrom)}</strong>}
         </div>
-        <span className={`hr-pay-pill hr-pay-pill--${status.tone}`}>{status.label}</span>
+        <span className="hr-pay-card__pills">
+          {item.templatePending && <span className="hr-pay-pill hr-pay-pill--pending">Template pending</span>}
+          {!(item.templatePending && item.status === 'PROPOSED') && <span className={`hr-pay-pill hr-pay-pill--${status.tone}`}>{status.label}</span>}
+        </span>
       </header>
       <dl className="hr-pay-facts">
         <div><dt>Monthly gross</dt><dd className="hr-pay-money hr-pay-money--strong">{formatRupees(item.grossMonthly)}</dd></div>
@@ -38,10 +42,14 @@ export default function StructureCard({ item, showPerson, actions }: Props) {
         {item.note && <div className="hr-pay-facts__wide"><dt>Proposal note</dt><dd>{item.note}</dd></div>}
         {item.decisionNote && <div className="hr-pay-facts__wide"><dt>Decision note</dt><dd>{item.decisionNote}</dd></div>}
       </dl>
-      <details className="hr-pay-details">
-        <summary>Show the components</summary>
-        <ComponentsTable components={item.components} gross={item.grossMonthly} />
-      </details>
+      {item.templatePending ? (
+        <p className="hr-pay-note">No breakdown yet. {TEMPLATE_PENDING_HINT}; the breakdown then fills in by itself.</p>
+      ) : (
+        <details className="hr-pay-details">
+          <summary>Show the components</summary>
+          <ComponentsTable components={item.components} gross={item.grossMonthly} />
+        </details>
+      )}
       {actions && <div className="hr-pay-card__actions">{actions}</div>}
     </article>
   );

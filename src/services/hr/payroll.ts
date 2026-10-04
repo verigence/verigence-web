@@ -79,6 +79,8 @@ export interface SalaryStructure {
   proposedAt: string;
   decidedAt: string | null;
   decisionNote: string | null;
+  /** True when it has no components yet (the ₹21,001–₹24,999 template does not exist). It cannot be approved. */
+  templatePending: boolean;
 }
 
 export interface SalaryStructureListItem extends SalaryStructure {

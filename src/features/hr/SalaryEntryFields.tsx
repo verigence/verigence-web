@@ -1,6 +1,6 @@
 import type { SalaryTemplate } from '../../services/hr/payroll';
 import Field from './Field';
-import { isInBand, parseGross, validateProposal, type ProposalErrors, type ProposalForm } from './payroll/salaryRules';
+import { hasMidTemplate, isInBand, parseGross, validateProposal, type ProposalErrors, type ProposalForm } from './payroll/salaryRules';
 import '../../styles/hr-payroll.css';
 
 /** The salary a person fills in; the employee is added when it is sent. */
@@ -12,8 +12,8 @@ export const emptySalaryDraft: SalaryDraft = { gross: '', effectiveFrom: '', tem
 export const isSalaryDraftEmpty = (d: SalaryDraft) => !d.gross.trim() && !d.effectiveFrom && !d.templateId;
 
 /** Same rules as the Salaries page; the person is not known yet, so a placeholder stands in. */
-export const validateSalaryDraft = (d: SalaryDraft): ProposalErrors => {
-  const errors = validateProposal({ ...d, employeeId: 'pending' });
+export const validateSalaryDraft = (d: SalaryDraft, bandNeedsChoice = true): ProposalErrors => {
+  const errors = validateProposal({ ...d, employeeId: 'pending' }, bandNeedsChoice);
   delete errors.employeeId;
   return errors;
 };
@@ -33,6 +33,8 @@ interface Props {
 export default function SalaryEntryFields({ idPrefix, draft, errors, disabled, templates, templatesLoading, templatesError, onChange }: Props) {
   const gross = parseGross(draft.gross);
   const inBand = gross.ok && isInBand(gross.value);
+  const bandAuto = inBand && hasMidTemplate(templates);
+  const needsChoice = inBand && !bandAuto;
   const activeTemplates = templates.filter((t) => t.active);
   const id = (name: string) => `${idPrefix}-${name}`;
 
@@ -45,27 +47,29 @@ export default function SalaryEntryFields({ idPrefix, draft, errors, disabled, t
         <Field label="Effective from" htmlFor={id('from')} required error={errors.effectiveFrom}>
           <input id={id('from')} type="date" value={draft.effectiveFrom} disabled={disabled} aria-invalid={Boolean(errors.effectiveFrom)} onChange={(e) => onChange({ effectiveFrom: e.target.value })} />
         </Field>
-        <Field
+        {!bandAuto && <Field
           label="Template"
           htmlFor={id('template')}
-          required={inBand}
+          required={needsChoice}
           error={errors.templateId}
-          hint={inBand ? undefined : 'Leave on the default unless this person needs a different layout.'}
+          hint={needsChoice ? undefined : 'Leave on the default unless this person needs a different layout.'}
           wide
         >
           <select id={id('template')} value={draft.templateId} disabled={disabled || templatesLoading} aria-invalid={Boolean(errors.templateId)} onChange={(e) => onChange({ templateId: e.target.value, bandConfirmed: false })}>
-            <option value="">{inBand ? 'Choose a template' : 'Default for this amount'}</option>
+            <option value="">{needsChoice ? 'Choose a template' : 'Default for this amount'}</option>
             {activeTemplates.map((t) => <option key={t.templateId} value={t.templateId}>{t.name} ({t.code})</option>)}
           </select>
-        </Field>
+        </Field>}
       </div>
+
+      {bandAuto && <div className="uc01-admin-message uc01-admin-message--info">The ₹21,001–₹24,999 template is used for this amount automatically.</div>}
 
       {templatesError && <div className="uc01-admin-message uc01-admin-message--error" role="alert">The templates could not be loaded. {templatesError}</div>}
 
-      {inBand && (
+      {needsChoice && (
         <div className="hr-pay-band" role="group" aria-labelledby={id('band')}>
           <strong id={id('band')}>This amount has no default template</strong>
-          <p>A gross from ₹21,001 to ₹25,000 is not covered by a default template. Choose the template yourself and confirm it below.</p>
+          <p>A gross from ₹21,001 to ₹24,999 is not covered by a default template. Choose the template yourself and confirm it below.</p>
           <label className={`hr-check${errors.bandConfirmed ? ' hr-pay-check--error' : ''}`}>
             <input type="checkbox" checked={draft.bandConfirmed} disabled={!draft.templateId || disabled} onChange={(e) => onChange({ bandConfirmed: e.target.checked })} />
             <span>

@@ -5,7 +5,7 @@ export type EmploymentStatus = 'ACTIVE' | 'INACTIVE' | 'EXITED';
 export type LoginStatus = 'NOT_CREATED' | 'CREATED' | 'FAILED';
 export type DataFlag = 'PAN_MISSING' | 'PAN_DUPLICATE' | 'AADHAAR_MISSING' | 'MOBILE_MISSING';
 /** Computed by the HR service on every read from the data it holds (not stored). */
-export type SalaryStatus = 'NONE' | 'WAITING_FINANCE' | 'APPROVED' | 'APPROVED_FROM_LATER';
+export type SalaryStatus = 'NONE' | 'WAITING_FINANCE' | 'TEMPLATE_PENDING' | 'APPROVED' | 'APPROVED_FROM_LATER';
 export type MissingDetail =
   | 'STATE'
   | 'DISTRICT'
@@ -293,6 +293,7 @@ export const revealEmployeeSensitive = (token: string, id: string) =>
 
 export const getDegrees = (token: string) => hrRequest<Degree[]>(`${base}/degrees`, { accessToken: token });
 export const getStates = (token: string) => hrRequest<string[]>(`${base}/states`, { accessToken: token });
+export const getDepartments = (token: string) => hrRequest<string[]>(`${base}/departments`, { accessToken: token });
 export const getDesignations = (token: string) =>
   hrRequest<Designation[]>(`${base}/designations`, { accessToken: token });
 

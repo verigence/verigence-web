@@ -41,6 +41,16 @@ export interface Qualification {
   college: string | null;
 }
 
+export interface Experience {
+  experienceId: string;
+  company: string;
+  location: string | null;
+  designation: string;
+  fromDate: string;
+  toDate: string;
+  description: string | null;
+}
+
 export interface Employee {
   employeeId: string;
   employeeCode: string;
@@ -77,6 +87,8 @@ export interface Employee {
 
 export interface EmployeeDetail extends Employee {
   qualifications: Qualification[];
+  /** Previous employment, newest first. */
+  experiences: Experience[];
 }
 
 export interface EmployeeList {
@@ -102,6 +114,15 @@ export interface QualificationInput {
   year_of_passing: number;
   university?: string | null;
   college?: string | null;
+}
+
+export interface ExperienceInput {
+  company: string;
+  location?: string | null;
+  designation: string;
+  from_date: string;
+  to_date: string;
+  description?: string | null;
 }
 
 /** Fields HR may send when creating an employee. Empty values are omitted by the caller. */
@@ -295,6 +316,26 @@ export const removeQualification = (token: string, id: string, qid: string) =>
     method: 'DELETE',
   });
 
+export const addExperience = (token: string, id: string, input: ExperienceInput) =>
+  hrRequest<EmployeeDetail>(`${base}/employees/${id}/experiences`, {
+    accessToken: token,
+    method: 'POST',
+    body: input as unknown as Record<string, unknown>,
+  });
+
+export const replaceExperience = (token: string, id: string, xid: string, input: ExperienceInput) =>
+  hrRequest<EmployeeDetail>(`${base}/employees/${id}/experiences/${xid}`, {
+    accessToken: token,
+    method: 'PUT',
+    body: input as unknown as Record<string, unknown>,
+  });
+
+export const removeExperience = (token: string, id: string, xid: string) =>
+  hrRequest<EmployeeDetail>(`${base}/employees/${id}/experiences/${xid}`, {
+    accessToken: token,
+    method: 'DELETE',
+  });
+
 function photoForm(file: Blob, name: string): FormData {
   const form = new FormData();
   form.append('file', file, name);
@@ -347,6 +388,26 @@ export const replaceMyQualification = (token: string, qid: string, input: Qualif
 
 export const removeMyQualification = (token: string, qid: string) =>
   hrRequest<EmployeeDetail>(`${base}/me/employee/qualifications/${qid}`, {
+    accessToken: token,
+    method: 'DELETE',
+  });
+
+export const addMyExperience = (token: string, input: ExperienceInput) =>
+  hrRequest<EmployeeDetail>(`${base}/me/employee/experiences`, {
+    accessToken: token,
+    method: 'POST',
+    body: input as unknown as Record<string, unknown>,
+  });
+
+export const replaceMyExperience = (token: string, xid: string, input: ExperienceInput) =>
+  hrRequest<EmployeeDetail>(`${base}/me/employee/experiences/${xid}`, {
+    accessToken: token,
+    method: 'PUT',
+    body: input as unknown as Record<string, unknown>,
+  });
+
+export const removeMyExperience = (token: string, xid: string) =>
+  hrRequest<EmployeeDetail>(`${base}/me/employee/experiences/${xid}`, {
     accessToken: token,
     method: 'DELETE',
   });

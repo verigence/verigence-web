@@ -13,6 +13,10 @@ import {
   toQualificationInput,
   previewMissingDetails,
   validateEmployeeForm,
+  validateExperience,
+  toExperienceInput,
+  isoToday,
+  emptyExperience,
   validateQualification,
   validateSelfForm,
 } from '../employeeValidation';
@@ -213,5 +217,40 @@ describe('district and pending details', () => {
     const q = { degree_code: 'BCOM', percentage: 70, year_of_passing: 2016, university: 'Utkal', college: 'Ravenshaw' };
     expect(previewMissingDetails(full, [q], true)).toEqual([]);
     expect(previewMissingDetails(full, [{ ...q, college: null }], true)).toEqual(['UNIVERSITY_COLLEGE']);
+  });
+});
+
+describe('previous experience', () => {
+  const today = new Date(2026, 9, 4);
+  const ok = { ...emptyExperience, company: ' Acme   Motors ', designation: 'Sales Executive', fromDate: '2020-01-15', toDate: '2022-06-30' };
+
+  it('formats today as a plain date', () => {
+    expect(isoToday(today)).toBe('2026-10-04');
+  });
+
+  it('accepts a complete entry and builds the request body', () => {
+    expect(validateExperience(ok, today)).toEqual({});
+    expect(toExperienceInput({ ...ok, location: ' Cuttack ', description: ' Handled walk-ins ' })).toEqual({
+      company: 'Acme Motors',
+      location: 'Cuttack',
+      designation: 'Sales Executive',
+      from_date: '2020-01-15',
+      to_date: '2022-06-30',
+      description: 'Handled walk-ins',
+    });
+    expect(toExperienceInput(ok)).toMatchObject({ location: null, description: null });
+  });
+
+  it('checks lengths', () => {
+    const e = validateExperience({ ...ok, company: 'A', designation: 'x'.repeat(81), location: 'y'.repeat(81), description: 'z'.repeat(501) }, today);
+    expect(Object.keys(e).sort()).toEqual(['company', 'description', 'designation', 'location']);
+  });
+
+  it('requires real dates, in order and not in the future', () => {
+    expect(validateExperience({ ...ok, fromDate: '', toDate: '' }, today)).toMatchObject({ fromDate: expect.any(String), toDate: expect.any(String) });
+    expect(validateExperience({ ...ok, fromDate: '2021-02-30' }, today).fromDate).toBeTruthy();
+    expect(validateExperience({ ...ok, fromDate: '2022-07-01' }, today).toDate).toBeTruthy();
+    expect(validateExperience({ ...ok, toDate: '2026-10-05' }, today).toDate).toBeTruthy();
+    expect(validateExperience({ ...ok, toDate: '2026-10-04', fromDate: '2026-10-04' }, today)).toEqual({});
   });
 });

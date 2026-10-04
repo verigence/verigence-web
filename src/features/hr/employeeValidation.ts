@@ -2,6 +2,7 @@ import type {
   Employee,
   EmployeeCreateInput,
   EmployeeUpdateInput,
+  ExperienceInput,
   Gender,
   MissingDetail,
   QualificationInput,
@@ -356,4 +357,65 @@ export function previewMissingDetails(
   if (qualifications.length === 0 || qualifications.some((q) => !q.university || !q.college)) out.push('UNIVERSITY_COLLEGE');
   if (!salaryEntered) out.push('SALARY');
   return out;
+}
+
+export interface ExperienceFormValues {
+  company: string;
+  location: string;
+  designation: string;
+  fromDate: string;
+  toDate: string;
+  description: string;
+}
+
+export const emptyExperience: ExperienceFormValues = {
+  company: '',
+  location: '',
+  designation: '',
+  fromDate: '',
+  toDate: '',
+  description: '',
+};
+
+/** Today as YYYY-MM-DD in the browser's own calendar (what a date input uses for its max). */
+export function isoToday(today: Date = new Date()): string {
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${today.getFullYear()}-${pad(today.getMonth() + 1)}-${pad(today.getDate())}`;
+}
+
+function isRealDate(value: string): boolean {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value.trim());
+  if (!m) return false;
+  const [y, mo, d] = [Number(m[1]), Number(m[2]), Number(m[3])];
+  const date = new Date(y, mo - 1, d);
+  return date.getFullYear() === y && date.getMonth() === mo - 1 && date.getDate() === d;
+}
+
+/** Mirrors the service: company 2-120, designation 2-80, location 80, note 500, to-date not before from-date and not in the future. */
+export function validateExperience(v: ExperienceFormValues, today: Date = new Date()) {
+  const e: Partial<Record<keyof ExperienceFormValues, string>> = {};
+  const company = clean(v.company);
+  if (company.length < 2 || company.length > 120) e.company = 'Enter the company name (2 to 120 characters).';
+  if (clean(v.location).length > 80) e.location = 'Keep the location within 80 characters.';
+  const designation = clean(v.designation);
+  if (designation.length < 2 || designation.length > 80) e.designation = 'Enter your designation (2 to 80 characters).';
+  if (v.description.trim().length > 500) e.description = 'Keep the note within 500 characters.';
+  const todayText = isoToday(today);
+  if (!isRealDate(v.fromDate)) e.fromDate = 'Choose the date you joined.';
+  else if (v.fromDate.trim() > todayText) e.fromDate = 'The joining date cannot be in the future.';
+  if (!isRealDate(v.toDate)) e.toDate = 'Choose the date you left.';
+  else if (v.toDate.trim() > todayText) e.toDate = 'The leaving date cannot be in the future.';
+  else if (!e.fromDate && v.toDate.trim() < v.fromDate.trim()) e.toDate = 'The leaving date cannot be before the joining date.';
+  return e;
+}
+
+export function toExperienceInput(v: ExperienceFormValues): ExperienceInput {
+  return {
+    company: clean(v.company),
+    location: clean(v.location) || null,
+    designation: clean(v.designation),
+    from_date: v.fromDate.trim(),
+    to_date: v.toDate.trim(),
+    description: v.description.trim() || null,
+  };
 }

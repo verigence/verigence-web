@@ -96,6 +96,7 @@
 .hr-qualification-list li > span { display: flex; flex-direction: column; min-width: 0; }
 .hr-qualification-list small { color: #66717d; font-size: 12px; margin-top: 2px; }
 .hr-qualification-list .hr-qualification-editor { width: 100%; }
+.hr-qualification-list .hr-experience-note { white-space: pre-wrap; overflow-wrap: anywhere; }
 .hr-row-actions { display: flex; flex-direction: row !important; gap: 6px; }
 .hr-qualification-editor { display: flex; flex-direction: column; gap: 12px; margin-top: 4px; }
 

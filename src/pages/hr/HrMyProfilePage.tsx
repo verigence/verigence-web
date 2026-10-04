@@ -6,19 +6,24 @@ import PageHeader from '../../components/PageHeader';
 import SectionCard from '../../components/SectionCard';
 import { hrErrorMessage, HrHttpError } from '../../services/hr/client';
 import {
+  addMyExperience,
   addMyQualification,
   getMyEmployee,
+  removeMyExperience,
   removeMyQualification,
+  replaceMyExperience,
   replaceMyQualification,
   revealMySensitive,
   updateMyEmployee,
   uploadMyPhoto,
   type EmployeeDetail,
+  type ExperienceInput,
   type QualificationInput,
 } from '../../services/hr/employees';
 import { useSessionStore } from '../../store/sessionStore';
 import EmployeeAvatar from '../../features/hr/EmployeeAvatar';
 import EmployeeSummary from '../../features/hr/EmployeeSummary';
+import ExperiencePanel from '../../features/hr/ExperiencePanel';
 import Field from '../../features/hr/Field';
 import PhotoPicker from '../../features/hr/PhotoPicker';
 import QualificationsPanel from '../../features/hr/QualificationsPanel';
@@ -59,7 +64,7 @@ export default function HrMyProfilePage() {
   });
   const employee = query.data;
 
-  const merge = (data: Omit<EmployeeDetail, 'qualifications'>) =>
+  const merge = (data: Omit<EmployeeDetail, 'qualifications' | 'experiences'>) =>
     queryClient.setQueryData<EmployeeDetail>(hrKeys.myEmployee, (old) => ({ ...(old as EmployeeDetail), ...data }));
 
   const save = useMutation({
@@ -101,6 +106,11 @@ export default function HrMyProfilePage() {
   });
 
   const qualificationChange = useMutation({
+    mutationFn: (run: () => Promise<EmployeeDetail>) => run(),
+    onSuccess: (data) => queryClient.setQueryData<EmployeeDetail>(hrKeys.myEmployee, data),
+  });
+
+  const experienceChange = useMutation({
     mutationFn: (run: () => Promise<EmployeeDetail>) => run(),
     onSuccess: (data) => queryClient.setQueryData<EmployeeDetail>(hrKeys.myEmployee, data),
   });
@@ -164,6 +174,14 @@ export default function HrMyProfilePage() {
     onAdd: (input: QualificationInput) => qualificationChange.mutateAsync(() => addMyQualification(accessToken!, input)),
     onReplace: (id: string, input: QualificationInput) => qualificationChange.mutateAsync(() => replaceMyQualification(accessToken!, id, input)),
     onRemove: (id: string) => qualificationChange.mutateAsync(() => removeMyQualification(accessToken!, id)),
+  };
+
+  const experienceEditing = {
+    busy: experienceChange.isPending,
+    error: experienceChange.isError ? hrErrorMessage(experienceChange.error) : undefined,
+    onAdd: (input: ExperienceInput) => experienceChange.mutateAsync(() => addMyExperience(accessToken!, input)),
+    onReplace: (id: string, input: ExperienceInput) => experienceChange.mutateAsync(() => replaceMyExperience(accessToken!, id, input)),
+    onRemove: (id: string) => experienceChange.mutateAsync(() => removeMyExperience(accessToken!, id)),
   };
 
   return (
@@ -253,6 +271,7 @@ export default function HrMyProfilePage() {
           <EmployeeSummary employee={employee} scope="self" />
           <SensitiveNumbers employee={employee} canReveal reveal={() => revealMySensitive(accessToken!)} />
           <QualificationsPanel qualifications={employee.qualifications} degrees={degrees.data ?? []} editing={qualificationEditing} />
+          <ExperiencePanel experiences={employee.experiences ?? []} editing={experienceEditing} />
         </div>
       )}
       <p className="hr-muted">

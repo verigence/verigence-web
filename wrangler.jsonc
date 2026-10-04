@@ -22,7 +22,7 @@
     "AUDIT_CORE_UPSTREAM": "https://verigence-audit-core-production.up.railway.app",
     "ANALYTICS_UPSTREAM": "https://analytics-dev.up.railway.app",
     "DI_UPSTREAM": "https://di-api-dev.up.railway.app",
-    "HR_UPSTREAM": "https://attendance-dev-4807.up.railway.app",
+    "HR_UPSTREAM": "https://attendance-dev.up.railway.app",
     "LOG_PROXY_SUCCESS": "false"
   },
   "r2_buckets": [

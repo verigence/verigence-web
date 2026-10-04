@@ -530,15 +530,20 @@ export default function AppShell({ children }: PropsWithChildren) {
     .flatMap((group) => group.items)
     .filter(canSeeItem);
   const bottomNavByPath = (to: string) => bottomNavWorkspaceItems.find((item) => item.to === to);
+  // My HR sits in the bar for every employee. Bookings is left out where Capture is there, since a booking starts from Capture.
+  const myHrItem: NavItem | null = hrAccess.isEmployee ? { to: '/hr/attendance', label: 'My HR', mark: 'HP' } : null;
+  const hasCapture = Boolean(bottomNavByPath(createBookingItem.to));
   // These shortcuts open Audit work, so they follow the Audit switch like the sidebar group does.
   const bottomNavItems = myFeatures.features?.AUDIT === true
     ? [
-        bottomNavByPath(allJourneysItem.to),
+        hasCapture ? undefined : bottomNavByPath(allJourneysItem.to),
         bottomNavByPath(createBookingItem.to),
         bottomNavByPath('/daily-ops'),
         bottomNavByPath(reviewQueueItem.to),
-      ].filter((item): item is NavItem => Boolean(item)).slice(0, 3)
+      ].filter((item): item is NavItem => Boolean(item)).slice(0, myHrItem ? 2 : 3)
     : [];
+  // Without Audit shortcuts the bar is simply My HR and More, so people without Audit access still have it.
+  const showBottomNav = (c0OperationalShell && bottomNavItems.length > 0) || (bottomNavItems.length === 0 && myHrItem !== null);
 
   const bottomNavLabels: Record<string, string> = {
     [allJourneysItem.to]: 'Bookings',
@@ -665,19 +670,21 @@ export default function AppShell({ children }: PropsWithChildren) {
           remains the full navigation; this is just fast, thumb-reach access
           to the few things a PC opens constantly on a phone. "More" reuses
           the exact same drawer the hamburger button already opens. */}
-      {c0OperationalShell && bottomNavItems.length > 0 && (
+      {showBottomNav && (
         <nav className="enterprise-bottom-nav" aria-label="Quick navigation">
-          <NavLink
-            to="/dashboard"
-            className={`enterprise-bottom-nav__item${
-              location.pathname === '/dashboard' && !createBookingMode && !legacyQueueMode
-                ? ' enterprise-bottom-nav__item--active'
-                : ''
-            }`}
-          >
-            <span className="enterprise-bottom-nav__mark"><NavIcon mark="OV" /></span>
-            <span>Home</span>
-          </NavLink>
+          {bottomNavItems.length > 0 && (
+            <NavLink
+              to="/dashboard"
+              className={`enterprise-bottom-nav__item${
+                location.pathname === '/dashboard' && !createBookingMode && !legacyQueueMode
+                  ? ' enterprise-bottom-nav__item--active'
+                  : ''
+              }`}
+            >
+              <span className="enterprise-bottom-nav__mark"><NavIcon mark="OV" /></span>
+              <span>Home</span>
+            </NavLink>
+          )}
           {bottomNavItems.map((item) => (
             <NavLink
               key={item.to}
@@ -690,6 +697,15 @@ export default function AppShell({ children }: PropsWithChildren) {
               <span>{bottomNavLabels[item.to] ?? item.label}</span>
             </NavLink>
           ))}
+          {myHrItem && (
+            <NavLink
+              to={myHrItem.to}
+              className={() => `enterprise-bottom-nav__item${location.pathname.startsWith('/hr') ? ' enterprise-bottom-nav__item--active' : ''}`}
+            >
+              <span className="enterprise-bottom-nav__mark"><NavIcon mark={myHrItem.mark} /></span>
+              <span>{myHrItem.label}</span>
+            </NavLink>
+          )}
           <button
             type="button"
             className="enterprise-bottom-nav__item"

@@ -198,7 +198,7 @@ const routeLabels: Record<string, string> = {
   '/admin/roles-permissions': 'Roles & Permissions', '/admin/audit-rules': 'Audit Rule Config',
   '/admin/approval-workflow': 'Approval Workflow Config', '/admin/notifications': 'Notification Settings',
   '/admin/oem-masters': 'OEM Masters', '/admin/project': 'Project Administration', '/profile': 'Profile',
-  '/hr/employees': 'Employees', '/hr/employees/new': 'Add Employee', '/hr/me': 'My Employee Profile',
+  '/hr/employees': 'Employees', '/hr/employees/new': 'Add Employee', '/hr/employees/import': 'Import Employees', '/hr/me': 'My Employee Profile',
 };
 
 const dynamicRouteLabels: Array<[string, string]> = [

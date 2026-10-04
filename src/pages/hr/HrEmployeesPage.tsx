@@ -62,7 +62,10 @@ export default function HrEmployeesPage() {
         title="Employees"
         description="Employee records for the company. PAN and Aadhaar stay masked here."
         actions={access.canManageEmployees ? (
-          <Link className="uc01-admin-button uc01-admin-button--primary" to="/hr/employees/new">Add employee</Link>
+          <>
+            <Link className="uc01-admin-button" to="/hr/employees/import">Import from Excel</Link>
+            <Link className="uc01-admin-button uc01-admin-button--primary" to="/hr/employees/new">Add employee</Link>
+          </>
         ) : undefined}
       />
 

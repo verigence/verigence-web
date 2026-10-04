@@ -272,3 +272,66 @@ export async function fetchMyPhoto(token: string): Promise<Blob> {
   const response = await hrRawRequest(`${base}/me/employee/photo`, { accessToken: token });
   return response.blob();
 }
+
+// ---- spreadsheet import ----------------------------------------------------------------------
+
+export type ImportRowStatus = 'READY' | 'EXISTS' | 'ERROR';
+
+export interface ImportPreviewRow {
+  row: number;
+  status: ImportRowStatus;
+  employeeCode: string;
+  fullName: string;
+  personalEmail: string | null;
+  mobile: string | null;
+  dateOfBirth: string | null;
+  gender: Gender | null;
+  department: string | null;
+  qualification: string | null;
+  panMasked: string | null;
+  aadhaarMasked: string | null;
+  notes: string[];
+  errors: string[];
+}
+
+export interface ImportPreview {
+  summary: { total: number; ready: number; exists: number; errors: number };
+  rows: ImportPreviewRow[];
+}
+
+export interface ImportResult {
+  row: number;
+  employeeCode?: string;
+  status: 'CREATED' | 'FAILED' | 'SKIPPED';
+  employeeId?: string;
+  fullName?: string;
+  personalEmail?: string;
+  loginStatus?: LoginStatus;
+  loginErrorCode?: string | null;
+  initialPassword?: string;
+  error?: string;
+}
+
+export const previewEmployeeImport = (token: string, file: File) => {
+  const form = new FormData();
+  form.append('file', file, file.name);
+  return hrRequest<ImportPreview>(`${base}/employees/import/preview`, {
+    accessToken: token,
+    method: 'POST',
+    body: form,
+    timeoutMs: 60_000,
+  });
+};
+
+export const commitEmployeeImport = (token: string, file: File, rows: number[], createLogin: boolean) => {
+  const form = new FormData();
+  form.append('file', file, file.name);
+  form.append('rows', rows.join(','));
+  form.append('create_login', createLogin ? 'true' : 'false');
+  return hrRequest<{ results: ImportResult[] }>(`${base}/employees/import/commit`, {
+    accessToken: token,
+    method: 'POST',
+    body: form,
+    timeoutMs: 120_000,
+  });
+};

@@ -72,6 +72,11 @@
 .hr-flag { display: inline-flex; width: max-content; padding: 4px 8px; border-radius: 999px; background: #fff6ed; color: #93370d; font-size: 10px; font-weight: 800; }
 .hr-pager { display: flex; align-items: center; justify-content: center; gap: 12px; font-size: 12px; color: #52606d; }
 
+/* Import */
+.hr-progress { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; font-size: 12px; color: #344054; }
+.hr-progress progress { width: 100%; height: 10px; accent-color: #0e7490; }
+.hr-notes { margin: 0; padding-left: 16px; display: flex; flex-direction: column; gap: 3px; color: #475467; font-size: 12px; }
+
 /* Tabs */
 .hr-tabs { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 2px; -webkit-overflow-scrolling: touch; scrollbar-width: thin; }
 .hr-tab { flex: none; min-height: 40px; padding: 8px 14px; border: 1px solid #cbd3dd; border-radius: 999px; background: #fff; color: #24303c; font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; }
@@ -126,4 +131,8 @@
   .hr-identity__photo { margin-left: 0; flex-basis: 100%; }
   .hr-actions--form .uc01-admin-button { flex: 1 1 140px; }
   .hr-table td > .hr-employee-link { justify-content: flex-start; }
+}
+
+@media (max-width: 460px) {
+  .hr-page .uc01-admin-metrics { grid-template-columns: 1fr 1fr; }
 }

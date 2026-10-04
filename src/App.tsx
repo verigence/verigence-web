@@ -30,6 +30,7 @@ const ApprovalQueuePage = lazy(() => import('./pages/ApprovalQueuePage'));
 const AdminUsersPage = lazy(() => import('./pages/AdminUsersPage'));
 const HrEmployeesPage = lazy(() => import('./pages/hr/HrEmployeesPage'));
 const HrEmployeeCreatePage = lazy(() => import('./pages/hr/HrEmployeeCreatePage'));
+const HrEmployeeImportPage = lazy(() => import('./pages/hr/HrEmployeeImportPage'));
 const HrEmployeeDetailPage = lazy(() => import('./pages/hr/HrEmployeeDetailPage'));
 const HrMyProfilePage = lazy(() => import('./pages/hr/HrMyProfilePage'));
 const AdminConfigurationPage = lazy(() => import('./pages/AdminConfigurationPage'));
@@ -373,6 +374,7 @@ export default function App() {
               <Route path="/hr/me" element={<PrivatePage><HrMyProfilePage /></PrivatePage>} />
               <Route path="/hr/employees" element={<PrivatePage><HrEmployeesPage /></PrivatePage>} />
               <Route path="/hr/employees/new" element={<PrivatePage><HrEmployeeCreatePage /></PrivatePage>} />
+              <Route path="/hr/employees/import" element={<PrivatePage><HrEmployeeImportPage /></PrivatePage>} />
               <Route path="/hr/employees/:employeeId" element={<PrivatePage><HrEmployeeDetailPage /></PrivatePage>} />
               <Route path="/workspace" element={<Navigate to="/dashboard" replace />} />
               <Route path="/" element={<Navigate to="/login" replace />} />

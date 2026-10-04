@@ -1,0 +1,26 @@
+.rollout-grid { display: grid; grid-template-columns: 1fr; gap: 14px; }
+.rollout-switch { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 14px; border: 1px solid #dfe5ec; border-radius: 12px; background: #fff; min-height: 44px; }
+.rollout-switch strong { display: block; color: #18212b; font-size: 14px; }
+.rollout-switch small { color: #66717d; font-size: 12px; }
+.rollout-toggle { position: relative; width: 48px; height: 28px; flex: none; border: 0; border-radius: 999px; background: #cfd6df; cursor: pointer; padding: 0; }
+.rollout-toggle::after { content: ''; position: absolute; top: 3px; left: 3px; width: 22px; height: 22px; border-radius: 50%; background: #fff; transition: transform .15s; }
+.rollout-toggle[aria-checked='true'] { background: #0e7490; }
+.rollout-toggle[aria-checked='true']::after { transform: translateX(20px); }
+.rollout-toggle:disabled { opacity: .55; cursor: not-allowed; }
+.rollout-people { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; border: 1px solid #e4e7ec; border-radius: 10px; }
+.rollout-people li { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; padding: 10px 12px; border-bottom: 1px solid #eef1f4; }
+.rollout-people li:last-child { border-bottom: 0; }
+.rollout-person { display: flex; flex-direction: column; min-width: 0; }
+.rollout-person strong { color: #18212b; font-size: 13px; overflow-wrap: anywhere; }
+.rollout-person small { color: #66717d; font-size: 11px; overflow-wrap: anywhere; }
+.rollout-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.rollout-segment { display: inline-flex; border: 1px solid #cbd3dd; border-radius: 9px; overflow: hidden; }
+.rollout-segment button { min-height: 36px; min-width: 52px; border: 0; background: #fff; font: inherit; font-size: 12px; font-weight: 750; color: #24303c; cursor: pointer; }
+.rollout-segment button + button { border-left: 1px solid #cbd3dd; }
+.rollout-segment button[aria-pressed='true'] { background: #0e7490; color: #fff; }
+.rollout-add { display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-end; }
+.rollout-add label { flex: 1 1 220px; display: flex; flex-direction: column; gap: 6px; font-size: 12px; font-weight: 700; color: #344054; }
+.rollout-add select { min-height: 44px; border: 1px solid #cfd6df; border-radius: 9px; background: #fff; padding: 0 10px; font: inherit; font-size: 14px; }
+@media (min-width: 900px) { .rollout-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; } }
+.rollout-heading { margin: 14px 0 8px; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: #52606d; }
+.rollout-add { margin-top: 12px; }

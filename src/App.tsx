@@ -46,6 +46,7 @@ const HrPayslipsPage = lazy(() => import('./pages/hr/HrPayslipsPage'));
 const HrDailyAttendancePage = lazy(() => import('./pages/hr/HrDailyAttendancePage'));
 const HrAssignmentsPage = lazy(() => import('./pages/hr/HrAssignmentsPage'));
 const HrDesignationSalaryImportPage = lazy(() => import('./pages/hr/HrDesignationSalaryImportPage'));
+const AdminFeatureRolloutPage = lazy(() => import('./pages/AdminFeatureRolloutPage'));
 const HrMySalaryPage = lazy(() => import('./pages/hr/HrMySalaryPage'));
 const HrPayrollPage = lazy(() => import('./pages/hr/HrPayrollPage'));
 const HrSalariesPage = lazy(() => import('./pages/hr/HrSalariesPage'));
@@ -375,6 +376,7 @@ export default function App() {
               <Route path="/admin/feedback" element={<SuperAdminPage><AdminFeedbackPage /></SuperAdminPage>} />
               <Route path="/admin/di-test" element={<SuperAdminPage><DiTestConsolePage /></SuperAdminPage>} />
               <Route path="/admin/users" element={<SuperAdminPage><AdminUsersPage /></SuperAdminPage>} />
+              <Route path="/admin/features" element={<SuperAdminPage><AdminFeatureRolloutPage /></SuperAdminPage>} />
               <Route path="/admin/users/pending" element={<SuperAdminPage><ApprovalQueuePage /></SuperAdminPage>} />
               <Route path="/admin/activity-log" element={<SuperAdminPage><AdminConfigurationPage section="activity" /></SuperAdminPage>} />
               <Route path="/admin/roles-permissions" element={<SuperAdminPage><AdminConfigurationPage section="roles" /></SuperAdminPage>} />

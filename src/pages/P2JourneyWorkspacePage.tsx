@@ -1,4 +1,5 @@
 import { lazy, Suspense, useCallback, useMemo, useRef, useState } from 'react';
+import { sortByName } from '../utils/sortByName';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import '../styles/uc03-p2.css';
@@ -263,7 +264,7 @@ export default function P2JourneyWorkspacePage() {
             <label>
               <span>Outlet</span>
               <select value={outletId} onChange={(event) => setOutletId(event.target.value)}>
-                {outlets.map((outlet) => (
+                {sortByName(outlets, (o) => o.outletName).map((outlet) => (
                   <option key={outlet.outletId} value={outlet.outletId}>{outlet.outletName}</option>
                 ))}
               </select>

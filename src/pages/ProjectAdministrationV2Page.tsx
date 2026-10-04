@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 
 import PageHeader from '../components/PageHeader';
 import StatusPill from '../components/StatusPill';
+import { sortByName } from '../utils/sortByName';
 import MahindraMasterUploads from '../features/project-admin/MahindraMasterUploads';
 import OtherProjectsNotice from '../features/project-admin/OtherProjectsNotice';
 import ProjectAdminStepper, { projectAdminSteps } from '../features/project-admin/ProjectAdminStepper';
@@ -182,21 +183,25 @@ export default function ProjectAdministrationV2Page() {
   const [busy, setBusy] = useState(false);
   const [projectLoading, setProjectLoading] = useState(false);
 
-  const [dealers, setDealers] = useState<DealerAdmin[]>([]);
+  const [dealersRaw, setDealers] = useState<DealerAdmin[]>([]);
+  const dealers = useMemo(() => sortByName(dealersRaw, (d) => d.dealerName), [dealersRaw]);
   const [dealersLoaded, setDealersLoaded] = useState(false);
   const [dealerEditor, setDealerEditor] = useState<DealerEditor>(null);
   const [dealerForm, setDealerForm] = useState(emptyDealerForm);
 
-  const [outletsByDealer, setOutletsByDealer] = useState<Record<string, OutletAdmin[]>>({});
+  const [outletsRaw, setOutletsByDealer] = useState<Record<string, OutletAdmin[]>>({});
+  const outletsByDealer = useMemo(() => Object.fromEntries(Object.entries(outletsRaw).map(([id, list]) => [id, sortByName(list, (o) => o.outletName)])), [outletsRaw]);
   const [loadedOutletDealerIds, setLoadedOutletDealerIds] = useState<string[]>([]);
   const [outletDealerId, setOutletDealerId] = useState('');
   const [outletEditor, setOutletEditor] = useState<OutletEditor>(null);
   const [outletForm, setOutletForm] = useState(emptyOutletForm);
 
   const [candidateQuery, setCandidateQuery] = useState('');
-  const [candidates, setCandidates] = useState<RoleMappingCandidate[]>([]);
+  const [candidatesRaw, setCandidates] = useState<RoleMappingCandidate[]>([]);
+  const candidates = useMemo(() => sortByName(candidatesRaw, (c) => c.displayName), [candidatesRaw]);
   const [candidatesLoaded, setCandidatesLoaded] = useState(false);
-  const [mappings, setMappings] = useState<RoleMapping[]>([]);
+  const [mappingsRaw, setMappings] = useState<RoleMapping[]>([]);
+  const mappings = useMemo(() => sortByName(mappingsRaw, (m) => candidatesRaw.find((c) => c.userId === m.userId)?.displayName ?? m.userId), [mappingsRaw, candidatesRaw]);
   const [mappingsLoaded, setMappingsLoaded] = useState(false);
   const [mappingEditorOpen, setMappingEditorOpen] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState('');

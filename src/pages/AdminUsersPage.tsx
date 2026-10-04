@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { sortByName } from '../utils/sortByName';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 
@@ -112,7 +113,7 @@ export default function AdminUsersPage() {
     },
   });
 
-  const users = usersQuery.data ?? [];
+  const users = useMemo(() => sortByName(usersQuery.data ?? [], (u) => u.displayName), [usersQuery.data]);
   const visibleUsers = useMemo(() => {
     const needle = query.trim().toLowerCase();
     return users.filter((user) => {

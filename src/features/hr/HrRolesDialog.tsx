@@ -15,11 +15,11 @@ const ROLES: Record<HrRoleKey, { label: string; description: string }> = {
   },
   CEO: {
     label: 'CEO',
-    description: 'Same employee access as HR Admin. Payroll approval will be added with payroll.',
+    description: 'Same employee access as HR Admin, and the only role that approves a payroll run.',
   },
   FINANCEADMIN: {
     label: 'Finance Admin',
-    description: 'View employee records. Reimbursement and salary-structure approvals will be added with those modules.',
+    description: 'View employee records, approve salary structures and reimbursements that need Finance, and view payroll.',
   },
 };
 const ORDER: HrRoleKey[] = ['HRADMIN', 'FINANCEADMIN', 'CEO'];

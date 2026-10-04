@@ -1,0 +1,158 @@
+/* HR reimbursement claims (My claims, Submit, Claim, All claims).
+   Reuses uc01-admin-* and hr-* classes; only claim-specific pieces are defined here. Mobile first. */
+
+.hrc-page { min-width: 0; }
+.hrc-page .page-header__actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.hrc-page .uc01-admin-button { min-height: 44px; }
+.hrc-page .uc01-admin-button--compact { min-height: 44px; padding-left: 12px; padding-right: 12px; }
+.hrc-inline-button { align-self: flex-start; }
+
+/* Status chips */
+.hrc-chip { white-space: nowrap; }
+.hrc-chip--pending { background: #fff6ed; color: #93370d; }
+.hrc-chip--action { background: #fef0c7; color: #7a2e0e; }
+.hrc-chip--ok { background: #ecfdf3; color: #067647; }
+.hrc-chip--info { background: #edf5fb; color: #0b4f8a; }
+.hrc-chip--bad { background: #fff1f0; color: #912018; }
+.hrc-chip--muted { background: #f2f4f7; color: #475467; }
+
+/* Monthly summary */
+.hrc-metrics { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 0 0 14px; }
+.hrc-metrics > div { padding: 10px 10px; border: 1px solid #e4e7ec; border-radius: 12px; background: #f9fafb; min-width: 0; }
+.hrc-metrics dt { margin: 0; font-size: 10px; letter-spacing: .04em; text-transform: uppercase; color: #66717d; font-weight: 750; }
+.hrc-metrics dd { margin: 4px 0 0; font-size: 15px; font-weight: 800; color: #18212b; overflow-wrap: anywhere; }
+.hrc-metrics__warn { color: #b42318 !important; }
+.hrc-meter { position: relative; height: 12px; border-radius: 999px; background: #e4e7ec; overflow: visible; }
+.hrc-meter__fill { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 999px; background: #0e7490; max-width: 100%; }
+.hrc-meter__mark { position: absolute; top: -4px; bottom: -4px; width: 2px; background: #93370d; transform: translateX(-1px); }
+.hrc-meter__legend { margin: 8px 0 0; font-size: 12px; color: #52606d; }
+.hrc-summary__line { margin: 12px 0 0; font-size: 13px; color: #344054; line-height: 1.5; }
+.hrc-rules { margin: 12px 0 0; padding-left: 18px; display: flex; flex-direction: column; gap: 6px; color: #475467; font-size: 13px; line-height: 1.5; }
+
+/* Lists */
+.hrc-listhead { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.hrc-listhead h2 { margin: 0; font-size: 16px; font-weight: 800; color: #18212b; }
+.hrc-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.hrc-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas: 'main amount' 'status status';
+  gap: 8px 12px;
+  align-items: start;
+  min-height: 44px;
+  padding: 12px 14px;
+  border: 1px solid #dfe5ec;
+  border-left-width: 4px;
+  border-radius: 12px;
+  background: #fff;
+  color: inherit;
+  text-decoration: none;
+}
+.hrc-row:hover { border-color: #b9c4d0; background: #fbfcfd; }
+.hrc-row:focus-visible { outline: 3px solid rgba(49, 93, 245, .35); outline-offset: 2px; }
+.hrc-row--correction_requested { border-left-color: #dc6803; }
+.hrc-row--submitted { border-left-color: #f79009; }
+.hrc-row--approved, .hrc-row--paid { border-left-color: #12b76a; }
+.hrc-row--handed_to_payroll { border-left-color: #2e90fa; }
+.hrc-row--rejected { border-left-color: #d92d20; }
+.hrc-row--cancelled { border-left-color: #98a2b3; }
+.hrc-row__main { grid-area: main; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.hrc-row__main strong { font-size: 14px; color: #18212b; overflow-wrap: anywhere; }
+.hrc-row__main small { color: #66717d; font-size: 12px; }
+.hrc-row__person { color: #315df5 !important; font-weight: 750; overflow-wrap: anywhere; }
+.hrc-row__person span { color: #66717d; font-weight: 600; }
+.hrc-row__amount { grid-area: amount; font-size: 15px; font-weight: 800; color: #18212b; text-align: right; white-space: nowrap; }
+.hrc-row__status { grid-area: status; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; min-width: 0; }
+.hrc-row__status small { color: #475467; font-size: 12px; line-height: 1.4; }
+
+/* Detail */
+.hrc-detail { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.hrc-detail .section-card { min-width: 0; }
+.hrc-hero { padding: 16px; border: 1px solid #dfe5ec; border-radius: 14px; background: #fff; display: flex; flex-direction: column; gap: 8px; }
+.hrc-hero__top { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.hrc-hero__label { display: block; font-size: 12px; font-weight: 750; letter-spacing: .04em; text-transform: uppercase; color: #66717d; }
+.hrc-hero__amount { display: block; margin-top: 2px; font-size: 28px; line-height: 1.15; color: #18212b; overflow-wrap: anywhere; }
+.hrc-hero__progress { margin: 0; font-size: 14px; color: #344054; line-height: 1.5; }
+.hrc-hero__person { margin: 0; font-size: 13px; color: #315df5; font-weight: 750; }
+.hrc-definitions { display: grid; grid-template-columns: 1fr; gap: 12px; margin: 0; }
+.hrc-definitions > div { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.hrc-definitions dt { font-size: 10px; letter-spacing: .04em; text-transform: uppercase; color: #66717d; font-weight: 800; }
+.hrc-definitions dd { margin: 0; font-size: 14px; color: #18212b; overflow-wrap: anywhere; white-space: pre-wrap; }
+.hrc-empty-line { margin: 0; color: #66717d; font-size: 13px; }
+.hrc-owner-actions { gap: 10px; }
+
+.hrc-callout { display: flex; flex-direction: column; gap: 4px; padding: 12px 14px; border-radius: 12px; font-size: 13px; line-height: 1.5; overflow-wrap: anywhere; }
+.hrc-callout--action { background: #fffaeb; border: 1px solid #fedf89; color: #7a2e0e; }
+.hrc-callout--bad { background: #fff1f0; border: 1px solid #fecdca; color: #912018; }
+
+/* Approval route */
+.hrc-route { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.hrc-route__step { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 12px; border: 1px solid #e4e7ec; border-radius: 10px; background: #fff; font-size: 13px; font-weight: 700; color: #344054; }
+.hrc-route__step small { font-size: 11px; font-weight: 800; color: #66717d; }
+.hrc-route__step--done { background: #ecfdf3; border-color: #abefc6; color: #067647; }
+.hrc-route__step--done small { color: #067647; }
+.hrc-route__step--current { background: #fff6ed; border-color: #f9c68f; color: #93370d; }
+.hrc-route__step--current small { color: #93370d; }
+.hrc-route__step--stopped { color: #667085; background: #f9fafb; }
+
+/* Receipts */
+.hrc-receipts { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; }
+.hrc-receipt { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; aspect-ratio: 1; min-height: 120px; padding: 0; border: 1px solid #cfd6df; border-radius: 12px; background: #f2f4f7; color: #24303c; font: inherit; font-size: 12px; font-weight: 750; text-align: center; text-decoration: none; cursor: pointer; overflow: hidden; }
+.hrc-receipt img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.hrc-receipt--ask { padding: 8px; background: #fff; }
+.hrc-receipt--ask small { color: #66717d; font-weight: 600; }
+.hrc-receipt--state { padding: 8px; cursor: default; color: #66717d; font-weight: 600; }
+.hrc-receipt--error { color: #912018; background: #fff1f0; border-color: #fecdca; }
+.hrc-lightbox { position: fixed; inset: 0; z-index: 200; display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 12px; background: rgba(16, 24, 40, .86); }
+.hrc-lightbox__bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; max-width: 900px; color: #fff; font-size: 13px; font-weight: 700; }
+.hrc-lightbox__bar span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.hrc-lightbox img { flex: 0 1 auto; min-height: 0; max-width: 100%; max-height: calc(100vh - 90px); width: auto; height: auto; object-fit: contain; border-radius: 8px; }
+
+/* History: reuses .hr-history */
+.hrc-history { margin: 0; }
+
+/* Form */
+.hrc-formcard { padding: 16px; }
+.hrc-grid .hr-field--wide { grid-column: 1 / -1; }
+.hrc-picker { display: flex; flex-direction: column; gap: 10px; padding: 14px; border: 1px solid #dfe5ec; border-radius: 12px; background: #fbfcfd; min-width: 0; }
+.hrc-picker--error { border-color: #d92d20; }
+.hrc-picker__head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.hrc-picker__title { font-size: 12px; font-weight: 700; color: #344054; }
+.hrc-picker__existing { display: flex; flex-direction: column; gap: 8px; }
+.hrc-picker__list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.hrc-picker__add { align-self: flex-start; }
+.hrc-preview { display: flex; align-items: center; gap: 10px; padding: 8px; border: 1px solid #e4e7ec; border-radius: 10px; background: #fff; min-width: 0; }
+.hrc-preview img, .hrc-preview__blank { width: 56px; height: 56px; border-radius: 8px; object-fit: cover; background: #e4e7ec; flex: none; }
+.hrc-preview__meta { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1 1 auto; }
+.hrc-preview__meta strong { font-size: 13px; color: #18212b; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hrc-preview__meta small { font-size: 12px; color: #66717d; }
+.hrc-struck { text-decoration: line-through; color: #667085 !important; }
+.hrc-notes { display: flex; flex-direction: column; gap: 8px; }
+.hrc-note { padding: 10px 12px; border-radius: 10px; border: 1px solid #e4e7ec; background: #f9fafb; color: #344054; font-size: 12px; line-height: 1.5; }
+.hrc-note--info { background: #edf5fb; border-color: #bdd7ee; color: #0b4f8a; }
+.hrc-note--warn { background: #fffaeb; border-color: #fedf89; color: #7a2e0e; }
+
+/* Filters on All claims */
+.hrc-filters { grid-template-columns: 1fr; }
+.hrc-filters input[type='month'] { width: 100%; min-height: 44px; border: 1px solid #cfd6df; border-radius: 9px; background: #fff; color: #17202a; padding: 10px 11px; font: inherit; font-weight: 500; box-sizing: border-box; }
+.hrc-filters .uc01-admin-search input, .hrc-filters .uc01-admin-filter select { min-height: 44px; box-sizing: border-box; }
+
+@media (min-width: 640px) {
+  .hrc-definitions { grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 24px; }
+  .hrc-definitions__wide { grid-column: 1 / -1; }
+  .hrc-metrics dd { font-size: 18px; }
+  .hrc-filters { grid-template-columns: minmax(200px, 1fr) minmax(150px, 200px) minmax(150px, 190px) auto; }
+  .hrc-route { flex-direction: row; flex-wrap: wrap; }
+  .hrc-route__step { flex: 1 1 200px; }
+}
+
+@media (min-width: 900px) {
+  .hrc-row {
+    grid-template-columns: minmax(0, 1.4fr) 120px minmax(0, 1.6fr);
+    grid-template-areas: 'main amount status';
+    align-items: center;
+  }
+  .hrc-row__status { flex-direction: column; align-items: flex-start; gap: 4px; }
+  .hrc-formcard { padding: 20px; }
+  .hrc-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}

@@ -1,0 +1,91 @@
+/* HR leave screens (My leave, Leave overview). Buttons, tables, messages and dialogs come from the
+   uc01-admin-* vocabulary and hr.css; only leave-specific pieces are defined here. Mobile first. */
+
+.hr-leave-page { min-width: 0; }
+.hr-leave-page .section-card { min-width: 0; }
+.hr-leave-page .section-card__heading { flex-wrap: wrap; gap: 8px 12px; align-items: flex-end; }
+
+/* Year picker */
+.hr-leave-year { min-width: 110px; }
+.hr-leave-year select { min-height: 44px; font-size: 16px; }
+.hr-leave-toolbar .uc01-admin-search input,
+.hr-leave-toolbar .uc01-admin-filter select { min-height: 44px; font-size: 16px; }
+.hr-leave-toolbar .uc01-admin-button { min-height: 44px; }
+
+/* Balance cards */
+.hr-leave-balances { display: grid; grid-template-columns: 1fr; gap: 12px; }
+.hr-leave-balance { border: 1px solid #dfe5ec; border-radius: 14px; background: #fff; padding: 14px 16px; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.hr-leave-balance > header { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.hr-leave-balance > header span { font-size: 12px; font-weight: 800; color: #0b5566; text-transform: uppercase; letter-spacing: .04em; }
+.hr-leave-balance > header small { color: #66717d; font-size: 11px; font-weight: 700; }
+.hr-leave-balance__available { margin: 0; display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.hr-leave-balance__available strong { font-size: 32px; line-height: 1; color: #18212b; }
+.hr-leave-balance__available span { font-size: 13px; color: #52606d; font-weight: 600; }
+.hr-leave-balance__facts { margin: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.hr-leave-balance__facts > div { padding: 8px 10px; border: 1px solid #e4e7ec; border-radius: 10px; background: #f9fafb; min-width: 0; }
+.hr-leave-balance__facts dt { font-size: 10px; color: #667085; text-transform: uppercase; letter-spacing: .04em; font-weight: 750; }
+.hr-leave-balance__facts dd { margin: 3px 0 0; font-size: 16px; font-weight: 800; color: #18212b; }
+.hr-leave-balance-note { margin: 10px 0 0; }
+
+/* Apply form */
+.hr-leave-form .hr-field--wide { grid-column: 1 / -1; }
+.hr-leave-form .hr-check { min-height: 44px; align-items: center; }
+.hr-leave-holidays { display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; border: 1px solid #bdd7ee; border-radius: 10px; background: #edf5fb; color: #0b4f8a; font-size: 12px; line-height: 1.5; }
+.hr-leave-holidays p { margin: 0; overflow-wrap: anywhere; }
+.hr-leave-holidays .hr-leave-holidays__tentative { color: #93370d; }
+.hr-leave-holidays:has(.hr-leave-holidays__tentative) { background: #fffaeb; border-color: #fedf89; }
+.hr-leave-form .hr-actions .uc01-admin-button { min-height: 44px; }
+
+/* Request list */
+.hr-leave-requests { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.hr-leave-request { border: 1px solid #dfe5ec; border-radius: 12px; background: #fff; padding: 12px 14px; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.hr-leave-request__head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.hr-leave-request__head > div { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.hr-leave-request__head strong { color: #18212b; font-size: 14px; }
+.hr-leave-request__head > div > span { color: #475467; font-size: 13px; }
+.hr-leave-request p { margin: 0; }
+.hr-leave-request__days { font-size: 13px; font-weight: 800; color: #0b5566; }
+.hr-leave-request__line { font-size: 12px; color: #344054; font-weight: 600; }
+.hr-leave-request__note { font-size: 12px; color: #475467; line-height: 1.5; overflow-wrap: anywhere; }
+.hr-leave-request__note span { font-weight: 800; color: #344054; margin-right: 4px; }
+.hr-leave-request__meta { color: #66717d; font-size: 11px; }
+.hr-leave-request__actions { display: flex; flex-wrap: wrap; gap: 8px; padding-top: 4px; }
+.hr-leave-request__actions .uc01-admin-button { min-height: 44px; }
+
+/* HR overview */
+.hr-leave-table .hr-leave-view { min-height: 44px; }
+.hr-leave-table td > small { font-size: 11px; line-height: 1.5; }
+.hr-leave-panel__bar { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px 12px; }
+.hr-leave-panel__bar > .uc01-admin-button { min-height: 44px; }
+.hr-leave-panel__who { display: flex; flex-direction: column; gap: 2px; flex: 1 1 160px; min-width: 0; align-self: center; }
+.hr-leave-panel__who strong { color: #18212b; font-size: 16px; overflow-wrap: anywhere; }
+.hr-leave-panel__who small { color: #66717d; font-size: 12px; }
+
+/* Dialogs */
+.hr-leave-backdrop { overflow-y: auto; align-items: start; }
+.hr-leave-dialog { max-height: calc(100dvh - 40px); overflow-y: auto; margin: auto; }
+.hr-leave-dialog .uc01-admin-button { min-height: 44px; }
+.hr-leave-dialog .hr-form-grid { grid-template-columns: 1fr; }
+.hr-leave-dialog .hr-field--wide { grid-column: 1 / -1; }
+
+@media (min-width: 640px) {
+  .hr-leave-balances { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .hr-leave-dialog .hr-form-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .hr-leave-form .hr-form-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .hr-leave-year select { font-size: 14px; min-height: 40px; }
+}
+
+@media (min-width: 761px) {
+  .hr-leave-table td:nth-child(2),
+  .hr-leave-table td:nth-child(3) { min-width: 200px; }
+  .hr-leave-table td:first-child { min-width: 160px; }
+}
+
+@media (max-width: 760px) {
+  .hr-leave-toolbar { grid-template-columns: 1fr; }
+  .hr-leave-page .uc01-admin-table-wrap { border: 0; background: transparent; overflow: visible; }
+  .hr-leave-table tbody tr { margin: 0 0 10px; border: 1px solid #dfe5ec; border-radius: 12px; background: #fff; }
+  .hr-leave-table .uc01-admin-row-actions .uc01-admin-button { width: 100%; }
+  .hr-leave-panel__bar .hr-leave-year { flex: 1 1 100px; }
+  .hr-leave-panel__bar > .uc01-admin-button { flex: 1 1 140px; }
+}

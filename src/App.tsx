@@ -33,6 +33,21 @@ const HrEmployeeCreatePage = lazy(() => import('./pages/hr/HrEmployeeCreatePage'
 const HrEmployeeImportPage = lazy(() => import('./pages/hr/HrEmployeeImportPage'));
 const HrEmployeeDetailPage = lazy(() => import('./pages/hr/HrEmployeeDetailPage'));
 const HrMyProfilePage = lazy(() => import('./pages/hr/HrMyProfilePage'));
+const HrAttendancePage = lazy(() => import('./pages/hr/HrAttendancePage'));
+const HrTeamAttendancePage = lazy(() => import('./pages/hr/HrTeamAttendancePage'));
+const HrLeavePage = lazy(() => import('./pages/hr/HrLeavePage'));
+const HrLeaveOverviewPage = lazy(() => import('./pages/hr/HrLeaveOverviewPage'));
+const HrClaimsPage = lazy(() => import('./pages/hr/HrClaimsPage'));
+const HrClaimNewPage = lazy(() => import('./pages/hr/HrClaimNewPage'));
+const HrClaimsAllPage = lazy(() => import('./pages/hr/HrClaimsAllPage'));
+const HrClaimDetailPage = lazy(() => import('./pages/hr/HrClaimDetailPage'));
+const HrApprovalsPage = lazy(() => import('./pages/hr/HrApprovalsPage'));
+const HrPayslipsPage = lazy(() => import('./pages/hr/HrPayslipsPage'));
+const HrPayrollPage = lazy(() => import('./pages/hr/HrPayrollPage'));
+const HrSalariesPage = lazy(() => import('./pages/hr/HrSalariesPage'));
+const HrPayrollSettingsPage = lazy(() => import('./pages/hr/HrPayrollSettingsPage'));
+const HrPayrollRunPage = lazy(() => import('./pages/hr/HrPayrollRunPage'));
+const HrSettingsPage = lazy(() => import('./pages/hr/HrSettingsPage'));
 const AdminConfigurationPage = lazy(() => import('./pages/AdminConfigurationPage'));
 const AdminHousekeepingPage = lazy(() => import('./pages/AdminHousekeepingPage'));
 const AdminLandingPage = lazy(() => import('./pages/AdminLandingPage'));
@@ -376,6 +391,21 @@ export default function App() {
               <Route path="/hr/employees/new" element={<PrivatePage><HrEmployeeCreatePage /></PrivatePage>} />
               <Route path="/hr/employees/import" element={<PrivatePage><HrEmployeeImportPage /></PrivatePage>} />
               <Route path="/hr/employees/:employeeId" element={<PrivatePage><HrEmployeeDetailPage /></PrivatePage>} />
+              <Route path="/hr/attendance" element={<PrivatePage><HrAttendancePage /></PrivatePage>} />
+              <Route path="/hr/attendance/team" element={<PrivatePage><HrTeamAttendancePage /></PrivatePage>} />
+              <Route path="/hr/leave" element={<PrivatePage><HrLeavePage /></PrivatePage>} />
+              <Route path="/hr/leave/overview" element={<PrivatePage><HrLeaveOverviewPage /></PrivatePage>} />
+              <Route path="/hr/claims" element={<PrivatePage><HrClaimsPage /></PrivatePage>} />
+              <Route path="/hr/claims/new" element={<PrivatePage><HrClaimNewPage /></PrivatePage>} />
+              <Route path="/hr/claims/all" element={<PrivatePage><HrClaimsAllPage /></PrivatePage>} />
+              <Route path="/hr/claims/:claimId" element={<PrivatePage><HrClaimDetailPage /></PrivatePage>} />
+              <Route path="/hr/approvals" element={<PrivatePage><HrApprovalsPage /></PrivatePage>} />
+              <Route path="/hr/payslips" element={<PrivatePage><HrPayslipsPage /></PrivatePage>} />
+              <Route path="/hr/payroll" element={<PrivatePage><HrPayrollPage /></PrivatePage>} />
+              <Route path="/hr/payroll/salaries" element={<PrivatePage><HrSalariesPage /></PrivatePage>} />
+              <Route path="/hr/payroll/settings" element={<PrivatePage><HrPayrollSettingsPage /></PrivatePage>} />
+              <Route path="/hr/payroll/runs/:runId" element={<PrivatePage><HrPayrollRunPage /></PrivatePage>} />
+              <Route path="/hr/settings" element={<PrivatePage><HrSettingsPage /></PrivatePage>} />
               <Route path="/workspace" element={<Navigate to="/dashboard" replace />} />
               <Route path="/" element={<Navigate to="/login" replace />} />
               <Route path="*" element={<Navigate to="/home" replace />} />

@@ -1,0 +1,56 @@
+/* HR settings page (/hr/settings). Reuses hr-* and uc01-admin-* from hr.css; only the extras live here. */
+
+.hrs-page { min-width: 0; }
+.hrs-panel { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.hrs-intro { margin: 0; color: #475467; font-size: 13px; line-height: 1.55; }
+.hrs-touch { min-height: 44px; min-width: 44px; }
+.hr-tab { min-height: 44px; }
+
+/* Rules */
+.hrs-rules .section-card { min-width: 0; }
+.hrs-grid { align-items: start; }
+.hrs-setting { min-width: 0; }
+.hrs-setting.is-changed .hr-field input { border-color: #0e7490; background: #f3fafc; }
+.hrs-rules .hr-field input[type="time"] { min-width: 0; }
+.hrs-rules .hr-actions .uc01-admin-button,
+.hrs-page .hr-actions .uc01-admin-button { min-height: 44px; }
+
+/* Holidays */
+.hrs-caveat { display: flex; flex-direction: column; gap: 6px; padding: 14px 16px; border: 1px solid #fedf89; border-left-width: 5px; border-radius: 12px; background: #fffaeb; color: #7a2e0e; font-size: 13px; line-height: 1.5; }
+.hrs-caveat strong { font-size: 15px; color: #93370d; }
+.hrs-yearbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.hrs-year { min-width: 64px; text-align: center; font-size: 20px; color: #18212b; }
+.hrs-yearbar__add { margin-left: auto; }
+.hrs-table td > .hr-row-actions { display: flex; }
+.hrs-confirm { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 12px; font-weight: 700; color: #912018; }
+
+/* Claim categories: a switch with a 44px target */
+.hrs-switch { display: inline-flex; align-items: center; gap: 10px; min-height: 44px; cursor: pointer; font-size: 12px; font-weight: 750; color: #24303c; }
+.hrs-switch input { appearance: none; -webkit-appearance: none; position: relative; flex: none; width: 44px; height: 26px; margin: 0; border-radius: 999px; background: #cbd3dd; cursor: pointer; transition: background .15s; }
+.hrs-switch input::after { content: ''; position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(16, 24, 40, .3); transition: transform .15s; }
+.hrs-switch input:checked { background: #0e7490; }
+.hrs-switch input:checked::after { transform: translateX(18px); }
+.hrs-switch input:focus-visible { outline: 3px solid rgba(49, 93, 245, .35); outline-offset: 2px; }
+.hrs-switch input:disabled { opacity: .6; cursor: not-allowed; }
+
+/* Work context */
+.hrs-facts { margin: 0 0 12px; display: grid; grid-template-columns: 1fr; gap: 12px; }
+.hrs-facts > div { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.hrs-facts dt { font-size: 10px; text-transform: uppercase; letter-spacing: .04em; color: #66717d; font-weight: 800; }
+.hrs-facts dd { margin: 0; font-size: 14px; font-weight: 700; color: #18212b; overflow-wrap: anywhere; }
+.hrs-last-error { display: flex; flex-direction: column; gap: 4px; overflow-wrap: anywhere; }
+
+@media (min-width: 640px) {
+  .hrs-facts { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
+@media (max-width: 760px) {
+  .hrs-yearbar__add { flex: 1 1 140px; margin-left: 0; }
+  .hrs-table td[data-label="Taxable"] { display: grid; grid-template-columns: 120px minmax(0, 1fr); align-items: center; }
+  .hrs-table td[data-label="Actions"] { padding-top: 4px; }
+  .hrs-table td[data-label="Actions"]::before { content: none; }
+}
+
+@media (max-width: 460px) {
+  .hrs-table td[data-label="Taxable"] { grid-template-columns: 1fr; gap: 0; }
+}

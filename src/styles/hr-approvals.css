@@ -1,0 +1,88 @@
+/* Approvals inbox. Reuses uc01-admin-* (buttons, tables, dialogs, messages) and hr-* (tabs,
+   fields, avatar); only the pieces below are specific to approvals. Mobile first: under 760px
+   the uc01-admin-table collapses into one card per request. */
+
+.hr-appr-page { min-width: 0; }
+.hr-appr-panel { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.hr-appr-bar { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.hr-appr-bar .hr-count { font-size: 13px; }
+
+/* 44px touch targets */
+.hr-appr-page .hr-tab,
+.hr-appr-page .uc01-admin-button { min-height: 44px; }
+.hr-appr-page .uc01-admin-button--compact { min-height: 44px; padding: 8px 12px; font-size: 12px; }
+.hr-appr-page .hr-tab { display: inline-flex; align-items: center; gap: 8px; }
+.hr-appr-badge { display: inline-grid; place-items: center; min-width: 20px; height: 20px; padding: 0 6px; border-radius: 999px; background: #e6f6fa; color: #0b5566; font-size: 11px; font-weight: 800; }
+.hr-tab.is-active .hr-appr-badge { background: #fff; color: #0b5566; }
+
+.hr-appr-notice { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.hr-appr-empty strong { color: #18212b; }
+
+/* Person */
+.hr-appr-person { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.hr-appr-person__text { display: flex; flex-direction: column; min-width: 0; }
+.hr-appr-person__text strong { color: #18212b; font-size: 13px; overflow-wrap: anywhere; }
+.hr-appr-person__text small { color: #66717d; font-size: 11px; }
+
+/* Table cells */
+.hr-appr-table td > small { font-size: 11px; line-height: 1.45; }
+.hr-appr-table td > strong { font-size: 13px; color: #18212b; }
+.hr-appr-text { white-space: pre-wrap; overflow-wrap: anywhere; color: #344054; font-size: 12px; line-height: 1.5; margin-top: 2px; }
+.hr-appr-waiting { display: block; margin-top: 8px; font-size: 12px; color: #52606d; }
+.hr-appr-waiting small { display: block; margin: 2px 0 0; color: #66717d; font-size: 11px; }
+.hr-appr-age { font-weight: 800; color: #344054; }
+.hr-appr-age.is-old { color: #b54708; }
+.hr-appr-table td { min-width: 0; }
+
+.hr-appr-actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; min-width: 0; }
+.hr-appr-actions .uc01-admin-button { flex: 1 1 96px; }
+
+.hr-appr-photo-button { align-self: flex-start; }
+.hr-appr-inline-error { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; color: #912018; font-size: 12px; }
+.hr-appr-thumb { display: block; padding: 0; border: 1px solid #cfd6df; border-radius: 10px; overflow: hidden; background: #f2f4f7; cursor: zoom-in; width: 120px; height: 120px; }
+.hr-appr-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+/* Claim stages */
+.hr-appr-stages { list-style: none; margin: 0 0 4px; padding: 0; display: flex; flex-wrap: wrap; gap: 4px; }
+.hr-appr-stage { display: inline-flex; align-items: center; padding: 4px 9px; border-radius: 999px; font-size: 11px; font-weight: 800; background: #f2f4f7; color: #667085; border: 1px solid transparent; }
+.hr-appr-stage.is-done { background: #ecfdf3; color: #067647; }
+.hr-appr-stage.is-done::before { content: '\2713\00a0'; }
+.hr-appr-stage.is-current { background: #0e7490; color: #fff; }
+.hr-appr-stale { display: inline-block; margin-top: 6px; padding: 5px 9px; border-radius: 8px; background: #fff6ed; color: #93370d; font-size: 11px; font-weight: 700; line-height: 1.4; }
+
+/* Receipts */
+.hr-appr-receipts { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.hr-appr-receipt { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 10px; padding: 8px 10px; border: 1px solid #e4e7ec; border-radius: 10px; }
+.hr-appr-receipt__name { display: flex; flex-direction: column; min-width: 0; flex: 1 1 120px; }
+.hr-appr-receipt__name strong { font-size: 12px; overflow-wrap: anywhere; }
+.hr-appr-receipt__name small { color: #66717d; font-size: 11px; }
+
+/* Dialogs */
+.hr-appr-dialog { max-height: calc(100dvh - 40px); overflow: auto; }
+.hr-appr-viewer { max-height: calc(100dvh - 40px); overflow: auto; align-items: stretch; }
+.hr-appr-viewer__head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.hr-appr-viewer__head h2 { margin: 0; font-size: 16px; overflow-wrap: anywhere; }
+.hr-appr-viewer__img { max-width: 100%; max-height: 70dvh; object-fit: contain; align-self: center; border-radius: 8px; }
+.hr-appr-viewer__pdf { width: 100%; height: 65dvh; border: 1px solid #dfe5ec; border-radius: 8px; }
+
+@media (max-width: 760px) {
+  .hr-appr-table td { grid-template-columns: 110px minmax(0, 1fr); }
+  .hr-appr-table td > * { min-width: 0; }
+  .hr-appr-table td:last-child { display: block; }
+  .hr-appr-actions { justify-content: stretch; }
+  .hr-appr-table tr { border-bottom: 8px solid #f2f4f7; }
+  .hr-appr-table tr:last-child { border-bottom: 0; }
+}
+
+@media (max-width: 460px) {
+  .hr-appr-table td { grid-template-columns: 1fr; }
+  .hr-appr-bar .uc01-admin-button { flex: none; }
+}
+
+@media (min-width: 761px) {
+  .hr-appr-table td:first-child { min-width: 150px; }
+  .hr-appr-table--claims td[data-label="Claim"] { min-width: 190px; }
+  .hr-appr-actions { flex-direction: column; align-items: stretch; min-width: 130px; }
+  .hr-appr-actions .uc01-admin-button { flex: none; }
+}
+.hr-appr-table td[data-label="Decision"]::before { content: none; }

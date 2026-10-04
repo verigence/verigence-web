@@ -199,6 +199,9 @@ const routeLabels: Record<string, string> = {
   '/admin/approval-workflow': 'Approval Workflow Config', '/admin/notifications': 'Notification Settings',
   '/admin/oem-masters': 'OEM Masters', '/admin/project': 'Project Administration', '/profile': 'Profile',
   '/hr/employees': 'Employees', '/hr/employees/new': 'Add Employee', '/hr/employees/import': 'Import Employees', '/hr/me': 'My Employee Profile',
+  '/hr/attendance': 'Attendance', '/hr/attendance/team': 'Team Attendance', '/hr/leave': 'Leave', '/hr/leave/overview': 'Leave Overview',
+  '/hr/claims': 'Reimbursements', '/hr/claims/new': 'New Claim', '/hr/claims/all': 'All Claims', '/hr/approvals': 'Approvals',
+  '/hr/payslips': 'Payslips', '/hr/payroll': 'Payroll', '/hr/payroll/salaries': 'Salaries', '/hr/payroll/settings': 'Payroll Settings', '/hr/settings': 'HR Settings',
 };
 
 const dynamicRouteLabels: Array<[string, string]> = [
@@ -214,6 +217,8 @@ const dynamicRouteLabels: Array<[string, string]> = [
   ['/reviews/', 'Review'],
   ['/tasks/', 'Work Item'],
   ['/hr/employees/', 'Employee'],
+  ['/hr/claims/', 'Claim'],
+  ['/hr/payroll/runs/', 'Payroll Run'],
 ];
 
 const roleLabels: Record<ShellRole, string> = {
@@ -259,6 +264,13 @@ function NavIcon({ mark }: { mark: string }) {
     case 'PA': glyph = <><path d="M4 20h16M6 20V8l6-4 6 4v12M9 11h2m2 0h2M9 15h2m2 0h2" /></>; break;
     case 'HE': glyph = <><circle cx="9" cy="8" r="3" /><path d="M3.5 19c.6-3.2 2.5-5 5.5-5s4.9 1.8 5.5 5" /><rect x="15" y="6" width="6" height="8" rx="1" /><path d="M17 9h2m-2 3h2" /></>; break;
     case 'HP': glyph = <><circle cx="12" cy="8" r="3.5" /><path d="M5 20c.8-4 3.4-6 7-6s6.2 2 7 6" /></>; break;
+    case 'HA': glyph = <><circle cx="12" cy="12" r="8" /><path d="M12 7v5l3 2" /></>; break;
+    case 'HL': glyph = <><rect x="4" y="5" width="16" height="15" rx="2" /><path d="M8 3v4m8-4v4M4 10h16" /></>; break;
+    case 'HR': glyph = <><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z" /><path d="M9 8h6m-6 4h6" /></>; break;
+    case 'HV': glyph = <><circle cx="12" cy="12" r="8" /><path d="m8.5 12 2.5 2.5 4.5-5" /></>; break;
+    case 'HT': glyph = <><circle cx="9" cy="8" r="3" /><circle cx="17" cy="9" r="2" /><path d="M3 19c.7-3.2 2.7-5 6-5s5.3 1.8 6 5" /></>; break;
+    case 'HY': glyph = <><rect x="3" y="6" width="18" height="12" rx="2" /><circle cx="12" cy="12" r="2.5" /></>; break;
+    case 'HS': glyph = <><circle cx="12" cy="12" r="3" /><path d="M12 3v3m0 12v3M3 12h3m12 0h3M5.6 5.6l2.1 2.1m8.6 8.6 2.1 2.1m0-12.8-2.1 2.1m-8.6 8.6-2.1 2.1" /></>; break;
     case 'CB': glyph = <><rect x="4" y="4" width="16" height="16" rx="3" /><path d="M12 8v8M8 12h8" /></>; break;
     default: glyph = <circle cx="12" cy="12" r="7" />;
   }
@@ -369,10 +381,26 @@ export default function AppShell({ children }: PropsWithChildren) {
   const hrAccess = useHrAccess();
   const hrGroup = useMemo<NavGroup | null>(() => {
     const items: NavItem[] = [];
+    const can = hrAccess.can;
+    const anyOf = (...keys: string[]) => keys.some((key) => can(key));
+    if (hrAccess.isEmployee) {
+      items.push({ to: '/hr/attendance', label: 'Attendance', mark: 'HA' });
+      items.push({ to: '/hr/leave', label: 'Leave', mark: 'HL' });
+      items.push({ to: '/hr/claims', label: 'Reimbursements', mark: 'HR' });
+      items.push({ to: '/hr/approvals', label: 'Approvals', mark: 'HV' });
+      items.push({ to: '/hr/payslips', label: 'Payslips', mark: 'HY' });
+      items.push({ to: '/hr/me', label: 'My Employee Profile', mark: 'HP' });
+    }
     if (hrAccess.canReadEmployees) items.push({ to: '/hr/employees', label: 'Employees', mark: 'HE' });
-    if (hrAccess.isEmployee) items.push({ to: '/hr/me', label: 'My Employee Profile', mark: 'HP' });
+    if (can('hr.attendance.read_all')) items.push({ to: '/hr/attendance/team', label: 'Team Attendance', mark: 'HT' });
+    if (can('hr.leave.review')) items.push({ to: '/hr/leave/overview', label: 'Leave Overview', mark: 'HL' });
+    if (anyOf('hr.claim.review', 'hr.claim.review_finance', 'hr.payroll.approve')) items.push({ to: '/hr/claims/all', label: 'All Claims', mark: 'HR' });
+    if (can('hr.payroll.read')) items.push({ to: '/hr/payroll', label: 'Payroll', mark: 'HY' });
+    if (anyOf('hr.salary.propose', 'hr.salary.approve', 'hr.payroll.read')) items.push({ to: '/hr/payroll/salaries', label: 'Salaries', mark: 'HY' });
+    if (anyOf('hr.salary.propose', 'hr.salary.approve', 'hr.payroll.read', 'hr.settings.manage')) items.push({ to: '/hr/payroll/settings', label: 'Payroll Settings', mark: 'HS' });
+    if (can('hr.settings.manage')) items.push({ to: '/hr/settings', label: 'HR Settings', mark: 'HS' });
     return items.length ? { key: 'hr', label: 'HR', items } : null;
-  }, [hrAccess.canReadEmployees, hrAccess.isEmployee]);
+  }, [hrAccess.can, hrAccess.canReadEmployees, hrAccess.isEmployee]);
   const visibleGroups = useMemo<NavGroup[]>(
     () => (hrGroup ? [...baseGroups, hrGroup] : baseGroups),
     [baseGroups, hrGroup],
@@ -468,6 +496,15 @@ export default function AppShell({ children }: PropsWithChildren) {
     if (item.to.split('?')[0] === '/analytics') {
       const itemReport = new URLSearchParams(item.to.split('?')[1] || '').get('report') || 'overview';
       return location.pathname === '/analytics' && itemReport === analyticsReport;
+    }
+    if (item.to.startsWith('/hr/')) {
+      // HR paths nest (claims/all inside claims, payroll/salaries inside payroll): match each item exactly,
+      // except that a claim or a payroll run belongs to its own list.
+      const path = location.pathname;
+      if (item.to === '/hr/claims') return path === '/hr/claims' || path === '/hr/claims/new' || (path.startsWith('/hr/claims/') && path !== '/hr/claims/all');
+      if (item.to === '/hr/payroll') return path === '/hr/payroll' || path.startsWith('/hr/payroll/runs/');
+      if (item.to === '/hr/employees') return isActive;
+      return path === item.to;
     }
     return isActive;
   };

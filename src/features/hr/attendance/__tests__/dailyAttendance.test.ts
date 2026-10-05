@@ -1,14 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import type { DailyRow } from '../../../../services/hr/attendanceReports';
-import {
-  delinquencyText,
-  formatHours,
-  groupByProject,
-  reportFileName,
-  shiftDate,
-  validateReportRange,
-} from '../dailyAttendance';
+import { delinquencyText, fenceLabel, formatHours, groupByProject, reportFileName, shiftDate, validateReportRange } from '../dailyAttendance';
 import { approverPhrase, exceptionLabel } from '../attendanceFormat';
 
 const row = (over: Partial<DailyRow>): DailyRow => ({
@@ -70,5 +63,14 @@ describe('dates and report range', () => {
   it('names the file', () => {
     expect(reportFileName('2026-10-02', '2026-10-02')).toBe('attendance-2026-10-02.xlsx');
     expect(reportFileName('2026-10-01', '2026-10-04', 'MAH 1')).toBe('attendance-2026-10-01_to_2026-10-04-MAH-1.xlsx');
+  });
+});
+
+describe('fenceLabel', () => {
+  it('says Yes outside the tagged location, No inside it, and a dash when the fence does not apply', () => {
+    expect(fenceLabel(true)).toBe('Yes');
+    expect(fenceLabel(false)).toBe('No');
+    expect(fenceLabel(null)).toBe('—');
+    expect(fenceLabel(undefined)).toBe('—');
   });
 });

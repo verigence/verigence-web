@@ -38,6 +38,9 @@ export interface DailyRow {
   checkOutOutlet: string | null;
   checkInDistanceM: number | null;
   checkOutDistanceM: number | null;
+  /** true: outside the tagged location. false: inside it. null/absent: the fence does not apply (or nothing to judge). */
+  checkInOutOfFence?: boolean | null;
+  checkOutOutOfFence?: boolean | null;
   hoursWorked: number | null;
   attendanceId?: string | null;
   hasCheckInPhoto?: boolean;

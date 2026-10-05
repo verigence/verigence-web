@@ -17,6 +17,7 @@ import {
   dailyStatusLabels,
   dailyStatusTone,
   delinquencyText,
+  fenceLabel,
   formatHours,
   groupByProject,
   needsAttention,
@@ -38,6 +39,17 @@ function Side({ at, outlet, distance, photo }: { at: string | null; outlet: stri
   );
 }
 
+/** Outside the tagged location? Only for people the fence applies to; everyone else gets a dash. */
+function Fence({ row }: { row: DailyRow }) {
+  const inValue = row.checkInOutOfFence;
+  const outValue = row.checkOutOutOfFence;
+  if ((inValue === null || inValue === undefined) && (outValue === null || outValue === undefined)) return <span className="hr-muted">—</span>;
+  const part = (label: string, value: boolean | null | undefined) => (
+    <small>{label}: <strong className={value === true ? 'hr-fence hr-fence--out' : 'hr-fence'}>{fenceLabel(value)}</strong></small>
+  );
+  return <span className="hr-daily-cell">{part('Check-in', inValue)}{part('Check-out', outValue)}</span>;
+}
+
 /** The stamped photo, opened only when tapped (and recorded when HR looks at it). */
 function photoFor(row: DailyRow, event: 'CHECK_IN' | 'CHECK_OUT') {
   const has = event === 'CHECK_IN' ? row.hasCheckInPhoto : row.hasCheckOutPhoto;
@@ -56,6 +68,7 @@ function RowLine({ row, onOpen }: { row: DailyRow; onOpen: (row: DailyRow) => vo
       <td data-label="Role">{row.roles.length ? row.roles.join(', ') : '—'}</td>
       <td data-label="Check-in"><Side at={row.checkInAt} outlet={row.checkInOutlet} distance={row.checkInDistanceM} photo={photoFor(row, 'CHECK_IN')} /></td>
       <td data-label="Check-out"><Side at={row.checkOutAt} outlet={row.checkOutOutlet} distance={row.checkOutDistanceM} photo={photoFor(row, 'CHECK_OUT')} /></td>
+      <td data-label="Out of fence"><Fence row={row} /></td>
       <td data-label="Hours">{formatHours(row.hoursWorked)}</td>
       <td data-label="Status">
         <span className={`uc01-admin-status${dailyStatusTone[row.status] ? ` uc01-admin-status--${dailyStatusTone[row.status]}` : ''}`}>
@@ -238,7 +251,7 @@ export default function HrDailyAttendancePage() {
                       <table className="uc01-admin-table hr-table hr-daily-table">
                         <thead>
                           <tr>
-                            <th>Employee</th><th>Role</th><th>Check-in</th><th>Check-out</th><th>Hours</th><th>Status</th><th>Delinquencies</th>
+                            <th>Employee</th><th>Role</th><th>Check-in</th><th>Check-out</th><th>Out of fence</th><th>Hours</th><th>Status</th><th>Delinquencies</th>
                           </tr>
                         </thead>
                         <tbody>{g.rows.map((r) => <RowLine key={`${r.employeeId}-${r.projectCode ?? ''}`} row={r} onOpen={setOpenRow} />)}</tbody>

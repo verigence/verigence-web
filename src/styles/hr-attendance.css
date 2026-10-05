@@ -197,3 +197,6 @@
 
 .hr-att-absent { color: #b42318; }
 .hr-daily-table td[data-label="Employee"]::before { content: none; }
+
+.hr-daily-cell .hr-fence { display: inline; color: #344054; }
+.hr-daily-cell .hr-fence--out { color: #b42318; }

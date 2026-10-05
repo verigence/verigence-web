@@ -60,15 +60,15 @@ export function ExperienceFields({ values, errors, onChange }: Omit<SectionProps
   );
 }
 
-export function ContactSection({ mode, values, errors, onChange, states, withAddress = true }: SectionProps & { states: string[]; withAddress?: boolean }) {
+export function ContactSection({ mode, values, errors, onChange, states, withAddress = true, hasLogin = false }: SectionProps & { states: string[]; withAddress?: boolean; hasLogin?: boolean }) {
   const text = (key: keyof EmployeeFormValues) => textOf(onChange, key);
   return (
     <SectionCard title="Contact">
       <div className="hr-form-grid">
-        <Field label="Personal email" htmlFor="hr-email" error={errors.personalEmail} required hint={mode === 'create' ? 'Used as the Verigence sign-in.' : undefined}>
+        <Field label="Personal email" htmlFor="hr-email" error={errors.personalEmail} required hint={mode === 'create' ? 'Used as the Verigence sign-in.' : hasLogin ? 'This is also the Verigence sign-in. Changing it here changes the login email. The password stays the same.' : undefined}>
           <input id="hr-email" type="email" inputMode="email" autoComplete="off" value={values.personalEmail} onChange={text('personalEmail')} />
         </Field>
-        <Field label="Mobile" htmlFor="hr-mobile" error={errors.mobile} hint="10-digit Indian mobile.">
+        <Field label="Mobile" htmlFor="hr-mobile" error={errors.mobile} hint={hasLogin && mode === 'edit' ? '10-digit Indian mobile. Also saved on the Verigence login.' : '10-digit Indian mobile.'}>
           <input id="hr-mobile" type="tel" inputMode="tel" autoComplete="off" value={values.mobile} onChange={text('mobile')} />
         </Field>
         {withAddress && <AddressFields values={values} errors={errors} onChange={onChange} states={states} />}
@@ -201,15 +201,17 @@ interface Props extends SectionProps {
   departments: string[];
   panMasked?: string | null;
   aadhaarMasked?: string | null;
+  /** The employee has a Verigence login: email and mobile changes also change the login. */
+  hasLogin?: boolean;
 }
 
 /** The whole record in one form (used when editing an employee). */
-export default function EmployeeFormFields({ mode, values, errors, states, designations, departments, onChange, panMasked, aadhaarMasked }: Props) {
+export default function EmployeeFormFields({ mode, values, errors, states, designations, departments, onChange, panMasked, aadhaarMasked, hasLogin }: Props) {
   const common = { mode, values, errors, onChange };
   return (
     <>
       <PersonalSection {...common} />
-      <ContactSection {...common} states={states} />
+      <ContactSection {...common} states={states} hasLogin={hasLogin} />
       <EmergencySection {...common} />
       <EmploymentSection {...common} designations={designations} departments={departments} />
       <IdentitySection {...common} panMasked={panMasked} aadhaarMasked={aadhaarMasked} />

@@ -53,6 +53,8 @@ export interface Experience {
 }
 
 export interface Employee {
+  /** Set only on the answer to a change: the Verigence login email or mobile was changed too. */
+  loginContactChanged?: boolean;
   employeeId: string;
   employeeCode: string;
   fullName: string;

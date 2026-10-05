@@ -172,6 +172,10 @@ export default function HrEmployeeCreatePage() {
         setErrors({ personalEmail: error.message });
         setStep(0);
       }
+      if (error instanceof HrHttpError && error.code === 'EMPLOYEE_MOBILE_EXISTS') {
+        setErrors({ mobile: error.message });
+        setStep(0);
+      }
       setFormError(hrErrorMessage(error));
     },
   });

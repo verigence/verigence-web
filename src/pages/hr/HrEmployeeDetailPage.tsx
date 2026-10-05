@@ -100,10 +100,13 @@ export default function HrEmployeeDetailPage() {
     onSuccess: (data) => {
       store(data as EmployeeDetail);
       setEditing(false);
-      setNotice('Changes saved.');
+      setNotice(data.loginContactChanged
+        ? 'Changes saved. The Verigence login was changed too, and the password stays the same. Tell the employee: send the Welcome email from Messages.'
+        : 'Changes saved.');
     },
     onError: (error) => {
       if (error instanceof HrHttpError && error.code === 'EMPLOYEE_EMAIL_EXISTS') setErrors({ personalEmail: error.message });
+      if (error instanceof HrHttpError && error.code === 'EMPLOYEE_MOBILE_EXISTS') setErrors({ mobile: error.message });
       setFormError(hrErrorMessage(error));
     },
   });
@@ -342,6 +345,7 @@ export default function HrEmployeeDetailPage() {
             departments={departments.data ?? []}
             panMasked={employee.panMasked}
             aadhaarMasked={employee.aadhaarMasked}
+            hasLogin={employee.loginStatus === 'CREATED'}
             onChange={(change) => {
               setValues((current) => (current ? { ...current, ...change } : current));
               setErrors((current) => {

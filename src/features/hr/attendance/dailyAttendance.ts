@@ -177,3 +177,10 @@ export function fenceLabel(value: boolean | null | undefined): string {
   if (value === false) return 'No';
   return '—';
 }
+
+/** "Face match 0.91 (profile photo)", or null when no face was compared. Shown to HR as information only. */
+export function faceScoreText(score: number | null | undefined, ref: 'PROFILE' | 'CHECK_IN' | null | undefined): string | null {
+  if (score === null || score === undefined || !Number.isFinite(score)) return null;
+  const against = ref === 'CHECK_IN' ? 'check-in photo' : 'profile photo';
+  return `Face match ${score.toFixed(2)} (${against})`;
+}

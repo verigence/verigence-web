@@ -9,6 +9,7 @@ import DecisionButtons from '../approvals/DecisionButtons';
 import DecisionDialog from '../approvals/DecisionDialog';
 import { useDecisionFlow } from '../approvals/useDecisionFlow';
 import DialogShell from './DialogShell';
+import { faceScoreText } from './dailyAttendance';
 import { attendanceKeys, useAttendancePhoto, useObjectUrl } from './attendanceQueries';
 import {
   exceptionLabel,
@@ -28,7 +29,7 @@ function Picture({ attendanceId, event, label }: { attendanceId: string; event: 
   return <img className="hr-att-photo-full hr-daily-detail__photo" src={url} alt={`${label} photo with time and place printed on it`} />;
 }
 
-function Side({ label, event, side, attendanceId }: { label: string; event: AttendanceEvent; side: AttendanceSide | null; attendanceId: string }) {
+function Side({ label, event, side, attendanceId, face }: { label: string; event: AttendanceEvent; side: AttendanceSide | null; attendanceId: string; face?: string | null }) {
   if (!side) return <div className="hr-att-side"><span className="hr-att-side__label">{label}</span><span className="hr-att-side__none">Not recorded</span></div>;
   const far = formatDistance(side.distanceM);
   return (
@@ -38,6 +39,7 @@ function Side({ label, event, side, attendanceId }: { label: string; event: Atte
       {side.hasPhoto && <Picture attendanceId={attendanceId} event={event} label={label} />}
       {(side.outletName || far) && <span className="hr-att-side__meta">{[side.outletName, far ? `${far} from the outlet` : null].filter(Boolean).join(' · ')}</span>}
       {side.address ? <span className="hr-att-side__address">{side.address}</span> : <span className="hr-att-side__address">No address found for this location.</span>}
+      {face && <span className="hr-att-side__meta">{face}</span>}
       {side.flags.length > 0 && <span className="hr-flags">{side.flags.map((f) => <span key={f} className="hr-flag">{flagLabel(f)}</span>)}</span>}
     </div>
   );
@@ -78,8 +80,8 @@ export default function DailyDetailDialog({ row, onClose }: Props) {
         <>
           <p className="hr-att-hint">Opening the photos is recorded in the history.</p>
           <div className="hr-att-day__sides">
-            <Side label="Check-in" event="CHECK_IN" side={day.checkIn} attendanceId={day.attendanceId} />
-            <Side label="Check-out" event="CHECK_OUT" side={day.checkOut} attendanceId={day.attendanceId} />
+            <Side label="Check-in" event="CHECK_IN" side={day.checkIn} attendanceId={day.attendanceId} face={faceScoreText(row.checkInFaceScore, row.checkInFaceRef)} />
+            <Side label="Check-out" event="CHECK_OUT" side={day.checkOut} attendanceId={day.attendanceId} face={faceScoreText(row.checkOutFaceScore, row.checkOutFaceRef)} />
           </div>
           {flow.notice && <div className={`uc01-admin-message uc01-admin-message--${flow.notice.tone === 'success' ? 'success' : 'error'}`} role="status">{flow.notice.text}</div>}
           {day.exceptions.length > 0 && (

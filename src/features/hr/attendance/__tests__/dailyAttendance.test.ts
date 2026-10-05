@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import type { DailyRow } from '../../../../services/hr/attendanceReports';
-import { countByFilter, delinquencyText, fenceLabel, formatHours, groupByProject, matchesDayFilter, reportFileName, shiftDate, validateReportRange } from '../dailyAttendance';
+import { countByFilter, delinquencyText, faceScoreText, fenceLabel, formatHours, groupByProject, matchesDayFilter, reportFileName, shiftDate, validateReportRange } from '../dailyAttendance';
 import { approverPhrase, exceptionLabel } from '../attendanceFormat';
 
 const row = (over: Partial<DailyRow>): DailyRow => ({
@@ -112,5 +112,19 @@ describe('day filters', () => {
       ALL: 8, CHECKED_IN: 5, CHECKED_OUT: 3, BOTH: 3, IN_NOT_OUT: 2, NOT_IN: 2, ON_LEAVE: 1, DELINQUENT: 4, NEEDS_APPROVAL: 1,
     });
     expect(countByFilter([]).ALL).toBe(0);
+  });
+});
+
+describe('faceScoreText', () => {
+  it('shows the score to two places and what it was compared with', () => {
+    expect(faceScoreText(0.9123, 'PROFILE')).toBe('Face match 0.91 (profile photo)');
+    expect(faceScoreText(0.257, 'CHECK_IN')).toBe('Face match 0.26 (check-in photo)');
+    expect(faceScoreText(0, 'PROFILE')).toBe('Face match 0.00 (profile photo)');
+  });
+
+  it('shows nothing when no face was compared', () => {
+    expect(faceScoreText(null, null)).toBeNull();
+    expect(faceScoreText(undefined, 'PROFILE')).toBeNull();
+    expect(faceScoreText(Number.NaN, 'PROFILE')).toBeNull();
   });
 });

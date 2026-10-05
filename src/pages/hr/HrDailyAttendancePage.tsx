@@ -20,6 +20,7 @@ import {
   dailyStatusTone,
   dayFilterLabels,
   delinquencyText,
+  faceScoreText,
   fenceLabel,
   formatHours,
   groupByProject,
@@ -33,12 +34,13 @@ import '../../styles/hr-attendance.css';
 
 interface Project { code: string; name: string }
 
-function Side({ at, outlet, distance, photo }: { at: string | null; outlet: string | null; distance: number | null; photo?: ReactNode }) {
+function Side({ at, outlet, distance, photo, face }: { at: string | null; outlet: string | null; distance: number | null; photo?: ReactNode; face?: string | null }) {
   const far = formatDistance(distance);
   return (
     <span className="hr-daily-cell">
       <strong>{formatTimeIst(at)}</strong>
       {at && (outlet || far) && <small>{[outlet, far].filter(Boolean).join(' · ')}</small>}
+      {at && face && <small className="hr-daily-face">{face}</small>}
       {photo}
     </span>
   );
@@ -71,8 +73,8 @@ function RowLine({ row, onOpen }: { row: DailyRow; onOpen: (row: DailyRow) => vo
         </button>
       </td>
       <td data-label="Role">{row.roles.length ? row.roles.join(', ') : '—'}</td>
-      <td data-label="Check-in"><Side at={row.checkInAt} outlet={row.checkInOutlet} distance={row.checkInDistanceM} photo={photoFor(row, 'CHECK_IN')} /></td>
-      <td data-label="Check-out"><Side at={row.checkOutAt} outlet={row.checkOutOutlet} distance={row.checkOutDistanceM} photo={photoFor(row, 'CHECK_OUT')} /></td>
+      <td data-label="Check-in"><Side at={row.checkInAt} outlet={row.checkInOutlet} distance={row.checkInDistanceM} photo={photoFor(row, 'CHECK_IN')} face={faceScoreText(row.checkInFaceScore, row.checkInFaceRef)} /></td>
+      <td data-label="Check-out"><Side at={row.checkOutAt} outlet={row.checkOutOutlet} distance={row.checkOutDistanceM} photo={photoFor(row, 'CHECK_OUT')} face={faceScoreText(row.checkOutFaceScore, row.checkOutFaceRef)} /></td>
       <td data-label="Out of fence"><Fence row={row} /></td>
       <td data-label="Hours">{formatHours(row.hoursWorked)}</td>
       <td data-label="Status">

@@ -207,3 +207,4 @@
 .hr-daily__chip span { min-width: 22px; padding: 1px 6px; border-radius: 999px; background: #eef2f6; color: #52606d; font-size: 12px; text-align: center; }
 .hr-daily__chip.is-on { border-color: #1d4ed8; background: #e8f0ff; color: #12338f; }
 .hr-daily__chip.is-on span { background: #1d4ed8; color: #fff; }
+.hr-daily-cell .hr-daily-face { color: #52606d; }

@@ -39,6 +39,11 @@ export interface DailyRow {
   checkInDistanceM: number | null;
   checkOutDistanceM: number | null;
   /** true: outside the tagged location. false: inside it. null/absent: the fence does not apply (or nothing to judge). */
+  /** How closely the face matched (1 is identical) and what it was compared with. HR only; nothing acts on it. */
+  checkInFaceScore?: number | null;
+  checkInFaceRef?: 'PROFILE' | 'CHECK_IN' | null;
+  checkOutFaceScore?: number | null;
+  checkOutFaceRef?: 'PROFILE' | 'CHECK_IN' | null;
   checkInOutOfFence?: boolean | null;
   checkOutOutOfFence?: boolean | null;
   hoursWorked: number | null;

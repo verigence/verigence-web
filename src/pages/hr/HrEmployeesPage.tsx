@@ -1,22 +1,25 @@
 import { useEffect, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 
 import PageHeader from '../../components/PageHeader';
 import { hrErrorMessage } from '../../services/hr/client';
-import { listEmployees, type EmploymentStatus } from '../../services/hr/employees';
+import { getEmployeeSummary, listEmployees, type EmploymentStatus } from '../../services/hr/employees';
 import { PAYROLL_PERMISSION } from '../../services/hr/payroll';
 import { useSessionStore } from '../../store/sessionStore';
 import { initialsOf } from '../../features/hr/EmployeeAvatar';
 import { PendingCountBadge, SalaryStatusBadge } from '../../features/hr/EmployeeBadges';
 import { dataFlagLabels, statusLabels } from '../../features/hr/hrLabels';
 import { hrKeys, useHrAccess } from '../../features/hr/hrQueries';
+import EmployeeSyncDialog from '../../features/hr/EmployeeSyncDialog';
 
 const PAGE_SIZE = 25;
 
 export default function HrEmployeesPage() {
   const accessToken = useSessionStore((state) => state.accessToken);
   const access = useHrAccess();
+  const queryClient = useQueryClient();
+  const [syncOpen, setSyncOpen] = useState(false);
   const [search, setSearch] = useState('');
   const [query, setQuery] = useState('');
   const [status, setStatus] = useState<'' | EmploymentStatus>('');
@@ -40,6 +43,15 @@ export default function HrEmployeesPage() {
     retry: false,
     refetchOnWindowFocus: false,
     placeholderData: (previous) => previous,
+  });
+
+  // The numbers above the list. Loaded when the page opens and after a sync, never on a timer.
+  const summary = useQuery({
+    queryKey: [...hrKeys.employees, 'summary'],
+    queryFn: () => getEmployeeSummary(accessToken!),
+    enabled: Boolean(accessToken) && access.canReadEmployees,
+    retry: false,
+    refetchOnWindowFocus: false,
   });
 
   if (access.loading) return <div className="uc01-admin-state">Loading…</div>;
@@ -68,6 +80,7 @@ export default function HrEmployeesPage() {
         description="Employee records for the company. PAN and Aadhaar stay masked here."
         actions={access.canManageEmployees ? (
           <>
+            <button type="button" className="uc01-admin-button" onClick={() => setSyncOpen(true)}>Sync with Verigence</button>
             <Link className="uc01-admin-button" to="/hr/employees/import">Import from Excel</Link>
             {access.can(PAYROLL_PERMISSION.salaryPropose) && (
               <Link className="uc01-admin-button" to="/hr/employees/designation-salary-import">Import designation and salary</Link>
@@ -76,6 +89,15 @@ export default function HrEmployeesPage() {
           </>
         ) : undefined}
       />
+
+      {summary.data && (
+        <div className="hr-count-tiles" aria-label="Employee numbers">
+          <div><span>Employees</span><strong>{summary.data.total}</strong></div>
+          <div><span>Active</span><strong>{summary.data.active}</strong></div>
+          <div><span>Active with login</span><strong>{summary.data.activeWithLogin}</strong></div>
+          <div className={summary.data.activeWithoutLogin > 0 ? 'is-attention' : undefined}><span>Active without login</span><strong>{summary.data.activeWithoutLogin}</strong></div>
+        </div>
+      )}
 
       <div className="uc01-admin-toolbar">
         <label className="uc01-admin-search">
@@ -179,6 +201,13 @@ export default function HrEmployeesPage() {
             </nav>
           )}
         </>
+      )}
+      {syncOpen && accessToken && (
+        <EmployeeSyncDialog
+          accessToken={accessToken}
+          onClose={() => setSyncOpen(false)}
+          onApplied={() => { void queryClient.invalidateQueries({ queryKey: hrKeys.employees }); }}
+        />
       )}
     </section>
   );

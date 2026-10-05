@@ -180,3 +180,11 @@ button.hr-stepper__dot { cursor: pointer; }
 .profile-photo .hr-photo-picker { align-items: flex-start; min-width: 0; }
 .enterprise-topbar__avatar { overflow: hidden; }
 .enterprise-topbar__avatar-photo { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; display: block; }
+
+/* Numbers above the employee list */
+.hr-count-tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.hr-count-tiles > div { display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; border: 1px solid #dfe5ec; border-radius: 12px; background: #fff; min-width: 0; }
+.hr-count-tiles span { font-size: 10px; text-transform: uppercase; letter-spacing: .04em; color: #66717d; font-weight: 750; }
+.hr-count-tiles strong { font-size: 22px; color: #18212b; }
+.hr-count-tiles .is-attention { border-color: #f1c27a; background: #fff8ec; }
+@media (min-width: 760px) { .hr-count-tiles { grid-template-columns: repeat(4, minmax(0, 1fr)); } }

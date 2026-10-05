@@ -1,7 +1,15 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
 
 import { hrErrorMessage } from '../../services/hr/client';
-import { syncEmployeeUsers, type EmployeeSyncItem, type EmployeeSyncResult } from '../../services/hr/employees';
+import {
+  createMissingLogins,
+  syncEmployeeUsers,
+  type EmployeeSyncItem,
+  type EmployeeSyncResult,
+  type LoginCreateResult,
+} from '../../services/hr/employees';
+import { blockedLabel, creatable, inGroups, shouldStop, totals } from './loginSync';
 
 const ATTENTION: Record<string, string> = {
   EMPLOYEE_ACTIVE_USER_SUSPENDED: 'The employee is active but the login is suspended. Not changed; reinstate it yourself if that is right.',
@@ -46,8 +54,13 @@ interface Props {
  */
 export default function EmployeeSyncDialog({ accessToken, onClose, onApplied }: Props) {
   const [result, setResult] = useState<EmployeeSyncResult | null>(null);
-  const [busy, setBusy] = useState<'preview' | 'apply' | null>('preview');
+  const [busy, setBusy] = useState<'preview' | 'apply' | 'create' | null>('preview');
   const [error, setError] = useState('');
+  const [progress, setProgress] = useState('');
+  const [createResults, setCreateResults] = useState<LoginCreateResult[] | null>(null);
+  // Leaving the page stops the next group from starting; a request already sent is not taken back.
+  const alive = useRef(true);
+  useEffect(() => () => { alive.current = false; }, []);
 
   const run = async (apply: boolean) => {
     setBusy(apply ? 'apply' : 'preview');
@@ -60,6 +73,35 @@ export default function EmployeeSyncDialog({ accessToken, onClose, onApplied }: 
       setError(hrErrorMessage(problem));
     } finally {
       setBusy(null);
+    }
+  };
+
+  /** Creates the missing logins, five employees per request, one attempt each, never repeated. */
+  const createLogins = async () => {
+    if (!result) return;
+    const people = creatable(result.unmatched);
+    const names = new Map(people.map((p) => [p.employeeId, p.name]));
+    const done: LoginCreateResult[] = [];
+    setBusy('create');
+    setError('');
+    setCreateResults([]);
+    try {
+      for (const group of inGroups(people.map((p) => p.employeeId))) {
+        if (!alive.current) return;
+        setProgress(`Creating logins… ${done.length} of ${people.length} done`);
+        const data = await createMissingLogins(accessToken, group);
+        done.push(...data.results.map((r) => ({ ...r, name: r.name ?? names.get(r.employeeId) ?? null })));
+        setCreateResults([...done]);
+        if (shouldStop(data.results)) break;
+      }
+    } catch (problem) {
+      setError(`${hrErrorMessage(problem)} ${done.length} of ${people.length} were handled. Nothing was repeated; press Check again to see what is left.`);
+    } finally {
+      if (alive.current) {
+        setBusy(null);
+        setProgress('');
+      }
+      if (done.length > 0) onApplied();
     }
   };
 
@@ -80,6 +122,10 @@ export default function EmployeeSyncDialog({ accessToken, onClose, onApplied }: 
           Matches HR employees with Verigence users by email. Matched users get <strong>Is employee</strong> ticked and are linked to the
           employee record. If an employee is not active, their active user is <strong>suspended</strong>. Nobody is reactivated, and the
           SuperAdmin is never suspended. Users who are not employees are left alone.
+        </p>
+        <p>
+          An active employee who has no Verigence user can be given one here. The login is ready to use and needs no approval. The password
+          is made by the system and is not shown; send the Welcome email afterwards.
         </p>
 
         {busy === 'preview' && <div className="uc01-admin-state">Checking HR and the user list…</div>}
@@ -102,6 +148,8 @@ export default function EmployeeSyncDialog({ accessToken, onClose, onApplied }: 
               <div><dt>{result.applied ? 'Suspended' : 'To suspend'}</dt><dd>{s.toSuspend}</dd></div>
               <div><dt>Employees with no usable login</dt><dd>{s.unmatched}</dd></div>
               <div><dt>Need your attention</dt><dd>{s.needAttention}</dd></div>
+              <div><dt>Login email is not the HR email</dt><dd>{s.emailDiffers}</dd></div>
+              <div><dt>Logins that can be created</dt><dd>{s.toCreate}</dd></div>
             </dl>
 
             {result.items.length > 0 && (
@@ -111,6 +159,7 @@ export default function EmployeeSyncDialog({ accessToken, onClose, onApplied }: 
                     <li key={item.employeeId} style={{ flexDirection: 'column', gap: 2 }}>
                       <strong>{item.name} <small>({item.code}, {item.employmentStatus.toLowerCase()}, user {item.userStatus.toLowerCase()})</small></strong>
                       {result.applied ? <span style={{ textAlign: 'left' }}>{done(item)}</span> : actions(item) && <span style={{ textAlign: 'left' }}>Will {actions(item)}</span>}
+                      {item.emailDiffers && <span style={{ textAlign: 'left', color: '#93370d' }}>The login email is {item.userEmail}. HR has a different email for this employee.</span>}
                       {item.attention.map((a) => <span key={a} style={{ textAlign: 'left', color: '#93370d' }}>{ATTENTION[a] ?? a}</span>)}
                     </li>
                   ))}
@@ -123,13 +172,34 @@ export default function EmployeeSyncDialog({ accessToken, onClose, onApplied }: 
                 <summary>{result.unmatched.length} employee(s) without a usable login</summary>
                 <ul className="uc01-admin-bulklist">
                   {result.unmatched.map((u) => (
-                    <li key={u.employeeId}><strong>{u.name} ({u.code})</strong><span>{UNMATCHED[u.reason] ?? u.reason}</span></li>
+                    <li key={u.employeeId}>
+                      <strong>{u.name} ({u.code})</strong>
+                      <span>{UNMATCHED[u.reason] ?? u.reason}{u.blocked ? ` ${blockedLabel(u.blocked)}` : ''}</span>
+                    </li>
                   ))}
                 </ul>
               </details>
             )}
+
+            {createResults && (
+              <div className="uc01-admin-message uc01-admin-message--success" role="status">
+                {(() => {
+                  const t = totals(createResults);
+                  return `Logins created: ${t.created}. Not created: ${t.skipped + t.failed}.`;
+                })()}
+                {createResults.some((r) => r.outcome === 'CREATED') && (
+                  <> Next, send them the Welcome email from <Link to="/hr/messages">Messages</Link>.</>
+                )}
+                <ul className="uc01-admin-bulklist" style={{ maxHeight: 'none', border: 0 }}>
+                  {createResults.filter((r) => r.outcome !== 'CREATED').map((r) => (
+                    <li key={r.employeeId}><strong>{r.name ?? r.employeeId}{r.code ? ` (${r.code})` : ''}</strong><span>{blockedLabel(r.reason)}</span></li>
+                  ))}
+                </ul>
+              </div>
+            )}
           </>
         )}
+        {busy === 'create' && progress && <div className="uc01-admin-state" role="status">{progress}</div>}
 
         <div className="uc01-admin-dialog__actions">
           <button type="button" className="uc01-admin-button" disabled={busy !== null} onClick={onClose}>
@@ -138,6 +208,11 @@ export default function EmployeeSyncDialog({ accessToken, onClose, onApplied }: 
           {!result?.applied && (
             <button type="button" className="uc01-admin-button" disabled={busy !== null} onClick={() => void run(false)}>
               Check again
+            </button>
+          )}
+          {result && !result.applied && s && s.toCreate > 0 && !createResults && (
+            <button type="button" className="uc01-admin-button uc01-admin-button--primary" disabled={busy !== null} onClick={() => void createLogins()}>
+              {busy === 'create' ? 'Creating…' : `Create ${s.toCreate} ${s.toCreate === 1 ? 'login' : 'logins'}`}
             </button>
           )}
           {result && !result.applied && !nothingToDo && (

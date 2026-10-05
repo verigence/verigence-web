@@ -244,6 +244,9 @@ export interface EmployeeSyncItem {
   tick: boolean;
   suspend: boolean;
   attention: string[];
+  userEmail: string | null;
+  /** The Verigence login uses an email that HR does not have for this employee. */
+  emailDiffers: boolean;
   done?: { linked: boolean; ticked: boolean; suspended: boolean; note: string | null };
 }
 
@@ -252,6 +255,10 @@ export interface EmployeeSyncUnmatched {
   code: string;
   name: string;
   reason: 'NO_LOGIN' | 'LINKED_USER_MISSING' | 'LOGIN_IN_USE';
+  /** Only for NO_LOGIN: the HR email, whether a login can be created now, and if not, why. */
+  email?: string | null;
+  canCreate?: boolean;
+  blocked?: string | null;
 }
 
 export interface EmployeeSyncResult {
@@ -264,6 +271,8 @@ export interface EmployeeSyncResult {
     toSuspend: number;
     unmatched: number;
     needAttention: number;
+    emailDiffers: number;
+    toCreate: number;
   };
   items: EmployeeSyncItem[];
   unmatched: EmployeeSyncUnmatched[];
@@ -277,6 +286,32 @@ export const syncEmployeeUsers = (token: string, apply: boolean) =>
     body: { apply },
     timeoutMs: 120_000,
   });
+
+export interface LoginCreateResult {
+  employeeId: string;
+  code: string | null;
+  name: string | null;
+  outcome: 'CREATED' | 'SKIPPED' | 'FAILED';
+  reason: string | null;
+}
+
+/** Creates the Verigence login for up to five employees. One attempt each; the service never retries. */
+export const createMissingLogins = (token: string, employeeIds: string[]) =>
+  hrRequest<{ results: LoginCreateResult[] }>(`${base}/employees/sync-users/create`, {
+    accessToken: token,
+    method: 'POST',
+    body: { employeeIds },
+    timeoutMs: 120_000,
+  });
+
+export interface EmployeeSummary {
+  total: number;
+  active: number;
+  activeWithLogin: number;
+  activeWithoutLogin: number;
+}
+
+export const getEmployeeSummary = (token: string) => hrRequest<EmployeeSummary>(`${base}/employees/summary`, { accessToken: token });
 
 export const retryEmployeeLogin = (token: string, id: string) =>
   hrRequest<RetryLoginResult>(`${base}/employees/${id}/login`, { accessToken: token, method: 'POST' });

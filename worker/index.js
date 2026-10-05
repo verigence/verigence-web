@@ -319,7 +319,32 @@ function publicReleaseMetadata(metadata) {
   return publicMetadata;
 }
 
-async function handleAppDistribution(request, env, correlationId) {
+// Tell Security that this signed-in person started the Android download, so SuperAdmin can see who has
+// the app. Fire and forget: whatever happens here, the download itself is never delayed or stopped.
+function recordAppDownload(request, env, correlationId, metadata) {
+  try {
+    const origin = new URL(request.url).origin;
+    const target = buildSecurityTarget(env.SECURITY_UPSTREAM, `${origin}/security/v1/me/app-download`);
+    const headers = new Headers({
+      Authorization: request.headers.get('Authorization')?.trim() || '',
+      'Content-Type': 'application/json',
+      [CORRELATION_HEADER]: correlationId,
+    });
+    const connectingIp = request.headers.get('CF-Connecting-IP')?.trim();
+    if (connectingIp) headers.set('X-Real-IP', connectingIp);
+    const appVersion = metadata?.version ? String(metadata.version).slice(0, 30) : null;
+    return fetch(target, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ appVersion }),
+      cache: 'no-store',
+    }).catch(() => undefined);
+  } catch {
+    return undefined;
+  }
+}
+
+async function handleAppDistribution(request, env, correlationId, ctx) {
   if (request.method !== 'GET') {
     return appDistributionJson({ code: 'METHOD_NOT_ALLOWED', status: 405 }, 405, correlationId);
   }
@@ -389,6 +414,9 @@ async function handleAppDistribution(request, env, correlationId) {
     if (Number.isFinite(size)) headers.set('Content-Length', String(size));
     if (metadata.sha256) headers.set('X-Verigence-SHA256', metadata.sha256);
 
+    if (ctx && typeof ctx.waitUntil === 'function') {
+      ctx.waitUntil(recordAppDownload(request, env, correlationId, metadata));
+    }
     return new Response(object.body, { status: 200, headers });
   } catch (error) {
     logProxyFailure('app-distribution', request, correlationId, 'ANDROID_RELEASE_UNAVAILABLE', error);
@@ -402,7 +430,7 @@ async function handleAppDistribution(request, env, correlationId) {
 }
 
 export default {
-  async fetch(request, env) {
+  async fetch(request, env, ctx) {
     const url = new URL(request.url);
     const correlationId = correlationIdFor(request);
 
@@ -418,7 +446,7 @@ export default {
     }
 
     if (url.pathname === '/app-distribution' || url.pathname.startsWith('/app-distribution/')) {
-      return handleAppDistribution(request, env, correlationId);
+      return handleAppDistribution(request, env, correlationId, ctx);
     }
 
     if (url.pathname.startsWith('/security/')) {

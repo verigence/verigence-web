@@ -1,0 +1,18 @@
+.la-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+.la-chip { border: 1px solid #d0d5dd; background: #fff; color: #344054; border-radius: 999px; padding: 8px 14px; font-size: 13px; min-height: 40px; cursor: pointer; }
+.la-chip strong { margin-left: 6px; }
+.la-chip[aria-pressed='true'] { background: #0b4f6c; border-color: #0b4f6c; color: #fff; }
+.la-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-bottom: 12px; }
+.la-tools input[type='search'] { flex: 1 1 200px; min-height: 40px; padding: 0 12px; border: 1px solid #d0d5dd; border-radius: 8px; font-size: 14px; }
+.la-tools label { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; }
+.la-row { padding: 10px 0; border-bottom: 1px solid #eef1f4; }
+.la-row:last-child { border-bottom: 0; }
+.la-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; flex-wrap: wrap; }
+.la-head small { display: block; color: #667085; word-break: break-all; }
+.la-state { font-size: 12px; padding: 3px 10px; border-radius: 999px; background: #f2f4f7; color: #344054; white-space: normal; }
+.la-state--APP_SIGNED_IN { background: #ecfdf3; color: #067647; }
+.la-state--DOWNLOADED { background: #eff8ff; color: #175cd3; }
+.la-state--WEB_ONLY { background: #fff6ed; color: #93370d; }
+.la-state--TRIED_FAILED { background: #fef3f2; color: #b42318; }
+.la-facts { margin: 6px 0 0; padding: 0; list-style: none; font-size: 13px; color: #475467; }
+.la-facts li { margin: 2px 0; }

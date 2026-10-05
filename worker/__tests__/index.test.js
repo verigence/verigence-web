@@ -287,6 +287,69 @@ describe('authenticated app distribution', () => {
     upstream.mockRestore();
   });
 
+  it('tells Security who started the download, without delaying it', async () => {
+    const apkBytes = new Uint8Array([0x50, 0x4b, 0x03, 0x04]);
+    const upstream = vi.spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(new Response('{}', { status: 200 }))
+      .mockResolvedValueOnce(new Response('{"recorded":true}', { status: 200 }));
+    const pending = [];
+
+    const response = await worker.fetch(
+      new Request('https://verigence-web-dev.example/app-distribution/latest', {
+        headers: { Authorization: 'Bearer valid-user-token', 'CF-Connecting-IP': '203.0.113.9' },
+      }),
+      { SECURITY_UPSTREAM: 'https://security.example', APP_RELEASES: fakeReleaseBucket({ metadata, apkBytes }) },
+      { waitUntil: (promise) => pending.push(promise) },
+    );
+    await Promise.all(pending);
+
+    expect(response.status).toBe(200);
+    expect(upstream).toHaveBeenCalledTimes(2);
+    const [target, init] = upstream.mock.calls[1];
+    expect(String(target)).toBe('https://security.example/security/v1/me/app-download');
+    expect(init.method).toBe('POST');
+    expect(init.headers.get('Authorization')).toBe('Bearer valid-user-token');
+    expect(init.headers.get('X-Real-IP')).toBe('203.0.113.9');
+    expect(JSON.parse(init.body)).toEqual({ appVersion: '1.2.3' });
+    upstream.mockRestore();
+  });
+
+  it('still delivers the APK when recording the download fails', async () => {
+    const apkBytes = new Uint8Array([0x50, 0x4b, 0x03, 0x04]);
+    const upstream = vi.spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(new Response('{}', { status: 200 }))
+      .mockRejectedValueOnce(new Error('Security is down'));
+    const pending = [];
+
+    const response = await worker.fetch(
+      new Request('https://verigence-web-dev.example/app-distribution/latest', {
+        headers: { Authorization: 'Bearer valid-user-token' },
+      }),
+      { SECURITY_UPSTREAM: 'https://security.example', APP_RELEASES: fakeReleaseBucket({ metadata, apkBytes }) },
+      { waitUntil: (promise) => pending.push(promise) },
+    );
+    await expect(Promise.all(pending)).resolves.toBeDefined();
+
+    expect(response.status).toBe(200);
+    expect(new Uint8Array(await response.arrayBuffer())).toEqual(apkBytes);
+    upstream.mockRestore();
+  });
+
+  it('does not record a download when only the release information is read', async () => {
+    const upstream = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(new Response('{}', { status: 200 }));
+    const pending = [];
+    await worker.fetch(
+      new Request('https://verigence-web-dev.example/app-distribution/metadata', {
+        headers: { Authorization: 'Bearer valid-user-token' },
+      }),
+      { SECURITY_UPSTREAM: 'https://security.example', APP_RELEASES: fakeReleaseBucket({ metadata }) },
+      { waitUntil: (promise) => pending.push(promise) },
+    );
+    expect(pending).toHaveLength(0);
+    expect(upstream).toHaveBeenCalledTimes(1);
+    upstream.mockRestore();
+  });
+
   it('reports not-published when a valid user has no R2 release metadata', async () => {
     const upstream = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(new Response('{}', { status: 200 }));
     const response = await worker.fetch(

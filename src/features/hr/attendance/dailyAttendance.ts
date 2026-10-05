@@ -110,3 +110,10 @@ export function reportFileName(from: string, to: string, projectCode?: string): 
   const project = projectCode ? `-${projectCode.replace(/[^A-Za-z0-9_-]+/g, '-')}` : '';
   return `attendance-${range}${project}.xlsx`;
 }
+
+/** "Yes" when outside the tagged location, "No" when inside, and a dash when the fence does not apply. */
+export function fenceLabel(value: boolean | null | undefined): string {
+  if (value === true) return 'Yes';
+  if (value === false) return 'No';
+  return '—';
+}

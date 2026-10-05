@@ -101,12 +101,18 @@ export const updateMessageTemplate = (
     body: input as unknown as Record<string, unknown>,
   });
 
-/** One request, one attempt. The caller sends at most MESSAGE_BATCH_LIMIT ids and never retries. */
+/**
+ * One request, one attempt. The caller sends at most MESSAGE_BATCH_LIMIT ids and never retries.
+ * Each person needs a password reset and a mail connection, one after the other, so a group of five
+ * can take longer than the usual 30 seconds: wait up to two minutes before giving up.
+ */
+const SEND_TIMEOUT_MS = 120_000;
 export const sendMessages = (token: string, input: SendMessageInput) =>
   hrRequest<{ results: SendMessageResult[] }>(`${base}/send`, {
     accessToken: token,
     method: 'POST',
     body: input as unknown as Record<string, unknown>,
+    timeoutMs: SEND_TIMEOUT_MS,
   });
 
 export const listMessageLog = (token: string, params: { userId?: string; limit?: number } = {}) => {

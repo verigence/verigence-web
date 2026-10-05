@@ -38,8 +38,22 @@ export const salaryStatusTone: Record<SalaryStatus, 'rejected' | 'pending' | 'ap
 
 export const statusLabels: Record<EmploymentStatus, string> = {
   ACTIVE: 'Active',
-  INACTIVE: 'Inactive',
-  EXITED: 'Exited',
+  SUSPENDED: 'Suspended',
+  TERMINATED: 'Terminated',
+  QUIT: 'Quit',
+};
+
+/** What happened to the Verigence login when a status change was approved, in plain words. */
+export const loginOutcomeLabels: Record<string, string> = {
+  LOGIN_SUSPENDED: 'The Verigence login was suspended.',
+  LOGIN_ALREADY_NOT_ACTIVE: 'The Verigence login was not active, so nothing was changed.',
+  LOGIN_SUPERADMIN_NOT_SUSPENDED: 'This is the SuperAdmin login, so it was not suspended.',
+  LOGIN_NOT_FOUND: 'The Verigence login could not be found.',
+  LOGIN_NOT_UPDATED: 'The Verigence login could not be checked now. Use Sync with Verigence on the Employees page to suspend it.',
+  LOGIN_NOT_CHECKED: 'The Verigence login was not checked.',
+  LOGIN_ACTIVE: 'The Verigence login is active.',
+  LOGIN_NEEDS_SUPERADMIN: 'The Verigence login is still suspended. Ask the SuperAdmin to reinstate it.',
+  NO_LOGIN: 'This employee has no Verigence login.',
 };
 
 export const loginLabels: Record<LoginStatus, string> = {

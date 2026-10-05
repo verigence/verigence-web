@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom';
 
 import PageHeader from '../../components/PageHeader';
 import { hrErrorMessage } from '../../services/hr/client';
-import { getEmployeeSummary, listEmployees, type EmploymentStatus } from '../../services/hr/employees';
+import { getEmployeeSummary, listEmployees, listStatusChanges, type EmploymentStatus } from '../../services/hr/employees';
 import { PAYROLL_PERMISSION } from '../../services/hr/payroll';
 import { useSessionStore } from '../../store/sessionStore';
 import { initialsOf } from '../../features/hr/EmployeeAvatar';
@@ -12,6 +12,7 @@ import { PendingCountBadge, SalaryStatusBadge } from '../../features/hr/Employee
 import { dataFlagLabels, statusLabels } from '../../features/hr/hrLabels';
 import { hrKeys, useHrAccess } from '../../features/hr/hrQueries';
 import EmployeeSyncDialog from '../../features/hr/EmployeeSyncDialog';
+import { StatusChangeRow } from '../../features/hr/EmployeeStatusParts';
 
 const PAGE_SIZE = 25;
 
@@ -49,6 +50,15 @@ export default function HrEmployeesPage() {
   const summary = useQuery({
     queryKey: [...hrKeys.employees, 'summary'],
     queryFn: () => getEmployeeSummary(accessToken!),
+    enabled: Boolean(accessToken) && access.canReadEmployees,
+    retry: false,
+    refetchOnWindowFocus: false,
+  });
+
+  // Status changes waiting for the CEO. Loaded when the page opens and after a decision.
+  const waiting = useQuery({
+    queryKey: [...hrKeys.employees, 'status-changes', 'pending'],
+    queryFn: () => listStatusChanges(accessToken!, 'PENDING'),
     enabled: Boolean(accessToken) && access.canReadEmployees,
     retry: false,
     refetchOnWindowFocus: false,
@@ -97,6 +107,30 @@ export default function HrEmployeesPage() {
           <div><span>Active with login</span><strong>{summary.data.activeWithLogin}</strong></div>
           <div className={summary.data.activeWithoutLogin > 0 ? 'is-attention' : undefined}><span>Active without login</span><strong>{summary.data.activeWithoutLogin}</strong></div>
         </div>
+      )}
+
+      {summary.data && (summary.data.suspended + summary.data.terminated + summary.data.quit > 0) && (
+        <p className="hr-count">Suspended {summary.data.suspended} · Terminated {summary.data.terminated} · Quit {summary.data.quit}</p>
+      )}
+
+      {waiting.data && waiting.data.items.length > 0 && (
+        <section className="hr-status-panel" aria-label="Status changes waiting for approval">
+          <strong>{waiting.data.items.length === 1 ? '1 status change is waiting for the CEO' : `${waiting.data.items.length} status changes are waiting for the CEO`}</strong>
+          <ul className="hr-status-list">
+            {waiting.data.items.map((c) => (
+              <StatusChangeRow
+                key={c.changeId}
+                accessToken={accessToken!}
+                change={c}
+                userId={access.me?.userId ?? null}
+                canApprove={access.canApproveStatus}
+                canManage={access.canManageEmployees}
+                showEmployee
+                onDecided={() => { void queryClient.invalidateQueries({ queryKey: hrKeys.employees }); }}
+              />
+            ))}
+          </ul>
+        </section>
       )}
 
       <div className="uc01-admin-toolbar">

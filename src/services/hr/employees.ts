@@ -1,7 +1,7 @@
 import { hrRawRequest, hrRequest } from './client';
 
 export type Gender = 'MALE' | 'FEMALE' | 'OTHER';
-export type EmploymentStatus = 'ACTIVE' | 'INACTIVE' | 'EXITED';
+export type EmploymentStatus = 'ACTIVE' | 'SUSPENDED' | 'TERMINATED' | 'QUIT';
 export type LoginStatus = 'NOT_CREATED' | 'CREATED' | 'FAILED';
 export type DataFlag = 'PAN_MISSING' | 'PAN_DUPLICATE' | 'AADHAAR_MISSING' | 'MOBILE_MISSING';
 /** Computed by the HR service on every read from the data it holds (not stored). */
@@ -19,6 +19,7 @@ export type MissingDetail =
 export const HR_PERMISSION = {
   employeeRead: 'hr.employee.read',
   employeeManage: 'hr.employee.manage',
+  employeeStatusApprove: 'hr.employee.status_approve',
   sensitiveRead: 'hr.sensitive.read',
   auditRead: 'hr.audit.read',
   settingsManage: 'hr.settings.manage',
@@ -160,7 +161,6 @@ export type EmployeeUpdateInput = Partial<
   Omit<EmployeeCreateInput, 'employee_code' | 'qualifications' | 'create_login'>
 > & {
   designation_code?: string | null;
-  employment_status?: EmploymentStatus;
 };
 
 export interface SelfUpdateInput {
@@ -311,6 +311,9 @@ export interface EmployeeSummary {
   active: number;
   activeWithLogin: number;
   activeWithoutLogin: number;
+  suspended: number;
+  terminated: number;
+  quit: number;
 }
 
 export const getEmployeeSummary = (token: string) => hrRequest<EmployeeSummary>(`${base}/employees/summary`, { accessToken: token });
@@ -535,3 +538,42 @@ export const commitEmployeeImport = (token: string, file: File, rows: number[], 
     timeoutMs: 120_000,
   });
 };
+
+export type StatusChangeState = 'PENDING' | 'APPROVED' | 'REJECTED' | 'CANCELLED';
+
+export interface StatusChange {
+  changeId: string;
+  employeeId: string;
+  employeeCode: string;
+  employeeName: string;
+  fromStatus: EmploymentStatus;
+  toStatus: EmploymentStatus;
+  effectiveDate: string;
+  reason: string;
+  status: StatusChangeState;
+  requestedBy: string;
+  requestedAt: string;
+  decidedBy: string | null;
+  decidedAt: string | null;
+  decisionNote: string | null;
+  /** What happened to the Verigence login when the change was approved. */
+  loginOutcome: string | null;
+}
+
+/** HR asks for a status change. Nothing changes until the CEO approves it. */
+export const requestStatusChange = (token: string, employeeId: string, input: { to_status: EmploymentStatus; effective_date?: string; reason: string }) =>
+  hrRequest<StatusChange>(`${base}/employees/${employeeId}/status-change`, { accessToken: token, method: 'POST', body: input });
+
+export const listStatusChanges = (token: string, status?: StatusChangeState) =>
+  hrRequest<{ items: StatusChange[] }>(`${base}/employee-status-changes${status ? `?status=${status}` : ''}`, { accessToken: token });
+
+export const employeeStatusHistory = (token: string, employeeId: string) =>
+  hrRequest<{ items: StatusChange[] }>(`${base}/employees/${employeeId}/status-changes`, { accessToken: token });
+
+export const decideStatusChange = (token: string, changeId: string, action: 'approve' | 'reject' | 'cancel', note?: string) =>
+  hrRequest<StatusChange>(`${base}/employee-status-changes/${changeId}/${action}`, {
+    accessToken: token,
+    method: 'POST',
+    body: action === 'cancel' ? {} : { note: note ?? null },
+    timeoutMs: 60_000,
+  });

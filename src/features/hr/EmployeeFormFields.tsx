@@ -141,15 +141,6 @@ export function EmploymentSection({ mode, values, errors, onChange, designations
         <Field label="Date of joining" htmlFor="hr-doj" error={errors.dateOfJoining}>
           <input id="hr-doj" type="date" value={values.dateOfJoining} onChange={text('dateOfJoining')} />
         </Field>
-        {mode === 'edit' && (
-          <Field label="Employment status" htmlFor="hr-status" error={errors.employmentStatus}>
-            <select id="hr-status" value={values.employmentStatus} onChange={text('employmentStatus')}>
-              <option value="ACTIVE">Active</option>
-              <option value="INACTIVE">Inactive</option>
-              <option value="EXITED">Exited</option>
-            </select>
-          </Field>
-        )}
       </div>
     </SectionCard>
   );

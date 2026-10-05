@@ -188,3 +188,13 @@ button.hr-stepper__dot { cursor: pointer; }
 .hr-count-tiles strong { font-size: 22px; color: #18212b; }
 .hr-count-tiles .is-attention { border-color: #f1c27a; background: #fff8ec; }
 @media (min-width: 760px) { .hr-count-tiles { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+
+/* Status change requests */
+.hr-status-panel { border: 1px solid #f1c27a; background: #fff8ec; border-radius: 12px; padding: 10px 12px; display: flex; flex-direction: column; gap: 6px; }
+.hr-status-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.hr-status-row { display: flex; flex-direction: column; gap: 3px; font-size: 13px; padding: 8px 0; border-top: 1px solid #e9d9b8; }
+.hr-status-row:first-child { border-top: 0; }
+.hr-status-row span { color: #52606d; }
+.hr-status-row__error { color: #b42318 !important; }
+.hr-status-row__note { display: flex; flex-direction: column; gap: 2px; font-size: 12px; }
+.hr-status-row__buttons { display: flex; flex-wrap: wrap; gap: 8px; }

@@ -231,7 +231,6 @@ export function buildUpdatePayload(original: Employee, v: EmployeeFormValues): E
   const emergency = v.emergencyContactNumber.trim() ? normaliseMobile(v.emergencyContactNumber) : null;
   if ((original.emergencyContactNumber ?? null) !== emergency) out.emergency_contact_number = emergency;
   if ((original.dateOfJoining ?? '') !== v.dateOfJoining) out.date_of_joining = v.dateOfJoining || null;
-  if (v.employmentStatus && v.employmentStatus !== original.employmentStatus) out.employment_status = v.employmentStatus;
   if (v.pan.trim()) out.pan = normalisePan(v.pan);
   const aadhaar = v.aadhaar.trim() ? normaliseAadhaar(v.aadhaar) : null;
   if (aadhaar) out.aadhaar = aadhaar;

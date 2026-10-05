@@ -87,6 +87,8 @@ export function getVerigenceDeviceContext(): VerigenceDeviceContext {
     deviceName: isNative ? 'Verigence Mobile' : detectedBrowser.name,
     browserName: isNative ? 'Capacitor WebView' : detectedBrowser.name,
     browserVersion: detectedBrowser.version,
+    // Only the installed app reports a version (the web page is always the latest).
+    appVersion: isNative && typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : undefined,
   };
   return cachedDeviceContext;
 }

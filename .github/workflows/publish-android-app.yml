@@ -25,7 +25,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     permissions:
-      contents: read
+      contents: write # only to tag the released commit in Git
     env:
       VITE_SECURITY_BASE_URL: https://verigence-web-dev.jbrconsulting-it.workers.dev
       VITE_AUDIT_CORE_BASE_URL: ""
@@ -116,6 +116,15 @@ jobs:
           echo "APP_VERSION=$APP_VERSION" >> "$GITHUB_ENV"
           echo "VERSION_CODE=$VERSION_CODE" >> "$GITHUB_ENV"
           echo "ANDROID_VERSION=$APP_VERSION+$VERSION_CODE"
+
+      - name: Release notes from the changelog
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Stops here, before the long build, when this version has no notes in CHANGELOG.md.
+          node scripts/release-notes.mjs > /tmp/release-notes.md
+          echo "--- release notes for $APP_VERSION ---"
+          cat /tmp/release-notes.md
 
       - name: Build unsigned Android release
         working-directory: android
@@ -221,7 +230,7 @@ jobs:
             objectKey: process.env.OBJECT_KEY,
             packageName: 'com.verigence.app',
             sourceSha: process.env.GITHUB_SHA,
-            releaseNotes: process.env.RELEASE_NOTES || null,
+            releaseNotes: process.env.RELEASE_NOTES || fs.readFileSync('/tmp/release-notes.md', 'utf8').trim(),
           };
           fs.writeFileSync('/tmp/latest.json', `${JSON.stringify(metadata, null, 2)}\n`);
           NODE
@@ -260,6 +269,18 @@ jobs:
             --remote
           cmp /tmp/latest.json /tmp/published-latest.json
           echo 'VERIGENCE_ANDROID_R2_PUBLICATION=PASS'
+
+      - name: Tag the released commit in Git
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG="android-v${APP_VERSION}-${VERSION_CODE}"
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git tag -a "$TAG" -m "Verigence Android ${APP_VERSION} (build ${VERSION_CODE})" -m "$(cat /tmp/release-notes.md)" "$GITHUB_SHA"
+          git push origin "$TAG"
+          echo "ANDROID_RELEASE_TAG=$TAG"
 
       - name: Upload signed release evidence
         uses: actions/upload-artifact@v4

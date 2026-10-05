@@ -13,15 +13,20 @@ import PhotoThumb from '../../features/hr/attendance/PhotoThumb';
 import ReportDialog from '../../features/hr/attendance/ReportDialog';
 import { formatDistance, formatTimeIst, formatWorkDate, todayIst } from '../../features/hr/attendance/attendanceFormat';
 import {
+  DAY_FILTERS,
+  countByFilter,
   dailyKeys,
   dailyStatusLabels,
   dailyStatusTone,
+  dayFilterLabels,
   delinquencyText,
   fenceLabel,
   formatHours,
   groupByProject,
+  matchesDayFilter,
   needsAttention,
   shiftDate,
+  type DayFilter,
 } from '../../features/hr/attendance/dailyAttendance';
 import { useHrAccess } from '../../features/hr/hrQueries';
 import '../../styles/hr-attendance.css';
@@ -99,7 +104,7 @@ export default function HrDailyAttendancePage() {
   const today = todayIst();
   const [date, setDate] = useState(today);
   const [project, setProject] = useState('');
-  const [onlyDelinquent, setOnlyDelinquent] = useState(false);
+  const [filter, setFilter] = useState<DayFilter>('ALL');
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [reportOpen, setReportOpen] = useState(false);
   const [openRow, setOpenRow] = useState<DailyRow | null>(null);
@@ -139,7 +144,8 @@ export default function HrDailyAttendancePage() {
     return [...all].map(([code, name]) => ({ code, name })).sort((a, b) => a.name.localeCompare(b.name));
   }, [known, assigned.data]);
 
-  const rows = useMemo(() => (data?.rows ?? []).filter((r) => !onlyDelinquent || needsAttention(r)), [data, onlyDelinquent]);
+  const counts = useMemo(() => countByFilter(data?.rows ?? []), [data]);
+  const rows = useMemo(() => (data?.rows ?? []).filter((r) => matchesDayFilter(r, filter)), [data, filter]);
   const groups = useMemo(() => groupByProject(rows), [rows]);
   const toggle = (key: string) => setCollapsed((current) => {
     const next = new Set(current);
@@ -200,10 +206,14 @@ export default function HrDailyAttendancePage() {
             {projects.map((p) => <option key={p.code} value={p.code}>{p.name}</option>)}
           </select>
         </label>
-        <label className="hr-daily__toggle">
-          <input type="checkbox" checked={onlyDelinquent} onChange={(e) => setOnlyDelinquent(e.target.checked)} />
-          <span>Only show delinquencies</span>
-        </label>
+      </div>
+
+      <div className="hr-daily__filters" role="group" aria-label="Show">
+        {DAY_FILTERS.map((f) => (
+          <button key={f} type="button" className={`hr-daily__chip${filter === f ? ' is-on' : ''}`} aria-pressed={filter === f} onClick={() => setFilter(f)}>
+            {dayFilterLabels[f]} <span>{data ? counts[f] : '–'}</span>
+          </button>
+        ))}
       </div>
 
       <p className="hr-count" aria-live="polite">{formatWorkDate(date)}</p>
@@ -232,7 +242,7 @@ export default function HrDailyAttendancePage() {
           </div>
 
           {groups.length === 0 ? (
-            <div className="uc01-admin-state">{onlyDelinquent ? 'No delinquencies on this day.' : 'No attendance to show for this day.'}</div>
+            <div className="uc01-admin-state">{filter !== 'ALL' && (data?.rows.length ?? 0) > 0 ? `No one matches “${dayFilterLabels[filter]}” on this day.` : 'No attendance to show for this day.'}</div>
           ) : (
             groups.map((g) => {
               const open = !collapsed.has(g.key);

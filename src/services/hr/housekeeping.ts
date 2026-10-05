@@ -25,3 +25,22 @@ export const previewHousekeeping = (token: string, scope: HousekeepingScope) =>
 
 export const purgeHousekeeping = (token: string, scope: HousekeepingScope) =>
   hrRequest<HousekeepingPreview>(`${base}/purge`, { accessToken: token, method: 'POST', body: { ...scope, confirm: 'DELETE' } });
+
+export interface EmployeeDeletePreview {
+  employeeCode: string;
+  fullName: string;
+  employmentStatus: string;
+  hasLogin: boolean;
+  counts: Record<string, number>;
+  blockedBy: string | null;
+  note: string | null;
+  deleted?: boolean;
+  filesNotRemoved?: number;
+}
+
+/** Deletes one employee and all their records for good (people added only to test). */
+export const previewEmployeeDelete = (token: string, employeeCode: string) =>
+  hrRequest<EmployeeDeletePreview>(`${base}/employee/preview`, { accessToken: token, method: 'POST', body: { employee_code: employeeCode } });
+
+export const deleteEmployeeForGood = (token: string, employeeCode: string) =>
+  hrRequest<EmployeeDeletePreview>(`${base}/employee/delete`, { accessToken: token, method: 'POST', body: { employee_code: employeeCode, confirm: 'DELETE' } });

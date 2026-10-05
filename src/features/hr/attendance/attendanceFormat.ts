@@ -35,6 +35,7 @@ export const flagLabels: Record<string, string> = {
   PHOTO_TIME_MISMATCH: 'Photo time did not match',
   NO_ADDRESS: 'Address not found',
   NO_FACE: 'No face found in photo',
+  FACE_MISMATCH: 'Face does not match',
   OFF_DAY: 'Worked on a day off',
   MISSING_CHECK_OUT: 'Missing check-out',
 };

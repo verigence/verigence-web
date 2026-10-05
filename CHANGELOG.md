@@ -18,6 +18,8 @@ The app's build number is added by the release workflow and is not written here.
 - Daily attendance has filters: checked in, checked out, checked in and out, in but not out yet, not checked in, on leave, delinquencies, needs approval.
 - Housekeeping: SuperAdmin can delete an employee added only for testing. It is refused if a payroll or a paid reimbursement used the person.
 - The app now tells the server which version it is, so the login report and the device diagnostics show it.
+- Face match: HR sees "Face does not match" when the face in a check-in or check-out photo is not the employee's. It is compared with the profile photo; if there is none, the check-out is compared with the check-in photo of the same day. It is only a flag, never a refusal.
+- On the profile page you can take a selfie for your profile photo. The Attendance page reminds you to add your photo if you have not.
 
 ### Changed
 - Changing an employee's e-mail or mobile number in HR also changes it on their Verigence login. The login, the roles and the password stay the same.

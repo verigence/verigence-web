@@ -117,7 +117,11 @@ export default function HrDailyAttendancePage() {
     queryFn: () => getDailyAttendance(accessToken!, date, project || undefined),
     enabled: Boolean(accessToken) && allowed,
     retry: false,
-    refetchOnWindowFocus: false,
+    // A day that is still going on changes all the time: fetch again every minute and whenever the
+    // tab is opened again, so the list is never minutes behind what the employees have done.
+    staleTime: 0,
+    refetchOnWindowFocus: true,
+    refetchInterval: date === today ? 60_000 : false,
     placeholderData: keepPreviousData,
   });
   // The project list for the filter, when the person may also read assignments.
@@ -200,6 +204,7 @@ export default function HrDailyAttendancePage() {
         <div className="hr-daily__quick">
           <button type="button" className="uc01-admin-button" disabled={date === today} onClick={() => setDate(today)}>Today</button>
           <button type="button" className="uc01-admin-button" disabled={date === shiftDate(today, -1)} onClick={() => setDate(shiftDate(today, -1))}>Yesterday</button>
+          <button type="button" className="uc01-admin-button" disabled={query.isFetching} onClick={() => void query.refetch()}>{query.isFetching ? 'Refreshing…' : 'Refresh'}</button>
         </div>
         <label className="uc01-admin-filter">
           <span>Project</span>
@@ -218,7 +223,7 @@ export default function HrDailyAttendancePage() {
         ))}
       </div>
 
-      <p className="hr-count" aria-live="polite">{formatWorkDate(date)}</p>
+      <p className="hr-count" aria-live="polite">{formatWorkDate(date)}{query.dataUpdatedAt > 0 && ` · updated ${formatTimeIst(new Date(query.dataUpdatedAt).toISOString())}`}</p>
       {data?.dayKind === 'SUNDAY' && <div className="uc01-admin-message uc01-admin-message--info">Sunday is the weekly off.</div>}
       {data?.dayKind === 'HOLIDAY' && <div className="uc01-admin-message uc01-admin-message--info">Holiday{data.holiday ? `: ${data.holiday}` : ''}.</div>}
 

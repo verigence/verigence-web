@@ -17,12 +17,14 @@ interface RequestProps {
   employeeId: string;
   employeeName: string;
   current: EmploymentStatus;
+  /** This person may change a status directly (the CEO, SuperAdmin). */
+  atOnce: boolean;
   onClose: () => void;
   onAsked: (change: StatusChange) => void;
 }
 
-/** HR asks for a status change. Sent once; the CEO decides, except for a suspension dated today or earlier, which is immediate. */
-export function StatusRequestDialog({ accessToken, employeeId, employeeName, current, onClose, onAsked }: RequestProps) {
+/** HR asks for a status change. Sent once; the CEO decides. The CEO and SuperAdmin change it at once when it is dated today or earlier. */
+export function StatusRequestDialog({ accessToken, employeeId, employeeName, current, atOnce, onClose, onAsked }: RequestProps) {
   const [toStatus, setToStatus] = useState<string>('');
   const today = new Date().toLocaleDateString('en-CA');
   const [date, setDate] = useState(today);
@@ -49,8 +51,8 @@ export function StatusRequestDialog({ accessToken, employeeId, employeeName, cur
         <h2 id="hr-status-title">Change status of {employeeName}</h2>
         <p>
           Now: <strong>{statusLabels[current]}</strong>.{' '}
-          {takesEffectAtOnce(toStatus, date, today)
-            ? 'A suspension takes effect at once and the Verigence login is suspended. It is recorded in the audit log.'
+          {takesEffectAtOnce(atOnce, date, today)
+            ? 'The status changes at once and, if it is not Active, the Verigence login is suspended. It is recorded in the audit log.'
             : 'The CEO must approve the change. The status changes only after that. If the new status is not Active, the Verigence login is suspended when it is approved.'}
         </p>
         <div className="hr-form-grid">
@@ -71,7 +73,7 @@ export function StatusRequestDialog({ accessToken, employeeId, employeeName, cur
         <div className="uc01-admin-dialog__actions">
           <button type="button" className="uc01-admin-button" disabled={busy} onClick={onClose}>Cancel</button>
           <button type="button" className="uc01-admin-button uc01-admin-button--primary" disabled={busy || !canSendRequest({ toStatus, reason })} onClick={() => void send()}>
-            {busy ? 'Sending…' : takesEffectAtOnce(toStatus, date, today) ? 'Suspend now' : 'Ask for approval'}
+            {busy ? 'Sending…' : takesEffectAtOnce(atOnce, date, today) ? 'Change now' : 'Ask for approval'}
           </button>
         </div>
       </section>

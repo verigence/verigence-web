@@ -445,10 +445,11 @@ export default function HrEmployeeDetailPage() {
           employeeId={employeeId}
           employeeName={employee.fullName}
           current={employee.employmentStatus}
+          atOnce={access.canChangeStatusAtOnce}
           onClose={() => setStatusOpen(false)}
           onAsked={(change) => {
             setStatusOpen(false);
-            setNotice(change.status === 'APPROVED' ? 'The employee is suspended.' : 'Sent for approval. The status changes after the CEO approves it.');
+            setNotice(change.status === 'APPROVED' ? 'The status was changed.' : 'Sent for approval. The status changes after the CEO approves it.');
             void statusHistory.refetch();
           }}
         />

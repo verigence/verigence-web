@@ -26,13 +26,11 @@ describe('statusChange', () => {
     expect(statusChangeActions(open, { userId: null, canApprove: true, canManage: true })).toEqual({ approve: true, reject: true, cancel: false });
   });
 
-  it('suspends at once only for a suspension dated today or earlier', () => {
-    expect(takesEffectAtOnce('SUSPENDED', '2026-10-12', '2026-10-12')).toBe(true);
-    expect(takesEffectAtOnce('SUSPENDED', '2026-10-01', '2026-10-12')).toBe(true);
-    expect(takesEffectAtOnce('SUSPENDED', '', '2026-10-12')).toBe(true);
-    expect(takesEffectAtOnce('SUSPENDED', '2026-10-20', '2026-10-12')).toBe(false);
-    expect(takesEffectAtOnce('TERMINATED', '2026-10-12', '2026-10-12')).toBe(false);
-    expect(takesEffectAtOnce('QUIT', '2026-10-01', '2026-10-12')).toBe(false);
-    expect(takesEffectAtOnce('ACTIVE', '2026-10-12', '2026-10-12')).toBe(false);
+  it('changes at once only for someone who may change a status directly, when dated today or earlier', () => {
+    expect(takesEffectAtOnce(true, '2026-10-12', '2026-10-12')).toBe(true);
+    expect(takesEffectAtOnce(true, '2026-10-01', '2026-10-12')).toBe(true);
+    expect(takesEffectAtOnce(true, '', '2026-10-12')).toBe(true);
+    expect(takesEffectAtOnce(true, '2026-10-20', '2026-10-12')).toBe(false);
+    expect(takesEffectAtOnce(false, '2026-10-12', '2026-10-12')).toBe(false);
   });
 });

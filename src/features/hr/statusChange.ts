@@ -29,7 +29,7 @@ export function statusChangeActions(
   };
 }
 
-/** A suspension dated today or earlier takes effect at once; every other change waits for the CEO. The server decides again. */
-export function takesEffectAtOnce(toStatus: string, effectiveDate: string, today: string): boolean {
-  return toStatus === 'SUSPENDED' && (effectiveDate || today) <= today;
+/** A change asked for by someone who may change a status directly (the CEO, SuperAdmin) and dated today or earlier takes effect at once; every other change waits for the CEO. The server decides again. */
+export function takesEffectAtOnce(canChangeAtOnce: boolean, effectiveDate: string, today: string): boolean {
+  return canChangeAtOnce && (effectiveDate || today) <= today;
 }

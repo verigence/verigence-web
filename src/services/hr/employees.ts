@@ -20,6 +20,7 @@ export const HR_PERMISSION = {
   employeeRead: 'hr.employee.read',
   employeeManage: 'hr.employee.manage',
   employeeStatusApprove: 'hr.employee.status_approve',
+  employeeStatusDirect: 'hr.employee.status_direct',
   sensitiveRead: 'hr.sensitive.read',
   auditRead: 'hr.audit.read',
   settingsManage: 'hr.settings.manage',

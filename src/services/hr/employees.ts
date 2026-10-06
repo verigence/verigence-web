@@ -1,7 +1,7 @@
 import { hrRawRequest, hrRequest } from './client';
 
 export type Gender = 'MALE' | 'FEMALE' | 'OTHER';
-export type EmploymentStatus = 'ACTIVE' | 'INACTIVE' | 'EXITED';
+export type EmploymentStatus = 'ACTIVE' | 'SUSPENDED' | 'TERMINATED' | 'QUIT';
 export type LoginStatus = 'NOT_CREATED' | 'CREATED' | 'FAILED';
 export type DataFlag = 'PAN_MISSING' | 'PAN_DUPLICATE' | 'AADHAAR_MISSING' | 'MOBILE_MISSING';
 /** Computed by the HR service on every read from the data it holds (not stored). */
@@ -19,6 +19,7 @@ export type MissingDetail =
 export const HR_PERMISSION = {
   employeeRead: 'hr.employee.read',
   employeeManage: 'hr.employee.manage',
+  employeeStatusApprove: 'hr.employee.status_approve',
   sensitiveRead: 'hr.sensitive.read',
   auditRead: 'hr.audit.read',
   settingsManage: 'hr.settings.manage',
@@ -53,6 +54,8 @@ export interface Experience {
 }
 
 export interface Employee {
+  /** Set only on the answer to a change: the Verigence login email or mobile was changed too. */
+  loginContactChanged?: boolean;
   employeeId: string;
   employeeCode: string;
   fullName: string;
@@ -158,7 +161,6 @@ export type EmployeeUpdateInput = Partial<
   Omit<EmployeeCreateInput, 'employee_code' | 'qualifications' | 'create_login'>
 > & {
   designation_code?: string | null;
-  employment_status?: EmploymentStatus;
 };
 
 export interface SelfUpdateInput {
@@ -244,6 +246,9 @@ export interface EmployeeSyncItem {
   tick: boolean;
   suspend: boolean;
   attention: string[];
+  userEmail: string | null;
+  /** The Verigence login uses an email that HR does not have for this employee. */
+  emailDiffers: boolean;
   done?: { linked: boolean; ticked: boolean; suspended: boolean; note: string | null };
 }
 
@@ -252,6 +257,10 @@ export interface EmployeeSyncUnmatched {
   code: string;
   name: string;
   reason: 'NO_LOGIN' | 'LINKED_USER_MISSING' | 'LOGIN_IN_USE';
+  /** Only for NO_LOGIN: the HR email, whether a login can be created now, and if not, why. */
+  email?: string | null;
+  canCreate?: boolean;
+  blocked?: string | null;
 }
 
 export interface EmployeeSyncResult {
@@ -264,6 +273,8 @@ export interface EmployeeSyncResult {
     toSuspend: number;
     unmatched: number;
     needAttention: number;
+    emailDiffers: number;
+    toCreate: number;
   };
   items: EmployeeSyncItem[];
   unmatched: EmployeeSyncUnmatched[];
@@ -277,6 +288,35 @@ export const syncEmployeeUsers = (token: string, apply: boolean) =>
     body: { apply },
     timeoutMs: 120_000,
   });
+
+export interface LoginCreateResult {
+  employeeId: string;
+  code: string | null;
+  name: string | null;
+  outcome: 'CREATED' | 'SKIPPED' | 'FAILED';
+  reason: string | null;
+}
+
+/** Creates the Verigence login for up to five employees. One attempt each; the service never retries. */
+export const createMissingLogins = (token: string, employeeIds: string[]) =>
+  hrRequest<{ results: LoginCreateResult[] }>(`${base}/employees/sync-users/create`, {
+    accessToken: token,
+    method: 'POST',
+    body: { employeeIds },
+    timeoutMs: 120_000,
+  });
+
+export interface EmployeeSummary {
+  total: number;
+  active: number;
+  activeWithLogin: number;
+  activeWithoutLogin: number;
+  suspended: number;
+  terminated: number;
+  quit: number;
+}
+
+export const getEmployeeSummary = (token: string) => hrRequest<EmployeeSummary>(`${base}/employees/summary`, { accessToken: token });
 
 export const retryEmployeeLogin = (token: string, id: string) =>
   hrRequest<RetryLoginResult>(`${base}/employees/${id}/login`, { accessToken: token, method: 'POST' });
@@ -498,3 +538,42 @@ export const commitEmployeeImport = (token: string, file: File, rows: number[], 
     timeoutMs: 120_000,
   });
 };
+
+export type StatusChangeState = 'PENDING' | 'APPROVED' | 'REJECTED' | 'CANCELLED';
+
+export interface StatusChange {
+  changeId: string;
+  employeeId: string;
+  employeeCode: string;
+  employeeName: string;
+  fromStatus: EmploymentStatus;
+  toStatus: EmploymentStatus;
+  effectiveDate: string;
+  reason: string;
+  status: StatusChangeState;
+  requestedBy: string;
+  requestedAt: string;
+  decidedBy: string | null;
+  decidedAt: string | null;
+  decisionNote: string | null;
+  /** What happened to the Verigence login when the change was approved. */
+  loginOutcome: string | null;
+}
+
+/** HR asks for a status change. Nothing changes until the CEO approves it. */
+export const requestStatusChange = (token: string, employeeId: string, input: { to_status: EmploymentStatus; effective_date?: string; reason: string }) =>
+  hrRequest<StatusChange>(`${base}/employees/${employeeId}/status-change`, { accessToken: token, method: 'POST', body: input });
+
+export const listStatusChanges = (token: string, status?: StatusChangeState) =>
+  hrRequest<{ items: StatusChange[] }>(`${base}/employee-status-changes${status ? `?status=${status}` : ''}`, { accessToken: token });
+
+export const employeeStatusHistory = (token: string, employeeId: string) =>
+  hrRequest<{ items: StatusChange[] }>(`${base}/employees/${employeeId}/status-changes`, { accessToken: token });
+
+export const decideStatusChange = (token: string, changeId: string, action: 'approve' | 'reject' | 'cancel', note?: string) =>
+  hrRequest<StatusChange>(`${base}/employee-status-changes/${changeId}/${action}`, {
+    accessToken: token,
+    method: 'POST',
+    body: action === 'cancel' ? {} : { note: note ?? null },
+    timeoutMs: 60_000,
+  });

@@ -172,6 +172,10 @@ export default function HrEmployeeCreatePage() {
         setErrors({ personalEmail: error.message });
         setStep(0);
       }
+      if (error instanceof HrHttpError && error.code === 'EMPLOYEE_MOBILE_EXISTS') {
+        setErrors({ mobile: error.message });
+        setStep(0);
+      }
       setFormError(hrErrorMessage(error));
     },
   });
@@ -200,7 +204,7 @@ export default function HrEmployeeCreatePage() {
         <SectionCard title="Verigence login">
           {loginOk ? (
             <div className="hr-credential">
-              <p>The login is created and waits for SuperAdmin to allow it (Users → Pending Approvals); the employee can sign in only after that. Share these details with the employee securely. <strong>The password is shown only now and cannot be shown again.</strong></p>
+              <p>The login is created and ready to use. Share these details with the employee securely. <strong>The password is shown only now and cannot be shown again.</strong></p>
               <dl className="definition-list">
                 <div><dt>Sign-in email</dt><dd>{employee.personalEmail}</dd></div>
                 <div><dt>Initial password</dt><dd><code className="hr-password">{initialPassword}</code></dd></div>

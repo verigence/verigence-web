@@ -24,6 +24,8 @@ export interface HrAccess {
   can: (permission: string) => boolean;
   canReadEmployees: boolean;
   canManageEmployees: boolean;
+  /** The CEO: approves or rejects a change of an employee's status. */
+  canApproveStatus: boolean;
   canRevealSensitive: boolean;
   canReadAudit: boolean;
   isEmployee: boolean;
@@ -53,6 +55,7 @@ export function useHrAccess(): HrAccess {
     can,
     canReadEmployees: can(HR_PERMISSION.employeeRead),
     canManageEmployees: can(HR_PERMISSION.employeeManage),
+    canApproveStatus: can(HR_PERMISSION.employeeStatusApprove),
     canRevealSensitive: can(HR_PERMISSION.sensitiveRead),
     canReadAudit: can(HR_PERMISSION.auditRead),
     isEmployee: Boolean(me?.employeeId),

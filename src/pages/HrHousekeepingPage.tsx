@@ -11,6 +11,7 @@ import {
   periodRange,
   type PeriodMode,
 } from '../features/hr/housekeeping/housekeepingLogic';
+import EmployeeDeletePanel from '../features/hr/housekeeping/EmployeeDeletePanel';
 import { hrErrorMessage } from '../services/hr/client';
 import {
   previewHousekeeping,
@@ -124,6 +125,8 @@ export default function HrHousekeepingPage() {
           )}
         </SectionCard>
       )}
+
+      {accessToken && <EmployeeDeletePanel accessToken={accessToken} />}
     </section>
   );
 }

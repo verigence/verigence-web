@@ -6,6 +6,7 @@ import PageHeader from '../../components/PageHeader';
 import SectionCard from '../../components/SectionCard';
 import { ATTENDANCE_PERMISSION, getAttendanceToday, getMyAttendance, type AttendanceEvent } from '../../services/hr/attendance';
 import { hrErrorMessage } from '../../services/hr/client';
+import { getMyEmployee } from '../../services/hr/employees';
 import { useSessionStore } from '../../store/sessionStore';
 import CaptureDialog from '../../features/hr/attendance/CaptureDialog';
 import MonthPanel from '../../features/hr/attendance/MonthPanel';
@@ -13,7 +14,7 @@ import MonthSwitcher from '../../features/hr/attendance/MonthSwitcher';
 import TodayCard from '../../features/hr/attendance/TodayCard';
 import { attendanceKeys } from '../../features/hr/attendance/attendanceQueries';
 import { currentMonthIst } from '../../features/hr/attendance/attendanceFormat';
-import { useHrAccess } from '../../features/hr/hrQueries';
+import { hrKeys, useHrAccess } from '../../features/hr/hrQueries';
 import '../../styles/hr-attendance.css';
 
 /** The signed-in employee's own attendance: today, live check-in / check-out, and the month so far. */
@@ -26,6 +27,14 @@ export default function HrAttendancePage() {
   const today = useQuery({
     queryKey: attendanceKeys.today,
     queryFn: () => getAttendanceToday(accessToken!),
+    enabled: Boolean(accessToken) && access.isEmployee,
+    retry: false,
+    refetchOnWindowFocus: false,
+  });
+  // Whether the person has a profile photo: attendance photos are compared with it. One call when the page opens.
+  const profile = useQuery({
+    queryKey: hrKeys.myEmployee,
+    queryFn: () => getMyEmployee(accessToken!),
     enabled: Boolean(accessToken) && access.isEmployee,
     retry: false,
     refetchOnWindowFocus: false,
@@ -65,6 +74,13 @@ export default function HrAttendancePage() {
           <Link className="uc01-admin-button" to="/hr/attendance/team">Everyone&apos;s attendance</Link>
         ) : undefined}
       />
+
+      {profile.data && !profile.data.hasPhoto && (
+        <div className="uc01-admin-message uc01-admin-message--info" role="status">
+          You have not added your photo yet. HR uses it to check that your check-in and check-out photos are yours.{' '}
+          <Link to="/hr/me">Add your photo</Link> (you can take a selfie there).
+        </div>
+      )}
 
       <SectionCard
         title="Today"

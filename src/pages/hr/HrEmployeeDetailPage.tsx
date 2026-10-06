@@ -16,6 +16,7 @@ import {
   retryEmployeeLogin,
   linkEmployeeLogin,
   revealEmployeeSensitive,
+  employeeStatusHistory,
   updateEmployee,
   uploadEmployeePhoto,
   type EmployeeDetail,
@@ -45,6 +46,7 @@ import {
 import { dailyKeys } from '../../features/hr/attendance/dailyAttendance';
 import { dataFlagLabels, loginLabels, loginProblem, statusLabels } from '../../features/hr/hrLabels';
 import { hrKeys, useHrAccess } from '../../features/hr/hrQueries';
+import { StatusChangeRow, StatusRequestDialog } from '../../features/hr/EmployeeStatusParts';
 import { useDegrees, useDepartments, useDesignations, useStates } from '../../features/hr/referenceData';
 
 type Tab = 'profile' | 'history';
@@ -68,6 +70,7 @@ export default function HrEmployeeDetailPage() {
   const [formError, setFormError] = useState('');
   const [notice, setNotice] = useState('');
   const [credential, setCredential] = useState<string | null>(null);
+  const [statusOpen, setStatusOpen] = useState(false);
 
   const employeeQuery = useQuery({
     queryKey: hrKeys.employee(employeeId),
@@ -100,10 +103,13 @@ export default function HrEmployeeDetailPage() {
     onSuccess: (data) => {
       store(data as EmployeeDetail);
       setEditing(false);
-      setNotice('Changes saved.');
+      setNotice(data.loginContactChanged
+        ? 'Changes saved. The Verigence login was changed too, and the password stays the same. Tell the employee: send the Welcome email from Messages.'
+        : 'Changes saved.');
     },
     onError: (error) => {
       if (error instanceof HrHttpError && error.code === 'EMPLOYEE_EMAIL_EXISTS') setErrors({ personalEmail: error.message });
+      if (error instanceof HrHttpError && error.code === 'EMPLOYEE_MOBILE_EXISTS') setErrors({ mobile: error.message });
       setFormError(hrErrorMessage(error));
     },
   });
@@ -146,6 +152,20 @@ export default function HrEmployeeDetailPage() {
     retry: false,
     refetchOnWindowFocus: false,
   });
+
+  // Status requests for this employee: loaded when the page opens and after each decision.
+  const statusHistory = useQuery({
+    queryKey: [...hrKeys.employee(employeeId), 'status-changes'],
+    queryFn: () => employeeStatusHistory(accessToken!, employeeId),
+    enabled: Boolean(accessToken) && access.canReadEmployees && Boolean(employeeId),
+    retry: false,
+    refetchOnWindowFocus: false,
+  });
+  const statusChanged = () => {
+    void queryClient.invalidateQueries({ queryKey: hrKeys.employee(employeeId) });
+    void queryClient.invalidateQueries({ queryKey: hrKeys.employees });
+    void queryClient.invalidateQueries({ queryKey: hrKeys.audit(employeeId) });
+  };
 
   const qualificationChange = useMutation({
     mutationFn: (run: () => Promise<EmployeeDetail>) => run(),
@@ -241,6 +261,7 @@ export default function HrEmployeeDetailPage() {
         actions={(
           <>
             <Link className="uc01-admin-button" to="/hr/employees">All employees</Link>
+            {canManage && !editing && <button type="button" className="uc01-admin-button" onClick={() => setStatusOpen(true)}>Change status</button>}
             {canManage && !editing && <button type="button" className="uc01-admin-button uc01-admin-button--primary" onClick={startEdit}>Edit details</button>}
           </>
         )}
@@ -261,6 +282,28 @@ export default function HrEmployeeDetailPage() {
       </div>
 
       {notice && <div className="uc01-admin-message uc01-admin-message--success" role="status">{notice}</div>}
+      {statusHistory.data && statusHistory.data.items.length > 0 && (
+        <section className="hr-status-panel" aria-label="Status changes">
+          <strong>Status changes</strong>
+          <ul className="hr-status-list">
+            {statusHistory.data.items.slice(0, 4).map((c) => (
+              <StatusChangeRow
+                key={c.changeId}
+                accessToken={accessToken!}
+                change={c}
+                userId={access.me?.userId ?? null}
+                canApprove={access.canApproveStatus}
+                canManage={canManage}
+                onDecided={(done) => {
+                  setNotice(done.status === 'APPROVED' ? 'The status was changed.' : done.status === 'REJECTED' ? 'The request was rejected.' : 'The request was cancelled.');
+                  void statusHistory.refetch();
+                  statusChanged();
+                }}
+              />
+            ))}
+          </ul>
+        </section>
+      )}
       <PendingDetailsNotice missing={employee.missingDetails} />
 
       {employee.loginStatus !== 'CREATED' && canManage && (
@@ -312,7 +355,7 @@ export default function HrEmployeeDetailPage() {
       )}
       {credential && (
         <SectionCard title="New login created">
-          <p>The login waits for SuperAdmin to allow it (Users → Pending Approvals); the employee can sign in only after that. Share this with the employee securely. <strong>The password is shown only now and cannot be shown again.</strong></p>
+          <p>The login is created and ready to use. Share this with the employee securely. <strong>The password is shown only now and cannot be shown again.</strong></p>
           <dl className="definition-list">
             <div><dt>Sign-in email</dt><dd>{employee.personalEmail}</dd></div>
             <div><dt>Initial password</dt><dd><code className="hr-password">{credential}</code></dd></div>
@@ -342,6 +385,7 @@ export default function HrEmployeeDetailPage() {
             departments={departments.data ?? []}
             panMasked={employee.panMasked}
             aadhaarMasked={employee.aadhaarMasked}
+            hasLogin={employee.loginStatus === 'CREATED'}
             onChange={(change) => {
               setValues((current) => (current ? { ...current, ...change } : current));
               setErrors((current) => {
@@ -394,6 +438,20 @@ export default function HrEmployeeDetailPage() {
           )}
           {tab === 'history' && access.canReadAudit && <AuditHistory employeeId={employeeId} />}
         </>
+      )}
+      {statusOpen && accessToken && (
+        <StatusRequestDialog
+          accessToken={accessToken}
+          employeeId={employeeId}
+          employeeName={employee.fullName}
+          current={employee.employmentStatus}
+          onClose={() => setStatusOpen(false)}
+          onAsked={() => {
+            setStatusOpen(false);
+            setNotice('Sent for approval. The status changes after the CEO approves it.');
+            void statusHistory.refetch();
+          }}
+        />
       )}
     </section>
   );

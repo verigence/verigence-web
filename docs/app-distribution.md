@@ -54,6 +54,14 @@ Required repository secrets:
 
 The signing key itself must never be committed to the repository.
 
+## Versions and changes
+
+- The app version is the `version` in `package.json`. The release workflow puts the same number in the APK (`versionName`); the build number (`versionCode`) is the GitHub run number. The APK file is `Verigence-<version>-<build>.apk`.
+- The installed app reports its version to the server, so the login report and device diagnostics show it.
+- Every change that reaches the app is written in `CHANGELOG.md` under **Unreleased**, in simple English, in the same commit as the change.
+- To release: run `npm run release:version -- <new version>`, commit `package.json` and `CHANGELOG.md`, then run **Publish Verigence Android App**. The workflow stops early if that version has no notes, uses the notes as the release note in `latest.json`, and tags the released commit `android-v<version>-<build>` in Git.
+- To see what a given APK contains: `git show android-v<version>-<build>` (or the `sourceSha` in its `latest.json`).
+
 ## Release metadata
 
 `latest.json` contains the values displayed by `/apps`, including:

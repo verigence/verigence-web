@@ -44,3 +44,28 @@ export function describeCounts(counts: Record<string, number>): string {
 /** What will really be deleted: kept claims are not part of it. */
 export const deletableTotal = (counts: Record<string, number>): number =>
   Object.entries(counts).filter(([key]) => key in COUNT_LABEL && key !== 'keptInPayroll').reduce((sum, [, n]) => sum + n, 0);
+
+const EMPLOYEE_COUNT_LABEL: Record<string, string> = {
+  attendanceDays: 'attendance days',
+  attendanceApprovals: 'attendance approvals',
+  leaveRequests: 'leave requests',
+  leaveLedgerRows: 'leave balance entries',
+  claims: 'reimbursement claims',
+  salaryStructures: 'salary proposals',
+  supportTickets: 'support tickets',
+  emailLog: 'email records',
+  qualifications: 'qualifications',
+  experiences: 'experience records',
+  statusChanges: 'status requests',
+};
+
+/** "12 attendance days, 2 leave requests" for what goes with the employee; empty counts are left out. */
+export function describeEmployeeCounts(counts: Record<string, number>): string {
+  return Object.entries(counts)
+    .filter(([key, n]) => key in EMPLOYEE_COUNT_LABEL && n > 0)
+    .map(([key, n]) => `${n} ${EMPLOYEE_COUNT_LABEL[key]}`)
+    .join(', ');
+}
+
+/** An employee code as the server expects it: no spaces, upper case. */
+export const cleanEmployeeCode = (value: string): string => value.trim().toUpperCase();

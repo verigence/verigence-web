@@ -204,7 +204,7 @@ export default function HrMyProfilePage() {
           <span className="hr-muted">{employee.employeeCode}{employee.designation ? ` · ${employee.designation}` : ''}</span>
         </div>
         <div className="hr-identity__photo">
-          <PhotoPicker label={employee.hasPhoto ? 'Change photo' : 'Add photo'} busy={photo.isPending} onPick={async (p) => { await photo.mutateAsync(p); }} />
+          <PhotoPicker selfie label={employee.hasPhoto ? 'Change photo' : 'Add photo'} busy={photo.isPending} onPick={async (p) => { await photo.mutateAsync(p); }} />
         </div>
       </div>
 

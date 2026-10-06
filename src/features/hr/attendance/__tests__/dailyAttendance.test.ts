@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import type { DailyRow } from '../../../../services/hr/attendanceReports';
-import { delinquencyText, fenceLabel, formatHours, groupByProject, reportFileName, shiftDate, validateReportRange } from '../dailyAttendance';
+import { countByFilter, delinquencyText, faceScoreText, fenceLabel, formatHours, groupByProject, matchesDayFilter, reportFileName, shiftDate, validateReportRange } from '../dailyAttendance';
 import { approverPhrase, exceptionLabel } from '../attendanceFormat';
 
 const row = (over: Partial<DailyRow>): DailyRow => ({
@@ -72,5 +72,59 @@ describe('fenceLabel', () => {
     expect(fenceLabel(false)).toBe('No');
     expect(fenceLabel(null)).toBe('—');
     expect(fenceLabel(undefined)).toBe('—');
+  });
+});
+
+describe('day filters', () => {
+  const at = '2026-10-02T04:30:00Z';
+  const people = [
+    row({ employeeId: 'both', status: 'COMPLETE', checkInAt: at, checkOutAt: at }),
+    row({ employeeId: 'still-in', status: 'CHECKED_IN', checkInAt: at }),
+    row({ employeeId: 'never-out', status: 'MISSING_CHECK_OUT', checkInAt: at, delinquencies: [{ code: 'MISSING_CHECK_OUT', label: 'x', decision: null }] }),
+    row({ employeeId: 'waiting', status: 'PENDING_APPROVAL', checkInAt: at, checkOutAt: at, delinquencies: [{ code: 'LATE_CHECK_IN', label: 'x', decision: 'PENDING' }] }),
+    row({ employeeId: 'late-ok', status: 'COMPLETE', checkInAt: at, checkOutAt: at, delinquencies: [{ code: 'LATE_CHECK_IN', label: 'x', decision: 'APPROVED' }] }),
+    row({ employeeId: 'not-in', status: 'NOT_CHECKED_IN' }),
+    row({ employeeId: 'absent', status: 'ABSENT', delinquencies: [{ code: 'ABSENT', label: 'x', decision: null }] }),
+    row({ employeeId: 'leave', status: 'ON_LEAVE' }),
+  ];
+  const ids = (filter: Parameters<typeof matchesDayFilter>[1]) => people.filter((p) => matchesDayFilter(p, filter)).map((p) => p.employeeId);
+
+  it('finds who checked in, who checked out and who did both', () => {
+    expect(ids('CHECKED_IN')).toEqual(['both', 'still-in', 'never-out', 'waiting', 'late-ok']);
+    expect(ids('CHECKED_OUT')).toEqual(['both', 'waiting', 'late-ok']);
+    expect(ids('BOTH')).toEqual(['both', 'waiting', 'late-ok']);
+    expect(ids('IN_NOT_OUT')).toEqual(['still-in', 'never-out']);
+  });
+
+  it('finds who has not checked in, without people on leave', () => {
+    expect(ids('NOT_IN')).toEqual(['not-in', 'absent']);
+    expect(ids('ON_LEAVE')).toEqual(['leave']);
+  });
+
+  it('finds delinquencies and what still needs an approval', () => {
+    expect(ids('DELINQUENT')).toEqual(['never-out', 'waiting', 'late-ok', 'absent']);
+    expect(ids('NEEDS_APPROVAL')).toEqual(['waiting']);
+    expect(ids('ALL')).toHaveLength(people.length);
+  });
+
+  it('counts every filter for the buttons', () => {
+    expect(countByFilter(people)).toEqual({
+      ALL: 8, CHECKED_IN: 5, CHECKED_OUT: 3, BOTH: 3, IN_NOT_OUT: 2, NOT_IN: 2, ON_LEAVE: 1, DELINQUENT: 4, NEEDS_APPROVAL: 1,
+    });
+    expect(countByFilter([]).ALL).toBe(0);
+  });
+});
+
+describe('faceScoreText', () => {
+  it('shows the score to two places and what it was compared with', () => {
+    expect(faceScoreText(0.9123, 'PROFILE')).toBe('Face match 0.91 (profile photo)');
+    expect(faceScoreText(0.257, 'CHECK_IN')).toBe('Face match 0.26 (check-in photo)');
+    expect(faceScoreText(0, 'PROFILE')).toBe('Face match 0.00 (profile photo)');
+  });
+
+  it('shows nothing when no face was compared', () => {
+    expect(faceScoreText(null, null)).toBeNull();
+    expect(faceScoreText(undefined, 'PROFILE')).toBeNull();
+    expect(faceScoreText(Number.NaN, 'PROFILE')).toBeNull();
   });
 });

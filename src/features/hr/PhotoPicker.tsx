@@ -7,11 +7,14 @@ interface Props {
   label: string;
   busy?: boolean;
   onPick: (photo: { blob: Blob; name: string }) => Promise<void> | void;
+  /** Also offer a button that opens the front camera to take the photo now. */
+  selfie?: boolean;
 }
 
 /** Chooses a profile photo from the device. (Attendance photos are a separate, camera-only flow.) */
-export default function PhotoPicker({ label, busy = false, onPick }: Props) {
+export default function PhotoPicker({ label, busy = false, onPick, selfie = false }: Props) {
   const input = useRef<HTMLInputElement>(null);
+  const camera = useRef<HTMLInputElement>(null);
   const [error, setError] = useState('');
   const [working, setWorking] = useState(false);
 
@@ -26,6 +29,7 @@ export default function PhotoPicker({ label, busy = false, onPick }: Props) {
     } finally {
       setWorking(false);
       if (input.current) input.current.value = '';
+      if (camera.current) camera.current.value = '';
     }
   };
 
@@ -47,6 +51,22 @@ export default function PhotoPicker({ label, busy = false, onPick }: Props) {
       >
         {busy || working ? 'Uploading…' : label}
       </button>
+      {selfie && (
+        <>
+          <input
+            ref={camera}
+            type="file"
+            accept="image/*"
+            capture="user"
+            className="hr-visually-hidden"
+            aria-label="Take a selfie"
+            onChange={(event) => void handle(event.target.files?.[0])}
+          />
+          <button type="button" className="uc01-admin-button uc01-admin-button--compact" disabled={busy || working} onClick={() => camera.current?.click()}>
+            Take a selfie
+          </button>
+        </>
+      )}
       {error && <span className="uc01-admin-message uc01-admin-message--error" role="alert">{error}</span>}
     </div>
   );

@@ -34,6 +34,66 @@ export const dailyStatusTone: Record<DailyStatus, string> = {
 
 export const needsAttention = (row: DailyRow) => row.delinquencies.length > 0;
 
+/** Which people to show on the Daily attendance page. One at a time. */
+export type DayFilter =
+  | 'ALL'
+  | 'CHECKED_IN'
+  | 'CHECKED_OUT'
+  | 'BOTH'
+  | 'IN_NOT_OUT'
+  | 'NOT_IN'
+  | 'ON_LEAVE'
+  | 'DELINQUENT'
+  | 'NEEDS_APPROVAL';
+
+export const DAY_FILTERS: DayFilter[] = ['ALL', 'CHECKED_IN', 'CHECKED_OUT', 'BOTH', 'IN_NOT_OUT', 'NOT_IN', 'ON_LEAVE', 'DELINQUENT', 'NEEDS_APPROVAL'];
+
+export const dayFilterLabels: Record<DayFilter, string> = {
+  ALL: 'Everyone',
+  CHECKED_IN: 'Checked in',
+  CHECKED_OUT: 'Checked out',
+  BOTH: 'Checked in and out',
+  IN_NOT_OUT: 'In, not out yet',
+  NOT_IN: 'Not checked in',
+  ON_LEAVE: 'On leave',
+  DELINQUENT: 'Delinquencies',
+  NEEDS_APPROVAL: 'Needs approval',
+};
+
+/** A delinquency that someone still has to approve or reject. */
+const waitingForApproval = (row: DailyRow) => row.status === 'PENDING_APPROVAL' || row.delinquencies.some((d) => d.decision === 'PENDING');
+
+/** Works from the times and the delinquencies, not the status chip, so a person who is waiting for approval is still found by Checked in or Checked out. */
+export function matchesDayFilter(row: DailyRow, filter: DayFilter): boolean {
+  switch (filter) {
+    case 'ALL':
+      return true;
+    case 'CHECKED_IN':
+      return Boolean(row.checkInAt);
+    case 'CHECKED_OUT':
+      return Boolean(row.checkOutAt);
+    case 'BOTH':
+      return Boolean(row.checkInAt && row.checkOutAt);
+    case 'IN_NOT_OUT':
+      return Boolean(row.checkInAt && !row.checkOutAt);
+    case 'NOT_IN':
+      return !row.checkInAt && row.status !== 'ON_LEAVE';
+    case 'ON_LEAVE':
+      return row.status === 'ON_LEAVE';
+    case 'DELINQUENT':
+      return needsAttention(row);
+    case 'NEEDS_APPROVAL':
+      return waitingForApproval(row);
+  }
+}
+
+/** How many people each filter would show, for the numbers on the buttons. */
+export function countByFilter(rows: DailyRow[]): Record<DayFilter, number> {
+  const counts = Object.fromEntries(DAY_FILTERS.map((f) => [f, 0])) as Record<DayFilter, number>;
+  for (const row of rows) for (const f of DAY_FILTERS) if (matchesDayFilter(row, f)) counts[f] += 1;
+  return counts;
+}
+
 /** "Late check-in (pending)". The server's own label wins; a code it did not label falls back to a readable name. */
 export function delinquencyText(d: Delinquency): string {
   const label = d.label?.trim() || exceptionLabel(d.code);
@@ -116,4 +176,11 @@ export function fenceLabel(value: boolean | null | undefined): string {
   if (value === true) return 'Yes';
   if (value === false) return 'No';
   return '—';
+}
+
+/** "Face match 0.91 (profile photo)", or null when no face was compared. Shown to HR as information only. */
+export function faceScoreText(score: number | null | undefined, ref: 'PROFILE' | 'CHECK_IN' | null | undefined): string | null {
+  if (score === null || score === undefined || !Number.isFinite(score)) return null;
+  const against = ref === 'CHECK_IN' ? 'check-in photo' : 'profile photo';
+  return `Face match ${score.toFixed(2)} (${against})`;
 }

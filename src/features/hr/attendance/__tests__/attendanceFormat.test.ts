@@ -8,6 +8,7 @@ import {
   formatClock,
   formatDistance,
   formatMonth,
+  flagLabel,
   formatTimeIst,
   hhmmIst,
   shiftMonth,
@@ -95,5 +96,13 @@ describe('location age', () => {
     const fix = { latitude: 1, longitude: 2, accuracyM: 5, measuredAt: 1_000_000 };
     expect(fixAgeSeconds(fix, 1_012_300)).toBe(12.3);
     expect(fixAgeSeconds(fix, 900_000)).toBe(0);
+  });
+});
+
+describe('flag wording', () => {
+  it('names the face match flag and makes a readable name for a flag it does not know', () => {
+    expect(flagLabel('FACE_MISMATCH')).toBe('Face does not match');
+    expect(flagLabel('NO_FACE')).toBe('No face found in photo');
+    expect(flagLabel('SOMETHING_NEW')).toBe('Something new');
   });
 });

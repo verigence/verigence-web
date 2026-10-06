@@ -96,3 +96,35 @@ export function fetchPriceSheet(
     accessToken ? { accessToken } : {},
   );
 }
+
+/** One price list version: a WEF date the project has a price list for. */
+export interface PriceVersion {
+  priceListVersionId: string;
+  priceList: string | null;
+  version: number | null;
+  effectiveFrom: string;
+  effectiveTo: string | null;
+  status: string;
+  /** The original names of the files the version was loaded from. */
+  sourceFiles: string[];
+}
+
+export function fetchPriceVersions(tenantId: string, accessToken?: string) {
+  return auditCoreRequest<{ versions: PriceVersion[] }>(
+    `/p2/v1/tenants/${encodeURIComponent(tenantId)}/standard/price-versions`,
+    accessToken ? { accessToken } : {},
+  );
+}
+
+export interface PriceCatalogueModel {
+  modelId: string;
+  model: string;
+}
+
+/** The models priced on a date, for the model picker. */
+export function fetchPriceModels(tenantId: string, on: string, accessToken?: string) {
+  return auditCoreRequest<{ on: string; priceList: unknown; models: PriceCatalogueModel[] }>(
+    `/p2/v1/tenants/${encodeURIComponent(tenantId)}/standard/catalogue?on=${encodeURIComponent(on)}`,
+    accessToken ? { accessToken } : {},
+  );
+}

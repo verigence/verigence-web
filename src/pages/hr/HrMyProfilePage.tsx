@@ -24,6 +24,7 @@ import { useSessionStore } from '../../store/sessionStore';
 import EmployeeAvatar from '../../features/hr/EmployeeAvatar';
 import EmployeeSummary from '../../features/hr/EmployeeSummary';
 import ExperiencePanel from '../../features/hr/ExperiencePanel';
+import { ContactChangePanel } from '../../features/hr/ContactChangeParts';
 import Field from '../../features/hr/Field';
 import PhotoPicker from '../../features/hr/PhotoPicker';
 import QualificationsPanel from '../../features/hr/QualificationsPanel';
@@ -78,6 +79,7 @@ export default function HrMyProfilePage() {
       if (error instanceof HrHttpError && error.problems.length) {
         const next: Errors = {};
         const map: Record<string, keyof SelfFormValues> = {
+          gender: 'gender',
           pincode: 'pincode',
           state: 'state',
           address: 'address',
@@ -189,7 +191,7 @@ export default function HrMyProfilePage() {
       <PageHeader
         eyebrow="HR"
         title="My employee profile"
-        description="Your details on record with HR. You can update your address, emergency contact and qualifications. For anything else, contact HR."
+        description="Your details on record with HR. You can update your gender, address, emergency contact and qualifications. Name, role, designation, department, joining date, date of birth, experience, PAN and Aadhaar are kept by HR. If your name is spelt wrongly, ask HR to correct it. To change your email or mobile, send a request to HR."
         actions={!editing ? (
           <button type="button" className="uc01-admin-button uc01-admin-button--primary" onClick={() => { setValues(selfFormFromEmployee(employee)); setDistrict(employee.district ?? ''); setDistrictError(''); setErrors({}); setFormError(''); setNotice(''); setEditing(true); }}>
             Update my details
@@ -219,13 +221,21 @@ export default function HrMyProfilePage() {
             submit();
           }}
         >
-          <SectionCard title="Contact" description="You can change your address and secondary email. Name, PAN and Aadhaar are kept by HR.">
+          <SectionCard title="Contact" description="You can change your gender, address and secondary email. Your name is as on Aadhaar or PAN; only HR corrects a spelling. Email and mobile change only through a request to HR.">
             <dl className="definition-list hr-definitions">
               <div><dt>Personal email</dt><dd>{employee.personalEmail}</dd></div>
               <div><dt>Mobile</dt><dd>{employee.mobile || '—'}</dd></div>
             </dl>
-            <p className="hr-muted hr-form-note">To change your email or mobile, contact HR.</p>
+            <p className="hr-muted hr-form-note">To change your email or mobile, save or cancel here, then use "Change email or mobile" below.</p>
             <div className="hr-form-grid">
+              <Field label="Gender" htmlFor="me-gender" error={errors.gender}>
+                <select id="me-gender" value={values.gender} onChange={set('gender')}>
+                  <option value="">Not stated</option>
+                  <option value="MALE">Male</option>
+                  <option value="FEMALE">Female</option>
+                  <option value="OTHER">Other</option>
+                </select>
+              </Field>
               <Field label="Secondary email" htmlFor="me-email2" error={errors.secondaryEmail}>
                 <input id="me-email2" type="email" inputMode="email" value={values.secondaryEmail} onChange={set('secondaryEmail')} />
               </Field>
@@ -267,13 +277,13 @@ export default function HrMyProfilePage() {
         </form>
       ) : (
         <div className="hr-sections">
-          <p className="hr-muted">To change your email or mobile, contact HR.</p>
           <EmployeeSummary employee={employee} scope="self" />
           <SensitiveNumbers employee={employee} canReveal reveal={() => revealMySensitive(accessToken!)} />
           <QualificationsPanel qualifications={employee.qualifications} degrees={degrees.data ?? []} editing={qualificationEditing} />
           <ExperiencePanel experiences={employee.experiences ?? []} editing={experienceEditing} />
         </div>
       )}
+      {accessToken && <ContactChangePanel accessToken={accessToken} email={employee.personalEmail} mobile={employee.mobile} />}
       <p className="hr-muted">
         Looking for your Verigence account details? <Link to="/profile">Open account profile</Link>.
       </p>

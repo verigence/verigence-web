@@ -166,10 +166,17 @@ describe('self service form', () => {
       'emergencyContactAddress',
       'emergencyContactName',
       'emergencyContactNumber',
+      'gender',
       'pincode',
       'secondaryEmail',
       'state',
     ]);
+  });
+  it('lets an employee change their own gender but never their name', () => {
+    const form = selfFormFromEmployee(employee);
+    expect(buildSelfPayload(employee, { ...form, gender: 'MALE' })).toEqual({ gender: 'MALE' });
+    expect(buildSelfPayload(employee, { ...form, gender: '' })).toEqual({ gender: null });
+    expect(Object.keys(buildSelfPayload(employee, form))).not.toContain('full_name');
   });
   it('sends nothing when unchanged and only the edit otherwise', () => {
     const form = selfFormFromEmployee(employee);

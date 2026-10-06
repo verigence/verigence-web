@@ -5,6 +5,7 @@ import { Link } from 'react-router-dom';
 import PageHeader from '../../components/PageHeader';
 import { hrErrorMessage } from '../../services/hr/client';
 import { getEmployeeSummary, listEmployees, listStatusChanges, type EmploymentStatus } from '../../services/hr/employees';
+import { listContactChanges } from '../../services/hr/contactChanges';
 import { PAYROLL_PERMISSION } from '../../services/hr/payroll';
 import { useSessionStore } from '../../store/sessionStore';
 import { initialsOf } from '../../features/hr/EmployeeAvatar';
@@ -13,6 +14,7 @@ import { dataFlagLabels, statusLabels } from '../../features/hr/hrLabels';
 import { hrKeys, useHrAccess } from '../../features/hr/hrQueries';
 import EmployeeSyncDialog from '../../features/hr/EmployeeSyncDialog';
 import { StatusChangeRow } from '../../features/hr/EmployeeStatusParts';
+import { ContactChangeRow } from '../../features/hr/ContactChangeParts';
 
 const PAGE_SIZE = 25;
 
@@ -59,6 +61,16 @@ export default function HrEmployeesPage() {
   const waiting = useQuery({
     queryKey: [...hrKeys.employees, 'status-changes', 'pending'],
     queryFn: () => listStatusChanges(accessToken!, 'PENDING'),
+    enabled: Boolean(accessToken) && access.canReadEmployees,
+    retry: false,
+    refetchOnWindowFocus: false,
+  });
+
+  // Email and mobile changes employees asked for. Loaded when the page opens; a decided row stays
+  // on screen with its result until the page is opened again.
+  const contactWaiting = useQuery({
+    queryKey: ['hr', 'contact-changes', 'pending'],
+    queryFn: () => listContactChanges(accessToken!, 'PENDING'),
     enabled: Boolean(accessToken) && access.canReadEmployees,
     retry: false,
     refetchOnWindowFocus: false,
@@ -126,6 +138,24 @@ export default function HrEmployeesPage() {
                 canApprove={access.canApproveStatus}
                 canManage={access.canManageEmployees}
                 showEmployee
+                onDecided={() => { void queryClient.invalidateQueries({ queryKey: hrKeys.employees }); }}
+              />
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {contactWaiting.data && contactWaiting.data.items.length > 0 && (
+        <section className="hr-status-panel" aria-label="Email and mobile changes waiting for HR">
+          <strong>{contactWaiting.data.items.length === 1 ? '1 email or mobile change is waiting for HR' : `${contactWaiting.data.items.length} email or mobile changes are waiting for HR`}</strong>
+          <ul className="hr-status-list">
+            {contactWaiting.data.items.map((c) => (
+              <ContactChangeRow
+                key={c.changeId}
+                accessToken={accessToken!}
+                change={c}
+                userId={access.me?.userId ?? null}
+                canManage={access.canManageEmployees}
                 onDecided={() => { void queryClient.invalidateQueries({ queryKey: hrKeys.employees }); }}
               />
             ))}

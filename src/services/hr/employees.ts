@@ -164,6 +164,7 @@ export type EmployeeUpdateInput = Partial<
 };
 
 export interface SelfUpdateInput {
+  gender?: Gender | null;
   address?: string | null;
   state?: string | null;
   district?: string | null;

@@ -78,24 +78,16 @@ const TeamLeadReviewPage = lazy(() => import('./pages/TeamLeadReviewPage'));
 const BookingCaptureV2Page = lazy(loadBookingCaptureV2Page);
 const BookingDetailsV2Page = lazy(loadBookingDetailsV2Page);
 const AuditReviewPage = lazy(loadAuditReviewPage);
-const CustomersPage = lazy(() => import('./pages/CustomersPage'));
-const JourneysPage = lazy(() => import('./pages/JourneysPage'));
 const JourneySearchPage = lazy(() => import('./pages/JourneySearchPage'));
 const Journey360Page = lazy(() => import('./pages/Journey360Page'));
 const ComplianceReportPage = lazy(() => import('./pages/ComplianceReportPage'));
-const JourneyWorkspacePage = lazy(() => import('./pages/JourneyWorkspacePage'));
-const EvidencePage = lazy(() => import('./pages/EvidencePage'));
-const EvidenceDetailPage = lazy(() => import('./pages/EvidenceDetailPage'));
 const ReviewQueuePage = lazy(() => import('./pages/ReviewQueuePage'));
 const DuplicateBookingsPage = lazy(() => import('./pages/DuplicateBookingsPage'));
 const JourneyDocumentsPage = lazy(() => import('./pages/JourneyDocumentsPage'));
 const RuleCatalogPage = lazy(() => import('./pages/RuleCatalogPage'));
 const RuleAuthoringPage = lazy(() => import('./pages/RuleAuthoringPage'));
-const FindingsPage = lazy(() => import('./pages/FindingsPage'));
-const TasksPage = lazy(() => import('./pages/TasksPage'));
 const PaymentTrackerPage = lazy(() => import('./pages/PaymentTrackerPage'));
 const DailyOpsPage = lazy(() => import('./pages/DailyOpsPage'));
-const ActivityTrackerPage = lazy(() => import('./pages/ActivityTrackerPage'));
 const CrmPage = lazy(() => import('./pages/CrmPage'));
 const EscalationsPage = lazy(() => import('./pages/EscalationsPage'));
 const AnalyticsPage = lazy(() => import('./pages/AnalyticsPage'));
@@ -362,20 +354,12 @@ export default function App() {
               <Route path="/v2/deliveries/:journeyId/review" element={<JourneyDocumentsRedirect />} />
               <Route path="/audit/:journeyId" element={<OperationalPage><AuditReviewPage /></OperationalPage>} />
               <Route path="/feedback" element={<Navigate to="/hr/support" replace />} />
-              <Route path="/customers" element={<LegacyOperationalPage><CustomersPage /></LegacyOperationalPage>} />
-              <Route path="/journeys" element={<LegacyOperationalPage><JourneysPage /></LegacyOperationalPage>} />
-              <Route path="/journeys/:journeyId" element={<LegacyOperationalPage><JourneyWorkspacePage /></LegacyOperationalPage>} />
-              <Route path="/journeys/:journeyId/evidence/:evidenceId" element={<LegacyOperationalPage><EvidenceDetailPage /></LegacyOperationalPage>} />
               <Route path="/reviews" element={<OperationalPage><ReviewQueuePage /></OperationalPage>} />
               <Route path="/duplicate-bookings" element={<OperationalPage><DuplicateBookingsPage /></OperationalPage>} />
               <Route path="/rule-catalog" element={<OperationalPage><RuleCatalogPage /></OperationalPage>} />
               <Route path="/rule-catalog/new" element={<OperationalPage><RuleAuthoringPage /></OperationalPage>} />
-              <Route path="/evidence" element={<LegacyOperationalPage><EvidencePage /></LegacyOperationalPage>} />
               <Route path="/payments" element={<LegacyOperationalPage><PaymentTrackerPage /></LegacyOperationalPage>} />
-              <Route path="/findings" element={<LegacyOperationalPage><FindingsPage /></LegacyOperationalPage>} />
-              <Route path="/tasks" element={<LegacyOperationalPage><TasksPage /></LegacyOperationalPage>} />
               <Route path="/daily-ops" element={<OperationalShellPage><DailyOpsPage /></OperationalShellPage>} />
-              <Route path="/activity" element={<LegacyOperationalPage><ActivityTrackerPage /></LegacyOperationalPage>} />
               <Route path="/crm" element={<LegacyOperationalPage><CrmPage /></LegacyOperationalPage>} />
               <Route path="/escalations" element={<LegacyOperationalPage><EscalationsPage /></LegacyOperationalPage>} />
               <Route path="/analytics" element={<OperationalShellPage><AnalyticsPage /></OperationalShellPage>} />

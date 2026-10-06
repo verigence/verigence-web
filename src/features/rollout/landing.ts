@@ -5,6 +5,12 @@ export interface LandingInput {
   searchParams: URLSearchParams;
 }
 
+/** Where a person with HR goes: an employee to attendance, an HR reader to the employee list, other HR holders to their own page. */
+export function hrHomePath(hr: { isEmployee: boolean; canReadEmployees: boolean }): string {
+  if (hr.isEmployee) return '/hr/attendance';
+  return hr.canReadEmployees ? '/hr/employees' : '/hr/me';
+}
+
 export type LandingDecision = { kind: 'wait' } | { kind: 'go'; to: string } | { kind: 'stay' };
 
 /**
@@ -17,6 +23,5 @@ export function landingDecision({ features, hr, searchParams }: LandingInput): L
   if (features.status === 'error' || features.audit === true) return { kind: 'stay' };
   if (hr.loading) return { kind: 'wait' };
   if (!hr.available) return { kind: 'stay' };
-  if (hr.isEmployee) return { kind: 'go', to: '/hr/attendance' };
-  return { kind: 'go', to: hr.canReadEmployees ? '/hr/employees' : '/hr/me' };
+  return { kind: 'go', to: hrHomePath(hr) };
 }

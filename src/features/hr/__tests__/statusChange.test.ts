@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { canSendRequest, statusChangeActions, statusChoices } from '../statusChange';
+import { canSendRequest, statusChangeActions, statusChoices, takesEffectAtOnce } from '../statusChange';
 
 describe('statusChange', () => {
   it('offers every status except the current one', () => {
@@ -24,5 +24,15 @@ describe('statusChange', () => {
     expect(statusChangeActions({ ...open, requestedBy: 'ceo-1' }, ceo)).toEqual({ approve: false, reject: false, cancel: true });
     expect(statusChangeActions({ status: 'APPROVED', requestedBy: 'hr-1' }, ceo)).toEqual({ approve: false, reject: false, cancel: false });
     expect(statusChangeActions(open, { userId: null, canApprove: true, canManage: true })).toEqual({ approve: true, reject: true, cancel: false });
+  });
+
+  it('suspends at once only for a suspension dated today or earlier', () => {
+    expect(takesEffectAtOnce('SUSPENDED', '2026-10-12', '2026-10-12')).toBe(true);
+    expect(takesEffectAtOnce('SUSPENDED', '2026-10-01', '2026-10-12')).toBe(true);
+    expect(takesEffectAtOnce('SUSPENDED', '', '2026-10-12')).toBe(true);
+    expect(takesEffectAtOnce('SUSPENDED', '2026-10-20', '2026-10-12')).toBe(false);
+    expect(takesEffectAtOnce('TERMINATED', '2026-10-12', '2026-10-12')).toBe(false);
+    expect(takesEffectAtOnce('QUIT', '2026-10-01', '2026-10-12')).toBe(false);
+    expect(takesEffectAtOnce('ACTIVE', '2026-10-12', '2026-10-12')).toBe(false);
   });
 });

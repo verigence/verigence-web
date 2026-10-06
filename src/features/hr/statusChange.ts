@@ -28,3 +28,8 @@ export function statusChangeActions(
     cancel: open && who.canManage && own,
   };
 }
+
+/** A suspension dated today or earlier takes effect at once; every other change waits for the CEO. The server decides again. */
+export function takesEffectAtOnce(toStatus: string, effectiveDate: string, today: string): boolean {
+  return toStatus === 'SUSPENDED' && (effectiveDate || today) <= today;
+}

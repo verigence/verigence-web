@@ -10,7 +10,7 @@ import {
 } from '../../services/hr/employees';
 import Field from './Field';
 import { formatDate, formatDateTime, loginOutcomeLabels, statusLabels } from './hrLabels';
-import { canSendRequest, statusChangeActions, statusChoices } from './statusChange';
+import { canSendRequest, statusChangeActions, statusChoices, takesEffectAtOnce } from './statusChange';
 
 interface RequestProps {
   accessToken: string;
@@ -21,10 +21,11 @@ interface RequestProps {
   onAsked: (change: StatusChange) => void;
 }
 
-/** HR asks for a status change. Sent once; the CEO decides. */
+/** HR asks for a status change. Sent once; the CEO decides, except for a suspension dated today or earlier, which is immediate. */
 export function StatusRequestDialog({ accessToken, employeeId, employeeName, current, onClose, onAsked }: RequestProps) {
   const [toStatus, setToStatus] = useState<string>('');
-  const [date, setDate] = useState(() => new Date().toLocaleDateString('en-CA'));
+  const today = new Date().toLocaleDateString('en-CA');
+  const [date, setDate] = useState(today);
   const [reason, setReason] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -46,7 +47,12 @@ export function StatusRequestDialog({ accessToken, employeeId, employeeName, cur
       <section className="uc01-admin-dialog" role="dialog" aria-modal="true" aria-labelledby="hr-status-title" style={{ maxWidth: 520 }}>
         <p className="uc01-admin-dialog__eyebrow">HR</p>
         <h2 id="hr-status-title">Change status of {employeeName}</h2>
-        <p>Now: <strong>{statusLabels[current]}</strong>. The CEO must approve the change. The status changes only after that. If the new status is not Active, the Verigence login is suspended when it is approved.</p>
+        <p>
+          Now: <strong>{statusLabels[current]}</strong>.{' '}
+          {takesEffectAtOnce(toStatus, date, today)
+            ? 'A suspension takes effect at once and the Verigence login is suspended. It is recorded in the audit log.'
+            : 'The CEO must approve the change. The status changes only after that. If the new status is not Active, the Verigence login is suspended when it is approved.'}
+        </p>
         <div className="hr-form-grid">
           <Field label="New status" htmlFor="hr-new-status" required>
             <select id="hr-new-status" value={toStatus} onChange={(e) => setToStatus(e.target.value)}>
@@ -65,7 +71,7 @@ export function StatusRequestDialog({ accessToken, employeeId, employeeName, cur
         <div className="uc01-admin-dialog__actions">
           <button type="button" className="uc01-admin-button" disabled={busy} onClick={onClose}>Cancel</button>
           <button type="button" className="uc01-admin-button uc01-admin-button--primary" disabled={busy || !canSendRequest({ toStatus, reason })} onClick={() => void send()}>
-            {busy ? 'Sending…' : 'Ask for approval'}
+            {busy ? 'Sending…' : takesEffectAtOnce(toStatus, date, today) ? 'Suspend now' : 'Ask for approval'}
           </button>
         </div>
       </section>

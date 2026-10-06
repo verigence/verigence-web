@@ -137,6 +137,22 @@ const p2DuplicatesItem: NavItem = {
   roles: ['PC', 'TL', 'PM'],
 };
 
+// Price masters: browse for PC, TL, PM (and SuperAdmin, in the admin list); upload for TL and PM
+// (a SuperAdmin uploads from OEM Masters).
+const priceMastersItem: NavItem = {
+  to: '/price-masters',
+  label: 'Price Masters',
+  mark: 'PM',
+  roles: ['PC', 'TL', 'PM', 'SUPER_ADMIN'],
+};
+
+const priceMasterUploadItem: NavItem = {
+  to: '/price-masters/upload',
+  label: 'Upload Price Master',
+  mark: 'UP',
+  roles: ['TL', 'PM'],
+};
+
 const p2Group: NavGroup = {
   key: 'phase2',
   label: 'Audit',
@@ -184,6 +200,7 @@ const groups: NavGroup[] = [
     { to: '/admin/approval-workflow', label: 'Approval Workflow Config', mark: 'AW', roles: ['SUPER_ADMIN'] },
     { to: '/admin/notifications', label: 'Notification Settings', mark: 'NS', roles: ['SUPER_ADMIN'] },
     { to: '/admin/oem-masters', label: 'OEM Masters', mark: 'OM', roles: ['SUPER_ADMIN'] },
+    priceMastersItem,
     projectAdministrationItem,
   ] },
 ];
@@ -198,7 +215,7 @@ const routeLabels: Record<string, string> = {
   '/admin/users/pending': 'Pending Approvals', '/admin/activity-log': 'User Activity Log',
   '/admin/roles-permissions': 'Roles & Permissions', '/admin/audit-rules': 'Audit Rule Config',
   '/admin/approval-workflow': 'Approval Workflow Config', '/admin/notifications': 'Notification Settings',
-  '/admin/oem-masters': 'OEM Masters', '/admin/project': 'Project Administration', '/profile': 'Profile',
+  '/admin/oem-masters': 'OEM Masters', '/price-masters': 'Price Masters', '/price-masters/upload': 'Upload Price Master', '/admin/project': 'Project Administration', '/profile': 'Profile',
   '/hr/employees': 'Employees', '/hr/employees/new': 'Add Employee', '/hr/employees/import': 'Import Employees', '/hr/employees/designation-salary-import': 'Import Designation and Salary', '/hr/me': 'My Employee Profile',
   '/hr/attendance': 'Attendance', '/hr/attendance/team': 'Team Attendance', '/hr/attendance/daily': 'Daily Attendance', '/hr/assignments': 'Project Assignments', '/hr/leave': 'Leave', '/hr/leave/overview': 'Leave Overview',
   '/hr/claims': 'Reimbursements', '/hr/claims/new': 'New Claim', '/hr/claims/all': 'All Claims', '/hr/approvals': 'Approvals',
@@ -354,6 +371,10 @@ export default function AppShell({ children }: PropsWithChildren) {
     }
     if (role === 'PC') {
       workspaceItems.push(createBookingItem);
+    }
+    if (auditRole) {
+      workspaceItems.push(priceMastersItem);
+      if (role === 'TL' || role === 'PM') workspaceItems.push(priceMasterUploadItem);
     }
     if (auditRole) {
       workspaceItems.push({ ...reviewQueueItem, badge: reviewQueueCount });

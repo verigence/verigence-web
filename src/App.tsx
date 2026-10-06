@@ -67,6 +67,8 @@ const AdminHousekeepingPage = lazy(() => import('./pages/AdminHousekeepingPage')
 const AdminLandingPage = lazy(() => import('./pages/AdminLandingPage'));
 const AdminFeedbackPage = lazy(() => import('./pages/AdminFeedbackPage'));
 const OemMastersPage = lazy(() => import('./pages/AdminOemMastersPage'));
+const PriceMastersPage = lazy(() => import('./pages/PriceMastersPage'));
+const PriceMasterUploadPage = lazy(() => import('./pages/PriceMasterUploadPage'));
 const DiTestConsolePage = lazy(() => import('./pages/DiTestConsolePage'));
 const DocumentIntelligenceConfigurationPage = lazy(() => import('./pages/DocumentIntelligenceConfigurationPage'));
 const DashboardPage = lazy(loadDashboardPage);
@@ -245,6 +247,13 @@ function OperationalPage({ children }: { children: ReactNode }) {
   );
 }
 
+/** Price master screens: a SuperAdmin works without a project (the page asks which); PC, TL and PM work in their project. The page itself turns away a role that may not open it. */
+function PriceMasterRoute({ children }: { children: ReactNode }) {
+  const role = useSessionStore((state) => state.role);
+  if (role === 'SUPER_ADMIN') return <PrivatePage>{children}</PrivatePage>;
+  return <OperationalPage>{children}</OperationalPage>;
+}
+
 function OperationalShellPage({ children }: { children: ReactNode }) {
   return <Authenticated><ProjectContextGate><AppShell>{children}</AppShell></ProjectContextGate></Authenticated>;
 }
@@ -415,6 +424,8 @@ export default function App() {
               <Route path="/admin/approval-workflow" element={<SuperAdminPage><AdminConfigurationPage section="approval-workflow" /></SuperAdminPage>} />
               <Route path="/admin/notifications" element={<SuperAdminPage><AdminConfigurationPage section="notifications" /></SuperAdminPage>} />
               <Route path="/admin/oem-masters" element={<SuperAdminPage><OemMastersPage /></SuperAdminPage>} />
+              <Route path="/price-masters" element={<PriceMasterRoute><PriceMastersPage /></PriceMasterRoute>} />
+              <Route path="/price-masters/upload" element={<PriceMasterRoute><PriceMasterUploadPage /></PriceMasterRoute>} />
               <Route path="/admin/project" element={<ProjectAdminPage><ProjectAdministrationPage /></ProjectAdminPage>} />
 
               <Route path="/approvals" element={<Navigate to="/admin/users/pending" replace />} />

@@ -1,0 +1,103 @@
+.price-masters__filters {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+  align-items: end;
+  margin-bottom: 16px;
+}
+
+.price-masters__filters label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-weight: 600;
+  color: var(--ink-700, #475467);
+}
+
+.price-masters__filters input {
+  min-height: 40px;
+  padding: 0 10px;
+  border: 1px solid var(--line, #d0d5dd);
+  border-radius: 8px;
+  font: inherit;
+}
+
+.price-masters__filter-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.price-masters__filter-actions button,
+.price-masters__toggle {
+  min-height: 40px;
+  padding: 0 14px;
+  border: 1px solid var(--line, #d0d5dd);
+  border-radius: 8px;
+  background: #fff;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.price-masters__filter-actions button[type='submit'] {
+  border-color: #0f766e;
+  background: #0f766e;
+  color: #fff;
+}
+
+.price-masters__summary,
+.price-masters__fine {
+  margin: 8px 0;
+  color: var(--ink-600, #667085);
+  font-size: 0.9rem;
+}
+
+.price-masters__row {
+  cursor: pointer;
+}
+
+.price-masters__num {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.price-masters__detail {
+  padding: 8px 4px 16px;
+}
+
+.price-masters__lines {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 4px 24px;
+  margin: 0 0 12px;
+}
+
+.price-masters__line {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--line, #eaecf0);
+}
+
+.price-masters__line dt {
+  color: var(--ink-600, #667085);
+}
+
+.price-masters__line dd {
+  margin: 0;
+  font-weight: 700;
+  text-align: right;
+}
+
+.price-masters__line small {
+  display: block;
+  font-weight: 400;
+  color: var(--ink-600, #667085);
+}
+
+@media (max-width: 640px) {
+  .price-masters__lines {
+    grid-template-columns: 1fr;
+  }
+}

@@ -1,0 +1,72 @@
+name: Prepare Verigence Android Release
+
+# Step 1 of an Android release, done in GitHub instead of on a laptop.
+# Enter the next version (for example 1.1.0). It moves everything under "Unreleased" in CHANGELOG.md
+# to that version, sets the same version in package.json, and commits both to dev.
+# Step 2 is to run "Publish Verigence Android App", which builds, signs and publishes that version.
+# Nothing is built or published here.
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Next version, three numbers (for example 1.1.0). Big change: first number. New features: second. Fixes: third.'
+        required: true
+        type: string
+
+concurrency:
+  group: prepare-verigence-android-release
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    name: Record the version and release notes
+    if: github.ref == 'refs/heads/dev'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    env:
+      VERSION: ${{ inputs.version }}
+    steps:
+      - name: Check the version looks right
+        shell: bash
+        run: |
+          set -euo pipefail
+          if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::\"$VERSION\" is not a version like 1.1.0."
+            exit 1
+          fi
+
+      - name: Checkout dev
+        uses: actions/checkout@v4
+        with:
+          ref: dev
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Record the version and move the notes
+        run: node scripts/bump-version.mjs "$VERSION"
+
+      - name: Show the release notes
+        run: node scripts/release-notes.mjs
+
+      - name: Commit to dev
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package.json CHANGELOG.md
+          git commit -m "Android app version $VERSION: version and release notes [skip ci]"
+          git push origin HEAD:dev
+          {
+            echo "### Version $VERSION is recorded on dev"
+            echo
+            echo "Next: run **Publish Verigence Android App** on the dev branch to build, sign and publish it."
+            echo
+            node scripts/release-notes.mjs
+          } >> "$GITHUB_STEP_SUMMARY"

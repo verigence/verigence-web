@@ -56,6 +56,7 @@ The signing key itself must never be committed to the repository.
 
 ## Versions and changes
 
+- The first release, **1.0.0** ("1.0"), was published on 05 October 2026. Every later release gets the next number and its notes in `CHANGELOG.md`.
 - The app version is the `version` in `package.json`. The release workflow puts the same number in the APK (`versionName`); the build number (`versionCode`) is the GitHub run number. The APK file is `Verigence-<version>-<build>.apk`.
 - The installed app reports its version to the server, so the login report and device diagnostics show it.
 - Every change that reaches the app is written in `CHANGELOG.md` under **Unreleased**, in simple English, in the same commit as the change.

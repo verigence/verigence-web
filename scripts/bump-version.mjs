@@ -1,4 +1,4 @@
-// Usage: npm run release:version -- 0.2.0
+// Usage: npm run release:version -- 1.1.0
 // Sets the version in package.json and moves everything under "Unreleased" in CHANGELOG.md to that version.
 // Then commit both files; the Android release workflow reads the version and the notes from them.
 import { readFileSync, writeFileSync } from 'node:fs';
@@ -7,7 +7,7 @@ import { bumpChangelog } from './changelog.mjs';
 
 const version = process.argv[2];
 if (!version) {
-  console.error('Give the new version, for example: npm run release:version -- 0.2.0');
+  console.error('Give the new version, for example: npm run release:version -- 1.1.0');
   process.exit(1);
 }
 const pkgPath = new URL('../package.json', import.meta.url);

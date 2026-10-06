@@ -79,7 +79,6 @@ export default function HrMyProfilePage() {
       if (error instanceof HrHttpError && error.problems.length) {
         const next: Errors = {};
         const map: Record<string, keyof SelfFormValues> = {
-          full_name: 'fullName',
           gender: 'gender',
           pincode: 'pincode',
           state: 'state',
@@ -192,7 +191,7 @@ export default function HrMyProfilePage() {
       <PageHeader
         eyebrow="HR"
         title="My employee profile"
-        description="Your details on record with HR. You can update your name, gender, address, emergency contact and qualifications. Role, designation, department, joining date, date of birth, experience, PAN and Aadhaar are kept by HR. To change your email or mobile, send a request to HR."
+        description="Your details on record with HR. You can update your gender, address, emergency contact and qualifications. Name, role, designation, department, joining date, date of birth, experience, PAN and Aadhaar are kept by HR. If your name is spelt wrongly, ask HR to correct it. To change your email or mobile, send a request to HR."
         actions={!editing ? (
           <button type="button" className="uc01-admin-button uc01-admin-button--primary" onClick={() => { setValues(selfFormFromEmployee(employee)); setDistrict(employee.district ?? ''); setDistrictError(''); setErrors({}); setFormError(''); setNotice(''); setEditing(true); }}>
             Update my details
@@ -222,16 +221,13 @@ export default function HrMyProfilePage() {
             submit();
           }}
         >
-          <SectionCard title="Contact" description="You can change your name, gender, address and secondary email. Email and mobile change only through a request to HR.">
+          <SectionCard title="Contact" description="You can change your gender, address and secondary email. Your name is as on Aadhaar or PAN; only HR corrects a spelling. Email and mobile change only through a request to HR.">
             <dl className="definition-list hr-definitions">
               <div><dt>Personal email</dt><dd>{employee.personalEmail}</dd></div>
               <div><dt>Mobile</dt><dd>{employee.mobile || '—'}</dd></div>
             </dl>
             <p className="hr-muted hr-form-note">To change your email or mobile, save or cancel here, then use "Change email or mobile" below.</p>
             <div className="hr-form-grid">
-              <Field label="Full name" htmlFor="me-name" error={errors.fullName} required>
-                <input id="me-name" maxLength={120} autoComplete="off" value={values.fullName} onChange={set('fullName')} />
-              </Field>
               <Field label="Gender" htmlFor="me-gender" error={errors.gender}>
                 <select id="me-gender" value={values.gender} onChange={set('gender')}>
                   <option value="">Not stated</option>

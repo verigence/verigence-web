@@ -4,9 +4,12 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { listProjects } from '../services/audit-core/uc02Admin';
 import {
   OEM_MASTER_KINDS,
+  OEM_MASTER_TEMPLATE_KINDS,
+  downloadOemMasterTemplate,
   listOemMasterUploads,
   previewOemMaster,
   publishOemMaster,
+  saveDownloadedFile,
   type OemMasterKind,
   type OemMasterUploadPreview,
 } from '../services/audit-core/oemMasters';
@@ -152,6 +155,11 @@ function MasterCard({
     },
   });
 
+  const templateMutation = useMutation({
+    mutationFn: () => downloadOemMasterTemplate(tenantId, kind, accessToken),
+    onSuccess: ({ blob, filename }) => saveDownloadedFile(blob, filename),
+  });
+
   const busy = previewMutation.isPending || publishMutation.isPending;
   const canPublish = Boolean(preview) && preview!.status === 'PREVIEW' && preview!.errors.length === 0;
 
@@ -162,6 +170,19 @@ function MasterCard({
         <span className="oem-masters__accept">{accept}</span>
       </header>
       <p className="oem-masters__hint">{hint}</p>
+      {OEM_MASTER_TEMPLATE_KINDS.includes(kind) && (
+        <div className="oem-masters__actions">
+          <button type="button" onClick={() => templateMutation.mutate()} disabled={templateMutation.isPending}>
+            {templateMutation.isPending ? 'Preparing…' : 'Download template'}
+          </button>
+          <small>Please upload in this template only.</small>
+        </div>
+      )}
+      {templateMutation.isError && (
+        <div className="oem-masters__list oem-masters__list--error" role="alert">
+          {errorText(templateMutation.error)}
+        </div>
+      )}
 
       <div className="oem-masters__controls">
         <label className="oem-masters__file">

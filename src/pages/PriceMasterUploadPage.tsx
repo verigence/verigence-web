@@ -2,9 +2,11 @@ import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import {
+  downloadOemMasterTemplate,
   listOemMasterUploads,
   previewOemMaster,
   publishOemMaster,
+  saveDownloadedFile,
   type OemMasterUploadPreview,
 } from '../services/audit-core/oemMasters';
 import { PriceMasterRedirect, ProjectPicker, usePriceMasterProject } from './priceMasterProject';
@@ -39,7 +41,7 @@ export default function PriceMasterUploadPage() {
     mutationFn: () => previewOemMaster(project.tenantId, 'PRICE_LIST', '', file!, project.accessToken),
     onSuccess: (result) => {
       setPreview(result);
-      setWefDate(result.effectiveFrom);
+      setWefDate(result.effectiveFrom ?? '');
     },
   });
   const publishMutation = useMutation({
@@ -50,12 +52,17 @@ export default function PriceMasterUploadPage() {
     },
   });
 
+  const templateMutation = useMutation({
+    mutationFn: () => downloadOemMasterTemplate(project.tenantId, 'PRICE_LIST', project.accessToken),
+    onSuccess: ({ blob, filename }) => saveDownloadedFile(blob, filename),
+  });
+
   if (!project.allowed) return <PriceMasterRedirect />;
 
   const busy = checkMutation.isPending || publishMutation.isPending;
   const published = preview?.status === 'PUBLISHED';
   const canPublish = Boolean(file && preview && preview.status === 'PREVIEW' && preview.errors.length === 0 && wefDate);
-  const dateDiffers = Boolean(preview && wefDate && wefDate !== preview.effectiveFrom);
+  const dateDiffers = Boolean(preview?.effectiveFrom && wefDate && wefDate !== preview.effectiveFrom);
   const history = (historyQuery.data ?? []).filter((row) => row.masterKind === 'PRICE_LIST');
 
   return (
@@ -68,6 +75,10 @@ export default function PriceMasterUploadPage() {
             Choose the OEM&rsquo;s price file. It is checked first and nothing is saved until you publish. You
             confirm the WEF date (the date the prices take effect); a date typed here always wins over the one in
             the file. The file keeps its original name.
+          </p>
+          <p>
+            <strong>Upload the prices in the Verigence template only</strong> &mdash; it keeps every OEM in one
+            format and avoids mistakes. Download it, fill it in, and do not add, rename or remove a column.
           </p>
         </div>
       </div>
@@ -90,6 +101,16 @@ export default function PriceMasterUploadPage() {
             <h3>Price list</h3>
             <span className="oem-masters__accept">.xlsx</span>
           </header>
+          <div className="oem-masters__actions">
+            <button type="button" onClick={() => templateMutation.mutate()} disabled={templateMutation.isPending}>
+              {templateMutation.isPending ? 'Preparing…' : 'Download template'}
+            </button>
+          </div>
+          {templateMutation.isError && (
+            <div className="oem-masters__list oem-masters__list--error" role="alert">
+              {errorText(templateMutation.error)}
+            </div>
+          )}
           <div className="oem-masters__controls">
             <label className="oem-masters__file">
               <input
@@ -116,7 +137,9 @@ export default function PriceMasterUploadPage() {
               />
               <small>
                 {preview
-                  ? `Found: ${preview.effectiveFrom} (${DATE_SOURCE[preview.effectiveFromSource ?? ''] ?? 'the file'}). Change it if it is wrong.`
+                  ? preview.effectiveFrom
+                    ? `Found: ${preview.effectiveFrom} (${DATE_SOURCE[preview.effectiveFromSource ?? ''] ?? 'the file'}). Change it if it is wrong.`
+                    : 'The file has no date. Type the WEF date.'
                   : 'Filled in from the file once it has been checked.'}
               </small>
             </label>

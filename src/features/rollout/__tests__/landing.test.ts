@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { landingDecision, type LandingInput } from '../landing';
+import { hrHomePath, landingDecision, type LandingInput } from '../landing';
 
 const base: LandingInput = {
   features: { status: 'ready', audit: false },
@@ -45,5 +45,14 @@ describe('landingDecision', () => {
     expect(decide({ searchParams: new URLSearchParams('action=create-booking') })).toEqual({ kind: 'stay' });
     expect(decide({ searchParams: new URLSearchParams('legacyDashboard=1&view=x') })).toEqual({ kind: 'stay' });
     expect(decide({ features: { status: 'loading' }, searchParams: new URLSearchParams('legacyDashboard=1') })).toEqual({ kind: 'stay' });
+  });
+});
+
+describe('hrHomePath', () => {
+  it('is attendance for an employee, the employee list for an HR reader, else the person\'s own page', () => {
+    expect(hrHomePath({ isEmployee: true, canReadEmployees: false })).toBe('/hr/attendance');
+    expect(hrHomePath({ isEmployee: true, canReadEmployees: true })).toBe('/hr/attendance');
+    expect(hrHomePath({ isEmployee: false, canReadEmployees: true })).toBe('/hr/employees');
+    expect(hrHomePath({ isEmployee: false, canReadEmployees: false })).toBe('/hr/me');
   });
 });

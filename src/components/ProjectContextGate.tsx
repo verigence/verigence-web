@@ -1,9 +1,11 @@
 import { useEffect, type PropsWithChildren } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useNavigate } from 'react-router-dom';
+import { Navigate, useNavigate } from 'react-router-dom';
 
 import { verigenceLockup } from '../assets/verigenceLockup';
 import type { OperatingRole } from '../domain/models';
+import { useHrAccess } from '../features/hr/hrQueries';
+import { hrHomePath } from '../features/rollout/landing';
 import {
   resetOperationalContext,
   selectOperationalOutlet,
@@ -36,6 +38,34 @@ const roleLabels: Record<OperatingRole, string> = {
   CRM: 'CRM',
   EXECUTIVE: 'Executive',
 };
+
+/** No audit workspace. A person who has HR still has My HR to work in, so they go there; only someone with nothing at all is told to contact the administrator. */
+function NoWorkspace({ onSignOut }: { onSignOut: () => void }) {
+  const hr = useHrAccess();
+  if (hr.loading) {
+    return (
+      <main className="uc03-project-gate" aria-busy="true">
+        <section className="uc03-project-gate__panel">
+          <img src={verigenceLockup} alt="Verigence" />
+          <div className="uc03-project-gate__spinner" aria-hidden="true" />
+          <h1>Opening your workspace</h1>
+          <p>Loading your current work context…</p>
+        </section>
+      </main>
+    );
+  }
+  if (hr.available) return <Navigate to={hrHomePath(hr)} replace />;
+  return (
+    <main className="uc03-project-gate">
+      <section className="uc03-project-gate__panel">
+        <img src={verigenceLockup} alt="Verigence" />
+        <h1>No active workspaces are currently assigned to you.</h1>
+        <p>Please contact your Verigence administrator.</p>
+        <button type="button" className="user-menu-button" onClick={onSignOut}>Sign out</button>
+      </section>
+    </main>
+  );
+}
 
 export default function ProjectContextGate({ children }: PropsWithChildren) {
   const accessToken = useSessionStore((state) => state.accessToken);
@@ -114,16 +144,7 @@ export default function ProjectContextGate({ children }: PropsWithChildren) {
   }
 
   if (projects.length === 0) {
-    return (
-      <main className="uc03-project-gate">
-        <section className="uc03-project-gate__panel">
-          <img src={verigenceLockup} alt="Verigence" />
-          <h1>No active workspaces are currently assigned to you.</h1>
-          <p>Please contact your Verigence administrator.</p>
-          <button type="button" className="user-menu-button" onClick={handleSignOut}>Sign out</button>
-        </section>
-      </main>
-    );
+    return <NoWorkspace onSignOut={handleSignOut} />;
   }
 
   if (!selectedProject) {

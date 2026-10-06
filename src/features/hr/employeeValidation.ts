@@ -238,6 +238,8 @@ export function buildUpdatePayload(original: Employee, v: EmployeeFormValues): E
 }
 
 export interface SelfFormValues {
+  fullName: string;
+  gender: '' | Gender;
   address: string;
   state: string;
   pincode: string;
@@ -249,6 +251,8 @@ export interface SelfFormValues {
 
 export function selfFormFromEmployee(e: Employee): SelfFormValues {
   return {
+    fullName: e.fullName,
+    gender: e.gender ?? '',
     address: e.address ?? '',
     state: e.state ?? '',
     pincode: e.pincode ?? '',
@@ -261,6 +265,7 @@ export function selfFormFromEmployee(e: Employee): SelfFormValues {
 
 export function validateSelfForm(v: SelfFormValues): Partial<Record<keyof SelfFormValues, string>> {
   const e: Partial<Record<keyof SelfFormValues, string>> = {};
+  if (!clean(v.fullName)) e.fullName = 'Enter your name.';
   if (v.pincode.trim() && !isPincode(v.pincode)) e.pincode = 'Pincode must be 6 digits and cannot start with 0.';
   if (v.emergencyContactNumber.trim() && !normaliseMobile(v.emergencyContactNumber)) {
     e.emergencyContactNumber = 'Enter a valid 10-digit Indian mobile number.';
@@ -274,6 +279,9 @@ export function buildSelfPayload(original: Employee, v: SelfFormValues): SelfUpd
   const compare = (key: string, before: string | null, after: string | null) => {
     if ((before ?? null) !== after) out[key] = after;
   };
+  // The name cannot be cleared: it is sent only when it has changed and is not blank.
+  if (clean(v.fullName) && clean(v.fullName) !== original.fullName) out.full_name = clean(v.fullName);
+  if ((original.gender ?? '') !== v.gender) out.gender = v.gender || null;
   compare('address', original.address, clean(v.address) || null);
   compare('state', original.state, v.state.trim() || null);
   compare('pincode', original.pincode, v.pincode.trim() || null);

@@ -22,6 +22,8 @@ The app's build number is added by the release workflow and is not written here.
 - On the profile page you can take a selfie for your profile photo. The Attendance page reminds you to add your photo if you have not.
 
 ### Changed
+- On "My employee profile" you can now also change your own name and gender. Role, designation, department, date of joining, date of birth, experience, PAN and Aadhaar stay with HR.
+- To change your email or mobile you send a request to HR from "My employee profile". HR sees the old and the new value and approves or rejects it. Nothing changes until HR approves. Employees page shows the waiting requests to HR.
 - Changing an employee's e-mail or mobile number in HR also changes it on their Verigence login. The login, the roles and the password stay the same.
 - A new login made by HR for an employee is ready to use. It no longer waits for SuperAdmin approval.
 - The status can no longer be edited in the Edit form.

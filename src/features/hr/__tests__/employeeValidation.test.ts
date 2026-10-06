@@ -166,10 +166,20 @@ describe('self service form', () => {
       'emergencyContactAddress',
       'emergencyContactName',
       'emergencyContactNumber',
+      'fullName',
+      'gender',
       'pincode',
       'secondaryEmail',
       'state',
     ]);
+  });
+  it('lets an employee change their own name and gender, but not blank the name', () => {
+    const form = selfFormFromEmployee(employee);
+    expect(buildSelfPayload(employee, { ...form, fullName: '  Anita   Das ' })).toEqual({ full_name: 'Anita Das' });
+    expect(buildSelfPayload(employee, { ...form, fullName: '   ' })).toEqual({});
+    expect(validateSelfForm({ ...form, fullName: ' ' }).fullName).toBeTruthy();
+    expect(buildSelfPayload(employee, { ...form, gender: 'MALE' })).toEqual({ gender: 'MALE' });
+    expect(buildSelfPayload(employee, { ...form, gender: '' })).toEqual({ gender: null });
   });
   it('sends nothing when unchanged and only the edit otherwise', () => {
     const form = selfFormFromEmployee(employee);

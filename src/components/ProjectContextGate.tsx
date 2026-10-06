@@ -1,6 +1,6 @@
 import { useEffect, type PropsWithChildren } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Navigate, useNavigate } from 'react-router-dom';
+import { Link, Navigate, useNavigate } from 'react-router-dom';
 
 import { verigenceLockup } from '../assets/verigenceLockup';
 import type { OperatingRole } from '../domain/models';
@@ -39,8 +39,15 @@ const roleLabels: Record<OperatingRole, string> = {
   EXECUTIVE: 'Executive',
 };
 
-/** No audit workspace. A person who has HR still has My HR to work in, so they go there; only someone with nothing at all is told to contact the administrator. */
-function NoWorkspace({ onSignOut }: { onSignOut: () => void }) {
+/** A person with HR always has My HR, whatever the Audit side says. A button to it, shown only when the HR service says they have HR. */
+function OpenMyHr() {
+  const hr = useHrAccess();
+  if (!hr.available) return null;
+  return <Link className="frozen-auth-primary" to={hrHomePath(hr)}>Open My HR</Link>;
+}
+
+/** Audit has nothing for this person to work in. A person who has HR goes to My HR; only someone with nothing at all is told to contact the administrator. */
+function DeadEnd({ title, text, onSignOut }: { title: string; text: string; onSignOut: () => void }) {
   const hr = useHrAccess();
   if (hr.loading) {
     return (
@@ -57,10 +64,10 @@ function NoWorkspace({ onSignOut }: { onSignOut: () => void }) {
   if (hr.available) return <Navigate to={hrHomePath(hr)} replace />;
   return (
     <main className="uc03-project-gate">
-      <section className="uc03-project-gate__panel">
+      <section className="uc03-project-gate__panel" role="alert">
         <img src={verigenceLockup} alt="Verigence" />
-        <h1>No active workspaces are currently assigned to you.</h1>
-        <p>Please contact your Verigence administrator.</p>
+        <h1>{title}</h1>
+        <p>{text}</p>
         <button type="button" className="user-menu-button" onClick={onSignOut}>Sign out</button>
       </section>
     </main>
@@ -136,6 +143,7 @@ export default function ProjectContextGate({ children }: PropsWithChildren) {
             <button type="button" className="frozen-auth-primary" onClick={() => projectQuery.refetch()}>
               Try Again
             </button>
+            <OpenMyHr />
             <button type="button" className="user-menu-button" onClick={handleSignOut}>Sign out</button>
           </div>
         </section>
@@ -144,7 +152,13 @@ export default function ProjectContextGate({ children }: PropsWithChildren) {
   }
 
   if (projects.length === 0) {
-    return <NoWorkspace onSignOut={handleSignOut} />;
+    return (
+      <DeadEnd
+        title="No active workspaces are currently assigned to you."
+        text="Please contact your Verigence administrator."
+        onSignOut={handleSignOut}
+      />
+    );
   }
 
   if (!selectedProject) {
@@ -177,6 +191,7 @@ export default function ProjectContextGate({ children }: PropsWithChildren) {
               </button>
             ))}
           </div>
+          <OpenMyHr />
           <button type="button" className="user-menu-button" onClick={handleSignOut}>Sign out</button>
         </section>
       </main>
@@ -185,14 +200,11 @@ export default function ProjectContextGate({ children }: PropsWithChildren) {
 
   if (selectedProject.operatingRole === 'PC' && selectedProject.scope.outlets.length === 0) {
     return (
-      <main className="uc03-project-gate">
-        <section className="uc03-project-gate__panel" role="alert">
-          <img src={verigenceLockup} alt="Verigence" />
-          <h1>No active work location is assigned to you.</h1>
-          <p>Your Process Coordinator role must be mapped to at least one active work location.</p>
-          <button type="button" className="user-menu-button" onClick={handleSignOut}>Sign out</button>
-        </section>
-      </main>
+      <DeadEnd
+        title="No active work location is assigned to you."
+        text="Your Process Coordinator role must be mapped to at least one active work location."
+        onSignOut={handleSignOut}
+      />
     );
   }
 
@@ -229,6 +241,7 @@ export default function ProjectContextGate({ children }: PropsWithChildren) {
               </button>
             ))}
           </div>
+          <OpenMyHr />
           <button type="button" className="user-menu-button" onClick={handleSignOut}>Sign out</button>
         </section>
       </main>

@@ -11,6 +11,7 @@ import { getReviewQueueSummary } from '../services/audit-core/uc03Audit';
 import { getP2Tasks } from '../services/audit-core/uc03P2';
 import { useHrAccess } from '../features/hr/hrQueries';
 import { useMyFeatures, visibleNavGroups } from '../features/rollout/featureFlags';
+import { priceMasterNavItems, priceMastersItem } from './priceMasterNav';
 import { useMyHrIdentity } from '../features/hr/myIdentity';
 import { chooseDisplayName } from '../features/profile/workContext';
 import { isDiTestConsoleAvailable } from '../services/di/testConsole';
@@ -137,21 +138,9 @@ const p2DuplicatesItem: NavItem = {
   roles: ['PC', 'TL', 'PM'],
 };
 
-// Price masters: browse for PC, TL, PM (and SuperAdmin, in the admin list); upload for TL and PM
-// (a SuperAdmin uploads from OEM Masters).
-const priceMastersItem: NavItem = {
-  to: '/price-masters',
-  label: 'Price Masters',
-  mark: 'PM',
-  roles: ['PC', 'TL', 'PM', 'SUPER_ADMIN'],
-};
-
-const priceMasterUploadItem: NavItem = {
-  to: '/price-masters/upload',
-  label: 'Upload Price Master',
-  mark: 'UP',
-  roles: ['TL', 'PM'],
-};
+// Price masters: PC, TL and PM find them in the Audit group (the Workspace group is retired and never drawn);
+// a SuperAdmin finds them in the admin list and uploads from OEM Masters.
+const superAdminPriceMastersItem: NavItem = { ...priceMastersItem, roles: ['SUPER_ADMIN'] };
 
 const p2Group: NavGroup = {
   key: 'phase2',
@@ -200,7 +189,7 @@ const groups: NavGroup[] = [
     { to: '/admin/approval-workflow', label: 'Approval Workflow Config', mark: 'AW', roles: ['SUPER_ADMIN'] },
     { to: '/admin/notifications', label: 'Notification Settings', mark: 'NS', roles: ['SUPER_ADMIN'] },
     { to: '/admin/oem-masters', label: 'OEM Masters', mark: 'OM', roles: ['SUPER_ADMIN'] },
-    priceMastersItem,
+    superAdminPriceMastersItem,
     projectAdministrationItem,
   ] },
 ];
@@ -358,6 +347,7 @@ export default function AppShell({ children }: PropsWithChildren) {
             p2BookingsItem,
             { ...p2TasksItem, badge: p2TaskCount },
             p2DuplicatesItem,
+            ...priceMasterNavItems(role),
             ...(role === 'PC' ? [dailyOpsItem] : []),
           ],
         }
@@ -371,10 +361,6 @@ export default function AppShell({ children }: PropsWithChildren) {
     }
     if (role === 'PC') {
       workspaceItems.push(createBookingItem);
-    }
-    if (auditRole) {
-      workspaceItems.push(priceMastersItem);
-      if (role === 'TL' || role === 'PM') workspaceItems.push(priceMasterUploadItem);
     }
     if (auditRole) {
       workspaceItems.push({ ...reviewQueueItem, badge: reviewQueueCount });

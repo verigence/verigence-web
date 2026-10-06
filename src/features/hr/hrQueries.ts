@@ -26,6 +26,8 @@ export interface HrAccess {
   canManageEmployees: boolean;
   /** The CEO: approves or rejects a change of an employee's status. */
   canApproveStatus: boolean;
+  /** The CEO and SuperAdmin: a status change they ask for, dated today or earlier, takes effect at once. */
+  canChangeStatusAtOnce: boolean;
   canRevealSensitive: boolean;
   canReadAudit: boolean;
   isEmployee: boolean;
@@ -56,6 +58,7 @@ export function useHrAccess(): HrAccess {
     canReadEmployees: can(HR_PERMISSION.employeeRead),
     canManageEmployees: can(HR_PERMISSION.employeeManage),
     canApproveStatus: can(HR_PERMISSION.employeeStatusApprove),
+    canChangeStatusAtOnce: can(HR_PERMISSION.employeeStatusDirect),
     canRevealSensitive: can(HR_PERMISSION.sensitiveRead),
     canReadAudit: can(HR_PERMISSION.auditRead),
     isEmployee: Boolean(me?.employeeId),

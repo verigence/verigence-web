@@ -114,18 +114,12 @@ const P2DuplicateBookingsPage = lazy(() => import('./pages/P2DuplicateBookingsPa
 const routerBase = import.meta.env.BASE_URL === '/' ? undefined : import.meta.env.BASE_URL.replace(/\/$/, '');
 
 /*
- * ── PC Overview redesign ──────────────────────────────────────────────────────
- * The new Process Coordinator dashboard lives in ./pages/PcOverviewPage and is
+ * ── PC Overview ───────────────────────────────────────────────────────────────
+ * The Process Coordinator dashboard lives in ./pages/PcOverviewPage and is
  * documented under docs/uc-003-booking-delivery-audit/pc-overview-redesign/.
- * It ONLY replaces the PC landing screen — Team Lead / PM / admin dashboards are
- * left exactly as they were.
- *
- * Falling back to the legacy Work Queue dashboard is deliberately trivial:
- *   • set PC_OVERVIEW_REDESIGN_ENABLED to false below, or
- *   • open any dashboard link with ?legacyDashboard=1
- * The legacy DashboardPage and every dashboard-*.css file are untouched.
+ * It ONLY serves the PC landing screen; Team Lead, PM and admin dashboards are
+ * separate. (The old ?legacyDashboard=1 fallback to the Work Queue is removed.)
  */
-const PC_OVERVIEW_REDESIGN_ENABLED = true;
 
 function PcJourneyRoutePreloader() {
   const signedIn = useSessionStore((state) => state.signedIn);
@@ -219,17 +213,9 @@ function HrLanding({ children }: { children: ReactNode }) {
 function DashboardEntry() {
   const role = useSessionStore((state) => state.role);
   const selectedProject = useProjectContextStore((state) => state.selectedProject);
-  const [searchParams] = useSearchParams();
   if (role === 'SUPER_ADMIN' && !selectedProject) return <PrivatePage><AdminLandingPage /></PrivatePage>;
   if (selectedProject?.operatingRole === 'TL') return <OperationalPage><TeamLeadDashboardPage /></OperationalPage>;
-
-  // useSearchParams (not window.location) so the tiles on PC Overview, which link
-  // to /dashboard?legacyDashboard=1&view=…, actually re-render this into the
-  // legacy work queue instead of a no-op.
-  const usePcOverview = selectedProject?.operatingRole === 'PC'
-    && PC_OVERVIEW_REDESIGN_ENABLED
-    && !searchParams.has('legacyDashboard');
-  if (usePcOverview) return <OperationalPage><PcOverviewPage /></OperationalPage>;
+  if (selectedProject?.operatingRole === 'PC') return <OperationalPage><PcOverviewPage /></OperationalPage>;
 
   return <OperationalPage><DashboardPage /></OperationalPage>;
 }

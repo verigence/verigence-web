@@ -43,8 +43,8 @@ describe('landingDecision', () => {
 
   it('leaves Audit work alone when the URL carries any query parameter', () => {
     expect(decide({ searchParams: new URLSearchParams('action=create-booking') })).toEqual({ kind: 'stay' });
-    expect(decide({ searchParams: new URLSearchParams('legacyDashboard=1&view=x') })).toEqual({ kind: 'stay' });
-    expect(decide({ features: { status: 'loading' }, searchParams: new URLSearchParams('legacyDashboard=1') })).toEqual({ kind: 'stay' });
+    expect(decide({ searchParams: new URLSearchParams('action=create-booking&view=x') })).toEqual({ kind: 'stay' });
+    expect(decide({ features: { status: 'loading' }, searchParams: new URLSearchParams('action=create-booking') })).toEqual({ kind: 'stay' });
   });
 });
 

@@ -1,7 +1,7 @@
 /*
  * PC Overview — redesigned Process Coordinator dashboard.
- * Feature-flagged in src/App.tsx (PC_OVERVIEW_REDESIGN_ENABLED); the legacy
- * DashboardPage / dashboard-workqueue-*.css remain the fallback and are untouched.
+ * Shown to Process Coordinators from src/App.tsx. DashboardPage / dashboard-workqueue-*.css
+ * remain the home screen for the other roles.
  * Design reference: docs/uc-003-booking-delivery-audit/pc-overview-redesign/
  * All selectors are namespaced `.pcov`. No vertical freeze — natural scroll.
  */

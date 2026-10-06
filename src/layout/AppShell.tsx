@@ -332,8 +332,6 @@ export default function AppShell({ children }: PropsWithChildren) {
   const diTestAvailable = isDiTestConsoleAvailable();
   const createBookingMode = location.pathname === '/dashboard'
     && new URLSearchParams(location.search).get('action') === 'create-booking';
-  const legacyQueueMode = location.pathname === '/dashboard'
-    && new URLSearchParams(location.search).get('legacyDashboard') === '1';
   const baseGroups = useMemo<NavGroup[]>(() => {
     if (!c0OperationalShell) return groups;
     const auditRole = role === 'PC' || role === 'TL' || role === 'PM';
@@ -492,13 +490,11 @@ export default function AppShell({ children }: PropsWithChildren) {
   const analyticsReport = new URLSearchParams(location.search).get('report') || 'overview';
   const currentLabel = createBookingMode
     ? 'Capture New Booking'
-    : legacyQueueMode
-      ? 'Bookings & Deliveries'
-      : location.pathname === '/analytics'
-        ? `Analytics · ${analyticsReportLabels[analyticsReport] || 'Overview'}`
-        : routeLabels[location.pathname]
-          ?? dynamicLabel
-          ?? 'Workspace';
+    : location.pathname === '/analytics'
+      ? `Analytics · ${analyticsReportLabels[analyticsReport] || 'Overview'}`
+      : routeLabels[location.pathname]
+        ?? dynamicLabel
+        ?? 'Workspace';
   const visibleName = chooseDisplayName(myIdentity.fullName, displayName) || 'User';
   const roleLabel = roleLabels[role];
   const avatarText = initials(visibleName);
@@ -512,7 +508,7 @@ export default function AppShell({ children }: PropsWithChildren) {
 
   const isNavItemActive = (item: NavItem, isActive: boolean) => {
     if (item.to === createBookingItem.to) return createBookingMode;
-    if (item.to === '/dashboard') return isActive && !createBookingMode && !legacyQueueMode;
+    if (item.to === '/dashboard') return isActive && !createBookingMode;
     if (item.to.split('?')[0] === '/analytics') {
       const itemReport = new URLSearchParams(item.to.split('?')[1] || '').get('report') || 'overview';
       return location.pathname === '/analytics' && itemReport === analyticsReport;
@@ -688,7 +684,7 @@ export default function AppShell({ children }: PropsWithChildren) {
             <NavLink
               to="/dashboard"
               className={`enterprise-bottom-nav__item${
-                location.pathname === '/dashboard' && !createBookingMode && !legacyQueueMode
+                location.pathname === '/dashboard' && !createBookingMode
                   ? ' enterprise-bottom-nav__item--active'
                   : ''
               }`}

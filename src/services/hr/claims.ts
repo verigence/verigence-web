@@ -7,7 +7,7 @@ import { hrRawRequest, hrRequest } from './client';
  */
 
 /** HR permission keys (hrmgmt/permissions.py). The service checks them again on every request. */
-export const CLAIM_PERMISSION = {
+const CLAIM_PERMISSION = {
   review: 'hr.claim.review',
   reviewFinance: 'hr.claim.review_finance',
   /** Held only by the CEO; the service lets the CEO see every claim, so the list-all screen does too. */
@@ -48,7 +48,7 @@ export const CLAIM_STATUSES: readonly ClaimStatus[] = [
 ];
 
 export type ClaimStage = 'TL_PM' | 'HR' | 'FINANCE';
-export type ClaimKind = 'TRAVEL' | 'MEALS';
+type ClaimKind = 'TRAVEL' | 'MEALS';
 
 export interface ClaimCategory {
   code: string;
@@ -110,7 +110,7 @@ export interface ClaimReceipt {
   sizeBytes: number;
 }
 
-export interface ClaimHistoryEntry {
+interface ClaimHistoryEntry {
   at: string;
   event: string;
   stage: ClaimStage | null;
@@ -170,7 +170,7 @@ export const getClaim = (token: string, claimId: string) =>
   hrRequest<ClaimDetail>(`${base}/${encodeURIComponent(claimId)}`, { accessToken: token });
 
 /** The multipart body: no Content-Type header is set, so the browser adds the boundary. */
-export function claimForm(input: ClaimInput): FormData {
+function claimForm(input: ClaimInput): FormData {
   const form = new FormData();
   form.append('category', input.category);
   form.append('expense_date', input.expenseDate);

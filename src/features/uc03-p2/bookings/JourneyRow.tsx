@@ -4,7 +4,7 @@ import type { P2JourneyListItem } from '../../../services/audit-core/uc03P2';
 import { signedMoney, varianceTone } from '../journey360/j360Format';
 
 /** The six steps of a Journey, Booking then Delivery. */
-export const JOURNEY_STEPS = [
+const JOURNEY_STEPS = [
   'Booking documents',
   'Booking verified',
   'Booking complete',
@@ -14,7 +14,7 @@ export const JOURNEY_STEPS = [
 ] as const;
 
 /** Index of the step in progress (6 = every step done). */
-export function activeStep(stage: string, delivered?: boolean): number {
+function activeStep(stage: string, delivered?: boolean): number {
   if (delivered) return 6;
   switch (stage) {
     case 'BOOKING_DOCUMENT_UPLOAD': return 0;
@@ -49,7 +49,7 @@ export function customerLabel(name: string | null | undefined): { text: string; 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 /** "27 Sep 2026": the full date, as the list shows every date. */
-export function fullDate(value?: string | null): string | null {
+function fullDate(value?: string | null): string | null {
   if (!value) return null;
   const date = new Date(value.length === 10 ? `${value}T00:00:00` : value);
   if (Number.isNaN(date.getTime())) return value;

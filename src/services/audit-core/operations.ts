@@ -4,17 +4,6 @@ import type {
 } from '../../domain/models';
 import { auditCoreRequest } from './client';
 
-export interface CoreCustomer {
-  customerId: string;
-  dealerId: string;
-  outletId: string;
-  customerTypeCode: string;
-  displayName: string;
-  mobileLast4?: string | null;
-  emailReference?: string | null;
-  externalCustomerRef?: string | null;
-  status: string;
-}
 
 function auth(accessToken?: string) {
   return accessToken ? { accessToken } : {};

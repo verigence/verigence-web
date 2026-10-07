@@ -8,7 +8,7 @@ import type { PageQualityFailureCode, PageQualityMetrics, PageQualityResult } fr
  * document understanding on the server. Values must be calibrated against the
  * dealer-document UAT corpus before GA.
  */
-export const MOBILE_CAPTURE_QUALITY_POLICY = {
+const MOBILE_CAPTURE_QUALITY_POLICY = {
   minShortEdgePx: 1000,
   minLongEdgePx: 1600,
   minPixelCount: 1_500_000,
@@ -58,7 +58,7 @@ async function canvasBlob(canvas: HTMLCanvasElement, quality: number): Promise<B
   });
 }
 
-export async function pageSourceToBlob(source: PageSource): Promise<Blob> {
+async function pageSourceToBlob(source: PageSource): Promise<Blob> {
   if (source.sourceBlob) return source.sourceBlob;
   if (!source.sourceUri) throw new Error('No image source is available for this scanned page.');
 

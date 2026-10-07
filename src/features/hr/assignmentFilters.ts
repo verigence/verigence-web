@@ -1,7 +1,7 @@
 import type { AssignedEmployee, WorkAssignment } from '../../services/hr/workAssignments';
 
 export const NO_PROJECT_FILTER = '__none__';
-export const STALE_AFTER_HOURS = 36;
+const STALE_AFTER_HOURS = 36;
 
 /** Employees matching a project (or none), and a name or code search. */
 export function filterAssigned(employees: AssignedEmployee[], project: string, search: string): AssignedEmployee[] {

@@ -10,14 +10,6 @@ import { hrRawRequest, hrRequest } from './client';
  */
 const base = '/hr/v1';
 
-/** Permission keys from hrmgmt/permissions.py. Informational only: the server re-checks everything. */
-export const APPROVAL_PERMISSION = {
-  attendanceReadAll: 'hr.attendance.read_all',
-  leaveReview: 'hr.leave.review',
-  claimReview: 'hr.claim.review',
-  claimReviewFinance: 'hr.claim.review_finance',
-  payrollApprove: 'hr.payroll.approve',
-} as const;
 
 /** Error codes the decision endpoints return. */
 export const APPROVAL_ERROR = {
@@ -47,7 +39,7 @@ interface Items<T> {
 // ---- attendance exceptions -------------------------------------------------------------------
 
 export type AttendanceEvent = 'CHECK_IN' | 'CHECK_OUT';
-export type AttendanceExceptionKind = 'LATE_CHECK_IN' | 'EARLY_CHECK_OUT' | 'OUT_OF_FENCE' | 'NO_OUTLET_LOCATION' | 'OFF_DAY_WORK';
+type AttendanceExceptionKind = 'LATE_CHECK_IN' | 'EARLY_CHECK_OUT' | 'OUT_OF_FENCE' | 'NO_OUTLET_LOCATION' | 'OFF_DAY_WORK';
 
 export interface AttendanceApproval {
   exceptionId: string;
@@ -86,7 +78,7 @@ export async function fetchAttendancePhoto(accessToken: string, attendanceId: st
 
 // ---- leave -----------------------------------------------------------------------------------
 
-export type LeaveApproverRule = 'AUTO' | 'CEO' | 'PM' | 'TL_PM' | 'HR';
+type LeaveApproverRule = 'AUTO' | 'CEO' | 'PM' | 'TL_PM' | 'HR';
 
 export interface LeaveApproval {
   requestId: string;
@@ -118,7 +110,7 @@ export const decideLeave = (accessToken: string, requestId: string, body: Decisi
 
 // ---- reimbursement claims --------------------------------------------------------------------
 
-export type ClaimStage = 'TL_PM' | 'HR' | 'FINANCE';
+type ClaimStage = 'TL_PM' | 'HR' | 'FINANCE';
 
 export interface ClaimApproval {
   claimId: string;

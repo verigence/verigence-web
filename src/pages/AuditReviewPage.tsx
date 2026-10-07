@@ -285,7 +285,6 @@ function FlagCard({
   // separate role check needed here.
   const canDo = (action: string) =>
     flag.permittedActions.includes(action) || permittedActions.includes(action);
-  const isViolation = flag.findingClass === 'VIOLATION';
   const open = ['OPEN', 'ACKNOWLEDGED'].includes(flag.status);
   const canAccept = canDo('CONFIRM_BREACH');
   const canReject = canDo('MARK_FALSE_POSITIVE');

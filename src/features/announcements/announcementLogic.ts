@@ -5,7 +5,7 @@ const IST_OFFSET = '+05:30';
 const IST_MINUTES = 330;
 
 /** Pages anyone may open, whatever is running: sign-in and the public documents. */
-export const PUBLIC_PATHS = ['/login', '/signup', '/forgot-password', '/terms', '/privacy'];
+const PUBLIC_PATHS = ['/login', '/signup', '/forgot-password', '/terms', '/privacy'];
 export const isPublicPath = (pathname: string) => PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`));
 
 // ---- maintenance gate ----------------------------------------------------------------------------
@@ -97,7 +97,7 @@ export function formatWhenIst(iso: string | null | undefined): string {
 
 export const TITLE_MAX = 120;
 export const BODY_MAX = 1000;
-export const QUIET_MAX = 720;
+const QUIET_MAX = 720;
 
 export const DEFAULT_MAINTENANCE_TITLE = "We'll be back soon";
 export const DEFAULT_MAINTENANCE_BODY = 'Verigence is being upgraded. Please visit again in a little while.';

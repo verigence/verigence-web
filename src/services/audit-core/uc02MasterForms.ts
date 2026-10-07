@@ -18,7 +18,7 @@ export interface FormMasterState {
   data?: Record<string, unknown> | Array<Record<string, unknown>> | null;
 }
 
-export interface DocumentRequirementItemInput {
+interface DocumentRequirementItemInput {
   requirementKey: string;
   documentTypeKey: string;
   processArea: string;

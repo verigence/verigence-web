@@ -8,7 +8,7 @@ import { useSessionStore } from '../../store/sessionStore';
 
 const STORAGE_KEY = 'uc03-pc-review-readiness-watch-v1';
 const CHANGE_EVENT = 'uc03-pc-review-readiness-watch-change';
-export const REVIEW_READY_EVENT = 'uc03-pc-review-ready';
+const REVIEW_READY_EVENT = 'uc03-pc-review-ready';
 const RECHECK_MS = 120_000;
 const SCHEDULER_TICK_MS = 10_000;
 
@@ -42,22 +42,7 @@ function writeEntries(entries: ReviewWatchEntry[]) {
   window.dispatchEvent(new Event(CHANGE_EVENT));
 }
 
-export function watchReviewReadiness(tenantId: string, journeyId: string, label: string) {
-  const entries = readEntries();
-  const existing = entries.find((entry) => entry.tenantId === tenantId && entry.journeyId === journeyId);
-  if (existing) {
-    existing.label = label;
-    existing.lastCheckedAt = Date.now();
-    existing.ready = false;
-  } else {
-    entries.push({ tenantId, journeyId, label, lastCheckedAt: Date.now(), ready: false });
-  }
-  writeEntries(entries);
-}
 
-export function clearReviewReadinessWatch(tenantId: string, journeyId: string) {
-  writeEntries(readEntries().filter((entry) => !(entry.tenantId === tenantId && entry.journeyId === journeyId)));
-}
 
 export default function ReviewReadinessWatcher() {
   const navigate = useNavigate();

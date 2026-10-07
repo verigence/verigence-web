@@ -51,8 +51,3 @@ export interface LogicalCapturedDocument {
   continuationFromPrevious?: ContinuationDecision;
 }
 
-export interface MobileCaptureTarget {
-  stage: MobileCaptureStage;
-  journeyId?: string;
-  routePath: string;
-}

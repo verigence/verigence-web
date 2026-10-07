@@ -13,7 +13,7 @@ export type JourneySearchMatch =
   | 'PAYMENT_REFERENCE'
   | 'TECHNICAL_ID';
 
-export interface JourneySearchItem {
+interface JourneySearchItem {
   journeyId: string;
   customerDisplayName: string;
   customerLegalName: string | null;
@@ -67,7 +67,7 @@ export interface JourneyReviewedField {
   precedenceReason?: string | null;
 }
 
-export interface JourneyResolvedReviewedValue {
+interface JourneyResolvedReviewedValue {
   value: unknown;
   reviewedFieldId?: string | null;
   documentId?: string | null;

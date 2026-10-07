@@ -27,7 +27,7 @@ export type ConfigurationProposalBody = {
   };
 };
 
-export type ProposalTestField = {
+type ProposalTestField = {
   fieldKey: string;
   foundStatus: string;
   value: unknown;
@@ -35,7 +35,7 @@ export type ProposalTestField = {
   pageNo: number | null;
 };
 
-export type ProposalTestResult = {
+type ProposalTestResult = {
   documentTypeKey: string;
   fields: ProposalTestField[];
   usage?: Record<string, unknown>;

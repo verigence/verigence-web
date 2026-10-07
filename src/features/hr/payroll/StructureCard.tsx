@@ -6,7 +6,7 @@ import ComponentsTable from './ComponentsTable';
 import { formatRupees } from './money';
 import { TEMPLATE_PENDING_HINT } from './salaryRules';
 
-export const STRUCTURE_STATUS: Record<StructureStatus, { label: string; tone: string }> = {
+const STRUCTURE_STATUS: Record<StructureStatus, { label: string; tone: string }> = {
   PROPOSED: { label: 'Waiting for Finance', tone: 'pending' },
   APPROVED: { label: 'Approved', tone: 'approved' },
   REJECTED: { label: 'Rejected', tone: 'rejected' },

@@ -22,7 +22,7 @@ export const ATTENDANCE_ERROR = {
 
 export type AttendanceEvent = 'CHECK_IN' | 'CHECK_OUT';
 export type AttendanceDayStatus = 'ABSENT' | 'PENDING_APPROVAL' | 'EXCEPTION_REJECTED' | 'CHECKED_IN' | 'COMPLETE';
-export type AttendanceDayKind = 'WORKING' | 'SUNDAY' | 'HOLIDAY';
+type AttendanceDayKind = 'WORKING' | 'SUNDAY' | 'HOLIDAY';
 export type ExceptionKind = 'OUT_OF_FENCE' | 'NO_OUTLET_LOCATION' | 'LATE_CHECK_IN' | 'EARLY_CHECK_OUT' | 'OFF_DAY_WORK';
 export type ExceptionStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
 
@@ -106,7 +106,7 @@ export interface TeamAttendanceEmployee {
   daysAbsent: number;
 }
 
-export interface TeamAttendanceSummary {
+interface TeamAttendanceSummary {
   workingDays: number;
   workingDaysSoFar: number;
   sundays: number;

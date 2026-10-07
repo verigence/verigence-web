@@ -123,8 +123,3 @@ export async function clearNativeRememberCredential(): Promise<void> {
   }
 }
 
-export async function clearRememberSessionLocalState(): Promise<void> {
-  setRememberSessionHint(false);
-  setRememberedIdentityHint();
-  await clearNativeRememberCredential();
-}

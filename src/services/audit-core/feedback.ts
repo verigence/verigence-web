@@ -1,18 +1,6 @@
 import { auditCoreRawRequest, auditCoreRequest } from './client';
 
-export interface FeedbackSubmission {
-  tenantId: string;
-  accessToken: string;
-  feedbackText: string;
-  submittedByDisplayName?: string;
-  pagePath?: string;
-  screenshot?: File;
-}
 
-export interface FeedbackSubmittedResponse {
-  feedbackId: string;
-  createdAtUtc: string;
-}
 
 export interface AdminFeedbackItem {
   feedbackId: string;
@@ -37,22 +25,6 @@ export interface AdminFeedbackPage {
   total: number;
 }
 
-export async function submitFeedback(input: FeedbackSubmission): Promise<FeedbackSubmittedResponse> {
-  const body = new FormData();
-  body.set('feedbackText', input.feedbackText);
-  if (input.submittedByDisplayName) body.set('submittedByDisplayName', input.submittedByDisplayName);
-  if (input.pagePath) body.set('pagePath', input.pagePath);
-  if (input.screenshot) body.set('screenshot', input.screenshot);
-
-  return auditCoreRequest<FeedbackSubmittedResponse>(
-    `/v1/tenants/${encodeURIComponent(input.tenantId)}/feedback`,
-    {
-      method: 'POST',
-      body,
-      accessToken: input.accessToken,
-    },
-  );
-}
 
 export async function listAdminFeedback(
   accessToken: string,

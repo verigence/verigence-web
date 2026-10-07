@@ -74,7 +74,7 @@ export type P2JourneyListItem = {
 
 export type P2JourneyListResponse = { items: P2JourneyListItem[] };
 
-export type P2BookingGate = {
+type P2BookingGate = {
   passed: boolean;
   label?: string;
   kind?: string;
@@ -88,7 +88,7 @@ export type P2BookingGate = {
   documents?: string[] | Record<string, number>;
 };
 
-export type P2BookingStage = {
+type P2BookingStage = {
   stage: string;
   bookingCompletionState: string;
   minimumBookingAmount: string;
@@ -97,116 +97,15 @@ export type P2BookingStage = {
   gates: Record<string, P2BookingGate>;
 };
 
-export type P2StageResponse = {
-  journeyId: string;
-  booking: P2BookingStage;
-  delivery: {
-    completionState: string;
-    configuration: string;
-    gates: Array<Record<string, unknown>>;
-  };
-};
 
-export type P2Overview = {
-  journey: {
-    journey_id: string;
-    customer_name: string;
-    dealer_name: string;
-    outlet_name: string;
-    vehicle?: string | null;
-    created_at_utc: string;
-    updated_at_utc: string;
-  };
-  stage: P2BookingStage & {
-    deliveryCompletionState: string;
-    deliveryConfiguration: string;
-  };
-  documents: {
-    total_active: number;
-    superseded: number;
-    booking_docs: number;
-    delivery_docs: number;
-  };
-  uploads: {
-    batches: number;
-    pages: number;
-    failed_batches: number;
-  };
-  payments: {
-    booking_total: string;
-    delivery_total: string;
-    booking_receipts: number;
-    delivery_receipts: number;
-  };
-  tasks: {
-    total: number;
-    open: number;
-    completed: number;
-    overdue: number;
-  };
-  findings: {
-    open: number;
-    resolved: number;
-  };
-  statistics: {
-    booking: {
-      documentsRequired: number;
-      documentsReceived: number;
-      pages: number;
-      pagesProcessed: number;
-      paymentReceipts: number;
-      paymentReceived: string;
-      minimumPayment: string;
-      manualVerificationPending: number;
-      controls: P2ControlStatistics;
-      tasksOpen: number;
-      tasksCompleted: number;
-    };
-    delivery: {
-      documentsRequired: number;
-      documentsReceived: number;
-      pages: number;
-      pagesProcessed: number;
-      invoices: number;
-      paymentReceipts: number;
-      financeRecords: number;
-      insuranceRecords: number;
-      vehicleRecords: number;
-      registrationRecords: number;
-      controls: P2ControlStatistics;
-      tasksOpen: number;
-      tasksCompleted: number;
-    };
-    journey: {
-      uploads: number;
-      reuploads: number | null;
-      supersededDocuments: number;
-      extractionFailures: number;
-      retries: number;
-      correctedFields: number;
-      openFindings: number;
-      totalTasks: number;
-      slaBreaches: number;
-      controls: P2ControlStatistics;
-    };
-  };
-};
 
-export type P2ControlStatistics = {
-  tracked: number;
-  passed: number;
-  failed: number;
-  waiting: number;
-  retryPending: number;
-  errors: number;
-};
 
 /** One page's health (decision 2026-10-01): a classified page holds values
  * within eight hours or names the one action a person can take. */
-export type P2PageHealthState =
+type P2PageHealthState =
   | 'READ' | 'WAITING' | 'STUCK' | 'NOT_READ' | 'NOTHING_READ' | 'REJECTED' | 'FAILED'
   | 'UNCLASSIFIED' | 'OTHERS' | 'SUPERSEDED' | 'HIDDEN';
-export type P2PageHealthAction = 'READ_AGAIN' | 'UPLOAD_AGAIN' | 'RETRY' | 'SET_TYPE' | 'RESTORE';
+type P2PageHealthAction = 'READ_AGAIN' | 'UPLOAD_AGAIN' | 'RETRY' | 'SET_TYPE' | 'RESTORE';
 export type P2PageHealth = {
   state: P2PageHealthState;
   action: P2PageHealthAction | null;
@@ -309,7 +208,7 @@ export type P2DocumentsResponse = {
   documentHealth?: { summary: P2DocumentHealthSummary; defects: P2DocumentDefect[] };
 };
 
-export type P2TemplateField = {
+type P2TemplateField = {
   key: string;
   label: string;
   type: string;
@@ -440,7 +339,7 @@ export type P2Task = {
   completion_result?: Record<string, unknown>;
 };
 
-export type P2TaskEvent = {
+type P2TaskEvent = {
   task_event_id: number;
   event_type: string;
   actor_id?: string | null;
@@ -536,13 +435,6 @@ export function rereadP2Page(tenantId: string, journeyId: string, queueId: strin
   );
 }
 
-/** Copy a page's values from Document Intelligence again, with no new reading. */
-export function resyncP2Page(tenantId: string, journeyId: string, queueId: string, accessToken?: string) {
-  return auditCoreRequest<{ queueId: string; status: string }>(
-    path(tenantId, `/journeys/${encodeURIComponent(journeyId)}/pages/${encodeURIComponent(queueId)}:resync`),
-    { method: 'POST', accessToken },
-  );
-}
 
 /** Make a superseded copy of a single-slot document the active one again. */
 export function restoreP2DocumentCopy(tenantId: string, journeyId: string, evidenceId: string, accessToken?: string) {
@@ -602,27 +494,7 @@ export function getP2Journeys(
   );
 }
 
-export function getP2Stage(
-  tenantId: string,
-  journeyId: string,
-  accessToken?: string,
-): Promise<P2StageResponse> {
-  return auditCoreRequest<P2StageResponse>(
-    path(tenantId, `/journeys/${encodeURIComponent(journeyId)}/stage`),
-    { accessToken, cache: 'no-store', timeoutMs: LIST_READ_TIMEOUT_MS },
-  );
-}
 
-export function getP2Overview(
-  tenantId: string,
-  journeyId: string,
-  accessToken?: string,
-): Promise<P2Overview> {
-  return auditCoreRequest<P2Overview>(
-    path(tenantId, `/journeys/${encodeURIComponent(journeyId)}/overview`),
-    { accessToken, timeoutMs: LIST_READ_TIMEOUT_MS },
-  );
-}
 
 export function getP2Documents(
   tenantId: string,
@@ -649,62 +521,6 @@ type UploadInitResult = {
   }>;
 };
 
-export async function uploadP2Files(
-  tenantId: string,
-  journeyId: string,
-  files: File[],
-  accessToken?: string,
-): Promise<void> {
-  const descriptors = files.map((file, index) => ({
-    file,
-    clientUploadId: stableClientUploadId(journeyId, file, index),
-  }));
-  const sourceByClientId = new Map(
-    descriptors.map(({ file, clientUploadId }) => [clientUploadId, file] as const),
-  );
-
-  const prepared = await auditCoreRequest<UploadInitResult>(
-    path(tenantId, `/journeys/${encodeURIComponent(journeyId)}/uploads:init`),
-    {
-      method: 'POST',
-      accessToken,
-      body: JSON.stringify({
-        files: descriptors.map(({ file, clientUploadId }) => ({
-          filename: file.name,
-          contentType: contentTypeForFile(file),
-          sizeBytes: file.size,
-          clientUploadId,
-        })),
-      }),
-    },
-  );
-
-  for (const item of prepared.uploads) {
-    if (item.alreadyAccepted) continue;
-    if (!item.uploadUrl || !item.clientUploadId) {
-      throw new Error(`Prepared upload is incomplete for ${item.filename}.`);
-    }
-    const source = sourceByClientId.get(item.clientUploadId);
-    if (!source) {
-      throw new Error(`Prepared upload source missing for ${item.filename}.`);
-    }
-    const uploadResponse = await fetch(item.uploadUrl, {
-      method: 'PUT',
-      headers: item.uploadHeaders,
-      body: source,
-    });
-    if (!uploadResponse.ok) {
-      throw new Error(`Upload failed for ${item.filename} (HTTP ${uploadResponse.status}).`);
-    }
-    await auditCoreRequest(
-      path(
-        tenantId,
-        `/journeys/${encodeURIComponent(journeyId)}/uploads/${encodeURIComponent(item.batchId)}:finalize`,
-      ),
-      { method: 'POST', accessToken },
-    );
-  }
-}
 
 
 export function getP2DocumentReview(
@@ -902,7 +718,7 @@ export async function getP2Events(
 // ── Journey 360 ─────────────────────────────────────────────────────────────
 export type Money = string | null;
 
-export type P2DealSource = { document: string; documentType: string; amount: Money; documentId?: string | null };
+type P2DealSource = { document: string; documentType: string; amount: Money; documentId?: string | null };
 
 /** What the customer opted for on a line: taken or not, read from the
  * invoice once the deal has one, else from the booking form. */
@@ -1032,7 +848,7 @@ export type P2DiscountRow = Omit<P2DealRow, 'standard' | 'quote' | 'effectiveSou
   management?: P2ManagementReferral;
 };
 
-export type P2DealSummary = {
+type P2DealSummary = {
   /** "current" = billed where invoiced, else the booking offer. */
   gross: Record<'standard' | 'booking' | 'current' | 'billed' | 'ledger', Money>;
   discounts: Record<'standard' | 'booking' | 'current' | 'billed', Money>;
@@ -1081,52 +897,10 @@ export function setP2InsuranceSource(
   });
 }
 
-/** One master line in the SKU standard (decision 2026-09-30). */
-export type P2StandardBenefit = {
-  key: string; label: string; amount: string | null; percentage: string | null;
-  scheme: { code: string; name: string; category: string; version: number; validFrom: string | null; validTo: string | null; combinability: string | null };
-  scope: 'MODEL' | 'VARIANT'; section: string | null; schemeType: string | null; oldVehicleModel: string | null;
-  description: string | null; contributions: Record<string, string> | null;
-};
 
-export type P2JourneyStandard = {
-  journeyId: string;
-  on: string | null;
-  skuCode?: string | null;
-  model?: string | null;
-  variant?: string | null;
-  available: boolean;
-  reason?: string;
-  basis?: 'INDIVIDUAL' | 'CORPORATE';
-  sku?: { productSkuId: string; skuCode: string; model: string; variant: string; trim: string | null; fuel: string | null;
-    transmission: string | null; drive: string | null; seater: string | null; category: string | null };
-  priceList?: {
-    priceListVersionId: string; priceList: string | null; version: number | null; effectiveFrom: string | null; effectiveTo: string | null;
-    components: Array<{ key: string; label: string; commercialKey: string | null; amount: string | null; priceSince: string | null }>;
-    onRoad: { individual: string | null; corporate: string | null; basis: string; amount: string | null };
-  };
-  consumerScheme?: { benefits: P2StandardBenefit[]; total: string | null } | null;
-  exchangeScheme?: { scenario: string; benefits: P2StandardBenefit[]; applicable: P2StandardBenefit[]; applicableMax: string | null } | null;
-  corporate?: {
-    byCategory: Record<string, P2StandardBenefit>; range: { min: string | null; max: string | null } | null;
-    corporate: { lookedUp: string; found: boolean; code?: string; name?: string; type?: string | null; privilegeCategory?: string } | null;
-    exact: P2StandardBenefit | null;
-  } | null;
-  grid?: {
-    version: number; effectiveFrom: string | null; effectiveTo: string | null; modelAsWritten: string; inScope: boolean;
-    bookingProtectionDays: number | null; agreedBuffer: string | null; insuranceOdPercentMax: string | null;
-    outOfTerritory: string | null; parameters: Array<{ parameter: string; note: string }>;
-  } | null;
-  summary?: { onRoad: string | null; consumerBenefits: string | null; exchangeBenefit: string | null; corporateBenefit: string | null;
-    standardNet: string | null; standardNetForQuantity: string | null };
-  unknown?: string[];
-};
 
-export function getP2JourneyStandard(tenantId: string, journeyId: string, accessToken?: string) {
-  return auditCoreRequest<P2JourneyStandard>(path(tenantId, `/journeys/${encodeURIComponent(journeyId)}/standard`), { accessToken });
-}
 
-export type P2ControlItem = {
+type P2ControlItem = {
   code: string;
   label: string;
   category: string;
@@ -1139,7 +913,7 @@ export type P2ControlItem = {
   rightValue?: unknown;
 };
 
-export type P2ControlStats = Record<'total' | 'pass' | 'fail' | 'waiting' | 'notApplicable' | 'retry' | 'error', number>;
+type P2ControlStats = Record<'total' | 'pass' | 'fail' | 'waiting' | 'notApplicable' | 'retry' | 'error', number>;
 
 export type P2Journey360 = {
   journey: {
@@ -1175,7 +949,7 @@ export type P2InvoiceLine = { description?: string | null; category?: string | n
   quantity?: unknown; unitRate?: string | null; grossAmount?: string | null; discountAmount?: string | null; taxableAmount?: string | null;
   taxRate?: unknown; taxAmount?: string | null; netAmount?: string | null };
 
-export type P2Invoice360 = { documentId: string; documentType: string; label: string; linkedAtUtc?: string | null;
+type P2Invoice360 = { documentId: string; documentType: string; label: string; linkedAtUtc?: string | null;
   header: Record<string, unknown>; totals: Record<string, string | null>; particulars?: unknown; lineItems: P2InvoiceLine[] };
 
 export type P2Vehicle360 = {
@@ -1191,14 +965,14 @@ export type P2Vehicle360 = {
   journey?: { startedAtUtc?: string | null; registrationNumber?: string | null; financier?: string | null; insurer?: string | null };
 };
 
-export type P2TradeIn360 = {
+type P2TradeIn360 = {
   exchange: { applicable: boolean | null; value: string | null };
   tradeIn: P2Record | null;
   certificates: P2Record[];
   valuations: P2Record[];
 };
 
-export type P2Customer360 = {
+type P2Customer360 = {
   fields: Array<{ key: string; label: string; value: unknown; source?: string | null }>;
   identityStatus: 'DOCUMENT_VERIFIED' | 'VERIFIED' | 'CONFLICT' | 'PENDING';
   kycDocuments: string[];
@@ -1215,7 +989,7 @@ export type P2Addons = {
   scrappage: { discounts: P2DiscountRow[] };
 };
 
-export type P2DocumentFieldView = {
+type P2DocumentFieldView = {
   key: string; label: string; value: unknown; machineValue: unknown; corrected: boolean;
   confidence: number | null; reviewed: boolean; needsReview: boolean; keyField: boolean;
 };
@@ -1229,7 +1003,7 @@ export type P2Documents360 = {
 };
 
 /** How a receipt meets the bank statement. */
-export type P2BankMatch = {
+type P2BankMatch = {
   status: 'MATCHED' | 'UNMATCHED' | 'AMBIGUOUS' | 'NOT_APPLICABLE' | 'NO_STATEMENT';
   method?: 'REFERENCE' | 'UTR' | 'AMOUNT_DATE' | null;
   documentId?: string | null; date?: string | null; reference?: string | null;
@@ -1238,7 +1012,7 @@ export type P2BankMatch = {
 };
 
 /** One bank statement entry as the statement prints it. */
-export type P2BankLine = {
+type P2BankLine = {
   documentId: string; bank?: string | null; accountHolder?: string | null; accountNumber?: string | null;
   date?: string | null; description?: string | null; reference?: string | null; counterparty?: string | null;
   credit: Money; debit: Money; balance: Money;
@@ -1280,7 +1054,7 @@ export type P2Compliance360 = {
   statistics: Record<'BOOKING' | 'DELIVERY', P2ControlStats>;
 };
 
-export type P2ComplianceReport = {
+type P2ComplianceReport = {
   generatedAtUtc: string;
   /** Draft until the Team Lead reviews the completed delivery. */
   review?: { status: 'DRAFT' | 'REVIEWED'; reviewedAtUtc: string | null; reviewerRole: string | null; label: string };
@@ -1317,7 +1091,7 @@ export type P2SectionMap = {
   audit: P2AuditTrail;
 };
 
-export type P2AuditTrail = {
+type P2AuditTrail = {
   pc?: string | null;
   milestones: Array<{ key: string; label: string; atUtc: string; who?: string | null; hoursSincePrevious: number | null }>;
   pending: Array<{ key: string; label: string }>;
@@ -1492,7 +1266,7 @@ export type P2UploadCounts = {
   supporting: number; notExtracted: number; notClassified: number; duplicates: number;
 };
 
-export type P2Timeline = {
+type P2Timeline = {
   stages: Record<'BOOKING' | 'DELIVERY', {
     status?: string | null; startedAtUtc?: string | null; submittedAtUtc?: string | null; completedAtUtc?: string | null;
     cancelled: boolean; hoursToSubmit?: number | null; hoursToComplete?: number | null; bookingConfirmDate?: string | null;

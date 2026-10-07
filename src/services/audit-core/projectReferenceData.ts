@@ -1,12 +1,12 @@
 import { auditCoreRequest } from './client';
 
-export interface ProjectSegmentReference {
+interface ProjectSegmentReference {
   segmentId: string;
   segmentCode: string;
   segmentName: string;
 }
 
-export interface ProjectOemReference {
+interface ProjectOemReference {
   oemId: string;
   oemCode: string;
   oemName: string;

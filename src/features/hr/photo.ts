@@ -3,7 +3,7 @@
  * side as a JPEG before upload; the HR service then re-encodes to its own 512 px size.
  * If the browser cannot decode the file, the original is sent and the service decides.
  */
-export const MAX_PHOTO_BYTES = 5 * 1024 * 1024;
+const MAX_PHOTO_BYTES = 5 * 1024 * 1024;
 const MAX_SIDE = 1024;
 
 export async function preparePhoto(file: File): Promise<{ blob: Blob; name: string }> {

@@ -346,11 +346,6 @@ export function DocumentsTab({ data, journeyId }: { data: P2Documents360; journe
 }
 
 // ── Vehicle ─────────────────────────────────────────────────────────────────
-const PRODUCT_LABELS: Record<string, string> = {
-  model: 'Model', variant: 'Variant', colour: 'Colour', model_code: 'Model code', variant_code: 'Variant code',
-  colour_code: 'Colour code', selection_status: 'Identification', selection_method: 'Identified by',
-  selection_score: 'Match score', sku_resolution_remarks: 'Notes', sku_code: 'SKU',
-};
 
 function TakenRow({ label, addon }: { label: string; addon: P2TakenAddon }) {
   return (

@@ -9,7 +9,7 @@ export interface OperationalOutletScope {
   outletClassification: string;
 }
 
-export interface ProjectScopeSummary {
+interface ProjectScopeSummary {
   allDealers: boolean;
   dealerCount: number;
   outletCount: number;

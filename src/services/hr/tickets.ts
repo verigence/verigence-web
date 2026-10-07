@@ -2,7 +2,7 @@ import { hrRawRequest, hrRequest } from './client';
 
 /** Feedback & Support: tickets raised by employees and answered by SuperAdmin (hr.support.manage). */
 
-export const MAX_TICKET_FILE_BYTES = 10 * 1024 * 1024;
+const MAX_TICKET_FILE_BYTES = 10 * 1024 * 1024;
 export const MAX_TICKET_FILES = 5;
 export const MAX_SUMMARY_LENGTH = 150;
 export const MAX_TEXT_LENGTH = 4000;
@@ -15,7 +15,7 @@ export const ticketStatusLabels: Record<TicketStatus, string> = {
   CLOSED: 'Closed',
 };
 
-export interface Ticket {
+interface Ticket {
   ticketId: string;
   ticketNo: number;
   summary: string;
@@ -44,7 +44,7 @@ export interface TicketFile {
   sizeBytes: number;
 }
 
-export interface TicketMessage {
+interface TicketMessage {
   messageId: string;
   authorKind: 'EMPLOYEE' | 'SUPPORT';
   authorName: string;

@@ -62,7 +62,6 @@ const HrPayrollSettingsPage = lazy(() => import('./pages/hr/HrPayrollSettingsPag
 const HrPayrollRunPage = lazy(() => import('./pages/hr/HrPayrollRunPage'));
 const HrSettingsPage = lazy(() => import('./pages/hr/HrSettingsPage'));
 const HrMessagesPage = lazy(() => import('./pages/hr/HrMessagesPage'));
-const AdminConfigurationPage = lazy(() => import('./pages/AdminConfigurationPage'));
 const AdminHousekeepingPage = lazy(() => import('./pages/AdminHousekeepingPage'));
 const AdminLandingPage = lazy(() => import('./pages/AdminLandingPage'));
 const AdminFeedbackPage = lazy(() => import('./pages/AdminFeedbackPage'));
@@ -86,10 +85,7 @@ const DuplicateBookingsPage = lazy(() => import('./pages/DuplicateBookingsPage')
 const JourneyDocumentsPage = lazy(() => import('./pages/JourneyDocumentsPage'));
 const RuleCatalogPage = lazy(() => import('./pages/RuleCatalogPage'));
 const RuleAuthoringPage = lazy(() => import('./pages/RuleAuthoringPage'));
-const PaymentTrackerPage = lazy(() => import('./pages/PaymentTrackerPage'));
 const DailyOpsPage = lazy(() => import('./pages/DailyOpsPage'));
-const CrmPage = lazy(() => import('./pages/CrmPage'));
-const EscalationsPage = lazy(() => import('./pages/EscalationsPage'));
 const AnalyticsPage = lazy(() => import('./pages/AnalyticsPage'));
 const HrSupportPage = lazy(() => import('./pages/hr/HrSupportPage'));
 const HrSupportNewPage = lazy(() => import('./pages/hr/HrSupportNewPage'));
@@ -246,13 +242,6 @@ function HomeEntry() {
   return <Authenticated><ProjectContextGate><HrLanding><Navigate to={home} replace /></HrLanding></ProjectContextGate></Authenticated>;
 }
 
-function LegacyOperationalPage({ children }: { children: ReactNode }) {
-  const role = useSessionStore((state) => state.role);
-  const selectedProject = useProjectContextStore((state) => state.selectedProject);
-  const adminPersona = role === 'SUPER_ADMIN' || role === 'TENANT_ADMIN';
-  if (adminPersona && !selectedProject) return <PrivatePage>{children}</PrivatePage>;
-  return <Authenticated><ProjectContextGate><Navigate to="/dashboard" replace /></ProjectContextGate></Authenticated>;
-}
 
 function V2JourneyRedirect({ target }: { target: 'BOOKING' | 'BOOKING_REVIEW' | 'DELIVERY' }) {
   const { journeyId = '' } = useParams();
@@ -358,10 +347,7 @@ export default function App() {
               <Route path="/duplicate-bookings" element={<OperationalPage><DuplicateBookingsPage /></OperationalPage>} />
               <Route path="/rule-catalog" element={<OperationalPage><RuleCatalogPage /></OperationalPage>} />
               <Route path="/rule-catalog/new" element={<OperationalPage><RuleAuthoringPage /></OperationalPage>} />
-              <Route path="/payments" element={<LegacyOperationalPage><PaymentTrackerPage /></LegacyOperationalPage>} />
               <Route path="/daily-ops" element={<OperationalShellPage><DailyOpsPage /></OperationalShellPage>} />
-              <Route path="/crm" element={<LegacyOperationalPage><CrmPage /></LegacyOperationalPage>} />
-              <Route path="/escalations" element={<LegacyOperationalPage><EscalationsPage /></LegacyOperationalPage>} />
               <Route path="/analytics" element={<OperationalShellPage><AnalyticsPage /></OperationalShellPage>} />
 
               {/* Phase 2 is additive. Existing links/routes above remain unchanged. */}
@@ -375,8 +361,6 @@ export default function App() {
               <Route path="/p2/journeys/:journeyId/documents" element={<OperationalPage><P2JourneyWorkspacePage /></OperationalPage>} />
               <Route path="/p2/journeys/:journeyId/documents/:documentId" element={<OperationalPage><P2JourneyWorkspacePage /></OperationalPage>} />
               <Route path="/p2/journeys/:journeyId/tasks" element={<OperationalPage><P2TasksPage /></OperationalPage>} />
-
-              <Route path="/admin/engagements" element={<SuperAdminPage><AdminConfigurationPage section="engagements" /></SuperAdminPage>} />
               <Route path="/admin/document-intelligence" element={<SuperAdminPage><DocumentIntelligenceConfigurationPage /></SuperAdminPage>} />
               <Route path="/admin/housekeeping" element={<SuperAdminPage><AdminHousekeepingPage /></SuperAdminPage>} />
               <Route path="/admin/feedback" element={<SuperAdminPage><AdminFeedbackPage /></SuperAdminPage>} />
@@ -388,16 +372,10 @@ export default function App() {
               <Route path="/admin/login-activity" element={<SuperAdminPage><AdminLoginActivityPage /></SuperAdminPage>} />
               <Route path="/admin/hr-housekeeping" element={<SuperAdminPage><HrHousekeepingPage /></SuperAdminPage>} />
               <Route path="/admin/users/pending" element={<SuperAdminPage><ApprovalQueuePage /></SuperAdminPage>} />
-              <Route path="/admin/activity-log" element={<SuperAdminPage><AdminConfigurationPage section="activity" /></SuperAdminPage>} />
-              <Route path="/admin/roles-permissions" element={<SuperAdminPage><AdminConfigurationPage section="roles" /></SuperAdminPage>} />
-              <Route path="/admin/audit-rules" element={<SuperAdminPage><AdminConfigurationPage section="audit-rules" /></SuperAdminPage>} />
-              <Route path="/admin/approval-workflow" element={<SuperAdminPage><AdminConfigurationPage section="approval-workflow" /></SuperAdminPage>} />
-              <Route path="/admin/notifications" element={<SuperAdminPage><AdminConfigurationPage section="notifications" /></SuperAdminPage>} />
               <Route path="/admin/oem-masters" element={<SuperAdminPage><OemMastersPage /></SuperAdminPage>} />
               <Route path="/price-masters" element={<PriceMasterRoute><PriceMastersPage /></PriceMasterRoute>} />
               <Route path="/price-masters/upload" element={<PriceMasterRoute><PriceMasterUploadPage /></PriceMasterRoute>} />
               <Route path="/admin/project" element={<ProjectAdminPage><ProjectAdministrationPage /></ProjectAdminPage>} />
-
               <Route path="/approvals" element={<Navigate to="/admin/users/pending" replace />} />
               <Route path="/admin/project-provisioning" element={<Navigate to="/admin/project" replace />} />
               <Route path="/admin/organization" element={<Navigate to="/admin/project?step=2" replace />} />

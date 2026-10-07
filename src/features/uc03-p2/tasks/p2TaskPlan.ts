@@ -13,7 +13,7 @@ export type TaskAction = {
 type Answer = { value: string; label: string; requiresComment?: boolean };
 
 /** The answers a check offers when it needs the PC to confirm something. */
-export function taskAnswers(task: P2Task): Answer[] {
+function taskAnswers(task: P2Task): Answer[] {
   const raw = task.reference?.answers;
   if (!Array.isArray(raw)) return [];
   return raw.filter((a): a is Answer => Boolean(a) && typeof a === 'object'
@@ -44,7 +44,7 @@ function referenceDocument(task: P2Task): { documentId?: string; fieldKey?: stri
   return { documentId, fieldKey };
 }
 
-export function documentLink(task: P2Task): string | undefined {
+function documentLink(task: P2Task): string | undefined {
   const { documentId, fieldKey } = referenceDocument(task);
   if (!documentId) return undefined;
   const base = `/p2/journeys/${task.journey_id}/documents/${documentId}`;
@@ -209,7 +209,7 @@ const PRIORITY_RANK: Record<string, number> = { URGENT: 0, HIGH: 1, NORMAL: 2, L
 const STATUS_RANK: Record<string, number> = { RETURNED: 0, READY: 1, IN_PROGRESS: 2, VERIFYING: 3, AWAITING_REQUESTER_REVIEW: 4 };
 
 /** Worklist order: returned work, then priority, then overdue/SLA, then age. */
-export function compareTasks(a: P2Task, b: P2Task, now = Date.now()): number {
+function compareTasks(a: P2Task, b: P2Task, now = Date.now()): number {
   const returned = Number(b.task_status === 'RETURNED') - Number(a.task_status === 'RETURNED');
   if (returned) return returned;
   const priority = (PRIORITY_RANK[a.priority ?? 'NORMAL'] ?? 2) - (PRIORITY_RANK[b.priority ?? 'NORMAL'] ?? 2);

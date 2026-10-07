@@ -6,7 +6,7 @@ import { MAX_RECEIPT_BYTES } from '../../../services/hr/claims';
  * shrunk to the same size in the browser first. If the browser cannot decode the file, the original
  * is sent when it is a type the service accepts and small enough; the service decides.
  */
-export const MAX_RECEIPT_SIDE = 1600;
+const MAX_RECEIPT_SIDE = 1600;
 const SERVICE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
 
 export interface PreparedReceipt {

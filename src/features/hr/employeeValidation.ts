@@ -109,15 +109,15 @@ export const isEmail = (raw: string) => {
   const v = raw.trim().toLowerCase();
   return EMAIL.test(v) && v.length <= 320;
 };
-export const normalisePan = (raw: string) => raw.trim().toUpperCase();
-export const isPan = (raw: string) => PAN.test(normalisePan(raw));
+const normalisePan = (raw: string) => raw.trim().toUpperCase();
+const isPan = (raw: string) => PAN.test(normalisePan(raw));
 
 export function normaliseAadhaar(raw: string): string | null {
   const compact = raw.replace(/\s/g, '');
   return /^\d{12}$/.test(compact) ? compact : null;
 }
 
-export const isPincode = (raw: string) => /^[1-9]\d{5}$/.test(raw.trim());
+const isPincode = (raw: string) => /^[1-9]\d{5}$/.test(raw.trim());
 
 const clean = (v: string) => v.split(/\s+/).filter(Boolean).join(' ');
 

@@ -352,7 +352,6 @@ export default function AdminUsersPage() {
                 <th>Contact</th>
                 <th>Status</th>
                 <th>Is employee</th>
-                <th>Administrative roles</th>
                 <th>Updated</th>
                 <th aria-label="Actions" />
               </tr>
@@ -382,10 +381,6 @@ export default function AdminUsersPage() {
                     <td data-label="Status"><StatusBadge status={user.status} /></td>
                     <td data-label="Is employee">
                       <input type="checkbox" checked={Boolean(user.isEmployee)} disabled readOnly aria-label={`${user.displayName} is ${user.isEmployee ? '' : 'not '}an employee`} />
-                    </td>
-                    <td data-label="Administrative roles">
-                      <Link to={`/admin/roles-permissions?userId=${encodeURIComponent(user.userId)}`}>Manage roles</Link>
-                      <small>Project Admin / Module Admin</small>
                     </td>
                     <td data-label="Updated"><span>{formatDate(user.updatedAtUtc)}</span></td>
                     <td data-label="Actions">

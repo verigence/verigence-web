@@ -2,7 +2,7 @@ import { hrRequest } from './client';
 
 /** A read-only copy of the project assignments in Audit Core, refreshed daily (hr.employee.read). */
 
-export interface AssignmentProject {
+interface AssignmentProject {
   projectCode: string;
   projectName: string;
 }
@@ -41,7 +41,7 @@ export const getWorkAssignments = (token: string, params: { projectCode?: string
 };
 
 /** Every project a person is, or was, tagged to, folded to one line per project, role and outlet (hr.employee.read). */
-export interface ProjectHistoryLine {
+interface ProjectHistoryLine {
   projectCode: string | null;
   projectName: string | null;
   role: string;

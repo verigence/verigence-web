@@ -91,7 +91,7 @@ function firstTokens(value: string): Set<string> {
   return new Set(Array.from(distinctiveTokens(value)).slice(0, 30));
 }
 
-export function scorePageContinuation(previousText: string, currentText: string): ContinuationDecision {
+function scorePageContinuation(previousText: string, currentText: string): ContinuationDecision {
   if (!previousText.trim() || !currentText.trim()) {
     return { score: 0, confidence: 'LOW', reasons: [] };
   }

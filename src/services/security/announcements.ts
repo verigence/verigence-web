@@ -1,7 +1,7 @@
 /** Announcements kept by Security: the public maintenance notice, the one message a signed-in person may see, and the SuperAdmin controls. */
 
-export type AnnouncementKind = 'NOTICE' | 'WELCOME' | 'MAINTENANCE';
-export type AnnouncementAudience = 'EVERYONE' | 'PEOPLE';
+type AnnouncementKind = 'NOTICE' | 'WELCOME' | 'MAINTENANCE';
+type AnnouncementAudience = 'EVERYONE' | 'PEOPLE';
 
 export interface MaintenanceNotice {
   announcementId: string;

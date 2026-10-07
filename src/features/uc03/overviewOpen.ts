@@ -1,11 +1,10 @@
 import type { Uc03StageSummary, Uc03WorkItem } from '../../services/audit-core/uc03';
 
-export const OVERVIEW_OPEN_BUDGET_MS = 10_000;
 
 export type OverviewStageKind = 'BOOKING' | 'DELIVERY';
 export type OverviewTarget = 'BOOKING' | 'BOOKING_REVIEW' | 'DELIVERY' | 'DELIVERY_REVIEW' | 'AUDIT';
 
-export interface OverviewOpenSnapshot {
+interface OverviewOpenSnapshot {
   journeyId: string;
   customerDisplayName: string;
   bookingReference: string | null;
@@ -45,10 +44,6 @@ export function effectiveStageStatus(
   return raw;
 }
 
-export function stageReviewPending(stage: Uc03StageSummary): boolean {
-  return Boolean(stage.captureCompletedAtUtc)
-    && stage.pcVerificationStatus?.trim().toUpperCase() === 'PENDING';
-}
 
 export function overviewOpenState(
   item: Uc03WorkItem,

@@ -1,10 +1,10 @@
-export interface SecurityHousekeepingCounts {
+interface SecurityHousekeepingCounts {
   accessContextEvaluations: number;
   accessSessions: number;
   securityEvents: number;
 }
 
-export interface SecurityRetentionPolicyReference {
+interface SecurityRetentionPolicyReference {
   status: string | null;
   accessContextRetentionDays: number | null;
   accessSessionRetentionDays: number | null;

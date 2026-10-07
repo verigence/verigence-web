@@ -185,7 +185,7 @@ const TABS: Array<{ key: P2TaskTab; label: string }> = [
 ];
 
 /** How serious a task is, as a chip the PC can read at a glance. */
-export function severityChip(severity?: string | null): { label: string; tone: 'critical' | 'high' | 'medium' | 'low' | 'info' } {
+function severityChip(severity?: string | null): { label: string; tone: 'critical' | 'high' | 'medium' | 'low' | 'info' } {
   // Soft tones on purpose (2026-09-30): a queue full of red is hard on
   // the eyes; the chip ranks tasks, it does not shout.
   switch (String(severity || '').toUpperCase()) {
@@ -242,7 +242,7 @@ function TaskRow({ task, open, onToggle, view, tenantId, accessToken, operatingR
 /** What kind of work a task is, for the colour on its card: a document to
  * upload, a value to verify by hand, data the audit could not find, or a
  * check that failed. */
-export function taskKind(task: P2Task): { key: 'documents' | 'verify' | 'data' | 'check'; label: string } {
+function taskKind(task: P2Task): { key: 'documents' | 'verify' | 'data' | 'check'; label: string } {
   if (task.task_type === 'TL_MANAGEMENT_REFERRAL') return { key: 'check', label: 'System task' };
   if (task.task_type === 'TL_DATA_VIOLATION') return { key: 'check', label: 'Data violation' };
   if (task.queue_tab === 'MANUAL_VERIFICATION') return { key: 'verify', label: 'Manual verification' };

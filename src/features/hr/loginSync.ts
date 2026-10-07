@@ -1,7 +1,7 @@
 import type { EmployeeSyncUnmatched, LoginCreateResult } from '../../services/hr/employees';
 
 /** Logins are created five employees at a time, one request per group. */
-export const CREATE_GROUP = 5;
+const CREATE_GROUP = 5;
 
 export function inGroups<T>(items: T[], size: number = CREATE_GROUP): T[][] {
   const groups: T[][] = [];

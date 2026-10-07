@@ -4,7 +4,7 @@ function auth(accessToken?: string) {
   return accessToken ? { accessToken } : {};
 }
 
-export interface NightlyReprocessingRunSummary {
+interface NightlyReprocessingRunSummary {
   ranAtUtc: string;
   documentsQueued: number | null;
   error: string | null;

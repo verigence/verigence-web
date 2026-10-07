@@ -4,7 +4,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { auditCoreRawRequest } from '../../../services/audit-core/client';
 import type { P2DocumentsResponse, P2UploadCounts } from '../../../services/audit-core/uc03P2';
 
-export type P2LiveUnit = {
+type P2LiveUnit = {
   queueId: string;
   batchId: string;
   kind?: string | null;

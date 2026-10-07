@@ -75,9 +75,9 @@ export interface LeaveAdjustInput {
   note: string;
 }
 
-export type HolidayStatus = 'TENTATIVE' | 'DECLARED';
+type HolidayStatus = 'TENTATIVE' | 'DECLARED';
 
-export interface Holiday {
+interface Holiday {
   date: string;
   name: string;
   status: HolidayStatus;

@@ -1,7 +1,7 @@
 import type { PayrollRun, RunStatus } from '../../../services/hr/payroll';
 import { formatDate, formatDateTime } from '../hrLabels';
 
-export const RUN_STATUS: Record<RunStatus, { label: string; tone: string }> = {
+const RUN_STATUS: Record<RunStatus, { label: string; tone: string }> = {
   DRAFT: { label: 'Draft', tone: 'draft' },
   SUBMITTED: { label: 'Waiting for approval', tone: 'pending' },
   APPROVED: { label: 'Approved', tone: 'approved' },

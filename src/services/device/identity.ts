@@ -1,7 +1,7 @@
 import { Capacitor } from '@capacitor/core';
 
-export type VerigenceDeviceType = 'MOBILE' | 'WEB';
-export type VerigencePlatform = 'ANDROID' | 'IOS' | 'WINDOWS' | 'MACOS' | 'LINUX' | 'OTHER';
+type VerigenceDeviceType = 'MOBILE' | 'WEB';
+type VerigencePlatform = 'ANDROID' | 'IOS' | 'WINDOWS' | 'MACOS' | 'LINUX' | 'OTHER';
 
 export interface VerigenceDeviceContext {
   deviceId: string;

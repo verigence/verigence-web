@@ -8,7 +8,7 @@
  */
 import type { JourneyOverview } from '../../../services/audit-core/uc03JourneySearch';
 
-export type StepState = 'done' | 'current' | 'todo';
+type StepState = 'done' | 'current' | 'todo';
 
 export interface JourneyStep {
   key: string;
@@ -31,7 +31,7 @@ export type AspectKey =
   | 'finance'
   | 'flags';
 
-export type AspectStatus = 'ok' | 'warn' | 'bad' | 'wait';
+type AspectStatus = 'ok' | 'warn' | 'bad' | 'wait';
 
 export interface AspectMeta {
   key: AspectKey;

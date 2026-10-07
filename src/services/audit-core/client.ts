@@ -60,7 +60,7 @@ export class AuditCoreTimeoutError extends Error {
   }
 }
 
-export class AuditCoreNetworkError extends Error {
+class AuditCoreNetworkError extends Error {
   readonly correlationId?: string;
   readonly errorCode = 'WEB-AC-NETWORK';
 

@@ -163,7 +163,7 @@ export function checklistRequirements(checklist: P2ChecklistItem[]): ChecklistRe
  * been read is matched by id; one still being identified or read is matched
  * by the type it was identified as. Whatever matches nothing (a supporting
  * document, a page not yet identified) is listed as an other upload. */
-export function assignRowsToRequirements(
+function assignRowsToRequirements(
   requirements: ChecklistRequirement[],
   rows: DocumentRow[],
 ): { matched: Map<string, DocumentRow[]>; other: DocumentRow[] } {

@@ -112,7 +112,7 @@ export const resultStatusClass: Record<MessageResultStatus, string> = {
 };
 
 /** What a reason code means for HR. Codes come from the HR service; unknown ones are shown as they are. */
-export const reasonText: Record<string, string> = {
+const reasonText: Record<string, string> = {
   NOT_FOUND: 'This user was not found.',
   NOT_ACTIVE: 'The user is not active.',
   NO_EMAIL: 'The user has no email address.',

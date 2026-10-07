@@ -2,7 +2,7 @@ import type { DailyRow, DailyStatus, Delinquency } from '../../../services/hr/at
 import { exceptionLabel } from './attendanceFormat';
 
 export const REPORT_MAX_DAYS = 31;
-export const NO_PROJECT = 'No project';
+const NO_PROJECT = 'No project';
 
 export const dailyKeys = {
   day: (date: string, project: string) => ['hr', 'attendance', 'daily', date, project] as const,

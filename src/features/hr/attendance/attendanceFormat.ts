@@ -27,7 +27,7 @@ export const statusTone: Record<AttendanceDayStatus, string> = {
   COMPLETE: 'active',
 };
 
-export const flagLabels: Record<string, string> = {
+const flagLabels: Record<string, string> = {
   LATE: 'Late check-in',
   EARLY: 'Early check-out',
   OUT_OF_FENCE: 'Not in tagged location',
@@ -40,7 +40,7 @@ export const flagLabels: Record<string, string> = {
   MISSING_CHECK_OUT: 'Missing check-out',
 };
 
-export const exceptionLabels: Record<ExceptionKind, string> = {
+const exceptionLabels: Record<ExceptionKind, string> = {
   LATE_CHECK_IN: 'Late check-in',
   EARLY_CHECK_OUT: 'Early check-out',
   OUT_OF_FENCE: 'Not in tagged location',
@@ -124,9 +124,6 @@ export function currentMonthIst(now: Date = new Date()): string {
   return todayIst(now).slice(0, 7);
 }
 
-export function isValidMonth(value: string): boolean {
-  return /^\d{4}-(0[1-9]|1[0-2])$/.test(value);
-}
 
 export function shiftMonth(month: string, delta: number): string {
   const [y, m] = month.split('-').map(Number);
@@ -160,7 +157,7 @@ export function expectedException(
   return null;
 }
 
-export type NextStep = 'reason' | 'retake' | 'close' | 'again';
+type NextStep = 'reason' | 'retake' | 'close' | 'again';
 
 export interface AttendanceProblem {
   message: string;

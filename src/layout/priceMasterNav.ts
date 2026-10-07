@@ -6,7 +6,7 @@ export interface PriceMasterNavItem {
 }
 
 export const priceMastersItem: PriceMasterNavItem = { to: '/price-masters', label: 'Price Masters', mark: 'PM' };
-export const priceMasterUploadItem: PriceMasterNavItem = { to: '/price-masters/upload', label: 'Upload Price Master', mark: 'UP' };
+const priceMasterUploadItem: PriceMasterNavItem = { to: '/price-masters/upload', label: 'Upload Price Master', mark: 'UP' };
 
 /** PC, TL and PM search the price masters; only TL and PM upload them. Anyone else sees neither. */
 export function priceMasterNavItems(operatingRole: string): PriceMasterNavItem[] {

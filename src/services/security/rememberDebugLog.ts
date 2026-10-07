@@ -6,7 +6,7 @@ const STORAGE_KEY = 'verigence.debug.remember-log.v1';
 /** Set by the diagnostics setting from the server; absent means off, so nothing is captured by default. */
 const ENABLED_KEY = 'verigence.diagnostics.enabled';
 
-export function isDiagnosticsEnabled(): boolean {
+function isDiagnosticsEnabled(): boolean {
   try {
     return window.localStorage.getItem(ENABLED_KEY) === '1';
   } catch {
@@ -76,7 +76,3 @@ export function clearRememberLog(): void {
   for (const listener of listeners) listener([]);
 }
 
-export function subscribeRememberLog(listener: Listener): () => void {
-  listeners.add(listener);
-  return () => listeners.delete(listener);
-}

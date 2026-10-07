@@ -1,12 +1,10 @@
 import {
   analyticsRequest,
-  type AnalyticsBusinessScorecard,
-  type AnalyticsDashboardData,
 } from './client';
 
 export type NumericValue = number | string | null;
 
-export interface ProjectAuditorSummary {
+interface ProjectAuditorSummary {
   total_journeys: number;
   delivered_cars: number;
   delivery_records: number;
@@ -110,7 +108,7 @@ export interface DiscountSchemeRow {
   excess_discount_amount: NumericValue;
 }
 
-export interface AccessoryBreakdownRow {
+interface AccessoryBreakdownRow {
   addon_type: string;
   record_count: number;
   journey_count: number;
@@ -143,13 +141,8 @@ export async function getBusinessProjectDashboard(
   );
 }
 
-export interface AnalyticsCoverageMetric {
-  available: number;
-  total: number;
-  coverage_pct: number | null;
-}
 
-export interface AnalyticsBusinessDelivery {
+interface AnalyticsBusinessDelivery {
   tenant_id: string;
   data_as_of: string;
   summary: {
@@ -180,7 +173,7 @@ export interface AnalyticsBusinessDelivery {
   definition: string;
 }
 
-export interface AnalyticsBusinessDiscounts {
+interface AnalyticsBusinessDiscounts {
   tenant_id: string;
   data_as_of: string;
   summary: {
@@ -218,7 +211,7 @@ export interface AnalyticsBusinessDiscounts {
   above_eligible_definition: string;
 }
 
-export interface AnalyticsBusinessInsurance {
+interface AnalyticsBusinessInsurance {
   tenant_id: string;
   data_as_of: string;
   summary: {
@@ -251,7 +244,7 @@ export interface AnalyticsBusinessInsurance {
   definition: string;
 }
 
-export interface AnalyticsBusinessVas {
+interface AnalyticsBusinessVas {
   tenant_id: string;
   data_as_of: string;
   journeys: number;
@@ -273,7 +266,7 @@ export interface AnalyticsBusinessVas {
   accessory_codes: string[];
 }
 
-export interface AnalyticsBusinessCompliance {
+interface AnalyticsBusinessCompliance {
   tenant_id: string;
   data_as_of: string;
   by_outlet: Array<{

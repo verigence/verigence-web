@@ -732,12 +732,6 @@ export default function DashboardPage() {
     : 'Booking and Delivery work for your current authorized business scope.';
   const activeDateFilterCount = Number(Boolean(fromDate)) + Number(Boolean(toDate));
 
-  const selectWork = (nextView: LandingView) => {
-    setView(nextView);
-    window.requestAnimationFrame(() => {
-      document.getElementById('uc03-work-list-title')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    });
-  };
 
   const invalidDateRange = Boolean(fromDate && toDate && fromDate > toDate);
   const queueTitle = view === 'REVIEW_PENDING' ? 'Review Pending' : view === 'FLAGS' ? 'Observations' : '';

@@ -9,8 +9,8 @@ export const BASIS_LABELS: Record<ComponentBasis, string> = {
 };
 export const BASES = Object.keys(BASIS_LABELS) as ComponentBasis[];
 
-export const COMPONENT_CODE = /^[A-Z][A-Z0-9_]{1,19}$/;
-export const TEMPLATE_CODE = /^[A-Z][A-Z0-9_]{2,29}$/;
+const COMPONENT_CODE = /^[A-Z][A-Z0-9_]{1,19}$/;
+const TEMPLATE_CODE = /^[A-Z][A-Z0-9_]{2,29}$/;
 export const MAX_COMPONENTS = 15;
 const MAX_VALUE = '10000000';
 
@@ -32,7 +32,7 @@ export interface TemplateForm {
   components: ComponentRow[];
 }
 
-export interface RowErrors {
+interface RowErrors {
   code?: string;
   label?: string;
   value?: string;
@@ -47,7 +47,7 @@ export interface TemplateErrors {
 }
 
 let rowCounter = 0;
-export const newRowKey = () => `row-${(rowCounter += 1)}`;
+const newRowKey = () => `row-${(rowCounter += 1)}`;
 
 export function blankRow(basis: ComponentBasis = 'PERCENT_GROSS'): ComponentRow {
   return { key: newRowKey(), code: '', label: '', basis, value: '', pfWage: false, esiWage: true };

@@ -8,7 +8,7 @@ import { eventLabel, formatKm, formatMonth, formatRupees, progressText, stageLab
 type StepState = 'done' | 'current' | 'next' | 'stopped';
 
 /** The approval route with where the claim is on it. */
-export function routeSteps(claim: Pick<ClaimDetail, 'status' | 'stagePlan' | 'stage' | 'stale'>) {
+function routeSteps(claim: Pick<ClaimDetail, 'status' | 'stagePlan' | 'stage' | 'stale'>) {
   const plan = claim.stagePlan;
   const exception = claim.stale && plan.includes('HR') && plan.includes('FINANCE');
   const finished = ['APPROVED', 'HANDED_TO_PAYROLL', 'PAID'].includes(claim.status);

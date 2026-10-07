@@ -10,7 +10,7 @@ export interface PasswordResetCompleteResponse {
   message: string;
 }
 
-export class PasswordRecoveryError extends Error {
+class PasswordRecoveryError extends Error {
   readonly status: number;
 
   constructor(message: string, status: number) {

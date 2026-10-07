@@ -9,4 +9,3 @@ import part4 from './lockup.part4';
  */
 export const verigenceLockup = `data:image/png;base64,${part1}${part2}${part3}${part4}`;
 
-export default verigenceLockup;

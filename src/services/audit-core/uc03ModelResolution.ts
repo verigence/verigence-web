@@ -5,7 +5,7 @@ function idempotencyKey(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }
 
-export interface ModelResolutionCandidate {
+interface ModelResolutionCandidate {
   productSkuId: string;
   skuCode: string;
   modelName: string;

@@ -140,7 +140,7 @@ export interface HolidayDraft {
 
 export type HolidayErrors = Partial<Record<'date' | 'name', string>>;
 
-export function isIsoDate(value: string): boolean {
+function isIsoDate(value: string): boolean {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
   const [y, m, d] = value.split('-').map(Number);
   const parsed = new Date(Date.UTC(y, m - 1, d));

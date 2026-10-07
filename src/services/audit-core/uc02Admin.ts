@@ -161,19 +161,7 @@ export interface MasterImport {
   versionNo: number;
 }
 
-export interface MahindraMasterOption {
-  segmentId?: string | null;
-  segmentCode?: string | null;
-  segmentName?: string | null;
-  uploadKey: string;
-  displayName: string;
-}
 
-export interface MahindraMasterOptions {
-  oemCode: 'MAHINDRA';
-  segmentUploads: MahindraMasterOption[];
-  discountUpload: MahindraMasterOption;
-}
 
 export interface MahindraMasterImport {
   importId: string;
@@ -425,12 +413,6 @@ export function publishMasterVersion(
   );
 }
 
-export function getMahindraMasterOptions(tenantId: string, accessToken?: string) {
-  return auditCoreRequest<MahindraMasterOptions>(
-    `/v1/tenants/${tenantId}/mahindra-masters/options`,
-    auth(accessToken),
-  );
-}
 
 export async function downloadMahindraSegmentTemplate(
   tenantId: string,
@@ -455,48 +437,7 @@ export async function downloadMahindraDiscountPolicyTemplate(
   return response.blob();
 }
 
-export function uploadMahindraSegmentMaster(
-  tenantId: string,
-  segmentId: string,
-  file: File,
-  effectiveFrom: string,
-  idempotencyKey: string,
-  accessToken?: string,
-) {
-  const body = new FormData();
-  body.append('file', file);
-  body.append('effectiveFrom', effectiveFrom);
-  return auditCoreRequest<MahindraMasterImport>(
-    `/v1/tenants/${tenantId}/mahindra-masters/segments/${segmentId}/imports`,
-    {
-      method: 'POST',
-      headers: idempotencyHeaders(idempotencyKey),
-      body,
-      ...auth(accessToken),
-    },
-  );
-}
 
-export function uploadMahindraDiscountPolicy(
-  tenantId: string,
-  file: File,
-  effectiveFrom: string,
-  idempotencyKey: string,
-  accessToken?: string,
-) {
-  const body = new FormData();
-  body.append('file', file);
-  body.append('effectiveFrom', effectiveFrom);
-  return auditCoreRequest<MahindraMasterImport>(
-    `/v1/tenants/${tenantId}/mahindra-masters/discount-policy/imports`,
-    {
-      method: 'POST',
-      headers: idempotencyHeaders(idempotencyKey),
-      body,
-      ...auth(accessToken),
-    },
-  );
-}
 
 export function confirmMahindraMasterImport(
   tenantId: string,

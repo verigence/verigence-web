@@ -9,7 +9,7 @@
  *   accepted twice
  */
 
-export type UploadPhase = 'WAITING' | 'PREPARING' | 'UPLOADING' | 'FINALIZING' | 'ACCEPTED' | 'FAILED';
+type UploadPhase = 'WAITING' | 'PREPARING' | 'UPLOADING' | 'FINALIZING' | 'ACCEPTED' | 'FAILED';
 
 export interface UploadItem {
   id: string;
@@ -21,7 +21,7 @@ export interface UploadItem {
   batchId?: string;
 }
 
-export interface PreparedUpload {
+interface PreparedUpload {
   batchId: string;
   clientUploadId?: string | null;
   filename: string;
@@ -57,7 +57,7 @@ export function stableClientUploadId(journeyId: string, file: File, salt = ''): 
   return `web-p2-${(hash >>> 0).toString(36)}-${file.size.toString(36)}`;
 }
 
-export const MAX_UPLOAD_BYTES = 50 * 1024 * 1024;
+const MAX_UPLOAD_BYTES = 50 * 1024 * 1024;
 const ACCEPTED_TYPES = new Set(['application/pdf', 'image/jpeg', 'image/png']);
 
 /** Reasons a file can be rejected before any network call. */

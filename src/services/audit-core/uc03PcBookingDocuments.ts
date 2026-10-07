@@ -20,51 +20,16 @@ export interface BookingDocumentUploadContext {
   requirements: BookingUploadRequirementContext[];
 }
 
-export interface BookingReviewContentAccess {
+interface BookingReviewContentAccess {
   contentUrl: string | null;
   contentUrlExpiresAtUtc: string | null;
   mimeType: string | null;
 }
 
-export interface BookingReviewCachedDocument extends BookingReviewContentAccess {
-  requirementRef: string;
-  requirementKey: string;
-  documentTypeKey: string;
-  documentId: string;
-  repeatable: boolean;
-}
 
-export interface BookingReviewCachedContext {
-  journeyId: string;
-  externalContextRef: string;
-  documents: BookingReviewCachedDocument[];
-  cachedAt: number;
-}
 
-export interface BookingExtractionFieldDecision {
-  fieldKey: string;
-  sourceFactRef: string;
-  sourceFactVersion: 1;
-  sourceConfidence: number | null;
-  decision: 'APPROVED' | 'CORRECTED';
-  approvedValue: unknown;
-}
 
-export interface BookingExtractionDecisionResult {
-  fieldKey: string;
-  decision: 'APPROVED' | 'CORRECTED';
-  owningDomainKey: string;
-  owningRecordReference: string;
-  eventId: string;
-}
 
-export interface BookingExtractionDecisionResponse {
-  journeyId: string;
-  requirementRef: string;
-  documentId: string;
-  aggregateVersion: number;
-  decisions: BookingExtractionDecisionResult[];
-}
 
 type StoredBookingReviewCache = {
   context: BookingDocumentUploadContext;
@@ -76,7 +41,6 @@ type StoredBookingReviewCache = {
 const contextCache = new Map<string, Promise<BookingDocumentUploadContext>>();
 const directUploadIds = new Map<string, Map<string, string[]>>();
 const contentAccessByJourney = new Map<string, Map<string, BookingReviewContentAccess>>();
-const latestDecisionVersions = new Map<string, number>();
 const REVIEW_CACHE_PREFIX = 'uc03-booking-review-di-context-v2';
 
 function token(accessToken?: string): string {
@@ -93,10 +57,6 @@ function reviewStorageKey(tenantId: string, journeyId: string): string {
   return `${REVIEW_CACHE_PREFIX}:${tenantId}:${journeyId}`;
 }
 
-function newIdempotencyKey(prefix: string): string {
-  const random = globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-  return `${prefix}-${random}`;
-}
 
 function contextPath(tenantId: string, journeyId: string): string {
   return `/v1/tenants/${encodeURIComponent(tenantId)}/journeys/${encodeURIComponent(journeyId)}`
@@ -165,101 +125,10 @@ function persistReviewCache(
   }
 }
 
-function unique(values: string[]): string[] {
-  return [...new Set(values.filter(Boolean))];
-}
 
-export function getCachedBookingReviewContext(
-  tenantId: string,
-  journeyId: string,
-): BookingReviewCachedContext | null {
-  const stored = readStoredReviewCache(tenantId, journeyId);
-  if (!stored) return null;
 
-  const localUploads = directUploadsForJourney(tenantId, journeyId);
-  const contentAccess = contentAccessForJourney(tenantId, journeyId);
-  const documents: BookingReviewCachedDocument[] = [];
 
-  for (const requirement of stored.context.requirements) {
-    const localIds = localUploads.get(requirement.requirementRef) ?? [];
-    const persistedIds = unique([
-      ...(requirement.activeDocumentIds ?? []),
-      ...(requirement.currentDocumentId ? [requirement.currentDocumentId] : []),
-    ]);
 
-    const documentIds = requirement.repeatable
-      ? unique([...persistedIds, ...localIds])
-      : localIds.length > 0
-        ? [localIds[localIds.length - 1]]
-        : requirement.currentDocumentId
-          ? [requirement.currentDocumentId]
-          : persistedIds.length > 0
-            ? [persistedIds[persistedIds.length - 1]]
-            : [];
-
-    for (const documentId of documentIds) {
-      const access = contentAccess.get(documentId);
-      documents.push({
-        requirementRef: requirement.requirementRef,
-        requirementKey: requirement.requirementKey,
-        documentTypeKey: requirement.documentTypeKey || requirement.requirementKey,
-        documentId,
-        repeatable: requirement.repeatable,
-        contentUrl: access?.contentUrl ?? null,
-        contentUrlExpiresAtUtc: access?.contentUrlExpiresAtUtc ?? null,
-        mimeType: access?.mimeType ?? null,
-      });
-    }
-  }
-
-  return {
-    journeyId,
-    externalContextRef: stored.context.externalContextRef,
-    documents,
-    cachedAt: stored.cachedAt,
-  };
-}
-
-export function clearBookingDocumentUploadContext(tenantId: string, journeyId: string): void {
-  contextCache.delete(key(tenantId, journeyId));
-}
-
-export function rememberBookingDocumentContentAccess(
-  tenantId: string,
-  journeyId: string,
-  documentId: string,
-  access: BookingReviewContentAccess,
-): void {
-  const byDocument = contentAccessForJourney(tenantId, journeyId);
-  byDocument.set(documentId, access);
-  contentAccessByJourney.set(key(tenantId, journeyId), byDocument);
-  persistReviewCache(tenantId, journeyId);
-}
-
-export function rememberDirectBookingUpload(
-  tenantId: string,
-  journeyId: string,
-  requirementRef: string,
-  documentId: string,
-  repeatable: boolean,
-  contentAccess?: BookingReviewContentAccess,
-): void {
-  const byRequirement = directUploadsForJourney(tenantId, journeyId);
-  if (repeatable) {
-    const current = byRequirement.get(requirementRef) ?? [];
-    if (!current.includes(documentId)) byRequirement.set(requirementRef, [...current, documentId]);
-  } else {
-    // A single-value replacement is immediately the only local/current document.
-    // The older DI document remains historical in DI/Audit Core; it simply should
-    // not appear as another active upload in the current PC screen.
-    byRequirement.set(requirementRef, [documentId]);
-  }
-  directUploadIds.set(key(tenantId, journeyId), byRequirement);
-  if (contentAccess) {
-    contentAccessForJourney(tenantId, journeyId).set(documentId, contentAccess);
-  }
-  persistReviewCache(tenantId, journeyId);
-}
 
 export function locallyUploadedDocumentIds(
   tenantId: string,
@@ -295,32 +164,4 @@ export async function prepareBookingDocumentUploadContext(
   return request;
 }
 
-export async function submitBookingDocumentExtractionDecisions(
-  tenantId: string,
-  journeyId: string,
-  requirementRef: string,
-  documentId: string,
-  fields: BookingExtractionFieldDecision[],
-  accessToken?: string,
-): Promise<BookingExtractionDecisionResponse> {
-  const result = await auditCoreRequest<BookingExtractionDecisionResponse>(
-    `/v1/tenants/${encodeURIComponent(tenantId)}/journeys/${encodeURIComponent(journeyId)}`
-      + '/booking/document-extraction-decisions',
-    {
-      method: 'POST',
-      accessToken: token(accessToken),
-      headers: { 'Idempotency-Key': newIdempotencyKey('uc03-booking-di-review') },
-      body: JSON.stringify({ requirementRef, documentId, fields }),
-    },
-  );
-  latestDecisionVersions.set(key(tenantId, journeyId), result.aggregateVersion);
-  return result;
-}
 
-export function latestBookingDocumentDecisionVersion(
-  tenantId: string,
-  journeyId: string,
-  fallback: number,
-): number {
-  return latestDecisionVersions.get(key(tenantId, journeyId)) ?? fallback;
-}

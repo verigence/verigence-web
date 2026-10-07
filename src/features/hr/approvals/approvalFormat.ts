@@ -141,18 +141,12 @@ export const leaveApproverLabels: Record<string, string> = {
   HR: 'HR',
 };
 
-export const claimStageLabels: Record<string, string> = { TL_PM: 'Team Lead or PM', HR: 'HR', FINANCE: 'Finance' };
+const claimStageLabels: Record<string, string> = { TL_PM: 'Team Lead or PM', HR: 'HR', FINANCE: 'Finance' };
 
-export const claimStatusLabels: Record<string, string> = {
-  SUBMITTED: 'Submitted',
-  APPROVED: 'Approved',
-  REJECTED: 'Rejected',
-  CORRECTION_REQUESTED: 'Correction requested',
-};
 
 export const label = (map: Record<string, string>, key: string | null | undefined): string => (key ? map[key] ?? key : '—');
 
-export type StageState = 'done' | 'current' | 'upcoming';
+type StageState = 'done' | 'current' | 'upcoming';
 
 export interface StageStep {
   stage: string;

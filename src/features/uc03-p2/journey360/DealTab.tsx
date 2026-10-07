@@ -243,7 +243,7 @@ function num(value: Money | number | undefined): number | null {
  * (the invoice where one exists, else the booking), and a hollow marker
  * shows the booking when the invoice moved away from it. For a discount the
  * standard is the entitlement and a fill past the tick is an over-grant. */
-export function OfferBar({ standard, booking, billed, kind = 'charge', large = false }: {
+function OfferBar({ standard, booking, billed, kind = 'charge', large = false }: {
   standard: Money; booking: Money; billed: Money; kind?: 'charge' | 'discount'; large?: boolean;
 }) {
   const std = num(standard);

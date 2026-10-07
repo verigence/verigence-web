@@ -24,7 +24,7 @@ export interface TlSupervisoryCase {
   latestActivityAtUtc: string;
 }
 
-export interface TlSupervisoryCasePage {
+interface TlSupervisoryCasePage {
   items: TlSupervisoryCase[];
   totalCount: number;
   limit: number;
@@ -88,7 +88,7 @@ function tlBase(tenantId: string): string {
   return `/v1/tenants/${encodeURIComponent(tenantId)}/uc03/tl`;
 }
 
-export async function listTlSupervisoryCasePage(
+async function listTlSupervisoryCasePage(
   tenantId: string,
   offset: number,
   accessToken?: string,

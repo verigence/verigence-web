@@ -12,7 +12,7 @@ export type DailyStatus =
   | 'PENDING_APPROVAL'
   | 'EXCEPTION_REJECTED';
 
-export type DelinquencyDecision = 'PENDING' | 'APPROVED' | 'REJECTED';
+type DelinquencyDecision = 'PENDING' | 'APPROVED' | 'REJECTED';
 
 export interface Delinquency {
   code: string;
@@ -53,7 +53,7 @@ export interface DailyRow {
   delinquencies: Delinquency[];
 }
 
-export interface DailySummary {
+interface DailySummary {
   employees: number;
   checkedIn: number;
   completed: number;

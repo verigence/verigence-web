@@ -25,7 +25,7 @@ const actionLabels: Record<string, string> = {
 const fieldLabel = (key: string) => key.replace(/_/g, ' ').replace(/([A-Z])/g, ' $1').toLowerCase();
 
 /** A short, readable line per change. PAN and Aadhaar values are never in the log, only "changed". */
-export function describeChange(entry: AuditEntry): string[] {
+function describeChange(entry: AuditEntry): string[] {
   const out: string[] = [];
   for (const [key, value] of Object.entries(entry.changes ?? {})) {
     if (value && typeof value === 'object' && 'from' in value && 'to' in value) {

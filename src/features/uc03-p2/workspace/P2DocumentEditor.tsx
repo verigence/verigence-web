@@ -41,7 +41,7 @@ function fieldId(field: P2DocumentReviewField): string {
   return `${field.canonicalFieldId}:${field.fieldKey}:${field.sourceFactVersion}`;
 }
 
-export function templateFor(templates: P2Template[], documentTypeKey: string | null | undefined): P2Template | undefined {
+function templateFor(templates: P2Template[], documentTypeKey: string | null | undefined): P2Template | undefined {
   if (!documentTypeKey) return undefined;
   return templates.find((t) => t.key === documentTypeKey)
     ?? templates.find((t) => t.diTypes.includes(documentTypeKey))

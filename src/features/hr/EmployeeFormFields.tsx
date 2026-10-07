@@ -120,7 +120,7 @@ export function EmergencySection({ values, errors, onChange }: Omit<SectionProps
   );
 }
 
-export function EmploymentSection({ mode, values, errors, onChange, designations, departments }: SectionProps & { designations: Designation[]; departments: string[] }) {
+export function EmploymentSection({ values, errors, onChange, designations, departments }: SectionProps & { designations: Designation[]; departments: string[] }) {
   const text = (key: keyof EmployeeFormValues) => textOf(onChange, key);
   return (
     <SectionCard title="Employment">

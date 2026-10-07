@@ -79,8 +79,6 @@ export default function AnalyticsBusinessOverviewPanels({ data }: { data: Audito
   const [searchTerm, setSearchTerm] = useState('');
 
   const excessDiscountVal = numeric(summary.total_excess_discount);
-  const totalStandardVal = numeric(summary.total_standard_discount);
-  const totalActualVal = numeric(summary.total_actual_discount);
 
   // Scheme donut
   const schemeRows = (data.discount_schemes || []).map((s: DiscountSchemeRow) => ({

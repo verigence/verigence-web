@@ -24,8 +24,8 @@ export type Uc03RejectionCategory =
   | 'OTHER';
 
 export type Uc03FindingClass = 'DATA_GAP' | 'DOCUMENT_GAP' | 'VIOLATION';
-export type Uc03ResolutionMode = 'SELF_SERVICE' | 'ADJUDICATED';
-export type Uc03Disposition = 'FIXED' | 'CONFIRMED_BREACH' | 'FALSE_POSITIVE' | null;
+type Uc03ResolutionMode = 'SELF_SERVICE' | 'ADJUDICATED';
+type Uc03Disposition = 'FIXED' | 'CONFIRMED_BREACH' | 'FALSE_POSITIVE' | null;
 
 export interface Uc03StageAuditView {
   stage: Uc03StageCode;
@@ -216,21 +216,6 @@ export function actOnAuditFlag(
   });
 }
 
-export function addAuditFlagRemark(
-  tenantId: string,
-  journeyId: string,
-  flag: Uc03AuditFlag,
-  remarks: string,
-  accessToken?: string,
-  evidenceIds: string[] = [],
-): Promise<FlagMutationResult> {
-  return auditCoreRequest(`${base(tenantId, journeyId)}/flags/${encodeURIComponent(flag.flagId)}/remarks`, {
-    method: 'POST',
-    accessToken: token(accessToken),
-    headers: commandHeaders('uc03-audit-remark', flag.version),
-    body: JSON.stringify({ remarks, evidenceIds }),
-  });
-}
 
 // ── Cross-journey review queue ────────────────────────────────────────────────
 
@@ -467,7 +452,7 @@ export function completeStageAudit(
 // resolved audit findings. Deliberately its own endpoint, not a reuse of
 // Journey 360's heavy aggregation.
 
-export interface Uc03ComplianceReportLineItem {
+interface Uc03ComplianceReportLineItem {
   label: string;
   detail: string | null;
   standardAmount: number | null;
@@ -485,7 +470,7 @@ export interface Uc03ComplianceReportFlag {
   isNew: boolean;
 }
 
-export interface Uc03ComplianceReportResolvedFinding {
+interface Uc03ComplianceReportResolvedFinding {
   findingId: string;
   findingTypeCode: string | null;
   title: string;
@@ -502,7 +487,7 @@ export interface Uc03ComplianceReportSection {
   flags: Uc03ComplianceReportFlag[];
 }
 
-export interface Uc03ComplianceReportHeader {
+interface Uc03ComplianceReportHeader {
   journeyId: string;
   journeyReference: string | null;
   bookingReference: string | null;
@@ -517,7 +502,7 @@ export interface Uc03ComplianceReportHeader {
   deliveryDate: string | null;
 }
 
-export interface Uc03ComplianceReportSummary {
+interface Uc03ComplianceReportSummary {
   totalFindings: number;
   openFindings: number;
   resolvedFindings: number;
@@ -561,7 +546,7 @@ export interface Uc03RuleStatusEntry {
   note: string | null;
 }
 
-export interface Uc03RuleStatusSummary {
+interface Uc03RuleStatusSummary {
   executed: number;
   pending: number;
   notApplicable: number;
@@ -604,7 +589,7 @@ export interface Uc03RuleCatalogEntry {
   enabled: boolean;
 }
 
-export interface Uc03RuleCategoryGroup {
+interface Uc03RuleCategoryGroup {
   category: string;
   rules: Uc03RuleCatalogEntry[];
 }

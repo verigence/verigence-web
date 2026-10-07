@@ -147,21 +147,6 @@ function receiptIsPending(r: Record<string, unknown>): boolean {
   );
 }
 
-function DeviationCell({ amount, percent, currency = 'INR' }: { amount: number | null; percent: number | null; currency?: string }) {
-  if (amount === null) return <td className="journey-360-deviation journey-360-deviation--none">—</td>;
-  const sign = amount > 0 ? '+' : '';
-  const cls = Math.abs(amount) < 0.01
-    ? 'journey-360-deviation journey-360-deviation--ok'
-    : amount > 0
-    ? 'journey-360-deviation journey-360-deviation--over'
-    : 'journey-360-deviation journey-360-deviation--under';
-  return (
-    <td className={cls}>
-      {sign}{new Intl.NumberFormat('en-IN', { style: 'currency', currency, maximumFractionDigits: 0 }).format(amount)}
-      {percent !== null && <small>{sign}{percent.toFixed(1)}%</small>}
-    </td>
-  );
-}
 
 // ─── Price Check — verdict-first · visual bars · exception-default ────────────
 

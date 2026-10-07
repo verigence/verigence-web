@@ -1,7 +1,6 @@
 import SectionCard from '../../components/SectionCard';
 import type { AnalyticsReportPayload } from '../../services/analytics/client';
 import {
-  AnalyticsBarChart,
   AnalyticsBubbleChart,
   AnalyticsComboChart,
   AnalyticsDonutChart,
@@ -63,10 +62,6 @@ function humanizeRuleKey(value: string): string {
   return humanize(value);
 }
 
-function compactActor(value: string): string {
-  if (!value) return 'Unspecified';
-  return value.length > 18 ? `${value.slice(0, 8)}…${value.slice(-4)}` : value;
-}
 
 function HeroStat({ eyebrow, value, title, detail, tone = 'default' }: { eyebrow: string; value: string; title: string; detail: string; tone?: InsightTone }) {
   return (

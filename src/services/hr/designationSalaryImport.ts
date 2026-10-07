@@ -2,8 +2,8 @@ import { hrRequest } from './client';
 
 /** Bulk designation and proposed-salary import from an Excel sheet (needs hr.employee.manage and hr.salary.propose). */
 
-export type DsRowStatus = 'READY' | 'NO_CHANGE' | 'ERROR';
-export type DsSalaryAction = 'PROPOSE' | 'EXISTS';
+type DsRowStatus = 'READY' | 'NO_CHANGE' | 'ERROR';
+type DsSalaryAction = 'PROPOSE' | 'EXISTS';
 
 export interface DsPreviewRow {
   row: number;

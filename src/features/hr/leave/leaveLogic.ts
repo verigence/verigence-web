@@ -115,7 +115,7 @@ export function isSunday(value: string): boolean {
 
 export const BACKDATE_DAYS = 30;
 export const ADVANCE_DAYS = 365;
-export const MAX_RANGE_DAYS = 60;
+const MAX_RANGE_DAYS = 60;
 export const REASON_MAX = 500;
 
 export interface ApplyForm {

@@ -45,7 +45,7 @@ const KYC_GROUP = new Set(['pan_card', 'aadhaar']);
 /** The checklist a Journey starts with: every document the templates expect,
  * none received yet. PAN and Aadhaar share one requirement, as they do once
  * the Journey exists. */
-export function expectedDocuments(templates: P2Template[]): P2ChecklistItem[] {
+function expectedDocuments(templates: P2Template[]): P2ChecklistItem[] {
   return templates
     .filter((t) => t.requirement !== 'SUPPORTING' && (t.stage === 'BOOKING' || t.stage === 'DELIVERY'))
     .map((t) => ({

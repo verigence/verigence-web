@@ -1,6 +1,6 @@
 import { auditCoreRequest } from './client';
 
-export interface WorkItemProductEnrichment {
+interface WorkItemProductEnrichment {
   journeyId: string;
   model?: string | null;
   variant?: string | null;

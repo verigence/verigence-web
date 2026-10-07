@@ -10,7 +10,7 @@ export interface VehiclePhoto {
   contentUrl: string;
 }
 
-export interface VehiclePhotoListResponse {
+interface VehiclePhotoListResponse {
   photos: VehiclePhoto[];
 }
 

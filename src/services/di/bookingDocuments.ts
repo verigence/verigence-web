@@ -70,14 +70,6 @@ export interface PcBookingExtractionReview {
   facts: PcBookingExtractionFact[];
 }
 
-export interface PcBookingUploadResult {
-  documentId: string;
-  uploadStatus: string;
-  processingStatus: string;
-  contentUrl?: string | null;
-  contentUrlExpiresAtUtc?: string | null;
-  mimeType?: string | null;
-}
 
 export interface PcBookingDocumentContent {
   blob: Blob;
@@ -85,7 +77,7 @@ export interface PcBookingDocumentContent {
   contentAccess: PcBookingContentAccess;
 }
 
-export class DiBookingHttpError extends Error {
+class DiBookingHttpError extends Error {
   readonly status: number;
   readonly correlationId?: string;
 
@@ -250,27 +242,6 @@ function readContentAccess(
   }
 }
 
-export async function uploadPcBookingDocument(
-  tenantId: string,
-  externalContextRef: string,
-  requirementRef: string,
-  documentTypeKey: string,
-  file: File,
-  accessToken: string,
-): Promise<PcBookingUploadResult> {
-  const form = new FormData();
-  form.append('requirementRef', requirementRef);
-  form.append('documentTypeKey', documentTypeKey);
-  form.append('file', file, file.name);
-  const response = await request(contextBase(tenantId, externalContextRef), accessToken, {
-    method: 'POST',
-    body: form,
-  });
-  const result = await envelope<PcBookingUploadResult>(response, 'Upload Booking document');
-  const access = asContentAccess(result.documentId, result);
-  if (access) rememberContentAccess(tenantId, externalContextRef, access);
-  return result;
-}
 
 export async function listPcBookingDocuments(
   tenantId: string,

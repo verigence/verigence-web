@@ -26,7 +26,7 @@ export interface LoginPerson {
   lastDownloadAt: string | null;
 }
 
-export interface UnknownAttempt {
+interface UnknownAttempt {
   identifier: string;
   attempts: number;
   lastAt: string | null;

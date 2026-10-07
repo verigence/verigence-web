@@ -8,7 +8,7 @@
  */
 import { stableClientUploadId } from '../workspace/p2Uploader';
 
-export type PhotoPhase = 'PREPARING' | 'UPLOADING' | 'SAVING' | 'DONE' | 'FAILED';
+type PhotoPhase = 'PREPARING' | 'UPLOADING' | 'SAVING' | 'DONE' | 'FAILED';
 
 export interface PhotoItem {
   id: string;
@@ -28,8 +28,8 @@ export interface PhotoTransport {
   finalize(file: { clientUploadId: string; filename: string; contentType: string; viewCode?: string | null }): Promise<unknown>;
 }
 
-export const PHOTO_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif']);
-export const MAX_PHOTO_BYTES = 15 * 1024 * 1024;
+const PHOTO_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif']);
+const MAX_PHOTO_BYTES = 15 * 1024 * 1024;
 const MAX_SIDE = 2048;
 
 export const VIEW_LABELS: Record<string, string> = {
@@ -48,7 +48,7 @@ export function photoPreflight(file: File): string | undefined {
 
 /** Longest side at most 2048 px, JPEG. Falls back to the original when the
  * browser cannot decode it (e.g. HEIC outside Safari) and it is small enough. */
-export async function preparePhoto(file: File): Promise<File> {
+async function preparePhoto(file: File): Promise<File> {
   try {
     const bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' } as ImageBitmapOptions);
     const scale = Math.min(1, MAX_SIDE / Math.max(bitmap.width, bitmap.height));

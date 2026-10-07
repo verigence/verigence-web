@@ -1,13 +1,13 @@
 import { compareDecimal } from './money';
 
 /** From the HR service: a gross in this band (inclusive) is covered by the MID_21K_25K template, which HR creates. */
-export const BAND_LOW = '21001';
-export const BAND_HIGH = '24999.99';
+const BAND_LOW = '21001';
+const BAND_HIGH = '24999.99';
 export const MID_TEMPLATE_CODE = 'MID_21K_25K';
 export const TEMPLATE_PENDING_HINT = 'Needs the ₹21,001–₹24,999 template first';
-export const MAX_GROSS = '10000000';
+const MAX_GROSS = '10000000';
 /** From this gross upwards Provident Fund is optional; below it, it always applies. */
-export const PF_OPTIONAL_FROM = '25000';
+const PF_OPTIONAL_FROM = '25000';
 
 export type GrossResult = { ok: true; value: string } | { ok: false; error: string };
 

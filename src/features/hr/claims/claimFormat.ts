@@ -5,7 +5,7 @@ import type { ClaimStage, ClaimStatus } from '../../../services/hr/claims';
  * integer digit handling, so it always has two decimals and Indian grouping (12,34,567.50).
  */
 
-export function groupIndian(digits: string): string {
+function groupIndian(digits: string): string {
   if (digits.length <= 3) return digits;
   const last3 = digits.slice(-3);
   const rest = digits.slice(0, -3).replace(/\B(?=(\d{2})+(?!\d))/g, ',');
@@ -70,7 +70,7 @@ export function monthOf(date: string): string {
   return date.slice(0, 7);
 }
 
-export const STATUS_LABEL: Record<ClaimStatus, string> = {
+const STATUS_LABEL: Record<ClaimStatus, string> = {
   SUBMITTED: 'In review',
   CORRECTION_REQUESTED: 'Sent back',
   APPROVED: 'Approved',
@@ -82,7 +82,7 @@ export const STATUS_LABEL: Record<ClaimStatus, string> = {
 
 export type StatusTone = 'pending' | 'action' | 'ok' | 'info' | 'bad' | 'muted';
 
-export const STATUS_TONE: Record<ClaimStatus, StatusTone> = {
+const STATUS_TONE: Record<ClaimStatus, StatusTone> = {
   SUBMITTED: 'pending',
   CORRECTION_REQUESTED: 'action',
   APPROVED: 'ok',
@@ -100,7 +100,7 @@ export function statusTone(status: string): StatusTone {
   return STATUS_TONE[status as ClaimStatus] ?? 'muted';
 }
 
-export const STAGE_LABEL: Record<ClaimStage, string> = {
+const STAGE_LABEL: Record<ClaimStage, string> = {
   TL_PM: 'Team Lead or Project Manager',
   HR: 'HR',
   FINANCE: 'Finance',

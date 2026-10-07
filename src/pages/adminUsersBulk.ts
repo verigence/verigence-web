@@ -1,6 +1,6 @@
 import type { GlobalUserDirectoryItem } from '../services/security/onboardingAdmin';
 
-export const DELETABLE_STATUSES = ['ACTIVE', 'REJECTED', 'DISABLED'];
+const DELETABLE_STATUSES = ['ACTIVE', 'REJECTED', 'DISABLED'];
 
 const RESERVED_DOMAINS = ['example.com', 'example.org', 'example.net'];
 const RESERVED_SUFFIXES = ['.invalid', '.test', '.example', '.localhost'];

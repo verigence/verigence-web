@@ -1,11 +1,11 @@
 import { AuditCoreHttpError, auditCoreRequest } from './client';
 import { newIdempotencyKey } from './uc03Booking';
 
-export type DeliveryAuditState = 'NOT_STARTED' | 'IN_PROGRESS' | 'COMPLETE';
-export type DeliveryAuditStatus = 'NOT_EVALUATED' | 'NO_FLAGS' | 'FLAGS_RAISED';
-export type DeliveryDocumentAnswer = 'YES' | 'NO' | 'NA' | 'UNANSWERED';
+type DeliveryAuditState = 'NOT_STARTED' | 'IN_PROGRESS' | 'COMPLETE';
+type DeliveryAuditStatus = 'NOT_EVALUATED' | 'NO_FLAGS' | 'FLAGS_RAISED';
+type DeliveryDocumentAnswer = 'YES' | 'NO' | 'NA' | 'UNANSWERED';
 
-export interface DeliveryDocumentView {
+interface DeliveryDocumentView {
   requirementKey: string;
   documentTypeKey: string;
   requirementLevel: 'REQUIRED' | 'CONDITIONAL' | 'OPTIONAL';
@@ -17,7 +17,7 @@ export interface DeliveryDocumentView {
   remarks: string | null;
 }
 
-export interface DeliveryFlagView {
+interface DeliveryFlagView {
   flagId: string;
   ruleKey: string | null;
   type: string;
@@ -29,7 +29,7 @@ export interface DeliveryFlagView {
   createdAtUtc: string;
 }
 
-export interface DeliveryPaymentView {
+interface DeliveryPaymentView {
   paymentId: string;
   paymentAtUtc: string;
   amount: string;

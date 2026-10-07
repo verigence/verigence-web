@@ -22,7 +22,7 @@ export interface BatchItem {
   message?: string;
 }
 
-export function itemId(file: File): string {
+function itemId(file: File): string {
   return `${file.name}::${file.size}::${file.lastModified}`;
 }
 

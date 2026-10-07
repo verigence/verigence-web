@@ -1,6 +1,6 @@
 import { auditCoreRequest } from './client';
 
-export interface BookingStageView {
+interface BookingStageView {
   businessStatus: string | null;
   closureDisposition?: string | null;
   auditState: 'NOT_STARTED' | 'IN_PROGRESS' | 'COMPLETE';
@@ -9,7 +9,7 @@ export interface BookingStageView {
   closureRemarks?: string | null;
 }
 
-export interface BookingDocumentView {
+interface BookingDocumentView {
   requirementKey: string;
   documentTypeKey: string;
   requirementLevel: 'REQUIRED' | 'CONDITIONAL' | 'OPTIONAL';
@@ -23,13 +23,13 @@ export interface BookingDocumentView {
   updatedAtUtc: string | null;
 }
 
-export interface EvidenceRegion {
+interface EvidenceRegion {
   type: string;
   coordinateSystem: string;
   box: [number, number, number, number];
 }
 
-export interface ExtractionProposalView {
+interface ExtractionProposalView {
   proposalId: string;
   fieldKey: string;
   sourceEvidenceId: string;
@@ -49,7 +49,7 @@ export interface ExtractionProposalView {
   version: number;
 }
 
-export interface BookingFlagView {
+interface BookingFlagView {
   flagId: string;
   category: string | null;
   severity: string;
@@ -65,7 +65,7 @@ export interface BookingFlagView {
   updatedAtUtc: string;
 }
 
-export interface BookingCompletionView {
+interface BookingCompletionView {
   ready: boolean;
   blockers: Array<{ code: string; label: string }>;
   documentCount?: number;

@@ -64,7 +64,7 @@ function clearWorkspaceHint(): void {
   }
 }
 
-export function revalidateRestoredOperationalContext(queryClient: QueryClient): void {
+function revalidateRestoredOperationalContext(queryClient: QueryClient): void {
   if (!restoredHintNeedsRevalidation) return;
   restoredHintNeedsRevalidation = false;
   void queryClient.invalidateQueries({ queryKey: ['uc03-projects'] });
@@ -154,11 +154,6 @@ export function selectOperationalProject(
   }
 }
 
-export function clearOperationalOutlet(queryClient: QueryClient): void {
-  restoredHintNeedsRevalidation = false;
-  clearTenantQueries(queryClient);
-  useSessionStore.getState().setBusinessContext({ dealerId: '', outletId: '' });
-}
 
 export function clearOperationalProject(queryClient: QueryClient): void {
   restoredHintNeedsRevalidation = false;

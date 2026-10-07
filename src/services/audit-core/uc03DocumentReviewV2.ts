@@ -1,9 +1,7 @@
 import { auditCoreRawRequest, auditCoreRequest } from './client';
 
-export type ReviewState = 'READY' | 'NEEDS_REVIEW';
-export type ComparisonState = 'MATCH' | 'MISMATCH' | 'SINGLE_SOURCE' | 'NOT_AVAILABLE';
-export type ReviewDecisionValue = 'ACCEPTED' | 'REJECTED';
-export type ReviewDecisionKind = 'ATTRIBUTE' | 'RAW_FIELD';
+type ReviewState = 'READY' | 'NEEDS_REVIEW';
+type ComparisonState = 'MATCH' | 'MISMATCH' | 'SINGLE_SOURCE' | 'NOT_AVAILABLE';
 
 export interface ReviewV2Field {
   canonicalFieldId: string;
@@ -47,7 +45,7 @@ export interface ReviewV2SourceValue {
   evidenceRegion: Record<string, unknown> | null;
 }
 
-export interface ReviewV2Attribute {
+interface ReviewV2Attribute {
   attributeKey: string;
   excelFieldNo: number | null;
   label: string;
@@ -61,7 +59,7 @@ export interface ReviewV2Attribute {
   sources: ReviewV2SourceValue[];
 }
 
-export interface ReviewV2UnmappedField {
+interface ReviewV2UnmappedField {
   canonicalFieldId: string;
   fieldKey: string;
   value: unknown;
@@ -75,7 +73,7 @@ export interface ReviewV2UnmappedField {
   evidenceRegion: Record<string, unknown> | null;
 }
 
-export interface ReviewV2MissingDeclaration {
+interface ReviewV2MissingDeclaration {
   conditionKey: string;
   requirementKey: string;
   label: string;
@@ -83,15 +81,7 @@ export interface ReviewV2MissingDeclaration {
   documentAvailable: boolean | null;
 }
 
-export interface ReviewFieldCorrection {
-  documentId: string;
-  canonicalFieldId: string;
-  fieldKey: string;
-  sourceFactVersion: number;
-  effectiveValue: unknown;
-}
 
-export type FindingResolutionMode = 'SELF_SERVICE' | 'ADJUDICATED';
 
 export interface FieldCorrectionResult {
   documentId: string;
@@ -129,7 +119,7 @@ export interface FieldCorrectionCommand {
   remarks?: string;
 }
 
-export interface BookingReviewV2 {
+interface BookingReviewV2 {
   journeyId: string;
   phase: 'BOOKING';
   captureSubmitted: boolean;
@@ -143,7 +133,7 @@ export interface BookingReviewV2 {
   missingDeclarations: ReviewV2MissingDeclaration[];
 }
 
-export interface DeliveryReviewV2 {
+interface DeliveryReviewV2 {
   journeyId: string;
   phase: 'DELIVERY';
   captureSubmitted: boolean;
@@ -168,39 +158,9 @@ export interface UnifiedReviewV2 {
   delivery: DeliveryReviewV2;
 }
 
-export interface BookingReviewDecision {
-  reviewKey: string;
-  reviewKind: ReviewDecisionKind;
-  decision: ReviewDecisionValue;
-  sourceSetRef: string;
-  sourceDocumentId: string;
-  sourceCanonicalFieldId: string | null;
-  sourceFieldKey: string;
-  sourceFactVersion: number;
-  decidedByActorId: string;
-}
 
-export interface BookingReviewDecisionsResponse {
-  journeyId: string;
-  decisions: BookingReviewDecision[];
-}
 
-export interface BookingReviewV2ConfirmResponse {
-  journeyId: string;
-  pcVerificationStatus: 'VERIFIED';
-  aggregateVersion: number;
-  resolvedAttributeCount: number;
-  appliedAttributes: string[];
-  conflictAttributes: string[];
-  rejectedAttributes?: string[];
-}
 
-export interface DeliveryReviewV2ConfirmResponse {
-  journeyId: string;
-  pcVerificationStatus: 'VERIFIED';
-  aggregateVersion: number;
-  storedFieldCount: number;
-}
 
 export interface AuditSourceComparisonV2 {
   journeyId: string;
@@ -211,7 +171,6 @@ export interface AuditSourceComparisonV2 {
   documents: ReviewV2Document[];
 }
 
-const RECEIPT_DOCUMENT_TYPE = 'dealer_receipt';
 
 function token(accessToken?: string): string {
   const value = accessToken?.trim();
@@ -219,41 +178,6 @@ function token(accessToken?: string): string {
   return value;
 }
 
-/**
- * Legacy display helper retained for callers that still want receipt-scoped labels.
- * Do not use this for Review persistence: changing fieldKey destroys the exact DI fact
- * identity required by correction and provenance contracts.
- */
-export function scopeRepeatedReceiptReviewFields(review: BookingReviewV2): BookingReviewV2 {
-  const receiptDocumentIds = [...new Set(
-    review.unmappedFields
-      .filter((field) => (
-        field.documentTypeKey?.trim().toLowerCase() === RECEIPT_DOCUMENT_TYPE
-        && field.value !== null
-        && field.value !== undefined
-        && field.value !== ''
-      ))
-      .map((field) => field.documentId),
-  )].sort();
-
-  if (receiptDocumentIds.length === 0) return review;
-
-  const ordinalByDocumentId = new Map(
-    receiptDocumentIds.map((documentId, index) => [documentId, index + 1] as const),
-  );
-  return {
-    ...review,
-    unmappedFields: review.unmappedFields.map((field) => {
-      if (field.documentTypeKey?.trim().toLowerCase() !== RECEIPT_DOCUMENT_TYPE) return field;
-      const ordinal = ordinalByDocumentId.get(field.documentId);
-      if (!ordinal) return field;
-      return {
-        ...field,
-        fieldKey: `receipt_${ordinal}_${field.fieldKey}`,
-      };
-    }),
-  };
-}
 
 export async function getUnifiedReviewV2(
   tenantId: string,
@@ -269,84 +193,9 @@ export async function getUnifiedReviewV2(
   );
 }
 
-export async function getBookingReviewDecisionsV2(
-  tenantId: string,
-  journeyId: string,
-  accessToken?: string,
-): Promise<BookingReviewDecisionsResponse> {
-  return auditCoreRequest<BookingReviewDecisionsResponse>(
-    `/v2/tenants/${encodeURIComponent(tenantId)}/journeys/${encodeURIComponent(journeyId)}/booking/review/decisions`,
-    {
-      accessToken: token(accessToken),
-      cache: 'no-store',
-    },
-  );
-}
 
-export async function setBookingReviewDecisionV2(
-  tenantId: string,
-  journeyId: string,
-  reviewKey: string,
-  decision: ReviewDecisionValue,
-  accessToken?: string,
-): Promise<BookingReviewDecision> {
-  return auditCoreRequest<BookingReviewDecision>(
-    `/v2/tenants/${encodeURIComponent(tenantId)}/journeys/${encodeURIComponent(journeyId)}/booking/review/decision`,
-    {
-      method: 'POST',
-      accessToken: token(accessToken),
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ reviewKey, decision }),
-      cache: 'no-store',
-    },
-  );
-}
 
-export async function confirmBookingReviewV2(
-  tenantId: string,
-  journeyId: string,
-  aggregateVersion: number,
-  corrections: ReviewFieldCorrection[] = [],
-  accessToken?: string,
-): Promise<BookingReviewV2ConfirmResponse> {
-  return auditCoreRequest<BookingReviewV2ConfirmResponse>(
-    `/v2/tenants/${encodeURIComponent(tenantId)}/journeys/${encodeURIComponent(journeyId)}/booking/review/confirm`,
-    {
-      method: 'POST',
-      accessToken: token(accessToken),
-      headers: {
-        'Content-Type': 'application/json',
-        'If-Match': `"${aggregateVersion}"`,
-        'Idempotency-Key': `booking-review-${journeyId}-${aggregateVersion}`,
-      },
-      body: JSON.stringify({ corrections }),
-      cache: 'no-store',
-    },
-  );
-}
 
-export async function confirmDeliveryReviewV2(
-  tenantId: string,
-  journeyId: string,
-  aggregateVersion: number,
-  corrections: ReviewFieldCorrection[] = [],
-  accessToken?: string,
-): Promise<DeliveryReviewV2ConfirmResponse> {
-  return auditCoreRequest<DeliveryReviewV2ConfirmResponse>(
-    `/v2/tenants/${encodeURIComponent(tenantId)}/journeys/${encodeURIComponent(journeyId)}/delivery/review/confirm`,
-    {
-      method: 'POST',
-      accessToken: token(accessToken),
-      headers: {
-        'Content-Type': 'application/json',
-        'If-Match': `"${aggregateVersion}"`,
-        'Idempotency-Key': `delivery-review-${journeyId}-${aggregateVersion}`,
-      },
-      body: JSON.stringify({ corrections }),
-      cache: 'no-store',
-    },
-  );
-}
 
 export async function getAuditSourceComparisonV2(
   tenantId: string,

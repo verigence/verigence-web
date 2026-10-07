@@ -129,12 +129,6 @@ export function listOemMasterUploads(tenantId: string, accessToken?: string) {
   );
 }
 
-export function getOemMasterUpload(uploadId: string, tenantId: string, accessToken?: string) {
-  return auditCoreRequest<OemMasterUploadPreview>(
-    `/v1/admin/oem-masters/uploads/${uploadId}?tenantId=${encodeURIComponent(tenantId)}`,
-    auth(accessToken),
-  );
-}
 
 /** The standard Excel template for a master, as the server built it. */
 export async function downloadOemMasterTemplate(

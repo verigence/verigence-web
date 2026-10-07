@@ -45,7 +45,7 @@ export interface ProjectDeletionImpact {
   cleanupTargets: string[];
 }
 
-export interface ProjectDeletionResult {
+interface ProjectDeletionResult {
   operationId: string;
   tenantId: string;
   projectName: string;
@@ -104,7 +104,7 @@ export function getProjectDeletionImpact(tenantId: string, accessToken: string) 
   );
 }
 
-export function hardDeleteProject(
+function hardDeleteProject(
   tenantId: string,
   confirmProjectName: string,
   idempotencyKey: string,

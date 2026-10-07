@@ -11,13 +11,13 @@ export const PAYROLL_PERMISSION = {
 } as const;
 
 /** Money arrives as strings (exact) or, for a few fields, JSON numbers. It is only ever displayed. */
-export type MoneyValue = string | number;
+type MoneyValue = string | number;
 
 // ---- salary templates -----------------------------------------------------------------------
 
 export type ComponentBasis = 'PERCENT_GROSS' | 'PERCENT_BASIC' | 'FIXED' | 'REMAINDER';
 
-export interface TemplateComponent {
+interface TemplateComponent {
   code: string;
   label: string;
   basis: ComponentBasis;
@@ -147,7 +147,7 @@ export interface StatutoryInput {
 
 export type RunStatus = 'DRAFT' | 'SUBMITTED' | 'APPROVED' | 'PAID' | 'CANCELLED';
 
-export interface SkippedPerson {
+interface SkippedPerson {
   employeeId: string;
   employeeCode: string;
   employeeName: string;
@@ -195,13 +195,13 @@ export interface PayrollRun {
   lines?: RunLine[];
 }
 
-export interface FigureAmount {
+interface FigureAmount {
   code: string;
   label: string;
   amount: string;
 }
 
-export interface LineFigures {
+interface LineFigures {
   days: {
     inMonth: number;
     workingDays: number;

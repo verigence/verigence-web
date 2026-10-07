@@ -6,7 +6,7 @@ import { hrRequest } from './client';
  * Every function makes exactly one request; the screens never retry on their own.
  */
 
-export type SettingKind = 'time' | 'int' | 'money' | 'money_or_null' | 'text';
+type SettingKind = 'time' | 'int' | 'money' | 'money_or_null' | 'text';
 
 export interface SettingItem {
   key: string;

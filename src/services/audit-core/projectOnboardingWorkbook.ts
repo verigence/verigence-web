@@ -2,7 +2,7 @@ import { auditCoreRawRequest, auditCoreRequest } from './client';
 
 export type OnboardingAction = 'CREATE' | 'UPDATE' | 'UNCHANGED' | 'ERROR';
 
-export type OnboardingProjectRow = {
+type OnboardingProjectRow = {
   row: number;
   code: string | null;
   name: string | null;
@@ -19,7 +19,7 @@ export type OnboardingProjectRow = {
   warnings?: string[];
 };
 
-export type OnboardingDealerRow = {
+type OnboardingDealerRow = {
   projectCode: string | null;
   dealerCode: string;
   dealerName: string;
@@ -29,7 +29,7 @@ export type OnboardingDealerRow = {
   rows: number[];
 };
 
-export type OnboardingOutletRow = {
+type OnboardingOutletRow = {
   row: number;
   outletCode: string | null;
   projectCode: string | null;
@@ -46,7 +46,7 @@ export type OnboardingOutletRow = {
   messages: string[];
 };
 
-export type OnboardingSummary = {
+type OnboardingSummary = {
   projects: Partial<Record<OnboardingAction, number>>;
   dealers: Partial<Record<OnboardingAction, number>>;
   outlets: Partial<Record<OnboardingAction, number>>;

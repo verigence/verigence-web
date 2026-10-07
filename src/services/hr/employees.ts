@@ -477,7 +477,7 @@ export async function fetchMyPhoto(token: string): Promise<Blob> {
 
 // ---- spreadsheet import ----------------------------------------------------------------------
 
-export type ImportRowStatus = 'READY' | 'EXISTS' | 'ERROR';
+type ImportRowStatus = 'READY' | 'EXISTS' | 'ERROR';
 
 export interface ImportPreviewRow {
   row: number;

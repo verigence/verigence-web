@@ -4,7 +4,7 @@
  * compare, using whole-number (BigInt) arithmetic on the digits so no floating point is involved.
  */
 
-export interface DecimalParts {
+interface DecimalParts {
   negative: boolean;
   whole: string;
   fraction: string;
@@ -13,7 +13,7 @@ export interface DecimalParts {
 const PLAIN = /^([+-])?(\d+)(?:\.(\d+))?$/;
 
 /** Reads "1234", "1234.5", "-12.30" or a JSON number. Returns null for anything else. */
-export function parseDecimal(value: unknown): DecimalParts | null {
+function parseDecimal(value: unknown): DecimalParts | null {
   if (value === null || value === undefined) return null;
   const text = typeof value === 'number' ? (Number.isFinite(value) ? numberText(value) : '') : String(value).trim();
   const match = PLAIN.exec(text);

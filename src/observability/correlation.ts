@@ -1,7 +1,7 @@
 const CORRELATION_HEADER = 'X-Correlation-ID';
 const CORRELATION_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/;
 
-export function newCorrelationId(): string {
+function newCorrelationId(): string {
   return crypto.randomUUID();
 }
 

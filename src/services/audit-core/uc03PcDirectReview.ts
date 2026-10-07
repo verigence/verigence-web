@@ -1,17 +1,14 @@
-import { auditCoreRequest } from './client';
 import {
   locallyUploadedDocumentIds,
   prepareBookingDocumentUploadContext,
   type BookingUploadRequirementContext,
 } from './uc03PcBookingDocuments';
 import {
-  getPcBookingDocumentContent,
-  getPcBookingExtractionReview,
   listPcBookingDocuments,
   type PcBookingDocumentStatus,
 } from '../di/bookingDocuments';
 
-export interface PcBookingReviewDocument {
+interface PcBookingReviewDocument {
   documentId: string;
   requirementRef: string;
   requirementKey: string;
@@ -33,16 +30,6 @@ export interface PcBookingReviewSnapshot {
   allReady: boolean;
 }
 
-export interface PcDirectReviewState {
-  journeyId: string;
-  activeDocumentIds: string[];
-  reviewedDocumentIds: string[];
-  pendingDocumentIds: string[];
-  activeDocumentCount: number;
-  reviewedDocumentCount: number;
-  pendingDocumentCount: number;
-  reviewComplete: boolean;
-}
 
 type WarmEntry<T> = {
   expiresAt: number;
@@ -51,7 +38,6 @@ type WarmEntry<T> = {
 
 const REVIEW_WARM_TTL_MS = 15_000;
 const snapshotWarmCache = new Map<string, WarmEntry<PcBookingReviewSnapshot>>();
-const stateWarmCache = new Map<string, WarmEntry<PcDirectReviewState>>();
 
 function token(accessToken?: string): string {
   const value = accessToken?.trim();
@@ -59,9 +45,6 @@ function token(accessToken?: string): string {
   return value;
 }
 
-function base(tenantId: string, journeyId: string): string {
-  return `/v1/tenants/${encodeURIComponent(tenantId)}/journeys/${encodeURIComponent(journeyId)}`;
-}
 
 function warmKey(tenantId: string, journeyId: string, accessToken?: string): string {
   return `${tenantId}:${journeyId}:${token(accessToken)}`;
@@ -196,61 +179,5 @@ export function getPcBookingReviewSnapshot(
   return request;
 }
 
-export function getPcDirectReviewState(
-  tenantId: string,
-  journeyId: string,
-  accessToken?: string,
-): Promise<PcDirectReviewState> {
-  const key = warmKey(tenantId, journeyId, accessToken);
-  const cached = stateWarmCache.get(key);
-  if (cached && cached.expiresAt > Date.now()) return cached.promise;
 
-  const request = auditCoreRequest<PcDirectReviewState>(`${base(tenantId, journeyId)}/booking/direct-document-review`, {
-    accessToken: token(accessToken),
-    cache: 'no-store',
-  }).catch((cause) => {
-    if (stateWarmCache.get(key)?.promise === request) stateWarmCache.delete(key);
-    throw cause;
-  });
-
-  stateWarmCache.set(key, {
-    expiresAt: Date.now() + REVIEW_WARM_TTL_MS,
-    promise: request,
-  });
-  return request;
-}
-
-export async function warmPcBookingReview(
-  tenantId: string,
-  journeyId: string,
-  accessToken?: string,
-): Promise<void> {
-  const [snapshotResult] = await Promise.all([
-    getPcBookingReviewSnapshot(tenantId, journeyId, accessToken),
-    getPcDirectReviewState(tenantId, journeyId, accessToken).catch(() => null),
-  ]);
-
-  const readyDocuments = snapshotResult.documents.filter((document) => (
-    document.linked && document.processingStatus.toUpperCase() === 'PROCESSED'
-  ));
-  if (readyDocuments.length === 0) return;
-
-  // Extraction JSON is small, so warm every ready document. Warm only the first
-  // source blob to keep the initial Review field+highlight instantaneous without
-  // downloading every potentially large PDF/image before the user opens Review.
-  await Promise.allSettled([
-    ...readyDocuments.map((document) => getPcBookingExtractionReview(
-      tenantId,
-      snapshotResult.externalContextRef,
-      document.documentId,
-      token(accessToken),
-    )),
-    getPcBookingDocumentContent(
-      tenantId,
-      snapshotResult.externalContextRef,
-      readyDocuments[0].documentId,
-      token(accessToken),
-    ),
-  ]);
-}
 

@@ -5,7 +5,7 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { ErrorBoundary } from '../components/ErrorBoundary';
 import PageHeader from '../components/PageHeader';
 import AttributeEvidenceViewer, { hasBoxedEvidence } from '../features/uc03/AttributeEvidenceViewer';
-import { DocumentCard, ReviewDocumentStatusCard, cardStatus, CARD_STATUS_LABEL } from '../features/uc03/CaptureDocumentCard';
+import { ReviewDocumentStatusCard, cardStatus, CARD_STATUS_LABEL } from '../features/uc03/CaptureDocumentCard';
 import ModifyModelModal from '../features/uc03/ModifyModelModal';
 import { LoanDisbursementModal } from '../features/uc03/LoanDisbursementPicker';
 import { categoryFor, categoryTitle, FIELD_CATEGORY_ORDER, type FieldCategory } from '../features/uc03/fieldCategoryGroups';

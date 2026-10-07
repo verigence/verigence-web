@@ -11,7 +11,7 @@ import {
 import { messageKeys } from './messageKeys';
 import { nothingWasSent, toBatches, type Recipient } from './messagePlan';
 
-export type BatchStatus = 'waiting' | 'sending' | 'done' | 'failed';
+type BatchStatus = 'waiting' | 'sending' | 'done' | 'failed';
 
 export interface RunBatch {
   ids: string[];

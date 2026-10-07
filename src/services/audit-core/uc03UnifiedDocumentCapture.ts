@@ -91,7 +91,7 @@ export interface UnifiedCaptureV2Requirement {
   canDelete: boolean;
 }
 
-export interface UnifiedCaptureV2Upload extends CaptureV2Document {
+interface UnifiedCaptureV2Upload extends CaptureV2Document {
   stageCode: 'BOOKING' | 'DELIVERY';
 }
 
@@ -137,7 +137,7 @@ function markLocal(capture: UnifiedCaptureV2): UnifiedCaptureV2 {
 // snapshot -- react-query's own refetchInterval also stops polling once it
 // sees a caught-up-looking snapshot, so without this a page reload would be
 // the only way anything ever caught up.
-export function invalidateUnifiedCaptureReadState(tenantId: string, journeyId: string): void {
+function invalidateUnifiedCaptureReadState(tenantId: string, journeyId: string): void {
   captureReadState.delete(readKey(tenantId, journeyId));
   localFallbackPollStartedAt.delete(journeyId);
 }

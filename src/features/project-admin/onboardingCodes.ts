@@ -7,7 +7,7 @@ const OEM_ABBREVIATIONS: Record<string, string> = {
 };
 const NOISE = new Set(['PVT', 'PRIVATE', 'LTD', 'LIMITED', 'LLP', 'INC', 'CO', 'COMPANY', 'AND', 'THE', 'OF']);
 
-export function oemAbbreviation(oemCode: string): string {
+function oemAbbreviation(oemCode: string): string {
   const code = oemCode.trim().toUpperCase();
   return OEM_ABBREVIATIONS[code] ?? code.replace(/[^A-Z0-9]/g, '').slice(0, 3);
 }

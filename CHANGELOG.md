@@ -23,7 +23,6 @@ The app's build number is added by the release workflow and is not written here.
 - On the profile page you can take a selfie for your profile photo. The Attendance page reminds you to add your photo if you have not.
 - If you have My HR but no Audit workspace, the app now opens My HR. It no longer stops at "No active workspaces are currently assigned to you". The workspace and work-location screens also have an "Open My HR" button.
 - Daily attendance refreshes by itself every minute and when you come back to the screen. It has a Refresh button and shows when it was last updated.
-- Price masters: Process Coordinators, Team Leads and Project Managers can look up price sheets. Team Leads and Project Managers can upload price lists, many files at once, using the template that can be downloaded on the upload screen.
 
 ### Changed
 - On "My employee profile" you can now also change your gender. Your name (as on Aadhaar or PAN), role, designation, department, date of joining, date of birth, experience, PAN and Aadhaar stay with HR. If your name is spelt wrongly, ask HR to correct it.

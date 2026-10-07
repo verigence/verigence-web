@@ -11,7 +11,6 @@ import { getReviewQueueSummary } from '../services/audit-core/uc03Audit';
 import { getP2Tasks } from '../services/audit-core/uc03P2';
 import { useHrAccess } from '../features/hr/hrQueries';
 import { useMyFeatures, visibleNavGroups } from '../features/rollout/featureFlags';
-import { priceMasterNavItems, priceMastersItem } from './priceMasterNav';
 import { useMyHrIdentity } from '../features/hr/myIdentity';
 import { chooseDisplayName } from '../features/profile/workContext';
 import { isDiTestConsoleAvailable } from '../services/di/testConsole';
@@ -138,10 +137,6 @@ const p2DuplicatesItem: NavItem = {
   roles: ['PC', 'TL', 'PM'],
 };
 
-// Price masters: PC, TL and PM find them in the Audit group (the Workspace group is retired and never drawn);
-// a SuperAdmin finds them in the admin list and uploads from OEM Masters.
-const superAdminPriceMastersItem: NavItem = { ...priceMastersItem, roles: ['SUPER_ADMIN'] };
-
 const p2Group: NavGroup = {
   key: 'phase2',
   label: 'Audit',
@@ -174,7 +169,6 @@ const groups: NavGroup[] = [
     { to: '/admin/diagnostics', label: 'Device Diagnostics', mark: 'DD', roles: ['SUPER_ADMIN'] },
     { to: '/admin/login-activity', label: 'Login Activity', mark: 'LA', roles: ['SUPER_ADMIN'] },
     { to: '/admin/oem-masters', label: 'OEM Masters', mark: 'OM', roles: ['SUPER_ADMIN'] },
-    superAdminPriceMastersItem,
     projectAdministrationItem,
   ] },
 ];
@@ -187,7 +181,7 @@ const routeLabels: Record<string, string> = {
   '/analytics': 'Analytics', '/p2/bookings': 'Booking & Delivery', '/p2/tasks': 'Task Queue', '/p2/duplicate-bookings': 'Duplicate bookings', '/admin/document-intelligence': 'Document Intelligence Configuration',
   '/admin/housekeeping': 'Housekeeping', '/admin/hr-housekeeping': 'HR Housekeeping', '/admin/feedback': 'User Feedback', '/admin/di-test': 'DI Test Console', '/admin/users': 'Users', '/admin/features': 'Feature Rollout', '/admin/announcements': 'Announcements', '/admin/diagnostics': 'Device Diagnostics', '/admin/login-activity': 'Login Activity',
   '/admin/users/pending': 'Pending Approvals',
-  '/admin/oem-masters': 'OEM Masters', '/price-masters': 'Price Masters', '/price-masters/upload': 'Upload Price Master', '/admin/project': 'Project Administration', '/profile': 'Profile',
+  '/admin/oem-masters': 'OEM Masters', '/admin/project': 'Project Administration', '/profile': 'Profile',
   '/hr/employees': 'Employees', '/hr/employees/new': 'Add Employee', '/hr/employees/import': 'Import Employees', '/hr/employees/designation-salary-import': 'Import Designation and Salary', '/hr/me': 'My Employee Profile',
   '/hr/attendance': 'Attendance', '/hr/attendance/team': 'Team Attendance', '/hr/attendance/daily': 'Daily Attendance', '/hr/assignments': 'Project Assignments', '/hr/leave': 'Leave', '/hr/leave/overview': 'Leave Overview',
   '/hr/claims': 'Reimbursements', '/hr/claims/new': 'New Claim', '/hr/claims/all': 'All Claims', '/hr/approvals': 'Approvals',
@@ -327,7 +321,6 @@ export default function AppShell({ children }: PropsWithChildren) {
             p2BookingsItem,
             { ...p2TasksItem, badge: p2TaskCount },
             p2DuplicatesItem,
-            ...priceMasterNavItems(role),
             ...(role === 'PC' ? [dailyOpsItem] : []),
           ],
         }

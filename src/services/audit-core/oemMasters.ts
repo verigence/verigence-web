@@ -1,4 +1,4 @@
-import { auditCoreRawRequest, auditCoreRequest } from './client';
+import { auditCoreRequest } from './client';
 
 function auth(accessToken?: string) {
   return accessToken ? { accessToken } : {};
@@ -10,9 +10,6 @@ export type OemMasterKind =
   | 'EXCHANGE_SCHEME'
   | 'CORPORATE_POLICY'
   | 'DISCOUNT_GRID';
-
-/** Masters with an Excel reader have a standard template; the consumer and exchange bulletins are the OEM's own PDFs. */
-export const OEM_MASTER_TEMPLATE_KINDS: OemMasterKind[] = ['PRICE_LIST', 'CORPORATE_POLICY', 'DISCOUNT_GRID'];
 
 export const OEM_MASTER_KINDS: { kind: OemMasterKind; label: string; accept: string; hint: string }[] = [
   {
@@ -52,8 +49,7 @@ export interface OemMasterUploadPreview {
   tenantId: string;
   oemCode: string;
   masterKind: OemMasterKind;
-  /** Null while the file was only checked and carries no date: the person types it before publishing. */
-  effectiveFrom: string | null;
+  effectiveFrom: string;
   /** ADMIN when entered, else SHEET or FILENAME: where the applied date came from. */
   effectiveFromSource?: string;
   sourceFilename: string;
@@ -129,30 +125,9 @@ export function listOemMasterUploads(tenantId: string, accessToken?: string) {
   );
 }
 
-
-/** The standard Excel template for a master, as the server built it. */
-export async function downloadOemMasterTemplate(
-  tenantId: string,
-  masterKind: OemMasterKind,
-  accessToken?: string,
-): Promise<{ blob: Blob; filename: string }> {
-  const response = await auditCoreRawRequest(
-    `/v1/admin/oem-masters/templates/${masterKind}?tenantId=${encodeURIComponent(tenantId)}`,
+export function getOemMasterUpload(uploadId: string, tenantId: string, accessToken?: string) {
+  return auditCoreRequest<OemMasterUploadPreview>(
+    `/v1/admin/oem-masters/uploads/${uploadId}?tenantId=${encodeURIComponent(tenantId)}`,
     auth(accessToken),
   );
-  const disposition = response.headers.get('content-disposition') ?? '';
-  const named = /filename="?([^";]+)"?/i.exec(disposition);
-  return { blob: await response.blob(), filename: named?.[1] ?? `${masterKind.toLowerCase()}-template.xlsx` };
-}
-
-/** Saves a downloaded file through the browser. */
-export function saveDownloadedFile(blob: Blob, filename: string) {
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = filename;
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  URL.revokeObjectURL(url);
 }

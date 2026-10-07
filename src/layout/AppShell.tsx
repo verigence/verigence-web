@@ -153,19 +153,13 @@ const groups: NavGroup[] = [
   { key: 'workspace', label: 'Workspace', items: [
     { to: '/dashboard', label: 'Overview', mark: 'OV', roles: operational },
     journeySearchItem,
-    { to: '/customers', label: 'Customers', mark: 'CU', roles: ['PC', 'TL', 'PM', 'EXECUTIVE', ...admin] },
-    { to: '/journeys', label: 'Journeys', mark: 'JR', roles: ['PC', 'TL', 'PM', 'EXECUTIVE', ...admin] },
-    { to: '/tasks', label: 'My Work', mark: 'WK', roles: operational },
   ] },
   { key: 'operations', label: 'Operations & Assurance', items: [
     { to: '/reviews', label: 'Task Queue', mark: 'TQ', roles: assurance },
     duplicateBookingsItem,
     { to: '/rule-catalog', label: 'Rule Catalog', mark: 'RC', roles: assurance },
-    { to: '/evidence', label: 'Evidence', mark: 'EV', roles: ['PC', 'TL', 'PM', 'EXECUTIVE', ...admin] },
     { to: '/payments', label: 'Payment Tracker', mark: 'PY', roles: ['PC', 'TL', 'PM', 'EXECUTIVE', ...admin] },
-    { to: '/findings', label: 'Findings', mark: 'FN', roles: assurance },
     { to: '/daily-ops', label: 'Daily Operations', mark: 'DO', roles: ['PC', 'TL', 'PM', ...admin] },
-    { to: '/activity', label: 'Activity Tracker', mark: 'AT', roles: ['PC', 'TL', 'PM', ...admin] },
     { to: '/crm', label: 'CRM Follow-up', mark: 'CR', roles: ['CRM', 'PM', ...admin] },
     { to: '/escalations', label: 'Escalations', mark: 'ES', roles: ['TL', 'PM', 'CRM', 'EXECUTIVE', ...admin] },
   ] },
@@ -195,10 +189,10 @@ const groups: NavGroup[] = [
 ];
 
 const routeLabels: Record<string, string> = {
-  '/dashboard': 'Overview', '/work-queue': 'Bookings & Deliveries', '/search': 'Search', '/customers': 'Customers', '/journeys': 'Journeys', '/tasks': 'My Work',
+  '/dashboard': 'Overview', '/work-queue': 'Bookings & Deliveries', '/search': 'Search',
   '/feedback': 'Feedback & Support', '/hr/support': 'Feedback & Support', '/hr/support/new': 'Raise a ticket',
-  '/reviews': 'Task Queue', '/duplicate-bookings': 'Duplicate Bookings', '/rule-catalog': 'Rule Catalog', '/rule-catalog/new': 'Author a Rule', '/evidence': 'Evidence', '/payments': 'Payment Tracker', '/findings': 'Findings',
-  '/daily-ops': 'Daily Operations', '/activity': 'Activity Tracker', '/crm': 'CRM Follow-up', '/escalations': 'Escalations',
+  '/reviews': 'Task Queue', '/duplicate-bookings': 'Duplicate Bookings', '/rule-catalog': 'Rule Catalog', '/rule-catalog/new': 'Author a Rule', '/payments': 'Payment Tracker', '/findings': 'Findings',
+  '/daily-ops': 'Daily Operations', '/crm': 'CRM Follow-up', '/escalations': 'Escalations',
   '/analytics': 'Analytics', '/p2/bookings': 'Booking & Delivery', '/p2/tasks': 'Task Queue', '/p2/duplicate-bookings': 'Duplicate bookings', '/admin/engagements': 'Engagements', '/admin/document-intelligence': 'Document Intelligence Configuration',
   '/admin/housekeeping': 'Housekeeping', '/admin/hr-housekeeping': 'HR Housekeeping', '/admin/feedback': 'User Feedback', '/admin/di-test': 'DI Test Console', '/admin/users': 'Users', '/admin/features': 'Feature Rollout', '/admin/announcements': 'Announcements', '/admin/diagnostics': 'Device Diagnostics', '/admin/login-activity': 'Login Activity',
   '/admin/users/pending': 'Pending Approvals', '/admin/activity-log': 'User Activity Log',

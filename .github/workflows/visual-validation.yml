@@ -435,17 +435,21 @@ jobs:
             await context.close();
           }
 
-          // Actual authenticated Project/Workspace selector: names must never be exposed.
+          // Actual authenticated dealership selector: the Project's own name must
+          // never be exposed, and the withdrawn Workspace wording must not come back.
           for (const viewport of operationalViewports) {
             const context = await browser.newContext({ viewport });
             const page = await context.newPage();
             await installAuth(page);
             await routeJson(page, '**/audit-core/v1/me/projects', { projects: twoProjects });
             await login(page);
-            await page.getByRole('heading', { name: 'Choose Workspace' }).waitFor();
+            await page.getByRole('heading', { name: 'Choose Dealership' }).waitFor();
             const visibleText = await page.locator('body').innerText();
             for (const forbidden of ['FORBIDDEN PROJECT ALPHA', 'FORBIDDEN PROJECT BETA']) {
               if (visibleText.includes(forbidden)) failures.push(`Project selection at ${viewport.name} exposes Project Name: ${forbidden}`);
+            }
+            if (/workspace/i.test(visibleText)) {
+              failures.push(`Project selection at ${viewport.name} still uses the withdrawn Workspace wording.`);
             }
             await assertGovernedBackground(page, '.uc03-project-gate', 'project-selection', viewport);
             await pageHealth(page, 'project-selection', viewport);

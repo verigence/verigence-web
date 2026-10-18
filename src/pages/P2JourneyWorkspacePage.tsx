@@ -14,6 +14,8 @@ import PageHeader from '../components/PageHeader';
 const ModifyModelModal = lazy(() => import('../features/uc03/ModifyModelModal'));
 const LoanDisbursementModal = lazy(() => import('../features/uc03/LoanDisbursementPicker').then((m) => ({ default: m.LoanDisbursementModal })));
 import P2VehiclePhotos from '../features/uc03-p2/photos/P2VehiclePhotos';
+import P2StageReviewPanel from '../features/uc03-p2/review/P2StageReviewPanel';
+import { getResyncPreview } from '../services/audit-core/uc03P2Reviewer';
 import P2RecheckButton from '../features/uc03-p2/workspace/P2RecheckButton';
 import P2UploadStatus from '../features/uc03-p2/workspace/P2UploadStatus';
 import { useP2LiveStatus } from '../features/uc03-p2/workspace/useP2LiveStatus';
@@ -100,6 +102,15 @@ export default function P2JourneyWorkspacePage() {
   const [notice, setNotice] = useState<{ tone: 'success' | 'error'; text: string }>();
   const [busyKey, setBusyKey] = useState<string>();
   const [dialog, setDialog] = useState<'loan' | 'sku'>();
+  const operatingRole = useProjectContextStore((s) => s.selectedProject?.operatingRole);
+  // Reading a page again replaces its values with Document Intelligence's own,
+  // so any hand-made correction on it is lost and has to be redone. The
+  // warning is asked for first and only raised when there is something to
+  // lose: a dialogue that always appears is one people learn to click through.
+  const [rereadConfirm, setRereadConfirm] = useState<{
+    queueId: string;
+    modifiedFieldCount: number;
+  }>();
   const enabled = Boolean(tenantId && journeyId && accessToken);
 
   const documents = useQuery({
@@ -180,6 +191,24 @@ export default function P2JourneyWorkspacePage() {
     onSuccess: () => { setNotice({ tone: 'success', text: 'Document Intelligence is asked to read this page again. Nothing is uploaded again.' }); refresh(); },
     onError: (cause) => setNotice({ tone: 'error', text: errorText(cause, 'The page could not be sent for reading again.') }),
   });
+
+  /** Ask what a re-read would cost before doing it; warn only if it costs something. */
+  const requestReread = async (queueId: string) => {
+    setNotice(undefined);
+    if (!tenantId || !journeyId) return;
+    try {
+      const preview = await getResyncPreview(tenantId, journeyId, queueId, accessToken);
+      if (preview.modifiedFieldCount > 0) {
+        setRereadConfirm({ queueId, modifiedFieldCount: preview.modifiedFieldCount });
+        return;
+      }
+    } catch {
+      // If the preview cannot be read, fall through: the server still refuses
+      // a reviewed stage, so the worst case is a re-read with no warning
+      // rather than a blocked action.
+    }
+    reread.mutate(queueId);
+  };
   const restore = useMutation({
     mutationFn: (evidenceId: string) => restoreP2DocumentCopy(tenantId!, journeyId, evidenceId, accessToken),
     onMutate: (evidenceId) => setBusyKey(rows.find((row) => row.evidenceId === evidenceId)?.key),
@@ -326,6 +355,42 @@ export default function P2JourneyWorkspacePage() {
 
       <div className="p2w-layout" hidden={tab === 'photos'}>
         <div className="p2w-layout__list">
+          {operatingRole === 'REVIEWER' && tenantId && journeyId ? (
+            <P2StageReviewPanel
+              tenantId={tenantId}
+              journeyId={journeyId}
+              accessToken={accessToken}
+              onMarked={refresh}
+            />
+          ) : null}
+          {rereadConfirm ? (
+            <div className="p2w-review">
+              <strong>
+                Reading this page again will erase {rereadConfirm.modifiedFieldCount}{' '}
+                corrected {rereadConfirm.modifiedFieldCount === 1 ? 'value' : 'values'}
+              </strong>
+              <p className="p2w-muted">
+                Document Intelligence&apos;s own reading replaces what is stored, so those
+                corrections will need to be made again afterwards.
+              </p>
+              <div className="p2w-row" style={{ gap: 8 }}>
+                <button
+                  type="button"
+                  className="uc02-button uc02-button--primary"
+                  onClick={() => {
+                    const target = rereadConfirm.queueId;
+                    setRereadConfirm(undefined);
+                    reread.mutate(target);
+                  }}
+                >
+                  Read again anyway
+                </button>
+                <button type="button" className="uc02-button" onClick={() => setRereadConfirm(undefined)}>
+                  Keep the corrections
+                </button>
+              </div>
+            </div>
+          ) : null}
           {tenantId ? (
             <P2UploadPanel ref={uploadPanel} journeyId={journeyId || undefined} getTransport={getTransport} onAccepted={refresh} />
           ) : null}
@@ -337,7 +402,7 @@ export default function P2JourneyWorkspacePage() {
               selectedDocumentId={documentId}
               onOpen={openDocument}
               onRetry={(queueId) => retry.mutate(queueId)}
-              onReread={(queueId) => reread.mutate(queueId)}
+              onReread={(queueId) => void requestReread(queueId)}
               onRestore={(evidenceId) => restore.mutate(evidenceId)}
               onSetType={(queueId, templateKey, name) => setType.mutate({ queueId, templateKey, name })}
               onAdd={() => uploadPanel.current?.openFiles()}

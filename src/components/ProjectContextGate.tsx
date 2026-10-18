@@ -37,6 +37,7 @@ const roleLabels: Record<OperatingRole, string> = {
   PM: 'Project Manager',
   CRM: 'CRM',
   EXECUTIVE: 'Executive',
+  REVIEWER: 'Reviewer',
 };
 
 /** A person with HR always has My HR, whatever the Audit side says. A button to it, shown only when the HR service says they have HR. */

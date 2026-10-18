@@ -152,7 +152,7 @@ export default function P2PriceMastersPage() {
   const variants = (query.data?.models ?? []).reduce((sum, m) => sum + m.variants.length, 0);
 
   return (
-    <div className="screen-stack">
+    <div className="screen-stack p2w">
       <PageHeader
         eyebrow="DealGuard"
         title="Price Masters"

@@ -137,25 +137,54 @@ const p2DuplicatesItem: NavItem = {
   roles: ['PC', 'TL', 'PM'],
 };
 
+// A Reviewer's own board, instead of the PC's Booking & Delivery list: the
+// same journeys, but split by dealership and outlet because one Reviewer
+// covers several at once, and carrying the claim and the reviewed marks.
+const p2ReviewBoardItem: NavItem = {
+  to: '/p2/review',
+  label: 'Document Review',
+  mark: 'DR',
+  roles: ['REVIEWER'],
+};
+
+// Their own daily and weekly counts. Team Leads and Project Managers see it
+// too, since they are the ones who ask how the review queue is going.
+const p2ReviewActivityItem: NavItem = {
+  to: '/p2/review/activity',
+  label: 'Review Activity',
+  mark: 'RA',
+  roles: ['REVIEWER', 'TL', 'PM'],
+};
+
+// Reviewers check a figure against its source as part of correcting it, so
+// they get the two reference tabs as well. Both are read-only.
 const p2PriceMastersItem: NavItem = {
   to: '/p2/price-masters',
   label: 'Price Masters',
   mark: 'PM',
-  roles: ['PC', 'TL', 'PM'],
+  roles: ['PC', 'TL', 'PM', 'REVIEWER'],
 };
 
 const p2MasterDocumentsItem: NavItem = {
   to: '/p2/master-documents',
   label: 'Master Documents',
   mark: 'MD',
-  roles: ['PC', 'TL', 'PM'],
+  roles: ['PC', 'TL', 'PM', 'REVIEWER'],
 };
 
 const p2Group: NavGroup = {
   key: 'phase2',
   label: 'DealGuard',
   // Journey 360 is reached from each journey's card, not a list of its own.
-  items: [p2BookingsItem, p2TasksItem, p2DuplicatesItem, p2PriceMastersItem, p2MasterDocumentsItem],
+  items: [
+    p2BookingsItem,
+    p2ReviewBoardItem,
+    p2TasksItem,
+    p2DuplicatesItem,
+    p2ReviewActivityItem,
+    p2PriceMastersItem,
+    p2MasterDocumentsItem,
+  ],
 };
 
 const groups: NavGroup[] = [
@@ -220,6 +249,7 @@ const dynamicRouteLabels: Array<[string, string]> = [
 
 const roleLabels: Record<ShellRole, string> = {
   PC: 'Process Coordinator', TL: 'Team Lead', PM: 'Project Manager', CRM: 'CRM', EXECUTIVE: 'Executive',
+  REVIEWER: 'Reviewer',
   TENANT_ADMIN: 'Tenant Admin', SUPER_ADMIN: 'SuperAdmin',
 };
 

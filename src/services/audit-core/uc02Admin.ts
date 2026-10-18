@@ -99,7 +99,16 @@ export interface RoleMappingCandidate {
   status: string;
 }
 
-export type OperatingRole = 'PC' | 'TL' | 'PM' | 'CRM' | 'Executive';
+/**
+ * The operating roles Project Administration can map. The casing is the
+ * contract: Audit Core validates these against a Literal, so `Executive` is
+ * capitalised and `REVIEWER` is not.
+ *
+ * `CRM` and `REVIEWER` share one scope shape — any union of Dealers and
+ * Outlets, or neither for Project-wide — because a Reviewer covers several
+ * Outlets at once. They differ in what Security grants, not in scope.
+ */
+export type OperatingRole = 'PC' | 'TL' | 'PM' | 'CRM' | 'Executive' | 'REVIEWER';
 
 export interface RoleMapping {
   userId: string;

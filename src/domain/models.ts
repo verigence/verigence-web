@@ -1,5 +1,5 @@
 export type UserRole = 'PC' | 'TL' | 'PM' | 'CRM' | 'TENANT_ADMIN' | 'SUPER_ADMIN';
-export type OperatingRole = 'PC' | 'TL' | 'PM' | 'CRM' | 'EXECUTIVE';
+export type OperatingRole = 'PC' | 'TL' | 'PM' | 'CRM' | 'EXECUTIVE' | 'REVIEWER';
 export type DataBacking = 'CORE' | 'WEB_DEMO' | 'HYBRID';
 
 

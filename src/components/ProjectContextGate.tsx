@@ -8,6 +8,8 @@ import { useHrAccess } from '../features/hr/hrQueries';
 import { hrHomePath } from '../features/rollout/landing';
 import {
   autoSelectableProject,
+  defaultOutletFor,
+  projectHasOutlet,
   resetOperationalContext,
   selectOperationalOutlet,
   selectOperationalProject,
@@ -125,14 +127,17 @@ export default function ProjectContextGate({ children }: PropsWithChildren) {
     }
   }, [projectQuery.data, queryClient, selectedProject, setProjects]);
 
+  // A PC always has a current Outlet: their ONSITE one unless they have chosen
+  // another, which the shell's Outlet list does in place. Only ever acts when
+  // the session holds no Outlet of this Project -- a first sign-in, or an
+  // Outlet left over from a different one. It must not compare against the
+  // default, or switching to a SATELLITE Outlet would be undone on the next
+  // render.
   useEffect(() => {
     if (!selectedProject || selectedProject.operatingRole !== 'PC') return;
-    const onlyOutlet = selectedProject.scope.outlets.length === 1
-      ? selectedProject.scope.outlets[0]
-      : undefined;
-    if (onlyOutlet && outletId !== onlyOutlet.outletId) {
-      selectOperationalOutlet(selectedProject, onlyOutlet, queryClient);
-    }
+    if (projectHasOutlet(selectedProject, outletId)) return;
+    const startingOutlet = defaultOutletFor(selectedProject);
+    if (startingOutlet) selectOperationalOutlet(selectedProject, startingOutlet, queryClient);
   }, [outletId, queryClient, selectedProject]);
 
   const handleSignOut = () => {
@@ -147,8 +152,16 @@ export default function ProjectContextGate({ children }: PropsWithChildren) {
   const awaitingAutoSelect = Boolean(
     projectQuery.data && !selectedProject && autoSelectableProject(projectQuery.data),
   );
+  // Same for the Outlet the effect above is about to set: without this the
+  // "Choose Work Location" screen paints for one frame first.
+  const awaitingOutletAutoSelect = Boolean(
+    selectedProject
+    && selectedProject.operatingRole === 'PC'
+    && !projectHasOutlet(selectedProject, outletId)
+    && defaultOutletFor(selectedProject),
+  );
 
-  if (projectQuery.isPending || awaitingAutoSelect) {
+  if (projectQuery.isPending || awaitingAutoSelect || awaitingOutletAutoSelect) {
     return (
       <main className="uc03-project-gate" aria-busy="true">
         <section className="uc03-project-gate__panel">
@@ -240,6 +253,10 @@ export default function ProjectContextGate({ children }: PropsWithChildren) {
   const selectedOutletIsValid = selectedProject.operatingRole !== 'PC'
     || selectedProject.scope.outlets.some((outlet) => outlet.outletId === outletId);
 
+  // Kept as a fallback only. A PC with Outlets is now started in one above, and
+  // a PC with none is the dead end just before this, so in practice nobody is
+  // asked to choose a work location any more -- they land in the app and switch
+  // from the shell's Outlet list.
   if (selectedProject.operatingRole === 'PC' && !selectedOutletIsValid) {
     return (
       <main className="uc03-project-gate">

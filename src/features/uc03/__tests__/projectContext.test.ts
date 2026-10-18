@@ -2,7 +2,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
   autoSelectableProject,
+  defaultOutletFor,
   isShellSwitchableProject,
+  projectHasOutlet,
   restoreOperationalContextHint,
   selectOperationalOutlet,
   selectOperationalProject,
@@ -195,6 +197,75 @@ describe('the restored workspace hint is always revalidated', () => {
 
   it('has nothing to open when there are no projects', () => {
     expect(autoSelectableProject([])).toBeUndefined();
+  });
+
+  /** One person, one project, several outlets: the shape that has to just work. */
+  describe('a PC with several outlets starts in the onsite one', () => {
+    const several = (): OperationalProject => project({
+      scope: {
+        allDealers: false,
+        dealerCount: 1,
+        outletCount: 3,
+        outlets: [
+          { dealerId: 'd1', dealerName: 'Dealer One', outletId: 'sat-1', outletName: 'Satellite One', outletClassification: 'SATELLITE' },
+          { dealerId: 'd1', dealerName: 'Dealer One', outletId: 'onsite-1', outletName: 'Main Showroom', outletClassification: 'ONSITE' },
+          { dealerId: 'd1', dealerName: 'Dealer One', outletId: 'sat-2', outletName: 'Satellite Two', outletClassification: 'SATELLITE' },
+        ],
+      },
+    } as Partial<OperationalProject>);
+
+    it('picks the onsite outlet, not the first in the list', () => {
+      expect(defaultOutletFor(several())?.outletId).toBe('onsite-1');
+    });
+
+    it('selecting the project sets that outlet, so no chooser is needed', () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      selectOperationalProject(several(), stub as any);
+      expect(useSessionStore.getState().outletId).toBe('onsite-1');
+      expect(useSessionStore.getState().dealerId).toBe('d1');
+    });
+
+    it('falls back to the first outlet when none is marked onsite', () => {
+      const satellitesOnly = project({
+        scope: {
+          allDealers: false,
+          dealerCount: 1,
+          outletCount: 2,
+          outlets: [
+            { dealerId: 'd1', dealerName: 'Dealer One', outletId: 'sat-1', outletName: 'Satellite One', outletClassification: 'SATELLITE' },
+            { dealerId: 'd1', dealerName: 'Dealer One', outletId: 'sat-2', outletName: 'Satellite Two', outletClassification: 'SATELLITE' },
+          ],
+        },
+      } as Partial<OperationalProject>);
+      expect(defaultOutletFor(satellitesOnly)?.outletId).toBe('sat-1');
+    });
+
+    it('does not pick an outlet for a role that has no current one', () => {
+      expect(defaultOutletFor(project({ operatingRole: 'REVIEWER' }))).toBeUndefined();
+      expect(defaultOutletFor(project({ operatingRole: 'TL' }))).toBeUndefined();
+    });
+
+    it('leaves a switch to a satellite outlet standing', () => {
+      // The regression this guards: an auto-select that compares the session's
+      // outlet against the default instead of against the project's outlets
+      // would snap straight back to onsite after every switch.
+      const held = several();
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      selectOperationalProject(held, stub as any);
+      const satellite = held.scope.outlets[2];
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      selectOperationalOutlet(held, satellite, stub as any);
+      expect(useSessionStore.getState().outletId).toBe('sat-2');
+      expect(projectHasOutlet(held, 'sat-2')).toBe(true);
+    });
+
+    it('has nothing to fall back to when the project has no outlets', () => {
+      const none = project({
+        scope: { allDealers: false, dealerCount: 0, outletCount: 0, outlets: [] },
+      } as Partial<OperationalProject>);
+      expect(defaultOutletFor(none)).toBeUndefined();
+      expect(projectHasOutlet(none, 'anything')).toBe(false);
+    });
   });
 
   it('still revalidates after a project is chosen from the list', async () => {

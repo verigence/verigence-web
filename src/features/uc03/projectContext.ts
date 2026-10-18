@@ -155,6 +155,33 @@ export function autoSelectableProject(
   return undefined;
 }
 
+/**
+ * The Outlet a Process Coordinator starts in before choosing one.
+ *
+ * 2026-10 product-owner decision: a PC holding several Outlets must land in the
+ * app, not on a chooser. The ONSITE Outlet is where they sit, so it is the
+ * default; SATELLITE Outlets are reached from the shell's Outlet list. Those are
+ * the only two classifications Audit Core accepts (dealers.py: OutletCreate),
+ * and ONSITE is its default, so the fallback to the first Outlet only matters
+ * for older rows.
+ *
+ * Only a PC: a Reviewer covers all of its Outlets at once and the Project-wide
+ * roles work above Outlet level, so neither has a current Outlet to pick.
+ */
+export function defaultOutletFor(
+  project: OperationalProject,
+): OperationalOutletScope | undefined {
+  if (project.operatingRole !== 'PC') return undefined;
+  const outlets = project.scope.outlets;
+  return outlets.find((outlet) => (outlet.outletClassification || '').toUpperCase() === 'ONSITE')
+    ?? outlets[0];
+}
+
+/** Whether this Outlet is one the person actually holds in this Project. */
+export function projectHasOutlet(project: OperationalProject, outletId: string): boolean {
+  return project.scope.outlets.some((outlet) => outlet.outletId === outletId);
+}
+
 export function selectOperationalOutlet(
   project: OperationalProject,
   outlet: OperationalOutletScope,
@@ -195,17 +222,17 @@ export function selectOperationalProject(
   // may itself be a one-entry stub from localStorage is not a reason to stop
   // asking the server what the person is actually assigned to.
   clearTenantQueries(queryClient);
-  const onlyPcOutlet = project.operatingRole === 'PC' && project.scope.outlets.length === 1
-    ? project.scope.outlets[0]
-    : undefined;
+  // A PC starts in their ONSITE Outlet rather than on a chooser, however many
+  // Outlets they hold (it used to be pre-set only when there was exactly one).
+  const startingOutlet = defaultOutletFor(project);
   useSessionStore.getState().setBusinessContext({
     tenantId: project.tenantId,
-    dealerId: onlyPcOutlet?.dealerId || '',
-    outletId: onlyPcOutlet?.outletId || '',
+    dealerId: startingOutlet?.dealerId || '',
+    outletId: startingOutlet?.outletId || '',
   });
   useProjectContextStore.getState().selectProject(project);
-  if (project.operatingRole !== 'PC' || onlyPcOutlet) {
-    persistWorkspaceHint(project, onlyPcOutlet?.outletId);
+  if (project.operatingRole !== 'PC' || startingOutlet) {
+    persistWorkspaceHint(project, startingOutlet?.outletId);
   }
 }
 

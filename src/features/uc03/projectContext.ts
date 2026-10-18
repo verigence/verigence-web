@@ -124,7 +124,13 @@ export function selectOperationalOutlet(
   outlet: OperationalOutletScope,
   queryClient: QueryClient,
 ): void {
-  restoredHintNeedsRevalidation = false;
+  // Choosing an Outlet does not make the restored Project list authoritative, so
+  // it must not cancel the pending revalidation. It used to: the gate
+  // auto-selects the only Outlet of a one-Outlet PC straight after the hint is
+  // restored, which cleared the flag before the revalidation ran. The list then
+  // stayed as the single Project the hint carried -- for the whole session,
+  // because that query never refetches -- so a second Project stayed invisible
+  // and the nav kept gating on a stale operating role.
   clearTenantQueries(queryClient);
   useSessionStore.getState().setBusinessContext({
     tenantId: project.tenantId,
@@ -138,7 +144,9 @@ export function selectOperationalProject(
   project: OperationalProject,
   queryClient: QueryClient,
 ): void {
-  restoredHintNeedsRevalidation = false;
+  // Same reason as selectOperationalOutlet: picking a Project from a list that
+  // may itself be a one-entry stub from localStorage is not a reason to stop
+  // asking the server what the person is actually assigned to.
   clearTenantQueries(queryClient);
   const onlyPcOutlet = project.operatingRole === 'PC' && project.scope.outlets.length === 1
     ? project.scope.outlets[0]

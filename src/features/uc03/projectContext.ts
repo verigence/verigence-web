@@ -132,6 +132,17 @@ export function selectOperationalOutlet(
   // because that query never refetches -- so a second Project stayed invisible
   // and the nav kept gating on a stale operating role.
   clearTenantQueries(queryClient);
+
+  // An Outlet-scoped person can hold Outlets in more than one Project, and the
+  // shell offers all of them in one list. Picking an Outlet under a different
+  // Project has to move the selected Project with it, or the session would keep
+  // the previous Project's operating role and scope while reading the new
+  // Tenant's data. Only when it actually differs: selecting the same Project
+  // again would replace the object for no reason and re-render the shell.
+  if (useProjectContextStore.getState().selectedProject?.tenantId !== project.tenantId) {
+    useProjectContextStore.getState().selectProject(project);
+  }
+
   useSessionStore.getState().setBusinessContext({
     tenantId: project.tenantId,
     dealerId: outlet.dealerId,

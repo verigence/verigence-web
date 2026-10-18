@@ -482,16 +482,33 @@ export default function AppShell({ children }: PropsWithChildren) {
     navigate('/dashboard', { replace: true });
   };
 
-  // A Process Coordinator works a Dealership with one or more Outlets under it.
-  // Show those Outlets in the shell and let the PC switch between them in place.
-  const pcOutlets: OperationalOutletScope[] = selectedProject?.operatingRole === 'PC'
-    ? selectedProject.scope.outlets
-    : [];
-  const currentDealerName = pcOutlets.find((outlet) => outlet.outletId === outletId)?.dealerName
-    ?? pcOutlets[0]?.dealerName;
-  const handleSwitchOutlet = (outlet: OperationalOutletScope) => {
-    if (!selectedProject || outlet.outletId === outletId) return;
-    selectOperationalOutlet(selectedProject, outlet, queryClient);
+  // A Process Coordinator works a Dealership with one or more Outlets under it,
+  // and may hold Outlets in more than one Dealership. Every Outlet assigned to
+  // the signed-in person is offered here, across all of them, so switching is
+  // in place (2026-09 decision) rather than through the selection gate -- which
+  // previously meant clearing the whole context and choosing again.
+  //
+  // Built from `projects`, not from the selected Project alone: that is what
+  // makes the Outlets of a second Dealership reachable. Project-wide roles
+  // (TL, PM, Executive) carry no Outlet rows and so get no list, exactly as
+  // before; they keep the role label.
+  const outletChoices = useMemo(
+    () => projects.flatMap((project) => project.scope.outlets.map((outlet) => ({ project, outlet }))),
+    [projects],
+  );
+  const activeChoice = outletChoices.find((choice) => choice.outlet.outletId === outletId);
+  const currentDealerName = activeChoice?.outlet.dealerName ?? outletChoices[0]?.outlet.dealerName;
+  // Name the Dealership on each row only when the person holds Outlets in more
+  // than one, so a single-Dealership PC sees the list exactly as before.
+  const manyDealers = useMemo(
+    () => new Set(outletChoices.map((choice) => choice.outlet.dealerName)).size > 1,
+    [outletChoices],
+  );
+  const handleSwitchOutlet = (choice: { project: typeof projects[number]; outlet: OperationalOutletScope }) => {
+    if (choice.outlet.outletId === outletId) return;
+    // One call: it moves the Project too when the Outlet sits under a different
+    // one, and clears the Tenant-scoped caches once rather than twice.
+    selectOperationalOutlet(choice.project, choice.outlet, queryClient);
     setMobileMenuOpen(false);
     navigate('/dashboard', { replace: true });
   };
@@ -608,20 +625,23 @@ export default function AppShell({ children }: PropsWithChildren) {
           <div className="uc03-shell-project">
             <span>Current Dealership</span>
             <strong>{currentDealerName ?? roleLabel}</strong>
-            {pcOutlets.length > 0 && (
+            {outletChoices.length > 0 && (
               <ul className="pcov-outlets" aria-label="Outlets assigned to you">
-                {pcOutlets.map((outlet) => {
-                  const active = outlet.outletId === outletId;
+                {outletChoices.map((choice) => {
+                  const active = choice.outlet.outletId === outletId;
                   return (
-                    <li key={outlet.outletId}>
+                    <li key={choice.outlet.outletId}>
                       <button
                         type="button"
                         className={`pcov-outlets__item${active ? ' is-active' : ''}`}
                         aria-current={active ? 'true' : undefined}
                         disabled={active}
-                        onClick={() => handleSwitchOutlet(outlet)}
+                        onClick={() => handleSwitchOutlet(choice)}
                       >
-                        <span>{outlet.outletName}</span>
+                        <span>
+                          {choice.outlet.outletName}
+                          {manyDealers && <small className="pcov-outlets__dealer">{choice.outlet.dealerName}</small>}
+                        </span>
                         <small>{active ? 'Current' : 'Switch'}</small>
                       </button>
                     </li>

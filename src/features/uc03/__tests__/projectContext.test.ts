@@ -104,6 +104,52 @@ describe('the restored workspace hint is always revalidated', () => {
     expect(stub.invalidated).toContainEqual(['uc03-projects']);
   });
 
+  it('moves the selected project when the outlet sits under a different one', () => {
+    // An outlet-scoped person can hold outlets in two dealerships, and the shell
+    // offers all of them in one list. Picking one from the other project has to
+    // carry the project with it, or the session keeps the previous project's
+    // operating role and scope while reading the new tenant's data.
+    seedHint();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    restoreOperationalContextHint(tokenFor('user-1'), stub as any);
+    expect(useProjectContextStore.getState().selectedProject?.tenantId).toBe('tenant-a');
+
+    const other = project({
+      tenantId: 'tenant-b',
+      projectCode: 'MAH-B',
+      operatingRole: 'PC',
+      scope: {
+        allDealers: false,
+        dealerCount: 1,
+        outletCount: 1,
+        outlets: [
+          { dealerId: 'dealer-2', dealerName: 'Dealer Two', outletId: 'outlet-2', outletName: 'Outlet Two', outletClassification: 'ONSITE' },
+        ],
+      },
+    } as Partial<OperationalProject>);
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    selectOperationalOutlet(other, other.scope.outlets[0], stub as any);
+
+    expect(useProjectContextStore.getState().selectedProject?.tenantId).toBe('tenant-b');
+    expect(useSessionStore.getState().tenantId).toBe('tenant-b');
+    expect(useSessionStore.getState().outletId).toBe('outlet-2');
+  });
+
+  it('leaves the selected project alone when switching within it', () => {
+    seedHint();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    restoreOperationalContextHint(tokenFor('user-1'), stub as any);
+    const before = useProjectContextStore.getState().selectedProject;
+
+    const same = project();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    selectOperationalOutlet(same, same.scope.outlets[0], stub as any);
+
+    // Same object, so the shell does not re-render for nothing.
+    expect(useProjectContextStore.getState().selectedProject).toBe(before);
+  });
+
   it('still revalidates after a project is chosen from the list', async () => {
     seedHint();
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

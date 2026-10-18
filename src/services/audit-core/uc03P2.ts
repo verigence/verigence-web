@@ -1235,6 +1235,44 @@ export function getP2PricingCatalog(tenantId: string, journeyId: string, onDate?
   );
 }
 
+// ── Price masters: a whole month's book ─────────────────────────────────────
+export type P2PriceComponent = {
+  key: string; label: string; commercialKey?: string | null;
+  amount: string | null; priceSince?: string | null;
+};
+
+export type P2PriceMasterVariant = {
+  productSkuId: string; skuCode: string; model: string; variant: string | null;
+  trim: string | null; fuel: string | null; transmission: string | null;
+  drive: string | null; seater: string | null; category: string | null;
+  components: P2PriceComponent[];
+  onRoad: { individual: string | null; corporate: string | null; basis: string; amount: string | null };
+};
+
+export type P2PriceMasterModel = {
+  modelId: string;
+  model: string;
+  /** The name this model was priced under in the previous book, when the
+   * OEM has respelt it. Mahindra does this between months (September's
+   * XUV3XO is October's 'XUV 3XO'), and the two are separate catalogue
+   * rows, so both can appear in one book — the old one carried forward. */
+  previousName: string | null;
+  variants: P2PriceMasterVariant[];
+};
+
+export function getP2PriceMaster(
+  tenantId: string, on: string, basis: 'INDIVIDUAL' | 'CORPORATE' = 'INDIVIDUAL', accessToken?: string,
+) {
+  const query = `?on=${encodeURIComponent(on)}&registrationBasis=${basis}`;
+  return auditCoreRequest<{
+    on: string;
+    basis: string;
+    priceList: P2PriceListRef;
+    previous: P2PriceListRef;
+    models: P2PriceMasterModel[];
+  }>(`${path(tenantId, '/standard/price-master')}${query}`, { accessToken, timeoutMs: LIST_READ_TIMEOUT_MS });
+}
+
 export function recheckP2Journey(tenantId: string, journeyId: string, accessToken?: string) {
   return auditCoreRequest<{
     journeyId: string; factVersion: number; checks: string[];

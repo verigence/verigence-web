@@ -137,11 +137,18 @@ const p2DuplicatesItem: NavItem = {
   roles: ['PC', 'TL', 'PM'],
 };
 
+const p2PriceMastersItem: NavItem = {
+  to: '/p2/price-masters',
+  label: 'Price Masters',
+  mark: 'PM',
+  roles: ['PC', 'TL', 'PM'],
+};
+
 const p2Group: NavGroup = {
   key: 'phase2',
-  label: 'Audit',
+  label: 'DealGuard',
   // Journey 360 is reached from each journey's card, not a list of its own.
-  items: [p2BookingsItem, p2TasksItem, p2DuplicatesItem],
+  items: [p2BookingsItem, p2TasksItem, p2DuplicatesItem, p2PriceMastersItem],
 };
 
 const groups: NavGroup[] = [

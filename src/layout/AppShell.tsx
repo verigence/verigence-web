@@ -220,6 +220,7 @@ const dynamicRouteLabels: Array<[string, string]> = [
 
 const roleLabels: Record<ShellRole, string> = {
   PC: 'Process Coordinator', TL: 'Team Lead', PM: 'Project Manager', CRM: 'CRM', EXECUTIVE: 'Executive',
+  REVIEWER: 'Reviewer',
   TENANT_ADMIN: 'Tenant Admin', SUPER_ADMIN: 'SuperAdmin',
 };
 

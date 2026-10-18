@@ -176,6 +176,11 @@ function normalizeOperatingRole(role: string): OperatingRole {
     case 'PM': return 'PM';
     case 'CRM': return 'CRM';
     case 'EXECUTIVE': return 'EXECUTIVE';
+    case 'REVIEWER': return 'REVIEWER';
+    // A role this build does not know throws rather than degrading, so an
+    // operating role must be taught to the web app before anyone is mapped to
+    // it in Project Administration -- otherwise their whole workspace fails to
+    // open rather than one page being missing.
     default: throw new Error('This Project has an unsupported operating role.');
   }
 }

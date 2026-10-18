@@ -4,7 +4,7 @@ import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 
 import { verigenceLockup } from '../assets/verigenceLockup';
 import type { OperatingRole, UserRole } from '../domain/models';
-import { clearOperationalProject, resetOperationalContext, selectOperationalOutlet } from '../features/uc03/projectContext';
+import { clearOperationalProject, isShellSwitchableProject, resetOperationalContext, selectOperationalOutlet } from '../features/uc03/projectContext';
 import { ANDROID_BACK_EVENT } from '../native/AndroidNativeBridge';
 import type { OperationalOutletScope } from '../services/audit-core/uc03';
 import { getReviewQueueSummary } from '../services/audit-core/uc03Audit';
@@ -491,9 +491,22 @@ export default function AppShell({ children }: PropsWithChildren) {
   // Built from `projects`, not from the selected Project alone: that is what
   // makes the Outlets of a second Dealership reachable. Project-wide roles
   // (TL, PM, Executive) carry no Outlet rows and so get no list, exactly as
-  // before; they keep the role label.
+  // before; they keep the role label. A Reviewer is left out too, even though
+  // it does carry Outlet rows: it covers all of them at once, so marking one
+  // "Current" and offering to switch off it would misstate the role.
   const outletChoices = useMemo(
-    () => projects.flatMap((project) => project.scope.outlets.map((outlet) => ({ project, outlet }))),
+    () => projects
+      .filter(isShellSwitchableProject)
+      .flatMap((project) => project.scope.outlets.map((outlet) => ({ project, outlet }))),
+    [projects],
+  );
+  // Switching through the gate means dropping the whole context and choosing
+  // again, so it is offered only where it reaches something the Outlet list
+  // above cannot: a Reviewer or a Project-wide assignment. When every
+  // assignment is in that list the gate also re-opens the first Project by
+  // itself (autoSelectableProject), which would make this button a no-op.
+  const gateReachesMore = useMemo(
+    () => projects.length > 1 && !projects.every(isShellSwitchableProject),
     [projects],
   );
   const activeChoice = outletChoices.find((choice) => choice.outlet.outletId === outletId);
@@ -607,7 +620,7 @@ export default function AppShell({ children }: PropsWithChildren) {
           <div className="enterprise-topbar__trail"><strong>{currentLabel}</strong></div>
         </div>
         <div className="enterprise-topbar__actions">
-          {selectedProject && projects.length > 1 && <button type="button" className="uc03-switch-project-topbar" onClick={handleSwitchProject}>Switch Dealership</button>}
+          {selectedProject && gateReachesMore && <button type="button" className="uc03-switch-project-topbar" onClick={handleSwitchProject}>Switch Dealership</button>}
           <NavLink to="/profile" className="enterprise-topbar__identity" aria-label="Open profile">
             <span className="enterprise-topbar__avatar">{myIdentity.photoUrl ? <img className="enterprise-topbar__avatar-photo" src={myIdentity.photoUrl} alt="" /> : avatarText}</span>
             <span className="enterprise-topbar__identity-copy"><strong>{visibleName}</strong><small>{(myIdentity.hasRecord && myIdentity.designation) || roleLabel}</small></span>
@@ -649,7 +662,7 @@ export default function AppShell({ children }: PropsWithChildren) {
                 })}
               </ul>
             )}
-            {projects.length > 1 && <button type="button" onClick={handleSwitchProject}>Switch Dealership</button>}
+            {gateReachesMore && <button type="button" onClick={handleSwitchProject}>Switch Dealership</button>}
           </div>
         )}
         <nav className="enterprise-nav enterprise-nav--accordion" aria-label="Primary navigation">

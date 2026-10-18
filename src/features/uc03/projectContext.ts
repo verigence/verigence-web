@@ -119,6 +119,42 @@ export function restoreOperationalContextHint(
   }
 }
 
+/**
+ * True when the shell's Outlet list can reach this Project's work on its own.
+ *
+ * Only a Process Coordinator works one Outlet at a time, so only a PC gets that
+ * list -- and only a Project the list actually names is reachable without going
+ * back through the selection gate. A Reviewer covers all of its Outlets at once
+ * and a Project-wide role (TL, PM, Executive) carries no Outlet rows at all, so
+ * neither can be entered from the shell.
+ */
+export function isShellSwitchableProject(project: OperationalProject): boolean {
+  return project.operatingRole === 'PC' && project.scope.outlets.length > 0;
+}
+
+/**
+ * The Project to open without asking, or undefined when the person must choose.
+ *
+ * One Project has always opened by itself. More than one did not, which left
+ * everyone holding two assignments on an unnamed "Choose Workspace" list
+ * ("Workspace 1", "Workspace 2") -- the selection gate may not show Project,
+ * Dealer or Outlet names before a Project is selected, so the choice carried no
+ * information to make it with.
+ *
+ * It is skipped when every Project is one the shell itself can switch between:
+ * entering through any of them leaves the rest one named click away in the
+ * sidebar, so nothing is unreachable and nothing has to be picked blind. A set
+ * holding a Reviewer or a Project-wide assignment still needs the gate, because
+ * the shell cannot offer those (see isShellSwitchableProject).
+ */
+export function autoSelectableProject(
+  projects: OperationalProject[],
+): OperationalProject | undefined {
+  if (projects.length === 1) return projects[0];
+  if (projects.length > 1 && projects.every(isShellSwitchableProject)) return projects[0];
+  return undefined;
+}
+
 export function selectOperationalOutlet(
   project: OperationalProject,
   outlet: OperationalOutletScope,

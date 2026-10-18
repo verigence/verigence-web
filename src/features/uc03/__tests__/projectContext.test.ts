@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
+  autoSelectableProject,
+  isShellSwitchableProject,
   restoreOperationalContextHint,
   selectOperationalOutlet,
   selectOperationalProject,
@@ -148,6 +150,51 @@ describe('the restored workspace hint is always revalidated', () => {
 
     // Same object, so the shell does not re-render for nothing.
     expect(useProjectContextStore.getState().selectedProject).toBe(before);
+  });
+
+  it('opens a single project by itself, whatever its role', () => {
+    expect(autoSelectableProject([project()])?.projectCode).toBe('MAH-A');
+    expect(autoSelectableProject([project({ operatingRole: 'TL' })])?.projectCode).toBe('MAH-A');
+  });
+
+  it('opens the first of several projects when the sidebar can reach them all', () => {
+    // Every assignment is a PC with outlets, so the shell's outlet list names
+    // all of them: entering through either leaves nothing unreachable, and the
+    // unnamed "Choose Workspace" list is skipped.
+    const second = project({ tenantId: 'tenant-b', projectCode: 'MAH-B' });
+    expect(autoSelectableProject([project(), second])?.projectCode).toBe('MAH-A');
+  });
+
+  it('keeps the gate when any assignment is one the sidebar cannot reach', () => {
+    // A project-wide role carries no outlet rows, so it has no entry in the
+    // shell's outlet list and would become unreachable if the gate were skipped.
+    const projectWide = project({
+      tenantId: 'tenant-b',
+      projectCode: 'MAH-B',
+      operatingRole: 'TL',
+      scope: { allDealers: true, dealerCount: 0, outletCount: 0, outlets: [] },
+    } as Partial<OperationalProject>);
+    expect(autoSelectableProject([project(), projectWide])).toBeUndefined();
+
+    // A reviewer covers all its outlets at once, so it gets no outlet list
+    // either, even though it does carry outlet rows.
+    const reviewer = project({ tenantId: 'tenant-c', projectCode: 'MAH-C', operatingRole: 'REVIEWER' });
+    expect(isShellSwitchableProject(reviewer)).toBe(false);
+    expect(autoSelectableProject([project(), reviewer])).toBeUndefined();
+
+    // A PC with no active outlet is a dead end of its own; it must not be
+    // opened silently.
+    const outletless = project({
+      tenantId: 'tenant-d',
+      projectCode: 'MAH-D',
+      scope: { allDealers: false, dealerCount: 0, outletCount: 0, outlets: [] },
+    } as Partial<OperationalProject>);
+    expect(isShellSwitchableProject(outletless)).toBe(false);
+    expect(autoSelectableProject([project(), outletless])).toBeUndefined();
+  });
+
+  it('has nothing to open when there are no projects', () => {
+    expect(autoSelectableProject([])).toBeUndefined();
   });
 
   it('still revalidates after a project is chosen from the list', async () => {

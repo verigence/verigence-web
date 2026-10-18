@@ -260,8 +260,8 @@ for (const relativePath of operationalTsx) {
  * (a Process Coordinator has one or more Outlets under it), not an abstract
  * "Workspace". The shell switcher must say "Dealership"; both "Workspace" and
  * "Project" are wrong here. The PC shell also lists the Outlets assigned to the
- * signed-in user. The selection GATE (ProjectContextGate) keeps its neutral
- * "Workspace" / "Work Location" wording — names only appear post-selection.
+ * signed-in user. The selection GATE (ProjectContextGate) followed in 2026-10:
+ * it now says Dealership as well, and names the Dealership and Outlet.
  * See docs/uc-003-booking-delivery-audit/pc-overview-redesign/README.md.
  */
 forbid(
@@ -272,12 +272,29 @@ forbid(
 requireText('src/layout/AppShell.tsx', 'Current Dealership', 'shell must label the current context as Dealership.');
 requireText('src/layout/AppShell.tsx', 'Switch Dealership', 'context switching must be labelled as Switch Dealership.');
 
+/*
+ * 2026-10 — product-owner decision: the selection screens name the Dealership
+ * and the Outlet. They were anonymous (an index, the operating role and the
+ * timezone), which cannot be answered by anyone holding two assignments of the
+ * same kind. Project Name stays prohibited here, as it is everywhere else in
+ * operational UI.
+ */
 forbid(
   'src/components/ProjectContextGate.tsx',
-  /\.projectName\b|\.dealerName\b|\.outletName\b/,
-  'Project/Dealer/Outlet names are prohibited in selection/gate screens.',
+  /\.projectName\b/,
+  'Project Name is prohibited in selection/gate screens.',
 );
-requireText('src/components/ProjectContextGate.tsx', 'Choose Workspace', 'selection screen must use neutral Workspace wording.');
+/*
+ * 2026-10 — the Workspace concept is withdrawn. The shell lost the word in
+ * 2026-09; the selection screens kept it and were the last place it was
+ * visible. They now say Dealership, like the shell.
+ */
+forbid(
+  'src/components/ProjectContextGate.tsx',
+  /Workspace|workspace/,
+  'the Workspace concept is withdrawn; selection screens must say Dealership.',
+);
+requireText('src/components/ProjectContextGate.tsx', 'Choose Dealership', 'selection screen must use Dealership wording.');
 requireText('src/components/ProjectContextGate.tsx', 'Choose Work Location', 'outlet selection must use neutral Work Location wording.');
 
 forbid(

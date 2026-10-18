@@ -42,7 +42,10 @@ Prohibited locations include:
 - Audit Review;
 - operational cards, headings and footers.
 
-Where a user must choose among assignments, use neutral labels such as `Workspace 1`, `Workspace 2`, operating role and other non-name metadata.
+Where a user must choose among assignments, the Project itself is identified by its Dealerships (see
+below), operating role and other non-name metadata — never by Project Name. An assignment with no
+Dealership of its own (a Project-wide TL, PM or Executive) falls back to a neutral `Assignment 1`,
+`Assignment 2` label.
 
 ### Dealer and Outlet Name
 
@@ -50,7 +53,14 @@ Dealer Name and Outlet Name are allowed only on the operational Landing Page bec
 
 They are prohibited after the PC enters Booking, Delivery, Audit Review, or another operational task screen.
 
-The pre-landing outlet chooser uses neutral `Work Location` labels and must not expose Dealer or Outlet names.
+They are also allowed on the pre-landing selection screens (`ProjectContextGate`), which name the
+Dealership and the Outlet on each choice. Those screens say **Dealership**, not Workspace: the
+Workspace concept was withdrawn in 2026-10 and the word must not appear there.
+
+**Amended 2026-10 (product owner).** These screens previously showed neutral labels only
+(`Work Location 1`, role, timezone). A person assigned to several Outlets, or to several Projects in
+the same operating role, had nothing to tell their own choices apart by. Project Name remains
+prohibited on them.
 
 ### Administration exception
 

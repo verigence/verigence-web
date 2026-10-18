@@ -250,7 +250,69 @@ Governance gate updated to match (`scripts/ui-governance-check.mjs`):
 - The selection **gate** (`ProjectContextGate.tsx`) is unchanged and keeps its
   neutral "Choose Workspace" / "Choose Work Location" wording — dealer and outlet
   names still only appear *after* selection, per the existing rule.
+  *(Superseded 2026-10 — see below.)*
 - New check-output line: `ShellContextSwitcher=DEALERSHIP_AND_OUTLETS`.
+
+---
+
+## Selection screens — 2026-10 amendment
+
+The 2026-09 change above moved switching into the shell but left the **first**
+selection untouched, and the two do not combine. Reported live: a person
+onboarded to two Projects lands on an unnamed chooser.
+
+**The shapes an assignment set actually takes** (product owner, 2026-10) — any
+of these, and mixtures of them:
+
+| Shape | Before | Now |
+|---|---|---|
+| One Project, one Outlet (PC) | opens by itself | unchanged |
+| One Project, several Outlets (PC) | `Choose Work Location` — "Work Location 1/2/3" + classification, nothing to choose by | Outlet and Dealership named; then in-place in the sidebar |
+| Several Projects, one Outlet each (PC) | `Choose Workspace` — "Workspace 1/2", role + timezone | **no gate at all**: opens the first, every Outlet listed in the sidebar |
+
+| Several Projects, several Outlets each (PC) | `Choose Workspace`, then `Choose Work Location` | **no gate**: opens the first, then the named Outlet list |
+| PC in one Project, TL/PM/Executive in another | `Choose Workspace`, unnamed | gate kept (the shell cannot reach a Project-wide role), cards now named by Dealership; the Project-wide one shows `Assignment n` + its role |
+| Reviewer in several Projects | `Choose Workspace`, unnamed | gate kept (a Reviewer covers all its Outlets at once), cards named by Dealership |
+| The same Project-wide role in two Projects | `Choose Workspace`, unnamed | **still unnamed** — see Known gap |
+
+**Decisions.**
+
+0. **The Workspace concept is withdrawn.** The shell lost the word in 2026-09;
+   the selection screens were the last place it was visible and now say
+   Dealership too: `Choose Dealership`, `Your Dealerships`, and `Assignment n`
+   where a card has no Dealership of its own. The governance check forbids
+   `Workspace` in `ProjectContextGate.tsx` outright. Still outstanding: the
+   sidebar nav **group** label and the breadcrumb fallback both still read
+   "Workspace" (`AppShell.tsx`) — renaming those is a naming decision, not part
+   of this change.
+1. **Dealership and Outlet names are allowed on the selection screens.**
+   `UI_GOVERNANCE.md` §2 amended; the governance check for
+   `ProjectContextGate.tsx` now forbids `.projectName` only (plus the word
+   Workspace, per decision 0). Project Name stays
+   prohibited there, as everywhere else in operational UI.
+2. **The gate is skipped when the shell can do the switching.**
+   `autoSelectableProject()` opens a Project without asking when there is one,
+   or when *every* assignment is one the sidebar Outlet list names
+   (`isShellSwitchableProject()`: a PC with at least one Outlet). Nothing becomes
+   unreachable, because that list spans all Projects. Anything else — a Reviewer,
+   a Project-wide role — still goes through the gate.
+3. **"Switch Dealership" shows only when the gate reaches something the sidebar
+   cannot** (`gateReachesMore`). It drops the whole context and re-chooses; where
+   every assignment is in the sidebar list the gate would immediately re-open the
+   same Project, making the button a no-op.
+4. **A Reviewer gets no Outlet list in the shell**, though it does carry Outlet
+   rows: the role works all of them at once, so marking one "Current" would
+   misstate it. This restores the pre-2026-09 behaviour for that role.
+
+**Known gap.** Someone holding the *same* Project-wide role in two Projects (TL
+in two, say) still sees two identical `Workspace n` cards. Neither screen has
+anything to tell them apart with: a Project-wide assignment carries no Outlet
+rows, so there is no Dealership name, and Project Name is prohibited. Closing it
+needs one of — (a) allow Project Name on this one screen, or (b) return the
+Project's Dealership names from `/v1/me/projects` for Project-wide assignments
+and label the cards with those. (b) keeps the existing rule and matches the
+2026-09 "a user works a Dealership" decision; it is a change to
+`uc03_project_context.py`.
 
 ---
 

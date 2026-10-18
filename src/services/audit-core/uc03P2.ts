@@ -1235,6 +1235,77 @@ export function getP2PricingCatalog(tenantId: string, journeyId: string, onDate?
   );
 }
 
+// ── Price masters: a whole month's book ─────────────────────────────────────
+export type P2PriceComponent = {
+  key: string; label: string; commercialKey?: string | null;
+  amount: string | null; priceSince?: string | null;
+};
+
+export type P2PriceMasterVariant = {
+  productSkuId: string; skuCode: string; model: string; variant: string | null;
+  trim: string | null; fuel: string | null; transmission: string | null;
+  drive: string | null; seater: string | null; category: string | null;
+  components: P2PriceComponent[];
+  onRoad: { individual: string | null; corporate: string | null; basis: string; amount: string | null };
+};
+
+export type P2PriceMasterModel = {
+  modelId: string;
+  model: string;
+  /** The name this model was priced under in the previous book, when the
+   * OEM has respelt it. Mahindra does this between months (September's
+   * XUV3XO is October's 'XUV 3XO'), and the two are separate catalogue
+   * rows, so both can appear in one book — the old one carried forward. */
+  previousName: string | null;
+  variants: P2PriceMasterVariant[];
+};
+
+export function getP2PriceMaster(
+  tenantId: string, on: string, basis: 'INDIVIDUAL' | 'CORPORATE' = 'INDIVIDUAL', accessToken?: string,
+) {
+  const query = `?on=${encodeURIComponent(on)}&registrationBasis=${basis}`;
+  return auditCoreRequest<{
+    on: string;
+    basis: string;
+    priceList: P2PriceListRef;
+    previous: P2PriceListRef;
+    models: P2PriceMasterModel[];
+  }>(`${path(tenantId, '/standard/price-master')}${query}`, { accessToken, timeoutMs: LIST_READ_TIMEOUT_MS });
+}
+
+// ── Master documents: what a month's figures were read from ─────────────────
+export type P2MasterDocument = {
+  uploadId: string;
+  oemCode: string;
+  masterKind: 'PRICE_LIST' | 'CONSUMER_SCHEME' | 'EXCHANGE_SCHEME' | 'CORPORATE_POLICY' | string;
+  effectiveFrom: string;
+  fileName: string;
+  sha256: string;
+  status: 'STAGED' | 'PUBLISHED' | 'SUPERSEDED' | 'FAILED' | string;
+  rowCounts: Record<string, unknown>;
+  errorDetail: string | null;
+  uploadedBy: string | null;
+  uploadedAtUtc: string;
+  publishedAtUtc: string | null;
+  /** False for documents uploaded before the file itself was kept. */
+  openable: boolean;
+};
+
+export function getP2MasterDocuments(tenantId: string, month: string, accessToken?: string) {
+  return auditCoreRequest<{ month: string; documents: P2MasterDocument[]; missingKinds: string[] }>(
+    `${path(tenantId, '/standard/master-documents')}?month=${encodeURIComponent(month)}`,
+    { accessToken, cache: 'no-store' },
+  );
+}
+
+/** A short-lived signed link to the document itself, to open or save. */
+export function openP2MasterDocument(tenantId: string, uploadId: string, accessToken?: string) {
+  return auditCoreRequest<{ uploadId: string; fileName: string; url: string; expiresInSeconds: number }>(
+    path(tenantId, `/standard/master-documents/${encodeURIComponent(uploadId)}/open`),
+    { accessToken, cache: 'no-store' },
+  );
+}
+
 export function recheckP2Journey(tenantId: string, journeyId: string, accessToken?: string) {
   return auditCoreRequest<{
     journeyId: string; factVersion: number; checks: string[];

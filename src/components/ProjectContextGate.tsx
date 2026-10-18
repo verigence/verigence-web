@@ -7,17 +7,18 @@ import type { OperatingRole } from '../domain/models';
 import { useHrAccess } from '../features/hr/hrQueries';
 import { hrHomePath } from '../features/rollout/landing';
 import {
+  autoSelectableProject,
   resetOperationalContext,
   selectOperationalOutlet,
   selectOperationalProject,
 } from '../features/uc03/projectContext';
 import { AuditCoreHttpError } from '../services/audit-core/client';
-import { listMyOperationalProjects } from '../services/audit-core/uc03';
+import { listMyOperationalProjects, type OperationalProject } from '../services/audit-core/uc03';
 import { useProjectContextStore } from '../store/projectContextStore';
 import { useSessionStore } from '../store/sessionStore';
 
-// The workspace list is the gate to every screen, so a failure here is a
-// dead end ("We couldn't load your workspaces"). An HTTP answer from Audit
+// The assignment list is the gate to every screen, so a failure here is a
+// dead end ("We couldn't load your assignments"). An HTTP answer from Audit
 // Core (401, 403, 500...) is final and is shown at once. A request that
 // never got an answer -- the connection dropped, the browser aborted it,
 // Audit Core was restarting during a deploy (seen live 2026-09-28: a page
@@ -40,6 +41,25 @@ const roleLabels: Record<OperatingRole, string> = {
   REVIEWER: 'Reviewer',
 };
 
+/**
+ * The Dealerships behind one assignment, for the selection screens.
+ *
+ * 2026-10 product-owner decision: these screens name the Dealership and the
+ * Outlet. They used to be deliberately anonymous (an index, the operating role
+ * and the timezone), which is unanswerable for anyone holding two of the same
+ * kind of assignment. The Project's own name stays prohibited everywhere in
+ * operational UI, this screen included.
+ *
+ * Undefined for a Project-wide role (TL, PM, Executive): it carries no Outlet
+ * rows, so it keeps the neutral label and is told apart by its operating role.
+ */
+function dealershipLabel(project: OperationalProject): string | undefined {
+  const names = [...new Set(project.scope.outlets.map((outlet) => outlet.dealerName))];
+  if (names.length === 0) return undefined;
+  if (names.length <= 2) return names.join(', ');
+  return `${names[0]}, ${names[1]} +${names.length - 2}`;
+}
+
 /** A person with HR always has My HR, whatever the Audit side says. A button to it, shown only when the HR service says they have HR. */
 function OpenMyHr() {
   const hr = useHrAccess();
@@ -56,7 +76,7 @@ function DeadEnd({ title, text, onSignOut }: { title: string; text: string; onSi
         <section className="uc03-project-gate__panel">
           <img src={verigenceLockup} alt="Verigence" />
           <div className="uc03-project-gate__spinner" aria-hidden="true" />
-          <h1>Opening your workspace</h1>
+          <h1>Getting your work ready</h1>
           <p>Loading your current work context…</p>
         </section>
       </main>
@@ -99,8 +119,9 @@ export default function ProjectContextGate({ children }: PropsWithChildren) {
   useEffect(() => {
     if (!projectQuery.data) return;
     setProjects(projectQuery.data);
-    if (projectQuery.data.length === 1 && !selectedProject) {
-      selectOperationalProject(projectQuery.data[0], queryClient);
+    const opensByItself = autoSelectableProject(projectQuery.data);
+    if (opensByItself && !selectedProject) {
+      selectOperationalProject(opensByItself, queryClient);
     }
   }, [projectQuery.data, queryClient, selectedProject, setProjects]);
 
@@ -120,13 +141,20 @@ export default function ProjectContextGate({ children }: PropsWithChildren) {
     navigate('/login', { replace: true });
   };
 
-  if (projectQuery.isPending || (projectQuery.data?.length === 1 && !selectedProject)) {
+  // The selection the effect above is about to make must not render first: a
+  // "Choose Dealership" list that appears for one frame and vanishes is the
+  // flicker reported on 2026-10 against a two-Project sign-in.
+  const awaitingAutoSelect = Boolean(
+    projectQuery.data && !selectedProject && autoSelectableProject(projectQuery.data),
+  );
+
+  if (projectQuery.isPending || awaitingAutoSelect) {
     return (
       <main className="uc03-project-gate" aria-busy="true">
         <section className="uc03-project-gate__panel">
           <img src={verigenceLockup} alt="Verigence" />
           <div className="uc03-project-gate__spinner" aria-hidden="true" />
-          <h1>Opening your workspace</h1>
+          <h1>Getting your work ready</h1>
           <p>Loading your current work context…</p>
         </section>
       </main>
@@ -138,7 +166,7 @@ export default function ProjectContextGate({ children }: PropsWithChildren) {
       <main className="uc03-project-gate">
         <section className="uc03-project-gate__panel" role="alert">
           <img src={verigenceLockup} alt="Verigence" />
-          <h1>We couldn't load your workspaces.</h1>
+          <h1>We couldn't load your assignments.</h1>
           <p>Please try again. If the problem continues, contact your Verigence administrator.</p>
           <div className="uc03-project-gate__actions">
             <button type="button" className="frozen-auth-primary" onClick={() => projectQuery.refetch()}>
@@ -155,7 +183,7 @@ export default function ProjectContextGate({ children }: PropsWithChildren) {
   if (projects.length === 0) {
     return (
       <DeadEnd
-        title="No active workspaces are currently assigned to you."
+        title="No active assignment is currently mapped to you."
         text="Please contact your Verigence administrator."
         onSignOut={handleSignOut}
       />
@@ -168,9 +196,9 @@ export default function ProjectContextGate({ children }: PropsWithChildren) {
         <section className="uc03-project-gate__panel uc03-project-gate__panel--wide">
           <img src={verigenceLockup} alt="Verigence" />
           <header className="uc03-project-gate__heading">
-            <span>Your Workspaces</span>
-            <h1>Choose Workspace</h1>
-            <p>Select the workspace you want to work in. Your operating role may differ by workspace.</p>
+            <span>Your Dealerships</span>
+            <h1>Choose Dealership</h1>
+            <p>Select the dealership you want to work in. Your operating role may differ between them.</p>
           </header>
           <div className="uc03-project-list">
             {projects.map((project, index) => (
@@ -181,7 +209,7 @@ export default function ProjectContextGate({ children }: PropsWithChildren) {
                 onClick={() => selectOperationalProject(project, queryClient)}
               >
                 <span>
-                  <strong>Workspace {index + 1}</strong>
+                  <strong>{dealershipLabel(project) ?? `Assignment ${index + 1}`}</strong>
                   <small>{roleLabels[project.operatingRole]}</small>
                 </span>
                 <span className="uc03-project-card__meta">
@@ -220,10 +248,10 @@ export default function ProjectContextGate({ children }: PropsWithChildren) {
           <header className="uc03-project-gate__heading">
             <span>Assigned Locations</span>
             <h1>Choose Work Location</h1>
-            <p>Select the assigned work location for this session. The landing page will show the Dealer and Outlet context after selection.</p>
+            <p>Select the assigned work location for this session. You can switch between your locations from the sidebar afterwards.</p>
           </header>
           <div className="uc03-project-list">
-            {selectedProject.scope.outlets.map((outlet, index) => (
+            {selectedProject.scope.outlets.map((outlet) => (
               <button
                 type="button"
                 className="uc03-project-card"
@@ -231,12 +259,12 @@ export default function ProjectContextGate({ children }: PropsWithChildren) {
                 onClick={() => selectOperationalOutlet(selectedProject, outlet, queryClient)}
               >
                 <span>
-                  <strong>Work Location {index + 1}</strong>
-                  <small>{outlet.outletClassification}</small>
+                  <strong>{outlet.outletName}</strong>
+                  <small>{outlet.dealerName}</small>
                 </span>
                 <span className="uc03-project-card__meta">
                   <strong>Process Coordinator</strong>
-                  <small>Assigned location</small>
+                  <small>{outlet.outletClassification}</small>
                 </span>
                 <span className="uc03-project-card__arrow" aria-hidden="true">→</span>
               </button>

@@ -119,13 +119,66 @@ export function restoreOperationalContextHint(
   }
 }
 
+/**
+ * True when the shell's Outlet list can reach this Project's work on its own.
+ *
+ * Only a Process Coordinator works one Outlet at a time, so only a PC gets that
+ * list -- and only a Project the list actually names is reachable without going
+ * back through the selection gate. A Reviewer covers all of its Outlets at once
+ * and a Project-wide role (TL, PM, Executive) carries no Outlet rows at all, so
+ * neither can be entered from the shell.
+ */
+export function isShellSwitchableProject(project: OperationalProject): boolean {
+  return project.operatingRole === 'PC' && project.scope.outlets.length > 0;
+}
+
+/**
+ * The Project to open without asking, or undefined when the person must choose.
+ *
+ * One Project has always opened by itself. More than one did not, which left
+ * everyone holding two assignments on an unnamed "Choose Workspace" list
+ * ("Workspace 1", "Workspace 2") -- the selection gate may not show Project,
+ * Dealer or Outlet names before a Project is selected, so the choice carried no
+ * information to make it with.
+ *
+ * It is skipped when every Project is one the shell itself can switch between:
+ * entering through any of them leaves the rest one named click away in the
+ * sidebar, so nothing is unreachable and nothing has to be picked blind. A set
+ * holding a Reviewer or a Project-wide assignment still needs the gate, because
+ * the shell cannot offer those (see isShellSwitchableProject).
+ */
+export function autoSelectableProject(
+  projects: OperationalProject[],
+): OperationalProject | undefined {
+  if (projects.length === 1) return projects[0];
+  if (projects.length > 1 && projects.every(isShellSwitchableProject)) return projects[0];
+  return undefined;
+}
+
 export function selectOperationalOutlet(
   project: OperationalProject,
   outlet: OperationalOutletScope,
   queryClient: QueryClient,
 ): void {
-  restoredHintNeedsRevalidation = false;
+  // Choosing an Outlet does not make the restored Project list authoritative, so
+  // it must not cancel the pending revalidation. It used to: the gate
+  // auto-selects the only Outlet of a one-Outlet PC straight after the hint is
+  // restored, which cleared the flag before the revalidation ran. The list then
+  // stayed as the single Project the hint carried -- for the whole session,
+  // because that query never refetches -- so a second Project stayed invisible
+  // and the nav kept gating on a stale operating role.
   clearTenantQueries(queryClient);
+
+  // An Outlet-scoped person can hold Outlets in more than one Project, and the
+  // shell offers all of them in one list. Picking an Outlet under a different
+  // Project has to move the selected Project with it, or the session would keep
+  // the previous Project's operating role and scope while reading the new
+  // Tenant's data. Only when it actually differs: selecting the same Project
+  // again would replace the object for no reason and re-render the shell.
+  if (useProjectContextStore.getState().selectedProject?.tenantId !== project.tenantId) {
+    useProjectContextStore.getState().selectProject(project);
+  }
+
   useSessionStore.getState().setBusinessContext({
     tenantId: project.tenantId,
     dealerId: outlet.dealerId,
@@ -138,7 +191,9 @@ export function selectOperationalProject(
   project: OperationalProject,
   queryClient: QueryClient,
 ): void {
-  restoredHintNeedsRevalidation = false;
+  // Same reason as selectOperationalOutlet: picking a Project from a list that
+  // may itself be a one-entry stub from localStorage is not a reason to stop
+  // asking the server what the person is actually assigned to.
   clearTenantQueries(queryClient);
   const onlyPcOutlet = project.operatingRole === 'PC' && project.scope.outlets.length === 1
     ? project.scope.outlets[0]

@@ -596,6 +596,30 @@
   color: #77e2df;
 }
 
+/* The Outlet name, with its Dealership under it when the person holds Outlets in
+   more than one. Stacked so the row stays one tap target, and the Dealership is
+   not shouted: the sibling rule above uppercases the Current/Switch badge, which
+   is wrong for a name. Both selectors carry enough weight to beat that rule and
+   its .is-active variant. */
+.enterprise-shell--approved-nav .uc03-shell-project .pcov-outlets__item > span:first-child {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.enterprise-shell--approved-nav .uc03-shell-project .pcov-outlets__item .pcov-outlets__dealer,
+.enterprise-shell--approved-nav .uc03-shell-project .pcov-outlets__item.is-active .pcov-outlets__dealer {
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+  color: rgba(255, 255, 255, 0.52);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 /* ---------- Responsive ---------- */
 @media (max-width: 900px) {
   .pcov-hero__top {

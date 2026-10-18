@@ -4,7 +4,7 @@ import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 
 import { verigenceLockup } from '../assets/verigenceLockup';
 import type { OperatingRole, UserRole } from '../domain/models';
-import { clearOperationalProject, resetOperationalContext, selectOperationalOutlet } from '../features/uc03/projectContext';
+import { clearOperationalProject, isShellSwitchableProject, resetOperationalContext, selectOperationalOutlet } from '../features/uc03/projectContext';
 import { ANDROID_BACK_EVENT } from '../native/AndroidNativeBridge';
 import type { OperationalOutletScope } from '../services/audit-core/uc03';
 import { getReviewQueueSummary } from '../services/audit-core/uc03Audit';
@@ -482,16 +482,46 @@ export default function AppShell({ children }: PropsWithChildren) {
     navigate('/dashboard', { replace: true });
   };
 
-  // A Process Coordinator works a Dealership with one or more Outlets under it.
-  // Show those Outlets in the shell and let the PC switch between them in place.
-  const pcOutlets: OperationalOutletScope[] = selectedProject?.operatingRole === 'PC'
-    ? selectedProject.scope.outlets
-    : [];
-  const currentDealerName = pcOutlets.find((outlet) => outlet.outletId === outletId)?.dealerName
-    ?? pcOutlets[0]?.dealerName;
-  const handleSwitchOutlet = (outlet: OperationalOutletScope) => {
-    if (!selectedProject || outlet.outletId === outletId) return;
-    selectOperationalOutlet(selectedProject, outlet, queryClient);
+  // A Process Coordinator works a Dealership with one or more Outlets under it,
+  // and may hold Outlets in more than one Dealership. Every Outlet assigned to
+  // the signed-in person is offered here, across all of them, so switching is
+  // in place (2026-09 decision) rather than through the selection gate -- which
+  // previously meant clearing the whole context and choosing again.
+  //
+  // Built from `projects`, not from the selected Project alone: that is what
+  // makes the Outlets of a second Dealership reachable. Project-wide roles
+  // (TL, PM, Executive) carry no Outlet rows and so get no list, exactly as
+  // before; they keep the role label. A Reviewer is left out too, even though
+  // it does carry Outlet rows: it covers all of them at once, so marking one
+  // "Current" and offering to switch off it would misstate the role.
+  const outletChoices = useMemo(
+    () => projects
+      .filter(isShellSwitchableProject)
+      .flatMap((project) => project.scope.outlets.map((outlet) => ({ project, outlet }))),
+    [projects],
+  );
+  // Switching through the gate means dropping the whole context and choosing
+  // again, so it is offered only where it reaches something the Outlet list
+  // above cannot: a Reviewer or a Project-wide assignment. When every
+  // assignment is in that list the gate also re-opens the first Project by
+  // itself (autoSelectableProject), which would make this button a no-op.
+  const gateReachesMore = useMemo(
+    () => projects.length > 1 && !projects.every(isShellSwitchableProject),
+    [projects],
+  );
+  const activeChoice = outletChoices.find((choice) => choice.outlet.outletId === outletId);
+  const currentDealerName = activeChoice?.outlet.dealerName ?? outletChoices[0]?.outlet.dealerName;
+  // Name the Dealership on each row only when the person holds Outlets in more
+  // than one, so a single-Dealership PC sees the list exactly as before.
+  const manyDealers = useMemo(
+    () => new Set(outletChoices.map((choice) => choice.outlet.dealerName)).size > 1,
+    [outletChoices],
+  );
+  const handleSwitchOutlet = (choice: { project: typeof projects[number]; outlet: OperationalOutletScope }) => {
+    if (choice.outlet.outletId === outletId) return;
+    // One call: it moves the Project too when the Outlet sits under a different
+    // one, and clears the Tenant-scoped caches once rather than twice.
+    selectOperationalOutlet(choice.project, choice.outlet, queryClient);
     setMobileMenuOpen(false);
     navigate('/dashboard', { replace: true });
   };
@@ -590,7 +620,7 @@ export default function AppShell({ children }: PropsWithChildren) {
           <div className="enterprise-topbar__trail"><strong>{currentLabel}</strong></div>
         </div>
         <div className="enterprise-topbar__actions">
-          {selectedProject && projects.length > 1 && <button type="button" className="uc03-switch-project-topbar" onClick={handleSwitchProject}>Switch Dealership</button>}
+          {selectedProject && gateReachesMore && <button type="button" className="uc03-switch-project-topbar" onClick={handleSwitchProject}>Switch Dealership</button>}
           <NavLink to="/profile" className="enterprise-topbar__identity" aria-label="Open profile">
             <span className="enterprise-topbar__avatar">{myIdentity.photoUrl ? <img className="enterprise-topbar__avatar-photo" src={myIdentity.photoUrl} alt="" /> : avatarText}</span>
             <span className="enterprise-topbar__identity-copy"><strong>{visibleName}</strong><small>{(myIdentity.hasRecord && myIdentity.designation) || roleLabel}</small></span>
@@ -608,20 +638,23 @@ export default function AppShell({ children }: PropsWithChildren) {
           <div className="uc03-shell-project">
             <span>Current Dealership</span>
             <strong>{currentDealerName ?? roleLabel}</strong>
-            {pcOutlets.length > 0 && (
+            {outletChoices.length > 0 && (
               <ul className="pcov-outlets" aria-label="Outlets assigned to you">
-                {pcOutlets.map((outlet) => {
-                  const active = outlet.outletId === outletId;
+                {outletChoices.map((choice) => {
+                  const active = choice.outlet.outletId === outletId;
                   return (
-                    <li key={outlet.outletId}>
+                    <li key={choice.outlet.outletId}>
                       <button
                         type="button"
                         className={`pcov-outlets__item${active ? ' is-active' : ''}`}
                         aria-current={active ? 'true' : undefined}
                         disabled={active}
-                        onClick={() => handleSwitchOutlet(outlet)}
+                        onClick={() => handleSwitchOutlet(choice)}
                       >
-                        <span>{outlet.outletName}</span>
+                        <span>
+                          {choice.outlet.outletName}
+                          {manyDealers && <small className="pcov-outlets__dealer">{choice.outlet.dealerName}</small>}
+                        </span>
                         <small>{active ? 'Current' : 'Switch'}</small>
                       </button>
                     </li>
@@ -629,7 +662,7 @@ export default function AppShell({ children }: PropsWithChildren) {
                 })}
               </ul>
             )}
-            {projects.length > 1 && <button type="button" onClick={handleSwitchProject}>Switch Dealership</button>}
+            {gateReachesMore && <button type="button" onClick={handleSwitchProject}>Switch Dealership</button>}
           </div>
         )}
         <nav className="enterprise-nav enterprise-nav--accordion" aria-label="Primary navigation">

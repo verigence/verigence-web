@@ -98,6 +98,8 @@ const P2ComplianceReportPage = lazy(() => import('./pages/P2ComplianceReportPage
 const P2DuplicateBookingsPage = lazy(() => import('./pages/P2DuplicateBookingsPage'));
 const P2PriceMastersPage = lazy(() => import('./pages/P2PriceMastersPage'));
 const P2MasterDocumentsPage = lazy(() => import('./pages/P2MasterDocumentsPage'));
+const P2ReviewBoardPage = lazy(() => import('./pages/P2ReviewBoardPage'));
+const P2ReviewActivityPage = lazy(() => import('./pages/P2ReviewActivityPage'));
 
 const routerBase = import.meta.env.BASE_URL === '/' ? undefined : import.meta.env.BASE_URL.replace(/\/$/, '');
 
@@ -226,11 +228,16 @@ function OperationalShellPage({ children }: { children: ReactNode }) {
 }
 
 /** Where a signed-in user lands (2026-09-30): PC, TL and PM start on the
- * Phase 2 Booking & Delivery list; everyone else on the Phase 1 Overview. */
+ * Phase 2 Booking & Delivery list; a Reviewer on their own board, which is the
+ * only surface they have; everyone else on the Phase 1 Overview. */
 function HomeEntry() {
   const selectedProject = useProjectContextStore((state) => state.selectedProject);
   const operatingRole = selectedProject?.operatingRole;
-  const home = operatingRole === 'PC' || operatingRole === 'TL' || operatingRole === 'PM' ? '/p2/bookings' : '/dashboard';
+  const home = operatingRole === 'REVIEWER'
+    ? '/p2/review'
+    : operatingRole === 'PC' || operatingRole === 'TL' || operatingRole === 'PM'
+      ? '/p2/bookings'
+      : '/dashboard';
   // People without the Audit switch who have HR land on My HR, as the plain landing page does.
   return <Authenticated><ProjectContextGate><HrLanding><Navigate to={home} replace /></HrLanding></ProjectContextGate></Authenticated>;
 }
@@ -351,6 +358,8 @@ export default function App() {
               <Route path="/p2/duplicate-bookings" element={<OperationalPage><P2DuplicateBookingsPage /></OperationalPage>} />
               <Route path="/p2/price-masters" element={<OperationalPage><P2PriceMastersPage /></OperationalPage>} />
               <Route path="/p2/master-documents" element={<OperationalPage><P2MasterDocumentsPage /></OperationalPage>} />
+              <Route path="/p2/review" element={<OperationalPage><P2ReviewBoardPage /></OperationalPage>} />
+              <Route path="/p2/review/activity" element={<OperationalPage><P2ReviewActivityPage /></OperationalPage>} />
               <Route path="/p2/journeys/:journeyId/compliance-report" element={<OperationalPage><P2ComplianceReportPage /></OperationalPage>} />
               <Route path="/p2/journeys/:journeyId/overview" element={<OperationalPage><P2JourneyOverviewPage /></OperationalPage>} />
               <Route path="/p2/journeys/:journeyId/documents" element={<OperationalPage><P2JourneyWorkspacePage /></OperationalPage>} />

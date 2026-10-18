@@ -123,7 +123,7 @@ export default function P2MasterDocumentsPage() {
   const missing = query.data?.missingKinds ?? [];
 
   return (
-    <div className="screen-stack">
+    <div className="screen-stack p2w">
       <PageHeader
         eyebrow="DealGuard"
         title="Master Documents"

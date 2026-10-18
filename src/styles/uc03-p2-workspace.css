@@ -831,3 +831,47 @@
 .p2w .p2w-chip--sev-medium { color: #6b5d00; background: #fbf6dc; }
 .p2w .p2w-chip--sev-low { color: var(--p2w-muted); background: var(--p2w-soft); }
 .p2w .p2w-chip--sev-info { color: var(--p2w-progress); background: var(--p2w-progress-bg); }
+
+/* ------------------------------------------------- shared list furniture
+   Used by the left-nav DealGuard pages (Price Masters, Master Documents,
+   Document Review, Review Activity) and the Reviewer's panel. They sit
+   outside the journey workspace layout but inside .p2w, so they inherit the
+   same palette rather than restating it. */
+.p2w .p2w-table { width: 100%; border-collapse: collapse; font-size: .9rem; }
+.p2w .p2w-table th {
+  padding: 8px 12px; text-align: left; font-size: .78rem; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .04em; color: var(--p2w-muted);
+  border-bottom: 1px solid var(--p2w-line); white-space: nowrap;
+}
+.p2w .p2w-table td {
+  padding: 10px 12px; vertical-align: top; border-bottom: 1px solid var(--p2w-line);
+}
+.p2w .p2w-table tbody tr:last-child td { border-bottom: 0; }
+.p2w .p2w-table tbody tr:hover { background: var(--p2w-soft); }
+
+.p2w .p2w-card__title { margin-bottom: 12px; }
+.p2w .p2w-card__title h3 { margin: 0; font-size: 1rem; font-weight: 700; color: var(--p2w-ink); }
+.p2w .p2w-card__title p { margin: 2px 0 0; font-size: .85rem; }
+
+.p2w .p2w-row { display: flex; flex-wrap: wrap; align-items: center; }
+
+.p2w .p2w-pill {
+  display: inline-flex; align-items: center; min-height: 26px; padding: 0 10px;
+  border-radius: 999px; font-size: .78rem; font-weight: 700;
+  color: var(--p2w-muted); background: var(--p2w-soft);
+}
+.p2w .p2w-pill--ok { color: var(--p2w-success); background: var(--p2w-success-bg); }
+
+/* The Reviewer's own panel: one block per stage, the mark on the right. */
+.p2w .p2w-review {
+  padding: 16px; margin-bottom: 16px; border: 1px solid var(--p2w-line);
+  border-radius: var(--p2w-radius); background: #fff; box-shadow: var(--p2w-shadow);
+}
+.p2w .p2w-review__stage {
+  display: flex; gap: 12px; align-items: center; justify-content: space-between;
+  padding: 10px 0; border-top: 1px solid var(--p2w-line);
+}
+.p2w .p2w-review__stage:first-of-type { border-top: 0; }
+@media (max-width: 640px) {
+  .p2w .p2w-review__stage { flex-direction: column; align-items: stretch; }
+}

@@ -1273,6 +1273,39 @@ export function getP2PriceMaster(
   }>(`${path(tenantId, '/standard/price-master')}${query}`, { accessToken, timeoutMs: LIST_READ_TIMEOUT_MS });
 }
 
+// ── Master documents: what a month's figures were read from ─────────────────
+export type P2MasterDocument = {
+  uploadId: string;
+  oemCode: string;
+  masterKind: 'PRICE_LIST' | 'CONSUMER_SCHEME' | 'EXCHANGE_SCHEME' | 'CORPORATE_POLICY' | string;
+  effectiveFrom: string;
+  fileName: string;
+  sha256: string;
+  status: 'STAGED' | 'PUBLISHED' | 'SUPERSEDED' | 'FAILED' | string;
+  rowCounts: Record<string, unknown>;
+  errorDetail: string | null;
+  uploadedBy: string | null;
+  uploadedAtUtc: string;
+  publishedAtUtc: string | null;
+  /** False for documents uploaded before the file itself was kept. */
+  openable: boolean;
+};
+
+export function getP2MasterDocuments(tenantId: string, month: string, accessToken?: string) {
+  return auditCoreRequest<{ month: string; documents: P2MasterDocument[]; missingKinds: string[] }>(
+    `${path(tenantId, '/standard/master-documents')}?month=${encodeURIComponent(month)}`,
+    { accessToken, cache: 'no-store' },
+  );
+}
+
+/** A short-lived signed link to the document itself, to open or save. */
+export function openP2MasterDocument(tenantId: string, uploadId: string, accessToken?: string) {
+  return auditCoreRequest<{ uploadId: string; fileName: string; url: string; expiresInSeconds: number }>(
+    path(tenantId, `/standard/master-documents/${encodeURIComponent(uploadId)}/open`),
+    { accessToken, cache: 'no-store' },
+  );
+}
+
 export function recheckP2Journey(tenantId: string, journeyId: string, accessToken?: string) {
   return auditCoreRequest<{
     journeyId: string; factVersion: number; checks: string[];

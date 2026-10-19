@@ -189,7 +189,7 @@ function CaseRow({ item, timezoneName }: { item: TlSupervisoryCase; timezoneName
           <span>{item.dealerName}</span>
         </div>
         <div className="uc03-tl-case__pc">
-          <strong>{tlPcLabel(item.responsiblePcActorId)}</strong>
+          <strong>{tlPcLabel(item.responsiblePcActorId, item.responsiblePcName)}</strong>
           <span>{item.pcVerificationStatus ? `PC review ${friendlyStatus(item.pcVerificationStatus)}` : 'PC submission recorded'}</span>
         </div>
         <div className="uc03-tl-case__stage">
@@ -229,7 +229,7 @@ function CaseRow({ item, timezoneName }: { item: TlSupervisoryCase; timezoneName
           </div>
           <div>
             <span>Responsible PC reference</span>
-            <strong>{item.responsiblePcActorId || 'Not recorded'}</strong>
+            <strong>{item.responsiblePcName || item.responsiblePcActorId || 'Not recorded'}</strong>
           </div>
           <div className="uc03-tl-case__review-action">
             <span>TL action</span>
@@ -319,7 +319,7 @@ export default function TeamLeadDashboardPage() {
       const stage = tlBusinessStage(item);
       const current = grouped.get(key) ?? {
         key,
-        label: tlPcLabel(item.responsiblePcActorId),
+        label: tlPcLabel(item.responsiblePcActorId, item.responsiblePcName),
         count: 0,
         booking: 0,
         delivery: 0,
@@ -350,6 +350,7 @@ export default function TeamLeadDashboardPage() {
         item.dealerName,
         item.outletName,
         item.responsiblePcActorId,
+        item.responsiblePcName,
       ].some((value) => value?.toLowerCase().includes(normalizedSearch));
     });
   }, [cases, outletId, pcActorId, search, stageFilter]);

@@ -43,7 +43,7 @@ const base = (tenantId: string) => `/v1/tenants/${encodeURIComponent(tenantId)}/
 
 /** SuperAdmin: one batch of Journeys. Repeat with `nextOffset` and the same `runId` until it is null. */
 export function runSkuResolutionBatch(tenantId: string, offset: number, runId: string | undefined, accessToken: string) {
-  const query = `offset=${offset}&limit=3${runId ? `&runId=${encodeURIComponent(runId)}` : ''}`;
+  const query = `offset=${offset}&limit=1${runId ? `&runId=${encodeURIComponent(runId)}` : ''}`;
   return auditCoreRequest<SkuResolutionBatchResult>(`${base(tenantId)}?${query}`, { method: 'POST', accessToken });
 }
 
@@ -53,21 +53,45 @@ export const listSkuResolutionRuns = (tenantId: string, accessToken: string) =>
 export const getSkuResolutionRun = (tenantId: string, runId: string, accessToken: string) =>
   auditCoreRequest<SkuResolutionRunDetail>(`${base(tenantId)}/runs/${encodeURIComponent(runId)}`, { accessToken });
 
-/** Runs every batch for the Project into one kept run, reporting progress after each. Safe to repeat. */
+/** Where a run has got to, so a stopped run can carry on instead of starting over. */
+export interface SkuRunCursor {
+  runId?: string;
+  offset: number;
+  processed: number;
+  total: number;
+}
+
+const RETRY_DELAYS_MS = [3000, 6000, 12000];
+
+async function batchWithRetry(tenantId: string, cursor: SkuRunCursor, accessToken: string) {
+  for (let attempt = 0; ; attempt += 1) {
+    try {
+      return await runSkuResolutionBatch(tenantId, cursor.offset, cursor.runId, accessToken);
+    } catch (error) {
+      // A batch is safe to repeat (same Journey, same run), so a dropped connection is simply retried.
+      if (attempt >= RETRY_DELAYS_MS.length) throw error;
+      await new Promise((resolve) => setTimeout(resolve, RETRY_DELAYS_MS[attempt]));
+    }
+  }
+}
+
+/**
+ * Runs the Project's Journeys one at a time into one kept run. `cursor` is updated after every Journey;
+ * pass the same cursor again to resume where a stopped run left off. Safe to repeat.
+ */
 export async function runSkuResolutionForProject(
   tenantId: string,
   accessToken: string,
-  onProgress: (progress: { runId: string; processed: number; total: number }) => void,
+  cursor: SkuRunCursor,
+  onProgress: (cursor: SkuRunCursor) => void,
 ): Promise<string> {
-  let offset = 0;
-  let runId: string | undefined;
-  let processed = 0;
   for (;;) {
-    const batch = await runSkuResolutionBatch(tenantId, offset, runId, accessToken);
-    runId = batch.runId;
-    processed += batch.journeysConsidered;
-    onProgress({ runId, processed, total: batch.journeysTotal });
-    if (batch.nextOffset === null || batch.journeysConsidered === 0) return runId;
-    offset = batch.nextOffset;
+    const batch = await batchWithRetry(tenantId, cursor, accessToken);
+    cursor.runId = batch.runId;
+    cursor.total = batch.journeysTotal;
+    cursor.processed += batch.journeysConsidered;
+    onProgress({ ...cursor });
+    if (batch.nextOffset === null || batch.journeysConsidered === 0) return batch.runId;
+    cursor.offset = batch.nextOffset;
   }
 }

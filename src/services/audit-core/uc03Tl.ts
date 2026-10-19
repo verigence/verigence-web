@@ -19,6 +19,7 @@ export interface TlSupervisoryCase {
   deliveryBusinessStatus: string | null;
   deliveryBusinessDate: string | null;
   responsiblePcActorId: string | null;
+  responsiblePcName?: string | null;
   openFlagCount: number;
   highestOpenSeverity: string | null;
   latestActivityAtUtc: string;
@@ -192,7 +193,9 @@ export function tlBusinessStage(item: TlSupervisoryCase): TlBusinessStage {
   return 'BOOKING_SUBMITTED';
 }
 
-export function tlPcLabel(actorId: string | null): string {
+export function tlPcLabel(actorId: string | null, name?: string | null): string {
+  const named = name?.trim();
+  if (named) return named;
   if (!actorId) return 'PC not recorded';
   const compact = actorId.replace(/[^a-zA-Z0-9]/g, '');
   if (compact.length <= 8) return `PC ${compact}`;

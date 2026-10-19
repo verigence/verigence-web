@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import PageHeader from '../components/PageHeader';
@@ -6,6 +6,7 @@ import {
   getSkuResolutionRun,
   listSkuResolutionRuns,
   runSkuResolutionForProject,
+  type SkuRunCursor,
   type SkuResolutionRunDetail,
   type SkuResolutionRunSummary,
   type SkuRunOutcome,
@@ -65,7 +66,8 @@ export default function AdminSkuResolutionPage() {
   const accessToken = useSessionStore((state) => state.accessToken);
   const queryClient = useQueryClient();
   const [tenantId, setTenantId] = useState('');
-  const [progress, setProgress] = useState<{ processed: number; total: number }>();
+  const cursor = useRef<SkuRunCursor>({ offset: 0, processed: 0, total: 0 });
+  const [progress, setProgress] = useState<SkuRunCursor>();
   const [openRunId, setOpenRunId] = useState<string>();
 
   const projectsQuery = useQuery({
@@ -88,14 +90,13 @@ export default function AdminSkuResolutionPage() {
     retry: 1,
   });
   const run = useMutation({
-    mutationFn: () => {
+    mutationFn: () => runSkuResolutionForProject(tenantId, accessToken!, cursor.current, setProgress),
+    onSuccess: (runId) => {
+      cursor.current = { offset: 0, processed: 0, total: 0 };
       setProgress(undefined);
-      return runSkuResolutionForProject(tenantId, accessToken!, setProgress);
+      setOpenRunId(runId);
     },
-    onSettled: async (runId) => {
-      await queryClient.invalidateQueries({ queryKey: ['admin-sku-resolution-runs', tenantId] });
-      if (runId) setOpenRunId(runId);
-    },
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ['admin-sku-resolution-runs', tenantId] }),
   });
 
   const project = projectsQuery.data?.find((p) => p.tenantId === tenantId);
@@ -116,7 +117,13 @@ export default function AdminSkuResolutionPage() {
             <select
               value={tenantId}
               disabled={projectsQuery.isPending || run.isPending}
-              onChange={(event) => { setTenantId(event.target.value); setOpenRunId(undefined); run.reset(); }}
+              onChange={(event) => {
+                setTenantId(event.target.value);
+                setOpenRunId(undefined);
+                cursor.current = { offset: 0, processed: 0, total: 0 };
+                setProgress(undefined);
+                run.reset();
+              }}
             >
               <option value="">Select Project</option>
               {(projectsQuery.data ?? []).map((p) => (
@@ -135,12 +142,14 @@ export default function AdminSkuResolutionPage() {
           >
             {run.isPending
               ? (progress ? `Running… ${progress.processed} of ${progress.total} Journeys` : 'Running…')
-              : `Run SKU resolution${project ? ` for ${project.projectName}` : ''}`}
+              : run.isError && progress
+                ? `Resume (${progress.processed} of ${progress.total} done)`
+                : `Run SKU resolution${project ? ` for ${project.projectName}` : ''}`}
           </button>
           {run.isError ? (
             <div className="uc01-admin-message uc01-admin-message--error" role="alert">
               {run.error instanceof Error ? run.error.message : 'The run could not be completed.'}
-              {progress ? ` Stopped after ${progress.processed} of ${progress.total} Journeys; press Run again to carry on.` : ''}
+              {progress ? ` Stopped after ${progress.processed} of ${progress.total} Journeys. Press Resume to carry on from there; what was done is kept.` : ''}
             </div>
           ) : null}
         </article>

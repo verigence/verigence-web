@@ -12,6 +12,8 @@ The app's build number is added by the release workflow and is not written here.
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-10-19
+
 ### Added
 - Employees page shows how many employees there are, how many are active, and how many have a Verigence login.
 - "Sync with Verigence" on the Employees page creates the missing Verigence logins (five at a time) and links the ones that already exist.

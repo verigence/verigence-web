@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 
 import PageHeader from '../components/PageHeader';
-import { runSkuResolutionForProject } from '../services/audit-core/skuResolution';
+import { runSkuResolutionForProject, type SkuResolutionTotals } from '../services/audit-core/skuResolution';
 import { listProjects } from '../services/audit-core/uc02Admin';
 import { useSessionStore } from '../store/sessionStore';
 
@@ -17,8 +17,12 @@ export default function AdminSkuResolutionPage() {
     staleTime: 30_000,
     retry: 1,
   });
+  const [progress, setProgress] = useState<SkuResolutionTotals>();
   const run = useMutation({
-    mutationFn: () => runSkuResolutionForProject(tenantId, accessToken!),
+    mutationFn: () => {
+      setProgress(undefined);
+      return runSkuResolutionForProject(tenantId, accessToken!, setProgress);
+    },
   });
 
   const result = run.data;
@@ -57,22 +61,25 @@ export default function AdminSkuResolutionPage() {
             disabled={!tenantId || !accessToken || run.isPending}
             onClick={() => run.mutate()}
           >
-            {run.isPending ? 'Running…' : `Run SKU resolution${project ? ` for ${project.projectName}` : ''}`}
+            {run.isPending ? (progress ? `Running… ${progress.processed} of ${progress.total} Journeys` : 'Running…') : `Run SKU resolution${project ? ` for ${project.projectName}` : ''}`}
           </button>
           {run.isError ? (
             <div className="uc01-admin-message uc01-admin-message--error" role="alert">
               {run.error instanceof Error ? run.error.message : 'The run could not be completed.'}
             </div>
           ) : null}
+          {run.isError && progress ? (
+            <div className="uc01-admin-message">Stopped after {progress.processed} of {progress.total} Journeys. Press Run again to carry on; finished Journeys are not harmed.</div>
+          ) : null}
           {result ? (
             <div className="uc01-admin-message" role="status">
-              <strong>Done.</strong> {result.journeysProcessed} of {result.journeysConsidered} Journeys processed.
+              <strong>Done.</strong> {result.processed} of {result.total} Journeys processed.
               <br />
               With a SKU: {result.withSkuBefore} → {result.withSkuAfter}. Still without a SKU: {result.withoutSkuAfter}
               {result.withoutSkuAfter > 0 ? ' (each has a "model not identified" item for the PC to confirm).' : '.'}
               {result.stepErrors > 0 ? <><br />{result.stepErrors} step(s) reported an internal error; run again, and tell support if it repeats.</> : null}
-              {result.journeysFailed.length > 0 ? (
-                <><br />Failed Journeys: <code>{result.journeysFailed.join(', ')}</code></>
+              {result.failed.length > 0 ? (
+                <><br />Failed Journeys: <code>{result.failed.join(', ')}</code></>
               ) : null}
             </div>
           ) : null}

@@ -16,6 +16,7 @@ const LoanDisbursementModal = lazy(() => import('../features/uc03/LoanDisburseme
 import P2VehiclePhotos from '../features/uc03-p2/photos/P2VehiclePhotos';
 import P2StageReviewPanel from '../features/uc03-p2/review/P2StageReviewPanel';
 import { getResyncPreview } from '../services/audit-core/uc03P2Reviewer';
+import { getMyDisplayName } from '../services/security/profile';
 import P2RecheckButton from '../features/uc03-p2/workspace/P2RecheckButton';
 import P2UploadStatus from '../features/uc03-p2/workspace/P2UploadStatus';
 import { useP2LiveStatus } from '../features/uc03-p2/workspace/useP2LiveStatus';
@@ -84,7 +85,6 @@ export default function P2JourneyWorkspacePage() {
   const tenantId = useProjectContextStore((s) => s.selectedProject?.tenantId);
   const accessToken = useSessionStore((s) => s.accessToken);
   const workingOutletId = useSessionStore((s) => s.outletId);
-  const signedInName = useSessionStore((s) => s.displayName);
   const outlets = useProjectContextStore((s) => s.selectedProject?.scope.outlets ?? []);
   const queryClient = useQueryClient();
   // New booking and an existing booking are the same screen: until the first
@@ -155,8 +155,21 @@ export default function P2JourneyWorkspacePage() {
       if (!outletId) throw new Error('Choose the outlet for this booking.');
       // One creation even if several files are dropped at once (idempotent
       // key). No name is asked for: the customer is named from the documents.
-      creating.current ??= createP2Journey(tenantId!, { outletId, createdByName: signedInName || undefined }, idempotencyKey.current, accessToken)
-        .then((result) => result.journeyId);
+      // The PC's real name comes from Security at the moment of creation (the sign-in session
+      // only knows the email). If it cannot be read the journey is still created, unnamed.
+      creating.current ??= (async () => {
+        const knownName = accessToken
+          ? await queryClient.fetchQuery({
+              queryKey: ['my-display-name'],
+              queryFn: async () => (await getMyDisplayName(accessToken)) ?? null,
+              staleTime: 5 * 60_000,
+            })
+          : null;
+        if (!knownName) queryClient.removeQueries({ queryKey: ['my-display-name'] });
+        const createdByName = knownName ?? undefined;
+        const result = await createP2Journey(tenantId!, { outletId, createdByName }, idempotencyKey.current, accessToken);
+        return result.journeyId;
+      })();
       try {
         target = await creating.current;
       } catch (cause) {
@@ -168,7 +181,7 @@ export default function P2JourneyWorkspacePage() {
       void queryClient.invalidateQueries({ queryKey: ['p2-journeys', tenantId] });
     }
     return target;
-  }, [accessToken, journeyId, navigate, outletId, queryClient, signedInName, tab, tenantId]);
+  }, [accessToken, journeyId, navigate, outletId, queryClient, tab, tenantId]);
 
   const getTransport = useCallback(async () => {
     const target = await ensureJourney();

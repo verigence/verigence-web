@@ -24,7 +24,12 @@ The app's build number is added by the release workflow and is not written here.
 - If you have My HR but no Audit workspace, the app now opens My HR. It no longer stops at "No active workspaces are currently assigned to you". The workspace and work-location screens also have an "Open My HR" button.
 - Daily attendance refreshes by itself every minute and when you come back to the screen. It has a Refresh button and shows when it was last updated.
 
+### Fixed
+- If your assignment changed since you last signed in, the app no longer keeps showing the old dealership. It checks your current assignments again, so the dealership you see is the one you are assigned to now.
+
 ### Changed
+- If you work in more than one outlet, you now start in your ONSITE outlet and switch to your other outlets from the list in the side menu. The switch happens in place, also when the outlets belong to different dealerships. There is no "choose a work location" screen first.
+- When you hold assignments the side menu cannot switch between (for example Team Lead in one project and Process Coordinator in another), the "Choose Dealership" screen now names the dealership. It no longer says "Workspace 1" and "Workspace 2", and the word Workspace is gone from these screens.
 - On "My employee profile" you can now also change your gender. Your name (as on Aadhaar or PAN), role, designation, department, date of joining, date of birth, experience, PAN and Aadhaar stay with HR. If your name is spelt wrongly, ask HR to correct it.
 - To change your email or mobile you send a request to HR from "My employee profile". HR sees the old and the new value and approves or rejects it. Nothing changes until HR approves. Employees page shows the waiting requests to HR.
 - Changing an employee's e-mail or mobile number in HR also changes it on their Verigence login. The login, the roles and the password stay the same.

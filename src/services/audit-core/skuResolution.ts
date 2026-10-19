@@ -1,58 +1,73 @@
 import { auditCoreRequest } from './client';
 
-export interface SkuResolutionRunResult {
-  tenantId: string;
+export type SkuRunOutcome = 'NEWLY_MATCHED' | 'ALREADY_HAD_SKU' | 'STILL_UNMATCHED' | 'FAILED';
+
+export interface SkuResolutionBatchResult {
+  runId: string;
   journeysTotal: number;
   nextOffset: number | null;
   journeysConsidered: number;
   journeysProcessed: number;
   journeysFailed: string[];
+}
+
+export interface SkuResolutionRunSummary {
+  runId: string;
+  status: 'RUNNING' | 'COMPLETE';
+  startedAtUtc: string;
+  finishedAtUtc: string | null;
+  journeysTotal: number;
+  journeysProcessed: number;
+  newlyMatched: number;
+  alreadyHadSku: number;
+  stillUnmatched: number;
+  failed: number;
   withSkuBefore: number;
   withSkuAfter: number;
-  withoutSkuBefore: number;
-  withoutSkuAfter: number;
-  stepErrors: number;
 }
 
-/** SuperAdmin: one batch of Journeys. Repeat with `nextOffset` until it is null. */
-export function runSkuResolutionBatch(tenantId: string, offset: number, accessToken: string) {
-  return auditCoreRequest<SkuResolutionRunResult>(
-    `/v1/tenants/${encodeURIComponent(tenantId)}/admin/backfill/sku-resolution?offset=${offset}&limit=3`,
-    { method: 'POST', accessToken },
-  );
+export interface SkuResolutionRunItem {
+  journeyId: string;
+  journeyLabel: string | null;
+  modelLabel: string | null;
+  outcome: SkuRunOutcome;
+  skuCode: string | null;
+  detail: string | null;
 }
 
-export interface SkuResolutionTotals {
-  total: number;
-  processed: number;
-  failed: string[];
-  stepErrors: number;
-  withSkuBefore: number;
-  withSkuAfter: number;
-  withoutSkuAfter: number;
+export interface SkuResolutionRunDetail extends SkuResolutionRunSummary {
+  items: SkuResolutionRunItem[];
 }
 
-/** Runs every batch for the Project, reporting progress after each one. Safe to repeat. */
+const base = (tenantId: string) => `/v1/tenants/${encodeURIComponent(tenantId)}/admin/backfill/sku-resolution`;
+
+/** SuperAdmin: one batch of Journeys. Repeat with `nextOffset` and the same `runId` until it is null. */
+export function runSkuResolutionBatch(tenantId: string, offset: number, runId: string | undefined, accessToken: string) {
+  const query = `offset=${offset}&limit=3${runId ? `&runId=${encodeURIComponent(runId)}` : ''}`;
+  return auditCoreRequest<SkuResolutionBatchResult>(`${base(tenantId)}?${query}`, { method: 'POST', accessToken });
+}
+
+export const listSkuResolutionRuns = (tenantId: string, accessToken: string) =>
+  auditCoreRequest<SkuResolutionRunSummary[]>(`${base(tenantId)}/runs`, { accessToken });
+
+export const getSkuResolutionRun = (tenantId: string, runId: string, accessToken: string) =>
+  auditCoreRequest<SkuResolutionRunDetail>(`${base(tenantId)}/runs/${encodeURIComponent(runId)}`, { accessToken });
+
+/** Runs every batch for the Project into one kept run, reporting progress after each. Safe to repeat. */
 export async function runSkuResolutionForProject(
   tenantId: string,
   accessToken: string,
-  onProgress: (totals: SkuResolutionTotals) => void,
-): Promise<SkuResolutionTotals> {
+  onProgress: (progress: { runId: string; processed: number; total: number }) => void,
+): Promise<string> {
   let offset = 0;
-  let totals: SkuResolutionTotals | undefined;
+  let runId: string | undefined;
+  let processed = 0;
   for (;;) {
-    const batch = await runSkuResolutionBatch(tenantId, offset, accessToken);
-    totals = {
-      total: batch.journeysTotal,
-      processed: (totals?.processed ?? 0) + batch.journeysProcessed,
-      failed: [...(totals?.failed ?? []), ...batch.journeysFailed],
-      stepErrors: (totals?.stepErrors ?? 0) + batch.stepErrors,
-      withSkuBefore: totals?.withSkuBefore ?? batch.withSkuBefore,
-      withSkuAfter: batch.withSkuAfter,
-      withoutSkuAfter: batch.withoutSkuAfter,
-    };
-    onProgress(totals);
-    if (batch.nextOffset === null || batch.journeysConsidered === 0) return totals;
+    const batch = await runSkuResolutionBatch(tenantId, offset, runId, accessToken);
+    runId = batch.runId;
+    processed += batch.journeysConsidered;
+    onProgress({ runId, processed, total: batch.journeysTotal });
+    if (batch.nextOffset === null || batch.journeysConsidered === 0) return runId;
     offset = batch.nextOffset;
   }
 }

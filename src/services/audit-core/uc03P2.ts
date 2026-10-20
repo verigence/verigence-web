@@ -1408,6 +1408,8 @@ export type P2DailyJourneyRow = P2DailyCounts & {
   uploadStartedAt: string | null;
   processingFinishedAt: string | null;
   processingMinutes: number | null;
+  /** False: a journey the PC did not upload that day (system re-checks only). */
+  uploadedOnDay?: boolean;
 };
 
 export type P2DailyPcRow = P2DailyCounts & {
@@ -1420,6 +1422,8 @@ export type P2DailyPcRow = P2DailyCounts & {
   lastFinishedAt: string | null;
   stillProcessing: number;
   spanMinutes: number | null;
+  /** Journeys the PC did not upload that day: tasks and fixes the system's own re-checks made. */
+  earlier?: P2DailyCounts & { journeys: number };
 };
 
 export type P2DailyProcessingReport = {

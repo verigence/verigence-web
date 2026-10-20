@@ -45,9 +45,16 @@
   white-space: nowrap;
 }
 
-.p2dr-table td > span,
+/* Only a cell's own second line drops below it; the inline notes ("+3
+   reopened", the exhausted count) stay on the figure's line. */
+.p2dr-table td > .p2dr-sub,
 .p2dr-table td > a {
   display: block;
+}
+
+.p2dr-table tr.p2dr-earlier td {
+  color: #72838a;
+  background: #f8fafb;
 }
 
 .p2dr-table td a.is-unknown {

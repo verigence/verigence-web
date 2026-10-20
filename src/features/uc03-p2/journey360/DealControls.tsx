@@ -57,6 +57,14 @@ export function useRefreshDeal(tenantId: string, journeyId: string) {
  * PC to enter it on the form. The model is picked from the price masters
  * of that same date.
  */
+/** How the vehicle's SKU was set, in plain words (2026-10-20 product owner
+ * rules: an automatic match is not "Confirmed"; only a PC / TL decision is). */
+export function skuStatusText(sku: P2Pricing['sku']): string {
+  if (sku.matchLabel) return ` · ${sku.matchLabel}`;
+  if (sku.selectionStatus === 'TENTATIVE') return ' · Matched automatically';
+  return sku.selectionStatus ? ` · ${humanizeKey(sku.selectionStatus)}` : '';
+}
+
 export function PricingPanel({ tenantId, journeyId, accessToken }: Props) {
   const refresh = useRefreshDeal(tenantId, journeyId);
   const pricing = useQuery({
@@ -81,7 +89,7 @@ export function PricingPanel({ tenantId, journeyId, accessToken }: Props) {
         <div>
           <span className="j360-label">Vehicle (SKU)</span>
           <strong>{[p.sku.model, p.sku.variant, p.sku.colour].filter(Boolean).join(' · ') || 'Not identified yet'}</strong>
-          <span className="p2w-muted">{p.sku.skuCode ?? ''}{p.sku.category ? ` · ${p.sku.category}` : ''}{p.sku.selectionStatus ? ` · ${humanizeKey(p.sku.selectionStatus)}` : ''}</span>
+          <span className="p2w-muted">{p.sku.skuCode ?? ''}{p.sku.category ? ` · ${p.sku.category}` : ''}{skuStatusText(p.sku)}</span>
         </div>
         <div>
           <span className="j360-label">Priced on</span>

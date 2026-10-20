@@ -1316,7 +1316,15 @@ export type P2Pricing = {
   appliedPriceList: P2PriceListRef | null;
   appliedSchemeCount: number;
   options: Array<{ basis: 'BOOKING_DATE' | 'INVOICE_DATE'; date: string; priceList: P2PriceListRef; schemeVersions: string[]; differsFromApplied: boolean }>;
-  sku: { productSkuId?: string | null; skuCode?: string | null; model?: string | null; variant?: string | null; colour?: string | null; selectionStatus?: string | null; category?: VehicleCategory | null };
+  sku: {
+    productSkuId?: string | null; skuCode?: string | null; model?: string | null; variant?: string | null;
+    colour?: string | null; selectionStatus?: string | null; category?: VehicleCategory | null;
+    /** How the SKU was set (2026-10-20): AUTO_MATCHED, AUTO_PRICE_MISMATCH, AUTO_INVOICE_MATCHED,
+     * AUTO_LEGACY, PC_CONFIRMED or TL_APPROVED. Automatic matches are not "Confirmed". */
+    matchBasis?: string | null;
+    /** The same in plain words, from the server. */
+    matchLabel?: string | null;
+  };
   modelChange: 'CONFIRM_SKU' | 'PROPOSE_CORRECTION';
   repriced?: boolean;
   repriceNote?: string | null;

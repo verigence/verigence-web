@@ -160,6 +160,43 @@ export function taskPlan(task: P2Task, operatingRole?: string | null): TaskPlan 
       ],
     };
   }
+  if (task.task_type === 'SKU_PRICE_MISMATCH') {
+    // 2026-10-20: the documents' words name this SKU but its master price is
+    // not the document's. Keep it (it becomes the PC's decision) or pick the
+    // right one in the Deal tab's model picker -- a price never picks it.
+    return {
+      primary: { label: 'Keep this vehicle', action: 'ACCEPT', tone: 'confirm' },
+      secondary: [
+        { label: 'Pick the SKU', to: `/p2/journeys/${task.journey_id}/overview?tab=deal`, tone: 'secondary' },
+        { label: 'Open documents', to: `/p2/journeys/${task.journey_id}/documents`, tone: 'ghost' },
+        ...comment,
+      ],
+    };
+  }
+  if (task.task_type === 'SKU_INVOICES_DISAGREE') {
+    // Two vehicle invoices name different vehicles: neither sets the SKU.
+    return {
+      secondary: [
+        { label: 'Pick the SKU', to: `/p2/journeys/${task.journey_id}/overview?tab=deal`, tone: 'secondary' },
+        { label: 'Open documents', to: `/p2/journeys/${task.journey_id}/documents`, tone: 'ghost' },
+        ...comment,
+      ],
+    };
+  }
+  if (task.task_type === 'SKU_INVOICE_REVIEW') {
+    // A SKU a PC / TL set is never overwritten by an invoice: the TL decides.
+    if (!supervisor) {
+      return { waiting: 'Waiting for the Team Lead to decide between the confirmed and the invoiced vehicle.', secondary: comment };
+    }
+    return {
+      primary: { label: "Use the invoice's vehicle", action: 'ACCEPT', tone: 'confirm' },
+      secondary: [
+        { label: 'Keep the confirmed vehicle', action: 'REJECT', requiresComment: true, tone: 'danger' },
+        { label: 'Open Journey 360', to: `/p2/journeys/${task.journey_id}/overview?tab=deal`, tone: 'ghost' },
+        ...comment,
+      ],
+    };
+  }
   if (task.task_type === 'MODEL_CHANGED_BY_INVOICE') {
     return {
       primary: { label: 'Noted', action: 'COMPLETE_ACTION', tone: 'confirm' },

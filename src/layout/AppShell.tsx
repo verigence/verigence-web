@@ -14,6 +14,7 @@ import { useMyFeatures, visibleNavGroups } from '../features/rollout/featureFlag
 import { useMyHrIdentity } from '../features/hr/myIdentity';
 import { chooseDisplayName } from '../features/profile/workContext';
 import { isDiTestConsoleAvailable } from '../services/di/testConsole';
+import { P2_HOME_PATH, P2_NEW_BOOKING_PATH } from '../features/uc03-p2/newBookingPath';
 import { syncDeviceDiagnostics } from '../services/security/deviceDiagnostics';
 import { useProjectContextStore } from '../store/projectContextStore';
 import { useSessionStore } from '../store/sessionStore';
@@ -36,7 +37,8 @@ const projectAdministrationItem: NavItem = {
 };
 
 const createBookingItem: NavItem = {
-  to: '/dashboard?action=create-booking',
+  // Booking & Delivery's own capture: the only place in Web that uploads.
+  to: P2_NEW_BOOKING_PATH,
   label: 'Capture New Booking',
   mark: 'CB',
   roles: ['PC'],
@@ -107,7 +109,7 @@ const analyticsReportLabels: Record<string, string> = {
 // /dashboard) so it renders the same page for every role, including TL, who
 // Overview always sends to TeamLeadDashboardPage instead.
 const allJourneysItem: NavItem = {
-  to: '/work-queue',
+  to: P2_HOME_PATH,
   label: 'Bookings & Deliveries',
   mark: 'JR',
   roles: ['PC', 'TL', 'PM'],
@@ -351,8 +353,7 @@ export default function AppShell({ children }: PropsWithChildren) {
   });
   const p2TaskCount = p2TaskSummary.data?.counts?.ALL ?? p2TaskSummary.data?.items.length ?? 0;
   const diTestAvailable = isDiTestConsoleAvailable();
-  const createBookingMode = location.pathname === '/dashboard'
-    && new URLSearchParams(location.search).get('action') === 'create-booking';
+  const createBookingMode = location.pathname === P2_NEW_BOOKING_PATH;
   const baseGroups = useMemo<NavGroup[]>(() => {
     if (!c0OperationalShell) return groups;
     const auditRole = role === 'PC' || role === 'TL' || role === 'PM';
@@ -480,7 +481,7 @@ export default function AppShell({ children }: PropsWithChildren) {
   const handleSwitchProject = () => {
     clearOperationalProject(queryClient);
     setMobileMenuOpen(false);
-    navigate('/dashboard', { replace: true });
+    navigate('/home', { replace: true });
   };
 
   // A Process Coordinator works a Dealership with one or more Outlets under it,
@@ -524,7 +525,7 @@ export default function AppShell({ children }: PropsWithChildren) {
     // one, and clears the Tenant-scoped caches once rather than twice.
     selectOperationalOutlet(choice.project, choice.outlet, queryClient);
     setMobileMenuOpen(false);
-    navigate('/dashboard', { replace: true });
+    navigate('/home', { replace: true });
   };
   const showLandingSearch = (location.pathname === '/dashboard' || location.pathname === '/work-queue')
     && !createBookingMode
@@ -617,7 +618,7 @@ export default function AppShell({ children }: PropsWithChildren) {
       <header className="enterprise-topbar enterprise-topbar--global">
         <div className="enterprise-topbar__start">
           <button type="button" className="enterprise-menu-button" aria-label="Open navigation" aria-expanded={mobileMenuOpen} onClick={() => setMobileMenuOpen(true)}><span aria-hidden="true">☰</span></button>
-          <NavLink className="enterprise-global-brand" to="/dashboard" aria-label="Verigence home" onClick={() => setMobileMenuOpen(false)}><img src={verigenceLockup} alt="Verigence" /></NavLink>
+          <NavLink className="enterprise-global-brand" to="/home" aria-label="Verigence home" onClick={() => setMobileMenuOpen(false)}><img src={verigenceLockup} alt="Verigence" /></NavLink>
           <div className="enterprise-topbar__trail"><strong>{currentLabel}</strong></div>
         </div>
         <div className="enterprise-topbar__actions">
@@ -735,9 +736,9 @@ export default function AppShell({ children }: PropsWithChildren) {
         <nav className="enterprise-bottom-nav" aria-label="Quick navigation">
           {bottomNavItems.length > 0 && (
             <NavLink
-              to="/dashboard"
+              to="/home"
               className={`enterprise-bottom-nav__item${
-                location.pathname === '/dashboard' && !createBookingMode
+                (location.pathname === '/dashboard' || location.pathname === P2_HOME_PATH) && !createBookingMode
                   ? ' enterprise-bottom-nav__item--active'
                   : ''
               }`}

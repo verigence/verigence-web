@@ -426,8 +426,8 @@ export default function ReviewQueuePage() {
     let primaryAction: { kind: 'link'; to: string; label: string } | { kind: 'button'; label: string; onClick: () => void; pending?: boolean } | null = null;
     if (isTask && item.category === 'AUTO_SELF_SERVE' && item.subjectKind === 'JOURNEY') {
       primaryAction = stem === 'MODEL_NOT_IDENTIFIED'
-        ? { kind: 'link', to: `/journeys/${item.journeyId}/documents?selectSku=1`, label: 'Select SKU →' }
-        : { kind: 'link', to: `/journeys/${item.journeyId}/documents`, label: 'Review documents →' };
+        ? { kind: 'link', to: `/p2/journeys/${item.journeyId}/documents?selectSku=1`, label: 'Select SKU →' }
+        : { kind: 'link', to: `/p2/journeys/${item.journeyId}/documents`, label: 'Review documents →' };
     } else if (isTask && item.category === 'MANUAL_VERIFICATION_REVIEW' && item.subjectKind === 'JOURNEY') {
       // Same shape as AUTO_SELF_SERVE -- no manual "mark done" here either:
       // this Task only ever closes by a PC actually reviewing the flagged
@@ -438,8 +438,8 @@ export default function ReviewQueuePage() {
       primaryAction = {
         kind: 'link',
         to: manualVerificationDocId
-          ? `/journeys/${item.journeyId}/documents?openDocument=${manualVerificationDocId}&stage=${item.stage ?? 'BOOKING'}`
-          : `/journeys/${item.journeyId}/documents`,
+          ? `/p2/journeys/${item.journeyId}/documents?openDocument=${manualVerificationDocId}&stage=${item.stage ?? 'BOOKING'}`
+          : `/p2/journeys/${item.journeyId}/documents`,
         label: 'Review documents →',
       };
     } else if (isTask && item.category !== 'PC_VERIFY_UNRECOGNIZED_DOCUMENT' &&
@@ -456,13 +456,13 @@ export default function ReviewQueuePage() {
         onClick: () => completeTaskMutation.mutate({ taskId: item.flagId }),
       };
     } else if (!isTask && isManualVerification) {
-      primaryAction = { kind: 'link', to: `/journeys/${item.journeyId}/documents`, label: 'Review documents →' };
+      primaryAction = { kind: 'link', to: `/p2/journeys/${item.journeyId}/documents`, label: 'Review documents →' };
     } else if (!isTask && !isManualVerification && !isAdjudicated && item.subjectKind === 'JOURNEY' && stem === 'MODEL_NOT_IDENTIFIED') {
-      primaryAction = { kind: 'link', to: `/journeys/${item.journeyId}/documents?selectSku=1`, label: 'Select SKU →' };
+      primaryAction = { kind: 'link', to: `/p2/journeys/${item.journeyId}/documents?selectSku=1`, label: 'Select SKU →' };
     } else if (!isTask && !isManualVerification && !isAdjudicated && item.subjectKind === 'JOURNEY' && item.findingClass === 'DOCUMENT_GAP' && stem !== 'MODEL_NOT_IDENTIFIED') {
       primaryAction = {
         kind: 'link',
-        to: item.stage === 'DELIVERY' ? `/v2/deliveries/${item.journeyId}` : `/v2/bookings/${item.journeyId}`,
+        to: item.stage === 'DELIVERY' ? `/p2/journeys/${item.journeyId}/documents` : `/p2/journeys/${item.journeyId}/documents`,
         label: 'Upload document →',
       };
     } else if (!isTask && !isManualVerification && !isAdjudicated && item.findingClass !== 'DOCUMENT_GAP' && stem !== 'MODEL_NOT_IDENTIFIED' && canResolve) {
@@ -575,7 +575,7 @@ export default function ReviewQueuePage() {
             // actually look at (documents, payments, overall status).
             <Link
               className="revq-open"
-              to={isTask ? `/journeys/${item.journeyId}/overview` : `/audit/${item.journeyId}`}
+              to={isTask ? `/p2/journeys/${item.journeyId}/overview` : `/audit/${item.journeyId}`}
             >
               Open case
             </Link>
@@ -595,8 +595,8 @@ export default function ReviewQueuePage() {
               className="revq-btn revq-btn--accept"
               to={
                 ruleKeyStem(item.ruleKey) === 'MODEL_NOT_IDENTIFIED'
-                  ? `/journeys/${item.journeyId}/documents?selectSku=1`
-                  : `/journeys/${item.journeyId}/documents`
+                  ? `/p2/journeys/${item.journeyId}/documents?selectSku=1`
+                  : `/p2/journeys/${item.journeyId}/documents`
               }
             >
               {ruleKeyStem(item.ruleKey) === 'MODEL_NOT_IDENTIFIED' ? 'Select SKU →' : 'Review documents →'}
@@ -612,8 +612,8 @@ export default function ReviewQueuePage() {
               className="revq-btn revq-btn--accept"
               to={
                 manualVerificationDocumentId(item.ruleKey)
-                  ? `/journeys/${item.journeyId}/documents?openDocument=${manualVerificationDocumentId(item.ruleKey)}&stage=${item.stage ?? 'BOOKING'}`
-                  : `/journeys/${item.journeyId}/documents`
+                  ? `/p2/journeys/${item.journeyId}/documents?openDocument=${manualVerificationDocumentId(item.ruleKey)}&stage=${item.stage ?? 'BOOKING'}`
+                  : `/p2/journeys/${item.journeyId}/documents`
               }
             >
               Review documents →
@@ -704,7 +704,7 @@ export default function ReviewQueuePage() {
             // when a photo isn't available.
             <div className="revq-inline-picker">
               <p className="uc03-jd-empty">
-                Upload a vehicle photo from the <Link to={`/journeys/${item.journeyId}/documents`}>Documents page</Link>, or
+                Upload a vehicle photo from the <Link to={`/p2/journeys/${item.journeyId}/documents`}>Documents page</Link>, or
                 enter VIN/Chassis manually below if a photo isn't available.
               </p>
               <DeliveryVehicleObservationForm
@@ -766,7 +766,7 @@ export default function ReviewQueuePage() {
             // smaller review surface.
             <Link
               className="revq-btn revq-btn--accept"
-              to={`/journeys/${item.journeyId}/documents`}
+              to={`/p2/journeys/${item.journeyId}/documents`}
             >
               Review documents →
             </Link>
@@ -814,7 +814,7 @@ export default function ReviewQueuePage() {
             // directly regardless of whether one exists.
             <Link
               className="revq-btn revq-btn--accept"
-              to={`/journeys/${item.journeyId}/documents?selectSku=1`}
+              to={`/p2/journeys/${item.journeyId}/documents?selectSku=1`}
             >
               Select SKU →
             </Link>
@@ -823,7 +823,7 @@ export default function ReviewQueuePage() {
           {!isTask && !isManualVerification && !isAdjudicated && item.subjectKind === 'JOURNEY' && item.findingClass === 'DOCUMENT_GAP' && ruleKeyStem(item.ruleKey) !== 'MODEL_NOT_IDENTIFIED' && (
             <Link
               className="revq-btn revq-btn--accept"
-              to={item.stage === 'DELIVERY' ? `/v2/deliveries/${item.journeyId}` : `/v2/bookings/${item.journeyId}`}
+              to={item.stage === 'DELIVERY' ? `/p2/journeys/${item.journeyId}/documents` : `/p2/journeys/${item.journeyId}/documents`}
             >
               Upload document →
             </Link>
@@ -1059,7 +1059,7 @@ export default function ReviewQueuePage() {
           {journeyGroups.map((group) => (
             <section key={group.journeyId} className="revq-group">
               <header className="revq-group__head">
-                <Link className="revq-group__title" to={`/journeys/${group.journeyId}/overview`}>
+                <Link className="revq-group__title" to={`/p2/journeys/${group.journeyId}/overview`}>
                   {group.customerName || 'Journey'}
                 </Link>
                 <span className="revq-group__ref">{group.bookingReference || group.journeyReference || '—'}</span>

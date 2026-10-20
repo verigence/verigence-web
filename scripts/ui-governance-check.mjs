@@ -303,7 +303,8 @@ forbid(
   'Landing may show Dealer/Outlet for PC context but must never show Project Name.',
 );
 
-/* V2 is the only active Booking/Delivery journey surface. */
+/* Booking & Delivery (P2) is the only Booking/Delivery journey surface
+ * (2026-10-20). Every old address stays only as a redirect into it. */
 const app = read('src/App.tsx');
 for (const route of [
   'path="/v2/bookings/new"',
@@ -312,21 +313,20 @@ for (const route of [
   'path="/v2/bookings/:journeyId/review"',
   'path="/v2/deliveries/:journeyId"',
   'path="/v2/deliveries/:journeyId/review"',
+  'path="/bookings/:journeyId"',
+  'path="/deliveries/:journeyId"',
+  'path="/journeys/:journeyId/documents"',
 ]) {
-  if (!app.includes(route)) failures.push(`src/App.tsx: V2 route missing: ${route}`);
-}
-if (!app.includes('<V2JourneyRedirect target="BOOKING" />') || !app.includes('<V2JourneyRedirect target="DELIVERY" />')) {
-  failures.push('src/App.tsx: legacy Booking/Delivery routes must redirect to V2.');
+  const line = app.split('\n').find((candidate) => candidate.includes(route));
+  if (!line) failures.push(`src/App.tsx: old route missing (it must stay as a redirect): ${route}`);
+  else if (!/element=\{<(Navigate to=\{P2_NEW_BOOKING_PATH\}|P2DocumentsRedirect|P2OverviewRedirect) /.test(line)) {
+    failures.push(`src/App.tsx: ${route} must only redirect into Booking & Delivery.`);
+  }
 }
 
 const dashboard = read('src/pages/DashboardPage.tsx');
-for (const required of [
-  'to="/v2/bookings/new"',
-  '`/v2/bookings/${item.journeyId}`',
-  '`/v2/bookings/${item.journeyId}/review`',
-  '`/v2/deliveries/${item.journeyId}`',
-]) {
-  if (!dashboard.includes(required)) failures.push(`src/pages/DashboardPage.tsx: direct V2 navigation missing: ${required}`);
+if (!dashboard.includes('to={P2_NEW_BOOKING_PATH}')) {
+  failures.push('src/pages/DashboardPage.tsx: Capture New Booking must open Booking & Delivery (P2_NEW_BOOKING_PATH).');
 }
 for (const legacyPattern of [
   /dashboard\?action=create-booking/,
@@ -338,37 +338,28 @@ for (const legacyPattern of [
   if (legacyPattern.test(dashboard)) failures.push('src/pages/DashboardPage.tsx: V1/redirect-dependent journey navigation is prohibited; UI must link directly to V2.');
 }
 
-/* Booking V2 document-first contract. */
-for (const text of [
-  'Booking documents',
-  'Customer ID',
-  'Additional / if applicable',
-  'Documents being classified',
-  'Documents uploaded',
-  'missing evidence will be flagged for audit',
-]) {
-  requireText('src/pages/BookingCaptureV2Page.tsx', text, `Booking V2 contract missing: ${text}`);
-}
-forbid(
+/* One capture path (2026-10-20): Booking and Delivery documents are uploaded
+ * only on the Booking & Delivery screen, which splits a PDF into pages first.
+ * The Phase 1 capture pages (BookingCaptureV2, BookingDetailsV2,
+ * JourneyDocumentsPage, PcOverviewPage) are removed and must not return. */
+for (const removed of [
   'src/pages/BookingCaptureV2Page.tsx',
-  /blocksContinue[^\n]*disabled|!capture\.canContinue/,
-  'Booking document/audit state must not block business continuation.',
-);
-
-/* Booking Details may require operational fields, but audit/document inconsistencies never block submission. */
-forbid(
+  'src/pages/BookingCaptureV2WorkspacePage.tsx',
   'src/pages/BookingDetailsV2Page.tsx',
-  /if\s*\(\s*!capture\.canContinue\s*\)|corporateMismatch\s*\|\|\s*busy|throw new Error\([^\n]*Corporate/,
-  'audit/document state must not block Booking V2 submission.',
-);
-requireText('src/pages/BookingDetailsV2Page.tsx', 'Audit exceptions do not stop the business process.', 'Booking V2 must state the non-blocking audit rule.');
+  'src/pages/JourneyDocumentsPage.tsx',
+  'src/pages/PcOverviewPage.tsx',
+]) {
+  if (fs.existsSync(path.join(root, removed))) failures.push(`${removed}: the Phase 1 capture screens are retired; upload only through Booking & Delivery.`);
+}
+for (const relativePath of ['src/layout/AppShell.tsx', 'src/pages/DashboardPage.tsx', 'src/pages/ReviewQueuePage.tsx']) {
+  forbid(relativePath, /['"`]\/v2\/bookings\/new['"`]|dashboard\?action=create-booking/, 'a new booking starts only on Booking & Delivery (P2_NEW_BOOKING_PATH).');
+}
 
 /* Extracted-field review must only open source evidence when a reliable box exists. */
 // BookingReviewV2Page/DeliveryReviewV2Page retired -- their Accept/Reject/
 // Confirm-reviewed-values flow (including this exact hasBoxedEvidence gate)
 // was folded into JourneyDocumentsPage's own BookingReviewSection.
 for (const relativePath of [
-  'src/pages/JourneyDocumentsPage.tsx',
   'src/pages/TeamLeadReviewPage.tsx',
   'src/pages/AuditReviewPage.tsx',
 ]) {

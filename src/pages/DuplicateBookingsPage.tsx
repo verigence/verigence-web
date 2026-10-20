@@ -37,7 +37,7 @@ function SidePanel({ side, role: panelRole }: { side: DuplicateBookingSide; role
         {side.bookingConfirmDate ? `Min. booking amount paid ${formatDate(side.bookingConfirmDate)}` : 'Minimum booking amount not yet paid'}
       </span>
       {side.journeyId && (
-        <Link className="dbk-side__open" to={`/journeys/${side.journeyId}/overview`}>Open journey →</Link>
+        <Link className="dbk-side__open" to={`/p2/journeys/${side.journeyId}/overview`}>Open journey →</Link>
       )}
     </div>
   );

@@ -76,7 +76,7 @@ function workQueueDetailsRoute(target: Element): URL | undefined {
 
     const journeyId = decodeURIComponent(match[1]);
     return new URL(
-      `/journeys/${encodeURIComponent(journeyId)}/overview?from=dashboard`,
+      `/p2/journeys/${encodeURIComponent(journeyId)}/overview?from=dashboard`,
       window.location.origin,
     );
   } catch {

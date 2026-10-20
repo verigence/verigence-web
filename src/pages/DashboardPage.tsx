@@ -24,6 +24,7 @@ import NightlyReprocessingStatusTile from '../components/NightlyReprocessingStat
 import { enrichUc03WorkItems } from '../services/audit-core/uc03WorkItemEnrichment';
 import { useProjectContextStore } from '../store/projectContextStore';
 import { useSessionStore } from '../store/sessionStore';
+import { P2_NEW_BOOKING_PATH } from '../features/uc03-p2/newBookingPath';
 
 type LandingView = Uc03WorkType | 'REVIEW_PENDING' | 'FLAGS' | 'VERIFY';
 
@@ -167,7 +168,7 @@ function DashboardHero({ dealershipName, outletName, showCaptureAction }: Dashbo
 
       {showCaptureAction && (
         <div className="uc03-dashboard-hero__capture-actions" aria-label="Booking capture">
-          <Link className="uc03-landing__capture-action uc03-landing__capture-action--workqueue" to="/v2/bookings/new">
+          <Link className="uc03-landing__capture-action uc03-landing__capture-action--workqueue" to={P2_NEW_BOOKING_PATH}>
             <span aria-hidden="true">＋</span>
             <span>Capture New Booking</span>
           </Link>
@@ -193,8 +194,8 @@ function workPresentation(
   isPc: boolean,
   flagsView: boolean,
 ): WorkPresentation {
-  const bookingPath = `/v2/bookings/${item.journeyId}`;
-  const deliveryPath = `/v2/deliveries/${item.journeyId}`;
+  const bookingPath = `/p2/journeys/${item.journeyId}/documents`;
+  const deliveryPath = `/p2/journeys/${item.journeyId}/documents`;
   const auditPath = `/audit/${item.journeyId}`;
   const hasDelivery = Boolean(item.delivery.businessStatus);
 
@@ -309,13 +310,13 @@ function WorkItemRow({
   const menuRef = useRef<HTMLDivElement | null>(null);
   const menuPortalRef = useRef<HTMLDivElement | null>(null);
   const moreButtonRef = useRef<HTMLButtonElement | null>(null);
-  const bookingPath = `/v2/bookings/${item.journeyId}`;
-  const deliveryPath = `/v2/deliveries/${item.journeyId}`;
+  const bookingPath = `/p2/journeys/${item.journeyId}/documents`;
+  const deliveryPath = `/p2/journeys/${item.journeyId}/documents`;
   const auditPath = `/audit/${item.journeyId}`;
   // /v2/bookings/:id/details renders the same Journey360Page as
   // /journeys/:id/overview (see BookingDetailsV2Page) — linking to the
   // canonical URL directly skips PageHeader's redirect hop.
-  const overviewPath = `/v2/bookings/${item.journeyId}/details`;
+  const overviewPath = `/p2/journeys/${item.journeyId}/overview`;
   const complianceReportPath = `/journeys/${item.journeyId}/compliance-report`;
   const presentation = workPresentation(item, isPc, flagsView);
   const isDeliveryWork = presentation.workLabel === 'Delivery';
@@ -576,7 +577,7 @@ function ReviewPendingCard({ item, timezoneName }: { item: ReviewPendingItem; ti
       <footer className="uc03-work-card__footer">
         <Link
           className="uc03-work-card__primary-action"
-          to={`/v2/bookings/${item.journeyId}/review`}
+          to={`/p2/journeys/${item.journeyId}/documents`}
           state={reviewPendingOverviewOpenState(item)}
         >
           Review Booking

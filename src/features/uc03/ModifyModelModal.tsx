@@ -2,10 +2,12 @@ import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 
 import {
+  confirmModelResolutionSku,
   getModelCatalog,
   proposeModelSelectionCorrection,
   type ModelCatalogSku,
 } from '../../services/audit-core/uc03ModelResolution';
+import { recheckP2Journey } from '../../services/audit-core/uc03P2';
 // Shared success/empty/error message-box classes (uc03-jd-success etc.) --
 // deliberately reused rather than duplicated.
 import '../../styles/uc03-journey-documents.css';
@@ -74,6 +76,13 @@ export default function ModifyModelModal({
   });
 
   const skus = query.data?.skus ?? [];
+  // No confirmed SKU yet: the pick sets the vehicle directly (Resolve SKU).
+  // A confirmed SKU changes only through a Team Lead reviewed proposal.
+  // Found live 2026-10-20: this popup always proposed a correction, which
+  // Audit Core refuses for a journey with no confirmed SKU -- so "Resolve
+  // SKU" could never resolve the journeys that needed it.
+  // (An older Audit Core does not report it: keep proposing, as before.)
+  const direct = Boolean(query.data && 'confirmedProductSkuId' in query.data && !query.data.confirmedProductSkuId);
   const afterModel = model ? skus.filter((s) => s.modelName === model) : skus;
   const afterTrim = trim ? afterModel.filter((s) => s.trim === trim) : afterModel;
   const afterFuel = fuel ? afterTrim.filter((s) => s.fuel === fuel) : afterTrim;
@@ -110,10 +119,18 @@ export default function ModifyModelModal({
   };
 
   const submit = async () => {
-    if (!selectedSku || !reason.trim()) return;
+    if (!selectedSku || (!direct && !reason.trim())) return;
     setBusy(true);
     setError(undefined);
     try {
+      if (direct) {
+        await confirmModelResolutionSku(tenantId, journeyId, selectedSku.productSkuId, accessToken);
+        // The deal is re-priced and the checks run again with the new vehicle.
+        await recheckP2Journey(tenantId, journeyId, accessToken).catch(() => undefined);
+        setDone(`Vehicle set to ${selectedSku.modelName}${selectedSku.variantName ? ` ${selectedSku.variantName}` : ''}. The deal is re-priced and the checks run again.`);
+        onProposed();
+        return;
+      }
       await proposeModelSelectionCorrection(
         tenantId,
         journeyId,
@@ -123,7 +140,7 @@ export default function ModifyModelModal({
       setDone(`Proposed ${selectedSku.modelName}${selectedSku.variantName ? ` ${selectedSku.variantName}` : ''} — a Team Lead task has been raised to review and apply it.`);
       onProposed();
     } catch (submitError) {
-      setError(submitError instanceof Error ? submitError.message : 'This correction could not be proposed. Try again.');
+      setError(submitError instanceof Error ? submitError.message : direct ? 'The vehicle could not be set. Try again.' : 'This correction could not be proposed. Try again.');
     } finally {
       setBusy(false);
     }
@@ -131,9 +148,9 @@ export default function ModifyModelModal({
 
   return (
     <div className="uc03-mm-backdrop" role="presentation" onClick={onClose}>
-      <div className="uc03-mm-modal" role="dialog" aria-modal="true" aria-label="Modify vehicle model" onClick={(event) => event.stopPropagation()}>
+      <div className="uc03-mm-modal" role="dialog" aria-modal="true" aria-label={direct ? 'Resolve SKU' : 'Modify vehicle model'} onClick={(event) => event.stopPropagation()}>
         <header className="uc03-mm-modal__header">
-          <h3>Modify vehicle model</h3>
+          <h3>{direct ? 'Resolve SKU' : 'Modify vehicle model'}</h3>
           <button type="button" className="uc03-mm-modal__close" onClick={onClose} aria-label="Close">×</button>
         </header>
 
@@ -150,7 +167,9 @@ export default function ModifyModelModal({
           <div className="uc03-mm-modal__body"><p className="uc03-jd-empty">No price masters are available to pick a vehicle from.</p></div>
         ) : (
           <div className="uc03-mm-modal__body">
-            <p className="uc03-mm-intro">Pick the correct vehicle from the current price masters, then save. A Team Lead will review and apply the change.</p>
+            <p className="uc03-mm-intro">{direct
+              ? 'No SKU is set for this journey yet. Pick the vehicle from the current price masters, then save; it is set straight away.'
+              : 'Pick the correct vehicle from the current price masters, then save. A Team Lead will review and apply the change.'}</p>
             <div className="uc03-mm-fields">
               <label>
                 Model
@@ -214,16 +233,18 @@ export default function ModifyModelModal({
               </div>
             ) : null}
 
-            <label className="uc03-mm-reason">
-              Reason — why is the current vehicle wrong?
-              <textarea value={reason} onChange={(event) => setReason(event.target.value)} rows={2} required />
-            </label>
+            {direct ? null : (
+              <label className="uc03-mm-reason">
+                Reason — why is the current vehicle wrong?
+                <textarea value={reason} onChange={(event) => setReason(event.target.value)} rows={2} required />
+              </label>
+            )}
 
             {error ? <div className="uc03-jd-error" role="alert">{error}</div> : null}
 
             <div className="uc03-mm-actions">
               <button type="button" onClick={onClose} disabled={busy}>Cancel</button>
-              <button type="button" className="uc03-c3-primary" disabled={busy || !selectedSku || !reason.trim()} onClick={() => void submit()}>
+              <button type="button" className="uc03-c3-primary" disabled={busy || !selectedSku || (!direct && !reason.trim())} onClick={() => void submit()}>
                 {busy ? 'Saving…' : 'Save'}
               </button>
             </div>

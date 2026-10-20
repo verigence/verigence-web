@@ -467,7 +467,7 @@ export default function P2JourneyWorkspacePage() {
           ) : (
             <ModifyModelModal tenantId={tenantId} journeyId={journeyId} accessToken={accessToken}
               onClose={() => setDialog(undefined)}
-              onProposed={() => setNotice({ tone: 'success', text: 'SKU change proposed. The Team Lead reviews it from the Task Queue.' })} />
+              onProposed={() => { setNotice({ tone: 'success', text: 'Vehicle updated. See the popup for what happens next.' }); refresh(); }} />
           )}
         </Suspense>
       ) : null}

@@ -436,6 +436,24 @@ export function rereadP2Page(tenantId: string, journeyId: string, queueId: strin
 }
 
 
+/** Files that came in through the old capture screen as ONE document. */
+export type P2OldScreenDocument = { documentId: string; filename?: string | null; documentType?: string | null };
+
+export function getP2OldScreenDocuments(tenantId: string, journeyId: string, accessToken?: string) {
+  return auditCoreRequest<{ documents: P2OldScreenDocument[] }>(
+    path(tenantId, `/journeys/${encodeURIComponent(journeyId)}/old-screen-documents`),
+    { accessToken },
+  );
+}
+
+/** Split such a file into pages under the same journey; nothing is uploaded again. */
+export function splitP2OldScreenDocument(tenantId: string, journeyId: string, documentId: string, accessToken?: string) {
+  return auditCoreRequest<{ batchId: string; documentId: string; status: string }>(
+    path(tenantId, `/journeys/${encodeURIComponent(journeyId)}/documents/${encodeURIComponent(documentId)}:split-pages`),
+    { method: 'POST', accessToken },
+  );
+}
+
 /** Make a superseded copy of a single-slot document the active one again. */
 export function restoreP2DocumentCopy(tenantId: string, journeyId: string, evidenceId: string, accessToken?: string) {
   return auditCoreRequest<{ evidenceId: string; documentId: string; status: string; supersededEvidenceId: string | null }>(

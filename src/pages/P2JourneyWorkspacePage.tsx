@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useMemo, useRef, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { sortByName } from '../utils/sortByName';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
@@ -80,6 +80,9 @@ function failedSummary(rows: DocumentRow[]): string {
 export default function P2JourneyWorkspacePage() {
   const { journeyId: routeJourneyId = '', documentId } = useParams();
   const [search, setSearch] = useSearchParams();
+  // ?resolveSku=1: arrived from a rejected closest-match suggestion -- open
+  // the model picker straight away (once).
+  const resolveSku = search.get('resolveSku') === '1';
   const tab = search.get('tab') === 'photos' ? 'photos' : 'documents';
   const navigate = useNavigate();
   const tenantId = useProjectContextStore((s) => s.selectedProject?.tenantId);
@@ -102,6 +105,13 @@ export default function P2JourneyWorkspacePage() {
   const [notice, setNotice] = useState<{ tone: 'success' | 'error'; text: string }>();
   const [busyKey, setBusyKey] = useState<string>();
   const [dialog, setDialog] = useState<'loan' | 'sku'>();
+  useEffect(() => {
+    if (!resolveSku || !journeyId) return;
+    setDialog('sku');
+    const next = new URLSearchParams(search);
+    next.delete('resolveSku');
+    setSearch(next, { replace: true });
+  }, [resolveSku, journeyId, search, setSearch]);
   const operatingRole = useProjectContextStore((s) => s.selectedProject?.operatingRole);
   // Reading a page again replaces its values with Document Intelligence's own,
   // so any hand-made correction on it is lost and has to be redone. The

@@ -377,6 +377,7 @@ function ItemList({ title, addon }: { title: string; addon: P2TakenAddon }) {
 
 const VEHICLE_FACT_LABELS: Array<[string, string]> = [
   ['model', 'Model'], ['variant', 'Variant'], ['colour', 'Colour'], ['sku_code', 'SKU'],
+  ['vehicle_category', 'Category (PV / CV / EV)'],
 ];
 const UNIT_LABELS: Array<[string, string]> = [
   ['vin', 'VIN'], ['chassis_number', 'Chassis no.'], ['dms_reference', 'DMS reference'], ['invoice_reference', 'Invoice reference'],

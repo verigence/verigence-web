@@ -466,7 +466,7 @@ export default function DealTab({ deal, journeyId, tenantId, accessToken }: {
         <p className="j360-sheet__legend">
           <span><i className="j360-offer__std" /> Price master</span>
           <span><i className="j360-offer__bk" /> Booking, where the invoice moved</span>
-          <span>Fill: what the customer is offered{invoiceOnly ? ' (the vehicle invoice is on file: the invoice only, nothing from the booking)' : partly ? ` (invoice where billed, booking for the other ${summary.components - invoiced})` : invoiced ? ' (the invoice)' : ' (the booking, until an invoice is read)'}</span>
+          <span>Fill: what the customer is offered{invoiceOnly ? ' (an invoice is on file: invoices only, nothing from the booking; a price-master line no invoice bills counts as a variance)' : partly ? ` (invoice where billed, booking for the other ${summary.components - invoiced})` : invoiced ? ' (the invoice)' : ' (the booking, until an invoice is read)'}</span>
         </p>
         <dl className="j360-paid">
           <div><dt>Received</dt><dd>{money(summary.paid.total)}</dd><small>{money(summary.paid.receipts)} receipts · {money(summary.paid.loan)} loan</small></div>

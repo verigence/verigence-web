@@ -29,6 +29,7 @@ export const FLAG_LABELS: Record<string, string> = {
   BELOW_STANDARD: 'Below standard',
   OVER_ENTITLEMENT: 'More than entitled',
   UNDER_ENTITLEMENT: 'Less than entitled',
+  NOT_INVOICED: 'Not invoiced',
 };
 
 export const CONTROL_STATUS: Record<string, { label: string; tone: string }> = {

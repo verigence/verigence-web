@@ -850,14 +850,14 @@ export type P2DiscountRow = Omit<P2DealRow, 'standard' | 'quote' | 'effectiveSou
 
 type P2DealSummary = {
   /** "current" = billed where invoiced, else the booking offer; once the
-   *  vehicle invoice is on file (invoiceIsSourceOfTruth) billed only. */
+   *  first invoice is on file (invoiceIsSourceOfTruth) billed only. */
   gross: Record<'standard' | 'booking' | 'current' | 'billed' | 'ledger', Money>;
   discounts: Record<'standard' | 'booking' | 'current' | 'billed', Money>;
   net: Record<'standard' | 'booking' | 'current', Money>;
   /** Compared only where both sides have a value. */
   variance: { bookingVsStandard: Money; currentVsStandard: Money; billedVsBooking: Money };
   invoicedComponents: number;
-  /** True once the vehicle invoice is on file: every figure is the invoice's. */
+  /** True once any customer invoice is on file: every figure is the invoices'. */
   invoiceIsSourceOfTruth?: boolean;
   components: number;
   paid: { receipts: string; loan: string; total: string };
@@ -868,6 +868,7 @@ type P2DealSummary = {
 export type P2Deal = {
   sku: {
     skuCode?: string | null; model?: string | null; variant?: string | null; colour?: string | null;
+    category?: VehicleCategory | null;
     resolution?: string | null; method?: string | null; priceList?: string | null;
     priceListVersion?: number | null; priceListEffectiveFrom?: string | null;
   };
@@ -918,11 +919,19 @@ type P2ControlItem = {
 
 type P2ControlStats = Record<'total' | 'pass' | 'fail' | 'waiting' | 'notApplicable' | 'retry' | 'error', number>;
 
+export type VehicleCategory = 'PV' | 'CV' | 'EV';
+
+export const VEHICLE_CATEGORY_LABELS: Record<VehicleCategory, string> = {
+  PV: 'Passenger vehicle (PV)', CV: 'Commercial vehicle (CV)', EV: 'Electric vehicle (EV)',
+};
+
 export type P2Journey360 = {
   journey: {
     journeyId: string; reference?: string | null; customerName: string; customerType?: string | null;
     mobileLast4?: string | null; dealerName: string; outletName: string; city?: string | null;
     vehicle?: string | null; skuCode?: string | null; vehicleResolution?: string | null; vin?: string | null;
+    /** PV / CV / EV from the price master; null when it does not say. */
+    vehicleCategory?: VehicleCategory | null;
     registrationNumber?: string | null; financier?: string | null; insurer?: string | null;
     createdAtUtc: string; deliveredAtUtc?: string | null;
   };
@@ -1199,14 +1208,15 @@ export type P2Pricing = {
   bookingDateMissing?: boolean;
   invoiceDate?: string | null;
   appliedDate: string | null;
-  basis: 'BOOKING_DATE' | 'INVOICE_DATE';
+  /** TL_PRICE_LIST: a Team Lead approved pricing on another month's list. */
+  basis: 'BOOKING_DATE' | 'INVOICE_DATE' | 'TL_PRICE_LIST';
   reason?: string | null;
   setByActorId?: string | null;
   setAtUtc?: string | null;
   appliedPriceList: P2PriceListRef | null;
   appliedSchemeCount: number;
   options: Array<{ basis: 'BOOKING_DATE' | 'INVOICE_DATE'; date: string; priceList: P2PriceListRef; schemeVersions: string[]; differsFromApplied: boolean }>;
-  sku: { productSkuId?: string | null; skuCode?: string | null; model?: string | null; variant?: string | null; colour?: string | null; selectionStatus?: string | null };
+  sku: { productSkuId?: string | null; skuCode?: string | null; model?: string | null; variant?: string | null; colour?: string | null; selectionStatus?: string | null; category?: VehicleCategory | null };
   modelChange: 'CONFIRM_SKU' | 'PROPOSE_CORRECTION';
   repriced?: boolean;
   repriceNote?: string | null;

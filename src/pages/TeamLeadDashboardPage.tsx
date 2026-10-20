@@ -224,7 +224,7 @@ function CaseRow({ item, p2, timezoneName }: { item: TlSupervisoryCase; p2?: P2J
         </div>
         <div className="uc03-tl-case__pc">
           <strong>{tlPcLabel(item.responsiblePcActorId, item.responsiblePcName)}</strong>
-          <span>{item.pcVerificationStatus ? `PC review ${friendlyStatus(item.pcVerificationStatus)}` : 'PC submission recorded'}</span>
+          <span>{withPc ? 'Not submitted yet' : item.pcVerificationStatus ? `PC review ${friendlyStatus(item.pcVerificationStatus)}` : 'PC submission recorded'}</span>
         </div>
         <div className="uc03-tl-case__stage">
           <strong className={`uc03-tl-stage ${stageClass(stage)}`}>{STAGE_LABELS[stage]}</strong>

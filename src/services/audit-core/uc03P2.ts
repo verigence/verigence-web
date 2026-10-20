@@ -1384,6 +1384,8 @@ export type P2DailyCounts = {
   pages: number;
   duplicateFiles: number;
   documents: { extracted: number; readNoValues: number; notRead: number; waiting: number; failed: number; rejectedScans: number };
+  /** Pages rejected at upload by the scan-quality check, by reason. */
+  rejections?: P2RejectionReasons;
   tasksOpened: number;
   tasksOpenedPc: number;
   tasksOpenedTl: number;
@@ -1426,9 +1428,32 @@ export type P2DailyPcRow = P2DailyCounts & {
   earlier?: P2DailyCounts & { journeys: number };
 };
 
+export type P2RejectionReasons = { faded: number; blurred: number; tooSmall: number; unreadable: number; other: number };
+
+export type P2DailyQuality = {
+  files: number;
+  pages: number;
+  documents: number;
+  rejected: number;
+  rejectedPct: number | null;
+  byReason: P2RejectionReasons;
+};
+
+export type P2DailyTrendDay = {
+  day: string;
+  documents: number;
+  rejected: number;
+  rejectedPct: number | null;
+  byReason: P2RejectionReasons;
+};
+
 export type P2DailyProcessingReport = {
   day: string;
   timezone: string;
+  /** Scan quality of the day's uploads (rejections at upload). */
+  quality?: P2DailyQuality;
+  /** The last 14 days up to the day: documents uploaded and rejected. */
+  trend?: P2DailyTrendDay[];
   pcs: P2DailyPcRow[];
   journeys: P2DailyJourneyRow[];
   notes: string[];

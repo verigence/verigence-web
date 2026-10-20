@@ -13,6 +13,9 @@ import {
   type P2DailyCounts,
   type P2DailyJourneyRow,
   type P2DailyPcRow,
+  type P2DailyQuality,
+  type P2DailyTrendDay,
+  type P2RejectionReasons,
 } from '../services/audit-core/uc03P2';
 import { useProjectContextStore } from '../store/projectContextStore';
 import { useSessionStore } from '../store/sessionStore';
@@ -48,6 +51,60 @@ function uploadSummary(pcs: P2DailyPcRow[], day: string): string {
   return others ? `${head} · ${others} more with only system activity on earlier journeys` : head;
 }
 
+const REASON_LABELS: [keyof P2RejectionReasons, string][] = [
+  ['faded', 'faded'], ['blurred', 'blurred'], ['tooSmall', 'too small'], ['unreadable', 'unreadable'], ['other', 'other'],
+];
+
+function reasonText(reasons: P2RejectionReasons): string {
+  return REASON_LABELS.filter(([key]) => reasons[key]).map(([key, label]) => `${reasons[key]} ${label}`).join(', ');
+}
+
+function pct(value: number | null | undefined): string {
+  return value === null || value === undefined ? '—' : `${value}%`;
+}
+
+/** Scan quality of the day's uploads, and the last 14 days. */
+function QualityCard({ quality, trend, day }: { quality: P2DailyQuality; trend: P2DailyTrendDay[]; day: string }) {
+  const peak = Math.max(1, ...trend.map((t) => t.documents));
+  return (
+    <SectionCard>
+      <div className="p2w-card__title">
+        <h3>Scan quality</h3>
+        <p className="p2w-muted">Pages rejected at upload by the scan-quality check: never read, the PC is asked to re-scan.</p>
+      </div>
+      <div className="p2dr-quality">
+        <div><span className="p2w-muted">Documents uploaded {day}</span><strong>{quality.documents}</strong></div>
+        <div className={quality.rejected ? 'p2dr-bad' : undefined}><span className="p2w-muted">Rejected</span><strong>{quality.rejected}</strong></div>
+        <div><span className="p2w-muted">Rejection rate</span><strong>{pct(quality.rejectedPct)}</strong></div>
+        <div><span className="p2w-muted">Why</span><strong>{quality.rejected ? reasonText(quality.byReason) : '—'}</strong></div>
+      </div>
+      {trend.length ? (
+        <div className="p2dr-scroll">
+          <table className="p2dr-table p2dr-trend">
+            <thead><tr><th>Day</th><th>Documents</th><th>Rejected</th><th>Rate</th><th>Why</th><th aria-hidden="true" /></tr></thead>
+            <tbody>
+              {[...trend].reverse().map((t) => (
+                <tr key={t.day} className={t.day === day ? 'is-current' : undefined}>
+                  <td data-label="Day">{t.day}</td>
+                  <td data-label="Documents">{t.documents}</td>
+                  <td data-label="Rejected" className={t.rejected ? 'p2dr-bad' : undefined}>{t.rejected}</td>
+                  <td data-label="Rate">{pct(t.rejectedPct)}</td>
+                  <td data-label="Why">{t.rejected ? reasonText(t.byReason) : '—'}</td>
+                  <td aria-hidden="true" className="p2dr-bar">
+                    <span style={{ width: `${(100 * t.documents) / peak}%` }}>
+                      <span className="p2dr-bar__bad" style={{ width: t.documents ? `${(100 * t.rejected) / t.documents}%` : '0%' }} />
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : null}
+    </SectionCard>
+  );
+}
+
 /** The figures every row shows, PC summary and journey alike. */
 function CountCells({ row }: { row: P2DailyCounts }) {
   const d = row.documents;
@@ -56,9 +113,10 @@ function CountCells({ row }: { row: P2DailyCounts }) {
       <td data-label="Files · pages">{row.files} · {row.pages}{row.duplicateFiles ? <span className="p2w-muted"> ({row.duplicateFiles} repeat)</span> : null}</td>
       <td data-label="Read correctly"><strong>{d.extracted}</strong></td>
       <td data-label="Waiting" className={d.waiting ? 'p2dr-warn' : undefined}>{d.waiting}</td>
-      <td data-label="Failed" className={d.failed ? 'p2dr-bad' : undefined}>
-        {d.failed}{d.rejectedScans ? <span className="p2w-muted"> ({d.rejectedScans} scan)</span> : null}
+      <td data-label="Rejected at upload" className={d.rejectedScans ? 'p2dr-bad' : undefined}>
+        {d.rejectedScans}{d.rejectedScans && row.rejections ? <span className="p2w-muted"> ({reasonText(row.rejections)})</span> : null}
       </td>
+      <td data-label="Failed (other)" className={d.failed - d.rejectedScans ? 'p2dr-bad' : undefined}>{d.failed - d.rejectedScans}</td>
       <td data-label="Not read · no values">{d.notRead} · {d.readNoValues}</td>
       <td data-label="Tasks opened">{row.tasksOpened}{row.tasksReopened ? <span className="p2w-muted"> +{row.tasksReopened} reopened</span> : null}</td>
       <td data-label="Auto retries · exhausted">{row.autoRetries} · <span className={row.retriesExhausted ? 'p2dr-bad' : undefined}>{row.retriesExhausted}</span></td>
@@ -73,7 +131,8 @@ const HEAD = (
     <th>Files · pages</th>
     <th>Read correctly</th>
     <th>Waiting</th>
-    <th>Failed</th>
+    <th>Rejected at upload</th>
+    <th>Failed (other)</th>
     <th>Not read · no values</th>
     <th>Tasks opened</th>
     <th>Auto retries · exhausted</th>
@@ -141,6 +200,7 @@ export default function P2DailyProcessingReportPage() {
 
       {data ? (
         <>
+          {data.quality ? <QualityCard quality={data.quality} trend={data.trend ?? []} day={data.day} /> : null}
           <SectionCard>
             <div className="p2w-card__title">
               <h3>By PC</h3>

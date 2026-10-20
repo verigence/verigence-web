@@ -314,7 +314,7 @@
 .uc03-tl-case-head,
 .uc03-tl-case__main {
   display: grid;
-  grid-template-columns: minmax(230px, 1.45fr) minmax(170px, 1fr) minmax(150px, 0.85fr) minmax(170px, 1fr) minmax(130px, 0.75fr) 58px;
+  grid-template-columns: minmax(230px, 1.45fr) minmax(170px, 1fr) minmax(150px, 0.85fr) minmax(150px, 0.9fr) minmax(150px, 0.9fr) minmax(130px, 0.75fr) 58px;
   gap: 12px;
   align-items: center;
 }
@@ -348,6 +348,7 @@
 .uc03-tl-case__scope,
 .uc03-tl-case__pc,
 .uc03-tl-case__stage,
+.uc03-tl-case__period,
 .uc03-tl-case__attention {
   display: grid;
   gap: 3px;
@@ -357,6 +358,7 @@
 .uc03-tl-case__customer strong,
 .uc03-tl-case__scope strong,
 .uc03-tl-case__pc strong,
+.uc03-tl-case__period strong,
 .uc03-tl-case__attention strong {
   overflow: hidden;
   color: #253f49;
@@ -369,6 +371,7 @@
 .uc03-tl-case__scope span,
 .uc03-tl-case__pc span,
 .uc03-tl-case__stage span,
+.uc03-tl-case__period span,
 .uc03-tl-case__attention span,
 .uc03-tl-case__customer small {
   overflow: hidden;
@@ -395,6 +398,29 @@
 .uc03-tl-stage.is-progress {
   background: #fff5dc;
   color: #875d00;
+}
+
+.uc03-tl-stage.is-with-pc {
+  background: #f1f3f5;
+  color: #4d5d64;
+}
+
+.uc03-tl-case__customer strong.is-unknown {
+  color: #72838a;
+  font-style: italic;
+}
+
+.uc03-tl-case__links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.uc03-tl-case__links a {
+  color: #08766f;
+  font-size: 0.74rem;
+  font-weight: 800;
 }
 
 .uc03-tl-stage.is-complete {
@@ -467,6 +493,7 @@
   }
 
   .uc03-tl-case__stage,
+  .uc03-tl-case__period,
   .uc03-tl-case__attention {
     grid-row: 2;
   }
@@ -511,6 +538,7 @@
   }
 
   .uc03-tl-case__stage,
+  .uc03-tl-case__period,
   .uc03-tl-case__attention {
     grid-row: auto;
   }
@@ -545,6 +573,7 @@
   .uc03-tl-case__scope,
   .uc03-tl-case__pc,
   .uc03-tl-case__stage,
+  .uc03-tl-case__period,
   .uc03-tl-case__attention {
     grid-column: 1;
   }

@@ -81,13 +81,16 @@ export default function P2JourneyListPage() {
             : subClauses.length ? subClauses.join(' · ')
               : 'Nothing needs your attention right now. New bookings and deliveries will show up here.'}
         </p>
-        <div className="p2w-hero__kpis" aria-label="Summary">
+        {/* A TL / PM / Executive sees the same figures in the summary cards
+            below; shown twice they read as duplicate (product owner
+            2026-10-20). A PC keeps them here. */}
+        {role === 'PC' ? <div className="p2w-hero__kpis" aria-label="Summary">
           <div className="p2w-kpi"><b>{s ? s.open.bookings : '—'}</b><span>Bookings open</span></div>
           <div className="p2w-kpi"><b>{s ? s.open.deliveries : '—'}</b><span>Deliveries open</span></div>
           <div className="p2w-kpi"><b>{s ? s.closed?.bookings ?? '—' : '—'}</b><span>Bookings closed</span></div>
           <div className="p2w-kpi"><b>{s ? s.closed?.deliveries ?? '—' : '—'}</b><span>Deliveries closed</span></div>
           <Link className={`p2w-kpi${heroTasks ? ' p2w-kpi--flag' : ''}`} to="/p2/tasks"><b>{s ? heroTasks ?? '—' : '—'}</b><span>Tasks open</span></Link>
-        </div>
+        </div> : null}
       </section>
 
       <JourneyListTabs tenantId={tenantId} accessToken={accessToken} role={role} onCounts={setCounts} />

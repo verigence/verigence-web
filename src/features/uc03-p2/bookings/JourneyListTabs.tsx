@@ -5,6 +5,7 @@ import JourneyRow from './JourneyRow';
 import {
   getP2JourneyCounts,
   getP2JourneyPage,
+  type P2JourneyBreakdownRow,
   type P2JourneyCounts,
   type P2JourneyFilters,
   type P2JourneyView,
@@ -105,15 +106,31 @@ export default function JourneyListTabs({ tenantId, accessToken, role, onCounts 
 
   return (
     <div className="p2w-jtabs">
+      {supervisor && c ? (
+        <section className="uc03-tl-metrics" aria-label="Summary">
+          <Metric label="All journeys" value={c.all} detail={`${c.open} open`} />
+          <Metric label="Bookings open" value={c.booking_open} detail="Booking documents and checks" />
+          <Metric label="Deliveries open" value={c.delivery_open} detail="Delivery work underway" />
+          <Metric label="Closed" value={c.closed} detail="Delivered or cancelled" />
+          <Metric label="Needs TL decision" value={c.needs_tl} detail={`${c.overdue} overdue · ${c.high_risk} high risk`} />
+        </section>
+      ) : null}
       {supervisor && counts.data?.byOutlet ? (
-        <Breakdown
-          byOutlet={counts.data.byOutlet}
-          byPc={counts.data.byPc ?? []}
-          outletId={outletId}
-          pcActorId={pcActorId}
-          onOutlet={(id) => setOutletId(id === outletId ? '' : id)}
-          onPc={(id) => setPcActorId(id === pcActorId ? '' : id)}
-        />
+        <div className="uc03-tl-breakdown-grid">
+          <BreakdownPanel
+            title="Outlet-wise"
+            rows={counts.data.byOutlet.map((o) => ({ key: o.outlet_id, label: o.outlet_name ?? o.outlet_code ?? 'Outlet',
+              secondary: o.outlet_code ?? undefined, ...o }))}
+            selectedKey={outletId}
+            onSelect={setOutletId}
+          />
+          <BreakdownPanel
+            title="PC-wise"
+            rows={(counts.data.byPc ?? []).map((p) => ({ key: p.pc_actor_id ?? '', label: p.pc_name || 'PC not recorded', ...p }))}
+            selectedKey={pcActorId}
+            onSelect={setPcActorId}
+          />
+        </div>
       ) : null}
 
       <div className="p2w-jtabs__bar" role="tablist" aria-label="Journeys">
@@ -189,7 +206,7 @@ export default function JourneyListTabs({ tenantId, accessToken, role, onCounts 
 
       {items.length ? (
         <table className={`p2w-jtable${role !== 'PC' ? ' has-where' : ''}`}>
-          <thead><tr><th className="col-customer">Customer</th><th className="col-price">Price variance</th><th className="col-stage">{role === 'PC' ? 'Stage' : 'PC · Outlet ID'}</th><th className="col-next">Open tasks</th><th className="col-when">Deal period</th><th className="col-journey">Audit timeline</th>{role !== 'PC' ? <th className="col-where">Dealer · Outlet</th> : null}<th className="col-act"><span className="p2w-visually-hidden">Actions</span></th></tr></thead>
+          <thead><tr><th className="col-customer">Customer</th><th className="col-price">Price variance</th><th className="col-stage">{role === 'PC' ? 'Stage' : 'PC · Outlet ID'}</th><th className="col-next">Open tasks</th><th className="col-when">Deal period</th><th className="col-journey">Audit record</th>{role !== 'PC' ? <th className="col-where">Dealer · Outlet</th> : null}<th className="col-act"><span className="p2w-visually-hidden">Actions</span></th></tr></thead>
           <tbody>
             {items.map((item) => <JourneyRow key={item.journey_id} item={item} role={role} />)}
           </tbody>
@@ -217,55 +234,56 @@ export default function JourneyListTabs({ tenantId, accessToken, role, onCounts 
   );
 }
 
-type BreakdownProps = {
-  byOutlet: NonNullable<Awaited<ReturnType<typeof getP2JourneyCounts>>['byOutlet']>;
-  byPc: NonNullable<Awaited<ReturnType<typeof getP2JourneyCounts>>['byPc']>;
-  outletId: string;
-  pcActorId: string;
-  onOutlet: (id: string) => void;
-  onPc: (id: string) => void;
-};
-
-/** Open / overdue / high-risk per outlet and per PC; a click filters the list. */
-function Breakdown({ byOutlet, byPc, outletId, pcActorId, onOutlet, onPc }: BreakdownProps) {
+function Metric({ label, value, detail }: { label: string; value: number; detail: string }) {
   return (
-    <div className="p2w-jtabs__strip">
-      <section aria-label="By outlet">
-        <h3>By outlet</h3>
-        <table className="p2w-jtabs__mini">
-          <thead><tr><th>Outlet</th><th>Open</th><th>Needs TL</th><th>Overdue</th><th>High risk</th><th>Stuck</th></tr></thead>
-          <tbody>
-            {byOutlet.map((o) => (
-              <tr key={o.outlet_id} className={outletId === o.outlet_id ? 'is-selected' : undefined}
-                onClick={() => onOutlet(o.outlet_id)}>
-                <td><button type="button" className="p2w-link">{o.outlet_name ?? o.outlet_code ?? 'Outlet'}</button></td>
-                <td>{o.open}</td><td>{o.needs_tl}</td>
-                <td className={o.overdue ? 'p2w-jtabs__warn' : undefined}>{o.overdue}</td>
-                <td className={o.high_risk ? 'p2w-jtabs__bad' : undefined}>{o.high_risk}</td>
-                <td>{o.stuck}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </section>
-      <section aria-label="By PC">
-        <h3>By PC</h3>
-        <table className="p2w-jtabs__mini">
-          <thead><tr><th>PC</th><th>Open</th><th>Needs TL</th><th>Overdue</th><th>High risk</th><th>Stuck</th></tr></thead>
-          <tbody>
-            {byPc.map((p) => (
-              <tr key={p.pc_actor_id ?? 'none'} className={p.pc_actor_id && pcActorId === p.pc_actor_id ? 'is-selected' : undefined}
-                onClick={() => p.pc_actor_id && onPc(p.pc_actor_id)}>
-                <td><button type="button" className="p2w-link" disabled={!p.pc_actor_id}>{p.pc_name || 'PC not recorded'}</button></td>
-                <td>{p.open}</td><td>{p.needs_tl}</td>
-                <td className={p.overdue ? 'p2w-jtabs__warn' : undefined}>{p.overdue}</td>
-                <td className={p.high_risk ? 'p2w-jtabs__bad' : undefined}>{p.high_risk}</td>
-                <td>{p.stuck}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </section>
-    </div>
+    <article className="uc03-tl-metric">
+      <span>{label}</span>
+      <strong>{value}</strong>
+      <small>{detail}</small>
+    </article>
+  );
+}
+
+type BreakdownRow = P2JourneyBreakdownRow & { key: string; label: string; secondary?: string };
+
+/** Outlet-wise / PC-wise: every journey, split Booking / Delivery / Closed; a
+ * click filters the list below (the TL overview's own panels). */
+function BreakdownPanel({ title, rows, selectedKey, onSelect }: {
+  title: string; rows: BreakdownRow[]; selectedKey: string; onSelect: (key: string) => void;
+}) {
+  return (
+    <section className="uc03-tl-panel">
+      <header className="uc03-tl-panel__header">
+        <div>
+          <h2>{title}</h2>
+          <p>Click a row to filter the journeys below.</p>
+        </div>
+        {selectedKey && <button type="button" onClick={() => onSelect('')}>Clear</button>}
+      </header>
+      <div className="uc03-tl-breakdown">
+        {rows.map((row) => (
+          <button
+            type="button"
+            key={row.key || row.label}
+            className={selectedKey && selectedKey === row.key ? 'is-selected' : ''}
+            disabled={!row.key}
+            onClick={() => onSelect(selectedKey === row.key ? '' : row.key)}
+          >
+            <span className="uc03-tl-breakdown__identity">
+              <strong>{row.label}</strong>
+              {row.secondary && <small>{row.secondary}</small>}
+            </span>
+            <span className="uc03-tl-breakdown__total">{row.total}</span>
+            <span className="uc03-tl-breakdown__mix">
+              <small title="Bookings open">B {row.booking_open}</small>
+              <small title="Deliveries open">D {row.delivery_open}</small>
+              <small title="Closed">✓ {row.closed}</small>
+              {row.overdue ? <small className="is-overdue" title="Overdue">! {row.overdue}</small> : null}
+            </span>
+          </button>
+        ))}
+        {rows.length === 0 && <p className="uc03-tl-empty-inline">No journeys in this scope.</p>}
+      </div>
+    </section>
   );
 }

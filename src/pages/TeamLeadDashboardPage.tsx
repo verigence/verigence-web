@@ -92,7 +92,7 @@ export default function TeamLeadDashboardPage() {
         </div>
         <div className="uc03-tl-hero__note">
           <strong>Every journey</strong>
-          <span>In tabs, exceptions first: what needs a TL decision, high risk, overdue and stuck.</span>
+          <span>Journeys still with the PC are counted under Bookings open. TL review is optional.</span>
         </div>
       </section>
 

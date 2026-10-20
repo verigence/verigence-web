@@ -1463,6 +1463,8 @@ export type P2DailyCounts = {
   documents: { extracted: number; readNoValues: number; notRead: number; waiting: number; failed: number; rejectedScans: number };
   /** Pages rejected at upload by the scan-quality check, by reason. */
   rejections?: P2RejectionReasons;
+  /** How the pages became documents: a multi-page document is one document; a repeated page is dropped. */
+  pageMath?: { multiPageDocuments: number; pagesInMultiPage: number; repeatPages: number };
   tasksOpened: number;
   tasksOpenedPc: number;
   tasksOpenedTl: number;

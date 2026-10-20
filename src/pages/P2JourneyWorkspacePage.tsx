@@ -160,6 +160,23 @@ export default function P2JourneyWorkspacePage() {
     () => buildDocumentRows(documents.data?.batches ?? [], documents.data?.documents ?? []),
     [documents.data],
   );
+  // A page rejected at upload (scan quality) or failed has no document to
+  // open: say so instead of "Document was not found" (product owner
+  // 2026-10-20, arriving from a task).
+  const selectedFailure = useMemo(() => {
+    if (!documentId) return null;
+    const row = rows.find((r) => r.documentId === documentId);
+    if (!row) return null;
+    const state = row.health?.state;
+    const failed = state === 'REJECTED' || state === 'FAILED' || ['FAILED', 'DEAD_LETTER'].includes(row.status);
+    if (!failed) return null;
+    return {
+      rejected: state === 'REJECTED',
+      name: row.name,
+      where: row.subtitle,
+      reason: row.reason || (state === 'REJECTED' ? 'The scan-quality check rejected it.' : 'Reading it failed.'),
+    };
+  }, [documentId, rows]);
   // A new booking lists the documents the Journey expects before any is
   // uploaded: the same list the edit view shows, all still missing.
   const expectedChecklist = useMemo(() => expectedDocuments(templates.data?.templates ?? []), [templates.data]);
@@ -470,7 +487,18 @@ export default function P2JourneyWorkspacePage() {
           )}
         </div>
         <div className="p2w-layout__editor">
-          {documentId && tenantId ? (
+          {selectedFailure ? (
+            <div className="p2w-editor-placeholder p2w-editor-rejected" role="status">
+              <strong>{selectedFailure.rejected ? 'This page was rejected at upload' : 'This page could not be read'}</strong>
+              <span>{selectedFailure.name} · {selectedFailure.where}</span>
+              <span>{selectedFailure.reason}</span>
+              <span>Nothing was read from it, so there are no values to check. Upload the page again{selectedFailure.rejected ? ' as a clear, well-lit scan' : ''}.</span>
+              <div className="p2w-editor-rejected__actions">
+                <button type="button" className="p2w-button p2w-button--primary" onClick={() => uploadPanel.current?.openFiles()}>Upload again</button>
+                <button type="button" className="p2w-button p2w-button--secondary" onClick={closeDocument}>Close</button>
+              </div>
+            </div>
+          ) : documentId && tenantId ? (
             <P2DocumentEditor
               key={documentId}
               tenantId={tenantId}

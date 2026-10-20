@@ -207,6 +207,9 @@
   text-align: center;
 }
 .p2w-editor-placeholder strong { color: var(--p2w-ink); font-size: 1.05rem; }
+/* A rejected or failed page: solid red border, shown on phones too. */
+.p2w-editor-placeholder.p2w-editor-rejected { border-style: solid; border-color: #e3a5a0; background: #fdf3f2; color: #6b2a24; }
+.p2w-editor-rejected__actions { display: flex; gap: 8px; justify-content: center; margin-top: 8px; flex-wrap: wrap; }
 .p2w-skeleton { padding: 24px; border-radius: var(--p2w-radius); background: var(--p2w-soft); color: var(--p2w-muted); }
 
 /* ----------------------------------------------------------------- upload */
@@ -490,7 +493,7 @@
   .p2w-layout { grid-template-columns: 1fr; }
   .p2w-readiness { grid-template-columns: 1fr; }
   .p2w-layout__editor { position: static; }
-  .p2w-editor-placeholder { display: none; }
+  .p2w-editor-placeholder:not(.p2w-editor-rejected) { display: none; }
   /* Phone/tablet: the editor opens as a full-screen sheet over the list. */
   .p2w.has-selection .p2w-layout__editor {
     position: fixed;

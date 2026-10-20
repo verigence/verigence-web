@@ -1,17 +1,14 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Link } from 'react-router-dom';
 import '../styles/uc03-p2.css';
 import '../styles/uc03-p2-workspace.css';
 import '../styles/uc03-p2-daily-report.css';
 
 import PageHeader from '../components/PageHeader';
 import SectionCard from '../components/SectionCard';
-import { customerLabel } from '../features/uc03-p2/bookings/JourneyRow';
 import {
   getP2DailyProcessingReport,
   type P2DailyCounts,
-  type P2DailyJourneyRow,
   type P2DailyPcRow,
   type P2DailyQuality,
   type P2DailyTrendDay,
@@ -104,17 +101,19 @@ function sumCounts(rows: P2DailyCounts[]): P2DailyCounts {
     files: 0, pages: 0, duplicateFiles: 0,
     documents: { extracted: 0, readNoValues: 0, notRead: 0, waiting: 0, failed: 0, rejectedScans: 0 },
     rejections: { faded: 0, blurred: 0, tooSmall: 0, unreadable: 0, other: 0 },
+    pageMath: { multiPageDocuments: 0, pagesInMultiPage: 0, repeatPages: 0 },
     tasksOpened: 0, tasksOpenedPc: 0, tasksOpenedTl: 0, tasksReopened: 0, autoRetries: 0, retriesExhausted: 0,
     pcRetries: 0, readAgain: 0, resyncs: 0, nightRequests: 0, nightFixed: 0,
   });
   return rows.reduce<P2DailyCounts>((acc, row) => {
-    const out = { ...acc, documents: { ...acc.documents }, rejections: { ...acc.rejections! } };
+    const out = { ...acc, documents: { ...acc.documents }, rejections: { ...acc.rejections! }, pageMath: { ...acc.pageMath! } };
     for (const key of ['files', 'pages', 'duplicateFiles', 'tasksOpened', 'tasksOpenedPc', 'tasksOpenedTl', 'tasksReopened',
       'autoRetries', 'retriesExhausted', 'pcRetries', 'readAgain', 'resyncs', 'nightRequests', 'nightFixed'] as const) {
       out[key] += row[key] ?? 0;
     }
     for (const key of Object.keys(out.documents) as (keyof P2DailyCounts['documents'])[]) out.documents[key] += row.documents[key] ?? 0;
     for (const key of Object.keys(out.rejections) as (keyof P2RejectionReasons)[]) out.rejections[key] += row.rejections?.[key] ?? 0;
+    for (const key of Object.keys(out.pageMath) as (keyof NonNullable<P2DailyCounts['pageMath']>)[]) out.pageMath[key] += row.pageMath?.[key] ?? 0;
     return out;
   }, zero());
 }
@@ -132,6 +131,18 @@ function outcome(row: P2DailyCounts) {
     documents: d.extracted + needsLook + d.rejectedScans + failed + d.waiting };
 }
 
+/** Why there are fewer documents than pages, in the row's own numbers. */
+function pageMathText(row: P2DailyCounts): string {
+  const m = row.pageMath;
+  if (!m) return '';
+  const parts: string[] = [];
+  if (m.multiPageDocuments) {
+    parts.push(`${m.pagesInMultiPage} pages make ${m.multiPageDocuments} multi-page document${m.multiPageDocuments === 1 ? '' : 's'}`);
+  }
+  if (m.repeatPages) parts.push(`${m.repeatPages} repeated page${m.repeatPages === 1 ? '' : 's'} dropped`);
+  return parts.join(' · ');
+}
+
 function rate(part: number, whole: number): string {
   return whole ? ` (${Math.round((1000 * part) / whole) / 10}%)` : '';
 }
@@ -143,7 +154,7 @@ function UploadCells({ row }: { row: P2DailyCounts }) {
     <>
       <td data-label="Files">{row.files}{row.duplicateFiles ? <span className="p2w-muted"> ({row.duplicateFiles} repeat)</span> : null}</td>
       <td data-label="Pages">{row.pages}</td>
-      <td data-label="Documents">{o.documents}</td>
+      <td data-label="Documents">{o.documents}{pageMathText(row) ? <span className="p2w-muted p2dr-sub">{pageMathText(row)}</span> : null}</td>
       <td data-label="Read"><strong>{o.read}</strong><span className="p2w-muted">{rate(o.read, o.documents)}</span></td>
       <td data-label="Needs a look" className={o.needsLook ? 'p2dr-warn' : undefined}>{o.needsLook}</td>
       <td data-label="Rejected at upload" className={o.rejected ? 'p2dr-bad' : undefined}>
@@ -168,51 +179,20 @@ const UPLOAD_HEAD = (
   </>
 );
 
-function journeyTime(row: P2DailyJourneyRow, timezone: string): string {
-  if (!row.uploadStartedAt) return '—';
-  const span = `${time(row.uploadStartedAt, timezone)} – ${time(row.processingFinishedAt, timezone)}`;
-  return row.processingFinishedAt ? `${span} · ${duration(row.processingMinutes)}` : `${time(row.uploadStartedAt, timezone)} · still processing`;
-}
-
-function JourneyCell({ row }: { row: P2DailyJourneyRow }) {
-  const customer = customerLabel(row.customerName);
-  return (
-    <td data-label="Journey">
-      <Link to={`/p2/journeys/${row.journeyId}/overview`} className={customer.known ? undefined : 'is-unknown'}>{customer.text}</Link>
-      <span className="p2w-muted p2dr-sub">{row.outletName}{row.outletCode ? ` · ${row.outletCode}` : ''}</span>
-    </td>
-  );
-}
-
-const uploadedOnDay = (row: P2DailyJourneyRow) => row.uploadedOnDay ?? Boolean(row.uploadStartedAt);
-const samePc = (row: P2DailyJourneyRow, pc: P2DailyPcRow) => (row.pcActorId ?? null) === (pc.pcActorId ?? null);
-
-/** One PC's uploads of the day; a click opens the journeys they went into. */
-function PcUploads({ pc, journeys, timezone }: { pc: P2DailyPcRow; journeys: P2DailyJourneyRow[]; timezone: string }) {
-  const [open, setOpen] = useState(false);
+/** One PC's uploads of the day (product owner 2026-10-20: no per-journey rows). */
+function PcUploads({ pc, timezone }: { pc: P2DailyPcRow; timezone: string }) {
   const span = pc.stillProcessing
     ? `${time(pc.firstUploadAt, timezone)} · ${pc.stillProcessing} still processing`
     : `${time(pc.firstUploadAt, timezone)} – ${time(pc.lastFinishedAt, timezone)} · ${duration(pc.spanMinutes)}`;
   return (
-    <>
-      <tr className="p2dr-pc">
-        <td data-label="PC">
-          <button type="button" className="p2dr-toggle" aria-expanded={open} onClick={() => setOpen((v) => !v)}>
-            <span aria-hidden="true">{open ? '▾' : '▸'}</span> <strong>{pcLabel(pc.pcName, pc.pcActorId)}</strong>
-          </button>
-          <span className="p2w-muted p2dr-sub">{span}</span>
-        </td>
-        <td data-label="Journeys">{pc.journeysUploaded}</td>
-        <UploadCells row={pc} />
-      </tr>
-      {open ? journeys.map((row) => (
-        <tr key={row.journeyId} className="p2dr-child">
-          <JourneyCell row={row} />
-          <td data-label="Uploaded">{journeyTime(row, timezone)}</td>
-          <UploadCells row={row} />
-        </tr>
-      )) : null}
-    </>
+    <tr className="p2dr-pc">
+      <td data-label="PC">
+        <strong>{pcLabel(pc.pcName, pc.pcActorId)}</strong>
+        <span className="p2w-muted p2dr-sub">{span}</span>
+      </td>
+      <td data-label="Journeys">{pc.journeysUploaded}</td>
+      <UploadCells row={pc} />
+    </tr>
   );
 }
 
@@ -288,7 +268,7 @@ export default function P2DailyProcessingReportPage() {
               <h3>Uploads by PC</h3>
               <p className="p2w-muted">
                 {uploaders.length
-                  ? `${uploaders.length} PC${uploaders.length === 1 ? '' : 's'} uploaded on ${data.day}. Open a PC to see each journey's files and pages. Read + needs a look + rejected + failed + waiting = documents.`
+                  ? `${uploaders.length} PC${uploaders.length === 1 ? '' : 's'} uploaded on ${data.day}. A multi-page document counts once, so there are fewer documents than pages. Read + needs a look + rejected + failed + waiting = documents.`
                   : `No PC uploaded on ${data.day}.`}
               </p>
             </div>
@@ -304,8 +284,7 @@ export default function P2DailyProcessingReportPage() {
                   </thead>
                   <tbody>
                     {uploaders.map((pc) => (
-                      <PcUploads key={pc.pcActorId ?? 'none'} pc={pc} timezone={timezone}
-                        journeys={data.journeys.filter((row) => uploadedOnDay(row) && samePc(row, pc))} />
+                      <PcUploads key={pc.pcActorId ?? 'none'} pc={pc} timezone={timezone} />
                     ))}
                   </tbody>
                   {uploaders.length > 1 ? (

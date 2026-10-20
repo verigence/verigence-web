@@ -78,3 +78,48 @@
   color: #4d5d64;
   line-height: 1.6;
 }
+
+/* Scan quality card */
+.p2dr-quality {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.p2dr-quality > div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 12px;
+  border: 1px solid #e3eaed;
+  border-radius: 10px;
+}
+
+.p2dr-quality strong {
+  font-size: 1.1rem;
+}
+
+.p2dr-trend tr.is-current td {
+  background: #f3f8fa;
+  font-weight: 700;
+}
+
+.p2dr-bar {
+  width: 160px;
+  min-width: 120px;
+}
+
+.p2dr-bar > span {
+  display: block;
+  height: 8px;
+  overflow: hidden;
+  border-radius: 4px;
+  background: #cfe0e6;
+}
+
+.p2dr-bar__bad {
+  display: block;
+  height: 100%;
+  background: #c0392b;
+}

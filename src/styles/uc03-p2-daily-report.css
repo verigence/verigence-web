@@ -1,0 +1,73 @@
+/* Daily processing report (P2DailyProcessingReportPage). */
+.p2dr-day {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+}
+
+.p2dr-day input {
+  min-height: 38px;
+  padding: 6px 10px;
+  border: 1px solid #cbd8de;
+  border-radius: 10px;
+  font: inherit;
+}
+
+.p2dr-scroll {
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.p2dr-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+}
+
+.p2dr-table th {
+  padding: 8px 10px;
+  border-bottom: 1px solid #e3eaed;
+  color: #5d6f76;
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  text-align: left;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.p2dr-table td {
+  padding: 10px;
+  border-bottom: 1px solid #eef2f4;
+  color: #253f49;
+  vertical-align: top;
+  white-space: nowrap;
+}
+
+.p2dr-table td > span,
+.p2dr-table td > a {
+  display: block;
+}
+
+.p2dr-table td a.is-unknown {
+  color: #72838a;
+  font-style: italic;
+}
+
+.p2dr-warn {
+  color: #875d00;
+  font-weight: 700;
+}
+
+.p2dr-bad {
+  color: #b42318;
+  font-weight: 700;
+}
+
+.p2dr-notes {
+  margin: 0;
+  padding-left: 18px;
+  color: #4d5d64;
+  line-height: 1.6;
+}

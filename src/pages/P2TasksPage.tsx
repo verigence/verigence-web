@@ -4,6 +4,7 @@ import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import '../styles/uc03-p2.css';
 import '../styles/uc03-p2-workspace.css';
 
+import BackLink from '../components/BackLink';
 import PageHeader from '../components/PageHeader';
 import RaiseTaskDialog from '../features/uc03-p2/tasks/RaiseTaskDialog';
 import {
@@ -318,6 +319,8 @@ export default function P2TasksPage() {
 
   return (
     <div className="screen-stack p2-screen p2w">
+      <BackLink fallbackTo={journeyId ? `/p2/journeys/${journeyId}/overview` : '/p2/bookings'}
+        fallbackLabel={journeyId ? 'Journey 360' : 'Booking & Delivery'} />
       <PageHeader
         eyebrow="Task Queue"
         title={journeyId ? 'Tasks for this booking' : 'Task Queue'}

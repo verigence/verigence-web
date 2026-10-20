@@ -234,7 +234,7 @@
   font-weight: 650;
   color: var(--v-ink, #17324d);
 }
-.revq-item__row-action { flex: none; display: flex; }
+.revq-item__row-action { flex: none; display: flex; gap: 8px; align-items: center; }
 .revq-item__hint {
   font-size: 12px;
   font-weight: 600;

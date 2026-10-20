@@ -109,6 +109,50 @@ function ruleKeyStem(ruleKey: string | null | undefined): string | null {
   return ruleKey ? ruleKey.split(':')[0] : null;
 }
 
+// Where on Journey 360 an item is resolved (product owner 2026-10-20: a
+// payment issue opens the Payments tab, not the Audit Review page that has
+// nothing to resolve it with). Rule codes from uc03_p2_audit_rules.py and the
+// finding types that carry them.
+const PAYMENT_RULES = new Set([
+  'DELIVERED_ON_SHORT_PAYMENT', 'RECEIPTS_EQUAL_INVOICES', 'PAYMENT_AFTER_DELIVERY_WITHIN_GRACE',
+  'PAYMENT_AFTER_DELIVERY_BEYOND_GRACE', 'DO_PAYMENT_NOT_RECEIVED', 'DO_SHORT_PAYMENT', 'CASH_ABOVE_LIMIT',
+  'PAYMENT_BEFORE_BOOKING', 'TCS_SHORT', 'POST_DELIVERY_REFUND', 'THIRD_PARTY_PAYMENT_UNCONFIRMED',
+  'THIRD_PARTY_PAYMENT_UNDECLARED', 'CASH_NOT_INTIMATED', 'CASH_INTIMATION_UNCONFIRMED',
+  'BK_MIN_BOOKING_AMOUNT_NOT_MET', 'DUPLICATE_RECEIPT', 'PAYMENT_UNVERIFIED',
+]);
+const PAYMENT_TYPES = new Set(['PAYMENT_EXCEPTION', 'PAYMENT_UNVERIFIED', 'DUPLICATE_RECEIPT']);
+const TAB_LABEL: Record<string, string> = {
+  payments: 'Payments', deal: 'Deal', invoices: 'Invoices', vehicle: 'Vehicle', addons: 'Add-ons',
+  tradein: 'Trade-in', customer: 'Customer', registration: 'Registration', documents: 'Documents',
+  compliance: 'Checks',
+};
+
+function journey360Tab(ruleKey: string | null | undefined, category: string | null | undefined): string {
+  const stem = ruleKeyStem(ruleKey) ?? '';
+  const type = category ?? '';
+  if (PAYMENT_RULES.has(stem) || PAYMENT_TYPES.has(type) || /PAYMENT|RECEIPT|REFUND|CASH/.test(stem)) return 'payments';
+  if (stem === 'DEAL_UNDERCHARGED' || stem === 'EXCESS_DISCOUNT' || type === 'COMMERCIAL_EXCEPTION') return 'deal';
+  if (type === 'INVOICE_SKU_MISMATCH' || stem === 'MODEL_NOT_IDENTIFIED' || stem.startsWith('SKU_')
+      || type === 'MODEL_CHANGED_BY_INVOICE') return 'vehicle';
+  if (type === 'INVOICE_DISCREPANCY' || stem.startsWith('INVOICE')) return 'invoices';
+  if (stem.startsWith('ACCESSOR')) return 'addons';
+  if (stem.startsWith('TRADE_IN')) return 'tradein';
+  if (stem === 'DUPLICATE_BOOKING' || type === 'DUPLICATE_BOOKING') return 'customer';
+  if (stem.startsWith('NDC') || type === 'FINANCE_HYPOTHECATION_MISSING' || /INSURANCE|REGISTRATION|RTO/.test(stem)) {
+    return 'registration';
+  }
+  if (type === 'WRONG_DOCUMENT' || type === 'DOCUMENT_EXCEPTION' || stem.startsWith('MANUAL_VERIFICATION')) {
+    return 'documents';
+  }
+  return 'compliance';
+}
+
+function journey360Link(item: { journeyId: string | null; ruleKey: string | null; category: string | null }):
+  { to: string; label: string } {
+  const tab = journey360Tab(item.ruleKey, item.category);
+  return { to: `/p2/journeys/${item.journeyId}/overview?tab=${tab}`, label: `Open ${TAB_LABEL[tab] ?? 'Journey 360'}` };
+}
+
 // A MANUAL_VERIFICATION_REVIEW task's own ruleKey is always shaped
 // "MANUAL_VERIFICATION:<stage>:<diDocumentId>" (see
 // uc03_manual_verification.py::_rule_key) -- pulled apart here so the CTA
@@ -515,7 +559,10 @@ export default function ReviewQueuePage() {
                   {primaryAction.label}
                 </button>
               )}
-              {!primaryAction && <span className="revq-item__hint">{rowHint}</span>}
+              {item.subjectKind === 'JOURNEY' && item.journeyId && primaryAction?.kind !== 'link' ? (
+                <Link className="revq-btn revq-btn--sm" to={journey360Link(item).to}>{journey360Link(item).label} →</Link>
+              ) : null}
+              {!primaryAction && item.subjectKind !== 'JOURNEY' && <span className="revq-item__hint">{rowHint}</span>}
             </span>
           )}
           <button
@@ -573,11 +620,8 @@ export default function ReviewQueuePage() {
             // Task Queue" link would send it right back here -- send a
             // Task to Journey 360 instead, where there's something to
             // actually look at (documents, payments, overall status).
-            <Link
-              className="revq-open"
-              to={isTask ? `/p2/journeys/${item.journeyId}/overview` : `/audit/${item.journeyId}`}
-            >
-              Open case
+            <Link className="revq-open" to={journey360Link(item).to}>
+              {journey360Link(item).label} on Journey 360
             </Link>
           )}
 

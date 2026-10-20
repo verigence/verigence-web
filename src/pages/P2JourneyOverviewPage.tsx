@@ -5,6 +5,7 @@ import '../styles/uc03-p2.css';
 import '../styles/uc03-p2-workspace.css';
 import '../styles/uc03-p2-journey360.css';
 
+import BackLink from '../components/BackLink';
 import PageHeader from '../components/PageHeader';
 import DealTab from '../features/uc03-p2/journey360/DealTab';
 import P2RecheckButton from '../features/uc03-p2/workspace/P2RecheckButton';
@@ -140,6 +141,7 @@ export default function P2JourneyOverviewPage() {
 
   return (
     <div className="screen-stack p2-screen p2w j360">
+      <BackLink fallbackTo="/p2/bookings" fallbackLabel="Booking & Delivery" />
       <PageHeader
         eyebrow="Journey 360"
         title={j ? customerLabel(j.customerName).text : 'Journey 360'}

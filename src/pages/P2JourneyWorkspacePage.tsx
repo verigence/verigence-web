@@ -6,6 +6,7 @@ import '../styles/uc03-p2.css';
 import '../styles/uc03-p2-workspace.css';
 import '../styles/uc03-p2-cards.css';
 
+import BackLink from '../components/BackLink';
 import PageHeader from '../components/PageHeader';
 
 // The two Phase 1 corrections a PC still makes by hand: the loan amount
@@ -312,6 +313,8 @@ export default function P2JourneyWorkspacePage() {
 
   return (
     <div className={`screen-stack p2-screen p2w${documentId ? ' has-selection' : ''}`}>
+      <BackLink fallbackTo={journeyId ? `/p2/journeys/${journeyId}/overview` : '/p2/bookings'}
+        fallbackLabel={journeyId ? 'Journey 360' : 'Booking & Delivery'} />
       <PageHeader
         eyebrow={isNew ? 'New booking' : 'Booking'}
         title={isNew ? 'New booking' : 'Upload / Edit Documents'}

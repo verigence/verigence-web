@@ -18,6 +18,7 @@ import { P2_HOME_PATH, P2_NEW_BOOKING_PATH } from '../features/uc03-p2/newBookin
 import { syncDeviceDiagnostics } from '../services/security/deviceDiagnostics';
 import { useProjectContextStore } from '../store/projectContextStore';
 import { useSessionStore } from '../store/sessionStore';
+import { useTrackScreens } from '../components/BackLink';
 
 type ShellRole = UserRole | OperatingRole;
 type NavItem = { to: string; label: string; mark: string; roles?: ShellRole[]; devOnly?: boolean; badge?: number };
@@ -320,6 +321,7 @@ function NavIcon({ mark }: { mark: string }) {
 }
 
 export default function AppShell({ children }: PropsWithChildren) {
+  useTrackScreens();
   const sessionRole = useSessionStore((state) => state.role);
   const displayName = useSessionStore((state) => state.displayName);
   const outletId = useSessionStore((state) => state.outletId);

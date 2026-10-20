@@ -381,6 +381,11 @@ export default function AppShell({ children }: PropsWithChildren) {
             { ...p2TasksItem, badge: p2TaskCount },
             p2DuplicatesItem,
             ...(role === 'PC' ? [dailyOpsItem] : [p2DailyProcessingItem]),
+            // The SKU / discount reference and the month's source documents
+            // (added 18 Oct to the DealGuard group but never to this per-role
+            // list, so nobody working in a Project saw them).
+            p2PriceMastersItem,
+            p2MasterDocumentsItem,
           ],
         }
       : role === 'EXECUTIVE'

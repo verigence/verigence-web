@@ -231,8 +231,8 @@ function CaseRow({ item, p2, timezoneName }: { item: TlSupervisoryCase; p2?: P2J
           <span>{withPc ? 'With PC, not submitted' : friendlyStatus(rawStatus)}</span>
         </div>
         <div className="uc03-tl-case__period">
-          <strong>{bookingDate ? `Booking ${bookingDate}` : 'Not booked yet'}</strong>
-          <span>{deliveryDate ? `Delivery ${deliveryDate}` : 'No gate pass yet'}</span>
+          <strong>{bookingDate ? `Booking ${bookingDate}` : 'No booking date yet'}</strong>
+          <span>{deliveryDate ? `Delivery ${deliveryDate}` : 'No delivery date yet'}</span>
         </div>
         <div className="uc03-tl-case__attention">
           {attention ? (

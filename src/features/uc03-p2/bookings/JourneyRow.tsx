@@ -234,8 +234,8 @@ export default function JourneyRow({ item, role }: { item: P2JourneyListItem; ro
         {!item.closed && item.overdue_tasks ? <span className="p2w-jrow__overdue">{item.overdue_tasks} overdue</span> : null}
       </td>
       <td className="p2w-jrow__when" data-label="Deal period">
-        <span>{item.booking_confirm_date ? `Booking ${fullDate(item.booking_confirm_date)}` : 'Not booked yet'}</span>
-        <span className="p2w-muted">{item.delivered_at ? `Delivery ${fullDate(item.delivered_at)}` : 'No gate pass yet'}</span>
+        <span>{item.booking_confirm_date ? `Booking ${fullDate(item.booking_confirm_date)}` : 'No booking date yet'}</span>
+        <span className="p2w-muted">{item.delivered_at ? `Delivery ${fullDate(item.delivered_at)}` : 'No delivery date yet'}</span>
       </td>
       <td className="p2w-jrow__journey" data-label="Audit timeline">
         {role === 'PC' ? (
@@ -245,7 +245,7 @@ export default function JourneyRow({ item, role }: { item: P2JourneyListItem; ro
           </>
         ) : (
           <>
-            <span>{item.delivery_completed_at ? `Open ${fullDate(item.delivery_completed_at)}` : cancelled ? 'Cancelled' : 'Not open yet, with PC'}</span>
+            <span>{item.delivery_completed_at ? `Opened ${fullDate(item.delivery_completed_at)}` : cancelled ? 'Cancelled' : 'Opens when PC completes delivery'}</span>
             <span className="p2w-muted">{item.delivery_reviewed_at ? `Close ${fullDate(item.delivery_reviewed_at)}` : 'Not closed yet'}</span>
           </>
         )}

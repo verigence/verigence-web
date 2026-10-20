@@ -71,13 +71,23 @@ export default function JourneyListTabs({ tenantId, accessToken, role, onCounts 
   };
   const enabled = Boolean(tenantId && accessToken);
 
-  const counts = useQuery({
-    queryKey: ['p2-journey-counts', tenantId, filters, supervisor],
-    queryFn: () => getP2JourneyCounts(tenantId!, accessToken, filters, supervisor),
+  // The summary cards, the Outlet-wise / PC-wise panels and the filter
+  // choices are the whole picture and never change with the filters; the
+  // filters narrow the tabs' counts and the list only (product owner
+  // 2026-10-20: "the filter should be only for the list").
+  const overview = useQuery({
+    queryKey: ['p2-journey-counts', tenantId, 'overview', supervisor],
+    queryFn: () => getP2JourneyCounts(tenantId!, accessToken, { search: '', month: '', outletId: '', pcActorId: '' }, supervisor),
     enabled,
     staleTime: 15_000,
   });
-  useEffect(() => { onCounts?.(counts.data?.counts); }, [counts.data, onCounts]);
+  const counts = useQuery({
+    queryKey: ['p2-journey-counts', tenantId, filters, false],
+    queryFn: () => getP2JourneyCounts(tenantId!, accessToken, filters, false),
+    enabled,
+    staleTime: 15_000,
+  });
+  useEffect(() => { onCounts?.(overview.data?.counts); }, [overview.data, onCounts]);
 
   const list = useInfiniteQuery({
     queryKey: ['p2-journey-page', tenantId, view, filters],
@@ -89,6 +99,7 @@ export default function JourneyListTabs({ tenantId, accessToken, role, onCounts 
   });
   const items = useMemo(() => (list.data?.pages ?? []).flatMap((page) => page.items), [list.data]);
   const c = counts.data?.counts;
+  const all = overview.data?.counts;
   const tab = tabs.find((t) => t.view === view) ?? tabs[0];
   const filtered = Boolean(search.trim() || (monthApplies && month) || outletId || pcActorId);
 
@@ -106,27 +117,27 @@ export default function JourneyListTabs({ tenantId, accessToken, role, onCounts 
 
   return (
     <div className="p2w-jtabs">
-      {supervisor && c ? (
+      {supervisor && all ? (
         <section className="uc03-tl-metrics" aria-label="Summary">
-          <Metric label="All journeys" value={c.all} detail={`${c.open} open`} />
-          <Metric label="Bookings open" value={c.booking_open} detail="Booking documents and checks" />
-          <Metric label="Deliveries open" value={c.delivery_open} detail="Delivery work underway" />
-          <Metric label="Closed" value={c.closed} detail="Delivered or cancelled" />
-          <Metric label="Needs TL decision" value={c.needs_tl} detail={`${c.overdue} overdue · ${c.high_risk} high risk`} />
+          <Metric label="All journeys" value={all.all} detail={`${all.open} open`} />
+          <Metric label="Bookings open" value={all.booking_open} detail="Booking documents and checks" />
+          <Metric label="Deliveries open" value={all.delivery_open} detail="Delivery work underway" />
+          <Metric label="Closed" value={all.closed} detail="Delivered or cancelled" />
+          <Metric label="Needs TL decision" value={all.needs_tl} detail={`${all.overdue} overdue · ${all.high_risk} high risk`} />
         </section>
       ) : null}
-      {supervisor && counts.data?.byOutlet ? (
+      {supervisor && overview.data?.byOutlet ? (
         <div className="uc03-tl-breakdown-grid">
           <BreakdownPanel
             title="Outlet-wise"
-            rows={counts.data.byOutlet.map((o) => ({ key: o.outlet_id, label: o.outlet_name ?? o.outlet_code ?? 'Outlet',
+            rows={overview.data.byOutlet.map((o) => ({ key: o.outlet_id, label: o.outlet_name ?? o.outlet_code ?? 'Outlet',
               secondary: o.outlet_code ?? undefined, ...o }))}
             selectedKey={outletId}
             onSelect={setOutletId}
           />
           <BreakdownPanel
             title="PC-wise"
-            rows={(counts.data.byPc ?? []).map((p) => ({ key: p.pc_actor_id ?? '', label: p.pc_name || 'PC not recorded', ...p }))}
+            rows={(overview.data.byPc ?? []).map((p) => ({ key: p.pc_actor_id ?? '', label: p.pc_name || 'PC not recorded', ...p }))}
             selectedKey={pcActorId}
             onSelect={setPcActorId}
           />
@@ -170,7 +181,7 @@ export default function JourneyListTabs({ tenantId, accessToken, role, onCounts 
               <span>Outlet</span>
               <select value={outletId} onChange={(event) => setOutletId(event.target.value)}>
                 <option value="">All outlets</option>
-                {(counts.data?.byOutlet ?? []).map((o) => (
+                {(overview.data?.byOutlet ?? []).map((o) => (
                   <option key={o.outlet_id} value={o.outlet_id}>{o.outlet_name ?? o.outlet_code ?? 'Outlet'}</option>
                 ))}
               </select>
@@ -179,7 +190,7 @@ export default function JourneyListTabs({ tenantId, accessToken, role, onCounts 
               <span>PC</span>
               <select value={pcActorId} onChange={(event) => setPcActorId(event.target.value)}>
                 <option value="">All PCs</option>
-                {(counts.data?.byPc ?? []).filter((p) => p.pc_actor_id).map((p) => (
+                {(overview.data?.byPc ?? []).filter((p) => p.pc_actor_id).map((p) => (
                   <option key={p.pc_actor_id!} value={p.pc_actor_id!}>{p.pc_name || 'PC not named'}</option>
                 ))}
               </select>

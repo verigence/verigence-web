@@ -101,6 +101,8 @@ export interface ModelCatalogSku {
 
 export interface ModelCatalogResponse {
   journeyId: string;
+  /** The Journey's confirmed SKU, if any; absent from an older Audit Core. */
+  confirmedProductSkuId?: string | null;
   skus: ModelCatalogSku[];
 }
 

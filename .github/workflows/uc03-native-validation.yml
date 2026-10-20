@@ -140,15 +140,13 @@ jobs:
       - name: Verify C2 Delivery camera contract in Web source
         run: |
           set -euo pipefail
-          # DeliveryWorkspacePage.tsx (unrouted, superseded by the unified
-          # JourneyDocumentsPage.tsx -- see that retirement commit) owned
-          # this contract until 2026-09-27; CarPhotosSection there now does,
-          # unconditionally rather than gated on requirementKey ===
-          # 'CAR_PICTURES', since every photo through it is a vehicle photo.
-          page='src/pages/JourneyDocumentsPage.tsx'
-          grep -q 'function CarPhotosSection' "$page"
-          grep -q "capture=\"environment\"" "$page"
-          grep -q '/delivery/workspace' src/services/audit-core/uc03Delivery.ts
+          # The vehicle photo camera lives on the Booking & Delivery screen
+          # (P2VehiclePhotos) since the Phase 1 JourneyDocumentsPage was
+          # removed (2026-10-20). It must open the rear camera directly.
+          photos='src/features/uc03-p2/photos/P2VehiclePhotos.tsx'
+          grep -q 'export default function P2VehiclePhotos' "$photos"
+          grep -q 'capture="environment"' "$photos"
+          grep -q 'P2VehiclePhotos' src/pages/P2JourneyWorkspacePage.tsx
           echo 'UC03_C2_ANDROID_DELIVERY_CONTRACT=PASS'
 
       - name: Configure Android release signing

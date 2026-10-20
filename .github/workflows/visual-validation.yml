@@ -11,7 +11,7 @@ on:
       - 'src/layout/AppShell.tsx'
       - 'src/components/ProjectContextGate.tsx'
       - 'src/pages/DashboardPage.tsx'
-      - 'src/pages/JourneyDocumentsPage.tsx'
+      - 'src/pages/P2JourneyWorkspacePage.tsx'
       - 'src/pages/AuditReviewPage.tsx'
       - 'src/pages/LoginPage.tsx'
       - 'src/pages/SignupPage.tsx'
@@ -496,18 +496,17 @@ jobs:
             await pageHealth(page, 'landing', viewport);
             await screenshot(page, 'landing-authenticated', viewport);
 
-            // /bookings/:journeyId redirects to /v2/bookings/:journeyId
-            // (BookingCaptureV2WorkspacePage) -- the old two-step Upload
-            // Documents -> Booking Details wizard this used to check was
-            // retired with the unified single-screen capture flow (Booking
-            // Form and Delivery documents are captured together now; there
-            // is no separate "Booking Details" form step to continue into).
-            // JourneyDocumentsPage's PageHeader prints the fixed title below (it no
-          // longer prints the customer name). Text matching is used rather than
-          // getByRole('heading'): on this runner Chromium computed a different
-          // accessible name for this <h1> than its visible text.
-          await page.goto(`${base}/bookings/journey-governance`, { waitUntil: 'networkidle' });
-          await page.getByText('Upload & Review Documents').first().waitFor();
+            // Every old capture address (/bookings/:journeyId here) opens the
+            // one Booking & Delivery documents screen (2026-10-20): the Phase 1
+            // capture pages are removed. Its PageHeader prints the fixed title
+            // below whatever the journey's data. Text matching is used rather
+            // than getByRole('heading'): on this runner Chromium computed a
+            // different accessible name for an <h1> than its visible text.
+            await page.goto(`${base}/bookings/journey-governance`, { waitUntil: 'networkidle' });
+            await page.getByText('Upload / Edit Documents').first().waitFor();
+            if (!page.url().includes('/p2/journeys/journey-governance/documents')) {
+              failures.push(`Old capture address at ${viewport.name} did not open Booking & Delivery: ${page.url()}`);
+            }
             visibleText = await page.locator('body').innerText();
             // Dealer/Outlet context is deliberately NOT landing-only anymore --
             // AppShell's sidebar ("Current Dealership") is a persistent, shared

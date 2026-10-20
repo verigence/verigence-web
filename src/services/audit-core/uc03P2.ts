@@ -72,6 +72,11 @@ export type P2JourneyListItem = {
   opened_at?: string | null;
   /** The PC's last upload (first upload: opened_at). */
   last_upload_at?: string | null;
+  /** A page of the journey is still being read. */
+  processing_now?: boolean | null;
+  /** The latest upload day's uploads: first upload, and the last page read. */
+  upload_started_at?: string | null;
+  upload_finished_at?: string | null;
 };
 
 export type P2JourneyListResponse = { items: P2JourneyListItem[]; view?: string; offset?: number; nextOffset?: number | null };

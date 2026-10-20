@@ -49,18 +49,37 @@ export function screenName(path: string): string {
   return 'previous screen';
 }
 
+/**
+ * The screen before this one and how many history steps away it is. Opening
+ * a document or switching a tab adds history on the same screen; Back goes to
+ * the screen before it, never to this screen again (product owner
+ * 2026-10-20: on Documents it said "Back to Documents").
+ */
+export function previousScreen(
+  visited: readonly Entry[], hereKey: string, pathname: string,
+): { path: string; steps: number } | null {
+  const here = visited.findIndex((entry) => entry.key === hereKey);
+  if (here <= 0) return null;
+  // The same kind of screen (a new booking's Documents gets its journey id
+  // after the first upload, a Journey 360 tab changes): still this screen.
+  const kind = (path: string) => screenName(path).split(' · ')[0];
+  const current = kind(pathname);
+  let at = here - 1;
+  while (at >= 0 && kind(visited[at].path) === current) at -= 1;
+  return at >= 0 ? { path: visited[at].path, steps: here - at } : null;
+}
+
 type Props = { fallbackTo: string; fallbackLabel: string };
 
 export default function BackLink({ fallbackTo, fallbackLabel }: Props) {
   const navigate = useNavigate();
   const location = useLocation();
   const visited = useSyncExternalStore(subscribe, snapshot, snapshot);
-  const here = visited.findIndex((entry) => entry.key === location.key);
-  const previous = here > 0 ? visited[here - 1] : null;
-  if (previous) {
+  const back = previousScreen(visited, location.key, location.pathname);
+  if (back) {
     return (
-      <button type="button" className="p2w-back" onClick={() => navigate(-1)}>
-        ← Back to {screenName(previous.path)}
+      <button type="button" className="p2w-back" onClick={() => navigate(-back.steps)}>
+        ← Back to {screenName(back.path)}
       </button>
     );
   }

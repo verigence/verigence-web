@@ -65,6 +65,8 @@
 .j360 .j360-sheet td.j360-opted-cell .j360-opted { justify-content: center; }
 .j360 .j360-opted small { font-size: .72rem; }
 .j360 .j360-sheet tr.is-excluded th, .j360 .j360-sheet tr.is-excluded td { opacity: .55; }
+.j360 .j360-sheet tr.is-part th { padding-left: 28px; font-weight: 500; }
+.j360 .j360-sheet tr.is-part td { color: var(--p2w-muted, #5b6b7b); }
 .j360 .j360-sheet tbody.is-excluded tr.is-total th, .j360 .j360-sheet tbody.is-excluded tr.is-total td { opacity: .55; }
 .j360 .j360-insurance-source { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin-left: 12px; font-weight: 600; letter-spacing: 0; text-transform: none; }
 .j360 .j360-insurance-source select, .j360 .j360-insurance-source input { min-height: 30px; padding: 2px 8px; border: 1px solid var(--p2w-line); border-radius: 6px; font: inherit; font-size: .82rem; }

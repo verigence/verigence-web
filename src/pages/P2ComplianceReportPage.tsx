@@ -4,6 +4,7 @@ import '../styles/uc03-p2.css';
 import '../styles/uc03-p2-workspace.css';
 import '../styles/uc03-p2-journey360.css';
 
+import BackLink from '../components/BackLink';
 import PageHeader from '../components/PageHeader';
 import { CONTROL_STATUS, FLAG_LABELS, money, signedMoney, varianceTone } from '../features/uc03-p2/journey360/j360Format';
 import { displayValue, formatDateTime, humanizeKey } from '../features/uc03-p2/workspace/p2Format';
@@ -36,6 +37,7 @@ export default function P2ComplianceReportPage() {
 
   return (
     <div className={`screen-stack p2-screen p2w j360 j360-report${r && r.review?.status !== 'REVIEWED' ? ' is-draft' : ''}`}>
+      <BackLink fallbackTo={`/p2/journeys/${journeyId}/overview`} fallbackLabel="Journey 360" />
       <PageHeader
         eyebrow="Compliance report"
         title={h.customerDisplayName ?? 'Compliance report'}

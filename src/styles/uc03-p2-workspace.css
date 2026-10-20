@@ -1008,3 +1008,28 @@
   max-height: 280px;
   overflow: auto;
 }
+
+/* "← Back to Journey 360" (BackLink) */
+.p2w-back {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin: 0 0 -6px;
+  padding: 4px 0;
+  border: 0;
+  background: none;
+  color: #1f6f8b;
+  font: inherit;
+  font-weight: 700;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.p2w-back:hover {
+  text-decoration: underline;
+}
+
+@media print {
+  .p2w-back { display: none; }
+}

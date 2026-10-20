@@ -373,7 +373,9 @@ export default function AppShell({ children }: PropsWithChildren) {
       ? {
           ...p2Group,
           items: [
-            p2BookingsItem,
+            // A Team Lead's Booking & Delivery is the TL overview (Dealer
+            // Operations), not the PC's working list (decision 2026-10-20).
+            role === 'TL' ? { ...p2BookingsItem, to: '/dashboard' } : p2BookingsItem,
             { ...p2TasksItem, badge: p2TaskCount },
             p2DuplicatesItem,
             ...(role === 'PC' ? [dailyOpsItem] : [p2DailyProcessingItem]),
@@ -386,7 +388,8 @@ export default function AppShell({ children }: PropsWithChildren) {
       { to: '/dashboard', label: 'Overview', mark: 'OV', roles: c0OperatingRoles },
     ];
     if (auditRole) {
-      workspaceItems.push(allJourneysItem);
+      // A Team Lead's bookings are the TL overview, already "Overview" here.
+      if (role !== 'TL') workspaceItems.push(allJourneysItem);
       workspaceItems.push(journeySearchItem);
     }
     if (role === 'PC') {

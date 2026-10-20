@@ -99,10 +99,12 @@ export default function P2JourneyListPage() {
       <section className="p2w-hero" aria-labelledby="p2w-hero-title">
         <div className="p2w-hero__top">
           <p className="p2w-hero__greet">{greeting()}, {firstName(displayName, email)}</p>
-          <Link className="p2w-hero__capture" to="/p2/journeys/new/documents">
-            <span aria-hidden="true">＋</span>
-            <span>Capture new booking</span>
-          </Link>
+          {role === 'PC' ? (
+            <Link className="p2w-hero__capture" to="/p2/journeys/new/documents">
+              <span aria-hidden="true">＋</span>
+              <span>Capture new booking</span>
+            </Link>
+          ) : null}
         </div>
         <h2 id="p2w-hero-title" className="p2w-hero__headline">
           {open.isLoading ? 'Loading your work…'

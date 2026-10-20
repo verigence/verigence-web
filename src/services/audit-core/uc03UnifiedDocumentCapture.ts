@@ -309,84 +309,9 @@ export async function resyncUnifiedCaptureV2(
   return result;
 }
 
-/**
- * Upload one or more files through the unified intake: create the merged
- * upload intents, PUT each file to its signed URL, then finalize each
- * document so DI proceeds to classify it. Call reconcileUnifiedDocuments
- * afterward (or let the page's own polling pick it up) to see where each
- * document landed.
- */
-export async function uploadUnifiedCaptureFiles(
-  tenantId: string,
-  journeyId: string,
-  files: File[],
-  accessToken?: string,
-): Promise<UnifiedUploadResult> {
-  if (!files.length) return { uploaded: 0, failed: 0, failureReasons: [] };
-  const access = token(accessToken);
-  const prepared = files.map((file) => ({
-    clientUploadId: clientUploadId(),
-    filename: file.name || 'document',
-    contentType: file.type || null,
-    file,
-  }));
-
-  const intent = await auditCoreRequest<UploadIntentResponse>(`${base(tenantId, journeyId)}/upload-intents`, {
-    method: 'POST',
-    accessToken: access,
-    timeoutMs: 30_000,
-    body: JSON.stringify({
-      files: prepared.map(({ clientUploadId: id, filename, contentType }) => ({
-        clientUploadId: id,
-        filename,
-        contentType,
-      })),
-    }),
-  });
-
-  const byClientId = new Map(prepared.map((item) => [item.clientUploadId, item]));
-  const byUploadClientId = new Map(prepared.map((item) => [item.clientUploadId, item.filename]));
-  let uploaded = 0;
-  // Seed with the intent step's own per-file failures (DI isolates each
-  // file on its own SAVEPOINT) -- these files never got a upload slot at
-  // all, so the worker below never sees them.
-  const failureReasons: string[] = (intent.failures ?? []).map(
-    (failure) => `${byUploadClientId.get(failure.clientUploadId) ?? failure.clientUploadId}: ${failure.detail}`,
-  );
-  let failed = failureReasons.length;
-  let nextIndex = 0;
-  const worker = async () => {
-    for (;;) {
-      const index = nextIndex++;
-      if (index >= intent.uploads.length) return;
-      const upload = intent.uploads[index];
-      const local = byClientId.get(upload.clientUploadId);
-      if (!local) {
-        failed += 1;
-        failureReasons.push(`${upload.clientUploadId}: This file could not be matched to what was uploaded.`);
-        continue;
-      }
-      try {
-        const headers = new Headers(upload.uploadHeaders);
-        if (local.file.type && !headers.has('Content-Type')) headers.set('Content-Type', local.file.type);
-        const put = await fetch(upload.uploadUrl, { method: 'PUT', headers, body: local.file });
-        if (!put.ok) throw new Error(`Upload failed with HTTP ${put.status}.`);
-        await auditCoreRequest<FinalizeResponse>(
-          `${base(tenantId, journeyId)}/${encodeURIComponent(upload.documentId)}/finalize`,
-          { method: 'POST', accessToken: access, timeoutMs: 30_000 },
-        );
-        uploaded += 1;
-      } catch (error) {
-        failed += 1;
-        const reason = error instanceof Error ? error.message : 'This file could not be uploaded.';
-        failureReasons.push(`${local.filename}: ${reason}`);
-      }
-    }
-  };
-  await Promise.all(Array.from({ length: Math.min(6, intent.uploads.length) }, () => worker()));
-  if (uploaded > 0) invalidateUnifiedCaptureReadState(tenantId, journeyId);
-  return { uploaded, failed, failureReasons };
-}
+// The whole-file upload (upload-intents + finalize) is gone (2026-10-20): it
+// sent a multi-document PDF to DI as ONE document, never split into pages.
+// Web uploads only through Booking & Delivery (uc03P2.ts uploads:init).
 
 /**
  * Re-runs classification-based dispatch for every document on this journey

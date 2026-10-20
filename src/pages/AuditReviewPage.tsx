@@ -354,7 +354,7 @@ function FlagCard({
       {flag.resolutionReason && <div className="uc03-c3-resolution"><strong>Resolution:</strong> {flag.resolutionReason}</div>}
 
       {isModelNotIdentified && (
-        <Link className="uc03-c3-take-action" to={`/journeys/${journeyId}/documents?selectSku=1`}>
+        <Link className="uc03-c3-take-action" to={`/p2/journeys/${journeyId}/documents?selectSku=1`}>
           Select SKU →
         </Link>
       )}
@@ -576,7 +576,7 @@ export default function AuditReviewPage() {
   // for PC reachable by a stale link or the back button, send them
   // straight to where their actual work is.
   if (project.operatingRole === 'PC') {
-    return <Navigate to={`/journeys/${journeyId}/overview`} replace />;
+    return <Navigate to={`/p2/journeys/${journeyId}/overview`} replace />;
   }
   const summary = summaryQuery.data;
 

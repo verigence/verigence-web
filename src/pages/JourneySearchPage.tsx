@@ -195,7 +195,7 @@ export default function JourneySearchPage() {
                   <div><span>Delivery</span><StatusPill value={item.deliveryStatus || 'NOT_STARTED'} compact /></div>
                 </div>
 
-                <Link className="journey-search-result__open" to={`/journeys/${item.journeyId}/overview`}>
+                <Link className="journey-search-result__open" to={`/p2/journeys/${item.journeyId}/overview`}>
                   View Journey <span aria-hidden="true">→</span>
                 </Link>
               </article>

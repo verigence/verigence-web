@@ -18,10 +18,9 @@ import AndroidNativeBridge from './native/AndroidNativeBridge';
 import { UC03_PRIMARY_WORK_QUEUE_SETTLED_EVENT } from './services/audit-core/uc03';
 import { useProjectContextStore } from './store/projectContextStore';
 import { useSessionStore } from './store/sessionStore';
+import { P2_NEW_BOOKING_PATH } from './features/uc03-p2/newBookingPath';
 
 const loadDashboardPage = () => import('./pages/DashboardPage');
-const loadBookingCaptureV2Page = () => import('./pages/BookingCaptureV2Page');
-const loadBookingDetailsV2Page = () => import('./pages/BookingDetailsV2Page');
 const loadAuditReviewPage = () => import('./pages/AuditReviewPage');
 
 const LoginPage = lazy(() => import('./pages/LoginPage'));
@@ -70,18 +69,13 @@ const OemMastersPage = lazy(() => import('./pages/AdminOemMastersPage'));
 const DiTestConsolePage = lazy(() => import('./pages/DiTestConsolePage'));
 const DocumentIntelligenceConfigurationPage = lazy(() => import('./pages/DocumentIntelligenceConfigurationPage'));
 const DashboardPage = lazy(loadDashboardPage);
-const PcOverviewPage = lazy(() => import('./pages/PcOverviewPage'));
 const TeamLeadDashboardPage = lazy(() => import('./pages/TeamLeadDashboardPage'));
 const TeamLeadReviewPage = lazy(() => import('./pages/TeamLeadReviewPage'));
-const BookingCaptureV2Page = lazy(loadBookingCaptureV2Page);
-const BookingDetailsV2Page = lazy(loadBookingDetailsV2Page);
 const AuditReviewPage = lazy(loadAuditReviewPage);
 const JourneySearchPage = lazy(() => import('./pages/JourneySearchPage'));
-const Journey360Page = lazy(() => import('./pages/Journey360Page'));
 const ComplianceReportPage = lazy(() => import('./pages/ComplianceReportPage'));
 const ReviewQueuePage = lazy(() => import('./pages/ReviewQueuePage'));
 const DuplicateBookingsPage = lazy(() => import('./pages/DuplicateBookingsPage'));
-const JourneyDocumentsPage = lazy(() => import('./pages/JourneyDocumentsPage'));
 const RuleCatalogPage = lazy(() => import('./pages/RuleCatalogPage'));
 const RuleAuthoringPage = lazy(() => import('./pages/RuleAuthoringPage'));
 const DailyOpsPage = lazy(() => import('./pages/DailyOpsPage'));
@@ -105,11 +99,9 @@ const P2ReviewActivityPage = lazy(() => import('./pages/P2ReviewActivityPage'));
 const routerBase = import.meta.env.BASE_URL === '/' ? undefined : import.meta.env.BASE_URL.replace(/\/$/, '');
 
 /*
- * ── PC Overview ───────────────────────────────────────────────────────────────
- * The Process Coordinator dashboard lives in ./pages/PcOverviewPage and is
- * documented under docs/uc-003-booking-delivery-audit/pc-overview-redesign/.
- * It ONLY serves the PC landing screen; Team Lead, PM and admin dashboards are
- * separate. (The old ?legacyDashboard=1 fallback to the Work Queue is removed.)
+ * ── PC home ───────────────────────────────────────────────────────────────────
+ * A PC's home is Booking & Delivery (/p2/bookings). The Phase 1 PC Overview
+ * page, with its own "Capture new booking", was removed on 2026-10-20.
  */
 
 function PcJourneyRoutePreloader() {
@@ -134,8 +126,6 @@ function PcJourneyRoutePreloader() {
       if (fallbackTimer !== undefined) window.clearTimeout(fallbackTimer);
       preloadTimer = window.setTimeout(() => {
         void Promise.allSettled([
-          loadBookingCaptureV2Page(),
-          loadBookingDetailsV2Page(),
           loadAuditReviewPage(),
         ]);
       }, 150);
@@ -206,8 +196,21 @@ function DashboardEntry() {
   const selectedProject = useProjectContextStore((state) => state.selectedProject);
   if (role === 'SUPER_ADMIN' && !selectedProject) return <PrivatePage><AdminLandingPage /></PrivatePage>;
   if (selectedProject?.operatingRole === 'TL') return <OperationalPage><TeamLeadDashboardPage /></OperationalPage>;
-  if (selectedProject?.operatingRole === 'PC') return <OperationalPage><PcOverviewPage /></OperationalPage>;
+  // A PC or PM works only on Booking & Delivery: the Phase 1 Overview (and its
+  // "Capture new booking") is never shown to them -- see P2DocumentsRedirect.
+  if (selectedProject?.operatingRole === 'PC' || selectedProject?.operatingRole === 'PM') {
+    return <Navigate to="/p2/bookings" replace />;
+  }
 
+  return <OperationalPage><DashboardPage /></OperationalPage>;
+}
+
+/** The Phase 1 work queue: PC, TL and PM use Booking & Delivery instead. */
+function WorkQueueEntry() {
+  const operatingRole = useProjectContextStore((state) => state.selectedProject?.operatingRole);
+  if (operatingRole === 'PC' || operatingRole === 'TL' || operatingRole === 'PM') {
+    return <Navigate to="/p2/bookings" replace />;
+  }
   return <OperationalPage><DashboardPage /></OperationalPage>;
 }
 
@@ -244,39 +247,25 @@ function HomeEntry() {
 }
 
 
-function V2JourneyRedirect({ target }: { target: 'BOOKING' | 'BOOKING_REVIEW' | 'DELIVERY' }) {
+/** The Phase 1 capture screens are gone (2026-10-20). Found live on 19 Oct:
+ * a PC reached the old Overview (Verigence logo / outlet switch / mobile
+ * bottom bar all pointed at /dashboard), pressed its "Capture new booking",
+ * and /v2/bookings/new created the Journey and uploaded a 5-page PDF as ONE
+ * document -- never split into pages, so its PAN and Aadhaar were never read
+ * and the customer was never named. Every old Booking / Delivery / Documents
+ * address now opens the one Booking & Delivery screen; there is no other
+ * place in Web that uploads. */
+function P2DocumentsRedirect() {
   const { journeyId = '' } = useParams();
-  if (!journeyId) return <Navigate to="/dashboard" replace />;
-  // BOOKING and BOOKING_REVIEW both land on the one unified Documents page.
-  // BookingCaptureV2WorkspacePage, BookingReviewV2Page, and (per the same
-  // unification) DeliveryCaptureV2WorkspacePage were all folded into
-  // JourneyDocumentsPage; no separate destination to render. DELIVERY still
-  // carries the autoStart param its former workspace's own auto-start side
-  // effect needs -- see JourneyDocumentsRedirect's own comment.
-  const path = target === 'DELIVERY'
-    ? `/journeys/${journeyId}/documents?autoStart=DELIVERY`
-    : `/journeys/${journeyId}/documents`;
-  return <Navigate to={path} replace />;
+  return <Navigate to={journeyId ? `/p2/journeys/${journeyId}/documents` : '/p2/bookings'} replace />;
 }
 
-/** /v2/bookings/:journeyId (an EXISTING Booking) used to render the capture
- * workspace directly; that screen's functionality now lives on
- * JourneyDocumentsPage, so this route is a plain redirect. /v2/bookings/new
- * (no journeyId yet) still renders BookingCaptureV2Page for the actual
- * creation step -- see its own docstring. /v2/deliveries/:journeyId used to
- * render DeliveryCaptureV2WorkspacePage the same way -- now folded into
- * JourneyDocumentsPage too, per the same unification. target="DELIVERY"
- * carries over that former workspace's one real side effect (auto-starting
- * Delivery the moment the page confirms it isn't started yet) via a query
- * param JourneyDocumentsPage itself reads -- see its own comment. */
-function JourneyDocumentsRedirect({ target }: { target?: 'DELIVERY' } = {}) {
+function P2OverviewRedirect() {
   const { journeyId = '' } = useParams();
-  if (!journeyId) return <Navigate to="/dashboard" replace />;
-  const path = target === 'DELIVERY'
-    ? `/journeys/${journeyId}/documents?autoStart=DELIVERY`
-    : `/journeys/${journeyId}/documents`;
-  return <Navigate to={path} replace />;
+  return <Navigate to={journeyId ? `/p2/journeys/${journeyId}/overview` : '/p2/bookings'} replace />;
 }
+
+
 
 function Loading() {
   return <div className="app-loading"><img src={verigenceLockup} alt="Verigence" /><span>Loading Verigence…</span></div>;
@@ -321,27 +310,23 @@ export default function App() {
                   Work Queue table directly for every operating role (PC, TL, PM),
                   independent of DashboardEntry's Overview role-branching (which
                   would otherwise always send TL to TeamLeadDashboardPage). */}
-              <Route path="/work-queue" element={<OperationalPage><DashboardPage /></OperationalPage>} />
+              <Route path="/work-queue" element={<Authenticated><ProjectContextGate><WorkQueueEntry /></ProjectContextGate></Authenticated>} />
               <Route path="/search" element={<OperationalPage><JourneySearchPage /></OperationalPage>} />
-              <Route path="/journeys/:journeyId/overview" element={<OperationalPage><Journey360Page /></OperationalPage>} />
-              <Route path="/journeys/:journeyId/documents" element={<OperationalPage><JourneyDocumentsPage /></OperationalPage>} />
+              {/* Old Phase 1 journey addresses (bookmarks, history, old links)
+                  all open the Booking & Delivery screens -- see P2DocumentsRedirect. */}
+              <Route path="/journeys/:journeyId/overview" element={<P2OverviewRedirect />} />
+              <Route path="/journeys/:journeyId/documents" element={<P2DocumentsRedirect />} />
               <Route path="/journeys/:journeyId/compliance-report" element={<OperationalPage><ComplianceReportPage /></OperationalPage>} />
               <Route path="/tl/cases/:journeyId/review" element={<OperationalPage><TeamLeadReviewPage /></OperationalPage>} />
-              <Route path="/bookings/:journeyId" element={<V2JourneyRedirect target="BOOKING" />} />
-              <Route path="/bookings/:journeyId/review" element={<V2JourneyRedirect target="BOOKING_REVIEW" />} />
-              {/* /new creates the Journey then hands off to JourneyDocumentsPage
-                  (see BookingCaptureV2WorkspacePage's own docstring); an
-                  EXISTING Booking now redirects straight there too -- its
-                  former workspace UI was folded in. */}
-              <Route path="/v2/bookings/new" element={<OperationalPage><BookingCaptureV2Page /></OperationalPage>} />
-              <Route path="/v2/bookings/:journeyId" element={<JourneyDocumentsRedirect />} />
-              <Route path="/v2/bookings/:journeyId/details" element={<OperationalPage><BookingDetailsV2Page /></OperationalPage>} />
-              <Route path="/v2/bookings/:journeyId/review" element={<JourneyDocumentsRedirect />} />
-              <Route path="/deliveries/:journeyId" element={<V2JourneyRedirect target="DELIVERY" />} />
-              <Route path="/v2/deliveries/:journeyId" element={<JourneyDocumentsRedirect target="DELIVERY" />} />
-              {/* Delivery review routes redirect to JourneyDocumentsPage
-                  (was never reachable in production). */}
-              <Route path="/v2/deliveries/:journeyId/review" element={<JourneyDocumentsRedirect />} />
+              <Route path="/bookings/:journeyId" element={<P2DocumentsRedirect />} />
+              <Route path="/bookings/:journeyId/review" element={<P2DocumentsRedirect />} />
+              <Route path="/v2/bookings/new" element={<Navigate to={P2_NEW_BOOKING_PATH} replace />} />
+              <Route path="/v2/bookings/:journeyId" element={<P2DocumentsRedirect />} />
+              <Route path="/v2/bookings/:journeyId/details" element={<P2OverviewRedirect />} />
+              <Route path="/v2/bookings/:journeyId/review" element={<P2DocumentsRedirect />} />
+              <Route path="/deliveries/:journeyId" element={<P2DocumentsRedirect />} />
+              <Route path="/v2/deliveries/:journeyId" element={<P2DocumentsRedirect />} />
+              <Route path="/v2/deliveries/:journeyId/review" element={<P2DocumentsRedirect />} />
               <Route path="/audit/:journeyId" element={<OperationalPage><AuditReviewPage /></OperationalPage>} />
               <Route path="/feedback" element={<Navigate to="/hr/support" replace />} />
               <Route path="/reviews" element={<OperationalPage><ReviewQueuePage /></OperationalPage>} />
@@ -415,7 +400,7 @@ export default function App() {
               <Route path="/hr/support" element={<PrivatePage><HrSupportPage /></PrivatePage>} />
               <Route path="/hr/support/new" element={<PrivatePage><HrSupportNewPage /></PrivatePage>} />
               <Route path="/hr/support/:ticketId" element={<PrivatePage><HrSupportTicketPage /></PrivatePage>} />
-              <Route path="/workspace" element={<Navigate to="/dashboard" replace />} />
+              <Route path="/workspace" element={<Navigate to="/home" replace />} />
               <Route path="/" element={<Navigate to="/login" replace />} />
               <Route path="*" element={<Navigate to="/home" replace />} />
             </Routes>

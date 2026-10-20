@@ -130,7 +130,7 @@ export default function ReviewReadinessWatcher() {
       className="user-menu-button"
       aria-label={`${ready.length} Booking review${ready.length === 1 ? '' : 's'} ready`}
       title={ready.length === 1 ? `${first.label} is ready for review` : `${ready.length} Bookings are ready for review`}
-      onClick={() => navigate(`/bookings/${first.journeyId}/review`)}
+      onClick={() => navigate(`/p2/journeys/${first.journeyId}/documents`)}
       style={{ position: 'fixed', top: '76px', right: '24px', zIndex: 80, boxShadow: '0 10px 30px rgba(15,23,42,.18)' }}
     >
       🔔 {ready.length} Review ready

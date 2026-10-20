@@ -189,7 +189,7 @@ export default function ComplianceReportPage() {
   return (
     <div className="screen-stack crpt-page">
       <div className="crpt-actionbar">
-        <Link to={`/v2/bookings/${journeyId}/details`} className="crpt-back">← Back to Journey</Link>
+        <Link to={`/p2/journeys/${journeyId}/overview`} className="crpt-back">← Back to Journey</Link>
         {reportQuery.data && (
           <span className="crpt-live-note">Live as of {timeLabel(reportQuery.data.generatedAtUtc)} · never frozen</span>
         )}

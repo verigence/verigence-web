@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { Fragment, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import '../styles/uc03-p2.css';
@@ -12,6 +12,7 @@ import {
   getP2DailyProcessingReport,
   type P2DailyCounts,
   type P2DailyJourneyRow,
+  type P2DailyPcRow,
 } from '../services/audit-core/uc03P2';
 import { useProjectContextStore } from '../store/projectContextStore';
 import { useSessionStore } from '../store/sessionStore';
@@ -38,6 +39,13 @@ function duration(minutes: number | null): string {
 
 function pcLabel(name: string | null, actorId: string | null): string {
   return name?.trim() || (actorId ? `PC ••••${actorId.replace(/[^a-zA-Z0-9]/g, '').slice(-6)}` : 'PC not recorded');
+}
+
+function uploadSummary(pcs: P2DailyPcRow[], day: string): string {
+  const uploaded = pcs.filter((pc) => pc.journeysUploaded > 0).length;
+  const others = pcs.length - uploaded;
+  const head = `${uploaded} PC${uploaded === 1 ? '' : 's'} uploaded on ${day}`;
+  return others ? `${head} · ${others} more with only system activity on earlier journeys` : head;
 }
 
 /** The figures every row shows, PC summary and journey alike. */
@@ -77,10 +85,10 @@ const HEAD = (
 function JourneyLine({ row, timezone }: { row: P2DailyJourneyRow; timezone: string }) {
   const customer = customerLabel(row.customerName);
   return (
-    <tr>
+    <tr className={row.uploadStartedAt ? undefined : 'p2dr-earlier'}>
       <td data-label="Journey">
         <Link to={`/p2/journeys/${row.journeyId}/overview`} className={customer.known ? undefined : 'is-unknown'}>{customer.text}</Link>
-        <span className="p2w-muted">{row.outletName}{row.outletCode ? ` · ${row.outletCode}` : ''}</span>
+        <span className="p2w-muted p2dr-sub">{row.outletName}{row.outletCode ? ` · ${row.outletCode}` : ''}</span>
       </td>
       <td data-label="PC">{pcLabel(row.pcName, row.pcActorId)}</td>
       <td data-label="Start · finish">{time(row.uploadStartedAt, timezone)} · {row.uploadStartedAt ? time(row.processingFinishedAt, timezone) : '—'}</td>
@@ -136,7 +144,7 @@ export default function P2DailyProcessingReportPage() {
           <SectionCard>
             <div className="p2w-card__title">
               <h3>By PC</h3>
-              <p className="p2w-muted">{data.pcs.length ? `${data.pcs.length} PC${data.pcs.length === 1 ? '' : 's'} active on ${data.day}` : `Nothing happened on ${data.day}.`}</p>
+              <p className="p2w-muted">{data.pcs.length ? uploadSummary(data.pcs, data.day) : `Nothing happened on ${data.day}.`}</p>
             </div>
             {data.pcs.length ? (
               <div className="p2dr-scroll">
@@ -153,16 +161,27 @@ export default function P2DailyProcessingReportPage() {
                   </thead>
                   <tbody>
                     {data.pcs.map((pc) => (
-                      <tr key={pc.pcActorId ?? 'none'}>
-                        <td data-label="PC"><strong>{pcLabel(pc.pcName, pc.pcActorId)}</strong>
-                          {pc.journeys > pc.journeysUploaded ? <span className="p2w-muted">{pc.journeys - pc.journeysUploaded} more with activity</span> : null}
-                        </td>
-                        <td data-label="Journeys uploaded">{pc.journeysUploaded}</td>
-                        <td data-label="Pages / journey">{pc.pagesPerJourney ?? '—'}</td>
-                        <td data-label="First upload · last finish">{time(pc.firstUploadAt, timezone)} · {time(pc.lastFinishedAt, timezone)}</td>
-                        <td data-label="Total time">{pc.stillProcessing ? `${pc.stillProcessing} still processing` : duration(pc.spanMinutes)}</td>
-                        <CountCells row={pc} />
-                      </tr>
+                      <Fragment key={pc.pcActorId ?? 'none'}>
+                        <tr>
+                          <td data-label="PC"><strong>{pcLabel(pc.pcName, pc.pcActorId)}</strong>
+                            {!pc.journeysUploaded ? <span className="p2w-muted p2dr-sub">No upload on this day</span> : null}
+                          </td>
+                          <td data-label="Journeys uploaded">{pc.journeysUploaded}</td>
+                          <td data-label="Pages / journey">{pc.pagesPerJourney ?? '—'}</td>
+                          <td data-label="First upload · last finish">{time(pc.firstUploadAt, timezone)} · {time(pc.lastFinishedAt, timezone)}</td>
+                          <td data-label="Total time">{pc.stillProcessing ? `${pc.stillProcessing} still processing` : duration(pc.spanMinutes)}</td>
+                          <CountCells row={pc} />
+                        </tr>
+                        {pc.earlier?.journeys ? (
+                          <tr className="p2dr-earlier">
+                            <td data-label="Earlier journeys" colSpan={5}>
+                              Earlier journeys: {pc.earlier.journeys}
+                              <span className="p2w-muted p2dr-sub">Not uploaded on this day; tasks and fixes from the system's own re-checks</span>
+                            </td>
+                            <CountCells row={pc.earlier} />
+                          </tr>
+                        ) : null}
+                      </Fragment>
                     ))}
                   </tbody>
                 </table>

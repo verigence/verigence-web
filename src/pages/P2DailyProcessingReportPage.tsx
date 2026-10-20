@@ -59,6 +59,13 @@ function reasonText(reasons: P2RejectionReasons): string {
   return REASON_LABELS.filter(([key]) => reasons[key]).map(([key, label]) => `${reasons[key]} ${label}`).join(', ');
 }
 
+/** " of 20 (10%)": the row's rejections against the documents its uploads became. */
+function rejectionRate(row: P2DailyCounts): string {
+  const d = row.documents;
+  const total = d.extracted + d.readNoValues + d.notRead + d.waiting + d.failed;
+  return total ? ` of ${total} (${Math.round((1000 * d.rejectedScans) / total) / 10}%)` : '';
+}
+
 function pct(value: number | null | undefined): string {
   return value === null || value === undefined ? '—' : `${value}%`;
 }
@@ -114,7 +121,7 @@ function CountCells({ row }: { row: P2DailyCounts }) {
       <td data-label="Read correctly"><strong>{d.extracted}</strong></td>
       <td data-label="Waiting" className={d.waiting ? 'p2dr-warn' : undefined}>{d.waiting}</td>
       <td data-label="Rejected at upload" className={d.rejectedScans ? 'p2dr-bad' : undefined}>
-        {d.rejectedScans}{d.rejectedScans && row.rejections ? <span className="p2w-muted"> ({reasonText(row.rejections)})</span> : null}
+        {d.rejectedScans}{rejectionRate(row)}{d.rejectedScans && row.rejections ? <span className="p2w-muted"> ({reasonText(row.rejections)})</span> : null}
       </td>
       <td data-label="Failed (other)" className={d.failed - d.rejectedScans ? 'p2dr-bad' : undefined}>{d.failed - d.rejectedScans}</td>
       <td data-label="Not read · no values">{d.notRead} · {d.readNoValues}</td>

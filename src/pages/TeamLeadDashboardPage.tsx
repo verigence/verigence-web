@@ -255,16 +255,16 @@ function CaseRow({ item, p2, timezoneName }: { item: TlSupervisoryCase; p2?: P2J
       {expanded && (
         <div className="uc03-tl-case__details">
           <div>
-            <span>Booking submitted</span>
-            <strong>{formatDateTime(item.bookingSubmittedAtUtc, timezoneName)}</strong>
+            <span>PC uploaded</span>
+            <strong>{uploadWindow(item.pcFirstUploadAtUtc, item.pcLastUploadAtUtc, timezoneName)}</strong>
           </div>
           <div>
             <span>Booking business date</span>
             <strong>{item.bookingBusinessDate || 'Not recorded'}</strong>
           </div>
           <div>
-            <span>Delivery business date</span>
-            <strong>{item.deliveryBusinessDate || 'Not started'}</strong>
+            <span>Delivered on</span>
+            <strong>{item.deliveryBusinessDate || 'Not delivered yet'}</strong>
           </div>
           <div>
             <span>Latest activity</span>
@@ -277,6 +277,17 @@ function CaseRow({ item, p2, timezoneName }: { item: TlSupervisoryCase; p2?: P2J
           <div>
             <span>Responsible PC reference</span>
             <strong>{item.responsiblePcName || item.responsiblePcActorId || 'Not recorded'}</strong>
+          </div>
+          <div>
+            <span>Audit times (system)</span>
+            <strong>
+              {item.auditBookingCompleteAtUtc
+                ? `Booking checks passed ${formatDateTime(item.auditBookingCompleteAtUtc, timezoneName)}`
+                : 'Booking checks not passed yet'}
+            </strong>
+            {item.auditDeliveryStartedAtUtc ? (
+              <small>Delivery checks started {formatDateTime(item.auditDeliveryStartedAtUtc, timezoneName)}</small>
+            ) : null}
           </div>
           <div className="uc03-tl-case__review-action">
             <span>TL action</span>
@@ -295,6 +306,14 @@ function CaseRow({ item, p2, timezoneName }: { item: TlSupervisoryCase; p2?: P2J
       )}
     </article>
   );
+}
+
+/** First and last upload by the PC, as one line ("19 Oct, 2:33 pm – 7:15 pm"). */
+function uploadWindow(first: string | null | undefined, last: string | null | undefined, timezoneName: string): string {
+  if (!first) return 'Nothing uploaded yet';
+  const start = formatDateTime(first, timezoneName);
+  if (!last || last === first) return start;
+  return `${start} – ${formatDateTime(last, timezoneName)}`;
 }
 
 export default function TeamLeadDashboardPage() {

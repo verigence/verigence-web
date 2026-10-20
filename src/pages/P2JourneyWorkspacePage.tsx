@@ -30,7 +30,9 @@ import {
   createP2Journey,
   deleteP2Document,
   getP2Documents,
+  getP2OldScreenDocuments,
   getP2Templates,
+  splitP2OldScreenDocument,
   p2UploadTransport,
   replaceP2Document,
   rereadP2Page,
@@ -118,6 +120,23 @@ export default function P2JourneyWorkspacePage() {
     queryFn: () => getP2Documents(tenantId!, journeyId, accessToken),
     enabled,
     staleTime: 3_000,
+  });
+  // A file uploaded through the old capture screen went to DI as ONE
+  // document; it can be split into pages here without uploading it again.
+  const oldScreen = useQuery({
+    queryKey: ['p2-old-screen-documents', tenantId, journeyId],
+    queryFn: () => getP2OldScreenDocuments(tenantId!, journeyId, accessToken),
+    enabled,
+    staleTime: 30_000,
+  });
+  const splitOldScreen = useMutation({
+    mutationFn: (documentId: string) => splitP2OldScreenDocument(tenantId!, journeyId, documentId, accessToken),
+    onSuccess: () => {
+      setNotice({ tone: 'success', text: 'The file is being split into pages and read page by page. Nothing needs to be uploaded again.' });
+      void queryClient.invalidateQueries({ queryKey: ['p2-old-screen-documents', tenantId, journeyId] });
+      refresh();
+    },
+    onError: (cause) => setNotice({ tone: 'error', text: errorText(cause, 'The file could not be split into pages.') }),
   });
   const templates = useQuery({
     queryKey: ['p2-templates', tenantId],
@@ -405,7 +424,21 @@ export default function P2JourneyWorkspacePage() {
             </div>
           ) : null}
           {tenantId ? (
-            <P2UploadPanel ref={uploadPanel} journeyId={journeyId || undefined} getTransport={getTransport} onAccepted={refresh} />
+            <>
+              {(oldScreen.data?.documents ?? []).map((doc) => (
+                <div key={doc.documentId} className="p2w-alert" role="status">
+                  <span>
+                    <strong>{doc.filename || 'A file'}</strong> came in through the old screen and was read as one document,
+                    so only one page was read. Split it into pages to read every page.
+                  </span>
+                  <button type="button" className="p2w-button p2w-button--primary" disabled={splitOldScreen.isPending}
+                    onClick={() => splitOldScreen.mutate(doc.documentId)}>
+                    {splitOldScreen.isPending ? 'Splitting…' : 'Split into pages'}
+                  </button>
+                </div>
+              ))}
+              <P2UploadPanel ref={uploadPanel} journeyId={journeyId || undefined} getTransport={getTransport} onAccepted={refresh} />
+            </>
           ) : null}
           {!isNew && documents.isLoading ? <div className="p2w-skeleton" aria-busy="true">Loading documents…</div> : (
             <P2DocumentList

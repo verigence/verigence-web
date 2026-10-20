@@ -17,7 +17,14 @@ export interface TlSupervisoryCase {
   bookingSubmittedAtUtc: string | null;
   pcVerificationStatus: string | null;
   deliveryBusinessStatus: string | null;
+  /** The vehicle's delivery date (actual / gate pass), not the audit's. */
   deliveryBusinessDate: string | null;
+  /** When the PC uploaded: first and last upload. */
+  pcFirstUploadAtUtc?: string | null;
+  pcLastUploadAtUtc?: string | null;
+  /** Audit times: Booking checks passed, Delivery checks started. */
+  auditBookingCompleteAtUtc?: string | null;
+  auditDeliveryStartedAtUtc?: string | null;
   responsiblePcActorId: string | null;
   responsiblePcName?: string | null;
   openFlagCount: number;

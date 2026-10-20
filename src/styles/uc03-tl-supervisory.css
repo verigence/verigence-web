@@ -582,3 +582,8 @@
     grid-column: 2;
   }
 }
+
+.uc03-tl-case__details small {
+  color: #7a898f;
+  font-size: 0.72rem;
+}

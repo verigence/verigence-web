@@ -132,6 +132,15 @@ const p2TasksItem: NavItem = {
   roles: ['PC', 'TL', 'PM'],
 };
 
+// How the system handled each PC's day: uploads, pages, documents read and
+// waiting, time taken, re-attempts, re-syncs and night corrections.
+const p2DailyProcessingItem: NavItem = {
+  to: '/p2/reports/daily',
+  label: 'Daily processing',
+  mark: 'AT',
+  roles: ['TL', 'PM', 'EXECUTIVE'],
+};
+
 const p2DuplicatesItem: NavItem = {
   to: '/p2/duplicate-bookings',
   label: 'Duplicate bookings',
@@ -224,7 +233,7 @@ const routeLabels: Record<string, string> = {
   '/feedback': 'Feedback & Support', '/hr/support': 'Feedback & Support', '/hr/support/new': 'Raise a ticket',
   '/reviews': 'Task Queue', '/duplicate-bookings': 'Duplicate Bookings', '/rule-catalog': 'Rule Catalog', '/rule-catalog/new': 'Author a Rule', '/findings': 'Findings',
   '/daily-ops': 'Daily Operations',
-  '/analytics': 'Analytics', '/p2/bookings': 'Booking & Delivery', '/p2/tasks': 'Task Queue', '/p2/duplicate-bookings': 'Duplicate bookings', '/admin/document-intelligence': 'Document Intelligence Configuration',
+  '/analytics': 'Analytics', '/p2/bookings': 'Booking & Delivery', '/p2/tasks': 'Task Queue', '/p2/duplicate-bookings': 'Duplicate bookings', '/p2/reports/daily': 'Daily processing', '/admin/document-intelligence': 'Document Intelligence Configuration',
   '/admin/housekeeping': 'Housekeeping', '/admin/sku-resolution': 'SKU Resolution', '/admin/hr-housekeeping': 'HR Housekeeping', '/admin/feedback': 'User Feedback', '/admin/di-test': 'DI Test Console', '/admin/users': 'Users', '/admin/features': 'Feature Rollout', '/admin/announcements': 'Announcements', '/admin/diagnostics': 'Device Diagnostics', '/admin/login-activity': 'Login Activity',
   '/admin/users/pending': 'Pending Approvals',
   '/admin/oem-masters': 'OEM Masters', '/admin/project': 'Project Administration', '/profile': 'Profile',
@@ -367,10 +376,12 @@ export default function AppShell({ children }: PropsWithChildren) {
             p2BookingsItem,
             { ...p2TasksItem, badge: p2TaskCount },
             p2DuplicatesItem,
-            ...(role === 'PC' ? [dailyOpsItem] : []),
+            ...(role === 'PC' ? [dailyOpsItem] : [p2DailyProcessingItem]),
           ],
         }
-      : null;
+      : role === 'EXECUTIVE'
+        ? { ...p2Group, items: [p2DailyProcessingItem] }
+        : null;
     const workspaceItems: NavItem[] = [
       { to: '/dashboard', label: 'Overview', mark: 'OV', roles: c0OperatingRoles },
     ];

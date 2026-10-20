@@ -1345,3 +1345,64 @@ type P2Timeline = {
   roles: Array<{ role: string; tasks: number; open: number; avgHoursToClose: number | null; totalHours: number }>;
   workflowEvents: Array<{ stage_code: string; event_type: string; source_kind: string; actor_role_snapshot?: string | null; occurred_at_utc: string }>;
 };
+
+
+/** Per-journey (and per-PC) figures for one day of the daily processing report. */
+export type P2DailyCounts = {
+  files: number;
+  pages: number;
+  duplicateFiles: number;
+  documents: { extracted: number; readNoValues: number; notRead: number; waiting: number; failed: number; rejectedScans: number };
+  tasksOpened: number;
+  tasksOpenedPc: number;
+  tasksOpenedTl: number;
+  tasksReopened: number;
+  autoRetries: number;
+  retriesExhausted: number;
+  pcRetries: number;
+  readAgain: number;
+  resyncs: number;
+  nightRequests: number;
+  nightFixed: number;
+};
+
+export type P2DailyJourneyRow = P2DailyCounts & {
+  journeyId: string;
+  customerName: string | null;
+  outletName: string | null;
+  outletCode: string | null;
+  dealerName: string | null;
+  pcActorId: string | null;
+  pcName: string | null;
+  uploadStartedAt: string | null;
+  processingFinishedAt: string | null;
+  processingMinutes: number | null;
+};
+
+export type P2DailyPcRow = P2DailyCounts & {
+  pcActorId: string | null;
+  pcName: string | null;
+  journeys: number;
+  journeysUploaded: number;
+  pagesPerJourney: number | null;
+  firstUploadAt: string | null;
+  lastFinishedAt: string | null;
+  stillProcessing: number;
+  spanMinutes: number | null;
+};
+
+export type P2DailyProcessingReport = {
+  day: string;
+  timezone: string;
+  pcs: P2DailyPcRow[];
+  journeys: P2DailyJourneyRow[];
+  notes: string[];
+};
+
+/** GET /p2/v1/tenants/{t}/reports/daily-processing?day=YYYY-MM-DD (TL, PM, Executive). */
+export function getP2DailyProcessingReport(tenantId: string, day: string, accessToken?: string) {
+  return auditCoreRequest<P2DailyProcessingReport>(
+    `${path(tenantId, '/reports/daily-processing')}?day=${encodeURIComponent(day)}`,
+    { accessToken, timeoutMs: LIST_READ_TIMEOUT_MS },
+  );
+}

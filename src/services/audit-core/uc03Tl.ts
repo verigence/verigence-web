@@ -1,6 +1,6 @@
 import { auditCoreRequest } from './client';
 
-export type TlBusinessStage = 'BOOKING_SUBMITTED' | 'DELIVERY_IN_PROGRESS' | 'DELIVERY_COMPLETED';
+export type TlBusinessStage = 'BOOKING_IN_PROGRESS' | 'BOOKING_SUBMITTED' | 'DELIVERY_IN_PROGRESS' | 'DELIVERY_COMPLETED';
 
 export interface TlSupervisoryCase {
   journeyId: string;
@@ -23,6 +23,8 @@ export interface TlSupervisoryCase {
   openFlagCount: number;
   highestOpenSeverity: string | null;
   latestActivityAtUtc: string;
+  /** False while the journey is still with the PC (not submitted). Absent from an older Audit Core: submitted. */
+  submitted?: boolean;
 }
 
 interface TlSupervisoryCasePage {
@@ -180,6 +182,7 @@ export function requestTlDocumentReupload(
 }
 
 export function tlBusinessStage(item: TlSupervisoryCase): TlBusinessStage {
+  if (item.submitted === false) return 'BOOKING_IN_PROGRESS';
   const delivery = (item.deliveryBusinessStatus || '').trim().toUpperCase();
   if (
     delivery.includes('DELIVERED')

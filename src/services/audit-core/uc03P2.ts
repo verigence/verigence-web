@@ -906,6 +906,9 @@ export type P2DealRow = {
   opted?: P2DealOpted | null;
   /** Insurance the customer arranged (Self): shown, kept out of every total. */
   excluded?: boolean;
+  /** Road tax / Registration: the breakdown of "Road tax + registration",
+   * which alone is compared and counted. */
+  partOf?: string | null;
   standard: Money;
   booking: Money;
   billed: Money;

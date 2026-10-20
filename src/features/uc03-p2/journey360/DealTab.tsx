@@ -279,11 +279,12 @@ const SHEET_COLUMNS = 6;
 function ComponentRow({ row, journeyId, open, onToggle }: { row: P2DealRow; journeyId: string; open: boolean; onToggle: () => void }) {
   return (
     <Fragment>
-      <tr className={`${row.flags.length ? 'is-flagged' : ''}${row.excluded ? ' is-excluded' : ''}`}>
+      <tr className={`${row.flags.length ? 'is-flagged' : ''}${row.excluded ? ' is-excluded' : ''}${row.partOf ? ' is-part' : ''}`}>
         <th scope="row">
           <button type="button" className="j360-rowbtn" aria-expanded={open} onClick={onToggle}>
             <span>{row.label}</span>
             {row.excluded ? <small className="p2w-muted">Self insurance, not in the deal</small> : null}
+            {row.partOf ? <small className="p2w-muted">Included in the line above</small> : null}
             <Flags flags={row.flags} />
           </button>
         </th>

@@ -481,7 +481,7 @@ export default function AppShell({ children }: PropsWithChildren) {
   const handleSwitchProject = () => {
     clearOperationalProject(queryClient);
     setMobileMenuOpen(false);
-    navigate('/home', { replace: true });
+    navigate('/dashboard', { replace: true });
   };
 
   // A Process Coordinator works a Dealership with one or more Outlets under it,
@@ -525,7 +525,7 @@ export default function AppShell({ children }: PropsWithChildren) {
     // one, and clears the Tenant-scoped caches once rather than twice.
     selectOperationalOutlet(choice.project, choice.outlet, queryClient);
     setMobileMenuOpen(false);
-    navigate('/home', { replace: true });
+    navigate('/dashboard', { replace: true });
   };
   const showLandingSearch = (location.pathname === '/dashboard' || location.pathname === '/work-queue')
     && !createBookingMode
@@ -618,7 +618,7 @@ export default function AppShell({ children }: PropsWithChildren) {
       <header className="enterprise-topbar enterprise-topbar--global">
         <div className="enterprise-topbar__start">
           <button type="button" className="enterprise-menu-button" aria-label="Open navigation" aria-expanded={mobileMenuOpen} onClick={() => setMobileMenuOpen(true)}><span aria-hidden="true">☰</span></button>
-          <NavLink className="enterprise-global-brand" to="/home" aria-label="Verigence home" onClick={() => setMobileMenuOpen(false)}><img src={verigenceLockup} alt="Verigence" /></NavLink>
+          <NavLink className="enterprise-global-brand" to="/dashboard" aria-label="Verigence home" onClick={() => setMobileMenuOpen(false)}><img src={verigenceLockup} alt="Verigence" /></NavLink>
           <div className="enterprise-topbar__trail"><strong>{currentLabel}</strong></div>
         </div>
         <div className="enterprise-topbar__actions">
@@ -736,7 +736,7 @@ export default function AppShell({ children }: PropsWithChildren) {
         <nav className="enterprise-bottom-nav" aria-label="Quick navigation">
           {bottomNavItems.length > 0 && (
             <NavLink
-              to="/home"
+              to="/dashboard"
               className={`enterprise-bottom-nav__item${
                 (location.pathname === '/dashboard' || location.pathname === P2_HOME_PATH) && !createBookingMode
                   ? ' enterprise-bottom-nav__item--active'

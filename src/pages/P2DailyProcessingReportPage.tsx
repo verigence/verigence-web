@@ -1,4 +1,4 @@
-import { Fragment, useState } from 'react';
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import '../styles/uc03-p2.css';
@@ -44,26 +44,12 @@ function pcLabel(name: string | null, actorId: string | null): string {
   return name?.trim() || (actorId ? `PC ••••${actorId.replace(/[^a-zA-Z0-9]/g, '').slice(-6)}` : 'PC not recorded');
 }
 
-function uploadSummary(pcs: P2DailyPcRow[], day: string): string {
-  const uploaded = pcs.filter((pc) => pc.journeysUploaded > 0).length;
-  const others = pcs.length - uploaded;
-  const head = `${uploaded} PC${uploaded === 1 ? '' : 's'} uploaded on ${day}`;
-  return others ? `${head} · ${others} more with only system activity on earlier journeys` : head;
-}
-
 const REASON_LABELS: [keyof P2RejectionReasons, string][] = [
   ['faded', 'faded'], ['blurred', 'blurred'], ['tooSmall', 'too small'], ['unreadable', 'unreadable'], ['other', 'other'],
 ];
 
 function reasonText(reasons: P2RejectionReasons): string {
   return REASON_LABELS.filter(([key]) => reasons[key]).map(([key, label]) => `${reasons[key]} ${label}`).join(', ');
-}
-
-/** " of 20 (10%)": the row's rejections against the documents its uploads became. */
-function rejectionRate(row: P2DailyCounts): string {
-  const d = row.documents;
-  const total = d.extracted + d.readNoValues + d.notRead + d.waiting + d.failed;
-  return total ? ` of ${total} (${Math.round((1000 * d.rejectedScans) / total) / 10}%)` : '';
 }
 
 function pct(value: number | null | undefined): string {
@@ -112,55 +98,138 @@ function QualityCard({ quality, trend, day }: { quality: P2DailyQuality; trend: 
   );
 }
 
-/** The figures every row shows, PC summary and journey alike. */
-function CountCells({ row }: { row: P2DailyCounts }) {
+/** Field-by-field sum of several rows' counts. */
+function sumCounts(rows: P2DailyCounts[]): P2DailyCounts {
+  const zero = (): P2DailyCounts => ({
+    files: 0, pages: 0, duplicateFiles: 0,
+    documents: { extracted: 0, readNoValues: 0, notRead: 0, waiting: 0, failed: 0, rejectedScans: 0 },
+    rejections: { faded: 0, blurred: 0, tooSmall: 0, unreadable: 0, other: 0 },
+    tasksOpened: 0, tasksOpenedPc: 0, tasksOpenedTl: 0, tasksReopened: 0, autoRetries: 0, retriesExhausted: 0,
+    pcRetries: 0, readAgain: 0, resyncs: 0, nightRequests: 0, nightFixed: 0,
+  });
+  return rows.reduce<P2DailyCounts>((acc, row) => {
+    const out = { ...acc, documents: { ...acc.documents }, rejections: { ...acc.rejections! } };
+    for (const key of ['files', 'pages', 'duplicateFiles', 'tasksOpened', 'tasksOpenedPc', 'tasksOpenedTl', 'tasksReopened',
+      'autoRetries', 'retriesExhausted', 'pcRetries', 'readAgain', 'resyncs', 'nightRequests', 'nightFixed'] as const) {
+      out[key] += row[key] ?? 0;
+    }
+    for (const key of Object.keys(out.documents) as (keyof P2DailyCounts['documents'])[]) out.documents[key] += row.documents[key] ?? 0;
+    for (const key of Object.keys(out.rejections) as (keyof P2RejectionReasons)[]) out.rejections[key] += row.rejections?.[key] ?? 0;
+    return out;
+  }, zero());
+}
+
+/**
+ * What the day's pages became, so each row adds up: every document an
+ * upload produced is read, needs a look (read with no values, or not read),
+ * rejected at upload, failed, or still waiting.
+ */
+function outcome(row: P2DailyCounts) {
   const d = row.documents;
+  const failed = Math.max(0, d.failed - d.rejectedScans);
+  const needsLook = d.notRead + d.readNoValues;
+  return { read: d.extracted, needsLook, rejected: d.rejectedScans, failed, waiting: d.waiting,
+    documents: d.extracted + needsLook + d.rejectedScans + failed + d.waiting };
+}
+
+function rate(part: number, whole: number): string {
+  return whole ? ` (${Math.round((1000 * part) / whole) / 10}%)` : '';
+}
+
+/** Files, pages and what they became: the PC row and each of its journeys. */
+function UploadCells({ row }: { row: P2DailyCounts }) {
+  const o = outcome(row);
   return (
     <>
-      <td data-label="Files · pages">{row.files} · {row.pages}{row.duplicateFiles ? <span className="p2w-muted"> ({row.duplicateFiles} repeat)</span> : null}</td>
-      <td data-label="Read correctly"><strong>{d.extracted}</strong></td>
-      <td data-label="Waiting" className={d.waiting ? 'p2dr-warn' : undefined}>{d.waiting}</td>
-      <td data-label="Rejected at upload" className={d.rejectedScans ? 'p2dr-bad' : undefined}>
-        {d.rejectedScans}{rejectionRate(row)}{d.rejectedScans && row.rejections ? <span className="p2w-muted"> ({reasonText(row.rejections)})</span> : null}
+      <td data-label="Files">{row.files}{row.duplicateFiles ? <span className="p2w-muted"> ({row.duplicateFiles} repeat)</span> : null}</td>
+      <td data-label="Pages">{row.pages}</td>
+      <td data-label="Documents">{o.documents}</td>
+      <td data-label="Read"><strong>{o.read}</strong><span className="p2w-muted">{rate(o.read, o.documents)}</span></td>
+      <td data-label="Needs a look" className={o.needsLook ? 'p2dr-warn' : undefined}>{o.needsLook}</td>
+      <td data-label="Rejected at upload" className={o.rejected ? 'p2dr-bad' : undefined}>
+        {o.rejected}{o.rejected && row.rejections ? <span className="p2w-muted"> ({reasonText(row.rejections)})</span> : null}
       </td>
-      <td data-label="Failed (other)" className={d.failed - d.rejectedScans ? 'p2dr-bad' : undefined}>{d.failed - d.rejectedScans}</td>
-      <td data-label="Not read · no values">{d.notRead} · {d.readNoValues}</td>
-      <td data-label="Tasks opened">{row.tasksOpened}{row.tasksReopened ? <span className="p2w-muted"> +{row.tasksReopened} reopened</span> : null}</td>
-      <td data-label="Auto retries · exhausted">{row.autoRetries} · <span className={row.retriesExhausted ? 'p2dr-bad' : undefined}>{row.retriesExhausted}</span></td>
-      <td data-label="PC retry · read again · re-sync">{row.pcRetries} · {row.readAgain} · {row.resyncs}</td>
-      <td data-label="Night: asked · fixed">{row.nightRequests} · {row.nightFixed}</td>
+      <td data-label="Failed" className={o.failed ? 'p2dr-bad' : undefined}>{o.failed}</td>
+      <td data-label="Waiting" className={o.waiting ? 'p2dr-warn' : undefined}>{o.waiting}</td>
     </>
   );
 }
 
-const HEAD = (
+const UPLOAD_HEAD = (
   <>
-    <th>Files · pages</th>
-    <th>Read correctly</th>
-    <th>Waiting</th>
+    <th>Files</th>
+    <th>Pages</th>
+    <th title="What the pages became: one document can span several pages">Documents</th>
+    <th>Read</th>
+    <th title="Read with no values, or classified but not read">Needs a look</th>
     <th>Rejected at upload</th>
-    <th>Failed (other)</th>
-    <th>Not read · no values</th>
-    <th>Tasks opened</th>
-    <th>Auto retries · exhausted</th>
-    <th>PC retry · read again · re-sync</th>
-    <th>Night: asked · fixed</th>
+    <th>Failed</th>
+    <th>Waiting</th>
   </>
 );
 
-function JourneyLine({ row, timezone }: { row: P2DailyJourneyRow; timezone: string }) {
+function journeyTime(row: P2DailyJourneyRow, timezone: string): string {
+  if (!row.uploadStartedAt) return '—';
+  const span = `${time(row.uploadStartedAt, timezone)} – ${time(row.processingFinishedAt, timezone)}`;
+  return row.processingFinishedAt ? `${span} · ${duration(row.processingMinutes)}` : `${time(row.uploadStartedAt, timezone)} · still processing`;
+}
+
+function JourneyCell({ row }: { row: P2DailyJourneyRow }) {
   const customer = customerLabel(row.customerName);
   return (
-    <tr className={row.uploadStartedAt ? undefined : 'p2dr-earlier'}>
-      <td data-label="Journey">
-        <Link to={`/p2/journeys/${row.journeyId}/overview`} className={customer.known ? undefined : 'is-unknown'}>{customer.text}</Link>
-        <span className="p2w-muted p2dr-sub">{row.outletName}{row.outletCode ? ` · ${row.outletCode}` : ''}</span>
-      </td>
-      <td data-label="PC">{pcLabel(row.pcName, row.pcActorId)}</td>
-      <td data-label="Start · finish">{time(row.uploadStartedAt, timezone)} · {row.uploadStartedAt ? time(row.processingFinishedAt, timezone) : '—'}</td>
-      <td data-label="Total time">{row.uploadStartedAt ? (row.processingFinishedAt ? duration(row.processingMinutes) : 'Still processing') : 'No upload today'}</td>
-      <CountCells row={row} />
-    </tr>
+    <td data-label="Journey">
+      <Link to={`/p2/journeys/${row.journeyId}/overview`} className={customer.known ? undefined : 'is-unknown'}>{customer.text}</Link>
+      <span className="p2w-muted p2dr-sub">{row.outletName}{row.outletCode ? ` · ${row.outletCode}` : ''}</span>
+    </td>
+  );
+}
+
+const uploadedOnDay = (row: P2DailyJourneyRow) => row.uploadedOnDay ?? Boolean(row.uploadStartedAt);
+const samePc = (row: P2DailyJourneyRow, pc: P2DailyPcRow) => (row.pcActorId ?? null) === (pc.pcActorId ?? null);
+
+/** One PC's uploads of the day; a click opens the journeys they went into. */
+function PcUploads({ pc, journeys, timezone }: { pc: P2DailyPcRow; journeys: P2DailyJourneyRow[]; timezone: string }) {
+  const [open, setOpen] = useState(false);
+  const span = pc.stillProcessing
+    ? `${time(pc.firstUploadAt, timezone)} · ${pc.stillProcessing} still processing`
+    : `${time(pc.firstUploadAt, timezone)} – ${time(pc.lastFinishedAt, timezone)} · ${duration(pc.spanMinutes)}`;
+  return (
+    <>
+      <tr className="p2dr-pc">
+        <td data-label="PC">
+          <button type="button" className="p2dr-toggle" aria-expanded={open} onClick={() => setOpen((v) => !v)}>
+            <span aria-hidden="true">{open ? '▾' : '▸'}</span> <strong>{pcLabel(pc.pcName, pc.pcActorId)}</strong>
+          </button>
+          <span className="p2w-muted p2dr-sub">{span}</span>
+        </td>
+        <td data-label="Journeys">{pc.journeysUploaded}</td>
+        <UploadCells row={pc} />
+      </tr>
+      {open ? journeys.map((row) => (
+        <tr key={row.journeyId} className="p2dr-child">
+          <JourneyCell row={row} />
+          <td data-label="Uploaded">{journeyTime(row, timezone)}</td>
+          <UploadCells row={row} />
+        </tr>
+      )) : null}
+    </>
+  );
+}
+
+/** The system's own work on the day: re-checks, retries and night corrections. */
+function activity(row: P2DailyCounts) {
+  return row.tasksOpened + row.tasksReopened + row.autoRetries + row.pcRetries + row.readAgain + row.resyncs
+    + row.nightRequests + row.nightFixed;
+}
+
+function ActivityCells({ row }: { row: P2DailyCounts }) {
+  return (
+    <>
+      <td data-label="Tasks opened">{row.tasksOpened}{row.tasksReopened ? <span className="p2w-muted"> +{row.tasksReopened} reopened</span> : null}</td>
+      <td data-label="Night: asked · fixed">{row.nightRequests} · {row.nightFixed}</td>
+      <td data-label="Auto retries · gave up">{row.autoRetries} · <span className={row.retriesExhausted ? 'p2dr-bad' : undefined}>{row.retriesExhausted}</span></td>
+      <td data-label="PC retry · read again · re-sync">{row.pcRetries} · {row.readAgain} · {row.resyncs}</td>
+    </>
   );
 }
 
@@ -182,13 +251,19 @@ export default function P2DailyProcessingReportPage() {
   });
   const data = report.data;
   const timezone = data?.timezone || project?.timezoneName || 'Asia/Kolkata';
+  const uploaders = (data?.pcs ?? []).filter((pc) => pc.journeysUploaded > 0);
+  // The system's work per PC: on the day's uploads and on earlier journeys.
+  const systemRows = (data?.pcs ?? []).map((pc) => {
+    const row = pc.earlier ? sumCounts([pc, pc.earlier]) : pc;
+    return { pc, row, journeys: pc.journeysUploaded + (pc.earlier?.journeys ?? 0) };
+  }).filter(({ row }) => activity(row) > 0);
 
   return (
     <div className="screen-stack p2-screen p2w p2dr">
       <PageHeader
         eyebrow="Booking & Delivery"
         title="Daily processing"
-        description="Per PC, one day: what was uploaded, how much the system read, what is still waiting, how long it took, and how many retries, re-syncs and night corrections were needed."
+        description="One day: what each PC uploaded and what the pages became, then what the system did on its own (night corrections, retries, re-reads)."
       />
 
       <div className="p2w-listbar">
@@ -210,71 +285,69 @@ export default function P2DailyProcessingReportPage() {
           {data.quality ? <QualityCard quality={data.quality} trend={data.trend ?? []} day={data.day} /> : null}
           <SectionCard>
             <div className="p2w-card__title">
-              <h3>By PC</h3>
-              <p className="p2w-muted">{data.pcs.length ? uploadSummary(data.pcs, data.day) : `Nothing happened on ${data.day}.`}</p>
+              <h3>Uploads by PC</h3>
+              <p className="p2w-muted">
+                {uploaders.length
+                  ? `${uploaders.length} PC${uploaders.length === 1 ? '' : 's'} uploaded on ${data.day}. Open a PC to see each journey's files and pages. Read + needs a look + rejected + failed + waiting = documents.`
+                  : `No PC uploaded on ${data.day}.`}
+              </p>
             </div>
-            {data.pcs.length ? (
+            {uploaders.length ? (
               <div className="p2dr-scroll">
                 <table className="p2dr-table">
                   <thead>
                     <tr>
                       <th>PC</th>
-                      <th>Journeys uploaded</th>
-                      <th>Pages / journey</th>
-                      <th>First upload · last finish</th>
-                      <th>Total time</th>
-                      {HEAD}
+                      <th>Journeys</th>
+                      {UPLOAD_HEAD}
                     </tr>
                   </thead>
                   <tbody>
-                    {data.pcs.map((pc) => (
-                      <Fragment key={pc.pcActorId ?? 'none'}>
-                        <tr>
-                          <td data-label="PC"><strong>{pcLabel(pc.pcName, pc.pcActorId)}</strong>
-                            {!pc.journeysUploaded ? <span className="p2w-muted p2dr-sub">No upload on this day</span> : null}
-                          </td>
-                          <td data-label="Journeys uploaded">{pc.journeysUploaded}</td>
-                          <td data-label="Pages / journey">{pc.pagesPerJourney ?? '—'}</td>
-                          <td data-label="First upload · last finish">{time(pc.firstUploadAt, timezone)} · {time(pc.lastFinishedAt, timezone)}</td>
-                          <td data-label="Total time">{pc.stillProcessing ? `${pc.stillProcessing} still processing` : duration(pc.spanMinutes)}</td>
-                          <CountCells row={pc} />
-                        </tr>
-                        {pc.earlier?.journeys ? (
-                          <tr className="p2dr-earlier">
-                            <td data-label="Earlier journeys" colSpan={5}>
-                              Earlier journeys: {pc.earlier.journeys}
-                              <span className="p2w-muted p2dr-sub">Not uploaded on this day; tasks and fixes from the system's own re-checks</span>
-                            </td>
-                            <CountCells row={pc.earlier} />
-                          </tr>
-                        ) : null}
-                      </Fragment>
+                    {uploaders.map((pc) => (
+                      <PcUploads key={pc.pcActorId ?? 'none'} pc={pc} timezone={timezone}
+                        journeys={data.journeys.filter((row) => uploadedOnDay(row) && samePc(row, pc))} />
                     ))}
                   </tbody>
+                  {uploaders.length > 1 ? (
+                    <tfoot>
+                      <tr className="p2dr-total">
+                        <td>All PCs</td>
+                        <td>{uploaders.reduce((n, pc) => n + pc.journeysUploaded, 0)}</td>
+                        <UploadCells row={sumCounts(uploaders)} />
+                      </tr>
+                    </tfoot>
+                  ) : null}
                 </table>
               </div>
             ) : null}
           </SectionCard>
 
-          {data.journeys.length ? (
+          {systemRows.length ? (
             <SectionCard>
               <div className="p2w-card__title">
-                <h3>By journey</h3>
-                <p className="p2w-muted">Every journey uploaded on the day, and every journey with a retry, re-sync, night correction or new task.</p>
+                <h3>System activity</h3>
+                <p className="p2w-muted">Night corrections, automatic retries, re-reads and tasks the system opened on {data.day}, by the PC whose journeys they were.</p>
               </div>
               <div className="p2dr-scroll">
                 <table className="p2dr-table">
                   <thead>
                     <tr>
-                      <th>Journey</th>
                       <th>PC</th>
-                      <th>Start · finish</th>
-                      <th>Total time</th>
-                      {HEAD}
+                      <th>Journeys</th>
+                      <th>Tasks opened</th>
+                      <th>Night: asked · fixed</th>
+                      <th>Auto retries · gave up</th>
+                      <th>PC retry · read again · re-sync</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {data.journeys.map((row) => <JourneyLine key={`${row.journeyId}-${row.pcActorId}`} row={row} timezone={timezone} />)}
+                    {systemRows.map(({ pc, row, journeys }) => (
+                      <tr key={pc.pcActorId ?? 'none'}>
+                        <td data-label="PC"><strong>{pcLabel(pc.pcName, pc.pcActorId)}</strong></td>
+                        <td data-label="Journeys">{journeys}</td>
+                        <ActivityCells row={row} />
+                      </tr>
+                    ))}
                   </tbody>
                 </table>
               </div>

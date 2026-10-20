@@ -123,3 +123,27 @@
   height: 100%;
   background: #c0392b;
 }
+
+/* Uploads by PC: a PC row opens its journeys. */
+.p2dr-toggle {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+
+.p2dr-table tr.p2dr-pc td {
+  background: #fbfcfd;
+}
+
+.p2dr-table tr.p2dr-child td:first-child {
+  padding-left: 30px;
+}
+
+.p2dr-table tfoot tr.p2dr-total td {
+  border-top: 2px solid #d5e0e5;
+  font-weight: 800;
+}

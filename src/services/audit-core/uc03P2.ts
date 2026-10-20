@@ -849,13 +849,16 @@ export type P2DiscountRow = Omit<P2DealRow, 'standard' | 'quote' | 'effectiveSou
 };
 
 type P2DealSummary = {
-  /** "current" = billed where invoiced, else the booking offer. */
+  /** "current" = billed where invoiced, else the booking offer; once the
+   *  vehicle invoice is on file (invoiceIsSourceOfTruth) billed only. */
   gross: Record<'standard' | 'booking' | 'current' | 'billed' | 'ledger', Money>;
   discounts: Record<'standard' | 'booking' | 'current' | 'billed', Money>;
   net: Record<'standard' | 'booking' | 'current', Money>;
   /** Compared only where both sides have a value. */
   variance: { bookingVsStandard: Money; currentVsStandard: Money; billedVsBooking: Money };
   invoicedComponents: number;
+  /** True once the vehicle invoice is on file: every figure is the invoice's. */
+  invoiceIsSourceOfTruth?: boolean;
   components: number;
   paid: { receipts: string; loan: string; total: string };
   payable: Money;

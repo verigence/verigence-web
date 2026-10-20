@@ -205,8 +205,8 @@ export default function JourneyListTabs({ tenantId, accessToken, role, onCounts 
       ) : null}
 
       {items.length ? (
-        <table className={`p2w-jtable${role !== 'PC' ? ' has-where' : ''}`}>
-          <thead><tr><th className="col-customer">Customer</th><th className="col-price">Price variance</th><th className="col-stage">{role === 'PC' ? 'Stage' : 'PC · Outlet ID'}</th><th className="col-next">Open tasks</th><th className="col-when">Deal period</th><th className="col-journey">Audit record</th>{role !== 'PC' ? <th className="col-where">Dealer · Outlet</th> : null}<th className="col-act"><span className="p2w-visually-hidden">Actions</span></th></tr></thead>
+        <table className="p2w-jtable">
+          <thead><tr><th className="col-customer">Customer</th><th className="col-price">Price variance</th><th className="col-stage">{role === 'PC' ? 'Stage' : 'PC · Outlet'}</th><th className="col-next">Open tasks</th><th className="col-when">Deal period</th><th className="col-journey">Audit record</th><th className="col-act"><span className="p2w-visually-hidden">Actions</span></th></tr></thead>
           <tbody>
             {items.map((item) => <JourneyRow key={item.journey_id} item={item} role={role} />)}
           </tbody>

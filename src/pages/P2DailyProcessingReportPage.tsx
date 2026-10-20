@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import '../styles/uc03-p2.css';
 import '../styles/uc03-p2-workspace.css';
@@ -6,9 +7,11 @@ import '../styles/uc03-p2-daily-report.css';
 
 import PageHeader from '../components/PageHeader';
 import SectionCard from '../components/SectionCard';
+import { customerLabel } from '../features/uc03-p2/bookings/JourneyRow';
 import {
   getP2DailyProcessingReport,
   type P2DailyCounts,
+  type P2DailyJourneyRow,
   type P2DailyPcRow,
   type P2DailyQuality,
   type P2DailyTrendDay,
@@ -179,20 +182,50 @@ const UPLOAD_HEAD = (
   </>
 );
 
-/** One PC's uploads of the day (product owner 2026-10-20: no per-journey rows). */
-function PcUploads({ pc, timezone }: { pc: P2DailyPcRow; timezone: string }) {
+function journeyTime(row: P2DailyJourneyRow, timezone: string): string {
+  if (!row.uploadStartedAt) return '—';
+  // CP: currently processing (product owner 2026-10-20).
+  if (!row.processingFinishedAt) return `${time(row.uploadStartedAt, timezone)} · CP`;
+  return `${time(row.uploadStartedAt, timezone)} – ${time(row.processingFinishedAt, timezone)} · ${duration(row.processingMinutes)}`;
+}
+
+const uploadedOnDay = (row: P2DailyJourneyRow) => row.uploadedOnDay ?? Boolean(row.uploadStartedAt);
+const samePc = (row: P2DailyJourneyRow, pc: P2DailyPcRow) => (row.pcActorId ?? null) === (pc.pcActorId ?? null);
+
+/** One PC's uploads of the day; a click opens each journey with when its
+ * upload started and when it was read (product owner 2026-10-20: "lets
+ * have it back"). */
+function PcUploads({ pc, journeys, timezone }: { pc: P2DailyPcRow; journeys: P2DailyJourneyRow[]; timezone: string }) {
+  const [open, setOpen] = useState(false);
   const span = pc.stillProcessing
-    ? `${time(pc.firstUploadAt, timezone)} · ${pc.stillProcessing} still processing`
+    ? `${time(pc.firstUploadAt, timezone)} · ${pc.stillProcessing} CP`
     : `${time(pc.firstUploadAt, timezone)} – ${time(pc.lastFinishedAt, timezone)} · ${duration(pc.spanMinutes)}`;
   return (
-    <tr className="p2dr-pc">
-      <td data-label="PC">
-        <strong>{pcLabel(pc.pcName, pc.pcActorId)}</strong>
-        <span className="p2w-muted p2dr-sub">{span}</span>
-      </td>
-      <td data-label="Journeys">{pc.journeysUploaded}</td>
-      <UploadCells row={pc} />
-    </tr>
+    <>
+      <tr className="p2dr-pc">
+        <td data-label="PC">
+          <button type="button" className="p2dr-toggle" aria-expanded={open} onClick={() => setOpen((v) => !v)}>
+            <span aria-hidden="true">{open ? '▾' : '▸'}</span> <strong>{pcLabel(pc.pcName, pc.pcActorId)}</strong>
+          </button>
+          <span className="p2w-muted p2dr-sub">{span}</span>
+        </td>
+        <td data-label="Journeys">{pc.journeysUploaded}</td>
+        <UploadCells row={pc} />
+      </tr>
+      {open ? journeys.map((row) => {
+        const customer = customerLabel(row.customerName);
+        return (
+          <tr key={row.journeyId} className="p2dr-child">
+            <td data-label="Journey">
+              <Link to={`/p2/journeys/${row.journeyId}/overview`} className={customer.known ? undefined : 'is-unknown'}>{customer.text}</Link>
+              <span className="p2w-muted p2dr-sub">{row.outletName || ''}</span>
+            </td>
+            <td data-label="Upload · read">{journeyTime(row, timezone)}</td>
+            <UploadCells row={row} />
+          </tr>
+        );
+      }) : null}
+    </>
   );
 }
 
@@ -268,7 +301,7 @@ export default function P2DailyProcessingReportPage() {
               <h3>Uploads by PC</h3>
               <p className="p2w-muted">
                 {uploaders.length
-                  ? `${uploaders.length} PC${uploaders.length === 1 ? '' : 's'} uploaded on ${data.day}. A multi-page document counts once, so there are fewer documents than pages. Read + needs a look + rejected + failed + waiting = documents.`
+                  ? `${uploaders.length} PC${uploaders.length === 1 ? '' : 's'} uploaded on ${data.day}. Open a PC for each journey's upload and read times (CP: currently processing). A multi-page document counts once, so there are fewer documents than pages. Read + needs a look + rejected + failed + waiting = documents.`
                   : `No PC uploaded on ${data.day}.`}
               </p>
             </div>
@@ -284,7 +317,8 @@ export default function P2DailyProcessingReportPage() {
                   </thead>
                   <tbody>
                     {uploaders.map((pc) => (
-                      <PcUploads key={pc.pcActorId ?? 'none'} pc={pc} timezone={timezone} />
+                      <PcUploads key={pc.pcActorId ?? 'none'} pc={pc} timezone={timezone}
+                        journeys={data.journeys.filter((row) => uploadedOnDay(row) && samePc(row, pc))} />
                     ))}
                   </tbody>
                   {uploaders.length > 1 ? (

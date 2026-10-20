@@ -179,6 +179,16 @@ function Steps({ active, cancelled }: { active: number; cancelled: boolean }) {
  * engine completes the delivery. The TL's journey starts there and closes
  * with the TL's delivery review (its own closing rules are still to come).
  */
+/** "Read in 2 h 5 min", or "CP" (currently processing) while a page is in flight. */
+function uploadTime(item: P2JourneyListItem): string {
+  if (item.processing_now) return 'Upload: CP';
+  if (!item.upload_started_at || !item.upload_finished_at) return '';
+  const minutes = Math.max(0, Math.round((Date.parse(item.upload_finished_at) - Date.parse(item.upload_started_at)) / 60000));
+  if (Number.isNaN(minutes)) return '';
+  const text = minutes < 60 ? `${minutes} min` : `${Math.floor(minutes / 60)} h ${minutes % 60} min`;
+  return `Upload read in ${text}`;
+}
+
 export default function JourneyRow({ item, role }: { item: P2JourneyListItem; role?: string }) {
   const delivered = Boolean(item.delivery_completed_at);
   const cancelled = Boolean(item.cancelled);
@@ -217,9 +227,12 @@ export default function JourneyRow({ item, role }: { item: P2JourneyListItem; ro
           {item.phase2 && !item.closed ? <HoldsCell item={item} /> : null}
         </td>
       ) : (
-        <td className="p2w-jrow__stage" data-label="PC and outlet">
+        <td className="p2w-jrow__stage" data-label="PC · outlet">
+          {/* PC, outlet and how long the latest upload took to read (product
+              owner 2026-10-20; the dealer column is gone). */}
           <span className={item.pc_name ? '' : 'is-unknown'}>{item.pc_name || 'PC not recorded'}</span>
-          <span className="p2w-muted">{item.outlet_code ? `Outlet ${item.outlet_code}` : 'Outlet ID not recorded'}</span>
+          <span className="p2w-muted">{item.outlet_name || item.outlet_code || 'Outlet not recorded'}</span>
+          {uploadTime(item) ? <span className="p2w-muted" title={item.processing_now ? 'Currently processing' : 'Latest upload: first file to last page read'}>{uploadTime(item)}</span> : null}
         </td>
       )}
       <td className="p2w-jrow__next" data-label="Open tasks">
@@ -247,12 +260,6 @@ export default function JourneyRow({ item, role }: { item: P2JourneyListItem; ro
               : item.opened_at ? 'One upload so far' : ''}
         </span>
       </td>
-      {role !== 'PC' ? (
-        <td className="p2w-jrow__where" data-label="Where">
-          <span>{item.dealer_name}</span>
-          <span className="p2w-muted">{item.outlet_name}</span>
-        </td>
-      ) : null}
       <td className="p2w-jrow__act">
         <details className="p2w-menu">
           <summary className="p2w-button p2w-button--secondary" aria-label={`Actions for ${customer.text}`}>Actions</summary>

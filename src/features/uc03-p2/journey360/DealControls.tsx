@@ -81,13 +81,13 @@ export function PricingPanel({ tenantId, journeyId, accessToken }: Props) {
         <div>
           <span className="j360-label">Vehicle (SKU)</span>
           <strong>{[p.sku.model, p.sku.variant, p.sku.colour].filter(Boolean).join(' · ') || 'Not identified yet'}</strong>
-          <span className="p2w-muted">{p.sku.skuCode ?? ''}{p.sku.selectionStatus ? ` · ${humanizeKey(p.sku.selectionStatus)}` : ''}</span>
+          <span className="p2w-muted">{p.sku.skuCode ?? ''}{p.sku.category ? ` · ${p.sku.category}` : ''}{p.sku.selectionStatus ? ` · ${humanizeKey(p.sku.selectionStatus)}` : ''}</span>
         </div>
         <div>
           <span className="j360-label">Priced on</span>
           {p.appliedDate ? (
             <>
-              <strong>{dateLabel(p.appliedDate)} <span className="p2w-muted">({p.basis === 'INVOICE_DATE' ? 'invoice date' : 'booking date'})</span></strong>
+              <strong>{dateLabel(p.appliedDate)} <span className="p2w-muted">({p.basis === 'INVOICE_DATE' ? 'invoice date' : p.basis === 'TL_PRICE_LIST' ? 'price list approved by TL' : 'booking date'})</span></strong>
               <span className="p2w-muted">
                 {p.appliedPriceList ? priceListLabel(p.appliedPriceList) : 'No price list effective on this date'}
                 {` · ${p.appliedSchemeCount} scheme${p.appliedSchemeCount === 1 ? '' : 's'}`}

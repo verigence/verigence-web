@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Link, useParams, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import '../styles/uc03-p2.css';
 import '../styles/uc03-p2-workspace.css';
 
@@ -78,6 +78,7 @@ function TaskDetail({ task, tenantId, accessToken, operatingRole, onDone }: {
   onDone: (message: string) => void;
 }) {
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const [comment, setComment] = useState('');
   const [error, setError] = useState<string>();
   const detail = useQuery({
@@ -95,7 +96,16 @@ function TaskDetail({ task, tenantId, accessToken, operatingRole, onDone }: {
       setError(undefined);
       void queryClient.invalidateQueries({ queryKey: ['p2-tasks', tenantId] });
       void queryClient.invalidateQueries({ queryKey: ['p2-task', tenantId, task.task_id] });
+      if (task.task_type === 'SKU_CLOSEST_MATCH_CONFIRM' && action.action === 'REJECT') {
+        // Rejected: pick the SKU by hand in the journey's model picker.
+        navigate(`/p2/journeys/${task.journey_id}/documents?resolveSku=1`);
+        return;
+      }
       onDone(action.action === 'ADD_COMMENT' ? 'Comment added.'
+        : task.task_type === 'SKU_CLOSEST_MATCH_CONFIRM' ? 'Vehicle confirmed. The deal is now checked against its price.'
+        : task.task_type === 'SKU_OTHER_MONTH_PRICE_LIST' && action.action === 'ACCEPT' ? 'Approved. The journey is now priced on that list and its SKU resolved there.'
+        : task.task_type === 'SKU_OTHER_MONTH_PRICE_LIST' ? 'Rejected. The PC picks the SKU by hand.'
+        : task.task_type === 'MODEL_CHANGED_BY_INVOICE' ? 'Noted.'
         : action.action === 'PROVIDE_VEHICLE_ID' ? 'Vehicle number saved. The task closes itself once it is checked.'
         : task.task_type === 'TL_MANAGEMENT_REFERRAL' && action.action === 'COMPLETE_ACTION' ? 'Management Referral enabled on the journey.'
         : task.task_type === 'DELIVERY_REVIEW' ? 'Delivery marked as reviewed.'
@@ -245,6 +255,7 @@ function TaskRow({ task, open, onToggle, view, tenantId, accessToken, operatingR
 function taskKind(task: P2Task): { key: 'documents' | 'verify' | 'data' | 'check'; label: string } {
   if (task.task_type === 'TL_MANAGEMENT_REFERRAL') return { key: 'check', label: 'System task' };
   if (task.task_type === 'TL_DATA_VIOLATION') return { key: 'check', label: 'Data violation' };
+  if (task.task_type === 'MODEL_CHANGED_BY_INVOICE') return { key: 'check', label: 'Information' };
   if (task.queue_tab === 'MANUAL_VERIFICATION') return { key: 'verify', label: 'Manual verification' };
   if (task.queue_tab === 'DOCUMENTS') return { key: 'documents', label: 'Document missing' };
   const text = `${task.task_type} ${task.category}`.toUpperCase();

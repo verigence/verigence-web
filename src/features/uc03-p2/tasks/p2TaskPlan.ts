@@ -133,6 +133,42 @@ export function taskPlan(task: P2Task, operatingRole?: string | null): TaskPlan 
       ],
     };
   }
+  const comment = canComment ? [{ label: 'Comment', action: 'ADD_COMMENT', requiresComment: true, tone: 'ghost' as const }] : [];
+  if (task.task_type === 'SKU_CLOSEST_MATCH_CONFIRM') {
+    // The closest price-master SKU, suggested -- never pinned on its own.
+    // Reject opens the model picker on the journey (TaskDetail navigates).
+    return {
+      primary: { label: 'Accept this vehicle', action: 'ACCEPT', tone: 'confirm' },
+      secondary: [
+        { label: 'Reject and pick the SKU', action: 'REJECT', tone: 'danger' },
+        { label: 'Open documents', to: `/p2/journeys/${task.journey_id}/documents`, tone: 'ghost' },
+        ...comment,
+      ],
+    };
+  }
+  if (task.task_type === 'SKU_OTHER_MONTH_PRICE_LIST') {
+    // Only a Team Lead approves pricing on another month's list.
+    if (!supervisor) {
+      return { waiting: 'Waiting for the Team Lead to approve the price list.', secondary: comment };
+    }
+    return {
+      primary: { label: 'Approve this price list', action: 'ACCEPT', tone: 'confirm' },
+      secondary: [
+        { label: 'Reject', action: 'REJECT', requiresComment: true, tone: 'danger' },
+        { label: 'Open Journey 360', to: `/p2/journeys/${task.journey_id}/overview?tab=deal`, tone: 'ghost' },
+        ...comment,
+      ],
+    };
+  }
+  if (task.task_type === 'MODEL_CHANGED_BY_INVOICE') {
+    return {
+      primary: { label: 'Noted', action: 'COMPLETE_ACTION', tone: 'confirm' },
+      secondary: [
+        { label: 'Open Journey 360', to: `/p2/journeys/${task.journey_id}/overview`, tone: 'ghost' },
+        ...comment,
+      ],
+    };
+  }
   if (allowed.has('ACCEPT') && allowed.has('REJECT')) {
     return {
       primary: { label: 'Accept', action: 'ACCEPT', tone: 'confirm' },

@@ -143,7 +143,7 @@ export default function P2JourneyOverviewPage() {
       <PageHeader
         eyebrow="Journey 360"
         title={j ? customerLabel(j.customerName).text : 'Journey 360'}
-        description={j ? [j.vehicle ?? 'Vehicle not identified yet', j.outletName, j.reference].filter(Boolean).join(' · ') : 'Loading the journey…'}
+        description={j ? [j.vehicle ?? 'Vehicle not identified yet', j.vehicleCategory, j.outletName, j.reference].filter(Boolean).join(' · ') : 'Loading the journey…'}
         actions={journeyId ? (
           <div className="p2w-header-links">
             <Link className="p2w-link" to={`/p2/journeys/${journeyId}/documents`}>Documents</Link>

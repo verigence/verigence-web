@@ -1,103 +1,14 @@
-import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
+import '../styles/uc03-p2.css';
+import '../styles/uc03-p2-workspace.css';
+import '../styles/uc03-p2-cards.css';
 
 import NightlyReprocessingStatusTile from '../components/NightlyReprocessingStatusTile';
-import { customerLabel } from '../features/uc03-p2/bookings/JourneyRow';
+import JourneyListTabs from '../features/uc03-p2/bookings/JourneyListTabs';
 import { getReviewQueueSummary } from '../services/audit-core/uc03Audit';
-import { getP2Journeys, type P2JourneyListItem } from '../services/audit-core/uc03P2';
-import {
-  listAllTlSupervisoryCases,
-  tlBusinessStage,
-  tlPcLabel,
-  type TlBusinessStage,
-  type TlSupervisoryCase,
-} from '../services/audit-core/uc03Tl';
 import { useProjectContextStore } from '../store/projectContextStore';
 import { useSessionStore } from '../store/sessionStore';
-
-type StageFilter = 'ALL' | TlBusinessStage;
-
-const STAGE_LABELS: Record<TlBusinessStage, string> = {
-  BOOKING_IN_PROGRESS: 'Booking In Progress',
-  BOOKING_SUBMITTED: 'Booking Submitted',
-  DELIVERY_IN_PROGRESS: 'Delivery In Progress',
-  DELIVERY_COMPLETED: 'Delivery Completed',
-};
-
-function friendlyStatus(value?: string | null): string {
-  if (!value) return 'Not started';
-  return value
-    .toLowerCase()
-    .split('_')
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(' ');
-}
-
-function formatDateTime(value: string | null, timezoneName: string): string {
-  if (!value) return 'Not recorded';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return 'Not recorded';
-  return new Intl.DateTimeFormat(undefined, {
-    timeZone: timezoneName,
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  }).format(date);
-}
-
-function formatAge(value: string): string {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return 'Unknown';
-  const minutes = Math.max(0, Math.floor((Date.now() - date.getTime()) / 60_000));
-  if (minutes < 1) return 'Just now';
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  return `${Math.floor(hours / 24)}d ago`;
-}
-
-const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-
-/** "12 Oct 2026", as Booking & Delivery shows its dates. */
-function fullDate(value?: string | null): string | null {
-  if (!value) return null;
-  const date = new Date(value.length === 10 ? `${value}T00:00:00` : value);
-  if (Number.isNaN(date.getTime())) return value;
-  return `${String(date.getDate()).padStart(2, '0')} ${MONTHS[date.getMonth()]} ${date.getFullYear()}`;
-}
-
-function plural(count: number, word: string): string {
-  return `${count} ${word}${count === 1 ? '' : 's'}`;
-}
-
-/** What a journey still with the PC needs a TL to notice: pages that could
- * not be processed or are retrying, or tasks still open. */
-function inProgressAttention(p2?: P2JourneyListItem): { headline: string; detail: string } | null {
-  if (!p2) return null;
-  if (p2.failed_pages) return { headline: `${plural(p2.failed_pages, 'page')} failed`, detail: 'Needs uploading again' };
-  if (p2.retrying_pages) return { headline: `${plural(p2.retrying_pages, 'page')} retrying`, detail: 'Being retried automatically' };
-  if (p2.open_tasks) return { headline: `${plural(p2.open_tasks, 'task')} open`, detail: `${p2.pc_open_tasks ?? 0} PC · ${p2.tl_open_tasks ?? 0} TL` };
-  return null;
-}
-
-function stageClass(stage: TlBusinessStage): string {
-  switch (stage) {
-    case 'DELIVERY_COMPLETED': return 'is-complete';
-    case 'DELIVERY_IN_PROGRESS': return 'is-progress';
-    case 'BOOKING_IN_PROGRESS': return 'is-with-pc';
-    default: return 'is-submitted';
-  }
-}
-
-function MetricCard({ label, value, detail }: { label: string; value: number; detail: string }) {
-  return (
-    <article className="uc03-tl-metric">
-      <span>{label}</span>
-      <strong>{value}</strong>
-      <small>{detail}</small>
-    </article>
-  );
-}
 
 // The three places a TL's day-to-day work actually happens -- deciding
 // audit flags, working the cross-journey action queue, and logging outlet
@@ -140,218 +51,14 @@ function FocusCard({
   );
 }
 
-type BreakdownRow = {
-  key: string;
-  label: string;
-  secondary?: string;
-  count: number;
-  booking: number;
-  delivery: number;
-  completed: number;
-};
-
-function BreakdownPanel({
-  title,
-  rows,
-  selectedKey,
-  onSelect,
-}: {
-  title: string;
-  rows: BreakdownRow[];
-  selectedKey: string;
-  onSelect: (key: string) => void;
-}) {
-  return (
-    <section className="uc03-tl-panel">
-      <header className="uc03-tl-panel__header">
-        <div>
-          <h2>{title}</h2>
-          <p>Click a row to filter the case list.</p>
-        </div>
-        {selectedKey && <button type="button" onClick={() => onSelect('')}>Clear</button>}
-      </header>
-      <div className="uc03-tl-breakdown">
-        {rows.map((row) => (
-          <button
-            type="button"
-            key={row.key}
-            className={selectedKey === row.key ? 'is-selected' : ''}
-            onClick={() => onSelect(selectedKey === row.key ? '' : row.key)}
-          >
-            <span className="uc03-tl-breakdown__identity">
-              <strong>{row.label}</strong>
-              {row.secondary && <small>{row.secondary}</small>}
-            </span>
-            <span className="uc03-tl-breakdown__total">{row.count}</span>
-            <span className="uc03-tl-breakdown__mix">
-              <small>B {row.booking}</small>
-              <small>D {row.delivery}</small>
-              <small>✓ {row.completed}</small>
-            </span>
-          </button>
-        ))}
-        {rows.length === 0 && <p className="uc03-tl-empty-inline">No submitted cases in this scope.</p>}
-      </div>
-    </section>
-  );
-}
-
-function CaseRow({ item, p2, timezoneName }: { item: TlSupervisoryCase; p2?: P2JourneyListItem; timezoneName: string }) {
-  const navigate = useNavigate();
-  const [expanded, setExpanded] = useState(false);
-  const stage = tlBusinessStage(item);
-  const rawStatus = stage === 'BOOKING_SUBMITTED'
-    ? item.bookingBusinessStatus
-    : item.deliveryBusinessStatus;
-  const customer = customerLabel(item.customerDisplayName);
-  const withPc = stage === 'BOOKING_IN_PROGRESS';
-  const attention = withPc ? inProgressAttention(p2) : null;
-  const bookingDate = fullDate(p2?.booking_confirm_date);
-  const deliveryDate = fullDate(p2?.delivered_at);
-  const journey = `/p2/journeys/${item.journeyId}`;
-
-  return (
-    <article className={`uc03-tl-case${expanded ? ' is-expanded' : ''}`}>
-      <div className="uc03-tl-case__main">
-        <div className="uc03-tl-case__customer">
-          <strong className={customer.known ? undefined : 'is-unknown'}>{customer.text}</strong>
-          <span>{item.bookingReference || 'Booking reference pending'}</span>
-          <small>{item.productLabel || 'Vehicle not captured'}</small>
-        </div>
-        <div className="uc03-tl-case__scope">
-          <strong>{item.outletName}</strong>
-          <span>{item.dealerName}</span>
-        </div>
-        <div className="uc03-tl-case__pc">
-          <strong>{tlPcLabel(item.responsiblePcActorId, item.responsiblePcName)}</strong>
-          <span>{withPc ? 'Not submitted yet' : item.pcVerificationStatus ? `PC review ${friendlyStatus(item.pcVerificationStatus)}` : 'PC submission recorded'}</span>
-        </div>
-        <div className="uc03-tl-case__stage">
-          <strong className={`uc03-tl-stage ${stageClass(stage)}`}>{STAGE_LABELS[stage]}</strong>
-          <span>{withPc ? 'With PC, not submitted' : friendlyStatus(rawStatus)}</span>
-        </div>
-        <div className="uc03-tl-case__period">
-          <strong>{bookingDate ? `Booking ${bookingDate}` : 'No booking date yet'}</strong>
-          <span>{deliveryDate ? `Delivery ${deliveryDate}` : 'No delivery date yet'}</span>
-        </div>
-        <div className="uc03-tl-case__attention">
-          {attention ? (
-            <>
-              <strong>{attention.headline}</strong>
-              <span>{attention.detail}</span>
-            </>
-          ) : (
-            <>
-              <strong>{item.openFlagCount > 0 ? `${item.openFlagCount} flag${item.openFlagCount === 1 ? '' : 's'}` : 'No open flags'}</strong>
-              <span>{item.highestOpenSeverity ? `${friendlyStatus(item.highestOpenSeverity)} severity` : formatAge(item.latestActivityAtUtc)}</span>
-            </>
-          )}
-        </div>
-        <button type="button" className="uc03-tl-case__toggle" onClick={() => setExpanded((value) => !value)}>
-          {expanded ? 'Hide' : 'View'}
-        </button>
-      </div>
-
-      {expanded && (
-        <div className="uc03-tl-case__details">
-          <div>
-            <span>PC uploaded</span>
-            <strong>{uploadWindow(item.pcFirstUploadAtUtc, item.pcLastUploadAtUtc, timezoneName)}</strong>
-          </div>
-          <div>
-            <span>Booking business date</span>
-            <strong>{item.bookingBusinessDate || 'Not recorded'}</strong>
-          </div>
-          <div>
-            <span>Delivered on</span>
-            <strong>{item.deliveryBusinessDate || 'Not delivered yet'}</strong>
-          </div>
-          <div>
-            <span>Latest activity</span>
-            <strong>{formatDateTime(item.latestActivityAtUtc, timezoneName)}</strong>
-          </div>
-          <div>
-            <span>Customer mobile</span>
-            <strong>{item.customerMobileLast4 ? `•••• ${item.customerMobileLast4}` : 'Not available'}</strong>
-          </div>
-          <div>
-            <span>Responsible PC reference</span>
-            <strong>{item.responsiblePcName || item.responsiblePcActorId || 'Not recorded'}</strong>
-          </div>
-          <div>
-            <span>Audit times (system)</span>
-            <strong>
-              {item.auditBookingCompleteAtUtc
-                ? `Booking checks passed ${formatDateTime(item.auditBookingCompleteAtUtc, timezoneName)}`
-                : 'Booking checks not passed yet'}
-            </strong>
-            {item.auditDeliveryStartedAtUtc ? (
-              <small>Delivery checks started {formatDateTime(item.auditDeliveryStartedAtUtc, timezoneName)}</small>
-            ) : null}
-          </div>
-          <div className="uc03-tl-case__review-action">
-            <span>TL action</span>
-            <div className="uc03-tl-case__links">
-              {withPc ? null : (
-                <button type="button" onClick={() => navigate(`/tl/cases/${item.journeyId}/review`)}>
-                  Review / Verify
-                </button>
-              )}
-              <Link to={`${journey}/overview`}>Journey 360</Link>
-              <Link to={`${journey}/tasks`}>TL tasks{p2?.tl_open_tasks ? ` (${p2.tl_open_tasks})` : ''}</Link>
-              <Link to={`${journey}/compliance-report`}>Compliance report</Link>
-            </div>
-          </div>
-        </div>
-      )}
-    </article>
-  );
-}
-
-/** First and last upload by the PC, as one line ("19 Oct, 2:33 pm – 7:15 pm"). */
-function uploadWindow(first: string | null | undefined, last: string | null | undefined, timezoneName: string): string {
-  if (!first) return 'Nothing uploaded yet';
-  const start = formatDateTime(first, timezoneName);
-  if (!last || last === first) return start;
-  return `${start} – ${formatDateTime(last, timezoneName)}`;
-}
-
 export default function TeamLeadDashboardPage() {
   const project = useProjectContextStore((state) => state.selectedProject);
   const accessToken = useSessionStore((state) => state.accessToken);
   const navigate = useNavigate();
-  const [search, setSearch] = useState('');
-  const [outletId, setOutletId] = useState('');
-  const [pcActorId, setPcActorId] = useState('');
-  const [stageFilter, setStageFilter] = useState<StageFilter>('ALL');
-
   const enabled = Boolean(project?.tenantId && accessToken && project?.operatingRole === 'TL');
 
-  const casesQuery = useQuery({
-    queryKey: ['uc03-tl-supervisory-cases', project?.tenantId],
-    queryFn: () => listAllTlSupervisoryCases(project!.tenantId, accessToken),
-    enabled,
-    retry: 1,
-    refetchOnWindowFocus: true,
-    refetchOnReconnect: true,
-  });
-  // The Booking & Delivery list's own figures for each journey -- booking and
-  // gate pass dates, failed / retrying pages, open tasks -- so a row here says
-  // exactly what that list says.
-  const p2Query = useQuery({
-    queryKey: ['p2-journeys', project?.tenantId, 'tl-overview'],
-    queryFn: () => getP2Journeys(project!.tenantId, accessToken, '', 'all', 250),
-    enabled,
-    staleTime: 60_000,
-  });
-  const p2ByJourney = useMemo(
-    () => new Map((p2Query.data?.items ?? []).map((item) => [item.journey_id, item])),
-    [p2Query.data],
-  );
-
   // Same summary endpoint Task Queue's own KPI tiles read from (see
-  // ReviewQueuePage.tsx) -- one query per subjectKind, exactly mirroring
-  // how that page fetches its own two tabs' worth of counts.
+  // ReviewQueuePage.tsx) -- one query per subjectKind.
   const journeyQueueSummaryQuery = useQuery({
     queryKey: ['uc03-review-queue-summary', project?.tenantId, 'JOURNEY'],
     queryFn: () => getReviewQueueSummary(project!.tenantId, accessToken, 'JOURNEY', true),
@@ -363,103 +70,11 @@ export default function TeamLeadDashboardPage() {
     enabled,
   });
 
-  const cases = casesQuery.data ?? [];
-  const timezoneName = project?.timezoneName || 'UTC';
-
-  const stageCounts = useMemo(() => {
-    const result: Record<TlBusinessStage, number> = {
-      BOOKING_IN_PROGRESS: 0,
-      BOOKING_SUBMITTED: 0,
-      DELIVERY_IN_PROGRESS: 0,
-      DELIVERY_COMPLETED: 0,
-    };
-    cases.forEach((item) => { result[tlBusinessStage(item)] += 1; });
-    return result;
-  }, [cases]);
-
-  const outletRows = useMemo<BreakdownRow[]>(() => {
-    const grouped = new Map<string, BreakdownRow>();
-    cases.forEach((item) => {
-      const stage = tlBusinessStage(item);
-      const current = grouped.get(item.outletId) ?? {
-        key: item.outletId,
-        label: item.outletName,
-        secondary: item.dealerName,
-        count: 0,
-        booking: 0,
-        delivery: 0,
-        completed: 0,
-      };
-      current.count += 1;
-      if (stage === 'BOOKING_SUBMITTED' || stage === 'BOOKING_IN_PROGRESS') current.booking += 1;
-      if (stage === 'DELIVERY_IN_PROGRESS') current.delivery += 1;
-      if (stage === 'DELIVERY_COMPLETED') current.completed += 1;
-      grouped.set(item.outletId, current);
-    });
-    return [...grouped.values()].sort((left, right) => right.count - left.count || left.label.localeCompare(right.label));
-  }, [cases]);
-
-  const pcRows = useMemo<BreakdownRow[]>(() => {
-    const grouped = new Map<string, BreakdownRow>();
-    cases.forEach((item) => {
-      const key = item.responsiblePcActorId || '__UNRECORDED__';
-      const stage = tlBusinessStage(item);
-      const current = grouped.get(key) ?? {
-        key,
-        label: tlPcLabel(item.responsiblePcActorId, item.responsiblePcName),
-        count: 0,
-        booking: 0,
-        delivery: 0,
-        completed: 0,
-      };
-      current.count += 1;
-      if (stage === 'BOOKING_SUBMITTED' || stage === 'BOOKING_IN_PROGRESS') current.booking += 1;
-      if (stage === 'DELIVERY_IN_PROGRESS') current.delivery += 1;
-      if (stage === 'DELIVERY_COMPLETED') current.completed += 1;
-      grouped.set(key, current);
-    });
-    return [...grouped.values()].sort((left, right) => right.count - left.count || left.label.localeCompare(right.label));
-  }, [cases]);
-
-  const filteredCases = useMemo(() => {
-    const normalizedSearch = search.trim().toLowerCase();
-    return cases.filter((item) => {
-      if (outletId && item.outletId !== outletId) return false;
-      const itemPcKey = item.responsiblePcActorId || '__UNRECORDED__';
-      if (pcActorId && itemPcKey !== pcActorId) return false;
-      const stage = tlBusinessStage(item);
-      if (stageFilter !== 'ALL' && stage !== stageFilter) return false;
-      if (!normalizedSearch) return true;
-      return [
-        customerLabel(item.customerDisplayName).text,
-        item.journeyId,
-        item.bookingReference,
-        item.productLabel,
-        item.dealerName,
-        item.outletName,
-        item.responsiblePcActorId,
-        item.responsiblePcName,
-      ].some((value) => value?.toLowerCase().includes(normalizedSearch));
-    });
-  }, [cases, outletId, pcActorId, search, stageFilter]);
-
   if (!project || project.operatingRole !== 'TL') return null;
 
-  const dealerCount = new Set(cases.map((item) => item.dealerId)).size || project.scope.dealerCount;
-  const outletCount = new Set(cases.map((item) => item.outletId)).size || project.scope.outletCount;
   const scopeSummary = project.scope.allDealers
-    ? `All dealers · All outlets`
-    : `${dealerCount} dealer${dealerCount === 1 ? '' : 's'} · ${outletCount} outlet${outletCount === 1 ? '' : 's'}`;
-  const openFlags = cases.reduce((sum, item) => sum + item.openFlagCount, 0);
-  const activeFilterCount = Number(Boolean(outletId)) + Number(Boolean(pcActorId)) + Number(stageFilter !== 'ALL') + Number(Boolean(search.trim()));
-
-  const clearFilters = () => {
-    setSearch('');
-    setOutletId('');
-    setPcActorId('');
-    setStageFilter('ALL');
-  };
-
+    ? 'All dealers · All outlets'
+    : `${project.scope.dealerCount} dealer${project.scope.dealerCount === 1 ? '' : 's'} · ${project.scope.outletCount} outlet${project.scope.outletCount === 1 ? '' : 's'}`;
   const journeySummary = journeyQueueSummaryQuery.data;
   const dailyOpsSummary = dailyOpsSummaryQuery.data;
   const violationCount = journeySummary?.byClass?.VIOLATION ?? 0;
@@ -477,7 +92,7 @@ export default function TeamLeadDashboardPage() {
         </div>
         <div className="uc03-tl-hero__note">
           <strong>Every journey</strong>
-          <span>Journeys still with the PC show as Booking In Progress. TL review is optional.</span>
+          <span>In tabs, exceptions first: what needs a TL decision, high risk, overdue and stuck.</span>
         </div>
       </section>
 
@@ -521,94 +136,12 @@ export default function TeamLeadDashboardPage() {
 
       <NightlyReprocessingStatusTile />
 
-      {casesQuery.isError ? (
-        <section className="dashboard-load-state" role="alert">
-          <div className="dashboard-load-state__mark" aria-hidden="true">!</div>
-          <div className="dashboard-load-state__copy">
-            <strong>We couldn't load the Team Lead overview.</strong>
-            <p>Please try again. No supervisory counts were calculated from partial data.</p>
-          </div>
-          <button type="button" className="user-menu-button" onClick={() => casesQuery.refetch()}>Try Again</button>
-        </section>
-      ) : casesQuery.isPending ? (
-        <div className="uc03-work-loading" role="status">Loading Team Lead overview…</div>
-      ) : (
-        <>
-          <section className="uc03-tl-metrics" aria-label="Supervisory summary">
-            <MetricCard label="All Journeys" value={cases.length} detail={`${stageCounts.BOOKING_IN_PROGRESS} still with the PC`} />
-            <MetricCard label="Booking Submitted" value={stageCounts.BOOKING_SUBMITTED} detail="Awaiting delivery progress" />
-            <MetricCard label="Delivery In Progress" value={stageCounts.DELIVERY_IN_PROGRESS} detail="Delivery work underway" />
-            <MetricCard label="Delivery Completed" value={stageCounts.DELIVERY_COMPLETED} detail="Business stage completed" />
-            <MetricCard label="Open Flags" value={openFlags} detail="Across visible TL scope" />
-          </section>
-
-          <div className="uc03-tl-breakdown-grid">
-            <BreakdownPanel title="Outlet-wise" rows={outletRows} selectedKey={outletId} onSelect={setOutletId} />
-            <BreakdownPanel title="PC-wise" rows={pcRows} selectedKey={pcActorId} onSelect={setPcActorId} />
-          </div>
-
-          <section className="uc03-tl-panel uc03-tl-cases" aria-labelledby="uc03-tl-cases-title">
-            <header className="uc03-tl-cases__header">
-              <div>
-                <h2 id="uc03-tl-cases-title">Cases</h2>
-                <p>{filteredCases.length} of {cases.length} case{cases.length === 1 ? '' : 's'} shown</p>
-              </div>
-              {activeFilterCount > 0 && <button type="button" onClick={clearFilters}>Clear {activeFilterCount} filter{activeFilterCount === 1 ? '' : 's'}</button>}
-            </header>
-
-            <div className="uc03-tl-filters">
-              <label className="uc03-tl-search">
-                <span>Search</span>
-                <input
-                  type="search"
-                  value={search}
-                  onChange={(event) => setSearch(event.target.value)}
-                  placeholder="Customer, booking, vehicle, outlet or PC"
-                />
-              </label>
-              <label>
-                <span>Outlet</span>
-                <select value={outletId} onChange={(event) => setOutletId(event.target.value)}>
-                  <option value="">All outlets</option>
-                  {outletRows.map((row) => <option key={row.key} value={row.key}>{row.label}</option>)}
-                </select>
-              </label>
-              <label>
-                <span>Responsible PC</span>
-                <select value={pcActorId} onChange={(event) => setPcActorId(event.target.value)}>
-                  <option value="">All PCs</option>
-                  {pcRows.map((row) => <option key={row.key} value={row.key}>{row.label}</option>)}
-                </select>
-              </label>
-              <label>
-                <span>Business stage</span>
-                <select value={stageFilter} onChange={(event) => setStageFilter(event.target.value as StageFilter)}>
-                  <option value="ALL">All stages</option>
-                  <option value="BOOKING_IN_PROGRESS">Booking In Progress</option>
-                  <option value="BOOKING_SUBMITTED">Booking Submitted</option>
-                  <option value="DELIVERY_IN_PROGRESS">Delivery In Progress</option>
-                  <option value="DELIVERY_COMPLETED">Delivery Completed</option>
-                </select>
-              </label>
-            </div>
-
-            <div className="uc03-tl-case-list">
-              {filteredCases.length > 0 && (
-                <div className="uc03-tl-case-head" aria-hidden="true">
-                  <span>Case</span><span>Outlet</span><span>PC</span><span>Business Stage</span><span>Deal Period</span><span>Attention</span><span />
-                </div>
-              )}
-              {filteredCases.map((item) => <CaseRow key={item.journeyId} item={item} p2={p2ByJourney.get(item.journeyId)} timezoneName={timezoneName} />)}
-              {filteredCases.length === 0 && (
-                <div className="uc03-work-empty">
-                  <strong>No cases match these filters.</strong>
-                  <p>Clear one or more filters to return to the full Team Lead scope.</p>
-                </div>
-              )}
-            </div>
-          </section>
-        </>
-      )}
+      {/* Every journey in scope, in tabs and paged on the server (about 1,200
+          a month): exceptions first, with each outlet's and PC's open,
+          overdue and high-risk counts one click from the list. */}
+      <section className="p2w uc03-tl-journeys" aria-label="Journeys">
+        <JourneyListTabs tenantId={project.tenantId} accessToken={accessToken} role="TL" />
+      </section>
     </div>
   );
 }

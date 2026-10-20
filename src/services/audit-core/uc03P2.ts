@@ -72,7 +72,35 @@ export type P2JourneyListItem = {
   opened_at?: string | null;
 };
 
-export type P2JourneyListResponse = { items: P2JourneyListItem[] };
+export type P2JourneyListResponse = { items: P2JourneyListItem[]; view?: string; offset?: number; nextOffset?: number | null };
+
+/** Tabs of the journey list (Audit Core uc03_p2_journey_views). */
+export type P2JourneyView =
+  | 'needs_action' | 'processing' | 'with_tl'
+  | 'needs_tl' | 'high_risk' | 'overdue' | 'stuck'
+  | 'open' | 'closed' | 'all';
+
+export type P2JourneyFilters = {
+  search?: string;
+  month?: string;
+  outletId?: string;
+  pcActorId?: string;
+};
+
+export type P2JourneyCounts = Record<
+  'all' | 'open' | 'closed' | 'needs_action' | 'processing' | 'with_tl' | 'needs_tl' | 'high_risk' | 'overdue' | 'stuck',
+  number
+>;
+
+export type P2JourneyBreakdownRow = {
+  open: number; needs_tl: number; overdue: number; high_risk: number; stuck: number; closed: number;
+};
+
+export type P2JourneyCountsResponse = {
+  counts: P2JourneyCounts;
+  byOutlet?: (P2JourneyBreakdownRow & { outlet_id: string; outlet_name: string | null; outlet_code: string | null })[];
+  byPc?: (P2JourneyBreakdownRow & { pc_actor_id: string | null; pc_name: string | null })[];
+};
 
 type P2BookingGate = {
   passed: boolean;
@@ -493,6 +521,49 @@ export async function createP2Journey(
     headers: { 'Idempotency-Key': idempotencyKey },
     body: JSON.stringify(command),
   });
+}
+
+function journeyFilterParams(filters: P2JourneyFilters): URLSearchParams {
+  const params = new URLSearchParams();
+  if (filters.search?.trim()) params.set('q', filters.search.trim());
+  if (filters.month) params.set('month', filters.month);
+  if (filters.outletId) params.set('outlet_id', filters.outletId);
+  if (filters.pcActorId) params.set('pc_actor_id', filters.pcActorId);
+  return params;
+}
+
+/** GET /p2/v1/tenants/{t}/journeys?view=…: one page (50) of one tab. */
+export function getP2JourneyPage(
+  tenantId: string,
+  accessToken: string | undefined,
+  view: P2JourneyView,
+  filters: P2JourneyFilters,
+  offset = 0,
+  limit = 50,
+): Promise<P2JourneyListResponse> {
+  const params = journeyFilterParams(filters);
+  params.set('view', view);
+  params.set('offset', String(offset));
+  params.set('limit', String(limit));
+  return auditCoreRequest<P2JourneyListResponse>(
+    `${path(tenantId, '/journeys')}?${params.toString()}`,
+    { accessToken, timeoutMs: LIST_READ_TIMEOUT_MS },
+  );
+}
+
+/** GET /p2/v1/tenants/{t}/journeys:counts: every tab's count (and per outlet / PC). */
+export function getP2JourneyCounts(
+  tenantId: string,
+  accessToken: string | undefined,
+  filters: P2JourneyFilters,
+  breakdown = false,
+): Promise<P2JourneyCountsResponse> {
+  const params = journeyFilterParams(filters);
+  if (breakdown) params.set('breakdown', 'true');
+  return auditCoreRequest<P2JourneyCountsResponse>(
+    `${path(tenantId, '/journeys:counts')}?${params.toString()}`,
+    { accessToken, timeoutMs: LIST_READ_TIMEOUT_MS },
+  );
 }
 
 export function getP2Journeys(

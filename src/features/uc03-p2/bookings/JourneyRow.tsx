@@ -261,6 +261,9 @@ export default function JourneyRow({ item, role }: { item: P2JourneyListItem; ro
           <summary className="p2w-button p2w-button--secondary" aria-label={`Actions for ${customer.text}`}>Actions</summary>
           <div className="p2w-menu__list" role="menu">
             {!item.closed ? <Link role="menuitem" to={documents}>Upload / edit documents</Link> : null}
+            {(role === 'TL' || role === 'PM') && !item.closed ? (
+              <Link role="menuitem" to={`/tl/cases/${item.journey_id}/review`}>Review / verify</Link>
+            ) : null}
             <Link role="menuitem" to={overview}>View Journey 360</Link>
             <Link role="menuitem" to={`/p2/journeys/${item.journey_id}/compliance-report`}>View compliance report</Link>
             {!item.closed ? (

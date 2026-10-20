@@ -70,6 +70,8 @@ export type P2JourneyListItem = {
   outlet_code?: string | null;
   /** When the journey opened for the PC: the first document uploaded. */
   opened_at?: string | null;
+  /** The PC's last upload (first upload: opened_at). */
+  last_upload_at?: string | null;
 };
 
 export type P2JourneyListResponse = { items: P2JourneyListItem[]; view?: string; offset?: number; nextOffset?: number | null };
@@ -88,11 +90,12 @@ export type P2JourneyFilters = {
 };
 
 export type P2JourneyCounts = Record<
-  'all' | 'open' | 'closed' | 'needs_action' | 'processing' | 'with_tl' | 'needs_tl' | 'high_risk' | 'overdue' | 'stuck',
+  'all' | 'open' | 'closed' | 'booking_open' | 'delivery_open' | 'needs_action' | 'processing' | 'with_tl' | 'needs_tl' | 'high_risk' | 'overdue' | 'stuck',
   number
 >;
 
 export type P2JourneyBreakdownRow = {
+  total: number; booking_open: number; delivery_open: number;
   open: number; needs_tl: number; overdue: number; high_risk: number; stuck: number; closed: number;
 };
 

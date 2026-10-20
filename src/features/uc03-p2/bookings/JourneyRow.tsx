@@ -237,18 +237,15 @@ export default function JourneyRow({ item, role }: { item: P2JourneyListItem; ro
         <span>{item.booking_confirm_date ? `Booking ${fullDate(item.booking_confirm_date)}` : 'No booking date yet'}</span>
         <span className="p2w-muted">{item.delivered_at ? `Delivery ${fullDate(item.delivered_at)}` : 'No delivery date yet'}</span>
       </td>
-      <td className="p2w-jrow__journey" data-label="Audit timeline">
-        {role === 'PC' ? (
-          <>
-            <span>{item.opened_at ? `Open ${fullDate(item.opened_at)}` : 'Not opened yet'}</span>
-            <span className="p2w-muted">{item.delivery_completed_at ? `Close ${fullDate(item.delivery_completed_at)}` : cancelled ? 'Cancelled' : 'Not closed yet'}</span>
-          </>
-        ) : (
-          <>
-            <span>{item.delivery_completed_at ? `Opened ${fullDate(item.delivery_completed_at)}` : cancelled ? 'Cancelled' : 'Opens when PC completes delivery'}</span>
-            <span className="p2w-muted">{item.delivery_reviewed_at ? `Close ${fullDate(item.delivery_reviewed_at)}` : 'Not closed yet'}</span>
-          </>
-        )}
+      <td className="p2w-jrow__journey" data-label="Audit record">
+        {/* Since when the audit record is open: the PC's first upload, then
+            their last (product owner 2026-10-20). */}
+        <span>{item.opened_at ? `Opened ${fullDate(item.opened_at)}` : 'Nothing uploaded yet'}</span>
+        <span className="p2w-muted">
+          {cancelled ? 'Cancelled'
+            : item.last_upload_at && item.last_upload_at !== item.opened_at ? `Last upload ${fullDate(item.last_upload_at)}`
+              : item.opened_at ? 'One upload so far' : ''}
+        </span>
       </td>
       {role !== 'PC' ? (
         <td className="p2w-jrow__where" data-label="Where">

@@ -587,3 +587,16 @@
   color: #7a898f;
   font-size: 0.72rem;
 }
+
+.uc03-tl-breakdown__mix small.is-overdue {
+  color: #a35b00;
+  font-weight: 800;
+}
+
+.uc03-tl-journeys .uc03-tl-metrics {
+  margin-bottom: 14px;
+}
+
+.uc03-tl-journeys .uc03-tl-breakdown-grid {
+  margin-bottom: 18px;
+}

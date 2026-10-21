@@ -1,0 +1,278 @@
+/* Administration > Run SKU Resolution: Check / Apply review. */
+.sku-mode {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0 0 14px;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+
+.sku-mode legend {
+  padding: 0;
+  margin-bottom: 6px;
+  font-weight: 700;
+  color: var(--ink-700, #475467);
+}
+
+.sku-mode__option {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 2px 10px;
+  align-items: start;
+  padding: 12px 14px;
+  border: 1px solid var(--border-200, #e4e7ec);
+  border-radius: 10px;
+  background: #fff;
+  cursor: pointer;
+}
+
+.sku-mode__option.is-selected {
+  border-color: #315df5;
+  box-shadow: 0 0 0 3px rgba(49, 93, 245, 0.1);
+}
+
+.sku-mode__option input {
+  margin-top: 4px;
+  width: 18px;
+  height: 18px;
+}
+
+.sku-mode__option strong {
+  color: var(--ink-900, #172033);
+}
+
+.sku-mode__option small,
+.sku-mode__note {
+  grid-column: 2;
+  color: var(--ink-600, #667085);
+  font-size: 0.82rem;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.sku-mode__note--warn {
+  color: #93370d;
+}
+
+.sku-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+.sku-actions .button {
+  min-height: 44px;
+}
+
+.sku-history__row {
+  margin-bottom: 8px;
+}
+
+.sku-history__row > .button {
+  width: 100%;
+  min-height: 44px;
+  text-align: left;
+  white-space: normal;
+}
+
+.sku-confirm__lines {
+  margin: 0;
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  line-height: 1.45;
+}
+
+.sku-confirm__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.sku-confirm__actions .button {
+  min-height: 44px;
+}
+
+.sku-review {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 10px;
+}
+
+.sku-review__counts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 8px;
+}
+
+.sku-review__count {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  align-items: flex-start;
+  min-height: 56px;
+  padding: 8px 12px;
+  border: 1px solid var(--border-200, #e4e7ec);
+  border-radius: 10px;
+  background: #fff;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.sku-review__count strong {
+  font-size: 1.25rem;
+  color: var(--ink-900, #172033);
+}
+
+.sku-review__count span {
+  font-size: 0.8rem;
+  color: var(--ink-600, #667085);
+}
+
+.sku-review__count:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.sku-review__count.is-active {
+  border-color: #315df5;
+  box-shadow: 0 0 0 3px rgba(49, 93, 245, 0.1);
+}
+
+.sku-review__count--change strong { color: #067647; }
+.sku-review__count--confirm strong { color: #b54708; }
+.sku-review__count--failed strong { color: #b42318; }
+
+.sku-review__tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.sku-review__tools input {
+  flex: 1 1 220px;
+  min-height: 44px;
+  box-sizing: border-box;
+  padding: 8px 12px;
+  border: 1px solid var(--border-300, #d0d5dd);
+  border-radius: 8px;
+  font: inherit;
+}
+
+.sku-review__tools .button {
+  min-height: 44px;
+}
+
+.sku-review__table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--border-200, #e4e7ec);
+  border-radius: 8px;
+}
+
+.sku-review__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+}
+
+.sku-review__table th,
+.sku-review__table td {
+  text-align: left;
+  vertical-align: top;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border-100, #f2f4f7);
+}
+
+.sku-review__table th {
+  background: #f9fafb;
+  font-weight: 700;
+  color: #475467;
+  white-space: nowrap;
+}
+
+.sku-review__table td {
+  min-width: 90px;
+  overflow-wrap: anywhere;
+}
+
+.sku-review__why {
+  display: block;
+  margin-top: 3px;
+  color: var(--ink-600, #667085);
+  font-size: 0.76rem;
+  line-height: 1.35;
+}
+
+.sku-review__pill {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #f2f4f7;
+  color: #475467;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.sku-review__pill--change { background: #ecfdf3; color: #067647; }
+.sku-review__pill--confirm { background: #fffaeb; color: #b54708; }
+.sku-review__pill--failed { background: #fff1f0; color: #b42318; }
+
+.sku-review__tasks {
+  margin: 0;
+  padding-left: 16px;
+}
+
+/* Phone: each journey is a card, every value labelled. */
+@media (max-width: 760px) {
+  .sku-review__table-wrap {
+    overflow: visible;
+    border: 0;
+  }
+
+  .sku-review__table,
+  .sku-review__table tbody,
+  .sku-review__table tr,
+  .sku-review__table td {
+    display: block;
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  .sku-review__table thead {
+    display: none;
+  }
+
+  .sku-review__table tr {
+    margin-bottom: 10px;
+    border: 1px solid var(--border-200, #e4e7ec);
+    border-radius: 10px;
+    background: #fff;
+    overflow: hidden;
+  }
+
+  .sku-review__table td {
+    display: grid;
+    grid-template-columns: 38% minmax(0, 1fr);
+    gap: 8px;
+    padding: 7px 12px;
+    border-bottom: 1px solid var(--border-100, #f2f4f7);
+  }
+
+  .sku-review__table td::before {
+    content: attr(data-label);
+    color: var(--ink-600, #667085);
+    font-size: 0.74rem;
+    font-weight: 700;
+  }
+
+  .sku-review__counts {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

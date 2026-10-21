@@ -55,6 +55,17 @@ describe('SKU tasks and status', () => {
     expect(forms.secondary.find((a) => a.action === 'REJECT')).toMatchObject({ label: 'This booking form was cancelled' });
   });
 
+  it('keeps a PC decision when a booking form names another vehicle, and asks for a missing SKU', () => {
+    const differs = taskPlan({ ...base, task_id: 't', journey_id: 'j1', title: 'A booking form names a different vehicle',
+      task_type: 'SKU_BOOKING_FORM_DIFFERS', allowed_actions: ['ACCEPT', 'ADD_COMMENT'] }, 'PC');
+    expect(differs.primary).toMatchObject({ label: 'Keep the confirmed vehicle', action: 'ACCEPT' });
+    expect(differs.secondary[0]).toMatchObject({ label: 'Propose a correction' });
+    const notSet = taskPlan({ ...base, task_id: 't2', journey_id: 'j1', title: 'No SKU on this Journey',
+      task_type: 'SKU_NOT_SET', allowed_actions: ['ADD_COMMENT'] }, 'PC');
+    expect(notSet.primary).toBeUndefined();
+    expect(notSet.secondary[0]).toMatchObject({ label: 'Pick the SKU', to: '/p2/journeys/j1/overview?tab=deal' });
+  });
+
   it('never calls an automatic match confirmed', () => {
     expect(skuStatusText({ selectionStatus: 'TENTATIVE', matchBasis: 'AUTO_MATCHED',
       matchLabel: 'Matched automatically by its words; booking price agrees' }))

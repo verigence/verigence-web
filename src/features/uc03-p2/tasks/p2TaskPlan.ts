@@ -186,6 +186,29 @@ export function taskPlan(task: P2Task, operatingRole?: string | null): TaskPlan 
       ],
     };
   }
+  if (task.task_type === 'SKU_NOT_SET') {
+    // 2026-10-21: a Journey with no SKU always has a PC task. It closes
+    // itself once a SKU is on the Journey.
+    return {
+      secondary: [
+        { label: 'Pick the SKU', to: `/p2/journeys/${task.journey_id}/overview?tab=deal`, tone: 'secondary' },
+        { label: 'Open documents', to: `/p2/journeys/${task.journey_id}/documents`, tone: 'ghost' },
+        ...comment,
+      ],
+    };
+  }
+  if (task.task_type === 'SKU_BOOKING_FORM_DIFFERS') {
+    // A booking form names another vehicle than the PC / TL decision: the
+    // decision stays; keep it or propose a correction to the Team Lead.
+    return {
+      primary: { label: 'Keep the confirmed vehicle', action: 'ACCEPT', tone: 'confirm' },
+      secondary: [
+        { label: 'Propose a correction', to: `/p2/journeys/${task.journey_id}/overview?tab=deal`, tone: 'secondary' },
+        { label: 'Open documents', to: `/p2/journeys/${task.journey_id}/documents`, tone: 'ghost' },
+        ...comment,
+      ],
+    };
+  }
   if (task.task_type === 'SKU_INVOICES_DISAGREE' || task.task_type === 'SKU_BOOKING_FORMS_DISAGREE') {
     // Two invoices (or booking forms) name different vehicles: neither sets
     // the SKU. The PC says which vehicle was sold, or which document was

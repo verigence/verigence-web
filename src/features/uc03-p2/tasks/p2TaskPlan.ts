@@ -173,11 +173,43 @@ export function taskPlan(task: P2Task, operatingRole?: string | null): TaskPlan 
       ],
     };
   }
-  if (task.task_type === 'SKU_INVOICES_DISAGREE') {
-    // Two vehicle invoices name different vehicles: neither sets the SKU.
+  if (task.task_type === 'SKU_NOT_CONFIRMED') {
+    // 2026-10-21 (review 471): an automatic SKU its documents no longer
+    // name. It stays on the Journey; keeping it confirms the SKU this task
+    // names, or the PC picks another.
     return {
+      primary: { label: 'Keep this vehicle', action: 'ACCEPT', tone: 'confirm' },
       secondary: [
         { label: 'Pick the SKU', to: `/p2/journeys/${task.journey_id}/overview?tab=deal`, tone: 'secondary' },
+        { label: 'Open documents', to: `/p2/journeys/${task.journey_id}/documents`, tone: 'ghost' },
+        ...comment,
+      ],
+    };
+  }
+  if (task.task_type === 'SKU_INVOICES_DISAGREE' || task.task_type === 'SKU_BOOKING_FORMS_DISAGREE') {
+    // Two invoices (or booking forms) name different vehicles: neither sets
+    // the SKU. The PC says which vehicle was sold, or which document was
+    // cancelled (it is voided and the SKU resolved from the rest).
+    const ref = task.reference ?? {};
+    const options = Array.isArray(ref.skuOptions)
+      ? (ref.skuOptions as Array<{ skuId?: string; skuCode?: string; vehicle?: string }>) : [];
+    const documents = Array.isArray(ref.documents)
+      ? (ref.documents as Array<{ documentId?: string; invoiceNumber?: string; documentType?: string; skuCode?: string }>) : [];
+    const kind = task.task_type === 'SKU_INVOICES_DISAGREE' ? 'invoice' : 'booking form';
+    const pick: TaskAction[] = allowed.has('ACCEPT') ? options.filter((o) => o.skuId).map((o) => ({
+      label: `Sold: ${o.vehicle ?? o.skuCode ?? 'this vehicle'}${o.skuCode ? ` (${o.skuCode})` : ''}`,
+      action: 'ACCEPT', details: { skuId: o.skuId }, tone: 'confirm' as const,
+    })) : [];
+    const cancel: TaskAction[] = allowed.has('REJECT') ? documents.filter((d) => d.documentId).map((d) => ({
+      label: `${d.invoiceNumber ?? `This ${kind}`}${d.skuCode ? ` (${d.skuCode})` : ''} was cancelled`,
+      action: 'REJECT', details: { documentId: d.documentId }, requiresComment: true, tone: 'danger' as const,
+    })) : [];
+    return {
+      primary: pick[0],
+      secondary: [
+        ...pick.slice(1),
+        ...cancel,
+        { label: 'Pick another SKU', to: `/p2/journeys/${task.journey_id}/overview?tab=deal`, tone: 'secondary' },
         { label: 'Open documents', to: `/p2/journeys/${task.journey_id}/documents`, tone: 'ghost' },
         ...comment,
       ],

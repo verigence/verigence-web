@@ -30,6 +30,31 @@ describe('SKU tasks and status', () => {
     expect(plan.secondary[0]).toMatchObject({ action: 'REJECT', requiresComment: true });
   });
 
+  it('asks the PC to keep or replace an automatic SKU the documents no longer name', () => {
+    const plan = taskPlan({ ...base, task_id: 't', journey_id: 'j1',
+      title: 'SKU not clearly identified from the documents \u2014 confirm or set it',
+      task_type: 'SKU_NOT_CONFIRMED', allowed_actions: ['ACCEPT', 'ADD_COMMENT'] }, 'PC');
+    expect(plan.primary).toMatchObject({ label: 'Keep this vehicle', action: 'ACCEPT' });
+    expect(plan.secondary[0]).toMatchObject({ label: 'Pick the SKU' });
+  });
+
+  it('offers a pick per vehicle and a cancellation per document when documents disagree', () => {
+    const reference = {
+      skuOptions: [{ skuId: 's-lx', skuCode: 'LX1', vehicle: 'THAR LX' }, { skuId: 's-ax', skuCode: 'AX1', vehicle: 'THAR AX' }],
+      documents: [{ documentId: 'd1', invoiceNumber: 'INV-LX', skuCode: 'LX1' }, { documentId: 'd2', invoiceNumber: 'INV-AX', skuCode: 'AX1' }],
+    };
+    const plan = taskPlan({ ...base, task_id: 't', journey_id: 'j1', title: 'Vehicle invoices name different vehicles',
+      task_type: 'SKU_INVOICES_DISAGREE', reference, allowed_actions: ['ACCEPT', 'REJECT', 'ADD_COMMENT'] }, 'PC');
+    expect(plan.primary).toMatchObject({ label: 'Sold: THAR LX (LX1)', action: 'ACCEPT', details: { skuId: 's-lx' } });
+    expect(plan.secondary[0]).toMatchObject({ label: 'Sold: THAR AX (AX1)', details: { skuId: 's-ax' } });
+    expect(plan.secondary[1]).toMatchObject({ label: 'INV-LX (LX1) was cancelled', action: 'REJECT',
+      details: { documentId: 'd1' }, requiresComment: true });
+    const forms = taskPlan({ ...base, task_id: 't2', journey_id: 'j1', title: 'Booking forms name different vehicles',
+      task_type: 'SKU_BOOKING_FORMS_DISAGREE', reference: { ...reference, documents: [{ documentId: 'd3' }] },
+      allowed_actions: ['ACCEPT', 'REJECT', 'ADD_COMMENT'] }, 'PC');
+    expect(forms.secondary.find((a) => a.action === 'REJECT')).toMatchObject({ label: 'This booking form was cancelled' });
+  });
+
   it('never calls an automatic match confirmed', () => {
     expect(skuStatusText({ selectionStatus: 'TENTATIVE', matchBasis: 'AUTO_MATCHED',
       matchLabel: 'Matched automatically by its words; booking price agrees' }))

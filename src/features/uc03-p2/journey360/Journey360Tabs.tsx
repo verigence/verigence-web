@@ -490,7 +490,12 @@ export function VehicleTab({ data, tenantId, journeyId, accessToken }: {
           <div><dt>Journey started</dt><dd>{data.journey?.startedAtUtc ? formatDateTime(data.journey.startedAtUtc) : <span className="p2w-muted">Not available</span>}</dd></div>
         </dl>
         {data.product?.selection_status && data.product.selection_status !== 'RESOLVED' ? (
-          <p className="p2w-muted">Identification: {humanizeKey(String(data.product.selection_status))}{data.product.sku_resolution_remarks ? ` · ${String(data.product.sku_resolution_remarks)}` : ''}</p>
+          // How the SKU was set, in words (review 471 N1): an automatic match
+          // is never "Confirmed"; only a PC / Team Lead decision is.
+          <p className="p2w-muted">Identification: {data.product.match_label
+            ? String(data.product.match_label)
+            : data.product.selection_status === 'TENTATIVE' ? 'Matched automatically'
+              : humanizeKey(String(data.product.selection_status))}{data.product.sku_resolution_remarks ? ` · ${String(data.product.sku_resolution_remarks)}` : ''}</p>
         ) : null}
         <h4 className="j360-h4">Delivery execution</h4>
         {data.delivery ? (

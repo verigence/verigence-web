@@ -253,7 +253,14 @@ type RowActions = {
   onRestore: (evidenceId: string) => void;
   onSetType: (queueId: string, templateKey: string, name?: string) => void;
   setTyping: (key?: string) => void;
+  /** Take a refused or failed page off the booking, once its re-scan is in (2026-10-21). */
+  onRemovePage?: (queueId: string, label: string) => void;
 };
+
+/** A page that was refused or could not be processed can be taken off the booking. */
+export function removablePage(row: Pick<DocumentRow, 'unit' | 'status'> | undefined): boolean {
+  return Boolean(row?.unit && (row.status === 'FAILED' || row.status === 'DEAD_LETTER'));
+}
 
 /** The Set type control: a checklist type reads the page again at once;
  * Others asks for the name the page is kept under (decision 2026-09-30). */
@@ -322,6 +329,7 @@ function DocumentCard({ title, level, rows, reason, actions, onAdd }: {
   const retryable = Boolean(lead?.unit && (health ? action === 'RETRY' : RETRYABLE.has(lead.status)));
   const rereadable = Boolean(lead?.unit && action === 'READ_AGAIN');
   const uploadAgain = Boolean(lead && action === 'UPLOAD_AGAIN' && onAdd);
+  const removable = Boolean(actions.onRemovePage && removablePage(lead));
   // Only a page DI could not classify asks for its type; a classified page
   // never does, and one the PC already kept as Others is settled.
   const typeable = Boolean(lead?.unit && (health ? action === 'SET_TYPE' : lead.status === 'SUPPORTING' && !lead.unit.typeSetByPc));
@@ -353,7 +361,7 @@ function DocumentCard({ title, level, rows, reason, actions, onAdd }: {
 
       {lead && actions.typing === lead.key && lead.unit ? <TypePicker queueId={lead.unit.queueId} actions={actions} /> : null}
 
-      {(retryable || rereadable || uploadAgain || (typeable && actions.typing !== lead?.key) || more.length) ? (
+      {(retryable || rereadable || uploadAgain || removable || (typeable && actions.typing !== lead?.key) || more.length) ? (
         <div className="p2w-dcard__actions">
           {retryable && lead?.unit ? (
             <button type="button" className="p2w-link" disabled={busy} onClick={() => actions.onRetry(lead.unit!.queueId)}>
@@ -368,6 +376,13 @@ function DocumentCard({ title, level, rows, reason, actions, onAdd }: {
           ) : null}
           {uploadAgain ? (
             <button type="button" className="p2w-link" onClick={onAdd}>Upload again</button>
+          ) : null}
+          {removable && lead?.unit ? (
+            <button type="button" className="p2w-link" disabled={busy}
+              title="Once the re-scan is uploaded, take this page off the booking. Its task then closes."
+              onClick={() => actions.onRemovePage!(lead.unit!.queueId, lead.subtitle || title)}>
+              Remove this page
+            </button>
           ) : null}
           {typeable && lead && actions.typing !== lead.key ? (
             <button type="button" className="p2w-link" onClick={() => actions.setTyping(lead.key)}>Set type</button>
@@ -408,6 +423,7 @@ export default function P2DocumentList({
   onRestore,
   onSetType,
   onAdd,
+  onRemovePage,
   busyKey,
 }: {
   rows: DocumentRow[];
@@ -423,6 +439,8 @@ export default function P2DocumentList({
   onSetType: (queueId: string, templateKey: string, name?: string) => void;
   /** Opens the file picker for a document that is still missing. */
   onAdd?: () => void;
+  /** Take a refused or failed page off the booking (2026-10-21). */
+  onRemovePage?: (queueId: string, label: string) => void;
   busyKey?: string;
 }) {
   const [typing, setTyping] = useState<string>();
@@ -434,7 +452,7 @@ export default function P2DocumentList({
   );
   const requirements = useMemo(() => checklistRequirements(checklist), [checklist]);
   const { matched, other } = useMemo(() => assignRowsToRequirements(requirements, rows), [requirements, rows]);
-  const actions: RowActions = { selectedDocumentId, busyKey, typing, typeOptions, onOpen, onRetry, onReread, onRestore, onSetType, setTyping };
+  const actions: RowActions = { selectedDocumentId, busyKey, typing, typeOptions, onOpen, onRetry, onReread, onRestore, onSetType, setTyping, onRemovePage };
 
   const stages = (['BOOKING', 'DELIVERY'] as const)
     .map((code) => {

@@ -22,7 +22,10 @@ import P2RecheckButton from '../features/uc03-p2/workspace/P2RecheckButton';
 import P2UploadStatus from '../features/uc03-p2/workspace/P2UploadStatus';
 import { useP2LiveStatus } from '../features/uc03-p2/workspace/useP2LiveStatus';
 import P2DocumentEditor from '../features/uc03-p2/workspace/P2DocumentEditor';
-import P2DocumentList, { buildDocumentRows, type DocumentRow, OTHER_DOCUMENT_TEMPLATE } from '../features/uc03-p2/workspace/P2DocumentList';
+import P2DocumentList, {
+  buildDocumentRows, type DocumentRow, OTHER_DOCUMENT_TEMPLATE, removablePage,
+} from '../features/uc03-p2/workspace/P2DocumentList';
+import RemovePageDialog from '../features/uc03-p2/workspace/RemovePageDialog';
 import P2UploadPanel, { type P2UploadPanelHandle } from '../features/uc03-p2/workspace/P2UploadPanel';
 import { BATCH_IN_FLIGHT, PAGE_IN_FLIGHT } from '../features/uc03-p2/workspace/p2Format';
 import { useP2EventFeed } from '../features/uc03-p2/workspace/useP2EventFeed';
@@ -30,6 +33,7 @@ import {
   cancelP2Journey,
   createP2Journey,
   deleteP2Document,
+  removeP2Page,
   getP2Documents,
   getP2OldScreenDocuments,
   getP2Templates,
@@ -105,6 +109,8 @@ export default function P2JourneyWorkspacePage() {
   const uploadPanel = useRef<P2UploadPanelHandle>(null);
   const [replaceTarget, setReplaceTarget] = useState<string>();
   const [removeTarget, setRemoveTarget] = useState<string>();
+  // A refused or failed page to take off the booking (2026-10-21).
+  const [removePage, setRemovePage] = useState<{ queueId: string; label: string }>();
   const [notice, setNotice] = useState<{ tone: 'success' | 'error'; text: string }>();
   const [busyKey, setBusyKey] = useState<string>();
   const [dialog, setDialog] = useState<'loan' | 'sku'>();
@@ -175,6 +181,7 @@ export default function P2JourneyWorkspacePage() {
       name: row.name,
       where: row.subtitle,
       reason: row.reason || (state === 'REJECTED' ? 'The scan-quality check rejected it.' : 'Reading it failed.'),
+      queueId: removablePage(row) ? row.unit!.queueId : undefined,
     };
   }, [documentId, rows]);
   // A new booking lists the documents the Journey expects before any is
@@ -313,6 +320,17 @@ export default function P2JourneyWorkspacePage() {
     onError: (cause) => setNotice({ tone: 'error', text: errorText(cause, 'The document could not be removed.') }),
   });
 
+  const removePageMutation = useMutation({
+    mutationFn: ({ queueId, reason }: { queueId: string; reason: string }) =>
+      removeP2Page(tenantId!, journeyId, queueId, reason, accessToken),
+    onSuccess: () => {
+      setRemovePage(undefined);
+      setNotice({ tone: 'success', text: 'Page removed from the booking. Its task closes; it stays in the audit history.' });
+      closeDocument();
+      refresh();
+    },
+    onError: (cause) => setNotice({ tone: 'error', text: errorText(cause, 'The page could not be removed.') }),
+  });
   const removeName = rows.find((row) => row.documentId === removeTarget)?.name ?? 'this document';
   const processing = rows.filter((row) => PAGE_IN_FLIGHT.has(row.status));
   // Pages waiting for an automatic retry, and pages whose retries are spent.
@@ -482,6 +500,7 @@ export default function P2JourneyWorkspacePage() {
               onRestore={(evidenceId) => restore.mutate(evidenceId)}
               onSetType={(queueId, templateKey, name) => setType.mutate({ queueId, templateKey, name })}
               onAdd={() => uploadPanel.current?.openFiles()}
+              onRemovePage={(queueId, label) => setRemovePage({ queueId, label })}
               busyKey={busyKey}
             />
           )}
@@ -495,6 +514,12 @@ export default function P2JourneyWorkspacePage() {
               <span>Nothing was read from it, so there are no values to check. Upload the page again{selectedFailure.rejected ? ' as a clear, well-lit scan' : ''}.</span>
               <div className="p2w-editor-rejected__actions">
                 <button type="button" className="p2w-button p2w-button--primary" onClick={() => uploadPanel.current?.openFiles()}>Upload again</button>
+                {selectedFailure.queueId ? (
+                  <button type="button" className="p2w-button p2w-button--danger"
+                    onClick={() => setRemovePage({ queueId: selectedFailure.queueId!, label: selectedFailure.where || selectedFailure.name })}>
+                    Remove this page
+                  </button>
+                ) : null}
                 <button type="button" className="p2w-button p2w-button--secondary" onClick={closeDocument}>Close</button>
               </div>
             </div>
@@ -560,6 +585,11 @@ export default function P2JourneyWorkspacePage() {
             </div>
           </div>
         </div>
+      ) : null}
+      {removePage ? (
+        <RemovePageDialog pageLabel={removePage.label} busy={removePageMutation.isPending}
+          onCancel={() => setRemovePage(undefined)}
+          onConfirm={(reason) => removePageMutation.mutate({ queueId: removePage.queueId, reason })} />
       ) : null}
       {removeTarget ? (
         <div className="p2w-dialog-backdrop" role="presentation" onMouseDown={(event) => {

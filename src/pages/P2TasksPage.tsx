@@ -7,6 +7,7 @@ import '../styles/uc03-p2-workspace.css';
 import BackLink from '../components/BackLink';
 import PageHeader from '../components/PageHeader';
 import RaiseTaskDialog from '../features/uc03-p2/tasks/RaiseTaskDialog';
+import RemovePageDialog, { removablePages } from '../features/uc03-p2/workspace/RemovePageDialog';
 import {
   DOCUMENT_CATEGORIES, documentCategoryLabel, documentCounts, documentFilter, documentOpenLink, pagesText, visibleTasks,
   type DocumentFilter,
@@ -15,7 +16,9 @@ import {
   groupByJourney, taskPlan, vehicleIdentityError, type TaskAction, type VehicleIdentity,
 } from '../features/uc03-p2/tasks/p2TaskPlan';
 import { formatDateTime, humanizeKey, relativeDue, taskStatus } from '../features/uc03-p2/workspace/p2Format';
-import { getP2Task, getP2Tasks, submitP2TaskAction, type P2Task, type P2TaskTab } from '../services/audit-core/uc03P2';
+import {
+  getP2Task, getP2Tasks, removeP2Page, submitP2TaskAction, type P2Task, type P2TaskTab,
+} from '../services/audit-core/uc03P2';
 import { useProjectContextStore } from '../store/projectContextStore';
 import { useSessionStore } from '../store/sessionStore';
 
@@ -135,6 +138,23 @@ function TaskDetail({ task, tenantId, accessToken, operatingRole, onDone }: {
 
   const buttons = [plan.primary, ...plan.secondary].filter((item): item is TaskAction => Boolean(item));
   const ref = task.reference ?? {};
+  // A file's refused pages (2026-10-21): once the re-scan is uploaded, each
+  // refused page is taken off the booking from here, and the task closes.
+  const [removing, setRemoving] = useState<{ page: number; queueId: string }>();
+  const refused = task.task_type === 'PC_PAGE_QUALITY_REJECTED' && !['VERIFIED_COMPLETE', 'CANCELLED'].includes(task.task_status)
+    ? removablePages(ref) : [];
+  const removePage = useMutation({
+    mutationFn: ({ queueId, reason }: { queueId: string; reason: string }) =>
+      removeP2Page(tenantId, task.journey_id, queueId, reason, accessToken),
+    onSuccess: (_, { queueId }) => {
+      setRemoving(undefined);
+      void queryClient.invalidateQueries({ queryKey: ['p2-tasks', tenantId] });
+      void queryClient.invalidateQueries({ queryKey: ['p2-task', tenantId, task.task_id] });
+      const page = refused.find((item) => item.queueId === queueId)?.page;
+      onDone(`${page ? `Page ${page}` : 'The page'} removed from the booking.${refused.length <= 1 ? ' The task closes.' : ''}`);
+    },
+    onError: (cause) => { setRemoving(undefined); setError(errorText(cause)); },
+  });
 
   return (
     <div className="p2w-task__detail">
@@ -165,6 +185,25 @@ function TaskDetail({ task, tenantId, accessToken, operatingRole, onDone }: {
         </label>
       ) : null}
       {error ? <div className="p2w-alert p2w-alert--error" role="alert">{error}</div> : null}
+      {task.task_type === 'PC_PAGE_QUALITY_REJECTED' && plan.primary ? (
+        <div className="p2w-task__actions">
+          {refused.map((item) => (
+            <button key={item.queueId} type="button" className="p2w-button p2w-button--danger" disabled={removePage.isPending}
+              title="Once the re-scan is uploaded, take the refused page off the booking."
+              onClick={() => setRemoving(item)}>
+              Remove page {item.page}
+            </button>
+          ))}
+          {!refused.length ? (
+            <Link className="p2w-link" to={`/p2/journeys/${task.journey_id}/documents`}>Remove the refused page on Upload / Edit Documents</Link>
+          ) : null}
+        </div>
+      ) : null}
+      {removing ? (
+        <RemovePageDialog pageLabel={`page ${removing.page} of ${String(ref.filename ?? 'the file')}`} busy={removePage.isPending}
+          onCancel={() => setRemoving(undefined)}
+          onConfirm={(reason) => removePage.mutate({ queueId: removing.queueId, reason })} />
+      ) : null}
       <div className="p2w-task__actions">
         {buttons.map((action) => action.to ? (
           <Link key={action.label} className={`p2w-button p2w-button--${action.tone}`} to={action.to}>{action.label}</Link>

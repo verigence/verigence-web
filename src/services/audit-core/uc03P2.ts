@@ -483,6 +483,15 @@ export function retryP2Page(tenantId: string, journeyId: string, queueId: string
   );
 }
 
+/** Take a refused or failed page off the Journey (2026-10-21): used once
+ * its re-scan is uploaded. The page's tasks close, naming the removal. */
+export function removeP2Page(tenantId: string, journeyId: string, queueId: string, reason: string, accessToken?: string) {
+  return auditCoreRequest<{ queueId: string; status: string; documentVoided: boolean }>(
+    path(tenantId, `/journeys/${encodeURIComponent(journeyId)}/pages/${encodeURIComponent(queueId)}:remove`),
+    { method: 'POST', accessToken, cache: 'no-store', body: JSON.stringify({ reason }) },
+  );
+}
+
 /** Ask Document Intelligence to read a page it already holds once more
  * (never a re-upload). 409 when the page is already read. */
 export function rereadP2Page(tenantId: string, journeyId: string, queueId: string, accessToken?: string) {

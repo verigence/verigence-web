@@ -220,12 +220,16 @@ export function taskPlan(task: P2Task, operatingRole?: string | null): TaskPlan 
     // A page DI could not classify: its type is set on the card in Upload /
     // Edit Documents, and the task closes itself once it is.
     primary = { label: 'Set document type', to: `/p2/journeys/${task.journey_id}/documents`, tone: 'primary' };
+  } else if (task.task_type === 'PC_PAGE_QUALITY_REJECTED') {
+    // Pages refused for image quality: a retry cannot help, the PC uploads a
+    // re-scan and the task closes itself once one is in (2026-10-21).
+    primary = { label: 'Upload the re-scan', to: `/p2/journeys/${task.journey_id}/documents`, tone: 'primary' };
   } else if (allowed.has('UPLOAD_DOCUMENT') || allowed.has('REUPLOAD_DOCUMENT')) {
     primary = { label: 'Upload document', to: `/p2/journeys/${task.journey_id}/documents`, tone: 'primary' };
   }
   if (completion) {
     const done: TaskAction = {
-      label: task.task_type === 'DOCUMENT_MISSING' ? "I've uploaded it — re-check"
+      label: task.task_type === 'DOCUMENT_MISSING' || task.task_type === 'PC_PAGE_QUALITY_REJECTED' ? "I've uploaded it — re-check"
         : task.completion_protocol === 'MACHINE_VERIFIED' ? "I've fixed it — re-check" : 'Mark as done',
       action: completion,
       requiresComment: task.completion_protocol !== 'MACHINE_VERIFIED',

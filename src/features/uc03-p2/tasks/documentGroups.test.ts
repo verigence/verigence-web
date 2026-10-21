@@ -75,6 +75,6 @@ describe('the Documents group of the Task Queue (2026-10-21)', () => {
     const plan = taskPlan({ ...task('blur', 'DOCUMENTS', 'IMAGE_QUALITY'), task_type: 'PC_PAGE_QUALITY_REJECTED',
       allowed_actions: ['REUPLOAD_DOCUMENT', 'ADD_COMMENT'] }, 'PC');
     expect(plan.primary).toMatchObject({ label: 'Upload the re-scan', to: '/p2/journeys/j1/documents' });
-    expect(plan.secondary[0]).toMatchObject({ label: "I've uploaded it — re-check", action: 'REUPLOAD_DOCUMENT' });
+    expect(plan.secondary[0]).toMatchObject({ label: "I've fixed it — re-check", action: 'REUPLOAD_DOCUMENT' });
   });
 });

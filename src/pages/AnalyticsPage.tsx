@@ -23,9 +23,10 @@ import { useSessionStore } from '../store/sessionStore';
 import '../styles/analytics.css';
 import '../styles/analytics-project.css';
 
-type AnalyticsView = 'overview' | AnalyticsReportKey;
+type AnalyticsView = 'overview' | AnalyticsReportKey | 'sales-product';
 
-const reportKeys: AnalyticsReportKey[] = [
+const reportKeys: Array<AnalyticsReportKey | 'sales-product'> = [
+  'sales-product',
   'finance',
   'insurance',
   'addons',
@@ -39,6 +40,7 @@ const reportKeys: AnalyticsReportKey[] = [
 ];
 
 const businessReportKeys: AnalyticsBusinessReportKey[] = [
+  'sales-product',
   'insurance',
   'addons',
   'discounts',
@@ -48,19 +50,21 @@ const businessReportKeys: AnalyticsBusinessReportKey[] = [
 
 const reportLabels: Record<AnalyticsView, string> = {
   overview: 'Project Business Overview',
-  finance: 'Finance',
+  'sales-product': 'Vehicle Sales & Products',
+  finance: 'Finance & Loan Attach',
   insurance: 'Insurance & Add-ons',
   addons: 'Accessories & VAS',
-  discounts: 'Discounts & Pricing',
+  discounts: 'Pricing Integrity Audit',
   'trade-in': 'Trade-in',
-  payments: 'Payments',
+  payments: 'Payment Channels',
   turnaround: 'Delivery Performance',
   findings: 'Compliance & Exposure',
   documents: 'Documents',
-  productivity: 'Employees',
+  productivity: 'Journey Uploads',
 };
 
 function parseReport(value: string | null): AnalyticsView {
+  if (value === 'sales-product') return value;
   if (value && reportKeys.includes(value as AnalyticsReportKey)) return value as AnalyticsReportKey;
   return 'overview';
 }
@@ -103,7 +107,7 @@ function ReportError({ error }: { error: unknown }) {
 }
 
 export default function AnalyticsPage() {
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const activeView = parseReport(searchParams.get('report'));
   const accessToken = useSessionStore((state) => state.accessToken);
   const sessionTenantId = useSessionStore((state) => state.tenantId);
@@ -167,6 +171,24 @@ export default function AnalyticsPage() {
         title={viewTitle}
         description={`Independent business reporting from controlled Audit Core snapshots${currentAsOf ? `. Data as of ${formatAsOf(currentAsOf)}.` : '.'}`}
       />
+
+      <nav className="analytics-report-navigation" aria-label="Analytics reports">
+        <label htmlFor="analytics-report-select">Report</label>
+        <select
+          id="analytics-report-select"
+          value={activeView}
+          onChange={(event) => {
+            const next = new URLSearchParams(searchParams);
+            if (event.target.value === 'overview') next.delete('report');
+            else next.set('report', event.target.value);
+            setSearchParams(next);
+          }}
+        >
+          {(Object.entries(reportLabels) as Array<[AnalyticsView, string]>).map(([key, label]) => (
+            <option key={key} value={key}>{label}</option>
+          ))}
+        </select>
+      </nav>
 
       {activeView === 'overview' ? (
         overviewQuery.isPending ? (

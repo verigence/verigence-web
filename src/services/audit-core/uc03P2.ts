@@ -1352,6 +1352,8 @@ export function getP2PricingCatalog(tenantId: string, journeyId: string, onDate?
 export type P2PriceComponent = {
   key: string; label: string; commercialKey?: string | null;
   amount: string | null; priceSince?: string | null;
+  /** False for the 4th + 5th-year warranty: the live on-road counts one tier only. */
+  countedInOnRoad?: boolean;
 };
 
 export type P2PriceMasterVariant = {
@@ -1359,7 +1361,11 @@ export type P2PriceMasterVariant = {
   trim: string | null; fuel: string | null; transmission: string | null;
   drive: string | null; seater: string | null; category: string | null;
   components: P2PriceComponent[];
-  onRoad: { individual: string | null; corporate: string | null; basis: string; amount: string | null };
+  /** `book` is the OEM sheet's own on-road, both warranty tiers in. */
+  onRoad: {
+    individual: string | null; corporate: string | null; basis: string; amount: string | null;
+    book?: { individual: string | null; corporate: string | null };
+  };
 };
 
 export type P2PriceMasterModel = {

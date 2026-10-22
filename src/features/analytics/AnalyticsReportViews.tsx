@@ -386,7 +386,9 @@ export default function AnalyticsReportViews({ payload }: { payload: AnalyticsRe
       const totalBookings = summary.reduce((s, r) => s + r.bookings, 0);
       const totalCompleted = summary.reduce((s, r) => s + r.deliveries_completed, 0);
       const unattributed = uploadActivity.reduce((sum, row) => sum + row.unattributed_journeys, 0);
-      const creators = summary.filter((row) => row.actor_id || row.employee_name !== 'Unknown').length;
+      const creators = new Set(summary
+        .filter((row) => row.actor_id || row.employee_name !== 'Unknown')
+        .map((row) => row.actor_id || row.employee_name)).size;
       const uploadRows = uploadActivity.map((row) => ({ label: formatMonth(row.upload_month), value: row.journeys_created }));
 
       return <>

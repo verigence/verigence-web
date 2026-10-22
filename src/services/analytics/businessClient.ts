@@ -6,6 +6,7 @@ export type NumericValue = number | string | null;
 
 interface ProjectAuditorSummary {
   total_journeys: number;
+  booked_journeys: number;
   delivered_cars: number;
   delivery_records: number;
   total_standard_discount: NumericValue;
@@ -33,6 +34,8 @@ interface ProjectAuditorSummary {
   trade_in_journeys: number;
   total_trade_in_value: NumericValue;
   finance_journeys: number;
+  financed_bookings: number;
+  finance_attach_pct: NumericValue;
   total_payment_collected: NumericValue;
   booking_payment_collected: NumericValue;
   delivery_payment_collected: NumericValue;
@@ -126,6 +129,61 @@ export interface AuditorProjectDashboard {
   pincodes: PincodePlacementRow[];
   discount_schemes: DiscountSchemeRow[];
   accessories: AccessoryBreakdownRow[];
+  price_integrity: PricingIntegrityReport;
+}
+
+export interface PricingIntegrityReport {
+  summary: {
+    total_journeys: number;
+    price_exception_journeys: number;
+    discount_exception_journeys: number;
+    journeys_with_pricing_exceptions: number;
+    known_excess_discount_amount: NumericValue;
+    known_excess_application_count: number;
+    known_excess_discount_journeys: number;
+    unknown_entitlement_application_count: number;
+    missing_discount_evidence_application_count: number;
+    standard_price_line_count: number;
+    comparable_price_line_count: number;
+    invoice_backed_price_line_count: number;
+    booking_backed_price_line_count: number;
+    comparable_price_line_coverage_pct: number | null;
+  };
+  by_discount_key: Array<{
+    discount_key: string;
+    application_count: number;
+    journey_count: number;
+    known_excess_discount_amount: NumericValue;
+    excess_application_count: number;
+    unknown_entitlement_count: number;
+    missing_evidence_count: number;
+  }>;
+  by_outlet: Array<{
+    dealer_name: string;
+    outlet_name: string;
+    price_exception_journeys: number;
+    discount_exception_journeys: number;
+    known_excess_discount_amount: NumericValue;
+    unknown_discount_applications: number;
+  }>;
+  exceptions: Array<{
+    finding_id: string | null;
+    journey_id: string;
+    journey_reference: string | null;
+    dealer_name: string;
+    outlet_name: string;
+    booking_date: string | null;
+    model_name: string;
+    variant_name: string;
+    rule_key: string;
+    title: string;
+    description: string;
+    severity: string;
+    finding_status: string;
+    owner_role_code: string | null;
+    sla_due_at_utc: string | null;
+  }>;
+  definitions: Record<string, string>;
 }
 
 export async function getBusinessProjectDashboard(
@@ -209,6 +267,7 @@ interface AnalyticsBusinessDiscounts {
     eligible_discount_amount: NumericValue;
   }>;
   above_eligible_definition: string;
+  pricing_integrity: PricingIntegrityReport;
 }
 
 interface AnalyticsBusinessInsurance {
@@ -216,6 +275,7 @@ interface AnalyticsBusinessInsurance {
   data_as_of: string;
   summary: {
     journeys: number;
+    booked_journeys: number;
     insurance_journeys: number;
     premium_amount: NumericValue;
     premium_populated: number;
@@ -266,6 +326,31 @@ interface AnalyticsBusinessVas {
   accessory_codes: string[];
 }
 
+interface AnalyticsBusinessSalesProduct {
+  tenant_id: string;
+  data_as_of: string;
+  by_outlet: Array<{
+    dealer_id: string | null;
+    dealer_name: string;
+    outlet_id: string | null;
+    outlet_name: string;
+    journey_count: number;
+    delivery_records: number;
+    actual_deliveries: number;
+    payment_amount: NumericValue;
+  }>;
+  by_model_variant: Array<{
+    model_name: string;
+    variant_name: string;
+    journey_count: number;
+    actual_deliveries: number;
+    discount_amount: NumericValue;
+    payment_amount: NumericValue;
+  }>;
+  by_colour: Array<{ colour_name: string; journey_count: number }>;
+  delivery_definition: Record<string, string>;
+}
+
 interface AnalyticsBusinessCompliance {
   tenant_id: string;
   data_as_of: string;
@@ -301,9 +386,10 @@ interface AnalyticsBusinessCompliance {
   commercial_value_note: string;
 }
 
-export type AnalyticsBusinessReportKey = 'insurance' | 'addons' | 'discounts' | 'turnaround' | 'findings';
+export type AnalyticsBusinessReportKey = 'sales-product' | 'insurance' | 'addons' | 'discounts' | 'turnaround' | 'findings';
 
 export type AnalyticsBusinessReportPayload =
+  | { kind: 'sales-product'; data: AnalyticsBusinessSalesProduct }
   | { kind: 'insurance'; data: AnalyticsBusinessInsurance }
   | { kind: 'addons'; data: AnalyticsBusinessVas }
   | { kind: 'discounts'; data: AnalyticsBusinessDiscounts }
@@ -318,6 +404,8 @@ export async function getBusinessAnalyticsReport(
 ): Promise<AnalyticsBusinessReportPayload> {
   const root = `/v1/analytics/tenants/${encodeURIComponent(tenantId)}/business-intelligence`;
   switch (report) {
+    case 'sales-product':
+      return { kind: report, data: await analyticsRequest<AnalyticsBusinessSalesProduct>(`${root}/sales-product`, accessToken, signal) };
     case 'insurance':
       return { kind: report, data: await analyticsRequest<AnalyticsBusinessInsurance>(`${root}/insurance`, accessToken, signal) };
     case 'addons':

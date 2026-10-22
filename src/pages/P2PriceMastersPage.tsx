@@ -31,7 +31,7 @@ const SHORT: Record<string, string> = {
   REGISTRATION_CORPORATE: 'Reg (corp)',
   ACCESSORIES_KIT: 'Accessories',
   EXT_WARRANTY_4TH_YR: 'EW 4th',
-  EXT_WARRANTY_4TH_5TH_YR: 'EW 4+5th',
+  EXT_WARRANTY_4TH_5TH_YR: 'EW 4+5th (not counted)',
   RSA_1YR: 'RSA',
   FASTAG: 'FASTag',
 };
@@ -92,6 +92,9 @@ function ModelBlock({ model, basis }: { model: P2PriceMasterModel; basis: string
             <tbody>
               {model.variants.map((variant) => {
                 const byKey = new Map(variant.components.map((c) => [c.key, c.amount]));
+                const bookOnRoad = variant.onRoad.book
+                  ? (basis === 'CORPORATE' ? variant.onRoad.book.corporate : variant.onRoad.book.individual)
+                  : null;
                 return (
                   <tr key={variant.productSkuId}>
                     <td>
@@ -99,9 +102,18 @@ function ModelBlock({ model, basis }: { model: P2PriceMasterModel; basis: string
                       {variant.trim && <span className="p2w-muted"> · {variant.trim}</span>}
                     </td>
                     {COLUMNS.map((key) => (
-                      <td key={key} style={{ textAlign: 'right' }}>{money(byKey.get(key))}</td>
+                      <td
+                        key={key}
+                        className={key === 'EXT_WARRANTY_4TH_5TH_YR' ? 'p2w-muted' : undefined}
+                        style={{ textAlign: 'right' }}
+                      >
+                        {money(byKey.get(key))}
+                      </td>
                     ))}
-                    <td style={{ textAlign: 'right' }}><strong>{money(variant.onRoad.amount)}</strong></td>
+                    <td style={{ textAlign: 'right' }} title={bookOnRoad ? `OEM sheet on-road (both warranty tiers): ${money(bookOnRoad)}` : undefined}>
+                      <strong>{money(variant.onRoad.amount)}</strong>
+                      {bookOnRoad && <div className="p2w-muted">OEM sheet {money(bookOnRoad)}</div>}
+                    </td>
                   </tr>
                 );
               })}
@@ -117,11 +129,13 @@ function ModelBlock({ model, basis }: { model: P2PriceMasterModel; basis: string
  * The price book standing on a chosen date: every model and variant with
  * the components the OEM priced and the on-road figure.
  *
- * The on-road is the price list's own fully loaded figure — Mahindra prices
- * both extended-warranty tiers, the accessories kit, RSA and FASTag into it
- * — so it is a ceiling, not what a customer pays. Nothing is netted off it
- * here; schemes and privileges are shown against a deal, not against the
- * book.
+ * The on-road is a fully loaded figure: the accessories kit, RSA, FASTag and
+ * ONE extended-warranty tier (the 4th year) are priced into it. The OEM
+ * sheet's own on-road also adds the 4th + 5th-year tier, which a customer
+ * does not take on top; that sheet figure is shown beneath for
+ * reconciliation. It is a ceiling, not what a customer pays. Nothing is
+ * netted off it here; schemes and privileges are shown against a deal, not
+ * against the book.
  */
 export default function P2PriceMastersPage() {
   const tenantId = useProjectContextStore((s) => s.selectedProject?.tenantId);
@@ -156,7 +170,7 @@ export default function P2PriceMastersPage() {
       <PageHeader
         eyebrow="DealGuard"
         title="Price Masters"
-        description="The price book standing on a date, as the OEM priced it. The on-road figure is the book's own fully loaded total, not what a customer pays."
+        description="The price book standing on a date, as the OEM priced it. The on-road figure counts one extended warranty (4th year) and is a fully loaded ceiling, not what a customer pays; the OEM sheet's own figure, which adds both warranty tiers, is shown beneath it."
       />
 
       <SectionCard>

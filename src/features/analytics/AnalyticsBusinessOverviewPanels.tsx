@@ -89,7 +89,7 @@ export default function AnalyticsBusinessOverviewPanels({ data }: { data: Audito
           <Metric
             label="Open or acknowledged pricing cases"
             value={formatNumber(pricing.summary.journeys_with_pricing_exceptions)}
-            detail={`${formatNumber(pricing.summary.price_exception_journeys)} price variance · ${formatNumber(pricing.summary.discount_exception_journeys)} discount cases`}
+            detail={`${formatNumber(pricing.summary.price_exception_journeys)} price variance · ${formatNumber(pricing.summary.discount_exception_journeys)} discount cases · ${formatNumber(pricing.summary.invoice_conflict_journeys)} invoice conflicts`}
             attention={pricing.summary.journeys_with_pricing_exceptions > 0}
           />
           <Metric

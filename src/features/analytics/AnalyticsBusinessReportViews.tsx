@@ -229,7 +229,7 @@ export default function AnalyticsBusinessReportViews({ payload }: { payload: Ana
           />
 
           <p className="analytics-footnote">
-            {pricing.definitions.exception_status} Known overage uses Audit Core's per-line ₹100 tolerance. Invoice and booking line counts describe evidence coverage, not complete-deal invoice coverage.
+            {pricing.definitions.exception_status} Known overage summarizes captured applications; current unresolved status is shown in the finding list. Invoice and booking line counts describe evidence coverage, not complete-deal invoice coverage.
           </p>
         </>
       );

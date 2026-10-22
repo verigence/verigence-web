@@ -110,6 +110,7 @@ function TaskDetail({ task, tenantId, accessToken, operatingRole, onDone }: {
         return;
       }
       onDone(action.action === 'ADD_COMMENT' ? 'Comment added.'
+        : action.action === 'CLOSE_TASK' ? 'Task closed.'
         : task.task_type === 'SKU_CLOSEST_MATCH_CONFIRM' ? 'Vehicle confirmed. The deal is now checked against its price.'
         : task.task_type === 'SKU_OTHER_MONTH_PRICE_LIST' && action.action === 'ACCEPT' ? 'Approved. The journey is now priced on that list and its SKU resolved there.'
         : task.task_type === 'SKU_OTHER_MONTH_PRICE_LIST' ? 'Rejected. The PC picks the SKU by hand.'
@@ -130,7 +131,9 @@ function TaskDetail({ task, tenantId, accessToken, operatingRole, onDone }: {
 
   const trigger = (action: TaskAction) => {
     if (action.requiresComment && !comment.trim()) {
-      setError(action.action === 'ADD_COMMENT' ? 'Write a comment first.' : 'Add a short reason in the comment box first.');
+      setError(action.action === 'ADD_COMMENT' ? 'Write a comment first.'
+        : action.action === 'CLOSE_TASK' ? 'Write a comment in the comment box to close this task.'
+        : 'Add a short reason in the comment box first.');
       return;
     }
     run.mutate(action);
@@ -181,7 +184,8 @@ function TaskDetail({ task, tenantId, accessToken, operatingRole, onDone }: {
         <label className="p2w-task__comment">
           <span>Comment</span>
           <textarea rows={2} value={comment} onChange={(event) => { setComment(event.target.value); setError(undefined); }}
-            placeholder="Add a note for your team" />
+            placeholder={buttons.some((item) => item.action === 'CLOSE_TASK')
+              ? 'Add a note for your team. Closing the task needs a comment.' : 'Add a note for your team'} />
         </label>
       ) : null}
       {error ? <div className="p2w-alert p2w-alert--error" role="alert">{error}</div> : null}

@@ -76,5 +76,19 @@ describe('the Documents group of the Task Queue (2026-10-21)', () => {
       allowed_actions: ['REUPLOAD_DOCUMENT', 'ADD_COMMENT'] }, 'PC');
     expect(plan.primary).toMatchObject({ label: 'Upload the re-scan', to: '/p2/journeys/j1/documents' });
     expect(plan.secondary[0]).toMatchObject({ label: "I've fixed it — re-check", action: 'REUPLOAD_DOCUMENT' });
+    // No "Close task" on a task that was raised before the action existed.
+    expect(plan.secondary.some((item) => item.action === 'CLOSE_TASK')).toBe(false);
+  });
+
+  it('lets the PC close an image-quality task by hand, with a comment', () => {
+    const quality = { ...task('blur', 'DOCUMENTS', 'IMAGE_QUALITY'), task_type: 'PC_PAGE_QUALITY_REJECTED',
+      allowed_actions: ['REUPLOAD_DOCUMENT', 'CLOSE_TASK', 'ADD_COMMENT'] };
+    const plan = taskPlan(quality, 'PC');
+    expect(plan.primary).toMatchObject({ label: 'Upload the re-scan' });
+    const close = plan.secondary.find((item) => item.action === 'CLOSE_TASK');
+    expect(close).toMatchObject({ label: 'Close task', requiresComment: true });
+    // Another task type never gets it.
+    expect(taskPlan({ ...quality, task_type: 'DOCUMENT_RESUBMIT', allowed_actions: ['ADD_COMMENT'] }, 'PC')
+      .secondary.some((item) => item.action === 'CLOSE_TASK')).toBe(false);
   });
 });

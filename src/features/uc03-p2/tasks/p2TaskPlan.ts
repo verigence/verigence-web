@@ -222,8 +222,10 @@ export function taskPlan(task: P2Task, operatingRole?: string | null): TaskPlan 
     primary = { label: 'Set document type', to: `/p2/journeys/${task.journey_id}/documents`, tone: 'primary' };
   } else if (task.task_type === 'PC_PAGE_QUALITY_REJECTED') {
     // Pages refused for image quality: a retry cannot help, the PC uploads a
-    // re-scan; the task closes itself once the refused pages are processed or
-    // removed (2026-10-21; another upload alone never closes it).
+    // re-scan. The system cannot know which upload answers the task (another
+    // upload alone never closes it), so the PC closes it by hand with a
+    // comment (2026-10-22: "Close task"); it still closes itself once the
+    // refused pages are processed or removed.
     primary = { label: 'Upload the re-scan', to: `/p2/journeys/${task.journey_id}/documents`, tone: 'primary' };
   } else if (allowed.has('UPLOAD_DOCUMENT') || allowed.has('REUPLOAD_DOCUMENT')) {
     primary = { label: 'Upload document', to: `/p2/journeys/${task.journey_id}/documents`, tone: 'primary' };
@@ -237,6 +239,12 @@ export function taskPlan(task: P2Task, operatingRole?: string | null): TaskPlan 
       tone: primary ? 'secondary' : 'primary',
     };
     if (primary) secondary.push(done); else primary = done;
+  }
+  if (allowed.has('CLOSE_TASK')) {
+    // The image-quality task: closed by the PC with a comment, every time
+    // ("Document Uploaded", "Document Not required to be uploaded for
+    // Extraction", or his own words). The server refuses a blank comment too.
+    secondary.push({ label: 'Close task', action: 'CLOSE_TASK', requiresComment: true, tone: 'secondary' });
   }
   if (allowed.has('PROVIDE_FEEDBACK')) secondary.push({ label: 'Give feedback', action: 'PROVIDE_FEEDBACK', requiresComment: true, tone: 'ghost' });
   if (supervisor && allowed.has('ACCEPT_EXCEPTION')) {

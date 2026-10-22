@@ -1,6 +1,7 @@
 import SectionCard from '../../components/SectionCard';
 import type { AnalyticsReportPayload } from '../../services/analytics/client';
 import {
+  AnalyticsBarChart,
   AnalyticsBubbleChart,
   AnalyticsComboChart,
   AnalyticsDonutChart,
@@ -14,7 +15,7 @@ import {
 type InsightTone = 'default' | 'attention' | 'positive';
 
 const acronymMap: Record<string, string> = {
-  amc: 'AMC', cctv: 'CCTV', do: 'DO', dsa: 'DSA', emi: 'EMI', ew: 'EW', gst: 'GST', id: 'ID', pan: 'PAN', po: 'PO', rc: 'RC', rsa: 'RSA', upi: 'UPI',
+  amc: 'AMC', cctv: 'CCTV', cod: 'COD', do: 'DO', dsa: 'DSA', emi: 'EMI', ew: 'EW', gst: 'GST', id: 'ID', neft: 'NEFT', pan: 'PAN', po: 'PO', pos: 'POS', qr: 'QR', rc: 'RC', rsa: 'RSA', rtgs: 'RTGS', upi: 'UPI',
 };
 
 function formatNumber(value: number): string {
@@ -36,10 +37,10 @@ function percent(part: number, whole: number): string {
   return whole ? `${((part / whole) * 100).toFixed(1)}%` : '0.0%';
 }
 
-function formatShortDate(value: string): string {
+function formatMonth(value: string): string {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' });
+  return date.toLocaleDateString('en-IN', { month: 'short', year: '2-digit' });
 }
 
 function humanize(value: string): string {
@@ -50,6 +51,32 @@ function humanize(value: string): string {
     .filter(Boolean)
     .map((token) => acronymMap[token.toLowerCase()] || `${token.charAt(0).toUpperCase()}${token.slice(1).toLowerCase()}`)
     .join(' ');
+}
+
+function normalizePaymentChannel(value: string): string {
+  const key = value.trim().replace(/\s+/g, ' ').toUpperCase();
+  const knownAliases: Record<string, string> = {
+    CASH: 'Cash',
+    'CASH DEPOSIT': 'Cash',
+    UPI: 'UPI / Wallet',
+    'PHONE PAY': 'UPI / Wallet',
+    PHONEPE: 'UPI / Wallet',
+    'PHONE PE': 'UPI / Wallet',
+    'TRANSFER-UPI': 'UPI / Wallet',
+    CARD: 'Card / POS',
+    'CREDIT CARD': 'Card / POS',
+    'DEBIT CARD': 'Card / POS',
+    POS: 'Card / POS',
+    'ICICI BANK POS MACHINE RECEIPTS': 'Card / POS',
+    TRANSFER: 'Bank Transfer',
+    'BY TRANSFER': 'Bank Transfer',
+    'BANK TRANSFER': 'Bank Transfer',
+    NEFT: 'Bank Transfer',
+    RTGS: 'Bank Transfer',
+    'NEFT/RTGS': 'Bank Transfer',
+    'RTGS/NEFT': 'Bank Transfer',
+  };
+  return knownAliases[key] || humanize(value);
 }
 
 function humanizeRuleKey(value: string): string {
@@ -163,30 +190,23 @@ function matrixFromRows<T>(rows: T[], xValues: string[], yValues: string[], x: (
 export default function AnalyticsReportViews({ payload }: { payload: AnalyticsReportPayload }) {
   switch (payload.kind) {
     case 'finance': {
-      const { rows } = payload.data;
-      const deals = rows.reduce((sum, row) => sum + row.deal_count, 0);
-      const amount = rows.reduce((sum, row) => sum + numeric(row.financed_amount), 0);
-      const providers = aggregate(rows, (row) => humanize(row.provider), (row) => numeric(row.financed_amount));
-      const financeTypes = aggregate(rows, (row) => humanize(row.finance_type), (row) => row.deal_count);
-      const topProvider = providers[0];
-      const topType = financeTypes[0];
-      const hierarchy = rows.map((row) => ({ group: humanize(row.finance_type), label: humanize(row.provider), value: row.deal_count }));
-      const providerPosition = aggregateBubble(rows, (row) => humanize(row.provider), (row) => row.deal_count, (row) => numeric(row.financed_amount));
+      const { rows, summary } = payload.data;
+      const financedBookings = summary.financed_bookings;
+      const amount = numeric(summary.financed_amount);
+      const hierarchy = rows.map((row) => ({
+        group: humanize(row.finance_type),
+        label: humanize(row.provider),
+        value: numeric(row.financed_amount),
+      }));
       return <>
         <div className="analytics-finance-hero">
-          <HeroStat eyebrow="Portfolio value" value={formatMoney(amount)} title="Captured financed business" detail={`${formatNumber(deals)} financed deals in the current snapshot.`} />
+          <HeroStat eyebrow="Finance attach" value={summary.finance_attach_pct == null ? 'Unavailable' : `${numeric(summary.finance_attach_pct).toFixed(1)}%`} title="Booked journeys with finance" detail={`${formatNumber(financedBookings)} of ${formatNumber(summary.booked_journeys)} booked journeys have a finance record.`} />
           <div className="analytics-insight-stack">
-            <InsightCard label="Leading finance type" value={topType?.label || '—'} detail={topType ? `${percent(topType.value, deals)} of captured finance deals` : 'No finance mix captured'} />
-            <InsightCard label="Leading provider by value" value={topProvider?.label || '—'} detail={topProvider ? `${formatMoney(topProvider.value)} · ${percent(topProvider.value, amount)} of financed value` : 'No provider value captured'} />
-            <InsightCard label="Average financed amount" value={deals ? formatMoney(amount / deals) : '—'} detail="Captured financed value per financed deal" />
+            <InsightCard label="Captured financed value" value={formatMoney(amount)} detail={`${formatNumber(summary.finance_record_count)} finance records across ${formatNumber(summary.financed_journeys)} distinct financed journeys`} />
+            <InsightCard label="Average financed per financed booking" value={financedBookings ? formatMoney(amount / financedBookings) : '—'} detail="Captured financed value divided by distinct financed bookings" />
           </div>
         </div>
-        <SectionCard title="Finance Portfolio Structure" description="Finance type forms the inner ring and providers the outer ring. Segment size represents deal volume."><AnalyticsSunburstChart rows={hierarchy} valueLabel="Deals" /></SectionCard>
-        <div className="analytics-split analytics-split--wide-left">
-          <SectionCard title="Provider Positioning" description="Compare providers on deal volume and financed value. Larger bubbles represent more deals."><AnalyticsBubbleChart rows={providerPosition} xLabel="Deals" yLabel="Financed value" yKind="currency" /></SectionCard>
-          <RankedList title="Provider value leaderboard" description="Where the captured financed value is concentrated." items={providers.slice(0, 6).map((row) => ({ label: row.label, value: formatMoney(row.value), meta: percent(row.value, amount) }))} />
-        </div>
-        <DetailDisclosure title="View finance transaction summary" headers={['Finance Type', 'Provider', 'Deals', 'Financed Amount']} rows={rows.map((row) => [humanize(row.finance_type), humanize(row.provider), formatNumber(row.deal_count), formatMoney(row.financed_amount)])} />
+        <SectionCard title="Financed Value by Type and Provider" description="Captured financed value is split once across finance type and provider. A journey can have multiple finance records, so this mix is value-based while attach rate counts distinct booked journeys."><AnalyticsSunburstChart rows={hierarchy} valueLabel="Financed value" /></SectionCard>
       </>;
     }
 
@@ -276,16 +296,18 @@ export default function AnalyticsReportViews({ payload }: { payload: AnalyticsRe
       const { rows } = payload.data;
       const count = rows.reduce((sum, row) => sum + row.payment_count, 0);
       const amount = rows.reduce((sum, row) => sum + numeric(row.total_amount), 0);
-      const comboRows = rows.map((row) => ({ label: humanize(row.payment_method), bar: numeric(row.total_amount), line: row.payment_count ? numeric(row.total_amount) / row.payment_count : 0 }));
-      const methods = rows.map((row) => ({ label: humanize(row.payment_method), count: row.payment_count, value: numeric(row.total_amount), average: row.payment_count ? numeric(row.total_amount) / row.payment_count : 0 })).sort((a, b) => b.value - a.value);
+      const channels = new Set(rows.map((row) => normalizePaymentChannel(row.payment_method)));
+      const hierarchy = rows.map((row) => ({
+        group: humanize(row.payment_stage),
+        label: normalizePaymentChannel(row.payment_method),
+        value: numeric(row.total_amount),
+      }));
       return <>
         <div className="analytics-payment-flow">
-          <div className="analytics-payment-flow__total"><span>Total captured receipts</span><strong>{formatMoney(amount)}</strong><p>{formatNumber(count)} payment entries across {formatNumber(rows.length)} captured modes.</p></div>
+          <div className="analytics-payment-flow__total"><span>Total captured receipts</span><strong>{formatMoney(amount)}</strong><p>{formatNumber(count)} payment entries across {formatNumber(channels.size)} captured channels.</p></div>
           <div className="analytics-payment-flow__average"><span>Average payment</span><strong>{count ? formatMoney(amount / count) : '—'}</strong><p>Captured receipt value per payment entry.</p></div>
         </div>
-        <SectionCard title="Payment Mode Economics" description="Total receipt value is shown as bars; average transaction value is shown as the line."><AnalyticsComboChart rows={comboRows} barLabel="Receipt value" lineLabel="Average payment" barKind="currency" lineKind="currency" /></SectionCard>
-        <RankedList title="Payment mode contribution" description="Modes ranked by captured receipt value." items={methods.slice(0, 8).map((row) => ({ label: row.label, value: formatMoney(row.value), meta: `${formatNumber(row.count)} payments · ${formatMoney(row.average)} average · ${percent(row.value, amount)} of value` }))} />
-        <DetailDisclosure title="View payment detail" headers={['Mode', 'Payments', 'Total Amount']} rows={rows.map((row) => [humanize(row.payment_method), formatNumber(row.payment_count), formatMoney(row.total_amount)])} />
+        <SectionCard title="Payment Channel by Collection Stage" description="Captured receipt value is grouped by payment channel within booking and delivery stages. Known case and label aliases are combined; ambiguous combined labels remain separate."><AnalyticsSunburstChart rows={hierarchy} valueLabel="Receipt value" /></SectionCard>
       </>;
     }
 
@@ -359,48 +381,48 @@ export default function AnalyticsReportViews({ payload }: { payload: AnalyticsRe
     }
 
     case 'productivity': {
-      const { summary, journeys } = payload.data;
+      const { summary, upload_activity: uploadActivity } = payload.data;
       const totalJourneys = summary.reduce((s, r) => s + r.journeys_created, 0);
       const totalBookings = summary.reduce((s, r) => s + r.bookings, 0);
-      const totalDeliveries = summary.reduce((s, r) => s + r.deliveries_started, 0);
       const totalCompleted = summary.reduce((s, r) => s + r.deliveries_completed, 0);
-      const completedWithDays = journeys.filter((j) => j.days_to_delivery != null);
-      const avgDays = completedWithDays.length
-        ? Math.round(completedWithDays.reduce((s, j) => s + (j.days_to_delivery ?? 0), 0) / completedWithDays.length * 10) / 10
-        : null;
+      const unattributed = uploadActivity.reduce((sum, row) => sum + row.unattributed_journeys, 0);
+      const creators = summary.filter((row) => row.actor_id || row.employee_name !== 'Unknown').length;
+      const uploadRows = uploadActivity.map((row) => ({ label: formatMonth(row.upload_month), value: row.journeys_created }));
 
       return <>
         <div className="analytics-employee-summary">
-          <HeroStat eyebrow="Journeys captured" value={formatNumber(totalJourneys)} title={`${summary.length} employee${summary.length !== 1 ? 's' : ''}`} detail={`${formatNumber(totalBookings)} bookings · ${formatNumber(totalDeliveries)} deliveries started · ${formatNumber(totalCompleted)} completed`} />
+          <HeroStat eyebrow="Journey uploads" value={formatNumber(totalJourneys)} title={`${creators} attributed creator${creators !== 1 ? 's' : ''}`} detail="Creator attribution comes from Audit Core journey created-by fields." />
           <div className="analytics-insight-stack">
-            <InsightCard label="Bookings" value={formatNumber(totalBookings)} detail={`${formatNumber(totalBookings - summary.reduce((s,r)=>s+r.bookings_with_date,0))} missing booking date`} />
-            <InsightCard label="Deliveries started" value={formatNumber(totalDeliveries)} detail={`${formatNumber(totalCompleted)} with actual delivery date`} />
-            <InsightCard label="Avg days to delivery" value={avgDays != null ? `${avgDays} days` : '—'} detail="Journey created → actual delivery date (where captured)" />
+            <InsightCard label="Unattributed uploads" value={formatNumber(unattributed)} detail="Journey records with no creator ID or display name" />
+            <InsightCard label="Bookings created" value={formatNumber(totalBookings)} detail={`${formatNumber(totalBookings - summary.reduce((s, r) => s + r.bookings_with_date, 0))} bookings are missing a booking date`} />
+            <InsightCard label="Delivered journeys" value={formatNumber(totalCompleted)} detail="Created journeys with an actual delivery date" />
           </div>
         </div>
 
-        <SectionCard title="Employee Scorecard" description="Journeys captured, bookings, deliveries and average time to delivery per PC.">
+        <SectionCard title="Journey Upload Cadence" description="Monthly counts use the journey created-at timestamp in the current snapshot. Creator attribution gaps are reported separately.">
+          <AnalyticsBarChart rows={uploadRows} valueLabel="Journeys uploaded" />
+        </SectionCard>
+
+        <SectionCard title="Journey Uploads by Creator" description="Creator totals and downstream booking/delivery indicators from the same journey records. Names come from the creator actor ID or display name.">
           <div className="data-table-wrap analytics-table-wrap">
             <table className="data-table">
               <thead>
                 <tr>
-                  <th>Employee</th>
-                  <th>Journeys</th>
+                  <th>Creator</th>
+                  <th>Journeys Uploaded</th>
                   <th>Bookings</th>
-                  <th>Deliveries Started</th>
+                  <th>Bookings With Date</th>
                   <th>Deliveries Completed</th>
-                  <th>Avg Days to Delivery</th>
                 </tr>
               </thead>
               <tbody>
                 {summary.map((row) => (
-                  <tr key={row.actor_id}>
+                  <tr key={row.actor_id || row.employee_name}>
                     <td><strong>{row.employee_name}</strong></td>
                     <td>{formatNumber(row.journeys_created)}</td>
                     <td>{formatNumber(row.bookings)}</td>
-                    <td>{formatNumber(row.deliveries_started)}</td>
+                    <td>{formatNumber(row.bookings_with_date)}</td>
                     <td>{formatNumber(row.deliveries_completed)}</td>
-                    <td>{row.avg_days_to_completion != null ? `${row.avg_days_to_completion} days` : '—'}</td>
                   </tr>
                 ))}
               </tbody>
@@ -408,38 +430,6 @@ export default function AnalyticsReportViews({ payload }: { payload: AnalyticsRe
           </div>
         </SectionCard>
 
-        <SectionCard title="All Journeys" description="Every journey in the snapshot — booking reference, booking date, delivery status and days taken.">
-          <div className="data-table-wrap analytics-table-wrap">
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th>Journey Ref</th>
-                  <th>PC</th>
-                  <th>Captured On</th>
-                  <th>Booking Date</th>
-                  <th>Booking Ref</th>
-                  <th>Delivery Status</th>
-                  <th>Delivered On</th>
-                  <th>Days Taken</th>
-                </tr>
-              </thead>
-              <tbody>
-                {journeys.map((j, i) => (
-                  <tr key={i}>
-                    <td><strong>{j.journey_ref}</strong></td>
-                    <td>{j.employee_name}</td>
-                    <td>{j.created_date ? formatShortDate(j.created_date) : '—'}</td>
-                    <td>{j.booking_date ? formatShortDate(j.booking_date) : '—'}</td>
-                    <td>{j.booking_ref || '—'}</td>
-                    <td>{j.delivery_status ? humanize(j.delivery_status) : '—'}</td>
-                    <td>{j.delivered_date ? formatShortDate(j.delivered_date) : '—'}</td>
-                    <td>{j.days_to_delivery != null ? `${j.days_to_delivery}d` : '—'}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </SectionCard>
       </>;
     }
   }

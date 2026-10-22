@@ -137,6 +137,7 @@ export interface PricingIntegrityReport {
     total_journeys: number;
     price_exception_journeys: number;
     discount_exception_journeys: number;
+    invoice_conflict_journeys: number;
     journeys_with_pricing_exceptions: number;
     known_excess_discount_amount: NumericValue;
     known_excess_application_count: number;
@@ -163,6 +164,7 @@ export interface PricingIntegrityReport {
     outlet_name: string;
     price_exception_journeys: number;
     discount_exception_journeys: number;
+    invoice_conflict_journeys: number;
     known_excess_discount_amount: NumericValue;
     unknown_discount_applications: number;
   }>;

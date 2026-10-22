@@ -72,7 +72,13 @@ interface AnalyticsDocuments {
 interface AnalyticsPayments {
   tenant_id: string;
   data_as_of: string;
-  rows: Array<{ payment_method: string; payment_count: number; total_amount: string | number }>;
+  rows: Array<{
+    payment_method: string;
+    payment_stage: string;
+    payment_count: number;
+    total_amount: string | number;
+  }>;
+  stage_split: Array<{ payment_stage: string; payment_count: number; total_amount: string | number }>;
 }
 
 interface AnalyticsTurnaround {
@@ -84,10 +90,19 @@ interface AnalyticsTurnaround {
 interface AnalyticsFinance {
   tenant_id: string;
   data_as_of: string;
+  summary: {
+    booked_journeys: number;
+    financed_bookings: number;
+    financed_journeys: number;
+    finance_record_count: number;
+    financed_amount: string | number;
+    finance_attach_pct: string | number | null;
+  };
   rows: Array<{
     finance_type: string;
     provider: string;
     deal_count: number;
+    journey_count: number;
     financed_amount: string | number;
   }>;
 }
@@ -137,7 +152,7 @@ interface AnalyticsTradeIn {
 
 interface AnalyticsProductivityEmployee {
   employee_name: string;
-  actor_id: string;
+  actor_id: string | null;
   journeys_created: number;
   bookings: number;
   bookings_with_date: number;
@@ -147,22 +162,18 @@ interface AnalyticsProductivityEmployee {
   avg_days_to_completion: number | null;
 }
 
-interface AnalyticsProductivityJourney {
-  journey_ref: string;
-  employee_name: string;
-  created_date: string | null;
-  booking_date: string | null;
-  booking_ref: string | null;
-  delivery_status: string | null;
-  delivered_date: string | null;
-  days_to_delivery: number | null;
+interface AnalyticsUploadActivity {
+  upload_month: string;
+  journeys_created: number;
+  attributed_creators: number;
+  unattributed_journeys: number;
 }
 
 interface AnalyticsProductivity {
   tenant_id: string;
   data_as_of: string;
   summary: AnalyticsProductivityEmployee[];
-  journeys: AnalyticsProductivityJourney[];
+  upload_activity: AnalyticsUploadActivity[];
 }
 
 

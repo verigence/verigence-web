@@ -1,5 +1,5 @@
 import { renderToStaticMarkup } from 'react-dom/server';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import type { SkuResolutionRunDetail } from '../services/audit-core/skuResolution';
 import AdminSkuReviewTable from './AdminSkuReviewTable';
@@ -48,6 +48,39 @@ describe('AdminSkuReviewTable', () => {
     expect(html).toContain('A booking form names another vehicle than the confirmed SKU');
     expect(html).toContain('Download CSV (3)');
     expect(html).not.toMatch(/AUTO_LEGACY|PC_CONFIRMED/);
+  });
+
+  it('lists a task that repeats once per invoice under distinct React keys', async () => {
+    // The server renderer does not check keys, so the keys given to the list
+    // items are recorded as the elements are created.
+    const keys: Array<string | null | undefined> = [];
+    vi.resetModules();
+    vi.doMock('react/jsx-dev-runtime', async (importOriginal) => {
+      const original = await importOriginal<typeof import('react/jsx-dev-runtime')>();
+      return {
+        ...original,
+        jsxDEV: (type: unknown, props: unknown, key: string | undefined, ...rest: unknown[]) => {
+          if (type === 'li') keys.push(key);
+          return (original.jsxDEV as (...a: unknown[]) => unknown)(type, props, key, ...rest);
+        },
+      };
+    });
+    try {
+      const { default: Table } = await import('./AdminSkuReviewTable');
+      const base = run('RERESOLVE_DRY_RUN');
+      const item = base.items[0];
+      const repeated = {
+        ...base,
+        items: [{ ...item, proposal: { ...item.proposal!, tasks: ['SKU_PRICE_MISMATCH (invoice)', 'SKU_PRICE_MISMATCH (invoice)'] } }],
+      };
+      const html = renderToStaticMarkup(<Table run={repeated} />);
+      expect(html.match(/<li>/g)).toHaveLength(2);
+      expect(keys).toHaveLength(2);
+      expect(new Set(keys).size).toBe(2);
+    } finally {
+      vi.doUnmock('react/jsx-dev-runtime');
+      vi.resetModules();
+    }
   });
 
   it('words an Apply in the past tense', () => {

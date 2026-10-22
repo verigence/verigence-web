@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { taskPlan } from '../p2TaskPlan';
+import { priceTaskNamesAnotherVehicle, taskPlan } from '../p2TaskPlan';
 import { skuStatusText } from '../../journey360/DealControls';
 import type { P2Task } from '../../../../services/audit-core/uc03P2';
 
@@ -19,6 +19,23 @@ describe('SKU tasks and status', () => {
       task_type: 'SKU_PRICE_MISMATCH', allowed_actions: ['ACCEPT', 'ADD_COMMENT'] }, 'PC');
     expect(plan.primary).toMatchObject({ label: 'Keep this vehicle', action: 'ACCEPT' });
     expect(plan.secondary[0]).toMatchObject({ label: 'Pick the SKU', to: '/p2/journeys/j1/overview?tab=deal' });
+  });
+
+  it('says the invoice vehicle is used when the price task is from an invoice naming another vehicle', () => {
+    const task = { ...base, task_id: 't', journey_id: 'j1', title: 'Vehicle invoice names a different vehicle from the booking',
+      task_type: 'SKU_PRICE_MISMATCH', allowed_actions: ['ACCEPT', 'ADD_COMMENT'] };
+    const other = taskPlan({ ...task, reference: { differentFromJourney: true } }, 'PC');
+    expect(other.primary).toMatchObject({ label: 'Use the invoice vehicle', action: 'ACCEPT' });
+    expect(priceTaskNamesAnotherVehicle({ ...task, reference: { differentFromJourney: true } })).toBe(true);
+    // The same vehicle (or no flag): Accept keeps it, as before.
+    for (const reference of [{ differentFromJourney: false }, {}]) {
+      expect(taskPlan({ ...task, reference }, 'PC').primary).toMatchObject({ label: 'Keep this vehicle' });
+      expect(priceTaskNamesAnotherVehicle({ ...task, reference })).toBe(false);
+    }
+    // Only the price task: a "not confirmed" task keeps its label whatever its reference says.
+    const notConfirmed = { ...task, task_type: 'SKU_NOT_CONFIRMED', reference: { differentFromJourney: true } };
+    expect(taskPlan(notConfirmed, 'PC').primary).toMatchObject({ label: 'Keep this vehicle' });
+    expect(priceTaskNamesAnotherVehicle(notConfirmed)).toBe(false);
   });
 
   it('leaves a confirmed SKU against an invoice to the Team Lead', () => {

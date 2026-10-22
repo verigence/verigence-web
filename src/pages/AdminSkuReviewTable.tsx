@@ -137,7 +137,7 @@ export default function AdminSkuReviewTable({ run }: { run: SkuResolutionRunDeta
                     <td data-label="Words on the documents">{documentWords(item) || '—'}</td>
                     <td data-label={applied ? 'PC tasks raised' : 'PC tasks that would be raised'}>
                       {tasks.length ? (
-                        <ul className="sku-review__tasks">{tasks.map((task) => <li key={task}>{task}</li>)}</ul>
+                        <ul className="sku-review__tasks">{tasks.map((task, index) => <li key={`${index}-${task}`}>{task}</li>)}</ul>
                       ) : '—'}
                     </td>
                   </tr>

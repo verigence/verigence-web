@@ -34,6 +34,13 @@ const WAITING: Record<string, string> = {
 
 const DONE = new Set(['VERIFIED_COMPLETE', 'CANCELLED']);
 
+/** A SKU price task raised from a vehicle invoice that names another vehicle
+ * than the one on the Journey: Accept confirms the invoice's vehicle (the
+ * task's own SKU), so it changes the vehicle instead of keeping it. */
+export function priceTaskNamesAnotherVehicle(task: P2Task): boolean {
+  return task.task_type === 'SKU_PRICE_MISMATCH' && task.reference?.differentFromJourney === true;
+}
+
 function referenceDocument(task: P2Task): { documentId?: string; fieldKey?: string } {
   const ref = task.reference ?? {};
   const ids = Array.isArray(ref.documentIds) ? (ref.documentIds as string[]) : [];
@@ -164,8 +171,13 @@ export function taskPlan(task: P2Task, operatingRole?: string | null): TaskPlan 
     // 2026-10-20: the documents' words name this SKU but its master price is
     // not the document's. Keep it (it becomes the PC's decision) or pick the
     // right one in the Deal tab's model picker -- a price never picks it.
+    // An invoice that names another vehicle than the Journey's: Accept puts
+    // the invoice's vehicle on the Journey, so the button says so.
     return {
-      primary: { label: 'Keep this vehicle', action: 'ACCEPT', tone: 'confirm' },
+      primary: {
+        label: priceTaskNamesAnotherVehicle(task) ? 'Use the invoice vehicle' : 'Keep this vehicle',
+        action: 'ACCEPT', tone: 'confirm',
+      },
       secondary: [
         { label: 'Pick the SKU', to: `/p2/journeys/${task.journey_id}/overview?tab=deal`, tone: 'secondary' },
         { label: 'Open documents', to: `/p2/journeys/${task.journey_id}/documents`, tone: 'ghost' },

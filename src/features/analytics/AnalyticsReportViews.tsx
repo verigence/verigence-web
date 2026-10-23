@@ -1,6 +1,7 @@
 import SectionCard from '../../components/SectionCard';
 import type { AnalyticsReportPayload } from '../../services/analytics/client';
 import {
+  AnalyticsBarChart,
   AnalyticsBubbleChart,
   AnalyticsComboChart,
   AnalyticsDonutChart,
@@ -14,7 +15,7 @@ import {
 type InsightTone = 'default' | 'attention' | 'positive';
 
 const acronymMap: Record<string, string> = {
-  amc: 'AMC', cctv: 'CCTV', do: 'DO', dsa: 'DSA', emi: 'EMI', ew: 'EW', gst: 'GST', id: 'ID', pan: 'PAN', po: 'PO', rc: 'RC', rsa: 'RSA', upi: 'UPI',
+  amc: 'AMC', cctv: 'CCTV', cod: 'COD', do: 'DO', dsa: 'DSA', emi: 'EMI', ew: 'EW', gst: 'GST', id: 'ID', neft: 'NEFT', pan: 'PAN', po: 'PO', pos: 'POS', qr: 'QR', rc: 'RC', rsa: 'RSA', rtgs: 'RTGS', upi: 'UPI',
 };
 
 function formatNumber(value: number): string {
@@ -36,10 +37,10 @@ function percent(part: number, whole: number): string {
   return whole ? `${((part / whole) * 100).toFixed(1)}%` : '0.0%';
 }
 
-function formatShortDate(value: string): string {
+function formatMonth(value: string): string {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' });
+  return date.toLocaleDateString('en-IN', { month: 'short', year: '2-digit' });
 }
 
 function humanize(value: string): string {
@@ -50,6 +51,32 @@ function humanize(value: string): string {
     .filter(Boolean)
     .map((token) => acronymMap[token.toLowerCase()] || `${token.charAt(0).toUpperCase()}${token.slice(1).toLowerCase()}`)
     .join(' ');
+}
+
+function normalizePaymentChannel(value: string): string {
+  const key = value.trim().replace(/\s+/g, ' ').toUpperCase();
+  const knownAliases: Record<string, string> = {
+    CASH: 'Cash',
+    'CASH DEPOSIT': 'Cash',
+    UPI: 'UPI / Wallet',
+    'PHONE PAY': 'UPI / Wallet',
+    PHONEPE: 'UPI / Wallet',
+    'PHONE PE': 'UPI / Wallet',
+    'TRANSFER-UPI': 'UPI / Wallet',
+    CARD: 'Card / POS',
+    'CREDIT CARD': 'Card / POS',
+    'DEBIT CARD': 'Card / POS',
+    POS: 'Card / POS',
+    'ICICI BANK POS MACHINE RECEIPTS': 'Card / POS',
+    TRANSFER: 'Bank Transfer',
+    'BY TRANSFER': 'Bank Transfer',
+    'BANK TRANSFER': 'Bank Transfer',
+    NEFT: 'Bank Transfer',
+    RTGS: 'Bank Transfer',
+    'NEFT/RTGS': 'Bank Transfer',
+    'RTGS/NEFT': 'Bank Transfer',
+  };
+  return knownAliases[key] || humanize(value);
 }
 
 function humanizeRuleKey(value: string): string {
@@ -163,51 +190,43 @@ function matrixFromRows<T>(rows: T[], xValues: string[], yValues: string[], x: (
 export default function AnalyticsReportViews({ payload }: { payload: AnalyticsReportPayload }) {
   switch (payload.kind) {
     case 'finance': {
-      const { rows } = payload.data;
-      const deals = rows.reduce((sum, row) => sum + row.deal_count, 0);
-      const amount = rows.reduce((sum, row) => sum + numeric(row.financed_amount), 0);
-      const providers = aggregate(rows, (row) => humanize(row.provider), (row) => numeric(row.financed_amount));
-      const financeTypes = aggregate(rows, (row) => humanize(row.finance_type), (row) => row.deal_count);
-      const topProvider = providers[0];
-      const topType = financeTypes[0];
-      const hierarchy = rows.map((row) => ({ group: humanize(row.finance_type), label: humanize(row.provider), value: row.deal_count }));
-      const providerPosition = aggregateBubble(rows, (row) => humanize(row.provider), (row) => row.deal_count, (row) => numeric(row.financed_amount));
+      const { rows, summary } = payload.data;
+      const attachRate = summary.finance_attach_pct == null ? 'Unavailable' : `${numeric(summary.finance_attach_pct).toFixed(1)}%`;
+      const lenderRows = rows.map((row) => ({
+        label: `${humanize(row.provider)} · ${humanize(row.finance_type)}`,
+        value: numeric(row.loan_amount),
+      }));
       return <>
         <div className="analytics-finance-hero">
-          <HeroStat eyebrow="Portfolio value" value={formatMoney(amount)} title="Captured financed business" detail={`${formatNumber(deals)} financed deals in the current snapshot.`} />
+          <HeroStat eyebrow="Finance record rate" value={attachRate} title="Booked journeys with a finance record" detail={`${formatNumber(summary.financed_journeys)} of ${formatNumber(summary.booked_journeys)} booked journeys. This is not a loan approval rate.`} />
           <div className="analytics-insight-stack">
-            <InsightCard label="Leading finance type" value={topType?.label || '—'} detail={topType ? `${percent(topType.value, deals)} of captured finance deals` : 'No finance mix captured'} />
-            <InsightCard label="Leading provider by value" value={topProvider?.label || '—'} detail={topProvider ? `${formatMoney(topProvider.value)} · ${percent(topProvider.value, amount)} of financed value` : 'No provider value captured'} />
-            <InsightCard label="Average financed amount" value={deals ? formatMoney(amount / deals) : '—'} detail="Captured financed value per financed deal" />
+            <InsightCard label="High-confidence loan amount" value={formatMoney(summary.high_confidence_loan_amount)} detail={`${formatNumber(summary.high_confidence_loan_records)} records with a high-confidence disbursement amount`} />
+            <InsightCard label="Medium-confidence loan amount" value={formatMoney(summary.medium_confidence_loan_amount)} detail={`${formatNumber(summary.medium_confidence_loan_records)} records, shown separately from lender-attributed totals`} />
           </div>
         </div>
-        <SectionCard title="Finance Portfolio Structure" description="Finance type forms the inner ring and providers the outer ring. Segment size represents deal volume."><AnalyticsSunburstChart rows={hierarchy} valueLabel="Deals" /></SectionCard>
-        <div className="analytics-split analytics-split--wide-left">
-          <SectionCard title="Provider Positioning" description="Compare providers on deal volume and financed value. Larger bubbles represent more deals."><AnalyticsBubbleChart rows={providerPosition} xLabel="Deals" yLabel="Financed value" yKind="currency" /></SectionCard>
-          <RankedList title="Provider value leaderboard" description="Where the captured financed value is concentrated." items={providers.slice(0, 6).map((row) => ({ label: row.label, value: formatMoney(row.value), meta: percent(row.value, amount) }))} />
-        </div>
-        <DetailDisclosure title="View finance transaction summary" headers={['Finance Type', 'Provider', 'Deals', 'Financed Amount']} rows={rows.map((row) => [humanize(row.finance_type), humanize(row.provider), formatNumber(row.deal_count), formatMoney(row.financed_amount)])} />
+        <SectionCard title="High-confidence Loan Amount by Lender" description="Lender totals use only high-confidence loan disbursement records; medium-confidence amounts are excluded from this chart."><AnalyticsBarChart rows={lenderRows} valueLabel="Loan amount" valueKind="currency" /></SectionCard>
+        <p className="analytics-footnote">{payload.data.definition}</p>
       </>;
     }
 
     case 'insurance': {
-      const { rows, duplicate_agent_codes: duplicates } = payload.data;
-      const policies = rows.reduce((sum, row) => sum + row.policy_count, 0);
-      const premium = rows.reduce((sum, row) => sum + numeric(row.premium_amount), 0);
-      const sourceMix = aggregate(rows, (row) => humanize(row.insurance_by), (row) => row.policy_count);
+      const { rows, summary, source_split: sourceSplit, duplicate_agent_codes: duplicates } = payload.data;
+      const policies = summary.insurance_journeys;
+      const premium = numeric(summary.captured_premium);
+      const sourceMix = sourceSplit.map((row) => ({ label: humanize(row.insurance_source), value: row.policy_count }));
       const insurerValue = aggregate(rows, (row) => humanize(row.insurer), (row) => numeric(row.premium_amount));
-      const topSource = sourceMix[0];
       const topInsurer = insurerValue[0];
       const insurerPosition = aggregateBubble(rows, (row) => humanize(row.insurer), (row) => row.policy_count, (row) => numeric(row.premium_amount));
       return <>
         <div className="analytics-insurance-banner">
-          <HeroStat eyebrow="Insurance book" value={formatMoney(premium)} title={`${formatNumber(policies)} policies captured`} detail={policies ? `${formatMoney(premium / policies)} average captured premium per policy.` : 'No captured policy value.'} />
-          <InsightCard label="Primary sourcing route" value={topSource?.label || '—'} detail={topSource ? `${percent(topSource.value, policies)} of captured policies` : 'No source split captured'} />
+          <HeroStat eyebrow="Insurance records" value={`${summary.insurance_record_rate_pct == null ? 'Unavailable' : `${numeric(summary.insurance_record_rate_pct).toFixed(1)}%`} of booked journeys`} title={`${formatNumber(policies)} journeys have a policy record`} detail="A missing record does not prove a vehicle was uninsured." />
+          <InsightCard label="Captured policy premium" value={formatMoney(premium)} detail={`${formatNumber(summary.premium_populated)} of ${formatNumber(policies)} records contain a premium value`} />
+          <InsightCard label="Source unclassified" value={formatNumber(summary.source_unclassified_journeys)} detail={`${percent(summary.source_unclassified_journeys, policies)} of policy journeys lack a recognized source or explicit self-insurance flag`} />
           <InsightCard label="Largest insurer by premium" value={topInsurer?.label || '—'} detail={topInsurer ? `${formatMoney(topInsurer.value)} captured premium` : 'No insurer premium captured'} />
           <InsightCard label="Repeated agent codes" value={formatNumber(duplicates.length)} detail={duplicates.length ? 'Codes reused across multiple bookings require attention' : 'No repeated agent-code exception in this snapshot'} tone={duplicates.length ? 'attention' : 'positive'} />
         </div>
         <div className="analytics-split analytics-split--insurance">
-          <SectionCard title="Insurance Source Mix" description="How the captured policies are sourced across in-house, self and external channels."><AnalyticsDonutChart rows={sourceMix} valueLabel="Policies" /></SectionCard>
+          <SectionCard title="Insurance Source Classification" description="Known source codes and unclassified records. Missing source data is not assumed to be in-house."><AnalyticsDonutChart rows={sourceMix} valueLabel="Policy records" /></SectionCard>
           <SectionCard title="Insurer Portfolio" description="Insurers positioned by policy volume and premium value."><AnalyticsBubbleChart rows={insurerPosition} xLabel="Policies" yLabel="Premium value" yKind="currency" /></SectionCard>
         </div>
         {duplicates.length ? <RankedList title="Agent-code exceptions" description="Repeated codes are shown first because they are directly actionable audit exceptions." items={duplicates.slice(0, 8).map((row) => ({ label: row.agent_code, value: `${formatNumber(row.booking_count)} bookings`, tone: 'attention' }))} /> : null}
@@ -273,19 +292,18 @@ export default function AnalyticsReportViews({ payload }: { payload: AnalyticsRe
     }
 
     case 'payments': {
-      const { rows } = payload.data;
-      const count = rows.reduce((sum, row) => sum + row.payment_count, 0);
-      const amount = rows.reduce((sum, row) => sum + numeric(row.total_amount), 0);
-      const comboRows = rows.map((row) => ({ label: humanize(row.payment_method), bar: numeric(row.total_amount), line: row.payment_count ? numeric(row.total_amount) / row.payment_count : 0 }));
-      const methods = rows.map((row) => ({ label: humanize(row.payment_method), count: row.payment_count, value: numeric(row.total_amount), average: row.payment_count ? numeric(row.total_amount) / row.payment_count : 0 })).sort((a, b) => b.value - a.value);
+      const { rows, summary, definition } = payload.data;
+      const channelRows = rows.map((row) => ({
+        label: normalizePaymentChannel(row.payment_method),
+        value: numeric(row.total_amount),
+      }));
       return <>
         <div className="analytics-payment-flow">
-          <div className="analytics-payment-flow__total"><span>Total captured receipts</span><strong>{formatMoney(amount)}</strong><p>{formatNumber(count)} payment entries across {formatNumber(rows.length)} captured modes.</p></div>
-          <div className="analytics-payment-flow__average"><span>Average payment</span><strong>{count ? formatMoney(amount / count) : '—'}</strong><p>Captured receipt value per payment entry.</p></div>
+          <div className="analytics-payment-flow__total"><span>Recorded receipt amount</span><strong>{formatMoney(summary.recorded_receipt_amount)}</strong><p>{formatNumber(summary.payment_entry_count)} entries across {formatNumber(rows.length)} normalized channels.</p></div>
+          <div className="analytics-payment-flow__average"><span>Status coverage</span><strong>{summary.status_coverage_pct == null ? 'Unavailable' : `${numeric(summary.status_coverage_pct).toFixed(1)}%`}</strong><p>{formatNumber(summary.status_coded_entries)} of {formatNumber(summary.payment_entry_count)} entries have a status code.</p></div>
         </div>
-        <SectionCard title="Payment Mode Economics" description="Total receipt value is shown as bars; average transaction value is shown as the line."><AnalyticsComboChart rows={comboRows} barLabel="Receipt value" lineLabel="Average payment" barKind="currency" lineKind="currency" /></SectionCard>
-        <RankedList title="Payment mode contribution" description="Modes ranked by captured receipt value." items={methods.slice(0, 8).map((row) => ({ label: row.label, value: formatMoney(row.value), meta: `${formatNumber(row.count)} payments · ${formatMoney(row.average)} average · ${percent(row.value, amount)} of value` }))} />
-        <DetailDisclosure title="View payment detail" headers={['Mode', 'Payments', 'Total Amount']} rows={rows.map((row) => [humanize(row.payment_method), formatNumber(row.payment_count), formatMoney(row.total_amount)])} />
+        <SectionCard title="Recorded Receipt Amount by Channel" description="Channels are normalized from recognized payment-method prefixes. Recorded amounts are not treated as settled collections."><AnalyticsBarChart rows={channelRows} valueLabel="Recorded receipt amount" valueKind="currency" /></SectionCard>
+        <p className="analytics-footnote">{definition}</p>
       </>;
     }
 
@@ -359,48 +377,40 @@ export default function AnalyticsReportViews({ payload }: { payload: AnalyticsRe
     }
 
     case 'productivity': {
-      const { summary, journeys } = payload.data;
+      const { summary, upload_activity: uploadActivity } = payload.data;
       const totalJourneys = summary.reduce((s, r) => s + r.journeys_created, 0);
-      const totalBookings = summary.reduce((s, r) => s + r.bookings, 0);
-      const totalDeliveries = summary.reduce((s, r) => s + r.deliveries_started, 0);
-      const totalCompleted = summary.reduce((s, r) => s + r.deliveries_completed, 0);
-      const completedWithDays = journeys.filter((j) => j.days_to_delivery != null);
-      const avgDays = completedWithDays.length
-        ? Math.round(completedWithDays.reduce((s, j) => s + (j.days_to_delivery ?? 0), 0) / completedWithDays.length * 10) / 10
-        : null;
+      const unattributed = uploadActivity.reduce((sum, row) => sum + row.unattributed_journeys, 0);
+      const creators = new Set(summary
+        .filter((row) => row.actor_id || row.employee_name !== 'Unknown')
+        .map((row) => row.actor_id || row.employee_name)).size;
+      const uploadRows = uploadActivity.map((row) => ({ label: formatMonth(row.upload_month), value: row.journeys_created }));
 
       return <>
         <div className="analytics-employee-summary">
-          <HeroStat eyebrow="Journeys captured" value={formatNumber(totalJourneys)} title={`${summary.length} employee${summary.length !== 1 ? 's' : ''}`} detail={`${formatNumber(totalBookings)} bookings · ${formatNumber(totalDeliveries)} deliveries started · ${formatNumber(totalCompleted)} completed`} />
+          <HeroStat eyebrow="Journey uploads" value={formatNumber(totalJourneys)} title={`${creators} attributed creator${creators !== 1 ? 's' : ''}`} detail="Creator attribution comes from Audit Core journey created-by fields." />
           <div className="analytics-insight-stack">
-            <InsightCard label="Bookings" value={formatNumber(totalBookings)} detail={`${formatNumber(totalBookings - summary.reduce((s,r)=>s+r.bookings_with_date,0))} missing booking date`} />
-            <InsightCard label="Deliveries started" value={formatNumber(totalDeliveries)} detail={`${formatNumber(totalCompleted)} with actual delivery date`} />
-            <InsightCard label="Avg days to delivery" value={avgDays != null ? `${avgDays} days` : '—'} detail="Journey created → actual delivery date (where captured)" />
+            <InsightCard label="Unattributed uploads" value={formatNumber(unattributed)} detail="Journey records with no creator ID or display name" />
           </div>
         </div>
 
-        <SectionCard title="Employee Scorecard" description="Journeys captured, bookings, deliveries and average time to delivery per PC.">
+        <SectionCard title="Journey Upload Cadence" description="Monthly counts use the journey created-at timestamp in the current snapshot. Creator attribution gaps are reported separately.">
+          <AnalyticsBarChart rows={uploadRows} valueLabel="Journeys uploaded" />
+        </SectionCard>
+
+        <SectionCard title="Journey Uploads by Creator" description="Counts journeys attributed to each creator from Audit Core created-by fields. This view tracks upload activity only; it does not rank sales or delivery outcomes.">
           <div className="data-table-wrap analytics-table-wrap">
             <table className="data-table">
               <thead>
                 <tr>
-                  <th>Employee</th>
-                  <th>Journeys</th>
-                  <th>Bookings</th>
-                  <th>Deliveries Started</th>
-                  <th>Deliveries Completed</th>
-                  <th>Avg Days to Delivery</th>
+                  <th>Creator</th>
+                  <th>Journeys Uploaded</th>
                 </tr>
               </thead>
               <tbody>
                 {summary.map((row) => (
-                  <tr key={row.actor_id}>
+                  <tr key={row.actor_id || row.employee_name}>
                     <td><strong>{row.employee_name}</strong></td>
                     <td>{formatNumber(row.journeys_created)}</td>
-                    <td>{formatNumber(row.bookings)}</td>
-                    <td>{formatNumber(row.deliveries_started)}</td>
-                    <td>{formatNumber(row.deliveries_completed)}</td>
-                    <td>{row.avg_days_to_completion != null ? `${row.avg_days_to_completion} days` : '—'}</td>
                   </tr>
                 ))}
               </tbody>
@@ -408,38 +418,6 @@ export default function AnalyticsReportViews({ payload }: { payload: AnalyticsRe
           </div>
         </SectionCard>
 
-        <SectionCard title="All Journeys" description="Every journey in the snapshot — booking reference, booking date, delivery status and days taken.">
-          <div className="data-table-wrap analytics-table-wrap">
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th>Journey Ref</th>
-                  <th>PC</th>
-                  <th>Captured On</th>
-                  <th>Booking Date</th>
-                  <th>Booking Ref</th>
-                  <th>Delivery Status</th>
-                  <th>Delivered On</th>
-                  <th>Days Taken</th>
-                </tr>
-              </thead>
-              <tbody>
-                {journeys.map((j, i) => (
-                  <tr key={i}>
-                    <td><strong>{j.journey_ref}</strong></td>
-                    <td>{j.employee_name}</td>
-                    <td>{j.created_date ? formatShortDate(j.created_date) : '—'}</td>
-                    <td>{j.booking_date ? formatShortDate(j.booking_date) : '—'}</td>
-                    <td>{j.booking_ref || '—'}</td>
-                    <td>{j.delivery_status ? humanize(j.delivery_status) : '—'}</td>
-                    <td>{j.delivered_date ? formatShortDate(j.delivered_date) : '—'}</td>
-                    <td>{j.days_to_delivery != null ? `${j.days_to_delivery}d` : '—'}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </SectionCard>
       </>;
     }
   }

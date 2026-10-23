@@ -72,7 +72,20 @@ interface AnalyticsDocuments {
 interface AnalyticsPayments {
   tenant_id: string;
   data_as_of: string;
-  rows: Array<{ payment_method: string; payment_count: number; total_amount: string | number }>;
+  summary: {
+    payment_entry_count: number;
+    journeys_with_payment_entries: number;
+    recorded_receipt_amount: string | number;
+    status_coded_entries: number;
+    status_coverage_pct: string | number | null;
+  };
+  rows: Array<{
+    payment_method: string;
+    payment_count: number;
+    total_amount: string | number;
+    status_coded_count: number;
+  }>;
+  definition: string;
 }
 
 interface AnalyticsTurnaround {
@@ -84,24 +97,52 @@ interface AnalyticsTurnaround {
 interface AnalyticsFinance {
   tenant_id: string;
   data_as_of: string;
+  summary: {
+    booked_journeys: number;
+    financed_journeys: number;
+    finance_record_count: number;
+    high_confidence_loan_records: number;
+    high_confidence_loan_amount: string | number;
+    medium_confidence_loan_records: number;
+    medium_confidence_loan_amount: string | number;
+    unverified_or_missing_loan_records: number;
+    finance_attach_pct: string | number | null;
+    loan_amount_capture_pct: string | number | null;
+  };
   rows: Array<{
     finance_type: string;
     provider: string;
+    confidence: string;
     deal_count: number;
-    financed_amount: string | number;
+    journey_count: number;
+    loan_amount: string | number;
   }>;
+  definition: string;
 }
 
 interface AnalyticsInsurance {
   tenant_id: string;
   data_as_of: string;
+  summary: {
+    booked_journeys: number;
+    insurance_journeys: number;
+    policy_records: number;
+    premium_populated: number;
+    captured_premium: string | number;
+    source_unclassified_journeys: number;
+    insurance_record_rate_pct: string | number | null;
+  };
   rows: Array<{
     insurance_by: string;
     insurer: string;
+    insurance_source: string;
     policy_count: number;
+    premium_populated: number;
     premium_amount: string | number;
   }>;
+  source_split: Array<{ insurance_source: string; policy_count: number; premium_amount: string | number }>;
   duplicate_agent_codes: Array<{ agent_code: string; booking_count: number }>;
+  definition: string;
 }
 
 interface AnalyticsAddons {
@@ -137,7 +178,7 @@ interface AnalyticsTradeIn {
 
 interface AnalyticsProductivityEmployee {
   employee_name: string;
-  actor_id: string;
+  actor_id: string | null;
   journeys_created: number;
   bookings: number;
   bookings_with_date: number;
@@ -147,22 +188,18 @@ interface AnalyticsProductivityEmployee {
   avg_days_to_completion: number | null;
 }
 
-interface AnalyticsProductivityJourney {
-  journey_ref: string;
-  employee_name: string;
-  created_date: string | null;
-  booking_date: string | null;
-  booking_ref: string | null;
-  delivery_status: string | null;
-  delivered_date: string | null;
-  days_to_delivery: number | null;
+interface AnalyticsUploadActivity {
+  upload_month: string;
+  journeys_created: number;
+  attributed_creators: number;
+  unattributed_journeys: number;
 }
 
 interface AnalyticsProductivity {
   tenant_id: string;
   data_as_of: string;
   summary: AnalyticsProductivityEmployee[];
-  journeys: AnalyticsProductivityJourney[];
+  upload_activity: AnalyticsUploadActivity[];
 }
 
 

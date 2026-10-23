@@ -6,6 +6,7 @@ export type NumericValue = number | string | null;
 
 interface ProjectAuditorSummary {
   total_journeys: number;
+  booked_journeys: number;
   delivered_cars: number;
   delivery_records: number;
   total_standard_discount: NumericValue;
@@ -33,9 +34,17 @@ interface ProjectAuditorSummary {
   trade_in_journeys: number;
   total_trade_in_value: NumericValue;
   finance_journeys: number;
-  total_payment_collected: NumericValue;
-  booking_payment_collected: NumericValue;
-  delivery_payment_collected: NumericValue;
+  financed_bookings: number;
+  finance_attach_pct: NumericValue;
+  recorded_receipt_amount: NumericValue;
+  payment_entry_count: number;
+  journeys_with_payment_entries: number;
+  payment_status_coded_records: number;
+  payment_status_coverage_pct: NumericValue;
+  insurance_source_unknown_journeys: number;
+  insurance_premium_populated_journeys: number;
+  journeys_with_pincode: number;
+  reviewed_pincode_journeys: number;
   avg_booking_to_delivery_days: NumericValue;
   median_booking_to_delivery_days: NumericValue;
   journeys_with_findings: number;
@@ -126,6 +135,63 @@ export interface AuditorProjectDashboard {
   pincodes: PincodePlacementRow[];
   discount_schemes: DiscountSchemeRow[];
   accessories: AccessoryBreakdownRow[];
+  price_integrity: PricingIntegrityReport;
+}
+
+export interface PricingIntegrityReport {
+  summary: {
+    total_journeys: number;
+    price_exception_journeys: number;
+    discount_exception_journeys: number;
+    invoice_conflict_journeys: number;
+    journeys_with_pricing_exceptions: number;
+    known_excess_discount_amount: NumericValue;
+    known_excess_application_count: number;
+    known_excess_discount_journeys: number;
+    unknown_entitlement_application_count: number;
+    missing_discount_evidence_application_count: number;
+    standard_price_line_count: number;
+    comparable_price_line_count: number;
+    invoice_backed_price_line_count: number;
+    booking_backed_price_line_count: number;
+    comparable_price_line_coverage_pct: number | null;
+  };
+  by_discount_key: Array<{
+    discount_key: string;
+    application_count: number;
+    journey_count: number;
+    known_excess_discount_amount: NumericValue;
+    excess_application_count: number;
+    unknown_entitlement_count: number;
+    missing_evidence_count: number;
+  }>;
+  by_outlet: Array<{
+    dealer_name: string;
+    outlet_name: string;
+    price_exception_journeys: number;
+    discount_exception_journeys: number;
+    invoice_conflict_journeys: number;
+    known_excess_discount_amount: NumericValue;
+    unknown_discount_applications: number;
+  }>;
+  exceptions: Array<{
+    finding_id: string | null;
+    journey_id: string;
+    journey_reference: string | null;
+    dealer_name: string;
+    outlet_name: string;
+    booking_date: string | null;
+    model_name: string;
+    variant_name: string;
+    rule_key: string;
+    title: string;
+    description: string;
+    severity: string;
+    finding_status: string;
+    owner_role_code: string | null;
+    sla_due_at_utc: string | null;
+  }>;
+  definitions: Record<string, string>;
 }
 
 export async function getBusinessProjectDashboard(
@@ -209,6 +275,7 @@ interface AnalyticsBusinessDiscounts {
     eligible_discount_amount: NumericValue;
   }>;
   above_eligible_definition: string;
+  pricing_integrity: PricingIntegrityReport;
 }
 
 interface AnalyticsBusinessInsurance {
@@ -216,24 +283,37 @@ interface AnalyticsBusinessInsurance {
   data_as_of: string;
   summary: {
     journeys: number;
+    booked_journeys: number;
     insurance_journeys: number;
+    source_unknown_journeys: number;
     premium_amount: NumericValue;
     premium_populated: number;
     avg_premium: NumericValue;
     policies_with_add_ons: number;
-    insurance_penetration_pct: number | null;
+    insurance_record_rate_pct: number | null;
     add_on_policy_attach_pct: number | null;
     add_on_journey_penetration_pct: number | null;
   };
   by_insurer: Array<{
     insurer_name: string;
     policy_count: number;
+    premium_populated: number;
     premium_amount: NumericValue;
     avg_premium: NumericValue;
   }>;
   by_source: Array<{
     insurance_by: string;
     policy_count: number;
+  }>;
+  by_outlet: Array<{
+    dealer_name: string;
+    outlet_name: string;
+    booked_journeys: number;
+    insurance_journeys: number;
+    source_unknown_journeys: number;
+    premium_populated: number;
+    premium_amount: NumericValue;
+    avg_premium: NumericValue;
   }>;
   add_ons: Array<{
     add_on_name: string;
@@ -263,7 +343,146 @@ interface AnalyticsBusinessVas {
     journey_count: number;
     actual_amount: NumericValue;
   }>;
+  by_model_outlet: Array<{
+    dealer_name: string;
+    outlet_name: string;
+    model_name: string;
+    variant_name: string;
+    booked_journeys: number;
+    attached_journeys: number;
+    actual_amount: NumericValue;
+    penetration_pct: number | null;
+  }>;
   accessory_codes: string[];
+  definition: string;
+}
+
+interface AnalyticsBusinessFinance {
+  tenant_id: string;
+  data_as_of: string;
+  summary: {
+    booked_journeys: number;
+    financed_journeys: number;
+    finance_record_attach_pct: NumericValue;
+    finance_record_count: number;
+    high_confidence_loan_records: number;
+    high_confidence_loan_amount: NumericValue;
+    medium_confidence_loan_records: number;
+    medium_confidence_loan_amount: NumericValue;
+    unverified_or_missing_loan_records: number;
+    loan_amount_capture_pct: number | null;
+  };
+  by_lender: Array<{
+    lender_name: string;
+    finance_type: string;
+    finance_record_count: number;
+    financed_journeys: number;
+    loan_amount: NumericValue;
+  }>;
+  by_lender_outlet: Array<{
+    dealer_name: string;
+    outlet_name: string;
+    lender_name: string;
+    confidence: string;
+    finance_record_count: number;
+    financed_journeys: number;
+    loan_amount: NumericValue;
+  }>;
+  by_outlet: Array<{
+    dealer_name: string;
+    outlet_name: string;
+    booked_journeys: number;
+    financed_journeys: number;
+    finance_record_attach_pct: number | null;
+    high_confidence_loan_records: number;
+    high_confidence_loan_amount: NumericValue;
+    medium_confidence_loan_records: number;
+    medium_confidence_loan_amount: NumericValue;
+  }>;
+  definition: string;
+}
+
+interface AnalyticsBusinessPayments {
+  tenant_id: string;
+  data_as_of: string;
+  summary: {
+    payment_entry_count: number;
+    journeys_with_payment_entries: number;
+    recorded_receipt_amount: NumericValue;
+    status_coded_entries: number;
+    status_coverage_pct: number | null;
+    channel_count: number;
+    unmapped_entries: number;
+  };
+  by_channel: Array<{
+    channel: string;
+    payment_entry_count: number;
+    journey_count: number;
+    recorded_receipt_amount: NumericValue;
+    status_coded_entries: number;
+  }>;
+  by_outlet: Array<{
+    dealer_name: string;
+    outlet_name: string;
+    channel: string;
+    payment_entry_count: number;
+    journey_count: number;
+    recorded_receipt_amount: NumericValue;
+    status_coded_entries: number;
+  }>;
+  definition: string;
+}
+
+interface AnalyticsBusinessGeography {
+  tenant_id: string;
+  data_as_of: string;
+  coverage: { available: number; total: number; coverage_pct: number | null };
+  quality: {
+    reviewed_journeys: number;
+    provisional_journeys: number;
+    reviewed_pct_of_pincode_records: number | null;
+    source_field: string;
+    source_note: string;
+  };
+  available: boolean;
+  rows: Array<{
+    customer_pincode: string;
+    dealer_name: string;
+    outlet_name: string;
+    model_name: string;
+    journey_count: number;
+    actual_deliveries: number;
+    finance_journeys: number;
+    insurance_journeys: number;
+    accessory_journeys: number;
+    avg_discount: NumericValue;
+  }>;
+  privacy: string;
+}
+
+interface AnalyticsBusinessSalesProduct {
+  tenant_id: string;
+  data_as_of: string;
+  by_outlet: Array<{
+    dealer_id: string | null;
+    dealer_name: string;
+    outlet_id: string | null;
+    outlet_name: string;
+    journey_count: number;
+    delivery_records: number;
+    actual_deliveries: number;
+    payment_amount: NumericValue;
+  }>;
+  by_model_variant: Array<{
+    model_name: string;
+    variant_name: string;
+    journey_count: number;
+    actual_deliveries: number;
+    discount_amount: NumericValue;
+    payment_amount: NumericValue;
+  }>;
+  by_colour: Array<{ colour_name: string; journey_count: number }>;
+  delivery_definition: Record<string, string>;
 }
 
 interface AnalyticsBusinessCompliance {
@@ -301,11 +520,15 @@ interface AnalyticsBusinessCompliance {
   commercial_value_note: string;
 }
 
-export type AnalyticsBusinessReportKey = 'insurance' | 'addons' | 'discounts' | 'turnaround' | 'findings';
+export type AnalyticsBusinessReportKey = 'sales-product' | 'finance' | 'insurance' | 'addons' | 'discounts' | 'payments' | 'geography' | 'turnaround' | 'findings';
 
 export type AnalyticsBusinessReportPayload =
+  | { kind: 'sales-product'; data: AnalyticsBusinessSalesProduct }
+  | { kind: 'finance'; data: AnalyticsBusinessFinance }
   | { kind: 'insurance'; data: AnalyticsBusinessInsurance }
   | { kind: 'addons'; data: AnalyticsBusinessVas }
+  | { kind: 'payments'; data: AnalyticsBusinessPayments }
+  | { kind: 'geography'; data: AnalyticsBusinessGeography }
   | { kind: 'discounts'; data: AnalyticsBusinessDiscounts }
   | { kind: 'turnaround'; data: AnalyticsBusinessDelivery }
   | { kind: 'findings'; data: AnalyticsBusinessCompliance };
@@ -318,10 +541,18 @@ export async function getBusinessAnalyticsReport(
 ): Promise<AnalyticsBusinessReportPayload> {
   const root = `/v1/analytics/tenants/${encodeURIComponent(tenantId)}/business-intelligence`;
   switch (report) {
+    case 'sales-product':
+      return { kind: report, data: await analyticsRequest<AnalyticsBusinessSalesProduct>(`${root}/sales-product`, accessToken, signal) };
+    case 'finance':
+      return { kind: report, data: await analyticsRequest<AnalyticsBusinessFinance>(`${root}/finance`, accessToken, signal) };
     case 'insurance':
       return { kind: report, data: await analyticsRequest<AnalyticsBusinessInsurance>(`${root}/insurance`, accessToken, signal) };
     case 'addons':
       return { kind: report, data: await analyticsRequest<AnalyticsBusinessVas>(`${root}/vas`, accessToken, signal) };
+    case 'payments':
+      return { kind: report, data: await analyticsRequest<AnalyticsBusinessPayments>(`${root}/payments`, accessToken, signal) };
+    case 'geography':
+      return { kind: report, data: await analyticsRequest<AnalyticsBusinessGeography>(`${root}/geography`, accessToken, signal) };
     case 'discounts':
       return { kind: report, data: await analyticsRequest<AnalyticsBusinessDiscounts>(`${root}/discounts`, accessToken, signal) };
     case 'turnaround':

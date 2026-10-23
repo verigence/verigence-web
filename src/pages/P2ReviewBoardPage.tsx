@@ -76,6 +76,27 @@ function JourneyRow({
         <div><Stage label="Booking" stage={journey.booking} /></div>
         <div><Stage label="Delivery" stage={journey.delivery} /></div>
       </td>
+      <td>
+        {/* 2026-10-23 (product owner): the only way in was the journey number,
+            which nothing marked as a link, and Journey 360 was not reachable at
+            all. Both are explicit buttons now. */}
+        <div className="p2w-row" style={{ gap: 6, flexWrap: 'nowrap' }}>
+          <Link
+            className="p2w-button p2w-button--primary"
+            to={`/p2/journeys/${journey.journeyId}/documents`}
+            title="Uploaded documents, their extracted values, and marking each stage reviewed"
+          >
+            Documents
+          </Link>
+          <Link
+            className="p2w-button p2w-button--secondary"
+            to={`/p2/journeys/${journey.journeyId}/overview`}
+            title="The whole journey: customer, vehicle, deal, payments and findings"
+          >
+            Journey 360
+          </Link>
+        </div>
+      </td>
       <td style={{ whiteSpace: 'nowrap' }}>
         {journey.claimedByMe ? (
           <>
@@ -149,6 +170,7 @@ function OutletBlock({
               <th>PC</th>
               <th>Uploaded</th>
               <th>Documents</th>
+              <th>Open</th>
               <th>Claim</th>
             </tr>
           </thead>
@@ -158,7 +180,7 @@ function OutletBlock({
           ).map((day) => (
             <tbody key={day.key}>
               <tr>
-                <th colSpan={5} scope="colgroup" style={{ textAlign: 'left' }}>
+                <th colSpan={6} scope="colgroup" style={{ textAlign: 'left' }}>
                   {day.label}{' '}
                   <span className="p2w-muted">
                     · {day.journeys.length} {day.journeys.length === 1 ? 'journey' : 'journeys'}

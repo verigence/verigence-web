@@ -1285,11 +1285,21 @@ export function p2PhotoTransport(tenantId: string, journeyId: string, accessToke
 export type DuplicateBookingSide = {
   journeyId: string; journeyReference?: string | null; customerName?: string | null; dealerName?: string | null;
   outletName?: string | null; productLabel?: string | null; bookingReference?: string | null; bookingConfirmDate?: string | null;
+  /** The PC who created the journey (absent from an older Audit Core). */
+  pcName?: string | null;
+};
+
+/** One field the two bookings were compared on, and what each carried.
+ * Absent on a finding raised before the evidence was recorded. */
+export type DuplicateMatchedField = {
+  field: string; label: string;
+  thisValue?: string | null; otherValue?: string | null; exact?: boolean;
 };
 
 export type DuplicateBookingPair = {
   findingId: string; status: string; severity: string; raisedAtUtc: string; matchBasis?: string | null;
   matchBasisLabel?: string | null; matchConfidencePercent?: number | null; matchConfidenceLabel?: string | null;
+  matchedFields?: DuplicateMatchedField[];
   duplicate: DuplicateBookingSide; holder: DuplicateBookingSide;
 };
 

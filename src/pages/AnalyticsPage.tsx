@@ -70,7 +70,7 @@ const reportLabels: Record<AnalyticsView, string> = {
 
 function parseReport(value: string | null): AnalyticsView {
   if (value === 'sales-product') return value;
-  if (value && reportKeys.includes(value as AnalyticsView)) return value as AnalyticsView;
+  if (value && reportKeys.includes(value as (typeof reportKeys)[number])) return value as AnalyticsView;
   return 'overview';
 }
 

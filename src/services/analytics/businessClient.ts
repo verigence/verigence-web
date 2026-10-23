@@ -42,6 +42,7 @@ interface ProjectAuditorSummary {
   payment_status_coded_records: number;
   payment_status_coverage_pct: NumericValue;
   insurance_source_unknown_journeys: number;
+  insurance_source_ambiguous_journeys: number;
   insurance_premium_populated_journeys: number;
   journeys_with_pincode: number;
   reviewed_pincode_journeys: number;
@@ -267,6 +268,19 @@ interface AnalyticsBusinessDiscounts {
     total_actual_discount: NumericValue;
     avg_discount_per_discounted_journey: NumericValue;
   }>;
+  by_dealer_model_variant: Array<{
+    dealer_name: string;
+    outlet_name: string;
+    model_name: string;
+    variant_name: string;
+    booked_units: number;
+    discounted_units: number;
+    actual_discount_amount: NumericValue;
+    avg_discount_per_discounted_unit: NumericValue;
+    known_excess_discount_amount: NumericValue;
+    known_excess_units: number;
+    units_with_unknown_entitlement: number;
+  }>;
   by_discount_key: Array<{
     discount_key: string;
     application_count: number;
@@ -285,6 +299,9 @@ interface AnalyticsBusinessInsurance {
     journeys: number;
     booked_journeys: number;
     insurance_journeys: number;
+    dealer_arranged_journeys: number;
+    customer_arranged_journeys: number;
+    source_ambiguous_journeys: number;
     source_unknown_journeys: number;
     premium_amount: NumericValue;
     premium_populated: number;
@@ -305,11 +322,21 @@ interface AnalyticsBusinessInsurance {
     insurance_by: string;
     policy_count: number;
   }>;
+  by_route: Array<{
+    route: string;
+    policy_count: number;
+    premium_populated: number;
+    premium_amount: NumericValue;
+    avg_premium: NumericValue;
+  }>;
   by_outlet: Array<{
     dealer_name: string;
     outlet_name: string;
     booked_journeys: number;
     insurance_journeys: number;
+    dealer_arranged_journeys: number;
+    customer_arranged_journeys: number;
+    source_ambiguous_journeys: number;
     source_unknown_journeys: number;
     premium_populated: number;
     premium_amount: NumericValue;
@@ -320,6 +347,7 @@ interface AnalyticsBusinessInsurance {
     policy_count: number;
     policy_attach_pct: number | null;
     journey_penetration_pct: number | null;
+    raw_terms: string[];
   }>;
   definition: string;
 }
@@ -343,6 +371,58 @@ interface AnalyticsBusinessVas {
     journey_count: number;
     actual_amount: NumericValue;
   }>;
+  by_product_type: Array<{
+    dealer_name: string;
+    outlet_name: string;
+    model_name: string;
+    variant_name: string;
+    addon_type: string;
+    record_count: number;
+    journey_count: number;
+    priced_records: number;
+    actual_amount: NumericValue;
+    avg_record_amount: NumericValue;
+  }>;
+  accessory_cost_by_product: Array<{
+    dealer_name: string;
+    outlet_name: string;
+    model_name: string;
+    variant_name: string;
+    evidence_rows: number;
+    standard_amount_rows: number;
+    actual_amount_rows: number;
+    comparable_rows: number;
+    comparable_standard_amount: NumericValue | null;
+    comparable_actual_amount: NumericValue | null;
+    comparable_actual_minus_standard: NumericValue;
+  }>;
+  accessory_items: Array<{
+    dealer_name: string;
+    outlet_name: string;
+    model_name: string;
+    variant_name: string;
+    line_category: string;
+    item_description: string;
+    item_code: string | null;
+    invoice_sources: string | null;
+    invoice_lines: number;
+    invoice_count: number;
+    invoiced_quantity: NumericValue | null;
+    lines_with_quantity: number;
+    net_amount: NumericValue | null;
+    lines_with_net_amount: number;
+    line_discount_amount: NumericValue | null;
+  }>;
+  accessory_line_coverage: {
+    total_invoice_lines: number;
+    confirmed_tax_invoice_lines: number;
+    confirmed_tax_invoices: number;
+    proforma_lines: number;
+    unclassified_lines: number;
+    confirmed_lines_with_item_label: number;
+    confirmed_lines_with_quantity: number;
+    confirmed_lines_with_net_amount: number;
+  };
   by_model_outlet: Array<{
     dealer_name: string;
     outlet_name: string;
@@ -481,6 +561,21 @@ interface AnalyticsBusinessSalesProduct {
     discount_amount: NumericValue;
     payment_amount: NumericValue;
   }>;
+  by_dealer_model_variant: Array<{
+    dealer_name: string;
+    outlet_name: string;
+    model_name: string;
+    variant_name: string;
+    booked_units: number;
+    delivered_units: number;
+  }>;
+  model_variant_coverage: {
+    booked_journeys: number;
+    model_labelled_journeys: number;
+    variant_labelled_journeys: number;
+    catalogue_mapped_journeys: number;
+    unresolved_journeys: number;
+  };
   by_colour: Array<{ colour_name: string; journey_count: number }>;
   delivery_definition: Record<string, string>;
 }

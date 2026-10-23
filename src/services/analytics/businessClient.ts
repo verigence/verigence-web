@@ -422,6 +422,8 @@ interface AnalyticsBusinessVas {
     confirmed_lines_with_item_label: number;
     confirmed_lines_with_quantity: number;
     confirmed_lines_with_net_amount: number;
+    duplicate_invoice_groups: number;
+    duplicate_source_documents: number;
   };
   by_model_outlet: Array<{
     dealer_name: string;

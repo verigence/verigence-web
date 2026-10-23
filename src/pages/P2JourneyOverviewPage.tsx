@@ -157,7 +157,12 @@ export default function P2JourneyOverviewPage() {
 
   return (
     <div className="screen-stack p2-screen p2w j360">
-      <BackLink fallbackTo="/p2/bookings" fallbackLabel="Booking & Delivery" />
+      {/* A Reviewer has no Booking & Delivery list; their board is /p2/review
+          (2026-10-23). */}
+      <BackLink
+        fallbackTo={operatingRole === 'REVIEWER' ? '/p2/review' : '/p2/bookings'}
+        fallbackLabel={operatingRole === 'REVIEWER' ? 'Document Review' : 'Booking & Delivery'}
+      />
       <PageHeader
         eyebrow="Journey 360"
         title={j ? customerLabel(j.customerName).text : 'Journey 360'}

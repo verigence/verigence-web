@@ -330,8 +330,13 @@ export default function P2JourneyWorkspacePage() {
 
   return (
     <div className={`screen-stack p2-screen p2w${documentId ? ' has-selection' : ''}`}>
-      <BackLink fallbackTo={journeyId ? `/p2/journeys/${journeyId}/overview` : '/p2/bookings'}
-        fallbackLabel={journeyId ? 'Journey 360' : 'Booking & Delivery'} />
+      <BackLink
+        fallbackTo={journeyId
+          ? `/p2/journeys/${journeyId}/overview`
+          : operatingRole === 'REVIEWER' ? '/p2/review' : '/p2/bookings'}
+        fallbackLabel={journeyId
+          ? 'Journey 360'
+          : operatingRole === 'REVIEWER' ? 'Document Review' : 'Booking & Delivery'} />
       <PageHeader
         eyebrow={isNew ? 'New booking' : 'Booking'}
         title={isNew ? 'New booking' : 'Upload / Edit Documents'}

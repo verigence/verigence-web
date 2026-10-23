@@ -854,6 +854,10 @@
 .p2w .p2w-table tbody tr:last-child td { border-bottom: 0; }
 .p2w .p2w-table tbody tr:hover { background: var(--p2w-soft); }
 
+.p2w .p2w-table .p2w-button {
+  min-height: 32px; padding: 0 10px; font-size: .8rem;
+}
+
 .p2w .p2w-card__title { margin-bottom: 12px; }
 .p2w .p2w-card__title h3 { margin: 0; font-size: 1rem; font-weight: 700; color: var(--p2w-ink); }
 .p2w .p2w-card__title p { margin: 2px 0 0; font-size: .85rem; }

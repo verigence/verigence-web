@@ -8,6 +8,8 @@ import '../styles/uc03-p2-journey360.css';
 import BackLink from '../components/BackLink';
 import PageHeader from '../components/PageHeader';
 import DealTab from '../features/uc03-p2/journey360/DealTab';
+import DeleteJourneyDialog from '../features/uc03-p2/workspace/DeleteJourneyDialog';
+import { canDeleteJourney } from '../features/uc03-p2/workspace/deleteJourney';
 import P2RecheckButton from '../features/uc03-p2/workspace/P2RecheckButton';
 import {
   AddonsTab,
@@ -76,6 +78,7 @@ export default function P2JourneyOverviewPage() {
   const { journeyId } = useParams();
   const [search, setSearch] = useSearchParams();
   const tenantId = useProjectContextStore((s) => s.selectedProject?.tenantId);
+  const operatingRole = useProjectContextStore((s) => s.selectedProject?.operatingRole);
   const accessToken = useSessionStore((s) => s.accessToken);
   const requested = search.get('tab') as TabKey | null;
   const tab: TabKey = TABS.some((t) => t.key === requested) ? requested! : 'deal';
@@ -101,6 +104,8 @@ export default function P2JourneyOverviewPage() {
   const audit = useSection('audit', tenantId, journeyId, accessToken, tab === 'audit');
 
   const [notice, setNotice] = useState<{ text: string; tone: 'success' | 'error' }>();
+  const [deleting, setDeleting] = useState(false);
+  const [removed, setRemoved] = useState<string>();
   const data = summary.data;
   const j = data?.journey;
   const m = data?.money;
@@ -139,6 +144,17 @@ export default function P2JourneyOverviewPage() {
     if (tab === 'audit' && audit.data) body = <AuditTab data={audit.data} />;
   }
 
+  if (removed) {
+    // The journey is gone, so there is nothing left to show but what was done.
+    return (
+      <div className="screen-stack p2-screen p2w j360">
+        <PageHeader eyebrow="Journey 360" title="Journey deleted" description="It has been removed from the lists." />
+        <div className="p2w-alert p2w-alert--success" role="status">{removed}</div>
+        <Link className="p2w-button p2w-button--primary" to="/p2/bookings">Back to Booking &amp; Delivery</Link>
+      </div>
+    );
+  }
+
   return (
     <div className="screen-stack p2-screen p2w j360">
       <BackLink fallbackTo="/p2/bookings" fallbackLabel="Booking & Delivery" />
@@ -154,6 +170,9 @@ export default function P2JourneyOverviewPage() {
             {tenantId ? <P2RecheckButton tenantId={tenantId} journeyId={journeyId} accessToken={accessToken}
               onDone={(text, tone) => setNotice({ text, tone })} /> : null}
             <Link className="p2w-button p2w-button--secondary" to={`/p2/journeys/${journeyId}/compliance-report`}>View compliance report</Link>
+            {canDeleteJourney(operatingRole) ? (
+              <button type="button" className="p2w-button p2w-button--secondary" onClick={() => setDeleting(true)}>Delete journey</button>
+            ) : null}
           </div>
         ) : undefined}
       />
@@ -171,6 +190,16 @@ export default function P2JourneyOverviewPage() {
         </div>
       ) : null}
       <DuplicatesBanner pairs={duplicates.data?.pairs ?? []} />
+      {deleting && tenantId && journeyId ? (
+        <DeleteJourneyDialog
+          tenantId={tenantId}
+          journeyId={journeyId}
+          journeyLabel={j ? `${customerLabel(j.customerName).text}${j.reference ? ` · ${j.reference}` : ''}` : 'This journey'}
+          accessToken={accessToken}
+          onClose={() => setDeleting(false)}
+          onDeleted={(message) => { setDeleting(false); setRemoved(message); }}
+        />
+      ) : null}
 
       {data && j && m && kycMissing ? (
         <section className="p2w-empty j360-gate" role="status" aria-label="KYC required">

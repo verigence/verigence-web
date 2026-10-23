@@ -1550,3 +1550,22 @@ export function getP2DailyProcessingReport(tenantId: string, day: string, access
     { accessToken, timeoutMs: LIST_READ_TIMEOUT_MS },
   );
 }
+
+// ── Team Lead deletes a journey (2026-10-23) ────────────────────────────────
+export type P2JourneyDeletion = {
+  deletionId: string;
+  journeyId: string;
+  journeyReference: string | null;
+  diDocumentsDeleted: number;
+  storageObjectsDeleted: number;
+};
+
+/** Removes the journey, its Document Intelligence documents and its stored
+ * files, and keeps an audit record with the reason. Team Leads only; refused
+ * once a stage is reviewed or the journey is closed. */
+export function deleteP2Journey(tenantId: string, journeyId: string, reason: string, accessToken?: string) {
+  return auditCoreRequest<P2JourneyDeletion>(
+    path(tenantId, `/journeys/${encodeURIComponent(journeyId)}/delete`),
+    { method: 'POST', accessToken, body: JSON.stringify({ reason }) },
+  );
+}

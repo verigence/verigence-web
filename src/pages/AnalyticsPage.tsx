@@ -117,7 +117,12 @@ export default function AnalyticsPage() {
   const accessToken = useSessionStore((state) => state.accessToken);
   const sessionTenantId = useSessionStore((state) => state.tenantId);
   const selectedProject = useProjectContextStore((state) => state.selectedProject);
+  const projects = useProjectContextStore((state) => state.projects);
   const tenantId = selectedProject?.tenantId || sessionTenantId;
+  const activeProject = selectedProject || projects.find((project) => project.tenantId === tenantId);
+  const projectLabel = activeProject
+    ? `${activeProject.projectName} (${activeProject.projectCode})`
+    : `Tenant ${tenantId}`;
   const businessView = isBusinessReport(activeView);
 
   const overviewQuery = useQuery({
@@ -174,7 +179,7 @@ export default function AnalyticsPage() {
       <PageHeader
         eyebrow="Insights · Analytics"
         title={viewTitle}
-        description={`Independent business reporting from controlled Audit Core snapshots${currentAsOf ? `. Data as of ${formatAsOf(currentAsOf)}.` : '.'}`}
+        description={`Project scope: ${projectLabel}. Independent business reporting from controlled Audit Core snapshots${currentAsOf ? `. Data as of ${formatAsOf(currentAsOf)}.` : '.'}`}
       />
 
       <nav className="analytics-report-navigation" aria-label="Analytics reports">
@@ -193,6 +198,31 @@ export default function AnalyticsPage() {
             <option key={key} value={key}>{label}</option>
           ))}
         </select>
+      </nav>
+
+      <nav className="analytics-core-report-links" aria-label="Core dealership reports">
+        <span className="analytics-core-report-links__label">Open a focused report</span>
+        {([
+          ['sales-product', 'Cars by dealer / model / variant'],
+          ['discounts', 'Discounts by dealer / model / variant'],
+          ['addons', 'Accessory invoice item list'],
+          ['insurance', 'Insurance route and components by dealer'],
+          ['finance', 'Bank / NBFC and loan amount by dealer'],
+          ['payments', 'Payment channels by dealer'],
+        ] as const).map(([report, label]) => (
+          <button
+            key={report}
+            type="button"
+            aria-pressed={activeView === report}
+            onClick={() => {
+              const next = new URLSearchParams(searchParams);
+              next.set('report', report);
+              setSearchParams(next);
+            }}
+          >
+            {label}
+          </button>
+        ))}
       </nav>
 
       {activeView === 'overview' ? (

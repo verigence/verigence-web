@@ -1,7 +1,12 @@
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 
 import type { P2JourneyListItem } from '../../../services/audit-core/uc03P2';
 import { signedMoney, varianceTone } from '../journey360/j360Format';
+import DeleteJourneyDialog from '../workspace/DeleteJourneyDialog';
+import { canDeleteJourney } from '../workspace/deleteJourney';
+import { useProjectContextStore } from '../../../store/projectContextStore';
+import { useSessionStore } from '../../../store/sessionStore';
 
 /** The six steps of a Journey, Booking then Delivery. */
 const JOURNEY_STEPS = [
@@ -190,6 +195,9 @@ function uploadTime(item: P2JourneyListItem): string {
 }
 
 export default function JourneyRow({ item, role }: { item: P2JourneyListItem; role?: string }) {
+  const tenantId = useProjectContextStore((s) => s.selectedProject?.tenantId);
+  const accessToken = useSessionStore((s) => s.accessToken);
+  const [deleting, setDeleting] = useState(false);
   const delivered = Boolean(item.delivery_completed_at);
   const cancelled = Boolean(item.cancelled);
   const active = cancelled ? -1 : activeStep(item.current_stage, delivered);
@@ -273,8 +281,19 @@ export default function JourneyRow({ item, role }: { item: P2JourneyListItem; ro
             {!item.closed ? (
               <Link role="menuitem" to={tasks}>View {role ? `${role} tasks` : 'tasks'}{myTasks ? <b>{myTasks}</b> : null}</Link>
             ) : null}
+            {canDeleteJourney(role) && !item.closed && tenantId ? (
+              <button type="button" role="menuitem" className="p2w-menu__danger"
+                onClick={(event) => { event.currentTarget.closest('details')?.removeAttribute('open'); setDeleting(true); }}>
+                Delete journey
+              </button>
+            ) : null}
           </div>
         </details>
+        {deleting && tenantId ? (
+          <DeleteJourneyDialog tenantId={tenantId} journeyId={item.journey_id}
+            journeyLabel={`${customer.text}${item.journey_reference ? ` · ${item.journey_reference}` : ''}`}
+            accessToken={accessToken} onClose={() => setDeleting(false)} onDeleted={() => setDeleting(false)} />
+        ) : null}
       </td>
     </tr>
   );

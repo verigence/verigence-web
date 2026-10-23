@@ -107,7 +107,7 @@
   box-shadow: 0 8px 24px rgb(16 42 67 / 15%);
   text-align: left;
 }
-.p2w .p2w-menu__list a {
+.p2w .p2w-menu__list a, .p2w .p2w-menu__list button {
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -120,7 +120,9 @@
   text-decoration: none;
   white-space: nowrap;
 }
-.p2w .p2w-menu__list a:hover, .p2w .p2w-menu__list a:focus-visible { background: var(--p2w-action-soft); color: var(--p2w-action-soft-text); outline: none; }
+.p2w .p2w-menu__list button { width: 100%; border: 0; background: transparent; cursor: pointer; font-family: inherit; }
+.p2w .p2w-menu__list .p2w-menu__danger { color: #b42318; }
+.p2w .p2w-menu__list a:hover, .p2w .p2w-menu__list a:focus-visible, .p2w .p2w-menu__list button:hover, .p2w .p2w-menu__list button:focus-visible { background: var(--p2w-action-soft); color: var(--p2w-action-soft-text); outline: none; }
 .p2w .p2w-menu__list a:first-child { color: var(--p2w-navy); }
 .p2w .p2w-menu__list a b { padding: 0 7px; border-radius: 999px; background: var(--p2w-action); color: #fff; font-size: .74rem; line-height: 18px; }
 

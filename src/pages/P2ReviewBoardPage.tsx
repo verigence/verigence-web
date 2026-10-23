@@ -1,11 +1,12 @@
 import { useState } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import '../styles/uc03-p2.css';
 import '../styles/uc03-p2-workspace.css';
 
 import PageHeader from '../components/PageHeader';
 import SectionCard from '../components/SectionCard';
+import { formatUploadDay, groupByUploadDay } from '../features/uc03-p2/review/boardGrouping';
 import {
   claimJourney,
   getReviewerBoard,
@@ -144,22 +145,32 @@ function OutletBlock({
             <tr>
               <th>Journey</th>
               <th>PC</th>
-              <th>Booked</th>
+              <th>Uploaded</th>
               <th>Documents</th>
               <th>Claim</th>
             </tr>
           </thead>
-          <tbody>
-            {group.journeys.map((journey) => (
-              <JourneyRow
-                key={journey.journeyId}
-                journey={journey}
-                onClaim={onClaim}
-                onRelease={onRelease}
-                busy={busyId === journey.journeyId}
-              />
-            ))}
-          </tbody>
+          {groupByUploadDay(group.journeys).map((day) => (
+            <tbody key={day.uploadDate || 'undated'}>
+              <tr>
+                <th colSpan={5} scope="colgroup" style={{ textAlign: 'left' }}>
+                  {formatUploadDay(day.uploadDate)}{' '}
+                  <span className="p2w-muted">
+                    · {day.journeys.length} {day.journeys.length === 1 ? 'journey' : 'journeys'}
+                  </span>
+                </th>
+              </tr>
+              {day.journeys.map((journey) => (
+                <JourneyRow
+                  key={journey.journeyId}
+                  journey={journey}
+                  onClaim={onClaim}
+                  onRelease={onRelease}
+                  busy={busyId === journey.journeyId}
+                />
+              ))}
+            </tbody>
+          ))}
         </table>
       </div>
     </SectionCard>
@@ -182,12 +193,20 @@ export default function P2ReviewBoardPage() {
   const [state, setState] = useState<'open' | 'closed'>('open');
   const [busyId, setBusyId] = useState<string | null>(null);
   const [problem, setProblem] = useState('');
+  // Outlet and upload-date pickers: a Reviewer works one outlet and one day (or
+  // a range of days) at a time, oldest first (product owner 2026-10-23).
+  const [outletId, setOutletId] = useState('');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
+  const rangeReversed = Boolean(dateFrom && dateTo && dateFrom > dateTo);
+  const filtered = Boolean(outletId || dateFrom || dateTo);
 
   const query = useQuery({
-    queryKey: ['p2-reviewer-board', tenantId, state],
-    queryFn: () => getReviewerBoard(tenantId!, state, accessToken),
-    enabled: Boolean(tenantId && accessToken),
+    queryKey: ['p2-reviewer-board', tenantId, state, outletId, dateFrom, dateTo],
+    queryFn: () => getReviewerBoard(tenantId!, state, accessToken, { outletId, dateFrom, dateTo }),
+    enabled: Boolean(tenantId && accessToken) && !rangeReversed,
     staleTime: 15_000,
+    placeholderData: keepPreviousData,
   });
 
   const claim = useMutation({
@@ -234,9 +253,43 @@ export default function P2ReviewBoardPage() {
             <span className="p2w-muted">
               {query.data.journeyCount} {query.data.journeyCount === 1 ? 'journey' : 'journeys'} across{' '}
               {outlets.length} {outlets.length === 1 ? 'outlet' : 'outlets'}
+              {query.data.totalMatching && query.data.totalMatching > query.data.journeyCount
+                ? ` (showing the first ${query.data.journeyCount} of ${query.data.totalMatching}; narrow by outlet or date to see the rest)`
+                : ''}
             </span>
           )}
         </div>
+        <div className="p2w-row" style={{ gap: 12, alignItems: 'center', marginTop: 12, flexWrap: 'wrap' }}>
+          <label>
+            <span className="p2w-muted">Outlet </span>
+            <select value={outletId} onChange={(event) => setOutletId(event.target.value)}>
+              <option value="">All outlets</option>
+              {(query.data?.outletOptions ?? []).map((option) => (
+                <option key={option.outletId} value={option.outletId}>
+                  {option.outletName || option.outletCode || option.outletId} ({option.journeyCount})
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            <span className="p2w-muted">Uploaded from </span>
+            <input type="date" value={dateFrom} max={dateTo || undefined} onChange={(event) => setDateFrom(event.target.value)} />
+          </label>
+          <label>
+            <span className="p2w-muted">to </span>
+            <input type="date" value={dateTo} min={dateFrom || undefined} onChange={(event) => setDateTo(event.target.value)} />
+          </label>
+          {filtered && (
+            <button type="button" className="text-link" onClick={() => { setOutletId(''); setDateFrom(''); setDateTo(''); }}>
+              Clear filters
+            </button>
+          )}
+        </div>
+        {rangeReversed && (
+          <div className="form-alert form-alert--error" style={{ marginTop: 8 }}>
+            The “from” date is after the “to” date.
+          </div>
+        )}
         {problem && <div className="form-alert form-alert--error" style={{ marginTop: 8 }}>{problem}</div>}
       </SectionCard>
 
@@ -250,9 +303,11 @@ export default function P2ReviewBoardPage() {
         <SectionCard>
           <strong>Nothing {state === 'open' ? 'open' : 'closed'} right now</strong>
           <p className="p2w-muted">
-            {state === 'open'
-              ? 'No open journeys in the outlets you are mapped to.'
-              : 'No closed journeys in the outlets you are mapped to.'}
+            {filtered
+              ? `No ${state} journeys match this outlet and date.`
+              : state === 'open'
+                ? 'No open journeys in the outlets you are mapped to.'
+                : 'No closed journeys in the outlets you are mapped to.'}
           </p>
         </SectionCard>
       )}

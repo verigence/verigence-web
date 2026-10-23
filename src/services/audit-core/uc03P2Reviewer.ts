@@ -25,6 +25,8 @@ export type ReviewerJourney = {
   customerName?: string | null;
   pcName?: string | null;
   createdAtUtc?: string | null;
+  /** The day it was uploaded (created), YYYY-MM-DD in the Project's timezone. */
+  uploadDate?: string | null;
   updatedAtUtc?: string | null;
   claimedByActorId?: string | null;
   claimedAtUtc?: string | null;
@@ -42,9 +44,31 @@ export type ReviewerOutletGroup = {
   journeys: ReviewerJourney[];
 };
 
+export type ReviewerOutletOption = {
+  dealerId: string;
+  dealerName?: string | null;
+  outletId: string;
+  outletName?: string | null;
+  outletCode?: string | null;
+  journeyCount: number;
+  oldestUploadDate: string;
+};
+
+export type ReviewerBoardFilters = {
+  outletId?: string;
+  /** YYYY-MM-DD, inclusive. */
+  dateFrom?: string;
+  dateTo?: string;
+};
+
 export type ReviewerBoard = {
   state: 'open' | 'closed';
   journeyCount: number;
+  /** How many matched before the row limit. */
+  totalMatching?: number;
+  timezone?: string;
+  /** Every outlet the Reviewer covers, ignoring the outlet and date filters. */
+  outletOptions?: ReviewerOutletOption[];
   outlets: ReviewerOutletGroup[];
 };
 
@@ -137,9 +161,14 @@ export function getReviewerBoard(
   tenantId: string,
   state: 'open' | 'closed',
   accessToken?: string,
+  filters: ReviewerBoardFilters = {},
 ): Promise<ReviewerBoard> {
+  const params = new URLSearchParams({ state, limit: '500' });
+  if (filters.outletId) params.set('outletId', filters.outletId);
+  if (filters.dateFrom) params.set('dateFrom', filters.dateFrom);
+  if (filters.dateTo) params.set('dateTo', filters.dateTo);
   return auditCoreRequest<ReviewerBoard>(
-    path(tenantId, `/reviewer/journeys?state=${state}`),
+    `${path(tenantId, '/reviewer/journeys')}?${params.toString()}`,
     { accessToken, timeoutMs: LIST_READ_TIMEOUT_MS },
   );
 }

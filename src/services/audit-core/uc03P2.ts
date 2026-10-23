@@ -1391,11 +1391,77 @@ export function getP2PriceMaster(
   }>(`${path(tenantId, '/standard/price-master')}${query}`, { accessToken, timeoutMs: LIST_READ_TIMEOUT_MS });
 }
 
+// ── Masters loaded: every version published and the dates it answers for ────
+export type P2MasterDocumentRef = {
+  uploadId: string; fileName: string; effectiveFrom: string; openable: boolean;
+} | null;
+
+export type P2MastersLoaded = {
+  priceLists: Array<{
+    priceListVersionId: string; priceList: string | null; version: number;
+    effectiveFrom: string; inForceTo: string | null; status: string;
+    /** False for a version a later upload on the same date replaced. */
+    answers: boolean; skus: number; document: P2MasterDocumentRef;
+  }>;
+  schemes: Array<{
+    kind: 'CONSUMER_SCHEME' | 'EXCHANGE_SCHEME' | 'CORPORATE_POLICY';
+    categories: string[]; effectiveFrom: string; effectiveTo: string | null;
+    schemes: number; withdrawn: number; document: P2MasterDocumentRef;
+  }>;
+  grids: Array<{
+    gridVersionId: string; version: number; effectiveFrom: string; effectiveTo: string | null;
+    status: string; answers: boolean; lines: number; document: P2MasterDocumentRef;
+  }>;
+};
+
+export function getP2MastersLoaded(tenantId: string, accessToken?: string) {
+  return auditCoreRequest<P2MastersLoaded>(path(tenantId, '/standard/masters-loaded'), {
+    accessToken, cache: 'no-store', timeoutMs: LIST_READ_TIMEOUT_MS,
+  });
+}
+
+// ── Offers: every scheme line and the grid standing on a date ───────────────
+export type P2SchemeRef = {
+  code: string; name: string; category: string; version: number;
+  validFrom: string; validTo: string | null;
+};
+
+export type P2OfferLine = {
+  key: string; label: string; amount: string | null; percentage: string | null;
+  section?: string | null; schemeType?: string | null; oldVehicleModel?: string | null;
+  description?: string | null; contributions?: Record<string, string> | null;
+};
+
+export type P2Offers = {
+  on: string;
+  consumer: Array<{ modelId: string; model: string; variant: string | null; scheme: P2SchemeRef; benefits: P2OfferLine[]; total: string | null }>;
+  exchange: Array<P2OfferLine & { modelId: string; model: string; variant: string | null; scheme: P2SchemeRef }>;
+  corporate: Array<{ modelId: string; model: string; scheme: P2SchemeRef; byCategory: Record<string, string | null> }>;
+  corporateCategories: string[];
+  grid: {
+    version: number; effectiveFrom: string; effectiveTo: string | null;
+    parameters: Array<Record<string, unknown>>;
+    lines: Array<{
+      modelAsWritten: string; model: string | null; variantGroup: string | null; inScope: boolean;
+      bookingProtectionDays: number | null; agreedBuffer: string | null;
+      insuranceOdPercentMax: string | null; outOfTerritory: string | null;
+    }>;
+  } | null;
+  /** Lines a bulletin wrote for variants the price book does not carry: not an offer on any variant. */
+  notApplied: Array<{ model: string; scheme: P2SchemeRef; variantTexts: string[]; lines: P2OfferLine[] }>;
+};
+
+export function getP2Offers(tenantId: string, on: string, accessToken?: string) {
+  return auditCoreRequest<P2Offers>(`${path(tenantId, '/standard/offers')}?on=${encodeURIComponent(on)}`, {
+    accessToken, timeoutMs: LIST_READ_TIMEOUT_MS,
+  });
+}
+
 // ── Master documents: what a month's figures were read from ─────────────────
 export type P2MasterDocument = {
   uploadId: string;
   oemCode: string;
-  masterKind: 'PRICE_LIST' | 'CONSUMER_SCHEME' | 'EXCHANGE_SCHEME' | 'CORPORATE_POLICY' | string;
+  masterKind: 'PRICE_LIST' | 'CONSUMER_SCHEME' | 'EXCHANGE_SCHEME' | 'CORPORATE_POLICY' | 'DISCOUNT_GRID' | string;
   effectiveFrom: string;
   fileName: string;
   sha256: string;
@@ -1407,6 +1473,9 @@ export type P2MasterDocument = {
   publishedAtUtc: string | null;
   /** False for documents uploaded before the file itself was kept. */
   openable: boolean;
+  /** Published in an earlier month and still standing on this month's first day
+   * (absent from an older Audit Core). */
+  carriedForward?: boolean;
 };
 
 export function getP2MasterDocuments(tenantId: string, month: string, accessToken?: string) {

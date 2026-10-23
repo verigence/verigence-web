@@ -42,6 +42,15 @@ function Row({ document, onOpen, busy }: {
     <tr>
       <td>
         <strong>{KIND_LABELS[document.masterKind] ?? document.masterKind}</strong>
+        {document.carriedForward && (
+          <span
+            className="p2w-chip p2w-chip--info"
+            style={{ marginLeft: 8 }}
+            title="Published in an earlier month and still in force at the start of this one."
+          >
+            Carried in
+          </span>
+        )}
         <div className="p2w-muted">{document.fileName}</div>
         {failed && document.errorDetail && (
           <div className="form-alert form-alert--error" style={{ marginTop: 6 }}>{document.errorDetail}</div>
@@ -137,16 +146,19 @@ export default function P2MasterDocumentsPage() {
         </label>
         <p className="p2w-muted" style={{ marginTop: 8 }}>
           A document is listed under the month it is effective for, not the day it was uploaded.
+          Documents marked <em>Carried in</em> were published earlier and are still in force when
+          the month begins, until that month's own document replaces them.
         </p>
         {problem && <div className="form-alert form-alert--error">{problem}</div>}
       </SectionCard>
 
       {missing.length > 0 && (
         <SectionCard>
-          <strong>Nothing published this month for:</strong>
+          <strong>No document on record for this month:</strong>
           <p className="p2w-muted">
-            {missing.map((kind) => KIND_LABELS[kind] ?? kind).join(', ')}. Figures of that kind will fall
-            back to an earlier month, or be absent.
+            {missing.map((kind) => KIND_LABELS[kind] ?? kind).join(', ')}. Either nothing of that kind
+            is in force this month, or it was loaded without its document being kept. Price Masters
+            shows which masters answer on each date.
           </p>
         </SectionCard>
       )}
@@ -158,7 +170,7 @@ export default function P2MasterDocumentsPage() {
       {query.data && documents.length === 0 && (
         <SectionCard>
           <strong>No master documents for {month}</strong>
-          <p className="p2w-muted">Nothing was loaded for this month. Figures will come from an earlier book.</p>
+          <p className="p2w-muted">Nothing was published for this month and nothing published earlier is still in force.</p>
         </SectionCard>
       )}
 

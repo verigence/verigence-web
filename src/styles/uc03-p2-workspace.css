@@ -49,6 +49,8 @@
 .p2w a.p2w-link { display: inline-flex; align-items: center; }
 .p2w .p2w-button--primary { color: #fff; background: var(--p2w-action); }
 .p2w .p2w-button--primary:hover:not(:disabled) { background: var(--p2w-action-hover); }
+.p2w .p2w-button--danger { color: #fff; background: #b42318; }
+.p2w .p2w-button--danger:hover:not(:disabled) { background: #912018; }
 .p2w .p2w-button--secondary { color: var(--p2w-action-soft-text); background: var(--p2w-action-soft); border-color: var(--p2w-action-line); }
 .p2w .p2w-button--secondary:hover:not(:disabled) { background: #dcf1f5; }
 .p2w .p2w-button--ghost { color: var(--p2w-muted); background: transparent; border-color: var(--p2w-line); }

@@ -390,7 +390,12 @@ export default function AppShell({ children }: PropsWithChildren) {
         }
       : role === 'EXECUTIVE'
         ? { ...p2Group, items: [p2DailyProcessingItem] }
-        : null;
+        // A Reviewer's whole surface (2026-10-23: inside a Project the group was
+        // built for PC / TL / PM only, so a Reviewer saw none of it, not even
+        // Document Review, which is their home page).
+        : role === 'REVIEWER'
+          ? { ...p2Group, items: [p2ReviewBoardItem, p2ReviewActivityItem, p2PriceMastersItem, p2MasterDocumentsItem] }
+          : null;
     const workspaceItems: NavItem[] = [
       { to: '/dashboard', label: 'Overview', mark: 'OV', roles: c0OperatingRoles },
     ];

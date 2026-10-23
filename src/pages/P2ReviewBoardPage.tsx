@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import '../styles/uc03-p2.css';
@@ -6,7 +6,7 @@ import '../styles/uc03-p2-workspace.css';
 
 import PageHeader from '../components/PageHeader';
 import SectionCard from '../components/SectionCard';
-import { formatUploadDay, groupByUploadDay } from '../features/uc03-p2/review/boardGrouping';
+import { formatUploadDay, groupByPc, groupByUploadDay, pcCounts } from '../features/uc03-p2/review/boardGrouping';
 import {
   claimJourney,
   getReviewerBoard,
@@ -120,11 +120,13 @@ function JourneyRow({
 
 function OutletBlock({
   group,
+  groupBy,
   onClaim,
   onRelease,
   busyId,
 }: {
   group: ReviewerOutletGroup;
+  groupBy: GroupBy;
   onClaim: (journeyId: string) => void;
   onRelease: (journeyId: string) => void;
   busyId: string | null;
@@ -150,11 +152,14 @@ function OutletBlock({
               <th>Claim</th>
             </tr>
           </thead>
-          {groupByUploadDay(group.journeys).map((day) => (
-            <tbody key={day.uploadDate || 'undated'}>
+          {(groupBy === 'PC'
+            ? groupByPc(group.journeys).map((g) => ({ key: `pc:${g.pcName}`, label: g.pcName || 'PC not recorded', journeys: g.journeys }))
+            : groupByUploadDay(group.journeys).map((g) => ({ key: g.uploadDate || 'undated', label: formatUploadDay(g.uploadDate), journeys: g.journeys }))
+          ).map((day) => (
+            <tbody key={day.key}>
               <tr>
                 <th colSpan={5} scope="colgroup" style={{ textAlign: 'left' }}>
-                  {formatUploadDay(day.uploadDate)}{' '}
+                  {day.label}{' '}
                   <span className="p2w-muted">
                     · {day.journeys.length} {day.journeys.length === 1 ? 'journey' : 'journeys'}
                   </span>
@@ -177,9 +182,11 @@ function OutletBlock({
   );
 }
 
+type GroupBy = 'DAY' | 'PC';
+
 /**
  * The Reviewer's board: every journey in the outlets they are mapped to,
- * split by dealership and outlet.
+ * split by dealership and outlet, then by upload day or by PC.
  *
  * Open journeys are the default because they are the day's work; closed ones
  * stay reachable but are asked for separately. A claim shows who is on a
@@ -198,8 +205,14 @@ export default function P2ReviewBoardPage() {
   const [outletId, setOutletId] = useState('');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
+  // Dealership and PC narrow what was read (product owner 2026-10-23: by
+  // dealership, outlet, date and PC). Both apply to the rows the board returned;
+  // the outlet and date pickers are the ones sent to the server.
+  const [dealerId, setDealerId] = useState('');
+  const [pcName, setPcName] = useState<string | null>(null);
+  const [groupBy, setGroupBy] = useState<GroupBy>('DAY');
   const rangeReversed = Boolean(dateFrom && dateTo && dateFrom > dateTo);
-  const filtered = Boolean(outletId || dateFrom || dateTo);
+  const filtered = Boolean(outletId || dateFrom || dateTo || dealerId || pcName !== null);
 
   const query = useQuery({
     queryKey: ['p2-reviewer-board', tenantId, state, outletId, dateFrom, dateTo],
@@ -223,7 +236,41 @@ export default function P2ReviewBoardPage() {
     onSettled: () => setBusyId(null),
   });
 
-  const outlets = query.data?.outlets ?? [];
+  const allOutlets = query.data?.outlets ?? [];
+  const outletOptions = query.data?.outletOptions ?? [];
+  const dealerOptions = useMemo(() => {
+    const seen = new Map<string, { dealerId: string; dealerName: string; journeyCount: number }>();
+    for (const option of outletOptions) {
+      const entry = seen.get(option.dealerId) ?? { dealerId: option.dealerId, dealerName: option.dealerName || option.dealerId, journeyCount: 0 };
+      entry.journeyCount += option.journeyCount;
+      seen.set(option.dealerId, entry);
+    }
+    return [...seen.values()].sort((a, b) => a.dealerName.localeCompare(b.dealerName));
+  }, [outletOptions]);
+  const inDealer = useMemo(
+    () => allOutlets.filter((group) => !dealerId || group.dealerId === dealerId),
+    [allOutlets, dealerId],
+  );
+  const pcOptions = useMemo(() => pcCounts(inDealer.flatMap((group) => group.journeys)), [inDealer]);
+  const outlets = useMemo(
+    () => inDealer
+      .map((group) => ({
+        ...group,
+        journeys: pcName === null ? group.journeys : group.journeys.filter((j) => (j.pcName ?? '').trim() === pcName),
+      }))
+      .filter((group) => group.journeys.length > 0),
+    [inDealer, pcName],
+  );
+  const dealerSections = useMemo(() => {
+    const sections: Array<{ dealerId: string; dealerName: string; outlets: ReviewerOutletGroup[] }> = [];
+    for (const group of outlets) {
+      const last = sections.find((section) => section.dealerId === group.dealerId);
+      if (last) last.outlets.push(group);
+      else sections.push({ dealerId: group.dealerId, dealerName: group.dealerName || group.dealerId, outlets: [group] });
+    }
+    return sections;
+  }, [outlets]);
+  const shownJourneys = outlets.reduce((sum, group) => sum + group.journeys.length, 0);
 
   return (
     <div className="screen-stack p2w">
@@ -251,7 +298,9 @@ export default function P2ReviewBoardPage() {
           </button>
           {query.data && (
             <span className="p2w-muted">
-              {query.data.journeyCount} {query.data.journeyCount === 1 ? 'journey' : 'journeys'} across{' '}
+              {dealerId || pcName !== null
+                ? `${shownJourneys} of ${query.data.journeyCount} ${query.data.journeyCount === 1 ? 'journey' : 'journeys'}`
+                : `${query.data.journeyCount} ${query.data.journeyCount === 1 ? 'journey' : 'journeys'}`} across{' '}
               {outlets.length} {outlets.length === 1 ? 'outlet' : 'outlets'}
               {query.data.totalMatching && query.data.totalMatching > query.data.journeyCount
                 ? ` (showing the first ${query.data.journeyCount} of ${query.data.totalMatching}; narrow by outlet or date to see the rest)`
@@ -260,11 +309,32 @@ export default function P2ReviewBoardPage() {
           )}
         </div>
         <div className="p2w-row" style={{ gap: 12, alignItems: 'center', marginTop: 12, flexWrap: 'wrap' }}>
+          {dealerOptions.length > 1 && (
+            <label>
+              <span className="p2w-muted">Dealership </span>
+              <select
+                value={dealerId}
+                onChange={(event) => {
+                  setDealerId(event.target.value);
+                  // An outlet of another dealership would leave the board empty.
+                  const kept = outletOptions.find((o) => o.outletId === outletId);
+                  if (event.target.value && kept && kept.dealerId !== event.target.value) setOutletId('');
+                }}
+              >
+                <option value="">All dealerships</option>
+                {dealerOptions.map((option) => (
+                  <option key={option.dealerId} value={option.dealerId}>
+                    {option.dealerName} ({option.journeyCount})
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
           <label>
             <span className="p2w-muted">Outlet </span>
             <select value={outletId} onChange={(event) => setOutletId(event.target.value)}>
               <option value="">All outlets</option>
-              {(query.data?.outletOptions ?? []).map((option) => (
+              {outletOptions.filter((option) => !dealerId || option.dealerId === dealerId).map((option) => (
                 <option key={option.outletId} value={option.outletId}>
                   {option.outletName || option.outletCode || option.outletId} ({option.journeyCount})
                 </option>
@@ -279,8 +349,33 @@ export default function P2ReviewBoardPage() {
             <span className="p2w-muted">to </span>
             <input type="date" value={dateTo} min={dateFrom || undefined} onChange={(event) => setDateTo(event.target.value)} />
           </label>
+          <label>
+            <span className="p2w-muted">PC </span>
+            <select
+              value={pcName === null ? '*' : pcName}
+              onChange={(event) => setPcName(event.target.value === '*' ? null : event.target.value)}
+            >
+              <option value="*">All PCs</option>
+              {pcOptions.map((option) => (
+                <option key={option.pcName || 'none'} value={option.pcName}>
+                  {option.pcName || 'PC not recorded'} ({option.count})
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            <span className="p2w-muted">Group by </span>
+            <select value={groupBy} onChange={(event) => setGroupBy(event.target.value as GroupBy)}>
+              <option value="DAY">Upload day</option>
+              <option value="PC">PC</option>
+            </select>
+          </label>
           {filtered && (
-            <button type="button" className="text-link" onClick={() => { setOutletId(''); setDateFrom(''); setDateTo(''); }}>
+            <button
+              type="button"
+              className="text-link"
+              onClick={() => { setOutletId(''); setDateFrom(''); setDateTo(''); setDealerId(''); setPcName(null); }}
+            >
               Clear filters
             </button>
           )}
@@ -299,7 +394,7 @@ export default function P2ReviewBoardPage() {
           <div className="form-alert form-alert--error">Your journeys could not be read.</div>
         </SectionCard>
       )}
-      {query.data && outlets.length === 0 && (
+      {query.data && allOutlets.length === 0 && (
         <SectionCard>
           <strong>Nothing {state === 'open' ? 'open' : 'closed'} right now</strong>
           <p className="p2w-muted">
@@ -312,10 +407,28 @@ export default function P2ReviewBoardPage() {
         </SectionCard>
       )}
 
-      {outlets.map((group) => (
+      {query.data && allOutlets.length > 0 && outlets.length === 0 && (
+        <SectionCard>
+          <strong>No journeys match</strong>
+          <p className="p2w-muted">Nothing in what was read matches this dealership and PC.</p>
+        </SectionCard>
+      )}
+
+      {dealerSections.map((section) => (
+        <div key={section.dealerId} className="screen-stack">
+          {dealerSections.length > 1 && (
+            <h2 className="p2w-section-title" style={{ margin: '8px 0 0' }}>
+              {section.dealerName}{' '}
+              <span className="p2w-muted" style={{ fontSize: '.85rem', fontWeight: 400 }}>
+                · {section.outlets.length} {section.outlets.length === 1 ? 'outlet' : 'outlets'}
+              </span>
+            </h2>
+          )}
+          {section.outlets.map((group) => (
         <OutletBlock
           key={`${group.dealerId}:${group.outletId}`}
           group={group}
+          groupBy={groupBy}
           busyId={busyId}
           onClaim={(journeyId) => {
             setProblem('');
@@ -328,6 +441,8 @@ export default function P2ReviewBoardPage() {
             release.mutate(journeyId);
           }}
         />
+          ))}
+        </div>
       ))}
     </div>
   );

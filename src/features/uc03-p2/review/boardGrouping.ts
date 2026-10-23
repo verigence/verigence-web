@@ -32,3 +32,33 @@ export function formatUploadDay(value: string): string {
   const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
   return `${Number(day)} ${months[Number(month) - 1]} ${year}`;
 }
+
+export const NO_PC = '';
+
+export type PcGroup = { pcName: string; journeys: ReviewerJourney[] };
+
+/**
+ * An outlet's journeys, one group per PC, PCs A to Z, each keeping the order
+ * the server sent (oldest upload first while open). Journeys with no PC
+ * recorded go in a group of their own at the end rather than being dropped.
+ */
+export function groupByPc(journeys: ReviewerJourney[]): PcGroup[] {
+  const byPc = new Map<string, ReviewerJourney[]>();
+  for (const journey of journeys) {
+    const name = (journey.pcName ?? '').trim();
+    const list = byPc.get(name) ?? [];
+    list.push(journey);
+    byPc.set(name, list);
+  }
+  const named = [...byPc.entries()]
+    .filter(([name]) => name !== NO_PC)
+    .sort(([a], [b]) => a.localeCompare(b, 'en', { sensitivity: 'base' }))
+    .map(([pcName, list]) => ({ pcName, journeys: list }));
+  const unnamed = byPc.get(NO_PC);
+  return unnamed ? [...named, { pcName: NO_PC, journeys: unnamed }] : named;
+}
+
+/** Every PC among the journeys with how many journeys each has, A to Z; "" for no PC recorded, last. */
+export function pcCounts(journeys: ReviewerJourney[]): Array<{ pcName: string; count: number }> {
+  return groupByPc(journeys).map((g) => ({ pcName: g.pcName, count: g.journeys.length }));
+}

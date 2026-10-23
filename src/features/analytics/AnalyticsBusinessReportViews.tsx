@@ -4,7 +4,6 @@ import {
   AnalyticsBarChart,
   AnalyticsBubbleChart,
   AnalyticsComboChart,
-  AnalyticsDonutChart,
   AnalyticsParetoChart,
 } from './AnalyticsCharts';
 
@@ -27,6 +26,10 @@ function formatMoney(value: NumericValue | undefined): string {
 
 function formatPercent(value: number | null | undefined): string {
   return value == null ? 'Unavailable' : `${Number(value).toFixed(1)}%`;
+}
+
+function percent(part: number, whole: number): string {
+  return whole ? `${((part / whole) * 100).toFixed(1)}%` : 'Unavailable';
 }
 
 function formatDays(value: NumericValue | undefined): string {
@@ -113,57 +116,118 @@ export default function AnalyticsBusinessReportViews({ payload }: { payload: Ana
           </div>
 
           <DetailTable
-            headers={['Dealer', 'Outlet', 'Booked Vehicles', 'Actual Deliveries', 'Delivery Rate', 'Captured Payments']}
+            headers={['Dealer', 'Outlet', 'Booked Vehicles', 'Actual Deliveries', 'Delivery Rate']}
             rows={outlets.map((row) => [
               row.dealer_name,
               row.outlet_name,
               formatNumber(row.journey_count),
               formatNumber(row.actual_deliveries),
               formatPercent(row.journey_count ? row.actual_deliveries * 100 / row.journey_count : null),
-              formatMoney(row.payment_amount),
             ])}
           />
         </>
       );
     }
 
-    case 'insurance': {
-      const { summary, by_insurer: insurers, by_source: sources, add_ons: addOns } = payload.data;
-      const sourceRows = sources.map((row) => ({ label: humanize(row.insurance_by), value: row.policy_count }));
-      const insurerRows = insurers.map((row) => ({
-        label: humanize(row.insurer_name),
-        x: row.policy_count,
-        y: numeric(row.premium_amount),
-        size: Math.max(row.policy_count, 1),
+    case 'finance': {
+      const { summary, by_lender: lenders, by_lender_outlet: lendersByOutlet, by_outlet: outlets, definition } = payload.data;
+      const lenderRows = lenders.map((row) => ({
+        label: `${humanize(row.lender_name)} · ${humanize(row.finance_type)}`,
+        value: numeric(row.loan_amount),
       }));
+      return (
+        <>
+          <div className="analytics-insurance-banner">
+            <Metric label="Finance record rate" value={formatPercent(summary.finance_record_attach_pct == null ? null : numeric(summary.finance_record_attach_pct))} detail={`${formatNumber(summary.financed_journeys)} of ${formatNumber(summary.booked_journeys)} booked journeys have a finance record; not an approval rate`} />
+            <Metric label="High-confidence loan amount" value={formatMoney(summary.high_confidence_loan_amount)} detail={`${formatNumber(summary.high_confidence_loan_records)} records with a high-confidence disbursement amount`} />
+            <Metric label="Medium-confidence amount" value={formatMoney(summary.medium_confidence_loan_amount)} detail={`${formatNumber(summary.medium_confidence_loan_records)} amounts without verified lender attribution`} />
+            <Metric label="Loan amount coverage" value={formatPercent(summary.loan_amount_capture_pct)} detail={`${formatNumber(summary.high_confidence_loan_records + summary.medium_confidence_loan_records)} amount records of ${formatNumber(summary.finance_record_count)} finance records`} />
+          </div>
+
+          <SectionCard title="High-confidence loan amount by lender" description="Bank/NBFC attribution and totals use only high-confidence disbursement matches. Medium-confidence totals remain separate and are not assigned to a lender.">
+            <AnalyticsBarChart rows={lenderRows} valueLabel="Matched loan disbursement" valueKind="currency" />
+          </SectionCard>
+
+          <DetailTable
+            title="View finance attach and amount by dealership / outlet"
+            headers={['Dealer', 'Outlet', 'Booked Journeys', 'Finance Records', 'Record Rate', 'High-confidence Amount', 'Medium-confidence Amount']}
+            rows={outlets.map((row) => [
+              row.dealer_name,
+              row.outlet_name,
+              formatNumber(row.booked_journeys),
+              formatNumber(row.financed_journeys),
+              formatPercent(row.finance_record_attach_pct),
+              formatMoney(row.high_confidence_loan_amount),
+              formatMoney(row.medium_confidence_loan_amount),
+            ])}
+          />
+
+          <DetailTable
+            title="View lender, confidence, and amount by dealership / outlet"
+            headers={['Dealer', 'Outlet', 'Lender', 'Confidence', 'Finance Records', 'Journeys', 'Loan Amount']}
+            rows={lendersByOutlet.map((row) => [
+              row.dealer_name,
+              row.outlet_name,
+              humanize(row.lender_name),
+              humanize(row.confidence),
+              formatNumber(row.finance_record_count),
+              formatNumber(row.financed_journeys),
+              formatMoney(row.loan_amount),
+            ])}
+          />
+          <p className="analytics-footnote">{definition}</p>
+        </>
+      );
+    }
+
+    case 'insurance': {
+      const { summary, by_insurer: insurers, by_source: sources, by_outlet: outlets, add_ons: addOns, definition } = payload.data;
+      const sourceRows = sources.map((row) => ({ label: humanize(row.insurance_by), value: row.policy_count }));
+      const insurerRows = insurers.map((row) => ({ label: humanize(row.insurer_name), value: numeric(row.premium_amount) }));
       const addOnRows = addOns.map((row) => ({ label: humanize(row.add_on_name), value: Number(row.policy_attach_pct || 0) }));
       return (
         <>
           <div className="analytics-insurance-banner">
-            <Metric label="Insurance penetration" value={formatPercent(summary.insurance_penetration_pct)} detail={`${formatNumber(summary.insurance_journeys)} of ${formatNumber(summary.booked_journeys)} booked journeys`} />
-            <Metric label="Captured premium" value={formatMoney(summary.premium_amount)} detail={`${formatNumber(summary.premium_populated)} policies have premium values`} />
+            <Metric label="Insurance record rate" value={formatPercent(summary.insurance_record_rate_pct)} detail={`${formatNumber(summary.insurance_journeys)} of ${formatNumber(summary.booked_journeys)} booked journeys have a policy record`} />
+            <Metric label="Captured premium" value={formatMoney(summary.premium_amount)} detail={`${formatNumber(summary.premium_populated)} of ${formatNumber(summary.insurance_journeys)} policy records have a premium value (${percent(summary.premium_populated, summary.insurance_journeys)})`} />
             <Metric label="Average premium" value={summary.avg_premium == null ? 'Unavailable' : formatMoney(summary.avg_premium)} detail="Average across policies where premium is populated" />
-            <Metric label="Policies with add-ons" value={formatPercent(summary.add_on_policy_attach_pct)} detail={`${formatNumber(summary.policies_with_add_ons)} policies contain structured add-on data`} />
+            <Metric label="Insurance source unclassified" value={formatNumber(summary.source_unknown_journeys)} detail={`of ${formatNumber(summary.insurance_journeys)} policy records lack a recognized source or explicit self-insurance flag`} attention={summary.source_unknown_journeys > 0} />
           </div>
 
           <div className="analytics-split analytics-split--insurance">
-            <SectionCard title="Insurance Source Mix" description="Dealer/in-house versus self/external insurance sourcing from the current project snapshot.">
-              <AnalyticsDonutChart rows={sourceRows} valueLabel="Policies" />
+            <SectionCard title="Recorded Insurance Route" description="Counts by the raw insurance_by label captured in the source. This field is not standardized to in-house versus self/external.">
+              <AnalyticsBarChart rows={sourceRows} valueLabel="Policy records" />
             </SectionCard>
-            <SectionCard title="Insurer Portfolio" description="Insurers positioned by policy count and captured premium value.">
-              <AnalyticsBubbleChart rows={insurerRows} xLabel="Policies" yLabel="Premium" yKind="currency" />
+            <SectionCard title="Captured Premium by Insurer" description="Premium totals include only populated premium fields. Use the policy counts in the detail table to assess coverage.">
+              <AnalyticsBarChart rows={insurerRows} valueLabel="Captured premium" valueKind="currency" />
             </SectionCard>
           </div>
+
+          <DetailTable
+            title="View insurance records and premium by dealership / outlet"
+            headers={['Dealer', 'Outlet', 'Booked Journeys', 'Policy Records', 'Source Missing', 'Premium Values', 'Captured Premium', 'Average Premium']}
+            rows={outlets.map((row) => [
+              row.dealer_name,
+              row.outlet_name,
+              formatNumber(row.booked_journeys),
+              formatNumber(row.insurance_journeys),
+              formatNumber(row.source_unknown_journeys),
+              formatNumber(row.premium_populated),
+              formatMoney(row.premium_amount),
+              row.avg_premium == null ? 'Unavailable' : formatMoney(row.avg_premium),
+            ])}
+          />
 
           <SectionCard title="Insurance Add-on Penetration" description="Attach rate by named insurance benefit extracted from policy evidence. These are policy add-ons, separate from the vehicle accessory and VAS category report.">
             <AnalyticsBarChart rows={addOnRows} valueLabel="Share of insured policies" valueKind="percent" />
           </SectionCard>
+          <p className="analytics-footnote">{definition}</p>
         </>
       );
     }
 
     case 'addons': {
-      const { journeys, by_type: byType, by_outlet: byOutlet } = payload.data;
+      const { journeys, by_type: byType, by_outlet: byOutlet, by_model_outlet: byModelOutlet, definition } = payload.data;
       const totalValue = byType.reduce((sum, row) => sum + numeric(row.actual_amount), 0);
       const totalAttachedJourneys = byType.reduce((sum, row) => sum + row.journey_count, 0);
       const typeRows = byType.map((row) => ({
@@ -192,6 +256,101 @@ export default function AnalyticsBusinessReportViews({ payload }: { payload: Ana
             headers={['Dealer', 'Outlet', 'Product', 'Journeys', 'Captured Value']}
             rows={byOutlet.map((row) => [row.dealer_name, row.outlet_name, humanize(row.addon_type), formatNumber(row.journey_count), formatMoney(row.actual_amount)])}
           />
+
+          <DetailTable
+            title="View accessory value by model and dealership / outlet"
+            headers={['Dealer', 'Outlet', 'Model label', 'Variant label', 'Booked Journeys', 'Accessory Attachments', 'Attachment Rate', 'Captured Value']}
+            rows={byModelOutlet.map((row) => [
+              row.dealer_name,
+              row.outlet_name,
+              row.model_name,
+              row.variant_name,
+              formatNumber(row.booked_journeys),
+              formatNumber(row.attached_journeys),
+              formatPercent(row.penetration_pct),
+              formatMoney(row.actual_amount),
+            ])}
+          />
+          <p className="analytics-footnote">{definition}</p>
+        </>
+      );
+    }
+
+    case 'payments': {
+      const { summary, by_channel: channels, by_outlet: outlets, definition } = payload.data;
+      const channelRows = channels.map((row) => ({
+        label: humanize(row.channel),
+        value: numeric(row.recorded_receipt_amount),
+      }));
+      return (
+        <>
+          <div className="analytics-insurance-banner">
+            <Metric label="Recorded receipt amount" value={formatMoney(summary.recorded_receipt_amount)} detail={`${formatNumber(summary.payment_entry_count)} payment entries`} />
+            <Metric label="Journeys with receipt entries" value={formatNumber(summary.journeys_with_payment_entries)} detail="Distinct booked journeys with at least one payment record" />
+            <Metric label="Status coverage" value={formatPercent(summary.status_coverage_pct)} detail={`${formatNumber(summary.status_coded_entries)} of ${formatNumber(summary.payment_entry_count)} entries have a status code`} attention={summary.status_coverage_pct === 0} />
+            <Metric label="Channels captured" value={formatNumber(summary.channel_count)} detail={`${formatNumber(summary.unmapped_entries)} entries remain in Other / Unmapped`} />
+          </div>
+
+          <SectionCard title="Recorded receipt amount by channel" description="Known payment aliases are grouped into channel categories. Values are recorded receipt amounts, not settled collections, because current status coverage is incomplete.">
+            <AnalyticsBarChart rows={channelRows} valueLabel="Recorded receipt amount" valueKind="currency" />
+          </SectionCard>
+
+          <DetailTable
+            title="View payment channel activity by dealership / outlet"
+            headers={['Dealer', 'Outlet', 'Channel', 'Entries', 'Journeys', 'Recorded Amount', 'Status-Coded Entries']}
+            rows={outlets.map((row) => [
+              row.dealer_name,
+              row.outlet_name,
+              humanize(row.channel),
+              formatNumber(row.payment_entry_count),
+              formatNumber(row.journey_count),
+              formatMoney(row.recorded_receipt_amount),
+              formatNumber(row.status_coded_entries),
+            ])}
+          />
+          <p className="analytics-footnote">{definition}</p>
+        </>
+      );
+    }
+
+    case 'geography': {
+      const { coverage, quality, rows, privacy } = payload.data;
+      const pinTotals = new Map<string, number>();
+      rows.forEach((row) => pinTotals.set(row.customer_pincode, (pinTotals.get(row.customer_pincode) || 0) + row.journey_count));
+      const topPins = Array.from(pinTotals.entries())
+        .map(([label, value]) => ({ label, value }))
+        .sort((a, b) => b.value - a.value || a.label.localeCompare(b.label))
+        .slice(0, 12);
+      const leadingPin = topPins[0];
+      return (
+        <>
+          <div className="analytics-insurance-banner">
+            <Metric label="Pincode coverage" value={formatPercent(coverage.coverage_pct)} detail={`${formatNumber(coverage.available)} of ${formatNumber(coverage.total)} booked journeys have an explicit PIN field`} />
+            <Metric label="Reviewed PIN records" value={formatNumber(quality.reviewed_journeys)} detail={`${formatPercent(quality.reviewed_pct_of_pincode_records)} of PIN-bearing journeys have a review timestamp`} />
+            <Metric label="Provisional PIN records" value={formatNumber(quality.provisional_journeys)} detail="Document-extracted values not yet reviewed in Audit Core" attention={quality.provisional_journeys > 0} />
+            <Metric label="Highest-volume PIN" value={leadingPin?.label || 'Unavailable'} detail={leadingPin ? `${formatNumber(leadingPin.value)} booked journeys in this snapshot` : 'No pincode data available'} />
+          </div>
+
+          <SectionCard title="Booked journeys by customer PIN" description="Top PINs ranked by captured booked journeys. Use the distribution to understand where sales are coming from; PINs are provisional until reviewed.">
+            <AnalyticsBarChart rows={topPins} valueLabel="Booked journeys" emptyText="No reviewed or extracted customer PINs are available in this snapshot." />
+          </SectionCard>
+
+          <DetailTable
+            title="View PIN sales by dealer, outlet, and captured model"
+            headers={['Customer PIN', 'Dealer', 'Outlet', 'Model label', 'Booked Journeys', 'Deliveries', 'Finance Records', 'Insurance Records', 'Accessory Records']}
+            rows={rows.slice(0, 100).map((row) => [
+              row.customer_pincode,
+              row.dealer_name,
+              row.outlet_name,
+              row.model_name,
+              formatNumber(row.journey_count),
+              formatNumber(row.actual_deliveries),
+              formatNumber(row.finance_journeys),
+              formatNumber(row.insurance_journeys),
+              formatNumber(row.accessory_journeys),
+            ])}
+          />
+          <p className="analytics-footnote">{quality.source_note} {privacy}</p>
         </>
       );
     }

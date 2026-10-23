@@ -23,10 +23,11 @@ import { useSessionStore } from '../store/sessionStore';
 import '../styles/analytics.css';
 import '../styles/analytics-project.css';
 
-type AnalyticsView = 'overview' | AnalyticsReportKey | 'sales-product';
+type AnalyticsView = 'overview' | AnalyticsReportKey | 'sales-product' | 'geography';
 
-const reportKeys: Array<AnalyticsReportKey | 'sales-product'> = [
+const reportKeys: Array<AnalyticsReportKey | 'sales-product' | 'geography'> = [
   'sales-product',
+  'geography',
   'finance',
   'insurance',
   'addons',
@@ -41,9 +42,12 @@ const reportKeys: Array<AnalyticsReportKey | 'sales-product'> = [
 
 const businessReportKeys: AnalyticsBusinessReportKey[] = [
   'sales-product',
+  'finance',
   'insurance',
   'addons',
   'discounts',
+  'payments',
+  'geography',
   'turnaround',
   'findings',
 ];
@@ -54,6 +58,7 @@ const reportLabels: Record<AnalyticsView, string> = {
   finance: 'Finance & Loan Attach',
   insurance: 'Insurance & Add-ons',
   addons: 'Accessories & VAS',
+  geography: 'Customer Pincode Sales',
   discounts: 'Pricing Integrity Audit',
   'trade-in': 'Trade-in',
   payments: 'Payment Channels',
@@ -65,7 +70,7 @@ const reportLabels: Record<AnalyticsView, string> = {
 
 function parseReport(value: string | null): AnalyticsView {
   if (value === 'sales-product') return value;
-  if (value && reportKeys.includes(value as AnalyticsReportKey)) return value as AnalyticsReportKey;
+  if (value && reportKeys.includes(value as AnalyticsView)) return value as AnalyticsView;
   return 'overview';
 }
 

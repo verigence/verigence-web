@@ -191,43 +191,42 @@ export default function AnalyticsReportViews({ payload }: { payload: AnalyticsRe
   switch (payload.kind) {
     case 'finance': {
       const { rows, summary } = payload.data;
-      const financedBookings = summary.financed_bookings;
-      const amount = numeric(summary.financed_amount);
-      const hierarchy = rows.map((row) => ({
-        group: humanize(row.finance_type),
-        label: humanize(row.provider),
-        value: numeric(row.financed_amount),
+      const attachRate = summary.finance_attach_pct == null ? 'Unavailable' : `${numeric(summary.finance_attach_pct).toFixed(1)}%`;
+      const lenderRows = rows.map((row) => ({
+        label: `${humanize(row.provider)} · ${humanize(row.finance_type)}`,
+        value: numeric(row.loan_amount),
       }));
       return <>
         <div className="analytics-finance-hero">
-          <HeroStat eyebrow="Finance attach" value={summary.finance_attach_pct == null ? 'Unavailable' : `${numeric(summary.finance_attach_pct).toFixed(1)}%`} title="Booked journeys with finance" detail={`${formatNumber(financedBookings)} of ${formatNumber(summary.booked_journeys)} booked journeys have a finance record.`} />
+          <HeroStat eyebrow="Finance record rate" value={attachRate} title="Booked journeys with a finance record" detail={`${formatNumber(summary.financed_journeys)} of ${formatNumber(summary.booked_journeys)} booked journeys. This is not a loan approval rate.`} />
           <div className="analytics-insight-stack">
-            <InsightCard label="Captured financed value" value={formatMoney(amount)} detail={`${formatNumber(summary.finance_record_count)} finance records across ${formatNumber(summary.financed_journeys)} distinct financed journeys`} />
-            <InsightCard label="Average financed per financed booking" value={financedBookings ? formatMoney(amount / financedBookings) : '—'} detail="Captured financed value divided by distinct financed bookings" />
+            <InsightCard label="High-confidence loan amount" value={formatMoney(summary.high_confidence_loan_amount)} detail={`${formatNumber(summary.high_confidence_loan_records)} records with a high-confidence disbursement amount`} />
+            <InsightCard label="Medium-confidence loan amount" value={formatMoney(summary.medium_confidence_loan_amount)} detail={`${formatNumber(summary.medium_confidence_loan_records)} records, shown separately from lender-attributed totals`} />
           </div>
         </div>
-        <SectionCard title="Financed Value by Type and Provider" description="Captured financed value is split once across finance type and provider. A journey can have multiple finance records, so this mix is value-based while attach rate counts distinct booked journeys."><AnalyticsSunburstChart rows={hierarchy} valueLabel="Financed value" /></SectionCard>
+        <SectionCard title="High-confidence Loan Amount by Lender" description="Lender totals use only high-confidence loan disbursement records; medium-confidence amounts are excluded from this chart."><AnalyticsBarChart rows={lenderRows} valueLabel="Loan amount" valueKind="currency" /></SectionCard>
+        <p className="analytics-footnote">{payload.data.definition}</p>
       </>;
     }
 
     case 'insurance': {
-      const { rows, duplicate_agent_codes: duplicates } = payload.data;
-      const policies = rows.reduce((sum, row) => sum + row.policy_count, 0);
-      const premium = rows.reduce((sum, row) => sum + numeric(row.premium_amount), 0);
-      const sourceMix = aggregate(rows, (row) => humanize(row.insurance_by), (row) => row.policy_count);
+      const { rows, summary, source_split: sourceSplit, duplicate_agent_codes: duplicates } = payload.data;
+      const policies = summary.insurance_journeys;
+      const premium = numeric(summary.captured_premium);
+      const sourceMix = sourceSplit.map((row) => ({ label: humanize(row.insurance_source), value: row.policy_count }));
       const insurerValue = aggregate(rows, (row) => humanize(row.insurer), (row) => numeric(row.premium_amount));
-      const topSource = sourceMix[0];
       const topInsurer = insurerValue[0];
       const insurerPosition = aggregateBubble(rows, (row) => humanize(row.insurer), (row) => row.policy_count, (row) => numeric(row.premium_amount));
       return <>
         <div className="analytics-insurance-banner">
-          <HeroStat eyebrow="Insurance book" value={formatMoney(premium)} title={`${formatNumber(policies)} policies captured`} detail={policies ? `${formatMoney(premium / policies)} average captured premium per policy.` : 'No captured policy value.'} />
-          <InsightCard label="Primary sourcing route" value={topSource?.label || '—'} detail={topSource ? `${percent(topSource.value, policies)} of captured policies` : 'No source split captured'} />
+          <HeroStat eyebrow="Insurance records" value={`${summary.insurance_record_rate_pct == null ? 'Unavailable' : `${numeric(summary.insurance_record_rate_pct).toFixed(1)}%`} of booked journeys`} title={`${formatNumber(policies)} journeys have a policy record`} detail="A missing record does not prove a vehicle was uninsured." />
+          <InsightCard label="Captured policy premium" value={formatMoney(premium)} detail={`${formatNumber(summary.premium_populated)} of ${formatNumber(policies)} records contain a premium value`} />
+          <InsightCard label="Source unclassified" value={formatNumber(summary.source_unclassified_journeys)} detail={`${percent(summary.source_unclassified_journeys, policies)} of policy journeys lack a recognized source or explicit self-insurance flag`} />
           <InsightCard label="Largest insurer by premium" value={topInsurer?.label || '—'} detail={topInsurer ? `${formatMoney(topInsurer.value)} captured premium` : 'No insurer premium captured'} />
           <InsightCard label="Repeated agent codes" value={formatNumber(duplicates.length)} detail={duplicates.length ? 'Codes reused across multiple bookings require attention' : 'No repeated agent-code exception in this snapshot'} tone={duplicates.length ? 'attention' : 'positive'} />
         </div>
         <div className="analytics-split analytics-split--insurance">
-          <SectionCard title="Insurance Source Mix" description="How the captured policies are sourced across in-house, self and external channels."><AnalyticsDonutChart rows={sourceMix} valueLabel="Policies" /></SectionCard>
+          <SectionCard title="Insurance Source Classification" description="Known source codes and unclassified records. Missing source data is not assumed to be in-house."><AnalyticsDonutChart rows={sourceMix} valueLabel="Policy records" /></SectionCard>
           <SectionCard title="Insurer Portfolio" description="Insurers positioned by policy volume and premium value."><AnalyticsBubbleChart rows={insurerPosition} xLabel="Policies" yLabel="Premium value" yKind="currency" /></SectionCard>
         </div>
         {duplicates.length ? <RankedList title="Agent-code exceptions" description="Repeated codes are shown first because they are directly actionable audit exceptions." items={duplicates.slice(0, 8).map((row) => ({ label: row.agent_code, value: `${formatNumber(row.booking_count)} bookings`, tone: 'attention' }))} /> : null}
@@ -293,21 +292,18 @@ export default function AnalyticsReportViews({ payload }: { payload: AnalyticsRe
     }
 
     case 'payments': {
-      const { rows } = payload.data;
-      const count = rows.reduce((sum, row) => sum + row.payment_count, 0);
-      const amount = rows.reduce((sum, row) => sum + numeric(row.total_amount), 0);
-      const channels = new Set(rows.map((row) => normalizePaymentChannel(row.payment_method)));
-      const hierarchy = rows.map((row) => ({
-        group: humanize(row.payment_stage),
+      const { rows, summary, definition } = payload.data;
+      const channelRows = rows.map((row) => ({
         label: normalizePaymentChannel(row.payment_method),
         value: numeric(row.total_amount),
       }));
       return <>
         <div className="analytics-payment-flow">
-          <div className="analytics-payment-flow__total"><span>Total captured receipts</span><strong>{formatMoney(amount)}</strong><p>{formatNumber(count)} payment entries across {formatNumber(channels.size)} captured channels.</p></div>
-          <div className="analytics-payment-flow__average"><span>Average payment</span><strong>{count ? formatMoney(amount / count) : '—'}</strong><p>Captured receipt value per payment entry.</p></div>
+          <div className="analytics-payment-flow__total"><span>Recorded receipt amount</span><strong>{formatMoney(summary.recorded_receipt_amount)}</strong><p>{formatNumber(summary.payment_entry_count)} entries across {formatNumber(rows.length)} normalized channels.</p></div>
+          <div className="analytics-payment-flow__average"><span>Status coverage</span><strong>{summary.status_coverage_pct == null ? 'Unavailable' : `${numeric(summary.status_coverage_pct).toFixed(1)}%`}</strong><p>{formatNumber(summary.status_coded_entries)} of {formatNumber(summary.payment_entry_count)} entries have a status code.</p></div>
         </div>
-        <SectionCard title="Payment Channel by Collection Stage" description="Captured receipt value is grouped by payment channel within booking and delivery stages. Known case and label aliases are combined; ambiguous combined labels remain separate."><AnalyticsSunburstChart rows={hierarchy} valueLabel="Receipt value" /></SectionCard>
+        <SectionCard title="Recorded Receipt Amount by Channel" description="Channels are normalized from recognized payment-method prefixes. Recorded amounts are not treated as settled collections."><AnalyticsBarChart rows={channelRows} valueLabel="Recorded receipt amount" valueKind="currency" /></SectionCard>
+        <p className="analytics-footnote">{definition}</p>
       </>;
     }
 
@@ -383,8 +379,6 @@ export default function AnalyticsReportViews({ payload }: { payload: AnalyticsRe
     case 'productivity': {
       const { summary, upload_activity: uploadActivity } = payload.data;
       const totalJourneys = summary.reduce((s, r) => s + r.journeys_created, 0);
-      const totalBookings = summary.reduce((s, r) => s + r.bookings, 0);
-      const totalCompleted = summary.reduce((s, r) => s + r.deliveries_completed, 0);
       const unattributed = uploadActivity.reduce((sum, row) => sum + row.unattributed_journeys, 0);
       const creators = new Set(summary
         .filter((row) => row.actor_id || row.employee_name !== 'Unknown')
@@ -396,8 +390,6 @@ export default function AnalyticsReportViews({ payload }: { payload: AnalyticsRe
           <HeroStat eyebrow="Journey uploads" value={formatNumber(totalJourneys)} title={`${creators} attributed creator${creators !== 1 ? 's' : ''}`} detail="Creator attribution comes from Audit Core journey created-by fields." />
           <div className="analytics-insight-stack">
             <InsightCard label="Unattributed uploads" value={formatNumber(unattributed)} detail="Journey records with no creator ID or display name" />
-            <InsightCard label="Bookings created" value={formatNumber(totalBookings)} detail={`${formatNumber(totalBookings - summary.reduce((s, r) => s + r.bookings_with_date, 0))} bookings are missing a booking date`} />
-            <InsightCard label="Delivered journeys" value={formatNumber(totalCompleted)} detail="Created journeys with an actual delivery date" />
           </div>
         </div>
 
@@ -405,16 +397,13 @@ export default function AnalyticsReportViews({ payload }: { payload: AnalyticsRe
           <AnalyticsBarChart rows={uploadRows} valueLabel="Journeys uploaded" />
         </SectionCard>
 
-        <SectionCard title="Journey Uploads by Creator" description="Creator totals and downstream booking/delivery indicators from the same journey records. Names come from the creator actor ID or display name.">
+        <SectionCard title="Journey Uploads by Creator" description="Counts journeys attributed to each creator from Audit Core created-by fields. This view tracks upload activity only; it does not rank sales or delivery outcomes.">
           <div className="data-table-wrap analytics-table-wrap">
             <table className="data-table">
               <thead>
                 <tr>
                   <th>Creator</th>
                   <th>Journeys Uploaded</th>
-                  <th>Bookings</th>
-                  <th>Bookings With Date</th>
-                  <th>Deliveries Completed</th>
                 </tr>
               </thead>
               <tbody>
@@ -422,9 +411,6 @@ export default function AnalyticsReportViews({ payload }: { payload: AnalyticsRe
                   <tr key={row.actor_id || row.employee_name}>
                     <td><strong>{row.employee_name}</strong></td>
                     <td>{formatNumber(row.journeys_created)}</td>
-                    <td>{formatNumber(row.bookings)}</td>
-                    <td>{formatNumber(row.bookings_with_date)}</td>
-                    <td>{formatNumber(row.deliveries_completed)}</td>
                   </tr>
                 ))}
               </tbody>

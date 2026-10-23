@@ -64,19 +64,24 @@ export default function AnalyticsBusinessOverviewPanels({ data }: { data: Audito
             detail={`${percent(delivered, booked)} of booked journeys have an actual delivery date`}
           />
           <Metric
-            label="Finance attach to bookings"
+            label="Finance record rate"
             value={formatPercent(summary.finance_attach_pct == null ? null : numeric(summary.finance_attach_pct))}
-            detail={`${formatNumber(summary.financed_bookings)} financed bookings of ${formatNumber(booked)} booked journeys`}
+            detail={`${formatNumber(summary.financed_bookings)} booked journeys have a finance record; this is not an approval or disbursement rate`}
           />
           <Metric
-            label="Insurance penetration"
+            label="Insurance record rate"
             value={percent(summary.insured_journeys, booked)}
-            detail={`${formatNumber(summary.insured_journeys)} booked journeys have an insurance record`}
+            detail={`${formatNumber(summary.insured_journeys)} policy records; ${formatNumber(summary.insurance_source_unknown_journeys)} have an unclassified insurance source`}
           />
           <Metric
-            label="Captured payments"
-            value={formatMoney(summary.total_payment_collected)}
-            detail={`Booking stage ${formatMoney(summary.booking_payment_collected)} · delivery stage ${formatMoney(summary.delivery_payment_collected)}`}
+            label="Accessory value recorded"
+            value={formatMoney(summary.total_accessories_value)}
+            detail={`${formatNumber(summary.accessory_journeys)} booked journeys with an accessory-category record`}
+          />
+          <Metric
+            label="Recorded receipt amount"
+            value={formatMoney(summary.recorded_receipt_amount)}
+            detail={`${formatNumber(summary.payment_entry_count)} entries · status present for ${formatPercent(summary.payment_status_coverage_pct == null ? null : numeric(summary.payment_status_coverage_pct))}; not a settled-cash figure`}
           />
         </div>
       </SectionCard>

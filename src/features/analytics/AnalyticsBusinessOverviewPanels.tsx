@@ -98,17 +98,18 @@ export default function AnalyticsBusinessOverviewPanels({ data }: { data: Audito
   const booked = summary.booked_journeys || 0;
   const delivered = summary.delivered_cars || 0;
 
-  const pricingByDealer = useMemo(
-    () => new Map(pricing.by_dealer.map((row) => [row.dealer_name, row as PricingExposure])),
-    [pricing.by_dealer],
-  );
-  const pricingByOutlet = useMemo(
-    () => new Map(pricing.by_outlet.map((row) => [
-      rowExposureKey(row.dealer_name, row.outlet_name),
-      row as PricingExposure,
-    ])),
-    [pricing.by_outlet],
-  );
+  const pricingByDealer = useMemo(() => {
+    const rows = new Map<string, PricingExposure>();
+    pricing.by_dealer.forEach((row) => rows.set(row.dealer_name, row));
+    return rows;
+  }, [pricing.by_dealer]);
+  const pricingByOutlet = useMemo(() => {
+    const rows = new Map<string, PricingExposure>();
+    pricing.by_outlet.forEach((row) => {
+      rows.set(rowExposureKey(row.dealer_name, row.outlet_name), row);
+    });
+    return rows;
+  }, [pricing.by_outlet]);
   const scorecardRows = useMemo(() => {
     const sourceRows: ScorecardRow[] = scope === 'dealer' ? data.dealers : data.outlets;
     return sourceRows.map((row) => {

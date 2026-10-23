@@ -2,10 +2,26 @@ import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import '../styles/uc03-p2.css';
 import '../styles/uc03-p2-workspace.css';
+import '../styles/uc03-p2-masters.css';
 
 import PageHeader from '../components/PageHeader';
 import SectionCard from '../components/SectionCard';
-import { getP2PriceMaster, type P2PriceMasterModel } from '../services/audit-core/uc03P2';
+import MastersLoadedPanel from '../features/uc03-p2/masters/MastersLoadedPanel';
+import { flattenLoaded } from '../features/uc03-p2/masters/mastersLoaded';
+import {
+  ConsumerTable,
+  CorporateTable,
+  ExchangeTable,
+  GridTable,
+  NotApplied,
+} from '../features/uc03-p2/masters/OffersTables';
+import {
+  getP2MastersLoaded,
+  getP2Offers,
+  getP2PriceMaster,
+  openP2MasterDocument,
+  type P2PriceMasterModel,
+} from '../services/audit-core/uc03P2';
 import { useProjectContextStore } from '../store/projectContextStore';
 import { useSessionStore } from '../store/sessionStore';
 
@@ -113,6 +129,8 @@ function ModelBlock({ model, basis }: { model: P2PriceMasterModel; basis: string
   );
 }
 
+type Tab = 'PRICES' | 'CONSUMER' | 'EXCHANGE' | 'CORPORATE' | 'GRID';
+
 /**
  * The price book standing on a chosen date: every model and variant with
  * the components the OEM priced and the on-road figure.
@@ -120,8 +138,8 @@ function ModelBlock({ model, basis }: { model: P2PriceMasterModel; basis: string
  * The on-road is the price list's own fully loaded figure — Mahindra prices
  * both extended-warranty tiers, the accessories kit, RSA and FASTag into it
  * — so it is a ceiling, not what a customer pays. Nothing is netted off it
- * here; schemes and privileges are shown against a deal, not against the
- * book.
+ * here: the offers tabs list every scheme line beside the book, each with
+ * its own amount, as the bulletins state them (2026-10-23).
  */
 export default function P2PriceMastersPage() {
   const tenantId = useProjectContextStore((s) => s.selectedProject?.tenantId);
@@ -129,6 +147,37 @@ export default function P2PriceMastersPage() {
   const [on, setOn] = useState(thisMonth());
   const [basis, setBasis] = useState<'INDIVIDUAL' | 'CORPORATE'>('INDIVIDUAL');
   const [filter, setFilter] = useState('');
+  const [tab, setTab] = useState<Tab>('PRICES');
+  const [busyDocument, setBusyDocument] = useState<string | null>(null);
+  const [documentProblem, setDocumentProblem] = useState('');
+
+  const loaded = useQuery({
+    queryKey: ['p2-masters-loaded', tenantId],
+    queryFn: () => getP2MastersLoaded(tenantId!, accessToken),
+    enabled: Boolean(tenantId && accessToken),
+    staleTime: 60_000,
+  });
+  const loadedRows = useMemo(() => flattenLoaded(loaded.data), [loaded.data]);
+
+  const offers = useQuery({
+    queryKey: ['p2-offers', tenantId, on],
+    queryFn: () => getP2Offers(tenantId!, on, accessToken),
+    enabled: Boolean(tenantId && accessToken && on && tab !== 'PRICES'),
+    staleTime: 60_000,
+  });
+
+  async function openDocument(uploadId: string, fileName: string) {
+    setDocumentProblem('');
+    setBusyDocument(uploadId);
+    try {
+      const link = await openP2MasterDocument(tenantId!, uploadId, accessToken);
+      window.open(link.url, '_blank', 'noopener,noreferrer');
+    } catch {
+      setDocumentProblem(`${fileName} could not be opened.`);
+    } finally {
+      setBusyDocument(null);
+    }
+  }
 
   const query = useQuery({
     queryKey: ['p2-price-master', tenantId, on, basis],
@@ -156,8 +205,21 @@ export default function P2PriceMastersPage() {
       <PageHeader
         eyebrow="DealGuard"
         title="Price Masters"
-        description="The price book standing on a date, as the OEM priced it. The on-road figure is the book's own fully loaded total, not what a customer pays."
+        description="The price book and every offer standing on a date, as the OEM published them. The on-road figure is the book's own fully loaded total, not what a customer pays."
       />
+
+      <SectionCard>
+        <MastersLoadedPanel
+          rows={loadedRows}
+          on={on}
+          onPick={setOn}
+          onOpenDocument={openDocument}
+          busyDocument={busyDocument}
+          loading={loaded.isLoading}
+          failed={loaded.isError}
+        />
+        {documentProblem && <div className="form-alert form-alert--error">{documentProblem}</div>}
+      </SectionCard>
 
       <SectionCard>
         <div className="p2w-filter-row" style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'end' }}>
@@ -201,23 +263,56 @@ export default function P2PriceMastersPage() {
         )}
       </SectionCard>
 
-      {query.isLoading && <SectionCard><p>Reading the price book…</p></SectionCard>}
-      {query.isError && (
+      <div className="p2w-jtabs__bar" role="tablist" aria-label="Masters">
+        {([
+          ['PRICES', 'Prices', query.data ? variants : null],
+          ['CONSUMER', 'Consumer offers', offers.data ? offers.data.consumer.length : null],
+          ['EXCHANGE', 'Exchange & scrappage', offers.data ? offers.data.exchange.length : null],
+          ['CORPORATE', 'Corporate', offers.data ? offers.data.corporate.length : null],
+          ['GRID', 'Dealer discount grid', offers.data ? (offers.data.grid?.lines.length ?? 0) : null],
+        ] as Array<[Tab, string, number | null]>).map(([key, label, count]) => (
+          <button
+            key={key}
+            type="button"
+            role="tab"
+            aria-selected={tab === key}
+            className={tab === key ? 'is-active' : ''}
+            onClick={() => setTab(key)}
+          >
+            {label}{count !== null && <b>{count}</b>}
+          </button>
+        ))}
+      </div>
+
+      {tab !== 'PRICES' && (
+        <SectionCard>
+          {offers.isLoading && <p>Reading the offers in force…</p>}
+          {offers.isError && <div className="form-alert form-alert--error">The offers could not be read.</div>}
+          {offers.data && tab === 'CONSUMER' && <ConsumerTable data={offers.data} filter={filter.trim().toLowerCase()} />}
+          {offers.data && tab === 'EXCHANGE' && <ExchangeTable data={offers.data} filter={filter.trim().toLowerCase()} />}
+          {offers.data && tab === 'CORPORATE' && <CorporateTable data={offers.data} filter={filter.trim().toLowerCase()} />}
+          {offers.data && tab === 'GRID' && <GridTable data={offers.data} filter={filter.trim().toLowerCase()} />}
+          {offers.data && tab !== 'GRID' && <NotApplied data={offers.data} />}
+        </SectionCard>
+      )}
+
+      {tab === 'PRICES' && query.isLoading && <SectionCard><p>Reading the price book…</p></SectionCard>}
+      {tab === 'PRICES' && query.isError && (
         <SectionCard>
           <div className="form-alert form-alert--error">The price book could not be read.</div>
         </SectionCard>
       )}
-      {query.data && !query.data.priceList && (
+      {tab === 'PRICES' && query.data && !query.data.priceList && (
         <Nothing
           title="No price list on that date"
           description="No price book is effective on the date chosen. Load the month's OEM price list from Masters, then come back."
         />
       )}
-      {query.data?.priceList && models.length === 0 && (
+      {tab === 'PRICES' && query.data?.priceList && models.length === 0 && (
         <Nothing title="Nothing matches" description="No model or variant matches that search." />
       )}
 
-      {models.map((model) => <ModelBlock key={model.modelId} model={model} basis={basis} />)}
+      {tab === 'PRICES' && models.map((model) => <ModelBlock key={model.modelId} model={model} basis={basis} />)}
     </div>
   );
 }

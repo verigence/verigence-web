@@ -1,0 +1,75 @@
+/* DealGuard Price Masters: the "Masters loaded" panel (calendar + list).
+   Scoped to .p2w and built on its palette tokens. */
+
+.p2w .p2w-masters__head {
+  display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 12px;
+  margin-bottom: 12px;
+}
+.p2w .p2w-masters__head h3 { margin: 0; font-size: 1rem; font-weight: 700; color: var(--p2w-ink); }
+.p2w .p2w-masters__head p { margin: 2px 0 0; font-size: .85rem; }
+
+.p2w .p2w-masters__switch {
+  display: inline-flex; padding: 3px; gap: 2px; border-radius: 10px; background: var(--p2w-soft);
+  border: 1px solid var(--p2w-line);
+}
+.p2w .p2w-masters__switch button {
+  min-height: 34px; padding: 0 12px; border: 0; border-radius: 8px; background: none;
+  color: var(--p2w-muted); font: inherit; font-weight: 700; font-size: .85rem; cursor: pointer;
+}
+.p2w .p2w-masters__switch button.is-active { background: #fff; color: var(--p2w-action-soft-text); box-shadow: var(--p2w-shadow); }
+
+.p2w .p2w-masters__body {
+  display: grid; grid-template-columns: minmax(240px, 320px) minmax(0, 1fr); gap: 20px; align-items: start;
+}
+@media (max-width: 860px) {
+  .p2w .p2w-masters__body { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* What answers on the chosen date */
+.p2w .p2w-masters__standing h4 { margin: 0 0 8px; font-size: .9rem; }
+.p2w .p2w-masters__standing ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.p2w .p2w-masters__standing li { display: flex; gap: 10px; align-items: flex-start; font-size: .85rem; }
+.p2w .p2w-masters__item { margin-top: 2px; }
+.p2w .p2w-masters__item .text-link { font-size: .82rem; text-align: left; overflow-wrap: anywhere; }
+.p2w .p2w-masters__none { color: var(--p2w-danger); font-weight: 600; }
+
+/* Kind markers */
+.p2w .p2w-masters__mark {
+  display: inline-grid; place-items: center; flex: none; width: 18px; height: 18px; border-radius: 5px;
+  font-size: .68rem; font-weight: 800; color: #fff; background: var(--p2w-muted);
+}
+.p2w .p2w-masters__mark--P { background: #0b6178; }
+.p2w .p2w-masters__mark--C { background: #2f5bb7; }
+.p2w .p2w-masters__mark--X { background: #7a4fb3; }
+.p2w .p2w-masters__mark--K { background: #9a5b00; }
+.p2w .p2w-masters__mark--G { background: #0f766e; }
+
+/* Calendar */
+.p2w .p2w-masters__nav { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.p2w .p2w-masters__nav .p2w-icon-button { min-width: 36px; min-height: 36px; font-size: 1.2rem; }
+.p2w .p2w-masters__grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; }
+.p2w .p2w-masters__dow {
+  padding: 4px 0; text-align: center; font-size: .72rem; font-weight: 700; text-transform: uppercase;
+  color: var(--p2w-muted);
+}
+.p2w .p2w-masters__day {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 3px; min-height: 52px; padding: 5px;
+  border: 1px solid var(--p2w-line); border-radius: 8px; background: #fff; color: var(--p2w-ink);
+  font: inherit; cursor: pointer; text-align: left;
+}
+.p2w .p2w-masters__day:hover { background: var(--p2w-soft); }
+.p2w .p2w-masters__day.has-start { border-color: var(--p2w-action-line); background: var(--p2w-action-soft); }
+.p2w .p2w-masters__day.is-selected { outline: 2px solid var(--p2w-action); outline-offset: 1px; }
+.p2w .p2w-masters__day:focus-visible { outline: 2px solid var(--p2w-accent); outline-offset: 1px; }
+.p2w .p2w-masters__num { font-size: .8rem; font-weight: 700; }
+.p2w .p2w-masters__marks { display: flex; flex-wrap: wrap; gap: 2px; }
+.p2w .p2w-masters__marks .p2w-masters__mark { width: 15px; height: 15px; font-size: .6rem; border-radius: 4px; }
+.p2w .p2w-masters__legend { margin: 8px 0 0; font-size: .78rem; }
+@media (max-width: 480px) {
+  .p2w .p2w-masters__day { min-height: 44px; padding: 3px; }
+  .p2w .p2w-masters__marks .p2w-masters__mark { width: 12px; height: 12px; font-size: .55rem; }
+}
+
+/* List */
+.p2w .p2w-masters__filters { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-bottom: 8px; font-size: .85rem; }
+.p2w .p2w-masters__list tr.is-superseded td { color: var(--p2w-muted); }

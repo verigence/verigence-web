@@ -71,7 +71,7 @@ export default function AnalyticsBusinessOverviewPanels({ data }: { data: Audito
           <Metric
             label="Insurance record rate"
             value={percent(summary.insured_journeys, booked)}
-            detail={`${formatNumber(summary.insured_journeys)} policy records; ${formatNumber(summary.insurance_source_unknown_journeys)} have an unclassified insurance source`}
+            detail={`${formatNumber(summary.insured_journeys)} policies · ${formatNumber(summary.inhouse_insurance_journeys)} dealer arranged · ${formatNumber(summary.outside_insurance_journeys)} customer arranged · ${formatNumber(summary.insurance_source_ambiguous_journeys)} mixed · ${formatNumber(summary.insurance_source_unknown_journeys)} unspecified`}
           />
           <Metric
             label="Accessory value recorded"

@@ -24,6 +24,14 @@ function formatMoney(value: NumericValue | undefined): string {
   }).format(numeric(value));
 }
 
+function formatOptionalNumber(value: NumericValue | null | undefined): string {
+  return value == null || value === '' ? 'Unavailable' : formatNumber(numeric(value));
+}
+
+function formatOptionalMoney(value: NumericValue | null | undefined): string {
+  return value == null || value === '' ? 'Unavailable' : formatMoney(value);
+}
+
 function formatPercent(value: number | null | undefined): string {
   return value == null ? 'Unavailable' : `${Number(value).toFixed(1)}%`;
 }
@@ -67,9 +75,14 @@ function Metric({ label, value, detail, attention = false }: { label: string; va
   );
 }
 
-function DetailTable({ title = 'View underlying detail', headers, rows }: { title?: string; headers: string[]; rows: Array<Array<string | number>> }) {
+function DetailTable({ title = 'View underlying detail', headers, rows, defaultOpen = false }: {
+  title?: string;
+  headers: string[];
+  rows: Array<Array<string | number>>;
+  defaultOpen?: boolean;
+}) {
   return (
-    <details className="analytics-detail">
+    <details className="analytics-detail" open={defaultOpen}>
       <summary>{title}</summary>
       <div className="analytics-detail__body">
         <div className="data-table-wrap analytics-table-wrap">
@@ -86,11 +99,17 @@ function DetailTable({ title = 'View underlying detail', headers, rows }: { titl
 export default function AnalyticsBusinessReportViews({ payload }: { payload: AnalyticsBusinessReportPayload }) {
   switch (payload.kind) {
     case 'sales-product': {
-      const { by_model_variant: models, by_colour: colours, by_outlet: outlets } = payload.data;
-      const booked = models.reduce((sum, row) => sum + row.journey_count, 0);
+      const {
+        by_model_variant: models,
+        by_dealer_model_variant: dealerModels,
+        by_colour: colours,
+        by_outlet: outlets,
+        model_variant_coverage: coverage,
+      } = payload.data;
+      const booked = coverage.booked_journeys;
       const delivered = models.reduce((sum, row) => sum + row.actual_deliveries, 0);
       const modelRows = models.slice(0, 12).map((row) => ({
-        label: `${humanize(row.model_name)} · ${humanize(row.variant_name)}`,
+        label: `${row.model_name} · ${row.variant_name}`,
         value: row.journey_count,
       }));
       const colourRows = colours.slice(0, 10).map((row) => ({
@@ -103,7 +122,8 @@ export default function AnalyticsBusinessReportViews({ payload }: { payload: Ana
             <Metric label="Booked vehicle journeys" value={formatNumber(booked)} detail="Journeys with a captured booking row" />
             <Metric label="Actual deliveries" value={formatNumber(delivered)} detail="Booked journeys with an actual delivery timestamp" />
             <Metric label="Model and variant combinations" value={formatNumber(models.length)} detail="Distinct captured combinations in this snapshot" />
-            <Metric label="Active sales outlets" value={formatNumber(outlets.filter((row) => row.journey_count > 0).length)} detail="Outlets with at least one captured booking" />
+            <Metric label="Dealerships with bookings" value={formatNumber(new Set(outlets.filter((row) => row.journey_count > 0).map((row) => row.dealer_name)).size)} detail="Separate dealer names in the selected project" />
+            <Metric label="Catalogue-mapped vehicles" value={`${formatNumber(coverage.catalogue_mapped_journeys)} / ${formatNumber(booked)}`} detail={`${formatNumber(coverage.unresolved_journeys)} booked journeys still lack a model or variant label`} attention={coverage.unresolved_journeys > 0} />
           </div>
 
           <div className="analytics-split analytics-split--insurance">
@@ -116,13 +136,16 @@ export default function AnalyticsBusinessReportViews({ payload }: { payload: Ana
           </div>
 
           <DetailTable
-            headers={['Dealer', 'Outlet', 'Booked Vehicles', 'Actual Deliveries', 'Delivery Rate']}
-            rows={outlets.map((row) => [
+            title="Vehicle units by dealership, outlet, model and variant"
+            defaultOpen
+            headers={['Dealer', 'Outlet', 'Model', 'Variant', 'Booked Cars', 'Delivered Cars']}
+            rows={dealerModels.map((row) => [
               row.dealer_name,
               row.outlet_name,
-              formatNumber(row.journey_count),
-              formatNumber(row.actual_deliveries),
-              formatPercent(row.journey_count ? row.actual_deliveries * 100 / row.journey_count : null),
+              row.model_name,
+              row.variant_name,
+              formatNumber(row.booked_units),
+              formatNumber(row.delivered_units),
             ])}
           />
         </>
@@ -181,53 +204,78 @@ export default function AnalyticsBusinessReportViews({ payload }: { payload: Ana
     }
 
     case 'insurance': {
-      const { summary, by_insurer: insurers, by_source: sources, by_outlet: outlets, add_ons: addOns, definition } = payload.data;
-      const sourceRows = sources.map((row) => ({ label: humanize(row.insurance_by), value: row.policy_count }));
+      const { summary, by_insurer: insurers, by_route: routes, by_outlet: outlets, add_ons: addOns, definition } = payload.data;
+      const routeLabel = (route: string) => ({
+        DEALER_ARRANGED: 'Dealer arranged',
+        CUSTOMER_ARRANGED: 'Customer arranged / outside',
+        MIXED_OR_UNCLEAR: 'Mixed or unclear',
+        UNSPECIFIED: 'Unspecified',
+      }[route] || humanize(route));
+      const sourceRows = routes.map((row) => ({ label: routeLabel(row.route), value: row.policy_count }));
       const insurerRows = insurers.map((row) => ({ label: humanize(row.insurer_name), value: numeric(row.premium_amount) }));
-      const addOnRows = addOns.map((row) => ({ label: humanize(row.add_on_name), value: Number(row.policy_attach_pct || 0) }));
       return (
         <>
           <div className="analytics-insurance-banner">
             <Metric label="Insurance record rate" value={formatPercent(summary.insurance_record_rate_pct)} detail={`${formatNumber(summary.insurance_journeys)} of ${formatNumber(summary.booked_journeys)} booked journeys have a policy record`} />
+            <Metric label="Dealer arranged" value={formatNumber(summary.dealer_arranged_journeys)} detail={`${percent(summary.dealer_arranged_journeys, summary.insurance_journeys)} of policy records, based on explicit dealer labels`} />
+            <Metric label="Customer arranged / outside" value={formatNumber(summary.customer_arranged_journeys)} detail={`${percent(summary.customer_arranged_journeys, summary.insurance_journeys)} of policy records, based on explicit customer or own labels`} />
+            <Metric label="Route unclear or missing" value={formatNumber(summary.source_ambiguous_journeys + summary.source_unknown_journeys)} detail={`${formatNumber(summary.source_ambiguous_journeys)} mixed · ${formatNumber(summary.source_unknown_journeys)} unspecified; excluded from dealer/outside totals`} attention={summary.source_ambiguous_journeys + summary.source_unknown_journeys > 0} />
             <Metric label="Captured premium" value={formatMoney(summary.premium_amount)} detail={`${formatNumber(summary.premium_populated)} of ${formatNumber(summary.insurance_journeys)} policy records have a premium value (${percent(summary.premium_populated, summary.insurance_journeys)})`} />
-            <Metric label="Average premium" value={summary.avg_premium == null ? 'Unavailable' : formatMoney(summary.avg_premium)} detail="Average across policies where premium is populated" />
-            <Metric label="Insurance source unclassified" value={formatNumber(summary.source_unknown_journeys)} detail={`of ${formatNumber(summary.insurance_journeys)} policy records lack a recognized source or explicit self-insurance flag`} attention={summary.source_unknown_journeys > 0} />
           </div>
 
           <div className="analytics-split analytics-split--insurance">
-            <SectionCard title="Recorded Insurance Route" description="Counts by the raw insurance_by label captured in the source. This field is not standardized to in-house versus self/external.">
+            <SectionCard title="Insurance arranged by" description="Dealer and customer/outside counts use explicit insurance source or insurance-by labels. Mixed or missing records remain visible as unclear.">
               <AnalyticsBarChart rows={sourceRows} valueLabel="Policy records" />
             </SectionCard>
-            <SectionCard title="Captured Premium by Insurer" description="Premium totals include only populated premium fields. Use the policy counts in the detail table to assess coverage.">
+            <SectionCard title="Captured premium by insurer" description="Premium totals include only populated premium fields. The premium is not assumed to be dealership revenue.">
               <AnalyticsBarChart rows={insurerRows} valueLabel="Captured premium" valueKind="currency" />
             </SectionCard>
           </div>
 
           <DetailTable
-            title="View insurance records and premium by dealership / outlet"
-            headers={['Dealer', 'Outlet', 'Booked Journeys', 'Policy Records', 'Source Missing', 'Premium Values', 'Captured Premium', 'Average Premium']}
+            title="Insurance route and premium coverage by dealership / outlet"
+            defaultOpen
+            headers={['Dealer', 'Outlet', 'Booked Journeys', 'Policy Records', 'Dealer Arranged', 'Customer / Outside', 'Mixed', 'Unspecified', 'Premium Values', 'Captured Premium']}
             rows={outlets.map((row) => [
               row.dealer_name,
               row.outlet_name,
               formatNumber(row.booked_journeys),
               formatNumber(row.insurance_journeys),
+              formatNumber(row.dealer_arranged_journeys),
+              formatNumber(row.customer_arranged_journeys),
+              formatNumber(row.source_ambiguous_journeys),
               formatNumber(row.source_unknown_journeys),
               formatNumber(row.premium_populated),
               formatMoney(row.premium_amount),
-              row.avg_premium == null ? 'Unavailable' : formatMoney(row.avg_premium),
             ])}
           />
 
-          <SectionCard title="Insurance Add-on Penetration" description="Attach rate by named insurance benefit extracted from policy evidence. These are policy add-ons, separate from the vehicle accessory and VAS category report.">
-            <AnalyticsBarChart rows={addOnRows} valueLabel="Share of insured policies" valueKind="percent" />
-          </SectionCard>
+          <DetailTable
+            title="Insurance components captured from policy evidence"
+            defaultOpen
+            headers={['Insurance Component', 'Policy Count', 'Share of Policy Records', 'Source Terms']}
+            rows={addOns.map((row) => [
+              row.add_on_name,
+              formatNumber(row.policy_count),
+              formatPercent(row.policy_attach_pct),
+              row.raw_terms.join(' · '),
+            ])}
+          />
           <p className="analytics-footnote">{definition}</p>
         </>
       );
     }
 
     case 'addons': {
-      const { journeys, by_type: byType, by_outlet: byOutlet, by_model_outlet: byModelOutlet, definition } = payload.data;
+      const {
+        journeys,
+        by_type: byType,
+        by_product_type: byProductType,
+        accessory_cost_by_product: accessoryCosts,
+        accessory_items: accessoryItems,
+        accessory_line_coverage: accessoryLineCoverage,
+        definition,
+      } = payload.data;
       const totalValue = byType.reduce((sum, row) => sum + numeric(row.actual_amount), 0);
       const totalAttachedJourneys = byType.reduce((sum, row) => sum + row.journey_count, 0);
       const typeRows = byType.map((row) => ({
@@ -241,10 +289,13 @@ export default function AnalyticsBusinessReportViews({ payload }: { payload: Ana
             <article className="analytics-hero-stat">
               <span className="analytics-hero-stat__eyebrow">VAS captured value</span>
               <strong className="analytics-hero-stat__value">{formatMoney(totalValue)}</strong>
-              <h3>Accessories and VAS category value</h3>
-              <p>{formatNumber(journeys)} booked journeys · {formatNumber(totalAttachedJourneys)} category-level journey attachments. Individual accessory SKU names and quantities are not present in this snapshot.</p>
+              <h3>Journey add-on category value</h3>
+              <p>{formatNumber(journeys)} booked journeys · {formatNumber(totalAttachedJourneys)} category attachments. This is a different source measure from the itemized invoice sales below.</p>
             </article>
-            <Metric label="Captured VAS categories" value={formatNumber(byType.length)} detail="Normalized add-on types represented in the current snapshot" />
+            <Metric label="Accessory tax invoices" value={formatNumber(accessoryLineCoverage.confirmed_tax_invoices)} detail={`${formatNumber(accessoryLineCoverage.confirmed_tax_invoice_lines)} confirmed invoice item lines`} />
+            <Metric label="Items with a label or code" value={`${formatNumber(accessoryLineCoverage.confirmed_lines_with_item_label)} / ${formatNumber(accessoryLineCoverage.confirmed_tax_invoice_lines)}`} detail="Confirmed accessory tax invoice lines with a usable item description or item code" attention={accessoryLineCoverage.confirmed_lines_with_item_label < accessoryLineCoverage.confirmed_tax_invoice_lines} />
+            <Metric label="Proforma / unclassified lines" value={formatNumber(accessoryLineCoverage.proforma_lines + accessoryLineCoverage.unclassified_lines)} detail="Shown in source coverage only; excluded from sold-item totals" attention={accessoryLineCoverage.proforma_lines + accessoryLineCoverage.unclassified_lines > 0} />
+            <Metric label="Duplicate source copies removed" value={formatNumber(accessoryLineCoverage.duplicate_source_documents)} detail={`Collapsed into ${formatNumber(accessoryLineCoverage.duplicate_invoice_groups)} invoice identities before sales totals`} />
           </div>
 
           <SectionCard title="VAS Penetration vs Captured Value" description="Bars show captured value; the line shows penetration across booked journeys. This separates high-value categories from high-attachment categories.">
@@ -252,23 +303,60 @@ export default function AnalyticsBusinessReportViews({ payload }: { payload: Ana
           </SectionCard>
 
           <DetailTable
-            title="View outlet and product category detail"
-            headers={['Dealer', 'Outlet', 'Product', 'Journeys', 'Captured Value']}
-            rows={byOutlet.map((row) => [row.dealer_name, row.outlet_name, humanize(row.addon_type), formatNumber(row.journey_count), formatMoney(row.actual_amount)])}
-          />
-
-          <DetailTable
-            title="View accessory value by model and dealership / outlet"
-            headers={['Dealer', 'Outlet', 'Model label', 'Variant label', 'Booked Journeys', 'Accessory Attachments', 'Attachment Rate', 'Captured Value']}
-            rows={byModelOutlet.map((row) => [
+            title="VAS category attachments by dealership, model and variant"
+            defaultOpen
+            headers={['Dealer', 'Outlet', 'Model', 'Variant', 'Captured Category', 'Journeys', 'Priced Records', 'Captured Value']}
+            rows={byProductType.map((row) => [
               row.dealer_name,
               row.outlet_name,
               row.model_name,
               row.variant_name,
-              formatNumber(row.booked_journeys),
-              formatNumber(row.attached_journeys),
-              formatPercent(row.penetration_pct),
+              humanize(row.addon_type),
+              formatNumber(row.journey_count),
+              formatNumber(row.priced_records),
               formatMoney(row.actual_amount),
+            ])}
+          />
+
+          {accessoryItems.length > 0 ? (
+            <DetailTable
+              title="Accessory items sold on tax invoices by dealership, model and variant"
+              defaultOpen
+              headers={['Dealer', 'Outlet', 'Model', 'Variant', 'Category', 'Accessory item', 'Item code', 'Invoice source', 'Invoices', 'Lines', 'Qty invoiced', 'Net sales', 'Lines with amount']}
+              rows={accessoryItems.map((row) => [
+                row.dealer_name,
+                row.outlet_name,
+                row.model_name,
+                row.variant_name,
+                humanize(row.line_category),
+                row.item_description,
+                row.item_code || 'Unavailable',
+                row.invoice_sources || 'Unspecified',
+                formatNumber(row.invoice_count),
+                formatNumber(row.invoice_lines),
+                formatOptionalNumber(row.invoiced_quantity),
+                formatOptionalMoney(row.net_amount),
+                formatNumber(row.lines_with_net_amount),
+              ])}
+            />
+          ) : (
+            <SectionCard title="Accessory invoice items" description="No confirmed accessory tax-invoice lines were captured for this project in the current snapshot." />
+          )}
+
+          <DetailTable
+            title="Accessory pricing audit: comparable standard versus actual charges"
+            defaultOpen
+            headers={['Dealer', 'Outlet', 'Model', 'Variant', 'Evidence Rows', 'Comparable Rows', 'Comparable Standard', 'Comparable Actual', 'Actual − Standard']}
+            rows={accessoryCosts.map((row) => [
+              row.dealer_name,
+              row.outlet_name,
+              row.model_name,
+              row.variant_name,
+              formatNumber(row.evidence_rows),
+              formatNumber(row.comparable_rows),
+              formatOptionalMoney(row.comparable_standard_amount),
+              formatOptionalMoney(row.comparable_actual_amount),
+              formatOptionalMoney(row.comparable_actual_minus_standard),
             ])}
           />
           <p className="analytics-footnote">{definition}</p>
@@ -356,6 +444,7 @@ export default function AnalyticsBusinessReportViews({ payload }: { payload: Ana
     }
 
     case 'discounts': {
+      const { summary: discountSummary, by_dealer_model_variant: discountsByProduct } = payload.data;
       const pricing: PricingIntegrityReport = payload.data.pricing_integrity;
       const summary = pricing.summary;
       const keyRows = pricing.by_discount_key
@@ -364,6 +453,7 @@ export default function AnalyticsBusinessReportViews({ payload }: { payload: Ana
       return (
         <>
           <div className="analytics-insurance-banner">
+            <Metric label="Recorded discounts" value={formatMoney(discountSummary.total_actual_discount)} detail={`${formatNumber(discountSummary.journeys_with_actual_discount)} booked journeys with a captured actual discount`} />
             <Metric label="Active pricing cases" value={formatNumber(summary.journeys_with_pricing_exceptions)} detail="Distinct journeys with an open or acknowledged Audit Core pricing finding" attention={summary.journeys_with_pricing_exceptions > 0} />
             <Metric label="Active invoice conflicts" value={formatNumber(summary.invoice_conflict_journeys)} detail="Open or acknowledged commercial price and discount disagreements across captured invoices" attention={summary.invoice_conflict_journeys > 0} />
             <Metric label="Known discount overage" value={formatMoney(summary.known_excess_discount_amount)} detail={`${formatNumber(summary.known_excess_discount_journeys)} journeys · ${formatNumber(summary.known_excess_application_count)} applications above entitlement`} attention={numeric(summary.known_excess_discount_amount) > 0} />
@@ -374,6 +464,25 @@ export default function AnalyticsBusinessReportViews({ payload }: { payload: Ana
           <SectionCard title="Known Excess by Discount Category" description="Per-application overage above the captured entitlement. Unused entitlement in another category never offsets an exception; applications with unknown entitlement are omitted.">
             <AnalyticsBarChart rows={keyRows} valueLabel="Known excess discount" valueKind="currency" />
           </SectionCard>
+
+          <DetailTable
+            title="Discounts by dealership, vehicle model and variant"
+            defaultOpen
+            headers={['Dealer', 'Outlet', 'Model', 'Variant', 'Booked Cars', 'Cars with Discount', 'Recorded Discount', 'Average per Discounted Car', 'Known Excess', 'Excess Cars', 'Unknown Entitlement Cars']}
+            rows={discountsByProduct.map((row) => [
+              row.dealer_name,
+              row.outlet_name,
+              row.model_name,
+              row.variant_name,
+              formatNumber(row.booked_units),
+              formatNumber(row.discounted_units),
+              formatMoney(row.actual_discount_amount),
+              row.avg_discount_per_discounted_unit == null ? 'Unavailable' : formatMoney(row.avg_discount_per_discounted_unit),
+              formatMoney(row.known_excess_discount_amount),
+              formatNumber(row.known_excess_units),
+              formatNumber(row.units_with_unknown_entitlement),
+            ])}
+          />
 
           <DetailTable
             title="View outlet pricing exception concentration"

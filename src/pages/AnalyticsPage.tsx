@@ -120,9 +120,7 @@ export default function AnalyticsPage() {
   const projects = useProjectContextStore((state) => state.projects);
   const tenantId = selectedProject?.tenantId || sessionTenantId;
   const activeProject = selectedProject || projects.find((project) => project.tenantId === tenantId);
-  const projectLabel = activeProject
-    ? `${activeProject.projectName} (${activeProject.projectCode})`
-    : `Tenant ${tenantId}`;
+  const projectLabel = activeProject?.projectCode || `Tenant ${tenantId}`;
   const businessView = isBusinessReport(activeView);
 
   const overviewQuery = useQuery({

@@ -20,18 +20,39 @@ export default function DeleteJourneyDialog({ tenantId, journeyId, journeyLabel,
 }) {
   const queryClient = useQueryClient();
   const [reason, setReason] = useState('');
+  const [done, setDone] = useState<string>();
   const problem = deleteReasonProblem(reason);
 
   const remove = useMutation({
     mutationFn: () => deleteP2Journey(tenantId, journeyId, reason.trim(), accessToken),
     onSuccess: (result) => {
-      // Every Phase 2 list and count (journeys, bookings summary, reviewer board, tasks) has changed.
-      void queryClient.invalidateQueries({
-        predicate: (query) => typeof query.queryKey[0] === 'string' && query.queryKey[0].startsWith('p2-'),
-      });
-      onDeleted(`Journey ${result.journeyReference ?? journeyLabel} deleted. ${result.diDocumentsDeleted} document${result.diDocumentsDeleted === 1 ? '' : 's'} and ${result.storageObjectsDeleted} stored file${result.storageObjectsDeleted === 1 ? '' : 's'} removed; the reason is on record.`);
+      setDone(`Journey ${result.journeyReference ?? journeyLabel} deleted. ${result.diDocumentsDeleted} document${result.diDocumentsDeleted === 1 ? '' : 's'} and ${result.storageObjectsDeleted} stored file${result.storageObjectsDeleted === 1 ? '' : 's'} removed; the reason is on record.`);
     },
   });
+
+  // The lists change only when the confirmation is closed, so a row that
+  // disappears under the dialog never takes the confirmation with it.
+  const finish = () => {
+    // Every Phase 2 list and count (journeys, bookings summary, reviewer board, tasks) has changed.
+    void queryClient.invalidateQueries({
+      predicate: (query) => typeof query.queryKey[0] === 'string' && query.queryKey[0].startsWith('p2-'),
+    });
+    onDeleted(done ?? '');
+  };
+
+  if (done) {
+    return (
+      <div className="p2w-dialog-backdrop" role="presentation">
+        <div className="p2w-dialog p2w-raise" role="dialog" aria-modal="true" aria-labelledby="p2w-delete-done">
+          <h3 id="p2w-delete-done">Journey deleted</h3>
+          <p>{done}</p>
+          <div className="p2w-dialog__actions">
+            <button type="button" className="p2w-button p2w-button--primary" autoFocus onClick={finish}>Close</button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p2w-dialog-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !remove.isPending) onClose(); }}>

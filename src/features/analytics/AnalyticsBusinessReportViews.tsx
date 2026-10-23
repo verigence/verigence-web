@@ -295,6 +295,7 @@ export default function AnalyticsBusinessReportViews({ payload }: { payload: Ana
             <Metric label="Accessory tax invoices" value={formatNumber(accessoryLineCoverage.confirmed_tax_invoices)} detail={`${formatNumber(accessoryLineCoverage.confirmed_tax_invoice_lines)} confirmed invoice item lines`} />
             <Metric label="Items with a label or code" value={`${formatNumber(accessoryLineCoverage.confirmed_lines_with_item_label)} / ${formatNumber(accessoryLineCoverage.confirmed_tax_invoice_lines)}`} detail="Confirmed accessory tax invoice lines with a usable item description or item code" attention={accessoryLineCoverage.confirmed_lines_with_item_label < accessoryLineCoverage.confirmed_tax_invoice_lines} />
             <Metric label="Proforma / unclassified lines" value={formatNumber(accessoryLineCoverage.proforma_lines + accessoryLineCoverage.unclassified_lines)} detail="Shown in source coverage only; excluded from sold-item totals" attention={accessoryLineCoverage.proforma_lines + accessoryLineCoverage.unclassified_lines > 0} />
+            <Metric label="Duplicate source copies removed" value={formatNumber(accessoryLineCoverage.duplicate_source_documents)} detail={`Collapsed into ${formatNumber(accessoryLineCoverage.duplicate_invoice_groups)} invoice identities before sales totals`} />
           </div>
 
           <SectionCard title="VAS Penetration vs Captured Value" description="Bars show captured value; the line shows penetration across booked journeys. This separates high-value categories from high-attachment categories.">

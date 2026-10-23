@@ -209,6 +209,8 @@ export default function AnalyticsPage() {
           ['insurance', 'Insurance route and components by dealer'],
           ['finance', 'Bank / NBFC and loan amount by dealer'],
           ['payments', 'Payment channels by dealer'],
+          ['geography', 'Sales by customer pincode'],
+          ['productivity', 'Journey uploads by month / team'],
         ] as const).map(([report, label]) => (
           <button
             key={report}

@@ -166,6 +166,14 @@ export interface PricingIntegrityReport {
     unknown_entitlement_count: number;
     missing_evidence_count: number;
   }>;
+  by_dealer: Array<{
+    dealer_name: string;
+    price_exception_journeys: number;
+    discount_exception_journeys: number;
+    invoice_conflict_journeys: number;
+    known_excess_discount_amount: NumericValue;
+    unknown_discount_applications: number;
+  }>;
   by_outlet: Array<{
     dealer_name: string;
     outlet_name: string;

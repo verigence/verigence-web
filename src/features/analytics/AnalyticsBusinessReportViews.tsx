@@ -287,6 +287,47 @@ export default function AnalyticsBusinessReportViews({ payload }: { payload: Ana
         bar: numeric(row.actual_amount),
         line: Number(row.penetration_pct || 0),
       }));
+      const itemGroups = new Map<string, {
+        label: string;
+        itemCode: string | null;
+        quantity: number;
+        quantityLines: number;
+        netAmount: number;
+        netAmountLines: number;
+      }>();
+      accessoryItems.forEach((row) => {
+        const itemCode = row.item_code?.trim() || null;
+        const itemDescription = row.item_description?.trim() || 'Unlabeled accessory item';
+        const itemKey = itemCode
+          ? 'code:' + itemCode.toUpperCase()
+          : 'description:' + itemDescription.toLowerCase();
+        const current = itemGroups.get(itemKey) || {
+          label: itemDescription,
+          itemCode,
+          quantity: 0,
+          quantityLines: 0,
+          netAmount: 0,
+          netAmountLines: 0,
+        };
+        current.quantity += numeric(row.invoiced_quantity);
+        current.quantityLines += row.lines_with_quantity;
+        current.netAmount += numeric(row.net_amount);
+        current.netAmountLines += row.lines_with_net_amount;
+        if (current.label === 'Unlabeled accessory item' && itemDescription !== current.label) {
+          current.label = itemDescription;
+        }
+        itemGroups.set(itemKey, current);
+      });
+      const itemGroupsSorted = Array.from(itemGroups.values());
+      const accessoryRankingUsesQuantity = itemGroupsSorted.some((row) => row.quantityLines > 0);
+      const accessoryItemRanking = itemGroupsSorted
+        .map((row) => ({
+          label: row.label + (row.itemCode ? ' · ' + row.itemCode : ''),
+          value: accessoryRankingUsesQuantity ? row.quantity : row.netAmount,
+        }))
+        .filter((row) => row.value > 0)
+        .sort((a, b) => b.value - a.value)
+        .slice(0, 12);
       return (
         <>
           <div className="analytics-product-summary">
@@ -302,9 +343,24 @@ export default function AnalyticsBusinessReportViews({ payload }: { payload: Ana
             <Metric label="Duplicate source copies removed" value={formatNumber(accessoryLineCoverage.duplicate_source_documents)} detail={`Collapsed into ${formatNumber(accessoryLineCoverage.duplicate_invoice_groups)} invoice identities before sales totals`} />
           </div>
 
-          <SectionCard title="VAS Penetration vs Captured Value" description="Bars show captured value; the line shows penetration across booked journeys. This separates high-value categories from high-attachment categories.">
-            <AnalyticsComboChart rows={typeRows} barLabel="Captured value" lineLabel="Penetration" barKind="currency" lineKind="percent" />
-          </SectionCard>
+          <div className="analytics-split analytics-split--overview">
+            <SectionCard title="VAS category value and attach" description="Journey add-on category amounts and their share of booked journeys. This is not an itemized accessory invoice sales figure.">
+              <AnalyticsComboChart rows={typeRows} barLabel="Captured category value" lineLabel="Journey attach" barKind="currency" lineKind="percent" />
+            </SectionCard>
+            <SectionCard
+              title={accessoryRankingUsesQuantity ? 'Top accessory items by invoiced quantity' : 'Top accessory items by captured net sales'}
+              description={accessoryRankingUsesQuantity
+                ? 'Confirmed tax-invoice accessory items ranked by the invoiced quantities captured in the snapshot.'
+                : 'Confirmed tax-invoice accessory items ranked by captured net sales because invoice quantities are not available.'}
+            >
+              <AnalyticsParetoChart
+                rows={accessoryItemRanking}
+                valueLabel={accessoryRankingUsesQuantity ? 'Invoiced quantity' : 'Net sales'}
+                emptyText="No confirmed tax-invoice accessory quantities or net sales were captured."
+              />
+              <p className="analytics-footnote">The chart aggregates by accessory item across dealerships and models; the detail list below retains dealer, outlet, model and variant.</p>
+            </SectionCard>
+          </div>
 
           <DetailTable
             title="VAS category attachments by dealership, model and variant"

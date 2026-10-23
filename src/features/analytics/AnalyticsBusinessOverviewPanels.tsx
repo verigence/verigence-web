@@ -48,6 +48,13 @@ export default function AnalyticsBusinessOverviewPanels({ data }: { data: Audito
 
   return (
     <>
+      {booked === 0 ? (
+        <SectionCard title="No booked vehicle journeys in this project snapshot">
+          <p className="analytics-empty-copy">
+            This is an empty result for the project identified above. Check the selected project before interpreting the totals as business performance.
+          </p>
+        </SectionCard>
+      ) : null}
       <SectionCard
         title="Business Performance"
         description="Sales, delivery, finance, insurance and receipt measures use the latest controlled project snapshot."

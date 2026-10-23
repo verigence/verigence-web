@@ -7,7 +7,11 @@ import '../styles/uc03-p2-journey360.css';
 
 import PageHeader from '../components/PageHeader';
 import { formatDateTime, humanizeKey } from '../features/uc03-p2/workspace/p2Format';
-import { getDuplicateBookings, type DuplicateBookingSide } from '../services/audit-core/uc03P2';
+import {
+  getDuplicateBookings,
+  type DuplicateBookingPair,
+  type DuplicateBookingSide,
+} from '../services/audit-core/uc03P2';
 import { useProjectContextStore } from '../store/projectContextStore';
 import { useSessionStore } from '../store/sessionStore';
 
@@ -16,9 +20,44 @@ function Side({ title, side }: { title: string; side: DuplicateBookingSide }) {
     <div className="j360-dup-side">
       <span className="j360-label">{title}</span>
       <strong>{side.customerName ?? '—'}</strong>
-      <span className="p2w-muted">{[side.productLabel, side.outletName, side.journeyReference].filter(Boolean).join(' · ')}</span>
+      <span className="p2w-muted">{[side.productLabel, side.journeyReference].filter(Boolean).join(' · ')}</span>
+      {/* Outlet and the PC who captured it, named rather than folded into one
+          line (product owner 2026-10-23). */}
+      <span className="p2w-muted">
+        {[side.dealerName, side.outletName].filter(Boolean).join(' · ') || 'Outlet not recorded'}
+      </span>
+      <span className="p2w-muted">PC: {side.pcName || 'not recorded'}</span>
       <span className="p2w-muted">{side.bookingConfirmDate ? `Booked ${side.bookingConfirmDate}` : ''}</span>
       <Link className="p2w-link" to={`/p2/journeys/${side.journeyId}/overview`}>Open Journey 360</Link>
+    </div>
+  );
+}
+
+/** The evidence: which field matched and what each booking carried. Without
+ * it a pair could only be judged by opening both journeys. */
+function MatchedOn({ pair }: { pair: DuplicateBookingPair }) {
+  const fields = pair.matchedFields ?? [];
+  if (!fields.length) return null;
+  return (
+    <div className="j360-dup-evidence">
+      <span className="j360-label">Matched on</span>
+      <table className="p2w-table">
+        <thead>
+          <tr><th>Field</th><th>Holds the booking</th><th>Believed duplicate</th></tr>
+        </thead>
+        <tbody>
+          {fields.map((field) => (
+            <tr key={field.field}>
+              <td>
+                {field.label}
+                {field.exact ? null : <span className="p2w-muted"> (similar)</span>}
+              </td>
+              <td>{field.otherValue ?? '—'}</td>
+              <td>{field.thisValue ?? '—'}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }
@@ -61,6 +100,7 @@ export default function P2DuplicateBookingsPage() {
               <Side title="Holds the booking" side={pair.holder} />
               <Side title="Believed duplicate" side={pair.duplicate} />
             </div>
+            <MatchedOn pair={pair} />
           </li>
         ))}
         {!query.isLoading && !pairs.length && !query.isError ? <li className="p2w-empty p2w-empty--success">No possible duplicate bookings.</li> : null}

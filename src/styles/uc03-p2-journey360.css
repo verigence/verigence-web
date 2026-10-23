@@ -487,3 +487,9 @@
 .j360 .j360-invoice__meta b { color: var(--p2w-navy); font-variant-numeric: tabular-nums; }
 .j360 .j360-invoice__body { padding: 0 16px 14px; border-top: 1px solid var(--p2w-line); }
 .j360 .j360-invoice__body .j360-card__head { margin: 10px 0; }
+
+/* The evidence behind a duplicate pairing: which field matched and what each
+   booking carried (2026-10-23). */
+.j360 .j360-dup-evidence { margin-top: 10px; }
+.j360 .j360-dup-evidence .p2w-table { margin-top: 4px; }
+.j360 .j360-dup-evidence td { word-break: break-word; }

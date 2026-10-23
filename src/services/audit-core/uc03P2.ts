@@ -94,6 +94,9 @@ export type P2JourneyFilters = {
   pcActorId?: string;
 };
 
+/** How a page of journeys is ordered: the tab's own order (most urgent first), or Outlet by Outlet. */
+export type P2JourneySort = 'priority' | 'outlet';
+
 export type P2JourneyCounts = Record<
   'all' | 'open' | 'closed' | 'booking_open' | 'delivery_open' | 'needs_action' | 'processing' | 'with_tl' | 'needs_tl' | 'high_risk' | 'overdue' | 'stuck',
   number
@@ -548,9 +551,11 @@ export function getP2JourneyPage(
   filters: P2JourneyFilters,
   offset = 0,
   limit = 50,
+  sort: P2JourneySort = 'priority',
 ): Promise<P2JourneyListResponse> {
   const params = journeyFilterParams(filters);
   params.set('view', view);
+  if (sort === 'outlet') params.set('sort', 'outlet');
   params.set('offset', String(offset));
   params.set('limit', String(limit));
   return auditCoreRequest<P2JourneyListResponse>(

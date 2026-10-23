@@ -2,12 +2,14 @@ import { useDeferredValue, useEffect, useMemo, useState } from 'react';
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 
 import JourneyRow from './JourneyRow';
+import { panelSelection } from './listSelection';
 import {
   getP2JourneyCounts,
   getP2JourneyPage,
   type P2JourneyBreakdownRow,
   type P2JourneyCounts,
   type P2JourneyFilters,
+  type P2JourneySort,
   type P2JourneyView,
 } from '../../../services/audit-core/uc03P2';
 
@@ -60,6 +62,9 @@ export default function JourneyListTabs({ tenantId, accessToken, role, onCounts 
   const [month, setMonth] = useState('');
   const [outletId, setOutletId] = useState('');
   const [pcActorId, setPcActorId] = useState('');
+  // A TL / PM reads the list Outlet by Outlet unless they ask for the most
+  // urgent first (product owner 2026-10-23); a PC keeps the tab's own order.
+  const [sort, setSort] = useState<P2JourneySort>(supervisor ? 'outlet' : 'priority');
   const deferredSearch = useDeferredValue(search);
   const months = useMemo(recentMonths, []);
   const monthApplies = view === 'closed' || view === 'all';
@@ -90,8 +95,8 @@ export default function JourneyListTabs({ tenantId, accessToken, role, onCounts 
   useEffect(() => { onCounts?.(overview.data?.counts); }, [overview.data, onCounts]);
 
   const list = useInfiniteQuery({
-    queryKey: ['p2-journey-page', tenantId, view, filters],
-    queryFn: ({ pageParam }) => getP2JourneyPage(tenantId!, accessToken, view, filters, pageParam),
+    queryKey: ['p2-journey-page', tenantId, view, filters, sort],
+    queryFn: ({ pageParam }) => getP2JourneyPage(tenantId!, accessToken, view, filters, pageParam, 50, sort),
     initialPageParam: 0,
     getNextPageParam: (last) => last.nextOffset ?? undefined,
     enabled,
@@ -114,6 +119,17 @@ export default function JourneyListTabs({ tenantId, accessToken, role, onCounts 
   }, []);
 
   const clear = () => { setSearch(''); setMonth(''); setOutletId(''); setPcActorId(''); };
+  // A click on an Outlet-wise / PC-wise row shows that Outlet's or PC's complete list.
+  const pickOutlet = (key: string) => {
+    const next = panelSelection(outletId, key, view);
+    setOutletId(next.key);
+    setView(next.view);
+  };
+  const pickPc = (key: string) => {
+    const next = panelSelection(pcActorId, key, view);
+    setPcActorId(next.key);
+    setView(next.view);
+  };
 
   return (
     <div className="p2w-jtabs">
@@ -133,13 +149,13 @@ export default function JourneyListTabs({ tenantId, accessToken, role, onCounts 
             rows={overview.data.byOutlet.map((o) => ({ key: o.outlet_id, label: o.outlet_name ?? o.outlet_code ?? 'Outlet',
               secondary: o.outlet_code ?? undefined, ...o }))}
             selectedKey={outletId}
-            onSelect={setOutletId}
+            onSelect={pickOutlet}
           />
           <BreakdownPanel
             title="PC-wise"
             rows={(overview.data.byPc ?? []).map((p) => ({ key: p.pc_actor_id ?? '', label: p.pc_name || 'PC not recorded', ...p }))}
             selectedKey={pcActorId}
-            onSelect={setPcActorId}
+            onSelect={pickPc}
           />
         </div>
       ) : null}
@@ -196,6 +212,15 @@ export default function JourneyListTabs({ tenantId, accessToken, role, onCounts 
               </select>
             </label>
           </>
+        ) : null}
+        {supervisor ? (
+          <label className="p2w-jtabs__select">
+            <span>Sort</span>
+            <select value={sort} onChange={(event) => setSort(event.target.value as P2JourneySort)}>
+              <option value="outlet">By outlet</option>
+              <option value="priority">Most urgent first</option>
+            </select>
+          </label>
         ) : null}
         {filtered ? <button type="button" className="p2w-link" onClick={clear}>Clear filters</button> : null}
         {list.isFetching && !list.isFetchingNextPage ? <span className="p2w-muted">Loading…</span> : null}
@@ -267,7 +292,7 @@ function BreakdownPanel({ title, rows, selectedKey, onSelect }: {
       <header className="uc03-tl-panel__header">
         <div>
           <h2>{title}</h2>
-          <p>Click a row to filter the journeys below.</p>
+          <p>Click a row to see its complete list below.</p>
         </div>
         {selectedKey && <button type="button" onClick={() => onSelect('')}>Clear</button>}
       </header>

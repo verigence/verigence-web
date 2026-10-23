@@ -89,9 +89,9 @@ function DetailTable({ title = 'View underlying detail', headers, rows, defaultO
           <table className="data-table">
             <thead><tr>{headers.map((header) => <th key={header}>{header}</th>)}</tr></thead>
             <tbody>
-            {rows.length > 0
-              ? rows.map((row, rowIndex) => <tr key={rowIndex}>{row.map((cell, cellIndex) => <td key={cellIndex}>{cell}</td>)}</tr>)
-              : <tr><td className="analytics-table-empty" colSpan={headers.length}>No rows are available for this report in the selected project snapshot. Confirm the project scope shown above.</td></tr>}
+              {rows.length > 0
+                ? rows.map((row, rowIndex) => <tr key={rowIndex}>{row.map((cell, cellIndex) => <td key={cellIndex}>{cell}</td>)}</tr>)
+                : <tr><td className="analytics-table-empty" colSpan={headers.length}>No rows are available for this report in the selected project snapshot. Confirm the project scope shown above.</td></tr>}
           </tbody>
           </table>
         </div>

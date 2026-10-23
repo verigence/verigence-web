@@ -184,8 +184,10 @@ interface AnalyticsProductivityEmployee {
   bookings_with_date: number;
   deliveries_started: number;
   deliveries_completed: number;
+  booking_rate_pct: number | null;
+  delivery_completion_pct: number | null;
+  avg_days_to_delivery_start: number | null;
   avg_days_journey_to_delivery: number | null;
-  avg_days_to_completion: number | null;
 }
 
 interface AnalyticsUploadActivity {

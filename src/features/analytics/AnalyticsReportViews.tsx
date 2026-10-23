@@ -379,17 +379,24 @@ export default function AnalyticsReportViews({ payload }: { payload: AnalyticsRe
     case 'productivity': {
       const { summary, upload_activity: uploadActivity } = payload.data;
       const totalJourneys = summary.reduce((s, r) => s + r.journeys_created, 0);
+      const totalBookings = summary.reduce((s, r) => s + r.bookings, 0);
+      const totalDeliveries = summary.reduce((s, r) => s + r.deliveries_completed, 0);
       const unattributed = uploadActivity.reduce((sum, row) => sum + row.unattributed_journeys, 0);
       const creators = new Set(summary
         .filter((row) => row.actor_id || row.employee_name !== 'Unknown')
         .map((row) => row.actor_id || row.employee_name)).size;
       const uploadRows = uploadActivity.map((row) => ({ label: formatMonth(row.upload_month), value: row.journeys_created }));
+      const overallBookingRate = totalJourneys ? `${((totalBookings / totalJourneys) * 100).toFixed(1)}%` : 'Unavailable';
+      const overallDeliveryRate = totalBookings ? `${((totalDeliveries / totalBookings) * 100).toFixed(1)}%` : 'Unavailable';
+      const formatDays = (value: number | null) => value == null ? 'Unavailable' : `${Number(value).toFixed(1)} days`;
 
       return <>
         <div className="analytics-employee-summary">
           <HeroStat eyebrow="Journey uploads" value={formatNumber(totalJourneys)} title={`${creators} attributed creator${creators !== 1 ? 's' : ''}`} detail="Creator attribution comes from Audit Core journey created-by fields." />
           <div className="analytics-insight-stack">
             <InsightCard label="Unattributed uploads" value={formatNumber(unattributed)} detail="Journey records with no creator ID or display name" />
+            <InsightCard label="Upload-to-booking rate" value={overallBookingRate} detail={`${formatNumber(totalBookings)} booked journeys from ${formatNumber(totalJourneys)} uploaded journeys`} />
+            <InsightCard label="Booking-to-delivery completion" value={overallDeliveryRate} detail={`${formatNumber(totalDeliveries)} deliveries with an actual completion timestamp from ${formatNumber(totalBookings)} booked journeys`} />
           </div>
         </div>
 
@@ -397,13 +404,20 @@ export default function AnalyticsReportViews({ payload }: { payload: AnalyticsRe
           <AnalyticsBarChart rows={uploadRows} valueLabel="Journeys uploaded" />
         </SectionCard>
 
-        <SectionCard title="Journey Uploads by Creator" description="Counts journeys attributed to each creator from Audit Core created-by fields. This view tracks upload activity only; it does not rank sales or delivery outcomes.">
+        <SectionCard title="Journey outcomes by uploader" description="Each journey is attributed to the Audit Core created-by fields. Rates use journey uploads as the booking denominator and booked journeys as the delivery denominator.">
           <div className="data-table-wrap analytics-table-wrap">
             <table className="data-table">
               <thead>
                 <tr>
                   <th>Creator</th>
                   <th>Journeys Uploaded</th>
+                  <th>Bookings</th>
+                  <th>Booking Rate</th>
+                  <th>Delivery Records</th>
+                  <th>Delivered</th>
+                  <th>Delivery Completion</th>
+                  <th>Avg Days to Delivery Record</th>
+                  <th>Avg Days to Delivery</th>
                 </tr>
               </thead>
               <tbody>
@@ -411,6 +425,13 @@ export default function AnalyticsReportViews({ payload }: { payload: AnalyticsRe
                   <tr key={row.actor_id || row.employee_name}>
                     <td><strong>{row.employee_name}</strong></td>
                     <td>{formatNumber(row.journeys_created)}</td>
+                    <td>{formatNumber(row.bookings)}</td>
+                    <td>{row.booking_rate_pct == null ? 'Unavailable' : `${Number(row.booking_rate_pct).toFixed(1)}%`}</td>
+                    <td>{formatNumber(row.deliveries_started)}</td>
+                    <td>{formatNumber(row.deliveries_completed)}</td>
+                    <td>{row.delivery_completion_pct == null ? 'Unavailable' : `${Number(row.delivery_completion_pct).toFixed(1)}%`}</td>
+                    <td>{formatDays(row.avg_days_to_delivery_start)}</td>
+                    <td>{formatDays(row.avg_days_journey_to_delivery)}</td>
                   </tr>
                 ))}
               </tbody>

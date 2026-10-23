@@ -106,38 +106,58 @@ export default function AnalyticsBusinessReportViews({ payload }: { payload: Ana
       const {
         by_model_variant: models,
         by_dealer_model_variant: dealerModels,
-        by_colour: colours,
         by_outlet: outlets,
+        by_month: monthlySales,
         model_variant_coverage: coverage,
       } = payload.data;
       const booked = coverage.booked_journeys;
       const delivered = models.reduce((sum, row) => sum + row.actual_deliveries, 0);
-      const modelRows = models.slice(0, 12).map((row) => ({
+      const salesUsesDeliveries = delivered > 0;
+      const salesValueLabel = salesUsesDeliveries ? 'Actual deliveries' : 'Booked cars';
+      const modelRows = models
+        .map((row) => ({
         label: `${row.model_name} · ${row.variant_name}`,
-        value: row.journey_count,
-      }));
-      const colourRows = colours.slice(0, 10).map((row) => ({
-        label: humanize(row.colour_name),
-        value: row.journey_count,
+        value: salesUsesDeliveries ? row.actual_deliveries : row.journey_count,
+      }))
+        .filter((row) => row.value > 0)
+        .slice(0, 12);
+      const dealerSales = new Map<string, number>();
+      outlets.forEach((row) => {
+        const amount = salesUsesDeliveries ? row.actual_deliveries : row.journey_count;
+        dealerSales.set(row.dealer_name, (dealerSales.get(row.dealer_name) || 0) + amount);
+      });
+      const dealerSalesRows = Array.from(dealerSales.entries())
+        .map(([label, value]) => ({ label, value }))
+        .filter((row) => row.value > 0)
+        .sort((a, b) => b.value - a.value)
+        .slice(0, 12);
+      const monthlyRows = monthlySales.map((row) => ({
+        label: row.period,
+        bar: row.booked_units,
+        line: row.delivered_units,
       }));
       return (
         <>
           <div className="analytics-insurance-banner">
             <Metric label="Booked vehicle journeys" value={formatNumber(booked)} detail="Journeys with a captured booking row" />
-            <Metric label="Actual deliveries" value={formatNumber(delivered)} detail="Booked journeys with an actual delivery timestamp" />
+            <Metric label="Actual deliveries with date" value={formatNumber(delivered)} detail="Booked journeys with an actual delivery timestamp; missing timestamps are not counted as delivered" />
             <Metric label="Model and variant combinations" value={formatNumber(models.length)} detail="Distinct captured combinations in this snapshot" />
             <Metric label="Dealerships with bookings" value={formatNumber(new Set(outlets.filter((row) => row.journey_count > 0).map((row) => row.dealer_name)).size)} detail="Separate dealer names in the selected project" />
             <Metric label="Catalogue-mapped vehicles" value={`${formatNumber(coverage.catalogue_mapped_journeys)} / ${formatNumber(booked)}`} detail={`${formatNumber(coverage.unresolved_journeys)} booked journeys still lack a model or variant label`} attention={coverage.unresolved_journeys > 0} />
           </div>
 
           <div className="analytics-split analytics-split--insurance">
-            <SectionCard title="Vehicle Sales by Model and Variant" description="Booked journeys ranked by captured model and variant. This identifies the highest-volume vehicle combinations in the current snapshot.">
-              <AnalyticsBarChart rows={modelRows} valueLabel="Booked vehicles" />
+            <SectionCard title="Vehicle sales by model and variant" description={salesUsesDeliveries ? 'Ranked by actual delivery timestamps.' : 'Ranked by booked journeys because actual delivery timestamps are not present in this project snapshot.'}>
+              <AnalyticsBarChart rows={modelRows} valueLabel={salesValueLabel} emptyText="No booked or delivered vehicles are available in this snapshot." />
             </SectionCard>
-            <SectionCard title="Vehicle Colour Mix" description="Booked journeys by captured vehicle colour. Colour labels are taken from the journey product snapshot.">
-              <AnalyticsBarChart rows={colourRows} valueLabel="Booked vehicles" />
+            <SectionCard title="Vehicle sales by dealership" description={salesUsesDeliveries ? 'Actual deliveries grouped by dealership. The table below splits each dealership by outlet, model and variant.' : 'Booked cars grouped by dealership because actual delivery timestamps are not present.'}>
+              <AnalyticsBarChart rows={dealerSalesRows} valueLabel={salesValueLabel} emptyText="No dealership sales are available in this snapshot." />
             </SectionCard>
           </div>
+
+          <SectionCard title="Monthly bookings and deliveries" description="Bookings are grouped by booking date; deliveries are grouped by actual delivery date. A delivery series appears only when those dates are captured.">
+            <AnalyticsComboChart rows={monthlyRows} barLabel="Booked cars" lineLabel="Actual deliveries" emptyText="No booking or delivery dates are available for a monthly trend." />
+          </SectionCard>
 
           <DetailTable
             title="Vehicle units by dealership, outlet, model and variant"
@@ -208,7 +228,15 @@ export default function AnalyticsBusinessReportViews({ payload }: { payload: Ana
     }
 
     case 'insurance': {
-      const { summary, by_insurer: insurers, by_route: routes, by_outlet: outlets, add_ons: addOns, definition } = payload.data;
+      const {
+        summary,
+        by_insurer: insurers,
+        by_insurer_outlet: insurersByOutlet,
+        by_route: routes,
+        by_outlet: outlets,
+        add_ons: addOns,
+        definition,
+      } = payload.data;
       const routeLabel = (route: string) => ({
         DEALER_ARRANGED: 'Dealer arranged',
         CUSTOMER_ARRANGED: 'Customer arranged / outside',
@@ -224,7 +252,9 @@ export default function AnalyticsBusinessReportViews({ payload }: { payload: Ana
             <Metric label="Dealer arranged" value={formatNumber(summary.dealer_arranged_journeys)} detail={`${percent(summary.dealer_arranged_journeys, summary.insurance_journeys)} of policy records, based on explicit dealer labels`} />
             <Metric label="Customer arranged / outside" value={formatNumber(summary.customer_arranged_journeys)} detail={`${percent(summary.customer_arranged_journeys, summary.insurance_journeys)} of policy records, based on explicit customer or own labels`} />
             <Metric label="Route unclear or missing" value={formatNumber(summary.source_ambiguous_journeys + summary.source_unknown_journeys)} detail={`${formatNumber(summary.source_ambiguous_journeys)} mixed · ${formatNumber(summary.source_unknown_journeys)} unspecified; excluded from dealer/outside totals`} attention={summary.source_ambiguous_journeys + summary.source_unknown_journeys > 0} />
+            <Metric label="Route evidence coverage" value={formatPercent(summary.route_information_coverage_pct)} detail={`${formatNumber(summary.route_information_populated)} of ${formatNumber(summary.insurance_journeys)} policy records carry route or self-insurance evidence`} />
             <Metric label="Captured premium" value={formatMoney(summary.premium_amount)} detail={`${formatNumber(summary.premium_populated)} of ${formatNumber(summary.insurance_journeys)} policy records have a premium value (${percent(summary.premium_populated, summary.insurance_journeys)})`} />
+            <Metric label="Premium variance vs standard" value={formatOptionalMoney(summary.premium_variance_amount)} detail={`${formatNumber(summary.premium_comparable)} policies have both actual and standard premium; positive values are above the captured standard`} attention={numeric(summary.premium_variance_amount) > 0} />
           </div>
 
           <div className="analytics-split analytics-split--insurance">
@@ -239,7 +269,7 @@ export default function AnalyticsBusinessReportViews({ payload }: { payload: Ana
           <DetailTable
             title="Insurance route and premium coverage by dealership / outlet"
             defaultOpen
-            headers={['Dealer', 'Outlet', 'Booked Journeys', 'Policy Records', 'Dealer Arranged', 'Customer / Outside', 'Mixed', 'Unspecified', 'Premium Values', 'Captured Premium']}
+            headers={['Dealer', 'Outlet', 'Booked Journeys', 'Policy Records', 'Dealer Arranged', 'Customer / Outside', 'Mixed', 'Unspecified', 'Premium Values', 'Captured Premium', 'Comparable Policies', 'Standard Premium', 'Actual − Standard']}
             rows={outlets.map((row) => [
               row.dealer_name,
               row.outlet_name,
@@ -251,18 +281,37 @@ export default function AnalyticsBusinessReportViews({ payload }: { payload: Ana
               formatNumber(row.source_unknown_journeys),
               formatNumber(row.premium_populated),
               formatMoney(row.premium_amount),
+              formatNumber(row.premium_comparable),
+              formatOptionalMoney(row.standard_premium_amount),
+              formatOptionalMoney(row.premium_variance_amount),
             ])}
           />
 
           <DetailTable
             title="Insurance components captured from policy evidence"
             defaultOpen
-            headers={['Insurance Component', 'Policy Count', 'Share of Policy Records', 'Source Terms']}
+            headers={['Dealer', 'Outlet', 'Insurance Component', 'Policies', 'Share of Outlet Policies', 'Source Terms']}
             rows={addOns.map((row) => [
+              row.dealer_name,
+              row.outlet_name,
               row.add_on_name,
               formatNumber(row.policy_count),
               formatPercent(row.policy_attach_pct),
               row.raw_terms.join(' · '),
+            ])}
+          />
+
+          <DetailTable
+            title="Insurer and captured premium by dealership / outlet"
+            headers={['Dealer', 'Outlet', 'Insurer', 'Policies', 'Premium Values', 'Average Premium', 'Captured Premium']}
+            rows={insurersByOutlet.map((row) => [
+              row.dealer_name,
+              row.outlet_name,
+              humanize(row.insurer_name),
+              formatNumber(row.policy_count),
+              formatNumber(row.premium_populated),
+              formatOptionalMoney(row.avg_premium),
+              formatMoney(row.premium_amount),
             ])}
           />
           <p className="analytics-footnote">{definition}</p>
@@ -514,9 +563,10 @@ export default function AnalyticsBusinessReportViews({ payload }: { payload: Ana
         <>
           <div className="analytics-insurance-banner">
             <Metric label="Recorded discounts" value={formatMoney(discountSummary.total_actual_discount)} detail={`${formatNumber(discountSummary.journeys_with_actual_discount)} booked journeys with a captured actual discount`} />
+            <Metric label="Any positive over-offer" value={formatMoney(discountSummary.strict_excess_discount_amount)} detail={`${formatNumber(discountSummary.strict_excess_discount_journeys)} journeys · ${formatNumber(discountSummary.strict_excess_application_count)} applications with actual discount above the captured offer before tolerance`} attention={numeric(discountSummary.strict_excess_discount_amount) > 0} />
             <Metric label="Active pricing cases" value={formatNumber(summary.journeys_with_pricing_exceptions)} detail="Distinct journeys with an open or acknowledged Audit Core pricing finding" attention={summary.journeys_with_pricing_exceptions > 0} />
             <Metric label="Active invoice conflicts" value={formatNumber(summary.invoice_conflict_journeys)} detail="Open or acknowledged commercial price and discount disagreements across captured invoices" attention={summary.invoice_conflict_journeys > 0} />
-            <Metric label="Known discount overage" value={formatMoney(summary.known_excess_discount_amount)} detail={`${formatNumber(summary.known_excess_discount_journeys)} journeys · ${formatNumber(summary.known_excess_application_count)} applications above entitlement`} attention={numeric(summary.known_excess_discount_amount) > 0} />
+              <Metric label="Known overage after tolerance" value={formatMoney(summary.known_excess_discount_amount)} detail={`${formatNumber(summary.known_excess_discount_journeys)} journeys · ${formatNumber(summary.known_excess_application_count)} applications above Audit Core's line tolerance`} attention={numeric(summary.known_excess_discount_amount) > 0} />
             <Metric label="Unknown entitlements" value={formatNumber(summary.unknown_entitlement_application_count)} detail="Applications excluded because the offered entitlement could not be attributed" attention={summary.unknown_entitlement_application_count > 0} />
             <Metric label="Comparable price line coverage" value={formatPercent(summary.comparable_price_line_coverage_pct)} detail={`${formatNumber(summary.comparable_price_line_count)} of ${formatNumber(summary.standard_price_line_count)} standard-priced commercial lines have an actual amount`} />
           </div>
@@ -528,7 +578,7 @@ export default function AnalyticsBusinessReportViews({ payload }: { payload: Ana
           <DetailTable
             title="Discounts by dealership, vehicle model and variant"
             defaultOpen
-            headers={['Dealer', 'Outlet', 'Model', 'Variant', 'Booked Cars', 'Cars with Discount', 'Recorded Discount', 'Average per Discounted Car', 'Known Excess', 'Excess Cars', 'Unknown Entitlement Cars']}
+            headers={['Dealer', 'Outlet', 'Model', 'Variant', 'Booked Cars', 'Cars with Discount', 'Recorded Discount', 'Average per Discounted Car', 'Any Positive Over-Offer', 'Over-Offer Cars', 'Known Overage After Tolerance', 'Unknown Entitlement Cars']}
             rows={discountsByProduct.map((row) => [
               row.dealer_name,
               row.outlet_name,
@@ -538,16 +588,17 @@ export default function AnalyticsBusinessReportViews({ payload }: { payload: Ana
               formatNumber(row.discounted_units),
               formatMoney(row.actual_discount_amount),
               row.avg_discount_per_discounted_unit == null ? 'Unavailable' : formatMoney(row.avg_discount_per_discounted_unit),
+              formatMoney(row.strict_excess_discount_amount),
+              formatNumber(row.strict_excess_units),
               formatMoney(row.known_excess_discount_amount),
-              formatNumber(row.known_excess_units),
               formatNumber(row.units_with_unknown_entitlement),
             ])}
           />
 
           <DetailTable
             title="View outlet pricing exception concentration"
-            headers={['Dealer', 'Outlet', 'Price Variance Journeys', 'Discount Exception Journeys', 'Invoice Conflict Journeys', 'Known Excess', 'Unknown Applications']}
-            rows={pricing.by_outlet.map((row) => [row.dealer_name, row.outlet_name, formatNumber(row.price_exception_journeys), formatNumber(row.discount_exception_journeys), formatNumber(row.invoice_conflict_journeys), formatMoney(row.known_excess_discount_amount), formatNumber(row.unknown_discount_applications)])}
+            headers={['Dealer', 'Outlet', 'Price Variance Journeys', 'Discount Exception Journeys', 'Invoice Conflict Journeys', 'Any Positive Over-Offer', 'Known Overage After Tolerance', 'Unknown Applications']}
+            rows={pricing.by_outlet.map((row) => [row.dealer_name, row.outlet_name, formatNumber(row.price_exception_journeys), formatNumber(row.discount_exception_journeys), formatNumber(row.invoice_conflict_journeys), formatMoney(row.strict_excess_discount_amount), formatMoney(row.known_excess_discount_amount), formatNumber(row.unknown_discount_applications)])}
           />
 
           <DetailTable
@@ -557,7 +608,7 @@ export default function AnalyticsBusinessReportViews({ payload }: { payload: Ana
           />
 
           <p className="analytics-footnote">
-            {pricing.definitions.exception_status} Known overage summarizes captured applications; current unresolved status is shown in the finding list. Invoice and booking line counts describe evidence coverage, not complete-deal invoice coverage.
+            {pricing.definitions.exception_status} Strict positive over-offer is shown before tolerance; known overage reflects Audit Core's configured line tolerance. Current unresolved status is shown in the finding list. Invoice and booking line counts describe evidence coverage, not complete-deal invoice coverage.
           </p>
         </>
       );

@@ -146,6 +146,9 @@ export interface PricingIntegrityReport {
     discount_exception_journeys: number;
     invoice_conflict_journeys: number;
     journeys_with_pricing_exceptions: number;
+    strict_excess_discount_amount: NumericValue;
+    strict_excess_application_count: number;
+    strict_excess_discount_journeys: number;
     known_excess_discount_amount: NumericValue;
     known_excess_application_count: number;
     known_excess_discount_journeys: number;
@@ -161,6 +164,9 @@ export interface PricingIntegrityReport {
     discount_key: string;
     application_count: number;
     journey_count: number;
+    strict_excess_discount_amount: NumericValue;
+    strict_excess_application_count: number;
+    strict_excess_journey_count: number;
     known_excess_discount_amount: NumericValue;
     excess_application_count: number;
     unknown_entitlement_count: number;
@@ -171,6 +177,9 @@ export interface PricingIntegrityReport {
     price_exception_journeys: number;
     discount_exception_journeys: number;
     invoice_conflict_journeys: number;
+    strict_excess_discount_amount: NumericValue;
+    strict_excess_journeys: number;
+    strict_excess_applications: number;
     known_excess_discount_amount: NumericValue;
     unknown_discount_applications: number;
   }>;
@@ -180,6 +189,9 @@ export interface PricingIntegrityReport {
     price_exception_journeys: number;
     discount_exception_journeys: number;
     invoice_conflict_journeys: number;
+    strict_excess_discount_amount: NumericValue;
+    strict_excess_journeys: number;
+    strict_excess_applications: number;
     known_excess_discount_amount: NumericValue;
     unknown_discount_applications: number;
   }>;
@@ -260,6 +272,9 @@ interface AnalyticsBusinessDiscounts {
     avg_discount_per_actual_delivery: NumericValue;
     above_eligible_discount_amount: NumericValue;
     above_eligible_journeys: number;
+    strict_excess_discount_amount: NumericValue;
+    strict_excess_application_count: number;
+    strict_excess_discount_journeys: number;
   };
   by_model: Array<{
     model_name: string;
@@ -287,6 +302,8 @@ interface AnalyticsBusinessDiscounts {
     avg_discount_per_discounted_unit: NumericValue;
     known_excess_discount_amount: NumericValue;
     known_excess_units: number;
+    strict_excess_discount_amount: NumericValue;
+    strict_excess_units: number;
     units_with_unknown_entitlement: number;
   }>;
   by_discount_key: Array<{
@@ -311,15 +328,39 @@ interface AnalyticsBusinessInsurance {
     customer_arranged_journeys: number;
     source_ambiguous_journeys: number;
     source_unknown_journeys: number;
+    route_information_populated: number;
+    self_insurance_flag_populated: number;
+    self_insurance_journeys: number;
     premium_amount: NumericValue;
     premium_populated: number;
+    premium_comparable: number;
+    standard_premium_amount: NumericValue;
+    premium_variance_amount: NumericValue;
     avg_premium: NumericValue;
     policies_with_add_ons: number;
+    intermediary_populated: number;
+    misp_code_populated: number;
     insurance_record_rate_pct: number | null;
+    route_information_coverage_pct: number | null;
+    explicit_route_coverage_pct: number | null;
+    intermediary_coverage_pct: number | null;
+    misp_code_coverage_pct: number | null;
+    premium_coverage_pct: number | null;
     add_on_policy_attach_pct: number | null;
     add_on_journey_penetration_pct: number | null;
   };
   by_insurer: Array<{
+    insurer_name: string;
+    policy_count: number;
+    premium_populated: number;
+    premium_amount: NumericValue;
+    avg_premium: NumericValue;
+  }>;
+  by_insurer_outlet: Array<{
+    dealer_id: string | null;
+    dealer_name: string;
+    outlet_id: string | null;
+    outlet_name: string;
     insurer_name: string;
     policy_count: number;
     premium_populated: number;
@@ -338,7 +379,9 @@ interface AnalyticsBusinessInsurance {
     avg_premium: NumericValue;
   }>;
   by_outlet: Array<{
+    dealer_id: string | null;
     dealer_name: string;
+    outlet_id: string | null;
     outlet_name: string;
     booked_journeys: number;
     insurance_journeys: number;
@@ -347,10 +390,17 @@ interface AnalyticsBusinessInsurance {
     source_ambiguous_journeys: number;
     source_unknown_journeys: number;
     premium_populated: number;
+    premium_comparable: number;
     premium_amount: NumericValue;
+    standard_premium_amount: NumericValue;
+    premium_variance_amount: NumericValue;
     avg_premium: NumericValue;
   }>;
   add_ons: Array<{
+    dealer_id: string | null;
+    dealer_name: string;
+    outlet_id: string | null;
+    outlet_name: string;
     add_on_name: string;
     policy_count: number;
     policy_attach_pct: number | null;
@@ -587,6 +637,7 @@ interface AnalyticsBusinessSalesProduct {
     unresolved_journeys: number;
   };
   by_colour: Array<{ colour_name: string; journey_count: number }>;
+  by_month: Array<{ period: string; booked_units: number; delivered_units: number }>;
   delivery_definition: Record<string, string>;
 }
 

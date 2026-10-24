@@ -6,7 +6,11 @@ import {
   AnalyticsBarChart,
   AnalyticsBubbleChart,
   AnalyticsComboChart,
+  AnalyticsDonutChart,
+  AnalyticsHeatmap,
   AnalyticsParetoChart,
+  AnalyticsSunburstChart,
+  AnalyticsTreemap,
 } from './AnalyticsCharts';
 
 function numeric(value: NumericValue | undefined): number {
@@ -108,28 +112,65 @@ function DetailTable({ title = 'View underlying detail', headers, rows, defaultO
             <span>Showing {formatNumber(filteredRows.length)} of {formatNumber(rows.length)} rows</span>
           </div>
         )}
-        <div className="data-table-wrap analytics-table-wrap">
-          <table className="data-table">
-            <thead><tr>{headers.map((header) => <th key={header}>{header}</th>)}</tr></thead>
-            <tbody>
-              {filteredRows.length > 0
-                ? filteredRows.map((row, rowIndex) => <tr key={rowIndex}>{row.map((cell, cellIndex) => <td key={cellIndex}>{cell}</td>)}</tr>)
-                : rows.length > 0
-                  ? <tr><td className="analytics-table-empty" colSpan={headers.length}>No rows match this search.</td></tr>
-                : <tr><td className="analytics-table-empty" colSpan={headers.length}>No rows are available for this report in the selected project snapshot. Confirm the project scope shown above.</td></tr>}
-          </tbody>
-          </table>
-        </div>
+        {filteredRows.length ? <div className="analytics-record-grid">
+          {filteredRows.map((row, rowIndex) => <article className="analytics-record-card" key={rowIndex}>
+            <h4>{String(row[0] ?? headers[0] ?? 'Record')}</h4>
+            <dl>{headers.slice(1).map((header, index) => <div key={`${rowIndex}-${header}`}><dt>{header}</dt><dd>{String(row[index + 1] ?? 'Unavailable')}</dd></div>)}</dl>
+          </article>)}
+        </div> : <p className="analytics-table-empty">{rows.length ? 'No records match this search.' : 'No records are available for this report in the selected project snapshot. Confirm the project scope shown above.'}</p>}
       </div>
     </details>
   );
 }
 
 type AnalyticsVasData = Extract<AnalyticsBusinessReportPayload, { kind: 'addons' }>['data'];
+type AnalyticsInsuranceSourceRows = Extract<AnalyticsBusinessReportPayload, { kind: 'insurance' }>['data']['by_source_outlet'];
+
+function AnalyticsIntermediaryChart({ rows }: { rows: AnalyticsInsuranceSourceRows }) {
+  const [selectedDealer, setSelectedDealer] = useState('All dealerships');
+  const [selectedOutlet, setSelectedOutlet] = useState('All outlets');
+  const dealers = useMemo(() => Array.from(new Set(rows.map((row) => row.dealer_name)).values()).sort(), [rows]);
+  const outlets = useMemo(() => Array.from(new Set(rows
+    .filter((row) => selectedDealer === 'All dealerships' || row.dealer_name === selectedDealer)
+    .map((row) => row.outlet_name)).values()).sort(), [rows, selectedDealer]);
+  const scopedRows = useMemo(() => rows.filter((row) =>
+    (selectedDealer === 'All dealerships' || row.dealer_name === selectedDealer)
+    && (selectedOutlet === 'All outlets' || row.outlet_name === selectedOutlet)), [rows, selectedDealer, selectedOutlet]);
+  const totals = scopedRows.reduce((result, row) => {
+    result.policies += row.policy_count;
+    if (row.intermediary_code && row.intermediary_code !== '(blank)') result.code += row.policy_count;
+    if (row.intermediary_name && row.intermediary_name !== '(blank)') result.name += row.policy_count;
+    return result;
+  }, { policies: 0, code: 0, name: 0 });
+  const agencyGroups = new Map<string, { group: string; label: string; value: number }>();
+  scopedRows.forEach((row) => {
+    const code = row.intermediary_code && row.intermediary_code !== '(blank)' ? row.intermediary_code : 'Code unavailable';
+    const name = row.intermediary_name && row.intermediary_name !== '(blank)' ? row.intermediary_name : 'Name unavailable';
+    const group = `${row.dealer_name} / ${row.outlet_name}`;
+    const label = `${code} · ${name}`;
+    const key = `${group}\u0000${label}`;
+    const current = agencyGroups.get(key) || { group, label, value: 0 };
+    current.value += row.policy_count;
+    agencyGroups.set(key, current);
+  });
+  const chartRows = Array.from(agencyGroups.values());
+
+  return (
+    <SectionCard title="Insurance policies by agent / intermediary code and name" description="The chart groups captured agent/intermediary identifiers within each dealership and outlet. Missing source values remain visible as unavailable; MISP codes are kept separate and are never used as substitutes.">
+      <div className="analytics-pin-map__controls analytics-accessory-filters">
+        <label>Dealership<select value={selectedDealer} onChange={(event) => { setSelectedDealer(event.target.value); setSelectedOutlet('All outlets'); }}><option>All dealerships</option>{dealers.map((dealer) => <option key={dealer}>{dealer}</option>)}</select></label>
+        <label>Outlet<select value={selectedOutlet} onChange={(event) => setSelectedOutlet(event.target.value)}><option>All outlets</option>{outlets.map((outlet) => <option key={outlet}>{outlet}</option>)}</select></label>
+        <p>Code captured on {formatNumber(totals.code)} of {formatNumber(totals.policies)} policy records; name captured on {formatNumber(totals.name)}. Each dealership/outlet segment is split by its captured code and name.</p>
+      </div>
+      <AnalyticsSunburstChart rows={chartRows} valueLabel="Policy records" emptyText="No policy records are available in this project snapshot." />
+    </SectionCard>
+  );
+}
 
 function AnalyticsAddonsReport({ data }: { data: AnalyticsVasData }) {
   const [selectedDealer, setSelectedDealer] = useState('All dealerships');
   const [selectedOutlet, setSelectedOutlet] = useState('All outlets');
+  const [vasMetric, setVasMetric] = useState<'proposals' | 'invoice' | 'awaiting'>('proposals');
   const accessoryItems = data.accessory_items;
   const accessoryLineCoverage = data.accessory_line_coverage;
   const dealers = useMemo(
@@ -154,72 +195,99 @@ function AnalyticsAddonsReport({ data }: { data: AnalyticsVasData }) {
   );
   const warrantyRsa = data.warranty_rsa;
   const reconciliation = data.booking_invoice_reconciliation;
-  const invoiceCoverage = reconciliation.invoice_coverage;
+  const dealerOutletInScope = (dealerName: string, outletName: string) =>
+    (selectedDealer === 'All dealerships' || dealerName === selectedDealer)
+    && (selectedOutlet === 'All outlets' || outletName === selectedOutlet);
+  const accessoryChartRows = scopedAccessoryItems
+    .filter((row) => numeric(row.invoiced_quantity) > 0)
+    .map((row) => ({
+      group: `${row.dealer_name} / ${row.outlet_name}`,
+      label: `${row.model_name} · ${row.variant_name} / ${row.item_description}${row.item_code ? ` · ${row.item_code}` : ''}`,
+      value: numeric(row.invoiced_quantity),
+    }));
+  const vasAttachGroups = new Map<string, { label: string; dealer: string; outlet: string; category: string; proposals: number; invoice: number; awaiting: number }>();
+  reconciliation.by_dealer_model_variant
+    .filter((row) => ['EW', 'RSA', 'FASTAG', 'ACCESSORIES'].includes(row.category))
+    .filter((row) => dealerOutletInScope(row.dealer_name, row.outlet_name))
+    .forEach((row) => {
+      const label = `${row.dealer_name} / ${row.outlet_name} · ${humanize(row.category)}`;
+      const current = vasAttachGroups.get(label) || { label, dealer: row.dealer_name, outlet: row.outlet_name, category: row.category, proposals: 0, invoice: 0, awaiting: 0 };
+      current.proposals += row.booked_proposal_journeys;
+      current.invoice += row.delivery_invoice_purchase_journeys;
+      current.awaiting += row.invoice_awaiting_journeys;
+      vasAttachGroups.set(label, current);
+    });
+  const vasStateRows = Array.from(vasAttachGroups.values()).sort((a, b) => a.category.localeCompare(b.category) || a.label.localeCompare(b.label));
+  const vasCategories = ['EW', 'RSA', 'FASTAG', 'ACCESSORIES'];
+  const vasOutlets = Array.from(new Set(vasStateRows.map((row) => `${row.dealer} / ${row.outlet}`))).sort();
+  const vasMetricLabels = { proposals: 'Booking proposals', invoice: 'Confirmed invoice purchases', awaiting: 'Invoice awaiting' };
+  const vasHeatmapCells: Array<[number, number, number]> = [];
+  vasStateRows.forEach((row) => {
+    const x = vasCategories.indexOf(row.category);
+    const y = vasOutlets.indexOf(`${row.dealer} / ${row.outlet}`);
+    const value = row[vasMetric];
+    if (x >= 0 && y >= 0 && value > 0) vasHeatmapCells.push([x, y, value]);
+  });
+  const ewTermGroups = new Map<string, { label: string; fourYear: number; fiveYear: number; unknown: number }>();
+  warrantyRsa.by_product
+    .filter((row) => row.product_type === 'EW' && dealerOutletInScope(row.dealer_name, row.outlet_name))
+    .forEach((row) => {
+      const label = `${row.dealer_name} / ${row.outlet_name}`;
+      const current = ewTermGroups.get(label) || { label, fourYear: 0, fiveYear: 0, unknown: 0 };
+      current.fourYear += row.four_year_journeys;
+      current.fiveYear += row.five_year_journeys;
+      current.unknown += row.term_not_recorded_journeys;
+      ewTermGroups.set(label, current);
+    });
+  const ewTermRows = Array.from(ewTermGroups.values())
+    .sort((a, b) => (b.fourYear + b.fiveYear + b.unknown) - (a.fourYear + a.fiveYear + a.unknown) || a.label.localeCompare(b.label));
+  const ewHeatmapCells: Array<[number, number, number]> = [];
+  ewTermRows.forEach((row, index) => {
+    ([[0, row.fourYear], [1, row.fiveYear], [2, row.unknown]] as const).forEach(([termIndex, count]) => {
+      if (count > 0) ewHeatmapCells.push([termIndex, index, count]);
+    });
+  });
 
   return (
     <>
       <SectionCard
-        title="Booking proposal vs delivery invoice"
-        description="One project-scoped reconciliation of captured booking VAS proposals against completed-delivery invoices. Counts are unique journeys, not invoice-line units. Only confirmed tax invoices count as purchases; category evidence on an invoice with unknown nature is shown for review."
+        title="Booking proposals and invoice evidence"
+        description="Three business states only: captured booking proposals, VAS purchases evidenced on a confirmed tax invoice, and proposals awaiting a delivery record. These are separate measures, not a funnel total."
       >
-        <p className="analytics-footnote">{reconciliation.definition}</p>
-        <p className="analytics-footnote">
-          Confirmed tax-invoice evidence covers {formatNumber(invoiceCoverage.delivered_journeys_with_tax_invoice_lines)} of {formatNumber(invoiceCoverage.delivered_journeys)} completed deliveries ({formatPercent(invoiceCoverage.invoice_coverage_pct)}), across {formatNumber(invoiceCoverage.delivery_tax_invoice_documents)} documents and {formatNumber(invoiceCoverage.delivery_tax_invoice_lines)} lines. {formatNumber(invoiceCoverage.delivered_journeys_with_unverified_vas_evidence)} delivered journeys have VAS-like lines on {formatNumber(invoiceCoverage.unverified_invoice_documents)} invoice documents with unknown invoice nature ({formatNumber(invoiceCoverage.classified_unverified_vas_lines)} category-matched lines); these are neither counted as bought nor treated as missing. {formatNumber(invoiceCoverage.unclassified_tax_invoice_lines)} confirmed tax-invoice lines and {formatNumber(invoiceCoverage.unclassified_unverified_invoice_lines)} unknown-nature invoice lines remain unclassified.
-        </p>
-        <p className="analytics-footnote">
-          Confirmed match rate uses only delivered proposals with confirmed invoice coverage and no category-matched unverified invoice evidence. All counts represent distinct journeys; the accessory item detail below shows invoice quantities.
-        </p>
+        <p className="analytics-footnote">Invoice purchases count only when the VAS is evidenced on a confirmed tax invoice. “Invoice awaiting” is limited to a booking proposal with no delivery record uploaded. If a delivery record exists but no confirmed VAS invoice line is found, it is not relabeled as awaiting or as a purchase. Counts are distinct journeys.</p>
         <DetailTable
-          title="VAS proposal to invoice reconciliation by category"
-          defaultOpen
-          headers={['VAS', 'Booking proposals', 'Delivered proposals', 'Bought on invoice', 'Matched', 'Unverified invoice evidence', 'Not observed on invoice', 'Awaiting invoice evidence', 'Confirmed match rate']}
+          title="Explore VAS evidence by category"
+          headers={['VAS', 'Booking proposal', 'Invoice', 'Invoice awaiting']}
           rows={reconciliation.by_category.map((row) => [
             humanize(row.category),
             formatNumber(row.booked_proposal_journeys),
-            formatNumber(row.delivered_proposal_journeys),
             formatNumber(row.delivery_invoice_purchase_journeys),
-            formatNumber(row.proposed_and_invoiced_journeys),
-            formatNumber(row.unverified_invoice_evidence_journeys),
-            formatNumber(row.proposal_not_observed_on_invoice_journeys),
-            formatNumber(row.proposal_without_invoice_evidence_journeys),
-            formatPercent(row.proposal_invoice_match_pct),
+            formatNumber(row.invoice_awaiting_journeys),
           ])}
         />
         <DetailTable
           title="VAS attach by dealership and outlet"
-          defaultOpen
-          headers={['Dealer', 'Outlet', 'VAS', 'Booking proposals', 'Confirmed invoice purchases', 'Matched', 'Unverified invoice evidence', 'Match rate']}
+          headers={['Dealer / outlet / VAS', 'Booking proposal', 'Invoice', 'Invoice awaiting']}
           rows={Array.from(reconciliation.by_dealer_model_variant.reduce((groups, row) => {
             const key = `${row.dealer_name}\u0000${row.outlet_name}\u0000${row.category}`;
-            const current = groups.get(key) || { dealer_name: row.dealer_name, outlet_name: row.outlet_name, category: row.category, proposals: 0, bought: 0, matched: 0, unverified: 0 };
+            const current = groups.get(key) || { label: `${row.dealer_name} / ${row.outlet_name} · ${humanize(row.category)}`, proposals: 0, bought: 0, awaiting: 0 };
             current.proposals += row.booked_proposal_journeys;
             current.bought += row.delivery_invoice_purchase_journeys;
-            current.matched += row.proposed_and_invoiced_journeys;
-            current.unverified += row.unverified_invoice_evidence_journeys;
+            current.awaiting += row.invoice_awaiting_journeys;
             groups.set(key, current);
             return groups;
-          }, new Map<string, { dealer_name: string; outlet_name: string; category: string; proposals: number; bought: number; matched: number; unverified: number }>()).values())
-            .sort((a, b) => a.dealer_name.localeCompare(b.dealer_name) || a.outlet_name.localeCompare(b.outlet_name) || a.category.localeCompare(b.category))
-            .map((row) => [row.dealer_name, row.outlet_name, humanize(row.category), formatNumber(row.proposals), formatNumber(row.bought), formatNumber(row.matched), formatNumber(row.unverified), percent(row.matched, row.proposals)])}
+          }, new Map<string, { label: string; proposals: number; bought: number; awaiting: number }>()).values())
+            .sort((a, b) => a.label.localeCompare(b.label))
+            .map((row) => [row.label, formatNumber(row.proposals), formatNumber(row.bought), formatNumber(row.awaiting)])}
         />
         <DetailTable
-          title="Outlet, model and variant reconciliation"
-          headers={['Dealer', 'Outlet', 'Model', 'Variant', 'VAS', 'Booking proposals', 'Bought on invoice', 'Matched', 'Unverified invoice evidence', 'Proposals needing review', 'Not observed on invoice', 'Awaiting invoice evidence', 'Confirmed invoice purpose', 'Unverified invoice purpose']}
+        title="Explore vehicle and outlet evidence details"
+          headers={['Dealer / outlet / vehicle / VAS', 'Booking proposal', 'Invoice', 'Invoice awaiting']}
           rows={reconciliation.by_dealer_model_variant.map((row) => [
-            row.dealer_name,
-            row.outlet_name,
-            row.model_name,
-            row.variant_name,
-            humanize(row.category),
+            `${row.dealer_name} / ${row.outlet_name} · ${row.model_name} ${row.variant_name} · ${humanize(row.category)}`,
             formatNumber(row.booked_proposal_journeys),
             formatNumber(row.delivery_invoice_purchase_journeys),
-            formatNumber(row.proposed_and_invoiced_journeys),
-            formatNumber(row.unverified_invoice_evidence_journeys),
-            formatNumber(row.proposal_with_unverified_invoice_evidence_journeys),
-            formatNumber(row.proposal_not_observed_on_invoice_journeys),
-            formatNumber(row.proposal_without_invoice_evidence_journeys),
-            row.invoice_purposes || 'None confirmed',
-            row.unverified_invoice_purposes || 'None',
+            formatNumber(row.invoice_awaiting_journeys),
           ])}
         />
       </SectionCard>
@@ -253,13 +321,44 @@ function AnalyticsAddonsReport({ data }: { data: AnalyticsVasData }) {
             {outlets.map((outlet) => <option key={outlet}>{outlet}</option>)}
           </select>
         </label>
-        <p>Showing {formatNumber(scopedAccessoryItems.length)} of {formatNumber(accessoryItems.length)} outlet/model/item groups. Search the table for a model, variant, accessory description, or item code.</p>
+        <p>Showing {formatNumber(scopedAccessoryItems.length)} of {formatNumber(accessoryItems.length)} captured outlet/model/item groups. The sunburst below maps outlets to models and confirmed invoice items.</p>
       </div>
+
+      <div className="analytics-split analytics-split--overview">
+        <SectionCard title="Accessory mix · outlet to model to item" description="Each segment is sized by confirmed invoiced units. The hierarchy starts at dealer/outlet and drills into the model/variant and captured accessory item.">
+          <AnalyticsSunburstChart rows={accessoryChartRows} valueLabel="Confirmed invoiced units" emptyText="No confirmed accessory invoice quantities are available in this snapshot." />
+        </SectionCard>
+        <SectionCard title="Extended warranty · term heatmap by outlet" description="Color intensity shows the number of journeys with captured 4-year, 5-year, or unrecorded-term evidence. Select a dealership/outlet above to focus the heatmap.">
+          <AnalyticsHeatmap
+            xLabels={['4-year', '5-year', 'Term not recorded']}
+            yLabels={ewTermRows.map((row) => row.label)}
+            cells={ewHeatmapCells}
+            valueLabel="EW journeys"
+            emptyText="No EW term evidence is available for the selected dealership/outlet."
+          />
+        </SectionCard>
+      </div>
+
+      <SectionCard title="VAS sold / proposed · dealer and outlet heatmap" description="Compare the selected journey count across EW, RSA, FASTAG, and accessories for each dealership/outlet. Use the measure selector to switch among captured booking proposals, confirmed tax-invoice purchases, and invoice awaiting.">
+        <label className="analytics-chart-measure">Measure<select value={vasMetric} onChange={(event) => setVasMetric(event.target.value as typeof vasMetric)}><option value="proposals">Booking proposals</option><option value="invoice">Confirmed invoice purchases</option><option value="awaiting">Invoice awaiting</option></select></label>
+        <AnalyticsHeatmap
+          xLabels={['EW', 'RSA', 'FASTAG', 'Accessories']}
+          yLabels={vasOutlets}
+          cells={vasHeatmapCells}
+          valueLabel={vasMetricLabels[vasMetric]}
+          emptyText="No VAS counts are available for the selected dealership/outlet and measure."
+        />
+        {vasStateRows.length ? <div className="analytics-vas-state-grid">{vasStateRows.map((row) => <article className="analytics-vas-state-card" key={row.label}>
+          <header><span>{humanize(row.category)}</span><strong>{row.label}</strong></header>
+          <div><span>Booking proposal</span><strong>{formatNumber(row.proposals)}</strong></div>
+          <div><span>Invoice</span><strong>{formatNumber(row.invoice)}</strong></div>
+          <div><span>Invoice awaiting</span><strong>{formatNumber(row.awaiting)}</strong></div>
+        </article>)}</div> : <p className="analytics-chart-empty">No booking proposals, confirmed invoice purchases, or invoice-awaiting cases are available for this selection.</p>}
+      </SectionCard>
 
       {accessoryItems.length > 0 ? (
         <DetailTable
           title="Accessories sold by dealership, outlet, model, variant and item"
-          defaultOpen
           headers={['Dealer', 'Outlet', 'Model', 'Variant', 'Category', 'Accessory item', 'Item code', 'Invoice source', 'Invoices', 'Invoice lines', 'Qty invoiced', 'Net sales', 'Discount captured']}
           rows={scopedAccessoryItems.map((row) => [
             row.dealer_name,
@@ -283,7 +382,6 @@ function AnalyticsAddonsReport({ data }: { data: AnalyticsVasData }) {
 
       <DetailTable
         title="Extended warranty term by dealership, outlet, model and variant"
-        defaultOpen
         headers={['Dealer', 'Outlet', 'Model', 'Variant', 'Warranty journeys', '4-year', '5-year', 'Term not recorded', 'Booking add-on source', 'Tax-invoice description source']}
         rows={warrantyRsa.by_product.filter((row) => row.product_type === 'EW').map((row) => [
           row.dealer_name,
@@ -342,17 +440,13 @@ export default function AnalyticsBusinessReportViews({ payload }: { payload: Ana
         value: salesUsesDeliveries ? row.actual_deliveries : row.journey_count,
       }))
         .filter((row) => row.value > 0)
+        .sort((a, b) => b.value - a.value || a.label.localeCompare(b.label))
         .slice(0, 12);
-      const dealerSales = new Map<string, number>();
-      outlets.forEach((row) => {
-        const amount = salesUsesDeliveries ? row.actual_deliveries : row.journey_count;
-        dealerSales.set(row.dealer_name, (dealerSales.get(row.dealer_name) || 0) + amount);
-      });
-      const dealerSalesRows = Array.from(dealerSales.entries())
-        .map(([label, value]) => ({ label, value }))
-        .filter((row) => row.value > 0)
-        .sort((a, b) => b.value - a.value)
-        .slice(0, 12);
+      const dealerOutletSalesRows = outlets.map((row) => ({
+        group: row.dealer_name,
+        label: row.outlet_name,
+        value: salesUsesDeliveries ? row.actual_deliveries : row.journey_count,
+      }));
       const monthlyRows = monthlySales.map((row) => ({
         label: row.period,
         bar: row.booked_units,
@@ -369,11 +463,11 @@ export default function AnalyticsBusinessReportViews({ payload }: { payload: Ana
           </div>
 
           <div className="analytics-split analytics-split--insurance">
-            <SectionCard title="Vehicle sales by model and variant" description={salesUsesDeliveries ? 'Ranked by actual delivery timestamps.' : 'Ranked by booked journeys because actual delivery timestamps are not present in this project snapshot.'}>
-              <AnalyticsBarChart rows={modelRows} valueLabel={salesValueLabel} emptyText="No booked or delivered vehicles are available in this snapshot." />
+            <SectionCard title="Vehicle mix · model and variant" description={salesUsesDeliveries ? 'Area size represents actual retail deliveries.' : 'Area size represents booked journeys because actual delivery timestamps are not present in this project snapshot.'}>
+              <AnalyticsTreemap rows={modelRows} valueLabel={salesValueLabel} emptyText="No booked or delivered vehicles are available in this snapshot." />
             </SectionCard>
-            <SectionCard title="Vehicle sales by dealership" description={salesUsesDeliveries ? 'Actual deliveries grouped by dealership. The table below splits each dealership by outlet, model and variant.' : 'Booked cars grouped by dealership because actual delivery timestamps are not present.'}>
-              <AnalyticsBarChart rows={dealerSalesRows} valueLabel={salesValueLabel} emptyText="No dealership sales are available in this snapshot." />
+            <SectionCard title="Vehicle sales footprint · dealership to outlet" description={salesUsesDeliveries ? 'The outer ring is dealership; each inner segment is an outlet, sized by actual retail deliveries.' : 'The outer ring is dealership; each inner segment is an outlet, sized by bookings because delivery timestamps are not present.'}>
+              <AnalyticsSunburstChart rows={dealerOutletSalesRows} valueLabel={salesValueLabel} emptyText="No dealership/outlet sales are available in this snapshot." />
             </SectionCard>
           </div>
 
@@ -383,7 +477,6 @@ export default function AnalyticsBusinessReportViews({ payload }: { payload: Ana
 
           <DetailTable
             title="Vehicle units by dealership, outlet, model and variant"
-            defaultOpen
             headers={['Dealer', 'Outlet', 'Model', 'Variant', 'Booked Cars', 'Delivered Cars']}
             rows={dealerModels.map((row) => [
               row.dealer_name,
@@ -413,8 +506,8 @@ export default function AnalyticsBusinessReportViews({ payload }: { payload: Ana
             <Metric label="Loan amount coverage" value={formatPercent(summary.loan_amount_capture_pct)} detail={`${formatNumber(summary.high_confidence_loan_records + summary.medium_confidence_loan_records)} amount records of ${formatNumber(summary.finance_record_count)} finance records`} />
           </div>
 
-          <SectionCard title="High-confidence loan amount by lender" description="Bank/NBFC attribution and totals use only high-confidence disbursement matches. Medium-confidence totals remain separate and are not assigned to a lender.">
-            <AnalyticsBarChart rows={lenderRows} valueLabel="Matched loan disbursement" valueKind="currency" />
+          <SectionCard title="Loan portfolio by lender" description="Area represents high-confidence loan disbursements. Medium-confidence amounts remain separate and are not attributed to a lender.">
+            <AnalyticsTreemap rows={lenderRows} valueLabel="Matched loan disbursement" valueKind="currency" />
           </SectionCard>
 
           <DetailTable
@@ -481,17 +574,18 @@ export default function AnalyticsBusinessReportViews({ payload }: { payload: Ana
           </div>
 
           <div className="analytics-split analytics-split--insurance">
-            <SectionCard title="Insurance arranged by" description="Dealer and customer/outside counts use explicit insurance source or insurance-by labels. Mixed or missing records remain visible as unclear.">
-              <AnalyticsBarChart rows={sourceRows} valueLabel="Policy records" />
+            <SectionCard title="Insurance route mix" description="Dealer-arranged, customer/outside, and unclear routes are separated using explicit captured source evidence.">
+              <AnalyticsDonutChart rows={sourceRows} valueLabel="Policy records" />
             </SectionCard>
-            <SectionCard title="Captured premium by insurer" description="Premium totals include only populated premium fields. The premium is not assumed to be dealership revenue.">
-              <AnalyticsBarChart rows={insurerRows} valueLabel="Captured premium" valueKind="currency" />
+            <SectionCard title="Premium portfolio by insurer" description="Area represents captured policy premium by insurer. This premium is not assumed to be dealership revenue.">
+              <AnalyticsTreemap rows={insurerRows} valueLabel="Captured premium" valueKind="currency" />
             </SectionCard>
           </div>
 
+          <AnalyticsIntermediaryChart rows={sourceByOutlet} />
+
           <DetailTable
             title="Insurance route and premium coverage by dealership / outlet"
-            defaultOpen
             headers={['Dealer', 'Outlet', 'Booked Journeys', 'Policy Records', 'Dealer Arranged', 'Customer / Outside', 'Mixed', 'Unspecified', 'Premium Values', 'Captured Premium', 'Comparable Policies', 'Standard Premium', 'Actual − Standard']}
             rows={outlets.map((row) => [
               row.dealer_name,
@@ -512,7 +606,6 @@ export default function AnalyticsBusinessReportViews({ payload }: { payload: Ana
 
           <DetailTable
             title="Insurance components captured from policy evidence"
-            defaultOpen
             headers={['Dealer', 'Outlet', 'Insurance Component', 'Policies', 'Share of Outlet Policies', 'Source Terms']}
             rows={addOns.map((row) => [
               row.dealer_name,
@@ -526,8 +619,7 @@ export default function AnalyticsBusinessReportViews({ payload }: { payload: Ana
 
           <DetailTable
             title="Raw insurance source codes and route evidence by outlet"
-            defaultOpen
-            headers={['Dealer', 'Outlet', 'Route assessment', 'insurance_by', 'insurance_source', 'Self-insurance flag', 'MISP code', 'Intermediary', 'Insurer', 'Policy records', 'Premium captured']}
+            headers={['Dealer', 'Outlet', 'Route assessment', 'insurance_by', 'insurance_source', 'Self-insurance flag', 'MISP code', 'Agent / intermediary code', 'Agent / intermediary name', 'Insurer', 'Policy records', 'Premium captured']}
             rows={sourceByOutlet.map((row) => [
               row.dealer_name,
               row.outlet_name,
@@ -536,6 +628,7 @@ export default function AnalyticsBusinessReportViews({ payload }: { payload: Ana
               row.insurance_source,
               row.self_insurance_flag,
               row.misp_code,
+              row.intermediary_code,
               row.intermediary_name,
               row.insurer_name,
               formatNumber(row.policy_count),
@@ -580,8 +673,8 @@ export default function AnalyticsBusinessReportViews({ payload }: { payload: Ana
             <Metric label="Channels captured" value={formatNumber(summary.channel_count)} detail={`${formatNumber(summary.unmapped_entries)} entries remain in Other / Unmapped`} />
           </div>
 
-          <SectionCard title="Recorded receipt amount by channel" description="Known payment aliases are grouped into channel categories. Values are recorded receipt amounts, not settled collections, because current status coverage is incomplete.">
-            <AnalyticsBarChart rows={channelRows} valueLabel="Recorded receipt amount" valueKind="currency" />
+          <SectionCard title="Recorded receipts · channel mix" description="Known payment aliases are grouped into channel categories. Values are recorded receipt amounts, not settled collections, because current status coverage is incomplete.">
+            <AnalyticsDonutChart rows={channelRows} valueLabel="Recorded receipt amount" valueKind="currency" />
           </SectionCard>
 
           <DetailTable

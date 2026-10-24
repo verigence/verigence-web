@@ -381,6 +381,7 @@ interface AnalyticsBusinessInsurance {
     insurance_source: string;
     self_insurance_flag: string;
     misp_code: string;
+    intermediary_code: string;
     intermediary_name: string;
     insurer_name: string;
     policy_count: number;
@@ -487,6 +488,7 @@ interface AnalyticsBusinessVas {
       category: 'EW' | 'INSURANCE' | 'RSA' | 'FASTAG' | 'ACCESSORIES';
       booked_proposal_journeys: number;
       delivered_proposal_journeys: number;
+      invoice_awaiting_journeys: number;
       delivery_invoice_purchase_journeys: number;
       proposed_and_invoiced_journeys: number;
       unverified_invoice_evidence_journeys: number;
@@ -507,6 +509,7 @@ interface AnalyticsBusinessVas {
       category: 'EW' | 'INSURANCE' | 'RSA' | 'FASTAG' | 'ACCESSORIES';
       booked_proposal_journeys: number;
       delivered_proposal_journeys: number;
+      invoice_awaiting_journeys: number;
       delivery_invoice_purchase_journeys: number;
       proposed_and_invoiced_journeys: number;
       unverified_invoice_evidence_journeys: number;

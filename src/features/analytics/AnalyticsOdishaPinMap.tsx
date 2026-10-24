@@ -2,7 +2,9 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import * as echarts from 'echarts';
 import ReactECharts from 'echarts-for-react';
 
+import SectionCard from '../../components/SectionCard';
 import type { AnalyticsBusinessReportPayload } from '../../services/analytics/businessClient';
+import { AnalyticsBarChart } from './AnalyticsCharts';
 
 type GeographyData = Extract<AnalyticsBusinessReportPayload, { kind: 'geography' }>['data'];
 type GeographyRow = GeographyData['rows'][number];
@@ -289,9 +291,18 @@ export default function AnalyticsOdishaPinMap({ data }: { data: GeographyData })
       <p className="analytics-pin-map__note">Fill color shows the leading dealership; shared areas use purple fill and a red border. Border weight shows the selected measure range: {rangeLabels.join(', ')}. Outlet dots use exact outlet coordinates when present; otherwise they are placed at the PIN centroid and identified as approximate in the hover details.</p>
       <div className="analytics-pin-map__controls"><button type="button" onClick={downloadPinData}>Download PIN / district data for Excel (CSV)</button><button type="button" onClick={downloadExceptions}>Download shared-area exceptions (CSV)</button></div>
       <div className="analytics-split analytics-split--overview">
-        <div className="analytics-table-wrap"><h3>Top 10 {viewMode === 'PIN' ? 'PINs' : 'districts'} by {measureLabel.toLowerCase()}</h3><table className="data-table"><thead><tr><th>{viewMode === 'PIN' ? 'PIN' : 'District'}</th><th>Locality / blocks</th><th>District</th><th>{measureLabel}</th><th>Dealerships</th></tr></thead><tbody>{topAreas.map((area) => <tr key={area.name}><td>{area.name}</td><td>{area.locality}</td><td>{area.district}</td><td>{formatNumber(area.total)}</td><td>{Array.from(area.dealers.keys()).join(', ')}</td></tr>)}{topAreas.length===0 && <tr><td colSpan={5}>No records match these filters.</td></tr>}</tbody></table></div>
+        <SectionCard title={`Top 10 ${viewMode === 'PIN' ? 'PINs' : 'districts'} by ${measureLabel.toLowerCase()}`} description="Ranked footprint for the selected date, model, dealership and measure. Area colors on the map show the leading dealer; shared areas are marked separately.">
+          <AnalyticsBarChart rows={topAreas.map((area) => ({ label: area.name, value: area.total }))} valueLabel={measureLabel} emptyText="No areas match the current filters." />
+          <div className="analytics-area-cards">{topAreas.map((area, index) => <article className="analytics-area-card" key={area.name}>
+            <span className="analytics-area-card__rank">{index + 1}</span><div><strong>{area.name}</strong><small>{area.locality} · {area.district}</small><small>Dealerships: {Array.from(area.dealers.keys()).join(', ') || 'No dealer attribution'}</small></div><b>{formatNumber(area.total)}</b>
+          </article>)}</div>
+        </SectionCard>
+        <SectionCard title="Dealer footprint by PIN / district" description="Each card shows that dealer’s contribution inside a shared customer area. Download the full PIN / district file for complete row-level detail.">
+          {topAreas.length ? <div className="analytics-area-dealer-grid">{topAreas.flatMap((area) => Array.from(area.dealers.entries()).map(([dealer, count]) => <article className="analytics-area-dealer-card" key={`${area.name}-${dealer}`}>
+            <span>{dealer}</span><strong>{formatNumber(count)}</strong><small>{area.name} · {area.locality}</small><small>{formatNumber(area.bookings)} bookings · {formatNumber(area.deliveries)} deliveries (retail)</small>
+          </article>))}</div> : <p className="analytics-empty-copy">No dealer-area detail matches the current filters.</p>}
+        </SectionCard>
       </div>
-      <div className="analytics-table-wrap"><h3>PIN-wise dealership details</h3><table className="data-table"><thead><tr><th>PIN</th><th>Locality / blocks</th><th>District</th><th>Dealer</th><th>Bookings</th><th>Deliveries (Retail)</th></tr></thead><tbody>{Array.from(locationTotals.values()).flatMap((area) => Array.from(area.dealers.entries()).map(([dealer, count]) => <tr key={`${area.name}-${dealer}`}><td>{area.name}</td><td>{area.locality}</td><td>{area.district}</td><td>{dealer}</td><td>{formatNumber(area.bookings)}</td><td>{formatNumber(area.deliveries)} <span className="analytics-pin-map__note">(selected: {formatNumber(count)})</span></td></tr>))}</tbody></table></div>
       <p className="analytics-pin-map__note">PIN and district boundaries, postal locality lookups, and outlet mapping are served from the Analytics schema. Customer PIN is a recorded sales footprint, not an exclusive dealer territory. District aggregates use the PIN’s postal master district; areas with multi-district PIN assignments may have incomplete district attribution.</p>
     </section>
   );

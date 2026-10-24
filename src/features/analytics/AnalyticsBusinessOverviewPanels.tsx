@@ -231,60 +231,29 @@ export default function AnalyticsBusinessOverviewPanels({ data }: { data: Audito
           </label>
         </div>
         {scorecardRows.length ? (
-          <div className="data-table-wrap analytics-table-wrap analytics-overview-scorecard-wrap">
-            <table className="data-table analytics-overview-scorecard">
-              <thead>
-                <tr>
-                  <th scope="col">{scope === 'dealer' ? 'Dealership' : 'Outlet'}</th>
-                  <th scope="col">Booked journeys</th>
-                  <th scope="col">Delivered journeys</th>
-                  <th scope="col">Eligible discount</th>
-                  <th scope="col">Actual discount</th>
-                  <th scope="col">Known excess</th>
-                  <th scope="col">Price / discount / invoice cases</th>
-                  <th scope="col">Unknown entitlements</th>
-                  <th scope="col">Dealer / customer insurance</th>
-                  <th scope="col">Accessories / VAS recorded</th>
-                  <th scope="col">Payment entries recorded</th>
-                  <th scope="col">Median delivery</th>
-                  <th scope="col">Journeys with findings</th>
-                </tr>
-              </thead>
-              <tbody>
-                {scorecardRows.map(({ row, exposure }) => {
-                  const outletRow = 'outlet_name' in row;
-                  const label = outletRow ? row.outlet_name : row.dealer_name;
-                  const context = outletRow
-                    ? row.dealer_name + (row.city ? ' · ' + row.city : '')
-                    : 'All reporting outlets';
-                  const deliveryPct = percent(row.delivered_cars, row.booked_cars);
-                  return (
-                    <tr key={outletRow ? row.dealer_id + ':' + row.outlet_id : row.dealer_id || row.dealer_name}>
-                      <th scope="row" className="analytics-overview-scorecard__name">
-                        <strong>{label || 'Unspecified'}</strong>
-                        <small>{context}</small>
-                      </th>
-                      <td>{formatNumber(row.booked_cars)}</td>
-                      <td>{formatNumber(row.delivered_cars)} <small>{deliveryPct}</small></td>
-                      <td>{formatMoney(row.standard_discount)}</td>
-                      <td>{formatMoney(row.actual_discount)}</td>
-                      <td className={numeric(exposure.known_excess_discount_amount) > 0 ? 'analytics-overview-scorecard__risk' : ''}>
-                        {formatMoney(exposure.known_excess_discount_amount)}
-                      </td>
-                      <td>
-                        {formatNumber(exposure.price_exception_journeys)} / {formatNumber(exposure.discount_exception_journeys)} / {formatNumber(exposure.invoice_conflict_journeys)}
-                      </td>
-                      <td>{formatNumber(exposure.unknown_discount_applications)}</td>
-                      <td>{formatNumber(row.inhouse_insurance)} / {formatNumber(row.outside_insurance)}</td>
-                      <td>{formatMoney(row.accessories_value)}</td>
-                      <td>{formatMoney(row.payment_collected)}</td>
-                      <td>{formatDays(row.median_delivery_days)}</td>
-                      <td>{formatNumber(row.journeys_with_findings)}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+          <div className="analytics-dealer-scorecards">
+            {scorecardRows.map(({ row, exposure }) => {
+              const outletRow = 'outlet_name' in row;
+              const label = outletRow ? row.outlet_name : row.dealer_name;
+              const context = outletRow ? row.dealer_name + (row.city ? ` · ${row.city}` : '') : 'All reporting outlets';
+              const deliveryPct = percent(row.delivered_cars, row.booked_cars);
+              const deliveryWidth = Math.min(100, row.booked_cars ? row.delivered_cars / row.booked_cars * 100 : 0);
+              const key = outletRow ? `${row.dealer_id}:${row.outlet_id}` : row.dealer_id || row.dealer_name;
+              return <article className={`analytics-dealer-scorecard${numeric(exposure.known_excess_discount_amount) > 0 ? ' analytics-dealer-scorecard--risk' : ''}`} key={key}>
+                <header><div><h3>{label || 'Unspecified'}</h3><p>{context}</p></div><span className="analytics-dealer-scorecard__findings">{formatNumber(row.journeys_with_findings)} journeys with findings</span></header>
+                <div className="analytics-dealer-scorecard__sales"><strong>{formatNumber(row.booked_cars)}</strong><span>Bookings</span><strong>{formatNumber(row.delivered_cars)}</strong><span>Deliveries</span><b>{deliveryPct}</b></div>
+                <div className="analytics-dealer-scorecard__progress" aria-label={`Delivery completion ${deliveryPct}`}><span style={{ width: `${deliveryWidth}%` }} /></div>
+                <div className="analytics-dealer-scorecard__metrics">
+                  <div className="analytics-dealer-scorecard__metric"><span>Known excess discount</span><strong>{formatMoney(exposure.known_excess_discount_amount)}</strong></div>
+                  <div className="analytics-dealer-scorecard__metric"><span>Actual / eligible discount</span><strong>{formatMoney(row.actual_discount)} / {formatMoney(row.standard_discount)}</strong></div>
+                  <div className="analytics-dealer-scorecard__metric"><span>Price · discount · invoice cases</span><strong>{formatNumber(exposure.price_exception_journeys)} · {formatNumber(exposure.discount_exception_journeys)} · {formatNumber(exposure.invoice_conflict_journeys)}</strong></div>
+                  <div className="analytics-dealer-scorecard__metric"><span>Unknown entitlements</span><strong>{formatNumber(exposure.unknown_discount_applications)}</strong></div>
+                  <div className="analytics-dealer-scorecard__metric"><span>Dealer / customer insurance</span><strong>{formatNumber(row.inhouse_insurance)} / {formatNumber(row.outside_insurance)}</strong></div>
+                  <div className="analytics-dealer-scorecard__metric"><span>Accessories / receipts recorded</span><strong>{formatMoney(row.accessories_value)} / {formatMoney(row.payment_collected)}</strong></div>
+                  <div className="analytics-dealer-scorecard__metric"><span>Median delivery time</span><strong>{formatDays(row.median_delivery_days)}</strong></div>
+                </div>
+              </article>;
+            })}
           </div>
         ) : (
           <p className="analytics-overview-empty">No dealer or outlet rows were returned for this project snapshot.</p>
@@ -336,36 +305,11 @@ export default function AnalyticsBusinessOverviewPanels({ data }: { data: Audito
           description="Open and acknowledged Audit Core pricing findings, ordered by severity and SLA. This list is actionable case work, separate from aggregate discount exposure."
         >
           {topExceptions.length ? (
-            <div className="data-table-wrap analytics-table-wrap">
-              <table className="data-table analytics-overview-exceptions">
-                <thead>
-                  <tr>
-                    <th scope="col">Journey</th>
-                    <th scope="col">Dealer / outlet</th>
-                    <th scope="col">Vehicle</th>
-                    <th scope="col">Finding</th>
-                    <th scope="col">Severity</th>
-                    <th scope="col">Status</th>
-                    <th scope="col">Owner</th>
-                    <th scope="col">SLA due</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {topExceptions.map((row, index) => (
-                    <tr key={row.finding_id || row.journey_id + ':' + row.rule_key + ':' + index}>
-                      <td>{row.journey_reference || row.journey_id.slice(0, 8)}</td>
-                      <td>{row.dealer_name} · {row.outlet_name}</td>
-                      <td>{row.model_name} · {row.variant_name}</td>
-                      <td>{row.title}</td>
-                      <td><span className={'analytics-severity-pill analytics-severity-pill--' + row.severity.toLowerCase()}>{row.severity}</span></td>
-                      <td>{row.finding_status}</td>
-                      <td>{row.owner_role_code || 'Unassigned'}</td>
-                      <td>{row.sla_due_at_utc ? new Date(row.sla_due_at_utc).toLocaleDateString('en-IN') : 'No SLA date'}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <div className="analytics-exception-cards">{topExceptions.map((row, index) => <article className="analytics-exception-card" key={row.finding_id || `${row.journey_id}:${row.rule_key}:${index}`}>
+              <header><strong>{row.journey_reference || row.journey_id.slice(0, 8)}</strong><span className={'analytics-severity-pill analytics-severity-pill--' + row.severity.toLowerCase()}>{row.severity}</span></header>
+              <h4>{row.title}</h4><p>{row.dealer_name} · {row.outlet_name} · {row.model_name} {row.variant_name}</p>
+              <footer><span>{row.finding_status} · {row.owner_role_code || 'Unassigned'}</span><strong>{row.sla_due_at_utc ? `SLA ${new Date(row.sla_due_at_utc).toLocaleDateString('en-IN')}` : 'No SLA date'}</strong></footer>
+            </article>)}</div>
           ) : (
             <p className="analytics-overview-empty">No active price, discount or invoice findings were returned for this snapshot.</p>
           )}
@@ -376,30 +320,9 @@ export default function AnalyticsBusinessOverviewPanels({ data }: { data: Audito
           description="Leading captured customer PINs, with dealership and outlet attribution."
         >
           {topPincodes.length ? (
-            <div className="data-table-wrap analytics-table-wrap">
-              <table className="data-table analytics-overview-pincodes">
-                <thead>
-                  <tr>
-                    <th scope="col">PIN code</th>
-                    <th scope="col">Dealer / outlet</th>
-                    <th scope="col">Booked</th>
-                    <th scope="col">Delivered</th>
-                    <th scope="col">Discount recorded</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {topPincodes.map((row) => (
-                    <tr key={row.customer_pincode + ':' + row.dealer_name + ':' + row.outlet_name}>
-                      <td>{row.customer_pincode}</td>
-                      <td>{row.dealer_name} · {row.outlet_name}</td>
-                      <td>{formatNumber(row.car_count)}</td>
-                      <td>{formatNumber(row.delivered_count)}</td>
-                      <td>{formatMoney(row.total_discount)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <ol className="analytics-ranked-list">{topPincodes.map((row, index) => <li className="analytics-ranked-list__item" key={`${row.customer_pincode}:${row.dealer_name}:${row.outlet_name}`}>
+              <span className="analytics-ranked-list__rank">{index + 1}</span><span className="analytics-ranked-list__copy"><strong>{row.customer_pincode}</strong><small>{row.dealer_name} · {row.outlet_name} · {formatNumber(row.delivered_count)} deliveries · {formatMoney(row.total_discount)} discount recorded</small></span><span className="analytics-ranked-list__value">{formatNumber(row.car_count)} booked</span>
+            </li>)}</ol>
           ) : (
             <p className="analytics-overview-empty">No usable six-digit customer PINs were captured for booked journeys in this snapshot.</p>
           )}

@@ -133,11 +133,11 @@ function RankedList({ title, description, items }: { title: string; description?
 function ReportTable({ headers, rows }: { headers: string[]; rows: Array<Array<string | number>> }) {
   if (!rows.length) return <p>No data in the current snapshot.</p>;
   return (
-    <div className="data-table-wrap analytics-table-wrap">
-      <table className="data-table">
-        <thead><tr>{headers.map((header) => <th key={header}>{header}</th>)}</tr></thead>
-        <tbody>{rows.map((row, rowIndex) => <tr key={rowIndex}>{row.map((cell, cellIndex) => <td key={cellIndex}>{cell}</td>)}</tr>)}</tbody>
-      </table>
+    <div className="analytics-record-grid">
+      {rows.map((row, rowIndex) => <article className="analytics-record-card" key={rowIndex}>
+        <h4>{String(row[0] ?? headers[0] ?? 'Record')}</h4>
+        <dl>{headers.slice(1).map((header, index) => <div key={`${rowIndex}-${header}`}><dt>{header}</dt><dd>{String(row[index + 1] ?? 'Unavailable')}</dd></div>)}</dl>
+      </article>)}
     </div>
   );
 }
@@ -404,39 +404,13 @@ export default function AnalyticsReportViews({ payload }: { payload: AnalyticsRe
           <AnalyticsBarChart rows={uploadRows} valueLabel="Journeys uploaded" />
         </SectionCard>
 
-        <SectionCard title="Journey outcomes by uploader" description="Each journey is attributed to the Audit Core created-by fields. Rates use journey uploads as the booking denominator and booked journeys as the delivery denominator.">
-          <div className="data-table-wrap analytics-table-wrap">
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th>Creator</th>
-                  <th>Journeys Uploaded</th>
-                  <th>Bookings</th>
-                  <th>Booking Rate</th>
-                  <th>Delivery Records</th>
-                  <th>Delivered</th>
-                  <th>Delivery Completion</th>
-                  <th>Avg Days to Delivery Record</th>
-                  <th>Avg Days to Delivery</th>
-                </tr>
-              </thead>
-              <tbody>
-                {summary.map((row) => (
-                  <tr key={row.actor_id || row.employee_name}>
-                    <td><strong>{row.employee_name}</strong></td>
-                    <td>{formatNumber(row.journeys_created)}</td>
-                    <td>{formatNumber(row.bookings)}</td>
-                    <td>{row.booking_rate_pct == null ? 'Unavailable' : `${Number(row.booking_rate_pct).toFixed(1)}%`}</td>
-                    <td>{formatNumber(row.deliveries_started)}</td>
-                    <td>{formatNumber(row.deliveries_completed)}</td>
-                    <td>{row.delivery_completion_pct == null ? 'Unavailable' : `${Number(row.delivery_completion_pct).toFixed(1)}%`}</td>
-                    <td>{formatDays(row.avg_days_to_delivery_start)}</td>
-                    <td>{formatDays(row.avg_days_journey_to_delivery)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+        <SectionCard title="Journey outcomes by uploader" description="Each journey is attributed to the Audit Core created-by fields. Compare volume and booking conversion by uploader; delivery completion uses a recorded actual completion timestamp.">
+          <div className="analytics-uploaders-grid">{summary.map((row) => <article className="analytics-uploader-card" key={row.actor_id || row.employee_name}>
+            <h4>{row.employee_name}</h4>
+            <div className="analytics-uploader-card__headline"><strong>{formatNumber(row.journeys_created)}</strong><span>journeys uploaded</span></div>
+            <div className="analytics-uploader-card__rates"><div><span>Bookings</span><strong>{formatNumber(row.bookings)}</strong></div><div><span>Booking rate</span><strong>{row.booking_rate_pct == null ? 'Unavailable' : `${Number(row.booking_rate_pct).toFixed(1)}%`}</strong></div><div><span>Completed delivery records</span><strong>{formatNumber(row.deliveries_completed)}</strong></div><div><span>Delivery completion</span><strong>{row.delivery_completion_pct == null ? 'Unavailable' : `${Number(row.delivery_completion_pct).toFixed(1)}%`}</strong></div></div>
+            <small>Avg. to delivery record: {formatDays(row.avg_days_to_delivery_start)} · Avg. to delivery: {formatDays(row.avg_days_journey_to_delivery)}</small>
+          </article>)}</div>
         </SectionCard>
 
       </>;

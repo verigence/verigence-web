@@ -715,6 +715,222 @@
   padding: 0 18px 18px;
 }
 
+.analytics-record-grid,
+.analytics-area-cards,
+.analytics-area-dealer-grid,
+.analytics-dealer-scorecards,
+.analytics-exception-cards,
+.analytics-uploaders-grid,
+.analytics-vas-state-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
+  margin-top: 12px;
+}
+
+.analytics-record-card,
+.analytics-area-card,
+.analytics-area-dealer-card,
+.analytics-dealer-scorecard,
+.analytics-exception-card,
+.analytics-uploader-card,
+.analytics-vas-state-card {
+  min-width: 0;
+  padding: 14px 16px;
+  border: 1px solid #dce6ef;
+  border-radius: 14px;
+  background: linear-gradient(145deg, #fff, #f7fafc);
+  box-shadow: 0 4px 16px rgba(28, 57, 86, 0.045);
+}
+
+.analytics-record-card h4,
+.analytics-uploader-card h4,
+.analytics-exception-card h4 {
+  margin: 0 0 10px;
+  color: #183b5b;
+  font-size: 13px;
+}
+
+.analytics-record-card dl {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 8px;
+  margin: 0;
+}
+
+.analytics-record-card dl div,
+.analytics-uploader-card__rates div,
+.analytics-dealer-scorecard__metric {
+  min-width: 0;
+  padding: 9px 10px;
+  border-radius: 10px;
+  background: #f0f5f9;
+}
+
+.analytics-record-card dt,
+.analytics-uploader-card__rates span,
+.analytics-dealer-scorecard__metric span {
+  color: #71859a;
+  font-size: 10px;
+}
+
+.analytics-record-card dd,
+.analytics-uploader-card__rates strong,
+.analytics-dealer-scorecard__metric strong {
+  display: block;
+  margin: 4px 0 0;
+  color: #203f5e;
+  font-size: 13px;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.analytics-area-card {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+}
+
+.analytics-area-card__rank {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  border-radius: 50%;
+  background: #e7eff7;
+  color: #21496c;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.analytics-area-card div,
+.analytics-area-dealer-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.analytics-area-card strong,
+.analytics-area-dealer-card strong {
+  color: #173d5d;
+  font-size: 14px;
+}
+
+.analytics-area-card small,
+.analytics-area-dealer-card small,
+.analytics-uploader-card small {
+  color: #657b90;
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.analytics-area-card b {
+  color: #0d718a;
+  font-size: 17px;
+}
+
+.analytics-area-dealer-card > span {
+  color: #526b82;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.analytics-dealer-scorecard {
+  border-left: 4px solid #2085a0;
+}
+
+.analytics-dealer-scorecard--risk {
+  border-left-color: #c75b4b;
+}
+
+.analytics-dealer-scorecard header,
+.analytics-exception-card header,
+.analytics-exception-card footer,
+.analytics-vas-state-card header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.analytics-dealer-scorecard h3 {
+  margin: 0;
+  color: #173d5d;
+  font-size: 15px;
+}
+
+.analytics-dealer-scorecard header p,
+.analytics-exception-card p {
+  margin: 4px 0 0;
+  color: #71859a;
+  font-size: 11px;
+}
+
+.analytics-dealer-scorecard__findings {
+  color: #72524d;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.analytics-dealer-scorecard__sales {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-top: 14px;
+  color: #697f94;
+  font-size: 11px;
+}
+
+.analytics-dealer-scorecard__sales strong {
+  color: #173d5d;
+  font-size: 22px;
+}
+
+.analytics-dealer-scorecard__sales b {
+  margin-left: auto;
+  color: #087c68;
+  font-size: 14px;
+}
+
+.analytics-dealer-scorecard__progress {
+  height: 6px;
+  margin: 8px 0 12px;
+  overflow: hidden;
+  border-radius: 99px;
+  background: #e5edf3;
+}
+
+.analytics-dealer-scorecard__progress span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #1a73b8, #26a48a);
+}
+
+.analytics-dealer-scorecard__metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 8px;
+}
+
+.analytics-exception-card { border-left: 4px solid #c35e4b; }
+.analytics-exception-card header > strong { color: #173d5d; font-size: 12px; }
+.analytics-exception-card footer { margin-top: 12px; color: #60778d; font-size: 10px; }
+.analytics-exception-card footer strong { color: #425f78; }
+
+.analytics-uploader-card__headline { display: flex; align-items: baseline; gap: 8px; color: #71859a; font-size: 11px; }
+.analytics-uploader-card__headline strong { color: #0c6d87; font-size: 27px; }
+.analytics-uploader-card__rates { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 12px 0; }
+
+.analytics-vas-state-card { border-top: 3px solid #1b8794; }
+.analytics-vas-state-card header { display: grid; gap: 3px; margin-bottom: 12px; }
+.analytics-vas-state-card header span { color: #13808c; font-size: 10px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+.analytics-vas-state-card header strong { color: #23445f; font-size: 12px; }
+.analytics-vas-state-card > div { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 8px 0; border-top: 1px solid #e7eef3; }
+.analytics-vas-state-card > div span { color: #6a7f92; font-size: 11px; }
+.analytics-vas-state-card > div strong { color: #163e5e; font-size: 17px; }
+
 .analytics-detail__search {
   display: flex;
   flex-wrap: wrap;

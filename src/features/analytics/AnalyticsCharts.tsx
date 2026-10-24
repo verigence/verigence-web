@@ -95,6 +95,57 @@ export function AnalyticsBarChart({
   );
 }
 
+export function AnalyticsSankeyChart({
+  nodes,
+  links,
+  height = 520,
+  emptyText = 'No flow data is available in this snapshot.',
+}: {
+  nodes: Array<{ name: string; color?: string; depth?: number }>;
+  links: Array<{ source: string; target: string; value: number }>;
+  height?: number;
+  emptyText?: string;
+}) {
+  const usableLinks = links.filter((link) => finite(link.value) > 0);
+  if (!usableLinks.length) return emptyChart(emptyText);
+
+  const nodeNames = new Set(usableLinks.flatMap((link) => [link.source, link.target]));
+  const option = {
+    textStyle: { fontFamily: chartFont },
+    tooltip: {
+      trigger: 'item',
+      triggerOn: 'mousemove',
+      formatter: (params: { data?: { source?: string; target?: string; value?: number }; name?: string; value?: number }) => {
+        const item = params.data;
+        if (item?.source && item.target) return `${item.source}<br/>→ ${item.target}<br/>Journeys: ${tooltipFormatter('count', finite(item.value))}`;
+        return `${params.name || ''}<br/>Journeys: ${tooltipFormatter('count', finite(params.value))}`;
+      },
+    },
+    series: [{
+      type: 'sankey',
+      data: nodes.filter((node) => nodeNames.has(node.name)).map((node) => ({ ...node, itemStyle: node.color ? { color: node.color } : undefined })),
+      links: usableLinks,
+      nodeAlign: 'justify',
+      nodeWidth: 20,
+      nodeGap: 14,
+      layoutIterations: 32,
+      emphasis: { focus: 'adjacency' },
+      lineStyle: { color: 'gradient', opacity: 0.42, curveness: 0.48 },
+      label: {
+        color: '#31506e',
+        fontFamily: chartFont,
+        fontSize: 11,
+        formatter: (params: { name?: string }) => {
+          const name = params.name || '';
+          return name.length > 34 ? `${name.slice(0, 31)}…` : name;
+        },
+      },
+    }],
+  };
+
+  return <ReactECharts option={option} style={{ height, width: '100%' }} notMerge lazyUpdate />;
+}
+
 export function AnalyticsDonutChart({
   rows,
   valueLabel,

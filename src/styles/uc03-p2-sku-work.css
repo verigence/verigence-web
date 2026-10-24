@@ -1,0 +1,34 @@
+/* DealGuard SKU work: the Team Lead's and Reviewer's list of unsettled
+   vehicles. Scoped to .p2w and built on its palette tokens. */
+
+.p2w .p2w-skuwork__tiles {
+  display: grid; gap: 10px;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+}
+.p2w .p2w-skuwork__tile {
+  display: flex; flex-direction: column; gap: 2px; padding: 12px;
+  border: 1px solid var(--p2w-line); border-radius: 10px; background: #fff;
+  color: var(--p2w-ink); font: inherit; text-align: left; cursor: pointer;
+}
+.p2w .p2w-skuwork__tile:hover { background: var(--p2w-soft); }
+.p2w .p2w-skuwork__tile.is-active { border-color: var(--p2w-action); box-shadow: var(--p2w-shadow); }
+.p2w .p2w-skuwork__tile.is-worst .p2w-skuwork__count { color: var(--p2w-danger); }
+.p2w .p2w-skuwork__tile small { color: var(--p2w-muted); font-size: .76rem; }
+.p2w .p2w-skuwork__count { font-size: 1.5rem; font-weight: 800; line-height: 1.1; }
+
+.p2w .p2w-skuwork__list td { vertical-align: top; font-size: .85rem; }
+.p2w .p2w-skuwork__list tr.is-worst td { background: var(--p2w-danger-soft, #fff5f5); }
+
+.p2w .p2w-skuwork__picker { padding: 10px 0; }
+.p2w .p2w-skuwork__actions { display: flex; align-items: center; gap: 12px; margin-top: 10px; }
+
+.p2w .p2w-warn { color: var(--p2w-warning-text, #8a5a00); }
+
+.p2w .p2w-sev {
+  display: inline-block; padding: 0 6px; border-radius: 999px;
+  font-size: .68rem; font-weight: 800; letter-spacing: .02em;
+  background: var(--p2w-soft); color: var(--p2w-muted);
+}
+.p2w .p2w-sev--critical { background: #fde7e7; color: #a01818; }
+.p2w .p2w-sev--high { background: #fdefe0; color: #8a4b00; }
+.p2w .p2w-sev--medium { background: var(--p2w-soft); color: var(--p2w-action-soft-text); }

@@ -179,6 +179,18 @@ const p2DiscountVarianceItem: NavItem = {
   roles: ['TL', 'PM', 'REVIEWER'],
 };
 
+// The vehicles that are not settled: several options, no price available, no
+// usable booking date, or a price that contradicts the SKU set. A Team Lead
+// and a Reviewer both see it and both can set the SKU from it (product owner,
+// 2026-10-24) -- they hold the same read permission and write through the same
+// confirm-sku endpoint a PC uses.
+const p2SkuWorkItem: NavItem = {
+  to: '/p2/sku-work',
+  label: 'SKU work',
+  mark: 'SK',
+  roles: ['TL', 'PM', 'REVIEWER'],
+};
+
 const p2PriceMastersItem: NavItem = {
   to: '/p2/price-masters',
   label: 'Price Masters',
@@ -204,6 +216,7 @@ const p2Group: NavGroup = {
     p2DuplicatesItem,
     p2ReviewActivityItem,
     p2DiscountVarianceItem,
+    p2SkuWorkItem,
     p2PriceMastersItem,
     p2MasterDocumentsItem,
   ],

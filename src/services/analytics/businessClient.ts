@@ -371,6 +371,22 @@ interface AnalyticsBusinessInsurance {
     insurance_by: string;
     policy_count: number;
   }>;
+  by_source_outlet: Array<{
+    dealer_id: string | null;
+    dealer_name: string;
+    outlet_id: string | null;
+    outlet_name: string;
+    source_assessment: string;
+    insurance_by: string;
+    insurance_source: string;
+    self_insurance_flag: string;
+    misp_code: string;
+    intermediary_name: string;
+    insurer_name: string;
+    policy_count: number;
+    premium_populated: number;
+    premium_amount: NumericValue;
+  }>;
   by_route: Array<{
     route: string;
     policy_count: number;
@@ -441,6 +457,81 @@ interface AnalyticsBusinessVas {
     actual_amount: NumericValue;
     avg_record_amount: NumericValue;
   }>;
+  warranty_rsa: {
+    ew_record_count: number;
+    ew_journey_count: number;
+    ew_four_year_journey_count: number;
+    ew_five_year_journey_count: number;
+    ew_term_not_recorded_journey_count: number;
+    rsa_record_count: number;
+    rsa_journey_count: number;
+    by_product: Array<{
+      dealer_id: string | null;
+      dealer_name: string;
+      outlet_id: string | null;
+      outlet_name: string;
+      model_name: string;
+      variant_name: string;
+      product_type: 'EW' | 'RSA';
+      source_record_count: number;
+      journey_count: number;
+      four_year_journeys: number;
+      five_year_journeys: number;
+      term_not_recorded_journeys: number;
+      addon_source_journeys: number;
+      invoice_source_journeys: number;
+    }>;
+  };
+  booking_invoice_reconciliation: {
+    by_category: Array<{
+      category: 'EW' | 'INSURANCE' | 'RSA' | 'FASTAG' | 'ACCESSORIES';
+      booked_proposal_journeys: number;
+      delivered_proposal_journeys: number;
+      delivery_invoice_purchase_journeys: number;
+      proposed_and_invoiced_journeys: number;
+      unverified_invoice_evidence_journeys: number;
+      proposal_with_unverified_invoice_evidence_journeys: number;
+      proposal_not_observed_on_invoice_journeys: number;
+      proposal_without_invoice_evidence_journeys: number;
+      invoice_only_journeys: number;
+      invoice_covered_delivered_journeys: number;
+      proposal_invoice_match_pct: number | null;
+    }>;
+    by_dealer_model_variant: Array<{
+      dealer_id: string | null;
+      dealer_name: string;
+      outlet_id: string | null;
+      outlet_name: string;
+      model_name: string;
+      variant_name: string;
+      category: 'EW' | 'INSURANCE' | 'RSA' | 'FASTAG' | 'ACCESSORIES';
+      booked_proposal_journeys: number;
+      delivered_proposal_journeys: number;
+      delivery_invoice_purchase_journeys: number;
+      proposed_and_invoiced_journeys: number;
+      unverified_invoice_evidence_journeys: number;
+      proposal_with_unverified_invoice_evidence_journeys: number;
+      proposal_not_observed_on_invoice_journeys: number;
+      proposal_without_invoice_evidence_journeys: number;
+      invoice_only_journeys: number;
+      invoice_purposes: string | null;
+      unverified_invoice_purposes: string | null;
+    }>;
+    invoice_coverage: {
+      delivered_journeys: number;
+      delivered_journeys_with_tax_invoice_lines: number;
+      delivery_tax_invoice_documents: number;
+      delivery_tax_invoice_lines: number;
+      unclassified_tax_invoice_lines: number;
+      delivered_journeys_with_unverified_vas_evidence: number;
+      unverified_invoice_documents: number;
+      unverified_invoice_lines: number;
+      classified_unverified_vas_lines: number;
+      unclassified_unverified_invoice_lines: number;
+      invoice_coverage_pct: number | null;
+    };
+    definition: string;
+  };
   accessory_cost_by_product: Array<{
     dealer_name: string;
     outlet_name: string;

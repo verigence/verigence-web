@@ -166,10 +166,13 @@ function AnalyticsAddonsReport({ data }: { data: AnalyticsVasData }) {
         <p className="analytics-footnote">
           Confirmed tax-invoice evidence covers {formatNumber(invoiceCoverage.delivered_journeys_with_tax_invoice_lines)} of {formatNumber(invoiceCoverage.delivered_journeys)} completed deliveries ({formatPercent(invoiceCoverage.invoice_coverage_pct)}), across {formatNumber(invoiceCoverage.delivery_tax_invoice_documents)} documents and {formatNumber(invoiceCoverage.delivery_tax_invoice_lines)} lines. {formatNumber(invoiceCoverage.delivered_journeys_with_unverified_vas_evidence)} delivered journeys have VAS-like lines on {formatNumber(invoiceCoverage.unverified_invoice_documents)} invoice documents with unknown invoice nature ({formatNumber(invoiceCoverage.classified_unverified_vas_lines)} category-matched lines); these are neither counted as bought nor treated as missing. {formatNumber(invoiceCoverage.unclassified_tax_invoice_lines)} confirmed tax-invoice lines and {formatNumber(invoiceCoverage.unclassified_unverified_invoice_lines)} unknown-nature invoice lines remain unclassified.
         </p>
+        <p className="analytics-footnote">
+          Confirmed match rate uses only delivered proposals with confirmed invoice coverage and no category-matched unverified invoice evidence. All counts represent distinct journeys; the accessory item detail below shows invoice quantities.
+        </p>
         <DetailTable
           title="VAS proposal to invoice reconciliation by category"
           defaultOpen
-          headers={['VAS', 'Booking proposals', 'Delivered proposals', 'Bought on invoice', 'Matched', 'Unverified invoice evidence', 'Not observed on invoice', 'Awaiting invoice evidence', 'Match rate']}
+          headers={['VAS', 'Booking proposals', 'Delivered proposals', 'Bought on invoice', 'Matched', 'Unverified invoice evidence', 'Not observed on invoice', 'Awaiting invoice evidence', 'Confirmed match rate']}
           rows={reconciliation.by_category.map((row) => [
             humanize(row.category),
             formatNumber(row.booked_proposal_journeys),

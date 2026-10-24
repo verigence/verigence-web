@@ -160,22 +160,23 @@ function AnalyticsAddonsReport({ data }: { data: AnalyticsVasData }) {
     <>
       <SectionCard
         title="Booking proposal vs delivery invoice"
-        description="One project-scoped reconciliation of captured VAS records on booked journeys against VAS found on confirmed tax-invoice lines for completed deliveries."
+        description="One project-scoped reconciliation of captured booking VAS proposals against completed-delivery invoices. Only confirmed tax invoices count as purchases; category evidence on an invoice with unknown nature is shown for review."
       >
         <p className="analytics-footnote">{reconciliation.definition}</p>
         <p className="analytics-footnote">
-          Invoice evidence covers {formatNumber(invoiceCoverage.delivered_journeys_with_tax_invoice_lines)} of {formatNumber(invoiceCoverage.delivered_journeys)} completed deliveries ({formatPercent(invoiceCoverage.invoice_coverage_pct)}); {formatNumber(invoiceCoverage.delivery_tax_invoice_documents)} invoice documents and {formatNumber(invoiceCoverage.delivery_tax_invoice_lines)} lines were captured. {formatNumber(invoiceCoverage.unclassified_tax_invoice_lines)} invoice lines could not be classified. A proposal is called “not observed” only where invoice lines exist for that delivered journey. Missing invoices or unclassified descriptions remain unknown.
+          Confirmed tax-invoice evidence covers {formatNumber(invoiceCoverage.delivered_journeys_with_tax_invoice_lines)} of {formatNumber(invoiceCoverage.delivered_journeys)} completed deliveries ({formatPercent(invoiceCoverage.invoice_coverage_pct)}), across {formatNumber(invoiceCoverage.delivery_tax_invoice_documents)} documents and {formatNumber(invoiceCoverage.delivery_tax_invoice_lines)} lines. {formatNumber(invoiceCoverage.delivered_journeys_with_unverified_vas_evidence)} delivered journeys have VAS-like lines on {formatNumber(invoiceCoverage.unverified_invoice_documents)} invoice documents with unknown invoice nature ({formatNumber(invoiceCoverage.classified_unverified_vas_lines)} category-matched lines); these are neither counted as bought nor treated as missing. {formatNumber(invoiceCoverage.unclassified_tax_invoice_lines)} confirmed tax-invoice lines remain unclassified.
         </p>
         <DetailTable
           title="VAS proposal to invoice reconciliation by category"
           defaultOpen
-          headers={['VAS', 'Booking proposals', 'Delivered proposals', 'Bought on invoice', 'Matched', 'Not observed on invoice', 'Awaiting invoice evidence', 'Match rate']}
+          headers={['VAS', 'Booking proposals', 'Delivered proposals', 'Bought on invoice', 'Matched', 'Unverified invoice evidence', 'Not observed on invoice', 'Awaiting invoice evidence', 'Match rate']}
           rows={reconciliation.by_category.map((row) => [
             humanize(row.category),
             formatNumber(row.booked_proposal_journeys),
             formatNumber(row.delivered_proposal_journeys),
             formatNumber(row.delivery_invoice_purchase_journeys),
             formatNumber(row.proposed_and_invoiced_journeys),
+            formatNumber(row.unverified_invoice_evidence_journeys),
             formatNumber(row.proposal_not_observed_on_invoice_journeys),
             formatNumber(row.proposal_without_invoice_evidence_journeys),
             formatPercent(row.proposal_invoice_match_pct),
@@ -183,7 +184,7 @@ function AnalyticsAddonsReport({ data }: { data: AnalyticsVasData }) {
         />
         <DetailTable
           title="Outlet, model and variant reconciliation"
-          headers={['Dealer', 'Outlet', 'Model', 'Variant', 'VAS', 'Booking proposals', 'Bought on invoice', 'Matched', 'Not observed on invoice', 'Awaiting invoice evidence', 'Invoice purpose']}
+          headers={['Dealer', 'Outlet', 'Model', 'Variant', 'VAS', 'Booking proposals', 'Bought on invoice', 'Matched', 'Unverified invoice evidence', 'Proposals needing review', 'Not observed on invoice', 'Awaiting invoice evidence', 'Confirmed invoice purpose', 'Unverified invoice purpose']}
           rows={reconciliation.by_dealer_model_variant.map((row) => [
             row.dealer_name,
             row.outlet_name,
@@ -193,9 +194,12 @@ function AnalyticsAddonsReport({ data }: { data: AnalyticsVasData }) {
             formatNumber(row.booked_proposal_journeys),
             formatNumber(row.delivery_invoice_purchase_journeys),
             formatNumber(row.proposed_and_invoiced_journeys),
+            formatNumber(row.unverified_invoice_evidence_journeys),
+            formatNumber(row.proposal_with_unverified_invoice_evidence_journeys),
             formatNumber(row.proposal_not_observed_on_invoice_journeys),
             formatNumber(row.proposal_without_invoice_evidence_journeys),
-            row.invoice_purposes || 'No classified invoice purpose',
+            row.invoice_purposes || 'None confirmed',
+            row.unverified_invoice_purposes || 'None',
           ])}
         />
       </SectionCard>

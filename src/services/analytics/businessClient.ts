@@ -489,6 +489,8 @@ interface AnalyticsBusinessVas {
       delivered_proposal_journeys: number;
       delivery_invoice_purchase_journeys: number;
       proposed_and_invoiced_journeys: number;
+      unverified_invoice_evidence_journeys: number;
+      proposal_with_unverified_invoice_evidence_journeys: number;
       proposal_not_observed_on_invoice_journeys: number;
       proposal_without_invoice_evidence_journeys: number;
       invoice_only_journeys: number;
@@ -507,10 +509,13 @@ interface AnalyticsBusinessVas {
       delivered_proposal_journeys: number;
       delivery_invoice_purchase_journeys: number;
       proposed_and_invoiced_journeys: number;
+      unverified_invoice_evidence_journeys: number;
+      proposal_with_unverified_invoice_evidence_journeys: number;
       proposal_not_observed_on_invoice_journeys: number;
       proposal_without_invoice_evidence_journeys: number;
       invoice_only_journeys: number;
       invoice_purposes: string | null;
+      unverified_invoice_purposes: string | null;
     }>;
     invoice_coverage: {
       delivered_journeys: number;
@@ -518,6 +523,11 @@ interface AnalyticsBusinessVas {
       delivery_tax_invoice_documents: number;
       delivery_tax_invoice_lines: number;
       unclassified_tax_invoice_lines: number;
+      delivered_journeys_with_unverified_vas_evidence: number;
+      unverified_invoice_documents: number;
+      unverified_invoice_lines: number;
+      classified_unverified_vas_lines: number;
+      unclassified_unverified_invoice_lines: number;
       invoice_coverage_pct: number | null;
     };
     definition: string;

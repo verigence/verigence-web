@@ -170,6 +170,7 @@ function AnalyticsIntermediaryChart({ rows }: { rows: AnalyticsInsuranceSourceRo
 function AnalyticsAddonsReport({ data }: { data: AnalyticsVasData }) {
   const [selectedDealer, setSelectedDealer] = useState('All dealerships');
   const [selectedOutlet, setSelectedOutlet] = useState('All outlets');
+  const [vasMetric, setVasMetric] = useState<'proposals' | 'invoice' | 'awaiting'>('proposals');
   const accessoryItems = data.accessory_items;
   const accessoryLineCoverage = data.accessory_line_coverage;
   const dealers = useMemo(
@@ -204,19 +205,29 @@ function AnalyticsAddonsReport({ data }: { data: AnalyticsVasData }) {
       label: `${row.model_name} · ${row.variant_name} / ${row.item_description}${row.item_code ? ` · ${row.item_code}` : ''}`,
       value: numeric(row.invoiced_quantity),
     }));
-  const vasAttachGroups = new Map<string, { label: string; category: string; proposals: number; invoice: number; awaiting: number }>();
+  const vasAttachGroups = new Map<string, { label: string; dealer: string; outlet: string; category: string; proposals: number; invoice: number; awaiting: number }>();
   reconciliation.by_dealer_model_variant
     .filter((row) => ['EW', 'RSA', 'FASTAG', 'ACCESSORIES'].includes(row.category))
     .filter((row) => dealerOutletInScope(row.dealer_name, row.outlet_name))
     .forEach((row) => {
       const label = `${row.dealer_name} / ${row.outlet_name} · ${humanize(row.category)}`;
-      const current = vasAttachGroups.get(label) || { label, category: row.category, proposals: 0, invoice: 0, awaiting: 0 };
+      const current = vasAttachGroups.get(label) || { label, dealer: row.dealer_name, outlet: row.outlet_name, category: row.category, proposals: 0, invoice: 0, awaiting: 0 };
       current.proposals += row.booked_proposal_journeys;
       current.invoice += row.delivery_invoice_purchase_journeys;
       current.awaiting += row.invoice_awaiting_journeys;
       vasAttachGroups.set(label, current);
     });
   const vasStateRows = Array.from(vasAttachGroups.values()).sort((a, b) => a.category.localeCompare(b.category) || a.label.localeCompare(b.label));
+  const vasCategories = ['EW', 'RSA', 'FASTAG', 'ACCESSORIES'];
+  const vasOutlets = Array.from(new Set(vasStateRows.map((row) => `${row.dealer} / ${row.outlet}`))).sort();
+  const vasMetricLabels = { proposals: 'Booking proposals', invoice: 'Confirmed invoice purchases', awaiting: 'Invoice awaiting' };
+  const vasHeatmapCells: Array<[number, number, number]> = [];
+  vasStateRows.forEach((row) => {
+    const x = vasCategories.indexOf(row.category);
+    const y = vasOutlets.indexOf(`${row.dealer} / ${row.outlet}`);
+    const value = row[vasMetric];
+    if (x >= 0 && y >= 0 && value > 0) vasHeatmapCells.push([x, y, value]);
+  });
   const ewTermGroups = new Map<string, { label: string; fourYear: number; fiveYear: number; unknown: number }>();
   warrantyRsa.by_product
     .filter((row) => row.product_type === 'EW' && dealerOutletInScope(row.dealer_name, row.outlet_name))
@@ -328,7 +339,15 @@ function AnalyticsAddonsReport({ data }: { data: AnalyticsVasData }) {
         </SectionCard>
       </div>
 
-      <SectionCard title="VAS by outlet · business evidence states" description="Compare proposal demand, confirmed VAS invoice purchases, and bookings still awaiting a delivery record. This view does not infer a missing purchase when invoice evidence is absent.">
+      <SectionCard title="VAS sold / proposed · dealer and outlet heatmap" description="Compare the selected journey count across EW, RSA, FASTAG, and accessories for each dealership/outlet. Use the measure selector to switch among captured booking proposals, confirmed tax-invoice purchases, and invoice awaiting.">
+        <label className="analytics-chart-measure">Measure<select value={vasMetric} onChange={(event) => setVasMetric(event.target.value as typeof vasMetric)}><option value="proposals">Booking proposals</option><option value="invoice">Confirmed invoice purchases</option><option value="awaiting">Invoice awaiting</option></select></label>
+        <AnalyticsHeatmap
+          xLabels={['EW', 'RSA', 'FASTAG', 'Accessories']}
+          yLabels={vasOutlets}
+          cells={vasHeatmapCells}
+          valueLabel={vasMetricLabels[vasMetric]}
+          emptyText="No VAS counts are available for the selected dealership/outlet and measure."
+        />
         {vasStateRows.length ? <div className="analytics-vas-state-grid">{vasStateRows.map((row) => <article className="analytics-vas-state-card" key={row.label}>
           <header><span>{humanize(row.category)}</span><strong>{row.label}</strong></header>
           <div><span>Booking proposal</span><strong>{formatNumber(row.proposals)}</strong></div>

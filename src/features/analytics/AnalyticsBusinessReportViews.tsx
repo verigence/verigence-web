@@ -1,5 +1,7 @@
+import { useMemo, useState } from 'react';
 import SectionCard from '../../components/SectionCard';
 import type { AnalyticsBusinessReportPayload, NumericValue, PricingIntegrityReport } from '../../services/analytics/businessClient';
+import AnalyticsOdishaPinMap from './AnalyticsOdishaPinMap';
 import {
   AnalyticsBarChart,
   AnalyticsBubbleChart,
@@ -81,22 +83,217 @@ function DetailTable({ title = 'View underlying detail', headers, rows, defaultO
   rows: Array<Array<string | number>>;
   defaultOpen?: boolean;
 }) {
+  const [query, setQuery] = useState('');
+  const filteredRows = useMemo(() => {
+    const normalizedQuery = query.trim().toLocaleLowerCase();
+    if (!normalizedQuery) return rows;
+    return rows.filter((row) => row.some((cell) => String(cell).toLocaleLowerCase().includes(normalizedQuery)));
+  }, [query, rows]);
+
   return (
     <details className="analytics-detail" open={defaultOpen}>
       <summary>{title}</summary>
       <div className="analytics-detail__body">
+        {rows.length > 10 && (
+          <div className="analytics-detail__search">
+            <label>
+              Search this table
+              <input
+                type="search"
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="Search dealer, model, code, item, or value"
+              />
+            </label>
+            <span>Showing {formatNumber(filteredRows.length)} of {formatNumber(rows.length)} rows</span>
+          </div>
+        )}
         <div className="data-table-wrap analytics-table-wrap">
           <table className="data-table">
             <thead><tr>{headers.map((header) => <th key={header}>{header}</th>)}</tr></thead>
             <tbody>
-              {rows.length > 0
-                ? rows.map((row, rowIndex) => <tr key={rowIndex}>{row.map((cell, cellIndex) => <td key={cellIndex}>{cell}</td>)}</tr>)
+              {filteredRows.length > 0
+                ? filteredRows.map((row, rowIndex) => <tr key={rowIndex}>{row.map((cell, cellIndex) => <td key={cellIndex}>{cell}</td>)}</tr>)
+                : rows.length > 0
+                  ? <tr><td className="analytics-table-empty" colSpan={headers.length}>No rows match this search.</td></tr>
                 : <tr><td className="analytics-table-empty" colSpan={headers.length}>No rows are available for this report in the selected project snapshot. Confirm the project scope shown above.</td></tr>}
           </tbody>
           </table>
         </div>
       </div>
     </details>
+  );
+}
+
+type AnalyticsVasData = Extract<AnalyticsBusinessReportPayload, { kind: 'addons' }>['data'];
+
+function AnalyticsAddonsReport({ data }: { data: AnalyticsVasData }) {
+  const [selectedDealer, setSelectedDealer] = useState('All dealerships');
+  const [selectedOutlet, setSelectedOutlet] = useState('All outlets');
+  const accessoryItems = data.accessory_items;
+  const accessoryLineCoverage = data.accessory_line_coverage;
+  const dealers = useMemo(
+    () => Array.from(new Set(accessoryItems.map((row) => row.dealer_name))).sort((a, b) => a.localeCompare(b)),
+    [accessoryItems],
+  );
+  const outlets = useMemo(
+    () => Array.from(new Set(accessoryItems
+      .filter((row) => selectedDealer === 'All dealerships' || row.dealer_name === selectedDealer)
+      .map((row) => row.outlet_name))).sort((a, b) => a.localeCompare(b)),
+    [accessoryItems, selectedDealer],
+  );
+  const scopedAccessoryItems = useMemo(
+    () => accessoryItems
+      .filter((row) => selectedDealer === 'All dealerships' || row.dealer_name === selectedDealer)
+      .filter((row) => selectedOutlet === 'All outlets' || row.outlet_name === selectedOutlet)
+      .sort((a, b) => numeric(b.invoiced_quantity) - numeric(a.invoiced_quantity)
+        || numeric(b.net_amount) - numeric(a.net_amount)
+        || a.model_name.localeCompare(b.model_name)
+        || a.item_description.localeCompare(b.item_description)),
+    [accessoryItems, selectedDealer, selectedOutlet],
+  );
+  const totalQuantity = accessoryItems.reduce((sum, row) => sum + numeric(row.invoiced_quantity), 0);
+  const quantityLines = accessoryItems.reduce((sum, row) => sum + row.lines_with_quantity, 0);
+  const totalNetSales = accessoryItems.reduce((sum, row) => sum + numeric(row.net_amount), 0);
+  const netAmountLines = accessoryItems.reduce((sum, row) => sum + row.lines_with_net_amount, 0);
+  const distinctItems = new Set(accessoryItems.map((row) => row.item_code?.trim()
+    ? `code:${row.item_code.trim().toLocaleUpperCase()}`
+    : `name:${row.item_description.trim().toLocaleLowerCase()}`));
+  const totalValue = data.by_type.reduce((sum, row) => sum + numeric(row.actual_amount), 0);
+  const totalAttachments = data.by_type.reduce((sum, row) => sum + row.record_count, 0);
+  const typeRows = data.by_type.map((row) => ({
+    label: humanize(row.addon_type),
+    bar: numeric(row.actual_amount),
+    line: Number(row.penetration_pct || 0),
+  }));
+  const otherVasRows = data.by_product_type.filter((row) => !['EW', 'RSA'].includes(row.addon_type.toUpperCase()));
+  const warrantyRsa = data.warranty_rsa;
+
+  return (
+    <>
+      <div className="analytics-addon-summary">
+        <Metric label="Accessory item codes / names" value={formatNumber(distinctItems.size)} detail={`${formatNumber(accessoryItems.length)} outlet/model/item combinations on confirmed tax invoices`} />
+        <Metric label="Invoiced accessory quantity" value={quantityLines ? formatNumber(totalQuantity) : 'Unavailable'} detail={`${formatNumber(quantityLines)} tax-invoice lines carry a captured quantity`} />
+        <Metric label="Accessory net sales captured" value={netAmountLines ? formatMoney(totalNetSales) : 'Unavailable'} detail={`${formatNumber(netAmountLines)} tax-invoice lines carry a captured net amount`} />
+        <Metric label="EW journeys captured" value={formatNumber(warrantyRsa.ew_journey_count)} detail="EW-coded add-ons or warranty-described confirmed invoice lines" attention={warrantyRsa.ew_journey_count === 0} />
+        <Metric label="4-year / 5-year EW" value={`${formatNumber(warrantyRsa.ew_four_year_journey_count)} / ${formatNumber(warrantyRsa.ew_five_year_journey_count)}`} detail={`${formatNumber(warrantyRsa.ew_term_not_recorded_journey_count)} EW journeys have no captured term`} />
+        <Metric label="RSA journeys captured" value={formatNumber(warrantyRsa.rsa_journey_count)} detail={`${formatNumber(warrantyRsa.rsa_record_count)} source records across add-ons and confirmed invoices`} />
+      </div>
+
+      <div className="analytics-split analytics-split--overview">
+        <SectionCard title="VAS category value and attachments" description="Journey add-on category records are a separate source from sold accessory invoice lines. Category amounts must not be added to accessory invoice sales.">
+          <AnalyticsComboChart rows={typeRows} barLabel="Captured category value" lineLabel="Journey attach" barKind="currency" lineKind="percent" />
+        </SectionCard>
+        <SectionCard title="Accessory source coverage" description="Sold-item results include confirmed accessory tax invoices only. Proforma and unclassified lines are not counted as sold.">
+          <div className="analytics-insight-stack">
+            <Metric label="Confirmed invoices / lines" value={`${formatNumber(accessoryLineCoverage.confirmed_tax_invoices)} / ${formatNumber(accessoryLineCoverage.confirmed_tax_invoice_lines)}`} detail="Reviewed accessory-purpose tax invoices in the current tenant snapshot" />
+            <Metric label="Usable item labels" value={`${formatNumber(accessoryLineCoverage.confirmed_lines_with_item_label)} / ${formatNumber(accessoryLineCoverage.confirmed_tax_invoice_lines)}`} detail="Tax-invoice lines with an item description or code" attention={accessoryLineCoverage.confirmed_lines_with_item_label < accessoryLineCoverage.confirmed_tax_invoice_lines} />
+            <Metric label="Proforma / unclassified lines" value={formatNumber(accessoryLineCoverage.proforma_lines + accessoryLineCoverage.unclassified_lines)} detail="Visible in source coverage only; excluded from sold-item totals" attention={accessoryLineCoverage.proforma_lines + accessoryLineCoverage.unclassified_lines > 0} />
+            <Metric label="Duplicate source copies removed" value={formatNumber(accessoryLineCoverage.duplicate_source_documents)} detail={`Collapsed across ${formatNumber(accessoryLineCoverage.duplicate_invoice_groups)} invoice identities`} />
+          </div>
+        </SectionCard>
+      </div>
+
+      <div className="analytics-pin-map__controls analytics-accessory-filters">
+        <label>
+          Dealership
+          <select value={selectedDealer} onChange={(event) => {
+            setSelectedDealer(event.target.value);
+            setSelectedOutlet('All outlets');
+          }}>
+            <option>All dealerships</option>
+            {dealers.map((dealer) => <option key={dealer}>{dealer}</option>)}
+          </select>
+        </label>
+        <label>
+          Outlet
+          <select value={selectedOutlet} onChange={(event) => setSelectedOutlet(event.target.value)}>
+            <option>All outlets</option>
+            {outlets.map((outlet) => <option key={outlet}>{outlet}</option>)}
+          </select>
+        </label>
+        <p>Showing {formatNumber(scopedAccessoryItems.length)} of {formatNumber(accessoryItems.length)} outlet/model/item groups. Search the table for a model, variant, accessory description, or item code.</p>
+      </div>
+
+      {accessoryItems.length > 0 ? (
+        <DetailTable
+          title="Accessories sold by dealership, outlet, model, variant and item"
+          defaultOpen
+          headers={['Dealer', 'Outlet', 'Model', 'Variant', 'Category', 'Accessory item', 'Item code', 'Invoice source', 'Invoices', 'Invoice lines', 'Qty invoiced', 'Net sales', 'Discount captured']}
+          rows={scopedAccessoryItems.map((row) => [
+            row.dealer_name,
+            row.outlet_name,
+            row.model_name,
+            row.variant_name,
+            humanize(row.line_category),
+            row.item_description,
+            row.item_code || 'Unavailable',
+            row.invoice_sources || 'Unspecified',
+            formatNumber(row.invoice_count),
+            formatNumber(row.invoice_lines),
+            formatOptionalNumber(row.invoiced_quantity),
+            formatOptionalMoney(row.net_amount),
+            formatOptionalMoney(row.line_discount_amount),
+          ])}
+        />
+      ) : (
+        <SectionCard title="Accessory invoice items" description="No confirmed accessory tax-invoice lines were captured for this project in the current snapshot." />
+      )}
+
+      <DetailTable
+        title="Extended warranty and RSA by dealership, outlet, model and variant"
+        defaultOpen
+        headers={['Dealer', 'Outlet', 'Model', 'Variant', 'Product', 'Journeys', '4-year EW', '5-year EW', 'EW term not recorded', 'Add-on source journeys', 'Tax-invoice source journeys']}
+        rows={warrantyRsa.by_product.map((row) => [
+          row.dealer_name,
+          row.outlet_name,
+          row.model_name,
+          row.variant_name,
+          row.product_type === 'EW' ? 'Extended warranty' : 'RSA',
+          formatNumber(row.journey_count),
+          formatNumber(row.four_year_journeys),
+          formatNumber(row.five_year_journeys),
+          formatNumber(row.term_not_recorded_journeys),
+          formatNumber(row.addon_source_journeys),
+          formatNumber(row.invoice_source_journeys),
+        ])}
+      />
+      {warrantyRsa.ew_journey_count === 0 && (
+        <p className="analytics-footnote">No EW-coded add-on or warranty-described confirmed invoice evidence was found in this snapshot. The 4-year and 5-year counts are therefore zero captured records; this does not establish that no warranty was sold outside the captured sources.</p>
+      )}
+
+      <DetailTable
+        title="Other VAS category attachments by dealer, model and variant"
+        headers={['Dealer', 'Outlet', 'Model', 'Variant', 'Captured Category', 'Journeys', 'Priced Records', 'Captured Value']}
+        rows={otherVasRows.map((row) => [
+          row.dealer_name,
+          row.outlet_name,
+          row.model_name,
+          row.variant_name,
+          humanize(row.addon_type),
+          formatNumber(row.journey_count),
+          formatNumber(row.priced_records),
+          formatMoney(row.actual_amount),
+        ])}
+      />
+
+      <DetailTable
+        title="Accessory pricing audit: comparable standard versus actual charges"
+        headers={['Dealer', 'Outlet', 'Model', 'Variant', 'Evidence Rows', 'Comparable Rows', 'Comparable Standard', 'Comparable Actual', 'Actual − Standard']}
+        rows={data.accessory_cost_by_product.map((row) => [
+          row.dealer_name,
+          row.outlet_name,
+          row.model_name,
+          row.variant_name,
+          formatNumber(row.evidence_rows),
+          formatNumber(row.comparable_rows),
+          formatOptionalMoney(row.comparable_standard_amount),
+          formatOptionalMoney(row.comparable_actual_amount),
+          formatOptionalMoney(row.comparable_actual_minus_standard),
+        ])}
+      />
+      <p className="analytics-footnote">{data.definition} Journey add-on category records: {formatNumber(totalAttachments)} records · captured category value: {formatMoney(totalValue)}.</p>
+    </>
   );
 }
 
@@ -232,6 +429,7 @@ export default function AnalyticsBusinessReportViews({ payload }: { payload: Ana
         summary,
         by_insurer: insurers,
         by_insurer_outlet: insurersByOutlet,
+        by_source_outlet: sourceByOutlet,
         by_route: routes,
         by_outlet: outlets,
         add_ons: addOns,
@@ -302,6 +500,26 @@ export default function AnalyticsBusinessReportViews({ payload }: { payload: Ana
           />
 
           <DetailTable
+            title="Raw insurance source codes and route evidence by outlet"
+            defaultOpen
+            headers={['Dealer', 'Outlet', 'Route assessment', 'insurance_by', 'insurance_source', 'Self-insurance flag', 'MISP code', 'Intermediary', 'Insurer', 'Policy records', 'Premium captured']}
+            rows={sourceByOutlet.map((row) => [
+              row.dealer_name,
+              row.outlet_name,
+              routeLabel(row.source_assessment),
+              row.insurance_by,
+              row.insurance_source,
+              row.self_insurance_flag,
+              row.misp_code,
+              row.intermediary_name,
+              row.insurer_name,
+              formatNumber(row.policy_count),
+              formatMoney(row.premium_amount),
+            ])}
+          />
+          <p className="analytics-footnote">The raw table retains the captured Audit Core source values outlet by outlet. A MISP code, intermediary, or insurer name alone does not establish that the policy was dealer-arranged or customer-arranged; only explicit route evidence contributes to those classifications.</p>
+
+          <DetailTable
             title="Insurer and captured premium by dealership / outlet"
             headers={['Dealer', 'Outlet', 'Insurer', 'Policies', 'Premium Values', 'Average Premium', 'Captured Premium']}
             rows={insurersByOutlet.map((row) => [
@@ -319,159 +537,8 @@ export default function AnalyticsBusinessReportViews({ payload }: { payload: Ana
       );
     }
 
-    case 'addons': {
-      const {
-        journeys,
-        by_type: byType,
-        by_product_type: byProductType,
-        accessory_cost_by_product: accessoryCosts,
-        accessory_items: accessoryItems,
-        accessory_line_coverage: accessoryLineCoverage,
-        definition,
-      } = payload.data;
-      const totalValue = byType.reduce((sum, row) => sum + numeric(row.actual_amount), 0);
-      const totalAttachedJourneys = byType.reduce((sum, row) => sum + row.journey_count, 0);
-      const typeRows = byType.map((row) => ({
-        label: humanize(row.addon_type),
-        bar: numeric(row.actual_amount),
-        line: Number(row.penetration_pct || 0),
-      }));
-      const itemGroups = new Map<string, {
-        label: string;
-        itemCode: string | null;
-        quantity: number;
-        quantityLines: number;
-        netAmount: number;
-        netAmountLines: number;
-      }>();
-      accessoryItems.forEach((row) => {
-        const itemCode = row.item_code?.trim() || null;
-        const itemDescription = row.item_description?.trim() || 'Unlabeled accessory item';
-        const itemKey = itemCode
-          ? 'code:' + itemCode.toUpperCase()
-          : 'description:' + itemDescription.toLowerCase();
-        const current = itemGroups.get(itemKey) || {
-          label: itemDescription,
-          itemCode,
-          quantity: 0,
-          quantityLines: 0,
-          netAmount: 0,
-          netAmountLines: 0,
-        };
-        current.quantity += numeric(row.invoiced_quantity);
-        current.quantityLines += row.lines_with_quantity;
-        current.netAmount += numeric(row.net_amount);
-        current.netAmountLines += row.lines_with_net_amount;
-        if (current.label === 'Unlabeled accessory item' && itemDescription !== current.label) {
-          current.label = itemDescription;
-        }
-        itemGroups.set(itemKey, current);
-      });
-      const itemGroupsSorted = Array.from(itemGroups.values());
-      const accessoryRankingUsesQuantity = itemGroupsSorted.some((row) => row.quantityLines > 0);
-      const accessoryItemRanking = itemGroupsSorted
-        .map((row) => ({
-          label: row.label + (row.itemCode ? ' · ' + row.itemCode : ''),
-          value: accessoryRankingUsesQuantity ? row.quantity : row.netAmount,
-        }))
-        .filter((row) => row.value > 0)
-        .sort((a, b) => b.value - a.value)
-        .slice(0, 12);
-      return (
-        <>
-          <div className="analytics-product-summary">
-            <article className="analytics-hero-stat">
-              <span className="analytics-hero-stat__eyebrow">VAS captured value</span>
-              <strong className="analytics-hero-stat__value">{formatMoney(totalValue)}</strong>
-              <h3>Journey add-on category value</h3>
-              <p>{formatNumber(journeys)} booked journeys · {formatNumber(totalAttachedJourneys)} category attachments. This is a different source measure from the itemized invoice sales below.</p>
-            </article>
-            <Metric label="Accessory tax invoices" value={formatNumber(accessoryLineCoverage.confirmed_tax_invoices)} detail={`${formatNumber(accessoryLineCoverage.confirmed_tax_invoice_lines)} confirmed invoice item lines`} />
-            <Metric label="Items with a label or code" value={`${formatNumber(accessoryLineCoverage.confirmed_lines_with_item_label)} / ${formatNumber(accessoryLineCoverage.confirmed_tax_invoice_lines)}`} detail="Confirmed accessory tax invoice lines with a usable item description or item code" attention={accessoryLineCoverage.confirmed_lines_with_item_label < accessoryLineCoverage.confirmed_tax_invoice_lines} />
-            <Metric label="Proforma / unclassified lines" value={formatNumber(accessoryLineCoverage.proforma_lines + accessoryLineCoverage.unclassified_lines)} detail="Shown in source coverage only; excluded from sold-item totals" attention={accessoryLineCoverage.proforma_lines + accessoryLineCoverage.unclassified_lines > 0} />
-            <Metric label="Duplicate source copies removed" value={formatNumber(accessoryLineCoverage.duplicate_source_documents)} detail={`Collapsed into ${formatNumber(accessoryLineCoverage.duplicate_invoice_groups)} invoice identities before sales totals`} />
-          </div>
-
-          <div className="analytics-split analytics-split--overview">
-            <SectionCard title="VAS category value and attach" description="Journey add-on category amounts and their share of booked journeys. This is not an itemized accessory invoice sales figure.">
-              <AnalyticsComboChart rows={typeRows} barLabel="Captured category value" lineLabel="Journey attach" barKind="currency" lineKind="percent" />
-            </SectionCard>
-            <SectionCard
-              title={accessoryRankingUsesQuantity ? 'Top accessory items by invoiced quantity' : 'Top accessory items by captured net sales'}
-              description={accessoryRankingUsesQuantity
-                ? 'Confirmed tax-invoice accessory items ranked by the invoiced quantities captured in the snapshot.'
-                : 'Confirmed tax-invoice accessory items ranked by captured net sales because invoice quantities are not available.'}
-            >
-              <AnalyticsParetoChart
-                rows={accessoryItemRanking}
-                valueLabel={accessoryRankingUsesQuantity ? 'Invoiced quantity' : 'Net sales'}
-                emptyText="No confirmed tax-invoice accessory quantities or net sales were captured."
-              />
-              <p className="analytics-footnote">The chart aggregates by accessory item across dealerships and models; the detail list below retains dealer, outlet, model and variant.</p>
-            </SectionCard>
-          </div>
-
-          <DetailTable
-            title="VAS category attachments by dealership, model and variant"
-            defaultOpen
-            headers={['Dealer', 'Outlet', 'Model', 'Variant', 'Captured Category', 'Journeys', 'Priced Records', 'Captured Value']}
-            rows={byProductType.map((row) => [
-              row.dealer_name,
-              row.outlet_name,
-              row.model_name,
-              row.variant_name,
-              humanize(row.addon_type),
-              formatNumber(row.journey_count),
-              formatNumber(row.priced_records),
-              formatMoney(row.actual_amount),
-            ])}
-          />
-
-          {accessoryItems.length > 0 ? (
-            <DetailTable
-              title="Accessory items sold on tax invoices by dealership, model and variant"
-              defaultOpen
-              headers={['Dealer', 'Outlet', 'Model', 'Variant', 'Category', 'Accessory item', 'Item code', 'Invoice source', 'Invoices', 'Lines', 'Qty invoiced', 'Net sales', 'Lines with amount']}
-              rows={accessoryItems.map((row) => [
-                row.dealer_name,
-                row.outlet_name,
-                row.model_name,
-                row.variant_name,
-                humanize(row.line_category),
-                row.item_description,
-                row.item_code || 'Unavailable',
-                row.invoice_sources || 'Unspecified',
-                formatNumber(row.invoice_count),
-                formatNumber(row.invoice_lines),
-                formatOptionalNumber(row.invoiced_quantity),
-                formatOptionalMoney(row.net_amount),
-                formatNumber(row.lines_with_net_amount),
-              ])}
-            />
-          ) : (
-            <SectionCard title="Accessory invoice items" description="No confirmed accessory tax-invoice lines were captured for this project in the current snapshot." />
-          )}
-
-          <DetailTable
-            title="Accessory pricing audit: comparable standard versus actual charges"
-            defaultOpen
-            headers={['Dealer', 'Outlet', 'Model', 'Variant', 'Evidence Rows', 'Comparable Rows', 'Comparable Standard', 'Comparable Actual', 'Actual − Standard']}
-            rows={accessoryCosts.map((row) => [
-              row.dealer_name,
-              row.outlet_name,
-              row.model_name,
-              row.variant_name,
-              formatNumber(row.evidence_rows),
-              formatNumber(row.comparable_rows),
-              formatOptionalMoney(row.comparable_standard_amount),
-              formatOptionalMoney(row.comparable_actual_amount),
-              formatOptionalMoney(row.comparable_actual_minus_standard),
-            ])}
-          />
-          <p className="analytics-footnote">{definition}</p>
-        </>
-      );
-    }
+    case 'addons':
+      return <AnalyticsAddonsReport data={payload.data} />;
 
     case 'payments': {
       const { summary, by_channel: channels, by_outlet: outlets, definition } = payload.data;
@@ -512,30 +579,25 @@ export default function AnalyticsBusinessReportViews({ payload }: { payload: Ana
 
     case 'geography': {
       const { coverage, quality, rows, privacy } = payload.data;
-      const pinTotals = new Map<string, number>();
-      rows.forEach((row) => pinTotals.set(row.customer_pincode, (pinTotals.get(row.customer_pincode) || 0) + row.journey_count));
-      const topPins = Array.from(pinTotals.entries())
-        .map(([label, value]) => ({ label, value }))
-        .sort((a, b) => b.value - a.value || a.label.localeCompare(b.label))
-        .slice(0, 12);
-      const leadingPin = topPins[0];
+      const dealerCount = new Set(rows.map((row) => row.dealer_name)).size;
       return (
         <>
           <div className="analytics-insurance-banner">
             <Metric label="Pincode coverage" value={formatPercent(coverage.coverage_pct)} detail={`${formatNumber(coverage.available)} of ${formatNumber(coverage.total)} booked journeys have an explicit PIN field`} />
             <Metric label="Reviewed PIN records" value={formatNumber(quality.reviewed_journeys)} detail={`${formatPercent(quality.reviewed_pct_of_pincode_records)} of PIN-bearing journeys have a review timestamp`} />
             <Metric label="Provisional PIN records" value={formatNumber(quality.provisional_journeys)} detail="Document-extracted values not yet reviewed in Audit Core" attention={quality.provisional_journeys > 0} />
-            <Metric label="Highest-volume PIN" value={leadingPin?.label || 'Unavailable'} detail={leadingPin ? `${formatNumber(leadingPin.value)} booked journeys in this snapshot` : 'No pincode data available'} />
+            <Metric label="Dealerships represented" value={formatNumber(dealerCount)} detail="Dealerships with at least one booking attached to a captured customer PIN" />
           </div>
 
-          <SectionCard title="Booked journeys by customer PIN" description="Top PINs ranked by captured booked journeys. Use the distribution to understand where sales are coming from; PINs are provisional until reviewed.">
-            <AnalyticsBarChart rows={topPins} valueLabel="Booked journeys" emptyText="No reviewed or extracted customer PINs are available in this snapshot." />
+          <SectionCard title="Odisha customer sales influence by PIN" description="Select a dealership and measure to see the distribution of its customer bookings across Odisha postal areas. Use this as a recorded-customer footprint indicator, not as a verified territory boundary.">
+            <AnalyticsOdishaPinMap rows={rows} />
           </SectionCard>
 
           <DetailTable
-            title="View PIN sales by dealer, outlet, and captured model"
+            title="All PIN sales by dealer, outlet and captured model"
+            defaultOpen
             headers={['Customer PIN', 'Dealer', 'Outlet', 'Model label', 'Booked Journeys', 'Deliveries', 'Finance Records', 'Insurance Records', 'Accessory Records']}
-            rows={rows.slice(0, 100).map((row) => [
+            rows={rows.map((row) => [
               row.customer_pincode,
               row.dealer_name,
               row.outlet_name,

@@ -146,6 +146,44 @@ export function AnalyticsSankeyChart({
   return <ReactECharts option={option} style={{ height, width: '100%' }} notMerge lazyUpdate />;
 }
 
+export function AnalyticsStackedBarChart({
+  rows,
+  series,
+  valueLabel,
+  valueKind = 'count',
+  emptyText = 'No chartable data in the current snapshot.',
+}: {
+  rows: Array<Record<string, string | number> & { label: string }>;
+  series: Array<{ key: string; name: string; color: string }>;
+  valueLabel: string;
+  valueKind?: AnalyticsValueKind;
+  emptyText?: string;
+}) {
+  const data = rows.filter((row) => series.some((item) => finite(row[item.key]) > 0)).slice(0, 10);
+  if (!data.length || !series.length) return emptyChart(emptyText);
+  const height = Math.max(300, data.length * 44 + 88);
+
+  return (
+    <div className="analytics-chart" style={{ height }}>
+      <ResponsiveContainer width="100%" height="100%">
+        <BarChart data={data} layout="vertical" margin={{ top: 14, right: 28, bottom: 14, left: 8 }}>
+          <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#dfe8f0" />
+          <XAxis type="number" tickFormatter={(value) => axisFormatter(valueKind, finite(value))} tick={{ fontFamily: chartFont, fontSize: 11, fill: '#58718d' }} axisLine={{ stroke: '#cfdbe6' }} tickLine={false} />
+          <YAxis type="category" dataKey="label" width={150} tick={{ fontFamily: chartFont, fontSize: 11.5, fill: '#31506e' }} axisLine={false} tickLine={false} />
+          <Tooltip
+            formatter={(value, name) => [tooltipFormatter(valueKind, finite(value)), String(name ?? valueLabel)]}
+            contentStyle={{ fontFamily: chartFont, borderRadius: 10, borderColor: '#d7e3ed' }}
+          />
+          <Legend wrapperStyle={{ fontFamily: chartFont, fontSize: 11.5 }} />
+          {series.map((item, index) => (
+            <Bar key={item.key} dataKey={item.key} name={item.name} stackId="area" fill={item.color} maxBarSize={26} radius={index === series.length - 1 ? [0, 6, 6, 0] : 0} />
+          ))}
+        </BarChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
 export function AnalyticsDonutChart({
   rows,
   valueLabel,

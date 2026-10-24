@@ -482,6 +482,46 @@ interface AnalyticsBusinessVas {
       invoice_source_journeys: number;
     }>;
   };
+  booking_invoice_reconciliation: {
+    by_category: Array<{
+      category: 'EW' | 'INSURANCE' | 'RSA' | 'FASTAG' | 'ACCESSORIES';
+      booked_proposal_journeys: number;
+      delivered_proposal_journeys: number;
+      delivery_invoice_purchase_journeys: number;
+      proposed_and_invoiced_journeys: number;
+      proposal_not_observed_on_invoice_journeys: number;
+      proposal_without_invoice_evidence_journeys: number;
+      invoice_only_journeys: number;
+      invoice_covered_delivered_journeys: number;
+      proposal_invoice_match_pct: number | null;
+    }>;
+    by_dealer_model_variant: Array<{
+      dealer_id: string | null;
+      dealer_name: string;
+      outlet_id: string | null;
+      outlet_name: string;
+      model_name: string;
+      variant_name: string;
+      category: 'EW' | 'INSURANCE' | 'RSA' | 'FASTAG' | 'ACCESSORIES';
+      booked_proposal_journeys: number;
+      delivered_proposal_journeys: number;
+      delivery_invoice_purchase_journeys: number;
+      proposed_and_invoiced_journeys: number;
+      proposal_not_observed_on_invoice_journeys: number;
+      proposal_without_invoice_evidence_journeys: number;
+      invoice_only_journeys: number;
+      invoice_purposes: string | null;
+    }>;
+    invoice_coverage: {
+      delivered_journeys: number;
+      delivered_journeys_with_tax_invoice_lines: number;
+      delivery_tax_invoice_documents: number;
+      delivery_tax_invoice_lines: number;
+      unclassified_tax_invoice_lines: number;
+      invoice_coverage_pct: number | null;
+    };
+    definition: string;
+  };
   accessory_cost_by_product: Array<{
     dealer_name: string;
     outlet_name: string;

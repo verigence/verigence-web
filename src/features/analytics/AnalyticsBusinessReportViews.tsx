@@ -152,38 +152,55 @@ function AnalyticsAddonsReport({ data }: { data: AnalyticsVasData }) {
         || a.item_description.localeCompare(b.item_description)),
     [accessoryItems, selectedDealer, selectedOutlet],
   );
-  const totalQuantity = accessoryItems.reduce((sum, row) => sum + numeric(row.invoiced_quantity), 0);
-  const quantityLines = accessoryItems.reduce((sum, row) => sum + row.lines_with_quantity, 0);
-  const totalNetSales = accessoryItems.reduce((sum, row) => sum + numeric(row.net_amount), 0);
-  const netAmountLines = accessoryItems.reduce((sum, row) => sum + row.lines_with_net_amount, 0);
-  const distinctItems = new Set(accessoryItems.map((row) => row.item_code?.trim()
-    ? `code:${row.item_code.trim().toLocaleUpperCase()}`
-    : `name:${row.item_description.trim().toLocaleLowerCase()}`));
-  const totalValue = data.by_type.reduce((sum, row) => sum + numeric(row.actual_amount), 0);
-  const totalAttachments = data.by_type.reduce((sum, row) => sum + row.record_count, 0);
-  const typeRows = data.by_type.map((row) => ({
-    label: humanize(row.addon_type),
-    bar: numeric(row.actual_amount),
-    line: Number(row.penetration_pct || 0),
-  }));
-  const otherVasRows = data.by_product_type.filter((row) => !['EW', 'RSA'].includes(row.addon_type.toUpperCase()));
   const warrantyRsa = data.warranty_rsa;
+  const reconciliation = data.booking_invoice_reconciliation;
+  const invoiceCoverage = reconciliation.invoice_coverage;
 
   return (
     <>
-      <div className="analytics-addon-summary">
-        <Metric label="Accessory item codes / names" value={formatNumber(distinctItems.size)} detail={`${formatNumber(accessoryItems.length)} outlet/model/item combinations on confirmed tax invoices`} />
-        <Metric label="Invoiced accessory quantity" value={quantityLines ? formatNumber(totalQuantity) : 'Unavailable'} detail={`${formatNumber(quantityLines)} tax-invoice lines carry a captured quantity`} />
-        <Metric label="Accessory net sales captured" value={netAmountLines ? formatMoney(totalNetSales) : 'Unavailable'} detail={`${formatNumber(netAmountLines)} tax-invoice lines carry a captured net amount`} />
-        <Metric label="EW journeys captured" value={formatNumber(warrantyRsa.ew_journey_count)} detail="EW-coded add-ons or warranty-described confirmed invoice lines" attention={warrantyRsa.ew_journey_count === 0} />
-        <Metric label="4-year / 5-year EW" value={`${formatNumber(warrantyRsa.ew_four_year_journey_count)} / ${formatNumber(warrantyRsa.ew_five_year_journey_count)}`} detail={`${formatNumber(warrantyRsa.ew_term_not_recorded_journey_count)} EW journeys have no captured term`} />
-        <Metric label="RSA journeys captured" value={formatNumber(warrantyRsa.rsa_journey_count)} detail={`${formatNumber(warrantyRsa.rsa_record_count)} source records across add-ons and confirmed invoices`} />
-      </div>
+      <SectionCard
+        title="Booking proposal vs delivery invoice"
+        description="One project-scoped reconciliation of captured VAS records on booked journeys against VAS found on confirmed tax-invoice lines for completed deliveries."
+      >
+        <p className="analytics-footnote">{reconciliation.definition}</p>
+        <p className="analytics-footnote">
+          Invoice evidence covers {formatNumber(invoiceCoverage.delivered_journeys_with_tax_invoice_lines)} of {formatNumber(invoiceCoverage.delivered_journeys)} completed deliveries ({formatPercent(invoiceCoverage.invoice_coverage_pct)}); {formatNumber(invoiceCoverage.delivery_tax_invoice_documents)} invoice documents and {formatNumber(invoiceCoverage.delivery_tax_invoice_lines)} lines were captured. {formatNumber(invoiceCoverage.unclassified_tax_invoice_lines)} invoice lines could not be classified. A proposal is called “not observed” only where invoice lines exist for that delivered journey. Missing invoices or unclassified descriptions remain unknown.
+        </p>
+        <DetailTable
+          title="VAS proposal to invoice reconciliation by category"
+          defaultOpen
+          headers={['VAS', 'Booking proposals', 'Delivered proposals', 'Bought on invoice', 'Matched', 'Not observed on invoice', 'Awaiting invoice evidence', 'Match rate']}
+          rows={reconciliation.by_category.map((row) => [
+            humanize(row.category),
+            formatNumber(row.booked_proposal_journeys),
+            formatNumber(row.delivered_proposal_journeys),
+            formatNumber(row.delivery_invoice_purchase_journeys),
+            formatNumber(row.proposed_and_invoiced_journeys),
+            formatNumber(row.proposal_not_observed_on_invoice_journeys),
+            formatNumber(row.proposal_without_invoice_evidence_journeys),
+            formatPercent(row.proposal_invoice_match_pct),
+          ])}
+        />
+        <DetailTable
+          title="Outlet, model and variant reconciliation"
+          headers={['Dealer', 'Outlet', 'Model', 'Variant', 'VAS', 'Booking proposals', 'Bought on invoice', 'Matched', 'Not observed on invoice', 'Awaiting invoice evidence', 'Invoice purpose']}
+          rows={reconciliation.by_dealer_model_variant.map((row) => [
+            row.dealer_name,
+            row.outlet_name,
+            row.model_name,
+            row.variant_name,
+            humanize(row.category),
+            formatNumber(row.booked_proposal_journeys),
+            formatNumber(row.delivery_invoice_purchase_journeys),
+            formatNumber(row.proposed_and_invoiced_journeys),
+            formatNumber(row.proposal_not_observed_on_invoice_journeys),
+            formatNumber(row.proposal_without_invoice_evidence_journeys),
+            row.invoice_purposes || 'No classified invoice purpose',
+          ])}
+        />
+      </SectionCard>
 
       <div className="analytics-split analytics-split--overview">
-        <SectionCard title="VAS category value and attachments" description="Journey add-on category records are a separate source from sold accessory invoice lines. Category amounts must not be added to accessory invoice sales.">
-          <AnalyticsComboChart rows={typeRows} barLabel="Captured category value" lineLabel="Journey attach" barKind="currency" lineKind="percent" />
-        </SectionCard>
         <SectionCard title="Accessory source coverage" description="Sold-item results include confirmed accessory tax invoices only. Proforma and unclassified lines are not counted as sold.">
           <div className="analytics-insight-stack">
             <Metric label="Confirmed invoices / lines" value={`${formatNumber(accessoryLineCoverage.confirmed_tax_invoices)} / ${formatNumber(accessoryLineCoverage.confirmed_tax_invoice_lines)}`} detail="Reviewed accessory-purpose tax invoices in the current tenant snapshot" />
@@ -241,15 +258,14 @@ function AnalyticsAddonsReport({ data }: { data: AnalyticsVasData }) {
       )}
 
       <DetailTable
-        title="Extended warranty and RSA by dealership, outlet, model and variant"
+        title="Extended warranty term by dealership, outlet, model and variant"
         defaultOpen
-        headers={['Dealer', 'Outlet', 'Model', 'Variant', 'Product', 'Journeys', '4-year EW', '5-year EW', 'EW term not recorded', 'Add-on source journeys', 'Tax-invoice source journeys']}
-        rows={warrantyRsa.by_product.map((row) => [
+        headers={['Dealer', 'Outlet', 'Model', 'Variant', 'Warranty journeys', '4-year', '5-year', 'Term not recorded', 'Booking add-on source', 'Tax-invoice description source']}
+        rows={warrantyRsa.by_product.filter((row) => row.product_type === 'EW').map((row) => [
           row.dealer_name,
           row.outlet_name,
           row.model_name,
           row.variant_name,
-          row.product_type === 'EW' ? 'Extended warranty' : 'RSA',
           formatNumber(row.journey_count),
           formatNumber(row.four_year_journeys),
           formatNumber(row.five_year_journeys),
@@ -259,23 +275,8 @@ function AnalyticsAddonsReport({ data }: { data: AnalyticsVasData }) {
         ])}
       />
       {warrantyRsa.ew_journey_count === 0 && (
-        <p className="analytics-footnote">No EW-coded add-on or warranty-described confirmed invoice evidence was found in this snapshot. The 4-year and 5-year counts are therefore zero captured records; this does not establish that no warranty was sold outside the captured sources.</p>
+        <p className="analytics-footnote">No EW-coded add-on or warranty-described confirmed invoice evidence was found in this snapshot. This does not establish that no warranty was sold outside the captured sources.</p>
       )}
-
-      <DetailTable
-        title="Other VAS category attachments by dealer, model and variant"
-        headers={['Dealer', 'Outlet', 'Model', 'Variant', 'Captured Category', 'Journeys', 'Priced Records', 'Captured Value']}
-        rows={otherVasRows.map((row) => [
-          row.dealer_name,
-          row.outlet_name,
-          row.model_name,
-          row.variant_name,
-          humanize(row.addon_type),
-          formatNumber(row.journey_count),
-          formatNumber(row.priced_records),
-          formatMoney(row.actual_amount),
-        ])}
-      />
 
       <DetailTable
         title="Accessory pricing audit: comparable standard versus actual charges"
@@ -292,7 +293,7 @@ function AnalyticsAddonsReport({ data }: { data: AnalyticsVasData }) {
           formatOptionalMoney(row.comparable_actual_minus_standard),
         ])}
       />
-      <p className="analytics-footnote">{data.definition} Journey add-on category records: {formatNumber(totalAttachments)} records · captured category value: {formatMoney(totalValue)}.</p>
+      <p className="analytics-footnote">{data.definition}</p>
     </>
   );
 }

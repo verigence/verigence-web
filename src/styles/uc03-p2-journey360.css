@@ -493,3 +493,11 @@
 .j360 .j360-dup-evidence { margin-top: 10px; }
 .j360 .j360-dup-evidence .p2w-table { margin-top: 4px; }
 .j360 .j360-dup-evidence td { word-break: break-word; }
+
+/* The deal sheet's totals. "Net payable" carries the variance, so it shows
+   what is payable now -- the figure the variance is against. What the
+   invoices have billed so far sits under it, with no variance of its own
+   (2026-10-24: the two were in one row and the arithmetic could not work). */
+.p2w .j360-sheet__subfoot th,
+.p2w .j360-sheet__subfoot td { font-weight: 500; color: var(--p2w-muted); border-top: 0; padding-top: 0; }
+.p2w .j360-sheet__partial { display: block; font-size: .72rem; font-weight: 500; color: var(--p2w-muted); }

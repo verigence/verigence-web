@@ -526,13 +526,36 @@ export default function DealTab({ deal, journeyId, tenantId, accessToken }: {
               </tbody>
             ) : null}
             <tfoot>
+              {/* The variance is net.current less net.standard, so the cell it
+                  sits beside has to BE net.current. It used to show netBilled,
+                  the sum of the billed column, which is a different quantity --
+                  the row then read 8,91,529 | 8,88,100 | 21,390 | -3,95,890,
+                  three numbers and a variance belonging to a fourth that was
+                  nowhere on the row. Reported 2026-10-24. What the invoices
+                  have billed so far is still worth showing, but it is not the
+                  net payable and it carries no variance. */}
               <tr>
                 <th scope="row">Net payable</th>
                 <td className="is-num" data-label="Price master">{money(summary.net.standard)}</td>
                 <td />
                 <td className="is-num" data-label="Booking">{money(summary.net.booking)}</td>
-                <td className="is-num is-truth" data-label="Invoice">{money(netBilled)}</td>
+                <td className="is-num is-truth" data-label="Now payable">
+                  {money(summary.net.current)}
+                  {partly ? (
+                    <small className="j360-sheet__partial">
+                      {invoiced} of {summary.components} components invoiced
+                    </small>
+                  ) : null}
+                </td>
                 <td className={`is-num j360-variance ${varianceTone(variance)}`} data-label="Variance">{signedMoney(variance)}</td>
+              </tr>
+              <tr className="j360-sheet__subfoot">
+                <th scope="row">Invoiced so far</th>
+                <td />
+                <td />
+                <td />
+                <td className="is-num" data-label="Invoiced so far">{money(netBilled)}</td>
+                <td />
               </tr>
             </tfoot>
           </table>

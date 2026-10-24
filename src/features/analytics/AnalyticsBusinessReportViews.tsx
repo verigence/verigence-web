@@ -9,7 +9,6 @@ import {
   AnalyticsDonutChart,
   AnalyticsHeatmap,
   AnalyticsParetoChart,
-  AnalyticsSankeyChart,
   AnalyticsSunburstChart,
   AnalyticsTreemap,
 } from './AnalyticsCharts';
@@ -113,18 +112,12 @@ function DetailTable({ title = 'View underlying detail', headers, rows, defaultO
             <span>Showing {formatNumber(filteredRows.length)} of {formatNumber(rows.length)} rows</span>
           </div>
         )}
-        <div className="data-table-wrap analytics-table-wrap">
-          <table className="data-table">
-            <thead><tr>{headers.map((header) => <th key={header}>{header}</th>)}</tr></thead>
-            <tbody>
-              {filteredRows.length > 0
-                ? filteredRows.map((row, rowIndex) => <tr key={rowIndex}>{row.map((cell, cellIndex) => <td key={cellIndex}>{cell}</td>)}</tr>)
-                : rows.length > 0
-                  ? <tr><td className="analytics-table-empty" colSpan={headers.length}>No rows match this search.</td></tr>
-                : <tr><td className="analytics-table-empty" colSpan={headers.length}>No rows are available for this report in the selected project snapshot. Confirm the project scope shown above.</td></tr>}
-          </tbody>
-          </table>
-        </div>
+        {filteredRows.length ? <div className="analytics-record-grid">
+          {filteredRows.map((row, rowIndex) => <article className="analytics-record-card" key={rowIndex}>
+            <h4>{String(row[0] ?? headers[0] ?? 'Record')}</h4>
+            <dl>{headers.slice(1).map((header, index) => <div key={`${rowIndex}-${header}`}><dt>{header}</dt><dd>{String(row[index + 1] ?? 'Unavailable')}</dd></div>)}</dl>
+          </article>)}
+        </div> : <p className="analytics-table-empty">{rows.length ? 'No records match this search.' : 'No records are available for this report in the selected project snapshot. Confirm the project scope shown above.'}</p>}
       </div>
     </details>
   );
@@ -201,7 +194,6 @@ function AnalyticsAddonsReport({ data }: { data: AnalyticsVasData }) {
   );
   const warrantyRsa = data.warranty_rsa;
   const reconciliation = data.booking_invoice_reconciliation;
-  const invoiceCoverage = reconciliation.invoice_coverage;
   const dealerOutletInScope = (dealerName: string, outletName: string) =>
     (selectedDealer === 'All dealerships' || dealerName === selectedDealer)
     && (selectedOutlet === 'All outlets' || outletName === selectedOutlet);
@@ -212,51 +204,19 @@ function AnalyticsAddonsReport({ data }: { data: AnalyticsVasData }) {
       label: `${row.model_name} · ${row.variant_name} / ${row.item_description}${row.item_code ? ` · ${row.item_code}` : ''}`,
       value: numeric(row.invoiced_quantity),
     }));
-  const vasAttachGroups = new Map<string, { label: string; category: string; proposals: number; matched: number; unverified: number; invoiceOnly: number }>();
+  const vasAttachGroups = new Map<string, { label: string; category: string; proposals: number; invoice: number; awaiting: number }>();
   reconciliation.by_dealer_model_variant
     .filter((row) => ['EW', 'RSA', 'FASTAG', 'ACCESSORIES'].includes(row.category))
     .filter((row) => dealerOutletInScope(row.dealer_name, row.outlet_name))
     .forEach((row) => {
       const label = `${row.dealer_name} / ${row.outlet_name} · ${humanize(row.category)}`;
-      const current = vasAttachGroups.get(label) || { label, category: row.category, proposals: 0, matched: 0, unverified: 0, invoiceOnly: 0 };
+      const current = vasAttachGroups.get(label) || { label, category: row.category, proposals: 0, invoice: 0, awaiting: 0 };
       current.proposals += row.booked_proposal_journeys;
-      current.matched += row.proposed_and_invoiced_journeys;
-      current.unverified += row.proposal_with_unverified_invoice_evidence_journeys;
-      current.invoiceOnly += row.invoice_only_journeys;
+      current.invoice += row.delivery_invoice_purchase_journeys;
+      current.awaiting += row.invoice_awaiting_journeys;
       vasAttachGroups.set(label, current);
     });
-  const allVasAttachRows = Array.from(vasAttachGroups.values());
-  const vasAttachRows = ['EW', 'RSA', 'FASTAG', 'ACCESSORIES'].flatMap((category) => allVasAttachRows
-    .filter((row) => row.category === category)
-    .sort((a, b) => Math.max(b.proposals, b.invoiceOnly) - Math.max(a.proposals, a.invoiceOnly) || a.label.localeCompare(b.label))
-    .slice(0, 3));
-  const vasFlowNodes: Array<{ name: string; color?: string }> = [];
-  const vasFlowLinks: Array<{ source: string; target: string; value: number }> = [];
-  const flowStatuses = [
-    { name: 'Confirmed invoice match', color: '#078b70' },
-    { name: 'Unverified invoice evidence', color: '#d78b2b' },
-    { name: 'Proposal remaining after these checks', color: '#b45472' },
-    { name: 'Confirmed invoice-only purchase', color: '#1a73b8' },
-  ];
-  flowStatuses.forEach((status) => vasFlowNodes.push(status));
-  vasAttachRows.forEach((row) => {
-    const source = row.label;
-    const category = row.category;
-    vasFlowNodes.push({ name: source, color: category === 'EW' ? '#6f83c7' : category === 'RSA' ? '#36a6a0' : category === 'FASTAG' ? '#d78b2b' : '#078ba0' });
-    const proposalRemainder = Math.max(0, row.proposals - row.matched - row.unverified);
-    [
-      { target: 'Confirmed invoice match', value: row.matched },
-      { target: 'Unverified invoice evidence', value: row.unverified },
-      { target: 'Proposal remaining after these checks', value: proposalRemainder },
-    ].forEach((link) => {
-      if (link.value > 0) vasFlowLinks.push({ source, target: link.target, value: link.value });
-    });
-    if (row.invoiceOnly > 0) {
-      const invoiceOnlySource = `Invoice-only · ${source}`;
-      vasFlowNodes.push({ name: invoiceOnlySource, color: '#1a73b8' });
-      vasFlowLinks.push({ source: invoiceOnlySource, target: 'Confirmed invoice-only purchase', value: row.invoiceOnly });
-    }
-  });
+  const vasStateRows = Array.from(vasAttachGroups.values()).sort((a, b) => a.category.localeCompare(b.category) || a.label.localeCompare(b.label));
   const ewTermGroups = new Map<string, { label: string; fourYear: number; fiveYear: number; unknown: number }>();
   warrantyRsa.by_product
     .filter((row) => row.product_type === 'EW' && dealerOutletInScope(row.dealer_name, row.outlet_name))
@@ -280,65 +240,43 @@ function AnalyticsAddonsReport({ data }: { data: AnalyticsVasData }) {
   return (
     <>
       <SectionCard
-        title="Booking proposal vs delivery invoice"
-        description="One project-scoped reconciliation of captured booking VAS proposals against completed-delivery invoices. Counts are unique journeys, not invoice-line units. Only confirmed tax invoices count as purchases; category evidence on an invoice with unknown nature is shown for review."
+        title="Booking proposals and invoice evidence"
+        description="Three business states only: captured booking proposals, VAS purchases evidenced on a confirmed tax invoice, and proposals awaiting a delivery record. These are separate measures, not a funnel total."
       >
-        <p className="analytics-footnote">{reconciliation.definition}</p>
-        <p className="analytics-footnote">
-          Confirmed tax-invoice evidence covers {formatNumber(invoiceCoverage.delivered_journeys_with_tax_invoice_lines)} of {formatNumber(invoiceCoverage.delivered_journeys)} completed deliveries ({formatPercent(invoiceCoverage.invoice_coverage_pct)}), across {formatNumber(invoiceCoverage.delivery_tax_invoice_documents)} documents and {formatNumber(invoiceCoverage.delivery_tax_invoice_lines)} lines. {formatNumber(invoiceCoverage.delivered_journeys_with_unverified_vas_evidence)} delivered journeys have VAS-like lines on {formatNumber(invoiceCoverage.unverified_invoice_documents)} invoice documents with unknown invoice nature ({formatNumber(invoiceCoverage.classified_unverified_vas_lines)} category-matched lines); these are neither counted as bought nor treated as missing. {formatNumber(invoiceCoverage.unclassified_tax_invoice_lines)} confirmed tax-invoice lines and {formatNumber(invoiceCoverage.unclassified_unverified_invoice_lines)} unknown-nature invoice lines remain unclassified.
-        </p>
-        <p className="analytics-footnote">
-          Confirmed match rate uses only delivered proposals with confirmed invoice coverage and no category-matched unverified invoice evidence. All counts represent distinct journeys; the accessory item detail below shows invoice quantities.
-        </p>
+        <p className="analytics-footnote">Invoice purchases count only when the VAS is evidenced on a confirmed tax invoice. “Invoice awaiting” is limited to a booking proposal with no delivery record uploaded. If a delivery record exists but no confirmed VAS invoice line is found, it is not relabeled as awaiting or as a purchase. Counts are distinct journeys.</p>
         <DetailTable
-          title="VAS proposal to invoice reconciliation by category"
-          headers={['VAS', 'Booking proposals', 'Delivered proposals', 'Bought on invoice', 'Matched', 'Unverified invoice evidence', 'Not observed on invoice', 'Awaiting invoice evidence', 'Confirmed match rate']}
+          title="Explore VAS evidence by category"
+          headers={['VAS', 'Booking proposal', 'Invoice', 'Invoice awaiting']}
           rows={reconciliation.by_category.map((row) => [
             humanize(row.category),
             formatNumber(row.booked_proposal_journeys),
-            formatNumber(row.delivered_proposal_journeys),
             formatNumber(row.delivery_invoice_purchase_journeys),
-            formatNumber(row.proposed_and_invoiced_journeys),
-            formatNumber(row.unverified_invoice_evidence_journeys),
-            formatNumber(row.proposal_not_observed_on_invoice_journeys),
-            formatNumber(row.proposal_without_invoice_evidence_journeys),
-            formatPercent(row.proposal_invoice_match_pct),
+            formatNumber(row.invoice_awaiting_journeys),
           ])}
         />
         <DetailTable
           title="VAS attach by dealership and outlet"
-          headers={['Dealer', 'Outlet', 'VAS', 'Booking proposals', 'Confirmed invoice purchases', 'Matched', 'Unverified invoice evidence', 'Match rate']}
+          headers={['Dealer / outlet / VAS', 'Booking proposal', 'Invoice', 'Invoice awaiting']}
           rows={Array.from(reconciliation.by_dealer_model_variant.reduce((groups, row) => {
             const key = `${row.dealer_name}\u0000${row.outlet_name}\u0000${row.category}`;
-            const current = groups.get(key) || { dealer_name: row.dealer_name, outlet_name: row.outlet_name, category: row.category, proposals: 0, bought: 0, matched: 0, unverified: 0 };
+            const current = groups.get(key) || { label: `${row.dealer_name} / ${row.outlet_name} · ${humanize(row.category)}`, proposals: 0, bought: 0, awaiting: 0 };
             current.proposals += row.booked_proposal_journeys;
             current.bought += row.delivery_invoice_purchase_journeys;
-            current.matched += row.proposed_and_invoiced_journeys;
-            current.unverified += row.unverified_invoice_evidence_journeys;
+            current.awaiting += row.invoice_awaiting_journeys;
             groups.set(key, current);
             return groups;
-          }, new Map<string, { dealer_name: string; outlet_name: string; category: string; proposals: number; bought: number; matched: number; unverified: number }>()).values())
-            .sort((a, b) => a.dealer_name.localeCompare(b.dealer_name) || a.outlet_name.localeCompare(b.outlet_name) || a.category.localeCompare(b.category))
-            .map((row) => [row.dealer_name, row.outlet_name, humanize(row.category), formatNumber(row.proposals), formatNumber(row.bought), formatNumber(row.matched), formatNumber(row.unverified), percent(row.matched, row.proposals)])}
+          }, new Map<string, { label: string; proposals: number; bought: number; awaiting: number }>()).values())
+            .sort((a, b) => a.label.localeCompare(b.label))
+            .map((row) => [row.label, formatNumber(row.proposals), formatNumber(row.bought), formatNumber(row.awaiting)])}
         />
         <DetailTable
-          title="Outlet, model and variant reconciliation"
-          headers={['Dealer', 'Outlet', 'Model', 'Variant', 'VAS', 'Booking proposals', 'Bought on invoice', 'Matched', 'Unverified invoice evidence', 'Proposals needing review', 'Not observed on invoice', 'Awaiting invoice evidence', 'Confirmed invoice purpose', 'Unverified invoice purpose']}
+        title="Explore vehicle and outlet evidence details"
+          headers={['Dealer / outlet / vehicle / VAS', 'Booking proposal', 'Invoice', 'Invoice awaiting']}
           rows={reconciliation.by_dealer_model_variant.map((row) => [
-            row.dealer_name,
-            row.outlet_name,
-            row.model_name,
-            row.variant_name,
-            humanize(row.category),
+            `${row.dealer_name} / ${row.outlet_name} · ${row.model_name} ${row.variant_name} · ${humanize(row.category)}`,
             formatNumber(row.booked_proposal_journeys),
             formatNumber(row.delivery_invoice_purchase_journeys),
-            formatNumber(row.proposed_and_invoiced_journeys),
-            formatNumber(row.unverified_invoice_evidence_journeys),
-            formatNumber(row.proposal_with_unverified_invoice_evidence_journeys),
-            formatNumber(row.proposal_not_observed_on_invoice_journeys),
-            formatNumber(row.proposal_without_invoice_evidence_journeys),
-            row.invoice_purposes || 'None confirmed',
-            row.unverified_invoice_purposes || 'None',
+            formatNumber(row.invoice_awaiting_journeys),
           ])}
         />
       </SectionCard>
@@ -390,13 +328,13 @@ function AnalyticsAddonsReport({ data }: { data: AnalyticsVasData }) {
         </SectionCard>
       </div>
 
-      <SectionCard title="VAS evidence flow · booking proposal to delivery invoice" description="Flows show captured booking proposals splitting into confirmed proposal-to-invoice matches, unverified invoice evidence, and the remaining proposal count. Confirmed invoice-only purchases are a separate source flow. The remainder is not a finding of non-purchase; it can include evidence not captured in this snapshot.">
-        <AnalyticsSankeyChart
-          nodes={vasFlowNodes}
-          links={vasFlowLinks}
-          height={Math.max(520, vasAttachRows.length * 46 + 220)}
-          emptyText="No EW, RSA, FASTAG, or accessory proposal/invoice evidence is available for the selected dealership/outlet."
-        />
+      <SectionCard title="VAS by outlet · business evidence states" description="Compare proposal demand, confirmed VAS invoice purchases, and bookings still awaiting a delivery record. This view does not infer a missing purchase when invoice evidence is absent.">
+        {vasStateRows.length ? <div className="analytics-vas-state-grid">{vasStateRows.map((row) => <article className="analytics-vas-state-card" key={row.label}>
+          <header><span>{humanize(row.category)}</span><strong>{row.label}</strong></header>
+          <div><span>Booking proposal</span><strong>{formatNumber(row.proposals)}</strong></div>
+          <div><span>Invoice</span><strong>{formatNumber(row.invoice)}</strong></div>
+          <div><span>Invoice awaiting</span><strong>{formatNumber(row.awaiting)}</strong></div>
+        </article>)}</div> : <p className="analytics-chart-empty">No booking proposals, confirmed invoice purchases, or invoice-awaiting cases are available for this selection.</p>}
       </SectionCard>
 
       {accessoryItems.length > 0 ? (

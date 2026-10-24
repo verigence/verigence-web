@@ -58,7 +58,7 @@ const reportLabels: Record<AnalyticsView, string> = {
   finance: 'Finance & Loan Attach',
   insurance: 'Insurance & Add-ons',
   addons: 'Accessories & VAS',
-  geography: 'Customer Pincode Sales',
+  geography: 'Customer Spread by PIN Code',
   discounts: 'Pricing Integrity Audit',
   'trade-in': 'Trade-in',
   payments: 'Payment Channels',
@@ -207,7 +207,7 @@ export default function AnalyticsPage() {
           ['insurance', 'Insurance route and components by dealer'],
           ['finance', 'Bank / NBFC and loan amount by dealer'],
           ['payments', 'Payment channels by dealer'],
-          ['geography', 'Sales by customer pincode'],
+          ['geography', 'Customer spread by PIN code'],
           ['productivity', 'Journey uploads by month / team'],
         ] as const).map(([report, label]) => (
           <button

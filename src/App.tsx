@@ -86,6 +86,7 @@ const HrSupportTicketPage = lazy(() => import('./pages/hr/HrSupportTicketPage'))
 const ProjectAdministrationPage = lazy(() => import('./pages/ProjectAdministrationV2Page'));
 const ProfilePage = lazy(() => import('./pages/ProfilePage'));
 const P2JourneyListPage = lazy(() => import('./pages/P2JourneyListPage'));
+const P2DiscountVariancePage = lazy(() => import('./pages/P2DiscountVariancePage'));
 const P2JourneyOverviewPage = lazy(() => import('./pages/P2JourneyOverviewPage'));
 const P2JourneyWorkspacePage = lazy(() => import('./pages/P2JourneyWorkspacePage'));
 const P2TasksPage = lazy(() => import('./pages/P2TasksPage'));
@@ -343,6 +344,7 @@ export default function App() {
               <Route path="/p2/work-queue" element={<Navigate to="/p2/bookings" replace />} />
               <Route path="/p2/tasks" element={<OperationalPage><P2TasksPage /></OperationalPage>} />
               <Route path="/p2/duplicate-bookings" element={<OperationalPage><P2DuplicateBookingsPage /></OperationalPage>} />
+              <Route path="/p2/discount-variance" element={<OperationalPage><P2DiscountVariancePage /></OperationalPage>} />
               <Route path="/p2/price-masters" element={<OperationalPage><P2PriceMastersPage /></OperationalPage>} />
               <Route path="/p2/master-documents" element={<OperationalPage><P2MasterDocumentsPage /></OperationalPage>} />
               <Route path="/p2/review" element={<OperationalPage><P2ReviewBoardPage /></OperationalPage>} />

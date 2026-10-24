@@ -10,6 +10,7 @@ import {
   AnalyticsHeatmap,
   AnalyticsParetoChart,
   AnalyticsSunburstChart,
+  AnalyticsStackedBarChart,
   AnalyticsTreemap,
 } from './AnalyticsCharts';
 
@@ -153,16 +154,20 @@ function AnalyticsIntermediaryChart({ rows }: { rows: AnalyticsInsuranceSourceRo
     current.value += row.policy_count;
     agencyGroups.set(key, current);
   });
-  const chartRows = Array.from(agencyGroups.values());
+  const rankedAgencyRows = Array.from(agencyGroups.values())
+    .sort((a, b) => b.value - a.value || a.group.localeCompare(b.group) || a.label.localeCompare(b.label))
+    .slice(0, 12)
+    .map((row) => ({ label: `${row.group} · ${row.label}`, value: row.value }));
+  const agencyCodes = new Set(scopedRows.map((row) => row.intermediary_code).filter((code) => code && code !== '(blank)'));
 
   return (
-    <SectionCard title="Insurance policies by agent / intermediary code and name" description="The chart groups captured agent/intermediary identifiers within each dealership and outlet. Missing source values remain visible as unavailable; MISP codes are kept separate and are never used as substitutes.">
+    <SectionCard title="Insurance agencies by captured code and name" description="Ranked policy counts grouped by dealer, outlet, agency/intermediary code and name. Select a dealership or outlet to inspect its agency mix; MISP codes are shown separately and are never used as an agency-code substitute.">
       <div className="analytics-pin-map__controls analytics-accessory-filters">
         <label>Dealership<select value={selectedDealer} onChange={(event) => { setSelectedDealer(event.target.value); setSelectedOutlet('All outlets'); }}><option>All dealerships</option>{dealers.map((dealer) => <option key={dealer}>{dealer}</option>)}</select></label>
         <label>Outlet<select value={selectedOutlet} onChange={(event) => setSelectedOutlet(event.target.value)}><option>All outlets</option>{outlets.map((outlet) => <option key={outlet}>{outlet}</option>)}</select></label>
-        <p>Code captured on {formatNumber(totals.code)} of {formatNumber(totals.policies)} policy records; name captured on {formatNumber(totals.name)}. Each dealership/outlet segment is split by its captured code and name.</p>
+        <p>{formatNumber(agencyCodes.size)} captured agency/intermediary codes · {formatNumber(totals.code)} of {formatNumber(totals.policies)} policy records include a code · {formatNumber(totals.name)} include a name.</p>
       </div>
-      <AnalyticsSunburstChart rows={chartRows} valueLabel="Policy records" emptyText="No policy records are available in this project snapshot." />
+      <AnalyticsBarChart rows={rankedAgencyRows} valueLabel="Policy records" emptyText="No policy records are available in this project snapshot." />
     </SectionCard>
   );
 }
@@ -198,13 +203,64 @@ function AnalyticsAddonsReport({ data }: { data: AnalyticsVasData }) {
   const dealerOutletInScope = (dealerName: string, outletName: string) =>
     (selectedDealer === 'All dealerships' || dealerName === selectedDealer)
     && (selectedOutlet === 'All outlets' || outletName === selectedOutlet);
-  const accessoryChartRows = scopedAccessoryItems
-    .filter((row) => numeric(row.invoiced_quantity) > 0)
-    .map((row) => ({
-      group: `${row.dealer_name} / ${row.outlet_name}`,
-      label: `${row.model_name} · ${row.variant_name} / ${row.item_description}${row.item_code ? ` · ${row.item_code}` : ''}`,
-      value: numeric(row.invoiced_quantity),
-    }));
+  const accessoryItemGroups = new Map<string, { label: string; quantity: number; netAmount: number; splits: Map<string, number> }>();
+  const accessoryModelItemGroups = new Map<string, { model: string; item: string; quantity: number }>();
+  scopedAccessoryItems.forEach((row) => {
+    const item = `${row.item_description}${row.item_code ? ` · ${row.item_code}` : ''}`;
+    const itemKey = `${row.item_code || row.item_description}`;
+    const split = selectedDealer === 'All dealerships'
+      ? row.dealer_name
+      : selectedOutlet === 'All outlets' ? row.outlet_name : selectedOutlet;
+    const current = accessoryItemGroups.get(itemKey) || { label: item, quantity: 0, netAmount: 0, splits: new Map<string, number>() };
+    const quantity = numeric(row.invoiced_quantity);
+    current.quantity += quantity;
+    current.netAmount += numeric(row.net_amount);
+    current.splits.set(split, (current.splits.get(split) || 0) + quantity);
+    accessoryItemGroups.set(itemKey, current);
+    const modelKey = row.model_name || 'Unresolved model';
+    const modelItemKey = `${modelKey}\\u0000${itemKey}`;
+    const modelItem = accessoryModelItemGroups.get(modelItemKey) || { model: modelKey, item, quantity: 0 };
+    modelItem.quantity += quantity;
+    accessoryModelItemGroups.set(modelItemKey, modelItem);
+  });
+  const accessorySplitNames = selectedDealer === 'All dealerships'
+    ? dealers
+    : selectedOutlet === 'All outlets' ? outlets : [selectedOutlet];
+  const accessorySplitColors = ['#1769aa', '#e07a22', '#238b64', '#8053a6', '#b34a62', '#598a9b', '#9b7d2b', '#526477'];
+  const accessorySplitSeries = accessorySplitNames.map((name, index) => ({
+    key: `split_${index}`,
+    name,
+    color: accessorySplitColors[index % accessorySplitColors.length],
+  })).filter((series) => Array.from(accessoryItemGroups.values()).some((item) => item.splits.get(series.name)));
+  const topAccessoryItems = Array.from(accessoryItemGroups.values())
+    .sort((a, b) => b.quantity - a.quantity || a.label.localeCompare(b.label))
+    .slice(0, 10);
+  const accessoryChartRows = topAccessoryItems.map((item) => {
+    const row: Record<string, string | number> & { label: string } = { label: item.label.length > 34 ? `${item.label.slice(0, 31)}…` : item.label };
+    accessorySplitSeries.forEach((series) => {
+      row[series.key] = item.splits.get(series.name) || 0;
+    });
+    return row;
+  });
+  const accessoryItemLabels = topAccessoryItems.slice(0, 8).map((item) => item.label.length > 22 ? `${item.label.slice(0, 19)}…` : item.label);
+  const topAccessoryModels = Array.from(new Set(Array.from(accessoryModelItemGroups.values()).map((row) => row.model)))
+    .map((model) => ({ model, quantity: Array.from(accessoryModelItemGroups.values()).filter((row) => row.model === model).reduce((sum, row) => sum + row.quantity, 0) }))
+    .sort((a, b) => b.quantity - a.quantity || a.model.localeCompare(b.model)).slice(0, 8);
+  const modelItemCells = new Map<string, number>();
+  accessoryModelItemGroups.forEach((row) => {
+    const x = accessoryItemLabels.indexOf(row.item.length > 22 ? `${row.item.slice(0, 19)}…` : row.item);
+    const y = topAccessoryModels.findIndex((model) => model.model === row.model);
+    if (x >= 0 && y >= 0) {
+      const key = `${x}:${y}`;
+      modelItemCells.set(key, (modelItemCells.get(key) || 0) + row.quantity);
+    }
+  });
+  const accessoryHeatmapCells = Array.from(modelItemCells.entries()).map(([key, quantity]) => {
+    const [x, y] = key.split(':').map(Number);
+    return [x, y, quantity] as [number, number, number];
+  });
+  const accessoryUnitTotal = Array.from(accessoryItemGroups.values()).reduce((sum, item) => sum + item.quantity, 0);
+  const accessoryNetTotal = Array.from(accessoryItemGroups.values()).reduce((sum, item) => sum + item.netAmount, 0);
   const vasAttachGroups = new Map<string, { label: string; dealer: string; outlet: string; category: string; proposals: number; invoice: number; awaiting: number }>();
   reconciliation.by_dealer_model_variant
     .filter((row) => ['EW', 'RSA', 'FASTAG', 'ACCESSORIES'].includes(row.category))
@@ -241,6 +297,18 @@ function AnalyticsAddonsReport({ data }: { data: AnalyticsVasData }) {
     });
   const ewTermRows = Array.from(ewTermGroups.values())
     .sort((a, b) => (b.fourYear + b.fiveYear + b.unknown) - (a.fourYear + a.fiveYear + a.unknown) || a.label.localeCompare(b.label));
+  const ewTermTotals = ewTermRows.reduce((total, row) => ({
+    fourYear: total.fourYear + row.fourYear,
+    fiveYear: total.fiveYear + row.fiveYear,
+    unknown: total.unknown + row.unknown,
+  }), { fourYear: 0, fiveYear: 0, unknown: 0 });
+  const ewDetailRows = reconciliation.by_dealer_model_variant
+    .filter((row) => row.category === 'EW' && dealerOutletInScope(row.dealer_name, row.outlet_name));
+  const ewStateTotals = ewDetailRows.reduce((total, row) => ({
+    proposals: total.proposals + row.booked_proposal_journeys,
+    invoice: total.invoice + row.delivery_invoice_purchase_journeys,
+    awaiting: total.awaiting + row.invoice_awaiting_journeys,
+  }), { proposals: 0, invoice: 0, awaiting: 0 });
   const ewHeatmapCells: Array<[number, number, number]> = [];
   ewTermRows.forEach((row, index) => {
     ([[0, row.fourYear], [1, row.fiveYear], [2, row.unknown]] as const).forEach(([termIndex, count]) => {
@@ -293,12 +361,12 @@ function AnalyticsAddonsReport({ data }: { data: AnalyticsVasData }) {
       </SectionCard>
 
       <div className="analytics-split analytics-split--overview">
-        <SectionCard title="Accessory source coverage" description="Sold-item results include confirmed accessory tax invoices only. Proforma and unclassified lines are not counted as sold.">
+        <SectionCard title="Accessory sales at a glance" description="Confirmed accessory-purpose tax-invoice evidence in this project snapshot; values below follow the selected dealership and outlet.">
           <div className="analytics-insight-stack">
-            <Metric label="Confirmed invoices / lines" value={`${formatNumber(accessoryLineCoverage.confirmed_tax_invoices)} / ${formatNumber(accessoryLineCoverage.confirmed_tax_invoice_lines)}`} detail="Reviewed accessory-purpose tax invoices in the current tenant snapshot" />
-            <Metric label="Usable item labels" value={`${formatNumber(accessoryLineCoverage.confirmed_lines_with_item_label)} / ${formatNumber(accessoryLineCoverage.confirmed_tax_invoice_lines)}`} detail="Tax-invoice lines with an item description or code" attention={accessoryLineCoverage.confirmed_lines_with_item_label < accessoryLineCoverage.confirmed_tax_invoice_lines} />
-            <Metric label="Proforma / unclassified lines" value={formatNumber(accessoryLineCoverage.proforma_lines + accessoryLineCoverage.unclassified_lines)} detail="Visible in source coverage only; excluded from sold-item totals" attention={accessoryLineCoverage.proforma_lines + accessoryLineCoverage.unclassified_lines > 0} />
-            <Metric label="Duplicate source copies removed" value={formatNumber(accessoryLineCoverage.duplicate_source_documents)} detail={`Collapsed across ${formatNumber(accessoryLineCoverage.duplicate_invoice_groups)} invoice identities`} />
+            <Metric label="Invoiced accessory units" value={formatNumber(accessoryUnitTotal)} detail={`${formatNumber(topAccessoryItems.length)} leading item groups shown in the chart`} />
+            <Metric label="Distinct invoice item groups" value={formatNumber(accessoryItemGroups.size)} detail={`${formatNumber(accessoryLineCoverage.confirmed_tax_invoices)} confirmed invoices · ${formatNumber(accessoryLineCoverage.confirmed_tax_invoice_lines)} confirmed lines`} />
+            <Metric label="Captured net invoice value" value={formatMoney(accessoryNetTotal)} detail="Summed from confirmed accessory invoice lines with captured net amounts" />
+            <Metric label="Invoice lines with quantity" value={`${formatNumber(accessoryLineCoverage.confirmed_lines_with_quantity)} / ${formatNumber(accessoryLineCoverage.confirmed_tax_invoice_lines)}`} detail={`${formatNumber(accessoryLineCoverage.confirmed_lines_with_item_label)} lines also carry an item label`} attention={accessoryLineCoverage.confirmed_lines_with_quantity < accessoryLineCoverage.confirmed_tax_invoice_lines} />
           </div>
         </SectionCard>
       </div>
@@ -325,19 +393,37 @@ function AnalyticsAddonsReport({ data }: { data: AnalyticsVasData }) {
       </div>
 
       <div className="analytics-split analytics-split--overview">
-        <SectionCard title="Accessory mix · outlet to model to item" description="Each segment is sized by confirmed invoiced units. The hierarchy starts at dealer/outlet and drills into the model/variant and captured accessory item.">
-          <AnalyticsSunburstChart rows={accessoryChartRows} valueLabel="Confirmed invoiced units" emptyText="No confirmed accessory invoice quantities are available in this snapshot." />
+        <SectionCard title="Top accessories by invoiced units" description="Ranked confirmed invoice quantities, split by dealership in the all-dealership view and by outlet when a single dealership is selected.">
+          <AnalyticsStackedBarChart rows={accessoryChartRows} series={accessorySplitSeries} valueLabel="Invoiced units" emptyText="No confirmed accessory invoice quantities are available for this selection." />
         </SectionCard>
-        <SectionCard title="Extended warranty · term heatmap by outlet" description="Color intensity shows the number of journeys with captured 4-year, 5-year, or unrecorded-term evidence. Select a dealership/outlet above to focus the heatmap.">
+        <SectionCard title="Accessory choice by vehicle model" description="The heatmap shows confirmed invoiced units for the leading accessory items across the leading models in the selected dealership/outlet scope.">
           <AnalyticsHeatmap
-            xLabels={['4-year', '5-year', 'Term not recorded']}
-            yLabels={ewTermRows.map((row) => row.label)}
-            cells={ewHeatmapCells}
-            valueLabel="EW journeys"
-            emptyText="No EW term evidence is available for the selected dealership/outlet."
+            xLabels={accessoryItemLabels}
+            yLabels={topAccessoryModels.map((row) => row.model)}
+            cells={accessoryHeatmapCells}
+            valueLabel="Invoiced units"
+            emptyText="No model-to-accessory invoice evidence is available for this selection."
           />
         </SectionCard>
       </div>
+
+      <SectionCard title="Extended warranty · attach and term insight" description="The headline counts follow the three agreed states. The term chart shows captured 4-year, 5-year and unrecorded-term evidence by outlet.">
+        <div className="analytics-insurance-banner">
+          <Metric label="EW booking proposals" value={formatNumber(ewStateTotals.proposals)} detail="Captured EW proposal records linked to bookings in the selected scope" />
+          <Metric label="EW confirmed invoice purchases" value={formatNumber(ewStateTotals.invoice)} detail="EW only when a confirmed tax-invoice line matches" />
+          <Metric label="EW invoice awaiting" value={formatNumber(ewStateTotals.awaiting)} detail="Booking proposal exists and no delivery record is uploaded" />
+          <Metric label="4-year term captured" value={formatNumber(ewTermTotals.fourYear)} detail="EW journeys with explicit 4-year term evidence" />
+          <Metric label="5-year term captured" value={formatNumber(ewTermTotals.fiveYear)} detail="EW journeys with explicit 5-year term evidence" />
+          <Metric label="Term not recorded" value={formatNumber(ewTermTotals.unknown)} detail="EW evidence exists without a 4-year or 5-year term" attention={ewTermTotals.unknown > 0} />
+        </div>
+        <AnalyticsHeatmap
+          xLabels={['4-year', '5-year', 'Term not recorded']}
+          yLabels={ewTermRows.map((row) => row.label)}
+          cells={ewHeatmapCells}
+          valueLabel="EW term evidence"
+          emptyText="No EW term evidence is available for the selected dealership/outlet."
+        />
+      </SectionCard>
 
       <SectionCard title="VAS sold / proposed · dealer and outlet heatmap" description="Compare the selected journey count across EW, RSA, FASTAG, and accessories for each dealership/outlet. Use the measure selector to switch among captured booking proposals, confirmed tax-invoice purchases, and invoice awaiting.">
         <label className="analytics-chart-measure">Measure<select value={vasMetric} onChange={(event) => setVasMetric(event.target.value as typeof vasMetric)}><option value="proposals">Booking proposals</option><option value="invoice">Confirmed invoice purchases</option><option value="awaiting">Invoice awaiting</option></select></label>

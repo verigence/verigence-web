@@ -373,6 +373,9 @@ export type P2Task = {
   vehicle?: string | null;
   journey_reference?: string | null;
   queue_tab?: 'DOCUMENTS' | 'MANUAL_VERIFICATION' | 'OTHER';
+  /** The Documents group (2026-10-21): set on document work only. */
+  document_category?: P2DocumentCategory | null;
+  document?: P2TaskDocument | null;
   comment_count?: number;
   verified_at_utc?: string | null;
   completion_result?: Record<string, unknown>;
@@ -392,9 +395,27 @@ export type P2TaskDetail = P2Task & { events: P2TaskEvent[] };
 
 export type P2TaskTab = 'ALL' | 'DOCUMENTS' | 'MANUAL_VERIFICATION';
 
+/** The four kinds of document work (product owner 2026-10-21). */
+export type P2DocumentCategory = 'MANUAL_VERIFICATION' | 'FAILED_TO_READ' | 'IMAGE_QUALITY' | 'MISSING_DOCUMENT';
+
+/** What a document task row shows: the file, the page(s), why in plain words, the document to open. */
+export type P2TaskDocument = {
+  category: P2DocumentCategory;
+  categoryLabel: string;
+  file?: string | null;
+  pages: number[];
+  reason?: string | null;
+  documentId?: string | null;
+};
+
+export type P2DocumentCounts = Record<'TOTAL' | P2DocumentCategory, number>;
+
 export type P2TasksResponse = {
   items: P2Task[];
   counts?: Record<P2TaskTab, number>;
+  /** Document tasks per category across the queue, and per journey. */
+  documentCounts?: P2DocumentCounts;
+  documentCountsByJourney?: Record<string, P2DocumentCounts>;
   sources?: { p2: number; legacy: number };
 };
 
@@ -462,6 +483,15 @@ export function retryP2Page(tenantId: string, journeyId: string, queueId: string
   return auditCoreRequest(
     path(tenantId, `/journeys/${encodeURIComponent(journeyId)}/pages/${encodeURIComponent(queueId)}:retry`),
     { method: 'POST', accessToken },
+  );
+}
+
+/** Take a refused or failed page off the Journey (2026-10-21): used once
+ * its re-scan is uploaded. The page's tasks close, naming the removal. */
+export function removeP2Page(tenantId: string, journeyId: string, queueId: string, reason: string, accessToken?: string) {
+  return auditCoreRequest<{ queueId: string; status: string; documentVoided: boolean }>(
+    path(tenantId, `/journeys/${encodeURIComponent(journeyId)}/pages/${encodeURIComponent(queueId)}:remove`),
+    { method: 'POST', accessToken, cache: 'no-store', body: JSON.stringify({ reason }) },
   );
 }
 

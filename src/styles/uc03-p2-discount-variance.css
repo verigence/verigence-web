@@ -1,0 +1,24 @@
+/* DealGuard discount variance: discounts on the invoice that are not what the
+   booking was entitled to. Scoped to .p2w and built on its palette tokens. */
+
+.p2w .p2w-dv__tiles {
+  display: grid; gap: 10px;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+}
+.p2w .p2w-dv__tile {
+  display: flex; flex-direction: column; gap: 2px; padding: 12px;
+  border: 1px solid var(--p2w-line); border-radius: 10px; background: #fff;
+  color: var(--p2w-ink); font: inherit; text-align: left; cursor: pointer;
+}
+.p2w .p2w-dv__tile:hover { background: var(--p2w-soft); }
+.p2w .p2w-dv__tile.is-active { border-color: var(--p2w-action); box-shadow: var(--p2w-shadow); }
+.p2w .p2w-dv__tile.is-worst .p2w-dv__count { color: var(--p2w-danger); }
+.p2w .p2w-dv__tile small { color: var(--p2w-muted); font-size: .76rem; }
+.p2w .p2w-dv__count { font-size: 1.5rem; font-weight: 800; line-height: 1.1; }
+
+.p2w .p2w-dv__list td { vertical-align: top; font-size: .85rem; }
+.p2w .p2w-dv__list td.is-num { text-align: right; font-variant-numeric: tabular-nums; }
+.p2w .p2w-dv__list tr.is-over td { background: var(--p2w-danger-soft, #fff5f5); }
+.p2w .p2w-dv__list tr.is-unknown td { color: var(--p2w-muted); }
+.p2w .p2w-dv__over { color: var(--p2w-danger); font-weight: 700; }
+.p2w .p2w-dv__under { color: var(--p2w-warning-text, #8a5a00); font-weight: 700; }

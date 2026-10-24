@@ -170,6 +170,15 @@ const p2ReviewActivityItem: NavItem = {
 
 // Reviewers check a figure against its source as part of correcting it, so
 // they get the two reference tabs as well. Both are read-only.
+// Discounts on the invoice that are not what the booking was entitled to --
+// invoice figures only, never the booking (product owner, 2026-10-24).
+const p2DiscountVarianceItem: NavItem = {
+  to: '/p2/discount-variance',
+  label: 'Discount variance',
+  mark: 'DV',
+  roles: ['TL', 'PM', 'REVIEWER'],
+};
+
 const p2PriceMastersItem: NavItem = {
   to: '/p2/price-masters',
   label: 'Price Masters',
@@ -194,6 +203,7 @@ const p2Group: NavGroup = {
     p2TasksItem,
     p2DuplicatesItem,
     p2ReviewActivityItem,
+    p2DiscountVarianceItem,
     p2PriceMastersItem,
     p2MasterDocumentsItem,
   ],

@@ -678,15 +678,39 @@ interface AnalyticsBusinessGeography {
   available: boolean;
   rows: Array<{
     customer_pincode: string;
+    district_name: string | null;
+    locality_names: string[];
+    dealer_id: string | null;
     dealer_name: string;
+    outlet_id: string | null;
     outlet_name: string;
     model_name: string;
+    booking_date: string | null;
+    delivery_date: string | null;
     journey_count: number;
     actual_deliveries: number;
     finance_journeys: number;
     insurance_journeys: number;
     accessory_journeys: number;
     avg_discount: NumericValue;
+  }>;
+  outlet_locations: Array<{
+    outlet_id: string;
+    dealer_id: string | null;
+    dealer_name: string | null;
+    outlet_name: string;
+    outlet_code: string | null;
+    pincode: string | null;
+    latitude: NumericValue;
+    longitude: NumericValue;
+    location_precision: 'OUTLET_COORDINATE' | 'PIN_CENTROID' | string;
+  }>;
+  map_boundaries: Array<{
+    boundary_key: 'odisha-pin' | 'odisha-district' | string;
+    boundary_type: 'PIN' | 'DISTRICT';
+    content_gzip_base64: string;
+    source_name: string;
+    source_url: string;
   }>;
   privacy: string;
 }

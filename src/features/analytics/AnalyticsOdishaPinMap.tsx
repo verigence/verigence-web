@@ -1,175 +1,298 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import * as echarts from 'echarts';
 import ReactECharts from 'echarts-for-react';
 
 import type { AnalyticsBusinessReportPayload } from '../../services/analytics/businessClient';
 
-type GeographyRow = Extract<AnalyticsBusinessReportPayload, { kind: 'geography' }>['data']['rows'][number];
-type PinMetricKey = 'journey_count' | 'actual_deliveries' | 'finance_journeys' | 'insurance_journeys' | 'accessory_journeys';
+type GeographyData = Extract<AnalyticsBusinessReportPayload, { kind: 'geography' }>['data'];
+type GeographyRow = GeographyData['rows'][number];
+type MeasureKey = 'journey_count' | 'actual_deliveries';
+type ViewMode = 'PIN' | 'DISTRICT';
+type Feature = { properties?: { name?: string; [key: string]: unknown }; geometry?: { type?: string; coordinates?: unknown } };
 
-const MAP_NAME = 'verigence-odisha-pincodes';
-const MAP_URL = `${import.meta.env.BASE_URL}analytics/odisha-pincode-boundaries.json.gz.b64`;
+const PIN_MAP = 'verigence-odisha-pins-analytics';
+const DISTRICT_MAP = 'verigence-odisha-districts-analytics';
+const postalDistrictNames: Record<string, string> = {
+  Angul: 'Anugul', Baleswar: 'Balasore', Bolangir: 'Balangir', Jajpur: 'Jajapur',
+  Keonjhar: 'Keonjhar (Kendujhar)', Nawarangapur: 'Nabarangapur', Nuapada: 'Nuaparha',
+  Rayagada: 'Rayagarha', Sonepur: 'Subarnapur',
+};
 const chartFont = 'Inter, Arial, Helvetica, sans-serif';
-
-const metrics: Array<{ key: PinMetricKey; label: string }> = [
-  { key: 'journey_count', label: 'Booked journeys' },
-  { key: 'actual_deliveries', label: 'Deliveries' },
-  { key: 'finance_journeys', label: 'Finance journeys' },
-  { key: 'insurance_journeys', label: 'Insurance journeys' },
-  { key: 'accessory_journeys', label: 'Accessory journeys' },
-];
+const dealerPalette = ['#1769aa', '#e07a22', '#238b64', '#8053a6', '#b34a62', '#598a9b'];
+const rangeLabels = ['1–2', '3–5', '6–10', '11–20', '21+'];
 
 function formatNumber(value: number): string {
   return new Intl.NumberFormat('en-IN').format(value);
 }
 
-export default function AnalyticsOdishaPinMap({ rows }: { rows: GeographyRow[] }) {
+function countBand(value: number): number {
+  if (value <= 2) return 0.8;
+  if (value <= 5) return 1.2;
+  if (value <= 10) return 1.6;
+  if (value <= 20) return 2;
+  return 2.6;
+}
+
+function safeCsv(value: unknown): string {
+  const text = String(value ?? '');
+  return `"${text.replaceAll('"', '""')}"`;
+}
+
+function escapeHtml(value: unknown): string {
+  return String(value ?? '').replace(/[&<>"']/g, (character) => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+  })[character] || character);
+}
+
+function csvDownload(filename: string, rows: unknown[][]): void {
+  const body = `\uFEFF${rows.map((row) => row.map(safeCsv).join(',')).join('\r\n')}`;
+  const url = URL.createObjectURL(new Blob([body], { type: 'text/csv;charset=utf-8' }));
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
+function inflateBase64GeoJson(encoded: string): Promise<{ features: Feature[] }> {
+  const binary = Uint8Array.from(atob(encoded.replace(/\s/g, '')), (character) => character.charCodeAt(0));
+  const stream = new Blob([binary.buffer as ArrayBuffer]).stream().pipeThrough(new DecompressionStream('gzip'));
+  return new Response(stream).json();
+}
+
+function centerOfFeature(feature: Feature): [number, number] | null {
+  const points: number[][] = [];
+  const collect = (value: unknown): void => {
+    if (!Array.isArray(value)) return;
+    if (value.length >= 2 && typeof value[0] === 'number' && typeof value[1] === 'number') {
+      points.push(value as number[]);
+      return;
+    }
+    value.forEach(collect);
+  };
+  collect(feature.geometry?.coordinates);
+  if (!points.length) return null;
+  const bounds = points.reduce(([minX, minY, maxX, maxY], point) => [
+    Math.min(minX, point[0]), Math.min(minY, point[1]), Math.max(maxX, point[0]), Math.max(maxY, point[1]),
+  ], [Infinity, Infinity, -Infinity, -Infinity]);
+  return [(bounds[0] + bounds[2]) / 2, (bounds[1] + bounds[3]) / 2];
+}
+
+function dateInRange(value: string | null, from: string, to: string): boolean {
+  if (!from && !to) return true;
+  if (!value) return false;
+  return (!from || value >= from) && (!to || value <= to);
+}
+
+export default function AnalyticsOdishaPinMap({ data }: { data: GeographyData }) {
+  const rows = data.rows;
+  const mapBoundaries = data.map_boundaries || [];
+  const outletLocations = data.outlet_locations || [];
+  const chartRef = useRef<ReactECharts | null>(null);
   const [selectedDealer, setSelectedDealer] = useState('All dealerships');
-  const [selectedMetric, setSelectedMetric] = useState<PinMetricKey>('journey_count');
-  const [mapPins, setMapPins] = useState<Set<string> | null>(null);
+  const [selectedModel, setSelectedModel] = useState('All models');
+  const [selectedMeasure, setSelectedMeasure] = useState<MeasureKey>('journey_count');
+  const [viewMode, setViewMode] = useState<ViewMode>('PIN');
+  const [selectedMonth, setSelectedMonth] = useState('');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
+  const [pinGeo, setPinGeo] = useState<{ features: Feature[] } | null>(null);
+  const [districtGeo, setDistrictGeo] = useState<{ features: Feature[] } | null>(null);
   const [mapError, setMapError] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
-    fetch(MAP_URL)
-      .then((response) => {
-        if (!response.ok) throw new Error(`PIN boundary file returned ${response.status}`);
-        return response.text();
-      })
-      .then(async (encoded) => {
-        const compressed = Uint8Array.from(atob(encoded.trim()), (character) => character.charCodeAt(0));
-        const gzipStream = new Blob([compressed.buffer as ArrayBuffer])
-          .stream()
-          .pipeThrough(new DecompressionStream('gzip'));
-        return new Response(gzipStream).json();
-      })
-      .then((geoJson) => {
-        const features = Array.isArray(geoJson.features) ? geoJson.features : [];
-        const pins = new Set<string>(
-          features.map((feature: { properties?: { name?: string } }) => String(feature.properties?.name || '')),
-        );
-        echarts.registerMap(MAP_NAME, geoJson);
-        if (active) setMapPins(pins);
+    const pinBoundary = mapBoundaries.find((boundary) => boundary.boundary_key === 'odisha-pin');
+    const districtBoundary = mapBoundaries.find((boundary) => boundary.boundary_key === 'odisha-district');
+    if (!pinBoundary || !districtBoundary) {
+      setMapError('PIN and district boundaries are not available in the Analytics geography master.');
+      return () => { active = false; };
+    }
+    Promise.all([inflateBase64GeoJson(pinBoundary.content_gzip_base64), inflateBase64GeoJson(districtBoundary.content_gzip_base64)])
+      .then(([pins, districts]) => {
+        if (!active) return;
+        const normalizedDistricts = {
+          ...districts,
+          features: districts.features.map((feature) => {
+            const district = String(feature.properties?.district || feature.properties?.name || '').trim();
+            return { ...feature, properties: { ...feature.properties, name: postalDistrictNames[district] || district } };
+          }),
+        };
+        echarts.registerMap(PIN_MAP, pins as never);
+        echarts.registerMap(DISTRICT_MAP, normalizedDistricts as never);
+        setPinGeo(pins);
+        setDistrictGeo(normalizedDistricts);
       })
       .catch((error: unknown) => {
-        if (active) setMapError(error instanceof Error ? error.message : 'PIN map could not be loaded.');
+        if (active) setMapError(error instanceof Error ? error.message : 'Geographic master data could not be loaded.');
       });
     return () => { active = false; };
-  }, []);
+  }, [mapBoundaries]);
 
-  const dealers = useMemo(
-    () => Array.from(new Set(rows.map((row) => row.dealer_name).filter(Boolean))).sort((a, b) => a.localeCompare(b)),
-    [rows],
+  const dealers = useMemo(() => Array.from(new Set(rows.map((row) => row.dealer_name)).values()).sort(), [rows]);
+  const models = useMemo(() => Array.from(new Set(rows.map((row) => row.model_name).filter(Boolean)).values()).sort(), [rows]);
+  const filteredRows = useMemo(() => rows.filter((row) => {
+    if (selectedDealer !== 'All dealerships' && row.dealer_name !== selectedDealer) return false;
+    if (selectedModel !== 'All models' && row.model_name !== selectedModel) return false;
+    const date = selectedMeasure === 'journey_count' ? row.booking_date : row.delivery_date;
+    return dateInRange(date, dateFrom, dateTo);
+  }), [rows, selectedDealer, selectedModel, selectedMeasure, dateFrom, dateTo]);
+
+  const dealerColors = useMemo(
+    () => new Map(dealers.map((dealer, index) => [dealer, dealerPalette[index % dealerPalette.length]])),
+    [dealers],
   );
-  const scopedRows = useMemo(
-    () => selectedDealer === 'All dealerships' ? rows : rows.filter((row) => row.dealer_name === selectedDealer),
-    [rows, selectedDealer],
-  );
-  const pinTotals = useMemo(() => {
-    const totals = new Map<string, number>();
-    scopedRows.forEach((row) => {
-      const pin = String(row.customer_pincode || '').trim();
-      if (pin) totals.set(pin, (totals.get(pin) || 0) + Number(row[selectedMetric] || 0));
+  const locationTotals = useMemo(() => {
+    const byArea = new Map<string, { name: string; district: string; locality: string; total: number; dealers: Map<string, number>; bookings: number; deliveries: number }>();
+    filteredRows.forEach((row) => {
+      const area = viewMode === 'PIN' ? row.customer_pincode : row.district_name;
+      if (!area) return;
+      const key = String(area);
+      const current = byArea.get(key) || {
+        name: key,
+        district: row.district_name || 'District not mapped',
+        locality: (row.locality_names || []).join(', ') || 'Locality not available in postal master',
+        total: 0,
+        dealers: new Map<string, number>(),
+        bookings: 0,
+        deliveries: 0,
+      };
+      const amount = Number(row[selectedMeasure] || 0);
+      current.total += amount;
+      current.bookings += Number(row.journey_count || 0);
+      current.deliveries += Number(row.actual_deliveries || 0);
+      current.dealers.set(row.dealer_name, (current.dealers.get(row.dealer_name) || 0) + amount);
+      if (row.locality_names?.length) {
+        current.locality = viewMode === 'PIN'
+          ? row.locality_names.join(', ')
+          : Array.from(new Set([...current.locality.split(', '), ...row.locality_names])).filter(Boolean).join(', ');
+      }
+      byArea.set(key, current);
     });
-    return totals;
-  }, [scopedRows, selectedMetric]);
-  const mappedRows = useMemo(
-    () => Array.from(pinTotals.entries()).filter(([pin]) => mapPins?.has(pin)),
-    [pinTotals, mapPins],
-  );
-  const unmappedRows = useMemo(
-    () => Array.from(pinTotals.entries()).filter(([pin]) => !mapPins?.has(pin)).sort((a, b) => b[1] - a[1]),
-    [pinTotals, mapPins],
-  );
-  const totalValue = mappedRows.reduce((sum, [, value]) => sum + value, 0);
-  const maxValue = Math.max(...mappedRows.map(([, value]) => value), 1);
-  const topPin = [...mappedRows].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))[0];
-  const activeMetric = metrics.find((metric) => metric.key === selectedMetric)?.label || 'Bookings';
+    return byArea;
+  }, [filteredRows, selectedMeasure, viewMode]);
+
+  const pinCenters = useMemo(() => {
+    const centers = new Map<string, [number, number]>();
+    pinGeo?.features.forEach((feature) => {
+      const pin = String(feature.properties?.name || '').trim();
+      const center = centerOfFeature(feature);
+      if (pin && center) centers.set(pin, center);
+    });
+    return centers;
+  }, [pinGeo]);
+
+  const topAreas = useMemo(() => Array.from(locationTotals.values())
+    .sort((a, b) => b.total - a.total || a.name.localeCompare(b.name)).slice(0, 10), [locationTotals]);
+  const overlapAreas = useMemo(() => Array.from(locationTotals.values()).filter((area) => Array.from(area.dealers.values()).filter((count) => count > 0).length > 1), [locationTotals]);
+  const chartMapReady = (viewMode === 'PIN' ? pinGeo : districtGeo) != null;
+  const mapName = viewMode === 'PIN' ? PIN_MAP : DISTRICT_MAP;
+  const measureLabel = selectedMeasure === 'journey_count' ? 'Bookings' : 'Deliveries (Retail)';
+
+  const outletPoints = useMemo(() => outletLocations
+    .filter((outlet) => selectedDealer === 'All dealerships' || outlet.dealer_name === selectedDealer)
+    .map((outlet) => {
+      const pincode = String(outlet.pincode || '').trim();
+      const fallback = pinCenters.get(pincode);
+      const lon = outlet.longitude == null ? fallback?.[0] : Number(outlet.longitude);
+      const lat = outlet.latitude == null ? fallback?.[1] : Number(outlet.latitude);
+      if (lon == null || lat == null || !Number.isFinite(lon) || !Number.isFinite(lat)) return null;
+      return {
+        name: outlet.outlet_name,
+        value: [lon, lat, 1],
+        dealer_name: outlet.dealer_name || 'Dealer unspecified',
+        pincode,
+        precision: outlet.location_precision,
+      };
+    }).filter((point): point is NonNullable<typeof point> => point != null), [outletLocations, selectedDealer, pinCenters]);
 
   const option = useMemo(() => ({
     textStyle: { fontFamily: chartFont },
     tooltip: {
       trigger: 'item',
-      formatter: (params: { name?: string; value?: number | string }) =>
-        `${params.name || 'PIN'}<br/>${activeMetric}: ${formatNumber(Number(params.value || 0))}`,
-      backgroundColor: '#ffffff',
-      borderColor: '#d7e3ed',
-      textStyle: { color: '#173b5b', fontFamily: chartFont },
+      formatter: (params: { name?: string; value?: number | string | number[]; data?: { dealer_name?: string; pincode?: string; precision?: string } }) => {
+        if (params.data?.precision) return `<strong>${escapeHtml(params.name || 'Outlet')}</strong><br/>${escapeHtml(params.data.dealer_name || '')}<br/>PIN ${escapeHtml(params.data.pincode || 'unavailable')}<br/>Location: ${params.data.precision === 'OUTLET_COORDINATE' ? 'outlet coordinates' : 'PIN centroid'}`;
+        const area = locationTotals.get(String(params.name || ''));
+        if (!area) return escapeHtml(params.name || 'Area');
+        const dealerRows = Array.from(area.dealers.entries()).sort((a, b) => b[1] - a[1]).map(([dealer, count]) => `${escapeHtml(dealer)}: ${formatNumber(count)}`).join('<br/>');
+        return `<strong>${viewMode === 'PIN' ? `PIN ${escapeHtml(area.name)}` : escapeHtml(area.name)}</strong><br/>${escapeHtml(area.locality)}<br/>${escapeHtml(area.district)}<br/>${measureLabel}: ${formatNumber(area.total)}<br/>Bookings: ${formatNumber(area.bookings)} · Deliveries: ${formatNumber(area.deliveries)}<br/>${dealerRows}`;
+      },
+      backgroundColor: '#ffffff', borderColor: '#d7e3ed', textStyle: { color: '#173b5b', fontFamily: chartFont },
     },
-    visualMap: {
-      min: 0,
-      max: maxValue,
-      calculable: false,
-      orient: 'horizontal',
-      left: 'center',
-      bottom: 8,
-      text: ['Higher volume', 'Lower volume'],
-      textStyle: { color: '#58718d', fontFamily: chartFont, fontSize: 11 },
-      inRange: { color: ['#dceaf4', '#9ec5dc', '#4c91bd', '#07477d'] },
-    },
-    series: [{
-      name: activeMetric,
-      type: 'map',
-      map: MAP_NAME,
-      roam: true,
-      zoom: 1.05,
-      layoutCenter: ['50%', '47%'],
-      layoutSize: '95%',
-      itemStyle: { areaColor: '#eef3f7', borderColor: '#ffffff', borderWidth: 0.65 },
+    geo: {
+      map: mapName, roam: true, zoom: 1.05, layoutCenter: ['50%', '46%'], layoutSize: '95%',
+      itemStyle: { areaColor: '#edf2f6', borderColor: '#ffffff', borderWidth: 0.6 },
       emphasis: { itemStyle: { areaColor: '#f2ba6b', borderColor: '#173b5b', borderWidth: 1.2 } },
-      data: mappedRows.map(([name, value]) => ({ name, value })),
-    }],
-  }), [activeMetric, mappedRows, maxValue]);
+    },
+    series: [
+      {
+        name: measureLabel, type: 'map', map: mapName, geoIndex: 0, data: Array.from(locationTotals.values()).map((area) => {
+          const leader = Array.from(area.dealers.entries()).sort((a, b) => b[1] - a[1])[0]?.[0];
+          const shared = Array.from(area.dealers.values()).filter((count) => count > 0).length > 1;
+          const borderWidth = countBand(area.total);
+          return { name: area.name, value: area.total, itemStyle: { areaColor: shared ? '#76549b' : dealerColors.get(leader || '') || '#b8c7d3', borderColor: shared ? '#a61b29' : '#ffffff', borderWidth } };
+        }),
+      },
+      {
+        name: 'Dealer outlets', type: 'scatter', coordinateSystem: 'geo', data: outletPoints,
+        symbolSize: 9, zlevel: 4,
+        itemStyle: { color: '#d33232', borderColor: '#ffffff', borderWidth: 1.5, shadowBlur: 5, shadowColor: '#52697d' },
+      },
+    ],
+  }), [dealerColors, locationTotals, mapName, measureLabel, outletPoints, viewMode]);
+
+  const downloadPinData = () => csvDownload(`customer-spread-${viewMode.toLowerCase()}.csv`, [
+    [viewMode === 'PIN' ? 'PIN' : 'District', 'Locality / blocks', 'District', 'Dealer', 'Bookings', 'Deliveries (Retail)', 'Selected measure'],
+    ...Array.from(locationTotals.values()).flatMap((area) => Array.from(area.dealers.entries()).map(([dealer, count]) => [area.name, area.locality, area.district, dealer, area.bookings, area.deliveries, count])),
+  ]);
+  const downloadExceptions = () => csvDownload('shared-customer-areas.csv', [
+    ['PIN / District', 'Locality / blocks', 'District', 'Dealerships', 'Bookings', 'Deliveries (Retail)'],
+    ...overlapAreas.map((area) => [area.name, area.locality, area.district, Array.from(area.dealers.keys()).join(' | '), area.bookings, area.deliveries]),
+  ]);
+
+  const zoom = (factor: number) => chartRef.current?.getEchartsInstance().dispatchAction({ type: 'geoRoam', componentType: 'geo', zoom: factor });
 
   return (
-    <section className="analytics-pin-map" aria-label="Odisha customer PIN sales map">
+    <section className="analytics-pin-map" aria-label="Customer spread by PIN Code">
       <div className="analytics-pin-map__controls">
-        <label>
-          Dealership
-          <select value={selectedDealer} onChange={(event) => setSelectedDealer(event.target.value)}>
-            <option>All dealerships</option>
-            {dealers.map((dealer) => <option key={dealer}>{dealer}</option>)}
-          </select>
-        </label>
-        <label>
-          Map measure
-          <select value={selectedMetric} onChange={(event) => setSelectedMetric(event.target.value as PinMetricKey)}>
-            {metrics.map((metric) => <option key={metric.key} value={metric.key}>{metric.label}</option>)}
-          </select>
-        </label>
+        <label>Dealership<select value={selectedDealer} onChange={(event) => setSelectedDealer(event.target.value)}><option>All dealerships</option>{dealers.map((dealer) => <option key={dealer}>{dealer}</option>)}</select></label>
+        <label>Model<select value={selectedModel} onChange={(event) => setSelectedModel(event.target.value)}><option>All models</option>{models.map((model) => <option key={model}>{model}</option>)}</select></label>
+        <label>Measure<select value={selectedMeasure} onChange={(event) => setSelectedMeasure(event.target.value as MeasureKey)}><option value="journey_count">Bookings</option><option value="actual_deliveries">Deliveries (Retail)</option></select></label>
+        <label>View<select value={viewMode} onChange={(event) => setViewMode(event.target.value as ViewMode)}><option value="PIN">PIN view</option><option value="DISTRICT">District view</option></select></label>
       </div>
-
+      <div className="analytics-pin-map__controls" aria-label="Date range filter">
+        <label>Month<input type="month" value={selectedMonth} onChange={(event) => {
+          const month = event.target.value;
+          setSelectedMonth(month);
+          if (!month) return;
+          const [year, monthNumber] = month.split('-').map(Number);
+          setDateFrom(`${month}-01`);
+          setDateTo(`${month}-${String(new Date(year, monthNumber, 0).getDate()).padStart(2, '0')}`);
+        }} /></label>
+        <label>From<input type="date" value={dateFrom} onChange={(event) => { setSelectedMonth(''); setDateFrom(event.target.value); }} /></label>
+        <label>To<input type="date" value={dateTo} onChange={(event) => { setSelectedMonth(''); setDateTo(event.target.value); }} /></label>
+        <button type="button" onClick={() => { setSelectedMonth(''); setDateFrom(''); setDateTo(''); }}>Clear dates</button>
+        <span>Choose a month or enter a custom date range.</span>
+      </div>
       <div className="analytics-pin-map__metrics">
-        <div><span>{activeMetric} in Odisha PINs</span><strong>{formatNumber(totalValue)}</strong></div>
-        <div><span>PIN areas reached</span><strong>{formatNumber(mappedRows.filter(([, value]) => value > 0).length)}</strong></div>
-        <div><span>Leading PIN</span><strong>{topPin?.[0] || 'Unavailable'}</strong></div>
-        <div><span>Outside / unmatched PINs</span><strong>{mapPins ? formatNumber(unmappedRows.length) : '…'}</strong></div>
+        <div><span>{measureLabel}</span><strong>{formatNumber(Array.from(locationTotals.values()).reduce((sum, area) => sum + area.total, 0))}</strong></div>
+        <div><span>{viewMode === 'PIN' ? 'PINs reached' : 'Districts reached'}</span><strong>{formatNumber(locationTotals.size)}</strong></div>
+        <div><span>Shared areas</span><strong>{formatNumber(overlapAreas.length)}</strong></div>
+        <div><span>Outlet markers</span><strong>{formatNumber(outletPoints.length)}</strong></div>
       </div>
-
-      {mapError ? (
-        <p className="analytics-pin-map__error">Odisha PIN boundaries could not be loaded ({mapError}). The dealer and PIN detail below is still available.</p>
-      ) : mapPins ? (
-        <ReactECharts option={option} notMerge lazyUpdate style={{ height: 'clamp(380px, 70vh, 600px)', width: '100%' }} />
-      ) : (
-        <p className="analytics-pin-map__loading">Loading the bundled Odisha PIN boundaries…</p>
-      )}
-
-      {mapPins && unmappedRows.length > 0 && (
-        <div className="analytics-pin-map__unmapped">
-          <h4>PINs outside the Odisha map / not matched to a boundary</h4>
-          <p className="analytics-pin-map__note">{formatNumber(unmappedRows.length)} captured PINs are excluded from the Odisha map total. These can include out-of-state PINs and codes absent from the boundary source.</p>
-          <div className="data-table-wrap analytics-table-wrap">
-            <table className="data-table">
-              <thead><tr><th>Customer PIN</th><th>{activeMetric}</th></tr></thead>
-              <tbody>{unmappedRows.map(([pin, value]) => <tr key={pin}><td>{pin}</td><td>{formatNumber(value)}</td></tr>)}</tbody>
-            </table>
-          </div>
-        </div>
-      )}
-      <p className="analytics-pin-map__note">
-        Customer address PIN is used as a sales influence indicator, not a verified dealer catchment or travel area. PIN boundaries are bundled from the public{' '}
-        <a href="https://livingatlas.esri.in/server1/rest/services/India/Pincode_Boundary_2025/MapServer/0" target="_blank" rel="noreferrer">Odisha PIN boundary layer</a>.
-      </p>
+      <div className="analytics-pin-map__controls" aria-label="Map controls">
+        <strong>{viewMode === 'PIN' ? 'Customer Spread by PIN Code' : 'Customer Spread by District'}</strong>
+        <div><button type="button" onClick={() => zoom(1.25)} aria-label="Zoom in">+</button> <button type="button" onClick={() => zoom(0.8)} aria-label="Zoom out">−</button> <button type="button" onClick={() => chartRef.current?.getEchartsInstance().dispatchAction({ type: 'restore' })}>Reset map</button></div>
+      </div>
+      {mapError ? <p className="analytics-pin-map__error">{mapError}</p> : chartMapReady ? <ReactECharts ref={chartRef} option={option} notMerge lazyUpdate style={{ height: 'clamp(400px, 70vh, 680px)', width: '100%' }} /> : <p className="analytics-pin-map__loading">Loading PIN and district masters from Analytics…</p>}
+      <div className="analytics-pin-map__legend"><strong>Dealership</strong>{dealers.map((dealer) => <span key={dealer}><i style={{ backgroundColor: dealerColors.get(dealer) }} />{dealer}</span>)}<span><i style={{ backgroundColor: '#76549b', border: '2px solid #a61b29' }} />Shared PIN / district</span><strong>Selected measure count (border weight)</strong>{rangeLabels.map((range, index) => <span key={range}><i className="analytics-pin-map__range" style={{ borderTopWidth: [0.8, 1.2, 1.6, 2, 2.6][index] }} />{range}</span>)}</div>
+      <p className="analytics-pin-map__note">Fill color shows the leading dealership; shared areas use purple fill and a red border. Border weight shows the selected measure range: {rangeLabels.join(', ')}. Outlet dots use exact outlet coordinates when present; otherwise they are placed at the PIN centroid and identified as approximate in the hover details.</p>
+      <div className="analytics-pin-map__controls"><button type="button" onClick={downloadPinData}>Download PIN / district data for Excel (CSV)</button><button type="button" onClick={downloadExceptions}>Download shared-area exceptions (CSV)</button></div>
+      <div className="analytics-split analytics-split--overview">
+        <div className="analytics-table-wrap"><h3>Top 10 {viewMode === 'PIN' ? 'PINs' : 'districts'} by {measureLabel.toLowerCase()}</h3><table className="data-table"><thead><tr><th>{viewMode === 'PIN' ? 'PIN' : 'District'}</th><th>Locality / blocks</th><th>District</th><th>{measureLabel}</th><th>Dealerships</th></tr></thead><tbody>{topAreas.map((area) => <tr key={area.name}><td>{area.name}</td><td>{area.locality}</td><td>{area.district}</td><td>{formatNumber(area.total)}</td><td>{Array.from(area.dealers.keys()).join(', ')}</td></tr>)}{topAreas.length===0 && <tr><td colSpan={5}>No records match these filters.</td></tr>}</tbody></table></div>
+      </div>
+      <div className="analytics-table-wrap"><h3>PIN-wise dealership details</h3><table className="data-table"><thead><tr><th>PIN</th><th>Locality / blocks</th><th>District</th><th>Dealer</th><th>Bookings</th><th>Deliveries (Retail)</th></tr></thead><tbody>{Array.from(locationTotals.values()).flatMap((area) => Array.from(area.dealers.entries()).map(([dealer, count]) => <tr key={`${area.name}-${dealer}`}><td>{area.name}</td><td>{area.locality}</td><td>{area.district}</td><td>{dealer}</td><td>{formatNumber(area.bookings)}</td><td>{formatNumber(area.deliveries)} <span className="analytics-pin-map__note">(selected: {formatNumber(count)})</span></td></tr>))}</tbody></table></div>
+      <p className="analytics-pin-map__note">PIN and district boundaries, postal locality lookups, and outlet mapping are served from the Analytics schema. Customer PIN is a recorded sales footprint, not an exclusive dealer territory. District aggregates use the PIN’s postal master district; areas with multi-district PIN assignments may have incomplete district attribution.</p>
     </section>
   );
 }

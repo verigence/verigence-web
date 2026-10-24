@@ -190,7 +190,7 @@ export default function AnalyticsOdishaPinMap({ data }: { data: GeographyData })
     key: `dealer_${index}`,
     name: dealer,
     color: dealerColors.get(dealer) || dealerPalette[index % dealerPalette.length],
-  })).filter((series) => topAreas.some((area) => (area.dealers.get(series.name) || 0) > 0);
+  })).filter((series) => topAreas.some((area) => (area.dealers.get(series.name) || 0) > 0));
   const dealerSplitRows = topAreas.map((area) => {
     const split: Record<string, string | number> & { label: string } = { label: area.name };
     dealerSplitSeries.forEach((series) => { split[series.key] = area.dealers.get(series.name) || 0; });

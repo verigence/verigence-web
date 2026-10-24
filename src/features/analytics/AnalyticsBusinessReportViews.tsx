@@ -126,48 +126,135 @@ function DetailTable({ title = 'View underlying detail', headers, rows, defaultO
 
 type AnalyticsVasData = Extract<AnalyticsBusinessReportPayload, { kind: 'addons' }>['data'];
 type AnalyticsInsuranceSourceRows = Extract<AnalyticsBusinessReportPayload, { kind: 'insurance' }>['data']['by_source_outlet'];
+type AnalyticsInsuranceOutletRows = Extract<AnalyticsBusinessReportPayload, { kind: 'insurance' }>['data']['by_outlet'];
 
-function AnalyticsIntermediaryChart({ rows }: { rows: AnalyticsInsuranceSourceRows }) {
+function AnalyticsIntermediaryChart({ rows, outlets }: { rows: AnalyticsInsuranceSourceRows; outlets: AnalyticsInsuranceOutletRows }) {
   const [selectedDealer, setSelectedDealer] = useState('All dealerships');
   const [selectedOutlet, setSelectedOutlet] = useState('All outlets');
-  const dealers = useMemo(() => Array.from(new Set(rows.map((row) => row.dealer_name)).values()).sort(), [rows]);
-  const outlets = useMemo(() => Array.from(new Set(rows
+  const outletKey = (dealerId: string | null, outletId: string | null, dealerName: string, outletName: string) =>
+    `${dealerId || dealerName}::${outletId || outletName}`;
+  const dealers = useMemo(
+    () => Array.from(new Set(outlets.map((row) => row.dealer_name))).sort((a, b) => a.localeCompare(b)),
+    [outlets],
+  );
+  const outletOptions = useMemo(() => outlets
     .filter((row) => selectedDealer === 'All dealerships' || row.dealer_name === selectedDealer)
-    .map((row) => row.outlet_name)).values()).sort(), [rows, selectedDealer]);
-  const scopedRows = useMemo(() => rows.filter((row) =>
+    .map((row) => ({
+      key: outletKey(row.dealer_id, row.outlet_id, row.dealer_name, row.outlet_name),
+      label: selectedDealer === 'All dealerships' ? `${row.dealer_name} / ${row.outlet_name}` : row.outlet_name,
+    }))
+    .sort((a, b) => a.label.localeCompare(b.label)),
+  [outlets, selectedDealer]);
+  const inScope = (row: { dealer_id: string | null; dealer_name: string; outlet_id: string | null; outlet_name: string }) =>
     (selectedDealer === 'All dealerships' || row.dealer_name === selectedDealer)
-    && (selectedOutlet === 'All outlets' || row.outlet_name === selectedOutlet)), [rows, selectedDealer, selectedOutlet]);
+    && (selectedOutlet === 'All outlets'
+      || outletKey(row.dealer_id, row.outlet_id, row.dealer_name, row.outlet_name) === selectedOutlet);
+  const scopedOutlets = outlets.filter(inScope);
+  const scopedRows = rows.filter(inScope);
   const totals = scopedRows.reduce((result, row) => {
     result.policies += row.policy_count;
-    if (row.intermediary_code && row.intermediary_code !== '(blank)') result.code += row.policy_count;
+    if (row.intermediary_code && row.intermediary_code !== '(blank)') {
+      result.code += row.policy_count;
+      result.codes.add(row.intermediary_code);
+    }
     if (row.intermediary_name && row.intermediary_name !== '(blank)') result.name += row.policy_count;
     return result;
-  }, { policies: 0, code: 0, name: 0 });
-  const agencyGroups = new Map<string, { group: string; label: string; value: number }>();
+  }, { policies: 0, code: 0, name: 0, codes: new Set<string>() });
+  const routeTotals = scopedOutlets.reduce((result, row) => ({
+    inhouse: result.inhouse + row.dealer_arranged_journeys,
+    outside: result.outside + row.customer_arranged_journeys,
+    unclear: result.unclear + row.source_ambiguous_journeys + row.source_unknown_journeys,
+    policies: result.policies + row.insurance_journeys,
+  }), { inhouse: 0, outside: 0, unclear: 0, policies: 0 });
+  const classifiedRouteCount = routeTotals.inhouse + routeTotals.outside;
+  const routeGroups = new Map<string, { label: string; inhouse: number; outside: number }>();
+  scopedOutlets.forEach((row) => {
+    const label = selectedDealer === 'All dealerships' ? row.dealer_name : row.outlet_name;
+    const current = routeGroups.get(label) || { label, inhouse: 0, outside: 0 };
+    current.inhouse += row.dealer_arranged_journeys;
+    current.outside += row.customer_arranged_journeys;
+    routeGroups.set(label, current);
+  });
+  const routeChartRows = Array.from(routeGroups.values())
+    .map((row) => {
+      const denominator = row.inhouse + row.outside;
+      return {
+        label: row.label.length > 28 ? `${row.label.slice(0, 25)}…` : row.label,
+        inhouse: denominator ? (row.inhouse / denominator) * 100 : 0,
+        outside: denominator ? (row.outside / denominator) * 100 : 0,
+      };
+    })
+    .filter((row) => row.inhouse + row.outside > 0)
+    .sort((a, b) => (b.inhouse + b.outside) - (a.inhouse + a.outside) || a.label.localeCompare(b.label))
+    .slice(0, 12);
+  const routeSeries = [
+    { key: 'inhouse', name: 'In-house / dealer arranged', color: '#078ba0' },
+    { key: 'outside', name: 'Outside / customer arranged', color: '#e07a22' },
+  ];
+
+  const agencyGroups = new Map<string, { label: string; counts: Map<string, number>; total: number }>();
   scopedRows.forEach((row) => {
     const code = row.intermediary_code && row.intermediary_code !== '(blank)' ? row.intermediary_code : 'Code unavailable';
     const name = row.intermediary_name && row.intermediary_name !== '(blank)' ? row.intermediary_name : 'Name unavailable';
-    const group = `${row.dealer_name} / ${row.outlet_name}`;
     const label = `${code} · ${name}`;
-    const key = `${group}\u0000${label}`;
-    const current = agencyGroups.get(key) || { group, label, value: 0 };
-    current.value += row.policy_count;
-    agencyGroups.set(key, current);
+    const groupKey = `${code}\\u0000${name}`;
+    const split = selectedDealer === 'All dealerships' ? row.dealer_name : row.outlet_name;
+    const group = agencyGroups.get(groupKey) || { label, counts: new Map<string, number>(), total: 0 };
+    group.counts.set(split, (group.counts.get(split) || 0) + row.policy_count);
+    group.total += row.policy_count;
+    agencyGroups.set(groupKey, group);
   });
-  const rankedAgencyRows = Array.from(agencyGroups.values())
-    .sort((a, b) => b.value - a.value || a.group.localeCompare(b.group) || a.label.localeCompare(b.label))
-    .slice(0, 12)
-    .map((row) => ({ label: `${row.group} · ${row.label}`, value: row.value }));
-  const agencyCodes = new Set(scopedRows.map((row) => row.intermediary_code).filter((code) => code && code !== '(blank)'));
+  const topAgencyGroups = Array.from(agencyGroups.values())
+    .sort((a, b) => b.total - a.total || a.label.localeCompare(b.label))
+    .slice(0, 12);
+  const agencyLabels = topAgencyGroups.map((group) => group.label);
+  const agencySplits = Array.from(new Set(scopedRows.map((row) =>
+    selectedDealer === 'All dealerships' ? row.dealer_name : row.outlet_name))).sort((a, b) => a.localeCompare(b));
+  const agencyCells: Array<[number, number, number]> = [];
+  topAgencyGroups.forEach((group, y) => agencySplits.forEach((split, x) => {
+    const value = group.counts.get(split) || 0;
+    if (value > 0) agencyCells.push([x, y, value]);
+  }));
+  const classifiedCoverage = routeTotals.policies
+    ? `${((classifiedRouteCount / routeTotals.policies) * 100).toFixed(1)}%`
+    : 'Unavailable';
 
   return (
-    <SectionCard title="Insurance agencies by captured code and name" description="Ranked policy counts grouped by dealer, outlet, agency/intermediary code and name. Select a dealership or outlet to inspect its agency mix; MISP codes are shown separately and are never used as an agency-code substitute.">
+    <SectionCard
+      title="Insurance channel and agency-code analysis"
+      description="Route percentages use only policies explicitly classified as dealer-arranged or customer/outside. Mixed and unspecified records remain separate. Agency codes use captured intermediary codes; MISP codes are not substituted."
+    >
       <div className="analytics-pin-map__controls analytics-accessory-filters">
-        <label>Dealership<select value={selectedDealer} onChange={(event) => { setSelectedDealer(event.target.value); setSelectedOutlet('All outlets'); }}><option>All dealerships</option>{dealers.map((dealer) => <option key={dealer}>{dealer}</option>)}</select></label>
-        <label>Outlet<select value={selectedOutlet} onChange={(event) => setSelectedOutlet(event.target.value)}><option>All outlets</option>{outlets.map((outlet) => <option key={outlet}>{outlet}</option>)}</select></label>
-        <p>{formatNumber(agencyCodes.size)} captured agency/intermediary codes · {formatNumber(totals.code)} of {formatNumber(totals.policies)} policy records include a code · {formatNumber(totals.name)} include a name.</p>
+        <label>
+          Dealership
+          <select value={selectedDealer} onChange={(event) => { setSelectedDealer(event.target.value); setSelectedOutlet('All outlets'); }}>
+            <option>All dealerships</option>
+            {dealers.map((dealer) => <option key={dealer}>{dealer}</option>)}
+          </select>
+        </label>
+        <label>
+          Outlet
+          <select value={selectedOutlet} onChange={(event) => setSelectedOutlet(event.target.value)}>
+            <option>All outlets</option>
+            {outletOptions.map((outlet) => <option key={outlet.key} value={outlet.key}>{outlet.label}</option>)}
+          </select>
+        </label>
+        <p>{formatNumber(routeTotals.policies)} policy records in scope · {formatNumber(totals.codes.size)} captured agency codes · {formatNumber(totals.code)} records include a code · {formatNumber(totals.name)} include an agency name.</p>
       </div>
-      <AnalyticsBarChart rows={rankedAgencyRows} valueLabel="Policy records" emptyText="No policy records are available in this project snapshot." />
+      <div className="analytics-insurance-banner">
+        <Metric label="In-house / dealer arranged" value={`${formatNumber(routeTotals.inhouse)} · ${percent(routeTotals.inhouse, classifiedRouteCount)}`} detail="Count and share among explicitly classified route records" />
+        <Metric label="Outside / customer arranged" value={`${formatNumber(routeTotals.outside)} · ${percent(routeTotals.outside, classifiedRouteCount)}`} detail="Count and share among explicitly classified route records" />
+        <Metric label="Mixed or unspecified" value={formatNumber(routeTotals.unclear)} detail={`${classifiedCoverage} of policy records have a classifiable route; others are excluded from route percentages`} attention={routeTotals.unclear > 0} />
+        <Metric label="Agency-code capture" value={percent(totals.code, totals.policies)} detail={`${formatNumber(totals.codes.size)} distinct captured intermediary codes in this scope`} attention={totals.code < totals.policies} />
+      </div>
+      <div className="analytics-split analytics-split--overview">
+        <SectionCard title="In-house vs outside by dealership / outlet" description="Each bar is 100% of explicitly classified policies. Select a dealership to compare its outlets.">
+          <AnalyticsStackedBarChart rows={routeChartRows} series={routeSeries} valueLabel="Share of classified policies" valueKind="percent" emptyText="No explicit in-house or outside route is available for this selection." />
+        </SectionCard>
+        <SectionCard title="Agency code and name by dealership / outlet" description="Heatmap compares the 12 most frequent captured agency code/name groups. Select a dealership or outlet to inspect the split. Blank codes remain labeled unavailable.">
+          <AnalyticsHeatmap xLabels={agencySplits} yLabels={agencyLabels} cells={agencyCells} valueLabel="Policy records" emptyText="No captured intermediary code/name records are available for this selection." />
+        </SectionCard>
+      </div>
     </SectionCard>
   );
 }
@@ -176,6 +263,7 @@ function AnalyticsAddonsReport({ data }: { data: AnalyticsVasData }) {
   const [selectedDealer, setSelectedDealer] = useState('All dealerships');
   const [selectedOutlet, setSelectedOutlet] = useState('All outlets');
   const [vasMetric, setVasMetric] = useState<'proposals' | 'invoice' | 'awaiting'>('proposals');
+  const [accessoryMeasure, setAccessoryMeasure] = useState<'units' | 'net'>('units');
   const accessoryItems = data.accessory_items;
   const accessoryLineCoverage = data.accessory_line_coverage;
   const dealers = useMemo(
@@ -203,7 +291,7 @@ function AnalyticsAddonsReport({ data }: { data: AnalyticsVasData }) {
   const dealerOutletInScope = (dealerName: string, outletName: string) =>
     (selectedDealer === 'All dealerships' || dealerName === selectedDealer)
     && (selectedOutlet === 'All outlets' || outletName === selectedOutlet);
-  const accessoryItemGroups = new Map<string, { label: string; quantity: number; netAmount: number; splits: Map<string, number> }>();
+  const accessoryItemGroups = new Map<string, { label: string; quantity: number; netAmount: number; splits: Map<string, number>; netSplits: Map<string, number> }>();
   const accessoryModelItemGroups = new Map<string, { model: string; item: string; quantity: number }>();
   scopedAccessoryItems.forEach((row) => {
     const item = `${row.item_description}${row.item_code ? ` · ${row.item_code}` : ''}`;
@@ -211,11 +299,12 @@ function AnalyticsAddonsReport({ data }: { data: AnalyticsVasData }) {
     const split = selectedDealer === 'All dealerships'
       ? row.dealer_name
       : selectedOutlet === 'All outlets' ? row.outlet_name : selectedOutlet;
-    const current = accessoryItemGroups.get(itemKey) || { label: item, quantity: 0, netAmount: 0, splits: new Map<string, number>() };
+    const current = accessoryItemGroups.get(itemKey) || { label: item, quantity: 0, netAmount: 0, splits: new Map<string, number>(), netSplits: new Map<string, number>() };
     const quantity = numeric(row.invoiced_quantity);
     current.quantity += quantity;
     current.netAmount += numeric(row.net_amount);
     current.splits.set(split, (current.splits.get(split) || 0) + quantity);
+    current.netSplits.set(split, (current.netSplits.get(split) || 0) + numeric(row.net_amount));
     accessoryItemGroups.set(itemKey, current);
     const modelKey = row.model_name || 'Unresolved model';
     const modelItemKey = `${modelKey}\\u0000${itemKey}`;
@@ -231,14 +320,14 @@ function AnalyticsAddonsReport({ data }: { data: AnalyticsVasData }) {
     key: `split_${index}`,
     name,
     color: accessorySplitColors[index % accessorySplitColors.length],
-  })).filter((series) => Array.from(accessoryItemGroups.values()).some((item) => item.splits.get(series.name)));
+  })).filter((series) => Array.from(accessoryItemGroups.values()).some((item) => (accessoryMeasure === 'units' ? item.splits : item.netSplits).get(series.name)));
   const topAccessoryItems = Array.from(accessoryItemGroups.values())
-    .sort((a, b) => b.quantity - a.quantity || a.label.localeCompare(b.label))
+    .sort((a, b) => (accessoryMeasure === 'units' ? b.quantity - a.quantity : b.netAmount - a.netAmount) || a.label.localeCompare(b.label))
     .slice(0, 10);
   const accessoryChartRows = topAccessoryItems.map((item) => {
     const row: Record<string, string | number> & { label: string } = { label: item.label.length > 34 ? `${item.label.slice(0, 31)}…` : item.label };
     accessorySplitSeries.forEach((series) => {
-      row[series.key] = item.splits.get(series.name) || 0;
+      row[series.key] = (accessoryMeasure === 'units' ? item.splits : item.netSplits).get(series.name) || 0;
     });
     return row;
   });
@@ -288,15 +377,17 @@ function AnalyticsAddonsReport({ data }: { data: AnalyticsVasData }) {
   warrantyRsa.by_product
     .filter((row) => row.product_type === 'EW' && dealerOutletInScope(row.dealer_name, row.outlet_name))
     .forEach((row) => {
-      const label = `${row.dealer_name} / ${row.outlet_name}`;
-      const current = ewTermGroups.get(label) || { label, fourYear: 0, fiveYear: 0, unknown: 0 };
+      const key = `${row.dealer_name}\\u0000${row.outlet_name}\\u0000${row.model_name}\\u0000${row.variant_name}`;
+      const label = `${row.dealer_name} · ${row.outlet_name} · ${row.model_name} / ${row.variant_name}`;
+      const current = ewTermGroups.get(key) || { label, fourYear: 0, fiveYear: 0, unknown: 0 };
       current.fourYear += row.four_year_journeys;
       current.fiveYear += row.five_year_journeys;
       current.unknown += row.term_not_recorded_journeys;
-      ewTermGroups.set(label, current);
+      ewTermGroups.set(key, current);
     });
   const ewTermRows = Array.from(ewTermGroups.values())
-    .sort((a, b) => (b.fourYear + b.fiveYear + b.unknown) - (a.fourYear + a.fiveYear + a.unknown) || a.label.localeCompare(b.label));
+    .sort((a, b) => (b.fourYear + b.fiveYear + b.unknown) - (a.fourYear + a.fiveYear + a.unknown) || a.label.localeCompare(b.label))
+    .slice(0, 15);
   const ewTermTotals = ewTermRows.reduce((total, row) => ({
     fourYear: total.fourYear + row.fourYear,
     fiveYear: total.fiveYear + row.fiveYear,
@@ -309,6 +400,20 @@ function AnalyticsAddonsReport({ data }: { data: AnalyticsVasData }) {
     invoice: total.invoice + row.delivery_invoice_purchase_journeys,
     awaiting: total.awaiting + row.invoice_awaiting_journeys,
   }), { proposals: 0, invoice: 0, awaiting: 0 });
+  const ewAttachGroups = new Map<string, { label: string; proposals: number; invoice: number }>();
+  ewDetailRows.forEach((row) => {
+    const key = `${row.dealer_name}\\u0000${row.outlet_name}`;
+    const label = `${row.dealer_name} · ${row.outlet_name}`;
+    const current = ewAttachGroups.get(key) || { label, proposals: 0, invoice: 0 };
+    current.proposals += row.booked_proposal_journeys;
+    current.invoice += row.delivery_invoice_purchase_journeys;
+    ewAttachGroups.set(key, current);
+  });
+  const ewAttachRows = Array.from(ewAttachGroups.values())
+    .filter((row) => row.proposals > 0)
+    .map((row) => ({ label: row.label.length > 30 ? `${row.label.slice(0, 27)}…` : row.label, proposals: row.proposals, invoice: row.invoice, rate: (row.invoice / row.proposals) * 100 }))
+    .sort((a, b) => b.rate - a.rate || b.proposals - a.proposals)
+    .slice(0, 12);
   const ewHeatmapCells: Array<[number, number, number]> = [];
   ewTermRows.forEach((row, index) => {
     ([[0, row.fourYear], [1, row.fiveYear], [2, row.unknown]] as const).forEach(([termIndex, count]) => {
@@ -389,12 +494,13 @@ function AnalyticsAddonsReport({ data }: { data: AnalyticsVasData }) {
             {outlets.map((outlet) => <option key={outlet}>{outlet}</option>)}
           </select>
         </label>
-        <p>Showing {formatNumber(scopedAccessoryItems.length)} of {formatNumber(accessoryItems.length)} captured outlet/model/item groups. The sunburst below maps outlets to models and confirmed invoice items.</p>
+        <label>Accessory chart measure<select value={accessoryMeasure} onChange={(event) => setAccessoryMeasure(event.target.value as 'units' | 'net')}><option value="units">Invoiced units</option><option value="net">Captured net invoice value</option></select></label>
+        <p>{formatNumber(scopedAccessoryItems.length)} captured outlet/model/item groups in scope. Charts compare confirmed invoice units or captured net value by dealer and show model-to-accessory choices.</p>
       </div>
 
       <div className="analytics-split analytics-split--overview">
-        <SectionCard title="Top accessories by invoiced units" description="Ranked confirmed invoice quantities, split by dealership in the all-dealership view and by outlet when a single dealership is selected.">
-          <AnalyticsStackedBarChart rows={accessoryChartRows} series={accessorySplitSeries} valueLabel="Invoiced units" emptyText="No confirmed accessory invoice quantities are available for this selection." />
+        <SectionCard title={accessoryMeasure === 'units' ? 'Top accessories by invoiced units' : 'Top accessories by captured net value'} description={accessoryMeasure === 'units' ? 'Confirmed invoice quantities, split by dealership or outlet. Use the model heatmap beside it to see which vehicles take each item.' : 'Captured net amounts from confirmed accessory-purpose tax invoices, split by dealership or outlet. This is invoice value, not dealership margin.'}>
+          <AnalyticsStackedBarChart rows={accessoryChartRows} series={accessorySplitSeries} valueLabel={accessoryMeasure === 'units' ? 'Invoiced units' : 'Captured net value'} valueKind={accessoryMeasure === 'units' ? 'count' : 'currency'} emptyText={accessoryMeasure === 'units' ? 'No confirmed accessory invoice quantities are available for this selection.' : 'No captured net invoice amounts are available for this selection.'} />
         </SectionCard>
         <SectionCard title="Accessory choice by vehicle model" description="The heatmap shows confirmed invoiced units for the leading accessory items across the leading models in the selected dealership/outlet scope.">
           <AnalyticsHeatmap
@@ -407,11 +513,12 @@ function AnalyticsAddonsReport({ data }: { data: AnalyticsVasData }) {
         </SectionCard>
       </div>
 
-      <SectionCard title="Extended warranty · attach and term insight" description="The headline counts follow the three agreed states. The term chart shows captured 4-year, 5-year and unrecorded-term evidence by outlet.">
+      <SectionCard title="Extended warranty · attach and term insight" description="The headline counts follow the three agreed states. The heatmap shows 4-year, 5-year and unrecorded-term evidence by dealership, outlet, model and variant.">
         <div className="analytics-insurance-banner">
           <Metric label="EW booking proposals" value={formatNumber(ewStateTotals.proposals)} detail="Captured EW proposal records linked to bookings in the selected scope" />
           <Metric label="EW confirmed invoice purchases" value={formatNumber(ewStateTotals.invoice)} detail="EW only when a confirmed tax-invoice line matches" />
           <Metric label="EW invoice awaiting" value={formatNumber(ewStateTotals.awaiting)} detail="Booking proposal exists and no delivery record is uploaded" />
+          <Metric label="EW invoice attach rate" value={ewStateTotals.proposals ? percent(ewStateTotals.invoice, ewStateTotals.proposals) : 'Unavailable'} detail={`${formatNumber(ewStateTotals.invoice)} confirmed invoice purchases from ${formatNumber(ewStateTotals.proposals)} booking proposals`} />
           <Metric label="4-year term captured" value={formatNumber(ewTermTotals.fourYear)} detail="EW journeys with explicit 4-year term evidence" />
           <Metric label="5-year term captured" value={formatNumber(ewTermTotals.fiveYear)} detail="EW journeys with explicit 5-year term evidence" />
           <Metric label="Term not recorded" value={formatNumber(ewTermTotals.unknown)} detail="EW evidence exists without a 4-year or 5-year term" attention={ewTermTotals.unknown > 0} />
@@ -423,6 +530,10 @@ function AnalyticsAddonsReport({ data }: { data: AnalyticsVasData }) {
           valueLabel="EW term evidence"
           emptyText="No EW term evidence is available for the selected dealership/outlet."
         />
+      </SectionCard>
+
+      <SectionCard title="EW invoice attachment by dealership / outlet" description="Confirmed EW invoice purchases divided by booking proposals. A missing invoice on a completed delivery is not treated as invoice awaiting.">
+        <AnalyticsBarChart rows={ewAttachRows.map((row) => ({ label: row.label, value: row.rate }))} valueLabel="Confirmed invoice purchases / booking proposals" valueKind="percent" emptyText="No EW booking proposals are available for this scope." />
       </SectionCard>
 
       <SectionCard title="VAS sold / proposed · dealer and outlet heatmap" description="Compare the selected journey count across EW, RSA, FASTAG, and accessories for each dealership/outlet. Use the measure selector to switch among captured booking proposals, confirmed tax-invoice purchases, and invoice awaiting.">
@@ -668,7 +779,7 @@ export default function AnalyticsBusinessReportViews({ payload }: { payload: Ana
             </SectionCard>
           </div>
 
-          <AnalyticsIntermediaryChart rows={sourceByOutlet} />
+          <AnalyticsIntermediaryChart rows={sourceByOutlet} outlets={outlets} />
 
           <DetailTable
             title="Insurance route and premium coverage by dealership / outlet"

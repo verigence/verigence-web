@@ -6,45 +6,43 @@ import '../styles/uc03-p2-discount-variance.css';
 
 import PageHeader from '../components/PageHeader';
 import SectionCard from '../components/SectionCard';
-import {
-  getDiscountVariance,
-  type DiscountVarianceItem,
-  type DiscountVarianceStatus,
-} from '../services/audit-core/uc03DiscountVariance';
+import { getDiscountVariance, type DiscountVarianceItem } from '../services/audit-core/uc03DiscountVariance';
 import { useProjectContextStore } from '../store/projectContextStore';
 import { useSessionStore } from '../store/sessionStore';
 
-type Filter = 'ALL' | DiscountVarianceStatus;
+type Facet = 'discount' | 'outlet' | 'pc';
+interface Pick { facet: Facet; value: string }
 
-const STATUS_LABEL: Record<DiscountVarianceStatus, string> = {
-  OVER_ENTITLEMENT: 'Given more than entitled',
-  UNDER_ENTITLEMENT: 'Given less than entitled',
-  ENTITLEMENT_UNKNOWN: 'Entitlement not known',
-};
+const FACETS: { facet: Facet; title: string; of: (i: DiscountVarianceItem) => string }[] = [
+  { facet: 'discount', title: 'By discount category', of: (i) => i.discount ?? i.discountKey },
+  { facet: 'outlet', title: 'By outlet', of: (i) => i.outlet ?? 'Outlet not recorded' },
+  { facet: 'pc', title: 'By PC', of: (i) => i.pc ?? 'PC not recorded' },
+];
 
-function money(value: string | null | undefined) {
+function rupees(value: string | number | null | undefined) {
   if (value === null || value === undefined || value === '') return '—';
   const n = Number(value);
-  return Number.isNaN(n) ? value : n.toLocaleString('en-IN', { maximumFractionDigits: 0 });
+  return Number.isNaN(n) ? String(value) : `₹${n.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
 }
 
-function signed(value: string | null) {
-  if (value === null) return '—';
-  const n = Number(value);
-  if (Number.isNaN(n)) return value;
-  return `${n > 0 ? '+' : ''}${n.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`;
+function ranked(items: DiscountVarianceItem[], of: (i: DiscountVarianceItem) => string) {
+  const totals = new Map<string, { excess: number; discounts: number }>();
+  for (const item of items) {
+    const key = of(item);
+    const entry = totals.get(key) ?? { excess: 0, discounts: 0 };
+    entry.excess += Number(item.variance);
+    entry.discounts += 1;
+    totals.set(key, entry);
+  }
+  return [...totals.entries()].map(([name, v]) => ({ name, ...v })).sort((a, b) => b.excess - a.excess);
 }
 
-function rowClass(item: DiscountVarianceItem) {
-  if (item.status === 'OVER_ENTITLEMENT') return 'is-over';
-  if (item.status === 'ENTITLEMENT_UNKNOWN') return 'is-unknown';
-  return undefined;
-}
-
+/** Excess discount: what the invoice gave above the entitlement, per booking
+ *  that has an invoice. Never the booking form's figure. */
 export default function P2DiscountVariancePage() {
   const tenantId = useProjectContextStore((s) => s.selectedProject?.tenantId);
   const accessToken = useSessionStore((s) => s.accessToken);
-  const [filter, setFilter] = useState<Filter>('ALL');
+  const [pick, setPick] = useState<Pick | null>(null);
 
   const query = useQuery({
     queryKey: ['p2-discount-variance', tenantId],
@@ -52,104 +50,126 @@ export default function P2DiscountVariancePage() {
     enabled: Boolean(tenantId && accessToken),
   });
 
-  const items = useMemo(() => {
-    const all = query.data?.items ?? [];
-    return filter === 'ALL' ? all : all.filter((i) => i.status === filter);
-  }, [query.data, filter]);
+  const excess = useMemo(
+    () => (query.data?.items ?? [])
+      .filter((i) => i.status === 'OVER_ENTITLEMENT' && i.variance !== null)
+      .sort((a, b) => Number(b.variance) - Number(a.variance)),
+    [query.data],
+  );
+  const shown = useMemo(() => {
+    if (!pick) return excess;
+    const of = FACETS.find((f) => f.facet === pick.facet)!.of;
+    return excess.filter((i) => of(i) === pick.value);
+  }, [excess, pick]);
 
+  const totalExcess = excess.reduce((sum, i) => sum + Number(i.variance), 0);
+  const bookings = new Set(excess.map((i) => i.journeyId)).size;
   const counts = query.data?.counts;
 
   return (
     <div className="p2w">
       <PageHeader
         eyebrow="DealGuard"
-        title="Discount variance"
-        description="Discounts on the invoice that are not what the booking was entitled to. Only the invoice is counted, never the booking form. A booking with no invoice, or an invoice that gave no price, is not tallied."
+        title="Excess discount"
+        description="Discounts on the invoice that are more than the booking was entitled to. Only bookings with an invoice whose vehicle price was read are counted, and the figures are the invoice's, never the booking form's."
       />
 
-      <SectionCard title="What differs">
-        {query.isLoading && <p className="p2w-muted">Reading…</p>}
-        {query.isError && <p className="p2w-danger">That could not be read. Reload the page.</p>}
-        {query.data && counts && (
-          <>
+      {query.isLoading && <p className="p2w-muted">Reading…</p>}
+      {query.isError && <p className="p2w-danger">That could not be read. Reload the page.</p>}
+
+      {query.data && (
+        <>
+          <SectionCard title="Where excess discount was given">
             <div className="p2w-dv__tiles">
-              <button type="button" className={`p2w-dv__tile${filter === 'ALL' ? ' is-active' : ''}`}
-                      onClick={() => setFilter('ALL')}>
-                <span className="p2w-dv__count">{counts.total}</span>
-                <span>Discounts differing</span>
-                <small>on {counts.journeys} bookings</small>
-              </button>
-              <button type="button"
-                      className={`p2w-dv__tile is-worst${filter === 'OVER_ENTITLEMENT' ? ' is-active' : ''}`}
-                      onClick={() => setFilter('OVER_ENTITLEMENT')}>
-                <span className="p2w-dv__count">{counts.over}</span>
-                <span>{STATUS_LABEL.OVER_ENTITLEMENT}</span>
-              </button>
-              <button type="button"
-                      className={`p2w-dv__tile${filter === 'UNDER_ENTITLEMENT' ? ' is-active' : ''}`}
-                      onClick={() => setFilter('UNDER_ENTITLEMENT')}>
-                <span className="p2w-dv__count">{counts.under}</span>
-                <span>{STATUS_LABEL.UNDER_ENTITLEMENT}</span>
-              </button>
-              <button type="button"
-                      className={`p2w-dv__tile${filter === 'ENTITLEMENT_UNKNOWN' ? ' is-active' : ''}`}
-                      onClick={() => setFilter('ENTITLEMENT_UNKNOWN')}>
-                <span className="p2w-dv__count">{counts.unknown}</span>
-                <span>{STATUS_LABEL.ENTITLEMENT_UNKNOWN}</span>
-                <small>on the invoice, nothing to compare with</small>
-              </button>
+              <div className="p2w-dv__tile is-worst">
+                <span className="p2w-dv__count">{rupees(totalExcess)}</span>
+                <span>Excess given in total</span>
+              </div>
+              <div className="p2w-dv__tile">
+                <span className="p2w-dv__count">{bookings}</span>
+                <span>Bookings with excess</span>
+              </div>
+              <div className="p2w-dv__tile">
+                <span className="p2w-dv__count">{excess.length}</span>
+                <span>Discounts over entitlement</span>
+              </div>
             </div>
-            {query.data.notYetCalculated > 0 && (
+            {excess.length > 0 && (
+              <div className="p2w-dv__facets">
+                {FACETS.map(({ facet, title, of }) => (
+                  <div key={facet} className="p2w-dv__facet">
+                    <h4>{title}</h4>
+                    <ul>
+                      {ranked(excess, of).slice(0, 8).map((row) => {
+                        const active = pick?.facet === facet && pick.value === row.name;
+                        return (
+                          <li key={row.name}>
+                            <button type="button" className={active ? 'is-active' : undefined}
+                                    onClick={() => setPick(active ? null : { facet, value: row.name })}>
+                              <span>{row.name}</span>
+                              <span>{rupees(row.excess)} · {row.discounts}</span>
+                            </button>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </div>
+                ))}
+              </div>
+            )}
+          </SectionCard>
+
+          <SectionCard title={pick ? `Excess discount · ${pick.value}` : 'Every excess discount, largest first'}>
+            {pick && (
+              <p><button type="button" className="p2w-link" onClick={() => setPick(null)}>Show all</button></p>
+            )}
+            {shown.length === 0 && <p className="p2w-muted">No excess discount on any invoice.</p>}
+            {shown.length > 0 && (
+              <div style={{ overflowX: 'auto' }}>
+                <table className="p2w-table p2w-dv__list">
+                  <thead>
+                    <tr>
+                      <th>Discount</th><th>Customer</th><th>Car model</th><th>PC</th><th>Outlet</th>
+                      <th style={{ textAlign: 'right' }}>Entitled</th>
+                      <th style={{ textAlign: 'right' }}>On the invoice</th>
+                      <th style={{ textAlign: 'right' }}>Excess</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {shown.map((item) => (
+                      <tr key={`${item.journeyId}-${item.discountKey}`}>
+                        <td><strong>{item.discount ?? item.discountKey}</strong></td>
+                        <td>
+                          <Link to={`/p2/journeys/${item.journeyId}/overview`}>{item.customer}</Link>
+                          <div className="p2w-muted">{item.journeyReference}</div>
+                        </td>
+                        <td>
+                          {item.model ?? <span className="p2w-muted">—</span>}
+                          {item.variant && <div className="p2w-muted">{item.variant}</div>}
+                        </td>
+                        <td>{item.pc ?? <span className="p2w-muted">—</span>}</td>
+                        <td>{item.outlet ?? <span className="p2w-muted">—</span>}</td>
+                        <td className="is-num">{rupees(item.entitled)}</td>
+                        <td className="is-num">{rupees(item.invoice)}</td>
+                        <td className="is-num p2w-dv__over">{rupees(item.variance)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            {counts && (counts.unknown > 0 || counts.under > 0) && (
               <p className="p2w-muted">
-                {query.data.notYetCalculated} bookings are still being calculated; this list grows as they finish.
+                Not shown: {counts.unknown} discounts on invoices with no entitlement to compare against, and{' '}
+                {counts.under} given below entitlement.
               </p>
             )}
-          </>
-        )}
-      </SectionCard>
-
-      <SectionCard title={filter === 'ALL' ? 'Every discount that differs' : STATUS_LABEL[filter]}>
-        {query.data && items.length === 0 && <p className="p2w-muted">Nothing differs here.</p>}
-        {items.length > 0 && (
-          <div style={{ overflowX: 'auto' }}>
-            <table className="p2w-table p2w-dv__list">
-              <thead>
-                <tr>
-                  <th>Discount</th><th>Customer</th><th>Car model</th><th>PC</th><th>Outlet</th>
-                  <th style={{ textAlign: 'right' }}>Entitled</th>
-                  <th style={{ textAlign: 'right' }}>On the invoice</th>
-                  <th style={{ textAlign: 'right' }}>Variance</th>
-                </tr>
-              </thead>
-              <tbody>
-                {items.map((item) => (
-                  <tr key={`${item.journeyId}-${item.discountKey}`} className={rowClass(item)}>
-                    <td>
-                      <strong>{item.discount ?? item.discountKey}</strong>
-                      <div className="p2w-muted">{STATUS_LABEL[item.status]}</div>
-                    </td>
-                    <td>
-                      <Link to={`/p2/journeys/${item.journeyId}`}>{item.customer}</Link>
-                      <div className="p2w-muted">{item.journeyReference}</div>
-                    </td>
-                    <td>
-                      {item.model ?? <span className="p2w-muted">—</span>}
-                      {item.variant && <div className="p2w-muted">{item.variant}</div>}
-                    </td>
-                    <td>{item.pc ?? <span className="p2w-muted">—</span>}</td>
-                    <td>{item.outlet ?? <span className="p2w-muted">—</span>}</td>
-                    <td className="is-num">{money(item.entitled)}</td>
-                    <td className="is-num">{money(item.invoice)}</td>
-                    <td className={`is-num ${item.status === 'OVER_ENTITLEMENT' ? 'p2w-dv__over' : item.status === 'UNDER_ENTITLEMENT' ? 'p2w-dv__under' : ''}`}>
-                      {signed(item.variance)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </SectionCard>
+            {query.data.notYetCalculated > 0 && (
+              <p className="p2w-muted">{query.data.notYetCalculated} bookings are still being calculated.</p>
+            )}
+          </SectionCard>
+        </>
+      )}
     </div>
   );
 }

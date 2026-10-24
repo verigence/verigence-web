@@ -132,7 +132,7 @@ function AnalyticsIntermediaryChart({ rows, outlets }: { rows: AnalyticsInsuranc
   const [selectedDealer, setSelectedDealer] = useState('All dealerships');
   const [selectedOutlet, setSelectedOutlet] = useState('All outlets');
   const outletKey = (dealerId: string | null, outletId: string | null, dealerName: string, outletName: string) =>
-    \`\${dealerId || dealerName}::\${outletId || outletName}\`;
+    `${dealerId || dealerName}::${outletId || outletName}`;
   const dealers = useMemo(
     () => Array.from(new Set(outlets.map((row) => row.dealer_name))).sort((a, b) => a.localeCompare(b)),
     [outlets],
@@ -141,7 +141,7 @@ function AnalyticsIntermediaryChart({ rows, outlets }: { rows: AnalyticsInsuranc
     .filter((row) => selectedDealer === 'All dealerships' || row.dealer_name === selectedDealer)
     .map((row) => ({
       key: outletKey(row.dealer_id, row.outlet_id, row.dealer_name, row.outlet_name),
-      label: selectedDealer === 'All dealerships' ? \`\${row.dealer_name} / \${row.outlet_name}\` : row.outlet_name,
+      label: selectedDealer === 'All dealerships' ? `${row.dealer_name} / ${row.outlet_name}` : row.outlet_name,
     }))
     .sort((a, b) => a.label.localeCompare(b.label)),
   [outlets, selectedDealer]);
@@ -179,7 +179,7 @@ function AnalyticsIntermediaryChart({ rows, outlets }: { rows: AnalyticsInsuranc
     .map((row) => {
       const denominator = row.inhouse + row.outside;
       return {
-        label: row.label.length > 28 ? \`\${row.label.slice(0, 25)}…\` : row.label,
+        label: row.label.length > 28 ? `${row.label.slice(0, 25)}…` : row.label,
         inhouse: denominator ? (row.inhouse / denominator) * 100 : 0,
         outside: denominator ? (row.outside / denominator) * 100 : 0,
       };
@@ -196,8 +196,8 @@ function AnalyticsIntermediaryChart({ rows, outlets }: { rows: AnalyticsInsuranc
   scopedRows.forEach((row) => {
     const code = row.intermediary_code && row.intermediary_code !== '(blank)' ? row.intermediary_code : 'Code unavailable';
     const name = row.intermediary_name && row.intermediary_name !== '(blank)' ? row.intermediary_name : 'Name unavailable';
-    const label = \`\${code} · \${name}\`;
-    const groupKey = \`\${code}\\u0000\${name}\`;
+    const label = `${code} · ${name}`;
+    const groupKey = `${code}\\u0000${name}`;
     const split = selectedDealer === 'All dealerships' ? row.dealer_name : row.outlet_name;
     const group = agencyGroups.get(groupKey) || { label, counts: new Map<string, number>(), total: 0 };
     group.counts.set(split, (group.counts.get(split) || 0) + row.policy_count);
@@ -216,7 +216,7 @@ function AnalyticsIntermediaryChart({ rows, outlets }: { rows: AnalyticsInsuranc
     if (value > 0) agencyCells.push([x, y, value]);
   }));
   const classifiedCoverage = routeTotals.policies
-    ? \`\${((classifiedRouteCount / routeTotals.policies) * 100).toFixed(1)}%\`
+    ? `${((classifiedRouteCount / routeTotals.policies) * 100).toFixed(1)}%`
     : 'Unavailable';
 
   return (
@@ -242,10 +242,10 @@ function AnalyticsIntermediaryChart({ rows, outlets }: { rows: AnalyticsInsuranc
         <p>{formatNumber(routeTotals.policies)} policy records in scope · {formatNumber(totals.codes.size)} captured agency codes · {formatNumber(totals.code)} records include a code · {formatNumber(totals.name)} include an agency name.</p>
       </div>
       <div className="analytics-insurance-banner">
-        <Metric label="In-house / dealer arranged" value={\`\${formatNumber(routeTotals.inhouse)} · \${percent(routeTotals.inhouse, classifiedRouteCount)}\`} detail="Count and share among explicitly classified route records" />
-        <Metric label="Outside / customer arranged" value={\`\${formatNumber(routeTotals.outside)} · \${percent(routeTotals.outside, classifiedRouteCount)}\`} detail="Count and share among explicitly classified route records" />
-        <Metric label="Mixed or unspecified" value={formatNumber(routeTotals.unclear)} detail={\`\${classifiedCoverage} of policy records have a classifiable route; others are excluded from route percentages\`} attention={routeTotals.unclear > 0} />
-        <Metric label="Agency-code capture" value={percent(totals.code, totals.policies)} detail={\`\${formatNumber(totals.codes.size)} distinct captured intermediary codes in this scope\`} attention={totals.code < totals.policies} />
+        <Metric label="In-house / dealer arranged" value={`${formatNumber(routeTotals.inhouse)} · ${percent(routeTotals.inhouse, classifiedRouteCount)}`} detail="Count and share among explicitly classified route records" />
+        <Metric label="Outside / customer arranged" value={`${formatNumber(routeTotals.outside)} · ${percent(routeTotals.outside, classifiedRouteCount)}`} detail="Count and share among explicitly classified route records" />
+        <Metric label="Mixed or unspecified" value={formatNumber(routeTotals.unclear)} detail={`${classifiedCoverage} of policy records have a classifiable route; others are excluded from route percentages`} attention={routeTotals.unclear > 0} />
+        <Metric label="Agency-code capture" value={percent(totals.code, totals.policies)} detail={`${formatNumber(totals.codes.size)} distinct captured intermediary codes in this scope`} attention={totals.code < totals.policies} />
       </div>
       <div className="analytics-split analytics-split--overview">
         <SectionCard title="In-house vs outside by dealership / outlet" description="Each bar is 100% of explicitly classified policies. Select a dealership to compare its outlets.">

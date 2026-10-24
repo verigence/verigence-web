@@ -394,6 +394,9 @@ export default function AppShell({ children }: PropsWithChildren) {
             // The SKU / discount reference and the month's source documents
             // (added 18 Oct to the DealGuard group but never to this per-role
             // list, so nobody working in a Project saw them).
+            // Discounts on the invoice that differ from the entitlement. Not
+            // for a PC: the tab is the audit view of every booking.
+            ...(role === 'PC' ? [] : [p2DiscountVarianceItem]),
             p2PriceMastersItem,
             p2MasterDocumentsItem,
           ],
@@ -404,7 +407,7 @@ export default function AppShell({ children }: PropsWithChildren) {
         // built for PC / TL / PM only, so a Reviewer saw none of it, not even
         // Document Review, which is their home page).
         : role === 'REVIEWER'
-          ? { ...p2Group, items: [p2ReviewBoardItem, p2ReviewActivityItem, p2PriceMastersItem, p2MasterDocumentsItem] }
+          ? { ...p2Group, items: [p2ReviewBoardItem, p2ReviewActivityItem, p2DiscountVarianceItem, p2PriceMastersItem, p2MasterDocumentsItem] }
           : null;
     const workspaceItems: NavItem[] = [
       { to: '/dashboard', label: 'Overview', mark: 'OV', roles: c0OperatingRoles },

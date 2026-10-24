@@ -8,7 +8,7 @@ import BackLink from '../components/BackLink';
 import PageHeader from '../components/PageHeader';
 import RaiseTaskDialog from '../features/uc03-p2/tasks/RaiseTaskDialog';
 import {
-  groupByJourney, taskPlan, vehicleIdentityError, type TaskAction, type VehicleIdentity,
+  groupByJourney, priceTaskNamesAnotherVehicle, taskPlan, vehicleIdentityError, type TaskAction, type VehicleIdentity,
 } from '../features/uc03-p2/tasks/p2TaskPlan';
 import { formatDateTime, humanizeKey, relativeDue, taskStatus } from '../features/uc03-p2/workspace/p2Format';
 import { getP2Task, getP2Tasks, submitP2TaskAction, type P2Task, type P2TaskTab } from '../services/audit-core/uc03P2';
@@ -107,6 +107,13 @@ function TaskDetail({ task, tenantId, accessToken, operatingRole, onDone }: {
         : task.task_type === 'SKU_OTHER_MONTH_PRICE_LIST' && action.action === 'ACCEPT' ? 'Approved. The journey is now priced on that list and its SKU resolved there.'
         : task.task_type === 'SKU_OTHER_MONTH_PRICE_LIST' ? 'Rejected. The PC picks the SKU by hand.'
         : task.task_type === 'MODEL_CHANGED_BY_INVOICE' ? 'Noted.'
+        : priceTaskNamesAnotherVehicle(task) && action.action === 'ACCEPT' ? "The journey now carries the invoice's vehicle, confirmed. The deal is checked against its price."
+        : (task.task_type === 'SKU_PRICE_MISMATCH' || task.task_type === 'SKU_NOT_CONFIRMED') && action.action === 'ACCEPT' ? 'Vehicle kept and confirmed. The deal is checked against its price.'
+        : task.task_type === 'SKU_BOOKING_FORM_DIFFERS' && action.action === 'ACCEPT' ? 'The confirmed vehicle is kept.'
+        : (task.task_type === 'SKU_INVOICES_DISAGREE' || task.task_type === 'SKU_BOOKING_FORMS_DISAGREE') && action.action === 'ACCEPT' ? 'Vehicle confirmed. The deal is checked against its price.'
+        : (task.task_type === 'SKU_INVOICES_DISAGREE' || task.task_type === 'SKU_BOOKING_FORMS_DISAGREE') && action.action === 'REJECT' ? 'Document marked cancelled and voided. The SKU is resolved again from the rest.'
+        : task.task_type === 'SKU_INVOICE_REVIEW' && action.action === 'ACCEPT' ? "The journey now carries the invoice's vehicle."
+        : task.task_type === 'SKU_INVOICE_REVIEW' ? 'The confirmed vehicle is kept.'
         : action.action === 'PROVIDE_VEHICLE_ID' ? 'Vehicle number saved. The task closes itself once it is checked.'
         : task.task_type === 'TL_MANAGEMENT_REFERRAL' && action.action === 'COMPLETE_ACTION' ? 'Management Referral enabled on the journey.'
         : task.task_type === 'DELIVERY_REVIEW' ? 'Delivery marked as reviewed.'

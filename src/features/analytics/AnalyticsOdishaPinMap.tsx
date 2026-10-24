@@ -4,7 +4,7 @@ import ReactECharts from 'echarts-for-react';
 
 import SectionCard from '../../components/SectionCard';
 import type { AnalyticsBusinessReportPayload } from '../../services/analytics/businessClient';
-import { AnalyticsBarChart } from './AnalyticsCharts';
+import { AnalyticsBarChart, AnalyticsStackedBarChart } from './AnalyticsCharts';
 
 type GeographyData = Extract<AnalyticsBusinessReportPayload, { kind: 'geography' }>['data'];
 type GeographyRow = GeographyData['rows'][number];
@@ -186,6 +186,16 @@ export default function AnalyticsOdishaPinMap({ data }: { data: GeographyData })
 
   const topAreas = useMemo(() => Array.from(locationTotals.values())
     .sort((a, b) => b.total - a.total || a.name.localeCompare(b.name)).slice(0, 10), [locationTotals]);
+  const dealerSplitSeries = dealers.map((dealer, index) => ({
+    key: `dealer_${index}`,
+    name: dealer,
+    color: dealerColors.get(dealer) || dealerPalette[index % dealerPalette.length],
+  })).filter((series) => topAreas.some((area) => (area.dealers.get(series.name) || 0) > 0));
+  const dealerSplitRows = topAreas.map((area) => {
+    const split: Record<string, string | number> & { label: string } = { label: area.name };
+    dealerSplitSeries.forEach((series) => { split[series.key] = area.dealers.get(series.name) || 0; });
+    return split;
+  });
   const overlapAreas = useMemo(() => Array.from(locationTotals.values()).filter((area) => Array.from(area.dealers.values()).filter((count) => count > 0).length > 1), [locationTotals]);
   const chartMapReady = (viewMode === 'PIN' ? pinGeo : districtGeo) != null;
   const mapName = viewMode === 'PIN' ? PIN_MAP : DISTRICT_MAP;
@@ -199,14 +209,19 @@ export default function AnalyticsOdishaPinMap({ data }: { data: GeographyData })
       const lon = outlet.longitude == null ? fallback?.[0] : Number(outlet.longitude);
       const lat = outlet.latitude == null ? fallback?.[1] : Number(outlet.latitude);
       if (lon == null || lat == null || !Number.isFinite(lon) || !Number.isFinite(lat)) return null;
+      const dealer = outlet.dealer_name || 'Dealer unspecified';
+      const dealerIndex = Math.max(0, dealers.indexOf(dealer));
       return {
         name: outlet.outlet_name,
         value: [lon, lat, 1],
-        dealer_name: outlet.dealer_name || 'Dealer unspecified',
+        dealer_name: dealer,
         pincode,
         precision: outlet.location_precision,
+        symbol: ['circle', 'diamond', 'triangle', 'rect'][dealerIndex % 4],
+        itemStyle: { color: dealerColors.get(dealer) || '#50677d', borderColor: '#ffffff', borderWidth: 2, shadowBlur: 5, shadowColor: '#52697d' },
+        label: { show: selectedDealer !== 'All dealerships', formatter: outlet.outlet_name, position: 'right', color: '#173b5b', fontSize: 10, backgroundColor: 'rgba(255,255,255,0.92)', padding: [2, 4], borderRadius: 3 },
       };
-    }).filter((point): point is NonNullable<typeof point> => point != null), [outletLocations, selectedDealer, pinCenters]);
+    }).filter((point): point is NonNullable<typeof point> => point != null), [dealers, dealerColors, outletLocations, selectedDealer, pinCenters]);
 
   const option = useMemo(() => ({
     textStyle: { fontFamily: chartFont },
@@ -234,11 +249,25 @@ export default function AnalyticsOdishaPinMap({ data }: { data: GeographyData })
           const borderWidth = countBand(area.total);
           return { name: area.name, value: area.total, itemStyle: { areaColor: shared ? '#76549b' : dealerColors.get(leader || '') || '#b8c7d3', borderColor: shared ? '#a61b29' : '#ffffff', borderWidth } };
         }),
+        label: {
+          show: true,
+          formatter: (params: { value?: number | string }) => {
+            const count = Number(params.value || 0);
+            return count > 0 ? formatNumber(count) : '';
+          },
+          color: '#ffffff',
+          fontSize: viewMode === 'PIN' ? 8 : 11,
+          fontWeight: 700,
+          textBorderColor: '#173b5b',
+          textBorderWidth: 2,
+        },
+        emphasis: { label: { show: true, color: '#173b5b', textBorderWidth: 0, fontWeight: 700 } },
       },
       {
         name: 'Dealer outlets', type: 'scatter', coordinateSystem: 'geo', data: outletPoints,
-        symbolSize: 9, zlevel: 4,
-        itemStyle: { color: '#d33232', borderColor: '#ffffff', borderWidth: 1.5, shadowBlur: 5, shadowColor: '#52697d' },
+        symbolSize: 14, zlevel: 4,
+        itemStyle: { color: '#50677d', borderColor: '#ffffff', borderWidth: 2, shadowBlur: 5, shadowColor: '#52697d' },
+        emphasis: { scale: 1.35, label: { show: selectedDealer !== 'All dealerships' } },
       },
     ],
   }), [dealerColors, locationTotals, mapName, measureLabel, outletPoints, viewMode]);
@@ -297,7 +326,8 @@ export default function AnalyticsOdishaPinMap({ data }: { data: GeographyData })
             <span className="analytics-area-card__rank">{index + 1}</span><div><strong>{area.name}</strong><small>{area.locality} · {area.district}</small><small>Dealerships: {Array.from(area.dealers.keys()).join(', ') || 'No dealer attribution'}</small></div><b>{formatNumber(area.total)}</b>
           </article>)}</div>
         </SectionCard>
-        <SectionCard title="Dealer footprint by PIN / district" description="Each card shows that dealer’s contribution inside a shared customer area. Download the full PIN / district file for complete row-level detail.">
+        <SectionCard title="Dealer split within each PIN / district" description="Stacked bars show each dealership’s share of the selected measure in the top 10 customer areas; hover any PIN or district on the map for the exact dealer split across every mapped area.">
+          <AnalyticsStackedBarChart rows={dealerSplitRows} series={dealerSplitSeries} valueLabel={measureLabel} emptyText="No dealer split is available for the current geography filters." />
           {topAreas.length ? <div className="analytics-area-dealer-grid">{topAreas.flatMap((area) => Array.from(area.dealers.entries()).map(([dealer, count]) => <article className="analytics-area-dealer-card" key={`${area.name}-${dealer}`}>
             <span>{dealer}</span><strong>{formatNumber(count)}</strong><small>{area.name} · {area.locality}</small><small>{formatNumber(area.bookings)} bookings · {formatNumber(area.deliveries)} deliveries (retail)</small>
           </article>))}</div> : <p className="analytics-empty-copy">No dealer-area detail matches the current filters.</p>}

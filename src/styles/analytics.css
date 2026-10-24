@@ -346,6 +346,7 @@
 }
 
 .analytics-pin-map__controls select,
+.analytics-pin-map__controls input,
 .analytics-detail__search input {
   min-height: 40px;
   padding: 8px 11px;
@@ -354,6 +355,66 @@
   background: #ffffff;
   color: #173b5b;
   font-size: 12px;
+}
+
+.analytics-pin-map__controls button {
+  min-height: 40px;
+  padding: 8px 12px;
+  border: 1px solid #cfdbe6;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #173b5b;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.analytics-pin-map__controls button:hover {
+  border-color: #1769aa;
+  background: #f3f8fc;
+}
+
+.analytics-pin-map__legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+  padding: 11px 13px;
+  border: 1px solid #d8e3ed;
+  border-radius: 9px;
+  background: #f8fbfd;
+  color: #526b83;
+  font-size: 11px;
+}
+
+.analytics-pin-map__legend strong {
+  color: #31506e;
+  font-size: 10px;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.analytics-pin-map__legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.analytics-pin-map__legend i {
+  display: inline-block;
+  width: 13px;
+  height: 13px;
+  border: 1px solid #91a4b5;
+  border-radius: 3px;
+}
+
+.analytics-pin-map__legend i.analytics-pin-map__range {
+  width: 22px;
+  height: 0;
+  border: 0;
+  border-top-style: solid;
+  border-top-color: #6c7f91;
+  border-radius: 0;
 }
 
 .analytics-pin-map__metrics {

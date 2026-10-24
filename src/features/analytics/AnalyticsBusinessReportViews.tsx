@@ -186,6 +186,23 @@ function AnalyticsAddonsReport({ data }: { data: AnalyticsVasData }) {
           ])}
         />
         <DetailTable
+          title="VAS attach by dealership and outlet"
+          defaultOpen
+          headers={['Dealer', 'Outlet', 'VAS', 'Booking proposals', 'Confirmed invoice purchases', 'Matched', 'Unverified invoice evidence', 'Match rate']}
+          rows={Array.from(reconciliation.by_dealer_model_variant.reduce((groups, row) => {
+            const key = `${row.dealer_name}\u0000${row.outlet_name}\u0000${row.category}`;
+            const current = groups.get(key) || { dealer_name: row.dealer_name, outlet_name: row.outlet_name, category: row.category, proposals: 0, bought: 0, matched: 0, unverified: 0 };
+            current.proposals += row.booked_proposal_journeys;
+            current.bought += row.delivery_invoice_purchase_journeys;
+            current.matched += row.proposed_and_invoiced_journeys;
+            current.unverified += row.unverified_invoice_evidence_journeys;
+            groups.set(key, current);
+            return groups;
+          }, new Map<string, { dealer_name: string; outlet_name: string; category: string; proposals: number; bought: number; matched: number; unverified: number }>()).values())
+            .sort((a, b) => a.dealer_name.localeCompare(b.dealer_name) || a.outlet_name.localeCompare(b.outlet_name) || a.category.localeCompare(b.category))
+            .map((row) => [row.dealer_name, row.outlet_name, humanize(row.category), formatNumber(row.proposals), formatNumber(row.bought), formatNumber(row.matched), formatNumber(row.unverified), percent(row.matched, row.proposals)])}
+        />
+        <DetailTable
           title="Outlet, model and variant reconciliation"
           headers={['Dealer', 'Outlet', 'Model', 'Variant', 'VAS', 'Booking proposals', 'Bought on invoice', 'Matched', 'Unverified invoice evidence', 'Proposals needing review', 'Not observed on invoice', 'Awaiting invoice evidence', 'Confirmed invoice purpose', 'Unverified invoice purpose']}
           rows={reconciliation.by_dealer_model_variant.map((row) => [
@@ -597,26 +614,10 @@ export default function AnalyticsBusinessReportViews({ payload }: { payload: Ana
             <Metric label="Dealerships represented" value={formatNumber(dealerCount)} detail="Dealerships with at least one booking attached to a captured customer PIN" />
           </div>
 
-          <SectionCard title="Odisha customer sales influence by PIN" description="Select a dealership and measure to see the distribution of its customer bookings across Odisha postal areas. Use this as a recorded-customer footprint indicator, not as a verified territory boundary.">
-            <AnalyticsOdishaPinMap rows={rows} />
+          <SectionCard title="Customer Spread by PIN Code" description="Compare bookings and retail deliveries across dealerships, switch between PIN and district views, and identify shared customer areas.">
+            <AnalyticsOdishaPinMap data={payload.data} />
           </SectionCard>
 
-          <DetailTable
-            title="All PIN sales by dealer, outlet and captured model"
-            defaultOpen
-            headers={['Customer PIN', 'Dealer', 'Outlet', 'Model label', 'Booked Journeys', 'Deliveries', 'Finance Records', 'Insurance Records', 'Accessory Records']}
-            rows={rows.map((row) => [
-              row.customer_pincode,
-              row.dealer_name,
-              row.outlet_name,
-              row.model_name,
-              formatNumber(row.journey_count),
-              formatNumber(row.actual_deliveries),
-              formatNumber(row.finance_journeys),
-              formatNumber(row.insurance_journeys),
-              formatNumber(row.accessory_journeys),
-            ])}
-          />
           <p className="analytics-footnote">{quality.source_note} {privacy}</p>
         </>
       );

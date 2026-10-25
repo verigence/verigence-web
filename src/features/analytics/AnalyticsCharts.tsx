@@ -184,6 +184,52 @@ export function AnalyticsStackedBarChart({
   );
 }
 
+export function AnalyticsGroupedBarChart({
+  rows,
+  series,
+  valueLabel,
+  valueKind = 'count',
+  emptyText = 'No chartable data in the current snapshot.',
+}: {
+  rows: Array<Record<string, string | number> & { label: string }>;
+  series: Array<{ key: string; name: string; color: string }>;
+  valueLabel: string;
+  valueKind?: AnalyticsValueKind;
+  emptyText?: string;
+}) {
+  const data = rows.filter((row) => series.some((item) => finite(row[item.key]) > 0)).slice(0, 12);
+  if (!data.length || !series.length) return emptyChart(emptyText);
+  const option = {
+    textStyle: { fontFamily: chartFont },
+    grid: { top: 44, right: 24, bottom: 24, left: 186 },
+    legend: { top: 0, textStyle: { fontFamily: chartFont, color: '#31506e' } },
+    tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+    xAxis: {
+      type: 'value',
+      name: valueLabel,
+      axisLabel: { formatter: (value: number) => axisFormatter(valueKind, finite(value)), fontFamily: chartFont, color: '#58718d' },
+      splitLine: { lineStyle: { color: '#e6edf3', type: 'dashed' } },
+    },
+    yAxis: {
+      type: 'category',
+      inverse: true,
+      data: data.map((row) => row.label),
+      axisLabel: { width: 168, overflow: 'truncate', fontFamily: chartFont, color: '#31506e' },
+      axisLine: { show: false },
+      axisTick: { show: false },
+    },
+    series: series.map((item) => ({
+      name: item.name,
+      type: 'bar',
+      data: data.map((row) => finite(row[item.key])),
+      barMaxWidth: 18,
+      itemStyle: { color: item.color, borderRadius: [0, 5, 5, 0] },
+      tooltip: { valueFormatter: (value: number) => tooltipFormatter(valueKind, finite(value)) },
+    })),
+  };
+  return <ReactECharts option={option} style={{ height: Math.max(300, data.length * 46 + 90), width: '100%' }} notMerge lazyUpdate />;
+}
+
 export function AnalyticsDonutChart({
   rows,
   valueLabel,
@@ -315,12 +361,14 @@ export function AnalyticsBubbleChart({
   xKind = 'count',
   yKind = 'count',
   emptyText = 'No chartable data in the current snapshot.',
+  sizeLabel = 'Records',
 }: {
   rows: Array<{ label: string; x: number; y: number; size?: number }>;
   xLabel: string;
   yLabel: string;
   xKind?: AnalyticsValueKind;
   yKind?: AnalyticsValueKind;
+  sizeLabel?: string;
   emptyText?: string;
 }) {
   const dataRows = rows.filter((row) => finite(row.x) > 0 || finite(row.y) > 0).slice(0, 14);
@@ -336,7 +384,7 @@ export function AnalyticsBubbleChart({
       formatter: (params: { data?: [number, number, number, string] }) => {
         const item = params.data;
         if (!item) return '';
-        return `${item[3]}<br/>${xLabel}: ${tooltipFormatter(xKind, item[0])}<br/>${yLabel}: ${tooltipFormatter(yKind, item[1])}`;
+        return `${item[3]}<br/>${xLabel}: ${tooltipFormatter(xKind, item[0])}<br/>${yLabel}: ${tooltipFormatter(yKind, item[1])}<br/>${sizeLabel}: ${tooltipFormatter('count', item[2])}`;
       },
     },
     xAxis: {
@@ -504,12 +552,14 @@ export function AnalyticsHeatmap({
   yLabels,
   cells,
   valueLabel,
+  xLabelRotate = 0,
   emptyText = 'No chartable data in the current snapshot.',
 }: {
   xLabels: string[];
   yLabels: string[];
   cells: Array<[number, number, number]>;
   valueLabel: string;
+  xLabelRotate?: number;
   emptyText?: string;
 }) {
   const maxValue = Math.max(...cells.map((cell) => finite(cell[2])), 0);
@@ -525,12 +575,12 @@ export function AnalyticsHeatmap({
         return `${yLabels[item[1]]}<br/>${xLabels[item[0]]}: ${tooltipFormatter('count', item[2])}`;
       },
     },
-    grid: { top: 38, right: 34, bottom: 76, left: 190 },
+    grid: { top: 38, right: 34, bottom: xLabelRotate ? 118 : 76, left: 190 },
     xAxis: {
       type: 'category',
       data: xLabels,
       splitArea: { show: true },
-      axisLabel: { fontFamily: chartFont, color: '#58718d' },
+      axisLabel: { rotate: xLabelRotate, width: xLabelRotate ? 100 : undefined, overflow: 'truncate', fontFamily: chartFont, color: '#58718d' },
       axisLine: { show: false },
       axisTick: { show: false },
     },

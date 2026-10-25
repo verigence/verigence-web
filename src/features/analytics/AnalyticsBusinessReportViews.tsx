@@ -8,6 +8,7 @@ import {
   AnalyticsComboChart,
   AnalyticsDonutChart,
   AnalyticsHeatmap,
+  AnalyticsGroupedBarChart,
   AnalyticsParetoChart,
   AnalyticsSunburstChart,
   AnalyticsStackedBarChart,
@@ -266,31 +267,40 @@ function AnalyticsAddonsReport({ data }: { data: AnalyticsVasData }) {
   const [accessoryMeasure, setAccessoryMeasure] = useState<'units' | 'net'>('units');
   const accessoryItems = data.accessory_items;
   const accessoryLineCoverage = data.accessory_line_coverage;
+  const warrantyRsa = data.warranty_rsa;
+  const reconciliation = data.booking_invoice_reconciliation;
+  const locationRows = useMemo(() => {
+    const locations = new Map<string, { dealer: string; outlet: string }>();
+    [
+      ...accessoryItems.map((row) => ({ dealer: row.dealer_name, outlet: row.outlet_name })),
+      ...warrantyRsa.by_product.map((row) => ({ dealer: row.dealer_name, outlet: row.outlet_name })),
+      ...reconciliation.by_dealer_model_variant.map((row) => ({ dealer: row.dealer_name, outlet: row.outlet_name })),
+    ].forEach((row) => locations.set(`${row.dealer}::${row.outlet}`, row));
+    return Array.from(locations.values());
+  }, [accessoryItems, warrantyRsa.by_product, reconciliation.by_dealer_model_variant]);
   const dealers = useMemo(
-    () => Array.from(new Set(accessoryItems.map((row) => row.dealer_name))).sort((a, b) => a.localeCompare(b)),
-    [accessoryItems],
+    () => Array.from(new Set(locationRows.map((row) => row.dealer))).sort((a, b) => a.localeCompare(b)),
+    [locationRows],
   );
   const outlets = useMemo(
-    () => Array.from(new Set(accessoryItems
-      .filter((row) => selectedDealer === 'All dealerships' || row.dealer_name === selectedDealer)
-      .map((row) => row.outlet_name))).sort((a, b) => a.localeCompare(b)),
-    [accessoryItems, selectedDealer],
+    () => Array.from(new Set(locationRows
+      .filter((row) => selectedDealer === 'All dealerships' || row.dealer === selectedDealer)
+      .map((row) => selectedDealer === 'All dealerships' ? `${row.dealer} / ${row.outlet}` : row.outlet))).sort((a, b) => a.localeCompare(b)),
+    [locationRows, selectedDealer],
   );
   const scopedAccessoryItems = useMemo(
     () => accessoryItems
       .filter((row) => selectedDealer === 'All dealerships' || row.dealer_name === selectedDealer)
-      .filter((row) => selectedOutlet === 'All outlets' || row.outlet_name === selectedOutlet)
+      .filter((row) => selectedOutlet === 'All outlets' || (selectedDealer === 'All dealerships' ? `${row.dealer_name} / ${row.outlet_name}` : row.outlet_name) === selectedOutlet)
       .sort((a, b) => numeric(b.invoiced_quantity) - numeric(a.invoiced_quantity)
         || numeric(b.net_amount) - numeric(a.net_amount)
         || a.model_name.localeCompare(b.model_name)
         || a.item_description.localeCompare(b.item_description)),
     [accessoryItems, selectedDealer, selectedOutlet],
   );
-  const warrantyRsa = data.warranty_rsa;
-  const reconciliation = data.booking_invoice_reconciliation;
   const dealerOutletInScope = (dealerName: string, outletName: string) =>
     (selectedDealer === 'All dealerships' || dealerName === selectedDealer)
-    && (selectedOutlet === 'All outlets' || outletName === selectedOutlet);
+    && (selectedOutlet === 'All outlets' || (selectedDealer === 'All dealerships' ? `${dealerName} / ${outletName}` : outletName) === selectedOutlet);
   const accessoryItemGroups = new Map<string, { label: string; quantity: number; netAmount: number; splits: Map<string, number>; netSplits: Map<string, number> }>();
   const accessoryModelItemGroups = new Map<string, { model: string; item: string; quantity: number }>();
   scopedAccessoryItems.forEach((row) => {
@@ -331,13 +341,13 @@ function AnalyticsAddonsReport({ data }: { data: AnalyticsVasData }) {
     });
     return row;
   });
-  const accessoryItemLabels = topAccessoryItems.slice(0, 8).map((item) => item.label.length > 22 ? `${item.label.slice(0, 19)}…` : item.label);
+  const accessoryItemLabels = topAccessoryItems.slice(0, 8).map((item) => item.label);
   const topAccessoryModels = Array.from(new Set(Array.from(accessoryModelItemGroups.values()).map((row) => row.model)))
     .map((model) => ({ model, quantity: Array.from(accessoryModelItemGroups.values()).filter((row) => row.model === model).reduce((sum, row) => sum + row.quantity, 0) }))
     .sort((a, b) => b.quantity - a.quantity || a.model.localeCompare(b.model)).slice(0, 8);
   const modelItemCells = new Map<string, number>();
   accessoryModelItemGroups.forEach((row) => {
-    const x = accessoryItemLabels.indexOf(row.item.length > 22 ? `${row.item.slice(0, 19)}…` : row.item);
+    const x = accessoryItemLabels.indexOf(row.item);
     const y = topAccessoryModels.findIndex((model) => model.model === row.model);
     if (x >= 0 && y >= 0) {
       const key = `${x}:${y}`;
@@ -467,7 +477,7 @@ function AnalyticsAddonsReport({ data }: { data: AnalyticsVasData }) {
 
       <div className="analytics-split analytics-split--overview">
         <SectionCard title="Accessory sales at a glance" description="Confirmed accessory-purpose tax-invoice evidence in this project snapshot; values below follow the selected dealership and outlet.">
-          <div className="analytics-insight-stack">
+          <div className="analytics-accessory-summary">
             <Metric label="Invoiced accessory units" value={formatNumber(accessoryUnitTotal)} detail={`${formatNumber(topAccessoryItems.length)} leading item groups shown in the chart`} />
             <Metric label="Distinct invoice item groups" value={formatNumber(accessoryItemGroups.size)} detail={`${formatNumber(accessoryLineCoverage.confirmed_tax_invoices)} confirmed invoices · ${formatNumber(accessoryLineCoverage.confirmed_tax_invoice_lines)} confirmed lines`} />
             <Metric label="Captured net invoice value" value={formatMoney(accessoryNetTotal)} detail="Summed from confirmed accessory invoice lines with captured net amounts" />
@@ -505,6 +515,7 @@ function AnalyticsAddonsReport({ data }: { data: AnalyticsVasData }) {
         <SectionCard title="Accessory choice by vehicle model" description="The heatmap shows confirmed invoiced units for the leading accessory items across the leading models in the selected dealership/outlet scope.">
           <AnalyticsHeatmap
             xLabels={accessoryItemLabels}
+            xLabelRotate={38}
             yLabels={topAccessoryModels.map((row) => row.model)}
             cells={accessoryHeatmapCells}
             valueLabel="Invoiced units"
@@ -545,12 +556,7 @@ function AnalyticsAddonsReport({ data }: { data: AnalyticsVasData }) {
           valueLabel={vasMetricLabels[vasMetric]}
           emptyText="No VAS counts are available for the selected dealership/outlet and measure."
         />
-        {vasStateRows.length ? <div className="analytics-vas-state-grid">{vasStateRows.map((row) => <article className="analytics-vas-state-card" key={row.label}>
-          <header><span>{humanize(row.category)}</span><strong>{row.label}</strong></header>
-          <div><span>Booking proposal</span><strong>{formatNumber(row.proposals)}</strong></div>
-          <div><span>Invoice</span><strong>{formatNumber(row.invoice)}</strong></div>
-          <div><span>Invoice awaiting</span><strong>{formatNumber(row.awaiting)}</strong></div>
-        </article>)}</div> : <p className="analytics-chart-empty">No booking proposals, confirmed invoice purchases, or invoice-awaiting cases are available for this selection.</p>}
+        {!vasStateRows.length ? <p className="analytics-chart-empty">No VAS counts are available for this selection.</p> : null}
       </SectionCard>
 
       {accessoryItems.length > 0 ? (
@@ -745,51 +751,53 @@ export default function AnalyticsBusinessReportViews({ payload }: { payload: Ana
     }
 
     case 'finance': {
-      const { summary, by_lender: lenders, by_lender_outlet: lendersByOutlet, by_outlet: outlets, definition } = payload.data;
-      const lenderRows = lenders.map((row) => ({
-        label: `${humanize(row.lender_name)} · ${humanize(row.finance_type)}`,
-        value: numeric(row.loan_amount),
-      }));
+      const { summary, by_lender_outlet: lenderOutletRows, by_outlet: outlets, definition } = payload.data;
+      const lenderTotals = new Map<string, number>();
+      lenderOutletRows.filter((row) => row.confidence.toUpperCase() === 'HIGH').forEach((row) => {
+        lenderTotals.set(row.lender_name, (lenderTotals.get(row.lender_name) || 0) + numeric(row.loan_amount));
+      });
+      const topLenders = Array.from(lenderTotals.entries()).sort((a, b) => b[1] - a[1]).slice(0, 4);
+      const lenderSeries = [
+        ...topLenders.map(([name], index) => ({
+          key: `lender_${index}`,
+          name: humanize(name),
+          color: ['#07366b', '#078ba0', '#d78b2b', '#6f83c7'][index],
+        })),
+        { key: 'other', name: 'Other lenders', color: '#9aa9b7' },
+      ];
+      const portfolio = new Map<string, Record<string, string | number> & { label: string; total: number }>();
+      lenderOutletRows.filter((row) => row.confidence.toUpperCase() === 'HIGH').forEach((row) => {
+        const label = `${row.dealer_name} · ${row.outlet_name}`;
+        const target: Record<string, string | number> & { label: string; total: number } = portfolio.get(label) || { label, total: 0 };
+        target.total += numeric(row.loan_amount);
+        const lenderIndex = topLenders.findIndex(([name]) => name === row.lender_name);
+        const seriesKey = lenderIndex >= 0 ? `lender_${lenderIndex}` : 'other';
+        target[seriesKey] = numeric(target[seriesKey]) + numeric(row.loan_amount);
+        portfolio.set(label, target);
+      });
+      const portfolioRows = Array.from(portfolio.values()).sort((a, b) => b.total - a.total).slice(0, 10);
+      const attachRows = outlets
+        .map((row) => ({ label: `${row.dealer_name} · ${row.outlet_name}`, value: numeric(row.finance_record_attach_pct) }))
+        .sort((a, b) => b.value - a.value)
+        .slice(0, 12);
+
       return (
         <>
           <div className="analytics-insurance-banner">
             <Metric label="Finance record rate" value={formatPercent(summary.finance_record_attach_pct == null ? null : numeric(summary.finance_record_attach_pct))} detail={`${formatNumber(summary.financed_journeys)} of ${formatNumber(summary.booked_journeys)} booked journeys have a finance record; not an approval rate`} />
-            <Metric label="High-confidence loan amount" value={formatMoney(summary.high_confidence_loan_amount)} detail={`${formatNumber(summary.high_confidence_loan_records)} records with a high-confidence disbursement amount`} />
-            <Metric label="Medium-confidence amount" value={formatMoney(summary.medium_confidence_loan_amount)} detail={`${formatNumber(summary.medium_confidence_loan_records)} amounts without verified lender attribution`} />
+            <Metric label="High-confidence loan amount" value={formatMoney(summary.high_confidence_loan_amount)} detail={`${formatNumber(summary.high_confidence_loan_records)} records with a high-confidence amount`} />
+            <Metric label="Medium-confidence amount" value={formatMoney(summary.medium_confidence_loan_amount)} detail="Shown separately; not attributed to a lender in the chart" />
             <Metric label="Loan amount coverage" value={formatPercent(summary.loan_amount_capture_pct)} detail={`${formatNumber(summary.high_confidence_loan_records + summary.medium_confidence_loan_records)} amount records of ${formatNumber(summary.finance_record_count)} finance records`} />
           </div>
 
-          <SectionCard title="Loan portfolio by lender" description="Area represents high-confidence loan disbursements. Medium-confidence amounts remain separate and are not attributed to a lender.">
-            <AnalyticsTreemap rows={lenderRows} valueLabel="Matched loan disbursement" valueKind="currency" />
-          </SectionCard>
-
-          <DetailTable
-            title="View finance attach and amount by dealership / outlet"
-            headers={['Dealer', 'Outlet', 'Booked Journeys', 'Finance Records', 'Record Rate', 'High-confidence Amount', 'Medium-confidence Amount']}
-            rows={outlets.map((row) => [
-              row.dealer_name,
-              row.outlet_name,
-              formatNumber(row.booked_journeys),
-              formatNumber(row.financed_journeys),
-              formatPercent(row.finance_record_attach_pct),
-              formatMoney(row.high_confidence_loan_amount),
-              formatMoney(row.medium_confidence_loan_amount),
-            ])}
-          />
-
-          <DetailTable
-            title="View lender, confidence, and amount by dealership / outlet"
-            headers={['Dealer', 'Outlet', 'Lender', 'Confidence', 'Finance Records', 'Journeys', 'Loan Amount']}
-            rows={lendersByOutlet.map((row) => [
-              row.dealer_name,
-              row.outlet_name,
-              humanize(row.lender_name),
-              humanize(row.confidence),
-              formatNumber(row.finance_record_count),
-              formatNumber(row.financed_journeys),
-              formatMoney(row.loan_amount),
-            ])}
-          />
+          <div className="analytics-split analytics-split--wide-left">
+            <SectionCard title="High-confidence loan amount by outlet and lender" description="Each bar is an outlet; color separates lender-attributed loan amounts. Only high-confidence lender matches are included. The largest four lenders are shown separately; remaining lenders are grouped.">
+              <AnalyticsStackedBarChart rows={portfolioRows} series={lenderSeries} valueLabel="High-confidence loan amount" valueKind="currency" emptyText="No high-confidence lender-attributed loan amounts are available in this snapshot." />
+            </SectionCard>
+            <SectionCard title="Finance record attach by outlet" description="Share of booked journeys with a finance record. This is not an approval, sanction, or disbursement rate.">
+              <AnalyticsBarChart rows={attachRows} valueLabel="Journeys with finance record" valueKind="percent" emptyText="No outlet-level finance record rate is available." />
+            </SectionCard>
+          </div>
           <p className="analytics-footnote">{definition}</p>
         </>
       );
@@ -912,11 +920,40 @@ export default function AnalyticsBusinessReportViews({ payload }: { payload: Ana
       return <AnalyticsAddonsReport data={payload.data} />;
 
     case 'payments': {
-      const { summary, by_channel: channels, by_outlet: outlets, definition } = payload.data;
-      const channelRows = channels.map((row) => ({
-        label: humanize(row.channel),
-        value: numeric(row.recorded_receipt_amount),
-      }));
+      const { summary, by_channel: channels, by_outlet: outletChannels, definition } = payload.data;
+      const channelTotals = new Map<string, number>();
+      channels.forEach((row) => channelTotals.set(row.channel, numeric(row.recorded_receipt_amount)));
+      const topChannels = Array.from(channelTotals.entries()).sort((a, b) => b[1] - a[1]).slice(0, 5);
+      const paymentSeries = [
+        ...topChannels.map(([name], index) => ({
+          key: `channel_${index}`,
+          name: humanize(name),
+          color: ['#07366b', '#078ba0', '#d78b2b', '#6f83c7', '#b45472'][index],
+        })),
+        { key: 'other', name: 'Other / unmapped', color: '#9aa9b7' },
+      ];
+      const outletGroups = new Map<string, Record<string, string | number> & { label: string; total: number }>();
+      const outletStatus = new Map<string, { label: string; entries: number; coded: number }>();
+      outletChannels.forEach((row) => {
+        const label = `${row.dealer_name} · ${row.outlet_name}`;
+        const target: Record<string, string | number> & { label: string; total: number } = outletGroups.get(label) || { label, total: 0 };
+        const amount = numeric(row.recorded_receipt_amount);
+        target.total += amount;
+        const index = topChannels.findIndex(([name]) => name === row.channel);
+        const seriesKey = index >= 0 ? `channel_${index}` : 'other';
+        target[seriesKey] = numeric(target[seriesKey]) + amount;
+        outletGroups.set(label, target);
+        const status = outletStatus.get(label) || { label, entries: 0, coded: 0 };
+        status.entries += row.payment_entry_count;
+        status.coded += row.status_coded_entries;
+        outletStatus.set(label, status);
+      });
+      const outletRows = Array.from(outletGroups.values()).sort((a, b) => b.total - a.total).slice(0, 10);
+      const statusRows = Array.from(outletStatus.values()).map((row) => ({
+        label: row.label,
+        value: row.entries ? (row.coded / row.entries) * 100 : 0,
+      })).sort((a, b) => a.value - b.value).slice(0, 12);
+
       return (
         <>
           <div className="analytics-insurance-banner">
@@ -925,24 +962,12 @@ export default function AnalyticsBusinessReportViews({ payload }: { payload: Ana
             <Metric label="Status coverage" value={formatPercent(summary.status_coverage_pct)} detail={`${formatNumber(summary.status_coded_entries)} of ${formatNumber(summary.payment_entry_count)} entries have a status code`} attention={summary.status_coverage_pct === 0} />
             <Metric label="Channels captured" value={formatNumber(summary.channel_count)} detail={`${formatNumber(summary.unmapped_entries)} entries remain in Other / Unmapped`} />
           </div>
-
-          <SectionCard title="Recorded receipts · channel mix" description="Known payment aliases are grouped into channel categories. Values are recorded receipt amounts, not settled collections, because current status coverage is incomplete.">
-            <AnalyticsDonutChart rows={channelRows} valueLabel="Recorded receipt amount" valueKind="currency" />
+          <SectionCard title="Recorded receipt amount by outlet and channel" description="Shows the channel mix at each dealership outlet. Amounts are recorded receipts, not settled collections. The five largest channels are shown separately; the rest are grouped.">
+            <AnalyticsStackedBarChart rows={outletRows} series={paymentSeries} valueLabel="Recorded receipt amount" valueKind="currency" emptyText="No outlet-level payment channel amounts are available." />
           </SectionCard>
-
-          <DetailTable
-            title="View payment channel activity by dealership / outlet"
-            headers={['Dealer', 'Outlet', 'Channel', 'Entries', 'Journeys', 'Recorded Amount', 'Status-Coded Entries']}
-            rows={outlets.map((row) => [
-              row.dealer_name,
-              row.outlet_name,
-              humanize(row.channel),
-              formatNumber(row.payment_entry_count),
-              formatNumber(row.journey_count),
-              formatMoney(row.recorded_receipt_amount),
-              formatNumber(row.status_coded_entries),
-            ])}
-          />
+          <SectionCard title="Payment status coverage by outlet" description="Share of payment entries with a captured status. Lower coverage limits confidence in any collection interpretation.">
+            <AnalyticsBarChart rows={statusRows} valueLabel="Entries with status" valueKind="percent" emptyText="No outlet-level payment status data is available." />
+          </SectionCard>
           <p className="analytics-footnote">{definition}</p>
         </>
       );
@@ -976,56 +1001,45 @@ export default function AnalyticsBusinessReportViews({ payload }: { payload: Ana
       const keyRows = pricing.by_discount_key
         .filter((row) => numeric(row.known_excess_discount_amount) > 0)
         .map((row) => ({ label: humanize(row.discount_key), value: numeric(row.known_excess_discount_amount) }));
+      const outletOverage = pricing.by_outlet
+        .filter((row) => numeric(row.known_excess_discount_amount) > 0)
+        .map((row) => ({ label: `${row.dealer_name} · ${row.outlet_name}`, value: numeric(row.known_excess_discount_amount) }));
+      const productOverage = discountsByProduct
+        .filter((row) => numeric(row.known_excess_discount_amount) > 0)
+        .map((row) => ({
+          label: `${row.dealer_name} · ${row.outlet_name} · ${row.model_name} / ${row.variant_name}`,
+          value: numeric(row.known_excess_discount_amount),
+        }))
+        .sort((a, b) => b.value - a.value)
+        .slice(0, 12);
       return (
         <>
           <div className="analytics-insurance-banner">
             <Metric label="Recorded discounts" value={formatMoney(discountSummary.total_actual_discount)} detail={`${formatNumber(discountSummary.journeys_with_actual_discount)} booked journeys with a captured actual discount`} />
-            <Metric label="Any positive over-offer" value={formatMoney(discountSummary.strict_excess_discount_amount)} detail={`${formatNumber(discountSummary.strict_excess_discount_journeys)} journeys · ${formatNumber(discountSummary.strict_excess_application_count)} applications with actual discount above the captured offer before tolerance`} attention={numeric(discountSummary.strict_excess_discount_amount) > 0} />
-            <Metric label="Active pricing cases" value={formatNumber(summary.journeys_with_pricing_exceptions)} detail="Distinct journeys with an open or acknowledged Audit Core pricing finding" attention={summary.journeys_with_pricing_exceptions > 0} />
-            <Metric label="Active invoice conflicts" value={formatNumber(summary.invoice_conflict_journeys)} detail="Open or acknowledged commercial price and discount disagreements across captured invoices" attention={summary.invoice_conflict_journeys > 0} />
-              <Metric label="Known overage after tolerance" value={formatMoney(summary.known_excess_discount_amount)} detail={`${formatNumber(summary.known_excess_discount_journeys)} journeys · ${formatNumber(summary.known_excess_application_count)} applications above Audit Core's line tolerance`} attention={numeric(summary.known_excess_discount_amount) > 0} />
-            <Metric label="Unknown entitlements" value={formatNumber(summary.unknown_entitlement_application_count)} detail="Applications excluded because the offered entitlement could not be attributed" attention={summary.unknown_entitlement_application_count > 0} />
-            <Metric label="Comparable price line coverage" value={formatPercent(summary.comparable_price_line_coverage_pct)} detail={`${formatNumber(summary.comparable_price_line_count)} of ${formatNumber(summary.standard_price_line_count)} standard-priced commercial lines have an actual amount`} />
+            <Metric label="Any positive over-offer" value={formatMoney(discountSummary.strict_excess_discount_amount)} detail={`${formatNumber(discountSummary.strict_excess_discount_journeys)} journeys · ${formatNumber(discountSummary.strict_excess_application_count)} applications above offer before tolerance`} attention={numeric(discountSummary.strict_excess_discount_amount) > 0} />
+            <Metric label="Active pricing cases" value={formatNumber(summary.journeys_with_pricing_exceptions)} detail="Distinct journeys with an open or acknowledged pricing finding" attention={summary.journeys_with_pricing_exceptions > 0} />
+            <Metric label="Known overage after tolerance" value={formatMoney(summary.known_excess_discount_amount)} detail={`${formatNumber(summary.known_excess_discount_journeys)} journeys · ${formatNumber(summary.known_excess_application_count)} applications`} attention={numeric(summary.known_excess_discount_amount) > 0} />
+            <Metric label="Unknown entitlements" value={formatNumber(summary.unknown_entitlement_application_count)} detail="Excluded from known overage because entitlement could not be attributed" attention={summary.unknown_entitlement_application_count > 0} />
+            <Metric label="Comparable price line coverage" value={formatPercent(summary.comparable_price_line_coverage_pct)} detail={`${formatNumber(summary.comparable_price_line_count)} of ${formatNumber(summary.standard_price_line_count)} standard-price lines have an actual amount`} />
           </div>
-
-          <SectionCard title="Known Excess by Discount Category" description="Per-application overage above the captured entitlement. Unused entitlement in another category never offsets an exception; applications with unknown entitlement are omitted.">
-            <AnalyticsBarChart rows={keyRows} valueLabel="Known excess discount" valueKind="currency" />
+          <div className="analytics-split analytics-split--wide-left">
+            <SectionCard title="Known overage concentration by outlet" description="Ranks outlets by known excess discount after Audit Core line tolerance. This is an actionable concentration view, not a claim that every price difference is loss.">
+              <AnalyticsParetoChart rows={outletOverage} valueLabel="Known excess after tolerance" emptyText="No known overage is recorded for an outlet in this snapshot." />
+            </SectionCard>
+            <SectionCard title="Known overage by model and variant" description="Highest dealer/outlet and vehicle combinations with known excess after tolerance.">
+              <AnalyticsBarChart rows={productOverage} valueLabel="Known excess after tolerance" valueKind="currency" emptyText="No model or variant has known overage in this snapshot." />
+            </SectionCard>
+          </div>
+          <SectionCard title="Known excess by discount category" description="Per-application overage above captured entitlement. Unknown entitlements are excluded, and unused entitlement in another category does not offset an exception.">
+            <AnalyticsBarChart rows={keyRows} valueLabel="Known excess discount" valueKind="currency" emptyText="No known excess by discount category is recorded." />
           </SectionCard>
-
           <DetailTable
-            title="Discounts by dealership, vehicle model and variant"
-            defaultOpen
-            headers={['Dealer', 'Outlet', 'Model', 'Variant', 'Booked Cars', 'Cars with Discount', 'Recorded Discount', 'Average per Discounted Car', 'Any Positive Over-Offer', 'Over-Offer Cars', 'Known Overage After Tolerance', 'Unknown Entitlement Cars']}
-            rows={discountsByProduct.map((row) => [
-              row.dealer_name,
-              row.outlet_name,
-              row.model_name,
-              row.variant_name,
-              formatNumber(row.booked_units),
-              formatNumber(row.discounted_units),
-              formatMoney(row.actual_discount_amount),
-              row.avg_discount_per_discounted_unit == null ? 'Unavailable' : formatMoney(row.avg_discount_per_discounted_unit),
-              formatMoney(row.strict_excess_discount_amount),
-              formatNumber(row.strict_excess_units),
-              formatMoney(row.known_excess_discount_amount),
-              formatNumber(row.units_with_unknown_entitlement),
-            ])}
-          />
-
-          <DetailTable
-            title="View outlet pricing exception concentration"
-            headers={['Dealer', 'Outlet', 'Price Variance Journeys', 'Discount Exception Journeys', 'Invoice Conflict Journeys', 'Any Positive Over-Offer', 'Known Overage After Tolerance', 'Unknown Applications']}
-            rows={pricing.by_outlet.map((row) => [row.dealer_name, row.outlet_name, formatNumber(row.price_exception_journeys), formatNumber(row.discount_exception_journeys), formatNumber(row.invoice_conflict_journeys), formatMoney(row.strict_excess_discount_amount), formatMoney(row.known_excess_discount_amount), formatNumber(row.unknown_discount_applications)])}
-          />
-
-          <DetailTable
-            title="View active Audit Core pricing findings"
+            title="Review active Audit Core pricing findings"
             headers={['Journey Reference', 'Dealer', 'Outlet', 'Model / Variant', 'Finding', 'Audit Core detail', 'Severity', 'Status']}
             rows={pricing.exceptions.map((row) => [row.journey_reference || row.journey_id, row.dealer_name, row.outlet_name, `${humanize(row.model_name)} / ${humanize(row.variant_name)}`, row.title || humanize(row.rule_key), row.description, humanize(row.severity), humanize(row.finding_status)])}
           />
-
           <p className="analytics-footnote">
-            {pricing.definitions.exception_status} Strict positive over-offer is shown before tolerance; known overage reflects Audit Core's configured line tolerance. Current unresolved status is shown in the finding list. Invoice and booking line counts describe evidence coverage, not complete-deal invoice coverage.
+            {pricing.definitions.exception_status} Strict positive over-offer is shown before tolerance; known overage reflects Audit Core's configured line tolerance. Unknown entitlements stay separate. Invoice and booking line counts describe evidence coverage, not complete-deal invoice coverage.
           </p>
         </>
       );
@@ -1033,22 +1047,34 @@ export default function AnalyticsBusinessReportViews({ payload }: { payload: Ana
 
     case 'turnaround': {
       const { summary, by_outlet: byOutlet, by_model: byModel, definition } = payload.data;
-      const outletRows = byOutlet.map((row) => ({ label: `${row.dealer_name} · ${row.outlet_name}`, value: numeric(row.avg_days) }));
-      const modelRows = byModel.map((row) => ({ label: humanize(row.model_name), value: numeric(row.avg_days) }));
+      const outletRows = byOutlet.map((row) => ({
+        label: `${row.dealer_name} · ${row.outlet_name}`,
+        average: numeric(row.avg_days),
+        median: numeric(row.median_days),
+      })).sort((a, b) => b.median - a.median);
+      const modelRows = byModel.map((row) => ({
+        label: humanize(row.model_name),
+        average: numeric(row.avg_days),
+        median: numeric(row.median_days),
+      })).sort((a, b) => b.median - a.median);
+      const tatSeries = [
+        { key: 'average', name: 'Mean days', color: '#078ba0' },
+        { key: 'median', name: 'Median days', color: '#07366b' },
+      ];
       const available = summary.booking_delivery_pairs > 0;
       return (
         <>
           {!available ? (
             <SectionCard title="Booking-to-delivery TAT is not yet available" description={definition}>
               <div className="analytics-empty-copy">
-                There are currently {formatNumber(summary.booking_delivery_pairs)} journeys with both a booking date and populated actual delivery timestamp. Analytics therefore does not display a zero-day TAT or fabricate a delivery trend. As actual delivery dates populate, average, median, P75 and P90 will appear automatically.
+                There are currently {formatNumber(summary.booking_delivery_pairs)} journeys with both a booking date and populated actual delivery timestamp. Analytics does not display a zero-day TAT or fabricate a delivery trend. As actual delivery dates populate, the TAT measures will appear automatically.
               </div>
             </SectionCard>
           ) : (
             <div className="analytics-insurance-banner">
               <Metric label="Average booking → delivery" value={formatDays(summary.avg_booking_to_delivery_days)} detail={`${formatNumber(summary.booking_delivery_pairs)} completed booking-delivery pairs`} />
-              <Metric label="Median" value={formatDays(summary.median_booking_to_delivery_days)} detail="Typical customer delivery cycle" />
-              <Metric label="P75" value={formatDays(summary.p75_booking_to_delivery_days)} detail="75% of completed journeys are at or below this TAT" />
+              <Metric label="Median" value={formatDays(summary.median_booking_to_delivery_days)} detail="Half of completed journeys are at or below this time" />
+              <Metric label="P75" value={formatDays(summary.p75_booking_to_delivery_days)} detail="75% of completed journeys are at or below this time" />
               <Metric label="P90" value={formatDays(summary.p90_booking_to_delivery_days)} detail="Tail delivery performance" />
             </div>
           )}
@@ -1060,11 +1086,11 @@ export default function AnalyticsBusinessReportViews({ payload }: { payload: Ana
 
           {available ? (
             <div className="analytics-split analytics-split--wide-left">
-              <SectionCard title="Delivery TAT by Outlet" description="Average business delivery cycle from booking to actual delivery.">
-                <AnalyticsBarChart rows={outletRows} valueLabel="Average days" valueKind="days" />
+              <SectionCard title="Delivery time by outlet" description="Mean and median days from booking to actual delivery. A large gap between them can signal a small number of long-running deliveries.">
+                <AnalyticsGroupedBarChart rows={outletRows} series={tatSeries} valueLabel="Booking-to-delivery time" valueKind="days" />
               </SectionCard>
-              <SectionCard title="Delivery TAT by Model" description="Which vehicle models take longer from booking to customer delivery.">
-                <AnalyticsBarChart rows={modelRows} valueLabel="Average days" valueKind="days" />
+              <SectionCard title="Delivery time by model" description="Compare typical delivery time and the mean for each model.">
+                <AnalyticsGroupedBarChart rows={modelRows} series={tatSeries} valueLabel="Booking-to-delivery time" valueKind="days" />
               </SectionCard>
             </div>
           ) : null}

@@ -23,7 +23,10 @@
 }
 
 .analytics-overview-metrics {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  align-items: stretch;
 }
 
 .analytics-chart {
@@ -309,6 +312,17 @@
 .analytics-document-hero,
 .analytics-employee-summary {
   grid-template-columns: minmax(340px, 0.9fr) minmax(0, 1.1fr);
+}
+
+.analytics-accessory-summary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  align-items: stretch;
+}
+
+.analytics-accessory-summary .analytics-insight-card {
+  min-height: 126px;
 }
 
 .analytics-addon-summary {
@@ -1021,6 +1035,7 @@
   }
 
   .analytics-addon-summary,
+  .analytics-accessory-summary,
   .analytics-pin-map__metrics {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -1039,6 +1054,7 @@
   .analytics-finance-hero,
   .analytics-insurance-banner,
   .analytics-addon-summary,
+  .analytics-accessory-summary,
   .analytics-pin-map__metrics,
   .analytics-product-summary,
   .analytics-discount-headline,

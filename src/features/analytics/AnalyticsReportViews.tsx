@@ -386,6 +386,10 @@ export default function AnalyticsReportViews({ payload }: { payload: AnalyticsRe
         .filter((row) => row.actor_id || row.employee_name !== 'Unknown')
         .map((row) => row.actor_id || row.employee_name)).size;
       const uploadRows = uploadActivity.map((row) => ({ label: formatMonth(row.upload_month), value: row.journeys_created }));
+      const creatorRows = summary
+        .filter((row) => row.employee_name !== 'Unknown' && row.journeys_created > 0)
+        .map((row) => ({ label: row.employee_name, value: row.journeys_created }))
+        .sort((a, b) => b.value - a.value);
       const overallBookingRate = totalJourneys ? `${((totalBookings / totalJourneys) * 100).toFixed(1)}%` : 'Unavailable';
       const overallDeliveryRate = totalBookings ? `${((totalDeliveries / totalBookings) * 100).toFixed(1)}%` : 'Unavailable';
       const formatDays = (value: number | null) => value == null ? 'Unavailable' : `${Number(value).toFixed(1)} days`;
@@ -404,13 +408,8 @@ export default function AnalyticsReportViews({ payload }: { payload: AnalyticsRe
           <AnalyticsBarChart rows={uploadRows} valueLabel="Journeys uploaded" />
         </SectionCard>
 
-        <SectionCard title="Journey outcomes by uploader" description="Each journey is attributed to the Audit Core created-by fields. Compare volume and booking conversion by uploader; delivery completion uses a recorded actual completion timestamp.">
-          <div className="analytics-uploaders-grid">{summary.map((row) => <article className="analytics-uploader-card" key={row.actor_id || row.employee_name}>
-            <h4>{row.employee_name}</h4>
-            <div className="analytics-uploader-card__headline"><strong>{formatNumber(row.journeys_created)}</strong><span>journeys uploaded</span></div>
-            <div className="analytics-uploader-card__rates"><div><span>Bookings</span><strong>{formatNumber(row.bookings)}</strong></div><div><span>Booking rate</span><strong>{row.booking_rate_pct == null ? 'Unavailable' : `${Number(row.booking_rate_pct).toFixed(1)}%`}</strong></div><div><span>Completed delivery records</span><strong>{formatNumber(row.deliveries_completed)}</strong></div><div><span>Delivery completion</span><strong>{row.delivery_completion_pct == null ? 'Unavailable' : `${Number(row.delivery_completion_pct).toFixed(1)}%`}</strong></div></div>
-            <small>Avg. to delivery record: {formatDays(row.avg_days_to_delivery_start)} · Avg. to delivery: {formatDays(row.avg_days_journey_to_delivery)}</small>
-          </article>)}</div>
+        <SectionCard title="Journey records created by attributed user" description="Ranks journey creation volume from Audit Core created-by fields. This measures record creation activity; it does not score sales conversion or document-upload quality. Unattributed records are reported above.">
+          <AnalyticsParetoChart rows={creatorRows} valueLabel="Journey records created" emptyText="No creator-attributed journey records are available in this snapshot." />
         </SectionCard>
 
       </>;

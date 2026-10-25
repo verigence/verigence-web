@@ -768,7 +768,7 @@ export default function AnalyticsBusinessReportViews({ payload }: { payload: Ana
       const portfolio = new Map<string, Record<string, string | number> & { label: string; total: number }>();
       lenderOutletRows.filter((row) => row.confidence.toUpperCase() === 'HIGH').forEach((row) => {
         const label = `${row.dealer_name} · ${row.outlet_name}`;
-        const target = portfolio.get(label) || { label, total: 0 };
+        const target: Record<string, string | number> & { label: string; total: number } = portfolio.get(label) || { label, total: 0 };
         target.total += numeric(row.loan_amount);
         const lenderIndex = topLenders.findIndex(([name]) => name === row.lender_name);
         const seriesKey = lenderIndex >= 0 ? `lender_${lenderIndex}` : 'other';
@@ -936,7 +936,7 @@ export default function AnalyticsBusinessReportViews({ payload }: { payload: Ana
       const outletStatus = new Map<string, { label: string; entries: number; coded: number }>();
       outletChannels.forEach((row) => {
         const label = `${row.dealer_name} · ${row.outlet_name}`;
-        const target = outletGroups.get(label) || { label, total: 0 };
+        const target: Record<string, string | number> & { label: string; total: number } = outletGroups.get(label) || { label, total: 0 };
         const amount = numeric(row.recorded_receipt_amount);
         target.total += amount;
         const index = topChannels.findIndex(([name]) => name === row.channel);

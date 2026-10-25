@@ -617,75 +617,131 @@ function AnalyticsAddonsReport({ data }: { data: AnalyticsVasData }) {
   );
 }
 
+type SalesProductData = Extract<AnalyticsBusinessReportPayload, { kind: 'sales-product' }>['data'];
+
+function AnalyticsSalesProductReport({ data }: { data: SalesProductData }) {
+  const [measure, setMeasure] = useState<'booked_units' | 'delivered_units'>('booked_units');
+  const [locationLevel, setLocationLevel] = useState<'dealership' | 'outlet'>('dealership');
+  const [selectedDealer, setSelectedDealer] = useState('All dealerships');
+  const [productLevel, setProductLevel] = useState<'model' | 'variant'>('model');
+  const dealerRows = data.by_dealer_model_variant;
+  const dealerOptions = useMemo(
+    () => Array.from(new Set(dealerRows.map((row) => row.dealer_name))).sort((a, b) => a.localeCompare(b)),
+    [dealerRows],
+  );
+  const retailDeliveryCount = dealerRows.reduce((sum, row) => sum + row.delivered_units, 0);
+  const effectiveMeasure = measure === 'delivered_units' && retailDeliveryCount > 0 ? measure : 'booked_units';
+  const scopedRows = dealerRows.filter((row) => selectedDealer === 'All dealerships' || row.dealer_name === selectedDealer);
+  const locations = new Map<string, Map<string, number>>();
+  scopedRows.forEach((row) => {
+    const location = locationLevel === 'dealership'
+      ? row.dealer_name
+      : `${row.dealer_name} · ${row.outlet_name}`;
+    const product = productLevel === 'model'
+      ? row.model_name
+      : `${row.model_name} · ${row.variant_name}`;
+    const count = row[effectiveMeasure];
+    const products = locations.get(location) || new Map<string, number>();
+    products.set(product, (products.get(product) || 0) + count);
+    locations.set(location, products);
+  });
+  const productTotals = new Map<string, number>();
+  locations.forEach((products) => products.forEach((count, product) => {
+    productTotals.set(product, (productTotals.get(product) || 0) + count);
+  }));
+  const rankedProducts = Array.from(productTotals.entries()).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+  const leadingProducts = rankedProducts.slice(0, 8).map(([product]) => product);
+  const leadingSet = new Set(leadingProducts);
+  const otherTotal = rankedProducts.slice(8).reduce((sum, [, count]) => sum + count, 0);
+  const productLabels = otherTotal > 0 ? [...leadingProducts, 'Other models'] : leadingProducts;
+  const rankedLocations = Array.from(locations.entries())
+    .map(([label, products]) => ({
+      label,
+      products,
+      total: Array.from(products.values()).reduce((sum, count) => sum + count, 0),
+    }))
+    .filter((row) => row.total > 0)
+    .sort((a, b) => b.total - a.total || a.label.localeCompare(b.label));
+  const chartRows = rankedLocations.map(({ label, products }) => ({ label, products }));
+  const cells: Array<[number, number, number]> = [];
+  chartRows.forEach((row, y) => {
+    productLabels.forEach((product, x) => {
+      const value = product === 'Other models'
+        ? Array.from(row.products.entries()).reduce((sum, [name, count]) => sum + (leadingSet.has(name) ? 0 : count), 0)
+        : row.products.get(product) || 0;
+      cells.push([x, y, value]);
+    });
+  });
+  const unitTotal = rankedLocations.reduce((sum, row) => sum + row.total, 0);
+  const productLeader = rankedProducts[0];
+  const locationLeader = rankedLocations[0];
+  const unresolvedUnits = scopedRows
+    .filter((row) => row.model_name === 'Unresolved' || (productLevel === 'variant' && row.variant_name === 'Unresolved'))
+    .reduce((sum, row) => sum + row[effectiveMeasure], 0);
+  const measureLabel = effectiveMeasure === 'delivered_units' ? 'Retail deliveries' : 'Bookings';
+  const locationCount = rankedLocations.length;
+
+  return (
+    <>
+      <div className="analytics-pin-map__controls analytics-accessory-filters">
+        <label>
+          Measure
+          <select value={effectiveMeasure} onChange={(event) => setMeasure(event.target.value as 'booked_units' | 'delivered_units')}>
+            <option value="booked_units">Bookings</option>
+            <option value="delivered_units" disabled={retailDeliveryCount === 0}>Deliveries (Retail)</option>
+          </select>
+        </label>
+        <label>
+          Show by
+          <select value={locationLevel} onChange={(event) => setLocationLevel(event.target.value as 'dealership' | 'outlet')}>
+            <option value="dealership">Dealership</option>
+            <option value="outlet">Outlet</option>
+          </select>
+        </label>
+        <label>
+          Dealership
+          <select value={selectedDealer} onChange={(event) => setSelectedDealer(event.target.value)}>
+            <option>All dealerships</option>
+            {dealerOptions.map((dealer) => <option key={dealer}>{dealer}</option>)}
+          </select>
+        </label>
+        <label>
+          Product detail
+          <select value={productLevel} onChange={(event) => setProductLevel(event.target.value as 'model' | 'variant')}>
+            <option value="model">Model</option>
+            <option value="variant">Model and variant</option>
+          </select>
+        </label>
+      </div>
+
+      <div className="analytics-insurance-banner">
+        <Metric label={measureLabel} value={formatNumber(unitTotal)} detail={selectedDealer === 'All dealerships' ? 'Across the selected project and visible location grouping' : `At ${selectedDealer}`} />
+        <Metric label={locationLevel === 'dealership' ? 'Dealerships with volume' : 'Outlets with volume'} value={formatNumber(locationCount)} detail={locationLevel === 'dealership' ? 'Dealerships with captured units in this view' : 'Outlets with captured units; labels include dealership to distinguish locations'} />
+        <Metric label={`Top ${productLevel === 'model' ? 'model' : 'model / variant'}`} value={productLeader?.[0] || 'No data'} detail={productLeader ? `${formatNumber(productLeader[1])} ${measureLabel.toLowerCase()}` : 'No captured vehicle units for this selection'} />
+        <Metric label="Top location" value={locationLeader?.label || 'No data'} detail={locationLeader ? `${formatNumber(locationLeader.total)} ${measureLabel.toLowerCase()}` : 'No captured vehicle units for this selection'} />
+      </div>
+
+      <SectionCard
+        title={`${measureLabel} by ${locationLevel} and ${productLevel === 'model' ? 'model' : 'model / variant'}`}
+        description={`Each cell shows ${measureLabel.toLowerCase()} for that model at that dealership or outlet. The 8 highest-volume products are shown individually; the remainder is grouped as Other models. ${effectiveMeasure === 'booked_units' && retailDeliveryCount === 0 ? 'No actual retail delivery timestamps are captured, so bookings are shown.' : ''}`}
+      >
+        <AnalyticsHeatmap
+          xLabels={productLabels}
+          yLabels={rankedLocations.map((row) => row.label)}
+          cells={cells}
+          valueLabel={measureLabel}
+          emptyText="No model-level booking or retail delivery counts are available for this dealership/outlet selection."
+        />
+        {unresolvedUnits > 0 && <p className="analytics-footnote">{formatNumber(unresolvedUnits)} selected {measureLabel.toLowerCase()} have an unresolved {productLevel === 'model' ? 'model' : 'model or variant'} label. Check model catalogue mapping before comparing these volumes.</p>}
+      </SectionCard>
+    </>
+  );
+}
+
 export default function AnalyticsBusinessReportViews({ payload }: { payload: AnalyticsBusinessReportPayload }) {
   switch (payload.kind) {
     case 'sales-product': {
-      const {
-        by_model_variant: models,
-        by_dealer_model_variant: dealerModels,
-        by_outlet: outlets,
-        by_month: monthlySales,
-        model_variant_coverage: coverage,
-      } = payload.data;
-      const booked = coverage.booked_journeys;
-      const delivered = models.reduce((sum, row) => sum + row.actual_deliveries, 0);
-      const salesUsesDeliveries = delivered > 0;
-      const salesValueLabel = salesUsesDeliveries ? 'Actual deliveries' : 'Booked cars';
-      const modelRows = models
-        .map((row) => ({
-        label: `${row.model_name} · ${row.variant_name}`,
-        value: salesUsesDeliveries ? row.actual_deliveries : row.journey_count,
-      }))
-        .filter((row) => row.value > 0)
-        .sort((a, b) => b.value - a.value || a.label.localeCompare(b.label))
-        .slice(0, 12);
-      const dealerOutletSalesRows = outlets.map((row) => ({
-        group: row.dealer_name,
-        label: row.outlet_name,
-        value: salesUsesDeliveries ? row.actual_deliveries : row.journey_count,
-      }));
-      const monthlyRows = monthlySales.map((row) => ({
-        label: row.period,
-        bar: row.booked_units,
-        line: row.delivered_units,
-      }));
-      return (
-        <>
-          <div className="analytics-insurance-banner">
-            <Metric label="Booked vehicle journeys" value={formatNumber(booked)} detail="Journeys with a captured booking row" />
-            <Metric label="Actual deliveries with date" value={formatNumber(delivered)} detail="Booked journeys with an actual delivery timestamp; missing timestamps are not counted as delivered" />
-            <Metric label="Model and variant combinations" value={formatNumber(models.length)} detail="Distinct captured combinations in this snapshot" />
-            <Metric label="Dealerships with bookings" value={formatNumber(new Set(outlets.filter((row) => row.journey_count > 0).map((row) => row.dealer_name)).size)} detail="Separate dealer names in the selected project" />
-            <Metric label="Catalogue-mapped vehicles" value={`${formatNumber(coverage.catalogue_mapped_journeys)} / ${formatNumber(booked)}`} detail={`${formatNumber(coverage.unresolved_journeys)} booked journeys still lack a model or variant label`} attention={coverage.unresolved_journeys > 0} />
-          </div>
-
-          <div className="analytics-split analytics-split--insurance">
-            <SectionCard title="Vehicle mix · model and variant" description={salesUsesDeliveries ? 'Area size represents actual retail deliveries.' : 'Area size represents booked journeys because actual delivery timestamps are not present in this project snapshot.'}>
-              <AnalyticsTreemap rows={modelRows} valueLabel={salesValueLabel} emptyText="No booked or delivered vehicles are available in this snapshot." />
-            </SectionCard>
-            <SectionCard title="Vehicle sales footprint · dealership to outlet" description={salesUsesDeliveries ? 'The outer ring is dealership; each inner segment is an outlet, sized by actual retail deliveries.' : 'The outer ring is dealership; each inner segment is an outlet, sized by bookings because delivery timestamps are not present.'}>
-              <AnalyticsSunburstChart rows={dealerOutletSalesRows} valueLabel={salesValueLabel} emptyText="No dealership/outlet sales are available in this snapshot." />
-            </SectionCard>
-          </div>
-
-          <SectionCard title="Monthly bookings and deliveries" description="Bookings are grouped by booking date; deliveries are grouped by actual delivery date. A delivery series appears only when those dates are captured.">
-            <AnalyticsComboChart rows={monthlyRows} barLabel="Booked cars" lineLabel="Actual deliveries" emptyText="No booking or delivery dates are available for a monthly trend." />
-          </SectionCard>
-
-          <DetailTable
-            title="Vehicle units by dealership, outlet, model and variant"
-            headers={['Dealer', 'Outlet', 'Model', 'Variant', 'Booked Cars', 'Delivered Cars']}
-            rows={dealerModels.map((row) => [
-              row.dealer_name,
-              row.outlet_name,
-              row.model_name,
-              row.variant_name,
-              formatNumber(row.booked_units),
-              formatNumber(row.delivered_units),
-            ])}
-          />
-        </>
-      );
+      return <AnalyticsSalesProductReport data={payload.data} />;
     }
 
     case 'finance': {

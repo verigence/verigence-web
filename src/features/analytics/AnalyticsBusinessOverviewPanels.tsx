@@ -6,10 +6,7 @@ import type {
   NumericValue,
   OutletAuditorRow,
 } from '../../services/analytics/businessClient';
-import {
-  AnalyticsBarChart,
-  AnalyticsComboChart,
-} from './AnalyticsCharts';
+import { AnalyticsBubbleChart } from './AnalyticsCharts';
 
 type ScorecardScope = 'dealer' | 'outlet';
 type ScorecardSort = 'risk' | 'bookings';
@@ -48,23 +45,7 @@ function percent(part: number, total: number): string {
   return total ? ((part / total) * 100).toFixed(1) + '%' : 'Unavailable';
 }
 
-function formatDays(value: NumericValue | undefined): string {
-  if (value == null || value === '') return 'Unavailable';
-  return numeric(value).toFixed(1) + ' days';
-}
 
-function humanize(value: string): string {
-  if (!value) return 'Unspecified';
-  const acronyms: Record<string, string> = {
-    ew: 'EW', rsa: 'RSA', gst: 'GST', rti: 'RTI', idv: 'IDV', rc: 'RC', pan: 'PAN', po: 'PO', upi: 'UPI',
-  };
-  return value
-    .replace(/[:/]/g, ' ')
-    .split(/[_\\s-]+/)
-    .filter(Boolean)
-    .map((token) => acronyms[token.toLowerCase()] || token.charAt(0).toUpperCase() + token.slice(1).toLowerCase())
-    .join(' ');
-}
 
 function Metric({ label, value, detail, attention = false }: {
   label: string;
@@ -137,26 +118,6 @@ export default function AnalyticsBusinessOverviewPanels({ data }: { data: Audito
         || a.row.dealer_name.localeCompare(b.row.dealer_name);
     });
   }, [data.dealers, data.outlets, pricingByDealer, pricingByOutlet, scope, sort]);
-
-  const modelRows = data.models
-    .slice()
-    .sort((a, b) => b.booked_units - a.booked_units || a.model_name.localeCompare(b.model_name))
-    .slice(0, 10)
-    .map((row) => ({
-      label: row.model_name,
-      bar: row.booked_units,
-      line: row.booked_units ? row.delivered_units * 100 / row.booked_units : 0,
-    }));
-
-  const accessoryTypeRows = data.accessories
-    .slice()
-    .sort((a, b) => numeric(b.actual_amount) - numeric(a.actual_amount))
-    .slice(0, 10)
-    .map((row) => ({
-      label: humanize(row.addon_type),
-      bar: numeric(row.actual_amount),
-      line: booked ? row.journey_count * 100 / booked : 0,
-    }));
 
   const topExceptions = pricing.exceptions.slice(0, 8);
   const topPincodes = data.pincodes.slice(0, 10);
@@ -231,30 +192,19 @@ export default function AnalyticsBusinessOverviewPanels({ data }: { data: Audito
           </label>
         </div>
         {scorecardRows.length ? (
-          <div className="analytics-dealer-scorecards">
-            {scorecardRows.map(({ row, exposure }) => {
-              const outletRow = 'outlet_name' in row;
-              const label = outletRow ? row.outlet_name : row.dealer_name;
-              const context = outletRow ? row.dealer_name + (row.city ? ` · ${row.city}` : '') : 'All reporting outlets';
-              const deliveryPct = percent(row.delivered_cars, row.booked_cars);
-              const deliveryWidth = Math.min(100, row.booked_cars ? row.delivered_cars / row.booked_cars * 100 : 0);
-              const key = outletRow ? `${row.dealer_id}:${row.outlet_id}` : row.dealer_id || row.dealer_name;
-              return <article className={`analytics-dealer-scorecard${numeric(exposure.known_excess_discount_amount) > 0 ? ' analytics-dealer-scorecard--risk' : ''}`} key={key}>
-                <header><div><h3>{label || 'Unspecified'}</h3><p>{context}</p></div><span className="analytics-dealer-scorecard__findings">{formatNumber(row.journeys_with_findings)} journeys with findings</span></header>
-                <div className="analytics-dealer-scorecard__sales"><strong>{formatNumber(row.booked_cars)}</strong><span>Bookings</span><strong>{formatNumber(row.delivered_cars)}</strong><span>Deliveries</span><b>{deliveryPct}</b></div>
-                <div className="analytics-dealer-scorecard__progress" aria-label={`Delivery completion ${deliveryPct}`}><span style={{ width: `${deliveryWidth}%` }} /></div>
-                <div className="analytics-dealer-scorecard__metrics">
-                  <div className="analytics-dealer-scorecard__metric"><span>Known excess discount</span><strong>{formatMoney(exposure.known_excess_discount_amount)}</strong></div>
-                  <div className="analytics-dealer-scorecard__metric"><span>Actual / eligible discount</span><strong>{formatMoney(row.actual_discount)} / {formatMoney(row.standard_discount)}</strong></div>
-                  <div className="analytics-dealer-scorecard__metric"><span>Price · discount · invoice cases</span><strong>{formatNumber(exposure.price_exception_journeys)} · {formatNumber(exposure.discount_exception_journeys)} · {formatNumber(exposure.invoice_conflict_journeys)}</strong></div>
-                  <div className="analytics-dealer-scorecard__metric"><span>Unknown entitlements</span><strong>{formatNumber(exposure.unknown_discount_applications)}</strong></div>
-                  <div className="analytics-dealer-scorecard__metric"><span>Dealer / customer insurance</span><strong>{formatNumber(row.inhouse_insurance)} / {formatNumber(row.outside_insurance)}</strong></div>
-                  <div className="analytics-dealer-scorecard__metric"><span>Accessories / receipts recorded</span><strong>{formatMoney(row.accessories_value)} / {formatMoney(row.payment_collected)}</strong></div>
-                  <div className="analytics-dealer-scorecard__metric"><span>Median delivery time</span><strong>{formatDays(row.median_delivery_days)}</strong></div>
-                </div>
-              </article>;
-            })}
-          </div>
+          <AnalyticsBubbleChart
+            rows={scorecardRows.map(({ row, exposure }) => ({
+              label: 'outlet_name' in row ? `${row.dealer_name} · ${row.outlet_name}` : row.dealer_name,
+              x: row.booked_cars,
+              y: numeric(exposure.known_excess_discount_amount),
+              size: Math.max(row.journeys_with_findings, 1),
+            }))}
+            xLabel="Booked journeys"
+            yLabel="Known excess discount"
+            yKind="currency"
+            sizeLabel="Journeys with findings"
+            emptyText="No dealer or outlet comparison is available for this project snapshot."
+          />
         ) : (
           <p className="analytics-overview-empty">No dealer or outlet rows were returned for this project snapshot.</p>
         )}
@@ -262,42 +212,6 @@ export default function AnalyticsBusinessOverviewPanels({ data }: { data: Audito
           Cases are active Audit Core price, discount and invoice findings. Known excess is entitlement based; unknown entitlements stay separate. Accessory and payment values are recorded source amounts, not audited dealer revenue or settled cash.
         </p>
       </SectionCard>
-
-      <div className="analytics-split analytics-split--overview">
-        <SectionCard
-          title="Model demand and delivery"
-          description="Top vehicle models by booked journey count, with the actual delivery share for each model."
-        >
-          <AnalyticsComboChart
-            rows={modelRows}
-            barLabel="Booked journeys"
-            lineLabel="Delivered share"
-            barKind="count"
-            lineKind="percent"
-            emptyText="No model-level vehicle records were captured in this snapshot."
-          />
-          <p className="analytics-footnote">
-            Open Vehicle Sales &amp; Products for dealer, outlet, model and variant counts.
-          </p>
-        </SectionCard>
-
-        <SectionCard
-          title="Recorded VAS category value and attach"
-          description="Journey add-on records ranked by captured amount. Attach is the share of booked journeys with a record in that category."
-        >
-          <AnalyticsComboChart
-            rows={accessoryTypeRows}
-            barLabel="Recorded amount"
-            lineLabel="Journey attach"
-            barKind="currency"
-            lineKind="percent"
-            emptyText="No journey add-on categories were captured in this snapshot."
-          />
-          <p className="analytics-footnote">
-            This is category-level journey data. Itemized accessory tax-invoice sales and quantities are in Accessories &amp; VAS.
-          </p>
-        </SectionCard>
-      </div>
 
       <div className="analytics-split analytics-split--overview">
         <SectionCard

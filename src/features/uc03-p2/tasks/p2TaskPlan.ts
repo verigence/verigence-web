@@ -220,6 +220,11 @@ export function taskPlan(task: P2Task, operatingRole?: string | null): TaskPlan 
     // A page DI could not classify: its type is set on the card in Upload /
     // Edit Documents, and the task closes itself once it is.
     primary = { label: 'Set document type', to: `/p2/journeys/${task.journey_id}/documents`, tone: 'primary' };
+  } else if (task.task_type === 'PC_PAGE_QUALITY_REJECTED') {
+    // Pages refused for image quality: a retry cannot help, the PC uploads a
+    // re-scan; the task closes itself once the refused pages are processed or
+    // removed (2026-10-21; another upload alone never closes it).
+    primary = { label: 'Upload the re-scan', to: `/p2/journeys/${task.journey_id}/documents`, tone: 'primary' };
   } else if (allowed.has('UPLOAD_DOCUMENT') || allowed.has('REUPLOAD_DOCUMENT')) {
     primary = { label: 'Upload document', to: `/p2/journeys/${task.journey_id}/documents`, tone: 'primary' };
   }

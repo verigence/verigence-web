@@ -235,6 +235,7 @@ const groups: NavGroup[] = [
     { to: '/admin/diagnostics', label: 'Device Diagnostics', mark: 'DD', roles: ['SUPER_ADMIN'] },
     { to: '/admin/login-activity', label: 'Login Activity', mark: 'LA', roles: ['SUPER_ADMIN'] },
     { to: '/admin/oem-masters', label: 'OEM Masters', mark: 'OM', roles: ['SUPER_ADMIN'] },
+    { to: '/admin/reports', label: 'Reports', mark: 'RP', roles: ['SUPER_ADMIN'] },
     projectAdministrationItem,
   ] },
 ];
@@ -247,7 +248,7 @@ const routeLabels: Record<string, string> = {
   '/analytics': 'Analytics', '/p2/bookings': 'Booking & Delivery', '/p2/tasks': 'Task Queue', '/p2/duplicate-bookings': 'Duplicate bookings', '/p2/reports/daily': 'Daily processing', '/admin/document-intelligence': 'Document Intelligence Configuration',
   '/admin/housekeeping': 'Housekeeping', '/admin/sku-resolution': 'SKU Resolution', '/admin/hr-housekeeping': 'HR Housekeeping', '/admin/feedback': 'User Feedback', '/admin/di-test': 'DI Test Console', '/admin/users': 'Users', '/admin/features': 'Feature Rollout', '/admin/announcements': 'Announcements', '/admin/diagnostics': 'Device Diagnostics', '/admin/login-activity': 'Login Activity',
   '/admin/users/pending': 'Pending Approvals',
-  '/admin/oem-masters': 'OEM Masters', '/admin/project': 'Project Administration', '/profile': 'Profile',
+  '/admin/oem-masters': 'OEM Masters', '/admin/reports': 'Reports', '/admin/project': 'Project Administration', '/profile': 'Profile',
   '/hr/employees': 'Employees', '/hr/employees/new': 'Add Employee', '/hr/employees/import': 'Import Employees', '/hr/employees/designation-salary-import': 'Import Designation and Salary', '/hr/me': 'My Employee Profile',
   '/hr/attendance': 'Attendance', '/hr/attendance/team': 'Team Attendance', '/hr/attendance/daily': 'Daily Attendance', '/hr/assignments': 'Project Assignments', '/hr/leave': 'Leave', '/hr/leave/overview': 'Leave Overview',
   '/hr/claims': 'Reimbursements', '/hr/claims/new': 'New Claim', '/hr/claims/all': 'All Claims', '/hr/approvals': 'Approvals',

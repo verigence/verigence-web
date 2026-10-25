@@ -63,6 +63,7 @@ const HrSettingsPage = lazy(() => import('./pages/hr/HrSettingsPage'));
 const HrMessagesPage = lazy(() => import('./pages/hr/HrMessagesPage'));
 const AdminHousekeepingPage = lazy(() => import('./pages/AdminHousekeepingPage'));
 const AdminSkuResolutionPage = lazy(() => import('./pages/AdminSkuResolutionPage'));
+const AdminReportsPage = lazy(() => import('./pages/AdminReportsPage'));
 const AdminLandingPage = lazy(() => import('./pages/AdminLandingPage'));
 const AdminFeedbackPage = lazy(() => import('./pages/AdminFeedbackPage'));
 const OemMastersPage = lazy(() => import('./pages/AdminOemMastersPage'));
@@ -358,6 +359,7 @@ export default function App() {
               <Route path="/admin/document-intelligence" element={<SuperAdminPage><DocumentIntelligenceConfigurationPage /></SuperAdminPage>} />
               <Route path="/admin/housekeeping" element={<SuperAdminPage><AdminHousekeepingPage /></SuperAdminPage>} />
               <Route path="/admin/sku-resolution" element={<SuperAdminPage><AdminSkuResolutionPage /></SuperAdminPage>} />
+              <Route path="/admin/reports" element={<SuperAdminPage><AdminReportsPage /></SuperAdminPage>} />
               <Route path="/admin/feedback" element={<SuperAdminPage><AdminFeedbackPage /></SuperAdminPage>} />
               <Route path="/admin/di-test" element={<SuperAdminPage><DiTestConsolePage /></SuperAdminPage>} />
               <Route path="/admin/users" element={<SuperAdminPage><AdminUsersPage /></SuperAdminPage>} />

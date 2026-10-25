@@ -174,8 +174,8 @@ const p2ReviewActivityItem: NavItem = {
 // invoice figures only, never the booking (product owner, 2026-10-24).
 const p2DiscountVarianceItem: NavItem = {
   to: '/p2/discount-variance',
-  label: 'Discount variance',
-  mark: 'DV',
+  label: 'Excess discount',
+  mark: 'XD',
   roles: ['TL', 'PM', 'REVIEWER'],
 };
 

@@ -9,6 +9,8 @@ import { ANDROID_BACK_EVENT } from '../native/AndroidNativeBridge';
 import type { OperationalOutletScope } from '../services/audit-core/uc03';
 import { getReviewQueueSummary } from '../services/audit-core/uc03Audit';
 import { getP2Tasks } from '../services/audit-core/uc03P2';
+import { getTmTasks } from '../services/audit-core/taskManager';
+import ActivityTracker from '../features/task-manager/ActivityTracker';
 import { useHrAccess } from '../features/hr/hrQueries';
 import { useMyFeatures, visibleNavGroups } from '../features/rollout/featureFlags';
 import { useMyHrIdentity } from '../features/hr/myIdentity';
@@ -151,6 +153,24 @@ const p2GatePassItem: NavItem = {
   roles: ['PC', 'TL', 'PM', 'EXECUTIVE'],
 };
 
+// Tasks not tied to a booking, recurring tasks and the daily gate pass task
+// (product owner 2026-10-26). Every operating role receives tasks here.
+const taskManagerItem: NavItem = {
+  to: '/p2/task-manager',
+  label: 'Task Manager',
+  mark: 'WK',
+  roles: ['PC', 'TL', 'PM', 'CRM', 'REVIEWER', 'EXECUTIVE'],
+};
+
+// Per-person output and time on Verigence: Executive only (and Superadmin
+// from its own view).
+const utilisationItem: NavItem = {
+  to: '/p2/reports/utilisation',
+  label: 'Employee utilisation',
+  mark: 'US',
+  roles: ['EXECUTIVE'],
+};
+
 const p2DuplicatesItem: NavItem = {
   to: '/p2/duplicate-bookings',
   label: 'Duplicate bookings',
@@ -258,6 +278,7 @@ const groups: NavGroup[] = [
     { to: '/admin/login-activity', label: 'Login Activity', mark: 'LA', roles: ['SUPER_ADMIN'] },
     { to: '/admin/oem-masters', label: 'OEM Masters', mark: 'OM', roles: ['SUPER_ADMIN'] },
     { to: '/admin/reports', label: 'Reports', mark: 'RP', roles: ['SUPER_ADMIN'] },
+    { to: '/admin/task-manager', label: 'Task Manager', mark: 'WK', roles: ['SUPER_ADMIN'] },
     projectAdministrationItem,
   ] },
 ];
@@ -267,7 +288,7 @@ const routeLabels: Record<string, string> = {
   '/feedback': 'Feedback & Support', '/hr/support': 'Feedback & Support', '/hr/support/new': 'Raise a ticket',
   '/reviews': 'Task Queue', '/duplicate-bookings': 'Duplicate Bookings', '/rule-catalog': 'Rule Catalog', '/rule-catalog/new': 'Author a Rule', '/findings': 'Findings',
   '/daily-ops': 'Daily Operations',
-  '/analytics': 'Analytics', '/p2/bookings': 'Booking & Delivery', '/p2/tasks': 'Task Queue', '/p2/duplicate-bookings': 'Duplicate bookings', '/p2/reports/daily': 'Daily processing', '/p2/gate-pass': 'Daily gate pass', '/admin/document-intelligence': 'Document Intelligence Configuration',
+  '/analytics': 'Analytics', '/p2/bookings': 'Booking & Delivery', '/p2/tasks': 'Task Queue', '/p2/duplicate-bookings': 'Duplicate bookings', '/p2/reports/daily': 'Daily processing', '/p2/gate-pass': 'Daily gate pass', '/p2/task-manager': 'Task Manager', '/p2/reports/utilisation': 'Employee utilisation', '/admin/task-manager': 'Task Manager', '/admin/document-intelligence': 'Document Intelligence Configuration',
   '/admin/housekeeping': 'Housekeeping', '/admin/sku-resolution': 'SKU Resolution', '/admin/hr-housekeeping': 'HR Housekeeping', '/admin/feedback': 'User Feedback', '/admin/di-test': 'DI Test Console', '/admin/users': 'Users', '/admin/features': 'Feature Rollout', '/admin/announcements': 'Announcements', '/admin/diagnostics': 'Device Diagnostics', '/admin/login-activity': 'Login Activity',
   '/admin/users/pending': 'Pending Approvals',
   '/admin/oem-masters': 'OEM Masters', '/admin/reports': 'Reports', '/admin/project': 'Project Administration', '/profile': 'Profile',
@@ -396,6 +417,16 @@ export default function AppShell({ children }: PropsWithChildren) {
     staleTime: 60_000,
   });
   const p2TaskCount = p2TaskSummary.data?.counts?.ALL ?? p2TaskSummary.data?.items.length ?? 0;
+  // Task Manager badge: my open tasks plus what waits for my review.
+  const tmSummary = useQuery({
+    queryKey: ['tm-badge', selectedProject?.tenantId, role],
+    queryFn: () => getTmTasks('project', selectedProject!.tenantId, 'mine', 'open', accessToken),
+    enabled: Boolean(selectedProject?.tenantId && accessToken
+      && ['PC', 'TL', 'PM', 'CRM', 'REVIEWER', 'EXECUTIVE'].includes(String(role))),
+    refetchInterval: 120_000,
+    staleTime: 60_000,
+  });
+  const tmCount = tmSummary.data?.counts?.ACTION ?? 0;
   const diTestAvailable = isDiTestConsoleAvailable();
   const createBookingMode = location.pathname === P2_NEW_BOOKING_PATH;
   const baseGroups = useMemo<NavGroup[]>(() => {
@@ -412,6 +443,7 @@ export default function AppShell({ children }: PropsWithChildren) {
             // Operations), not the PC's working list (decision 2026-10-20).
             role === 'TL' ? { ...p2BookingsItem, to: '/dashboard' } : p2BookingsItem,
             { ...p2TasksItem, badge: p2TaskCount },
+            { ...taskManagerItem, badge: tmCount },
             p2DuplicatesItem,
             ...(role === 'PC' ? [dailyOpsItem] : [p2DailyProcessingItem]),
             p2GatePassItem,
@@ -426,13 +458,16 @@ export default function AppShell({ children }: PropsWithChildren) {
           ],
         }
       : role === 'EXECUTIVE'
-        ? { ...p2Group, items: [p2DailyProcessingItem, p2GatePassItem] }
+        ? { ...p2Group, items: [p2DailyProcessingItem, p2GatePassItem, { ...taskManagerItem, badge: tmCount }, utilisationItem] }
         // A Reviewer's whole surface (2026-10-23: inside a Project the group was
         // built for PC / TL / PM only, so a Reviewer saw none of it, not even
         // Document Review, which is their home page).
         : role === 'REVIEWER'
-          ? { ...p2Group, items: [p2ReviewBoardItem, p2ReviewActivityItem, p2DiscountVarianceItem, p2PriceMastersItem, p2MasterDocumentsItem] }
-          : null;
+          ? { ...p2Group, items: [p2ReviewBoardItem, { ...taskManagerItem, badge: tmCount }, p2ReviewActivityItem, p2DiscountVarianceItem, p2PriceMastersItem, p2MasterDocumentsItem] }
+          // A CRM receives and raises tasks (to TL / PM) in the Task Manager.
+          : role === 'CRM'
+            ? { ...p2Group, items: [{ ...taskManagerItem, badge: tmCount }] }
+            : null;
     const workspaceItems: NavItem[] = [
       { to: '/dashboard', label: 'Overview', mark: 'OV', roles: c0OperatingRoles },
     ];
@@ -467,7 +502,7 @@ export default function AppShell({ children }: PropsWithChildren) {
       ...operationalGroups,
       { key: 'administration', label: 'Administration', items: [projectAdministrationItem] },
     ];
-  }, [c0OperationalShell, role, sessionRole, reviewQueueCount, p2TaskCount]);
+  }, [c0OperationalShell, role, sessionRole, reviewQueueCount, p2TaskCount, tmCount]);
 
   // HR is company-level and appears only for people the HR service says have an HR role or an
   // employee record. If HR cannot be reached the group is simply absent.
@@ -677,6 +712,7 @@ export default function AppShell({ children }: PropsWithChildren) {
   return (
     <div className={`enterprise-shell enterprise-shell--approved-nav${mobileMenuOpen ? ' enterprise-shell--menu-open' : ''}`}>
       <button type="button" className="enterprise-mobile-backdrop" aria-label="Close navigation" onClick={() => setMobileMenuOpen(false)} />
+      <ActivityTracker />
 
       <header className="enterprise-topbar enterprise-topbar--global">
         <div className="enterprise-topbar__start">

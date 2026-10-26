@@ -240,6 +240,9 @@ export default function LoginPage() {
           For security and audit controls, Verigence records the device and location from which the application is accessed. Location access is required to use the application.
         </p>
         <p className="frozen-auth-footer frozen-auth-footer--legal">
+          For work reporting, Verigence also measures time spent using the application (active and idle time only, never what you type or see).
+        </p>
+        <p className="frozen-auth-footer frozen-auth-footer--legal">
           <Link to="/terms">Terms of Use</Link> · <Link to="/privacy">Privacy Policy</Link>
         </p>
       </article>

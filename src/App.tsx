@@ -100,6 +100,9 @@ const P2ReviewBoardPage = lazy(() => import('./pages/P2ReviewBoardPage'));
 const P2ReviewActivityPage = lazy(() => import('./pages/P2ReviewActivityPage'));
 const P2DailyProcessingReportPage = lazy(() => import('./pages/P2DailyProcessingReportPage'));
 const P2GatePassPage = lazy(() => import('./pages/P2GatePassPage'));
+const P2TaskManagerPage = lazy(() => import('./pages/P2TaskManagerPage'));
+const P2UtilisationPage = lazy(() => import('./pages/P2UtilisationPage'));
+const AdminTaskManagerPage = lazy(() => import('./pages/AdminTaskManagerPage'));
 
 const routerBase = import.meta.env.BASE_URL === '/' ? undefined : import.meta.env.BASE_URL.replace(/\/$/, '');
 
@@ -355,6 +358,8 @@ export default function App() {
               <Route path="/p2/review/activity" element={<OperationalPage><P2ReviewActivityPage /></OperationalPage>} />
               <Route path="/p2/reports/daily" element={<OperationalPage><P2DailyProcessingReportPage /></OperationalPage>} />
               <Route path="/p2/gate-pass" element={<OperationalPage><P2GatePassPage /></OperationalPage>} />
+              <Route path="/p2/task-manager" element={<OperationalPage><P2TaskManagerPage /></OperationalPage>} />
+              <Route path="/p2/reports/utilisation" element={<OperationalPage><P2UtilisationPage /></OperationalPage>} />
               <Route path="/p2/journeys/:journeyId/compliance-report" element={<OperationalPage><P2ComplianceReportPage /></OperationalPage>} />
               <Route path="/p2/journeys/:journeyId/overview" element={<OperationalPage><P2JourneyOverviewPage /></OperationalPage>} />
               <Route path="/p2/journeys/:journeyId/documents" element={<OperationalPage><P2JourneyWorkspacePage /></OperationalPage>} />
@@ -364,6 +369,7 @@ export default function App() {
               <Route path="/admin/housekeeping" element={<SuperAdminPage><AdminHousekeepingPage /></SuperAdminPage>} />
               <Route path="/admin/sku-resolution" element={<SuperAdminPage><AdminSkuResolutionPage /></SuperAdminPage>} />
               <Route path="/admin/reports" element={<SuperAdminPage><AdminReportsPage /></SuperAdminPage>} />
+              <Route path="/admin/task-manager" element={<SuperAdminPage><AdminTaskManagerPage /></SuperAdminPage>} />
               <Route path="/admin/feedback" element={<SuperAdminPage><AdminFeedbackPage /></SuperAdminPage>} />
               <Route path="/admin/di-test" element={<SuperAdminPage><DiTestConsolePage /></SuperAdminPage>} />
               <Route path="/admin/users" element={<SuperAdminPage><AdminUsersPage /></SuperAdminPage>} />

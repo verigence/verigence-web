@@ -1,0 +1,47 @@
+/* Task Manager, daily task status and employee utilisation (2026-10-26). */
+.tm-panel { display: grid; gap: 12px; }
+.tm-panel__bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; }
+
+.tm-facts { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 6px 16px; margin: 8px 0; }
+.tm-facts div { display: grid; gap: 2px; }
+.tm-facts dt { font-size: .75rem; font-weight: 700; color: var(--p2w-muted, #64748b); text-transform: uppercase; letter-spacing: .02em; }
+.tm-facts dd { margin: 0; font-size: .9rem; }
+
+.tm-reassign, .tm-skip { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 8px 0; }
+.tm-reassign select, .tm-skip input { min-height: 36px; border: 1px solid var(--p2w-line, #d8dee8); border-radius: 8px; padding: 0 8px; }
+.tm-skip input[type="text"], .tm-skip input:not([type]) { flex: 1 1 220px; }
+
+.tm-people { display: grid; gap: 6px; border: 1px solid var(--p2w-line, #d8dee8); border-radius: 10px; padding: 8px 10px; margin: 0; }
+.tm-people legend { font-weight: 700; font-size: .85rem; padding: 0 4px; }
+.tm-people > input { min-height: 34px; border: 1px solid var(--p2w-line, #d8dee8); border-radius: 8px; padding: 0 8px; }
+.tm-people__list { display: grid; gap: 2px; max-height: 220px; overflow-y: auto; }
+.tm-people__item { display: grid; grid-template-columns: auto 1fr; column-gap: 8px; align-items: center; padding: 4px 6px; border-radius: 6px; cursor: pointer; }
+.tm-people__item .p2w-muted { grid-column: 2; font-size: .78rem; }
+.tm-people__item.is-active { background: var(--p2w-action-soft, #eef4ff); }
+
+.tm-weekdays { display: flex; flex-wrap: wrap; gap: 6px; border: 0; padding: 0; margin: 0; }
+.tm-weekdays legend { font-weight: 700; font-size: .85rem; margin-bottom: 4px; }
+.tm-weekdays label { display: inline-flex; align-items: center; gap: 4px; min-height: 32px; padding: 0 10px; border: 1px solid var(--p2w-line, #d8dee8); border-radius: 999px; font-size: .85rem; cursor: pointer; }
+.tm-weekdays label.is-active { border-color: var(--p2w-action-line, #9db8f5); background: var(--p2w-action-soft, #eef4ff); }
+.tm-weekdays input { margin: 0; }
+
+.tm-schedule-list { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 10px; }
+.tm-schedule { border: 1px solid var(--p2w-line, #d8dee8); border-radius: var(--p2w-radius, 12px); padding: 12px 14px; background: #fff; }
+.tm-schedule.is-paused { opacity: .7; }
+.tm-schedule__head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+
+.tm-totals { display: flex; flex-wrap: wrap; gap: 6px 16px; margin: 6px 0 10px; font-size: .9rem; }
+.tm-bad, .tm-bad b { color: var(--p2w-danger, #b42318); font-weight: 700; }
+.tm-warn, .tm-warn b { color: #9a5b00; font-weight: 700; }
+
+.tm-hours { display: grid; grid-template-columns: repeat(24, 6px); gap: 1px; align-items: end; height: 14px; }
+.tm-hours span { display: block; height: 14px; border-radius: 1px; background: var(--p2w-action, #2f5bd3); }
+.tm-util-table td, .tm-days td { white-space: nowrap; }
+
+.tm-admin-picker { display: flex; flex-wrap: wrap; align-items: end; gap: 12px; }
+.tm-admin-picker select { min-height: 38px; min-width: 260px; border: 1px solid var(--p2w-line, #d8dee8); border-radius: 8px; padding: 0 8px; }
+
+@media (max-width: 640px) {
+  .tm-facts { grid-template-columns: 1fr; }
+  .tm-admin-picker select { min-width: 0; width: 100%; }
+}

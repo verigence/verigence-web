@@ -1,5 +1,6 @@
 import { xhrPut } from '../../features/uc03-p2/workspace/p2Uploader';
 import { auditCoreRawRequest, auditCoreRequest } from './client';
+import type { TmTaskStatus } from './taskManager';
 
 /**
  * Budget for the heavier Audit Core reads (Booking & Delivery / Journey 360
@@ -1736,6 +1737,8 @@ export type P2DailyTeamWork = {
 export type P2DailyProcessingReport = {
   day: string;
   timezone: string;
+  /** Daily status of Journey Tasks and Task Manager tasks (2026-10-26). */
+  taskStatus?: TmTaskStatus;
   documentStatus?: P2DailyDocumentStatus;
   teamWork?: P2DailyTeamWork;
   files?: P2DailyUploadedFile[];

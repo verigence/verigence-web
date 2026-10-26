@@ -9,6 +9,12 @@ import PageHeader from '../components/PageHeader';
 import SectionCard from '../components/SectionCard';
 import { customerLabel } from '../features/uc03-p2/bookings/JourneyRow';
 import {
+  DocumentStatusCard,
+  LargeUploadsCard,
+  UploadedFilesCard,
+  WorkDoneCard,
+} from '../features/uc03-p2/daily/DailyProcessingSections';
+import {
   getP2DailyProcessingReport,
   type P2DailyCounts,
   type P2DailyJourneyRow,
@@ -295,6 +301,10 @@ export default function P2DailyProcessingReportPage() {
 
       {data ? (
         <>
+          {data.largeUploads && tenantId ? (
+            <LargeUploadsCard large={data.largeUploads} day={data.day} timezone={timezone} tenantId={tenantId} accessToken={accessToken ?? undefined} />
+          ) : null}
+          {data.documentStatus ? <DocumentStatusCard status={data.documentStatus} day={data.day} /> : null}
           {data.quality ? <QualityCard quality={data.quality} trend={data.trend ?? []} day={data.day} /> : null}
           <SectionCard>
             <div className="p2w-card__title">
@@ -334,6 +344,12 @@ export default function P2DailyProcessingReportPage() {
               </div>
             ) : null}
           </SectionCard>
+
+          {data.teamWork ? <WorkDoneCard work={data.teamWork} day={data.day} timezone={timezone} /> : null}
+          {data.files && tenantId ? (
+            <UploadedFilesCard files={data.files} truncated={Boolean(data.filesTruncated)} day={data.day} timezone={timezone}
+              tenantId={tenantId} accessToken={accessToken ?? undefined} />
+          ) : null}
 
           {systemRows.length ? (
             <SectionCard>

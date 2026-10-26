@@ -1645,9 +1645,104 @@ export type P2DailyTrendDay = {
   byReason: P2RejectionReasons;
 };
 
+/** Where one uploaded file stands. */
+export type P2UploadedFileState =
+  | 'READ' | 'READING' | 'PARTLY_FAILED' | 'NOT_UPLOADED' | 'UPLOAD_PENDING' | 'NOT_SPLIT' | 'DUPLICATE' | 'CANCELLED';
+
+/** One file uploaded on the day (2026-10-26), with a link that opens the original. */
+export type P2DailyUploadedFile = {
+  batchId: string;
+  journeyId: string;
+  journeyReference: string | null;
+  customerName: string | null;
+  dealerName: string | null;
+  outletName: string | null;
+  outletCode: string | null;
+  pcActorId: string | null;
+  pcName: string | null;
+  filename: string;
+  pages: number;
+  state: P2UploadedFileState;
+  failureReason: string | null;
+  uploadedAtUtc: string | null;
+  documents: { read: number; waiting: number; failed: number; rejected: number };
+  /** More pages than the limit: the PC was asked to review it (never a blocker). */
+  large: boolean;
+  /** The PC's notice on a large file: open until they close it with a comment. */
+  review: { status: 'OPEN' | 'CLOSED'; comment: string | null } | null;
+  /** Short-lived storage link; null when the file never arrived. */
+  openUrl: string | null;
+  /** App endpoint that issues a fresh link. */
+  filePath: string | null;
+};
+
+export type P2DailyStatusCounts = {
+  filesUploaded: number;
+  filesNotUploaded: number;
+  filesUploadPending: number;
+  filesNotSplit: number;
+  duplicateFiles: number;
+  largeUploads: number;
+  documents: number;
+  read: number;
+  rejected: number;
+  failedOther: number;
+  waiting: number;
+  retriedAutomatically: number;
+  retriedByPc: number;
+  retriesExhausted: number;
+};
+
+export type P2DailyDocumentStatus = {
+  total: P2DailyStatusCounts;
+  byPc: Array<P2DailyStatusCounts & { pcActorId: string | null; pcName: string | null }>;
+};
+
+export type P2DailyWorkTask = {
+  taskId: string;
+  journeyId: string;
+  journeyReference: string | null;
+  customerName: string | null;
+  taskType: string;
+  title: string;
+  status: string;
+  closedOnDay: boolean;
+  actions: string[];
+  lastAt: string | null;
+  lastComment: string | null;
+};
+
+export type P2DailyWorkPerson = {
+  actorId: string;
+  name: string | null;
+  role: string | null;
+  actions: number;
+  byAction: Record<string, number>;
+  byTaskType: Record<string, number>;
+  tasksWorked: number;
+  tasksClosed: number;
+  journeys: number;
+  firstAt: string | null;
+  lastAt: string | null;
+  tasks: P2DailyWorkTask[];
+  tasksTruncated: boolean;
+};
+
+export type P2DailyTeamWork = {
+  people: P2DailyWorkPerson[];
+  totals: { people: number; tasksWorked: number; actions: number; tasksClosed: number };
+};
+
 export type P2DailyProcessingReport = {
   day: string;
   timezone: string;
+  documentStatus?: P2DailyDocumentStatus;
+  teamWork?: P2DailyTeamWork;
+  files?: P2DailyUploadedFile[];
+  filesTruncated?: boolean;
+  linkExpiresInSeconds?: number;
+  /** Files with more pages than the threshold (25): highlighted in the report. */
+  largeUploads?: { threshold: number; count: number; files: P2DailyUploadedFile[] };
   /** Scan quality of the day's uploads (rejections at upload). */
   quality?: P2DailyQuality;
   /** The last 14 days up to the day: documents uploaded and rejected. */
@@ -1662,6 +1757,14 @@ export function getP2DailyProcessingReport(tenantId: string, day: string, access
   return auditCoreRequest<P2DailyProcessingReport>(
     `${path(tenantId, '/reports/daily-processing')}?day=${encodeURIComponent(day)}`,
     { accessToken, timeoutMs: LIST_READ_TIMEOUT_MS },
+  );
+}
+
+/** GET .../journeys/{j}/uploads/{batch}/file: a fresh short-lived link to the file as uploaded. */
+export function getP2UploadFileLink(tenantId: string, journeyId: string, batchId: string, accessToken?: string) {
+  return auditCoreRequest<{ url: string; filename: string; expiresInSeconds: number }>(
+    path(tenantId, `/journeys/${encodeURIComponent(journeyId)}/uploads/${encodeURIComponent(batchId)}/file`),
+    { accessToken },
   );
 }
 

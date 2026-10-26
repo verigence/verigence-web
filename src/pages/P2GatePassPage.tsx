@@ -14,11 +14,14 @@ import { useSessionStore } from '../store/sessionStore';
 export default function P2GatePassPage() {
   const project = useProjectContextStore((s) => s.selectedProject);
   const accessToken = useSessionStore((s) => s.accessToken);
-  const role = useSessionStore((s) => s.role);
   const tenantId = project?.tenantId;
   const [refreshKey, setRefreshKey] = useState(0);
   const refresh = () => setRefreshKey((k) => k + 1);
-  const isPc = role === 'PC';
+  // The Project's operating role, as everywhere else: the session role is only a
+  // default ('PC') until a Project is chosen, so it showed the PC's upload form to
+  // a Team Lead, PM or Executive, whose Security permissions refuse the upload
+  // (Permission denied).
+  const isPc = project?.operatingRole === 'PC';
 
   return (
     <div className="screen-stack p2-screen p2w p2gp">

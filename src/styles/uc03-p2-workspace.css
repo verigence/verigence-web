@@ -579,6 +579,12 @@
   box-shadow: var(--p2w-shadow);
 }
 .p2w-start label { display: grid; gap: 6px; font-size: .82rem; font-weight: 700; color: var(--p2w-muted); }
+/* The outlet choice on a new booking: a radio list of the outlets the PC is mapped to. */
+.p2w-start__outlets { grid-column: 1 / -1; display: grid; gap: 8px; margin: 0; padding: 0; border: 0; min-width: 0; }
+.p2w-start__outlets legend { padding: 0; margin-bottom: 6px; font-size: .82rem; font-weight: 700; color: var(--p2w-muted); }
+.p2w-start .p2w-start__outlet { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 14px; border: 1px solid #cfe0ea; border-radius: 10px; background: #fff; font-size: 1rem; font-weight: 600; color: var(--p2w-ink); cursor: pointer; }
+.p2w-start .p2w-start__outlet:has(input:checked) { border-color: #9fd6e2; background: #f3fbfd; }
+.p2w-start .p2w-start__outlet input { width: 18px; min-height: 0; height: 18px; padding: 0; accent-color: #1a9bb0; }
 .p2w-start p { grid-column: 1 / -1; margin: 0; color: var(--p2w-muted); font-size: .86rem; }
 
 @media (max-width: 700px) {

@@ -7,11 +7,18 @@ import '../styles/uc03-p2-workspace.css';
 import BackLink from '../components/BackLink';
 import PageHeader from '../components/PageHeader';
 import RaiseTaskDialog from '../features/uc03-p2/tasks/RaiseTaskDialog';
+import RemovePageDialog, { removablePages, removalPagesText, removeOptions, type RemovablePage } from '../features/uc03-p2/workspace/RemovePageDialog';
+import {
+  DOCUMENT_CATEGORIES, documentCategoryLabel, documentCounts, documentFilter, documentOpenLink, pagesText, visibleTasks,
+  type DocumentFilter,
+} from '../features/uc03-p2/tasks/documentGroups';
 import {
   groupByJourney, taskPlan, vehicleIdentityError, type TaskAction, type VehicleIdentity,
 } from '../features/uc03-p2/tasks/p2TaskPlan';
 import { formatDateTime, humanizeKey, relativeDue, taskStatus } from '../features/uc03-p2/workspace/p2Format';
-import { getP2Task, getP2Tasks, submitP2TaskAction, type P2Task, type P2TaskTab } from '../services/audit-core/uc03P2';
+import {
+  getP2Task, getP2Tasks, removeP2Page, submitP2TaskAction, type P2Task, type P2TaskTab,
+} from '../services/audit-core/uc03P2';
 import { useProjectContextStore } from '../store/projectContextStore';
 import { useSessionStore } from '../store/sessionStore';
 
@@ -103,6 +110,7 @@ function TaskDetail({ task, tenantId, accessToken, operatingRole, onDone }: {
         return;
       }
       onDone(action.action === 'ADD_COMMENT' ? 'Comment added.'
+        : action.action === 'CLOSE_TASK' ? 'Task closed.'
         : task.task_type === 'SKU_CLOSEST_MATCH_CONFIRM' ? 'Vehicle confirmed. The deal is now checked against its price.'
         : task.task_type === 'SKU_OTHER_MONTH_PRICE_LIST' && action.action === 'ACCEPT' ? 'Approved. The journey is now priced on that list and its SKU resolved there.'
         : task.task_type === 'SKU_OTHER_MONTH_PRICE_LIST' ? 'Rejected. The PC picks the SKU by hand.'
@@ -123,7 +131,9 @@ function TaskDetail({ task, tenantId, accessToken, operatingRole, onDone }: {
 
   const trigger = (action: TaskAction) => {
     if (action.requiresComment && !comment.trim()) {
-      setError(action.action === 'ADD_COMMENT' ? 'Write a comment first.' : 'Add a short reason in the comment box first.');
+      setError(action.action === 'ADD_COMMENT' ? 'Write a comment first.'
+        : action.action === 'CLOSE_TASK' ? 'Write a comment in the comment box to close this task.'
+        : 'Add a short reason in the comment box first.');
       return;
     }
     run.mutate(action);
@@ -131,6 +141,26 @@ function TaskDetail({ task, tenantId, accessToken, operatingRole, onDone }: {
 
   const buttons = [plan.primary, ...plan.secondary].filter((item): item is TaskAction => Boolean(item));
   const ref = task.reference ?? {};
+  // A file's refused or failed pages (2026-10-21): once the re-scan is uploaded,
+  // each page is taken off the booking from here, and the task closes. The
+  // "Document to resubmit" task has the same buttons for its failed pages
+  // (2026-10-22): the day-end sweep hides a failed page from the page list, so
+  // this is where the PC removes it. Nothing is offered on a closed task.
+  const [removing, setRemoving] = useState<RemovablePage>();
+  const { pages: refused, fallbackLink } = removeOptions(task, Boolean(plan.primary));
+  const removePage = useMutation({
+    mutationFn: ({ queueId, reason }: { queueId: string; reason: string }) =>
+      removeP2Page(tenantId, task.journey_id, queueId, reason, accessToken),
+    onSuccess: (_, { queueId }) => {
+      setRemoving(undefined);
+      void queryClient.invalidateQueries({ queryKey: ['p2-tasks', tenantId] });
+      void queryClient.invalidateQueries({ queryKey: ['p2-task', tenantId, task.task_id] });
+      const pages = refused.find((item) => item.queueId === queueId)?.pages;
+      const label = pages ? removalPagesText(pages) : 'the page';
+      onDone(`${label.charAt(0).toUpperCase()}${label.slice(1)} removed from the booking.${refused.length <= 1 ? ' The task closes.' : ''}`);
+    },
+    onError: (cause) => { setRemoving(undefined); setError(errorText(cause)); },
+  });
 
   return (
     <div className="p2w-task__detail">
@@ -157,10 +187,30 @@ function TaskDetail({ task, tenantId, accessToken, operatingRole, onDone }: {
         <label className="p2w-task__comment">
           <span>Comment</span>
           <textarea rows={2} value={comment} onChange={(event) => { setComment(event.target.value); setError(undefined); }}
-            placeholder="Add a note for your team" />
+            placeholder={buttons.some((item) => item.action === 'CLOSE_TASK')
+              ? 'Add a note for your team. Closing the task needs a comment.' : 'Add a note for your team'} />
         </label>
       ) : null}
       {error ? <div className="p2w-alert p2w-alert--error" role="alert">{error}</div> : null}
+      {refused.length || fallbackLink ? (
+        <div className="p2w-task__actions">
+          {refused.map((item) => (
+            <button key={item.queueId} type="button" className="p2w-button p2w-button--danger" disabled={removePage.isPending}
+              title="Once the re-scan is uploaded, take the page off the booking."
+              onClick={() => setRemoving(item)}>
+              Remove {removalPagesText(item.pages)}
+            </button>
+          ))}
+          {fallbackLink ? (
+            <Link className="p2w-link" to={`/p2/journeys/${task.journey_id}/documents`}>Remove the refused page on Upload / Edit Documents</Link>
+          ) : null}
+        </div>
+      ) : null}
+      {removing ? (
+        <RemovePageDialog pageLabel={`${removalPagesText(removing.pages)} of ${String(ref.filename ?? 'the file')}`} busy={removePage.isPending}
+          onCancel={() => setRemoving(undefined)}
+          onConfirm={(reason) => removePage.mutate({ queueId: removing.queueId, reason })} />
+      ) : null}
       <div className="p2w-task__actions">
         {buttons.map((action) => action.to ? (
           <Link key={action.label} className={`p2w-button p2w-button--${action.tone}`} to={action.to}>{action.label}</Link>
@@ -189,9 +239,12 @@ function TaskDetail({ task, tenantId, accessToken, operatingRole, onDone }: {
   );
 }
 
-const TABS: Array<{ key: P2TaskTab; label: string }> = [
-  { key: 'DOCUMENTS', label: 'Documents' },
-  { key: 'MANUAL_VERIFICATION', label: 'Manual Verification' },
+// Documents holds every piece of document work in four categories (product
+// owner 2026-10-21), field reviews included; Confirmations keeps what is
+// left of the old Manual Verification tab (SKU, vehicle, answers to checks).
+const TABS: Array<{ key: P2TaskTab; label: string; hint?: string }> = [
+  { key: 'DOCUMENTS', label: 'Documents', hint: 'Manual verification, failed to read, image quality and missing documents' },
+  { key: 'MANUAL_VERIFICATION', label: 'Confirmations', hint: 'SKU, vehicle and answers the checks need: not about a document page' },
   { key: 'ALL', label: 'All' },
 ];
 
@@ -215,13 +268,15 @@ function TaskRow({ task, open, onToggle, view, tenantId, accessToken, operatingR
   const status = taskStatus(task.task_status);
   const due = relativeDue(task.due_at_utc);
   const plan = taskPlan(task, operatingRole);
+  const openDocument = documentOpenLink(task);
   return (
     <li className={`p2w-task p2w-task--${(task.priority || 'NORMAL').toLowerCase()} p2w-task--${taskKind(task).key}${open ? ' is-open' : ''}`}>
       <button type="button" className="p2w-task__row" aria-expanded={open} onClick={onToggle}>
         <span className="p2w-task__main">
           <span className="p2w-task__kind">{taskKind(task).label}</span>
           <strong>{task.title}</strong>
-          {!open ? <span className="p2w-task__why">{task.description}</span> : null}
+          {task.document ? <DocumentLine task={task} /> : null}
+          {!open && !task.document ? <span className="p2w-task__why">{task.description}</span> : null}
         </span>
         <span className="p2w-task__meta">
           <span className={`p2w-chip p2w-chip--sev-${severityChip(task.severity).tone}`} title="Severity">
@@ -239,8 +294,13 @@ function TaskRow({ task, open, onToggle, view, tenantId, accessToken, operatingR
           {task.comment_count ? <span className="p2w-muted">{task.comment_count} comment{task.comment_count === 1 ? '' : 's'}</span> : null}
         </span>
       </button>
-      {!open && plan.primary?.to ? (
-        <div className="p2w-task__quick"><Link className="p2w-button p2w-button--primary" to={plan.primary.to}>{plan.primary.label}</Link></div>
+      {!open && (plan.primary?.to || openDocument) ? (
+        <div className="p2w-task__quick">
+          {plan.primary?.to ? <Link className="p2w-button p2w-button--primary" to={plan.primary.to}>{plan.primary.label}</Link> : null}
+          {openDocument && openDocument !== plan.primary?.to?.split('?')[0] ? (
+            <Link className="p2w-link" to={openDocument}>Open document</Link>
+          ) : null}
+        </div>
       ) : null}
       {open && tenantId ? (
         <TaskDetail task={task} tenantId={tenantId} accessToken={accessToken} operatingRole={operatingRole} onDone={onDone} />
@@ -249,16 +309,33 @@ function TaskRow({ task, open, onToggle, view, tenantId, accessToken, operatingR
   );
 }
 
+/** A document task's file, page(s) and reason, in plain words. */
+function DocumentLine({ task }: { task: P2Task }) {
+  const doc = task.document!;
+  const where = [doc.file, pagesText(doc.pages)].filter(Boolean).join(' · ');
+  return (
+    <span className="p2w-task__doc">
+      {where ? <b>{where}</b> : null}
+      {doc.reason ? <span>{doc.reason}</span> : null}
+    </span>
+  );
+}
 
-/** What kind of work a task is, for the colour on its card: a document to
- * upload, a value to verify by hand, data the audit could not find, or a
- * check that failed. */
+/** What kind of work a task is, for the colour on its card: document work
+ * (by its Documents category), a value to confirm, data the audit could not
+ * find, or a check that failed. */
 function taskKind(task: P2Task): { key: 'documents' | 'verify' | 'data' | 'check'; label: string } {
   if (task.task_type === 'TL_MANAGEMENT_REFERRAL') return { key: 'check', label: 'System task' };
   if (task.task_type === 'TL_DATA_VIOLATION') return { key: 'check', label: 'Data violation' };
   if (task.task_type === 'MODEL_CHANGED_BY_INVOICE') return { key: 'check', label: 'Information' };
-  if (task.queue_tab === 'MANUAL_VERIFICATION') return { key: 'verify', label: 'Manual verification' };
-  if (task.queue_tab === 'DOCUMENTS') return { key: 'documents', label: 'Document missing' };
+  if (task.document_category) {
+    return {
+      key: task.document_category === 'MANUAL_VERIFICATION' ? 'verify' : 'documents',
+      label: documentCategoryLabel(task.document_category),
+    };
+  }
+  if (task.queue_tab === 'MANUAL_VERIFICATION') return { key: 'verify', label: 'Confirmation' };
+  if (task.queue_tab === 'DOCUMENTS') return { key: 'documents', label: 'Document' };
   const text = `${task.task_type} ${task.category}`.toUpperCase();
   if (/MISSING|GAP|EMPTY|DATA/.test(text)) return { key: 'data', label: 'Data missing' };
   return { key: 'check', label: 'Check failed' };
@@ -273,6 +350,7 @@ export default function P2TasksPage() {
   const accessToken = useSessionStore((s) => s.accessToken);
   const requestedTab = search.get('tab') as P2TaskTab | null;
   const tab: P2TaskTab = TABS.some((t) => t.key === requestedTab) ? requestedTab! : 'ALL';
+  const docFilter: DocumentFilter = tab === 'DOCUMENTS' ? documentFilter(search.get('doc')) : 'ALL';
   const [view, setView] = useState<View>('open');
   const [mine, setMine] = useState(true);
   const [expanded, setExpanded] = useState<string | undefined>(search.get('task') ?? undefined);
@@ -294,13 +372,17 @@ export default function P2TasksPage() {
     refetchInterval: (state) => (state.state.data?.items.some((t) => ['VERIFYING', 'ACTION_COMPLETED'].includes(t.task_status)) ? 4_000 : false),
   });
   const all = query.data?.items ?? [];
-  const tasks = useMemo(() => (tab === 'ALL' ? all : all.filter((t) => t.queue_tab === tab)), [all, tab]);
-  // A link can name the kind of task to open (the Upload / Edit banner
-  // opens the file's "pages to upload again" task): expand the first one.
+  const tasks = useMemo(() => visibleTasks(all, tab, docFilter), [all, tab, docFilter]);
+  const docCounts = documentCounts(all, query.data?.documentCounts);
+  const docCountsByJourney = query.data?.documentCountsByJourney;
+  // A link can name the kind(s) of task to open (the Upload / Edit banner
+  // opens the file's "pages to upload again" or image-quality task): expand
+  // the first one.
   const openType = search.get('open');
   useEffect(() => {
     if (!openType || expanded || !all.length) return;
-    const wanted = all.find((t) => t.task_type === openType);
+    const types = openType.split(',');
+    const wanted = all.find((t) => types.includes(t.task_type));
     if (wanted) setExpanded(wanted.task_id);
   }, [openType, expanded, all]);
   const groups = useMemo(() => groupByJourney(tasks), [tasks]);
@@ -309,6 +391,13 @@ export default function P2TasksPage() {
   const setTab = (next: P2TaskTab) => {
     const params = new URLSearchParams(search);
     if (next === 'ALL') params.delete('tab'); else params.set('tab', next);
+    if (next !== 'DOCUMENTS') params.delete('doc');
+    setSearch(params, { replace: true });
+  };
+  const setDocFilter = (next: DocumentFilter) => {
+    const params = new URLSearchParams(search);
+    params.set('tab', 'DOCUMENTS');
+    if (next === 'ALL') params.delete('doc'); else params.set('doc', next);
     setSearch(params, { replace: true });
   };
   const toggleGroup = (id: string) => setCollapsed((current) => {
@@ -342,12 +431,28 @@ export default function P2TasksPage() {
 
       <div className="p2w-segment p2w-tabs-main" role="tablist" aria-label="Task type">
         {TABS.map((item) => (
-          <button key={item.key} type="button" role="tab" aria-selected={tab === item.key}
+          <button key={item.key} type="button" role="tab" aria-selected={tab === item.key} title={item.hint}
             className={tab === item.key ? 'is-active' : ''} onClick={() => setTab(item.key)}>
             {item.label}{counts ? <b>{counts[item.key] ?? 0}</b> : null}
           </button>
         ))}
       </div>
+
+      {tab === 'DOCUMENTS' ? (
+        <div className="p2w-doc-cats" role="tablist" aria-label="Document task category">
+          <button type="button" role="tab" aria-selected={docFilter === 'ALL'} className={docFilter === 'ALL' ? 'is-active' : ''}
+            onClick={() => setDocFilter('ALL')}>
+            All documents <b>{docCounts.TOTAL}</b>
+          </button>
+          {DOCUMENT_CATEGORIES.map((item) => (
+            <button key={item.key} type="button" role="tab" aria-selected={docFilter === item.key} title={item.hint}
+              className={docFilter === item.key ? 'is-active' : ''}
+              onClick={() => setDocFilter(item.key)}>
+              {item.label} <b>{docCounts[item.key]}</b>
+            </button>
+          ))}
+        </div>
+      ) : null}
 
       <div className="p2w-listbar">
         <div className="p2w-segment" role="tablist" aria-label="Task view">
@@ -393,6 +498,13 @@ export default function P2TasksPage() {
                 </button>
                 <span className="p2w-task-group__meta">
                   <span className="p2w-chip p2w-chip--neutral">{group.tasks.length} task{group.tasks.length === 1 ? '' : 's'}</span>
+                  {tab === 'DOCUMENTS' && docFilter === 'ALL' && docCountsByJourney?.[group.journeyId]
+                    ? DOCUMENT_CATEGORIES.filter((item) => docCountsByJourney[group.journeyId][item.key] > 0).map((item) => (
+                      <span key={item.key} className="p2w-chip p2w-chip--neutral" title={item.hint}>
+                        {item.label} {docCountsByJourney[group.journeyId][item.key]}
+                      </span>
+                    ))
+                    : null}
                   {group.overdue ? <span className="p2w-chip p2w-chip--danger">{group.overdue} overdue</span> : null}
                   <Link className="p2w-link" to={`/p2/journeys/${group.journeyId}/overview`}>Journey 360</Link>
                   <Link className="p2w-link" to={`/p2/journeys/${group.journeyId}/documents`}>Documents</Link>
@@ -412,7 +524,11 @@ export default function P2TasksPage() {
           );
         })}
         {!query.isLoading && !tasks.length && !query.isError ? (
-          <div className="p2w-empty p2w-empty--success">{view === 'open' ? 'Nothing to do right now.' : 'No tasks were completed in the last 14 days.'}</div>
+          <div className="p2w-empty p2w-empty--success">
+            {view === 'open'
+              ? (docFilter !== 'ALL' ? `No ${DOCUMENT_CATEGORIES.find((item) => item.key === docFilter)?.label.toLowerCase()} tasks right now.` : 'Nothing to do right now.')
+              : 'No tasks were completed in the last 14 days.'}
+          </div>
         ) : null}
         {query.isLoading ? <div className="p2w-skeleton">Loading tasks…</div> : null}
       </div>

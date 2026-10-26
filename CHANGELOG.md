@@ -12,6 +12,8 @@ The app's build number is added by the release workflow and is not written here.
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-10-26
+
 ### Added
 - Daily Gate Pass screen: the Process Coordinator uploads the day's gate passes and reconciles them, there is a monthly calendar, and the Team Lead sees the daily tasks.
 - Daily processing: large uploads are highlighted, the document status is shown per Process Coordinator, uploaded files have links, and the work done is shown per Process Coordinator and Team Lead.

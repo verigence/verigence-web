@@ -142,6 +142,15 @@ const p2DailyProcessingItem: NavItem = {
   roles: ['TL', 'PM', 'EXECUTIVE'],
 };
 
+// The PC uploads the day's gate pass; TL, PM and Executive see the calendar
+// of deliveries against delivery files and the tasks raised from it.
+const p2GatePassItem: NavItem = {
+  to: '/p2/gate-pass',
+  label: 'Daily gate pass',
+  mark: 'GP',
+  roles: ['PC', 'TL', 'PM', 'EXECUTIVE'],
+};
+
 const p2DuplicatesItem: NavItem = {
   to: '/p2/duplicate-bookings',
   label: 'Duplicate bookings',
@@ -258,7 +267,7 @@ const routeLabels: Record<string, string> = {
   '/feedback': 'Feedback & Support', '/hr/support': 'Feedback & Support', '/hr/support/new': 'Raise a ticket',
   '/reviews': 'Task Queue', '/duplicate-bookings': 'Duplicate Bookings', '/rule-catalog': 'Rule Catalog', '/rule-catalog/new': 'Author a Rule', '/findings': 'Findings',
   '/daily-ops': 'Daily Operations',
-  '/analytics': 'Analytics', '/p2/bookings': 'Booking & Delivery', '/p2/tasks': 'Task Queue', '/p2/duplicate-bookings': 'Duplicate bookings', '/p2/reports/daily': 'Daily processing', '/admin/document-intelligence': 'Document Intelligence Configuration',
+  '/analytics': 'Analytics', '/p2/bookings': 'Booking & Delivery', '/p2/tasks': 'Task Queue', '/p2/duplicate-bookings': 'Duplicate bookings', '/p2/reports/daily': 'Daily processing', '/p2/gate-pass': 'Daily gate pass', '/admin/document-intelligence': 'Document Intelligence Configuration',
   '/admin/housekeeping': 'Housekeeping', '/admin/sku-resolution': 'SKU Resolution', '/admin/hr-housekeeping': 'HR Housekeeping', '/admin/feedback': 'User Feedback', '/admin/di-test': 'DI Test Console', '/admin/users': 'Users', '/admin/features': 'Feature Rollout', '/admin/announcements': 'Announcements', '/admin/diagnostics': 'Device Diagnostics', '/admin/login-activity': 'Login Activity',
   '/admin/users/pending': 'Pending Approvals',
   '/admin/oem-masters': 'OEM Masters', '/admin/reports': 'Reports', '/admin/project': 'Project Administration', '/profile': 'Profile',
@@ -405,6 +414,7 @@ export default function AppShell({ children }: PropsWithChildren) {
             { ...p2TasksItem, badge: p2TaskCount },
             p2DuplicatesItem,
             ...(role === 'PC' ? [dailyOpsItem] : [p2DailyProcessingItem]),
+            p2GatePassItem,
             // The SKU / discount reference and the month's source documents
             // (added 18 Oct to the DealGuard group but never to this per-role
             // list, so nobody working in a Project saw them).
@@ -416,7 +426,7 @@ export default function AppShell({ children }: PropsWithChildren) {
           ],
         }
       : role === 'EXECUTIVE'
-        ? { ...p2Group, items: [p2DailyProcessingItem] }
+        ? { ...p2Group, items: [p2DailyProcessingItem, p2GatePassItem] }
         // A Reviewer's whole surface (2026-10-23: inside a Project the group was
         // built for PC / TL / PM only, so a Reviewer saw none of it, not even
         // Document Review, which is their home page).

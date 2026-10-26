@@ -99,6 +99,7 @@ const P2MasterDocumentsPage = lazy(() => import('./pages/P2MasterDocumentsPage')
 const P2ReviewBoardPage = lazy(() => import('./pages/P2ReviewBoardPage'));
 const P2ReviewActivityPage = lazy(() => import('./pages/P2ReviewActivityPage'));
 const P2DailyProcessingReportPage = lazy(() => import('./pages/P2DailyProcessingReportPage'));
+const P2GatePassPage = lazy(() => import('./pages/P2GatePassPage'));
 
 const routerBase = import.meta.env.BASE_URL === '/' ? undefined : import.meta.env.BASE_URL.replace(/\/$/, '');
 
@@ -353,6 +354,7 @@ export default function App() {
               <Route path="/p2/review" element={<OperationalPage><P2ReviewBoardPage /></OperationalPage>} />
               <Route path="/p2/review/activity" element={<OperationalPage><P2ReviewActivityPage /></OperationalPage>} />
               <Route path="/p2/reports/daily" element={<OperationalPage><P2DailyProcessingReportPage /></OperationalPage>} />
+              <Route path="/p2/gate-pass" element={<OperationalPage><P2GatePassPage /></OperationalPage>} />
               <Route path="/p2/journeys/:journeyId/compliance-report" element={<OperationalPage><P2ComplianceReportPage /></OperationalPage>} />
               <Route path="/p2/journeys/:journeyId/overview" element={<OperationalPage><P2JourneyOverviewPage /></OperationalPage>} />
               <Route path="/p2/journeys/:journeyId/documents" element={<OperationalPage><P2JourneyWorkspacePage /></OperationalPage>} />

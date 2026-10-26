@@ -12,6 +12,24 @@ The app's build number is added by the release workflow and is not written here.
 
 ## [Unreleased]
 
+### Added
+- Daily Gate Pass screen: the Process Coordinator uploads the day's gate passes and reconciles them, there is a monthly calendar, and the Team Lead sees the daily tasks.
+- Daily processing: large uploads are highlighted, the document status is shown per Process Coordinator, uploaded files have links, and the work done is shown per Process Coordinator and Team Lead.
+- A SKU work screen that a Team Lead and a Reviewer both use.
+- Reports: a SuperAdmin Reports tab with the Journey review.
+- Discount variance tab: invoice discounts that differ from the entitlement, with category, Process Coordinator, outlet, customer and car model.
+- Analytics: dealer and outlet model sales, a dealer-wise PIN and district dashboard, a map with counts and outlet pins, and sales and VAS insights. Insurance, accessory and extended warranty insights now point to actions. Analytics is refocused on dealer and outlet decisions.
+- Booking VAS proposals are reconciled to the purchases on the delivery invoice.
+
+### Changed
+- Booking & Delivery: a Process Coordinator can filter the list by outlet, and a new booking offers the Coordinator's outlets as a radio list.
+- Excess discount tab: shows only discounts above the entitlement, and where they were given.
+- A page that was refused or failed can be removed from the booking (its card, placeholder and image-quality task).
+
+### Fixed
+- The Discount variance tab was missing inside a Project; it is shown now.
+- The Daily Gate Pass upload form is shown by the Project's operating role, not the role the app starts with.
+
 ## [1.1.0] - 2026-10-19
 
 ### Added

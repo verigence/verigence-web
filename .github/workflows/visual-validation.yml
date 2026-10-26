@@ -69,7 +69,9 @@ jobs:
 
   validate:
     needs: start
-    runs-on: ubuntu-latest
+    # Pinned (2026-10-26): ubuntu-latest moved to Ubuntu 26, where
+    # "playwright install --with-deps" (1.55) fails before any screen is built.
+    runs-on: ubuntu-24.04
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4

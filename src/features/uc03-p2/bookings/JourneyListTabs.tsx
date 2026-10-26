@@ -2,6 +2,8 @@ import { useDeferredValue, useEffect, useMemo, useState } from 'react';
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 
 import JourneyRow from './JourneyRow';
+import { useProjectContextStore } from '../../../store/projectContextStore';
+import { sortByName } from '../../../utils/sortByName';
 import { panelSelection } from './listSelection';
 import {
   getP2JourneyCounts,
@@ -56,6 +58,13 @@ type Props = {
 
 export default function JourneyListTabs({ tenantId, accessToken, role, onCounts }: Props) {
   const supervisor = role === 'TL' || role === 'PM' || role === 'EXECUTIVE';
+  // A PC sees every outlet they are mapped to and can narrow the list to one
+  // (product owner 2026-10-26); the list is not tied to the sidebar's outlet.
+  const mappedOutlets = useProjectContextStore((s) => s.selectedProject?.scope.outlets);
+  const pcOutlets = useMemo(
+    () => (supervisor ? [] : sortByName(mappedOutlets ?? [], (o) => o.outletName)),
+    [supervisor, mappedOutlets],
+  );
   const tabs = supervisor ? TL_TABS : PC_TABS;
   const [view, setView] = useState<P2JourneyView>(tabs[0].view);
   const [search, setSearch] = useState('');
@@ -188,6 +197,15 @@ export default function JourneyListTabs({ tenantId, accessToken, role, onCounts 
             <select value={month} onChange={(event) => setMonth(event.target.value)}>
               <option value="">Any month</option>
               {months.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
+            </select>
+          </label>
+        ) : null}
+        {!supervisor && pcOutlets.length > 1 ? (
+          <label className="p2w-jtabs__select">
+            <span>Outlet</span>
+            <select value={outletId} onChange={(event) => setOutletId(event.target.value)}>
+              <option value="">All my outlets</option>
+              {pcOutlets.map((o) => <option key={o.outletId} value={o.outletId}>{o.outletName}</option>)}
             </select>
           </label>
         ) : null}

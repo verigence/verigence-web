@@ -374,16 +374,16 @@ export default function P2JourneyWorkspacePage() {
 
       {isNew && outlets.length > 1 ? (
         <section className="p2w-start" aria-label="Start booking">
-          {outlets.length > 1 ? (
-            <label>
-              <span>Outlet</span>
-              <select value={outletId} onChange={(event) => setOutletId(event.target.value)}>
-                {sortByName(outlets, (o) => o.outletName).map((outlet) => (
-                  <option key={outlet.outletId} value={outlet.outletId}>{outlet.outletName}</option>
-                ))}
-              </select>
-            </label>
-          ) : null}
+          <fieldset className="p2w-start__outlets">
+            <legend>Which outlet is this booking for?</legend>
+            {sortByName(outlets, (o) => o.outletName).map((outlet) => (
+              <label key={outlet.outletId} className="p2w-start__outlet">
+                <input type="radio" name="booking-outlet" value={outlet.outletId}
+                  checked={outletId === outlet.outletId} onChange={() => setOutletId(outlet.outletId)} />
+                <span>{outlet.outletName}</span>
+              </label>
+            ))}
+          </fieldset>
           <p>The booking is created as soon as you add the first document.</p>
         </section>
       ) : null}

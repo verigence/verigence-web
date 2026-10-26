@@ -7,6 +7,7 @@ import '../styles/uc03-p2-daily-report.css';
 
 import PageHeader from '../components/PageHeader';
 import SectionCard from '../components/SectionCard';
+import TaskStatusSections from '../features/task-manager/TaskStatusSections';
 import { customerLabel } from '../features/uc03-p2/bookings/JourneyRow';
 import {
   DocumentStatusCard,
@@ -345,6 +346,7 @@ export default function P2DailyProcessingReportPage() {
             ) : null}
           </SectionCard>
 
+          {data.taskStatus ? <TaskStatusSections status={data.taskStatus} /> : null}
           {data.teamWork ? <WorkDoneCard work={data.teamWork} day={data.day} timezone={timezone} /> : null}
           {data.files && tenantId ? (
             <UploadedFilesCard files={data.files} truncated={Boolean(data.filesTruncated)} day={data.day} timezone={timezone}

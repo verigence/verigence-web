@@ -414,15 +414,16 @@ export default function P2TasksPage() {
         eyebrow="Task Queue"
         title={journeyId ? 'Tasks for this booking' : 'Task Queue'}
         description="Everything that needs your action, grouped by booking, most urgent first. Tasks raised by the audit close themselves once the fix is verified."
-        actions={journeyId || supervisor ? (
+        actions={(
           <div className="p2w-header-links">
+            {!journeyId ? <Link className="p2w-link" to="/p2/task-manager">Task Manager</Link> : null}
             {supervisor && tenantId ? (
               <button type="button" className="p2w-button p2w-button--primary" onClick={() => setRaising(true)}>Raise a task</button>
             ) : null}
             {journeyId ? <Link className="p2w-link" to={`/p2/journeys/${journeyId}/documents`}>Documents</Link> : null}
             {journeyId ? <Link className="p2w-link" to="/p2/tasks">All tasks</Link> : null}
           </div>
-        ) : undefined}
+        )}
       />
       {raising && tenantId ? (
         <RaiseTaskDialog tenantId={tenantId} accessToken={accessToken} journeyId={journeyId}

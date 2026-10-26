@@ -1,0 +1,31 @@
+/* Daily gate pass (P2GatePassPage). */
+.p2gp-step { display: grid; gap: 14px; }
+.p2gp-actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.p2gp-counts { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+.p2gp-count { display: grid; gap: 4px; font-weight: 700; }
+.p2gp-count--wide { max-width: 520px; }
+.p2gp-count input, .p2gp-filter input, .p2gp-filter select, .p2gp-text, .p2gp-resolve input {
+  min-height: 44px; padding: 6px 10px; border: 1px solid #cbd8de; border-radius: 10px; font: inherit;
+}
+.p2gp-text { width: 100%; min-height: 80px; }
+.p2gp-filter { display: inline-flex; align-items: center; gap: 8px; font-weight: 700; }
+.p2gp-totals { display: flex; flex-wrap: wrap; gap: 18px; margin: 0 0 12px; }
+.p2gp-bad { color: #b42318; }
+.p2gp-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; }
+.p2gp-head { padding: 4px; color: #5d6f76; font-size: 0.7rem; font-weight: 800; text-align: center; text-transform: uppercase; }
+.p2gp-cell {
+  display: flex; flex-direction: column; gap: 2px; min-height: 84px; padding: 6px;
+  border: 1px solid #e3eaed; border-radius: 8px; font-size: 0.74rem;
+}
+.p2gp-cell--pad { border-color: transparent; }
+.p2gp-cell--missing { border-color: #f0b7b0; background: #fff5f4; }
+.p2gp-date { font-weight: 800; }
+.p2gp-tasks { display: grid; gap: 10px; margin: 12px 0 0; padding: 0; list-style: none; }
+.p2gp-task { display: grid; gap: 8px; padding: 12px; border: 1px solid #e3eaed; border-radius: 10px; }
+.p2gp-task p { margin: 4px 0 0; }
+.p2gp-chip { padding: 1px 8px; border-radius: 999px; background: #fde7e4; color: #912018; font-size: 0.7rem; font-weight: 800; }
+.p2gp-resolve { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.p2gp-resolve input { flex: 1 1 220px; }
+@media (max-width: 640px) {
+  .p2gp-cell { min-height: 64px; padding: 4px; font-size: 0.66rem; }
+}

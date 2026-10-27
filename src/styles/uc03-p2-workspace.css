@@ -1066,3 +1066,7 @@
 @media print {
   .p2w-back { display: none; }
 }
+
+/* Task Queue classification (2026-10-27): Journey tasks / Task Manager tasks, above the journey tabs. */
+.p2w .p2w-task-scope { font-size: 1rem; }
+.p2w .p2w-task-scope button { min-height: 42px; padding: 0 18px; font-weight: 800; }

@@ -442,8 +442,8 @@ export default function AppShell({ children }: PropsWithChildren) {
             // A Team Lead's Booking & Delivery is the TL overview (Dealer
             // Operations), not the PC's working list (decision 2026-10-20).
             role === 'TL' ? { ...p2BookingsItem, to: '/dashboard' } : p2BookingsItem,
-            { ...p2TasksItem, badge: p2TaskCount },
-            { ...taskManagerItem, badge: tmCount },
+            // Journey tasks and Task Manager tasks are the two classifications of the Task Queue.
+            { ...p2TasksItem, badge: p2TaskCount + tmCount },
             p2DuplicatesItem,
             ...(role === 'PC' ? [dailyOpsItem] : [p2DailyProcessingItem]),
             p2GatePassItem,

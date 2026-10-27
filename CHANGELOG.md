@@ -12,6 +12,19 @@ The app's build number is added by the release workflow and is not written here.
 
 ## [Unreleased]
 
+### Added
+- Task Manager: tasks not tied to a booking, raised to the right roles (PC, TL, PM, CRM, Reviewer) with an expected time to close, reviewed by the person who raised them. Executives and SuperAdmin can set up recurring tasks.
+- Daily gate pass task for each outlet, closed by the system once the gate pass is finished.
+- Task Queue has two classifications: Journey tasks (grouped by document) and Task Manager tasks, with one badge for both.
+- Daily status of Journey tasks and Task Manager tasks, with overdue, missed and incomplete flagged.
+- Employee engagement (Executive and SuperAdmin): time on Verigence, sessions (shortest, average, longest), files, bad scans, tasks and on-time share, by day, week or month.
+- DI dashboard (Executive and SuperAdmin): files and pages, read first time or after retries, bad scans, failures and why, links to failed pages, processing time and file size.
+
+### Changed
+- Daily gate pass: the screen names the day the gate pass is for. Sunday is off, so Monday's gate pass covers Sunday and Monday in one photo. If the previous day's gate pass is still owed, the screen asks which day the photo is for.
+- Daily processing no longer shows the Document Intelligence sections; they are on the DI dashboard.
+- Role names are shortened (PC, TL, PM, CRM, Reviewer, Exec).
+
 ## [1.2.0] - 2026-10-26
 
 ### Added

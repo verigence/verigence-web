@@ -172,9 +172,13 @@ export type UtilisationReport = {
   from: string; to: string; idleThresholdMinutes: number; people: UtilisationPerson[]; notes: string[];
 };
 
+/** Where time on Verigence was spent: a computer's browser, a phone or
+ * tablet's browser, or the Android / iOS app (product owner 2026-10-27). */
+export type ActivitySource = 'WEB' | 'MOBILE_WEB' | 'ANDROID' | 'IOS';
+
 export type ActivityPayload = {
   date: string;
-  clientKind: 'WEB' | 'ANDROID' | 'IOS';
+  clientKind: ActivitySource;
   displayName?: string;
   activeSeconds: number;
   idleSeconds: number;
@@ -307,6 +311,8 @@ export type EngagementEfficacy = {
 
 export type EngagementCell = {
   activeMinutes: number; idleMinutes: number; backgroundMinutes: number;
+  /** Active minutes by source; absent from servers older than 2026-10-27. */
+  activeMinutesBySource?: Partial<Record<ActivitySource, number>>;
   sessions: number; sessionMinutes: MinMaxAvg; daysActive: number; workingDays: number;
   usualStart: string | null; usualEnd: string | null;
   firstActiveAtUtc: string | null; lastActiveAtUtc: string | null; hourlyActiveMinutes: number[];
@@ -327,6 +333,12 @@ export type EngagementPerson = {
   outlets: string[];
   totals: EngagementCell;
   periods: EngagementPersonPeriod[];
+  /** Days with time on Verigence: first and last activity; absent from servers older than 2026-10-27. */
+  days?: EngagementDay[];
+};
+
+export type EngagementDay = {
+  day: string; activeMinutes: number; firstActiveAtUtc: string | null; lastActiveAtUtc: string | null;
 };
 
 export type EngagementReport = {

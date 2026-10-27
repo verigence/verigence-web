@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { classify, emptyTally, IDLE_AFTER_MS, istDate, istMinute, parseTally, record, SESSION_GAP_MS, totals } from './activityTally';
+import { activitySource, classify, emptyTally, IDLE_AFTER_MS, istDate, istMinute, parseTally, record, SESSION_GAP_MS, sourcesText, totals } from './activityTally';
 import { raiseProblem } from './RaiseTmTaskDialog';
 import { scheduleProblem } from './TmSchedules';
 import { durationLabel, scheduleLabel } from './tmFormat';
@@ -80,3 +80,21 @@ describe('sessions', () => {
     expect(sent[1].activeSeconds).toBe(60);
   });
 });
+
+describe('activity source (2026-10-27)', () => {
+  it('tells the app, a phone browser and a computer apart', () => {
+    expect(activitySource('android', 'anything')).toBe('ANDROID');
+    expect(activitySource('ios', 'anything')).toBe('IOS');
+    expect(activitySource('web', 'Mozilla/5.0 (Linux; Android 14; SM-A146B) Chrome/129 Mobile Safari/537.36')).toBe('MOBILE_WEB');
+    expect(activitySource('web', 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X)')).toBe('MOBILE_WEB');
+    expect(activitySource('web', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/129')).toBe('WEB');
+    expect(activitySource('web', 'Mozilla/5.0 (Windows NT 10.0)', true)).toBe('MOBILE_WEB');
+  });
+
+  it('lists where the time went, largest first', () => {
+    const text = (m: number) => `${m}m`;
+    expect(sourcesText({ WEB: 30, ANDROID: 50, MOBILE_WEB: 0 }, text)).toBe('Android app 50m · Computer 30m');
+    expect(sourcesText(undefined, text)).toBe('—');
+  });
+});
+

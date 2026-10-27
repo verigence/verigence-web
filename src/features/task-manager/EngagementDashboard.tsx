@@ -6,12 +6,16 @@ import {
   getEngagement, type EngagementCell, type EngagementPeriod, type EngagementPerson, type TaskManagerMode,
 } from '../../services/audit-core/taskManager';
 import type { LoginPerson } from '../../services/security/loginActivity';
+import { SOURCE_LABELS, sourcesText } from './activityTally';
+import { dayLeaders, dayText, istClock, sourceShareText, timeRanking, topBy, type Stamp, type TimeRow } from './engagementHighlights';
 import { addDays, istToday, minutesText, personName, roleLabel } from './tmFormat';
 import '../../styles/task-manager.css';
 
 /*
- * Employee engagement of one Project, by day, week or month (product owner
- * 2026-10-27): time on Verigence, sessions (count, shortest, average,
+ * Employee engagement of one Project. It opens on a few crisp figures (product
+ * owner 2026-10-27): who was in first and out last, who spent the most and the
+ * least time, who was not seen, and one short row per person. The full figures
+ * stay one click away under "Show all figures": time on Verigence, sessions (count, shortest, average,
  * longest), output (files, pages, bad scans), work (journey tasks, Task
  * Manager tasks, reviews) and plain efficacy ratios, with a period-by-period
  * view so a person can be compared week to week and month to month.
@@ -103,6 +107,7 @@ function CellRow({ label, cell, signIns }: { label: ReactNode; cell: EngagementC
     <>
       <td>{label}</td>
       <td>{minutesText(cell.activeMinutes)}</td>
+      <td className="p2w-muted">{sourcesText(cell.activeMinutesBySource, minutesText)}</td>
       <td className={e.inUsePct !== null && e.inUsePct < 50 ? 'tm-warn' : ''}>{show(e.inUsePct, pct)}</td>
       <td>{cell.daysActive}<span className="p2w-muted"> / {cell.workingDays}</span></td>
       <td>{show(e.avgActiveMinutesPerDayActive, minutesText)}</td>
@@ -133,8 +138,9 @@ export default function EngagementDashboard({ mode, tenantId, accessToken, login
   /** Superadmin only: all-time sign-in counts from Security, by user id. */
   logins?: Map<string, LoginPerson>;
 }) {
-  const [period, setPeriod] = useState<EngagementPeriod>('week');
-  const [range, setRange] = useState(() => defaultRange('week'));
+  const [period, setPeriod] = useState<EngagementPeriod>('day');
+  const [range, setRange] = useState(() => defaultRange('day'));
+  const [details, setDetails] = useState(false);
   const [role, setRole] = useState('ALL');
   const [search, setSearch] = useState('');
   const [metricKey, setMetricKey] = useState<MetricKey>('activeMinutes');
@@ -155,6 +161,8 @@ export default function EngagementDashboard({ mode, tenantId, accessToken, login
   }, [report.data, role, search]);
   const metric = METRICS.find((m) => m.key === metricKey) ?? METRICS[0];
   const team = useMemo(() => summarise(people), [people]);
+  const days = useMemo(() => dayLeaders(people), [people]);
+  const ranking = useMemo(() => timeRanking(people), [people]);
   const showSignIns = Boolean(logins);
 
   const choosePeriod = (next: EngagementPeriod) => {
@@ -186,6 +194,87 @@ export default function EngagementDashboard({ mode, tenantId, accessToken, login
       {report.isLoading ? <div className="p2w-skeleton">Loading…</div> : null}
       {report.data ? (
         <>
+          <Glance people={people} days={days} ranking={ranking} />
+
+          <div className="tm-grid-2">
+            <SectionCard>
+              <div className="p2w-card__title">
+                <h3>In first, out last</h3>
+                <p className="p2w-muted">First and last use of Verigence each day (IST).</p>
+              </div>
+              {days.length ? (
+                <div className="p2dr-scroll">
+                  <table className="p2dr-table">
+                    <thead><tr><th>Day</th><th>In first</th><th>Out last</th><th>People</th><th>Time</th></tr></thead>
+                    <tbody>
+                      {days.map((d) => (
+                        <tr key={d.day}>
+                          <td>{dayText(d.day)}</td>
+                          <td><StampText stamp={d.firstIn} /></td>
+                          <td><StampText stamp={d.lastOut} /></td>
+                          <td>{d.peopleActive}</td>
+                          <td>{minutesText(d.activeMinutes)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : <p className="p2w-muted">Nobody used Verigence in this range.</p>}
+            </SectionCard>
+
+            <SectionCard>
+              <div className="p2w-card__title">
+                <h3>Most and least time</h3>
+                <p className="p2w-muted">Active time on Verigence, {range.from === range.to ? dayText(range.to) : `${dayText(range.from)} to ${dayText(range.to)}`}.</p>
+              </div>
+              <RankList title="Most" rows={ranking.most} />
+              <RankList title="Least" rows={ranking.least} />
+              {ranking.notSeen.length ? (
+                <p className="tm-warn"><strong>Not seen:</strong> {ranking.notSeen.map((p) => personName(p.name, p.actorId)).join(', ')}</p>
+              ) : null}
+            </SectionCard>
+          </div>
+
+          <SectionCard>
+            <div className="p2w-card__title">
+              <h3>Everyone · most time first</h3>
+              <p className="p2w-muted">{report.data.workingDays} working days. "Usually" is the middle of each person's first and last use of the day.</p>
+            </div>
+            <div className="p2dr-scroll">
+              <table className="p2dr-table tm-util-table">
+                <thead>
+                  <tr>
+                    <th>Person</th><th>Active time</th><th>A day</th><th>Days</th><th>Usually in</th><th>Usually out</th>
+                    <th>Used on</th><th>Files</th><th title="Journey tasks worked plus Task Manager tasks done">Tasks</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {[...people].sort((x, y) => y.totals.activeMinutes - x.totals.activeMinutes).map((p) => {
+                    const t = p.totals;
+                    return (
+                      <tr key={p.actorId}>
+                        <td>{personName(p.name, p.actorId)}<span className="p2w-muted"> · {roleLabel(p.role)}{p.activeInProject ? '' : ' (no longer mapped)'}</span></td>
+                        <td className={t.activeMinutes ? '' : 'tm-warn'}>{t.activeMinutes ? minutesText(t.activeMinutes) : 'Not seen'}</td>
+                        <td>{show(t.efficacy.avgActiveMinutesPerDayActive, minutesText)}</td>
+                        <td>{t.daysActive}<span className="p2w-muted"> / {t.workingDays}</span></td>
+                        <td>{t.usualStart ?? '—'}</td>
+                        <td>{t.usualEnd ?? '—'}</td>
+                        <td className="p2w-muted">{sourcesText(t.activeMinutesBySource, minutesText)}</td>
+                        <td>{t.filesUploaded}</td>
+                        <td>{t.journeyTasksWorked + t.tasksCompleted}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </SectionCard>
+
+          <button type="button" className="p2w-button p2w-button--ghost" aria-expanded={details} onClick={() => setDetails(!details)}>
+            {details ? 'Hide all figures' : 'Show all figures'}
+          </button>
+          {details ? (
+            <>
           <dl className="tm-tiles">
             <div><dt>People active</dt><dd>{team.activePeople}<span> of {people.length}</span></dd></div>
             <div><dt>Active time</dt><dd>{minutesText(team.active)}</dd><span>{team.activeDays ? `${minutesText(Math.round(team.active / team.activeDays))} per person-day` : ''}</span></div>
@@ -220,6 +309,7 @@ export default function EngagementDashboard({ mode, tenantId, accessToken, login
                   <tr>
                     <th>Person</th>
                     <th title="App visible and used">Active</th>
+                    <th title="Where the active time was spent: a computer's browser, a phone's browser, or the Android / iOS app">Used on</th>
                     <th title="Active as a share of the time the app was open">In use</th>
                     <th title="Days with any activity, of working days (Mon–Sat)">Days active</th>
                     <th>Active per day worked</th>
@@ -272,9 +362,83 @@ export default function EngagementDashboard({ mode, tenantId, accessToken, login
             {report.data.notes.map((n) => <li key={n}>{n}</li>)}
             {showSignIns ? <li>Sign-ins come from Security and are all-time totals; Security does not keep them per day.</li> : null}
           </ul>
+            </>
+          ) : null}
         </>
       ) : null}
     </div>
+  );
+}
+
+function StampText({ stamp }: { stamp: Stamp | null }) {
+  if (!stamp) return <>—</>;
+  return <>{personName(stamp.name, stamp.actorId)} <span className="p2w-muted">{istClock(stamp.at)}</span></>;
+}
+
+function RankList({ title, rows }: { title: string; rows: TimeRow[] }) {
+  if (!rows.length) return null;
+  return (
+    <div className="tm-rank">
+      <h4>{title}</h4>
+      <ol>
+        {rows.map((r) => (
+          <li key={r.actorId}>
+            <span>{personName(r.name, r.actorId)}<span className="p2w-muted"> · {roleLabel(r.role)}</span></span>
+            <strong>{minutesText(r.activeMinutes)}</strong>
+            <span className="p2w-muted">{r.perDay === null ? '' : `${minutesText(r.perDay)} a day · ${r.daysActive} day${r.daysActive === 1 ? '' : 's'}`}</span>
+          </li>
+        ))}
+      </ol>
+    </div>
+  );
+}
+
+/** The headline tiles: the few figures to read first. */
+function Glance({ people, days, ranking }: {
+  people: EngagementPerson[]; days: ReturnType<typeof dayLeaders>; ranking: ReturnType<typeof timeRanking>;
+}) {
+  const latest = days[0];
+  const most = ranking.most[0];
+  const least = ranking.least[0];
+  const mapped = people.filter((p) => p.activeInProject).length;
+  const files = topBy(people, (p) => p.totals.filesUploaded);
+  const tasks = topBy(people, (p) => p.totals.journeyTasksWorked + p.totals.tasksCompleted);
+  const shares = sourceShareText(people, SOURCE_LABELS);
+  const names = (list: Array<{ name?: string | null; actorId: string }>) =>
+    list.slice(0, 3).map((p) => personName(p.name, p.actorId)).join(', ') + (list.length > 3 ? ` +${list.length - 3}` : '');
+  return (
+    <dl className="tm-tiles tm-glance">
+      <div>
+        <dt>In first{latest ? ` · ${dayText(latest.day)}` : ''}</dt>
+        <dd>{latest?.firstIn ? personName(latest.firstIn.name, latest.firstIn.actorId) : '—'}</dd>
+        <span>{latest?.firstIn ? istClock(latest.firstIn.at) : ''}{latest?.lastOut ? ` · out last ${personName(latest.lastOut.name, latest.lastOut.actorId)} ${istClock(latest.lastOut.at)}` : ''}</span>
+      </div>
+      <div>
+        <dt>Most time</dt>
+        <dd>{most ? personName(most.name, most.actorId) : '—'}</dd>
+        <span>{most ? `${minutesText(most.activeMinutes)}${most.perDay === null ? '' : ` · ${minutesText(most.perDay)} a day`}` : ''}</span>
+      </div>
+      <div className={least ? 'is-warn' : ''}>
+        <dt>Least time</dt>
+        <dd>{least ? personName(least.name, least.actorId) : '—'}</dd>
+        <span>{least ? `${minutesText(least.activeMinutes)}${least.perDay === null ? '' : ` · ${minutesText(least.perDay)} a day`}` : ''}</span>
+      </div>
+      <div className={ranking.notSeen.length ? 'is-bad' : ''}>
+        <dt>Not seen</dt>
+        <dd>{ranking.notSeen.length}<span> of {mapped}</span></dd>
+        <span>{ranking.notSeen.length ? names(ranking.notSeen) : 'Everyone used Verigence'}</span>
+      </div>
+      <div>
+        <dt>Time on Verigence</dt>
+        <dd>{minutesText(ranking.total)}</dd>
+        <span>{ranking.perPersonDay === null ? '' : `${minutesText(ranking.perPersonDay)} per person a day`}{shares ? ` · ${shares}` : ''}</span>
+      </div>
+      <div>
+        <dt>Most work</dt>
+        <dd>{tasks ? personName(tasks.name, tasks.actorId) : '—'}</dd>
+        <span>{tasks ? `${tasks.count} tasks` : ''}{files ? ` · most files: ${personName(files.name, files.actorId)} (${files.count})` : ''}</span>
+      </div>
+    </dl>
   );
 }
 

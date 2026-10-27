@@ -8,6 +8,7 @@ import type {
   P2PageHealth,
   P2Template,
 } from '../../../services/audit-core/uc03P2';
+import DocumentTypePicker, { documentTypeOptions, OTHER_DOCUMENT_TEMPLATE } from './DocumentTypePicker';
 import { formatDateTime, humanizeKey, pageStatus, PAGE_IN_FLIGHT, type Tone } from './p2Format';
 
 export type DocumentRow = {
@@ -100,7 +101,7 @@ const FAILED = new Set(['FAILED', 'DEAD_LETTER']);
 const RETRYABLE = new Set(['FAILED', 'DEAD_LETTER', 'NEEDS_REVIEW']);
 const OPENABLE = new Set(['READY', 'NEEDS_REVIEW', 'SUPPORTING']);
 /** The "Others" choice: not a checklist document, kept on file, never read. */
-export const OTHER_DOCUMENT_TEMPLATE = 'supporting_document';
+export { OTHER_DOCUMENT_TEMPLATE };
 
 export type ChecklistRequirement = {
   key: string;
@@ -265,41 +266,10 @@ export function removablePage(row: Pick<DocumentRow, 'unit' | 'status'> | undefi
 /** The Set type control: a checklist type reads the page again at once;
  * Others asks for the name the page is kept under (decision 2026-09-30). */
 function TypePicker({ queueId, actions }: { queueId: string; actions: RowActions }) {
-  const [choice, setChoice] = useState('');
-  const [name, setName] = useState('');
-  const trimmed = name.trim();
   return (
-    <div className="p2w-doc__type">
-      <label>
-        <span>What is this document?</span>
-        <select value={choice} onChange={(event) => {
-          const value = event.target.value;
-          setChoice(value);
-          if (value && value !== OTHER_DOCUMENT_TEMPLATE) {
-            actions.onSetType(queueId, value);
-            actions.setTyping(undefined);
-          }
-        }}>
-          <option value="" disabled>Choose a type…</option>
-          {actions.typeOptions.map((option) => <option key={option.key} value={option.key}>{option.displayName}</option>)}
-          <option value={OTHER_DOCUMENT_TEMPLATE}>Others (not a checklist document: kept, not read)</option>
-        </select>
-      </label>
-      {choice === OTHER_DOCUMENT_TEMPLATE ? (
-        <>
-          <label>
-            <span>Name it (shown on the card and in Journey 360)</span>
-            <input type="text" value={name} maxLength={120} placeholder="e.g. Employer letter" autoFocus
-              onChange={(event) => setName(event.target.value)} />
-          </label>
-          <button type="button" className="p2w-button p2w-button--secondary" disabled={trimmed.length < 2}
-            onClick={() => { actions.onSetType(queueId, OTHER_DOCUMENT_TEMPLATE, trimmed); actions.setTyping(undefined); }}>
-            Keep as Others
-          </button>
-        </>
-      ) : null}
-      <button type="button" className="p2w-link" onClick={() => actions.setTyping(undefined)}>Cancel</button>
-    </div>
+    <DocumentTypePicker options={actions.typeOptions}
+      onChoose={(templateKey, name) => { actions.onSetType(queueId, templateKey, name); actions.setTyping(undefined); }}
+      onCancel={() => actions.setTyping(undefined)} />
   );
 }
 
@@ -444,12 +414,7 @@ export default function P2DocumentList({
   busyKey?: string;
 }) {
   const [typing, setTyping] = useState<string>();
-  const typeOptions = useMemo(
-    () => templates.filter((t) => t.requirement !== 'SUPPORTING' || t.key === 'upi_screenshot')
-      .filter((t) => t.diTypes.length)
-      .sort((a, b) => a.displayName.localeCompare(b.displayName)),
-    [templates],
-  );
+  const typeOptions = useMemo(() => documentTypeOptions(templates), [templates]);
   const requirements = useMemo(() => checklistRequirements(checklist), [checklist]);
   const { matched, other } = useMemo(() => assignRowsToRequirements(requirements, rows), [requirements, rows]);
   const actions: RowActions = { selectedDocumentId, busyKey, typing, typeOptions, onOpen, onRetry, onReread, onRestore, onSetType, setTyping, onRemovePage };

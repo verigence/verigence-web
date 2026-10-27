@@ -60,7 +60,14 @@
 .tm-subrow td { background: var(--p2w-surface-soft, #f7f9fc); font-size: .85rem; }
 .tm-subrow__label { padding-left: 26px; display: inline-block; }
 
+.tm-glance dd { font-size: 1.1rem; overflow-wrap: anywhere; }
+.tm-rank h4 { margin: 4px 0; font-size: .78rem; text-transform: uppercase; letter-spacing: .02em; color: var(--p2w-muted, #64748b); }
+.tm-rank ol { margin: 0 0 10px; padding-left: 20px; display: grid; gap: 4px; }
+.tm-rank li > * + * { margin-left: 8px; }
+.tm-rank strong { font-variant-numeric: tabular-nums; }
+
 .tm-grid-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 12px; }
+.tm-grid-2 > * { min-width: 0; }
 
 .tm-outcome-bar { display: flex; width: 140px; height: 10px; border-radius: 3px; overflow: hidden; background: #eef1f5; }
 .tm-outcome-bar .tm-outcome { flex-basis: 0; min-width: 2px; height: 100%; }

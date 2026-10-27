@@ -133,7 +133,7 @@ export function activitySource(
   return /Android|iPhone|iPad|iPod|Mobile|Tablet/i.test(userAgent) ? 'MOBILE_WEB' : 'WEB';
 }
 
-const SOURCE_LABELS: Record<string, string> = {
+export const SOURCE_LABELS: Record<string, string> = {
   WEB: 'Computer', MOBILE_WEB: 'Phone browser', ANDROID: 'Android app', IOS: 'iOS app',
 };
 

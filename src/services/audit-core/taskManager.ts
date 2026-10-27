@@ -333,6 +333,12 @@ export type EngagementPerson = {
   outlets: string[];
   totals: EngagementCell;
   periods: EngagementPersonPeriod[];
+  /** Days with time on Verigence: first and last activity; absent from servers older than 2026-10-27. */
+  days?: EngagementDay[];
+};
+
+export type EngagementDay = {
+  day: string; activeMinutes: number; firstActiveAtUtc: string | null; lastActiveAtUtc: string | null;
 };
 
 export type EngagementReport = {

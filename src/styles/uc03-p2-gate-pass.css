@@ -45,3 +45,39 @@
 .p2gp-row--owed td { background: #fff1f0; }
 .p2gp-row--owed td:first-child { box-shadow: inset 3px 0 0 #b42318; }
 .p2gp-outlet-link { font-weight: 600; padding: 0; }
+
+/* All-outlets gate pass view: a readable table of its own (2026-10-27).
+   The Daily processing table styles are not loaded on this page. */
+.p2gp-sum-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; margin-top: 4px; border: 1px solid var(--p2w-line, #d8dee8); border-radius: 10px; }
+.p2gp-sum { width: 100%; min-width: 760px; border-collapse: collapse; table-layout: fixed; font-size: .92rem; }
+.p2gp-sum col { width: 12%; }
+.p2gp-sum col.p2gp-sum__name { width: 40%; }
+.p2gp-sum th, .p2gp-sum td { padding: 9px 12px; border-bottom: 1px solid #e9edf2; vertical-align: middle; }
+.p2gp-sum thead th { position: sticky; top: 0; background: #f6f8fb; color: #44546a; font-size: .78rem; font-weight: 700; text-transform: none; line-height: 1.25; text-align: right; white-space: normal; border-bottom: 1px solid var(--p2w-line, #d8dee8); }
+.p2gp-sum thead th.p2gp-sum__name { text-align: left; }
+.p2gp-sum thead th span { display: block; font-weight: 500; color: #7a8899; }
+.p2gp-num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.p2gp-num small { display: block; font-size: .75rem; }
+.p2gp-num--warn { color: #9a5b00; font-weight: 700; }
+.p2gp-num--bad { color: #b42318; font-weight: 700; }
+.p2gp-sum__dealer td { background: #eef2f7; font-weight: 700; border-top: 2px solid #d8dee8; }
+.p2gp-sum__dealer td span { font-weight: 500; color: #6b7a8c; font-size: .8rem; margin-left: 6px; }
+.p2gp-sum__outlet td:first-child { padding-left: 12px; }
+.p2gp-sum__outlet td:first-child, .p2gp-sum__day td:first-child { overflow-wrap: anywhere; }
+.p2gp-sum__toggle { width: 24px; height: 24px; margin-right: 6px; border: 1px solid #d8dee8; border-radius: 6px; background: #fff; color: #44546a; cursor: pointer; line-height: 1; vertical-align: middle; }
+.p2gp-sum__by { display: block; margin: 2px 0 0 30px; color: #6b7a8c; font-size: .8rem; }
+.p2gp-sum__day td { background: #fbfcfe; font-size: .85rem; }
+.p2gp-sum__day td:first-child { padding-left: 42px; }
+.p2gp-sum__day .p2gp-sum__by { margin-left: 0; }
+.p2gp-sum__total td { font-weight: 800; background: #f6f8fb; border-top: 2px solid #c9d2de; border-bottom: 0; }
+.p2gp-pill { display: inline-block; margin-left: 8px; padding: 1px 8px; border-radius: 999px; font-size: .72rem; font-weight: 700; vertical-align: middle; white-space: nowrap; }
+.p2gp-pill--bad { background: #fde7e5; color: #b42318; }
+.p2gp-pill--warn { background: #fff1d6; color: #8a5300; }
+.p2gp-pill--ok { background: #e3f4ea; color: #1b6e3c; }
+.p2gp-sum .p2gp-pages { margin-left: 8px; }
+.p2gp-sum__notes { margin: 10px 0 0; padding-left: 18px; color: #6b7a8c; font-size: .8rem; }
+.p2gp-sum tr.p2gp-row--owed td { background: #fff4f3; }
+.p2gp-sum tr.p2gp-row--owed td:first-child { box-shadow: inset 3px 0 0 #b42318; }
+.p2gp-sum .p2w-link { display: inline; min-height: 0; padding: 0; border: 0; background: none; font: inherit; font-weight: 600; color: var(--p2w-action, #1d5fbf); text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
+.p2gp-sum .p2gp-pages { display: inline-flex; gap: 8px; margin-left: 10px; font-size: .8rem; }
+.p2gp-sum__outlet td:first-child { font-weight: 500; }

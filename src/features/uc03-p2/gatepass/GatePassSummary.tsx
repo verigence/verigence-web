@@ -25,10 +25,10 @@ function mondayOf(day: string): string {
 }
 
 const STATUS: Record<GatePassSummaryDay['status'], { label: string; tone: string }> = {
-  NOT_UPLOADED: { label: 'Not uploaded', tone: 'p2dr-state--bad' },
-  COUNTS_PENDING: { label: 'Counts not entered', tone: 'p2dr-state--warn' },
-  ANSWER_PENDING: { label: 'Answer pending', tone: 'p2dr-state--warn' },
-  DONE: { label: 'Done', tone: 'p2dr-state--ok' },
+  NOT_UPLOADED: { label: 'Not uploaded', tone: 'p2gp-pill--bad' },
+  COUNTS_PENDING: { label: 'Counts not entered', tone: 'p2gp-pill--warn' },
+  ANSWER_PENDING: { label: 'Answer pending', tone: 'p2gp-pill--warn' },
+  DONE: { label: 'Done', tone: 'p2gp-pill--ok' },
 };
 
 const QUALITY: Record<'BLURRED' | 'TOO_DARK' | 'WASHED_OUT', string> = {
@@ -52,12 +52,12 @@ function add(t: GatePassSummaryFigures, o: GatePassSummaryFigures): GatePassSumm
 function Figures({ f }: { f: GatePassSummaryFigures }) {
   return (
     <>
-      <td>{f.asPerRegister}</td>
-      <td>{f.updatedInTool}</td>
-      <td className={f.pendingDueToClient ? 'p2dr-state p2dr-state--warn' : ''}>{f.pendingDueToClient}</td>
-      <td className={f.pendingDueToPc ? 'p2dr-state p2dr-state--bad' : ''}>{f.pendingDueToPc}</td>
-      <td className={f.gatePassesMissing ? 'p2dr-state p2dr-state--bad' : ''}>
-        {f.gatePassesFinished} / {f.gatePassDays}{f.gatePassesMissing ? ` · ${f.gatePassesMissing} missing` : ''}
+      <td className="p2gp-num">{f.asPerRegister}</td>
+      <td className="p2gp-num">{f.updatedInTool}</td>
+      <td className={f.pendingDueToClient ? 'p2gp-num p2gp-num--warn' : 'p2gp-num'}>{f.pendingDueToClient}</td>
+      <td className={f.pendingDueToPc ? 'p2gp-num p2gp-num--bad' : 'p2gp-num'}>{f.pendingDueToPc}</td>
+      <td className={f.gatePassesMissing ? 'p2gp-num p2gp-num--bad' : 'p2gp-num'}>
+        {f.gatePassesFinished} / {f.gatePassDays}{f.gatePassesMissing ? <small>{f.gatePassesMissing} missing</small> : null}
       </td>
     </>
   );
@@ -133,11 +133,14 @@ export default function GatePassSummary({ tenantId, accessToken, refreshKey }: P
       {photoError ? <div className="p2w-alert p2w-alert--error" role="alert">{photoError}</div> : null}
       {summary.data && !outlets.length ? <p className="p2w-muted">No onsite outlet in your scope.</p> : null}
       {outlets.length ? (
-        <div className="p2dr-scroll">
-          <table className="p2dr-table">
+        <div className="p2gp-sum-wrap">
+          <table className="p2gp-sum">
+            <colgroup>
+              <col className="p2gp-sum__name" /><col /><col /><col /><col /><col />
+            </colgroup>
             <thead>
               <tr>
-                <th>Dealership / outlet · uploaded by</th>
+                <th className="p2gp-sum__name">Dealership / outlet <span>uploaded by</span></th>
                 <th title="New deliveries on the gate pass">As per Gate out Register</th>
                 <th title="Delivery files uploaded on the days the gate pass covers">Updated in Tool</th>
                 <th title="The PC said these deliveries were not notified to them">Pending due to Client</th>
@@ -147,8 +150,8 @@ export default function GatePassSummary({ tenantId, accessToken, refreshKey }: P
             </thead>
             {dealers.map(([dealerId, dealer]) => (
               <tbody key={dealerId}>
-                <tr className="p2gp-dealer">
-                  <td>{dealer.name}<span className="p2w-muted"> · {dealer.outlets.length} outlet{dealer.outlets.length === 1 ? '' : 's'}</span></td>
+                <tr className="p2gp-sum__dealer">
+                  <td>{dealer.name} <span>{dealer.outlets.length} outlet{dealer.outlets.length === 1 ? '' : 's'}</span></td>
                   <Figures f={dealer.totals} />
                 </tr>
                 {dealer.outlets.map((o) => {
@@ -158,17 +161,16 @@ export default function GatePassSummary({ tenantId, accessToken, refreshKey }: P
                   const single = o.days.length === 1 ? o.days[0] : null;
                   return (
                     <Fragment key={o.outletId}>
-                      <tr className={owed ? 'p2gp-row--owed' : undefined}>
+                      <tr className={owed ? 'p2gp-sum__outlet p2gp-row--owed' : 'p2gp-sum__outlet'}>
                         <td>
-                          <button type="button" className="p2dr-toggle" aria-expanded={isOpen}
+                          <button type="button" className="p2gp-sum__toggle" aria-expanded={isOpen} aria-label={isOpen ? 'Hide days' : 'Show days'}
                             onClick={() => setOpen(isOpen ? undefined : o.outletId)}>{isOpen ? '▾' : '▸'}</button>
                           {single?.gatePassId ? (
                             <button type="button" className="p2w-link p2gp-outlet-link" title="Open the gate pass"
                               onClick={() => void openPage(single.gatePassId!, 1)}>{o.outletName}</button>
                           ) : o.outletName}
-                          {o.uploadedBy?.length ? <span className="p2w-muted"> · {o.uploadedBy.join(', ')}</span> : null}
                           {single && single.status !== 'DONE' ? (
-                            <span className={`p2dr-state ${STATUS[single.status].tone}`}> · {STATUS[single.status].label}</span>
+                            <span className={`p2gp-pill ${STATUS[single.status].tone}`}>{STATUS[single.status].label}</span>
                           ) : null}
                           {single?.gatePassId && (single.pages ?? 1) > 1 ? (
                             <span className="p2gp-pages">
@@ -179,18 +181,19 @@ export default function GatePassSummary({ tenantId, accessToken, refreshKey }: P
                               ))}
                             </span>
                           ) : null}
+                          {o.uploadedBy?.length ? <span className="p2gp-sum__by">{o.uploadedBy.join(', ')}</span> : null}
                         </td>
                         <Figures f={o} />
                       </tr>
                       {isOpen ? [...o.days].reverse().map((d) => (
                         <tr key={d.date}
-                          className={d.status === 'NOT_UPLOADED' || d.status === 'COUNTS_PENDING' ? 'p2dr-child p2gp-row--owed' : 'p2dr-child'}>
+                          className={d.status === 'NOT_UPLOADED' || d.status === 'COUNTS_PENDING' ? 'p2gp-sum__day p2gp-row--owed' : 'p2gp-sum__day'}>
                           <td>
-                            <span className="p2gp-summary__day">{d.label}</span>
-                            <span className={`p2dr-state ${STATUS[d.status].tone}`}> · {STATUS[d.status].label}</span>
-                            {d.pcName ? <span className="p2w-muted"> · {d.pcName}</span> : null}
+                            {d.label}
+                            <span className={`p2gp-pill ${STATUS[d.status].tone}`}>{STATUS[d.status].label}</span>
                             {d.photoQuality && d.photoQuality !== 'GOOD'
-                              ? <span className="p2dr-state p2dr-state--warn"> · photo {QUALITY[d.photoQuality]}</span> : null}
+                              ? <span className="p2gp-pill p2gp-pill--warn">photo {QUALITY[d.photoQuality]}</span> : null}
+                            {d.pcName ? <span className="p2gp-sum__by">{d.pcName}</span> : null}
                             {d.gatePassId ? (
                               <span className="p2gp-pages">
                                 {Array.from({ length: d.pages ?? 1 }, (_, i) => (
@@ -201,10 +204,10 @@ export default function GatePassSummary({ tenantId, accessToken, refreshKey }: P
                               </span>
                             ) : null}
                           </td>
-                          <td>{d.asPerRegister ?? '—'}</td>
-                          <td>{d.updatedInTool}</td>
-                          <td>{d.pendingDueToClient}</td>
-                          <td>{d.pendingDueToPc}</td>
+                          <td className="p2gp-num">{d.asPerRegister ?? '—'}</td>
+                          <td className="p2gp-num">{d.updatedInTool}</td>
+                          <td className="p2gp-num">{d.pendingDueToClient}</td>
+                          <td className="p2gp-num">{d.pendingDueToPc}</td>
                           <td />
                         </tr>
                       )) : null}
@@ -215,13 +218,13 @@ export default function GatePassSummary({ tenantId, accessToken, refreshKey }: P
             ))}
             {dealers.length > 1 || outlets.length > 1 ? (
               <tfoot>
-                <tr className="p2dr-total"><td>All outlets</td><Figures f={totals} /></tr>
+                <tr className="p2gp-sum__total"><td>All outlets</td><Figures f={totals} /></tr>
               </tfoot>
             ) : null}
           </table>
         </div>
       ) : null}
-      {summary.data ? <ul className="p2dr-notes">{summary.data.notes.map((n) => <li key={n}>{n}</li>)}</ul> : null}
+      {summary.data ? <ul className="p2gp-sum__notes">{summary.data.notes.map((n) => <li key={n}>{n}</li>)}</ul> : null}
     </SectionCard>
   );
 }

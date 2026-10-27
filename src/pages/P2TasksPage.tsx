@@ -9,6 +9,8 @@ import PageHeader from '../components/PageHeader';
 import RaiseTaskDialog from '../features/uc03-p2/tasks/RaiseTaskDialog';
 import TaskManagerPanel from '../features/task-manager/TaskManagerPanel';
 import RemovePageDialog, { removablePages, removalPagesText, removeOptions, type RemovablePage } from '../features/uc03-p2/workspace/RemovePageDialog';
+import DocumentTypePicker, { documentTypeOptions, OTHER_DOCUMENT_TEMPLATE } from '../features/uc03-p2/workspace/DocumentTypePicker';
+import { resendPages, typeName, unclassifiedPage, type ResendPage } from '../features/uc03-p2/tasks/documentTaskActions';
 import {
   DOCUMENT_CATEGORIES, documentCategoryLabel, documentCounts, documentFilter, documentOpenLink, pagesText, visibleTasks,
   type DocumentFilter,
@@ -18,7 +20,8 @@ import {
 } from '../features/uc03-p2/tasks/p2TaskPlan';
 import { formatDateTime, humanizeKey, relativeDue, taskStatus } from '../features/uc03-p2/workspace/p2Format';
 import {
-  getP2Task, getP2Tasks, removeP2Page, submitP2TaskAction, type P2Task, type P2TaskTab,
+  getP2Task, getP2Tasks, getP2Templates, removeP2Page, retryP2Page, setP2PageType, submitP2TaskAction,
+  type P2Task, type P2TaskTab,
 } from '../services/audit-core/uc03P2';
 import { getTmTasks } from '../services/audit-core/taskManager';
 import { useProjectContextStore } from '../store/projectContextStore';
@@ -165,9 +168,77 @@ function TaskDetail({ task, tenantId, accessToken, operatingRole, onDone }: {
     onError: (cause) => { setRemoving(undefined); setError(errorText(cause)); },
   });
 
+  // Product owner 2026-10-27: the type of a page is set from the task itself.
+  // "Set the document type" asks what the page is (or keeps it as Others);
+  // "Document to resubmit" sends a failed page again -- as its known type, or
+  // as the type the PC chooses. Both go through the page endpoints, and the
+  // task closes by itself once the page is no longer unclassified or failed.
+  const typingQueue = unclassifiedPage(task);
+  const resend = resendPages(task);
+  const [choosingFor, setChoosingFor] = useState<string>();
+  const templates = useQuery({
+    queryKey: ['p2-templates', tenantId],
+    queryFn: () => getP2Templates(tenantId, accessToken),
+    enabled: Boolean(typingQueue || resend.length),
+    staleTime: 60 * 60_000,
+  });
+  const typeOptions = useMemo(() => documentTypeOptions(templates.data?.templates ?? []), [templates.data]);
+  const pageDone = (message: string) => {
+    setChoosingFor(undefined);
+    setError(undefined);
+    void queryClient.invalidateQueries({ queryKey: ['p2-tasks', tenantId] });
+    void queryClient.invalidateQueries({ queryKey: ['p2-task', tenantId, task.task_id] });
+    onDone(message);
+  };
+  const setType = useMutation({
+    mutationFn: ({ queueId, templateKey, name }: { queueId: string; templateKey: string; name?: string }) =>
+      setP2PageType(tenantId, task.journey_id, queueId, templateKey, accessToken, name),
+    onSuccess: (_, { templateKey, name }) => pageDone(templateKey === OTHER_DOCUMENT_TEMPLATE
+      ? `Kept as Others (${name}). It stays on file and is not read; the task closes.`
+      : `Sent to be read as ${typeName(templateKey, templates.data?.templates) ?? 'that document'}. The task closes once nothing on it is left to fix.`),
+    onError: (cause) => setError(errorText(cause)),
+  });
+  const sendAgain = useMutation({
+    mutationFn: (page: ResendPage) => retryP2Page(tenantId, task.journey_id, page.queueId, accessToken),
+    onSuccess: (_, page) => {
+      const label = removalPagesText(page.pages);
+      pageDone(`${label.charAt(0).toUpperCase()}${label.slice(1)} sent again. The task closes once nothing on it is left to fix.`);
+    },
+    onError: (cause) => setError(errorText(cause)),
+  });
+  const pageBusy = setType.isPending || sendAgain.isPending;
+
   return (
     <div className="p2w-task__detail">
       <p className="p2w-task__description">{task.description}</p>
+      {typingQueue ? (
+        <DocumentTypePicker options={typeOptions} busy={pageBusy || templates.isLoading}
+          onChoose={(templateKey, name) => setType.mutate({ queueId: typingQueue, templateKey, name })} />
+      ) : null}
+      {resend.length ? (
+        <div className="p2w-task__actions">
+          {resend.map((page) => page.templateKey ? (
+            <button key={page.queueId} type="button" className="p2w-button p2w-button--secondary" disabled={pageBusy}
+              title={`Read ${removalPagesText(page.pages)} again from the stored file, as ${typeName(page.templateKey, templates.data?.templates)}.`}
+              onClick={() => sendAgain.mutate(page)}>
+              {sendAgain.isPending && sendAgain.variables?.queueId === page.queueId ? 'Sending…'
+                : `Send ${removalPagesText(page.pages)} again`}
+            </button>
+          ) : (
+            <button key={page.queueId} type="button" className="p2w-button p2w-button--secondary" disabled={pageBusy}
+              aria-expanded={choosingFor === page.queueId}
+              onClick={() => setChoosingFor(choosingFor === page.queueId ? undefined : page.queueId)}>
+              Set type and send {removalPagesText(page.pages)}
+            </button>
+          ))}
+        </div>
+      ) : null}
+      {choosingFor ? (
+        <DocumentTypePicker options={typeOptions} allowOthers={false} busy={pageBusy || templates.isLoading}
+          label={`What is ${removalPagesText(resend.find((page) => page.queueId === choosingFor)?.pages ?? [])}?`}
+          onChoose={(templateKey) => setType.mutate({ queueId: choosingFor, templateKey })}
+          onCancel={() => setChoosingFor(undefined)} />
+      ) : null}
       {typeof ref.leftValue !== 'undefined' || typeof ref.rightValue !== 'undefined' ? (
         <dl className="p2w-task__compare">
           <div><dt>Found</dt><dd>{String(ref.leftValue ?? '—')}</dd></div>

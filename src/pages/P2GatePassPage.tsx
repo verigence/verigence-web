@@ -5,6 +5,7 @@ import '../styles/uc03-p2-gate-pass.css';
 
 import PageHeader from '../components/PageHeader';
 import DailyTasksList from '../features/uc03-p2/gatepass/DailyTasksList';
+import GatePassSummary from '../features/uc03-p2/gatepass/GatePassSummary';
 import GatePassCalendar from '../features/uc03-p2/gatepass/GatePassCalendar';
 import GatePassWizard from '../features/uc03-p2/gatepass/GatePassWizard';
 import { useProjectContextStore } from '../store/projectContextStore';
@@ -38,6 +39,8 @@ export default function P2GatePassPage() {
         <>
           {isPc ? <GatePassWizard tenantId={tenantId} accessToken={accessToken} onChanged={refresh} /> : null}
           {!isPc ? <DailyTasksList tenantId={tenantId} accessToken={accessToken} onChanged={refresh} /> : null}
+          {/* TL, PM and Executive: every onsite outlet at once (product owner 2026-10-27). */}
+          {!isPc ? <GatePassSummary tenantId={tenantId} accessToken={accessToken} refreshKey={refreshKey} /> : null}
           <GatePassCalendar tenantId={tenantId} accessToken={accessToken} refreshKey={refreshKey} />
         </>
       )}

@@ -139,12 +139,12 @@ export function resolveDailyTask(tenantId: string, dailyTaskId: string, note: st
 
 /** Consolidated view across the caller's onsite outlets (TL: theirs; PM and Executive: all), 2026-10-27. */
 export type GatePassSummaryFigures = {
-  asPerRegister: number; updatedInTool: number; pendingDueToClient: number; pendingDueToPc: number;
+  asPerRegister: number; updatedInTool: number; notNotifiedToPc: number; pendingDueToPc: number;
   gatePassDays: number; gatePassesFinished: number; gatePassesMissing: number;
 };
 export type GatePassSummaryDay = {
   date: string; label: string; status: 'NOT_UPLOADED' | 'COUNTS_PENDING' | 'ANSWER_PENDING' | 'DONE';
-  asPerRegister: number | null; updatedInTool: number; pendingDueToClient: number; pendingDueToPc: number;
+  asPerRegister: number | null; updatedInTool: number; notNotifiedToPc: number; pendingDueToPc: number;
   gatePassId: string | null; pcName: string | null;
   photoQuality?: 'GOOD' | 'BLURRED' | 'TOO_DARK' | 'WASHED_OUT' | null;
   pages?: number; photoMode?: 'COMBINED' | 'SEPARATE';
@@ -158,7 +158,18 @@ export type GatePassSummary = {
   from: string; to: string; outlets: GatePassSummaryOutlet[]; totals: GatePassSummaryFigures; notes: string[];
 };
 
-export function getGatePassSummary(tenantId: string, from: string, to: string, accessToken?: string) {
+/** "Pending due to client" is named "Not notified to PC" (2026-10-27); an Audit Core
+ * built before the rename still sends pendingDueToClient, so read either. */
+function withNotNotified<T extends { notNotifiedToPc?: number; pendingDueToClient?: number }>(f: T): T & { notNotifiedToPc: number } {
+  return { ...f, notNotifiedToPc: f.notNotifiedToPc ?? f.pendingDueToClient ?? 0 };
+}
+
+export async function getGatePassSummary(tenantId: string, from: string, to: string, accessToken?: string): Promise<GatePassSummary> {
   const params = new URLSearchParams({ from, to });
-  return auditCoreRequest<GatePassSummary>(`${base(tenantId)}/gate-passes/summary?${params.toString()}`, { accessToken });
+  const raw = await auditCoreRequest<GatePassSummary>(`${base(tenantId)}/gate-passes/summary?${params.toString()}`, { accessToken });
+  return {
+    ...raw,
+    totals: withNotNotified(raw.totals),
+    outlets: raw.outlets.map((o) => ({ ...withNotNotified(o), days: o.days.map(withNotNotified) })),
+  };
 }

@@ -61,7 +61,7 @@ function CountsForm({ value, onChange }: { value: Counts; onChange: (next: Count
   );
 }
 
-/** PC: upload today's gate pass, say what the day held, and see whether it agrees with the delivery files. */
+/** PC: upload today's gate pass, say what the day held, and see whether it agrees with the vehicle gate passes uploaded (2026-10-27). */
 export default function GatePassWizard({ tenantId, accessToken, onChanged }: Props) {
   const queryClient = useQueryClient();
   const fileInput = useRef<HTMLInputElement>(null);
@@ -214,7 +214,7 @@ export default function GatePassWizard({ tenantId, accessToken, onChanged }: Pro
       setGatePass(res.gatePass);
       onChanged();
       if (res.nextStep === 'DONE') {
-        setOutcome('No divergence found. The delivery files match what you reported, and you are good to finish the task.');
+        setOutcome('No divergence found. The vehicle gate passes uploaded match what you reported, and you are good to finish the task.');
         setStep('done');
       } else {
         setStep(res.nextStep === 'EXPLAIN_EXTRA_FILES' ? 'explain' : 'held');
@@ -438,8 +438,8 @@ export default function GatePassWizard({ tenantId, accessToken, onChanged }: Pro
       {step === 'explain' && result ? (
         <div className="p2gp-step">
           <p>
-            You reported <strong>{result.declared}</strong> new deliver{result.declared === 1 ? 'y' : 'ies'}, but <strong>{result.deliveryFiles}</strong> delivery
-            file{result.deliveryFiles === 1 ? ' was' : 's were'} uploaded for this outlet {dayWords === 'today' ? 'today' : `on ${chosenDay}`}. Which of those uploaded delivery files are for deliveries done on another day?
+            You reported <strong>{result.declared}</strong> new deliver{result.declared === 1 ? 'y' : 'ies'}, but <strong>{result.deliveryFiles}</strong> deliver{result.deliveryFiles === 1 ? 'y has its' : 'ies have their'} vehicle
+            gate pass dated {dayWords === 'today' ? 'today' : chosenDay} uploaded for this outlet. Which of those deliveries were not on this gate pass?
             Give the number or the customer name of each.
           </p>
           <textarea className="p2gp-text" rows={3} maxLength={1000} value={pastDeliveries} onChange={(event) => setPastDeliveries(event.target.value)} />
@@ -453,8 +453,9 @@ export default function GatePassWizard({ tenantId, accessToken, onChanged }: Pro
       {step === 'held' && result ? (
         <div className="p2gp-step">
           <p>
-            You reported <strong>{result.declared}</strong> new deliver{result.declared === 1 ? 'y' : 'ies'}, but only <strong>{result.deliveryFiles}</strong> delivery
-            file{result.deliveryFiles === 1 ? ' was' : 's were'} uploaded. Was the difference of <strong>{result.difference}</strong> intimated to you, and do you have those files?
+            You reported <strong>{result.declared}</strong> new deliver{result.declared === 1 ? 'y' : 'ies'}, but only <strong>{result.deliveryFiles}</strong> deliver{result.deliveryFiles === 1 ? 'y has its' : 'ies have their'} vehicle
+            gate pass of this date uploaded. A delivery counts only once its own vehicle gate pass is uploaded with its file. Was the difference
+            of <strong>{result.difference}</strong> intimated to you, and do you have those files?
           </p>
           <div className="p2gp-actions">
             <button type="button" className="p2w-button p2w-button--confirm" disabled={busy} onClick={() => void sendAnswer({ filesHeld: true })}>Yes</button>

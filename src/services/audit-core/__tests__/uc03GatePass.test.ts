@@ -53,4 +53,17 @@ describe('gate pass client', () => {
     const cause = await uploadGatePass('t1', { outletId: 'o1', file: new Blob(['x']), filename: 'a.jpg' }, 'tok').catch((e) => e);
     expect(gatePassErrorText(cause, 'fallback')).toBe('The photo is blurred. Take it again.');
   });
+
+  it('reads "Not notified to PC" from either field name, so the web works with an older Audit Core', async () => {
+    const figures = { asPerRegister: 5, updatedInTool: 2, pendingDueToPc: 0, gatePassDays: 1, gatePassesFinished: 1, gatePassesMissing: 0 };
+    fetchMock.mockResolvedValueOnce(json({ from: 'a', to: 'b', notes: [], totals: { ...figures, pendingDueToClient: 3 },
+      outlets: [{ ...figures, pendingDueToClient: 3, outletId: 'o1', outletName: 'O', dealerId: 'd', dealerName: 'D', teamLeads: [],
+        days: [{ date: '2026-10-27', label: 'Tue', status: 'DONE', asPerRegister: 5, updatedInTool: 2, pendingDueToPc: 0,
+          pendingDueToClient: 3, gatePassId: 'g', pcName: 'P' }] }] }));
+    const { getGatePassSummary } = await load();
+    const old = await getGatePassSummary('t1', '2026-10-27', '2026-10-27', 'tok');
+    expect([old.totals.notNotifiedToPc, old.outlets[0].notNotifiedToPc, old.outlets[0].days[0].notNotifiedToPc]).toEqual([3, 3, 3]);
+    fetchMock.mockResolvedValueOnce(json({ from: 'a', to: 'b', notes: [], outlets: [], totals: { ...figures, notNotifiedToPc: 4, pendingDueToClient: 4 } }));
+    expect((await getGatePassSummary('t1', 'a', 'b', 'tok')).totals.notNotifiedToPc).toBe(4);
+  });
 });

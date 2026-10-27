@@ -57,7 +57,7 @@ function Figures({ f }: { f: GatePassSummaryFigures }) {
       <td className={f.pendingDueToClient ? 'p2gp-num p2gp-num--warn' : 'p2gp-num'}>{f.pendingDueToClient}</td>
       <td className={f.pendingDueToPc ? 'p2gp-num p2gp-num--bad' : 'p2gp-num'}>{f.pendingDueToPc}</td>
       <td className={f.gatePassesMissing ? 'p2gp-num p2gp-num--bad' : 'p2gp-num'}>
-        {f.gatePassesFinished} / {f.gatePassDays}{f.gatePassesMissing ? <small>{f.gatePassesMissing} missing</small> : null}
+        {f.gatePassesFinished} / {f.gatePassDays}{f.gatePassesMissing ? <small>{f.gatePassesMissing} not uploaded</small> : null}
       </td>
     </>
   );
@@ -145,7 +145,9 @@ export default function GatePassSummary({ tenantId, accessToken, refreshKey }: P
                 <th title="Delivery files uploaded on the days the gate pass covers">Updated in Tool</th>
                 <th title="The PC said these deliveries were not notified to them">Pending due to Client</th>
                 <th title="The PC holds the files but they are not uploaded, or has not answered yet">Pending due to PC</th>
-                <th>Gate passes done</th>
+                <th title="Gate passes finished (photo and counts) out of the gate pass days in the range; 'not uploaded': days with no photo at all">
+                  Gate passes done <span>done / days</span>
+                </th>
               </tr>
             </thead>
             {dealers.map(([dealerId, dealer]) => (

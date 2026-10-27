@@ -6,6 +6,7 @@ import {
   getEngagement, type EngagementCell, type EngagementPeriod, type EngagementPerson, type TaskManagerMode,
 } from '../../services/audit-core/taskManager';
 import type { LoginPerson } from '../../services/security/loginActivity';
+import { sourcesText } from './activityTally';
 import { addDays, istToday, minutesText, personName, roleLabel } from './tmFormat';
 import '../../styles/task-manager.css';
 
@@ -103,6 +104,7 @@ function CellRow({ label, cell, signIns }: { label: ReactNode; cell: EngagementC
     <>
       <td>{label}</td>
       <td>{minutesText(cell.activeMinutes)}</td>
+      <td className="p2w-muted">{sourcesText(cell.activeMinutesBySource, minutesText)}</td>
       <td className={e.inUsePct !== null && e.inUsePct < 50 ? 'tm-warn' : ''}>{show(e.inUsePct, pct)}</td>
       <td>{cell.daysActive}<span className="p2w-muted"> / {cell.workingDays}</span></td>
       <td>{show(e.avgActiveMinutesPerDayActive, minutesText)}</td>
@@ -220,6 +222,7 @@ export default function EngagementDashboard({ mode, tenantId, accessToken, login
                   <tr>
                     <th>Person</th>
                     <th title="App visible and used">Active</th>
+                    <th title="Where the active time was spent: a computer's browser, a phone's browser, or the Android / iOS app">Used on</th>
                     <th title="Active as a share of the time the app was open">In use</th>
                     <th title="Days with any activity, of working days (Mon–Sat)">Days active</th>
                     <th>Active per day worked</th>

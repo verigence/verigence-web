@@ -4,16 +4,17 @@ import { Capacitor } from '@capacitor/core';
 import { postActivity } from '../../services/audit-core/taskManager';
 import { useProjectContextStore } from '../../store/projectContextStore';
 import { useSessionStore } from '../../store/sessionStore';
-import { classify, parseTally, record, totals, type StoredTally } from './activityTally';
+import { activitySource, classify, parseTally, record, totals, type StoredTally } from './activityTally';
+import type { ActivitySource } from '../../services/audit-core/taskManager';
 
 const TICK_MS = 15_000;
 const FLUSH_MS = 15 * 60_000;
 const MIN_FLUSH_GAP_MS = 60_000;
 const INTERACTION_WRITE_GAP_MS = 5_000;
 
-function clientKind(): 'WEB' | 'ANDROID' | 'IOS' {
-  const platform = Capacitor.getPlatform();
-  return platform === 'android' ? 'ANDROID' : platform === 'ios' ? 'IOS' : 'WEB';
+function clientKind(): ActivitySource {
+  return activitySource(Capacitor.getPlatform(), navigator.userAgent,
+    (navigator as Navigator & { userAgentData?: { mobile?: boolean } }).userAgentData?.mobile);
 }
 
 /**

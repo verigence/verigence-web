@@ -121,3 +121,28 @@ export function parseTally(raw: string | null): StoredTally {
     return emptyTally();
   }
 }
+
+/** Where this tally's time is spent: the app, a phone / tablet browser, or a
+ * computer's browser (product owner 2026-10-27). */
+export function activitySource(
+  platform: string, userAgent: string, mobileHint?: boolean,
+): 'WEB' | 'MOBILE_WEB' | 'ANDROID' | 'IOS' {
+  if (platform === 'android') return 'ANDROID';
+  if (platform === 'ios') return 'IOS';
+  if (mobileHint === true) return 'MOBILE_WEB';
+  return /Android|iPhone|iPad|iPod|Mobile|Tablet/i.test(userAgent) ? 'MOBILE_WEB' : 'WEB';
+}
+
+const SOURCE_LABELS: Record<string, string> = {
+  WEB: 'Computer', MOBILE_WEB: 'Phone browser', ANDROID: 'Android app', IOS: 'iOS app',
+};
+
+/** "Computer 2h 10m · Android app 40m", largest first; "—" when nothing. */
+export function sourcesText(bySource: Record<string, number | undefined> | undefined,
+  minutesText: (minutes: number) => string): string {
+  const parts = Object.entries(bySource ?? {})
+    .filter(([, minutes]) => (minutes ?? 0) > 0)
+    .sort((a, b) => (b[1] ?? 0) - (a[1] ?? 0))
+    .map(([source, minutes]) => `${SOURCE_LABELS[source] ?? source} ${minutesText(minutes ?? 0)}`);
+  return parts.length ? parts.join(' · ') : '—';
+}

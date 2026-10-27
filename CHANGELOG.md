@@ -12,6 +12,8 @@ The app's build number is added by the release workflow and is not written here.
 
 ## [Unreleased]
 
+## [1.3.1] - 2026-10-27
+
 ### Added
 - Daily gate pass: the Team Lead (outlets under them), PM and Executive see all onsite outlets together, with As per Gate out Register, Updated in Tool, Pending due to Client and Pending due to PC, by day and in total.
 - Daily gate pass: a photo already taken can be uploaded instead of opening the camera.

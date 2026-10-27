@@ -55,11 +55,13 @@ const INSURANCE_LABELS: Record<string, string> = {
   premium_variance: 'Premium variance',
 };
 const FINANCE_LABELS: Record<string, string> = {
-  finance_type_code: 'Finance type', provider_name: 'Financier', financed_amount: 'Loan amount',
+  // From documents the amount is the RTO challan's hypothecation charges, not the loan (2026-10-27).
+  finance_type_code: 'Finance type', provider_name: 'Financier', financed_amount: 'Hypothecation charges (RTO)',
+  hypothecation_charges: 'Hypothecation charges (RTO)', sanctioned_amount: 'Loan sanctioned',
   loan_disbursement_amount: 'Disbursed', loan_disbursement_confidence: 'Disbursement match',
   loan_disbursement_match_basis: 'Matched by', do_reference: 'Delivery order', po_reference: 'Purchase order',
   actual_status_code: 'Status', disbursement_date: 'Disbursed on', disbursement_reference: 'Payment reference',
-  disbursement_gap: 'Not yet disbursed',
+  disbursement_gap: 'Not yet disbursed of the sanction',
 };
 
 export function AddonsTab({ addons, journeyId, tenantId, accessToken }: {

@@ -10,6 +10,7 @@ import { useProjectContextStore } from '../../../store/projectContextStore';
 import { humanizeKey } from '../workspace/p2Format';
 import { PricingPanel, useRefreshDeal } from './DealControls';
 import { FLAG_LABELS, money, recordField, signedMoney, varianceTone } from './j360Format';
+import { insuranceDecidedText } from './insuranceSource';
 
 /** What the customer opted for on this line, as a small switch: on is
  * taken, read from the invoice once the deal has one, else the booking. */
@@ -66,8 +67,9 @@ function InsuranceSource({ insurance, tenantId, journeyId, accessToken }: {
             onClick={() => save.mutate({ source: 'SELF', reason: reason.trim() })}>{save.isPending ? 'Saving…' : 'Confirm Self'}</button>
         </>
       ) : (
-        <small>{insurance.source === 'SELF' ? 'Self: premium not in the deal' : 'Inhouse: premium in the deal'}
-          {insurance.decidedBy === 'PC' ? ' · confirmed by PC' : ' · assumed'}</small>
+        <small title={insurance.basis ?? undefined}>
+          {insurance.source === 'SELF' ? 'Self: premium not in the deal' : 'Inhouse: premium in the deal'}
+          {insuranceDecidedText(insurance)}</small>
       )}
       {save.isError ? <small className="j360-insurance-source__error">{save.error instanceof Error ? save.error.message : 'Could not save.'}</small> : null}
     </span>

@@ -97,14 +97,38 @@ export interface SystemHealth {
   pipeline: {
     projects: ProjectPipeline[];
     workerJobs: Array<{ kind: string; status: string; count: number }>;
-    documentIntelligence: {
-      processingJobs?: Array<{ status: string; count: number }>;
-      processingErrors?: Array<{ errorCode: string; count: number }>;
-      classificationJobs?: Array<{ status: string; count: number }>;
-      schedulerProblems?: Array<{ runName: string; runDate: string; startedAtUtc: string | null; completedAtUtc: string | null; errorCode: string | null }>;
-    } | null;
+    documentIntelligence: DocumentIntelligenceHealth | null;
   };
   database: DatabaseHealth;
+  /** Document Intelligence's own database (it is not Audit Core's); null when DI could not be read. */
+  diDatabase?: DatabaseHealth | null;
+}
+
+export interface DiQueueCounts {
+  inFlight: number;
+  over30m: number;
+  failed: number;
+  completed: number;
+  oldestInFlightAtUtc: string | null;
+  byStatus: Record<string, number>;
+}
+
+export interface DiProjectQueues {
+  tenantId: string;
+  projectName: string;
+  projectStatus: string | null;
+  classification: DiQueueCounts;
+  extraction: DiQueueCounts;
+  failureReasons: Array<{ queue: string; errorCode: string; count: number }>;
+}
+
+/** From DI's GET /v1/platform/health, mapped to Project names by Audit Core. */
+export interface DocumentIntelligenceHealth {
+  available: boolean;
+  error: string | null;
+  projects: DiProjectQueues[];
+  leaseReclaims: number;
+  schedulerProblems: Array<{ runName: string; runDate: string; startedAtUtc: string | null; completedAtUtc: string | null; errorCode: string | null }>;
 }
 
 export function getSystemHealth(hours: number, accessToken: string) {

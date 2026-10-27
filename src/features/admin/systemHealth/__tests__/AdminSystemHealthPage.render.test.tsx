@@ -70,6 +70,48 @@ describe('System health page', () => {
     }
   });
 
+  it('shows Document Intelligence per Project and its own database', () => {
+    const client = new QueryClient();
+    client.setQueryData(['admin', 'system-health', 24], {
+      ...sample,
+      pipeline: {
+        ...sample.pipeline,
+        documentIntelligence: {
+          available: true, error: null, leaseReclaims: 2,
+          schedulerProblems: [{ runName: 'nightly_reprocess', runDate: '2026-10-26', startedAtUtc: '2026-10-26T20:00:00Z', completedAtUtc: null, errorCode: null }],
+          projects: [{
+            tenantId: 't1', projectName: 'Mahindra Orissa', projectStatus: 'ACTIVE',
+            classification: { inFlight: 1, over30m: 0, failed: 4, completed: 90, oldestInFlightAtUtc: '2026-10-27T07:40:00Z', byStatus: {} },
+            extraction: { inFlight: 3, over30m: 2, failed: 0, completed: 80, oldestInFlightAtUtc: '2026-10-27T07:00:00Z', byStatus: {} },
+            failureReasons: [{ queue: 'classification', errorCode: 'GEMINI_TIMEOUT', count: 4 }],
+          }],
+        },
+      },
+      diDatabase: { ...sample.database, database: 'railway', window: null, slowQueries: null, slowQueriesNote: 'pg_stat_statements is not installed' },
+    });
+    const html = renderToString(
+      <QueryClientProvider client={client}><AdminSystemHealthPage /></QueryClientProvider>,
+    );
+    for (const text of ['Document Intelligence, per Project', 'GEMINI_TIMEOUT', 'taken back from a worker', 'nightly_reprocess',
+      'Document Intelligence database (railway)', 'Audit Core database (neondb)']) {
+      expect(html).toContain(text);
+    }
+  });
+
+  it('says when Document Intelligence could not be read', () => {
+    const client = new QueryClient();
+    client.setQueryData(['admin', 'system-health', 24], {
+      ...sample,
+      pipeline: { ...sample.pipeline, documentIntelligence: { available: false, error: 'Document Intelligence answered HTTP 503.', projects: [], leaseReclaims: 0, schedulerProblems: [] } },
+      diDatabase: null,
+    });
+    const html = renderToString(
+      <QueryClientProvider client={client}><AdminSystemHealthPage /></QueryClientProvider>,
+    );
+    expect(html).toContain('could not be read');
+    expect(html).not.toContain('Document Intelligence database');
+  });
+
   it('says plainly when nothing has reported yet', () => {
     const client = new QueryClient();
     client.setQueryData(['admin', 'system-health', 24], {

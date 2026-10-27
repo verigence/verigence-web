@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
-  agoText, alertCounts, barHeights, bytesText, connectionsInUse, cpuText, errorRate, memoryText, overallStatus,
+  agoText, alertCounts, barHeights, bytesText, connectionsInUse, cpuText, diTotals, errorRate, memoryText, overallStatus,
   pctTone, serviceTone, usePct,
 } from '../systemHealthLogic';
 
@@ -49,5 +49,19 @@ describe('system health logic', () => {
     expect(agoText(null, now)).toBe('—');
     expect(barHeights([0, 5, 10])).toEqual([0, 50, 100]);
     expect(barHeights([0, 0])).toEqual([0, 0]);
+  });
+
+  it('adds Document Intelligence jobs across Projects and both stages', () => {
+    const q = (inFlight: number, over30m: number, failed: number) => ({ inFlight, over30m, failed, completed: 0, oldestInFlightAtUtc: null, byStatus: {} });
+    const di = {
+      available: true, error: null, leaseReclaims: 0, schedulerProblems: [],
+      projects: [
+        { tenantId: 'a', projectName: 'A', projectStatus: 'ACTIVE', classification: q(1, 0, 2), extraction: q(3, 1, 0), failureReasons: [] },
+        { tenantId: 'b', projectName: 'B', projectStatus: 'ACTIVE', classification: q(0, 0, 1), extraction: q(2, 2, 0), failureReasons: [] },
+      ],
+    };
+    expect(diTotals(di)).toEqual({ inFlight: 6, over30m: 3, failed: 3 });
+    expect(diTotals({ ...di, available: false })).toEqual({ inFlight: 0, over30m: 0, failed: 0 });
+    expect(diTotals(null)).toEqual({ inFlight: 0, over30m: 0, failed: 0 });
   });
 });

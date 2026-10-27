@@ -50,9 +50,9 @@
    The Daily processing table styles are not loaded on this page. */
 .p2gp-sum-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; margin-top: 4px; border: 1px solid var(--p2w-line, #d8dee8); border-radius: 10px; }
 .p2gp-sum { width: 100%; min-width: 760px; border-collapse: collapse; table-layout: fixed; font-size: .92rem; }
-.p2gp-sum col { width: 12%; }
-.p2gp-sum col.p2gp-sum__name { width: 40%; }
-.p2gp-sum th, .p2gp-sum td { padding: 9px 12px; border-bottom: 1px solid #e9edf2; vertical-align: middle; }
+.p2gp-sum col { width: 11.2%; }
+.p2gp-sum col.p2gp-sum__name { width: 44%; }
+.p2gp-sum th, .p2gp-sum td { padding: 6px 10px; border-bottom: 1px solid #e9edf2; vertical-align: middle; }
 .p2gp-sum thead th { position: sticky; top: 0; background: #f6f8fb; color: #44546a; font-size: .78rem; font-weight: 700; text-transform: none; line-height: 1.25; text-align: right; white-space: normal; border-bottom: 1px solid var(--p2w-line, #d8dee8); }
 .p2gp-sum thead th.p2gp-sum__name { text-align: left; }
 .p2gp-sum thead th span { display: block; font-weight: 500; color: #7a8899; }
@@ -64,8 +64,8 @@
 .p2gp-sum__dealer td span { font-weight: 500; color: #6b7a8c; font-size: .8rem; margin-left: 6px; }
 .p2gp-sum__outlet td:first-child { padding-left: 12px; }
 .p2gp-sum__outlet td:first-child, .p2gp-sum__day td:first-child { overflow-wrap: anywhere; }
-.p2gp-sum__toggle { width: 24px; height: 24px; margin-right: 6px; border: 1px solid #d8dee8; border-radius: 6px; background: #fff; color: #44546a; cursor: pointer; line-height: 1; vertical-align: middle; }
-.p2gp-sum__by { display: block; margin: 2px 0 0 30px; color: #6b7a8c; font-size: .8rem; }
+.p2gp-sum__toggle { width: 22px; height: 22px; margin-right: 6px; border: 1px solid #d8dee8; border-radius: 6px; background: #fff; color: #44546a; cursor: pointer; line-height: 1; vertical-align: middle; }
+.p2gp-sum__by { display: block; margin: 1px 0 0 28px; color: #6b7a8c; font-size: .8rem; }
 .p2gp-sum__day td { background: #fbfcfe; font-size: .85rem; }
 .p2gp-sum__day td:first-child { padding-left: 42px; }
 .p2gp-sum__day .p2gp-sum__by { margin-left: 0; }

@@ -66,4 +66,20 @@ describe('gate pass client', () => {
     fetchMock.mockResolvedValueOnce(json({ from: 'a', to: 'b', notes: [], outlets: [], totals: { ...figures, notNotifiedToPc: 4, pendingDueToClient: 4 } }));
     expect((await getGatePassSummary('t1', 'a', 'b', 'tok')).totals.notNotifiedToPc).toBe(4);
   });
+
+  it('works out what the PC has not uploaded: gate pass - (found + not notified)', async () => {
+    const { notUploadedByPc } = await load();
+    expect(notUploadedByPc(5, 1, 3)).toBe(1);
+    expect(notUploadedByPc(5, 1, 0)).toBe(4);
+    expect(notUploadedByPc(5, 1, 4)).toBe(0);
+    expect(notUploadedByPc(2, 3, 0)).toBe(0);
+  });
+
+  it('sends how many were not notified to the PC', async () => {
+    fetchMock.mockResolvedValue(json({ gatePass: { gatePassId: 'g' }, taskRaised: true, notNotified: 3, notUploadedByPc: 1 }));
+    const { answerGatePass } = await load();
+    const res = await answerGatePass('t1', 'g', { notNotified: 3 }, 'tok');
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body as string)).toEqual({ notNotified: 3 });
+    expect(res.notUploadedByPc).toBe(1);
+  });
 });

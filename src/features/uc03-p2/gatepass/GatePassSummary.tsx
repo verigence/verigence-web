@@ -143,8 +143,8 @@ export default function GatePassSummary({ tenantId, accessToken, refreshKey }: P
                 <th className="p2gp-sum__name">Dealership / outlet <span>uploaded by</span></th>
                 <th title="New deliveries on the gate pass">As per Gate out Register</th>
                 <th title="Delivery files uploaded on the days the gate pass covers">Updated in Tool</th>
-                <th title="The PC said these deliveries were not notified to them">Not notified to PC</th>
-                <th title="The PC holds the files but they are not uploaded, or has not answered yet">Pending due to PC</th>
+                <th title="Deliveries the PC said the dealership did not notify to them">Not notified to PC</th>
+                <th title="As per register − (updated in tool + not notified to PC): deliveries the PC has not uploaded (the whole gap until the PC answers)">Pending due to PC</th>
                 <th title="Gate passes finished (photo and counts) out of the gate pass days in the range; 'not uploaded': days with no photo at all">
                   Gate passes done <span>done / days</span>
                 </th>

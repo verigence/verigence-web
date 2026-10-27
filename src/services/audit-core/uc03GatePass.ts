@@ -31,6 +31,8 @@ export type GatePass = {
   otherCount: number | null; otherNote: string | null; deliveryFiles: number | null;
   divergence: 'NONE' | 'EXTRA_FILES' | 'MISSING_FILES' | null; pastDeliveryNote: string | null;
   filesHeld: boolean | null; countsSubmitted: boolean; completed: boolean;
+  /** Deliveries the dealership did not notify to the PC, and the rest the PC has not uploaded (2026-10-27). */
+  notNotifiedToPc?: number | null; notUploadedByPc?: number | null;
 };
 
 export type GatePassCountsInput = {
@@ -103,10 +105,10 @@ export function submitGatePassCounts(tenantId: string, gatePassId: string, input
   });
 }
 
-export function answerGatePass(
-  tenantId: string, gatePassId: string, answer: { pastDeliveries?: string; filesHeld?: boolean }, accessToken?: string,
-) {
-  return auditCoreRequest<{ gatePass: GatePass; taskRaised: boolean }>(
+export type GatePassAnswer = { pastDeliveries?: string; notNotified?: number };
+
+export function answerGatePass(tenantId: string, gatePassId: string, answer: GatePassAnswer, accessToken?: string) {
+  return auditCoreRequest<{ gatePass: GatePass; taskRaised: boolean; notNotified?: number; notUploadedByPc?: number }>(
     `${base(tenantId)}/gate-passes/${encodeURIComponent(gatePassId)}/answer`,
     { method: 'POST', accessToken, body: JSON.stringify(answer) },
   );
@@ -172,4 +174,9 @@ export async function getGatePassSummary(tenantId: string, from: string, to: str
     totals: withNotNotified(raw.totals),
     outlets: raw.outlets.map((o) => ({ ...withNotNotified(o), days: o.days.map(withNotNotified) })),
   };
+}
+
+/** Not uploaded by the PC = deliveries on the gate pass - (found in the tool + not notified by the dealership). */
+export function notUploadedByPc(declared: number, found: number, notNotified: number): number {
+  return Math.max(declared - found - notNotified, 0);
 }

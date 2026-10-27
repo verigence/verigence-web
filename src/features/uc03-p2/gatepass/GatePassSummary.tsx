@@ -113,7 +113,7 @@ export default function GatePassSummary({ tenantId, accessToken, refreshKey }: P
     <SectionCard>
       <div className="p2w-card__title">
         <h3>All outlets</h3>
-        <p className="p2w-muted">Onsite outlets only: the daily gate pass is not taken at a satellite outlet. Open an outlet for each day.</p>
+        <p className="p2w-muted">Onsite outlets only: the daily gate pass is not taken at a satellite outlet. Highlighted: a gate pass not uploaded or not finished. Click an outlet to see its gate pass; open it with ▸ for each day.</p>
       </div>
       <div className="p2w-listbar">
         <div className="p2w-segment" role="tablist" aria-label="Range">
@@ -153,19 +153,38 @@ export default function GatePassSummary({ tenantId, accessToken, refreshKey }: P
                 </tr>
                 {dealer.outlets.map((o) => {
                   const isOpen = open === o.outletId;
+                  // Highlight a gate pass the PC has not uploaded or not finished (product owner 2026-10-27).
+                  const owed = o.days.some((d) => d.status === 'NOT_UPLOADED' || d.status === 'COUNTS_PENDING');
+                  const single = o.days.length === 1 ? o.days[0] : null;
                   return (
                     <Fragment key={o.outletId}>
-                      <tr>
+                      <tr className={owed ? 'p2gp-row--owed' : undefined}>
                         <td>
                           <button type="button" className="p2dr-toggle" aria-expanded={isOpen}
                             onClick={() => setOpen(isOpen ? undefined : o.outletId)}>{isOpen ? '▾' : '▸'}</button>
-                          {o.outletName}
+                          {single?.gatePassId ? (
+                            <button type="button" className="p2w-link p2gp-outlet-link" title="Open the gate pass"
+                              onClick={() => void openPage(single.gatePassId!, 1)}>{o.outletName}</button>
+                          ) : o.outletName}
                           {o.uploadedBy?.length ? <span className="p2w-muted"> · {o.uploadedBy.join(', ')}</span> : null}
+                          {single && single.status !== 'DONE' ? (
+                            <span className={`p2dr-state ${STATUS[single.status].tone}`}> · {STATUS[single.status].label}</span>
+                          ) : null}
+                          {single?.gatePassId && (single.pages ?? 1) > 1 ? (
+                            <span className="p2gp-pages">
+                              {Array.from({ length: (single.pages ?? 1) - 1 }, (_, i) => (
+                                <button key={i} type="button" className="p2w-link" onClick={() => void openPage(single.gatePassId!, i + 2)}>
+                                  Page {i + 2}
+                                </button>
+                              ))}
+                            </span>
+                          ) : null}
                         </td>
                         <Figures f={o} />
                       </tr>
                       {isOpen ? [...o.days].reverse().map((d) => (
-                        <tr key={d.date} className="p2dr-child">
+                        <tr key={d.date}
+                          className={d.status === 'NOT_UPLOADED' || d.status === 'COUNTS_PENDING' ? 'p2dr-child p2gp-row--owed' : 'p2dr-child'}>
                           <td>
                             <span className="p2gp-summary__day">{d.label}</span>
                             <span className={`p2dr-state ${STATUS[d.status].tone}`}> · {STATUS[d.status].label}</span>

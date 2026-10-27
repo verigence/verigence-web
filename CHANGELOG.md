@@ -12,6 +12,9 @@ The app's build number is added by the release workflow and is not written here.
 
 ## [Unreleased]
 
+### Changed
+- Daily gate pass, all outlets: a gate pass not uploaded or not finished by the PC is highlighted, and clicking an outlet opens its gate pass.
+
 ## [1.3.2] - 2026-10-27
 
 ### Added

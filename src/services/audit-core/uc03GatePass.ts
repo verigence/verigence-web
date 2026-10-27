@@ -25,6 +25,8 @@ export type GatePass = {
   dayLabel?: string; coversDates?: string[];
   /** The photo is always kept; its quality is judged on the server (2026-10-27). */
   photoQuality?: 'GOOD' | 'BLURRED' | 'TOO_DARK' | 'WASHED_OUT'; photoQualityNote?: string | null;
+  photoMode?: 'COMBINED' | 'SEPARATE';
+  pages?: Array<{ pageNo: number; date: string; photoQuality: string }>;
   newDeliveries: number | null; stockTransfers: number | null; testDrives: number | null;
   otherCount: number | null; otherNote: string | null; deliveryFiles: number | null;
   divergence: 'NONE' | 'EXTRA_FILES' | 'MISSING_FILES' | null; pastDeliveryNote: string | null;
@@ -32,7 +34,10 @@ export type GatePass = {
 };
 
 export type GatePassCountsInput = {
-  newDeliveries: number; stockTransfers: number; testDrives: number; otherCount: number; otherNote?: string;
+  newDeliveries?: number; stockTransfers?: number; testDrives?: number; otherCount?: number; otherNote?: string;
+  /** Sunday and Monday photographed apart: the counts of each day. */
+  days?: Array<{ date: string; newDeliveries: number; stockTransfers: number; testDrives: number;
+                 otherCount: number; otherNote?: string }>;
 };
 export type GatePassCountsResult = {
   gatePass: GatePass; divergence: 'NONE' | 'EXTRA_FILES' | 'MISSING_FILES'; declared: number; deliveryFiles: number;
@@ -66,14 +71,27 @@ export function getGatePassOutlets(tenantId: string, accessToken?: string) {
   return auditCoreRequest<GatePassOutlets>(`${base(tenantId)}/gate-passes/outlets`, { accessToken });
 }
 
+/** One photo of the gate-out register; ``date`` only when Sunday and Monday were photographed apart. */
+export type GatePassPhoto = { blob: Blob; filename: string; date?: string };
+
+export const MAX_GATE_PASS_PHOTOS = 4;
+
 export function uploadGatePass(
-  tenantId: string, input: { outletId: string; pcName?: string; businessDate?: string; file: Blob; filename: string }, accessToken?: string,
+  tenantId: string,
+  input: { outletId: string; pcName?: string; businessDate?: string; file?: Blob; filename?: string;
+           photos?: GatePassPhoto[]; separateDays?: boolean },
+  accessToken?: string,
 ) {
   const form = new FormData();
   form.set('outletId', input.outletId);
   if (input.pcName) form.set('pcName', input.pcName);
   if (input.businessDate) form.set('businessDate', input.businessDate);
-  form.set('file', input.file, input.filename);
+  // Up to four photos: the register can run over pages (product owner 2026-10-27).
+  const photos = input.photos ?? (input.file ? [{ blob: input.file, filename: input.filename ?? 'gate-pass.jpg' }] : []);
+  for (const photo of photos) {
+    form.append('files', photo.blob, photo.filename);
+    if (input.separateDays && photo.date) form.append('fileDates', photo.date);
+  }
   return auditCoreRequest<GatePass>(`${base(tenantId)}/gate-passes`, {
     method: 'POST', accessToken, body: form, timeoutMs: 120_000,
   });
@@ -103,9 +121,9 @@ export function getGatePassCalendar(
   return auditCoreRequest<GatePassCalendar>(`${base(tenantId)}/gate-passes/calendar?${params.toString()}`, { accessToken });
 }
 
-export function getGatePassImageUrl(tenantId: string, gatePassId: string, accessToken?: string) {
-  return auditCoreRequest<{ url: string; contentType: string; filename: string }>(
-    `${base(tenantId)}/gate-passes/${encodeURIComponent(gatePassId)}/image-url`, { accessToken },
+export function getGatePassImageUrl(tenantId: string, gatePassId: string, accessToken?: string, page = 1) {
+  return auditCoreRequest<{ url: string; contentType: string; filename: string; page?: number; pages?: number }>(
+    `${base(tenantId)}/gate-passes/${encodeURIComponent(gatePassId)}/image-url?page=${page}`, { accessToken },
   );
 }
 
@@ -129,9 +147,11 @@ export type GatePassSummaryDay = {
   asPerRegister: number | null; updatedInTool: number; pendingDueToClient: number; pendingDueToPc: number;
   gatePassId: string | null; pcName: string | null;
   photoQuality?: 'GOOD' | 'BLURRED' | 'TOO_DARK' | 'WASHED_OUT' | null;
+  pages?: number; photoMode?: 'COMBINED' | 'SEPARATE';
 };
 export type GatePassSummaryOutlet = GatePassSummaryFigures & {
   outletId: string; outletName: string; dealerId: string; dealerName: string; teamLeads: string[];
+  uploadedBy?: string[];
   days: GatePassSummaryDay[];
 };
 export type GatePassSummary = {

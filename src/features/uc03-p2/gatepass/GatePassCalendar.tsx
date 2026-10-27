@@ -57,13 +57,17 @@ export default function GatePassCalendar({ tenantId, accessToken, refreshKey }: 
   const { lead, days } = monthShape(month);
   const outletView = data?.scope === 'OUTLET';
 
-  async function openPhoto(day: GatePassDay) {
+  // A gate pass can have up to four photos (2026-10-27): the first open says how many.
+  const [pageCount, setPageCount] = useState<Record<string, number>>({});
+
+  async function openPhoto(day: GatePassDay, page = 1) {
     if (!day.gatePassId) return;
     setOpening(day.gatePassId);
     setPhotoError(null);
     try {
-      const { url } = await getGatePassImageUrl(tenantId, day.gatePassId, accessToken);
-      window.open(url, '_blank', 'noopener');
+      const opened = await getGatePassImageUrl(tenantId, day.gatePassId, accessToken, page);
+      if (opened.pages) setPageCount((all) => ({ ...all, [day.gatePassId!]: opened.pages! }));
+      window.open(opened.url, '_blank', 'noopener');
     } catch (cause) {
       setPhotoError(gatePassErrorText(cause, 'The gate pass photo could not be opened.'));
     } finally {
@@ -128,9 +132,14 @@ export default function GatePassCalendar({ tenantId, accessToken, refreshKey }: 
                       <span title="Delivery files uploaded">Files {day!.uploaded}</span>
                       <span className={day!.missing ? 'p2gp-bad' : undefined} title="Deliveries without a delivery file">Missing {day!.missing}</span>
                       {outletView && day!.gatePassId ? (
+                        <>
                         <button type="button" className="p2w-link" disabled={opening === day!.gatePassId} onClick={() => void openPhoto(day!)}>
                           {opening === day!.gatePassId ? 'Opening…' : 'View photo'}
                         </button>
+                        {Array.from({ length: Math.max(0, (pageCount[day!.gatePassId!] ?? 1) - 1) }, (_, k) => (
+                          <button key={k} type="button" className="p2w-link" onClick={() => void openPhoto(day!, k + 2)}>Page {k + 2}</button>
+                        ))}
+                        </>
                       ) : null}
                     </>
                   )}

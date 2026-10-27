@@ -3,7 +3,8 @@ import { useQuery } from '@tanstack/react-query';
 
 import SectionCard from '../../../components/SectionCard';
 import {
-  gatePassErrorText, getGatePassSummary, type GatePassSummaryDay, type GatePassSummaryFigures,
+  gatePassErrorText, getGatePassImageUrl, getGatePassSummary, type GatePassSummaryDay, type GatePassSummaryFigures,
+  type GatePassSummaryOutlet,
 } from '../../../services/audit-core/uc03GatePass';
 
 type Props = { tenantId: string; accessToken: string; refreshKey: number };
@@ -34,6 +35,20 @@ const QUALITY: Record<'BLURRED' | 'TOO_DARK' | 'WASHED_OUT', string> = {
   BLURRED: 'looks blurred', TOO_DARK: 'looks dark', WASHED_OUT: 'looks washed out',
 };
 
+const ZERO: GatePassSummaryFigures = {
+  asPerRegister: 0, updatedInTool: 0, pendingDueToClient: 0, pendingDueToPc: 0, gatePassDays: 0, gatePassesFinished: 0,
+  gatePassesMissing: 0,
+};
+
+function add(t: GatePassSummaryFigures, o: GatePassSummaryFigures): GatePassSummaryFigures {
+  return {
+    asPerRegister: t.asPerRegister + o.asPerRegister, updatedInTool: t.updatedInTool + o.updatedInTool,
+    pendingDueToClient: t.pendingDueToClient + o.pendingDueToClient, pendingDueToPc: t.pendingDueToPc + o.pendingDueToPc,
+    gatePassDays: t.gatePassDays + o.gatePassDays, gatePassesFinished: t.gatePassesFinished + o.gatePassesFinished,
+    gatePassesMissing: t.gatePassesMissing + o.gatePassesMissing,
+  };
+}
+
 function Figures({ f }: { f: GatePassSummaryFigures }) {
   return (
     <>
@@ -51,13 +66,14 @@ function Figures({ f }: { f: GatePassSummaryFigures }) {
 /**
  * Daily gate pass across every onsite outlet the caller oversees (TL: the outlets
  * under them; PM and Executive: all), product owner 2026-10-27: as per the gate-out
- * register, updated in the tool, and what is pending due to the client or the PC.
+ * register, updated in the tool, and what is pending due to the client or the PC,
+ * dealership by dealership with sub-totals, and who uploaded each gate pass.
  */
 export default function GatePassSummary({ tenantId, accessToken, refreshKey }: Props) {
   const today = istToday();
   const [range, setRange] = useState({ from: today, to: today });
-  const [lead, setLead] = useState('ALL');
   const [open, setOpen] = useState<string>();
+  const [photoError, setPhotoError] = useState<string | null>(null);
   const quick: Array<[string, string, string]> = [
     ['Today', today, today],
     ['Yesterday', addDays(today, -1), addDays(today, -1)],
@@ -69,17 +85,29 @@ export default function GatePassSummary({ tenantId, accessToken, refreshKey }: P
     queryFn: () => getGatePassSummary(tenantId, range.from, range.to, accessToken),
     staleTime: 30_000,
   });
-  const leads = useMemo(() => [...new Set((summary.data?.outlets ?? []).flatMap((o) => o.teamLeads))].sort(),
-    [summary.data]);
-  const outlets = useMemo(() => (summary.data?.outlets ?? []).filter((o) => lead === 'ALL' || o.teamLeads.includes(lead)),
-    [summary.data, lead]);
-  const totals = useMemo(() => outlets.reduce<GatePassSummaryFigures>((t, o) => ({
-    asPerRegister: t.asPerRegister + o.asPerRegister, updatedInTool: t.updatedInTool + o.updatedInTool,
-    pendingDueToClient: t.pendingDueToClient + o.pendingDueToClient, pendingDueToPc: t.pendingDueToPc + o.pendingDueToPc,
-    gatePassDays: t.gatePassDays + o.gatePassDays, gatePassesFinished: t.gatePassesFinished + o.gatePassesFinished,
-    gatePassesMissing: t.gatePassesMissing + o.gatePassesMissing,
-  }), { asPerRegister: 0, updatedInTool: 0, pendingDueToClient: 0, pendingDueToPc: 0, gatePassDays: 0, gatePassesFinished: 0, gatePassesMissing: 0 }),
-  [outlets]);
+  const outlets = useMemo(() => summary.data?.outlets ?? [], [summary.data]);
+  // Dealership by dealership, each with its sub-total (product owner 2026-10-27).
+  const dealers = useMemo(() => {
+    const groups = new Map<string, { name: string; outlets: GatePassSummaryOutlet[]; totals: GatePassSummaryFigures }>();
+    for (const o of outlets) {
+      const g = groups.get(o.dealerId) ?? { name: o.dealerName, outlets: [], totals: ZERO };
+      g.outlets.push(o);
+      g.totals = add(g.totals, o);
+      groups.set(o.dealerId, g);
+    }
+    return [...groups.entries()].sort((a, b) => a[1].name.localeCompare(b[1].name));
+  }, [outlets]);
+  const totals = useMemo(() => outlets.reduce<GatePassSummaryFigures>(add, ZERO), [outlets]);
+
+  async function openPage(gatePassId: string, page: number) {
+    setPhotoError(null);
+    try {
+      const { url } = await getGatePassImageUrl(tenantId, gatePassId, accessToken, page);
+      window.open(url, '_blank', 'noopener');
+    } catch (cause) {
+      setPhotoError(gatePassErrorText(cause, 'The gate pass photo could not be opened.'));
+    }
+  }
 
   return (
     <SectionCard>
@@ -98,23 +126,18 @@ export default function GatePassSummary({ tenantId, accessToken, refreshKey }: P
         <div className="p2w-filters">
           <label>From <input type="date" value={range.from} max={range.to} onChange={(e) => e.target.value && setRange({ ...range, from: e.target.value })} /></label>
           <label>To <input type="date" value={range.to} min={range.from} max={today} onChange={(e) => e.target.value && setRange({ ...range, to: e.target.value })} /></label>
-          {leads.length > 1 ? (
-            <label>Team Lead <select value={lead} onChange={(e) => setLead(e.target.value)}>
-              <option value="ALL">All</option>
-              {leads.map((l) => <option key={l} value={l}>{l}</option>)}
-            </select></label>
-          ) : null}
         </div>
       </div>
       {summary.isError ? <div className="p2w-alert p2w-alert--error" role="alert">{gatePassErrorText(summary.error, 'The gate pass view could not be loaded.')}</div> : null}
       {summary.isLoading ? <p className="p2w-muted">Loading…</p> : null}
+      {photoError ? <div className="p2w-alert p2w-alert--error" role="alert">{photoError}</div> : null}
       {summary.data && !outlets.length ? <p className="p2w-muted">No onsite outlet in your scope.</p> : null}
       {outlets.length ? (
         <div className="p2dr-scroll">
           <table className="p2dr-table">
             <thead>
               <tr>
-                <th>Outlet</th>
+                <th>Dealership / outlet · uploaded by</th>
                 <th title="New deliveries on the gate pass">As per Gate out Register</th>
                 <th title="Delivery files uploaded on the days the gate pass covers">Updated in Tool</th>
                 <th title="The PC said these deliveries were not notified to them">Pending due to Client</th>
@@ -122,41 +145,56 @@ export default function GatePassSummary({ tenantId, accessToken, refreshKey }: P
                 <th>Gate passes done</th>
               </tr>
             </thead>
-            <tbody>
-              {outlets.map((o) => {
-                const isOpen = open === o.outletId;
-                return (
-                  <Fragment key={o.outletId}>
-                    <tr>
-                      <td>
-                        <button type="button" className="p2dr-toggle" aria-expanded={isOpen}
-                          onClick={() => setOpen(isOpen ? undefined : o.outletId)}>{isOpen ? '▾' : '▸'}</button>
-                        <strong>{o.outletName}</strong>
-                        <span className="p2w-muted"> · {o.dealerName}{o.teamLeads.length ? ` · TL ${o.teamLeads.join(', ')}` : ''}</span>
-                      </td>
-                      <Figures f={o} />
-                    </tr>
-                    {isOpen ? [...o.days].reverse().map((d) => (
-                      <tr key={d.date} className="p2dr-child">
+            {dealers.map(([dealerId, dealer]) => (
+              <tbody key={dealerId}>
+                <tr className="p2gp-dealer">
+                  <td>{dealer.name}<span className="p2w-muted"> · {dealer.outlets.length} outlet{dealer.outlets.length === 1 ? '' : 's'}</span></td>
+                  <Figures f={dealer.totals} />
+                </tr>
+                {dealer.outlets.map((o) => {
+                  const isOpen = open === o.outletId;
+                  return (
+                    <Fragment key={o.outletId}>
+                      <tr>
                         <td>
-                          <span className="p2gp-summary__day">{d.label}</span>
-                          <span className={`p2dr-state ${STATUS[d.status].tone}`}> · {STATUS[d.status].label}</span>
-                          {d.pcName ? <span className="p2w-muted"> · {d.pcName}</span> : null}
-                          {d.photoQuality && d.photoQuality !== 'GOOD'
-                            ? <span className="p2dr-state p2dr-state--warn"> · photo {QUALITY[d.photoQuality]}</span> : null}
+                          <button type="button" className="p2dr-toggle" aria-expanded={isOpen}
+                            onClick={() => setOpen(isOpen ? undefined : o.outletId)}>{isOpen ? '▾' : '▸'}</button>
+                          {o.outletName}
+                          {o.uploadedBy?.length ? <span className="p2w-muted"> · {o.uploadedBy.join(', ')}</span> : null}
                         </td>
-                        <td>{d.asPerRegister ?? '—'}</td>
-                        <td>{d.updatedInTool}</td>
-                        <td>{d.pendingDueToClient}</td>
-                        <td>{d.pendingDueToPc}</td>
-                        <td />
+                        <Figures f={o} />
                       </tr>
-                    )) : null}
-                  </Fragment>
-                );
-              })}
-            </tbody>
-            {outlets.length > 1 ? (
+                      {isOpen ? [...o.days].reverse().map((d) => (
+                        <tr key={d.date} className="p2dr-child">
+                          <td>
+                            <span className="p2gp-summary__day">{d.label}</span>
+                            <span className={`p2dr-state ${STATUS[d.status].tone}`}> · {STATUS[d.status].label}</span>
+                            {d.pcName ? <span className="p2w-muted"> · {d.pcName}</span> : null}
+                            {d.photoQuality && d.photoQuality !== 'GOOD'
+                              ? <span className="p2dr-state p2dr-state--warn"> · photo {QUALITY[d.photoQuality]}</span> : null}
+                            {d.gatePassId ? (
+                              <span className="p2gp-pages">
+                                {Array.from({ length: d.pages ?? 1 }, (_, i) => (
+                                  <button key={i} type="button" className="p2w-link" onClick={() => void openPage(d.gatePassId!, i + 1)}>
+                                    {(d.pages ?? 1) > 1 ? `Page ${i + 1}` : 'Photo'}
+                                  </button>
+                                ))}
+                              </span>
+                            ) : null}
+                          </td>
+                          <td>{d.asPerRegister ?? '—'}</td>
+                          <td>{d.updatedInTool}</td>
+                          <td>{d.pendingDueToClient}</td>
+                          <td>{d.pendingDueToPc}</td>
+                          <td />
+                        </tr>
+                      )) : null}
+                    </Fragment>
+                  );
+                })}
+              </tbody>
+            ))}
+            {dealers.length > 1 || outlets.length > 1 ? (
               <tfoot>
                 <tr className="p2dr-total"><td>All outlets</td><Figures f={totals} /></tr>
               </tfoot>

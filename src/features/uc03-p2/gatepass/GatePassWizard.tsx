@@ -4,8 +4,8 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 import SectionCard from '../../../components/SectionCard';
 import {
-  answerGatePass, getGatePassOutlets, gatePassErrorText, MAX_GATE_PASS_PHOTOS, submitGatePassCounts, uploadGatePass,
-  type GatePass, type GatePassCountsResult, type GatePassOutlet,
+  answerGatePass, getGatePassOutlets, notUploadedByPc, gatePassErrorText, MAX_GATE_PASS_PHOTOS, submitGatePassCounts, uploadGatePass,
+  type GatePass, type GatePassAnswer, type GatePassCountsResult, type GatePassOutlet,
 } from '../../../services/audit-core/uc03GatePass';
 import { captureEvidencePhoto } from '../../../services/device/camera';
 import { getMyDisplayName } from '../../../services/security/profile';
@@ -61,7 +61,7 @@ function CountsForm({ value, onChange }: { value: Counts; onChange: (next: Count
   );
 }
 
-/** PC: upload today's gate pass, say what the day held, and see whether it agrees with the delivery files. */
+/** PC: upload today's gate pass, say what the day held, and see whether it agrees with the vehicle gate passes uploaded (2026-10-27). */
 export default function GatePassWizard({ tenantId, accessToken, onChanged }: Props) {
   const queryClient = useQueryClient();
   const fileInput = useRef<HTMLInputElement>(null);
@@ -89,6 +89,7 @@ export default function GatePassWizard({ tenantId, accessToken, onChanged }: Pro
   // The day the next photos are for (Sunday or Monday), read when the camera or file picker returns.
   const pendingDate = useRef<string | null>(null);
   const [pastDeliveries, setPastDeliveries] = useState('');
+  const [notNotified, setNotNotified] = useState('');
   const [outcome, setOutcome] = useState<string | null>(null);
   // The day the photo is for: today unless the PC says it is the previous day's (2026-10-27).
   const [forDate, setForDate] = useState<string | null>(null);
@@ -214,7 +215,7 @@ export default function GatePassWizard({ tenantId, accessToken, onChanged }: Pro
       setGatePass(res.gatePass);
       onChanged();
       if (res.nextStep === 'DONE') {
-        setOutcome('No divergence found. The delivery files match what you reported, and you are good to finish the task.');
+        setOutcome('No divergence found. The vehicle gate passes uploaded match what you reported, and you are good to finish the task.');
         setStep('done');
       } else {
         setStep(res.nextStep === 'EXPLAIN_EXTRA_FILES' ? 'explain' : 'held');
@@ -226,16 +227,19 @@ export default function GatePassWizard({ tenantId, accessToken, onChanged }: Pro
     }
   }
 
-  async function sendAnswer(answer: { pastDeliveries?: string; filesHeld?: boolean }) {
+  async function sendAnswer(answer: GatePassAnswer) {
     if (!gatePass) return;
     setBusy(true);
     setError(null);
     try {
       const res = await answerGatePass(tenantId, gatePass.gatePassId, answer, accessToken);
       setGatePass(res.gatePass);
-      setOutcome(res.taskRaised
-        ? 'Noted. A high-priority task "Delivery not notified to PC" has been raised for your Team Lead.'
-        : 'Noted. Thank you, the task is complete.');
+      const owed = res.notUploadedByPc ?? 0;
+      setOutcome([
+        res.taskRaised ? 'Noted. A high-priority task "Delivery not notified to PC" has been raised for your Team Lead.'
+          : 'Noted. Thank you, the task is complete.',
+        owed ? `${owed} deliver${owed === 1 ? 'y is' : 'ies are'} still to be uploaded by you, with ${owed === 1 ? 'its' : 'their'} vehicle gate pass.` : '',
+      ].filter(Boolean).join(' '));
       setStep('done');
       onChanged();
     } catch (cause) {
@@ -438,8 +442,8 @@ export default function GatePassWizard({ tenantId, accessToken, onChanged }: Pro
       {step === 'explain' && result ? (
         <div className="p2gp-step">
           <p>
-            You reported <strong>{result.declared}</strong> new deliver{result.declared === 1 ? 'y' : 'ies'}, but <strong>{result.deliveryFiles}</strong> delivery
-            file{result.deliveryFiles === 1 ? ' was' : 's were'} uploaded for this outlet {dayWords === 'today' ? 'today' : `on ${chosenDay}`}. Which of those uploaded delivery files are for deliveries done on another day?
+            You reported <strong>{result.declared}</strong> new deliver{result.declared === 1 ? 'y' : 'ies'}, but <strong>{result.deliveryFiles}</strong> deliver{result.deliveryFiles === 1 ? 'y has its' : 'ies have their'} vehicle
+            gate pass dated {dayWords === 'today' ? 'today' : chosenDay} uploaded for this outlet. Which of those deliveries were not on this gate pass?
             Give the number or the customer name of each.
           </p>
           <textarea className="p2gp-text" rows={3} maxLength={1000} value={pastDeliveries} onChange={(event) => setPastDeliveries(event.target.value)} />
@@ -453,12 +457,25 @@ export default function GatePassWizard({ tenantId, accessToken, onChanged }: Pro
       {step === 'held' && result ? (
         <div className="p2gp-step">
           <p>
-            You reported <strong>{result.declared}</strong> new deliver{result.declared === 1 ? 'y' : 'ies'}, but only <strong>{result.deliveryFiles}</strong> delivery
-            file{result.deliveryFiles === 1 ? ' was' : 's were'} uploaded. Was the difference of <strong>{result.difference}</strong> intimated to you, and do you have those files?
+            You reported <strong>{result.declared}</strong> new deliver{result.declared === 1 ? 'y' : 'ies'}, but only <strong>{result.deliveryFiles}</strong> deliver{result.deliveryFiles === 1 ? 'y has its' : 'ies have their'} vehicle
+            gate pass of this date uploaded. Of the other <strong>{result.difference}</strong>, how many did the dealership not notify to you?
           </p>
+          <label className="p2gp-count">
+            <span>Not notified to me by the dealership</span>
+            <input type="number" inputMode="numeric" min={0} max={result.difference} value={notNotified}
+              onChange={(event) => setNotNotified(event.target.value)} />
+          </label>
+          {notNotified !== '' && Number(notNotified) <= result.difference ? (
+            <p className="p2w-muted">
+              Not uploaded by you in the tool: <strong>{notUploadedByPc(result.declared, result.deliveryFiles, Number(notNotified))}</strong>
+              {' '}({result.declared} on the gate pass − {result.deliveryFiles} found − {Number(notNotified)} not notified).
+            </p>
+          ) : null}
           <div className="p2gp-actions">
-            <button type="button" className="p2w-button p2w-button--confirm" disabled={busy} onClick={() => void sendAnswer({ filesHeld: true })}>Yes</button>
-            <button type="button" className="p2w-button p2w-button--danger" disabled={busy} onClick={() => void sendAnswer({ filesHeld: false })}>No</button>
+            <button type="button" className="p2w-button p2w-button--primary"
+              disabled={busy || notNotified === '' || !Number.isInteger(Number(notNotified)) || Number(notNotified) < 0
+                || Number(notNotified) > result.difference}
+              onClick={() => void sendAnswer({ notNotified: Number(notNotified) })}>{busy ? 'Saving…' : 'Submit'}</button>
           </div>
         </div>
       ) : null}

@@ -10,7 +10,7 @@ import {
 import { captureEvidencePhoto } from '../../../services/device/camera';
 import { getMyDisplayName } from '../../../services/security/profile';
 
-type Step = 'outlet' | 'photo' | 'counts' | 'explain' | 'held' | 'done';
+type Step = 'outlet' | 'day' | 'photo' | 'counts' | 'explain' | 'held' | 'done';
 
 type Props = { tenantId: string; accessToken: string; onChanged: () => void };
 
@@ -47,11 +47,30 @@ export default function GatePassWizard({ tenantId, accessToken, onChanged }: Pro
   const [counts, setCounts] = useState({ newDeliveries: '', stockTransfers: '', testDrives: '', otherCount: '', otherNote: '' });
   const [pastDeliveries, setPastDeliveries] = useState('');
   const [outcome, setOutcome] = useState<string | null>(null);
+  // The day the photo is for: today unless the PC says it is the previous day's (2026-10-27).
+  const [forDate, setForDate] = useState<string | null>(null);
+  const today = outletsQuery.data?.today ?? null;
+  const previous = outletsQuery.data?.previous ?? null;
+  const dayOf = (date: string | null) => [today, previous].find((d) => d?.date === date) ?? null;
 
   const selected: GatePassOutlet | undefined = outlets.length === 1
     ? outlets[0]
     : confirmedDefault === false ? outlets.find((o) => o.outletId === chosenId) : defaultOutlet;
   const outletReady = outlets.length === 1 || confirmedDefault === true || (confirmedDefault === false && Boolean(chosenId));
+  const chosenDay = gatePass?.dayLabel ?? dayOf(forDate)?.label ?? today?.label ?? previous?.label ?? outletsQuery.data?.businessDate;
+  const dayWords = forDate && forDate !== today?.date ? `for ${chosenDay}` : 'today';
+
+  /** Ask which day only when the outlet still owes the previous day's gate pass. */
+  function afterOutlet() {
+    const owesPrevious = Boolean(selected && previous && outletsQuery.data?.previousOpenOutletIds?.includes(selected.outletId));
+    if (today && owesPrevious) {
+      setForDate(null);
+      setStep('day');
+      return;
+    }
+    setForDate(today?.date ?? previous?.date ?? null);
+    setStep('photo');
+  }
 
   async function sendPhoto(blob: Blob, filename: string) {
     if (!selected) return;
@@ -61,7 +80,9 @@ export default function GatePassWizard({ tenantId, accessToken, onChanged }: Pro
       const pcName = await queryClient.fetchQuery({
         queryKey: ['my-display-name'], queryFn: async () => (await getMyDisplayName(accessToken)) ?? null, staleTime: 5 * 60_000,
       });
-      const saved = await uploadGatePass(tenantId, { outletId: selected.outletId, pcName: pcName ?? undefined, file: blob, filename }, accessToken);
+      const saved = await uploadGatePass(tenantId, {
+        outletId: selected.outletId, pcName: pcName ?? undefined, businessDate: forDate ?? undefined, file: blob, filename,
+      }, accessToken);
       setGatePass(saved);
       setStep('counts');
       onChanged();
@@ -141,7 +162,7 @@ export default function GatePassWizard({ tenantId, accessToken, onChanged }: Pro
   function startAgain() {
     setStep('outlet'); setConfirmedDefault(null); setChosenId(''); setGatePass(null); setResult(null);
     setCounts({ newDeliveries: '', stockTransfers: '', testDrives: '', otherCount: '', otherNote: '' });
-    setPastDeliveries(''); setOutcome(null); setError(null);
+    setPastDeliveries(''); setOutcome(null); setError(null); setForDate(null);
   }
 
   if (outletsQuery.isLoading) return <SectionCard><p className="p2w-muted">Loading…</p></SectionCard>;
@@ -160,11 +181,22 @@ export default function GatePassWizard({ tenantId, accessToken, onChanged }: Pro
   return (
     <SectionCard>
       <div className="p2w-card__title">
-        <h3>Today’s gate pass</h3>
-        <p className="p2w-muted">{outletsQuery.data?.businessDate}{selected && step !== 'outlet' ? ` · ${selected.outletName}` : ''}</p>
+        <h3>Gate pass for {chosenDay}</h3>
+        <p className="p2w-muted">
+          {selected && step !== 'outlet' ? selected.outletName : null}
+          {(gatePass?.coversDates ?? dayOf(forDate)?.coversDates ?? today?.coversDates ?? []).length > 1
+            ? `${selected && step !== 'outlet' ? ' · ' : ''}Sunday is off: one photo of the gate pass for Sunday and Monday, with the counts of both days together.`
+            : null}
+        </p>
       </div>
 
       {error ? <div className="p2w-alert p2w-alert--error" role="alert">{error}</div> : null}
+
+      {!today && previous && step === 'outlet' ? (
+        <div className="p2w-alert" role="status">
+          Sunday is off: Sunday’s gate pass goes with Monday’s, one photo for both days. You can still upload the gate pass for {previous.label} here.
+        </div>
+      ) : null}
 
       {step === 'outlet' ? (
         <div className="p2gp-step">
@@ -192,7 +224,25 @@ export default function GatePassWizard({ tenantId, accessToken, onChanged }: Pro
             <p><strong>Outlet: {outlets[0].outletName}</strong></p>
           )}
           <div className="p2gp-actions">
-            <button type="button" className="p2w-button p2w-button--primary" disabled={!outletReady} onClick={() => setStep('photo')}>Continue</button>
+            <button type="button" className="p2w-button p2w-button--primary" disabled={!outletReady} onClick={afterOutlet}>Continue</button>
+          </div>
+        </div>
+      ) : null}
+
+      {step === 'day' && today && previous ? (
+        <div className="p2gp-step">
+          <div className="p2w-alert p2gp-ask" role="alert">
+            The gate pass for <strong>{previous.label}</strong>{selected ? ` of ${selected.outletName}` : ''} is not uploaded yet.
+            Which day is this photo for?
+          </div>
+          <div className="p2gp-actions">
+            <button type="button" className="p2w-button p2w-button--secondary" onClick={() => { setForDate(previous.date); setStep('photo'); }}>
+              {previous.label}
+            </button>
+            <button type="button" className="p2w-button p2w-button--primary" onClick={() => { setForDate(today.date); setStep('photo'); }}>
+              Today, {today.label}
+            </button>
+            <button type="button" className="p2w-button p2w-button--ghost" onClick={() => setStep('outlet')}>Back</button>
           </div>
         </div>
       ) : null}
@@ -221,7 +271,7 @@ export default function GatePassWizard({ tenantId, accessToken, onChanged }: Pro
 
       {step === 'counts' ? (
         <form className="p2gp-step" onSubmit={(event) => { event.preventDefault(); if (countsValid) void sendCounts(); }}>
-          <p><strong>The gate pass is saved.</strong> Now enter what it shows for today:</p>
+          <p><strong>The gate pass is saved.</strong> Now enter what it shows {dayWords === 'today' ? 'for today' : dayWords}{(gatePass?.coversDates?.length ?? 1) > 1 ? ' (Sunday and Monday together)' : ''}:</p>
           <div className="p2gp-counts">
             {([
               ['newDeliveries', '1. New deliveries'], ['stockTransfers', '2. Stock transfers'],
@@ -251,7 +301,7 @@ export default function GatePassWizard({ tenantId, accessToken, onChanged }: Pro
         <div className="p2gp-step">
           <p>
             You reported <strong>{result.declared}</strong> new deliver{result.declared === 1 ? 'y' : 'ies'}, but <strong>{result.deliveryFiles}</strong> delivery
-            file{result.deliveryFiles === 1 ? ' was' : 's were'} uploaded for this outlet today. Which of today’s uploaded delivery files are for deliveries done on another day?
+            file{result.deliveryFiles === 1 ? ' was' : 's were'} uploaded for this outlet {dayWords === 'today' ? 'today' : `on ${chosenDay}`}. Which of those uploaded delivery files are for deliveries done on another day?
             Give the number or the customer name of each.
           </p>
           <textarea className="p2gp-text" rows={3} maxLength={1000} value={pastDeliveries} onChange={(event) => setPastDeliveries(event.target.value)} />

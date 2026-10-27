@@ -14,6 +14,8 @@
 export type MinuteState = 'A' | 'I' | 'B';
 
 export const IDLE_AFTER_MS = 4 * 60_000;
+/** A session is a stretch of use with no break of 30 minutes or more (2026-10-27). */
+export const SESSION_GAP_MS = 30 * 60_000;
 const IST_OFFSET_MS = 330 * 60_000;
 const RANK: Record<MinuteState, number> = { A: 3, I: 2, B: 1 };
 
@@ -23,6 +25,8 @@ export type DayTally = {
   minutes: Record<string, MinuteState>;
   firstActiveAt?: string | null;
   lastActiveAt?: string | null;
+  /** Stretches of use, epoch ms; the last one grows while the person keeps working. */
+  sessions?: Array<{ start: number; end: number }>;
 };
 
 export type StoredTally = {
@@ -60,6 +64,10 @@ export function record(tally: StoredTally, now: number, state: MinuteState): Sto
     const at = new Date(now).toISOString();
     if (!day.firstActiveAt) day.firstActiveAt = at;
     day.lastActiveAt = at;
+    const sessions = day.sessions ?? (day.sessions = []);
+    const last = sessions[sessions.length - 1];
+    if (last && now - last.end < SESSION_GAP_MS && now >= last.start) last.end = Math.max(last.end, now);
+    else if (sessions.length < 100) sessions.push({ start: now, end: now });
   }
   return { ...tally, days };
 }
@@ -76,11 +84,26 @@ export function totals(day: DayTally) {
     } else if (state === 'I') idle += 1;
     else background += 1;
   }
+  const dayStart = Date.parse(`${day.date}T00:00:00+05:30`);
+  const sessions = (day.sessions ?? []).map((session) => {
+    let activeMinutes = 0;
+    for (const [minute, state] of Object.entries(day.minutes)) {
+      const at = dayStart + Number(minute) * 60_000;
+      if (state === 'A' && at >= session.start - 60_000 && at <= session.end) activeMinutes += 1;
+    }
+    return {
+      start: new Date(session.start).toISOString(),
+      // A session that saw one click still lasted the minute it was in.
+      end: new Date(Math.max(session.end, session.start + 60_000)).toISOString(),
+      activeSeconds: activeMinutes * 60,
+    };
+  });
   return {
     activeSeconds: active * 60,
     idleSeconds: idle * 60,
     backgroundSeconds: background * 60,
     hourlyActiveMinutes: hourly,
+    sessions,
   };
 }
 

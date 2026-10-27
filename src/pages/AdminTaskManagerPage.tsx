@@ -8,7 +8,7 @@ import '../styles/task-manager.css';
 import PageHeader from '../components/PageHeader';
 import TaskManagerPanel from '../features/task-manager/TaskManagerPanel';
 import TaskStatusSections from '../features/task-manager/TaskStatusSections';
-import UtilisationDashboard from '../features/task-manager/UtilisationDashboard';
+import EngagementDashboard from '../features/task-manager/EngagementDashboard';
 import { istToday } from '../features/task-manager/tmFormat';
 import { getTmTaskStatus } from '../services/audit-core/taskManager';
 import { listProjects } from '../services/audit-core/uc02Admin';
@@ -55,7 +55,7 @@ export default function AdminTaskManagerPage() {
       <PageHeader
         eyebrow="Administration · Task Manager"
         title="Task Manager"
-        description="Assign and follow tasks, set up recurring tasks, and see the daily status and employee utilisation of one Project at a time."
+        description="Assign and follow tasks, set up recurring tasks, and see the daily status and employee engagement of one Project at a time."
       />
       <div className="tm-admin-picker">
         <label className="p2w-raise__field">
@@ -69,7 +69,7 @@ export default function AdminTaskManagerPage() {
         </label>
         {tenantId ? (
           <div className="p2w-segment" role="tablist" aria-label="Section">
-            {([['tasks', 'Tasks'], ['status', 'Daily status'], ['utilisation', 'Employee utilisation']] as const).map(([key, label]) => (
+            {([['tasks', 'Tasks'], ['status', 'Daily status'], ['utilisation', 'Employee engagement']] as const).map(([key, label]) => (
               <button key={key} type="button" role="tab" aria-selected={section === key} className={section === key ? 'is-active' : ''}
                 onClick={() => setSection(key)}>{label}</button>
             ))}
@@ -79,7 +79,7 @@ export default function AdminTaskManagerPage() {
       {projects.isError ? <div className="p2w-alert p2w-alert--error" role="alert">Projects could not be loaded.</div> : null}
       {tenantId && section === 'tasks' ? <TaskManagerPanel key={tenantId} mode="admin" tenantId={tenantId} accessToken={accessToken} /> : null}
       {tenantId && section === 'status' ? <DailyStatus key={tenantId} tenantId={tenantId} accessToken={accessToken} /> : null}
-      {tenantId && section === 'utilisation' ? <UtilisationDashboard key={tenantId} mode="admin" tenantId={tenantId} accessToken={accessToken} /> : null}
+      {tenantId && section === 'utilisation' ? <EngagementDashboard key={tenantId} mode="admin" tenantId={tenantId} accessToken={accessToken} /> : null}
     </div>
   );
 }

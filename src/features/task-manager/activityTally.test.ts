@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { classify, emptyTally, IDLE_AFTER_MS, istDate, istMinute, parseTally, record, totals } from './activityTally';
+import { classify, emptyTally, IDLE_AFTER_MS, istDate, istMinute, parseTally, record, SESSION_GAP_MS, totals } from './activityTally';
 import { raiseProblem } from './RaiseTmTaskDialog';
 import { scheduleProblem } from './TmSchedules';
 import { durationLabel, scheduleLabel } from './tmFormat';
@@ -63,5 +63,20 @@ describe('Task Manager forms', () => {
     expect(scheduleLabel({ frequency: 'WEEKLY', weekdays: [7], runTimeIst: '10:00', monthDay: null })).toMatch(/moves to Monday/);
     expect(durationLabel(2880)).toBe('2 days');
     expect(durationLabel(240)).toBe('4 hours');
+  });
+});
+
+describe('sessions', () => {
+  it('starts a new session after a 30-minute break and keeps one across short ones', () => {
+    let tally = emptyTally();
+    tally = record(tally, T0, 'A');
+    tally = record(tally, T0 + 10 * 60_000, 'A'); // same session
+    tally = record(tally, T0 + 10 * 60_000 + SESSION_GAP_MS, 'A'); // new session
+    tally = record(tally, T0 + 60 * 60_000, 'I'); // idle does not open one
+    const day = tally.days[0];
+    expect(day.sessions).toHaveLength(2);
+    const sent = totals(day).sessions;
+    expect(sent[0]).toMatchObject({ start: new Date(T0).toISOString(), end: new Date(T0 + 600_000).toISOString(), activeSeconds: 120 });
+    expect(sent[1].activeSeconds).toBe(60);
   });
 });

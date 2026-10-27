@@ -41,7 +41,50 @@
 .tm-admin-picker { display: flex; flex-wrap: wrap; align-items: end; gap: 12px; }
 .tm-admin-picker select { min-height: 38px; min-width: 260px; border: 1px solid var(--p2w-line, #d8dee8); border-radius: 8px; padding: 0 8px; }
 
+
+/* Employee engagement and DI dashboards (2026-10-27). */
+.tm-tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 10px; margin: 0; }
+.tm-tiles > div { display: grid; gap: 2px; align-content: start; padding: 10px 12px; border: 1px solid var(--p2w-line, #d8dee8); border-radius: var(--p2w-radius, 12px); background: #fff; }
+.tm-tiles dt { font-size: .72rem; font-weight: 700; color: var(--p2w-muted, #64748b); text-transform: uppercase; letter-spacing: .02em; }
+.tm-tiles dd { margin: 0; font-size: 1.35rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.tm-tiles dd span, .tm-tiles > div > span { font-size: .8rem; font-weight: 400; color: var(--p2w-muted, #64748b); }
+.tm-tiles > div.is-warn { border-color: #f0c36d; background: #fff8e8; }
+.tm-tiles > div.is-bad { border-color: #f3a7a1; background: #fff3f2; }
+
+.tm-trend { display: block; font-size: .72rem; font-weight: 700; }
+.tm-trend--good { color: #1b6e3c; }
+.tm-trend--bad { color: var(--p2w-danger, #b42318); }
+.tm-matrix td, .tm-matrix th { white-space: nowrap; text-align: right; }
+.tm-matrix td:first-child, .tm-matrix th:first-child { text-align: left; }
+.tm-matrix__cell { font-variant-numeric: tabular-nums; }
+.tm-subrow td { background: var(--p2w-surface-soft, #f7f9fc); font-size: .85rem; }
+.tm-subrow__label { padding-left: 26px; display: inline-block; }
+
+.tm-grid-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 12px; }
+
+.tm-outcome-bar { display: flex; width: 140px; height: 10px; border-radius: 3px; overflow: hidden; background: #eef1f5; }
+.tm-outcome-bar .tm-outcome { flex-basis: 0; min-width: 2px; height: 100%; }
+.tm-outcome { display: inline-block; width: 10px; height: 10px; border-radius: 2px; }
+.tm-outcome--read_first { background: #1b6e3c; }
+.tm-outcome--read_retried { background: #6fbf8e; }
+.tm-outcome--needs_review { background: #2f5bd3; }
+.tm-outcome--extra_copy { background: #9db8f5; }
+.tm-outcome--bad_scan { background: #d99a1e; }
+.tm-outcome--not_read_in_time { background: #b42318; }
+.tm-outcome--failed_other { background: #6b1a12; }
+.tm-outcome--in_progress { background: #b8c2cf; }
+.tm-outcome-legend { display: flex; flex-wrap: wrap; gap: 4px 14px; list-style: none; margin: 0 0 8px; padding: 0; font-size: .8rem; }
+.tm-outcome-legend li { display: inline-flex; align-items: center; gap: 5px; }
+
+.tm-hour-bars { display: grid; grid-template-columns: repeat(24, 1fr); gap: 2px; align-items: end; height: 140px; padding-top: 6px; }
+.tm-hour-bars > div { display: grid; grid-template-rows: 1fr auto; height: 100%; align-items: end; text-align: center; }
+.tm-hour-bars__all { display: flex; flex-direction: column; justify-content: flex-end; min-height: 1px; background: var(--p2w-action, #2f5bd3); border-radius: 2px 2px 0 0; overflow: hidden; }
+.tm-hour-bars__failed { display: block; background: var(--p2w-danger, #b42318); }
+.tm-hour-bars small { font-size: .65rem; color: var(--p2w-muted, #64748b); min-height: 1em; }
+
 @media (max-width: 640px) {
   .tm-facts { grid-template-columns: 1fr; }
   .tm-admin-picker select { min-width: 0; width: 100%; }
+  .tm-grid-2 { grid-template-columns: 1fr; }
+  .tm-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }

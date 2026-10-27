@@ -1,8 +1,9 @@
 import type { TmRole, TmSchedule, TmTask } from '../../services/audit-core/taskManager';
 
+// Short role names everywhere in the Task Manager (product owner 2026-10-27).
 export const ROLE_LABELS: Record<string, string> = {
-  PC: 'Process Coordinator', TL: 'Team Lead', PM: 'Project Manager', CRM: 'CRM', REVIEWER: 'Reviewer',
-  EXECUTIVE: 'Executive', SUPER_ADMIN: 'Superadmin', SYSTEM: 'System',
+  PC: 'PC', TL: 'TL', PM: 'PM', CRM: 'CRM', REVIEWER: 'Reviewer',
+  EXECUTIVE: 'Exec', SUPER_ADMIN: 'Superadmin', SYSTEM: 'System',
 };
 
 export function roleLabel(role?: string | null): string {

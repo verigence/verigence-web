@@ -7,6 +7,7 @@ import '../styles/uc03-p2-workspace.css';
 import BackLink from '../components/BackLink';
 import PageHeader from '../components/PageHeader';
 import RaiseTaskDialog from '../features/uc03-p2/tasks/RaiseTaskDialog';
+import TaskManagerPanel from '../features/task-manager/TaskManagerPanel';
 import RemovePageDialog, { removablePages, removalPagesText, removeOptions, type RemovablePage } from '../features/uc03-p2/workspace/RemovePageDialog';
 import {
   DOCUMENT_CATEGORIES, documentCategoryLabel, documentCounts, documentFilter, documentOpenLink, pagesText, visibleTasks,
@@ -19,6 +20,7 @@ import { formatDateTime, humanizeKey, relativeDue, taskStatus } from '../feature
 import {
   getP2Task, getP2Tasks, removeP2Page, submitP2TaskAction, type P2Task, type P2TaskTab,
 } from '../services/audit-core/uc03P2';
+import { getTmTasks } from '../services/audit-core/taskManager';
 import { useProjectContextStore } from '../store/projectContextStore';
 import { useSessionStore } from '../store/sessionStore';
 
@@ -358,6 +360,25 @@ export default function P2TasksPage() {
   const [notice, setNotice] = useState<string>();
   const [raising, setRaising] = useState(false);
   const supervisor = operatingRole === 'TL' || operatingRole === 'PM';
+  // Two classifications (product owner 2026-10-27): Journey tasks (with the
+  // document grouping under them) and Task Manager tasks (not tied to a booking:
+  // raised to a person, recurring, the daily gate pass). A booking's own queue
+  // only has Journey tasks.
+  const taskManagerScope = !journeyId && search.get('scope') === 'tm';
+  const setScope = (next: 'journey' | 'tm') => {
+    const params = new URLSearchParams(search);
+    if (next === 'tm') { params.set('scope', 'tm'); params.delete('tab'); params.delete('doc'); }
+    else params.delete('scope');
+    setSearch(params, { replace: true });
+  };
+  const taskManagerCounts = useQuery({
+    queryKey: ['tm-badge', tenantId, operatingRole],
+    queryFn: () => getTmTasks('project', tenantId!, 'mine', 'open', accessToken),
+    enabled: Boolean(tenantId && accessToken && !journeyId),
+    staleTime: 60_000,
+    refetchInterval: 120_000,
+  });
+  const taskManagerCount = taskManagerCounts.data?.counts?.ACTION;
 
   const query = useQuery({
     queryKey: ['p2-tasks', tenantId, journeyId, view, mine ? operatingRole : 'all'],
@@ -413,11 +434,12 @@ export default function P2TasksPage() {
       <PageHeader
         eyebrow="Task Queue"
         title={journeyId ? 'Tasks for this booking' : 'Task Queue'}
-        description="Everything that needs your action, grouped by booking, most urgent first. Tasks raised by the audit close themselves once the fix is verified."
+        description={taskManagerScope
+          ? 'Tasks not tied to a booking: raised to you or by you, recurring tasks and the daily gate pass. Each has an expected time to close.'
+          : 'Everything that needs your action, grouped by booking, most urgent first. Tasks raised by the audit close themselves once the fix is verified.'}
         actions={(
           <div className="p2w-header-links">
-            {!journeyId ? <Link className="p2w-link" to="/p2/task-manager">Task Manager</Link> : null}
-            {supervisor && tenantId ? (
+            {supervisor && tenantId && !taskManagerScope ? (
               <button type="button" className="p2w-button p2w-button--primary" onClick={() => setRaising(true)}>Raise a task</button>
             ) : null}
             {journeyId ? <Link className="p2w-link" to={`/p2/journeys/${journeyId}/documents`}>Documents</Link> : null}
@@ -430,6 +452,22 @@ export default function P2TasksPage() {
           onClose={() => setRaising(false)} onRaised={(message) => { setRaising(false); setNotice(message); }} />
       ) : null}
 
+      {!journeyId ? (
+        <div className="p2w-segment p2w-tabs-main p2w-task-scope" role="tablist" aria-label="Task classification">
+          <button type="button" role="tab" aria-selected={!taskManagerScope} className={!taskManagerScope ? 'is-active' : ''}
+            title="Tasks on bookings and deliveries: documents, confirmations and checks" onClick={() => setScope('journey')}>
+            Journey tasks{counts ? <b>{counts.ALL ?? 0}</b> : null}
+          </button>
+          <button type="button" role="tab" aria-selected={taskManagerScope} className={taskManagerScope ? 'is-active' : ''}
+            title="Tasks raised to people, recurring tasks and the daily gate pass" onClick={() => setScope('tm')}>
+            Task Manager tasks{typeof taskManagerCount === 'number' ? <b>{taskManagerCount}</b> : null}
+          </button>
+        </div>
+      ) : null}
+
+      {taskManagerScope && tenantId ? (
+        <TaskManagerPanel mode="project" tenantId={tenantId} accessToken={accessToken} />
+      ) : (<>
       <div className="p2w-segment p2w-tabs-main" role="tablist" aria-label="Task type">
         {TABS.map((item) => (
           <button key={item.key} type="button" role="tab" aria-selected={tab === item.key} title={item.hint}
@@ -533,6 +571,7 @@ export default function P2TasksPage() {
         ) : null}
         {query.isLoading ? <div className="p2w-skeleton">Loading tasks…</div> : null}
       </div>
+      </>)}
     </div>
   );
 }

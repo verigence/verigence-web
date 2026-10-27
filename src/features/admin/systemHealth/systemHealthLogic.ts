@@ -1,4 +1,6 @@
-import type { DatabaseHealth, HealthAlert, ResourceHealth, ServiceHealth } from '../../../services/audit-core/systemHealth';
+import type {
+  DatabaseHealth, DocumentIntelligenceHealth, HealthAlert, ResourceHealth, ServiceHealth,
+} from '../../../services/audit-core/systemHealth';
 
 /** Pure helpers for the SuperAdmin System Health page (product owner 2026-10-27). */
 
@@ -71,6 +73,20 @@ export function bytesText(bytes: number | null | undefined): string {
 
 export function connectionsInUse(db: Pick<DatabaseHealth, 'connections'>): number {
   return Object.values(db.connections ?? {}).reduce((sum, n) => sum + Number(n || 0), 0);
+}
+
+/** Document Intelligence jobs across Projects: in flight, past 30 minutes, failed. */
+export function diTotals(di: DocumentIntelligenceHealth | null | undefined): { inFlight: number; over30m: number; failed: number } {
+  const out = { inFlight: 0, over30m: 0, failed: 0 };
+  if (!di?.available) return out;
+  for (const p of di.projects) {
+    for (const q of [p.classification, p.extraction]) {
+      out.inFlight += q.inFlight;
+      out.over30m += q.over30m;
+      out.failed += q.failed;
+    }
+  }
+  return out;
 }
 
 /** "12 min ago", "3 h ago", "2 d ago" from an ISO time. */

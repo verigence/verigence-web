@@ -104,6 +104,7 @@ const P2TaskManagerPage = lazy(() => import('./pages/P2TaskManagerPage'));
 const P2UtilisationPage = lazy(() => import('./pages/P2UtilisationPage'));
 const P2DiDashboardPage = lazy(() => import('./pages/P2DiDashboardPage'));
 const AdminProjectReportsPage = lazy(() => import('./pages/AdminProjectReportsPage'));
+const AdminSystemHealthPage = lazy(() => import('./pages/AdminSystemHealthPage'));
 const AdminTaskManagerPage = lazy(() => import('./pages/AdminTaskManagerPage'));
 
 const routerBase = import.meta.env.BASE_URL === '/' ? undefined : import.meta.env.BASE_URL.replace(/\/$/, '');
@@ -375,6 +376,7 @@ export default function App() {
               <Route path="/admin/task-manager" element={<SuperAdminPage><AdminTaskManagerPage /></SuperAdminPage>} />
               <Route path="/admin/engagement" element={<SuperAdminPage><AdminProjectReportsPage report="engagement" /></SuperAdminPage>} />
               <Route path="/admin/di-dashboard" element={<SuperAdminPage><AdminProjectReportsPage report="di" /></SuperAdminPage>} />
+              <Route path="/admin/system-health" element={<SuperAdminPage><AdminSystemHealthPage /></SuperAdminPage>} />
               <Route path="/admin/feedback" element={<SuperAdminPage><AdminFeedbackPage /></SuperAdminPage>} />
               <Route path="/admin/di-test" element={<SuperAdminPage><DiTestConsolePage /></SuperAdminPage>} />
               <Route path="/admin/users" element={<SuperAdminPage><AdminUsersPage /></SuperAdminPage>} />

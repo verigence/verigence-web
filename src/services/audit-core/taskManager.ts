@@ -182,6 +182,7 @@ export type ActivityPayload = {
   hourlyActiveMinutes: number[];
   firstActiveAt?: string | null;
   lastActiveAt?: string | null;
+  sessions?: Array<{ start: string; end: string; activeSeconds: number }>;
 };
 
 const LIST_TIMEOUT_MS = 30_000;
@@ -282,5 +283,122 @@ export function getUtilisation(
 export function postActivity(tenantId: string, payload: ActivityPayload, accessToken?: string) {
   return auditCoreRequest<{ recorded: boolean }>(`/p2/v1/tenants/${encodeURIComponent(tenantId)}/activity`, {
     method: 'POST', accessToken, body: JSON.stringify(payload), keepalive: true,
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Employee engagement (day / week / month) and the DI dashboard (2026-10-27).
+// Executive and Superadmin only; the server enforces it.
+// ---------------------------------------------------------------------------
+
+export type EngagementPeriod = 'day' | 'week' | 'month';
+
+export type MinMaxAvg = { min: number | null; avg: number | null; max: number | null };
+
+export type EngagementEfficacy = {
+  inUsePct: number | null;
+  avgActiveMinutesPerDayActive: number | null;
+  daysActivePct: number | null;
+  filesPerActiveHour: number | null;
+  tasksPerActiveHour: number | null;
+  onTimePct: number | null;
+  badScanPct: number | null;
+};
+
+export type EngagementCell = {
+  activeMinutes: number; idleMinutes: number; backgroundMinutes: number;
+  sessions: number; sessionMinutes: MinMaxAvg; daysActive: number; workingDays: number;
+  usualStart: string | null; usualEnd: string | null;
+  firstActiveAtUtc: string | null; lastActiveAtUtc: string | null; hourlyActiveMinutes: number[];
+  journeysStarted: number; filesUploaded: number; pagesUploaded: number; badScans: number; notReadInTime: number;
+  journeyTasksWorked: number; taskActions: number;
+  tasksAssigned: number; tasksCompleted: number; tasksCompletedOnTime: number; sendBacksReceived: number;
+  reviewsDone: number;
+  efficacy: EngagementEfficacy;
+};
+
+export type EngagementPersonPeriod = EngagementCell & { periodStart: string; label: string; from: string; to: string };
+
+export type EngagementPerson = {
+  actorId: string;
+  name?: string | null;
+  role?: string | null;
+  activeInProject: boolean;
+  outlets: string[];
+  totals: EngagementCell;
+  periods: EngagementPersonPeriod[];
+};
+
+export type EngagementReport = {
+  from: string; to: string; period: EngagementPeriod;
+  periods: Array<{ periodStart: string; label: string }>;
+  workingDays: number; idleThresholdMinutes: number; sessionGapMinutes: number;
+  people: EngagementPerson[];
+  notes: string[];
+};
+
+export type DiOutcome =
+  | 'READ_FIRST' | 'READ_RETRIED' | 'NEEDS_REVIEW' | 'EXTRA_COPY' | 'BAD_SCAN' | 'NOT_READ_IN_TIME'
+  | 'FAILED_OTHER' | 'DUPLICATE' | 'REMOVED' | 'IN_PROGRESS';
+
+export type DiStats = { min: number | null; avg: number | null; median: number | null; max: number | null; count: number };
+
+export type DiDay = {
+  day: string;
+  files: number; pages: number; duplicateFiles: number; notUploadedFiles: number; documents: number;
+  filesInProgress: number;
+  outcomes: Record<DiOutcome, number>;
+  pagesByOutcome: Record<DiOutcome, number>;
+  badScanReasons: Record<string, number>;
+  avgPagesPerFile: number | null;
+  fileSizeMb: { avg: number | null; max: number | null };
+  processingMinutes: DiStats;
+  readFirstPct: number | null;
+  failedPct: number | null;
+};
+
+export type DiFailed = {
+  queueId: string; journeyId: string; batchId: string; filename?: string | null; pageNumbers: number[];
+  documentType?: string | null; uploadedAtUtc: string; failedAtUtc: string;
+  uploadedBy?: string | null; uploadedByName?: string | null;
+  outcome: DiOutcome; group: string; reason: string; code?: string | null; retried: boolean;
+  openUrl?: string | null; journeyReference?: string | null; customerName?: string | null; outletName?: string | null;
+};
+
+export type DiDashboard = {
+  from: string; to: string;
+  totals: DiDay;
+  days: DiDay[];
+  failureReasons: Array<{ group: string; reason: string; documents: number; pages: number }>;
+  byPc: Array<{ actorId: string; name?: string | null; documents: number; pages: number; badScans: number;
+                notReadInTime: number; failedOther: number; readFirst: number;
+                badScanPct: number | null; readFirstPct: number | null }>;
+  byDocumentType: Array<{ documentType: string; documents: number; readFirst: number; retried: number; failed: number;
+                          readFirstPct: number | null }>;
+  byHour: Array<{ hour: number; documents: number; failed: number; notReadInTime: number }>;
+  failed: DiFailed[];
+  failedTruncated: boolean;
+  linkExpiresInSeconds: number;
+  notes: string[];
+};
+
+function newReportPath(mode: TaskManagerMode, tenantId: string, report: 'engagement' | 'di-dashboard'): string {
+  const t = encodeURIComponent(tenantId);
+  return mode === 'admin' ? `/v1/admin/tenants/${t}/task-manager/${report}` : `/p2/v1/tenants/${t}/reports/${report}`;
+}
+
+export function getEngagement(
+  mode: TaskManagerMode, tenantId: string, from: string, to: string, period: EngagementPeriod, accessToken?: string,
+) {
+  const params = new URLSearchParams({ from, to, period });
+  return auditCoreRequest<EngagementReport>(`${newReportPath(mode, tenantId, 'engagement')}?${params}`, {
+    accessToken, timeoutMs: 60_000,
+  });
+}
+
+export function getDiDashboard(mode: TaskManagerMode, tenantId: string, from: string, to: string, accessToken?: string) {
+  const params = new URLSearchParams({ from, to });
+  return auditCoreRequest<DiDashboard>(`${newReportPath(mode, tenantId, 'di-dashboard')}?${params}`, {
+    accessToken, timeoutMs: 60_000, cache: 'no-store',
   });
 }

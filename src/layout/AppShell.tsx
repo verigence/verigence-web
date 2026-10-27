@@ -166,8 +166,17 @@ const taskManagerItem: NavItem = {
 // from its own view).
 const utilisationItem: NavItem = {
   to: '/p2/reports/utilisation',
-  label: 'Employee utilisation',
-  mark: 'US',
+  label: 'Employee engagement',
+  mark: 'EE',
+  roles: ['EXECUTIVE'],
+};
+
+// Document Intelligence dashboard, moved out of Daily processing (product
+// owner 2026-10-27): Executive only (and Superadmin from its own view).
+const diDashboardItem: NavItem = {
+  to: '/p2/reports/di',
+  label: 'DI dashboard',
+  mark: 'DI',
   roles: ['EXECUTIVE'],
 };
 
@@ -279,6 +288,8 @@ const groups: NavGroup[] = [
     { to: '/admin/oem-masters', label: 'OEM Masters', mark: 'OM', roles: ['SUPER_ADMIN'] },
     { to: '/admin/reports', label: 'Reports', mark: 'RP', roles: ['SUPER_ADMIN'] },
     { to: '/admin/task-manager', label: 'Task Manager', mark: 'WK', roles: ['SUPER_ADMIN'] },
+    { to: '/admin/engagement', label: 'Employee engagement', mark: 'EE', roles: ['SUPER_ADMIN'] },
+    { to: '/admin/di-dashboard', label: 'DI dashboard', mark: 'DI', roles: ['SUPER_ADMIN'] },
     projectAdministrationItem,
   ] },
 ];
@@ -288,7 +299,7 @@ const routeLabels: Record<string, string> = {
   '/feedback': 'Feedback & Support', '/hr/support': 'Feedback & Support', '/hr/support/new': 'Raise a ticket',
   '/reviews': 'Task Queue', '/duplicate-bookings': 'Duplicate Bookings', '/rule-catalog': 'Rule Catalog', '/rule-catalog/new': 'Author a Rule', '/findings': 'Findings',
   '/daily-ops': 'Daily Operations',
-  '/analytics': 'Analytics', '/p2/bookings': 'Booking & Delivery', '/p2/tasks': 'Task Queue', '/p2/duplicate-bookings': 'Duplicate bookings', '/p2/reports/daily': 'Daily processing', '/p2/gate-pass': 'Daily gate pass', '/p2/task-manager': 'Task Manager', '/p2/reports/utilisation': 'Employee utilisation', '/admin/task-manager': 'Task Manager', '/admin/document-intelligence': 'Document Intelligence Configuration',
+  '/analytics': 'Analytics', '/p2/bookings': 'Booking & Delivery', '/p2/tasks': 'Task Queue', '/p2/duplicate-bookings': 'Duplicate bookings', '/p2/reports/daily': 'Daily processing', '/p2/gate-pass': 'Daily gate pass', '/p2/task-manager': 'Task Manager', '/p2/reports/utilisation': 'Employee engagement', '/p2/reports/di': 'DI dashboard', '/admin/task-manager': 'Task Manager', '/admin/engagement': 'Employee engagement', '/admin/di-dashboard': 'DI dashboard', '/admin/document-intelligence': 'Document Intelligence Configuration',
   '/admin/housekeeping': 'Housekeeping', '/admin/sku-resolution': 'SKU Resolution', '/admin/hr-housekeeping': 'HR Housekeeping', '/admin/feedback': 'User Feedback', '/admin/di-test': 'DI Test Console', '/admin/users': 'Users', '/admin/features': 'Feature Rollout', '/admin/announcements': 'Announcements', '/admin/diagnostics': 'Device Diagnostics', '/admin/login-activity': 'Login Activity',
   '/admin/users/pending': 'Pending Approvals',
   '/admin/oem-masters': 'OEM Masters', '/admin/reports': 'Reports', '/admin/project': 'Project Administration', '/profile': 'Profile',
@@ -458,7 +469,7 @@ export default function AppShell({ children }: PropsWithChildren) {
           ],
         }
       : role === 'EXECUTIVE'
-        ? { ...p2Group, items: [p2DailyProcessingItem, p2GatePassItem, { ...taskManagerItem, badge: tmCount }, utilisationItem] }
+        ? { ...p2Group, items: [p2DailyProcessingItem, p2GatePassItem, { ...taskManagerItem, badge: tmCount }, utilisationItem, diDashboardItem] }
         // A Reviewer's whole surface (2026-10-23: inside a Project the group was
         // built for PC / TL / PM only, so a Reviewer saw none of it, not even
         // Document Review, which is their home page).

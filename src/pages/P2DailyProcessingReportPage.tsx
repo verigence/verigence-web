@@ -9,12 +9,7 @@ import PageHeader from '../components/PageHeader';
 import SectionCard from '../components/SectionCard';
 import TaskStatusSections from '../features/task-manager/TaskStatusSections';
 import { customerLabel } from '../features/uc03-p2/bookings/JourneyRow';
-import {
-  DocumentStatusCard,
-  LargeUploadsCard,
-  UploadedFilesCard,
-  WorkDoneCard,
-} from '../features/uc03-p2/daily/DailyProcessingSections';
+import { WorkDoneCard } from '../features/uc03-p2/daily/DailyProcessingSections';
 import {
   getP2DailyProcessingReport,
   type P2DailyCounts,
@@ -64,48 +59,6 @@ function pct(value: number | null | undefined): string {
 }
 
 /** Scan quality of the day's uploads, and the last 14 days. */
-function QualityCard({ quality, trend, day }: { quality: P2DailyQuality; trend: P2DailyTrendDay[]; day: string }) {
-  const peak = Math.max(1, ...trend.map((t) => t.documents));
-  return (
-    <SectionCard>
-      <div className="p2w-card__title">
-        <h3>Scan quality</h3>
-        <p className="p2w-muted">Pages rejected at upload by the scan-quality check: never read, the PC is asked to re-scan.</p>
-      </div>
-      <div className="p2dr-quality">
-        <div><span className="p2w-muted">Documents uploaded {day}</span><strong>{quality.documents}</strong></div>
-        <div className={quality.rejected ? 'p2dr-bad' : undefined}><span className="p2w-muted">Rejected</span><strong>{quality.rejected}</strong></div>
-        <div><span className="p2w-muted">Rejection rate</span><strong>{pct(quality.rejectedPct)}</strong></div>
-        <div><span className="p2w-muted">Why</span><strong>{quality.rejected ? reasonText(quality.byReason) : '—'}</strong></div>
-      </div>
-      {trend.length ? (
-        <div className="p2dr-scroll">
-          <table className="p2dr-table p2dr-trend">
-            <thead><tr><th>Day</th><th>Documents</th><th>Rejected</th><th>Rate</th><th>Why</th><th aria-hidden="true" /></tr></thead>
-            <tbody>
-              {[...trend].reverse().map((t) => (
-                <tr key={t.day} className={t.day === day ? 'is-current' : undefined}>
-                  <td data-label="Day">{t.day}</td>
-                  <td data-label="Documents">{t.documents}</td>
-                  <td data-label="Rejected" className={t.rejected ? 'p2dr-bad' : undefined}>{t.rejected}</td>
-                  <td data-label="Rate">{pct(t.rejectedPct)}</td>
-                  <td data-label="Why">{t.rejected ? reasonText(t.byReason) : '—'}</td>
-                  <td aria-hidden="true" className="p2dr-bar">
-                    <span style={{ width: `${(100 * t.documents) / peak}%` }}>
-                      <span className="p2dr-bar__bad" style={{ width: t.documents ? `${(100 * t.rejected) / t.documents}%` : '0%' }} />
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      ) : null}
-    </SectionCard>
-  );
-}
-
-/** Field-by-field sum of several rows' counts. */
 function sumCounts(rows: P2DailyCounts[]): P2DailyCounts {
   const zero = (): P2DailyCounts => ({
     files: 0, pages: 0, duplicateFiles: 0,
@@ -237,22 +190,6 @@ function PcUploads({ pc, journeys, timezone }: { pc: P2DailyPcRow; journeys: P2D
 }
 
 /** The system's own work on the day: re-checks, retries and night corrections. */
-function activity(row: P2DailyCounts) {
-  return row.tasksOpened + row.tasksReopened + row.autoRetries + row.pcRetries + row.readAgain + row.resyncs
-    + row.nightRequests + row.nightFixed;
-}
-
-function ActivityCells({ row }: { row: P2DailyCounts }) {
-  return (
-    <>
-      <td data-label="Tasks opened">{row.tasksOpened}{row.tasksReopened ? <span className="p2w-muted"> +{row.tasksReopened} reopened</span> : null}</td>
-      <td data-label="Night: asked · fixed">{row.nightRequests} · {row.nightFixed}</td>
-      <td data-label="Auto retries · gave up">{row.autoRetries} · <span className={row.retriesExhausted ? 'p2dr-bad' : undefined}>{row.retriesExhausted}</span></td>
-      <td data-label="PC retry · read again · re-sync">{row.pcRetries} · {row.readAgain} · {row.resyncs}</td>
-    </>
-  );
-}
-
 /**
  * Daily processing (TL, PM, Executive): how the system handled each PC's day.
  * Every figure comes from what Audit Core stores (see the report's notes);
@@ -272,19 +209,17 @@ export default function P2DailyProcessingReportPage() {
   const data = report.data;
   const timezone = data?.timezone || project?.timezoneName || 'Asia/Kolkata';
   const uploaders = (data?.pcs ?? []).filter((pc) => pc.journeysUploaded > 0);
-  // The system's work per PC: on the day's uploads and on earlier journeys.
-  const systemRows = (data?.pcs ?? []).map((pc) => {
-    const row = pc.earlier ? sumCounts([pc, pc.earlier]) : pc;
-    return { pc, row, journeys: pc.journeysUploaded + (pc.earlier?.journeys ?? 0) };
-  }).filter(({ row }) => activity(row) > 0);
 
   return (
     <div className="screen-stack p2-screen p2w p2dr">
       <PageHeader
         eyebrow="Booking & Delivery"
         title="Daily processing"
-        description="One day: what each PC uploaded and what the pages became, then what the system did on its own (night corrections, retries, re-reads)."
+        description="One day: the status of Journey tasks and Task Manager tasks, the work each person did, and what each PC uploaded."
       />
+      {project?.operatingRole === 'EXECUTIVE' ? (
+        <p className="p2w-muted">Document Intelligence figures (read first time, retries, bad scans, failures and why, processing time) are on the <Link className="p2dr-link" to="/p2/reports/di">DI dashboard</Link>.</p>
+      ) : null}
 
       <div className="p2w-listbar">
         <label className="p2dr-day">
@@ -302,11 +237,8 @@ export default function P2DailyProcessingReportPage() {
 
       {data ? (
         <>
-          {data.largeUploads && tenantId ? (
-            <LargeUploadsCard large={data.largeUploads} day={data.day} timezone={timezone} tenantId={tenantId} accessToken={accessToken ?? undefined} />
-          ) : null}
-          {data.documentStatus ? <DocumentStatusCard status={data.documentStatus} day={data.day} /> : null}
-          {data.quality ? <QualityCard quality={data.quality} trend={data.trend ?? []} day={data.day} /> : null}
+          {data.taskStatus ? <TaskStatusSections status={data.taskStatus} /> : null}
+          {data.teamWork ? <WorkDoneCard work={data.teamWork} day={data.day} timezone={timezone} /> : null}
           <SectionCard>
             <div className="p2w-card__title">
               <h3>Uploads by PC</h3>
@@ -345,45 +277,6 @@ export default function P2DailyProcessingReportPage() {
               </div>
             ) : null}
           </SectionCard>
-
-          {data.taskStatus ? <TaskStatusSections status={data.taskStatus} /> : null}
-          {data.teamWork ? <WorkDoneCard work={data.teamWork} day={data.day} timezone={timezone} /> : null}
-          {data.files && tenantId ? (
-            <UploadedFilesCard files={data.files} truncated={Boolean(data.filesTruncated)} day={data.day} timezone={timezone}
-              tenantId={tenantId} accessToken={accessToken ?? undefined} />
-          ) : null}
-
-          {systemRows.length ? (
-            <SectionCard>
-              <div className="p2w-card__title">
-                <h3>System activity</h3>
-                <p className="p2w-muted">Night corrections, automatic retries, re-reads and tasks the system opened on {data.day}, by the PC whose journeys they were.</p>
-              </div>
-              <div className="p2dr-scroll">
-                <table className="p2dr-table">
-                  <thead>
-                    <tr>
-                      <th>PC</th>
-                      <th>Journeys</th>
-                      <th>Tasks opened</th>
-                      <th>Night: asked · fixed</th>
-                      <th>Auto retries · gave up</th>
-                      <th>PC retry · read again · re-sync</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {systemRows.map(({ pc, row, journeys }) => (
-                      <tr key={pc.pcActorId ?? 'none'}>
-                        <td data-label="PC"><strong>{pcLabel(pc.pcName, pc.pcActorId)}</strong></td>
-                        <td data-label="Journeys">{journeys}</td>
-                        <ActivityCells row={row} />
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </SectionCard>
-          ) : null}
 
           <SectionCard>
             <div className="p2w-card__title"><h3>How these are counted</h3></div>

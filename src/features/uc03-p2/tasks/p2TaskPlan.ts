@@ -34,6 +34,13 @@ const WAITING: Record<string, string> = {
 
 const DONE = new Set(['VERIFIED_COMPLETE', 'CANCELLED']);
 
+/** A SKU price task raised from a vehicle invoice that names another vehicle
+ * than the one on the Journey: Accept confirms the invoice's vehicle (the
+ * task's own SKU), so it changes the vehicle instead of keeping it. */
+export function priceTaskNamesAnotherVehicle(task: P2Task): boolean {
+  return task.task_type === 'SKU_PRICE_MISMATCH' && task.reference?.differentFromJourney === true;
+}
+
 function referenceDocument(task: P2Task): { documentId?: string; fieldKey?: string } {
   const ref = task.reference ?? {};
   const ids = Array.isArray(ref.documentIds) ? (ref.documentIds as string[]) : [];
@@ -155,6 +162,103 @@ export function taskPlan(task: P2Task, operatingRole?: string | null): TaskPlan 
       primary: { label: 'Approve this price list', action: 'ACCEPT', tone: 'confirm' },
       secondary: [
         { label: 'Reject', action: 'REJECT', requiresComment: true, tone: 'danger' },
+        { label: 'Open Journey 360', to: `/p2/journeys/${task.journey_id}/overview?tab=deal`, tone: 'ghost' },
+        ...comment,
+      ],
+    };
+  }
+  if (task.task_type === 'SKU_PRICE_MISMATCH') {
+    // 2026-10-20: the documents' words name this SKU but its master price is
+    // not the document's. Keep it (it becomes the PC's decision) or pick the
+    // right one in the Deal tab's model picker -- a price never picks it.
+    // An invoice that names another vehicle than the Journey's: Accept puts
+    // the invoice's vehicle on the Journey, so the button says so.
+    return {
+      primary: {
+        label: priceTaskNamesAnotherVehicle(task) ? 'Use the invoice vehicle' : 'Keep this vehicle',
+        action: 'ACCEPT', tone: 'confirm',
+      },
+      secondary: [
+        { label: 'Pick the SKU', to: `/p2/journeys/${task.journey_id}/overview?tab=deal`, tone: 'secondary' },
+        { label: 'Open documents', to: `/p2/journeys/${task.journey_id}/documents`, tone: 'ghost' },
+        ...comment,
+      ],
+    };
+  }
+  if (task.task_type === 'SKU_NOT_CONFIRMED') {
+    // 2026-10-21 (review 471): an automatic SKU its documents no longer
+    // name. It stays on the Journey; keeping it confirms the SKU this task
+    // names, or the PC picks another.
+    return {
+      primary: { label: 'Keep this vehicle', action: 'ACCEPT', tone: 'confirm' },
+      secondary: [
+        { label: 'Pick the SKU', to: `/p2/journeys/${task.journey_id}/overview?tab=deal`, tone: 'secondary' },
+        { label: 'Open documents', to: `/p2/journeys/${task.journey_id}/documents`, tone: 'ghost' },
+        ...comment,
+      ],
+    };
+  }
+  if (task.task_type === 'SKU_NOT_SET') {
+    // 2026-10-21: a Journey with no SKU always has a PC task. It closes
+    // itself once a SKU is on the Journey.
+    return {
+      secondary: [
+        { label: 'Pick the SKU', to: `/p2/journeys/${task.journey_id}/overview?tab=deal`, tone: 'secondary' },
+        { label: 'Open documents', to: `/p2/journeys/${task.journey_id}/documents`, tone: 'ghost' },
+        ...comment,
+      ],
+    };
+  }
+  if (task.task_type === 'SKU_BOOKING_FORM_DIFFERS') {
+    // A booking form names another vehicle than the PC / TL decision: the
+    // decision stays; keep it or propose a correction to the Team Lead.
+    return {
+      primary: { label: 'Keep the confirmed vehicle', action: 'ACCEPT', tone: 'confirm' },
+      secondary: [
+        { label: 'Propose a correction', to: `/p2/journeys/${task.journey_id}/overview?tab=deal`, tone: 'secondary' },
+        { label: 'Open documents', to: `/p2/journeys/${task.journey_id}/documents`, tone: 'ghost' },
+        ...comment,
+      ],
+    };
+  }
+  if (task.task_type === 'SKU_INVOICES_DISAGREE' || task.task_type === 'SKU_BOOKING_FORMS_DISAGREE') {
+    // Two invoices (or booking forms) name different vehicles: neither sets
+    // the SKU. The PC says which vehicle was sold, or which document was
+    // cancelled (it is voided and the SKU resolved from the rest).
+    const ref = task.reference ?? {};
+    const options = Array.isArray(ref.skuOptions)
+      ? (ref.skuOptions as Array<{ skuId?: string; skuCode?: string; vehicle?: string }>) : [];
+    const documents = Array.isArray(ref.documents)
+      ? (ref.documents as Array<{ documentId?: string; invoiceNumber?: string; documentType?: string; skuCode?: string }>) : [];
+    const kind = task.task_type === 'SKU_INVOICES_DISAGREE' ? 'invoice' : 'booking form';
+    const pick: TaskAction[] = allowed.has('ACCEPT') ? options.filter((o) => o.skuId).map((o) => ({
+      label: `Sold: ${o.vehicle ?? o.skuCode ?? 'this vehicle'}${o.skuCode ? ` (${o.skuCode})` : ''}`,
+      action: 'ACCEPT', details: { skuId: o.skuId }, tone: 'confirm' as const,
+    })) : [];
+    const cancel: TaskAction[] = allowed.has('REJECT') ? documents.filter((d) => d.documentId).map((d) => ({
+      label: `${d.invoiceNumber ?? `This ${kind}`}${d.skuCode ? ` (${d.skuCode})` : ''} was cancelled`,
+      action: 'REJECT', details: { documentId: d.documentId }, requiresComment: true, tone: 'danger' as const,
+    })) : [];
+    return {
+      primary: pick[0],
+      secondary: [
+        ...pick.slice(1),
+        ...cancel,
+        { label: 'Pick another SKU', to: `/p2/journeys/${task.journey_id}/overview?tab=deal`, tone: 'secondary' },
+        { label: 'Open documents', to: `/p2/journeys/${task.journey_id}/documents`, tone: 'ghost' },
+        ...comment,
+      ],
+    };
+  }
+  if (task.task_type === 'SKU_INVOICE_REVIEW') {
+    // A SKU a PC / TL set is never overwritten by an invoice: the TL decides.
+    if (!supervisor) {
+      return { waiting: 'Waiting for the Team Lead to decide between the confirmed and the invoiced vehicle.', secondary: comment };
+    }
+    return {
+      primary: { label: "Use the invoice's vehicle", action: 'ACCEPT', tone: 'confirm' },
+      secondary: [
+        { label: 'Keep the confirmed vehicle', action: 'REJECT', requiresComment: true, tone: 'danger' },
         { label: 'Open Journey 360', to: `/p2/journeys/${task.journey_id}/overview?tab=deal`, tone: 'ghost' },
         ...comment,
       ],

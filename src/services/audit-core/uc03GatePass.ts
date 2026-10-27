@@ -6,10 +6,21 @@ export type GatePassOutlet = {
   dealerId: string; dealerName: string; outletId: string; outletName: string;
   classification: string; isDefault: boolean;
 };
-export type GatePassOutlets = { businessDate: string; outlets: GatePassOutlet[]; defaultOutletId: string | null };
+/** A day a gate pass can be uploaded for; Monday's covers Sunday too (Sunday is off, 2026-10-27). */
+export type GatePassDayInfo = { date: string; label: string; coversDates: string[]; dueAtUtc: string };
+export type GatePassOutlets = {
+  businessDate: string; outlets: GatePassOutlet[]; defaultOutletId: string | null;
+  /** Today's gate pass day; none on a Sunday. */
+  today?: GatePassDayInfo | null;
+  /** The previous gate pass day, while it can still be uploaded. */
+  previous?: GatePassDayInfo | null;
+  /** Outlets whose previous day's gate pass is not finished yet. */
+  previousOpenOutletIds?: string[];
+};
 
 export type GatePass = {
   gatePassId: string; outletId: string; outletName: string; pcName: string; businessDate: string; status: string;
+  dayLabel?: string; coversDates?: string[];
   newDeliveries: number | null; stockTransfers: number | null; testDrives: number | null;
   otherCount: number | null; otherNote: string | null; deliveryFiles: number | null;
   divergence: 'NONE' | 'EXTRA_FILES' | 'MISSING_FILES' | null; pastDeliveryNote: string | null;
@@ -52,11 +63,12 @@ export function getGatePassOutlets(tenantId: string, accessToken?: string) {
 }
 
 export function uploadGatePass(
-  tenantId: string, input: { outletId: string; pcName?: string; file: Blob; filename: string }, accessToken?: string,
+  tenantId: string, input: { outletId: string; pcName?: string; businessDate?: string; file: Blob; filename: string }, accessToken?: string,
 ) {
   const form = new FormData();
   form.set('outletId', input.outletId);
   if (input.pcName) form.set('pcName', input.pcName);
+  if (input.businessDate) form.set('businessDate', input.businessDate);
   form.set('file', input.file, input.filename);
   return auditCoreRequest<GatePass>(`${base(tenantId)}/gate-passes`, {
     method: 'POST', accessToken, body: form, timeoutMs: 120_000,

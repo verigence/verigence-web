@@ -288,8 +288,6 @@ const groups: NavGroup[] = [
     { to: '/admin/oem-masters', label: 'OEM Masters', mark: 'OM', roles: ['SUPER_ADMIN'] },
     { to: '/admin/reports', label: 'Reports', mark: 'RP', roles: ['SUPER_ADMIN'] },
     { to: '/admin/task-manager', label: 'Task Manager', mark: 'WK', roles: ['SUPER_ADMIN'] },
-    { to: '/admin/engagement', label: 'Employee engagement', mark: 'EE', roles: ['SUPER_ADMIN'] },
-    { to: '/admin/di-dashboard', label: 'DI dashboard', mark: 'DI', roles: ['SUPER_ADMIN'] },
     { to: '/admin/system-health', label: 'System health', mark: 'SH', roles: ['SUPER_ADMIN'] },
     projectAdministrationItem,
   ] },

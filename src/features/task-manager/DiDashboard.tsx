@@ -8,11 +8,13 @@ import {
 } from '../../services/audit-core/taskManager';
 import { addDays, formatWhen, istToday, minutesText, personName } from './tmFormat';
 import { daysBetween } from './EngagementDashboard';
+import { diHighlights, pcsByBadScans } from './diHighlights';
 import '../../styles/task-manager.css';
 
 /*
  * Document Intelligence dashboard of one Project (product owner 2026-10-27),
- * moved out of Daily processing: files and pages uploaded, what DI read the
+ * moved out of Daily processing. It opens on a few crisp figures and two short
+ * tables; the full figures stay under "Show all figures": files and pages uploaded, what DI read the
  * first time, after retries, what it refused as a bad scan and what failed,
  * why (in plain words), with a link to every failed page, processing time per
  * file (min / average / max per day) and file size. Executive and Superadmin
@@ -102,6 +104,7 @@ export default function DiDashboard({ mode, tenantId, accessToken }: {
   const today = istToday();
   const [range, setRange] = useState({ from: addDays(today, -6), to: today });
   const [group, setGroup] = useState('ALL');
+  const [details, setDetails] = useState(false);
   const span = daysBetween(range.from, range.to);
   const rangeOk = span >= 1 && span <= MAX_DAYS;
   const report = useQuery({
@@ -119,6 +122,7 @@ export default function DiDashboard({ mode, tenantId, accessToken }: {
   const failedDocs = t ? FAILED.reduce((s, k) => s + t.outcomes[k], 0) : 0;
   const failedPages = t ? FAILED.reduce((s, k) => s + t.pagesByOutcome[k], 0) : 0;
   const hourTop = Math.max(1, ...(data?.byHour ?? []).map((h) => h.documents));
+  const h = useMemo(() => (data ? diHighlights(data) : null), [data]);
   const quick: Array<[string, string, string]> = [
     ['Today', today, today], ['Yesterday', addDays(today, -1), addDays(today, -1)],
     ['Last 7 days', addDays(today, -6), today], ['Last 30 days', addDays(today, -29), today],
@@ -147,6 +151,86 @@ export default function DiDashboard({ mode, tenantId, accessToken }: {
       {report.isLoading ? <div className="p2w-skeleton">Loading…</div> : null}
       {data && t ? (
         <>
+          {h ? (
+            <dl className="tm-tiles tm-glance">
+              <div>
+                <dt>Read first time</dt>
+                <dd>{pct(h.readFirstPct)}</dd>
+                <span>{h.readFirst} of {h.documents} documents{h.readRetried ? ` · ${h.readRetried} more after retries` : ''}</span>
+              </div>
+              <div className={h.badScans ? 'is-warn' : ''}>
+                <dt>To scan again</dt>
+                <dd>{h.badScanPages}<span> pages</span></dd>
+                <span>{h.badScans} bad scans{h.topBadScanReason ? ` · main reason: ${h.topBadScanReason.reason}` : ''}</span>
+              </div>
+              <div className={h.failed ? 'is-bad' : ''}>
+                <dt>Failed</dt>
+                <dd>{h.failed}</dd>
+                <span>{h.topFailReason ? `main reason: ${h.topFailReason.reason}` : 'nothing failed'}</span>
+              </div>
+              <div>
+                <dt>Time per file</dt>
+                <dd>{mins(t.processingMinutes.median)}</dd>
+                <span>typical · slowest {mins(t.processingMinutes.max)}</span>
+              </div>
+              <div className={h.mostBadScans ? 'is-warn' : ''}>
+                <dt>Most bad scans</dt>
+                <dd>{h.mostBadScans ? personName(h.mostBadScans.name, h.mostBadScans.actorId) : '—'}</dd>
+                <span>{h.mostBadScans ? `${h.mostBadScans.badScans} of ${h.mostBadScans.documents} documents (${pct(h.mostBadScans.badScanPct)})` : 'none'}{h.bestReader ? ` · cleanest: ${personName(h.bestReader.name, h.bestReader.actorId)} ${pct(h.bestReader.readFirstPct)}` : ''}</span>
+              </div>
+              <div>
+                <dt>Fails most</dt>
+                <dd>{h.hardestType ? h.hardestType.documentType.replace(/_/g, ' ') : '—'}</dd>
+                <span>{h.hardestType ? `${h.hardestType.failed} of ${h.hardestType.documents} failed` : 'no document type failed'}{h.worstDay ? ` · worst day ${h.worstDay.day} (${pct(h.worstDay.failedPct)})` : ''}</span>
+              </div>
+            </dl>
+          ) : null}
+
+          <div className="tm-grid-2">
+            <SectionCard>
+              <div className="p2w-card__title"><h3>Day by day</h3><p className="p2w-muted">By the day of the upload (IST).</p></div>
+              <div className="p2dr-scroll">
+                <table className="p2dr-table">
+                  <thead><tr><th>Day</th><th>Files</th><th>Read first</th><th>Bad scans</th><th>Failed</th><th>Time per file</th></tr></thead>
+                  <tbody>
+                    {[...data.days].reverse().filter((d) => d.files || d.documents).map((d) => (
+                      <tr key={d.day}>
+                        <td>{d.day}</td>
+                        <td>{d.files}<span className="p2w-muted"> · {d.pages} p</span></td>
+                        <td>{pct(d.readFirstPct)}</td>
+                        <td className={d.outcomes.BAD_SCAN ? 'tm-warn' : ''}>{d.outcomes.BAD_SCAN}</td>
+                        <td className={d.outcomes.NOT_READ_IN_TIME + d.outcomes.FAILED_OTHER ? 'tm-bad' : ''}>{d.outcomes.NOT_READ_IN_TIME + d.outcomes.FAILED_OTHER}</td>
+                        <td>{mins(d.processingMinutes.avg)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </SectionCard>
+            <SectionCard>
+              <div className="p2w-card__title"><h3>By PC</h3><p className="p2w-muted">Most bad scans first.</p></div>
+              <div className="p2dr-scroll">
+                <table className="p2dr-table">
+                  <thead><tr><th>PC</th><th>Documents</th><th>Read first</th><th>Bad scans</th><th>Failed</th></tr></thead>
+                  <tbody>
+                    {pcsByBadScans(data).map((p) => (
+                      <tr key={p.actorId}>
+                        <td>{personName(p.name, p.actorId)}</td><td>{p.documents}</td><td>{pct(p.readFirstPct)}</td>
+                        <td className={p.badScanPct !== null && p.badScanPct >= 10 ? 'tm-warn' : ''}>{p.badScans}<span className="p2w-muted"> ({pct(p.badScanPct)})</span></td>
+                        <td className={p.notReadInTime + p.failedOther ? 'tm-bad' : ''}>{p.notReadInTime + p.failedOther}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </SectionCard>
+          </div>
+
+          <button type="button" className="p2w-button p2w-button--ghost" aria-expanded={details} onClick={() => setDetails(!details)}>
+            {details ? 'Hide all figures' : `Show all figures${data.failed.length ? ` and the ${data.failed.length} failed pages` : ''}`}
+          </button>
+          {details ? (
+            <>
           <dl className="tm-tiles">
             <div><dt>Files uploaded</dt><dd>{t.files}</dd><span>{t.pages} pages · {t.avgPagesPerFile ?? '—'} per file{t.duplicateFiles ? ` · ${t.duplicateFiles} duplicate files` : ''}</span></div>
             <div><dt>Read first time</dt><dd>{t.outcomes.READ_FIRST}</dd><span>{pct(t.readFirstPct)} of documents · {t.pagesByOutcome.READ_FIRST} pages</span></div>
@@ -299,6 +383,8 @@ export default function DiDashboard({ mode, tenantId, accessToken }: {
             ) : <p className="p2w-muted">No failed pages in this range.</p>}
           </SectionCard>
           <ul className="p2dr-notes">{data.notes.map((n) => <li key={n}>{n}</li>)}</ul>
+            </>
+          ) : null}
         </>
       ) : null}
     </div>

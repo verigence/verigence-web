@@ -1,0 +1,47 @@
+/* SuperAdmin System Health (product owner 2026-10-27). Builds on task-manager.css tiles and p2dr tables. */
+
+.sh-banner { display: grid; gap: 6px; padding: 12px 14px; border-radius: var(--p2w-radius, 12px); border: 1px solid var(--p2w-line, #d8dee8); background: #fff; }
+.sh-banner--ok { border-color: #a6d8b8; background: #f1faf4; }
+.sh-banner--warn { border-color: #f0c36d; background: #fff8e8; }
+.sh-banner--bad { border-color: #f3a7a1; background: #fff3f2; }
+.sh-banner__head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px 14px; }
+.sh-banner__head strong { font-size: 1.05rem; }
+.sh-banner ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 4px; }
+.sh-banner li { display: flex; gap: 8px; align-items: baseline; font-size: .9rem; }
+
+.sh-sev { flex: none; display: inline-block; min-width: 64px; padding: 1px 6px; border-radius: 999px; font-size: .68rem; font-weight: 700; text-align: center; letter-spacing: .02em; }
+.sh-sev--CRITICAL { background: var(--p2w-danger, #b42318); color: #fff; }
+.sh-sev--WARNING { background: #f6d48a; color: #5c3b00; }
+
+.sh-dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 6px; vertical-align: middle; background: #94a3b8; }
+.sh-dot--ok { background: #1b8a4a; }
+.sh-dot--warn { background: #d08700; }
+.sh-dot--bad { background: var(--p2w-danger, #b42318); }
+
+.sh-meter { display: grid; gap: 3px; min-width: 120px; }
+.sh-meter__track { position: relative; height: 6px; border-radius: 3px; background: var(--p2w-line, #e2e8f0); overflow: hidden; }
+.sh-meter__fill { position: absolute; inset: 0 auto 0 0; border-radius: 3px; background: #1b8a4a; }
+.sh-meter--warn .sh-meter__fill { background: #d08700; }
+.sh-meter--bad .sh-meter__fill { background: var(--p2w-danger, #b42318); }
+.sh-meter small { font-size: .75rem; color: var(--p2w-muted, #64748b); font-variant-numeric: tabular-nums; }
+
+.sh-spark { display: flex; align-items: flex-end; gap: 1px; height: 28px; min-width: 96px; }
+.sh-spark span { flex: 1; min-height: 1px; background: var(--p2w-action, #2f5bd3); border-radius: 1px 1px 0 0; opacity: .75; }
+.sh-spark span.is-bad { background: var(--p2w-danger, #b42318); opacity: 1; }
+
+.sh-num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.sh-code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .78rem; word-break: break-word; }
+.sh-stack { display: grid; gap: 14px; }
+.sh-note { font-size: .82rem; color: var(--p2w-muted, #64748b); }
+
+@media (prefers-color-scheme: dark) {
+  .sh-banner { background: transparent; }
+  .sh-banner--ok { background: rgba(27, 138, 74, .12); }
+  .sh-banner--warn { background: rgba(208, 135, 0, .14); }
+  .sh-banner--bad { background: rgba(180, 35, 24, .16); }
+}
+
+@media (max-width: 640px) {
+  .sh-meter { min-width: 90px; }
+  .sh-spark { min-width: 64px; }
+}

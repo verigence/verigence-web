@@ -12,6 +12,8 @@ The app's build number is added by the release workflow and is not written here.
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-10-27
+
 ### Added
 - Task Manager: tasks not tied to a booking, raised to the right roles (PC, TL, PM, CRM, Reviewer) with an expected time to close, reviewed by the person who raised them. Executives and SuperAdmin can set up recurring tasks.
 - Daily gate pass task for each outlet, closed by the system once the gate pass is finished.

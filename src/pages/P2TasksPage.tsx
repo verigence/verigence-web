@@ -135,6 +135,7 @@ function TaskDetail({ task, tenantId, accessToken, operatingRole, onDone }: {
     if (action.requiresComment && !comment.trim()) {
       setError(action.action === 'ADD_COMMENT' ? 'Write a comment first.'
         : action.action === 'CLOSE_TASK' ? 'Write a comment in the comment box to close this task.'
+        : task.task_type === 'INSURANCE_SOURCE_CONFIRM' ? 'Write the Agent code / MISP code in the comment box first.'
         : 'Add a short reason in the comment box first.');
       return;
     }

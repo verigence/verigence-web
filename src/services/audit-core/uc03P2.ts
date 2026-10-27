@@ -1022,8 +1022,13 @@ export type P2Deal = {
 
 export type P2DealInsurance = {
   source: 'INHOUSE' | 'SELF';
-  decidedBy: 'PC' | 'DEFAULT';
+  /** PC: confirmed by the PC. DOCUMENT: the dealer's Agent / MISP code on the
+   * policy, or the premium on the dealer invoice (basis says which).
+   * UNCONFIRMED: a policy is on file, neither shows it, and the PC has a task.
+   * DEFAULT: no policy yet. (Product owner rule 2026-10-27.) */
+  decidedBy: 'PC' | 'DOCUMENT' | 'UNCONFIRMED' | 'DEFAULT';
   decidedAt?: string | null;
+  basis?: string | null;
   invoiceOnFile: boolean;
   vehicleInvoiced: boolean;
 };

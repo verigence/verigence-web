@@ -41,3 +41,7 @@
 .p2gp-thumbs__remove { position: absolute; top: 2px; right: 2px; width: 26px; height: 26px; border-radius: 50%; border: 0; background: rgba(0, 0, 0, .6); color: #fff; font-size: 18px; line-height: 1; cursor: pointer; }
 .p2gp-dealer td { background: var(--p2w-surface-soft, #f2f5f9); font-weight: 700; }
 .p2gp-pages { display: inline-flex; gap: 4px; margin-left: 6px; }
+/* A gate pass the PC has not uploaded or finished (2026-10-27). */
+.p2gp-row--owed td { background: #fff1f0; }
+.p2gp-row--owed td:first-child { box-shadow: inset 3px 0 0 #b42318; }
+.p2gp-outlet-link { font-weight: 600; padding: 0; }

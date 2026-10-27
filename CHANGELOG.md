@@ -12,6 +12,8 @@ The app's build number is added by the release workflow and is not written here.
 
 ## [Unreleased]
 
+## [1.3.2] - 2026-10-27
+
 ### Added
 - Daily gate pass: up to 4 photos for one gate pass, for a gate-out register that runs over several pages. Each page opens on its own.
 - Daily gate pass on Monday: the PC says whether Sunday and Monday are on the same photo or on separate photos; with separate photos, each day gets its own photos and its own counts.

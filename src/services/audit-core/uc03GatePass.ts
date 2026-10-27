@@ -16,11 +16,15 @@ export type GatePassOutlets = {
   previous?: GatePassDayInfo | null;
   /** Outlets whose previous day's gate pass is not finished yet. */
   previousOpenOutletIds?: string[];
+  /** Mapped only to satellite outlets: the daily gate pass is for onsite outlets only. */
+  satelliteOnly?: boolean;
 };
 
 export type GatePass = {
   gatePassId: string; outletId: string; outletName: string; pcName: string; businessDate: string; status: string;
   dayLabel?: string; coversDates?: string[];
+  /** The photo is always kept; its quality is judged on the server (2026-10-27). */
+  photoQuality?: 'GOOD' | 'BLURRED' | 'TOO_DARK' | 'WASHED_OUT'; photoQualityNote?: string | null;
   newDeliveries: number | null; stockTransfers: number | null; testDrives: number | null;
   otherCount: number | null; otherNote: string | null; deliveryFiles: number | null;
   divergence: 'NONE' | 'EXTRA_FILES' | 'MISSING_FILES' | null; pastDeliveryNote: string | null;
@@ -113,4 +117,28 @@ export function resolveDailyTask(tenantId: string, dailyTaskId: string, note: st
   return auditCoreRequest<DailyTask>(`${base(tenantId)}/daily-tasks/${encodeURIComponent(dailyTaskId)}/resolve`, {
     method: 'POST', accessToken, body: JSON.stringify({ note }),
   });
+}
+
+/** Consolidated view across the caller's onsite outlets (TL: theirs; PM and Executive: all), 2026-10-27. */
+export type GatePassSummaryFigures = {
+  asPerRegister: number; updatedInTool: number; pendingDueToClient: number; pendingDueToPc: number;
+  gatePassDays: number; gatePassesFinished: number; gatePassesMissing: number;
+};
+export type GatePassSummaryDay = {
+  date: string; label: string; status: 'NOT_UPLOADED' | 'COUNTS_PENDING' | 'ANSWER_PENDING' | 'DONE';
+  asPerRegister: number | null; updatedInTool: number; pendingDueToClient: number; pendingDueToPc: number;
+  gatePassId: string | null; pcName: string | null;
+  photoQuality?: 'GOOD' | 'BLURRED' | 'TOO_DARK' | 'WASHED_OUT' | null;
+};
+export type GatePassSummaryOutlet = GatePassSummaryFigures & {
+  outletId: string; outletName: string; dealerId: string; dealerName: string; teamLeads: string[];
+  days: GatePassSummaryDay[];
+};
+export type GatePassSummary = {
+  from: string; to: string; outlets: GatePassSummaryOutlet[]; totals: GatePassSummaryFigures; notes: string[];
+};
+
+export function getGatePassSummary(tenantId: string, from: string, to: string, accessToken?: string) {
+  const params = new URLSearchParams({ from, to });
+  return auditCoreRequest<GatePassSummary>(`${base(tenantId)}/gate-passes/summary?${params.toString()}`, { accessToken });
 }

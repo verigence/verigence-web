@@ -12,6 +12,14 @@ The app's build number is added by the release workflow and is not written here.
 
 ## [Unreleased]
 
+### Added
+- Daily gate pass: the Team Lead (outlets under them), PM and Executive see all onsite outlets together, with As per Gate out Register, Updated in Tool, Pending due to Client and Pending due to PC, by day and in total.
+- Daily gate pass: a photo already taken can be uploaded instead of opening the camera.
+
+### Changed
+- Daily gate pass photos are no longer refused for size, blur or light. Every photo is kept; the server checks blur and clarity, tells the PC if the photo looks blurred, dark or washed out, and shows it to the Team Lead.
+- The daily gate pass is for onsite outlets only; satellite outlets no longer get the task.
+
 ## [1.3.0] - 2026-10-27
 
 ### Added

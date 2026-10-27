@@ -172,7 +172,9 @@ export default function GatePassWizard({ tenantId, accessToken, onChanged }: Pro
         <div className="p2w-alert p2w-alert--error" role="alert">
           {outletsQuery.isError
             ? gatePassErrorText(outletsQuery.error, 'Your outlets could not be loaded.')
-            : 'No outlet is mapped to you, so a gate pass cannot be uploaded. Please ask your Team Lead.'}
+            : outletsQuery.data?.satelliteOnly
+              ? 'Your outlets are satellite outlets. The daily gate pass is taken at onsite outlets only, so there is nothing to upload here.'
+              : 'No outlet is mapped to you, so a gate pass cannot be uploaded. Please ask your Team Lead.'}
         </div>
       </SectionCard>
     );
@@ -249,21 +251,20 @@ export default function GatePassWizard({ tenantId, accessToken, onChanged }: Pro
 
       {step === 'photo' ? (
         <div className="p2gp-step">
-          <p>Take a clear photo of the gate pass, straight on and in good light, with the handwriting sharp. A blurred or small photo is refused.</p>
+          <p>Take a clear photo of the gate pass, straight on and in good light, with the handwriting sharp, or upload a photo you have already taken.</p>
           <div className="p2gp-actions">
+            {/* Camera or an existing photo, on the app and the website alike (product owner 2026-10-27). */}
+            <input ref={fileInput} type="file" accept="image/jpeg,image/png,image/webp" hidden
+              onChange={(event) => void onFile(event.target.files?.[0])} />
             {Capacitor.isNativePlatform() ? (
               <button type="button" className="p2w-button p2w-button--primary p2w-button--lg" disabled={busy} onClick={() => void takePhoto()}>
                 {busy ? 'Uploading…' : 'Open camera'}
               </button>
-            ) : (
-              <>
-                <input ref={fileInput} type="file" accept="image/jpeg,image/png,image/webp" hidden
-                  onChange={(event) => void onFile(event.target.files?.[0])} />
-                <button type="button" className="p2w-button p2w-button--primary p2w-button--lg" disabled={busy} onClick={() => fileInput.current?.click()}>
-                  {busy ? 'Uploading…' : 'Upload the photo'}
-                </button>
-              </>
-            )}
+            ) : null}
+            <button type="button" className={`p2w-button ${Capacitor.isNativePlatform() ? 'p2w-button--secondary' : 'p2w-button--primary'} p2w-button--lg`}
+              disabled={busy} onClick={() => fileInput.current?.click()}>
+              {busy ? 'Uploading…' : 'Upload a photo'}
+            </button>
             <button type="button" className="p2w-button p2w-button--ghost" disabled={busy} onClick={() => setStep('outlet')}>Back</button>
           </div>
         </div>
@@ -271,6 +272,14 @@ export default function GatePassWizard({ tenantId, accessToken, onChanged }: Pro
 
       {step === 'counts' ? (
         <form className="p2gp-step" onSubmit={(event) => { event.preventDefault(); if (countsValid) void sendCounts(); }}>
+          {gatePass?.photoQuality && gatePass.photoQuality !== 'GOOD' ? (
+            <div className="p2w-alert p2gp-ask" role="status">
+              {gatePass.photoQualityNote} The photo is saved. If the handwriting is hard to read, take it again; otherwise carry on.
+              <div className="p2gp-actions p2gp-actions--inline">
+                <button type="button" className="p2w-button p2w-button--secondary" onClick={() => setStep('photo')}>Take it again</button>
+              </div>
+            </div>
+          ) : null}
           <p><strong>The gate pass is saved.</strong> Now enter what it shows {dayWords === 'today' ? 'for today' : dayWords}{(gatePass?.coversDates?.length ?? 1) > 1 ? ' (Sunday and Monday together)' : ''}:</p>
           <div className="p2gp-counts">
             {([

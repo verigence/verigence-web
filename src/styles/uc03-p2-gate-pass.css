@@ -31,3 +31,4 @@
 }
 /* Which day is the photo for: asked only when the previous day's gate pass is still owed (2026-10-27). */
 .p2w .p2w-alert.p2gp-ask { display: block; background: #fff4dc; color: #6b4300; border: 1px solid #f0c36d; font-size: 1rem; }
+.p2gp-actions--inline { margin-top: 8px; }

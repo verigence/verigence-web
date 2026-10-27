@@ -8,13 +8,12 @@ import '../styles/task-manager.css';
 import PageHeader from '../components/PageHeader';
 import TaskManagerPanel from '../features/task-manager/TaskManagerPanel';
 import TaskStatusSections from '../features/task-manager/TaskStatusSections';
-import EngagementDashboard from '../features/task-manager/EngagementDashboard';
 import { istToday } from '../features/task-manager/tmFormat';
 import { getTmTaskStatus } from '../services/audit-core/taskManager';
 import { listProjects } from '../services/audit-core/uc02Admin';
 import { useSessionStore } from '../store/sessionStore';
 
-type Section = 'tasks' | 'status' | 'utilisation';
+type Section = 'tasks' | 'status';
 
 function DailyStatus({ tenantId, accessToken }: { tenantId: string; accessToken?: string }) {
   const [day, setDay] = useState(istToday());
@@ -37,8 +36,8 @@ function DailyStatus({ tenantId, accessToken }: { tenantId: string; accessToken?
 
 /**
  * Superadmin's own view of the Task Manager, one Project at a time: raise and
- * follow tasks, manage recurring tasks, the daily status and the employee
- * utilisation dashboard.
+ * follow tasks, manage recurring tasks and the daily status. Employee
+ * engagement is under Reports with DI (product owner 2026-10-27).
  */
 export default function AdminTaskManagerPage() {
   const accessToken = useSessionStore((s) => s.accessToken);
@@ -55,7 +54,7 @@ export default function AdminTaskManagerPage() {
       <PageHeader
         eyebrow="Administration · Task Manager"
         title="Task Manager"
-        description="Assign and follow tasks, set up recurring tasks, and see the daily status and employee engagement of one Project at a time."
+        description="Assign and follow tasks, set up recurring tasks, and see the daily status of one Project at a time. Employee engagement is under Reports."
       />
       <div className="tm-admin-picker">
         <label className="p2w-raise__field">
@@ -69,7 +68,7 @@ export default function AdminTaskManagerPage() {
         </label>
         {tenantId ? (
           <div className="p2w-segment" role="tablist" aria-label="Section">
-            {([['tasks', 'Tasks'], ['status', 'Daily status'], ['utilisation', 'Employee engagement']] as const).map(([key, label]) => (
+            {([['tasks', 'Tasks'], ['status', 'Daily status']] as const).map(([key, label]) => (
               <button key={key} type="button" role="tab" aria-selected={section === key} className={section === key ? 'is-active' : ''}
                 onClick={() => setSection(key)}>{label}</button>
             ))}
@@ -79,7 +78,6 @@ export default function AdminTaskManagerPage() {
       {projects.isError ? <div className="p2w-alert p2w-alert--error" role="alert">Projects could not be loaded.</div> : null}
       {tenantId && section === 'tasks' ? <TaskManagerPanel key={tenantId} mode="admin" tenantId={tenantId} accessToken={accessToken} /> : null}
       {tenantId && section === 'status' ? <DailyStatus key={tenantId} tenantId={tenantId} accessToken={accessToken} /> : null}
-      {tenantId && section === 'utilisation' ? <EngagementDashboard key={tenantId} mode="admin" tenantId={tenantId} accessToken={accessToken} /> : null}
     </div>
   );
 }

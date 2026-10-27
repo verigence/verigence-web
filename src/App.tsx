@@ -103,7 +103,6 @@ const P2GatePassPage = lazy(() => import('./pages/P2GatePassPage'));
 const P2TaskManagerPage = lazy(() => import('./pages/P2TaskManagerPage'));
 const P2UtilisationPage = lazy(() => import('./pages/P2UtilisationPage'));
 const P2DiDashboardPage = lazy(() => import('./pages/P2DiDashboardPage'));
-const AdminProjectReportsPage = lazy(() => import('./pages/AdminProjectReportsPage'));
 const AdminSystemHealthPage = lazy(() => import('./pages/AdminSystemHealthPage'));
 const AdminTaskManagerPage = lazy(() => import('./pages/AdminTaskManagerPage'));
 
@@ -374,8 +373,8 @@ export default function App() {
               <Route path="/admin/sku-resolution" element={<SuperAdminPage><AdminSkuResolutionPage /></SuperAdminPage>} />
               <Route path="/admin/reports" element={<SuperAdminPage><AdminReportsPage /></SuperAdminPage>} />
               <Route path="/admin/task-manager" element={<SuperAdminPage><AdminTaskManagerPage /></SuperAdminPage>} />
-              <Route path="/admin/engagement" element={<SuperAdminPage><AdminProjectReportsPage report="engagement" /></SuperAdminPage>} />
-              <Route path="/admin/di-dashboard" element={<SuperAdminPage><AdminProjectReportsPage report="di" /></SuperAdminPage>} />
+              <Route path="/admin/engagement" element={<Navigate to="/admin/reports?tab=engagement" replace />} />
+              <Route path="/admin/di-dashboard" element={<Navigate to="/admin/reports?tab=di" replace />} />
               <Route path="/admin/system-health" element={<SuperAdminPage><AdminSystemHealthPage /></SuperAdminPage>} />
               <Route path="/admin/feedback" element={<SuperAdminPage><AdminFeedbackPage /></SuperAdminPage>} />
               <Route path="/admin/di-test" element={<SuperAdminPage><DiTestConsolePage /></SuperAdminPage>} />

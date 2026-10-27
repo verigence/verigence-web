@@ -1,5 +1,10 @@
 import { Fragment, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
+import '../styles/uc03-p2.css';
+import '../styles/uc03-p2-workspace.css';
+import '../styles/uc03-p2-daily-report.css';
+import '../styles/task-manager.css';
 
 import PageHeader from '../components/PageHeader';
 import {
@@ -8,12 +13,27 @@ import {
   type ReviewInvoice,
 } from '../services/audit-core/adminReports';
 import { cell, INVOICE_COLUMNS, reviewCsv } from '../features/admin/reports/reviewCsv';
+import DiDashboard from '../features/task-manager/DiDashboard';
+import EngagementDashboard from '../features/task-manager/EngagementDashboard';
 import { listProjects } from '../services/audit-core/uc02Admin';
+import { getLoginActivity, type LoginPerson } from '../services/security/loginActivity';
 import { useSessionStore } from '../store/sessionStore';
 
 type Cell = string | number | null;
 
+// One place for the SuperAdmin's reports (product owner 2026-10-27): employee
+// engagement, the DI dashboard and the Journey review, one Project at a time.
 const REPORTS = [
+  {
+    key: 'engagement',
+    title: 'Employee engagement',
+    description: "Who was in first and out last, who spent the most and the least time on Verigence, who was not seen, and each person's time, files and tasks.",
+  },
+  {
+    key: 'di',
+    title: 'DI',
+    description: 'How much Document Intelligence read the first time, what has to be scanned again or failed and why, how long a file takes, by PC and by document.',
+  },
   {
     key: 'journey-review',
     title: 'Journey review',
@@ -21,6 +41,12 @@ const REPORTS = [
       'For every Journey: the SKU and its price-list ex-showroom, the booking, each invoice as read, insurance, discounts against the SKU, scrappage and credit notes, and the cost sheet / ledger / bank letter / no-dues figures. Facts as held by the system; nothing is calculated here.',
   },
 ] as const;
+
+type ReportKey = (typeof REPORTS)[number]['key'];
+
+function reportOf(value: string | null): ReportKey {
+  return REPORTS.find((r) => r.key === value)?.key ?? 'engagement';
+}
 
 function downloadCsv(rows: readonly JourneyReviewRow[]) {
   const blob = new Blob([`﻿${reviewCsv(rows)}`], { type: 'text/csv;charset=utf-8' });
@@ -59,7 +85,9 @@ function Detail({ row }: { row: JourneyReviewRow }) {
 export default function AdminReportsPage() {
   const accessToken = useSessionStore((state) => state.accessToken);
   const [tenantId, setTenantId] = useState('');
-  const [reportKey, setReportKey] = useState<(typeof REPORTS)[number]['key']>('journey-review');
+  const [params, setParams] = useSearchParams();
+  const reportKey = reportOf(params.get('tab'));
+  const setReportKey = (key: ReportKey) => setParams({ tab: key }, { replace: true });
   const [search, setSearch] = useState('');
   const [open, setOpen] = useState<string>();
 
@@ -73,10 +101,24 @@ export default function AdminReportsPage() {
   const reviewQuery = useQuery({
     queryKey: ['admin-report-journey-review', tenantId],
     queryFn: () => getJourneyReview(tenantId, accessToken!),
-    enabled: Boolean(tenantId && accessToken),
+    enabled: Boolean(tenantId && accessToken) && reportKey === 'journey-review',
     staleTime: 60_000,
     retry: 1,
   });
+
+  // Sign-in counts are Security's, all time; Superadmin only.
+  const logins = useQuery({
+    queryKey: ['security', 'login-activity'],
+    queryFn: () => getLoginActivity(accessToken!),
+    enabled: Boolean(accessToken) && reportKey === 'engagement',
+    retry: false,
+    staleTime: 5 * 60_000,
+  });
+  const byUser = useMemo(() => {
+    const map = new Map<string, LoginPerson>();
+    for (const p of logins.data?.people ?? []) map.set(p.userId, p);
+    return map;
+  }, [logins.data]);
 
   const rows = useMemo(() => {
     const needle = search.trim().toLowerCase();
@@ -94,17 +136,18 @@ export default function AdminReportsPage() {
       <PageHeader
         eyebrow="Administration · Reports"
         title="Reports"
-        description="SuperAdmin reports, read live from a Project's records. They only read; nothing here changes a Journey."
+        description="Employee engagement, DI and the Journey review, one Project at a time, read live from the Project's records. They only read; nothing here changes a Journey."
       />
       <div className="uc01-admin-config-grid">
         <article className="uc01-admin-config-card">
-          <span className="eyebrow">Report</span>
-          <label className="uc03-booking-field">
-            <span>Report</span>
-            <select value={reportKey} onChange={(e) => setReportKey(e.target.value as typeof reportKey)}>
-              {REPORTS.map((r) => <option key={r.key} value={r.key}>{r.title}</option>)}
-            </select>
-          </label>
+          <div className="p2w">
+            <div className="p2w-segment" role="tablist" aria-label="Report">
+              {REPORTS.map((r) => (
+                <button key={r.key} type="button" role="tab" aria-selected={reportKey === r.key}
+                  className={reportKey === r.key ? 'is-active' : ''} onClick={() => setReportKey(r.key)}>{r.title}</button>
+              ))}
+            </div>
+          </div>
           <p>{report.description}</p>
           <label className="uc03-booking-field">
             <span>Project / Tenant</span>
@@ -119,10 +162,19 @@ export default function AdminReportsPage() {
         </article>
       </div>
 
-      {tenantId && reviewQuery.isPending ? <p>Reading every Journey in the Project. This can take a minute.</p> : null}
-      {reviewQuery.isError ? <div className="uc01-admin-message uc01-admin-message--error">The report could not be loaded. Try again; if it repeats, the Project is too large for one read.</div> : null}
+      {tenantId && reportKey !== 'journey-review' ? (
+        <div className="p2-screen p2w">
+          {reportKey === 'engagement' ? (
+            <EngagementDashboard key={tenantId} mode="admin" tenantId={tenantId} accessToken={accessToken}
+              logins={logins.data ? byUser : undefined} />
+          ) : <DiDashboard key={tenantId} mode="admin" tenantId={tenantId} accessToken={accessToken} />}
+        </div>
+      ) : null}
 
-      {reviewQuery.data ? (
+      {tenantId && reportKey === 'journey-review' && reviewQuery.isPending ? <p>Reading every Journey in the Project. This can take a minute.</p> : null}
+      {reportKey === 'journey-review' && reviewQuery.isError ? <div className="uc01-admin-message uc01-admin-message--error">The report could not be loaded. Try again; if it repeats, the Project is too large for one read.</div> : null}
+
+      {reportKey === 'journey-review' && reviewQuery.data ? (
         <article className="uc01-admin-config-card">
           <span className="eyebrow">{report.title}</span>
           <p>

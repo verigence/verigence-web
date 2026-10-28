@@ -1070,3 +1070,7 @@
 /* Task Queue classification (2026-10-27): Journey tasks / Task Manager tasks, above the journey tabs. */
 .p2w .p2w-task-scope { font-size: 1rem; }
 .p2w .p2w-task-scope button { min-height: 42px; padding: 0 18px; font-weight: 800; }
+
+/* Several tasks of one kind on a booking, shown as one entry (2026-10-28). */
+.p2w .p2w-task-group .p2w-tasks.p2w-tasks--bundle { padding: 0 10px 10px; gap: 6px; }
+.p2w-tasks--bundle .p2w-task { box-shadow: none; border-left-width: 3px; }

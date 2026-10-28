@@ -18,6 +18,10 @@ import {
 import {
   groupByJourney, taskPlan, vehicleIdentityError, type TaskAction, type VehicleIdentity,
 } from '../features/uc03-p2/tasks/p2TaskPlan';
+import {
+  bundleDue, bundleSeverity, bundleTasks, entryCount, isBundle, type TaskBundle,
+} from '../features/uc03-p2/tasks/taskBundles';
+import type { P2DocumentCategory } from '../services/audit-core/uc03P2';
 import { formatDateTime, humanizeKey, relativeDue, taskStatus } from '../features/uc03-p2/workspace/p2Format';
 import {
   getP2Task, getP2Tasks, getP2Templates, removeP2Page, retryP2Page, setP2PageType, submitP2TaskAction,
@@ -383,6 +387,48 @@ function TaskRow({ task, open, onToggle, view, tenantId, accessToken, operatingR
   );
 }
 
+/** Several tasks of one kind on one booking, as one entry (2026-10-28):
+ * opening it lists each with its own actions. */
+function TaskBundleRow({ bundle, expanded, setExpanded, view, tenantId, accessToken, operatingRole, onDone }: {
+  bundle: TaskBundle; expanded?: string; setExpanded: (id?: string) => void; view: View; tenantId?: string;
+  accessToken?: string; operatingRole?: string; onDone: (message: string) => void;
+}) {
+  const open = expanded === bundle.id || bundle.tasks.some((task) => task.task_id === expanded);
+  const severity = severityChip(bundleSeverity(bundle.tasks));
+  const due = relativeDue(bundleDue(bundle.tasks));
+  const first = bundle.tasks[0];
+  const preview = bundle.tasks.slice(0, 3).map((task) => task.title).join(' · ')
+    + (bundle.tasks.length > 3 ? ` · and ${bundle.tasks.length - 3} more` : '');
+  return (
+    <li className={`p2w-task p2w-task--bundle p2w-task--${taskKind(first).key}${open ? ' is-open' : ''}`}>
+      <button type="button" className="p2w-task__row" aria-expanded={open}
+        onClick={() => setExpanded(open ? undefined : bundle.id)}>
+        <span className="p2w-task__main">
+          <span className="p2w-task__kind">{taskKind(first).label}</span>
+          <strong>{bundle.title}</strong>
+          {!open ? <span className="p2w-task__why">{preview}</span> : null}
+        </span>
+        <span className="p2w-task__meta">
+          <span className={`p2w-chip p2w-chip--sev-${severity.tone}`} title="Severity">{severity.label}</span>
+          <span className="p2w-chip p2w-chip--neutral">{bundle.tasks.length} items</span>
+          {view === 'open' ? <span className={due.overdue ? 'p2w-tone p2w-tone--danger' : 'p2w-muted'}>{due.label}</span> : null}
+          <span className="p2w-muted">{first.assigned_role_code}</span>
+        </span>
+      </button>
+      {open ? (
+        <ul className="p2w-tasks p2w-tasks--bundle">
+          {bundle.tasks.map((task) => (
+            <TaskRow key={task.task_id} task={task} view={view} tenantId={tenantId} accessToken={accessToken}
+              operatingRole={operatingRole} open={expanded === task.task_id}
+              onToggle={() => setExpanded(expanded === task.task_id ? bundle.id : task.task_id)}
+              onDone={onDone} />
+          ))}
+        </ul>
+      ) : null}
+    </li>
+  );
+}
+
 /** A document task's file, page(s) and reason, in plain words. */
 function DocumentLine({ task }: { task: P2Task }) {
   const doc = task.document!;
@@ -466,8 +512,32 @@ export default function P2TasksPage() {
   });
   const all = query.data?.items ?? [];
   const tasks = useMemo(() => visibleTasks(all, tab, docFilter), [all, tab, docFilter]);
-  const docCounts = documentCounts(all, query.data?.documentCounts);
-  const docCountsByJourney = query.data?.documentCountsByJourney;
+  // Counts are of what the PC sees: a bundle counts once (2026-10-28).
+  const docCounts = useMemo(() => {
+    const counts = documentCounts(all, query.data?.documentCounts);
+    if (!all.length) return counts;
+    return {
+      ...counts,
+      TOTAL: entryCount(visibleTasks(all, 'DOCUMENTS', 'ALL')),
+      ...Object.fromEntries(DOCUMENT_CATEGORIES.map((item) => [item.key, entryCount(visibleTasks(all, 'DOCUMENTS', item.key))])),
+    };
+  }, [all, query.data?.documentCounts]);
+  const docCountsByJourney = useMemo(() => {
+    const out: Record<string, Record<P2DocumentCategory, number>> = {};
+    for (const item of DOCUMENT_CATEGORIES) {
+      for (const task of visibleTasks(all, 'DOCUMENTS', item.key)) {
+        out[task.journey_id] ??= { MANUAL_VERIFICATION: 0, FAILED_TO_READ: 0, IMAGE_QUALITY: 0, MISSING_DOCUMENT: 0 };
+      }
+    }
+    for (const journeyId of Object.keys(out)) {
+      for (const item of DOCUMENT_CATEGORIES) {
+        out[journeyId][item.key] = entryCount(visibleTasks(all, 'DOCUMENTS', item.key).filter((t) => t.journey_id === journeyId));
+      }
+    }
+    return out;
+  }, [all]);
+  const tabCount = (key: P2TaskTab): number | undefined => (all.length ? entryCount(visibleTasks(all, key, 'ALL'))
+    : query.data?.counts?.[key]);
   // A link can name the kind(s) of task to open (the Upload / Edit banner
   // opens the file's "pages to upload again" or image-quality task): expand
   // the first one.
@@ -528,7 +598,7 @@ export default function P2TasksPage() {
         <div className="p2w-segment p2w-tabs-main p2w-task-scope" role="tablist" aria-label="Task classification">
           <button type="button" role="tab" aria-selected={!taskManagerScope} className={!taskManagerScope ? 'is-active' : ''}
             title="Tasks on bookings and deliveries: documents, confirmations and checks" onClick={() => setScope('journey')}>
-            Journey tasks{counts ? <b>{counts.ALL ?? 0}</b> : null}
+            Journey tasks{counts ? <b>{tabCount('ALL') ?? 0}</b> : null}
           </button>
           <button type="button" role="tab" aria-selected={taskManagerScope} className={taskManagerScope ? 'is-active' : ''}
             title="Tasks raised to people, recurring tasks and the daily gate pass" onClick={() => setScope('tm')}>
@@ -544,7 +614,7 @@ export default function P2TasksPage() {
         {TABS.map((item) => (
           <button key={item.key} type="button" role="tab" aria-selected={tab === item.key} title={item.hint}
             className={tab === item.key ? 'is-active' : ''} onClick={() => setTab(item.key)}>
-            {item.label}{counts ? <b>{counts[item.key] ?? 0}</b> : null}
+            {item.label}{counts ? <b>{tabCount(item.key) ?? 0}</b> : null}
           </button>
         ))}
       </div>
@@ -578,7 +648,7 @@ export default function P2TasksPage() {
           {operatingRole ? (
             <label className="p2w-check"><input type="checkbox" checked={mine} onChange={(e) => setMine(e.target.checked)} /> Only {operatingRole} tasks</label>
           ) : null}
-          <span className="p2w-muted">{query.isFetching ? 'Refreshing…' : `${tasks.length} task${tasks.length === 1 ? '' : 's'} · ${groups.length} booking${groups.length === 1 ? '' : 's'}`}</span>
+          <span className="p2w-muted">{query.isFetching ? 'Refreshing…' : `${entryCount(tasks)} task${entryCount(tasks) === 1 ? '' : 's'} · ${groups.length} booking${groups.length === 1 ? '' : 's'}`}</span>
         </div>
       </div>
 
@@ -598,6 +668,7 @@ export default function P2TasksPage() {
       <div className="p2w-task-groups">
         {groups.map((group) => {
           const isCollapsed = collapsed.has(group.journeyId);
+          const entries = bundleTasks(group.journeyId, group.tasks);
           return (
             <section key={group.journeyId} className="p2w-task-group" aria-label={group.customerName ?? 'Booking'}>
               <header className="p2w-task-group__head">
@@ -608,7 +679,7 @@ export default function P2TasksPage() {
                   <span className="p2w-muted">{[group.vehicle, group.outletName, group.reference].filter(Boolean).join(' · ')}</span>
                 </button>
                 <span className="p2w-task-group__meta">
-                  <span className="p2w-chip p2w-chip--neutral">{group.tasks.length} task{group.tasks.length === 1 ? '' : 's'}</span>
+                  <span className="p2w-chip p2w-chip--neutral">{entries.length} task{entries.length === 1 ? '' : 's'}</span>
                   {tab === 'DOCUMENTS' && docFilter === 'ALL' && docCountsByJourney?.[group.journeyId]
                     ? DOCUMENT_CATEGORIES.filter((item) => docCountsByJourney[group.journeyId][item.key] > 0).map((item) => (
                       <span key={item.key} className="p2w-chip p2w-chip--neutral" title={item.hint}>
@@ -623,12 +694,16 @@ export default function P2TasksPage() {
               </header>
               {!isCollapsed ? (
                 <ul className="p2w-tasks">
-                  {group.tasks.map((task) => (
-                    <TaskRow key={task.task_id} task={task} view={view} tenantId={tenantId} accessToken={accessToken}
-                      operatingRole={operatingRole} open={expanded === task.task_id}
-                      onToggle={() => setExpanded(expanded === task.task_id ? undefined : task.task_id)}
+                  {entries.map((entry) => (isBundle(entry) ? (
+                    <TaskBundleRow key={entry.id} bundle={entry} expanded={expanded} setExpanded={setExpanded} view={view}
+                      tenantId={tenantId} accessToken={accessToken} operatingRole={operatingRole}
                       onDone={(message) => setNotice(message)} />
-                  ))}
+                  ) : (
+                    <TaskRow key={entry.task_id} task={entry} view={view} tenantId={tenantId} accessToken={accessToken}
+                      operatingRole={operatingRole} open={expanded === entry.task_id}
+                      onToggle={() => setExpanded(expanded === entry.task_id ? undefined : entry.task_id)}
+                      onDone={(message) => setNotice(message)} />
+                  )))}
                 </ul>
               ) : null}
             </section>

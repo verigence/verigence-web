@@ -111,7 +111,7 @@ describe('document-driven tasks', () => {
       ] } }, 'PC');
     expect(plan.primary).toMatchObject({ label: 'Yes, it was intimated', action: 'COMPLETE_ACTION', details: { answer: 'YES' } });
     expect(plan.secondary[0]).toMatchObject({ label: 'No, it was not intimated', details: { answer: 'NO' }, requiresComment: true });
-    expect(plan.secondary.map((a) => a.label)).toContain('Comment');
+    expect(plan.secondary.map((a) => a.label)).toContain('Add note (task stays open)');
   });
 
   it('lets the Team Lead confirm or reject the finding behind a violation', async () => {

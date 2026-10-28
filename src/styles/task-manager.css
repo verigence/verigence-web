@@ -95,3 +95,15 @@
   .tm-grid-2 { grid-template-columns: 1fr; }
   .tm-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
+
+/* One person's day in 20-minute blocks (2026-10-28). */
+.tm-personday__title { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.tm-blocks { display: flex; flex-wrap: wrap; gap: 4px; margin: 8px 0; }
+.tm-block { display: inline-block; min-width: 44px; padding: 4px 6px; border-radius: 4px; font-size: 12px; text-align: center; }
+i.tm-block { min-width: 12px; height: 12px; padding: 0; vertical-align: middle; }
+.tm-block--working { background: #2e7d32; color: #fff; }
+.tm-block--active_no_output { background: #f9a825; color: #222; }
+.tm-block--idle { background: #cfd8dc; color: #222; }
+.tm-block--away { background: #eceff1; color: #78909c; }
+.tm-blocks__legend { display: flex; flex-wrap: wrap; gap: 12px; font-size: 12px; }
+.tm-personday__screens { max-height: 420px; overflow: auto; }

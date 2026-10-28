@@ -7,6 +7,7 @@ import {
 } from '../../services/audit-core/taskManager';
 import type { LoginPerson } from '../../services/security/loginActivity';
 import { SOURCE_LABELS, sourcesText } from './activityTally';
+import PersonDayPanel from './PersonDayPanel';
 import { dayLeaders, dayText, istClock, sourceShareText, timeRanking, topBy, type Stamp, type TimeRow } from './engagementHighlights';
 import { addDays, istToday, minutesText, personName, roleLabel } from './tmFormat';
 import '../../styles/task-manager.css';
@@ -145,6 +146,8 @@ export default function EngagementDashboard({ mode, tenantId, accessToken, login
   const [search, setSearch] = useState('');
   const [metricKey, setMetricKey] = useState<MetricKey>('activeMinutes');
   const [open, setOpen] = useState<string>();
+  // One person's day minute by minute (2026-10-28).
+  const [dayOf, setDayOf] = useState<string>();
   const span = daysBetween(range.from, range.to);
   const rangeOk = span >= 1 && span <= MAX_DAYS;
   const report = useQuery({
@@ -246,6 +249,9 @@ export default function EngagementDashboard({ mode, tenantId, accessToken, login
                   <tr>
                     <th>Person</th><th>Active time</th><th>A day</th><th>Days</th><th>Usually in</th><th>Usually out</th>
                     <th>Used on</th><th>Files</th><th title="Journey tasks worked plus Task Manager tasks done">Tasks</th>
+                    <th title={`On ${range.to}: the longest stretch with no file uploaded, task acted on or value saved`}>Longest with no output</th>
+                    <th title={`On ${range.to}: 20-minute blocks that were active with nothing saved`}>Blocks active, no output</th>
+                    <th />
                   </tr>
                 </thead>
                 <tbody>
@@ -262,6 +268,16 @@ export default function EngagementDashboard({ mode, tenantId, accessToken, login
                         <td className="p2w-muted">{sourcesText(t.activeMinutesBySource, minutesText)}</td>
                         <td>{t.filesUploaded}</td>
                         <td>{t.journeyTasksWorked + t.tasksCompleted}</td>
+                        {(() => {
+                          const d = p.days?.find((x) => x.day === range.to);
+                          return (
+                            <>
+                              <td>{d?.longestNoOutputMinutes != null ? `${minutesText(d.longestNoOutputMinutes)} (${d.longestNoOutputFrom}–${d.longestNoOutputTo})` : '—'}</td>
+                              <td>{d?.blockCounts ? d.blockCounts.ACTIVE_NO_OUTPUT : '—'}</td>
+                            </>
+                          );
+                        })()}
+                        <td><button type="button" className="p2w-button p2w-button--ghost" onClick={() => setDayOf(p.actorId)}>Day detail</button></td>
                       </tr>
                     );
                   })}
@@ -269,6 +285,11 @@ export default function EngagementDashboard({ mode, tenantId, accessToken, login
               </table>
             </div>
           </SectionCard>
+
+          {dayOf ? (
+            <PersonDayPanel mode={mode} tenantId={tenantId} accessToken={accessToken} actorId={dayOf} day={range.to}
+              onClose={() => setDayOf(undefined)} />
+          ) : null}
 
           <button type="button" className="p2w-button p2w-button--ghost" aria-expanded={details} onClick={() => setDetails(!details)}>
             {details ? 'Hide all figures' : 'Show all figures'}

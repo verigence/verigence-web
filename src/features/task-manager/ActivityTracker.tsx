@@ -1,14 +1,16 @@
 import { useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { Capacitor } from '@capacitor/core';
 
 import { postActivity } from '../../services/audit-core/taskManager';
 import { useProjectContextStore } from '../../store/projectContextStore';
 import { useSessionStore } from '../../store/sessionStore';
-import { activitySource, classify, parseTally, record, totals, type StoredTally } from './activityTally';
+import { activitySource, classify, parseTally, record, recordVisit, screenOf, totals, type StoredTally } from './activityTally';
 import type { ActivitySource } from '../../services/audit-core/taskManager';
 
 const TICK_MS = 15_000;
-const FLUSH_MS = 15 * 60_000;
+// Every minute (2026-10-28): near real time, and an abruptly closed browser loses at most a minute.
+const FLUSH_MS = 60_000;
 const MIN_FLUSH_GAP_MS = 60_000;
 const INTERACTION_WRITE_GAP_MS = 5_000;
 
@@ -50,12 +52,21 @@ export default function ActivityTracker() {
     const visible = () => document.visibilityState === 'visible';
 
     let lastInteractionWrite = 0;
-    const onInteraction = () => {
+    let lastClickMinute = -1;
+    // A click, tap or key marks its minute K (once a minute); a scroll or wheel
+    // keeps the app active but marks nothing more (2026-10-28).
+    const onInteraction = (event: Event) => {
       const now = Date.now();
-      if (now - lastInteractionWrite < INTERACTION_WRITE_GAP_MS) return;
+      const click = event.type === 'pointerdown' || event.type === 'keydown' || event.type === 'touchstart';
+      const minute = Math.floor(now / 60_000);
+      if (click && minute !== lastClickMinute) {
+        lastClickMinute = minute;
+      } else if (now - lastInteractionWrite < INTERACTION_WRITE_GAP_MS) {
+        return;
+      }
       lastInteractionWrite = now;
       const tally = read();
-      write(record({ ...tally, lastInteractionAt: Math.max(tally.lastInteractionAt, now) }, now, 'A'));
+      write(record({ ...tally, lastInteractionAt: Math.max(tally.lastInteractionAt, now) }, now, click ? 'K' : 'A'));
     };
     const tick = () => {
       const now = Date.now();
@@ -104,6 +115,19 @@ export default function ActivityTracker() {
       flush(true);
     };
   }, [tenantId, accessToken, operatingRole, email, displayName]);
+
+  // Each screen or journey tab opened (2026-10-28).
+  const location = useLocation();
+  useEffect(() => {
+    if (!tenantId || !accessToken || !operatingRole) return;
+    const key = `verigence.activity.v1:${tenantId}:${email || 'me'}`;
+    const { screen, journeyId } = screenOf(location.pathname, location.search);
+    try {
+      window.localStorage.setItem(key, JSON.stringify(recordVisit(parseTally(window.localStorage.getItem(key)), Date.now(), screen, journeyId)));
+    } catch {
+      // Storage full or blocked: the visit is simply not recorded.
+    }
+  }, [location.pathname, location.search, tenantId, accessToken, operatingRole, email]);
 
   return null;
 }

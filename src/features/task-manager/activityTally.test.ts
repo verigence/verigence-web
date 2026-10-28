@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { activitySource, classify, emptyTally, IDLE_AFTER_MS, istDate, istMinute, parseTally, record, SESSION_GAP_MS, sourcesText, totals } from './activityTally';
+import { activitySource, classify, emptyTally, IDLE_AFTER_MS, istDate, istMinute, parseTally, record, recordVisit, screenOf, SESSION_GAP_MS, sourcesText, totals } from './activityTally';
 import { raiseProblem } from './RaiseTmTaskDialog';
 import { scheduleProblem } from './TmSchedules';
 import { durationLabel, scheduleLabel } from './tmFormat';
@@ -98,3 +98,33 @@ describe('activity source (2026-10-27)', () => {
   });
 });
 
+
+describe('minute states and screens (2026-10-28)', () => {
+  const at = (hhmm: string) => Date.parse(`2026-10-28T${hhmm}:00+05:30`);
+
+  it('sends one character per minute, a click minute as K', () => {
+    let tally = emptyTally();
+    tally = record(tally, at('10:00'), 'K');
+    tally = record(tally, at('10:01'), 'A');
+    tally = record(tally, at('10:05'), 'I');
+    const t = totals(tally.days[0]);
+    expect(t.minuteStates).toHaveLength(1440);
+    expect(t.minuteStates.slice(600, 606)).toBe('KA...I');
+    expect(t.activeSeconds).toBe(120);
+  });
+
+  it('records each screen opened once, with its journey', () => {
+    let tally = emptyTally();
+    tally = recordVisit(tally, at('10:00'), 'Bookings & Deliveries list');
+    tally = recordVisit(tally, at('10:01'), 'Bookings & Deliveries list');
+    tally = recordVisit(tally, at('10:02'), 'Journey › Documents', 'j-1');
+    expect(totals(tally.days[0]).visits.map((v) => v.screen)).toEqual(['Bookings & Deliveries list', 'Journey › Documents']);
+  });
+
+  it('names screens without ids', () => {
+    const id = '9dcba68f-eab9-4423-9ee0-b6ede5ed3f2f';
+    expect(screenOf(`/p2/journeys/${id}/overview`, '?tab=addons')).toEqual({ screen: 'Journey › Addons', journeyId: id });
+    expect(screenOf('/p2/bookings', '')).toEqual({ screen: 'Bookings & Deliveries list', journeyId: null });
+    expect(screenOf('/admin/engagement', '').screen).toBe('Admin › Engagement');
+  });
+});

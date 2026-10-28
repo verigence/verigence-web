@@ -14,6 +14,7 @@ import {
 } from '../services/audit-core/uc03P2';
 import { useProjectContextStore } from '../store/projectContextStore';
 import { useSessionStore } from '../store/sessionStore';
+import { matchLevelText } from '../features/uc03-p2/matchLevel';
 
 function Side({ title, side }: { title: string; side: DuplicateBookingSide }) {
   return (
@@ -92,7 +93,7 @@ export default function P2DuplicateBookingsPage() {
           <li key={pair.findingId} className="j360-card">
             <header className="j360-docs__head">
               <span className={`p2w-chip p2w-chip--${pair.severity === 'CRITICAL' ? 'danger' : pair.severity === 'LOW' ? 'neutral' : 'warning'}`}>
-                {pair.matchBasisLabel ?? humanizeKey(pair.matchBasis ?? 'match')}{pair.matchConfidencePercent ? ` · ${pair.matchConfidencePercent}%` : ''}
+                {pair.matchBasisLabel ?? humanizeKey(pair.matchBasis ?? 'match')}{` · ${matchLevelText(pair.matchConfidenceLabel)}`}
               </span>
               <span className="p2w-muted">Raised {formatDateTime(pair.raisedAtUtc)} · {humanizeKey(pair.status)}</span>
             </header>

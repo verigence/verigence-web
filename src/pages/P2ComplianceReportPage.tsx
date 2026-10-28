@@ -11,6 +11,7 @@ import { displayValue, formatDateTime, humanizeKey } from '../features/uc03-p2/w
 import { getP2Journey360Section } from '../services/audit-core/uc03P2';
 import { useProjectContextStore } from '../store/projectContextStore';
 import { useSessionStore } from '../store/sessionStore';
+import { matchLevelText } from '../features/uc03-p2/matchLevel';
 
 const HEADER_LABELS: Record<string, string> = {
   journeyReference: 'Journey', bookingReference: 'Booking reference', productLabel: 'Vehicle', dealerName: 'Dealer',
@@ -134,7 +135,7 @@ export default function P2ComplianceReportPage() {
                       <strong>{pair.role === 'THIS_IS_DUPLICATE' ? 'Matches an earlier booking' : 'A later booking matches this one'}</strong>
                       <span className="p2w-muted">{pair.otherJourney.customer_name ?? '—'} · {pair.otherJourney.outlet_name ?? '—'} · {pair.otherJourney.journey_reference ?? pair.otherJourney.journey_id}</span>
                     </span>
-                    <span className="p2w-muted j360-controls__meta">{pair.matchBasisLabel ?? humanizeKey(pair.matchBasis ?? '')}{pair.matchConfidencePercent ? ` · ${pair.matchConfidencePercent}%` : ''}</span>
+                    <span className="p2w-muted j360-controls__meta">{pair.matchBasisLabel ?? humanizeKey(pair.matchBasis ?? '')}{` · ${matchLevelText(pair.matchConfidenceLabel)}`}</span>
                   </li>
                 ))}
               </ul>

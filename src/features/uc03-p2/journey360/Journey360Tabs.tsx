@@ -22,6 +22,7 @@ import { displayValue, formatDateTime, humanizeKey } from '../workspace/p2Format
 import { ChargeTable, DiscountTable } from './DealTab';
 import { LoanDisbursementDialog } from './DealControls';
 import { CONTROL_STATUS, eventLabel, money, recordField, signedMoney, varianceTone } from './j360Format';
+import { matchLevelText } from '../matchLevel';
 
 const NOISE_KEYS = new Set(['label', 'source_kind', 'addon_type_code']);
 
@@ -1033,7 +1034,7 @@ export function DuplicatesBanner({ pairs }: { pairs: P2DuplicatePair[] }) {
           <li key={pair.findingId}>
             {pair.role === 'THIS_IS_DUPLICATE' ? 'This booking matches an earlier booking' : 'A later booking matches this one'}
             {' '}— {pair.otherJourney.customer_name ?? 'another customer'}{pair.otherJourney.outlet_name ? `, ${pair.otherJourney.outlet_name}` : ''}
-            {' '}({pair.matchBasisLabel ?? humanizeKey(pair.matchBasis ?? 'match')}{pair.matchConfidencePercent ? `, ${pair.matchConfidencePercent}%` : ''}).{' '}
+            {' '}({pair.matchBasisLabel ?? humanizeKey(pair.matchBasis ?? 'match')}{`, ${matchLevelText(pair.matchConfidenceLabel).toLowerCase()}`}).{' '}
             <Link className="p2w-link" to={`/p2/journeys/${pair.otherJourney.journey_id}/overview`}>Open the other booking</Link>
           </li>
         ))}

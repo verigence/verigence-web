@@ -187,6 +187,9 @@ export type ActivityPayload = {
   firstActiveAt?: string | null;
   lastActiveAt?: string | null;
   sessions?: Array<{ start: string; end: string; activeSeconds: number }>;
+  /** One character per minute of the IST day (2026-10-28): . B I A K. */
+  minuteStates?: string;
+  visits?: Array<{ at: string; screen: string; journeyId?: string | null }>;
 };
 
 const LIST_TIMEOUT_MS = 30_000;
@@ -337,8 +340,33 @@ export type EngagementPerson = {
   days?: EngagementDay[];
 };
 
+export type BlockState = 'WORKING' | 'ACTIVE_NO_OUTPUT' | 'IDLE' | 'AWAY';
+
 export type EngagementDay = {
   day: string; activeMinutes: number; firstActiveAtUtc: string | null; lastActiveAtUtc: string | null;
+  /** From 28 Oct 2026, when the browser sends each minute. */
+  longestNoOutputMinutes?: number | null; longestNoOutputFrom?: string | null; longestNoOutputTo?: string | null;
+  blockCounts?: Record<BlockState, number> | null;
+};
+
+export type PersonDay = {
+  actorId: string; name?: string | null; role?: string | null; day: string;
+  activeMinutes: number; idleMinutes: number; hiddenMinutes: number; minuteDetail: boolean;
+  analysis: {
+    firstActive: string | null; lastActive: string | null; activeMinutes: number;
+    longestNoOutput: { minutes: number; from: string; to: string; activeMinutes: number; endsWithOutput: boolean } | null;
+    blocks: Array<{ from: string; to: string; state: BlockState; outputs: number; activeMinutes: number;
+                    idleMinutes: number; hiddenMinutes: number }>;
+    blockCounts: Record<BlockState, number>;
+    scrollOnly: Array<{ from: string; to: string; minutes: number }>;
+  } | null;
+  outputs: Array<{ at: string; time: string; kind: string; label: string; countsAsOutput: boolean;
+                   journeyId?: string | null; journeyReference?: string | null; detail?: string | null }>;
+  outputCount: number; journeysReviewed: number; documentsOpened: number; journeysTouched: number;
+  screens: Array<{ at: string; time: string; screen: string; journeyId?: string | null;
+                   journeyReference?: string | null; minutes: number }>;
+  minutesByScreen: Array<{ screen: string; activeMinutes: number }>;
+  notes: string[];
 };
 
 export type EngagementReport = {
@@ -405,6 +433,15 @@ export function getEngagement(
   const params = new URLSearchParams({ from, to, period });
   return auditCoreRequest<EngagementReport>(`${newReportPath(mode, tenantId, 'engagement')}?${params}`, {
     accessToken, timeoutMs: 60_000,
+  });
+}
+
+export function getEngagementPersonDay(
+  mode: TaskManagerMode, tenantId: string, actorId: string, day: string, accessToken?: string,
+) {
+  const params = new URLSearchParams({ actorId, day });
+  return auditCoreRequest<PersonDay>(`${newReportPath(mode, tenantId, 'engagement')}/person-day?${params}`, {
+    accessToken, timeoutMs: 60_000, cache: 'no-store',
   });
 }
 

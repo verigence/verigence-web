@@ -11,13 +11,15 @@
  * busiest state for a minute, so two tabs never double the time. Nothing is
  * captured beyond these counts.
  */
-export type MinuteState = 'A' | 'I' | 'B';
+export type MinuteState = 'A' | 'I' | 'B' | 'K';
 
 export const IDLE_AFTER_MS = 4 * 60_000;
 /** A session is a stretch of use with no break of 30 minutes or more (2026-10-27). */
 export const SESSION_GAP_MS = 30 * 60_000;
 const IST_OFFSET_MS = 330 * 60_000;
-const RANK: Record<MinuteState, number> = { A: 3, I: 2, B: 1 };
+/** K: a click, tap or key in that very minute (2026-10-28), so scrolling with
+ * no click can be told apart from work. It counts as active everywhere. */
+const RANK: Record<MinuteState, number> = { K: 4, A: 3, I: 2, B: 1 };
 
 export type DayTally = {
   date: string;
@@ -27,6 +29,8 @@ export type DayTally = {
   lastActiveAt?: string | null;
   /** Stretches of use, epoch ms; the last one grows while the person keeps working. */
   sessions?: Array<{ start: number; end: number }>;
+  /** Screens and journey tabs opened, in order (2026-10-28). */
+  visits?: Array<{ at: number; screen: string; journeyId?: string | null }>;
 };
 
 export type StoredTally = {
@@ -60,7 +64,7 @@ export function record(tally: StoredTally, now: number, state: MinuteState): Sto
   }
   const current = day.minutes[minute];
   if (!current || RANK[state] > RANK[current]) day.minutes[minute] = state;
-  if (state === 'A') {
+  if (state === 'A' || state === 'K') {
     const at = new Date(now).toISOString();
     if (!day.firstActiveAt) day.firstActiveAt = at;
     day.lastActiveAt = at;
@@ -78,7 +82,7 @@ export function totals(day: DayTally) {
   let background = 0;
   const hourly = new Array<number>(24).fill(0);
   for (const [minute, state] of Object.entries(day.minutes)) {
-    if (state === 'A') {
+    if (state === 'A' || state === 'K') {
       active += 1;
       hourly[Math.floor(Number(minute) / 60)] += 1;
     } else if (state === 'I') idle += 1;
@@ -89,7 +93,7 @@ export function totals(day: DayTally) {
     let activeMinutes = 0;
     for (const [minute, state] of Object.entries(day.minutes)) {
       const at = dayStart + Number(minute) * 60_000;
-      if (state === 'A' && at >= session.start - 60_000 && at <= session.end) activeMinutes += 1;
+      if ((state === 'A' || state === 'K') && at >= session.start - 60_000 && at <= session.end) activeMinutes += 1;
     }
     return {
       start: new Date(session.start).toISOString(),
@@ -98,13 +102,67 @@ export function totals(day: DayTally) {
       activeSeconds: activeMinutes * 60,
     };
   });
+  const states = new Array<string>(MINUTES_PER_DAY).fill('.');
+  for (const [minute, state] of Object.entries(day.minutes)) {
+    const i = Number(minute);
+    if (i >= 0 && i < MINUTES_PER_DAY) states[i] = state;
+  }
   return {
     activeSeconds: active * 60,
     idleSeconds: idle * 60,
     backgroundSeconds: background * 60,
     hourlyActiveMinutes: hourly,
     sessions,
+    minuteStates: states.join(''),
+    visits: (day.visits ?? []).map((v) => ({ at: new Date(v.at).toISOString(), screen: v.screen, journeyId: v.journeyId ?? null })),
   };
+}
+
+const MINUTES_PER_DAY = 1440;
+const MAX_VISITS = 3000;
+
+/** Note the screen just opened; the same screen twice in a row is one visit. */
+export function recordVisit(tally: StoredTally, now: number, screen: string, journeyId?: string | null): StoredTally {
+  const date = istDate(now);
+  const days = tally.days.filter((d) => d.date >= istDate(now - 86_400_000));
+  let day = days.find((d) => d.date === date);
+  if (!day) {
+    day = { date, minutes: {} };
+    days.push(day);
+  }
+  const visits = day.visits ?? (day.visits = []);
+  const last = visits[visits.length - 1];
+  if (!last || last.screen !== screen || (last.journeyId ?? null) !== (journeyId ?? null)) {
+    if (visits.length < MAX_VISITS) visits.push({ at: now, screen, journeyId: journeyId ?? null });
+  }
+  return { ...tally, days };
+}
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const SCREEN_NAMES: Array<[RegExp, string]> = [
+  [/^\/p2\/journeys\/:id\/overview$/, 'Journey'],
+  [/^\/p2\/journeys\/:id\/documents\/:id$/, 'Journey › Document'],
+  [/^\/p2\/journeys\/:id\/documents$/, 'Journey › Upload / Edit Documents'],
+  [/^\/p2\/journeys\/:id\/compliance-report$/, 'Journey › Compliance report'],
+  [/^\/p2\/bookings$/, 'Bookings & Deliveries list'],
+  [/^\/p2\/tasks$/, 'Tasks'],
+  [/^\/p2\/review$/, 'Document Review board'],
+  [/^\/dashboard$|^\/home$|^\/$/, 'Dashboard'],
+];
+
+const titleCase = (part: string) => part.replace(/[-_]/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+
+/** A screen as a person would name it ("Journey › Documents"), and the
+ * journey it is about. Ids are never part of the name. */
+export function screenOf(pathname: string, search: string): { screen: string; journeyId: string | null } {
+  const parts = pathname.split('/').filter(Boolean);
+  const journeyAt = parts.findIndex((p) => p === 'journeys' || p === 'bookings' || p === 'deliveries' || p === 'audit');
+  const journeyId = journeyAt >= 0 && UUID.test(parts[journeyAt + 1] ?? '') ? parts[journeyAt + 1] : null;
+  const shape = `/${parts.map((p) => (UUID.test(p) || /^\d+$/.test(p) ? ':id' : p)).join('/')}`;
+  const named = SCREEN_NAMES.find(([pattern]) => pattern.test(shape));
+  const base = named ? named[1] : parts.filter((p) => !UUID.test(p) && !/^\d+$/.test(p)).map(titleCase).join(' › ') || 'Dashboard';
+  const tab = new URLSearchParams(search).get('tab');
+  return { screen: tab ? `${base} › ${titleCase(tab)}` : base, journeyId };
 }
 
 export function emptyTally(): StoredTally {

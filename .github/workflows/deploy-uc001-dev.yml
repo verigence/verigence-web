@@ -13,6 +13,9 @@ concurrency:
 jobs:
   deploy:
     name: Build & Deploy DEV
+    # A push whose commit message carries "[skip deploy]" is merged but not
+    # deployed (product owner 2026-10-28); run this workflow by hand to deploy.
+    if: github.event_name == 'workflow_dispatch' || !contains(github.event.head_commit.message, '[skip deploy]')
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:

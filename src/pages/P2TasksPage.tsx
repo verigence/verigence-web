@@ -118,7 +118,8 @@ function TaskDetail({ task, tenantId, accessToken, operatingRole, onDone }: {
         navigate(`/p2/journeys/${task.journey_id}/documents?resolveSku=1`);
         return;
       }
-      onDone(action.action === 'ADD_COMMENT' ? 'Comment added.'
+      onDone(action.action === 'ADD_COMMENT'
+        ? 'Note added. The task is still open: a note does not close it -- do what the task asks (upload, correct, answer) and it closes itself.'
         : action.action === 'CLOSE_TASK' ? 'Task closed.'
         : task.task_type === 'SKU_CLOSEST_MATCH_CONFIRM' ? 'Vehicle confirmed. The deal is now checked against its price.'
         : task.task_type === 'SKU_OTHER_MONTH_PRICE_LIST' && action.action === 'ACCEPT' ? 'Approved. The journey is now priced on that list and its SKU resolved there.'
@@ -263,7 +264,7 @@ function TaskDetail({ task, tenantId, accessToken, operatingRole, onDone }: {
       ) : null}
       {task.source_system !== 'LEGACY' ? (
         <label className="p2w-task__comment">
-          <span>Comment</span>
+          <span>Comment (a note alone does not close the task)</span>
           <textarea rows={2} value={comment} onChange={(event) => { setComment(event.target.value); setError(undefined); }}
             placeholder={buttons.some((item) => item.action === 'CLOSE_TASK')
               ? 'Add a note for your team. Closing the task needs a comment.' : 'Add a note for your team'} />

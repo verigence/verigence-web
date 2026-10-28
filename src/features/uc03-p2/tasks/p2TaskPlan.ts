@@ -1,5 +1,10 @@
 import type { P2Task } from '../../../services/audit-core/uc03P2';
 
+/** A note never closes a task (2026-10-28: about 95 open tasks carried a PC's
+ * comment -- "uploaded", "it is in booking stage", "NOT INTIMATED" -- written as
+ * if it closed them). The button says so. */
+export const COMMENT_LABEL = 'Add note (task stays open)';
+
 export type TaskAction = {
   label: string;
   action?: string;
@@ -71,11 +76,11 @@ export function taskPlan(task: P2Task, operatingRole?: string | null): TaskPlan 
   const canComment = allowed.has('ADD_COMMENT');
   const supervisor = operatingRole === 'TL' || operatingRole === 'PM';
   if (DONE.has(task.task_status)) {
-    return { secondary: canComment ? [{ label: 'Comment', action: 'ADD_COMMENT', requiresComment: true, tone: 'ghost' }] : [] };
+    return { secondary: canComment ? [{ label: COMMENT_LABEL, action: 'ADD_COMMENT', requiresComment: true, tone: 'ghost' }] : [] };
   }
   const waiting = WAITING[task.task_status];
   if (waiting) {
-    return { waiting, secondary: canComment ? [{ label: 'Comment', action: 'ADD_COMMENT', requiresComment: true, tone: 'ghost' }] : [] };
+    return { waiting, secondary: canComment ? [{ label: COMMENT_LABEL, action: 'ADD_COMMENT', requiresComment: true, tone: 'ghost' }] : [] };
   }
 
   const answers = taskAnswers(task);
@@ -89,7 +94,7 @@ export function taskPlan(task: P2Task, operatingRole?: string | null): TaskPlan 
           label: item.label, action: 'COMPLETE_ACTION', details: { answer: item.value },
           requiresComment: Boolean(item.requiresComment), tone: 'danger',
         })),
-        ...(canComment ? [{ label: 'Comment', action: 'ADD_COMMENT', requiresComment: true, tone: 'ghost' as const }] : []),
+        ...(canComment ? [{ label: COMMENT_LABEL, action: 'ADD_COMMENT', requiresComment: true, tone: 'ghost' as const }] : []),
       ],
     };
   }
@@ -105,7 +110,7 @@ export function taskPlan(task: P2Task, operatingRole?: string | null): TaskPlan 
       primary: answer(first, 'confirm'),
       secondary: [
         ...rest.map((item) => answer(item, 'danger')),
-        ...(canComment ? [{ label: 'Comment', action: 'ADD_COMMENT', requiresComment: true, tone: 'ghost' as const }] : []),
+        ...(canComment ? [{ label: COMMENT_LABEL, action: 'ADD_COMMENT', requiresComment: true, tone: 'ghost' as const }] : []),
       ],
     };
   }
@@ -120,7 +125,7 @@ export function taskPlan(task: P2Task, operatingRole?: string | null): TaskPlan 
         { label: 'Open Journey 360', to: `/p2/journeys/${task.journey_id}/overview`, tone: 'ghost' },
         ...(supervisor && allowed.has('ACCEPT_EXCEPTION')
           ? [{ label: 'Accept as exception', action: 'ACCEPT_EXCEPTION', requiresComment: true, tone: 'ghost' as const }] : []),
-        ...(canComment ? [{ label: 'Comment', action: 'ADD_COMMENT', requiresComment: true, tone: 'ghost' as const }] : []),
+        ...(canComment ? [{ label: COMMENT_LABEL, action: 'ADD_COMMENT', requiresComment: true, tone: 'ghost' as const }] : []),
       ],
     };
   }
@@ -133,7 +138,7 @@ export function taskPlan(task: P2Task, operatingRole?: string | null): TaskPlan 
       ],
     };
   }
-  const comment = canComment ? [{ label: 'Comment', action: 'ADD_COMMENT', requiresComment: true, tone: 'ghost' as const }] : [];
+  const comment = canComment ? [{ label: COMMENT_LABEL, action: 'ADD_COMMENT', requiresComment: true, tone: 'ghost' as const }] : [];
   if (task.task_type === 'SKU_CLOSEST_MATCH_CONFIRM') {
     // The closest price-master SKU, suggested -- never pinned on its own.
     // Reject opens the model picker on the journey (TaskDetail navigates).
@@ -183,7 +188,7 @@ export function taskPlan(task: P2Task, operatingRole?: string | null): TaskPlan 
       secondary: [
         { label: 'Open Journey 360', to: `/p2/journeys/${task.journey_id}/overview`, tone: 'secondary' },
         { label: 'Compliance report', to: `/p2/journeys/${task.journey_id}/compliance-report`, tone: 'ghost' },
-        ...(canComment ? [{ label: 'Comment', action: 'ADD_COMMENT', requiresComment: true, tone: 'ghost' as const }] : []),
+        ...(canComment ? [{ label: COMMENT_LABEL, action: 'ADD_COMMENT', requiresComment: true, tone: 'ghost' as const }] : []),
       ],
     };
   }
@@ -191,7 +196,7 @@ export function taskPlan(task: P2Task, operatingRole?: string | null): TaskPlan 
     return {
       secondary: [
         { label: 'Open Journey 360', to: `/p2/journeys/${task.journey_id}/overview?tab=deal`, tone: 'ghost' },
-        ...(canComment ? [{ label: 'Comment', action: 'ADD_COMMENT', requiresComment: true, tone: 'ghost' as const }] : []),
+        ...(canComment ? [{ label: COMMENT_LABEL, action: 'ADD_COMMENT', requiresComment: true, tone: 'ghost' as const }] : []),
       ],
       managementReferral: supervisor,
     };
@@ -201,7 +206,7 @@ export function taskPlan(task: P2Task, operatingRole?: string | null): TaskPlan 
     // in the form under the description (TaskDetail).
     return {
       primary: { label: 'Add car photos', to: `/p2/journeys/${task.journey_id}/documents?tab=photos`, tone: 'primary' },
-      secondary: canComment ? [{ label: 'Comment', action: 'ADD_COMMENT', requiresComment: true, tone: 'ghost' }] : [],
+      secondary: canComment ? [{ label: COMMENT_LABEL, action: 'ADD_COMMENT', requiresComment: true, tone: 'ghost' }] : [],
       vehicleId: true,
     };
   }
@@ -250,7 +255,7 @@ export function taskPlan(task: P2Task, operatingRole?: string | null): TaskPlan 
   if (supervisor && allowed.has('ACCEPT_EXCEPTION')) {
     secondary.push({ label: 'Accept as exception', action: 'ACCEPT_EXCEPTION', requiresComment: true, tone: 'ghost' });
   }
-  if (canComment) secondary.push({ label: 'Comment', action: 'ADD_COMMENT', requiresComment: true, tone: 'ghost' });
+  if (canComment) secondary.push({ label: COMMENT_LABEL, action: 'ADD_COMMENT', requiresComment: true, tone: 'ghost' });
   return { primary, secondary };
 }
 

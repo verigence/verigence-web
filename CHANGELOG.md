@@ -14,6 +14,11 @@ The app's build number is added by the release workflow and is not written here.
 
 ### Changed
 - Daily gate pass, all outlets: a gate pass not uploaded or not finished by the PC is highlighted, and clicking an outlet opens its gate pass.
+- Documents: a page that failed, was removed or is a copy of a page already uploaded no longer shows a card (it showed "Uploaded · removed…" or "Uploading…" with a spinner). The "Document to resubmit" or scan-quality task names the pages to upload again, and the checklist shows Missing until they arrive.
+- Deal: the NDC / Cost sheet column; a booking with no NDC shows the cost sheet's figures, named as the cost sheet's.
+- Tasks: tasks of one kind on a booking are shown as one entry.
+- Tasks: the note button reads "Add note (task stays open)"; a note alone does not close a task.
+- The app sends the time used minute by minute and the screens opened, for the Executive's engagement report. Nothing changes on the employee's screen.
 
 ## [1.3.2] - 2026-10-27
 

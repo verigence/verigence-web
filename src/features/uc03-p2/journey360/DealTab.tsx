@@ -432,6 +432,9 @@ export default function DealTab({ deal, journeyId, tenantId, accessToken }: {
   const netBilled = netOf(summary.gross.billed, summary.discounts.billed);
   const variance = summary.variance.currentVsStandard;
   const invoiced = summary.invoicedComponents;
+  // Mahindra Orissa reads the Deal from the NDC (account statement), or the
+  // cost sheet when no NDC is on file -- not from the invoice.
+  const billedLabel = summary.billedSource === 'ACCOUNT_STATEMENT' ? 'NDC / Cost sheet' : 'Invoice';
   const invoiceOnly = summary.invoiceIsSourceOfTruth === true;
   const partly = !invoiceOnly && invoiced > 0 && invoiced < summary.components;
   const due = num(summary.balanceDue);
@@ -490,7 +493,7 @@ export default function DealTab({ deal, journeyId, tenantId, accessToken }: {
                 <th scope="col" className="is-num">Price master</th>
                 <th scope="col" className="j360-opted-cell">Opted</th>
                 <th scope="col" className="is-num">Booking</th>
-                <th scope="col" className="is-num">Invoice</th>
+                <th scope="col" className="is-num">{billedLabel}</th>
                 <th scope="col" className="is-num">Variance</th>
               </tr>
             </thead>
@@ -563,6 +566,10 @@ export default function DealTab({ deal, journeyId, tenantId, accessToken }: {
           </table>
         </div>
         <p className="p2w-muted j360-footnote">
+          {summary.deliveryStarted === false ? 'The variance is shown once delivery has started. ' : ''}
+          {summary.billedSource === 'ACCOUNT_STATEMENT'
+            ? 'This project reads the deal from the NDC (account statement); a booking with no NDC uses its cost sheet. '
+            : ''}
           The invoice is the source of truth: where a component has been invoiced its billed value stands, the booking figure holds only until then.
           Opted: the optional lines (insurance, accessories, extended warranty, every discount) show whether the customer took them, per the invoice once one is read, else per the booking form; insurance follows the Inhouse / Self choice. Mandatory lines have nothing to opt.
           Variances compare a line only where both sides price it.

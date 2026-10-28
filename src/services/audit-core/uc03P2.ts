@@ -65,6 +65,8 @@ export type P2JourneyListItem = {
   /** Actual net minus standard net across the deal; null until every
    * priced line has an actual. Absent from an older Audit Core. */
   price_variance?: string | null;
+  /** False until a delivery document is on file: no variance is shown before (2026-10-28). */
+  delivery_started?: boolean;
   /** The PC who started the journey, as their app named them. */
   pc_name?: string | null;
   /** The outlet's own id (code), for the TL's columns. */
@@ -995,6 +997,11 @@ type P2DealSummary = {
   invoicedComponents: number;
   /** True once any customer invoice is on file: every figure is the invoices'. */
   invoiceIsSourceOfTruth?: boolean;
+  /** Variance is shown only once delivery has started (product owner 2026-10-28). */
+  deliveryStarted?: boolean;
+  /** Where the billed column comes from: the invoices, or (Mahindra Orissa)
+   *  the NDC / account statement, else the cost sheet. */
+  billedSource?: 'INVOICE' | 'ACCOUNT_STATEMENT';
   components: number;
   paid: { receipts: string; loan: string; total: string };
   payable: Money;

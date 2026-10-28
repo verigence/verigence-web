@@ -97,6 +97,18 @@ export function buildDocumentRows(
 }
 
 const FAILED = new Set(['FAILED', 'DEAD_LETTER']);
+
+/** Pages that are not on the booking any more and have no card (product owner
+ * 2026-10-28): a failed page, one taken off after failing, and a copy of a
+ * page already uploaded. A failed page is asked for again by the file's
+ * "Document to resubmit" or scan-quality task, which names its page numbers;
+ * its requirement shows Missing until the new copy is in. */
+const NOT_ON_CARDS = new Set(['FAILED', 'DEAD_LETTER', 'CANCELLED', 'DUPLICATE']);
+
+export function shownOnCards(row: Pick<DocumentRow, 'status' | 'health'>): boolean {
+  if (row.health?.state === 'REJECTED' || row.health?.state === 'FAILED') return false;
+  return !NOT_ON_CARDS.has(row.status);
+}
 /** A classified page nothing could be read from is sent again with Retry. */
 const RETRYABLE = new Set(['FAILED', 'DEAD_LETTER', 'NEEDS_REVIEW']);
 const OPENABLE = new Set(['READY', 'NEEDS_REVIEW', 'SUPPORTING']);
@@ -416,7 +428,8 @@ export default function P2DocumentList({
   const [typing, setTyping] = useState<string>();
   const typeOptions = useMemo(() => documentTypeOptions(templates), [templates]);
   const requirements = useMemo(() => checklistRequirements(checklist), [checklist]);
-  const { matched, other } = useMemo(() => assignRowsToRequirements(requirements, rows), [requirements, rows]);
+  const shown = useMemo(() => rows.filter(shownOnCards), [rows]);
+  const { matched, other } = useMemo(() => assignRowsToRequirements(requirements, shown), [requirements, shown]);
   const actions: RowActions = { selectedDocumentId, busyKey, typing, typeOptions, onOpen, onRetry, onReread, onRestore, onSetType, setTyping, onRemovePage };
 
   const stages = (['BOOKING', 'DELIVERY'] as const)
@@ -435,7 +448,7 @@ export default function P2DocumentList({
     .filter((stage) => stage.items.length || stage.extras.length);
   const unplaced = other.filter((row) => !row.stage || !['BOOKING', 'DELIVERY'].includes(row.stage));
 
-  if (!rows.length && !requirements.length) {
+  if (!shown.length && !requirements.length) {
     return <div className="p2w-list"><p className="p2w-empty">Nothing uploaded yet. Add the booking documents above.</p></div>;
   }
 

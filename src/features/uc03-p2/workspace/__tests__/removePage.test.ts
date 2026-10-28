@@ -53,3 +53,17 @@ describe('removing a refused or failed page (2026-10-21)', () => {
     expect(removeOptions({ ...resubmit, task_type: 'DOCUMENT_MISSING' }, true).pages).toEqual([]);
   });
 });
+
+describe('pages not on the booking have no card (product owner 2026-10-28)', () => {
+  it('hides failed, removed and duplicate pages; keeps pages being read, retried, read or replaced', async () => {
+    const { shownOnCards } = await import('../P2DocumentList');
+    for (const status of ['FAILED', 'DEAD_LETTER', 'CANCELLED', 'DUPLICATE']) {
+      expect(shownOnCards({ status })).toBe(false);
+    }
+    for (const status of ['QUEUED', 'CLASSIFYING', 'EXTRACTING', 'RETRY_WAIT', 'READY', 'SUPPORTING', 'NEEDS_REVIEW', 'SUPERSEDED']) {
+      expect(shownOnCards({ status })).toBe(true);
+    }
+    expect(shownOnCards({ status: 'READY', health: { state: 'REJECTED' } as never })).toBe(false);
+    expect(shownOnCards({ status: 'EXTRACTING', health: { state: 'FAILED' } as never })).toBe(false);
+  });
+});

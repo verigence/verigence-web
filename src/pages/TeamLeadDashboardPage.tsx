@@ -7,6 +7,7 @@ import '../styles/uc03-p2-cards.css';
 import NightlyReprocessingStatusTile from '../components/NightlyReprocessingStatusTile';
 import JourneyListTabs from '../features/uc03-p2/bookings/JourneyListTabs';
 import { getReviewQueueSummary } from '../services/audit-core/uc03Audit';
+import { getP2Tasks } from '../services/audit-core/uc03P2';
 import { useProjectContextStore } from '../store/projectContextStore';
 import { useSessionStore } from '../store/sessionStore';
 
@@ -57,11 +58,11 @@ export default function TeamLeadDashboardPage() {
   const navigate = useNavigate();
   const enabled = Boolean(project?.tenantId && accessToken && project?.operatingRole === 'TL');
 
-  // Same summary endpoint Task Queue's own KPI tiles read from (see
-  // ReviewQueuePage.tsx) -- one query per subjectKind.
-  const journeyQueueSummaryQuery = useQuery({
-    queryKey: ['uc03-review-queue-summary', project?.tenantId, 'JOURNEY'],
-    queryFn: () => getReviewQueueSummary(project!.tenantId, accessToken, 'JOURNEY', true),
+  // The Team Lead's Task Queue is the Booking & Delivery one (the Phase 1
+  // queue is off for PC, TL and PM, 2026-10-29): same query as the menu badge.
+  const taskQuery = useQuery({
+    queryKey: ['p2-tasks-badge', project?.tenantId, 'TL'],
+    queryFn: () => getP2Tasks(project!.tenantId, accessToken, undefined, { view: 'open', role: 'TL' }),
     enabled,
   });
   const dailyOpsSummaryQuery = useQuery({
@@ -75,11 +76,11 @@ export default function TeamLeadDashboardPage() {
   const scopeSummary = project.scope.allDealers
     ? 'All dealers · All outlets'
     : `${project.scope.dealerCount} dealer${project.scope.dealerCount === 1 ? '' : 's'} · ${project.scope.outletCount} outlet${project.scope.outletCount === 1 ? '' : 's'}`;
-  const journeySummary = journeyQueueSummaryQuery.data;
+  const taskData = taskQuery.data;
   const dailyOpsSummary = dailyOpsSummaryQuery.data;
-  const violationCount = journeySummary?.byClass?.VIOLATION ?? 0;
-  const queueTotal = journeySummary?.total ?? 0;
-  const queueOverdue = journeySummary?.overdue ?? 0;
+  const queueTotal = taskData?.counts?.ALL ?? taskData?.items.length ?? 0;
+  const now = Date.now();
+  const queueOverdue = (taskData?.items ?? []).filter((t) => t.due_at_utc && Date.parse(t.due_at_utc) < now).length;
   const dailyOpsOpen = dailyOpsSummary?.total ?? 0;
 
   return (
@@ -103,24 +104,14 @@ export default function TeamLeadDashboardPage() {
           itself reads, so what's promised here is what's found there. */}
       <section className="uc03-tl-focus-grid" aria-label="Your focus areas">
         <FocusCard
-          tone="violation"
-          eyebrow="Audit"
-          title="Audit View"
-          value={violationCount}
-          detail={violationCount === 1 ? 'violation awaiting your decision' : 'violations awaiting your decision'}
-          cta="Review violations"
-          loading={journeyQueueSummaryQuery.isPending}
-          onOpen={() => navigate('/reviews?class=VIOLATION')}
-        />
-        <FocusCard
           tone="queue"
           eyebrow="Actionable"
           title="Task Queue"
           value={queueTotal}
           detail={queueOverdue > 0 ? `${queueOverdue} overdue` : 'open across your scope'}
           cta="Open Task Queue"
-          loading={journeyQueueSummaryQuery.isPending}
-          onOpen={() => navigate('/reviews')}
+          loading={taskQuery.isPending}
+          onOpen={() => navigate('/p2/tasks')}
         />
         <FocusCard
           tone="ops"

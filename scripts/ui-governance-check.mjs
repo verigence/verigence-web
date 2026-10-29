@@ -303,6 +303,20 @@ forbid(
   'Landing may show Dealer/Outlet for PC context but must never show Project Name.',
 );
 
+/* The Phase 1 screens are off for PC, TL and PM (2026-10-29): each old
+ * address sends them to the Booking & Delivery equivalent. */
+{
+  const appSource = read('src/App.tsx');
+  for (const route of [
+    'path="/reviews"', 'path="/duplicate-bookings"', 'path="/rule-catalog"', 'path="/rule-catalog/new"',
+    'path="/audit/:journeyId"', 'path="/tl/cases/:journeyId/review"', 'path="/journeys/:journeyId/compliance-report"',
+  ]) {
+    const line = appSource.split('\n').find((candidate) => candidate.includes(route));
+    if (!line) failures.push(`src/App.tsx: ${route} missing`);
+    else if (!line.includes('<LegacyScreen ')) failures.push(`src/App.tsx: ${route} must send PC, TL and PM to Booking & Delivery (LegacyScreen).`);
+  }
+}
+
 /* Booking & Delivery (P2) is the only Booking/Delivery journey surface
  * (2026-10-20). Every old address stays only as a redirect into it. */
 const app = read('src/App.tsx');

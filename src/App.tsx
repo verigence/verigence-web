@@ -275,6 +275,18 @@ function P2OverviewRedirect() {
   return <Navigate to={journeyId ? `/p2/journeys/${journeyId}/overview` : '/p2/bookings'} replace />;
 }
 
+/** The Phase 1 screens are off for PC, TL and PM (product owner 2026-10-29):
+ * their old addresses (bookmarks, old links) open the Booking & Delivery
+ * equivalent. Everyone else (admins, Executive) still gets the old page. */
+function LegacyScreen({ to, children }: { to: (journeyId: string) => string; children: ReactNode }) {
+  const { journeyId = '' } = useParams();
+  const operatingRole = useProjectContextStore((state) => state.selectedProject?.operatingRole);
+  if (operatingRole === 'PC' || operatingRole === 'TL' || operatingRole === 'PM') {
+    return <Navigate to={to(journeyId)} replace />;
+  }
+  return <OperationalPage>{children}</OperationalPage>;
+}
+
 
 
 function Loading() {
@@ -326,8 +338,8 @@ export default function App() {
                   all open the Booking & Delivery screens -- see P2DocumentsRedirect. */}
               <Route path="/journeys/:journeyId/overview" element={<P2OverviewRedirect />} />
               <Route path="/journeys/:journeyId/documents" element={<P2DocumentsRedirect />} />
-              <Route path="/journeys/:journeyId/compliance-report" element={<OperationalPage><ComplianceReportPage /></OperationalPage>} />
-              <Route path="/tl/cases/:journeyId/review" element={<OperationalPage><TeamLeadReviewPage /></OperationalPage>} />
+              <Route path="/journeys/:journeyId/compliance-report" element={<LegacyScreen to={(id) => `/p2/journeys/${id}/compliance-report`}><ComplianceReportPage /></LegacyScreen>} />
+              <Route path="/tl/cases/:journeyId/review" element={<LegacyScreen to={(id) => `/p2/journeys/${id}/documents`}><TeamLeadReviewPage /></LegacyScreen>} />
               <Route path="/bookings/:journeyId" element={<P2DocumentsRedirect />} />
               <Route path="/bookings/:journeyId/review" element={<P2DocumentsRedirect />} />
               <Route path="/v2/bookings/new" element={<Navigate to={P2_NEW_BOOKING_PATH} replace />} />
@@ -337,12 +349,12 @@ export default function App() {
               <Route path="/deliveries/:journeyId" element={<P2DocumentsRedirect />} />
               <Route path="/v2/deliveries/:journeyId" element={<P2DocumentsRedirect />} />
               <Route path="/v2/deliveries/:journeyId/review" element={<P2DocumentsRedirect />} />
-              <Route path="/audit/:journeyId" element={<OperationalPage><AuditReviewPage /></OperationalPage>} />
+              <Route path="/audit/:journeyId" element={<LegacyScreen to={(id) => `/p2/journeys/${id}/overview`}><AuditReviewPage /></LegacyScreen>} />
               <Route path="/feedback" element={<Navigate to="/hr/support" replace />} />
-              <Route path="/reviews" element={<OperationalPage><ReviewQueuePage /></OperationalPage>} />
-              <Route path="/duplicate-bookings" element={<OperationalPage><DuplicateBookingsPage /></OperationalPage>} />
-              <Route path="/rule-catalog" element={<OperationalPage><RuleCatalogPage /></OperationalPage>} />
-              <Route path="/rule-catalog/new" element={<OperationalPage><RuleAuthoringPage /></OperationalPage>} />
+              <Route path="/reviews" element={<LegacyScreen to={() => '/p2/tasks'}><ReviewQueuePage /></LegacyScreen>} />
+              <Route path="/duplicate-bookings" element={<LegacyScreen to={() => '/p2/duplicate-bookings'}><DuplicateBookingsPage /></LegacyScreen>} />
+              <Route path="/rule-catalog" element={<LegacyScreen to={() => '/p2/bookings'}><RuleCatalogPage /></LegacyScreen>} />
+              <Route path="/rule-catalog/new" element={<LegacyScreen to={() => '/p2/bookings'}><RuleAuthoringPage /></LegacyScreen>} />
               <Route path="/daily-ops" element={<OperationalShellPage><DailyOpsPage /></OperationalShellPage>} />
               <Route path="/analytics" element={<OperationalShellPage><AnalyticsPage /></OperationalShellPage>} />
 

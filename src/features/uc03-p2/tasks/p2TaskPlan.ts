@@ -63,11 +63,13 @@ function documentLink(task: P2Task): string | undefined {
  */
 export function taskPlan(task: P2Task, operatingRole?: string | null): TaskPlan {
   if (task.source_system === 'LEGACY') {
-    // An existing (Phase 1) task: fix it on the booking's documents; its own
-    // action buttons still live in the Phase 1 queue.
+    // An existing (Phase 1) task: fix it on the booking's documents. The old
+    // Task Queue is off for PC, TL and PM (2026-10-29), so only others get it.
+    const legacyQueue = operatingRole === 'PC' || operatingRole === 'TL' || operatingRole === 'PM'
+      ? [] : [{ label: 'Open in old Task Queue', to: task.legacy_queue_url || '/reviews', tone: 'ghost' as const }];
     return {
       primary: { label: 'Open documents', to: `/p2/journeys/${task.journey_id}/documents`, tone: 'primary' },
-      secondary: [{ label: 'Open in old Task Queue', to: task.legacy_queue_url || '/reviews', tone: 'ghost' }],
+      secondary: legacyQueue,
     };
   }
   const allowed = new Set(task.allowed_actions ?? []);

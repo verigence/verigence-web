@@ -7,6 +7,7 @@ import '../styles/uc03-p2-journey360.css';
 
 import BackLink from '../components/BackLink';
 import PageHeader from '../components/PageHeader';
+import AuditSummaryTab from '../features/uc03-p2/journey360/AuditSummaryTab';
 import DealTab from '../features/uc03-p2/journey360/DealTab';
 import DeleteJourneyDialog from '../features/uc03-p2/workspace/DeleteJourneyDialog';
 import { canDeleteJourney } from '../features/uc03-p2/workspace/deleteJourney';
@@ -45,6 +46,8 @@ const TABS = [
   { key: 'customer', label: 'Customer' },
   { key: 'registration', label: 'Registration' },
   { key: 'compliance', label: 'Checks' },
+  // Prepared on demand, when the tab is opened (2026-10-29).
+  { key: 'audit-summary', label: 'Audit summary' },
   { key: 'audit', label: 'Audit trail' },
 ] as const;
 
@@ -102,6 +105,7 @@ export default function P2JourneyOverviewPage() {
   const registration = useSection('registration', tenantId, journeyId, accessToken, tab === 'registration');
   const compliance = useSection('compliance', tenantId, journeyId, accessToken, tab === 'compliance');
   const audit = useSection('audit', tenantId, journeyId, accessToken, tab === 'audit');
+  const auditSummary = useSection('audit-summary', tenantId, journeyId, accessToken, tab === 'audit-summary');
 
   const [notice, setNotice] = useState<{ text: string; tone: 'success' | 'error' }>();
   const [deleting, setDeleting] = useState(false);
@@ -120,7 +124,8 @@ export default function P2JourneyOverviewPage() {
     setSearch(params, { replace: true });
   };
 
-  const active = { deal, invoices, addons, payments, documents, vehicle, tradein, customer, registration, compliance, audit }[tab];
+  const active = { deal, invoices, addons, payments, documents, vehicle, tradein, customer, registration, compliance, audit,
+    'audit-summary': auditSummary }[tab];
   let body: React.ReactNode = null;
   if (active.isLoading) body = <div className="p2w-skeleton" aria-busy="true">Loading…</div>;
   else if (active.isError) {
@@ -142,6 +147,10 @@ export default function P2JourneyOverviewPage() {
     if (tab === 'registration' && registration.data) body = <RegistrationTab data={registration.data} journeyId={journeyId} />;
     if (tab === 'compliance' && compliance.data) body = <ChecksTab data={compliance.data} />;
     if (tab === 'audit' && audit.data) body = <AuditTab data={audit.data} />;
+    if (tab === 'audit-summary' && auditSummary.data) {
+      body = <AuditSummaryTab data={auditSummary.data} regenerating={auditSummary.isFetching}
+        onRegenerate={() => void auditSummary.refetch()} />;
+    }
   }
 
   if (removed) {

@@ -501,3 +501,56 @@
 .p2w .j360-sheet__subfoot th,
 .p2w .j360-sheet__subfoot td { font-weight: 500; color: var(--p2w-muted); border-top: 0; padding-top: 0; }
 .p2w .j360-sheet__partial { display: block; font-size: .72rem; font-weight: 500; color: var(--p2w-muted); }
+
+/* Audit summary (2026-10-29): an auditor's report of the journey's money. */
+.j360 .asum-report { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap; }
+.j360 .asum-title { margin: 4px 0 4px; font-size: 1.25rem; font-weight: 800; color: var(--p2w-navy, #003a82); }
+.j360 .asum-report p { margin: 0; font-size: .86rem; }
+.j360 .asum-verdict { display: grid; gap: 14px; border-left: 6px solid var(--p2w-line); }
+.j360 .asum-verdict.is-success { border-left-color: var(--p2w-success); }
+.j360 .asum-verdict.is-danger { border-left-color: var(--p2w-danger); }
+.j360 .asum-verdict.is-warning { border-left-color: var(--p2w-review); }
+.j360 .asum-verdict__status strong { display: block; font-size: 1.35rem; font-weight: 800; margin: 2px 0; }
+.j360 .asum-verdict.is-success .asum-verdict__status strong { color: var(--p2w-success); }
+.j360 .asum-verdict.is-danger .asum-verdict__status strong { color: var(--p2w-danger); }
+.j360 .asum-verdict.is-warning .asum-verdict__status strong { color: var(--p2w-review); }
+.j360 .asum-verdict__status p { margin: 0; color: var(--p2w-muted); font-size: .9rem; }
+.j360 .asum-facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; margin: 0; }
+.j360 .asum-facts--totals { margin-top: 12px; }
+.j360 .asum-fact { padding: 10px 12px; border: 1px solid var(--p2w-line); border-radius: 10px; background: var(--p2w-soft); }
+.j360 .asum-fact dt { font-size: .72rem; font-weight: 700; letter-spacing: .03em; text-transform: uppercase; color: var(--p2w-muted); }
+.j360 .asum-fact dd { margin: 4px 0 0; font-size: 1.05rem; font-weight: 800; color: var(--p2w-navy, #003a82); font-variant-numeric: tabular-nums; }
+.j360 .asum-fact dd small { display: block; margin-top: 2px; font-size: .76rem; font-weight: 600; color: var(--p2w-muted); }
+.j360 .asum-fact.is-danger dd { color: var(--p2w-danger); }
+.j360 .asum-fact.is-success dd { color: var(--p2w-success); }
+.j360 .asum-missing ul { margin: 6px 0 0; padding-left: 18px; display: grid; gap: 4px; font-size: .88rem; }
+.j360 .asum-section__head { display: grid; gap: 2px; margin-bottom: 10px; }
+.j360 .asum-section__head .j360-h3 { margin: 0; display: flex; align-items: center; gap: 10px; color: var(--p2w-navy, #003a82); font-weight: 800; }
+.j360 .asum-section__head p { margin: 0; font-size: .85rem; }
+.j360 .asum-num { display: inline-grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; background: var(--p2w-navy, #003a82); color: #fff; font-size: .8rem; }
+.j360 .asum-table th:first-child { width: 22%; }
+.j360 .asum-table th small, .j360 .asum-from, .j360 .asum-proof small { display: block; font-size: .74rem; font-weight: 500; color: var(--p2w-muted); }
+.j360 .asum-conclusion { display: grid; gap: 3px; justify-items: start; }
+.j360 .asum-conclusion small { font-size: .78rem; color: var(--p2w-muted); }
+.j360 .asum-conclusion .asum-rule { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .7rem; cursor: help; }
+.j360 .asum-proof.is-on-file { color: var(--p2w-success); font-weight: 600; }
+.j360 .asum-proof.is-missing { color: var(--p2w-danger); font-weight: 600; }
+.j360 .asum-checks { display: grid; gap: 8px; margin: 12px 0; }
+.j360 .asum-check { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; padding: 10px 12px; border: 1px solid var(--p2w-line); border-radius: 10px; }
+.j360 .asum-check > span { display: grid; gap: 2px; font-weight: 600; }
+.j360 .asum-line { margin: 0 0 10px; font-size: .9rem; }
+.j360 .asum-disputed { margin: 0; padding: 0; list-style: none; display: grid; gap: 8px; }
+.j360 .asum-disputed li { display: grid; gap: 2px; padding: 10px 12px; border: 1px solid var(--p2w-review-line, #cfe0fb); border-radius: 10px; background: var(--p2w-review-bg, #edf3ff); }
+.j360 .asum-basis p { margin: 4px 0 10px; font-size: .85rem; color: var(--p2w-muted); }
+.j360 .asum-rules { display: grid; gap: 4px; margin: 0; font-size: .8rem; }
+.j360 .asum-rules div { display: flex; gap: 10px; }
+.j360 .asum-rules dt { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-weight: 700; min-width: 48px; }
+.j360 .asum-rules dd { margin: 0; color: var(--p2w-muted); }
+@media (max-width: 640px) {
+  .j360 .asum-check { flex-direction: column; }
+  .j360 .asum-table th:first-child { width: auto; }
+}
+@media print {
+  .j360 .asum-report button { display: none; }
+  .j360 .asum-section { break-inside: avoid; }
+}

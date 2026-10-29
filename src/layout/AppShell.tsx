@@ -7,7 +7,6 @@ import type { OperatingRole, UserRole } from '../domain/models';
 import { clearOperationalProject, isShellSwitchableProject, resetOperationalContext, selectOperationalOutlet } from '../features/uc03/projectContext';
 import { ANDROID_BACK_EVENT } from '../native/AndroidNativeBridge';
 import type { OperationalOutletScope } from '../services/audit-core/uc03';
-import { getReviewQueueSummary } from '../services/audit-core/uc03Audit';
 import { getP2Tasks } from '../services/audit-core/uc03P2';
 import { getTmTasks } from '../services/audit-core/taskManager';
 import ActivityTracker from '../features/task-manager/ActivityTracker';
@@ -28,7 +27,8 @@ type NavGroup = { key: string; label: string; items: NavItem[] };
 
 const c0OperatingRoles: OperatingRole[] = ['PC', 'TL', 'PM', 'CRM', 'EXECUTIVE'];
 const operational: ShellRole[] = [...c0OperatingRoles, 'TENANT_ADMIN', 'SUPER_ADMIN'];
-const assurance: ShellRole[] = ['TL', 'PM', 'EXECUTIVE', 'TENANT_ADMIN', 'SUPER_ADMIN'];
+// Who still sees the Phase 1 screens: not PC, TL or PM (2026-10-29).
+const legacyRoles: ShellRole[] = ['EXECUTIVE', 'TENANT_ADMIN', 'SUPER_ADMIN'];
 const admin: ShellRole[] = ['TENANT_ADMIN', 'SUPER_ADMIN'];
 const analyticsRoles: ShellRole[] = ['PC', 'TL', 'PM', 'EXECUTIVE', ...admin];
 
@@ -54,12 +54,6 @@ const journeySearchItem: NavItem = {
   roles: ['PC', 'TL', 'PM'],
 };
 
-const reviewQueueItem: NavItem = {
-  to: '/reviews',
-  label: 'Task Queue',
-  mark: 'TQ',
-  roles: ['PC', 'TL', 'PM', 'EXECUTIVE'],
-};
 
 // PC included deliberately -- a PC needs to see exactly this when their own
 // booking gets flagged as a duplicate, even when the other side belongs to a
@@ -75,7 +69,7 @@ const duplicateBookingsItem: NavItem = {
   to: '/duplicate-bookings',
   label: 'Duplicate Bookings',
   mark: 'DB',
-  roles: ['PC', 'TL', 'PM', 'EXECUTIVE', 'TENANT_ADMIN', 'SUPER_ADMIN'],
+  roles: legacyRoles,
 };
 
 const analyticsItems: NavItem[] = [
@@ -266,9 +260,11 @@ const groups: NavGroup[] = [
     journeySearchItem,
   ] },
   { key: 'operations', label: 'Operations & Assurance', items: [
-    { to: '/reviews', label: 'Task Queue', mark: 'TQ', roles: assurance },
+    // The Phase 1 screens are off for PC, TL and PM (2026-10-29); they use
+    // Booking & Delivery's Task Queue and Duplicate bookings.
+    { to: '/reviews', label: 'Task Queue', mark: 'TQ', roles: legacyRoles },
     duplicateBookingsItem,
-    { to: '/rule-catalog', label: 'Rule Catalog', mark: 'RC', roles: assurance },
+    { to: '/rule-catalog', label: 'Rule Catalog', mark: 'RC', roles: legacyRoles },
     { to: '/daily-ops', label: 'Daily Operations', mark: 'DO', roles: ['PC', 'TL', 'PM', ...admin] },
   ] },
   p2Group,
@@ -402,22 +398,6 @@ export default function AppShell({ children }: PropsWithChildren) {
   const role: ShellRole = selectedProject?.operatingRole ?? sessionRole;
   const c0OperationalShell = Boolean(selectedProject);
 
-  const reviewQueueSummary = useQuery({
-    queryKey: ['uc03-review-queue-summary', selectedProject?.tenantId],
-    queryFn: () => getReviewQueueSummary(selectedProject!.tenantId, accessToken),
-    enabled: Boolean(
-      selectedProject?.tenantId
-      && accessToken
-      && ['PC', 'TL', 'PM'].includes(String(role)),
-    ),
-    refetchInterval: 120_000,
-    staleTime: 60_000,
-  });
-  const reviewQueueCount = reviewQueueSummary.data
-    ? (['TL', 'PM'].includes(String(role))
-        ? reviewQueueSummary.data.mine + reviewQueueSummary.data.escalatedToMe
-        : reviewQueueSummary.data.mine)
-    : 0;
   // The Audit group's Task Queue badge: open Phase 2 tasks for this role.
   const p2TaskSummary = useQuery({
     queryKey: ['p2-tasks-badge', selectedProject?.tenantId, role],
@@ -489,11 +469,8 @@ export default function AppShell({ children }: PropsWithChildren) {
     if (role === 'PC') {
       workspaceItems.push(createBookingItem);
     }
-    if (auditRole) {
-      workspaceItems.push({ ...reviewQueueItem, badge: reviewQueueCount });
-      // Phase 2's Audit group has its own Duplicate bookings (opening the
-      // Phase 2 Journey 360); the Phase 1 page stays reachable by URL.
-    }
+    // The Phase 1 Task Queue is off for PC, TL and PM (2026-10-29): their Task
+    // Queue is the Booking & Delivery one in the group above.
     const workspaceGroup: NavGroup = {
       key: 'workspace',
       label: 'Workspace',
@@ -512,7 +489,7 @@ export default function AppShell({ children }: PropsWithChildren) {
       ...operationalGroups,
       { key: 'administration', label: 'Administration', items: [projectAdministrationItem] },
     ];
-  }, [c0OperationalShell, role, sessionRole, reviewQueueCount, p2TaskCount, tmCount]);
+  }, [c0OperationalShell, role, sessionRole, p2TaskCount, tmCount]);
 
   // HR is company-level and appears only for people the HR service says have an HR role or an
   // employee record. If HR cannot be reached the group is simply absent.
@@ -706,7 +683,7 @@ export default function AppShell({ children }: PropsWithChildren) {
         hasCapture ? undefined : bottomNavByPath(allJourneysItem.to),
         bottomNavByPath(createBookingItem.to),
         bottomNavByPath('/daily-ops'),
-        bottomNavByPath(reviewQueueItem.to),
+        bottomNavByPath(p2TasksItem.to),
       ].filter((item): item is NavItem => Boolean(item)).slice(0, myHrItem ? 2 : 3)
     : [];
   // Without Audit shortcuts the bar is simply My HR and More, so people without Audit access still have it.
@@ -716,7 +693,7 @@ export default function AppShell({ children }: PropsWithChildren) {
     [allJourneysItem.to]: 'Bookings',
     [createBookingItem.to]: 'Capture',
     '/daily-ops': 'Daily Ops',
-    [reviewQueueItem.to]: 'Review',
+    [p2TasksItem.to]: 'Tasks',
   };
 
   return (

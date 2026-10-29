@@ -18,6 +18,7 @@ import P2VehiclePhotos from '../features/uc03-p2/photos/P2VehiclePhotos';
 import P2StageReviewPanel from '../features/uc03-p2/review/P2StageReviewPanel';
 import { getResyncPreview } from '../services/audit-core/uc03P2Reviewer';
 import { getMyDisplayName } from '../services/security/profile';
+import P2CompleteDeliveryButton from '../features/uc03-p2/workspace/P2CompleteDeliveryButton';
 import P2RecheckButton from '../features/uc03-p2/workspace/P2RecheckButton';
 import P2UploadStatus from '../features/uc03-p2/workspace/P2UploadStatus';
 import { useP2LiveStatus } from '../features/uc03-p2/workspace/useP2LiveStatus';
@@ -365,6 +366,10 @@ export default function P2JourneyWorkspacePage() {
           <div className="p2w-header-links">
             {!isNew && tenantId ? <P2RecheckButton tenantId={tenantId} journeyId={journeyId} accessToken={accessToken}
               onDone={(text, tone) => { setNotice({ text, tone }); refresh(); }} /> : null}
+            {!isNew && tenantId && operatingRole === 'REVIEWER' ? (
+              <P2CompleteDeliveryButton tenantId={tenantId} journeyId={journeyId} accessToken={accessToken}
+                onDone={(text, tone) => { setNotice({ text, tone }); refresh(); }} />
+            ) : null}
             {!isNew ? <button type="button" className="p2w-button p2w-button--secondary" onClick={() => setDialog('loan')}>Loan amount</button> : null}
             {!isNew ? <button type="button" className="p2w-button p2w-button--secondary" onClick={() => setDialog('sku')}>Resolve SKU</button> : null}
             {!isNew ? <Link className="p2w-button p2w-button--secondary" to={`/p2/journeys/${journeyId}/compliance-report`}>View compliance report</Link> : null}

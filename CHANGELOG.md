@@ -12,6 +12,9 @@ The app's build number is added by the release workflow and is not written here.
 
 ## [Unreleased]
 
+### Added
+- Reviewer: "Complete delivery" on a booking completes a delivery the rules have not, with a reason. What was still missing is recorded, and the Team Lead reviews it next.
+
 ### Changed
 - Daily gate pass, all outlets: a gate pass not uploaded or not finished by the PC is highlighted, and clicking an outlet opens its gate pass.
 - Documents: a page that failed, was removed or is a copy of a page already uploaded no longer shows a card (it showed "Uploaded · removed…" or "Uploading…" with a spinner). The "Document to resubmit" or scan-quality task names the pages to upload again, and the checklist shows Missing until they arrive.

@@ -1244,8 +1244,49 @@ type P2ComplianceReport = {
   openTasks: Array<{ task_id: string; title: string; task_type: string; priority?: string | null; assigned_role_code?: string | null; task_status: string; due_at_utc?: string | null }>;
 };
 
+/** Audit summary of a Journey (2026-10-29): built on demand from the Deal,
+ * Payments, Add-ons and Trade-in figures, each row concluded by a fixed rule. */
+export type P2AuditConclusion = 'OK' | 'EXCEPTION' | 'UNSUPPORTED' | 'DISPUTED' | 'CANNOT_DETERMINE' | 'INFO';
+export type P2AuditRow = {
+  section: string; key: string; label: string; category?: string;
+  entitled: string | null; booked: string | null; billed: string | null; billedFrom: string | null;
+  proof: { documents: string[]; onFile: boolean; amount?: string | null } | null;
+  difference: string | null; conclusion: P2AuditConclusion; impact: 'CUSTOMER' | 'COMPANY' | null;
+  reason: string | null; rule: string | null; documents: { document: string | null; amount: string | null }[];
+  eligibility?: string | null; taken?: boolean | null;
+};
+export type P2AuditCheck = { conclusion: P2AuditConclusion; rule: string; reason: string | null };
+export type P2AuditSummary = {
+  generatedAtUtc: string; tolerance: string; rules: Record<string, string>; billedSource?: string | null;
+  verdict: {
+    status: 'CLEAN' | 'EXCEPTIONS' | 'INCOMPLETE';
+    counts: Record<'OK' | 'EXCEPTION' | 'UNSUPPORTED' | 'DISPUTED' | 'CANNOT_DETERMINE', number>;
+    amountAtRisk: { customerOvercharged: string; companyLeakage: string };
+    missing: string[];
+  };
+  deal: { charges: P2AuditRow[]; gross?: string | null; discounts?: string | null; netPayable?: string | null };
+  benefits: P2AuditRow[];
+  products: P2AuditRow[];
+  funding: {
+    receipts: string; loanDisbursed: string; received: string;
+    bankCheck: P2AuditCheck & { verified: string; cash: string; notFound: string; noStatement: string };
+    loans: (P2AuditCheck & { lender: string | null; sanctioned: string | null; disbursed: string | null;
+      deliveryOrder: string | null; difference?: string | null })[];
+    bankApprovalOnFile: boolean; deliveryOrderOnFile: boolean;
+    exchange: { applicable: boolean | null; bookedValue: string | null; quotedValue: string | null;
+      actualValue: string | null; valuationReports: number };
+    scrappage: { certificates: number };
+    creditNotes: { count: number; total: string };
+    insurance: { by: string; decidedBy?: string | null; basis?: string | null };
+  };
+  settlement: P2AuditCheck & { payable: string | null; received: string; balance: string | null;
+    status: 'SETTLED' | 'SHORT' | 'EXCESS' | null };
+  disputed: { label: string; documents: { document: string | null; amount: string | null }[] }[];
+};
+
 export type P2SectionMap = {
   deal: P2Deal;
+  'audit-summary': P2AuditSummary;
   addons: P2Addons;
   documents: P2Documents360;
   payments: P2Payments360;

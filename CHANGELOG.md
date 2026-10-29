@@ -13,6 +13,7 @@ The app's build number is added by the release workflow and is not written here.
 ## [Unreleased]
 
 ### Added
+- Journey 360: an "Audit summary" tab, prepared when opened. One page with every financial fact of the journey: what the customer owes, benefits given, products sold (insurance, extended warranty, RSA, FASTag, accessories), how it was paid (receipts, loan, bank statement check, exchange, scrappage, credit notes), the settlement and the documents that disagree. Each line has a conclusion and the rule it rests on, and the journey a verdict: Clean, Exceptions found or Incomplete.
 - Reviewer: "Complete delivery" on a booking completes a delivery the rules have not, with a reason. What was still missing is recorded, and the Team Lead reviews it next.
 
 ### Changed

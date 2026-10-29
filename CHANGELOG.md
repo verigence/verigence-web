@@ -22,6 +22,7 @@ The app's build number is added by the release workflow and is not written here.
 - Tasks: tasks of one kind on a booking are shown as one entry.
 - Tasks: the note button reads "Add note (task stays open)"; a note alone does not close a task.
 - PC, Team Lead and PM: the old Task Queue, old Duplicate Bookings, Rule Catalog and old journey review screens are gone from the menus and the mobile bar; old links open Booking & Delivery or its Task Queue. The Team Lead home's Task Queue card counts Booking & Delivery tasks.
+- Daily gate pass calendar: each day shows deliveries reported, uploaded with that day's gate pass, not intimated to the PC, and still to upload (what the PC has to upload); the month totals show the same.
 - The app sends the time used minute by minute and the screens opened, for the Executive's engagement report. Nothing changes on the employee's screen.
 
 ## [1.3.2] - 2026-10-27

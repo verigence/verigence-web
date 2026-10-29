@@ -22,6 +22,12 @@ function monthShape(month: string) {
 
 const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
+/** The gap split (2026-10-29): not intimated to the PC, and the rest for the PC to upload. */
+export function gapSplit(figures: { missing: number; notNotified?: number; toUpload?: number }) {
+  const notNotified = figures.notNotified ?? 0;
+  return { notNotified, toUpload: figures.toUpload ?? Math.max(figures.missing - notNotified, 0) };
+}
+
 /**
  * Deliveries done against delivery files uploaded, per day. Photos can be opened only
  * when a single outlet is chosen; the dealer and the all-outlets views show counts only.
@@ -80,8 +86,9 @@ export default function GatePassCalendar({ tenantId, accessToken, refreshKey }: 
       <div className="p2w-card__title">
         <h3>Deliveries and delivery files</h3>
         <p className="p2w-muted">
-          For each day: deliveries reported on the gate pass, delivery files uploaded, and the difference.
-          Choose a single outlet to open its gate pass photos.
+          For each day: deliveries reported on the gate pass, deliveries in the system with that day's
+          vehicle gate pass, deliveries the dealership did not intimate to the PC, and the rest, whose
+          files the PC still has to upload. Choose a single outlet to open its gate pass photos.
         </p>
       </div>
       <div className="p2w-listbar">
@@ -113,8 +120,9 @@ export default function GatePassCalendar({ tenantId, accessToken, refreshKey }: 
         <>
           <p className="p2gp-totals">
             <span>Deliveries reported <strong>{data.totals.declared}</strong></span>
-            <span>Delivery files <strong>{data.totals.uploaded}</strong></span>
-            <span className={data.totals.missing ? 'p2gp-bad' : undefined}>Missing <strong>{data.totals.missing}</strong></span>
+            <span>Uploaded with gate pass <strong>{data.totals.uploaded}</strong></span>
+            <span>Not intimated to PC <strong>{gapSplit(data.totals).notNotified}</strong></span>
+            <span className={gapSplit(data.totals).toUpload ? 'p2gp-bad' : undefined}>To upload <strong>{gapSplit(data.totals).toUpload}</strong></span>
           </p>
           <div className="p2gp-grid" role="grid" aria-label={`Gate passes, ${month}`}>
             {WEEKDAYS.map((w) => <div key={w} className="p2gp-head" role="columnheader">{w}</div>)}
@@ -123,14 +131,16 @@ export default function GatePassCalendar({ tenantId, accessToken, refreshKey }: 
               const date = `${month}-${String(i + 1).padStart(2, '0')}`;
               const day = byDate.get(date);
               const quiet = !day || (!day.declared && !day.uploaded && !day.gatePasses);
+              const split = day ? gapSplit(day) : { notNotified: 0, toUpload: 0 };
               return (
-                <div key={date} className={`p2gp-cell${day?.missing ? ' p2gp-cell--missing' : ''}`} role="gridcell">
+                <div key={date} className={`p2gp-cell${split.toUpload ? ' p2gp-cell--missing' : ''}`} role="gridcell">
                   <span className="p2gp-date">{i + 1}</span>
                   {quiet ? null : (
                     <>
                       <span title="Deliveries reported on the gate pass">Done {day!.declared}</span>
-                      <span title="Delivery files uploaded">Files {day!.uploaded}</span>
-                      <span className={day!.missing ? 'p2gp-bad' : undefined} title="Deliveries without a delivery file">Missing {day!.missing}</span>
+                      <span title="Deliveries in the system with this day's vehicle gate pass">Uploaded {day!.uploaded}</span>
+                      <span title="Deliveries the dealership did not intimate to the PC">Not intimated {split.notNotified}</span>
+                      <span className={split.toUpload ? 'p2gp-bad' : undefined} title="Deliveries whose files the PC still has to upload">To upload {split.toUpload}</span>
                       {outletView && day!.gatePassId ? (
                         <>
                         <button type="button" className="p2w-link" disabled={opening === day!.gatePassId} onClick={() => void openPhoto(day!)}>

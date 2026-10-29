@@ -49,10 +49,12 @@ export type GatePassCountsResult = {
 export type GatePassDay = {
   date: string; declared: number; uploaded: number; missing: number; gatePasses: number; open: number;
   gatePassId?: string; divergence?: string | null;
+  /** Of the missing: not intimated to the PC by the dealership, and left for the PC to upload (2026-10-29). */
+  notNotified?: number; toUpload?: number;
 };
 export type GatePassCalendar = {
   month: string; scope: 'ALL' | 'DEALER' | 'OUTLET'; outlets: GatePassOutlet[]; days: GatePassDay[];
-  totals: { declared: number; uploaded: number; missing: number };
+  totals: { declared: number; uploaded: number; missing: number; notNotified?: number; toUpload?: number };
 };
 
 export type DailyTask = {

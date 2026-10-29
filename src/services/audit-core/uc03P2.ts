@@ -553,6 +553,15 @@ export function cancelP2Journey(tenantId: string, journeyId: string, reason: str
   );
 }
 
+/** A Reviewer completes a delivery the rules have not (product owner
+ * 2026-10-29), with a reason; what was still pending is recorded with it. */
+export function completeP2Delivery(tenantId: string, journeyId: string, reason: string, accessToken?: string) {
+  return auditCoreRequest<{ journeyId: string; status: string; pendingAtCompletion: string[] }>(
+    path(tenantId, `/journeys/${encodeURIComponent(journeyId)}:complete-delivery`),
+    { method: 'POST', accessToken, body: JSON.stringify({ reason }) },
+  );
+}
+
 export async function createP2Journey(
   tenantId: string,
   command: { outletId: string; customerName?: string; createdByName?: string },

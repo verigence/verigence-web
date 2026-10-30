@@ -80,7 +80,7 @@ export default function AdminLoginActivityPage() {
             <ul className="la-facts">
               <li>Signed in: {p.loginsOk} time{p.loginsOk === 1 ? '' : 's'}{p.loginsOk > 0 ? ` (first ${formatWhenIst(p.firstLoginAt)}, last ${formatWhenIst(p.lastLoginAt)})` : ''}</li>
               <li>On the app: {p.appLogins}{p.appVersion ? ` (version ${p.appVersion})` : ''} · On the web: {p.webLogins}</li>
-              <li>Downloaded the app: {p.downloads} time{p.downloads === 1 ? '' : 's'}{p.downloads > 0 ? ` (last ${formatWhenIst(p.lastDownloadAt)})` : ''}</li>
+              <li>Downloaded the app: {p.downloads} time{p.downloads === 1 ? '' : 's'}{p.downloads > 0 ? ` (last ${formatWhenIst(p.lastDownloadAt)}${p.lastDownloadVersion ? `, version ${p.lastDownloadVersion}` : ''})` : ''}</li>
               <li>Could not sign in: {p.loginsFailed} time{p.loginsFailed === 1 ? '' : 's'}{p.lastOutcome === 'FAILED' ? ` · last try ${formatWhenIst(p.lastAttemptAt)}: ${reasonLabel(p.lastReason)}` : ''}</li>
             </ul>
           </div>

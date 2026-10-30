@@ -12,6 +12,10 @@ The app's build number is added by the release workflow and is not written here.
 
 ## [Unreleased]
 
+### Added
+- SuperAdmin, Reports: an "App" tab — who has the Verigence Android app and which version. Per person: whether they downloaded it, when, how many times, which version they took, and the version their app reports when it signs in, with a count of how many people are on each version and a CSV. Expanding a person shows every download with its date and version.
+
+
 ## [1.4.0] - 2026-10-30
 
 ### Added

@@ -17,7 +17,7 @@ import {
   type P2TakenAddon,
   type P2Vehicle360,
 } from '../../../services/audit-core/uc03P2';
-import { VIEW_LABELS } from '../photos/p2PhotoUploader';
+import { isPdf, VIEW_LABELS } from '../photos/p2PhotoUploader';
 import { displayValue, formatDateTime, humanizeKey } from '../workspace/p2Format';
 import { ChargeTable, DiscountTable } from './DealTab';
 import { LoanDisbursementDialog } from './DealControls';
@@ -521,9 +521,10 @@ export function VehicleTab({ data, tenantId, journeyId, accessToken }: {
             {photos.data.photos.map((photo) => (
               <li key={photo.photoId}>
                 <a className="p2w-photos__thumb" href={photo.url ?? undefined} target="_blank" rel="noreferrer">
-                  {photo.url ? <img src={photo.url} alt={photo.viewCode ? VIEW_LABELS[photo.viewCode] : 'Vehicle photo'} loading="lazy" /> : null}
+                  {isPdf(photo) ? <span className="p2w-photos__blank p2w-photos__pdf">PDF</span>
+                    : photo.url ? <img src={photo.url} alt={photo.viewCode ? VIEW_LABELS[photo.viewCode] : 'Vehicle photo'} loading="lazy" /> : null}
                 </a>
-                <span className="p2w-photos__caption"><strong>{photo.viewCode ? VIEW_LABELS[photo.viewCode] : 'Photo'}</strong>
+                <span className="p2w-photos__caption"><strong>{isPdf(photo) ? photo.filename : photo.viewCode ? VIEW_LABELS[photo.viewCode] : 'Photo'}</strong>
                   <span className="p2w-muted">{formatDateTime(photo.uploadedAtUtc)}</span></span>
               </li>
             ))}

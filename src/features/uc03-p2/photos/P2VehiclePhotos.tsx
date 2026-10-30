@@ -8,6 +8,8 @@ import {
   type P2VehiclePhoto,
 } from '../../../services/audit-core/uc03P2';
 import {
+  isPdf,
+  MAX_PDFS,
   newPhotoItem,
   photoPreflight,
   runPhotoUploads,
@@ -53,6 +55,8 @@ export default function P2VehiclePhotos({ tenantId, journeyId, accessToken, ensu
   });
   const list = photos.data?.photos ?? [];
   const limit = photos.data?.limit ?? 24;
+  const pdfLimit = photos.data?.pdfLimit ?? MAX_PDFS;
+  const pdfsOnFile = list.filter(isPdf).length;
 
   useEffect(() => () => items.forEach((item) => item.previewUrl && URL.revokeObjectURL(item.previewUrl)), []);  // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -73,12 +77,18 @@ export default function P2VehiclePhotos({ tenantId, journeyId, accessToken, ensu
     setError(undefined);
     const chosen = Array.from(files ?? []);
     if (!chosen.length) return;
-    const rejected = chosen.map(photoPreflight).find(Boolean);
+    const problems = chosen.map(photoPreflight).filter((problem): problem is string => Boolean(problem));
     const accepted = chosen.filter((file) => !photoPreflight(file));
-    if (rejected) setError(rejected);
+    if (problems.length) setError(problems.join(' '));
     if (!accepted.length) return;
     if (list.length + accepted.length > limit) {
       setError(`At most ${limit} photos are kept per booking (${list.length} already added).`);
+      return;
+    }
+    const newPdfs = accepted.filter(isPdf).length;
+    if (pdfsOnFile + newPdfs > pdfLimit) {
+      setError(`At most ${pdfLimit} PDFs can be added per booking (${pdfsOnFile} already added`
+        + `${newPdfs ? `, ${newPdfs} chosen` : ''}). Remove one or choose fewer.`);
       return;
     }
     let target = journeyId;
@@ -119,7 +129,8 @@ export default function P2VehiclePhotos({ tenantId, journeyId, accessToken, ensu
       <header className="p2w-photos__head">
         <div>
           <h2>Vehicle photos</h2>
-          <p>Stored exactly as taken. Photos are not read or checked, so they are saved in seconds.</p>
+          <p>Stored exactly as taken. Photos are not read or checked, so they are saved in seconds.
+            You can also add up to {pdfLimit} PDFs (at most 50 MB each).</p>
         </div>
         <span className="p2w-muted">{list.length} of {limit}</span>
       </header>
@@ -139,11 +150,11 @@ export default function P2VehiclePhotos({ tenantId, journeyId, accessToken, ensu
         <button type="button" className="p2w-button p2w-button--primary p2w-button--lg"
           onClick={() => cameraInput.current?.click()}>Take photo</button>
         <button type="button" className="p2w-button p2w-button--secondary p2w-button--lg"
-          onClick={() => galleryInput.current?.click()}>Choose photos</button>
+          onClick={() => galleryInput.current?.click()}>Choose photos or PDF</button>
         <input ref={cameraInput} className="p2w-hidden-input" type="file" accept="image/*" capture="environment"
           onChange={(event) => { void addFiles(event.target.files); event.currentTarget.value = ''; }} />
         <input ref={galleryInput} className="p2w-hidden-input" type="file" multiple
-          accept="image/jpeg,image/png,image/webp,image/heic,image/heif"
+          accept="image/jpeg,image/png,image/webp,image/heic,image/heif,application/pdf,.pdf"
           onChange={(event) => { void addFiles(event.target.files); event.currentTarget.value = ''; }} />
       </div>
       {suggested.length && list.length < limit ? (
@@ -162,7 +173,9 @@ export default function P2VehiclePhotos({ tenantId, journeyId, accessToken, ensu
         <ul className="p2w-photos__progress" aria-live="polite">
           {pending.map((item) => (
             <li key={item.id} className={item.phase === 'FAILED' ? 'is-failed' : ''}>
-              {item.previewUrl ? <img src={item.previewUrl} alt="" /> : <span className="p2w-photos__blank" />}
+              {item.previewUrl ? <img src={item.previewUrl} alt="" />
+                : isPdf(item.original) ? <span className="p2w-photos__blank p2w-photos__pdf">PDF</span>
+                : <span className="p2w-photos__blank" />}
               <span className="p2w-photos__name">
                 <strong>{item.viewCode ? VIEW_LABELS[item.viewCode] : item.original.name}</strong>
                 <span>{item.error || PHASE_LABEL[item.phase]}</span>
@@ -182,10 +195,11 @@ export default function P2VehiclePhotos({ tenantId, journeyId, accessToken, ensu
             <li key={photo.photoId}>
               <button type="button" className="p2w-photos__thumb" onClick={() => setOpen(photo)}
                 aria-label={`Open ${photo.viewCode ? VIEW_LABELS[photo.viewCode] : 'photo'}`}>
-                {photo.url ? <img src={photo.url} alt="" loading="lazy" /> : <span className="p2w-photos__blank" />}
+                {isPdf(photo) ? <span className="p2w-photos__blank p2w-photos__pdf">PDF</span>
+                  : photo.url ? <img src={photo.url} alt="" loading="lazy" /> : <span className="p2w-photos__blank" />}
               </button>
               <span className="p2w-photos__caption">
-                <strong>{photo.viewCode ? VIEW_LABELS[photo.viewCode] : 'Photo'}</strong>
+                <strong>{isPdf(photo) ? photo.filename : photo.viewCode ? VIEW_LABELS[photo.viewCode] : 'Photo'}</strong>
                 <span className="p2w-muted">{photo.uploadedAtUtc ? formatDateTime(photo.uploadedAtUtc) : ''}</span>
               </span>
             </li>
@@ -200,7 +214,13 @@ export default function P2VehiclePhotos({ tenantId, journeyId, accessToken, ensu
           if (event.target === event.currentTarget) setOpen(undefined);
         }}>
           <div className="p2w-dialog p2w-photo-viewer" role="dialog" aria-modal="true" aria-label="Vehicle photo">
-            {open.url ? <img src={open.url} alt={open.viewCode ? VIEW_LABELS[open.viewCode] : 'Vehicle photo'} /> : null}
+            {isPdf(open) ? (
+              <p className="p2w-photo-viewer__pdf">
+                <strong>{open.filename}</strong>
+                {open.url ? <a className="p2w-button p2w-button--primary" href={open.url} target="_blank" rel="noreferrer">Open PDF</a>
+                  : <span className="p2w-muted">The file link could not be prepared. Close and try again.</span>}
+              </p>
+            ) : open.url ? <img src={open.url} alt={open.viewCode ? VIEW_LABELS[open.viewCode] : 'Vehicle photo'} /> : null}
             <div className="p2w-dialog__actions">
               <span className="p2w-muted">{open.viewCode ? VIEW_LABELS[open.viewCode] : 'Photo'} · {open.filename}</span>
               <button type="button" className="p2w-button p2w-button--danger" onClick={() => setConfirmRemove(open)}>Remove</button>
@@ -213,7 +233,7 @@ export default function P2VehiclePhotos({ tenantId, journeyId, accessToken, ensu
       {confirmRemove ? (
         <div className="p2w-dialog-backdrop" role="presentation">
           <div className="p2w-dialog" role="alertdialog" aria-modal="true" aria-labelledby="p2w-photo-remove">
-            <h3 id="p2w-photo-remove">Remove this photo?</h3>
+            <h3 id="p2w-photo-remove">{isPdf(confirmRemove) ? 'Remove this PDF?' : 'Remove this photo?'}</h3>
             <p>It will no longer count for this booking.</p>
             <div className="p2w-dialog__actions">
               <button type="button" className="p2w-button p2w-button--ghost" autoFocus onClick={() => setConfirmRemove(undefined)}>Keep</button>

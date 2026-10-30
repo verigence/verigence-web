@@ -17,6 +17,7 @@ The app's build number is added by the release workflow and is not written here.
 - Reviewer: "Complete delivery" on a booking completes a delivery the rules have not, with a reason. What was still missing is recorded, and the Team Lead reviews it next.
 
 ### Changed
+- Bookings & Deliveries, Vehicle photos: "Choose photos or PDF" also takes PDF files — at most 3 PDFs per booking, each up to 50 MB, stored as they are. A larger PDF, or a fourth one, is refused with a message saying why (the file's size, or how many are already added).
 - Journey 360, Audit summary: shown only once delivery has started (a booking has no audit summary). New section "Documents required to complete the file": every mandatory document, and each conditional one with why this deal needs it, marked On file or Missing, missing first; a missing one makes the verdict Incomplete.
 - Journey 360, Audit summary: on a financed deal the loan is taken from the finance record, else from the NDC or the dealer's settlement printout, and says which. With no loan amount on file the settlement says it cannot be judged instead of showing the loan as a shortfall. Refunds on the settlement printout are shown and deducted.
 - Journey 360, Deal: the dealer's ERP settlement printout gives TCS, insurance, registration and the add-on charges; the vehicle price and discounts (before GST on that printout) stay with the cost sheet.

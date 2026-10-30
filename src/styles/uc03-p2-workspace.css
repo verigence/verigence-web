@@ -723,6 +723,9 @@
 }
 .p2w-photos__thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .p2w-photos__thumb .p2w-photos__blank { width: 100%; height: 100%; }
+.p2w-photos__pdf { display: flex !important; align-items: center; justify-content: center; font-weight: 700; font-size: .8rem;
+  letter-spacing: .04em; color: var(--p2w-danger, #b42318); background: var(--p2w-danger-bg, #fdecea) !important; }
+.p2w-photo-viewer__pdf { display: grid; gap: 12px; justify-items: start; padding: 8px 0; word-break: break-word; }
 .p2w-photos__caption { display: flex; justify-content: space-between; gap: 6px; font-size: .82rem; }
 .p2w-photo-viewer { width: min(960px, 100%); }
 .p2w-photo-viewer img { width: 100%; max-height: 70vh; object-fit: contain; border-radius: 8px; background: #0f1b28; }

@@ -1361,7 +1361,11 @@ export type P2VehiclePhoto = {
   uploadedByActorId: string; uploadedAtUtc?: string | null; url?: string | null;
 };
 
-export type P2VehiclePhotoList = { photos: P2VehiclePhoto[]; limit: number; maxBytes: number; views: string[] };
+export type P2VehiclePhotoList = {
+  photos: P2VehiclePhoto[]; limit: number; maxBytes: number; views: string[];
+  /** PDFs allowed beside the photos, per booking, and the largest one (2026-10-30). */
+  pdfLimit?: number; maxPdfBytes?: number;
+};
 
 export function getP2VehiclePhotos(tenantId: string, journeyId: string, accessToken?: string): Promise<P2VehiclePhotoList> {
   return auditCoreRequest<P2VehiclePhotoList>(

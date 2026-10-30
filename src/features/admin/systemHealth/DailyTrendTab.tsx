@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import {
   Bar, BarChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from 'recharts';
@@ -92,10 +92,13 @@ export default function DailyTrendTab({ accessToken }: { accessToken: string }) 
   const daily = useQuery({
     queryKey: ['admin', 'system-health', 'daily', days, tenantId],
     queryFn: () => getSystemHealthDaily(days, tenantId || null, accessToken),
+    placeholderData: keepPreviousData,
     retry: false,
   });
   const data = daily.data;
   const rows = useMemo(() => data?.days ?? [], [data]);
+  // Today is still running: the half-on-half comparison uses complete days only.
+  const completeDays = useMemo(() => rows.slice(0, -1), [rows]);
   const refusalDays = useMemo(() => rows.filter((d) => hasCodes(d, data?.codesRecordedFrom ?? null)), [rows, data]);
   const diFailures = total(rows, 'badScan') + total(rows, 'notReadInTime') + total(rows, 'failedOther');
 
@@ -130,7 +133,7 @@ export default function DailyTrendTab({ accessToken }: { accessToken: string }) 
             <div className={rangeFailedPct(rows, true) ? 'is-warn' : ''}><dt>System-side DI failures</dt><dd>{pct(rangeFailedPct(rows, true))}</dd>
               <span>not read in 30 min or failed; scans excluded</span></div>
             <div className={total(rows, 'serverErrors') ? 'is-bad' : ''}><dt>Server errors (5xx)</dt><dd>{total(rows, 'serverErrors')}</dd>
-              <span>{signedPct(halfOverHalf(rows, 'serverErrors'))}</span></div>
+              <span>{signedPct(halfOverHalf(completeDays, 'serverErrors'))}, complete days</span></div>
             <div className={total(rows, 'restarts') + total(rows, 'uncleanStops') ? 'is-warn' : ''}><dt>Restarts</dt><dd>{total(rows, 'restarts')}</dd>
               <span>{total(rows, 'uncleanStops')} unclean stops · {total(rows, 'deploysFailed')} failed deploys</span></div>
           </dl>

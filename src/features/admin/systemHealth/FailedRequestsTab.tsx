@@ -1,4 +1,4 @@
-import { Fragment, useMemo, useState } from 'react';
+import { Fragment, useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 
 import SectionCard from '../../../components/SectionCard';
@@ -15,6 +15,8 @@ export default function FailedRequestsTab({ hours, accessToken }: { hours: numbe
   const [codeKey, setCodeKey] = useState<string | null>(null);
   const [openCode, setOpenCode] = useState<string | null>(null);
   const [query, setQuery] = useState('');
+  // A code picked in one window may not exist in the next.
+  useEffect(() => { setCodeKey(null); setOpenCode(null); }, [hours]);
   const errors = useQuery({
     queryKey: ['admin', 'system-health', 'errors', hours],
     queryFn: () => getSystemHealthErrors(hours, accessToken),
@@ -96,8 +98,8 @@ export default function FailedRequestsTab({ hours, accessToken }: { hours: numbe
 
       <SectionCard>
         <div className="p2w-card__title">
-          <h3>By route{selected ? ` · ${selected.status} ${selected.errorCode ?? ''}` : ''}</h3>
-          <p className="p2w-muted">Each route with the codes it failed with. {selected ? <button type="button" className="p2w-link" onClick={() => setCodeKey(null)}>Show every code</button> : null}</p>
+          <h3>By route{selected ? ` · ${selected.status} ${selected.errorCode ?? ''}` : codeKey ? ` · ${codeKey}` : ''}</h3>
+          <p className="p2w-muted">Each route with the codes it failed with. {codeKey ? <button type="button" className="p2w-link" onClick={() => setCodeKey(null)}>Show every code</button> : null}</p>
         </div>
         <div className="p2w-listbar">
           <label className="sh-search">Find a route <input type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="e.g. documents, finance" /></label>

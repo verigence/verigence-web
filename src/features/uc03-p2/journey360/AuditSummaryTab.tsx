@@ -258,6 +258,34 @@ export default function AuditSummaryTab({ data, onRegenerate, regenerating }: {
         ) : <p className="p2w-muted">None: every line printed by more than one document agrees.</p>}
       </Section>
 
+      <Section number={7} title="Documents required to complete the file"
+        note={(() => {
+          const docs = data.requiredDocuments ?? [];
+          const missingCount = docs.filter((d) => !d.onFile).length;
+          return docs.length
+            ? `${docs.length - missingCount} of ${docs.length} on file${missingCount ? ` · ${missingCount} still needed` : ' · the file is complete'}. Mandatory documents, and conditional ones this deal's own documents make mandatory.`
+            : 'No required documents for this journey.';
+        })()}>
+        {data.requiredDocuments?.length ? (
+          <table className="asum-docs">
+            <caption className="visually-hidden">Documents required to complete the file</caption>
+            <thead><tr><th scope="col">Document</th><th scope="col">Stage</th><th scope="col">Why it is required</th><th scope="col">Status</th></tr></thead>
+            <tbody>
+              {data.requiredDocuments.map((d) => (
+                <tr key={`${d.stage}:${d.key}`} className={d.onFile ? '' : 'is-missing'}>
+                  <td data-label="Document">{d.label}</td>
+                  <td data-label="Stage">{d.stage === 'BOOKING' ? 'Booking' : 'Delivery'}</td>
+                  <td data-label="Why">{d.requirement === 'MANDATORY' ? 'Mandatory' : (d.reason ?? 'Conditional')}</td>
+                  <td data-label="Status">{d.onFile
+                    ? <span className="asum-doc-ok">On file{d.count > 1 ? ` (${d.count})` : ''}</span>
+                    : <span className="asum-doc-missing">Missing</span>}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : null}
+      </Section>
+
       <footer className="j360-card asum-basis">
         <span className="j360-label">Basis of preparation</span>
         <p>Prepared from the figures in the Deal, Payments, Add-ons and Trade-in tabs; nothing is estimated, and a figure not on file is shown as —.

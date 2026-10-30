@@ -201,7 +201,10 @@ export default function AuditSummaryTab({ data, onRegenerate, regenerating }: {
       <Section number={4} title="How it was paid">
         <dl className="asum-facts">
           <Fact label="Customer receipts" value={money(f.receipts)} />
-          <Fact label="Loan disbursed" value={money(f.loanDisbursed)} />
+          <Fact label="Loan received" value={f.loanDisbursed ? money(f.loanDisbursed) : f.loans.length ? 'Not on file' : '—'}
+            sub={[f.loanSource ? `per ${f.loanSource}` : '', f.loanNote ?? ''].filter(Boolean).join(' · ') || undefined} />
+          {f.refunds ? <Fact label="Refunded / adjusted" value={`− ${money(f.refunds)}`}
+            sub={f.refundsSource ? `per ${f.refundsSource}` : undefined} /> : null}
           <Fact label="Total received" value={money(f.received)} />
           <Fact label="Verified with bank statement" value={money(f.bankCheck.verified)}
             sub={[Number(f.bankCheck.cash) ? `${money(f.bankCheck.cash)} cash` : '',
@@ -232,7 +235,7 @@ export default function AuditSummaryTab({ data, onRegenerate, regenerating }: {
         </dl>
       </Section>
 
-      <Section number={5} title="Settlement" note="Money received (receipts and loan) against the net payable.">
+      <Section number={5} title="Settlement" note="Money received (receipts and loan, less refunds) against the net payable.">
         <dl className="asum-facts">
           <Fact label="Net payable" value={money(s.payable)} />
           <Fact label="Received" value={money(s.received)} />

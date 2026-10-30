@@ -17,6 +17,8 @@ The app's build number is added by the release workflow and is not written here.
 - Reviewer: "Complete delivery" on a booking completes a delivery the rules have not, with a reason. What was still missing is recorded, and the Team Lead reviews it next.
 
 ### Changed
+- Journey 360, Audit summary: on a financed deal the loan is taken from the finance record, else from the NDC or the dealer's settlement printout, and says which. With no loan amount on file the settlement says it cannot be judged instead of showing the loan as a shortfall. Refunds on the settlement printout are shown and deducted.
+- Journey 360, Deal: the dealer's ERP settlement printout gives TCS, insurance, registration and the add-on charges; the vehicle price and discounts (before GST on that printout) stay with the cost sheet.
 - Document review: a PC's correction now applies at once, at any confidence. It no longer waits for a Team Lead; the Team Lead and Reviewer are informed. The note on a confident reading is optional.
 - Daily gate pass, all outlets: a gate pass not uploaded or not finished by the PC is highlighted, and clicking an outlet opens its gate pass.
 - Documents: a page that failed, was removed or is a copy of a page already uploaded no longer shows a card (it showed "Uploaded · removed…" or "Uploading…" with a spinner). The "Document to resubmit" or scan-quality task names the pages to upload again, and the checklist shows Missing until they arrive.

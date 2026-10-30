@@ -107,3 +107,10 @@ i.tm-block { min-width: 12px; height: 12px; padding: 0; vertical-align: middle; 
 .tm-block--away { background: #eceff1; color: #78909c; }
 .tm-blocks__legend { display: flex; flex-wrap: wrap; gap: 12px; font-size: 12px; }
 .tm-personday__screens { max-height: 420px; overflow: auto; }
+
+/* Who has the app (SuperAdmin > Reports > App), 2026-10-30. */
+.app-installs__actions { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; margin: 12px 0; }
+.app-installs__behind { color: var(--p2w-danger, #b42318); font-weight: 600; }
+.app-installs__history td { background: var(--p2w-review-bg, #edf3ff); }
+.app-installs__history ul { margin: 0; padding: 4px 0 4px 18px; display: grid; gap: 4px; }
+.app-installs__history li { display: flex; gap: 10px; align-items: baseline; }

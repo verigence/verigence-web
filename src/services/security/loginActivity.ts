@@ -20,10 +20,15 @@ export interface LoginPerson {
   lastAttemptAt: string | null;
   lastOutcome: 'SUCCESS' | 'FAILED' | null;
   lastReason: string | null;
+  /** What their app reported when it last signed in: what they are running. */
   appVersion: string | null;
   downloads: number;
   firstDownloadAt: string | null;
   lastDownloadAt: string | null;
+  /** The version their most recent download handed out (2026-10-30). */
+  lastDownloadVersion: string | null;
+  /** Their last 20 downloads, newest first. */
+  downloadHistory: Array<{ at: string | null; version: string | null }>;
 }
 
 interface UnknownAttempt {

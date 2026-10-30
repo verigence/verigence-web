@@ -13,6 +13,7 @@ import {
   type ReviewInvoice,
 } from '../services/audit-core/adminReports';
 import { cell, INVOICE_COLUMNS, reviewCsv } from '../features/admin/reports/reviewCsv';
+import AppInstalls from '../features/admin/reports/AppInstalls';
 import DiDashboard from '../features/task-manager/DiDashboard';
 import EngagementDashboard from '../features/task-manager/EngagementDashboard';
 import { listProjects } from '../services/audit-core/uc02Admin';
@@ -33,6 +34,12 @@ const REPORTS = [
     key: 'di',
     title: 'DI',
     description: 'How much Document Intelligence read the first time, what has to be scanned again or failed and why, how long a file takes, by PC and by document.',
+  },
+  {
+    key: 'app',
+    title: 'App',
+    description:
+      'Who has the Verigence Android app and which version: every download with the version it handed out, and the version each person\'s app reports when it signs in. Everyone, not one Project.',
   },
   {
     key: 'journey-review',
@@ -149,7 +156,8 @@ export default function AdminReportsPage() {
             </div>
           </div>
           <p>{report.description}</p>
-          <label className="uc03-booking-field">
+          {/* The App report is Security's, for everyone: no Project to pick. */}
+          <label className="uc03-booking-field" hidden={reportKey === 'app'}>
             <span>Project / Tenant</span>
             <select value={tenantId} disabled={projectsQuery.isPending} onChange={(e) => { setTenantId(e.target.value); setOpen(undefined); }}>
               <option value="">Select Project</option>
@@ -158,11 +166,18 @@ export default function AdminReportsPage() {
               ))}
             </select>
           </label>
-          {projectsQuery.isError ? <div className="uc01-admin-message uc01-admin-message--error">Projects could not be loaded.</div> : null}
+          {projectsQuery.isError && reportKey !== 'app' ? <div className="uc01-admin-message uc01-admin-message--error">Projects could not be loaded.</div> : null}
         </article>
       </div>
 
-      {tenantId && reportKey !== 'journey-review' ? (
+      {reportKey === 'app' ? (
+        <article className="uc01-admin-config-card">
+          <span className="eyebrow">Who has the app</span>
+          <AppInstalls accessToken={accessToken} />
+        </article>
+      ) : null}
+
+      {tenantId && reportKey !== 'journey-review' && reportKey !== 'app' ? (
         <div className="p2-screen p2w">
           {reportKey === 'engagement' ? (
             <EngagementDashboard key={tenantId} mode="admin" tenantId={tenantId} accessToken={accessToken}

@@ -62,12 +62,12 @@ export function reportCsv(people: readonly LoginPerson[]): string {
   const header = [
     'Name', 'Email', 'Employee', 'Status', 'Signed in OK', 'Failed tries', 'App sign-ins', 'Web sign-ins',
     'First sign-in', 'Last sign-in', 'Last try', 'Last try result', 'Reason', 'App version',
-    'Downloads', 'First download', 'Last download',
+    'Downloads', 'First download', 'Last download', 'Version downloaded',
   ];
   const rows = people.map((p) => [
     p.name, p.email, p.isEmployee ? 'Yes' : 'No', STATE_LABEL[p.state], p.loginsOk, p.loginsFailed, p.appLogins, p.webLogins,
     p.firstLoginAt, p.lastLoginAt, p.lastAttemptAt, p.lastOutcome, reasonLabel(p.lastReason), p.appVersion,
-    p.downloads, p.firstDownloadAt, p.lastDownloadAt,
+    p.downloads, p.firstDownloadAt, p.lastDownloadAt, p.lastDownloadVersion,
   ]);
   return [header, ...rows].map((row) => row.map(csvCell).join(',')).join('\r\n');
 }

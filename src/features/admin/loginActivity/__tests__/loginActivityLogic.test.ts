@@ -6,7 +6,8 @@ import { countByState, reasonLabel, reportCsv, visiblePeople } from '../loginAct
 const person = (over: Partial<LoginPerson>): LoginPerson => ({
   userId: 'u', name: 'Asha', email: 'asha@example.com', userStatus: 'ACTIVE', isEmployee: true, state: 'NOT_TRIED',
   loginsOk: 0, loginsFailed: 0, appLogins: 0, webLogins: 0, firstLoginAt: null, lastLoginAt: null, lastAttemptAt: null,
-  lastOutcome: null, lastReason: null, appVersion: null, downloads: 0, firstDownloadAt: null, lastDownloadAt: null, ...over,
+  lastOutcome: null, lastReason: null, appVersion: null, downloads: 0, firstDownloadAt: null, lastDownloadAt: null,
+  lastDownloadVersion: null, downloadHistory: [], ...over,
 });
 
 const people = [

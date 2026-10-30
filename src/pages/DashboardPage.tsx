@@ -21,6 +21,7 @@ import {
   type ReviewPendingItem,
 } from '../services/audit-core/uc03PcVerification';
 import NightlyReprocessingStatusTile from '../components/NightlyReprocessingStatusTile';
+import DayStatsCard from '../features/uc03-p2/daily/DayStatsCard';
 import { enrichUc03WorkItems } from '../services/audit-core/uc03WorkItemEnrichment';
 import { useProjectContextStore } from '../store/projectContextStore';
 import { useSessionStore } from '../store/sessionStore';
@@ -615,6 +616,7 @@ export default function DashboardPage() {
   const isPc = project?.operatingRole === 'PC';
   const isTl = project?.operatingRole === 'TL';
   const isPm = project?.operatingRole === 'PM';
+  const isExecutive = project?.operatingRole === 'EXECUTIVE';
   const workType: Uc03WorkType = view === 'REVIEW_PENDING' || view === 'FLAGS' || view === 'VERIFY'
     ? 'ALL'
     : view;
@@ -751,6 +753,10 @@ export default function DashboardPage() {
       />
 
       {isPm && <NightlyReprocessingStatusTile />}
+
+      {/* An Executive's Overview is this page: the day's stats across every
+          dealership (product owner 2026-10-30). */}
+      {isExecutive && <DayStatsCard tenantId={project.tenantId} accessToken={accessToken} role="EXECUTIVE" />}
 
       {metricsQuery.isError && (
         <section className="dashboard-load-state" role="alert">

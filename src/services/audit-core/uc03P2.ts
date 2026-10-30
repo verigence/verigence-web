@@ -1268,7 +1268,14 @@ export type P2AuditSummary = {
   benefits: P2AuditRow[];
   products: P2AuditRow[];
   funding: {
-    receipts: string; loanDisbursed: string; received: string;
+    receipts: string;
+    /** The loan counted as received; null when none, or unknown on a financed deal (loanNote says). */
+    loanDisbursed: string | null;
+    /** Where the loan figure is from: the finance record, the NDC, or the ERP settlement printout. */
+    loanSource?: string | null; loanNote?: string | null;
+    /** Money the settlement printout records as refunded or adjusted out. */
+    refunds?: string | null; refundsSource?: string | null;
+    received: string;
     bankCheck: P2AuditCheck & { verified: string; cash: string; notFound: string; noStatement: string };
     loans: (P2AuditCheck & { lender: string | null; sanctioned: string | null; disbursed: string | null;
       deliveryOrder: string | null; difference?: string | null })[];

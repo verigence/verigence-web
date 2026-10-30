@@ -31,6 +31,20 @@ export interface PhotoTransport {
 const PHOTO_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif']);
 const MAX_PHOTO_BYTES = 15 * 1024 * 1024;
 const MAX_SIDE = 2048;
+/** PDFs may be added beside the photos (product owner 2026-10-30): stored
+ * as they are, at most MAX_PDFS per booking, each up to MAX_PDF_BYTES. */
+export const PDF_TYPE = 'application/pdf';
+export const MAX_PDF_BYTES = 50 * 1024 * 1024;
+export const MAX_PDFS = 3;
+
+export function isPdf(file: { type?: string; name?: string; contentType?: string; filename?: string }): boolean {
+  const type = (file.type ?? file.contentType ?? '').toLowerCase();
+  return type === PDF_TYPE || /\.pdf$/i.test(file.name ?? file.filename ?? '');
+}
+
+export function megabytes(bytes: number): string {
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
 
 export const VIEW_LABELS: Record<string, string> = {
   FRONT: 'Front', REAR: 'Rear', LEFT: 'Left side', RIGHT: 'Right side', INTERIOR: 'Interior',
@@ -38,17 +52,26 @@ export const VIEW_LABELS: Record<string, string> = {
 };
 
 export function photoPreflight(file: File): string | undefined {
+  if (isPdf(file)) {
+    if (file.size === 0) return `${file.name} is empty.`;
+    if (file.size > MAX_PDF_BYTES) {
+      return `${file.name} is ${megabytes(file.size)}. A PDF can be at most 50 MB: split it or reduce its size and upload again.`;
+    }
+    return undefined;
+  }
   const type = (file.type || '').toLowerCase();
   const heicByName = /\.(heic|heif)$/i.test(file.name);
-  if (!PHOTO_TYPES.has(type) && !heicByName) return 'Only photos (JPG, PNG, WEBP or HEIC) can be added here.';
-  if (file.size === 0) return 'This photo is empty.';
-  if (file.size > 40 * 1024 * 1024) return 'This photo is too large.';
+  if (!PHOTO_TYPES.has(type) && !heicByName) return `${file.name}: only photos (JPG, PNG, WEBP or HEIC) or PDF files can be added here.`;
+  if (file.size === 0) return `${file.name} is empty.`;
+  if (file.size > 40 * 1024 * 1024) return `${file.name} is ${megabytes(file.size)}, too large for a photo.`;
   return undefined;
 }
 
 /** Longest side at most 2048 px, JPEG. Falls back to the original when the
  * browser cannot decode it (e.g. HEIC outside Safari) and it is small enough. */
 async function preparePhoto(file: File): Promise<File> {
+  // A PDF is uploaded exactly as chosen.
+  if (isPdf(file)) return file.type === PDF_TYPE ? file : new File([file], file.name, { type: PDF_TYPE, lastModified: file.lastModified });
   try {
     const bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' } as ImageBitmapOptions);
     const scale = Math.min(1, MAX_SIDE / Math.max(bitmap.width, bitmap.height));
@@ -80,7 +103,7 @@ export function newPhotoItem(journeyId: string, file: File, viewCode?: string, i
     viewCode,
     phase: 'PREPARING',
     progress: 0,
-    previewUrl: typeof URL !== 'undefined' && URL.createObjectURL ? URL.createObjectURL(file) : undefined,
+    previewUrl: !isPdf(file) && typeof URL !== 'undefined' && URL.createObjectURL ? URL.createObjectURL(file) : undefined,
   };
 }
 

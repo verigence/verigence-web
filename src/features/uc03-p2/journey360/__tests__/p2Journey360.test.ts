@@ -30,10 +30,23 @@ describe('Journey 360 formatting', () => {
 describe('vehicle photo upload', () => {
   const photo = (name = 'front.jpg', type = 'image/jpeg') => new File([new Uint8Array([1, 2, 3])], name, { type, lastModified: 1 });
 
-  it('accepts only photos', () => {
+  it('accepts photos and PDFs, nothing else', () => {
     expect(photoPreflight(photo())).toBeUndefined();
     expect(photoPreflight(photo('car.heic', ''))).toBeUndefined();
-    expect(photoPreflight(photo('form.pdf', 'application/pdf'))).toMatch(/Only photos/);
+    // PDFs (product owner 2026-10-30), by type or by name.
+    expect(photoPreflight(photo('form.pdf', 'application/pdf'))).toBeUndefined();
+    expect(photoPreflight(photo('scan.PDF', ''))).toBeUndefined();
+    expect(photoPreflight(photo('notes.docx', 'application/msword'))).toMatch(/only photos .* or PDF files/);
+  });
+
+  it('refuses a PDF over 50 MB with its size', () => {
+    const big = photo('delivery.pdf', 'application/pdf');
+    Object.defineProperty(big, 'size', { value: 63 * 1024 * 1024 });
+    expect(photoPreflight(big)).toBe(
+      'delivery.pdf is 63.0 MB. A PDF can be at most 50 MB: split it or reduce its size and upload again.');
+    const limit = photo('ok.pdf', 'application/pdf');
+    Object.defineProperty(limit, 'size', { value: 50 * 1024 * 1024 });
+    expect(photoPreflight(limit)).toBeUndefined();
   });
 
   it('keeps the same id for the same photo so retries never duplicate', () => {

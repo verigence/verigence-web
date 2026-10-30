@@ -307,7 +307,7 @@ export default function P2DocumentEditor({
                   {editing ? (
                     <form className="p2w-field__edit" onSubmit={(event) => {
                       event.preventDefault();
-                      if (!draft.trim() || (highConfidence && !remarks.trim())) return;
+                      if (!draft.trim()) return;
                       correct.mutate({ field, value: draft.trim(), note: remarks });
                     }} onKeyDown={(event) => { if (event.key === 'Escape') setEditingId(undefined); }}>
                       <label>
@@ -316,15 +316,15 @@ export default function P2DocumentEditor({
                       </label>
                       {highConfidence ? (
                         <label>
-                          <span>Why is the {Math.round(field.confidenceScore ?? 0)}% reading wrong? (sent to Team Lead)</span>
-                          <textarea rows={2} value={remarks} onChange={(event) => setRemarks(event.target.value)} required />
+                          <span>Note (optional): why is the {Math.round(field.confidenceScore ?? 0)}% reading wrong? The Team Lead and Reviewer are informed.</span>
+                          <textarea rows={2} value={remarks} onChange={(event) => setRemarks(event.target.value)} />
                         </label>
                       ) : null}
                       <div className="p2w-field__actions">
                         <button type="button" className="p2w-button p2w-button--ghost" onClick={() => setEditingId(undefined)}>Cancel</button>
                         <button type="submit" className="p2w-button p2w-button--primary"
-                          disabled={correct.isPending || !draft.trim() || (highConfidence && !remarks.trim())}>
-                          {correct.isPending ? 'Saving…' : highConfidence ? 'Send for approval' : 'Save'}
+                          disabled={correct.isPending || !draft.trim()}>
+                          {correct.isPending ? 'Saving…' : 'Save'}
                         </button>
                       </div>
                     </form>

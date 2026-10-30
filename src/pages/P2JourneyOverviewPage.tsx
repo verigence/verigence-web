@@ -84,7 +84,7 @@ export default function P2JourneyOverviewPage() {
   const operatingRole = useProjectContextStore((s) => s.selectedProject?.operatingRole);
   const accessToken = useSessionStore((s) => s.accessToken);
   const requested = search.get('tab') as TabKey | null;
-  const tab: TabKey = TABS.some((t) => t.key === requested) ? requested! : 'deal';
+  const requestedTab: TabKey = TABS.some((t) => t.key === requested) ? requested! : 'deal';
 
   const summary = useQuery({
     queryKey: ['p2-360', tenantId, journeyId, 'summary'],
@@ -93,6 +93,11 @@ export default function P2JourneyOverviewPage() {
     staleTime: 10_000,
     refetchOnWindowFocus: true,
   });
+  // The Audit summary is for a file with delivery documents, not a booking
+  // (product owner 2026-10-30): the tab shows once delivery has started.
+  const auditReady = summary.data?.money?.deliveryStarted === true;
+  const tabs = TABS.filter((t) => t.key !== 'audit-summary' || auditReady);
+  const tab: TabKey = requestedTab === 'audit-summary' && !auditReady ? 'deal' : requestedTab;
   const duplicates = useSection('duplicates', tenantId, journeyId, accessToken);
   const deal = useSection('deal', tenantId, journeyId, accessToken, tab === 'deal');
   const invoices = useSection('invoices', tenantId, journeyId, accessToken, tab === 'invoices');
@@ -262,7 +267,7 @@ export default function P2JourneyOverviewPage() {
           </section>
 
           <nav className="j360-tabs" aria-label="Journey 360 sections">
-            {TABS.map((item) => (
+            {tabs.map((item) => (
               <button key={item.key} type="button" aria-current={tab === item.key ? 'page' : undefined}
                 className={tab === item.key ? 'is-active' : ''} onClick={() => setTab(item.key)}>
                 {item.label}

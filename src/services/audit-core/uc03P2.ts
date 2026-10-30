@@ -1289,6 +1289,9 @@ export type P2AuditSummary = {
   settlement: P2AuditCheck & { payable: string | null; received: string; balance: string | null;
     status: 'SETTLED' | 'SHORT' | 'EXCESS' | null };
   disputed: { label: string; documents: { document: string | null; amount: string | null }[] }[];
+  /** The documents the file needs (mandatory, and conditional ones the deal made mandatory), missing first. */
+  requiredDocuments?: { key: string; label: string; stage: 'BOOKING' | 'DELIVERY'; requirement: 'MANDATORY' | 'CONDITIONAL';
+    reason: string | null; onFile: boolean; count: number }[];
 };
 
 export type P2SectionMap = {

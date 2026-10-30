@@ -6,6 +6,7 @@ import '../styles/uc03-p2-cards.css';
 
 import NightlyReprocessingStatusTile from '../components/NightlyReprocessingStatusTile';
 import JourneyListTabs from '../features/uc03-p2/bookings/JourneyListTabs';
+import DayStatsCard from '../features/uc03-p2/daily/DayStatsCard';
 import { getReviewQueueSummary } from '../services/audit-core/uc03Audit';
 import { getP2Tasks } from '../services/audit-core/uc03P2';
 import { useProjectContextStore } from '../store/projectContextStore';
@@ -124,6 +125,11 @@ export default function TeamLeadDashboardPage() {
           onOpen={() => navigate('/daily-ops')}
         />
       </section>
+
+      {/* The day's stats per PC, outlet and dealership (product owner
+          2026-10-30): files uploaded, tasks closed, the daily gate pass and
+          deliveries against it, plus the TL's own closures and reviews. */}
+      <DayStatsCard tenantId={project.tenantId} accessToken={accessToken} role="TL" />
 
       <NightlyReprocessingStatusTile />
 

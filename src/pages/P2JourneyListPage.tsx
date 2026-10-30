@@ -7,6 +7,7 @@ import '../styles/uc03-p2-cards.css';
 
 import PageHeader from '../components/PageHeader';
 import JourneyListTabs from '../features/uc03-p2/bookings/JourneyListTabs';
+import DayStatsCard from '../features/uc03-p2/daily/DayStatsCard';
 import { getP2BookingsSummary, type P2JourneyCounts } from '../services/audit-core/uc03P2';
 import { useProjectContextStore } from '../store/projectContextStore';
 import { useSessionStore } from '../store/sessionStore';
@@ -92,6 +93,12 @@ export default function P2JourneyListPage() {
           <Link className={`p2w-kpi${heroTasks ? ' p2w-kpi--flag' : ''}`} to="/p2/tasks"><b>{s ? heroTasks ?? '—' : '—'}</b><span>Tasks open</span></Link>
         </div> : null}
       </section>
+
+      {/* The day's stats (product owner 2026-10-30): what the PC uploaded and
+          closed and their daily gate pass; for a PM, every PC, outlet and
+          dealership. Executive gets the same card on their Overview; a TL on
+          the Team Lead dashboard. */}
+      {tenantId && (role === 'PC' || role === 'PM') ? <DayStatsCard tenantId={tenantId} accessToken={accessToken} role={role} /> : null}
 
       <JourneyListTabs tenantId={tenantId} accessToken={accessToken} role={role} onCounts={setCounts} />
     </div>

@@ -37,8 +37,10 @@ function ranked(items: DiscountVarianceItem[], of: (i: DiscountVarianceItem) => 
   return [...totals.entries()].map(([name, v]) => ({ name, ...v })).sort((a, b) => b.excess - a.excess);
 }
 
-/** Excess discount: what the invoice gave above the entitlement, per booking
- *  that has an invoice. Never the booking form's figure. */
+/** Excess discount: what was given above the entitlement, read as the
+ *  Excess Discount check reads it (2026-10-31) -- from the invoice, or the NDC /
+ *  cost sheet where the account statement is the source of truth. Never the
+ *  booking form's figure (product owner, 2026-10-24). */
 export default function P2DiscountVariancePage() {
   const tenantId = useProjectContextStore((s) => s.selectedProject?.tenantId);
   const accessToken = useSessionStore((s) => s.accessToken);
@@ -52,7 +54,7 @@ export default function P2DiscountVariancePage() {
 
   const excess = useMemo(
     () => (query.data?.items ?? [])
-      .filter((i) => i.status === 'OVER_ENTITLEMENT' && i.variance !== null)
+      .filter((i) => i.status === 'OVER_ENTITLEMENT' && i.variance !== null && i.givenFrom !== 'booking')
       .sort((a, b) => Number(b.variance) - Number(a.variance)),
     [query.data],
   );
@@ -71,7 +73,7 @@ export default function P2DiscountVariancePage() {
       <PageHeader
         eyebrow="DealGuard"
         title="Excess discount"
-        description="Discounts on the invoice that are more than the booking was entitled to. Only bookings with an invoice whose vehicle price was read are counted, and the figures are the invoice's, never the booking form's."
+        description="Discounts given above what the booking was entitled to, as the Excess Discount check reads them: from the invoice, or the NDC / cost sheet where that is the source of truth — never the booking form. The document each figure came from is shown beside it."
       />
 
       {query.isLoading && <p className="p2w-muted">Reading…</p>}
@@ -123,7 +125,7 @@ export default function P2DiscountVariancePage() {
             {pick && (
               <p><button type="button" className="p2w-link" onClick={() => setPick(null)}>Show all</button></p>
             )}
-            {shown.length === 0 && <p className="p2w-muted">No excess discount on any invoice.</p>}
+            {shown.length === 0 && <p className="p2w-muted">No discount given above its entitlement.</p>}
             {shown.length > 0 && (
               <div style={{ overflowX: 'auto' }}>
                 <table className="p2w-table p2w-dv__list">
@@ -131,7 +133,7 @@ export default function P2DiscountVariancePage() {
                     <tr>
                       <th>Discount</th><th>Customer</th><th>Car model</th><th>PC</th><th>Outlet</th>
                       <th style={{ textAlign: 'right' }}>Entitled</th>
-                      <th style={{ textAlign: 'right' }}>On the invoice</th>
+                      <th style={{ textAlign: 'right' }}>Given</th>
                       <th style={{ textAlign: 'right' }}>Excess</th>
                     </tr>
                   </thead>
@@ -150,7 +152,10 @@ export default function P2DiscountVariancePage() {
                         <td>{item.pc ?? <span className="p2w-muted">—</span>}</td>
                         <td>{item.outlet ?? <span className="p2w-muted">—</span>}</td>
                         <td className="is-num">{rupees(item.entitled)}</td>
-                        <td className="is-num">{rupees(item.invoice)}</td>
+                        <td className="is-num">
+                          {rupees(item.invoice)}
+                          {item.givenDocument && <div className="p2w-muted">{item.givenDocument}</div>}
+                        </td>
                         <td className="is-num p2w-dv__over">{rupees(item.variance)}</td>
                       </tr>
                     ))}
@@ -160,7 +165,7 @@ export default function P2DiscountVariancePage() {
             )}
             {counts && (counts.unknown > 0 || counts.under > 0) && (
               <p className="p2w-muted">
-                Not shown: {counts.unknown} discounts on invoices with no entitlement to compare against, and{' '}
+                Not shown: {counts.unknown} discounts with no entitlement to compare against, and{' '}
                 {counts.under} given below entitlement.
               </p>
             )}

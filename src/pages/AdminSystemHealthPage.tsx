@@ -10,6 +10,7 @@ import PageHeader from '../components/PageHeader';
 import SectionCard from '../components/SectionCard';
 import DailyTrendTab from '../features/admin/systemHealth/DailyTrendTab';
 import FailedRequestsTab from '../features/admin/systemHealth/FailedRequestsTab';
+import InfrastructureTab from '../features/admin/systemHealth/InfrastructureTab';
 import { formatWhen } from '../features/task-manager/tmFormat';
 import {
   agoText, alertCounts, barHeights, bytesText, connectionsInUse, cpuText, diTotals, errorRate, memoryText, overallStatus,
@@ -28,9 +29,10 @@ import { useSessionStore } from '../store/sessionStore';
  * the server enforces it.
  */
 
-type HealthTab = 'overview' | 'errors' | 'daily';
+type HealthTab = 'overview' | 'errors' | 'infra' | 'daily';
 const TABS: Array<{ key: HealthTab; label: string }> = [
-  { key: 'overview', label: 'Overview' }, { key: 'errors', label: 'Failed requests' }, { key: 'daily', label: 'Daily trend' },
+  { key: 'overview', label: 'Overview' }, { key: 'errors', label: 'Failed requests' },
+  { key: 'infra', label: 'Cloudflare & Neon' }, { key: 'daily', label: 'Daily trend' },
 ];
 
 const WINDOWS: Array<{ hours: number; label: string }> = [
@@ -257,7 +259,7 @@ export default function AdminSystemHealthPage() {
       <PageHeader
         eyebrow="Administration"
         title="System health"
-        description="Services, restarts, failed requests, CPU and memory, deployments, stuck work and the database, across every Project."
+        description="Services, restarts, failed requests, CPU and memory, deployments, stuck work, Cloudflare, R2 and the Neon database, across every Project."
       />
 
       <div className="sh-tabs" role="tablist" aria-label="System health view">
@@ -289,6 +291,7 @@ export default function AdminSystemHealthPage() {
       ) : null}
 
       {tab === 'errors' && accessToken ? <FailedRequestsTab hours={hours} accessToken={accessToken} /> : null}
+      {tab === 'infra' && accessToken ? <InfrastructureTab hours={hours} accessToken={accessToken} /> : null}
 
       {tab === 'overview' && health.isError ? <div className="p2w-alert p2w-alert--error" role="alert">{errorText(health.error)}</div> : null}
       {tab === 'overview' && health.isLoading ? <div className="p2w-skeleton">Loading…</div> : null}

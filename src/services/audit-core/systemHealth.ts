@@ -222,3 +222,147 @@ export function getSystemHealthDaily(days: number, tenantId: string | null, acce
     timeoutMs: 30_000,
   });
 }
+
+/**
+ * GET /v1/admin/system-health/infrastructure (2026-10-31): the Cloudflare web Worker, the R2
+ * bucket and the Neon database. Each outside source says whether it is configured and whether it
+ * answered; a node that could not be read carries the reason instead of failing the page.
+ */
+export type NodeStatus = 'OK' | 'WARNING' | 'CRITICAL' | 'NOT_CONFIGURED';
+
+export interface LiveProbe {
+  configured: boolean;
+  ok: boolean | null;
+  url?: string | null;
+  statusCode?: number | null;
+  latencyMs: number | null;
+  error: string | null;
+  checkedAtUtc: string;
+}
+
+interface SourceState {
+  configured: boolean;
+  available: boolean;
+  error: string | null;
+}
+
+export interface WorkerHour {
+  hour: string;
+  requests: number;
+  errors: number;
+  subrequests: number;
+  cpuP50Ms: number | null;
+  cpuP99Ms: number | null;
+}
+
+export interface WorkerAnalytics extends SourceState {
+  requests?: number;
+  errors?: number;
+  subrequests?: number;
+  errorRate?: number | null;
+  cpuTimeP50Ms?: number | null;
+  cpuTimeP99Ms?: number | null;
+  byStatus?: Array<{ status: string; requests: number }>;
+  hourly?: WorkerHour[];
+}
+
+export interface R2Hour {
+  hour: string;
+  reads: number;
+  writes: number;
+  lists: number;
+  deletes: number;
+  other: number;
+  clientErrors: number;
+  serverErrors: number;
+}
+
+export interface R2Analytics extends SourceState {
+  operations?: number;
+  clientErrors?: number;
+  serverErrors?: number;
+  serverErrorRate?: number | null;
+  byAction?: Array<{ actionType: string; requests: number; clientErrors: number; serverErrors: number }>;
+  byStatusCode?: Array<{ status: number; requests: number }>;
+  hourly?: R2Hour[];
+  storage?: { objectCount: number; payloadBytes: number; metadataBytes: number; pendingUploads: number; atUtc: string | null } | null;
+}
+
+export interface NeonHour {
+  hour: string | null;
+  samples: number;
+  connectionsMax: number;
+  connectionsAvg: number | null;
+  connectionsPeakAtUtc: string | null;
+  activeMax: number;
+  activeAvg: number | null;
+  idleInTransactionMax: number;
+  maxConnections: number | null;
+  waitingOnLocksMax: number;
+  longestQuerySecondsMax: number | null;
+  transactions: number;
+  tps: number | null;
+  tpsPeak: number | null;
+  tpsPeakAtUtc: string | null;
+  cacheHitRatio: number | null;
+  blocksRead: number;
+  lfcHitRatio: number | null;
+  lfcMisses: number | null;
+  deadlocks: number;
+  tempBytes: number;
+  sizeBytes: number | null;
+}
+
+export interface NeonDatabase {
+  sampled: boolean;
+  latest: {
+    minuteUtc: string;
+    stale: boolean;
+    connections: { active: number; idle: number; idleInTransaction: number; other: number };
+    connectionsTotal: number;
+    maxConnections: number | null;
+    waitingOnLocks: number;
+    longestQuerySeconds: number | null;
+    longestTransactionSeconds: number | null;
+    sizeBytes: number | null;
+  } | null;
+  window: Omit<NeonHour, 'hour'> | null;
+  hourly: NeonHour[];
+  lfcAvailable: boolean;
+  note: string | null;
+}
+
+export interface NeonEndpoint {
+  id: string | null;
+  type: string | null;
+  branchId: string | null;
+  state: string | null;
+  pendingState: string | null;
+  minCu: number | null;
+  maxCu: number | null;
+  suspendTimeoutSeconds: number | null;
+  lastActiveAtUtc: string | null;
+  regionId: string | null;
+}
+
+export interface NeonApi extends SourceState {
+  projectId: string;
+  endpoints: NeonEndpoint[];
+  compute: { hourly: Array<{ hour: string; cuHours: number }>; totalCuHours: number; peakCu: number | null; peakAtUtc: string | null } | null;
+}
+
+export interface InfrastructureHealth {
+  generatedAtUtc: string;
+  windowHours: number;
+  web: { status: NodeStatus; worker: string; probe: LiveProbe; analytics: WorkerAnalytics };
+  r2: { status: NodeStatus; bucket: string | null; probe: LiveProbe; analytics: R2Analytics };
+  neon: { status: NodeStatus; projectId: string; database: NeonDatabase; api: NeonApi; cpuNote: string };
+  alerts: HealthAlert[];
+}
+
+export function getSystemHealthInfrastructure(hours: number, accessToken: string) {
+  return auditCoreRequest<InfrastructureHealth>(
+    `/v1/admin/system-health/infrastructure?hours=${encodeURIComponent(String(hours))}`,
+    { accessToken, timeoutMs: 20_000 },
+  );
+}

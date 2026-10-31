@@ -14,6 +14,12 @@ The app's build number is added by the release workflow and is not written here.
 
 ### Added
 - SuperAdmin, Reports: an "App" tab — who has the Verigence Android app and which version. Per person: whether they downloaded it, when, how many times, which version they took, and the version their app reports when it signs in, with a count of how many people are on each version and a CSV. Expanding a person shows every download with its date and version.
+- Bookings & Deliveries, adding documents: a banner says which booking the documents go into — "Adding documents to booking ADI-… — customer being identified", with the customer's name once it is read — and has a "Start next booking" button. Right after the first file of a new booking: "Booking … created. Next customer? Start next booking". If files are still uploading, the next booking opens as soon as they are received.
+- Bookings & Deliveries: a file whose name looks like a different customer from the booking (for example "Tapan kumar patra.pdf" on Azizur Rehaman's booking) is asked about before it is uploaded: "Start new booking with this file" or "Add to this booking". Files that name no one (IMG_…, scan001.pdf, invoice.pdf) go straight in.
+- Bookings & Deliveries: when Audit Core finds an uploaded file is another person's, the booking says so ("… is X's file, not this customer's — it has been taken out of this booking") and links to the booking it was moved to.
+
+### Fixed
+- Bookings & Deliveries: after a booking was created on the new-booking screen, "Capture New Booking" (or a link to another booking) changed the address but kept the screen on the booking just created, so the next customer's files went into it. Every booking now opens on a fresh screen.
 
 
 ## [1.4.0] - 2026-10-30

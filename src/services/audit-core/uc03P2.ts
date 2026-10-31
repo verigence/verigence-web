@@ -240,6 +240,27 @@ export type P2ChecklistItem = {
   documentIds: string[];
 };
 
+/** Whose file an upload is, from the documents in it (2026-10-31). BELONGS:
+ * this booking's customer; FOREIGN: another person's, so Audit Core takes it
+ * out of this booking (and may move it to that customer's booking); UNKNOWN:
+ * nothing in it names a person yet. */
+export type P2FileIdentity = {
+  status: 'BELONGS' | 'FOREIGN' | 'UNKNOWN';
+  personName?: string | null;
+  maskedPan?: string | null;
+  reason?: string | null;
+};
+
+/** One uploaded file of a Journey, as the PC named it. */
+export type P2JourneyFile = {
+  batchId: string;
+  fileName: string;
+  uploadedAtUtc: string;
+  identity: P2FileIdentity;
+  /** The booking a FOREIGN file was moved to, when Audit Core found it. */
+  movedTo?: { journeyId: string; reference: string } | null;
+};
+
 export type P2DocumentsResponse = {
   journeyId: string;
   batches: P2DocumentBatch[];
@@ -248,6 +269,10 @@ export type P2DocumentsResponse = {
   conditions?: string[];
   counts?: P2UploadCounts;
   documentHealth?: { summary: P2DocumentHealthSummary; defects: P2DocumentDefect[] };
+  /** The Journey's files and whose each one is. Absent from an older Audit Core. */
+  files?: P2JourneyFile[];
+  /** The customer as named from the documents; null until identified. Absent from an older Audit Core. */
+  customerName?: string | null;
 };
 
 type P2TemplateField = {

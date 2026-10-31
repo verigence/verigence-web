@@ -27,7 +27,20 @@ import P2DocumentList, {
   buildDocumentRows, type DocumentRow, OTHER_DOCUMENT_TEMPLATE, removablePage,
 } from '../features/uc03-p2/workspace/P2DocumentList';
 import RemovePageDialog from '../features/uc03-p2/workspace/RemovePageDialog';
-import P2UploadPanel, { type P2UploadPanelHandle } from '../features/uc03-p2/workspace/P2UploadPanel';
+import P2UploadPanel, { type P2UploadActivity, type P2UploadPanelHandle } from '../features/uc03-p2/workspace/P2UploadPanel';
+import { P2BookingBanner, P2BookingCreatedNotice, P2ForeignFileNotices } from '../features/uc03-p2/workspace/P2BookingContext';
+import { bookingKnownNames, customerIsNamed } from '../features/uc03-p2/workspace/customerNameGuard';
+import {
+  carryTaken,
+  followRoute,
+  journeyCreated,
+  NEW_BOOKING_ROUTE,
+  newBookingIdempotencyKey,
+  openSession,
+  startNextBooking,
+  type NextBookingCarry,
+} from '../features/uc03-p2/workspace/workspaceSession';
+import { P2_NEW_BOOKING_PATH } from '../features/uc03-p2/newBookingPath';
 import { BATCH_IN_FLIGHT, PAGE_IN_FLIGHT } from '../features/uc03-p2/workspace/p2Format';
 import { useP2EventFeed } from '../features/uc03-p2/workspace/useP2EventFeed';
 import {
@@ -36,6 +49,7 @@ import {
   deleteP2Document,
   removeP2Page,
   getP2Documents,
+  getP2Journey360,
   getP2OldScreenDocuments,
   getP2Templates,
   splitP2OldScreenDocument,
@@ -85,7 +99,17 @@ function failedSummary(rows: DocumentRow[]): string {
   }).join('; ');
 }
 
-export default function P2JourneyWorkspacePage() {
+type WorkspaceScreenProps = {
+  /** What "Start next booking" brought to this fresh new-booking screen. */
+  carry?: NextBookingCarry;
+  /** This screen created the Journey (its address follows). */
+  onCreated: (journeyId: string) => void;
+  /** Open a fresh new-booking screen. */
+  onStartNext: (carry: NextBookingCarry) => void;
+  onCarryTaken: () => void;
+};
+
+function WorkspaceScreen({ carry, onCreated, onStartNext, onCarryTaken }: WorkspaceScreenProps) {
   const { journeyId: routeJourneyId = '', documentId } = useParams();
   const [search, setSearch] = useSearchParams();
   // ?resolveSku=1: arrived from a rejected closest-match suggestion -- open
@@ -101,11 +125,25 @@ export default function P2JourneyWorkspacePage() {
   // New booking and an existing booking are the same screen: until the first
   // upload creates the Journey, the route carries "new".
   const [createdJourneyId, setCreatedJourneyId] = useState<string>();
-  const isNew = routeJourneyId === 'new' && !createdJourneyId;
-  const journeyId = createdJourneyId ?? (routeJourneyId === 'new' ? '' : routeJourneyId);
-  const [outletId, setOutletId] = useState(workingOutletId || outlets[0]?.outletId || '');
-  const idempotencyKey = useRef(`p2-new-booking-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`);
+  const isNew = routeJourneyId === NEW_BOOKING_ROUTE && !createdJourneyId;
+  const journeyId = createdJourneyId ?? (routeJourneyId === NEW_BOOKING_ROUTE ? '' : routeJourneyId);
+  // "Start next booking" keeps the outlet of the booking the PC was on.
+  const [outletId, setOutletId] = useState(() => (
+    carry?.outletId && outlets.some((outlet) => outlet.outletId === carry.outletId)
+      ? carry.outletId
+      : workingOutletId || outlets[0]?.outletId || ''));
+  // A fresh screen per booking (see workspaceSession): a new key, so a new Journey.
+  const [idempotencyKey] = useState(newBookingIdempotencyKey);
   const creating = useRef<Promise<string> | null>(null);
+  // This screen created the Journey; its first upload is announced once.
+  const createdHere = useRef(false);
+  const createdAnnounced = useRef(false);
+  const [createdNotice, setCreatedNotice] = useState(false);
+  // Files "Start new booking with this file" brought: uploaded straight away,
+  // or once the PC has chosen the outlet when they work several.
+  const [carriedFiles, setCarriedFiles] = useState(carry?.files);
+  const carriedSent = useRef(false);
+  const tookCarry = useRef(Boolean(carry));
   const replaceInput = useRef<HTMLInputElement>(null);
   const uploadPanel = useRef<P2UploadPanelHandle>(null);
   const [replaceTarget, setReplaceTarget] = useState<string>();
@@ -222,7 +260,7 @@ export default function P2JourneyWorkspacePage() {
           : null;
         if (!knownName) queryClient.removeQueries({ queryKey: ['my-display-name'] });
         const createdByName = knownName ?? undefined;
-        const result = await createP2Journey(tenantId!, { outletId, createdByName }, idempotencyKey.current, accessToken);
+        const result = await createP2Journey(tenantId!, { outletId, createdByName }, idempotencyKey, accessToken);
         return result.journeyId;
       })();
       try {
@@ -231,17 +269,95 @@ export default function P2JourneyWorkspacePage() {
         creating.current = null;
         throw cause;
       }
+      createdHere.current = true;
+      onCreated(target);
       setCreatedJourneyId(target);
       navigate(`/p2/journeys/${target}/documents${tab === 'photos' ? '?tab=photos' : ''}`, { replace: true });
       void queryClient.invalidateQueries({ queryKey: ['p2-journeys', tenantId] });
     }
     return target;
-  }, [accessToken, journeyId, navigate, outletId, queryClient, tab, tenantId]);
+  }, [accessToken, idempotencyKey, journeyId, navigate, onCreated, outletId, queryClient, tab, tenantId]);
 
   const getTransport = useCallback(async () => {
     const target = await ensureJourney();
     return { journeyId: target, transport: p2UploadTransport(tenantId ?? '', target, accessToken) };
   }, [accessToken, ensureJourney, tenantId]);
+
+  // An upload finishes after the screen has become the booking it created:
+  // refresh that booking, not the one the upload started on.
+  const refreshLatest = useRef(refresh);
+  refreshLatest.current = refresh;
+  const onAccepted = useCallback(() => {
+    refreshLatest.current();
+    if (createdHere.current && !createdAnnounced.current) {
+      createdAnnounced.current = true;
+      setCreatedNotice(true);
+    }
+  }, []);
+
+  // The booking's reference and customer, for the banner. The documents read
+  // names the customer once Audit Core sends it (2026-10-31); until then the
+  // Journey 360 summary does, asked again while pages are still being read.
+  const documentsNameCustomer = documents.data?.customerName !== undefined;
+  const summary = useQuery({
+    queryKey: ['p2-360', tenantId, journeyId, 'summary'],
+    queryFn: () => getP2Journey360(tenantId!, journeyId, accessToken),
+    enabled,
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
+    retry: 1,
+    refetchInterval: (query) => (
+      !documentsNameCustomer && inFlight && !customerIsNamed(query.state.data?.journey.customerName) ? 30_000 : false),
+  });
+  const summaryCustomer = summary.data?.journey.customerName;
+  const refetchSummary = summary.refetch;
+  const customerName = documentsNameCustomer ? documents.data?.customerName : summaryCustomer;
+  const reference = summary.data?.journey.reference ?? null;
+  const wasInFlight = useRef(inFlight);
+  useEffect(() => {
+    // The last page has been read: ask once more who the customer is.
+    if (wasInFlight.current && !inFlight && !documentsNameCustomer && !customerIsNamed(summaryCustomer)) void refetchSummary();
+    wasInFlight.current = inFlight;
+  }, [documentsNameCustomer, inFlight, refetchSummary, summaryCustomer]);
+  const knownNames = useMemo(() => bookingKnownNames(documents.data, customerName), [customerName, documents.data]);
+
+  // Starting bookings is the PC's (as "Capture New Booking" is).
+  const startsBookings = operatingRole === 'PC';
+  // Files still being sent would be left unwatched by a new screen (a failed
+  // one could no longer be retried): the next booking opens once they are
+  // received, and not if one fails until the PC has seen it.
+  const [uploads, setUploads] = useState<P2UploadActivity>({ sending: false, failed: 0 });
+  const [waitingToStart, setWaitingToStart] = useState<{ carry: NextBookingCarry; failedBefore: number; blocked?: boolean }>();
+  const startNext = (files?: File[]) => {
+    // The outlet of the booking the PC is on: the one chosen here, or the
+    // booking's own when it was opened from the list.
+    const bookingOutlet = createdHere.current
+      ? outletId
+      : outlets.find((outlet) => outlet.outletName === summary.data?.journey.outletName)?.outletId ?? outletId;
+    const next = { files, outletId: bookingOutlet };
+    if (uploads.sending) setWaitingToStart({ carry: next, failedBefore: uploads.failed });
+    else onStartNext(next);
+  };
+  useEffect(() => {
+    if (!waitingToStart || uploads.sending) return;
+    if (uploads.failed > waitingToStart.failedBefore) {
+      if (!waitingToStart.blocked) setWaitingToStart({ ...waitingToStart, blocked: true });
+      return;
+    }
+    setWaitingToStart(undefined);
+    onStartNext(waitingToStart.carry);
+  }, [onStartNext, uploads, waitingToStart]);
+  const choosesOutlet = isNew && outlets.length > 1;
+  useEffect(() => {
+    // Once, for what this screen was opened with.
+    if (tookCarry.current) onCarryTaken();
+  }, []);
+  useEffect(() => {
+    if (!carriedFiles?.length || carriedSent.current || !isNew || choosesOutlet || !tenantId) return;
+    carriedSent.current = true;
+    uploadPanel.current?.addFiles(carriedFiles);
+    setCarriedFiles(undefined);
+  }, [carriedFiles, choosesOutlet, isNew, tenantId]);
 
   const switchTab = (next: 'documents' | 'photos') => {
     const params = new URLSearchParams(search);
@@ -389,9 +505,55 @@ export default function P2JourneyWorkspacePage() {
               </label>
             ))}
           </fieldset>
-          <p>The booking is created as soon as you add the first document.</p>
+          {carriedFiles?.length ? (
+            <div className="p2w-choice p2w-choice--guard" role="group" aria-label="Upload the file to this new booking">
+              <span>
+                {carriedFiles.length === 1 ? `“${carriedFiles[0].name}” is ready` : `${carriedFiles.length} files are ready`} for
+                this new booking. Check the outlet, then upload.
+              </span>
+              <div>
+                <button type="button" className="p2w-button p2w-button--primary" onClick={() => {
+                  carriedSent.current = true;
+                  uploadPanel.current?.addFiles(carriedFiles);
+                  setCarriedFiles(undefined);
+                }}>
+                  Upload to this booking
+                </button>
+                <button type="button" className="p2w-button p2w-button--ghost" onClick={() => setCarriedFiles(undefined)}>
+                  Do not upload
+                </button>
+              </div>
+            </div>
+          ) : <p>The booking is created as soon as you add the first document.</p>}
         </section>
       ) : null}
+
+      {!isNew && journeyId ? (
+        <P2BookingBanner reference={reference} customerName={customerName} starting={Boolean(waitingToStart)}
+          onStartNext={startsBookings ? () => startNext() : undefined} />
+      ) : null}
+      {waitingToStart ? (
+        <div className={`p2w-alert p2w-alert--next${waitingToStart.blocked ? ' p2w-alert--error' : ''}`} role="status">
+          <span>
+            {waitingToStart.blocked
+              ? 'A file of this booking did not upload. Retry it below; the next booking opens once it is received.'
+              : 'The next booking opens as soon as the files below are received.'}
+          </span>
+          {waitingToStart.blocked ? (
+            <button type="button" className="p2w-button p2w-button--secondary" onClick={() => {
+              const { carry: next } = waitingToStart;
+              setWaitingToStart(undefined);
+              onStartNext(next);
+            }}>Start next booking anyway</button>
+          ) : null}
+          <button type="button" className="p2w-link" onClick={() => setWaitingToStart(undefined)}>Cancel</button>
+        </div>
+      ) : null}
+      {createdNotice && startsBookings && !isNew && !waitingToStart ? (
+        <P2BookingCreatedNotice reference={reference}
+          onStartNext={() => startNext()} onDismiss={() => setCreatedNotice(false)} />
+      ) : null}
+      {!isNew ? <P2ForeignFileNotices files={documents.data?.files} /> : null}
 
       {documents.isError ? (
         <div className="p2w-alert p2w-alert--error" role="alert">
@@ -495,7 +657,9 @@ export default function P2JourneyWorkspacePage() {
                   </button>
                 </div>
               ))}
-              <P2UploadPanel ref={uploadPanel} journeyId={journeyId || undefined} getTransport={getTransport} onAccepted={refresh} />
+              <P2UploadPanel ref={uploadPanel} journeyId={journeyId || undefined} getTransport={getTransport} onAccepted={onAccepted}
+                knownNames={knownNames} onStartNewWith={startsBookings ? (files) => startNext(files) : undefined}
+                onActivity={setUploads} />
             </>
           ) : null}
           {!isNew && documents.isLoading ? <div className="p2w-skeleton" aria-busy="true">Loading documents…</div> : (
@@ -617,5 +781,31 @@ export default function P2JourneyWorkspacePage() {
         </div>
       ) : null}
     </div>
+  );
+}
+
+/**
+ * The Booking & Delivery documents screen. Each booking gets a screen of its
+ * own (2026-10-31): a new booking and an existing one share this route, and
+ * one screen kept across them stayed on the booking it had created after the
+ * address changed, so the next customer's files went into it.
+ */
+export default function P2JourneyWorkspacePage() {
+  const { journeyId: route = '' } = useParams();
+  const navigate = useNavigate();
+  const [session, setSession] = useState(() => openSession(route));
+  const current = followRoute(session, route);
+  if (current !== session) setSession(current);
+
+  const onStartNext = useCallback((carry: NextBookingCarry) => {
+    setSession((latest) => startNextBooking(followRoute(latest, route), carry, route));
+    if (route !== NEW_BOOKING_ROUTE) navigate(P2_NEW_BOOKING_PATH);
+  }, [navigate, route]);
+  const onCreated = useCallback((journeyId: string) => setSession((latest) => journeyCreated(latest, journeyId)), []);
+  const onCarryTaken = useCallback(() => setSession(carryTaken), []);
+
+  return (
+    <WorkspaceScreen key={current.key} carry={current.carry}
+      onCreated={onCreated} onStartNext={onStartNext} onCarryTaken={onCarryTaken} />
   );
 }

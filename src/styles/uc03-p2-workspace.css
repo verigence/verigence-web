@@ -1077,3 +1077,56 @@
 /* Several tasks of one kind on a booking, shown as one entry (2026-10-28). */
 .p2w .p2w-task-group .p2w-tasks.p2w-tasks--bundle { padding: 0 10px 10px; gap: 6px; }
 .p2w-tasks--bundle .p2w-task { box-shadow: none; border-left-width: 3px; }
+
+/* The booking being added to, and the way to the next one (2026-10-31): the
+   first file of a new booking creates it and the screen becomes that booking,
+   so the screen says which booking it is from then on. Phone width: the
+   button takes the full width under the text; nothing scrolls sideways. */
+.p2w .p2w-booking-banner {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px 16px;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  padding: 12px 16px;
+  border: 1px solid var(--p2w-action-line);
+  border-left: 5px solid var(--p2w-action);
+  border-radius: var(--p2w-radius);
+  background: #fff;
+  box-shadow: var(--p2w-shadow);
+}
+.p2w .p2w-booking-banner__text {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0;
+  font-size: 1.02rem;
+  font-weight: 600;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+.p2w .p2w-booking-banner__text strong { font-weight: 800; }
+.p2w .p2w-booking-banner__pending { color: var(--p2w-muted); font-style: italic; }
+.p2w .p2w-booking-banner .p2w-button { flex: 0 0 auto; }
+.p2w .p2w-alert--next { box-sizing: border-box; flex-wrap: wrap; }
+.p2w .p2w-alert--next > span { flex: 1 1 260px; }
+/* Another person's file taken out of this booking: needs a look, not an alarm. */
+.p2w .p2w-alert--review { background: var(--p2w-review-bg); color: var(--p2w-review); border: 1px solid var(--p2w-review-line); }
+.p2w .p2w-alert--review > span { overflow-wrap: anywhere; }
+.p2w .p2w-alert a.p2w-link--inline { display: inline; min-height: 0; padding: 0; text-decoration: underline; }
+/* The different-customer question beside the drop area. */
+.p2w .p2w-choice--guard { box-sizing: border-box; max-width: 100%; min-width: 0; }
+.p2w .p2w-choice--guard > span { flex: 1 1 260px; min-width: 0; overflow-wrap: anywhere; }
+.p2w .p2w-choice--guard > div { flex-wrap: wrap; }
+.p2w .p2w-choice--guard .p2w-button { white-space: normal; text-align: center; }
+.p2w-start .p2w-choice--guard { grid-column: 1 / -1; }
+
+@media (max-width: 560px) {
+  .p2w .p2w-booking-banner { flex-direction: column; align-items: stretch; padding: 12px; }
+  .p2w .p2w-booking-banner .p2w-button { width: 100%; white-space: normal; }
+  .p2w .p2w-alert--next > .p2w-button { flex: 1 1 auto; white-space: normal; }
+  .p2w .p2w-choice--guard > div { flex-direction: column; }
+  .p2w .p2w-choice--guard .p2w-button { width: 100%; }
+}

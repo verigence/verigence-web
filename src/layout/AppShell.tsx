@@ -10,6 +10,7 @@ import type { OperationalOutletScope } from '../services/audit-core/uc03';
 import { getP2Tasks } from '../services/audit-core/uc03P2';
 import { getTmTasks } from '../services/audit-core/taskManager';
 import ActivityTracker from '../features/task-manager/ActivityTracker';
+import TenantAlertBanner from '../features/tenant-alerts/TenantAlertBanner';
 import { useHrAccess } from '../features/hr/hrQueries';
 import { useMyFeatures, visibleNavGroups } from '../features/rollout/featureFlags';
 import { useMyHrIdentity } from '../features/hr/myIdentity';
@@ -700,6 +701,8 @@ export default function AppShell({ children }: PropsWithChildren) {
     <div className={`enterprise-shell enterprise-shell--approved-nav${mobileMenuOpen ? ' enterprise-shell--menu-open' : ''}`}>
       <button type="button" className="enterprise-mobile-backdrop" aria-label="Close navigation" onClick={() => setMobileMenuOpen(false)} />
       <ActivityTracker />
+      {/* Project-wide alerts for every role (2026-10-31): the same file uploaded again. */}
+      <TenantAlertBanner />
 
       <header className="enterprise-topbar enterprise-topbar--global">
         <div className="enterprise-topbar__start">

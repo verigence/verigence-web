@@ -9,6 +9,7 @@ import { getSystemHealthDaily, type DailyHealthRow } from '../../../services/aud
 import {
   DI_FAILURE_KINDS, REFUSAL_KINDS, SYSTEM_SERIES, dayLabel, halfOverHalf, hasCodes, pct, rangeFailedPct, signedPct, total,
 } from './trendLogic';
+import { AXIS, ChartTooltip as BaseTooltip, SERIES, SeriesLegend } from './chartParts';
 
 /**
  * How Document Intelligence errors and system failures move day by day (product
@@ -16,33 +17,7 @@ import {
  * charts carries every number.
  */
 const RANGES = [7, 14, 30];
-const SERIES = ['var(--sh-series-1)', 'var(--sh-series-2)', 'var(--sh-series-3)', 'var(--sh-series-4)'];
-const AXIS = { fontSize: 11, fill: 'var(--sh-axis-text)' };
-
-function ChartTooltip({ active, payload, label, unit = '' }: {
-  active?: boolean; payload?: Array<{ name: string; value: number; color: string }>; label?: string; unit?: string;
-}) {
-  if (!active || !payload?.length) return null;
-  return (
-    <div className="sh-tooltip">
-      <strong>{label ? dayLabel(label) : ''}</strong>
-      {payload.map((p) => (
-        <span key={p.name}><i style={{ background: p.color }} aria-hidden="true" />{p.name}<b>{p.value ?? '—'}{p.value !== null && p.value !== undefined ? unit : ''}</b></span>
-      ))}
-    </div>
-  );
-}
-
-/** Legend in series order, text in ink (the swatch carries the colour). */
-function SeriesLegend({ series, line = false }: { series: ReadonlyArray<{ label: string }>; line?: boolean }) {
-  return (
-    <ul className="sh-legend">
-      {series.map((s, i) => (
-        <li key={s.label}><i className={line ? 'is-line' : ''} style={{ background: SERIES[i] }} aria-hidden="true" />{s.label}</li>
-      ))}
-    </ul>
-  );
-}
+const ChartTooltip = (props: Parameters<typeof BaseTooltip>[0]) => <BaseTooltip labelFormat={dayLabel} {...props} />;
 
 function StackedDays({ days, series, label }: {
   days: DailyHealthRow[]; series: ReadonlyArray<{ key: string; label: string }>; label: string;

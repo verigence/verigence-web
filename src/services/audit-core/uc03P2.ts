@@ -1031,7 +1031,7 @@ export type P2Deal = {
   insurance?: P2DealInsurance;
   /** The invoices consolidated into the sheet: retail, tax, accessory, warranty... */
   invoices?: Array<{ documentId: string; documentType: string; label: string; number?: unknown; date?: unknown; total: Money;
-    counted?: boolean }>;
+    counted?: boolean; sameInvoiceAs?: string[] }>;
   /** Credit notes on file (the scrappage case): shown, never in the Deal's arithmetic (2026-10-31). */
   creditNotes?: P2CreditNote[];
   declared: Array<{ key: string; label: string; booking: Money; billed: Money; ledger: Money; quote: Money; sources: P2DealSource[] }>;

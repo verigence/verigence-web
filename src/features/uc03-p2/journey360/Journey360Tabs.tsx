@@ -241,7 +241,7 @@ export function PaymentsTab({ payments, journeyId }: { payments: P2Payments360; 
                 <tr className="is-flagged">
                   <th scope="row">
                     <Link className="p2w-link" to={`/p2/journeys/${journeyId}/documents/${letterLoan.documentId}`}>Loan amount*</Link>
-                    <small className="p2w-muted">{[letterLoan.document, recordField('financier_name', letterLoan.financier)].filter(Boolean).join(' · ')}</small>
+                    <small className="p2w-muted">{[letterLoan.document, letterLoan.financier ? String(letterLoan.financier) : ''].filter(Boolean).join(' · ')}</small>
                   </th>
                   <td data-label="Date">{recordField('finance_sanction_date', letterLoan.date)}</td>
                   <td data-label="Mode">Loan</td>

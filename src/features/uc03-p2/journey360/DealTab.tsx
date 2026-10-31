@@ -592,7 +592,8 @@ export default function DealTab({ deal, journeyId, tenantId, accessToken }: {
               <li key={invoice.documentId}>
                 <Link className="p2w-link" to={`/p2/journeys/${journeyId}/documents/${invoice.documentId}`}>{invoice.label}</Link>
                 <span className="p2w-muted">{[invoice.number && String(invoice.number), invoice.date && recordField('invoice_date', invoice.date),
-                  invoice.counted === false && 'copy of a bill already counted'].filter(Boolean).join(' · ')}</span>
+                  invoice.counted === false && (invoice.sameInvoiceAs?.length ? 'copy of a bill already counted' : 'not counted')]
+                  .filter(Boolean).join(' · ')}</span>
                 <b>{money(invoice.total)}</b>
               </li>
             ))}

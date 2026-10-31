@@ -1030,7 +1030,10 @@ export type P2Deal = {
    * customer arranged it, premium out). Inhouse until the PC says otherwise. */
   insurance?: P2DealInsurance;
   /** The invoices consolidated into the sheet: retail, tax, accessory, warranty... */
-  invoices?: Array<{ documentId: string; documentType: string; label: string; number?: unknown; date?: unknown; total: Money }>;
+  invoices?: Array<{ documentId: string; documentType: string; label: string; number?: unknown; date?: unknown; total: Money;
+    counted?: boolean }>;
+  /** Credit notes on file (the scrappage case): shown, never in the Deal's arithmetic (2026-10-31). */
+  creditNotes?: P2CreditNote[];
   declared: Array<{ key: string; label: string; booking: Money; billed: Money; ledger: Money; quote: Money; sources: P2DealSource[] }>;
   summary: P2DealSummary;
   flagged: number;
@@ -1198,9 +1201,21 @@ export type P2PaymentItem = {
   bankStatement?: P2BankMatch | null;
 };
 
+/** A loan with no dealership receipt, as the lender's letter states it (2026-10-31): shown with an asterisk. */
+export type P2LoanWithoutReceipt = {
+  amount: string; documentId: string; document: string; financier?: unknown; date?: unknown;
+  letterNumber?: unknown; note: string;
+};
+
+export type P2CreditNote = {
+  documentId: string; number?: unknown; date?: unknown; amount: Money; taxable?: Money;
+  reason?: string | null; issuedTo?: unknown;
+};
+
 export type P2Payments360 = {
   items: P2PaymentItem[];
   receiptsTotal: string; loanDisbursed: string; paidTotal: string; byStage: Record<string, string>;
+  loanWithoutReceipt?: P2LoanWithoutReceipt | null;
   duplicates?: number;
   bankStatement?: {
     lines: P2BankLine[]; creditsTotal: string; matchedTotal: string;
@@ -1273,6 +1288,8 @@ export type P2AuditSummary = {
     loanDisbursed: string | null;
     /** Where the loan figure is from: the finance record, the NDC, or the ERP settlement printout. */
     loanSource?: string | null; loanNote?: string | null;
+    /** The loan is the Bank Approval Letter's figure: no dealership receipt stands for it (shown with *). */
+    loanWithoutReceipt?: boolean;
     /** Money the settlement printout records as refunded or adjusted out. */
     refunds?: string | null; refundsSource?: string | null;
     received: string;
@@ -1283,7 +1300,7 @@ export type P2AuditSummary = {
     exchange: { applicable: boolean | null; bookedValue: string | null; quotedValue: string | null;
       actualValue: string | null; valuationReports: number };
     scrappage: { certificates: number };
-    creditNotes: { count: number; total: string };
+    creditNotes: { count: number; total: string; items?: P2CreditNote[] };
     insurance: { by: string; decidedBy?: string | null; basis?: string | null };
   };
   settlement: P2AuditCheck & { payable: string | null; received: string; balance: string | null;

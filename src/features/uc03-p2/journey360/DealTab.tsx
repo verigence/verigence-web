@@ -416,6 +416,8 @@ export default function DealTab({ deal, journeyId, tenantId, accessToken }: {
   deal: P2Deal; journeyId: string; tenantId: string; accessToken?: string;
 }) {
   const { summary } = deal;
+  // Credit notes have their own card and are never in the sheet's figures (2026-10-31).
+  const billingInvoices = (deal.invoices ?? []).filter((invoice) => invoice.documentType !== 'credit_note');
   const [open, setOpen] = useState<string>();
   const toggle = (key: string) => setOpen(open === key ? undefined : key);
   const pricing = <PricingPanel tenantId={tenantId} journeyId={journeyId} accessToken={accessToken} />;
@@ -579,18 +581,39 @@ export default function DealTab({ deal, journeyId, tenantId, accessToken }: {
         </p>
       </section>
 
-      {deal.invoices?.length ? (
+      {billingInvoices.length ? (
         <section className="j360-card" aria-label="Invoices in this sheet">
           <div className="j360-card__head">
             <h3 className="j360-h3">Invoices consolidated in this sheet</h3>
             <Link className="p2w-link" to={`/p2/journeys/${journeyId}/overview?tab=invoices`}>See every line item</Link>
           </div>
           <ul className="j360-invoices">
-            {deal.invoices.map((invoice) => (
+            {billingInvoices.map((invoice) => (
               <li key={invoice.documentId}>
                 <Link className="p2w-link" to={`/p2/journeys/${journeyId}/documents/${invoice.documentId}`}>{invoice.label}</Link>
-                <span className="p2w-muted">{[invoice.number && String(invoice.number), invoice.date && recordField('invoice_date', invoice.date)].filter(Boolean).join(' · ')}</span>
+                <span className="p2w-muted">{[invoice.number && String(invoice.number), invoice.date && recordField('invoice_date', invoice.date),
+                  invoice.counted === false && 'copy of a bill already counted'].filter(Boolean).join(' · ')}</span>
                 <b>{money(invoice.total)}</b>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
+      {deal.creditNotes?.length ? (
+        <section className="j360-card" aria-label="Credit notes">
+          <div className="j360-card__head">
+            <h3 className="j360-h3">Credit notes</h3>
+            <span className="p2w-muted">For information: not used in any figure on this sheet</span>
+          </div>
+          <ul className="j360-invoices">
+            {deal.creditNotes.map((note) => (
+              <li key={note.documentId}>
+                <Link className="p2w-link" to={`/p2/journeys/${journeyId}/documents/${note.documentId}`}>
+                  {note.number ? `Credit note ${String(note.number)}` : 'Credit note'}
+                </Link>
+                <span className="p2w-muted">{[note.date && recordField('invoice_date', note.date), note.reason].filter(Boolean).join(' · ')}</span>
+                <b>{money(note.amount)}</b>
               </li>
             ))}
           </ul>

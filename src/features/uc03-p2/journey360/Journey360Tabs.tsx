@@ -197,19 +197,22 @@ function CountedCell({ item }: { item: P2PaymentItem }) {
 export function PaymentsTab({ payments, journeyId }: { payments: P2Payments360; journeyId: string }) {
   const bank = payments.bankStatement;
   const credits = bank ? bank.lines.filter((line) => line.credit !== null) : [];
+  // A loan with no dealership receipt, from the Bank Approval Letter (2026-10-31).
+  const letterLoan = payments.loanWithoutReceipt ?? null;
   return (
     <div className="j360-stack">
       <dl className="j360-paid j360-card">
         <div><dt>Receipts counted</dt><dd>{money(payments.receiptsTotal)}</dd></div>
         <div><dt>Loan disbursed</dt><dd>{money(payments.loanDisbursed)}</dd></div>
         <div><dt>Total received</dt><dd>{money(payments.paidTotal)}</dd></div>
+        {letterLoan ? <div className="is-due"><dt>Loan per bank letter*</dt><dd>{money(letterLoan.amount)}</dd></div> : null}
         {Object.entries(payments.byStage).map(([stage, amount]) => (
           <div key={stage}><dt>{humanizeKey(stage)} receipts</dt><dd>{money(amount)}</dd></div>
         ))}
         {payments.duplicates ? <div className="is-due"><dt>Duplicate receipts</dt><dd>{payments.duplicates} not counted</dd></div> : null}
         {credits.length ? <div className={bank && bank.matched === credits.length ? 'is-clear' : ''}><dt>Bank credits matched</dt><dd>{bank?.matched ?? 0} of {credits.length}</dd></div> : null}
       </dl>
-      {payments.items.length ? (
+      {payments.items.length || letterLoan ? (
         <div className="j360-card j360-table-wrap">
           <table className="j360-table">
             <caption>Receipts</caption>
@@ -234,8 +237,22 @@ export function PaymentsTab({ payments, journeyId }: { payments: P2Payments360; 
                   <td data-label="Counted"><CountedCell item={item} /></td>
                 </tr>
               ))}
+              {letterLoan ? (
+                <tr className="is-flagged">
+                  <th scope="row">
+                    <Link className="p2w-link" to={`/p2/journeys/${journeyId}/documents/${letterLoan.documentId}`}>Loan amount*</Link>
+                    <small className="p2w-muted">{[letterLoan.document, recordField('financier_name', letterLoan.financier)].filter(Boolean).join(' · ')}</small>
+                  </th>
+                  <td data-label="Date">{recordField('finance_sanction_date', letterLoan.date)}</td>
+                  <td data-label="Mode">Loan</td>
+                  <td className="is-num" data-label="Amount">{money(letterLoan.amount)}*</td>
+                  <td data-label="Bank statement"><span className="p2w-muted">—</span></td>
+                  <td data-label="Counted"><span className="p2w-chip p2w-chip--warning">No dealer receipt</span></td>
+                </tr>
+              ) : null}
             </tbody>
           </table>
+          {letterLoan ? <p className="p2w-muted j360-footnote">* {letterLoan.note}</p> : null}
         </div>
       ) : <Empty>No payments recorded yet. Upload receipts or the customer ledger.</Empty>}
       <section className="j360-card" aria-label="Bank statement">

@@ -25,7 +25,7 @@ function clearTenantQueries(queryClient: QueryClient): void {
   });
 }
 
-function accessTokenSubject(accessToken?: string): string | undefined {
+export function accessTokenSubject(accessToken?: string): string | undefined {
   if (!accessToken) return undefined;
   try {
     const payload = accessToken.split('.')[1];

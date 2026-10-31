@@ -19,6 +19,8 @@ export type SameFileJourney = {
   journeyId?: string | null;
   reference?: string | null;
   pcName?: string | null;
+  /** Who entered the journey: their own screen beeps on the alert (2026-10-31). */
+  pcActorId?: string | null;
   dealerName?: string | null;
   outletName?: string | null;
 };

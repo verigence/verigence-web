@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 
 import {
@@ -9,9 +9,13 @@ import {
   unseenAlerts,
   writeDismissed,
 } from '../../services/audit-core/tenantAlerts';
+import { accessTokenSubject } from '../uc03/projectContext';
 import { useProjectContextStore } from '../../store/projectContextStore';
 import { useSessionStore } from '../../store/sessionStore';
 import '../../styles/tenant-alerts.css';
+import {
+  alertsToBeep, beepedStorageKey, playAlertBeep, readBeeped, unlockAudioOnFirstGesture, writeBeeped,
+} from './alertSound';
 
 // Every 30 seconds while the screen is open; react-query does not poll a hidden tab.
 const POLL_MS = 30_000;
@@ -45,6 +49,21 @@ export default function TenantAlertBanner() {
     retry: false,
   });
   const visible = useMemo(() => unseenAlerts(alerts.data?.items, dismissedIds), [alerts.data, dismissedIds]);
+
+  // The PC who uploaded the same file again hears a 5-second beep, once per
+  // alert (2026-10-31); everyone else sees the alert silently.
+  const subject = accessTokenSubject(accessToken);
+  useEffect(() => unlockAudioOnFirstGesture(), []);
+  useEffect(() => {
+    if (!tenantId || !subject) return;
+    const key = beepedStorageKey(tenantId, subject);
+    const beeped = readBeeped(key);
+    const mine = alertsToBeep(visible, subject, beeped);
+    if (!mine.length) return;
+    playAlertBeep();
+    mine.forEach((a) => beeped.add(a.alertId));
+    writeBeeped(key, beeped);
+  }, [visible, tenantId, subject]);
 
   if (!tenantId || visible.length === 0) return null;
 

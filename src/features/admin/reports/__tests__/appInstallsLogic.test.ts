@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
 import type { LoginPerson } from '../../../../services/security/loginActivity';
-import { appInstallsCsv, byAppFirst, compareVersions, versionsInUse } from '../appInstallsLogic';
+import {
+  ago, appInstallsCsv, byAppFirst, compareVersions, matches, newestVersion, releasesBehind, standing, updatePending,
+  versionsInUse,
+} from '../appInstallsLogic';
 
 const STATE_LABEL: Record<LoginPerson['state'], string> = {
   APP_SIGNED_IN: 'On the app', DOWNLOADED: 'Downloaded, never signed in', WEB_ONLY: 'Web only',
@@ -55,5 +58,33 @@ describe('who has the app', () => {
     expect(rows[0]).toContain('Version downloaded,Version running');
     expect(rows[1]).toContain('"Asha, B"');
     expect(rows[1]).toContain('1.4.0,1.3.2');
+  });
+
+  it('says where each person stands against the newest version anyone has', () => {
+    const people = [
+      person({ userId: '1', appVersion: '1.4.0', lastDownloadVersion: '1.4.0', downloads: 2 }),
+      person({ userId: '2', appVersion: '1.1.0', lastDownloadVersion: '1.4.0', downloads: 3 }),
+      person({ userId: '3', downloads: 1, lastDownloadVersion: '1.3.2' }),
+      person({ userId: '4' }),
+    ];
+    const latest = newestVersion(people);
+    expect(latest).toBe('1.4.0');
+    expect(people.map((p) => standing(p, latest))).toEqual(['LATEST', 'BEHIND', 'NOT_OPENED', 'NOT_ON_APP']);
+    expect(releasesBehind('1.1.0', people)).toBe(2);
+    expect(releasesBehind('1.4.0', people)).toBe(0);
+    expect(updatePending(people[1])).toBe(true);
+    expect(updatePending(people[0])).toBe(false);
+  });
+
+  it('writes times relative to now and finds people by name or e-mail', () => {
+    const now = new Date('2026-10-31T10:00:00Z');
+    expect(ago('2026-10-31T09:59:40Z', now)).toBe('just now');
+    expect(ago('2026-10-31T09:48:00Z', now)).toBe('12 min ago');
+    expect(ago('2026-10-31T05:00:00Z', now)).toBe('5 h ago');
+    expect(ago('2026-10-30T10:00:00Z', now)).toBe('1 day ago');
+    expect(ago(null, now)).toBe('—');
+    expect(matches(person({ name: 'Prem Swarup Pani' }), 'swarup')).toBe(true);
+    expect(matches(person({ email: 'kedar@x.com' }), 'KEDAR')).toBe(true);
+    expect(matches(person({}), 'zz')).toBe(false);
   });
 });

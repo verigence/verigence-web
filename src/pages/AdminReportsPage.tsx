@@ -1,26 +1,22 @@
-import { Fragment, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import '../styles/uc03-p2.css';
 import '../styles/uc03-p2-workspace.css';
 import '../styles/uc03-p2-daily-report.css';
 import '../styles/task-manager.css';
+import '../styles/admin-reports.css';
 
 import PageHeader from '../components/PageHeader';
-import {
-  getJourneyReview,
-  type JourneyReviewRow,
-  type ReviewInvoice,
-} from '../services/audit-core/adminReports';
-import { cell, INVOICE_COLUMNS, reviewCsv } from '../features/admin/reports/reviewCsv';
+import { getJourneyReview } from '../services/audit-core/adminReports';
 import AppInstalls from '../features/admin/reports/AppInstalls';
+import JourneyReview from '../features/admin/reports/JourneyReview';
 import DiDashboard from '../features/task-manager/DiDashboard';
 import EngagementDashboard from '../features/task-manager/EngagementDashboard';
 import { listProjects } from '../services/audit-core/uc02Admin';
 import { getLoginActivity, type LoginPerson } from '../services/security/loginActivity';
 import { useSessionStore } from '../store/sessionStore';
 
-type Cell = string | number | null;
 
 // One place for the SuperAdmin's reports (product owner 2026-10-27): employee
 // engagement, the DI dashboard and the Journey review, one Project at a time.
@@ -55,48 +51,12 @@ function reportOf(value: string | null): ReportKey {
   return REPORTS.find((r) => r.key === value)?.key ?? 'engagement';
 }
 
-function downloadCsv(rows: readonly JourneyReviewRow[]) {
-  const blob = new Blob([`﻿${reviewCsv(rows)}`], { type: 'text/csv;charset=utf-8' });
-  const link = document.createElement('a');
-  link.href = URL.createObjectURL(blob);
-  link.download = `verigence-journey-review-${new Date().toISOString().slice(0, 10)}.csv`;
-  link.click();
-  URL.revokeObjectURL(link.href);
-}
-
-function Detail({ row }: { row: JourneyReviewRow }) {
-  const fields = Object.entries(row).filter(([k, v]) => k !== 'invoices' && v !== null && v !== '');
-  return (
-    <div className="oem-masters__table-wrap">
-      <table className="oem-masters__table">
-        <tbody>
-          {fields.map(([k, v]) => (
-            <tr key={k}><th scope="row">{k}</th><td>{cell(v as Cell)}</td></tr>
-          ))}
-        </tbody>
-      </table>
-      {row.invoices.length ? (
-        <table className="oem-masters__table">
-          <thead><tr>{INVOICE_COLUMNS.map((c) => <th key={c}>{c}</th>)}</tr></thead>
-          <tbody>
-            {row.invoices.map((inv, i) => (
-              <tr key={`${cell(inv.doc)}-${i}`}>{INVOICE_COLUMNS.map((c) => <td key={c}>{cell(inv[c])}</td>)}</tr>
-            ))}
-          </tbody>
-        </table>
-      ) : <p>No invoice documents on this Journey.</p>}
-    </div>
-  );
-}
-
 export default function AdminReportsPage() {
   const accessToken = useSessionStore((state) => state.accessToken);
   const [tenantId, setTenantId] = useState('');
   const [params, setParams] = useSearchParams();
   const reportKey = reportOf(params.get('tab'));
   const setReportKey = (key: ReportKey) => setParams({ tab: key }, { replace: true });
-  const [search, setSearch] = useState('');
-  const [open, setOpen] = useState<string>();
 
   const projectsQuery = useQuery({
     queryKey: ['admin-reports-projects'],
@@ -127,15 +87,6 @@ export default function AdminReportsPage() {
     return map;
   }, [logins.data]);
 
-  const rows = useMemo(() => {
-    const needle = search.trim().toLowerCase();
-    const all = reviewQuery.data?.journeys ?? [];
-    return needle
-      ? all.filter((r) => [r.ref, r.customer, r.outlet, r.pc, r.sku_code, r.booked_model]
-        .some((v) => cell(v as Cell).toLowerCase().includes(needle)))
-      : all;
-  }, [reviewQuery.data, search]);
-
   const report = REPORTS.find((r) => r.key === reportKey) ?? REPORTS[0];
 
   return (
@@ -159,7 +110,7 @@ export default function AdminReportsPage() {
           {/* The App report is Security's, for everyone: no Project to pick. */}
           <label className="uc03-booking-field" hidden={reportKey === 'app'}>
             <span>Project / Tenant</span>
-            <select value={tenantId} disabled={projectsQuery.isPending} onChange={(e) => { setTenantId(e.target.value); setOpen(undefined); }}>
+            <select value={tenantId} disabled={projectsQuery.isPending} onChange={(e) => setTenantId(e.target.value)}>
               <option value="">Select Project</option>
               {(projectsQuery.data ?? []).map((p) => (
                 <option key={p.tenantId} value={p.tenantId}>{p.projectName} · {p.projectCode}</option>
@@ -192,56 +143,7 @@ export default function AdminReportsPage() {
       {reportKey === 'journey-review' && reviewQuery.data ? (
         <article className="uc01-admin-config-card">
           <span className="eyebrow">{report.title}</span>
-          <p>
-            {reviewQuery.data.journeyCount} Journeys · read {new Date(reviewQuery.data.generatedAtUtc).toLocaleString()}
-          </p>
-          <div>
-            <input
-              type="search"
-              placeholder="Search reference, customer, outlet, PC, SKU, model"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              aria-label="Search the report"
-            />{' '}
-            <button type="button" className="uc01-admin-button" onClick={() => downloadCsv(rows)} disabled={!rows.length}>
-              Download ({rows.length}) as CSV
-            </button>
-          </div>
-          <div className="oem-masters__table-wrap">
-            <table className="oem-masters__table">
-              <thead>
-                <tr>
-                  <th>Journey</th><th>Customer</th><th>Outlet</th><th>Stage</th><th>Booked vehicle</th>
-                  <th>SKU</th><th>Price-list ex-showroom</th><th>Deal ex-showroom</th><th>Invoices</th>
-                  <th>Insurer</th><th>Insurance source</th><th>Scrappage</th><th>Credit notes</th><th />
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((r) => (
-                  <Fragment key={r.ref}>
-                    <tr>
-                      <td>{r.ref}</td><td>{cell(r.customer as Cell)}</td><td>{cell(r.outlet as Cell)}</td>
-                      <td>{cell(r.stage as Cell)}</td>
-                      <td>{[cell(r.booked_model as Cell), cell(r.booked_variant as Cell)].filter(Boolean).join(' ')}</td>
-                      <td>{cell(r.sku_code as Cell) || '—'}</td>
-                      <td>{cell(r.std_ex_showroom as Cell) || '—'}</td>
-                      <td>{cell(r.deal_ex_showroom as Cell) || '—'}</td>
-                      <td>{r.invoices.length}</td>
-                      <td>{cell(r.insurer_name as Cell) || '—'}</td>
-                      <td>{cell(r.insurance_source as Cell) || '—'}</td>
-                      <td>{cell(r.scrappage_certs as Cell)}</td><td>{cell(r.credit_notes as Cell)}</td>
-                      <td>
-                        <button type="button" className="p2w-link" aria-expanded={open === r.ref} onClick={() => setOpen(open === r.ref ? undefined : r.ref)}>
-                          {open === r.ref ? 'Hide' : 'All facts'}
-                        </button>
-                      </td>
-                    </tr>
-                    {open === r.ref ? <tr><td colSpan={14}><Detail row={r} /></td></tr> : null}
-                  </Fragment>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <JourneyReview report={reviewQuery.data} />
         </article>
       ) : null}
     </section>

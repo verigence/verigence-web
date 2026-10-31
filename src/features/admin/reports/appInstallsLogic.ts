@@ -53,3 +53,62 @@ export function appInstallsCsv(
   ].map(cell).join(','));
   return [head.join(','), ...body].join('\n');
 }
+
+/** Where a person stands with the app (2026-10-31 redesign). */
+export type AppStanding = 'LATEST' | 'BEHIND' | 'NOT_OPENED' | 'NOT_ON_APP';
+
+/** The newest version known: the newest anyone runs or has downloaded. */
+export function newestVersion(people: readonly LoginPerson[]): string | null {
+  const all = new Set<string>();
+  for (const p of people) {
+    if (p.appVersion) all.add(p.appVersion);
+    if (p.lastDownloadVersion) all.add(p.lastDownloadVersion);
+  }
+  return [...all].sort(compareVersions)[0] ?? null;
+}
+
+/** On the newest version, on an older one, downloaded but never opened, or
+ * not on the app at all. */
+export function standing(person: LoginPerson, latest: string | null): AppStanding {
+  if (person.appVersion) {
+    return latest && compareVersions(person.appVersion, latest) > 0 ? 'BEHIND' : 'LATEST';
+  }
+  return person.downloads > 0 ? 'NOT_OPENED' : 'NOT_ON_APP';
+}
+
+/** How many released versions (as seen in use or downloaded) are newer than this one. */
+export function releasesBehind(version: string | null, people: readonly LoginPerson[]): number {
+  if (!version) return 0;
+  const all = new Set<string>();
+  for (const p of people) {
+    if (p.appVersion) all.add(p.appVersion);
+    if (p.lastDownloadVersion) all.add(p.lastDownloadVersion);
+  }
+  return [...all].filter((v) => compareVersions(v, version) < 0).length;
+}
+
+/** Downloaded a newer build than the one they run: it is on the phone but not installed / opened. */
+export function updatePending(person: LoginPerson): boolean {
+  return Boolean(person.appVersion && person.lastDownloadVersion
+    && compareVersions(person.lastDownloadVersion, person.appVersion) < 0);
+}
+
+/** "just now", "12 min ago", "5 h ago", "3 days ago". */
+export function ago(iso: string | null, now: Date = new Date()): string {
+  if (!iso) return '—';
+  const then = new Date(iso).getTime();
+  if (Number.isNaN(then)) return '—';
+  const minutes = Math.max(0, Math.round((now.getTime() - then) / 60_000));
+  if (minutes < 1) return 'just now';
+  if (minutes < 60) return `${minutes} min ago`;
+  const hours = Math.round(minutes / 60);
+  if (hours < 24) return `${hours} h ago`;
+  const days = Math.round(hours / 24);
+  return `${days} day${days === 1 ? '' : 's'} ago`;
+}
+
+/** Name or e-mail contains the text (case-insensitive). */
+export function matches(person: LoginPerson, text: string): boolean {
+  const needle = text.trim().toLowerCase();
+  return !needle || person.name.toLowerCase().includes(needle) || person.email.toLowerCase().includes(needle);
+}

@@ -137,3 +137,88 @@ export function getSystemHealth(hours: number, accessToken: string) {
     timeoutMs: 20_000,
   });
 }
+
+/** GET /v1/admin/system-health/errors: failed API requests by HTTP status and error code (2026-10-30). */
+export interface ErrorCodeRow {
+  key: string;
+  status: number;
+  errorCode: string | null;
+  category: string;
+  meaning: string;
+  count: number;
+  share: number | null;
+  routes: Array<{ service: string; route: string; count: number }>;
+}
+
+export interface ErrorRouteRow {
+  service: string;
+  route: string;
+  clientErrors: number;
+  serverErrors: number;
+  notClassified: number;
+  codes: Array<{ key: string; status: number; errorCode: string | null; count: number }>;
+}
+
+export interface SystemHealthErrors {
+  generatedAtUtc: string;
+  windowHours: number;
+  totals: { requests: number; clientErrors: number; serverErrors: number; classified: number; notClassified: number };
+  byCode: ErrorCodeRow[];
+  byRoute: ErrorRouteRow[];
+  notes: string[];
+}
+
+export function getSystemHealthErrors(hours: number, accessToken: string) {
+  return auditCoreRequest<SystemHealthErrors>(
+    `/v1/admin/system-health/errors?hours=${encodeURIComponent(String(hours))}`,
+    { accessToken, timeoutMs: 20_000 },
+  );
+}
+
+/** GET /v1/admin/system-health/daily: one row per IST day (2026-10-30). */
+export interface DailyHealthRow {
+  date: string;
+  documents: number;
+  read: number;
+  badScan: number;
+  notReadInTime: number;
+  failedOther: number;
+  inProgress: number;
+  diFailedPct: number | null;
+  diSystemFailedPct: number | null;
+  requests: number;
+  clientErrors: number;
+  serverErrors: number;
+  unauthenticated: number;
+  forbidden: number;
+  notFound: number;
+  otherClientErrors: number;
+  codes: Record<string, number>;
+  restarts: number;
+  uncleanStops: number;
+  deploys: number;
+  deploysFailed: number;
+  deadLetters: number;
+}
+
+export interface SystemHealthDaily {
+  generatedAtUtc: string;
+  from: string;
+  to: string;
+  timezone: string;
+  tenantId: string | null;
+  projects: Array<{ tenantId: string; projectName: string; projectStatus: string | null }>;
+  days: DailyHealthRow[];
+  requestsRecordedFrom: string | null;
+  codesRecordedFrom: string | null;
+  notes: string[];
+}
+
+export function getSystemHealthDaily(days: number, tenantId: string | null, accessToken: string) {
+  const params = new URLSearchParams({ days: String(days) });
+  if (tenantId) params.set('tenantId', tenantId);
+  return auditCoreRequest<SystemHealthDaily>(`/v1/admin/system-health/daily?${params.toString()}`, {
+    accessToken,
+    timeoutMs: 30_000,
+  });
+}

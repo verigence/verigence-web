@@ -8,6 +8,8 @@ import '../styles/system-health.css';
 
 import PageHeader from '../components/PageHeader';
 import SectionCard from '../components/SectionCard';
+import DailyTrendTab from '../features/admin/systemHealth/DailyTrendTab';
+import FailedRequestsTab from '../features/admin/systemHealth/FailedRequestsTab';
 import { formatWhen } from '../features/task-manager/tmFormat';
 import {
   agoText, alertCounts, barHeights, bytesText, connectionsInUse, cpuText, diTotals, errorRate, memoryText, overallStatus,
@@ -25,6 +27,11 @@ import { useSessionStore } from '../store/sessionStore';
  * minutes per Project, and the database. Platform-wide; SuperAdmin only, and
  * the server enforces it.
  */
+
+type HealthTab = 'overview' | 'errors' | 'daily';
+const TABS: Array<{ key: HealthTab; label: string }> = [
+  { key: 'overview', label: 'Overview' }, { key: 'errors', label: 'Failed requests' }, { key: 'daily', label: 'Daily trend' },
+];
 
 const WINDOWS: Array<{ hours: number; label: string }> = [
   { hours: 1, label: '1 hour' }, { hours: 6, label: '6 hours' }, { hours: 24, label: '24 hours' }, { hours: 168, label: '7 days' },
@@ -233,10 +240,11 @@ function DocumentIntelligenceCard({ di }: { di: DocumentIntelligenceHealth | nul
 export default function AdminSystemHealthPage() {
   const accessToken = useSessionStore((s) => s.accessToken);
   const [hours, setHours] = useState(24);
+  const [tab, setTab] = useState<HealthTab>('overview');
   const health = useQuery({
     queryKey: ['admin', 'system-health', hours],
     queryFn: () => getSystemHealth(hours, accessToken!),
-    enabled: Boolean(accessToken),
+    enabled: Boolean(accessToken) && tab === 'overview',
     refetchInterval: 60_000,
     retry: false,
   });
@@ -252,6 +260,16 @@ export default function AdminSystemHealthPage() {
         description="Services, restarts, failed requests, CPU and memory, deployments, stuck work and the database, across every Project."
       />
 
+      <div className="sh-tabs" role="tablist" aria-label="System health view">
+        {TABS.map((t) => (
+          <button key={t.key} type="button" role="tab" aria-selected={tab === t.key} className={tab === t.key ? 'is-active' : ''}
+            onClick={() => setTab(t.key)}>{t.label}</button>
+        ))}
+      </div>
+
+      {tab === 'daily' && accessToken ? <DailyTrendTab accessToken={accessToken} /> : null}
+
+      {tab !== 'daily' ? (
       <div className="p2w-listbar">
         <div className="p2w-segment" role="tablist" aria-label="Window">
           {WINDOWS.map((w) => (
@@ -260,17 +278,22 @@ export default function AdminSystemHealthPage() {
           ))}
         </div>
         <div className="p2w-filters">
-          {data ? <span className="p2w-muted">Updated {formatWhen(data.generatedAtUtc)} · refreshes every minute</span> : null}
-          <button type="button" className="p2w-btn p2w-btn--ghost" onClick={() => void health.refetch()} disabled={health.isFetching}>
-            {health.isFetching ? 'Refreshing…' : 'Refresh'}
-          </button>
+          {tab === 'overview' && data ? <span className="p2w-muted">Updated {formatWhen(data.generatedAtUtc)} · refreshes every minute</span> : null}
+          {tab === 'overview' ? (
+            <button type="button" className="p2w-btn p2w-btn--ghost" onClick={() => void health.refetch()} disabled={health.isFetching}>
+              {health.isFetching ? 'Refreshing…' : 'Refresh'}
+            </button>
+          ) : null}
         </div>
       </div>
+      ) : null}
 
-      {health.isError ? <div className="p2w-alert p2w-alert--error" role="alert">{errorText(health.error)}</div> : null}
-      {health.isLoading ? <div className="p2w-skeleton">Loading…</div> : null}
+      {tab === 'errors' && accessToken ? <FailedRequestsTab hours={hours} accessToken={accessToken} /> : null}
 
-      {data && status && counts ? (
+      {tab === 'overview' && health.isError ? <div className="p2w-alert p2w-alert--error" role="alert">{errorText(health.error)}</div> : null}
+      {tab === 'overview' && health.isLoading ? <div className="p2w-skeleton">Loading…</div> : null}
+
+      {tab === 'overview' && data && status && counts ? (
         <div className="sh-stack">
           <section className={`sh-banner sh-banner--${status.tone}`} aria-live="polite">
             <div className="sh-banner__head">
@@ -329,7 +352,7 @@ export default function AdminSystemHealthPage() {
             ) : <p className="p2w-muted">No service has sent a heartbeat yet. They start sending once their new versions are deployed.</p>}
             {data.services.some((s) => s.failingRoutes.length) ? (
               <>
-                <h4>Requests that failed, by route</h4>
+                <h4>Requests that failed, by route <button type="button" className="p2w-link" onClick={() => setTab('errors')}>See them by error code →</button></h4>
                 <div className="p2dr-scroll">
                   <table className="p2dr-table">
                     <thead><tr><th>Service</th><th>Route</th><th className="sh-num">4xx</th><th className="sh-num">5xx</th></tr></thead>

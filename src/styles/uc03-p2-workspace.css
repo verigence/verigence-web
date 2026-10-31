@@ -1116,6 +1116,10 @@
 .p2w .p2w-alert--review { background: var(--p2w-review-bg); color: var(--p2w-review); border: 1px solid var(--p2w-review-line); }
 .p2w .p2w-alert--review > span { overflow-wrap: anywhere; }
 .p2w .p2w-alert a.p2w-link--inline { display: inline; min-height: 0; padding: 0; text-decoration: underline; }
+/* Uploads paused for maintenance (2026-10-31): the notice above the drop area, which is off. */
+.p2w .p2w-alert--paused { display: block; background: #fff4dc; color: #6b4300; border: 1px solid #f0c36d; overflow-wrap: anywhere; }
+.p2w-upload.is-paused .p2w-upload__drop { border-style: solid; border-color: #d8dee8; background: #f6f7f9; }
+.p2w-upload.is-paused .p2w-upload__copy { opacity: .6; }
 /* The different-customer question beside the drop area. */
 .p2w .p2w-choice--guard { box-sizing: border-box; max-width: 100%; min-width: 0; }
 .p2w .p2w-choice--guard > span { flex: 1 1 260px; min-width: 0; overflow-wrap: anywhere; }

@@ -150,3 +150,17 @@
   .sh-tabs button { padding: 8px 10px; }
   .sh-split { grid-template-columns: minmax(0, 1fr); }
 }
+
+/* Uploads paused for maintenance: the SuperAdmin switch (2026-10-31). */
+.sh-pause { display: grid; gap: 10px; }
+.sh-pause .sh-banner { min-width: 0; }
+.sh-pause__message { overflow-wrap: anywhere; }
+.sh-pause__form { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 10px; align-items: end; }
+.sh-pause__form label { display: grid; gap: 4px; min-width: 0; font-size: .8rem; font-weight: 600; }
+.sh-pause__form input { box-sizing: border-box; width: 100%; min-width: 0; min-height: 40px; padding: 8px 10px; border: 1px solid var(--p2w-line, #d8dee8); border-radius: 8px; font: inherit; font-weight: 400; }
+.sh-pause__actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.sh-pause__confirm { display: grid; gap: 8px; }
+@media (max-width: 640px) {
+  .sh-pause__form { grid-template-columns: minmax(0, 1fr); }
+  .sh-pause__actions .p2w-button { flex: 1 1 auto; white-space: normal; }
+}

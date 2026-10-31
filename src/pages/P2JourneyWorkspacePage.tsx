@@ -41,6 +41,8 @@ import {
   type NextBookingCarry,
 } from '../features/uc03-p2/workspace/workspaceSession';
 import { P2_NEW_BOOKING_PATH } from '../features/uc03-p2/newBookingPath';
+import { isUploadPausedError, uploadErrorText } from '../features/uc03-p2/uploadPause/uploadPause';
+import { useUploadPause } from '../features/uc03-p2/uploadPause/useUploadPause';
 import { BATCH_IN_FLIGHT, PAGE_IN_FLIGHT } from '../features/uc03-p2/workspace/p2Format';
 import { useP2EventFeed } from '../features/uc03-p2/workspace/useP2EventFeed';
 import {
@@ -170,6 +172,11 @@ function WorkspaceScreen({ carry, onCreated, onStartNext, onCarryTaken }: Worksp
     modifiedFieldCount: number;
   }>();
   const enabled = Boolean(tenantId && journeyId && accessToken);
+  // Uploads paused for maintenance (2026-10-31): the booking still opens and
+  // reads as usual; nothing on this screen can send a document.
+  const uploadPause = useUploadPause();
+  const uploadsPaused = uploadPause.paused;
+  const refreshUploadPause = uploadPause.refresh;
 
   const documents = useQuery({
     queryKey: ['p2-documents', tenantId, journeyId],
@@ -353,11 +360,12 @@ function WorkspaceScreen({ carry, onCreated, onStartNext, onCarryTaken }: Worksp
     if (tookCarry.current) onCarryTaken();
   }, []);
   useEffect(() => {
-    if (!carriedFiles?.length || carriedSent.current || !isNew || choosesOutlet || !tenantId) return;
+    // While uploads are paused the files wait here; they go once uploads are back.
+    if (!carriedFiles?.length || carriedSent.current || !isNew || choosesOutlet || !tenantId || uploadsPaused) return;
     carriedSent.current = true;
     uploadPanel.current?.addFiles(carriedFiles);
     setCarriedFiles(undefined);
-  }, [carriedFiles, choosesOutlet, isNew, tenantId]);
+  }, [carriedFiles, choosesOutlet, isNew, tenantId, uploadsPaused]);
 
   const switchTab = (next: 'documents' | 'photos') => {
     const params = new URLSearchParams(search);
@@ -424,7 +432,10 @@ function WorkspaceScreen({ carry, onCreated, onStartNext, onCarryTaken }: Worksp
       setNotice({ tone: 'success', text: 'Replacement received. The current document stays until the new one is ready.' });
       refresh();
     },
-    onError: (cause) => setNotice({ tone: 'error', text: errorText(cause, 'The replacement could not be uploaded.') }),
+    onError: (cause) => {
+      if (isUploadPausedError(cause)) refreshUploadPause();
+      setNotice({ tone: 'error', text: uploadErrorText(cause, 'The replacement could not be uploaded.') });
+    },
   });
   const remove = useMutation({
     mutationFn: (id: string) => deleteP2Document(tenantId!, journeyId, id, accessToken),
@@ -512,7 +523,7 @@ function WorkspaceScreen({ carry, onCreated, onStartNext, onCarryTaken }: Worksp
                 this new booking. Check the outlet, then upload.
               </span>
               <div>
-                <button type="button" className="p2w-button p2w-button--primary" onClick={() => {
+                <button type="button" className="p2w-button p2w-button--primary" disabled={uploadsPaused} onClick={() => {
                   carriedSent.current = true;
                   uploadPanel.current?.addFiles(carriedFiles);
                   setCarriedFiles(undefined);
@@ -659,7 +670,8 @@ function WorkspaceScreen({ carry, onCreated, onStartNext, onCarryTaken }: Worksp
               ))}
               <P2UploadPanel ref={uploadPanel} journeyId={journeyId || undefined} getTransport={getTransport} onAccepted={onAccepted}
                 knownNames={knownNames} onStartNewWith={startsBookings ? (files) => startNext(files) : undefined}
-                onActivity={setUploads} />
+                onActivity={setUploads}
+                pausedNotice={uploadPause.paused ? uploadPause.notice : undefined} onPaused={refreshUploadPause} />
             </>
           ) : null}
           {!isNew && documents.isLoading ? <div className="p2w-skeleton" aria-busy="true">Loading documents…</div> : (
@@ -673,7 +685,7 @@ function WorkspaceScreen({ carry, onCreated, onStartNext, onCarryTaken }: Worksp
               onReread={(queueId) => void requestReread(queueId)}
               onRestore={(evidenceId) => restore.mutate(evidenceId)}
               onSetType={(queueId, templateKey, name) => setType.mutate({ queueId, templateKey, name })}
-              onAdd={() => uploadPanel.current?.openFiles()}
+              onAdd={uploadsPaused ? undefined : () => uploadPanel.current?.openFiles()}
               onRemovePage={(queueId, label) => setRemovePage({ queueId, label })}
               busyKey={busyKey}
             />
@@ -687,7 +699,8 @@ function WorkspaceScreen({ carry, onCreated, onStartNext, onCarryTaken }: Worksp
               <span>{selectedFailure.reason}</span>
               <span>Nothing was read from it, so there are no values to check. Upload the page again{selectedFailure.rejected ? ' as a clear, well-lit scan' : ''}.</span>
               <div className="p2w-editor-rejected__actions">
-                <button type="button" className="p2w-button p2w-button--primary" onClick={() => uploadPanel.current?.openFiles()}>Upload again</button>
+                <button type="button" className="p2w-button p2w-button--primary" disabled={uploadsPaused}
+                  onClick={() => uploadPanel.current?.openFiles()}>Upload again</button>
                 {selectedFailure.queueId ? (
                   <button type="button" className="p2w-button p2w-button--danger"
                     onClick={() => setRemovePage({ queueId: selectedFailure.queueId!, label: selectedFailure.where || selectedFailure.name })}>
@@ -707,8 +720,9 @@ function WorkspaceScreen({ carry, onCreated, onStartNext, onCarryTaken }: Worksp
               templates={templates.data?.templates ?? []}
               focusField={search.get('field') ?? undefined}
               onClose={closeDocument}
-              onReplace={(id) => { setReplaceTarget(id); replaceInput.current?.click(); }}
+              onReplace={(id) => { if (uploadsPaused) return; setReplaceTarget(id); replaceInput.current?.click(); }}
               onRemove={(id) => setRemoveTarget(id)}
+              replaceDisabled={uploadsPaused}
             />
           ) : (
             <div className="p2w-editor-placeholder">
@@ -724,6 +738,7 @@ function WorkspaceScreen({ carry, onCreated, onStartNext, onCarryTaken }: Worksp
         className="p2w-hidden-input"
         type="file"
         accept="application/pdf,image/jpeg,image/png"
+        disabled={uploadsPaused}
         onChange={(event) => {
           const file = event.target.files?.[0];
           if (file && replaceTarget) replace.mutate({ id: replaceTarget, file });

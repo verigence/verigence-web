@@ -1,0 +1,111 @@
+/* Project-wide alerts (2026-10-31): "Same file being uploaded". A stack under
+   the top bar, over the page, on every signed-in screen; full width on phones. */
+.tenant-alerts {
+  position: fixed;
+  top: 80px;
+  right: 16px;
+  z-index: 950;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: min(440px, calc(100% - 32px));
+  max-height: calc(100dvh - 96px);
+  overflow-y: auto;
+  pointer-events: none;
+}
+
+.tenant-alert,
+.tenant-alerts__more {
+  pointer-events: auto;
+}
+
+.tenant-alert {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 10px;
+  padding: 12px 12px 12px 14px;
+  border-radius: 12px;
+  border: 1px solid #fda29b;
+  border-left: 4px solid var(--vg-danger, #912018);
+  background: var(--vg-danger-bg, #fff1f0);
+  color: #3d1410;
+  box-shadow: 0 8px 24px rgba(16, 24, 40, .16);
+}
+
+.tenant-alert--kept {
+  border-color: #fedf89;
+  border-left-color: var(--vg-warning, #93370d);
+  background: var(--vg-warning-bg, #fff6ed);
+}
+
+.tenant-alert__icon {
+  display: inline-flex;
+  margin-top: 1px;
+  color: var(--vg-danger, #912018);
+}
+
+.tenant-alert--kept .tenant-alert__icon {
+  color: var(--vg-warning, #93370d);
+}
+
+.tenant-alert__copy {
+  min-width: 0;
+}
+
+.tenant-alert__title {
+  display: block;
+  font-size: 14px;
+  line-height: 1.3;
+}
+
+.tenant-alert__body {
+  margin: 4px 0 0;
+  font-size: 13px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.tenant-alert__close {
+  min-width: 32px;
+  min-height: 32px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.tenant-alert__close:hover,
+.tenant-alert__close:focus-visible {
+  background: rgba(16, 24, 40, .08);
+}
+
+.tenant-alerts__more {
+  align-self: flex-end;
+  min-height: 32px;
+  padding: 6px 12px;
+  border: 1px solid #d0d5dd;
+  border-radius: 999px;
+  background: #fff;
+  color: #344054;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+@media (max-width: 899px) {
+  .tenant-alerts {
+    top: calc(72px + env(safe-area-inset-top, 0px));
+    left: 12px;
+    right: 12px;
+    width: auto;
+    max-height: calc(100dvh - 168px);
+  }
+
+  .tenant-alert__body {
+    font-size: 12.5px;
+  }
+}

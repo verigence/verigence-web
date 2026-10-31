@@ -15,8 +15,13 @@ export interface DiscountVarianceItem {
   discount: string | null;
   status: DiscountVarianceStatus;
   entitled: string | null;
+  /** The amount given (the name is kept from when only invoices counted). */
   invoice: string | null;
   variance: string | null;
+  /** Where the given figure is from, as the Excess Discount check reads it (2026-10-31):
+   * the billed column (NDC / cost sheet / invoice), the booking, or the reconciled figure. */
+  givenFrom?: 'billed' | 'booking' | 'effective' | string | null;
+  givenDocument?: string | null;
 }
 
 export interface DiscountVarianceResponse {

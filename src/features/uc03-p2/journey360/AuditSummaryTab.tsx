@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 
 import type { P2AuditConclusion, P2AuditRow, P2AuditSummary } from '../../../services/audit-core/uc03P2';
-import { money, signedMoney } from './j360Format';
+import { money, recordField, signedMoney } from './j360Format';
 
 /**
  * Audit summary (product owner 2026-10-29): every financial fact of the
@@ -201,7 +201,8 @@ export default function AuditSummaryTab({ data, onRegenerate, regenerating }: {
       <Section number={4} title="How it was paid">
         <dl className="asum-facts">
           <Fact label="Customer receipts" value={money(f.receipts)} />
-          <Fact label="Loan received" value={f.loanDisbursed ? money(f.loanDisbursed) : f.loans.length ? 'Not on file' : '—'}
+          <Fact label={f.loanWithoutReceipt ? 'Loan received*' : 'Loan received'}
+            value={f.loanDisbursed ? `${money(f.loanDisbursed)}${f.loanWithoutReceipt ? '*' : ''}` : f.loans.length ? 'Not on file' : '—'}
             sub={[f.loanSource ? `per ${f.loanSource}` : '', f.loanNote ?? ''].filter(Boolean).join(' · ') || undefined} />
           {f.refunds ? <Fact label="Refunded / adjusted" value={`− ${money(f.refunds)}`}
             sub={f.refundsSource ? `per ${f.refundsSource}` : undefined} /> : null}
@@ -231,8 +232,17 @@ export default function AuditSummaryTab({ data, onRegenerate, regenerating }: {
               f.exchange.valuationReports ? `${f.exchange.valuationReports} valuation report${f.exchange.valuationReports === 1 ? '' : 's'}` : ''].filter(Boolean).join(' · ') || undefined} />
           <Fact label="Scrappage certificates" value={f.scrappage.certificates || 'None'} />
           <Fact label="Credit notes" value={f.creditNotes.count ? money(f.creditNotes.total) : 'None'}
-            sub={f.creditNotes.count ? `${f.creditNotes.count} on file` : undefined} />
+            sub={f.creditNotes.count ? `${f.creditNotes.count} on file · for information, not settled against` : undefined} />
         </dl>
+        {f.creditNotes.items?.length ? (
+          <ul className="asum-disputed" aria-label="Credit notes on file">
+            {f.creditNotes.items.map((note) => (
+              <li key={note.documentId}><strong>{note.number ? `Credit note ${String(note.number)}` : 'Credit note'}</strong>
+                <span>{[money(note.amount), note.date ? recordField('invoice_date', note.date) : '', note.reason ?? ''].filter(Boolean).join(' · ')}</span></li>
+            ))}
+          </ul>
+        ) : null}
+        {f.loanWithoutReceipt ? <p className="p2w-muted">* No dealership receipt for the loan amount; it is taken from the Bank Approval Letter (sanctioned amount).</p> : null}
       </Section>
 
       <Section number={5} title="Settlement" note="Money received (receipts and loan, less refunds) against the net payable.">

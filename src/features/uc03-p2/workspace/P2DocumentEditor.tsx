@@ -91,6 +91,7 @@ export default function P2DocumentEditor({
   onClose,
   onReplace,
   onRemove,
+  replaceDisabled,
 }: {
   tenantId: string;
   journeyId: string;
@@ -101,6 +102,8 @@ export default function P2DocumentEditor({
   onClose: () => void;
   onReplace: (documentId: string) => void;
   onRemove: (documentId: string) => void;
+  /** Uploads are paused for maintenance: a new scan cannot be sent. */
+  replaceDisabled?: boolean;
 }) {
   const queryClient = useQueryClient();
   const [selectedId, setSelectedId] = useState<string>();
@@ -240,7 +243,8 @@ export default function P2DocumentEditor({
             onClick={() => setMenuOpen((open) => !open)}>More</button>
           {menuOpen ? (
             <div className="p2w-menu" role="menu">
-              <button type="button" role="menuitem" onClick={() => { setMenuOpen(false); onReplace(documentId); }}>Replace with a new scan</button>
+              <button type="button" role="menuitem" disabled={replaceDisabled}
+                onClick={() => { setMenuOpen(false); onReplace(documentId); }}>Replace with a new scan</button>
               <button type="button" role="menuitem" className="is-danger" onClick={() => { setMenuOpen(false); onRemove(documentId); }}>Remove from Journey…</button>
             </div>
           ) : null}

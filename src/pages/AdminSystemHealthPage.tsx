@@ -11,6 +11,7 @@ import SectionCard from '../components/SectionCard';
 import DailyTrendTab from '../features/admin/systemHealth/DailyTrendTab';
 import FailedRequestsTab from '../features/admin/systemHealth/FailedRequestsTab';
 import InfrastructureTab from '../features/admin/systemHealth/InfrastructureTab';
+import UploadPauseControl from '../features/admin/systemHealth/UploadPauseControl';
 import { formatWhen } from '../features/task-manager/tmFormat';
 import {
   agoText, alertCounts, barHeights, bytesText, connectionsInUse, cpuText, diTotals, errorRate, memoryText, overallStatus,
@@ -261,6 +262,8 @@ export default function AdminSystemHealthPage() {
         title="System health"
         description="Services, restarts, failed requests, CPU and memory, deployments, stuck work, Cloudflare, R2 and the Neon database, across every Project."
       />
+
+      {accessToken ? <UploadPauseControl accessToken={accessToken} /> : null}
 
       <div className="sh-tabs" role="tablist" aria-label="System health view">
         {TABS.map((t) => (

@@ -8,6 +8,7 @@ import {
   type KnownBookingNames,
 } from './customerNameGuard';
 import P2DifferentCustomerPrompt from './P2DifferentCustomerPrompt';
+import { isUploadPausedError, uploadErrorText } from '../uploadPause/uploadPause';
 import {
   combineImagesToPdf,
   contentTypeForFile,
@@ -52,6 +53,8 @@ export default function P2UploadPanel({
   knownNames,
   onStartNewWith,
   onActivity,
+  pausedNotice,
+  onPaused,
   ref,
 }: {
   journeyId?: string;
@@ -65,8 +68,14 @@ export default function P2UploadPanel({
   onStartNewWith?: (files: File[]) => void;
   /** Told whenever files start or stop being sent. */
   onActivity?: (activity: P2UploadActivity) => void;
+  /** Uploads are paused for maintenance (2026-10-31): this notice shows above
+   * the drop area, and the drop area, pickers and Retry are off. */
+  pausedNotice?: string;
+  /** Audit Core refused an upload because uploads are paused (read the status again). */
+  onPaused?: () => void;
   ref?: Ref<P2UploadPanelHandle>;
 }) {
+  const paused = Boolean(pausedNotice);
   const fileInput = useRef<HTMLInputElement>(null);
   const cameraInput = useRef<HTMLInputElement>(null);
   const [items, setItems] = useState<UploadItem[]>([]);
@@ -86,10 +95,12 @@ export default function P2UploadPanel({
     const results = await runUploads(next, target.transport, (changed) =>
       setItems((current) => current.map((item) => (item.id === changed.id ? changed : item))));
     if (results.some((item) => item.phase === 'ACCEPTED')) onAccepted();
-  }, [onAccepted]);
+    if (results.some((item) => item.paused)) onPaused?.();
+  }, [onAccepted, onPaused]);
 
   const queueFiles = useCallback(async (files: File[]) => {
-    if (!files.length) return;
+    // Nothing is sent while uploads are paused: the notice above says why.
+    if (!files.length || paused) return;
     setProblem(undefined);
     // Known from now on, even while a new booking is still being created.
     setSentNames((current) => [...current, ...files.map((file) => file.name)]);
@@ -98,7 +109,8 @@ export default function P2UploadPanel({
     try {
       target = await getTransport();
     } catch (cause) {
-      setProblem(cause instanceof Error ? cause.message : 'The booking could not be started.');
+      if (isUploadPausedError(cause)) onPaused?.();
+      setProblem(uploadErrorText(cause, 'The booking could not be started.'));
       return;
     } finally {
       setStarting((count) => count - 1);
@@ -110,7 +122,7 @@ export default function P2UploadPanel({
       phase: 'WAITING' as const,
       progress: 0,
     })), target);
-  }, [getTransport, start]);
+  }, [getTransport, onPaused, paused, start]);
 
   const proceed = useCallback((files: File[]) => {
     if (!files.length) return;
@@ -163,12 +175,14 @@ export default function P2UploadPanel({
   };
 
   const retry = async (item: UploadItem) => {
+    if (paused) return;
     setItems((current) => current.filter((existing) => existing.id !== item.id));
     // Same clientUploadId: a retried file can never be accepted twice.
     try {
-      void start([{ ...item, id: nextId(), phase: 'WAITING', progress: 0, error: undefined }], await getTransport());
+      void start([{ ...item, id: nextId(), phase: 'WAITING', progress: 0, error: undefined, paused: undefined }], await getTransport());
     } catch (cause) {
-      setProblem(cause instanceof Error ? cause.message : 'The upload could not be retried.');
+      if (isUploadPausedError(cause)) onPaused?.();
+      setProblem(uploadErrorText(cause, 'The upload could not be retried.'));
     }
   };
 
@@ -186,26 +200,31 @@ export default function P2UploadPanel({
 
   return (
     <section
-      className={`p2w-upload${dragging ? ' is-dragging' : ''}`}
+      className={`p2w-upload${dragging ? ' is-dragging' : ''}${paused ? ' is-paused' : ''}`}
       aria-label="Upload documents"
-      onDragOver={(event) => { event.preventDefault(); setDragging(true); }}
+      // While paused a dropped file is still caught here (the browser would
+      // otherwise open it in place of the app) and then ignored.
+      onDragOver={(event) => { event.preventDefault(); if (!paused) setDragging(true); }}
       onDragLeave={() => setDragging(false)}
       onDrop={(event) => {
         event.preventDefault();
         setDragging(false);
-        accept(Array.from(event.dataTransfer.files));
+        if (!paused) accept(Array.from(event.dataTransfer.files));
       }}
     >
-      <div className="p2w-upload__drop p2-capture" data-p2-journey={journeyId || 'new'}>
+      {pausedNotice ? <div className="p2w-alert p2w-alert--paused" role="status">{pausedNotice}</div> : null}
+      <div className="p2w-upload__drop p2-capture" data-p2-journey={journeyId || 'new'} aria-disabled={paused || undefined}>
         <div className="p2w-upload__copy">
           <strong>Add documents</strong>
           <span>Drop files here, or photograph them. A PDF with many documents is sorted automatically.</span>
         </div>
         <div className="p2w-upload__buttons">
-          <button type="button" className="p2w-button p2w-button--primary p2w-button--lg" onClick={() => cameraInput.current?.click()}>
+          <button type="button" className="p2w-button p2w-button--primary p2w-button--lg" disabled={paused}
+            onClick={() => cameraInput.current?.click()}>
             Take photo
           </button>
-          <button type="button" className="p2w-button p2w-button--secondary p2w-button--lg" onClick={() => fileInput.current?.click()}>
+          <button type="button" className="p2w-button p2w-button--secondary p2w-button--lg" disabled={paused}
+            onClick={() => fileInput.current?.click()}>
             Choose files
           </button>
         </div>
@@ -215,6 +234,7 @@ export default function P2UploadPanel({
           type="file"
           multiple
           accept="application/pdf,image/jpeg,image/png"
+          disabled={paused}
           onChange={(event) => {
             accept(Array.from(event.target.files ?? []));
             event.currentTarget.value = '';
@@ -227,6 +247,7 @@ export default function P2UploadPanel({
           multiple
           accept="image/jpeg,image/png,application/pdf"
           capture="environment"
+          disabled={paused}
           onChange={(event) => {
             accept(Array.from(event.target.files ?? []));
             event.currentTarget.value = '';
@@ -247,8 +268,8 @@ export default function P2UploadPanel({
         <div className="p2w-choice" role="group" aria-label="How should these photos be uploaded?">
           <span>{photoChoice.length} photos selected. Are they pages of one document?</span>
           <div>
-            <button type="button" className="p2w-button p2w-button--primary" onClick={() => void uploadPhotos(true)}>One document</button>
-            <button type="button" className="p2w-button p2w-button--secondary" onClick={() => void uploadPhotos(false)}>Separate documents</button>
+            <button type="button" className="p2w-button p2w-button--primary" disabled={paused} onClick={() => void uploadPhotos(true)}>One document</button>
+            <button type="button" className="p2w-button p2w-button--secondary" disabled={paused} onClick={() => void uploadPhotos(false)}>Separate documents</button>
           </div>
         </div>
       ) : null}
@@ -264,7 +285,7 @@ export default function P2UploadPanel({
                 <span>{item.phase === 'FAILED' ? item.error : PHASE_LABEL[item.phase]}</span>
               </div>
               {item.phase === 'FAILED' ? (
-                <button type="button" className="p2w-button p2w-button--secondary" onClick={() => void retry(item)}>Retry</button>
+                <button type="button" className="p2w-button p2w-button--secondary" disabled={paused} onClick={() => void retry(item)}>Retry</button>
               ) : (
                 <progress max={1} value={item.phase === 'UPLOADING' ? item.progress : item.phase === 'FINALIZING' ? 1 : undefined}
                   aria-label={`${item.file.name} upload progress`} />

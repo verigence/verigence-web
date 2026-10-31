@@ -9,6 +9,8 @@
  *   accepted twice
  */
 
+import { isUploadPausedError, uploadErrorText } from '../uploadPause/uploadPause';
+
 type UploadPhase = 'WAITING' | 'PREPARING' | 'UPLOADING' | 'FINALIZING' | 'ACCEPTED' | 'FAILED';
 
 export interface UploadItem {
@@ -18,6 +20,8 @@ export interface UploadItem {
   phase: UploadPhase;
   progress: number;
   error?: string;
+  /** Refused because uploads are paused for maintenance (503 VAC-MAINT-001). */
+  paused?: boolean;
   batchId?: string;
 }
 
@@ -69,7 +73,7 @@ export function preflightError(file: File): string | undefined {
 }
 
 function message(cause: unknown, fallback: string): string {
-  return cause instanceof Error && cause.message ? cause.message : fallback;
+  return uploadErrorText(cause, fallback);
 }
 
 export async function runUploads(
@@ -92,7 +96,7 @@ export async function runUploads(
   });
   if (!pending.length) return [...state.values()];
 
-  pending.forEach((item) => update(item.id, { phase: 'PREPARING', progress: 0, error: undefined }));
+  pending.forEach((item) => update(item.id, { phase: 'PREPARING', progress: 0, error: undefined, paused: undefined }));
   let prepared: PreparedUpload[];
   try {
     prepared = await transport.init(pending.map((item) => ({
@@ -103,7 +107,8 @@ export async function runUploads(
     })));
   } catch (cause) {
     const error = message(cause, 'The upload could not be prepared. Try again.');
-    pending.forEach((item) => update(item.id, { phase: 'FAILED', error }));
+    const paused = isUploadPausedError(cause) || undefined;
+    pending.forEach((item) => update(item.id, { phase: 'FAILED', error, paused }));
     return [...state.values()];
   }
   const byClientId = new Map(prepared.map((upload) => [upload.clientUploadId, upload]));
@@ -129,7 +134,10 @@ export async function runUploads(
         await transport.finalize(upload.batchId);
         update(item.id, { phase: 'ACCEPTED' });
       } catch (cause) {
-        update(item.id, { phase: 'FAILED', error: message(cause, 'Upload failed. Check the connection and retry.') });
+        update(item.id, {
+          phase: 'FAILED', error: message(cause, 'Upload failed. Check the connection and retry.'),
+          paused: isUploadPausedError(cause) || undefined,
+        });
       }
     }
   };

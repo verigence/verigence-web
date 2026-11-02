@@ -4,7 +4,7 @@ import type { P2DocumentCategory, P2Task, P2TaskTab } from '../../../services/au
 import {
   DOCUMENT_CATEGORIES, documentCategoryLabel, documentCounts, documentFilter, documentOpenLink, pagesText, visibleTasks,
 } from './documentGroups';
-import { taskPlan } from './p2TaskPlan';
+import { closeComment, taskPlan } from './p2TaskPlan';
 
 const base: Omit<P2Task, 'task_id' | 'task_type' | 'queue_tab'> = {
   source_system: 'P2', journey_id: 'j1', round_number: 1, category: 'X', origin_kind: 'SYSTEM', source_type: 'DOCUMENT',
@@ -89,6 +89,33 @@ describe('the Documents group of the Task Queue (2026-10-21)', () => {
     expect(close).toMatchObject({ label: 'Close task', requiresComment: true });
     // Another task type never gets it.
     expect(taskPlan({ ...quality, task_type: 'DOCUMENT_RESUBMIT', allowed_actions: ['ADD_COMMENT'] }, 'PC')
+      .secondary.some((item) => item.action === 'CLOSE_TASK')).toBe(false);
+  });
+
+  it('lets the PC close a missing-document task as uploaded or not required (2026-11-02)', () => {
+    const missing = { ...task('missing', 'DOCUMENTS', 'MISSING_DOCUMENT'), task_type: 'DOCUMENT_MISSING',
+      source_code: 'DOCUMENT_MISSING', title: 'Upload the RSA Invoice', allowed_actions: ['UPLOAD_DOCUMENT', 'ADD_COMMENT'] };
+    for (const source of ['DOCUMENT_MISSING', 'BOOKING_FORM_MISSING']) {
+      const plan = taskPlan({ ...missing, source_code: source }, 'PC');
+      expect(plan.primary).toMatchObject({ label: 'Upload document', to: '/p2/journeys/j1/documents' });
+      expect(plan.secondary.map((item) => item.label)).toEqual([
+        "I've uploaded it — re-check", 'Document uploaded', 'Document not required to be uploaded',
+        'Add note (task stays open)']);
+      const close = plan.secondary.filter((item) => item.action === 'CLOSE_TASK');
+      expect(close).toEqual([
+        expect.objectContaining({ comment: 'Document uploaded', details: { choice: 'Document uploaded' } }),
+        expect.objectContaining({ comment: 'Document not required to be uploaded',
+          details: { choice: 'Document not required to be uploaded' } }),
+      ]);
+      // The choice is the comment; a typed note is added after it.
+      expect(closeComment(close[0], '')).toBe('Document uploaded');
+      expect(closeComment(close[1], ' copy with TL ')).toBe('Document not required to be uploaded: copy with TL');
+    }
+    // The wrong customer / dealer name tasks share the type but are not closed by hand.
+    expect(taskPlan({ ...missing, source_code: 'WRONG_CUSTOMER_NAME' }, 'PC')
+      .secondary.some((item) => item.action === 'CLOSE_TASK')).toBe(false);
+    // A closed task offers no close.
+    expect(taskPlan({ ...missing, task_status: 'VERIFIED_COMPLETE' }, 'PC')
       .secondary.some((item) => item.action === 'CLOSE_TASK')).toBe(false);
   });
 });

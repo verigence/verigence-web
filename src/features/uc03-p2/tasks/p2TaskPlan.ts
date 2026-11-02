@@ -12,6 +12,8 @@ export type TaskAction = {
   requiresComment?: boolean;
   /** Sent with the action: a question's answer, a form's values. */
   details?: Record<string, unknown>;
+  /** The comment the button itself gives (a close choice); a typed note is added after it. */
+  comment?: string;
   tone: 'primary' | 'secondary' | 'confirm' | 'danger' | 'ghost';
 };
 
@@ -38,6 +40,25 @@ const WAITING: Record<string, string> = {
 };
 
 const DONE = new Set(['VERIFIED_COMPLETE', 'CANCELLED']);
+
+/** "Upload the ..." tasks the PC closes by hand (product owner 2026-11-02): a
+ * single page uploaded for one is often refused for scan quality and never
+ * read, so the check alone never closed it. Not the wrong customer / dealer
+ * name tasks, which share the task type. The server accepts CLOSE_TASK on
+ * these whatever the task's stored actions list. */
+const MISSING_DOCUMENT_CLOSE_SOURCES = new Set(['DOCUMENT_MISSING', 'BOOKING_FORM_MISSING']);
+export const MISSING_DOCUMENT_CLOSE_CHOICES = ['Document uploaded', 'Document not required to be uploaded'] as const;
+
+function closesMissingDocument(task: P2Task): boolean {
+  return task.task_type === 'DOCUMENT_MISSING' && MISSING_DOCUMENT_CLOSE_SOURCES.has(String(task.source_code ?? ''));
+}
+
+/** The comment a close sends: the button's choice, then anything typed. */
+export function closeComment(action: TaskAction, typed: string): string | undefined {
+  const note = typed.trim();
+  if (!action.comment) return note || undefined;
+  return note ? `${action.comment}: ${note}` : action.comment;
+}
 
 function referenceDocument(task: P2Task): { documentId?: string; fieldKey?: string } {
   const ref = task.reference ?? {};
@@ -255,6 +276,12 @@ export function taskPlan(task: P2Task, operatingRole?: string | null): TaskPlan 
     // ("Document Uploaded", "Document Not required to be uploaded for
     // Extraction", or his own words). The server refuses a blank comment too.
     secondary.push({ label: 'Close task', action: 'CLOSE_TASK', requiresComment: true, tone: 'secondary' });
+  } else if (closesMissingDocument(task)) {
+    // A missing document: the PC closes it with one of two choices, which is
+    // the task's comment (a typed note is added after it).
+    for (const choice of MISSING_DOCUMENT_CLOSE_CHOICES) {
+      secondary.push({ label: choice, action: 'CLOSE_TASK', comment: choice, details: { choice }, tone: 'secondary' });
+    }
   }
   if (allowed.has('PROVIDE_FEEDBACK')) secondary.push({ label: 'Give feedback', action: 'PROVIDE_FEEDBACK', requiresComment: true, tone: 'ghost' });
   if (supervisor && allowed.has('ACCEPT_EXCEPTION')) {

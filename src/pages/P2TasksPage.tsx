@@ -16,7 +16,7 @@ import {
   type DocumentFilter,
 } from '../features/uc03-p2/tasks/documentGroups';
 import {
-  groupByJourney, taskPlan, vehicleIdentityError, type TaskAction, type VehicleIdentity,
+  closeComment, groupByJourney, taskPlan, vehicleIdentityError, type TaskAction, type VehicleIdentity,
 } from '../features/uc03-p2/tasks/p2TaskPlan';
 import {
   bundleDue, bundleSeverity, bundleTasks, entryCount, isBundle, type TaskBundle,
@@ -107,7 +107,7 @@ function TaskDetail({ task, tenantId, accessToken, operatingRole, onDone }: {
   const plan = taskPlan(task, operatingRole);
   const run = useMutation({
     mutationFn: (action: TaskAction & { details?: Record<string, unknown> }) =>
-      submitP2TaskAction(tenantId, task.task_id, action.action!, accessToken, comment.trim() || undefined, action.details),
+      submitP2TaskAction(tenantId, task.task_id, action.action!, accessToken, closeComment(action, comment), action.details),
     onSuccess: (_, action) => {
       setComment('');
       setError(undefined);
@@ -266,7 +266,7 @@ function TaskDetail({ task, tenantId, accessToken, operatingRole, onDone }: {
         <label className="p2w-task__comment">
           <span>Comment (a note alone does not close the task)</span>
           <textarea rows={2} value={comment} onChange={(event) => { setComment(event.target.value); setError(undefined); }}
-            placeholder={buttons.some((item) => item.action === 'CLOSE_TASK')
+            placeholder={buttons.some((item) => item.action === 'CLOSE_TASK' && !item.comment)
               ? 'Add a note for your team. Closing the task needs a comment.' : 'Add a note for your team'} />
         </label>
       ) : null}

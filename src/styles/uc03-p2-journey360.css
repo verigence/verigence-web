@@ -328,6 +328,22 @@
 .j360 .j360-dup-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .j360 .j360-dup-side { display: grid; gap: 3px; padding: 10px 12px; border-radius: 10px; background: var(--p2w-soft); }
 @media (max-width: 640px) { .j360 .j360-dup-pair { grid-template-columns: 1fr; } }
+/* Duplicate bookings, Deleted tab (2026-11-02): a table on a wide screen,
+   one labelled card per deleted booking on a phone. */
+.j360 .j360-dup-deleted { overflow-x: auto; padding: 0; }
+.j360 .j360-dup-deleted td { overflow-wrap: anywhere; }
+@media (max-width: 760px) {
+  .j360 .j360-dup-deleted thead { display: none; }
+  .j360 .j360-dup-deleted tbody tr {
+    display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 12px;
+    padding: 12px; border-bottom: 1px solid var(--p2w-line);
+  }
+  .j360 .j360-dup-deleted tbody td { padding: 0; border: 0; }
+  .j360 .j360-dup-deleted tbody td::before {
+    content: attr(data-label); display: block; font-size: .7rem; font-weight: 700;
+    letter-spacing: .03em; text-transform: uppercase; color: var(--p2w-muted);
+  }
+}
 .j360-review-status { display: block; margin-top: 4px; font-size: 0.9rem; }
 /* A printed draft says so on every page. */
 .j360-report.is-draft { position: relative; }

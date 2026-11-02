@@ -7,7 +7,7 @@ const finding = (assigned: string): P2Task => ({
   task_id: 't1', journey_id: 'j1', task_type: 'FINDING_REVIEW', task_status: 'READY', severity: 'MEDIUM', title: 'Finding',
   source_system: 'P2', reference: { findingId: 'f1' }, assigned_role_code: assigned, created_at_utc: '2026-11-02T00:00:00Z',
   allowed_actions: ['CONFIRM_BREACH', 'MARK_FALSE_POSITIVE', 'ACCEPT_EXCEPTION', 'ADD_COMMENT'],
-} as P2Task);
+} as unknown as P2Task);
 
 const actions = (task: P2Task, role: string) => {
   const plan = taskPlan(task, role);

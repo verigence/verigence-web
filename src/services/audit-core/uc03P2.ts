@@ -1045,7 +1045,8 @@ type P2DealSummary = {
    *  the NDC / account statement, else the cost sheet. */
   billedSource?: 'INVOICE' | 'ACCOUNT_STATEMENT';
   components: number;
-  paid: { receipts: string; loan: string; total: string };
+  /** oldVehicle: the old vehicle the NDC takes against the price, paid in kind (in total). */
+  paid: { receipts: string; loan: string; oldVehicle?: string | null; total: string };
   payable: Money;
   balanceDue: Money;
 };

@@ -499,7 +499,7 @@ export default function DealTab({ deal, journeyId, tenantId, accessToken }: {
           <span>Fill: what the customer is offered{invoiceOnly ? ' (an invoice is on file: invoices only, nothing from the booking; a price-master line no invoice bills counts as a variance)' : partly ? ` (invoice where billed, booking for the other ${summary.components - invoiced})` : invoiced ? ' (the invoice)' : ' (the booking, until an invoice is read)'}</span>
         </p>
         <dl className="j360-paid">
-          <div><dt>Received</dt><dd>{money(summary.paid.total)}</dd><small>{money(summary.paid.receipts)} receipts · {money(summary.paid.loan)} loan</small></div>
+          <div><dt>Received</dt><dd>{money(summary.paid.total)}</dd><small>{money(summary.paid.receipts)} receipts · {money(summary.paid.loan)} loan{summary.paid.oldVehicle ? ` · ${money(summary.paid.oldVehicle)} old vehicle` : ''}</small></div>
           <div className={due !== null && due > 0 ? 'is-due' : 'is-clear'}><dt>Balance due</dt><dd>{money(summary.balanceDue)}</dd><small>against {money(summary.payable)} payable</small></div>
           <div><dt>Discounts given</dt><dd>{money(summary.discounts.current)}</dd>
             <small>{entitledTotal !== null && givenTotal !== null ? (givenTotal > entitledTotal ? `${money(String(givenTotal - entitledTotal))} more than entitled` : `within the ${money(summary.discounts.standard)} entitled`) : 'no scheme entitlement recorded'}</small></div>

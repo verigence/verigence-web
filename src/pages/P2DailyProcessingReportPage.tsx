@@ -9,7 +9,7 @@ import PageHeader from '../components/PageHeader';
 import SectionCard from '../components/SectionCard';
 import TaskStatusSections from '../features/task-manager/TaskStatusSections';
 import { customerLabel } from '../features/uc03-p2/bookings/JourneyRow';
-import { WorkDoneCard } from '../features/uc03-p2/daily/DailyProcessingSections';
+import { DeliveryFilesClosedCard, WorkDoneCard } from '../features/uc03-p2/daily/DailyProcessingSections';
 import {
   getP2DailyProcessingReport,
   type P2DailyCounts,
@@ -239,6 +239,7 @@ export default function P2DailyProcessingReportPage() {
         <>
           {data.taskStatus ? <TaskStatusSections status={data.taskStatus} /> : null}
           {data.teamWork ? <WorkDoneCard work={data.teamWork} day={data.day} timezone={timezone} /> : null}
+          {data.deliveryFilesClosed ? <DeliveryFilesClosedCard closed={data.deliveryFilesClosed} day={data.day} timezone={timezone} /> : null}
           <SectionCard>
             <div className="p2w-card__title">
               <h3>Uploads by PC</h3>

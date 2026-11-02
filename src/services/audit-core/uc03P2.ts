@@ -1024,17 +1024,22 @@ export type P2DiscountRow = Omit<P2DealRow, 'standard' | 'quote' | 'effectiveSou
   proof?: { documentType: string; document: string; onFile: boolean } | null;
   /** On the MANAGEMENT_REFERRAL line only. */
   management?: P2ManagementReferral;
-  /** Credit notes whose total is this benefit's amount (they print no reason). */
+  /** Credit notes that pay this benefit (its reason, else its amount, names it). */
   paidByCreditNotes?: Array<{ documentId: string; number?: unknown; date?: unknown; amount: Money }>;
+  /** This document's figure is another benefit's, printed under another name
+   *  (an invoice's "OEM Discount" equal to the NDC's benefit): counted there. */
+  sameAs?: { key: string; label: string } | null;
 };
 
 type P2DealSummary = {
-  /** "current" = billed where invoiced, else the booking offer; once the
-   *  first invoice is on file (invoiceIsSourceOfTruth) billed only. */
+  /** "current" = what the billing documents charge (NDC, cost sheet, customer
+   *  ledger, invoices, policy, challan, credit notes); "booking" = what the
+   *  booking docket offered, information only, never counted (2026-11-02). */
   gross: Record<'standard' | 'booking' | 'current' | 'billed' | 'ledger', Money>;
   discounts: Record<'standard' | 'booking' | 'current' | 'billed', Money>;
   net: Record<'standard' | 'booking' | 'current', Money>;
-  /** Compared only where both sides have a value. */
+  /** Billed against the price master only; the booking comparisons are no
+   *  longer worked out (null). */
   variance: { bookingVsStandard: Money; currentVsStandard: Money; billedVsBooking: Money };
   invoicedComponents: number;
   /** True once any customer invoice is on file: every figure is the invoices'. */
@@ -1070,7 +1075,7 @@ export type P2Deal = {
   /** The invoices consolidated into the sheet: retail, tax, accessory, warranty... */
   invoices?: Array<{ documentId: string; documentType: string; label: string; number?: unknown; date?: unknown; total: Money;
     counted?: boolean; sameInvoiceAs?: string[] }>;
-  /** Credit notes on file (the scrappage case): shown, never in the Deal's arithmetic (2026-10-31). */
+  /** Credit notes on file, each with the benefit it pays: counted once, as that benefit (2026-11-02). */
   creditNotes?: P2CreditNote[];
   declared: Array<{ key: string; label: string; booking: Money; billed: Money; ledger: Money; quote: Money; sources: P2DealSource[] }>;
   summary: P2DealSummary;
@@ -1088,6 +1093,10 @@ export type P2DealInsurance = {
   basis?: string | null;
   invoiceOnFile: boolean;
   vehicleInvoiced: boolean;
+  /** The premium counts in the deal only when confirmed in-house: a billing
+   *  document charges it, the policy carries the dealer's code, or the PC
+   *  confirmed it (2026-11-02). */
+  inDeal?: boolean;
 };
 
 export function setP2InsuranceSource(

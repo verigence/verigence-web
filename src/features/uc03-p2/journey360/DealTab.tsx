@@ -68,7 +68,9 @@ function InsuranceSource({ insurance, tenantId, journeyId, accessToken }: {
         </>
       ) : (
         <small title={insurance.basis ?? undefined}>
-          {insurance.source === 'SELF' ? 'Self: premium not in the deal' : 'Inhouse: premium in the deal'}
+          {insurance.source === 'SELF' ? 'Self: premium not in the deal'
+            : insurance.inDeal === false ? 'Not confirmed in-house: premium not in the deal until confirmed'
+              : 'Inhouse: premium in the deal'}
           {insuranceDecidedText(insurance)}</small>
       )}
       {save.isError ? <small className="j360-insurance-source__error">{save.error instanceof Error ? save.error.message : 'Could not save.'}</small> : null}
@@ -278,14 +280,16 @@ function OfferBar({ standard, booking, billed, kind = 'charge', large = false }:
 
 const SHEET_COLUMNS = 6;
 
-function ComponentRow({ row, journeyId, open, onToggle }: { row: P2DealRow; journeyId: string; open: boolean; onToggle: () => void }) {
+function ComponentRow({ row, journeyId, open, onToggle, excludedNote }: {
+  row: P2DealRow; journeyId: string; open: boolean; onToggle: () => void; excludedNote?: string;
+}) {
   return (
     <Fragment>
       <tr className={`${row.flags.length ? 'is-flagged' : ''}${row.excluded ? ' is-excluded' : ''}${row.partOf ? ' is-part' : ''}`}>
         <th scope="row">
           <button type="button" className="j360-rowbtn" aria-expanded={open} onClick={onToggle}>
             <span>{row.label}</span>
-            {row.excluded ? <small className="p2w-muted">Self insurance, not in the deal</small> : null}
+            {row.excluded ? <small className="p2w-muted">{excludedNote ?? 'Self insurance, not in the deal'}</small> : null}
             {row.partOf ? <small className="p2w-muted">Included in the line above</small> : null}
             <Flags flags={row.flags} />
           </button>
@@ -401,6 +405,9 @@ function DiscountRow({ row, journeyId, tenantId, accessToken, open, onToggle }: 
                 <SchemeNote row={row} />
               </>
             )}
+            {row.sameAs ? (
+              <p className="p2w-muted">{`Same benefit as ${row.sameAs.label}: counted there, checked here.`}</p>
+            ) : null}
             {row.paidByCreditNotes?.length ? (
               <p className="p2w-muted">
                 {'Paid by credit note '}
@@ -478,7 +485,7 @@ export default function DealTab({ deal, journeyId, tenantId, accessToken }: {
           <div>
             <dt>Booking offer</dt>
             <dd>{money(summary.net.booking)}</dd>
-            <small>Temporary, from the booking form</small>
+            <small>From the booking docket: information only, never counted</small>
           </div>
           <div className="is-truth">
             <dt>{billedLabel}</dt>
@@ -496,7 +503,7 @@ export default function DealTab({ deal, journeyId, tenantId, accessToken }: {
         <p className="j360-sheet__legend">
           <span><i className="j360-offer__std" /> Price master</span>
           <span><i className="j360-offer__bk" /> Booking, where the invoice moved</span>
-          <span>Fill: what the customer is offered{invoiceOnly ? ' (an invoice is on file: invoices only, nothing from the booking; a price-master line no invoice bills counts as a variance)' : partly ? ` (invoice where billed, booking for the other ${summary.components - invoiced})` : invoiced ? ' (the invoice)' : ' (the booking, until an invoice is read)'}</span>
+          <span>Fill: what the billing documents charge (NDC, cost sheet, customer ledger, invoices); a line no billing document carries yet is awaited, never taken from the booking</span>
         </p>
         <dl className="j360-paid">
           <div><dt>Received</dt><dd>{money(summary.paid.total)}</dd><small>{money(summary.paid.receipts)} receipts · {money(summary.paid.loan)} loan{summary.paid.loanWithoutReceipt ? '*' : ''}{summary.paid.oldVehicle ? ` · ${money(summary.paid.oldVehicle)} old vehicle` : ''}{summary.paid.refunds ? ` · − ${money(summary.paid.refunds)} refunded` : ''}</small></div>
@@ -532,7 +539,9 @@ export default function DealTab({ deal, journeyId, tenantId, accessToken }: {
                   </th>
                 </tr>
                 {category.components.map((row) => (
-                  <ComponentRow key={row.key} row={row} journeyId={journeyId} open={open === row.key} onToggle={() => toggle(row.key)} />
+                  <ComponentRow key={row.key} row={row} journeyId={journeyId} open={open === row.key} onToggle={() => toggle(row.key)}
+                    excludedNote={deal.insurance?.source !== 'SELF' && deal.insurance?.inDeal === false
+                      ? 'Not confirmed in-house, not in the deal' : undefined} />
                 ))}
                 {category.components.length > 1 ? (
                   <tr className="is-total">
@@ -594,12 +603,10 @@ export default function DealTab({ deal, journeyId, tenantId, accessToken }: {
           {summary.billedSource === 'ACCOUNT_STATEMENT'
             ? 'This project reads the deal from the NDC (account statement); a booking with no NDC uses its cost sheet. '
             : ''}
-          The invoice is the source of truth: where a component has been invoiced its billed value stands, the booking figure holds only until then.
+          Only the billing documents count: the NDC, the cost sheet, the customer ledger, the invoices, the policy, the RTO challan and the credit notes. Where more than one prints a line it is counted once, in that order, and the others check it. The booking docket is shown as offered and never counted or compared.
           Opted: the optional lines (insurance, accessories, extended warranty, every discount) show whether the customer took them, per the invoice once one is read, else per the booking form; insurance follows the Inhouse / Self choice. Mandatory lines have nothing to opt.
           Variances compare a line only where both sides price it.
           {deal.insurance?.source === 'SELF' ? ' The customer arranged their own insurance: the premium is shown but kept out of every total.' : ''}
-          {summary.variance.billedVsBooking && Number(summary.variance.billedVsBooking) !== 0
-            ? ` Invoiced lines differ from the booking by ${signedMoney(summary.variance.billedVsBooking)}.` : ''}
         </p>
       </section>
 

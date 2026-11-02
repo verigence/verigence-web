@@ -997,6 +997,12 @@ export type P2DealRow = {
   bookingVsBilled?: Money;
   flags: string[];
   sources: P2DealSource[];
+  /** The document a line still waits for, else null. */
+  awaiting?: string | null;
+  /** Under the NDC policy, for accessories, EW and RSA: what their invoices
+   * bill beside the NDC's charge, and (accessories) the part not charged. */
+  invoiced?: Money;
+  freeByInvoice?: Money;
 };
 
 export type P2DealCategory = {
@@ -1018,6 +1024,8 @@ export type P2DiscountRow = Omit<P2DealRow, 'standard' | 'quote' | 'effectiveSou
   proof?: { documentType: string; document: string; onFile: boolean } | null;
   /** On the MANAGEMENT_REFERRAL line only. */
   management?: P2ManagementReferral;
+  /** Credit notes whose total is this benefit's amount (they print no reason). */
+  paidByCreditNotes?: Array<{ documentId: string; number?: unknown; date?: unknown; amount: Money }>;
 };
 
 type P2DealSummary = {
@@ -1235,6 +1243,10 @@ export type P2LoanWithoutReceipt = {
 export type P2CreditNote = {
   documentId: string; number?: unknown; date?: unknown; amount: Money; taxable?: Money;
   reason?: string | null; issuedTo?: unknown;
+  /** The one benefit of the deal with this amount; null when none or several do. */
+  benefit?: { key: string; label: string } | null;
+  /** The benefits with this amount when more than one has it. */
+  benefitCandidates?: string[];
 };
 
 export type P2Payments360 = {

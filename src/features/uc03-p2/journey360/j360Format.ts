@@ -30,6 +30,9 @@ export const FLAG_LABELS: Record<string, string> = {
   OVER_ENTITLEMENT: 'More than entitled',
   UNDER_ENTITLEMENT: 'Less than entitled',
   NOT_INVOICED: 'Not invoiced',
+  NOT_ON_STATEMENT: 'Not on the NDC',
+  INVOICES_DISAGREE: 'Documents disagree',
+  AWAITING_DOCUMENT: 'Awaiting document',
 };
 
 export const CONTROL_STATUS: Record<string, { label: string; tone: string }> = {

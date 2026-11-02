@@ -65,7 +65,7 @@ export function taskPlan(task: P2Task, operatingRole?: string | null): TaskPlan 
   if (task.source_system === 'LEGACY') {
     // An existing (Phase 1) task: fix it on the booking's documents. The old
     // Task Queue is off for PC, TL and PM (2026-10-29), so only others get it.
-    const legacyQueue = operatingRole === 'PC' || operatingRole === 'TL' || operatingRole === 'PM'
+    const legacyQueue = operatingRole === 'PC' || operatingRole === 'TL' || operatingRole === 'PM' || operatingRole === 'REVIEWER'
       ? [] : [{ label: 'Open in old Task Queue', to: task.legacy_queue_url || '/reviews', tone: 'ghost' as const }];
     return {
       primary: { label: 'Open documents', to: `/p2/journeys/${task.journey_id}/documents`, tone: 'primary' },
@@ -76,7 +76,10 @@ export function taskPlan(task: P2Task, operatingRole?: string | null): TaskPlan 
   const ref = task.reference ?? {};
   const secondary: TaskAction[] = [];
   const canComment = allowed.has('ADD_COMMENT');
-  const supervisor = operatingRole === 'TL' || operatingRole === 'PM';
+  // A Reviewer closes the Team Lead's tasks of their outlets in the TL's place (product owner
+  // 2026-11-02; Audit Core task_closure_roles decides, this only offers the buttons).
+  const supervisor = operatingRole === 'TL' || operatingRole === 'PM'
+    || (operatingRole === 'REVIEWER' && String(task.assigned_role_code ?? '').toUpperCase() === 'TL');
   if (DONE.has(task.task_status)) {
     return { secondary: canComment ? [{ label: COMMENT_LABEL, action: 'ADD_COMMENT', requiresComment: true, tone: 'ghost' }] : [] };
   }

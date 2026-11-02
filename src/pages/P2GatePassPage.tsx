@@ -30,7 +30,7 @@ export default function P2GatePassPage() {
         eyebrow="Daily Tasks"
         title="Daily gate pass"
         description={isPc
-          ? 'Upload the gate pass photo, enter the day’s movements, and check them against the delivery files.'
+          ? 'Upload the gate register photo, enter the total deliveries and how many were intimated to you, and see what is still to upload.'
           : 'Deliveries done against delivery files uploaded, by day, and the tasks raised from the gate passes.'}
       />
       {!tenantId || !accessToken ? (
@@ -39,7 +39,7 @@ export default function P2GatePassPage() {
         <>
           {isPc ? <GatePassWizard tenantId={tenantId} accessToken={accessToken} onChanged={refresh} /> : null}
           {!isPc ? <DailyTasksList tenantId={tenantId} accessToken={accessToken} onChanged={refresh} /> : null}
-          {/* TL, PM and Executive: every onsite outlet at once (product owner 2026-10-27). */}
+          {/* TL, PM and Executive: every outlet at once, satellites included (product owner 2026-11-02). */}
           {!isPc ? <GatePassSummary tenantId={tenantId} accessToken={accessToken} refreshKey={refreshKey} /> : null}
           <GatePassCalendar tenantId={tenantId} accessToken={accessToken} refreshKey={refreshKey} />
         </>

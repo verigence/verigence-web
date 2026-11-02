@@ -123,11 +123,26 @@ const p2BookingsItem: NavItem = {
   roles: ['PC', 'TL', 'PM'],
 };
 
+// A Reviewer's queue carries the Team Lead's tasks of their outlets too (product owner 2026-11-02).
 const p2TasksItem: NavItem = {
   to: '/p2/tasks',
   label: 'Task Queue',
   mark: 'TQ',
-  roles: ['PC', 'TL', 'PM'],
+  roles: ['PC', 'TL', 'PM', 'REVIEWER'],
+};
+
+// PC Home (the PC's landing) and a Reviewer's tracker (product owner 2026-11-02).
+const p2HomeItem: NavItem = {
+  to: '/p2/home',
+  label: 'Home',
+  mark: 'HM',
+  roles: ['PC'],
+};
+const p2TrackerItem: NavItem = {
+  to: '/p2/home',
+  label: 'My tracker',
+  mark: 'MT',
+  roles: ['REVIEWER'],
 };
 
 // How the system handled each PC's day: uploads, pages, documents read and
@@ -300,7 +315,7 @@ const routeLabels: Record<string, string> = {
   '/admin/users/pending': 'Pending Approvals',
   '/admin/oem-masters': 'OEM Masters', '/admin/reports': 'Reports', '/admin/project': 'Project Administration', '/profile': 'Profile',
   '/hr/employees': 'Employees', '/hr/employees/new': 'Add Employee', '/hr/employees/import': 'Import Employees', '/hr/employees/designation-salary-import': 'Import Designation and Salary', '/hr/me': 'My Employee Profile',
-  '/hr/attendance': 'Attendance', '/hr/attendance/team': 'Team Attendance', '/hr/attendance/daily': 'Daily Attendance', '/hr/assignments': 'Project Assignments', '/hr/leave': 'Leave', '/hr/leave/overview': 'Leave Overview',
+  '/p2/home': 'Home', '/hr/attendance': 'Attendance', '/hr/attendance/team': 'Team Attendance', '/hr/attendance/daily': 'Daily Attendance', '/hr/assignments': 'Project Assignments', '/hr/leave': 'Leave', '/hr/leave/overview': 'Leave Overview',
   '/hr/claims': 'Reimbursements', '/hr/claims/new': 'New Claim', '/hr/claims/all': 'All Claims', '/hr/approvals': 'Approvals',
   '/hr/payslips': 'Payslips', '/hr/salary': 'My Salary', '/hr/messages': 'Employee Messages', '/hr/payroll': 'Payroll', '/hr/payroll/salaries': 'Salaries', '/hr/payroll/settings': 'Payroll Settings', '/hr/settings': 'HR Settings',
 };
@@ -403,7 +418,7 @@ export default function AppShell({ children }: PropsWithChildren) {
   const p2TaskSummary = useQuery({
     queryKey: ['p2-tasks-badge', selectedProject?.tenantId, role],
     queryFn: () => getP2Tasks(selectedProject!.tenantId, accessToken, undefined, { view: 'open', role: String(role) }),
-    enabled: Boolean(selectedProject?.tenantId && accessToken && ['PC', 'TL', 'PM'].includes(String(role))),
+    enabled: Boolean(selectedProject?.tenantId && accessToken && ['PC', 'TL', 'PM', 'REVIEWER'].includes(String(role))),
     refetchInterval: 120_000,
     staleTime: 60_000,
   });
@@ -430,6 +445,7 @@ export default function AppShell({ children }: PropsWithChildren) {
       ? {
           ...p2Group,
           items: [
+            ...(role === 'PC' ? [p2HomeItem] : []),
             // A Team Lead's Booking & Delivery is the TL overview (Dealer
             // Operations), not the PC's working list (decision 2026-10-20).
             role === 'TL' ? { ...p2BookingsItem, to: '/dashboard' } : p2BookingsItem,
@@ -454,7 +470,7 @@ export default function AppShell({ children }: PropsWithChildren) {
         // built for PC / TL / PM only, so a Reviewer saw none of it, not even
         // Document Review, which is their home page).
         : role === 'REVIEWER'
-          ? { ...p2Group, items: [p2ReviewBoardItem, { ...taskManagerItem, badge: tmCount }, p2ReviewActivityItem, p2DiscountVarianceItem, p2PriceMastersItem, p2MasterDocumentsItem] }
+          ? { ...p2Group, items: [p2ReviewBoardItem, p2TrackerItem, { ...p2TasksItem, badge: p2TaskCount + tmCount }, p2ReviewActivityItem, p2DiscountVarianceItem, p2PriceMastersItem, p2MasterDocumentsItem] }
           // A CRM receives and raises tasks (to TL / PM) in the Task Manager.
           : role === 'CRM'
             ? { ...p2Group, items: [{ ...taskManagerItem, badge: tmCount }] }

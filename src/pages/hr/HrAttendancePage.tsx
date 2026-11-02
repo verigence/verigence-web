@@ -8,6 +8,10 @@ import { ATTENDANCE_PERMISSION, getAttendanceToday, getMyAttendance, type Attend
 import { hrErrorMessage } from '../../services/hr/client';
 import { getMyEmployee } from '../../services/hr/employees';
 import { useSessionStore } from '../../store/sessionStore';
+import { useProjectContextStore } from '../../store/projectContextStore';
+import { getCheckoutCheck, type CheckoutCheck } from '../../services/audit-core/uc03MyWork';
+import CheckoutGateRegisterWarning from '../../features/uc03-p2/gatepass/CheckoutGateRegisterWarning';
+import { useMyFeatures } from '../../features/rollout/featureFlags';
 import CaptureDialog from '../../features/hr/attendance/CaptureDialog';
 import MonthPanel from '../../features/hr/attendance/MonthPanel';
 import MonthSwitcher from '../../features/hr/attendance/MonthSwitcher';
@@ -23,6 +27,32 @@ export default function HrAttendancePage() {
   const access = useHrAccess();
   const [month, setMonth] = useState(currentMonthIst);
   const [capturing, setCapturing] = useState<AttendanceEvent | null>(null);
+  // A PC is warned before check-out when yesterday's gate register of an onsite outlet is not
+  // finished (product owner 2026-11-02). With the CHECKOUT_GATE_REGISTER switch off OK goes on to
+  // check-out; on, check-out waits for the gate register. A check that cannot be reached never
+  // holds check-out up.
+  const project = useProjectContextStore((state) => state.selectedProject);
+  const checkoutBlocked = useMyFeatures().features?.CHECKOUT_GATE_REGISTER === true;
+  const [checkoutWarning, setCheckoutWarning] = useState<CheckoutCheck | null>(null);
+  const [checkingOut, setCheckingOut] = useState(false);
+
+  async function start(event: AttendanceEvent) {
+    if (event !== 'CHECK_OUT' || project?.operatingRole !== 'PC' || !project.tenantId || !accessToken) {
+      setCapturing(event);
+      return;
+    }
+    setCheckingOut(true);
+    let check: CheckoutCheck | null = null;
+    try {
+      check = await getCheckoutCheck(project.tenantId, accessToken);
+    } catch {
+      check = null;
+    } finally {
+      setCheckingOut(false);
+    }
+    if (check && check.pending.length > 0) setCheckoutWarning(check);
+    else setCapturing('CHECK_OUT');
+  }
 
   const today = useQuery({
     queryKey: attendanceKeys.today,
@@ -98,7 +128,7 @@ export default function HrAttendancePage() {
             <button type="button" className="uc01-admin-button" onClick={() => today.refetch()}>Try again</button>
           </div>
         )}
-        {data && <TodayCard today={data} onStart={setCapturing} disabled={capturing !== null || today.isFetching} />}
+        {data && <TodayCard today={data} onStart={(event) => void start(event)} disabled={capturing !== null || today.isFetching || checkingOut} />}
       </SectionCard>
 
       <SectionCard
@@ -108,6 +138,15 @@ export default function HrAttendancePage() {
       >
         <MonthPanel month={month} query={history} viewer="self" />
       </SectionCard>
+
+      {checkoutWarning && (
+        <CheckoutGateRegisterWarning
+          check={checkoutWarning}
+          blocked={checkoutBlocked}
+          onClose={() => setCheckoutWarning(null)}
+          onOk={() => { setCheckoutWarning(null); setCapturing('CHECK_OUT'); }}
+        />
+      )}
 
       {capturing && data && (
         <CaptureDialog event={capturing} today={data} clockSkewMs={clockSkewMs} onClose={() => setCapturing(null)} />

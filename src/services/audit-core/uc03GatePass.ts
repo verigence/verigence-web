@@ -16,7 +16,7 @@ export type GatePassOutlets = {
   previous?: GatePassDayInfo | null;
   /** Outlets whose previous day's gate pass is not finished yet. */
   previousOpenOutletIds?: string[];
-  /** Mapped only to satellite outlets: the daily gate pass is for onsite outlets only. */
+  /** No longer set: satellite outlets have a gate register too (2026-11-02). Kept for older servers. */
   satelliteOnly?: boolean;
 };
 
@@ -33,17 +33,24 @@ export type GatePass = {
   filesHeld: boolean | null; countsSubmitted: boolean; completed: boolean;
   /** Deliveries the dealership did not notify to the PC, and the rest the PC has not uploaded (2026-10-27). */
   notNotifiedToPc?: number | null; notUploadedByPc?: number | null;
+  /** Of the total on the register, how many the dealership intimated to the PC (2026-11-02). */
+  intimatedToPc?: number | null;
 };
 
+/** Total deliveries on the gate register and how many were intimated to the PC (product owner 2026-11-02). */
 export type GatePassCountsInput = {
-  newDeliveries?: number; stockTransfers?: number; testDrives?: number; otherCount?: number; otherNote?: string;
+  newDeliveries?: number; intimatedToPc?: number;
+  stockTransfers?: number; testDrives?: number; otherCount?: number; otherNote?: string;
   /** Sunday and Monday photographed apart: the counts of each day. */
-  days?: Array<{ date: string; newDeliveries: number; stockTransfers: number; testDrives: number;
-                 otherCount: number; otherNote?: string }>;
+  days?: Array<{ date: string; newDeliveries: number; intimatedToPc?: number; stockTransfers?: number;
+                 testDrives?: number; otherCount?: number; otherNote?: string }>;
 };
 export type GatePassCountsResult = {
   gatePass: GatePass; divergence: 'NONE' | 'EXTRA_FILES' | 'MISSING_FILES'; declared: number; deliveryFiles: number;
   difference: number; nextStep: 'DONE' | 'EXPLAIN_EXTRA_FILES' | 'CONFIRM_FILES_HELD';
+  /** With the intimated count the server works these out at once. */
+  intimatedToPc?: number | null; pendingWithPc?: number | null; notIntimatedToPc?: number | null;
+  taskRaised?: boolean;
 };
 
 export type GatePassDay = {
@@ -141,7 +148,7 @@ export function resolveDailyTask(tenantId: string, dailyTaskId: string, note: st
   });
 }
 
-/** Consolidated view across the caller's onsite outlets (TL: theirs; PM and Executive: all), 2026-10-27. */
+/** Consolidated view across the caller's outlets, satellites included (TL: theirs; PM and Executive: all). */
 export type GatePassSummaryFigures = {
   asPerRegister: number; updatedInTool: number; notNotifiedToPc: number; pendingDueToPc: number;
   gatePassDays: number; gatePassesFinished: number; gatePassesMissing: number;

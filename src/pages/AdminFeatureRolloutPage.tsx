@@ -19,6 +19,10 @@ import '../styles/feature-rollout.css';
 const TITLES: Record<FeatureKey, { title: string; blurb: string }> = {
   AUDIT: { title: 'Audit', blurb: 'The Audit menu: bookings and deliveries, task queue, duplicate bookings, daily operations.' },
   ANALYTICS: { title: 'Analytics', blurb: 'The Analytics menu and its reports.' },
+  CHECKOUT_GATE_REGISTER: {
+    title: 'Block check-out without gate register',
+    blurb: 'On: a PC cannot check out until yesterday’s gate register of their onsite outlets is done. Off: they are only warned.',
+  },
 };
 
 const messageOf = (error: unknown) => (error instanceof Error && error.message ? error.message : 'The change could not be saved. Please try again.');

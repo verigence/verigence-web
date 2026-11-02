@@ -103,6 +103,8 @@ const P2GatePassPage = lazy(() => import('./pages/P2GatePassPage'));
 const P2TaskManagerPage = lazy(() => import('./pages/P2TaskManagerPage'));
 const P2UtilisationPage = lazy(() => import('./pages/P2UtilisationPage'));
 const P2DiDashboardPage = lazy(() => import('./pages/P2DiDashboardPage'));
+// PC Home and the Tracker tab for PCs and Reviewers (product owner 2026-11-02).
+const P2MyWorkPage = lazy(() => import('./pages/P2MyWorkPage'));
 const AdminSystemHealthPage = lazy(() => import('./pages/AdminSystemHealthPage'));
 const AdminTaskManagerPage = lazy(() => import('./pages/AdminTaskManagerPage'));
 
@@ -208,7 +210,9 @@ function DashboardEntry() {
   if (selectedProject?.operatingRole === 'TL') return <OperationalPage><TeamLeadDashboardPage /></OperationalPage>;
   // A PC or PM works only on Booking & Delivery: the Phase 1 Overview (and its
   // "Capture new booking") is never shown to them -- see P2DocumentsRedirect.
-  if (selectedProject?.operatingRole === 'PC' || selectedProject?.operatingRole === 'PM') {
+  // A PC's home is PC Home (product owner 2026-11-02).
+  if (selectedProject?.operatingRole === 'PC') return <Navigate to="/p2/home" replace />;
+  if (selectedProject?.operatingRole === 'PM') {
     return <Navigate to="/p2/bookings" replace />;
   }
 
@@ -249,9 +253,12 @@ function HomeEntry() {
   const operatingRole = selectedProject?.operatingRole;
   const home = operatingRole === 'REVIEWER'
     ? '/p2/review'
-    : operatingRole === 'PC' || operatingRole === 'TL' || operatingRole === 'PM'
-      ? '/p2/bookings'
-      : '/dashboard';
+    // A PC lands on PC Home: their journeys, gate register and tasks (product owner 2026-11-02).
+    : operatingRole === 'PC'
+      ? '/p2/home'
+      : operatingRole === 'TL' || operatingRole === 'PM'
+        ? '/p2/bookings'
+        : '/dashboard';
   // People without the Audit switch who have HR land on My HR, as the plain landing page does.
   return <Authenticated><ProjectContextGate><HrLanding><Navigate to={home} replace /></HrLanding></ProjectContextGate></Authenticated>;
 }
@@ -359,6 +366,7 @@ export default function App() {
               <Route path="/analytics" element={<OperationalShellPage><AnalyticsPage /></OperationalShellPage>} />
 
               {/* Phase 2 is additive. Existing links/routes above remain unchanged. */}
+              <Route path="/p2/home" element={<OperationalPage><P2MyWorkPage /></OperationalPage>} />
               <Route path="/p2/bookings" element={<OperationalPage><P2JourneyListPage /></OperationalPage>} />
               <Route path="/p2/journey-360" element={<Navigate to="/p2/bookings" replace />} />
               <Route path="/p2/work-queue" element={<Navigate to="/p2/bookings" replace />} />

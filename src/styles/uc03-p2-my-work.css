@@ -1,0 +1,32 @@
+/* PC Home and the Tracker tab (2026-11-02). Built on the workspace tokens (uc03-p2-workspace.css). */
+.p2mw-controls { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+
+.p2mw-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+.p2mw-tile {
+  display: grid; gap: 2px; padding: 12px 14px; background: #fff;
+  border: 1px solid var(--p2w-line); border-radius: var(--p2w-radius);
+}
+.p2mw-tile__label { font-size: 13px; color: var(--p2w-muted); }
+.p2mw-tile__value { font-size: 26px; line-height: 1.2; color: var(--p2w-ink); }
+.p2mw-tile__hint { font-size: 12px; color: var(--p2w-muted); }
+.p2mw-tile--warn { border-color: #e7c27a; background: #fffaf0; }
+.p2mw-tile--bad { border-color: #e5a4a0; background: #fff6f5; }
+
+.p2mw-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+
+.p2mw-register { display: grid; gap: 16px; }
+.p2mw-register__head { display: flex; gap: 8px; align-items: baseline; margin-bottom: 6px; }
+
+.p2mw-table td, .p2mw-table th { white-space: nowrap; }
+.p2mw-table tfoot th { border-top: 2px solid var(--p2w-line); }
+.p2mw-attn { font-weight: 700; color: #9a5b00; }
+
+.p2mw-chip { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 12px; font-weight: 700; }
+.p2mw-chip--ok { background: var(--p2w-success-bg, #e6f4f1); color: var(--p2w-success); }
+.p2mw-chip--warn { background: #fff1d6; color: #8a5300; }
+.p2mw-chip--open { background: var(--p2w-soft); color: var(--p2w-muted); border: 1px solid var(--p2w-line); }
+.p2mw-chip--bad { background: #fde8e6; color: var(--p2w-danger); }
+
+@media (max-width: 640px) {
+  .p2mw-tile__value { font-size: 22px; }
+}

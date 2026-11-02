@@ -81,3 +81,9 @@
 .p2gp-sum .p2w-link { display: inline; min-height: 0; padding: 0; border: 0; background: none; font: inherit; font-weight: 600; color: var(--p2w-action, #1d5fbf); text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
 .p2gp-sum .p2gp-pages { display: inline-flex; gap: 8px; margin-left: 10px; font-size: .8rem; }
 .p2gp-sum__outlet td:first-child { font-weight: 500; }
+
+/* What the tool made of the register's two numbers (2026-11-02). */
+.p2gp-figures { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px; margin: 12px 0 0; }
+.p2gp-figures > div { border: 1px solid var(--p2w-line); border-radius: 8px; padding: 8px 10px; }
+.p2gp-figures dt { font-size: 12px; color: var(--p2w-muted); }
+.p2gp-figures dd { margin: 2px 0 0; font-size: 20px; font-weight: 700; }

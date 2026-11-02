@@ -64,7 +64,7 @@ function Figures({ f }: { f: GatePassSummaryFigures }) {
 }
 
 /**
- * Daily gate pass across every onsite outlet the caller oversees (TL: the outlets
+ * Daily gate pass across every outlet the caller oversees, satellites included (2026-11-02) (TL: the outlets
  * under them; PM and Executive: all), product owner 2026-10-27: as per the gate-out
  * register, updated in the tool, what was not notified to the PC and what is pending due to the PC,
  * dealership by dealership with sub-totals, and who uploaded each gate pass.
@@ -113,7 +113,7 @@ export default function GatePassSummary({ tenantId, accessToken, refreshKey }: P
     <SectionCard>
       <div className="p2w-card__title">
         <h3>All outlets</h3>
-        <p className="p2w-muted">Onsite outlets only: the daily gate pass is not taken at a satellite outlet. Highlighted: a gate pass not uploaded or not finished. Click an outlet to see its gate pass; open it with ▸ for each day.</p>
+        <p className="p2w-muted">Every outlet, satellites included. Highlighted: a gate pass not uploaded or not finished. Click an outlet to see its gate pass; open it with ▸ for each day.</p>
       </div>
       <div className="p2w-listbar">
         <div className="p2w-segment" role="tablist" aria-label="Range">
@@ -131,7 +131,7 @@ export default function GatePassSummary({ tenantId, accessToken, refreshKey }: P
       {summary.isError ? <div className="p2w-alert p2w-alert--error" role="alert">{gatePassErrorText(summary.error, 'The gate pass view could not be loaded.')}</div> : null}
       {summary.isLoading ? <p className="p2w-muted">Loading…</p> : null}
       {photoError ? <div className="p2w-alert p2w-alert--error" role="alert">{photoError}</div> : null}
-      {summary.data && !outlets.length ? <p className="p2w-muted">No onsite outlet in your scope.</p> : null}
+      {summary.data && !outlets.length ? <p className="p2w-muted">No outlet in your scope.</p> : null}
       {outlets.length ? (
         <div className="p2gp-sum-wrap">
           <table className="p2gp-sum">

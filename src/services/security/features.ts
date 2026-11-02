@@ -1,10 +1,13 @@
 /** Feature switches kept by Security: what each signed-in person sees (Audit, Analytics) and the SuperAdmin controls. */
 
-export type FeatureKey = 'AUDIT' | 'ANALYTICS';
-export const FEATURE_KEYS: FeatureKey[] = ['AUDIT', 'ANALYTICS'];
+/** CHECKOUT_GATE_REGISTER (2026-11-02): on, a PC cannot check out until the previous day's gate register of
+ * their onsite outlets is done; off, they are only warned. */
+export type FeatureKey = 'AUDIT' | 'ANALYTICS' | 'CHECKOUT_GATE_REGISTER';
+export const FEATURE_KEYS: FeatureKey[] = ['AUDIT', 'ANALYTICS', 'CHECKOUT_GATE_REGISTER'];
 
 export interface MyFeatures {
-  features: Record<FeatureKey, boolean>;
+  /** A Security that does not know a switch yet leaves it out: read it as off. */
+  features: Partial<Record<FeatureKey, boolean>>;
 }
 
 export interface FeaturePerson {

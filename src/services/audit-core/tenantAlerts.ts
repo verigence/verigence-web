@@ -13,6 +13,8 @@ export type SameFileOutcome =
   | 'KEPT_NOT_INDIVIDUAL'
   | 'KEPT_REVIEWED'
   | 'KEPT_CLOSED'
+  /** Everything matched but a copy's booking reference number was not read (2026-11-02). */
+  | 'KEPT_NO_BOOKING_REFERENCE'
   | 'DELETE_FAILED';
 
 export type SameFileJourney = {

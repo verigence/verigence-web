@@ -1490,6 +1490,28 @@ export function getDuplicateBookings(tenantId: string, accessToken?: string, inc
   );
 }
 
+/** A booking the system deleted as the same file uploaded again (product
+ * owner 2026-11-02): same PAN and/or Aadhaar, mobile, model and booking
+ * reference number as the copy kept, at one dealership. PAN and mobile in
+ * full; the Aadhaar only ever masked to its last four digits. Deletions from
+ * before 2026-11-02 carry the PAN and mobile masked and no Aadhaar or
+ * booking reference number. */
+export type DeletedDuplicateBooking = {
+  deletionId: string; deletedAtUtc: string; status: string;
+  journeyId: string; journeyReference?: string | null;
+  keptJourneyId?: string | null; keptJourneyReference?: string | null;
+  customerName?: string | null; pcName?: string | null; dealerName?: string | null; outletName?: string | null;
+  model?: string | null; pan?: string | null; aadhaarMasked?: string | null; mobile?: string | null;
+  bookingReference?: string | null;
+};
+
+export function getDeletedDuplicateBookings(tenantId: string, accessToken?: string) {
+  return auditCoreRequest<{ generatedAtUtc: string; items: DeletedDuplicateBooking[] }>(
+    `/v1/tenants/${encodeURIComponent(tenantId)}/uc03/duplicate-bookings/deleted`,
+    { accessToken, timeoutMs: LIST_READ_TIMEOUT_MS },
+  );
+}
+
 // ── Deal actions: pricing date, model catalogue by date, recheck ────────────
 export type P2PriceListRef = {
   priceListVersionId: string; priceList?: string | null; version?: number | null;

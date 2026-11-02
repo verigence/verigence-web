@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import '../styles/uc03-p2.css';
 import '../styles/uc03-p2-workspace.css';
 import '../styles/uc03-p2-journey360.css';
@@ -8,7 +8,9 @@ import '../styles/uc03-p2-journey360.css';
 import PageHeader from '../components/PageHeader';
 import { formatDateTime, humanizeKey } from '../features/uc03-p2/workspace/p2Format';
 import {
+  getDeletedDuplicateBookings,
   getDuplicateBookings,
+  type DeletedDuplicateBooking,
   type DuplicateBookingPair,
   type DuplicateBookingSide,
 } from '../services/audit-core/uc03P2';
@@ -63,15 +65,91 @@ function MatchedOn({ pair }: { pair: DuplicateBookingPair }) {
   );
 }
 
-/** Tenant-wide possible duplicate bookings, most serious first. */
+type DuplicatesTab = 'possible' | 'deleted';
+
+/** Bookings the system deleted as the same file uploaded again (product
+ * owner 2026-11-02), newest first. The deleted copy is gone, so only the
+ * copy kept opens in Journey 360. */
+function DeletedDuplicates({ tenantId, accessToken }: { tenantId?: string; accessToken?: string }) {
+  const query = useQuery({
+    queryKey: ['p2-duplicates-deleted', tenantId],
+    queryFn: () => getDeletedDuplicateBookings(tenantId!, accessToken),
+    enabled: Boolean(tenantId && accessToken),
+    staleTime: 30_000,
+  });
+  const items: DeletedDuplicateBooking[] = query.data?.items ?? [];
+  return (
+    <>
+      <div className="p2w-listbar">
+        <span className="p2w-muted">
+          Deleted automatically: same PAN or Aadhaar, mobile, model and booking reference number as a booking already on file at the same dealership.
+        </span>
+        <span className="p2w-muted">{query.isFetching ? 'Refreshing…' : `${items.length} deleted`}</span>
+      </div>
+      {query.isError ? (
+        <div className="p2w-alert p2w-alert--error" role="alert">
+          Deleted bookings could not be loaded. <button type="button" className="p2w-link" onClick={() => void query.refetch()}>Try again</button>
+        </div>
+      ) : null}
+      {query.isLoading ? <p className="p2w-skeleton">Loading…</p> : null}
+      {!query.isLoading && !query.isError && !items.length ? (
+        <p className="p2w-empty p2w-empty--success">No bookings have been deleted as duplicates.</p>
+      ) : null}
+      {items.length ? (
+        <div className="j360-card j360-dup-deleted">
+          <table className="p2w-table">
+            <thead>
+              <tr>
+                <th scope="col">Deleted</th><th scope="col">Customer</th><th scope="col">Booking ref.</th>
+                <th scope="col">PAN</th><th scope="col">Aadhaar</th><th scope="col">Mobile</th>
+                <th scope="col">Model</th><th scope="col">PC</th><th scope="col">Outlet</th>
+                <th scope="col">Deleted copy</th><th scope="col">Copy kept</th>
+              </tr>
+            </thead>
+            <tbody>
+              {items.map((item) => (
+                <tr key={item.deletionId}>
+                  <td data-label="Deleted">{formatDateTime(item.deletedAtUtc)}</td>
+                  <td data-label="Customer">{item.customerName || '—'}</td>
+                  <td data-label="Booking ref.">{item.bookingReference || '—'}</td>
+                  <td data-label="PAN">{item.pan || '—'}</td>
+                  <td data-label="Aadhaar">{item.aadhaarMasked || '—'}</td>
+                  <td data-label="Mobile">{item.mobile || '—'}</td>
+                  <td data-label="Model">{item.model || '—'}</td>
+                  <td data-label="PC">{item.pcName || '—'}</td>
+                  <td data-label="Outlet">{[item.dealerName, item.outletName].filter(Boolean).join(' · ') || '—'}</td>
+                  <td data-label="Deleted copy">{item.journeyReference || '—'}</td>
+                  <td data-label="Copy kept">
+                    {item.keptJourneyId ? (
+                      <Link className="p2w-link" to={`/p2/journeys/${item.keptJourneyId}/overview`}>
+                        {item.keptJourneyReference || 'Open Journey 360'}
+                      </Link>
+                    ) : (item.keptJourneyReference || '—')}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : null}
+    </>
+  );
+}
+
+/** Tenant-wide possible duplicate bookings, most serious first, and the
+ * bookings deleted as duplicates. */
 export default function P2DuplicateBookingsPage() {
   const tenantId = useProjectContextStore((s) => s.selectedProject?.tenantId);
   const accessToken = useSessionStore((s) => s.accessToken);
+  // The tab is in the address (?tab=deleted), so the Deleted list can be linked to.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tab: DuplicatesTab = searchParams.get('tab') === 'deleted' ? 'deleted' : 'possible';
+  const setTab = (next: DuplicatesTab) => setSearchParams(next === 'deleted' ? { tab: 'deleted' } : {}, { replace: true });
   const [includeClosed, setIncludeClosed] = useState(false);
   const query = useQuery({
     queryKey: ['p2-duplicates', tenantId, includeClosed],
     queryFn: () => getDuplicateBookings(tenantId!, accessToken, includeClosed),
-    enabled: Boolean(tenantId && accessToken),
+    enabled: Boolean(tenantId && accessToken && tab === 'possible'),
     staleTime: 30_000,
   });
   const pairs = query.data?.pairs ?? [];
@@ -79,6 +157,13 @@ export default function P2DuplicateBookingsPage() {
     <div className="screen-stack p2-screen p2w j360">
       <PageHeader eyebrow="Audit" title="Duplicate bookings"
         description="Bookings whose customer matches another booking by PAN, Aadhaar, name, mobile or address. Confirm a genuine repeat customer or stop the duplicate." />
+      <div className="p2w-segment p2w-tabs-main" role="tablist" aria-label="Duplicate bookings view">
+        {([['possible', 'Possible duplicates'], ['deleted', 'Deleted']] as const).map(([key, label]) => (
+          <button key={key} type="button" role="tab" aria-selected={tab === key}
+            className={tab === key ? 'is-active' : ''} onClick={() => setTab(key)}>{label}</button>
+        ))}
+      </div>
+      {tab === 'deleted' ? <DeletedDuplicates tenantId={tenantId} accessToken={accessToken} /> : (<>
       <div className="p2w-listbar">
         <label className="p2w-check"><input type="checkbox" checked={includeClosed} onChange={(e) => setIncludeClosed(e.target.checked)} /> Include resolved</label>
         <span className="p2w-muted">{query.isFetching ? 'Refreshing…' : `${pairs.length} pairs`}</span>
@@ -107,6 +192,7 @@ export default function P2DuplicateBookingsPage() {
         {!query.isLoading && !pairs.length && !query.isError ? <li className="p2w-empty p2w-empty--success">No possible duplicate bookings.</li> : null}
         {query.isLoading ? <li className="p2w-skeleton">Loading…</li> : null}
       </ul>
+      </>)}
     </div>
   );
 }

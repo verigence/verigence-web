@@ -997,6 +997,12 @@ export type P2DealRow = {
   bookingVsBilled?: Money;
   flags: string[];
   sources: P2DealSource[];
+  /** The document a line still waits for, else null. */
+  awaiting?: string | null;
+  /** Under the NDC policy, for accessories, EW and RSA: what their invoices
+   * bill beside the NDC's charge, and (accessories) the part not charged. */
+  invoiced?: Money;
+  freeByInvoice?: Money;
 };
 
 export type P2DealCategory = {
@@ -1018,6 +1024,8 @@ export type P2DiscountRow = Omit<P2DealRow, 'standard' | 'quote' | 'effectiveSou
   proof?: { documentType: string; document: string; onFile: boolean } | null;
   /** On the MANAGEMENT_REFERRAL line only. */
   management?: P2ManagementReferral;
+  /** Credit notes whose total is this benefit's amount (they print no reason). */
+  paidByCreditNotes?: Array<{ documentId: string; number?: unknown; date?: unknown; amount: Money }>;
 };
 
 type P2DealSummary = {
@@ -1037,7 +1045,12 @@ type P2DealSummary = {
    *  the NDC / account statement, else the cost sheet. */
   billedSource?: 'INVOICE' | 'ACCOUNT_STATEMENT';
   components: number;
-  paid: { receipts: string; loan: string; total: string };
+  /** oldVehicle: the old vehicle the NDC takes against the price, paid in kind (in total). */
+  paid: {
+    receipts: string; loan: string; oldVehicle?: string | null; total: string;
+    /** The loan as the Audit Summary counts it: where from, from the bank letter (*), or not on file. */
+    loanSource?: string | null; loanWithoutReceipt?: boolean; loanUnknown?: boolean; refunds?: string | null;
+  };
   payable: Money;
   balanceDue: Money;
 };
@@ -1224,6 +1237,8 @@ export type P2PaymentItem = {
   duplicateOf?: string | null;
   bankMatch?: string | null;
   bankStatement?: P2BankMatch | null;
+  /** The receipt linked as the loan disbursement: counted as the loan, not a customer receipt. */
+  isLoanReceipt?: boolean;
 };
 
 /** A loan with no dealership receipt, as the lender's letter states it (2026-10-31): shown with an asterisk. */
@@ -1235,11 +1250,16 @@ export type P2LoanWithoutReceipt = {
 export type P2CreditNote = {
   documentId: string; number?: unknown; date?: unknown; amount: Money; taxable?: Money;
   reason?: string | null; issuedTo?: unknown;
+  /** The one benefit of the deal with this amount; null when none or several do. */
+  benefit?: { key: string; label: string } | null;
+  /** The benefits with this amount when more than one has it. */
+  benefitCandidates?: string[];
 };
 
 export type P2Payments360 = {
   items: P2PaymentItem[];
-  receiptsTotal: string; loanDisbursed: string; paidTotal: string; byStage: Record<string, string>;
+  /** receiptsTotal: the customer's receipts; loanDisbursed: the loan (its linked receipt included). */
+  receiptsTotal: string; loanDisbursed: string; loanReceiptsTotal?: string; paidTotal: string; byStage: Record<string, string>;
   loanWithoutReceipt?: P2LoanWithoutReceipt | null;
   duplicates?: number;
   bankStatement?: {
@@ -1317,6 +1337,8 @@ export type P2AuditSummary = {
     loanWithoutReceipt?: boolean;
     /** Money the settlement printout records as refunded or adjusted out. */
     refunds?: string | null; refundsSource?: string | null;
+    /** The old vehicle the NDC takes against the price: paid in kind, in received. */
+    oldVehicle?: string | null;
     received: string;
     bankCheck: P2AuditCheck & { verified: string; cash: string; notFound: string; noStatement: string };
     loans: (P2AuditCheck & { lender: string | null; sanctioned: string | null; disbursed: string | null;

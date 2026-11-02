@@ -306,6 +306,13 @@ function ComponentRow({ row, journeyId, open, onToggle }: { row: P2DealRow; jour
                 {row.quote ? `Cost sheet ${money(row.quote)}` : ''}
               </p>
             ) : null}
+            {row.invoiced ? (
+              <p className="p2w-muted">
+                {`Charged on the NDC ${money(row.billed)} · invoiced ${money(row.invoiced)}`}
+                {row.freeByInvoice ? ` · ${money(row.freeByInvoice)} given free` : ''}
+              </p>
+            ) : null}
+            {row.awaiting ? <p className="p2w-muted">{`Awaiting the ${row.awaiting}`}</p> : null}
             <Sources row={row} journeyId={journeyId} />
           </td>
         </tr>
@@ -394,6 +401,20 @@ function DiscountRow({ row, journeyId, tenantId, accessToken, open, onToggle }: 
                 <SchemeNote row={row} />
               </>
             )}
+            {row.paidByCreditNotes?.length ? (
+              <p className="p2w-muted">
+                {'Paid by credit note '}
+                {row.paidByCreditNotes.map((note, index) => (
+                  <Fragment key={note.documentId}>
+                    {index ? ', ' : ''}
+                    <Link className="p2w-link" to={`/p2/journeys/${journeyId}/documents/${note.documentId}`}>
+                      {note.number ? String(note.number) : 'credit note'}
+                    </Link>
+                    {` (${money(note.amount)})`}
+                  </Fragment>
+                ))}
+              </p>
+            ) : null}
             <Sources row={row} journeyId={journeyId} />
           </td>
         </tr>
@@ -460,9 +481,10 @@ export default function DealTab({ deal, journeyId, tenantId, accessToken }: {
             <small>Temporary, from the booking form</small>
           </div>
           <div className="is-truth">
-            <dt>Invoice</dt>
+            <dt>{billedLabel}</dt>
             <dd>{money(netBilled)}</dd>
-            <small>{invoiced ? `${invoiced} of ${summary.components} components invoiced` : 'No invoice read yet'}</small>
+            <small>{invoiced ? `${invoiced} of ${summary.components} components ${summary.billedSource === 'ACCOUNT_STATEMENT' ? 'on the NDC' : 'invoiced'}`
+              : summary.billedSource === 'ACCOUNT_STATEMENT' ? 'No NDC read yet' : 'No invoice read yet'}</small>
           </div>
           <div className={`is-offer ${varianceTone(variance)}`}>
             <dt>Offered to customer</dt>
@@ -477,8 +499,8 @@ export default function DealTab({ deal, journeyId, tenantId, accessToken }: {
           <span>Fill: what the customer is offered{invoiceOnly ? ' (an invoice is on file: invoices only, nothing from the booking; a price-master line no invoice bills counts as a variance)' : partly ? ` (invoice where billed, booking for the other ${summary.components - invoiced})` : invoiced ? ' (the invoice)' : ' (the booking, until an invoice is read)'}</span>
         </p>
         <dl className="j360-paid">
-          <div><dt>Received</dt><dd>{money(summary.paid.total)}</dd><small>{money(summary.paid.receipts)} receipts · {money(summary.paid.loan)} loan</small></div>
-          <div className={due !== null && due > 0 ? 'is-due' : 'is-clear'}><dt>Balance due</dt><dd>{money(summary.balanceDue)}</dd><small>against {money(summary.payable)} payable</small></div>
+          <div><dt>Received</dt><dd>{money(summary.paid.total)}</dd><small>{money(summary.paid.receipts)} receipts · {money(summary.paid.loan)} loan{summary.paid.loanWithoutReceipt ? '*' : ''}{summary.paid.oldVehicle ? ` · ${money(summary.paid.oldVehicle)} old vehicle` : ''}{summary.paid.refunds ? ` · − ${money(summary.paid.refunds)} refunded` : ''}</small></div>
+          <div className={due !== null && due > 0 ? 'is-due' : 'is-clear'}><dt>Balance due</dt><dd>{money(summary.balanceDue)}</dd><small>{summary.paid.loanUnknown ? 'financed: the loan amount is not on file yet' : `against ${money(summary.payable)} payable`}</small></div>
           <div><dt>Discounts given</dt><dd>{money(summary.discounts.current)}</dd>
             <small>{entitledTotal !== null && givenTotal !== null ? (givenTotal > entitledTotal ? `${money(String(givenTotal - entitledTotal))} more than entitled` : `within the ${money(summary.discounts.standard)} entitled`) : 'no scheme entitlement recorded'}</small></div>
           <div><dt>Lines to look at</dt><dd>{deal.flagged}</dd><small>{deal.flagged ? 'priced away from the master or the booking' : 'every line as expected'}</small></div>
@@ -605,7 +627,7 @@ export default function DealTab({ deal, journeyId, tenantId, accessToken }: {
         <section className="j360-card" aria-label="Credit notes">
           <div className="j360-card__head">
             <h3 className="j360-h3">Credit notes</h3>
-            <span className="p2w-muted">For information: not used in any figure on this sheet</span>
+            <span className="p2w-muted">Matched to a benefit by their amount (they print no reason); not added to any figure on this sheet</span>
           </div>
           <ul className="j360-invoices">
             {deal.creditNotes.map((note) => (
@@ -613,7 +635,10 @@ export default function DealTab({ deal, journeyId, tenantId, accessToken }: {
                 <Link className="p2w-link" to={`/p2/journeys/${journeyId}/documents/${note.documentId}`}>
                   {note.number ? `Credit note ${String(note.number)}` : 'Credit note'}
                 </Link>
-                <span className="p2w-muted">{[note.date && recordField('invoice_date', note.date), note.reason].filter(Boolean).join(' · ')}</span>
+                <span className="p2w-muted">{[note.date && recordField('invoice_date', note.date), note.reason,
+                  note.benefit ? `pays ${note.benefit.label}`
+                    : note.benefitCandidates?.length ? 'matches more than one benefit: the PC names it'
+                      : 'matches no benefit on the deal'].filter(Boolean).join(' · ')}</span>
                 <b>{money(note.amount)}</b>
               </li>
             ))}
@@ -628,7 +653,7 @@ export default function DealTab({ deal, journeyId, tenantId, accessToken }: {
             {deal.declared.map((item) => (
               <div key={item.key}>
                 <dt>{item.label}</dt>
-                <dd>{[item.booking && `Booking ${money(item.booking)}`, item.billed && `Invoice ${money(item.billed)}`,
+                <dd>{[item.booking && `Booking ${money(item.booking)}`, item.billed && `${summary.billedSource === 'ACCOUNT_STATEMENT' ? 'NDC' : 'Invoice'} ${money(item.billed)}`,
                   item.ledger && `Ledger ${money(item.ledger)}`].filter(Boolean).join(' · ') || '—'}</dd>
               </div>
             ))}

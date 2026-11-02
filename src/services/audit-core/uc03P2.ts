@@ -1046,7 +1046,11 @@ type P2DealSummary = {
   billedSource?: 'INVOICE' | 'ACCOUNT_STATEMENT';
   components: number;
   /** oldVehicle: the old vehicle the NDC takes against the price, paid in kind (in total). */
-  paid: { receipts: string; loan: string; oldVehicle?: string | null; total: string };
+  paid: {
+    receipts: string; loan: string; oldVehicle?: string | null; total: string;
+    /** The loan as the Audit Summary counts it: where from, from the bank letter (*), or not on file. */
+    loanSource?: string | null; loanWithoutReceipt?: boolean; loanUnknown?: boolean; refunds?: string | null;
+  };
   payable: Money;
   balanceDue: Money;
 };
@@ -1233,6 +1237,8 @@ export type P2PaymentItem = {
   duplicateOf?: string | null;
   bankMatch?: string | null;
   bankStatement?: P2BankMatch | null;
+  /** The receipt linked as the loan disbursement: counted as the loan, not a customer receipt. */
+  isLoanReceipt?: boolean;
 };
 
 /** A loan with no dealership receipt, as the lender's letter states it (2026-10-31): shown with an asterisk. */
@@ -1252,7 +1258,8 @@ export type P2CreditNote = {
 
 export type P2Payments360 = {
   items: P2PaymentItem[];
-  receiptsTotal: string; loanDisbursed: string; paidTotal: string; byStage: Record<string, string>;
+  /** receiptsTotal: the customer's receipts; loanDisbursed: the loan (its linked receipt included). */
+  receiptsTotal: string; loanDisbursed: string; loanReceiptsTotal?: string; paidTotal: string; byStage: Record<string, string>;
   loanWithoutReceipt?: P2LoanWithoutReceipt | null;
   duplicates?: number;
   bankStatement?: {
@@ -1330,6 +1337,8 @@ export type P2AuditSummary = {
     loanWithoutReceipt?: boolean;
     /** Money the settlement printout records as refunded or adjusted out. */
     refunds?: string | null; refundsSource?: string | null;
+    /** The old vehicle the NDC takes against the price: paid in kind, in received. */
+    oldVehicle?: string | null;
     received: string;
     bankCheck: P2AuditCheck & { verified: string; cash: string; notFound: string; noStatement: string };
     loans: (P2AuditCheck & { lender: string | null; sanctioned: string | null; disbursed: string | null;

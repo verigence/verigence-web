@@ -206,6 +206,7 @@ export default function AuditSummaryTab({ data, onRegenerate, regenerating }: {
             sub={[f.loanSource ? `per ${f.loanSource}` : '', f.loanNote ?? ''].filter(Boolean).join(' · ') || undefined} />
           {f.refunds ? <Fact label="Refunded / adjusted" value={`− ${money(f.refunds)}`}
             sub={f.refundsSource ? `per ${f.refundsSource}` : undefined} /> : null}
+          {f.oldVehicle ? <Fact label="Old vehicle (in kind)" value={money(f.oldVehicle)} sub="per NDC (account statement)" /> : null}
           <Fact label="Total received" value={money(f.received)} />
           <Fact label="Verified with bank statement" value={money(f.bankCheck.verified)}
             sub={[Number(f.bankCheck.cash) ? `${money(f.bankCheck.cash)} cash` : '',

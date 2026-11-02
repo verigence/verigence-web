@@ -174,6 +174,7 @@ function BankCell({ item }: { item: P2PaymentItem }) {
 }
 
 function CountedCell({ item }: { item: P2PaymentItem }) {
+  if (item.counted && item.isLoanReceipt) return <span className="p2w-chip p2w-chip--success">Counted as the loan</span>;
   if (item.counted) return <span className="p2w-chip p2w-chip--success">Counted</span>;
   if (item.duplicateOf) {
     return (
@@ -202,8 +203,8 @@ export function PaymentsTab({ payments, journeyId }: { payments: P2Payments360; 
   return (
     <div className="j360-stack">
       <dl className="j360-paid j360-card">
-        <div><dt>Receipts counted</dt><dd>{money(payments.receiptsTotal)}</dd></div>
-        <div><dt>Loan disbursed</dt><dd>{money(payments.loanDisbursed)}</dd></div>
+        <div><dt>Customer receipts</dt><dd>{money(payments.receiptsTotal)}</dd></div>
+        <div><dt>Loan received</dt><dd>{money(payments.loanDisbursed)}</dd></div>
         <div><dt>Total received</dt><dd>{money(payments.paidTotal)}</dd></div>
         {letterLoan ? <div className="is-due"><dt>Loan per bank letter*</dt><dd>{money(letterLoan.amount)}</dd></div> : null}
         {Object.entries(payments.byStage).map(([stage, amount]) => (
@@ -228,7 +229,7 @@ export function PaymentsTab({ payments, journeyId }: { payments: P2Payments360; 
                   <th scope="row">
                     {item.documentId ? <Link className="p2w-link" to={`/p2/journeys/${journeyId}/documents/${item.documentId}`}>{item.receiptNumber || item.document || 'Receipt'}</Link>
                       : item.receiptNumber || 'Receipt'}
-                    <small className="p2w-muted">{[item.stage && humanizeKey(item.stage), item.bank, item.reference].filter(Boolean).join(' · ')}</small>
+                    <small className="p2w-muted">{[item.isLoanReceipt ? 'Loan receipt' : null, item.stage && humanizeKey(item.stage), item.bank, item.reference].filter(Boolean).join(' · ')}</small>
                   </th>
                   <td data-label="Date">{recordField('receipt_date', item.receiptDate)}</td>
                   <td data-label="Mode">{item.mode ? humanizeKey(item.mode) : '—'}</td>

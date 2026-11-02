@@ -1,0 +1,21 @@
+/* Missing documents (P2MissingDocumentsPage). */
+.p2md-bar { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; }
+.p2md-filter { display: inline-flex; align-items: center; gap: 8px; font-weight: 700; }
+.p2md-filter select {
+  min-height: 44px; max-width: 100%; padding: 6px 10px; border: 1px solid #cbd8de; border-radius: 10px; font: inherit;
+}
+.p2md-chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.p2w .p2md-chips button.p2w-chip { min-height: 36px; border: 1px solid transparent; cursor: pointer; font: inherit; font-size: .8rem; font-weight: 700; }
+.p2w .p2md-chips button.p2w-chip[aria-pressed='true'] { border-color: currentColor; }
+.p2md-scroll { overflow-x: auto; }
+.p2md-day { display: grid; gap: 8px; }
+.p2md-day h3 { display: flex; gap: 10px; align-items: baseline; margin: 0; font-size: 1rem; }
+.p2md-docs { margin: 0; padding-left: 18px; }
+.p2md-note { margin: 0; font-size: .85rem; }
+@media (max-width: 640px) {
+  .p2md-day .p2w-table thead { display: none; }
+  .p2md-day .p2w-table, .p2md-day .p2w-table tbody, .p2md-day .p2w-table tr, .p2md-day .p2w-table td { display: block; width: 100%; }
+  .p2md-day .p2w-table tr { padding: 8px 0; border-bottom: 1px solid #e3eaed; }
+  .p2md-day .p2w-table td { padding: 2px 4px; border-bottom: 0; }
+  .p2md-day .p2w-table td[data-label]::before { content: attr(data-label) ': '; color: #5d6f76; font-weight: 600; }
+}

@@ -163,6 +163,15 @@ const p2GatePassItem: NavItem = {
   roles: ['PC', 'TL', 'PM', 'EXECUTIVE'],
 };
 
+// Documents still missing on the journeys that have deliveries, day by day
+// (product owner 2026-11-02): a PC their outlets, TL / PM / Executive the Project.
+const p2MissingDocumentsItem: NavItem = {
+  to: '/p2/missing-documents',
+  label: 'Missing documents',
+  mark: 'MI',
+  roles: ['PC', 'TL', 'PM', 'EXECUTIVE'],
+};
+
 // Tasks not tied to a booking, recurring tasks and the daily gate pass task
 // (product owner 2026-10-26). Every operating role receives tasks here.
 const taskManagerItem: NavItem = {
@@ -310,7 +319,7 @@ const routeLabels: Record<string, string> = {
   '/feedback': 'Feedback & Support', '/hr/support': 'Feedback & Support', '/hr/support/new': 'Raise a ticket',
   '/reviews': 'Task Queue', '/duplicate-bookings': 'Duplicate Bookings', '/rule-catalog': 'Rule Catalog', '/rule-catalog/new': 'Author a Rule', '/findings': 'Findings',
   '/daily-ops': 'Daily Operations',
-  '/analytics': 'Analytics', '/p2/bookings': 'Booking & Delivery', '/p2/tasks': 'Task Queue', '/p2/duplicate-bookings': 'Duplicate bookings', '/p2/reports/daily': 'Daily processing', '/p2/gate-pass': 'Daily gate pass', '/p2/task-manager': 'Task Manager', '/p2/reports/utilisation': 'Employee engagement', '/p2/reports/di': 'DI dashboard', '/admin/task-manager': 'Task Manager', '/admin/engagement': 'Employee engagement', '/admin/di-dashboard': 'DI dashboard', '/admin/system-health': 'System health', '/admin/document-intelligence': 'Document Intelligence Configuration',
+  '/analytics': 'Analytics', '/p2/bookings': 'Booking & Delivery', '/p2/tasks': 'Task Queue', '/p2/duplicate-bookings': 'Duplicate bookings', '/p2/reports/daily': 'Daily processing', '/p2/gate-pass': 'Daily gate pass', '/p2/missing-documents': 'Missing documents', '/p2/task-manager': 'Task Manager', '/p2/reports/utilisation': 'Employee engagement', '/p2/reports/di': 'DI dashboard', '/admin/task-manager': 'Task Manager', '/admin/engagement': 'Employee engagement', '/admin/di-dashboard': 'DI dashboard', '/admin/system-health': 'System health', '/admin/document-intelligence': 'Document Intelligence Configuration',
   '/admin/housekeeping': 'Housekeeping', '/admin/sku-resolution': 'SKU Resolution', '/admin/hr-housekeeping': 'HR Housekeeping', '/admin/feedback': 'User Feedback', '/admin/di-test': 'DI Test Console', '/admin/users': 'Users', '/admin/features': 'Feature Rollout', '/admin/announcements': 'Announcements', '/admin/diagnostics': 'Device Diagnostics', '/admin/login-activity': 'Login Activity',
   '/admin/users/pending': 'Pending Approvals',
   '/admin/oem-masters': 'OEM Masters', '/admin/reports': 'Reports', '/admin/project': 'Project Administration', '/profile': 'Profile',
@@ -390,6 +399,7 @@ function NavIcon({ mark }: { mark: string }) {
     case 'HY': glyph = <><rect x="3" y="6" width="18" height="12" rx="2" /><circle cx="12" cy="12" r="2.5" /></>; break;
     case 'HM': glyph = <><rect x="3" y="5" width="18" height="14" rx="2" /><path d="m3 7 9 6 9-6" /></>; break;
     case 'HS': glyph = <><circle cx="12" cy="12" r="3" /><path d="M12 3v3m0 12v3M3 12h3m12 0h3M5.6 5.6l2.1 2.1m8.6 8.6 2.1 2.1m0-12.8-2.1 2.1m-8.6 8.6-2.1 2.1" /></>; break;
+    case 'MI': glyph = <><path d="M6 3h8l4 4v14H6z" /><path d="M14 3v5h5M12 11v4m0 3h.01" /></>; break;
     case 'CB': glyph = <><rect x="4" y="4" width="16" height="16" rx="3" /><path d="M12 8v8M8 12h8" /></>; break;
     default: glyph = <circle cx="12" cy="12" r="7" />;
   }
@@ -454,6 +464,7 @@ export default function AppShell({ children }: PropsWithChildren) {
             p2DuplicatesItem,
             ...(role === 'PC' ? [dailyOpsItem] : [p2DailyProcessingItem]),
             p2GatePassItem,
+            p2MissingDocumentsItem,
             // The SKU / discount reference and the month's source documents
             // (added 18 Oct to the DealGuard group but never to this per-role
             // list, so nobody working in a Project saw them).
@@ -465,7 +476,7 @@ export default function AppShell({ children }: PropsWithChildren) {
           ],
         }
       : role === 'EXECUTIVE'
-        ? { ...p2Group, items: [p2DailyProcessingItem, p2GatePassItem, { ...taskManagerItem, badge: tmCount }, utilisationItem, diDashboardItem] }
+        ? { ...p2Group, items: [p2DailyProcessingItem, p2GatePassItem, p2MissingDocumentsItem, { ...taskManagerItem, badge: tmCount }, utilisationItem, diDashboardItem] }
         // A Reviewer's whole surface (2026-10-23: inside a Project the group was
         // built for PC / TL / PM only, so a Reviewer saw none of it, not even
         // Document Review, which is their home page).

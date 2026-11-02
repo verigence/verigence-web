@@ -33,6 +33,7 @@ export const FLAG_LABELS: Record<string, string> = {
   NOT_ON_STATEMENT: 'Not on the NDC',
   INVOICES_DISAGREE: 'Documents disagree',
   AWAITING_DOCUMENT: 'Awaiting document',
+  BENEFIT_NOT_NAMED: 'Benefit not named',
 };
 
 export const CONTROL_STATUS: Record<string, { label: string; tone: string }> = {

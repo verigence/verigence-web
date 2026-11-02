@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import SectionCard from '../../../components/SectionCard';
 import {
   getP2UploadFileLink,
+  type P2DailyDeliveryFilesClosed,
   type P2DailyDocumentStatus,
   type P2DailyTeamWork,
   type P2DailyUploadedFile,
@@ -168,6 +169,83 @@ export function DocumentStatusCard({ status, day }: { status: P2DailyDocumentSta
           </tbody>
         </table>
       </div>
+    </SectionCard>
+  );
+}
+
+type ClosedByPc = P2DailyDeliveryFilesClosed['byPc'][number];
+
+/** One PC's closed delivery files; a click lists them (customer, outlet, when it closed). */
+function ClosedFilesRow({ pc, timezone }: { pc: ClosedByPc; timezone: string }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <tr className="p2dr-pc">
+        <td data-label="PC">
+          <button type="button" className="p2dr-toggle" aria-expanded={open} onClick={() => setOpen((v) => !v)}>
+            <span aria-hidden="true">{open ? '▾' : '▸'}</span> <strong>{personLabel(pc.pcName, 'PC', pc.pcActorId)}</strong>
+          </button>
+        </td>
+        <td data-label="Delivery files closed"><strong>{pc.deliveryFilesClosed}</strong></td>
+        <td data-label="Outlet" />
+        <td data-label="Closed" />
+      </tr>
+      {open ? pc.files.map((file) => {
+        const customer = customerLabel(file.customerName);
+        return (
+          <tr key={file.journeyId} className="p2dr-child">
+            <td data-label="Journey">
+              <Link to={`/p2/journeys/${file.journeyId}/overview`} className={customer.known ? undefined : 'is-unknown'}>{customer.text}</Link>
+              {file.journeyReference ? <span className="p2w-muted p2dr-sub">{file.journeyReference}</span> : null}
+            </td>
+            <td data-label="Delivery files closed" />
+            <td data-label="Outlet">{file.outletName || '—'}</td>
+            <td data-label="Closed">{clock(file.closedAtUtc, timezone)}</td>
+          </tr>
+        );
+      }) : null}
+    </>
+  );
+}
+
+/**
+ * Delivery files closed on the day, per PC and in total (product owner
+ * 2026-11-02): mandatory delivery documents in (or the PC closed their
+ * "Upload the ..." task) and every document task closed by the PC.
+ */
+export function DeliveryFilesClosedCard(
+  { closed, day, timezone }: { closed: P2DailyDeliveryFilesClosed; day: string; timezone: string },
+) {
+  return (
+    <SectionCard>
+      <div className="p2w-card__title">
+        <h3>Delivery files closed</h3>
+        <p className="p2w-muted">
+          {closed.total
+            ? `${closed.total} delivery file${closed.total === 1 ? '' : 's'} closed on ${day}: every mandatory delivery document is in (or the PC closed its upload task) and every document task is closed. Open a PC for the files.`
+            : `No delivery file closed on ${day}.`}
+        </p>
+      </div>
+      {closed.total ? (
+        <div className="p2dr-scroll">
+          <table className="p2dr-table">
+            <thead>
+              <tr><th>PC</th><th>Delivery files closed</th><th>Outlet</th><th>Closed</th></tr>
+            </thead>
+            <tbody>
+              {closed.byPc.map((pc) => <ClosedFilesRow key={pc.pcActorId ?? 'none'} pc={pc} timezone={timezone} />)}
+            </tbody>
+            <tfoot>
+              <tr className="p2dr-total">
+                <td>All PCs</td>
+                <td>{closed.total}</td>
+                <td />
+                <td />
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      ) : null}
     </SectionCard>
   );
 }

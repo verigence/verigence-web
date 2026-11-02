@@ -1774,6 +1774,28 @@ export type P2DailyPcRow = P2DailyCounts & {
   spanMinutes: number | null;
   /** Journeys the PC did not upload that day: tasks and fixes the system's own re-checks made. */
   earlier?: P2DailyCounts & { journeys: number };
+  /** Delivery files of this PC that closed on the day (2026-11-02). */
+  deliveryFilesClosed?: number;
+};
+
+/** A delivery file (Journey) that closed on the day: delivery uploaded, mandatory documents in
+ * (or their "Upload the ..." task closed by the PC) and every document task closed. */
+export type P2DailyClosedDeliveryFile = {
+  journeyId: string;
+  journeyReference: string | null;
+  customerName: string | null;
+  dealerName: string | null;
+  outletName: string | null;
+  outletCode: string | null;
+  pcActorId: string | null;
+  pcName: string | null;
+  closedAtUtc: string | null;
+};
+
+export type P2DailyDeliveryFilesClosed = {
+  total: number;
+  byPc: { pcActorId: string | null; pcName: string | null; deliveryFilesClosed: number; files: P2DailyClosedDeliveryFile[] }[];
+  files: P2DailyClosedDeliveryFile[];
 };
 
 export type P2RejectionReasons = { faded: number; blurred: number; tooSmall: number; unreadable: number; other: number };
@@ -1890,6 +1912,8 @@ export type P2DailyProcessingReport = {
   taskStatus?: TmTaskStatus;
   documentStatus?: P2DailyDocumentStatus;
   teamWork?: P2DailyTeamWork;
+  /** Delivery files closed on the day, per PC, with the files (2026-11-02). */
+  deliveryFilesClosed?: P2DailyDeliveryFilesClosed;
   files?: P2DailyUploadedFile[];
   filesTruncated?: boolean;
   linkExpiresInSeconds?: number;

@@ -49,3 +49,13 @@
 /* The Tracker day by day (2026-11-03). */
 .p2mw-sub { display: block; font-size: 12px; margin-top: 2px; }
 .p2mw-table tr.p2mw-day-first td { border-top: 2px solid var(--p2w-line); }
+
+/* My Tracker (2026-11-03). */
+.p2mw-range { display: inline-flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.p2mw-range label { display: inline-flex; gap: 6px; align-items: center; font-weight: 600; }
+.p2mw-range input { min-height: 40px; padding: 4px 8px; border: 1px solid var(--p2w-line); border-radius: 8px; font: inherit; }
+.p2mw-title-row { display: flex; flex-wrap: wrap; gap: 12px; align-items: baseline; justify-content: space-between; }
+.p2mw-toggle { display: inline-flex; gap: 6px; align-items: center; font-size: 14px; }
+.p2mw-table tr.p2mw-outlet-row td { background: var(--p2mw-navy-soft); font-size: 13px; }
+.p2mw-table tr.p2mw-outlet-row td:first-child { padding-left: 24px; }
+.p2mw-pages { display: inline-flex; flex-wrap: wrap; gap: 8px; }

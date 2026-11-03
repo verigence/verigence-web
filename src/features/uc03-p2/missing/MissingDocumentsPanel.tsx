@@ -13,18 +13,20 @@ import { filterDaysByDocument, getMissingDocuments } from '../../../services/aud
  * The PC's Tracker shows it for the Tracker's period (their outlets); the Team
  * Lead's Missing documents page for the whole Project, with an outlet filter.
  */
-export default function MissingDocumentsPanel({ tenantId, accessToken, from, to, supervisor = false }: {
+export default function MissingDocumentsPanel({ tenantId, accessToken, from, to, supervisor = false, top }: {
   tenantId: string;
   accessToken?: string;
   from: string;
   to: string;
   supervisor?: boolean;
+  /** Show the delivery files closest to completion, this many (product owner 2026-11-03: 20 a day, 30 a week). */
+  top?: number;
 }) {
   const [outletId, setOutletId] = useState('');
   const [documentKey, setDocumentKey] = useState<string | null>(null);
   const query = useQuery({
-    queryKey: ['p2-missing-documents', tenantId, from, to, outletId],
-    queryFn: () => getMissingDocuments(tenantId, { from, to, outletId: outletId || undefined }, accessToken),
+    queryKey: ['p2-missing-documents', tenantId, from, to, outletId, top ?? null],
+    queryFn: () => getMissingDocuments(tenantId, { from, to, outletId: outletId || undefined, top }, accessToken),
     enabled: Boolean(tenantId && accessToken),
     staleTime: 30_000,
   });
@@ -76,6 +78,44 @@ export default function MissingDocumentsPanel({ tenantId, accessToken, from, to,
             );
           })}
         </ul>
+      ) : null}
+
+      {top && report?.closeToCompletion ? (
+        <section className="p2md-close" aria-label="Closest to completion">
+          <div>
+            <h4>Closest to completion</h4>
+            <p className="p2w-muted">
+              Delivery files held up only by missing documents, fewest missing first, then the longest waiting
+              {report.closeToCompletion.eligible > report.closeToCompletion.journeys.length
+                ? ` (top ${report.closeToCompletion.journeys.length} of ${report.closeToCompletion.eligible})` : ''}.
+              {report.closeToCompletion.heldByOtherTasks
+                ? ` ${report.closeToCompletion.heldByOtherTasks} more also have other document tasks open.` : ''}
+            </p>
+          </div>
+          {report.closeToCompletion.journeys.length === 0 ? (
+            <p className="p2w-muted">None in this period.</p>
+          ) : (
+            <div className="p2md-scroll">
+              <table className="p2w-table">
+                <thead><tr><th>#</th><th>Customer</th><th>Delivered</th><th>Outlet</th><th>PC</th><th>Missing</th></tr></thead>
+                <tbody>
+                  {report.closeToCompletion.journeys.map((j, i) => (
+                    <tr key={j.journeyId}>
+                      <td>{i + 1}</td>
+                      <td><Link className="p2w-link" to={`/p2/journeys/${j.journeyId}/documents`}>{j.customer}</Link></td>
+                      <td data-label="Delivered">{j.deliveryLabel}{j.basis === 'UPLOAD' ? ' *' : ''}</td>
+                      <td data-label="Outlet">{j.outletName ?? '—'}</td>
+                      <td data-label="PC">{j.pcName ?? '—'}</td>
+                      <td data-label="Missing">
+                        <ul className="p2md-docs">{j.documents.map((name) => <li key={name}>{name}</li>)}</ul>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
       ) : null}
 
       {supervisor && report && report.byOutlet.length > 0 && !outletId ? (

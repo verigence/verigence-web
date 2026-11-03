@@ -138,11 +138,12 @@ const p2HomeItem: NavItem = {
   mark: 'HM',
   roles: ['PC'],
 };
+// My Tracker (product owner 2026-11-03): its own entry for a PC and a Reviewer.
 const p2TrackerItem: NavItem = {
-  to: '/p2/home',
-  label: 'My tracker',
+  to: '/p2/tracker',
+  label: 'My Tracker',
   mark: 'MT',
-  roles: ['REVIEWER'],
+  roles: ['PC', 'REVIEWER'],
 };
 
 // How the system handled each PC's day: uploads, pages, documents read and
@@ -324,7 +325,7 @@ const routeLabels: Record<string, string> = {
   '/admin/users/pending': 'Pending Approvals',
   '/admin/oem-masters': 'OEM Masters', '/admin/reports': 'Reports', '/admin/project': 'Project Administration', '/profile': 'Profile',
   '/hr/employees': 'Employees', '/hr/employees/new': 'Add Employee', '/hr/employees/import': 'Import Employees', '/hr/employees/designation-salary-import': 'Import Designation and Salary', '/hr/me': 'My Employee Profile',
-  '/p2/home': 'Home', '/hr/attendance': 'Attendance', '/hr/attendance/team': 'Team Attendance', '/hr/attendance/daily': 'Daily Attendance', '/hr/assignments': 'Project Assignments', '/hr/leave': 'Leave', '/hr/leave/overview': 'Leave Overview',
+  '/p2/home': 'Home', '/p2/tracker': 'My Tracker', '/hr/attendance': 'Attendance', '/hr/attendance/team': 'Team Attendance', '/hr/attendance/daily': 'Daily Attendance', '/hr/assignments': 'Project Assignments', '/hr/leave': 'Leave', '/hr/leave/overview': 'Leave Overview',
   '/hr/claims': 'Reimbursements', '/hr/claims/new': 'New Claim', '/hr/claims/all': 'All Claims', '/hr/approvals': 'Approvals',
   '/hr/payslips': 'Payslips', '/hr/salary': 'My Salary', '/hr/messages': 'Employee Messages', '/hr/payroll': 'Payroll', '/hr/payroll/salaries': 'Salaries', '/hr/payroll/settings': 'Payroll Settings', '/hr/settings': 'HR Settings',
 };
@@ -455,7 +456,7 @@ export default function AppShell({ children }: PropsWithChildren) {
       ? {
           ...p2Group,
           items: [
-            ...(role === 'PC' ? [p2HomeItem] : []),
+            ...(role === 'PC' ? [p2HomeItem, p2TrackerItem] : []),
             // A Team Lead's Booking & Delivery is the TL overview (Dealer
             // Operations), not the PC's working list (decision 2026-10-20).
             role === 'TL' ? { ...p2BookingsItem, to: '/dashboard' } : p2BookingsItem,

@@ -106,6 +106,7 @@ const P2UtilisationPage = lazy(() => import('./pages/P2UtilisationPage'));
 const P2DiDashboardPage = lazy(() => import('./pages/P2DiDashboardPage'));
 // PC Home and the Tracker tab for PCs and Reviewers (product owner 2026-11-02).
 const P2MyWorkPage = lazy(() => import('./pages/P2MyWorkPage'));
+const P2MyTrackerPage = lazy(() => import('./pages/P2MyTrackerPage'));
 const AdminSystemHealthPage = lazy(() => import('./pages/AdminSystemHealthPage'));
 const AdminTaskManagerPage = lazy(() => import('./pages/AdminTaskManagerPage'));
 
@@ -368,6 +369,7 @@ export default function App() {
 
               {/* Phase 2 is additive. Existing links/routes above remain unchanged. */}
               <Route path="/p2/home" element={<OperationalPage><P2MyWorkPage /></OperationalPage>} />
+              <Route path="/p2/tracker" element={<OperationalPage><P2MyTrackerPage /></OperationalPage>} />
               <Route path="/p2/bookings" element={<OperationalPage><P2JourneyListPage /></OperationalPage>} />
               <Route path="/p2/journey-360" element={<Navigate to="/p2/bookings" replace />} />
               <Route path="/p2/work-queue" element={<Navigate to="/p2/bookings" replace />} />

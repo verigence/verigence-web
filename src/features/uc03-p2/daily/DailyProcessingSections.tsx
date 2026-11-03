@@ -127,7 +127,8 @@ export function DocumentStatusCard({ status, day }: { status: P2DailyDocumentSta
         <h3>Document status</h3>
         <p className="p2w-muted">
           For {day}, per PC: files that arrived, files that never uploaded, documents rejected by the scan-quality
-          check, and documents retried (automatically, by the PC, or given up after the retries).
+          check, documents retried (automatically, by the PC, or given up after the retries), and exact duplicate
+          files: files every page of which was already uploaded before, so nothing new was added.
         </p>
       </div>
       <div className="p2dr-scroll">
@@ -144,6 +145,7 @@ export function DocumentStatusCard({ status, day }: { status: P2DailyDocumentSta
               <th>Waiting</th>
               <th title="Automatic retries · the PC's retry or read-again · given up after the retries">Retried: auto · PC · gave up</th>
               <th>Large files</th>
+              <th title="Every page already uploaded before (or the same file again): nothing new added">Exact duplicates</th>
             </tr>
           </thead>
           <tbody>
@@ -163,6 +165,7 @@ export function DocumentStatusCard({ status, day }: { status: P2DailyDocumentSta
                   <td data-label="Waiting" className={row.waiting ? 'p2dr-warn' : undefined}>{row.waiting}</td>
                   <td data-label="Retried">{row.retriedAutomatically} · {row.retriedByPc} · <span className={row.retriesExhausted ? 'p2dr-bad' : undefined}>{row.retriesExhausted}</span></td>
                   <td data-label="Large files" className={row.largeUploads ? 'p2dr-warn' : undefined}>{row.largeUploads}</td>
+                  <td data-label="Exact duplicates" className={row.exactDuplicateFiles ? 'p2dr-warn' : undefined}>{row.exactDuplicateFiles ?? 0}</td>
                 </tr>
               );
             })}
@@ -297,7 +300,10 @@ export function UploadedFilesCard(
                     <td data-label="Journey">
                       <Link to={`/p2/journeys/${file.journeyId}/overview`} className={customer.known ? undefined : 'is-unknown'}>{customer.text}</Link>
                     </td>
-                    <td data-label="File">{file.filename}</td>
+                    <td data-label="File">
+                      {file.filename}
+                      {file.exactDuplicate ? <span className="p2dr-badge p2dr-badge--warn" title="Every page already uploaded before: nothing new added">Exact duplicate</span> : null}
+                    </td>
                     <td data-label="Pages">
                       {file.pages}{file.large ? <span className="p2dr-badge p2dr-badge--warn" title="More pages than the limit; the PC was asked to review it">Large</span> : null}
                     </td>

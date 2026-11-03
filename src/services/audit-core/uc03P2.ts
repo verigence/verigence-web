@@ -1862,6 +1862,8 @@ export type P2DailyUploadedFile = {
   documents: { read: number; waiting: number; failed: number; rejected: number };
   /** More pages than the limit: the PC was asked to review it (never a blocker). */
   large: boolean;
+  /** Every page already uploaded before, or the same file again: nothing new added (2026-11-03). */
+  exactDuplicate?: boolean;
   /** The PC's notice on a large file: open until they close it with a comment. */
   review: { status: 'OPEN' | 'CLOSED'; comment: string | null } | null;
   /** Short-lived storage link; null when the file never arrived. */
@@ -1876,6 +1878,8 @@ export type P2DailyStatusCounts = {
   filesUploadPending: number;
   filesNotSplit: number;
   duplicateFiles: number;
+  /** Files that added nothing: every page already uploaded before, or the same file again (2026-11-03). */
+  exactDuplicateFiles?: number;
   largeUploads: number;
   documents: number;
   read: number;

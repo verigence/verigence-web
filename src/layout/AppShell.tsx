@@ -464,7 +464,9 @@ export default function AppShell({ children }: PropsWithChildren) {
             p2DuplicatesItem,
             ...(role === 'PC' ? [dailyOpsItem] : [p2DailyProcessingItem]),
             p2GatePassItem,
-            p2MissingDocumentsItem,
+            // A PC's missing documents are inside their Tracker (product owner
+            // 2026-11-03: not a tab of their own); the TL and PM keep the page.
+            ...(role === 'PC' ? [] : [p2MissingDocumentsItem]),
             // The SKU / discount reference and the month's source documents
             // (added 18 Oct to the DealGuard group but never to this per-role
             // list, so nobody working in a Project saw them).

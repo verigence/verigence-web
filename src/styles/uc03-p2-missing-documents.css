@@ -19,3 +19,7 @@
   .p2md-day .p2w-table td { padding: 2px 4px; border-bottom: 0; }
   .p2md-day .p2w-table td[data-label]::before { content: attr(data-label) ': '; color: #5d6f76; font-weight: 600; }
 }
+/* Days as collapsible sections (shared panel, 2026-11-03). */
+.p2md { display: grid; gap: 12px; }
+details.p2md-day { padding: 10px 12px; border: 1px solid #e3eaed; border-radius: 12px; background: #fff; }
+details.p2md-day > summary { cursor: pointer; min-height: 32px; display: flex; gap: 10px; align-items: center; }

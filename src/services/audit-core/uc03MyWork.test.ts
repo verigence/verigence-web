@@ -17,6 +17,10 @@ describe('PC Home periods (IST)', () => {
     expect(periodRange('yesterday', new Date('2026-11-02T19:00:00Z'))).toEqual({ from: '2026-11-02', to: '2026-11-02' });
     expect(periodRange('week', monday)).toEqual({ from: '2026-11-02', to: '2026-11-02' });
     expect(periodRange('lastWeek', monday)).toEqual({ from: '2026-10-26', to: '2026-11-01' });
+    expect(periodRange('month', monday)).toEqual({ from: '2026-11-01', to: '2026-11-02' });
+    expect(periodRange('lastMonth', monday)).toEqual({ from: '2026-10-01', to: '2026-10-31' });
+    expect(periodRange('lastMonth', new Date('2026-03-10T06:00:00Z'))).toEqual({ from: '2026-02-01', to: '2026-02-28' });
+    expect(periodRange('lastMonth', new Date('2027-01-05T06:00:00Z'))).toEqual({ from: '2026-12-01', to: '2026-12-31' });
     const saturday = new Date('2026-11-07T06:00:00Z');
     expect(periodRange('week', saturday)).toEqual({ from: '2026-11-02', to: '2026-11-07' });
     const sunday = new Date('2026-11-08T06:00:00Z');

@@ -87,3 +87,9 @@
 .p2gp-figures > div { border: 1px solid var(--p2w-line); border-radius: 8px; padding: 8px 10px; }
 .p2gp-figures dt { font-size: 12px; color: var(--p2w-muted); }
 .p2gp-figures dd { margin: 2px 0 0; font-size: 20px; font-weight: 700; }
+
+/* Registers uploaded today whose numbers the PC can still correct (2026-11-03). */
+.p2gp-editable { border-bottom: 1px solid var(--p2w-line); padding-bottom: 12px; margin-bottom: 12px; }
+.p2gp-editable__list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.p2gp-editable__item { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+.p2gp-editable__item > span { min-width: 0; }

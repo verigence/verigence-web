@@ -60,12 +60,17 @@ function addDays(date: string, days: number): string {
   return d.toISOString().slice(0, 10);
 }
 
-export type MyWorkPeriod = 'today' | 'week' | 'lastWeek';
+export type MyWorkPeriod = 'today' | 'yesterday' | 'week' | 'lastWeek';
 
-/** Today; this week (Monday to today); or last week (Monday to Sunday), in IST. */
+/** Today; yesterday (product owner 2026-11-03: the day the N-1 gate register covers);
+ *  this week (Monday to today); or last week (Monday to Sunday), in IST. */
 export function periodRange(period: MyWorkPeriod, now: Date = new Date()): { from: string; to: string } {
   const today = istDate(now);
   if (period === 'today') return { from: today, to: today };
+  if (period === 'yesterday') {
+    const yesterday = addDays(today, -1);
+    return { from: yesterday, to: yesterday };
+  }
   const weekday = new Date(`${today}T00:00:00Z`).getUTCDay(); // 0 Sunday .. 6 Saturday
   const monday = addDays(today, -((weekday + 6) % 7));
   if (period === 'week') return { from: monday, to: today };

@@ -23,6 +23,7 @@ import { useSessionStore } from '../store/sessionStore';
 
 const PERIODS: Array<{ key: MyWorkPeriod; label: string }> = [
   { key: 'today', label: 'Today' },
+  { key: 'yesterday', label: 'Yesterday' },
   { key: 'week', label: 'This week' },
   { key: 'lastWeek', label: 'Last week' },
 ];

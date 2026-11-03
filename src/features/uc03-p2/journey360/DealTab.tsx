@@ -605,7 +605,7 @@ export default function DealTab({ deal, journeyId, tenantId, accessToken }: {
             ? 'This project reads the deal from the NDC (account statement); a booking with no NDC uses its cost sheet. '
             : ''}
           Only the billing documents count: the NDC, the cost sheet, the customer ledger, the invoices, the policy, the RTO challan and the credit notes. Where more than one prints a line it is counted once, in that order, and the others check it. The booking docket is shown as offered and never counted or compared.
-          Opted: the optional lines (insurance, accessories, extended warranty, every discount) show whether the customer took them, per the invoice once one is read, else per the booking form; insurance follows the Inhouse / Self choice. Mandatory lines have nothing to opt.
+          Opted: the optional lines (insurance, accessories, extended warranty, every discount) show whether the customer took them, per the invoice once one is read, else per the billing document that bills them (never the booking docket); insurance follows the Inhouse / Self choice. Mandatory lines have nothing to opt.
           Variances compare a line only where both sides price it.
           {deal.insurance?.source === 'SELF' ? ' The customer arranged their own insurance: the premium is shown but kept out of every total.' : ''}
         </p>

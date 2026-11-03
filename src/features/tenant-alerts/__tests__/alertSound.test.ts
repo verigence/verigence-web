@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import type { TenantAlert } from '../../../services/audit-core/tenantAlerts';
+import { orderAlerts, type TenantAlert } from '../../../services/audit-core/tenantAlerts';
 import { alertsToBeep, beepedStorageKey } from '../alertSound';
 
 const alert = (id: string, pcActorId: string | null, kind = 'SAME_FILE_UPLOADED'): TenantAlert => ({
@@ -19,5 +19,25 @@ describe('the same-file beep', () => {
 
   it('keeps what beeped per Project and person', () => {
     expect(beepedStorageKey('t1', 'pc-1')).not.toBe(beepedStorageKey('t1', 'pc-2'));
+  });
+});
+
+describe('a duplicate booking across outlets (2026-11-03)', () => {
+  const cross = (id: string, newPc: string, oldPc: string): TenantAlert => ({
+    alertId: id, kind: 'DUPLICATE_ACROSS_OUTLETS', title: 'Duplicate booking across outlets', body: '',
+    publishedAtUtc: '', expiresAtUtc: '',
+    payload: { newJourney: { pcActorId: newPc }, existingJourney: { pcActorId: oldPc }, severity: 'CRITICAL' },
+  });
+
+  it('beeps for the PC of either booking', () => {
+    const alerts = [cross('x', 'pc-new', 'pc-old')];
+    expect(alertsToBeep(alerts, 'pc-new', new Set()).map((a) => a.alertId)).toEqual(['x']);
+    expect(alertsToBeep(alerts, 'pc-old', new Set()).map((a) => a.alertId)).toEqual(['x']);
+    expect(alertsToBeep(alerts, 'tl-1', new Set())).toEqual([]);
+  });
+
+  it('comes before the other alerts', () => {
+    const ordered = orderAlerts([alert('a', 'pc-1'), cross('x', 'pc-2', 'pc-3'), alert('b', 'pc-1')]);
+    expect(ordered.map((a) => a.alertId)).toEqual(['x', 'a', 'b']);
   });
 });

@@ -7,7 +7,12 @@ import { auditCoreRequest } from './client';
  * alert once the new file is deleted (or kept for review) and keeps it for
  * 24 hours. GET /p2/v1/tenants/{t}/alerts; any member of the Project may read it.
  */
-export type TenantAlertKind = 'SAME_FILE_UPLOADED';
+/**
+ * DUPLICATE_ACROSS_OUTLETS (2026-11-03): the same customer, mobile and model booked at two different
+ * outlets -- nothing deleted; a large deep-red alert for the PCs of both outlets, their Reviewers and
+ * Team Leads (Audit Core returns it only to them).
+ */
+export type TenantAlertKind = 'SAME_FILE_UPLOADED' | 'DUPLICATE_ACROSS_OUTLETS';
 export type SameFileOutcome =
   | 'DELETED'
   | 'KEPT_NOT_INDIVIDUAL'
@@ -51,6 +56,8 @@ export type TenantAlert = {
     existingJourney?: SameFileJourney;
     matchedFields?: SameFileMatchedField[];
     outcome?: string;
+    audienceOutletIds?: string[];
+    severity?: 'CRITICAL' | string;
   };
   publishedAtUtc: string;
   expiresAtUtc: string;
@@ -126,4 +133,14 @@ export function alertMessage(alert: TenantAlert): string {
   const kept = alert.outcome && alert.outcome !== 'DELETED';
   return `Same file being uploaded — ${p.customerName || 'Unknown customer'}, ${p.model || 'unknown model'}, `
     + `PC ${n.pcName || 'unknown'}, ${place}. The new file ${ref} ${kept ? 'was kept for review.' : 'was deleted.'}`;
+}
+
+/** A duplicate booking across outlets: the large deep-red alert, shown before the others. */
+export function isCriticalAlert(alert: TenantAlert): boolean {
+  return alert.kind === 'DUPLICATE_ACROSS_OUTLETS' || alert.payload?.severity === 'CRITICAL';
+}
+
+/** Critical alerts first, then newest first (the order Audit Core returns). */
+export function orderAlerts(alerts: readonly TenantAlert[]): TenantAlert[] {
+  return [...alerts].sort((a, b) => Number(isCriticalAlert(b)) - Number(isCriticalAlert(a)));
 }

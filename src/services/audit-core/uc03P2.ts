@@ -891,7 +891,7 @@ type P2DealSource = { document: string; documentType: string; amount: Money; doc
 
 /** What the customer opted for on a line: taken or not, read from the
  * invoice once the deal has one, else from the booking form. */
-export type P2DealOpted = { taken: boolean; source: 'invoice' | 'booking' | 'insurance' | 'tl' | null };
+export type P2DealOpted = { taken: boolean; source: 'invoice' | 'billed' | 'booking' | 'insurance' | 'tl' | null };
 
 /** The Management Referral (MR) discount as the Team Lead set it. */
 export type P2ManagementReferral = {

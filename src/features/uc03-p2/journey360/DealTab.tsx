@@ -21,7 +21,8 @@ function Opted({ opted }: { opted?: P2DealOpted | null }) {
       : opted.taken ? 'Taken' : 'Opted out';
   const text = opted.source === 'insurance' ? `Insurance ${label.toLowerCase()}`
     : opted.source === 'tl' ? `${label} by the Team Lead`
-      : `${label}${opted.source ? ` per ${opted.source === 'invoice' ? 'invoice' : 'booking form'}` : ''}`;
+      // 'billed': a billing document (the NDC, cost sheet, a bill) says; the booking docket never does (2026-11-03).
+      : `${label}${opted.source ? ` per ${opted.source === 'invoice' ? 'invoice' : opted.source === 'billed' ? 'billing document' : 'booking form'}` : ''}`;
   return (
     <span className="j360-opted" title={text}>
       <span className={`j360-switch j360-switch--small${opted.taken ? ' is-on' : ''}`} role="img" aria-label={text} />

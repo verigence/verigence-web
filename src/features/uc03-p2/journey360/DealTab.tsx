@@ -9,7 +9,7 @@ import {
 import { useProjectContextStore } from '../../../store/projectContextStore';
 import { humanizeKey } from '../workspace/p2Format';
 import { PricingPanel, useRefreshDeal } from './DealControls';
-import { FLAG_LABELS, money, recordField, signedMoney, varianceTone } from './j360Format';
+import { balanceText, FLAG_LABELS, money, recordField, signedMoney, varianceTone } from './j360Format';
 import { insuranceDecidedText } from './insuranceSource';
 
 /** What the customer opted for on this line, as a small switch: on is
@@ -21,7 +21,8 @@ function Opted({ opted }: { opted?: P2DealOpted | null }) {
       : opted.taken ? 'Taken' : 'Opted out';
   const text = opted.source === 'insurance' ? `Insurance ${label.toLowerCase()}`
     : opted.source === 'tl' ? `${label} by the Team Lead`
-      : `${label}${opted.source ? ` per ${opted.source === 'invoice' ? 'invoice' : 'booking form'}` : ''}`;
+      // 'billed': a billing document (the NDC, cost sheet, a bill) says; the booking docket never does (2026-11-03).
+      : `${label}${opted.source ? ` per ${opted.source === 'invoice' ? 'invoice' : opted.source === 'billed' ? 'billing document' : 'booking form'}` : ''}`;
   return (
     <span className="j360-opted" title={text}>
       <span className={`j360-switch j360-switch--small${opted.taken ? ' is-on' : ''}`} role="img" aria-label={text} />
@@ -507,7 +508,7 @@ export default function DealTab({ deal, journeyId, tenantId, accessToken }: {
         </p>
         <dl className="j360-paid">
           <div><dt>Received</dt><dd>{money(summary.paid.total)}</dd><small>{money(summary.paid.receipts)} receipts · {money(summary.paid.loan)} loan{summary.paid.loanWithoutReceipt ? '*' : ''}{summary.paid.oldVehicle ? ` · ${money(summary.paid.oldVehicle)} old vehicle` : ''}{summary.paid.refunds ? ` · − ${money(summary.paid.refunds)} refunded` : ''}</small></div>
-          <div className={due !== null && due > 0 ? 'is-due' : 'is-clear'}><dt>Balance due</dt><dd>{money(summary.balanceDue)}</dd><small>{summary.paid.loanUnknown ? 'financed: the loan amount is not on file yet' : `against ${money(summary.payable)} payable`}</small></div>
+          <div className={due !== null && due > 0 ? 'is-due' : 'is-clear'}><dt>Balance</dt><dd>{balanceText(summary.balanceDue)}</dd><small>{summary.paid.loanUnknown ? 'financed: the loan amount is not on file yet' : `against ${money(summary.payable)} payable`}</small></div>
           <div><dt>Discounts given</dt><dd>{money(summary.discounts.current)}</dd>
             <small>{entitledTotal !== null && givenTotal !== null ? (givenTotal > entitledTotal ? `${money(String(givenTotal - entitledTotal))} more than entitled` : `within the ${money(summary.discounts.standard)} entitled`) : 'no scheme entitlement recorded'}</small></div>
           <div><dt>Lines to look at</dt><dd>{deal.flagged}</dd><small>{deal.flagged ? 'priced away from the master or the booking' : 'every line as expected'}</small></div>
@@ -604,7 +605,7 @@ export default function DealTab({ deal, journeyId, tenantId, accessToken }: {
             ? 'This project reads the deal from the NDC (account statement); a booking with no NDC uses its cost sheet. '
             : ''}
           Only the billing documents count: the NDC, the cost sheet, the customer ledger, the invoices, the policy, the RTO challan and the credit notes. Where more than one prints a line it is counted once, in that order, and the others check it. The booking docket is shown as offered and never counted or compared.
-          Opted: the optional lines (insurance, accessories, extended warranty, every discount) show whether the customer took them, per the invoice once one is read, else per the booking form; insurance follows the Inhouse / Self choice. Mandatory lines have nothing to opt.
+          Opted: the optional lines (insurance, accessories, extended warranty, every discount) show whether the customer took them, per the invoice once one is read, else per the billing document that bills them (never the booking docket); insurance follows the Inhouse / Self choice. Mandatory lines have nothing to opt.
           Variances compare a line only where both sides price it.
           {deal.insurance?.source === 'SELF' ? ' The customer arranged their own insurance: the premium is shown but kept out of every total.' : ''}
         </p>

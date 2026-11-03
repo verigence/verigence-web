@@ -14,3 +14,13 @@ describe('audit summary conclusions (2026-10-29)', () => {
     expect(conclusionLabel({ conclusion: 'UNSUPPORTED', impact: 'CUSTOMER' })).toBe('Unsupported');
   });
 });
+
+describe('balanceText', () => {
+  it('says due or excess in words, never a bare minus (2026-11-03)', async () => {
+    const { balanceText } = await import('./j360Format');
+    expect(balanceText('-1858')).toBe(`${balanceText('1858').replace(' due', '')} excess received`);
+    expect(balanceText('5000')).toMatch(/ due$/);
+    expect(balanceText('0')).toBe('Settled');
+    expect(balanceText(null)).toBe('—');
+  });
+});

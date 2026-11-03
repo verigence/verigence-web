@@ -14,6 +14,17 @@ export function signedMoney(value: string | number | null | undefined): string {
   return `${amount > 0 ? '+' : '−'}${formatInr(Math.abs(amount))}`;
 }
 
+/** A balance (payable less received) in words (2026-11-03): "₹1,858 excess
+ * received" when the customer paid more, "₹5,000 due" when less, "Settled"
+ * at nil -- never a bare minus sign the reader has to decode. */
+export function balanceText(value: string | number | null | undefined): string {
+  if (value === null || value === undefined || value === '') return '—';
+  const amount = Number(value);
+  if (!Number.isFinite(amount)) return '—';
+  if (amount === 0) return 'Settled';
+  return amount > 0 ? `${formatInr(amount)} due` : `${formatInr(Math.abs(amount))} excess received`;
+}
+
 export function varianceTone(value: string | number | null | undefined, kind: 'charge' | 'discount' = 'charge'): string {
   const amount = Number(value ?? 0);
   if (!Number.isFinite(amount) || amount === 0) return '';

@@ -9,7 +9,7 @@ import {
 import { useProjectContextStore } from '../../../store/projectContextStore';
 import { humanizeKey } from '../workspace/p2Format';
 import { PricingPanel, useRefreshDeal } from './DealControls';
-import { FLAG_LABELS, money, recordField, signedMoney, varianceTone } from './j360Format';
+import { balanceText, FLAG_LABELS, money, recordField, signedMoney, varianceTone } from './j360Format';
 import { insuranceDecidedText } from './insuranceSource';
 
 /** What the customer opted for on this line, as a small switch: on is
@@ -508,7 +508,7 @@ export default function DealTab({ deal, journeyId, tenantId, accessToken }: {
         </p>
         <dl className="j360-paid">
           <div><dt>Received</dt><dd>{money(summary.paid.total)}</dd><small>{money(summary.paid.receipts)} receipts · {money(summary.paid.loan)} loan{summary.paid.loanWithoutReceipt ? '*' : ''}{summary.paid.oldVehicle ? ` · ${money(summary.paid.oldVehicle)} old vehicle` : ''}{summary.paid.refunds ? ` · − ${money(summary.paid.refunds)} refunded` : ''}</small></div>
-          <div className={due !== null && due > 0 ? 'is-due' : 'is-clear'}><dt>Balance due</dt><dd>{money(summary.balanceDue)}</dd><small>{summary.paid.loanUnknown ? 'financed: the loan amount is not on file yet' : `against ${money(summary.payable)} payable`}</small></div>
+          <div className={due !== null && due > 0 ? 'is-due' : 'is-clear'}><dt>Balance</dt><dd>{balanceText(summary.balanceDue)}</dd><small>{summary.paid.loanUnknown ? 'financed: the loan amount is not on file yet' : `against ${money(summary.payable)} payable`}</small></div>
           <div><dt>Discounts given</dt><dd>{money(summary.discounts.current)}</dd>
             <small>{entitledTotal !== null && givenTotal !== null ? (givenTotal > entitledTotal ? `${money(String(givenTotal - entitledTotal))} more than entitled` : `within the ${money(summary.discounts.standard)} entitled`) : 'no scheme entitlement recorded'}</small></div>
           <div><dt>Lines to look at</dt><dd>{deal.flagged}</dd><small>{deal.flagged ? 'priced away from the master or the booking' : 'every line as expected'}</small></div>

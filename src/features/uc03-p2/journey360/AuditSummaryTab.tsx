@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 
 import type { P2AuditConclusion, P2AuditRow, P2AuditSummary } from '../../../services/audit-core/uc03P2';
-import { money, recordField, signedMoney } from './j360Format';
+import { balanceText, money, recordField, signedMoney } from './j360Format';
 
 /**
  * Audit summary (product owner 2026-10-29): every financial fact of the
@@ -258,7 +258,7 @@ export default function AuditSummaryTab({ data, onRegenerate, regenerating }: {
         <dl className="asum-facts">
           <Fact label="Net payable" value={money(s.payable)} />
           <Fact label="Received" value={money(s.received)} />
-          <Fact label="Balance" value={money(s.balance)}
+          <Fact label="Balance" value={balanceText(s.balance)}
             tone={s.status === 'SETTLED' ? 'success' : s.status ? 'danger' : undefined}
             sub={s.status === 'SETTLED' ? 'Settled' : s.status === 'SHORT' ? 'Short' : s.status === 'EXCESS' ? 'Excess received' : undefined} />
         </dl>
@@ -267,7 +267,7 @@ export default function AuditSummaryTab({ data, onRegenerate, regenerating }: {
           {f.customerLedger ? (
             <div className="asum-check">
               <span>Deal balance against the customer ledger<small className="p2w-muted">
-                Ledger {ledgerBalance(f.customerLedger.ledgerBalance)} · Deal {money(f.customerLedger.dealBalance)}</small></span>
+                Ledger {ledgerBalance(f.customerLedger.ledgerBalance)} · Deal {balanceText(f.customerLedger.dealBalance)}</small></span>
               <Conclusion row={{ ...f.customerLedger, impact: null }} rules={data.rules} />
             </div>
           ) : null}

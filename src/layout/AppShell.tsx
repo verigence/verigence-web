@@ -11,6 +11,7 @@ import { getP2Tasks } from '../services/audit-core/uc03P2';
 import { getTmTasks } from '../services/audit-core/taskManager';
 import ActivityTracker from '../features/task-manager/ActivityTracker';
 import TenantAlertBanner from '../features/tenant-alerts/TenantAlertBanner';
+import BulkUploadBanner from '../features/uc03-p2/bulk/BulkUploadBanner';
 import { useHrAccess } from '../features/hr/hrQueries';
 import { useMyFeatures, visibleNavGroups } from '../features/rollout/featureFlags';
 import { useMyHrIdentity } from '../features/hr/myIdentity';
@@ -136,6 +137,13 @@ const p2HomeItem: NavItem = {
   to: '/p2/home',
   label: 'Home',
   mark: 'HM',
+  roles: ['PC'],
+};
+// Bulk upload (product owner 2026-11-03): a PC drops all the files of the selected outlet.
+const p2BulkUploadItem: NavItem = {
+  to: '/p2/bulk-upload',
+  label: 'Bulk upload',
+  mark: 'BU',
   roles: ['PC'],
 };
 // My Tracker (product owner 2026-11-03): its own entry for a PC and a Reviewer.
@@ -325,7 +333,7 @@ const routeLabels: Record<string, string> = {
   '/admin/users/pending': 'Pending Approvals',
   '/admin/oem-masters': 'OEM Masters', '/admin/reports': 'Reports', '/admin/project': 'Project Administration', '/profile': 'Profile',
   '/hr/employees': 'Employees', '/hr/employees/new': 'Add Employee', '/hr/employees/import': 'Import Employees', '/hr/employees/designation-salary-import': 'Import Designation and Salary', '/hr/me': 'My Employee Profile',
-  '/p2/home': 'Home', '/p2/tracker': 'My Tracker', '/hr/attendance': 'Attendance', '/hr/attendance/team': 'Team Attendance', '/hr/attendance/daily': 'Daily Attendance', '/hr/assignments': 'Project Assignments', '/hr/leave': 'Leave', '/hr/leave/overview': 'Leave Overview',
+  '/p2/home': 'Home', '/p2/tracker': 'My Tracker', '/p2/bulk-upload': 'Bulk upload', '/hr/attendance': 'Attendance', '/hr/attendance/team': 'Team Attendance', '/hr/attendance/daily': 'Daily Attendance', '/hr/assignments': 'Project Assignments', '/hr/leave': 'Leave', '/hr/leave/overview': 'Leave Overview',
   '/hr/claims': 'Reimbursements', '/hr/claims/new': 'New Claim', '/hr/claims/all': 'All Claims', '/hr/approvals': 'Approvals',
   '/hr/payslips': 'Payslips', '/hr/salary': 'My Salary', '/hr/messages': 'Employee Messages', '/hr/payroll': 'Payroll', '/hr/payroll/salaries': 'Salaries', '/hr/payroll/settings': 'Payroll Settings', '/hr/settings': 'HR Settings',
 };
@@ -460,6 +468,7 @@ export default function AppShell({ children }: PropsWithChildren) {
             // A Team Lead's Booking & Delivery is the TL overview (Dealer
             // Operations), not the PC's working list (decision 2026-10-20).
             role === 'TL' ? { ...p2BookingsItem, to: '/dashboard' } : p2BookingsItem,
+            ...(role === 'PC' ? [p2BulkUploadItem] : []),
             // Journey tasks and Task Manager tasks are the two classifications of the Task Queue.
             { ...p2TasksItem, badge: p2TaskCount + tmCount },
             p2DuplicatesItem,
@@ -733,6 +742,7 @@ export default function AppShell({ children }: PropsWithChildren) {
       <ActivityTracker />
       {/* Project-wide alerts for every role (2026-10-31): the same file uploaded again. */}
       <TenantAlertBanner />
+      <BulkUploadBanner />
 
       <header className="enterprise-topbar enterprise-topbar--global">
         <div className="enterprise-topbar__start">

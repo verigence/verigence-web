@@ -70,6 +70,12 @@ export default function P2JourneyListPage() {
               <span>Capture new booking</span>
             </Link>
           ) : null}
+          {role === 'PC' ? (
+            <Link className="p2w-hero__capture p2w-hero__capture--bulk" to="/p2/bulk-upload">
+              <span aria-hidden="true">⇪</span>
+              <span>Bulk upload</span>
+            </Link>
+          ) : null}
         </div>
         <h2 id="p2w-hero-title" className="p2w-hero__headline">
           {needCount === undefined ? 'Loading your work…'

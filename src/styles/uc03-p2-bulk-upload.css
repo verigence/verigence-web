@@ -1,0 +1,43 @@
+/* Bulk upload (2026-11-03). */
+.p2bu-drop {
+  display: grid; gap: 8px; justify-items: center; padding: 28px 16px; text-align: center;
+  border: 2px dashed #9fb7c9; border-radius: 14px; background: #f7fafc;
+}
+.p2bu-drop.is-dragging { border-color: #003a82; background: #edf3fb; }
+.p2bu-drop p { margin: 0; }
+.p2bu-files { display: grid; gap: 6px; margin: 12px 0 0; padding: 0; list-style: none; }
+.p2bu-file {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto 120px auto auto; gap: 10px; align-items: center;
+  padding: 8px 10px; border: 1px solid #e3eaed; border-radius: 10px; background: #fff; font-size: 14px;
+}
+.p2bu-file__name { min-width: 0; overflow-wrap: anywhere; }
+.p2bu-file--done .p2bu-file__state { color: #00706b; font-weight: 700; }
+.p2bu-file--failed .p2bu-file__state { color: #b42318; font-weight: 700; }
+.p2bu-bar { height: 6px; border-radius: 999px; background: #e3eaed; overflow: hidden; }
+.p2bu-bar > span { display: block; height: 100%; background: #00afa8; transition: width .2s; }
+.p2bu-actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: flex-end; margin-top: 12px; }
+.p2bu-notice { padding: 12px 14px; border-radius: 10px; border: 1px solid #b8dcda; border-left: 4px solid #00afa8; background: #f3fbfb; color: #003a82; font-weight: 600; }
+.p2bu-result { padding: 10px 12px; border: 1px solid #e3eaed; border-radius: 12px; background: #fff; }
+.p2bu-result + .p2bu-result { margin-top: 8px; }
+.p2bu-result > summary { cursor: pointer; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; min-height: 32px; }
+.p2bu-status { margin-left: auto; padding: 2px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; }
+.p2bu-status--busy { background: #fff1d6; color: #8a5300; }
+.p2bu-status--done { background: #e6f7f6; color: #00706b; }
+.p2bu-status--open { background: #edf3fb; color: #003a82; }
+.p2bu-scroll { overflow-x: auto; margin-top: 8px; }
+.p2bu-chip { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 12px; font-weight: 700; }
+.p2bu-chip--ok { background: #e6f7f6; color: #00706b; }
+.p2bu-chip--warn { background: #fff1d6; color: #8a5300; }
+.p2bu-chip--bad { background: #fde8e6; color: #b42318; }
+.p2bu-chip--open { background: #edf3fb; color: #003a82; }
+.p2bu-sub { display: block; font-size: 12px; margin-top: 2px; }
+.p2bu-banner {
+  margin: 0 0 12px; padding: 10px 14px; border-radius: 10px; border: 1px solid #fedf89; border-left: 4px solid #93370d;
+  background: #fff6ed; color: #3d1d06; font-weight: 600;
+}
+@media (max-width: 640px) {
+  .p2bu-file { grid-template-columns: minmax(0, 1fr) auto; }
+  .p2bu-bar { grid-column: 1 / -1; }
+}
+.p2w .p2w-hero__capture--bulk { background: #00706b; margin-left: 8px; box-shadow: 0 10px 22px -12px rgba(0, 112, 107, .5); }
+.p2w .p2w-hero__capture--bulk:hover { background: #005a56; }

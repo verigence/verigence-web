@@ -35,6 +35,10 @@ export type GatePass = {
   notNotifiedToPc?: number | null; notUploadedByPc?: number | null;
   /** Of the total on the register, how many the dealership intimated to the PC (2026-11-02). */
   intimatedToPc?: number | null;
+  /** The PC may correct the counts until the end of the day the register was uploaded (2026-11-03). */
+  countsEditable?: boolean; countsEditCount?: number; countsEditedAtUtc?: string | null;
+  countsHistory?: Array<Record<string, unknown>>;
+  dayCounts?: Array<{ date: string; newDeliveries: number; intimatedToPc?: number | null }> | null;
 };
 
 /** Total deliveries on the gate register and how many were intimated to the PC (product owner 2026-11-02). */
@@ -106,6 +110,11 @@ export function uploadGatePass(
   return auditCoreRequest<GatePass>(`${base(tenantId)}/gate-passes`, {
     method: 'POST', accessToken, body: form, timeoutMs: 120_000,
   });
+}
+
+/** One of the PC's own gate registers (to correct its counts on the day, 2026-11-03). */
+export function getGatePass(tenantId: string, gatePassId: string, accessToken?: string) {
+  return auditCoreRequest<{ gatePass: GatePass }>(`${base(tenantId)}/gate-passes/${encodeURIComponent(gatePassId)}`, { accessToken });
 }
 
 export function submitGatePassCounts(tenantId: string, gatePassId: string, input: GatePassCountsInput, accessToken?: string) {

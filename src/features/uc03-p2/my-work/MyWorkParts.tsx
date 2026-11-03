@@ -1,7 +1,9 @@
 import { useState } from 'react';
 
 import { gatePassErrorText, getGatePassImageUrl } from '../../../services/audit-core/uc03GatePass';
-import type { MyWorkPeriod, PcFigures, PcOutlet, GateRegisterDay } from '../../../services/audit-core/uc03MyWork';
+import { Link } from 'react-router-dom';
+
+import { istDate, type MyWorkPeriod, type PcFigures, type PcOutlet, type GateRegisterDay } from '../../../services/audit-core/uc03MyWork';
 
 /** Pieces shared by PC Home and My Tracker (product owner 2026-11-02 / 11-03). */
 
@@ -168,6 +170,10 @@ export function GateRegisterTable({ outlets, tenantId, accessToken }: {
                     <td>
                       {day.gatePassId ? (
                         <span className="p2mw-pages">
+                          {day.uploadedAtUtc && istDate(new Date(day.uploadedAtUtc)) === istDate() ? (
+                            <Link className="p2w-link" to={`/p2/gate-pass?edit=${day.gatePassId}`}
+                              title="Correct the numbers: allowed on the day the register was uploaded">Edit counts</Link>
+                          ) : null}
                           {Array.from({ length: pages }, (_, n) => (
                             <button key={n} type="button" className="p2w-link" onClick={() => void openPage(day.gatePassId!, n + 1)}>
                               {pages === 1 ? 'View' : `Page ${n + 1}`}

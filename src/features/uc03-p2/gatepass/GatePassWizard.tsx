@@ -1,10 +1,10 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Capacitor } from '@capacitor/core';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 import SectionCard from '../../../components/SectionCard';
 import {
-  answerGatePass, getGatePassOutlets, notUploadedByPc, gatePassErrorText, MAX_GATE_PASS_PHOTOS, submitGatePassCounts, uploadGatePass,
+  answerGatePass, getGatePass, getGatePassOutlets, notUploadedByPc, gatePassErrorText, MAX_GATE_PASS_PHOTOS, submitGatePassCounts, uploadGatePass,
   type GatePass, type GatePassAnswer, type GatePassCountsResult, type GatePassOutlet,
 } from '../../../services/audit-core/uc03GatePass';
 import { captureEvidencePhoto } from '../../../services/device/camera';
@@ -22,7 +22,7 @@ function dayName(date: string): string {
   return new Date(`${date}T00:00:00Z`).toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'short', timeZone: 'UTC' });
 }
 
-type Props = { tenantId: string; accessToken: string; onChanged: () => void };
+type Props = { tenantId: string; accessToken: string; onChanged: () => void; editGatePassId?: string | null };
 
 /** The photo comes from the camera on the mobile app and from a file on the web. */
 async function nativePhoto(): Promise<{ blob: Blob; filename: string }> {
@@ -89,7 +89,7 @@ function RegisterFigures({ result }: { result: GatePassCountsResult }) {
 }
 
 /** PC: upload today's gate pass, say what the day held, and see whether it agrees with the vehicle gate passes uploaded (2026-10-27). */
-export default function GatePassWizard({ tenantId, accessToken, onChanged }: Props) {
+export default function GatePassWizard({ tenantId, accessToken, onChanged, editGatePassId }: Props) {
   const queryClient = useQueryClient();
   const fileInput = useRef<HTMLInputElement>(null);
   const outletsQuery = useQuery({
@@ -131,7 +131,34 @@ export default function GatePassWizard({ tenantId, accessToken, onChanged }: Pro
   const chosenDay = gatePass?.dayLabel ?? dayOf(forDate)?.label ?? today?.label ?? previous?.label ?? outletsQuery.data?.businessDate;
   const dayWords = forDate && forDate !== today?.date ? `for ${chosenDay}` : 'today';
 
-  const covers = dayOf(forDate)?.coversDates ?? (forDate ? [forDate] : []);
+  const covers = gatePass?.coversDates ?? dayOf(forDate)?.coversDates ?? (forDate ? [forDate] : []);
+  // Correcting the counts of a register uploaded today (product owner 2026-11-03).
+  const [editing, setEditing] = useState(false);
+
+  function correctCounts(gp: GatePass) {
+    setGatePass(gp);
+    setCounts({ total: gp.newDeliveries != null ? String(gp.newDeliveries) : '',
+      intimated: gp.intimatedToPc != null ? String(gp.intimatedToPc) : '' });
+    setCountsByDay(Object.fromEntries((gp.dayCounts ?? []).map((d) => [d.date, {
+      total: String(d.newDeliveries ?? ''), intimated: d.intimatedToPc != null ? String(d.intimatedToPc) : '' }])));
+    setEditing(true);
+    setError(null);
+    setStep('counts');
+  }
+
+  useEffect(() => {
+    if (!editGatePassId) return;
+    let live = true;
+    getGatePass(tenantId, editGatePassId, accessToken)
+      .then(({ gatePass: gp }) => {
+        if (!live) return;
+        if (gp.countsEditable) correctCounts(gp);
+        else setError('The counts of this gate register can be corrected only on the day it was uploaded.');
+      })
+      .catch((cause) => { if (live) setError(gatePassErrorText(cause, 'The gate register could not be opened.')); });
+    return () => { live = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editGatePassId, tenantId]);
   const twoDays = covers.length > 1;
 
   /** Ask which day only when the outlet still owes the previous day's gate pass. */
@@ -274,7 +301,7 @@ export default function GatePassWizard({ tenantId, accessToken, onChanged }: Pro
   }
 
   function startAgain() {
-    setStep('outlet'); setConfirmedDefault(null); setChosenId(''); setGatePass(null); setResult(null);
+    setStep('outlet'); setConfirmedDefault(null); setChosenId(''); setGatePass(null); setResult(null); setEditing(false);
     setCounts(EMPTY_COUNTS); setCountsByDay({}); photos.forEach((p) => URL.revokeObjectURL(p.url)); setPhotos([]);
     setSeparate(false); setPastDeliveries(''); setOutcome(null); setError(null); setForDate(null);
   }
@@ -430,7 +457,13 @@ export default function GatePassWizard({ tenantId, accessToken, onChanged }: Pro
 
       {step === 'counts' ? (
         <form className="p2gp-step" onSubmit={(event) => { event.preventDefault(); if (countsValid) void sendCounts(); }}>
-          {gatePass?.photoQuality && gatePass.photoQuality !== 'GOOD' ? (
+          {editing && gatePass ? (
+            <div className="p2w-alert" role="status">
+              Correcting the numbers of {gatePass.outletName}, {gatePass.dayLabel ?? gatePass.businessDate}
+              {gatePass.countsEditCount ? ` (corrected ${gatePass.countsEditCount}× already)` : ''}. You can correct them until the end of today.
+            </div>
+          ) : null}
+          {!editing && gatePass?.photoQuality && gatePass.photoQuality !== 'GOOD' ? (
             <div className="p2w-alert p2gp-ask" role="status">
               {gatePass.photoQualityNote} The photo is saved. If the handwriting is hard to read, take it again; otherwise carry on.
               <div className="p2gp-actions p2gp-actions--inline">
@@ -507,6 +540,11 @@ export default function GatePassWizard({ tenantId, accessToken, onChanged }: Pro
           <div className="p2w-alert p2w-alert--success" role="status">{outcome}</div>
           {result?.intimatedToPc != null ? <RegisterFigures result={result} /> : null}
           <div className="p2gp-actions">
+            {gatePass?.countsEditable ? (
+              <button type="button" className="p2w-button p2w-button--secondary" onClick={() => correctCounts(gatePass)}>
+                Correct the numbers
+              </button>
+            ) : null}
             <button type="button" className="p2w-button p2w-button--ghost" onClick={startAgain}>Upload another gate pass</button>
           </div>
         </div>

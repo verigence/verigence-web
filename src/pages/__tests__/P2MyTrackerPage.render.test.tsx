@@ -34,7 +34,7 @@ const work = {
   outlets: [{ outletId: 'o1', outletName: 'Rasulgarh', dealerId: 'd1', dealerName: 'Adishakti', classification: 'ONSITE',
     journeysTotal: 14, ...figures, gateRegisterMissed: 0, notIntimated: 2, tasksPending: 9, gateRegister: [
       { date: week.to, label: 'Tue 3 Nov', dueAtUtc: '', status: 'DONE', total: 5, intimated: 3, uploadedInTool: 2,
-        pendingWithPc: 1, notIntimated: 2, gatePassId: 'g1', pages: 2, uploadedAtUtc: '' },
+        pendingWithPc: 1, notIntimated: 2, gatePassId: 'g1', pages: 2, uploadedAtUtc: new Date().toISOString() },
       { date: '2026-10-31', label: 'Sat 31 Oct', dueAtUtc: '', status: 'MISSED', total: null, intimated: null,
         uploadedInTool: 0, pendingWithPc: null, notIntimated: null, gatePassId: null, pages: 0, uploadedAtUtc: null },
     ] }],
@@ -85,6 +85,8 @@ describe('My Tracker', () => {
     expect(html).toContain('A day');
     expect(html).toContain('Page 1');
     expect(html).toContain('Page 2');
+    // Uploaded today: its counts can be corrected (2026-11-03).
+    expect(html).toContain('href="/p2/gate-pass?edit=g1"');
     expect(html).toContain('Missed');
     expect(html.indexOf('Tue 3 Nov')).toBeLessThan(html.indexOf('Sat 31 Oct'));
   });

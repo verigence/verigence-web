@@ -129,6 +129,14 @@ function Fact({ label, value, sub, tone }: { label: string; value: ReactNode; su
   );
 }
 
+/** The customer ledger's balance as the ledger reads: Dr is due from the customer, Cr paid over. */
+function ledgerBalance(value: string | null | undefined): string {
+  const amount = Number(value);
+  if (value == null || Number.isNaN(amount)) return '—';
+  if (amount === 0) return money('0');
+  return `${money(String(Math.abs(amount)))} ${amount > 0 ? 'Dr' : 'Cr'}`;
+}
+
 function when(iso: string): string {
   const date = new Date(iso);
   return Number.isNaN(date.getTime()) ? iso : date.toLocaleString('en-IN', {
@@ -255,7 +263,15 @@ export default function AuditSummaryTab({ data, onRegenerate, regenerating }: {
             sub={s.status === 'SETTLED' ? 'Settled' : s.status === 'SHORT' ? 'Short' : s.status === 'EXCESS' ? 'Excess received' : undefined} />
         </dl>
         <div className="asum-checks"><div className="asum-check"><span>Money received against net payable</span>
-          <Conclusion row={{ ...s, impact: null }} rules={data.rules} /></div></div>
+          <Conclusion row={{ ...s, impact: null }} rules={data.rules} /></div>
+          {f.customerLedger ? (
+            <div className="asum-check">
+              <span>Deal balance against the customer ledger<small className="p2w-muted">
+                Ledger {ledgerBalance(f.customerLedger.ledgerBalance)} · Deal {money(f.customerLedger.dealBalance)}</small></span>
+              <Conclusion row={{ ...f.customerLedger, impact: null }} rules={data.rules} />
+            </div>
+          ) : null}
+        </div>
       </Section>
 
       <Section number={6} title="Documents that disagree" note="Lines two documents print with figures more than the tolerance apart.">

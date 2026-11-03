@@ -45,3 +45,7 @@
 .p2mw-tile { border-top: 3px solid var(--p2mw-teal); }
 .p2mw-tile--warn { border-top-color: #e7c27a; }
 .p2mw-tile--bad { border-top-color: #e5a4a0; }
+
+/* The Tracker day by day (2026-11-03). */
+.p2mw-sub { display: block; font-size: 12px; margin-top: 2px; }
+.p2mw-table tr.p2mw-day-first td { border-top: 2px solid var(--p2w-line); }

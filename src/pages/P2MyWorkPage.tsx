@@ -7,14 +7,17 @@ import '../styles/uc03-p2-my-work.css';
 
 import PageHeader from '../components/PageHeader';
 import SectionCard from '../components/SectionCard';
+import MissingDocumentsPanel from '../features/uc03-p2/missing/MissingDocumentsPanel';
 import { P2_HOME_PATH } from '../features/uc03-p2/newBookingPath';
 import {
   getMyWork,
   periodRange,
   type GateRegisterDay,
   type MyWorkPeriod,
+  type PcDay,
   type PcFigures,
   type PcOutlet,
+  type ReviewerDay,
   type ReviewerFigures,
   type ReviewerOutlet,
 } from '../services/audit-core/uc03MyWork';
@@ -26,6 +29,8 @@ const PERIODS: Array<{ key: MyWorkPeriod; label: string }> = [
   { key: 'yesterday', label: 'Yesterday' },
   { key: 'week', label: 'This week' },
   { key: 'lastWeek', label: 'Last week' },
+  { key: 'month', label: 'This month' },
+  { key: 'lastMonth', label: 'Last month' },
 ];
 
 const STATUS: Record<GateRegisterDay['status'], { label: string; tone: 'ok' | 'warn' | 'bad' | 'open' }> = {
@@ -136,6 +141,7 @@ function PcHome({ outlets, totals }: { outlets: PcOutlet[]; totals: PcFigures })
         <Tile label="Journeys uploaded" value={totals.journeysUploaded} hint={`${totals.journeysTotal} in total, all time`} />
         <Tile label="Bookings uploaded" value={totals.bookingsUploaded} />
         <Tile label="Deliveries updated" value={totals.deliveriesUpdated} />
+        <Tile label="Journeys completed" value={totals.journeysCompleted} hint="delivery files closed" />
         <Tile label="Gate register" value={`${totals.gateRegisterUploaded}/${totals.gateRegisterDays}`}
           hint="registers uploaded" tone={totals.gateRegisterMissed ? 'bad' : totals.gateRegisterUploaded < totals.gateRegisterDays ? 'warn' : undefined} />
         <Tile label="Delivery files pending" value={totals.pendingDeliveryFiles} tone={totals.pendingDeliveryFiles ? 'warn' : undefined} />
@@ -168,9 +174,11 @@ function PcTracker({ outlets, totals, compact = false }: { outlets: PcOutlet[]; 
             {compact ? null : <th>Journeys (all time)</th>}
             <th>Bookings uploaded</th>
             <th>Deliveries updated</th>
+            <th>Journeys completed</th>
             <th>Gate register uploaded</th>
             <th>Pending delivery files</th>
             <th>Tasks worked</th>
+            <th>Tasks closed</th>
             <th>Tasks pending</th>
           </tr>
         </thead>
@@ -181,9 +189,11 @@ function PcTracker({ outlets, totals, compact = false }: { outlets: PcOutlet[]; 
               {compact ? null : <td>{o.journeysTotal}</td>}
               <td>{o.bookingsUploaded}</td>
               <td>{o.deliveriesUpdated}</td>
+              <td>{o.journeysCompleted}</td>
               <td className={o.gateRegisterUploaded < o.gateRegisterDays ? 'p2mw-attn' : undefined}>{registerUploaded(o)}</td>
               <td className={o.pendingDeliveryFiles ? 'p2mw-attn' : undefined}>{o.pendingDeliveryFiles}</td>
               <td>{o.tasksWorked}</td>
+              <td>{o.tasksClosed}</td>
               <td className={o.tasksPending ? 'p2mw-attn' : undefined}>{o.tasksPending}</td>
             </tr>
           ))}
@@ -195,9 +205,11 @@ function PcTracker({ outlets, totals, compact = false }: { outlets: PcOutlet[]; 
               {compact ? null : <th>{totals.journeysTotal}</th>}
               <th>{totals.bookingsUploaded}</th>
               <th>{totals.deliveriesUpdated}</th>
+              <th>{totals.journeysCompleted}</th>
               <th>{totals.gateRegisterUploaded} of {totals.gateRegisterDays}</th>
               <th>{totals.pendingDeliveryFiles}</th>
               <th>{totals.tasksWorked}</th>
+              <th>{totals.tasksClosed}</th>
               <th>{totals.tasksPending}</th>
             </tr>
           </tfoot>
@@ -207,7 +219,118 @@ function PcTracker({ outlets, totals, compact = false }: { outlets: PcOutlet[]; 
   );
 }
 
-function ReviewerTracker({ outlets, totals }: { outlets: ReviewerOutlet[]; totals: ReviewerFigures }) {
+function registerCell(entry: GateRegisterDay | null) {
+  if (!entry) return <span className="p2w-muted">—</span>;
+  const status = STATUS[entry.status];
+  const figures = entry.total == null ? null : `${entry.total} total · ${entry.intimated ?? 0} intimated · ${entry.uploadedInTool} in tool`;
+  return (
+    <>
+      <span className={`p2mw-chip p2mw-chip--${status.tone}`}>{entry.status === 'DONE' ? 'Yes' : status.label}</span>
+      {figures ? <span className="p2w-muted p2mw-sub">{figures}</span> : null}
+    </>
+  );
+}
+
+/** The PC's Tracker, date by date (product owner 2026-11-03): one row per day and outlet, newest first. */
+function PcDayTable({ days }: { days: PcDay[] }) {
+  const several = (days[0]?.outlets.length ?? 0) > 1;
+  return (
+    <div style={{ overflowX: 'auto' }}>
+      <table className="p2w-table p2mw-table" aria-label="Tracker day by day">
+        <thead>
+          <tr>
+            <th>Date</th>
+            {several ? <th>Outlet</th> : null}
+            <th>Journeys uploaded</th>
+            <th>Bookings</th>
+            <th>Deliveries</th>
+            <th>Journeys completed</th>
+            <th>Gate register</th>
+            <th>Pending delivery files</th>
+            <th>Tasks worked</th>
+            <th>Tasks closed</th>
+          </tr>
+        </thead>
+        <tbody>
+          {days.flatMap((day) => day.outlets.map((o, i) => (
+            <tr key={`${day.date}-${o.outletId}`} className={i === 0 && several ? 'p2mw-day-first' : undefined}>
+              {i === 0 ? <td rowSpan={day.outlets.length}><strong>{day.label}</strong></td> : null}
+              {several ? <td>{o.outletName}</td> : null}
+              <td>{o.journeysUploaded}</td>
+              <td>{o.bookingsUploaded}</td>
+              <td>{o.deliveriesUpdated}</td>
+              <td>{o.journeysCompleted}</td>
+              <td>{registerCell(o.gateRegister)}</td>
+              <td className={o.pendingDeliveryFiles ? 'p2mw-attn' : undefined}>{o.pendingDeliveryFiles}</td>
+              <td>{o.tasksWorked}</td>
+              <td>{o.tasksClosed}</td>
+            </tr>
+          )))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function ReviewerDayTable({ days }: { days: ReviewerDay[] }) {
+  const several = (days[0]?.outlets.length ?? 0) > 1;
+  return (
+    <div style={{ overflowX: 'auto' }}>
+      <table className="p2w-table p2mw-table" aria-label="Tracker day by day">
+        <thead>
+          <tr>
+            <th>Date</th>
+            {several ? <th>Outlet</th> : null}
+            <th>Journeys worked</th><th>Reviews closed</th><th>Corrections</th><th>Tasks worked</th><th>Tasks closed</th>
+          </tr>
+        </thead>
+        <tbody>
+          {days.map((day) => {
+            // Several outlets: the day's total, and an outlet row only where something was done.
+            const busy = several ? day.outlets.filter((o) => o.journeysWorked || o.reviewsClosed || o.tasksWorked) : day.outlets;
+            const rows = several ? [{ ...day.totals, outletId: 'all', outletName: 'All outlets' }, ...busy] : busy;
+            return rows.map((o, i) => (
+              <tr key={`${day.date}-${o.outletId}`} className={i === 0 && several ? 'p2mw-day-first' : undefined}>
+                {i === 0 ? <td rowSpan={rows.length}><strong>{day.label}</strong></td> : null}
+                {several ? <td>{i === 0 ? <strong>{o.outletName}</strong> : o.outletName}</td> : null}
+                <td>{o.journeysWorked}</td><td>{o.reviewsClosed}</td><td>{o.corrections}</td>
+                <td>{o.tasksWorked}</td><td>{o.tasksClosed}</td>
+              </tr>
+            ));
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+/** The PC's Tracker tab: the period by outlet, day by day, and the missing documents of their delivery files. */
+function PcTrackerTab({ outlets, totals, days, tenantId, accessToken, range }: {
+  outlets: PcOutlet[]; totals: PcFigures; days: PcDay[]; tenantId: string; accessToken?: string;
+  range: { from: string; to: string };
+}) {
+  return (
+    <>
+      <SectionCard>
+        <div className="p2w-card__title"><h3>By outlet</h3><p className="p2w-muted">The whole period. Tasks pending is what is open now.</p></div>
+        <PcTracker outlets={outlets} totals={totals} />
+      </SectionCard>
+      <SectionCard>
+        <div className="p2w-card__title"><h3>Day by day</h3></div>
+        <PcDayTable days={days} />
+      </SectionCard>
+      <SectionCard>
+        <div className="p2w-card__title">
+          <h3>Missing documents</h3>
+          <p className="p2w-muted">Delivery files of your outlets with documents still missing, by delivery day.</p>
+        </div>
+        <MissingDocumentsPanel tenantId={tenantId} accessToken={accessToken} from={range.from} to={range.to} />
+      </SectionCard>
+    </>
+  );
+}
+
+function ReviewerTracker({ outlets, totals, days }: { outlets: ReviewerOutlet[]; totals: ReviewerFigures; days: ReviewerDay[] }) {
   return (
     <>
       <div className="p2mw-tiles">
@@ -255,6 +378,10 @@ function ReviewerTracker({ outlets, totals }: { outlets: ReviewerOutlet[]; total
           </table>
         </div>
       </SectionCard>
+      <SectionCard>
+        <div className="p2w-card__title"><h3>Day by day</h3></div>
+        <ReviewerDayTable days={days} />
+      </SectionCard>
     </>
   );
 }
@@ -263,8 +390,9 @@ function ReviewerTracker({ outlets, totals }: { outlets: ReviewerOutlet[]; total
  * PC Home (the PC's landing page) and the Tracker tab, for PCs and Reviewers (product owner 2026-11-02).
  * A PC sees the journeys they uploaded, the gate register of every outlet they are mapped to
  * (satellites included) and their tasks, for today, this week or last week; the Tracker tab puts the
- * same per outlet in one table. A Reviewer sees their own tracker: journeys worked, reviews closed,
- * tasks closed and pending.
+ * same per outlet, day by day (2026-11-03: date wise, with week and month views and journeys completed)
+ * and the missing documents of their delivery files. A Reviewer sees their own tracker: journeys
+ * worked, reviews closed, tasks closed and pending, also day by day.
  */
 export default function P2MyWorkPage() {
   const project = useProjectContextStore((s) => s.selectedProject);
@@ -320,10 +448,12 @@ export default function P2MyWorkPage() {
 
       {data?.role === 'PC' && data.outlets.length ? (
         tab === 'tracker'
-          ? <SectionCard><div className="p2w-card__title"><h3>Tracker</h3></div><PcTracker outlets={data.outlets} totals={data.totals} /></SectionCard>
+          ? <PcTrackerTab outlets={data.outlets} totals={data.totals} days={data.days ?? []} tenantId={tenantId!}
+              accessToken={accessToken ?? undefined} range={range} />
           : <PcHome outlets={data.outlets} totals={data.totals} />
       ) : null}
-      {data?.role === 'REVIEWER' && data.outlets.length ? <ReviewerTracker outlets={data.outlets} totals={data.totals} /> : null}
+      {data?.role === 'REVIEWER' && data.outlets.length
+        ? <ReviewerTracker outlets={data.outlets} totals={data.totals} days={data.days ?? []} /> : null}
     </div>
   );
 }

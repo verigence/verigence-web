@@ -9,6 +9,8 @@ export type GateRegisterDay = {
   date: string; label: string; dueAtUtc: string; status: GateRegisterStatus;
   total: number | null; intimated: number | null; uploadedInTool: number;
   pendingWithPc: number | null; notIntimated: number | null; gatePassId: string | null;
+  /** Pages of the uploaded register photo (0 when none), opened through the gate pass image link. */
+  pages?: number; uploadedAtUtc?: string | null;
 };
 
 type OutletBase = { outletId: string; outletName: string; dealerId: string; dealerName: string; classification: string };
@@ -29,21 +31,28 @@ export type ReviewerFigures = {
 };
 export type ReviewerOutlet = OutletBase & ReviewerFigures;
 
-/** One day of the Tracker (product owner 2026-11-03: "date wise"), per outlet; tasks pending has no day. */
-export type PcDayFigures = Pick<PcFigures, 'journeysUploaded' | 'bookingsUploaded' | 'deliveriesUpdated'
-  | 'journeysCompleted' | 'uploadedInTool' | 'pendingDeliveryFiles' | 'tasksWorked' | 'tasksClosed'>;
-export type PcDayOutlet = PcDayFigures & {
-  outletId: string; outletName: string; classification: string; gateRegister: GateRegisterDay | null;
-};
-export type PcDay = { date: string; label: string; outlets: PcDayOutlet[]; totals: PcDayFigures };
+/** How My Tracker groups its rows (product owner 2026-11-03: daily, weekly or monthly). */
+export type MyWorkGrouping = 'day' | 'week' | 'month';
 
-export type ReviewerDayFigures = Omit<ReviewerFigures, 'tasksPending'>;
-export type ReviewerDayOutlet = ReviewerDayFigures & { outletId: string; outletName: string; classification: string };
-export type ReviewerDay = { date: string; label: string; outlets: ReviewerDayOutlet[]; totals: ReviewerDayFigures };
+/** One row of My Tracker (a day, a Monday-to-Sunday week or a calendar month), per outlet; tasks pending has no row. */
+export type PcRowFigures = Pick<PcFigures, 'journeysUploaded' | 'bookingsUploaded' | 'deliveriesUpdated'
+  | 'journeysCompleted' | 'gateRegisterDays' | 'gateRegisterUploaded' | 'registerTotal' | 'registerIntimated'
+  | 'uploadedInTool' | 'pendingDeliveryFiles' | 'tasksWorked' | 'tasksClosed'>;
+export type PcRowOutlet = PcRowFigures & {
+  outletId: string; outletName: string; classification: string;
+  /** A day's register entry (status and figures); null for a week or month, or a Sunday. */
+  gateRegister: GateRegisterDay | null;
+};
+export type PcRow = { from: string; to: string; label: string; outlets: PcRowOutlet[]; totals: PcRowFigures };
+
+export type ReviewerRowFigures = Omit<ReviewerFigures, 'tasksPending'>;
+export type ReviewerRowOutlet = ReviewerRowFigures & { outletId: string; outletName: string; classification: string };
+export type ReviewerRow = { from: string; to: string; label: string; outlets: ReviewerRowOutlet[]; totals: ReviewerRowFigures };
 
 export type MyWork =
-  | { role: 'PC'; from: string; to: string; outlets: PcOutlet[]; totals: PcFigures; days: PcDay[] }
-  | { role: 'REVIEWER'; from: string; to: string; outlets: ReviewerOutlet[]; totals: ReviewerFigures; days: ReviewerDay[] };
+  | { role: 'PC'; from: string; to: string; by: MyWorkGrouping; outlets: PcOutlet[]; totals: PcFigures; periods: PcRow[] }
+  | { role: 'REVIEWER'; from: string; to: string; by: MyWorkGrouping; outlets: ReviewerOutlet[]; totals: ReviewerFigures;
+      periods: ReviewerRow[] };
 
 export type CheckoutCheck = {
   day: string; label: string;
@@ -52,8 +61,9 @@ export type CheckoutCheck = {
 
 const base = (tenantId: string) => `/p2/v1/tenants/${encodeURIComponent(tenantId)}`;
 
-export function getMyWork(tenantId: string, range: { from: string; to: string }, accessToken?: string) {
-  const params = new URLSearchParams({ from: range.from, to: range.to });
+export function getMyWork(tenantId: string, range: { from: string; to: string }, accessToken?: string,
+  by: MyWorkGrouping = 'day') {
+  const params = new URLSearchParams({ from: range.from, to: range.to, by });
   return auditCoreRequest<MyWork>(`${base(tenantId)}/my-work?${params.toString()}`, { accessToken });
 }
 
@@ -95,4 +105,12 @@ export function periodRange(period: MyWorkPeriod, now: Date = new Date()): { fro
   const monday = addDays(today, -((weekday + 6) % 7));
   if (period === 'week') return { from: monday, to: today };
   return { from: addDays(monday, -7), to: addDays(monday, -1) };
+}
+
+/** The longest range My Tracker reads at once (Audit Core MAX_DAYS). */
+export const MAX_RANGE_DAYS = 92;
+
+/** Days from ``from`` to ``to``, both counted. */
+export function rangeDays(range: { from: string; to: string }): number {
+  return Math.round((Date.parse(`${range.to}T00:00:00Z`) - Date.parse(`${range.from}T00:00:00Z`)) / 86_400_000) + 1;
 }

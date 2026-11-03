@@ -22,7 +22,12 @@ export type MissingDocumentsJourney = {
   uploadDay: string;
   documents: string[];
   requirementKeys: string[];
+  /** Open PC document tasks other than a missing document (a page to upload again, ...). */
+  otherOpenTasks?: number;
 };
+
+/** A delivery file held up by missing documents alone (product owner 2026-11-03). */
+export type CloseToCompletionJourney = MissingDocumentsJourney & { deliveryDate: string; deliveryLabel: string };
 
 export type MissingDocumentsDay = { date: string; label: string; journeys: MissingDocumentsJourney[] };
 
@@ -40,11 +45,13 @@ export type MissingDocumentsReport = {
   byDealer: MissingDocumentsArea[];
   byOutlet: MissingDocumentsArea[];
   days: MissingDocumentsDay[];
+  /** Nearest to closing first: fewest documents missing, then the oldest delivery day. */
+  closeToCompletion?: { top: number; journeys: CloseToCompletionJourney[]; eligible: number; heldByOtherTasks: number };
   outlets: Array<{ dealerId: string; dealerName: string; outletId: string; outletName: string }>;
   notes?: string[];
 };
 
-export type MissingDocumentsQuery = { from?: string; to?: string; outletId?: string; dealerId?: string };
+export type MissingDocumentsQuery = { from?: string; to?: string; outletId?: string; dealerId?: string; top?: number };
 
 export function getMissingDocuments(tenantId: string, query: MissingDocumentsQuery, accessToken?: string) {
   const params = new URLSearchParams();
@@ -52,6 +59,7 @@ export function getMissingDocuments(tenantId: string, query: MissingDocumentsQue
   if (query.to) params.set('to', query.to);
   if (query.outletId) params.set('outletId', query.outletId);
   if (query.dealerId) params.set('dealerId', query.dealerId);
+  if (query.top) params.set('top', String(query.top));
   const search = params.toString() ? `?${params.toString()}` : '';
   return auditCoreRequest<MissingDocumentsReport>(
     `/p2/v1/tenants/${encodeURIComponent(tenantId)}/missing-documents${search}`,

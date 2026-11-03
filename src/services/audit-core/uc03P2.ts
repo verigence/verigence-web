@@ -1358,6 +1358,9 @@ export type P2AuditSummary = {
     scrappage: { certificates: number };
     creditNotes: { count: number; total: string; items?: P2CreditNote[] };
     insurance: { by: string; decidedBy?: string | null; basis?: string | null };
+    /** The deal's balance checked against the Tally customer ledger's (AS-10, 2026-11-03); null with no ledger. */
+    customerLedger?: (P2AuditCheck & { ledgerBalance: string | null; dealBalance: string | null;
+      difference: string | null; documentId?: string | null }) | null;
   };
   settlement: P2AuditCheck & { payable: string | null; received: string; balance: string | null;
     status: 'SETTLED' | 'SHORT' | 'EXCESS' | null };

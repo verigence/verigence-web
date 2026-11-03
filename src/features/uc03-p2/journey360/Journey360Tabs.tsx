@@ -204,9 +204,15 @@ export function PaymentsTab({ payments, journeyId }: { payments: P2Payments360; 
     <div className="j360-stack">
       <dl className="j360-paid j360-card">
         <div><dt>Customer receipts</dt><dd>{money(payments.receiptsTotal)}</dd></div>
-        <div><dt>Loan received</dt><dd>{money(payments.loanDisbursed)}</dd></div>
+        {/* The loan, the old vehicle and the total as the Deal counts them (2026-11-03). */}
+        <div className={payments.loanUnknown ? 'is-due' : ''}>
+          <dt>{letterLoan ? 'Loan received*' : 'Loan received'}</dt>
+          <dd>{payments.loanUnknown ? 'Not on file' : `${money(payments.loanDisbursed)}${letterLoan ? '*' : ''}`}
+            {payments.loanSource && !payments.loanUnknown ? <small className="p2w-muted">{payments.loanSource}</small> : null}</dd>
+        </div>
+        {payments.oldVehicle ? <div><dt>Old vehicle (in kind)</dt><dd>{money(payments.oldVehicle)}</dd></div> : null}
+        {payments.refunds ? <div><dt>Refunds</dt><dd>−{money(payments.refunds)}</dd></div> : null}
         <div><dt>Total received</dt><dd>{money(payments.paidTotal)}</dd></div>
-        {letterLoan ? <div className="is-due"><dt>Loan per bank letter*</dt><dd>{money(letterLoan.amount)}</dd></div> : null}
         {Object.entries(payments.byStage).map(([stage, amount]) => (
           <div key={stage}><dt>{humanizeKey(stage)} receipts</dt><dd>{money(amount)}</dd></div>
         ))}

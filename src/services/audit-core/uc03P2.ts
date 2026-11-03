@@ -1269,6 +1269,11 @@ export type P2Payments360 = {
   items: P2PaymentItem[];
   /** receiptsTotal: the customer's receipts; loanDisbursed: the loan (its linked receipt included). */
   receiptsTotal: string; loanDisbursed: string; loanReceiptsTotal?: string; paidTotal: string; byStage: Record<string, string>;
+  /** The loan as the Deal and the Audit Summary count it (2026-11-03): where it comes from, and
+   * whether it is unknown on a financed deal; paidTotal is the Deal's total received. */
+  loanSource?: string | null; loanUnknown?: boolean;
+  oldVehicle?: string | null; refunds?: string | null;
+  /** Only when the bank letter's sanction is the loan counted. */
   loanWithoutReceipt?: P2LoanWithoutReceipt | null;
   duplicates?: number;
   bankStatement?: {

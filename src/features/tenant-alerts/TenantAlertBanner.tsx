@@ -1,10 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { Link } from 'react-router-dom';
 
 import {
   alertMessage,
   dismissedStorageKey,
   getTenantAlerts,
+  isCriticalAlert,
+  orderAlerts,
   readDismissed,
   unseenAlerts,
   writeDismissed,
@@ -48,7 +51,7 @@ export default function TenantAlertBanner() {
     staleTime: POLL_MS / 2,
     retry: false,
   });
-  const visible = useMemo(() => unseenAlerts(alerts.data?.items, dismissedIds), [alerts.data, dismissedIds]);
+  const visible = useMemo(() => orderAlerts(unseenAlerts(alerts.data?.items, dismissedIds)), [alerts.data, dismissedIds]);
 
   // The PC who uploaded the same file again hears a 5-second beep, once per
   // alert (2026-10-31); everyone else sees the alert silently.
@@ -78,15 +81,29 @@ export default function TenantAlertBanner() {
   return (
     <section className="tenant-alerts" aria-label="Project alerts" aria-live="polite">
       {visible.slice(0, SHOWN).map((alert) => {
-        const kept = alert.outcome && alert.outcome !== 'DELETED';
+        const critical = isCriticalAlert(alert);
+        const kept = !critical && alert.outcome && alert.outcome !== 'DELETED';
+        const journeys = critical
+          ? [alert.payload?.newJourney, alert.payload?.existingJourney].filter((j) => j?.journeyId)
+          : [];
         return (
-          <article key={alert.alertId} className={`tenant-alert${kept ? ' tenant-alert--kept' : ''}`} role="alert">
+          <article key={alert.alertId}
+            className={`tenant-alert${critical ? ' tenant-alert--critical' : kept ? ' tenant-alert--kept' : ''}`} role="alert">
             <span className="tenant-alert__icon" aria-hidden="true">
               <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z" /><path d="M12 9v4M12 17h.01" /></svg>
             </span>
             <div className="tenant-alert__copy">
               <strong className="tenant-alert__title">{alert.title || 'Same file being uploaded'}</strong>
               <p className="tenant-alert__body">{alertMessage(alert)}</p>
+              {journeys.length ? (
+                <p className="tenant-alert__links">
+                  {journeys.map((j) => (
+                    <Link key={j!.journeyId} to={`/p2/journeys/${j!.journeyId}/overview`}>
+                      {j!.reference || 'Open booking'}{j!.outletName ? ` · ${j!.outletName}` : ''}
+                    </Link>
+                  ))}
+                </p>
+              ) : null}
             </div>
             <button type="button" className="tenant-alert__close" aria-label="Dismiss alert" onClick={() => dismiss([alert.alertId])}>×</button>
           </article>

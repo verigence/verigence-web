@@ -109,3 +109,20 @@
     font-size: 12.5px;
   }
 }
+
+/* Duplicate booking across outlets (2026-11-03): "relatively big deep red". */
+.tenant-alert--critical {
+  padding: 16px 14px 16px 16px;
+  border: 2px solid #7a0a0a;
+  border-left: 8px solid #4d0000;
+  background: #b42318;
+  color: #fff;
+  box-shadow: 0 12px 32px rgba(122, 10, 10, .45);
+}
+.tenant-alert--critical .tenant-alert__icon { color: #fff; }
+.tenant-alert--critical .tenant-alert__title { font-size: 17px; letter-spacing: .01em; text-transform: uppercase; }
+.tenant-alert--critical .tenant-alert__body { font-size: 14px; }
+.tenant-alert--critical .tenant-alert__close:hover,
+.tenant-alert--critical .tenant-alert__close:focus-visible { background: rgba(255, 255, 255, .18); }
+.tenant-alert__links { display: flex; flex-wrap: wrap; gap: 8px 14px; margin: 8px 0 0; font-size: 13px; font-weight: 700; }
+.tenant-alert__links a { color: inherit; text-decoration: underline; }

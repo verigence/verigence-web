@@ -15,8 +15,11 @@ export function alertsToBeep(
   alerts: readonly TenantAlert[] | undefined, subject: string | undefined, beeped: ReadonlySet<string>,
 ): TenantAlert[] {
   if (!alerts || !subject) return [];
-  return alerts.filter((a) => a.kind === 'SAME_FILE_UPLOADED'
-    && a.payload?.newJourney?.pcActorId === subject && !beeped.has(a.alertId));
+  return alerts.filter((a) => !beeped.has(a.alertId) && (
+    (a.kind === 'SAME_FILE_UPLOADED' && a.payload?.newJourney?.pcActorId === subject)
+    // A duplicate booking across outlets beeps for the PC of either booking (2026-11-03).
+    || (a.kind === 'DUPLICATE_ACROSS_OUTLETS'
+      && (a.payload?.newJourney?.pcActorId === subject || a.payload?.existingJourney?.pcActorId === subject))));
 }
 
 export function beepedStorageKey(tenantId: string, subject: string): string {

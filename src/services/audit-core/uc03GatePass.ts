@@ -16,6 +16,8 @@ export type GatePassOutlets = {
   previous?: GatePassDayInfo | null;
   /** Outlets whose previous day's gate pass is not finished yet. */
   previousOpenOutletIds?: string[];
+  /** The caller's gate registers uploaded today whose numbers can still be corrected (2026-11-03). */
+  editableToday?: GatePass[];
   /** No longer set: satellite outlets have a gate register too (2026-11-02). Kept for older servers. */
   satelliteOnly?: boolean;
 };

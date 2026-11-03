@@ -98,6 +98,8 @@ export default function GatePassWizard({ tenantId, accessToken, onChanged, editG
     staleTime: 60_000,
   });
   const outlets = outletsQuery.data?.outlets ?? [];
+  // Registers this PC uploaded today, still correctable (product owner 2026-11-03).
+  const editableToday = (outletsQuery.data?.editableToday ?? []).filter((gp) => gp.countsEditable !== false);
   const defaultOutlet = outlets.find((o) => o.outletId === outletsQuery.data?.defaultOutletId) ?? outlets[0];
 
   const [step, setStep] = useState<Step>('outlet');
@@ -265,6 +267,7 @@ export default function GatePassWizard({ tenantId, accessToken, onChanged, editG
       setResult(res);
       setGatePass(res.gatePass);
       onChanged();
+      void queryClient.invalidateQueries({ queryKey: ['gate-pass-outlets', tenantId] });
       if (res.nextStep === 'DONE') {
         setOutcome(registerOutcome(res));
         setStep('done');
@@ -336,6 +339,28 @@ export default function GatePassWizard({ tenantId, accessToken, onChanged, editG
       {!today && previous && step === 'outlet' ? (
         <div className="p2w-alert" role="status">
           Sunday is off: Sunday’s gate pass goes with Monday’s. You can still upload the gate pass for {previous.label} here.
+        </div>
+      ) : null}
+
+      {step === 'outlet' && editableToday.length ? (
+        <div className="p2gp-step p2gp-editable">
+          <p><strong>Uploaded today — you can correct the numbers until midnight</strong></p>
+          <ul className="p2gp-editable__list">
+            {editableToday.map((gp) => (
+              <li key={gp.gatePassId} className="p2gp-editable__item">
+                <span>
+                  <strong>{gp.outletName}</strong> · {gp.dayLabel ?? gp.businessDate}
+                  <span className="p2w-muted">
+                    {' '}· Total {gp.newDeliveries ?? 0}, intimated to you {gp.intimatedToPc ?? '—'}
+                    {gp.countsEditCount ? ` · corrected ${gp.countsEditCount}×` : ''}
+                  </span>
+                </span>
+                <button type="button" className="p2w-button p2w-button--secondary" onClick={() => correctCounts(gp)}>
+                  Correct the numbers
+                </button>
+              </li>
+            ))}
+          </ul>
         </div>
       ) : null}
 
@@ -490,6 +515,9 @@ export default function GatePassWizard({ tenantId, accessToken, onChanged, editG
           )}
           <div className="p2gp-actions">
             <button type="submit" className="p2w-button p2w-button--primary" disabled={busy || !countsValid}>{busy ? 'Saving…' : 'Submit'}</button>
+            {editing ? (
+              <button type="button" className="p2w-button p2w-button--ghost" disabled={busy} onClick={startAgain}>Cancel</button>
+            ) : null}
           </div>
         </form>
       ) : null}

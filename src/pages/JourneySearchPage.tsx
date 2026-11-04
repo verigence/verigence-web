@@ -26,7 +26,8 @@ function roleScopeCopy(role?: string): string {
   if (role === 'PC') return 'Search is restricted to the Dealer Outlet(s) assigned to you.';
   if (role === 'TL') return 'Search covers all Dealers and Outlets assigned to you.';
   if (role === 'PM') return 'Search covers your complete assigned scope.';
-  return 'Search is available to PC, TL and PM users.';
+  if (role === 'REVIEWER') return 'Search covers every Outlet you review.';
+  return 'Search is available to PC, TL, PM and Reviewer users.';
 }
 
 function mobileLabel(last4: string | null): string {
@@ -51,7 +52,7 @@ export default function JourneySearchPage() {
   }, [queryText]);
 
   const operatingRole = selectedProject?.operatingRole;
-  const supportedRole = operatingRole === 'PC' || operatingRole === 'TL' || operatingRole === 'PM';
+  const supportedRole = operatingRole === 'PC' || operatingRole === 'TL' || operatingRole === 'PM' || operatingRole === 'REVIEWER';
   const tenantId = selectedProject?.tenantId || '';
 
   const searchQuery = useQuery({
@@ -66,7 +67,7 @@ export default function JourneySearchPage() {
     if (!selectedProject) return '';
     const { dealerCount, outletCount } = selectedProject.scope;
     if (operatingRole === 'PC') return `${outletCount} assigned outlet${outletCount === 1 ? '' : 's'}`;
-    if (operatingRole === 'TL') return `${dealerCount} dealer${dealerCount === 1 ? '' : 's'} · ${outletCount} outlet${outletCount === 1 ? '' : 's'}`;
+    if (operatingRole === 'TL' || operatingRole === 'REVIEWER') return `${dealerCount} dealer${dealerCount === 1 ? '' : 's'} · ${outletCount} outlet${outletCount === 1 ? '' : 's'}`;
     if (operatingRole === 'PM') return selectedProject.scope.allDealers
       ? 'All assigned Dealers'
       : `${dealerCount} dealer${dealerCount === 1 ? '' : 's'} · ${outletCount} outlet${outletCount === 1 ? '' : 's'}`;
@@ -115,7 +116,7 @@ export default function JourneySearchPage() {
 
       {!supportedRole && (
         <div className="journey-search-state journey-search-state--warning">
-          Search is currently available only for Process Consultant, Team Lead and Project Manager roles.
+          Search is currently available only for Process Consultant, Team Lead, Project Manager and Reviewer roles.
         </div>
       )}
 
@@ -195,9 +196,17 @@ export default function JourneySearchPage() {
                   <div><span>Delivery</span><StatusPill value={item.deliveryStatus || 'NOT_STARTED'} compact /></div>
                 </div>
 
-                <Link className="journey-search-result__open" to={`/p2/journeys/${item.journeyId}/overview`}>
-                  View Journey <span aria-hidden="true">→</span>
-                </Link>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  <Link className="journey-search-result__open" to={`/p2/journeys/${item.journeyId}/overview`}>
+                    View Journey <span aria-hidden="true">→</span>
+                  </Link>
+                  {/* A Reviewer's work is on the documents (product owner 2026-11-04). */}
+                  {operatingRole === 'REVIEWER' && (
+                    <Link className="journey-search-result__open" to={`/p2/journeys/${item.journeyId}/documents`}>
+                      Documents <span aria-hidden="true">→</span>
+                    </Link>
+                  )}
+                </div>
               </article>
             ))}
           </div>

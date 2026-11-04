@@ -12,6 +12,8 @@ The app's build number is added by the release workflow and is not written here.
 
 ## [Unreleased]
 
+## [1.5.0] - 2026-11-04
+
 ### Added
 - My leave: paid leave is earned from attendance — 1 day for every 22 days of attendance, up to 3 days held (both set by HR). There is no Sick or Earned leave any more. The page shows how many days of attendance count so far, when the count is paused, and what each completed block earned or lost at the cap.
 - My leave: Special occasion leave (with its own yearly quota; say what the occasion is) and Comp-off (earned by approved work on a Sunday or holiday).
@@ -27,7 +29,6 @@ The app's build number is added by the release workflow and is not written here.
 
 ### Fixed
 - Bookings & Deliveries: after a booking was created on the new-booking screen, "Capture New Booking" (or a link to another booking) changed the address but kept the screen on the booking just created, so the next customer's files went into it. Every booking now opens on a fresh screen.
-
 
 ## [1.4.0] - 2026-10-30
 

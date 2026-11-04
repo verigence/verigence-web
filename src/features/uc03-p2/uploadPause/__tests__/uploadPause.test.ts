@@ -4,7 +4,8 @@ import { AuditCoreHttpError } from '../../../../services/audit-core/client';
 import { allProjectsRow, pauseAllCommand, projectPauses, RESUME_ALL_COMMAND } from '../../../admin/systemHealth/uploadPauseAdmin';
 import { runUploads, stableClientUploadId, type UploadItem, type UploadTransport } from '../../workspace/p2Uploader';
 import {
-  isUploadPausedError, istTime, pauseNotice, uploadErrorText, uploadPauseState, UPLOAD_PAUSED_ERROR_CODE,
+  DUPLICATE_BLOCK_ERROR_CODE, isUploadPausedError, istTime, pauseNotice, uploadErrorText, uploadPauseState,
+  UPLOAD_PAUSED_ERROR_CODE,
 } from '../uploadPause';
 
 const NOW = new Date('2026-10-31T15:00:00Z');
@@ -109,5 +110,23 @@ describe('the SuperAdmin switch', () => {
     expect(allProjectsRow(rows)?.tenantId).toBeNull();
     expect(allProjectsRow([])).toBeUndefined();
     expect(projectPauses(rows).map((r) => r.tenantId)).toEqual(['t1']);
+  });
+});
+
+describe('a duplicate booking at two outlets of one dealership (2026-11-04)', () => {
+  const message = 'NEW-1 (Rasulgarh) and OLD-1 (Patia) are the same customer (A, THAR) at two outlets. '
+    + 'Contact the Reviewer to delete the duplicate booking; your uploads come back once it is deleted.';
+
+  it('pauses the PC\'s uploads with the server\'s message telling them to contact the Reviewer', () => {
+    const state = uploadPauseState({ paused: true, message, untilUtc: null, duplicateBooking: { alertId: 'a' } }, false, NOW);
+    expect(state).toEqual({ paused: true, message, untilUtc: null, notice: message });
+  });
+
+  it('treats the 409 refusal as paused and shows its words', () => {
+    const refusal = new AuditCoreHttpError(409, {
+      errorCode: DUPLICATE_BLOCK_ERROR_CODE, title: 'Uploads paused: duplicate booking', detail: message, status: 409,
+    });
+    expect(isUploadPausedError(refusal)).toBe(true);
+    expect(uploadErrorText(refusal, 'fallback')).toBe(message);
   });
 });

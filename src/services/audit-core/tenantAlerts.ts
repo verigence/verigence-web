@@ -12,7 +12,13 @@ import { auditCoreRequest } from './client';
  * outlets -- nothing deleted; a large deep-red alert for the PCs of both outlets, their Reviewers and
  * Team Leads (Audit Core returns it only to them).
  */
-export type TenantAlertKind = 'SAME_FILE_UPLOADED' | 'DUPLICATE_ACROSS_OUTLETS';
+/**
+ * Product owner 2026-11-04: DUPLICATE_ACROSS_OUTLETS is now another DEALERSHIP -- a big red alert
+ * flashing on every screen of the Project. DUPLICATE_SAME_DEALERSHIP: two outlets of one dealership,
+ * for the PCs, Reviewers and Team Leads of both outlets; both PCs' uploads are paused until a
+ * Reviewer deletes the duplicate booking (``uploadsBlocked``).
+ */
+export type TenantAlertKind = 'SAME_FILE_UPLOADED' | 'DUPLICATE_ACROSS_OUTLETS' | 'DUPLICATE_SAME_DEALERSHIP';
 export type SameFileOutcome =
   | 'DELETED'
   | 'KEPT_NOT_INDIVIDUAL'
@@ -58,6 +64,8 @@ export type TenantAlert = {
     outcome?: string;
     audienceOutletIds?: string[];
     severity?: 'CRITICAL' | string;
+    /** Two outlets of one dealership: both PCs' uploads are paused (2026-11-04). */
+    uploadsBlocked?: boolean;
   };
   publishedAtUtc: string;
   expiresAtUtc: string;
@@ -137,7 +145,13 @@ export function alertMessage(alert: TenantAlert): string {
 
 /** A duplicate booking across outlets: the large deep-red alert, shown before the others. */
 export function isCriticalAlert(alert: TenantAlert): boolean {
-  return alert.kind === 'DUPLICATE_ACROSS_OUTLETS' || alert.payload?.severity === 'CRITICAL';
+  return alert.kind === 'DUPLICATE_ACROSS_OUTLETS' || alert.kind === 'DUPLICATE_SAME_DEALERSHIP'
+    || alert.payload?.severity === 'CRITICAL';
+}
+
+/** A duplicate booking at another dealership flashes on every screen (product owner 2026-11-04). */
+export function isFlashingAlert(alert: TenantAlert): boolean {
+  return alert.kind === 'DUPLICATE_ACROSS_OUTLETS';
 }
 
 /** Critical alerts first, then newest first (the order Audit Core returns). */

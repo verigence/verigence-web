@@ -17,8 +17,9 @@ export function alertsToBeep(
   if (!alerts || !subject) return [];
   return alerts.filter((a) => !beeped.has(a.alertId) && (
     (a.kind === 'SAME_FILE_UPLOADED' && a.payload?.newJourney?.pcActorId === subject)
-    // A duplicate booking across outlets beeps for the PC of either booking (2026-11-03).
-    || (a.kind === 'DUPLICATE_ACROSS_OUTLETS'
+    // A duplicate booking across outlets beeps for the PC of either booking (2026-11-03);
+    // so does one at two outlets of the same dealership (2026-11-04).
+    || ((a.kind === 'DUPLICATE_ACROSS_OUTLETS' || a.kind === 'DUPLICATE_SAME_DEALERSHIP')
       && (a.payload?.newJourney?.pcActorId === subject || a.payload?.existingJourney?.pcActorId === subject))));
 }
 

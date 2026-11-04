@@ -124,5 +124,14 @@
 .tenant-alert--critical .tenant-alert__body { font-size: 14px; }
 .tenant-alert--critical .tenant-alert__close:hover,
 .tenant-alert--critical .tenant-alert__close:focus-visible { background: rgba(255, 255, 255, .18); }
+/* Another dealership (product owner 2026-11-04): "flash on all screen". */
+.tenant-alert--flash { animation: tenant-alert-flash 1s steps(1, end) infinite; }
+@keyframes tenant-alert-flash {
+  0% { background: #b42318; box-shadow: 0 0 0 4px #ff4d4f, 0 12px 32px rgba(122, 10, 10, .55); }
+  50% { background: #7a0a0a; box-shadow: 0 0 0 4px transparent, 0 12px 32px rgba(122, 10, 10, .45); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tenant-alert--flash { animation-duration: 2s; }
+}
 .tenant-alert__links { display: flex; flex-wrap: wrap; gap: 8px 14px; margin: 8px 0 0; font-size: 13px; font-weight: 700; }
 .tenant-alert__links a { color: inherit; text-decoration: underline; }

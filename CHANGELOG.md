@@ -12,6 +12,8 @@ The app's build number is added by the release workflow and is not written here.
 
 ## [Unreleased]
 
+## [1.5.2] - 2026-11-05
+
 ### Changed
 - Checking in late or checking out early now needs a reason, and it always goes to your Team Lead. If the Team Lead rejects it, the day counts as a half day.
 - Team Leads see how many late check-ins and early check-outs the person has had this month, against the number allowed.

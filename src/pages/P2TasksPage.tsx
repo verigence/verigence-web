@@ -7,6 +7,8 @@ import '../styles/uc03-p2-workspace.css';
 import BackLink from '../components/BackLink';
 import PageHeader from '../components/PageHeader';
 import RaiseTaskDialog from '../features/uc03-p2/tasks/RaiseTaskDialog';
+import NotMandatoryClaimsPanel from '../features/uc03-p2/tasks/NotMandatoryClaimsPanel';
+import { claimState, NOT_REQUIRED_CHOICE } from '../features/uc03-p2/tasks/p2TaskPlan';
 import TaskManagerPanel from '../features/task-manager/TaskManagerPanel';
 import RemovePageDialog, { removablePages, removalPagesText, removeOptions, type RemovablePage } from '../features/uc03-p2/workspace/RemovePageDialog';
 import DocumentTypePicker, { documentTypeOptions, OTHER_DOCUMENT_TEMPLATE } from '../features/uc03-p2/workspace/DocumentTypePicker';
@@ -31,7 +33,7 @@ import { getTmTasks } from '../services/audit-core/taskManager';
 import { useProjectContextStore } from '../store/projectContextStore';
 import { useSessionStore } from '../store/sessionStore';
 
-type View = 'open' | 'done';
+type View = 'open' | 'done' | 'worked';
 
 function errorText(cause: unknown): string {
   return cause instanceof Error && cause.message ? cause.message : 'The action could not be completed.';
@@ -120,6 +122,8 @@ function TaskDetail({ task, tenantId, accessToken, operatingRole, onDone }: {
       }
       onDone(action.action === 'ADD_COMMENT'
         ? 'Note added. The task is still open: a note does not close it -- do what the task asks (upload, correct, answer) and it closes itself.'
+        : action.action === 'CLOSE_TASK' && action.details?.choice === NOT_REQUIRED_CHOICE
+          ? 'Sent to the Reviewer with your reason. The task closes if they accept; if not, it comes back to you.'
         : action.action === 'CLOSE_TASK' ? 'Task closed.'
         : task.task_type === 'SKU_CLOSEST_MATCH_CONFIRM' ? 'Vehicle confirmed. The deal is now checked against its price.'
         : task.task_type === 'SKU_OTHER_MONTH_PRICE_LIST' && action.action === 'ACCEPT' ? 'Approved. The journey is now priced on that list and its SKU resolved there.'
@@ -142,6 +146,8 @@ function TaskDetail({ task, tenantId, accessToken, operatingRole, onDone }: {
   const trigger = (action: TaskAction) => {
     if (action.requiresComment && !comment.trim()) {
       setError(action.action === 'ADD_COMMENT' ? 'Write a comment first.'
+        : action.action === 'CLOSE_TASK' && action.details?.choice === NOT_REQUIRED_CHOICE
+          ? 'Write in the comment box why this document is not mandatory for this journey.'
         : action.action === 'CLOSE_TASK' ? 'Write a comment in the comment box to close this task.'
         : task.task_type === 'INSURANCE_SOURCE_CONFIRM' ? 'Write the Agent code / MISP code in the comment box first.'
         : 'Add a short reason in the comment box first.');
@@ -216,6 +222,15 @@ function TaskDetail({ task, tenantId, accessToken, operatingRole, onDone }: {
   return (
     <div className="p2w-task__detail">
       <p className="p2w-task__description">{task.description}</p>
+      {claimState(task) === 'REJECTED' ? (
+        <div className="p2w-alert p2w-alert--error" role="status">
+          The Reviewer did not accept that this document is not mandatory:
+          {' '}“{String((task.completion_result ?? {}).decisionReason ?? '')}”. Upload it, or answer again with your reason.
+        </div>
+      ) : null}
+      {task.task_type === 'NOT_MANDATORY_REVIEW' && task.task_status !== 'VERIFIED_COMPLETE' ? (
+        <NotMandatoryClaimsPanel tenantId={tenantId} journeyId={task.journey_id} accessToken={accessToken} onDone={onDone} />
+      ) : null}
       {typingQueue ? (
         <DocumentTypePicker options={typeOptions} busy={pageBusy || templates.isLoading}
           onChoose={(templateKey, name) => setType.mutate({ queueId: typingQueue, templateKey, name })} />
@@ -366,6 +381,11 @@ function TaskRow({ task, open, onToggle, view, tenantId, accessToken, operatingR
             {status.label}
           </span>
           {view === 'open' ? <span className={due.overdue ? 'p2w-tone p2w-tone--danger' : 'p2w-muted'}>{due.label}</span> : null}
+          {view === 'worked' ? (
+            <span className={`p2w-chip p2w-chip--${task.task_status === 'VERIFIED_COMPLETE' ? 'success' : 'warning'}`}>
+              {task.task_status === 'VERIFIED_COMPLETE' ? 'Closed' : task.task_status === 'CANCELLED' ? 'Cancelled' : 'Awaiting closure'}
+            </span>
+          ) : null}
           <span className="p2w-muted">
             {task.source_system === 'LEGACY' ? 'Phase 1 · ' : ''}{task.assigned_role_code}
             {task.origin_kind === 'HUMAN' && task.raised_by_role_code ? ` · raised by ${task.raised_by_role_code}` : ''}
@@ -644,6 +664,13 @@ export default function P2TasksPage() {
           <button type="button" role="tab" aria-selected={view === 'done'} className={view === 'done' ? 'is-active' : ''} onClick={() => setView('done')}>
             Done recently
           </button>
+          {/* Product owner 2026-11-04: the tasks I worked on, closed or awaiting closure. */}
+          {operatingRole === 'PC' || operatingRole === 'REVIEWER' ? (
+            <button type="button" role="tab" aria-selected={view === 'worked'} className={view === 'worked' ? 'is-active' : ''}
+              onClick={() => setView('worked')}>
+              Worked on
+            </button>
+          ) : null}
         </div>
         <div className="p2w-filters">
           {operatingRole ? (
@@ -714,6 +741,7 @@ export default function P2TasksPage() {
           <div className="p2w-empty p2w-empty--success">
             {view === 'open'
               ? (docFilter !== 'ALL' ? `No ${DOCUMENT_CATEGORIES.find((item) => item.key === docFilter)?.label.toLowerCase()} tasks right now.` : 'Nothing to do right now.')
+              : view === 'worked' ? 'You have not worked on any task in the last 30 days.'
               : 'No tasks were completed in the last 14 days.'}
           </div>
         ) : null}

@@ -822,7 +822,7 @@ export function getP2Tasks(
   tenantId: string,
   accessToken?: string,
   journeyId?: string,
-  options: { view?: 'open' | 'done' | 'all'; role?: string; includeLegacy?: boolean; tab?: P2TaskTab } = {},
+  options: { view?: 'open' | 'done' | 'all' | 'worked'; role?: string; includeLegacy?: boolean; tab?: P2TaskTab } = {},
 ): Promise<P2TasksResponse> {
   const params = new URLSearchParams();
   if (journeyId) params.set('journey_id', journeyId);

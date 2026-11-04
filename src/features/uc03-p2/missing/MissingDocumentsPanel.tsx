@@ -5,6 +5,7 @@ import '../../../styles/uc03-p2-missing-documents.css';
 
 import SectionCard from '../../../components/SectionCard';
 import { filterDaysByDocument, getMissingDocuments } from '../../../services/audit-core/uc03MissingDocuments';
+import JourneyClosedBadge from '../workspace/JourneyClosedBadge';
 
 /**
  * Missing documents of the journeys with deliveries in a period (product owner
@@ -102,7 +103,8 @@ export default function MissingDocumentsPanel({ tenantId, accessToken, from, to,
                   {report.closeToCompletion.journeys.map((j, i) => (
                     <tr key={j.journeyId}>
                       <td>{i + 1}</td>
-                      <td><Link className="p2w-link" to={`/p2/journeys/${j.journeyId}/documents`}>{j.customer}</Link></td>
+                      <td><Link className="p2w-link" to={`/p2/journeys/${j.journeyId}/documents`}>{j.customer}</Link>
+                        {' '}<JourneyClosedBadge closure={j.reviewerClosure} closed={j.closed} /></td>
                       <td data-label="Delivered">{j.deliveryLabel}{j.basis === 'UPLOAD' ? ' *' : ''}</td>
                       <td data-label="Outlet">{j.outletName ?? '—'}</td>
                       <td data-label="PC">{j.pcName ?? '—'}</td>
@@ -174,6 +176,7 @@ export default function MissingDocumentsPanel({ tenantId, accessToken, from, to,
                     <td>
                       <Link className="p2w-link" to={`/p2/journeys/${j.journeyId}/documents`}>{j.customer}</Link>
                       {j.basis === 'UPLOAD' ? <span title="Dated by the day the delivery documents were uploaded"> *</span> : null}
+                      {' '}<JourneyClosedBadge closure={j.reviewerClosure} closed={j.closed} />
                     </td>
                     <td data-label="Outlet">{j.outletName ?? '—'}</td>
                     <td data-label="PC">{j.pcName ?? '—'}</td>

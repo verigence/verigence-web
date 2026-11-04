@@ -7,6 +7,7 @@ import StatusPill from '../components/StatusPill';
 import { searchUc03Journeys, type JourneySearchMatch } from '../services/audit-core/uc03JourneySearch';
 import { useProjectContextStore } from '../store/projectContextStore';
 import { useSessionStore } from '../store/sessionStore';
+import JourneyClosedBadge from '../features/uc03-p2/workspace/JourneyClosedBadge';
 
 const matchLabels: Record<JourneySearchMatch, string> = {
   DEALER_BOOKING_NUMBER: 'Dealer booking no.',
@@ -180,6 +181,7 @@ export default function JourneySearchPage() {
                   <span>Dealer Booking No.</span>
                   <strong>{item.bookingReference || 'Not available'}</strong>
                   <small>{item.productLabel || 'Vehicle details pending'}</small>
+                  <JourneyClosedBadge closure={item.reviewerClosure} closed={item.closed} />
                 </div>
 
                 <div className="journey-search-result__location">

@@ -17,12 +17,14 @@ import {
 import { useProjectContextStore } from '../store/projectContextStore';
 import { useSessionStore } from '../store/sessionStore';
 import { matchLevelText } from '../features/uc03-p2/matchLevel';
+import JourneyClosedBadge from '../features/uc03-p2/workspace/JourneyClosedBadge';
 
 function Side({ title, side }: { title: string; side: DuplicateBookingSide }) {
   return (
     <div className="j360-dup-side">
       <span className="j360-label">{title}</span>
       <strong>{side.customerName ?? '—'}</strong>
+      <JourneyClosedBadge closure={side.reviewerClosure} closed={side.closed} />
       <span className="p2w-muted">{[side.productLabel, side.journeyReference].filter(Boolean).join(' · ')}</span>
       {/* Outlet and the PC who captured it, named rather than folded into one
           line (product owner 2026-10-23). */}

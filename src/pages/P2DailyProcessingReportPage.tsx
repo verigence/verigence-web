@@ -21,6 +21,7 @@ import {
 } from '../services/audit-core/uc03P2';
 import { useProjectContextStore } from '../store/projectContextStore';
 import { useSessionStore } from '../store/sessionStore';
+import JourneyClosedBadge from '../features/uc03-p2/workspace/JourneyClosedBadge';
 
 /** Today in the browser's calendar (the report itself uses the Project's timezone). */
 function todayIso(): string {
@@ -179,6 +180,7 @@ function PcUploads({ pc, journeys, timezone }: { pc: P2DailyPcRow; journeys: P2D
             <td data-label="Journey">
               <Link to={`/p2/journeys/${row.journeyId}/overview`} className={customer.known ? undefined : 'is-unknown'}>{customer.text}</Link>
               <span className="p2w-muted p2dr-sub">{row.outletName || ''}</span>
+              <JourneyClosedBadge closure={row.reviewerClosure} closed={row.closed} />
             </td>
             <td data-label="Upload · read">{journeyTime(row, timezone)}</td>
             <UploadCells row={row} />

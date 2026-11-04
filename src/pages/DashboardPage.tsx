@@ -25,6 +25,7 @@ import { enrichUc03WorkItems } from '../services/audit-core/uc03WorkItemEnrichme
 import { useProjectContextStore } from '../store/projectContextStore';
 import { useSessionStore } from '../store/sessionStore';
 import { P2_NEW_BOOKING_PATH } from '../features/uc03-p2/newBookingPath';
+import JourneyClosedBadge from '../features/uc03-p2/workspace/JourneyClosedBadge';
 
 type LandingView = Uc03WorkType | 'REVIEW_PENDING' | 'FLAGS' | 'VERIFY';
 
@@ -378,6 +379,7 @@ function WorkItemRow({
     <article className={`uc03-work-row-v2${showAttention ? ' has-attention' : ''}${severityClass}`}>
       <div className="uc03-work-row-v2__cell uc03-work-row-v2__deal">
         <strong className={looksUncaptured ? 'is-placeholder' : undefined}>{dealName}</strong>
+        <JourneyClosedBadge closure={item.reviewerClosure} closed={item.closed} />
         <span className="uc03-work-row-v2__vehicle-line">{productLabel}</span>
         <div className="uc03-work-row-v2__tags">
           {item.bookingReference ? (

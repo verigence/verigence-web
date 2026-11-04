@@ -8,6 +8,8 @@ import BackLink from '../components/BackLink';
 import PageHeader from '../components/PageHeader';
 import RaiseTaskDialog from '../features/uc03-p2/tasks/RaiseTaskDialog';
 import NotMandatoryClaimsPanel from '../features/uc03-p2/tasks/NotMandatoryClaimsPanel';
+import ClosureDecisionPanel from '../features/uc03-p2/review/ClosureDecisionPanel';
+import type { ClosureItem } from '../services/audit-core/reviewerClosure';
 import { claimState, NOT_REQUIRED_CHOICE } from '../features/uc03-p2/tasks/p2TaskPlan';
 import TaskManagerPanel from '../features/task-manager/TaskManagerPanel';
 import RemovePageDialog, { removablePages, removalPagesText, removeOptions, type RemovablePage } from '../features/uc03-p2/workspace/RemovePageDialog';
@@ -32,6 +34,7 @@ import {
 import { getTmTasks } from '../services/audit-core/taskManager';
 import { useProjectContextStore } from '../store/projectContextStore';
 import { useSessionStore } from '../store/sessionStore';
+import JourneyClosedBadge from '../features/uc03-p2/workspace/JourneyClosedBadge';
 
 type View = 'open' | 'done' | 'worked';
 
@@ -227,6 +230,13 @@ function TaskDetail({ task, tenantId, accessToken, operatingRole, onDone }: {
           The Reviewer did not accept that this document is not mandatory:
           {' '}“{String((task.completion_result ?? {}).decisionReason ?? '')}”. Upload it, or answer again with your reason.
         </div>
+      ) : null}
+      {task.task_type === 'CLOSURE_ACCEPTANCE' && task.task_status !== 'VERIFIED_COMPLETE'
+        && (operatingRole === 'TL' || operatingRole === 'PM') && typeof ref.closureId === 'string' ? (
+        <ClosureDecisionPanel tenantId={tenantId} journeyId={task.journey_id} closureId={ref.closureId}
+          items={(ref.items as ClosureItem[] | undefined) ?? []} comment={typeof ref.comment === 'string' ? ref.comment : null}
+          autoAcceptAtUtc={typeof ref.autoAcceptAtUtc === 'string' ? ref.autoAcceptAtUtc : null}
+          accessToken={accessToken} onDone={onDone} />
       ) : null}
       {task.task_type === 'NOT_MANDATORY_REVIEW' && task.task_status !== 'VERIFIED_COMPLETE' ? (
         <NotMandatoryClaimsPanel tenantId={tenantId} journeyId={task.journey_id} accessToken={accessToken} onDone={onDone} />
@@ -704,6 +714,7 @@ export default function P2TasksPage() {
                   onClick={() => toggleGroup(group.journeyId)}>
                   <span aria-hidden="true">{isCollapsed ? '▸' : '▾'}</span>
                   <strong>{group.customerName || 'Booking'}</strong>
+                  <JourneyClosedBadge closure={group.tasks.find((t) => t.reviewerClosure)?.reviewerClosure} />
                   <span className="p2w-muted">{[group.vehicle, group.outletName, group.reference].filter(Boolean).join(' · ')}</span>
                 </button>
                 <span className="p2w-task-group__meta">

@@ -97,6 +97,7 @@ const P2PriceMastersPage = lazy(() => import('./pages/P2PriceMastersPage'));
 const P2SkuWorkPage = lazy(() => import('./pages/P2SkuWorkPage'));
 const P2MasterDocumentsPage = lazy(() => import('./pages/P2MasterDocumentsPage'));
 const P2ReviewBoardPage = lazy(() => import('./pages/P2ReviewBoardPage'));
+const P2ClosureApprovalsPage = lazy(() => import('./pages/P2ClosureApprovalsPage'));
 const P2ReviewActivityPage = lazy(() => import('./pages/P2ReviewActivityPage'));
 const P2DailyProcessingReportPage = lazy(() => import('./pages/P2DailyProcessingReportPage'));
 const P2GatePassPage = lazy(() => import('./pages/P2GatePassPage'));
@@ -382,6 +383,7 @@ export default function App() {
               <Route path="/p2/price-masters" element={<OperationalPage><P2PriceMastersPage /></OperationalPage>} />
               <Route path="/p2/master-documents" element={<OperationalPage><P2MasterDocumentsPage /></OperationalPage>} />
               <Route path="/p2/review" element={<OperationalPage><P2ReviewBoardPage /></OperationalPage>} />
+              <Route path="/p2/closures" element={<OperationalPage><P2ClosureApprovalsPage /></OperationalPage>} />
               <Route path="/p2/review/activity" element={<OperationalPage><P2ReviewActivityPage /></OperationalPage>} />
               <Route path="/p2/reports/daily" element={<OperationalPage><P2DailyProcessingReportPage /></OperationalPage>} />
               <Route path="/p2/gate-pass" element={<OperationalPage><P2GatePassPage /></OperationalPage>} />

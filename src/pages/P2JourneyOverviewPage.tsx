@@ -34,6 +34,7 @@ import {
 } from '../services/audit-core/uc03P2';
 import { useProjectContextStore } from '../store/projectContextStore';
 import { useSessionStore } from '../store/sessionStore';
+import JourneyClosedBadge from '../features/uc03-p2/workspace/JourneyClosedBadge';
 
 const TABS = [
   { key: 'deal', label: 'Deal' },
@@ -236,6 +237,7 @@ export default function P2JourneyOverviewPage() {
               <span className={`p2w-chip p2w-chip--${data.stage.stage.endsWith('COMPLETE') ? 'success' : 'progress'}`}>
                 {STAGE_LABEL[data.stage.stage] ?? humanizeKey(data.stage.stage)}
               </span>
+              <JourneyClosedBadge closure={j.reviewerClosure} closed={j.closed} />
             </div>
             <ul className="j360-counts" aria-label="Status">
               <li className={failed ? 'is-danger' : 'is-success'}>

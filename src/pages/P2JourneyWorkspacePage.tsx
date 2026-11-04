@@ -20,6 +20,7 @@ import { getResyncPreview } from '../services/audit-core/uc03P2Reviewer';
 import { canOverrideReviewedStage } from '../features/uc03-p2/workspace/deleteJourney';
 import { getMyDisplayName } from '../services/security/profile';
 import P2CompleteDeliveryButton from '../features/uc03-p2/workspace/P2CompleteDeliveryButton';
+import ReviewerCloseJourney from '../features/uc03-p2/workspace/ReviewerCloseJourney';
 import P2RecheckButton from '../features/uc03-p2/workspace/P2RecheckButton';
 import P2UploadStatus from '../features/uc03-p2/workspace/P2UploadStatus';
 import { useP2LiveStatus } from '../features/uc03-p2/workspace/useP2LiveStatus';
@@ -67,6 +68,7 @@ import {
 } from '../services/audit-core/uc03P2';
 import { useProjectContextStore } from '../store/projectContextStore';
 import { useSessionStore } from '../store/sessionStore';
+import JourneyClosedBadge from '../features/uc03-p2/workspace/JourneyClosedBadge';
 
 const KYC_GROUP = new Set(['pan_card', 'aadhaar']);
 
@@ -515,6 +517,10 @@ function WorkspaceScreen({ carry, onCreated, onStartNext, onCarryTaken }: Worksp
               <P2CompleteDeliveryButton tenantId={tenantId} journeyId={journeyId} accessToken={accessToken}
                 onDone={(text, tone) => { setNotice({ text, tone }); refresh(); }} />
             ) : null}
+            {!isNew && tenantId && operatingRole === 'REVIEWER' ? (
+              <ReviewerCloseJourney tenantId={tenantId} journeyId={journeyId} accessToken={accessToken}
+                onDone={(text, tone) => { setNotice({ text, tone }); refresh(); }} />
+            ) : null}
             {!isNew ? <button type="button" className="p2w-button p2w-button--secondary" onClick={() => setDialog('loan')}>Loan amount</button> : null}
             {!isNew ? <button type="button" className="p2w-button p2w-button--secondary" onClick={() => setDialog('sku')}>Resolve SKU</button> : null}
             {!isNew ? <Link className="p2w-button p2w-button--secondary" to={`/p2/journeys/${journeyId}/compliance-report`}>View compliance report</Link> : null}
@@ -560,6 +566,9 @@ function WorkspaceScreen({ carry, onCreated, onStartNext, onCarryTaken }: Worksp
       {!isNew && journeyId ? (
         <P2BookingBanner reference={reference} customerName={customerName} starting={Boolean(waitingToStart)}
           onStartNext={startsBookings ? () => startNext() : undefined} />
+      ) : null}
+      {!isNew && (summary.data?.journey.closed || summary.data?.journey.reviewerClosure) ? (
+        <div><JourneyClosedBadge closure={summary.data?.journey.reviewerClosure} closed={summary.data?.journey.closed} /></div>
       ) : null}
       {waitingToStart ? (
         <div className={`p2w-alert p2w-alert--next${waitingToStart.blocked ? ' p2w-alert--error' : ''}`} role="status">

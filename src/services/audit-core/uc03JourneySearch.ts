@@ -1,4 +1,5 @@
 import { auditCoreRequest } from './client';
+import type { ReviewerClosureFlag } from '../../features/uc03-p2/workspace/JourneyClosedBadge';
 
 export type JourneySearchMatch =
   | 'DEALER_BOOKING_NUMBER'
@@ -32,6 +33,9 @@ interface JourneySearchItem {
   matchedOn: JourneySearchMatch;
   matchedValue: string | null;
   latestActivityAtUtc: string;
+  /** The closed marker every view shows (2026-11-04). */
+  closed?: boolean;
+  reviewerClosure?: ReviewerClosureFlag | null;
 }
 
 export interface JourneySearchResponse {

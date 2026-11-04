@@ -1,4 +1,6 @@
 import { xhrPut } from '../../features/uc03-p2/workspace/p2Uploader';
+import type { ReviewerClosureFlag } from '../../features/uc03-p2/workspace/JourneyClosedBadge';
+import type { ReviewerClosureRecord } from './reviewerClosure';
 import { auditCoreRawRequest, auditCoreRequest } from './client';
 import type { TmTaskStatus } from './taskManager';
 
@@ -19,6 +21,7 @@ const LIST_READ_TIMEOUT_MS = 20_000;
 
 export type P2JourneyListItem = {
   journey_id: string;
+  reviewerClosure?: ReviewerClosureFlag | null;
   journey_reference?: string | null;
   booking_confirm_date?: string | null;
   delivered_at?: string | null;
@@ -368,6 +371,7 @@ export type P2FieldCorrectionResult = {
 
 export type P2Task = {
   source_system: 'P2' | 'LEGACY';
+  reviewerClosure?: ReviewerClosureFlag | null;
   legacy_queue_url?: string | null;
   priority_rank?: number | null;
   task_id: string;
@@ -1136,6 +1140,7 @@ export const VEHICLE_CATEGORY_LABELS: Record<VehicleCategory, string> = {
 
 export type P2Journey360 = {
   journey: {
+    closed?: boolean; reviewerClosure?: ReviewerClosureFlag | null; reviewedAtUtc?: string | null;
     journeyId: string; reference?: string | null; customerName: string; customerType?: string | null;
     mobileLast4?: string | null; dealerName: string; outletName: string; city?: string | null;
     vehicle?: string | null; skuCode?: string | null; vehicleResolution?: string | null; vin?: string | null;
@@ -1318,6 +1323,8 @@ type P2ComplianceReport = {
   deal: { summary: P2DealSummary; sku: P2Deal['sku']; flaggedLines: Array<{ label: string; category: string; standard: Money; booking: Money; billed: Money; ledger: Money; variance: Money; flags: string[] }> };
   duplicates: P2DuplicatePair[];
   openTasks: Array<{ task_id: string; title: string; task_type: string; priority?: string | null; assigned_role_code?: string | null; task_status: string; due_at_utc?: string | null }>;
+  /** The Reviewer's closure summary (2026-11-04); null until the journey is closed by a Reviewer. */
+  reviewerClosure?: ReviewerClosureRecord | null;
 };
 
 /** Audit summary of a Journey (2026-10-29): built on demand from the Deal,
@@ -1473,6 +1480,7 @@ export function p2PhotoTransport(tenantId: string, journeyId: string, accessToke
 
 // ── Duplicate bookings (tenant-wide, existing Audit Core report) ────────────
 export type DuplicateBookingSide = {
+  closed?: boolean; reviewerClosure?: ReviewerClosureFlag | null;
   journeyId: string; journeyReference?: string | null; customerName?: string | null; dealerName?: string | null;
   outletName?: string | null; productLabel?: string | null; bookingReference?: string | null; bookingConfirmDate?: string | null;
   /** The PC who created the journey (absent from an older Audit Core). */
@@ -1787,6 +1795,9 @@ export type P2DailyJourneyRow = P2DailyCounts & {
   dealerName: string | null;
   pcActorId: string | null;
   pcName: string | null;
+  /** The closed marker every view shows (2026-11-04). */
+  closed?: boolean;
+  reviewerClosure?: ReviewerClosureFlag | null;
   uploadStartedAt: string | null;
   processingFinishedAt: string | null;
   processingMinutes: number | null;

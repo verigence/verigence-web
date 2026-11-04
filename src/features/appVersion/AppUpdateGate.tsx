@@ -36,12 +36,14 @@ export default function AppUpdateGate({ children }: { children: ReactNode }) {
         <h1 id="update-title">Update required</h1>
         <p className="maintenance-card__body">
           This version of the Verigence app ({thisVersion ?? 'unknown'}) can no longer be used. Download and install
-          version {policy.minimumVersion} or newer to continue.
+          version {policy.minimumVersion} or newer to continue. The download opens in your phone's browser: sign in there
+          and install it.
         </p>
         <div className="maintenance-card__actions">
-          <a className="announce-card__button" href={policy.downloadUrl} target="_blank" rel="noopener noreferrer">
+          {/* Leaving the app opens the phone's browser, where the person signs in and installs the new app. */}
+          <button type="button" className="announce-card__button" onClick={() => { window.location.href = policy.downloadUrl; }}>
             Download the latest app
-          </a>
+          </button>
         </div>
       </div>
     </main>

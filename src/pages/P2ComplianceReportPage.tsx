@@ -12,7 +12,7 @@ import { getP2Journey360Section } from '../services/audit-core/uc03P2';
 import { useProjectContextStore } from '../store/projectContextStore';
 import { useSessionStore } from '../store/sessionStore';
 import { matchLevelText } from '../features/uc03-p2/matchLevel';
-import { CLOSURE_KIND_LABEL } from '../services/audit-core/reviewerClosure';
+import { ACCEPTANCE_LABEL, CLOSURE_KIND_LABEL } from '../services/audit-core/reviewerClosure';
 
 const HEADER_LABELS: Record<string, string> = {
   journeyReference: 'Journey', bookingReference: 'Booking reference', productLabel: 'Vehicle', dealerName: 'Dealer',
@@ -225,6 +225,12 @@ export default function P2ComplianceReportPage() {
                 Closed by the {r.reviewerClosure.closedRole === 'REVIEWER' ? 'Reviewer' : r.reviewerClosure.closedRole}
                 {' '}on {formatDateTime(r.reviewerClosure.closedAtUtc)}: “{r.reviewerClosure.comment}”
               </p>
+              <p className="p2w-muted">
+                {ACCEPTANCE_LABEL[r.reviewerClosure.acceptanceStatus]}
+                {r.reviewerClosure.decidedAtUtc ? ` · ${formatDateTime(r.reviewerClosure.decidedAtUtc)}` : ''}
+                {r.reviewerClosure.acceptanceStatus === 'PENDING' && r.reviewerClosure.acceptanceDueUtc
+                  ? ` · auto-approves ${formatDateTime(r.reviewerClosure.acceptanceDueUtc)}` : ''}
+              </p>
               {r.reviewerClosure.items.length ? (
                 <ul className="j360-controls">
                   {r.reviewerClosure.items.map((item) => (
@@ -234,7 +240,8 @@ export default function P2ComplianceReportPage() {
                       </span>
                       <span className="j360-controls__body"><strong>{item.label}</strong>
                         <span>{item.answer}</span>
-                        {item.answerSource === 'ACCEPTED_CLAIM' ? <span className="p2w-muted">From the accepted not-mandatory claim</span> : null}</span>
+                        {item.answerSource === 'ACCEPTED_CLAIM' ? <span className="p2w-muted">From the accepted not-mandatory claim</span> : null}
+                        {r.reviewerClosure?.rejections.find((x) => x.key === item.key) ? <span className="p2w-tone p2w-tone--danger">Rejected by the Team Lead: {r.reviewerClosure.rejections.find((x) => x.key === item.key)?.reason}</span> : null}</span>
                       <span className="p2w-muted j360-controls__meta">{item.stage ? humanizeKey(item.stage) : ''}</span>
                     </li>
                   ))}

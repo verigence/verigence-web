@@ -63,7 +63,7 @@ export default function ReviewerCloseJourney({ tenantId, journeyId, accessToken,
         void queryClient.invalidateQueries({ queryKey: [key, tenantId, journeyId] });
       }
       onDone?.(`Journey closed with ${result.itemCount} answered item${result.itemCount === 1 ? '' : 's'}. `
-        + 'The summary is on the compliance report; the Team Lead reviews the delivery next.', 'success');
+        + `The Team Lead accepts it or rejects items; it is accepted automatically after ${data.acceptanceWindowHours} hours.`, 'success');
       setOpen(false);
       setAnswers({});
       setComment('');
@@ -79,6 +79,10 @@ export default function ReviewerCloseJourney({ tenantId, journeyId, accessToken,
       <strong>Close this journey</strong>
       {preview.isLoading ? <p className="p2w-muted">Reading what is open…</p> : null}
       {preview.isError ? <div className="form-alert form-alert--error">What is open could not be read.</div> : null}
+      {data?.reviewed ? (
+        <p className="p2w-muted">This journey is already closed and reviewed
+          {data.lastClosure ? ` (closure ${data.lastClosure.acceptanceStatus === 'PENDING' ? 'awaiting the Team Lead' : data.lastClosure.acceptanceStatus.toLowerCase().replace('_', '-')})` : ''}.</p>
+      ) : null}
       {data?.blockers.length ? (
         <div className="form-alert form-alert--error">{data.blockers.map((b) => <div key={b}>{b}</div>)}</div>
       ) : null}
@@ -96,12 +100,20 @@ export default function ReviewerCloseJourney({ tenantId, journeyId, accessToken,
                   {item.stage ? <span className="p2w-muted"> · {item.stage.toLowerCase()}</span> : null}
                   {item.severity ? <span className="p2w-muted"> · {item.severity.toLowerCase()}</span> : null}
                   {item.detail ? <small className="p2w-muted" style={{ display: 'block' }}>{item.detail}</small> : null}
+                  {item.rejection ? (
+                    <small className="p2w-tone p2w-tone--danger" style={{ display: 'block' }}>
+                      Rejected by the Team Lead: {item.rejection.reason}
+                      {item.rejection.previousAnswer ? ` (your answer was: ${item.rejection.previousAnswer})` : ''}
+                    </small>
+                  ) : null}
                 </span>
                 <textarea rows={2} maxLength={2000} value={answers[item.key] ?? ''}
                   placeholder={item.prefilledAnswer ?? `Why this was not acted on (at least ${min} characters)`}
                   onChange={(event) => setAnswers({ ...answers, [item.key]: event.target.value })} />
                 {item.prefilledAnswer && !(answers[item.key] ?? '').trim()
-                  ? <small className="p2w-muted">Answered by the accepted claim unless you write your own.</small> : null}
+                  ? <small className="p2w-muted">{item.carried
+                    ? 'Accepted by the Team Lead last time: kept unless you write a new answer.'
+                    : 'Answered by the accepted claim unless you write your own.'}</small> : null}
               </label>
             ))}
           </section>

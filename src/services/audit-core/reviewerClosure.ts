@@ -21,9 +21,16 @@ export type ClosureItem = {
   assignedRole?: string | null;
   /** From an accepted "not mandatory" claim; used when nothing else is typed. */
   prefilledAnswer?: string | null;
+  /** Kept from the last closure: the Team Lead accepted this item. */
+  carried?: boolean;
+  /** The Team Lead rejected this item of the last closure. */
+  rejection?: { reason: string; previousAnswer?: string | null } | null;
   answer?: string;
-  answerSource?: 'REVIEWER' | 'ACCEPTED_CLAIM';
+  answerSource?: 'REVIEWER' | 'ACCEPTED_CLAIM' | 'PREVIOUS_CLOSURE';
 };
+
+export type ClosureAcceptance = 'PENDING' | 'ACCEPTED' | 'AUTO_ACCEPTED' | 'REJECTED';
+export type ClosureRejection = { key: string; label?: string; kind?: ClosureItemKind; reason: string };
 
 export type ReviewerClosureRecord = {
   closureId: string;
@@ -35,12 +42,29 @@ export type ReviewerClosureRecord = {
   counts: Partial<Record<ClosureItemKind, number>>;
   deliveryOutcome: string;
   closedAtUtc: string;
+  journeyId?: string;
+  acceptanceStatus: ClosureAcceptance;
+  acceptanceDueUtc?: string | null;
+  acceptanceTaskId?: string | null;
+  decidedBy?: string | null;
+  decidedRole?: string | null;
+  decidedAtUtc?: string | null;
+  rejections: ClosureRejection[];
+};
+
+export type ClosureListRow = ReviewerClosureRecord & {
+  journeyReference?: string | null;
+  customerName?: string | null;
+  outletName?: string | null;
+  dealerName?: string | null;
 };
 
 export type ReviewerClosurePreview = {
   journeyId: string;
   canClose: boolean;
+  reviewed: boolean;
   minAnswerLength: number;
+  acceptanceWindowHours: number;
   items: ClosureItem[];
   blockers: string[];
   lastClosure: ReviewerClosureRecord | null;
@@ -72,3 +96,28 @@ export const CLOSURE_KIND_LABEL: Record<ClosureItemKind, string> = {
 export function unansweredItems(items: ClosureItem[], answers: Record<string, string>, min: number): ClosureItem[] {
   return items.filter((item) => ((answers[item.key] ?? '').trim() || (item.prefilledAnswer ?? '')).trim().length < min);
 }
+
+/** The Team Lead accepts the closure, or rejects specific items, each with a reason (2026-11-04). */
+export function decideClosure(
+  tenantId: string, journeyId: string, closureId: string, decision: 'ACCEPT' | 'REJECT',
+  rejections: Array<{ key: string; reason: string }>, accessToken?: string,
+) {
+  return auditCoreRequest<{ closureId: string; acceptanceStatus: ClosureAcceptance }>(
+    `${path(tenantId, journeyId)}/${encodeURIComponent(closureId)}/decision`,
+    { method: 'POST', accessToken, body: JSON.stringify({ decision, rejections }) },
+  );
+}
+
+export function listClosures(tenantId: string, status: ClosureAcceptance | undefined, accessToken?: string) {
+  const query = status ? `?status=${status}` : '';
+  return auditCoreRequest<{ status: string | null; counts: Record<ClosureAcceptance, number>; closures: ClosureListRow[] }>(
+    `/p2/v1/tenants/${encodeURIComponent(tenantId)}/reviewer-closures${query}`, { accessToken },
+  );
+}
+
+export const ACCEPTANCE_LABEL: Record<ClosureAcceptance, string> = {
+  PENDING: 'Awaiting the Team Lead',
+  ACCEPTED: 'Accepted',
+  AUTO_ACCEPTED: 'Auto-approved',
+  REJECTED: 'Rejected (back with the Reviewer)',
+};

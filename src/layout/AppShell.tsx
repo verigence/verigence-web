@@ -227,6 +227,15 @@ const p2ReviewBoardItem: NavItem = {
 
 // Their own daily and weekly counts. Team Leads and Project Managers see it
 // too, since they are the ones who ask how the review queue is going.
+// The Reviewer's journey closures: the TL decides them; TL, PM and Executive
+// see the ones accepted automatically after 96 hours (product owner 2026-11-04).
+const p2ClosureApprovalsItem: NavItem = {
+  to: '/p2/closures',
+  label: 'Closure approvals',
+  mark: 'CA',
+  roles: ['TL', 'PM', 'EXECUTIVE'],
+};
+
 const p2ReviewActivityItem: NavItem = {
   to: '/p2/review/activity',
   label: 'Review Activity',
@@ -477,6 +486,7 @@ export default function AppShell({ children }: PropsWithChildren) {
             // A PC's missing documents are inside their Tracker (product owner
             // 2026-11-03: not a tab of their own); the TL and PM keep the page.
             ...(role === 'PC' ? [] : [p2MissingDocumentsItem]),
+            ...(role === 'TL' || role === 'PM' ? [p2ClosureApprovalsItem] : []),
             // The SKU / discount reference and the month's source documents
             // (added 18 Oct to the DealGuard group but never to this per-role
             // list, so nobody working in a Project saw them).
@@ -488,7 +498,7 @@ export default function AppShell({ children }: PropsWithChildren) {
           ],
         }
       : role === 'EXECUTIVE'
-        ? { ...p2Group, items: [p2DailyProcessingItem, p2GatePassItem, p2MissingDocumentsItem, { ...taskManagerItem, badge: tmCount }, utilisationItem, diDashboardItem] }
+        ? { ...p2Group, items: [p2DailyProcessingItem, p2GatePassItem, p2MissingDocumentsItem, p2ClosureApprovalsItem, { ...taskManagerItem, badge: tmCount }, utilisationItem, diDashboardItem] }
         // A Reviewer's whole surface (2026-10-23: inside a Project the group was
         // built for PC / TL / PM only, so a Reviewer saw none of it, not even
         // Document Review, which is their home page).

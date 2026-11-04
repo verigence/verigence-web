@@ -19,6 +19,10 @@ The app's build number is added by the release workflow and is not written here.
 
 ### Added
 - myHR Settings, Access pauses (SuperAdmin): Team Leads paused for approvals left waiting past Monday 09:00, with the late requests, and Restore access with a note.
+- DealGuard, for PCs: while DealGuard is open, the app checks where the phone or computer is, at random moments 1 to 3 times an hour, only between 10:00 and 19:30 IST. Audit Core works out how far that is from the nearest outlet the PC is assigned to. Every check is recorded. My HR pages never check.
+- DealGuard, for PCs: when a check finds the PC more than 500 m from their outlets, a friendly note says so — for example "You seem to be about 3.2 km from Utkal Mahindra – CDA. DealGuard is meant to be used at your outlet during working hours." with an OK button. Nothing is asked and work is not stopped. When the location is not clear (a computer's location is often kilometres off) or is not allowed, nothing is shown; the check is only recorded.
+- DealGuard, for PCs: opening DealGuard after 9 pm shows "It's getting late" once an evening on that device, with "OK, continue". The PC can carry on working.
+- DealGuard, "Location checks" (Team Lead, Project Manager, Executive; SuperAdmin under Reports): each PC's checks for a day — how many, how many away, the last one with its time and distance, and the full list when the PC is opened. "Only away" shows just the checks that found a PC away.
 
 ## [1.5.1] - 2026-11-05
 

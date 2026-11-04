@@ -12,6 +12,7 @@ import { getJourneyReview } from '../services/audit-core/adminReports';
 import AppInstalls from '../features/admin/reports/AppInstalls';
 import JourneyReview from '../features/admin/reports/JourneyReview';
 import DiDashboard from '../features/task-manager/DiDashboard';
+import LocationChecksLog from '../features/dealguard-presence/LocationChecksLog';
 import EngagementDashboard from '../features/task-manager/EngagementDashboard';
 import { listProjects } from '../services/audit-core/uc02Admin';
 import { getLoginActivity, type LoginPerson } from '../services/security/loginActivity';
@@ -30,6 +31,11 @@ const REPORTS = [
     key: 'di',
     title: 'DI',
     description: 'How much Document Intelligence read the first time, what has to be scanned again or failed and why, how long a file takes, by PC and by document.',
+  },
+  {
+    key: 'location',
+    title: 'Location checks',
+    description: "Where each PC was when DealGuard checked their location (1–3 times an hour, 10:00–19:30 IST): at their outlet, away from it, or not clear. Checks only inform; nobody is stopped.",
   },
   {
     key: 'app',
@@ -128,7 +134,13 @@ export default function AdminReportsPage() {
         </article>
       ) : null}
 
-      {tenantId && reportKey !== 'journey-review' && reportKey !== 'app' ? (
+      {tenantId && reportKey === 'location' ? (
+        <div className="p2-screen p2w">
+          <LocationChecksLog key={tenantId} mode="admin" tenantId={tenantId} accessToken={accessToken} />
+        </div>
+      ) : null}
+
+      {tenantId && reportKey !== 'journey-review' && reportKey !== 'app' && reportKey !== 'location' ? (
         <div className="p2-screen p2w">
           {reportKey === 'engagement' ? (
             <EngagementDashboard key={tenantId} mode="admin" tenantId={tenantId} accessToken={accessToken}

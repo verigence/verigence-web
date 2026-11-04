@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
-import { fetchMyPhoto, getMyEmployee, uploadMyPhoto, type EmployeeDetail } from '../../services/hr/employees';
+import { fetchMyPhoto, getMyEmployee, type EmployeeDetail } from '../../services/hr/employees';
 import { useSessionStore } from '../../store/sessionStore';
 import { hrKeys, useHrAccess } from './hrQueries';
 
@@ -50,15 +50,3 @@ export function useMyHrIdentity() {
   };
 }
 
-/** Uploads the person's own photo and refreshes what shows it. Errors reach the caller (the picker shows them). */
-export function useUploadMyPhoto() {
-  const accessToken = useSessionStore((state) => state.accessToken);
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (p: { blob: Blob; name: string }) => uploadMyPhoto(accessToken!, p.blob, p.name),
-    onSuccess: async (data) => {
-      queryClient.setQueryData<EmployeeDetail>(hrKeys.myEmployee, (old) => (old ? { ...old, ...data } : old));
-      await queryClient.invalidateQueries({ queryKey: hrKeys.photo('me') });
-    },
-  });
-}

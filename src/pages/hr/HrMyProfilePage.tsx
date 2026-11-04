@@ -15,7 +15,6 @@ import {
   replaceMyQualification,
   revealMySensitive,
   updateMyEmployee,
-  uploadMyPhoto,
   type EmployeeDetail,
   type ExperienceInput,
   type QualificationInput,
@@ -26,7 +25,6 @@ import EmployeeSummary from '../../features/hr/EmployeeSummary';
 import ExperiencePanel from '../../features/hr/ExperiencePanel';
 import { ContactChangePanel } from '../../features/hr/ContactChangeParts';
 import Field from '../../features/hr/Field';
-import PhotoPicker from '../../features/hr/PhotoPicker';
 import QualificationsPanel from '../../features/hr/QualificationsPanel';
 import SensitiveNumbers from '../../features/hr/SensitiveNumbers';
 import {
@@ -95,15 +93,6 @@ export default function HrMyProfilePage() {
         setErrors(next);
       }
       setFormError(hrErrorMessage(error));
-    },
-  });
-
-  const photo = useMutation({
-    mutationFn: (p: { blob: Blob; name: string }) => uploadMyPhoto(accessToken!, p.blob, p.name),
-    onSuccess: async (data) => {
-      merge(data);
-      await queryClient.invalidateQueries({ queryKey: hrKeys.photo('me') });
-      setNotice('Your photo is updated.');
     },
   });
 
@@ -206,7 +195,7 @@ export default function HrMyProfilePage() {
           <span className="hr-muted">{employee.employeeCode}{employee.designation ? ` · ${employee.designation}` : ''}</span>
         </div>
         <div className="hr-identity__photo">
-          <PhotoPicker selfie label={employee.hasPhoto ? 'Change photo' : 'Add photo'} busy={photo.isPending} onPick={async (p) => { await photo.mutateAsync(p); }} />
+          <span className="hr-muted">Only HR can change your photo. Ask HR if it needs updating.</span>
         </div>
       </div>
 

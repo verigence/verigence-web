@@ -1,5 +1,5 @@
 import { hrErrorMessage, HrHttpError } from '../../../services/hr/client';
-import { APPROVAL_ERROR, DECISION_NOTE_MAX, type DecisionKind } from '../../../services/hr/approvals';
+import { APPROVAL_ERROR, DECISION_NOTE_MAX, type AttendanceGrace, type DecisionKind } from '../../../services/hr/approvals';
 
 /** All dates and times on these screens are India Standard Time. */
 const IST = 'Asia/Kolkata';
@@ -238,3 +238,7 @@ export function staleAfterError(error: unknown): boolean {
     (error.code === APPROVAL_ERROR.alreadyDecided || error.code === APPROVAL_ERROR.notFound)
   );
 }
+
+/** Shown to the Team Lead: the grace does not decide anything, it is counted in payroll. Rejecting makes the day a half day. */
+export const graceText = (g: AttendanceGrace) =>
+  `Late or early number ${g.thisIsNumber} this month (${g.allowed} allowed${g.withinGrace ? '' : ', over the limit'}). Rejecting makes the day a half day.`;

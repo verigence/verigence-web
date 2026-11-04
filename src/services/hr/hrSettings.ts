@@ -116,3 +116,43 @@ export const getWorkContextStatus = (token: string) =>
 /** The service spaces refreshes at least five minutes apart (409 WORK_CONTEXT_TOO_SOON). */
 export const refreshWorkContext = (token: string) =>
   hrRequest<WorkContextRefreshResult>(`${base}/work-context/refresh`, { accessToken: token, method: 'POST' });
+
+// ---- Team Leads paused for approvals past the Monday 09:00 deadline (SuperAdmin) ----------------
+
+export interface ApproverPauseItem {
+  type: 'ATTENDANCE' | 'LEAVE' | 'CLAIM' | string;
+  id: string;
+  detail: string;
+  forDate: string;
+  raisedAt: string;
+  deadline: string;
+  employeeName: string;
+  employeeCode: string | null;
+}
+
+export interface ApproverPause {
+  pauseId: string;
+  userId: string;
+  name: string;
+  employeeCode: string | null;
+  deadlineAt: string;
+  overdueCount: number;
+  overdueItems: ApproverPauseItem[];
+  pausedAt: string;
+  /** False when Security could not be told; then `securityError` says why. */
+  pausedInSecurity: boolean;
+  securityError: string | null;
+  restoredAt: string | null;
+  restoredBy: string | null;
+  restoreNote: string | null;
+}
+
+export const listApproverPauses = (accessToken: string) =>
+  hrRequest<{ items: ApproverPause[]; activeCount: number }>('/hr/v1/admin/approver-pauses', { accessToken });
+
+export const restoreApproverPause = (accessToken: string, pauseId: string, note: string) =>
+  hrRequest<ApproverPause>(`/hr/v1/admin/approver-pauses/${encodeURIComponent(pauseId)}/restore`, {
+    accessToken,
+    method: 'POST',
+    body: { note },
+  });

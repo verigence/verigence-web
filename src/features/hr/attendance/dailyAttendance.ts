@@ -17,7 +17,7 @@ export const dailyStatusLabels: Record<DailyStatus, string> = {
   ABSENT: 'Absent',
   ON_LEAVE: 'On leave',
   PENDING_APPROVAL: 'Awaiting approval',
-  EXCEPTION_REJECTED: 'Exception rejected',
+  EXCEPTION_REJECTED: 'Half day (rejected)',
 };
 
 /** uc01-admin-status modifier per status. Empty means the neutral chip. */

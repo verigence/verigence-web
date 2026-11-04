@@ -10,6 +10,7 @@ import {
   formatDateRange,
   formatDateTimeIst,
   formatDays,
+  graceText,
   formatDistanceM,
   formatMoney,
   formatMonth,
@@ -142,5 +143,16 @@ describe('decision errors', () => {
     expect(decisionErrorMessage(http(403, 'HR_PERMISSION_DENIED', 'nope'))).toBe('You do not have access to this.');
     expect(decisionErrorMessage(new HrNetworkError('HR could not be reached.'))).toBe('HR could not be reached.');
     expect(staleAfterError(new HrNetworkError('x'))).toBe(false);
+  });
+});
+
+describe('graceText', () => {
+  it('tells the Team Lead which late or early this is and that rejecting is a half day', () => {
+    expect(graceText({ allowed: 1, lateOrEarlyThisMonth: 1, thisIsNumber: 1, withinGrace: true })).toBe(
+      'Late or early number 1 this month (1 allowed). Rejecting makes the day a half day.',
+    );
+    expect(graceText({ allowed: 1, lateOrEarlyThisMonth: 3, thisIsNumber: 2, withinGrace: false })).toContain(
+      '(1 allowed, over the limit)',
+    );
   });
 });

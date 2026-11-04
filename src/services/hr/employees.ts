@@ -25,6 +25,8 @@ export const HR_PERMISSION = {
   auditRead: 'hr.audit.read',
   settingsManage: 'hr.settings.manage',
   supportManage: 'hr.support.manage',
+  /** SuperAdmin only: restore a Team Lead paused for approvals past the Monday deadline. */
+  accessPauseManage: 'hr.access_pause.manage',
 } as const;
 
 export interface HrMe {

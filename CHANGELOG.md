@@ -15,6 +15,7 @@ The app's build number is added by the release workflow and is not written here.
 ## [1.5.0] - 2026-11-04
 
 ### Added
+- Attendance: when the photo does not look like the person's profile picture, a friendly note says so after check-in or check-out ("You don't look quite like your profile picture…"). The attendance is still recorded; HR still sees the flag.
 - My leave: paid leave is earned from attendance — 1 day for every 22 days of attendance, up to 3 days held (both set by HR). There is no Sick or Earned leave any more. The page shows how many days of attendance count so far, when the count is paused, and what each completed block earned or lost at the cap.
 - My leave: Special occasion leave (with its own yearly quota; say what the occasion is) and Comp-off (earned by approved work on a Sunday or holiday).
 - My leave: days in the last 30 with no attendance and no leave are listed, with a button to apply leave for each.

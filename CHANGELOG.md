@@ -13,6 +13,11 @@ The app's build number is added by the release workflow and is not written here.
 ## [Unreleased]
 
 ### Added
+- My leave: paid leave is earned from attendance — 1 day for every 22 days of attendance, up to 3 days held (both set by HR). There is no Sick or Earned leave any more. The page shows how many days of attendance count so far, when the count is paused, and what each completed block earned or lost at the cap.
+- My leave: Special occasion leave (with its own yearly quota; say what the occasion is) and Comp-off (earned by approved work on a Sunday or holiday).
+- My leave: days in the last 30 with no attendance and no leave are listed, with a button to apply leave for each.
+- Approvals, leave: the Team Lead sees the balance available, the occasion, and a warning when approving would leave an outlet with no PC on some dates.
+- My HR, "Team Lead Approvals" (Executive, HR, CEO): what is waiting with each Team Lead and Project Manager — attendance, leave and claims — the oldest, how many are past the Monday 09:00 deadline, and how quickly they decide.
 - SuperAdmin, Reports: an "App" tab — who has the Verigence Android app and which version. Per person: whether they downloaded it, when, how many times, which version they took, and the version their app reports when it signs in, with a count of how many people are on each version and a CSV. Expanding a person shows every download with its date and version.
 - Bookings & Deliveries, adding documents: a banner says which booking the documents go into — "Adding documents to booking ADI-… — customer being identified", with the customer's name once it is read — and has a "Start next booking" button. Right after the first file of a new booking: "Booking … created. Next customer? Start next booking". If files are still uploading, the next booking opens as soon as they are received.
 - Bookings & Deliveries: a file whose name looks like a different customer from the booking (for example "Tapan kumar patra.pdf" on Azizur Rehaman's booking) is asked about before it is uploaded: "Start new booking with this file" or "Add to this booking". Files that name no one (IMG_…, scan001.pdf, invoice.pdf) go straight in.

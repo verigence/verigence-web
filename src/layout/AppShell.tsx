@@ -549,7 +549,7 @@ export default function AppShell({ children }: PropsWithChildren) {
   // employee record. If HR cannot be reached the group is simply absent.
   const hrAccess = useHrAccess();
   const myIdentity = useMyHrIdentity();
-  const isExecutive = useMemo(() => projects.some((project) => project.operatingRole === 'EXECUTIVE'), [projects]);
+  const isExecutive = useMemo(() => projects.some((project) => String(project.operatingRole ?? '').toUpperCase() === 'EXECUTIVE'), [projects]);
   const hrGroup = useMemo<NavGroup | null>(() => {
     const items: NavItem[] = [];
     const can = hrAccess.can;

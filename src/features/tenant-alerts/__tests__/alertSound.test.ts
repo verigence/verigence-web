@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { orderAlerts, type TenantAlert } from '../../../services/audit-core/tenantAlerts';
+import { isCriticalAlert, isFlashingAlert, orderAlerts, type TenantAlert } from '../../../services/audit-core/tenantAlerts';
 import { alertsToBeep, beepedStorageKey } from '../alertSound';
 
 const alert = (id: string, pcActorId: string | null, kind = 'SAME_FILE_UPLOADED'): TenantAlert => ({
@@ -39,5 +39,25 @@ describe('a duplicate booking across outlets (2026-11-03)', () => {
   it('comes before the other alerts', () => {
     const ordered = orderAlerts([alert('a', 'pc-1'), cross('x', 'pc-2', 'pc-3'), alert('b', 'pc-1')]);
     expect(ordered.map((a) => a.alertId)).toEqual(['x', 'a', 'b']);
+  });
+});
+
+describe('duplicate bookings, product owner 2026-11-04', () => {
+  const alert = (id: string, kind: string): TenantAlert => ({
+    alertId: id, kind, title: '', body: '', publishedAtUtc: '', expiresAtUtc: '',
+    payload: { newJourney: { pcActorId: 'pc-new' }, existingJourney: { pcActorId: 'pc-old' }, severity: 'CRITICAL' },
+  });
+
+  it('beeps for both PCs at two outlets of one dealership', () => {
+    const alerts = [alert('s', 'DUPLICATE_SAME_DEALERSHIP')];
+    expect(alertsToBeep(alerts, 'pc-new', new Set()).map((a) => a.alertId)).toEqual(['s']);
+    expect(alertsToBeep(alerts, 'pc-old', new Set()).map((a) => a.alertId)).toEqual(['s']);
+    expect(alertsToBeep(alerts, 'reviewer', new Set())).toEqual([]);
+  });
+
+  it('flashes only the alert for another dealership; both are critical', () => {
+    expect(isFlashingAlert(alert('x', 'DUPLICATE_ACROSS_OUTLETS'))).toBe(true);
+    expect(isFlashingAlert(alert('s', 'DUPLICATE_SAME_DEALERSHIP'))).toBe(false);
+    expect(isCriticalAlert(alert('s', 'DUPLICATE_SAME_DEALERSHIP'))).toBe(true);
   });
 });

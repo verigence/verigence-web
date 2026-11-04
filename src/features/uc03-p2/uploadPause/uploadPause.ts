@@ -7,6 +7,9 @@ import type { UploadPauseStatus } from '../../../services/audit-core/uploadPause
  * everything else (opening bookings, reading, tasks) works as usual.
  */
 export const UPLOAD_PAUSED_ERROR_CODE = 'VAC-MAINT-001';
+/** Product owner 2026-11-04: a duplicate booking at two outlets of one dealership pauses the
+ * uploads of both PCs until a Reviewer deletes one. */
+export const DUPLICATE_BLOCK_ERROR_CODE = 'VAC-DUP-001';
 
 export type UploadPauseState =
   | { paused: false }
@@ -40,6 +43,11 @@ export function uploadPauseState(
   now: Date = new Date(),
 ): UploadPauseState {
   if (failed || !status?.paused) return NOT_PAUSED;
+  if (status.duplicateBooking) {
+    const notice = status.message
+      || 'A duplicate booking at two outlets is waiting for the Reviewer. Contact the Reviewer to delete the duplicate booking; your uploads come back once it is deleted.';
+    return { paused: true, message: status.message, untilUtc: null, notice };
+  }
   if (status.untilUtc) {
     const until = Date.parse(status.untilUtc);
     if (!Number.isNaN(until) && until <= now.getTime()) return NOT_PAUSED;
@@ -47,9 +55,10 @@ export function uploadPauseState(
   return { paused: true, message: status.message, untilUtc: status.untilUtc, notice: pauseNotice(status.untilUtc) };
 }
 
-/** Audit Core refused an upload because uploads are paused. */
+/** Audit Core refused an upload because uploads are paused (for maintenance, or by a duplicate booking). */
 export function isUploadPausedError(cause: unknown): cause is AuditCoreHttpError {
-  return cause instanceof AuditCoreHttpError && cause.errorCode === UPLOAD_PAUSED_ERROR_CODE;
+  return cause instanceof AuditCoreHttpError
+    && (cause.errorCode === UPLOAD_PAUSED_ERROR_CODE || cause.errorCode === DUPLICATE_BLOCK_ERROR_CODE);
 }
 
 /** The server's own words for a paused refusal; otherwise the usual message. */

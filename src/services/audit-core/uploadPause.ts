@@ -10,7 +10,19 @@ import { auditCoreRequest } from './client';
  * GET /v1/admin/upload-pause             SuperAdmin: every pause row
  * PUT /v1/admin/upload-pause             SuperAdmin: set or clear one
  */
-export type UploadPauseStatus = { paused: boolean; message: string | null; untilUtc: string | null };
+/** 2026-11-04: a duplicate booking at two outlets of one dealership pauses the uploads of the PCs
+ * of both bookings until a Reviewer deletes one (409 VAC-DUP-001); ``message`` then says so. */
+export type DuplicateBookingBlock = {
+  alertId: string;
+  newJourney?: { reference?: string | null; outletName?: string | null; journeyId?: string | null } | null;
+  existingJourney?: { reference?: string | null; outletName?: string | null; journeyId?: string | null } | null;
+  customerName?: string | null;
+  model?: string | null;
+};
+
+export type UploadPauseStatus = {
+  paused: boolean; message: string | null; untilUtc: string | null; duplicateBooking?: DuplicateBookingBlock | null;
+};
 
 export type UploadPauseRow = {
   /** null: all Projects. */

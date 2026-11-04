@@ -9,7 +9,7 @@ import {
 import { useProjectContextStore } from '../../../store/projectContextStore';
 import { humanizeKey } from '../workspace/p2Format';
 import { PricingPanel, useRefreshDeal } from './DealControls';
-import { balanceText, FLAG_LABELS, money, recordField, signedMoney, varianceTone } from './j360Format';
+import { balanceText, FLAG_LABELS, fromInvoice, money, recordField, signedMoney, varianceTone } from './j360Format';
 import { insuranceDecidedText } from './insuranceSource';
 
 /** What the customer opted for on this line, as a small switch: on is
@@ -279,6 +279,16 @@ function OfferBar({ standard, booking, billed, kind = 'charge', large = false }:
   );
 }
 
+function BilledFigure({ row }: { row: P2DealRow | P2DiscountRow }) {
+  if (!fromInvoice(row)) return <>{money(row.billed)}</>;
+  const counted = row.current !== null && row.current !== undefined;
+  return (
+    <span title={counted ? 'From the Tally / DMS invoice' : 'From the Tally / DMS invoice: shown, not counted'}>
+      {money(row.billed)}<sup className="j360-star" aria-label="from the invoice">*</sup>
+    </span>
+  );
+}
+
 const SHEET_COLUMNS = 6;
 
 function ComponentRow({ row, journeyId, open, onToggle, excludedNote }: {
@@ -298,7 +308,7 @@ function ComponentRow({ row, journeyId, open, onToggle, excludedNote }: {
         <td className={`is-num${row.standard === null ? ' is-blank' : ''}`} data-label="Price master">{money(row.standard)}</td>
         <td data-label="Opted" className="j360-opted-cell"><Opted opted={row.opted} /></td>
         <td className={`is-num${row.booking === null ? ' is-blank' : ''}`} data-label="Booking">{money(row.booking)}</td>
-        <td className={`is-num is-truth${row.billed === null ? ' is-blank' : ''}`} data-label="Invoice">{money(row.billed)}</td>
+        <td className={`is-num is-truth${row.billed === null ? ' is-blank' : ''}`} data-label="Invoice"><BilledFigure row={row} /></td>
         <td className={`is-num j360-variance ${varianceTone(row.variance)}${signedMoney(row.variance) === '—' ? ' is-blank' : ''}`} data-label="Variance">{signedMoney(row.variance)}</td>
       </tr>
       {open ? (
@@ -394,7 +404,7 @@ function DiscountRow({ row, journeyId, tenantId, accessToken, open, onToggle }: 
         <td className={`is-num${row.entitled === null ? ' is-blank' : ''}`} data-label="Entitled">{money(row.entitled)}</td>
         <td data-label="Opted" className="j360-opted-cell"><Opted opted={row.opted} /></td>
         <td className={`is-num${row.booking === null ? ' is-blank' : ''}`} data-label="Booking">{money(row.booking)}</td>
-        <td className={`is-num is-truth${row.billed === null ? ' is-blank' : ''}`} data-label="Invoice">{money(row.billed)}</td>
+        <td className={`is-num is-truth${row.billed === null ? ' is-blank' : ''}`} data-label="Invoice"><BilledFigure row={row} /></td>
         <td className={`is-num j360-variance ${varianceTone(row.variance, 'discount')}${signedMoney(row.variance) === '—' ? ' is-blank' : ''}`} data-label="Variance">{signedMoney(row.variance)}</td>
       </tr>
       {open ? (
@@ -603,6 +613,8 @@ export default function DealTab({ deal, journeyId, tenantId, accessToken }: {
           {summary.deliveryStarted === false ? 'The variance is shown once delivery has started. ' : ''}
           {summary.billedSource === 'ACCOUNT_STATEMENT'
             ? 'This project reads the deal from the NDC (account statement); a booking with no NDC uses its cost sheet. '
+              + '* From the Tally / DMS invoice, not the NDC / cost sheet: a line the NDC does not print is taken from it; '
+              + 'a discount marked * is shown only and never counted (discounts come from the NDC / cost sheet). '
             : ''}
           Only the billing documents count: the NDC, the cost sheet, the customer ledger, the invoices, the policy, the RTO challan and the credit notes. Where more than one prints a line it is counted once, in that order, and the others check it. The booking docket is shown as offered and never counted or compared.
           Opted: the optional lines (insurance, accessories, extended warranty, every discount) show whether the customer took them, per the invoice once one is read, else per the billing document that bills them (never the booking docket); insurance follows the Inhouse / Self choice. Mandatory lines have nothing to opt.

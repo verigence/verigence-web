@@ -995,6 +995,11 @@ export type P2DealRow = {
   standard: Money;
   booking: Money;
   billed: Money;
+  /** Which document the billed figure is from: "invoice" (a Tally / DMS invoice), "document"
+   * (the NDC / cost sheet, a challan, a policy), "credit_note". */
+  billedFrom?: string | null;
+  /** What the deal counts now; a figure shown but not counted is null. */
+  current?: Money;
   ledger: Money;
   quote?: Money;
   effective: Money;

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { money, recordValue, signedMoney, varianceTone } from '../j360Format';
+import { fromInvoice, money, recordValue, signedMoney, varianceTone } from '../j360Format';
 import { newPhotoItem, photoPreflight, runPhotoUploads, type PhotoTransport } from '../../photos/p2PhotoUploader';
 import type { P2Task } from '../../../../services/audit-core/uc03P2';
 
@@ -187,5 +187,14 @@ describe('document-driven tasks', () => {
     ]);
     expect(rows.map((r) => [r.label, r.status, r.documentIds, Boolean(r.covered)])).toEqual([
       ['PAN Card', 'RECEIVED', ['p1'], false], ['Aadhaar', 'RECEIVED', ['a1'], false]]);
+  });
+});
+
+describe('a figure from the invoice (2026-11-04)', () => {
+  it('is starred only when billed from a Tally / DMS invoice', () => {
+    expect(fromInvoice({ billed: '79999.50', billedFrom: 'invoice' })).toBe(true);
+    expect(fromInvoice({ billed: '5000', billedFrom: 'document' })).toBe(false);
+    expect(fromInvoice({ billed: null, billedFrom: 'invoice' })).toBe(false);
+    expect(fromInvoice({ billed: '20000', billedFrom: 'credit_note' })).toBe(false);
   });
 });

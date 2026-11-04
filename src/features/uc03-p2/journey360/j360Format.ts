@@ -103,3 +103,9 @@ export function recordField(key: string, value: unknown): string {
   }
   return recordValue(value);
 }
+
+/** Product owner 2026-11-04: a figure from a Tally / DMS invoice is shown with a "*" in the NDC /
+ * cost sheet column; a discount so marked is not counted (discounts come from the NDC / cost sheet). */
+export function fromInvoice(row: { billed: string | null; billedFrom?: string | null }): boolean {
+  return row.billed !== null && row.billedFrom === 'invoice';
+}

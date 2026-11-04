@@ -13,7 +13,7 @@ const IST = 'Asia/Kolkata';
 export const statusLabels: Record<AttendanceDayStatus, string> = {
   ABSENT: 'Not checked in',
   PENDING_APPROVAL: 'Awaiting approval',
-  EXCEPTION_REJECTED: 'Exception rejected',
+  EXCEPTION_REJECTED: 'Half day (rejected)',
   CHECKED_IN: 'Checked in',
   COMPLETE: 'Complete',
 };

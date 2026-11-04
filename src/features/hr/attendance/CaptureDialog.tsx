@@ -65,9 +65,9 @@ const FACE_NOTES: Record<string, string> = {
 };
 
 /**
- * Check in / check out: live camera, location, then one request. A late or early event only needs
- * an optional note; being outside the outlet area (422 ATTENDANCE_REASON_REQUIRED) needs a reason,
- * and the same photo is sent again once the person has typed it and pressed the button.
+ * Check in / check out: live camera, location, then one request. A late check-in, an early check-out
+ * and being outside the outlet area all need a reason (422 ATTENDANCE_REASON_REQUIRED says how far and
+ * how late); the same photo is sent again once the person has typed it and pressed the button.
  */
 export default function CaptureDialog({ event, today, clockSkewMs, onClose }: Props) {
   const accessToken = useSessionStore((state) => state.accessToken);
@@ -188,7 +188,7 @@ export default function CaptureDialog({ event, today, clockSkewMs, onClose }: Pr
 
   const send = async () => {
     if (busy || !shot || !accessToken) return;
-    if (needsReason && !reason.trim()) {
+    if ((needsReason || expected) && !reason.trim()) {
       setReasonMissing(true);
       return;
     }
@@ -335,8 +335,8 @@ export default function CaptureDialog({ event, today, clockSkewMs, onClose }: Pr
           {expected && (
             <div className="uc01-admin-message uc01-admin-message--info">
               {expected === 'LATE'
-                ? `It is after ${formatClock(today.standardTimes.lateAfter)}, so this check-in will be recorded as late and sent for approval.`
-                : `It is before ${formatClock(today.standardTimes.checkOutEarliest)}, so this check-out will be recorded as early and sent for approval.`}
+                ? `It is after ${formatClock(today.standardTimes.lateAfter)}, so this check-in is late. Say why on the next step; your Team Lead will review it. If it is rejected, the day counts as a half day.`
+                : `It is before ${formatClock(today.standardTimes.checkOutEarliest)}, so this check-out is early. Say why on the next step; your Team Lead will review it. If it is rejected, the day counts as a half day.`}
             </div>
           )}
           {problem && <div className="uc01-admin-message uc01-admin-message--error" role="alert">{problem.message}</div>}
@@ -371,8 +371,7 @@ export default function CaptureDialog({ event, today, clockSkewMs, onClose }: Pr
           {(needsReason || expected) && problem?.next !== 'retake' && problem?.next !== 'close' && (
             <div className={`hr-field${reasonMissing ? ' hr-field--error' : ''}`}>
               <label htmlFor="hr-att-reason">
-                {needsReason ? 'Reason' : 'Note for your approver (optional)'}
-                {needsReason && <span className="hr-field__required"> *</span>}
+                Reason<span className="hr-field__required"> *</span>
               </label>
               <textarea
                 id="hr-att-reason"
@@ -380,7 +379,7 @@ export default function CaptureDialog({ event, today, clockSkewMs, onClose }: Pr
                 maxLength={500}
                 rows={3}
                 disabled={locked}
-                placeholder={needsReason ? 'Why are you not at your tagged location?' : 'Anything your approver should know'}
+                placeholder={expected === 'LATE' ? 'Why are you checking in late?' : expected === 'EARLY' ? 'Why are you leaving early?' : 'Why are you not at your tagged location?'}
                 onChange={(e) => {
                   setReason(e.target.value);
                   setReasonMissing(false);

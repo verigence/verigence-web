@@ -54,3 +54,4 @@
 @media (max-width: 460px) {
   .hrs-table td[data-label="Taxable"] { grid-template-columns: 1fr; gap: 0; }
 }
+.hrs-pause-items { margin: 8px 0 12px; padding-left: 18px; font-size: 13px; color: #344054; line-height: 1.6; }

@@ -119,3 +119,10 @@ export function statementNotReadText(unread: { title?: string | null; printed: R
   }).join('; ');
   return `NDC on file but not read: ${what}. None of its rows was read, so the figures below are from the invoice (*) and no discount counts. A task has been raised to have it read.`;
 }
+
+/** Documents on file whose key figures were not read (2026-11-04), one line each. */
+export function figuresNotReadLines(
+  documents: { document: string; pageNumber?: number | null; missing: string[] }[] | undefined,
+): string[] {
+  return (documents ?? []).map((d) => `${d.document}${d.pageNumber ? ` (page ${d.pageNumber})` : ''}: ${d.missing.join(', ')}`);
+}

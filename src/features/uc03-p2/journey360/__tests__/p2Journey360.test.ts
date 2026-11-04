@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { fromInvoice, money, recordValue, signedMoney, statementNotReadText, varianceTone } from '../j360Format';
+import { figuresNotReadLines, fromInvoice, money, recordValue, signedMoney, statementNotReadText, varianceTone } from '../j360Format';
 import { newPhotoItem, photoPreflight, runPhotoUploads, type PhotoTransport } from '../../photos/p2PhotoUploader';
 import type { P2Task } from '../../../../services/audit-core/uc03P2';
 
@@ -206,5 +206,14 @@ describe('an NDC on file but not read (2026-11-04)', () => {
     const text = statementNotReadText([{ title: 'FINAL VEHICLE ACCOUNTS STATEMENT', printed: { total_cost: '3241050' } }]);
     expect(text).toContain('NDC on file but not read: FINAL VEHICLE ACCOUNTS STATEMENT (prints total cost');
     expect(text).toContain('no discount counts');
+  });
+});
+
+describe('figures not read (2026-11-04)', () => {
+  it('lists each document, its page and the figures not read', () => {
+    expect(figuresNotReadLines(undefined)).toEqual([]);
+    expect(figuresNotReadLines([{ document: 'Dealer receipt', pageNumber: 3, missing: ['amount', 'payment mode'] },
+      { document: 'PAN card', pageNumber: null, missing: ['PAN'] }]))
+      .toEqual(['Dealer receipt (page 3): amount, payment mode', 'PAN card: PAN']);
   });
 });

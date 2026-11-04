@@ -1058,6 +1058,8 @@ type P2DealSummary = {
   /** NDC copies on file of which only the printed totals were read, none of the rows
    * (2026-11-04): the Deal has no NDC figures; what it shows is the invoice's. */
   statementNotRead?: { documentId: string; title?: string | null; printed: Record<string, string> }[];
+  /** Documents on file with a key figure not read (2026-11-04): listed, never silently left out. */
+  figuresNotRead?: { documentId: string; documentType: string; document: string; pageNumber?: number | null; missing: string[] }[];
   /** Variance is shown only once delivery has started (product owner 2026-10-28). */
   deliveryStarted?: boolean;
   /** Where the billed column comes from: the invoices, or (Mahindra Orissa)

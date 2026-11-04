@@ -1,4 +1,5 @@
 import type { OperatingRole } from '../../domain/models';
+import type { ReviewerClosureFlag } from '../../features/uc03-p2/workspace/JourneyClosedBadge';
 import { auditCoreRequest } from './client';
 
 export interface OperationalOutletScope {
@@ -65,6 +66,9 @@ export interface Uc03WorkItem {
   proposalReadyCount: number;
   latestActivityAtUtc: string;
   nextActionCode: string | null;
+  /** The closed marker every view shows (2026-11-04). */
+  closed?: boolean;
+  reviewerClosure?: ReviewerClosureFlag | null;
 }
 
 export interface Uc03WorkItemPage {

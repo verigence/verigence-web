@@ -67,6 +67,7 @@ import {
 } from '../services/audit-core/uc03P2';
 import { useProjectContextStore } from '../store/projectContextStore';
 import { useSessionStore } from '../store/sessionStore';
+import JourneyClosedBadge from '../features/uc03-p2/workspace/JourneyClosedBadge';
 
 const KYC_GROUP = new Set(['pan_card', 'aadhaar']);
 
@@ -547,6 +548,9 @@ function WorkspaceScreen({ carry, onCreated, onStartNext, onCarryTaken }: Worksp
       {!isNew && journeyId ? (
         <P2BookingBanner reference={reference} customerName={customerName} starting={Boolean(waitingToStart)}
           onStartNext={startsBookings ? () => startNext() : undefined} />
+      ) : null}
+      {!isNew && (summary.data?.journey.closed || summary.data?.journey.reviewerClosure) ? (
+        <div><JourneyClosedBadge closure={summary.data?.journey.reviewerClosure} closed={summary.data?.journey.closed} /></div>
       ) : null}
       {waitingToStart ? (
         <div className={`p2w-alert p2w-alert--next${waitingToStart.blocked ? ' p2w-alert--error' : ''}`} role="status">

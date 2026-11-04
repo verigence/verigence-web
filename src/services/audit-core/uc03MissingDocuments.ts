@@ -1,4 +1,5 @@
 import { auditCoreRequest } from './client';
+import type { ReviewerClosureFlag } from '../../features/uc03-p2/workspace/JourneyClosedBadge';
 
 /**
  * Missing documents of the journeys that have deliveries, day by day (product
@@ -24,6 +25,9 @@ export type MissingDocumentsJourney = {
   requirementKeys: string[];
   /** Open PC document tasks other than a missing document (a page to upload again, ...). */
   otherOpenTasks?: number;
+  /** The closed marker every view shows (2026-11-04). */
+  closed?: boolean;
+  reviewerClosure?: ReviewerClosureFlag | null;
 };
 
 /** A delivery file held up by missing documents alone (product owner 2026-11-03). */

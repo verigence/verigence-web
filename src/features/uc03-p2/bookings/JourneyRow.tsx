@@ -7,6 +7,7 @@ import DeleteJourneyDialog from '../workspace/DeleteJourneyDialog';
 import { canDeleteJourney } from '../workspace/deleteJourney';
 import { useProjectContextStore } from '../../../store/projectContextStore';
 import { useSessionStore } from '../../../store/sessionStore';
+import JourneyClosedBadge from '../workspace/JourneyClosedBadge';
 
 /** The six steps of a Journey, Booking then Delivery. */
 const JOURNEY_STEPS = [
@@ -217,6 +218,7 @@ export default function JourneyRow({ item, role }: { item: P2JourneyListItem; ro
       <td className="p2w-jrow__who" data-label="Customer">
         <Link to={item.closed ? overview : documents} className={`p2w-jrow__name${customer.known ? '' : ' is-unknown'}`}>{customer.text}</Link>
         <span className={item.vehicle ? '' : 'is-unknown'}>{item.vehicle || 'Vehicle not identified yet'}</span>
+        <JourneyClosedBadge closure={item.reviewerClosure} closed={item.closed} />
       </td>
       <td className="p2w-jrow__price" data-label="Price variance">
         {item.delivery_started === false ? (

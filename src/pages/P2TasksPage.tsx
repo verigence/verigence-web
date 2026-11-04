@@ -34,6 +34,7 @@ import {
 import { getTmTasks } from '../services/audit-core/taskManager';
 import { useProjectContextStore } from '../store/projectContextStore';
 import { useSessionStore } from '../store/sessionStore';
+import JourneyClosedBadge from '../features/uc03-p2/workspace/JourneyClosedBadge';
 
 type View = 'open' | 'done' | 'worked';
 
@@ -713,6 +714,7 @@ export default function P2TasksPage() {
                   onClick={() => toggleGroup(group.journeyId)}>
                   <span aria-hidden="true">{isCollapsed ? '▸' : '▾'}</span>
                   <strong>{group.customerName || 'Booking'}</strong>
+                  <JourneyClosedBadge closure={group.tasks.find((t) => t.reviewerClosure)?.reviewerClosure} />
                   <span className="p2w-muted">{[group.vehicle, group.outletName, group.reference].filter(Boolean).join(' · ')}</span>
                 </button>
                 <span className="p2w-task-group__meta">

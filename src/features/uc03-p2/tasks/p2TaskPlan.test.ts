@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import type { P2Task } from '../../../services/audit-core/uc03P2';
-import { taskPlan } from './p2TaskPlan';
+import { claimState, NOT_REQUIRED_CHOICE, taskPlan } from './p2TaskPlan';
 
 const finding = (assigned: string): P2Task => ({
   task_id: 't1', journey_id: 'j1', task_type: 'FINDING_REVIEW', task_status: 'READY', severity: 'MEDIUM', title: 'Finding',
@@ -22,5 +22,29 @@ describe('a Reviewer closes the Team Lead\'s tasks of their outlets (product own
 
   it('but not on a task of another role', () => {
     expect(actions(finding('PC'), 'REVIEWER')).not.toContain('ACCEPT_EXCEPTION');
+  });
+});
+
+const missing = (status = 'READY', result?: Record<string, unknown>): P2Task => ({
+  task_id: 't2', journey_id: 'j1', task_type: 'DOCUMENT_MISSING', source_code: 'DOCUMENT_MISSING', task_status: status,
+  severity: 'HIGH', title: 'Upload the RSA Invoice', source_system: 'P2', reference: {}, assigned_role_code: 'PC',
+  created_at_utc: '2026-11-04T00:00:00Z', allowed_actions: ['ADD_COMMENT'], completion_result: result,
+} as unknown as P2Task);
+
+describe('not mandatory is the PC\'s claim, for the Reviewer (product owner 2026-11-04)', () => {
+  it('asks the PC for a reason on "not required" but not on "uploaded"', () => {
+    const plan = taskPlan(missing(), 'PC');
+    const notRequired = plan.secondary.find((a) => a.label === NOT_REQUIRED_CHOICE);
+    const uploaded = plan.secondary.find((a) => a.label === 'Document uploaded');
+    expect(notRequired?.requiresComment).toBe(true);
+    expect(uploaded?.requiresComment).toBeFalsy();
+  });
+
+  it('shows a claim waiting for the Reviewer, and one sent back', () => {
+    const waiting = missing('AWAITING_REQUESTER_REVIEW', { outcome: 'NOT_MANDATORY_CLAIMED' });
+    expect(claimState(waiting)).toBe('WAITING');
+    expect(taskPlan(waiting, 'PC').waiting).toMatch(/Reviewer/);
+    expect(claimState(missing('RETURNED', { outcome: 'NOT_MANDATORY_REJECTED' }))).toBe('REJECTED');
+    expect(claimState(missing())).toBeUndefined();
   });
 });

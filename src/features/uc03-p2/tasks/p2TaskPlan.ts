@@ -48,6 +48,15 @@ const DONE = new Set(['VERIFIED_COMPLETE', 'CANCELLED']);
  * these whatever the task's stored actions list. */
 const MISSING_DOCUMENT_CLOSE_SOURCES = new Set(['DOCUMENT_MISSING', 'BOOKING_FORM_MISSING']);
 export const MISSING_DOCUMENT_CLOSE_CHOICES = ['Document uploaded', 'Document not required to be uploaded'] as const;
+export const NOT_REQUIRED_CHOICE = 'Document not required to be uploaded';
+
+/** A PC's "not mandatory" claim waiting for the Reviewer, or one the Reviewer sent back. */
+export function claimState(task: P2Task): 'WAITING' | 'REJECTED' | undefined {
+  const outcome = (task.completion_result ?? {}).outcome;
+  if (outcome === 'NOT_MANDATORY_CLAIMED' && task.task_status === 'AWAITING_REQUESTER_REVIEW') return 'WAITING';
+  if (outcome === 'NOT_MANDATORY_REJECTED' && task.task_status === 'RETURNED') return 'REJECTED';
+  return undefined;
+}
 
 function closesMissingDocument(task: P2Task): boolean {
   return task.task_type === 'DOCUMENT_MISSING' && MISSING_DOCUMENT_CLOSE_SOURCES.has(String(task.source_code ?? ''));
@@ -104,7 +113,9 @@ export function taskPlan(task: P2Task, operatingRole?: string | null): TaskPlan 
   if (DONE.has(task.task_status)) {
     return { secondary: canComment ? [{ label: COMMENT_LABEL, action: 'ADD_COMMENT', requiresComment: true, tone: 'ghost' }] : [] };
   }
-  const waiting = WAITING[task.task_status];
+  const waiting = claimState(task) === 'WAITING'
+    ? 'You said this document is not mandatory. Waiting for the Reviewer to accept or reject.'
+    : WAITING[task.task_status];
   if (waiting) {
     return { waiting, secondary: canComment ? [{ label: COMMENT_LABEL, action: 'ADD_COMMENT', requiresComment: true, tone: 'ghost' }] : [] };
   }
@@ -279,8 +290,11 @@ export function taskPlan(task: P2Task, operatingRole?: string | null): TaskPlan 
   } else if (closesMissingDocument(task)) {
     // A missing document: the PC closes it with one of two choices, which is
     // the task's comment (a typed note is added after it).
+    // "Not required" is the PC's claim, decided by the Reviewer (product owner
+    // 2026-11-04): it needs the PC's own reason, typed in the comment box.
     for (const choice of MISSING_DOCUMENT_CLOSE_CHOICES) {
-      secondary.push({ label: choice, action: 'CLOSE_TASK', comment: choice, details: { choice }, tone: 'secondary' });
+      secondary.push({ label: choice, action: 'CLOSE_TASK', comment: choice, details: { choice },
+        requiresComment: choice === NOT_REQUIRED_CHOICE, tone: 'secondary' });
     }
   }
   if (allowed.has('PROVIDE_FEEDBACK')) secondary.push({ label: 'Give feedback', action: 'PROVIDE_FEEDBACK', requiresComment: true, tone: 'ghost' });

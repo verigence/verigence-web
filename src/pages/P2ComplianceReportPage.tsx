@@ -12,6 +12,7 @@ import { getP2Journey360Section } from '../services/audit-core/uc03P2';
 import { useProjectContextStore } from '../store/projectContextStore';
 import { useSessionStore } from '../store/sessionStore';
 import { matchLevelText } from '../features/uc03-p2/matchLevel';
+import { CLOSURE_KIND_LABEL } from '../services/audit-core/reviewerClosure';
 
 const HEADER_LABELS: Record<string, string> = {
   journeyReference: 'Journey', bookingReference: 'Booking reference', productLabel: 'Vehicle', dealerName: 'Dealer',
@@ -214,6 +215,31 @@ export default function P2ComplianceReportPage() {
                   </li>
                 ))}
               </ul>
+            </section>
+          ) : null}
+
+          {r.reviewerClosure ? (
+            <section className="j360-card" aria-label="Reviewer closure summary">
+              <h3 className="j360-h3">Reviewer closure summary</h3>
+              <p>
+                Closed by the {r.reviewerClosure.closedRole === 'REVIEWER' ? 'Reviewer' : r.reviewerClosure.closedRole}
+                {' '}on {formatDateTime(r.reviewerClosure.closedAtUtc)}: “{r.reviewerClosure.comment}”
+              </p>
+              {r.reviewerClosure.items.length ? (
+                <ul className="j360-controls">
+                  {r.reviewerClosure.items.map((item) => (
+                    <li key={item.key}>
+                      <span className={`p2w-chip p2w-chip--${item.kind === 'OPEN_FINDING' ? 'danger' : 'warning'}`}>
+                        {CLOSURE_KIND_LABEL[item.kind]}
+                      </span>
+                      <span className="j360-controls__body"><strong>{item.label}</strong>
+                        <span>{item.answer}</span>
+                        {item.answerSource === 'ACCEPTED_CLAIM' ? <span className="p2w-muted">From the accepted not-mandatory claim</span> : null}</span>
+                      <span className="p2w-muted j360-controls__meta">{item.stage ? humanizeKey(item.stage) : ''}</span>
+                    </li>
+                  ))}
+                </ul>
+              ) : <p className="p2w-muted">Nothing was open at closure.</p>}
             </section>
           ) : null}
 

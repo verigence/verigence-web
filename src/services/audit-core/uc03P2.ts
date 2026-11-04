@@ -1,4 +1,5 @@
 import { xhrPut } from '../../features/uc03-p2/workspace/p2Uploader';
+import type { ReviewerClosureRecord } from './reviewerClosure';
 import { auditCoreRawRequest, auditCoreRequest } from './client';
 import type { TmTaskStatus } from './taskManager';
 
@@ -1316,6 +1317,8 @@ type P2ComplianceReport = {
   deal: { summary: P2DealSummary; sku: P2Deal['sku']; flaggedLines: Array<{ label: string; category: string; standard: Money; booking: Money; billed: Money; ledger: Money; variance: Money; flags: string[] }> };
   duplicates: P2DuplicatePair[];
   openTasks: Array<{ task_id: string; title: string; task_type: string; priority?: string | null; assigned_role_code?: string | null; task_status: string; due_at_utc?: string | null }>;
+  /** The Reviewer's closure summary (2026-11-04); null until the journey is closed by a Reviewer. */
+  reviewerClosure?: ReviewerClosureRecord | null;
 };
 
 /** Audit summary of a Journey (2026-10-29): built on demand from the Deal,

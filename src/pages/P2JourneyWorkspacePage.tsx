@@ -19,6 +19,7 @@ import P2StageReviewPanel from '../features/uc03-p2/review/P2StageReviewPanel';
 import { getResyncPreview } from '../services/audit-core/uc03P2Reviewer';
 import { getMyDisplayName } from '../services/security/profile';
 import P2CompleteDeliveryButton from '../features/uc03-p2/workspace/P2CompleteDeliveryButton';
+import ReviewerCloseJourney from '../features/uc03-p2/workspace/ReviewerCloseJourney';
 import P2RecheckButton from '../features/uc03-p2/workspace/P2RecheckButton';
 import P2UploadStatus from '../features/uc03-p2/workspace/P2UploadStatus';
 import { useP2LiveStatus } from '../features/uc03-p2/workspace/useP2LiveStatus';
@@ -495,6 +496,10 @@ function WorkspaceScreen({ carry, onCreated, onStartNext, onCarryTaken }: Worksp
               onDone={(text, tone) => { setNotice({ text, tone }); refresh(); }} /> : null}
             {!isNew && tenantId && operatingRole === 'REVIEWER' ? (
               <P2CompleteDeliveryButton tenantId={tenantId} journeyId={journeyId} accessToken={accessToken}
+                onDone={(text, tone) => { setNotice({ text, tone }); refresh(); }} />
+            ) : null}
+            {!isNew && tenantId && operatingRole === 'REVIEWER' ? (
+              <ReviewerCloseJourney tenantId={tenantId} journeyId={journeyId} accessToken={accessToken}
                 onDone={(text, tone) => { setNotice({ text, tone }); refresh(); }} />
             ) : null}
             {!isNew ? <button type="button" className="p2w-button p2w-button--secondary" onClick={() => setDialog('loan')}>Loan amount</button> : null}

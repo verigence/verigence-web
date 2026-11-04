@@ -9,7 +9,7 @@ import {
 import { useProjectContextStore } from '../../../store/projectContextStore';
 import { humanizeKey } from '../workspace/p2Format';
 import { PricingPanel, useRefreshDeal } from './DealControls';
-import { balanceText, FLAG_LABELS, fromInvoice, money, recordField, signedMoney, varianceTone } from './j360Format';
+import { balanceText, FLAG_LABELS, fromInvoice, money, recordField, signedMoney, statementNotReadText, varianceTone } from './j360Format';
 import { insuranceDecidedText } from './insuranceSource';
 
 /** What the customer opted for on this line, as a small switch: on is
@@ -482,9 +482,11 @@ export default function DealTab({ deal, journeyId, tenantId, accessToken }: {
   const entitledTotal = num(summary.discounts.standard);
   const givenTotal = num(summary.discounts.current);
 
+  const notRead = statementNotReadText(summary.statementNotRead);
   return (
     <div className="j360-stack">
       {pricing}
+      {notRead ? <div className="p2w-alert p2w-alert--error" role="alert">{notRead}</div> : null}
 
       <section className="j360-card" aria-label="Price sheet summary">
         <dl className="j360-tiles">

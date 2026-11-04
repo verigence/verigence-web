@@ -109,3 +109,13 @@ export function recordField(key: string, value: unknown): string {
 export function fromInvoice(row: { billed: string | null; billedFrom?: string | null }): boolean {
   return row.billed !== null && row.billedFrom === 'invoice';
 }
+
+/** The NDC-not-read notice (2026-11-04): which copies, and the totals they print. */
+export function statementNotReadText(unread: { title?: string | null; printed: Record<string, string> }[] | undefined): string | null {
+  if (!unread?.length) return null;
+  const what = unread.map((u) => {
+    const totals = Object.entries(u.printed).map(([k, v]) => `${k.replace(/_/g, ' ')} ${money(v)}`).join(', ');
+    return `${u.title || 'NDC'}${totals ? ` (prints ${totals})` : ''}`;
+  }).join('; ');
+  return `NDC on file but not read: ${what}. None of its rows was read, so the figures below are from the invoice (*) and no discount counts. A task has been raised to have it read.`;
+}

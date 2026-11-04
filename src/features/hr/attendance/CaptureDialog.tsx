@@ -55,6 +55,16 @@ interface Shot { blob: Blob; token: string; issuedAt: number; ttlMs: number }
 const FRESH_FIX_SECONDS = 40;
 
 /**
+ * A gentle note after the photo, never a refusal: the face check only flags, and HR sees the flag.
+ * Shown instead of the red flag chip so the person is not alarmed by an automatic comparison.
+ */
+const FACE_NOTES: Record<string, string> = {
+  FACE_MISMATCH:
+    "You don't look quite like your profile picture in this photo. Your attendance is recorded. If your profile photo is old or unclear, ask HR to update it.",
+  NO_FACE: "We couldn't see your face clearly in this photo. Your attendance is recorded. Next time, face the camera in good light.",
+};
+
+/**
  * Check in / check out: live camera, location, then one request. A late or early event only needs
  * an optional note; being outside the outlet area (422 ATTENDANCE_REASON_REQUIRED) needs a reason,
  * and the same photo is sent again once the person has typed it and pressed the button.
@@ -257,9 +267,14 @@ export default function CaptureDialog({ event, today, clockSkewMs, onClose }: Pr
             </div>
           )}
         </dl>
-        {result.flags.length > 0 && (
-          <span className="hr-flags">{result.flags.map((flag) => <span key={flag} className="hr-flag">{flagLabel(flag)}</span>)}</span>
+        {result.flags.filter((flag) => !FACE_NOTES[flag]).length > 0 && (
+          <span className="hr-flags">
+            {result.flags.filter((flag) => !FACE_NOTES[flag]).map((flag) => <span key={flag} className="hr-flag">{flagLabel(flag)}</span>)}
+          </span>
         )}
+        {result.flags.filter((flag) => FACE_NOTES[flag]).map((flag) => (
+          <div key={flag} className="uc01-admin-message uc01-admin-message--info" role="status">{FACE_NOTES[flag]}</div>
+        ))}
         {result.needsApproval.length > 0 && (
           <div className="uc01-admin-message uc01-admin-message--info" role="status">
             {result.needsApproval.map(exceptionLabel).join(' and ')} noted. It has gone to {approverPhrase(result.needsApproval)}{' '}

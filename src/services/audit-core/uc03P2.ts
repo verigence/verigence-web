@@ -525,10 +525,12 @@ export function removeP2Page(tenantId: string, journeyId: string, queueId: strin
 
 /** Ask Document Intelligence to read a page it already holds once more
  * (never a re-upload). 409 when the page is already read. */
-export function rereadP2Page(tenantId: string, journeyId: string, queueId: string, accessToken?: string) {
+/** `reason` is the override for a page in a stage already marked reviewed:
+ * a Team Lead, Project Manager or Reviewer gives it; Audit Core refuses anyone else. */
+export function rereadP2Page(tenantId: string, journeyId: string, queueId: string, accessToken?: string, reason?: string) {
   return auditCoreRequest<{ queueId: string; status: string }>(
     path(tenantId, `/journeys/${encodeURIComponent(journeyId)}/pages/${encodeURIComponent(queueId)}:reread`),
-    { method: 'POST', accessToken },
+    reason ? { method: 'POST', accessToken, body: JSON.stringify({ reason }) } : { method: 'POST', accessToken },
   );
 }
 

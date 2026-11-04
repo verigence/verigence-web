@@ -17,6 +17,7 @@ const LoanDisbursementModal = lazy(() => import('../features/uc03/LoanDisburseme
 import P2VehiclePhotos from '../features/uc03-p2/photos/P2VehiclePhotos';
 import P2StageReviewPanel from '../features/uc03-p2/review/P2StageReviewPanel';
 import { getResyncPreview } from '../services/audit-core/uc03P2Reviewer';
+import { canOverrideReviewedStage } from '../features/uc03-p2/workspace/deleteJourney';
 import { getMyDisplayName } from '../services/security/profile';
 import P2CompleteDeliveryButton from '../features/uc03-p2/workspace/P2CompleteDeliveryButton';
 import P2RecheckButton from '../features/uc03-p2/workspace/P2RecheckButton';
@@ -170,7 +171,10 @@ function WorkspaceScreen({ carry, onCreated, onStartNext, onCarryTaken }: Worksp
   const [rereadConfirm, setRereadConfirm] = useState<{
     queueId: string;
     modifiedFieldCount: number;
+    /** The page is in a stage already marked reviewed: a reason is needed. */
+    stageReviewed?: boolean;
   }>();
+  const [overrideReason, setOverrideReason] = useState('');
   const enabled = Boolean(tenantId && journeyId && accessToken);
   // Uploads paused for maintenance (2026-10-31): the booking still opens and
   // reads as usual; nothing on this screen can send a document.
@@ -377,8 +381,9 @@ function WorkspaceScreen({ carry, onCreated, onStartNext, onCarryTaken }: Worksp
   const closeDocument = () => navigate(`/p2/journeys/${journeyId}/documents`);
 
   const reread = useMutation({
-    mutationFn: (queueId: string) => rereadP2Page(tenantId!, journeyId, queueId, accessToken),
-    onMutate: (queueId) => setBusyKey(queueId),
+    mutationFn: ({ queueId, reason }: { queueId: string; reason?: string }) =>
+      rereadP2Page(tenantId!, journeyId, queueId, accessToken, reason),
+    onMutate: ({ queueId }) => setBusyKey(queueId),
     onSettled: () => setBusyKey(undefined),
     onSuccess: () => { setNotice({ tone: 'success', text: 'Document Intelligence is asked to read this page again. Nothing is uploaded again.' }); refresh(); },
     onError: (cause) => setNotice({ tone: 'error', text: errorText(cause, 'The page could not be sent for reading again.') }),
@@ -390,6 +395,19 @@ function WorkspaceScreen({ carry, onCreated, onStartNext, onCarryTaken }: Worksp
     if (!tenantId || !journeyId) return;
     try {
       const preview = await getResyncPreview(tenantId, journeyId, queueId, accessToken);
+      // A page in a stage marked reviewed: a TL, PM or Reviewer reads it again
+      // with a reason (the reason was never asked for here, so the override
+      // the server offers could not be used from the screen); anyone else is
+      // told why not before trying.
+      if (preview.stageReviewed) {
+        if (!canOverrideReviewedStage(operatingRole)) {
+          setNotice({ tone: 'error', text: 'This stage\'s documents are marked reviewed. A Team Lead or a Reviewer can read the page again, with a reason.' });
+          return;
+        }
+        setOverrideReason('');
+        setRereadConfirm({ queueId, modifiedFieldCount: preview.modifiedFieldCount, stageReviewed: true });
+        return;
+      }
       if (preview.modifiedFieldCount > 0) {
         setRereadConfirm({ queueId, modifiedFieldCount: preview.modifiedFieldCount });
         return;
@@ -399,7 +417,7 @@ function WorkspaceScreen({ carry, onCreated, onStartNext, onCarryTaken }: Worksp
       // a reviewed stage, so the worst case is a re-read with no warning
       // rather than a blocked action.
     }
-    reread.mutate(queueId);
+    reread.mutate({ queueId });
   };
   const restore = useMutation({
     mutationFn: (evidenceId: string) => restoreP2DocumentCopy(tenantId!, journeyId, evidenceId, accessToken),
@@ -628,22 +646,48 @@ function WorkspaceScreen({ carry, onCreated, onStartNext, onCarryTaken }: Worksp
           ) : null}
           {rereadConfirm ? (
             <div className="p2w-review">
-              <strong>
-                Reading this page again will erase {rereadConfirm.modifiedFieldCount}{' '}
-                corrected {rereadConfirm.modifiedFieldCount === 1 ? 'value' : 'values'}
-              </strong>
-              <p className="p2w-muted">
-                Document Intelligence&apos;s own reading replaces what is stored, so those
-                corrections will need to be made again afterwards.
-              </p>
+              {rereadConfirm.stageReviewed ? (
+                <>
+                  <strong>This stage is marked reviewed</strong>
+                  <p className="p2w-muted">
+                    Reading the page again changes figures the review signed off. Say why; the reason is
+                    kept with the page.
+                    {rereadConfirm.modifiedFieldCount > 0
+                      ? ` It also erases ${rereadConfirm.modifiedFieldCount} corrected ${rereadConfirm.modifiedFieldCount === 1 ? 'value' : 'values'}.`
+                      : ''}
+                  </p>
+                  <textarea
+                    value={overrideReason}
+                    onChange={(event) => setOverrideReason(event.target.value)}
+                    rows={2}
+                    maxLength={1000}
+                    placeholder="Why this page must be read again"
+                    aria-label="Reason for reading a reviewed page again"
+                    style={{ width: '100%', marginBottom: 8 }}
+                  />
+                </>
+              ) : (
+                <>
+                  <strong>
+                    Reading this page again will erase {rereadConfirm.modifiedFieldCount}{' '}
+                    corrected {rereadConfirm.modifiedFieldCount === 1 ? 'value' : 'values'}
+                  </strong>
+                  <p className="p2w-muted">
+                    Document Intelligence&apos;s own reading replaces what is stored, so those
+                    corrections will need to be made again afterwards.
+                  </p>
+                </>
+              )}
               <div className="p2w-row" style={{ gap: 8 }}>
                 <button
                   type="button"
                   className="uc02-button uc02-button--primary"
+                  disabled={Boolean(rereadConfirm.stageReviewed) && overrideReason.trim().length === 0}
                   onClick={() => {
                     const target = rereadConfirm.queueId;
+                    const reason = rereadConfirm.stageReviewed ? overrideReason.trim() : undefined;
                     setRereadConfirm(undefined);
-                    reread.mutate(target);
+                    reread.mutate({ queueId: target, reason });
                   }}
                 >
                   Read again anyway

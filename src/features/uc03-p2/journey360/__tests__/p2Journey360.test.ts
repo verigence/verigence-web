@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { fromInvoice, money, recordValue, signedMoney, varianceTone } from '../j360Format';
+import { fromInvoice, money, recordValue, signedMoney, statementNotReadText, varianceTone } from '../j360Format';
 import { newPhotoItem, photoPreflight, runPhotoUploads, type PhotoTransport } from '../../photos/p2PhotoUploader';
 import type { P2Task } from '../../../../services/audit-core/uc03P2';
 
@@ -196,5 +196,15 @@ describe('a figure from the invoice (2026-11-04)', () => {
     expect(fromInvoice({ billed: '5000', billedFrom: 'document' })).toBe(false);
     expect(fromInvoice({ billed: null, billedFrom: 'invoice' })).toBe(false);
     expect(fromInvoice({ billed: '20000', billedFrom: 'credit_note' })).toBe(false);
+  });
+});
+
+describe('an NDC on file but not read (2026-11-04)', () => {
+  it('names the copy and the totals it prints', () => {
+    expect(statementNotReadText([])).toBeNull();
+    expect(statementNotReadText(undefined)).toBeNull();
+    const text = statementNotReadText([{ title: 'FINAL VEHICLE ACCOUNTS STATEMENT', printed: { total_cost: '3241050' } }]);
+    expect(text).toContain('NDC on file but not read: FINAL VEHICLE ACCOUNTS STATEMENT (prints total cost');
+    expect(text).toContain('no discount counts');
   });
 });

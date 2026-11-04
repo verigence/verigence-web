@@ -6,6 +6,7 @@ import ApprovalListFrame from './ApprovalListFrame';
 import ApprovalPerson from './ApprovalPerson';
 import {
   ageLabel,
+  coverWarningText,
   formatDateRange,
   formatDateTimeIst,
   formatDays,
@@ -70,6 +71,15 @@ export default function LeavePanel({ query }: { query: ReturnType<typeof useLeav
                     <strong>{label(leaveTypeLabels, x.leaveType)}</strong>
                     <small>{formatDateRange(x.fromDate, x.toDate)}</small>
                     <small>{formatDays(x.days, x.halfDay)}</small>
+                    {x.occasion && <small>Occasion: {x.occasion}</small>}
+                    {typeof x.balanceAvailable === 'number' && (
+                      <small className="hr-appr-balance">Balance available: {x.balanceAvailable === 1 ? '1 day' : `${x.balanceAvailable} days`}</small>
+                    )}
+                    {x.coverWarnings && x.coverWarnings.length > 0 && (
+                      <div className="hr-appr-cover" role="note" aria-label="Outlet cover">
+                        {x.coverWarnings.map((w) => <p key={w.outletName}>{coverWarningText(x.employeeName, w)}</p>)}
+                      </div>
+                    )}
                   </td>
                   <td data-label="Reason">
                     {x.reason ? <span className="hr-appr-text">{x.reason}</span> : <span className="hr-muted">No reason given</span>}

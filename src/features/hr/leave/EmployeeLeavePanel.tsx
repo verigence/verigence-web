@@ -13,9 +13,10 @@ import {
 import { useSessionStore } from '../../../store/sessionStore';
 import AdjustBalanceDialog from './AdjustBalanceDialog';
 import BalanceCards from './BalanceCards';
+import EarningSummary from './EarningSummary';
 import LeaveRequestList from './LeaveRequestList';
 import ReverseLeaveDialog from './ReverseLeaveDialog';
-import { leaveErrorMessage } from './leaveLogic';
+import { isYearlyType, leaveErrorMessage, paidTypeLabels } from './leaveLogic';
 import { leaveKeys, yearChoices } from './leaveQueries';
 
 interface Props {
@@ -63,7 +64,7 @@ export default function EmployeeLeavePanel({ employeeId, employeeName, employeeC
     mutationFn: (input: LeaveAdjustInput) => adjustLeaveBalance(accessToken!, employeeId, input),
     onSuccess: (_data, input) => {
       setAdjusting(false);
-      setNotice(`The ${input.leave_type === 'SICK' ? 'Sick' : 'Earned'} balance for ${input.year} was adjusted.`);
+      setNotice(`The ${paidTypeLabels[input.leave_type]} balance${isYearlyType(input.leave_type) ? ` for ${input.year}` : ''} was adjusted.`);
       void queryClient.invalidateQueries({ queryKey: ['hr', 'leave', 'employee', employeeId] });
       void queryClient.invalidateQueries({ queryKey: ['hr', 'leave', 'overview'] });
     },
@@ -106,9 +107,14 @@ export default function EmployeeLeavePanel({ employeeId, employeeName, employeeC
 
       {detail.data && (
         <>
-          <SectionCard title={`Balance for ${detail.data.balance.year}`} description="Every change to a balance is a new entry in a ledger: yearly grant, leave taken, reversal or adjustment.">
+          <SectionCard title="Balance" description={`Paid leave and comp-off carry over; special occasion leave is for ${detail.data.balance.year}. Every change to a balance is a new entry in a ledger: days earned, yearly quota, leave taken, reversal or adjustment.`}>
             <BalanceCards types={detail.data.balance.types} year={detail.data.balance.year} />
           </SectionCard>
+          {detail.data.earning && (
+            <SectionCard title="Paid leave earned from attendance">
+              <EarningSummary earning={detail.data.earning} own={false} />
+            </SectionCard>
+          )}
           <SectionCard title="Leave requests" description="The latest 100 requests, newest first, across all years.">
             <LeaveRequestList
               requests={detail.data.requests}

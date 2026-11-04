@@ -6,7 +6,7 @@ import { LEAVE_PERMISSION, getLeaveOverview, type LeaveBalanceType, type LeaveOv
 import { useSessionStore } from '../../store/sessionStore';
 import { useHrAccess } from '../../features/hr/hrQueries';
 import EmployeeLeavePanel from '../../features/hr/leave/EmployeeLeavePanel';
-import { dayCount, istToday, leaveErrorMessage } from '../../features/hr/leave/leaveLogic';
+import { dayCount, isYearlyType, istToday, leaveErrorMessage, leaveTypeLabels, PAID_TYPES } from '../../features/hr/leave/leaveLogic';
 import { leaveKeys, yearChoices } from '../../features/hr/leave/leaveQueries';
 import '../../styles/hr-leave.css';
 
@@ -15,7 +15,7 @@ function BalanceCell({ type }: { type: LeaveBalanceType | undefined }) {
   return (
     <>
       <strong>{dayCount(type.available)} available</strong>
-      <small>Granted {dayCount(type.granted)} · Used {dayCount(type.used)} · Pending {dayCount(type.pending)}</small>
+      <small>{isYearlyType(type.leaveType) ? 'Quota' : 'Earned'} {dayCount(type.granted)} · Used {dayCount(type.used)} · Pending {dayCount(type.pending)}</small>
     </>
   );
 }
@@ -82,7 +82,7 @@ export default function HrLeaveOverviewPage() {
       <PageHeader
         eyebrow="HR"
         title="Leave overview"
-        description="Sick and Earned leave balances of every active employee. Tap a person to see their requests."
+        description="Paid leave, special occasion leave and comp-off balances of every active employee. Paid leave and comp-off carry over; the year applies to special occasion leave. Tap a person to see their requests."
       />
 
       <div className="uc01-admin-toolbar hr-leave-toolbar">
@@ -120,8 +120,7 @@ export default function HrLeaveOverviewPage() {
               <thead>
                 <tr>
                   <th>Employee</th>
-                  <th>Sick leave</th>
-                  <th>Earned leave</th>
+                  {PAID_TYPES.map((t) => <th key={t}>{leaveTypeLabels[t]}</th>)}
                   <th><span className="hr-visually-hidden">Actions</span></th>
                 </tr>
               </thead>
@@ -132,8 +131,9 @@ export default function HrLeaveOverviewPage() {
                       <strong>{e.fullName}</strong>
                       <small>{e.employeeCode}</small>
                     </td>
-                    <td data-label="Sick leave"><BalanceCell type={e.types.find((t) => t.leaveType === 'SICK')} /></td>
-                    <td data-label="Earned leave"><BalanceCell type={e.types.find((t) => t.leaveType === 'EARNED')} /></td>
+                    {PAID_TYPES.map((t) => (
+                      <td key={t} data-label={leaveTypeLabels[t]}><BalanceCell type={e.types.find((x) => x.leaveType === t)} /></td>
+                    ))}
                     <td>
                       <div className="uc01-admin-row-actions">
                         <button type="button" className="uc01-admin-button hr-leave-view" aria-label={`View leave of ${e.fullName}`} onClick={() => setSelected(e)}>
@@ -144,7 +144,7 @@ export default function HrLeaveOverviewPage() {
                   </tr>
                 ))}
                 {items.length === 0 && (
-                  <tr><td colSpan={4} className="uc01-admin-empty">
+                  <tr><td colSpan={2 + PAID_TYPES.length} className="uc01-admin-empty">
                     {search.trim() ? 'No employees match this search.' : 'There are no active employees yet.'}
                   </td></tr>
                 )}

@@ -6,7 +6,9 @@ import SectionCard from '../../components/SectionCard';
 import {
   applyLeave,
   cancelLeave,
+  getMyAbsences,
   getMyLeaveBalance,
+  getMyLeaveEarning,
   getMyLeaveRequests,
   type LeaveApplyInput,
   type LeaveRequest,
@@ -16,7 +18,9 @@ import { useHrAccess } from '../../features/hr/hrQueries';
 import ApplyLeaveForm from '../../features/hr/leave/ApplyLeaveForm';
 import BalanceCards from '../../features/hr/leave/BalanceCards';
 import CancelLeaveDialog from '../../features/hr/leave/CancelLeaveDialog';
+import EarningSummary from '../../features/hr/leave/EarningSummary';
 import LeaveRequestList from '../../features/hr/leave/LeaveRequestList';
+import { formatDate } from '../../features/hr/hrLabels';
 import { formatDays, istToday, leaveErrorMessage, leaveTypeLabels, waitingFor } from '../../features/hr/leave/leaveLogic';
 import { leaveKeys, yearChoices } from '../../features/hr/leave/leaveQueries';
 import '../../styles/hr-leave.css';
@@ -33,6 +37,7 @@ export default function HrLeavePage() {
   const [notice, setNotice] = useState('');
   const [applyError, setApplyError] = useState('');
   const [cancelling, setCancelling] = useState<LeaveRequest | null>(null);
+  const [prefill, setPrefill] = useState<{ fromDate: string; toDate: string } | undefined>(undefined);
 
   const enabled = Boolean(accessToken) && access.isEmployee;
   const balance = useQuery({
@@ -50,9 +55,34 @@ export default function HrLeavePage() {
     refetchOnWindowFocus: false,
   });
 
+  const earning = useQuery({
+    queryKey: leaveKeys.myEarning,
+    queryFn: () => getMyLeaveEarning(accessToken!),
+    enabled,
+    retry: false,
+    refetchOnWindowFocus: false,
+  });
+  const absences = useQuery({
+    queryKey: leaveKeys.myAbsences,
+    queryFn: () => getMyAbsences(accessToken!),
+    enabled,
+    retry: false,
+    refetchOnWindowFocus: false,
+  });
+
   const refresh = () => {
     void queryClient.invalidateQueries({ queryKey: ['hr', 'leave', 'my-balance'] });
     void queryClient.invalidateQueries({ queryKey: leaveKeys.myRequests });
+    void queryClient.invalidateQueries({ queryKey: leaveKeys.myEarning });
+    void queryClient.invalidateQueries({ queryKey: leaveKeys.myAbsences });
+  };
+
+  /** Opens the Apply tab with this date in the form. */
+  const applyFor = (date: string) => {
+    setNotice('');
+    setApplyError('');
+    setPrefill({ fromDate: date, toDate: date });
+    setTab('apply');
   };
 
   const apply = useMutation({
@@ -65,6 +95,7 @@ export default function HrLeavePage() {
           ? `Your leave is recorded: ${what}.`
           : `Your leave request is submitted: ${what}. ${waitingFor(created.approverRule, true)}.`,
       );
+      setPrefill(undefined);
       setTab('requests');
       refresh();
     },
@@ -100,10 +131,27 @@ export default function HrLeavePage() {
   }
 
   const pendingCount = requests.data?.items.filter((r) => r.status === 'PENDING').length ?? 0;
+  const absentDates = absences.data?.dates ?? [];
 
   return (
     <section className="uc01-admin-page hr-page hr-leave-page" aria-label="My leave">
-      <PageHeader eyebrow="HR" title="My leave" description="Your Sick and Earned leave balance, applying for leave, and the status of your requests." />
+      <PageHeader eyebrow="HR" title="My leave" description="Your paid leave, special occasion leave and comp-off balances, how you earn paid leave, applying for leave, and the status of your requests." />
+
+      {absentDates.length > 0 && (
+        <div className="uc01-admin-message hr-leave-absences" role="status">
+          <p>
+            You have {absentDates.length} {absentDates.length === 1 ? 'day' : 'days'} with no attendance and no leave in the last 30 days:{' '}
+            {absentDates.map((d) => formatDate(d)).join(', ')}. Apply for leave for them so they are not counted as absent.
+          </p>
+          <div className="hr-leave-absences__dates">
+            {absentDates.map((d) => (
+              <button key={d} type="button" className="uc01-admin-button" onClick={() => applyFor(d)}>
+                Apply for {formatDate(d)}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       <SectionCard
         title="Balance"
@@ -128,10 +176,23 @@ export default function HrLeavePage() {
           <>
             <BalanceCards types={balance.data.types} year={balance.data.year} />
             <p className="hr-field__hint hr-leave-balance-note">
-              Available is what you can still apply for: your balance less requests waiting for a decision.
+              Available is what you can still apply for: your balance less requests waiting for a decision. Paid leave and comp-off
+              carry over; special occasion leave is given each year. The year only changes the special occasion quota.
             </p>
           </>
         )}
+      </SectionCard>
+
+      <SectionCard title="How you earn paid leave">
+        {earning.isLoading && <div className="uc01-admin-state">Loading…</div>}
+        {earning.isError && (
+          <div className="uc01-admin-state uc01-admin-state--error" role="alert">
+            <strong>This could not be loaded.</strong>
+            <span>{leaveErrorMessage(earning.error)}</span>
+            <button type="button" className="uc01-admin-button" onClick={() => earning.refetch()}>Try again</button>
+          </div>
+        )}
+        {earning.data && <EarningSummary earning={earning.data} own />}
       </SectionCard>
 
       <div className="hr-tabs" role="tablist" aria-label="Leave sections">
@@ -149,6 +210,8 @@ export default function HrLeavePage() {
         {tab === 'apply' && (
           <SectionCard title="Apply for leave">
             <ApplyLeaveForm
+              prefill={prefill}
+              earning={earning.data}
               busy={apply.isPending}
               serverError={applyError}
               onEdit={() => { if (applyError) setApplyError(''); }}

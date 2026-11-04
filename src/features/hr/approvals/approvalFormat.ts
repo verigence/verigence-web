@@ -131,7 +131,14 @@ export const attendanceKindLabels: Record<string, string> = {
 
 export const attendanceEventLabels: Record<string, string> = { CHECK_IN: 'Check-in', CHECK_OUT: 'Check-out' };
 
-export const leaveTypeLabels: Record<string, string> = { SICK: 'Sick leave', EARNED: 'Earned leave', UNPAID: 'Unpaid leave' };
+export const leaveTypeLabels: Record<string, string> = {
+  PAID: 'Paid leave',
+  SPECIAL: 'Special occasion leave',
+  COMP_OFF: 'Comp-off',
+  UNPAID: 'Unpaid leave',
+  SICK: 'Sick leave (old)',
+  EARNED: 'Earned leave (old)',
+};
 
 export const leaveApproverLabels: Record<string, string> = {
   AUTO: 'Automatic',
@@ -140,6 +147,26 @@ export const leaveApproverLabels: Record<string, string> = {
   TL_PM: 'Team Lead or Project Manager',
   HR: 'HR',
 };
+
+/** "8 Dec" or "8 Dec, 9 Dec and 10 Dec": short dates for a sentence. */
+export function shortDateList(dates: string[]): string {
+  const words = dates.map((value) => {
+    const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(value);
+    return match ? `${Number(match[3])} ${MONTHS[Number(match[2]) - 1] ?? match[2]}` : value;
+  });
+  if (words.length <= 1) return words[0] ?? '';
+  return `${words.slice(0, -1).join(', ')} and ${words[words.length - 1]}`;
+}
+
+/** One cover warning on a pending leave, in plain words. Approving is never blocked by it. */
+export function coverWarningText(employeeName: string, warning: { outletName: string; otherPcs: number; dates: string[] }): string {
+  const when = shortDateList(warning.dates);
+  if (warning.otherPcs === 0) {
+    return `${employeeName} is the only PC at ${warning.outletName}: the outlet has no PC on ${when}.`;
+  }
+  const others = warning.otherPcs === 1 ? 'the outlet’s only other PC is' : `all ${warning.otherPcs} other PCs at the outlet are`;
+  return `${warning.outletName} would have no PC on ${when} (${others} also on leave).`;
+}
 
 const claimStageLabels: Record<string, string> = { TL_PM: 'Team Lead or PM', HR: 'HR', FINANCE: 'Finance' };
 

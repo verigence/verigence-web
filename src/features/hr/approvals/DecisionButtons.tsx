@@ -6,7 +6,7 @@ interface Props {
   disabled: boolean;
   /** Only reimbursement claims can be sent back for correction. */
   allowCorrection?: boolean;
-  /** Names the request for screen readers, e.g. "Asha Rao, sick leave". */
+  /** Names the request for screen readers, e.g. "Asha Rao, paid leave". */
   subject: string;
 }
 

@@ -77,7 +77,8 @@
 
 @media (min-width: 761px) {
   .hr-leave-table td:nth-child(2),
-  .hr-leave-table td:nth-child(3) { min-width: 200px; }
+  .hr-leave-table td:nth-child(3),
+  .hr-leave-table td:nth-child(4) { min-width: 180px; }
   .hr-leave-table td:first-child { min-width: 160px; }
 }
 
@@ -88,4 +89,25 @@
   .hr-leave-table .uc01-admin-row-actions .uc01-admin-button { width: 100%; }
   .hr-leave-panel__bar .hr-leave-year { flex: 1 1 100px; }
   .hr-leave-panel__bar > .uc01-admin-button { flex: 1 1 140px; }
+}
+
+/* How paid leave is earned */
+.hr-leave-earning { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.hr-leave-earning p { margin: 0; }
+.hr-leave-earning__rule { font-size: 13px; color: #344054; line-height: 1.5; }
+.hr-leave-earning .hr-progress { margin-bottom: 0; }
+.hr-leave-earning .hr-progress strong { color: #0b5566; }
+.hr-leave-earning__blocks h3 { margin: 4px 0 6px; font-size: 12px; color: #52606d; text-transform: uppercase; letter-spacing: .04em; }
+.hr-leave-earning__blocks ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.hr-leave-earning__blocks li { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 12px; padding: 8px 10px; border: 1px solid #e4e7ec; border-radius: 10px; background: #f9fafb; font-size: 12px; color: #344054; }
+.hr-leave-earning__blocks li span:last-child { font-weight: 700; }
+
+/* Days with no attendance and no leave */
+.hr-leave-absences { display: flex; flex-direction: column; gap: 10px; background: #fffaeb; border: 1px solid #fedf89; color: #93370d; }
+.hr-leave-absences p { margin: 0; overflow-wrap: anywhere; }
+.hr-leave-absences__dates { display: flex; flex-wrap: wrap; gap: 8px; }
+.hr-leave-absences__dates .uc01-admin-button { min-height: 44px; }
+
+@media (min-width: 960px) {
+  .hr-leave-balances { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }

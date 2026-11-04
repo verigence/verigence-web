@@ -5,9 +5,18 @@ export const LEAVE_PERMISSION = {
   review: 'hr.leave.review',
 } as const;
 
-export type LeaveType = 'SICK' | 'EARNED' | 'UNPAID';
-/** Only these two have a yearly balance. Unpaid leave has none. */
-export type PaidLeaveType = 'SICK' | 'EARNED';
+/**
+ * Leave types (product owner decision, 4 Nov 2026). There is no sick leave and no yearly Earned
+ * allowance any more: paid leave is earned from attendance. SICK and EARNED stay only so that old
+ * requests in the history can still be shown; they can no longer be applied for or adjusted.
+ */
+export type LegacyLeaveType = 'SICK' | 'EARNED';
+/** What can be applied for. */
+export type ApplyLeaveType = 'PAID' | 'SPECIAL' | 'COMP_OFF' | 'UNPAID';
+/** Any type a request may carry, including the old ones in history. */
+export type LeaveType = ApplyLeaveType | LegacyLeaveType;
+/** The types with a balance. PAID and COMP_OFF carry over (all-time); SPECIAL is a yearly quota. Unpaid leave has none. */
+export type PaidLeaveType = 'PAID' | 'SPECIAL' | 'COMP_OFF';
 export type LeaveStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'CANCELLED';
 /** Who decides the request, chosen by the server when it is applied for. */
 export type ApproverRule = 'AUTO' | 'CEO' | 'PM' | 'TL_PM' | 'HR';
@@ -35,6 +44,8 @@ export interface LeaveRequest {
   halfDay: boolean;
   days: number;
   reason: string | null;
+  /** Only on special occasion leave: what the occasion is. */
+  occasion: string | null;
   status: LeaveStatus;
   approverRule: ApproverRule;
   submittedAt: string;
@@ -43,11 +54,46 @@ export interface LeaveRequest {
 }
 
 export interface LeaveApplyInput {
-  leave_type: LeaveType;
+  leave_type: ApplyLeaveType;
   from_date: string;
   to_date: string;
   half_day: boolean;
   reason?: string;
+  /** Required (not empty, at most 100 characters) for SPECIAL; sent for nothing else. */
+  occasion?: string;
+}
+
+/** One completed block of attendance days and what it earned. */
+export interface LeaveEarningBlock {
+  blockNo: number;
+  /** yyyy-mm-dd */
+  completedOn: string;
+  attendanceDays: number;
+  /** Paid days added to the balance. */
+  credited: number;
+  /** Paid days not added because the balance was at the cap. */
+  lapsed: number;
+}
+
+/** How paid leave is earned from attendance, with the settings in force and the count so far. */
+export interface LeaveEarning {
+  /** Days of attendance that earn paid leave (setting, for example 22). */
+  attendanceDaysNeeded: number;
+  /** Paid days earned for each completed block (setting, for example 1). */
+  paidDaysEarned: number;
+  /** The most paid days the balance can hold (setting, for example 3). */
+  balanceCap: number;
+  /** Days of attendance counted towards the next block. */
+  attendanceDaysSoFar: number;
+  /** yyyy-mm-dd: a day whose exception is still waiting for a decision pauses the count from here. */
+  countPausedFrom: string | null;
+  /** Newest first, at most 24. */
+  blocks: LeaveEarningBlock[];
+}
+
+/** Working days in the last 30 with no check-in and no leave. */
+export interface LeaveAbsences {
+  dates: string[];
 }
 
 export interface LeaveOverviewItem {
@@ -64,6 +110,7 @@ export interface LeaveOverview {
 
 export interface EmployeeLeave {
   balance: LeaveBalance;
+  earning: LeaveEarning;
   requests: LeaveRequest[];
 }
 
@@ -99,6 +146,14 @@ export const getMyLeaveBalance = (token: string, year?: number) =>
 
 export const getMyLeaveRequests = (token: string) =>
   hrRequest<{ items: LeaveRequest[] }>(`${base}/leave/requests`, { accessToken: token });
+
+/** How paid leave is earned and how far the signed-in person is towards the next day. */
+export const getMyLeaveEarning = (token: string) =>
+  hrRequest<LeaveEarning>(`${base}/leave/earning`, { accessToken: token });
+
+/** Working days in the last 30 with no check-in and no leave; each can still be applied for. */
+export const getMyAbsences = (token: string) =>
+  hrRequest<LeaveAbsences>(`${base}/leave/absences`, { accessToken: token });
 
 export const applyLeave = (token: string, input: LeaveApplyInput) =>
   hrRequest<LeaveRequest>(`${base}/leave/requests`, {

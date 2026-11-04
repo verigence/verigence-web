@@ -80,15 +80,27 @@ export async function fetchAttendancePhoto(accessToken: string, attendanceId: st
 
 type LeaveApproverRule = 'AUTO' | 'CEO' | 'PM' | 'TL_PM' | 'HR';
 
+/** Dates on which approving would leave an outlet with no other PC free. */
+export interface LeaveCoverWarning {
+  outletName: string;
+  /** How many other PCs the outlet has; 0 means the person is the outlet's only PC. */
+  otherPcs: number;
+  /** YYYY-MM-DD */
+  dates: string[];
+}
+
 export interface LeaveApproval {
   requestId: string;
-  leaveType: 'SICK' | 'EARNED' | 'UNPAID' | string;
+  /** PAID, SPECIAL, COMP_OFF or UNPAID; SICK and EARNED only on old requests. */
+  leaveType: 'PAID' | 'SPECIAL' | 'COMP_OFF' | 'UNPAID' | 'SICK' | 'EARNED' | string;
   /** YYYY-MM-DD */
   fromDate: string;
   toDate: string;
   halfDay: boolean;
   days: number;
   reason: string | null;
+  /** Only on special occasion leave. */
+  occasion: string | null;
   status: 'PENDING' | 'APPROVED' | 'REJECTED' | string;
   approverRule: LeaveApproverRule | string;
   submittedAt: string;
@@ -97,6 +109,10 @@ export interface LeaveApproval {
   employeeId: string;
   employeeName: string;
   employeeCode: string;
+  /** Pending PAID, SPECIAL and COMP_OFF requests only: what the person can still apply for of that type. */
+  balanceAvailable?: number;
+  /** Pending requests only. Empty when no outlet is left without a PC. */
+  coverWarnings?: LeaveCoverWarning[];
 }
 
 export const listLeaveApprovals = async (accessToken: string): Promise<LeaveApproval[]> =>

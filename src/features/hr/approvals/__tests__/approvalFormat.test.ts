@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { HrHttpError, HrNetworkError } from '../../../../services/hr/client';
 import {
   ageLabel,
+  coverWarningText,
   dateAgeLabel,
   decisionErrorMessage,
   formatDate,
@@ -14,11 +15,39 @@ import {
   formatMonth,
   formatTimeIst,
   istToday,
+  label,
+  leaveTypeLabels,
   noteProblem,
   noteRequired,
+  shortDateList,
   stageSteps,
   staleAfterError,
 } from '../approvalFormat';
+
+describe('leave', () => {
+  it('names the leave types, old ones marked', () => {
+    expect(label(leaveTypeLabels, 'PAID')).toBe('Paid leave');
+    expect(label(leaveTypeLabels, 'SPECIAL')).toBe('Special occasion leave');
+    expect(label(leaveTypeLabels, 'COMP_OFF')).toBe('Comp-off');
+    expect(label(leaveTypeLabels, 'UNPAID')).toBe('Unpaid leave');
+    expect(label(leaveTypeLabels, 'SICK')).toBe('Sick leave (old)');
+    expect(label(leaveTypeLabels, 'EARNED')).toBe('Earned leave (old)');
+  });
+  it('lists short dates for a sentence', () => {
+    expect(shortDateList(['2026-12-08'])).toBe('8 Dec');
+    expect(shortDateList(['2026-12-08', '2026-12-09'])).toBe('8 Dec and 9 Dec');
+    expect(shortDateList(['2026-12-08', '2026-12-09', '2027-01-02'])).toBe('8 Dec, 9 Dec and 2 Jan');
+    expect(shortDateList([])).toBe('');
+  });
+  it('says plainly when an outlet would have no PC', () => {
+    expect(coverWarningText('Asha Rao', { outletName: 'Cuttack Motors', otherPcs: 1, dates: ['2026-12-08'] }))
+      .toBe('Cuttack Motors would have no PC on 8 Dec (the outlet’s only other PC is also on leave).');
+    expect(coverWarningText('Asha Rao', { outletName: 'Cuttack Motors', otherPcs: 2, dates: ['2026-12-08', '2026-12-09'] }))
+      .toBe('Cuttack Motors would have no PC on 8 Dec and 9 Dec (all 2 other PCs at the outlet are also on leave).');
+    expect(coverWarningText('Asha Rao', { outletName: 'Puri Auto', otherPcs: 0, dates: ['2026-12-08'] }))
+      .toBe('Asha Rao is the only PC at Puri Auto: the outlet has no PC on 8 Dec.');
+  });
+});
 
 describe('dates are shown in India time', () => {
   it('formats date-only values without shifting them', () => {

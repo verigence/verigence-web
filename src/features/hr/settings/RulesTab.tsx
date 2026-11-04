@@ -21,7 +21,7 @@ interface Props {
 
 const GROUP_HELP: Record<string, string> = {
   Attendance: 'Check-in and check-out times and the location checks used when people mark attendance.',
-  Leave: 'Leave days given each year.',
+  Leave: 'How paid leave is earned from attendance, the most paid leave a person can hold, and the special occasion leave given each year.',
   Reimbursement: 'Limits and dates used when claims are reviewed and paid.',
 };
 

@@ -1,14 +1,16 @@
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 
-import type { LeaveApplyInput, LeaveType } from '../../../services/hr/leave';
+import type { ApplyLeaveType, LeaveApplyInput } from '../../../services/hr/leave';
 import HolidayNote from './HolidayNote';
 import {
   ADVANCE_DAYS,
   addDays,
   BACKDATE_DAYS,
   buildApplyPayload,
+  dayWord,
   istToday,
   leaveTypeLabels,
+  OCCASION_MAX,
   REASON_MAX,
   validateApply,
   type ApplyErrors,
@@ -21,18 +23,43 @@ interface Props {
   serverError: string;
   onSubmit: (payload: LeaveApplyInput) => void;
   onEdit: () => void;
+  /** Dates chosen elsewhere on the page (for example a day with no attendance). A new value replaces the form's dates. */
+  prefill?: { fromDate: string; toDate: string };
+  /** The earning settings, when loaded, so the paid leave hint shows the real numbers. */
+  earning?: { attendanceDaysNeeded: number; paidDaysEarned: number };
 }
 
-const TYPES: LeaveType[] = ['SICK', 'EARNED', 'UNPAID'];
+const TYPES: ApplyLeaveType[] = ['PAID', 'SPECIAL', 'COMP_OFF', 'UNPAID'];
 
-const empty: ApplyForm = { leaveType: '', fromDate: '', toDate: '', halfDay: false, reason: '' };
+const empty: ApplyForm = { leaveType: '', fromDate: '', toDate: '', halfDay: false, reason: '', occasion: '' };
 
-export default function ApplyLeaveForm({ busy, serverError, onSubmit, onEdit }: Props) {
-  const [form, setForm] = useState<ApplyForm>(empty);
+function paidHint(earning: Props['earning']): string {
+  const needed = earning?.attendanceDaysNeeded ?? 22;
+  const earned = earning?.paidDaysEarned ?? 1;
+  return `Paid leave is earned: ${dayWord(earned)} for every ${needed} days of attendance (see 'How you earn paid leave' above).`;
+}
+
+export default function ApplyLeaveForm({ busy, serverError, onSubmit, onEdit, prefill, earning }: Props) {
+  const [form, setForm] = useState<ApplyForm>(() => (prefill ? { ...empty, ...prefill } : empty));
   const [errors, setErrors] = useState<ApplyErrors>({});
   const [summary, setSummary] = useState('');
   const today = istToday();
   const singleDay = Boolean(form.fromDate) && form.fromDate === form.toDate;
+
+  // A date chosen elsewhere on the page replaces the dates here; the type and reason are kept.
+  // Each choice is a new object, so choosing the same date again also puts it back.
+  useEffect(() => {
+    if (!prefill?.fromDate || !prefill.toDate) return;
+    const { fromDate, toDate } = prefill;
+    setForm((current) => ({ ...current, fromDate, toDate, halfDay: false }));
+    setErrors((current) => {
+      const rest = { ...current };
+      delete rest.fromDate;
+      delete rest.toDate;
+      delete rest.halfDay;
+      return rest;
+    });
+  }, [prefill]);
 
   const change = (patch: Partial<ApplyForm>) => {
     setForm((current) => {
@@ -77,16 +104,34 @@ export default function ApplyLeaveForm({ busy, serverError, onSubmit, onEdit }: 
             id="leave-type"
             value={form.leaveType}
             aria-invalid={Boolean(errors.leaveType)}
-            onChange={(e) => change({ leaveType: e.target.value as LeaveType | '' })}
+            onChange={(e) => change({ leaveType: e.target.value as ApplyLeaveType | '' })}
           >
             <option value="">Choose…</option>
             {TYPES.map((t) => <option key={t} value={t}>{leaveTypeLabels[t]}</option>)}
           </select>
           {errors.leaveType && <span className="hr-field__error">{errors.leaveType}</span>}
-          {form.leaveType === 'UNPAID' && (
-            <span className="hr-field__hint">Unpaid leave does not use your Sick or Earned balance. HR decides it.</span>
-          )}
+          {form.leaveType === 'PAID' && <span className="hr-field__hint">{paidHint(earning)}</span>}
+          {form.leaveType === 'COMP_OFF' && <span className="hr-field__hint">Earned by approved work on a Sunday or holiday.</span>}
+          {form.leaveType === 'UNPAID' && <span className="hr-field__hint">Unpaid leave does not use any balance. HR decides it.</span>}
         </div>
+
+        {form.leaveType === 'SPECIAL' && (
+          <div className={`hr-field hr-field--wide${field('occasion')}`}>
+            <label htmlFor="leave-occasion">Occasion <span className="hr-field__required">*</span></label>
+            <input
+              id="leave-occasion"
+              type="text"
+              maxLength={OCCASION_MAX + 20}
+              placeholder="For example: own wedding, sister's wedding"
+              value={form.occasion}
+              aria-invalid={Boolean(errors.occasion)}
+              onChange={(e) => change({ occasion: e.target.value })}
+            />
+            {errors.occasion
+              ? <span className="hr-field__error">{errors.occasion}</span>
+              : <span className="hr-field__hint">Special occasion leave has its own yearly quota. Your Team Lead decides it.</span>}
+          </div>
+        )}
 
         <div className={`hr-field${field('fromDate')}`}>
           <label htmlFor="leave-from">From <span className="hr-field__required">*</span></label>

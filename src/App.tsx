@@ -14,6 +14,7 @@ import SessionRenewalGate from './components/SessionRenewalGate';
 import ProjectAdminOutletLocationEnhancer from './features/project-admin/ProjectAdminOutletLocationEnhancer';
 import ProjectMasterActionOverlay from './features/project-admin/ProjectMasterActionOverlay';
 import ReviewReadinessWatcher from './features/uc03/ReviewReadinessWatcher';
+import DealGuardPresence from './features/dealguard-presence/DealGuardPresence';
 import AppShell from './layout/AppShell';
 import AndroidNativeBridge from './native/AndroidNativeBridge';
 import { UC03_PRIMARY_WORK_QUEUE_SETTLED_EVENT } from './services/audit-core/uc03';
@@ -107,6 +108,7 @@ const P2MissingDocumentsPage = lazy(() => import('./pages/P2MissingDocumentsPage
 const P2TaskManagerPage = lazy(() => import('./pages/P2TaskManagerPage'));
 const P2UtilisationPage = lazy(() => import('./pages/P2UtilisationPage'));
 const P2DiDashboardPage = lazy(() => import('./pages/P2DiDashboardPage'));
+const P2LocationChecksPage = lazy(() => import('./pages/P2LocationChecksPage'));
 // PC Home and the Tracker tab for PCs and Reviewers (product owner 2026-11-02).
 const P2MyWorkPage = lazy(() => import('./pages/P2MyWorkPage'));
 const P2MyTrackerPage = lazy(() => import('./pages/P2MyTrackerPage'));
@@ -234,12 +236,15 @@ function WorkQueueEntry() {
   return <OperationalPage><DashboardPage /></OperationalPage>;
 }
 
+// DealGuardPresence: a PC's random location checks and the late-evening note
+// (product owner 2026-11-05) run on the DealGuard screens only, never on My HR.
 function OperationalPage({ children }: { children: ReactNode }) {
   return (
     <Authenticated>
       <ProjectContextGate>
         <AppShell>
           <ReviewReadinessWatcher />
+          <DealGuardPresence />
           {children}
         </AppShell>
       </ProjectContextGate>
@@ -248,7 +253,7 @@ function OperationalPage({ children }: { children: ReactNode }) {
 }
 
 function OperationalShellPage({ children }: { children: ReactNode }) {
-  return <Authenticated><ProjectContextGate><AppShell>{children}</AppShell></ProjectContextGate></Authenticated>;
+  return <Authenticated><ProjectContextGate><AppShell><DealGuardPresence />{children}</AppShell></ProjectContextGate></Authenticated>;
 }
 
 /** Where a signed-in user lands (2026-09-30): PC, TL and PM start on the
@@ -394,6 +399,7 @@ export default function App() {
               <Route path="/p2/task-manager" element={<OperationalPage><P2TaskManagerPage /></OperationalPage>} />
               <Route path="/p2/reports/utilisation" element={<OperationalPage><P2UtilisationPage /></OperationalPage>} />
               <Route path="/p2/reports/di" element={<OperationalPage><P2DiDashboardPage /></OperationalPage>} />
+              <Route path="/p2/reports/location-checks" element={<OperationalPage><P2LocationChecksPage /></OperationalPage>} />
               <Route path="/p2/journeys/:journeyId/compliance-report" element={<OperationalPage><P2ComplianceReportPage /></OperationalPage>} />
               <Route path="/p2/journeys/:journeyId/overview" element={<OperationalPage><P2JourneyOverviewPage /></OperationalPage>} />
               <Route path="/p2/journeys/:journeyId/documents" element={<OperationalPage><P2JourneyWorkspacePage /></OperationalPage>} />

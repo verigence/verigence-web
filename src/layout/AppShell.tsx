@@ -49,11 +49,13 @@ const createBookingItem: NavItem = {
   roles: ['PC'],
 };
 
+// A Reviewer searches too (product owner 2026-11-04); the search is scoped to
+// their outlets on the server, as for every role.
 const journeySearchItem: NavItem = {
   to: '/search',
   label: 'Search',
   mark: 'JS',
-  roles: ['PC', 'TL', 'PM'],
+  roles: ['PC', 'TL', 'PM', 'REVIEWER'],
 };
 
 
@@ -514,6 +516,8 @@ export default function AppShell({ children }: PropsWithChildren) {
     if (auditRole) {
       // A Team Lead's bookings are the TL overview, already "Overview" here.
       if (role !== 'TL') workspaceItems.push(allJourneysItem);
+      workspaceItems.push(journeySearchItem);
+    } else if (role === 'REVIEWER') {
       workspaceItems.push(journeySearchItem);
     }
     if (role === 'PC') {

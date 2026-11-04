@@ -11,7 +11,14 @@ export function deleteReasonProblem(reason: string): string | undefined {
   return undefined;
 }
 
-/** Only a Team Lead deletes; Audit Core checks the same on its side. */
+/** A Team Lead or a Reviewer deletes (the Reviewer from 2026-11-04); Audit
+ * Core checks the same on its side. */
 export function canDeleteJourney(operatingRole?: string | null): boolean {
-  return operatingRole === 'TL';
+  return operatingRole === 'TL' || operatingRole === 'REVIEWER';
+}
+
+/** Who may read a page again into a stage already marked reviewed, with a
+ * reason (product owner 2026-11-04 added the Reviewer). Mirrors Audit Core. */
+export function canOverrideReviewedStage(operatingRole?: string | null): boolean {
+  return operatingRole === 'TL' || operatingRole === 'PM' || operatingRole === 'REVIEWER';
 }

@@ -22,7 +22,12 @@ export type ReviewerStageSummary = {
 export type ReviewerJourney = {
   journeyId: string;
   journeyReference?: string | null;
+  /** The dealer booking number, when the booking carries one. */
+  bookingReference?: string | null;
   customerName?: string | null;
+  customerMobileLast4?: string | null;
+  /** Set on every row; only told apart on screen when a search spans both states. */
+  closed?: boolean;
   pcName?: string | null;
   createdAtUtc?: string | null;
   /** The day it was uploaded (created), YYYY-MM-DD in the Project's timezone. */
@@ -59,10 +64,17 @@ export type ReviewerBoardFilters = {
   /** YYYY-MM-DD, inclusive. */
   dateFrom?: string;
   dateTo?: string;
+  /**
+   * Customer name, journey or dealer booking number, mobile, VIN, chassis,
+   * registration or invoice number. Searched on the server (2 characters or more).
+   */
+  q?: string;
 };
 
+export type ReviewerBoardState = 'open' | 'closed' | 'all';
+
 export type ReviewerBoard = {
-  state: 'open' | 'closed';
+  state: ReviewerBoardState;
   journeyCount: number;
   /** How many matched before the row limit. */
   totalMatching?: number;
@@ -159,11 +171,12 @@ function journeyPath(tenantId: string, journeyId: string, suffix: string) {
 
 export function getReviewerBoard(
   tenantId: string,
-  state: 'open' | 'closed',
+  state: ReviewerBoardState,
   accessToken?: string,
   filters: ReviewerBoardFilters = {},
 ): Promise<ReviewerBoard> {
   const params = new URLSearchParams({ state, limit: '500' });
+  if (filters.q && filters.q.trim().length >= 2) params.set('q', filters.q.trim());
   if (filters.outletId) params.set('outletId', filters.outletId);
   if (filters.dateFrom) params.set('dateFrom', filters.dateFrom);
   if (filters.dateTo) params.set('dateTo', filters.dateTo);

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import '../styles/uc03-p2.css';
@@ -11,6 +11,7 @@ import {
   claimJourney,
   getReviewerBoard,
   releaseJourneyClaim,
+  type ReviewerBoardState,
   type ReviewerJourney,
   type ReviewerOutletGroup,
   type ReviewerStageSummary,
@@ -55,11 +56,14 @@ function JourneyRow({
   onClaim,
   onRelease,
   busy,
+  showState,
 }: {
   journey: ReviewerJourney;
   onClaim: (journeyId: string) => void;
   onRelease: (journeyId: string) => void;
   busy: boolean;
+  /** A search spans open and closed journeys, so each row says which it is. */
+  showState: boolean;
 }) {
   const claimedBySomeoneElse = Boolean(journey.claimedByActorId) && !journey.claimedByMe;
   return (
@@ -68,7 +72,18 @@ function JourneyRow({
         <Link to={`/p2/journeys/${journey.journeyId}/documents`}>
           <strong>{journey.journeyReference || journey.journeyId}</strong>
         </Link>
-        <div className="p2w-muted">{journey.customerName || '—'}</div>
+        {showState && (
+          <span className="p2w-muted" style={{ marginLeft: 6, fontSize: '.8rem' }}>
+            · {journey.closed ? 'Closed' : 'Open'}
+          </span>
+        )}
+        <div className="p2w-muted">
+          {journey.customerName || '—'}
+          {journey.customerMobileLast4 ? ` · ••••${journey.customerMobileLast4}` : ''}
+        </div>
+        {journey.bookingReference && (
+          <div className="p2w-muted" style={{ fontSize: '.8rem' }}>Booking no. {journey.bookingReference}</div>
+        )}
       </td>
       <td>{journey.pcName || '—'}</td>
       <td>{when(journey.createdAtUtc)}</td>
@@ -145,12 +160,14 @@ function OutletBlock({
   onClaim,
   onRelease,
   busyId,
+  showState,
 }: {
   group: ReviewerOutletGroup;
   groupBy: GroupBy;
   onClaim: (journeyId: string) => void;
   onRelease: (journeyId: string) => void;
   busyId: string | null;
+  showState: boolean;
 }) {
   return (
     <SectionCard>
@@ -194,6 +211,7 @@ function OutletBlock({
                   onClaim={onClaim}
                   onRelease={onRelease}
                   busy={busyId === journey.journeyId}
+                  showState={showState}
                 />
               ))}
             </tbody>
@@ -233,12 +251,26 @@ export default function P2ReviewBoardPage() {
   const [dealerId, setDealerId] = useState('');
   const [pcName, setPcName] = useState<string | null>(null);
   const [groupBy, setGroupBy] = useState<GroupBy>('DAY');
+  // Search (product owner 2026-11-04). Run on the server, not over the rows
+  // already read: the board stops at 500 rows, and a search over a cut-off list
+  // would quietly miss journeys. While there is search text it looks in open and
+  // closed journeys together, because a Reviewer looking for a customer does not
+  // know which one the journey is in.
+  const [searchText, setSearchText] = useState('');
+  const [search, setSearch] = useState('');
+  useEffect(() => {
+    const trimmed = searchText.trim();
+    const timer = window.setTimeout(() => setSearch(trimmed.length >= 2 ? trimmed : ''), 300);
+    return () => window.clearTimeout(timer);
+  }, [searchText]);
+  const searching = search.length > 0;
+  const boardState: ReviewerBoardState = searching ? 'all' : state;
   const rangeReversed = Boolean(dateFrom && dateTo && dateFrom > dateTo);
-  const filtered = Boolean(outletId || dateFrom || dateTo || dealerId || pcName !== null);
+  const filtered = Boolean(outletId || dateFrom || dateTo || dealerId || pcName !== null || searching);
 
   const query = useQuery({
-    queryKey: ['p2-reviewer-board', tenantId, state, outletId, dateFrom, dateTo],
-    queryFn: () => getReviewerBoard(tenantId!, state, accessToken, { outletId, dateFrom, dateTo }),
+    queryKey: ['p2-reviewer-board', tenantId, boardState, outletId, dateFrom, dateTo, search],
+    queryFn: () => getReviewerBoard(tenantId!, boardState, accessToken, { outletId, dateFrom, dateTo, q: search }),
     enabled: Boolean(tenantId && accessToken) && !rangeReversed,
     staleTime: 15_000,
     placeholderData: keepPreviousData,
@@ -303,17 +335,42 @@ export default function P2ReviewBoardPage() {
       />
 
       <SectionCard>
+        <label style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 12 }}>
+          <span aria-hidden="true">⌕</span>
+          <input
+            type="search"
+            value={searchText}
+            onChange={(event) => setSearchText(event.target.value)}
+            placeholder="Search customer name, mobile, journey or booking no., VIN, chassis, registration, invoice…"
+            aria-label="Search your journeys"
+            autoComplete="off"
+            spellCheck={false}
+            style={{ flex: 1, minWidth: 0, padding: '8px 10px' }}
+          />
+          {searchText && (
+            <button type="button" className="text-link" onClick={() => { setSearchText(''); setSearch(''); }}>
+              Clear
+            </button>
+          )}
+        </label>
+        {searchText.trim().length === 1 && (
+          <p className="p2w-muted" style={{ margin: '0 0 8px' }}>Type at least 2 characters to search.</p>
+        )}
         <div className="p2w-row" style={{ gap: 12, alignItems: 'center' }}>
           <button
             type="button"
-            className={state === 'open' ? 'uc02-button uc02-button--primary' : 'uc02-button'}
+            className={!searching && state === 'open' ? 'uc02-button uc02-button--primary' : 'uc02-button'}
+            disabled={searching}
+            title={searching ? 'A search looks in open and closed journeys together' : undefined}
             onClick={() => setState('open')}
           >
             Open
           </button>
           <button
             type="button"
-            className={state === 'closed' ? 'uc02-button uc02-button--primary' : 'uc02-button'}
+            className={!searching && state === 'closed' ? 'uc02-button uc02-button--primary' : 'uc02-button'}
+            disabled={searching}
+            title={searching ? 'A search looks in open and closed journeys together' : undefined}
             onClick={() => setState('closed')}
           >
             Closed
@@ -324,6 +381,7 @@ export default function P2ReviewBoardPage() {
                 ? `${shownJourneys} of ${query.data.journeyCount} ${query.data.journeyCount === 1 ? 'journey' : 'journeys'}`
                 : `${query.data.journeyCount} ${query.data.journeyCount === 1 ? 'journey' : 'journeys'}`} across{' '}
               {outlets.length} {outlets.length === 1 ? 'outlet' : 'outlets'}
+              {searching ? ` matching “${search}” (open and closed)` : ''}
               {query.data.totalMatching && query.data.totalMatching > query.data.journeyCount
                 ? ` (showing the first ${query.data.journeyCount} of ${query.data.totalMatching}; narrow by outlet or date to see the rest)`
                 : ''}
@@ -396,7 +454,10 @@ export default function P2ReviewBoardPage() {
             <button
               type="button"
               className="text-link"
-              onClick={() => { setOutletId(''); setDateFrom(''); setDateTo(''); setDealerId(''); setPcName(null); }}
+              onClick={() => {
+                setOutletId(''); setDateFrom(''); setDateTo(''); setDealerId(''); setPcName(null);
+                setSearchText(''); setSearch('');
+              }}
             >
               Clear filters
             </button>
@@ -418,9 +479,11 @@ export default function P2ReviewBoardPage() {
       )}
       {query.data && allOutlets.length === 0 && (
         <SectionCard>
-          <strong>Nothing {state === 'open' ? 'open' : 'closed'} right now</strong>
+          <strong>{searching ? `Nothing matches “${search}”` : `Nothing ${state === 'open' ? 'open' : 'closed'} right now`}</strong>
           <p className="p2w-muted">
-            {filtered
+            {searching
+              ? 'No journey in the outlets you cover, open or closed, matches this search and these filters.'
+              : filtered
               ? `No ${state} journeys match this outlet and date.`
               : state === 'open'
                 ? 'No open journeys in the outlets you are mapped to.'
@@ -452,6 +515,7 @@ export default function P2ReviewBoardPage() {
           group={group}
           groupBy={groupBy}
           busyId={busyId}
+          showState={searching}
           onClaim={(journeyId) => {
             setProblem('');
             setBusyId(journeyId);

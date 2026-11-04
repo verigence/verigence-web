@@ -1,11 +1,20 @@
 import { describe, expect, it } from 'vitest';
 
+import { HrHttpError } from '../../../../services/hr/client';
+
 import {
   addDays,
+  buildApplyPayload,
+  dayWord,
   daysBetween,
+  earningProgress,
   formatDays,
+  isYearlyType,
   isSunday,
   istToday,
+  leaveErrorMessage,
+  leaveTypeLabels,
+  paidTypeLabels,
   parseAdjustDays,
   validateAdjust,
   validateApply,
@@ -14,7 +23,7 @@ import {
 } from '../leaveLogic';
 
 const today = '2026-10-04';
-const base: ApplyForm = { leaveType: 'SICK', fromDate: '2026-10-12', toDate: '2026-10-13', halfDay: false, reason: '' };
+const base: ApplyForm = { leaveType: 'PAID', fromDate: '2026-10-12', toDate: '2026-10-13', halfDay: false, reason: '', occasion: '' };
 
 describe('dates', () => {
   it('uses the India calendar date', () => {
@@ -52,6 +61,69 @@ describe('validateApply', () => {
     expect(validateApply({ ...base, halfDay: true }, today).halfDay).toMatch(/single date/);
     expect(validateApply({ ...base, toDate: base.fromDate, halfDay: true }, today)).toEqual({});
   });
+  it('needs an occasion for special occasion leave, within 100 characters', () => {
+    expect(validateApply({ ...base, leaveType: 'SPECIAL' }, today).occasion).toBe('Say what the special occasion is.');
+    expect(validateApply({ ...base, leaveType: 'SPECIAL', occasion: '   ' }, today).occasion).toBe('Say what the special occasion is.');
+    expect(validateApply({ ...base, leaveType: 'SPECIAL', occasion: 'x'.repeat(101) }, today).occasion).toMatch(/100 characters/);
+    expect(validateApply({ ...base, leaveType: 'SPECIAL', occasion: 'x'.repeat(100) }, today)).toEqual({});
+    expect(validateApply({ ...base, leaveType: 'SPECIAL', occasion: 'Own wedding' }, today)).toEqual({});
+  });
+  it('does not ask for an occasion on other types', () => {
+    for (const leaveType of ['PAID', 'COMP_OFF', 'UNPAID'] as const) {
+      expect(validateApply({ ...base, leaveType }, today)).toEqual({});
+    }
+  });
+});
+
+describe('buildApplyPayload', () => {
+  it('sends the occasion only for special occasion leave, trimmed', () => {
+    expect(buildApplyPayload({ ...base, leaveType: 'SPECIAL', occasion: ' Own wedding ', reason: ' ' })).toEqual({
+      leave_type: 'SPECIAL',
+      from_date: '2026-10-12',
+      to_date: '2026-10-13',
+      half_day: false,
+      occasion: 'Own wedding',
+    });
+    const paid = buildApplyPayload({ ...base, occasion: 'left over', reason: ' Family ' });
+    expect(paid).toEqual({ leave_type: 'PAID', from_date: '2026-10-12', to_date: '2026-10-13', half_day: false, reason: 'Family' });
+    expect('occasion' in paid).toBe(false);
+  });
+});
+
+describe('labels', () => {
+  it('names the new types and marks the old ones', () => {
+    expect(leaveTypeLabels.PAID).toBe('Paid leave');
+    expect(leaveTypeLabels.SPECIAL).toBe('Special occasion leave');
+    expect(leaveTypeLabels.COMP_OFF).toBe('Comp-off');
+    expect(leaveTypeLabels.UNPAID).toBe('Unpaid leave');
+    expect(leaveTypeLabels.SICK).toBe('Sick leave (old)');
+    expect(leaveTypeLabels.EARNED).toBe('Earned leave (old)');
+    expect(paidTypeLabels).toEqual({ PAID: 'Paid', SPECIAL: 'Special occasion', COMP_OFF: 'Comp-off' });
+  });
+  it('treats only special occasion leave as yearly', () => {
+    expect(isYearlyType('SPECIAL')).toBe(true);
+    expect(isYearlyType('PAID')).toBe(false);
+    expect(isYearlyType('COMP_OFF')).toBe(false);
+  });
+  it('explains a missing occasion reported by the server', () => {
+    const error = new HrHttpError(400, { code: 'LEAVE_OCCASION_REQUIRED', detail: 'occasion is required' });
+    expect(leaveErrorMessage(error)).toBe('Say what the special occasion is.');
+  });
+});
+
+describe('earning', () => {
+  it('works out the progress towards the next paid day', () => {
+    expect(earningProgress(11, 22)).toBe(50);
+    expect(earningProgress(0, 22)).toBe(0);
+    expect(earningProgress(30, 22)).toBe(100);
+    expect(earningProgress(5, 0)).toBe(0);
+    expect(earningProgress(10.5, 22)).toBe(48);
+  });
+  it('writes days with a unit', () => {
+    expect(dayWord(1)).toBe('1 day');
+    expect(dayWord(0.5)).toBe('0.5 days');
+    expect(dayWord(3)).toBe('3 days');
+  });
 });
 
 describe('adjustments', () => {
@@ -65,7 +137,7 @@ describe('adjustments', () => {
     expect(parseAdjustDays('abc')).toBeNull();
   });
   it('requires days and a reason of at least 3 characters', () => {
-    const ok = { leaveType: 'SICK' as const, year: '2026', days: '1', note: 'Carry over' };
+    const ok = { leaveType: 'PAID' as const, year: '2026', days: '1', note: 'Carry over' };
     expect(validateAdjust(ok)).toEqual({});
     expect(validateAdjust({ ...ok, note: ' ab ' }).note).toBeTruthy();
     expect(validateAdjust({ ...ok, days: '' }).days).toBeTruthy();

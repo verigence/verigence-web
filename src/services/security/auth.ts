@@ -208,6 +208,9 @@ export function loginErrorMessage(error: unknown): string {
   switch (error.code) {
     case 'AUTH_TOKEN_INVALID':
       return 'Email or password is incorrect.';
+    case 'APP_UPDATE_REQUIRED':
+      // Security writes which version is needed and where to download it.
+      return error.message || 'This version of the Verigence app can no longer be used. Download the latest app.';
     case 'USER_NOT_ONBOARDED':
       return 'This account is not registered with Verigence.';
     case 'USER_PENDING_APPROVAL':

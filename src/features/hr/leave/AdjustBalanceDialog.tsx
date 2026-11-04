@@ -2,7 +2,7 @@ import { useState, type FormEvent } from 'react';
 
 import type { LeaveAdjustInput, PaidLeaveType } from '../../../services/hr/leave';
 import LeaveDialog from './LeaveDialog';
-import { paidTypeLabels, parseAdjustDays, validateAdjust, type AdjustErrors, type AdjustForm } from './leaveLogic';
+import { isYearlyType, PAID_TYPES, paidTypeLabels, parseAdjustDays, validateAdjust, type AdjustErrors, type AdjustForm } from './leaveLogic';
 
 interface Props {
   employeeName: string;
@@ -15,7 +15,7 @@ interface Props {
 
 /** HR adds or takes off days. A reason is required; it is kept in the balance ledger and audit history. */
 export default function AdjustBalanceDialog({ employeeName, defaultYear, busy, error, onSubmit, onClose }: Props) {
-  const [form, setForm] = useState<AdjustForm>({ leaveType: 'SICK', year: String(defaultYear), days: '', note: '' });
+  const [form, setForm] = useState<AdjustForm>({ leaveType: 'PAID', year: String(defaultYear), days: '', note: '' });
   const [errors, setErrors] = useState<AdjustErrors>({});
 
   const change = (patch: Partial<AdjustForm>) => {
@@ -39,7 +39,7 @@ export default function AdjustBalanceDialog({ employeeName, defaultYear, busy, e
   const days = parseAdjustDays(form.days);
   const preview = days === null || errors.year
     ? ''
-    : `${days > 0 ? 'Adds' : 'Takes off'} ${Math.abs(days)} ${Math.abs(days) === 1 ? 'day' : 'days'} ${days > 0 ? 'to' : 'from'} ${employeeName}'s ${paidTypeLabels[form.leaveType]} balance for ${form.year}.`;
+    : `${days > 0 ? 'Adds' : 'Takes off'} ${Math.abs(days)} ${Math.abs(days) === 1 ? 'day' : 'days'} ${days > 0 ? 'to' : 'from'} ${employeeName}'s ${paidTypeLabels[form.leaveType]} balance${isYearlyType(form.leaveType) ? ` for ${form.year}` : ''}.`;
 
   return (
     <LeaveDialog title={`Adjust balance for ${employeeName}`} titleId="leave-adjust-title" eyebrow="Leave overview" busy={busy} onClose={onClose}>
@@ -48,14 +48,15 @@ export default function AdjustBalanceDialog({ employeeName, defaultYear, busy, e
           <div className="hr-field">
             <label htmlFor="adjust-type">Type</label>
             <select id="adjust-type" value={form.leaveType} onChange={(e) => change({ leaveType: e.target.value as PaidLeaveType })}>
-              <option value="SICK">Sick</option>
-              <option value="EARNED">Earned</option>
+              {PAID_TYPES.map((t) => <option key={t} value={t}>{paidTypeLabels[t]}</option>)}
             </select>
           </div>
           <div className={`hr-field${errors.year ? ' hr-field--error' : ''}`}>
             <label htmlFor="adjust-year">Year</label>
             <input id="adjust-year" type="number" inputMode="numeric" min={2020} max={2100} value={form.year} onChange={(e) => change({ year: e.target.value })} />
-            {errors.year && <span className="hr-field__error">{errors.year}</span>}
+            {errors.year
+              ? <span className="hr-field__error">{errors.year}</span>
+              : !isYearlyType(form.leaveType) && <span className="hr-field__hint">Paid leave and comp-off carry over; the year is kept with the change.</span>}
           </div>
           <div className={`hr-field hr-field--wide${errors.days ? ' hr-field--error' : ''}`}>
             <label htmlFor="adjust-days">Days to add or take off <span className="hr-field__required">*</span></label>

@@ -2,6 +2,7 @@ import { lazy, Suspense, useEffect, type ReactNode } from 'react';
 import { IonApp } from '@ionic/react';
 import { BrowserRouter, Navigate, Route, Routes, useParams, useSearchParams } from 'react-router-dom';
 import AppGate from './features/announcements/AppGate';
+import AppUpdateGate from './features/appVersion/AppUpdateGate';
 import { useHrAccess } from './features/hr/hrQueries';
 import { landingDecision } from './features/rollout/landing';
 import { useMyFeatures } from './features/rollout/featureFlags';
@@ -40,6 +41,7 @@ const HrAttendancePage = lazy(() => import('./pages/hr/HrAttendancePage'));
 const HrTeamAttendancePage = lazy(() => import('./pages/hr/HrTeamAttendancePage'));
 const HrLeavePage = lazy(() => import('./pages/hr/HrLeavePage'));
 const HrLeaveOverviewPage = lazy(() => import('./pages/hr/HrLeaveOverviewPage'));
+const HrApproverOversightPage = lazy(() => import('./pages/hr/HrApproverOversightPage'));
 const HrClaimsPage = lazy(() => import('./pages/hr/HrClaimsPage'));
 const HrClaimNewPage = lazy(() => import('./pages/hr/HrClaimNewPage'));
 const HrClaimsAllPage = lazy(() => import('./pages/hr/HrClaimsAllPage'));
@@ -327,6 +329,7 @@ export default function App() {
           <AndroidNativeBridge />
           <ProjectAdminOutletLocationEnhancer />
           <ProjectMasterActionOverlay />
+          <AppUpdateGate>
           <AppGate>
           <Suspense fallback={<Loading />}>
             <Routes>
@@ -434,6 +437,7 @@ export default function App() {
               <Route path="/hr/assignments" element={<PrivatePage><HrAssignmentsPage /></PrivatePage>} />
               <Route path="/hr/leave" element={<PrivatePage><HrLeavePage /></PrivatePage>} />
               <Route path="/hr/leave/overview" element={<PrivatePage><HrLeaveOverviewPage /></PrivatePage>} />
+              <Route path="/hr/oversight" element={<PrivatePage><HrApproverOversightPage /></PrivatePage>} />
               <Route path="/hr/claims" element={<PrivatePage><HrClaimsPage /></PrivatePage>} />
               <Route path="/hr/claims/new" element={<PrivatePage><HrClaimNewPage /></PrivatePage>} />
               <Route path="/hr/claims/all" element={<PrivatePage><HrClaimsAllPage /></PrivatePage>} />
@@ -456,6 +460,7 @@ export default function App() {
             </Routes>
           </Suspense>
           </AppGate>
+          </AppUpdateGate>
         </BrowserRouter>
       </IonApp>
     </ErrorBoundary>

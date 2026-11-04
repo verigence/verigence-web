@@ -2,6 +2,7 @@ import { Fragment, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 
 import { getLoginActivity, type LoginPerson } from '../../../services/security/loginActivity';
+import AppVersionPolicyPanel from '../../appVersion/AppVersionPolicyPanel';
 import {
   ago, appInstallsCsv, byAppFirst, matches, newestVersion, releasesBehind, standing, updatePending, versionsInUse,
   type AppStanding,
@@ -95,6 +96,7 @@ export default function AppInstalls({ accessToken }: { accessToken?: string }) {
 
   return (
     <div className="ar-report">
+      <AppVersionPolicyPanel accessToken={accessToken} latest={latest ?? undefined} />
       <div className="ar-kpis">
         <button type="button" className={`ar-kpi is-ok${filter === 'LATEST' ? ' is-active' : ''}`}
           onClick={() => setFilter(filter === 'LATEST' ? 'ALL' : 'LATEST')}>

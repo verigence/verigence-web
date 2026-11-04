@@ -35,6 +35,7 @@ export default function LeaveRequestList({ requests, own, emptyText, actions }: 
             </div>
             <p className="hr-leave-request__days">{formatDays(r.days)}</p>
             <p className="hr-leave-request__line">{requestStatusLine(r, own)}</p>
+            {r.occasion && <p className="hr-leave-request__note"><span>Occasion</span> {r.occasion}</p>}
             {r.reason && <p className="hr-leave-request__note"><span>Reason</span> {r.reason}</p>}
             {r.decisionNote && <p className="hr-leave-request__note"><span>Note from approver</span> {r.decisionNote}</p>}
             <small className="hr-leave-request__meta">

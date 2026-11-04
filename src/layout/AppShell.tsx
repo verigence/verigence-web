@@ -344,7 +344,7 @@ const routeLabels: Record<string, string> = {
   '/admin/users/pending': 'Pending Approvals',
   '/admin/oem-masters': 'OEM Masters', '/admin/reports': 'Reports', '/admin/project': 'Project Administration', '/profile': 'Profile',
   '/hr/employees': 'Employees', '/hr/employees/new': 'Add Employee', '/hr/employees/import': 'Import Employees', '/hr/employees/designation-salary-import': 'Import Designation and Salary', '/hr/me': 'My Employee Profile',
-  '/p2/home': 'Home', '/p2/tracker': 'My Tracker', '/p2/bulk-upload': 'Bulk upload', '/hr/attendance': 'Attendance', '/hr/attendance/team': 'Team Attendance', '/hr/attendance/daily': 'Daily Attendance', '/hr/assignments': 'Project Assignments', '/hr/leave': 'Leave', '/hr/leave/overview': 'Leave Overview',
+  '/p2/home': 'Home', '/p2/tracker': 'My Tracker', '/p2/bulk-upload': 'Bulk upload', '/hr/attendance': 'Attendance', '/hr/attendance/team': 'Team Attendance', '/hr/attendance/daily': 'Daily Attendance', '/hr/assignments': 'Project Assignments', '/hr/leave': 'Leave', '/hr/leave/overview': 'Leave Overview', '/hr/oversight': 'Team Lead Approvals',
   '/hr/claims': 'Reimbursements', '/hr/claims/new': 'New Claim', '/hr/claims/all': 'All Claims', '/hr/approvals': 'Approvals',
   '/hr/payslips': 'Payslips', '/hr/salary': 'My Salary', '/hr/messages': 'Employee Messages', '/hr/payroll': 'Payroll', '/hr/payroll/salaries': 'Salaries', '/hr/payroll/settings': 'Payroll Settings', '/hr/settings': 'HR Settings',
 };
@@ -549,6 +549,7 @@ export default function AppShell({ children }: PropsWithChildren) {
   // employee record. If HR cannot be reached the group is simply absent.
   const hrAccess = useHrAccess();
   const myIdentity = useMyHrIdentity();
+  const isExecutive = useMemo(() => projects.some((project) => String(project.operatingRole ?? '').toUpperCase() === 'EXECUTIVE'), [projects]);
   const hrGroup = useMemo<NavGroup | null>(() => {
     const items: NavItem[] = [];
     const can = hrAccess.can;
@@ -568,6 +569,9 @@ export default function AppShell({ children }: PropsWithChildren) {
     if (can('hr.attendance.read_all')) items.push({ to: '/hr/attendance/team', label: 'Team Attendance', mark: 'HT' });
     if (can('hr.attendance.read_all')) items.push({ to: '/hr/attendance/daily', label: 'Daily Attendance', mark: 'HD' });
     if (can('hr.leave.review')) items.push({ to: '/hr/leave/overview', label: 'Leave Overview', mark: 'HL' });
+    // Team Lead approvals: the server allows an Executive (their projects), HR and the CEO. An Executive
+    // is known here from their Project assignments; HR and the CEO hold hr.attendance.read_all.
+    if (can('hr.attendance.read_all') || isExecutive) items.push({ to: '/hr/oversight', label: 'Team Lead Approvals', mark: 'HV' });
     if (anyOf('hr.claim.review', 'hr.claim.review_finance', 'hr.payroll.approve')) items.push({ to: '/hr/claims/all', label: 'All Claims', mark: 'HR' });
     if (can('hr.payroll.read')) items.push({ to: '/hr/payroll', label: 'Payroll', mark: 'HY' });
     if (anyOf('hr.salary.propose', 'hr.salary.approve', 'hr.payroll.read')) items.push({ to: '/hr/payroll/salaries', label: 'Salaries', mark: 'HY' });
@@ -575,7 +579,7 @@ export default function AppShell({ children }: PropsWithChildren) {
     if (can('hr.employee.manage')) items.push({ to: '/hr/messages', label: 'Employee Messages', mark: 'HM' });
     if (can('hr.settings.manage')) items.push({ to: '/hr/settings', label: 'HR Settings', mark: 'HS' });
     return items.length ? { key: 'hr', label: 'My HR', items } : null;
-  }, [hrAccess.can, hrAccess.canReadEmployees, hrAccess.isEmployee]);
+  }, [hrAccess.can, hrAccess.canReadEmployees, hrAccess.isEmployee, isExecutive]);
   // The old Workspace group is retired, and Audit / Analytics show only where switched on for this person.
   const myFeatures = useMyFeatures();
   const navGroups = useMemo<NavGroup[]>(

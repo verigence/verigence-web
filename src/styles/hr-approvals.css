@@ -50,6 +50,11 @@
 .hr-appr-stage.is-current { background: #0e7490; color: #fff; }
 .hr-appr-stale { display: inline-block; margin-top: 6px; padding: 5px 9px; border-radius: 8px; background: #fff6ed; color: #93370d; font-size: 11px; font-weight: 700; line-height: 1.4; }
 
+/* Leave: cover warnings and balance. A warning never blocks the decision. */
+.hr-appr-cover { display: flex; flex-direction: column; gap: 4px; margin-top: 6px; }
+.hr-appr-cover p { margin: 0; padding: 6px 9px; border-radius: 8px; background: #fffaeb; border: 1px solid #fedf89; color: #93370d; font-size: 11px; font-weight: 700; line-height: 1.45; overflow-wrap: anywhere; }
+.hr-appr-table td > small.hr-appr-balance { font-weight: 700; color: #0b5566; }
+
 /* Receipts */
 .hr-appr-receipts { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
 .hr-appr-receipt { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 10px; padding: 8px 10px; border: 1px solid #e4e7ec; border-radius: 10px; }
@@ -86,3 +91,35 @@
   .hr-appr-actions .uc01-admin-button { flex: none; }
 }
 .hr-appr-table td[data-label="Decision"]::before { content: none; }
+
+/* Team Lead approvals (oversight). The table collapses into cards under 760px like the others. */
+.hr-ovs-table td > small { font-size: 11px; line-height: 1.45; }
+.hr-ovs-table td > strong { font-size: 13px; color: #18212b; }
+.hr-ovs-table tr.is-open td { background: #f7fbfc; }
+.hr-ovs-table .uc01-admin-row-actions { min-width: 0; }
+.hr-ovs-detail-row td { background: #f7fbfc; padding: 12px; }
+.hr-ovs-detail-row td::before { content: none !important; }
+.hr-ovs-items { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.hr-ovs-item { border: 1px solid #dfe5ec; border-radius: 12px; background: #fff; padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.hr-ovs-item.is-overdue { border-color: #fecdca; }
+.hr-ovs-item__head { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+.hr-ovs-item__head > div { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.hr-ovs-item__head strong { color: #18212b; font-size: 13px; overflow-wrap: anywhere; }
+.hr-ovs-item__head > div > span { color: #475467; font-size: 12px; overflow-wrap: anywhere; }
+.hr-ovs-item__facts { margin: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+.hr-ovs-item__facts > div { min-width: 0; }
+.hr-ovs-item__facts dt { font-size: 10px; color: #667085; text-transform: uppercase; letter-spacing: .04em; font-weight: 750; }
+.hr-ovs-item__facts dd { margin: 2px 0 0; font-size: 12px; color: #18212b; font-weight: 600; overflow-wrap: anywhere; }
+
+@media (min-width: 761px) {
+  .hr-ovs-table td:first-child { min-width: 180px; }
+  .hr-ovs-item__facts { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+
+@media (max-width: 760px) {
+  .hr-ovs-page .uc01-admin-table-wrap { border: 0; background: transparent; overflow: visible; }
+  .hr-ovs-table tbody tr { margin: 0 0 10px; border: 1px solid #dfe5ec; border-radius: 12px; background: #fff; }
+  .hr-ovs-table tbody tr.hr-ovs-detail-row { margin-top: -6px; }
+  .hr-ovs-detail-row td { display: block; padding: 0; background: transparent; }
+  .hr-ovs-table .uc01-admin-row-actions .uc01-admin-button { width: 100%; }
+}

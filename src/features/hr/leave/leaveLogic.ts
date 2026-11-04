@@ -1,5 +1,6 @@
 import { HrHttpError, hrErrorMessage } from '../../../services/hr/client';
 import type {
+  ApplyLeaveType,
   ApproverRule,
   LeaveApplyInput,
   LeaveRequest,
@@ -9,15 +10,28 @@ import type {
 } from '../../../services/hr/leave';
 
 export const leaveTypeLabels: Record<LeaveType, string> = {
-  SICK: 'Sick leave',
-  EARNED: 'Earned leave',
+  PAID: 'Paid leave',
+  SPECIAL: 'Special occasion leave',
+  COMP_OFF: 'Comp-off',
   UNPAID: 'Unpaid leave',
+  // Old requests only: these can no longer be applied for or adjusted.
+  SICK: 'Sick leave (old)',
+  EARNED: 'Earned leave (old)',
 };
 
+/** The types with a balance, in the order they are shown. */
+export const PAID_TYPES: PaidLeaveType[] = ['PAID', 'SPECIAL', 'COMP_OFF'];
+
 export const paidTypeLabels: Record<PaidLeaveType, string> = {
-  SICK: 'Sick',
-  EARNED: 'Earned',
+  PAID: 'Paid',
+  SPECIAL: 'Special occasion',
+  COMP_OFF: 'Comp-off',
 };
+
+/** PAID and COMP_OFF carry over from year to year; SPECIAL is a yearly quota. */
+export function isYearlyType(type: PaidLeaveType): boolean {
+  return type === 'SPECIAL';
+}
 
 export const statusLabels: Record<LeaveStatus, string> = {
   PENDING: 'Pending',
@@ -117,16 +131,19 @@ export const BACKDATE_DAYS = 30;
 export const ADVANCE_DAYS = 365;
 const MAX_RANGE_DAYS = 60;
 export const REASON_MAX = 500;
+export const OCCASION_MAX = 100;
 
 export interface ApplyForm {
-  leaveType: LeaveType | '';
+  leaveType: ApplyLeaveType | '';
   fromDate: string;
   toDate: string;
   halfDay: boolean;
   reason: string;
+  /** Only used for special occasion leave. */
+  occasion: string;
 }
 
-export type ApplyErrors = Partial<Record<'leaveType' | 'fromDate' | 'toDate' | 'halfDay' | 'reason', string>>;
+export type ApplyErrors = Partial<Record<'leaveType' | 'fromDate' | 'toDate' | 'halfDay' | 'reason' | 'occasion', string>>;
 
 /**
  * The same date rules the server applies, so obvious mistakes are caught before a request is sent.
@@ -152,19 +169,39 @@ export function validateApply(form: ApplyForm, today: string): ApplyErrors {
     } else if (span > MAX_RANGE_DAYS) errors.toDate = `Apply for at most ${MAX_RANGE_DAYS} days at a time.`;
     else if (form.halfDay && span !== 0) errors.halfDay = 'A half day is for a single date.';
   }
+  if (form.leaveType === 'SPECIAL') {
+    const occasion = form.occasion.trim();
+    if (!occasion) errors.occasion = 'Say what the special occasion is.';
+    else if (occasion.length > OCCASION_MAX) errors.occasion = `Keep the occasion within ${OCCASION_MAX} characters.`;
+  }
   if (form.reason.trim().length > REASON_MAX) errors.reason = `Keep the reason within ${REASON_MAX} characters.`;
   return errors;
 }
 
 export function buildApplyPayload(form: ApplyForm): LeaveApplyInput {
   const reason = form.reason.trim();
+  const occasion = form.occasion.trim();
   return {
-    leave_type: form.leaveType as LeaveType,
+    leave_type: form.leaveType as ApplyLeaveType,
     from_date: form.fromDate,
     to_date: form.toDate,
     half_day: form.halfDay,
     ...(reason ? { reason } : {}),
+    ...(form.leaveType === 'SPECIAL' ? { occasion } : {}),
   };
+}
+
+// ---- paid leave earned from attendance ------------------------------------------------------------------
+
+/** "1 day" / "2.5 days", without the "Half day" wording used for requests. */
+export function dayWord(days: number): string {
+  return `${dayCount(days)} ${days === 1 ? 'day' : 'days'}`;
+}
+
+/** Share of the next block already counted, 0 to 100, for the progress bar. */
+export function earningProgress(soFar: number, needed: number): number {
+  if (!(needed > 0)) return 0;
+  return Math.max(0, Math.min(100, Math.round((soFar / needed) * 100)));
 }
 
 // ---- HR balance adjustment ------------------------------------------------------------------------------
@@ -204,6 +241,7 @@ export function validateAdjust(form: AdjustForm): AdjustErrors {
 /** The server writes plain-words messages for leave problems; show them, with the support reference. */
 export function leaveErrorMessage(error: unknown): string {
   if (error instanceof HrHttpError) {
+    if (error.code === 'LEAVE_OCCASION_REQUIRED') return 'Say what the special occasion is.';
     if (error.status === 404 && /employee record/i.test(error.message)) {
       return 'No employee record is linked to your login. Ask HR to link it.';
     }

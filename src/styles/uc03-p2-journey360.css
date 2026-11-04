@@ -580,3 +580,5 @@
   .j360 .asum-report button { display: none; }
   .j360 .asum-section { break-inside: avoid; }
 }
+/* A figure from a Tally / DMS invoice in the NDC / cost sheet column (2026-11-04). */
+.j360 .j360-star { margin-left: 2px; font-weight: 700; color: var(--p2w-warning, #b54708); }

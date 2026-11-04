@@ -2,6 +2,7 @@ import { lazy, Suspense, useEffect, type ReactNode } from 'react';
 import { IonApp } from '@ionic/react';
 import { BrowserRouter, Navigate, Route, Routes, useParams, useSearchParams } from 'react-router-dom';
 import AppGate from './features/announcements/AppGate';
+import AppUpdateGate from './features/appVersion/AppUpdateGate';
 import { useHrAccess } from './features/hr/hrQueries';
 import { landingDecision } from './features/rollout/landing';
 import { useMyFeatures } from './features/rollout/featureFlags';
@@ -328,6 +329,7 @@ export default function App() {
           <AndroidNativeBridge />
           <ProjectAdminOutletLocationEnhancer />
           <ProjectMasterActionOverlay />
+          <AppUpdateGate>
           <AppGate>
           <Suspense fallback={<Loading />}>
             <Routes>
@@ -458,6 +460,7 @@ export default function App() {
             </Routes>
           </Suspense>
           </AppGate>
+          </AppUpdateGate>
         </BrowserRouter>
       </IonApp>
     </ErrorBoundary>

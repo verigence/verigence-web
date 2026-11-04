@@ -1,5 +1,7 @@
 /** Announcements kept by Security: the public maintenance notice, the one message a signed-in person may see, and the SuperAdmin controls. */
 
+import { Capacitor } from '@capacitor/core';
+
 type AnnouncementKind = 'NOTICE' | 'WELCOME' | 'MAINTENANCE';
 type AnnouncementAudience = 'EVERYONE' | 'PEOPLE';
 
@@ -79,7 +81,11 @@ async function call<T>(accessToken: string | undefined, method: string, path: st
 
 /** Public: no sign-in needed. Callers treat a failure as "no maintenance". */
 export async function getMaintenance(): Promise<MaintenanceNotice | null> {
-  const data = await call<{ maintenance: MaintenanceNotice | null }>(undefined, 'GET', '/security/v1/status/maintenance');
+  // The Android app says which version it is, so Security can tell it apart from older apps (which it
+  // answers with "Update the Verigence app"). Browsers send nothing.
+  const version = Capacitor.isNativePlatform() && typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '';
+  const query = version ? `?appVersion=${encodeURIComponent(version)}` : '';
+  const data = await call<{ maintenance: MaintenanceNotice | null }>(undefined, 'GET', `/security/v1/status/maintenance${query}`);
   return data?.maintenance ?? null;
 }
 

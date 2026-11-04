@@ -12,6 +12,12 @@ The app's build number is added by the release workflow and is not written here.
 
 ## [Unreleased]
 
+## [1.5.1] - 2026-11-05
+
+### Changed
+- The app tells Security its version when it checks for notices, so an older app can be told to update while this one carries on.
+- Update required: "Download the latest app" opens the download page in the phone's browser, where the person signs in and installs the new version.
+
 ## [1.5.0] - 2026-11-04
 
 ### Changed

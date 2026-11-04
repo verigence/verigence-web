@@ -14,6 +14,9 @@ The app's build number is added by the release workflow and is not written here.
 
 ## [1.5.0] - 2026-11-04
 
+### Changed
+- Profile: only HR can change a person's photo (it is the face attendance photos are compared with). The "Change photo" button is gone from My Profile; HR changes it on the employee's page.
+
 ### Added
 - Attendance: when the photo does not look like the person's profile picture, a friendly note says so after check-in or check-out ("You don't look quite like your profile picture…"). The attendance is still recorded; HR still sees the flag.
 - My leave: paid leave is earned from attendance — 1 day for every 22 days of attendance, up to 3 days held (both set by HR). There is no Sick or Earned leave any more. The page shows how many days of attendance count so far, when the count is paused, and what each completed block earned or lost at the cap.

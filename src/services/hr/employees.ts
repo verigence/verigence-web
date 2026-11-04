@@ -463,13 +463,6 @@ export const revealMySensitive = (token: string) =>
     accessToken: token,
   });
 
-export const uploadMyPhoto = (token: string, file: Blob, name: string) =>
-  hrRequest<Employee>(`${base}/me/employee/photo`, {
-    accessToken: token,
-    method: 'POST',
-    body: photoForm(file, name),
-  });
-
 export async function fetchMyPhoto(token: string): Promise<Blob> {
   const response = await hrRawRequest(`${base}/me/employee/photo`, { accessToken: token });
   return response.blob();

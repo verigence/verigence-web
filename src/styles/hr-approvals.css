@@ -123,3 +123,4 @@
   .hr-ovs-detail-row td { display: block; padding: 0; background: transparent; }
   .hr-ovs-table .uc01-admin-row-actions .uc01-admin-button { width: 100%; }
 }
+.hr-appr-grace--over { color: #b54708; font-weight: 600; }

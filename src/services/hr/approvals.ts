@@ -58,6 +58,16 @@ export interface AttendanceApproval {
   at: string | null;
   distanceM: number | null;
   outletName: string | null;
+  /** Late check-ins and early check-outs together this month against the grace allowed (late/early only). */
+  grace?: AttendanceGrace | null;
+}
+
+export interface AttendanceGrace {
+  allowed: number;
+  lateOrEarlyThisMonth: number;
+  /** Which late/early of the month this one is (1 = the first). */
+  thisIsNumber: number;
+  withinGrace: boolean;
 }
 
 export const listAttendanceApprovals = async (accessToken: string): Promise<AttendanceApproval[]> =>

@@ -2,6 +2,7 @@ import { useState } from 'react';
 
 import PageHeader from '../../components/PageHeader';
 import { useSessionStore } from '../../store/sessionStore';
+import AccessPausesTab from '../../features/hr/settings/AccessPausesTab';
 import ClaimCategoriesTab from '../../features/hr/settings/ClaimCategoriesTab';
 import HolidaysTab from '../../features/hr/settings/HolidaysTab';
 import RulesTab from '../../features/hr/settings/RulesTab';
@@ -10,13 +11,14 @@ import { HR_PERMISSION } from '../../services/hr/employees';
 import { useHrAccess } from '../../features/hr/hrQueries';
 import '../../styles/hr-settings.css';
 
-type Tab = 'rules' | 'holidays' | 'categories' | 'work';
+type Tab = 'rules' | 'holidays' | 'categories' | 'work' | 'pauses';
 
 const TABS: Array<{ key: Tab; label: string }> = [
   { key: 'rules', label: 'Rules' },
   { key: 'holidays', label: 'Holidays' },
   { key: 'categories', label: 'Claim categories' },
   { key: 'work', label: 'Work context' },
+  { key: 'pauses', label: 'Access pauses' },
 ];
 
 export default function HrSettingsPage() {
@@ -46,7 +48,7 @@ export default function HrSettingsPage() {
       />
 
       <div className="hr-tabs" role="tablist" aria-label="HR settings sections">
-        {TABS.map((t) => (
+        {TABS.filter((t) => t.key !== 'pauses' || access.can(HR_PERMISSION.accessPauseManage)).map((t) => (
           <button
             key={t.key}
             type="button"
@@ -67,6 +69,7 @@ export default function HrSettingsPage() {
         {tab === 'holidays' && <HolidaysTab accessToken={accessToken} />}
         {tab === 'categories' && <ClaimCategoriesTab accessToken={accessToken} />}
         {tab === 'work' && <WorkContextTab accessToken={accessToken} />}
+        {tab === 'pauses' && access.can(HR_PERMISSION.accessPauseManage) && <AccessPausesTab accessToken={accessToken} />}
       </div>
     </section>
   );

@@ -13,6 +13,7 @@ import {
   formatDate,
   formatDistanceM,
   formatTimeIst,
+  graceText,
   isOldDays,
   label,
 } from './approvalFormat';
@@ -74,6 +75,11 @@ export default function AttendancePanel({ query }: { query: ReturnType<typeof us
                       <small>{label(attendanceEventLabels, x.event)} on {formatDate(x.workDate)}{x.at ? `, ${formatTimeIst(x.at)}` : ''}</small>
                       {(x.outletName || distance) && (
                         <small>{[x.outletName, distance ? `${distance} from outlet` : null].filter(Boolean).join(', ')}</small>
+                      )}
+                      {x.grace && (
+                        <small className={x.grace.withinGrace ? undefined : 'hr-appr-grace--over'}>
+                          {graceText(x.grace)}
+                        </small>
                       )}
                     </td>
                     <td data-label="Reason given">

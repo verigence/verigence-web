@@ -12,7 +12,13 @@ The app's build number is added by the release workflow and is not written here.
 
 ## [Unreleased]
 
+### Changed
+- Checking in late or checking out early now needs a reason, and it always goes to your Team Lead. If the Team Lead rejects it, the day counts as a half day.
+- Team Leads see how many late check-ins and early check-outs the person has had this month, against the number allowed.
+- Rejected attendance days show as "Half day (rejected)".
+
 ### Added
+- myHR Settings, Access pauses (SuperAdmin): Team Leads paused for approvals left waiting past Monday 09:00, with the late requests, and Restore access with a note.
 - DealGuard, for PCs: while DealGuard is open, the app checks where the phone or computer is, at random moments 1 to 3 times an hour, only between 10:00 and 19:30 IST. Audit Core works out how far that is from the nearest outlet the PC is assigned to. Every check is recorded. My HR pages never check.
 - DealGuard, for PCs: when a check finds the PC more than 500 m from their outlets, a friendly note says so — for example "You seem to be about 3.2 km from Utkal Mahindra – CDA. DealGuard is meant to be used at your outlet during working hours." with an OK button. Nothing is asked and work is not stopped. When the location is not clear (a computer's location is often kilometres off) or is not allowed, nothing is shown; the check is only recorded.
 - DealGuard, for PCs: opening DealGuard after 9 pm shows "It's getting late" once an evening on that device, with "OK, continue". The PC can carry on working.

@@ -4,4 +4,5 @@ export const settingsKeys = {
   holidaysAll: ['hr', 'holidays'] as const,
   categories: ['hr', 'claim-categories'] as const,
   workContext: ['hr', 'work-context'] as const,
+  approverPauses: ['hr', 'approver-pauses'] as const,
 };

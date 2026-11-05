@@ -1217,7 +1217,9 @@ type P2Customer360 = {
 export type P2Addons = {
   /** The same answer the Vehicle tab gives: taken or not, and for how much. */
   taken?: { accessories: P2TakenAddon; warranty: P2TakenAddon; insurance: P2TakenAddon };
-  insurance: { records: P2Record[]; charges?: P2DealCategory | null; discount?: P2DiscountRow | null };
+  insurance: { records: P2Record[]; charges?: P2DealCategory | null; discount?: P2DiscountRow | null;
+    /** Insurance policies on file with a figure not read (2026-11-05). */
+    figuresNotRead?: P2FigureNotRead[] };
   accessories: { records: P2Record[]; charges?: P2DealCategory | null; discount?: P2DiscountRow | null };
   protection: { records: P2Record[]; charges?: P2DealCategory | null; discounts: P2DiscountRow[] };
   finance: { records: P2Record[] };
@@ -1282,8 +1284,13 @@ export type P2CreditNote = {
   benefitCandidates?: string[];
 };
 
+/** A document on file with a key figure not read (2026-11-04). */
+export type P2FigureNotRead = { documentId: string; documentType: string; document: string; pageNumber?: number | null; missing: string[] };
+
 export type P2Payments360 = {
   items: P2PaymentItem[];
+  /** Receipts on file with a figure not read (2026-11-05). */
+  figuresNotRead?: P2FigureNotRead[];
   /** receiptsTotal: the customer's receipts; loanDisbursed: the loan (its linked receipt included). */
   receiptsTotal: string; loanDisbursed: string; loanReceiptsTotal?: string; paidTotal: string; byStage: Record<string, string>;
   /** The loan as the Deal and the Audit Summary count it (2026-11-03): where it comes from, and

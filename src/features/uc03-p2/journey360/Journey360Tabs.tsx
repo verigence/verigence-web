@@ -21,7 +21,7 @@ import { isPdf, VIEW_LABELS } from '../photos/p2PhotoUploader';
 import { displayValue, formatDateTime, humanizeKey } from '../workspace/p2Format';
 import { ChargeTable, DiscountTable } from './DealTab';
 import { LoanDisbursementDialog } from './DealControls';
-import { CONTROL_STATUS, eventLabel, money, recordField, signedMoney, varianceTone } from './j360Format';
+import { CONTROL_STATUS, eventLabel, figuresNotReadLines, money, recordField, signedMoney, varianceTone } from './j360Format';
 import { matchLevelText } from '../matchLevel';
 
 const NOISE_KEYS = new Set(['label', 'source_kind', 'addon_type_code']);
@@ -65,6 +65,18 @@ const FINANCE_LABELS: Record<string, string> = {
   disbursement_gap: 'Not yet disbursed of the sanction',
 };
 
+/** Documents on file with a figure not read (2026-11-05): said on the tab that uses them. */
+export function NotReadNotice({ documents, what }: { documents: Parameters<typeof figuresNotReadLines>[0]; what: string }) {
+  const lines = figuresNotReadLines(documents);
+  if (!lines.length) return null;
+  return (
+    <div className="p2w-alert p2w-alert--error" role="alert">
+      <strong>{what} not read from documents on file</strong> (a task has been raised to correct them):
+      <ul>{lines.map((line) => <li key={line}>{line}</li>)}</ul>
+    </div>
+  );
+}
+
 export function AddonsTab({ addons, journeyId, tenantId, accessToken }: {
   addons: P2Addons; journeyId: string; tenantId: string; accessToken?: string;
 }) {
@@ -85,6 +97,7 @@ export function AddonsTab({ addons, journeyId, tenantId, accessToken }: {
     <div className="j360-grid">
       <section className="j360-card" aria-label="Insurance">
         <h3 className="j360-h3">Insurance</h3>
+        <NotReadNotice documents={addons.insurance.figuresNotRead} what="Insurance figures" />
         {addons.insurance.records.length ? addons.insurance.records.map((record, index) => (
           <Facts key={index} record={record} labels={INSURANCE_LABELS} />
         )) : <p className="p2w-muted">No insurance cover read yet.</p>}
@@ -202,6 +215,7 @@ export function PaymentsTab({ payments, journeyId }: { payments: P2Payments360; 
   const letterLoan = payments.loanWithoutReceipt ?? null;
   return (
     <div className="j360-stack">
+      <NotReadNotice documents={payments.figuresNotRead} what="Receipt figures" />
       <dl className="j360-paid j360-card">
         <div><dt>Customer receipts</dt><dd>{money(payments.receiptsTotal)}</dd></div>
         {/* The loan, the old vehicle and the total as the Deal counts them (2026-11-03). */}

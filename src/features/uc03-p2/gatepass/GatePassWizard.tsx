@@ -13,10 +13,12 @@ import { getMyDisplayName } from '../../../services/security/profile';
 type Step = 'outlet' | 'day' | 'mode' | 'photo' | 'counts' | 'explain' | 'held' | 'done';
 
 type Photo = { blob: Blob; filename: string; url: string; date: string };
-// The two numbers the PC reads off the register (product owner 2026-11-02): the total deliveries,
+// The numbers the PC reads off the register (product owner 2026-11-02): the total deliveries,
 // and how many of them the dealership intimated to the PC. The tool works out the rest.
-type Counts = { total: string; intimated: string };
-const EMPTY_COUNTS: Counts = { total: '', intimated: '' };
+// Stock transfer entries (vehicles moved to or from another outlet) are entered too
+// (product owner 2026-11-05: big outlets have them); blank means none. They are not deliveries.
+type Counts = { total: string; intimated: string; transfers: string };
+const EMPTY_COUNTS: Counts = { total: '', intimated: '', transfers: '' };
 
 function dayName(date: string): string {
   return new Date(`${date}T00:00:00Z`).toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'short', timeZone: 'UTC' });
@@ -34,7 +36,10 @@ async function nativePhoto(): Promise<{ blob: Blob; filename: string }> {
 
 const num = (value: string) => (value.trim() === '' ? NaN : Number(value));
 const validCount = (value: string) => Number.isInteger(num(value)) && num(value) >= 0 && num(value) <= 999;
-const countsOk = (c: Counts) => validCount(c.total) && validCount(c.intimated) && num(c.intimated) <= num(c.total);
+const transfersOk = (value: string) => value.trim() === '' || validCount(value);
+const transfers = (value: string) => (value.trim() === '' ? 0 : num(value));
+const countsOk = (c: Counts) => validCount(c.total) && validCount(c.intimated) && num(c.intimated) <= num(c.total)
+  && transfersOk(c.transfers);
 
 function CountsForm({ value, onChange }: { value: Counts; onChange: (next: Counts) => void }) {
   const tooMany = validCount(value.total) && validCount(value.intimated) && num(value.intimated) > num(value.total);
@@ -51,7 +56,13 @@ function CountsForm({ value, onChange }: { value: Counts; onChange: (next: Count
           <input type="number" inputMode="numeric" min={0} max={999} value={value.intimated}
             onChange={(event) => onChange({ ...value, intimated: event.target.value })} />
         </label>
+        <label className="p2gp-count">
+          <span>3. Stock transfer entries on the gate register (vehicles moved to or from another outlet; leave blank if none)</span>
+          <input type="number" inputMode="numeric" min={0} max={999} value={value.transfers}
+            onChange={(event) => onChange({ ...value, transfers: event.target.value })} />
+        </label>
       </div>
+      {!transfersOk(value.transfers) ? <p className="p2w-muted" role="alert">Enter the stock transfers as a whole number.</p> : null}
       {tooMany ? <p className="p2w-muted" role="alert">Intimated cannot be more than the total on the register.</p> : null}
     </>
   );
@@ -78,6 +89,7 @@ function RegisterFigures({ result }: { result: GatePassCountsResult }) {
     ['Uploaded in the tool', result.deliveryFiles],
     ['Pending with you', result.pendingWithPc],
     ['Not intimated to you', result.notIntimatedToPc],
+    ['Stock transfers (not deliveries)', result.gatePass?.stockTransfers],
   ];
   return (
     <dl className="p2gp-figures">
@@ -140,9 +152,11 @@ export default function GatePassWizard({ tenantId, accessToken, onChanged, editG
   function correctCounts(gp: GatePass) {
     setGatePass(gp);
     setCounts({ total: gp.newDeliveries != null ? String(gp.newDeliveries) : '',
-      intimated: gp.intimatedToPc != null ? String(gp.intimatedToPc) : '' });
+      intimated: gp.intimatedToPc != null ? String(gp.intimatedToPc) : '',
+      transfers: gp.stockTransfers ? String(gp.stockTransfers) : '' });
     setCountsByDay(Object.fromEntries((gp.dayCounts ?? []).map((d) => [d.date, {
-      total: String(d.newDeliveries ?? ''), intimated: d.intimatedToPc != null ? String(d.intimatedToPc) : '' }])));
+      total: String(d.newDeliveries ?? ''), intimated: d.intimatedToPc != null ? String(d.intimatedToPc) : '',
+      transfers: d.stockTransfers ? String(d.stockTransfers) : '' }])));
     setEditing(true);
     setError(null);
     setStep('counts');
@@ -259,10 +273,10 @@ export default function GatePassWizard({ tenantId, accessToken, onChanged, editG
       const res = await submitGatePassCounts(tenantId, gatePass.gatePassId, perDay ? {
         days: covers.map((date) => {
           const c = countsByDay[date] ?? EMPTY_COUNTS;
-          return { date, newDeliveries: num(c.total), intimatedToPc: num(c.intimated) };
+          return { date, newDeliveries: num(c.total), intimatedToPc: num(c.intimated), stockTransfers: transfers(c.transfers) };
         }),
       } : {
-        newDeliveries: num(counts.total), intimatedToPc: num(counts.intimated),
+        newDeliveries: num(counts.total), intimatedToPc: num(counts.intimated), stockTransfers: transfers(counts.transfers),
       }, accessToken);
       setResult(res);
       setGatePass(res.gatePass);

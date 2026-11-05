@@ -36,14 +36,15 @@ const QUALITY: Record<'BLURRED' | 'TOO_DARK' | 'WASHED_OUT', string> = {
 };
 
 const ZERO: GatePassSummaryFigures = {
-  asPerRegister: 0, updatedInTool: 0, notNotifiedToPc: 0, pendingDueToPc: 0, gatePassDays: 0, gatePassesFinished: 0,
-  gatePassesMissing: 0,
+  asPerRegister: 0, updatedInTool: 0, notNotifiedToPc: 0, pendingDueToPc: 0, stockTransfers: 0, gatePassDays: 0,
+  gatePassesFinished: 0, gatePassesMissing: 0,
 };
 
 function add(t: GatePassSummaryFigures, o: GatePassSummaryFigures): GatePassSummaryFigures {
   return {
     asPerRegister: t.asPerRegister + o.asPerRegister, updatedInTool: t.updatedInTool + o.updatedInTool,
     notNotifiedToPc: t.notNotifiedToPc + o.notNotifiedToPc, pendingDueToPc: t.pendingDueToPc + o.pendingDueToPc,
+    stockTransfers: (t.stockTransfers ?? 0) + (o.stockTransfers ?? 0),
     gatePassDays: t.gatePassDays + o.gatePassDays, gatePassesFinished: t.gatePassesFinished + o.gatePassesFinished,
     gatePassesMissing: t.gatePassesMissing + o.gatePassesMissing,
   };
@@ -56,6 +57,7 @@ function Figures({ f }: { f: GatePassSummaryFigures }) {
       <td className="p2gp-num">{f.updatedInTool}</td>
       <td className={f.notNotifiedToPc ? 'p2gp-num p2gp-num--warn' : 'p2gp-num'}>{f.notNotifiedToPc}</td>
       <td className={f.pendingDueToPc ? 'p2gp-num p2gp-num--bad' : 'p2gp-num'}>{f.pendingDueToPc}</td>
+      <td className="p2gp-num">{f.stockTransfers ?? 0}</td>
       <td className={f.gatePassesMissing ? 'p2gp-num p2gp-num--bad' : 'p2gp-num'}>
         {f.gatePassesFinished} / {f.gatePassDays}{f.gatePassesMissing ? <small>{f.gatePassesMissing} not uploaded</small> : null}
       </td>
@@ -136,7 +138,7 @@ export default function GatePassSummary({ tenantId, accessToken, refreshKey }: P
         <div className="p2gp-sum-wrap">
           <table className="p2gp-sum">
             <colgroup>
-              <col className="p2gp-sum__name" /><col /><col /><col /><col /><col />
+              <col className="p2gp-sum__name" /><col /><col /><col /><col /><col /><col />
             </colgroup>
             <thead>
               <tr>
@@ -145,6 +147,7 @@ export default function GatePassSummary({ tenantId, accessToken, refreshKey }: P
                 <th title="Delivery files uploaded on the days the gate pass covers">Updated in Tool</th>
                 <th title="Deliveries the PC said the dealership did not notify to them">Not notified to PC</th>
                 <th title="As per register − (updated in tool + not notified to PC): deliveries the PC has not uploaded (the whole gap until the PC answers)">Pending due to PC</th>
+                <th title="Vehicles moved to or from another outlet, as entered from the gate register; not deliveries and not part of the gap">Stock transfers</th>
                 <th title="Gate passes finished (photo and counts) out of the gate pass days in the range; 'not uploaded': days with no photo at all">
                   Gate passes done <span>done / days</span>
                 </th>
@@ -210,6 +213,7 @@ export default function GatePassSummary({ tenantId, accessToken, refreshKey }: P
                           <td className="p2gp-num">{d.updatedInTool}</td>
                           <td className="p2gp-num">{d.notNotifiedToPc}</td>
                           <td className="p2gp-num">{d.pendingDueToPc}</td>
+                          <td className="p2gp-num">{d.stockTransfers ?? '—'}</td>
                           <td />
                         </tr>
                       )) : null}

@@ -22,6 +22,8 @@ export interface OperationalProject {
   projectCode: string;
   projectName: string;
   projectStatus: 'ACTIVE';
+  /** SALES or SERVICE (2026-11-05); absent from an older Audit Core, which means SALES. */
+  auditType?: 'SALES' | 'SERVICE';
   timezoneName: string;
   operatingRole: OperatingRole;
   scope: ProjectScopeSummary;

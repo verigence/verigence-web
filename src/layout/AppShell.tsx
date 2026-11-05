@@ -291,6 +291,9 @@ const p2MasterDocumentsItem: NavItem = {
   roles: ['PC', 'TL', 'PM', 'REVIEWER'],
 };
 
+/** Screens about the sales price book and discounts; a service audit Project has none. */
+const SALES_AUDIT_ONLY_PATHS = new Set(['/p2/price-masters', '/p2/master-documents', '/p2/discount-variance', '/p2/sku-work']);
+
 const p2Group: NavGroup = {
   key: 'phase2',
   label: 'DealGuard',
@@ -545,8 +548,12 @@ export default function AppShell({ children }: PropsWithChildren) {
       label: 'Analytics',
       items: analyticsItems,
     };
-    const operationalGroups = phase2Group
-      ? [phase2Group, workspaceGroup, analyticsGroup]
+    // A service audit has no sales price, discount or SKU masters (product owner 2026-11-05).
+    const shownPhase2Group = phase2Group && selectedProject?.auditType === 'SERVICE'
+      ? { ...phase2Group, items: phase2Group.items.filter((item) => !SALES_AUDIT_ONLY_PATHS.has(item.to)) }
+      : phase2Group;
+    const operationalGroups = shownPhase2Group
+      ? [shownPhase2Group, workspaceGroup, analyticsGroup]
       : [workspaceGroup, analyticsGroup];
     if (sessionRole !== 'TENANT_ADMIN') return operationalGroups;
     return [

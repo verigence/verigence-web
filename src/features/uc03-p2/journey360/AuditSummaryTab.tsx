@@ -274,7 +274,7 @@ export default function AuditSummaryTab({ data, onRegenerate, regenerating }: {
         </div>
       </Section>
 
-      <Section number={6} title="Documents that disagree" note="Lines two documents print with figures more than the tolerance apart.">
+      <Section number={6} title="Documents that disagree" note="Lines two documents print with figures more than the tolerance apart, and NDC or cost-sheet totals their own rows do not give.">
         {data.disputed.length ? (
           <ul className="asum-disputed">
             {data.disputed.map((d) => (
@@ -283,6 +283,17 @@ export default function AuditSummaryTab({ data, onRegenerate, regenerating }: {
             ))}
           </ul>
         ) : <p className="p2w-muted">None: every line printed by more than one document agrees.</p>}
+        {data.statementTotals?.length ? (
+          <div className="asum-checks" aria-label="NDC and cost sheet totals that do not add up">
+            {data.statementTotals.map((t) => (
+              <div className="asum-check" key={`${t.documentId}:${t.total}`}>
+                <span>{t.label}<small className="p2w-muted">
+                  Printed {money(t.printed)} · rows add up to {money(t.rows)} · {signedMoney(t.difference)} apart</small></span>
+                <Conclusion row={t} rules={data.rules} />
+              </div>
+            ))}
+          </div>
+        ) : null}
       </Section>
 
       <Section number={7} title="Documents required to complete the file"

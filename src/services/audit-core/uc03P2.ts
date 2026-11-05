@@ -1392,6 +1392,10 @@ export type P2AuditSummary = {
   /** The documents the file needs (mandatory, and conditional ones the deal made mandatory), missing first. */
   requiredDocuments?: { key: string; label: string; stage: 'BOOKING' | 'DELIVERY'; requirement: 'MANDATORY' | 'CONDITIONAL';
     reason: string | null; onFile: boolean; count: number }[];
+  /** AS-11 (2026-11-05): NDC / cost-sheet totals their rows do not give; the dealer's own sum once the PC confirms the reading. */
+  statementTotals?: (P2AuditCheck & { label: string; documentId: string; document: string; pageNumber: number | null;
+    total: string; printed: string | null; rows: string | null; difference: string | null;
+    impact: 'CUSTOMER' | 'COMPANY' | null; dealerArithmetic: boolean })[];
 };
 
 export type P2SectionMap = {

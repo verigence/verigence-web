@@ -28,6 +28,8 @@ export interface Uc02Project {
   timezoneName: string;
   regionCode?: string | null;
   projectStatus: string;
+  /** SALES or SERVICE (2026-11-05): a service audit has no sales price, discount or product masters. */
+  auditType?: 'SALES' | 'SERVICE';
   versionNo: number;
   createdAtUtc: string;
   updatedAtUtc: string;

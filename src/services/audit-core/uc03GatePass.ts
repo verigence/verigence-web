@@ -40,7 +40,7 @@ export type GatePass = {
   /** The PC may correct the counts until the end of the day the register was uploaded (2026-11-03). */
   countsEditable?: boolean; countsEditCount?: number; countsEditedAtUtc?: string | null;
   countsHistory?: Array<Record<string, unknown>>;
-  dayCounts?: Array<{ date: string; newDeliveries: number; intimatedToPc?: number | null }> | null;
+  dayCounts?: Array<{ date: string; newDeliveries: number; intimatedToPc?: number | null; stockTransfers?: number | null }> | null;
 };
 
 /** Total deliveries on the gate register and how many were intimated to the PC (product owner 2026-11-02). */
@@ -162,11 +162,14 @@ export function resolveDailyTask(tenantId: string, dailyTaskId: string, note: st
 /** Consolidated view across the caller's outlets, satellites included (TL: theirs; PM and Executive: all). */
 export type GatePassSummaryFigures = {
   asPerRegister: number; updatedInTool: number; notNotifiedToPc: number; pendingDueToPc: number;
+  /** Stock transfer entries on the register (2026-11-05); absent from an older server. */
+  stockTransfers?: number;
   gatePassDays: number; gatePassesFinished: number; gatePassesMissing: number;
 };
 export type GatePassSummaryDay = {
   date: string; label: string; status: 'NOT_UPLOADED' | 'COUNTS_PENDING' | 'ANSWER_PENDING' | 'DONE';
   asPerRegister: number | null; updatedInTool: number; notNotifiedToPc: number; pendingDueToPc: number;
+  stockTransfers?: number | null;
   gatePassId: string | null; pcName: string | null;
   photoQuality?: 'GOOD' | 'BLURRED' | 'TOO_DARK' | 'WASHED_OUT' | null;
   pages?: number; photoMode?: 'COMBINED' | 'SEPARATE';

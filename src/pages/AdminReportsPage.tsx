@@ -12,6 +12,7 @@ import { getJourneyReview } from '../services/audit-core/adminReports';
 import AppInstalls from '../features/admin/reports/AppInstalls';
 import JourneyReview from '../features/admin/reports/JourneyReview';
 import DiDashboard from '../features/task-manager/DiDashboard';
+import AccessLocationsSummary from '../features/dealguard-presence/AccessLocationsSummary';
 import LocationChecksLog from '../features/dealguard-presence/LocationChecksLog';
 import EngagementDashboard from '../features/task-manager/EngagementDashboard';
 import { listProjects } from '../services/audit-core/uc02Admin';
@@ -36,6 +37,11 @@ const REPORTS = [
     key: 'location',
     title: 'Location checks',
     description: "Where each PC was when DealGuard checked their location (1–3 times an hour, 10:00–19:30 IST): at their outlet, away from it, or not clear. Checks only inform; nobody is stopped.",
+  },
+  {
+    key: 'sign-ins',
+    title: 'Sign-in locations',
+    description: "Where each PC, TL and PM opened Verigence from (every sign-in and reopening, until 22 Nov 2026): how often at the outlet they are tagged to (within 500 m), and the three other places they opened it from most, with an address.",
   },
   {
     key: 'app',
@@ -140,7 +146,13 @@ export default function AdminReportsPage() {
         </div>
       ) : null}
 
-      {tenantId && reportKey !== 'journey-review' && reportKey !== 'app' && reportKey !== 'location' ? (
+      {tenantId && reportKey === 'sign-ins' ? (
+        <div className="p2-screen p2w">
+          <AccessLocationsSummary key={tenantId} mode="admin" tenantId={tenantId} accessToken={accessToken} />
+        </div>
+      ) : null}
+
+      {tenantId && reportKey !== 'journey-review' && reportKey !== 'app' && reportKey !== 'location' && reportKey !== 'sign-ins' ? (
         <div className="p2-screen p2w">
           {reportKey === 'engagement' ? (
             <EngagementDashboard key={tenantId} mode="admin" tenantId={tenantId} accessToken={accessToken}

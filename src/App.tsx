@@ -14,6 +14,7 @@ import SessionRenewalGate from './components/SessionRenewalGate';
 import ProjectAdminOutletLocationEnhancer from './features/project-admin/ProjectAdminOutletLocationEnhancer';
 import ProjectMasterActionOverlay from './features/project-admin/ProjectMasterActionOverlay';
 import ReviewReadinessWatcher from './features/uc03/ReviewReadinessWatcher';
+import AccessLocationReporter from './features/dealguard-presence/AccessLocationReporter';
 import DealGuardPresence from './features/dealguard-presence/DealGuardPresence';
 import NightControlBridge from './features/night-control/NightControlBridge';
 import NightModeGate from './features/night-control/NightModeGate';
@@ -249,6 +250,7 @@ function OperationalPage({ children }: { children: ReactNode }) {
         <AppShell>
           <ReviewReadinessWatcher />
           <DealGuardPresence />
+          <AccessLocationReporter />
           {children}
         </AppShell>
       </ProjectContextGate>

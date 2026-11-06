@@ -19,6 +19,9 @@ interface SessionState extends BusinessContext {
   accessTokenExpiresAtUtc?: string;
   securitySessionId?: string;
   securityDeviceId?: string;
+  /** Goes up on every sign-in and every resume, so each opening of the app can be noted once. */
+  accessEpoch: number;
+  accessKind: 'SIGN_IN' | 'RESUME';
   signInAuthenticated: (
     email: string,
     accessToken: string,
@@ -50,6 +53,8 @@ export const useSessionStore = create<SessionState>((set) => ({
   accessTokenExpiresAtUtc: undefined,
   securitySessionId: undefined,
   securityDeviceId: undefined,
+  accessEpoch: 0,
+  accessKind: 'SIGN_IN',
   signInAuthenticated: (
     email,
     accessToken,
@@ -58,7 +63,7 @@ export const useSessionStore = create<SessionState>((set) => ({
     securitySessionId,
     securityDeviceId,
   ) =>
-    set({
+    set((state) => ({
       signedIn: true,
       email,
       displayName: email.split('@')[0] || email,
@@ -70,7 +75,9 @@ export const useSessionStore = create<SessionState>((set) => ({
       accessTokenExpiresAtUtc,
       securitySessionId,
       securityDeviceId,
-    }),
+      accessEpoch: state.accessEpoch + 1,
+      accessKind: 'SIGN_IN',
+    })),
   // Retained only for local/demo tooling. Protected routes reject preview sessions because
   // they require a Security-issued human access token.
   signInPreview: (email, role = 'PC') =>
@@ -111,10 +118,12 @@ export const useSessionStore = create<SessionState>((set) => ({
     accessTokenExpiresAtUtc,
   }),
   setBusinessContext: (context) => set(context),
-  applyResumedSession: (accessToken, accessTokenExpiresAtUtc, securitySessionId, securityDeviceId) => set({
+  applyResumedSession: (accessToken, accessTokenExpiresAtUtc, securitySessionId, securityDeviceId) => set((state) => ({
     accessToken,
     accessTokenExpiresAtUtc,
     securitySessionId,
     securityDeviceId,
-  }),
+    accessEpoch: state.accessEpoch + 1,
+    accessKind: 'RESUME',
+  })),
 }));

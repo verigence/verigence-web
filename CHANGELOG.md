@@ -29,6 +29,7 @@ The app's build number is added by the release workflow and is not written here.
 - You can ask for a past day to count as a full day or a half day (**Request attendance correction**); your Team Lead or Project Manager approves it under Approvals > Corrections.
 - **Attendance Overview** for Team Leads, Project Managers, Executives and HR: everyone on your projects, day by day or week by week, with hours per day and the week's total. People who work on more than one project are tagged Shared.
 - Announcements can carry a picture (a poster or a graphic).
+- Sign-in locations (SuperAdmin and Executive): where each PC, TL and PM opens Verigence from, until 22 Nov 2026: how often at their tagged outlet (within 500 m) and the three other places they open it from most, with an address.
 
 - Journey 360 has an **Uploaded files** tab: every file uploaded to the journey, as it was uploaded (the full PDF or photo), with who uploaded it and when, and a Download button.
 - Team Leads, PMs and Executives can export journeys to Excel from Booking & Delivery: by booking, delivery or upload date, by dealership or outlet, or all. The workbook has the Deal Audit columns (standard, actual and variance per charge and discount, and payments), and is built in the background with a Download button when ready.

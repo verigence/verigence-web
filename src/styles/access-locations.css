@@ -1,0 +1,15 @@
+/* Sign-in locations (2026-11-06): Carbon tags, data table with tabular numbers. */
+.al-table td { vertical-align: top; }
+.al-table td > small, .al-table td small { display: block; color: #525252; font-size: 11px; margin-top: 2px; overflow-wrap: anywhere; }
+.al-num { font-variant-numeric: tabular-nums; font-size: 14px; }
+.al-muted { color: #8d8d8d; }
+.uc01-admin-table td > .al-tag, .al-tag { display: inline-flex !important; width: max-content; align-items: center; min-height: 18px; margin-left: 6px; padding: 0 8px; border-radius: 12px; font-size: 11px; vertical-align: middle; }
+.al-tag--pc { background: #d0e2ff; color: #0043ce; }
+.al-tag--tl { background: #e8daff; color: #6929c4; }
+.al-tag--pm { background: #9ef0f0; color: #005d5d; }
+.al-places { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 6px; }
+.al-places li { display: grid; grid-template-columns: 36px minmax(0, 1fr); gap: 6px; font-size: 12px; line-height: 1.4; }
+.al-places a { color: #0f62fe; text-decoration: none; overflow-wrap: anywhere; }
+.al-places a:hover { text-decoration: underline; }
+.al-count { font-weight: 700; font-variant-numeric: tabular-nums; color: #161616; }
+.al-places small { display: inline; margin: 0; }

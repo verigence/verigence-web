@@ -9,6 +9,12 @@ export interface DiscountVarianceItem {
   customer: string | null;
   pc: string | null;
   outlet: string | null;
+  /** Dealership, outlet and dates, for the screen's filters (2026-11-06). */
+  dealerId?: string | null;
+  dealer?: string | null;
+  outletId?: string | null;
+  bookingDate?: string | null;
+  deliveryDate?: string | null;
   model: string | null;
   variant: string | null;
   discountKey: string;
@@ -45,13 +51,14 @@ function token(accessToken?: string): string {
  */
 export async function getDiscountVariance(
   tenantId: string,
-  options: { dealerId?: string; outletId?: string; limit?: number } = {},
+  options: { dealerId?: string; outletId?: string; limit?: number; status?: DiscountVarianceStatus } = {},
   accessToken?: string,
 ): Promise<DiscountVarianceResponse> {
   const query = new URLSearchParams();
   if (options.dealerId) query.set('dealer_id', options.dealerId);
   if (options.outletId) query.set('outlet_id', options.outletId);
   if (options.limit) query.set('limit', String(options.limit));
+  if (options.status) query.set('status', options.status);
   const suffix = query.toString() ? `?${query.toString()}` : '';
   return auditCoreRequest<DiscountVarianceResponse>(
     `/p2/v1/tenants/${encodeURIComponent(tenantId)}/discounts/variance${suffix}`,

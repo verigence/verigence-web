@@ -33,6 +33,8 @@ interface SessionState extends BusinessContext {
   signOut: (preserveRemember?: boolean) => void;
   setRolePreview: (role: UserRole) => void;
   setAccessToken: (token?: string, expiresAtUtc?: string) => void;
+  /** A remembered session resumed while the app was open: new tokens, same person, same context. */
+  applyResumedSession: (accessToken: string, expiresAtUtc: string, securitySessionId: string, securityDeviceId: string) => void;
   setBusinessContext: (context: Partial<BusinessContext>) => void;
 }
 
@@ -109,4 +111,10 @@ export const useSessionStore = create<SessionState>((set) => ({
     accessTokenExpiresAtUtc,
   }),
   setBusinessContext: (context) => set(context),
+  applyResumedSession: (accessToken, accessTokenExpiresAtUtc, securitySessionId, securityDeviceId) => set({
+    accessToken,
+    accessTokenExpiresAtUtc,
+    securitySessionId,
+    securityDeviceId,
+  }),
 }));

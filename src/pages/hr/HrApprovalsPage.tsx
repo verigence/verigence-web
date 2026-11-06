@@ -3,11 +3,13 @@ import { useState } from 'react';
 import PageHeader from '../../components/PageHeader';
 import AttendancePanel, { useAttendanceApprovals } from '../../features/hr/approvals/AttendancePanel';
 import ClaimsPanel, { useClaimApprovals } from '../../features/hr/approvals/ClaimsPanel';
+import CorrectionsPanel, { useCorrectionApprovals } from '../../features/hr/approvals/CorrectionsPanel';
 import LeavePanel, { useLeaveApprovals } from '../../features/hr/approvals/LeavePanel';
 import { useHrAccess } from '../../features/hr/hrQueries';
 import '../../styles/hr-approvals.css';
+import '../../styles/hr-calendar.css';
 
-type Tab = 'attendance' | 'leave' | 'claims';
+type Tab = 'attendance' | 'corrections' | 'leave' | 'claims';
 
 /**
  * What is waiting for this person. The server decides who sees and who may decide each item, so
@@ -20,6 +22,7 @@ export default function HrApprovalsPage() {
   const attendance = useAttendanceApprovals();
   const leave = useLeaveApprovals();
   const claims = useClaimApprovals();
+  const corrections = useCorrectionApprovals();
 
   if (access.loading) return <div className="uc01-admin-state">Loading…</div>;
   if (!access.available) {
@@ -37,6 +40,7 @@ export default function HrApprovalsPage() {
   const countOf = (q: { data?: unknown[]; isError: boolean }) => (q.data && !q.isError ? q.data.length : null);
   const tabs: Array<{ key: Tab; label: string; count: number | null }> = [
     { key: 'attendance', label: 'Attendance', count: countOf(attendance) },
+    { key: 'corrections', label: 'Corrections', count: countOf(corrections) },
     { key: 'leave', label: 'Leave', count: countOf(leave) },
     { key: 'claims', label: 'Claims', count: countOf(claims) },
   ];
@@ -67,6 +71,7 @@ export default function HrApprovalsPage() {
       </div>
       <div id={`hr-appr-panel-${tab}`} role="tabpanel" aria-labelledby={`hr-appr-tab-${tab}`}>
         {tab === 'attendance' && <AttendancePanel query={attendance} />}
+        {tab === 'corrections' && <CorrectionsPanel query={corrections} />}
         {tab === 'leave' && <LeavePanel query={leave} />}
         {tab === 'claims' && <ClaimsPanel query={claims} />}
       </div>

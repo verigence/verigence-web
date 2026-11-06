@@ -40,6 +40,7 @@ const HrEmployeeDetailPage = lazy(() => import('./pages/hr/HrEmployeeDetailPage'
 const HrMyProfilePage = lazy(() => import('./pages/hr/HrMyProfilePage'));
 const HrAttendancePage = lazy(() => import('./pages/hr/HrAttendancePage'));
 const HrTeamAttendancePage = lazy(() => import('./pages/hr/HrTeamAttendancePage'));
+const HrTeamOverviewPage = lazy(() => import('./pages/hr/HrTeamOverviewPage'));
 const HrLeavePage = lazy(() => import('./pages/hr/HrLeavePage'));
 const HrLeaveOverviewPage = lazy(() => import('./pages/hr/HrLeaveOverviewPage'));
 const HrApproverOversightPage = lazy(() => import('./pages/hr/HrApproverOversightPage'));
@@ -440,6 +441,7 @@ export default function App() {
               <Route path="/hr/attendance" element={<PrivatePage><HrAttendancePage /></PrivatePage>} />
               <Route path="/hr/attendance/team" element={<PrivatePage><HrTeamAttendancePage /></PrivatePage>} />
               <Route path="/hr/attendance/daily" element={<PrivatePage><HrDailyAttendancePage /></PrivatePage>} />
+              <Route path="/hr/attendance/overview" element={<PrivatePage><HrTeamOverviewPage /></PrivatePage>} />
               <Route path="/hr/assignments" element={<PrivatePage><HrAssignmentsPage /></PrivatePage>} />
               <Route path="/hr/leave" element={<PrivatePage><HrLeavePage /></PrivatePage>} />
               <Route path="/hr/leave/overview" element={<PrivatePage><HrLeaveOverviewPage /></PrivatePage>} />

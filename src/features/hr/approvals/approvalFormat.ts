@@ -127,6 +127,7 @@ export const attendanceKindLabels: Record<string, string> = {
   OUT_OF_FENCE: 'Not in tagged location',
   NO_OUTLET_LOCATION: 'No outlet location on file',
   OFF_DAY_WORK: 'Worked on a day off',
+  SHORT_DAY: 'Fewer than the minimum hours',
 };
 
 export const attendanceEventLabels: Record<string, string> = { CHECK_IN: 'Check-in', CHECK_OUT: 'Check-out' };

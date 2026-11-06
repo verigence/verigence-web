@@ -16,9 +16,10 @@ import RemovePageDialog, { removablePages, removalPagesText, removeOptions, type
 import DocumentTypePicker, { documentTypeOptions, OTHER_DOCUMENT_TEMPLATE } from '../features/uc03-p2/workspace/DocumentTypePicker';
 import { resendPages, typeName, unclassifiedPage, type ResendPage } from '../features/uc03-p2/tasks/documentTaskActions';
 import {
-  DOCUMENT_CATEGORIES, documentCategoryLabel, documentCounts, documentFilter, documentOpenLink, pagesText, visibleTasks,
+  DOCUMENT_CATEGORIES, documentCounts, documentFilter, documentOpenLink, pagesText, visibleTasks,
   type DocumentFilter,
 } from '../features/uc03-p2/tasks/documentGroups';
+import { taskKind } from '../features/uc03-p2/tasks/taskKind';
 import {
   closeComment, groupByJourney, taskPlan, vehicleIdentityError, type TaskAction, type VehicleIdentity,
 } from '../features/uc03-p2/tasks/p2TaskPlan';
@@ -476,26 +477,6 @@ function DocumentLine({ task }: { task: P2Task }) {
       {doc.reason ? <span>{doc.reason}</span> : null}
     </span>
   );
-}
-
-/** What kind of work a task is, for the colour on its card: document work
- * (by its Documents category), a value to confirm, data the audit could not
- * find, or a check that failed. */
-function taskKind(task: P2Task): { key: 'documents' | 'verify' | 'data' | 'check'; label: string } {
-  if (task.task_type === 'TL_MANAGEMENT_REFERRAL') return { key: 'check', label: 'System task' };
-  if (task.task_type === 'TL_DATA_VIOLATION') return { key: 'check', label: 'Data violation' };
-  if (task.task_type === 'MODEL_CHANGED_BY_INVOICE') return { key: 'check', label: 'Information' };
-  if (task.document_category) {
-    return {
-      key: task.document_category === 'MANUAL_VERIFICATION' ? 'verify' : 'documents',
-      label: documentCategoryLabel(task.document_category),
-    };
-  }
-  if (task.queue_tab === 'MANUAL_VERIFICATION') return { key: 'verify', label: 'Confirmation' };
-  if (task.queue_tab === 'DOCUMENTS') return { key: 'documents', label: 'Document' };
-  const text = `${task.task_type} ${task.category}`.toUpperCase();
-  if (/MISSING|GAP|EMPTY|DATA/.test(text)) return { key: 'data', label: 'Data missing' };
-  return { key: 'check', label: 'Check failed' };
 }
 
 export default function P2TasksPage() {

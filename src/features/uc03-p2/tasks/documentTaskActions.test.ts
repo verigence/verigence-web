@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import type { P2Template } from '../../../services/audit-core/uc03P2';
 import { documentTypeOptions, OTHER_DOCUMENT_TEMPLATE, othersNameProblem } from '../workspace/DocumentTypePicker';
 import { OTHER_DOCUMENT_TEMPLATE as LIST_OTHER } from '../workspace/P2DocumentList';
-import { resendPages, typeName, unclassifiedPage } from './documentTaskActions';
+import { qualityRefusedPages, resendPages, typeName, unclassifiedPage } from './documentTaskActions';
 
 const template = (key: string, displayName: string, requirement = 'REQUIRED', diTypes = [key]) =>
   ({ key, displayName, requirement, diTypes, stage: 'BOOKING' }) as unknown as P2Template;
@@ -49,9 +49,18 @@ describe('"Document to resubmit": send a failed page again (2026-10-27)', () => 
     ]);
   });
 
-  it('never offers a page refused for scan quality, a malformed entry, or anything on a closed task', () => {
+  it('offers a page refused for scan quality to be read as it is (2026-11-06)', () => {
+    expect(resendPages(task([{ queueId: 'q1', pageNumbers: [1], code: 'DI_QUALITY_IMAGE_BLUR_SCORE' }])))
+      .toEqual([{ queueId: 'q1', pages: [1], templateKey: null, qualityRefused: true }]);
+    expect(qualityRefusedPages({ task_type: 'PC_PAGE_QUALITY_REJECTED', task_status: 'READY',
+      reference: { pageQueues: [{ page: 2, queueId: 'q2' }, { page: 3 }] } }))
+      .toEqual([{ queueId: 'q2', pages: [2], templateKey: null, qualityRefused: true }]);
+    expect(qualityRefusedPages({ task_type: 'PC_PAGE_QUALITY_REJECTED', task_status: 'VERIFIED_COMPLETE',
+      reference: { pageQueues: [{ page: 2, queueId: 'q2' }] } })).toEqual([]);
+  });
+
+  it('never offers a malformed entry, or anything on a closed task', () => {
     expect(resendPages(task([
-      { queueId: 'q1', pageNumbers: [1], code: 'DI_QUALITY_IMAGE_BLUR_SCORE' },
       { queueId: 'q2', pageNumbers: [] },
       { pageNumbers: [3] },
       null,

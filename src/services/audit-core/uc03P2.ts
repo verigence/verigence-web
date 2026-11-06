@@ -150,7 +150,7 @@ type P2BookingStage = {
 type P2PageHealthState =
   | 'READ' | 'WAITING' | 'STUCK' | 'NOT_READ' | 'NOTHING_READ' | 'REJECTED' | 'FAILED'
   | 'UNCLASSIFIED' | 'OTHERS' | 'SUPERSEDED' | 'HIDDEN';
-type P2PageHealthAction = 'READ_AGAIN' | 'UPLOAD_AGAIN' | 'RETRY' | 'SET_TYPE' | 'RESTORE';
+type P2PageHealthAction = 'READ_AGAIN' | 'UPLOAD_AGAIN' | 'READ_AS_IS' | 'RETRY' | 'SET_TYPE' | 'RESTORE';
 export type P2PageHealth = {
   state: P2PageHealthState;
   action: P2PageHealthAction | null;

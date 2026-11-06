@@ -12,6 +12,10 @@ The app's build number is added by the release workflow and is not written here.
 
 ## [Unreleased]
 
+### Fixed
+
+- Close journey (Reviewer): the open items are read again before closing. If an item opened while the form was open, it is named and gets its own answer box, instead of the close failing with "Business validation failed".
+
 ## [1.5.2] - 2026-11-05
 
 ### Changed

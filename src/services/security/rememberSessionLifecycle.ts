@@ -1,7 +1,8 @@
-import type { VerigenceDeviceContext } from '../device/identity';
+import { getVerigenceDeviceContext, type VerigenceDeviceContext } from '../device/identity';
 import {
   logoutHuman,
   rememberHuman,
+  resumeHuman,
   SecurityLoginError,
   type HumanResumeResponse,
 } from './auth';
@@ -132,4 +133,60 @@ export async function clearRejectedRememberedSession(
   // For Web this call clears the HttpOnly cookie. For Mobile it also revokes a credential if the
   // server can still identify it. Failures are intentionally ignored after a definitive rejection.
   void logoutHuman(device, nativeCredential).catch((error) => rememberLog('clear-rejected.logout-threw', errorDetail(error)));
+}
+
+/** What one remembered-session exchange came to. */
+export type RememberedResume =
+  /** A fresh short access token. `kept` is false when the rotated credential could not be stored. */
+  | { kind: 'resumed'; device: VerigenceDeviceContext; resumed: HumanResumeResponse; kept: boolean }
+  /** Nothing to resume with: the person did not choose "Keep me signed in", or the phone has no credential. */
+  | { kind: 'none'; device: VerigenceDeviceContext }
+  /** Security said no for good (expired, revoked, signed in elsewhere); the local state is already cleared. */
+  | { kind: 'rejected'; device: VerigenceDeviceContext; error: unknown }
+  /** Network or server trouble; the credential is kept so a later attempt can succeed. */
+  | { kind: 'transient'; device: VerigenceDeviceContext; error: unknown };
+
+let resumeInFlight: Promise<RememberedResume> | undefined;
+
+async function exchangeRememberedSession(): Promise<RememberedResume> {
+  const device = getVerigenceDeviceContext();
+  if (!hasRememberSessionHint()) return { kind: 'none', device };
+  const nativeCredential = await rememberedCredentialForResume(device);
+  if (device.deviceType === 'MOBILE' && !nativeCredential) {
+    rememberLog('resume.missing-native-credential');
+    await clearRejectedRememberedSession(device);
+    return { kind: 'none', device };
+  }
+  let resumed: HumanResumeResponse;
+  try {
+    resumed = await resumeHuman(device, nativeCredential);
+  } catch (error) {
+    if (error instanceof SecurityLoginError && [401, 403].includes(error.status)) {
+      rememberLog('resume.rejected', { deviceType: device.deviceType, ...errorDetail(error) });
+      await clearRejectedRememberedSession(device);
+      return { kind: 'rejected', device, error };
+    }
+    rememberLog('resume.transient', { deviceType: device.deviceType, ...errorDetail(error) });
+    return { kind: 'transient', device, error };
+  }
+  // The rotated credential is stored before anyone else can start another exchange, so the next
+  // resume always presents the newest one.
+  const kept = await acceptResumedRememberSession(resumed, device);
+  rememberLog('resume.ok', { deviceType: device.deviceType, kept });
+  return { kind: 'resumed', device, resumed, kept };
+}
+
+/**
+ * Exchange the remembered credential for a new short access token: on a cold start, and also while
+ * the app is open, when the short token has run out (the phone was in the background, the screen
+ * was off). Only one exchange runs at a time, because the credential rotates on every use and a
+ * second, parallel submission would present a credential the first one has just replaced.
+ */
+export function resumeRememberedSession(): Promise<RememberedResume> {
+  if (!resumeInFlight) {
+    resumeInFlight = exchangeRememberedSession().finally(() => {
+      resumeInFlight = undefined;
+    });
+  }
+  return resumeInFlight;
 }

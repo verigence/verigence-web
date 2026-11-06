@@ -10,7 +10,7 @@ import RaiseTaskDialog from '../features/uc03-p2/tasks/RaiseTaskDialog';
 import NotMandatoryClaimsPanel from '../features/uc03-p2/tasks/NotMandatoryClaimsPanel';
 import ClosureDecisionPanel from '../features/uc03-p2/review/ClosureDecisionPanel';
 import type { ClosureItem } from '../services/audit-core/reviewerClosure';
-import { claimState, NOT_REQUIRED_CHOICE } from '../features/uc03-p2/tasks/p2TaskPlan';
+import { canDecideClaim, claimState, NOT_REQUIRED_CHOICE } from '../features/uc03-p2/tasks/p2TaskPlan';
 import TaskManagerPanel from '../features/task-manager/TaskManagerPanel';
 import RemovePageDialog, { removablePages, removalPagesText, removeOptions, type RemovablePage } from '../features/uc03-p2/workspace/RemovePageDialog';
 import DocumentTypePicker, { documentTypeOptions, OTHER_DOCUMENT_TEMPLATE } from '../features/uc03-p2/workspace/DocumentTypePicker';
@@ -238,6 +238,12 @@ function TaskDetail({ task, tenantId, accessToken, operatingRole, onDone }: {
           items={(ref.items as ClosureItem[] | undefined) ?? []} comment={typeof ref.comment === 'string' ? ref.comment : null}
           autoAcceptAtUtc={typeof ref.autoAcceptAtUtc === 'string' ? ref.autoAcceptAtUtc : null}
           accessToken={accessToken} onDone={onDone} />
+      ) : null}
+      {claimState(task) === 'WAITING' && canDecideClaim(operatingRole) ? (
+        // The claim is decided where the Reviewer meets it: on the PC's task
+        // itself, not only on the separate combined task (2026-11-06).
+        <NotMandatoryClaimsPanel tenantId={tenantId} journeyId={task.journey_id} accessToken={accessToken}
+          onlyTaskId={task.task_id} onDone={onDone} />
       ) : null}
       {task.task_type === 'NOT_MANDATORY_REVIEW' && task.task_status !== 'VERIFIED_COMPLETE' ? (
         <NotMandatoryClaimsPanel tenantId={tenantId} journeyId={task.journey_id} accessToken={accessToken} onDone={onDone} />

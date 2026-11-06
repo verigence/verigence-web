@@ -11,6 +11,11 @@ export const attendanceKeys = {
   team: (month: string) => ['hr', 'attendance', 'team', month] as const,
   employee: (id: string, month: string) => ['hr', 'attendance', 'employee', id, month] as const,
   photo: (attendanceId: string, event: AttendanceEvent) => ['hr', 'attendance', 'photo', attendanceId, event] as const,
+  calendar: (month: string) => ['hr', 'attendance', 'calendar', 'me', month] as const,
+  employeeCalendar: (id: string, month: string) => ['hr', 'attendance', 'calendar', id, month] as const,
+  teamDaily: (date: string, project: string) => ['hr', 'attendance', 'team-daily', date, project] as const,
+  teamWeekly: (date: string, project: string) => ['hr', 'attendance', 'team-weekly', date, project] as const,
+  corrections: ['hr', 'attendance', 'corrections', 'me'] as const,
 };
 
 /** The stamped photo as a blob (it needs the caller's token, so it cannot be a plain image link). */

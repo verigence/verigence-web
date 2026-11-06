@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 
 import { getHrMe, HR_PERMISSION, type HrMe } from '../../services/hr/employees';
+import { useProjectContextStore } from '../../store/projectContextStore';
 import { useSessionStore } from '../../store/sessionStore';
 
 export const hrKeys = {
@@ -63,4 +64,15 @@ export function useHrAccess(): HrAccess {
     canReadAudit: can(HR_PERMISSION.auditRead),
     isEmployee: Boolean(me?.employeeId),
   };
+}
+
+const LEAD_ROLES = new Set(['TL', 'PM', 'EXECUTIVE']);
+
+/**
+ * Whether the person is a Team Lead, Project Manager or Executive on any of their Projects. They get
+ * the team attendance overview for the projects they lead; the HR service checks it again.
+ */
+export function useLeadsAProject(): boolean {
+  const projects = useProjectContextStore((state) => state.projects);
+  return projects.some((project) => LEAD_ROLES.has(String(project.operatingRole ?? '').toUpperCase()));
 }

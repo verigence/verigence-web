@@ -12,6 +12,9 @@ The app's build number is added by the release workflow and is not written here.
 
 ## [Unreleased]
 
+### Fixed
+- A page refused for image quality (faded, blurred, small) that you can read can now be sent as it is: press "… is fine — read it" on the task or the document card, or upload the same page again. It is read, and the scan scores are kept.
+
 ## [1.5.2] - 2026-11-05
 
 ### Changed

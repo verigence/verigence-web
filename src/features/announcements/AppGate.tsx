@@ -3,6 +3,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { Link, useLocation } from 'react-router-dom';
 
 import { markAnnouncementSeen } from '../../services/security/announcements';
+import { announcementImageUrl } from '../../services/security/announcements';
 import { useSessionStore } from '../../store/sessionStore';
 import '../../styles/announcements.css';
 import AnnouncementDialog from './AnnouncementCard';
@@ -26,7 +27,15 @@ function AnnouncementHost({ gate }: { gate: GateDecision }) {
     if (accessToken) void markAnnouncementSeen(accessToken, announcement.announcementId).catch(() => undefined);
     void queryClient.invalidateQueries({ queryKey: ['security', 'announcement', 'me'], refetchType: 'none' });
   };
-  return <AnnouncementDialog kind={announcement.kind} title={announcement.title} body={announcement.body} onDismiss={dismiss} />;
+  return (
+    <AnnouncementDialog
+      kind={announcement.kind}
+      title={announcement.title}
+      body={announcement.body}
+      imageUrl={announcementImageUrl(announcement.announcementId, announcement.imageVersion)}
+      onDismiss={dismiss}
+    />
+  );
 }
 
 /**

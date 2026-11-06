@@ -15,6 +15,8 @@ export interface MaintenanceNotice {
   endsAt: string | null;
   audience: AnnouncementAudience;
   active: boolean;
+  /** Set when the notice carries a picture; changes when the picture changes. */
+  imageVersion?: string | null;
 }
 
 export interface PersonAnnouncement {
@@ -22,6 +24,7 @@ export interface PersonAnnouncement {
   kind: 'NOTICE' | 'WELCOME';
   title: string;
   body: string;
+  imageVersion?: string | null;
 }
 
 export interface AdminAnnouncement {
@@ -36,6 +39,7 @@ export interface AdminAnnouncement {
   active: boolean;
   seenBy: number;
   chosenPeople: number;
+  imageVersion?: string | null;
   people: Array<{ userId: string; displayName: string; email: string | null }>;
 }
 
@@ -116,3 +120,24 @@ export async function getAnnouncementSettings(accessToken: string): Promise<{ qu
 
 export const saveAnnouncementSettings = (accessToken: string, quietHours: number) =>
   call<unknown>(accessToken, 'PUT', '/security/v1/admin/announcements/settings', { quietHours });
+
+// ---- pictures (posters, graphics) ---------------------------------------------------------------
+
+/** Where the picture of an announcement is read from (no sign-in needed; cached by version). */
+export function announcementImageUrl(announcementId: string, version: string | null | undefined): string | null {
+  if (!version) return null;
+  return `${securityBaseUrl}/security/v1/announcements/${encodeURIComponent(announcementId)}/image?v=${encodeURIComponent(version)}`;
+}
+
+export interface AnnouncementImageUpload {
+  /** Base64 of the image bytes, no data: prefix. */
+  data: string;
+  width?: number;
+  height?: number;
+}
+
+export const uploadAnnouncementImage = (accessToken: string, id: string, image: AnnouncementImageUpload) =>
+  call<{ announcementId: string; imageVersion: string }>(accessToken, 'PUT', `/security/v1/admin/announcements/${encodeURIComponent(id)}/image`, image);
+
+export const removeAnnouncementImage = (accessToken: string, id: string) =>
+  call<unknown>(accessToken, 'DELETE', `/security/v1/admin/announcements/${encodeURIComponent(id)}/image`);

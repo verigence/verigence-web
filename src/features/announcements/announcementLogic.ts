@@ -113,10 +113,11 @@ export interface MessageForm {
 }
 
 /** A sentence for the first problem with a new message, or null when it can be sent. */
-export function validateMessage(f: MessageForm): string | null {
+/** A message needs words or a picture (a poster or graphic can stand on its own). */
+export function validateMessage(f: MessageForm, hasImage = false): string | null {
   if (!f.title.trim()) return 'Add a title.';
   if (f.title.trim().length > TITLE_MAX) return `Keep the title within ${TITLE_MAX} characters.`;
-  if (!f.body.trim()) return 'Write the message.';
+  if (!f.body.trim() && !hasImage) return 'Write the message or add a picture.';
   if (f.body.trim().length > BODY_MAX) return `Keep the message within ${BODY_MAX} characters.`;
   if (f.audience === 'PEOPLE' && f.people.length === 0) return 'Choose at least one person, or send it to everyone.';
   if (f.from && !istInputToIso(f.from)) return 'Check the "Show from" date and time.';

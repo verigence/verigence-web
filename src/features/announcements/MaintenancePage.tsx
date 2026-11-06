@@ -3,7 +3,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 
 import { verigenceLockup } from '../../assets/verigenceLockup';
-import type { MaintenanceNotice } from '../../services/security/announcements';
+import { announcementImageUrl, type MaintenanceNotice } from '../../services/security/announcements';
 import { useSessionStore } from '../../store/sessionStore';
 import { resetOperationalContext } from '../uc03/projectContext';
 import { formatBackAt } from './announcementLogic';
@@ -21,7 +21,10 @@ export default function MaintenancePage({ notice, onCheck, checking }: { notice:
       <div className="maintenance-card">
         <img className="maintenance-card__logo" src={verigenceLockup} alt="Verigence" />
         <h1 id="maintenance-title">{notice.title}</h1>
-        <p className="maintenance-card__body">{notice.body}</p>
+        {notice.imageVersion && (
+          <img className="maintenance-card__image" src={announcementImageUrl(notice.announcementId, notice.imageVersion) ?? undefined} alt="" />
+        )}
+        {notice.body && <p className="maintenance-card__body">{notice.body}</p>}
         {back && <p className="maintenance-card__back">Expected back around <strong>{back}</strong></p>}
         {again && !checking && <p className="maintenance-card__hint" role="status">Still being worked on. Please try again a little later.</p>}
         <div className="maintenance-card__actions">

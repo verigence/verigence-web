@@ -6,6 +6,7 @@ import '../styles/uc03-p2-workspace.css';
 import '../styles/uc03-p2-cards.css';
 
 import PageHeader from '../components/PageHeader';
+import JourneyExportPanel from '../features/uc03-p2/bookings/JourneyExportPanel';
 import JourneyListTabs from '../features/uc03-p2/bookings/JourneyListTabs';
 import { getP2BookingsSummary, type P2JourneyCounts } from '../services/audit-core/uc03P2';
 import { useProjectContextStore } from '../store/projectContextStore';
@@ -98,6 +99,11 @@ export default function P2JourneyListPage() {
           <Link className={`p2w-kpi${heroTasks ? ' p2w-kpi--flag' : ''}`} to="/p2/tasks"><b>{s ? heroTasks ?? '—' : '—'}</b><span>Tasks open</span></Link>
         </div> : null}
       </section>
+
+      {/* Journey export to Excel: Team Leads and above (product owner 2026-11-06). */}
+      {role === 'TL' || role === 'PM' || role === 'EXECUTIVE' ? (
+        <JourneyExportPanel tenantId={tenantId} accessToken={accessToken} />
+      ) : null}
 
       <JourneyListTabs tenantId={tenantId} accessToken={accessToken} role={role} onCounts={setCounts} />
     </div>

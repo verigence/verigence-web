@@ -19,6 +19,10 @@ The app's build number is added by the release workflow and is not written here.
 - Tasks: the Team Lead's "Reviewer closed the journey" task is labelled "Closure to accept" (it was "Check failed"); delivery review and closure rework tasks have their own labels too.
 - A page refused for image quality (faded, blurred, small) that you can read can now be sent as it is: press "… is fine — read it" on the task or the document card, or upload the same page again. It is read, and the scan scores are kept.
 
+### Added
+
+- Journey 360 has an **Uploaded files** tab: every file uploaded to the journey, as it was uploaded (the full PDF or photo), with who uploaded it and when, and a Download button.
+
 ## [1.5.2] - 2026-11-05
 
 ### Changed

@@ -12,6 +12,10 @@ The app's build number is added by the release workflow and is not written here.
 
 ## [Unreleased]
 
+### Fixed
+
+- Tasks: the Team Lead's "Reviewer closed the journey" task is labelled "Closure to accept" (it was "Check failed"); delivery review and closure rework tasks have their own labels too.
+
 ## [1.5.2] - 2026-11-05
 
 ### Changed

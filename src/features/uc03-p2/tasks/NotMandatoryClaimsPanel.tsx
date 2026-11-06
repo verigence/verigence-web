@@ -14,10 +14,12 @@ import {
  * accepted, or rejected with a reason -- a rejected one goes back to the PC
  * (product owner 2026-11-04).
  */
-export default function NotMandatoryClaimsPanel({ tenantId, journeyId, accessToken, onDone }: {
+export default function NotMandatoryClaimsPanel({ tenantId, journeyId, accessToken, onlyTaskId, onDone }: {
   tenantId: string;
   journeyId: string;
   accessToken?: string;
+  /** On the PC's own claimed task: decide just that claim, in place. */
+  onlyTaskId?: string;
   onDone: (message: string) => void;
 }) {
   const queryClient = useQueryClient();
@@ -35,6 +37,7 @@ export default function NotMandatoryClaimsPanel({ tenantId, journeyId, accessTok
       setError(undefined);
       void queryClient.invalidateQueries({ queryKey: ['p2-not-mandatory', tenantId, journeyId] });
       void queryClient.invalidateQueries({ queryKey: ['p2-tasks', tenantId] });
+      void queryClient.invalidateQueries({ queryKey: ['p2-task', tenantId] });
       onDone(decision === 'ACCEPT'
         ? `${claim.document}: accepted as not mandatory.`
         : `${claim.document}: rejected. It is back with the PC with your reason.`);
@@ -42,7 +45,8 @@ export default function NotMandatoryClaimsPanel({ tenantId, journeyId, accessTok
     onError: (cause) => setError(cause instanceof Error ? cause.message : 'The decision could not be saved.'),
   });
 
-  const pending = (claims.data?.claims ?? []).filter((claim) => claim.state === 'PENDING');
+  const pending = (claims.data?.claims ?? []).filter((claim) => claim.state === 'PENDING'
+    && (!onlyTaskId || claim.taskId === onlyTaskId));
   if (claims.isLoading) return <p className="p2w-muted">Reading the claims…</p>;
   if (!pending.length) return <p className="p2w-muted">No claim is waiting for a decision.</p>;
 

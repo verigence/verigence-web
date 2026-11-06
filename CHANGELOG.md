@@ -12,6 +12,9 @@ The app's build number is added by the release workflow and is not written here.
 
 ## [Unreleased]
 
+### Fixed
+- When a PC says a missing document is not mandatory, the Reviewer (or Team Lead, PM) can now accept or reject it right on that task. Before, the task only said it was waiting for the Reviewer and had no buttons.
+
 ## [1.5.2] - 2026-11-05
 
 ### Changed

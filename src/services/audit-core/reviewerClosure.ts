@@ -97,6 +97,29 @@ export function unansweredItems(items: ClosureItem[], answers: Record<string, st
   return items.filter((item) => ((answers[item.key] ?? '').trim() || (item.prefilledAnswer ?? '')).trim().length < min);
 }
 
+/**
+ * Read again just before closing: what still needs an answer, and which of
+ * those items opened after the form was loaded (a task reopened by a re-check,
+ * a new finding -- SHI-SS-261027-013, 2026-11-06). Nothing to say means the
+ * close can be sent.
+ */
+export function recheckBeforeClosing(
+  shownKeys: string[], fresh: Pick<ReviewerClosurePreview, 'items' | 'blockers' | 'canClose' | 'minAnswerLength'>,
+  answers: Record<string, string>,
+): string | undefined {
+  const shown = new Set(shownKeys);
+  const stillOpen = unansweredItems(fresh.items, answers, fresh.minAnswerLength ?? 10);
+  const added = stillOpen.filter((item) => !shown.has(item.key));
+  if (added.length) {
+    return `${added.length === 1 ? 'An item' : `${added.length} items`} opened while this form was open: `
+      + `${added.map((item) => item.label).join('; ')}. Give a reason for ${added.length === 1 ? 'it' : 'each'} below.`;
+  }
+  if (fresh.blockers.length) return fresh.blockers.join(' ');
+  if (stillOpen.length) return `Give a reason for: ${stillOpen.map((item) => item.label).join('; ')}.`;
+  if (!fresh.canClose) return 'This journey cannot be closed now.';
+  return undefined;
+}
+
 /** The Team Lead accepts the closure, or rejects specific items, each with a reason (2026-11-04). */
 export function decideClosure(
   tenantId: string, journeyId: string, closureId: string, decision: 'ACCEPT' | 'REJECT',

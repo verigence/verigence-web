@@ -58,6 +58,11 @@ export function claimState(task: P2Task): 'WAITING' | 'REJECTED' | undefined {
   return undefined;
 }
 
+/** Who decides a PC's "not mandatory" claim (Audit Core DECIDING_ROLES). */
+export function canDecideClaim(operatingRole?: string | null): boolean {
+  return operatingRole === 'REVIEWER' || operatingRole === 'TL' || operatingRole === 'PM';
+}
+
 function closesMissingDocument(task: P2Task): boolean {
   return task.task_type === 'DOCUMENT_MISSING' && MISSING_DOCUMENT_CLOSE_SOURCES.has(String(task.source_code ?? ''));
 }
@@ -114,7 +119,9 @@ export function taskPlan(task: P2Task, operatingRole?: string | null): TaskPlan 
     return { secondary: canComment ? [{ label: COMMENT_LABEL, action: 'ADD_COMMENT', requiresComment: true, tone: 'ghost' }] : [] };
   }
   const waiting = claimState(task) === 'WAITING'
-    ? 'You said this document is not mandatory. Waiting for the Reviewer to accept or reject.'
+    ? (canDecideClaim(operatingRole)
+      ? 'The PC says this document is not mandatory. Accept or reject it below.'
+      : 'You said this document is not mandatory. Waiting for the Reviewer to accept or reject.')
     : WAITING[task.task_status];
   if (waiting) {
     return { waiting, secondary: canComment ? [{ label: COMMENT_LABEL, action: 'ADD_COMMENT', requiresComment: true, tone: 'ghost' }] : [] };

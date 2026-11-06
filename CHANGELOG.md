@@ -14,6 +14,8 @@ The app's build number is added by the release workflow and is not written here.
 
 ### Fixed
 
+- Keep me signed in now works while the app stays open: when the app comes back from the background after a while, you carry on where you were instead of landing on the sign-in page.
+
 - When a PC says a missing document is not mandatory, the Reviewer (or Team Lead, PM) can now accept or reject it right on that task. Before, the task only said it was waiting for the Reviewer and had no buttons.
 - Close journey (Reviewer): the open items are read again before closing. If an item opened while the form was open, it is named and gets its own answer box, instead of the close failing with "Business validation failed".
 - Tasks: the Team Lead's "Reviewer closed the journey" task is labelled "Closure to accept" (it was "Check failed"); delivery review and closure rework tasks have their own labels too.
@@ -23,12 +25,20 @@ The app's build number is added by the release workflow and is not written here.
 
 - Night control: from 20:00 to 08:30 (India time) Journey 360 is closed and no Verigence file can be downloaded, unless SuperAdmin has given you access. Journey 360 shows "Night Mode On" instead of the page, and a download shows a small "Night Mode On" note. SuperAdmin and Executive are never blocked. The Android app can always be downloaded from the app download page.
 - Night Control (SuperAdmin, under Administration): switch night control on or off for each feature (Journey 360, file downloads) and set its start and end times; see who has access at night; give a person access to one feature or all of them with a note; remove access with a note. Access stays until it is removed.
+- My HR > Attendance has **My calendar**: each day's status (present, absent, leave applied or approved, waiting, half day, day off) with the hours you clocked, the total for every week and for the month.
+- You can ask for a past day to count as a full day or a half day (**Request attendance correction**); your Team Lead or Project Manager approves it under Approvals > Corrections.
+- **Attendance Overview** for Team Leads, Project Managers, Executives and HR: everyone on your projects, day by day or week by week, with hours per day and the week's total. People who work on more than one project are tagged Shared.
+- Announcements can carry a picture (a poster or a graphic).
+
 - Journey 360 has an **Uploaded files** tab: every file uploaded to the journey, as it was uploaded (the full PDF or photo), with who uploaded it and when, and a Download button.
 - Team Leads, PMs and Executives can export journeys to Excel from Booking & Delivery: by booking, delivery or upload date, by dealership or outlet, or all. The workbook has the Deal Audit columns (standard, actual and variance per charge and discount, and payments), and is built in the background with a Download button when ready.
 
 ### Changed
 
 - When a request is refused because of night control, the screen says "Night Mode On" instead of an error code or "You do not have access".
+- No check-in by 5:00 pm on a working day: the day is marked Absent by the system and check-in is closed for that day (raise a correction if you were at work).
+- A day with less than 5 hours between check-in and check-out needs a reason and goes to your Team Lead; your Project Manager is informed.
+
 - DealGuard "Location checks" is now shown to the Executive only (and to SuperAdmin under Reports); Team Leads and Project Managers no longer see it.
 - Excess discount has three tabs: Over entitlement, Kit given as cash (an accessories kit the scheme gives in kind, passed on as a cash discount) and Entitlement unknown (a discount with no master to compare with, and why). Each tab has the same filters, totals, breakdowns and Journey 360 link.
 - Excess discount is redesigned. You can filter by booking or delivery date (with This month, Last month and Last 30 days), dealership, outlet, discount type, PC and the document the figure came from, and search. Active filters show as tags you can remove one by one. The totals and the breakdowns by discount type, dealership and outlet follow the filters. The table sorts by any column, pages, exports to CSV, and every row opens its Journey 360.

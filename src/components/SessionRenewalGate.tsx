@@ -3,11 +3,15 @@ import { useQueryClient } from '@tanstack/react-query';
 
 import { resetOperationalContext } from '../features/uc03/projectContext';
 import { refreshHuman, SecurityLoginError } from '../services/security/auth';
+import { hasRememberSessionHint } from '../services/security/rememberSession';
+import { resumeRememberedSession } from '../services/security/rememberSessionLifecycle';
 import { useSessionStore } from '../store/sessionStore';
 import SessionObservationBootstrap from './SessionObservationBootstrap';
 
 const RENEW_BEFORE_EXPIRY_MS = 2 * 60 * 1000;
 const RETRY_DELAY_MS = 30 * 1000;
+/** Network trouble while resuming a remembered session: try a few times before giving up. */
+const RESUME_ATTEMPTS = 3;
 let renewalInFlight: Promise<void> | undefined;
 
 function parseExpiry(value?: string): number | undefined {
@@ -33,6 +37,35 @@ export default function SessionRenewalGate() {
       useSessionStore.getState().signOut(preserveRemember);
     };
 
+    // "Keep me signed in" (2026-11-06): the short access token lasts 15 minutes, and a phone in the
+    // background lets it run out. Before this, the app then sent the person to the sign-in page and
+    // only a cold start (killing the app) used the remembered credential, which is why people said
+    // Remember Me did not work. Now the remembered credential is exchanged here, in place, and the
+    // person carries on where they were. Without a remembered credential nothing changes.
+    let resumeFailures = 0;
+    const resumeOrEnd = async (preserveRemember: boolean) => {
+      if (cancelled) return;
+      if (!hasRememberSessionHint()) {
+        terminateSession(preserveRemember);
+        return;
+      }
+      const outcome = await resumeRememberedSession();
+      if (cancelled) return;
+      if (outcome.kind === 'resumed') {
+        resumeFailures = 0;
+        const { resumed } = outcome;
+        useSessionStore.getState().applyResumedSession(resumed.accessToken, resumed.expiresAtUtc, resumed.sessionId, resumed.deviceId);
+        return;
+      }
+      if (outcome.kind === 'transient' && ++resumeFailures < RESUME_ATTEMPTS) {
+        schedule(RETRY_DELAY_MS);
+        return;
+      }
+      // Rejected or nothing to resume with: the local credential is already cleared. Persistent network
+      // trouble keeps the credential, so the next opening of the app can still resume.
+      terminateSession(true);
+    };
+
     const schedule = (delayMs: number) => {
       if (cancelled) return;
       if (timer !== undefined) window.clearTimeout(timer);
@@ -47,9 +80,8 @@ export default function SessionRenewalGate() {
       const expiry = parseExpiry(session.accessTokenExpiresAtUtc);
       if (!expiry || expiry <= Date.now()) {
         // A remembered session is deliberately longer-lived than the normal API token. Expiry of
-        // that short token must not revoke the remembered credential; cold-start resume can issue a
-        // fresh short token without weakening the existing API-token lifetime.
-        terminateSession(Boolean(expiry));
+        // that short token must not revoke the remembered credential: it is exchanged for a new one.
+        await resumeOrEnd(Boolean(expiry));
         return;
       }
 
@@ -79,14 +111,15 @@ export default function SessionRenewalGate() {
         if (error instanceof SecurityLoginError && [401, 403].includes(error.status)) {
           // AUTH_TOKEN_EXPIRED can happen at a renewal race boundary and is not evidence that the
           // longer-lived remembered session was revoked. Explicit session/user denial is.
-          terminateSession(error.code === 'AUTH_TOKEN_EXPIRED');
+          if (error.code === 'AUTH_TOKEN_EXPIRED') await resumeOrEnd(true);
+          else terminateSession(false);
           return;
         }
         const currentExpiry = parseExpiry(useSessionStore.getState().accessTokenExpiresAtUtc);
         if (!currentExpiry || currentExpiry <= Date.now() + RETRY_DELAY_MS) {
           // Transient Security/network failure should not destroy an otherwise valid remembered
           // session merely because this short token could not be renewed in time.
-          terminateSession(Boolean(currentExpiry));
+          await resumeOrEnd(Boolean(currentExpiry));
           return;
         }
         schedule(RETRY_DELAY_MS);

@@ -12,6 +12,9 @@ The app's build number is added by the release workflow and is not written here.
 
 ## [Unreleased]
 
+### Added
+- Journey 360 has an **Uploaded files** tab: every file uploaded to the journey, as it was uploaded (the full PDF or photo), with who uploaded it and when, and a Download button.
+
 ## [1.5.2] - 2026-11-05
 
 ### Changed

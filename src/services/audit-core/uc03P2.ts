@@ -2004,6 +2004,27 @@ export function getP2DailyProcessingReport(tenantId: string, day: string, access
   );
 }
 
+/** A file as the PC uploaded it (before it was split into pages), for Journey 360 (2026-11-06). */
+export type P2UploadedFile = {
+  batchId: string;
+  filename: string;
+  contentType: string | null;
+  sizeBytes: number;
+  pages: number;
+  status: string;
+  uploadedAtUtc: string | null;
+  uploadedBy: string | null;
+  replacesDocument: boolean;
+};
+
+/** GET .../journeys/{j}/uploads: every file uploaded to the journey, newest first. */
+export function getP2UploadedFiles(tenantId: string, journeyId: string, accessToken?: string) {
+  return auditCoreRequest<{ journeyId: string; files: P2UploadedFile[] }>(
+    path(tenantId, `/journeys/${encodeURIComponent(journeyId)}/uploads`),
+    { accessToken },
+  );
+}
+
 /** GET .../journeys/{j}/uploads/{batch}/file: a fresh short-lived link to the file as uploaded. */
 export function getP2UploadFileLink(tenantId: string, journeyId: string, batchId: string, accessToken?: string) {
   return auditCoreRequest<{ url: string; filename: string; expiresInSeconds: number }>(

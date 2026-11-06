@@ -235,6 +235,9 @@ const projectNameViews = new Set([
   'src/features/hr/ProjectHistoryPanel.tsx',
   'src/pages/hr/HrAssignmentsPage.tsx',
   'src/pages/hr/HrDailyAttendancePage.tsx',
+  // Team attendance overview (2026-11-06): project-wise attendance for Team Leads, Project Managers,
+  // Executives and HR; never offered to a PC (the HR service refuses anyone who leads no project).
+  'src/pages/hr/HrTeamOverviewPage.tsx',
   // SuperAdmin System Health's Daily trend tab (2026-10-30): its Project filter. Rendered only by
   // src/pages/AdminSystemHealthPage.tsx, which is itself exempt as an Admin page.
   'src/features/admin/systemHealth/DailyTrendTab.tsx',

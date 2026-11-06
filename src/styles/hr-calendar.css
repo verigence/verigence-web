@@ -1,0 +1,156 @@
+/* Attendance calendar, team overview and corrections (2026-11-06).
+   IBM Carbon patterns: tags (Carbon g10 tag palette), content switcher, tiles, data table,
+   8px spacing scale, 0 radius on structural surfaces, 2px focus outline in Carbon blue 60.
+   Mobile first; the calendar becomes a stacked list of weeks under 640px. */
+
+:root {
+  --hr-cds-blue-60: #0f62fe;
+  --hr-cds-gray-10: #f4f4f4;
+  --hr-cds-gray-20: #e0e0e0;
+  --hr-cds-gray-50: #8d8d8d;
+  --hr-cds-gray-70: #525252;
+  --hr-cds-gray-100: #161616;
+}
+
+/* ---- Carbon tags ---- */
+.hr-tag { display: inline-flex; align-items: center; min-height: 20px; max-width: 100%; padding: 0 8px; border-radius: 12px; font-size: 12px; font-weight: 400; line-height: 16px; letter-spacing: .16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; vertical-align: middle; }
+.hr-tag--green { background: #a7f0ba; color: #0e6027; }
+.hr-tag--red { background: #ffd7d9; color: #a2191f; }
+.hr-tag--purple { background: #e8daff; color: #6929c4; }
+.hr-tag--teal { background: #9ef0f0; color: #005d5d; }
+.hr-tag--magenta { background: #ffd6e8; color: #9f1853; }
+.hr-tag--blue { background: #d0e2ff; color: #0043ce; }
+.hr-tag--warm-gray { background: #e5e0df; color: #3c3838; }
+.hr-tag--cool-gray { background: #dde1e6; color: #343a3f; }
+.hr-tag--outline { background: transparent; color: var(--hr-cds-gray-70); box-shadow: inset 0 0 0 1px var(--hr-cds-gray-50); }
+/* A shared employee (on more than one project): Carbon purple outline with a dashed edge. */
+.hr-tag--shared { margin-top: 4px; background: #f6f2ff; color: #491d8b; box-shadow: inset 0 0 0 1px #8a3ffc; white-space: normal; }
+.hr-ov-row--shared > td:first-child { box-shadow: inset 3px 0 0 #8a3ffc; }
+
+/* ---- tiles ---- */
+.hr-cal-tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1px; background: var(--hr-cds-gray-20); border: 1px solid var(--hr-cds-gray-20); margin: 0 0 16px; }
+.hr-cal-tiles > div { display: flex; flex-direction: column; gap: 4px; padding: 12px 16px; background: #fff; min-width: 0; }
+.hr-cal-tiles span { font-size: 12px; color: var(--hr-cds-gray-70); letter-spacing: .32px; }
+.hr-cal-tiles strong { font-size: 20px; font-weight: 400; color: var(--hr-cds-gray-100); line-height: 28px; }
+.hr-cal-tiles small { font-size: 12px; color: var(--hr-cds-gray-70); }
+.hr-cal-tiles .is-attention { box-shadow: inset 3px 0 0 #da1e28; }
+@media (min-width: 720px) { .hr-cal-tiles { grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); } }
+
+/* ---- legend ---- */
+.hr-cal-legend { list-style: none; display: flex; flex-wrap: wrap; gap: 8px 16px; margin: 0 0 8px; padding: 0; font-size: 12px; color: var(--hr-cds-gray-70); }
+.hr-cal-legend li { display: inline-flex; align-items: center; gap: 6px; }
+.hr-cal-swatch { width: 12px; height: 12px; display: inline-block; }
+.hr-cal-swatch--green { background: #24a148; }
+.hr-cal-swatch--red { background: #da1e28; }
+.hr-cal-swatch--purple { background: #8a3ffc; }
+.hr-cal-swatch--teal { background: #009d9a; }
+.hr-cal-swatch--magenta { background: #d02670; }
+.hr-cal-swatch--blue { background: var(--hr-cds-blue-60); }
+.hr-cal-swatch--warm-gray { background: #8f8b8b; }
+.hr-cal-swatch--cool-gray { background: #c1c7cd; }
+.hr-cal-swatch--outline { box-shadow: inset 0 0 0 1px var(--hr-cds-gray-50); }
+
+/* ---- calendar grid ---- */
+.hr-cal { display: flex; flex-direction: column; border: 1px solid var(--hr-cds-gray-20); background: var(--hr-cds-gray-20); gap: 1px; min-width: 0; }
+.hr-cal__row { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)) minmax(64px, .9fr); gap: 1px; }
+.hr-cal__head { padding: 8px; background: var(--hr-cds-gray-10); font-size: 12px; font-weight: 600; color: var(--hr-cds-gray-100); text-align: left; }
+.hr-cal__head--week { background: #e8e8e8; }
+.hr-cal__day { position: relative; display: flex; flex-direction: column; align-items: flex-start; gap: 4px; min-height: 84px; min-width: 0; padding: 8px; border: 0; background: #fff; font: inherit; text-align: left; color: var(--hr-cds-gray-100); cursor: pointer; box-shadow: inset 0 3px 0 transparent; }
+.hr-cal__day:hover { background: #e8e8e8; }
+.hr-cal__day:focus-visible { outline: 2px solid var(--hr-cds-blue-60); outline-offset: -2px; }
+.hr-cal__day.is-off { background: var(--hr-cds-gray-10); }
+.hr-cal__day.is-outside { background: #fafafa; color: var(--hr-cds-gray-50); }
+.hr-cal__day.is-today .hr-cal__date { background: var(--hr-cds-blue-60); color: #fff; }
+.hr-cal__day.is-selected { outline: 2px solid var(--hr-cds-blue-60); outline-offset: -2px; }
+.hr-cal__day--green { box-shadow: inset 0 3px 0 #24a148; }
+.hr-cal__day--red { box-shadow: inset 0 3px 0 #da1e28; }
+.hr-cal__day--purple { box-shadow: inset 0 3px 0 #8a3ffc; }
+.hr-cal__day--teal { box-shadow: inset 0 3px 0 #009d9a; }
+.hr-cal__day--magenta { box-shadow: inset 0 3px 0 #d02670; }
+.hr-cal__day--blue { box-shadow: inset 0 3px 0 var(--hr-cds-blue-60); }
+.hr-cal__day--warm-gray { box-shadow: inset 0 3px 0 #8f8b8b; }
+.hr-cal__day.is-outside { box-shadow: none; }
+.hr-cal__date { display: inline-grid; place-items: center; min-width: 24px; height: 24px; padding: 0 4px; font-size: 14px; font-weight: 600; }
+.hr-cal__tag { font-size: 11px; padding: 0 6px; }
+.hr-cal__hours { font-size: 14px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.hr-cal__times { font-size: 11px; color: var(--hr-cds-gray-70); line-height: 1.3; }
+.hr-cal__mark { position: absolute; top: 8px; right: 8px; width: 16px; height: 16px; display: grid; place-items: center; font-size: 10px; font-weight: 700; color: #fff; background: #8a3ffc; }
+.hr-cal__week { display: flex; flex-direction: column; justify-content: center; gap: 2px; padding: 8px; background: var(--hr-cds-gray-10); min-width: 0; }
+.hr-cal__week strong { font-size: 14px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.hr-cal__week small { font-size: 11px; color: var(--hr-cds-gray-70); }
+
+@media (max-width: 639px) {
+  .hr-cal__row { grid-template-columns: repeat(7, minmax(0, 1fr)); }
+  .hr-cal__head--week { display: none; }
+  .hr-cal__week { grid-column: 1 / -1; flex-direction: row; justify-content: space-between; align-items: center; padding: 6px 8px; }
+  .hr-cal__day { min-height: 60px; padding: 4px; gap: 2px; }
+  .hr-cal__tag, .hr-cal__times { display: none; }
+  .hr-cal__hours { font-size: 11px; }
+  .hr-cal__date { font-size: 12px; min-width: 20px; height: 20px; }
+  .hr-cal__mark { top: 4px; right: 4px; width: 12px; height: 12px; font-size: 8px; }
+}
+
+/* ---- the chosen day ---- */
+.hr-cal-detail { margin-top: 16px; padding: 16px; border: 1px solid var(--hr-cds-gray-20); background: #fff; display: flex; flex-direction: column; gap: 12px; }
+.hr-cal-detail__head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; justify-content: space-between; }
+.hr-cal-detail__facts { margin: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1px; background: var(--hr-cds-gray-20); }
+.hr-cal-detail__facts > div { background: var(--hr-cds-gray-10); padding: 8px 12px; }
+.hr-cal-detail__facts dt { font-size: 12px; color: var(--hr-cds-gray-70); }
+.hr-cal-detail__facts dd { margin: 4px 0 0; font-size: 14px; font-variant-numeric: tabular-nums; }
+.hr-cal-detail__note { margin: 0; font-size: 14px; color: var(--hr-cds-gray-100); line-height: 20px; }
+.hr-cal-detail__list { margin: 0; padding-left: 18px; font-size: 14px; }
+.hr-cal-detail .uc01-admin-button { align-self: flex-start; }
+
+/* ---- correction form and list ---- */
+.hr-cal-form { display: flex; flex-direction: column; gap: 16px; }
+.hr-cal-form__choice { border: 0; margin: 0; padding: 0; display: flex; gap: 8px; flex-wrap: wrap; }
+.hr-cal-form__choice legend { font-size: 12px; color: var(--hr-cds-gray-70); margin-bottom: 8px; }
+.hr-cal-radio { display: inline-flex; align-items: center; gap: 8px; min-height: 40px; padding: 0 16px; border: 1px solid var(--hr-cds-gray-50); cursor: pointer; font-size: 14px; }
+.hr-cal-radio.is-checked { border-color: var(--hr-cds-blue-60); box-shadow: inset 0 0 0 1px var(--hr-cds-blue-60); }
+.hr-cal-form__field { display: flex; flex-direction: column; gap: 8px; font-size: 12px; color: var(--hr-cds-gray-70); }
+.hr-cal-form__field textarea { font: inherit; font-size: 14px; padding: 11px 16px; border: 0; border-bottom: 1px solid var(--hr-cds-gray-50); background: var(--hr-cds-gray-10); color: var(--hr-cds-gray-100); resize: vertical; }
+.hr-cal-form__field textarea:focus { outline: 2px solid var(--hr-cds-blue-60); outline-offset: -2px; }
+.hr-cal-requests { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--hr-cds-gray-20); }
+.hr-cal-requests li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px 12px; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--hr-cds-gray-20); }
+.hr-cal-requests li > div { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.hr-cal-requests small { font-size: 12px; color: var(--hr-cds-gray-70); overflow-wrap: anywhere; }
+.hr-cal-requests li > button { grid-column: 1 / -1; justify-self: start; }
+@media (min-width: 640px) { .hr-cal-requests li { grid-template-columns: minmax(0, 1fr) auto auto; } .hr-cal-requests li > button { grid-column: auto; } }
+
+/* ---- team overview toolbar (Carbon content switcher) ---- */
+.hr-ov-toolbar { display: grid; grid-template-columns: 1fr; gap: 12px; align-items: end; margin-bottom: 16px; }
+@media (min-width: 900px) { .hr-ov-toolbar { grid-template-columns: auto auto minmax(160px, 220px) minmax(160px, 1fr) auto; } }
+.hr-switcher { display: inline-flex; border: 1px solid var(--hr-cds-gray-100); min-height: 40px; }
+.hr-switcher__item { flex: 1; min-width: 96px; padding: 0 16px; border: 0; border-right: 1px solid var(--hr-cds-gray-100); background: transparent; font: inherit; font-size: 14px; color: var(--hr-cds-gray-70); cursor: pointer; }
+.hr-switcher__item:last-child { border-right: 0; }
+.hr-switcher__item.is-active { background: var(--hr-cds-gray-100); color: #fff; }
+.hr-switcher__item:focus-visible { outline: 2px solid var(--hr-cds-blue-60); outline-offset: -2px; }
+.hr-ov-date { display: flex; gap: 4px; align-items: stretch; }
+.hr-ov-date .uc01-admin-button { min-width: 40px; padding: 0; font-size: 18px; }
+.hr-ov-date input, .hr-ov-field select, .hr-ov-field input { min-height: 40px; box-sizing: border-box; font: inherit; font-size: 14px; padding: 0 12px; border: 0; border-bottom: 1px solid var(--hr-cds-gray-50); background: var(--hr-cds-gray-10); color: var(--hr-cds-gray-100); width: 100%; }
+.hr-ov-date input:focus, .hr-ov-field select:focus, .hr-ov-field input:focus { outline: 2px solid var(--hr-cds-blue-60); outline-offset: -2px; }
+.hr-ov-field { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--hr-cds-gray-70); min-width: 0; }
+
+/* ---- weekly grid ---- */
+.hr-ov-week th small { display: block; font-weight: 400; font-size: 11px; color: var(--hr-cds-gray-70); }
+.hr-ov-week th.is-today { box-shadow: inset 0 -2px 0 var(--hr-cds-blue-60); }
+.hr-ov-cell { vertical-align: top; min-width: 72px; }
+.hr-ov-cell small { display: block; margin-top: 4px; font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--hr-cds-gray-100); }
+.hr-ov-cell .hr-tag { font-size: 11px; padding: 0 6px; }
+.hr-ov-table td small, .hr-ov-week td > small { display: block; font-size: 11px; color: var(--hr-cds-gray-70); }
+
+/* Phones: a week row becomes the person, a strip of seven day cells, then the week's total. */
+@media (max-width: 760px) {
+  .hr-ov-week tbody tr { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; }
+  .hr-ov-week tbody td[data-label="Employee"], .hr-ov-week tbody td[data-label="Week total"] { grid-column: 1 / -1; }
+  .hr-ov-week td[data-label="Employee"]::before { content: none; }
+  .hr-ov-week td[data-label="Week total"] { display: flex !important; align-items: baseline; gap: 8px; }
+  .hr-ov-week td.hr-ov-cell { display: flex; flex-direction: column; align-items: stretch; gap: 2px; min-width: 0; padding: 4px 0; text-align: center; grid-template-columns: none; }
+  .hr-ov-week td.hr-ov-cell::before { font-size: 10px; text-transform: none; font-weight: 600; }
+  .hr-ov-week td.hr-ov-cell .hr-tag { display: block; padding: 0 2px; font-size: 9px; min-height: 16px; line-height: 16px; text-align: center; }
+  .hr-ov-week td.hr-ov-cell small { margin-top: 0; font-size: 11px; }
+  .hr-ov-table td[data-label="Employee"]::before { content: none; }
+}
+@media (max-width: 639px) {
+  .hr-cal__week strong::before { content: 'Week '; font-weight: 400; color: var(--hr-cds-gray-70); }
+}

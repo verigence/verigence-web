@@ -49,3 +49,15 @@
 .hr-field > .hr-pay-label { font-size: 12px; font-weight: 700; color: #344054; }
 .frozen-auth-heading + .uc01-admin-message { margin: 0 0 14px; }
 .rollout-add input { min-height: 44px; box-sizing: border-box; border: 1px solid #cfd6df; border-radius: 9px; background: #fff; padding: 0 10px; font: inherit; font-size: 14px; min-width: 0; }
+
+/* A poster or graphic in an announcement (2026-11-06): full card width, never cropped, capped in
+   height so the button stays on screen. */
+.announce-card__image { display: block; width: 100%; max-height: 52dvh; object-fit: contain; border-radius: 12px; background: #f2f4f7; }
+.announce-card--with-image .announce-card__mark, .announce-card--with-image .announce-card__icon { display: none; }
+@media (min-width: 640px) { .announce-dialog:has(.announce-card--with-image) { width: min(560px, 100%); } }
+.maintenance-card__image { display: block; width: 100%; max-height: 40dvh; object-fit: contain; border-radius: 12px; }
+.announce-image-field { display: flex; flex-direction: column; gap: 8px; }
+.announce-image-field__row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.announce-image-field__thumb { width: 96px; height: 64px; object-fit: cover; border-radius: 8px; border: 1px solid #dfe5ec; background: #f2f4f7; }
+.announce-history-thumb { width: 56px; height: 40px; object-fit: cover; border-radius: 6px; border: 1px solid #dfe5ec; flex: none; }
+.announce-card--with-image .announce-card__close { z-index: 1; width: 32px; height: 32px; border-radius: 50%; background: rgba(255, 255, 255, .92); box-shadow: 0 1px 4px rgba(16, 24, 40, .25); }

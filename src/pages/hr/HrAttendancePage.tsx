@@ -13,13 +13,18 @@ import { getCheckoutCheck, type CheckoutCheck } from '../../services/audit-core/
 import CheckoutGateRegisterWarning from '../../features/uc03-p2/gatepass/CheckoutGateRegisterWarning';
 import { useMyFeatures } from '../../features/rollout/featureFlags';
 import CaptureDialog from '../../features/hr/attendance/CaptureDialog';
+import CalendarSection from '../../features/hr/attendance/CalendarSection';
+import CorrectionDialog from '../../features/hr/attendance/CorrectionDialog';
+import MyCorrections from '../../features/hr/attendance/MyCorrections';
+import { getMyCalendar } from '../../services/hr/attendanceCalendar';
 import MonthPanel from '../../features/hr/attendance/MonthPanel';
 import MonthSwitcher from '../../features/hr/attendance/MonthSwitcher';
 import TodayCard from '../../features/hr/attendance/TodayCard';
 import { attendanceKeys } from '../../features/hr/attendance/attendanceQueries';
 import { currentMonthIst } from '../../features/hr/attendance/attendanceFormat';
-import { hrKeys, useHrAccess } from '../../features/hr/hrQueries';
+import { hrKeys, useHrAccess, useLeadsAProject } from '../../features/hr/hrQueries';
 import '../../styles/hr-attendance.css';
+import '../../styles/hr-calendar.css';
 
 /** The signed-in employee's own attendance: today, live check-in / check-out, and the month so far. */
 export default function HrAttendancePage() {
@@ -27,11 +32,14 @@ export default function HrAttendancePage() {
   const access = useHrAccess();
   const [month, setMonth] = useState(currentMonthIst);
   const [capturing, setCapturing] = useState<AttendanceEvent | null>(null);
+  const [correcting, setCorrecting] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   // A PC is warned before check-out when yesterday's gate register of an onsite outlet is not
   // finished (product owner 2026-11-02). With the CHECKOUT_GATE_REGISTER switch off OK goes on to
   // check-out; on, check-out waits for the gate register. A check that cannot be reached never
   // holds check-out up.
   const project = useProjectContextStore((state) => state.selectedProject);
+  const leads = useLeadsAProject();
   const checkoutBlocked = useMyFeatures().features?.CHECKOUT_GATE_REGISTER === true;
   const [checkoutWarning, setCheckoutWarning] = useState<CheckoutCheck | null>(null);
   const [checkingOut, setCheckingOut] = useState(false);
@@ -69,6 +77,13 @@ export default function HrAttendancePage() {
     retry: false,
     refetchOnWindowFocus: false,
   });
+  const calendar = useQuery({
+    queryKey: attendanceKeys.calendar(month),
+    queryFn: () => getMyCalendar(accessToken!, month),
+    enabled: Boolean(accessToken) && access.isEmployee,
+    retry: false,
+    refetchOnWindowFocus: false,
+  });
   const history = useQuery({
     queryKey: attendanceKeys.mine(month),
     queryFn: () => getMyAttendance(accessToken!, month),
@@ -100,8 +115,8 @@ export default function HrAttendancePage() {
         eyebrow="HR"
         title="Attendance"
         description="Check in and out with a live photo and your location. Times are in IST."
-        actions={access.can(ATTENDANCE_PERMISSION.readAll) ? (
-          <Link className="uc01-admin-button" to="/hr/attendance/team">Everyone&apos;s attendance</Link>
+        actions={access.can(ATTENDANCE_PERMISSION.readAll) || leads ? (
+          <Link className="uc01-admin-button" to="/hr/attendance/overview">Team attendance overview</Link>
         ) : undefined}
       />
 
@@ -131,10 +146,31 @@ export default function HrAttendancePage() {
         {data && <TodayCard today={data} onStart={(event) => void start(event)} disabled={capturing !== null || today.isFetching || checkingOut} />}
       </SectionCard>
 
+      {notice && (
+        <div className="uc01-admin-message uc01-admin-message--success" role="status">
+          <span>{notice}</span>{' '}
+          <button type="button" className="uc01-admin-button uc01-admin-button--compact" onClick={() => setNotice(null)}>Dismiss</button>
+        </div>
+      )}
+
+      <SectionCard
+        title="My calendar"
+        description="Each day's status and hours, with the total for every week. Tap a day for details or to ask for a correction."
+        action={<MonthSwitcher month={month} onChange={setMonth} />}
+      >
+        <CalendarSection query={calendar} onRequestCorrection={setCorrecting} />
+      </SectionCard>
+
+      <SectionCard
+        title="My correction requests"
+        description="Ask for a day to count as a full day or a half day. Your Team Lead or Project Manager decides."
+      >
+        <MyCorrections />
+      </SectionCard>
+
       <SectionCard
         title="My history"
         description="Days you have checked in, newest first. Tap a photo to see it full size."
-        action={<MonthSwitcher month={month} onChange={setMonth} />}
       >
         <MonthPanel month={month} query={history} viewer="self" />
       </SectionCard>
@@ -145,6 +181,14 @@ export default function HrAttendancePage() {
           blocked={checkoutBlocked}
           onClose={() => setCheckoutWarning(null)}
           onOk={() => { setCheckoutWarning(null); setCapturing('CHECK_OUT'); }}
+        />
+      )}
+
+      {correcting && (
+        <CorrectionDialog
+          workDate={correcting}
+          onClose={() => setCorrecting(null)}
+          onDone={(message) => { setCorrecting(null); setNotice(message); }}
         />
       )}
 

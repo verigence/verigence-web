@@ -8,6 +8,8 @@ export const ATTENDANCE_PERMISSION = {
 /** Error `code` values the attendance endpoints answer with (hrmgmt/api/attendance.py). */
 export const ATTENDANCE_ERROR = {
   notWorkingDay: 'ATTENDANCE_NOT_A_WORKING_DAY',
+  /** Past 17:00 with no check-in: the system has marked the day absent. */
+  dayClosed: 'ATTENDANCE_DAY_CLOSED',
   alreadyCheckedIn: 'ATTENDANCE_ALREADY_CHECKED_IN',
   notCheckedIn: 'ATTENDANCE_NOT_CHECKED_IN',
   alreadyCheckedOut: 'ATTENDANCE_ALREADY_CHECKED_OUT',
@@ -23,7 +25,7 @@ export const ATTENDANCE_ERROR = {
 export type AttendanceEvent = 'CHECK_IN' | 'CHECK_OUT';
 export type AttendanceDayStatus = 'ABSENT' | 'PENDING_APPROVAL' | 'EXCEPTION_REJECTED' | 'CHECKED_IN' | 'COMPLETE';
 type AttendanceDayKind = 'WORKING' | 'SUNDAY' | 'HOLIDAY';
-export type ExceptionKind = 'OUT_OF_FENCE' | 'NO_OUTLET_LOCATION' | 'LATE_CHECK_IN' | 'EARLY_CHECK_OUT' | 'OFF_DAY_WORK';
+export type ExceptionKind = 'OUT_OF_FENCE' | 'NO_OUTLET_LOCATION' | 'LATE_CHECK_IN' | 'EARLY_CHECK_OUT' | 'OFF_DAY_WORK' | 'SHORT_DAY';
 export type ExceptionStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
 
 export interface CaptureToken {

@@ -46,6 +46,7 @@ const exceptionLabels: Record<ExceptionKind, string> = {
   OUT_OF_FENCE: 'Not in tagged location',
   NO_OUTLET_LOCATION: 'No outlet location on file',
   OFF_DAY_WORK: 'Worked on a day off',
+  SHORT_DAY: 'Fewer than the minimum hours',
 };
 
 /** Who decides the exceptions an event created: a missing outlet location goes to HR, the rest to the Team Lead or Project Manager. */
@@ -177,6 +178,7 @@ export function describeAttendanceError(error: unknown): AttendanceProblem {
       case ATTENDANCE_ERROR.notCheckedIn:
       case ATTENDANCE_ERROR.alreadyCheckedOut:
       case ATTENDANCE_ERROR.notWorkingDay:
+      case ATTENDANCE_ERROR.dayClosed:
         return { message: error.message, next: 'close', stale: true };
       case ATTENDANCE_ERROR.tokenInvalid:
         return { message: 'This photo session has expired. Take the photo again.', next: 'retake', stale: false };

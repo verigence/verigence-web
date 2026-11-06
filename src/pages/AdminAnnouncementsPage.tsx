@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import PageHeader from '../components/PageHeader';
@@ -19,14 +19,18 @@ import {
   validateMessage,
   type MessageForm,
 } from '../features/announcements/announcementLogic';
+import { prepareImage, type PreparedImage } from '../features/announcements/announcementImage';
 import Modal from '../features/hr/payroll/Modal';
 import { addablePeople } from '../features/rollout/featureFlags';
 import {
+  announcementImageUrl,
   createAnnouncement,
   getAnnouncementSettings,
   listAnnouncements,
   patchAnnouncement,
+  removeAnnouncementImage,
   saveAnnouncementSettings,
+  uploadAnnouncementImage,
   type AdminAnnouncement,
 } from '../services/security/announcements';
 import { listGlobalUsers } from '../services/security/onboardingAdmin';
@@ -50,6 +54,26 @@ export default function AdminAnnouncementsPage() {
   const [mBack, setMBack] = useState('');
   const [confirm, setConfirm] = useState<'start' | 'end' | null>(null);
   const [quiet, setQuiet] = useState<string | null>(null);
+  // The picture for the new message (a poster or graphic), shrunk on this device before sending.
+  const [image, setImage] = useState<PreparedImage | null>(null);
+  const [imageBusy, setImageBusy] = useState(false);
+  const [imageError, setImageError] = useState<string | null>(null);
+  const fileInput = useRef<HTMLInputElement>(null);
+  useEffect(() => () => { if (image) URL.revokeObjectURL(image.previewUrl); }, [image]);
+
+  const chooseImage = async (file: File | undefined) => {
+    setImageError(null);
+    if (!file) return;
+    setImageBusy(true);
+    try {
+      setImage(await prepareImage(file));
+    } catch (error) {
+      setImageError(messageOf(error));
+    } finally {
+      setImageBusy(false);
+      if (fileInput.current) fileInput.current.value = '';
+    }
+  };
 
   const list = useQuery({ queryKey: announcementKeys.admin, queryFn: () => listAnnouncements(accessToken!), enabled: Boolean(accessToken), retry: false });
   const settings = useQuery({ queryKey: announcementKeys.settings, queryFn: () => getAnnouncementSettings(accessToken!), enabled: Boolean(accessToken), retry: false });
@@ -72,7 +96,7 @@ export default function AdminAnnouncementsPage() {
   const history = items.filter((a) => a.kind !== 'MAINTENANCE' || a !== running).slice().sort((a, b) => b.startsAt.localeCompare(a.startsAt));
   const addable = addablePeople(users.data ?? [], form.people.map((id) => ({ userId: id, displayName: '', email: null, enabled: true })));
   const nameOf = (id: string) => users.data?.find((u) => u.userId === id)?.displayName ?? id;
-  const problem = validateMessage(form);
+  const problem = validateMessage(form, Boolean(image));
 
   const startMaintenance = () => {
     setConfirm(null);
@@ -89,7 +113,25 @@ export default function AdminAnnouncementsPage() {
   };
   const sendMessage = () => {
     if (problem) { setNotice({ ok: false, text: problem }); return; }
-    change.mutate({ text: 'The message is saved. It will be shown to each person once.', send: () => createAnnouncement(accessToken!, buildMessageInput(form)), after: () => setForm(emptyForm) });
+    const picture = image;
+    change.mutate({
+      text: picture ? 'The message and its picture are saved. It will be shown to each person once.' : 'The message is saved. It will be shown to each person once.',
+      send: async () => {
+        // The picture goes up straight after the message is created. If it cannot be added, the message
+        // is stopped, so nobody is shown a poster announcement without its poster.
+        const created = await createAnnouncement(accessToken!, buildMessageInput(form));
+        if (picture) {
+          try {
+            await uploadAnnouncementImage(accessToken!, created.announcementId, { data: picture.data, width: picture.width, height: picture.height });
+          } catch (error) {
+            await patchAnnouncement(accessToken!, created.announcementId, { active: false }).catch(() => undefined);
+            throw new Error(`The picture could not be added, so the message was stopped. ${messageOf(error)}`);
+          }
+        }
+        return created;
+      },
+      after: () => { setForm(emptyForm); setImage(null); },
+    });
   };
   const stop = (a: AdminAnnouncement) =>
     change.mutate({ text: `"${a.title}" is stopped.`, send: () => patchAnnouncement(accessToken!, a.announcementId, { active: false }) });
@@ -172,12 +214,40 @@ export default function AdminAnnouncementsPage() {
             </div>
           )}
 
+          <div className="announce-image-field">
+            <span className="hr-pay-label">Picture (optional): a poster or graphic, PNG, JPEG, WebP or GIF</span>
+            <div className="announce-image-field__row">
+              {image && <img className="announce-image-field__thumb" src={image.previewUrl} alt="Chosen picture" />}
+              <input
+                ref={fileInput}
+                type="file"
+                accept="image/png,image/jpeg,image/webp,image/gif"
+                hidden
+                onChange={(e) => void chooseImage(e.target.files?.[0])}
+              />
+              <button type="button" className="uc01-admin-button" disabled={busy || imageBusy} onClick={() => fileInput.current?.click()}>
+                {imageBusy ? 'Preparing…' : image ? 'Replace picture' : 'Add picture'}
+              </button>
+              {image && <button type="button" className="uc01-admin-button" disabled={busy} onClick={() => setImage(null)}>Remove picture</button>}
+              {image && <small className="hr-muted">{image.width} × {image.height}, {Math.round(image.bytes / 1024)} KB</small>}
+            </div>
+            {imageError && <p className="hr-field__error" role="alert">{imageError}</p>}
+          </div>
+
           <div>
             <h3 className="rollout-heading">Preview</h3>
-            <div className="announce-preview"><AnnouncementCard kind={form.kind} title={form.title} body={form.body || 'Your message appears here.'} titleId="announce-preview-title" /></div>
+            <div className="announce-preview">
+              <AnnouncementCard
+                kind={form.kind}
+                title={form.title}
+                body={form.body || (image ? '' : 'Your message appears here.')}
+                imageUrl={image?.previewUrl ?? null}
+                titleId="announce-preview-title"
+              />
+            </div>
           </div>
           <div className="hr-actions">
-            <button type="button" className="uc01-admin-button uc01-admin-button--primary" disabled={busy} onClick={sendMessage}>Send</button>
+            <button type="button" className="uc01-admin-button uc01-admin-button--primary" disabled={busy || imageBusy} onClick={sendMessage}>Send</button>
           </div>
         </div>
       </SectionCard>
@@ -201,8 +271,10 @@ export default function AdminAnnouncementsPage() {
           <ul className="rollout-people">
             {history.map((a) => {
               const status = announcementStatus(a, now);
+              const picture = announcementImageUrl(a.announcementId, a.imageVersion);
               return (
                 <li key={a.announcementId}>
+                  {picture && <img className="announce-history-thumb" src={picture} alt="" />}
                   <span className="rollout-person">
                     <strong>{a.title}</strong>
                     <small>{KIND_LABEL[a.kind]} · {a.audience === 'EVERYONE' ? 'Everyone' : `${a.chosenPeople} chosen ${a.chosenPeople === 1 ? 'person' : 'people'}`} · seen by {a.seenBy} · from {formatWhenIst(a.startsAt)}{a.endsAt ? ` until ${formatWhenIst(a.endsAt)}` : ''}</small>
@@ -210,6 +282,16 @@ export default function AdminAnnouncementsPage() {
                   <span className="rollout-controls">
                     <span className={`announce-pill announce-pill--${status.toLowerCase()}`}>{status}</span>
                     {a.active && (status === 'Showing' || status === 'Scheduled') && <button type="button" className="uc01-admin-button uc01-admin-button--compact" disabled={busy} onClick={() => stop(a)}>Stop</button>}
+                    {picture && a.active && (status === 'Showing' || status === 'Scheduled') && (
+                      <button
+                        type="button"
+                        className="uc01-admin-button uc01-admin-button--compact"
+                        disabled={busy}
+                        onClick={() => change.mutate({ text: `The picture of "${a.title}" is removed.`, send: () => removeAnnouncementImage(accessToken!, a.announcementId) })}
+                      >
+                        Remove picture
+                      </button>
+                    )}
                   </span>
                 </li>
               );

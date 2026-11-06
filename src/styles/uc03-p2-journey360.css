@@ -582,3 +582,14 @@
 }
 /* A figure from a Tally / DMS invoice in the NDC / cost sheet column (2026-11-04). */
 .j360 .j360-star { margin-left: 2px; font-weight: 700; color: var(--p2w-warning, #b54708); }
+
+/* Audit report (2026-11-06): the closing summary and the Audit summary inside the report. */
+.j360-report .j360-closure__comment { margin: 12px 0; padding: 10px 14px; border-left: 4px solid var(--p2w-navy, #003a82);
+  background: var(--p2w-surface-2, #f4f7fb); border-radius: 6px; }
+.j360-report .j360-closure__comment p { margin: 4px 0 0; font-size: .95rem; }
+.j360-report .j360-closure__items td small { margin-top: 4px; }
+.j360-report .j360-report-audit { display: grid; gap: 12px; }
+@media print {
+  .j360-report .asum-report button { display: none; }
+  .j360-report .j360-closure, .j360-report .asum-section { break-inside: avoid-page; }
+}

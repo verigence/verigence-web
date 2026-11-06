@@ -12,6 +12,11 @@ The app's build number is added by the release workflow and is not written here.
 
 ## [Unreleased]
 
+### Changed
+
+- The compliance report is now the Audit report. Right after the verdict it shows the journey closing summary: who closed it and when, the closing comment, every open item with the Reviewer's answer, and the Team Lead's decision. Once delivery has started it also shows the full Audit summary, line by line.
+- Booking & Delivery: Actions has "View uploaded files", so the files of a completed journey can still be seen.
+
 ## [1.5.2] - 2026-11-05
 
 ### Changed

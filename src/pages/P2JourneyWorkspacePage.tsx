@@ -523,7 +523,7 @@ function WorkspaceScreen({ carry, onCreated, onStartNext, onCarryTaken }: Worksp
             ) : null}
             {!isNew ? <button type="button" className="p2w-button p2w-button--secondary" onClick={() => setDialog('loan')}>Loan amount</button> : null}
             {!isNew ? <button type="button" className="p2w-button p2w-button--secondary" onClick={() => setDialog('sku')}>Resolve SKU</button> : null}
-            {!isNew ? <Link className="p2w-button p2w-button--secondary" to={`/p2/journeys/${journeyId}/compliance-report`}>View compliance report</Link> : null}
+            {!isNew ? <Link className="p2w-button p2w-button--secondary" to={`/p2/journeys/${journeyId}/compliance-report`}>View audit report</Link> : null}
           </div>
         )}
       />

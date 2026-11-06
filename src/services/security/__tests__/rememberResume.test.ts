@@ -23,7 +23,7 @@ vi.mock('../rememberSession', () => ({
 }));
 vi.mock('../auth', async () => {
   class SecurityLoginError extends Error {
-    constructor(readonly status: number, readonly code?: string) { super(code); }
+    constructor(message: string, readonly status: number, readonly code?: string) { super(message); }
   }
   return { SecurityLoginError, resumeHuman: state.resume, logoutHuman: state.logout, rememberHuman: vi.fn() };
 });
@@ -60,7 +60,7 @@ describe('resuming a remembered session while the app is open', () => {
     state.resume.mockRejectedValueOnce(new TypeError('Failed to fetch'));
     expect((await resumeRememberedSession()).kind).toBe('transient');
     expect(state.cleared).toBe(0);
-    state.resume.mockRejectedValueOnce(new SecurityLoginError(401, 'AUTH_TOKEN_INVALID'));
+    state.resume.mockRejectedValueOnce(new SecurityLoginError('Signed out', 401, 'AUTH_TOKEN_INVALID'));
     expect((await resumeRememberedSession()).kind).toBe('rejected');
     expect(state.cleared).toBeGreaterThan(0);
     expect(state.hint).toBe(false);

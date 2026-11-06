@@ -7,9 +7,9 @@ import LocationChecksLog from '../features/dealguard-presence/LocationChecksLog'
 import { useProjectContextStore } from '../store/projectContextStore';
 import { useSessionStore } from '../store/sessionStore';
 
-const VIEWERS = new Set(['TL', 'PM', 'EXECUTIVE']);
+const VIEWERS = new Set(['EXECUTIVE']);
 
-/** DealGuard location checks of the Project's PCs, day by day (TL, PM, Executive; the server enforces it). */
+/** DealGuard location checks of the Project's PCs, day by day (Executive only, product owner 2026-11-06; the server enforces it). */
 export default function P2LocationChecksPage() {
   const tenantId = useProjectContextStore((s) => s.selectedProject?.tenantId);
   const operatingRole = useProjectContextStore((s) => s.selectedProject?.operatingRole);

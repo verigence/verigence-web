@@ -201,13 +201,13 @@ const utilisationItem: NavItem = {
   roles: ['EXECUTIVE'],
 };
 
-// Where each PC was when DealGuard checked their location (product owner
-// 2026-11-05): TL, PM and Executive (SuperAdmin from Reports).
+// Where each PC was when DealGuard checked their location: Executive only
+// (product owner 2026-11-06; SuperAdmin from Reports).
 const p2LocationChecksItem: NavItem = {
   to: '/p2/reports/location-checks',
   label: 'Location checks',
   mark: 'LC',
-  roles: ['TL', 'PM', 'EXECUTIVE'],
+  roles: ['EXECUTIVE'],
 };
 
 // Document Intelligence dashboard, moved out of Daily processing (product

@@ -58,6 +58,11 @@ export function claimState(task: P2Task): 'WAITING' | 'REJECTED' | undefined {
   return undefined;
 }
 
+/** Who decides a PC's "not mandatory" claim (Audit Core DECIDING_ROLES). */
+export function canDecideClaim(operatingRole?: string | null): boolean {
+  return operatingRole === 'REVIEWER' || operatingRole === 'TL' || operatingRole === 'PM';
+}
+
 function closesMissingDocument(task: P2Task): boolean {
   return task.task_type === 'DOCUMENT_MISSING' && MISSING_DOCUMENT_CLOSE_SOURCES.has(String(task.source_code ?? ''));
 }
@@ -114,7 +119,9 @@ export function taskPlan(task: P2Task, operatingRole?: string | null): TaskPlan 
     return { secondary: canComment ? [{ label: COMMENT_LABEL, action: 'ADD_COMMENT', requiresComment: true, tone: 'ghost' }] : [] };
   }
   const waiting = claimState(task) === 'WAITING'
-    ? 'You said this document is not mandatory. Waiting for the Reviewer to accept or reject.'
+    ? (canDecideClaim(operatingRole)
+      ? 'The PC says this document is not mandatory. Accept or reject it below.'
+      : 'You said this document is not mandatory. Waiting for the Reviewer to accept or reject.')
     : WAITING[task.task_status];
   if (waiting) {
     return { waiting, secondary: canComment ? [{ label: COMMENT_LABEL, action: 'ADD_COMMENT', requiresComment: true, tone: 'ghost' }] : [] };
@@ -263,8 +270,8 @@ export function taskPlan(task: P2Task, operatingRole?: string | null): TaskPlan 
     // Edit Documents, and the task closes itself once it is.
     primary = { label: 'Set document type', to: `/p2/journeys/${task.journey_id}/documents`, tone: 'primary' };
   } else if (task.task_type === 'PC_PAGE_QUALITY_REJECTED') {
-    // Pages refused for image quality: a retry cannot help, the PC uploads a
-    // re-scan. The system cannot know which upload answers the task (another
+    // Pages refused for image quality: the PC sends a page that is fine as it
+    // is ("… is fine — read it", on the task, 2026-11-06) or uploads a re-scan. The system cannot know which upload answers the task (another
     // upload alone never closes it), so the PC closes it by hand with a
     // comment (2026-10-22: "Close task"); it still closes itself once the
     // refused pages are processed or removed.

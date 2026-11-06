@@ -9,6 +9,7 @@ import BackLink from '../components/BackLink';
 import PageHeader from '../components/PageHeader';
 import AuditSummaryTab from '../features/uc03-p2/journey360/AuditSummaryTab';
 import DealTab from '../features/uc03-p2/journey360/DealTab';
+import UploadedFilesTab from '../features/uc03-p2/journey360/UploadedFilesTab';
 import DeleteJourneyDialog from '../features/uc03-p2/workspace/DeleteJourneyDialog';
 import { canDeleteJourney } from '../features/uc03-p2/workspace/deleteJourney';
 import P2RecheckButton from '../features/uc03-p2/workspace/P2RecheckButton';
@@ -42,6 +43,8 @@ const TABS = [
   { key: 'addons', label: 'Add-ons' },
   { key: 'payments', label: 'Payments' },
   { key: 'documents', label: 'Documents' },
+  // The files as the PC uploaded them, to download (2026-11-06).
+  { key: 'files', label: 'Uploaded files' },
   { key: 'vehicle', label: 'Vehicle' },
   { key: 'tradein', label: 'Trade-in / Scrappage' },
   { key: 'customer', label: 'Customer' },
@@ -130,10 +133,13 @@ export default function P2JourneyOverviewPage() {
     setSearch(params, { replace: true });
   };
 
-  const active = { deal, invoices, addons, payments, documents, vehicle, tradein, customer, registration, compliance, audit,
-    'audit-summary': auditSummary }[tab];
+  const active = tab === 'files' ? undefined : { deal, invoices, addons, payments, documents, vehicle, tradein, customer,
+    registration, compliance, audit, 'audit-summary': auditSummary }[tab];
   let body: React.ReactNode = null;
-  if (active.isLoading) body = <div className="p2w-skeleton" aria-busy="true">Loading…</div>;
+  if (tab === 'files') {
+    body = journeyId && tenantId ? <UploadedFilesTab tenantId={tenantId} journeyId={journeyId} accessToken={accessToken} /> : null;
+  } else if (!active) body = null;
+  else if (active.isLoading) body = <div className="p2w-skeleton" aria-busy="true">Loading…</div>;
   else if (active.isError) {
     body = (
       <div className="p2w-alert p2w-alert--error" role="alert">

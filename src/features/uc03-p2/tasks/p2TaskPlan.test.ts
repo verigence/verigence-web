@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import type { P2Task } from '../../../services/audit-core/uc03P2';
-import { claimState, NOT_REQUIRED_CHOICE, taskPlan } from './p2TaskPlan';
+import { canDecideClaim, claimState, NOT_REQUIRED_CHOICE, taskPlan } from './p2TaskPlan';
 
 const finding = (assigned: string): P2Task => ({
   task_id: 't1', journey_id: 'j1', task_type: 'FINDING_REVIEW', task_status: 'READY', severity: 'MEDIUM', title: 'Finding',
@@ -46,5 +46,15 @@ describe('not mandatory is the PC\'s claim, for the Reviewer (product owner 2026
     expect(taskPlan(waiting, 'PC').waiting).toMatch(/Reviewer/);
     expect(claimState(missing('RETURNED', { outcome: 'NOT_MANDATORY_REJECTED' }))).toBe('REJECTED');
     expect(claimState(missing())).toBeUndefined();
+  });
+
+  it('the Reviewer, TL and PM decide the claim on the PC\'s task itself (2026-11-06)', () => {
+    const waiting = missing('AWAITING_REQUESTER_REVIEW', { outcome: 'NOT_MANDATORY_CLAIMED' });
+    for (const role of ['REVIEWER', 'TL', 'PM']) {
+      expect(canDecideClaim(role)).toBe(true);
+      expect(taskPlan(waiting, role).waiting).toMatch(/Accept or reject it below/);
+    }
+    expect(canDecideClaim('PC')).toBe(false);
+    expect(taskPlan(waiting, 'PC').waiting).toMatch(/Waiting for the Reviewer/);
   });
 });

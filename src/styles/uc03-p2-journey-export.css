@@ -1,0 +1,18 @@
+/* Journey export to Excel, on Booking & Delivery (TL and above, 2026-11-06). */
+.p2je { display: grid; gap: 12px; }
+.p2je-form { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; }
+.p2je-field { display: grid; gap: 4px; font-weight: 700; font-size: .85rem; min-width: 150px; }
+.p2je-field select, .p2je-field input {
+  min-height: 44px; max-width: 100%; padding: 6px 10px; border: 1px solid #cbd8de; border-radius: 10px;
+  font: inherit; font-weight: 400;
+}
+.p2je-list { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.p2je-item { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; justify-content: space-between;
+  padding: 10px 12px; border: 1px solid #dfe8ec; border-radius: 10px; }
+.p2je-item__name { font-weight: 700; overflow-wrap: anywhere; }
+.p2je-bar { height: 6px; border-radius: 3px; background: #e6eef1; overflow: hidden; min-width: 120px; flex: 1 1 120px; }
+.p2je-bar > span { display: block; height: 100%; background: var(--color-accent, #0f6e8c); }
+@media (max-width: 600px) {
+  .p2je-form { flex-direction: column; align-items: stretch; }
+  .p2je-field { min-width: 0; }
+}

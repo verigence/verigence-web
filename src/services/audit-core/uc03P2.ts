@@ -150,7 +150,7 @@ type P2BookingStage = {
 type P2PageHealthState =
   | 'READ' | 'WAITING' | 'STUCK' | 'NOT_READ' | 'NOTHING_READ' | 'REJECTED' | 'FAILED'
   | 'UNCLASSIFIED' | 'OTHERS' | 'SUPERSEDED' | 'HIDDEN';
-type P2PageHealthAction = 'READ_AGAIN' | 'UPLOAD_AGAIN' | 'RETRY' | 'SET_TYPE' | 'RESTORE';
+type P2PageHealthAction = 'READ_AGAIN' | 'UPLOAD_AGAIN' | 'READ_AS_IS' | 'RETRY' | 'SET_TYPE' | 'RESTORE';
 export type P2PageHealth = {
   state: P2PageHealthState;
   action: P2PageHealthAction | null;
@@ -2001,6 +2001,27 @@ export function getP2DailyProcessingReport(tenantId: string, day: string, access
   return auditCoreRequest<P2DailyProcessingReport>(
     `${path(tenantId, '/reports/daily-processing')}?day=${encodeURIComponent(day)}`,
     { accessToken, timeoutMs: LIST_READ_TIMEOUT_MS },
+  );
+}
+
+/** A file as the PC uploaded it (before it was split into pages), for Journey 360 (2026-11-06). */
+export type P2UploadedFile = {
+  batchId: string;
+  filename: string;
+  contentType: string | null;
+  sizeBytes: number;
+  pages: number;
+  status: string;
+  uploadedAtUtc: string | null;
+  uploadedBy: string | null;
+  replacesDocument: boolean;
+};
+
+/** GET .../journeys/{j}/uploads: every file uploaded to the journey, newest first. */
+export function getP2UploadedFiles(tenantId: string, journeyId: string, accessToken?: string) {
+  return auditCoreRequest<{ journeyId: string; files: P2UploadedFile[] }>(
+    path(tenantId, `/journeys/${encodeURIComponent(journeyId)}/uploads`),
+    { accessToken },
   );
 }
 

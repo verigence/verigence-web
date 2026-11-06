@@ -10,15 +10,16 @@ import RaiseTaskDialog from '../features/uc03-p2/tasks/RaiseTaskDialog';
 import NotMandatoryClaimsPanel from '../features/uc03-p2/tasks/NotMandatoryClaimsPanel';
 import ClosureDecisionPanel from '../features/uc03-p2/review/ClosureDecisionPanel';
 import type { ClosureItem } from '../services/audit-core/reviewerClosure';
-import { claimState, NOT_REQUIRED_CHOICE } from '../features/uc03-p2/tasks/p2TaskPlan';
+import { canDecideClaim, claimState, NOT_REQUIRED_CHOICE } from '../features/uc03-p2/tasks/p2TaskPlan';
 import TaskManagerPanel from '../features/task-manager/TaskManagerPanel';
 import RemovePageDialog, { removablePages, removalPagesText, removeOptions, type RemovablePage } from '../features/uc03-p2/workspace/RemovePageDialog';
 import DocumentTypePicker, { documentTypeOptions, OTHER_DOCUMENT_TEMPLATE } from '../features/uc03-p2/workspace/DocumentTypePicker';
-import { resendPages, typeName, unclassifiedPage, type ResendPage } from '../features/uc03-p2/tasks/documentTaskActions';
+import { qualityRefusedPages, resendPages, typeName, unclassifiedPage, type ResendPage } from '../features/uc03-p2/tasks/documentTaskActions';
 import {
-  DOCUMENT_CATEGORIES, documentCategoryLabel, documentCounts, documentFilter, documentOpenLink, pagesText, visibleTasks,
+  DOCUMENT_CATEGORIES, documentCounts, documentFilter, documentOpenLink, pagesText, visibleTasks,
   type DocumentFilter,
 } from '../features/uc03-p2/tasks/documentGroups';
+import { taskKind } from '../features/uc03-p2/tasks/taskKind';
 import {
   closeComment, groupByJourney, taskPlan, vehicleIdentityError, type TaskAction, type VehicleIdentity,
 } from '../features/uc03-p2/tasks/p2TaskPlan';
@@ -188,7 +189,9 @@ function TaskDetail({ task, tenantId, accessToken, operatingRole, onDone }: {
   // as the type the PC chooses. Both go through the page endpoints, and the
   // task closes by itself once the page is no longer unclassified or failed.
   const typingQueue = unclassifiedPage(task);
-  const resend = resendPages(task);
+  // Pages refused for scan quality are sent as they are (2026-11-06), from the
+  // resubmit task or the image-quality task alike.
+  const resend = [...resendPages(task), ...qualityRefusedPages(task)];
   const [choosingFor, setChoosingFor] = useState<string>();
   const templates = useQuery({
     queryKey: ['p2-templates', tenantId],
@@ -238,6 +241,12 @@ function TaskDetail({ task, tenantId, accessToken, operatingRole, onDone }: {
           autoAcceptAtUtc={typeof ref.autoAcceptAtUtc === 'string' ? ref.autoAcceptAtUtc : null}
           accessToken={accessToken} onDone={onDone} />
       ) : null}
+      {claimState(task) === 'WAITING' && canDecideClaim(operatingRole) ? (
+        // The claim is decided where the Reviewer meets it: on the PC's task
+        // itself, not only on the separate combined task (2026-11-06).
+        <NotMandatoryClaimsPanel tenantId={tenantId} journeyId={task.journey_id} accessToken={accessToken}
+          onlyTaskId={task.task_id} onDone={onDone} />
+      ) : null}
       {task.task_type === 'NOT_MANDATORY_REVIEW' && task.task_status !== 'VERIFIED_COMPLETE' ? (
         <NotMandatoryClaimsPanel tenantId={tenantId} journeyId={task.journey_id} accessToken={accessToken} onDone={onDone} />
       ) : null}
@@ -247,7 +256,14 @@ function TaskDetail({ task, tenantId, accessToken, operatingRole, onDone }: {
       ) : null}
       {resend.length ? (
         <div className="p2w-task__actions">
-          {resend.map((page) => page.templateKey ? (
+          {resend.map((page) => page.qualityRefused ? (
+            <button key={page.queueId} type="button" className="p2w-button p2w-button--secondary" disabled={pageBusy}
+              title={`The scan check refused ${removalPagesText(page.pages)}. If you can read it, send it as it is: it is read, and the scan scores are kept.`}
+              onClick={() => sendAgain.mutate(page)}>
+              {sendAgain.isPending && sendAgain.variables?.queueId === page.queueId ? 'Sending…'
+                : `${removalPagesText(page.pages).charAt(0).toUpperCase()}${removalPagesText(page.pages).slice(1)} is fine — read it`}
+            </button>
+          ) : page.templateKey ? (
             <button key={page.queueId} type="button" className="p2w-button p2w-button--secondary" disabled={pageBusy}
               title={`Read ${removalPagesText(page.pages)} again from the stored file, as ${typeName(page.templateKey, templates.data?.templates)}.`}
               onClick={() => sendAgain.mutate(page)}>
@@ -470,26 +486,6 @@ function DocumentLine({ task }: { task: P2Task }) {
       {doc.reason ? <span>{doc.reason}</span> : null}
     </span>
   );
-}
-
-/** What kind of work a task is, for the colour on its card: document work
- * (by its Documents category), a value to confirm, data the audit could not
- * find, or a check that failed. */
-function taskKind(task: P2Task): { key: 'documents' | 'verify' | 'data' | 'check'; label: string } {
-  if (task.task_type === 'TL_MANAGEMENT_REFERRAL') return { key: 'check', label: 'System task' };
-  if (task.task_type === 'TL_DATA_VIOLATION') return { key: 'check', label: 'Data violation' };
-  if (task.task_type === 'MODEL_CHANGED_BY_INVOICE') return { key: 'check', label: 'Information' };
-  if (task.document_category) {
-    return {
-      key: task.document_category === 'MANUAL_VERIFICATION' ? 'verify' : 'documents',
-      label: documentCategoryLabel(task.document_category),
-    };
-  }
-  if (task.queue_tab === 'MANUAL_VERIFICATION') return { key: 'verify', label: 'Confirmation' };
-  if (task.queue_tab === 'DOCUMENTS') return { key: 'documents', label: 'Document' };
-  const text = `${task.task_type} ${task.category}`.toUpperCase();
-  if (/MISSING|GAP|EMPTY|DATA/.test(text)) return { key: 'data', label: 'Data missing' };
-  return { key: 'check', label: 'Check failed' };
 }
 
 export default function P2TasksPage() {

@@ -310,7 +310,11 @@ function DocumentCard({ title, level, rows, reason, actions, onAdd }: {
   const action = health?.action ?? null;
   const retryable = Boolean(lead?.unit && (health ? action === 'RETRY' : RETRYABLE.has(lead.status)));
   const rereadable = Boolean(lead?.unit && action === 'READ_AGAIN');
-  const uploadAgain = Boolean(lead && action === 'UPLOAD_AGAIN' && onAdd);
+  // Refused for scan quality (2026-11-06): the PC who sees the page is fine
+  // sends it as it is -- Audit Core reads it with the uploader's confirmation --
+  // or uploads a better scan.
+  const readAsIs = Boolean(lead?.unit && action === 'READ_AS_IS');
+  const uploadAgain = Boolean(lead && (action === 'UPLOAD_AGAIN' || action === 'READ_AS_IS') && onAdd);
   const removable = Boolean(actions.onRemovePage && removablePage(lead));
   // Only a page DI could not classify asks for its type; a classified page
   // never does, and one the PC already kept as Others is settled.
@@ -343,11 +347,17 @@ function DocumentCard({ title, level, rows, reason, actions, onAdd }: {
 
       {lead && actions.typing === lead.key && lead.unit ? <TypePicker queueId={lead.unit.queueId} actions={actions} /> : null}
 
-      {(retryable || rereadable || uploadAgain || removable || (typeable && actions.typing !== lead?.key) || more.length) ? (
+      {(retryable || readAsIs || rereadable || uploadAgain || removable || (typeable && actions.typing !== lead?.key) || more.length) ? (
         <div className="p2w-dcard__actions">
           {retryable && lead?.unit ? (
             <button type="button" className="p2w-link" disabled={busy} onClick={() => actions.onRetry(lead.unit!.queueId)}>
               {busy ? 'Retrying…' : 'Retry'}
+            </button>
+          ) : null}
+          {readAsIs && lead?.unit ? (
+            <button type="button" className="p2w-link" disabled={busy} onClick={() => actions.onRetry(lead.unit!.queueId)}
+              title="The scan check refused this page. If you can read it, send it as it is: it is read, and the scan scores are kept.">
+              {busy ? 'Sending…' : 'Page is fine — read it'}
             </button>
           ) : null}
           {rereadable && lead?.unit ? (

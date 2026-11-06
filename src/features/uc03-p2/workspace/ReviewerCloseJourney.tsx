@@ -5,6 +5,7 @@ import {
   closeJourneyAsReviewer,
   CLOSURE_KIND_LABEL,
   getReviewerClosure,
+  recheckBeforeClosing,
   unansweredItems,
   type ClosureItemKind,
 } from '../../../services/audit-core/reviewerClosure';
@@ -35,6 +36,7 @@ export default function ReviewerCloseJourney({ tenantId, journeyId, accessToken,
     queryFn: () => getReviewerClosure(tenantId, journeyId, accessToken),
     enabled: open,
     staleTime: 0,
+    refetchOnWindowFocus: true,
   });
 
   if (!open) {
@@ -57,6 +59,16 @@ export default function ReviewerCloseJourney({ tenantId, journeyId, accessToken,
     setBusy(true);
     setProblem(undefined);
     try {
+      // What is open can change while the Reviewer types (a re-check reopens a
+      // task, a new finding). Read it again first: a new item gets its own box
+      // here instead of the close being refused (SHI-SS-261027-013, 2026-11-06).
+      const fresh = await preview.refetch();
+      const recheck = fresh.data
+        ? recheckBeforeClosing(items.map((item) => item.key), fresh.data, answers) : undefined;
+      if (recheck) {
+        setProblem(recheck);
+        return;
+      }
       const result = await closeJourneyAsReviewer(tenantId, journeyId, comment, answers, accessToken);
       for (const key of ['p2-documents', 'p2-stage', 'p2-360', 'p2-tasks', 'p2-journeys', 'p2-reviewer-closure']) {
         void queryClient.invalidateQueries({ queryKey: [key, tenantId] });
@@ -69,6 +81,8 @@ export default function ReviewerCloseJourney({ tenantId, journeyId, accessToken,
       setComment('');
     } catch (cause) {
       setProblem(cause instanceof Error && cause.message ? cause.message : 'The journey could not be closed.');
+      // Show whatever is open now, so a new item can be answered.
+      void preview.refetch();
     } finally {
       setBusy(false);
     }

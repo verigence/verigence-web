@@ -12,6 +12,18 @@ The app's build number is added by the release workflow and is not written here.
 
 ## [Unreleased]
 
+### Fixed
+
+- When a PC says a missing document is not mandatory, the Reviewer (or Team Lead, PM) can now accept or reject it right on that task. Before, the task only said it was waiting for the Reviewer and had no buttons.
+- Close journey (Reviewer): the open items are read again before closing. If an item opened while the form was open, it is named and gets its own answer box, instead of the close failing with "Business validation failed".
+- Tasks: the Team Lead's "Reviewer closed the journey" task is labelled "Closure to accept" (it was "Check failed"); delivery review and closure rework tasks have their own labels too.
+- A page refused for image quality (faded, blurred, small) that you can read can now be sent as it is: press "… is fine — read it" on the task or the document card, or upload the same page again. It is read, and the scan scores are kept.
+
+### Added
+
+- Journey 360 has an **Uploaded files** tab: every file uploaded to the journey, as it was uploaded (the full PDF or photo), with who uploaded it and when, and a Download button.
+- Team Leads, PMs and Executives can export journeys to Excel from Booking & Delivery: by booking, delivery or upload date, by dealership or outlet, or all. The workbook has the Deal Audit columns (standard, actual and variance per charge and discount, and payments), and is built in the background with a Download button when ready.
+
 ### Changed
 
 - The compliance report is now the Audit report. Right after the verdict it shows the journey closing summary: who closed it and when, the closing comment, every open item with the Reviewer's answer, and the Team Lead's decision. Once delivery has started it also shows the full Audit summary, line by line.

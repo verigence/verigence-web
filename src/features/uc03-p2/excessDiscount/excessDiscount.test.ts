@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import type { DiscountVarianceItem } from '../../../services/audit-core/uc03DiscountVariance';
 import {
-  applyFilters, breakdown, EMPTY_FILTERS, excessOnly, filtersFromParams, paramsFromFilters, quickRange, sortItems, toCsv, totals,
+  applyFilters, breakdown, EMPTY_FILTERS, excessOf, excessOnly, inView, viewFromParams, filtersFromParams, paramsFromFilters, quickRange, sortItems, toCsv, totals,
 } from './excessDiscount';
 
 const row = (over: Partial<DiscountVarianceItem>): DiscountVarianceItem => ({
@@ -56,5 +56,23 @@ describe('the Excess discount screen filters (product owner 2026-11-06)', () => 
     const csv = toCsv([row({ customer: 'Das, R' })], 'booking').split('\n');
     expect(csv[0].startsWith('Booking date,Journey,Customer')).toBe(true);
     expect(csv[1]).toContain('"Das, R"');
+  });
+});
+
+describe('the three lists (product owner 2026-11-06)', () => {
+  const mixed = [
+    row({}),
+    row({ journeyId: 'k', status: 'KIT_AS_CASH', variance: '30000', kit: '30000', invoice: '50000', entitled: '20000' }),
+    row({ journeyId: 'u', status: 'ENTITLEMENT_UNKNOWN', entitled: null, variance: null, invoice: '35000',
+      reason: 'no scheme master stands behind "Other scheme"' }),
+  ];
+  it('splits excess, kit given as cash and entitlement unknown, each with its own amount', () => {
+    expect(inView(mixed, 'over').map((i) => i.journeyId)).toEqual(['j1']);
+    expect(inView(mixed, 'kit').map((i) => excessOf(i))).toEqual([30000]);
+    expect(inView(mixed, 'unknown').map((i) => excessOf(i))).toEqual([35000]);
+  });
+  it('reads the list from the URL, excess by default', () => {
+    expect(viewFromParams(new URLSearchParams('view=kit'))).toBe('kit');
+    expect(viewFromParams(new URLSearchParams(''))).toBe('over');
   });
 });

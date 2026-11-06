@@ -6,15 +6,25 @@ import '../styles/uc03-p2-excess-discount.css';
 
 import PageHeader from '../components/PageHeader';
 import {
-  applyFilters, breakdown, dateOf, dealerOf, discountOf, EMPTY_FILTERS, excessOf, excessOnly, filtersFromParams,
+  applyFilters, breakdown, dateOf, dealerOf, discountOf, EMPTY_FILTERS, excessOf, filtersFromParams, inView,
   options, outletOf, paramsFromFilters, pcOf, quickRange, sortItems, sourceOf, toCsv, totals,
-  type Bucket, type ExcessFilters, type SortKey,
+  viewFromParams, type Bucket, type ExcessFilters, type SortKey, type View,
 } from '../features/uc03-p2/excessDiscount/excessDiscount';
 import { getDiscountVariance } from '../services/audit-core/uc03DiscountVariance';
 import { useProjectContextStore } from '../store/projectContextStore';
 import { useSessionStore } from '../store/sessionStore';
 
 const PAGE_SIZES = [25, 50, 100];
+
+/** The three lists (product owner 2026-11-06). */
+const VIEWS: { view: View; label: string; amount: string; count: string; empty: string }[] = [
+  { view: 'over', label: 'Over entitlement', amount: 'Excess given', count: 'Discounts over entitlement',
+    empty: 'No discount given above its entitlement matches these filters.' },
+  { view: 'kit', label: 'Kit given as cash', amount: 'Kit given as cash', count: 'Discounts with the kit as cash',
+    empty: 'No accessories kit given as cash matches these filters.' },
+  { view: 'unknown', label: 'Entitlement unknown', amount: 'Given, nothing to compare with', count: 'Discounts with no master',
+    empty: 'Every discount here has a master to compare with.' },
+];
 
 function rupees(value: string | number | null | undefined, digits = 0) {
   if (value === null || value === undefined || value === '') return '—';
@@ -54,14 +64,16 @@ export default function P2DiscountVariancePage() {
   const sortDir = params.get('dir') === 'asc' ? 'asc' : 'desc';
   const size = PAGE_SIZES.includes(Number(params.get('size'))) ? Number(params.get('size')) : 25;
   const page = Math.max(1, Number(params.get('page')) || 1);
+  const view = viewFromParams(params);
+  const meta = VIEWS.find((v) => v.view === view)!;
 
   const query = useQuery({
-    queryKey: ['p2-discount-variance', tenantId, 'over'],
-    queryFn: () => getDiscountVariance(tenantId!, { limit: 5000, status: 'OVER_ENTITLEMENT' }, accessToken),
+    queryKey: ['p2-discount-variance', tenantId, 'all'],
+    queryFn: () => getDiscountVariance(tenantId!, { limit: 5000 }, accessToken),
     enabled: Boolean(tenantId && accessToken),
   });
 
-  const all = useMemo(() => excessOnly(query.data?.items ?? []), [query.data]);
+  const all = useMemo(() => inView(query.data?.items ?? [], view), [query.data, view]);
   const shown = useMemo(() => applyFilters(all, filters), [all, filters]);
   const sorted = useMemo(() => sortItems(shown, sortKey, sortDir, filters.basis), [shown, sortKey, sortDir, filters.basis]);
   const pages = Math.max(1, Math.ceil(sorted.length / size));
@@ -117,7 +129,7 @@ export default function P2DiscountVariancePage() {
       <PageHeader
         eyebrow="DealGuard"
         title="Excess discount"
-        description="Discounts given above the entitlement, read from the billing document (NDC / cost sheet, or invoice), never the booking form."
+        description="Discounts compared line by line with their entitlement, read from the billing document (NDC / cost sheet, or invoice), never the booking form. An accessories kit given as cash, and a discount with no master to compare with, are listed apart."
       />
 
       {query.isLoading && <div className="xd-skeleton" aria-busy="true">Loading excess discounts…</div>}
@@ -129,6 +141,21 @@ export default function P2DiscountVariancePage() {
 
       {query.data && (
         <>
+          {/* Tabs: the three lists, each with what the filters leave */}
+          <div className="xd-tabs" role="tablist" aria-label="Which discounts">
+            {VIEWS.map((v) => {
+              const rowsIn = applyFilters(inView(query.data.items, v.view), filters);
+              return (
+                <button key={v.view} type="button" role="tab" aria-selected={view === v.view}
+                        className={view === v.view ? 'is-selected' : undefined}
+                        onClick={() => setParam({ view: v.view === 'over' ? null : v.view, page: null })}>
+                  <span>{v.label}</span>
+                  <small>{rowsIn.length} · {rupees(rowsIn.reduce((sum, i) => sum + excessOf(i), 0))}</small>
+                </button>
+              );
+            })}
+          </div>
+
           {/* Toolbar: the filters (Carbon data table toolbar + filter row) */}
           <section className="xd-toolbar" aria-label="Filters">
             <div className="xd-toolbar__row">
@@ -195,11 +222,11 @@ export default function P2DiscountVariancePage() {
 
           {/* KPI tiles */}
           <section className="xd-tiles" aria-label="Totals">
-            <div className="xd-tile is-danger"><span className="xd-tile__label">Excess given</span><strong>{rupees(t.excess)}</strong></div>
-            <div className="xd-tile"><span className="xd-tile__label">Bookings with excess</span><strong>{t.bookings}</strong></div>
-            <div className="xd-tile"><span className="xd-tile__label">Discounts over entitlement</span><strong>{t.discounts}</strong></div>
+            <div className={`xd-tile${view === 'over' ? ' is-danger' : ''}`}><span className="xd-tile__label">{meta.amount}</span><strong>{rupees(t.excess)}</strong></div>
+            <div className="xd-tile"><span className="xd-tile__label">Bookings</span><strong>{t.bookings}</strong></div>
+            <div className="xd-tile"><span className="xd-tile__label">{meta.count}</span><strong>{t.discounts}</strong></div>
             <div className="xd-tile">
-              <span className="xd-tile__label">Largest single excess</span>
+              <span className="xd-tile__label">Largest single amount</span>
               <strong>{t.largest ? rupees(excessOf(t.largest)) : '—'}</strong>
               {t.largest ? (
                 <Link className="xd-link" to={`/p2/journeys/${t.largest.journeyId}/overview?tab=deal`}>
@@ -225,14 +252,14 @@ export default function P2DiscountVariancePage() {
           <section className="xd-table-card" aria-label="Excess discounts">
             <div className="xd-table-card__head">
               <div>
-                <h2>Excess discounts</h2>
-                <p>{sorted.length} of {all.length} · sorted by {sortKey === 'excess' ? 'excess' : sortKey}, {sortDir === 'desc' ? 'high to low' : 'low to high'}</p>
+                <h2>{meta.label}</h2>
+                <p>{sorted.length} of {all.length} · sorted by {sortKey === 'excess' ? 'amount' : sortKey}, {sortDir === 'desc' ? 'high to low' : 'low to high'}</p>
               </div>
               <button type="button" className="xd-button xd-button--tertiary" onClick={exportCsv} disabled={!sorted.length}>Export CSV</button>
             </div>
             {sorted.length === 0 ? (
               <div className="xd-empty">
-                <strong>No excess discount matches these filters.</strong>
+                <strong>{meta.empty}</strong>
                 {active.length ? <button type="button" className="xd-link" onClick={() => setParams(new URLSearchParams(), { replace: true })}>Clear filters</button> : null}
               </div>
             ) : (
@@ -246,15 +273,15 @@ export default function P2DiscountVariancePage() {
                       {header('pc', 'PC')}
                       {header('model', 'Vehicle')}
                       {header('discount', 'Discount type')}
-                      {header('entitled', 'Entitled', true)}
+                      {view === 'unknown' ? <th scope="col">Why there is nothing to compare with</th> : header('entitled', 'Entitled', true)}
                       {header('given', 'Given', true)}
-                      {header('excess', 'Excess', true)}
+                      {view === 'unknown' ? null : header('excess', view === 'kit' ? 'Kit as cash' : 'Excess', true)}
                       <th scope="col" aria-label="Open" />
                     </tr>
                   </thead>
                   <tbody>
                     {rows.map((item) => (
-                      <tr key={`${item.journeyId}-${item.discountKey}`}>
+                      <tr key={`${item.journeyId}-${item.discountKey}-${item.status}`}>
                         <td data-label="Date" className="xd-nowrap">{day(dateOf(item, filters.basis))}</td>
                         <td data-label="Customer">
                           <span className="xd-primary">{item.customer ?? '—'}</span>
@@ -270,12 +297,18 @@ export default function P2DiscountVariancePage() {
                           {item.variant ? <span className="xd-secondary">{item.variant}</span> : null}
                         </td>
                         <td data-label="Discount type"><span className="xd-type">{discountOf(item)}</span></td>
-                        <td data-label="Entitled" className="is-num">{rupees(item.entitled, 2)}</td>
+                        {view === 'unknown'
+                          ? <td data-label="Why unknown" className="xd-reason">{item.reason ?? 'The entitlement is not known.'}</td>
+                          : <td data-label="Entitled" className="is-num">{rupees(item.entitled, 2)}</td>}
                         <td data-label="Given" className="is-num">
                           {rupees(item.invoice, 2)}
                           {item.givenDocument ? <span className="xd-secondary">{item.givenDocument}</span> : null}
                         </td>
-                        <td data-label="Excess" className="is-num xd-excess">{rupees(item.variance, 2)}</td>
+                        {view === 'unknown' ? null : (
+                          <td data-label={view === 'kit' ? 'Kit as cash' : 'Excess'} className={`is-num ${view === 'kit' ? 'xd-kit' : 'xd-excess'}`}>
+                            {rupees(excessOf(item), 2)}
+                          </td>
+                        )}
                         <td className="xd-actions">
                           <Link className="xd-button xd-button--ghost" to={`/p2/journeys/${item.journeyId}/overview?tab=deal`}
                                 aria-label={`Open Journey 360 for ${item.customer ?? item.journeyReference}`}>

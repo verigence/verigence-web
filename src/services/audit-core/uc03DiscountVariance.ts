@@ -1,7 +1,8 @@
 import { auditCoreRequest } from './client';
 
 /** Why a discount is on the list. Invoice figures only, never the booking. */
-export type DiscountVarianceStatus = 'OVER_ENTITLEMENT' | 'UNDER_ENTITLEMENT' | 'ENTITLEMENT_UNKNOWN';
+/** KIT_AS_CASH (2026-11-06): the part of a consumer offer the unused accessories kit covers, a breach listed apart. */
+export type DiscountVarianceStatus = 'OVER_ENTITLEMENT' | 'UNDER_ENTITLEMENT' | 'ENTITLEMENT_UNKNOWN' | 'KIT_AS_CASH';
 
 export interface DiscountVarianceItem {
   journeyId: string;
@@ -28,11 +29,15 @@ export interface DiscountVarianceItem {
    * the billed column (NDC / cost sheet / invoice), the booking, or the reconciled figure. */
   givenFrom?: 'billed' | 'booking' | 'effective' | string | null;
   givenDocument?: string | null;
+  /** KIT_AS_CASH: the kit amount given as cash. */
+  kit?: string | null;
+  /** ENTITLEMENT_UNKNOWN: why there is no entitlement to compare with. */
+  reason?: string | null;
 }
 
 export interface DiscountVarianceResponse {
   items: DiscountVarianceItem[];
-  counts: { total: number; over: number; under: number; unknown: number; journeys: number };
+  counts: { total: number; over: number; under: number; unknown: number; kitAsCash?: number; journeys: number };
   notYetCalculated: number;
   toleranceRupees: number;
 }

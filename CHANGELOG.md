@@ -26,6 +26,7 @@ The app's build number is added by the release workflow and is not written here.
 
 ### Changed
 
+- Excess discount has three tabs: Over entitlement, Kit given as cash (an accessories kit the scheme gives in kind, passed on as a cash discount) and Entitlement unknown (a discount with no master to compare with, and why). Each tab has the same filters, totals, breakdowns and Journey 360 link.
 - Excess discount is redesigned. You can filter by booking or delivery date (with This month, Last month and Last 30 days), dealership, outlet, discount type, PC and the document the figure came from, and search. Active filters show as tags you can remove one by one. The totals and the breakdowns by discount type, dealership and outlet follow the filters. The table sorts by any column, pages, exports to CSV, and every row opens its Journey 360.
 - The compliance report is now the Audit report. Right after the verdict it shows the journey closing summary: who closed it and when, the closing comment, every open item with the Reviewer's answer, and the Team Lead's decision. Once delivery has started it also shows the full Audit summary, line by line.
 - Booking & Delivery: Actions has "View uploaded files", so the files of a completed journey can still be seen.

@@ -52,7 +52,7 @@ function deviceType(): LocationCheckCommand['deviceType'] {
 }
 
 /** Read the device's location (native app or browser) and say what happened, ready to send. */
-async function readLocation(): Promise<LocationCheckCommand> {
+export async function readLocation(): Promise<LocationCheckCommand> {
   const source: LocationCheckCommand['source'] = Capacitor.isNativePlatform() ? 'NATIVE' : 'BROWSER';
   const base = { source, deviceType: deviceType(), capturedAt: new Date().toISOString() };
   let timer: number | undefined;

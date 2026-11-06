@@ -1,8 +1,11 @@
 import '../styles/uc03-p2.css';
 import '../styles/uc03-p2-workspace.css';
 
+import { useState } from 'react';
+
 import BackLink from '../components/BackLink';
 import PageHeader from '../components/PageHeader';
+import AccessLocationsSummary from '../features/dealguard-presence/AccessLocationsSummary';
 import LocationChecksLog from '../features/dealguard-presence/LocationChecksLog';
 import { useProjectContextStore } from '../store/projectContextStore';
 import { useSessionStore } from '../store/sessionStore';
@@ -14,6 +17,7 @@ export default function P2LocationChecksPage() {
   const tenantId = useProjectContextStore((s) => s.selectedProject?.tenantId);
   const operatingRole = useProjectContextStore((s) => s.selectedProject?.operatingRole);
   const accessToken = useSessionStore((s) => s.accessToken);
+  const [view, setView] = useState<'checks' | 'sign-ins'>('checks');
   return (
     <div className="screen-stack p2-screen p2w">
       <BackLink fallbackTo="/dashboard" fallbackLabel="Overview" />
@@ -23,8 +27,18 @@ export default function P2LocationChecksPage() {
         description="Where each PC was when DealGuard checked their location: at their outlet, away from it, or not clear. Checks only inform; nobody is stopped from working."
       />
       {!VIEWERS.has(String(operatingRole)) ? (
-        <div className="p2w-alert p2w-alert--error" role="alert">Location checks are for Team Leads, Project Managers, Executives and SuperAdmin.</div>
-      ) : tenantId ? <LocationChecksLog mode="project" tenantId={tenantId} accessToken={accessToken} /> : null}
+        <div className="p2w-alert p2w-alert--error" role="alert">Location checks are for Executives and SuperAdmin.</div>
+      ) : tenantId ? (
+        <>
+          <div className="p2w-segment" role="tablist" aria-label="Location report">
+            <button type="button" role="tab" aria-selected={view === 'checks'} className={view === 'checks' ? 'is-active' : ''} onClick={() => setView('checks')}>DealGuard checks</button>
+            <button type="button" role="tab" aria-selected={view === 'sign-ins'} className={view === 'sign-ins' ? 'is-active' : ''} onClick={() => setView('sign-ins')}>Sign-in locations</button>
+          </div>
+          {view === 'checks'
+            ? <LocationChecksLog mode="project" tenantId={tenantId} accessToken={accessToken} />
+            : <AccessLocationsSummary mode="project" tenantId={tenantId} accessToken={accessToken} />}
+        </>
+      ) : null}
     </div>
   );
 }

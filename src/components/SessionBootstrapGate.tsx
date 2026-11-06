@@ -60,6 +60,8 @@ export default function SessionBootstrapGate({ children }: PropsWithChildren) {
           resumed.sessionId,
           resumed.deviceId,
         );
+        // A cold start with a remembered session is an opening of the app, not a fresh sign-in.
+        useSessionStore.setState({ accessKind: 'RESUME' });
         if (!rememberedIdentityHint()) {
           useSessionStore.setState({ displayName: 'User' });
         }

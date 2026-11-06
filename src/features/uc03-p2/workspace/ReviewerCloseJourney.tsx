@@ -42,7 +42,7 @@ export default function ReviewerCloseJourney({ tenantId, journeyId, accessToken,
   if (!open) {
     return (
       <button type="button" className="p2w-button p2w-button--secondary" onClick={() => setOpen(true)}
-        title="Close the journey with a reason for every open item. The summary is added to the compliance report.">
+        title="Close the journey with a reason for every open item. The summary is added to the audit report.">
         Close journey
       </button>
     );

@@ -24,6 +24,11 @@ The app's build number is added by the release workflow and is not written here.
 - Journey 360 has an **Uploaded files** tab: every file uploaded to the journey, as it was uploaded (the full PDF or photo), with who uploaded it and when, and a Download button.
 - Team Leads, PMs and Executives can export journeys to Excel from Booking & Delivery: by booking, delivery or upload date, by dealership or outlet, or all. The workbook has the Deal Audit columns (standard, actual and variance per charge and discount, and payments), and is built in the background with a Download button when ready.
 
+### Changed
+
+- The compliance report is now the Audit report. Right after the verdict it shows the journey closing summary: who closed it and when, the closing comment, every open item with the Reviewer's answer, and the Team Lead's decision. Once delivery has started it also shows the full Audit summary, line by line.
+- Booking & Delivery: Actions has "View uploaded files", so the files of a completed journey can still be seen.
+
 ## [1.5.2] - 2026-11-05
 
 ### Changed

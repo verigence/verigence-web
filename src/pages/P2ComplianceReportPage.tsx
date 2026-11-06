@@ -5,6 +5,7 @@ import '../styles/uc03-p2-workspace.css';
 import '../styles/uc03-p2-journey360.css';
 
 import BackLink from '../components/BackLink';
+import AuditSummaryTab from '../features/uc03-p2/journey360/AuditSummaryTab';
 import PageHeader from '../components/PageHeader';
 import { CONTROL_STATUS, FLAG_LABELS, money, signedMoney, varianceTone } from '../features/uc03-p2/journey360/j360Format';
 import { displayValue, formatDateTime, humanizeKey } from '../features/uc03-p2/workspace/p2Format';
@@ -22,8 +23,10 @@ const HEADER_LABELS: Record<string, string> = {
 
 const VERDICT_TONE = { COMPLIANT: 'success', INCOMPLETE: 'progress', NON_COMPLIANT: 'danger' } as const;
 
-/** Compliance report: the legacy report extended with the Phase 2 check
- * ledger, deal variances, duplicate bookings and open work. Print-ready. */
+/** Audit report (product owner 2026-11-06): the verdict, the Reviewer's
+ * closure summary with every answer and the closing comment, the Audit
+ * summary line by line, then the checks, findings and open work.
+ * Print-ready. */
 export default function P2ComplianceReportPage() {
   const { journeyId } = useParams();
   const tenantId = useProjectContextStore((s) => s.selectedProject?.tenantId);
@@ -36,17 +39,28 @@ export default function P2ComplianceReportPage() {
   });
   const r = report.data;
   const h = r?.header ?? {};
+  // The Audit summary is for a file with delivery documents (product owner
+  // 2026-10-30), as on Journey 360; before that the Deal section stands in.
+  const deliveryStarted = r?.deal.summary.deliveryStarted === true;
+  const auditSummary = useQuery({
+    queryKey: ['p2-360', tenantId, journeyId, 'audit-summary'],
+    queryFn: () => getP2Journey360Section(tenantId!, journeyId!, 'audit-summary', accessToken),
+    enabled: Boolean(tenantId && journeyId && accessToken && deliveryStarted),
+    staleTime: 15_000,
+  });
+  const closure = r?.reviewerClosure ?? null;
 
   return (
     <div className={`screen-stack p2-screen p2w j360 j360-report${r && r.review?.status !== 'REVIEWED' ? ' is-draft' : ''}`}>
       <BackLink fallbackTo={`/p2/journeys/${journeyId}/overview`} fallbackLabel="Journey 360" />
       <PageHeader
-        eyebrow="Compliance report"
-        title={h.customerDisplayName ?? 'Compliance report'}
+        eyebrow="Audit report"
+        title={h.customerDisplayName ?? 'Audit report'}
         description={r ? [h.productLabel, h.dealerName, h.outletName, h.journeyReference].filter(Boolean).join(' · ') : 'Preparing the report…'}
         actions={(
           <div className="p2w-header-links">
             <Link className="p2w-link" to={`/p2/journeys/${journeyId}/overview`}>Journey 360</Link>
+            <Link className="p2w-link" to={`/p2/journeys/${journeyId}/overview?tab=files`}>Uploaded files</Link>
             <button type="button" className="p2w-button p2w-button--secondary" onClick={() => window.print()} disabled={!r}>Print / save PDF</button>
           </div>
         )}
@@ -65,7 +79,11 @@ export default function P2ComplianceReportPage() {
               <span className="j360-label">Verdict</span>
               <strong className={`p2w-tone p2w-tone--${VERDICT_TONE[r.verdict.code]}`}>{r.verdict.label}</strong>
               <span className="p2w-muted">As at {formatDateTime(r.generatedAtUtc)} · stage {humanizeKey(r.stage.code)} · checks re-run every night while the delivery is in progress</span>
-              {r.review ? (
+              {closure ? (
+                <span className={`j360-review-status p2w-tone p2w-tone--${closure.acceptanceStatus === 'REJECTED' ? 'danger' : 'success'}`}>
+                  Closed by the Reviewer on {formatDateTime(closure.closedAtUtc)} · {ACCEPTANCE_LABEL[closure.acceptanceStatus]}
+                </span>
+              ) : r.review ? (
                 <span className={`j360-review-status p2w-tone p2w-tone--${r.review.status === 'REVIEWED' ? 'success' : 'progress'}`}>
                   {r.review.status === 'REVIEWED' && r.review.reviewedAtUtc
                     ? `${r.review.label} on ${formatDateTime(r.review.reviewedAtUtc)}`
@@ -83,6 +101,49 @@ export default function P2ComplianceReportPage() {
             </dl>
           </section>
 
+          {closure ? (
+            <section className="j360-card j360-closure" aria-label="Journey closing summary">
+              <h3 className="j360-h3">Journey closing summary</h3>
+              <dl className="j360-facts">
+                <div><dt>Closed by</dt><dd>{closure.closedRole === 'REVIEWER' ? 'Reviewer' : humanizeKey(closure.closedRole)}</dd></div>
+                <div><dt>Closed on</dt><dd>{formatDateTime(closure.closedAtUtc)}</dd></div>
+                <div><dt>Items answered</dt><dd>{closure.itemCount}</dd></div>
+                <div><dt>Team Lead</dt><dd>{ACCEPTANCE_LABEL[closure.acceptanceStatus]}
+                  {closure.decidedAtUtc ? ` · ${formatDateTime(closure.decidedAtUtc)}` : ''}
+                  {closure.acceptanceStatus === 'PENDING' && closure.acceptanceDueUtc
+                    ? ` · auto-approves ${formatDateTime(closure.acceptanceDueUtc)}` : ''}</dd></div>
+              </dl>
+              <blockquote className="j360-closure__comment">
+                <span className="j360-label">Closing comment</span>
+                <p>{closure.comment}</p>
+              </blockquote>
+              {closure.items.length ? (
+                <div className="j360-table-wrap">
+                  <table className="j360-table j360-closure__items">
+                    <caption className="visually-hidden">Open items at closure and the answer for each</caption>
+                    <thead><tr><th scope="col">Open item at closure</th><th scope="col">Kind</th><th scope="col">Stage</th><th scope="col">Reviewer's answer</th></tr></thead>
+                    <tbody>
+                      {closure.items.map((item) => {
+                        const rejection = closure.rejections.find((x) => x.key === item.key);
+                        return (
+                          <tr key={item.key} className={rejection ? 'is-flagged' : ''}>
+                            <th scope="row">{item.label}</th>
+                            <td data-label="Kind">{CLOSURE_KIND_LABEL[item.kind]}</td>
+                            <td data-label="Stage">{item.stage ? humanizeKey(item.stage) : '—'}</td>
+                            <td data-label="Answer">{item.answer}
+                              {item.answerSource === 'ACCEPTED_CLAIM' ? <small className="p2w-muted" style={{ display: 'block' }}>From the accepted not-mandatory claim</small> : null}
+                              {rejection ? <small className="p2w-tone p2w-tone--danger" style={{ display: 'block' }}>Rejected by the Team Lead: {rejection.reason}</small> : null}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              ) : <p className="p2w-muted">Nothing was open at closure.</p>}
+            </section>
+          ) : null}
+
           <section className="j360-card" aria-label="Journey">
             <h3 className="j360-h3">Journey</h3>
             <dl className="j360-facts">
@@ -92,38 +153,51 @@ export default function P2ComplianceReportPage() {
             </dl>
           </section>
 
-          <section className="j360-card" aria-label="Deal">
-            <h3 className="j360-h3">Deal</h3>
-            <dl className="j360-paid">
-              <div><dt>Standard net</dt><dd>{money(r.deal.summary.net.standard)}</dd></div>
-              <div><dt>Booking offer net</dt><dd>{money(r.deal.summary.net.booking)}</dd></div>
-              <div><dt>Current deal net</dt><dd>{money(r.deal.summary.net.current)}</dd></div>
-              <div><dt>Received</dt><dd>{money(r.deal.summary.paid.total)}</dd></div>
-              <div><dt>Balance due</dt><dd>{money(r.deal.summary.balanceDue)}</dd></div>
-              <div className={`j360-variance ${varianceTone(r.deal.summary.variance.currentVsStandard)}`}><dt>Variance vs standard</dt><dd>{signedMoney(r.deal.summary.variance.currentVsStandard)}</dd></div>
-            </dl>
-            {r.deal.flaggedLines.length ? (
-              <div className="j360-table-wrap">
-                <table className="j360-table">
-                  <caption>Lines that differ</caption>
-                  <thead><tr><th scope="col">Line</th><th scope="col" className="is-num">Standard</th><th scope="col" className="is-num">Booking</th>
-                    <th scope="col" className="is-num">Billed</th><th scope="col" className="is-num">Variance</th><th scope="col">Why</th></tr></thead>
-                  <tbody>
-                    {r.deal.flaggedLines.map((line) => (
-                      <tr key={`${line.category}-${line.label}`}>
-                        <th scope="row">{line.label}<small className="p2w-muted">{line.category}</small></th>
-                        <td className="is-num" data-label="Standard">{money(line.standard)}</td>
-                        <td className="is-num" data-label="Booking">{money(line.booking)}</td>
-                        <td className="is-num" data-label="Billed">{money(line.billed)}</td>
-                        <td className="is-num" data-label="Variance">{signedMoney(line.variance)}</td>
-                        <td data-label="Why">{line.flags.map((flag) => FLAG_LABELS[flag] ?? humanizeKey(flag)).join(', ')}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            ) : <p className="p2w-muted">Every deal line agrees across the documents and the masters.</p>}
-          </section>
+          {deliveryStarted ? (
+            <div className="j360-report-audit" aria-label="Audit summary">
+              {auditSummary.data ? (
+                <AuditSummaryTab data={auditSummary.data} regenerating={auditSummary.isFetching}
+                  onRegenerate={() => void auditSummary.refetch()} />
+              ) : auditSummary.isError ? (
+                <div className="p2w-alert p2w-alert--error" role="alert">
+                  The Audit summary could not be prepared. <button type="button" className="p2w-link" onClick={() => void auditSummary.refetch()}>Try again</button>
+                </div>
+              ) : <div className="p2w-skeleton" aria-busy="true">Preparing the Audit summary…</div>}
+            </div>
+          ) : (
+            <section className="j360-card" aria-label="Deal">
+              <h3 className="j360-h3">Deal</h3>
+              <dl className="j360-paid">
+                <div><dt>Standard net</dt><dd>{money(r.deal.summary.net.standard)}</dd></div>
+                <div><dt>Booking offer net</dt><dd>{money(r.deal.summary.net.booking)}</dd></div>
+                <div><dt>Current deal net</dt><dd>{money(r.deal.summary.net.current)}</dd></div>
+                <div><dt>Received</dt><dd>{money(r.deal.summary.paid.total)}</dd></div>
+                <div><dt>Balance due</dt><dd>{money(r.deal.summary.balanceDue)}</dd></div>
+                <div className={`j360-variance ${varianceTone(r.deal.summary.variance.currentVsStandard)}`}><dt>Variance vs standard</dt><dd>{signedMoney(r.deal.summary.variance.currentVsStandard)}</dd></div>
+              </dl>
+              {r.deal.flaggedLines.length ? (
+                <div className="j360-table-wrap">
+                  <table className="j360-table">
+                    <caption>Lines that differ</caption>
+                    <thead><tr><th scope="col">Line</th><th scope="col" className="is-num">Standard</th><th scope="col" className="is-num">Booking</th>
+                      <th scope="col" className="is-num">Billed</th><th scope="col" className="is-num">Variance</th><th scope="col">Why</th></tr></thead>
+                    <tbody>
+                      {r.deal.flaggedLines.map((line) => (
+                        <tr key={`${line.category}-${line.label}`}>
+                          <th scope="row">{line.label}<small className="p2w-muted">{line.category}</small></th>
+                          <td className="is-num" data-label="Standard">{money(line.standard)}</td>
+                          <td className="is-num" data-label="Booking">{money(line.booking)}</td>
+                          <td className="is-num" data-label="Billed">{money(line.billed)}</td>
+                          <td className="is-num" data-label="Variance">{signedMoney(line.variance)}</td>
+                          <td data-label="Why">{line.flags.map((flag) => FLAG_LABELS[flag] ?? humanizeKey(flag)).join(', ')}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : <p className="p2w-muted">Every deal line agrees across the documents and the masters.</p>}
+            </section>
+          )}
 
           {r.duplicates.length ? (
             <section className="j360-card" aria-label="Duplicate bookings">
@@ -215,38 +289,6 @@ export default function P2ComplianceReportPage() {
                   </li>
                 ))}
               </ul>
-            </section>
-          ) : null}
-
-          {r.reviewerClosure ? (
-            <section className="j360-card" aria-label="Reviewer closure summary">
-              <h3 className="j360-h3">Reviewer closure summary</h3>
-              <p>
-                Closed by the {r.reviewerClosure.closedRole === 'REVIEWER' ? 'Reviewer' : r.reviewerClosure.closedRole}
-                {' '}on {formatDateTime(r.reviewerClosure.closedAtUtc)}: “{r.reviewerClosure.comment}”
-              </p>
-              <p className="p2w-muted">
-                {ACCEPTANCE_LABEL[r.reviewerClosure.acceptanceStatus]}
-                {r.reviewerClosure.decidedAtUtc ? ` · ${formatDateTime(r.reviewerClosure.decidedAtUtc)}` : ''}
-                {r.reviewerClosure.acceptanceStatus === 'PENDING' && r.reviewerClosure.acceptanceDueUtc
-                  ? ` · auto-approves ${formatDateTime(r.reviewerClosure.acceptanceDueUtc)}` : ''}
-              </p>
-              {r.reviewerClosure.items.length ? (
-                <ul className="j360-controls">
-                  {r.reviewerClosure.items.map((item) => (
-                    <li key={item.key}>
-                      <span className={`p2w-chip p2w-chip--${item.kind === 'OPEN_FINDING' ? 'danger' : 'warning'}`}>
-                        {CLOSURE_KIND_LABEL[item.kind]}
-                      </span>
-                      <span className="j360-controls__body"><strong>{item.label}</strong>
-                        <span>{item.answer}</span>
-                        {item.answerSource === 'ACCEPTED_CLAIM' ? <span className="p2w-muted">From the accepted not-mandatory claim</span> : null}
-                        {r.reviewerClosure?.rejections.find((x) => x.key === item.key) ? <span className="p2w-tone p2w-tone--danger">Rejected by the Team Lead: {r.reviewerClosure.rejections.find((x) => x.key === item.key)?.reason}</span> : null}</span>
-                      <span className="p2w-muted j360-controls__meta">{item.stage ? humanizeKey(item.stage) : ''}</span>
-                    </li>
-                  ))}
-                </ul>
-              ) : <p className="p2w-muted">Nothing was open at closure.</p>}
             </section>
           ) : null}
 

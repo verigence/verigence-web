@@ -1,7 +1,9 @@
 import { supportReference } from '../../observability/correlation';
 import { AuditCoreHttpError } from './client';
+import { NIGHT_MODE_MESSAGE, isNightModeError } from '../nightMode';
 
 export function auditCoreErrorMessage(error: unknown): string {
+  if (isNightModeError(error)) return NIGHT_MODE_MESSAGE;
   if (error instanceof AuditCoreHttpError) {
     const problem = error.problem;
     const message = problem?.detail || problem?.title || error.message;

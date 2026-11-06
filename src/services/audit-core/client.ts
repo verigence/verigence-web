@@ -1,4 +1,5 @@
 import { ensureCorrelationHeader, responseCorrelationId } from '../../observability/correlation';
+import { NIGHT_MODE_MESSAGE, isNightModeProblem } from '../nightMode';
 
 const configuredBaseUrl = import.meta.env.VITE_AUDIT_CORE_BASE_URL?.trim();
 const configuredProxyBaseUrl = import.meta.env.VITE_AUDIT_CORE_PROXY_BASE_URL?.trim();
@@ -34,7 +35,8 @@ export class AuditCoreHttpError extends Error {
     const resolvedCorrelationId = problem?.correlationId || correlationId;
     const errorCode = problem?.errorCode?.trim() || `WEB-AC-HTTP-${status}`;
     const detail = problem?.detail || problem?.title || `Audit Core request failed with HTTP ${status}.`;
-    super(supportMessage(detail, errorCode, resolvedCorrelationId));
+    // Night control: the person reads "Night Mode On" and nothing else (no code, no reference).
+    super(isNightModeProblem(problem) ? NIGHT_MODE_MESSAGE : supportMessage(detail, errorCode, resolvedCorrelationId));
     this.name = 'AuditCoreHttpError';
     this.status = status;
     this.problem = problem;

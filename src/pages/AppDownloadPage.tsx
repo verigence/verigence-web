@@ -111,6 +111,8 @@ export default function AppDownloadPage() {
       const anchor = document.createElement('a');
       anchor.href = objectUrl;
       anchor.download = response.headers.get('X-Verigence-Filename') || 'Verigence.apk';
+      // The app itself is never closed at night (night control, 2026-11-06).
+      anchor.setAttribute('data-night-allow', '');
       document.body.appendChild(anchor);
       anchor.click();
       anchor.remove();

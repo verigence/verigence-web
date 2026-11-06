@@ -21,11 +21,14 @@ The app's build number is added by the release workflow and is not written here.
 
 ### Added
 
+- Night control: from 20:00 to 08:30 (India time) Journey 360 is closed and no Verigence file can be downloaded, unless SuperAdmin has given you access. Journey 360 shows "Night Mode On" instead of the page, and a download shows a small "Night Mode On" note. SuperAdmin and Executive are never blocked. The Android app can always be downloaded from the app download page.
+- Night Control (SuperAdmin, under Administration): switch night control on or off for each feature (Journey 360, file downloads) and set its start and end times; see who has access at night; give a person access to one feature or all of them with a note; remove access with a note. Access stays until it is removed.
 - Journey 360 has an **Uploaded files** tab: every file uploaded to the journey, as it was uploaded (the full PDF or photo), with who uploaded it and when, and a Download button.
 - Team Leads, PMs and Executives can export journeys to Excel from Booking & Delivery: by booking, delivery or upload date, by dealership or outlet, or all. The workbook has the Deal Audit columns (standard, actual and variance per charge and discount, and payments), and is built in the background with a Download button when ready.
 
 ### Changed
 
+- When a request is refused because of night control, the screen says "Night Mode On" instead of an error code or "You do not have access".
 - Excess discount has three tabs: Over entitlement, Kit given as cash (an accessories kit the scheme gives in kind, passed on as a cash discount) and Entitlement unknown (a discount with no master to compare with, and why). Each tab has the same filters, totals, breakdowns and Journey 360 link.
 - Excess discount is redesigned. You can filter by booking or delivery date (with This month, Last month and Last 30 days), dealership, outlet, discount type, PC and the document the figure came from, and search. Active filters show as tags you can remove one by one. The totals and the breakdowns by discount type, dealership and outlet follow the filters. The table sorts by any column, pages, exports to CSV, and every row opens its Journey 360.
 - The compliance report is now the Audit report. Right after the verdict it shows the journey closing summary: who closed it and when, the closing comment, every open item with the Reviewer's answer, and the Team Lead's decision. Once delivery has started it also shows the full Audit summary, line by line.

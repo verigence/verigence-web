@@ -58,7 +58,7 @@ function DownloadLink({ tenantId, item, accessToken }: { tenantId: string; item:
   };
   return (
     <>
-      <button type="button" className="p2w-button p2w-button--secondary" disabled={state === 'busy'} onClick={() => void download()}>
+      <button type="button" className="p2w-button p2w-button--secondary" data-file-download disabled={state === 'busy'} onClick={() => void download()}>
         {state === 'busy' ? 'Opening…' : 'Download Excel'}
       </button>
       {state === 'failed' ? <span className="p2w-muted">could not be opened, try again</span> : null}

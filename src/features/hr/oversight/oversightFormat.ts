@@ -1,4 +1,5 @@
 import { HrHttpError, hrErrorMessage } from '../../../services/hr/client';
+import { NIGHT_MODE_MESSAGE, isNightModeError } from '../../../services/nightMode';
 import type { OversightItemType, PendingItem } from '../../../services/hr/oversight';
 import { attendanceKindLabels, label, leaveTypeLabels } from '../approvals/approvalFormat';
 
@@ -41,9 +42,10 @@ export function formatAgeHours(hours: number | null | undefined): string {
 
 /** The server allows only an Executive, HR or the CEO; anyone else gets 403. */
 export function oversightErrorMessage(error: unknown): string {
+  if (isNightModeError(error)) return NIGHT_MODE_MESSAGE;
   if (error instanceof HrHttpError && error.status === 403) return 'Only an Executive, HR or the CEO can see this.';
   if (error instanceof HrHttpError && error.status === 404) return 'This person was not found. The list may have changed; refresh it.';
   return hrErrorMessage(error);
 }
 
-export const isForbidden = (error: unknown): boolean => error instanceof HrHttpError && error.status === 403;
+export const isForbidden = (error: unknown): boolean => error instanceof HrHttpError && error.status === 403 && !isNightModeError(error);

@@ -1,4 +1,5 @@
 import { ensureCorrelationHeader, responseCorrelationId } from '../../observability/correlation';
+import { NIGHT_MODE_CODE, NIGHT_MODE_MESSAGE, isNightModeError } from '../nightMode';
 
 /**
  * HR (HRMgmt) requests go through the Web worker's same-origin /hr-api route in the browser.
@@ -29,7 +30,7 @@ export class HrHttpError extends Error {
 
   constructor(status: number, problem?: HrProblem, correlationId?: string) {
     const code = problem?.code?.trim() || `WEB-HR-HTTP-${status}`;
-    super(problem?.detail?.trim() || `HR request failed with HTTP ${status}.`);
+    super(code === NIGHT_MODE_CODE ? NIGHT_MODE_MESSAGE : problem?.detail?.trim() || `HR request failed with HTTP ${status}.`);
     this.name = 'HrHttpError';
     this.status = status;
     this.code = code;
@@ -130,6 +131,8 @@ export async function hrRequest<T>(path: string, options: HrRequestOptions = {})
 
 /** A message safe to show a person: what to do, with the support reference when there is one. */
 export function hrErrorMessage(error: unknown): string {
+  // Night control refuses with 403 NIGHT_MODE: say "Night Mode On", not "You do not have access".
+  if (isNightModeError(error)) return NIGHT_MODE_MESSAGE;
   if (error instanceof HrHttpError) {
     if (error.status === 401) return 'Your session has ended. Please sign in again.';
     if (error.status === 403) return 'You do not have access to this.';

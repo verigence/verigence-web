@@ -42,7 +42,7 @@ function DownloadButton({ file, tenantId, journeyId, accessToken }: {
   };
   return (
     <>
-      <button type="button" className="p2w-link" disabled={state === 'busy'} onClick={() => void download()}>
+      <button type="button" className="p2w-link" data-file-download disabled={state === 'busy'} onClick={() => void download()}>
         {state === 'busy' ? 'Opening…' : 'Download'}
       </button>
       {state === 'failed' ? <span className="p2w-muted"> could not be opened, try again</span> : null}

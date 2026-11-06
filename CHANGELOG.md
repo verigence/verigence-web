@@ -23,6 +23,8 @@ The app's build number is added by the release workflow and is not written here.
 
 ### Added
 
+- Night control: from 20:00 to 08:30 (India time) Journey 360 is closed and no Verigence file can be downloaded, unless SuperAdmin has given you access. Journey 360 shows "Night Mode On" instead of the page, and a download shows a small "Night Mode On" note. SuperAdmin and Executive are never blocked. The Android app can always be downloaded from the app download page.
+- Night Control (SuperAdmin, under Administration): switch night control on or off for each feature (Journey 360, file downloads) and set its start and end times; see who has access at night; give a person access to one feature or all of them with a note; remove access with a note. Access stays until it is removed.
 - My HR > Attendance has **My calendar**: each day's status (present, absent, leave applied or approved, waiting, half day, day off) with the hours you clocked, the total for every week and for the month.
 - You can ask for a past day to count as a full day or a half day (**Request attendance correction**); your Team Lead or Project Manager approves it under Approvals > Corrections.
 - **Attendance Overview** for Team Leads, Project Managers, Executives and HR: everyone on your projects, day by day or week by week, with hours per day and the week's total. People who work on more than one project are tagged Shared.
@@ -33,6 +35,7 @@ The app's build number is added by the release workflow and is not written here.
 
 ### Changed
 
+- When a request is refused because of night control, the screen says "Night Mode On" instead of an error code or "You do not have access".
 - No check-in by 5:00 pm on a working day: the day is marked Absent by the system and check-in is closed for that day (raise a correction if you were at work).
 - A day with less than 5 hours between check-in and check-out needs a reason and goes to your Team Lead; your Project Manager is informed.
 

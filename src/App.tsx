@@ -15,6 +15,8 @@ import ProjectAdminOutletLocationEnhancer from './features/project-admin/Project
 import ProjectMasterActionOverlay from './features/project-admin/ProjectMasterActionOverlay';
 import ReviewReadinessWatcher from './features/uc03/ReviewReadinessWatcher';
 import DealGuardPresence from './features/dealguard-presence/DealGuardPresence';
+import NightControlBridge from './features/night-control/NightControlBridge';
+import NightModeGate from './features/night-control/NightModeGate';
 import AppShell from './layout/AppShell';
 import AndroidNativeBridge from './native/AndroidNativeBridge';
 import { UC03_PRIMARY_WORK_QUEUE_SETTLED_EVENT } from './services/audit-core/uc03';
@@ -57,6 +59,7 @@ const AdminFeatureRolloutPage = lazy(() => import('./pages/AdminFeatureRolloutPa
 const AdminAnnouncementsPage = lazy(() => import('./pages/AdminAnnouncementsPage'));
 const AdminDeviceDiagnosticsPage = lazy(() => import('./pages/AdminDeviceDiagnosticsPage'));
 const AdminLoginActivityPage = lazy(() => import('./pages/AdminLoginActivityPage'));
+const AdminNightControlPage = lazy(() => import('./pages/AdminNightControlPage'));
 const HrHousekeepingPage = lazy(() => import('./pages/HrHousekeepingPage'));
 const HrMySalaryPage = lazy(() => import('./pages/hr/HrMySalaryPage'));
 const HrPayrollPage = lazy(() => import('./pages/hr/HrPayrollPage'));
@@ -333,6 +336,8 @@ export default function App() {
           <SessionRenewalGate />
           <PcJourneyRoutePreloader />
           <AndroidNativeBridge />
+          {/* Night control (product owner 2026-11-06): the one download guard and its "Night Mode On" notice. */}
+          <NightControlBridge />
           <ProjectAdminOutletLocationEnhancer />
           <ProjectMasterActionOverlay />
           <AppUpdateGate>
@@ -358,8 +363,8 @@ export default function App() {
                   all open the Booking & Delivery screens -- see P2DocumentsRedirect. */}
               <Route path="/journeys/:journeyId/overview" element={<P2OverviewRedirect />} />
               <Route path="/journeys/:journeyId/documents" element={<P2DocumentsRedirect />} />
-              <Route path="/journeys/:journeyId/compliance-report" element={<LegacyScreen to={(id) => `/p2/journeys/${id}/compliance-report`}><ComplianceReportPage /></LegacyScreen>} />
-              <Route path="/tl/cases/:journeyId/review" element={<LegacyScreen to={(id) => `/p2/journeys/${id}/documents`}><TeamLeadReviewPage /></LegacyScreen>} />
+              <Route path="/journeys/:journeyId/compliance-report" element={<LegacyScreen to={(id) => `/p2/journeys/${id}/compliance-report`}><NightModeGate><ComplianceReportPage /></NightModeGate></LegacyScreen>} />
+              <Route path="/tl/cases/:journeyId/review" element={<LegacyScreen to={(id) => `/p2/journeys/${id}/documents`}><NightModeGate><TeamLeadReviewPage /></NightModeGate></LegacyScreen>} />
               <Route path="/bookings/:journeyId" element={<P2DocumentsRedirect />} />
               <Route path="/bookings/:journeyId/review" element={<P2DocumentsRedirect />} />
               <Route path="/v2/bookings/new" element={<Navigate to={P2_NEW_BOOKING_PATH} replace />} />
@@ -369,7 +374,7 @@ export default function App() {
               <Route path="/deliveries/:journeyId" element={<P2DocumentsRedirect />} />
               <Route path="/v2/deliveries/:journeyId" element={<P2DocumentsRedirect />} />
               <Route path="/v2/deliveries/:journeyId/review" element={<P2DocumentsRedirect />} />
-              <Route path="/audit/:journeyId" element={<LegacyScreen to={(id) => `/p2/journeys/${id}/overview`}><AuditReviewPage /></LegacyScreen>} />
+              <Route path="/audit/:journeyId" element={<LegacyScreen to={(id) => `/p2/journeys/${id}/overview`}><NightModeGate><AuditReviewPage /></NightModeGate></LegacyScreen>} />
               <Route path="/feedback" element={<Navigate to="/hr/support" replace />} />
               <Route path="/reviews" element={<LegacyScreen to={() => '/p2/tasks'}><ReviewQueuePage /></LegacyScreen>} />
               <Route path="/duplicate-bookings" element={<LegacyScreen to={() => '/p2/duplicate-bookings'}><DuplicateBookingsPage /></LegacyScreen>} />
@@ -401,11 +406,11 @@ export default function App() {
               <Route path="/p2/reports/utilisation" element={<OperationalPage><P2UtilisationPage /></OperationalPage>} />
               <Route path="/p2/reports/di" element={<OperationalPage><P2DiDashboardPage /></OperationalPage>} />
               <Route path="/p2/reports/location-checks" element={<OperationalPage><P2LocationChecksPage /></OperationalPage>} />
-              <Route path="/p2/journeys/:journeyId/compliance-report" element={<OperationalPage><P2ComplianceReportPage /></OperationalPage>} />
-              <Route path="/p2/journeys/:journeyId/overview" element={<OperationalPage><P2JourneyOverviewPage /></OperationalPage>} />
-              <Route path="/p2/journeys/:journeyId/documents" element={<OperationalPage><P2JourneyWorkspacePage /></OperationalPage>} />
-              <Route path="/p2/journeys/:journeyId/documents/:documentId" element={<OperationalPage><P2JourneyWorkspacePage /></OperationalPage>} />
-              <Route path="/p2/journeys/:journeyId/tasks" element={<OperationalPage><P2TasksPage /></OperationalPage>} />
+              <Route path="/p2/journeys/:journeyId/compliance-report" element={<OperationalPage><NightModeGate><P2ComplianceReportPage /></NightModeGate></OperationalPage>} />
+              <Route path="/p2/journeys/:journeyId/overview" element={<OperationalPage><NightModeGate><P2JourneyOverviewPage /></NightModeGate></OperationalPage>} />
+              <Route path="/p2/journeys/:journeyId/documents" element={<OperationalPage><NightModeGate><P2JourneyWorkspacePage /></NightModeGate></OperationalPage>} />
+              <Route path="/p2/journeys/:journeyId/documents/:documentId" element={<OperationalPage><NightModeGate><P2JourneyWorkspacePage /></NightModeGate></OperationalPage>} />
+              <Route path="/p2/journeys/:journeyId/tasks" element={<OperationalPage><NightModeGate><P2TasksPage /></NightModeGate></OperationalPage>} />
               <Route path="/admin/document-intelligence" element={<SuperAdminPage><DocumentIntelligenceConfigurationPage /></SuperAdminPage>} />
               <Route path="/admin/housekeeping" element={<SuperAdminPage><AdminHousekeepingPage /></SuperAdminPage>} />
               <Route path="/admin/sku-resolution" element={<SuperAdminPage><AdminSkuResolutionPage /></SuperAdminPage>} />
@@ -421,6 +426,7 @@ export default function App() {
               <Route path="/admin/announcements" element={<SuperAdminPage><AdminAnnouncementsPage /></SuperAdminPage>} />
               <Route path="/admin/diagnostics" element={<SuperAdminPage><AdminDeviceDiagnosticsPage /></SuperAdminPage>} />
               <Route path="/admin/login-activity" element={<SuperAdminPage><AdminLoginActivityPage /></SuperAdminPage>} />
+              <Route path="/admin/night-control" element={<SuperAdminPage><AdminNightControlPage /></SuperAdminPage>} />
               <Route path="/admin/hr-housekeeping" element={<SuperAdminPage><HrHousekeepingPage /></SuperAdminPage>} />
               <Route path="/admin/users/pending" element={<SuperAdminPage><ApprovalQueuePage /></SuperAdminPage>} />
               <Route path="/admin/oem-masters" element={<SuperAdminPage><OemMastersPage /></SuperAdminPage>} />

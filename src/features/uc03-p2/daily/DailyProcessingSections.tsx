@@ -54,7 +54,7 @@ export function OpenFile({ file, tenantId, accessToken }: FileLinkProps) {
   };
   return (
     <>
-      <button type="button" className="p2dr-link" onClick={open}>Open file</button>
+      <button type="button" className="p2dr-link" data-file-download onClick={open}>Open file</button>
       {failed ? <span className="p2dr-bad p2dr-sub"> could not be opened</span> : null}
     </>
   );

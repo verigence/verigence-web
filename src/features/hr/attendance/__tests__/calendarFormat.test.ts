@@ -101,3 +101,11 @@ describe('the holidays of a day for HR and leads', () => {
     expect(dayHolidaysText(undefined, 'WORKING')).toBe('');
   });
 });
+
+describe('working Sundays in the day views', () => {
+  it('names a working Sunday as such', () => {
+    expect(dayHolidaysText([{ name: 'Stock audit', dayPart: 'FULL_DAY', appliesTo: 'SELECTED', kind: 'WORKING_DAY', scope: ['Alpha'] }], 'WORKING')).toBe(
+      'Stock audit (working Sunday, Alpha)',
+    );
+  });
+});

@@ -133,6 +133,12 @@ export default function HrTeamAttendancePage() {
                     .join(' · ')}
                 </small>
               )}
+              {(team.data.summary.workingSundays ?? []).length > 0 && (
+                <small>
+                  Working Sundays:{' '}
+                  {(team.data.summary.workingSundays ?? []).map((h) => `${formatWorkDate(h.date)} ${h.name} (${h.appliesTo.join(', ')})`).join(' · ')}
+                </small>
+              )}
               {(team.data.summary.otherHolidays ?? []).length > 0 && (
                 <small>
                   Also, for some projects or outlets only:{' '}

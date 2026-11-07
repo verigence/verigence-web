@@ -1,4 +1,5 @@
 import { hrRawRequest, hrRequest } from './client';
+import type { RecentLeave } from './leave';
 
 /**
  * Approvals inbox (HRMgmt /hr/v1/approvals/...). The server decides which items a person may
@@ -123,6 +124,8 @@ export interface LeaveApproval {
   balanceAvailable?: number;
   /** Pending requests only. Empty when no outlet is left without a PC. */
   coverWarnings?: LeaveCoverWarning[];
+  /** Pending requests only: leave taken in the 6 weeks before the from date (7 Nov 2026). */
+  recentLeave?: RecentLeave;
 }
 
 export const listLeaveApprovals = async (accessToken: string): Promise<LeaveApproval[]> =>

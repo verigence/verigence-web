@@ -70,6 +70,8 @@ export interface DayHolidayInfo {
   name: string;
   dayPart: 'FULL_DAY' | 'MORNING' | 'AFTERNOON';
   appliesTo: 'ALL' | 'SELECTED';
+  /** WORKING_DAY: a Sunday made a working day. Absent from older services. */
+  kind?: 'HOLIDAY' | 'WORKING_DAY';
   scope: string[];
 }
 

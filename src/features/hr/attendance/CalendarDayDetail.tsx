@@ -28,6 +28,7 @@ export default function CalendarDayDetail({ day, absentAfter, onRequestCorrectio
           </dd>
         </div>
       </dl>
+      {day.workingSunday && <p className="hr-cal-detail__note">Working Sunday: {day.workingSunday.name}. A normal working day.</p>}
       {day.halfDayHoliday && <p className="hr-cal-detail__note">{halfDayHolidayText(day.halfDayHoliday)}.</p>}
       {day.markedBySystem && (
         <p className="hr-cal-detail__note">No check-in by {absentAfterFor(day, absentAfter)}, so the system marked this day absent.</p>

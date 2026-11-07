@@ -50,6 +50,8 @@ export interface CalendarDay {
   holiday: string | null;
   /** A half-day holiday of this person on a working day. Absent from services before 7 Nov 2026. */
   halfDayHoliday?: HalfDayHoliday | null;
+  /** A Sunday made a working day for this person. Absent from older services. */
+  workingSunday?: { name: string } | null;
   checkInAt: string | null;
   checkOutAt: string | null;
   /** Check-out minus check-in, for a day with both. */

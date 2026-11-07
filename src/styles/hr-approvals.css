@@ -124,3 +124,4 @@
   .hr-ovs-table .uc01-admin-row-actions .uc01-admin-button { width: 100%; }
 }
 .hr-appr-grace--over { color: #b54708; font-weight: 600; }
+.hr-appr-table td > small.hr-appr-recent { color: #393939; overflow-wrap: anywhere; }

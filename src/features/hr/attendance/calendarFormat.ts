@@ -158,6 +158,6 @@ const PART_WORDS: Record<DayHolidayInfo['dayPart'], string> = {
 export function dayHolidaysText(holidays: DayHolidayInfo[] | undefined, dayKind: string): string {
   const shown = (holidays ?? []).filter((h) => !(dayKind === 'HOLIDAY' && h.appliesTo === 'ALL' && h.dayPart === 'FULL_DAY'));
   return shown
-    .map((h) => `${h.name} (${PART_WORDS[h.dayPart]}, ${h.appliesTo === 'ALL' ? 'whole company' : h.scope.join(', ') || 'selected projects'})`)
+    .map((h) => `${h.name} (${h.kind === 'WORKING_DAY' ? 'working Sunday' : PART_WORDS[h.dayPart]}, ${h.appliesTo === 'ALL' ? 'whole company' : h.scope.join(', ') || 'selected projects'})`)
     .join(' · ');
 }

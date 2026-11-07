@@ -3,6 +3,7 @@ import type {
   HolidayAppliesTo,
   HolidayDayPart,
   HolidayInput,
+  HolidayKind,
   HolidayScope,
   HolidayScopeProject,
   HolidayStatus,
@@ -153,6 +154,8 @@ export type HolidayLength = 'FULL' | 'HALF';
 export type HolidayHalf = 'MORNING' | 'AFTERNOON';
 
 export interface HolidayDraft {
+  /** HOLIDAY, or WORKING_DAY: a Sunday made a working day (7 Nov 2026). */
+  kind: HolidayKind;
   date: string;
   name: string;
   status: HolidayStatus;
@@ -166,7 +169,7 @@ export interface HolidayDraft {
 export type HolidayErrors = Partial<Record<'date' | 'name' | 'scope', string>>;
 
 export function emptyHolidayDraft(year: number): HolidayDraft {
-  return { date: `${year}-01-01`, name: '', status: 'TENTATIVE', length: 'FULL', half: 'AFTERNOON', appliesTo: 'ALL', scope: [] };
+  return { kind: 'HOLIDAY', date: `${year}-01-01`, name: '', status: 'TENTATIVE', length: 'FULL', half: 'AFTERNOON', appliesTo: 'ALL', scope: [] };
 }
 
 /** One key per choice: a whole project (no outlet) or one outlet of it. */
@@ -179,13 +182,32 @@ function parseScopeKey(key: string): { tenantId: string; outletId: string | null
   return { tenantId: key.slice(0, at), outletId: key.slice(at + 1) || null };
 }
 
-export function draftDayPart(draft: Pick<HolidayDraft, 'length' | 'half'>): HolidayDayPart {
-  return draft.length === 'FULL' ? 'FULL_DAY' : draft.half;
+export function draftDayPart(draft: Pick<HolidayDraft, 'length' | 'half'> & { kind?: HolidayKind }): HolidayDayPart {
+  return draft.kind === 'WORKING_DAY' || draft.length === 'FULL' ? 'FULL_DAY' : draft.half;
+}
+
+/** The draft as a working Sunday: a whole day, declared, for chosen projects unless set otherwise. */
+export function asWorkingSunday(draft: HolidayDraft): HolidayDraft {
+  return {
+    ...draft,
+    kind: 'WORKING_DAY',
+    length: 'FULL',
+    status: 'DECLARED',
+    name: draft.name || 'Working Sunday',
+    appliesTo: draft.kind === 'WORKING_DAY' ? draft.appliesTo : 'SELECTED',
+  };
+}
+
+export function isSundayIso(iso: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(iso)) return false;
+  const [y, m, d] = iso.split('-').map(Number);
+  return new Date(Date.UTC(y, m - 1, d)).getUTCDay() === 0;
 }
 
 export function draftFromHoliday(h: Holiday): HolidayDraft {
   const dayPart = h.dayPart ?? 'FULL_DAY';
   return {
+    kind: h.kind ?? 'HOLIDAY',
     date: h.date,
     name: h.name,
     status: h.status,
@@ -203,6 +225,7 @@ export function draftToInput(draft: HolidayDraft): HolidayInput {
     status: draft.status,
     dayPart: draftDayPart(draft),
     appliesTo: draft.appliesTo,
+    kind: draft.kind,
     scope: draft.appliesTo === 'ALL' ? [] : draft.scope.map(parseScopeKey),
   };
 }
@@ -245,8 +268,9 @@ export function describeAppliesTo(h: Pick<Holiday, 'appliesTo' | 'scope'>): stri
 }
 
 /** "Half day, afternoon off, for the whole company, declared." */
-export function holidaySummary(h: Pick<Holiday, 'dayPart' | 'appliesTo' | 'scope' | 'status'>): string {
+export function holidaySummary(h: Pick<Holiday, 'dayPart' | 'appliesTo' | 'scope' | 'status' | 'kind'>): string {
   const who = (h.appliesTo ?? 'ALL') === 'ALL' ? 'the whole company' : describeAppliesTo(h);
+  if (h.kind === 'WORKING_DAY') return `Working Sunday, for ${who}.`;
   return `${HOLIDAY_DAY_PART_LABEL[h.dayPart ?? 'FULL_DAY']}, for ${who}, ${HOLIDAY_STATUS_LABEL[h.status].toLowerCase()}.`;
 }
 
@@ -286,6 +310,9 @@ export function validateHoliday(draft: HolidayDraft): HolidayErrors {
   const name = draft.name.trim();
   if (name.length < 2) errors.name = 'Enter the holiday name (at least 2 characters).';
   else if (name.length > 120) errors.name = 'Use up to 120 characters.';
+  if (!errors.date && draft.kind === 'WORKING_DAY' && !isSundayIso(draft.date)) {
+    errors.date = 'A working Sunday must be on a Sunday.';
+  }
   if (draft.appliesTo === 'SELECTED' && draft.scope.length === 0) {
     errors.scope = 'Choose at least one project or outlet, or make it for the whole company.';
   }

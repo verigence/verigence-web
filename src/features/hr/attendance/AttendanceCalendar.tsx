@@ -44,7 +44,7 @@ export default function AttendanceCalendar({ data, today, selected, onSelect }: 
                 role="gridcell"
                 className={classes}
                 aria-selected={day.date === selected}
-                aria-label={`${day.date}${words ? `, ${words}` : ''}${day.halfDayHoliday ? `, ${halfDayHolidayText(day.halfDayHoliday)}` : ''}${day.minutes ? `, ${formatMinutes(day.minutes)}` : ''}`}
+                aria-label={`${day.date}${words ? `, ${words}` : ''}${day.halfDayHoliday ? `, ${halfDayHolidayText(day.halfDayHoliday)}` : ''}${day.workingSunday ? `, working Sunday: ${day.workingSunday.name}` : ''}${day.minutes ? `, ${formatMinutes(day.minutes)}` : ''}`}
                 onClick={() => onSelect(day)}
               >
                 <span className="hr-cal__date">{Number(day.date.slice(8, 10))}</span>
@@ -56,6 +56,9 @@ export default function AttendanceCalendar({ data, today, selected, onSelect }: 
                   <span className="hr-cal__times">
                     {formatTimeIst(day.checkInAt)}{day.checkOutAt ? ` – ${formatTimeIst(day.checkOutAt)}` : ''}
                   </span>
+                )}
+                {day.workingSunday && day.inMonth !== false && (
+                  <span className="hr-tag hr-tag--outline hr-cal__tag" title={day.workingSunday.name}>Working Sunday</span>
                 )}
                 {day.halfDayHoliday && day.inMonth !== false && (
                   <span className="hr-tag hr-tag--cool-gray hr-cal__tag" title={`${day.halfDayHoliday.name}`}>

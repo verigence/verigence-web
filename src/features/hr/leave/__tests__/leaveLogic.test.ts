@@ -4,6 +4,7 @@ import { HrHttpError } from '../../../../services/hr/client';
 
 import {
   addDays,
+  recentLeaveText,
   dayPartWords,
   holidayNoteParts,
   buildApplyPayload,
@@ -181,5 +182,14 @@ describe('holidays inside the chosen dates (7 Nov 2026)', () => {
     expect(holidayNoteParts([{ date: '2026-11-20', name: 'Later', status: 'DECLARED' as const }], '2026-11-20', '').full).toHaveLength(1);
     expect(dayPartWords('MORNING')).toBe('morning off');
     expect(dayPartWords(undefined)).toBe('');
+  });
+});
+
+describe('leave taken in the 6 weeks before a request (7 Nov 2026)', () => {
+  it('writes the server numbers as words', () => {
+    expect(recentLeaveText({ windowFrom: '2026-09-28', windowTo: '2026-11-08', paidDays: 4.5, unpaidDays: 1 })).toBe(
+      'In the 6 weeks before (28 Sept to 8 Nov 2026): 4.5 days paid leave, 1 day unpaid leave.',
+    );
+    expect(recentLeaveText({ windowFrom: '2026-09-28', windowTo: '2026-11-08', paidDays: 0, unpaidDays: 0 })).toContain('no days paid leave, no days unpaid leave');
   });
 });

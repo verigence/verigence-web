@@ -31,7 +31,7 @@ export default function MaintenancePage({ notice, onCheck, checking }: { notice:
           <button type="button" className="announce-card__button" disabled={checking} onClick={() => { setAgain(true); void onCheck(); }}>
             {checking ? 'Checking…' : 'Check again'}
           </button>
-          <button type="button" className="maintenance-card__link" onClick={() => { resetOperationalContext(queryClient); signOut(); navigate('/login'); }}>Sign out</button>
+          <button type="button" className="maintenance-card__link" onClick={() => { resetOperationalContext(queryClient); signOut('USER'); navigate('/login'); }}>Sign out</button>
         </div>
       </div>
     </main>

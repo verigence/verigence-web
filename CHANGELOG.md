@@ -12,6 +12,13 @@ The app's build number is added by the release workflow and is not written here.
 
 ## [Unreleased]
 
+### Fixed
+- **Keep me signed in now works in the Android app.** Until now the app never saved the sign-in on the phone, so people had to type their password again every time the app was reopened or had been in the background. After updating, sign in once with "Keep me signed in" ticked; after that the app opens signed in, and when it comes back from the background it signs in again by itself.
+- Only the **Sign out** button forgets "Keep me signed in". The app no longer forgets it when the sign-in runs out, when access is paused for a while, or when the network fails. It is forgotten only when you sign in on another phone (or Security ends the sign-in for another reason).
+
+### Changed
+- You can stay signed in on one phone (the app) and one PC browser at the same time. Signing in on another phone signs out the previous phone; signing in on another PC signs out the previous PC.
+
 ## [1.6.3] - 2026-11-07
 
 ### Changed

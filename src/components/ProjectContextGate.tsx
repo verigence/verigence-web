@@ -222,12 +222,12 @@ export default function ProjectContextGate({ children }: PropsWithChildren) {
                 onClick={() => selectOperationalProject(project, queryClient)}
               >
                 <span>
-                  <strong>{dealershipLabel(project) ?? `Assignment ${index + 1}`}</strong>
-                  <small>{roleLabels[project.operatingRole]}</small>
+                  <strong>{project.projectName?.trim() || dealershipLabel(project) || `Assignment ${index + 1}`}</strong>
+                  <small>{(project.projectName?.trim() && dealershipLabel(project)) || 'All dealerships in this Project'}</small>
                 </span>
                 <span className="uc03-project-card__meta">
-                  <strong>Assigned</strong>
-                  <small>{project.timezoneName}</small>
+                  <strong>{roleLabels[project.operatingRole]}</strong>
+                  <small>{project.auditType === 'SERVICE' ? 'Service audit' : 'Sales audit'}</small>
                 </span>
                 <span className="uc03-project-card__arrow" aria-hidden="true">→</span>
               </button>

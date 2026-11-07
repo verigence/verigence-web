@@ -4,5 +4,5 @@
 - run_id: 42369625247
 - run_number: 866
 - source_sha: 4367cf7af6b762c96fed48f563fd9cc47118176f
-- android: running
+- android: success
 - workflow_url: https://github.com/verigence/verigence-web/actions/runs/42369625247

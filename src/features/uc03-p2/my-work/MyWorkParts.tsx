@@ -144,7 +144,7 @@ export function GateRegisterTable({ outlets, tenantId, accessToken }: {
     <>
       {photoError ? <div className="p2w-alert p2w-alert--error" role="alert">{photoError}</div> : null}
       <div style={{ overflowX: 'auto' }}>
-        <table className="p2w-table p2mw-table" aria-label="Gate register date wise">
+        <table className="p2w-table p2w-table--grouped p2mw-table" aria-label="Gate register date wise">
           <thead>
             <tr>
               <th>Day</th><th>Outlet</th><th>Status</th><th>Total</th><th>Intimated</th><th>Uploaded in tool</th>

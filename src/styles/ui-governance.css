@@ -225,10 +225,24 @@ ion-app {
   overflow-y: auto !important;
 }
 
-/* All direct children and grids must be allowed to shrink in responsive layouts. */
-.enterprise-content *,
-.uc03-project-gate * {
+/* Layout boxes (grid and flex children) must be allowed to shrink in responsive
+ * layouts, so wide content scrolls inside its own region instead of widening the page.
+ * Zero specificity (:where), so any component rule that sets min-width wins. */
+:where(.enterprise-content, .uc03-project-gate) :where(*) {
   min-width: 0;
+}
+
+/* Text and controls keep at least the width of their longest word. Letting them shrink
+ * below it (the rule above applied to everything, 2026-10-04) combined with Ionic's
+ * body `word-wrap: break-word` broke words letter by letter on phones: "To / da / y" in
+ * the DealGuard period switcher, tab labels, buttons and tile labels (2026-11-07).
+ * Genuinely long tokens (file names, e-mails, ids) opt in with `overflow-wrap: anywhere`,
+ * which also lowers their min-content, so they still wrap instead of overflowing. */
+:where(.enterprise-content, .uc03-project-gate)
+  :where(button, a, label, summary, span, strong, b, em, small, abbr, time, code, kbd,
+         th, td, dt, dd, legend, h1, h2, h3, h4, h5, h6, p,
+         [role='tab'], [role='button'], [role='option'], [role='menuitem'], ion-label) {
+  min-width: auto;
 }
 
 img,

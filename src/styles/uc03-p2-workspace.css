@@ -137,13 +137,19 @@
 
 .p2w .p2w-segment {
   display: inline-flex;
+  flex-wrap: wrap;
+  max-width: 100%;
   gap: 4px;
   padding: 4px;
   border: 1px solid var(--p2w-line);
   border-radius: var(--p2w-radius);
   background: var(--p2w-soft);
 }
+/* Options never shrink below their label: when they do not fit one row (six periods
+   on a phone) they wrap into whole-button rows that share the width evenly. */
 .p2w .p2w-segment button {
+  flex: 1 0 auto;
+  white-space: nowrap;
   min-height: 38px;
   padding: 0 12px;
   border: 0;
@@ -884,6 +890,28 @@
 
 .p2w .p2w-table .p2w-button {
   min-height: 32px; padding: 0 10px; font-size: .8rem;
+}
+
+/* Phones (2026-11-07): a wide table scrolls inside its own region, but the row label
+   (first column: outlet, day, customer) stays pinned on the left so every figure can be
+   read against it, and headers wrap so numeric columns are as narrow as their numbers.
+   Before, one-line headers and outlet names made the tracker table ~1,670 px wide and a
+   phone showed only a clipped outlet name. Tables whose first column spans several rows
+   (rowSpan) opt out of pinning with .p2w-table--grouped. */
+@media (max-width: 767px) {
+  .p2w .p2w-table { font-size: .85rem; }
+  .p2w .p2w-table th {
+    padding: 8px; white-space: normal; vertical-align: bottom;
+    min-width: 4.5rem; letter-spacing: .02em; line-height: 1.25;
+  }
+  .p2w .p2w-table td { padding: 8px; }
+  .p2w .p2w-table:not(.p2w-table--grouped) :is(th, td):first-child {
+    position: sticky; left: 0; z-index: 1;
+    min-width: 7.5rem; max-width: 42vw; white-space: normal;
+    background: #fff; box-shadow: inset -1px 0 0 var(--p2w-line);
+  }
+  .p2w .p2w-table:not(.p2w-table--grouped) tbody tr:hover :is(th, td):first-child { background: var(--p2w-soft); }
+  .p2w .p2w-table--grouped td:nth-child(-n + 2) { white-space: normal; min-width: 7rem; }
 }
 
 .p2w .p2w-card__title { margin-bottom: 12px; }

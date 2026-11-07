@@ -9,6 +9,7 @@ import {
 import {
   clearNativeRememberCredential,
   hasRememberSessionHint,
+  isNativeRememberPlatform,
   readNativeRememberCredential,
   setRememberedIdentityHint,
   setRememberSessionHint,
@@ -85,14 +86,20 @@ export async function disableRememberedSession(
 export async function rememberedCredentialForResume(
   device: VerigenceDeviceContext,
 ): Promise<string | undefined> {
-  if (!hasRememberSessionHint()) {
-    rememberLog('resume-credential.no-hint', { deviceType: device.deviceType });
-    return undefined;
-  }
+  // MOBILE: the credential itself is the source of truth, whatever the localStorage hint says.
   if (device.deviceType !== 'MOBILE') return undefined;
   const credential = await readNativeRememberCredential();
-  rememberLog('resume-credential.mobile', { found: Boolean(credential) });
+  rememberLog('resume-credential.mobile', { found: Boolean(credential), hint: hasRememberSessionHint() });
   return credential;
+}
+
+/**
+ * Synchronous "is a resume worth trying" check for the first render. On the app it is always yes
+ * (the native credential can only be read asynchronously, and reading it costs no network); on Web
+ * it is the non-secret hint that sits next to the HttpOnly cookie.
+ */
+export function mayHaveRememberedSession(): boolean {
+  return isNativeRememberPlatform() || hasRememberSessionHint();
 }
 
 export async function acceptResumedRememberSession(
@@ -139,32 +146,51 @@ export async function clearRejectedRememberedSession(
 export type RememberedResume =
   /** A fresh short access token. `kept` is false when the rotated credential could not be stored. */
   | { kind: 'resumed'; device: VerigenceDeviceContext; resumed: HumanResumeResponse; kept: boolean }
-  /** Nothing to resume with: the person did not choose "Keep me signed in", or the phone has no credential. */
+  /** Nothing to resume with: Web without the hint, or a phone without a stored credential. No network call. */
   | { kind: 'none'; device: VerigenceDeviceContext }
-  /** Security said no for good (expired, revoked, signed in elsewhere); the local state is already cleared. */
+  /** Security said the credential is no good (401: invalid, expired, revoked, superseded); local state is cleared. */
   | { kind: 'rejected'; device: VerigenceDeviceContext; error: unknown }
+  /**
+   * Security refused this person for now (403 paused/inactive, 426 app update required) without
+   * judging the credential, which Security keeps as well; it is kept so the next opening can try again.
+   */
+  | { kind: 'refused'; device: VerigenceDeviceContext; error: unknown }
   /** Network or server trouble; the credential is kept so a later attempt can succeed. */
   | { kind: 'transient'; device: VerigenceDeviceContext; error: unknown };
+
+/** 401 is Security's answer about the credential itself; 403/426 are about the person or the app. */
+const CREDENTIAL_REJECTED_STATUS = 401;
+const REFUSED_STATUSES = new Set([403, 426]);
 
 let resumeInFlight: Promise<RememberedResume> | undefined;
 
 async function exchangeRememberedSession(): Promise<RememberedResume> {
   const device = getVerigenceDeviceContext();
-  if (!hasRememberSessionHint()) return { kind: 'none', device };
-  const nativeCredential = await rememberedCredentialForResume(device);
-  if (device.deviceType === 'MOBILE' && !nativeCredential) {
-    rememberLog('resume.missing-native-credential');
-    await clearRejectedRememberedSession(device);
+  let nativeCredential: string | undefined;
+  if (device.deviceType === 'MOBILE') {
+    nativeCredential = await rememberedCredentialForResume(device);
+    if (!nativeCredential) {
+      // Nothing is stored, so there is nothing to revoke: drop a stale hint, make no network call.
+      if (hasRememberSessionHint()) setRememberSessionHint(false);
+      rememberLog('resume.none', { deviceType: device.deviceType });
+      return { kind: 'none', device };
+    }
+  } else if (!hasRememberSessionHint()) {
     return { kind: 'none', device };
   }
+  rememberLog('resume.start', { deviceType: device.deviceType });
   let resumed: HumanResumeResponse;
   try {
     resumed = await resumeHuman(device, nativeCredential);
   } catch (error) {
-    if (error instanceof SecurityLoginError && [401, 403].includes(error.status)) {
+    if (error instanceof SecurityLoginError && error.status === CREDENTIAL_REJECTED_STATUS) {
       rememberLog('resume.rejected', { deviceType: device.deviceType, ...errorDetail(error) });
       await clearRejectedRememberedSession(device);
       return { kind: 'rejected', device, error };
+    }
+    if (error instanceof SecurityLoginError && REFUSED_STATUSES.has(error.status)) {
+      rememberLog('resume.refused', { deviceType: device.deviceType, ...errorDetail(error) });
+      return { kind: 'refused', device, error };
     }
     rememberLog('resume.transient', { deviceType: device.deviceType, ...errorDetail(error) });
     return { kind: 'transient', device, error };

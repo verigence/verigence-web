@@ -664,7 +664,7 @@ export default function AppShell({ children }: PropsWithChildren) {
     return () => window.removeEventListener(ANDROID_BACK_EVENT, onAndroidBack);
   }, [mobileMenuOpen]);
 
-  const handleSignOut = () => { resetOperationalContext(queryClient); signOut(); navigate('/login'); };
+  const handleSignOut = () => { resetOperationalContext(queryClient); signOut('USER'); navigate('/login'); };
   const handleSwitchProject = () => {
     clearOperationalProject(queryClient);
     setMobileMenuOpen(false);

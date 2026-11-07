@@ -45,38 +45,62 @@ export function setRememberedIdentityHint(identifier?: string): void {
   }
 }
 
-// TEMPORARY DIAGNOSTIC (remember-me investigation, 2026-09-18): logs every native
-// secure-storage read/write outcome, on-device (only when device diagnostics are switched on), so a real failed
-// "Keep me signed in" attempt shows exactly where it broke without needing adb/logcat.
-// Remove once the root cause is confirmed and fixed.
 function rememberLog(step: string, detail: Record<string, unknown> = {}): void {
   sharedRememberLog(step, { platform: Capacitor.getPlatform(), ...detail });
 }
 
-async function secureStorage() {
+/**
+ * On the Android/iOS app the credential in the platform secure storage is what says "this phone is
+ * remembered". The localStorage hint is only a Web optimisation (the Web credential is an HttpOnly
+ * cookie JavaScript cannot see, so Web needs a hint to know whether a resume call is worthwhile).
+ */
+export function isNativeRememberPlatform(): boolean {
+  return Capacitor.isNativePlatform();
+}
+
+/** A native call that never answers must not hold sign-in or resume forever. */
+const SECURE_STORAGE_TIMEOUT_MS = 8_000;
+
+type SecureStoragePlugin = typeof import('@aparajita/capacitor-secure-storage')['SecureStorage'];
+
+/**
+ * Runs one operation against the native secure storage.
+ *
+ * ROOT CAUSE of "Keep me signed in" never working in the Android app (found 2026-11-07): this used to
+ * be `async function secureStorage() { ...; return SecureStorage; }`. A Capacitor plugin is a Proxy
+ * that answers EVERY property, `then` included, with a native-method wrapper, so returning it from an
+ * async function (or resolving any promise with it) makes the promise treat it as a thenable and call
+ * `SecureStorage.then(resolve, reject)`. That native method does not exist, the wrapper rejects on its
+ * own and never calls resolve/reject, so the awaited promise never settled. On the phone every read,
+ * store and clear of the credential therefore hung: after a successful /auth/remember the app never
+ * stored the credential and never set the remembered flag, so it never called /auth/resume; sign-out
+ * never reached /auth/logout either. Web never got that far (no native storage), which is why Web
+ * worked. The plugin is now used only inside this function and never handed out of an async scope.
+ */
+async function withSecureStorage<T>(name: string, operation: (storage: SecureStoragePlugin) => Promise<T>): Promise<T> {
   // Never invoke the plugin's Web implementation: its own documentation intentionally uses
   // unencrypted localStorage there. Web's secret is instead held only by the HttpOnly cookie.
-  if (!Capacitor.isNativePlatform()) {
-    rememberLog('secureStorage.skip-non-native');
-    return undefined;
-  }
+  if (!Capacitor.isNativePlatform()) throw new Error('secure storage is native-only');
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error(`secure storage ${name} timed out`)), SECURE_STORAGE_TIMEOUT_MS);
+  });
   try {
-    const { SecureStorage } = await import('@aparajita/capacitor-secure-storage');
-    return SecureStorage;
-  } catch (error) {
-    rememberLog('secureStorage.plugin-import-failed', { error: String(error) });
-    throw error;
+    const plugin = await import('@aparajita/capacitor-secure-storage');
+    // `plugin` is the module namespace (no `then`), and the Proxy itself is only dereferenced here.
+    return await Promise.race([operation(plugin.SecureStorage), timeout]);
+  } finally {
+    if (timer !== undefined) clearTimeout(timer);
   }
 }
 
 export async function readNativeRememberCredential(): Promise<string | undefined> {
+  if (!Capacitor.isNativePlatform()) return undefined;
   try {
-    const storage = await secureStorage();
-    if (!storage) {
-      rememberLog('read.no-storage');
-      return undefined;
-    }
-    const value = await storage.getItem(NATIVE_REMEMBER_CREDENTIAL_KEY);
+    const value = await withSecureStorage('read', async (storage) => {
+      const raw = await storage.getItem(NATIVE_REMEMBER_CREDENTIAL_KEY);
+      return typeof raw === 'string' ? raw : undefined;
+    });
     const trimmed = value?.trim() || undefined;
     rememberLog('read.result', { found: Boolean(trimmed) });
     return trimmed;
@@ -86,25 +110,22 @@ export async function readNativeRememberCredential(): Promise<string | undefined
   }
 }
 
+/** True only when the credential was written AND reads back unchanged. */
 export async function storeNativeRememberCredential(value: string): Promise<boolean> {
   if (!value.trim() || !Capacitor.isNativePlatform()) {
     rememberLog('store.skip', { hasValue: Boolean(value.trim()), native: Capacitor.isNativePlatform() });
     return false;
   }
   try {
-    const storage = await secureStorage();
-    if (!storage) {
-      rememberLog('store.no-storage');
-      return false;
-    }
-    await storage.setItem(NATIVE_REMEMBER_CREDENTIAL_KEY, value);
-    // Diagnostic-only read-back: a plugin that resolves setItem() without actually
-    // persisting (e.g. a Keystore write that silently no-ops) would otherwise look like
-    // success here and only fail much later, on the next cold start's resume attempt.
-    // This does not change the return value, only what gets logged.
-    const verify = await storage.getItem(NATIVE_REMEMBER_CREDENTIAL_KEY).catch(() => undefined);
-    rememberLog('store.result', { verifiedReadBack: verify?.trim() === value.trim() });
-    return true;
+    const verified = await withSecureStorage('store', async (storage) => {
+      await storage.setItem(NATIVE_REMEMBER_CREDENTIAL_KEY, value);
+      // A Keystore write that silently no-ops would otherwise look like success here and fail only
+      // on the next opening of the app.
+      const readBack = await storage.getItem(NATIVE_REMEMBER_CREDENTIAL_KEY);
+      return typeof readBack === 'string' && readBack.trim() === value.trim();
+    });
+    rememberLog('store.result', { verifiedReadBack: verified });
+    return verified;
   } catch (error) {
     rememberLog('store.threw', { error: String(error), name: (error as { name?: string })?.name });
     return false;
@@ -114,12 +135,10 @@ export async function storeNativeRememberCredential(value: string): Promise<bool
 export async function clearNativeRememberCredential(): Promise<void> {
   if (!Capacitor.isNativePlatform()) return;
   try {
-    const storage = await secureStorage();
-    await storage?.removeItem(NATIVE_REMEMBER_CREDENTIAL_KEY);
+    await withSecureStorage('clear', (storage) => storage.removeItem(NATIVE_REMEMBER_CREDENTIAL_KEY));
     rememberLog('clear.done');
   } catch (error) {
     // Local sign-out must never be blocked by secure-storage cleanup failure.
     rememberLog('clear.threw', { error: String(error) });
   }
 }
-

@@ -7,13 +7,11 @@ import {
   restoreOperationalContextHint,
 } from '../features/uc03/projectContext';
 import {
+  mayHaveRememberedSession,
   resumeRememberedSession,
   type RememberedResume,
 } from '../services/security/rememberSessionLifecycle';
-import {
-  hasRememberSessionHint,
-  rememberedIdentityHint,
-} from '../services/security/rememberSession';
+import { rememberedIdentityHint } from '../services/security/rememberSession';
 import { rememberLog } from '../services/security/rememberDebugLog';
 import { useSessionStore } from '../store/sessionStore';
 
@@ -25,18 +23,20 @@ let coldStartResumeAttempt: Promise<RememberedResume> | undefined;
 /**
  * Remembered-session bootstrap on a cold start.
  *
- * Users who did not opt in pay no network cost: the non-secret local hint makes the gate ready on
- * its first render. Remembered users perform exactly one /auth/resume call here. While the app stays
+ * On Web, users who did not opt in pay no network cost: the non-secret local hint makes the gate
+ * ready on its first render. In the Android app the stored native credential decides (2026-11-07):
+ * the gate always looks for it, which costs one local secure-storage read and no network call when
+ * there is none. Remembered users perform exactly one /auth/resume call here. While the app stays
  * open, SessionRenewalGate resumes the same way when the short token runs out.
  */
 export default function SessionBootstrapGate({ children }: PropsWithChildren) {
   const queryClient = useQueryClient();
   const [ready, setReady] = useState(
-    () => useSessionStore.getState().signedIn || !hasRememberSessionHint(),
+    () => useSessionStore.getState().signedIn || !mayHaveRememberedSession(),
   );
 
   useEffect(() => {
-    if (ready || useSessionStore.getState().signedIn || !hasRememberSessionHint()) {
+    if (ready || useSessionStore.getState().signedIn || !mayHaveRememberedSession()) {
       setReady(true);
       return undefined;
     }
@@ -69,8 +69,8 @@ export default function SessionBootstrapGate({ children }: PropsWithChildren) {
           restoreOperationalContextHint(resumed.accessToken, queryClient);
         }
       } else {
-        // 'rejected' and 'none' already cleared what was left; 'transient' keeps the credential so the
-        // next cold start, or the next sign-in, can try again.
+        // 'rejected' already cleared the credential; 'none' had nothing; 'refused' and 'transient' keep
+        // it so the next opening of the app can try again.
         rememberLog(`bootstrap.${attempt.kind}`, { deviceType: attempt.device.deviceType });
       }
 

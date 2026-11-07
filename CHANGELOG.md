@@ -15,10 +15,18 @@ The app's build number is added by the release workflow and is not written here.
 ### Added
 - DealGuard **Project Tracker** for Team Leads, Project Managers and Executives: the situation of the whole Project for a day, a week (Monday to Sunday) or a calendar month. Summary tiles at the top, then a table by dealership, outlet and PC (open a row to see the next level, click a column to sort) with gate pass (registers due, on time, late, missing, the counts entered), files uploaded (journeys, bookings, deliveries, files, pages), files closed (delivery files closed, closed by Reviewer), tasks (raised, closed by the PC, by the Team Lead / PM / Executive or by the system, open and overdue) and recurring tasks (one set of columns per schedule, the daily gate pass today; new schedules such as a DMS or payment reconciliation appear on their own). Figures link to Daily gate pass, Task Queue, Task Manager and Bookings & Deliveries. The period is in the page address, so a link opens the same view.
 - Daily processing opens a given day from a link (`?day=`).
+- Team Lead dashboard: the summary, the Outlet-wise and PC-wise panels, the tabs and the journey list show the current calendar month by default (India time) — bookings by their booking date, deliveries by their delivery date. A month picker shows other months, or all months. Two new figures: bookings and deliveries in the month. The PC's own pages and the Booking & Delivery list are unchanged.
+
+## [1.6.4] - 2026-11-07
+
+### Fixed
+- **Keep me signed in now works in the Android app.** Until now the app never saved the sign-in on the phone, so people had to type their password again every time the app was reopened or had been in the background. After updating, sign in once with "Keep me signed in" ticked; after that the app opens signed in, and when it comes back from the background it signs in again by itself.
+- Only the **Sign out** button forgets "Keep me signed in". The app no longer forgets it when the sign-in runs out, when access is paused for a while, or when the network fails. It is forgotten only when you sign in on another phone (or Security ends the sign-in for another reason).
 
 ### Changed
+- Choose Dealership: each card names the Project (and the dealerships for a PC) and shows the role you hold there, instead of "Assignment 1, 2…".
 - Attendance correction: a request can be raised only for a day of the current calendar month. Days of an earlier month no longer offer it.
-- Team Lead dashboard: the summary, the Outlet-wise and PC-wise panels, the tabs and the journey list show the current calendar month by default (India time) — bookings by their booking date, deliveries by their delivery date. A month picker shows other months, or all months. Two new figures: bookings and deliveries in the month. The PC's own pages and the Booking & Delivery list are unchanged.
+- You can stay signed in on one phone (the app) and one PC browser at the same time. Signing in on another phone signs out the previous phone; signing in on another PC signs out the previous PC.
 
 ## [1.6.3] - 2026-11-07
 

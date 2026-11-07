@@ -15,7 +15,7 @@ export type LegacyLeaveType = 'SICK' | 'EARNED';
 export type ApplyLeaveType = 'PAID' | 'SPECIAL' | 'COMP_OFF' | 'UNPAID';
 /** Any type a request may carry, including the old ones in history. */
 export type LeaveType = ApplyLeaveType | LegacyLeaveType;
-/** The types with a balance. PAID and COMP_OFF carry over (all-time); SPECIAL is a yearly quota. Unpaid leave has none. */
+/** The types with a balance. PAID and COMP_OFF carry over (all-time); SPECIAL is birthday leave, opened by each birthday. Unpaid leave has none. */
 export type PaidLeaveType = 'PAID' | 'SPECIAL' | 'COMP_OFF';
 export type LeaveStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'CANCELLED';
 /** Who decides the request, chosen by the server when it is applied for. */
@@ -31,9 +31,19 @@ export interface LeaveBalanceType {
   available: number;
 }
 
+/**
+ * Birthday leave (SPECIAL, product owner 7 Nov 2026): each birthday opens it, from the birthday to
+ * the day before the next one. The SPECIAL figures are for the window holding today.
+ */
+export type BirthdayLeaveInfo =
+  | { dateOfBirthOnFile: false; message: string }
+  | { dateOfBirthOnFile: true; birthdayYear: number; availableFrom: string; availableUntil: string; nextOpensOn: string };
+
 export interface LeaveBalance {
   year: number;
   types: LeaveBalanceType[];
+  /** Absent from services before 7 Nov 2026. */
+  birthdayLeave?: BirthdayLeaveInfo;
 }
 
 export interface LeaveRequest {
@@ -44,7 +54,7 @@ export interface LeaveRequest {
   halfDay: boolean;
   days: number;
   reason: string | null;
-  /** Only on special occasion leave: what the occasion is. */
+  /** Only on special occasion (birthday) leave: "Birthday"; older requests may say something else. */
   occasion: string | null;
   status: LeaveStatus;
   approverRule: ApproverRule;
@@ -73,7 +83,7 @@ export interface LeaveApplyInput {
   to_date: string;
   half_day: boolean;
   reason?: string;
-  /** Required (not empty, at most 100 characters) for SPECIAL; sent for nothing else. */
+  /** No longer sent: the service records SPECIAL leave as "Birthday" (7 Nov 2026). */
   occasion?: string;
 }
 

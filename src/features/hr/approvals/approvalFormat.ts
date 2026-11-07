@@ -134,7 +134,7 @@ export const attendanceEventLabels: Record<string, string> = { CHECK_IN: 'Check-
 
 export const leaveTypeLabels: Record<string, string> = {
   PAID: 'Paid leave',
-  SPECIAL: 'Special occasion leave',
+  SPECIAL: 'Birthday leave (special occasion)',
   COMP_OFF: 'Comp-off',
   UNPAID: 'Unpaid leave',
   SICK: 'Sick leave (old)',

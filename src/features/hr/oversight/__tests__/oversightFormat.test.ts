@@ -14,7 +14,7 @@ describe('oversight words', () => {
   });
   it('names what an item is about', () => {
     expect(itemDetail({ type: 'ATTENDANCE', detail: 'LATE_CHECK_IN' })).toBe('Late check-in');
-    expect(itemDetail({ type: 'LEAVE', detail: 'SPECIAL' })).toBe('Special occasion leave');
+    expect(itemDetail({ type: 'LEAVE', detail: 'SPECIAL' })).toBe('Birthday leave (special occasion)');
     expect(itemDetail({ type: 'CLAIM', detail: 'TRAVEL' })).toBe('TRAVEL');
     expect(roleLabel('TL')).toBe('Team Lead');
     expect(roleLabel('PM')).toBe('Project Manager');

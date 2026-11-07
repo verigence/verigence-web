@@ -111,3 +111,4 @@
 @media (min-width: 960px) {
   .hr-leave-balances { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
+.hr-leave-balance__window { margin: 0; font-size: 12px; line-height: 16px; color: #393939; overflow-wrap: anywhere; }

@@ -4,6 +4,7 @@ import { HrHttpError } from '../../../../services/hr/client';
 
 import {
   addDays,
+  birthdayLeaveText,
   recentLeaveText,
   dayPartWords,
   holidayNoteParts,
@@ -26,7 +27,7 @@ import {
 } from '../leaveLogic';
 
 const today = '2026-10-04';
-const base: ApplyForm = { leaveType: 'PAID', fromDate: '2026-10-12', toDate: '2026-10-13', halfDay: false, reason: '', occasion: '' };
+const base: ApplyForm = { leaveType: 'PAID', fromDate: '2026-10-12', toDate: '2026-10-13', halfDay: false, reason: '' };
 
 describe('dates', () => {
   it('uses the India calendar date', () => {
@@ -64,12 +65,8 @@ describe('validateApply', () => {
     expect(validateApply({ ...base, halfDay: true }, today).halfDay).toMatch(/single date/);
     expect(validateApply({ ...base, toDate: base.fromDate, halfDay: true }, today)).toEqual({});
   });
-  it('needs an occasion for special occasion leave, within 100 characters', () => {
-    expect(validateApply({ ...base, leaveType: 'SPECIAL' }, today).occasion).toBe('Say what the special occasion is.');
-    expect(validateApply({ ...base, leaveType: 'SPECIAL', occasion: '   ' }, today).occasion).toBe('Say what the special occasion is.');
-    expect(validateApply({ ...base, leaveType: 'SPECIAL', occasion: 'x'.repeat(101) }, today).occasion).toMatch(/100 characters/);
-    expect(validateApply({ ...base, leaveType: 'SPECIAL', occasion: 'x'.repeat(100) }, today)).toEqual({});
-    expect(validateApply({ ...base, leaveType: 'SPECIAL', occasion: 'Own wedding' }, today)).toEqual({});
+  it('asks no occasion for birthday leave: the server records "Birthday"', () => {
+    expect(validateApply({ ...base, leaveType: 'SPECIAL' }, today)).toEqual({});
   });
   it('does not ask for an occasion on other types', () => {
     for (const leaveType of ['PAID', 'COMP_OFF', 'UNPAID'] as const) {
@@ -79,15 +76,14 @@ describe('validateApply', () => {
 });
 
 describe('buildApplyPayload', () => {
-  it('sends the occasion only for special occasion leave, trimmed', () => {
-    expect(buildApplyPayload({ ...base, leaveType: 'SPECIAL', occasion: ' Own wedding ', reason: ' ' })).toEqual({
+  it('never sends an occasion, and trims the reason', () => {
+    expect(buildApplyPayload({ ...base, leaveType: 'SPECIAL', reason: ' ' })).toEqual({
       leave_type: 'SPECIAL',
       from_date: '2026-10-12',
       to_date: '2026-10-13',
       half_day: false,
-      occasion: 'Own wedding',
     });
-    const paid = buildApplyPayload({ ...base, occasion: 'left over', reason: ' Family ' });
+    const paid = buildApplyPayload({ ...base, reason: ' Family ' });
     expect(paid).toEqual({ leave_type: 'PAID', from_date: '2026-10-12', to_date: '2026-10-13', half_day: false, reason: 'Family' });
     expect('occasion' in paid).toBe(false);
   });
@@ -96,12 +92,12 @@ describe('buildApplyPayload', () => {
 describe('labels', () => {
   it('names the new types and marks the old ones', () => {
     expect(leaveTypeLabels.PAID).toBe('Paid leave');
-    expect(leaveTypeLabels.SPECIAL).toBe('Special occasion leave');
+    expect(leaveTypeLabels.SPECIAL).toBe('Birthday leave (special occasion)');
     expect(leaveTypeLabels.COMP_OFF).toBe('Comp-off');
     expect(leaveTypeLabels.UNPAID).toBe('Unpaid leave');
     expect(leaveTypeLabels.SICK).toBe('Sick leave (old)');
     expect(leaveTypeLabels.EARNED).toBe('Earned leave (old)');
-    expect(paidTypeLabels).toEqual({ PAID: 'Paid', SPECIAL: 'Special occasion', COMP_OFF: 'Comp-off' });
+    expect(paidTypeLabels).toEqual({ PAID: 'Paid', SPECIAL: 'Birthday', COMP_OFF: 'Comp-off' });
   });
   it('treats only special occasion leave as yearly', () => {
     expect(isYearlyType('SPECIAL')).toBe(true);
@@ -191,5 +187,19 @@ describe('leave taken in the 6 weeks before a request (7 Nov 2026)', () => {
       'In the 6 weeks before (28 Sept to 8 Nov 2026): 4.5 days paid leave, 1 day unpaid leave.',
     );
     expect(recentLeaveText({ windowFrom: '2026-09-28', windowTo: '2026-11-08', paidDays: 0, unpaidDays: 0 })).toContain('no days paid leave, no days unpaid leave');
+  });
+});
+
+describe('birthday leave card (7 Nov 2026)', () => {
+  const info = { dateOfBirthOnFile: true as const, birthdayYear: 2026, availableFrom: '2026-08-30', availableUntil: '2027-08-29', nextOpensOn: '2027-08-30' };
+  it('says from when to when while there is some, and when it opens once used', () => {
+    expect(birthdayLeaveText(info, 1)).toBe('Available from 30 Aug 2026 to 29 Aug 2027');
+    expect(birthdayLeaveText(info, 0)).toBe('Opens on 30 Aug 2027');
+  });
+  it('says why there is none, and nothing for an older service', () => {
+    expect(birthdayLeaveText({ dateOfBirthOnFile: false, message: 'Your date of birth is not in myHR; ask HR to add it.' }, 0)).toBe(
+      'Your date of birth is not in myHR; ask HR to add it.',
+    );
+    expect(birthdayLeaveText(undefined, 1)).toBe('');
   });
 });

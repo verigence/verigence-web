@@ -107,8 +107,8 @@ export default function EmployeeLeavePanel({ employeeId, employeeName, employeeC
 
       {detail.data && (
         <>
-          <SectionCard title="Balance" description={`Paid leave and comp-off carry over; special occasion leave is for ${detail.data.balance.year}. Every change to a balance is a new entry in a ledger: days earned, yearly quota, leave taken, reversal or adjustment.`}>
-            <BalanceCards types={detail.data.balance.types} year={detail.data.balance.year} />
+          <SectionCard title="Balance" description={`Paid leave and comp-off carry over; birthday leave runs from a birthday to the day before the next one. Every change to a balance is a new entry in a ledger: days earned, yearly quota, leave taken, reversal or adjustment.`}>
+            <BalanceCards types={detail.data.balance.types} year={detail.data.balance.year} birthdayLeave={detail.data.balance.birthdayLeave} />
           </SectionCard>
           {detail.data.earning && (
             <SectionCard title="Paid leave earned from attendance">

@@ -13,6 +13,7 @@ The app's build number is added by the release workflow and is not written here.
 ## [Unreleased]
 
 ### Changed
+- A journey's **Actions** menu (Bookings & Deliveries) has **Download uploaded PDF**: the full file the PC uploaded downloads at once; if the PC uploaded several, a short list opens to pick from.
 - **Export to Excel** has its own item in the DealGuard menu for Team Leads, Project Managers and Executives. Before, it was only on the Booking & Delivery page, which Team Leads and Executives do not open.
 - A journey's Documents page has a third tab, **Uploaded files**: each file exactly as the PC uploaded it (the full PDF), to download. Journey 360 links to it even while the customer's KYC has not been read.
 

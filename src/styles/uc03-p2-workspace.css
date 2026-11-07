@@ -476,6 +476,7 @@
   background: rgb(15 23 42 / 45%);
 }
 .p2w-dialog { width: min(440px, 100%); padding: 20px; border-radius: 14px; background: #fff; box-shadow: 0 24px 60px rgb(15 23 42 / 25%); }
+.p2w-dialog--wide { width: min(960px, 100%); max-height: 85vh; overflow: auto; }
 .p2w-dialog h3 { margin: 0 0 6px; }
 .p2w-dialog p { margin: 0 0 16px; color: var(--p2w-muted); }
 .p2w-dialog__actions { display: flex; justify-content: flex-end; gap: 8px; }

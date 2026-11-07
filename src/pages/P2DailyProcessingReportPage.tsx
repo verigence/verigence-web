@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import '../styles/uc03-p2.css';
 import '../styles/uc03-p2-workspace.css';
@@ -201,7 +201,10 @@ export default function P2DailyProcessingReportPage() {
   const project = useProjectContextStore((s) => s.selectedProject);
   const accessToken = useSessionStore((s) => s.accessToken);
   const tenantId = project?.tenantId;
-  const [day, setDay] = useState(todayIso());
+  // ?day=YYYY-MM-DD opens a given day (the Project Tracker links a day here, 2026-11-07).
+  const [searchParams] = useSearchParams();
+  const askedDay = searchParams.get('day');
+  const [day, setDay] = useState(askedDay && /^\d{4}-\d{2}-\d{2}$/.test(askedDay) && askedDay <= todayIso() ? askedDay : todayIso());
   const report = useQuery({
     queryKey: ['p2-daily-processing', tenantId, day],
     queryFn: () => getP2DailyProcessingReport(tenantId!, day, accessToken),

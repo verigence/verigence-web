@@ -12,6 +12,11 @@ The app's build number is added by the release workflow and is not written here.
 
 ## [Unreleased]
 
+### Added
+- DealGuard **Project Tracker** for Team Leads, Project Managers and Executives: the situation of the whole Project for a day, a week (Monday to Sunday) or a calendar month. Summary tiles at the top, then a table by dealership, outlet and PC (open a row to see the next level, click a column to sort) with gate pass (registers due, on time, late, missing, the counts entered), files uploaded (journeys, bookings, deliveries, files, pages), files closed (delivery files closed, closed by Reviewer), tasks (raised, closed by the PC, by the Team Lead / PM / Executive or by the system, open and overdue) and recurring tasks (one set of columns per schedule, the daily gate pass today; new schedules such as a DMS or payment reconciliation appear on their own). Figures link to Daily gate pass, Task Queue, Task Manager and Bookings & Deliveries. The period is in the page address, so a link opens the same view.
+- Daily processing opens a given day from a link (`?day=`).
+- Team Lead dashboard: the summary, the Outlet-wise and PC-wise panels, the tabs and the journey list show the current calendar month by default (India time) — bookings by their booking date, deliveries by their delivery date. A month picker shows other months, or all months. Two new figures: bookings and deliveries in the month. The PC's own pages and the Booking & Delivery list are unchanged.
+
 ## [1.6.4] - 2026-11-07
 
 ### Fixed

@@ -130,8 +130,6 @@ export default function LoginPage() {
 
       // Deliberately start remembered-session setup only after normal authentication has completed
       // and navigation has begun. This adds no latency or availability dependency to today's login.
-      // TEMPORARY DIAGNOSTIC (remember-me investigation, 2026-09-18): remove the console.warn
-      // calls below once a real failed "Keep me signed in" attempt is confirmed and fixed.
       if (keepSignedIn) {
         rememberLog('login.enabling', { deviceType: device.deviceType });
         void enableRememberedSession(login.accessToken, device, identifier).then((enabled) => {

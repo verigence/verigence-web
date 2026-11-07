@@ -142,7 +142,7 @@ export default function ProjectContextGate({ children }: PropsWithChildren) {
 
   const handleSignOut = () => {
     resetOperationalContext(queryClient);
-    signOut();
+    signOut('USER');
     navigate('/login', { replace: true });
   };
 

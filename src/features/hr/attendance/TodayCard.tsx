@@ -1,6 +1,7 @@
 import type { AttendanceEvent, AttendanceToday } from '../../../services/hr/attendance';
 import { ExceptionList, SideBlock, StatusChip } from './DayList';
 import { approverPhrase, formatClock, formatWorkDate } from './attendanceFormat';
+import { halfDayHolidayText } from './calendarFormat';
 
 interface Props {
   today: AttendanceToday;
@@ -39,9 +40,18 @@ export default function TodayCard({ today, onStart, disabled = false }: Props) {
       {dayKind === 'HOLIDAY' && (
         <div className="uc01-admin-message uc01-admin-message--info">Today is a holiday{today.holidayName ? `: ${today.holidayName}` : ''}. If you work today, it goes for approval.</div>
       )}
+      {working && today.halfDayHoliday && (
+        <div className="uc01-admin-message uc01-admin-message--info" role="note">
+          <strong>{halfDayHolidayText(today.halfDayHoliday)}.</strong>{' '}
+          {today.halfDayHoliday.dayPart === 'MORNING'
+            ? `The working half starts at ${formatClock(times.checkIn)}; after ${formatClock(times.lateAfter)} counts as late.`
+            : `You can check out from ${formatClock(times.checkOutEarliest)}. With no check-in by ${formatClock(times.absentAfter ?? today.halfDayHoliday.splitAt)} the day is marked absent.`}{' '}
+          If you work the holiday half, it goes for approval.
+        </div>
+      )}
       {today.tentativeHoliday && (
         <div className="uc01-admin-message uc01-admin-message--info">
-          Tentative holiday: {today.tentativeHoliday}. Final holidays are declared by HR, so check in as usual until then.
+          Tentative {today.tentativeHolidayDayPart === 'MORNING' ? 'half-day holiday (morning off)' : today.tentativeHolidayDayPart === 'AFTERNOON' ? 'half-day holiday (afternoon off)' : 'holiday'}: {today.tentativeHoliday}. Final holidays are declared by HR, so check in as usual until then.
         </div>
       )}
 
@@ -80,6 +90,12 @@ export default function TodayCard({ today, onStart, disabled = false }: Props) {
           <dt>Check-out</dt>
           <dd>Standard {formatClock(times.checkOut)}. Before {formatClock(times.checkOutEarliest)} counts as early.</dd>
         </div>
+        {typeof times.minimumHours === 'number' && (
+          <div>
+            <dt>Hours</dt>
+            <dd>At least {times.minimumHours} hours between check-in and check-out{today.halfDayHoliday ? ' in the working half' : ''}.</dd>
+          </div>
+        )}
         {today.geofenced && (
           <div>
             <dt>Where</dt>

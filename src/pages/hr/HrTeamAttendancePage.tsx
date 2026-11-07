@@ -127,7 +127,19 @@ export default function HrTeamAttendancePage() {
               <span>Holidays</span>
               <strong>{team.data.summary.holidays.length}</strong>
               {team.data.summary.holidays.length > 0 && (
-                <small>{team.data.summary.holidays.map((h) => `${formatWorkDate(h.date)} ${h.name}`).join(' · ')}</small>
+                <small>
+                  {team.data.summary.holidays
+                    .map((h) => `${formatWorkDate(h.date)} ${h.name}${h.dayPart === 'MORNING' ? ' (morning off)' : h.dayPart === 'AFTERNOON' ? ' (afternoon off)' : ''}`)
+                    .join(' · ')}
+                </small>
+              )}
+              {(team.data.summary.otherHolidays ?? []).length > 0 && (
+                <small>
+                  Also, for some projects or outlets only:{' '}
+                  {(team.data.summary.otherHolidays ?? [])
+                    .map((h) => `${formatWorkDate(h.date)} ${h.name}${h.dayPart === 'FULL_DAY' ? '' : h.dayPart === 'MORNING' ? ' (morning off)' : ' (afternoon off)'} (${h.appliesTo.join(', ')})`)
+                    .join(' · ')}
+                </small>
               )}
             </div>
             <div className={pendingTotal > 0 ? 'is-attention' : undefined}><span>Waiting for a decision</span><strong>{pendingTotal}</strong></div>
@@ -149,7 +161,7 @@ export default function HrTeamAttendancePage() {
                           <span className="hr-daily-cell"><strong>{p.fullName}</strong><small>{p.employeeCode}</small></span>
                         </button>
                       </td>
-                      <td data-label="Present">{p.daysPresent}</td>
+                      <td data-label="Present">{p.daysPresent}{typeof p.workingDays === 'number' && p.workingDays !== team.data.summary.workingDays ? <small> of {p.workingDays} working days</small> : null}</td>
                       <td data-label="On leave">{p.daysOnLeave}</td>
                       <td data-label="Absent">{p.daysAbsent > 0 ? <strong className="hr-att-absent">{p.daysAbsent}</strong> : 0}</td>
                       <td data-label="Off-day work">{p.offDayWorked}</td>

@@ -12,6 +12,13 @@ The app's build number is added by the release workflow and is not written here.
 
 ## [Unreleased]
 
+### Added
+- myHR holidays (HR or SuperAdmin, Settings → Holidays): a holiday can now be a full day or a half day (morning off or afternoon off), and for the whole company or for chosen projects and outlets. The list shows each holiday's day part and who it applies to; removing one asks first and keeps it in the history.
+- On a half-day holiday the other half is a working day. Today's attendance card says which half is off and from when (for example "Half-day holiday (afternoon off from 14:00): Diwali eve") and shows that day's times. The attendance calendar marks the day "AM off" or "PM off".
+- Working the holiday half goes to the Team Lead for approval and earns half a comp-off day.
+- Apply for leave: half-day holidays in the chosen dates are listed and count as half a day. Half-day leave on a half-day holiday is not possible; apply for a full day instead.
+- HR daily and team views name the holidays of the day, including those for some projects or outlets only. A holiday for a project or outlet is shown only to the people it applies to.
+
 ## [1.6.1] - 2026-11-07
 
 ### Changed

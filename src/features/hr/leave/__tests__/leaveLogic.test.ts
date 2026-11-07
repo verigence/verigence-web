@@ -4,6 +4,8 @@ import { HrHttpError } from '../../../../services/hr/client';
 
 import {
   addDays,
+  dayPartWords,
+  holidayNoteParts,
   buildApplyPayload,
   dayWord,
   daysBetween,
@@ -152,5 +154,32 @@ describe('words', () => {
     expect(formatDays(2.5)).toBe('2.5 days');
     expect(waitingFor('TL_PM', true)).toBe('Waiting for your Team Lead or Project Manager');
     expect(waitingFor('HR', false)).toBe('Waiting for HR');
+  });
+});
+
+describe('holidays inside the chosen dates (7 Nov 2026)', () => {
+  const items = [
+    { date: '2026-11-09', name: 'Full', status: 'DECLARED' as const, dayPart: 'FULL_DAY' as const },
+    { date: '2026-11-10', name: 'Eve', status: 'DECLARED' as const, dayPart: 'AFTERNOON' as const },
+    { date: '2026-11-11', name: 'Puja', status: 'DECLARED' as const, dayPart: 'MORNING' as const },
+    { date: '2026-11-11', name: 'Mela', status: 'DECLARED' as const, dayPart: 'AFTERNOON' as const },
+    { date: '2026-11-12', name: 'Maybe', status: 'TENTATIVE' as const, dayPart: 'MORNING' as const },
+    { date: '2026-11-20', name: 'Later', status: 'DECLARED' as const },
+  ];
+  it('sorts full, half and tentative; two halves of one date are a full day', () => {
+    const parts = holidayNoteParts(items, '2026-11-09', '2026-11-12');
+    expect(parts.full.map((h) => h.name)).toEqual(['Full', 'Puja', 'Mela']);
+    expect(parts.half.map((h) => h.name)).toEqual(['Eve']);
+    expect(parts.tentative.map((h) => h.name)).toEqual(['Maybe']);
+    expect(parts.halfDayClash).toBeNull();
+  });
+  it('flags half-day leave on a half-day holiday', () => {
+    expect(holidayNoteParts(items, '2026-11-10', '2026-11-10', true).halfDayClash?.name).toBe('Eve');
+    expect(holidayNoteParts(items, '2026-11-13', '2026-11-13', true).halfDayClash).toBeNull();
+  });
+  it('an older service sends no day part: a full day', () => {
+    expect(holidayNoteParts([{ date: '2026-11-20', name: 'Later', status: 'DECLARED' as const }], '2026-11-20', '').full).toHaveLength(1);
+    expect(dayPartWords('MORNING')).toBe('morning off');
+    expect(dayPartWords(undefined)).toBe('');
   });
 });

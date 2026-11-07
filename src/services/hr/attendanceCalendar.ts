@@ -1,3 +1,5 @@
+import type { HalfDayHoliday } from './attendance';
+import type { DayHolidayInfo } from './attendanceReports';
 import { hrRequest } from './client';
 
 /**
@@ -46,6 +48,8 @@ export interface CalendarDay {
   label: string;
   dayKind: 'WORKING' | 'SUNDAY' | 'HOLIDAY';
   holiday: string | null;
+  /** A half-day holiday of this person on a working day. Absent from services before 7 Nov 2026. */
+  halfDayHoliday?: HalfDayHoliday | null;
   checkInAt: string | null;
   checkOutAt: string | null;
   /** Check-out minus check-in, for a day with both. */
@@ -126,8 +130,10 @@ export interface TeamDailySummary {
 
 export interface TeamDaily {
   date: string;
+  /** For the company as a whole; a person's own day can differ (project or outlet holidays). */
   dayKind: 'WORKING' | 'SUNDAY' | 'HOLIDAY';
   holiday: string | null;
+  holidays?: DayHolidayInfo[];
   summary: TeamDailySummary;
   projects: Array<{ projectCode: string | null; projectName: string | null; summary: TeamDailySummary }>;
   rows: TeamDailyRow[];

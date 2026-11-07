@@ -128,6 +128,8 @@ interface Holiday {
   date: string;
   name: string;
   status: HolidayStatus;
+  /** FULL_DAY, or which half is off. Older services did not send it: treat as FULL_DAY. */
+  dayPart?: 'FULL_DAY' | 'MORNING' | 'AFTERNOON';
 }
 
 export interface HolidayList {
@@ -168,9 +170,13 @@ export const cancelLeave = (token: string, requestId: string) =>
     { accessToken: token, method: 'POST' },
   );
 
-/** Visible to every signed-in person. Only DECLARED holidays are skipped when days are counted. */
+/**
+ * The holidays that apply to the signed-in person (mine=true): company-wide ones and those of their
+ * projects or outlets. Only DECLARED holidays are skipped when days are counted; a half-day holiday
+ * counts as half a day.
+ */
 export const getHolidays = (token: string, year?: number) =>
-  hrRequest<HolidayList>(`${base}/holidays${yearQuery(year)}`, { accessToken: token });
+  hrRequest<HolidayList>(`${base}/holidays${yearQuery(year)}${year ? '&' : '?'}mine=true`, { accessToken: token });
 
 // ---- HR (hr.leave.review) --------------------------------------------------------------------------
 

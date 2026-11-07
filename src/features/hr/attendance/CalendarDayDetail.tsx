@@ -1,6 +1,6 @@
 import type { CalendarDay } from '../../../services/hr/attendanceCalendar';
 import { exceptionLabel, exceptionStatusLabels, formatTimeIst, formatWorkDate } from './attendanceFormat';
-import { calendarTag, correctionKindLabels, dayLabel, formatMinutes } from './calendarFormat';
+import { absentAfterFor, calendarTag, correctionKindLabels, dayLabel, formatMinutes, halfDayHolidayText } from './calendarFormat';
 
 interface Props {
   day: CalendarDay;
@@ -28,8 +28,9 @@ export default function CalendarDayDetail({ day, absentAfter, onRequestCorrectio
           </dd>
         </div>
       </dl>
+      {day.halfDayHoliday && <p className="hr-cal-detail__note">{halfDayHolidayText(day.halfDayHoliday)}.</p>}
       {day.markedBySystem && (
-        <p className="hr-cal-detail__note">No check-in by {absentAfter}, so the system marked this day absent.</p>
+        <p className="hr-cal-detail__note">No check-in by {absentAfterFor(day, absentAfter)}, so the system marked this day absent.</p>
       )}
       {day.leave && (
         <p className="hr-cal-detail__note">

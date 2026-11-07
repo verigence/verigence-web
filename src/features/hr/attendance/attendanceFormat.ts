@@ -37,6 +37,7 @@ const flagLabels: Record<string, string> = {
   NO_FACE: 'No face found in photo',
   FACE_MISMATCH: 'Face does not match',
   OFF_DAY: 'Worked on a day off',
+  OFF_HALF: 'Worked the off half of a half-day holiday',
   MISSING_CHECK_OUT: 'Missing check-out',
 };
 

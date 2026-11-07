@@ -2,7 +2,10 @@ import { describe, expect, it } from 'vitest';
 
 import type { CalendarDay } from '../../../../services/hr/attendanceCalendar';
 import {
+  absentAfterFor,
   canRequestCorrection,
+  dayHolidaysText,
+  halfDayHolidayText,
   dayLabel,
   formatHoursShort,
   formatMinutes,
@@ -70,5 +73,31 @@ describe('corrections', () => {
     expect(
       canRequestCorrection(day({ correction: { correctionId: 'c', requested: 'FULL_DAY', reason: 'x', status: 'PENDING' } }), '2026-10-09', false),
     ).toBe(false);
+  });
+});
+
+describe('half-day holidays (7 Nov 2026)', () => {
+  it('says which half is off and from when', () => {
+    expect(halfDayHolidayText({ name: 'Diwali eve', dayPart: 'AFTERNOON', splitAt: '14:00' })).toBe(
+      'Half-day holiday (afternoon off from 14:00): Diwali eve',
+    );
+    expect(halfDayHolidayText({ name: 'Puja', dayPart: 'MORNING', splitAt: '14:00' })).toBe('Half-day holiday (morning off until 14:00): Puja');
+  });
+  it('a missing check-in is an absence from the split when the afternoon is off', () => {
+    expect(absentAfterFor({ halfDayHoliday: { name: 'x', dayPart: 'AFTERNOON', splitAt: '14:00' } }, '17:00')).toBe('14:00');
+    expect(absentAfterFor({ halfDayHoliday: { name: 'x', dayPart: 'MORNING', splitAt: '14:00' } }, '17:00')).toBe('17:00');
+    expect(absentAfterFor({}, '17:00')).toBe('17:00');
+  });
+});
+
+describe('the holidays of a day for HR and leads', () => {
+  it('names each holiday with its half and whom it is for, leaving out the company full day already shown', () => {
+    const holidays = [
+      { name: 'Diwali', dayPart: 'FULL_DAY' as const, appliesTo: 'ALL' as const, scope: [] },
+      { name: 'Alpha day', dayPart: 'MORNING' as const, appliesTo: 'SELECTED' as const, scope: ['Alpha', 'Puri Motors'] },
+    ];
+    expect(dayHolidaysText(holidays, 'HOLIDAY')).toBe('Alpha day (morning off, Alpha, Puri Motors)');
+    expect(dayHolidaysText(holidays, 'WORKING')).toBe('Diwali (full day, whole company) · Alpha day (morning off, Alpha, Puri Motors)');
+    expect(dayHolidaysText(undefined, 'WORKING')).toBe('');
   });
 });

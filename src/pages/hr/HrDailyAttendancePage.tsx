@@ -12,6 +12,7 @@ import DailyDetailDialog from '../../features/hr/attendance/DailyDetailDialog';
 import PhotoThumb from '../../features/hr/attendance/PhotoThumb';
 import ReportDialog from '../../features/hr/attendance/ReportDialog';
 import { formatDistance, formatTimeIst, formatWorkDate, todayIst } from '../../features/hr/attendance/attendanceFormat';
+import { dayHolidaysText } from '../../features/hr/attendance/calendarFormat';
 import {
   DAY_FILTERS,
   countByFilter,
@@ -226,6 +227,11 @@ export default function HrDailyAttendancePage() {
       <p className="hr-count" aria-live="polite">{formatWorkDate(date)}{query.dataUpdatedAt > 0 && ` · updated ${formatTimeIst(new Date(query.dataUpdatedAt).toISOString())}`}</p>
       {data?.dayKind === 'SUNDAY' && <div className="uc01-admin-message uc01-admin-message--info">Sunday is the weekly off.</div>}
       {data?.dayKind === 'HOLIDAY' && <div className="uc01-admin-message uc01-admin-message--info">Holiday{data.holiday ? `: ${data.holiday}` : ''}.</div>}
+      {data && dayHolidaysText(data.holidays, data.dayKind) && (
+        <div className="uc01-admin-message uc01-admin-message--info">
+          Holidays today: {dayHolidaysText(data.holidays, data.dayKind)}. Each person's row follows their own holidays.
+        </div>
+      )}
 
       {query.isLoading && <div className="uc01-admin-state">Loading attendance…</div>}
       {query.isError && (

@@ -164,6 +164,24 @@
   .p2w .p2w-alert { flex-wrap: wrap; align-items: flex-start; }
   .p2w .p2w-alert > :is(ul, ol, p, div, dl, table) { flex: 1 1 100%; margin: 4px 0 0; }
   .p2w .p2w-alert > :is(ul, ol) { padding-left: 18px; }
+  /* Filters (2026-11-07, Carbon text input / select on small screens): a label wrapping
+     its control shows the label above and the control full width at 48 px, instead of
+     raw browser dropdowns and date boxes with the label squeezed beside them. */
+  .p2w label:has(> :is(select, textarea, input:not([type='checkbox'], [type='radio'], [type='file'], [type='hidden']))) {
+    display: grid; gap: 4px; flex: 1 1 auto; width: 100%; max-width: 100%;
+    font-size: .78rem; font-weight: 600; color: var(--p2w-muted);
+  }
+  .p2w label > :is(select, textarea, input:not([type='checkbox'], [type='radio'], [type='file'], [type='hidden'])) {
+    box-sizing: border-box; width: 100%; max-width: 100%; min-height: 48px; padding: 0 12px;
+    border: 1px solid #c6d3db; border-radius: 8px; background-color: #fff; color: var(--p2w-ink);
+    font: inherit; font-size: 1rem; font-weight: 500;
+  }
+  .p2w label > textarea { min-height: 96px; padding: 10px 12px; }
+  /* In a filter row, short fields (dropdowns, dates) sit two per row (Carbon small grid:
+     each spans 2 of 4 columns); free text stays full width. */
+  .p2w .p2w-row > label:has(> :is(select, input[type='date'], input[type='month'])) {
+    flex: 1 1 calc(50% - 6px); width: calc(50% - 6px);
+  }
   .p2w .p2w-segment { flex-wrap: wrap; max-width: 100%; }
   .p2w .p2w-segment button { flex: 1 0 auto; white-space: nowrap; }
 }
@@ -912,9 +930,9 @@
     min-width: 4.5rem; letter-spacing: .02em; line-height: 1.25;
   }
   .p2w .p2w-table td { padding: 8px; }
-  .p2w .p2w-table:not(.p2w-table--grouped) :is(th, td):first-child {
+  .p2w .p2w-table:not(.p2w-table--grouped) :is(th, td):first-child:not([colspan]) {
     position: sticky; left: 0; z-index: 1;
-    max-width: 42vw; white-space: normal;
+    min-width: min(7rem, 34vw); max-width: 42vw; white-space: normal;
     background: #fff; box-shadow: inset -1px 0 0 var(--p2w-line);
   }
   .p2w .p2w-table:not(.p2w-table--grouped) tbody tr:hover :is(th, td):first-child { background: var(--p2w-soft); }

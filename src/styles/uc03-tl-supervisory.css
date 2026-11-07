@@ -550,7 +550,14 @@
 }
 
 @media (max-width: 560px) {
-  .uc03-tl-metrics,
+  /* Phones (2026-11-07): five KPI cards stay a compact 2-column grid (5th across both)
+     instead of five full-width 112 px cards stacked one per row. */
+  .uc03-tl-metrics { gap: 8px; }
+  .uc03-tl-metric { min-height: 0; gap: 2px; padding: 10px 12px; border-radius: 12px; }
+  .uc03-tl-metric > strong { align-self: start; font-size: 1.5rem; }
+  .uc03-tl-metric > span { font-size: .74rem; }
+  .uc03-tl-metric > small { font-size: .72rem; line-height: 1.3; }
+
   .uc03-tl-filters,
   .uc03-tl-case__details {
     grid-template-columns: 1fr;

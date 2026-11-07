@@ -52,7 +52,7 @@ function Section({ title, hint, section, journeyLinks }: {
         <details className="p2w-disclosure" open={flagged > 0 && flagged <= 20}>
           <summary>Flagged ({section.flags.length}{section.flagsTruncated ? '+' : ''})</summary>
           <div className="p2dr-scroll">
-            <table className="p2dr-table">
+            <table className="p2dr-table p2dr-table--list">
               <thead><tr><th>Flag</th><th>Task</th><th>Assignee</th><th>Due</th><th>Reviewer</th><th>Completed</th></tr></thead>
               <tbody>
                 {section.flags.map((f) => (
@@ -64,10 +64,10 @@ function Section({ title, hint, section, journeyLinks }: {
                         : f.title}
                       <span className="p2w-muted">{[f.customerName, f.journeyReference, f.outletName, f.recurring ? 'recurring' : null].filter(Boolean).map((v) => ` · ${v}`).join('')}</span>
                     </td>
-                    <td>{personName(f.assigneeName, f.assigneeActorId, f.assigneeRole)}</td>
-                    <td>{formatWhen(f.dueAtUtc)}</td>
-                    <td>{f.reviewerRole ? `${personName(f.reviewerName, null, f.reviewerRole)}${f.reviewDueAtUtc ? ` · by ${formatWhen(f.reviewDueAtUtc)}` : ''}` : '—'}</td>
-                    <td>{formatWhen(f.completedAtUtc)}</td>
+                    <td data-label="Assignee">{personName(f.assigneeName, f.assigneeActorId, f.assigneeRole)}</td>
+                    <td data-label="Due">{formatWhen(f.dueAtUtc)}</td>
+                    <td data-label="Reviewer">{f.reviewerRole ? `${personName(f.reviewerName, null, f.reviewerRole)}${f.reviewDueAtUtc ? ` · by ${formatWhen(f.reviewDueAtUtc)}` : ''}` : '—'}</td>
+                    <td data-label="Completed">{formatWhen(f.completedAtUtc)}</td>
                   </tr>
                 ))}
               </tbody>

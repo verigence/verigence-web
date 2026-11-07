@@ -148,3 +148,19 @@
 .xd .xd-kit { color: #8a3800; font-weight: 600; }
 .xd .xd-reason { color: var(--xd-text-2); max-width: 280px; }
 @media (max-width: 760px) { .xd .xd-tabs button { flex: 1 1 100%; min-width: 0; } }
+/* Phones (2026-11-07, Carbon small breakpoint): the three views sit in one row like a content
+   switcher, and the figures are two tiles per row instead of one per row. */
+@media (max-width: 671px) {
+  .xd .xd-tabs { flex-wrap: nowrap; }
+  .xd .xd-tabs button { flex: 1 1 0; padding: 10px 8px; font-size: .82rem; line-height: 1.25; }
+  .xd .xd-tabs small { font-size: .7rem; }
+  .xd .xd-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .xd .xd-tile { padding: 12px; }
+  .xd .xd-tile strong { font-size: 1.35rem; }
+  /* Filters two per row (dates, dropdowns); search and the date-basis switch full width. */
+  .xd .xd-toolbar { padding: 12px; gap: 12px; }
+  .xd .xd-toolbar__row { gap: 12px; }
+  .xd .xd-field, .xd .xd-field--date { flex: 1 1 calc(50% - 6px); min-width: 0; }
+  .xd .xd-field--search, .xd .xd-field:has(.xd-switcher) { flex-basis: 100%; }
+  .xd .xd-quick { flex-basis: 100%; }
+}

@@ -6,6 +6,7 @@ import { fixtures as journeys } from './fixtures-journeys.mjs';
 import { fixtures as journey360 } from './fixtures-journey360.mjs';
 import { fixtures as documentsTasks } from './fixtures-documents-tasks.mjs';
 import { fixtures as supervisory, reviewerMyWork } from './fixtures-supervisory.mjs';
+import { fixtures as hr } from './fixtures-hr.mjs';
 
 function project(role) {
   return {
@@ -61,5 +62,5 @@ const shell = [
 ];
 
 // Screen groups first; shell entries last so specific screen fixtures win.
-export const fixtures = [...journeys, ...journey360, ...documentsTasks, ...supervisory, ...shell];
+export const fixtures = [...journeys, ...journey360, ...documentsTasks, ...supervisory, ...hr, ...shell];
 export { TENANT, today, iso, outlets };

@@ -116,6 +116,24 @@ function inspect() {
     });
     if (cut) out.clipped.push(`${describe(cut)} cut off by ${describe(el)}`);
   }
+  // Short summary tiles (a number and a label) stacked one per row: five numbers should not
+  // take five screen-heights. Flags a grid/flex row of 3+ such tiles each spanning the width.
+  out.stacked = [];
+  for (const box of document.querySelectorAll('.enterprise-content *')) {
+    if (out.stacked.length > 4) break;
+    const s = getComputedStyle(box);
+    if (!['grid', 'flex'].includes(s.display) || !visible(box) || ['OL', 'UL'].includes(box.tagName)) continue;
+    const width = box.clientWidth;
+    if (width < 250) continue;
+    const kids = [...box.children].filter((k) => visible(k));
+    if (kids.length < 3) continue;
+    const tiles = kids.filter((k) => {
+      const r = k.getBoundingClientRect();
+      const text = (k.innerText || '').trim();
+      return r.width > width * 0.85 && /\d/.test(text) && text.length <= 50 && !['BUTTON', 'A'].includes(k.tagName) && !k.querySelector('table, ul, ol, form, input, select, button, [role="switch"]');
+    });
+    if (tiles.length >= 3 && tiles.length === kids.length) out.stacked.push(`${tiles.length} tiles one per row in ${describe(box)}`);
+  }
   // Words broken across lines: a single word whose glyphs occupy more than one line box.
   const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
   const range = document.createRange();
@@ -189,6 +207,7 @@ for (const width of widths) {
     for (const o of res.outside) problems.push(`sticks out: ${o}`);
     for (const b of res.brokenWords) problems.push(`broken word: ${b}`);
     for (const c of res.clipped) problems.push(`clipped: ${c}`);
+    for (const t of res.stacked) problems.push(`stacked: ${t}`);
     results.push({ screen: screen.name, width, route: screen.route, finalUrl, problems, file });
     for (const p of problems) failures.push(`${screen.name}@${width} (${screen.route}): ${p}`);
   }

@@ -32,7 +32,8 @@
   /* Phones (2026-11-07): a 7-column month grid left ~45 px per day and broke every
      figure letter by letter, so the month reads as a list of days instead. */
   .p2gp-grid { grid-template-columns: 1fr; gap: 6px; }
-  .p2gp-head, .p2gp-cell--pad { display: none; }
+  /* Days with nothing on the gate pass (future days, Sundays off) drop out of the list. */
+  .p2gp-head, .p2gp-cell.p2gp-cell--pad, .p2gp-cell.p2gp-cell--quiet { display: none; }
   .p2gp-cell {
     display: grid; grid-template-columns: 4.5rem repeat(2, minmax(0, 1fr)); align-items: baseline;
     gap: 2px 12px; min-height: 0; padding: 8px 10px; font-size: .85rem;

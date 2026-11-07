@@ -205,6 +205,11 @@
 .j360 .j360-paid .is-due { background: var(--p2w-review-bg); }
 .j360 .j360-paid .is-due dd { color: var(--p2w-review); }
 .j360 .j360-paid .is-clear dd { color: var(--p2w-success); }
+/* Phones (2026-11-07, Carbon small breakpoint): summary figures two per row, not one per row. */
+@media (max-width: 671px) {
+  .j360 .j360-paid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .j360 .j360-paid dd { font-size: 1rem; }
+}
 
 .j360 .j360-addon { display: grid; grid-template-columns: 1fr auto auto; gap: 8px; padding: 6px 0; border-top: 1px solid var(--p2w-line); }
 .j360 .j360-addon em { font-style: normal; margin-left: 6px; }
@@ -539,6 +544,10 @@
 .j360 .asum-verdict__status p { margin: 0; color: var(--p2w-muted); font-size: .9rem; }
 .j360 .asum-facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; margin: 0; }
 .j360 .asum-facts--totals { margin-top: 12px; }
+/* Phones (2026-11-07, Carbon small breakpoint): audit figures two per row. */
+@media (max-width: 671px) {
+  .j360 .asum-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+}
 .j360 .asum-fact { padding: 10px 12px; border: 1px solid var(--p2w-line); border-radius: 10px; background: var(--p2w-soft); }
 .j360 .asum-fact dt { font-size: .72rem; font-weight: 700; letter-spacing: .03em; text-transform: uppercase; color: var(--p2w-muted); }
 .j360 .asum-fact dd { margin: 4px 0 0; font-size: 1.05rem; font-weight: 800; color: var(--p2w-navy, #003a82); font-variant-numeric: tabular-nums; }

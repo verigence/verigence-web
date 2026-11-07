@@ -932,7 +932,7 @@
   .p2w .p2w-table td { padding: 8px; }
   .p2w .p2w-table:not(.p2w-table--grouped) :is(th, td):first-child:not([colspan]) {
     position: sticky; left: 0; z-index: 1;
-    min-width: min(7rem, 34vw); max-width: 42vw; white-space: normal;
+    min-width: min(9rem, 40vw); max-width: 42vw; white-space: normal;
     background: #fff; box-shadow: inset -1px 0 0 var(--p2w-line);
   }
   .p2w .p2w-table:not(.p2w-table--grouped) tbody tr:hover :is(th, td):first-child { background: var(--p2w-soft); }

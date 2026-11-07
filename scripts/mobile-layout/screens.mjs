@@ -26,6 +26,10 @@ async function newSession(role, width) {
   await context.grantPermissions(['geolocation'], { origin: base });
   await context.setGeolocation({ latitude: 20.2961, longitude: 85.8245, accuracy: 20 });
   const page = await context.newPage();
+  // Captures must not depend on when CI runs: the app shows an after-hours notice after 21:00 IST
+  // and checks location in working hours. Pin the clock to 11:15 IST today.
+  const istDay = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date());
+  await page.clock.setFixedTime(new Date(`${istDay}T11:15:00+05:30`));
   await page.route('**/*', async (route) => {
     const req = route.request();
     const url = new URL(req.url());

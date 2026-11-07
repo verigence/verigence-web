@@ -235,7 +235,7 @@
 @media (max-width: 767px) {
   .p2dr-table th { white-space: normal; vertical-align: bottom; min-width: 4.5rem; line-height: 1.25; }
   .p2dr-table:not(.p2dr-table--list, .p2dr-table--grouped) :is(th, td):first-child:not([colspan]) {
-    position: sticky; left: 0; z-index: 1; min-width: min(7rem, 34vw); max-width: 42vw; white-space: normal;
+    position: sticky; left: 0; z-index: 1; min-width: min(9rem, 40vw); max-width: 42vw; white-space: normal;
     background: #fff; box-shadow: inset -1px 0 0 #e3eaed;
   }
   .p2dr-table--list thead { display: none; }

@@ -66,6 +66,8 @@ describe('day words', () => {
 describe('corrections', () => {
   it('offers a correction only for a past working day that does not count in full', () => {
     expect(canRequestCorrection(day({}), '2026-10-09', false)).toBe(true);
+    // A day of the previous calendar month cannot be raised (product owner, 7 Nov 2026).
+    expect(canRequestCorrection(day({ date: '2026-09-30' }), '2026-10-09', false)).toBe(false);
     expect(canRequestCorrection(day({ status: 'PRESENT' }), '2026-10-09', false)).toBe(false);
     expect(canRequestCorrection(day({ dayKind: 'SUNDAY', status: 'OFF_DAY' }), '2026-10-09', false)).toBe(false);
     expect(canRequestCorrection(day({ date: '2026-10-09' }), '2026-10-09', false)).toBe(false);

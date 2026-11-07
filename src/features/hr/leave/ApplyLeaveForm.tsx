@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react';
 
 import type { ApplyLeaveType, LeaveApplyInput } from '../../../services/hr/leave';
 import HolidayNote from './HolidayNote';
+import RecentLeaveNote from './RecentLeaveNote';
 import {
   ADVANCE_DAYS,
   addDays,
@@ -193,9 +194,10 @@ export default function ApplyLeaveForm({ busy, serverError, onSubmit, onEdit, pr
       </div>
 
       {form.fromDate && <HolidayNote fromDate={form.fromDate} toDate={form.toDate} halfDay={form.halfDay} />}
+      {form.fromDate && <RecentLeaveNote fromDate={form.fromDate} />}
 
       <p className="hr-field__hint">
-        The number of days is worked out when you apply. Sundays and declared holidays are not counted; a half-day holiday counts half. You can apply up to {BACKDATE_DAYS} days
+        The number of days is worked out when you apply. Sundays and declared holidays are not counted (a Sunday made a working day for you is); a half-day holiday counts half. You can apply up to {BACKDATE_DAYS} days
         after the fact, and a request stays within one calendar year.
       </p>
 

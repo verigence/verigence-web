@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 
 import { decideLeave, listLeaveApprovals, type LeaveApproval } from '../../../services/hr/approvals';
 import { useSessionStore } from '../../../store/sessionStore';
+import { recentLeaveText } from '../leave/leaveLogic';
 import ApprovalListFrame from './ApprovalListFrame';
 import ApprovalPerson from './ApprovalPerson';
 import {
@@ -75,6 +76,7 @@ export default function LeavePanel({ query }: { query: ReturnType<typeof useLeav
                     {typeof x.balanceAvailable === 'number' && (
                       <small className="hr-appr-balance">Balance available: {x.balanceAvailable === 1 ? '1 day' : `${x.balanceAvailable} days`}</small>
                     )}
+                    {x.recentLeave && <small className="hr-appr-recent">{recentLeaveText(x.recentLeave)}</small>}
                     {x.coverWarnings && x.coverWarnings.length > 0 && (
                       <div className="hr-appr-cover" role="note" aria-label="Outlet cover">
                         {x.coverWarnings.map((w) => <p key={w.outletName}>{coverWarningText(x.employeeName, w)}</p>)}

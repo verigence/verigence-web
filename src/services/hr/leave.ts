@@ -51,6 +51,20 @@ export interface LeaveRequest {
   submittedAt: string;
   decidedAt: string | null;
   decisionNote: string | null;
+  /** Pending requests (HR view) and the apply response: leave taken in the 6 weeks before. */
+  recentLeave?: RecentLeave;
+}
+
+/**
+ * Approved paid (PAID, SPECIAL, COMP_OFF, old SICK/EARNED) and unpaid leave days in the 42 days
+ * before a request's from date, counted like leave days (product owner, 7 Nov 2026).
+ */
+export interface RecentLeave {
+  /** YYYY-MM-DD, inclusive. */
+  windowFrom: string;
+  windowTo: string;
+  paidDays: number;
+  unpaidDays: number;
 }
 
 export interface LeaveApplyInput {
@@ -163,6 +177,10 @@ export const applyLeave = (token: string, input: LeaveApplyInput) =>
     method: 'POST',
     body: input as unknown as Record<string, unknown>,
   });
+
+/** While applying: what the approver will see as leave taken in the 6 weeks before the from date. */
+export const getMyRecentLeave = (token: string, fromDate: string) =>
+  hrRequest<RecentLeave>(`${base}/leave/recent?fromDate=${encodeURIComponent(fromDate)}`, { accessToken: token });
 
 export const cancelLeave = (token: string, requestId: string) =>
   hrRequest<{ requestId: string; status: LeaveStatus }>(

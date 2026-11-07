@@ -40,6 +40,11 @@ export default function TodayCard({ today, onStart, disabled = false }: Props) {
       {dayKind === 'HOLIDAY' && (
         <div className="uc01-admin-message uc01-admin-message--info">Today is a holiday{today.holidayName ? `: ${today.holidayName}` : ''}. If you work today, it goes for approval.</div>
       )}
+      {working && today.workingSunday && (
+        <div className="uc01-admin-message uc01-admin-message--info" role="note">
+          <strong>Working Sunday: {today.workingSunday.name}.</strong> Today is a normal working day for you: check in and out as usual.
+        </div>
+      )}
       {working && today.halfDayHoliday && (
         <div className="uc01-admin-message uc01-admin-message--info" role="note">
           <strong>{halfDayHolidayText(today.halfDayHoliday)}.</strong>{' '}

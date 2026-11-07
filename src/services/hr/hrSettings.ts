@@ -33,6 +33,8 @@ export type HolidayStatus = 'TENTATIVE' | 'DECLARED';
 export type HolidayDayPart = 'FULL_DAY' | 'MORNING' | 'AFTERNOON';
 /** ALL: the whole company. SELECTED: the projects and outlets in `scope`. */
 export type HolidayAppliesTo = 'ALL' | 'SELECTED';
+/** HOLIDAY, or WORKING_DAY: a Sunday made a working day (a whole declared Sunday; 7 Nov 2026). */
+export type HolidayKind = 'HOLIDAY' | 'WORKING_DAY';
 
 /** A whole project (outletId null) or one outlet of a project. Names come from the work context. */
 export interface HolidayScope {
@@ -52,6 +54,8 @@ export interface Holiday {
   status: HolidayStatus;
   dayPart: HolidayDayPart;
   appliesTo: HolidayAppliesTo;
+  /** Absent from services before the working-Sunday change: treat as HOLIDAY. */
+  kind?: HolidayKind;
   /** Filled for HR only; empty for everyone else and for company-wide holidays. */
   scope: HolidayScope[];
   updatedAt?: string | null;
@@ -68,6 +72,7 @@ export interface HolidayInput {
   status: HolidayStatus;
   dayPart: HolidayDayPart;
   appliesTo: HolidayAppliesTo;
+  kind: HolidayKind;
   scope: Array<{ tenantId: string; outletId: string | null }>;
 }
 
@@ -122,7 +127,7 @@ export const updateSettings = (token: string, values: Record<string, SettingValu
   });
 
 export const listHolidays = (token: string, year: number) =>
-  hrRequest<HolidayList>(`${base}/holidays?year=${encodeURIComponent(String(year))}`, { accessToken: token });
+  hrRequest<HolidayList>(`${base}/holidays?year=${encodeURIComponent(String(year))}&includeWorkingDays=true`, { accessToken: token });
 
 export const addHoliday = (token: string, input: HolidayInput) =>
   hrRequest<Holiday>(`${base}/holidays`, { accessToken: token, method: 'POST', body: { ...input } });

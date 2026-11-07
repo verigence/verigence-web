@@ -74,6 +74,8 @@ export interface AttendanceToday {
    * services before 7 Nov 2026.
    */
   halfDayHoliday?: HalfDayHoliday | null;
+  /** This Sunday is a working day for this person (dayKind is WORKING). Absent from older services. */
+  workingSunday?: { name: string } | null;
   tentativeHoliday: string | null;
   tentativeHolidayDayPart?: 'FULL_DAY' | 'MORNING' | 'AFTERNOON' | null;
   day: AttendanceDay | null;
@@ -134,6 +136,8 @@ interface TeamAttendanceSummary {
   /** Company-wide holidays. dayPart is absent from services before 7 Nov 2026. */
   holidays: Array<{ date: string; name: string; dayPart?: 'FULL_DAY' | 'MORNING' | 'AFTERNOON' }>;
   /** Declared holidays for some projects or outlets only, with whom they are for. */
+  /** Sundays of the month made working days, with whom for. */
+  workingSundays?: Array<{ date: string; name: string; appliesTo: string[] }>;
   otherHolidays?: Array<{ date: string; name: string; dayPart: 'FULL_DAY' | 'MORNING' | 'AFTERNOON'; appliesTo: string[] }>;
 }
 

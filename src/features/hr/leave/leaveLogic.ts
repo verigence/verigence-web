@@ -74,6 +74,19 @@ export function formatDays(days: number): string {
   return `${text} ${days === 1 ? 'day' : 'days'}`;
 }
 
+/**
+ * "In the 6 weeks before (28 Sep to 8 Nov 2026): 4.5 days paid leave, 1.5 days unpaid leave."
+ * The numbers come from the server (approved leave only, counted like leave days).
+ */
+export function recentLeaveText(r: { windowFrom: string; windowTo: string; paidDays: number; unpaidDays: number }): string {
+  const day = (iso: string, year: boolean) => {
+    const [y, m, d] = iso.split('-').map(Number);
+    return new Date(Date.UTC(y, m - 1, d)).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', ...(year ? { year: 'numeric' } : {}), timeZone: 'UTC' });
+  };
+  const amount = (n: number) => (n === 0 ? 'no' : dayCount(n)) + (n === 1 ? ' day' : ' days');
+  return `In the 6 weeks before (${day(r.windowFrom, false)} to ${day(r.windowTo, true)}): ${amount(r.paidDays)} paid leave, ${amount(r.unpaidDays)} unpaid leave.`;
+}
+
 /** A number of days without a unit, for balance cards. */
 export function dayCount(days: number): string {
   return Number.isInteger(days) ? String(days) : String(Number(days.toFixed(1)));

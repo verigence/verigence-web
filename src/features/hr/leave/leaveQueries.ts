@@ -5,6 +5,7 @@ export const leaveKeys = {
   myEarning: ['hr', 'leave', 'my-earning'] as const,
   myAbsences: ['hr', 'leave', 'my-absences'] as const,
   holidays: (year: number) => ['hr', 'leave', 'holidays', year] as const,
+  recent: (fromDate: string) => ['hr', 'leave', 'recent', fromDate] as const,
   overview: (year: number) => ['hr', 'leave', 'overview', year] as const,
   employee: (id: string, year: number) => ['hr', 'leave', 'employee', id, year] as const,
 };

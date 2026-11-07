@@ -8,8 +8,10 @@ import {
   describeDraftScope,
   draftDayPart,
   draftFromHoliday,
+  asWorkingSunday,
   draftToInput,
   emptyHolidayDraft,
+  isSundayIso,
   formatHolidayDate,
   groupSettings,
   holidaySummary,
@@ -155,6 +157,7 @@ describe('holidays', () => {
       status: 'DECLARED',
       dayPart: 'MORNING',
       appliesTo: 'SELECTED',
+      kind: 'HOLIDAY',
       scope: [{ tenantId: 't-a', outletId: null }, { tenantId: 't-b', outletId: 'o-2' }],
     });
     expect(draftDayPart({ length: 'FULL', half: 'MORNING' })).toBe('FULL_DAY');
@@ -192,5 +195,17 @@ describe('holidays', () => {
     );
     const projects = [{ tenantId: 't-a', projectCode: 'A', projectName: 'Alpha', outlets: [{ outletId: 'o-1', outletCode: null, outletName: 'Puri' }] }];
     expect(describeDraftScope([scopeKey('t-a', 'o-1')], projects)).toBe('Alpha: Puri');
+  });
+  it('a working Sunday is a whole declared Sunday for chosen projects by default', () => {
+    expect(isSundayIso('2026-11-15')).toBe(true);
+    expect(isSundayIso('2026-11-16')).toBe(false);
+    const ws = asWorkingSunday(draft({ date: '2026-11-15', name: '', length: 'HALF', status: 'TENTATIVE' }));
+    expect(ws).toMatchObject({ kind: 'WORKING_DAY', length: 'FULL', status: 'DECLARED', name: 'Working Sunday', appliesTo: 'SELECTED' });
+    expect(validateHoliday({ ...ws, scope: [scopeKey('t-a', null)] })).toEqual({});
+    expect(validateHoliday({ ...ws, date: '2026-11-16', scope: [scopeKey('t-a', null)] }).date).toBe('A working Sunday must be on a Sunday.');
+    expect(draftToInput({ ...ws, half: 'MORNING', length: 'HALF', scope: [] })).toMatchObject({ kind: 'WORKING_DAY', dayPart: 'FULL_DAY' });
+    expect(holidaySummary({ kind: 'WORKING_DAY', dayPart: 'FULL_DAY', appliesTo: 'ALL', scope: [], status: 'DECLARED' })).toBe(
+      'Working Sunday, for the whole company.',
+    );
   });
 });

@@ -16,6 +16,7 @@ import Field from '../Field';
 import {
   HOLIDAY_DAY_PART_LABEL,
   HOLIDAY_STATUS_LABEL,
+  asWorkingSunday,
   describeAppliesTo,
   describeDraftScope,
   draftDayPart,
@@ -168,6 +169,7 @@ function ScopePicker({
 }
 
 function DayPartTag({ h }: { h: Holiday }) {
+  if (h.kind === 'WORKING_DAY') return <span className="hr-tag hr-tag--teal">Working Sunday</span>;
   const part = h.dayPart ?? 'FULL_DAY';
   return <span className={`hr-tag ${part === 'FULL_DAY' ? 'hr-tag--cool-gray' : 'hr-tag--blue'}`}>{HOLIDAY_DAY_PART_LABEL[part]}</span>;
 }
@@ -313,7 +315,7 @@ export default function HolidaysTab({ accessToken }: Props) {
           text:
             'Only declared holidays count as non-working days: in leave days, in the working days payroll counts, and on the attendance screen. ' +
             'A half-day holiday counts as half a working day; the other half must be worked. A holiday for selected projects or outlets applies only to the people working there on that date. ' +
-            'Sundays are always non-working.',
+            'Every Sunday is non-working unless it is made a working Sunday for some projects or outlets (or everyone).',
         }}
       />
 
@@ -339,7 +341,7 @@ export default function HolidaysTab({ accessToken }: Props) {
             }}
           >
             <div className="hr-form-grid">
-              <Field label="Date" htmlFor="holiday-date" required error={errors.date}>
+              <Field label="Date" htmlFor="holiday-date" required error={errors.date} hint={draft.kind === 'WORKING_DAY' ? 'A Sunday.' : undefined}>
                 <input
                   id="holiday-date"
                   type="date"
@@ -366,17 +368,34 @@ export default function HolidaysTab({ accessToken }: Props) {
             </div>
 
             <RadioTiles
-              legend="Length"
-              name="holiday-length"
-              value={draft.length}
+              legend="Type"
+              name="holiday-kind"
+              value={draft.kind}
               disabled={busy}
-              onChange={(length) => change({ length })}
+              onChange={(kind) =>
+                kind === 'WORKING_DAY'
+                  ? setDraft((current) => (current ? asWorkingSunday(current) : current))
+                  : change({ kind, name: draft.name === 'Working Sunday' ? '' : draft.name })
+              }
               options={[
-                { value: 'FULL', title: 'Full day', text: 'The whole day is off.' },
-                { value: 'HALF', title: 'Half day', text: 'One half is off; the other half is a working day.' },
+                { value: 'HOLIDAY', title: 'Holiday', text: 'A day, or half a day, off.' },
+                { value: 'WORKING_DAY', title: 'Working Sunday', text: 'This Sunday is a normal working day for the people chosen.' },
               ]}
             />
-            {draft.length === 'HALF' && (
+            {draft.kind === 'HOLIDAY' && (
+              <RadioTiles
+                legend="Length"
+                name="holiday-length"
+                value={draft.length}
+                disabled={busy}
+                onChange={(length) => change({ length })}
+                options={[
+                  { value: 'FULL', title: 'Full day', text: 'The whole day is off.' },
+                  { value: 'HALF', title: 'Half day', text: 'One half is off; the other half is a working day.' },
+                ]}
+              />
+            )}
+            {draft.kind === 'HOLIDAY' && draft.length === 'HALF' && (
               <RadioTiles
                 legend="Which half is off"
                 name="holiday-half"
@@ -389,17 +408,19 @@ export default function HolidaysTab({ accessToken }: Props) {
                 ]}
               />
             )}
-            <RadioTiles
-              legend="Status"
-              name="holiday-status"
-              value={draft.status}
-              disabled={busy}
-              onChange={(status) => change({ status })}
-              options={[
-                { value: 'TENTATIVE', title: HOLIDAY_STATUS_LABEL.TENTATIVE, text: 'A proposal only. It changes nothing yet.' },
-                { value: 'DECLARED', title: HOLIDAY_STATUS_LABEL.DECLARED, text: 'Counts as a holiday in attendance, leave and payroll.' },
-              ]}
-            />
+            {draft.kind === 'HOLIDAY' && (
+              <RadioTiles
+                legend="Status"
+                name="holiday-status"
+                value={draft.status}
+                disabled={busy}
+                onChange={(status) => change({ status })}
+                options={[
+                  { value: 'TENTATIVE', title: HOLIDAY_STATUS_LABEL.TENTATIVE, text: 'A proposal only. It changes nothing yet.' },
+                  { value: 'DECLARED', title: HOLIDAY_STATUS_LABEL.DECLARED, text: 'Counts as a holiday in attendance, leave and payroll.' },
+                ]}
+              />
+            )}
             <RadioTiles
               legend="Applies to"
               name="holiday-applies"
@@ -431,9 +452,9 @@ export default function HolidaysTab({ accessToken }: Props) {
             {!options.data && errors.scope && <span className="hr-field__error" role="alert">{errors.scope}</span>}
 
             <p className="hrs-intro" aria-live="polite">
-              {HOLIDAY_DAY_PART_LABEL[dayPart]}
-              {draft.appliesTo === 'ALL' ? ' for the whole company' : ' for the selected projects and outlets'}
-              {draft.status === 'DECLARED' ? ', declared.' : ', tentative.'}
+              {draft.kind === 'WORKING_DAY'
+                ? `Working Sunday${draft.appliesTo === 'ALL' ? ' for the whole company' : ' for the selected projects and outlets'}: an ordinary working day for them (check-in rules, leave, payroll and earned leave as on any working day). Everyone else keeps the Sunday off.`
+                : `${HOLIDAY_DAY_PART_LABEL[dayPart]}${draft.appliesTo === 'ALL' ? ' for the whole company' : ' for the selected projects and outlets'}${draft.status === 'DECLARED' ? ', declared.' : ', tentative.'}`}
             </p>
 
             {formError && <InlineNotification notice={{ kind: 'error', title: formError }} />}

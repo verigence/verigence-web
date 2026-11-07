@@ -12,6 +12,13 @@ The app's build number is added by the release workflow and is not written here.
 
 ## [Unreleased]
 
+### Added
+- myHR holidays: HR or SuperAdmin can make a Sunday a working day for chosen projects (or outlets, or everyone). Choose **Working Sunday** when adding a holiday; only Sundays are allowed. For those people it is a normal working day: Today and the attendance calendar say "Working Sunday", the usual check-in rules apply, and it counts for leave, payroll and earned leave. Everyone else keeps the Sunday off. A working Sunday and a holiday for the same people on the same date are refused.
+- Leave: when someone applies for leave, they and their approver see how many paid and unpaid leave days were taken in the 6 weeks before the leave's first day (Team Lead, Project Manager and HR approval lists, and HR's view of a person's pending requests).
+
+### Changed
+- Earned paid leave: a half-day holiday that was attended counts as half a day towards the 22 days, not a whole day.
+
 ## [1.6.2] - 2026-11-07
 
 ### Added

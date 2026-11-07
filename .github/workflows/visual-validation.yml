@@ -19,6 +19,10 @@ on:
       - 'src/pages/TermsPage.tsx'
       - 'src/pages/PrivacyPage.tsx'
       - 'src/styles/**'
+      - 'src/pages/P2*.tsx'
+      - 'src/pages/hr/**'
+      - 'src/features/uc03-p2/**'
+      - 'scripts/mobile-layout/**'
   workflow_dispatch:
 
 concurrency:
@@ -535,6 +539,16 @@ jobs:
           }
           console.log('VERIGENCE_UI_GOVERNANCE_VISUAL=PASS');
           NODE
+
+      # DealGuard and myHR screens at phone widths with realistic mocked data
+      # (scripts/mobile-layout). Fails on a page wider than the phone, an element
+      # sticking out of it, or a word broken across lines (2026-11-07).
+      - name: Validate phone layouts of the main screens
+        if: always()
+        env:
+          TEST_WEB_URL: http://127.0.0.1:4173
+          WIDTHS: 360,390
+        run: node scripts/mobile-layout/screens.mjs --out visual-output/phone-screens
 
       - name: Upload responsive screenshots
         if: always()

@@ -17,6 +17,7 @@ The app's build number is added by the release workflow and is not written here.
 - Only the **Sign out** button forgets "Keep me signed in". The app no longer forgets it when the sign-in runs out, when access is paused for a while, or when the network fails. It is forgotten only when you sign in on another phone (or Security ends the sign-in for another reason).
 
 ### Changed
+- Attendance correction: a request can be raised only for a day of the current calendar month. Days of an earlier month no longer offer it.
 - You can stay signed in on one phone (the app) and one PC browser at the same time. Signing in on another phone signs out the previous phone; signing in on another PC signs out the previous PC.
 
 ## [1.6.3] - 2026-11-07

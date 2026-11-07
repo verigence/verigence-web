@@ -210,6 +210,7 @@ function longDate(iso: string): string {
 export function birthdayLeaveText(info: BirthdayLeaveInfo | undefined, available: number): string {
   if (!info) return '';
   if (!info.dateOfBirthOnFile) return info.message;
+  if (info.open === false) return `Opens on ${longDate(info.nextOpensOn)}, the first birthday after joining`;
   if (available > 0) return `Available from ${longDate(info.availableFrom)} to ${longDate(info.availableUntil)}`;
   return `Opens on ${longDate(info.nextOpensOn)}`;
 }

@@ -196,6 +196,9 @@ describe('birthday leave card (7 Nov 2026)', () => {
     expect(birthdayLeaveText(info, 1)).toBe('Available from 30 Aug 2026 to 29 Aug 2027');
     expect(birthdayLeaveText(info, 0)).toBe('Opens on 30 Aug 2027');
   });
+  it('a new joiner waits for the first birthday after joining', () => {
+    expect(birthdayLeaveText({ ...info, open: false, nextOpensOn: '2027-08-30' }, 0)).toBe('Opens on 30 Aug 2027, the first birthday after joining');
+  });
   it('says why there is none, and nothing for an older service', () => {
     expect(birthdayLeaveText({ dateOfBirthOnFile: false, message: 'Your date of birth is not in myHR; ask HR to add it.' }, 0)).toBe(
       'Your date of birth is not in myHR; ask HR to add it.',

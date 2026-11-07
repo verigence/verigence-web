@@ -37,7 +37,15 @@ export interface LeaveBalanceType {
  */
 export type BirthdayLeaveInfo =
   | { dateOfBirthOnFile: false; message: string }
-  | { dateOfBirthOnFile: true; birthdayYear: number; availableFrom: string; availableUntil: string; nextOpensOn: string };
+  | {
+      dateOfBirthOnFile: true;
+      /** false: joined after this birthday; nothing until the first birthday after joining (nextOpensOn). */
+      open?: boolean;
+      birthdayYear: number;
+      availableFrom: string;
+      availableUntil: string;
+      nextOpensOn: string;
+    };
 
 export interface LeaveBalance {
   year: number;

@@ -13,7 +13,7 @@ The app's build number is added by the release workflow and is not written here.
 ## [Unreleased]
 
 ### Changed
-- myHR leave: special occasion leave is now **Birthday leave**. It opens on your birthday and can be taken that day, or any later day until the day before your next birthday; it cannot be taken before your birthday and does not carry over to the next one. No occasion needs to be typed any more. The balance card says "Available from … to …" or "Opens on …"; without a date of birth in myHR it says to ask HR to add it.
+- myHR leave: special occasion leave is now **Birthday leave**. It opens on your birthday and can be taken that day, or any later day until the day before your next birthday; it cannot be taken before your birthday and does not carry over to the next one. For someone who joined after their birthday, it opens on the first birthday after joining. No occasion needs to be typed any more. The balance card says "Available from … to …" or "Opens on …"; without a date of birth in myHR it says to ask HR to add it.
 - Leave taken in the previous 6 weeks (shown when applying and to the approver) now counts only days already taken: approved leave still to come is left out.
 
 ### Added

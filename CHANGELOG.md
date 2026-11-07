@@ -12,6 +12,8 @@ The app's build number is added by the release workflow and is not written here.
 
 ## [Unreleased]
 
+## [1.6.1] - 2026-11-07
+
 ### Changed
 - Daily gate pass: the PC now picks the date the gate register is for, every time. Any day from today back to 7 days ago can be chosen (Sunday is off, so its register goes with Monday's). Each date shows whether a register is already uploaded and whether it can still be changed.
 - Daily gate pass: a register already uploaded can be opened and changed for 3 days after its date: add a photo, remove a photo, or replace all the photos. Older registers are locked and say so. Removed and replaced photos are kept in the history.

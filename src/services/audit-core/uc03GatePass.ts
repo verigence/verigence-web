@@ -20,7 +20,23 @@ export type GatePassOutlets = {
   editableToday?: GatePass[];
   /** No longer set: satellite outlets have a gate register too (2026-11-02). Kept for older servers. */
   satelliteOnly?: boolean;
+  /** The dates a register can be chosen for (2026-11-07); per outlet, getGatePassDays says what each allows. */
+  window?: GatePassWindow;
 };
+
+/** Today back to N-7 (India time), Sunday left out: Monday's register covers Sunday (product owner 2026-11-07). */
+export type GatePassWindow = {
+  today: string; uploadFrom: string; editFrom: string; uploadBackDays: number; editBackDays: number; maxPages: number;
+  days: GatePassDayInfo[];
+};
+
+/** NEW: no register yet (N to N-7). EDITABLE: on file, photos can be added, replaced or removed (N to N-3).
+ * LOCKED: on file and no longer changeable (N-4 to N-7). */
+export type GatePassDayState = 'NEW' | 'EDITABLE' | 'LOCKED';
+export type GatePassChoosableDay = GatePassDayInfo & {
+  isToday: boolean; state: GatePassDayState; canUpload: boolean; canEdit: boolean; register: GatePass | null; note: string;
+};
+export type GatePassDays = Omit<GatePassWindow, 'days'> & { outlet: GatePassOutlet; days: GatePassChoosableDay[] };
 
 export type GatePass = {
   gatePassId: string; outletId: string; outletName: string; pcName: string; businessDate: string; status: string;
@@ -28,7 +44,12 @@ export type GatePass = {
   /** The photo is always kept; its quality is judged on the server (2026-10-27). */
   photoQuality?: 'GOOD' | 'BLURRED' | 'TOO_DARK' | 'WASHED_OUT'; photoQualityNote?: string | null;
   photoMode?: 'COMBINED' | 'SEPARATE';
-  pages?: Array<{ pageNo: number; date: string; photoQuality: string }>;
+  /** pageNo identifies a photo (to remove it); position is what getGatePassImageUrl(page) opens (2026-11-07). */
+  pages?: Array<{ pageNo: number; position?: number; date: string; photoQuality: string }>;
+  /** Photos can be added, replaced or removed until editableUntil, three days after the register's date (2026-11-07). */
+  photosEditable?: boolean; editableUntil?: string; pagesEditCount?: number;
+  /** Uploaded after its Daily Gate Pass task was due (a register of an earlier day). */
+  uploadedLate?: boolean;
   newDeliveries: number | null; stockTransfers: number | null; testDrives: number | null;
   otherCount: number | null; otherNote: string | null; deliveryFiles: number | null;
   divergence: 'NONE' | 'EXTRA_FILES' | 'MISSING_FILES' | null; pastDeliveryNote: string | null;
@@ -93,9 +114,17 @@ export type GatePassPhoto = { blob: Blob; filename: string; date?: string };
 
 export const MAX_GATE_PASS_PHOTOS = 4;
 
+/** What each date the PC can choose allows for one outlet (2026-11-07). */
+export function getGatePassDays(tenantId: string, outletId: string, accessToken?: string) {
+  const params = new URLSearchParams({ outletId });
+  return auditCoreRequest<GatePassDays>(`${base(tenantId)}/gate-passes/days?${params.toString()}`, { accessToken });
+}
+
+/** The PC always chooses the date (2026-11-07): ``businessDate`` is required. A date that already has
+ * a register replaces it (allowed up to three days after the date). */
 export function uploadGatePass(
   tenantId: string,
-  input: { outletId: string; pcName?: string; businessDate?: string; file?: Blob; filename?: string;
+  input: { outletId: string; pcName?: string; businessDate: string; file?: Blob; filename?: string;
            photos?: GatePassPhoto[]; separateDays?: boolean },
   accessToken?: string,
 ) {
@@ -112,6 +141,26 @@ export function uploadGatePass(
   return auditCoreRequest<GatePass>(`${base(tenantId)}/gate-passes`, {
     method: 'POST', accessToken, body: form, timeoutMs: 120_000,
   });
+}
+
+/** Add photos to a register on file (2026-11-07); ``pageDate`` (Sunday or Monday) when the two days were photographed apart. */
+export function addGatePassPhotos(
+  tenantId: string, gatePassId: string, photos: Array<{ blob: Blob; filename: string }>, pageDate?: string, accessToken?: string,
+) {
+  const form = new FormData();
+  for (const photo of photos) form.append('files', photo.blob, photo.filename);
+  if (pageDate) form.set('pageDate', pageDate);
+  return auditCoreRequest<GatePass>(`${base(tenantId)}/gate-passes/${encodeURIComponent(gatePassId)}/pages`, {
+    method: 'POST', accessToken, body: form, timeoutMs: 120_000,
+  });
+}
+
+/** Remove one photo from a register on file (2026-11-07). The photo is kept on the server, marked removed. */
+export function removeGatePassPhoto(tenantId: string, gatePassId: string, pageNo: number, accessToken?: string) {
+  return auditCoreRequest<GatePass>(
+    `${base(tenantId)}/gate-passes/${encodeURIComponent(gatePassId)}/pages/${encodeURIComponent(String(pageNo))}`,
+    { method: 'DELETE', accessToken },
+  );
 }
 
 /** One of the PC's own gate registers (to correct its counts on the day, 2026-11-03). */

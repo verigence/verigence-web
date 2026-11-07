@@ -17,13 +17,14 @@ describe('gate pass client', () => {
   it('uploads the photo as multipart with the outlet and PC name', async () => {
     fetchMock.mockResolvedValue(json({ gatePassId: 'g1' }));
     const { uploadGatePass } = await load();
-    await uploadGatePass('t1', { outletId: 'o1', pcName: 'Asha', file: new Blob(['x'], { type: 'image/jpeg' }), filename: 'a.jpg' }, 'tok');
+    await uploadGatePass('t1', { outletId: 'o1', pcName: 'Asha', businessDate: '2026-11-04', file: new Blob(['x'], { type: 'image/jpeg' }), filename: 'a.jpg' }, 'tok');
     const [url, init] = fetchMock.mock.calls[0];
     expect(url).toBe('https://audit.example.test/p2/v1/tenants/t1/gate-passes');
     expect(init.method).toBe('POST');
     expect(init.body).toBeInstanceOf(FormData);
     expect((init.body as FormData).get('outletId')).toBe('o1');
     expect((init.body as FormData).get('pcName')).toBe('Asha');
+    expect((init.body as FormData).get('businessDate')).toBe('2026-11-04');
     expect(new Headers(init.headers).get('Authorization')).toBe('Bearer tok');
     expect(new Headers(init.headers).has('Content-Type')).toBe(false);
   });
@@ -32,12 +33,40 @@ describe('gate pass client', () => {
     fetchMock.mockResolvedValue(json({ gatePassId: 'g1' }));
     const { uploadGatePass } = await load();
     const blob = new Blob(['x'], { type: 'image/jpeg' });
-    await uploadGatePass('t1', { outletId: 'o1', separateDays: true, photos: [
+    await uploadGatePass('t1', { outletId: 'o1', businessDate: '2026-11-02', separateDays: true, photos: [
       { blob, filename: 'sun.jpg', date: '2026-11-01' }, { blob, filename: 'mon.jpg', date: '2026-11-02' },
     ] }, 'tok');
     const form = fetchMock.mock.calls[0][1].body as FormData;
     expect(form.getAll('files')).toHaveLength(2);
     expect(form.getAll('fileDates')).toEqual(['2026-11-01', '2026-11-02']);
+  });
+
+  it('asks what each choosable date allows for one outlet', async () => {
+    fetchMock.mockResolvedValue(json({ days: [] }));
+    const { getGatePassDays } = await load();
+    await getGatePassDays('t1', 'o 1', 'tok');
+    expect(fetchMock.mock.calls[0][0]).toBe('https://audit.example.test/p2/v1/tenants/t1/gate-passes/days?outletId=o+1');
+  });
+
+  it('adds photos to a register on file, with the day when Sunday and Monday are apart', async () => {
+    fetchMock.mockResolvedValue(json({ gatePassId: 'g1' }));
+    const { addGatePassPhotos } = await load();
+    const blob = new Blob(['x'], { type: 'image/jpeg' });
+    await addGatePassPhotos('t1', 'g1', [{ blob, filename: 'a.jpg' }, { blob, filename: 'b.jpg' }], '2026-11-01', 'tok');
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe('https://audit.example.test/p2/v1/tenants/t1/gate-passes/g1/pages');
+    expect(init.method).toBe('POST');
+    expect((init.body as FormData).getAll('files')).toHaveLength(2);
+    expect((init.body as FormData).get('pageDate')).toBe('2026-11-01');
+  });
+
+  it('removes one photo by its page number', async () => {
+    fetchMock.mockResolvedValue(json({ gatePassId: 'g1' }));
+    const { removeGatePassPhoto } = await load();
+    await removeGatePassPhoto('t1', 'g1', 3, 'tok');
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe('https://audit.example.test/p2/v1/tenants/t1/gate-passes/g1/pages/3');
+    expect(init.method).toBe('DELETE');
   });
 
   it('asks for one outlet or one dealer, outlet first', async () => {
@@ -50,7 +79,7 @@ describe('gate pass client', () => {
   it('shows the plain sentence Audit Core gave for a refused photo', async () => {
     fetchMock.mockResolvedValue(json({ detail: 'The photo is blurred. Take it again.', status: 422 }, 422));
     const { uploadGatePass, gatePassErrorText } = await load();
-    const cause = await uploadGatePass('t1', { outletId: 'o1', file: new Blob(['x']), filename: 'a.jpg' }, 'tok').catch((e) => e);
+    const cause = await uploadGatePass('t1', { outletId: 'o1', businessDate: '2026-11-04', file: new Blob(['x']), filename: 'a.jpg' }, 'tok').catch((e) => e);
     expect(gatePassErrorText(cause, 'fallback')).toBe('The photo is blurred. Take it again.');
   });
 

@@ -41,3 +41,7 @@
 }
 .p2w .p2w-hero__capture--bulk { background: #00706b; margin-left: 8px; box-shadow: 0 10px 22px -12px rgba(0, 112, 107, .5); }
 .p2w .p2w-hero__capture--bulk:hover { background: #005a56; }
+/* Phones (2026-11-07): the hero stacks its actions; both buttons start at the same edge. */
+@media (max-width: 767px) {
+  .p2w .p2w-hero__capture--bulk { margin-left: 0; }
+}

@@ -135,6 +135,7 @@ export default function GatePassCalendar({ tenantId, accessToken, refreshKey }: 
               return (
                 <div key={date} className={`p2gp-cell${split.toUpload ? ' p2gp-cell--missing' : ''}`} role="gridcell">
                   <span className="p2gp-date">{i + 1}</span>
+                  <span className="p2gp-weekday" aria-hidden="true">{WEEKDAYS[(lead + i) % 7]}</span>
                   {quiet ? null : (
                     <>
                       <span title="Deliveries reported on the gate pass">Done {day!.declared}</span>

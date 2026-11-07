@@ -509,6 +509,12 @@
 .j360 .j360-dup-evidence { margin-top: 10px; }
 .j360 .j360-dup-evidence .p2w-table { margin-top: 4px; }
 .j360 .j360-dup-evidence td { word-break: break-word; }
+/* Phones (2026-11-07): PAN, GSTIN, mobile and Aadhaar stay whole; the comparison scrolls
+   inside the card if it must (Field column pinned) rather than splitting an identifier. */
+@media (max-width: 767px) {
+  .j360 .j360-dup-evidence { overflow-x: auto; }
+  .j360 .j360-dup-evidence td { word-break: normal; }
+}
 
 /* The deal sheet's totals. "Net payable" carries the variance, so it shows
    what is payable now -- the figure the variance is against. What the

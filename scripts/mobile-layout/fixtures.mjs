@@ -5,7 +5,7 @@ import { TENANT, today, iso, outlets } from './fixtures-base.mjs';
 import { fixtures as journeys } from './fixtures-journeys.mjs';
 import { fixtures as journey360 } from './fixtures-journey360.mjs';
 import { fixtures as documentsTasks } from './fixtures-documents-tasks.mjs';
-import { fixtures as supervisory } from './fixtures-supervisory.mjs';
+import { fixtures as supervisory, reviewerMyWork } from './fixtures-supervisory.mjs';
 
 function project(role) {
   return {
@@ -57,7 +57,7 @@ const shell = [
   ['GET', /\/security\/v1\/me\/announcements/, () => ({ announcement: null })],
   ['GET', /\/audit-core\/v1\/me\/projects/, (_m, _u, role) => ({ projects: [project(role)] })],
   ['GET', /\/p2\/v1\/tenants\/[^/]+\/my-work\/checkout-check/, () => ({ day: today, label: 'Yesterday', pending: [] })],
-  ['GET', /\/p2\/v1\/tenants\/[^/]+\/my-work/, () => myWork()],
+  ['GET', /\/p2\/v1\/tenants\/[^/]+\/my-work/, (_m, url, role) => (role === 'REVIEWER' ? reviewerMyWork(url) : myWork())],
 ];
 
 // Screen groups first; shell entries last so specific screen fixtures win.

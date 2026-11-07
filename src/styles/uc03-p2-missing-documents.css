@@ -18,6 +18,8 @@
   .p2md-day .p2w-table tr { padding: 8px 0; border-bottom: 1px solid #e3eaed; }
   .p2md-day .p2w-table td { padding: 2px 4px; border-bottom: 0; }
   .p2md-day .p2w-table td[data-label]::before { content: attr(data-label) ': '; color: #5d6f76; font-weight: 600; }
+  /* Stacked as cards: the phone table rule's pinned first column does not apply. */
+  .p2w .p2md-day .p2w-table.p2w-table :is(th, td):first-child { position: static; max-width: none; box-shadow: none; background: none; }
 }
 /* Days as collapsible sections (shared panel, 2026-11-03). */
 .p2md { display: grid; gap: 12px; }

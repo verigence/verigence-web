@@ -65,6 +65,7 @@ function inspect() {
   const visible = (el) => {
     const s = getComputedStyle(el);
     if (s.visibility === 'hidden' || s.display === 'none' || Number(s.opacity) === 0) return false;
+    if ((s.clip && s.clip !== 'auto') || (s.clipPath && s.clipPath !== 'none')) return false; // screen-reader only
     const r = el.getBoundingClientRect();
     return r.width > 0 && r.height > 0;
   };
@@ -72,7 +73,9 @@ function inspect() {
     for (let n = el.parentElement; n && n !== document.body; n = n.parentElement) {
       const s = getComputedStyle(n);
       if (['auto', 'scroll'].includes(s.overflowX) && n.scrollWidth > n.clientWidth + 1) return true;
-      if (s.overflowX === 'hidden' || s.overflowX === 'clip') return true; // clipped on purpose
+      // A box that clips inside the phone (a carousel, a truncating chip) does so on purpose;
+      // the app shell clipping at the phone's edge just hides a defect.
+      if ((s.overflowX === 'hidden' || s.overflowX === 'clip') && n.getBoundingClientRect().right < vw - 2) return true;
     }
     return false;
   };
@@ -86,15 +89,32 @@ function inspect() {
     if (out.outside.length > 12) break;
     if (!visible(el) || el.closest('[aria-hidden="true"]')) continue;
     const r = el.getBoundingClientRect();
-    if ((r.right > vw + 2 || r.left < -2) && !inHScroller(el)) {
+    const offCanvas = r.right <= 0 || r.left >= vw; // a closed drawer parked off-screen
+    if (!offCanvas && (r.right > vw + 2 || r.left < -2) && !inHScroller(el)) {
       const parent = el.parentElement;
       // report only the outermost offender
       if (parent && parent !== document.body) {
         const pr = parent.getBoundingClientRect();
-        if ((pr.right > vw + 2 || pr.left < -2) && !inHScroller(parent)) continue;
+        if (!(pr.right <= 0 || pr.left >= vw) && (pr.right > vw + 2 || pr.left < -2) && !inHScroller(parent)) continue;
       }
       out.outside.push(`${describe(el)} [${Math.round(r.left)}..${Math.round(r.right)}]`);
     }
+  }
+  // Content cut off by its own container: a box that hides overflow while holding something
+  // wider than itself (not an ellipsis, not a scroller).
+  out.clipped = [];
+  for (const el of document.querySelectorAll('.enterprise-content *, .uc03-project-gate *')) {
+    if (out.clipped.length > 8) break;
+    const s = getComputedStyle(el);
+    if (!['hidden', 'clip'].includes(s.overflowX) || s.textOverflow === 'ellipsis' || !visible(el)) continue;
+    if (el.scrollWidth <= el.clientWidth + 2 || el.clientWidth < 24) continue;
+    const box = el.getBoundingClientRect();
+    const cut = [...el.querySelectorAll('*')].find((k) => {
+      if (!visible(k)) return false;
+      const r = k.getBoundingClientRect();
+      return r.right > box.right + 2 && r.left < box.right && (k.innerText || '').trim();
+    });
+    if (cut) out.clipped.push(`${describe(cut)} cut off by ${describe(el)}`);
   }
   // Words broken across lines: a single word whose glyphs occupy more than one line box.
   const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
@@ -105,14 +125,23 @@ function inspect() {
     const el = node.parentElement;
     if (!el || !visible(el) || reported.has(el) || el.closest('[aria-hidden="true"], script, style, input, textarea')) continue;
     if (el.getBoundingClientRect().width <= 2) continue; // visually-hidden (screen reader) text
+    // Text that explicitly opts in to breaking long tokens (codes, VINs, e-mails) may break.
+    if (getComputedStyle(el).overflowWrap === 'anywhere' || getComputedStyle(el).wordBreak === 'break-all') continue;
     const text = node.textContent;
-    const re = /[A-Za-z]{3,}/g;
+    // Whole whitespace-delimited tokens; a token wider than its line may legitimately wrap.
+    const re = /[^\s\-/–—]{3,}/g;
+    const line = el.closest('p, li, dd, dt, td, th, div, span, button, a, label, h1, h2, h3, h4, h5, h6') || el;
+    const lineWidth = line.clientWidth || line.getBoundingClientRect().width;
     let m;
     while ((m = re.exec(text))) {
+      if (!/[A-Za-z]{3,}/.test(m[0])) continue;
       range.setStart(node, m.index);
       range.setEnd(node, m.index + m[0].length);
-      const tops = new Set([...range.getClientRects()].filter((r) => r.width > 0).map((r) => Math.round(r.top)));
-      if (tops.size > 1) {
+      const rects = [...range.getClientRects()].filter((r) => r.width > 0);
+      const tops = new Set(rects.map((r) => Math.round(r.top)));
+      const tokenWidth = rects.reduce((sum, r) => sum + r.width, 0);
+      // Broken although it fitted the line, or broken because its column is too narrow to read.
+      if (tops.size > 1 && (tokenWidth <= lineWidth || lineWidth < 160)) {
         reported.add(el);
         out.brokenWords.push(`"${m[0]}" in ${describe(el)}`);
         break;
@@ -159,6 +188,7 @@ for (const width of widths) {
     if (res.pageOverflow > 1) problems.push(`page scrolls sideways by ${res.pageOverflow}px`);
     for (const o of res.outside) problems.push(`sticks out: ${o}`);
     for (const b of res.brokenWords) problems.push(`broken word: ${b}`);
+    for (const c of res.clipped) problems.push(`clipped: ${c}`);
     results.push({ screen: screen.name, width, route: screen.route, finalUrl, problems, file });
     for (const p of problems) failures.push(`${screen.name}@${width} (${screen.route}): ${p}`);
   }

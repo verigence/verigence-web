@@ -246,6 +246,13 @@ ion-app {
       [role='tab'], [role='button'], [role='option'], [role='menuitem'], ion-label) {
     min-width: auto;
   }
+
+  /* A label wrapping a control (Show: <select>) is never wider than its row; a select
+   * holding a long outlet name otherwise ran past the card edge and was clipped. */
+  .enterprise-content :where(label),
+  .uc03-project-gate :where(label) {
+    max-width: 100%;
+  }
 }
 
 img,

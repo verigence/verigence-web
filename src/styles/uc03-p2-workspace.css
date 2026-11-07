@@ -158,6 +158,12 @@
 /* Phones (2026-11-07): options never shrink below their label; when they do not fit one
    row (six periods) they wrap into whole-button rows sharing the width evenly. */
 @media (max-width: 767px) {
+  /* Alerts carrying a title, text and a list (duplicate booking, figures not read) laid
+     each child out as a squeezed column; blocks now go below the title at full width,
+     and the action stays one whole button. */
+  .p2w .p2w-alert { flex-wrap: wrap; align-items: flex-start; }
+  .p2w .p2w-alert > :is(ul, ol, p, div, dl, table) { flex: 1 1 100%; margin: 4px 0 0; }
+  .p2w .p2w-alert > :is(ul, ol) { padding-left: 18px; }
   .p2w .p2w-segment { flex-wrap: wrap; max-width: 100%; }
   .p2w .p2w-segment button { flex: 1 0 auto; white-space: nowrap; }
 }
@@ -659,7 +665,8 @@
 .p2w-history li { display: grid; gap: 2px; }
 @media (max-width: 560px) {
   .p2w-task__row { grid-template-columns: 1fr; }
-  .p2w-task__meta { justify-items: start; grid-auto-flow: column; justify-content: start; gap: 8px; }
+  /* Chips, owner and comment count wrap onto a second line instead of running off the card. */
+  .p2w-task__meta { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-start; gap: 6px 8px; }
   .p2w-task__actions .p2w-button, .p2w-task__quick .p2w-button { flex: 1; width: 100%; }
 }
 
@@ -907,7 +914,7 @@
   .p2w .p2w-table td { padding: 8px; }
   .p2w .p2w-table:not(.p2w-table--grouped) :is(th, td):first-child {
     position: sticky; left: 0; z-index: 1;
-    min-width: 7.5rem; max-width: 42vw; white-space: normal;
+    max-width: 42vw; white-space: normal;
     background: #fff; box-shadow: inset -1px 0 0 var(--p2w-line);
   }
   .p2w .p2w-table:not(.p2w-table--grouped) tbody tr:hover :is(th, td):first-child { background: var(--p2w-soft); }

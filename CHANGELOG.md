@@ -13,6 +13,9 @@ The app's build number is added by the release workflow and is not written here.
 ## [Unreleased]
 
 ### Changed
+- Daily gate pass: the PC now picks the date the gate register is for, every time. Any day from today back to 7 days ago can be chosen (Sunday is off, so its register goes with Monday's). Each date shows whether a register is already uploaded and whether it can still be changed.
+- Daily gate pass: a register already uploaded can be opened and changed for 3 days after its date: add a photo, remove a photo, or replace all the photos. Older registers are locked and say so. Removed and replaced photos are kept in the history.
+- Daily gate pass: a register uploaded late for an earlier day still completes that day's gate pass task, marked as done late.
 - A journey's **Actions** menu (Bookings & Deliveries) has **Download uploaded PDF**: the full file the PC uploaded downloads at once; if the PC uploaded several, a short list opens to pick from.
 - **Export to Excel** has its own item in the DealGuard menu for Team Leads, Project Managers and Executives. Before, it was only on the Booking & Delivery page, which Team Leads and Executives do not open.
 - A journey's Documents page has a third tab, **Uploaded files**: each file exactly as the PC uploaded it (the full PDF), to download. Journey 360 links to it even while the customer's KYC has not been read.

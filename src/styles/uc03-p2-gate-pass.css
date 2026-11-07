@@ -93,3 +93,24 @@
 .p2gp-editable__list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
 .p2gp-editable__item { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
 .p2gp-editable__item > span { min-width: 0; }
+
+/* The date the register is for: today back to N-7, Sunday going with Monday (2026-11-07).
+   A Carbon radio tile list: one row per date, its state as a tag. */
+.p2gp-days { display: grid; gap: 8px; margin: 0; padding: 0; border: 0; min-width: 0; }
+.p2gp-days legend { padding: 0; margin-bottom: 4px; font-weight: 700; font-size: 1rem; }
+.p2gp-days__help { margin: 0 0 4px; }
+.p2gp-day {
+  display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 10px;
+  min-height: 48px; padding: 6px 14px; border: 1px solid #cfe0ea; border-radius: 10px; background: #fff; cursor: pointer;
+}
+.p2gp-day:has(input:checked) { border-color: var(--p2w-action, #1d5fbf); box-shadow: inset 3px 0 0 var(--p2w-action, #1d5fbf); background: #f3f8fd; }
+.p2gp-day:has(input:focus-visible) { outline: 2px solid var(--p2w-action, #1d5fbf); outline-offset: 2px; }
+.p2gp-day--locked { background: #f6f8fb; }
+.p2gp-day__label { display: grid; gap: 2px; font-weight: 600; min-width: 0; overflow-wrap: anywhere; }
+.p2gp-day__meta { font-weight: 400; font-size: .82rem; color: var(--p2w-muted, #6b7a8c); }
+.p2gp-pill--muted { background: #e8ebf0; color: #44546a; }
+.p2gp-thumbs__empty { display: flex; align-items: center; justify-content: center; height: 100%; padding: 4px; font-size: .7rem; color: #6b7a8c; text-align: center; }
+@media (max-width: 640px) {
+  .p2gp-day { grid-template-columns: auto minmax(0, 1fr); }
+  .p2gp-day .p2gp-pill { grid-column: 2; justify-self: start; margin-left: 0; }
+}

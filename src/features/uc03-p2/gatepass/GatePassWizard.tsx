@@ -4,13 +4,15 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 import SectionCard from '../../../components/SectionCard';
 import {
-  answerGatePass, getGatePass, getGatePassOutlets, notUploadedByPc, gatePassErrorText, MAX_GATE_PASS_PHOTOS, submitGatePassCounts, uploadGatePass,
-  type GatePass, type GatePassAnswer, type GatePassCountsResult, type GatePassOutlet,
+  addGatePassPhotos, answerGatePass, getGatePass, getGatePassDays, getGatePassImageUrl, getGatePassOutlets, notUploadedByPc,
+  gatePassErrorText, MAX_GATE_PASS_PHOTOS, removeGatePassPhoto, submitGatePassCounts, uploadGatePass,
+  type GatePass, type GatePassAnswer, type GatePassChoosableDay, type GatePassCountsResult, type GatePassDayInfo,
+  type GatePassOutlet,
 } from '../../../services/audit-core/uc03GatePass';
 import { captureEvidencePhoto } from '../../../services/device/camera';
 import { getMyDisplayName } from '../../../services/security/profile';
 
-type Step = 'outlet' | 'day' | 'mode' | 'photo' | 'counts' | 'explain' | 'held' | 'done';
+type Step = 'outlet' | 'day' | 'manage' | 'mode' | 'photo' | 'counts' | 'explain' | 'held' | 'done';
 
 type Photo = { blob: Blob; filename: string; url: string; date: string };
 // The numbers the PC reads off the register (product owner 2026-11-02): the total deliveries,
@@ -22,6 +24,38 @@ const EMPTY_COUNTS: Counts = { total: '', intimated: '', transfers: '' };
 
 function dayName(date: string): string {
   return new Date(`${date}T00:00:00Z`).toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'short', timeZone: 'UTC' });
+}
+
+/** '4 Nov' from an ISO date. */
+function shortDate(date: string): string {
+  return new Date(`${date}T00:00:00Z`).toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' });
+}
+
+const isSunday = (date: string | undefined) => Boolean(date) && new Date(`${date}T00:00:00Z`).getUTCDay() === 0;
+
+/** What a date allows, as a Carbon tag (product owner 2026-11-07). */
+function dayTag(day: GatePassChoosableDay): { text: string; tone: 'ok' | 'warn' | 'muted' } {
+  if (day.state === 'NEW') return { text: 'Not uploaded', tone: 'warn' };
+  if (day.state === 'EDITABLE') return { text: 'Uploaded · can be edited', tone: 'ok' };
+  return { text: 'Uploaded · locked', tone: 'muted' };
+}
+
+/** One photo of a register on file, opened through a short-lived link. */
+function RegisterPhoto({ tenantId, accessToken, gatePassId, position, version }: {
+  tenantId: string; accessToken: string; gatePassId: string; position: number; version: string;
+}) {
+  const [url, setUrl] = useState<string | null>(null);
+  useEffect(() => {
+    let live = true;
+    setUrl(null);
+    getGatePassImageUrl(tenantId, gatePassId, accessToken, position)
+      .then((res) => { if (live) setUrl(res.url); })
+      .catch(() => { if (live) setUrl(''); });
+    return () => { live = false; };
+  }, [tenantId, accessToken, gatePassId, position, version]);
+  if (url === null) return <span className="p2gp-thumbs__empty">Loading…</span>;
+  if (!url) return <span className="p2gp-thumbs__empty">Photo not available</span>;
+  return <img src={url} alt={`Photo ${position}`} />;
 }
 
 type Props = { tenantId: string; accessToken: string; onChanged: () => void; editGatePassId?: string | null };
@@ -132,20 +166,38 @@ export default function GatePassWizard({ tenantId, accessToken, onChanged, editG
   const [pastDeliveries, setPastDeliveries] = useState('');
   const [notNotified, setNotNotified] = useState('');
   const [outcome, setOutcome] = useState<string | null>(null);
-  // The day the photo is for: today unless the PC says it is the previous day's (2026-10-27).
+  // The date the register is for: the PC always chooses it, today back to N-7, Sunday going with
+  // Monday (product owner 2026-11-07). pickedDate is the choice on the date step, forDate the one made.
   const [forDate, setForDate] = useState<string | null>(null);
-  const today = outletsQuery.data?.today ?? null;
-  const previous = outletsQuery.data?.previous ?? null;
-  const dayOf = (date: string | null) => [today, previous].find((d) => d?.date === date) ?? null;
+  const [pickedDate, setPickedDate] = useState('');
+  // A register on file for the chosen date, whose photos can still be changed (N to N-3).
+  const [register, setRegister] = useState<GatePass | null>(null);
+  const [replacing, setReplacing] = useState(false);
+  const [confirmReplace, setConfirmReplace] = useState(false);
+  const [confirmRemove, setConfirmRemove] = useState<number | null>(null);
+  // Where the next picked photos go: the new register being built, or the register on file.
+  const fileTarget = useRef<'new' | 'existing'>('new');
+  const todayDate = outletsQuery.data?.window?.today ?? outletsQuery.data?.today?.date ?? null;
 
   const selected: GatePassOutlet | undefined = outlets.length === 1
     ? outlets[0]
     : confirmedDefault === false ? outlets.find((o) => o.outletId === chosenId) : defaultOutlet;
   const outletReady = outlets.length === 1 || confirmedDefault === true || (confirmedDefault === false && Boolean(chosenId));
-  const chosenDay = gatePass?.dayLabel ?? dayOf(forDate)?.label ?? today?.label ?? previous?.label ?? outletsQuery.data?.businessDate;
-  const dayWords = forDate && forDate !== today?.date ? `for ${chosenDay}` : 'today';
+  const daysQuery = useQuery({
+    queryKey: ['gate-pass-days', tenantId, selected?.outletId],
+    queryFn: () => getGatePassDays(tenantId, selected!.outletId, accessToken),
+    enabled: Boolean(selected) && step !== 'outlet',
+    staleTime: 0,
+  });
+  const choosable = daysQuery.data?.days ?? [];
+  const windowDays: GatePassDayInfo[] = choosable.length ? choosable : (outletsQuery.data?.window?.days ?? []);
+  const dayOf = (date: string | null) => windowDays.find((d) => d.date === date) ?? null;
+  const picked = choosable.find((d) => d.date === pickedDate) ?? null;
+  const chosenDay = gatePass?.dayLabel ?? register?.dayLabel ?? dayOf(forDate)?.label ?? null;
+  const dayWords = forDate && forDate !== todayDate ? `for ${chosenDay}` : 'today';
+  const sundayToday = isSunday(todayDate ?? undefined) || (!outletsQuery.data?.today && Boolean(outletsQuery.data?.previous));
 
-  const covers = gatePass?.coversDates ?? dayOf(forDate)?.coversDates ?? (forDate ? [forDate] : []);
+  const covers = gatePass?.coversDates ?? register?.coversDates ?? dayOf(forDate)?.coversDates ?? (forDate ? [forDate] : []);
   // Correcting the counts of a register uploaded today (product owner 2026-11-03).
   const [editing, setEditing] = useState(false);
 
@@ -177,23 +229,81 @@ export default function GatePassWizard({ tenantId, accessToken, onChanged, editG
   }, [editGatePassId, tenantId]);
   const twoDays = covers.length > 1;
 
-  /** Ask which day only when the outlet still owes the previous day's gate pass. */
+  /** The PC is always asked which date the register is for (product owner 2026-11-07). */
   function afterOutlet() {
-    const owesPrevious = Boolean(selected && previous && outletsQuery.data?.previousOpenOutletIds?.includes(selected.outletId));
-    if (today && owesPrevious) {
-      setForDate(null);
-      setStep('day');
+    setForDate(null);
+    setPickedDate('');
+    setRegister(null);
+    setError(null);
+    setStep('day');
+  }
+
+  /** A date without a register: a new one. A date whose register can still be changed: its photos. */
+  function afterDay() {
+    if (!picked || picked.state === 'LOCKED') return;
+    setError(null);
+    setConfirmReplace(false);
+    setConfirmRemove(null);
+    if (picked.state === 'EDITABLE' && picked.register) {
+      setForDate(picked.date);
+      setRegister(picked.register);
+      setStep('manage');
       return;
     }
-    goToPhotos(today?.date ?? previous?.date ?? null);
+    setReplacing(false);
+    goToPhotos(picked.date);
   }
 
   function goToPhotos(date: string | null) {
     setForDate(date);
     setPhotos([]);
     setSeparate(false);
-    const info = [today, previous].find((d) => d?.date === date);
+    const info = dayOf(date);
     setStep((info?.coversDates.length ?? 1) > 1 ? 'mode' : 'photo');
+  }
+
+  /** Photos added to the register on file go to the server at once; it keeps the counts. */
+  async function addToRegister(items: Array<{ blob: Blob; filename: string }>) {
+    if (!register) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const saved = await addGatePassPhotos(tenantId, register.gatePassId, items,
+        register.photoMode === 'SEPARATE' ? pendingDate.current ?? undefined : undefined, accessToken);
+      setRegister(saved);
+      onChanged();
+      void queryClient.invalidateQueries({ queryKey: ['gate-pass-days', tenantId] });
+    } catch (cause) {
+      setError(gatePassErrorText(cause, 'The photo could not be added. Please try again.'));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function removeFromRegister(pageNo: number) {
+    if (!register) return;
+    setBusy(true);
+    setError(null);
+    try {
+      setRegister(await removeGatePassPhoto(tenantId, register.gatePassId, pageNo, accessToken));
+      setConfirmRemove(null);
+      onChanged();
+      void queryClient.invalidateQueries({ queryKey: ['gate-pass-days', tenantId] });
+    } catch (cause) {
+      setError(gatePassErrorText(cause, 'The photo could not be removed. Please try again.'));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  /** Enter the numbers of the register on file (not entered yet). */
+  function countsOfRegister(gp: GatePass) {
+    setGatePass(gp);
+    setCounts(EMPTY_COUNTS);
+    setCountsByDay(Object.fromEntries((gp.coversDates ?? [gp.businessDate]).map((d) => [d, EMPTY_COUNTS])));
+    setEditing(false);
+    setError(null);
+    setStep('counts');
   }
 
   function addPhotos(items: Array<{ blob: Blob; filename: string }>) {
@@ -213,12 +323,13 @@ export default function GatePassWizard({ tenantId, accessToken, onChanged, editG
     });
   }
 
-  async function takePhoto(date: string | null) {
+  async function takePhoto(date: string | null, target: 'new' | 'existing' = 'new') {
     setError(null);
     pendingDate.current = date;
     try {
       const shot = await nativePhoto();
-      addPhotos([shot]);
+      if (target === 'existing') await addToRegister([shot]);
+      else addPhotos([shot]);
     } catch (cause) {
       // Closing the camera is not an error worth showing.
       if (cause instanceof Error && /cancel/i.test(cause.message)) return;
@@ -226,21 +337,24 @@ export default function GatePassWizard({ tenantId, accessToken, onChanged, editG
     }
   }
 
-  function pickFiles(date: string | null) {
+  function pickFiles(date: string | null, target: 'new' | 'existing' = 'new') {
     pendingDate.current = date;
+    fileTarget.current = target;
     fileInput.current?.click();
   }
 
   function onFiles(list: FileList | null) {
-    const picked = Array.from(list ?? []).map((file) => ({ blob: file as Blob, filename: file.name }));
+    const files = Array.from(list ?? []).map((file) => ({ blob: file as Blob, filename: file.name }));
     if (fileInput.current) fileInput.current.value = '';
-    if (picked.length) addPhotos(picked);
+    if (!files.length) return;
+    if (fileTarget.current === 'existing') void addToRegister(files);
+    else addPhotos(files);
   }
 
   const photosReady = photos.length > 0 && (!separate || covers.every((d) => photos.some((p) => p.date === d)));
 
   async function sendPhotos() {
-    if (!selected || !photosReady) return;
+    if (!selected || !photosReady || !forDate) return;
     setBusy(true);
     setError(null);
     try {
@@ -248,13 +362,16 @@ export default function GatePassWizard({ tenantId, accessToken, onChanged, editG
         queryKey: ['my-display-name'], queryFn: async () => (await getMyDisplayName(accessToken)) ?? null, staleTime: 5 * 60_000,
       });
       const saved = await uploadGatePass(tenantId, {
-        outletId: selected.outletId, pcName: pcName ?? undefined, businessDate: forDate ?? undefined,
+        outletId: selected.outletId, pcName: pcName ?? undefined, businessDate: forDate,
         photos: photos.map(({ blob, filename, date }) => ({ blob, filename, date })), separateDays: separate,
       }, accessToken);
       setGatePass(saved);
+      setRegister(null);
+      setReplacing(false);
       setCountsByDay(Object.fromEntries(covers.map((d) => [d, EMPTY_COUNTS])));
       setStep('counts');
       onChanged();
+      void queryClient.invalidateQueries({ queryKey: ['gate-pass-days', tenantId] });
     } catch (cause) {
       setError(gatePassErrorText(cause, 'The gate pass could not be uploaded. Please try again.'));
     } finally {
@@ -321,6 +438,7 @@ export default function GatePassWizard({ tenantId, accessToken, onChanged, editG
     setStep('outlet'); setConfirmedDefault(null); setChosenId(''); setGatePass(null); setResult(null); setEditing(false);
     setCounts(EMPTY_COUNTS); setCountsByDay({}); photos.forEach((p) => URL.revokeObjectURL(p.url)); setPhotos([]);
     setSeparate(false); setPastDeliveries(''); setOutcome(null); setError(null); setForDate(null);
+    setPickedDate(''); setRegister(null); setReplacing(false); setConfirmReplace(false); setConfirmRemove(null);
   }
 
   if (outletsQuery.isLoading) return <SectionCard><p className="p2w-muted">Loading…</p></SectionCard>;
@@ -339,20 +457,24 @@ export default function GatePassWizard({ tenantId, accessToken, onChanged, editG
   return (
     <SectionCard>
       <div className="p2w-card__title">
-        <h3>Gate pass for {chosenDay}</h3>
+        <h3>{chosenDay ? `Gate pass for ${chosenDay}` : 'Gate pass'}</h3>
         <p className="p2w-muted">
           {selected && step !== 'outlet' ? selected.outletName : null}
-          {(gatePass?.coversDates ?? dayOf(forDate)?.coversDates ?? today?.coversDates ?? []).length > 1
+          {covers.length > 1
             ? `${selected && step !== 'outlet' ? ' · ' : ''}Sunday is off: this gate pass covers Sunday and Monday.`
             : null}
         </p>
       </div>
 
+      {/* Hidden picker shared by the new register and the register on file. */}
+      <input ref={fileInput} type="file" accept="image/jpeg,image/png,image/webp" multiple hidden
+        onChange={(event) => onFiles(event.target.files)} />
+
       {error ? <div className="p2w-alert p2w-alert--error" role="alert">{error}</div> : null}
 
-      {!today && previous && step === 'outlet' ? (
+      {sundayToday && step === 'outlet' ? (
         <div className="p2w-alert" role="status">
-          Sunday is off: Sunday’s gate pass goes with Monday’s. You can still upload the gate pass for {previous.label} here.
+          Today is Sunday, the off day: Sunday’s gate pass goes with Monday’s. You can still upload or edit an earlier day’s gate register here.
         </div>
       ) : null}
 
@@ -409,23 +531,148 @@ export default function GatePassWizard({ tenantId, accessToken, onChanged, editG
         </div>
       ) : null}
 
-      {step === 'day' && today && previous ? (
+      {step === 'day' ? (
         <div className="p2gp-step">
-          <div className="p2w-alert p2gp-ask" role="alert">
-            The gate pass for <strong>{previous.label}</strong>{selected ? ` of ${selected.outletName}` : ''} is not uploaded yet.
-            Which day is this photo for?
-          </div>
+          {daysQuery.isLoading ? <p className="p2w-muted">Loading the dates…</p> : null}
+          {daysQuery.isError ? (
+            <div className="p2w-alert p2w-alert--error" role="alert">
+              {gatePassErrorText(daysQuery.error, 'The dates could not be loaded. Please try again.')}
+            </div>
+          ) : null}
+          {choosable.length ? (
+            <fieldset className="p2gp-days">
+              <legend>Which date is this gate register for?</legend>
+              <p className="p2w-muted p2gp-days__help">
+                You can upload a register for today or any of the last {daysQuery.data?.uploadBackDays ?? 7} days. A register already
+                uploaded can be changed for {daysQuery.data?.editBackDays ?? 3} days after its date. Sunday is off: its gate pass goes with Monday’s.
+              </p>
+              {choosable.map((day) => {
+                const tag = dayTag(day);
+                return (
+                  <label key={day.date} className={`p2gp-day${day.state === 'LOCKED' ? ' p2gp-day--locked' : ''}`}>
+                    <input type="radio" name="gate-pass-date" value={day.date}
+                      checked={pickedDate === day.date} onChange={() => { setPickedDate(day.date); setError(null); }} />
+                    <span className="p2gp-day__label">
+                      {day.isToday ? `Today, ${day.label}` : day.label}
+                      {day.register ? (
+                        <span className="p2gp-day__meta">
+                          {(day.register.pages?.length ?? 1)} photo{(day.register.pages?.length ?? 1) === 1 ? '' : 's'}
+                          {' · '}{day.register.countsSubmitted ? 'numbers entered' : 'numbers not entered'}
+                        </span>
+                      ) : null}
+                    </span>
+                    <span className={`p2gp-pill p2gp-pill--${tag.tone}`}>{tag.text}</span>
+                  </label>
+                );
+              })}
+            </fieldset>
+          ) : null}
+          {picked ? (
+            <div className={`p2w-alert${picked.state === 'LOCKED' ? ' p2gp-ask' : ''}`} role="status">
+              {picked.state === 'LOCKED'
+                ? `The gate register for ${picked.label} is locked. A register already uploaded can be changed only up to ${daysQuery.data?.editBackDays ?? 3} days after its date. Please ask your Team Lead if it needs correcting.`
+                : picked.note}
+            </div>
+          ) : null}
           <div className="p2gp-actions">
-            <button type="button" className="p2w-button p2w-button--secondary" onClick={() => goToPhotos(previous.date)}>
-              {previous.label}
-            </button>
-            <button type="button" className="p2w-button p2w-button--primary" onClick={() => goToPhotos(today.date)}>
-              Today, {today.label}
+            <button type="button" className="p2w-button p2w-button--primary" disabled={!picked || picked.state === 'LOCKED'} onClick={afterDay}>
+              {picked?.state === 'EDITABLE' ? 'Open the register' : 'Continue'}
             </button>
             <button type="button" className="p2w-button p2w-button--ghost" onClick={() => setStep('outlet')}>Back</button>
           </div>
         </div>
       ) : null}
+
+      {step === 'manage' && register ? (() => {
+        const pages = (register.pages ?? []).map((p, i) => ({ ...p, position: p.position ?? i + 1 }));
+        const apart = register.photoMode === 'SEPARATE';
+        const full = pages.length >= MAX_GATE_PASS_PHOTOS;
+        const version = `${register.gatePassId}:${register.pagesEditCount ?? 0}`;
+        const canRemove = (page: { date: string }) => pages.length > 1 && (!apart || pages.filter((p) => p.date === page.date).length > 1);
+        return (
+          <div className="p2gp-step">
+            <div className="p2w-alert" role="status">
+              The gate register for <strong>{register.dayLabel ?? register.businessDate}</strong> is already uploaded
+              {register.pcName ? ` by ${register.pcName}` : ''}. You can add, replace or remove its photos
+              {register.editableUntil ? ` until the end of ${shortDate(register.editableUntil)}` : ''}. Its numbers stay as they are.
+            </div>
+            {(apart ? register.coversDates ?? [register.businessDate] : [null]).map((date) => {
+              const mine = pages.filter((p) => !apart || p.date === date);
+              return (
+                <fieldset key={date ?? 'all'} className="p2gp-photos">
+                  {apart && date ? <legend>{dayName(date)}</legend> : null}
+                  <ul className="p2gp-thumbs">
+                    {mine.map((page) => (
+                      <li key={page.pageNo}>
+                        <RegisterPhoto tenantId={tenantId} accessToken={accessToken} gatePassId={register.gatePassId}
+                          position={page.position} version={version} />
+                        {canRemove(page) ? (
+                          <button type="button" className="p2gp-thumbs__remove" aria-label={`Remove photo ${page.position}`} disabled={busy}
+                            onClick={() => setConfirmRemove(page.pageNo)}>×</button>
+                        ) : null}
+                      </li>
+                    ))}
+                  </ul>
+                  <div className="p2gp-actions">
+                    {Capacitor.isNativePlatform() ? (
+                      <button type="button" className="p2w-button p2w-button--secondary" disabled={busy || full}
+                        onClick={() => void takePhoto(date, 'existing')}>Take a photo</button>
+                    ) : null}
+                    <button type="button" className="p2w-button p2w-button--secondary" disabled={busy || full}
+                      onClick={() => pickFiles(date, 'existing')}>{busy ? 'Saving…' : 'Add photo'}</button>
+                  </div>
+                </fieldset>
+              );
+            })}
+            {confirmRemove != null ? (
+              <div className="p2w-alert p2gp-ask" role="alert">
+                Remove photo {pages.find((p) => p.pageNo === confirmRemove)?.position} from the register? It is kept in the history.
+                <div className="p2gp-actions p2gp-actions--inline">
+                  <button type="button" className="p2w-button p2w-button--danger" disabled={busy} onClick={() => void removeFromRegister(confirmRemove)}>
+                    {busy ? 'Removing…' : 'Remove photo'}
+                  </button>
+                  <button type="button" className="p2w-button p2w-button--ghost" disabled={busy} onClick={() => setConfirmRemove(null)}>Keep it</button>
+                </div>
+              </div>
+            ) : null}
+            <p className="p2w-muted">
+              {pages.length} of {MAX_GATE_PASS_PHOTOS} photos{full ? ' · remove a photo to add another' : ''}
+              {apart ? ' · keep at least one photo for each day' : ''}
+            </p>
+            <p className="p2w-muted">
+              {register.countsSubmitted
+                ? `Numbers entered: ${register.newDeliveries ?? 0} deliveries on the register, ${register.intimatedToPc ?? '—'} intimated to you.`
+                : 'The numbers of this register are not entered yet.'}
+            </p>
+            {confirmReplace ? (
+              <div className="p2w-alert p2gp-ask" role="alert">
+                Replace all the photos of {register.dayLabel ?? register.businessDate}? The register on file is kept in the history,
+                and you will enter its numbers again.
+                <div className="p2gp-actions p2gp-actions--inline">
+                  <button type="button" className="p2w-button p2w-button--primary"
+                    onClick={() => { setReplacing(true); setConfirmReplace(false); goToPhotos(register.businessDate); }}>Replace all photos</button>
+                  <button type="button" className="p2w-button p2w-button--ghost" onClick={() => setConfirmReplace(false)}>Cancel</button>
+                </div>
+              </div>
+            ) : null}
+            <div className="p2gp-actions">
+              {!register.countsSubmitted ? (
+                <button type="button" className="p2w-button p2w-button--primary" disabled={busy} onClick={() => countsOfRegister(register)}>
+                  Enter the numbers
+                </button>
+              ) : register.countsEditable ? (
+                <button type="button" className="p2w-button p2w-button--secondary" disabled={busy} onClick={() => correctCounts(register)}>
+                  Correct the numbers
+                </button>
+              ) : null}
+              <button type="button" className="p2w-button p2w-button--secondary" disabled={busy || confirmReplace}
+                onClick={() => setConfirmReplace(true)}>Replace all photos</button>
+              <button type="button" className="p2w-button p2w-button--ghost" disabled={busy}
+                onClick={() => { setRegister(null); setStep('day'); void daysQuery.refetch(); }}>Back</button>
+            </div>
+          </div>
+        );
+      })() : null}
 
       {step === 'mode' && twoDays ? (
         <div className="p2gp-step">
@@ -440,20 +687,23 @@ export default function GatePassWizard({ tenantId, accessToken, onChanged, editG
             <button type="button" className="p2w-button p2w-button--secondary" onClick={() => { setSeparate(true); setStep('photo'); }}>
               Separate photos for each day
             </button>
-            <button type="button" className="p2w-button p2w-button--ghost" onClick={() => setStep('outlet')}>Back</button>
+            <button type="button" className="p2w-button p2w-button--ghost" onClick={() => setStep(replacing && register ? 'manage' : 'day')}>Back</button>
           </div>
         </div>
       ) : null}
 
       {step === 'photo' ? (
         <div className="p2gp-step">
+          {replacing ? (
+            <div className="p2w-alert p2gp-ask" role="status">
+              These photos replace the gate register for {chosenDay}. The register on file is kept in the history; you will enter its numbers again.
+            </div>
+          ) : null}
           <p>
             Take a clear photo of each page of the gate-out register, straight on and in good light, or upload photos you have
             already taken. Up to {MAX_GATE_PASS_PHOTOS} photos.
           </p>
           {/* Camera or existing photos, on the app and the website alike (product owner 2026-10-27). */}
-          <input ref={fileInput} type="file" accept="image/jpeg,image/png,image/webp" multiple hidden
-            onChange={(event) => onFiles(event.target.files)} />
           {(separate ? covers : [null]).map((date) => {
             const mine = photos.map((p, i) => ({ p, i })).filter(({ p }) => !separate || p.date === date);
             const full = photos.length >= MAX_GATE_PASS_PHOTOS;
@@ -489,7 +739,8 @@ export default function GatePassWizard({ tenantId, accessToken, onChanged, editG
             <button type="button" className="p2w-button p2w-button--primary p2w-button--lg" disabled={busy || !photosReady} onClick={() => void sendPhotos()}>
               {busy ? 'Uploading…' : `Upload ${photos.length > 1 ? `${photos.length} photos` : 'the photo'}`}
             </button>
-            <button type="button" className="p2w-button p2w-button--ghost" disabled={busy} onClick={() => setStep(twoDays ? 'mode' : 'outlet')}>Back</button>
+            <button type="button" className="p2w-button p2w-button--ghost" disabled={busy}
+              onClick={() => setStep(twoDays ? 'mode' : replacing && register ? 'manage' : 'day')}>Back</button>
           </div>
         </div>
       ) : null}

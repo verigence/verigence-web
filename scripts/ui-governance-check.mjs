@@ -241,6 +241,9 @@ const projectNameViews = new Set([
   // SuperAdmin System Health's Daily trend tab (2026-10-30): its Project filter. Rendered only by
   // src/pages/AdminSystemHealthPage.tsx, which is itself exempt as an Admin page.
   'src/features/admin/systemHealth/DailyTrendTab.tsx',
+  // Choose Dealership (product owner 2026-11-07): a person holding several Team Lead / PM /
+  // Executive assignments could not tell them apart, so each card names its Project and the role.
+  'src/components/ProjectContextGate.tsx',
 ]);
 const operationalTsx = filesUnder('src', (relativePath) => {
   if (!relativePath.endsWith('.tsx')) return false;
@@ -280,16 +283,11 @@ requireText('src/layout/AppShell.tsx', 'Switch Dealership', 'context switching m
 
 /*
  * 2026-10 — product-owner decision: the selection screens name the Dealership
- * and the Outlet. They were anonymous (an index, the operating role and the
- * timezone), which cannot be answered by anyone holding two assignments of the
- * same kind. Project Name stays prohibited here, as it is everywhere else in
- * operational UI.
+ * and the Outlet. 2026-11-07 — the product owner asked for the Project's name and
+ * the role on Choose Dealership too (cards read "Assignment 1, 2…" for Project-wide
+ * roles), so ProjectContextGate is exempt above; Project Name stays prohibited in
+ * the rest of operational UI.
  */
-forbid(
-  'src/components/ProjectContextGate.tsx',
-  /\.projectName\b/,
-  'Project Name is prohibited in selection/gate screens.',
-);
 /*
  * 2026-10 — the Workspace concept is withdrawn. The shell lost the word in
  * 2026-09; the selection screens kept it and were the last place it was

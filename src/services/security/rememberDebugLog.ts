@@ -1,17 +1,28 @@
-// Optional on-device diagnostic log for the "Keep me signed in" flow, off by default and never shown on
-// screen. When SuperAdmin switches device diagnostics on, entries are kept here (localStorage survives the
-// app being killed and reopened, the cold-start moment worth seeing) and sent to the server once signed in.
+import { Capacitor } from '@capacitor/core';
+
+// On-device diagnostic log for the "Keep me signed in" flow, never shown on screen.
+//
+// 2026-11-07: in the Android app the remember/resume steps are now always kept, in a small ring
+// buffer in localStorage (it survives the app being killed and reopened, the cold-start moment worth
+// seeing). They hold no secrets, only step names, outcomes and HTTP status codes. They leave the phone
+// ONLY when SuperAdmin has switched device diagnostics on (the server switch, read after sign-in by
+// syncDeviceDiagnostics); with the switch off they simply stay on the phone, bounded. In a Web
+// browser nothing is kept unless the switch is on, as before.
 
 const STORAGE_KEY = 'verigence.debug.remember-log.v1';
-/** Set by the diagnostics setting from the server; absent means off, so nothing is captured by default. */
+/** Set by the diagnostics setting from the server; absent means off. */
 const ENABLED_KEY = 'verigence.diagnostics.enabled';
 
-function isDiagnosticsEnabled(): boolean {
+export function isDiagnosticsEnabled(): boolean {
   try {
     return window.localStorage.getItem(ENABLED_KEY) === '1';
   } catch {
     return false;
   }
+}
+
+function captures(): boolean {
+  return isDiagnosticsEnabled() || Capacitor.isNativePlatform();
 }
 
 export function setDiagnosticsEnabled(enabled: boolean): void {
@@ -22,7 +33,8 @@ export function setDiagnosticsEnabled(enabled: boolean): void {
     // Storage can be unavailable; diagnostics then simply stay off.
   }
 }
-const MAX_ENTRIES = 60;
+/** Matches what one upload to /me/client-diagnostics/logs may carry. */
+const MAX_ENTRIES = 100;
 
 export interface RememberLogEntry {
   time: string;
@@ -54,11 +66,13 @@ function writeEntries(entries: RememberLogEntry[]): void {
 }
 
 export function rememberLog(step: string, detail: Record<string, unknown> = {}): void {
-  if (!isDiagnosticsEnabled()) return;
-  try {
-    console.warn('[remember-me]', step, detail);
-  } catch {
-    // Logging must never throw.
+  if (!captures()) return;
+  if (isDiagnosticsEnabled()) {
+    try {
+      console.warn('[remember-me]', step, detail);
+    } catch {
+      // Logging must never throw.
+    }
   }
   const entries = readEntries();
   entries.push({ time: new Date().toISOString(), step, detail });

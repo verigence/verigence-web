@@ -109,6 +109,8 @@ export function dayLabel(day: CalendarDay): string {
 export function canRequestCorrection(day: CalendarDay, today: string, absentAfterPassed: boolean): boolean {
   if (day.dayKind !== 'WORKING' || day.correction) return false;
   if (day.date > today) return false;
+  // Product owner (7 Nov 2026): only a day of the current calendar month can be raised.
+  if (day.date.slice(0, 7) !== today.slice(0, 7)) return false;
   if (day.date === today && !(absentAfterPassed && day.status === 'ABSENT')) return false;
   return ['ABSENT', 'MISSING_CHECK_OUT', 'HALF_DAY'].includes(day.status);
 }

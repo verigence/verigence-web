@@ -2,6 +2,7 @@ import { create } from 'zustand';
 
 import type { UserRole } from '../domain/models';
 import { getVerigenceDeviceContext } from '../services/device/identity';
+import { rememberLog } from '../services/security/rememberDebugLog';
 import { disableRememberedSession } from '../services/security/rememberSessionLifecycle';
 
 interface BusinessContext {
@@ -9,6 +10,15 @@ interface BusinessContext {
   dealerId: string;
   outletId: string;
 }
+
+/**
+ * Why the in-app session ends. Only `USER` (the person pressed Sign out, on any screen) forgets
+ * "Keep me signed in" on this device. `SESSION_ENDED` is every automatic ending (the short token ran
+ * out, Security refused a renewal, the network failed): the remembered credential stays, and only
+ * Security can reject it, through /auth/resume. Required, so no caller can forget the device by
+ * default (2026-11-07).
+ */
+export type SignOutReason = 'USER' | 'SESSION_ENDED';
 
 interface SessionState extends BusinessContext {
   signedIn: boolean;
@@ -31,9 +41,7 @@ interface SessionState extends BusinessContext {
     securityDeviceId: string,
   ) => void;
   signInPreview: (email: string, role?: UserRole) => void;
-  // preserveRemember is reserved for automatic short-token expiry/transient renewal failure.
-  // Normal UI sign-out calls this with no argument and therefore revokes remembered sign-in.
-  signOut: (preserveRemember?: boolean) => void;
+  signOut: (reason: SignOutReason) => void;
   setRolePreview: (role: UserRole) => void;
   setAccessToken: (token?: string, expiresAtUtc?: string) => void;
   /** A remembered session resumed while the app was open: new tokens, same person, same context. */
@@ -94,8 +102,9 @@ export const useSessionStore = create<SessionState>((set) => ({
       securitySessionId: undefined,
       securityDeviceId: undefined,
     }),
-  signOut: (preserveRemember = false) => {
-    if (!preserveRemember) {
+  signOut: (reason) => {
+    rememberLog('sign-out', { reason });
+    if (reason === 'USER') {
       void disableRememberedSession(getVerigenceDeviceContext());
     }
     set({

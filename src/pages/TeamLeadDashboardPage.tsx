@@ -129,9 +129,11 @@ export default function TeamLeadDashboardPage() {
 
       {/* Every journey in scope, in tabs and paged on the server (about 1,200
           a month): exceptions first, with each outlet's and PC's open,
-          overdue and high-risk counts one click from the list. */}
+          overdue and high-risk counts one click from the list. Of the current
+          calendar month by default (product owner 2026-11-07): bookings by
+          booking date, deliveries by delivery date, other months on the picker. */}
       <section className="p2w uc03-tl-journeys" aria-label="Journeys">
-        <JourneyListTabs tenantId={project.tenantId} accessToken={accessToken} role="TL" />
+        <JourneyListTabs tenantId={project.tenantId} accessToken={accessToken} role="TL" calendarMonth />
       </section>
     </div>
   );

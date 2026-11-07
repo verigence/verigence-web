@@ -3,6 +3,7 @@ import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 
 import JourneyRow from './JourneyRow';
 import { useProjectContextStore } from '../../../store/projectContextStore';
+import { istMonth, monthLabel, monthsUpTo } from '../../../services/audit-core/uc03ProjectTracker';
 import { sortByName } from '../../../utils/sortByName';
 import { panelSelection } from './listSelection';
 import {
@@ -54,9 +55,17 @@ type Props = {
   role: string | undefined;
   /** Counts for the page header ("n things need you"). */
   onCounts?: (counts: P2JourneyCounts | undefined) => void;
+  /**
+   * The Team Lead dashboard (product owner 2026-11-07: "for TL dashboard it should show by default
+   * only current month calender month records"): the summary, the Outlet-wise / PC-wise panels,
+   * the tabs and the list are of one calendar month (India time), the current one by default --
+   * bookings by their booking date, deliveries by their delivery date -- with a month picker
+   * ("All months" shows everything).
+   */
+  calendarMonth?: boolean;
 };
 
-export default function JourneyListTabs({ tenantId, accessToken, role, onCounts }: Props) {
+export default function JourneyListTabs({ tenantId, accessToken, role, onCounts, calendarMonth = false }: Props) {
   const supervisor = role === 'TL' || role === 'PM' || role === 'EXECUTIVE';
   // A PC sees every outlet they are mapped to and can narrow the list to one
   // (product owner 2026-10-26); the list is not tied to the sidebar's outlet.
@@ -68,30 +77,38 @@ export default function JourneyListTabs({ tenantId, accessToken, role, onCounts 
   const tabs = supervisor ? TL_TABS : PC_TABS;
   const [view, setView] = useState<P2JourneyView>(tabs[0].view);
   const [search, setSearch] = useState('');
-  const [month, setMonth] = useState('');
+  const currentMonth = useMemo(() => istMonth(), []);
+  const [month, setMonth] = useState(calendarMonth ? currentMonth : '');
   const [outletId, setOutletId] = useState('');
   const [pcActorId, setPcActorId] = useState('');
   // A TL / PM reads the list Outlet by Outlet unless they ask for the most
   // urgent first (product owner 2026-10-23); a PC keeps the tab's own order.
   const [sort, setSort] = useState<P2JourneySort>(supervisor ? 'outlet' : 'priority');
   const deferredSearch = useDeferredValue(search);
-  const months = useMemo(recentMonths, []);
-  const monthApplies = view === 'closed' || view === 'all';
+  const months = useMemo(() => (calendarMonth ? monthsUpTo(currentMonth) : recentMonths()), [calendarMonth, currentMonth]);
+  // The calendar month narrows every tab; otherwise the month a journey started narrows Closed / All.
+  const monthApplies = calendarMonth || view === 'closed' || view === 'all';
   const filters: P2JourneyFilters = {
     search: deferredSearch,
     month: monthApplies ? month : '',
     outletId,
     pcActorId,
+    ...(calendarMonth ? { monthBasis: 'business' as const } : {}),
   };
+  const overviewMonth = calendarMonth ? month : '';
   const enabled = Boolean(tenantId && accessToken);
 
   // The summary cards, the Outlet-wise / PC-wise panels and the filter
   // choices are the whole picture and never change with the filters; the
   // filters narrow the tabs' counts and the list only (product owner
   // 2026-10-20: "the filter should be only for the list").
+  // On the Team Lead dashboard they are of the chosen calendar month.
   const overview = useQuery({
-    queryKey: ['p2-journey-counts', tenantId, 'overview', supervisor],
-    queryFn: () => getP2JourneyCounts(tenantId!, accessToken, { search: '', month: '', outletId: '', pcActorId: '' }, supervisor),
+    queryKey: ['p2-journey-counts', tenantId, 'overview', supervisor, overviewMonth],
+    queryFn: () => getP2JourneyCounts(tenantId!, accessToken, {
+      search: '', month: overviewMonth, outletId: '', pcActorId: '',
+      ...(calendarMonth ? { monthBasis: 'business' as const } : {}),
+    }, supervisor),
     enabled,
     staleTime: 15_000,
   });
@@ -115,7 +132,7 @@ export default function JourneyListTabs({ tenantId, accessToken, role, onCounts 
   const c = counts.data?.counts;
   const all = overview.data?.counts;
   const tab = tabs.find((t) => t.view === view) ?? tabs[0];
-  const filtered = Boolean(search.trim() || (monthApplies && month) || outletId || pcActorId);
+  const filtered = Boolean(search.trim() || (monthApplies && month && !calendarMonth) || outletId || pcActorId);
 
   useEffect(() => {
     const close = (event: MouseEvent) => {
@@ -127,7 +144,7 @@ export default function JourneyListTabs({ tenantId, accessToken, role, onCounts 
     return () => document.removeEventListener('click', close);
   }, []);
 
-  const clear = () => { setSearch(''); setMonth(''); setOutletId(''); setPcActorId(''); };
+  const clear = () => { setSearch(''); setMonth(calendarMonth ? currentMonth : ''); setOutletId(''); setPcActorId(''); };
   // A click on an Outlet-wise / PC-wise row shows that Outlet's or PC's complete list.
   const pickOutlet = (key: string) => {
     const next = panelSelection(outletId, key, view);
@@ -142,6 +159,28 @@ export default function JourneyListTabs({ tenantId, accessToken, role, onCounts 
 
   return (
     <div className="p2w-jtabs">
+      {calendarMonth ? (
+        <div className="p2w-listbar p2w-jtabs__month">
+          <label className="p2w-jtabs__select">
+            <span>Month</span>
+            <select value={month} onChange={(event) => setMonth(event.target.value)}>
+              {months.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
+              <option value="">All months</option>
+            </select>
+          </label>
+          <span className="p2w-muted">
+            {month
+              ? `${monthLabel(month)}: bookings by their booking date, deliveries by their delivery date (India time).`
+              : 'Every journey, whatever its month.'}
+          </span>
+        </div>
+      ) : null}
+      {supervisor && all && calendarMonth && month ? (
+        <section className="uc03-tl-metrics" aria-label="This month">
+          <Metric label={`Bookings in ${monthLabel(month)}`} value={all.bookings_in_month ?? 0} detail="By booking date" />
+          <Metric label={`Deliveries in ${monthLabel(month)}`} value={all.deliveries_in_month ?? 0} detail="By delivery date" />
+        </section>
+      ) : null}
       {supervisor && all ? (
         <section className="uc03-tl-metrics" aria-label="Summary">
           <Metric label="All journeys" value={all.all} detail={`${all.open} open`} />
@@ -191,7 +230,7 @@ export default function JourneyListTabs({ tenantId, accessToken, role, onCounts 
           <input type="search" value={search} onChange={(event) => setSearch(event.target.value)}
             placeholder="Customer, mobile last 4, vehicle, outlet or Journey ID" />
         </label>
-        {monthApplies ? (
+        {monthApplies && !calendarMonth ? (
           <label className="p2w-jtabs__select">
             <span>Started in</span>
             <select value={month} onChange={(event) => setMonth(event.target.value)}>

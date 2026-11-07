@@ -9,8 +9,8 @@ import {
 let attemptedFor: string | null = null;
 
 /**
- * Once per app start, after sign-in: learn whether device diagnostics are on, and when they are send what
- * the phone kept. One attempt, no retries, and any failure is ignored so the app is never disturbed.
+ * Once per app start, after sign-in: learn whether device diagnostics are on, and only when they are send
+ * what the phone kept (the app keeps the remember/resume steps by default; see rememberDebugLog). One attempt, no retries, and any failure is ignored so the app is never disturbed.
  * Switching it on or off reaches a phone the next time the app opens.
  */
 export async function syncDeviceDiagnostics(accessToken: string): Promise<void> {
@@ -19,10 +19,9 @@ export async function syncDeviceDiagnostics(accessToken: string): Promise<void> 
   try {
     const { enabled } = await getMyDiagnostics(accessToken);
     setDiagnosticsEnabled(enabled);
-    if (!enabled) {
-      clearRememberLog();
-      return;
-    }
+    // Switched off: nothing is sent. In the app the bounded ring buffer stays on the phone, so the
+    // steps before a switch-on (a failed cold start, for example) can still be sent later.
+    if (!enabled) return;
     const entries = getRememberLogSnapshot().slice(-100).map((entry) => ({
       time: String(entry.time).slice(0, 40),
       step: String(entry.step).slice(0, 120),

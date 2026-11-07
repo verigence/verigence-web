@@ -3,8 +3,8 @@ import { useQueryClient } from '@tanstack/react-query';
 
 import { resetOperationalContext } from '../features/uc03/projectContext';
 import { refreshHuman, SecurityLoginError } from '../services/security/auth';
-import { hasRememberSessionHint } from '../services/security/rememberSession';
 import { resumeRememberedSession } from '../services/security/rememberSessionLifecycle';
+import { rememberLog } from '../services/security/rememberDebugLog';
 import { useSessionStore } from '../store/sessionStore';
 import SessionObservationBootstrap from './SessionObservationBootstrap';
 
@@ -32,24 +32,23 @@ export default function SessionRenewalGate() {
     let cancelled = false;
     let timer: number | undefined;
 
-    const terminateSession = (preserveRemember = false) => {
+    // Every ending here is automatic, so it never forgets "Keep me signed in": only the person's own
+    // Sign out does, or Security rejecting the credential at /auth/resume (2026-11-07).
+    const terminateSession = () => {
       resetOperationalContext(queryClient);
-      useSessionStore.getState().signOut(preserveRemember);
+      useSessionStore.getState().signOut('SESSION_ENDED');
     };
 
     // "Keep me signed in" (2026-11-06): the short access token lasts 15 minutes, and a phone in the
-    // background lets it run out. Before this, the app then sent the person to the sign-in page and
-    // only a cold start (killing the app) used the remembered credential, which is why people said
-    // Remember Me did not work. Now the remembered credential is exchanged here, in place, and the
-    // person carries on where they were. Without a remembered credential nothing changes.
+    // background lets it run out. The remembered credential is exchanged here, in place, and the
+    // person carries on where they were. Whether there is one to exchange is decided by
+    // resumeRememberedSession itself (the stored credential in the app, the hint on Web), which makes
+    // no network call when there is none (2026-11-07: this used to check only the localStorage hint).
     let resumeFailures = 0;
-    const resumeOrEnd = async (preserveRemember: boolean) => {
+    const resumeOrEnd = async () => {
       if (cancelled) return;
-      if (!hasRememberSessionHint()) {
-        terminateSession(preserveRemember);
-        return;
-      }
       const outcome = await resumeRememberedSession();
+      rememberLog(`renewal.${outcome.kind}`, { deviceType: outcome.device.deviceType });
       if (cancelled) return;
       if (outcome.kind === 'resumed') {
         resumeFailures = 0;
@@ -61,9 +60,9 @@ export default function SessionRenewalGate() {
         schedule(RETRY_DELAY_MS);
         return;
       }
-      // Rejected or nothing to resume with: the local credential is already cleared. Persistent network
-      // trouble keeps the credential, so the next opening of the app can still resume.
-      terminateSession(true);
+      // Rejected (already cleared), nothing to resume with, refused for now, or persistent network
+      // trouble: the in-app session ends; a kept credential lets the next opening of the app resume.
+      terminateSession();
     };
 
     const schedule = (delayMs: number) => {
@@ -81,7 +80,7 @@ export default function SessionRenewalGate() {
       if (!expiry || expiry <= Date.now()) {
         // A remembered session is deliberately longer-lived than the normal API token. Expiry of
         // that short token must not revoke the remembered credential: it is exchanged for a new one.
-        await resumeOrEnd(Boolean(expiry));
+        await resumeOrEnd();
         return;
       }
 
@@ -108,18 +107,19 @@ export default function SessionRenewalGate() {
       try {
         await renewalInFlight;
       } catch (error) {
-        if (error instanceof SecurityLoginError && [401, 403].includes(error.status)) {
-          // AUTH_TOKEN_EXPIRED can happen at a renewal race boundary and is not evidence that the
-          // longer-lived remembered session was revoked. Explicit session/user denial is.
-          if (error.code === 'AUTH_TOKEN_EXPIRED') await resumeOrEnd(true);
-          else terminateSession(false);
+        if (error instanceof SecurityLoginError && [401, 403, 426].includes(error.status)) {
+          // A refused renewal is about the short access session, not the remembered credential.
+          // /auth/resume is where Security decides about the credential: it rejects (and revokes) a
+          // superseded, revoked or expired one, and the app then clears it; otherwise the person
+          // carries on, or the in-app session ends with the credential kept.
+          await resumeOrEnd();
           return;
         }
         const currentExpiry = parseExpiry(useSessionStore.getState().accessTokenExpiresAtUtc);
         if (!currentExpiry || currentExpiry <= Date.now() + RETRY_DELAY_MS) {
           // Transient Security/network failure should not destroy an otherwise valid remembered
           // session merely because this short token could not be renewed in time.
-          await resumeOrEnd(Boolean(currentExpiry));
+          await resumeOrEnd();
           return;
         }
         schedule(RETRY_DELAY_MS);

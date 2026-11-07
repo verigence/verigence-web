@@ -201,6 +201,16 @@ const utilisationItem: NavItem = {
   roles: ['EXECUTIVE'],
 };
 
+// Every journey as Excel for a date range, dealer or outlet: Team Leads and
+// above (product owner 2026-11-06). Its own item so TL and Executive reach it
+// (7 Nov: it sat only on Booking & Delivery, which TL and Executive never open).
+const p2JourneyExportItem: NavItem = {
+  to: '/p2/reports/journey-export',
+  label: 'Export to Excel',
+  mark: 'XL',
+  roles: ['TL', 'PM', 'EXECUTIVE'],
+};
+
 // Where each PC was when DealGuard checked their location: Executive only
 // (product owner 2026-11-06; SuperAdmin from Reports).
 const p2LocationChecksItem: NavItem = {
@@ -352,7 +362,7 @@ const routeLabels: Record<string, string> = {
   '/feedback': 'Feedback & Support', '/hr/support': 'Feedback & Support', '/hr/support/new': 'Raise a ticket',
   '/reviews': 'Task Queue', '/duplicate-bookings': 'Duplicate Bookings', '/rule-catalog': 'Rule Catalog', '/rule-catalog/new': 'Author a Rule', '/findings': 'Findings',
   '/daily-ops': 'Daily Operations',
-  '/analytics': 'Analytics', '/p2/bookings': 'Booking & Delivery', '/p2/tasks': 'Task Queue', '/p2/duplicate-bookings': 'Duplicate bookings', '/p2/reports/daily': 'Daily processing', '/p2/gate-pass': 'Daily gate pass', '/p2/missing-documents': 'Missing documents', '/p2/task-manager': 'Task Manager', '/p2/reports/utilisation': 'Employee engagement', '/p2/reports/di': 'DI dashboard', '/p2/reports/location-checks': 'Location checks', '/admin/task-manager': 'Task Manager', '/admin/engagement': 'Employee engagement', '/admin/di-dashboard': 'DI dashboard', '/admin/system-health': 'System health', '/admin/document-intelligence': 'Document Intelligence Configuration',
+  '/analytics': 'Analytics', '/p2/bookings': 'Booking & Delivery', '/p2/tasks': 'Task Queue', '/p2/duplicate-bookings': 'Duplicate bookings', '/p2/reports/daily': 'Daily processing', '/p2/gate-pass': 'Daily gate pass', '/p2/missing-documents': 'Missing documents', '/p2/task-manager': 'Task Manager', '/p2/reports/utilisation': 'Employee engagement', '/p2/reports/di': 'DI dashboard', '/p2/reports/location-checks': 'Location checks', '/p2/reports/journey-export': 'Export to Excel', '/admin/task-manager': 'Task Manager', '/admin/engagement': 'Employee engagement', '/admin/di-dashboard': 'DI dashboard', '/admin/system-health': 'System health', '/admin/document-intelligence': 'Document Intelligence Configuration',
   '/admin/housekeeping': 'Housekeeping', '/admin/sku-resolution': 'SKU Resolution', '/admin/hr-housekeeping': 'HR Housekeeping', '/admin/feedback': 'User Feedback', '/admin/di-test': 'DI Test Console', '/admin/users': 'Users', '/admin/features': 'Feature Rollout', '/admin/night-control': 'Night Control', '/admin/announcements': 'Announcements', '/admin/diagnostics': 'Device Diagnostics', '/admin/login-activity': 'Login Activity',
   '/admin/users/pending': 'Pending Approvals',
   '/admin/oem-masters': 'OEM Masters', '/admin/reports': 'Reports', '/admin/project': 'Project Administration', '/profile': 'Profile',
@@ -433,6 +443,7 @@ function NavIcon({ mark }: { mark: string }) {
     case 'HM': glyph = <><rect x="3" y="5" width="18" height="14" rx="2" /><path d="m3 7 9 6 9-6" /></>; break;
     case 'HS': glyph = <><circle cx="12" cy="12" r="3" /><path d="M12 3v3m0 12v3M3 12h3m12 0h3M5.6 5.6l2.1 2.1m8.6 8.6 2.1 2.1m0-12.8-2.1 2.1m-8.6 8.6-2.1 2.1" /></>; break;
     case 'MI': glyph = <><path d="M6 3h8l4 4v14H6z" /><path d="M14 3v5h5M12 11v4m0 3h.01" /></>; break;
+    case 'XL': glyph = <><path d="M12 4v10" /><path d="m8 10 4 4 4-4" /><path d="M5 18h14" /></>; break;
     case 'LC': glyph = <><path d="M12 21s-6-5.4-6-10.5a6 6 0 0 1 12 0C18 15.6 12 21 12 21Z" /><circle cx="12" cy="10.5" r="2.2" /></>; break;
     case 'CB': glyph = <><rect x="4" y="4" width="16" height="16" rx="3" /><path d="M12 8v8M8 12h8" /></>; break;
     default: glyph = <circle cx="12" cy="12" r="7" />;
@@ -497,7 +508,7 @@ export default function AppShell({ children }: PropsWithChildren) {
             // Journey tasks and Task Manager tasks are the two classifications of the Task Queue.
             { ...p2TasksItem, badge: p2TaskCount + tmCount },
             p2DuplicatesItem,
-            ...(role === 'PC' ? [dailyOpsItem] : [p2DailyProcessingItem, p2LocationChecksItem]),
+            ...(role === 'PC' ? [dailyOpsItem] : [p2DailyProcessingItem, p2JourneyExportItem, p2LocationChecksItem]),
             p2GatePassItem,
             // A PC's missing documents are inside their Tracker (product owner
             // 2026-11-03: not a tab of their own); the TL and PM keep the page.
@@ -514,7 +525,7 @@ export default function AppShell({ children }: PropsWithChildren) {
           ],
         }
       : role === 'EXECUTIVE'
-        ? { ...p2Group, items: [p2DailyProcessingItem, p2LocationChecksItem, p2GatePassItem, p2MissingDocumentsItem, p2ClosureApprovalsItem, { ...taskManagerItem, badge: tmCount }, utilisationItem, diDashboardItem] }
+        ? { ...p2Group, items: [p2DailyProcessingItem, p2JourneyExportItem, p2LocationChecksItem, p2GatePassItem, p2MissingDocumentsItem, p2ClosureApprovalsItem, { ...taskManagerItem, badge: tmCount }, utilisationItem, diDashboardItem] }
         // A Reviewer's whole surface (2026-10-23: inside a Project the group was
         // built for PC / TL / PM only, so a Reviewer saw none of it, not even
         // Document Review, which is their home page).

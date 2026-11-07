@@ -114,6 +114,7 @@ const P2TaskManagerPage = lazy(() => import('./pages/P2TaskManagerPage'));
 const P2UtilisationPage = lazy(() => import('./pages/P2UtilisationPage'));
 const P2DiDashboardPage = lazy(() => import('./pages/P2DiDashboardPage'));
 const P2LocationChecksPage = lazy(() => import('./pages/P2LocationChecksPage'));
+const P2JourneyExportPage = lazy(() => import('./pages/P2JourneyExportPage'));
 // PC Home and the Tracker tab for PCs and Reviewers (product owner 2026-11-02).
 const P2MyWorkPage = lazy(() => import('./pages/P2MyWorkPage'));
 const P2MyTrackerPage = lazy(() => import('./pages/P2MyTrackerPage'));
@@ -408,6 +409,7 @@ export default function App() {
               <Route path="/p2/reports/utilisation" element={<OperationalPage><P2UtilisationPage /></OperationalPage>} />
               <Route path="/p2/reports/di" element={<OperationalPage><P2DiDashboardPage /></OperationalPage>} />
               <Route path="/p2/reports/location-checks" element={<OperationalPage><P2LocationChecksPage /></OperationalPage>} />
+              <Route path="/p2/reports/journey-export" element={<OperationalPage><P2JourneyExportPage /></OperationalPage>} />
               <Route path="/p2/journeys/:journeyId/compliance-report" element={<OperationalPage><NightModeGate><P2ComplianceReportPage /></NightModeGate></OperationalPage>} />
               <Route path="/p2/journeys/:journeyId/overview" element={<OperationalPage><NightModeGate><P2JourneyOverviewPage /></NightModeGate></OperationalPage>} />
               <Route path="/p2/journeys/:journeyId/documents" element={<OperationalPage><NightModeGate><P2JourneyWorkspacePage /></NightModeGate></OperationalPage>} />

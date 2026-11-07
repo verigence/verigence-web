@@ -60,7 +60,10 @@
 .p2mw-toggle { display: inline-flex; gap: 6px; align-items: center; font-size: 14px; }
 .p2mw-table tr.p2mw-outlet-row td { background: var(--p2mw-navy-soft); font-size: 13px; }
 .p2mw-table tr.p2mw-outlet-row td:first-child { padding-left: 24px; }
-.p2mw-pages { display: inline-flex; flex-wrap: nowrap; gap: 4px 8px; white-space: nowrap; }
-/* Links inside table rows: one line, still a comfortable touch target (2026-11-07: three stacked
-   44 px links made each gate register row ~170 px tall on phones). */
-.p2mw-table .p2w-link { min-height: 36px; }
+.p2mw-pages { display: inline-flex; flex-wrap: wrap; gap: 8px; }
+/* Phones (2026-11-07): register links on one line; three stacked 44 px links made each
+   gate register row ~170 px tall. */
+@media (max-width: 767px) {
+  .p2mw-pages { flex-wrap: nowrap; gap: 4px 8px; white-space: nowrap; }
+  .p2mw-table .p2w-link { min-height: 36px; }
+}

@@ -137,19 +137,13 @@
 
 .p2w .p2w-segment {
   display: inline-flex;
-  flex-wrap: wrap;
-  max-width: 100%;
   gap: 4px;
   padding: 4px;
   border: 1px solid var(--p2w-line);
   border-radius: var(--p2w-radius);
   background: var(--p2w-soft);
 }
-/* Options never shrink below their label: when they do not fit one row (six periods
-   on a phone) they wrap into whole-button rows that share the width evenly. */
 .p2w .p2w-segment button {
-  flex: 1 0 auto;
-  white-space: nowrap;
   min-height: 38px;
   padding: 0 12px;
   border: 0;
@@ -161,6 +155,12 @@
 }
 .p2w .p2w-segment button b { margin-left: 4px; font-weight: 800; }
 .p2w .p2w-segment button.is-active { background: #fff; color: var(--p2w-action-soft-text); box-shadow: 0 1px 3px rgb(16 42 67 / 10%); }
+/* Phones (2026-11-07): options never shrink below their label; when they do not fit one
+   row (six periods) they wrap into whole-button rows sharing the width evenly. */
+@media (max-width: 767px) {
+  .p2w .p2w-segment { flex-wrap: wrap; max-width: 100%; }
+  .p2w .p2w-segment button { flex: 1 0 auto; white-space: nowrap; }
+}
 
 /* -------------------------------------------------------------- readiness */
 .p2w-readiness {

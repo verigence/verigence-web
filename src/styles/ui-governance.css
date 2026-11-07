@@ -253,6 +253,15 @@ ion-app {
   .uc03-project-gate :where(label) {
     max-width: 100%;
   }
+
+  /* Table headers wrap between words only. Inherited `word-wrap: break-word` let a column
+   * shrink below its longest word when the phone has no Inter font (Roboto/Arial are
+   * wider): "PENDING DELI / VERY FILES" on Android and CI (2026-11-07). The table scrolls
+   * sideways instead. */
+  .enterprise-content :where(th),
+  .uc03-project-gate :where(th) {
+    overflow-wrap: normal;
+  }
 }
 
 img,

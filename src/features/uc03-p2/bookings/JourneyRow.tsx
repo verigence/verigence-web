@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import type { P2JourneyListItem } from '../../../services/audit-core/uc03P2';
 import { signedMoney, varianceTone } from '../journey360/j360Format';
 import DeleteJourneyDialog from '../workspace/DeleteJourneyDialog';
+import { DownloadUploadsItem, UploadsDialog, type UploadsOutcome } from './DownloadUploadsAction';
 import { canDeleteJourney } from '../workspace/deleteJourney';
 import { useProjectContextStore } from '../../../store/projectContextStore';
 import { useSessionStore } from '../../../store/sessionStore';
@@ -199,6 +200,7 @@ export default function JourneyRow({ item, role }: { item: P2JourneyListItem; ro
   const tenantId = useProjectContextStore((s) => s.selectedProject?.tenantId);
   const accessToken = useSessionStore((s) => s.accessToken);
   const [deleting, setDeleting] = useState(false);
+  const [uploads, setUploads] = useState<UploadsOutcome | undefined>();
   const delivered = Boolean(item.delivery_completed_at);
   const cancelled = Boolean(item.cancelled);
   const active = cancelled ? -1 : activeStep(item.current_stage, delivered);
@@ -279,8 +281,11 @@ export default function JourneyRow({ item, role }: { item: P2JourneyListItem; ro
             {!item.closed ? <Link role="menuitem" to={documents}>Upload / edit documents</Link> : null}
             <Link role="menuitem" to={overview}>View Journey 360</Link>
             <Link role="menuitem" to={`/p2/journeys/${item.journey_id}/compliance-report`}>View audit report</Link>
-            {/* A completed journey has no upload screen; its files are still there to see (2026-11-06). */}
-            <Link role="menuitem" to={`/p2/journeys/${item.journey_id}/overview?tab=files`}>View uploaded files</Link>
+            {/* The full PDF the PC uploaded, straight from Actions (product owner 2026-11-07). */}
+            {tenantId ? (
+              <DownloadUploadsItem tenantId={tenantId} journeyId={item.journey_id} accessToken={accessToken}
+                onOutcome={setUploads} />
+            ) : null}
             {!item.closed ? (
               <Link role="menuitem" to={tasks}>View {role ? `${role} tasks` : 'tasks'}{myTasks ? <b>{myTasks}</b> : null}</Link>
             ) : null}
@@ -292,6 +297,11 @@ export default function JourneyRow({ item, role }: { item: P2JourneyListItem; ro
             ) : null}
           </div>
         </details>
+        {uploads && tenantId ? (
+          <UploadsDialog outcome={uploads} tenantId={tenantId} journeyId={item.journey_id} accessToken={accessToken}
+            journeyLabel={`${customer.text}${item.journey_reference ? ` · ${item.journey_reference}` : ''}`}
+            onClose={() => setUploads(undefined)} />
+        ) : null}
         {deleting && tenantId ? (
           <DeleteJourneyDialog tenantId={tenantId} journeyId={item.journey_id}
             journeyLabel={`${customer.text}${item.journey_reference ? ` · ${item.journey_reference}` : ''}`}

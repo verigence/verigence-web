@@ -232,6 +232,7 @@ export default function P2JourneyOverviewPage() {
           <strong>Journey 360 needs the customer's KYC first.</strong>
           <span>The PAN Card or Aadhaar has not been read yet. Journey 360 is built from the documents, so it opens once the customer is known.</span>
           <Link className="p2w-button" to={`/p2/journeys/${journeyId}/documents`}>Upload the PAN Card or Aadhaar</Link>
+          <Link className="p2w-link" to={`/p2/journeys/${journeyId}/documents?tab=files`}>See the files as the PC uploaded them</Link>
         </section>
       ) : data && j && m ? (
         <>

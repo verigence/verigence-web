@@ -1,3 +1,4 @@
+import UploadedFilesTab from '../features/uc03-p2/journey360/UploadedFilesTab';
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { sortByName } from '../utils/sortByName';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -120,7 +121,8 @@ function WorkspaceScreen({ carry, onCreated, onStartNext, onCarryTaken }: Worksp
   // ?resolveSku=1: arrived from a rejected closest-match suggestion -- open
   // the model picker straight away (once).
   const resolveSku = search.get('resolveSku') === '1';
-  const tab = search.get('tab') === 'photos' ? 'photos' : 'documents';
+  const requestedTab = search.get('tab');
+  const tab: 'documents' | 'photos' | 'files' = requestedTab === 'photos' ? 'photos' : requestedTab === 'files' ? 'files' : 'documents';
   const navigate = useNavigate();
   const tenantId = useProjectContextStore((s) => s.selectedProject?.tenantId);
   const accessToken = useSessionStore((s) => s.accessToken);
@@ -285,7 +287,7 @@ function WorkspaceScreen({ carry, onCreated, onStartNext, onCarryTaken }: Worksp
       createdHere.current = true;
       onCreated(target);
       setCreatedJourneyId(target);
-      navigate(`/p2/journeys/${target}/documents${tab === 'photos' ? '?tab=photos' : ''}`, { replace: true });
+      navigate(`/p2/journeys/${target}/documents${tab === 'documents' ? '' : `?tab=${tab}`}`, { replace: true });
       void queryClient.invalidateQueries({ queryKey: ['p2-journeys', tenantId] });
     }
     return target;
@@ -373,9 +375,9 @@ function WorkspaceScreen({ carry, onCreated, onStartNext, onCarryTaken }: Worksp
     setCarriedFiles(undefined);
   }, [carriedFiles, choosesOutlet, isNew, tenantId, uploadsPaused]);
 
-  const switchTab = (next: 'documents' | 'photos') => {
+  const switchTab = (next: 'documents' | 'photos' | 'files') => {
     const params = new URLSearchParams(search);
-    if (next === 'photos') params.set('tab', 'photos'); else params.delete('tab');
+    if (next === 'documents') params.delete('tab'); else params.set('tab', next);
     setSearch(params, { replace: true });
   };
 
@@ -636,14 +638,23 @@ function WorkspaceScreen({ carry, onCreated, onStartNext, onCarryTaken }: Worksp
           onClick={() => switchTab('documents')}>Documents</button>
         <button type="button" role="tab" aria-selected={tab === 'photos'} className={tab === 'photos' ? 'is-active' : ''}
           onClick={() => switchTab('photos')}>Vehicle photos</button>
+        {/* The files exactly as the PC uploaded them, to download (product owner 2026-11-06/07). */}
+        {!isNew && journeyId ? (
+          <button type="button" role="tab" aria-selected={tab === 'files'} className={tab === 'files' ? 'is-active' : ''}
+            onClick={() => switchTab('files')}>Uploaded files</button>
+        ) : null}
       </div>
+
+      {tab === 'files' && tenantId && journeyId ? (
+        <UploadedFilesTab tenantId={tenantId} journeyId={journeyId} accessToken={accessToken} />
+      ) : null}
 
       {tab === 'photos' && tenantId ? (
         <P2VehiclePhotos tenantId={tenantId} journeyId={journeyId || undefined} accessToken={accessToken}
           ensureJourney={ensureJourney} />
       ) : null}
 
-      <div className="p2w-layout" hidden={tab === 'photos'}>
+      <div className="p2w-layout" hidden={tab !== 'documents'}>
         <div className="p2w-layout__list">
           {operatingRole === 'REVIEWER' && tenantId && journeyId ? (
             <P2StageReviewPanel

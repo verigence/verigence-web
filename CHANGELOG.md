@@ -13,6 +13,9 @@ The app's build number is added by the release workflow and is not written here.
 ## [Unreleased]
 
 ### Changed
+- Choose Dealership: each card names the Project (and the dealerships for a PC) and shows the role you hold there, instead of "Assignment 1, 2…".
+
+### Changed
 - Attendance correction: a request can be raised only for a day of the current calendar month. Days of an earlier month no longer offer it.
 
 ## [1.6.3] - 2026-11-07

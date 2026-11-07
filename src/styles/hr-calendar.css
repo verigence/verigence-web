@@ -78,16 +78,38 @@
 .hr-cal__week { display: flex; flex-direction: column; justify-content: center; gap: 2px; padding: 8px; background: var(--hr-cds-gray-10); min-width: 0; }
 .hr-cal__week strong { font-size: 14px; font-weight: 600; font-variant-numeric: tabular-nums; }
 .hr-cal__week small { font-size: 11px; color: var(--hr-cds-gray-70); }
+.hr-cal__week-short { display: none; }
 
 @media (max-width: 639px) {
-  .hr-cal__row { grid-template-columns: repeat(7, minmax(0, 1fr)); }
-  .hr-cal__head--week { display: none; }
-  .hr-cal__week { grid-column: 1 / -1; flex-direction: row; justify-content: space-between; align-items: center; padding: 6px 8px; }
-  .hr-cal__day { min-height: 60px; padding: 4px; gap: 2px; }
+  /* Phones (2026-11-07): the whole month in about one screen. Seven day columns plus a
+     narrow week-total column on the same row (no separate bar after every week); each day
+     is filled with its status colour so it reads without the legend; tap for the detail. */
+  .hr-cal__row { grid-template-columns: repeat(7, minmax(0, 1fr)) 2.75rem; }
+  .hr-cal__head { padding: 6px 2px; text-align: center; font-size: 11px; }
+  .hr-cal__day { min-height: 46px; padding: 3px 2px; gap: 1px; align-items: center; text-align: center; }
   .hr-cal__tag, .hr-cal__times { display: none; }
-  .hr-cal__hours { font-size: 11px; }
+  .hr-cal__hours { font-size: 10px; font-weight: 600; line-height: 1.2; }
   .hr-cal__date { font-size: 12px; min-width: 20px; height: 20px; }
-  .hr-cal__mark { top: 4px; right: 4px; width: 12px; height: 12px; font-size: 8px; }
+  .hr-cal__mark { top: 2px; right: 2px; width: 12px; height: 12px; font-size: 8px; }
+  .hr-cal__day--green { background: #defbe6; }
+  .hr-cal__day--red { background: #fff1f1; }
+  .hr-cal__day--purple { background: #f6f2ff; }
+  .hr-cal__day--teal { background: #d9fbfb; }
+  .hr-cal__day--magenta { background: #fff0f7; }
+  .hr-cal__day--blue { background: #edf5ff; }
+  .hr-cal__day--warm-gray { background: #f7f3f2; }
+  .hr-cal__day.is-outside { background: #fafafa; }
+  .hr-cal__week { align-items: center; justify-content: center; padding: 2px; text-align: center; }
+  .hr-cal__week strong { font-size: 11px; line-height: 1.2; }
+  .hr-cal__week-long { display: none; }
+  .hr-cal__week-short { display: block; }
+  .hr-cal__week small { display: none; }
+  /* Summary: three compact tiles per row; the legend as one wrapped line. */
+  .hr-cal-tiles { grid-template-columns: repeat(3, minmax(0, 1fr)); margin-bottom: 12px; }
+  .hr-cal-tiles > div { padding: 8px 10px; gap: 2px; }
+  .hr-cal-tiles strong { font-size: 16px; line-height: 22px; }
+  .hr-cal-tiles span, .hr-cal-tiles small { font-size: 11px; letter-spacing: 0; }
+  .hr-cal-legend { gap: 4px 10px; font-size: 11px; }
 }
 
 /* ---- the chosen day ---- */
@@ -151,6 +173,4 @@
   .hr-ov-week td.hr-ov-cell small { margin-top: 0; font-size: 11px; }
   .hr-ov-table td[data-label="Employee"]::before { content: none; }
 }
-@media (max-width: 639px) {
-  .hr-cal__week strong::before { content: 'Week '; font-weight: 400; color: var(--hr-cds-gray-70); }
-}
+

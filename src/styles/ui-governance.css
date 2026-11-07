@@ -231,6 +231,30 @@ ion-app {
   min-width: 0;
 }
 
+/* Phones only (2026-11-07): text and controls keep at least the width of their longest
+ * word. The rule above lets every element shrink to nothing; with Ionic's body
+ * `word-wrap: break-word` that broke words letter by letter on phones ("To / da / y" in
+ * the DealGuard period switcher, tab labels, buttons, tile labels). Layout boxes still
+ * shrink. Long tokens (file names, e-mails, ids) opt in with `overflow-wrap: anywhere`,
+ * which lowers their min-content, so they still wrap. Desktop is unchanged. */
+@media (max-width: 767px) {
+  .enterprise-content :where(button, a, label, summary, span, strong, b, em, small, abbr, time, code, kbd,
+      th, td, dt, dd, legend, h1, h2, h3, h4, h5, h6, p,
+      [role='tab'], [role='button'], [role='option'], [role='menuitem'], ion-label),
+  .uc03-project-gate :where(button, a, label, summary, span, strong, b, em, small, abbr, time, code, kbd,
+      th, td, dt, dd, legend, h1, h2, h3, h4, h5, h6, p,
+      [role='tab'], [role='button'], [role='option'], [role='menuitem'], ion-label) {
+    min-width: auto;
+  }
+
+  /* A label wrapping a control (Show: <select>) is never wider than its row; a select
+   * holding a long outlet name otherwise ran past the card edge and was clipped. */
+  .enterprise-content :where(label),
+  .uc03-project-gate :where(label) {
+    max-width: 100%;
+  }
+}
+
 img,
 svg,
 video,

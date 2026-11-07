@@ -228,3 +228,21 @@
 .p2dr-state--warn { color: #875d00; }
 .p2dr-state--bad { color: #b42318; }
 .p2dr-state--muted { color: #72838a; }
+
+/* Phones (2026-11-07). Count tables scroll with the person / PC pinned on the left and
+   headers that wrap, so each figure reads against its row. Text tables (Flagged) become a
+   structured list: one card per row, labelled lines, nothing hidden off to the right. */
+@media (max-width: 767px) {
+  .p2dr-table th { white-space: normal; vertical-align: bottom; min-width: 4.5rem; line-height: 1.25; }
+  .p2dr-table:not(.p2dr-table--list, .p2dr-table--grouped) :is(th, td):first-child:not([colspan]) {
+    position: sticky; left: 0; z-index: 1; min-width: min(9rem, 40vw); max-width: 42vw; white-space: normal;
+    background: #fff; box-shadow: inset -1px 0 0 #e3eaed;
+  }
+  .p2dr-table--list thead { display: none; }
+  .p2dr-table--list, .p2dr-table--list tbody, .p2dr-table--list tr, .p2dr-table--list td { display: block; width: 100%; }
+  .p2dr-table--list tr { padding: 10px 0; border-bottom: 1px solid #e3eaed; }
+  .p2dr-table--list td { padding: 2px 0; border: 0; white-space: normal; }
+  .p2dr-table--list td:first-child { display: flex; flex-wrap: wrap; gap: 4px; padding-bottom: 6px; }
+  .p2dr-table--list td[data-label] { display: grid; grid-template-columns: 6.5rem minmax(0, 1fr); gap: 8px; font-size: .8rem; }
+  .p2dr-table--list td[data-label]::before { content: attr(data-label); color: #5d6f76; font-weight: 600; }
+}

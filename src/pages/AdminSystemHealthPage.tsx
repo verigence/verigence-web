@@ -186,7 +186,7 @@ function DocumentIntelligenceCard({ di }: { di: DocumentIntelligenceHealth | nul
       </div>
       {di.available && di.projects.length ? (
         <div className="p2dr-scroll">
-          <table className="p2dr-table">
+          <table className="p2dr-table p2dr-table--grouped">
             <thead>
               <tr>
                 <th rowSpan={2}>Project</th><th colSpan={4}>Classification</th><th colSpan={4}>Reading (extraction)</th><th rowSpan={2}>Oldest waiting</th>

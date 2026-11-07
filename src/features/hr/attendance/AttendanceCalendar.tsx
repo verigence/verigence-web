@@ -70,7 +70,8 @@ export default function AttendanceCalendar({ data, today, selected, onSelect }: 
             );
           })}
           <div className="hr-cal__week" role="gridcell" aria-label={`Week of ${week.weekStart}: ${formatMinutes(week.minutes)}`}>
-            <strong>{formatMinutes(week.minutes)}</strong>
+            <strong className="hr-cal__week-long">{formatMinutes(week.minutes)}</strong>
+            <strong className="hr-cal__week-short" aria-hidden="true">{week.minutes ? formatHoursShort(week.minutes) : '0'}</strong>
             <small>{week.daysWorked === 1 ? '1 day' : `${week.daysWorked} days`}</small>
           </div>
         </div>

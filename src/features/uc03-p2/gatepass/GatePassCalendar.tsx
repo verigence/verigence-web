@@ -133,8 +133,9 @@ export default function GatePassCalendar({ tenantId, accessToken, refreshKey }: 
               const quiet = !day || (!day.declared && !day.uploaded && !day.gatePasses);
               const split = day ? gapSplit(day) : { notNotified: 0, toUpload: 0 };
               return (
-                <div key={date} className={`p2gp-cell${split.toUpload ? ' p2gp-cell--missing' : ''}`} role="gridcell">
+                <div key={date} className={`p2gp-cell${split.toUpload ? ' p2gp-cell--missing' : ''}${quiet ? ' p2gp-cell--quiet' : ''}`} role="gridcell">
                   <span className="p2gp-date">{i + 1}</span>
+                  <span className="p2gp-weekday" aria-hidden="true">{WEEKDAYS[(lead + i) % 7]}</span>
                   {quiet ? null : (
                     <>
                       <span title="Deliveries reported on the gate pass">Done {day!.declared}</span>

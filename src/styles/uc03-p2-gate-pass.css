@@ -26,8 +26,22 @@
 .p2gp-chip { padding: 1px 8px; border-radius: 999px; background: #fde7e4; color: #912018; font-size: 0.7rem; font-weight: 800; }
 .p2gp-resolve { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .p2gp-resolve input { flex: 1 1 220px; }
+/* Weekday per cell: only the phone day list shows it (the grid has column headers). */
+.p2gp-weekday { display: none; }
 @media (max-width: 640px) {
-  .p2gp-cell { min-height: 64px; padding: 4px; font-size: 0.66rem; }
+  /* Phones (2026-11-07): a 7-column month grid left ~45 px per day and broke every
+     figure letter by letter, so the month reads as a list of days instead. */
+  .p2gp-grid { grid-template-columns: 1fr; gap: 6px; }
+  /* Days with nothing on the gate pass (future days, Sundays off) drop out of the list. */
+  .p2gp-head, .p2gp-cell.p2gp-cell--pad, .p2gp-cell.p2gp-cell--quiet { display: none; }
+  .p2gp-cell {
+    display: grid; grid-template-columns: 4.5rem repeat(2, minmax(0, 1fr)); align-items: baseline;
+    gap: 2px 12px; min-height: 0; padding: 8px 10px; font-size: .85rem;
+  }
+  .p2gp-cell > :is(.p2gp-date, .p2gp-weekday) { grid-column: 1; }
+  .p2gp-cell > .p2gp-weekday { display: block; grid-row: 2; color: #5d6f76; font-size: .75rem; font-weight: 700; }
+  .p2gp-cell > .p2w-link { justify-self: start; min-height: 32px; padding: 0; }
+  .p2gp-filter { flex-wrap: wrap; }
 }
 /* Which day is the photo for: asked only when the previous day's gate pass is still owed (2026-10-27). */
 .p2w .p2w-alert.p2gp-ask { display: block; background: #fff4dc; color: #6b4300; border: 1px solid #f0c36d; font-size: 1rem; }

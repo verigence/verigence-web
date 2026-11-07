@@ -1,0 +1,33 @@
+/* Project Tracker (2026-11-07): a Carbon-style data table grouped dealership -> outlet -> PC,
+   on the My Tracker tokens (uc03-p2-my-work.css). */
+.p2pt-scroll { overflow-x: auto; }
+.p2pt-table { min-width: 100%; }
+.p2pt-table th, .p2pt-table td { text-align: right; }
+.p2pt-table .p2pt-name { text-align: left; min-width: 220px; position: sticky; left: 0; background: #fff; z-index: 1; }
+.p2pt-sort {
+  border: 0; background: transparent; padding: 0; font: inherit; font-weight: 700; color: inherit; cursor: pointer;
+  white-space: nowrap;
+}
+.p2pt-sort:hover, .p2pt-sort:focus-visible { text-decoration: underline; }
+.p2pt-expand {
+  display: inline-flex; gap: 6px; align-items: baseline; border: 0; background: transparent; padding: 0;
+  font: inherit; color: inherit; cursor: pointer; text-align: left;
+}
+.p2pt-expand:disabled { cursor: default; }
+.p2pt-table tr.p2pt-dealer th, .p2pt-table tr.p2pt-dealer td { font-weight: 700; background: var(--p2mw-navy-soft, #edf3fb); }
+.p2pt-table tr.p2pt-dealer th.p2pt-name { background: var(--p2mw-navy-soft, #edf3fb); }
+.p2pt-table tr.p2pt-outlet th.p2pt-name { padding-left: 24px; font-weight: 600; }
+.p2pt-table tr.p2pt-person th, .p2pt-table tr.p2pt-person td { font-size: 13px; }
+.p2pt-table tr.p2pt-person th.p2pt-name { padding-left: 48px; font-weight: 400; }
+.p2pt-table tfoot th.p2pt-name { background: #fff; }
+.p2pt-role {
+  display: inline-block; margin-left: 6px; padding: 0 6px; border-radius: 999px; font-size: 11px; font-weight: 700;
+  background: var(--p2mw-navy-soft, #edf3fb); color: var(--p2mw-navy, #003a82);
+}
+.p2pt-table-actions { display: flex; justify-content: flex-end; margin: 8px 0; }
+.p2pt-links { margin-top: 12px; }
+.p2pt-notes { margin: 8px 0 0; padding-left: 20px; display: grid; gap: 6px; font-size: 14px; }
+
+@media (max-width: 640px) {
+  .p2pt-table .p2pt-name { min-width: 160px; }
+}

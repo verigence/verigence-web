@@ -98,6 +98,9 @@ export type P2JourneyFilters = {
   month?: string;
   outletId?: string;
   pcActorId?: string;
+  /** 'business': the month is the booking date's (bookings) or the delivery date's (deliveries) --
+   *  the Team Lead dashboard's calendar month (2026-11-07); otherwise the month the journey started. */
+  monthBasis?: 'business';
 };
 
 /** How a page of journeys is ordered: the tab's own order (most urgent first), or Outlet by Outlet. */
@@ -106,7 +109,11 @@ export type P2JourneySort = 'priority' | 'outlet';
 export type P2JourneyCounts = Record<
   'all' | 'open' | 'closed' | 'booking_open' | 'delivery_open' | 'needs_action' | 'processing' | 'with_tl' | 'needs_tl' | 'high_risk' | 'overdue' | 'stuck',
   number
->;
+> & {
+  /** With a month on the business basis: journeys whose booking date / delivery date is in it. */
+  bookings_in_month?: number;
+  deliveries_in_month?: number;
+};
 
 export type P2JourneyBreakdownRow = {
   total: number; booking_open: number; delivery_open: number;
@@ -611,6 +618,7 @@ function journeyFilterParams(filters: P2JourneyFilters): URLSearchParams {
   const params = new URLSearchParams();
   if (filters.search?.trim()) params.set('q', filters.search.trim());
   if (filters.month) params.set('month', filters.month);
+  if (filters.month && filters.monthBasis) params.set('month_basis', filters.monthBasis);
   if (filters.outletId) params.set('outlet_id', filters.outletId);
   if (filters.pcActorId) params.set('pc_actor_id', filters.pcActorId);
   return params;

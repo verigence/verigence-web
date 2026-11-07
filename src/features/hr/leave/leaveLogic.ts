@@ -1,6 +1,7 @@
 import { HrHttpError, hrErrorMessage } from '../../../services/hr/client';
 import type {
   ApplyLeaveType,
+  BirthdayLeaveInfo,
   ApproverRule,
   LeaveApplyInput,
   LeaveRequest,
@@ -11,7 +12,7 @@ import type {
 
 export const leaveTypeLabels: Record<LeaveType, string> = {
   PAID: 'Paid leave',
-  SPECIAL: 'Special occasion leave',
+  SPECIAL: 'Birthday leave (special occasion)',
   COMP_OFF: 'Comp-off',
   UNPAID: 'Unpaid leave',
   // Old requests only: these can no longer be applied for or adjusted.
@@ -24,11 +25,11 @@ export const PAID_TYPES: PaidLeaveType[] = ['PAID', 'SPECIAL', 'COMP_OFF'];
 
 export const paidTypeLabels: Record<PaidLeaveType, string> = {
   PAID: 'Paid',
-  SPECIAL: 'Special occasion',
+  SPECIAL: 'Birthday',
   COMP_OFF: 'Comp-off',
 };
 
-/** PAID and COMP_OFF carry over from year to year; SPECIAL is a yearly quota. */
+/** PAID and COMP_OFF carry over from year to year; SPECIAL (birthday leave) belongs to one birthday. */
 export function isYearlyType(type: PaidLeaveType): boolean {
   return type === 'SPECIAL';
 }
@@ -144,7 +145,6 @@ export const BACKDATE_DAYS = 30;
 export const ADVANCE_DAYS = 365;
 const MAX_RANGE_DAYS = 60;
 export const REASON_MAX = 500;
-export const OCCASION_MAX = 100;
 
 export interface ApplyForm {
   leaveType: ApplyLeaveType | '';
@@ -152,11 +152,9 @@ export interface ApplyForm {
   toDate: string;
   halfDay: boolean;
   reason: string;
-  /** Only used for special occasion leave. */
-  occasion: string;
 }
 
-export type ApplyErrors = Partial<Record<'leaveType' | 'fromDate' | 'toDate' | 'halfDay' | 'reason' | 'occasion', string>>;
+export type ApplyErrors = Partial<Record<'leaveType' | 'fromDate' | 'toDate' | 'halfDay' | 'reason', string>>;
 
 /**
  * The same date rules the server applies, so obvious mistakes are caught before a request is sent.
@@ -182,26 +180,39 @@ export function validateApply(form: ApplyForm, today: string): ApplyErrors {
     } else if (span > MAX_RANGE_DAYS) errors.toDate = `Apply for at most ${MAX_RANGE_DAYS} days at a time.`;
     else if (form.halfDay && span !== 0) errors.halfDay = 'A half day is for a single date.';
   }
-  if (form.leaveType === 'SPECIAL') {
-    const occasion = form.occasion.trim();
-    if (!occasion) errors.occasion = 'Say what the special occasion is.';
-    else if (occasion.length > OCCASION_MAX) errors.occasion = `Keep the occasion within ${OCCASION_MAX} characters.`;
-  }
   if (form.reason.trim().length > REASON_MAX) errors.reason = `Keep the reason within ${REASON_MAX} characters.`;
   return errors;
 }
 
 export function buildApplyPayload(form: ApplyForm): LeaveApplyInput {
   const reason = form.reason.trim();
-  const occasion = form.occasion.trim();
+  // Birthday leave needs no occasion: the server records it as "Birthday" (7 Nov 2026).
   return {
     leave_type: form.leaveType as ApplyLeaveType,
     from_date: form.fromDate,
     to_date: form.toDate,
     half_day: form.halfDay,
     ...(reason ? { reason } : {}),
-    ...(form.leaveType === 'SPECIAL' ? { occasion } : {}),
   };
+}
+
+// ---- birthday leave (product owner, 7 Nov 2026) -----------------------------------------------------
+
+function longDate(iso: string): string {
+  const [y, m, d] = iso.split('-').map(Number);
+  return new Date(Date.UTC(y, m - 1, d)).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
+}
+
+/**
+ * The line on the birthday leave card: "Available from 30 Aug 2026 to 29 Aug 2027" while there is
+ * some to take, "Opens on 30 Aug 2027" once it is used or waiting, or why there is none.
+ */
+export function birthdayLeaveText(info: BirthdayLeaveInfo | undefined, available: number): string {
+  if (!info) return '';
+  if (!info.dateOfBirthOnFile) return info.message;
+  if (info.open === false) return `Opens on ${longDate(info.nextOpensOn)}, the first birthday after joining`;
+  if (available > 0) return `Available from ${longDate(info.availableFrom)} to ${longDate(info.availableUntil)}`;
+  return `Opens on ${longDate(info.nextOpensOn)}`;
 }
 
 // ---- paid leave earned from attendance ------------------------------------------------------------------

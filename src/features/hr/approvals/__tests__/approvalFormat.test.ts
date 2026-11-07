@@ -28,7 +28,7 @@ import {
 describe('leave', () => {
   it('names the leave types, old ones marked', () => {
     expect(label(leaveTypeLabels, 'PAID')).toBe('Paid leave');
-    expect(label(leaveTypeLabels, 'SPECIAL')).toBe('Special occasion leave');
+    expect(label(leaveTypeLabels, 'SPECIAL')).toBe('Birthday leave (special occasion)');
     expect(label(leaveTypeLabels, 'COMP_OFF')).toBe('Comp-off');
     expect(label(leaveTypeLabels, 'UNPAID')).toBe('Unpaid leave');
     expect(label(leaveTypeLabels, 'SICK')).toBe('Sick leave (old)');

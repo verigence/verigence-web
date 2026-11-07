@@ -12,6 +12,10 @@ The app's build number is added by the release workflow and is not written here.
 
 ## [Unreleased]
 
+### Changed
+- myHR leave: special occasion leave is now **Birthday leave**. It opens on your birthday and can be taken that day, or any later day until the day before your next birthday; it cannot be taken before your birthday and does not carry over to the next one. For someone who joined after their birthday, it opens on the first birthday after joining. No occasion needs to be typed any more. The balance card says "Available from … to …" or "Opens on …"; without a date of birth in myHR it says to ask HR to add it.
+- Leave taken in the previous 6 weeks (shown when applying and to the approver) now counts only days already taken: approved leave still to come is left out.
+
 ### Added
 - myHR holidays: HR or SuperAdmin can make a Sunday a working day for chosen projects (or outlets, or everyone). Choose **Working Sunday** when adding a holiday; only Sundays are allowed. For those people it is a normal working day: Today and the attendance calendar say "Working Sunday", the usual check-in rules apply, and it counts for leave, payroll and earned leave. Everyone else keeps the Sunday off. A working Sunday and a holiday for the same people on the same date are refused.
 - Leave: when someone applies for leave, they and their approver see how many paid and unpaid leave days were taken in the 6 weeks before the leave's first day (Team Lead, Project Manager and HR approval lists, and HR's view of a person's pending requests).

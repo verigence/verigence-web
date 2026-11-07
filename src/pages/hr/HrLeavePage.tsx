@@ -135,7 +135,7 @@ export default function HrLeavePage() {
 
   return (
     <section className="uc01-admin-page hr-page hr-leave-page" aria-label="My leave">
-      <PageHeader eyebrow="HR" title="My leave" description="Your paid leave, special occasion leave and comp-off balances, how you earn paid leave, applying for leave, and the status of your requests." />
+      <PageHeader eyebrow="HR" title="My leave" description="Your paid leave, birthday leave and comp-off balances, how you earn paid leave, applying for leave, and the status of your requests." />
 
       {absentDates.length > 0 && (
         <div className="uc01-admin-message hr-leave-absences" role="status">
@@ -174,10 +174,10 @@ export default function HrLeavePage() {
         )}
         {balance.data && (
           <>
-            <BalanceCards types={balance.data.types} year={balance.data.year} />
+            <BalanceCards types={balance.data.types} year={balance.data.year} birthdayLeave={balance.data.birthdayLeave} />
             <p className="hr-field__hint hr-leave-balance-note">
               Available is what you can still apply for: your balance less requests waiting for a decision. Paid leave and comp-off
-              carry over; special occasion leave is given each year. The year only changes the special occasion quota.
+              carry over. Birthday leave opens on your birthday and can be taken until the day before your next birthday.
             </p>
           </>
         )}

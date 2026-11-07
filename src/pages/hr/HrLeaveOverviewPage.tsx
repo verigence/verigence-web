@@ -82,7 +82,7 @@ export default function HrLeaveOverviewPage() {
       <PageHeader
         eyebrow="HR"
         title="Leave overview"
-        description="Paid leave, special occasion leave and comp-off balances of every active employee. Paid leave and comp-off carry over; the year applies to special occasion leave. Tap a person to see their requests."
+        description="Paid leave, birthday leave and comp-off balances of every active employee. Paid leave and comp-off carry over; birthday leave is for each person's current birthday window. Tap a person to see their requests."
       />
 
       <div className="uc01-admin-toolbar hr-leave-toolbar">

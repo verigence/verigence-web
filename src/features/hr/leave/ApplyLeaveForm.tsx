@@ -11,7 +11,6 @@ import {
   dayWord,
   istToday,
   leaveTypeLabels,
-  OCCASION_MAX,
   REASON_MAX,
   validateApply,
   type ApplyErrors,
@@ -32,7 +31,7 @@ interface Props {
 
 const TYPES: ApplyLeaveType[] = ['PAID', 'SPECIAL', 'COMP_OFF', 'UNPAID'];
 
-const empty: ApplyForm = { leaveType: '', fromDate: '', toDate: '', halfDay: false, reason: '', occasion: '' };
+const empty: ApplyForm = { leaveType: '', fromDate: '', toDate: '', halfDay: false, reason: '' };
 
 function paidHint(earning: Props['earning']): string {
   const needed = earning?.attendanceDaysNeeded ?? 22;
@@ -114,25 +113,14 @@ export default function ApplyLeaveForm({ busy, serverError, onSubmit, onEdit, pr
           {form.leaveType === 'PAID' && <span className="hr-field__hint">{paidHint(earning)}</span>}
           {form.leaveType === 'COMP_OFF' && <span className="hr-field__hint">Earned by approved work on a Sunday or holiday.</span>}
           {form.leaveType === 'UNPAID' && <span className="hr-field__hint">Unpaid leave does not use any balance. HR decides it.</span>}
+          {form.leaveType === 'SPECIAL' && (
+            <span className="hr-field__hint">
+              Birthday leave opens on your birthday. Take it that day, or any later day until the day before your next birthday; never before
+              your birthday. Your Team Lead decides it.
+            </span>
+          )}
         </div>
 
-        {form.leaveType === 'SPECIAL' && (
-          <div className={`hr-field hr-field--wide${field('occasion')}`}>
-            <label htmlFor="leave-occasion">Occasion <span className="hr-field__required">*</span></label>
-            <input
-              id="leave-occasion"
-              type="text"
-              maxLength={OCCASION_MAX + 20}
-              placeholder="For example: own wedding, sister's wedding"
-              value={form.occasion}
-              aria-invalid={Boolean(errors.occasion)}
-              onChange={(e) => change({ occasion: e.target.value })}
-            />
-            {errors.occasion
-              ? <span className="hr-field__error">{errors.occasion}</span>
-              : <span className="hr-field__hint">Special occasion leave has its own yearly quota. Your Team Lead decides it.</span>}
-          </div>
-        )}
 
         <div className={`hr-field${field('fromDate')}`}>
           <label htmlFor="leave-from">From <span className="hr-field__required">*</span></label>

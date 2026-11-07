@@ -52,11 +52,11 @@ export default function AdjustBalanceDialog({ employeeName, defaultYear, busy, e
             </select>
           </div>
           <div className={`hr-field${errors.year ? ' hr-field--error' : ''}`}>
-            <label htmlFor="adjust-year">Year</label>
+            <label htmlFor="adjust-year">{isYearlyType(form.leaveType) ? 'Birthday year' : 'Year'}</label>
             <input id="adjust-year" type="number" inputMode="numeric" min={2020} max={2100} value={form.year} onChange={(e) => change({ year: e.target.value })} />
             {errors.year
               ? <span className="hr-field__error">{errors.year}</span>
-              : !isYearlyType(form.leaveType) && <span className="hr-field__hint">Paid leave and comp-off carry over; the year is kept with the change.</span>}
+              : <span className="hr-field__hint">{isYearlyType(form.leaveType) ? 'The year of the birthday whose leave this changes (it runs to the day before the next birthday).' : 'Paid leave and comp-off carry over; the year is kept with the change.'}</span>}
           </div>
           <div className={`hr-field hr-field--wide${errors.days ? ' hr-field--error' : ''}`}>
             <label htmlFor="adjust-days">Days to add or take off <span className="hr-field__required">*</span></label>

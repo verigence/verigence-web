@@ -1,4 +1,14 @@
-import type { Holiday, HolidayStatus, SettingItem, SettingValue } from '../../../services/hr/hrSettings';
+import type {
+  Holiday,
+  HolidayAppliesTo,
+  HolidayDayPart,
+  HolidayInput,
+  HolidayScope,
+  HolidayScopeProject,
+  HolidayStatus,
+  SettingItem,
+  SettingValue,
+} from '../../../services/hr/hrSettings';
 
 /** Pure logic for the HR settings screens: no React, no requests. */
 
@@ -132,13 +142,132 @@ export const HOLIDAY_STATUS_LABEL: Record<HolidayStatus, string> = {
   DECLARED: 'Declared',
 };
 
+/** Full day, or which half is off (product owner, 7 Nov 2026). */
+export const HOLIDAY_DAY_PART_LABEL: Record<HolidayDayPart, string> = {
+  FULL_DAY: 'Full day',
+  MORNING: 'Half day, morning off',
+  AFTERNOON: 'Half day, afternoon off',
+};
+
+export type HolidayLength = 'FULL' | 'HALF';
+export type HolidayHalf = 'MORNING' | 'AFTERNOON';
+
 export interface HolidayDraft {
   date: string;
   name: string;
   status: HolidayStatus;
+  length: HolidayLength;
+  half: HolidayHalf;
+  appliesTo: HolidayAppliesTo;
+  /** Chosen projects and outlets, as scopeKey() values. */
+  scope: string[];
 }
 
-export type HolidayErrors = Partial<Record<'date' | 'name', string>>;
+export type HolidayErrors = Partial<Record<'date' | 'name' | 'scope', string>>;
+
+export function emptyHolidayDraft(year: number): HolidayDraft {
+  return { date: `${year}-01-01`, name: '', status: 'TENTATIVE', length: 'FULL', half: 'AFTERNOON', appliesTo: 'ALL', scope: [] };
+}
+
+/** One key per choice: a whole project (no outlet) or one outlet of it. */
+export function scopeKey(tenantId: string, outletId: string | null): string {
+  return `${tenantId}\u0000${outletId ?? ''}`;
+}
+
+function parseScopeKey(key: string): { tenantId: string; outletId: string | null } {
+  const at = key.lastIndexOf('\u0000');
+  return { tenantId: key.slice(0, at), outletId: key.slice(at + 1) || null };
+}
+
+export function draftDayPart(draft: Pick<HolidayDraft, 'length' | 'half'>): HolidayDayPart {
+  return draft.length === 'FULL' ? 'FULL_DAY' : draft.half;
+}
+
+export function draftFromHoliday(h: Holiday): HolidayDraft {
+  const dayPart = h.dayPart ?? 'FULL_DAY';
+  return {
+    date: h.date,
+    name: h.name,
+    status: h.status,
+    length: dayPart === 'FULL_DAY' ? 'FULL' : 'HALF',
+    half: dayPart === 'MORNING' ? 'MORNING' : 'AFTERNOON',
+    appliesTo: h.appliesTo ?? 'ALL',
+    scope: (h.scope ?? []).map((s) => scopeKey(s.tenantId, s.outletId)),
+  };
+}
+
+export function draftToInput(draft: HolidayDraft): HolidayInput {
+  return {
+    date: draft.date,
+    name: draft.name.trim(),
+    status: draft.status,
+    dayPart: draftDayPart(draft),
+    appliesTo: draft.appliesTo,
+    scope: draft.appliesTo === 'ALL' ? [] : draft.scope.map(parseScopeKey),
+  };
+}
+
+/**
+ * Ticks or unticks one choice. A whole project covers its outlets, so ticking it clears them; an
+ * outlet cannot be ticked while its project is ticked whole.
+ */
+export function toggleScope(scope: string[], tenantId: string, outletId: string | null): string[] {
+  const key = scopeKey(tenantId, outletId);
+  if (scope.includes(key)) return scope.filter((k) => k !== key);
+  if (outletId === null) return [...scope.filter((k) => parseScopeKey(k).tenantId !== tenantId), key];
+  if (scope.includes(scopeKey(tenantId, null))) return scope;
+  return [...scope, key];
+}
+
+/** A project's name for the picker and the table; its code, or the tenant, when it has none. */
+export function projectLabel(p: Pick<HolidayScopeProject, 'tenantId' | 'projectCode' | 'projectName'>): string {
+  return p.projectName || p.projectCode || p.tenantId;
+}
+
+export function outletLabel(o: { outletName: string | null; outletCode: string | null; outletId: string | null }): string {
+  return o.outletName || o.outletCode || 'Outlet';
+}
+
+/** Who a holiday is for, grouped by project: "Alpha (whole project); Bravo: Cuttack Motors, Puri Motors". */
+export function describeAppliesTo(h: Pick<Holiday, 'appliesTo' | 'scope'>): string {
+  if ((h.appliesTo ?? 'ALL') === 'ALL') return 'Whole company';
+  const byProject = new Map<string, { label: string; whole: boolean; outlets: string[] }>();
+  for (const s of h.scope ?? []) {
+    const entry = byProject.get(s.tenantId) ?? { label: projectLabel(s), whole: false, outlets: [] };
+    if (s.outletId === null) entry.whole = true;
+    else entry.outlets.push(outletLabel(s));
+    byProject.set(s.tenantId, entry);
+  }
+  if (byProject.size === 0) return 'Selected projects and outlets';
+  return [...byProject.values()]
+    .map((p) => (p.whole ? `${p.label} (whole project)` : `${p.label}: ${p.outlets.join(', ')}`))
+    .join('; ');
+}
+
+/** "Half day, afternoon off, for the whole company, declared." */
+export function holidaySummary(h: Pick<Holiday, 'dayPart' | 'appliesTo' | 'scope' | 'status'>): string {
+  const who = (h.appliesTo ?? 'ALL') === 'ALL' ? 'the whole company' : describeAppliesTo(h);
+  return `${HOLIDAY_DAY_PART_LABEL[h.dayPart ?? 'FULL_DAY']}, for ${who}, ${HOLIDAY_STATUS_LABEL[h.status].toLowerCase()}.`;
+}
+
+/** The chosen items as the picker shows them, for a summary line under it. */
+export function describeDraftScope(scope: string[], projects: HolidayScopeProject[]): string {
+  const known: HolidayScope[] = [];
+  for (const key of scope) {
+    const { tenantId, outletId } = parseScopeKey(key);
+    const project = projects.find((p) => p.tenantId === tenantId);
+    const outlet = outletId ? project?.outlets.find((o) => o.outletId === outletId) : undefined;
+    known.push({
+      tenantId,
+      projectCode: project?.projectCode ?? null,
+      projectName: project?.projectName ?? null,
+      outletId,
+      outletCode: outlet?.outletCode ?? null,
+      outletName: outlet?.outletName ?? null,
+    });
+  }
+  return describeAppliesTo({ appliesTo: 'SELECTED', scope: known });
+}
 
 function isIsoDate(value: string): boolean {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
@@ -157,11 +286,21 @@ export function validateHoliday(draft: HolidayDraft): HolidayErrors {
   const name = draft.name.trim();
   if (name.length < 2) errors.name = 'Enter the holiday name (at least 2 characters).';
   else if (name.length > 120) errors.name = 'Use up to 120 characters.';
+  if (draft.appliesTo === 'SELECTED' && draft.scope.length === 0) {
+    errors.scope = 'Choose at least one project or outlet, or make it for the whole company.';
+  }
   return errors;
 }
 
-export function sortHolidays(items: Holiday[]): Holiday[] {
-  return [...items].sort((a, b) => a.date.localeCompare(b.date));
+const PART_ORDER: Record<HolidayDayPart, number> = { FULL_DAY: 0, MORNING: 1, AFTERNOON: 2 };
+
+export function sortHolidays<T extends Pick<Holiday, 'date' | 'name'> & { dayPart?: HolidayDayPart }>(items: T[]): T[] {
+  return [...items].sort(
+    (a, b) =>
+      a.date.localeCompare(b.date) ||
+      PART_ORDER[a.dayPart ?? 'FULL_DAY'] - PART_ORDER[b.dayPart ?? 'FULL_DAY'] ||
+      a.name.localeCompare(b.name),
+  );
 }
 
 /** "Tue, 20 Oct 2026" from an ISO date, with no time-zone shift. */

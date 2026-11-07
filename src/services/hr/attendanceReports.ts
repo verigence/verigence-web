@@ -65,10 +65,21 @@ interface DailySummary {
   withDelinquencies: number;
 }
 
+/** One declared holiday on a day, with whom it is for (scope: project or outlet names). */
+export interface DayHolidayInfo {
+  name: string;
+  dayPart: 'FULL_DAY' | 'MORNING' | 'AFTERNOON';
+  appliesTo: 'ALL' | 'SELECTED';
+  scope: string[];
+}
+
 export interface DailyAttendance {
   date: string;
+  /** For the company as a whole; a person's own day can differ (project or outlet holidays). */
   dayKind: 'WORKING' | 'SUNDAY' | 'HOLIDAY';
   holiday: string | null;
+  /** Every declared holiday of the day. Absent from services before 7 Nov 2026. */
+  holidays?: DayHolidayInfo[];
   summary: DailySummary;
   rows: DailyRow[];
 }

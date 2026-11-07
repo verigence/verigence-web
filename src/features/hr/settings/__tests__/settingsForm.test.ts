@@ -3,13 +3,23 @@ import { describe, expect, it } from 'vitest';
 import type { SettingItem } from '../../../../services/hr/hrSettings';
 import {
   collectChanges,
+  describeAppliesTo,
   describeBounds,
+  describeDraftScope,
+  draftDayPart,
+  draftFromHoliday,
+  draftToInput,
+  emptyHolidayDraft,
   formatHolidayDate,
   groupSettings,
+  holidaySummary,
   parseSetting,
   placeServerProblem,
+  scopeKey,
   sortHolidays,
+  toggleScope,
   validateHoliday,
+  type HolidayDraft,
 } from '../settingsForm';
 
 const item = (over: Partial<SettingItem>): SettingItem => ({
@@ -109,22 +119,78 @@ describe('placeServerProblem', () => {
 });
 
 describe('holidays', () => {
+  const base = { length: 'FULL', half: 'AFTERNOON', appliesTo: 'ALL', scope: [] } as const;
+  const draft = (over: Partial<HolidayDraft>): HolidayDraft => ({ ...emptyHolidayDraft(2026), ...base, scope: [], ...over });
+
   it('validates date and name like the service does', () => {
-    expect(validateHoliday({ date: '2026-10-20', name: 'Vijaya Dasami', status: 'DECLARED' })).toEqual({});
-    expect(validateHoliday({ date: '2026-02-30', name: 'A', status: 'TENTATIVE' })).toEqual({
+    expect(validateHoliday(draft({ date: '2026-10-20', name: 'Vijaya Dasami', status: 'DECLARED' }))).toEqual({});
+    expect(validateHoliday(draft({ date: '2026-02-30', name: 'A', status: 'TENTATIVE' }))).toEqual({
       date: 'Choose a date.',
       name: 'Enter the holiday name (at least 2 characters).',
     });
-    expect(validateHoliday({ date: '2019-01-01', name: 'New Year', status: 'TENTATIVE' }).date).toBeDefined();
-    expect(validateHoliday({ date: '2026-01-01', name: 'x'.repeat(121), status: 'TENTATIVE' }).name).toBeDefined();
+    expect(validateHoliday(draft({ date: '2019-01-01', name: 'New Year' })).date).toBeDefined();
+    expect(validateHoliday(draft({ date: '2026-01-01', name: 'x'.repeat(121) })).name).toBeDefined();
   });
-  it('sorts by date and formats without a time-zone shift', () => {
+  it('needs a project or outlet when the holiday is not for the whole company', () => {
+    const picked = draft({ date: '2026-11-10', name: 'Alpha day', appliesTo: 'SELECTED' });
+    expect(validateHoliday(picked).scope).toContain('at least one project or outlet');
+    expect(validateHoliday({ ...picked, scope: [scopeKey('t-a', null)] })).toEqual({});
+  });
+  it('sorts by date then day part and formats without a time-zone shift', () => {
     const sorted = sortHolidays([
-      { date: '2026-11-01', name: 'b', status: 'TENTATIVE' },
-      { date: '2026-10-20', name: 'a', status: 'DECLARED' },
+      { date: '2026-11-01', name: 'b', dayPart: 'AFTERNOON' as const },
+      { date: '2026-11-01', name: 'c', dayPart: 'FULL_DAY' as const },
+      { date: '2026-10-20', name: 'a' },
     ]);
-    expect(sorted.map((h) => h.date)).toEqual(['2026-10-20', '2026-11-01']);
+    expect(sorted.map((h) => h.name)).toEqual(['a', 'c', 'b']);
     expect(formatHolidayDate('2026-10-20')).toContain('20');
     expect(formatHolidayDate('2026-10-20')).toContain('2026');
+  });
+  it('turns a draft into what the service takes, and back', () => {
+    const d = draft({ date: '2026-11-10', name: ' Diwali eve ', status: 'DECLARED', length: 'HALF', half: 'MORNING', appliesTo: 'SELECTED', scope: [scopeKey('t-a', null), scopeKey('t-b', 'o-2')] });
+    const input = draftToInput(d);
+    expect(input).toEqual({
+      date: '2026-11-10',
+      name: 'Diwali eve',
+      status: 'DECLARED',
+      dayPart: 'MORNING',
+      appliesTo: 'SELECTED',
+      scope: [{ tenantId: 't-a', outletId: null }, { tenantId: 't-b', outletId: 'o-2' }],
+    });
+    expect(draftDayPart({ length: 'FULL', half: 'MORNING' })).toBe('FULL_DAY');
+    expect(draftToInput({ ...d, appliesTo: 'ALL' }).scope).toEqual([]);
+    const back = draftFromHoliday({
+      holidayId: 'h1',
+      date: '2026-11-10',
+      name: 'Diwali eve',
+      status: 'DECLARED',
+      dayPart: 'AFTERNOON',
+      appliesTo: 'SELECTED',
+      scope: [{ tenantId: 't-a', projectCode: 'A', projectName: 'Alpha', outletId: null, outletCode: null, outletName: null }],
+    });
+    expect(back).toMatchObject({ length: 'HALF', half: 'AFTERNOON', appliesTo: 'SELECTED', scope: [scopeKey('t-a', null)] });
+  });
+  it('a whole project covers its outlets in the picker', () => {
+    let scope = toggleScope([], 't-a', 'o-1');
+    scope = toggleScope(scope, 't-b', 'o-2');
+    expect(scope).toEqual([scopeKey('t-a', 'o-1'), scopeKey('t-b', 'o-2')]);
+    scope = toggleScope(scope, 't-a', null);
+    expect(scope).toEqual([scopeKey('t-b', 'o-2'), scopeKey('t-a', null)]);
+    expect(toggleScope(scope, 't-a', 'o-1')).toEqual(scope); // an outlet of a whole project: no change
+    expect(toggleScope(scope, 't-b', 'o-2')).toEqual([scopeKey('t-a', null)]);
+  });
+  it('says who a holiday is for, grouped by project', () => {
+    expect(describeAppliesTo({ appliesTo: 'ALL', scope: [] })).toBe('Whole company');
+    const scope = [
+      { tenantId: 't-a', projectCode: 'A', projectName: 'Alpha', outletId: null, outletCode: null, outletName: null },
+      { tenantId: 't-b', projectCode: 'B', projectName: null, outletId: 'o-2', outletCode: 'CM', outletName: 'Cuttack Motors' },
+      { tenantId: 't-b', projectCode: 'B', projectName: null, outletId: 'o-3', outletCode: 'PM', outletName: null },
+    ];
+    expect(describeAppliesTo({ appliesTo: 'SELECTED', scope })).toBe('Alpha (whole project); B: Cuttack Motors, PM');
+    expect(holidaySummary({ dayPart: 'AFTERNOON', appliesTo: 'ALL', scope: [], status: 'DECLARED' })).toBe(
+      'Half day, afternoon off, for the whole company, declared.',
+    );
+    const projects = [{ tenantId: 't-a', projectCode: 'A', projectName: 'Alpha', outlets: [{ outletId: 'o-1', outletCode: null, outletName: 'Puri' }] }];
+    expect(describeDraftScope([scopeKey('t-a', 'o-1')], projects)).toBe('Alpha: Puri');
   });
 });

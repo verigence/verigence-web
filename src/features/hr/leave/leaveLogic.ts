@@ -249,3 +249,51 @@ export function leaveErrorMessage(error: unknown): string {
   }
   return hrErrorMessage(error);
 }
+
+// ---- holidays inside the chosen dates (product owner, 7 Nov 2026) ---------------------------------
+
+interface NoteHoliday {
+  date: string;
+  name: string;
+  status: 'TENTATIVE' | 'DECLARED';
+  dayPart?: 'FULL_DAY' | 'MORNING' | 'AFTERNOON';
+}
+
+export interface HolidayNoteParts<T extends NoteHoliday> {
+  /** Declared full-day holidays: not leave days. */
+  full: T[];
+  /** Declared half-day holidays: a day of leave on one counts half. */
+  half: T[];
+  /** Tentative ones of any kind: they count as working days until HR declares them. */
+  tentative: T[];
+  /** Half-day leave was chosen on a date that is already a declared half-day holiday. */
+  halfDayClash: T | null;
+}
+
+/**
+ * Sorts the holidays that fall inside the dates. The list is the person's own (the service sends
+ * only those that apply to them), so nothing here decides who a holiday is for.
+ */
+export function holidayNoteParts<T extends NoteHoliday>(items: T[], fromDate: string, toDate: string, halfDay = false): HolidayNoteParts<T> {
+  const end = toDate && toDate >= fromDate ? toDate : fromDate;
+  const inside = items.filter((h) => h.date >= fromDate && h.date <= end);
+  const declared = inside.filter((h) => h.status === 'DECLARED');
+  const isHalf = (h: T) => h.dayPart === 'MORNING' || h.dayPart === 'AFTERNOON';
+  const fullDates = new Set(declared.filter((h) => !isHalf(h)).map((h) => h.date));
+  // A morning off and an afternoon off on the same date make a full day off.
+  for (const date of new Set(declared.filter(isHalf).map((h) => h.date))) {
+    const parts = new Set(declared.filter((h) => h.date === date && isHalf(h)).map((h) => h.dayPart));
+    if (parts.has('MORNING') && parts.has('AFTERNOON')) fullDates.add(date);
+  }
+  const full = declared.filter((h) => fullDates.has(h.date));
+  const half = declared.filter((h) => isHalf(h) && !fullDates.has(h.date));
+  const halfDayClash = halfDay ? half.find((h) => h.date === fromDate) ?? null : null;
+  return { full, half, tentative: inside.filter((h) => h.status === 'TENTATIVE'), halfDayClash };
+}
+
+/** "morning off" / "afternoon off" / "" for a full day. */
+export function dayPartWords(dayPart: NoteHoliday['dayPart']): string {
+  if (dayPart === 'MORNING') return 'morning off';
+  if (dayPart === 'AFTERNOON') return 'afternoon off';
+  return '';
+}

@@ -20,6 +20,7 @@ import { formatTimeIst, formatWorkDate, todayIst } from '../../features/hr/atten
 import {
   calendarShort,
   calendarTag,
+  dayHolidaysText,
   formatHoursShort,
   formatMinutes,
   mondayOf,
@@ -220,6 +221,7 @@ export default function HrTeamOverviewPage() {
           <p className="hr-count">
             {formatWorkDate(daily.data.date)}
             {daily.data.dayKind !== 'WORKING' ? ` · ${daily.data.holiday ?? 'Sunday'} (day off)` : ''}
+            {dayHolidaysText(daily.data.holidays, daily.data.dayKind) ? ` · Holidays: ${dayHolidaysText(daily.data.holidays, daily.data.dayKind)}` : ''}
           </p>
           <div className="hr-cal-tiles">
             <div><span>People</span><strong>{daily.data.summary.employees}</strong></div>

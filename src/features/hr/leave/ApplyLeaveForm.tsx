@@ -192,10 +192,10 @@ export default function ApplyLeaveForm({ busy, serverError, onSubmit, onEdit, pr
         </div>
       </div>
 
-      {form.fromDate && <HolidayNote fromDate={form.fromDate} toDate={form.toDate} />}
+      {form.fromDate && <HolidayNote fromDate={form.fromDate} toDate={form.toDate} halfDay={form.halfDay} />}
 
       <p className="hr-field__hint">
-        The number of days is worked out when you apply. Sundays and declared holidays are not counted. You can apply up to {BACKDATE_DAYS} days
+        The number of days is worked out when you apply. Sundays and declared holidays are not counted; a half-day holiday counts half. You can apply up to {BACKDATE_DAYS} days
         after the fact, and a request stays within one calendar year.
       </p>
 

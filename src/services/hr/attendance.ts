@@ -69,7 +69,13 @@ export interface AttendanceToday {
   serverTime: string;
   dayKind: AttendanceDayKind;
   holidayName: string | null;
+  /**
+   * A half-day holiday that applies to this person today (dayKind stays WORKING). Absent from
+   * services before 7 Nov 2026.
+   */
+  halfDayHoliday?: HalfDayHoliday | null;
   tentativeHoliday: string | null;
+  tentativeHolidayDayPart?: 'FULL_DAY' | 'MORNING' | 'AFTERNOON' | null;
   day: AttendanceDay | null;
   roles: string[];
   geofenced: boolean;
@@ -82,7 +88,18 @@ export interface AttendanceToday {
     lateAfter: string;
     checkOutEarliest: string;
     checkOut: string;
+    /** No check-in by this time and the day is marked absent (the split when the afternoon is off). */
+    absentAfter?: string;
+    /** Minimum hours today (halved on a half-day holiday). */
+    minimumHours?: number;
   };
+}
+
+/** Which half of a working day is a holiday, and from when (HH:MM, IST). */
+export interface HalfDayHoliday {
+  name: string;
+  dayPart: 'MORNING' | 'AFTERNOON';
+  splitAt: string;
 }
 
 export interface AttendanceMonth {
@@ -98,7 +115,9 @@ export interface TeamAttendanceEmployee {
   daysCheckedIn: number;
   daysCheckedOut: number;
   pendingExceptions: number;
-  /** Working days they checked in. */
+  /** This person's own working days in the month (their holidays; a half-day holiday is 0.5). */
+  workingDays?: number;
+  /** Working days they checked in (a half-day holiday counts 0.5). */
   daysPresent: number;
   /** Check-ins on a Sunday or a declared holiday. */
   offDayWorked: number;
@@ -112,7 +131,10 @@ interface TeamAttendanceSummary {
   workingDays: number;
   workingDaysSoFar: number;
   sundays: number;
-  holidays: Array<{ date: string; name: string }>;
+  /** Company-wide holidays. dayPart is absent from services before 7 Nov 2026. */
+  holidays: Array<{ date: string; name: string; dayPart?: 'FULL_DAY' | 'MORNING' | 'AFTERNOON' }>;
+  /** Declared holidays for some projects or outlets only, with whom they are for. */
+  otherHolidays?: Array<{ date: string; name: string; dayPart: 'FULL_DAY' | 'MORNING' | 'AFTERNOON'; appliesTo: string[] }>;
 }
 
 export interface TeamAttendance {

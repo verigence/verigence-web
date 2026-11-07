@@ -29,12 +29,32 @@ export interface SettingsList {
 export type SettingValue = string | number | null;
 
 export type HolidayStatus = 'TENTATIVE' | 'DECLARED';
+/** FULL_DAY, or which half is off (product owner, 7 Nov 2026). */
+export type HolidayDayPart = 'FULL_DAY' | 'MORNING' | 'AFTERNOON';
+/** ALL: the whole company. SELECTED: the projects and outlets in `scope`. */
+export type HolidayAppliesTo = 'ALL' | 'SELECTED';
+
+/** A whole project (outletId null) or one outlet of a project. Names come from the work context. */
+export interface HolidayScope {
+  tenantId: string;
+  projectCode: string | null;
+  projectName: string | null;
+  outletId: string | null;
+  outletCode: string | null;
+  outletName: string | null;
+}
 
 export interface Holiday {
+  holidayId: string;
   /** ISO date, YYYY-MM-DD. */
   date: string;
   name: string;
   status: HolidayStatus;
+  dayPart: HolidayDayPart;
+  appliesTo: HolidayAppliesTo;
+  /** Filled for HR only; empty for everyone else and for company-wide holidays. */
+  scope: HolidayScope[];
+  updatedAt?: string | null;
 }
 
 export interface HolidayList {
@@ -43,8 +63,25 @@ export interface HolidayList {
 }
 
 export interface HolidayInput {
+  date: string;
   name: string;
   status: HolidayStatus;
+  dayPart: HolidayDayPart;
+  appliesTo: HolidayAppliesTo;
+  scope: Array<{ tenantId: string; outletId: string | null }>;
+}
+
+export interface HolidayScopeOutlet {
+  outletId: string;
+  outletCode: string | null;
+  outletName: string | null;
+}
+
+export interface HolidayScopeProject {
+  tenantId: string;
+  projectCode: string | null;
+  projectName: string | null;
+  outlets: HolidayScopeOutlet[];
 }
 
 export interface ClaimCategory {
@@ -87,18 +124,26 @@ export const updateSettings = (token: string, values: Record<string, SettingValu
 export const listHolidays = (token: string, year: number) =>
   hrRequest<HolidayList>(`${base}/holidays?year=${encodeURIComponent(String(year))}`, { accessToken: token });
 
-export const putHoliday = (token: string, date: string, input: HolidayInput) =>
-  hrRequest<Holiday>(`${base}/holidays/${encodeURIComponent(date)}`, {
+export const addHoliday = (token: string, input: HolidayInput) =>
+  hrRequest<Holiday>(`${base}/holidays`, { accessToken: token, method: 'POST', body: { ...input } });
+
+export const changeHoliday = (token: string, holidayId: string, input: HolidayInput) =>
+  hrRequest<Holiday>(`${base}/holidays/entries/${encodeURIComponent(holidayId)}`, {
     accessToken: token,
     method: 'PUT',
     body: { ...input },
   });
 
-export const deleteHoliday = (token: string, date: string) =>
-  hrRequest<{ date: string; removed: boolean }>(`${base}/holidays/${encodeURIComponent(date)}`, {
-    accessToken: token,
-    method: 'DELETE',
-  });
+/** Removed, not deleted: the service keeps the holiday with who removed it and when. */
+export const removeHoliday = (token: string, holidayId: string) =>
+  hrRequest<{ holidayId: string; date: string; removed: boolean }>(
+    `${base}/holidays/entries/${encodeURIComponent(holidayId)}`,
+    { accessToken: token, method: 'DELETE' },
+  );
+
+/** Projects and their outlets a holiday can be given to (HR's copy of the work context). */
+export const getHolidayScopeOptions = (token: string) =>
+  hrRequest<{ projects: HolidayScopeProject[] }>(`${base}/holidays/scope-options`, { accessToken: token });
 
 export const listClaimCategories = (token: string) =>
   hrRequest<{ items: ClaimCategory[] }>(`${base}/claims/categories`, { accessToken: token });

@@ -1,6 +1,6 @@
 import type { AttendanceCalendar as CalendarData, CalendarDay } from '../../../services/hr/attendanceCalendar';
 import { formatTimeIst } from './attendanceFormat';
-import { calendarShort, calendarTag, dayLabel, formatHoursShort, formatMinutes } from './calendarFormat';
+import { calendarShort, calendarTag, dayLabel, formatHoursShort, formatMinutes, halfDayHolidayText } from './calendarFormat';
 
 const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
@@ -44,7 +44,7 @@ export default function AttendanceCalendar({ data, today, selected, onSelect }: 
                 role="gridcell"
                 className={classes}
                 aria-selected={day.date === selected}
-                aria-label={`${day.date}${words ? `, ${words}` : ''}${day.minutes ? `, ${formatMinutes(day.minutes)}` : ''}`}
+                aria-label={`${day.date}${words ? `, ${words}` : ''}${day.halfDayHoliday ? `, ${halfDayHolidayText(day.halfDayHoliday)}` : ''}${day.minutes ? `, ${formatMinutes(day.minutes)}` : ''}`}
                 onClick={() => onSelect(day)}
               >
                 <span className="hr-cal__date">{Number(day.date.slice(8, 10))}</span>
@@ -55,6 +55,11 @@ export default function AttendanceCalendar({ data, today, selected, onSelect }: 
                 {day.checkInAt && day.inMonth !== false && (
                   <span className="hr-cal__times">
                     {formatTimeIst(day.checkInAt)}{day.checkOutAt ? ` – ${formatTimeIst(day.checkOutAt)}` : ''}
+                  </span>
+                )}
+                {day.halfDayHoliday && day.inMonth !== false && (
+                  <span className="hr-tag hr-tag--cool-gray hr-cal__tag" title={`${day.halfDayHoliday.name}`}>
+                    {day.halfDayHoliday.dayPart === 'MORNING' ? 'AM off' : 'PM off'}
                   </span>
                 )}
                 {day.correction && <span className="hr-cal__mark" title="Correction asked">C</span>}

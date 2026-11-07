@@ -1,3 +1,5 @@
+import type { HalfDayHoliday } from '../../../services/hr/attendance';
+import type { DayHolidayInfo } from '../../../services/hr/attendanceReports';
 import type { CalendarDay, CalendarStatus, CorrectionStatus } from '../../../services/hr/attendanceCalendar';
 
 /**
@@ -83,6 +85,17 @@ export function formatHoursShort(minutes: number): string {
   return `${Math.floor(minutes / 60)}:${String(Math.round(minutes % 60)).padStart(2, '0')}`;
 }
 
+/** "Half-day holiday (afternoon off from 14:00): Diwali eve" (product owner, 7 Nov 2026). */
+export function halfDayHolidayText(h: HalfDayHoliday): string {
+  const part = h.dayPart === 'MORNING' ? `morning off until ${h.splitAt}` : `afternoon off from ${h.splitAt}`;
+  return `Half-day holiday (${part}): ${h.name}`;
+}
+
+/** The time after which a missing check-in is an absence on this day: the split when the afternoon is off. */
+export function absentAfterFor(day: Pick<CalendarDay, 'halfDayHoliday'>, absentAfter: string): string {
+  return day.halfDayHoliday?.dayPart === 'AFTERNOON' ? day.halfDayHoliday.splitAt : absentAfter;
+}
+
 /** What a day says in words, including leave and the system's 17:00 mark. */
 export function dayLabel(day: CalendarDay): string {
   if (day.status === 'ABSENT' && day.markedBySystem) {
@@ -129,4 +142,22 @@ export function shiftDays(date: string, days: number): string {
 /** Who else a shared employee works for: "also on Project Two, Project Three". */
 export function sharedText(others: Array<{ projectCode: string; projectName: string | null }>): string {
   return `Also on ${others.map((o) => o.projectName || o.projectCode).join(', ')}`;
+}
+
+const PART_WORDS: Record<DayHolidayInfo['dayPart'], string> = {
+  FULL_DAY: 'full day',
+  MORNING: 'morning off',
+  AFTERNOON: 'afternoon off',
+};
+
+/**
+ * The declared holidays of a day for the HR and lead day views, with whom each is for:
+ * "Diwali eve (afternoon off, whole company) · Alpha day (full day, Cuttack Motors)". Empty when the
+ * day has none, or only the company-wide full day the page already names.
+ */
+export function dayHolidaysText(holidays: DayHolidayInfo[] | undefined, dayKind: string): string {
+  const shown = (holidays ?? []).filter((h) => !(dayKind === 'HOLIDAY' && h.appliesTo === 'ALL' && h.dayPart === 'FULL_DAY'));
+  return shown
+    .map((h) => `${h.name} (${PART_WORDS[h.dayPart]}, ${h.appliesTo === 'ALL' ? 'whole company' : h.scope.join(', ') || 'selected projects'})`)
+    .join(' · ');
 }

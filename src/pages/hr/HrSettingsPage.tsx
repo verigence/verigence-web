@@ -9,6 +9,7 @@ import RulesTab from '../../features/hr/settings/RulesTab';
 import WorkContextTab from '../../features/hr/settings/WorkContextTab';
 import { HR_PERMISSION } from '../../services/hr/employees';
 import { useHrAccess } from '../../features/hr/hrQueries';
+import '../../styles/hr-calendar.css';
 import '../../styles/hr-settings.css';
 
 type Tab = 'rules' | 'holidays' | 'categories' | 'work' | 'pauses';

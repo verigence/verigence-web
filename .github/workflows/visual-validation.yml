@@ -441,8 +441,10 @@ jobs:
             await context.close();
           }
 
-          // Actual authenticated dealership selector: the Project's own name must
-          // never be exposed, and the withdrawn Workspace wording must not come back.
+          // Actual authenticated dealership selector. Product owner, 7 Nov 2026 (#551):
+          // each card names its Project so a user with several can tell them apart.
+          // The Project Name rule still applies to the rest of the operational UI
+          // (see the Landing check below). The withdrawn Workspace wording must not come back.
           for (const viewport of operationalViewports) {
             const context = await browser.newContext({ viewport });
             const page = await context.newPage();
@@ -451,8 +453,8 @@ jobs:
             await login(page);
             await page.getByRole('heading', { name: 'Choose Dealership' }).waitFor();
             const visibleText = await page.locator('body').innerText();
-            for (const forbidden of ['FORBIDDEN PROJECT ALPHA', 'FORBIDDEN PROJECT BETA']) {
-              if (visibleText.includes(forbidden)) failures.push(`Project selection at ${viewport.name} exposes Project Name: ${forbidden}`);
+            for (const projectName of ['FORBIDDEN PROJECT ALPHA', 'FORBIDDEN PROJECT BETA']) {
+              if (!visibleText.includes(projectName)) failures.push(`Project selection at ${viewport.name} does not name the Project on its card: ${projectName}`);
             }
             if (/workspace/i.test(visibleText)) {
               failures.push(`Project selection at ${viewport.name} still uses the withdrawn Workspace wording.`);

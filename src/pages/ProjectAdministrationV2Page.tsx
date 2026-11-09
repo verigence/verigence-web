@@ -85,7 +85,7 @@ const OUTLET_SCOPED_ROLES: OperatingRole[] = ['PC', 'ANALYST'];
 // What each role is called on screen; a service-audit Project runs in SevaSutra and uses its roles.
 const ROLE_OPTIONS: { value: OperatingRole; label: string; service: boolean; sales: boolean }[] = [
   { value: 'ANALYST', label: 'Analyst (SevaSutra)', service: true, sales: false },
-  { value: 'PC', label: 'Process Consultant', service: false, sales: true },
+  { value: 'PC', label: 'Process Consultant', service: true, sales: true },
   { value: 'TL', label: 'Team Lead', service: true, sales: true },
   { value: 'PM', label: 'Project Manager', service: true, sales: true },
   { value: 'CRM', label: 'CRM', service: false, sales: true },

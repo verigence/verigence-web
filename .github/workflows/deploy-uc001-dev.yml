@@ -151,6 +151,41 @@ jobs:
           wranglerVersion: "4.123.0"
           command: deploy
 
+      - name: Both web addresses serve the app and every API route
+        # verigence.jbrconsulting.in is the public address (web and apps from 1.6.5).
+        # The workers.dev address must keep working for apps installed before that.
+        # The first deploy with the custom domain waits for Cloudflare's certificate.
+        run: |
+          set -uo pipefail
+          check_host() {
+            local base="$1" attempt code hdr
+            for attempt in $(seq 1 40); do
+              code="$(curl --silent --output /dev/null --write-out '%{http_code}' --max-time 20 "$base/login?deploy=$GITHUB_SHA")"
+              [ "$code" = "200" ] && break
+              echo "$base/login answered $code (attempt $attempt/40), retrying in 15s"
+              sleep 15
+            done
+            [ "$code" = "200" ] || { echo "::error::$base does not serve the web app"; return 1; }
+            for route in "security|POST|/security/v1/auth/login" "audit-core|GET|/audit-core/health" "hr|GET|/hr-api/health"; do
+              IFS='|' read -r proxy method path <<< "$route"
+              hdr="$(curl --silent --show-error --max-time 20 --dump-header - --output /dev/null \
+                --request "$method" --header 'Content-Type: application/json' \
+                $( [ "$method" = POST ] && echo "--data {}" ) "$base$path")"
+              echo "$hdr" | grep -qi "^x-verigence-proxy: $proxy" || {
+                echo "::error::$base$path did not pass through the $proxy proxy"; echo "$hdr"; return 1; }
+            done
+            for origin in 'capacitor://localhost' 'https://localhost'; do
+              curl --silent --max-time 20 --dump-header - --output /dev/null --request OPTIONS \
+                --header "Origin: $origin" --header 'Access-Control-Request-Method: POST' \
+                --header 'Access-Control-Request-Headers: content-type,authorization' \
+                "$base/security/v1/auth/login" | grep -qi "^access-control-allow-origin: $origin" || {
+                echo "::error::$base does not allow the app origin $origin"; return 1; }
+            done
+            echo "WEB_ADDRESS=PASS|$base"
+          }
+          check_host https://verigence.jbrconsulting.in
+          check_host https://verigence-web-dev.jbrconsulting-it.workers.dev
+
       - name: Smoke test deployed Web and backend proxies
         env:
           DEV_WEB_URL: https://verigence-web-dev.jbrconsulting-it.workers.dev

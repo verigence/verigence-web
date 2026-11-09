@@ -3,7 +3,11 @@
   "name": "verigence-web-dev",
   "main": "./worker/index.js",
   "compatibility_date": "2026-08-20",
+  // Public address on the JBR Consulting domain (Cloudflare creates the DNS record and certificate).
+  // The workers.dev address stays on permanently: Android apps released before 1.6.5 call it, and
+  // they must keep working. Declaring a route turns workers.dev off unless it is set here.
   "workers_dev": true,
+  "routes": [{ "pattern": "verigence.jbrconsulting.in", "custom_domain": true }],
   "preview_urls": true,
   "observability": {
     "logs": {

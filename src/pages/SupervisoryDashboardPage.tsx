@@ -7,6 +7,7 @@ import '../styles/uc03-p2-cards.css';
 
 import NightlyReprocessingStatusTile from '../components/NightlyReprocessingStatusTile';
 import JourneyListTabs from '../features/uc03-p2/bookings/JourneyListTabs';
+import TeamTodayCard from '../features/uc03-p2/dashboard/TeamTodayCard';
 import {
   focusCardsFor,
   scopeSummary,
@@ -192,6 +193,11 @@ export default function SupervisoryDashboardPage() {
       <section className="uc03-tl-focus-grid" aria-label="Your focus areas">
         {cards.map((card) => focus[card]())}
       </section>
+
+      {/* Who of the team has reached the outlet today, from myHR attendance (product owner
+          2026-11-09: "instead of asking manually, the TL/PM can check there itself"). Its own
+          request: when myHR is unavailable it says so in one line and nothing else changes. */}
+      <TeamTodayCard accessToken={accessToken} projectCode={project.projectCode} />
 
       <NightlyReprocessingStatusTile />
 

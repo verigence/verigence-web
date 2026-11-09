@@ -206,6 +206,62 @@ jobs:
             echo "::warning::Document Intelligence does not allow $NEW yet (direct browser calls from review pages)"
           fi
 
+      - name: Document storage accepts direct uploads from every web and app address
+        # Web and the Android app send files straight to R2 on a signed link (bulk upload, document
+        # upload, replace) and read some back the same way. R2 answers a browser only for the
+        # addresses in the bucket's CORS policy. On 2026-11-09 the move to verigence.jbrconsulting.in
+        # left that policy on the old address and every desktop upload failed with "the connection
+        # dropped". The rule now lives in infra/r2/document-storage-cors-rule.json and is applied on
+        # every deploy; rules other than ours are kept as they are.
+        shell: bash
+        env:
+          CF_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CF_ACCOUNT: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          R2_DOCUMENT_BUCKETS: verigence-di-bucket-dev
+          RULE_FILE: infra/r2/document-storage-cors-rule.json
+        run: |
+          set -euo pipefail
+          api="https://api.cloudflare.com/client/v4/accounts/$CF_ACCOUNT/r2/buckets"
+          rule_id="$(jq -r '.id' "$RULE_FILE")"
+          for bucket in $R2_DOCUMENT_BUCKETS; do
+            # The bucket must be the one Audit Core keeps documents in.
+            if curl --silent --max-time 30 --header "Authorization: Bearer $CF_TOKEN" \
+                 "$api/$bucket/objects?prefix=p2-&per_page=1" | jq -e '.success == true and ((.result // []) | length) > 0' >/dev/null; then
+              echo "DOCUMENT_BUCKET=PASS|$bucket holds Audit Core documents"
+            else
+              echo "::warning::Could not confirm $bucket holds Audit Core documents (p2- prefix); applying the rule anyway"
+            fi
+
+            current="$(curl --silent --max-time 30 --header "Authorization: Bearer $CF_TOKEN" "$api/$bucket/cors")"
+            # Only write when the current policy was read (or the bucket has none), so a failed
+            # read can never wipe rules other than ours.
+            echo "$current" | jq -e '.success == true or ((.errors // []) | map(.code) | index(10059))' >/dev/null || {
+              echo "::error::Could not read the CORS policy on $bucket; not changing it"; echo "$current" | jq -c '.errors'; exit 1; }
+            echo "Current CORS on $bucket:"; echo "$current" | jq -c '.result.rules // []'
+            body="$(jq -n --argjson cur "$current" --slurpfile mine "$RULE_FILE" --arg id "$rule_id" \
+              '{rules: ((($cur.result.rules // []) | map(select(.id != $id))) + $mine)}')"
+            put="$(curl --silent --max-time 30 --request PUT --header "Authorization: Bearer $CF_TOKEN" \
+              --header 'Content-Type: application/json' --data "$body" "$api/$bucket/cors")"
+            echo "$put" | jq -e '.success == true' >/dev/null || {
+              echo "::error::Could not set the CORS policy on $bucket"; echo "$put" | jq -c '.errors'; exit 1; }
+            echo "R2_CORS_APPLIED=PASS|$bucket"
+
+            # What a browser does before the PUT: every address must be allowed.
+            endpoint="https://$CF_ACCOUNT.r2.cloudflarestorage.com/$bucket/p2-bulk/cors-check"
+            for origin in $(jq -r '.allowed.origins[]' "$RULE_FILE"); do
+              ok=""
+              for attempt in $(seq 1 12); do
+                if curl --silent --max-time 20 --dump-header - --output /dev/null --request OPTIONS \
+                     --header "Origin: $origin" --header 'Access-Control-Request-Method: PUT' \
+                     --header 'Access-Control-Request-Headers: content-type' "$endpoint" \
+                   | grep -Fqi "access-control-allow-origin: $origin"; then ok=1; break; fi
+                sleep 10
+              done
+              [ -n "$ok" ] || { echo "::error::$bucket does not accept uploads from $origin"; exit 1; }
+              echo "R2_UPLOAD_PREFLIGHT=PASS|$bucket|$origin"
+            done
+          done
+
       - name: Smoke test deployed Web and backend proxies
         env:
           DEV_WEB_URL: https://verigence-web-dev.jbrconsulting-it.workers.dev

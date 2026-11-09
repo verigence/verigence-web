@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, Navigate, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import '../styles/uc03-p2.css';
 import '../styles/uc03-p2-workspace.css';
@@ -21,6 +21,7 @@ import {
 } from '../services/audit-core/uc03P2';
 import { useProjectContextStore } from '../store/projectContextStore';
 import { useSessionStore } from '../store/sessionStore';
+import { trackerTabHref } from '../services/audit-core/uc03ProjectTracker';
 import JourneyClosedBadge from '../features/uc03-p2/workspace/JourneyClosedBadge';
 
 /** Today in the browser's calendar (the report itself uses the Project's timezone). */
@@ -195,16 +196,14 @@ function PcUploads({ pc, journeys, timezone }: { pc: P2DailyPcRow; journeys: P2D
 /**
  * Daily processing (TL, PM, Executive): how the system handled each PC's day.
  * Every figure comes from what Audit Core stores (see the report's notes);
- * nothing is estimated.
+ * nothing is estimated. The report of one day, without a page header or day
+ * picker: shown as the Project Tracker's "Daily processing" tab, whose day
+ * picker drives it (product owner 2026-11-09), and by the page below.
  */
-export default function P2DailyProcessingReportPage() {
+export function DailyProcessingReport({ day }: { day: string }) {
   const project = useProjectContextStore((s) => s.selectedProject);
   const accessToken = useSessionStore((s) => s.accessToken);
   const tenantId = project?.tenantId;
-  // ?day=YYYY-MM-DD opens a given day (the Project Tracker links a day here, 2026-11-07).
-  const [searchParams] = useSearchParams();
-  const askedDay = searchParams.get('day');
-  const [day, setDay] = useState(askedDay && /^\d{4}-\d{2}-\d{2}$/.test(askedDay) && askedDay <= todayIso() ? askedDay : todayIso());
   const report = useQuery({
     queryKey: ['p2-daily-processing', tenantId, day],
     queryFn: () => getP2DailyProcessingReport(tenantId!, day, accessToken),
@@ -216,30 +215,17 @@ export default function P2DailyProcessingReportPage() {
   const uploaders = (data?.pcs ?? []).filter((pc) => pc.journeysUploaded > 0);
 
   return (
-    <div className="screen-stack p2-screen p2w p2dr">
-      <PageHeader
-        eyebrow="Booking & Delivery"
-        title="Daily processing"
-        description="One day: the status of Journey tasks and Task Manager tasks, the work each person did, and what each PC uploaded."
-      />
+    <div className="screen-stack p2dr">
       {project?.operatingRole === 'EXECUTIVE' ? (
         <p className="p2w-muted">Document Intelligence figures (read first time, retries, bad scans, failures and why, processing time) are on the <Link className="p2dr-link" to="/p2/reports/di">DI dashboard</Link>.</p>
       ) : null}
-
-      <div className="p2w-listbar">
-        <label className="p2dr-day">
-          <span>Day</span>
-          <input type="date" value={day} max={todayIso()} onChange={(event) => setDay(event.target.value)} />
-        </label>
-        {report.isFetching ? <span className="p2w-muted">Loading…</span> : null}
-      </div>
+      {report.isFetching ? <span className="p2w-muted">Loading…</span> : null}
 
       {report.isError ? (
         <div className="p2w-alert p2w-alert--error" role="alert">
           {report.error instanceof Error ? report.error.message : 'The report could not be loaded.'}
         </div>
       ) : null}
-
       {data ? (
         <>
           {data.taskStatus ? <TaskStatusSections status={data.taskStatus} /> : null}
@@ -293,6 +279,38 @@ export default function P2DailyProcessingReportPage() {
           </SectionCard>
         </>
       ) : null}
+    </div>
+  );
+}
+
+/**
+ * /p2/reports/daily: for a Team Lead, PM or Executive it is the Project Tracker's
+ * "Daily processing" tab now (product owner 2026-11-09: one place); an old link
+ * or bookmark opens that tab on the same day. Anyone else keeps the page.
+ */
+export default function P2DailyProcessingReportPage() {
+  const role = useProjectContextStore((s) => s.selectedProject?.operatingRole);
+  // ?day=YYYY-MM-DD opens a given day.
+  const [searchParams] = useSearchParams();
+  const askedDay = searchParams.get('day');
+  const [day, setDay] = useState(askedDay && /^\d{4}-\d{2}-\d{2}$/.test(askedDay) && askedDay <= todayIso() ? askedDay : todayIso());
+  if (role === 'TL' || role === 'PM' || role === 'EXECUTIVE') {
+    return <Navigate to={trackerTabHref('daily-processing', askedDay ?? undefined)} replace />;
+  }
+  return (
+    <div className="screen-stack p2-screen p2w p2dr">
+      <PageHeader
+        eyebrow="Booking & Delivery"
+        title="Daily processing"
+        description="One day: the status of Journey tasks and Task Manager tasks, the work each person did, and what each PC uploaded."
+      />
+      <div className="p2w-listbar">
+        <label className="p2dr-day">
+          <span>Day</span>
+          <input type="date" value={day} max={todayIso()} onChange={(event) => setDay(event.target.value)} />
+        </label>
+      </div>
+      <DailyProcessingReport day={day} />
     </div>
   );
 }

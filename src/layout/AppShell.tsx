@@ -168,20 +168,17 @@ const p2ProjectTrackerItem: NavItem = {
 
 // How the system handled each PC's day: uploads, pages, documents read and
 // waiting, time taken, re-attempts, re-syncs and night corrections.
-const p2DailyProcessingItem: NavItem = {
-  to: '/p2/reports/daily',
-  label: 'Daily processing',
-  mark: 'AT',
-  roles: ['TL', 'PM', 'EXECUTIVE'],
-};
+// No menu item of its own any more: it is a tab of the Project Tracker (2026-11-09),
+// and /p2/reports/daily opens that tab.
 
 // The PC uploads the day's gate pass; TL, PM and Executive see the calendar
 // of deliveries against delivery files and the tasks raised from it.
+// TL, PM and Executive have it as a tab of the Project Tracker (2026-11-09).
 const p2GatePassItem: NavItem = {
   to: '/p2/gate-pass',
   label: 'Daily gate pass',
   mark: 'GP',
-  roles: ['PC', 'TL', 'PM', 'EXECUTIVE'],
+  roles: ['PC'],
 };
 
 // Documents still missing on the journeys that have deliveries, day by day
@@ -519,8 +516,9 @@ export default function AppShell({ children }: PropsWithChildren) {
             // Journey tasks and Task Manager tasks are the two classifications of the Task Queue.
             { ...p2TasksItem, badge: p2TaskCount + tmCount },
             p2DuplicatesItem,
-            ...(role === 'PC' ? [dailyOpsItem] : [p2ProjectTrackerItem, p2DailyProcessingItem, p2JourneyExportItem, p2LocationChecksItem]),
-            p2GatePassItem,
+            // Daily processing and the supervisor's Daily gate pass are tabs of the
+            // Project Tracker (product owner 2026-11-09); the PC keeps Daily gate pass.
+            ...(role === 'PC' ? [dailyOpsItem, p2GatePassItem] : [p2ProjectTrackerItem, p2JourneyExportItem, p2LocationChecksItem]),
             // A PC's missing documents are inside their Tracker (product owner
             // 2026-11-03: not a tab of their own); the TL and PM keep the page.
             ...(role === 'PC' ? [] : [p2MissingDocumentsItem]),
@@ -536,7 +534,7 @@ export default function AppShell({ children }: PropsWithChildren) {
           ],
         }
       : role === 'EXECUTIVE'
-        ? { ...p2Group, items: [p2ProjectTrackerItem, p2DailyProcessingItem, p2JourneyExportItem, p2LocationChecksItem, p2GatePassItem, p2MissingDocumentsItem, p2ClosureApprovalsItem, { ...taskManagerItem, badge: tmCount }, utilisationItem, diDashboardItem] }
+        ? { ...p2Group, items: [p2ProjectTrackerItem, p2JourneyExportItem, p2LocationChecksItem, p2MissingDocumentsItem, p2ClosureApprovalsItem, { ...taskManagerItem, badge: tmCount }, utilisationItem, diDashboardItem] }
         // A Reviewer's whole surface (2026-10-23: inside a Project the group was
         // built for PC / TL / PM only, so a Reviewer saw none of it, not even
         // Document Review, which is their home page).

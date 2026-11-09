@@ -1,18 +1,22 @@
 import { useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { Navigate, useSearchParams } from 'react-router-dom';
 import '../styles/uc03-p2.css';
 import '../styles/uc03-p2-workspace.css';
 import '../styles/uc03-p2-gate-pass.css';
 
 import PageHeader from '../components/PageHeader';
-import DailyTasksList from '../features/uc03-p2/gatepass/DailyTasksList';
-import GatePassSummary from '../features/uc03-p2/gatepass/GatePassSummary';
 import GatePassCalendar from '../features/uc03-p2/gatepass/GatePassCalendar';
 import GatePassWizard from '../features/uc03-p2/gatepass/GatePassWizard';
+import SupervisorGatePass from '../features/uc03-p2/gatepass/SupervisorGatePass';
+import { trackerTabHref } from '../services/audit-core/uc03ProjectTracker';
 import { useProjectContextStore } from '../store/projectContextStore';
 import { useSessionStore } from '../store/sessionStore';
 
-/** Daily Gate Pass: the PC uploads and reconciles; the Team Lead, PM and Executive see the calendar and the tasks raised. */
+/**
+ * Daily Gate Pass: the PC uploads and reconciles here. A Team Lead, PM or Executive has it
+ * as the Project Tracker's "Daily gate pass" tab (product owner 2026-11-09): this address
+ * opens that tab for them.
+ */
 export default function P2GatePassPage() {
   const project = useProjectContextStore((s) => s.selectedProject);
   const accessToken = useSessionStore((s) => s.accessToken);
@@ -26,7 +30,11 @@ export default function P2GatePassPage() {
   // default ('PC') until a Project is chosen, so it showed the PC's upload form to
   // a Team Lead, PM or Executive, whose Security permissions refuse the upload
   // (Permission denied).
-  const isPc = project?.operatingRole === 'PC';
+  const role = project?.operatingRole;
+  const isPc = role === 'PC';
+  if (role === 'TL' || role === 'PM' || role === 'EXECUTIVE') {
+    return <Navigate to={trackerTabHref('gate-pass')} replace />;
+  }
 
   return (
     <div className="screen-stack p2-screen p2w p2gp">
@@ -39,14 +47,13 @@ export default function P2GatePassPage() {
       />
       {!tenantId || !accessToken ? (
         <div className="p2w-alert p2w-alert--error" role="alert">Select a project to continue.</div>
-      ) : (
+      ) : isPc ? (
         <>
-          {isPc ? <GatePassWizard key={editGatePassId ?? 'new'} tenantId={tenantId} accessToken={accessToken} onChanged={refresh} editGatePassId={editGatePassId} /> : null}
-          {!isPc ? <DailyTasksList tenantId={tenantId} accessToken={accessToken} onChanged={refresh} /> : null}
-          {/* TL, PM and Executive: every outlet at once, satellites included (product owner 2026-11-02). */}
-          {!isPc ? <GatePassSummary tenantId={tenantId} accessToken={accessToken} refreshKey={refreshKey} /> : null}
+          <GatePassWizard key={editGatePassId ?? 'new'} tenantId={tenantId} accessToken={accessToken} onChanged={refresh} editGatePassId={editGatePassId} />
           <GatePassCalendar tenantId={tenantId} accessToken={accessToken} refreshKey={refreshKey} />
         </>
+      ) : (
+        <SupervisorGatePass tenantId={tenantId} accessToken={accessToken} />
       )}
     </div>
   );

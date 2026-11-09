@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  dailyProcessingDay,
   hasNextPeriod,
   istMonth,
   monthLabel,
@@ -10,6 +11,8 @@ import {
   trackerLabel,
   trackerRange,
   trackerSearch,
+  trackerTabFromSearch,
+  trackerTabHref,
 } from './uc03ProjectTracker';
 
 describe('Project Tracker periods', () => {
@@ -73,5 +76,29 @@ describe('Team Lead dashboard calendar month', () => {
     expect(months.map((m) => m.value)).toEqual(['2026-02', '2026-01', '2025-12', '2025-11']);
     expect(months[0].label).toBe('Feb 2026');
     expect(monthLabel('2026-11')).toBe('November 2026');
+  });
+});
+
+describe('Project Tracker tabs', () => {
+  it('reads the tab from the address, the tracker by default', () => {
+    expect(trackerTabFromSearch(new URLSearchParams(''))).toBe('tracker');
+    expect(trackerTabFromSearch(new URLSearchParams('tab=daily-processing'))).toBe('daily-processing');
+    expect(trackerTabFromSearch(new URLSearchParams('tab=gate-pass'))).toBe('gate-pass');
+    expect(trackerTabFromSearch(new URLSearchParams('tab=nonsense'))).toBe('tracker');
+  });
+
+  it('the Daily processing day comes from ?day=, then the tracker date, never the future', () => {
+    const today = '2026-11-09';
+    expect(dailyProcessingDay(new URLSearchParams('tab=daily-processing&day=2026-11-07'), today)).toBe('2026-11-07');
+    expect(dailyProcessingDay(new URLSearchParams('period=week&date=2026-11-04'), today)).toBe('2026-11-04');
+    expect(dailyProcessingDay(new URLSearchParams('day=2026-11-10'), today)).toBe(today);
+    expect(dailyProcessingDay(new URLSearchParams('day=bad'), today)).toBe(today);
+  });
+
+  it('old addresses open the matching tab', () => {
+    expect(trackerTabHref('daily-processing', '2026-11-08')).toBe('/p2/project-tracker?tab=daily-processing&day=2026-11-08');
+    expect(trackerTabHref('daily-processing')).toBe('/p2/project-tracker?tab=daily-processing');
+    expect(trackerTabHref('gate-pass')).toBe('/p2/project-tracker?tab=gate-pass');
+    expect(trackerTabHref('tracker')).toBe('/p2/project-tracker');
   });
 });

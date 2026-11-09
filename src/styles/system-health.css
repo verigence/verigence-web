@@ -164,3 +164,16 @@
   .sh-pause__form { grid-template-columns: minmax(0, 1fr); }
   .sh-pause__actions .p2w-button { flex: 1 1 auto; white-space: normal; }
 }
+
+/* Data archive tab (2026-11-09). */
+.sh-archive-status { display: flex; flex-wrap: wrap; gap: 8px; align-items: baseline; padding: 12px 14px; border: 1px solid var(--p2w-line, #d8dee8); border-left-width: 4px; border-radius: var(--p2w-radius, 12px); background: var(--sh-surface, #fff); }
+.sh-archive-status--ok { border-left-color: #1b8a4a; }
+.sh-archive-status--warn { border-left-color: #d08700; }
+.sh-archive-status--bad { border-left-color: var(--p2w-danger, #b42318); }
+.sh-archive-facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin: 0; }
+.sh-archive-facts > div { display: grid; gap: 2px; padding: 10px 12px; border: 1px solid var(--p2w-line, #d8dee8); border-radius: var(--p2w-radius, 12px); background: var(--sh-surface, #fff); }
+.sh-archive-facts dt { font-size: .8rem; color: var(--p2w-muted, #64748b); }
+.sh-archive-facts dd { margin: 0; font-size: 1.15rem; font-weight: 700; }
+.sh-archive-facts span { font-size: .78rem; color: var(--p2w-muted, #64748b); }
+.sh-archive-table tr.sh-archive-night td { border-top: 2px solid var(--p2w-line, #d8dee8); }
+.sh-archive-error { max-width: 360px; white-space: normal; font-size: .8rem; color: var(--p2w-danger, #b42318); }

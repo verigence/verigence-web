@@ -1,0 +1,15 @@
+{
+  "id": "verigence-web-and-app-direct",
+  "allowed": {
+    "origins": [
+      "https://verigence.jbrconsulting.in",
+      "https://verigence-web-dev.jbrconsulting-it.workers.dev",
+      "https://localhost",
+      "capacitor://localhost"
+    ],
+    "methods": ["GET", "HEAD", "PUT"],
+    "headers": ["content-type", "range"]
+  },
+  "exposeHeaders": ["ETag", "Content-Type", "Content-Length", "Accept-Ranges", "Content-Range"],
+  "maxAgeSeconds": 3600
+}

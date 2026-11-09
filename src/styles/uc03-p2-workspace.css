@@ -1265,3 +1265,35 @@
   .p2w .p2w-choice--guard > div { flex-direction: column; }
   .p2w .p2w-choice--guard .p2w-button { width: 100%; }
 }
+
+/* Closure observations (2026-11-09): each item an observation with a severity
+   (Carbon tile + radio tile pattern) or justified as not one. Scoped to .p2w-obs. */
+.p2w-obs { display: grid; gap: 12px; }
+.p2w-obs__title { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+.p2w-obs__counts { display: flex; flex-wrap: wrap; gap: 6px; }
+.p2w-obs .p2w-obs__count.is-high { color: var(--p2w-danger); background: var(--p2w-danger-bg); }
+.p2w-obs .p2w-obs__count.is-medium { color: #8a5a00; background: #fff4dc; }
+.p2w-obs .p2w-obs__count.is-low { color: var(--p2w-muted); background: var(--p2w-soft); }
+.p2w-obs__group { display: grid; gap: 8px; }
+.p2w-obs__group h4 { margin: 0; font-size: .9rem; }
+.p2w-obs__group ul { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.p2w-obs__item { display: grid; gap: 6px; padding: 10px 12px; border: 1px solid var(--p2w-line); border-left: 3px solid var(--p2w-line); border-radius: 8px; background: #fff; }
+.p2w-obs__item.is-observation { border-left-color: var(--p2w-review); }
+.p2w-obs__head { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 12px; }
+.p2w-obs__head .p2w-muted { font-size: .78rem; }
+.p2w-obs__detail { margin: 0; font-size: .82rem; color: var(--p2w-muted); }
+.p2w-obs__switch { justify-self: start; }
+.p2w-obs__fields { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.p2w-obs__input { flex: 1 1 240px; min-height: 40px; padding: 8px 10px; border: 1px solid #cfe0ea; border-radius: 8px; font: inherit; color: var(--p2w-ink); }
+.p2w-obs__severity { display: inline-flex; gap: 4px; }
+.p2w-obs__sev { display: inline-flex; align-items: center; min-height: 36px; padding: 0 12px; border: 1px solid var(--p2w-line); border-radius: 999px; font-size: .8rem; font-weight: 700; color: var(--p2w-muted); cursor: pointer; }
+.p2w-obs__sev input { position: absolute; opacity: 0; pointer-events: none; }
+.p2w-obs__sev:focus-within { box-shadow: 0 0 0 3px rgb(52 184 200 / 30%); }
+.p2w-obs__sev.is-high.is-on { color: #fff; background: var(--p2w-danger); border-color: var(--p2w-danger); }
+.p2w-obs__sev.is-medium.is-on { color: #fff; background: #b26b00; border-color: #b26b00; }
+.p2w-obs__sev.is-low.is-on { color: #fff; background: var(--p2w-muted); border-color: var(--p2w-muted); }
+@media (max-width: 767px) {
+  .p2w-obs__fields { flex-direction: column; align-items: stretch; }
+  .p2w-obs__severity { justify-content: space-between; }
+  .p2w-obs__sev { flex: 1; justify-content: center; min-height: var(--p2w-tap); }
+}

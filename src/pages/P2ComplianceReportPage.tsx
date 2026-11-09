@@ -13,7 +13,17 @@ import { getP2Journey360Section } from '../services/audit-core/uc03P2';
 import { useProjectContextStore } from '../store/projectContextStore';
 import { useSessionStore } from '../store/sessionStore';
 import { matchLevelText } from '../features/uc03-p2/matchLevel';
-import { ACCEPTANCE_LABEL, CLOSURE_KIND_LABEL } from '../services/audit-core/reviewerClosure';
+import {
+  ACCEPTANCE_LABEL,
+  CLOSURE_KIND_LABEL,
+  SEVERITIES,
+  SEVERITY_LABEL,
+  SEVERITY_TONE,
+  type ClosureObservation,
+  type ObservationSeverity,
+} from '../services/audit-core/reviewerClosure';
+
+const SOURCE_LABEL: Record<string, string> = { SYSTEM: 'Audit', REVIEWER: 'Reviewer', TL: 'Team Lead', PM: 'Project Manager' };
 
 const HEADER_LABELS: Record<string, string> = {
   journeyReference: 'Journey', bookingReference: 'Booking reference', productLabel: 'Vehicle', dealerName: 'Dealer',
@@ -23,10 +33,14 @@ const HEADER_LABELS: Record<string, string> = {
 
 const VERDICT_TONE = { COMPLIANT: 'success', INCOMPLETE: 'progress', NON_COMPLIANT: 'danger' } as const;
 
-/** Audit report (product owner 2026-11-06): the verdict, the Reviewer's
- * closure summary with every answer and the closing comment, the Audit
- * summary line by line, then the checks, findings and open work.
- * Print-ready. */
+/** Audit report (product owner 2026-11-06; made crisp 2026-11-09: "I need to
+ * see crisp report covering what is there, what is missed, what is
+ * observation, justifications ... severity as high, medium, low"). It leads
+ * with the verdict and the counts, then the observations by severity, what is
+ * missed, what is on file, the justifications for items not taken as
+ * observations, and the remarks and sign-off. Everything else -- journey
+ * facts, the Audit summary or Deal, the checks, findings and open work -- is
+ * under Details. Print-ready. */
 export default function P2ComplianceReportPage() {
   const { journeyId } = useParams();
   const tenantId = useProjectContextStore((s) => s.selectedProject?.tenantId);
@@ -49,6 +63,26 @@ export default function P2ComplianceReportPage() {
     staleTime: 15_000,
   });
   const closure = r?.reviewerClosure ?? null;
+  const checklist = r?.documentChecklist ?? [];
+  const onFile = checklist.filter((d) => d.onFile);
+  const missed = checklist.filter((d) => !d.onFile);
+  // A closed journey shows the closure's decided observations; before that,
+  // what the closure will list, as suggested (provisional).
+  // A closure from before observations carries only answers: each item reads
+  // as not taken as an observation, its answer the justification.
+  const decided: ClosureObservation[] | null = closure ? (closure.observations ?? closure.items.map((item) => ({
+    key: item.key, kind: item.kind, stage: item.stage, label: item.label, detail: item.detail, stands: false,
+    severity: null, justification: item.answer ?? null, note: null, source: 'SYSTEM' as const,
+    tlRejection: closure.rejections.find((x) => x.key === item.key)?.reason ?? null,
+  }))) : null;
+  const observations: ClosureObservation[] = decided ?? (r?.observationCandidates ?? [])
+    .filter((c) => c.suggestedStands)
+    .map((c) => ({ key: c.key, kind: c.kind, stage: c.stage, label: c.label, detail: c.detail, stands: true,
+      severity: c.suggestedSeverity, justification: null, note: null, source: 'SYSTEM' as const, tlRejection: null }));
+  const standing = observations.filter((o) => o.stands);
+  const justified = (decided ?? []).filter((o) => !o.stands);
+  const counts: Record<ObservationSeverity, number> = { HIGH: 0, MEDIUM: 0, LOW: 0 };
+  for (const o of standing) if (o.severity && !o.tlRejection) counts[o.severity] += 1;
 
   return (
     <div className={`screen-stack p2-screen p2w j360 j360-report${r && r.review?.status !== 'REVIEWED' ? ' is-draft' : ''}`}>
@@ -91,59 +125,129 @@ export default function P2ComplianceReportPage() {
                 </span>
               ) : null}
             </div>
-            <dl className="j360-facts">
+            <dl className="j360-facts j360-glance">
+              <div><dt>Documents on file</dt><dd>{onFile.length} of {checklist.length}</dd></div>
+              <div className={missed.length ? 'is-danger' : ''}><dt>Documents missed</dt><dd>{missed.length}</dd></div>
+              {SEVERITIES.map((severity) => (
+                <div key={severity} className={`is-${severity.toLowerCase()}`}>
+                  <dt>{SEVERITY_LABEL[severity]} observations</dt><dd>{counts[severity]}</dd>
+                </div>
+              ))}
+              {decided ? <div><dt>Not taken as observations</dt><dd>{justified.length}</dd></div> : null}
               <div><dt>Checks with issues</dt><dd>{r.verdict.failedControls}</dd></div>
-              <div><dt>Checks not complete</dt><dd>{r.verdict.incompleteControls}</dd></div>
-              <div><dt>High / critical findings open</dt><dd>{r.verdict.highOrCriticalFindings}</dd></div>
-              <div><dt>Possible duplicate bookings</dt><dd>{r.verdict.duplicatePairs}</dd></div>
               <div><dt>Open tasks</dt><dd>{r.verdict.openTasks}</dd></div>
-              <div><dt>Findings (open / resolved)</dt><dd>{r.summary.openFindings} / {r.summary.resolvedFindings}</dd></div>
             </dl>
           </section>
 
+          <section className="j360-card" aria-label="Observations">
+            <h3 className="j360-h3">Observations</h3>
+            {!decided ? (
+              <p className="p2w-muted">Provisional: listed as the audit sees them now. The Reviewer decides each one, and its
+                severity, when closing the journey.</p>
+            ) : null}
+            {standing.length ? (
+              <div className="j360-table-wrap">
+                <table className="j360-table j360-observations">
+                  <caption className="visually-hidden">Observations by severity</caption>
+                  <thead><tr><th scope="col">Severity</th><th scope="col">Observation</th><th scope="col">Raised by</th><th scope="col">Note / Team Lead</th></tr></thead>
+                  <tbody>
+                    {standing.map((o) => (
+                      <tr key={o.key} className={o.tlRejection ? 'is-flagged' : ''}>
+                        <td data-label="Severity">{o.severity
+                          ? <span className={`p2w-chip p2w-chip--${SEVERITY_TONE[o.severity]}`}>{SEVERITY_LABEL[o.severity]}</span> : '—'}</td>
+                        <th scope="row">{o.label}
+                          {o.detail ? <small className="p2w-muted" style={{ display: 'block' }}>{o.detail}</small> : null}
+                          <small className="p2w-muted" style={{ display: 'block' }}>{CLOSURE_KIND_LABEL[o.kind] ?? humanizeKey(o.kind)}{o.stage ? ` · ${humanizeKey(o.stage)}` : ''}</small>
+                        </th>
+                        <td data-label="Raised by">{SOURCE_LABEL[o.source] ?? o.source}</td>
+                        <td data-label="Note">{o.note ?? ''}
+                          {o.tlRejection ? <small className="p2w-tone p2w-tone--danger" style={{ display: 'block' }}>Rejected by the Team Lead: {o.tlRejection}</small> : null}
+                          {!o.note && !o.tlRejection ? '—' : null}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : <p className="p2w-muted">No observations.</p>}
+          </section>
+
+          <section className="j360-card" aria-label="What is missed">
+            <h3 className="j360-h3">What is missed · {missed.length}</h3>
+            {missed.length ? (
+              <ul className="j360-controls">
+                {missed.map((d) => (
+                  <li key={`${d.stage}-${d.key}`} className="is-danger">
+                    <span className={`p2w-chip p2w-chip--${d.requirement === 'MANDATORY' ? 'danger' : 'warning'}`}>
+                      {d.requirement === 'MANDATORY' ? 'Mandatory' : 'Conditional'}</span>
+                    <span className="j360-controls__body"><strong>{d.label}</strong>
+                      {d.reason ? <span className="p2w-muted">{d.reason}</span> : null}</span>
+                    <span className="p2w-muted j360-controls__meta">{humanizeKey(d.stage)}</span>
+                  </li>
+                ))}
+              </ul>
+            ) : <p className="p2w-muted">Every required document is on file.</p>}
+          </section>
+
+          <section className="j360-card" aria-label="What is on file">
+            <h3 className="j360-h3">What is on file · {onFile.length}</h3>
+            {onFile.length ? (
+              <ul className="j360-onfile">
+                {onFile.map((d) => (
+                  <li key={`${d.stage}-${d.key}`}><span className="p2w-chip p2w-chip--success">✓</span> {d.label}
+                    <small className="p2w-muted"> · {humanizeKey(d.stage)}</small></li>
+                ))}
+              </ul>
+            ) : <p className="p2w-muted">No required document is on file yet.</p>}
+          </section>
+
+          {justified.length ? (
+            <section className="j360-card" aria-label="Justifications">
+              <h3 className="j360-h3">Not taken as observations · justifications</h3>
+              <div className="j360-table-wrap">
+                <table className="j360-table">
+                  <thead><tr><th scope="col">Item</th><th scope="col">Justification</th></tr></thead>
+                  <tbody>
+                    {justified.map((o) => (
+                      <tr key={o.key} className={o.tlRejection ? 'is-flagged' : ''}>
+                        <th scope="row">{o.label}
+                          <small className="p2w-muted" style={{ display: 'block' }}>{CLOSURE_KIND_LABEL[o.kind] ?? humanizeKey(o.kind)}{o.stage ? ` · ${humanizeKey(o.stage)}` : ''}</small></th>
+                        <td data-label="Justification">{o.justification ?? '—'}
+                          {o.tlRejection ? <small className="p2w-tone p2w-tone--danger" style={{ display: 'block' }}>Rejected by the Team Lead: {o.tlRejection}</small> : null}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          ) : null}
+
           {closure ? (
-            <section className="j360-card j360-closure" aria-label="Journey closing summary">
-              <h3 className="j360-h3">Journey closing summary</h3>
+            <section className="j360-card j360-closure" aria-label="Remarks and sign-off">
+              <h3 className="j360-h3">Remarks and sign-off</h3>
+              <blockquote className="j360-closure__comment">
+                <span className="j360-label">Reviewer's closing comment</span>
+                <p>{closure.comment}</p>
+              </blockquote>
+              {closure.remarks ? (
+                <blockquote className="j360-closure__comment">
+                  <span className="j360-label">Additional remarks</span>
+                  <p>{closure.remarks}</p>
+                </blockquote>
+              ) : null}
               <dl className="j360-facts">
                 <div><dt>Closed by</dt><dd>{closure.closedRole === 'REVIEWER' ? 'Reviewer' : humanizeKey(closure.closedRole)}</dd></div>
                 <div><dt>Closed on</dt><dd>{formatDateTime(closure.closedAtUtc)}</dd></div>
-                <div><dt>Items answered</dt><dd>{closure.itemCount}</dd></div>
                 <div><dt>Team Lead</dt><dd>{ACCEPTANCE_LABEL[closure.acceptanceStatus]}
                   {closure.decidedAtUtc ? ` · ${formatDateTime(closure.decidedAtUtc)}` : ''}
                   {closure.acceptanceStatus === 'PENDING' && closure.acceptanceDueUtc
                     ? ` · auto-approves ${formatDateTime(closure.acceptanceDueUtc)}` : ''}</dd></div>
               </dl>
-              <blockquote className="j360-closure__comment">
-                <span className="j360-label">Closing comment</span>
-                <p>{closure.comment}</p>
-              </blockquote>
-              {closure.items.length ? (
-                <div className="j360-table-wrap">
-                  <table className="j360-table j360-closure__items">
-                    <caption className="visually-hidden">Open items at closure and the answer for each</caption>
-                    <thead><tr><th scope="col">Open item at closure</th><th scope="col">Kind</th><th scope="col">Stage</th><th scope="col">Reviewer's answer</th></tr></thead>
-                    <tbody>
-                      {closure.items.map((item) => {
-                        const rejection = closure.rejections.find((x) => x.key === item.key);
-                        return (
-                          <tr key={item.key} className={rejection ? 'is-flagged' : ''}>
-                            <th scope="row">{item.label}</th>
-                            <td data-label="Kind">{CLOSURE_KIND_LABEL[item.kind]}</td>
-                            <td data-label="Stage">{item.stage ? humanizeKey(item.stage) : '—'}</td>
-                            <td data-label="Answer">{item.answer}
-                              {item.answerSource === 'ACCEPTED_CLAIM' ? <small className="p2w-muted" style={{ display: 'block' }}>From the accepted not-mandatory claim</small> : null}
-                              {rejection ? <small className="p2w-tone p2w-tone--danger" style={{ display: 'block' }}>Rejected by the Team Lead: {rejection.reason}</small> : null}
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              ) : <p className="p2w-muted">Nothing was open at closure.</p>}
             </section>
           ) : null}
 
+          <details className="j360-card j360-appendix">
+            <summary className="j360-h3">Details: journey, deal, checks and history</summary>
           <section className="j360-card" aria-label="Journey">
             <h3 className="j360-h3">Journey</h3>
             <dl className="j360-facts">
@@ -307,6 +411,7 @@ export default function P2ComplianceReportPage() {
               </ul>
             </section>
           ) : null}
+          </details>
         </>
       ) : null}
     </div>

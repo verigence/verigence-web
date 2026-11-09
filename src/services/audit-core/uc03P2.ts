@@ -1,6 +1,6 @@
 import { xhrPut } from '../../features/uc03-p2/workspace/p2Uploader';
 import type { ReviewerClosureFlag } from '../../features/uc03-p2/workspace/JourneyClosedBadge';
-import type { ReviewerClosureRecord } from './reviewerClosure';
+import type { ClosureItemKind, ObservationSeverity, ReviewerClosureRecord } from './reviewerClosure';
 import { auditCoreRawRequest, auditCoreRequest } from './client';
 import type { TmTaskStatus } from './taskManager';
 
@@ -1438,6 +1438,13 @@ type P2ComplianceReport = {
   openTasks: Array<{ task_id: string; title: string; task_type: string; priority?: string | null; assigned_role_code?: string | null; task_status: string; due_at_utc?: string | null }>;
   /** The Reviewer's closure summary (2026-11-04); null until the journey is closed by a Reviewer. */
   reviewerClosure?: ReviewerClosureRecord | null;
+  /** The crisp report (2026-11-09): every required document, on file or missed. */
+  documentChecklist?: Array<{ key: string; label: string; stage: string; requirement: 'MANDATORY' | 'CONDITIONAL';
+    reason?: string | null; onFile: boolean }>;
+  /** Until a closure decides them: what it will list as observations, with a suggested severity. */
+  observationCandidates?: Array<{ key: string; kind: ClosureItemKind; stage?: string | null; label: string;
+    detail?: string | null; suggestedSeverity: ObservationSeverity; suggestedStands: boolean;
+    prefilledAnswer?: string | null }>;
 };
 
 /** Audit summary of a Journey (2026-10-29): built on demand from the Deal,

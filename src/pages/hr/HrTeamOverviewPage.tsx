@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useSearchParams } from 'react-router-dom';
 
 import PageHeader from '../../components/PageHeader';
 import SectionCard from '../../components/SectionCard';
@@ -30,6 +31,14 @@ import {
   type TagType,
 } from '../../features/hr/attendance/calendarFormat';
 import { useHrAccess, useLeadsAProject } from '../../features/hr/hrQueries';
+import {
+  arrivalPlace,
+  nextCheckInSort,
+  sortByCheckIn,
+  summarizeArrivals,
+  TODAY_REFRESH_MS,
+  type CheckInSort,
+} from '../../features/hr/attendance/teamArrival';
 import '../../styles/hr-attendance.css';
 import '../../styles/hr-calendar.css';
 
@@ -60,6 +69,21 @@ function SharedTag({ others }: { others: OtherProject[] }) {
 
 interface Person { employeeId: string; employeeName: string; employeeCode: string }
 
+/** The check-in time, the outlet it was made at and whether the person was at it (myHR's geofence). */
+function CheckInCell({ row }: { row: TeamDailyRow }) {
+  if (!row.checkInAt) return <>—</>;
+  const place = arrivalPlace(row);
+  return (
+    <span className="hr-arrival">
+      <strong>{formatTimeIst(row.checkInAt)}</strong>
+      {place.outlet && <small>{place.outlet}</small>}
+      {place.label && <span className={`hr-tag hr-tag--${place.tone}`}>{place.label}</span>}
+    </span>
+  );
+}
+
+const SORT_LABEL: Record<CheckInSort, 'none' | 'ascending' | 'descending'> = { none: 'none', asc: 'ascending', desc: 'descending' };
+
 /**
  * Team Lead, Project Manager and Executive: the attendance of everyone on the projects they lead,
  * project by project, as a day or a week, with hours per day and the week's total. HR and the CEO
@@ -73,7 +97,10 @@ export default function HrTeamOverviewPage() {
   const allowed = leads || access.can(ATTENDANCE_PERMISSION.readAll);
   const [view, setView] = useState<View>('daily');
   const [date, setDate] = useState(todayIst);
-  const [project, setProject] = useState('');
+  // The DealGuard dashboard's "Team today" card opens this page on its Project (?project=CODE).
+  const [searchParams] = useSearchParams();
+  const [project, setProject] = useState(() => searchParams.get('project')?.trim() ?? '');
+  const [checkInSort, setCheckInSort] = useState<CheckInSort>('none');
   const [search, setSearch] = useState('');
   const [person, setPerson] = useState<Person | null>(null);
   const [month, setMonth] = useState(() => todayIst().slice(0, 7));
@@ -85,6 +112,8 @@ export default function HrTeamOverviewPage() {
     enabled: Boolean(accessToken) && allowed && view === 'daily',
     retry: false,
     refetchOnWindowFocus: false,
+    // Today keeps itself current while the page is open (and the tab is in front); past days do not change.
+    refetchInterval: date === today ? TODAY_REFRESH_MS : false,
   });
   const weekly = useQuery({
     queryKey: attendanceKeys.teamWeekly(mondayOf(date), project),
@@ -119,8 +148,16 @@ export default function HrTeamOverviewPage() {
       group.rows.push(row);
       groups.set(key, group);
     }
-    return [...groups.entries()].sort((a, b) => a[1].name.localeCompare(b[1].name));
-  }, [daily.data, needle]);
+    return [...groups.entries()]
+      .sort((a, b) => a[1].name.localeCompare(b[1].name))
+      .map(([key, group]) => [key, { ...group, rows: sortByCheckIn(group.rows, checkInSort) }] as const);
+  }, [daily.data, needle, checkInSort]);
+
+  // Who has reached the outlet: for today only, over everyone shown for the chosen project (not the search).
+  const arrivals = useMemo(
+    () => (daily.data && daily.data.date === today ? summarizeArrivals(daily.data.rows) : null),
+    [daily.data, today],
+  );
 
   if (access.loading) return <div className="uc01-admin-state">Loading…</div>;
   if (!allowed) {
@@ -223,6 +260,41 @@ export default function HrTeamOverviewPage() {
             {daily.data.dayKind !== 'WORKING' ? ` · ${daily.data.holiday ?? 'Sunday'} (day off)` : ''}
             {dayHolidaysText(daily.data.holidays, daily.data.dayKind) ? ` · Holidays: ${dayHolidaysText(daily.data.holidays, daily.data.dayKind)}` : ''}
           </p>
+          {arrivals && (
+            <SectionCard
+              title="Reached the outlet today"
+              description={`From each check-in's location, against the outlet's geofence. Refreshes every few minutes${daily.dataUpdatedAt ? `; updated ${formatTimeIst(new Date(daily.dataUpdatedAt).toISOString())}` : ''}.`}
+            >
+              <div className="hr-cal-tiles hr-arrival-tiles" aria-label="Who has reached the outlet today">
+                <div className="is-good">
+                  <span>Reached the outlet</span>
+                  <strong>{arrivals.reached}</strong>
+                  {arrivals.outletStaffExpected > 0 && <small>{arrivals.outletStaffReached} of {arrivals.outletStaffExpected} outlet staff</small>}
+                </div>
+                <div className={arrivals.away ? 'is-attention' : undefined}><span>Checked in away from the outlet</span><strong>{arrivals.away}</strong></div>
+                <div className={arrivals.notYet.length ? 'is-attention' : undefined}><span>Not checked in yet</span><strong>{arrivals.notYet.length}</strong></div>
+                <div>
+                  <span>On leave</span>
+                  <strong>{arrivals.onLeave}</strong>
+                  {arrivals.leaveApplied > 0 && <small>{arrivals.leaveApplied} applied, not approved</small>}
+                </div>
+                {arrivals.checkedIn > 0 && (
+                  <div><span>Checked in, no outlet check</span><strong>{arrivals.checkedIn}</strong><small>Team Leads, Project Managers, outlets without a location</small></div>
+                )}
+              </div>
+              {arrivals.notYet.length > 0 && (
+                <p className="hr-arrival-missing">
+                  <strong>Not checked in yet:</strong>{' '}
+                  {arrivals.notYet.map((p, i) => (
+                    <span key={p.employeeId}>
+                      {i > 0 && ', '}
+                      <button type="button" className="hr-arrival-name" onClick={() => open(p)}>{p.employeeName}</button>
+                    </span>
+                  ))}
+                </p>
+              )}
+            </SectionCard>
+          )}
           <div className="hr-cal-tiles">
             <div><span>People</span><strong>{daily.data.summary.employees}</strong></div>
             <div><span>Checked in</span><strong>{daily.data.summary.checkedIn}</strong><small>{daily.data.summary.stillIn} still in</small></div>
@@ -233,13 +305,33 @@ export default function HrTeamOverviewPage() {
             <div><span>Under minimum hours</span><strong>{daily.data.summary.shortDay}</strong></div>
             <div><span>Waiting</span><strong>{daily.data.summary.pendingApproval}</strong></div>
           </div>
+          {dailyGroups.length > 0 && (
+            <button type="button" className="uc01-admin-button hr-sort-phone" onClick={() => setCheckInSort(nextCheckInSort(checkInSort))}>
+              {checkInSort === 'asc' ? 'Check-in: earliest first' : checkInSort === 'desc' ? 'Check-in: latest first' : 'Sort by check-in time'}
+            </button>
+          )}
           {dailyGroups.length === 0 && <div className="uc01-admin-state">{needle ? 'No one matches this search.' : 'No one on your projects for this day.'}</div>}
           {dailyGroups.map(([key, group]) => (
             <SectionCard key={key || 'none'} title={group.name} description={`${group.rows.length} ${group.rows.length === 1 ? 'person' : 'people'}`}>
               <div className="uc01-admin-table-wrap">
                 <table className="uc01-admin-table hr-table hr-ov-table">
                   <thead>
-                    <tr><th>Employee</th><th>Status</th><th>In</th><th>Out</th><th>Hours today</th><th>Hours this week</th><th>Notes</th></tr>
+                    <tr>
+                      <th>Employee</th>
+                      <th>Status</th>
+                      <th aria-sort={SORT_LABEL[checkInSort]}>
+                        <button
+                          type="button"
+                          className={`hr-sort${checkInSort !== 'none' ? ' is-sorted' : ''}`}
+                          onClick={() => setCheckInSort(nextCheckInSort(checkInSort))}
+                          title="Sort by check-in time"
+                        >
+                          Check-in · outlet
+                          <span aria-hidden="true" className="hr-sort__icon">{checkInSort === 'asc' ? '↑' : checkInSort === 'desc' ? '↓' : '↕'}</span>
+                        </button>
+                      </th>
+                      <th>Out</th><th>Hours today</th><th>Hours this week</th><th>Notes</th>
+                    </tr>
                   </thead>
                   <tbody>
                     {group.rows.map((r) => {
@@ -257,7 +349,7 @@ export default function HrTeamOverviewPage() {
                             <SharedTag others={r.otherProjects} />
                           </td>
                           <td data-label="Status"><span className={`hr-tag hr-tag--${s.tag}`}>{s.text}</span></td>
-                          <td data-label="In">{r.checkInAt ? formatTimeIst(r.checkInAt) : '—'}</td>
+                          <td data-label="Check-in"><CheckInCell row={r} /></td>
                           <td data-label="Out">{r.checkOutAt ? formatTimeIst(r.checkOutAt) : '—'}</td>
                           <td data-label="Hours today">
                             {r.workedMinutes ? formatMinutes(r.workedMinutes) : r.runningMinutes ? `${formatMinutes(r.runningMinutes)} so far` : '—'}

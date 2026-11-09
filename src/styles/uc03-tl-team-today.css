@@ -1,0 +1,100 @@
+/* "Team today" on the supervisory dashboard (TL, PM, Executive): who has reached the outlet.
+   A Carbon-style tile in the dashboard's own card language (uc03-tl-focus). */
+.uc03-tl-team {
+  display: grid;
+  gap: 12px;
+  padding: 18px 20px;
+  border: 1px solid #dce6eb;
+  border-left: 4px solid #24a148;
+  border-radius: 16px;
+  background: #ffffff;
+  box-shadow: 0 8px 22px rgba(20, 49, 61, 0.05);
+  min-width: 0;
+}
+
+.uc03-tl-team--quiet { border-left-color: #8d8d8d; }
+
+.uc03-tl-team__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.uc03-tl-team__eyebrow {
+  display: block;
+  color: #7a8a91;
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.uc03-tl-team__head h2 {
+  margin: 2px 0 0;
+  color: #173946;
+  font-size: 1.02rem;
+}
+
+.uc03-tl-team__cta {
+  color: #08766f;
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.uc03-tl-team__cta:hover { text-decoration: underline; }
+.uc03-tl-team__cta:focus-visible { outline: 2px solid #0f62fe; outline-offset: 2px; }
+
+.uc03-tl-team__stats {
+  display: grid;
+  grid-template-columns: minmax(150px, auto) minmax(0, 1fr);
+  gap: 16px;
+  align-items: center;
+}
+
+.uc03-tl-team__headline { display: grid; gap: 2px; }
+
+.uc03-tl-team__headline strong {
+  color: #0e6027;
+  font-size: 2rem;
+  font-weight: 850;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+
+.uc03-tl-team__headline strong span { color: #143944; font-size: 1.2rem; font-weight: 700; }
+.uc03-tl-team__headline > span { color: #64767e; font-size: 0.78rem; }
+
+.uc03-tl-team__facts {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1px;
+  margin: 0;
+  border: 1px solid #e0e0e0;
+  background: #e0e0e0;
+}
+
+.uc03-tl-team__facts > div { padding: 8px 12px; background: #ffffff; min-width: 0; }
+.uc03-tl-team__facts > div.is-attention { box-shadow: inset 3px 0 0 #da1e28; }
+.uc03-tl-team__facts dt { color: #525252; font-size: 0.72rem; }
+.uc03-tl-team__facts dd { margin: 2px 0 0; color: #161616; font-size: 1rem; font-variant-numeric: tabular-nums; }
+
+.uc03-tl-team__missing,
+.uc03-tl-team__quiet {
+  margin: 0;
+  color: #525252;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.uc03-tl-team__missing.is-attention strong { color: #a2191f; }
+
+/* Phones only: the figures stack under the headline, two per row. */
+@media (max-width: 640px) {
+  .uc03-tl-team { padding: 14px 16px; }
+  .uc03-tl-team__stats { grid-template-columns: 1fr; gap: 10px; }
+  .uc03-tl-team__facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}

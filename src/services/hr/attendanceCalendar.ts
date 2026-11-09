@@ -104,6 +104,15 @@ export interface TeamDailyRow {
   status: string;
   checkInAt: string | null;
   checkOutAt: string | null;
+  /**
+   * Where the check-in was made, as myHR stored it: the outlet it was measured against (the nearest of
+   * the person's outlets), how far away it was, and whether that was outside the geofence. Null when
+   * the fence does not apply (Team Lead, Project Manager) or the outlet has no location on file.
+   * Optional because an older myHR may not send them.
+   */
+  checkInOutlet?: string | null;
+  checkInDistanceM?: number | null;
+  checkInOutOfFence?: boolean | null;
   delinquencies: Array<{ code: string; label: string; decision: string | null; reason?: string | null }>;
   workedMinutes: number;
   runningMinutes: number | null;

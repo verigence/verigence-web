@@ -364,7 +364,48 @@ export type P2DocumentReviewField = {
   /** A correction the PC proposed that the Team Lead has not decided yet.
    * While it is open the field is neither edited nor confirmed again. */
   pendingCorrection?: { taskId: string; proposedValue: unknown; proposedAtUtc: string | null } | null;
+  /** A table field's lines (NDC charges and payments, ledger vouchers,
+   * invoice lines), each corrected on its own; null for any other field.
+   * Absent from an older Audit Core. */
+  rows?: P2LineItem[] | null;
+  /** The lines as DI read them, to show which lines were corrected or added. */
+  extractedRows?: P2LineItem[] | null;
 };
+
+export type P2LineItem = Record<string, unknown>;
+
+export type P2LineItemChange = {
+  operation: 'UPDATE' | 'ADD' | 'REMOVE';
+  /** The line's position as shown; for ADD, where to insert (omit: at the end). */
+  rowIndex?: number;
+  /** The line as shown (UPDATE / REMOVE): refused if someone changed it meanwhile. */
+  expectedRow?: P2LineItem;
+  /** The new line (UPDATE / ADD). */
+  row?: P2LineItem;
+  remarks?: string;
+};
+
+/** Correct, add or remove one line of a table field (2026-11-09). */
+export function changeP2LineItem(
+  tenantId: string,
+  journeyId: string,
+  documentId: string,
+  field: { fieldKey: string; canonicalFieldId: string; sourceFactVersion: number },
+  change: P2LineItemChange,
+  accessToken?: string,
+): Promise<{ applied: boolean; line: number; rows: P2LineItem[] }> {
+  return auditCoreRequest(
+    path(tenantId, `/journeys/${encodeURIComponent(journeyId)}/documents/${encodeURIComponent(documentId)}/fields/${encodeURIComponent(field.fieldKey)}/rows`),
+    {
+      method: 'POST', accessToken, cache: 'no-store',
+      body: JSON.stringify({
+        canonicalFieldId: field.canonicalFieldId,
+        sourceFactVersion: field.sourceFactVersion,
+        ...change,
+      }),
+    },
+  );
+}
 
 export type P2DocumentReview = {
   journeyId: string;

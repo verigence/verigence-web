@@ -490,6 +490,39 @@
   font-size: 1rem;
   color: var(--p2w-ink);
 }
+/* Table fields line by line (2026-11-09): Carbon data table with inline row
+   editing. Scoped to .p2w-lines, so no other field or screen changes. */
+.p2w-lines { display: grid; gap: 8px; min-width: 0; }
+.p2w-lines__toolbar { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: .8rem; font-weight: 700; color: var(--p2w-muted); }
+.p2w-lines__scroll { overflow-x: auto; border: 1px solid var(--p2w-line); border-radius: 8px; -webkit-overflow-scrolling: touch; }
+.p2w-lines__table { width: 100%; border-collapse: collapse; font-size: .82rem; }
+.p2w-lines__table th, .p2w-lines__table td { padding: 6px 8px; border-bottom: 1px solid var(--p2w-line); text-align: left; vertical-align: top; white-space: nowrap; }
+.p2w-lines__table th { position: sticky; top: 0; background: var(--p2w-soft); color: var(--p2w-muted); font-size: .72rem; font-weight: 700; }
+.p2w-lines__table .is-figure { text-align: right; font-variant-numeric: tabular-nums; }
+.p2w-lines__table tbody tr:last-child td { border-bottom: 0; }
+.p2w-lines__table tr.is-changed td { background: var(--p2w-review-bg); }
+.p2w-lines__chip { margin-left: 6px; }
+.p2w-lines__row-actions { display: flex; gap: 4px; justify-content: flex-end; }
+.p2w-lines__row-actions .p2w-button { min-height: 32px; padding: 2px 10px; font-size: .78rem; }
+.p2w-lines__row-actions .is-danger { color: var(--p2w-danger); }
+.p2w-lines__empty { color: var(--p2w-muted); text-align: center; }
+.p2w-lines__form { display: grid; gap: 8px; padding: 10px; border: 1px solid var(--p2w-review-line); border-radius: 8px; background: #f5f9ff; }
+.p2w-lines__form-title { margin: 0; font-weight: 700; }
+.p2w-lines__inputs { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px; }
+.p2w-lines__inputs label, .p2w-lines__note { display: grid; gap: 4px; font-size: .78rem; color: var(--p2w-muted); font-weight: 700; }
+.p2w-lines__inputs input, .p2w-lines__note textarea {
+  min-height: var(--p2w-tap);
+  padding: 8px 10px;
+  border: 1px solid #cfe0ea;
+  border-radius: 8px;
+  font-size: 1rem;
+  color: var(--p2w-ink);
+}
+.p2w-lines__error { margin: 0; color: var(--p2w-danger); font-weight: 600; font-size: .85rem; }
+@media (max-width: 767px) {
+  .p2w-lines__inputs { grid-template-columns: 1fr; }
+  .p2w-lines__row-actions .p2w-button { min-height: var(--p2w-tap); }
+}
 .p2w-disclosure { border-top: 1px solid var(--p2w-line); padding-top: 8px; }
 .p2w-disclosure summary { min-height: var(--p2w-tap); display: flex; align-items: center; font-weight: 700; cursor: pointer; }
 .p2w-link-list { display: grid; gap: 6px; margin: 0 0 8px; padding: 0; list-style: none; font-size: .88rem; }

@@ -3,13 +3,16 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 
 import {
+  changeP2LineItem,
   confirmP2Field,
   correctP2DocumentField,
   getP2DocumentContent,
   getP2DocumentReview,
   type P2DocumentReviewField,
+  type P2LineItemChange,
   type P2Template,
 } from '../../../services/audit-core/uc03P2';
+import P2LineItemsTable from './P2LineItemsTable';
 import P2PagePreview, { evidenceBox, type PreviewBox } from './P2PagePreview';
 import {
   confidenceTone,
@@ -36,6 +39,13 @@ const REASON_TEXT: Record<string, string> = {
   DATE_BEFORE_FLOOR: 'Date is before this programme started. Probably misread, check the page.',
   DATE_UNREADABLE: 'Not a readable date. Check the page.',
 };
+
+/** Columns offered for the first line of a table DI read empty, by document. */
+function emptyTableColumns(documentTypeKey: string | null | undefined): string[] {
+  return documentTypeKey === 'customer_ledger'
+    ? ['particulars_raw', 'voucher_type', 'debit_amount', 'credit_amount']
+    : ['description_raw', 'quantity', 'unit_rate', 'net_amount'];
+}
 
 function fieldId(field: P2DocumentReviewField): string {
   return `${field.canonicalFieldId}:${field.fieldKey}:${field.sourceFactVersion}`;
@@ -218,6 +228,20 @@ export default function P2DocumentEditor({
     onError: (cause) => setNotice({ tone: 'error', text: cause instanceof Error ? cause.message : 'Could not save.' }),
   });
 
+  // One line of a table field (2026-11-09). Errors go back to the table,
+  // which shows them beside the line being changed.
+  const changeLine = async (field: FieldView, change: P2LineItemChange) => {
+    const result = await changeP2LineItem(tenantId, journeyId, documentId, {
+      canonicalFieldId: field.canonicalFieldId,
+      fieldKey: field.fieldKey,
+      sourceFactVersion: field.sourceFactVersion,
+    }, change, accessToken);
+    const what = change.operation === 'ADD' ? 'added' : change.operation === 'REMOVE' ? 'removed' : 'corrected';
+    setNotice({ tone: 'success', text: `${field.label}: line ${result.line} ${what}. The audit is re-checking with the new lines.` });
+    invalidate();
+    await queryClient.refetchQueries({ queryKey: ['p2-document-review', tenantId, journeyId, documentId] });
+  };
+
   const startEdit = (field: FieldView) => {
     setEditingId(field.id);
     setDraft(editableValue(field.effectiveValue));
@@ -285,13 +309,19 @@ export default function P2DocumentEditor({
               const editing = field.id === editingId;
               const highConfidence = field.confidenceScore !== null && field.confidenceScore >= field.threshold;
               const tone = confidenceTone(field.confidenceScore, field.threshold);
+              const lines = Array.isArray(field.rows) ? field.rows : null;
               return (
                 <li key={field.id} ref={(node) => { if (node) rowRefs.current.set(field.id, node); }}
                   className={`p2w-field${selected ? ' is-selected' : ''}${field.needsReview ? ' needs-review' : ''}`}>
                   <button type="button" className="p2w-field__main" onClick={() => select(field.id)} aria-pressed={selected}>
                     <span className="p2w-field__label">{field.label}{field.isKey ? <i aria-label="key field">•</i> : null}</span>
-                    <span className="p2w-field__value">{displayValue(field.effectiveValue)}</span>
-                    {field.isModified ? <span className="p2w-field__origin">Read as {displayValue(field.extractedValue)}</span> : null}
+                    <span className="p2w-field__value">
+                      {lines ? `${lines.length} ${lines.length === 1 ? 'line' : 'lines'}` : displayValue(field.effectiveValue)}
+                    </span>
+                    {field.isModified && !lines ? <span className="p2w-field__origin">Read as {displayValue(field.extractedValue)}</span> : null}
+                    {field.isModified && lines ? (
+                      <span className="p2w-field__origin">Read with {(field.extractedRows ?? []).length} lines; corrected line by line</span>
+                    ) : null}
                     {field.why ? <span className="p2w-field__why">{field.why}</span> : null}
                     {field.pendingCorrection ? (
                       <span className="p2w-field__why p2w-field__why--waiting">
@@ -308,7 +338,17 @@ export default function P2DocumentEditor({
                       {field.state === 'CONFIRMED' ? <span className="p2w-chip p2w-chip--success">Confirmed</span> : null}
                     </span>
                   </button>
-                  {editing ? (
+                  {lines && selected ? (
+                    <P2LineItemsTable
+                      label={field.label}
+                      rows={lines}
+                      extractedRows={field.extractedRows ?? []}
+                      fallbackColumns={emptyTableColumns(document?.documentTypeKey)}
+                      readOnly={Boolean(field.pendingCorrection)}
+                      submit={(change) => changeLine(field, change)}
+                    />
+                  ) : null}
+                  {editing && !lines ? (
                     <form className="p2w-field__edit" onSubmit={(event) => {
                       event.preventDefault();
                       if (!draft.trim()) return;
@@ -338,7 +378,13 @@ export default function P2DocumentEditor({
                         <button type="button" className="p2w-button p2w-button--confirm" disabled={confirm.isPending}
                           onClick={() => confirm.mutate(field)}>Looks right</button>
                       ) : null}
-                      <button type="button" className="p2w-button p2w-button--ghost" onClick={() => startEdit(field)}>Edit</button>
+                      {lines ? (
+                        selected ? null : (
+                          <button type="button" className="p2w-button p2w-button--ghost" onClick={() => select(field.id)}>Show lines</button>
+                        )
+                      ) : (
+                        <button type="button" className="p2w-button p2w-button--ghost" onClick={() => startEdit(field)}>Edit</button>
+                      )}
                     </div>
                   )}
                 </li>

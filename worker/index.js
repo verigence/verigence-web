@@ -284,6 +284,8 @@ function normalizedReleaseMetadata(raw) {
     sha256: typeof raw.sha256 === 'string' ? raw.sha256 : null,
     minAndroid: typeof raw.minAndroid === 'string' ? raw.minAndroid : null,
     releasedAt: typeof raw.releasedAt === 'string' ? raw.releasedAt : null,
+    // What's new in this version, shown on the download page (plain text, never HTML).
+    releaseNotes: typeof raw.releaseNotes === 'string' ? raw.releaseNotes.slice(0, 6000) : null,
     packageName: 'com.verigence.app',
     objectKey,
   };

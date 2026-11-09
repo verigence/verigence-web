@@ -1,0 +1,139 @@
+/* Location checks: away more than N km, date-wise (product owner, 2026-11-09).
+   IBM Carbon patterns: content switcher for the quick dates, select and date inputs at
+   Carbon field height, data table with tabular numbers, red tag for the count, one tile per
+   date with a structured list of instances, empty state. Phone-only rules are at the end. */
+
+.la-toolbar select {
+  min-height: 36px;
+  padding: 0 8px;
+  border: 1px solid #d0d5dd;
+  border-radius: 8px;
+  background: #fff;
+  font: inherit;
+  font-weight: 500;
+}
+
+.la-toolbar .la-presets { align-self: end; }
+
+.la-toolbar .la-download { align-self: end; min-height: 36px; margin-left: auto; }
+
+.la-error {
+  margin: 8px 0 0;
+  color: #a2191f;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.la-heading {
+  margin: 0 0 8px;
+  font-size: 14px;
+  font-weight: 700;
+  color: #161616;
+}
+
+.la-table .la-num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+.la-empty {
+  display: grid;
+  gap: 4px;
+  padding: 16px 0;
+  text-align: center;
+}
+
+.la-empty p { margin: 0; }
+
+.la-days {
+  display: grid;
+  gap: 8px;
+}
+
+.la-day {
+  border: 1px solid #e0e0e0;
+  border-left: 4px solid var(--vg-warning, #93370d);
+  border-radius: 12px;
+  background: #fff;
+}
+
+.la-day__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+  padding: 12px 16px 8px;
+}
+
+.la-day__head h3 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: #161616;
+}
+
+.la-day__meta {
+  font-size: 13px;
+  color: #525252;
+}
+
+/* Carbon red tag. */
+.la-tag {
+  display: inline-flex;
+  align-items: center;
+  min-height: 20px;
+  padding: 0 8px;
+  border-radius: 12px;
+  background: #ffd7d9;
+  color: #a2191f;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.la-instances {
+  display: grid;
+  margin: 0;
+  padding: 0 16px 8px;
+  list-style: none;
+}
+
+.la-instance {
+  display: grid;
+  grid-template-columns: 56px minmax(0, 1fr);
+  gap: 2px 12px;
+  padding: 8px 0;
+  border-top: 1px solid #f4f4f4;
+  font-size: 14px;
+}
+
+.la-instance__time {
+  grid-row: 1 / span 2;
+  font-variant-numeric: tabular-nums;
+  color: #525252;
+}
+
+.la-instance__main { overflow-wrap: anywhere; }
+
+.la-instance__meta {
+  grid-column: 2;
+  font-size: 12px;
+  color: #6f6f6f;
+}
+
+.la-km {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--vg-warning, #93370d);
+}
+
+/* Phones only: the desktop layout above is unchanged. */
+@media (max-width: 520px) {
+  .la-toolbar .la-presets { flex: 1 1 100%; }
+  .la-toolbar label { flex: 1 1 calc(50% - 6px); }
+  .la-toolbar label input,
+  .la-toolbar label select { width: 100%; }
+  .la-toolbar .la-download { flex: 1 1 100%; margin-left: 0; }
+  .la-day__head { padding: 12px 12px 8px; }
+  .la-instances { padding: 0 12px 8px; }
+  .la-instance { grid-template-columns: 1fr; }
+  .la-instance__time { grid-row: auto; font-weight: 600; }
+  .la-instance__meta { grid-column: 1; }
+}

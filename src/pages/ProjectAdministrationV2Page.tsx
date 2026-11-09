@@ -90,7 +90,7 @@ const ROLE_OPTIONS: { value: OperatingRole; label: string; service: boolean; sal
   { value: 'PM', label: 'Project Manager', service: true, sales: true },
   { value: 'CRM', label: 'CRM', service: false, sales: true },
   { value: 'REVIEWER', label: 'Reviewer', service: false, sales: true },
-  { value: 'Executive', label: 'Executive', service: false, sales: true },
+  { value: 'Executive', label: 'Executive', service: true, sales: true },
   { value: 'CLIENT', label: 'Client (SevaSutra analytics only)', service: true, sales: false },
 ];
 const roleLabel = (role: string) => ROLE_OPTIONS.find((item) => item.value === role)?.label ?? role;

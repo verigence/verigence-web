@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 
-import { activitySource, classify, emptyTally, IDLE_AFTER_MS, istDate, istMinute, parseTally, record, recordVisit, screenOf, SESSION_GAP_MS, sourcesText, totals } from './activityTally';
+import {
+  activitySource, classify, DEFAULT_READING_WINDOW_MINUTES, emptyTally, isTap, istDate, istMinute, parseTally, readingWindow,
+  record, recordVisit, screenOf, SESSION_GAP_MS, sourcesText, totals,
+} from './activityTally';
 import { raiseProblem } from './RaiseTmTaskDialog';
 import { scheduleProblem } from './TmSchedules';
 import { durationLabel, scheduleLabel } from './tmFormat';
@@ -15,10 +18,67 @@ describe('time on Verigence tally', () => {
     expect(istDate(Date.UTC(2026, 10, 1, 19, 0))).toBe('2026-11-02'); // 00:30 IST
   });
 
-  it('is active within 4 minutes of an interaction, idle after, background when hidden', () => {
-    expect(classify(T0, true, T0 - 60_000)).toBe('A');
-    expect(classify(T0, true, T0 - IDLE_AFTER_MS)).toBe('I');
+  it('is active in the minute of a click and the reading window after it, idle after, background when hidden', () => {
+    expect(DEFAULT_READING_WINDOW_MINUTES).toBe(3);
+    // A click at 10:00:50: 10:01, 10:02 and 10:03 are reading time; 10:04 is idle.
+    const click = T0 + 50_000;
+    expect(classify(T0 + 70_000, true, click)).toBe('A');            // 10:01:10
+    expect(classify(T0 + 3 * 60_000 + 59_000, true, click)).toBe('A'); // 10:03:59
+    expect(classify(T0 + 4 * 60_000, true, click)).toBe('I');        // 10:04:00
     expect(classify(T0, false, T0)).toBe('B');
+    expect(classify(T0, true, 0)).toBe('I');                          // never clicked
+  });
+
+  it('uses the reading window SuperAdmin set, 1 to 10 minutes, and 3 when it cannot be read', () => {
+    const click = T0;
+    expect(classify(T0 + 5 * 60_000, true, click, 0, 5)).toBe('A');
+    expect(classify(T0 + 6 * 60_000, true, click, 0, 5)).toBe('I');
+    expect(classify(T0 + 2 * 60_000, true, click, 0, 1)).toBe('I');
+    expect(readingWindow(7)).toBe(7);
+    for (const bad of [0, 11, 2.5, '', null, undefined, 'x']) expect(readingWindow(bad)).toBe(3);
+    expect(readingWindow('4')).toBe(4);
+  });
+
+  it('scrolling alone is never active: a scrolled minute with no click in the window is S, and idle', () => {
+    // Scrolling every 3 minutes from 10:00 with no click (the old rule kept all of it active).
+    let tally = emptyTally();
+    for (let m = 0; m < 30; m += 1) {
+      const now = T0 + m * 60_000 + 30_000;
+      const scrolled = m % 3 === 0 ? now : tally.lastScrollAt;
+      tally = { ...tally, lastScrollAt: scrolled };
+      tally = record(tally, now, classify(now, true, tally.lastClickAt, tally.lastScrollAt));
+    }
+    const day = tally.days[0];
+    expect(day.minutes['600']).toBe('S');
+    expect(day.minutes['601']).toBe('I');
+    expect(totals(day)).toMatchObject({ activeSeconds: 0, idleSeconds: 30 * 60 });
+    expect(totals(day).minuteStates.slice(600, 606)).toBe('SIISII');
+    expect(day.firstActiveAt).toBeUndefined();
+    expect(day.sessions).toBeUndefined();
+  });
+
+  it('a scroll in the reading window after a click is reading time', () => {
+    const click = T0 + 10_000;
+    let tally = record({ ...emptyTally(), lastClickAt: click }, click, 'K');
+    const scroll = T0 + 2 * 60_000 + 5_000;
+    tally = record({ ...tally, lastScrollAt: scroll }, scroll, classify(scroll, true, click, scroll));
+    const later = T0 + 5 * 60_000 + 5_000;
+    tally = record({ ...tally, lastScrollAt: later }, later, classify(later, true, click, later));
+    const day = tally.days[0];
+    expect([day.minutes['600'], day.minutes['602'], day.minutes['605']]).toEqual(['K', 'A', 'S']);
+    expect(totals(day)).toMatchObject({ activeSeconds: 120, idleSeconds: 60 });
+  });
+
+  it('a touch is a tap only when it comes up near where it went down, soon', () => {
+    const down = { x: 100, y: 200, at: T0 };
+    expect(isTap(down, { x: 104, y: 206, at: T0 + 150 })).toBe(true);
+    expect(isTap(down, { x: 100, y: 260, at: T0 + 200 })).toBe(false); // the start of a scroll
+    expect(isTap(down, { x: 100, y: 200, at: T0 + 1500 })).toBe(false); // a long press
+  });
+
+  it('a tally an older version wrote is not taken as a click', () => {
+    const old = JSON.stringify({ lastInteractionAt: T0, days: [] });
+    expect(parseTally(old)).toEqual({ lastClickAt: 0, lastScrollAt: 0, days: [] });
   });
 
   it('keeps the busiest state per minute so two tabs never double count', () => {

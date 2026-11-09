@@ -287,8 +287,16 @@ export function getUtilisation(
   });
 }
 
+/** GET /p2/v1/tenants/{t}/activity/settings: the reading window the app classifies minutes with
+ * (product owner 2026-11-09; SuperAdmin sets it, 3 minutes by default). */
+export function getActivitySettings(tenantId: string, accessToken?: string) {
+  return auditCoreRequest<{ readingWindowMinutes: number; scope: 'PROJECT' | 'ALL' | 'DEFAULT' }>(
+    `/p2/v1/tenants/${encodeURIComponent(tenantId)}/activity/settings`, { accessToken, cache: 'no-store', timeoutMs: 8_000 });
+}
+
+/** The send also returns the current reading window, so a change reaches the app within a minute. */
 export function postActivity(tenantId: string, payload: ActivityPayload, accessToken?: string) {
-  return auditCoreRequest<{ recorded: boolean }>(`/p2/v1/tenants/${encodeURIComponent(tenantId)}/activity`, {
+  return auditCoreRequest<{ recorded: boolean; readingWindowMinutes?: number }>(`/p2/v1/tenants/${encodeURIComponent(tenantId)}/activity`, {
     method: 'POST', accessToken, body: JSON.stringify(payload), keepalive: true,
   });
 }

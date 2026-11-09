@@ -22,6 +22,7 @@ export const calendarLabels: Record<CalendarStatus, string> = {
   OFF_DAY_WORKED: 'Worked on a day off',
   UPCOMING: '',
   NOT_JOINED: 'Before joining',
+  LEFT: 'After leaving',
 };
 
 /** Short form for a calendar cell or a weekly grid cell. */
@@ -40,6 +41,7 @@ export const calendarShort: Record<CalendarStatus, string> = {
   OFF_DAY_WORKED: 'Off, worked',
   UPCOMING: '',
   NOT_JOINED: '—',
+  LEFT: '—',
 };
 
 export type TagType = 'green' | 'red' | 'purple' | 'teal' | 'magenta' | 'blue' | 'warm-gray' | 'cool-gray' | 'outline';
@@ -59,6 +61,7 @@ export const calendarTag: Record<CalendarStatus, TagType> = {
   OFF_DAY_WORKED: 'blue',
   UPCOMING: 'outline',
   NOT_JOINED: 'outline',
+  LEFT: 'outline',
 };
 
 export const correctionLabels: Record<CorrectionStatus, string> = {

@@ -22,7 +22,9 @@ export type CalendarStatus =
   | 'OFF_DAY'
   | 'OFF_DAY_WORKED'
   | 'UPCOMING'
-  | 'NOT_JOINED';
+  | 'NOT_JOINED'
+  // After the last day of someone who has left (2026-11-09).
+  | 'LEFT';
 
 export type CorrectionKind = 'FULL_DAY' | 'HALF_DAY';
 export type CorrectionStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'CANCELLED';

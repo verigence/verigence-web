@@ -79,6 +79,21 @@ const MAHINDRA_SPECIALIZED_MASTER_KEYS = new Set(['PRODUCT_MASTER', 'PRICE_LIST'
  * Project-wide and accept no scope at all.
  */
 const FLEXIBLE_SCOPE_ROLES: OperatingRole[] = ['CRM', 'REVIEWER'];
+// Outlet-scoped roles: one or more Dealer Outlets. ANALYST is SevaSutra's on-site auditor.
+const OUTLET_SCOPED_ROLES: OperatingRole[] = ['PC', 'ANALYST'];
+const SEVASUTRA_URL = 'https://sevasutra.jbrconsulting.in';
+// What each role is called on screen; a service-audit Project runs in SevaSutra and uses its roles.
+const ROLE_OPTIONS: { value: OperatingRole; label: string; service: boolean; sales: boolean }[] = [
+  { value: 'ANALYST', label: 'Analyst (SevaSutra)', service: true, sales: false },
+  { value: 'PC', label: 'Process Consultant', service: false, sales: true },
+  { value: 'TL', label: 'Team Lead', service: true, sales: true },
+  { value: 'PM', label: 'Project Manager', service: true, sales: true },
+  { value: 'CRM', label: 'CRM', service: false, sales: true },
+  { value: 'REVIEWER', label: 'Reviewer', service: false, sales: true },
+  { value: 'Executive', label: 'Executive', service: false, sales: true },
+  { value: 'CLIENT', label: 'Client (SevaSutra analytics only)', service: true, sales: false },
+];
+const roleLabel = (role: string) => ROLE_OPTIONS.find((item) => item.value === role)?.label ?? role;
 
 type DealerEditor = { mode: 'new' } | { mode: 'edit'; item: DealerAdmin } | null;
 type OutletEditor = { mode: 'new' } | { mode: 'edit'; item: OutletAdmin } | null;
@@ -262,6 +277,9 @@ export default function ProjectAdministrationV2Page() {
   const loadedOutlets = Object.values(outletsByDealer).flat();
   // A service audit needs no sales price, discount or product masters (product owner 2026-11-05).
   const isServiceAudit = project?.auditType === 'SERVICE';
+  // A service-audit Project runs in SevaSutra: its roles are Analyst, Team Lead, PM and Client.
+  const defaultRole: OperatingRole = isServiceAudit ? 'ANALYST' : 'PC';
+  const roleOptions = ROLE_OPTIONS.filter((item) => (isServiceAudit ? item.service : item.sales) || item.value === operatingRole);
   const visibleConfigurationMasters = isMahindraProject || isServiceAudit
     ? masters.filter((item) => item.ownerModule === 'DI' || !MAHINDRA_SPECIALIZED_MASTER_KEYS.has(item.masterKey))
     : masters;
@@ -735,7 +753,7 @@ export default function ProjectAdministrationV2Page() {
     clearFeedback();
     setSelectedUserId(userId);
     const existing = mappings.find((item) => item.userId === userId);
-    setOperatingRole(existing?.operatingRole || 'PC');
+    setOperatingRole(existing?.operatingRole || defaultRole);
     setScopeDealerIds(existing?.dealerIds || []);
     setScopeOutletIds(existing?.outletIds || []);
     setMappingEditorOpen(true);
@@ -761,8 +779,8 @@ export default function ProjectAdministrationV2Page() {
     event.preventDefault();
     if (!tenantId || !accessToken || !selectedUserId) return;
     clearFeedback();
-    if (operatingRole === 'PC' && scopeOutletIds.length === 0) {
-      setPageError('Select at least one Onsite or Satellite Dealer Outlet for the Process Consultant.');
+    if (OUTLET_SCOPED_ROLES.includes(operatingRole) && scopeOutletIds.length === 0) {
+      setPageError(operatingRole === 'ANALYST' ? 'Select at least one Dealer Outlet the Analyst covers.' : 'Select at least one Onsite or Satellite Dealer Outlet for the Process Consultant.');
       return;
     }
     setBusy(true);
@@ -774,7 +792,7 @@ export default function ProjectAdministrationV2Page() {
           operatingRole,
           dealerIds: FLEXIBLE_SCOPE_ROLES.includes(operatingRole) ? scopeDealerIds : [],
           outletIds:
-            operatingRole === 'PC' || FLEXIBLE_SCOPE_ROLES.includes(operatingRole)
+            OUTLET_SCOPED_ROLES.includes(operatingRole) || FLEXIBLE_SCOPE_ROLES.includes(operatingRole)
               ? scopeOutletIds
               : [],
         },
@@ -1029,6 +1047,23 @@ export default function ProjectAdministrationV2Page() {
               </form>
             )}
 
+            {project && isServiceAudit && (
+              <div className="uc02-card uc02-list-card" data-sevasutra-card="true">
+                <div className="uc02-list-toolbar">
+                  <div className="uc02-card__title">
+                    <h3>SevaSutra (workshop audit)</h3>
+                    <p>This service-audit Project runs in SevaSutra. Verigence is where it is set up: SevaSutra follows this Project within a few minutes.</p>
+                  </div>
+                  <a className="uc02-button uc02-button--primary" href={SEVASUTRA_URL} target="_blank" rel="noreferrer">Open SevaSutra</a>
+                </div>
+                <ul className="uc02-checklist">
+                  <li><strong>Dealers and Dealer Outlets</strong> added here (Steps 2 and 3) become the dealership's outlets in SevaSutra.</li>
+                  <li><strong>Role Mapping</strong> (Step 5) decides who signs in: Analyst (at the Outlets ticked), Team Lead, Project Manager, or Client for people who are not JBR employees and see the analytics only. Other roles give no access to SevaSutra.</li>
+                  <li>People sign in at <a href={SEVASUTRA_URL} target="_blank" rel="noreferrer">sevasutra.jbrconsulting.in</a> with their Verigence email and password, and see only the Projects they are mapped to.</li>
+                </ul>
+              </div>
+            )}
+
             {canDeleteProject && (
               <div className="uc02-card uc02-list-card">
                 <div className="uc02-list-toolbar">
@@ -1085,8 +1120,8 @@ export default function ProjectAdministrationV2Page() {
 
         {activeStep === 5 && (
           <div className="uc02-step-body">
-            <div className="uc02-card uc02-list-card"><div className="uc02-list-toolbar"><div className="uc02-card__title"><h3>Active Mappings</h3><p>{mappings.length} users mapped</p></div><button className="uc02-button uc02-button--primary" type="button" onClick={() => void openMappingEditor()} disabled={busy}>Assign Role</button></div>{mappings.length ? <div className="uc02-table-wrap"><table className="uc02-table"><thead><tr><th>Employee</th><th>Role</th><th>Scope</th><th>Actions</th></tr></thead><tbody>{mappings.map((item) => { const person = candidates.find((candidate) => candidate.userId === item.userId); return <tr key={item.userId}><td><strong>{person?.displayName || item.userId}</strong><small>{person?.primaryEmail || ''}</small></td><td>{item.operatingRole}</td><td>{item.outletIds.length ? `${item.outletIds.length} outlet(s)` : item.dealerIds.length ? `${item.dealerIds.length} dealer(s)` : 'Project-wide'}</td><td><div className="uc02-row-actions"><button className="uc02-link-button" type="button" onClick={() => void openMappingEditor(item.userId)}>Edit</button><button className="uc02-link-button uc02-link-button--danger" type="button" onClick={() => void removeMapping(item.userId)} disabled={busy}>Remove</button></div></td></tr>; })}</tbody></table></div> : <EmptyMessage>No active role mappings.</EmptyMessage>}</div>
-            {mappingEditorOpen && <form className="uc02-card uc02-editor-panel" onSubmit={saveMapping}><div className="uc02-list-toolbar"><div className="uc02-card__title"><h3>{selectedMapping ? 'Edit Mapping' : 'Assign Role'}</h3><p>Outlet lists are loaded dealer-by-dealer only when needed.</p></div><button className="uc02-button" type="button" onClick={() => setMappingEditorOpen(false)}>Close</button></div><Field label="Employee"><select required value={selectedUserId} onChange={(event) => { setSelectedUserId(event.target.value); const existing = mappings.find((item) => item.userId === event.target.value); setOperatingRole(existing?.operatingRole || 'PC'); setScopeDealerIds(existing?.dealerIds || []); setScopeOutletIds(existing?.outletIds || []); }}><option value="">Select employee</option>{candidates.map((item) => <option key={item.userId} value={item.userId}>{item.displayName}{item.primaryEmail ? ` · ${item.primaryEmail}` : ''}</option>)}</select></Field><OtherProjectsNotice userId={selectedUserId} tenantId={tenantId} accessToken={accessToken ?? undefined} /><Field label="Operating Role"><select value={operatingRole} onChange={(event) => { setOperatingRole(event.target.value as OperatingRole); setScopeDealerIds([]); setScopeOutletIds([]); }}><option value="PC">Process Consultant</option><option value="TL">Team Lead</option><option value="PM">Project Manager</option><option value="CRM">CRM</option><option value="REVIEWER">Reviewer</option><option value="Executive">Executive</option></select></Field>{FLEXIBLE_SCOPE_ROLES.includes(operatingRole) && <div className="uc02-scope"><strong>Dealer Scope (optional)</strong>{dealers.map((dealer) => <label key={dealer.dealerId}><input type="checkbox" checked={scopeDealerIds.includes(dealer.dealerId)} onChange={(event) => toggleValue(scopeDealerIds, dealer.dealerId, event.target.checked, setScopeDealerIds)} />{dealer.dealerName}</label>)}</div>}{(operatingRole === 'PC' || FLEXIBLE_SCOPE_ROLES.includes(operatingRole)) && <div className="uc02-scope"><strong>Outlet Scope {FLEXIBLE_SCOPE_ROLES.includes(operatingRole) ? '(optional)' : ''}</strong><Field label="Load outlets for Dealer"><select value={mappingOutletDealerId} onChange={(event) => void selectMappingOutletDealer(event.target.value)}><option value="">Select Dealer</option>{dealers.map((dealer) => <option key={dealer.dealerId} value={dealer.dealerId}>{dealer.dealerName}</option>)}</select></Field>{mappingOutletList.map((outlet) => <label key={outlet.outletId}><input type="checkbox" checked={scopeOutletIds.includes(outlet.outletId)} onChange={(event) => toggleValue(scopeOutletIds, outlet.outletId, event.target.checked, setScopeOutletIds)} />{outlet.outletName} [{outlet.outletClassification}]</label>)}{mappingOutletDealerId && !mappingOutletList.length && <small>No outlets configured for this Dealer.</small>}<small>Previously selected outlets from other Dealers remain selected while you load another Dealer.</small></div>}{(operatingRole === 'TL' || operatingRole === 'PM' || operatingRole === 'Executive') && <div className="uc02-note">This role is Project-wide.</div>}<div className="uc02-actions"><button className="uc02-button uc02-button--primary" disabled={busy || !selectedUserId || (operatingRole === 'PC' && scopeOutletIds.length === 0)}>{busy ? 'Saving…' : 'Save Role Mapping'}</button></div></form>}
+            <div className="uc02-card uc02-list-card"><div className="uc02-list-toolbar"><div className="uc02-card__title"><h3>Active Mappings</h3><p>{mappings.length} users mapped</p></div><button className="uc02-button uc02-button--primary" type="button" onClick={() => void openMappingEditor()} disabled={busy}>Assign Role</button></div>{mappings.length ? <div className="uc02-table-wrap"><table className="uc02-table"><thead><tr><th>Employee</th><th>Role</th><th>Scope</th><th>Actions</th></tr></thead><tbody>{mappings.map((item) => { const person = candidates.find((candidate) => candidate.userId === item.userId); return <tr key={item.userId}><td><strong>{person?.displayName || item.userId}</strong><small>{person?.primaryEmail || ''}</small></td><td>{roleLabel(item.operatingRole)}</td><td>{item.outletIds.length ? `${item.outletIds.length} outlet(s)` : item.dealerIds.length ? `${item.dealerIds.length} dealer(s)` : 'Project-wide'}</td><td><div className="uc02-row-actions"><button className="uc02-link-button" type="button" onClick={() => void openMappingEditor(item.userId)}>Edit</button><button className="uc02-link-button uc02-link-button--danger" type="button" onClick={() => void removeMapping(item.userId)} disabled={busy}>Remove</button></div></td></tr>; })}</tbody></table></div> : <EmptyMessage>No active role mappings.</EmptyMessage>}</div>
+            {mappingEditorOpen && <form className="uc02-card uc02-editor-panel" onSubmit={saveMapping}><div className="uc02-list-toolbar"><div className="uc02-card__title"><h3>{selectedMapping ? 'Edit Mapping' : 'Assign Role'}</h3><p>Outlet lists are loaded dealer-by-dealer only when needed.</p></div><button className="uc02-button" type="button" onClick={() => setMappingEditorOpen(false)}>Close</button></div><Field label="Employee"><select required value={selectedUserId} onChange={(event) => { setSelectedUserId(event.target.value); const existing = mappings.find((item) => item.userId === event.target.value); setOperatingRole(existing?.operatingRole || defaultRole); setScopeDealerIds(existing?.dealerIds || []); setScopeOutletIds(existing?.outletIds || []); }}><option value="">Select employee</option>{candidates.map((item) => <option key={item.userId} value={item.userId}>{item.displayName}{item.primaryEmail ? ` · ${item.primaryEmail}` : ''}</option>)}</select></Field><OtherProjectsNotice userId={selectedUserId} tenantId={tenantId} accessToken={accessToken ?? undefined} /><Field label="Operating Role"><select value={operatingRole} onChange={(event) => { setOperatingRole(event.target.value as OperatingRole); setScopeDealerIds([]); setScopeOutletIds([]); }}>{roleOptions.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select></Field>{FLEXIBLE_SCOPE_ROLES.includes(operatingRole) && <div className="uc02-scope"><strong>Dealer Scope (optional)</strong>{dealers.map((dealer) => <label key={dealer.dealerId}><input type="checkbox" checked={scopeDealerIds.includes(dealer.dealerId)} onChange={(event) => toggleValue(scopeDealerIds, dealer.dealerId, event.target.checked, setScopeDealerIds)} />{dealer.dealerName}</label>)}</div>}{(OUTLET_SCOPED_ROLES.includes(operatingRole) || FLEXIBLE_SCOPE_ROLES.includes(operatingRole)) && <div className="uc02-scope"><strong>Outlet Scope {FLEXIBLE_SCOPE_ROLES.includes(operatingRole) ? '(optional)' : ''}</strong><Field label="Load outlets for Dealer"><select value={mappingOutletDealerId} onChange={(event) => void selectMappingOutletDealer(event.target.value)}><option value="">Select Dealer</option>{dealers.map((dealer) => <option key={dealer.dealerId} value={dealer.dealerId}>{dealer.dealerName}</option>)}</select></Field>{mappingOutletList.map((outlet) => <label key={outlet.outletId}><input type="checkbox" checked={scopeOutletIds.includes(outlet.outletId)} onChange={(event) => toggleValue(scopeOutletIds, outlet.outletId, event.target.checked, setScopeOutletIds)} />{outlet.outletName} [{outlet.outletClassification}]</label>)}{mappingOutletDealerId && !mappingOutletList.length && <small>No outlets configured for this Dealer.</small>}<small>Previously selected outlets from other Dealers remain selected while you load another Dealer.</small></div>}{(operatingRole === 'TL' || operatingRole === 'PM' || operatingRole === 'Executive' || operatingRole === 'CLIENT') && <div className="uc02-note">This role is Project-wide.{operatingRole === 'CLIENT' ? ' A Client is not a JBR employee and sees only the SevaSutra analytics of this Project.' : ''}</div>}<div className="uc02-actions"><button className="uc02-button uc02-button--primary" disabled={busy || !selectedUserId || (OUTLET_SCOPED_ROLES.includes(operatingRole) && scopeOutletIds.length === 0)}>{busy ? 'Saving…' : 'Save Role Mapping'}</button></div></form>}
           </div>
         )}
 

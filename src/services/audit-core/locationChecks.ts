@@ -9,9 +9,11 @@ import type { TaskManagerMode } from './taskManager';
  * Audit Core works out the distance to the nearest outlet the PC is assigned
  * to and says what it means; the app never sends or trusts a distance of its own.
  *
- *   POST /p2/v1/tenants/{t}/location-checks      a PC's check
- *   GET  /p2/v1/tenants/{t}/location-checks      the day's log (TL, PM, Executive)
- *   GET  /v1/admin/tenants/{t}/location-checks   the same, for SuperAdmin
+ *   POST /p2/v1/tenants/{t}/location-checks            a PC's check
+ *   GET  /p2/v1/tenants/{t}/location-checks            the day's log (Executive)
+ *   GET  /v1/admin/tenants/{t}/location-checks         the same, for SuperAdmin
+ *   GET  …/location-checks:away?from&to&minKm          every check away more than minKm km, date-wise
+ *                                                      (product owner, 2026-11-09; Executive / SuperAdmin)
  */
 
 export type LocationCheckStatus = 'AT_OUTLET' | 'AWAY' | 'UNCLEAR' | 'NO_OUTLET_LOCATION' | 'DENIED' | 'UNAVAILABLE';
@@ -97,6 +99,69 @@ export function getLocationChecks(
   if (awayOnly) params.set('awayOnly', 'true');
   const query = params.toString();
   return auditCoreRequest<LocationCheckLog>(`${locationChecksPath(mode, tenantId)}${query ? `?${query}` : ''}`, {
+    accessToken, cache: 'no-store',
+  });
+}
+
+/** One check away from the nearest outlet by more than the threshold. Date and time are IST. */
+export type AwayInstance = {
+  checkId: string;
+  actorId: string;
+  name?: string | null;
+  /** YYYY-MM-DD, India. */
+  date: string;
+  /** HH:MM, India. */
+  time: string;
+  checkedAtUtc: string;
+  distanceM: number;
+  /** Rounded to 0.1 km. */
+  distanceKm: number;
+  outletId?: string | null;
+  outletName?: string | null;
+  accuracyM?: number | null;
+  source: 'NATIVE' | 'BROWSER';
+  deviceType?: LocationDeviceType | null;
+};
+
+export type AwayDateSummary = { date: string; instances: number; pcs: number; furthestKm: number };
+
+export type AwayPcSummary = {
+  actorId: string;
+  name?: string | null;
+  instances: number;
+  days: number;
+  furthestKm: number;
+  last: { date: string; time: string; checkedAtUtc: string; distanceKm: number; outletName?: string | null };
+};
+
+export type AwayReport = {
+  from: string;
+  to: string;
+  timezone: string;
+  minKm: number;
+  radiusM: number;
+  accuracyLimitM: number;
+  maxRangeDays: number;
+  totals: { instances: number; pcs: number; days: number; furthestKm: number | null };
+  byDate: AwayDateSummary[];
+  byPc: AwayPcSummary[];
+  /** Oldest first. */
+  instances: AwayInstance[];
+  /** More instances than the list carries (the summaries still count them all). */
+  truncated: boolean;
+};
+
+export function locationAwayPath(
+  mode: TaskManagerMode, tenantId: string, range: { from: string; to: string; minKm: number },
+): string {
+  const params = new URLSearchParams({ from: range.from, to: range.to, minKm: String(range.minKm) });
+  return `${locationChecksPath(mode, tenantId)}:away?${params.toString()}`;
+}
+
+export function getLocationAway(
+  mode: TaskManagerMode, tenantId: string, range: { from: string; to: string; minKm: number }, accessToken?: string,
+) {
+  return auditCoreRequest<AwayReport>(locationAwayPath(mode, tenantId, range), {
     accessToken, cache: 'no-store',
   });
 }

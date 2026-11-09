@@ -13,6 +13,7 @@ import AppInstalls from '../features/admin/reports/AppInstalls';
 import JourneyReview from '../features/admin/reports/JourneyReview';
 import DiDashboard from '../features/task-manager/DiDashboard';
 import AccessLocationsSummary from '../features/dealguard-presence/AccessLocationsSummary';
+import LocationAwayReport from '../features/dealguard-presence/LocationAwayReport';
 import LocationChecksLog from '../features/dealguard-presence/LocationChecksLog';
 import EngagementDashboard from '../features/task-manager/EngagementDashboard';
 import { listProjects } from '../services/audit-core/uc02Admin';
@@ -36,7 +37,7 @@ const REPORTS = [
   {
     key: 'location',
     title: 'Location checks',
-    description: "Where each PC was when DealGuard checked their location (1–3 times an hour, 10:00–19:30 IST): at their outlet, away from it, or not clear. Checks only inform; nobody is stopped.",
+    description: "Where each PC was when DealGuard checked their location (1–3 times an hour, 10:00–19:30 IST): at their outlet, away from it, or not clear, day by day; and, date-wise over a range, every time a PC was more than 5 km (or another distance) from their outlet, with roughly how far. Checks only inform; nobody is stopped.",
   },
   {
     key: 'sign-ins',
@@ -66,6 +67,7 @@ function reportOf(value: string | null): ReportKey {
 export default function AdminReportsPage() {
   const accessToken = useSessionStore((state) => state.accessToken);
   const [tenantId, setTenantId] = useState('');
+  const [locationView, setLocationView] = useState<'checks' | 'away'>('checks');
   const [params, setParams] = useSearchParams();
   const reportKey = reportOf(params.get('tab'));
   const setReportKey = (key: ReportKey) => setParams({ tab: key }, { replace: true });
@@ -142,7 +144,13 @@ export default function AdminReportsPage() {
 
       {tenantId && reportKey === 'location' ? (
         <div className="p2-screen p2w">
-          <LocationChecksLog key={tenantId} mode="admin" tenantId={tenantId} accessToken={accessToken} />
+          <div className="p2w-segment" role="tablist" aria-label="Location checks view">
+            <button type="button" role="tab" aria-selected={locationView === 'checks'} className={locationView === 'checks' ? 'is-active' : ''} onClick={() => setLocationView('checks')}>Day log</button>
+            <button type="button" role="tab" aria-selected={locationView === 'away'} className={locationView === 'away' ? 'is-active' : ''} onClick={() => setLocationView('away')}>Away more than 5 km</button>
+          </div>
+          {locationView === 'checks'
+            ? <LocationChecksLog key={tenantId} mode="admin" tenantId={tenantId} accessToken={accessToken} />
+            : <LocationAwayReport key={tenantId} mode="admin" tenantId={tenantId} accessToken={accessToken} />}
         </div>
       ) : null}
 

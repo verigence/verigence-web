@@ -80,7 +80,8 @@ export default function P2ClosureApprovalsPage() {
           {open === row.closureId ? (
             row.acceptanceStatus === 'PENDING' && canDecide && row.journeyId ? (
               <ClosureDecisionPanel tenantId={tenantId!} journeyId={row.journeyId} closureId={row.closureId}
-                items={row.items} comment={row.comment} autoAcceptAtUtc={row.acceptanceDueUtc} accessToken={accessToken}
+                items={row.items} added={row.added ?? []} remarks={row.remarks} comment={row.comment}
+                autoAcceptAtUtc={row.acceptanceDueUtc} accessToken={accessToken}
                 onDone={(message) => { setNotice(message); setOpen(undefined); }} />
             ) : (
               <ul className="j360-controls" style={{ marginTop: 8 }}>

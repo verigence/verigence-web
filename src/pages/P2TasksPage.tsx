@@ -237,7 +237,9 @@ function TaskDetail({ task, tenantId, accessToken, operatingRole, onDone }: {
       {task.task_type === 'CLOSURE_ACCEPTANCE' && task.task_status !== 'VERIFIED_COMPLETE'
         && (operatingRole === 'TL' || operatingRole === 'PM') && typeof ref.closureId === 'string' ? (
         <ClosureDecisionPanel tenantId={tenantId} journeyId={task.journey_id} closureId={ref.closureId}
-          items={(ref.items as ClosureItem[] | undefined) ?? []} comment={typeof ref.comment === 'string' ? ref.comment : null}
+          items={(ref.items as ClosureItem[] | undefined) ?? []} added={(ref.added as ClosureItem[] | undefined) ?? []}
+          remarks={typeof ref.remarks === 'string' ? ref.remarks : null}
+          comment={typeof ref.comment === 'string' ? ref.comment : null}
           autoAcceptAtUtc={typeof ref.autoAcceptAtUtc === 'string' ? ref.autoAcceptAtUtc : null}
           accessToken={accessToken} onDone={onDone} />
       ) : null}

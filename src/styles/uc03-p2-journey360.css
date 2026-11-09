@@ -608,3 +608,12 @@
   .j360-report .asum-report button { display: none; }
   .j360-report .j360-closure, .j360-report .asum-section { break-inside: avoid-page; }
 }
+
+/* The crisp report (2026-11-09): counts at a glance, what is on file, Details. */
+.j360 .j360-glance .is-high dd, .j360 .j360-glance .is-danger dd { color: var(--p2w-danger); }
+.j360 .j360-glance .is-medium dd { color: #8a5a00; }
+.j360 .j360-onfile { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 6px 16px; margin: 0; padding: 0; list-style: none; font-size: .88rem; }
+.j360 .j360-observations td:first-child { white-space: nowrap; }
+.j360 .j360-appendix > summary { cursor: pointer; list-style: revert; }
+.j360 .j360-appendix[open] > summary { margin-bottom: 12px; }
+.j360 .j360-appendix > .j360-card { box-shadow: none; }

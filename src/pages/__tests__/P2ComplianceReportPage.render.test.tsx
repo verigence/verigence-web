@@ -44,9 +44,9 @@ const report = {
   },
 };
 
-function page(): string {
+function page(overrides: Record<string, unknown> = {}): string {
   const client = new QueryClient();
-  client.setQueryData(['p2-360', 't1', 'j1', 'compliance-report'], report);
+  client.setQueryData(['p2-360', 't1', 'j1', 'compliance-report'], { ...report, ...overrides });
   return renderToString(
     <QueryClientProvider client={client}>
       <MemoryRouter initialEntries={['/p2/journeys/j1/compliance-report']}>
@@ -56,15 +56,54 @@ function page(): string {
   ).replaceAll('<!-- -->', '');
 }
 
-describe('the audit report (product owner 2026-11-06)', () => {
-  it('shows the journey closing summary -- comment and every answer -- right after the verdict', () => {
+describe('the audit report (product owner 2026-11-06, crisp 2026-11-09)', () => {
+  it('reads an older closure: its comment, and each answer as a justification, ahead of the details', () => {
     const html = page();
     expect(html).toContain('Audit report');
-    expect(html).toContain('Journey closing summary');
+    expect(html).toContain('Remarks and sign-off');
     expect(html).toContain('No discount has been given here');
+    expect(html).toContain('Not taken as observations');
     expect(html).toContain('The insurance re-scan is on file');
     expect(html).toContain('Closed by the Reviewer on');
-    expect(html.indexOf('Journey closing summary')).toBeLessThan(html.indexOf('aria-label="Journey"'));
+    expect(html.indexOf('Remarks and sign-off')).toBeLessThan(html.indexOf('Details: journey, deal, checks and history'));
+  });
+
+  it('leads with observations by severity, what is missed and what is on file', () => {
+    const html = page({
+      documentChecklist: [
+        { key: 'rto_challan', label: 'RTO Challan', stage: 'DELIVERY', requirement: 'MANDATORY', onFile: false },
+        { key: 'customer_invoice', label: 'Customer Invoice (DMS)', stage: 'DELIVERY', requirement: 'MANDATORY', onFile: true },
+      ],
+      reviewerClosure: {
+        ...report.reviewerClosure, remarks: 'Outlet asked to collect the signed NDC.',
+        observations: [
+          { key: 'finding:1', kind: 'OPEN_FINDING', label: 'Deal charged below the standard price', stands: true,
+            severity: 'HIGH', justification: null, note: 'Insurance below standard', source: 'SYSTEM', tlRejection: null },
+          { key: 'added:reviewer:1', kind: 'ADDED', label: 'Customer signature missing on the NDC', stands: true,
+            severity: 'LOW', justification: null, note: null, source: 'REVIEWER', tlRejection: null },
+          { key: 'task:1', kind: 'OPEN_TASK', label: 'Fix pages that could not be processed', stands: false,
+            severity: null, justification: 'The insurance re-scan is on file', note: null, source: 'SYSTEM', tlRejection: null },
+        ],
+      },
+    });
+    expect(html).toContain('Documents on file</dt><dd>1 of 2');
+    expect(html).toContain('High observations</dt><dd>1');
+    expect(html).toContain('Low observations</dt><dd>1');
+    expect(html).toContain('What is missed · 1');
+    expect(html).toContain('RTO Challan');
+    expect(html).toContain('Insurance below standard');
+    expect(html).toContain('Outlet asked to collect the signed NDC.');
+    expect(html.indexOf('aria-label="Observations"')).toBeLessThan(html.indexOf('aria-label="What is missed"'));
+  });
+
+  it('shows provisional observations before the journey is closed', () => {
+    const html = page({
+      reviewerClosure: null,
+      observationCandidates: [{ key: 'finding:1', kind: 'OPEN_FINDING', label: 'Deal charged below the standard price',
+        suggestedSeverity: 'HIGH', suggestedStands: true }],
+    });
+    expect(html).toContain('Provisional');
+    expect(html).toContain('Deal charged below the standard price');
   });
 
   it('links to the uploaded files', () => {

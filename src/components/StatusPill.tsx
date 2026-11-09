@@ -4,10 +4,10 @@ type Props = { value: string; compact?: boolean };
 
 function tone(value: string): string {
   const normalized = value.toUpperCase();
-  if (['COMPLETED', 'BOOKING_COMPLETE', 'VERIFIED', 'APPROVED', 'NO_BREACH', 'ACTIVE', 'READY', 'RESOLVED'].includes(normalized)) return 'positive';
+  if (['COMPLETED', 'BOOKING_COMPLETE', 'VERIFIED', 'APPROVED', 'NO_BREACH', 'ACTIVE', 'READY', 'RESOLVED', 'LIVE'].includes(normalized)) return 'positive';
   if (['CRITICAL', 'BREACH', 'REJECTED', 'FAILED'].includes(normalized)) return 'danger';
   if (['HIGH', 'REVIEW_REQUIRED', 'SENT_BACK', 'EXCEPTION'].includes(normalized)) return 'warning';
-  if (['PENDING', 'OPEN', 'IN_PROGRESS', 'BOOKING_IN_PROGRESS', 'DELIVERY_IN_PROGRESS', 'PC_SUBMITTED', 'TL_REVIEW'].includes(normalized)) return 'info';
+  if (['PENDING', 'OPEN', 'IN_PROGRESS', 'BOOKING_IN_PROGRESS', 'DELIVERY_IN_PROGRESS', 'PC_SUBMITTED', 'TL_REVIEW', 'REQUESTED', 'CREATED'].includes(normalized)) return 'info';
   return 'neutral';
 }
 

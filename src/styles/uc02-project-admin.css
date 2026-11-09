@@ -346,3 +346,13 @@
 /* SevaSutra section on a service-audit Project (9 Nov 2026). */
 .uc02-checklist { margin: 4px 0 0; padding-left: 18px; display: grid; gap: 6px; color: #3d4a5c; font-size: 13px; line-height: 1.45; }
 .uc02-checklist a { color: inherit; text-decoration: underline; }
+/* SevaSutra instance (Step 1 of a service-audit Project) */
+.uc02-instance { margin: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px 24px; }
+.uc02-instance > div { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.uc02-instance dt { font-size: 12px; font-weight: 700; color: #525f6f; }
+.uc02-instance dd { margin: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 4px; font-size: 14px; color: #161616; overflow-wrap: anywhere; }
+.uc02-instance dd small { color: #525f6f; font-size: 12px; }
+.uc02-address { display: flex; align-items: stretch; min-width: 0; }
+.uc02-address input { flex: 1 1 auto; min-width: 0; }
+.uc02-address span { display: flex; align-items: center; padding: 0 10px; background: #f4f4f4; border: 1px solid #c6c6c6; border-left: 0; color: #525f6f; font-weight: 400; white-space: nowrap; }
+@media (max-width: 480px) { .uc02-address { flex-direction: column; } .uc02-address span { border-left: 1px solid #c6c6c6; border-top: 0; padding: 6px 10px; } }

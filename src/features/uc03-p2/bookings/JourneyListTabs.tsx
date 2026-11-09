@@ -5,7 +5,7 @@ import JourneyRow from './JourneyRow';
 import { useProjectContextStore } from '../../../store/projectContextStore';
 import { istMonth, monthLabel, monthsUpTo } from '../../../services/audit-core/uc03ProjectTracker';
 import { sortByName } from '../../../utils/sortByName';
-import { panelSelection } from './listSelection';
+import { dealerAfterOutletPick, outletAfterDealerChange, outletsOfDealer, panelSelection } from './listSelection';
 import {
   getP2JourneyCounts,
   getP2JourneyPage,
@@ -20,8 +20,10 @@ import {
  * The journey list, split into tabs and paged on the server (50 at a time):
  * about 1,200 journeys a month no longer load into the browser at once
  * (product owner 2026-10-20). A PC works their own outlets, action first; a
- * TL / PM works exceptions first, with every outlet's and PC's open,
- * overdue and high-risk counts one click from the list.
+ * TL / PM / Executive works exceptions first, with every Dealership's (when the
+ * Project has more than one), outlet's and PC's open, overdue and high-risk
+ * counts one click from the list, and filters it by Dealership, outlet and PC
+ * (product owner 2026-11-09).
  */
 const PC_TABS: { view: P2JourneyView; label: string; hint: string }[] = [
   { view: 'needs_action', label: 'Needs my action', hint: 'Open journeys with a PC task, oldest due first.' },
@@ -79,6 +81,7 @@ export default function JourneyListTabs({ tenantId, accessToken, role, onCounts,
   const [search, setSearch] = useState('');
   const currentMonth = useMemo(() => istMonth(), []);
   const [month, setMonth] = useState(calendarMonth ? currentMonth : '');
+  const [dealerId, setDealerId] = useState('');
   const [outletId, setOutletId] = useState('');
   const [pcActorId, setPcActorId] = useState('');
   // A TL / PM reads the list Outlet by Outlet unless they ask for the most
@@ -91,6 +94,7 @@ export default function JourneyListTabs({ tenantId, accessToken, role, onCounts,
   const filters: P2JourneyFilters = {
     search: deferredSearch,
     month: monthApplies ? month : '',
+    dealerId,
     outletId,
     pcActorId,
     ...(calendarMonth ? { monthBasis: 'business' as const } : {}),
@@ -106,7 +110,7 @@ export default function JourneyListTabs({ tenantId, accessToken, role, onCounts,
   const overview = useQuery({
     queryKey: ['p2-journey-counts', tenantId, 'overview', supervisor, overviewMonth],
     queryFn: () => getP2JourneyCounts(tenantId!, accessToken, {
-      search: '', month: overviewMonth, outletId: '', pcActorId: '',
+      search: '', month: overviewMonth, dealerId: '', outletId: '', pcActorId: '',
       ...(calendarMonth ? { monthBasis: 'business' as const } : {}),
     }, supervisor),
     enabled,
@@ -132,7 +136,13 @@ export default function JourneyListTabs({ tenantId, accessToken, role, onCounts,
   const c = counts.data?.counts;
   const all = overview.data?.counts;
   const tab = tabs.find((t) => t.view === view) ?? tabs[0];
-  const filtered = Boolean(search.trim() || (monthApplies && month && !calendarMonth) || outletId || pcActorId);
+  const filtered = Boolean(search.trim() || (monthApplies && month && !calendarMonth) || dealerId || outletId || pcActorId);
+  // The Dealership filter and panel only when the Project has more than one Dealership.
+  const dealers = overview.data?.byDealer ?? [];
+  const manyDealers = supervisor && dealers.length > 1;
+  const allOutlets = overview.data?.byOutlet ?? [];
+  // The Outlet choices follow the chosen Dealership.
+  const outletChoices = outletsOfDealer(allOutlets, dealerId);
 
   useEffect(() => {
     const close = (event: MouseEvent) => {
@@ -144,11 +154,26 @@ export default function JourneyListTabs({ tenantId, accessToken, role, onCounts,
     return () => document.removeEventListener('click', close);
   }, []);
 
-  const clear = () => { setSearch(''); setMonth(calendarMonth ? currentMonth : ''); setOutletId(''); setPcActorId(''); };
-  // A click on an Outlet-wise / PC-wise row shows that Outlet's or PC's complete list.
+  const clear = () => {
+    setSearch(''); setMonth(calendarMonth ? currentMonth : ''); setDealerId(''); setOutletId(''); setPcActorId('');
+  };
+  const chooseDealer = (key: string) => {
+    setDealerId(key);
+    setOutletId(outletAfterDealerChange(outletId, key, allOutlets));
+  };
+  const chooseOutlet = (key: string) => {
+    setOutletId(key);
+    setDealerId(dealerAfterOutletPick(dealerId, key, allOutlets));
+  };
+  // A click on a Dealership-wise / Outlet-wise / PC-wise row shows its complete list.
+  const pickDealer = (key: string) => {
+    const next = panelSelection(dealerId, key, view);
+    chooseDealer(next.key);
+    setView(next.view);
+  };
   const pickOutlet = (key: string) => {
     const next = panelSelection(outletId, key, view);
-    setOutletId(next.key);
+    chooseOutlet(next.key);
     setView(next.view);
   };
   const pickPc = (key: string) => {
@@ -191,7 +216,15 @@ export default function JourneyListTabs({ tenantId, accessToken, role, onCounts,
         </section>
       ) : null}
       {supervisor && overview.data?.byOutlet ? (
-        <div className="uc03-tl-breakdown-grid">
+        <div className={`uc03-tl-breakdown-grid${manyDealers ? ' uc03-tl-breakdown-grid--three' : ''}`}>
+          {manyDealers ? (
+            <BreakdownPanel
+              title="Dealership-wise"
+              rows={dealers.map((d) => ({ key: d.dealer_id, label: d.dealer_name || 'Dealership', ...d }))}
+              selectedKey={dealerId}
+              onSelect={pickDealer}
+            />
+          ) : null}
           <BreakdownPanel
             title="Outlet-wise"
             rows={overview.data.byOutlet.map((o) => ({ key: o.outlet_id, label: o.outlet_name ?? o.outlet_code ?? 'Outlet',
@@ -228,7 +261,7 @@ export default function JourneyListTabs({ tenantId, accessToken, role, onCounts,
         <label className="p2w-search">
           <span className="p2w-visually-hidden">Search</span>
           <input type="search" value={search} onChange={(event) => setSearch(event.target.value)}
-            placeholder="Customer, mobile last 4, vehicle, outlet or Journey ID" />
+            placeholder="Customer name, mobile number, vehicle, outlet or Journey ID" />
         </label>
         {monthApplies && !calendarMonth ? (
           <label className="p2w-jtabs__select">
@@ -250,11 +283,22 @@ export default function JourneyListTabs({ tenantId, accessToken, role, onCounts,
         ) : null}
         {supervisor ? (
           <>
+            {manyDealers ? (
+              <label className="p2w-jtabs__select">
+                <span>Dealership</span>
+                <select value={dealerId} onChange={(event) => chooseDealer(event.target.value)}>
+                  <option value="">All dealerships</option>
+                  {dealers.map((d) => (
+                    <option key={d.dealer_id} value={d.dealer_id}>{d.dealer_name || 'Dealership'}</option>
+                  ))}
+                </select>
+              </label>
+            ) : null}
             <label className="p2w-jtabs__select">
               <span>Outlet</span>
-              <select value={outletId} onChange={(event) => setOutletId(event.target.value)}>
-                <option value="">All outlets</option>
-                {(overview.data?.byOutlet ?? []).map((o) => (
+              <select value={outletId} onChange={(event) => chooseOutlet(event.target.value)}>
+                <option value="">{dealerId ? 'All outlets of this dealership' : 'All outlets'}</option>
+                {outletChoices.map((o) => (
                   <option key={o.outlet_id} value={o.outlet_id}>{o.outlet_name ?? o.outlet_code ?? 'Outlet'}</option>
                 ))}
               </select>
@@ -339,7 +383,7 @@ function Metric({ label, value, detail }: { label: string; value: number; detail
 
 type BreakdownRow = P2JourneyBreakdownRow & { key: string; label: string; secondary?: string };
 
-/** Outlet-wise / PC-wise: every journey, split Booking / Delivery / Closed; a
+/** Dealership-wise / Outlet-wise / PC-wise: every journey, split Booking / Delivery / Closed; a
  * click filters the list below (the TL overview's own panels). */
 function BreakdownPanel({ title, rows, selectedKey, onSelect }: {
   title: string; rows: BreakdownRow[]; selectedKey: string; onSelect: (key: string) => void;

@@ -12,6 +12,13 @@ The app's build number is added by the release workflow and is not written here.
 
 ## [Unreleased]
 
+### Added
+- Executive and Project Manager: your landing page (Overview) is now the dealer operations dashboard the Team Lead has — the month's bookings and deliveries, the summary figures, the Dealership-wise, Outlet-wise and PC-wise panels and the full journey list with its tabs, of the current calendar month by default. Cards at the top open the Project Tracker (today's files uploaded, delivery files closed and gate pass missing) and, for a Project Manager, the Task Queue, or for an Executive, the Task Manager. A Project Manager's Booking & Delivery menu item and page are unchanged.
+- Team Lead, Project Manager and Executive journey list: a **Dealership** filter and a **Dealership-wise** panel when the Project has more than one dealership. The Outlet choices then show that dealership's outlets only. The Team Lead dashboard also has a Project Tracker card.
+
+### Changed
+- Journey search finds a customer by their full mobile number or any part of it (five digits or more), however it is typed: spaces, dashes, +91 and a leading 0 are ignored. Four digits still find the number's last four. Searching by the customer's name works as before.
+
 ## [1.6.5] - 2026-11-09
 
 ### Fixed

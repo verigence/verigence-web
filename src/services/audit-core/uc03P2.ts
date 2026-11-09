@@ -94,8 +94,11 @@ export type P2JourneyView =
   | 'open' | 'closed' | 'all';
 
 export type P2JourneyFilters = {
+  /** Customer name, mobile number (full or part; spaces, +91 and a leading 0 ignored), vehicle, outlet or Journey ID. */
   search?: string;
   month?: string;
+  /** One Dealership of the Project (the TL / PM / Executive list, 2026-11-09). */
+  dealerId?: string;
   outletId?: string;
   pcActorId?: string;
   /** 'business': the month is the booking date's (bookings) or the delivery date's (deliveries) --
@@ -122,7 +125,12 @@ export type P2JourneyBreakdownRow = {
 
 export type P2JourneyCountsResponse = {
   counts: P2JourneyCounts;
-  byOutlet?: (P2JourneyBreakdownRow & { outlet_id: string; outlet_name: string | null; outlet_code: string | null })[];
+  byDealer?: (P2JourneyBreakdownRow & { dealer_id: string; dealer_name: string | null })[];
+  byOutlet?: (P2JourneyBreakdownRow & {
+    outlet_id: string; outlet_name: string | null; outlet_code: string | null;
+    /** The Outlet's Dealership (absent from an Audit Core older than 2026-11-09). */
+    dealer_id?: string | null;
+  })[];
   byPc?: (P2JourneyBreakdownRow & { pc_actor_id: string | null; pc_name: string | null })[];
 };
 
@@ -614,11 +622,13 @@ export async function createP2Journey(
   });
 }
 
-function journeyFilterParams(filters: P2JourneyFilters): URLSearchParams {
+/** The query string of the journey list and its counts (exported for its tests). */
+export function journeyFilterParams(filters: P2JourneyFilters): URLSearchParams {
   const params = new URLSearchParams();
   if (filters.search?.trim()) params.set('q', filters.search.trim());
   if (filters.month) params.set('month', filters.month);
   if (filters.month && filters.monthBasis) params.set('month_basis', filters.monthBasis);
+  if (filters.dealerId) params.set('dealer_id', filters.dealerId);
   if (filters.outletId) params.set('outlet_id', filters.outletId);
   if (filters.pcActorId) params.set('pc_actor_id', filters.pcActorId);
   return params;
@@ -645,7 +655,7 @@ export function getP2JourneyPage(
   );
 }
 
-/** GET /p2/v1/tenants/{t}/journeys:counts: every tab's count (and per outlet / PC). */
+/** GET /p2/v1/tenants/{t}/journeys:counts: every tab's count (and per Dealership / outlet / PC). */
 export function getP2JourneyCounts(
   tenantId: string,
   accessToken: string | undefined,

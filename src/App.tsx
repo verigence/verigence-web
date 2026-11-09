@@ -24,6 +24,7 @@ import { UC03_PRIMARY_WORK_QUEUE_SETTLED_EVENT } from './services/audit-core/uc0
 import { useProjectContextStore } from './store/projectContextStore';
 import { useSessionStore } from './store/sessionStore';
 import { P2_NEW_BOOKING_PATH } from './features/uc03-p2/newBookingPath';
+import { dashboardEntryFor, homePathFor } from './features/uc03-p2/dashboard/supervisoryDashboard';
 
 const loadDashboardPage = () => import('./pages/DashboardPage');
 const loadAuditReviewPage = () => import('./pages/AuditReviewPage');
@@ -78,7 +79,7 @@ const OemMastersPage = lazy(() => import('./pages/AdminOemMastersPage'));
 const DiTestConsolePage = lazy(() => import('./pages/DiTestConsolePage'));
 const DocumentIntelligenceConfigurationPage = lazy(() => import('./pages/DocumentIntelligenceConfigurationPage'));
 const DashboardPage = lazy(loadDashboardPage);
-const TeamLeadDashboardPage = lazy(() => import('./pages/TeamLeadDashboardPage'));
+const SupervisoryDashboardPage = lazy(() => import('./pages/SupervisoryDashboardPage'));
 const TeamLeadReviewPage = lazy(() => import('./pages/TeamLeadReviewPage'));
 const AuditReviewPage = lazy(loadAuditReviewPage);
 const JourneySearchPage = lazy(() => import('./pages/JourneySearchPage'));
@@ -222,14 +223,13 @@ function DashboardEntry() {
   const role = useSessionStore((state) => state.role);
   const selectedProject = useProjectContextStore((state) => state.selectedProject);
   if (role === 'SUPER_ADMIN' && !selectedProject) return <PrivatePage><AdminLandingPage /></PrivatePage>;
-  if (selectedProject?.operatingRole === 'TL') return <OperationalPage><TeamLeadDashboardPage /></OperationalPage>;
-  // A PC or PM works only on Booking & Delivery: the Phase 1 Overview (and its
-  // "Capture new booking") is never shown to them -- see P2DocumentsRedirect.
-  // A PC's home is PC Home (product owner 2026-11-02).
-  if (selectedProject?.operatingRole === 'PC') return <Navigate to="/p2/home" replace />;
-  if (selectedProject?.operatingRole === 'PM') {
-    return <Navigate to="/p2/bookings" replace />;
-  }
+  // Team Lead, Project Manager and Executive: the supervisory dashboard (the TL's,
+  // for PM and Executive too since 2026-11-09). A PC never sees the Phase 1
+  // Overview (and its "Capture new booking") -- see P2DocumentsRedirect; their
+  // home is PC Home (product owner 2026-11-02).
+  const entry = dashboardEntryFor(selectedProject?.operatingRole);
+  if (entry === 'supervisory') return <OperationalPage><SupervisoryDashboardPage /></OperationalPage>;
+  if (entry === 'pcHome') return <Navigate to="/p2/home" replace />;
 
   return <OperationalPage><DashboardPage /></OperationalPage>;
 }
@@ -264,20 +264,13 @@ function OperationalShellPage({ children }: { children: ReactNode }) {
   return <Authenticated><ProjectContextGate><AppShell><DealGuardPresence />{children}</AppShell></ProjectContextGate></Authenticated>;
 }
 
-/** Where a signed-in user lands (2026-09-30): PC, TL and PM start on the
- * Phase 2 Booking & Delivery list; a Reviewer on their own board, which is the
- * only surface they have; everyone else on the Phase 1 Overview. */
+/** Where a signed-in user lands (supervisoryDashboard.homePathFor): a PC on PC
+ * Home, a TL on Booking & Delivery, a Reviewer on their own board (the only
+ * surface they have), a PM and an Executive on the supervisory dashboard
+ * (2026-11-09), everyone else on /dashboard. */
 function HomeEntry() {
   const selectedProject = useProjectContextStore((state) => state.selectedProject);
-  const operatingRole = selectedProject?.operatingRole;
-  const home = operatingRole === 'REVIEWER'
-    ? '/p2/review'
-    // A PC lands on PC Home: their journeys, gate register and tasks (product owner 2026-11-02).
-    : operatingRole === 'PC'
-      ? '/p2/home'
-      : operatingRole === 'TL' || operatingRole === 'PM'
-        ? '/p2/bookings'
-        : '/dashboard';
+  const home = homePathFor(selectedProject?.operatingRole);
   // People without the Audit switch who have HR land on My HR, as the plain landing page does.
   return <Authenticated><ProjectContextGate><HrLanding><Navigate to={home} replace /></HrLanding></ProjectContextGate></Authenticated>;
 }
@@ -360,7 +353,7 @@ export default function App() {
               {/* Dedicated "Bookings & Deliveries" sidebar destination — renders the
                   Work Queue table directly for every operating role (PC, TL, PM),
                   independent of DashboardEntry's Overview role-branching (which
-                  would otherwise always send TL to TeamLeadDashboardPage). */}
+                  would otherwise always send TL to SupervisoryDashboardPage). */}
               <Route path="/work-queue" element={<Authenticated><ProjectContextGate><WorkQueueEntry /></ProjectContextGate></Authenticated>} />
               <Route path="/search" element={<OperationalPage><JourneySearchPage /></OperationalPage>} />
               {/* Old Phase 1 journey addresses (bookmarks, history, old links)

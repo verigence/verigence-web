@@ -342,3 +342,7 @@
 .uc02-admin .uc02-onboarding__actions { justify-content: flex-end; margin: 0; }
 .uc02-admin .uc02-onboarding__table { max-height: min(56vh, 560px); overflow: auto; overscroll-behavior: contain; border: 1px solid var(--uc02-border); border-radius: 10px; }
 .uc02-admin .uc02-onboarding__table thead th { position: sticky; top: 0; z-index: 2; background: #f8fafc; }
+
+/* SevaSutra section on a service-audit Project (9 Nov 2026). */
+.uc02-checklist { margin: 4px 0 0; padding-left: 18px; display: grid; gap: 6px; color: #3d4a5c; font-size: 13px; line-height: 1.45; }
+.uc02-checklist a { color: inherit; text-decoration: underline; }

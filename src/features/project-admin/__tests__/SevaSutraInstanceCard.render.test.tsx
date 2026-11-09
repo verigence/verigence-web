@@ -5,9 +5,10 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import SevaSutraInstanceCard from '../SevaSutraInstanceCard';
 import type { SevaSutraInstance } from '../../../services/audit-core/uc02Admin';
 
-function render(instance: SevaSutraInstance | null, canManage: boolean) {
+function render(instance: SevaSutraInstance | null, canManage: boolean, free: { dealerCode: string; dealershipName: string; outlets: number; visits: number; reportedAtUtc: string }[] = []) {
   const client = new QueryClient();
   client.setQueryData(['sevasutra-instance', 't1'], { instance });
+  client.setQueryData(['sevasutra-free-dealerships'], { dealerships: free });
   return renderToString(
     <QueryClientProvider client={client}>
       <SevaSutraInstanceCard tenantId="t1" projectName="Kalinga Group - Service Audit" accessToken="x" canManage={canManage} />
@@ -26,6 +27,14 @@ describe('SevaSutra instance card', () => {
     expect(html).toContain('Create SevaSutra instance');
     expect(html).toContain('value="kalinga"');
     expect(html).toContain('.sevasutra.jbrconsulting.in');
+  });
+
+  it('offers an existing SevaSutra dealership to attach when one is free', () => {
+    const none = render(null, true);
+    expect(none).toContain('(none free)');
+    const html = render(null, true, [{ dealerCode: 'premium-motors', dealershipName: 'Premium Motors', outlets: 1, visits: 85, reportedAtUtc: '2026-11-09T06:40:00Z' }]);
+    expect(html).toContain('Existing SevaSutra dealership');
+    expect(html).not.toContain('(none free)');
   });
 
   it('tells anyone else a Super Admin creates it', () => {

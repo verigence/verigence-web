@@ -14,7 +14,32 @@ interface AndroidReleaseMetadata {
   sha256?: string | null;
   minAndroid?: string | null;
   releasedAt?: string | null;
+  releaseNotes?: string | null;
   packageName: string;
+}
+
+type NotesBlock = { kind: 'heading' | 'text'; text: string } | { kind: 'list'; items: string[] };
+
+/** The release notes as headings, paragraphs and bullet lists. Rendered as text only. */
+export function releaseNoteBlocks(notes: string | null | undefined): NotesBlock[] {
+  const blocks: NotesBlock[] = [];
+  for (const raw of String(notes ?? '').split(/\r?\n/)) {
+    const line = raw.trim();
+    if (!line) continue;
+    const bullet = line.match(/^[-*•]\s+(.*)$/);
+    const heading = line.match(/^#{1,6}\s+(.*)$/);
+    const clean = (value: string) => value.replace(/\*\*(.+?)\*\*/g, '$1').trim();
+    if (bullet) {
+      const last = blocks[blocks.length - 1];
+      if (last && last.kind === 'list') last.items.push(clean(bullet[1]));
+      else blocks.push({ kind: 'list', items: [clean(bullet[1])] });
+    } else if (heading) {
+      blocks.push({ kind: 'heading', text: clean(heading[1]) });
+    } else {
+      blocks.push({ kind: 'text', text: clean(line) });
+    }
+  }
+  return blocks;
 }
 
 const DEFAULT_METADATA: AndroidReleaseMetadata = {
@@ -162,6 +187,19 @@ export default function AppDownloadPage() {
 
           {message && <div className="app-portal-message" role="status">{message}</div>}
         </article>
+
+        {metadata.available && releaseNoteBlocks(metadata.releaseNotes).length > 0 && (
+          <article className="app-notes-card" aria-label="What's new">
+            <h2>What's new{metadata.version ? ` in ${metadata.version}` : ''}</h2>
+            {releaseNoteBlocks(metadata.releaseNotes).map((block, index) => {
+              if (block.kind === 'list') {
+                return <ul key={index}>{block.items.map((item, i) => <li key={i}>{item}</li>)}</ul>;
+              }
+              if (block.kind === 'heading') return <h3 key={index}>{block.text}</h3>;
+              return <p key={index}>{block.text}</p>;
+            })}
+          </article>
+        )}
 
         <article className="app-warning-card">
           <p>

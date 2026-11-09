@@ -420,3 +420,28 @@ describe('one web address; the old address answers only installed apps', () => {
     expect(env.ASSETS.fetch).toHaveBeenCalledTimes(1);
   });
 });
+
+describe('app release metadata carries the release notes', () => {
+  it('returns the notes of the published release as text', async () => {
+    const upstream = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
+      new Response(JSON.stringify({ accessToken: 'refreshed' }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
+    const response = await worker.fetch(
+      new Request('https://verigence.example/app-distribution/metadata', {
+        headers: { Authorization: 'Bearer valid-user-token' },
+      }),
+      {
+        SECURITY_UPSTREAM: 'https://security.example',
+        APP_RELEASES: fakeReleaseBucket({
+          metadata: { objectKey: 'android/releases/Verigence-1.6.5-31.apk', version: '1.6.5', releaseNotes: '- Line one' },
+        }),
+      },
+    );
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({ version: '1.6.5', releaseNotes: '- Line one' });
+    upstream.mockRestore();
+  });
+});

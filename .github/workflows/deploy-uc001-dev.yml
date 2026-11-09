@@ -151,40 +151,60 @@ jobs:
           wranglerVersion: "4.123.0"
           command: deploy
 
-      - name: Both web addresses serve the app and every API route
-        # verigence.jbrconsulting.in is the public address (web and apps from 1.6.5).
-        # The workers.dev address must keep working for apps installed before that.
-        # The first deploy with the custom domain waits for Cloudflare's certificate.
+      - name: One web address; the old address answers only installed apps
+        # verigence.jbrconsulting.in is the only web address (and the API address of apps from 1.6.5).
+        # The workers.dev address answers only the API routes of apps installed before that; a
+        # browser opening it is sent to the new address. The first deploy waits for DNS.
+        shell: bash
         run: |
-          set -uo pipefail
-          check_host() {
-            local base="$1" attempt code hdr
-            for attempt in $(seq 1 40); do
-              code="$(curl --silent --output /dev/null --write-out '%{http_code}' --max-time 20 "$base/login?deploy=$GITHUB_SHA")"
-              [ "$code" = "200" ] && break
-              echo "$base/login answered $code (attempt $attempt/40), retrying in 15s"
-              sleep 15
-            done
-            [ "$code" = "200" ] || { echo "::error::$base does not serve the web app"; return 1; }
+          set +e -u
+          NEW=https://verigence.jbrconsulting.in
+          OLD=https://verigence-web-dev.jbrconsulting-it.workers.dev
+          for attempt in $(seq 1 40); do
+            code="$(curl --silent --output /dev/null --write-out '%{http_code}' --max-time 20 "$NEW/login?deploy=$GITHUB_SHA")"
+            [ "$code" = "200" ] && break
+            echo "$NEW/login answered '$code' (attempt $attempt/40), retrying in 15s"
+            sleep 15
+          done
+          [ "$code" = "200" ] || { echo "::error::$NEW does not serve the web app"; exit 1; }
+          echo "WEB_ADDRESS=PASS|$NEW"
+
+          loc="$(curl --silent --output /dev/null --max-time 20 --write-out '%{http_code} %{redirect_url}' "$OLD/login?x=1")"
+          [ "$loc" = "302 $NEW/login?x=1" ] || { echo "::error::$OLD/login should send browsers to $NEW, got: $loc"; exit 1; }
+          echo "OLD_ADDRESS_SENDS_BROWSERS_ON=PASS"
+
+          for base in "$NEW" "$OLD"; do
             for route in "security|POST|/security/v1/auth/login" "audit-core|GET|/audit-core/health" "hr|GET|/hr-api/health"; do
               IFS='|' read -r proxy method path <<< "$route"
-              hdr="$(curl --silent --show-error --max-time 20 --dump-header - --output /dev/null \
-                --request "$method" --header 'Content-Type: application/json' \
-                $( [ "$method" = POST ] && echo "--data {}" ) "$base$path")"
+              if [ "$method" = POST ]; then
+                hdr="$(curl --silent --max-time 20 --dump-header - --output /dev/null --request POST \
+                  --header 'Content-Type: application/json' --data '{}' "$base$path")"
+              else
+                hdr="$(curl --silent --max-time 20 --dump-header - --output /dev/null "$base$path")"
+              fi
               echo "$hdr" | grep -qi "^x-verigence-proxy: $proxy" || {
-                echo "::error::$base$path did not pass through the $proxy proxy"; echo "$hdr"; return 1; }
+                echo "::error::$base$path did not pass through the $proxy proxy"; echo "$hdr"; exit 1; }
             done
             for origin in 'capacitor://localhost' 'https://localhost'; do
               curl --silent --max-time 20 --dump-header - --output /dev/null --request OPTIONS \
                 --header "Origin: $origin" --header 'Access-Control-Request-Method: POST' \
                 --header 'Access-Control-Request-Headers: content-type,authorization' \
                 "$base/security/v1/auth/login" | grep -qi "^access-control-allow-origin: $origin" || {
-                echo "::error::$base does not allow the app origin $origin"; return 1; }
+                echo "::error::$base does not allow the app origin $origin"; exit 1; }
             done
-            echo "WEB_ADDRESS=PASS|$base"
-          }
-          check_host https://verigence.jbrconsulting.in
-          check_host https://verigence-web-dev.jbrconsulting-it.workers.dev
+            echo "APP_API_ROUTES=PASS|$base"
+          done
+
+          # Some review pages call Document Intelligence straight from the browser.
+          if curl --silent --max-time 20 --dump-header - --output /dev/null --request OPTIONS \
+               --header "Origin: $NEW" --header 'Access-Control-Request-Method: POST' \
+               --header 'Access-Control-Request-Headers: content-type,authorization' \
+               "$DI_UPSTREAM/v1/tenants/70c5661e-bab2-46e7-8199-0f9c32acbac3/subjects" \
+             | grep -Eqi "^access-control-allow-origin: (\*|$NEW)"; then
+            echo "DI_ALLOWS_NEW_ADDRESS=PASS"
+          else
+            echo "::warning::Document Intelligence does not allow $NEW yet (direct browser calls from review pages)"
+          fi
 
       - name: Smoke test deployed Web and backend proxies
         env:

@@ -429,10 +429,33 @@ async function handleAppDistribution(request, env, correlationId, ctx) {
   }
 }
 
+// Apps installed before 1.6.5 call the workers.dev address. Until it is switched off, that
+// address answers only those apps' API routes; any page or file opened in a browser there is
+// sent to the one public address, so the web has a single address.
+const APP_API_PREFIXES = ['/security', '/audit-core', '/hr-api', '/analytics-api', '/di', '/app-distribution', '/runtime-warmup'];
+
+function isAppApiPath(pathname) {
+  return APP_API_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
+}
+
+function legacyAddressRedirect(url, env) {
+  const legacyHost = String(env.LEGACY_APP_HOST || '').trim().toLowerCase();
+  const publicOrigin = String(env.PUBLIC_ORIGIN || '').trim().replace(/\/+$/, '');
+  if (!legacyHost || !publicOrigin || url.hostname.toLowerCase() !== legacyHost) return null;
+  if (isAppApiPath(url.pathname)) return null;
+  return new Response(null, {
+    status: 302,
+    headers: { Location: `${publicOrigin}${url.pathname}${url.search}`, 'Cache-Control': 'no-store' },
+  });
+}
+
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
     const correlationId = correlationIdFor(request);
+
+    const moved = legacyAddressRedirect(url, env);
+    if (moved) return moved;
 
     if (url.pathname === '/runtime-warmup' && request.method === 'GET') {
       await warmRuntime(env, correlationId);

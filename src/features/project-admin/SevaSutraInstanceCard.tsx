@@ -3,7 +3,12 @@ import { useEffect, useState, type FormEvent } from 'react';
 
 import StatusPill from '../../components/StatusPill';
 import { auditCoreErrorMessage } from '../../services/audit-core/errorMessage';
-import { getSevaSutraInstance, putSevaSutraInstance, type SevaSutraInstance } from '../../services/audit-core/uc02Admin';
+import {
+  getSevaSutraInstance,
+  listSevaSutraFreeDealerships,
+  putSevaSutraInstance,
+  type SevaSutraInstance,
+} from '../../services/audit-core/uc02Admin';
 
 const DOMAIN = 'sevasutra.jbrconsulting.in';
 const SHARED_URL = `https://${DOMAIN}`;
@@ -65,6 +70,17 @@ export default function SevaSutraInstanceCard({
   const [address, setAddress] = useState(() => (instance ? instance.subdomain ?? '' : suggestAddress(projectName)));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  // A new dealership, or one SevaSutra already holds that no Project owns (the demo, for one).
+  const [source, setSource] = useState<'new' | 'existing'>('new');
+  const [existing, setExisting] = useState('');
+  const free = useQuery({
+    queryKey: ['sevasutra-free-dealerships'],
+    queryFn: () => listSevaSutraFreeDealerships(accessToken),
+    enabled: Boolean(canManage && accessToken && !instance && !lookup.isLoading),
+    retry: false,
+    refetchOnWindowFocus: false,
+  });
+  const freeList = free.data?.dealerships ?? [];
 
   useEffect(() => {
     if (editing) return;
@@ -79,7 +95,12 @@ export default function SevaSutraInstanceCard({
     setError('');
     setBusy(true);
     try {
-      const result = await putSevaSutraInstance(tenantId, { dealershipName: name.trim(), subdomain: address.trim() || null }, accessToken);
+      const attach = !instance && source === 'existing' ? existing : null;
+      const result = await putSevaSutraInstance(
+        tenantId,
+        { dealershipName: name.trim(), subdomain: address.trim() || null, ...(attach ? { existingDealerCode: attach } : {}) },
+        accessToken,
+      );
       queryClient.setQueryData(key, result);
       setEditing(false);
     } catch (failure) {
@@ -157,6 +178,42 @@ export default function SevaSutraInstanceCard({
 
       {showForm && (
         <form className="uc02-form-grid" onSubmit={save}>
+          {!instance && (
+            <fieldset className="uc02-field uc02-source">
+              <span>Dealership in SevaSutra</span>
+              <label>
+                <input type="radio" name="sevasutra-source" checked={source === 'new'} onChange={() => { setSource('new'); setExisting(''); setName(projectName); }} />
+                New dealership (starts empty)
+              </label>
+              <label>
+                <input type="radio" name="sevasutra-source" checked={source === 'existing'} disabled={!freeList.length} onChange={() => setSource('existing')} />
+                Existing SevaSutra dealership {freeList.length ? '' : '(none free)'}
+              </label>
+              {source === 'existing' && (
+                <select
+                  required
+                  value={existing}
+                  onChange={(event) => {
+                    setExisting(event.target.value);
+                    const pick = freeList.find((item) => item.dealerCode === event.target.value);
+                    if (pick) setName(pick.dealershipName);
+                  }}
+                >
+                  <option value="">Choose a dealership</option>
+                  {freeList.map((item) => (
+                    <option key={item.dealerCode} value={item.dealerCode}>
+                      {item.dealershipName} · {item.visits} visits · {item.outlets} outlet{item.outlets === 1 ? '' : 's'}
+                    </option>
+                  ))}
+                </select>
+              )}
+              <small>
+                {source === 'existing'
+                  ? 'It keeps all its data; people mapped to this Project will see it.'
+                  : 'Use Existing to tie a dealership already in SevaSutra (such as the demo) to this Project.'}
+              </small>
+            </fieldset>
+          )}
           <label className="uc02-field">
             <span>Dealership name</span>
             <input required minLength={2} maxLength={240} value={name} onChange={(event) => setName(event.target.value)} />
@@ -189,8 +246,8 @@ export default function SevaSutraInstanceCard({
                 Cancel
               </button>
             )}
-            <button className="uc02-button uc02-button--primary" disabled={busy || !name.trim() || !addressValid}>
-              {busy ? 'Saving…' : instance ? 'Save' : 'Create SevaSutra instance'}
+            <button className="uc02-button uc02-button--primary" disabled={busy || !name.trim() || !addressValid || (!instance && source === 'existing' && !existing)}>
+              {busy ? 'Saving…' : instance ? 'Save' : source === 'existing' ? 'Attach to this Project' : 'Create SevaSutra instance'}
             </button>
           </div>
         </form>

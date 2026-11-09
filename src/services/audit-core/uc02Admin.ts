@@ -274,10 +274,23 @@ export function getSevaSutraInstance(tenantId: string, accessToken?: string) {
   return auditCoreRequest<{ instance: SevaSutraInstance | null }>(`/v1/tenants/${tenantId}/sevasutra-instance`, auth(accessToken));
 }
 
-/** Creates the instance, or changes its name or address. Super Admin only. */
+/** A dealership SevaSutra already holds that no Project owns (the demo, for one): it can be attached. */
+export interface SevaSutraFreeDealership {
+  dealerCode: string;
+  dealershipName: string;
+  outlets: number;
+  visits: number;
+  reportedAtUtc: string;
+}
+
+export function listSevaSutraFreeDealerships(accessToken?: string) {
+  return auditCoreRequest<{ dealerships: SevaSutraFreeDealership[] }>('/v1/sevasutra/free-dealerships', auth(accessToken));
+}
+
+/** Creates the instance (a new dealership, or an existing one attached), or changes its name or address. Super Admin only. */
 export function putSevaSutraInstance(
   tenantId: string,
-  payload: { dealershipName: string; subdomain: string | null },
+  payload: { dealershipName: string; subdomain: string | null; existingDealerCode?: string | null },
   accessToken?: string,
 ) {
   return auditCoreRequest<{ instance: SevaSutraInstance | null }>(`/v1/tenants/${tenantId}/sevasutra-instance`, {

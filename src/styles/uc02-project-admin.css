@@ -356,3 +356,6 @@
 .uc02-address input { flex: 1 1 auto; min-width: 0; }
 .uc02-address span { display: flex; align-items: center; padding: 0 10px; background: #f4f4f4; border: 1px solid #c6c6c6; border-left: 0; color: #525f6f; font-weight: 400; white-space: nowrap; }
 @media (max-width: 480px) { .uc02-address { flex-direction: column; } .uc02-address span { border-left: 1px solid #c6c6c6; border-top: 0; padding: 6px 10px; } }
+.uc02-source { border: 0; margin: 0; padding: 0; grid-column: 1 / -1; }
+.uc02-source label { display: flex; align-items: center; gap: 8px; font-weight: 400; font-size: 14px; color: #161616; }
+.uc02-source select { max-width: 480px; }

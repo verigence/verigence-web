@@ -1,25 +1,41 @@
 /**
- * Time on Verigence, counted in the browser (product owner 2026-10-26;
+ * Time on Verigence, counted in the app and the browser (product owner 2026-10-26;
  * Audit Core docs/TASK_MANAGER_DESIGN_v1.0.md section 9).
  *
- * The day (IST) is cut into 1-minute buckets. A minute is
- *  - ACTIVE: the app is visible and there was a click, tap, key or scroll in
- *    the last 4 minutes (reading a screen just after a click counts);
- *  - IDLE: the app is visible but nobody has touched it for 4 minutes or more;
- *  - BACKGROUND: the tab is hidden or the app minimised.
- * Every open tab writes into one shared tally (localStorage), keeping the
- * busiest state for a minute, so two tabs never double the time. Nothing is
- * captured beyond these counts.
+ * The day (IST) is cut into 1-minute buckets. Product owner, 9 Nov 2026: active time
+ * counts real work only. A minute is
+ *  - K: a click, tap or key in that very minute;
+ *  - A (ACTIVE): the app is visible and there was a click, tap or key in that minute or
+ *    in the reading window before it (3 minutes by default, set by SuperAdmin from 1 to
+ *    10 and read from Audit Core) -- the time spent reading a screen after a click;
+ *  - S: visible and scrolled in that minute, with no click, tap or key in the reading
+ *    window. Scrolling alone is not work: S counts as idle, and is kept apart so the
+ *    reports can show it;
+ *  - I (IDLE): visible with no click, tap or key for longer than the reading window;
+ *  - B (BACKGROUND): the tab is hidden or the app minimised.
+ * Until then a click, tap, key, wheel or scroll kept the next 4 minutes active, so one
+ * scroll every few minutes kept a whole day active.
+ * Every open tab writes into one shared tally (localStorage), keeping the busiest state
+ * for a minute, so two tabs never double the time. Nothing is captured beyond these counts.
  */
-export type MinuteState = 'A' | 'I' | 'B' | 'K';
+export type MinuteState = 'K' | 'A' | 'S' | 'I' | 'B';
 
-export const IDLE_AFTER_MS = 4 * 60_000;
+/** The reading window when Audit Core cannot be asked (product owner 2026-11-09). */
+export const DEFAULT_READING_WINDOW_MINUTES = 3;
+export const MIN_READING_WINDOW_MINUTES = 1;
+export const MAX_READING_WINDOW_MINUTES = 10;
 /** A session is a stretch of use with no break of 30 minutes or more (2026-10-27). */
 export const SESSION_GAP_MS = 30 * 60_000;
 const IST_OFFSET_MS = 330 * 60_000;
-/** K: a click, tap or key in that very minute (2026-10-28), so scrolling with
- * no click can be told apart from work. It counts as active everywhere. */
-const RANK: Record<MinuteState, number> = { K: 4, A: 3, I: 2, B: 1 };
+/** Busiest wins (the same order Audit Core merges with). */
+const RANK: Record<MinuteState, number> = { K: 5, A: 4, S: 3, I: 2, B: 1 };
+
+/** A reading window from Audit Core, or the default when it is missing or out of range. */
+export function readingWindow(value: unknown): number {
+  const minutes = Number(value);
+  return Number.isInteger(minutes) && minutes >= MIN_READING_WINDOW_MINUTES && minutes <= MAX_READING_WINDOW_MINUTES
+    ? minutes : DEFAULT_READING_WINDOW_MINUTES;
+}
 
 export type DayTally = {
   date: string;
@@ -34,7 +50,10 @@ export type DayTally = {
 };
 
 export type StoredTally = {
-  lastInteractionAt: number;
+  /** The last click, tap or key (epoch ms), shared by every tab. */
+  lastClickAt: number;
+  /** The last scroll or mouse wheel (epoch ms). */
+  lastScrollAt: number;
   days: DayTally[];
 };
 
@@ -47,9 +66,21 @@ export function istMinute(at: number): number {
   return d.getUTCHours() * 60 + d.getUTCMinutes();
 }
 
-export function classify(now: number, visible: boolean, lastInteractionAt: number): MinuteState {
+const minuteOf = (at: number) => Math.floor(at / 60_000);
+
+/**
+ * The state of the minute ``now`` is in: A when a click, tap or key was in this minute or in
+ * the ``windowMinutes`` minutes before it; S when there was a scroll in this minute and no
+ * click in that window; I otherwise; B when hidden. (A click's own minute is recorded K by
+ * the click itself.)
+ */
+export function classify(now: number, visible: boolean, lastClickAt: number, lastScrollAt = 0,
+  windowMinutes: number = DEFAULT_READING_WINDOW_MINUTES): MinuteState {
   if (!visible) return 'B';
-  return now - lastInteractionAt < IDLE_AFTER_MS ? 'A' : 'I';
+  const minute = minuteOf(now);
+  if (lastClickAt > 0 && lastClickAt <= now && minute - minuteOf(lastClickAt) <= windowMinutes) return 'A';
+  if (lastScrollAt > 0 && lastScrollAt <= now && minuteOf(lastScrollAt) === minute) return 'S';
+  return 'I';
 }
 
 /** Record the state of the current minute; the busiest state wins. Keeps today and yesterday only. */
@@ -85,7 +116,7 @@ export function totals(day: DayTally) {
     if (state === 'A' || state === 'K') {
       active += 1;
       hourly[Math.floor(Number(minute) / 60)] += 1;
-    } else if (state === 'I') idle += 1;
+    } else if (state === 'I' || state === 'S') idle += 1; // scrolling with no click is idle (2026-11-09)
     else background += 1;
   }
   const dayStart = Date.parse(`${day.date}T00:00:00+05:30`);
@@ -166,18 +197,30 @@ export function screenOf(pathname: string, search: string): { screen: string; jo
 }
 
 export function emptyTally(): StoredTally {
-  return { lastInteractionAt: 0, days: [] };
+  return { lastClickAt: 0, lastScrollAt: 0, days: [] };
 }
 
+/** The shared tally from storage. A tally an older version wrote has only lastInteractionAt,
+ * which a scroll also moved: it is not taken as a click. */
 export function parseTally(raw: string | null): StoredTally {
   if (!raw) return emptyTally();
   try {
-    const value = JSON.parse(raw) as StoredTally;
+    const value = JSON.parse(raw) as Partial<StoredTally>;
     if (!value || !Array.isArray(value.days)) return emptyTally();
-    return { lastInteractionAt: Number(value.lastInteractionAt) || 0, days: value.days };
+    return { lastClickAt: Number(value.lastClickAt) || 0, lastScrollAt: Number(value.lastScrollAt) || 0, days: value.days };
   } catch {
     return emptyTally();
   }
+}
+
+/** How far a finger may move and how long it may stay down for a touch to be a tap. */
+export const TAP_MAX_MOVE_PX = 10;
+export const TAP_MAX_MS = 1000;
+
+/** Whether a touch that went down at ``start`` and up at ``end`` was a tap, not the start of a
+ * scroll or a long press (product owner 2026-11-09: a scroll on a phone is not a tap). */
+export function isTap(start: { x: number; y: number; at: number }, end: { x: number; y: number; at: number }): boolean {
+  return Math.hypot(end.x - start.x, end.y - start.y) <= TAP_MAX_MOVE_PX && end.at - start.at <= TAP_MAX_MS;
 }
 
 /** Where this tally's time is spent: the app, a phone / tablet browser, or a

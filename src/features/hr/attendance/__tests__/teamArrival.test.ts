@@ -159,3 +159,39 @@ describe('sortByCheckIn', () => {
     expect(nextCheckInSort('desc')).toBe('none');
   });
 });
+
+describe('morning off on a half-day holiday', () => {
+  const morningOff = { name: 'Post Diwali', dayPart: 'MORNING' as const, splitAt: '14:00' };
+  // 9 Nov 2026, 11:00 and 14:30 India time.
+  const before = new Date('2026-11-09T05:30:00Z');
+  const after = new Date('2026-11-09T09:00:00Z');
+
+  it('is not "not checked in yet" before the afternoon starts', () => {
+    const rows = [
+      row({ employeeId: 'a', employeeName: 'Asha', roles: ['PC'], status: 'NOT_CHECKED_IN', checkInAt: null, halfDayHoliday: morningOff }),
+    ];
+    const s = summarizeArrivals(rows, before);
+    expect(s.notYet).toHaveLength(0);
+    expect(s.morningOff).toBe(1);
+    expect(s.morningOffUntil).toBe('14:00');
+    expect(s.outletStaffExpected).toBe(0);
+  });
+
+  it('is expected again once the afternoon has started', () => {
+    const rows = [
+      row({ employeeId: 'a', employeeName: 'Asha', roles: ['PC'], status: 'NOT_CHECKED_IN', checkInAt: null, halfDayHoliday: morningOff }),
+    ];
+    const s = summarizeArrivals(rows, after);
+    expect(s.morningOff).toBe(0);
+    expect(s.notYet.map((p) => p.employeeName)).toEqual(['Asha']);
+    expect(s.outletStaffExpected).toBe(1);
+  });
+
+  it('an afternoon-off holiday changes nothing in the morning', () => {
+    const rows = [
+      row({ employeeId: 'a', employeeName: 'Asha', roles: ['PC'], status: 'NOT_CHECKED_IN', checkInAt: null,
+        halfDayHoliday: { name: 'Eve', dayPart: 'AFTERNOON', splitAt: '14:00' } }),
+    ];
+    expect(summarizeArrivals(rows, before).notYet).toHaveLength(1);
+  });
+});

@@ -80,6 +80,9 @@ export function TeamTodayView({ data, error, loading, projectCode }: ViewProps) 
             <div><dt>Latest arrival</dt><dd>{summary.lastArrival ? formatTimeIst(summary.lastArrival) : '—'}</dd></div>
             <div className={summary.away ? 'is-attention' : undefined}><dt>Away from the outlet</dt><dd>{summary.away}</dd></div>
             <div><dt>On leave</dt><dd>{summary.onLeave}</dd></div>
+            {summary.morningOff > 0 && (
+              <div><dt>Morning off{summary.morningOffUntil ? ` until ${summary.morningOffUntil}` : ''}</dt><dd>{summary.morningOff}</dd></div>
+            )}
           </dl>
         </div>
         <p className={`uc03-tl-team__missing${notYet.length ? ' is-attention' : ''}`}>

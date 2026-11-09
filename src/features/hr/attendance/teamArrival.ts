@@ -21,6 +21,8 @@ export type ArrivalKind =
   | 'CHECKED_IN'
   /** No check-in on a working day (after 17:00 myHR marks it absent). */
   | 'NOT_YET'
+  /** A half-day holiday with the morning off, before the afternoon starts (splitAt): not expected yet. */
+  | 'MORNING_OFF'
   /** Approved leave, or leave applied and not decided yet, and no check-in. */
   | 'ON_LEAVE'
   /** Anything else without a check-in (a correction made the day, for example). */
@@ -29,15 +31,38 @@ export type ArrivalKind =
 type ArrivalRow = Pick<
   TeamDailyRow,
   'employeeId' | 'employeeName' | 'employeeCode' | 'roles' | 'status' | 'checkInAt' | 'checkInOutlet' | 'checkInDistanceM' | 'checkInOutOfFence'
->;
+> & Partial<Pick<TeamDailyRow, 'halfDayHoliday'>>;
 
-export function arrivalKind(row: ArrivalRow): ArrivalKind {
+/** Minutes since midnight in India time. */
+function istMinutes(now: Date): number {
+  const ist = new Date(now.getTime() + 330 * 60_000);
+  return ist.getUTCHours() * 60 + ist.getUTCMinutes();
+}
+
+function hhmmMinutes(value: string | undefined): number | null {
+  const m = /^(\d{1,2}):(\d{2})/.exec(value ?? '');
+  return m ? Number(m[1]) * 60 + Number(m[2]) : null;
+}
+
+/**
+ * The morning is off (a half-day holiday, product owner 9 Nov 2026) and the afternoon has not started
+ * yet: myHR's own split time (attendance.half_day_split, sent with each row as splitAt).
+ */
+export function morningOffNow(row: ArrivalRow, now: Date = new Date()): boolean {
+  const half = row.halfDayHoliday;
+  if (!half || half.dayPart !== 'MORNING') return false;
+  const split = hhmmMinutes(half.splitAt);
+  return split !== null && istMinutes(now) < split;
+}
+
+export function arrivalKind(row: ArrivalRow, now: Date = new Date()): ArrivalKind {
   if (row.checkInAt) {
     if (row.checkInOutOfFence === false) return 'REACHED';
     if (row.checkInOutOfFence === true) return 'AWAY';
     return 'CHECKED_IN';
   }
   if (row.status === 'ON_LEAVE' || row.status === 'LEAVE_APPLIED') return 'ON_LEAVE';
+  if (morningOffNow(row, now)) return 'MORNING_OFF';
   if (row.status === 'NOT_CHECKED_IN' || row.status === 'ABSENT') return 'NOT_YET';
   return 'OTHER';
 }
@@ -94,6 +119,10 @@ export interface ArrivalSummary {
   onLeave: number;
   /** Of onLeave: leave applied, not approved yet. */
   leaveApplied: number;
+  /** Morning off (half-day holiday) and the afternoon has not started: not expected yet. */
+  morningOff: number;
+  /** When the afternoon starts for them ("14:00"), or null. */
+  morningOffUntil: string | null;
   /** Outlet staff (see isOutletStaff) who are not on leave: the "m" of "n of m reached the outlet". */
   outletStaffExpected: number;
   /** Outlet staff who reached the outlet: the "n". */
@@ -104,7 +133,7 @@ export interface ArrivalSummary {
 }
 
 /** One entry per person: the rows of someone on two projects carry the same day, so their roles are merged. */
-export function arrivalPeople(rows: ArrivalRow[]): ArrivalPerson[] {
+export function arrivalPeople(rows: ArrivalRow[], now: Date = new Date()): ArrivalPerson[] {
   const byId = new Map<string, ArrivalPerson>();
   for (const row of rows) {
     const known = byId.get(row.employeeId);
@@ -117,7 +146,7 @@ export function arrivalPeople(rows: ArrivalRow[]): ArrivalPerson[] {
       employeeName: row.employeeName,
       employeeCode: row.employeeCode,
       roles: [...row.roles],
-      kind: arrivalKind(row),
+      kind: arrivalKind(row, now),
       leaveApplied: !row.checkInAt && row.status === 'LEAVE_APPLIED',
       checkInAt: row.checkInAt,
     });
@@ -130,8 +159,9 @@ const instant = (iso: string) => {
   return Number.isNaN(t) ? null : t;
 };
 
-export function summarizeArrivals(rows: ArrivalRow[]): ArrivalSummary {
-  const people = arrivalPeople(rows);
+export function summarizeArrivals(rows: ArrivalRow[], now: Date = new Date()): ArrivalSummary {
+  const people = arrivalPeople(rows, now);
+  const until = rows.find((r) => morningOffNow(r, now))?.halfDayHoliday?.splitAt ?? null;
   const summary: ArrivalSummary = {
     people: people.length,
     reached: 0,
@@ -140,6 +170,8 @@ export function summarizeArrivals(rows: ArrivalRow[]): ArrivalSummary {
     notYet: [],
     onLeave: 0,
     leaveApplied: 0,
+    morningOff: 0,
+    morningOffUntil: until,
     outletStaffExpected: 0,
     outletStaffReached: 0,
     firstArrival: null,
@@ -152,6 +184,7 @@ export function summarizeArrivals(rows: ArrivalRow[]): ArrivalSummary {
     else if (p.kind === 'AWAY') summary.away += 1;
     else if (p.kind === 'CHECKED_IN') summary.checkedIn += 1;
     else if (p.kind === 'NOT_YET') summary.notYet.push(p);
+    else if (p.kind === 'MORNING_OFF') summary.morningOff += 1;
     else if (p.kind === 'ON_LEAVE') {
       summary.onLeave += 1;
       if (p.leaveApplied) summary.leaveApplied += 1;
@@ -163,7 +196,7 @@ export function summarizeArrivals(rows: ArrivalRow[]): ArrivalSummary {
         if (last === null || t > last) { last = t; summary.lastArrival = p.checkInAt; }
       }
     }
-    if (isOutletStaff(p.roles) && p.kind !== 'ON_LEAVE') {
+    if (isOutletStaff(p.roles) && p.kind !== 'ON_LEAVE' && p.kind !== 'MORNING_OFF') {
       summary.outletStaffExpected += 1;
       if (p.kind === 'REACHED') summary.outletStaffReached += 1;
     }

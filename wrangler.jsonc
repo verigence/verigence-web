@@ -3,9 +3,10 @@
   "name": "verigence-web-dev",
   "main": "./worker/index.js",
   "compatibility_date": "2026-08-20",
-  // Public address on the JBR Consulting domain (Cloudflare creates the DNS record and certificate).
-  // The workers.dev address stays on permanently: Android apps released before 1.6.5 call it, and
-  // they must keep working. Declaring a route turns workers.dev off unless it is set here.
+  // The one public address, on the JBR Consulting domain (Cloudflare creates the DNS record and
+  // certificate). The workers.dev address stays on only for the API calls of Android apps released
+  // before 1.6.5; the Worker sends browsers there to the public address (LEGACY_APP_HOST below).
+  // Declaring a route turns workers.dev off unless it is set here.
   "workers_dev": true,
   "routes": [{ "pattern": "verigence.jbrconsulting.in", "custom_domain": true }],
   "preview_urls": true,
@@ -27,7 +28,9 @@
     "ANALYTICS_UPSTREAM": "https://analytics-dev.up.railway.app",
     "DI_UPSTREAM": "https://di-api-dev.up.railway.app",
     "HR_UPSTREAM": "https://attendance-dev.up.railway.app",
-    "LOG_PROXY_SUCCESS": "false"
+    "LOG_PROXY_SUCCESS": "false",
+    "PUBLIC_ORIGIN": "https://verigence.jbrconsulting.in",
+    "LEGACY_APP_HOST": "verigence-web-dev.jbrconsulting-it.workers.dev"
   },
   "r2_buckets": [
     {
@@ -39,6 +42,8 @@
     "directory": "./dist/",
     "binding": "ASSETS",
     "not_found_handling": "single-page-application",
-    "run_worker_first": ["/security/*", "/audit-core/*", "/analytics-api/*", "/di/*", "/hr-api/*", "/app-distribution/*"]
+    // Every request reaches the Worker first so the old address can send browsers on;
+    // anything that is not an API route is then served from the assets.
+    "run_worker_first": true
   }
 }

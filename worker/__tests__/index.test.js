@@ -378,3 +378,45 @@ describe('CORRELATION_PATTERN', () => {
     expect(CORRELATION_PATTERN.test('')).toBe(false);
   });
 });
+
+describe('one web address; the old address answers only installed apps', () => {
+  const env = {
+    PUBLIC_ORIGIN: 'https://verigence.jbrconsulting.in',
+    LEGACY_APP_HOST: 'verigence-web-dev.jbrconsulting-it.workers.dev',
+    ASSETS: { fetch: vi.fn(async () => new Response('<html>app</html>', { status: 200 })) },
+  };
+
+  it('sends a browser opening a page on the old address to the new address', async () => {
+    const response = await worker.fetch(
+      new Request('https://verigence-web-dev.jbrconsulting-it.workers.dev/journeys/123?tab=deal'),
+      env,
+      {},
+    );
+    expect(response.status).toBe(302);
+    expect(response.headers.get('Location')).toBe('https://verigence.jbrconsulting.in/journeys/123?tab=deal');
+    expect(env.ASSETS.fetch).not.toHaveBeenCalled();
+  });
+
+  it('keeps answering app API routes on the old address', async () => {
+    const response = await worker.fetch(
+      new Request('https://verigence-web-dev.jbrconsulting-it.workers.dev/security/v1/auth/login', {
+        method: 'OPTIONS',
+        headers: {
+          Origin: 'https://localhost',
+          'Access-Control-Request-Method': 'POST',
+          'Access-Control-Request-Headers': 'content-type',
+        },
+      }),
+      env,
+      {},
+    );
+    expect(response.status).not.toBe(302);
+    expect(response.headers.get('Access-Control-Allow-Origin')).toBe('https://localhost');
+  });
+
+  it('serves the web app on the new address', async () => {
+    const response = await worker.fetch(new Request('https://verigence.jbrconsulting.in/login'), env, {});
+    expect(response.status).toBe(200);
+    expect(env.ASSETS.fetch).toHaveBeenCalledTimes(1);
+  });
+});

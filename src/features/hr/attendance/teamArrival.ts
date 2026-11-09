@@ -34,12 +34,13 @@ type ArrivalRow = Pick<
 > & Partial<Pick<TeamDailyRow, 'halfDayHoliday'>>;
 
 /** Minutes since midnight in India time. */
-function istMinutes(now: Date): number {
+export function istMinutes(now: Date): number {
   const ist = new Date(now.getTime() + 330 * 60_000);
   return ist.getUTCHours() * 60 + ist.getUTCMinutes();
 }
 
-function hhmmMinutes(value: string | undefined): number | null {
+/** "14:00" -> 840; null when it is not a time. */
+export function hhmmMinutes(value: string | undefined): number | null {
   const m = /^(\d{1,2}):(\d{2})/.exec(value ?? '');
   return m ? Number(m[1]) * 60 + Number(m[2]) : null;
 }

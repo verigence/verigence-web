@@ -99,11 +99,32 @@ export type P2JourneyFilters = {
   month?: string;
   /** One Dealership of the Project (the TL / PM / Executive list, 2026-11-09). */
   dealerId?: string;
+  /** Bookings only / Deliveries only (2026-11-09): a booking by its booking date, a delivery by its
+   *  delivery date (started or delivered) -- the month figures' own; empty for both. */
+  kind?: P2JourneyKind | '';
   outletId?: string;
   pcActorId?: string;
   /** 'business': the month is the booking date's (bookings) or the delivery date's (deliveries) --
    *  the Team Lead dashboard's calendar month (2026-11-07); otherwise the month the journey started. */
   monthBasis?: 'business';
+};
+
+export type P2JourneyKind = 'booking' | 'delivery';
+
+/** One search suggestion (Audit Core journeys:suggest): the list's own matching, a few at a time. */
+export type P2JourneySuggestion = {
+  journeyId: string;
+  journeyReference: string | null;
+  customerName: string | null;
+  /** Masked to the last four ("******3210"); null when no number is known. */
+  mobileMasked: string | null;
+  dealerName: string | null;
+  outletName: string | null;
+  pcName: string | null;
+  vehicle: string | null;
+  kind: 'BOOKING' | 'DELIVERY';
+  /** The booking date of a booking, the delivery date of a delivery (YYYY-MM-DD). */
+  date: string | null;
 };
 
 /** How a page of journeys is ordered: the tab's own order (most urgent first), or Outlet by Outlet. */
@@ -629,6 +650,7 @@ export function journeyFilterParams(filters: P2JourneyFilters): URLSearchParams 
   if (filters.month) params.set('month', filters.month);
   if (filters.month && filters.monthBasis) params.set('month_basis', filters.monthBasis);
   if (filters.dealerId) params.set('dealer_id', filters.dealerId);
+  if (filters.kind) params.set('kind', filters.kind);
   if (filters.outletId) params.set('outlet_id', filters.outletId);
   if (filters.pcActorId) params.set('pc_actor_id', filters.pcActorId);
   return params;
@@ -666,6 +688,21 @@ export function getP2JourneyCounts(
   if (breakdown) params.set('breakdown', 'true');
   return auditCoreRequest<P2JourneyCountsResponse>(
     `${path(tenantId, '/journeys:counts')}?${params.toString()}`,
+    { accessToken, timeoutMs: LIST_READ_TIMEOUT_MS },
+  );
+}
+
+/** GET /p2/v1/tenants/{t}/journeys:suggest: search as you type, the list's own scope, filters and matching. */
+export function getP2JourneySuggestions(
+  tenantId: string,
+  accessToken: string | undefined,
+  filters: P2JourneyFilters,
+  limit = 8,
+): Promise<{ items: P2JourneySuggestion[] }> {
+  const params = journeyFilterParams(filters);
+  params.set('limit', String(limit));
+  return auditCoreRequest<{ items: P2JourneySuggestion[] }>(
+    `${path(tenantId, '/journeys:suggest')}?${params.toString()}`,
     { accessToken, timeoutMs: LIST_READ_TIMEOUT_MS },
   );
 }

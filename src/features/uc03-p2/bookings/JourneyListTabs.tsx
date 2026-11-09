@@ -2,16 +2,18 @@ import { useDeferredValue, useEffect, useMemo, useState } from 'react';
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 
 import JourneyRow from './JourneyRow';
+import JourneySearchCombobox from './JourneySearchCombobox';
 import { useProjectContextStore } from '../../../store/projectContextStore';
 import { istMonth, monthLabel, monthsUpTo } from '../../../services/audit-core/uc03ProjectTracker';
 import { sortByName } from '../../../utils/sortByName';
-import { dealerAfterOutletPick, outletAfterDealerChange, outletsOfDealer, panelSelection } from './listSelection';
+import { dealerAfterOutletPick, kindHint, outletAfterDealerChange, outletsOfDealer, panelSelection } from './listSelection';
 import {
   getP2JourneyCounts,
   getP2JourneyPage,
   type P2JourneyBreakdownRow,
   type P2JourneyCounts,
   type P2JourneyFilters,
+  type P2JourneyKind,
   type P2JourneySort,
   type P2JourneyView,
 } from '../../../services/audit-core/uc03P2';
@@ -40,6 +42,8 @@ const TL_TABS: { view: P2JourneyView; label: string; hint: string }[] = [
   { view: 'all', label: 'All', hint: 'Every journey in your scope.' },
   { view: 'closed', label: 'Closed', hint: 'Delivered or cancelled.' },
 ];
+
+const SEARCH_PLACEHOLDER = 'Customer name, mobile number, vehicle, outlet or Journey ID';
 
 /** The last twelve months, newest first, as YYYY-MM. */
 function recentMonths(): { value: string; label: string }[] {
@@ -78,7 +82,11 @@ export default function JourneyListTabs({ tenantId, accessToken, role, onCounts,
   );
   const tabs = supervisor ? TL_TABS : PC_TABS;
   const [view, setView] = useState<P2JourneyView>(tabs[0].view);
+  // The search the list shows; a supervisor's box text (with its suggestions) is applied
+  // to the list on Enter or "Show all results" (2026-11-09), a PC's as they type.
   const [search, setSearch] = useState('');
+  const [draft, setDraft] = useState('');
+  const [kind, setKind] = useState<P2JourneyKind | ''>('');
   const currentMonth = useMemo(() => istMonth(), []);
   const [month, setMonth] = useState(calendarMonth ? currentMonth : '');
   const [dealerId, setDealerId] = useState('');
@@ -97,6 +105,7 @@ export default function JourneyListTabs({ tenantId, accessToken, role, onCounts,
     dealerId,
     outletId,
     pcActorId,
+    kind,
     ...(calendarMonth ? { monthBasis: 'business' as const } : {}),
   };
   const overviewMonth = calendarMonth ? month : '';
@@ -136,7 +145,7 @@ export default function JourneyListTabs({ tenantId, accessToken, role, onCounts,
   const c = counts.data?.counts;
   const all = overview.data?.counts;
   const tab = tabs.find((t) => t.view === view) ?? tabs[0];
-  const filtered = Boolean(search.trim() || (monthApplies && month && !calendarMonth) || dealerId || outletId || pcActorId);
+  const filtered = Boolean(search.trim() || (monthApplies && month && !calendarMonth) || dealerId || outletId || pcActorId || kind);
   // The Dealership filter and panel only when the Project has more than one Dealership.
   const dealers = overview.data?.byDealer ?? [];
   const manyDealers = supervisor && dealers.length > 1;
@@ -155,7 +164,8 @@ export default function JourneyListTabs({ tenantId, accessToken, role, onCounts,
   }, []);
 
   const clear = () => {
-    setSearch(''); setMonth(calendarMonth ? currentMonth : ''); setDealerId(''); setOutletId(''); setPcActorId('');
+    setSearch(''); setDraft(''); setMonth(calendarMonth ? currentMonth : ''); setDealerId(''); setOutletId('');
+    setPcActorId(''); setKind('');
   };
   const chooseDealer = (key: string) => {
     setDealerId(key);
@@ -258,11 +268,27 @@ export default function JourneyListTabs({ tenantId, accessToken, role, onCounts,
       </div>
 
       <div className="p2w-listbar p2w-jtabs__filters">
-        <label className="p2w-search">
-          <span className="p2w-visually-hidden">Search</span>
-          <input type="search" value={search} onChange={(event) => setSearch(event.target.value)}
-            placeholder="Customer name, mobile number, vehicle, outlet or Journey ID" />
-        </label>
+        {supervisor ? (
+          <JourneySearchCombobox
+            tenantId={tenantId}
+            accessToken={accessToken}
+            filters={{ ...filters, search: '' }}
+            value={draft}
+            onValueChange={setDraft}
+            onApply={(text) => { setDraft(text); setSearch(text); }}
+            placeholder={SEARCH_PLACEHOLDER}
+            scopeNote={[
+              filters.month && calendarMonth ? `in ${monthLabel(filters.month)}` : '',
+              dealerId || outletId || pcActorId || kind ? 'with these filters' : '',
+            ].filter(Boolean).join(' ') || undefined}
+          />
+        ) : (
+          <label className="p2w-search">
+            <span className="p2w-visually-hidden">Search</span>
+            <input type="search" value={search} onChange={(event) => setSearch(event.target.value)}
+              placeholder={SEARCH_PLACEHOLDER} />
+          </label>
+        )}
         {monthApplies && !calendarMonth ? (
           <label className="p2w-jtabs__select">
             <span>Started in</span>
@@ -304,6 +330,14 @@ export default function JourneyListTabs({ tenantId, accessToken, role, onCounts,
               </select>
             </label>
             <label className="p2w-jtabs__select">
+              <span>Booking / Delivery</span>
+              <select value={kind} onChange={(event) => setKind(event.target.value as P2JourneyKind | '')}>
+                <option value="">All</option>
+                <option value="booking">Bookings only</option>
+                <option value="delivery">Deliveries only</option>
+              </select>
+            </label>
+            <label className="p2w-jtabs__select">
               <span>PC</span>
               <select value={pcActorId} onChange={(event) => setPcActorId(event.target.value)}>
                 <option value="">All PCs</option>
@@ -327,7 +361,7 @@ export default function JourneyListTabs({ tenantId, accessToken, role, onCounts,
         {list.isFetching && !list.isFetchingNextPage ? <span className="p2w-muted">Loading…</span> : null}
       </div>
 
-      <p className="p2w-muted p2w-jtabs__hint">{tab.hint}</p>
+      <p className="p2w-muted p2w-jtabs__hint">{tab.hint}{kind ? ` ${kindHint(kind, calendarMonth ? month : '')}` : ''}</p>
 
       {list.isError ? (
         <div className="p2w-alert p2w-alert--error" role="alert">

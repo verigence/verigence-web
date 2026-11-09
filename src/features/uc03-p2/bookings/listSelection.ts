@@ -1,4 +1,5 @@
-import type { P2JourneyView } from '../../../services/audit-core/uc03P2';
+import type { P2JourneyKind, P2JourneyView } from '../../../services/audit-core/uc03P2';
+import { monthLabel } from '../../../services/audit-core/uc03ProjectTracker';
 
 /**
  * What a click on a row of the TL's Outlet-wise or PC-wise panel does: pick
@@ -39,4 +40,17 @@ export function dealerAfterOutletPick(dealerId: string, outletId: string, outlet
   if (!dealerId || !outletId) return dealerId;
   const owner = outlets.find((o) => o.outlet_id === outletId)?.dealer_id;
   return owner && owner !== dealerId ? owner : dealerId;
+}
+
+/**
+ * What Bookings only / Deliveries only keep (2026-11-09), by the month figures' own dates:
+ * a booking by its booking date, a delivery by its delivery date (started or delivered).
+ */
+export function kindHint(kind: P2JourneyKind, month: string): string {
+  if (kind === 'booking') {
+    return month ? `Bookings only: booking date in ${monthLabel(month)}.` : 'Bookings only: every booking.';
+  }
+  return month
+    ? `Deliveries only: delivery date (started or delivered) in ${monthLabel(month)}.`
+    : 'Deliveries only: delivery started or delivered.';
 }

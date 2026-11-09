@@ -68,7 +68,7 @@ describe('the list', () => {
   });
 
   it('says a full mobile number can be searched', () => {
-    expect(source).toContain('placeholder="Customer name, mobile number, vehicle, outlet or Journey ID"');
+    expect(source).toContain("const SEARCH_PLACEHOLDER = 'Customer name, mobile number, vehicle, outlet or Journey ID';");
     expect(source).not.toContain('mobile last 4');
   });
 });

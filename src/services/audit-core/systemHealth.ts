@@ -366,3 +366,37 @@ export function getSystemHealthInfrastructure(hours: number, accessToken: string
     { accessToken, timeoutMs: 20_000 },
   );
 }
+
+/** GET /v1/admin/system-health/archive: the nightly data archive (product owner 2026-11-09). */
+export type ArchiveTone = 'GREEN' | 'AMBER' | 'RED';
+export interface ArchiveRun {
+  runId: string; night: string; tenantId: string | null; projectName: string | null; table: string;
+  mode: 'LIVE' | 'DRY_RUN' | string; status: 'SUCCEEDED' | 'FAILED' | 'REFUSED' | string;
+  candidates: number; archived: number; objects: number; error: string | null; startedBy: string | null;
+  startedAtUtc: string; finishedAtUtc: string | null; durationSeconds: number | null; cutoffUtc: string | null;
+}
+export interface ArchiveNight { night: string; runs: ArchiveRun[]; failed: number; succeeded: number; archived: number }
+export interface ArchiveHealth {
+  generatedAtUtc: string;
+  status: { tone: ArchiveTone; reason: string };
+  nights: ArchiveNight[];
+  lastSucceededAtUtc: string | null;
+  lastArchivedAtUtc: string | null;
+  lastLiveSuccess: { tenantId: string | null; projectName: string | null; table: string; archived: number; finishedAtUtc: string | null } | null;
+  archivedToDate: number;
+  batchesToDate: number;
+  firstRunAtUtc: string | null;
+  tables: Array<{ table: string; rowsEstimate: number | null; totalBytes: number | null; tableBytes: number | null }>;
+  settings: {
+    source: string; bucket: string | null; retentionDays: number | null; batchSize: number; maxRowsPerTable: number;
+    tables: Array<{ table: string; key: string; enabled: boolean; ageDays: number; description: string }>;
+    problem: string | null;
+  };
+}
+
+export function getSystemHealthArchive(nights: number, accessToken: string) {
+  return auditCoreRequest<ArchiveHealth>(`/v1/admin/system-health/archive?nights=${encodeURIComponent(String(nights))}`, {
+    accessToken,
+    timeoutMs: 20_000,
+  });
+}

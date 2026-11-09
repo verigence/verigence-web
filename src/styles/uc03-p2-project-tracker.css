@@ -31,3 +31,17 @@
 @media (max-width: 640px) {
   .p2pt-table .p2pt-name { min-width: 160px; }
 }
+
+/* Tabs (2026-11-09): Carbon "line" tabs -- Project tracker, Daily processing, Daily gate pass. */
+.p2pt-tabs {
+  display: flex; gap: 0; overflow-x: auto; border-bottom: 1px solid var(--p2w-line, #dde3ea);
+  scrollbar-width: thin;
+}
+.p2pt-tabs button {
+  flex: 0 0 auto; min-height: 44px; padding: 0 16px; border: 0; border-bottom: 2px solid transparent;
+  background: transparent; color: var(--p2w-muted, #525252); font: inherit; font-weight: 600; cursor: pointer;
+  white-space: nowrap;
+}
+.p2pt-tabs button:hover { color: var(--p2mw-navy, #003a82); border-bottom-color: var(--p2w-line, #c6c6c6); }
+.p2pt-tabs button.is-active { color: var(--p2mw-navy, #003a82); border-bottom-color: var(--p2mw-navy, #003a82); }
+.p2pt-tabs button:focus-visible { outline: 2px solid var(--p2mw-navy, #003a82); outline-offset: -2px; }

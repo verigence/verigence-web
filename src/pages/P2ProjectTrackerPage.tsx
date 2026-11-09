@@ -5,12 +5,17 @@ import '../styles/uc03-p2.css';
 import '../styles/uc03-p2-workspace.css';
 import '../styles/uc03-p2-my-work.css';
 import '../styles/uc03-p2-project-tracker.css';
+import '../styles/uc03-p2-daily-report.css';
+import '../styles/uc03-p2-gate-pass.css';
 
 import PageHeader from '../components/PageHeader';
 import SectionCard from '../components/SectionCard';
+import SupervisorGatePass from '../features/uc03-p2/gatepass/SupervisorGatePass';
 import { Segment, Tile } from '../features/uc03-p2/my-work/MyWorkParts';
+import { DailyProcessingReport } from './P2DailyProcessingReportPage';
 import { istDate } from '../services/audit-core/uc03MyWork';
 import {
+  dailyProcessingDay,
   getProjectTracker,
   hasNextPeriod,
   shiftPeriod,
@@ -18,11 +23,15 @@ import {
   trackerLabel,
   trackerRange,
   trackerSearch,
+  trackerTabFromSearch,
+  trackerTabHref,
+  TRACKER_TABS,
   type ProjectTracker,
   type TaskSection,
   type TrackerFigures,
   type TrackerPeriod,
   type TrackerSchedule,
+  type TrackerTab,
 } from '../services/audit-core/uc03ProjectTracker';
 import { useProjectContextStore } from '../store/projectContextStore';
 import { useSessionStore } from '../store/sessionStore';
@@ -327,14 +336,10 @@ function Tiles({ data }: { data: ProjectTracker }) {
  * files uploaded, files closed, tasks worked and recurring tasks -- for a day, a week or a calendar
  * month, dealership wise, outlet wise and PC wise. Team Lead, PM and Executive.
  */
-export default function P2ProjectTrackerPage() {
-  const project = useProjectContextStore((s) => s.selectedProject);
-  const accessToken = useSessionStore((s) => s.accessToken);
-  const tenantId = project?.tenantId;
-  const role = project?.operatingRole;
-  const allowed = role === 'TL' || role === 'PM' || role === 'EXECUTIVE';
+function TrackerView({ tenantId, accessToken, role, today }: {
+  tenantId: string; accessToken: string | undefined; role: string | undefined; today: string;
+}) {
   const [searchParams, setSearchParams] = useSearchParams();
-  const today = istDate();
   const { period, date } = trackerFromSearch(searchParams, today);
   const rawView = searchParams.get('view') as View | null;
   const view: View = VIEW_OPTIONS.some((v) => v.key === rawView) ? (rawView as View) : 'overview';
@@ -353,12 +358,13 @@ export default function P2ProjectTrackerPage() {
   const query = useQuery({
     queryKey: ['p2-project-tracker', tenantId, period, range.first],
     queryFn: () => getProjectTracker(tenantId!, period, date, accessToken ?? undefined),
-    enabled: Boolean(tenantId && accessToken && allowed),
+    enabled: Boolean(tenantId && accessToken),
     staleTime: 30_000,
   });
   const data = query.data;
   const links: Links = useMemo(() => ({
-    gatePass: '/p2/gate-pass',
+    // The Daily gate pass is a tab of this page (2026-11-09): its figures switch tabs.
+    gatePass: trackerTabHref('gate-pass'),
     taskManager: '/p2/task-manager',
     // An Executive has no Task Queue or Booking & Delivery list; a Team Lead's list is the TL overview.
     tasks: role === 'EXECUTIVE' ? undefined : '/p2/tasks',
@@ -367,13 +373,7 @@ export default function P2ProjectTrackerPage() {
   const columns = data ? columnsFor(view, taskScope, data, links) : [];
 
   return (
-    <div className="screen-stack p2-screen p2w p2mw p2pt">
-      <PageHeader
-        eyebrow="DealGuard"
-        title="Project Tracker"
-        description="Gate pass, files uploaded, files closed, tasks and recurring tasks across the Project, by dealership, outlet and PC."
-      />
-
+    <>
       <div className="p2mw-controls">
         <Segment label="Period" value={period} options={PERIOD_OPTIONS}
           onChange={(next) => navigate({ period: next, date: next === period ? date : today })} />
@@ -399,9 +399,6 @@ export default function P2ProjectTrackerPage() {
         </span>
       </div>
 
-      {!allowed ? (
-        <SectionCard><p className="p2w-muted">The Project Tracker is for a Team Lead, PM or Executive.</p></SectionCard>
-      ) : null}
       {query.isLoading ? <SectionCard><p className="p2w-muted">Counting…</p></SectionCard> : null}
       {query.isError ? (
         <SectionCard>
@@ -433,10 +430,10 @@ export default function P2ProjectTrackerPage() {
               <TrackerTable key={`${view}-${taskScope}`} data={data} columns={columns} links />
             )}
             <div className="p2mw-actions p2pt-links">
-              <Link className="p2w-button p2w-button--secondary" to="/p2/gate-pass">Daily gate pass</Link>
-              {period === 'DAY'
-                ? <Link className="p2w-button p2w-button--secondary" to={`/p2/reports/daily?day=${date}`}>Daily processing of this day</Link>
-                : null}
+              <Link className="p2w-button p2w-button--secondary" to={trackerTabHref('gate-pass')}>Daily gate pass</Link>
+              <Link className="p2w-button p2w-button--secondary" to={trackerTabHref('daily-processing', date)}>
+                {period === 'DAY' ? 'Daily processing of this day' : 'Daily processing'}
+              </Link>
               {links.tasks ? <Link className="p2w-button p2w-button--secondary" to={links.tasks}>Task Queue</Link> : null}
               <Link className="p2w-button p2w-button--secondary" to={links.taskManager}>Task Manager</Link>
               {links.bookings ? <Link className="p2w-button p2w-button--secondary" to={links.bookings}>Bookings &amp; Deliveries</Link> : null}
@@ -456,6 +453,101 @@ export default function P2ProjectTrackerPage() {
           </SectionCard>
         </>
       ) : null}
+    </>
+  );
+}
+
+/** The Daily processing tab: the report of one day, the day picked here (and kept in the address). */
+function DailyProcessingTab({ today }: { today: string }) {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const day = dailyProcessingDay(searchParams, today);
+  const go = (next: string) => setSearchParams(new URLSearchParams(trackerTabHref('daily-processing', next).split('?')[1]));
+  return (
+    <>
+      <div className="p2mw-controls">
+        <span className="p2mw-range">
+          <button type="button" className="p2w-button p2w-button--ghost" aria-label="Previous day"
+            onClick={() => go(shiftPeriod('DAY', day, -1))}>‹</button>
+          <label>Day <input type="date" value={day} max={today} onChange={(e) => e.target.value && go(e.target.value)} /></label>
+          <button type="button" className="p2w-button p2w-button--ghost" aria-label="Next day"
+            disabled={!hasNextPeriod('DAY', day, today)} onClick={() => go(shiftPeriod('DAY', day, 1))}>›</button>
+          <strong>{trackerLabel('DAY', day)}</strong>
+          {day !== today ? <button type="button" className="p2w-button p2w-button--secondary" onClick={() => go(today)}>Today</button> : null}
+        </span>
+      </div>
+      <DailyProcessingReport day={day} />
+    </>
+  );
+}
+
+/**
+ * Project Tracker (product owner 2026-11-07), the one place for a Team Lead, PM or Executive
+ * (2026-11-09: "merge Daily Processing, Daily Gatepass in Project tracker"). Three tabs:
+ * - Project tracker: gate pass, files uploaded, files closed, tasks worked and recurring tasks
+ *   for a day, a week or a calendar month, dealership wise, outlet wise and PC wise;
+ * - Daily processing: the Daily processing report of the day picked;
+ * - Daily gate pass: the supervisor's daily tasks, consolidated view and calendar (with each
+ *   outlet's registers), each with its own date or month controls.
+ * The tab is in the address (?tab=daily-processing&day=, ?tab=gate-pass); the old addresses of
+ * the last two open them.
+ */
+export default function P2ProjectTrackerPage() {
+  const project = useProjectContextStore((s) => s.selectedProject);
+  const accessToken = useSessionStore((s) => s.accessToken);
+  const tenantId = project?.tenantId;
+  const role = project?.operatingRole;
+  const allowed = role === 'TL' || role === 'PM' || role === 'EXECUTIVE';
+  const [searchParams, setSearchParams] = useSearchParams();
+  const today = istDate();
+  const tab = trackerTabFromSearch(searchParams);
+  const selectTab = (next: TrackerTab) => {
+    if (next === tab) return;
+    // The day carries over: the tracker's date opens that day's Daily processing, and back.
+    const day = tab === 'daily-processing' ? dailyProcessingDay(searchParams, today) : trackerFromSearch(searchParams, today).date;
+    if (next === 'tracker') {
+      const back = new URLSearchParams(trackerSearch('DAY', day, today));
+      setSearchParams(day === today ? new URLSearchParams() : back);
+      return;
+    }
+    setSearchParams(new URLSearchParams(trackerTabHref(next, day).split('?')[1]));
+  };
+
+  return (
+    <div className="screen-stack p2-screen p2w p2mw p2pt">
+      <PageHeader
+        eyebrow="DealGuard"
+        title="Project Tracker"
+        description="The whole Project in one place: gate pass, files uploaded and closed, tasks and recurring tasks by dealership, outlet and PC; the day's processing; and the daily gate pass."
+      />
+      <div className="p2pt-tabs" role="tablist" aria-label="Project Tracker">
+        {TRACKER_TABS.map((t) => (
+          <button key={t.key} type="button" role="tab" id={`p2pt-tab-${t.key}`} aria-controls={`p2pt-panel-${t.key}`}
+            aria-selected={tab === t.key} tabIndex={tab === t.key ? 0 : -1}
+            className={tab === t.key ? 'is-active' : undefined} onClick={() => selectTab(t.key)}
+            onKeyDown={(event) => {
+              if (event.key !== 'ArrowRight' && event.key !== 'ArrowLeft') return;
+              const index = TRACKER_TABS.findIndex((x) => x.key === tab);
+              const step = event.key === 'ArrowRight' ? 1 : -1;
+              const next = TRACKER_TABS[(index + step + TRACKER_TABS.length) % TRACKER_TABS.length].key;
+              selectTab(next);
+              document.getElementById(`p2pt-tab-${next}`)?.focus();
+            }}>
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {!allowed ? (
+        <SectionCard><p className="p2w-muted">The Project Tracker is for a Team Lead, PM or Executive.</p></SectionCard>
+      ) : !tenantId || !accessToken ? (
+        <div className="p2w-alert p2w-alert--error" role="alert">Select a project to continue.</div>
+      ) : (
+        <div role="tabpanel" id={`p2pt-panel-${tab}`} aria-labelledby={`p2pt-tab-${tab}`} className="screen-stack">
+          {tab === 'tracker' ? <TrackerView tenantId={tenantId} accessToken={accessToken} role={role} today={today} /> : null}
+          {tab === 'daily-processing' ? <DailyProcessingTab today={today} /> : null}
+          {tab === 'gate-pass' ? <SupervisorGatePass tenantId={tenantId} accessToken={accessToken} /> : null}
+        </div>
+      )}
     </div>
   );
 }

@@ -241,6 +241,9 @@ const projectNameViews = new Set([
   // SuperAdmin System Health's Daily trend tab (2026-10-30): its Project filter. Rendered only by
   // src/pages/AdminSystemHealthPage.tsx, which is itself exempt as an Admin page.
   'src/features/admin/systemHealth/DailyTrendTab.tsx',
+  // SuperAdmin System Health's Data archive tab (2026-11-09): which Project each nightly archive run was
+  // for. Rendered only by src/pages/AdminSystemHealthPage.tsx (an Admin page, SuperAdmin only).
+  'src/features/admin/systemHealth/DataArchiveTab.tsx',
   // Choose Dealership (product owner 2026-11-07): a person holding several Team Lead / PM /
   // Executive assignments could not tell them apart, so each card names its Project and the role.
   'src/components/ProjectContextGate.tsx',

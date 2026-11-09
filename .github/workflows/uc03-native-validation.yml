@@ -33,7 +33,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 40
     env:
-      VITE_SECURITY_BASE_URL: https://verigence-web-dev.jbrconsulting-it.workers.dev
+      VITE_SECURITY_BASE_URL: https://verigence.jbrconsulting.in
       VITE_AUDIT_CORE_BASE_URL: ${{ secrets.AUDIT_CORE_URL }}
 
     steps:

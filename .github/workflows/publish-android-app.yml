@@ -27,10 +27,10 @@ jobs:
     permissions:
       contents: write # only to tag the released commit in Git
     env:
-      VITE_SECURITY_BASE_URL: https://verigence-web-dev.jbrconsulting-it.workers.dev
+      VITE_SECURITY_BASE_URL: https://verigence.jbrconsulting.in
       VITE_AUDIT_CORE_BASE_URL: ""
-      VITE_AUDIT_CORE_PROXY_BASE_URL: https://verigence-web-dev.jbrconsulting-it.workers.dev/audit-core
-      VITE_HR_PROXY_BASE_URL: https://verigence-web-dev.jbrconsulting-it.workers.dev/hr-api
+      VITE_AUDIT_CORE_PROXY_BASE_URL: https://verigence.jbrconsulting.in/audit-core
+      VITE_HR_PROXY_BASE_URL: https://verigence.jbrconsulting.in/hr-api
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
       ANDROID_RELEASE_STORE_PASSWORD: ${{ secrets.ANDROID_RELEASE_STORE_PASSWORD }}

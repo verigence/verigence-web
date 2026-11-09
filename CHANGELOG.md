@@ -12,6 +12,10 @@ The app's build number is added by the release workflow and is not written here.
 
 ## [Unreleased]
 
+### Changed
+- My HR > Attendance Overview, Daily: the day now opens with a quick summary that fits on one screen. One row of figures shows present out of expected, not checked in yet, absent, late check-ins, early check-outs and on leave. Under it, everyone absent or not checked in so far is listed by name, project by project, with their role and outlet. Absent and not-checked-in-yet names are kept apart, and people on leave or with the morning off are shown separately. Tap a name to open their calendar. A long list scrolls inside its own box. One line gives the first and last check-in and check-out of the day, and after the standard check-out time it also shows how many are still checked in.
+- Below the summary, each project has its own section, closed until you open it (or "Expand all"). Its header shows present out of expected, late, early out, not checked in and the first-to-last check-in time. Inside: who did not check in, the check-in figures (first in, last in, each late check-in with how late against the standard check-in time, check-ins away from the outlet), the check-out figures (first out, last out, each early check-out with how early, who has not checked out) and then the full list. Someone on two projects is listed under both, marked Shared, and counted once in the summary. The weekly view is unchanged.
+
 ### Fixed
 - Reached the outlet (Attendance Overview and the dashboard's Team today card): on a half-day holiday with the morning off, people are shown as "Morning off" until the afternoon starts, not as "not checked in yet"; they are expected from the half-day split time.
 

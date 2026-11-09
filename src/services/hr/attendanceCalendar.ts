@@ -87,6 +87,20 @@ export interface AttendanceCalendar {
   employeeName?: string;
 }
 
+/**
+ * The day's times as myHR applies them (hrmgmt holidays.standard_times_view): the standard check-in,
+ * after when a check-in is late, the earliest check-out without an early flag, the standard end and
+ * when a missing check-in becomes an absence. "HH:MM", India time.
+ */
+export interface StandardTimes {
+  checkIn: string;
+  lateAfter: string;
+  checkOutEarliest: string;
+  checkOut: string;
+  absentAfter: string;
+  minimumHours: number;
+}
+
 export interface OtherProject {
   projectCode: string;
   projectName: string | null;
@@ -115,7 +129,16 @@ export interface TeamDailyRow {
   checkInOutOfFence?: boolean | null;
   /** A half-day holiday for this person on this day: which half is off and when the halves split. */
   halfDayHoliday?: HalfDayHoliday | null;
-  delinquencies: Array<{ code: string; label: string; decision: string | null; reason?: string | null }>;
+  delinquencies: Array<{
+    code: string;
+    label: string;
+    /** Which punch it belongs to, when it belongs to one. */
+    side?: 'CHECK_IN' | 'CHECK_OUT' | null;
+    decision: string | null;
+    reason?: string | null;
+  }>;
+  /** This person's times for the day (a half-day holiday moves them). Absent from myHR before 9 Nov 2026. */
+  standardTimes?: StandardTimes;
   workedMinutes: number;
   runningMinutes: number | null;
   weekMinutes: number;
@@ -147,6 +170,8 @@ export interface TeamDaily {
   dayKind: 'WORKING' | 'SUNDAY' | 'HOLIDAY';
   holiday: string | null;
   holidays?: DayHolidayInfo[];
+  /** The company's times for an ordinary day. Absent from myHR before 9 Nov 2026. */
+  standardTimes?: StandardTimes;
   summary: TeamDailySummary;
   projects: Array<{ projectCode: string | null; projectName: string | null; summary: TeamDailySummary }>;
   rows: TeamDailyRow[];

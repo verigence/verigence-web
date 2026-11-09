@@ -211,6 +211,11 @@ export function loginErrorMessage(error: unknown): string {
     case 'APP_UPDATE_REQUIRED':
       // Security writes which version is needed and where to download it.
       return error.message || 'This version of the Verigence app can no longer be used. Download the latest app.';
+    case 'ACCESS_BLOCKED':
+      // Security says why (approvals past the Monday 09:00 deadline) and that SuperAdmin restores it.
+      return error.message && !/^Verigence access is paused$/i.test(error.message)
+        ? error.message
+        : 'Your Verigence access is paused. Ask SuperAdmin to restore it.';
     case 'USER_NOT_ONBOARDED':
       return 'This account is not registered with Verigence.';
     case 'USER_PENDING_APPROVAL':

@@ -14,6 +14,9 @@ The app's build number is added by the release workflow and is not written here.
 
 ## [1.6.5] - 2026-11-09
 
+### Fixed
+- Sign in: when your access is paused (for example, approvals waiting with you passed the Monday 09:00 deadline), the sign-in screen now says so and tells you to ask SuperAdmin to restore it, instead of "Sign in could not be completed. Please check your details".
+
 ### Changed
 - Time on Verigence counts real work only: a minute is active when there was a click, tap or key in it or in the reading window before it (3 minutes by default — the time spent reading a screen after a click). Scrolling or the mouse wheel alone no longer makes a minute active: it is counted as idle and shown apart as "scrolling only". On a phone, a touch counts as a tap only when the finger comes up where it went down (within 10 px, within 1 second); a touch that starts a scroll is not a tap. The app reads the reading window from the server when it starts, every 3 hours and with every minute's send, and uses 3 minutes when it cannot.
 

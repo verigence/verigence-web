@@ -94,13 +94,37 @@ export type P2JourneyView =
   | 'open' | 'closed' | 'all';
 
 export type P2JourneyFilters = {
+  /** Customer name, mobile number (full or part; spaces, +91 and a leading 0 ignored), vehicle, outlet or Journey ID. */
   search?: string;
   month?: string;
+  /** One Dealership of the Project (the TL / PM / Executive list, 2026-11-09). */
+  dealerId?: string;
+  /** Bookings only / Deliveries only (2026-11-09): a booking by its booking date, a delivery by its
+   *  delivery date (started or delivered) -- the month figures' own; empty for both. */
+  kind?: P2JourneyKind | '';
   outletId?: string;
   pcActorId?: string;
   /** 'business': the month is the booking date's (bookings) or the delivery date's (deliveries) --
    *  the Team Lead dashboard's calendar month (2026-11-07); otherwise the month the journey started. */
   monthBasis?: 'business';
+};
+
+export type P2JourneyKind = 'booking' | 'delivery';
+
+/** One search suggestion (Audit Core journeys:suggest): the list's own matching, a few at a time. */
+export type P2JourneySuggestion = {
+  journeyId: string;
+  journeyReference: string | null;
+  customerName: string | null;
+  /** Masked to the last four ("******3210"); null when no number is known. */
+  mobileMasked: string | null;
+  dealerName: string | null;
+  outletName: string | null;
+  pcName: string | null;
+  vehicle: string | null;
+  kind: 'BOOKING' | 'DELIVERY';
+  /** The booking date of a booking, the delivery date of a delivery (YYYY-MM-DD). */
+  date: string | null;
 };
 
 /** How a page of journeys is ordered: the tab's own order (most urgent first), or Outlet by Outlet. */
@@ -122,7 +146,12 @@ export type P2JourneyBreakdownRow = {
 
 export type P2JourneyCountsResponse = {
   counts: P2JourneyCounts;
-  byOutlet?: (P2JourneyBreakdownRow & { outlet_id: string; outlet_name: string | null; outlet_code: string | null })[];
+  byDealer?: (P2JourneyBreakdownRow & { dealer_id: string; dealer_name: string | null })[];
+  byOutlet?: (P2JourneyBreakdownRow & {
+    outlet_id: string; outlet_name: string | null; outlet_code: string | null;
+    /** The Outlet's Dealership (absent from an Audit Core older than 2026-11-09). */
+    dealer_id?: string | null;
+  })[];
   byPc?: (P2JourneyBreakdownRow & { pc_actor_id: string | null; pc_name: string | null })[];
 };
 
@@ -614,11 +643,14 @@ export async function createP2Journey(
   });
 }
 
-function journeyFilterParams(filters: P2JourneyFilters): URLSearchParams {
+/** The query string of the journey list and its counts (exported for its tests). */
+export function journeyFilterParams(filters: P2JourneyFilters): URLSearchParams {
   const params = new URLSearchParams();
   if (filters.search?.trim()) params.set('q', filters.search.trim());
   if (filters.month) params.set('month', filters.month);
   if (filters.month && filters.monthBasis) params.set('month_basis', filters.monthBasis);
+  if (filters.dealerId) params.set('dealer_id', filters.dealerId);
+  if (filters.kind) params.set('kind', filters.kind);
   if (filters.outletId) params.set('outlet_id', filters.outletId);
   if (filters.pcActorId) params.set('pc_actor_id', filters.pcActorId);
   return params;
@@ -645,7 +677,7 @@ export function getP2JourneyPage(
   );
 }
 
-/** GET /p2/v1/tenants/{t}/journeys:counts: every tab's count (and per outlet / PC). */
+/** GET /p2/v1/tenants/{t}/journeys:counts: every tab's count (and per Dealership / outlet / PC). */
 export function getP2JourneyCounts(
   tenantId: string,
   accessToken: string | undefined,
@@ -656,6 +688,21 @@ export function getP2JourneyCounts(
   if (breakdown) params.set('breakdown', 'true');
   return auditCoreRequest<P2JourneyCountsResponse>(
     `${path(tenantId, '/journeys:counts')}?${params.toString()}`,
+    { accessToken, timeoutMs: LIST_READ_TIMEOUT_MS },
+  );
+}
+
+/** GET /p2/v1/tenants/{t}/journeys:suggest: search as you type, the list's own scope, filters and matching. */
+export function getP2JourneySuggestions(
+  tenantId: string,
+  accessToken: string | undefined,
+  filters: P2JourneyFilters,
+  limit = 8,
+): Promise<{ items: P2JourneySuggestion[] }> {
+  const params = journeyFilterParams(filters);
+  params.set('limit', String(limit));
+  return auditCoreRequest<{ items: P2JourneySuggestion[] }>(
+    `${path(tenantId, '/journeys:suggest')}?${params.toString()}`,
     { accessToken, timeoutMs: LIST_READ_TIMEOUT_MS },
   );
 }

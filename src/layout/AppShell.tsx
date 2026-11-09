@@ -108,7 +108,7 @@ const analyticsReportLabels: Record<string, string> = {
 // this opens the full Work Queue table so PC, TL and PM can all browse every
 // booking and delivery and tab between them. Routed at /work-queue (not
 // /dashboard) so it renders the same page for every role, including TL, who
-// Overview always sends to TeamLeadDashboardPage instead.
+// Overview always sends to SupervisoryDashboardPage instead.
 const allJourneysItem: NavItem = {
   to: P2_HOME_PATH,
   label: 'Bookings & Deliveries',

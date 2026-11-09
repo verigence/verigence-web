@@ -30,7 +30,7 @@ describe('Phase 1 screens off for PC, TL and PM', () => {
   });
 
   it('the Team Lead home and journey rows do not open the old screens', () => {
-    expect(read('pages/TeamLeadDashboardPage.tsx')).not.toContain("'/reviews");
+    expect(read('pages/SupervisoryDashboardPage.tsx')).not.toContain("'/reviews");
     expect(read('features/uc03-p2/bookings/JourneyRow.tsx')).not.toContain('/tl/cases/');
   });
 

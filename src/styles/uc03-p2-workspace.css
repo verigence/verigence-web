@@ -574,6 +574,50 @@
 .p2w-search input:focus,
 .p2w-start input:focus,
 .p2w-start select:focus { outline: 3px solid rgb(52 184 200 / 35%); border-color: #9fd6e2; }
+/* Search suggestions (2026-11-09): Carbon's combobox -- a listbox layered under the search box,
+   one match per row, the highlighted row tinted, "Show all results" last. It sits inside the box's
+   own width at every screen size. */
+.p2w-suggest { position: relative; }
+.p2w-suggest__list {
+  position: absolute;
+  z-index: 30;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  max-height: min(420px, 60dvh);
+  margin: 0;
+  padding: 4px 0;
+  overflow-y: auto;
+  list-style: none;
+  border: 1px solid #cfe0ea;
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 0 8px 24px rgb(16 42 67 / 14%);
+}
+.p2w-suggest__option {
+  display: grid;
+  gap: 2px;
+  min-height: var(--p2w-tap);
+  padding: 8px 14px;
+  border-left: 3px solid transparent;
+  cursor: pointer;
+}
+.p2w-suggest__option.is-active { border-left-color: var(--p2w-action); background: var(--p2w-action-soft); }
+.p2w-suggest__head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 12px; }
+.p2w-suggest__head strong { color: var(--p2w-ink); font-size: 0.95rem; }
+.p2w-suggest__head strong.is-unknown { color: var(--p2w-muted); font-style: italic; font-weight: 600; }
+.p2w-suggest__kind { font-size: 0.78rem; font-weight: 700; white-space: nowrap; }
+.p2w-suggest__kind--booking { color: var(--p2w-progress); }
+.p2w-suggest__kind--delivery { color: var(--p2w-success); }
+.p2w-suggest__meta { color: var(--p2w-muted); font-size: 0.8rem; overflow-wrap: anywhere; }
+.p2w-suggest__status { padding: 10px 14px; color: var(--p2w-muted); font-size: 0.85rem; }
+.p2w-suggest__all {
+  align-content: center;
+  border-top: 1px solid var(--p2w-line);
+  color: var(--p2w-link);
+  font-size: 0.88rem;
+  font-weight: 700;
+}
 .p2w-journeys { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
 .p2w-journey {
   display: grid;

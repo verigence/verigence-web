@@ -56,7 +56,7 @@ export function customerLabel(name: string | null | undefined): { text: string; 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 /** "27 Sep 2026": the full date, as the list shows every date. */
-function fullDate(value?: string | null): string | null {
+export function fullDate(value?: string | null): string | null {
   if (!value) return null;
   const date = new Date(value.length === 10 ? `${value}T00:00:00` : value);
   if (Number.isNaN(date.getTime())) return value;

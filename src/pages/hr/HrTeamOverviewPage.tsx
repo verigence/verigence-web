@@ -278,6 +278,9 @@ export default function HrTeamOverviewPage() {
                   <strong>{arrivals.onLeave}</strong>
                   {arrivals.leaveApplied > 0 && <small>{arrivals.leaveApplied} applied, not approved</small>}
                 </div>
+                {arrivals.morningOff > 0 && (
+                  <div><span>Morning off (half-day holiday)</span><strong>{arrivals.morningOff}</strong>{arrivals.morningOffUntil && <small>expected from {arrivals.morningOffUntil}</small>}</div>
+                )}
                 {arrivals.checkedIn > 0 && (
                   <div><span>Checked in, no outlet check</span><strong>{arrivals.checkedIn}</strong><small>Team Leads, Project Managers, outlets without a location</small></div>
                 )}

@@ -12,6 +12,9 @@ The app's build number is added by the release workflow and is not written here.
 
 ## [Unreleased]
 
+### Fixed
+- Reached the outlet (Attendance Overview and the dashboard's Team today card): on a half-day holiday with the morning off, people are shown as "Morning off" until the afternoon starts, not as "not checked in yet"; they are expected from the half-day split time.
+
 ### Added
 - Team Leads, Project Managers and Executives can see who of the team has reached the outlet today, without asking. In My HR > Attendance Overview (Daily), the check-in column now shows the time, the outlet and "At outlet" or "Away 2.4 km" (from the check-in's location and the outlet's 500 m limit). For today, a "Reached the outlet today" summary at the top counts who reached the outlet, who checked in away from it, who has not checked in yet (with their names) and who is on leave. Sort the list by check-in time with the column header (on a phone, the "Sort by check-in time" button). Today's view refreshes itself every 3 minutes while it is open.
 - Dealer operations dashboard (Team Lead, Project Manager, Executive): a "Team today" card shows how many of the team have reached the outlet (for example "7 of 9"), the first and latest arrival, who is away from the outlet, who is on leave and up to five names of those not checked in yet. It opens Attendance Overview for the Project. If My HR cannot be reached, the card says so in one line and the rest of the dashboard works as before.

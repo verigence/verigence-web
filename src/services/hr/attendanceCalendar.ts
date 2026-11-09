@@ -113,6 +113,8 @@ export interface TeamDailyRow {
   checkInOutlet?: string | null;
   checkInDistanceM?: number | null;
   checkInOutOfFence?: boolean | null;
+  /** A half-day holiday for this person on this day: which half is off and when the halves split. */
+  halfDayHoliday?: HalfDayHoliday | null;
   delinquencies: Array<{ code: string; label: string; decision: string | null; reason?: string | null }>;
   workedMinutes: number;
   runningMinutes: number | null;

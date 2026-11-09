@@ -87,6 +87,19 @@ jobs:
           distribution: temurin
           java-version: '21'
 
+      # Gradle and the Android libraries are kept between runs, so a build does not depend on
+      # downloading them every time (9 Nov 2026: GitHub's download servers returned 504 for an
+      # hour and every Android build stopped before compiling).
+      - name: Cache Gradle
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/wrapper
+            ~/.gradle/caches
+          key: android-gradle-${{ runner.os }}-${{ hashFiles('package.json') }}
+          restore-keys: |
+            android-gradle-${{ runner.os }}-
+
       - name: Install dependencies
         run: npm install --no-audit --no-fund
 
@@ -152,7 +165,14 @@ jobs:
         run: |
           set -euo pipefail
           chmod +x gradlew
-          ./gradlew lintDebug assembleDebug --stacktrace
+          # A download that times out (Gradle itself or a library) is retried, not fatal.
+          sed -i 's/^networkTimeout=.*/networkTimeout=120000/' gradle/wrapper/gradle-wrapper.properties || true
+          for attempt in 1 2 3; do
+            if ./gradlew lintDebug assembleDebug --stacktrace; then break; fi
+            [ "$attempt" = 3 ] && exit 1
+            echo "::warning::Android build attempt $attempt failed; retrying in 60 s"
+            sleep 60
+          done
 
       - name: Verify APK
         run: |

@@ -255,7 +255,7 @@ export default function SevaSutraInstanceCard({
 
       <ul className="uc02-checklist">
         <li><strong>Dealers and Dealer Outlets</strong> added here (Steps 2 and 3) become the dealership's outlets in SevaSutra.</li>
-        <li><strong>Role Mapping</strong> (Step 5) decides who signs in: Analyst (at the Outlets ticked), Team Lead, Project Manager, Executive, or Client for people who are not JBR employees and see the analytics only. Other roles give no access to SevaSutra.</li>
+        <li><strong>Role Mapping</strong> (Step 5) decides who signs in: Process Consultant or Analyst (at the Outlets ticked), Team Lead, Project Manager, Executive, or Client for people who are not JBR employees and see the analytics only. Other roles give no access to SevaSutra.</li>
         <li>People sign in with their Verigence email and password, and see only the Projects they are mapped to.</li>
       </ul>
     </div>

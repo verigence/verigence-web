@@ -52,6 +52,8 @@ export interface ProjectCreateInput {
   effectiveEndDate?: string | null;
   timezoneName: string;
   regionCode?: string | null;
+  /** SALES (default) or SERVICE; a service audit runs in SevaSutra. */
+  auditType?: 'SALES' | 'SERVICE';
 }
 
 /* Project creation is synchronous in the current Audit Core contract. A successful
@@ -239,7 +241,7 @@ export function getProjectAdmin(tenantId: string, accessToken?: string) {
 export function patchProjectAdmin(
   tenantId: string,
   versionNo: number,
-  payload: Partial<Pick<Uc02Project, 'projectName' | 'businessCode' | 'effectiveEndDate' | 'timezoneName' | 'regionCode'>> & {
+  payload: Partial<Pick<Uc02Project, 'projectName' | 'businessCode' | 'effectiveEndDate' | 'timezoneName' | 'regionCode' | 'auditType'>> & {
     oemId?: string;
     segmentIds?: string[];
     effectiveStartDate?: string;
@@ -249,6 +251,37 @@ export function patchProjectAdmin(
   return auditCoreRequest<Uc02Project>(`/v1/tenants/${tenantId}/project`, {
     method: 'PATCH',
     headers: { 'If-Match': `"${versionNo}"` },
+    body: JSON.stringify(payload),
+    ...auth(accessToken),
+  });
+}
+
+/** A service-audit Project's SevaSutra instance: the dealership in SevaSutra and its own address. */
+export interface SevaSutraInstance {
+  tenantId: string;
+  dealershipName: string;
+  /** The part before .sevasutra.jbrconsulting.in; null when it opens from the shared address. */
+  subdomain: string | null;
+  status: 'REQUESTED' | 'CREATED' | 'LIVE' | 'FAILED';
+  statusMessage: string | null;
+  dealerCode: string | null;
+  liveHostname: string | null;
+  requestedAtUtc: string;
+  reportedAtUtc: string | null;
+}
+
+export function getSevaSutraInstance(tenantId: string, accessToken?: string) {
+  return auditCoreRequest<{ instance: SevaSutraInstance | null }>(`/v1/tenants/${tenantId}/sevasutra-instance`, auth(accessToken));
+}
+
+/** Creates the instance, or changes its name or address. Super Admin only. */
+export function putSevaSutraInstance(
+  tenantId: string,
+  payload: { dealershipName: string; subdomain: string | null },
+  accessToken?: string,
+) {
+  return auditCoreRequest<{ instance: SevaSutraInstance | null }>(`/v1/tenants/${tenantId}/sevasutra-instance`, {
+    method: 'PUT',
     body: JSON.stringify(payload),
     ...auth(accessToken),
   });

@@ -9,6 +9,7 @@ import OtherProjectsNotice from '../features/project-admin/OtherProjectsNotice';
 import ProjectAdminStepper, { projectAdminSteps } from '../features/project-admin/ProjectAdminStepper';
 import ProjectReferenceFields from '../features/project-admin/ProjectReferenceFields';
 import ProjectSelector from '../features/project-admin/ProjectSelector';
+import SevaSutraInstanceCard from '../features/project-admin/SevaSutraInstanceCard';
 import OnboardingWorkbookPanel from '../features/project-admin/OnboardingWorkbookPanel';
 import { suggestedDealerCode } from '../features/project-admin/onboardingCodes';
 import { getProjectReferenceData } from '../services/audit-core/projectReferenceData';
@@ -81,7 +82,6 @@ const MAHINDRA_SPECIALIZED_MASTER_KEYS = new Set(['PRODUCT_MASTER', 'PRICE_LIST'
 const FLEXIBLE_SCOPE_ROLES: OperatingRole[] = ['CRM', 'REVIEWER'];
 // Outlet-scoped roles: one or more Dealer Outlets. ANALYST is SevaSutra's on-site auditor.
 const OUTLET_SCOPED_ROLES: OperatingRole[] = ['PC', 'ANALYST'];
-const SEVASUTRA_URL = 'https://sevasutra.jbrconsulting.in';
 // What each role is called on screen; a service-audit Project runs in SevaSutra and uses its roles.
 const ROLE_OPTIONS: { value: OperatingRole; label: string; service: boolean; sales: boolean }[] = [
   { value: 'ANALYST', label: 'Analyst (SevaSutra)', service: true, sales: false },
@@ -173,6 +173,7 @@ const emptyProjectForm = () => ({
   effectiveEndDate: '',
   timezoneName: 'Asia/Kolkata',
   regionCode: '',
+  auditType: 'SALES' as 'SALES' | 'SERVICE',
 });
 const emptyDealerForm = () => ({ dealerName: '', dealerCode: '', legalName: '', status: 'ACTIVE' });
 const emptyOutletForm = () => ({
@@ -347,6 +348,7 @@ export default function ProjectAdministrationV2Page() {
         effectiveEndDate: value.effectiveEndDate || '',
         timezoneName: value.timezoneName,
         regionCode: value.regionCode || '',
+        auditType: value.auditType === 'SERVICE' ? 'SERVICE' : 'SALES',
       });
     } catch (error) {
       setProject(null);
@@ -455,6 +457,8 @@ export default function ProjectAdministrationV2Page() {
             effectiveEndDate: projectForm.effectiveEndDate || null,
             timezoneName: projectForm.timezoneName.trim(),
             regionCode: projectForm.regionCode.trim() || null,
+            // Only a Super Admin sets whether it is a sales or a service audit.
+            ...(canCreateProject && projectForm.auditType !== (project.auditType || 'SALES') ? { auditType: projectForm.auditType } : {}),
           },
           accessToken,
         );
@@ -472,6 +476,7 @@ export default function ProjectAdministrationV2Page() {
             effectiveEndDate: projectForm.effectiveEndDate || null,
             timezoneName: projectForm.timezoneName.trim(),
             regionCode: projectForm.regionCode.trim() || null,
+            auditType: projectForm.auditType,
           },
           randomKey('project-create'),
           accessToken,
@@ -1030,6 +1035,12 @@ export default function ProjectAdministrationV2Page() {
                 <div className="uc02-form-grid">
                   <Field label="Project Code" hint="e.g. JBR-01 — unique across Projects"><input value={projectForm.businessCode} maxLength={40} pattern="[A-Za-z0-9][A-Za-z0-9_.\-]*" onChange={(event) => setProjectForm({ ...projectForm, businessCode: event.target.value })} /></Field>
                   <Field label="Project Name"><input required value={projectForm.projectName} onChange={(event) => setProjectForm({ ...projectForm, projectName: event.target.value })} /></Field>
+                  <Field label="Audit type" hint={canCreateProject ? (projectForm.auditType === 'SERVICE' ? 'Workshop audit, run in SevaSutra. Fixed once Journeys are recorded.' : 'Sales audit. Fixed once Journeys are recorded.') : 'Set by a Super Admin.'}>
+                    <select value={projectForm.auditType} disabled={!canCreateProject} onChange={(event) => setProjectForm({ ...projectForm, auditType: event.target.value as 'SALES' | 'SERVICE' })}>
+                      <option value="SALES">Sales audit</option>
+                      <option value="SERVICE">Service audit (SevaSutra)</option>
+                    </select>
+                  </Field>
                   <ProjectReferenceFields
                     oemId={projectForm.oemId}
                     segmentIds={projectForm.segmentIds}
@@ -1047,21 +1058,8 @@ export default function ProjectAdministrationV2Page() {
               </form>
             )}
 
-            {project && isServiceAudit && (
-              <div className="uc02-card uc02-list-card" data-sevasutra-card="true">
-                <div className="uc02-list-toolbar">
-                  <div className="uc02-card__title">
-                    <h3>SevaSutra (workshop audit)</h3>
-                    <p>This service-audit Project runs in SevaSutra. Verigence is where it is set up: SevaSutra follows this Project within a few minutes.</p>
-                  </div>
-                  <a className="uc02-button uc02-button--primary" href={SEVASUTRA_URL} target="_blank" rel="noreferrer">Open SevaSutra</a>
-                </div>
-                <ul className="uc02-checklist">
-                  <li><strong>Dealers and Dealer Outlets</strong> added here (Steps 2 and 3) become the dealership's outlets in SevaSutra.</li>
-                  <li><strong>Role Mapping</strong> (Step 5) decides who signs in: Analyst (at the Outlets ticked), Team Lead, Project Manager, or Client for people who are not JBR employees and see the analytics only. Other roles give no access to SevaSutra.</li>
-                  <li>People sign in at <a href={SEVASUTRA_URL} target="_blank" rel="noreferrer">sevasutra.jbrconsulting.in</a> with their Verigence email and password, and see only the Projects they are mapped to.</li>
-                </ul>
-              </div>
+            {project && isServiceAudit && tenantId && (
+              <SevaSutraInstanceCard tenantId={tenantId} projectName={project.projectName} accessToken={accessToken ?? undefined} canManage={canCreateProject} />
             )}
 
             {canDeleteProject && (

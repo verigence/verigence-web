@@ -11,7 +11,12 @@ const GROUPS = [
   { value: 'dealers', label: 'Dealership' },
 ] as const;
 type Group = (typeof GROUPS)[number]['value'];
-type LargeCash = PaymentsInsight['cashAboveLimit'][number];
+type AroundLimit = PaymentsInsight['cashAroundLimit'][number];
+const BAND: Record<AroundLimit['band'], { label: string; tone: string }> = {
+  ABOVE: { label: 'Above the limit', tone: ' is-danger' },
+  AT: { label: 'Exactly the limit', tone: ' is-warning' },
+  NEAR: { label: 'Just under', tone: '' },
+};
 type CashInAll = PaymentsInsight['cashAboveLimitInAll'][number];
 
 function who<T extends { customer?: string | null; reference: string | null; dealer?: string; outlet?: string; journeyId: string }>(): Column<T>[] {
@@ -28,6 +33,7 @@ export default function PaymentsReport({ data }: { data: PaymentsInsight }) {
   const [group, setGroup] = useState<Group>('outlets');
   const network = data.network;
   const limit = rupeesShort(data.basis.cashLimit);
+  const nearFrom = rupeesShort(data.basis.nearLimitFrom);
   const rows = data[group];
   const highestCash = Math.max(...rows.map((row) => row.cashPercent ?? 0), 1);
 
@@ -38,17 +44,21 @@ export default function PaymentsReport({ data }: { data: PaymentsInsight }) {
     { key: 'cashAmount', label: 'In cash', numeric: true, value: (row) => row.cashAmount, render: (row) => rupeesShort(row.cashAmount) },
     { key: 'cashPercent', label: 'Cash share', numeric: true, value: (row) => row.cashPercent,
       render: (row) => <CellBar value={row.cashPercent} max={highestCash} display={percent(row.cashPercent, 1)} tone="b" /> },
-    { key: 'journeysPayingCash', label: 'Bookings paying cash', numeric: true, value: (row) => row.journeysPayingCash, render: (row) => count(row.journeysPayingCash) },
-    { key: 'cashAboveLimit', label: `Cash receipts above ${limit}`, numeric: true, value: (row) => row.cashAboveLimit,
+    { key: 'cashAboveLimit', label: `Above ${limit}`, numeric: true, value: (row) => row.cashAboveLimit,
       render: (row) => <span className={row.cashAboveLimit ? 'ins-danger' : undefined}>{count(row.cashAboveLimit)}</span> },
+    { key: 'cashAtLimit', label: `Exactly ${limit}`, numeric: true, value: (row) => row.cashAtLimit,
+      render: (row) => <span className={row.cashAtLimit ? 'ins-warning' : undefined}>{count(row.cashAtLimit)}</span> },
+    { key: 'cashNearLimit', label: 'Just under', numeric: true, value: (row) => row.cashNearLimit, render: (row) => count(row.cashNearLimit) },
     { key: 'modeNotReadPercent', label: 'Mode not read', numeric: true, value: (row) => row.modeNotReadPercent, render: (row) => percent(row.modeNotReadPercent, 1) },
   ];
 
-  const largeColumns: Column<LargeCash>[] = [
+  const largeColumns: Column<AroundLimit>[] = [
     { key: 'date', label: 'Receipt date', value: (row) => row.date, render: (row) => <span className="ins-nowrap">{dayLabel(row.date)}</span> },
-    ...who<LargeCash>(),
+    ...who<AroundLimit>(),
     { key: 'receiptNumber', label: 'Receipt', value: (row) => row.receiptNumber },
-    { key: 'amount', label: 'Cash received', numeric: true, value: (row) => row.amount, render: (row) => <span className="ins-danger">{rupees(row.amount)}</span> },
+    { key: 'band', label: 'Against the limit', value: (row) => BAND[row.band].label,
+      render: (row) => <span className={`ins-tag ins-tag--flush${BAND[row.band].tone}`}>{BAND[row.band].label}</span> },
+    { key: 'amount', label: 'Cash received', numeric: true, value: (row) => row.amount, render: (row) => rupees(row.amount) },
     { key: 'open', label: 'Open', value: () => '', render: (row) => <JourneyLink journeyId={row.journeyId} /> },
   ];
   // Sits in half the width beside the payment modes: the outlet goes under the customer.
@@ -70,12 +80,16 @@ export default function PaymentsReport({ data }: { data: PaymentsInsight }) {
         { label: 'In cash', value: rupeesShort(network.cashAmount), meter: network.cashPercent ?? 0,
           detail: `${percent(network.cashPercent, 1)} of the money · ${count(network.journeysPayingCash)} bookings` },
         { label: `Cash receipts above ${limit}`, value: count(network.cashAboveLimit), tone: network.cashAboveLimit ? 'danger' : 'default',
-          detail: network.cashAboveLimit ? `${rupeesShort(network.cashAboveLimitAmount)} in single receipts` : 'None' },
+          detail: network.cashAboveLimit ? `${rupeesShort(network.cashAboveLimitAmount)} in single receipts` : 'No single receipt above the limit' },
+        { label: `Cash receipts of exactly ${limit}`, value: count(network.cashAtLimit), tone: network.cashAtLimit ? 'warning' : 'default',
+          detail: network.cashAtLimit ? `${rupeesShort(network.cashAtLimitAmount)} · at the limit, not above it` : 'None' },
+        { label: `Just under ${limit}`, value: count(network.cashNearLimit),
+          detail: `Cash receipts from ${nearFrom} to under ${limit}` },
         { label: `Bookings above ${limit} cash in all`, value: count(network.journeysCashAboveLimitInAll),
           tone: network.journeysCashAboveLimitInAll ? 'warning' : 'default', detail: 'Cash receipts added up' },
         { label: 'Mode not read', value: rupeesShort(network.modeNotReadAmount),
           detail: `${percent(network.modeNotReadPercent, 1)} of the money · ${count(network.modeNotRead)} receipts` },
-        { label: 'Refunds', value: rupeesShort(data.basis.refundAmount), detail: `${count(data.basis.refunds)} refunds` },
+        ...(data.basis.refunds ? [{ label: 'Refunds', value: rupeesShort(data.basis.refundAmount), detail: `${count(data.basis.refunds)} refunds` }] : []),
       ]} />
 
       <div className="ins-grid">
@@ -102,10 +116,11 @@ export default function PaymentsReport({ data }: { data: PaymentsInsight }) {
                    empty="No receipt matches these filters." />
       </Section>
 
-      <Section title={`Cash receipts above ${limit}`} description="Single cash receipts above the limit the audit checks.">
-        <DataTable columns={largeColumns} rows={data.cashAboveLimit} rowKey={(row) => `${row.journeyId}-${row.receiptNumber}-${row.amount}-${row.date}`}
-                   pageSize={10} sort={{ key: 'amount', direction: 'desc' }} csvName="cash-receipts-above-limit"
-                   caption="Cash receipts above the limit" empty="No single cash receipt is above the limit." />
+      <Section title={`Cash receipts at or near ${limit}`}
+               description={`Single cash receipts of ${nearFrom} and more. The audit raises a task above ${limit} only; receipts at the limit or just under it are listed for a look.`}>
+        <DataTable columns={largeColumns} rows={data.cashAroundLimit} rowKey={(row) => `${row.journeyId}-${row.receiptNumber}-${row.amount}-${row.date}`}
+                   pageSize={10} sort={{ key: 'amount', direction: 'desc' }} csvName="cash-receipts-near-limit"
+                   caption="Cash receipts at or near the limit" empty={`No single cash receipt is ${nearFrom} or more.`} />
       </Section>
     </>
   );

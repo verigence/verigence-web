@@ -76,7 +76,7 @@ export const penetration: PenetrationInsight = {
 
 export const sales: SalesInsight = {
   ...envelope('sales'),
-  basis: { liveJourneys: 1253, thinBelow: 10, bookingDateRead: 1088, priceInDoubt: 2, modelNotResolved: 313 },
+  basis: { liveJourneys: 1253, thinBelow: 10, bookingDateRead: 1088, priceInDoubt: 2, modelNotResolved: 313, deliveryDateInDoubt: 1 },
   network: {
     journeys: 1253, sharePercent: 100, deliveryStarted: 795, delivered: 269, statementDeals: 623, billedDeals: 671,
     billedValue: 890_990_332, typicalExShowroom: 1_091_500, typicalDaysToDeliver: 9, daysMeasuredOn: 241,
@@ -115,7 +115,7 @@ const verdicts = (over: number, kit: number, unknown: number, under: number) => 
 
 export const discounts: DiscountInsight = {
   ...envelope('discounts'),
-  basis: { liveJourneys: 1253, billedDeals: 673, pricedDeals: 671, priceInDoubt: 2, notYetCalculated: 6, thinBelow: 10,
+  basis: { liveJourneys: 1253, billedDeals: 673, pricedDeals: 671, priceNotRead: 0, priceInDoubt: 2, notYetCalculated: 6, thinBelow: 10,
     outlierPercent: 5, outlierAmount: 200000, toleranceRupees: 100 },
   verdictLabels: { OVER_ENTITLEMENT: 'Over entitlement', KIT_AS_CASH: 'Kit given as cash', ENTITLEMENT_UNKNOWN: 'Entitlement unknown', UNDER_ENTITLEMENT: 'Under entitlement' },
   network: { deals: 673, discountedDeals: 409, given: 15_397_156, exShowroom: 890_990_332, givenPercent: 1.73, perDeal: 22_878,
@@ -190,10 +190,10 @@ export const insurance: InsuranceInsight = {
   ],
   models: [{ key: 'MAXX HD', label: 'MAXX HD', parent: 'CV', thin: false, ...channel(151, 76, 60) }],
   outsideAgents: [
-    { key: 'code:PS000041087', agent: 'An Agent', code: 'PS000041087', policies: 19, premium: 579_604, confirmedOutside: 2,
+    { key: 'code:PS000041087', agent: 'An Agent', code: 'PS0000041087', codes: ['PS0000041087', 'PS000041087'], policies: 19, premium: 579_604, confirmedOutside: 2,
       dealers: ['Utkal Mahindra'], outlets: [{ outlet: 'Utkal Mahindra - CDA', policies: 12 }, { outlet: 'Utkal Mahindra - BARBIL', policies: 7 }],
       journeys: [{ journeyId: 'j-3', reference: 'MO-000789' }] },
-    { key: 'none', agent: 'No agent or code on the policy', code: null, policies: 28, premium: 1_020_000, confirmedOutside: 0,
+    { key: 'none', agent: 'No agent or code on the policy', code: null, codes: [], policies: 28, premium: 1_020_000, confirmedOutside: 0,
       dealers: ['Aditya Motors'], outlets: [{ outlet: 'Aditya Motors - Jajpur', policies: 28 }], journeys: [] },
   ],
   dealerCodeOffStatement: { policies: 9, premium: 622_813,
@@ -254,13 +254,14 @@ export const scrappage: ScrappageInsight = {
 
 const pay = (journeys: number, amount: number, cashPercent: number) => ({
   journeys, journeysWithReceipts: Math.round(journeys * 0.85), receipts: journeys * 3, amount, cashReceipts: journeys, cashAmount: Math.round(amount * cashPercent / 100),
-  cashPercent, journeysPayingCash: Math.round(journeys * 0.4), cashAboveLimit: 2, cashAboveLimitAmount: 520_000, journeysCashAboveLimitInAll: 5,
+  cashPercent, journeysPayingCash: Math.round(journeys * 0.4), cashAboveLimit: 0, cashAboveLimitAmount: 0, cashAtLimit: 14, cashAtLimitAmount: 2_800_000,
+  cashNearLimit: 35, cashNearLimitAmount: 6_800_000, journeysCashAboveLimitInAll: 9,
   modeNotRead: journeys, modeNotReadAmount: Math.round(amount * 0.09), modeNotReadPercent: 9.2,
 });
 
 export const payments: PaymentsInsight = {
   ...envelope('payments'),
-  basis: { liveJourneys: 1253, cashLimit: 200000, refunds: 11, refundAmount: 410_000 },
+  basis: { liveJourneys: 1253, cashLimit: 200000, nearLimitFrom: 190000, refunds: 0, refundAmount: 0 },
   network: pay(1253, 746_427_286, 4.5),
   modes: [
     { mode: 'RTGS', label: 'RTGS', receipts: 575, journeys: 380, amount: 405_997_028, sharePercent: 54.4, typical: 700_000 },
@@ -269,8 +270,13 @@ export const payments: PaymentsInsight = {
   ],
   dealers: [{ key: 'd-utkal', label: 'Utkal Mahindra', parent: null, ...pay(660, 420_000_000, 4.1) }],
   outlets: [{ key: 'o-cda', label: 'Utkal Mahindra - CDA', parent: 'Utkal Mahindra', ...pay(114, 80_000_000, 6.3) }],
-  cashAboveLimit: [{ journeyId: 'j-8', reference: 'MO-777', customer: 'F Customer', dealer: 'Utkal Mahindra', outlet: 'Utkal Mahindra - CDA', pc: 'A PC',
-    amount: 260_000, date: '2026-10-14', receiptNumber: 'R-77' }],
+  cashAboveLimit: [],
+  cashAroundLimit: [
+    { journeyId: 'j-8', reference: 'MO-777', customer: 'F Customer', dealer: 'Utkal Mahindra', outlet: 'Utkal Mahindra - CDA', pc: 'A PC',
+      amount: 200_000, band: 'AT', date: '2026-10-14', receiptNumber: 'R-77' },
+    { journeyId: 'j-9', reference: 'MO-778', customer: 'G Customer', dealer: 'Aditya Motors', outlet: 'Aditya Motors - Jajpur', pc: 'B PC',
+      amount: 199_000, band: 'NEAR', date: '2026-10-20', receiptNumber: 'R-90' },
+  ],
   cashAboveLimitInAll: [{ journeyId: 'j-8', reference: 'MO-777', customer: 'F Customer', dealer: 'Utkal Mahindra', outlet: 'Utkal Mahindra - CDA', pc: 'A PC',
     cashTotal: 310_000, cashReceipts: 2, largestReceipt: 260_000 }],
 };

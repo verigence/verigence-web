@@ -65,7 +65,7 @@ export interface SalesBlock {
 }
 export type SalesRow = GroupRow & SalesBlock;
 export interface SalesInsight extends InsightEnvelope {
-  basis: { liveJourneys: number; thinBelow: number; bookingDateRead: number; priceInDoubt: number; modelNotResolved: number };
+  basis: { liveJourneys: number; thinBelow: number; bookingDateRead: number; priceInDoubt: number; modelNotResolved: number; deliveryDateInDoubt: number };
   network: SalesBlock;
   months: { month: string; booked: number; delivered: number }[];
   daysToDeliverBands: { band: string; deals: number }[];
@@ -118,6 +118,8 @@ export interface OutsideAgent {
   policies: number;
   premium: number | null;
   confirmedOutside: number;
+  /** Every code read for this agent; more than one where a reader dropped a digit. */
+  codes: string[];
   dealers: string[];
   outlets: { outlet: string; policies: number }[];
   journeys: JourneyRef[];
@@ -223,6 +225,10 @@ export interface PaymentsBlock {
   journeysPayingCash: number;
   cashAboveLimit: number;
   cashAboveLimitAmount: number;
+  cashAtLimit: number;
+  cashAtLimitAmount: number;
+  cashNearLimit: number;
+  cashNearLimitAmount: number;
   journeysCashAboveLimitInAll: number;
   modeNotRead: number;
   modeNotReadAmount: number;
@@ -230,12 +236,13 @@ export interface PaymentsBlock {
 }
 export type PaymentsRow = GroupRow & PaymentsBlock;
 export interface PaymentsInsight extends InsightEnvelope {
-  basis: { liveJourneys: number; cashLimit: number; refunds: number; refundAmount: number };
+  basis: { liveJourneys: number; cashLimit: number; nearLimitFrom: number; refunds: number; refundAmount: number };
   network: PaymentsBlock;
   modes: { mode: string; label: string; receipts: number; journeys: number; amount: number; sharePercent: number | null; typical: number | null }[];
   dealers: PaymentsRow[];
   outlets: PaymentsRow[];
   cashAboveLimit: (JourneyRef & { amount: number; date: string | null; receiptNumber: string | null })[];
+  cashAroundLimit: (JourneyRef & { amount: number; band: 'ABOVE' | 'AT' | 'NEAR'; date: string | null; receiptNumber: string | null })[];
   cashAboveLimitInAll: (JourneyRef & { cashTotal: number; cashReceipts: number; largestReceipt: number })[];
 }
 
@@ -292,7 +299,7 @@ export interface DiscountOutlier extends JourneyRef {
 }
 export interface DiscountInsight extends InsightEnvelope {
   basis: {
-    liveJourneys: number; billedDeals: number; pricedDeals: number; priceInDoubt: number; notYetCalculated: number;
+    liveJourneys: number; billedDeals: number; pricedDeals: number; priceNotRead: number; priceInDoubt: number; notYetCalculated: number;
     thinBelow: number; outlierPercent: number; outlierAmount: number; toleranceRupees: number;
   };
   verdictLabels: Record<Verdict, string>;

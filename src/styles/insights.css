@@ -86,7 +86,7 @@
 .ins .ins-tile { background: var(--ins-layer); padding: 16px; display: grid; gap: 4px; align-content: start; min-width: 0;
   border: solid var(--ins-border); border-width: 0 1px 1px 0; }
 .ins .ins-tile__label { font-size: .875rem; color: var(--ins-text-2); }
-.ins .ins-tile strong { font-size: 1.75rem; font-weight: 400; line-height: 1.25; }
+.ins .ins-tile strong { font-size: 1.5rem; font-weight: 400; line-height: 1.25; white-space: nowrap; }
 .ins .ins-tile__detail { font-size: .75rem; color: var(--ins-text-2); }
 .ins .ins-tile.is-danger strong { color: var(--ins-danger); }
 .ins .ins-tile.is-warning strong { color: var(--ins-warning); }
@@ -156,6 +156,8 @@
 .ins .ins-secondary { display: block; color: var(--ins-text-2); font-size: .75rem; margin-top: 2px; font-weight: 400; }
 .ins .ins-tag { display: inline-block; margin-left: 8px; padding: 1px 8px; border-radius: 12px; background: var(--ins-border); color: var(--ins-text-2);
   font-size: .6875rem; font-weight: 400; white-space: nowrap; vertical-align: middle; }
+.ins .ins-tag.ins-tag--flush { margin-left: 0; }
+.ins .ins-tag.is-warning { background: #fff2e8; color: var(--ins-warning); }
 .ins .ins-tag.is-danger { background: var(--ins-danger-soft); color: var(--ins-danger); }
 .ins .ins-index { display: inline-block; font-weight: 600; }
 .ins .ins-index small { display: block; font-weight: 400; font-size: .75rem; color: var(--ins-text-2); }

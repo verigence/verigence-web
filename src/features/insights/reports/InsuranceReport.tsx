@@ -44,7 +44,7 @@ export default function InsuranceReport({ data }: { data: InsuranceInsight }) {
 
   const agentColumns: Column<OutsideAgent>[] = [
     { key: 'agent', label: 'Agent on the policy', value: (row) => row.agent,
-      render: (row) => (<><span className="ins-primary">{row.agent}</span><span className="ins-secondary">{row.code ? `Code ${row.code}` : 'No code read'}</span></>) },
+      render: (row) => (<><span className="ins-primary">{row.agent}</span><span className="ins-secondary">{row.codes.length > 1 ? `Codes ${row.codes.join(', ')}` : row.code ? `Code ${row.code}` : 'No code read'}</span></>) },
     { key: 'policies', label: 'Policies', numeric: true, value: (row) => row.policies, render: (row) => count(row.policies) },
     { key: 'premium', label: 'Premium', numeric: true, value: (row) => row.premium, render: (row) => rupeesShort(row.premium) },
     { key: 'confirmedOutside', label: 'Confirmed outside', numeric: true, value: (row) => row.confirmedOutside,

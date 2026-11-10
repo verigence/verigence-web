@@ -46,7 +46,7 @@ describe('the Analytics reports render what the server sent', () => {
 
   it('insurance names the agents the outside policies went through', () => {
     const text = words(render(<InsuranceReport data={insurance} />));
-    expect(text).toContain('PS000041087');
+    expect(text).toContain('Codes PS0000041087, PS000041087');
     expect(text).toContain('Tata AIG');
     expect(text).toContain('Zero depreciation');
   });
@@ -69,7 +69,11 @@ describe('the Analytics reports render what the server sent', () => {
     const text = words(render(<PaymentsReport data={payments} />));
     expect(text).toContain('₹74.64 crore');
     expect(text).toContain('Cash receipts above ₹2 lakh');
+    expect(text).toContain('Cash receipts of exactly ₹2 lakh');
+    expect(text).toContain('Just under ₹2 lakh');
+    expect(text).toContain('Exactly the limit');
     expect(text).toContain('MO-777');
+    expect(text).not.toContain('Refunds');   // none on file: no empty tile
   });
 
   it('customer catchment lists districts and PIN codes', () => {

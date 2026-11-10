@@ -95,12 +95,13 @@ export default function SalesReport({ data }: { data: SalesInsight }) {
                    empty="No bookings match these filters." rowClass={(row) => (row.thin ? 'is-thin' : undefined)} />
       </Section>
 
-      {(data.basis.modelNotResolved > 0 || data.basis.priceInDoubt > 0 || data.basis.bookingDateRead < data.basis.liveJourneys) ? (
+      {(data.basis.modelNotResolved > 0 || data.basis.priceInDoubt > 0 || data.basis.deliveryDateInDoubt > 0 || data.basis.bookingDateRead < data.basis.liveJourneys) ? (
         <p className="ins-footnote">
           {data.basis.bookingDateRead < data.basis.liveJourneys
             ? `${count(data.basis.liveJourneys - data.basis.bookingDateRead)} bookings have no booking date read and are placed by the day they were opened. ` : ''}
           {data.basis.modelNotResolved > 0 ? `${count(data.basis.modelNotResolved)} bookings have no model set yet. ` : ''}
-          {data.basis.priceInDoubt > 0 ? `${count(data.basis.priceInDoubt)} deals have an ex-showroom price that looks misread and are left out of billed value.` : ''}
+          {data.basis.priceInDoubt > 0 ? `${count(data.basis.priceInDoubt)} deals have an ex-showroom price that looks misread and are left out of billed value. ` : ''}
+          {data.basis.deliveryDateInDoubt > 0 ? `${count(data.basis.deliveryDateInDoubt)} delivered bookings carry a delivery date after today and are left out of the months and the days.` : ''}
         </p>
       ) : null}
     </>

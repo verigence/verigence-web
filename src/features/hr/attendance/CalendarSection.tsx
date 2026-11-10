@@ -6,12 +6,12 @@ import { hrErrorMessage } from '../../../services/hr/client';
 import AttendanceCalendar from './AttendanceCalendar';
 import CalendarDayDetail from './CalendarDayDetail';
 import { hhmmIst, todayIst } from './attendanceFormat';
-import { calendarTag, canRequestCorrection, formatMinutes } from './calendarFormat';
+import { calendarTag, canRequestCorrection, formatMinutes, missesCheckOut, type CorrectionAsk } from './calendarFormat';
 
 interface Props {
   query: UseQueryResult<CalendarData>;
   /** Only on the employee's own calendar. */
-  onRequestCorrection?: (workDate: string) => void;
+  onRequestCorrection?: (ask: CorrectionAsk) => void;
 }
 
 const LEGEND: Array<[keyof typeof calendarTag, string]> = [
@@ -71,7 +71,7 @@ export default function CalendarSection({ query, onRequestCorrection }: Props) {
           absentAfter={data.absentAfter}
           onRequestCorrection={
             onRequestCorrection && canRequestCorrection(current, today, closed)
-              ? () => onRequestCorrection(current.date)
+              ? () => onRequestCorrection({ date: current.date, missesCheckOut: missesCheckOut(current) })
               : undefined
           }
         />

@@ -15,6 +15,7 @@ import { useMyFeatures } from '../../features/rollout/featureFlags';
 import CaptureDialog from '../../features/hr/attendance/CaptureDialog';
 import CalendarSection from '../../features/hr/attendance/CalendarSection';
 import CorrectionDialog from '../../features/hr/attendance/CorrectionDialog';
+import type { CorrectionAsk } from '../../features/hr/attendance/calendarFormat';
 import MyCorrections from '../../features/hr/attendance/MyCorrections';
 import { getMyCalendar } from '../../services/hr/attendanceCalendar';
 import MonthPanel from '../../features/hr/attendance/MonthPanel';
@@ -32,7 +33,7 @@ export default function HrAttendancePage() {
   const access = useHrAccess();
   const [month, setMonth] = useState(currentMonthIst);
   const [capturing, setCapturing] = useState<AttendanceEvent | null>(null);
-  const [correcting, setCorrecting] = useState<string | null>(null);
+  const [correcting, setCorrecting] = useState<CorrectionAsk | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   // A PC is warned before check-out when yesterday's gate register of an onsite outlet is not
   // finished (product owner 2026-11-02). With the CHECKOUT_GATE_REGISTER switch off OK goes on to
@@ -143,7 +144,14 @@ export default function HrAttendancePage() {
             <button type="button" className="uc01-admin-button" onClick={() => today.refetch()}>Try again</button>
           </div>
         )}
-        {data && <TodayCard today={data} onStart={(event) => void start(event)} disabled={capturing !== null || today.isFetching || checkingOut} />}
+        {data && (
+          <TodayCard
+            today={data}
+            onStart={(event) => void start(event)}
+            onAskCheckOut={() => setCorrecting({ date: data.workDate, missesCheckOut: true })}
+            disabled={capturing !== null || today.isFetching || checkingOut}
+          />
+        )}
       </SectionCard>
 
       {notice && (
@@ -186,7 +194,9 @@ export default function HrAttendancePage() {
 
       {correcting && (
         <CorrectionDialog
-          workDate={correcting}
+          workDate={correcting.date}
+          missesCheckOut={correcting.missesCheckOut}
+          isToday={correcting.date === data?.workDate}
           onClose={() => setCorrecting(null)}
           onDone={(message) => { setCorrecting(null); setNotice(message); }}
         />

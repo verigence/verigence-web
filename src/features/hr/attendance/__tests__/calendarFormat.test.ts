@@ -9,6 +9,7 @@ import {
   dayLabel,
   formatHoursShort,
   formatMinutes,
+  missesCheckOut,
   mondayOf,
   sharedText,
   shiftDays,
@@ -75,6 +76,16 @@ describe('corrections', () => {
     expect(
       canRequestCorrection(day({ correction: { correctionId: 'c', requested: 'FULL_DAY', reason: 'x', status: 'PENDING' } }), '2026-10-09', false),
     ).toBe(false);
+  });
+
+  it('offers recording a missed check-out, today as well (10 Nov 2026)', () => {
+    const open = day({ status: 'MISSING_CHECK_OUT', checkInAt: '2026-10-07T04:25:00Z', checkOutAt: null });
+    expect(canRequestCorrection(open, '2026-10-09', false)).toBe(true);
+    expect(missesCheckOut(open)).toBe(true);
+    const today = day({ date: '2026-10-09', status: 'CHECKED_IN', checkInAt: '2026-10-09T04:25:00Z', checkOutAt: null });
+    expect(canRequestCorrection(today, '2026-10-09', false)).toBe(true);
+    expect(missesCheckOut(day({ status: 'PRESENT', checkInAt: '2026-10-07T04:25:00Z', checkOutAt: '2026-10-07T13:00:00Z' }))).toBe(false);
+    expect(missesCheckOut(day({}))).toBe(false); // absent: nothing to check out of
   });
 });
 

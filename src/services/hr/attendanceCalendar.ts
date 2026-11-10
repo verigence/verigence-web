@@ -26,7 +26,8 @@ export type CalendarStatus =
   // After the last day of someone who has left (2026-11-09).
   | 'LEFT';
 
-export type CorrectionKind = 'FULL_DAY' | 'HALF_DAY';
+// CHECK_OUT: a missed check-out, recorded at the time asked once approved (2026-11-10).
+export type CorrectionKind = 'FULL_DAY' | 'HALF_DAY' | 'CHECK_OUT';
 export type CorrectionStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'CANCELLED';
 
 export interface CalendarLeave {
@@ -218,6 +219,8 @@ export interface Correction {
   correctionId: string;
   workDate: string;
   requested: CorrectionKind;
+  /** CHECK_OUT only: the time the person left. */
+  checkOutAt?: string | null;
   reason: string;
   status: CorrectionStatus;
   decisionNote: string | null;
@@ -262,7 +265,10 @@ export const getTeamDaily = (token: string, date?: string, projectCode?: string)
 export const getTeamWeekly = (token: string, date?: string, projectCode?: string) =>
   hrRequest<TeamWeekly>(`${base}/attendance/team-weekly${query({ date, projectCode })}`, { accessToken: token });
 
-export const raiseCorrection = (token: string, body: { workDate: string; requested: CorrectionKind; reason: string }) =>
+export const raiseCorrection = (
+  token: string,
+  body: { workDate: string; requested: CorrectionKind; reason: string; checkOutTime?: string },
+) =>
   hrRequest<Correction>(`${base}/attendance/corrections`, { accessToken: token, method: 'POST', body });
 
 export const listMyCorrections = async (token: string) =>

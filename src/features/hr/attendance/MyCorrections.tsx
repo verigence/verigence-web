@@ -4,7 +4,7 @@ import { cancelCorrection, listMyCorrections } from '../../../services/hr/attend
 import { hrErrorMessage } from '../../../services/hr/client';
 import { useSessionStore } from '../../../store/sessionStore';
 import { attendanceKeys } from './attendanceQueries';
-import { formatWorkDate } from './attendanceFormat';
+import { formatTimeIst, formatWorkDate } from './attendanceFormat';
 import { correctionKindLabels, correctionLabels } from './calendarFormat';
 
 const tone: Record<string, string> = { PENDING: 'warm-gray', APPROVED: 'green', REJECTED: 'red', CANCELLED: 'cool-gray' };
@@ -49,7 +49,10 @@ export default function MyCorrections() {
           <li key={c.correctionId}>
             <div>
               <strong>{formatWorkDate(c.workDate)}</strong>
-              <small>{correctionKindLabels[c.requested]} · {c.reason}</small>
+              <small>
+                {correctionKindLabels[c.requested]}
+                {c.requested === 'CHECK_OUT' && c.checkOutAt ? ` at ${formatTimeIst(c.checkOutAt)}` : ''} · {c.reason}
+              </small>
               {c.decisionNote && <small>Note: {c.decisionNote}</small>}
             </div>
             <span className={`hr-tag hr-tag--${tone[c.status]}`}>{correctionLabels[c.status]}</span>

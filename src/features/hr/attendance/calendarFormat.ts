@@ -71,7 +71,7 @@ export const correctionLabels: Record<CorrectionStatus, string> = {
   CANCELLED: 'Withdrawn',
 };
 
-export const correctionKindLabels = { FULL_DAY: 'Full day', HALF_DAY: 'Half day' } as const;
+export const correctionKindLabels = { FULL_DAY: 'Full day', HALF_DAY: 'Half day', CHECK_OUT: 'Check-out' } as const;
 
 /** 510 -> "8 h 30 m"; 0 -> "0 h". */
 export function formatMinutes(minutes: number | null | undefined): string {
@@ -114,8 +114,21 @@ export function canRequestCorrection(day: CalendarDay, today: string, absentAfte
   if (day.date > today) return false;
   // Product owner (7 Nov 2026): only a day of the current calendar month can be raised.
   if (day.date.slice(0, 7) !== today.slice(0, 7)) return false;
-  if (day.date === today && !(absentAfterPassed && day.status === 'ABSENT')) return false;
+  // Today: absent once the day has closed, or checked in and not out (a missed check-out can be
+  // asked for at once, 2026-11-10).
+  if (day.date === today) return (absentAfterPassed && day.status === 'ABSENT') || day.status === 'CHECKED_IN';
   return ['ABSENT', 'MISSING_CHECK_OUT', 'HALF_DAY'].includes(day.status);
+}
+
+/** What the correction dialog opens with: the day, and whether its check-out is missing. */
+export interface CorrectionAsk {
+  date: string;
+  missesCheckOut: boolean;
+}
+
+/** A day with a check-in and no check-out: the check-out itself can be asked for. */
+export function missesCheckOut(day: { checkInAt?: string | null; checkOutAt?: string | null }): boolean {
+  return Boolean(day.checkInAt) && !day.checkOutAt;
 }
 
 /** "Mon 05" for a YYYY-MM-DD in a weekly grid header. */

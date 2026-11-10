@@ -6,12 +6,14 @@ import { halfDayHolidayText } from './calendarFormat';
 interface Props {
   today: AttendanceToday;
   onStart: (event: AttendanceEvent) => void;
+  /** Checked in and cannot check out: ask the Team Lead to record the check-out (2026-11-10). */
+  onAskCheckOut?: () => void;
   /** True while the capture window is open or today is refreshing. */
   disabled?: boolean;
 }
 
 /** Today's status, the standard times and the check-in / check-out buttons. */
-export default function TodayCard({ today, onStart, disabled = false }: Props) {
+export default function TodayCard({ today, onStart, onAskCheckOut, disabled = false }: Props) {
   const { day, dayKind, standardTimes: times } = today;
   const working = dayKind === 'WORKING';
   const checkedIn = Boolean(day?.checkIn);
@@ -69,6 +71,11 @@ export default function TodayCard({ today, onStart, disabled = false }: Props) {
         {checkedIn && !checkedOut && (
           <button type="button" className="uc01-admin-button uc01-admin-button--primary hr-att-big" disabled={disabled} onClick={() => onStart('CHECK_OUT')}>
             Check out
+          </button>
+        )}
+        {checkedIn && !checkedOut && onAskCheckOut && (
+          <button type="button" className="uc01-admin-button" disabled={disabled} onClick={onAskCheckOut}>
+            Can&apos;t check out? Ask your Team Lead to record it
           </button>
         )}
         {checkedIn && checkedOut && <p className="hr-att-hint">You have checked in and out today. Nothing more to do.</p>}

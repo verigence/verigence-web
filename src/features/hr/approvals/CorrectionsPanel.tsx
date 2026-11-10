@@ -9,7 +9,11 @@ import { approvalKeys } from './approvalKeys';
 import DecisionButtons from './DecisionButtons';
 import { useDecisionFlow } from './useDecisionFlow';
 
-const kindText = { FULL_DAY: 'Full day', HALF_DAY: 'Half day' } as const;
+const kindText = { FULL_DAY: 'Full day', HALF_DAY: 'Half day', CHECK_OUT: 'Check-out' } as const;
+
+/** "Full day", or "Check-out at 18:40" for a missed check-out (2026-11-10). */
+const askedFor = (x: CorrectionApproval) =>
+  x.requested === 'CHECK_OUT' && x.checkOutAt ? `Check-out at ${formatTimeIst(x.checkOutAt)}` : kindText[x.requested];
 
 export function useCorrectionApprovals() {
   const accessToken = useSessionStore((state) => state.accessToken);
@@ -22,7 +26,9 @@ export function useCorrectionApprovals() {
   });
 }
 
-const subjectOf = (x: CorrectionApproval) => `${x.employeeName}, correction to a ${kindText[x.requested].toLowerCase()} on ${formatDate(x.workDate)}`;
+const subjectOf = (x: CorrectionApproval) => x.requested === 'CHECK_OUT'
+  ? `${x.employeeName}, ${askedFor(x).toLowerCase()} on ${formatDate(x.workDate)}`
+  : `${x.employeeName}, correction to a ${kindText[x.requested].toLowerCase()} on ${formatDate(x.workDate)}`;
 
 /** Attendance correction requests from the team: what was asked, why, and what was recorded that day. */
 export default function CorrectionsPanel({ query }: { query: ReturnType<typeof useCorrectionApprovals> }) {
@@ -40,8 +46,8 @@ export default function CorrectionsPanel({ query }: { query: ReturnType<typeof u
       noun="correction requests"
       query={query}
       flow={flow}
-      emptyText="Requests from your team to count a day as a full or half day will appear here."
-      summaryOf={(x) => `${kindText[x.requested]} on ${formatDate(x.workDate)}, for ${x.employeeName}.`}
+      emptyText="Requests from your team to count a day as a full or half day, or to record a missed check-out, will appear here."
+      summaryOf={(x) => `${askedFor(x)} on ${formatDate(x.workDate)}, for ${x.employeeName}.`}
     >
       {(items) => (
         <div className="uc01-admin-table-wrap">
@@ -62,7 +68,7 @@ export default function CorrectionsPanel({ query }: { query: ReturnType<typeof u
                     <ApprovalPerson name={x.employeeName} code={x.employeeCode} waiting={{ text: dateAgeLabel(x.workDate, now), old: isOldDays(daysSinceDate(x.workDate, now)) }} />
                   </td>
                   <td data-label="Asked for">
-                    <strong>{kindText[x.requested]}</strong>
+                    <strong>{askedFor(x)}</strong>
                     <small>{formatDate(x.workDate)}</small>
                   </td>
                   <td data-label="Recorded that day">

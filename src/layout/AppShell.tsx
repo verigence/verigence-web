@@ -13,6 +13,7 @@ import ActivityTracker from '../features/task-manager/ActivityTracker';
 import TenantAlertBanner from '../features/tenant-alerts/TenantAlertBanner';
 import BulkUploadBanner from '../features/uc03-p2/bulk/BulkUploadBanner';
 import { useHrAccess, useLeadsAProject } from '../features/hr/hrQueries';
+import { ANALYTICS_REPORTS, reportFromParam } from '../features/insights/reportCatalog';
 import { useMyFeatures, visibleNavGroups } from '../features/rollout/featureFlags';
 import { useMyHrIdentity } from '../features/hr/myIdentity';
 import { chooseDisplayName } from '../features/profile/workContext';
@@ -32,7 +33,8 @@ const operational: ShellRole[] = [...c0OperatingRoles, 'TENANT_ADMIN', 'SUPER_AD
 // Who still sees the Phase 1 screens: not PC, TL or PM (2026-10-29).
 const legacyRoles: ShellRole[] = ['EXECUTIVE', 'TENANT_ADMIN', 'SUPER_ADMIN'];
 const admin: ShellRole[] = ['TENANT_ADMIN', 'SUPER_ADMIN'];
-const analyticsRoles: ShellRole[] = ['PC', 'TL', 'PM', 'EXECUTIVE', ...admin];
+// Analytics is read by a Team Lead and above, over their own outlets (product owner 2026-11-10).
+const analyticsRoles: ShellRole[] = ['TL', 'PM', 'EXECUTIVE', ...admin];
 
 const projectAdministrationItem: NavItem = {
   to: '/admin/project',
@@ -76,33 +78,8 @@ const duplicateBookingsItem: NavItem = {
   roles: legacyRoles,
 };
 
-const analyticsItems: NavItem[] = [
-  { to: '/analytics', label: 'Overview', mark: 'AN', roles: analyticsRoles },
-  { to: '/analytics?report=finance', label: 'Finance', mark: 'PY', roles: analyticsRoles },
-  { to: '/analytics?report=insurance', label: 'Insurance', mark: 'RP', roles: analyticsRoles },
-  { to: '/analytics?report=addons', label: 'Add-ons & VAS', mark: 'DC', roles: analyticsRoles },
-  { to: '/analytics?report=discounts', label: 'Discounts', mark: 'AR', roles: analyticsRoles },
-  { to: '/analytics?report=trade-in', label: 'Trade-in', mark: 'JR', roles: analyticsRoles },
-  { to: '/analytics?report=payments', label: 'Payments', mark: 'PY', roles: analyticsRoles },
-  { to: '/analytics?report=turnaround', label: 'Turnaround', mark: 'AT', roles: analyticsRoles },
-  { to: '/analytics?report=findings', label: 'Audit & Compliance', mark: 'FN', roles: analyticsRoles },
-  { to: '/analytics?report=documents', label: 'Documents', mark: 'EV', roles: analyticsRoles },
-  { to: '/analytics?report=productivity', label: 'Employees', mark: 'US', roles: analyticsRoles },
-];
-
-const analyticsReportLabels: Record<string, string> = {
-  overview: 'Overview',
-  finance: 'Finance',
-  insurance: 'Insurance',
-  addons: 'Add-ons & VAS',
-  discounts: 'Discounts',
-  'trade-in': 'Trade-in',
-  payments: 'Payments',
-  turnaround: 'Turnaround',
-  findings: 'Audit & Compliance',
-  documents: 'Documents',
-  productivity: 'Employees',
-};
+// One entry: the page carries its reports as tabs, so the filters stay as the reader moves between them.
+const analyticsItems: NavItem[] = [{ to: '/analytics', label: 'Sales analytics', mark: 'AN', roles: analyticsRoles }];
 
 // Overview is "what needs me now" (PC and TL each have their own summary page);
 // this opens the full Work Queue table so PC, TL and PM can all browse every
@@ -573,9 +550,11 @@ export default function AppShell({ children }: PropsWithChildren) {
     const shownPhase2Group = phase2Group && selectedProject?.auditType === 'SERVICE'
       ? { ...phase2Group, items: phase2Group.items.filter((item) => !SALES_AUDIT_ONLY_PATHS.has(item.to)) }
       : phase2Group;
+    // Analytics reports vehicle sales; a service audit Project has none.
+    const insightGroups = selectedProject?.auditType === 'SERVICE' ? [] : [analyticsGroup];
     const operationalGroups = shownPhase2Group
-      ? [shownPhase2Group, workspaceGroup, analyticsGroup]
-      : [workspaceGroup, analyticsGroup];
+      ? [shownPhase2Group, workspaceGroup, ...insightGroups]
+      : [workspaceGroup, ...insightGroups];
     if (sessionRole !== 'TENANT_ADMIN') return operationalGroups;
     return [
       ...operationalGroups,
@@ -723,11 +702,11 @@ export default function AppShell({ children }: PropsWithChildren) {
   };
 
   const dynamicLabel = dynamicRouteLabels.find(([prefix]) => location.pathname.startsWith(prefix))?.[1];
-  const analyticsReport = new URLSearchParams(location.search).get('report') || 'overview';
+  const analyticsReport = reportFromParam(new URLSearchParams(location.search).get('report'));
   const currentLabel = createBookingMode
     ? 'Capture New Booking'
     : location.pathname === '/analytics'
-      ? `Analytics · ${analyticsReportLabels[analyticsReport] || 'Overview'}`
+      ? `Analytics · ${ANALYTICS_REPORTS[analyticsReport].label}`
       : routeLabels[location.pathname]
         ?? dynamicLabel
         ?? 'Workspace';
@@ -745,10 +724,6 @@ export default function AppShell({ children }: PropsWithChildren) {
   const isNavItemActive = (item: NavItem, isActive: boolean) => {
     if (item.to === createBookingItem.to) return createBookingMode;
     if (item.to === '/dashboard') return isActive && !createBookingMode;
-    if (item.to.split('?')[0] === '/analytics') {
-      const itemReport = new URLSearchParams(item.to.split('?')[1] || '').get('report') || 'overview';
-      return location.pathname === '/analytics' && itemReport === analyticsReport;
-    }
     if (item.to.startsWith('/hr/')) {
       // HR paths nest (claims/all inside claims, payroll/salaries inside payroll): match each item exactly,
       // except that a claim or a payroll run belongs to its own list.

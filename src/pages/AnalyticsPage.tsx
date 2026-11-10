@@ -1,253 +1,184 @@
-import { useQuery } from '@tanstack/react-query';
-import { useSearchParams } from 'react-router-dom';
+import { useEffect } from 'react';
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
+import { Link, useSearchParams } from 'react-router-dom';
+import '../styles/insights.css';
 
 import PageHeader from '../components/PageHeader';
-import SectionCard from '../components/SectionCard';
-import AnalyticsBusinessOverviewPanels from '../features/analytics/AnalyticsBusinessOverviewPanels';
-import AnalyticsBusinessReportViews from '../features/analytics/AnalyticsBusinessReportViews';
-import AnalyticsReportViews from '../features/analytics/AnalyticsReportViews';
+import { dateTimeLabel, dayLabel, quickRange, shortOutlet, type QuickRange } from '../features/insights/insightFormat';
+import { Notes } from '../features/insights/InsightParts';
+import { ANALYTICS_REPORTS, reportFromParam } from '../features/insights/reportCatalog';
+import CatchmentReport from '../features/insights/reports/CatchmentReport';
+import DiscountReport from '../features/insights/reports/DiscountReport';
+import FinanceReport from '../features/insights/reports/FinanceReport';
+import InsuranceReport from '../features/insights/reports/InsuranceReport';
+import PaymentsReport from '../features/insights/reports/PaymentsReport';
+import PenetrationReport from '../features/insights/reports/PenetrationReport';
+import SalesReport from '../features/insights/reports/SalesReport';
+import ScrappageReport from '../features/insights/reports/ScrappageReport';
+import { AuditCoreHttpError } from '../services/audit-core/client';
 import {
-  type AnalyticsBusinessReportKey,
-  type AnalyticsBusinessReportPayload,
-  getBusinessAnalyticsReport,
-  getBusinessProjectDashboard,
-} from '../services/analytics/businessClient';
-import {
-  AnalyticsHttpError,
-  type AnalyticsReportKey,
-  type AnalyticsReportPayload,
-  getAnalyticsReport,
-} from '../services/analytics/client';
+  getInsight, INSIGHT_REPORTS, type InsightByReport, type InsightReport,
+} from '../services/audit-core/uc03Insights';
 import { useProjectContextStore } from '../store/projectContextStore';
 import { useSessionStore } from '../store/sessionStore';
-import '../styles/analytics.css';
-import '../styles/analytics-project.css';
 
-type AnalyticsView = 'overview' | AnalyticsReportKey | 'sales-product' | 'geography';
-
-const reportKeys: Array<AnalyticsReportKey | 'sales-product' | 'geography'> = [
-  'sales-product',
-  'geography',
-  'finance',
-  'insurance',
-  'addons',
-  'discounts',
-  'trade-in',
-  'payments',
-  'turnaround',
-  'findings',
-  'documents',
-  'productivity',
+const QUICK: { key: QuickRange; label: string }[] = [
+  { key: 'this-month', label: 'This month' },
+  { key: 'last-month', label: 'Last month' },
+  { key: 'all', label: 'All dates' },
 ];
 
-const businessReportKeys: AnalyticsBusinessReportKey[] = [
-  'sales-product',
-  'finance',
-  'insurance',
-  'addons',
-  'discounts',
-  'payments',
-  'geography',
-  'turnaround',
-  'findings',
-];
-
-const reportLabels: Record<AnalyticsView, string> = {
-  overview: 'Project Business Overview',
-  'sales-product': 'Vehicle Sales & Products',
-  finance: 'Finance & Loan Attach',
-  insurance: 'Insurance & Add-ons',
-  addons: 'Accessories & VAS',
-  geography: 'Customer Spread by PIN Code',
-  discounts: 'Pricing Integrity Audit',
-  'trade-in': 'Trade-in',
-  payments: 'Payment Channels',
-  turnaround: 'Delivery Performance',
-  findings: 'Compliance & Exposure',
-  documents: 'Documents',
-  productivity: 'Journey Uploads',
-};
-
-function parseReport(value: string | null): AnalyticsView {
-  if (value === 'sales-product') return value;
-  if (value && reportKeys.includes(value as (typeof reportKeys)[number])) return value as AnalyticsView;
-  return 'overview';
-}
-
-function isBusinessReport(value: AnalyticsView): value is AnalyticsBusinessReportKey {
-  return value !== 'overview' && businessReportKeys.includes(value as AnalyticsBusinessReportKey);
-}
-
-function formatAsOf(value?: string): string {
-  if (!value) return 'Unavailable';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' });
-}
-
-function legacyReportAsOf(payload?: AnalyticsReportPayload): string | undefined {
-  return payload?.data.data_as_of;
-}
-
-function businessReportAsOf(payload?: AnalyticsBusinessReportPayload): string | undefined {
-  return payload?.data.data_as_of;
-}
-
-function ReportError({ error }: { error: unknown }) {
-  const forbidden = error instanceof AnalyticsHttpError && error.status === 403;
-  const noDump = error instanceof AnalyticsHttpError && error.status === 404;
-  return (
-    <SectionCard title={forbidden ? 'Analytics access denied' : noDump ? 'No analytics snapshot' : 'Analytics unavailable'}>
-      <p>
-        {forbidden
-          ? 'Your current Security role does not have audit.analytics.read for this tenant.'
-          : noDump
-            ? 'No completed Analytics dump is available for this tenant yet.'
-            : error instanceof Error
-              ? error.message
-              : 'Analytics could not be loaded.'}
-      </p>
-    </SectionCard>
-  );
-}
-
-export default function AnalyticsPage() {
-  const [searchParams, setSearchParams] = useSearchParams();
-  const activeView = parseReport(searchParams.get('report'));
-  const accessToken = useSessionStore((state) => state.accessToken);
-  const sessionTenantId = useSessionStore((state) => state.tenantId);
-  const selectedProject = useProjectContextStore((state) => state.selectedProject);
-  const projects = useProjectContextStore((state) => state.projects);
-  const tenantId = selectedProject?.tenantId || sessionTenantId;
-  const activeProject = selectedProject || projects.find((project) => project.tenantId === tenantId);
-  const projectLabel = activeProject?.projectCode || `Tenant ${tenantId}`;
-  const businessView = isBusinessReport(activeView);
-
-  const overviewQuery = useQuery({
-    queryKey: ['analytics', 'business-project-dashboard', tenantId],
-    enabled: Boolean(activeView === 'overview' && tenantId && accessToken),
-    queryFn: ({ signal }) => getBusinessProjectDashboard(tenantId!, accessToken!, signal),
-    staleTime: 60_000,
-    retry: (failureCount, error) => {
-      if (error instanceof AnalyticsHttpError && [401, 403, 404].includes(error.status)) return false;
-      return failureCount < 1;
-    },
-  });
-
-  const businessReportQuery = useQuery({
-    queryKey: ['analytics', 'business-report', tenantId, activeView],
-    enabled: Boolean(activeView !== 'overview' && businessView && tenantId && accessToken),
-    queryFn: ({ signal }) => getBusinessAnalyticsReport(tenantId!, accessToken!, activeView as AnalyticsBusinessReportKey, signal),
-    staleTime: 60_000,
-    retry: (failureCount, error) => {
-      if (error instanceof AnalyticsHttpError && [401, 403, 404].includes(error.status)) return false;
-      return failureCount < 1;
-    },
-  });
-
-  const legacyReportQuery = useQuery({
-    queryKey: ['analytics', 'report', tenantId, activeView],
-    enabled: Boolean(activeView !== 'overview' && !businessView && tenantId && accessToken),
-    queryFn: ({ signal }) => getAnalyticsReport(tenantId!, accessToken!, activeView as AnalyticsReportKey, signal),
-    staleTime: 60_000,
-    retry: (failureCount, error) => {
-      if (error instanceof AnalyticsHttpError && [401, 403, 404].includes(error.status)) return false;
-      return failureCount < 1;
-    },
-  });
-
-  const currentAsOf = activeView === 'overview'
-    ? overviewQuery.data?.data_as_of
-    : businessView
-      ? businessReportAsOf(businessReportQuery.data)
-      : legacyReportAsOf(legacyReportQuery.data);
-  const viewTitle = reportLabels[activeView];
-
-  if (!tenantId) {
-    return (
-      <div className="screen-stack analytics-screen">
-        <PageHeader eyebrow="Insights · Analytics" title={viewTitle} description="Business, commercial and compliance analytics from controlled Audit Core snapshots." />
-        <SectionCard title="Select a project"><p>Choose a project from the Verigence project selector to load tenant analytics.</p></SectionCard>
-      </div>
-    );
+function Report({ report, data }: { report: InsightReport; data: InsightByReport[InsightReport] }) {
+  switch (report) {
+    case 'sales': return <SalesReport data={data as InsightByReport['sales']} />;
+    case 'discounts': return <DiscountReport data={data as InsightByReport['discounts']} />;
+    case 'penetration': return <PenetrationReport data={data as InsightByReport['penetration']} />;
+    case 'insurance': return <InsuranceReport data={data as InsightByReport['insurance']} />;
+    case 'finance': return <FinanceReport data={data as InsightByReport['finance']} />;
+    case 'scrappage': return <ScrappageReport data={data as InsightByReport['scrappage']} />;
+    case 'payments': return <PaymentsReport data={data as InsightByReport['payments']} />;
+    default: return <CatchmentReport data={data as InsightByReport['catchment']} />;
   }
+}
+
+/** Analytics (rebuilt 2026-11-10, IBM Carbon patterns): eight reports read live from the
+ *  bookings and deliveries, one row of filters above everything they scope (dealership,
+ *  outlet, booking dates), tiles, ranked bars and sortable tables. For a Team Lead,
+ *  Project Manager or Executive, over the outlets they are mapped to. */
+export default function AnalyticsPage() {
+  const tenantId = useProjectContextStore((state) => state.selectedProject?.tenantId);
+  const serviceAudit = useProjectContextStore((state) => state.selectedProject?.auditType === 'SERVICE');
+  const accessToken = useSessionStore((state) => state.accessToken);
+  const [params, setParams] = useSearchParams();
+  const report = reportFromParam(params.get('report'));
+  const meta = ANALYTICS_REPORTS[report];
+  const filters = {
+    dealerId: params.get('dealer') ?? '', outletId: params.get('outlet') ?? '',
+    from: params.get('from') ?? '', to: params.get('to') ?? '',
+  };
+
+  const query = useQuery({
+    queryKey: ['p2-insight', tenantId, report, filters.dealerId, filters.outletId, filters.from, filters.to],
+    queryFn: () => getInsight(tenantId!, report, filters, accessToken ?? undefined),
+    enabled: Boolean(tenantId && accessToken && !serviceAudit),
+    staleTime: 60_000,
+    // While a filter or a report changes, the figures on screen stay until the new ones arrive.
+    placeholderData: keepPreviousData,
+    retry: (failures, error) => !(error instanceof AuditCoreHttpError && [401, 403, 404, 422].includes(error.status)) && failures < 1,
+  });
+  const data = query.data && query.data.report === report ? query.data : undefined;
+  const scope = query.data?.scope;
+  const dealers = scope?.dealers ?? [];
+  const outlets = dealers.filter((dealer) => !filters.dealerId || dealer.dealerId === filters.dealerId)
+    .flatMap((dealer) => dealer.outlets.map((outlet) => ({ ...outlet, dealer: dealer.dealer })));
+
+  const set = (patch: Record<string, string | null>) => {
+    const next = new URLSearchParams(params);
+    Object.entries(patch).forEach(([key, value]) => (value ? next.set(key, value) : next.delete(key)));
+    setParams(next, { replace: true });
+  };
+
+  // An outlet that is not the reader's (an old link): drop the filter and show their own.
+  const outletNotFound = query.error instanceof AuditCoreHttpError && query.error.status === 404 && Boolean(filters.outletId);
+  useEffect(() => {
+    if (outletNotFound) set({ outlet: null });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [outletNotFound]);
+
+  const reportLink = (key: InsightReport) => {
+    const next = new URLSearchParams(params);
+    if (key === 'sales') next.delete('report');
+    else next.set('report', key);
+    return `/analytics${next.toString() ? `?${next.toString()}` : ''}`;
+  };
+  const activeQuick = QUICK.find((quick) => {
+    const range = quickRange(quick.key);
+    return range.from === filters.from && range.to === filters.to;
+  })?.key;
+  const forbidden = query.error instanceof AuditCoreHttpError && query.error.status === 403;
 
   return (
-    <div className="screen-stack analytics-screen">
-      <PageHeader
-        eyebrow="Insights · Analytics"
-        title={viewTitle}
-        description={`Project scope: ${projectLabel}. Independent business reporting from controlled Audit Core snapshots${currentAsOf ? `. Data as of ${formatAsOf(currentAsOf)}.` : '.'}`}
-      />
+    <div className="ins">
+      <PageHeader eyebrow="Analytics" title={meta.title} description={meta.description} />
 
-      <nav className="analytics-report-navigation" aria-label="Analytics reports">
-        <label htmlFor="analytics-report-select">Report</label>
-        <select
-          id="analytics-report-select"
-          value={activeView}
-          onChange={(event) => {
-            const next = new URLSearchParams(searchParams);
-            if (event.target.value === 'overview') next.delete('report');
-            else next.set('report', event.target.value);
-            setSearchParams(next);
-          }}
-        >
-          {(Object.entries(reportLabels) as Array<[AnalyticsView, string]>).map(([key, label]) => (
-            <option key={key} value={key}>{label}</option>
-          ))}
-        </select>
-      </nav>
-
-      <nav className="analytics-core-report-links" aria-label="Core dealership reports">
-        <span className="analytics-core-report-links__label">Open a focused report</span>
-        {([
-          ['sales-product', 'Cars by dealer / model / variant'],
-          ['discounts', 'Discounts by dealer / model / variant'],
-          ['addons', 'Accessory invoice item list'],
-          ['insurance', 'Insurance route and components by dealer'],
-          ['finance', 'Bank / NBFC and loan amount by dealer'],
-          ['payments', 'Payment channels by dealer'],
-          ['geography', 'Customer spread by PIN code'],
-          ['productivity', 'Journey uploads by month / team'],
-        ] as const).map(([report, label]) => (
-          <button
-            key={report}
-            type="button"
-            aria-pressed={activeView === report}
-            onClick={() => {
-              const next = new URLSearchParams(searchParams);
-              next.set('report', report);
-              setSearchParams(next);
-            }}
-          >
-            {label}
-          </button>
+      <nav className="ins-tabs" aria-label="Analytics reports">
+        {INSIGHT_REPORTS.map((key) => (
+          <Link key={key} to={reportLink(key)} replace aria-current={key === report ? 'page' : undefined}
+                className={key === report ? 'is-selected' : undefined}>
+            {ANALYTICS_REPORTS[key].label}
+          </Link>
         ))}
       </nav>
 
-      {activeView === 'overview' ? (
-        overviewQuery.isPending ? (
-          <SectionCard title="Loading project business overview"><p>Loading sales, product, dealer, outlet, penetration and compliance analytics…</p></SectionCard>
-        ) : overviewQuery.isError ? (
-          <ReportError error={overviewQuery.error} />
-        ) : overviewQuery.data ? (
-          <AnalyticsBusinessOverviewPanels data={overviewQuery.data} />
-        ) : null
-      ) : businessView ? (
-        businessReportQuery.isPending ? (
-          <SectionCard title={`Loading ${viewTitle}`}><p>Loading this business report from the latest controlled snapshot…</p></SectionCard>
-        ) : businessReportQuery.isError ? (
-          <ReportError error={businessReportQuery.error} />
-        ) : businessReportQuery.data ? (
-          <AnalyticsBusinessReportViews payload={businessReportQuery.data} />
-        ) : null
-      ) : legacyReportQuery.isPending ? (
-        <SectionCard title={`Loading ${viewTitle}`}><p>Loading this report from the latest controlled snapshot…</p></SectionCard>
-      ) : legacyReportQuery.isError ? (
-        <ReportError error={legacyReportQuery.error} />
-      ) : legacyReportQuery.data ? (
-        <AnalyticsReportViews payload={legacyReportQuery.data} />
-      ) : null}
+      {!tenantId ? (
+        <div className="ins-notification">Choose a Project to open its reports.</div>
+      ) : serviceAudit ? (
+        <div className="ins-notification">These reports cover vehicle sales. This Project is a service audit and has none.</div>
+      ) : (
+        <>
+          <section className="ins-toolbar" aria-label="Filters">
+            <div className="ins-field">
+              <label htmlFor="ins-dealer">Dealership</label>
+              <select id="ins-dealer" value={filters.dealerId} onChange={(event) => set({ dealer: event.target.value || null, outlet: null })}>
+                <option value="">All dealerships</option>
+                {dealers.map((dealer) => <option key={dealer.dealerId} value={dealer.dealerId}>{dealer.dealer}</option>)}
+              </select>
+            </div>
+            <div className="ins-field">
+              <label htmlFor="ins-outlet">Outlet</label>
+              <select id="ins-outlet" value={filters.outletId} onChange={(event) => set({ outlet: event.target.value || null })}>
+                <option value="">All outlets</option>
+                {outlets.map((outlet) => (
+                  <option key={outlet.outletId} value={outlet.outletId}>
+                    {filters.dealerId ? shortOutlet(outlet.outlet, outlet.dealer) : outlet.outlet}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="ins-field ins-field--date">
+              <label htmlFor="ins-from">Booked from</label>
+              <input id="ins-from" type="date" value={filters.from} max={filters.to || undefined}
+                     onChange={(event) => set({ from: event.target.value || null })} />
+            </div>
+            <div className="ins-field ins-field--date">
+              <label htmlFor="ins-to">Booked to</label>
+              <input id="ins-to" type="date" value={filters.to} min={filters.from || undefined}
+                     onChange={(event) => set({ to: event.target.value || null })} />
+            </div>
+            <div className="ins-quick" role="group" aria-label="Quick date range">
+              {QUICK.map((quick) => (
+                <button key={quick.key} type="button" aria-pressed={activeQuick === quick.key}
+                        className={activeQuick === quick.key ? 'is-selected' : undefined}
+                        onClick={() => { const range = quickRange(quick.key); set({ from: range.from || null, to: range.to || null }); }}>
+                  {quick.label}
+                </button>
+              ))}
+            </div>
+          </section>
+
+          {query.isError && !outletNotFound ? (
+            <div className="ins-notification is-error" role="alert">
+              {forbidden
+                ? 'These reports are for Team Leads, Project Managers and Executives.'
+                : <>The report could not be loaded. <button type="button" className="ins-link" onClick={() => void query.refetch()}>Try again</button></>}
+            </div>
+          ) : null}
+
+          {!data && query.isFetching ? <div className="ins-skeleton" aria-busy="true">Loading the report…</div> : null}
+
+          {data ? (
+            <div className={`ins-body${query.isFetching ? ' is-refreshing' : ''}`} aria-busy={query.isFetching}>
+              <p className="ins-asof">
+                Read from the bookings and deliveries as they stand{dateTimeLabel(data.asOfUtc) ? `, ${dateTimeLabel(data.asOfUtc)}` : ''}.
+                {data.period.first ? ` Bookings from ${dayLabel(data.period.first)} to ${dayLabel(data.period.last)}.` : ' No booking matches these filters.'}
+                {data.scope.projectWide ? '' : ' Your outlets only.'}
+              </p>
+              <Report report={report} data={data} />
+              <Notes notes={data.notes} />
+            </div>
+          ) : null}
+        </>
+      )}
     </div>
   );
 }

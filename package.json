@@ -19,6 +19,8 @@
   },
   "dependencies": {
     "@aparajita/capacitor-secure-storage": "^8.0.0",
+    "@capacitor-mlkit/document-scanner": "^8.1.0",
+    "@capacitor-mlkit/text-recognition": "^8.2.1",
     "@capacitor/android": "^8.0.0",
     "@capacitor/app": "^8.0.0",
     "@capacitor/camera": "^8.0.0",
@@ -26,12 +28,8 @@
     "@capacitor/geolocation": "^8.0.0",
     "@capacitor/keyboard": "^8.0.0",
     "@capacitor/status-bar": "^8.0.0",
-    "@capacitor-mlkit/document-scanner": "^8.1.0",
-    "@capacitor-mlkit/text-recognition": "^8.2.1",
     "@ionic/react": "^8.0.0",
     "@tanstack/react-query": "^5.0.0",
-    "echarts": "^6.1.0",
-    "echarts-for-react": "^3.0.6",
     "pdf-lib": "^1.17.1",
     "pdfjs-dist": "^6.2.108",
     "react": "^19.0.0",
@@ -40,8 +38,8 @@
     "react-is": "^19.0.0",
     "react-router-dom": "^7.0.0",
     "recharts": "^3.10.1",
-    "zustand": "^5.0.0",
-    "zod": "^4.0.0"
+    "zod": "^4.0.0",
+    "zustand": "^5.0.0"
   },
   "devDependencies": {
     "@capacitor/cli": "^8.0.0",

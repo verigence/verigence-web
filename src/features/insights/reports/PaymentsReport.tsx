@@ -1,3 +1,5 @@
+import { barOption, donutOption, TONE, topBy } from '../charts/chartOptions';
+import { barsHeight, Chart } from '../charts/Chart';
 import { useState } from 'react';
 
 import type { PaymentsInsight, PaymentsRow } from '../../../services/audit-core/uc03Insights';
@@ -72,6 +74,9 @@ export default function PaymentsReport({ data }: { data: PaymentsInsight }) {
     { key: 'open', label: 'Open', value: () => '', render: (row) => <JourneyLink journeyId={row.journeyId} /> },
   ];
 
+  const cashShare = topBy(rows, (row) => row.cashPercent, 14);
+  const around = topBy(rows, (row) => row.cashNearLimit + row.cashAtLimit + row.cashAboveLimit, 14);
+
   return (
     <>
       <Tiles label="Totals" items={[
@@ -93,13 +98,33 @@ export default function PaymentsReport({ data }: { data: PaymentsInsight }) {
       ]} />
 
       <div className="ins-grid">
-        <Section title="By payment mode" description="Share of the money received.">
-          <MeterList empty="No receipt has been read yet."
-                     rows={data.modes.map((mode) => ({
-                       key: mode.mode, label: mode.label, value: mode.amount,
-                       display: `${rupeesShort(mode.amount)} · ${percent(mode.sharePercent, 1)}`,
-                       detail: `${count(mode.receipts)} receipts · typical ${rupeesShort(mode.typical)}`,
-                     }))} />
+        <Section title="How the money came in" description="Share of the money received, by payment mode.">
+          <Chart label="Money received by payment mode" height={280} empty="No receipt has been read yet."
+                 option={data.modes.length ? donutOption(
+                   data.modes.map((mode) => ({ name: mode.label, value: mode.amount, color: mode.mode === 'CASH' ? TONE.warning : mode.mode === 'OTHERS' ? TONE.quiet : undefined })),
+                   { value: rupeesShort(network.amount), label: 'received' }, rupeesShort) : null} />
+        </Section>
+        <Section title={`Cash share, by ${GROUPING_NAME[group].toLowerCase()}`} description="Cash as a share of the money received. The dashed line is the network.">
+          <Chart label="Cash share by group against the network" height={barsHeight(cashShare.length)}
+                 option={cashShare.length ? barOption({
+                   horizontal: true, labels: true, format: (value) => `${value.toFixed(1)}%`,
+                   categories: cashShare.map((row) => (group === 'outlets' ? shortOutlet(row.label, row.parent ?? undefined) : row.label)),
+                   series: [{ name: 'Cash share', data: cashShare.map((row) => row.cashPercent), color: TONE.warning }],
+                   reference: network.cashPercent == null ? undefined : { value: network.cashPercent, label: `Network ${network.cashPercent.toFixed(1)}%` },
+                 }) : null} />
+        </Section>
+      </div>
+
+      <div className="ins-grid">
+        <Section title={`Cash receipts at and near ${limit}, by ${GROUPING_NAME[group].toLowerCase()}`}
+                 description={`Single cash receipts from ${nearFrom}: just under the limit, exactly at it, and above it.`}>
+          <Chart label="Cash receipts around the limit by group" height={barsHeight(around.length, true)} empty={`No single cash receipt is ${nearFrom} or more.`}
+                 option={around.length ? barOption({
+                   horizontal: true, stacked: true, categories: around.map((row) => (group === 'outlets' ? shortOutlet(row.label, row.parent ?? undefined) : row.label)),
+                   series: [{ name: 'Just under', data: around.map((row) => row.cashNearLimit), color: TONE.quiet },
+                     { name: 'Exactly the limit', data: around.map((row) => row.cashAtLimit), color: TONE.warning },
+                     { name: 'Above the limit', data: around.map((row) => row.cashAboveLimit), color: TONE.danger }],
+                 }) : null} />
         </Section>
         <Section title={`Bookings above ${limit} cash in all`}
                  description="Cash receipts of one booking added up, whether or not any single receipt is above the limit.">

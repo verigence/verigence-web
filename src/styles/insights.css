@@ -233,9 +233,14 @@
 .ins .ins-notes summary { cursor: pointer; padding: 12px 0; font-weight: 600; }
 .ins .ins-notes ul { margin: 0; padding: 0 0 16px 18px; display: grid; gap: 8px; color: var(--ins-text-2); max-width: 96ch; }
 
+/* ---- charts */
+.ins .ins-chart { padding: 0 16px 16px; min-width: 0; }
+
 /* ---- customer map */
 .ins .ins-map__controls { display: flex; flex-wrap: wrap; gap: 16px; align-items: end; padding: 0 16px 16px; }
 .ins .ins-map__controls .ins-field { flex: 0 1 220px; }
+.ins .ins-map__check { display: inline-flex; align-items: center; gap: 8px; height: 40px; font-size: .875rem; cursor: pointer; }
+.ins .ins-map__check input { width: 16px; height: 16px; accent-color: var(--ins-text); }
 .ins .ins-map__zoom { display: inline-flex; margin-left: auto; border: 1px solid var(--ins-border-strong); }
 .ins .ins-map__zoom button { height: 40px; min-width: 40px; padding: 0 12px; border: 0; border-left: 1px solid var(--ins-border-strong);
   background: var(--ins-layer); color: var(--ins-text); font: inherit; cursor: pointer; }
@@ -251,7 +256,7 @@
 .ins .ins-map__legend li { display: flex; align-items: center; gap: 8px; }
 .ins .ins-map__legend i { flex: none; width: 12px; height: 12px; }
 .ins .ins-map__legend i.is-shared { background: var(--ins-none); outline: 2px solid var(--ins-text); outline-offset: -2px; }
-.ins .ins-map__legend i.is-outlet { background: var(--ins-text); border-radius: 50%; transform: scale(.75); }
+.ins .ins-map__legend i.is-outlet { background: var(--ins-text); border-radius: 50% 50% 50% 0; transform: rotate(-45deg) scale(.8); }
 .ins .ins-map__note { margin: 0; padding: 12px 16px; border-top: 1px solid var(--ins-border); color: var(--ins-text-2); font-size: .75rem; }
 
 @media (max-width: 1100px) {

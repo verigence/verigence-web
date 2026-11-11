@@ -3,6 +3,8 @@ import { lazy, Suspense, useState } from 'react';
 import type { CatchmentInsight, PlaceRow } from '../../../services/audit-core/uc03Insights';
 import { count, percent, shortOutlet } from '../insightFormat';
 import { DataTable, GroupName, MeterList, Section, Switcher, Tiles, type Column } from '../InsightParts';
+import { barOption, SERIES, topBy } from '../charts/chartOptions';
+import { barsHeight, Chart } from '../charts/Chart';
 import { HeatKey, HeatMatrix } from './PenetrationReport';
 
 // The map brings the chart library with it: loaded only when this report is opened.
@@ -45,6 +47,21 @@ export default function CatchmentReport({ data }: { data: CatchmentInsight }) {
       render: (row) => <span className="ins-secondary ins-wrap">{row.outlets.map((o) => `${shortOutlet(o.outlet)} (${o.journeys})`).join(' · ')}</span> },
   ];
 
+  // Customers by district, split by dealership, from the map's rows.
+  const byDistrict = new Map<string, { name: string; total: number; by: Map<string, number> }>();
+  const dealerTotals = new Map<string, number>();
+  for (const cell of data.map.cells) {
+    if (!cell.district) continue;
+    const dealer = cell.dealer ?? 'Not named';
+    const entry = byDistrict.get(cell.district) ?? { name: cell.district, total: 0, by: new Map<string, number>() };
+    entry.total += cell.journeys;
+    entry.by.set(dealer, (entry.by.get(dealer) ?? 0) + cell.journeys);
+    byDistrict.set(cell.district, entry);
+    dealerTotals.set(dealer, (dealerTotals.get(dealer) ?? 0) + cell.journeys);
+  }
+  const topDistricts = topBy([...byDistrict.values()], (row) => row.total, 15);
+  const dealerNames = [...dealerTotals.entries()].sort((a, b) => b[1] - a[1]).map(([name]) => name);
+
   return (
     <>
       <Tiles label="Totals" items={[
@@ -62,16 +79,15 @@ export default function CatchmentReport({ data }: { data: CatchmentInsight }) {
 
       <Section title="By district"
                description={view === 'customers'
-                 ? 'Share of the bookings by the district on the customer\'s address.'
+                 ? 'Customers by district, split by dealership.'
                  : 'Share of each district\'s deals that took each product; the count is under it.'}
                actions={<Switcher label="Show" options={VIEWS} value={view} onChange={setView} />}>
         {view === 'customers' ? (
-          <MeterList empty="No customer address has been read yet." limit={15}
-                     rows={data.districts.map((district) => ({
-                       key: district.key, label: district.label, value: district.journeys,
-                       display: `${count(district.journeys)} · ${percent(district.sharePercent, 1)}`,
-                       detail: `${count(district.pins)} PIN codes · ${district.outlets.slice(0, 2).map((o) => `${shortOutlet(o.outlet)} ${o.journeys}`).join(', ')}`,
-                     }))} />
+          <Chart label="Customers by district and dealership" height={barsHeight(topDistricts.length, true)} empty="No customer address has been read yet."
+                 option={topDistricts.length ? barOption({
+                   horizontal: true, stacked: true, categories: topDistricts.map((row) => row.name),
+                   series: dealerNames.map((dealer, index) => ({ name: dealer, color: SERIES[index], data: topDistricts.map((row) => row.by.get(dealer) ?? 0) })),
+                 }) : null} />
         ) : (
           <>
             <HeatMatrix rows={data.districts.map((district) => ({ ...district, deals: district.statementDeals }))}

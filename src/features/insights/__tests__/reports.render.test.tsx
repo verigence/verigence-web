@@ -22,7 +22,8 @@ describe('the Analytics reports render what the server sent', () => {
     const text = words(render(<SalesReport data={sales} />));
     expect(text).toContain('1,253');
     expect(text).toContain('₹89.1 crore');
-    expect(text).toContain('Within 7 days');
+    expect(text).toContain('Days from booking to delivery');
+    expect(text).toContain('Bookings by outlet');
   });
 
   it('discount control shows the stored verdicts and the outliers', () => {
@@ -31,7 +32,8 @@ describe('the Analytics reports render what the server sent', () => {
     expect(text).toContain('Over entitlement');
     expect(text).toContain('Kit given as cash');
     expect(text).toContain('Entitlement unknown');
-    expect(text).toContain('the corporate category is still to be confirmed');
+    expect(text).toContain('Why the entitlement is unknown');
+    expect(text).toContain('Where the discount stands');
     expect(text).toContain('MO-000123');
   });
 
@@ -47,14 +49,14 @@ describe('the Analytics reports render what the server sent', () => {
   it('insurance names the agents the outside policies went through', () => {
     const text = words(render(<InsuranceReport data={insurance} />));
     expect(text).toContain('Codes PS0000041087, PS000041087');
-    expect(text).toContain('Tata AIG');
-    expect(text).toContain('Zero depreciation');
+    expect(text).toContain('Premium going outside, by agent');
+    expect(text).toContain('Add-on covers');
   });
 
   it('finance shows the lenders and the loan against ex-showroom', () => {
     const text = words(render(<FinanceReport data={finance} />));
     expect(text).toContain('Mahindra Finance');
-    expect(text).toContain('Above ex-showroom');
+    expect(text).toContain('Loan against ex-showroom');
     expect(text).toContain('₹47.4 crore');
   });
 

@@ -1,7 +1,9 @@
 import { useState } from 'react';
 
+import { barOption, donutOption, SERIES, TONE, topBy } from '../charts/chartOptions';
+import { barsHeight, Chart } from '../charts/Chart';
 import type { SalesInsight, SalesRow } from '../../../services/audit-core/uc03Insights';
-import { count, days, monthLabel, percent, rupees, rupeesShort } from '../insightFormat';
+import { count, days, monthLabel, percent, rupees, rupeesShort, shortOutlet } from '../insightFormat';
 import {
   CellBar, DataTable, GROUPING_NAME, GroupName, Legend, MeterList, Section, Switcher, Tiles, type Column,
 } from '../InsightParts';
@@ -36,6 +38,9 @@ export default function SalesReport({ data }: { data: SalesInsight }) {
       render: (row) => (row.daysMeasuredOn ? days(row.typicalDaysToDeliver) : '—') },
   ];
 
+  const busiest = topBy(data.outlets, (row) => row.journeys, 14);
+  const topModels = topBy(data.models, (row) => row.billedValue, 12);
+
   return (
     <>
       <Tiles label="Totals" items={[
@@ -51,39 +56,42 @@ export default function SalesReport({ data }: { data: SalesInsight }) {
       ]} />
 
       <div className="ins-grid">
-        <Section title="Booked and delivered by month"
-                 description="Bookings by booking date, deliveries by delivery date.">
-          {data.months.length ? (
-            <>
-              <Legend items={[{ label: 'Booked', tone: 'a' }, { label: 'Delivered', tone: 'd' }]} />
-              <ul className="ins-pairs">
-                {data.months.map((month) => (
-                  <li key={month.month}>
-                    <span className="ins-pairs__name">{monthLabel(month.month)}</span>
-                    <span className="ins-pairs__bars">
-                      <span className="ins-pairs__row">
-                        <span className="ins-pairs__bar ins-seg--a" style={{ width: `${(month.booked / mostInMonth) * 100}%` }} aria-hidden="true" />
-                        <span className="ins-pairs__figure">{count(month.booked)}<span className="ins-visually-hidden"> booked</span></span>
-                      </span>
-                      <span className="ins-pairs__row">
-                        <span className="ins-pairs__bar ins-seg--d" style={{ width: `${(month.delivered / mostInMonth) * 100}%` }} aria-hidden="true" />
-                        <span className="ins-pairs__figure">{count(month.delivered)}<span className="ins-visually-hidden"> delivered</span></span>
-                      </span>
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            </>
-          ) : <p className="ins-empty">No bookings in this period.</p>}
+        <Section title="Booked and delivered by month" description="Bookings by booking date, deliveries by delivery date.">
+          <Chart label="Bookings and deliveries by month" height={300} empty="No bookings in this period."
+                 option={data.months.length ? barOption({
+                   categories: data.months.map((month) => monthLabel(month.month)),
+                   series: [{ name: 'Booked', data: data.months.map((month) => month.booked), color: TONE.primary },
+                     { name: 'Delivered', data: data.months.map((month) => month.delivered), color: TONE.good }],
+                 }) : null} />
         </Section>
-
         <Section title="Days from booking to delivery"
                  description={`Delivered bookings with a booking date read: ${count(network.daysMeasuredOn)}.`}>
-          <MeterList empty="No delivered booking has both dates yet."
-                     rows={data.daysToDeliverBands.map((band) => ({
-                       key: band.band, label: band.band, value: band.deals, display: count(band.deals),
-                       detail: network.daysMeasuredOn ? percent((band.deals / network.daysMeasuredOn) * 100) : null,
-                     }))} />
+          <Chart label="Delivered bookings by days from booking to delivery" height={300} empty="No delivered booking has both dates yet."
+                 option={network.daysMeasuredOn ? barOption({
+                   categories: data.daysToDeliverBands.map((band) => band.band),
+                   series: [{ name: 'Deliveries', data: data.daysToDeliverBands.map((band) => band.deals), color: TONE.second }], labels: true,
+                 }) : null} />
+        </Section>
+      </div>
+
+      <div className="ins-grid">
+        <Section title="Bookings by outlet" description="How far each outlet's bookings have moved.">
+          <Chart label="Bookings by outlet and stage" height={barsHeight(busiest.length, true)}
+                 option={busiest.length ? barOption({
+                   horizontal: true, stacked: true, categories: busiest.map((row) => shortOutlet(row.label, row.parent ?? undefined)),
+                   series: [
+                     { name: 'Delivered', data: busiest.map((row) => row.delivered), color: TONE.good },
+                     { name: 'Delivery started', data: busiest.map((row) => Math.max(row.deliveryStarted - row.delivered, 0)), color: TONE.primary },
+                     { name: 'Booked only', data: busiest.map((row) => Math.max(row.journeys - Math.max(row.deliveryStarted, row.delivered), 0)), color: TONE.quiet },
+                   ],
+                 }) : null} />
+        </Section>
+        <Section title="Billed value by model" description="Ex-showroom billed, the largest models first.">
+          <Chart label="Billed value by model" height={barsHeight(topModels.length)}
+                 option={topModels.length ? barOption({
+                   horizontal: true, labels: true, format: rupeesShort, categories: topModels.map((row) => row.label),
+                   series: [{ name: 'Billed value', data: topModels.map((row) => row.billedValue), color: TONE.primary }],
+                 }) : null} />
         </Section>
       </div>
 

@@ -1,3 +1,5 @@
+import { barOption, SERIES, TONE } from '../charts/chartOptions';
+import { barsHeight, Chart } from '../charts/Chart';
 import { useState } from 'react';
 
 import type { PenetrationInsight, PenetrationRow, ProductCell, ProductInfo } from '../../../services/audit-core/uc03Insights';
@@ -111,6 +113,24 @@ export default function PenetrationReport({ data }: { data: PenetrationInsight }
         Of {count(data.basis.statementDeals)} deals with the account statement on file.
         {data.basis.withoutStatement > 0 ? ` ${count(data.basis.withoutStatement)} live bookings have no statement yet and are not counted.` : ''}
       </p>
+
+      <div className="ins-grid">
+        <Section title="Penetration across the network" description="Share of deals with a statement that took each product.">
+          <Chart label="Network penetration by product" height={300}
+                 option={data.network.deals ? barOption({
+                   labels: true, max: 100, format: (value) => `${Math.round(value)}%`, categories: data.products.map((product) => product.label),
+                   series: [{ name: 'Penetration', data: data.products.map((product) => data.network.products[product.key]?.percent ?? 0), color: TONE.primary }],
+                 }) : null} />
+        </Section>
+        <Section title="By dealership" description="The same share, dealership against dealership.">
+          <Chart label="Penetration by product and dealership" height={300}
+                 option={data.dealers.length ? barOption({
+                   max: 100, format: (value) => `${Math.round(value)}%`, categories: data.products.map((product) => product.label),
+                   series: data.dealers.slice(0, 6).map((dealer, index) => ({
+                     name: dealer.label, color: SERIES[index], data: data.products.map((product) => dealer.products[product.key]?.percent ?? 0) })),
+                 }) : null} />
+        </Section>
+      </div>
 
       <Section title={`By ${GROUPING_NAME[group].toLowerCase()}`}
                description={shownMeasure === 'rate'

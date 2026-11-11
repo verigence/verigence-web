@@ -1,3 +1,5 @@
+import { barOption, donutOption, TONE, topBy } from '../charts/chartOptions';
+import { barsHeight, Chart } from '../charts/Chart';
 import { useState } from 'react';
 
 import type { ChannelRow, InsuranceInsight, OutsideAgent } from '../../../services/audit-core/uc03Insights';
@@ -66,6 +68,12 @@ export default function InsuranceReport({ data }: { data: InsuranceInsight }) {
       ) },
   ];
 
+  const share = (part: number, whole: number) => (whole ? Math.round((part / whole) * 1000) / 10 : 0);
+  const split = topBy(rows.filter((row) => !row.thin), (row) => row.deals, 14);
+  const agents = topBy(data.outsideAgents.filter((row) => row.key !== 'none'), (row) => row.premium, 10);
+  const insurers = topBy(data.insurers, (row) => row.policies, 10);
+  const covers = topBy(data.covers, (row) => row.percent, 10);
+
   return (
     <>
       <Tiles label="Totals" items={[
@@ -78,6 +86,47 @@ export default function InsuranceReport({ data }: { data: InsuranceInsight }) {
           detail: off.policies ? `${rupeesShort(off.premium)} premium collected elsewhere` : 'None' },
       ]} />
       <p className="ins-footnote">Of {count(data.basis.statementDeals)} deals with the account statement on file; {count(data.basis.policiesOnFile)} have a policy read.</p>
+
+      <div className="ins-grid">
+        <Section title="Where the insurance went" description="Deals with a statement, by who placed the policy.">
+          <Chart label="Deals by insurance channel" height={280}
+                 option={network.deals ? donutOption([
+                   { name: 'In-house', value: network.inhouse, color: TONE.primary },
+                   { name: "Outside the dealer's code", value: network.outside, color: TONE.warning },
+                   { name: 'No policy on file', value: network.noPolicy, color: TONE.quiet },
+                 ], { value: percent(network.inhousePercent), label: 'in-house' }) : null} />
+        </Section>
+        <Section title={`In-house share, by ${GROUPING_NAME[group].toLowerCase()}`}
+                 description="Each bar is that group's deals with a statement. Groups with few deals are left out.">
+          <Chart label="Insurance channel share by group" height={barsHeight(split.length, true)}
+                 option={split.length ? barOption({
+                   horizontal: true, percent: true, categories: split.map((row) => (group === 'outlets' ? shortOutlet(row.label, row.parent ?? undefined) : row.label)),
+                   series: [
+                     { name: 'In-house', data: split.map((row) => share(row.inhouse, row.deals)), color: TONE.primary },
+                     { name: 'Outside', data: split.map((row) => share(row.outside, row.deals)), color: TONE.warning },
+                     { name: 'No policy', data: split.map((row) => share(row.noPolicy, row.deals)), color: TONE.quiet },
+                   ],
+                 }) : null} />
+        </Section>
+      </div>
+
+      <div className="ins-grid">
+        <Section title="Premium going outside, by agent" description="The agents with the most premium on policies outside the dealer's code.">
+          <Chart label="Outside premium by agent" height={barsHeight(agents.length)} empty="No policy is outside the dealer's code."
+                 option={agents.length ? barOption({
+                   horizontal: true, labels: true, format: rupeesShort, categories: agents.map((row) => row.agent),
+                   series: [{ name: 'Premium', data: agents.map((row) => row.premium), color: TONE.warning }],
+                 }) : null} />
+        </Section>
+        <Section title="Renewals falling due" description="Policies by the month they end: the renewal calls to plan.">
+          <Chart label="Renewals by month" height={300} empty="No policy end date has been read yet."
+                 option={data.renewals.length ? barOption({
+                   stacked: true, categories: data.renewals.map((row) => monthLabel(row.month)),
+                   series: [{ name: 'In-house', data: data.renewals.map((row) => row.inhouse), color: TONE.primary },
+                     { name: 'Outside, to win back', data: data.renewals.map((row) => row.outside), color: TONE.warning }],
+                 }) : null} />
+        </Section>
+      </div>
 
       <Section title={`In-house against outside, by ${GROUPING_NAME[group].toLowerCase()}`}
                description="In-house: confirmed by the PC, the premium is on the dealer's statement, or the policy carries the dealer's own code."
@@ -110,20 +159,20 @@ export default function InsuranceReport({ data }: { data: InsuranceInsight }) {
       ) : null}
 
       <div className="ins-grid">
-        <Section title="Insurers" description={`Share of the ${count(data.basis.policiesOnFile)} policies read.`}>
-          <MeterList empty="No policy has been read yet."
-                     rows={data.insurers.map((insurer) => ({
-                       key: insurer.insurer, label: insurer.insurer, value: insurer.policies,
-                       display: `${count(insurer.policies)} · ${percent(insurer.sharePercent)}`,
-                       detail: `${rupeesShort(insurer.premium)} · ${count(insurer.inhouse)} in-house, ${count(insurer.outside)} outside`,
-                     }))} />
+        <Section title="Insurers" description={`The ${count(data.basis.policiesOnFile)} policies read, by insurer and channel.`}>
+          <Chart label="Policies by insurer and channel" height={barsHeight(insurers.length, true)} empty="No policy has been read yet."
+                 option={insurers.length ? barOption({
+                   horizontal: true, stacked: true, categories: insurers.map((row) => row.insurer),
+                   series: [{ name: 'In-house', data: insurers.map((row) => row.inhouse), color: TONE.primary },
+                     { name: 'Outside', data: insurers.map((row) => row.outside), color: TONE.warning }],
+                 }) : null} />
         </Section>
-        <Section title="Add-on covers" description={`Of ${count(data.basis.policiesWithCovers)} policies whose cover list was read.`}>
-          <MeterList empty="No cover list has been read yet." max={100}
-                     rows={data.covers.map((cover) => ({
-                       key: cover.cover, label: cover.cover, value: cover.percent ?? 0, display: percent(cover.percent),
-                       detail: `${count(cover.policies)} policies`,
-                     }))} />
+        <Section title="Add-on covers" description={`Share of the ${count(data.basis.policiesWithCovers)} policies whose cover list was read.`}>
+          <Chart label="Add-on covers by share of policies" height={barsHeight(covers.length)} empty="No cover list has been read yet."
+                 option={covers.length ? barOption({
+                   horizontal: true, labels: true, max: 100, format: (value) => `${Math.round(value)}%`, categories: covers.map((row) => row.cover),
+                   series: [{ name: 'Policies with the cover', data: covers.map((row) => row.percent), color: TONE.second }],
+                 }) : null} />
         </Section>
       </div>
 

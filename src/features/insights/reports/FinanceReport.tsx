@@ -1,7 +1,9 @@
+import { barOption, TONE, topBy } from '../charts/chartOptions';
+import { barsHeight, Chart } from '../charts/Chart';
 import { useState } from 'react';
 
 import type { FinanceInsight, FinanceRow } from '../../../services/audit-core/uc03Insights';
-import { count, percent, rupees, rupeesShort } from '../insightFormat';
+import { count, percent, rupees, rupeesShort, shortOutlet } from '../insightFormat';
 import {
   CellBar, DataTable, GROUPING_NAME, GROUPINGS, GroupName, JourneyLink, MeterList, Section, Switcher, Tiles,
   type Column, type Grouping,
@@ -55,6 +57,9 @@ export default function FinanceReport({ data }: { data: FinanceInsight }) {
     { key: 'open', label: 'Open', value: () => '', render: (row) => <JourneyLink journeyId={row.journeyId} /> },
   ];
 
+  const lenders = topBy(data.lenders, (row) => row.deals, 12);
+  const financed = topBy(rows.filter((row) => !row.thin), (row) => row.percent, 14);
+
   return (
     <>
       <Tiles label="Totals" items={[
@@ -71,28 +76,48 @@ export default function FinanceReport({ data }: { data: FinanceInsight }) {
       ]} />
       <p className="ins-footnote">Of {count(data.basis.statementDeals)} deals with the account statement on file. Across all live bookings, {count(data.basis.financedAllLiveJourneys)} are financed.</p>
 
+      <div className="ins-grid">
+        <Section title="Who funds the deals" description="Financed deals by financier.">
+          <Chart label="Financed deals by financier" height={barsHeight(lenders.length)} empty="No financed deal matches these filters."
+                 option={lenders.length ? barOption({
+                   horizontal: true, labels: true, categories: lenders.map((row) => row.lender),
+                   series: [{ name: 'Deals', data: lenders.map((row) => row.deals), color: TONE.primary }],
+                 }) : null} />
+        </Section>
+        <Section title={`Finance share, by ${GROUPING_NAME[group].toLowerCase()}`}
+                 description="Share of deals with a statement that are financed. The dashed line is the network.">
+          <Chart label="Finance share by group against the network" height={barsHeight(financed.length)}
+                 option={financed.length ? barOption({
+                   horizontal: true, labels: true, max: 100, format: (value) => `${Math.round(value)}%`,
+                   categories: financed.map((row) => (group === 'outlets' ? shortOutlet(row.label, row.parent ?? undefined) : row.label)),
+                   series: [{ name: 'Financed', data: financed.map((row) => row.percent), color: TONE.primary }],
+                   reference: summary.percent == null ? undefined : { value: summary.percent, label: `Network ${Math.round(summary.percent)}%` },
+                 }) : null} />
+        </Section>
+      </div>
+
+      <div className="ins-grid">
+        <Section title="Loan against ex-showroom" description={`${count(summary.loanToValueKnown)} loans with the loan and the price both read.`}>
+          <Chart label="Loans by share of ex-showroom lent" height={300} empty="No loan can be compared with its price yet."
+                 option={summary.loanToValueKnown ? barOption({
+                   labels: true, categories: data.loanToValueBands.map((band) => band.band),
+                   series: [{ name: 'Loans', data: data.loanToValueBands.map((band) => band.deals), color: TONE.second }],
+                 }) : null} />
+        </Section>
+        <Section title="Loan size" description={`${count(summary.loanKnown)} loans with the amount read.`}>
+          <Chart label="Loans by amount" height={300} empty="No loan amount has been read yet."
+                 option={summary.loanKnown ? barOption({
+                   labels: true, categories: data.loanBands.map((band) => band.band),
+                   series: [{ name: 'Loans', data: data.loanBands.map((band) => band.deals), color: TONE.primary }],
+                 }) : null} />
+        </Section>
+      </div>
+
       <Section title="Financiers" description="Who funded the deals, their share, and how much of the price they lend.">
         <DataTable columns={lenderColumns} rows={data.lenders} rowKey={(row) => row.lender} pageSize={10}
                    sort={{ key: 'deals', direction: 'desc' }} csvName="financiers" caption="Financiers"
                    empty="No financed deal matches these filters." />
       </Section>
-
-      <div className="ins-grid">
-        <Section title="Loan against ex-showroom" description={`${count(summary.loanToValueKnown)} loans with the loan and the price both read.`}>
-          <MeterList empty="No loan can be compared with its price yet."
-                     rows={data.loanToValueBands.map((band) => ({
-                       key: band.band, label: band.band, value: band.deals, display: count(band.deals),
-                       detail: summary.loanToValueKnown ? percent((band.deals / summary.loanToValueKnown) * 100) : null,
-                     }))} />
-        </Section>
-        <Section title="Loan size" description={`${count(summary.loanKnown)} loans with the amount read.`}>
-          <MeterList empty="No loan amount has been read yet."
-                     rows={data.loanBands.map((band) => ({
-                       key: band.band, label: band.band, value: band.deals, display: count(band.deals),
-                       detail: summary.loanKnown ? percent((band.deals / summary.loanKnown) * 100) : null,
-                     }))} />
-        </Section>
-      </div>
 
       <Section title={`Finance by ${GROUPING_NAME[group].toLowerCase()}`}
                actions={<Switcher label="Group by" options={GROUPINGS} value={group} onChange={setGroup} />}>

@@ -44,6 +44,7 @@ export default function CustomerMap({ data, products, thinBelow }: { data: Custo
   const [view, setView] = useState<MapView>('DISTRICT');
   const [measure, setMeasure] = useState<string>('journeys');
   const [model, setModel] = useState('');
+  const [outletNames, setOutletNames] = useState(true);
 
   const pinKey = data.boundaries.find((boundary) => boundary.type === 'PIN')?.key;
   const districtKey = data.boundaries.find((boundary) => boundary.type === 'DISTRICT')?.key;
@@ -108,9 +109,11 @@ export default function CustomerMap({ data, products, thinBelow }: { data: Custo
       const centre = outlet.pin ? centres.get(outlet.pin) : undefined;
       if (!centre) return [];
       return [{ name: outlet.outlet, value: [centre[0], centre[1], 1], outlet: true, dealer: outlet.dealer, pin: outlet.pin,
-        itemStyle: { color: '#161616', borderColor: '#ffffff', borderWidth: 2 } }];
+        short: shortOutlet(outlet.outlet, outlet.dealer ?? undefined),
+        itemStyle: { color: colourOf(by === 'dealer' ? outlet.dealer : outlet.outlet), borderColor: '#161616', borderWidth: 1.5,
+          shadowBlur: 3, shadowColor: 'rgba(255,255,255,.9)' } }];
     });
-  }, [data.outlets, pins.data]);
+  }, [data.outlets, pins.data, by, colourOf]);
 
   const mapName = view === 'PIN' ? pinMap : districtMap;
   const ready = Boolean(registered[mapName]);
@@ -172,11 +175,15 @@ export default function CustomerMap({ data, products, thinBelow }: { data: Custo
         data: onMap.map((area) => ({ name: area.key, value: area.value ?? 0 })),
       },
       {
-        name: 'Outlets', type: 'scatter', coordinateSystem: 'geo', data: outletPoints, symbol: 'circle', symbolSize: 9, zlevel: 4,
-        emphasis: { scale: 1.4 }, label: { show: false },
+        name: 'Outlets', type: 'scatter', coordinateSystem: 'geo', data: outletPoints, symbol: 'pin', symbolSize: 30, zlevel: 4,
+        emphasis: { scale: 1.3 },
+        // Each outlet is named beside its marker; names that would collide are left to the tooltip.
+        label: { show: outletNames, position: 'right', distance: 2, formatter: (params: { data: { short: string } }) => params.data.short,
+          color: '#161616', fontFamily: FONT, fontSize: 11, fontWeight: 600, backgroundColor: 'rgba(255,255,255,.88)', padding: [2, 4], borderRadius: 2 },
+        labelLayout: { hideOverlap: true },
       },
     ],
-  }), [byKey, colourOf, counting, data.localities, mapName, measureName, onMap, outletPoints, thinBelow, view]); // eslint-disable-line react-hooks/exhaustive-deps
+  }), [byKey, colourOf, counting, data.localities, mapName, measureName, onMap, outletPoints, thinBelow, view, outletNames]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // The dealer split of the busiest areas: one stacked bar per area, a segment per seller.
   const top = (counting ? onMap : [...onMap].sort((a, b) => b.journeys - a.journeys)).slice(0, 10);
@@ -253,6 +260,10 @@ export default function CustomerMap({ data, products, thinBelow }: { data: Custo
             {models.map((name) => <option key={name} value={name}>{name}</option>)}
           </select>
         </div>
+        <label className="ins-map__check">
+          <input type="checkbox" checked={outletNames} onChange={(event) => setOutletNames(event.target.checked)} />
+          Outlet names
+        </label>
         <div className="ins-map__zoom" role="group" aria-label="Map zoom">
           <button type="button" onClick={() => zoom(1.4)} aria-label="Zoom in">+</button>
           <button type="button" onClick={() => zoom(1 / 1.4)} aria-label="Zoom out">−</button>
@@ -288,7 +299,7 @@ export default function CustomerMap({ data, products, thinBelow }: { data: Custo
                 <li><i className="is-shared" />Shared area</li>
               </>
               : SHARE_STEPS.map((step) => <li key={step.label}><i style={{ background: step.colour }} />{step.label}</li>)}
-            <li><i className="is-outlet" />Outlet</li>
+            <li><i className="is-outlet" />Outlet, at its PIN code{counting ? '' : ' (dealership colour)'}</li>
           </ul>
           <h3 className="ins-map__heading">
             {counting

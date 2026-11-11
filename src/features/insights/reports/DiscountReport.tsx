@@ -1,8 +1,10 @@
+import { barOption, donutOption, SERIES, TONE, topBy } from '../charts/chartOptions';
+import { barsHeight, Chart } from '../charts/Chart';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 
 import type { DiscountInsight, DiscountOutlier, DiscountRow } from '../../../services/audit-core/uc03Insights';
-import { count, dayLabel, percent, rupees, rupeesShort, signed } from '../insightFormat';
+import { count, dayLabel, percent, rupees, rupeesShort, signed, shortOutlet } from '../insightFormat';
 import {
   CellBar, DataTable, GROUPING_NAME, GROUPINGS, GroupName, JourneyLink, MeterList, Section, Switcher, Tiles,
   type Column, type Grouping,
@@ -68,18 +70,24 @@ export default function DiscountReport({ data }: { data: DiscountInsight }) {
   const open = decisions.rules.reduce((sum, rule) => sum + rule.open, 0);
   const rechecked = decisions.rules.reduce((sum, rule) => sum + rule.closedOnRecheck, 0);
 
+  const n = (value: number | null | undefined) => value ?? 0;
+  const groupLabel = (row: DiscountRow) => (group === 'outlets' ? shortOutlet(row.label, row.parent ?? undefined) : row.label);
+  const rated = topBy(rows.filter((row) => !row.thin), (row) => row.givenPercent, 14);
+  const flagged = topBy(rows, (row) => n(row.verdicts.OVER_ENTITLEMENT.amount) + n(row.verdicts.KIT_AS_CASH.amount) + n(row.verdicts.ENTITLEMENT_UNKNOWN.amount), 14);
+  const reasons = data.unknownByReason.slice(0, 10);
+
   return (
     <>
       <Tiles label="Totals" items={[
         { label: 'Discount given', value: rupeesShort(network.given),
           detail: `${percent(network.givenPercent, 2)} of ex-showroom · ${count(network.discountedDeals)} of ${count(network.deals)} deals` },
-        { label: 'Over entitlement', value: rupeesShort(verdicts.OVER_ENTITLEMENT.amount), tone: verdicts.OVER_ENTITLEMENT.amount ? 'danger' : 'default',
+        { label: 'Over entitlement', value: rupeesShort(n(verdicts.OVER_ENTITLEMENT.amount)), tone: n(verdicts.OVER_ENTITLEMENT.amount) ? 'danger' : 'default',
           detail: `${count(verdicts.OVER_ENTITLEMENT.lines)} discounts on ${count(verdicts.OVER_ENTITLEMENT.journeys)} deals` },
-        { label: 'Kit given as cash', value: rupeesShort(verdicts.KIT_AS_CASH.amount), tone: verdicts.KIT_AS_CASH.amount ? 'warning' : 'default',
+        { label: 'Kit given as cash', value: rupeesShort(n(verdicts.KIT_AS_CASH.amount)), tone: n(verdicts.KIT_AS_CASH.amount) ? 'warning' : 'default',
           detail: `${count(verdicts.KIT_AS_CASH.journeys)} deals` },
-        { label: 'Entitlement unknown', value: rupeesShort(verdicts.ENTITLEMENT_UNKNOWN.amount),
+        { label: 'Entitlement unknown', value: rupeesShort(n(verdicts.ENTITLEMENT_UNKNOWN.amount)),
           detail: `Given on ${count(verdicts.ENTITLEMENT_UNKNOWN.lines)} discounts with nothing to compare with` },
-        { label: 'Under entitlement', value: rupeesShort(verdicts.UNDER_ENTITLEMENT.amount),
+        { label: 'Under entitlement', value: rupeesShort(n(verdicts.UNDER_ENTITLEMENT.amount)),
           detail: `Not passed on, ${count(verdicts.UNDER_ENTITLEMENT.lines)} discounts` },
       ]} />
       <p className="ins-footnote">
@@ -88,28 +96,62 @@ export default function DiscountReport({ data }: { data: DiscountInsight }) {
       </p>
 
       <div className="ins-grid">
-        <Section title="By discount type" description="What was given under each head, on deals billed.">
-          <MeterList empty="No discount has been given on a billed deal."
-                     rows={data.byDiscount.map((line) => ({
-                       key: line.key, label: line.label, value: line.given ?? 0,
-                       display: rupeesShort(line.given),
-                       detail: [
-                         `${count(line.deals)} deals`,
-                         line.over ? `over ${rupeesShort(line.over)}` : '',
-                         line.kitAsCash ? `kit as cash ${rupeesShort(line.kitAsCash)}` : '',
-                         line.unknown ? `unknown ${rupeesShort(line.unknown)}` : '',
-                       ].filter(Boolean).join(' · '),
-                     }))} />
+        <Section title="Where the discount stands" description="Every rupee of discount given, by the Deal's verdict on it.">
+          <Chart label="Discount given by verdict" height={280}
+                 option={network.given ? donutOption([
+                   { name: 'Within entitlement', value: Math.max(n(network.given) - n(verdicts.OVER_ENTITLEMENT.amount) - n(verdicts.KIT_AS_CASH.amount) - n(verdicts.ENTITLEMENT_UNKNOWN.amount), 0), color: TONE.good },
+                   { name: 'Entitlement unknown', value: n(verdicts.ENTITLEMENT_UNKNOWN.amount), color: TONE.neutral },
+                   { name: 'Kit given as cash', value: n(verdicts.KIT_AS_CASH.amount), color: TONE.warning },
+                   { name: 'Over entitlement', value: n(verdicts.OVER_ENTITLEMENT.amount), color: TONE.danger },
+                 ], { value: rupeesShort(network.given), label: 'given' }, rupeesShort) : null} />
         </Section>
-        <Section title="Why the entitlement is unknown"
-                 description="Discount given that cannot be judged yet, by what is missing. Clearing the reason turns it into a verdict.">
-          <MeterList empty="Every discount given has an entitlement to compare with."
-                     rows={data.unknownByReason.map((reason) => ({
-                       key: `${reason.reason}-${reason.key}`, label: reason.label, sub: reason.reason, value: reason.amount,
-                       display: rupeesShort(reason.amount), detail: `${count(reason.lines)} discounts`,
-                     }))} />
+        <Section title="By discount type" description="What was given under each head, and the verdict on it.">
+          <Chart label="Discount given by type and verdict" height={barsHeight(data.byDiscount.length, true)} empty="No discount has been given on a billed deal."
+                 option={data.byDiscount.length ? barOption({
+                   horizontal: true, stacked: true, format: rupeesShort, categories: data.byDiscount.map((line) => line.label),
+                   series: [
+                     { name: 'Within entitlement', data: data.byDiscount.map((line) => Math.max(n(line.given) - n(line.over) - n(line.kitAsCash) - n(line.unknown), 0)), color: TONE.good },
+                     { name: 'Entitlement unknown', data: data.byDiscount.map((line) => n(line.unknown)), color: TONE.neutral },
+                     { name: 'Kit given as cash', data: data.byDiscount.map((line) => n(line.kitAsCash)), color: TONE.warning },
+                     { name: 'Over entitlement', data: data.byDiscount.map((line) => n(line.over)), color: TONE.danger },
+                   ],
+                 }) : null} />
         </Section>
       </div>
+
+      <div className="ins-grid">
+        <Section title={`Discount as a share of ex-showroom, by ${GROUPING_NAME[group].toLowerCase()}`}
+                 description="The dashed line is the network. Groups with few deals are left out.">
+          <Chart label="Discount percent by group against the network" height={barsHeight(rated.length)}
+                 option={rated.length ? barOption({
+                   horizontal: true, labels: true, format: (value) => `${value.toFixed(2)}%`, categories: rated.map((row) => groupLabel(row)),
+                   series: [{ name: '% of ex-showroom', data: rated.map((row) => row.givenPercent), color: TONE.primary }],
+                   reference: network.givenPercent == null ? undefined : { value: network.givenPercent, label: `Network ${network.givenPercent.toFixed(2)}%` },
+                 }) : null} />
+        </Section>
+        <Section title={`Discount to look at, by ${GROUPING_NAME[group].toLowerCase()}`}
+                 description="Over entitlement, kit given as cash and entitlement unknown, in rupees.">
+          <Chart label="Discount to look at by group" height={barsHeight(flagged.length, true)} empty="Nothing is flagged for these filters."
+                 option={flagged.length ? barOption({
+                   horizontal: true, stacked: true, format: rupeesShort, categories: flagged.map((row) => groupLabel(row)),
+                   series: [
+                     { name: 'Over entitlement', data: flagged.map((row) => n(row.verdicts.OVER_ENTITLEMENT.amount)), color: TONE.danger },
+                     { name: 'Kit given as cash', data: flagged.map((row) => n(row.verdicts.KIT_AS_CASH.amount)), color: TONE.warning },
+                     { name: 'Entitlement unknown', data: flagged.map((row) => n(row.verdicts.ENTITLEMENT_UNKNOWN.amount)), color: TONE.neutral },
+                   ],
+                 }) : null} />
+        </Section>
+      </div>
+
+      <Section title="Why the entitlement is unknown"
+               description="Discount given that cannot be judged yet, by what is missing. Clearing the reason turns it into a verdict.">
+        <Chart label="Discount with unknown entitlement by reason" height={barsHeight(reasons.length)} empty="Every discount given has an entitlement to compare with."
+               option={reasons.length ? barOption({
+                 horizontal: true, labels: true, format: rupeesShort, labelWidth: 420,
+                 categories: reasons.map((reason) => `${reason.label}: ${reason.reason}`),
+                 series: [{ name: 'Discount given', data: reasons.map((reason) => reason.amount), color: TONE.neutral }],
+               }) : null} />
+      </Section>
 
       <Section title={`Who gives more: by ${GROUPING_NAME[group].toLowerCase()}`}
                description={likeForLike

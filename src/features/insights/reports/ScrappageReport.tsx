@@ -1,7 +1,9 @@
+import { barOption, TONE, topBy } from '../charts/chartOptions';
+import { barsHeight, Chart } from '../charts/Chart';
 import { useState } from 'react';
 
 import type { ScrappageInsight, ScrappageRegisterRow, ScrappageShareRow } from '../../../services/audit-core/uc03Insights';
-import { count, dayLabel, percent, rupees, rupeesShort } from '../insightFormat';
+import { count, dayLabel, percent, rupees, rupeesShort, shortOutlet } from '../insightFormat';
 import {
   CellBar, DataTable, GROUPING_NAME, GROUPINGS, GroupName, JourneyLink, MeterList, Section, Switcher, Tiles,
   type Column, type Grouping,
@@ -48,6 +50,10 @@ export default function ScrappageReport({ data }: { data: ScrappageInsight }) {
     { key: 'open', label: 'Open', value: () => '', render: (row) => <JourneyLink journeyId={row.journeyId} /> },
   ];
 
+  const states = topBy(data.states, (row) => row.certificates, 10);
+  const effect = data.roadTaxEffect.filter((band) => band.withCertificate + band.withoutCertificate > 0);
+  const shares = topBy(rows.filter((row) => !row.thin), (row) => row.percent, 14);
+
   return (
     <>
       <Tiles label="Totals" items={[
@@ -69,11 +75,34 @@ export default function ScrappageReport({ data }: { data: ScrappageInsight }) {
 
       <div className="ins-grid">
         <Section title="Where the old vehicles were registered" description="By the state code of the scrapped vehicle's registration.">
-          <MeterList empty="No certificate has been read yet."
-                     rows={data.states.map((state) => ({
-                       key: state.state, label: state.state, value: state.certificates, display: count(state.certificates),
-                       detail: summary.certificates ? percent((state.certificates / summary.certificates) * 100) : null,
-                     }))} />
+          <Chart label="Certificates by the old vehicle's state" height={barsHeight(states.length)} empty="No certificate has been read yet."
+                 option={states.length ? barOption({
+                   horizontal: true, labels: true, categories: states.map((row) => row.state),
+                   series: [{ name: 'Certificates', data: states.map((row) => row.certificates), color: TONE.primary }],
+                 }) : null} />
+        </Section>
+        <Section title="Road tax paid, with and without a certificate"
+                 description="Road tax on the RTO challan as a share of ex-showroom, inside one price band.">
+          <Chart label="Road tax percent with and without a certificate" height={280} empty="No challan has been read yet."
+                 option={effect.length ? barOption({
+                   format: (value) => `${value}%`, categories: effect.map((row) => row.band),
+                   series: [{ name: 'Without a certificate', data: effect.map((row) => row.taxPercentWithout), color: TONE.neutral },
+                     { name: 'With a certificate', data: effect.map((row) => row.taxPercentWith), color: TONE.good }],
+                 }) : null} />
+        </Section>
+      </div>
+
+      <div className="ins-grid">
+        <Section title={`Deals with a certificate, by ${GROUPING_NAME[group].toLowerCase()}`}
+                 description="Share of deals with a statement. Groups with few deals are left out.">
+          <Chart label="Certificate share by group" height={barsHeight(shares.length)}
+                 option={shares.length ? barOption({
+                   horizontal: true, labels: true, format: (value) => `${Math.round(value)}%`,
+                   categories: shares.map((row) => (group === 'outlets' ? shortOutlet(row.label, row.parent ?? undefined) : row.label)),
+                   series: [{ name: 'With a certificate', data: shares.map((row) => row.percent), color: TONE.primary }],
+                   reference: summary.percentOfStatementDeals == null ? undefined
+                     : { value: summary.percentOfStatementDeals, label: `Network ${Math.round(summary.percentOfStatementDeals)}%` },
+                 }) : null} />
         </Section>
         <Section title="Road tax with and without a certificate"
                  description="Road tax on the RTO challan as a share of ex-showroom, on the models that carry certificates, inside one price band.">

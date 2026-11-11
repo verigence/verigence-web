@@ -1026,6 +1026,15 @@ export function setP2DealType(
   });
 }
 
+/** A Team Lead or Reviewer sets one Deal Type on several journeys in one go. */
+export function setP2DealTypeForMany(
+  tenantId: string, command: { journeyIds: string[]; dealType: string; reason: string }, accessToken?: string,
+) {
+  return auditCoreRequest<{ updated: Array<{ journeyId: string; dealType: string | null; dealTypeLabel: string | null }>; refused: string[] }>(
+    path(tenantId, '/journeys:deal-type'), { method: 'POST', accessToken, body: JSON.stringify(command) },
+  );
+}
+
 /** The Management Referral (MR) discount as the Team Lead set it. */
 export type P2ManagementReferral = {
   opted: boolean; amount: string | null; reason: string | null;

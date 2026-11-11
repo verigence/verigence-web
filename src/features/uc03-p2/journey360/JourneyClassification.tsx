@@ -17,13 +17,13 @@ export function DealTypeChip({ dealType, label }: { dealType?: string | null; la
 }
 
 /** Deal Type, Customer Type and the insurance decision of a journey, each
- * with what it was decided on; a Team Lead sets the Deal Type here (MR,
+ * with what it was decided on; a Team Lead or Reviewer sets the Deal Type here (MR,
  * Lease, Bulk, or Inscope / Outscope) and their call wins over the rule. */
 export default function JourneyClassification({ data, tenantId, journeyId, accessToken }: {
   data: P2JourneyClassification; tenantId: string; journeyId: string; accessToken?: string;
 }) {
   const role = useProjectContextStore((s) => s.selectedProject?.operatingRole);
-  const supervisor = role === 'TL' || role === 'PM';
+  const supervisor = role === 'TL' || role === 'PM' || role === 'REVIEWER';
   const queryClient = useQueryClient();
   const [choice, setChoice] = useState('');
   const [reason, setReason] = useState('');

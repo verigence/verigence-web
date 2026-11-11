@@ -43,6 +43,8 @@ describe('the Analytics reports render what the server sent', () => {
       expect(text).toContain(label);
     }
     expect(text).toContain('BARBIL');
+    expect(text).toContain('Accessories sold, item by item');
+    expect(text).toContain('2,350');
     expect(text).toContain('623');
   });
 

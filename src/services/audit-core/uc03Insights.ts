@@ -95,6 +95,25 @@ export interface PenetrationInsight extends InsightEnvelope {
   outlets: PenetrationRow[];
   models: PenetrationRow[];
   districts: PenetrationRow[];
+  /** The accessory items fitted, from the accessory tax invoices on file. */
+  accessoryItems: {
+    journeysWithInvoice: number;
+    lines: number;
+    units: number;
+    value: number;
+    itemsSeen: number;
+    /** The models the item split is kept for, busiest first. */
+    topModels: string[];
+    items: {
+      label: string;
+      lines: number;
+      units: number;
+      value: number;
+      journeys: number;
+      dealers: Record<string, number>;
+      models: Record<string, number>;
+    }[];
+  };
 }
 
 // --------------------------------------------------------------------------- insurance

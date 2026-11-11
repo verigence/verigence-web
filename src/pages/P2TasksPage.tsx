@@ -7,6 +7,7 @@ import '../styles/uc03-p2-workspace.css';
 import BackLink from '../components/BackLink';
 import PageHeader from '../components/PageHeader';
 import RaiseTaskDialog from '../features/uc03-p2/tasks/RaiseTaskDialog';
+import SetDealTypeDialog from '../features/uc03-p2/tasks/SetDealTypeDialog';
 import NotMandatoryClaimsPanel from '../features/uc03-p2/tasks/NotMandatoryClaimsPanel';
 import ClosureDecisionPanel from '../features/uc03-p2/review/ClosureDecisionPanel';
 import type { ClosureItem } from '../services/audit-core/reviewerClosure';
@@ -506,6 +507,7 @@ export default function P2TasksPage() {
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [notice, setNotice] = useState<string>();
   const [raising, setRaising] = useState(false);
+  const [settingDealType, setSettingDealType] = useState(false);
   const supervisor = operatingRole === 'TL' || operatingRole === 'PM';
   // Two classifications (product owner 2026-10-27): Journey tasks (with the
   // document grouping under them) and Task Manager tasks (not tied to a booking:
@@ -613,11 +615,18 @@ export default function P2TasksPage() {
             {supervisor && tenantId && !taskManagerScope ? (
               <button type="button" className="p2w-button p2w-button--primary" onClick={() => setRaising(true)}>Raise a task</button>
             ) : null}
+            {(supervisor || operatingRole === 'REVIEWER') && tenantId && !taskManagerScope ? (
+              <button type="button" className="p2w-button p2w-button--secondary" onClick={() => setSettingDealType(true)}>Set deal type</button>
+            ) : null}
             {journeyId ? <Link className="p2w-link" to={`/p2/journeys/${journeyId}/documents`}>Documents</Link> : null}
             {journeyId ? <Link className="p2w-link" to="/p2/tasks">All tasks</Link> : null}
           </div>
         )}
       />
+      {settingDealType && tenantId ? (
+        <SetDealTypeDialog tenantId={tenantId} accessToken={accessToken}
+          onClose={() => setSettingDealType(false)} onDone={(message) => { setSettingDealType(false); setNotice(message); }} />
+      ) : null}
       {raising && tenantId ? (
         <RaiseTaskDialog tenantId={tenantId} accessToken={accessToken} journeyId={journeyId}
           onClose={() => setRaising(false)} onRaised={(message) => { setRaising(false); setNotice(message); }} />

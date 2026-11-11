@@ -70,6 +70,14 @@ export type P2JourneyListItem = {
   price_variance?: string | null;
   /** False until a delivery document is on file: no variance is shown before (2026-10-28). */
   delivery_started?: boolean;
+  /** Deal Type (INSCOPE / OUTSCOPE / MR / LEASE / BULK); null until the VIN is
+   * read or the Team Lead sets it. Absent from an older Audit Core. */
+  deal_type?: string | null;
+  /** INDIVIDUAL / CORPORATE / COMPANY. */
+  customer_type?: string | null;
+  /** DEALERSHIP / SELF, and who decided it (PC, DOCUMENT, UNCONFIRMED, DEFAULT). */
+  insurance_type?: string | null;
+  insurance_decided_by?: string | null;
   /** The PC who started the journey, as their app named them. */
   pc_name?: string | null;
   /** The outlet's own id (code), for the TL's columns. */
@@ -995,6 +1003,38 @@ type P2DealSource = { document: string; documentType: string; amount: Money; doc
  * invoice once the deal has one, else from the booking form. */
 export type P2DealOpted = { taken: boolean; source: 'invoice' | 'billed' | 'booking' | 'insurance' | 'tl' | null };
 
+/** Deal Type, Customer Type and the insurance decision of a journey, each with
+ * what it was decided on (Audit Core uc03_p2_journey_classification). */
+export type P2JourneyClassification = {
+  dealType: string | null; dealTypeLabel: string | null; dealTypeDecidedBy: 'RULE' | 'TL' | null;
+  dealTypeBasis: string | null; vinPending: boolean;
+  bookingDate: string | null; vin: string | null; vinManufactureMonth: string | null;
+  ageReferenceDate: string | null; ageReferenceKind: string | null; vehicleAgeDays: number | null;
+  tlDealType: string | null; tlReason: string | null; tlSetAtUtc: string | null;
+  tlDealTypeOptions: Array<{ value: string; label: string }>;
+  customerType: string; customerTypeLabel: string; customerTypeBasis: string | null;
+  insuranceType: string | null; insuranceTypeLabel: string | null; insuranceDecidedBy: string | null;
+  insuranceConfirmed: boolean; insuranceBasis: string | null;
+};
+
+/** A Team Lead sets the journey's Deal Type (RULE hands it back to the rule). */
+export function setP2DealType(
+  tenantId: string, journeyId: string, command: { dealType: string; reason: string }, accessToken?: string,
+) {
+  return auditCoreRequest<P2JourneyClassification>(path(tenantId, `/journeys/${encodeURIComponent(journeyId)}/deal-type`), {
+    method: 'PUT', accessToken, body: JSON.stringify(command),
+  });
+}
+
+/** A Team Lead or Reviewer sets one Deal Type on several journeys in one go. */
+export function setP2DealTypeForMany(
+  tenantId: string, command: { journeyIds: string[]; dealType: string; reason: string }, accessToken?: string,
+) {
+  return auditCoreRequest<{ updated: Array<{ journeyId: string; dealType: string | null; dealTypeLabel: string | null }>; refused: string[] }>(
+    path(tenantId, '/journeys:deal-type'), { method: 'POST', accessToken, body: JSON.stringify(command) },
+  );
+}
+
 /** The Management Referral (MR) discount as the Team Lead set it. */
 export type P2ManagementReferral = {
   opted: boolean; amount: string | null; reason: string | null;
@@ -1248,6 +1288,8 @@ export type P2Journey360 = {
   journey: {
     closed?: boolean; reviewerClosure?: ReviewerClosureFlag | null; reviewedAtUtc?: string | null;
     journeyId: string; reference?: string | null; customerName: string; customerType?: string | null;
+    /** Deal Type, Customer Type and the insurance decision (2026-11-11). */
+    dealType?: string | null; classification?: P2JourneyClassification | null;
     mobileLast4?: string | null; dealerName: string; outletName: string; city?: string | null;
     vehicle?: string | null; skuCode?: string | null; vehicleResolution?: string | null; vin?: string | null;
     /** PV / CV / EV from the price master; null when it does not say. */

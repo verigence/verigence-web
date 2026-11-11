@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-import { barOption, donutOption, SERIES, TONE, topBy } from '../charts/chartOptions';
+import { barOption, comboOption, TONE, topBy } from '../charts/chartOptions';
 import { barsHeight, Chart } from '../charts/Chart';
 import type { SalesInsight, SalesRow } from '../../../services/audit-core/uc03Insights';
 import { count, days, monthLabel, percent, rupees, rupeesShort, shortOutlet } from '../insightFormat';
@@ -58,10 +58,10 @@ export default function SalesReport({ data }: { data: SalesInsight }) {
       <div className="ins-grid">
         <Section title="Booked and delivered by month" description="Bookings by booking date, deliveries by delivery date.">
           <Chart label="Bookings and deliveries by month" height={300} empty="No bookings in this period."
-                 option={data.months.length ? barOption({
+                 option={data.months.length ? comboOption({
                    categories: data.months.map((month) => monthLabel(month.month)),
-                   series: [{ name: 'Booked', data: data.months.map((month) => month.booked), color: TONE.primary },
-                     { name: 'Delivered', data: data.months.map((month) => month.delivered), color: TONE.good }],
+                   bars: { name: 'Booked', data: data.months.map((month) => month.booked), color: TONE.primary },
+                   line: { name: 'Delivered', data: data.months.map((month) => month.delivered), color: TONE.good },
                  }) : null} />
         </Section>
         <Section title="Days from booking to delivery"

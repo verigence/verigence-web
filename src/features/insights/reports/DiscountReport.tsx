@@ -121,7 +121,7 @@ export default function DiscountReport({ data }: { data: DiscountInsight }) {
 
       <div className="ins-grid">
         <Section title={`Who gives more, on how much business: by ${GROUPING_NAME[group].toLowerCase()}`}
-                 description="Right is more business billed; high is a larger share given away as discount; the bubble is the rupees given. High and to the right costs the most. Groups with few deals are left out.">
+                 description={`Right is more business billed; high is a larger share given away as discount; the bubble is the rupees given. High and to the right costs the most. A group with fewer than ${data.basis.thinBelow} billed deals is left out here (its rate would swing on one deal); every outlet is in the table below.`}>
           <Chart label="Discount share against business billed" height={380}
                  option={rated.length ? scatterOption({
                    points: rated.map((row) => ({

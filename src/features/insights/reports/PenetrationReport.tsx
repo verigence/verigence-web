@@ -1,4 +1,4 @@
-import { barOption, SERIES, TONE } from '../charts/chartOptions';
+import { barOption, scatterOption, SERIES, TONE } from '../charts/chartOptions';
 import { barsHeight, Chart } from '../charts/Chart';
 import { useState } from 'react';
 
@@ -99,6 +99,13 @@ export default function PenetrationReport({ data }: { data: PenetrationInsight }
   const [measure, setMeasure] = useState<Measure>('rate');
   const shownMeasure: Measure = group === 'models' ? 'rate' : measure;
   const rows = data[group];
+  const valuePoints = data.products.filter((product) => product.key !== 'scrappage').flatMap((product) => {
+    const cell = data.network.products[product.key];
+    return cell && cell.percent != null && (cell.typical ?? 0) > 0
+      ? [{ name: product.label, group: 'Products', x: cell.percent, y: cell.typical ?? 0, size: cell.amount ?? 0,
+          detail: `${count(cell.count)} of ${count(data.network.deals)} deals` }]
+      : [];
+  });
 
   return (
     <>
@@ -145,6 +152,16 @@ export default function PenetrationReport({ data }: { data: PenetrationInsight }
         <HeatMatrix rows={group === 'models' ? rows.map((row) => ({ ...row, parent: null })) : rows} products={data.products}
                     measure={shownMeasure} nameLabel={GROUPING_NAME[group]} thinBelow={data.basis.thinBelow} />
         <HeatKey measure={shownMeasure} />
+      </Section>
+
+      <Section title="Volume against value"
+               description="Right is sold on more deals; high is more rupees on the deal that takes it; the bubble is the rupees in all. High and to the left is worth pushing on more deals.">
+        <Chart label="Products by penetration and typical amount" height={360} empty="No product has been charged on a statement yet."
+               option={valuePoints.length ? scatterOption({
+                 points: valuePoints,
+                 xLabel: 'Share of deals', yLabel: 'Typical amount on a deal', sizeLabel: 'Charged in all',
+                 formatX: (value) => `${Math.round(value)}%`, formatY: rupeesShort, formatSize: rupeesShort,
+               }) : null} />
       </Section>
 
       <Section title="What each product brings" description="The rupees behind each product on the deals that took it.">

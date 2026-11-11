@@ -155,11 +155,13 @@ export function scatterOption(input: ScatterInput) {
           + (point.detail ? `<br/>${point.detail}` : '');
       },
     },
-    xAxis: { type: 'value', name: input.xLabel, nameLocation: 'middle', nameGap: 28,
+    xAxis: { type: 'value', name: input.xLabel, nameLocation: 'middle', nameGap: 28, boundaryGap: [0, 0.08],
       nameTextStyle: { color: '#525252', fontFamily: FONT, fontSize: 12 },
       axisLabel: { color: '#525252', fontFamily: FONT, fontSize: 12, formatter: (value: number) => input.formatX(value) },
       splitLine: { lineStyle: { color: '#e0e0e0' } } },
+    // Headroom above the highest bubble, so neither it nor its name is clipped at the top.
     yAxis: { type: 'value', name: input.yLabel, nameTextStyle: { color: '#525252', fontFamily: FONT, fontSize: 12, align: 'left' },
+      boundaryGap: [0, 0.18],
       axisLabel: { color: '#525252', fontFamily: FONT, fontSize: 12, formatter: (value: number) => input.formatY(value) },
       splitLine: { lineStyle: { color: '#e0e0e0' } } },
     series: groups.map((group, index) => ({
@@ -200,5 +202,48 @@ export function comboOption(input: {
         itemStyle: { color: input.line.color ?? TONE.good }, lineStyle: { width: 2, color: input.line.color ?? TONE.good },
         label: { show: true, position: 'top', color: '#161616', fontFamily: FONT, fontSize: 11 }, data: input.line.data },
     ],
+  };
+}
+
+export interface HeatmapInput {
+  /** Column names (x) and row names (y), already in the order to draw. */
+  columns: string[];
+  rows: string[];
+  /** [columnIndex, rowIndex, value]; cells left out draw empty. */
+  cells: [number, number, number][];
+  valueLabel: string;
+  format?: Formatter;
+}
+
+/** A grid shaded by count, one hue light to dark, every cell carrying its figure. */
+export function heatmapOption(input: HeatmapInput) {
+  const format = input.format ?? ((value: number) => new Intl.NumberFormat('en-IN').format(value));
+  const largest = Math.max(...input.cells.map((cell) => cell[2]), 1);
+  return {
+    textStyle: { fontFamily: FONT },
+    grid: { left: 8, right: 16, top: 8, bottom: 44, containLabel: true },
+    tooltip: {
+      confine: true, backgroundColor: '#ffffff', borderColor: '#e0e0e0', padding: 12,
+      textStyle: { color: '#161616', fontFamily: FONT, fontSize: 12 },
+      formatter: (params: { data: [number, number, number] }) =>
+        `<strong>${input.rows[params.data[1]]}</strong><br/>${input.columns[params.data[0]]}<br/>${input.valueLabel}: ${format(params.data[2])}`,
+    },
+    xAxis: { type: 'category', data: input.columns, position: 'top', axisTick: { show: false }, axisLine: { show: false },
+      axisLabel: { color: '#161616', fontFamily: FONT, fontSize: 11, interval: 0, rotate: input.columns.length > 7 ? 32 : 0, width: 110, overflow: 'truncate' } },
+    yAxis: { type: 'category', data: input.rows, inverse: true, axisTick: { show: false }, axisLine: { show: false },
+      axisLabel: { color: '#161616', fontFamily: FONT, fontSize: 12, width: 170, overflow: 'truncate' } },
+    visualMap: {
+      min: 0, max: largest, calculable: false, orient: 'horizontal', left: 0, bottom: 0, itemHeight: 90,
+      text: ['More', 'Fewer'], textStyle: { color: '#525252', fontFamily: FONT, fontSize: 11 },
+      inRange: { color: ['#edf5ff', '#a6c8ff', '#4589ff', '#0043ce'] },
+    },
+    series: [{
+      type: 'heatmap', data: input.cells,
+      itemStyle: { borderColor: '#ffffff', borderWidth: 2 },
+      label: { show: true, fontFamily: FONT, fontSize: 11,
+        formatter: (params: { data: [number, number, number] }) => format(params.data[2]),
+        color: '#161616' },
+      emphasis: { itemStyle: { borderColor: '#161616', borderWidth: 1.5 } },
+    }],
   };
 }

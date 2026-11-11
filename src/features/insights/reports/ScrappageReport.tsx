@@ -52,7 +52,7 @@ export default function ScrappageReport({ data }: { data: ScrappageInsight }) {
 
   const states = topBy(data.states, (row) => row.certificates, 10);
   const effect = data.roadTaxEffect.filter((band) => band.withCertificate + band.withoutCertificate > 0);
-  const shares = topBy(rows.filter((row) => !row.thin), (row) => row.percent, 14);
+  const shares = topBy(rows, (row) => row.percent, 20);
 
   return (
     <>
@@ -94,11 +94,11 @@ export default function ScrappageReport({ data }: { data: ScrappageInsight }) {
 
       <div className="ins-grid">
         <Section title={`Deals with a certificate, by ${GROUPING_NAME[group].toLowerCase()}`}
-                 description="Share of deals with a statement. Groups with few deals are left out.">
+                 description={`Share of deals with a statement. * fewer than ${data.basis.thinBelow} deals.`}>
           <Chart label="Certificate share by group" height={barsHeight(shares.length)}
                  option={shares.length ? barOption({
                    horizontal: true, labels: true, format: (value) => `${Math.round(value)}%`,
-                   categories: shares.map((row) => (group === 'outlets' ? shortOutlet(row.label, row.parent ?? undefined) : row.label)),
+                   categories: shares.map((row) => `${group === 'outlets' ? shortOutlet(row.label, row.parent ?? undefined) : row.label}${row.thin ? ' *' : ''}`),
                    series: [{ name: 'With a certificate', data: shares.map((row) => row.percent), color: TONE.primary }],
                    reference: summary.percentOfStatementDeals == null ? undefined
                      : { value: summary.percentOfStatementDeals, label: `Network ${Math.round(summary.percentOfStatementDeals)}%` },

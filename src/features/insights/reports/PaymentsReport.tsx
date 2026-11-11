@@ -74,8 +74,8 @@ export default function PaymentsReport({ data }: { data: PaymentsInsight }) {
     { key: 'open', label: 'Open', value: () => '', render: (row) => <JourneyLink journeyId={row.journeyId} /> },
   ];
 
-  const cashShare = topBy(rows, (row) => row.cashPercent, 14);
-  const around = topBy(rows, (row) => row.cashNearLimit + row.cashAtLimit + row.cashAboveLimit, 14);
+  const cashShare = topBy(rows, (row) => row.cashPercent, 20);
+  const around = topBy(rows, (row) => row.cashNearLimit + row.cashAtLimit + row.cashAboveLimit, 20);
 
   return (
     <>

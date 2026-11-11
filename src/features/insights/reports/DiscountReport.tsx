@@ -1,4 +1,4 @@
-import { barOption, donutOption, SERIES, TONE, topBy } from '../charts/chartOptions';
+import { barOption, donutOption, scatterOption, TONE, topBy } from '../charts/chartOptions';
 import { barsHeight, Chart } from '../charts/Chart';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
@@ -120,12 +120,17 @@ export default function DiscountReport({ data }: { data: DiscountInsight }) {
       </div>
 
       <div className="ins-grid">
-        <Section title={`Discount as a share of ex-showroom, by ${GROUPING_NAME[group].toLowerCase()}`}
-                 description="The dashed line is the network. Groups with few deals are left out.">
-          <Chart label="Discount percent by group against the network" height={barsHeight(rated.length)}
-                 option={rated.length ? barOption({
-                   horizontal: true, labels: true, format: (value) => `${value.toFixed(2)}%`, categories: rated.map((row) => groupLabel(row)),
-                   series: [{ name: '% of ex-showroom', data: rated.map((row) => row.givenPercent), color: TONE.primary }],
+        <Section title={`Who gives more, on how much business: by ${GROUPING_NAME[group].toLowerCase()}`}
+                 description="Right is more business billed; high is a larger share given away as discount; the bubble is the rupees given. High and to the right costs the most. Groups with few deals are left out.">
+          <Chart label="Discount share against business billed" height={380}
+                 option={rated.length ? scatterOption({
+                   points: rated.map((row) => ({
+                     name: groupLabel(row), group: group === 'outlets' ? (row.parent ?? '—') : group === 'dealers' ? row.label : (row.parent ?? '—'),
+                     x: (row.exShowroom ?? 0) / 1e7, y: row.givenPercent ?? 0, size: row.given ?? 0,
+                     detail: `${count(row.deals)} deals billed`,
+                   })),
+                   xLabel: 'Billed (₹ crore)', yLabel: 'Discount %', sizeLabel: 'Discount given',
+                   formatX: (value) => `₹${value.toFixed(value < 10 ? 1 : 0)} cr`, formatY: (value) => `${value.toFixed(2)}%`, formatSize: rupeesShort,
                    reference: network.givenPercent == null ? undefined : { value: network.givenPercent, label: `Network ${network.givenPercent.toFixed(2)}%` },
                  }) : null} />
         </Section>

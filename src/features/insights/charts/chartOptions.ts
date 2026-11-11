@@ -112,3 +112,93 @@ export function donutOption(slices: Slice[], centre: { value: string; label: str
 export function topBy<T>(rows: T[], value: (row: T) => number | null | undefined, limit = 12): T[] {
   return rows.filter((row) => (value(row) ?? 0) > 0).sort((a, b) => (value(b) ?? 0) - (value(a) ?? 0)).slice(0, limit);
 }
+
+export interface ScatterPoint {
+  name: string;
+  group: string;
+  /** x, y, and the size the bubble scales by. */
+  x: number;
+  y: number;
+  size: number;
+  detail?: string;
+}
+export interface ScatterInput {
+  points: ScatterPoint[];
+  xLabel: string;
+  yLabel: string;
+  formatX: Formatter;
+  formatY: Formatter;
+  formatSize: Formatter;
+  sizeLabel: string;
+  reference?: { value: number; label: string };
+}
+
+/** Bubbles: position carries two measures, size a third, colour the group. The chart the
+ *  ranked bars cannot draw — an outlet high and to the right gives more on more business. */
+export function scatterOption(input: ScatterInput) {
+  const groups = [...new Set(input.points.map((point) => point.group))];
+  const largest = Math.max(...input.points.map((point) => point.size), 1);
+  const scale = (size: number) => 12 + Math.sqrt(size / largest) * 34;
+  return {
+    textStyle: { fontFamily: FONT },
+    grid: { left: 8, right: 24, top: groups.length > 1 ? 56 : 32, bottom: 8, containLabel: true },
+    legend: groups.length > 1
+      ? { top: 0, left: 0, icon: 'circle', itemWidth: 10, itemHeight: 10, textStyle: { color: '#525252', fontFamily: FONT, fontSize: 12 } }
+      : undefined,
+    tooltip: {
+      confine: true, backgroundColor: '#ffffff', borderColor: '#e0e0e0', padding: 12,
+      textStyle: { color: '#161616', fontFamily: FONT, fontSize: 12 },
+      formatter: (params: { data: { name: string; group: string; value: number[]; size: number; detail?: string } }) => {
+        const point = params.data;
+        return `<strong>${point.name}</strong> · ${point.group}<br/>${input.xLabel}: ${input.formatX(point.value[0])}<br/>`
+          + `${input.yLabel}: ${input.formatY(point.value[1])}<br/>${input.sizeLabel}: ${input.formatSize(point.size)}`
+          + (point.detail ? `<br/>${point.detail}` : '');
+      },
+    },
+    xAxis: { type: 'value', name: input.xLabel, nameLocation: 'middle', nameGap: 28,
+      nameTextStyle: { color: '#525252', fontFamily: FONT, fontSize: 12 },
+      axisLabel: { color: '#525252', fontFamily: FONT, fontSize: 12, formatter: (value: number) => input.formatX(value) },
+      splitLine: { lineStyle: { color: '#e0e0e0' } } },
+    yAxis: { type: 'value', name: input.yLabel, nameTextStyle: { color: '#525252', fontFamily: FONT, fontSize: 12, align: 'left' },
+      axisLabel: { color: '#525252', fontFamily: FONT, fontSize: 12, formatter: (value: number) => input.formatY(value) },
+      splitLine: { lineStyle: { color: '#e0e0e0' } } },
+    series: groups.map((group, index) => ({
+      name: group, type: 'scatter', symbolSize: (value: number[], params: { data: { size: number } }) => scale(params.data.size),
+      itemStyle: { color: SERIES[index % SERIES.length], opacity: 0.82, borderColor: '#ffffff', borderWidth: 1 },
+      emphasis: { itemStyle: { opacity: 1, borderColor: '#161616' } },
+      label: { show: true, position: 'top', color: '#161616', fontFamily: FONT, fontSize: 11,
+        formatter: (params: { data: { name: string } }) => params.data.name },
+      labelLayout: { hideOverlap: true },
+      markLine: input.reference && index === 0 ? {
+        silent: true, symbol: 'none', lineStyle: { color: '#161616', type: 'dashed', width: 1 },
+        label: { formatter: input.reference.label, color: '#161616', fontFamily: FONT, fontSize: 11, position: 'insideEndTop' },
+        data: [{ yAxis: input.reference.value }],
+      } : undefined,
+      data: input.points.filter((point) => point.group === group)
+        .map((point) => ({ name: point.name, group: point.group, value: [point.x, point.y], size: point.size, detail: point.detail })),
+    })),
+  };
+}
+
+/** Months as bars with a line over them: the flow in, and how it converts. */
+export function comboOption(input: {
+  categories: string[]; bars: { name: string; data: number[]; color?: string }; line: { name: string; data: number[]; color?: string };
+}) {
+  return {
+    textStyle: { fontFamily: FONT },
+    grid: { left: 8, right: 16, top: 36, bottom: 8, containLabel: true },
+    legend: { top: 0, left: 0, icon: 'rect', itemWidth: 10, itemHeight: 10, textStyle: { color: '#525252', fontFamily: FONT, fontSize: 12 } },
+    tooltip: { trigger: 'axis', confine: true, backgroundColor: '#ffffff', borderColor: '#e0e0e0', padding: 12,
+      textStyle: { color: '#161616', fontFamily: FONT, fontSize: 12 } },
+    xAxis: { type: 'category', data: input.categories, axisTick: { show: false }, axisLine: { lineStyle: { color: '#8d8d8d' } },
+      axisLabel: { color: '#161616', fontFamily: FONT, fontSize: 12 } },
+    yAxis: { type: 'value', minInterval: 1, axisLabel: { color: '#525252', fontFamily: FONT, fontSize: 12 },
+      splitLine: { lineStyle: { color: '#e0e0e0' } } },
+    series: [
+      { name: input.bars.name, type: 'bar', barMaxWidth: 36, itemStyle: { color: input.bars.color ?? TONE.primary }, data: input.bars.data },
+      { name: input.line.name, type: 'line', smooth: false, symbol: 'circle', symbolSize: 8,
+        itemStyle: { color: input.line.color ?? TONE.good }, lineStyle: { width: 2, color: input.line.color ?? TONE.good },
+        label: { show: true, position: 'top', color: '#161616', fontFamily: FONT, fontSize: 11 }, data: input.line.data },
+    ],
+  };
+}

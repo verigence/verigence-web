@@ -292,6 +292,27 @@ export const catchment: CatchmentInsight = {
   ],
   pins: [{ key: '752001', label: '752001', parent: 'Khordha', journeys: 9, sharePercent: 0.7, pins: 1, statementDeals: 5, thin: true,
     products: cells(5, [80, 60, 60, 40, 20, 0, 20]), outlets: [{ outlet: 'Utkal Mahindra - CDA', journeys: 9 }] }],
+  map: {
+    boundaries: [{ key: 'odisha-district', type: 'DISTRICT' }, { key: 'odisha-pin', type: 'PIN' }],
+    cells: [
+      { pin: '751010', onMap: true, district: 'Khordha', dealerId: 'd-utkal', dealer: 'Utkal Mahindra', outletId: 'o-cda', outlet: 'Utkal Mahindra - CDA', model: 'MAXX HD',
+        journeys: 12, delivered: 5, deals: 8, products: { finance: 7, insurance: 5, accessories: 6, fastag: 3, rsa: 2, extendedWarranty: 1, scrappage: 0 } },
+      { pin: '751010', onMap: true, district: 'Khordha', dealerId: 'd-aditya', dealer: 'Aditya Motors', outletId: 'o-jajpur', outlet: 'Aditya Motors - Jajpur', model: 'XUV3XO',
+        journeys: 4, delivered: 1, deals: 2, products: { finance: 2, insurance: 1, accessories: 2, fastag: 1, rsa: 0, extendedWarranty: 0, scrappage: 1 } },
+      { pin: '753014', onMap: true, district: 'Cuttack', dealerId: 'd-utkal', dealer: 'Utkal Mahindra', outletId: 'o-cda', outlet: 'Utkal Mahindra - CDA', model: 'XUV3XO',
+        journeys: 9, delivered: 4, deals: 6, products: { finance: 5, insurance: 4, accessories: 5, fastag: 2, rsa: 1, extendedWarranty: 1, scrappage: 2 } },
+      { pin: null, onMap: false, district: 'Cuttack', dealerId: 'd-aditya', dealer: 'Aditya Motors', outletId: 'o-jajpur', outlet: 'Aditya Motors - Jajpur', model: 'MAXX HD',
+        journeys: 3, delivered: 0, deals: 1, products: { finance: 1, insurance: 0, accessories: 1, fastag: 0, rsa: 0, extendedWarranty: 0, scrappage: 0 } },
+      { pin: '831001', onMap: false, district: 'West Singhbhum', dealerId: 'd-utkal', dealer: 'Utkal Mahindra', outletId: 'o-barbil', outlet: 'Utkal Mahindra - BARBIL', model: 'MAXX HD',
+        journeys: 2, delivered: 1, deals: 1, products: { finance: 1, insurance: 1, accessories: 1, fastag: 1, rsa: 1, extendedWarranty: 0, scrappage: 0 } },
+    ],
+    localities: { '751010': ['RASULGARH', 'MANCHESWAR'], '753014': ['CDA'] },
+    outlets: [
+      { outletId: 'o-cda', outlet: 'Utkal Mahindra - CDA', dealerId: 'd-utkal', dealer: 'Utkal Mahindra', pin: '753014' },
+      { outletId: 'o-jajpur', outlet: 'Aditya Motors - Jajpur', dealerId: 'd-aditya', dealer: 'Aditya Motors', pin: '755015' },
+    ],
+    offMap: 2,
+  },
   outlets: [{ key: 'o-cda', label: 'Utkal Mahindra - CDA', parent: 'Utkal Mahindra', journeys: 114, located: 96, districts: 9, homeDistrict: 'Cuttack',
     homeSharePercent: 71.9, topDistricts: [{ district: 'Cuttack', journeys: 69, percent: 71.9 }, { district: 'Jagatsinghpur', journeys: 12, percent: 12.5 }] }],
 };

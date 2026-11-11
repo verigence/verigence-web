@@ -1,9 +1,12 @@
-import { useState } from 'react';
+import { lazy, Suspense, useState } from 'react';
 
 import type { CatchmentInsight, PlaceRow } from '../../../services/audit-core/uc03Insights';
 import { count, percent, shortOutlet } from '../insightFormat';
 import { DataTable, GroupName, MeterList, Section, Switcher, Tiles, type Column } from '../InsightParts';
 import { HeatKey, HeatMatrix } from './PenetrationReport';
+
+// The map brings the chart library with it: loaded only when this report is opened.
+const CustomerMap = lazy(() => import('./CustomerMap'));
 
 type OutletRow = CatchmentInsight['outlets'][number];
 const VIEWS = [
@@ -52,6 +55,10 @@ export default function CatchmentReport({ data }: { data: CatchmentInsight }) {
         { label: 'Address not read', value: count(basis.withoutPlace), tone: basis.withoutPlace ? 'warning' : 'default',
           detail: 'No PIN code and no district on file' },
       ]} />
+
+      <Suspense fallback={<section className="ins-card"><p className="ins-empty" aria-busy="true">Loading the map…</p></section>}>
+        <CustomerMap data={data.map} products={data.products} thinBelow={basis.thinBelow} />
+      </Suspense>
 
       <Section title="By district"
                description={view === 'customers'

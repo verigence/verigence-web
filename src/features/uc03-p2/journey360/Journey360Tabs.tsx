@@ -395,7 +395,7 @@ function TakenRow({ label, addon }: { label: string; addon: P2TakenAddon }) {
         <strong>{label}</strong>
         <small>{addon.taken
           ? `Taken${addon.amount ? ` · ${rupees(addon.amount)}` : ''}${addon.provider ? ` · ${addon.provider}` : ''}`
-          : 'Not taken on this deal'}</small>
+          : typeof addon.details?.notOnStatement === 'string' ? addon.details.notOnStatement : 'Not taken on this deal'}</small>
       </div>
       <span className={`j360-switch${addon.taken ? ' is-on' : ''}`} role="img" aria-label={`${label}: ${addon.taken ? 'taken' : 'not taken'}`} />
     </div>
@@ -495,7 +495,9 @@ function AddonBlock({ label, addon, labels, itemsTitle }: {
           <p className="j360-items__text">{factText('addOns', addon.details.addOns)}</p></div>
       ) : null}
       <ItemList title={itemsTitle} addon={addon} />
-      {!addon.taken && !known.length ? <p className="p2w-muted">Not taken on this deal.</p> : null}
+      {!addon.taken && typeof addon.details?.notOnStatement === 'string'
+        ? <p className="p2w-muted">{addon.details.notOnStatement}.</p>
+        : !addon.taken && !known.length ? <p className="p2w-muted">Not taken on this deal.</p> : null}
     </section>
   );
 }

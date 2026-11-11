@@ -49,6 +49,14 @@ const DONE = new Set(['VERIFIED_COMPLETE', 'CANCELLED']);
 const MISSING_DOCUMENT_CLOSE_SOURCES = new Set(['DOCUMENT_MISSING', 'BOOKING_FORM_MISSING']);
 export const MISSING_DOCUMENT_CLOSE_CHOICES = ['Document uploaded', 'Document not required to be uploaded'] as const;
 export const NOT_REQUIRED_CHOICE = 'Document not required to be uploaded';
+/** Documents that are never "not required" (product owner 2026-11-11: "NDC has
+ * to come and there is no escape route for it"): the NDC / cost sheet. The
+ * server refuses the claim too (Audit Core ALWAYS_ASKED_REQUIREMENTS). */
+const ALWAYS_REQUIRED_DOCUMENTS = new Set(['DEALER_STATEMENT']);
+
+function alwaysRequired(task: P2Task): boolean {
+  return ALWAYS_REQUIRED_DOCUMENTS.has(String((task.reference ?? {}).requirementKey ?? ''));
+}
 
 /** A PC's "not mandatory" claim waiting for the Reviewer, or one the Reviewer sent back. */
 export function claimState(task: P2Task): 'WAITING' | 'REJECTED' | undefined {
@@ -300,6 +308,7 @@ export function taskPlan(task: P2Task, operatingRole?: string | null): TaskPlan 
     // "Not required" is the PC's claim, decided by the Reviewer (product owner
     // 2026-11-04): it needs the PC's own reason, typed in the comment box.
     for (const choice of MISSING_DOCUMENT_CLOSE_CHOICES) {
+      if (choice === NOT_REQUIRED_CHOICE && alwaysRequired(task)) continue;
       secondary.push({ label: choice, action: 'CLOSE_TASK', comment: choice, details: { choice },
         requiresComment: choice === NOT_REQUIRED_CHOICE, tone: 'secondary' });
     }

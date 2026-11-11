@@ -302,6 +302,8 @@ function ComponentRow({ row, journeyId, open, onToggle, excludedNote }: {
             <span>{row.label}</span>
             {row.excluded ? <small className="p2w-muted">{excludedNote ?? 'Self insurance, not in the deal'}</small> : null}
             {row.partOf ? <small className="p2w-muted">Included in the line above</small> : null}
+            {row.notTaken ? <small className="p2w-muted">{row.invoiced ? 'Invoiced, but not charged on the NDC / cost sheet: not in the standard' : 'Not taken: price master shown for reference, not in the standard'}</small> : null}
+            {row.statementOnly ? <small className="p2w-muted">On the NDC / cost sheet only, not on an invoice</small> : null}
             <Flags flags={row.flags} />
           </button>
         </th>
@@ -323,7 +325,9 @@ function ComponentRow({ row, journeyId, open, onToggle, excludedNote }: {
             ) : null}
             {row.invoiced ? (
               <p className="p2w-muted">
-                {`Charged on the NDC ${money(row.billed)} · invoiced ${money(row.invoiced)}`}
+                {row.billed === null || row.billed === undefined
+                  ? `Not charged on the NDC / cost sheet · invoiced ${money(row.invoiced)} (the invoices tally the payments, they do not price the deal)`
+                  : `Charged on the NDC ${money(row.billed)} · invoiced ${money(row.invoiced)}`}
                 {row.freeByInvoice ? ` · ${money(row.freeByInvoice)} given free` : ''}
               </p>
             ) : null}
@@ -398,6 +402,7 @@ function DiscountRow({ row, journeyId, tenantId, accessToken, open, onToggle }: 
           <button type="button" className="j360-rowbtn" aria-expanded={open} onClick={onToggle}>
             <span>{row.label}</span>
             {row.scheme?.name ? <small className="p2w-muted">{row.scheme.name}{row.scheme.version ? ` · v${row.scheme.version}` : ''}</small> : null}
+            {row.ledgerPosted ? <small className="p2w-muted">{`Posted in the customer ledger ${money(row.ledgerPosted)}: off the amount to be received`}</small> : null}
             <Flags flags={row.flags} />
           </button>
         </th>
@@ -527,7 +532,7 @@ export default function DealTab({ deal, journeyId, tenantId, accessToken }: {
         </p>
         <dl className="j360-paid">
           <div><dt>Received</dt><dd>{money(summary.paid.total)}</dd><small>{money(summary.paid.receipts)} receipts · {money(summary.paid.loan)} loan{summary.paid.loanWithoutReceipt ? '*' : ''}{summary.paid.oldVehicle ? ` · ${money(summary.paid.oldVehicle)} old vehicle` : ''}{summary.paid.refunds ? ` · − ${money(summary.paid.refunds)} refunded` : ''}</small></div>
-          <div className={due !== null && due > 0 ? 'is-due' : 'is-clear'}><dt>Balance</dt><dd>{balanceText(summary.balanceDue)}</dd><small>{summary.paid.loanUnknown ? 'financed: the loan amount is not on file yet' : `against ${money(summary.payable)} payable`}</small></div>
+          <div className={due !== null && due > 0 ? 'is-due' : 'is-clear'}><dt>Balance</dt><dd>{balanceText(summary.balanceDue)}</dd><small>{summary.paid.loanUnknown ? 'financed: the loan amount is not on file yet' : `against ${money(summary.payable)} payable${summary.ledgerDiscounts ? ` (after ${money(summary.ledgerDiscounts)} discount posted in the customer ledger)` : ''}`}</small></div>
           <div><dt>Discounts given</dt><dd>{money(summary.discounts.current)}</dd>
             <small>{entitledTotal !== null && givenTotal !== null ? (givenTotal > entitledTotal ? `${money(String(givenTotal - entitledTotal))} more than entitled` : `within the ${money(summary.discounts.standard)} entitled`) : 'no scheme entitlement recorded'}</small></div>
           <div><dt>Lines to look at</dt><dd>{deal.flagged}</dd><small>{deal.flagged ? 'priced away from the master or the booking' : 'every line as expected'}</small></div>
@@ -628,6 +633,7 @@ export default function DealTab({ deal, journeyId, tenantId, accessToken }: {
           Only the billing documents count: the NDC, the cost sheet, the customer ledger, the invoices, the policy, the RTO challan and the credit notes. Where more than one prints a line it is counted once, in that order, and the others check it. The booking docket is shown as offered and never counted or compared.
           Opted: the optional lines (insurance, accessories, extended warranty, every discount) show whether the customer took them, per the invoice once one is read, else per the billing document that bills them (never the booking docket); insurance follows the Inhouse / Self choice. Mandatory lines have nothing to opt.
           Variances compare a line only where both sides price it.
+          {summary.notTaken?.length ? ` Not taken, so not in the standard: ${summary.notTaken.map((n) => `${n.label} ${money(n.standard)}`).join(', ')}.` : ''}
           {deal.insurance?.source === 'SELF' ? ' The customer arranged their own insurance: the premium is shown but kept out of every total.' : ''}
         </p>
       </section>

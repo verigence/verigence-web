@@ -111,6 +111,10 @@ describe('the Documents group of the Task Queue (2026-10-21)', () => {
       expect(closeComment(close[0], '')).toBe('Document uploaded');
       expect(closeComment(close[1], ' copy with TL ')).toBe('Document not required to be uploaded: copy with TL');
     }
+    // The NDC / cost sheet is never "not required" (2026-11-11): only "Document uploaded" is offered.
+    expect(taskPlan({ ...missing, title: 'Upload the Dealer statement (NDC / cost sheet)',
+      reference: { requirementKey: 'DEALER_STATEMENT' } }, 'PC').secondary
+      .filter((item) => item.action === 'CLOSE_TASK').map((item) => item.label)).toEqual(['Document uploaded']);
     // The wrong customer / dealer name tasks share the type but are not closed by hand.
     expect(taskPlan({ ...missing, source_code: 'WRONG_CUSTOMER_NAME' }, 'PC')
       .secondary.some((item) => item.action === 'CLOSE_TASK')).toBe(false);

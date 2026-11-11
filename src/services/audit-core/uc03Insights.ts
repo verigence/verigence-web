@@ -268,7 +268,33 @@ export interface CatchmentInsight extends InsightEnvelope {
     journeys: number; located: number; districts: number; homeDistrict: string | null; homeSharePercent: number | null;
     topDistricts: { district: string; journeys: number; percent: number | null }[];
   })[];
+  map: CustomerMapData;
 }
+
+/** One row of the customer map: a PIN code (or a district, where no PIN code was read),
+ *  an outlet and a model. `products` counts the statement deals that took each product. */
+export interface MapCell {
+  pin: string | null;
+  onMap: boolean;
+  district: string | null;
+  dealerId: string | null;
+  dealer: string | null;
+  outletId: string | null;
+  outlet: string | null;
+  model: string | null;
+  journeys: number;
+  delivered: number;
+  deals: number;
+  products: Record<string, number>;
+}
+export interface CustomerMapData {
+  boundaries: { key: string; type: 'PIN' | 'DISTRICT'; state?: string; source?: string }[];
+  cells: MapCell[];
+  localities: Record<string, string[]>;
+  outlets: { outletId: string; outlet: string; dealerId: string | null; dealer: string | null; pin: string | null }[];
+  offMap: number;
+}
+export interface MapBoundary { key: string; type: 'PIN' | 'DISTRICT'; source: string; contentGzipBase64: string }
 
 // --------------------------------------------------------------------------- discount control
 
@@ -351,5 +377,13 @@ export async function getInsight<R extends InsightReport>(
   return auditCoreRequest<InsightByReport[R]>(
     `/p2/v1/tenants/${encodeURIComponent(tenantId)}/insights/${report}${suffix}`,
     { method: 'GET', accessToken: token(accessToken), cache: 'no-store', timeoutMs: 45_000 },
+  );
+}
+
+/** One outline of the customer map (GeoJSON, gzip, base64). Reference data: it does not change. */
+export async function getMapBoundary(tenantId: string, key: string, accessToken?: string): Promise<MapBoundary> {
+  return auditCoreRequest<MapBoundary>(
+    `/p2/v1/tenants/${encodeURIComponent(tenantId)}/insight-boundaries/${encodeURIComponent(key)}`,
+    { method: 'GET', accessToken: token(accessToken), timeoutMs: 45_000 },
   );
 }

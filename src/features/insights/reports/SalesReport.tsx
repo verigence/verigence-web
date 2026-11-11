@@ -38,7 +38,7 @@ export default function SalesReport({ data }: { data: SalesInsight }) {
       render: (row) => (row.daysMeasuredOn ? days(row.typicalDaysToDeliver) : '—') },
   ];
 
-  const busiest = topBy(data.outlets, (row) => row.journeys, 14);
+  const busiest = topBy(data.outlets, (row) => row.journeys, 20);
   const topModels = topBy(data.models, (row) => row.billedValue, 12);
 
   return (

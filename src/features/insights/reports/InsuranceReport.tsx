@@ -1,4 +1,4 @@
-import { barOption, donutOption, TONE, topBy } from '../charts/chartOptions';
+import { barOption, donutOption, heatmapOption, TONE, topBy } from '../charts/chartOptions';
 import { barsHeight, Chart } from '../charts/Chart';
 import { useState } from 'react';
 
@@ -69,9 +69,24 @@ export default function InsuranceReport({ data }: { data: InsuranceInsight }) {
   ];
 
   const share = (part: number, whole: number) => (whole ? Math.round((part / whole) * 1000) / 10 : 0);
-  const split = topBy(rows.filter((row) => !row.thin), (row) => row.deals, 14);
+  const split = topBy(rows, (row) => row.deals, 20);
   const agents = topBy(data.outsideAgents.filter((row) => row.key !== 'none'), (row) => row.premium, 10);
   const insurers = topBy(data.insurers, (row) => row.policies, 10);
+  // The old agency-code heatmap, on live rows: the top agents down, the outlets across.
+  const heat = (() => {
+    const top = topBy(data.outsideAgents.filter((row) => row.key !== 'none'), (row) => row.policies, 10);
+    const outletTotals = new Map<string, number>();
+    top.forEach((agent) => agent.outlets.forEach((entry) => outletTotals.set(entry.outlet, (outletTotals.get(entry.outlet) ?? 0) + entry.policies)));
+    const columns = [...outletTotals.entries()].sort((a, b) => b[1] - a[1]).slice(0, 12).map(([outlet]) => outlet);
+    const cells: [number, number, number][] = [];
+    top.forEach((agent, rowIndex) => agent.outlets.forEach((entry) => {
+      const columnIndex = columns.indexOf(entry.outlet);
+      if (columnIndex >= 0 && entry.policies > 0) cells.push([columnIndex, rowIndex, entry.policies]);
+    }));
+    // Outlet names carry the dealership in front; the heatmap column keeps only the outlet.
+    return { columns: columns.map((outlet) => outlet.includes(' - ') ? outlet.slice(outlet.indexOf(' - ') + 3) : outlet),
+      rows: top.map((agent) => agent.agent), cells };
+  })();
   const covers = topBy(data.covers, (row) => row.percent, 10);
 
   return (
@@ -97,10 +112,11 @@ export default function InsuranceReport({ data }: { data: InsuranceInsight }) {
                  ], { value: percent(network.inhousePercent), label: 'in-house' }) : null} />
         </Section>
         <Section title={`In-house share, by ${GROUPING_NAME[group].toLowerCase()}`}
-                 description="Each bar is that group's deals with a statement. Groups with few deals are left out.">
+                 description={`Each bar is that group's deals with a statement. * fewer than ${data.basis.thinBelow} deals.`}>
           <Chart label="Insurance channel share by group" height={barsHeight(split.length, true)}
                  option={split.length ? barOption({
-                   horizontal: true, percent: true, categories: split.map((row) => (group === 'outlets' ? shortOutlet(row.label, row.parent ?? undefined) : row.label)),
+                   horizontal: true, percent: true,
+                   categories: split.map((row) => `${group === 'outlets' ? shortOutlet(row.label, row.parent ?? undefined) : row.label}${row.thin ? ' *' : ''}`),
                    series: [
                      { name: 'In-house', data: split.map((row) => share(row.inhouse, row.deals)), color: TONE.primary },
                      { name: 'Outside', data: split.map((row) => share(row.outside, row.deals)), color: TONE.warning },
@@ -109,6 +125,12 @@ export default function InsuranceReport({ data }: { data: InsuranceInsight }) {
                  }) : null} />
         </Section>
       </div>
+
+      <Section title="Which outlet feeds which agent"
+               description="Outside policies by agent and outlet: a dark cell on one row is one agent taking many policies out of one outlet.">
+        <Chart label="Outside policies by agent and outlet" height={Math.max(220, heat.rows.length * 34 + 110)} empty="No policy is outside the dealer's code."
+               option={heat.cells.length ? heatmapOption({ ...heat, valueLabel: 'Outside policies' }) : null} />
+      </Section>
 
       <div className="ins-grid">
         <Section title="Premium going outside, by agent" description="The agents with the most premium on policies outside the dealer's code.">

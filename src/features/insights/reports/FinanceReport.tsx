@@ -57,8 +57,11 @@ export default function FinanceReport({ data }: { data: FinanceInsight }) {
     { key: 'open', label: 'Open', value: () => '', render: (row) => <JourneyLink journeyId={row.journeyId} /> },
   ];
 
+  const LENDER_MEASURES = [{ value: 'deals', label: 'Deals' }, { value: 'amount', label: 'Loan amount' }] as const;
+  const [lenderMeasure, setLenderMeasure] = useState<(typeof LENDER_MEASURES)[number]['value']>('deals');
   const lenders = topBy(data.lenders, (row) => row.deals, 12);
-  const financed = topBy(rows.filter((row) => !row.thin), (row) => row.percent, 14);
+  const byLender = lenderMeasure === 'deals' ? lenders : topBy(data.lenders, (row) => row.loanTotal, 12);
+  const financed = topBy(rows, (row) => row.percent, 20);
 
   return (
     <>
@@ -77,19 +80,25 @@ export default function FinanceReport({ data }: { data: FinanceInsight }) {
       <p className="ins-footnote">Of {count(data.basis.statementDeals)} deals with the account statement on file. Across all live bookings, {count(data.basis.financedAllLiveJourneys)} are financed.</p>
 
       <div className="ins-grid">
-        <Section title="Who funds the deals" description="Financed deals by financier.">
-          <Chart label="Financed deals by financier" height={barsHeight(lenders.length)} empty="No financed deal matches these filters."
+        <Section title="Who funds the deals"
+                 description={lenderMeasure === 'deals' ? 'Financed deals by financier.' : `Loan amount by financier, where the amount was read (${count(summary.loanKnown)} of ${count(summary.financed)} deals).`}
+                 actions={<Switcher label="Measure" options={LENDER_MEASURES} value={lenderMeasure} onChange={setLenderMeasure} />}>
+          <Chart label="Financiers by deals or loan amount" height={barsHeight(lenders.length)} empty="No financed deal matches these filters."
                  option={lenders.length ? barOption({
-                   horizontal: true, labels: true, categories: lenders.map((row) => row.lender),
-                   series: [{ name: 'Deals', data: lenders.map((row) => row.deals), color: TONE.primary }],
+                   horizontal: true, labels: true,
+                   format: lenderMeasure === 'deals' ? undefined : rupeesShort,
+                   categories: byLender.map((row) => row.lender),
+                   series: [lenderMeasure === 'deals'
+                     ? { name: 'Deals', data: byLender.map((row) => row.deals), color: TONE.primary }
+                     : { name: 'Loan amount', data: byLender.map((row) => row.loanTotal), color: TONE.second }],
                  }) : null} />
         </Section>
         <Section title={`Finance share, by ${GROUPING_NAME[group].toLowerCase()}`}
-                 description="Share of deals with a statement that are financed. The dashed line is the network.">
+                 description={`Share of deals with a statement that are financed. The dashed line is the network; * fewer than ${data.basis.thinBelow} deals.`}>
           <Chart label="Finance share by group against the network" height={barsHeight(financed.length)}
                  option={financed.length ? barOption({
                    horizontal: true, labels: true, max: 100, format: (value) => `${Math.round(value)}%`,
-                   categories: financed.map((row) => (group === 'outlets' ? shortOutlet(row.label, row.parent ?? undefined) : row.label)),
+                   categories: financed.map((row) => `${group === 'outlets' ? shortOutlet(row.label, row.parent ?? undefined) : row.label}${row.thin ? ' *' : ''}`),
                    series: [{ name: 'Financed', data: financed.map((row) => row.percent), color: TONE.primary }],
                    reference: summary.percent == null ? undefined : { value: summary.percent, label: `Network ${Math.round(summary.percent)}%` },
                  }) : null} />

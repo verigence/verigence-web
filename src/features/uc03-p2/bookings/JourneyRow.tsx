@@ -45,6 +45,11 @@ const STEP_NOW: Record<number, string> = {
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+// Deal Type, Customer Type and the insurance decision as Audit Core stores them (2026-11-11).
+const DEAL_TYPE_TEXT: Record<string, string> = { INSCOPE: 'Inscope', OUTSCOPE: 'Outscope', MR: 'MR', LEASE: 'Lease', BULK: 'Bulk' };
+const CUSTOMER_TYPE_TEXT: Record<string, string> = { INDIVIDUAL: 'Individual', CORPORATE: 'Corporate', COMPANY: 'Company' };
+const INSURANCE_TYPE_TEXT: Record<string, string> = { DEALERSHIP: 'Dealership', SELF: 'Self' };
+
 /** A journey created before the customer was named carries an id where the
  * name should be; say so instead of showing the id. */
 export function customerLabel(name: string | null | undefined): { text: string; known: boolean } {
@@ -221,6 +226,13 @@ export default function JourneyRow({ item, role }: { item: P2JourneyListItem; ro
         <Link to={item.closed ? overview : documents} className={`p2w-jrow__name${customer.known ? '' : ' is-unknown'}`}>{customer.text}</Link>
         <span className={item.vehicle ? '' : 'is-unknown'}>{item.vehicle || 'Vehicle not identified yet'}</span>
         <JourneyClosedBadge closure={item.reviewerClosure} closed={item.closed} />
+        {item.customer_type ? (
+          <span className="p2w-muted">
+            {[DEAL_TYPE_TEXT[item.deal_type ?? ''] ?? 'Deal type pending VIN', CUSTOMER_TYPE_TEXT[item.customer_type] ?? item.customer_type,
+              item.insurance_type ? `Insurance: ${INSURANCE_TYPE_TEXT[item.insurance_type] ?? item.insurance_type}${item.insurance_decided_by === 'UNCONFIRMED' || item.insurance_decided_by === 'DEFAULT' ? ' (not confirmed)' : ''}` : null,
+            ].filter(Boolean).join(' · ')}
+          </span>
+        ) : null}
       </td>
       <td className="p2w-jrow__price" data-label="Price variance">
         {item.delivery_started === false ? (

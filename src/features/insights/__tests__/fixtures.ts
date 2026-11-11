@@ -68,6 +68,18 @@ export const penetration: PenetrationInsight = {
     { key: 'XUV3XO', label: 'XUV3XO', parent: 'PV', deals: 74, thin: false, products: cells(74, [80, 81, 85, 51, 32, 19, 49]) },
     { key: 'Model not resolved', label: 'Model not resolved', parent: null, deals: 72, thin: false, products: cells(72, [79, 69, 70, 50, 28, 18, 11]) },
   ],
+  accessoryItems: {
+    journeysWithInvoice: 448, lines: 2130, units: 2350, value: 6_480_000, itemsSeen: 212,
+    topModels: ['MAXX HD', 'XUV3XO', 'SCORPIO CLASSIC'],
+    items: [
+      { label: 'SEAT COVER SET - MAXX PIKUP VXI', lines: 84, units: 85, value: 243_185, journeys: 84,
+        dealers: { 'Utkal Mahindra': 60, 'Aditya Motors': 25 }, models: { 'MAXX HD': 80, 'XUV3XO': 5 } },
+      { label: 'DUAL USB CAR CHARGER WITH CABLE', lines: 110, units: 115, value: 74_341, journeys: 108,
+        dealers: { 'Utkal Mahindra': 70, 'Aditya Motors': 45 }, models: { 'MAXX HD': 40, 'XUV3XO': 50, 'SCORPIO CLASSIC': 25 } },
+      { label: 'SINGLE DIN MUSIC SYSTEM WITH FM USB BT', lines: 37, units: 37, value: 79_083, journeys: 37,
+        dealers: { 'Aditya Motors': 37 }, models: { 'MAXX HD': 37 } },
+    ],
+  },
   districts: [
     { key: 'KRD', label: 'Khordha', parent: null, deals: 116, thin: false, products: cells(116, [88, 65, 70, 39, 18, 8, 32], NETWORK_RATES) },
     { key: '-', label: 'District not read', parent: null, deals: 116, thin: false, products: cells(116, [76, 60, 68, 49, 27, 11, 26], NETWORK_RATES) },

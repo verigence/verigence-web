@@ -1,4 +1,4 @@
-import { barOption, scatterOption, SERIES, TONE } from '../charts/chartOptions';
+import { barOption, heatmapOption, scatterOption, SERIES, TONE, topBy } from '../charts/chartOptions';
 import { barsHeight, Chart } from '../charts/Chart';
 import { useState } from 'react';
 
@@ -99,6 +99,20 @@ export default function PenetrationReport({ data }: { data: PenetrationInsight }
   const [measure, setMeasure] = useState<Measure>('rate');
   const shownMeasure: Measure = group === 'models' ? 'rate' : measure;
   const rows = data[group];
+  const ACCESSORY_MEASURES = [{ value: 'units', label: 'Units' }, { value: 'value', label: 'Net value' }] as const;
+  const [accessoryMeasure, setAccessoryMeasure] = useState<(typeof ACCESSORY_MEASURES)[number]['value']>('units');
+  // An older server that predates the field answers without it; the section then shows empty.
+  const accessories = data.accessoryItems ?? { journeysWithInvoice: 0, lines: 0, units: 0, value: 0, itemsSeen: 0, topModels: [], items: [] };
+  const topItems = topBy(accessories.items, (item) => (accessoryMeasure === 'units' ? item.units : item.value), 15);
+  // Every dealership that sold one of the items shown, largest first, so colours hold steady.
+  const accessoryDealers = (() => {
+    const totals = new Map<string, number>();
+    topItems.forEach((item) => Object.entries(item.dealers).forEach(([dealer, units]) => totals.set(dealer, (totals.get(dealer) ?? 0) + units)));
+    return [...totals.entries()].sort((a, b) => b[1] - a[1]).map(([dealer]) => dealer);
+  })();
+  const accessoryCells = topItems.flatMap((item, rowIndex) =>
+    accessories.topModels.flatMap((model, columnIndex) =>
+      (item.models[model] ?? 0) > 0 ? [[columnIndex, rowIndex, item.models[model]] as [number, number, number]] : []));
   const valuePoints = data.products.filter((product) => product.key !== 'scrappage').flatMap((product) => {
     const cell = data.network.products[product.key];
     return cell && cell.percent != null && (cell.typical ?? 0) > 0
@@ -162,6 +176,32 @@ export default function PenetrationReport({ data }: { data: PenetrationInsight }
                  xLabel: 'Share of deals', yLabel: 'Typical amount on a deal', sizeLabel: 'Charged in all',
                  formatX: (value) => `${Math.round(value)}%`, formatY: rupeesShort, formatSize: rupeesShort,
                }) : null} />
+      </Section>
+
+      <Section title="Accessories sold, item by item"
+               description={accessories.lines
+                 ? `From the ${count(accessories.journeysWithInvoice)} bookings with an accessory tax invoice on file: ${count(accessories.units)} units, ${rupeesShort(accessories.value)} net, ${count(accessories.itemsSeen)} distinct items.`
+                 : 'From the accessory tax invoices on file.'}
+               actions={<Switcher label="Measure" options={ACCESSORY_MEASURES} value={accessoryMeasure} onChange={setAccessoryMeasure} />}>
+        <div className="ins-grid ins-grid--flush">
+          <Chart label="Top accessory items by dealership" height={barsHeight(topItems.length, true)} empty="No accessory tax invoice has been read yet."
+                 option={topItems.length ? barOption({
+                   horizontal: true, stacked: true, labelWidth: 240,
+                   format: accessoryMeasure === 'units' ? undefined : rupeesShort,
+                   categories: topItems.map((item) => item.label),
+                   series: accessoryDealers.map((dealer, index) => ({
+                     name: dealer, color: SERIES[index % SERIES.length],
+                     data: topItems.map((item) => (accessoryMeasure === 'units'
+                       ? item.dealers[dealer] ?? 0
+                       : item.units ? Math.round(((item.dealers[dealer] ?? 0) / item.units) * item.value) : 0)),
+                   })),
+                 }) : null} />
+          <Chart label="Accessory items by model" height={barsHeight(topItems.length, true)} empty="No accessory tax invoice has been read yet."
+                 option={accessoryCells.length ? heatmapOption({
+                   columns: accessories.topModels, rows: topItems.map((item) => item.label), cells: accessoryCells,
+                   valueLabel: 'Units',
+                 }) : null} />
+        </div>
       </Section>
 
       <Section title="What each product brings" description="The rupees behind each product on the deals that took it.">

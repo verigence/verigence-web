@@ -9,6 +9,7 @@ import BackLink from '../components/BackLink';
 import PageHeader from '../components/PageHeader';
 import AuditSummaryTab from '../features/uc03-p2/journey360/AuditSummaryTab';
 import DealTab from '../features/uc03-p2/journey360/DealTab';
+import JourneyClassification from '../features/uc03-p2/journey360/JourneyClassification';
 import UploadedFilesTab from '../features/uc03-p2/journey360/UploadedFilesTab';
 import DeleteJourneyDialog from '../features/uc03-p2/workspace/DeleteJourneyDialog';
 import { canDeleteJourney } from '../features/uc03-p2/workspace/deleteJourney';
@@ -274,6 +275,9 @@ export default function P2JourneyOverviewPage() {
               </li>
             </ul>
           </section>
+          {j.classification && tenantId && journeyId ? (
+            <JourneyClassification data={j.classification} tenantId={tenantId} journeyId={journeyId} accessToken={accessToken} />
+          ) : null}
 
           <nav className="j360-tabs" aria-label="Journey 360 sections">
             {tabs.map((item) => (

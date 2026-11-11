@@ -754,7 +754,7 @@ export function TradeInTab({ data }: { data: P2SectionMap['tradein'] }) {
 const IDENTITY_TEXT: Record<string, string> = {
   DOCUMENT_VERIFIED: 'Document verified', VERIFIED: 'Verified', CONFLICT: 'Conflict', PENDING: 'Pending',
 };
-const CUSTOMER_TYPE_TEXT: Record<string, string> = { INDIVIDUAL: 'Individual', CORPORATE: 'Corporate', PENDING: 'Pending' };
+const CUSTOMER_TYPE_TEXT: Record<string, string> = { INDIVIDUAL: 'Individual', CORPORATE: 'Corporate', COMPANY: 'Company', PENDING: 'Pending' };
 
 /** The customer as the KYC establishes them, Phase 1's panel: entered
  * name beside the legal name, PAN, Aadhaar, contact (masked) and address. */

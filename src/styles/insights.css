@@ -236,6 +236,10 @@
 /* ---- charts */
 .ins .ins-chart { padding: 0 16px 16px; min-width: 0; }
 
+/* A grid inside one card: panels share the card's frame instead of carrying their own. */
+.ins .ins-grid--flush { border: 0; margin: 0; }
+.ins .ins-grid--flush > .ins-chart { padding-top: 0; }
+
 /* ---- customer map */
 .ins .ins-map__controls { display: flex; flex-wrap: wrap; gap: 16px; align-items: end; padding: 0 16px 16px; }
 .ins .ins-map__controls .ins-field { flex: 0 1 220px; }

@@ -302,7 +302,7 @@ function ComponentRow({ row, journeyId, open, onToggle, excludedNote }: {
             <span>{row.label}</span>
             {row.excluded ? <small className="p2w-muted">{excludedNote ?? 'Self insurance, not in the deal'}</small> : null}
             {row.partOf ? <small className="p2w-muted">Included in the line above</small> : null}
-            {row.notTaken ? <small className="p2w-muted">Not taken: price master shown for reference, not in the standard</small> : null}
+            {row.notTaken ? <small className="p2w-muted">{row.invoiced ? 'Invoiced, but not charged on the NDC / cost sheet: not in the standard' : 'Not taken: price master shown for reference, not in the standard'}</small> : null}
             {row.statementOnly ? <small className="p2w-muted">On the NDC / cost sheet only, not on an invoice</small> : null}
             <Flags flags={row.flags} />
           </button>
@@ -325,7 +325,9 @@ function ComponentRow({ row, journeyId, open, onToggle, excludedNote }: {
             ) : null}
             {row.invoiced ? (
               <p className="p2w-muted">
-                {`Charged on the NDC ${money(row.billed)} · invoiced ${money(row.invoiced)}`}
+                {row.billed === null || row.billed === undefined
+                  ? `Not charged on the NDC / cost sheet · invoiced ${money(row.invoiced)} (the invoices tally the payments, they do not price the deal)`
+                  : `Charged on the NDC ${money(row.billed)} · invoiced ${money(row.invoiced)}`}
                 {row.freeByInvoice ? ` · ${money(row.freeByInvoice)} given free` : ''}
               </p>
             ) : null}

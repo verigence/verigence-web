@@ -1110,6 +1110,11 @@ export type P2DealRow = {
    * bill beside the NDC's charge, and (accessories) the part not charged. */
   invoiced?: Money;
   freeByInvoice?: Money;
+  /** An optional product (accessories, extended warranty, RSA, FASTag) no bill charges
+   * (2026-11-11): not taken. The price master's figure is shown for reference and is in no total. */
+  notTaken?: boolean;
+  /** Charged on the NDC / cost sheet and on no other document (2026-11-11): a comment, never a task. */
+  statementOnly?: boolean;
 };
 
 export type P2DealCategory = {
@@ -1136,6 +1141,9 @@ export type P2DiscountRow = Omit<P2DealRow, 'standard' | 'quote' | 'effectiveSou
   /** This document's figure is another benefit's, printed under another name
    *  (an invoice's "OEM Discount" equal to the NDC's benefit): counted there. */
   sameAs?: { key: string; label: string } | null;
+  /** A discount the customer ledger posts that the NDC / cost sheet does not show (2026-11-11):
+   *  not a discount of the deal, but taken off what is still to be received. */
+  ledgerPosted?: Money;
 };
 
 type P2DealSummary = {
@@ -1170,6 +1178,10 @@ type P2DealSummary = {
   };
   payable: Money;
   balanceDue: Money;
+  /** Discounts posted in the customer ledger and not on the NDC / cost sheet: already off the payable. */
+  ledgerDiscounts?: Money;
+  /** Optional products not taken: not in the standard, their price master figure for reference. */
+  notTaken?: Array<{ key: string; label: string; standard: Money }>;
 };
 
 export type P2Deal = {

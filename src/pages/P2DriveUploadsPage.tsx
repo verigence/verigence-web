@@ -18,8 +18,10 @@ import {
   listDriveRuns,
   listWaitingDriveFiles,
   rescanPages,
-  setDriveRetention,
+  clockTime,
+  setDriveSettings,
   startDriveRun,
+  type DriveConnection,
   type DriveFile,
   type DriveRun,
   type DriveTotals,
@@ -116,6 +118,77 @@ function RunResult({ run, tenantId, accessToken }: { run: DriveRun; tenantId: st
 }
 
 /**
+ * The Project's Drive settings, for an administrator (product owner 2026-11-12): when the daily
+ * run starts and whether it runs, how long a closed booking's folder stays in Drive, and which
+ * outlets use Drive -- only they get a folder and only their files are taken by the daily run.
+ */
+function DriveSettingsForm({ link, busy, onSave }: {
+  link: DriveConnection; busy: boolean; onSave: (settings: Parameters<typeof setDriveSettings>[1]) => void;
+}) {
+  const outlets = link.outlets ?? [];
+  const [time, setTime] = useState(link.dailyRunTime ?? '21:00');
+  const [daily, setDaily] = useState(link.dailyRunEnabled !== false);
+  const [days, setDays] = useState(String(link.retentionDays ?? 30));
+  const [all, setAll] = useState(link.outletIds == null);
+  const [chosen, setChosen] = useState<Set<string>>(
+    () => new Set(link.outletIds ?? outlets.filter((o) => o.pcs > 0).map((o) => o.outletId)));
+  const dealers = [...new Map(outlets.map((o) => [o.dealerId, o.dealerName])).entries()];
+  const toggle = (ids: string[], on: boolean) => setChosen((before) => {
+    const next = new Set(before);
+    ids.forEach((id) => (on ? next.add(id) : next.delete(id)));
+    return next;
+  });
+  const validDays = /^\d+$/.test(days.trim()) && Number(days) <= 3650;
+  return (
+    <details className="p2bu-result">
+      <summary><strong>Settings</strong><span className="p2w-muted"> · daily run, archive and outlets</span></summary>
+      <div className="p2bu-actions">
+        <label className="p2w-muted">
+          <input type="checkbox" checked={daily} onChange={(e) => setDaily(e.target.checked)} /> Take files every day at
+        </label>
+        <input type="time" aria-label="Daily run time (India time)" value={time} disabled={!daily}
+          onChange={(e) => setTime(e.target.value)} />
+        <label className="p2w-muted" htmlFor="p2dr-retention">Days in Drive after a booking is closed</label>
+        <input id="p2dr-retention" type="number" min={0} max={3650} inputMode="numeric" value={days}
+          onChange={(e) => setDays(e.target.value)} />
+      </div>
+      <p className="p2w-muted">
+        <label>
+          <input type="checkbox" checked={all} onChange={(e) => setAll(e.target.checked)} /> Every outlet that has a PC uses Drive
+        </label>
+      </p>
+      {!all ? dealers.map(([dealerId, dealerName]) => {
+        const mine = outlets.filter((o) => o.dealerId === dealerId);
+        const ids = mine.map((o) => o.outletId);
+        return (
+          <fieldset key={dealerId} className="p2bu-scroll">
+            <legend>
+              <label>
+                <input type="checkbox" checked={ids.every((id) => chosen.has(id))}
+                  onChange={(e) => toggle(ids, e.target.checked)} /> <strong>{dealerName}</strong>
+              </label>
+            </legend>
+            {mine.map((o) => (
+              <label key={o.outletId} className="p2bu-sub">
+                <input type="checkbox" checked={chosen.has(o.outletId)} onChange={(e) => toggle([o.outletId], e.target.checked)} />
+                {' '}{o.outletName}{o.pcs === 0 ? <span className="p2w-muted"> · no PC mapped</span> : null}
+              </label>
+            ))}
+          </fieldset>
+        );
+      }) : null}
+      <div className="p2bu-actions">
+        <button type="button" className="p2w-button p2w-button--secondary" disabled={busy || !validDays || !time}
+          onClick={() => onSave({ dailyRunEnabled: daily, dailyRunTime: time, retentionDays: Number(days),
+            outletIds: all ? null : [...chosen] })}>
+          Save settings
+        </button>
+      </div>
+    </details>
+  );
+}
+
+/**
  * Drive uploads (product owner 7 and 12 Nov 2026): the files PCs keep in the Project's Google
  * Drive, one folder per customer. A PC submits their outlet; a Team Lead, PM, Executive or
  * Reviewer takes a day's files on demand; the end of the day takes whatever is left. Each run
@@ -136,7 +209,6 @@ export default function P2DriveUploadsPage() {
   const [outletId, setOutletId] = useState<string>('');
   const [date, setDate] = useState<string>(istDate());
   const [allDays, setAllDays] = useState(false);
-  const [retention, setRetention] = useState<string>('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -189,10 +261,9 @@ export default function P2DriveUploadsPage() {
     window.location.assign(authUrl);
     return null;
   });
-  const saveRetention = () => act(async () => {
-    const saved = await setDriveRetention(tenantId!, Number(retention), accessToken);
-    setRetention('');
-    return `Saved: a customer's folder goes to the archive ${saved.retentionDays} days after the booking is closed.`;
+  const saveSettings = (settings: Parameters<typeof setDriveSettings>[1]) => act(async () => {
+    await setDriveSettings(tenantId!, settings, accessToken);
+    return 'Saved.';
   });
 
   const link = connection.data;
@@ -239,19 +310,15 @@ export default function P2DriveUploadsPage() {
               {link.lastCheckedAtUtc ? <span className="p2w-muted"> · last checked {when(link.lastCheckedAtUtc)}</span> : null}
             </p>
             <p className="p2w-muted">
-              Files are taken at 9:00 pm every day, or sooner when submitted here. A customer’s folder goes to the
-              Archive folder {link.retentionDays} days after the booking is closed; nothing is deleted.
+              {link.dailyRunEnabled === false
+                ? 'The daily run is off: files are taken only when submitted here.'
+                : `Files are taken at ${clockTime(link.dailyRunTime)} every day, or sooner when submitted here.`}
+              {' '}A customer’s folder goes to the Archive folder {link.retentionDays} days after the booking is closed;
+              nothing is deleted.
             </p>
             {link.canConnect ? (
-              <div className="p2bu-actions">
-                <label className="p2w-muted" htmlFor="p2dr-retention">Days in Drive after a booking is closed</label>
-                <input id="p2dr-retention" type="number" min={0} max={3650} inputMode="numeric"
-                  placeholder={String(link.retentionDays ?? 30)} value={retention} onChange={(e) => setRetention(e.target.value)} />
-                <button type="button" className="p2w-button p2w-button--secondary" disabled={busy || retention.trim() === ''}
-                  onClick={() => void saveRetention()}>
-                  Save
-                </button>
-              </div>
+              <DriveSettingsForm key={JSON.stringify([link.dailyRunTime, link.dailyRunEnabled, link.retentionDays, link.outletIds])}
+                link={link} busy={busy} onSave={(settings) => void saveSettings(settings)} />
             ) : null}
           </>
         ) : null}

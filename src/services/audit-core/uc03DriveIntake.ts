@@ -15,12 +15,27 @@ export type DriveConnection = {
   account: string | null;
   folderUrl: string | null;
   retentionDays: number | null;
+  /** When the day's run starts, India time ("21:00"); absent from an Audit Core without the setting. */
+  dailyRunTime?: string;
+  dailyRunEnabled?: boolean;
+  /** The outlets that use Drive; null for every outlet that has a PC. */
+  outletIds?: string[] | null;
+  /** For an administrator: every outlet of the Project, with whether it uses Drive. */
+  outlets?: DriveOutlet[] | null;
   lastCheckedAtUtc: string | null;
   problem: string | null;
   canConnect: boolean;
   canRun: boolean;
   waitingByOutlet: Record<string, number>;
   waiting: number;
+};
+
+export type DriveOutlet = {
+  dealerId: string; dealerName: string; outletId: string; outletName: string; pcs: number; usesDrive: boolean;
+};
+
+export type DriveSettings = {
+  retentionDays: number | null; dailyRunTime: string; dailyRunEnabled: boolean; outletIds: string[] | null;
 };
 
 export type DriveFileState =
@@ -105,9 +120,16 @@ export function connectDrive(tenantId: string, accessToken?: string) {
     { method: 'POST', accessToken });
 }
 
-export function setDriveRetention(tenantId: string, retentionDays: number, accessToken?: string) {
-  return auditCoreRequest<{ retentionDays: number }>(`${base(tenantId)}/integrations/google-drive/settings`,
-    { method: 'PUT', accessToken, body: JSON.stringify({ retentionDays }) });
+/** Changes only what is sent (an administrator). `outletIds: null` means every outlet. */
+export function setDriveSettings(tenantId: string, settings: Partial<DriveSettings>, accessToken?: string) {
+  return auditCoreRequest<DriveSettings>(`${base(tenantId)}/integrations/google-drive/settings`,
+    { method: 'PUT', accessToken, body: JSON.stringify(settings) });
+}
+
+/** "9:00 pm" from "21:00". */
+export function clockTime(value: string | undefined): string {
+  const [h, m] = (value ?? '21:00').split(':').map(Number);
+  return `${h % 12 === 0 ? 12 : h % 12}:${String(m).padStart(2, '0')} ${h < 12 ? 'am' : 'pm'}`;
 }
 
 export function startDriveRun(

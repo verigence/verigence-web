@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 import P2DriveUploadsPage from '../P2DriveUploadsPage';
 import {
+  clockTime,
   rescanPages,
   type DriveConnection,
   type DriveFileList,
@@ -86,7 +87,7 @@ describe('Drive uploads page', () => {
     expect(html).not.toContain('other outlet.pdf');
     expect(html).not.toContain('Take files now');
     expect(html).toContain('3 files · 5 of 6 pages read · 1 page to scan again · 2 manual verification tasks');
-    expect(html).toContain('30 days after the booking is closed; nothing is deleted');
+    expect(html).toContain('Files are taken at 9:00 pm every day');
   });
 
   it('lets a Team Lead take a day’s files for an outlet or all of theirs', () => {
@@ -105,6 +106,22 @@ describe('Drive uploads page', () => {
     expect(render(off)).toContain('not connected yet');
     expect(render(off)).not.toContain('Connect Google Drive');
     expect(render({ ...off, canConnect: true })).toContain('Connect Google Drive');
+  });
+
+  it('shows the Project’s own run time and gives an administrator the settings', () => {
+    role.value = 'TL';
+    expect(render({ ...connection, dailyRunTime: '18:30' })).toContain('Files are taken at 6:30 pm every day');
+    expect(render({ ...connection, dailyRunEnabled: false })).toContain('The daily run is off');
+    expect(render()).not.toContain('Save settings');
+    const admin = render({ ...connection, canConnect: true, dailyRunTime: '18:30', dailyRunEnabled: true, outletIds: ['o1'],
+      outlets: [
+        { dealerId: 'd1', dealerName: 'Aditya Motors', outletId: 'o1', outletName: 'Cuttack', pcs: 2, usesDrive: true },
+        { dealerId: 'd1', dealerName: 'Aditya Motors', outletId: 'o3', outletName: 'Puri', pcs: 0, usesDrive: false }] });
+    expect(admin).toContain('Save settings');
+    expect(admin).toContain('Take files every day at');
+    expect(admin).toContain('Puri<span class="p2w-muted"> · no PC mapped</span>');
+    expect(clockTime('00:05')).toBe('12:05 am');
+    expect(clockTime(undefined)).toBe('9:00 pm');
   });
 
   it('names the pages to scan again', () => {

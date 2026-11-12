@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 
 import { decideCorrection, listCorrectionApprovals, type CorrectionApproval } from '../../../services/hr/attendanceCalendar';
 import { useSessionStore } from '../../../store/sessionStore';
+import { recentLeaveText, weeklyHoursText } from '../leave/leaveLogic';
 import ApprovalListFrame from './ApprovalListFrame';
 import ApprovalPerson from './ApprovalPerson';
 import { attendanceKindLabels, dateAgeLabel, daysSinceDate, formatDate, formatTimeIst, isOldDays, label } from './approvalFormat';
@@ -70,6 +71,8 @@ export default function CorrectionsPanel({ query }: { query: ReturnType<typeof u
                   <td data-label="Asked for">
                     <strong>{askedFor(x)}</strong>
                     <small>{formatDate(x.workDate)}</small>
+                    {x.recentLeave && <small className="hr-appr-recent">{recentLeaveText(x.recentLeave)}</small>}
+                    {x.weeklyHours && <small className="hr-appr-recent">{weeklyHoursText(x.weeklyHours)}</small>}
                   </td>
                   <td data-label="Recorded that day">
                     <small>

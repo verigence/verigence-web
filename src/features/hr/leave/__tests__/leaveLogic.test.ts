@@ -6,6 +6,7 @@ import {
   addDays,
   birthdayLeaveText,
   recentLeaveText,
+  weeklyHoursText,
   dayPartWords,
   holidayNoteParts,
   buildApplyPayload,
@@ -178,6 +179,22 @@ describe('holidays inside the chosen dates (7 Nov 2026)', () => {
     expect(holidayNoteParts([{ date: '2026-11-20', name: 'Later', status: 'DECLARED' as const }], '2026-11-20', '').full).toHaveLength(1);
     expect(dayPartWords('MORNING')).toBe('morning off');
     expect(dayPartWords(undefined)).toBe('');
+  });
+});
+
+describe('the record shown with an approval (12 Nov 2026)', () => {
+  it('names the window the server used: 4 weeks now, 6 from an older server', () => {
+    expect(recentLeaveText({ windowFrom: '2026-10-12', windowTo: '2026-11-08', paidDays: 2, unpaidDays: 0.5 })).toBe(
+      'In the 4 weeks before (12 Oct to 8 Nov 2026): 2 days paid leave, 0.5 days unpaid leave.',
+    );
+  });
+  it('gives the average hours a week, since joining for a new joiner', () => {
+    const w = { windowFrom: '2026-09-28', windowTo: '2026-11-08', byWeek: [] };
+    expect(weeklyHoursText({ ...w, weeks: 6, averageHours: 41.5 })).toBe(
+      'Worked on average 41.5 hours a week in the 6 weeks before (28 Sept to 8 Nov 2026).',
+    );
+    expect(weeklyHoursText({ ...w, weeks: 2, averageHours: 40 })).toContain('40 hours a week in the 2 weeks since joining');
+    expect(weeklyHoursText({ ...w, weeks: 0, averageHours: null })).toContain('No whole week worked yet');
   });
 });
 

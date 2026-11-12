@@ -75,17 +75,37 @@ export function formatDays(days: number): string {
   return `${text} ${days === 1 ? 'day' : 'days'}`;
 }
 
+function shortDay(iso: string, year: boolean): string {
+  const [y, m, d] = iso.split('-').map(Number);
+  return new Date(Date.UTC(y, m - 1, d)).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', ...(year ? { year: 'numeric' } : {}), timeZone: 'UTC' });
+}
+
+/** Whole weeks between two inclusive YYYY-MM-DD dates (28 days: 4). */
+function weeksBetween(from: string, to: string): number {
+  return Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86_400_000 + 1) / 7;
+}
+
 /**
- * "In the 6 weeks before (28 Sep to 8 Nov 2026): 4.5 days paid leave, 1.5 days unpaid leave."
- * The numbers come from the server (approved leave only, counted like leave days).
+ * "In the 4 weeks before (12 Oct to 8 Nov 2026): 4.5 days paid leave, 1.5 days unpaid leave."
+ * The numbers come from the server (approved leave only, counted like leave days); the length
+ * comes from the window, so an older server's 6 weeks reads as 6 weeks.
  */
 export function recentLeaveText(r: { windowFrom: string; windowTo: string; paidDays: number; unpaidDays: number }): string {
-  const day = (iso: string, year: boolean) => {
-    const [y, m, d] = iso.split('-').map(Number);
-    return new Date(Date.UTC(y, m - 1, d)).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', ...(year ? { year: 'numeric' } : {}), timeZone: 'UTC' });
-  };
   const amount = (n: number) => (n === 0 ? 'no' : dayCount(n)) + (n === 1 ? ' day' : ' days');
-  return `In the 6 weeks before (${day(r.windowFrom, false)} to ${day(r.windowTo, true)}): ${amount(r.paidDays)} paid leave, ${amount(r.unpaidDays)} unpaid leave.`;
+  const weeks = weeksBetween(r.windowFrom, r.windowTo);
+  return `In the ${weeks} weeks before (${shortDay(r.windowFrom, false)} to ${shortDay(r.windowTo, true)}): ${amount(r.paidDays)} paid leave, ${amount(r.unpaidDays)} unpaid leave.`;
+}
+
+/**
+ * "Worked on average 41.5 hours a week in the 6 weeks before (28 Sept to 8 Nov 2026)."
+ * Hours are check-out minus check-in, from the server (product owner, 12 Nov 2026).
+ */
+export function weeklyHoursText(w: { windowFrom: string; windowTo: string; weeks: number; averageHours: number | null }): string {
+  const span = `(${shortDay(w.windowFrom, false)} to ${shortDay(w.windowTo, true)})`;
+  if (w.averageHours === null || w.weeks === 0) return `No whole week worked yet ${span}.`;
+  const hours = Number.isInteger(w.averageHours) ? String(w.averageHours) : w.averageHours.toFixed(1);
+  const over = w.weeks === 6 ? 'in the 6 weeks before' : `in the ${w.weeks === 1 ? 'week' : `${w.weeks} weeks`} since joining`;
+  return `Worked on average ${hours} hours a week ${over} ${span}.`;
 }
 
 /** A number of days without a unit, for balance cards. */

@@ -74,8 +74,9 @@ export interface LeaveRequest {
 }
 
 /**
- * Approved paid (PAID, SPECIAL, COMP_OFF, old SICK/EARNED) and unpaid leave days in the 42 days
- * before a request's from date, counted like leave days (product owner, 7 Nov 2026).
+ * Approved paid (PAID, SPECIAL, COMP_OFF, old SICK/EARNED) and unpaid leave days in the 4 weeks
+ * before a request's from date, counted like leave days (product owner, 7 Nov 2026; 4 weeks since
+ * 12 Nov 2026, 6 weeks before). The window's own dates say how long it is.
  */
 export interface RecentLeave {
   /** YYYY-MM-DD, inclusive. */
@@ -83,6 +84,20 @@ export interface RecentLeave {
   windowTo: string;
   paidDays: number;
   unpaidDays: number;
+}
+
+/**
+ * With every approval (product owner, 12 Nov 2026): the average hours a week the person worked
+ * over the 6 whole weeks (Monday to Sunday) before the request. Weeks before joining are left out.
+ */
+export interface WeeklyHours {
+  windowFrom: string;
+  windowTo: string;
+  /** Weeks counted: 6, fewer for a new joiner. */
+  weeks: number;
+  /** Null when no week is counted yet. */
+  averageHours: number | null;
+  byWeek: Array<{ weekStart: string; hours: number }>;
 }
 
 export interface LeaveApplyInput {

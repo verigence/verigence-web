@@ -1,5 +1,6 @@
 import type { HalfDayHoliday } from './attendance';
 import type { DayHolidayInfo } from './attendanceReports';
+import type { RecentLeave, WeeklyHours } from './leave';
 import { hrRequest } from './client';
 
 /**
@@ -237,6 +238,10 @@ export interface CorrectionApproval extends Correction {
     checkOutAt: string | null;
     exceptions: Array<{ kind: string; status: string }>;
   };
+  /** Pending requests only (12 Nov 2026): leave taken in the 4 weeks before the day asked about. */
+  recentLeave?: RecentLeave;
+  /** Pending requests only (12 Nov 2026): average hours a week over the 6 weeks before. */
+  weeklyHours?: WeeklyHours;
 }
 
 const base = '/hr/v1';

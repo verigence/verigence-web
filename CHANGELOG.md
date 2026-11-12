@@ -18,6 +18,8 @@ The app's build number is added by the release workflow and is not written here.
 - **Project Tracker**: a **Drive uploads** view with the files received from Drive, taken, waiting, duplicates, not taken, pages read, pages to scan again and manual verification tasks, per dealership, outlet and PC.
 
 ### Changed
+- **Approvals > Leave and Corrections** (My HR): each waiting request now shows the person's record next to it: leave taken in the 4 weeks before (was 6 weeks), paid and unpaid, and the hours worked on average a week over the 6 whole weeks before (weeks since joining for a new joiner). The employee applying for leave sees the same 4-week figure.
+- **My HR > Attendance**: a missed check-out can be asked for (**Record my check-out**) with the time you left; your Team Lead or Project Manager approves it under Approvals > Corrections.
 - **Deal and Audit Summary** (Journey 360): accessories bought beyond the NDC / cost sheet show as an "Accessories add-on" on the accessories line and in the Audit Summary header, and are counted in the amount to be received. The NDC still prices the deal's own lines.
 - **Add-ons** (Journey 360): accessories or an extended warranty the NDC / cost sheet does not charge are switched off as not taken, also when an invoice for them is on file. No task is raised for them.
 - **Task Queue**: a delivery with no NDC or cost sheet on file now has an "Upload the Dealer statement (NDC / cost sheet)" task under Missing documents, with the other pending documents. It cannot be closed as "Document not required to be uploaded".

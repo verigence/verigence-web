@@ -15,12 +15,37 @@ export type DriveConnection = {
   account: string | null;
   folderUrl: string | null;
   retentionDays: number | null;
+  /** When the day's run starts, India time ("21:00"); absent from an Audit Core without the setting. */
+  dailyRunTime?: string;
+  dailyRunEnabled?: boolean;
+  /** The outlets that use Drive; null for every outlet that has a PC. */
+  outletIds?: string[] | null;
+  /** For an administrator: every outlet of the Project, with whether it uses Drive. */
+  outlets?: DriveOutlet[] | null;
+  /** A PC: the Google account their outlets' folders are shared with, and those folders. */
+  myAccess?: DriveAccess | null;
+  /** For an administrator: every PC, the Google account and whether each folder is shared. */
+  people?: DrivePerson[] | null;
   lastCheckedAtUtc: string | null;
   problem: string | null;
   canConnect: boolean;
   canRun: boolean;
   waitingByOutlet: Record<string, number>;
   waiting: number;
+};
+
+export type DriveAccessFolder = {
+  outletId: string; outletName: string; dealerName: string; url?: string; shared: boolean; problem: string | null;
+};
+export type DriveAccess = { googleEmail: string | null; folders: DriveAccessFolder[] };
+export type DrivePerson = { actorId: string; name: string | null; googleEmail: string | null; folders: DriveAccessFolder[] };
+
+export type DriveOutlet = {
+  dealerId: string; dealerName: string; outletId: string; outletName: string; pcs: number; usesDrive: boolean;
+};
+
+export type DriveSettings = {
+  retentionDays: number | null; dailyRunTime: string; dailyRunEnabled: boolean; outletIds: string[] | null;
 };
 
 export type DriveFileState =
@@ -105,9 +130,22 @@ export function connectDrive(tenantId: string, accessToken?: string) {
     { method: 'POST', accessToken });
 }
 
-export function setDriveRetention(tenantId: string, retentionDays: number, accessToken?: string) {
-  return auditCoreRequest<{ retentionDays: number }>(`${base(tenantId)}/integrations/google-drive/settings`,
-    { method: 'PUT', accessToken, body: JSON.stringify({ retentionDays }) });
+/** Changes only what is sent (an administrator). `outletIds: null` means every outlet. */
+export function setDriveSettings(tenantId: string, settings: Partial<DriveSettings>, accessToken?: string) {
+  return auditCoreRequest<DriveSettings>(`${base(tenantId)}/integrations/google-drive/settings`,
+    { method: 'PUT', accessToken, body: JSON.stringify(settings) });
+}
+
+/** A PC asks for the folders of their outlets to be shared with their own Google account. */
+export function askDriveAccess(tenantId: string, googleEmail: string, accessToken?: string) {
+  return auditCoreRequest<DriveAccess>(`${base(tenantId)}/drive/access`,
+    { method: 'POST', accessToken, body: JSON.stringify({ googleEmail }) });
+}
+
+/** "9:00 pm" from "21:00". */
+export function clockTime(value: string | undefined): string {
+  const [h, m] = (value ?? '21:00').split(':').map(Number);
+  return `${h % 12 === 0 ? 12 : h % 12}:${String(m).padStart(2, '0')} ${h < 12 ? 'am' : 'pm'}`;
 }
 
 export function startDriveRun(

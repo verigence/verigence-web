@@ -18,13 +18,19 @@ import {
   listDriveRuns,
   listWaitingDriveFiles,
   rescanPages,
-  setDriveRetention,
+  askDriveAccess,
+  clockTime,
+  setDriveSettings,
   startDriveRun,
+  type DriveAccess,
+  type DriveConnection,
+  type DrivePerson,
   type DriveFile,
   type DriveRun,
   type DriveTotals,
 } from '../services/audit-core/uc03DriveIntake';
 import { istDate } from '../services/audit-core/uc03MyWork';
+import { selectOperationalProject } from '../features/uc03/projectContext';
 import { useProjectContextStore } from '../store/projectContextStore';
 import { useSessionStore } from '../store/sessionStore';
 
@@ -116,6 +122,149 @@ function RunResult({ run, tenantId, accessToken }: { run: DriveRun; tenantId: st
 }
 
 /**
+ * A PC's own way into Drive (product owner 2026-11-12, "I need option B"): the folders of the
+ * outlets they upload for are shared with their own Google account -- the email they sign in
+ * to Verigence with -- so no PC holds the password of the Project's Google account.
+ */
+function DriveMyFolders({ access, email, busy, onAsk }: {
+  access: DriveAccess; email: string; busy: boolean; onAsk: () => void;
+}) {
+  const waiting = access.folders.filter((f) => !f.shared);
+  return (
+    <div className="p2bu-result">
+      <p><strong>My folders in Drive</strong>
+        {access.googleEmail ? <span className="p2w-muted"> · shared with {access.googleEmail}</span> : null}
+      </p>
+      {access.folders.length === 0 ? <p className="p2w-muted">None of your outlets has a folder in Drive yet.</p> : null}
+      {access.folders.map((f) => (
+        <p key={f.outletId} className="p2bu-sub">
+          {f.dealerName} · {f.outletName}{' '}
+          {f.shared && f.url
+            ? <a className="p2w-link" href={f.url} target="_blank" rel="noreferrer">Open in Drive</a>
+            : <span className="p2w-muted">· {f.problem ? `not shared: ${f.problem}` : 'not shared with you yet'}</span>}
+        </p>
+      ))}
+      {waiting.length ? (
+        <div className="p2bu-actions">
+          <span className="p2w-muted">
+            {email
+              ? `The folders will be shared with your Google account ${email}. Open them signed in to that account.`
+              : 'Sign out and sign in again, so that your email is known, then ask here.'}
+          </span>
+          <button type="button" className="p2w-button p2w-button--primary" disabled={busy || !email} onClick={onAsk}>
+            Get my Drive folders
+          </button>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+/** For an administrator: every PC, the Google account their folders are shared with, and the state. */
+function DrivePeople({ people }: { people: DrivePerson[] }) {
+  const asked = people.filter((p) => p.googleEmail).length;
+  return (
+    <details className="p2bu-result">
+      <summary><strong>PCs and their folders</strong>
+        <span className="p2w-muted"> · {asked} of {people.length} have their folders</span>
+      </summary>
+      <div className="p2bu-scroll">
+        <table className="p2w-table">
+          <thead><tr><th>PC</th><th>Google account</th><th>Folders</th></tr></thead>
+          <tbody>
+            {people.map((p) => (
+              <tr key={p.actorId}>
+                <td>{p.name ?? p.actorId}</td>
+                <td>{p.googleEmail ?? <span className="p2w-muted">Has not asked yet (Drive uploads → Get my Drive folders)</span>}</td>
+                <td>
+                  {p.folders.map((f) => (
+                    <div key={f.outletId}>
+                      {f.outletName}
+                      <span className="p2w-muted"> · {f.shared ? 'shared' : f.problem ? `not shared: ${f.problem}` : 'not shared'}</span>
+                    </div>
+                  ))}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </details>
+  );
+}
+
+/**
+ * The Project's Drive settings, for an administrator (product owner 2026-11-12): when the daily
+ * run starts and whether it runs, how long a closed booking's folder stays in Drive, and which
+ * outlets use Drive -- only they get a folder and only their files are taken by the daily run.
+ */
+function DriveSettingsForm({ link, busy, onSave }: {
+  link: DriveConnection; busy: boolean; onSave: (settings: Parameters<typeof setDriveSettings>[1]) => void;
+}) {
+  const outlets = link.outlets ?? [];
+  const [time, setTime] = useState(link.dailyRunTime ?? '21:00');
+  const [daily, setDaily] = useState(link.dailyRunEnabled !== false);
+  const [days, setDays] = useState(String(link.retentionDays ?? 30));
+  const [all, setAll] = useState(link.outletIds == null);
+  const [chosen, setChosen] = useState<Set<string>>(
+    () => new Set(link.outletIds ?? outlets.filter((o) => o.pcs > 0).map((o) => o.outletId)));
+  const dealers = [...new Map(outlets.map((o) => [o.dealerId, o.dealerName])).entries()];
+  const toggle = (ids: string[], on: boolean) => setChosen((before) => {
+    const next = new Set(before);
+    ids.forEach((id) => (on ? next.add(id) : next.delete(id)));
+    return next;
+  });
+  const validDays = /^\d+$/.test(days.trim()) && Number(days) <= 3650;
+  return (
+    <details className="p2bu-result">
+      <summary><strong>Settings</strong><span className="p2w-muted"> · daily run, archive and outlets</span></summary>
+      <div className="p2bu-actions">
+        <label className="p2w-muted">
+          <input type="checkbox" checked={daily} onChange={(e) => setDaily(e.target.checked)} /> Take files every day at
+        </label>
+        <input type="time" aria-label="Daily run time (India time)" value={time} disabled={!daily}
+          onChange={(e) => setTime(e.target.value)} />
+        <label className="p2w-muted" htmlFor="p2dr-retention">Days in Drive after a booking is closed</label>
+        <input id="p2dr-retention" type="number" min={0} max={3650} inputMode="numeric" value={days}
+          onChange={(e) => setDays(e.target.value)} />
+      </div>
+      <p className="p2w-muted">
+        <label>
+          <input type="checkbox" checked={all} onChange={(e) => setAll(e.target.checked)} /> Every outlet that has a PC uses Drive
+        </label>
+      </p>
+      {!all ? dealers.map(([dealerId, dealerName]) => {
+        const mine = outlets.filter((o) => o.dealerId === dealerId);
+        const ids = mine.map((o) => o.outletId);
+        return (
+          <fieldset key={dealerId} className="p2bu-scroll">
+            <legend>
+              <label>
+                <input type="checkbox" checked={ids.every((id) => chosen.has(id))}
+                  onChange={(e) => toggle(ids, e.target.checked)} /> <strong>{dealerName}</strong>
+              </label>
+            </legend>
+            {mine.map((o) => (
+              <label key={o.outletId} className="p2bu-sub">
+                <input type="checkbox" checked={chosen.has(o.outletId)} onChange={(e) => toggle([o.outletId], e.target.checked)} />
+                {' '}{o.outletName}{o.pcs === 0 ? <span className="p2w-muted"> · no PC mapped</span> : null}
+              </label>
+            ))}
+          </fieldset>
+        );
+      }) : null}
+      <div className="p2bu-actions">
+        <button type="button" className="p2w-button p2w-button--secondary" disabled={busy || !validDays || !time}
+          onClick={() => onSave({ dailyRunEnabled: daily, dailyRunTime: time, retentionDays: Number(days),
+            outletIds: all ? null : [...chosen] })}>
+          Save settings
+        </button>
+      </div>
+    </details>
+  );
+}
+
+/**
  * Drive uploads (product owner 7 and 12 Nov 2026): the files PCs keep in the Project's Google
  * Drive, one folder per customer. A PC submits their outlet; a Team Lead, PM, Executive or
  * Reviewer takes a day's files on demand; the end of the day takes whatever is left. Each run
@@ -126,6 +275,7 @@ export default function P2DriveUploadsPage() {
   const accessToken = useSessionStore((s) => s.accessToken) ?? undefined;
   const sessionOutletId = useSessionStore((s) => s.outletId);
   const displayName = useSessionStore((s) => s.displayName);
+  const signInEmail = useSessionStore((s) => s.email);
   const tenantId = project?.tenantId;
   const outlets = project?.scope.outlets ?? [];
   const isPc = project?.operatingRole === 'PC';
@@ -133,10 +283,17 @@ export default function P2DriveUploadsPage() {
   const queryClient = useQueryClient();
   const [params] = useSearchParams();
   const returned = DRIVE_RETURN_MESSAGES[params.get('drive') ?? ''];
+  // Google sends the browser back to this page whichever Project asked: the answer is about
+  // that Project (product owner 2026-11-12: "both are showing only mahindra where is hyundai").
+  const returnedTenantId = params.get('project');
+  const projects = useProjectContextStore((s) => s.projects);
+  const returnedProject = returnedTenantId && returnedTenantId !== tenantId
+    ? projects.find((p) => p.tenantId === returnedTenantId) ?? null : undefined;
+  // A Project is told apart on screen by its dealerships (its name is not shown on operational screens).
+  const returnedDealers = [...new Set((returnedProject?.scope.outlets ?? []).map((o) => o.dealerName).filter(Boolean))];
   const [outletId, setOutletId] = useState<string>('');
   const [date, setDate] = useState<string>(istDate());
   const [allDays, setAllDays] = useState(false);
-  const [retention, setRetention] = useState<string>('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -189,10 +346,16 @@ export default function P2DriveUploadsPage() {
     window.location.assign(authUrl);
     return null;
   });
-  const saveRetention = () => act(async () => {
-    const saved = await setDriveRetention(tenantId!, Number(retention), accessToken);
-    setRetention('');
-    return `Saved: a customer's folder goes to the archive ${saved.retentionDays} days after the booking is closed.`;
+  const askAccess = () => act(async () => {
+    const access = await askDriveAccess(tenantId!, signInEmail, accessToken);
+    const shared = access.folders.filter((f) => f.shared).length;
+    return shared
+      ? `Shared with ${access.googleEmail}. Google has emailed you the link; the folders are also listed here.`
+      : 'Google could not share the folders just now. Try again in a few minutes.';
+  });
+  const saveSettings = (settings: Parameters<typeof setDriveSettings>[1]) => act(async () => {
+    await setDriveSettings(tenantId!, settings, accessToken);
+    return 'Saved.';
   });
 
   const link = connection.data;
@@ -207,7 +370,19 @@ export default function P2DriveUploadsPage() {
         description="Keep each customer's files in one folder in the Project's Google Drive: Name-OTF, or Name-Mobile where there is no OTF. Keep adding to the same folder — the booking papers, then the delivery file, then anything that was missing. Only what is new is taken."
       />
       {returned ? (
-        <div className={returned.ok ? 'p2bu-notice' : 'p2w-alert p2w-alert--error'} role="status">{returned.text}</div>
+        <div className={returned.ok ? 'p2bu-notice' : 'p2w-alert p2w-alert--error'} role="status">
+          {returnedProject === undefined ? returned.text : (
+            <>
+              <strong>{returnedDealers.length ? returnedDealers.join(', ') : 'Another Project'}:</strong> {returned.text}{' '}
+              This page shows a different Project, the one you have open.{' '}
+              {returnedProject ? (
+                <button type="button" className="p2w-button p2w-button--secondary" onClick={() => selectOperationalProject(returnedProject, queryClient)}>
+                  Open that Project
+                </button>
+              ) : null}
+            </>
+          )}
+        </div>
       ) : null}
       {error ? <div className="p2w-alert p2w-alert--error" role="alert">{error}</div> : null}
       {notice ? <div className="p2bu-notice" role="status">{notice}</div> : null}
@@ -234,24 +409,25 @@ export default function P2DriveUploadsPage() {
         {link && connected ? (
           <>
             <p>
-              Connected as <strong>{link.account}</strong>
-              {link.folderUrl ? <> · <a className="p2w-link" href={link.folderUrl} target="_blank" rel="noreferrer">Open the Project’s folder</a></> : null}
+              {/* A PC opens Drive with their own Google account, so the Project's account is not named to them. */}
+              {link.myAccess && !link.canConnect ? 'Connected' : <>Connected as <strong>{link.account}</strong></>}
+              {link.canConnect && link.folderUrl ? <> · <a className="p2w-link" href={link.folderUrl} target="_blank" rel="noreferrer">Open the Project’s folder</a></> : null}
               {link.lastCheckedAtUtc ? <span className="p2w-muted"> · last checked {when(link.lastCheckedAtUtc)}</span> : null}
             </p>
             <p className="p2w-muted">
-              Files are taken at 9:00 pm every day, or sooner when submitted here. A customer’s folder goes to the
-              Archive folder {link.retentionDays} days after the booking is closed; nothing is deleted.
+              {link.dailyRunEnabled === false
+                ? 'The daily run is off: files are taken only when submitted here.'
+                : `Files are taken at ${clockTime(link.dailyRunTime)} every day, or sooner when submitted here.`}
+              {' '}A customer’s folder goes to the Archive folder {link.retentionDays} days after the booking is closed;
+              Verigence deletes nothing.
             </p>
+            {link.myAccess ? (
+              <DriveMyFolders access={link.myAccess} email={signInEmail} busy={busy} onAsk={() => void askAccess()} />
+            ) : null}
+            {link.canConnect && link.people ? <DrivePeople people={link.people} /> : null}
             {link.canConnect ? (
-              <div className="p2bu-actions">
-                <label className="p2w-muted" htmlFor="p2dr-retention">Days in Drive after a booking is closed</label>
-                <input id="p2dr-retention" type="number" min={0} max={3650} inputMode="numeric"
-                  placeholder={String(link.retentionDays ?? 30)} value={retention} onChange={(e) => setRetention(e.target.value)} />
-                <button type="button" className="p2w-button p2w-button--secondary" disabled={busy || retention.trim() === ''}
-                  onClick={() => void saveRetention()}>
-                  Save
-                </button>
-              </div>
+              <DriveSettingsForm key={JSON.stringify([link.dailyRunTime, link.dailyRunEnabled, link.retentionDays, link.outletIds])}
+                link={link} busy={busy} onSave={(settings) => void saveSettings(settings)} />
             ) : null}
           </>
         ) : null}

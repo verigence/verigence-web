@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 import P2DriveUploadsPage from '../P2DriveUploadsPage';
 import {
+  clockTime,
   rescanPages,
   type DriveConnection,
   type DriveFileList,
@@ -19,7 +20,10 @@ vi.mock('../../store/projectContextStore', () => {
     selectedProject: { tenantId: 't1', operatingRole: role.value, scope: { outlets: [
       { outletId: 'o1', outletName: 'Cuttack', dealerName: 'Aditya Motors' },
       { outletId: 'o2', outletName: 'Jajpur', dealerName: 'Aditya Motors' }] } },
-    projects: [],
+    projects: [{ tenantId: 't2', operatingRole: 'TL', scope: { outlets: [
+      { outletId: 'h1', outletName: 'Patia', dealerName: 'Aditya Hyundai' },
+      { outletId: 'h2', outletName: 'Khurda', dealerName: 'Aditya Hyundai' },
+      { outletId: 'h3', outletName: 'Rasulgarh', dealerName: 'Utkal Hyundai' }] } }],
   });
   return {
     useProjectContextStore: Object.assign((select: (s: ReturnType<typeof state>) => unknown) => select(state()),
@@ -27,7 +31,7 @@ vi.mock('../../store/projectContextStore', () => {
   };
 });
 vi.mock('../../store/sessionStore', () => {
-  const state = () => ({ accessToken: 'token', outletId: 'o1', displayName: 'Ravi' });
+  const state = () => ({ accessToken: 'token', outletId: 'o1', displayName: 'Ravi', email: 'ravi@gmail.com' });
   return {
     useSessionStore: Object.assign((select: (s: ReturnType<typeof state>) => unknown) => select(state()),
       { getState: state, subscribe: () => () => undefined }),
@@ -64,13 +68,13 @@ const waiting: DriveFileList = {
   ],
 };
 
-function render(link: DriveConnection = connection): string {
+function render(link: DriveConnection = connection, at = '/p2/drive-uploads'): string {
   const client = new QueryClient();
   client.setQueryData(['p2-drive-connection', 't1'], link);
   client.setQueryData(['p2-drive-runs', 't1'], runs);
   client.setQueryData(['p2-drive-waiting', 't1'], waiting);
   return renderToString(
-    <QueryClientProvider client={client}><MemoryRouter><P2DriveUploadsPage /></MemoryRouter></QueryClientProvider>,
+    <QueryClientProvider client={client}><MemoryRouter initialEntries={[at]}><P2DriveUploadsPage /></MemoryRouter></QueryClientProvider>,
   ).replaceAll('<!-- -->', '');
 }
 
@@ -86,7 +90,7 @@ describe('Drive uploads page', () => {
     expect(html).not.toContain('other outlet.pdf');
     expect(html).not.toContain('Take files now');
     expect(html).toContain('3 files · 5 of 6 pages read · 1 page to scan again · 2 manual verification tasks');
-    expect(html).toContain('30 days after the booking is closed; nothing is deleted');
+    expect(html).toContain('Files are taken at 9:00 pm every day');
   });
 
   it('lets a Team Lead take a day’s files for an outlet or all of theirs', () => {
@@ -105,6 +109,53 @@ describe('Drive uploads page', () => {
     expect(render(off)).toContain('not connected yet');
     expect(render(off)).not.toContain('Connect Google Drive');
     expect(render({ ...off, canConnect: true })).toContain('Connect Google Drive');
+  });
+
+  it('shows the Project’s own run time and gives an administrator the settings', () => {
+    role.value = 'TL';
+    expect(render({ ...connection, dailyRunTime: '18:30' })).toContain('Files are taken at 6:30 pm every day');
+    expect(render({ ...connection, dailyRunEnabled: false })).toContain('The daily run is off');
+    expect(render()).not.toContain('Save settings');
+    const admin = render({ ...connection, canConnect: true, dailyRunTime: '18:30', dailyRunEnabled: true, outletIds: ['o1'],
+      outlets: [
+        { dealerId: 'd1', dealerName: 'Aditya Motors', outletId: 'o1', outletName: 'Cuttack', pcs: 2, usesDrive: true },
+        { dealerId: 'd1', dealerName: 'Aditya Motors', outletId: 'o3', outletName: 'Puri', pcs: 0, usesDrive: false }] });
+    expect(admin).toContain('Save settings');
+    expect(admin).toContain('Take files every day at');
+    expect(admin).toContain('Puri<span class="p2w-muted"> · no PC mapped</span>');
+    expect(clockTime('00:05')).toBe('12:05 am');
+    expect(clockTime(undefined)).toBe('9:00 pm');
+  });
+
+  it('says which Project the answer from Google is about', () => {
+    role.value = 'TL';
+    const own = render(connection, '/p2/drive-uploads?drive=connected&project=t1');
+    expect(own).toContain('Google Drive is connected.');
+    expect(own).not.toContain('This page shows');
+    const other = render(connection, '/p2/drive-uploads?drive=connected&project=t2');
+    expect(other).toContain('<strong>Aditya Hyundai, Utkal Hyundai:</strong> Google Drive is connected.');
+    expect(other).toContain('This page shows a different Project');
+    expect(other).toContain('Open that Project');
+    expect(render(connection, '/p2/drive-uploads?drive=connected&project=t9')).toContain('<strong>Another Project:</strong>');
+  });
+
+  it('gives a PC the folders of their outlets in their own Google account', () => {
+    role.value = 'PC';
+    const folder = { outletId: 'o1', outletName: 'Cuttack', dealerName: 'Aditya Motors',
+      url: 'https://drive.google.com/drive/folders/f1', problem: null };
+    const before = render({ ...connection, myAccess: { googleEmail: null, folders: [{ ...folder, shared: false }] } });
+    expect(before).toContain('Get my Drive folders');
+    expect(before).toContain('shared with your Google account ravi@gmail.com');
+    expect(before).not.toContain('Open the Project’s folder');
+    const after = render({ ...connection, myAccess: { googleEmail: 'ravi@gmail.com', folders: [{ ...folder, shared: true }] } });
+    expect(after).toContain('href="https://drive.google.com/drive/folders/f1"');
+    expect(after).not.toContain('Get my Drive folders');
+    role.value = 'TL';
+    const admin = render({ ...connection, canConnect: true, people: [
+      { actorId: 'a1', name: 'Ravi', googleEmail: 'ravi@gmail.com', folders: [{ ...folder, shared: true }] },
+      { actorId: 'a2', name: 'Sita', googleEmail: null, folders: [{ ...folder, shared: false }] }] });
+    expect(admin).toContain('1 of 2 have their folders');
+    expect(admin).toContain('Open the Project’s folder');
   });
 
   it('names the pages to scan again', () => {

@@ -13,6 +13,7 @@ The app's build number is added by the release workflow and is not written here.
 ## [Unreleased]
 
 ### Changed
+- **Deal and Audit Summary** (Journey 360): accessories bought beyond the NDC / cost sheet show as an "Accessories add-on" on the accessories line and in the Audit Summary header, and are counted in the amount to be received. The NDC still prices the deal's own lines.
 - **Add-ons** (Journey 360): accessories or an extended warranty the NDC / cost sheet does not charge are switched off as not taken, also when an invoice for them is on file. No task is raised for them.
 - **Task Queue**: a delivery with no NDC or cost sheet on file now has an "Upload the Dealer statement (NDC / cost sheet)" task under Missing documents, with the other pending documents. It cannot be closed as "Document not required to be uploaded".
 - **Deal** (Journey 360): an extended warranty, RSA, FASTag or accessories line that no bill charges now reads "Not taken": the price master figure stays for reference and is no longer part of the standard. A charge that only the NDC / cost sheet shows is marked "On the NDC / cost sheet only" instead of being asked for on an invoice. A discount posted in the customer ledger but not on the NDC is shown on its line and taken off the amount still to be received. For a project that reads its deal from the NDC, a line shows what the invoices add up to beside it ("invoiced"); the invoices and the customer ledger no longer set a line's charge.

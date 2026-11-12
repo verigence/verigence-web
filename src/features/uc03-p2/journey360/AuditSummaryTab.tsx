@@ -193,6 +193,7 @@ export default function AuditSummaryTab({ data, onRegenerate, regenerating }: {
         <dl className="asum-facts asum-facts--totals">
           <Fact label="Gross billed" value={money(data.deal.gross)} />
           <Fact label="Discounts billed" value={money(data.deal.discounts)} />
+          {data.deal.accessoriesAddOn ? <Fact label="Accessories add-on" value={money(data.deal.accessoriesAddOn)} /> : null}
           <Fact label="Net payable" value={money(data.deal.netPayable)} />
         </dl>
       </Section>

@@ -302,7 +302,8 @@ function ComponentRow({ row, journeyId, open, onToggle, excludedNote }: {
             <span>{row.label}</span>
             {row.excluded ? <small className="p2w-muted">{excludedNote ?? 'Self insurance, not in the deal'}</small> : null}
             {row.partOf ? <small className="p2w-muted">Included in the line above</small> : null}
-            {row.notTaken ? <small className="p2w-muted">{row.invoiced ? 'Invoiced, but not charged on the NDC / cost sheet: not in the standard' : 'Not taken: price master shown for reference, not in the standard'}</small> : null}
+            {row.addOn ? <small className="p2w-muted">Accessories add-on {money(row.addOn)}: posted in the customer ledger beyond the NDC / cost sheet, added to the amount to be received</small> : null}
+            {row.notTaken && !row.addOn ? <small className="p2w-muted">{row.invoiced ? 'Invoiced, but not charged on the NDC / cost sheet: not in the standard' : 'Not taken: price master shown for reference, not in the standard'}</small> : null}
             {row.statementOnly ? <small className="p2w-muted">On the NDC / cost sheet only, not on an invoice</small> : null}
             <Flags flags={row.flags} />
           </button>
@@ -532,7 +533,7 @@ export default function DealTab({ deal, journeyId, tenantId, accessToken }: {
         </p>
         <dl className="j360-paid">
           <div><dt>Received</dt><dd>{money(summary.paid.total)}</dd><small>{money(summary.paid.receipts)} receipts · {money(summary.paid.loan)} loan{summary.paid.loanWithoutReceipt ? '*' : ''}{summary.paid.oldVehicle ? ` · ${money(summary.paid.oldVehicle)} old vehicle` : ''}{summary.paid.refunds ? ` · − ${money(summary.paid.refunds)} refunded` : ''}</small></div>
-          <div className={due !== null && due > 0 ? 'is-due' : 'is-clear'}><dt>Balance</dt><dd>{balanceText(summary.balanceDue)}</dd><small>{summary.paid.loanUnknown ? 'financed: the loan amount is not on file yet' : `against ${money(summary.payable)} payable${summary.ledgerDiscounts ? ` (after ${money(summary.ledgerDiscounts)} discount posted in the customer ledger)` : ''}`}</small></div>
+          <div className={due !== null && due > 0 ? 'is-due' : 'is-clear'}><dt>Balance</dt><dd>{balanceText(summary.balanceDue)}</dd><small>{summary.paid.loanUnknown ? 'financed: the loan amount is not on file yet' : `against ${money(summary.payable)} payable${summary.ledgerDiscounts ? ` (after ${money(summary.ledgerDiscounts)} discount posted in the customer ledger)` : ''}${summary.accessoriesAddOn ? ` (including ${money(summary.accessoriesAddOn)} accessories add-on)` : ''}`}</small></div>
           <div><dt>Discounts given</dt><dd>{money(summary.discounts.current)}</dd>
             <small>{entitledTotal !== null && givenTotal !== null ? (givenTotal > entitledTotal ? `${money(String(givenTotal - entitledTotal))} more than entitled` : `within the ${money(summary.discounts.standard)} entitled`) : 'no scheme entitlement recorded'}</small></div>
           <div><dt>Lines to look at</dt><dd>{deal.flagged}</dd><small>{deal.flagged ? 'priced away from the master or the booking' : 'every line as expected'}</small></div>

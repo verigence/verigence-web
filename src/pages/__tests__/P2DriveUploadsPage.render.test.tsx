@@ -31,7 +31,7 @@ vi.mock('../../store/projectContextStore', () => {
   };
 });
 vi.mock('../../store/sessionStore', () => {
-  const state = () => ({ accessToken: 'token', outletId: 'o1', displayName: 'Ravi' });
+  const state = () => ({ accessToken: 'token', outletId: 'o1', displayName: 'Ravi', email: 'ravi@gmail.com' });
   return {
     useSessionStore: Object.assign((select: (s: ReturnType<typeof state>) => unknown) => select(state()),
       { getState: state, subscribe: () => () => undefined }),
@@ -137,6 +137,25 @@ describe('Drive uploads page', () => {
     expect(other).toContain('This page shows a different Project');
     expect(other).toContain('Open that Project');
     expect(render(connection, '/p2/drive-uploads?drive=connected&project=t9')).toContain('<strong>Another Project:</strong>');
+  });
+
+  it('gives a PC the folders of their outlets in their own Google account', () => {
+    role.value = 'PC';
+    const folder = { outletId: 'o1', outletName: 'Cuttack', dealerName: 'Aditya Motors',
+      url: 'https://drive.google.com/drive/folders/f1', problem: null };
+    const before = render({ ...connection, myAccess: { googleEmail: null, folders: [{ ...folder, shared: false }] } });
+    expect(before).toContain('Get my Drive folders');
+    expect(before).toContain('shared with your Google account ravi@gmail.com');
+    expect(before).not.toContain('Open the Project’s folder');
+    const after = render({ ...connection, myAccess: { googleEmail: 'ravi@gmail.com', folders: [{ ...folder, shared: true }] } });
+    expect(after).toContain('href="https://drive.google.com/drive/folders/f1"');
+    expect(after).not.toContain('Get my Drive folders');
+    role.value = 'TL';
+    const admin = render({ ...connection, canConnect: true, people: [
+      { actorId: 'a1', name: 'Ravi', googleEmail: 'ravi@gmail.com', folders: [{ ...folder, shared: true }] },
+      { actorId: 'a2', name: 'Sita', googleEmail: null, folders: [{ ...folder, shared: false }] }] });
+    expect(admin).toContain('1 of 2 have their folders');
+    expect(admin).toContain('Open the Project’s folder');
   });
 
   it('names the pages to scan again', () => {

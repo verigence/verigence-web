@@ -22,6 +22,10 @@ export type DriveConnection = {
   outletIds?: string[] | null;
   /** For an administrator: every outlet of the Project, with whether it uses Drive. */
   outlets?: DriveOutlet[] | null;
+  /** A PC: the Google account their outlets' folders are shared with, and those folders. */
+  myAccess?: DriveAccess | null;
+  /** For an administrator: every PC, the Google account and whether each folder is shared. */
+  people?: DrivePerson[] | null;
   lastCheckedAtUtc: string | null;
   problem: string | null;
   canConnect: boolean;
@@ -29,6 +33,12 @@ export type DriveConnection = {
   waitingByOutlet: Record<string, number>;
   waiting: number;
 };
+
+export type DriveAccessFolder = {
+  outletId: string; outletName: string; dealerName: string; url?: string; shared: boolean; problem: string | null;
+};
+export type DriveAccess = { googleEmail: string | null; folders: DriveAccessFolder[] };
+export type DrivePerson = { actorId: string; name: string | null; googleEmail: string | null; folders: DriveAccessFolder[] };
 
 export type DriveOutlet = {
   dealerId: string; dealerName: string; outletId: string; outletName: string; pcs: number; usesDrive: boolean;
@@ -124,6 +134,12 @@ export function connectDrive(tenantId: string, accessToken?: string) {
 export function setDriveSettings(tenantId: string, settings: Partial<DriveSettings>, accessToken?: string) {
   return auditCoreRequest<DriveSettings>(`${base(tenantId)}/integrations/google-drive/settings`,
     { method: 'PUT', accessToken, body: JSON.stringify(settings) });
+}
+
+/** A PC asks for the folders of their outlets to be shared with their own Google account. */
+export function askDriveAccess(tenantId: string, googleEmail: string, accessToken?: string) {
+  return auditCoreRequest<DriveAccess>(`${base(tenantId)}/drive/access`,
+    { method: 'POST', accessToken, body: JSON.stringify({ googleEmail }) });
 }
 
 /** "9:00 pm" from "21:00". */

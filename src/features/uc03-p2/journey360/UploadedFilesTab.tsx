@@ -1,7 +1,14 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 
-import { getP2UploadedFiles, getP2UploadFileLink, type P2UploadedFile } from '../../../services/audit-core/uc03P2';
+import {
+  getP2UploadedFiles,
+  getP2UploadFileLink,
+  getP2VehiclePhotos,
+  type P2UploadedFile,
+  type P2VehiclePhoto,
+} from '../../../services/audit-core/uc03P2';
+import { isExtra, isPdf, VIEW_LABELS } from '../photos/p2PhotoUploader';
 import { formatDateTime } from '../workspace/p2Format';
 
 /** What each upload status means to the person downloading the file. */
@@ -50,6 +57,62 @@ function DownloadButton({ file, tenantId, journeyId, accessToken }: {
   );
 }
 
+/** What a photo or other document is, for the list. */
+export function photoKind(photo: Pick<P2VehiclePhoto, 'viewCode' | 'contentType' | 'filename'>): string {
+  if (isExtra(photo)) return 'Extra: not understood by the system, not read';
+  if (isPdf(photo)) return 'PDF';
+  return `Photo${photo.viewCode && VIEW_LABELS[photo.viewCode] ? ` · ${VIEW_LABELS[photo.viewCode]}` : ''}`;
+}
+
+/**
+ * The journey's photos and other documents, Extras included (product owner 2026-11-12: "in the
+ * journey 360 where you allow to download the complete pdf show these files uploaded into photos
+ * and other document folder"). Each opens through its own short-lived link.
+ */
+function PhotosAndOtherDocuments({ tenantId, journeyId, accessToken }: {
+  tenantId: string; journeyId: string; accessToken?: string;
+}) {
+  const photos = useQuery({
+    queryKey: ['p2-vehicle-photos', tenantId, journeyId],
+    queryFn: () => getP2VehiclePhotos(tenantId, journeyId, accessToken),
+    staleTime: 60_000,
+  });
+  const list = photos.data?.photos ?? [];
+  if (photos.isLoading || (!list.length && !photos.isError)) return null;
+  return (
+    <section className="j360-card" aria-label="Photos and other documents">
+      <h3 className="j360-h3">Photos and other documents ({list.length})</h3>
+      {photos.isError ? (
+        <div className="p2w-alert p2w-alert--error" role="alert">
+          The photos could not be listed.
+          <button type="button" className="p2w-link" onClick={() => void photos.refetch()}>Try again</button>
+        </div>
+      ) : (
+        <div className="j360-table-wrap">
+          <table className="j360-table">
+            <thead>
+              <tr><th scope="col">File</th><th scope="col">What</th><th scope="col">Added</th>
+                <th scope="col"><span className="visually-hidden">Download</span></th></tr>
+            </thead>
+            <tbody>
+              {list.map((photo) => (
+                <tr key={photo.photoId}>
+                  <th scope="row">{photo.filename}{photo.sizeBytes ? <span className="p2w-muted"> · {sizeText(photo.sizeBytes)}</span> : null}</th>
+                  <td data-label="What">{photoKind(photo)}</td>
+                  <td data-label="Added">{photo.uploadedAtUtc ? formatDateTime(photo.uploadedAtUtc) : '—'}</td>
+                  <td data-label="Download">
+                    {photo.url ? <a className="p2w-link" href={photo.url} target="_blank" rel="noreferrer">Download</a> : '—'}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
+  );
+}
+
 /**
  * Every file uploaded to the journey, as it was uploaded -- the full PDF or
  * photo, before it was split into pages -- to download (product owner
@@ -74,8 +137,12 @@ export default function UploadedFilesTab({ tenantId, journeyId, accessToken }: {
     );
   }
   const list = files.data?.files ?? [];
-  if (!list.length) return <p className="p2w-muted">No file has been uploaded to this journey yet.</p>;
+  const others = <PhotosAndOtherDocuments tenantId={tenantId} journeyId={journeyId} accessToken={accessToken} />;
+  if (!list.length) {
+    return <>{<p className="p2w-muted">No file has been uploaded to this journey yet.</p>}{others}</>;
+  }
   return (
+    <>
     <section className="j360-card" aria-label="Uploaded files">
       <p className="p2w-muted">Each file as it was uploaded, before it was split into pages. Newest first.</p>
       <div className="j360-table-wrap">
@@ -106,5 +173,7 @@ export default function UploadedFilesTab({ tenantId, journeyId, accessToken }: {
         </table>
       </div>
     </section>
+    {others}
+    </>
   );
 }

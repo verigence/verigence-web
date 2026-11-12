@@ -51,6 +51,14 @@ export const VIEW_LABELS: Record<string, string> = {
   ODOMETER: 'Odometer', CHASSIS: 'Chassis / VIN plate', DELIVERY: 'Handover', OTHER: 'Other',
 };
 
+/** A page the system did not understand, kept with the photos and other documents (product
+ * owner 2026-11-12): added by the system, not a vehicle photo, never counted as one. */
+export const EXTRA_VIEW = 'EXTRA';
+
+export function isExtra(photo: { viewCode?: string | null }): boolean {
+  return photo.viewCode === EXTRA_VIEW;
+}
+
 export function photoPreflight(file: File): string | undefined {
   if (isPdf(file)) {
     if (file.size === 0) return `${file.name} is empty.`;

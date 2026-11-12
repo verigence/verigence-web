@@ -32,7 +32,7 @@ describe('task bundles (product owner 2026-10-28: fewer tasks for the PC)', () =
     const page = (id: string, file: string) => task(id, { task_type: 'PC_VERIFY_UNRECOGNIZED_DOCUMENT',
       document: { file, pages: [1], reason: null, documentId: null } as P2Task['document'] });
     const entries = bundleTasks('j1', [page('a', 'one.pdf'), page('b', 'two.pdf'), page('c', 'one.pdf')]);
-    expect(entries.map((e) => (isBundle(e) ? e.title : e.task_id))).toEqual(['Set the document type: 2 pages of one.pdf', 'b']);
+    expect(entries.map((e) => (isBundle(e) ? e.title : e.task_id))).toEqual(['Not understood: 2 pages of one.pdf', 'b']);
   });
 
   it('never bundles an existing (Phase 1) task', () => {

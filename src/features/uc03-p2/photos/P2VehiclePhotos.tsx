@@ -8,6 +8,7 @@ import {
   type P2VehiclePhoto,
 } from '../../../services/audit-core/uc03P2';
 import {
+  isExtra,
   isPdf,
   MAX_PDFS,
   newPhotoItem,
@@ -53,7 +54,9 @@ export default function P2VehiclePhotos({ tenantId, journeyId, accessToken, ensu
     staleTime: 60_000,
     refetchInterval: 20 * 60_000,
   });
-  const list = photos.data?.photos ?? [];
+  // Extras are pages the system did not understand: shown apart, not vehicle photos.
+  const list = (photos.data?.photos ?? []).filter((photo) => !isExtra(photo));
+  const extras = (photos.data?.photos ?? []).filter(isExtra);
   const limit = photos.data?.limit ?? 24;
   const pdfLimit = photos.data?.pdfLimit ?? MAX_PDFS;
   const pdfsOnFile = list.filter(isPdf).length;
@@ -207,6 +210,25 @@ export default function P2VehiclePhotos({ tenantId, journeyId, accessToken, ensu
         </ul>
       ) : !photos.isLoading && !pending.length ? (
         <div className="p2w-empty">No vehicle photos yet. Take front, rear, both sides and the odometer.</div>
+      ) : null}
+
+      {extras.length ? (
+        <div className="p2w-photos__extras">
+          <h3>Extras ({extras.length})</h3>
+          <p className="p2w-muted">Pages the system did not understand. Not read. If one needs to be read, check with your TL and upload it again.</p>
+          <ul className="p2w-photos__grid">
+            {extras.map((photo) => (
+              <li key={photo.photoId}>
+                <a className="p2w-photos__thumb" href={photo.url ?? undefined} target="_blank" rel="noreferrer"
+                  aria-label={`Open ${photo.filename}`}>
+                  {isPdf(photo) ? <span className="p2w-photos__blank p2w-photos__pdf">PDF</span>
+                    : photo.url ? <img src={photo.url} alt="" loading="lazy" /> : <span className="p2w-photos__blank" />}
+                </a>
+                <span className="p2w-photos__caption"><strong>{photo.filename}</strong></span>
+              </li>
+            ))}
+          </ul>
+        </div>
       ) : null}
 
       {open ? (

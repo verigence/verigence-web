@@ -125,6 +125,14 @@ const p2BulkUploadItem: NavItem = {
   mark: 'BU',
   roles: ['PC'],
 };
+// Drive uploads (product owner 2026-11-12): the files PCs keep in the Project's Google Drive,
+// one folder per customer; a PC submits, a Team Lead and above takes a day's files on demand.
+const p2DriveUploadsItem: NavItem = {
+  to: '/p2/drive-uploads',
+  label: 'Drive uploads',
+  mark: 'DR',
+  roles: ['PC', 'TL', 'PM', 'EXECUTIVE', 'REVIEWER'],
+};
 // My Tracker (product owner 2026-11-03): its own entry for a PC and a Reviewer.
 const p2TrackerItem: NavItem = {
   to: '/p2/tracker',
@@ -351,7 +359,7 @@ const routeLabels: Record<string, string> = {
   '/admin/users/pending': 'Pending Approvals',
   '/admin/oem-masters': 'OEM Masters', '/admin/reports': 'Reports', '/admin/project': 'Project Administration', '/profile': 'Profile',
   '/hr/employees': 'Employees', '/hr/employees/new': 'Add Employee', '/hr/employees/import': 'Import Employees', '/hr/employees/designation-salary-import': 'Import Designation and Salary', '/hr/me': 'My Employee Profile',
-  '/p2/home': 'Home', '/p2/tracker': 'My Tracker', '/p2/bulk-upload': 'Bulk upload', '/hr/attendance': 'Attendance', '/hr/attendance/team': 'Team Attendance', '/hr/attendance/daily': 'Daily Attendance', '/hr/attendance/overview': 'Attendance Overview', '/hr/assignments': 'Project Assignments', '/hr/leave': 'Leave', '/hr/leave/overview': 'Leave Overview', '/hr/oversight': 'Team Lead Approvals',
+  '/p2/home': 'Home', '/p2/tracker': 'My Tracker', '/p2/bulk-upload': 'Bulk upload', '/p2/drive-uploads': 'Drive uploads', '/hr/attendance': 'Attendance', '/hr/attendance/team': 'Team Attendance', '/hr/attendance/daily': 'Daily Attendance', '/hr/attendance/overview': 'Attendance Overview', '/hr/assignments': 'Project Assignments', '/hr/leave': 'Leave', '/hr/leave/overview': 'Leave Overview', '/hr/oversight': 'Team Lead Approvals',
   '/hr/claims': 'Reimbursements', '/hr/claims/new': 'New Claim', '/hr/claims/all': 'All Claims', '/hr/approvals': 'Approvals',
   '/hr/payslips': 'Payslips', '/hr/salary': 'My Salary', '/hr/messages': 'Employee Messages', '/hr/payroll': 'Payroll', '/hr/payroll/salaries': 'Salaries', '/hr/payroll/settings': 'Payroll Settings', '/hr/settings': 'HR Settings',
 };
@@ -490,6 +498,7 @@ export default function AppShell({ children }: PropsWithChildren) {
             // Operations), not the PC's working list (decision 2026-10-20).
             role === 'TL' ? { ...p2BookingsItem, to: '/dashboard' } : p2BookingsItem,
             ...(role === 'PC' ? [p2BulkUploadItem] : []),
+            p2DriveUploadsItem,
             // Journey tasks and Task Manager tasks are the two classifications of the Task Queue.
             { ...p2TasksItem, badge: p2TaskCount + tmCount },
             p2DuplicatesItem,
@@ -511,12 +520,12 @@ export default function AppShell({ children }: PropsWithChildren) {
           ],
         }
       : role === 'EXECUTIVE'
-        ? { ...p2Group, items: [p2ProjectTrackerItem, p2JourneyExportItem, p2LocationChecksItem, p2MissingDocumentsItem, p2ClosureApprovalsItem, { ...taskManagerItem, badge: tmCount }, utilisationItem, diDashboardItem] }
+        ? { ...p2Group, items: [p2ProjectTrackerItem, p2DriveUploadsItem, p2JourneyExportItem, p2LocationChecksItem, p2MissingDocumentsItem, p2ClosureApprovalsItem, { ...taskManagerItem, badge: tmCount }, utilisationItem, diDashboardItem] }
         // A Reviewer's whole surface (2026-10-23: inside a Project the group was
         // built for PC / TL / PM only, so a Reviewer saw none of it, not even
         // Document Review, which is their home page).
         : role === 'REVIEWER'
-          ? { ...p2Group, items: [p2ReviewBoardItem, p2TrackerItem, { ...p2TasksItem, badge: p2TaskCount + tmCount }, p2ReviewActivityItem, p2DiscountVarianceItem, p2PriceMastersItem, p2MasterDocumentsItem] }
+          ? { ...p2Group, items: [p2ReviewBoardItem, p2TrackerItem, p2DriveUploadsItem, { ...p2TasksItem, badge: p2TaskCount + tmCount }, p2ReviewActivityItem, p2DiscountVarianceItem, p2PriceMastersItem, p2MasterDocumentsItem] }
           // A CRM receives and raises tasks (to TL / PM) in the Task Manager.
           : role === 'CRM'
             ? { ...p2Group, items: [{ ...taskManagerItem, badge: tmCount }] }

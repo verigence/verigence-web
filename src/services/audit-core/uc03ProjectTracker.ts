@@ -20,6 +20,13 @@ export type UploadFigures = {
   newJourneys: number;
 };
 export type ClosedFigures = { deliveryFiles: number; reviewer: number };
+/** The files put in the Project's Google Drive in the period (product owner 2026-11-12). */
+export type DriveFigures = {
+  files: number; documents: number; photos: number; taken: number; duplicates: number; setAside: number;
+  failed: number; waiting: number; reading: number; newBookings: number; addedToBookings: number;
+  keptForReview: number; pages: number; pagesRead: number; pagesToRescan: number; pagesReading: number;
+  manualVerificationTasks: number;
+};
 export type TaskSection = {
   raised: number; closed: number; closedByPc: number; closedByLead: number; closedByReviewer: number;
   closedByOther: number; closedBySystem: number; open: number; overdue: number;
@@ -36,6 +43,8 @@ export type RecurringFigures = {
 export type TrackerFigures = {
   gatePass: GatePassFigures; uploads: UploadFigures; closed: ClosedFigures; tasks: TaskFigures;
   recurring: Record<string, RecurringFigures>;
+  /** Absent from an Audit Core that does not have the Drive intake yet. */
+  drive?: DriveFigures;
 };
 export type TrackerPerson = TrackerFigures & { actorId: string | null; name: string | null; role: string | null };
 export type TrackerOutlet = TrackerFigures & {

@@ -121,6 +121,7 @@ const P2JourneyExportPage = lazy(() => import('./pages/P2JourneyExportPage'));
 const P2MyWorkPage = lazy(() => import('./pages/P2MyWorkPage'));
 const P2MyTrackerPage = lazy(() => import('./pages/P2MyTrackerPage'));
 const P2BulkUploadPage = lazy(() => import('./pages/P2BulkUploadPage'));
+const P2DriveUploadsPage = lazy(() => import('./pages/P2DriveUploadsPage'));
 const AdminSystemHealthPage = lazy(() => import('./pages/AdminSystemHealthPage'));
 const AdminTaskManagerPage = lazy(() => import('./pages/AdminTaskManagerPage'));
 
@@ -384,6 +385,7 @@ export default function App() {
               <Route path="/p2/home" element={<OperationalPage><P2MyWorkPage /></OperationalPage>} />
               <Route path="/p2/tracker" element={<OperationalPage><P2MyTrackerPage /></OperationalPage>} />
               <Route path="/p2/bulk-upload" element={<OperationalPage><P2BulkUploadPage /></OperationalPage>} />
+              <Route path="/p2/drive-uploads" element={<OperationalPage><P2DriveUploadsPage /></OperationalPage>} />
               <Route path="/p2/bookings" element={<OperationalPage><P2JourneyListPage /></OperationalPage>} />
               <Route path="/p2/journey-360" element={<Navigate to="/p2/bookings" replace />} />
               <Route path="/p2/work-queue" element={<Navigate to="/p2/bookings" replace />} />

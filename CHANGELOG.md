@@ -12,6 +12,10 @@ The app's build number is added by the release workflow and is not written here.
 
 ## [Unreleased]
 
+### Added
+- **Drive uploads** (new page, for PCs, Team Leads, PMs, Executives and Reviewers): the files PCs keep in the Project's Google Drive, one folder per customer (Name-OTF, or Name-Mobile where there is no OTF). The page shows the connected Google account with a link to the Project's folder, the files waiting to be taken, and every run with its report: files processed, pages read, pages to scan again with the page number and the reason, and manual verification tasks opened. A PC presses **Submit Drive uploads** for their outlet; a Team Lead and above takes a day's files for an outlet or all of theirs. Files are also taken at 9:00 pm every day. An administrator connects the Google account here and sets how many days a customer's folder stays in Drive after the booking is closed, before it is moved to the Archive folder (nothing is deleted).
+- **Project Tracker**: a **Drive uploads** view with the files received from Drive, taken, waiting, duplicates, not taken, pages read, pages to scan again and manual verification tasks, per dealership, outlet and PC.
+
 ### Changed
 - **Deal and Audit Summary** (Journey 360): accessories bought beyond the NDC / cost sheet show as an "Accessories add-on" on the accessories line and in the Audit Summary header, and are counted in the amount to be received. The NDC still prices the deal's own lines.
 - **Add-ons** (Journey 360): accessories or an extended warranty the NDC / cost sheet does not charge are switched off as not taken, also when an invoice for them is on file. No task is raised for them.

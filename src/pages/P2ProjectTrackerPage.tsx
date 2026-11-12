@@ -36,7 +36,7 @@ import {
 import { useProjectContextStore } from '../store/projectContextStore';
 import { useSessionStore } from '../store/sessionStore';
 
-type View = 'overview' | 'gatePass' | 'files' | 'tasks' | 'recurring';
+type View = 'overview' | 'gatePass' | 'files' | 'drive' | 'tasks' | 'recurring';
 type TaskScope = 'all' | 'journey' | 'taskManager';
 
 const PERIOD_OPTIONS: Array<{ key: TrackerPeriod; label: string }> = [
@@ -48,6 +48,7 @@ const VIEW_OPTIONS: Array<{ key: View; label: string }> = [
   { key: 'overview', label: 'Overview' },
   { key: 'gatePass', label: 'Gate pass' },
   { key: 'files', label: 'Files' },
+  { key: 'drive', label: 'Drive uploads' },
   { key: 'tasks', label: 'Tasks' },
   { key: 'recurring', label: 'Recurring tasks' },
 ];
@@ -142,6 +143,23 @@ function columnsFor(view: View, scope: TaskScope, data: ProjectTracker, links: L
       { key: 'f-docs', label: 'Documents', value: (f) => f.uploads.documents },
       { key: 'f-closed', label: 'Delivery files closed', value: (f) => f.closed.deliveryFiles, to: b },
       { key: 'f-rev', label: 'Closed by Reviewer', value: (f) => f.closed.reviewer },
+    ];
+  }
+  if (view === 'drive') {
+    // The files PCs keep in the Project's Google Drive (product owner 2026-11-12).
+    const d = '/p2/drive-uploads';
+    return [
+      { key: 'd-files', label: 'Files received', value: (f) => f.drive?.files ?? 0, to: d },
+      { key: 'd-taken', label: 'Taken', value: (f) => f.drive?.taken ?? 0, to: d },
+      { key: 'd-wait', label: 'Waiting', value: (f) => f.drive?.waiting ?? 0, attention: true, to: d },
+      { key: 'd-dup', label: 'Duplicates', value: (f) => f.drive?.duplicates ?? 0, title: 'Exact duplicates: not read again' },
+      { key: 'd-aside', label: 'Not taken', value: (f) => f.drive?.setAside ?? 0, attention: true,
+        title: 'Files that could not be taken: wrong type, no outlet, or the booking is closed' },
+      { key: 'd-fail', label: 'Failed', value: (f) => f.drive?.failed ?? 0, attention: true },
+      { key: 'd-pages', label: 'Pages', value: (f) => f.drive?.pages ?? 0 },
+      { key: 'd-read', label: 'Pages read', value: (f) => f.drive?.pagesRead ?? 0 },
+      { key: 'd-rescan', label: 'To scan again', value: (f) => f.drive?.pagesToRescan ?? 0, attention: true, to: d },
+      { key: 'd-mv', label: 'Manual verification tasks', value: (f) => f.drive?.manualVerificationTasks ?? 0 },
     ];
   }
   if (view === 'tasks') return taskColumns(scope, links);

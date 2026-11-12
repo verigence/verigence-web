@@ -780,6 +780,9 @@
 .p2w-photos__head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
 .p2w-photos__head h2 { margin: 0; font-size: 1.1rem; }
 .p2w-photos__head > span { white-space: nowrap; }
+/* Extras: pages the system did not understand (2026-11-12), apart from the vehicle photos. */
+.p2w-photos__extras { margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--p2w-border, #e0e0e0); }
+.p2w-photos__extras h3 { margin: 0 0 4px; font-size: 1rem; }
 .p2w-photos__head p { margin: 4px 0 0; color: var(--p2w-muted); font-size: .9rem; }
 .p2w-photos__views { display: flex; flex-wrap: wrap; gap: 6px; }
 .p2w-photos__views button {

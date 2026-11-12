@@ -29,7 +29,7 @@ const LABELS: Record<BundleKind, string> = {
   missing: 'Documents to upload',
   verify: 'Values to check',
   questions: 'Questions to answer',
-  unread: 'Set the document type',
+  unread: 'Not understood',
 };
 
 /** Which kind of bundle a task belongs to, and the key it shares with the

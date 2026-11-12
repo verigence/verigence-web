@@ -17,7 +17,7 @@ import {
   type P2TakenAddon,
   type P2Vehicle360,
 } from '../../../services/audit-core/uc03P2';
-import { isPdf, VIEW_LABELS } from '../photos/p2PhotoUploader';
+import { isExtra, isPdf, VIEW_LABELS } from '../photos/p2PhotoUploader';
 import { displayValue, formatDateTime, humanizeKey } from '../workspace/p2Format';
 import { ChargeTable, DiscountTable } from './DealTab';
 import { LoanDisbursementDialog } from './DealControls';
@@ -514,6 +514,8 @@ export function VehicleTab({ data, tenantId, journeyId, accessToken }: {
     queryFn: () => getP2VehiclePhotos(tenantId, journeyId, accessToken),
     staleTime: 60_000,
   });
+  // Pages the system did not understand (Extras) are listed under Uploaded files, not as photos.
+  const vehiclePhotos = (photos.data?.photos ?? []).filter((photo) => !isExtra(photo));
   const product = data.product ?? {};
   const unit = data.units[0] ?? {};
   return (
@@ -553,12 +555,12 @@ export function VehicleTab({ data, tenantId, journeyId, accessToken }: {
       <AddonBlock label="Extended Warranty" addon={data.addons.warranty} itemsTitle="Warranty lines" labels={WARRANTY_DETAIL_LABELS} />
       <section className="j360-card" aria-label="Vehicle photos">
         <header className="j360-docs__head">
-          <h3 className="j360-h3">Vehicle photos ({photos.data?.photos.length ?? data.photoCount})</h3>
+          <h3 className="j360-h3">Vehicle photos ({photos.data ? vehiclePhotos.length : data.photoCount})</h3>
           <Link className="p2w-button p2w-button--secondary" to={`/p2/journeys/${journeyId}/documents?tab=photos`}>Add photos</Link>
         </header>
-        {photos.data?.photos.length ? (
+        {vehiclePhotos.length ? (
           <ul className="p2w-photos__grid">
-            {photos.data.photos.map((photo) => (
+            {vehiclePhotos.map((photo) => (
               <li key={photo.photoId}>
                 <a className="p2w-photos__thumb" href={photo.url ?? undefined} target="_blank" rel="noreferrer">
                   {isPdf(photo) ? <span className="p2w-photos__blank p2w-photos__pdf">PDF</span>

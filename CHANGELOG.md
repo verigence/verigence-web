@@ -18,6 +18,8 @@ The app's build number is added by the release workflow and is not written here.
 - **Project Tracker**: a **Drive uploads** view with the files received from Drive, taken, waiting, duplicates, not taken, pages read, pages to scan again and manual verification tasks, per dealership, outlet and PC.
 
 ### Changed
+- **Pages the system does not understand**: a page no document type fits is now kept in the booking's **Photos and other documents** as an **Extra**, and is not read. The page and its task say: "The system did not understand this page. It is kept in Photos and other documents (Extras) and is not read. If it needs to be read, check with your TL and upload it again." Extras are shown apart from the vehicle photos and do not count as vehicle photos. Pages refused for scan quality keep their own message.
+- **Journey 360 > Uploaded files** also lists the photos and other documents, Extras included, each with Download.
 - **Approvals > Leave and Corrections** (My HR): each waiting request now shows the person's record next to it: leave taken in the 4 weeks before (was 6 weeks), paid and unpaid, and the hours worked on average a week over the 6 whole weeks before (weeks since joining for a new joiner). The employee applying for leave sees the same 4-week figure.
 - **My HR > Attendance**: a missed check-out can be asked for (**Record my check-out**) with the time you left; your Team Lead or Project Manager approves it under Approvals > Corrections.
 - **Deal and Audit Summary** (Journey 360): accessories bought beyond the NDC / cost sheet show as an "Accessories add-on" on the accessories line and in the Audit Summary header, and are counted in the amount to be received. The NDC still prices the deal's own lines.

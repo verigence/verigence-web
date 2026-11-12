@@ -141,6 +141,8 @@ function columnsFor(view: View, scope: TaskScope, data: ProjectTracker, links: L
       { key: 'f-files', label: 'Files', value: (f) => f.uploads.files },
       { key: 'f-pages', label: 'Pages', value: (f) => f.uploads.pages },
       { key: 'f-docs', label: 'Documents', value: (f) => f.uploads.documents },
+      { key: 'f-dup', label: 'Duplicates deleted', value: (f) => f.uploads.duplicatesDeleted ?? 0, attention: true,
+        to: '/p2/duplicate-bookings', title: 'Uploads the system deleted as the same file uploaded again (from 12 Nov 2026)' },
       { key: 'f-closed', label: 'Delivery files closed', value: (f) => f.closed.deliveryFiles, to: b },
       { key: 'f-rev', label: 'Closed by Reviewer', value: (f) => f.closed.reviewer },
     ];
@@ -172,6 +174,8 @@ function columnsFor(view: View, scope: TaskScope, data: ProjectTracker, links: L
     { key: 'o-j', label: 'Journeys uploaded', value: (f) => f.uploads.journeys, to: links.bookings },
     { key: 'o-b', label: 'Bookings', value: (f) => f.uploads.bookings },
     { key: 'o-d', label: 'Deliveries', value: (f) => f.uploads.deliveries },
+    { key: 'o-dup', label: 'Duplicates deleted', value: (f) => f.uploads.duplicatesDeleted ?? 0, attention: true,
+      to: '/p2/duplicate-bookings', title: 'Uploads the system deleted as the same file uploaded again (from 12 Nov 2026)' },
     { key: 'o-closed', label: 'Delivery files closed', value: (f) => f.closed.deliveryFiles },
     { key: 'o-tc', label: 'Tasks closed', value: (f) => f.tasks.all.closed, to: links.tasks },
     { key: 'o-to', label: 'Tasks open', value: (f) => f.tasks.all.open, to: links.tasks },
@@ -330,7 +334,7 @@ function Tiles({ data }: { data: ProjectTracker }) {
       hint={`${t.gatePass.late} late · ${t.gatePass.missing} missing · ${t.gatePass.notYetDue} not yet due`}
       tone={t.gatePass.missing ? 'bad' : t.gatePass.late ? 'warn' : undefined} />,
     <Tile key="up" label="Journeys uploaded" value={t.uploads.journeys}
-      hint={`${t.uploads.bookings} bookings · ${t.uploads.deliveries} deliveries · ${t.uploads.files} files`} />,
+      hint={`${t.uploads.bookings} bookings · ${t.uploads.deliveries} deliveries · ${t.uploads.duplicatesDeleted ?? 0} duplicates deleted`} />,
     <Tile key="cl" label="Delivery files closed" value={t.closed.deliveryFiles} hint={`${t.closed.reviewer} closed by Reviewer`} />,
     <Tile key="tc" label="Tasks closed" value={t.tasks.all.closed}
       hint={`PC ${t.tasks.all.closedByPc} · TL/PM/Exec ${t.tasks.all.closedByLead} · system ${t.tasks.all.closedBySystem}`} />,

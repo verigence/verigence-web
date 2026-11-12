@@ -17,6 +17,9 @@ type OutletBase = { outletId: string; outletName: string; dealerId: string; deal
 
 export type PcFigures = {
   journeysTotal: number; journeysUploaded: number; bookingsUploaded: number; deliveriesUpdated: number;
+  /** Journeys the PC uploaded that the system deleted as the same file uploaded again (from 12 Nov 2026);
+   * absent from an older Audit Core. */
+  duplicatesDeleted?: number;
   /** The PC's journeys whose delivery file closed in the period (Daily processing report rule). */
   journeysCompleted: number;
   gateRegisterDays: number; gateRegisterUploaded: number; gateRegisterMissed: number;
@@ -35,7 +38,7 @@ export type ReviewerOutlet = OutletBase & ReviewerFigures;
 export type MyWorkGrouping = 'day' | 'week' | 'month';
 
 /** One row of My Tracker (a day, a Monday-to-Sunday week or a calendar month), per outlet; tasks pending has no row. */
-export type PcRowFigures = Pick<PcFigures, 'journeysUploaded' | 'bookingsUploaded' | 'deliveriesUpdated'
+export type PcRowFigures = Pick<PcFigures, 'journeysUploaded' | 'bookingsUploaded' | 'deliveriesUpdated' | 'duplicatesDeleted'
   | 'journeysCompleted' | 'gateRegisterDays' | 'gateRegisterUploaded' | 'registerTotal' | 'registerIntimated'
   | 'uploadedInTool' | 'pendingDeliveryFiles' | 'tasksWorked' | 'tasksClosed'>;
 export type PcRowOutlet = PcRowFigures & {

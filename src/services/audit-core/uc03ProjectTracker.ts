@@ -18,6 +18,9 @@ export type GatePassFigures = {
 export type UploadFigures = {
   files: number; pages: number; documents: number; journeys: number; bookings: number; deliveries: number;
   newJourneys: number;
+  /** Journeys the PC uploaded that the system deleted as the same file uploaded again (from 12 Nov 2026);
+   * absent from an older Audit Core. */
+  duplicatesDeleted?: number;
 };
 export type ClosedFigures = { deliveryFiles: number; reviewer: number };
 /** The files put in the Project's Google Drive in the period (product owner 2026-11-12). */

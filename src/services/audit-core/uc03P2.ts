@@ -1155,6 +1155,9 @@ export type P2DealRow = {
   notTaken?: boolean;
   /** Charged on the NDC / cost sheet and on no other document (2026-11-11): a comment, never a task. */
   statementOnly?: boolean;
+  /** Accessories bought beyond the NDC / cost sheet (2026-11-12): what the customer ledger posts over
+   * the NDC's charge. In the amount to be received, in no line, standard or variance of the deal. */
+  addOn?: Money;
 };
 
 export type P2DealCategory = {
@@ -1220,6 +1223,8 @@ type P2DealSummary = {
   balanceDue: Money;
   /** Discounts posted in the customer ledger and not on the NDC / cost sheet: already off the payable. */
   ledgerDiscounts?: Money;
+  /** Accessories bought beyond the NDC / cost sheet (2026-11-12): already in the payable. */
+  accessoriesAddOn?: Money;
   /** Optional products not taken: not in the standard, their price master figure for reference. */
   notTaken?: Array<{ key: string; label: string; standard: Money }>;
 };
@@ -1521,7 +1526,9 @@ export type P2AuditSummary = {
     amountAtRisk: { customerOvercharged: string; companyLeakage: string };
     missing: string[];
   };
-  deal: { charges: P2AuditRow[]; gross?: string | null; discounts?: string | null; netPayable?: string | null };
+  deal: { charges: P2AuditRow[]; gross?: string | null; discounts?: string | null;
+    /** Accessories bought beyond the NDC (2026-11-12): in the net payable, in no charge line. */
+    accessoriesAddOn?: string | null; netPayable?: string | null };
   benefits: P2AuditRow[];
   products: P2AuditRow[];
   funding: {

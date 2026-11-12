@@ -76,6 +76,7 @@ function PcRowCells({ figures, entry }: { figures: PcRowFigures; entry: GateRegi
       <td>{figures.journeysUploaded}</td>
       <td>{figures.bookingsUploaded}</td>
       <td>{figures.deliveriesUpdated}</td>
+      <td className={figures.duplicatesDeleted ? 'p2mw-attn' : undefined}>{figures.duplicatesDeleted ?? 0}</td>
       <td>{figures.journeysCompleted}</td>
       <td>{registerSummary(figures, entry)}</td>
       <td className={figures.pendingDeliveryFiles ? 'p2mw-attn' : undefined}>{figures.pendingDeliveryFiles}</td>
@@ -93,7 +94,9 @@ function PcDateTable({ rows, totals, showOutlets }: { rows: PcRow[]; totals: PcF
       <table className="p2w-table p2mw-table" aria-label="Date wise">
         <thead>
           <tr>
-            <th>Date</th><th>Journeys uploaded</th><th>Bookings</th><th>Deliveries</th><th>Journeys completed</th>
+            <th>Date</th><th>Journeys uploaded</th><th>Bookings</th><th>Deliveries</th>
+            <th title="Uploads deleted by the system as the same file uploaded again">Duplicates deleted</th>
+            <th>Journeys completed</th>
             <th>Gate register</th><th>Pending delivery files</th><th>Tasks worked</th><th>Tasks closed</th>
           </tr>
         </thead>
@@ -115,6 +118,7 @@ function PcDateTable({ rows, totals, showOutlets }: { rows: PcRow[]; totals: PcF
           <tr>
             <th>Total</th>
             <th>{totals.journeysUploaded}</th><th>{totals.bookingsUploaded}</th><th>{totals.deliveriesUpdated}</th>
+            <th>{totals.duplicatesDeleted ?? 0}</th>
             <th>{totals.journeysCompleted}</th>
             <th>{totals.gateRegisterUploaded} of {totals.gateRegisterDays}</th>
             <th>{totals.pendingDeliveryFiles}</th><th>{totals.tasksWorked}</th><th>{totals.tasksClosed}</th>
@@ -322,6 +326,8 @@ export default function P2MyTrackerPage() {
               <div className="p2mw-tiles">
                 <Tile label="Journeys uploaded" value={data.totals.journeysUploaded} hint={`${data.totals.bookingsUploaded} bookings · ${data.totals.deliveriesUpdated} deliveries`} />
                 <Tile label="Journeys completed" value={data.totals.journeysCompleted} hint="delivery files closed" />
+                <Tile label="Duplicates deleted" value={data.totals.duplicatesDeleted ?? 0} hint="same file uploaded again"
+                  tone={data.totals.duplicatesDeleted ? 'warn' : undefined} />
                 <Tile label="Gate register" value={`${data.totals.gateRegisterUploaded}/${data.totals.gateRegisterDays}`} hint="registers uploaded"
                   tone={data.totals.gateRegisterMissed ? 'bad' : data.totals.gateRegisterUploaded < data.totals.gateRegisterDays ? 'warn' : undefined} />
                 <Tile label="Delivery files pending" value={data.totals.pendingDeliveryFiles} tone={data.totals.pendingDeliveryFiles ? 'warn' : undefined} />

@@ -20,7 +20,10 @@ vi.mock('../../store/projectContextStore', () => {
     selectedProject: { tenantId: 't1', operatingRole: role.value, scope: { outlets: [
       { outletId: 'o1', outletName: 'Cuttack', dealerName: 'Aditya Motors' },
       { outletId: 'o2', outletName: 'Jajpur', dealerName: 'Aditya Motors' }] } },
-    projects: [],
+    projects: [{ tenantId: 't2', operatingRole: 'TL', scope: { outlets: [
+      { outletId: 'h1', outletName: 'Patia', dealerName: 'Aditya Hyundai' },
+      { outletId: 'h2', outletName: 'Khurda', dealerName: 'Aditya Hyundai' },
+      { outletId: 'h3', outletName: 'Rasulgarh', dealerName: 'Utkal Hyundai' }] } }],
   });
   return {
     useProjectContextStore: Object.assign((select: (s: ReturnType<typeof state>) => unknown) => select(state()),
@@ -65,13 +68,13 @@ const waiting: DriveFileList = {
   ],
 };
 
-function render(link: DriveConnection = connection): string {
+function render(link: DriveConnection = connection, at = '/p2/drive-uploads'): string {
   const client = new QueryClient();
   client.setQueryData(['p2-drive-connection', 't1'], link);
   client.setQueryData(['p2-drive-runs', 't1'], runs);
   client.setQueryData(['p2-drive-waiting', 't1'], waiting);
   return renderToString(
-    <QueryClientProvider client={client}><MemoryRouter><P2DriveUploadsPage /></MemoryRouter></QueryClientProvider>,
+    <QueryClientProvider client={client}><MemoryRouter initialEntries={[at]}><P2DriveUploadsPage /></MemoryRouter></QueryClientProvider>,
   ).replaceAll('<!-- -->', '');
 }
 
@@ -122,6 +125,18 @@ describe('Drive uploads page', () => {
     expect(admin).toContain('Puri<span class="p2w-muted"> · no PC mapped</span>');
     expect(clockTime('00:05')).toBe('12:05 am');
     expect(clockTime(undefined)).toBe('9:00 pm');
+  });
+
+  it('says which Project the answer from Google is about', () => {
+    role.value = 'TL';
+    const own = render(connection, '/p2/drive-uploads?drive=connected&project=t1');
+    expect(own).toContain('Google Drive is connected.');
+    expect(own).not.toContain('This page shows');
+    const other = render(connection, '/p2/drive-uploads?drive=connected&project=t2');
+    expect(other).toContain('<strong>Aditya Hyundai, Utkal Hyundai:</strong> Google Drive is connected.');
+    expect(other).toContain('This page shows a different Project');
+    expect(other).toContain('Open that Project');
+    expect(render(connection, '/p2/drive-uploads?drive=connected&project=t9')).toContain('<strong>Another Project:</strong>');
   });
 
   it('names the pages to scan again', () => {

@@ -27,6 +27,7 @@ import {
   type DriveTotals,
 } from '../services/audit-core/uc03DriveIntake';
 import { istDate } from '../services/audit-core/uc03MyWork';
+import { selectOperationalProject } from '../features/uc03/projectContext';
 import { useProjectContextStore } from '../store/projectContextStore';
 import { useSessionStore } from '../store/sessionStore';
 
@@ -206,6 +207,14 @@ export default function P2DriveUploadsPage() {
   const queryClient = useQueryClient();
   const [params] = useSearchParams();
   const returned = DRIVE_RETURN_MESSAGES[params.get('drive') ?? ''];
+  // Google sends the browser back to this page whichever Project asked: the answer is about
+  // that Project (product owner 2026-11-12: "both are showing only mahindra where is hyundai").
+  const returnedTenantId = params.get('project');
+  const projects = useProjectContextStore((s) => s.projects);
+  const returnedProject = returnedTenantId && returnedTenantId !== tenantId
+    ? projects.find((p) => p.tenantId === returnedTenantId) ?? null : undefined;
+  // A Project is told apart on screen by its dealerships (its name is not shown on operational screens).
+  const returnedDealers = [...new Set((returnedProject?.scope.outlets ?? []).map((o) => o.dealerName).filter(Boolean))];
   const [outletId, setOutletId] = useState<string>('');
   const [date, setDate] = useState<string>(istDate());
   const [allDays, setAllDays] = useState(false);
@@ -278,7 +287,19 @@ export default function P2DriveUploadsPage() {
         description="Keep each customer's files in one folder in the Project's Google Drive: Name-OTF, or Name-Mobile where there is no OTF. Keep adding to the same folder — the booking papers, then the delivery file, then anything that was missing. Only what is new is taken."
       />
       {returned ? (
-        <div className={returned.ok ? 'p2bu-notice' : 'p2w-alert p2w-alert--error'} role="status">{returned.text}</div>
+        <div className={returned.ok ? 'p2bu-notice' : 'p2w-alert p2w-alert--error'} role="status">
+          {returnedProject === undefined ? returned.text : (
+            <>
+              <strong>{returnedDealers.length ? returnedDealers.join(', ') : 'Another Project'}:</strong> {returned.text}{' '}
+              This page shows a different Project, the one you have open.{' '}
+              {returnedProject ? (
+                <button type="button" className="p2w-button p2w-button--secondary" onClick={() => selectOperationalProject(returnedProject, queryClient)}>
+                  Open that Project
+                </button>
+              ) : null}
+            </>
+          )}
+        </div>
       ) : null}
       {error ? <div className="p2w-alert p2w-alert--error" role="alert">{error}</div> : null}
       {notice ? <div className="p2bu-notice" role="status">{notice}</div> : null}

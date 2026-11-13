@@ -45,15 +45,22 @@ const base: Performance = {
     people: [{ actorId: 'a', name: 'Ravi', role: 'PC', pagesUploaded: 200, blurred: 12, faded: 10, tooSmall: 3, otherQuality: 0, duplicatePages: 7, duplicateFiles: 2 }] },
 };
 
-type TabKey = NonNullable<Parameters<typeof PerformanceView>[0]['initialTab']>;
-const SECTION: Record<TabKey, string> = { dashboard: 'dashboard', backlog: 'pending', bookings: 'flow', deliveries: 'flow', uploads: 'uploads', quality: 'quality', tasks: 'tasks', trend: 'trend',
+type TabKey = NonNullable<Parameters<typeof PerformanceView>[0]['initialDetail']>;
+type ViewKey = NonNullable<Parameters<typeof PerformanceView>[0]['initialView']>;
+const SECTION: Record<TabKey, string> = { backlog: 'pending', bookings: 'flow', deliveries: 'flow', uploads: 'uploads', quality: 'quality', tasks: 'tasks', trend: 'trend',
   efficiency: 'efficiency', duties: 'duties' };
+const VIEW: Record<TabKey, ViewKey> = { backlog: 'pending', bookings: 'overview', deliveries: 'overview', uploads: 'uploads', quality: 'uploads', tasks: 'tasks', trend: 'overview',
+  efficiency: 'overview', duties: 'duties' };
 
-function render(data: Performance, tab: TabKey): string {
+/** The detail under a dashboard tab, opened. */
+function render(data: Performance, tab: TabKey, dashboard?: Performance): string {
   const client = new QueryClient();
   client.setQueryData(['p2-performance', 't1', '2026-11-07', '2026-11-13', SECTION[tab]], data);
+  if (dashboard) client.setQueryData(['p2-performance', 't1', '2026-11-07', '2026-11-13', 'dashboard'], dashboard);
   return renderToString(
-    <QueryClientProvider client={client}><PerformanceView tenantId="t1" accessToken="token" today="2026-11-13" initialTab={tab} /></QueryClientProvider>,
+    <QueryClientProvider client={client}>
+      <PerformanceView tenantId="t1" accessToken="token" today="2026-11-13" initialView={VIEW[tab]} initialDetail={tab} />
+    </QueryClientProvider>,
   ).replaceAll('<!-- -->', '');
 }
 
@@ -62,9 +69,12 @@ describe('Performance view', () => {
     const html = render(base, 'backlog');
     expect(html).toContain('value="2026-11-07"');
     expect(html).toContain('value="2026-11-13"');
-    for (const tab of ['Backlog', 'Bookings', 'Deliveries', 'Uploads', 'Duplicates &amp; quality', 'Tasks', 'Day to day', 'PC efficiency', 'Delinquencies']) {
+    // The dashboard a tab at a time; the detail of the open tab is a button under it.
+    for (const tab of ['Overview', 'Pending', 'Uploads, failures and duplicates', 'Tasks', 'Duties']) {
       expect(html).toMatch(new RegExp(`role="tab"[^>]*>${tab}<`));
     }
+    expect(html).toMatch(/aria-pressed="true"[^>]*>By outlet and person</);
+    expect(html).not.toContain('Bookings by outlet');
     // The backlog, with what is older than three days; nothing of the other tabs.
     expect(html).toContain('Deliveries not uploaded');
     expect(html).toContain('Payments not reconciled');
@@ -113,8 +123,30 @@ describe('Performance view', () => {
 
   it('leaves out the tabs a SuperAdmin has switched off for the role', () => {
     const html = render({ ...base, sections: [{ key: 'trend', label: '' }] }, 'trend');
-    expect(html).toMatch(/role="tab"[^>]*>Day to day</);
-    expect(html).not.toMatch(/role="tab"[^>]*>Backlog</);
-    expect(html).not.toMatch(/role="tab"[^>]*>PC efficiency</);
+    expect(html).toMatch(/role="tab"[^>]*>Overview</);
+    expect(html).toMatch(/aria-pressed="true"[^>]*>Each person, day by day</);
+    expect(html).not.toMatch(/role="tab"[^>]*>Pending</);
+    expect(html).not.toContain('PC efficiency');
+  });
+
+  it('opens on the dashboard of the role, a tab at a time, and reads no detail until asked', () => {
+    const board: Performance = { ...base, people: [], sections: base.sections, dashboard: {
+      view: 'PC', title: 'My dashboard', period: '7 Nov to 13 Nov', days, widgets: ['kpis', 'pending', 'tasks'],
+      kpis: { title: 'What I did, 7 Nov to 13 Nov', tiles: [{ key: 'tasksClosed', label: 'Tasks closed', value: 38, hint: '4 on 13 Nov', tone: null }] },
+      pending: { title: 'Waiting for me now', buckets: ['Today', '1-3 days', '4-7 days', 'Older'], kinds: [] },
+      tasks: { raised: [0, 0, 3, 2, 4, 1, 5], closed: [0, 0, 2, 2, 1, 1, 3], open: 12, overdue: 4 },
+    } };
+    const client = new QueryClient();
+    client.setQueryData(['p2-performance', 't1', '2026-11-07', '2026-11-13', 'dashboard'], board);
+    const html = renderToString(
+      <QueryClientProvider client={client}><PerformanceView tenantId="t1" accessToken="token" today="2026-11-13" /></QueryClientProvider>,
+    ).replaceAll('<!-- -->', '');
+    for (const tab of ['What I did', 'Waiting for me', 'Tasks']) expect(html).toMatch(new RegExp(`role="tab"[^>]*>${tab}<`));
+    expect(html).toMatch(/aria-selected="true"[^>]*>What I did</);
+    expect(html).toContain('Tasks closed');
+    expect(html).toContain('38');
+    expect(html).not.toContain('Waiting for me now');               // that is the next tab
+    expect(html).toMatch(/aria-pressed="false"[^>]*>Each person, day by day</);
+    expect(html).not.toContain('p2pf-table');                       // no detail table until one is opened
   });
 });

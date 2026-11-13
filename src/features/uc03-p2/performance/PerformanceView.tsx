@@ -2,7 +2,7 @@ import { useMemo, useState, type ReactNode } from 'react';
 import { useQuery } from '@tanstack/react-query';
 
 import SectionCard from '../../../components/SectionCard';
-import Dashboard from './Dashboard';
+import Dashboard, { viewHas, viewLabel, type View } from './Dashboard';
 import { Segment } from '../my-work/MyWorkParts';
 import {
   addDays,
@@ -34,19 +34,30 @@ const MODES: Array<{ key: Mode; label: string }> = [
   { key: 'DAILY', label: 'Day by day' },
   { key: 'WEEKLY', label: 'Week by week' },
 ];
-/** One tab at a time (product owner 2026-11-13: "I don't want all to be shown in one"): each reads its own section. */
-export type Tab = 'dashboard' | 'backlog' | 'bookings' | 'deliveries' | 'uploads' | 'quality' | 'tasks' | 'trend' | 'efficiency' | 'duties';
-const TABS: Array<{ key: Tab; label: string; section: SectionKey | 'dashboard' }> = [
-  { key: 'dashboard', label: 'Dashboard', section: 'dashboard' },
-  { key: 'backlog', label: 'Backlog', section: 'pending' },
-  { key: 'bookings', label: 'Bookings', section: 'flow' },
-  { key: 'deliveries', label: 'Deliveries', section: 'flow' },
-  { key: 'uploads', label: 'Uploads', section: 'uploads' },
-  { key: 'quality', label: 'Duplicates & quality', section: 'quality' },
-  { key: 'tasks', label: 'Tasks', section: 'tasks' },
-  { key: 'trend', label: 'Day to day', section: 'trend' },
-  { key: 'efficiency', label: 'PC efficiency', section: 'efficiency' },
-  { key: 'duties', label: 'Delinquencies', section: 'duties' },
+/** The detail behind a dashboard tab: read only when it is opened (product owner 2026-11-13: "I
+ *  don't want all to be shown in one"). */
+export type Tab = 'backlog' | 'bookings' | 'deliveries' | 'uploads' | 'quality' | 'tasks' | 'trend' | 'efficiency' | 'duties';
+/** mine: what the button reads for a PC or Reviewer, whose detail is their own row. */
+const TABS: Array<{ key: Tab; label: string; mine?: string; section: SectionKey }> = [
+  { key: 'backlog', label: 'By outlet and person', mine: 'As a table', section: 'pending' },
+  { key: 'bookings', label: 'Bookings by outlet', section: 'flow' },
+  { key: 'deliveries', label: 'Deliveries by outlet', section: 'flow' },
+  { key: 'uploads', label: 'Uploads by person and day', mine: 'My uploads, day by day', section: 'uploads' },
+  { key: 'quality', label: 'Failures and duplicates by person', mine: 'As a table', section: 'quality' },
+  { key: 'tasks', label: 'Tasks by outlet and person', mine: 'My tasks, day by day', section: 'tasks' },
+  { key: 'trend', label: 'Each person, day by day', mine: 'My figures, day by day', section: 'trend' },
+  { key: 'efficiency', label: 'PC efficiency', mine: 'My efficiency', section: 'efficiency' },
+  { key: 'duties', label: 'Duties by person', mine: 'As a table', section: 'duties' },
+];
+/** The dashboard, a tab at a time (product owner 2026-11-13: "can you make tabs to it instead of
+ *  showing in one page all"), and the detail each tab can open. */
+const VIEWS: Array<{ key: View; details: Tab[] }> = [
+  { key: 'overview', details: ['bookings', 'deliveries', 'trend', 'efficiency'] },
+  { key: 'pending', details: ['backlog'] },
+  { key: 'team', details: [] },
+  { key: 'uploads', details: ['uploads', 'quality'] },
+  { key: 'tasks', details: ['tasks'] },
+  { key: 'duties', details: ['duties'] },
 ];
 type Level = 'dealer' | 'outlet' | 'person';
 const ROLE_TABS: Array<{ key: string; label: string }> = [
@@ -626,45 +637,56 @@ function Delinquency({ data }: { data: Performance }) {
   );
 }
 
+const detailLabel = (key: Tab, own: boolean) => { const t = TABS.find((x) => x.key === key)!; return own ? t.mine ?? t.label : t.label; };
 const shortDate = (iso: string) => new Date(`${iso}T00:00:00Z`).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', timeZone: 'UTC' });
 
 /**
- * Performance (product owner 2026-11-13): the dashboard of the reader's role first, then the
- * detail behind it -- what a lead manages by, one tab at a time over a date
- * range -- the backlog; bookings; deliveries against the gate register; tasks new, closed and
- * open; each person day to day or week to week; PC efficiency; and delinquencies in daily and
- * weekly duties. A PC or Reviewer sees their own. A SuperAdmin chooses the
- * tabs each role sees. Only the open tab is read from the server.
+ * Performance (product owner 2026-11-13): the dashboard of the reader's role over a date range, a
+ * tab at a time -- overview, pending, the team, uploads and quality, tasks, duties -- and under
+ * each tab the detail by outlet and person, read only when it is opened. A PC or Reviewer sees
+ * their own. A SuperAdmin chooses the blocks and the detail each role sees.
  */
-export default function PerformanceView({ tenantId, accessToken, today, initialTab = 'dashboard' }: {
-  tenantId: string; accessToken: string | undefined; today: string; initialTab?: Tab;
+export default function PerformanceView({ tenantId, accessToken, today, initialView = 'overview', initialDetail = null }: {
+  tenantId: string; accessToken: string | undefined; today: string; initialView?: View; initialDetail?: Tab | null;
 }) {
   const [from, setFrom] = useState(addDays(today, -6));
   const [to, setTo] = useState(today);
   const [modePicked, setModePicked] = useState<Mode | null>(null);
-  const [tab, setTab] = useState<Tab>(initialTab);
+  const [view, setView] = useState<View>(initialView);
+  const [detail, setDetail] = useState<Tab | null>(initialDetail);
   const span = daysBetween(from, to);
   const valid = from <= to && to <= today && span <= 92;
   const mode = modePicked ?? defaultMode(span);
-  const current = TABS.find((t) => t.key === tab) ?? TABS[0];
-  const query = useQuery({
-    queryKey: ['p2-performance', tenantId, from, to, current.section],
-    queryFn: () => getPerformance(tenantId, from, to, current.section, accessToken),
-    enabled: Boolean(tenantId && accessToken && valid),
-    // The server keeps the figures two minutes; asking more often gains nothing.
-    staleTime: 120_000,
-    refetchOnWindowFocus: false,
+  const enabled = Boolean(tenantId && accessToken && valid);
+  // The server keeps the figures two minutes; asking more often gains nothing.
+  const dashboard = useQuery({
+    queryKey: ['p2-performance', tenantId, from, to, 'dashboard'],
+    queryFn: () => getPerformance(tenantId, from, to, 'dashboard', accessToken),
+    enabled, staleTime: 120_000, refetchOnWindowFocus: false,
   });
+  const open = detail ? TABS.find((t) => t.key === detail) ?? null : null;
+  const query = useQuery({
+    queryKey: ['p2-performance', tenantId, from, to, open?.section],
+    queryFn: () => getPerformance(tenantId, from, to, open!.section, accessToken),
+    enabled: enabled && Boolean(open), staleTime: 120_000, refetchOnWindowFocus: false,
+  });
+  const board = dashboard.data?.dashboard;
   const data = query.data;
-  const periods = useMemo(() => (data ? periodsOf(data.days, mode) : []), [data, mode]);
-  // The dashboard is a tab while any of its widgets is on for the role; the rest follow the sections.
-  const allowed = data?.sections
-    ? TABS.filter((t) => (t.section === 'dashboard' ? !data.dashboard || data.dashboard.widgets.length > 0
-      : data.sections!.some((s) => s.key === t.section) && (!data.own || t.section !== 'flow')))
-    : TABS;
-  const shown = allowed.some((t) => t.key === current.key);
+  const days = dashboard.data?.days ?? data?.days;
+  const periods = useMemo(() => (days ? periodsOf(days, mode) : []), [days, mode]);
+  const sections = dashboard.data?.sections ?? data?.sections;
+  const own = dashboard.data?.own ?? data?.own ?? false;
+  const allowed = (t: Tab) => {
+    const section = TABS.find((x) => x.key === t)!.section;
+    return !sections || (sections.some((x) => x.key === section) && (!own || section !== 'flow'));
+  };
+  // A tab is there while it has a block of the dashboard or a detail switched on for the role.
+  const views = VIEWS.filter((v) => (!dashboard.data && !data) || (board ? viewHas(board, v.key) : false) || v.details.some(allowed));
+  const current = views.find((v) => v.key === view) ?? views[0];
+  const details = current ? current.details.filter(allowed) : [];
   const range = from === to ? shortDate(from) : `${shortDate(from)} to ${shortDate(to)}`;
   const pick = (f: string, t: string) => { setFrom(f); setTo(t); setModePicked(null); };
+  const shown = open && data && details.includes(open.key) ? open.key : null;
 
   return (
     <>
@@ -681,14 +703,35 @@ export default function PerformanceView({ tenantId, accessToken, today, initialT
       {valid ? null : <div className="p2w-alert p2w-alert--error" role="alert">Choose a range of up to 92 days, ending today or earlier.</div>}
 
       <div className="p2pt-tabs" role="tablist" aria-label="Performance">
-        {allowed.map((t) => (
-          <button key={t.key} type="button" role="tab" aria-selected={current.key === t.key}
-            className={current.key === t.key ? 'is-active' : undefined} onClick={() => setTab(t.key)}>{t.label}</button>
+        {views.map((v) => (
+          <button key={v.key} type="button" role="tab" aria-selected={current?.key === v.key}
+            className={current?.key === v.key ? 'is-active' : undefined} onClick={() => { setView(v.key); setDetail(null); }}>{viewLabel(v.key, board)}</button>
         ))}
       </div>
 
-      {query.isLoading ? <SectionCard><p className="p2w-muted">Counting…</p></SectionCard> : null}
-      {query.isError ? (
+      {dashboard.isLoading ? <SectionCard><p className="p2w-muted">Counting…</p></SectionCard> : null}
+      {dashboard.isError ? (
+        <SectionCard>
+          <div className="p2w-alert p2w-alert--error" role="alert">
+            The dashboard could not be loaded.{' '}
+            <button type="button" className="p2w-button p2w-button--ghost" onClick={() => dashboard.refetch()}>Try again</button>
+          </div>
+        </SectionCard>
+      ) : null}
+      {dashboard.data && !views.length ? <SectionCard><p className="p2w-muted">Nothing is switched on for your role here.</p></SectionCard> : null}
+      {board && current ? <Dashboard board={board} view={current.key} periods={periods} asOf={dashboard.data!.asOfUtc} /> : null}
+
+      {details.length ? (
+        <div className="p2db-details" role="group" aria-label="More detail">
+          <span>More detail</span>
+          {details.map((key) => (
+            <button key={key} type="button" aria-pressed={detail === key} className={`p2w-button p2w-button--ghost${detail === key ? ' is-on' : ''}`}
+              onClick={() => setDetail(detail === key ? null : key)}>{detailLabel(key, own)}</button>
+          ))}
+        </div>
+      ) : null}
+      {open && details.includes(open.key) && query.isLoading ? <SectionCard><p className="p2w-muted">Counting…</p></SectionCard> : null}
+      {open && details.includes(open.key) && query.isError ? (
         <SectionCard>
           <div className="p2w-alert p2w-alert--error" role="alert">
             The figures could not be loaded.{' '}
@@ -696,31 +739,19 @@ export default function PerformanceView({ tenantId, accessToken, today, initialT
           </div>
         </SectionCard>
       ) : null}
-
-      {data && shown ? (
+      {shown && data ? (
         <>
-          {tab === 'dashboard' && data.dashboard ? (
-            <Dashboard board={data.dashboard} periods={periods} asOf={data.asOfUtc} open={setTab}
-              can={(t) => allowed.some((a) => a.key === t)} />
-          ) : null}
-          {tab !== 'dashboard' && data.own && data.people && !data.people.length ? <SectionCard><p className="p2w-muted">No outlet is mapped to you in this Project.</p></SectionCard> : null}
-          {tab === 'backlog' && data.pending ? <Pending data={data} own={data.own} /> : null}
-          {tab === 'bookings' && data.flow?.outlets.length ? <Bookings data={data} periods={periods} /> : null}
-          {tab === 'deliveries' && data.flow?.outlets.length ? <Deliveries data={data} periods={periods} /> : null}
-          {tab === 'uploads' && data.uploads ? <Uploads data={data} periods={periods} /> : null}
-          {tab === 'quality' && data.quality ? <Quality data={data} range={range} /> : null}
-          {tab === 'tasks' && data.tasks ? <Tasks data={data} periods={periods} /> : null}
-          {tab === 'trend' && data.people?.length ? <Trend data={data} periods={periods} mode={mode} /> : null}
-          {tab === 'efficiency' && data.efficiency ? <Efficiency data={data} range={range} /> : null}
-          {tab === 'duties' && data.delinquency ? <Delinquency data={data} /> : null}
+          {data.own && data.people && !data.people.length ? <SectionCard><p className="p2w-muted">No outlet is mapped to you in this Project.</p></SectionCard> : null}
+          {shown === 'backlog' && data.pending ? <Pending data={data} own={data.own} /> : null}
+          {shown === 'bookings' && data.flow?.outlets.length ? <Bookings data={data} periods={periods} /> : null}
+          {shown === 'deliveries' && data.flow?.outlets.length ? <Deliveries data={data} periods={periods} /> : null}
+          {shown === 'uploads' && data.uploads ? <Uploads data={data} periods={periods} /> : null}
+          {shown === 'quality' && data.quality ? <Quality data={data} range={range} /> : null}
+          {shown === 'tasks' && data.tasks ? <Tasks data={data} periods={periods} /> : null}
+          {shown === 'trend' && data.people?.length ? <Trend data={data} periods={periods} mode={mode} /> : null}
+          {shown === 'efficiency' && data.efficiency ? <Efficiency data={data} range={range} /> : null}
+          {shown === 'duties' && data.delinquency ? <Delinquency data={data} /> : null}
         </>
-      ) : null}
-      {data && !shown ? (
-        <SectionCard>
-          <p className="p2w-muted">
-            {allowed.length ? 'This tab is not switched on for your role. Choose another.' : 'Nothing is switched on for your role here.'}
-          </p>
-        </SectionCard>
       ) : null}
     </>
   );

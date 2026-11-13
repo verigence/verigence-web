@@ -92,6 +92,7 @@
 /* ---- figures in a line */
 .p2db-facts { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin: 0; }
 .p2db-facts--two { grid-template-columns: repeat(2, 1fr); }
+.p2db-facts--three { grid-template-columns: repeat(3, 1fr); }
 .p2db-facts div { padding: 8px 10px; background: var(--db-field); min-width: 0; }
 .p2db-facts dt { font-size: 12px; color: var(--db-text-2); }
 .p2db-facts dd { margin: 0; font-size: 20px; font-weight: 600; font-variant-numeric: tabular-nums; }
@@ -163,6 +164,11 @@
 .p2db-peers__bar b { text-align: right; font-variant-numeric: tabular-nums; }
 .p2db-peers__bar.is-peers .p2db-bars__track span { background: #8d8d8d; }
 
+/* ---- the detail under a tab, read only when opened */
+.p2db-details { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 4px; font-size: 13px; color: #525252; }
+.p2db-details .p2w-button { min-height: 32px; font-size: 13px; }
+.p2db-details .p2w-button.is-on { background: #e5edfb; border-color: #0f62fe; color: #0043ce; }
+
 @media (max-width: 640px) {
   .p2db-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
   .p2db-tile { padding: 10px 12px; }
@@ -175,6 +181,8 @@
   .p2db-pending__old { grid-area: old; }
   .p2db-pending__row.is-within .p2db-pending__old { display: none; }
   .p2db-facts { grid-template-columns: repeat(2, 1fr); }
+  .p2db-facts--three { grid-template-columns: 1fr; }
+  .p2db-details { gap: 6px; }
   .p2db-table th[scope="row"] { min-width: 130px; }
   .p2db-duty__sum { margin-left: 0; flex-basis: 100%; }
 }

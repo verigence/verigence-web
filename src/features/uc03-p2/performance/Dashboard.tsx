@@ -23,8 +23,28 @@ const count = (value: number) => new Intl.NumberFormat('en-IN', { maximumFractio
 const FREQUENCY: Record<string, string> = { DAILY: 'Daily', WEEKLY: 'Weekly', MONTHLY: 'Monthly' };
 const TONE_WORD: Record<string, string> = { good: 'Good', warn: 'Watch', bad: 'Act' };
 const shortDate = (iso: string) => new Date(`${iso}T00:00:00Z`).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', timeZone: 'UTC' });
-/** Where a panel's full figures are: the tab it opens. */
-export type Detail = 'backlog' | 'bookings' | 'deliveries' | 'uploads' | 'quality' | 'tasks' | 'trend' | 'efficiency' | 'duties';
+/** The tabs of a dashboard (product owner 2026-11-13: "make tabs to it instead of showing in one page all"). */
+export type View = 'overview' | 'pending' | 'team' | 'uploads' | 'tasks' | 'duties';
+
+/** Whether the server sent anything for a tab (a SuperAdmin may have hidden its blocks for the role). */
+export function viewHas(board: Board, view: View): boolean {
+  if (view === 'overview') return Boolean(board.kpis?.tiles.length || board.attention || board.trend || board.peers);
+  if (view === 'pending') return Boolean(board.pending);
+  if (view === 'team') return Boolean(board.scorecards?.length);
+  if (view === 'uploads') return Boolean(board.channels || board.quality);
+  if (view === 'tasks') return Boolean(board.tasks);
+  return Boolean(board.duties && (board.duties.rows.length || board.duties.planned.length));
+}
+
+export function viewLabel(view: View, board?: Board): string {
+  const own = board ? board.view !== 'TEAM' : false;
+  if (view === 'overview') return own ? 'What I did' : 'Overview';
+  if (view === 'pending') return board?.view === 'PC' ? 'Waiting for me' : board?.view === 'REVIEWER' ? 'Waiting for review' : 'Pending';
+  if (view === 'team') return own ? 'My outlets' : 'Team and outlets';
+  if (view === 'uploads') return 'Uploads, failures and duplicates';
+  if (view === 'tasks') return 'Tasks';
+  return own ? 'My duties' : 'Duties';
+}
 
 function Panel({ title, about, action, grow = 1, children }: {
   title: string; about?: string; action?: ReactNode; grow?: number; children: ReactNode;
@@ -131,7 +151,7 @@ function Tasks({ board, periods }: { board: Board; periods: Period[] }) {
         <div><dt>Open now</dt><dd>{count(tasks.open)}</dd></div>
         <div className={tasks.overdue ? 'is-bad' : undefined}><dt>Overdue now</dt><dd>{count(tasks.overdue)}</dd></div>
       </dl>
-      <Chart option={option} height={190} label="Tasks new and closed" empty="No task was raised or closed in this period." />
+      <Chart option={option} height={260} label="Tasks new and closed" empty="No task was raised or closed in this period." />
     </>
   );
 }
@@ -312,9 +332,10 @@ function Quality({ board }: { board: Board }) {
           <li key={r.key}><span>{r.label}</span><span className="p2db-bars__track"><span style={{ width: `${(r.value / max) * 100}%` }} /></span><b>{count(r.value)}</b></li>
         ))}
       </ul>
-      <dl className="p2db-facts p2db-facts--two">
-        <div><dt>Duplicate pages</dt><dd>{count(q.duplicatePages)}</dd></div>
-        <div><dt>Duplicate files</dt><dd>{count(q.duplicateFiles)}</dd></div>
+      <dl className="p2db-facts p2db-facts--three">
+        <div className={q.toReupload ? 'is-bad' : undefined}><dt>Failed, to upload again (now)</dt><dd>{count(q.toReupload ?? 0)}</dd></div>
+        <div><dt>Duplicate pages, not read again</dt><dd>{count(q.duplicatePages)}</dd></div>
+        <div><dt>Duplicate files removed</dt><dd>{count(q.duplicateFiles)}</dd></div>
       </dl>
     </>
   );
@@ -367,69 +388,68 @@ function Peers({ board }: { board: Board }) {
 // ---------------------------------------------------------------- the dashboard
 
 /**
- * The dashboard of the reader's role (product owner 2026-11-13). A PC and a Reviewer read their
- * own work: what they did, what waits for them and for how long, their duties day by day, and
- * where they stand against unnamed peers. A TL, PM or Executive reads the team: done, pending by
- * age, what needs attention, bookings and deliveries against the gate register, and a scorecard
- * of each person, outlet and dealership. The server sends only the widgets a SuperAdmin has left
- * on for the role; each panel fills the room a hidden one leaves. One chart canvas for the trend
- * and one for tasks; everything else is plain markup.
+ * One tab of the dashboard of the reader's role (product owner 2026-11-13). A PC and a Reviewer
+ * read their own work: what they did, what waits for them and for how long, how they upload and
+ * what failed, their tasks and their duties day by day, and where they stand against unnamed
+ * peers. A TL, PM or Executive reads the team: done, what needs attention, pending by age, a
+ * scorecard of each person, outlet and dealership, uploads by channel with failures and
+ * duplicates, tasks and duties. The server sends only the blocks a SuperAdmin has left on for the
+ * role; a panel fills the room a hidden one leaves. At most one chart canvas on a tab.
  */
-export default function Dashboard({ board, periods, asOf, open, can }: {
-  board: Board; periods: Period[]; asOf: string; open: (tab: Detail) => void; can: (tab: Detail) => boolean;
-}) {
-  const option = useMemo(() => (board.trend ? trendOption(board.trend.series, periods) : null), [board.trend, periods]);
-  const more = (tab: Detail, label: string) => (can(tab)
-    ? <button type="button" className="p2w-button p2w-button--ghost p2db-link" onClick={() => open(tab)}>{label}</button> : undefined);
+export default function Dashboard({ board, view, periods, asOf }: { board: Board; view: View; periods: Period[]; asOf: string }) {
+  const option = useMemo(() => (view === 'overview' && board.trend ? trendOption(board.trend.series, periods) : null), [view, board.trend, periods]);
   const own = board.view !== 'TEAM';
-  const blocks: Record<string, ReactNode> = {
-    pending: board.pending ? (
-      <Panel key="pending" title={board.pending.title} grow={7} about="Whatever the dates above: what is waiting right now, and how long it has waited."
-        action={more('backlog', own ? 'Details' : 'By outlet and person')}><Pending board={board} /></Panel>
-    ) : null,
-    attention: board.attention ? (
-      <Panel key="attention" title="Needs attention" grow={5} about="The outlets and people to speak to first."><Attention board={board} /></Panel>
-    ) : null,
-    trend: board.trend ? (
-      <Panel key="trend" title={board.trend.title} grow={8} about={`${board.period}, ${periods.length && periods[0].indexes.length > 1 ? 'week by week' : 'day by day'}.`}
-        action={more(own ? 'trend' : 'deliveries', own ? 'Details' : 'By outlet')}>
-        <Chart option={option} height={280} label={board.trend.title} empty="Nothing was done in this period." />
-      </Panel>
-    ) : null,
-    tasks: board.tasks ? (
-      <Panel key="tasks" title="Tasks" grow={4} about={board.period} action={more('tasks', 'Details')}><Tasks board={board} periods={periods} /></Panel>
-    ) : null,
-    duties: board.duties && (board.duties.rows.length || board.duties.planned.length) ? (
-      <Panel key="duties" title={own ? 'My duties' : 'Daily and weekly duties'} grow={own ? 5 : 6} about={`${board.period}. One box a day.`}
-        action={more('duties', own ? 'Details' : 'By person')}><Duties board={board} /></Panel>
-    ) : null,
-    quality: board.quality ? (
-      <Panel key="quality" title="Quality and duplicates" grow={own ? 4 : 3} about={board.period} action={more('quality', 'Details')}><Quality board={board} /></Panel>
-    ) : null,
-    channels: board.channels ? (
-      <Panel key="channels" title={own ? 'How I upload' : 'How files come in'} grow={own ? 4 : 3} about={board.period}
-        action={more('uploads', 'Details')}><Channels board={board} /></Panel>
-    ) : null,
-    peers: board.peers ? <Panel key="peers" title={board.peers.title} grow={own ? 4 : 5}><Peers board={board} /></Panel> : null,
-  };
-  const layout: string[][] = board.view === 'TEAM'
-    ? [['pending', 'attention'], ['trend', 'tasks'], ['scorecards'], ['duties', 'quality', 'channels']]
-    : board.view === 'PC'
-      ? [['pending', 'duties'], ['trend', 'peers'], ['tasks', 'quality', 'channels']]
-      : [['pending', 'peers'], ['trend', 'duties'], ['scorecards']];
-  const empty = !board.kpis && layout.flat().every((k) => (k === 'scorecards' ? !board.scorecards?.length : !blocks[k]));
+  const mine = board.view === 'REVIEWER' ? ' at my outlets' : '';
+  const stepped = periods.length && periods[0].indexes.length > 1 ? 'week by week' : 'day by day';
+  let body: ReactNode = null;
+  if (view === 'overview') {
+    body = (
+      <>
+        {board.kpis?.tiles.length ? <Tiles board={board} /> : null}
+        {board.trend || board.attention || board.peers ? (
+          <div className="p2db-row">
+            {board.trend ? (
+              <Panel title={board.trend.title} grow={8} about={`${board.period}, ${stepped}.`}>
+                <Chart option={option} height={300} label={board.trend.title} empty="Nothing was done in this period." />
+              </Panel>
+            ) : null}
+            {board.attention ? <Panel title="Needs attention" grow={5} about="The outlets and people to speak to first."><Attention board={board} /></Panel> : null}
+            {board.peers ? <Panel title={board.peers.title} grow={4}><Peers board={board} /></Panel> : null}
+          </div>
+        ) : null}
+      </>
+    );
+  } else if (view === 'pending' && board.pending) {
+    body = (
+      <div className="p2db-row">
+        <Panel title={board.pending.title} about="Whatever the dates above: what is waiting right now, and how long it has waited."><Pending board={board} /></Panel>
+      </div>
+    );
+  } else if (view === 'team' && board.scorecards?.length) {
+    body = <div className="p2db-row"><Scorecards board={board} /></div>;
+  } else if (view === 'uploads') {
+    body = (
+      <div className="p2db-row">
+        {board.channels ? <Panel title={board.view === 'PC' ? 'How I upload' : `How files come in${mine}`} grow={5} about={board.period}><Channels board={board} /></Panel> : null}
+        {board.quality ? <Panel title={`Failures and duplicates${mine}`} grow={7} about={`Of the files uploaded ${board.period}.`}><Quality board={board} /></Panel> : null}
+      </div>
+    );
+  } else if (view === 'tasks' && board.tasks) {
+    body = <div className="p2db-row"><Panel title={own ? 'My tasks' : 'Tasks'} about={`${board.period}, ${stepped}.`}><Tasks board={board} periods={periods} /></Panel></div>;
+  } else if (view === 'duties' && board.duties) {
+    body = (
+      <div className="p2db-row">
+        <Panel title={own ? 'My duties' : 'Daily and weekly duties'} about={`${board.period}. One box a day.`}><Duties board={board} /></Panel>
+      </div>
+    );
+  }
   return (
     <div className="p2db">
       <header className="p2db-head">
         <h2>{board.title}</h2>
         <p>{board.period} · figures as of {new Date(asOf).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}</p>
       </header>
-      {empty ? <p className="p2db-note">Nothing is switched on for your role here.</p> : null}
-      {board.kpis?.tiles.length ? <Tiles board={board} /> : null}
-      {layout.map((row) => {
-        const panels = row.map((k) => (k === 'scorecards' ? (board.scorecards?.length ? <Scorecards key="scorecards" board={board} /> : null) : blocks[k])).filter(Boolean);
-        return panels.length ? <div key={row.join('-')} className="p2db-row">{panels}</div> : null;
-      })}
+      {body}
     </div>
   );
 }

@@ -103,6 +103,8 @@ export type DashDuty = DutyFigures & {
 };
 export type DashQuality = {
   pagesUploaded: number; rejected: number; rightFirstTime: number | null;
+  /** Pages that failed for good and still wait to be uploaded again (now). */
+  toReupload?: number;
   reasons: Array<{ key: string; label: string; value: number }>; duplicatePages: number; duplicateFiles: number;
 };
 export type Dashboard = {

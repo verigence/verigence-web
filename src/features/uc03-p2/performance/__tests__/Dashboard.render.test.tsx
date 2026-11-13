@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { renderToString } from 'react-dom/server';
 
-import Dashboard from '../Dashboard';
+import Dashboard, { viewHas, viewLabel, type View } from '../Dashboard';
 import { byPeriod, trendOption } from '../dashboardCharts';
 import {
   cardTotals, dutyDayState, periodsOf, sortRows, type DashCard, type Dashboard as Board,
@@ -37,9 +37,12 @@ const team: Board = {
   channels: { direct: 60, bulk: 30, drive: 10 },
 };
 const periods = periodsOf(days, 'DAILY');
-const render = (board: Board, can = true) => renderToString(
-  <Dashboard board={board} periods={periods} asOf="2026-11-13T09:00:00Z" open={() => undefined} can={() => can} />,
+const VIEWS: View[] = ['overview', 'pending', 'team', 'uploads', 'tasks', 'duties'];
+const tab = (board: Board, view: View) => renderToString(
+  <Dashboard board={board} view={view} periods={periods} asOf="2026-11-13T09:00:00Z" />,
 ).replaceAll('<!-- -->', '');
+/** Every tab the board has, one after the other. */
+const render = (board: Board) => VIEWS.filter((v) => viewHas(board, v)).map((v) => tab(board, v)).join('\n');
 
 describe('The dashboard of each role', () => {
   it('shows a lead what was done, what is pending by age, who needs attention and each person', () => {
@@ -59,6 +62,22 @@ describe('The dashboard of each role', () => {
     expect(html).toContain('Not set up yet');
     expect(html).toContain('85%');
     expect(html).toContain('Google Drive');
+    expect(html).toContain('Failed, to upload again (now)');
+  });
+
+  it('is a tab at a time: each tab carries its own blocks and nothing of the others', () => {
+    expect(VIEWS.filter((v) => viewHas(team, v))).toEqual(VIEWS);
+    const overview = tab(team, 'overview');
+    expect(overview).toContain('Bookings uploaded');
+    expect(overview).toContain('Needs attention');
+    expect(overview).not.toContain('Pending now');
+    expect(overview).not.toContain('Who is doing what');
+    expect(tab(team, 'uploads')).toContain('How files come in');
+    expect(tab(team, 'uploads')).not.toContain('Needs attention');
+    expect(tab(team, 'pending')).toContain('Pending now');
+    expect(VIEWS.map((v) => viewLabel(v, team))).toEqual(['Overview', 'Pending', 'Team and outlets', 'Uploads, failures and duplicates', 'Tasks', 'Duties']);
+    expect(viewLabel('pending', { ...team, view: 'PC' })).toBe('Waiting for me');
+    expect(viewLabel('overview', { ...team, view: 'REVIEWER' })).toBe('What I did');
   });
 
   it('shows only the blocks the server sent (a SuperAdmin hid the rest for the role)', () => {
@@ -68,7 +87,8 @@ describe('The dashboard of each role', () => {
     expect(html).not.toContain('Who is doing what');
     expect(html).not.toContain('Needs attention');
     expect(html).toContain('Bookings and deliveries');
-    expect(render({ view: 'TEAM', title: 'Team dashboard', period: '13 Nov', days, widgets: [] })).toContain('Nothing is switched on for your role here.');
+    expect(VIEWS.filter((v) => viewHas({ ...rest, widgets: ['kpis', 'trend'] }, v))).toEqual(['overview', 'uploads', 'tasks', 'duties']);
+    expect(VIEWS.some((v) => viewHas({ view: 'TEAM', title: 'Team dashboard', period: '13 Nov', days, widgets: [] }, v))).toBe(false);
   });
 
   it('shows a PC their own work and where they stand against unnamed peers', () => {
@@ -80,14 +100,13 @@ describe('The dashboard of each role', () => {
       duties: { rows: [{ title: 'Daily gate register', frequency: 'DAILY', due: 5, onTime: 4, late: 0, notDone: 1, pending: 0,
         days: days.map((date, i) => ({ date, due: 1, onTime: i === 2 ? 0 : 1, late: 0, notDone: i === 2 ? 1 : 0, pending: 0 })), missedBy: [] }], planned: [] },
       peers: { title: 'Me and my peers, a working day', people: 12, rows: [{ key: 'pagesRejected', label: 'Pages rejected', me: 8, peers: 3 }] },
-    }, false);
+    });
     expect(html).toContain('My dashboard');
     expect(html).toContain('Nothing is waiting.');
     expect(html).toContain('My duties');
     expect(html).toContain('11 Nov: Missed');
     expect(html).toContain('Pages rejected (fewer is better)');
     expect(html).toContain('Nobody is named.');
-    expect(html).not.toContain('Details');                          // no detail tab is on for the role
   });
 });
 

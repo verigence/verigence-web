@@ -105,7 +105,9 @@ export default function P2JourneyListPage() {
         <JourneyExportPanel tenantId={tenantId} accessToken={accessToken} />
       ) : null}
 
-      <JourneyListTabs tenantId={tenantId} accessToken={accessToken} role={role} onCounts={setCounts} />
+      {/* The current calendar month by default, with a month picker (product owner 2026-11-13:
+          "show max 50 records then do pagination and show for the current month, give month as filter"). */}
+      <JourneyListTabs tenantId={tenantId} accessToken={accessToken} role={role} onCounts={setCounts} calendarMonth />
     </div>
   );
 }

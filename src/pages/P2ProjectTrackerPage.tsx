@@ -11,6 +11,8 @@ import SectionCard from '../components/SectionCard';
 import DailyWorkReport from '../features/uc03-p2/daily/DailyWorkReport';
 import SupervisorGatePass from '../features/uc03-p2/gatepass/SupervisorGatePass';
 import PerformanceView from '../features/uc03-p2/performance/PerformanceView';
+import DmsDumpCalendarTab from '../features/uc03-p2/tracker/DmsDumpCalendarTab';
+import JourneyBreakdownTab from '../features/uc03-p2/tracker/JourneyBreakdownTab';
 import { istDate } from '../services/audit-core/uc03MyWork';
 import {
   dailyProcessingDay,
@@ -19,7 +21,7 @@ import {
   trackerLabel,
   trackerTabFromSearch,
   trackerTabHref,
-  TRACKER_TABS,
+  trackerTabsFor,
   type TrackerTab,
 } from '../services/audit-core/uc03ProjectTracker';
 import { useProjectContextStore } from '../store/projectContextStore';
@@ -70,7 +72,9 @@ export default function P2ProjectTrackerPage() {
   const team = role === 'TL' || role === 'PM' || role === 'EXECUTIVE';
   const [searchParams, setSearchParams] = useSearchParams();
   const today = istDate();
-  const tab = trackerTabFromSearch(searchParams);
+  const tabs = trackerTabsFor(role);
+  const asked = trackerTabFromSearch(searchParams);
+  const tab: TrackerTab = tabs.some((t) => t.key === asked) ? asked : 'performance';
 
   // A PC or Reviewer has their own figures and performance on My Tracker.
   if (role === 'PC' || role === 'REVIEWER') return <Navigate to="/p2/tracker?tab=performance" replace />;
@@ -91,15 +95,15 @@ export default function P2ProjectTrackerPage() {
         description="How the team is doing over a date range; the work done on tasks and the delivery files closed on a day; and deliveries on the gate register against delivery files uploaded."
       />
       {team ? <div className="p2pt-tabs" role="tablist" aria-label="Project Tracker">
-        {TRACKER_TABS.map((t) => (
+        {tabs.map((t) => (
           <button key={t.key} type="button" role="tab" id={`p2pt-tab-${t.key}`} aria-controls={`p2pt-panel-${t.key}`}
             aria-selected={tab === t.key} tabIndex={tab === t.key ? 0 : -1}
             className={tab === t.key ? 'is-active' : undefined} onClick={() => selectTab(t.key)}
             onKeyDown={(event) => {
               if (event.key !== 'ArrowRight' && event.key !== 'ArrowLeft') return;
-              const index = TRACKER_TABS.findIndex((x) => x.key === tab);
+              const index = tabs.findIndex((x) => x.key === tab);
               const step = event.key === 'ArrowRight' ? 1 : -1;
-              const next = TRACKER_TABS[(index + step + TRACKER_TABS.length) % TRACKER_TABS.length].key;
+              const next = tabs[(index + step + tabs.length) % tabs.length].key;
               selectTab(next);
               document.getElementById(`p2pt-tab-${next}`)?.focus();
             }}>
@@ -114,6 +118,9 @@ export default function P2ProjectTrackerPage() {
         <div className="p2w-alert p2w-alert--error" role="alert">Select a project to continue.</div>
       ) : (
         <div role="tabpanel" id={`p2pt-panel-${tab}`} aria-labelledby={`p2pt-tab-${tab}`} className="screen-stack">
+          {tab === 'journeys' ? <JourneyBreakdownTab tenantId={tenantId} accessToken={accessToken}
+            listPath={role === 'TL' ? '/dashboard' : '/p2/bookings'} /> : null}
+          {tab === 'dms-dumps' ? <DmsDumpCalendarTab tenantId={tenantId} accessToken={accessToken} /> : null}
           {tab === 'performance' ? <PerformanceView tenantId={tenantId} accessToken={accessToken} today={today} /> : null}
           {tab === 'daily-processing'
             ? <DailyWorkTab tenantId={tenantId} accessToken={accessToken} today={today} timezone={project?.timezoneName} /> : null}

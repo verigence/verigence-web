@@ -68,6 +68,10 @@ const waiting: DriveFileList = {
   ],
 };
 
+function renderAt(at: string, link: DriveConnection): string {
+  return render(link, at);
+}
+
 function render(link: DriveConnection = connection, at = '/p2/drive-uploads'): string {
   const client = new QueryClient();
   client.setQueryData(['p2-drive-connection', 't1'], link);
@@ -86,11 +90,15 @@ describe('Drive uploads page', () => {
     expect(html).toContain('Submit for Cuttack');
     expect(html).toContain('2 files waiting in Drive for this outlet');
     expect(html).toContain('Submit Drive uploads');
-    expect(html).toContain('Akansh-456909');
-    expect(html).not.toContain('other outlet.pdf');
     expect(html).not.toContain('Take files now');
-    expect(html).toContain('3 files · 5 of 6 pages read · 1 page to scan again · 2 manual verification tasks');
+    // The runs table (2026-11-13 redesign): the run's files, pages read and pages to scan again.
+    expect(html).toContain('data-label="Files">3</td>');
+    expect(html).toMatch(/data-label="Pages read">5(<!-- -->)? \/ (<!-- -->)?6<\/td>/);
     expect(html).toContain('Files are taken at 9:00 pm every day');
+    // Waiting in Drive is its own view, the PC's outlet only.
+    const waitingView = render(connection, '/p2/drive-uploads?view=waiting');
+    expect(waitingView).toContain('Akansh-456909');
+    expect(waitingView).not.toContain('other outlet.pdf');
   });
 
   it('lets a Team Lead take a day’s files for an outlet or all of theirs', () => {
@@ -99,7 +107,7 @@ describe('Drive uploads page', () => {
     expect(html).toContain('Take files now');
     expect(html).toContain('7 files waiting in Drive across your outlets');
     expect(html).toContain('All my outlets');
-    expect(html).toContain('other outlet.pdf');
+    expect(render(connection, '/p2/drive-uploads?view=waiting')).toContain('other outlet.pdf');
     expect(html).not.toContain('Submit Drive uploads');
   });
 
@@ -115,8 +123,8 @@ describe('Drive uploads page', () => {
     role.value = 'TL';
     expect(render({ ...connection, dailyRunTime: '18:30' })).toContain('Files are taken at 6:30 pm every day');
     expect(render({ ...connection, dailyRunEnabled: false })).toContain('The daily run is off');
-    expect(render()).not.toContain('Save settings');
-    const admin = render({ ...connection, canConnect: true, dailyRunTime: '18:30', dailyRunEnabled: true, outletIds: ['o1'],
+    expect(render(connection, '/p2/drive-uploads?view=setup')).not.toContain('Save settings');
+    const admin = renderAt('/p2/drive-uploads?view=setup', { ...connection, canConnect: true, dailyRunTime: '18:30', dailyRunEnabled: true, outletIds: ['o1'],
       outlets: [
         { dealerId: 'd1', dealerName: 'Aditya Motors', outletId: 'o1', outletName: 'Cuttack', pcs: 2, usesDrive: true },
         { dealerId: 'd1', dealerName: 'Aditya Motors', outletId: 'o3', outletName: 'Puri', pcs: 0, usesDrive: false }] });
@@ -143,15 +151,15 @@ describe('Drive uploads page', () => {
     role.value = 'PC';
     const folder = { outletId: 'o1', outletName: 'Cuttack', dealerName: 'Aditya Motors',
       url: 'https://drive.google.com/drive/folders/f1', problem: null };
-    const before = render({ ...connection, myAccess: { googleEmail: null, folders: [{ ...folder, shared: false }] } });
+    const before = renderAt('/p2/drive-uploads?view=setup', { ...connection, myAccess: { googleEmail: null, folders: [{ ...folder, shared: false }] } });
     expect(before).toContain('Get my Drive folders');
     expect(before).toContain('shared with your Google account ravi@gmail.com');
     expect(before).not.toContain('Open the Project’s folder');
-    const after = render({ ...connection, myAccess: { googleEmail: 'ravi@gmail.com', folders: [{ ...folder, shared: true }] } });
+    const after = renderAt('/p2/drive-uploads?view=setup', { ...connection, myAccess: { googleEmail: 'ravi@gmail.com', folders: [{ ...folder, shared: true }] } });
     expect(after).toContain('href="https://drive.google.com/drive/folders/f1"');
     expect(after).not.toContain('Get my Drive folders');
     role.value = 'TL';
-    const admin = render({ ...connection, canConnect: true, people: [
+    const admin = renderAt('/p2/drive-uploads?view=setup', { ...connection, canConnect: true, people: [
       { actorId: 'a1', name: 'Ravi', googleEmail: 'ravi@gmail.com', folders: [{ ...folder, shared: true }] },
       { actorId: 'a2', name: 'Sita', googleEmail: null, folders: [{ ...folder, shared: false }] }] });
     expect(admin).toContain('1 of 2 have their folders');

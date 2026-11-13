@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 
 import { verigenceLockup } from '../assets/verigenceLockup';
+import '../styles/uc03-p2-data-uploads.css';
 import type { OperatingRole, UserRole } from '../domain/models';
 import { clearOperationalProject, isShellSwitchableProject, resetOperationalContext, selectOperationalOutlet } from '../features/uc03/projectContext';
 import { ANDROID_BACK_EVENT } from '../native/AndroidNativeBridge';
@@ -25,7 +26,9 @@ import { useSessionStore } from '../store/sessionStore';
 import { useTrackScreens } from '../components/BackLink';
 
 type ShellRole = UserRole | OperatingRole;
-type NavItem = { to: string; label: string; mark: string; roles?: ShellRole[]; devOnly?: boolean; badge?: number };
+// ``children``: a group of screens shown as one entry in the left pane, the screens as tabs across
+// the top of each of them (product owner 2026-11-13: "Need to combine tabs on left hand pane").
+type NavItem = { to: string; label: string; mark: string; roles?: ShellRole[]; devOnly?: boolean; badge?: number; children?: NavItem[] };
 type NavGroup = { key: string; label: string; items: NavItem[] };
 
 const c0OperatingRoles: OperatingRole[] = ['PC', 'TL', 'PM', 'CRM', 'EXECUTIVE'];
@@ -293,6 +296,25 @@ const p2MasterDocumentsItem: NavItem = {
   roles: ['PC', 'TL', 'PM', 'REVIEWER'],
 };
 
+// The documents that come daily / weekly / monthly, first the dealers' DMS booking and delivery
+// dumps (product owner 2026-11-13): a Team Lead or Reviewer uploads, PM and Executive read.
+const p2DataUploadsItem: NavItem = {
+  to: '/p2/data-uploads',
+  label: 'Data uploads',
+  mark: 'DU',
+  roles: ['TL', 'PM', 'EXECUTIVE', 'REVIEWER'],
+};
+
+/** One left-pane entry for several screens (product owner 2026-11-13). */
+function hub(label: string, mark: string, children: NavItem[]): NavItem {
+  return { to: children[0]?.to ?? '', label, mark, children };
+}
+
+/** Every screen of a list of entries, groups opened. */
+function flatItems(items: NavItem[]): NavItem[] {
+  return items.flatMap((item) => (item.children ? item.children : [item]));
+}
+
 /** Screens about the sales price book and discounts; a service audit Project has none. */
 const SALES_AUDIT_ONLY_PATHS = new Set(['/p2/price-masters', '/p2/master-documents', '/p2/discount-variance', '/p2/sku-work']);
 
@@ -354,7 +376,7 @@ const routeLabels: Record<string, string> = {
   '/feedback': 'Feedback & Support', '/hr/support': 'Feedback & Support', '/hr/support/new': 'Raise a ticket',
   '/reviews': 'Task Queue', '/duplicate-bookings': 'Duplicate Bookings', '/rule-catalog': 'Rule Catalog', '/rule-catalog/new': 'Author a Rule', '/findings': 'Findings',
   '/daily-ops': 'Daily Operations',
-  '/analytics': 'Analytics', '/p2/bookings': 'Booking & Delivery', '/p2/tasks': 'Task Queue', '/p2/duplicate-bookings': 'Duplicate bookings', '/p2/reports/daily': 'Daily processing', '/p2/project-tracker': 'Project Tracker', '/p2/gate-pass': 'Daily gate pass', '/p2/missing-documents': 'Missing documents', '/p2/task-manager': 'Task Manager', '/p2/reports/utilisation': 'Employee engagement', '/p2/reports/di': 'DI dashboard', '/p2/reports/location-checks': 'Location checks', '/p2/reports/journey-export': 'Export to Excel', '/admin/task-manager': 'Task Manager', '/admin/engagement': 'Employee engagement', '/admin/di-dashboard': 'DI dashboard', '/admin/system-health': 'System health', '/admin/document-intelligence': 'Document Intelligence Configuration',
+  '/analytics': 'Analytics', '/p2/bookings': 'Booking & Delivery', '/p2/tasks': 'Task Queue', '/p2/duplicate-bookings': 'Duplicate bookings', '/p2/reports/daily': 'Daily processing', '/p2/project-tracker': 'Project Tracker', '/p2/data-uploads': 'Data uploads', '/p2/gate-pass': 'Daily gate pass', '/p2/missing-documents': 'Missing documents', '/p2/task-manager': 'Task Manager', '/p2/reports/utilisation': 'Employee engagement', '/p2/reports/di': 'DI dashboard', '/p2/reports/location-checks': 'Location checks', '/p2/reports/journey-export': 'Export to Excel', '/admin/task-manager': 'Task Manager', '/admin/engagement': 'Employee engagement', '/admin/di-dashboard': 'DI dashboard', '/admin/system-health': 'System health', '/admin/document-intelligence': 'Document Intelligence Configuration',
   '/admin/housekeeping': 'Housekeeping', '/admin/sku-resolution': 'SKU Resolution', '/admin/hr-housekeeping': 'HR Housekeeping', '/admin/feedback': 'User Feedback', '/admin/di-test': 'DI Test Console', '/admin/users': 'Users', '/admin/features': 'Feature Rollout', '/admin/night-control': 'Night Control', '/admin/announcements': 'Announcements', '/admin/diagnostics': 'Device Diagnostics', '/admin/login-activity': 'Login Activity',
   '/admin/users/pending': 'Pending Approvals',
   '/admin/oem-masters': 'OEM Masters', '/admin/reports': 'Reports', '/admin/project': 'Project Administration', '/profile': 'Profile',
@@ -438,6 +460,7 @@ function NavIcon({ mark }: { mark: string }) {
     case 'MI': glyph = <><path d="M6 3h8l4 4v14H6z" /><path d="M14 3v5h5M12 11v4m0 3h.01" /></>; break;
     case 'XL': glyph = <><path d="M12 4v10" /><path d="m8 10 4 4 4-4" /><path d="M5 18h14" /></>; break;
     case 'LC': glyph = <><path d="M12 21s-6-5.4-6-10.5a6 6 0 0 1 12 0C18 15.6 12 21 12 21Z" /><circle cx="12" cy="10.5" r="2.2" /></>; break;
+    case 'DU': glyph = <><path d="M6 3h8l4 4v14H6z" /><path d="M14 3v5h5M12 18v-6m-3 3 3-3 3 3" /></>; break;
     case 'CB': glyph = <><rect x="4" y="4" width="16" height="16" rx="3" /><path d="M12 8v8M8 12h8" /></>; break;
     default: glyph = <circle cx="12" cy="12" r="7" />;
   }
@@ -489,43 +512,56 @@ export default function AppShell({ children }: PropsWithChildren) {
     const dailyOpsItem: NavItem = { to: '/daily-ops', label: 'Daily Operations', mark: 'DO', roles: ['PC'] };
     // The Phase 2 Audit group is the main one (2026-09-30): the day's work
     // (bookings, tasks, attendance, daily operations, feedback) lives there.
+    const tasksBadge = { ...p2TasksItem, badge: p2TaskCount + tmCount };
+    const mastersHub = hub('Masters', 'PM', [p2PriceMastersItem, p2MasterDocumentsItem]);
     const phase2Group: NavGroup | null = auditRole
       ? {
           ...p2Group,
-          items: [
-            ...(role === 'PC' ? [p2HomeItem, p2TrackerItem] : []),
-            // A Team Lead's Booking & Delivery is the TL overview (Dealer
-            // Operations), not the PC's working list (decision 2026-10-20).
-            role === 'TL' ? { ...p2BookingsItem, to: '/dashboard' } : p2BookingsItem,
-            ...(role === 'PC' ? [p2BulkUploadItem] : []),
-            p2DriveUploadsItem,
-            // Journey tasks and Task Manager tasks are the two classifications of the Task Queue.
-            { ...p2TasksItem, badge: p2TaskCount + tmCount },
-            p2DuplicatesItem,
-            // Daily processing and the supervisor's Daily gate pass are tabs of the
-            // Project Tracker (product owner 2026-11-09); the PC keeps Daily gate pass.
-            ...(role === 'PC' ? [dailyOpsItem, p2GatePassItem] : [p2ProjectTrackerItem, p2JourneyExportItem, p2LocationChecksItem]),
-            // A PC's missing documents are inside their Tracker (product owner
-            // 2026-11-03: not a tab of their own); the TL and PM keep the page.
-            ...(role === 'PC' ? [] : [p2MissingDocumentsItem]),
-            ...(role === 'TL' || role === 'PM' ? [p2ClosureApprovalsItem] : []),
-            // The SKU / discount reference and the month's source documents
-            // (added 18 Oct to the DealGuard group but never to this per-role
-            // list, so nobody working in a Project saw them).
-            // Discounts on the invoice that differ from the entitlement. Not
-            // for a PC: the tab is the audit view of every booking.
-            ...(role === 'PC' ? [] : [p2DiscountVarianceItem]),
-            p2PriceMastersItem,
-            p2MasterDocumentsItem,
-          ],
+          items: role === 'PC'
+            ? [
+                p2HomeItem,
+                p2TrackerItem,
+                p2BookingsItem,
+                hub('Uploads', 'BU', [p2BulkUploadItem, p2DriveUploadsItem]),
+                // Journey tasks and Task Manager tasks are the two classifications of the Task Queue.
+                hub('Tasks', 'TQ', [tasksBadge, p2DuplicatesItem]),
+                // Daily processing and the supervisor's Daily gate pass are tabs of the
+                // Project Tracker (product owner 2026-11-09); the PC keeps Daily gate pass.
+                hub('Daily duties', 'DO', [dailyOpsItem, p2GatePassItem]),
+                mastersHub,
+              ]
+            : [
+                // A Team Lead's Booking & Delivery is the TL overview (Dealer
+                // Operations), not the PC's working list (decision 2026-10-20).
+                role === 'TL' ? { ...p2BookingsItem, to: '/dashboard' } : p2BookingsItem,
+                hub('Uploads', 'DR', [p2DriveUploadsItem, p2DataUploadsItem]),
+                hub('Tasks & approvals', 'TQ', [tasksBadge, p2ClosureApprovalsItem]),
+                // Discounts on the invoice that differ from the entitlement, and duplicate bookings.
+                hub('Exceptions', 'XD', [p2DiscountVarianceItem, p2DuplicatesItem]),
+                p2ProjectTrackerItem,
+                hub('Reports', 'XL', [p2JourneyExportItem, p2MissingDocumentsItem, p2LocationChecksItem]),
+                mastersHub,
+              ],
         }
       : role === 'EXECUTIVE'
-        ? { ...p2Group, items: [p2ProjectTrackerItem, p2DriveUploadsItem, p2JourneyExportItem, p2LocationChecksItem, p2MissingDocumentsItem, p2ClosureApprovalsItem, { ...taskManagerItem, badge: tmCount }, utilisationItem, diDashboardItem] }
+        ? { ...p2Group, items: [
+            p2ProjectTrackerItem,
+            hub('Uploads', 'DR', [p2DriveUploadsItem, p2DataUploadsItem]),
+            hub('Tasks & approvals', 'WK', [{ ...taskManagerItem, badge: tmCount }, p2ClosureApprovalsItem]),
+            hub('Reports', 'XL', [p2JourneyExportItem, p2MissingDocumentsItem, p2LocationChecksItem, utilisationItem, diDashboardItem]),
+          ] }
         // A Reviewer's whole surface (2026-10-23: inside a Project the group was
         // built for PC / TL / PM only, so a Reviewer saw none of it, not even
         // Document Review, which is their home page).
         : role === 'REVIEWER'
-          ? { ...p2Group, items: [p2ReviewBoardItem, p2TrackerItem, p2DriveUploadsItem, { ...p2TasksItem, badge: p2TaskCount + tmCount }, p2ReviewActivityItem, p2DiscountVarianceItem, p2PriceMastersItem, p2MasterDocumentsItem] }
+          ? { ...p2Group, items: [
+              hub('Review', 'RV', [p2ReviewBoardItem, p2ReviewActivityItem]),
+              p2TrackerItem,
+              hub('Uploads', 'DR', [p2DriveUploadsItem, p2DataUploadsItem]),
+              tasksBadge,
+              p2DiscountVarianceItem,
+              mastersHub,
+            ] }
           // A CRM receives and raises tasks (to TL / PM) in the Task Manager.
           : role === 'CRM'
             ? { ...p2Group, items: [{ ...taskManagerItem, badge: tmCount }] }
@@ -556,8 +592,13 @@ export default function AppShell({ children }: PropsWithChildren) {
       items: analyticsItems,
     };
     // A service audit has no sales price, discount or SKU masters (product owner 2026-11-05).
-    const shownPhase2Group = phase2Group && selectedProject?.auditType === 'SERVICE'
-      ? { ...phase2Group, items: phase2Group.items.filter((item) => !SALES_AUDIT_ONLY_PATHS.has(item.to)) }
+    const service = selectedProject?.auditType === 'SERVICE';
+    const shownPhase2Group = phase2Group && service
+      ? { ...phase2Group, items: phase2Group.items
+          .map((item) => (item.children
+            ? hub(item.label, item.mark, item.children.filter((child) => !SALES_AUDIT_ONLY_PATHS.has(child.to)))
+            : item))
+          .filter((item) => (item.children ? item.children.length > 0 : !SALES_AUDIT_ONLY_PATHS.has(item.to))) }
       : phase2Group;
     // Analytics reports vehicle sales; a service audit Project has none.
     const insightGroups = selectedProject?.auditType === 'SERVICE' ? [] : [analyticsGroup];
@@ -619,7 +660,7 @@ export default function AppShell({ children }: PropsWithChildren) {
   const visibleGroups = useMemo<NavGroup[]>(() => visibleNavGroups(navGroups, myFeatures.features), [navGroups, myFeatures.features]);
 
   const activeGroupKey = useMemo(() => {
-    return visibleGroups.find((group) => group.items.some((item) => {
+    return visibleGroups.find((group) => flatItems(group.items).some((item) => {
       const itemPath = item.to.split('?')[0];
       return location.pathname === itemPath || location.pathname.startsWith(`${itemPath}/`);
     }))?.key
@@ -730,7 +771,26 @@ export default function AppShell({ children }: PropsWithChildren) {
     return item.roles.includes(role);
   };
 
+  /** A group's entry as this person sees it: its visible screens; one screen is shown as itself. */
+  const shownItem = (item: NavItem): NavItem | null => {
+    if (!item.children) return canSeeItem(item) ? item : null;
+    const children = item.children.filter(canSeeItem);
+    if (children.length === 0) return null;
+    if (children.length === 1) return children[0];
+    const badge = children.reduce((sum, child) => sum + (child.badge ?? 0), 0);
+    return { ...item, to: children[0].to, children, badge: badge || undefined };
+  };
+  const onPath = (to: string) => {
+    const path = to.split('?')[0];
+    return location.pathname === path || location.pathname.startsWith(`${path}/`);
+  };
+  // The group the open screen belongs to, for the tab strip across the top.
+  const activeHub = visibleGroups.flatMap((group) => group.items)
+    .map(shownItem)
+    .find((item): item is NavItem => Boolean(item?.children && item.children.some((child) => onPath(child.to))));
+
   const isNavItemActive = (item: NavItem, isActive: boolean) => {
+    if (item.children) return item.children.some((child) => onPath(child.to));
     if (item.to === createBookingItem.to) return createBookingMode;
     if (item.to === '/dashboard') return isActive && !createBookingMode;
     if (item.to.startsWith('/hr/')) {
@@ -755,7 +815,7 @@ export default function AppShell({ children }: PropsWithChildren) {
   // Taken from the full list: the bottom bar keeps working whatever the sidebar shows.
   const bottomNavWorkspaceItems = navGroups
     .filter((group) => group.key === 'workspace' || group.key === 'phase2')
-    .flatMap((group) => group.items)
+    .flatMap((group) => flatItems(group.items))
     .filter(canSeeItem);
   const bottomNavByPath = (to: string) => bottomNavWorkspaceItems.find((item) => item.to === to);
   // My HR sits in the bar for every employee. Bookings is left out where Capture is there, since a booking starts from Capture.
@@ -842,7 +902,7 @@ export default function AppShell({ children }: PropsWithChildren) {
         )}
         <nav className="enterprise-nav enterprise-nav--accordion" aria-label="Primary navigation">
           {visibleGroups.map((group) => {
-            const items = group.items.filter(canSeeItem);
+            const items = group.items.map(shownItem).filter((item): item is NavItem => item !== null);
             if (items.length === 0) return null;
             const expanded = openGroup === group.key;
             return (
@@ -881,6 +941,18 @@ export default function AppShell({ children }: PropsWithChildren) {
 
       <div className="enterprise-main">
         <main className="enterprise-content">
+          {activeHub?.children ? (
+            <nav className="p2du-hubtabs" aria-label={activeHub.label}>
+              {activeHub.children.map((child) => (
+                <NavLink key={child.to} to={child.to} className={() => (onPath(child.to) ? 'is-active' : '')}>
+                  {child.label}
+                  {typeof child.badge === 'number' && child.badge > 0 ? (
+                    <span className="enterprise-nav__badge" aria-label={`${child.badge} waiting`}>{child.badge > 99 ? '99+' : child.badge}</span>
+                  ) : null}
+                </NavLink>
+              ))}
+            </nav>
+          ) : null}
           {showLandingSearch ? (
             <div className="screen-stack journey-search-page">
               <form className="journey-search-input-wrap" role="search" onSubmit={handleLandingSearch}>

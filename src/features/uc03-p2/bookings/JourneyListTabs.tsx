@@ -1,6 +1,8 @@
 import { useDeferredValue, useEffect, useMemo, useState } from 'react';
-import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
+import { useSearchParams } from 'react-router-dom';
 
+import '../../../styles/uc03-p2-data-uploads.css';
 import JourneyRow from './JourneyRow';
 import JourneySearchCombobox from './JourneySearchCombobox';
 import { useProjectContextStore } from '../../../store/projectContextStore';
@@ -69,9 +71,21 @@ type Props = {
    * ("All months" shows everything).
    */
   calendarMonth?: boolean;
+  /**
+   * The Dealership-wise / Outlet-wise / PC-wise panels. Off on the Team Lead's landing page:
+   * they are in the Project Tracker (product owner 2026-11-13: "attached view should be in the
+   * project tracker, so lets remove it from TL view").
+   */
+  showBreakdown?: boolean;
 };
 
-export default function JourneyListTabs({ tenantId, accessToken, role, onCounts, calendarMonth = false }: Props) {
+/** Rows on one page of the list (product owner 2026-11-13: "show max 50 records then do pagination"). */
+export const PAGE_SIZE = 50;
+
+export default function JourneyListTabs({ tenantId, accessToken, role, onCounts, calendarMonth = false, showBreakdown = true }: Props) {
+  // A row of the Project Tracker's Journeys tab opens this list already narrowed
+  // (?dealer=, ?outlet=, ?pc=, ?month=).
+  const [params] = useSearchParams();
   const supervisor = role === 'TL' || role === 'PM' || role === 'EXECUTIVE';
   // A PC sees every outlet they are mapped to and can narrow the list to one
   // (product owner 2026-10-26); the list is not tied to the sidebar's outlet.
@@ -88,10 +102,15 @@ export default function JourneyListTabs({ tenantId, accessToken, role, onCounts,
   const [draft, setDraft] = useState('');
   const [kind, setKind] = useState<P2JourneyKind | ''>('');
   const currentMonth = useMemo(() => istMonth(), []);
-  const [month, setMonth] = useState(calendarMonth ? currentMonth : '');
-  const [dealerId, setDealerId] = useState('');
-  const [outletId, setOutletId] = useState('');
-  const [pcActorId, setPcActorId] = useState('');
+  const [month, setMonth] = useState(() => {
+    const asked = params.get('month');
+    if (asked !== null && (asked === '' || /^\d{4}-\d{2}$/.test(asked))) return asked;
+    return calendarMonth ? currentMonth : '';
+  });
+  const [dealerId, setDealerId] = useState(() => params.get('dealer') ?? '');
+  const [outletId, setOutletId] = useState(() => params.get('outlet') ?? '');
+  const [pcActorId, setPcActorId] = useState(() => params.get('pc') ?? '');
+  const [page, setPage] = useState(0);
   // A TL / PM reads the list Outlet by Outlet unless they ask for the most
   // urgent first (product owner 2026-10-23); a PC keeps the tab's own order.
   const [sort, setSort] = useState<P2JourneySort>(supervisor ? 'outlet' : 'priority');
@@ -133,16 +152,21 @@ export default function JourneyListTabs({ tenantId, accessToken, role, onCounts,
   });
   useEffect(() => { onCounts?.(overview.data?.counts); }, [overview.data, onCounts]);
 
-  const list = useInfiniteQuery({
-    queryKey: ['p2-journey-page', tenantId, view, filters, sort],
-    queryFn: ({ pageParam }) => getP2JourneyPage(tenantId!, accessToken, view, filters, pageParam, 50, sort),
-    initialPageParam: 0,
-    getNextPageParam: (last) => last.nextOffset ?? undefined,
+  // One page of 50 at a time; back to the first page whenever what is listed changes.
+  const listKey = JSON.stringify([view, filters, sort]);
+  useEffect(() => { setPage(0); }, [listKey]);
+  const list = useQuery({
+    queryKey: ['p2-journey-page', tenantId, view, filters, sort, page],
+    queryFn: () => getP2JourneyPage(tenantId!, accessToken, view, filters, page * PAGE_SIZE, PAGE_SIZE, sort),
     enabled,
     staleTime: 15_000,
+    placeholderData: keepPreviousData,
   });
-  const items = useMemo(() => (list.data?.pages ?? []).flatMap((page) => page.items), [list.data]);
+  const items = list.data?.items ?? [];
   const c = counts.data?.counts;
+  const total = c ? Number(c[view as keyof P2JourneyCounts] ?? 0) : undefined;
+  const pages = total !== undefined ? Math.max(1, Math.ceil(total / PAGE_SIZE)) : undefined;
+  const hasNext = list.data?.nextOffset != null;
   const all = overview.data?.counts;
   const tab = tabs.find((t) => t.view === view) ?? tabs[0];
   const filtered = Boolean(search.trim() || (monthApplies && month && !calendarMonth) || dealerId || outletId || pcActorId || kind);
@@ -225,7 +249,7 @@ export default function JourneyListTabs({ tenantId, accessToken, role, onCounts,
           <Metric label="Needs TL decision" value={all.needs_tl} detail={`${all.overdue} overdue · ${all.high_risk} high risk`} />
         </section>
       ) : null}
-      {supervisor && overview.data?.byOutlet ? (
+      {supervisor && showBreakdown && overview.data?.byOutlet ? (
         <div className={`uc03-tl-breakdown-grid${manyDealers ? ' uc03-tl-breakdown-grid--three' : ''}`}>
           {manyDealers ? (
             <BreakdownPanel
@@ -358,7 +382,7 @@ export default function JourneyListTabs({ tenantId, accessToken, role, onCounts,
           </label>
         ) : null}
         {filtered ? <button type="button" className="p2w-link" onClick={clear}>Clear filters</button> : null}
-        {list.isFetching && !list.isFetchingNextPage ? <span className="p2w-muted">Loading…</span> : null}
+        {list.isFetching ? <span className="p2w-muted">Loading…</span> : null}
       </div>
 
       <p className="p2w-muted p2w-jtabs__hint">{tab.hint}{kind ? ` ${kindHint(kind, calendarMonth ? month : '')}` : ''}</p>
@@ -389,19 +413,37 @@ export default function JourneyListTabs({ tenantId, accessToken, role, onCounts,
       ) : null}
 
       {items.length ? (
-        <div className="p2w-jtabs__more">
-          <span className="p2w-muted">
-            Showing {items.length}{c ? ` of ${c[view as keyof P2JourneyCounts] ?? items.length}` : ''}
-          </span>
-          {list.hasNextPage ? (
-            <button type="button" className="p2w-button p2w-button--secondary" onClick={() => void list.fetchNextPage()}
-              disabled={list.isFetchingNextPage}>
-              {list.isFetchingNextPage ? 'Loading…' : 'Load 50 more'}
-            </button>
-          ) : null}
-        </div>
+        <Pager page={page} pages={pages} total={total} shown={items.length} hasNext={hasNext}
+          busy={list.isFetching} onPage={(next) => { setPage(next); window.scrollTo({ top: 0, behavior: 'smooth' }); }} />
       ) : null}
     </div>
+  );
+}
+
+/** Carbon pagination: 50 per page, the range shown, the page out of how many, back and next. */
+export function Pager({ page, pages, total, shown, hasNext, busy, onPage }: {
+  page: number; pages?: number; total?: number; shown: number; hasNext: boolean; busy?: boolean;
+  onPage: (page: number) => void;
+}) {
+  const first = page * PAGE_SIZE + 1;
+  const last = page * PAGE_SIZE + shown;
+  return (
+    <nav className="p2du-pager" aria-label="Pages">
+      <span>{PAGE_SIZE} per page · {first}–{last}{total !== undefined ? ` of ${total}` : ''}</span>
+      <span className="p2du-pager__nav">
+        {pages !== undefined ? (
+          <label>
+            <span className="p2w-visually-hidden">Page</span>
+            <select value={page} onChange={(event) => onPage(Number(event.target.value))} disabled={busy}>
+              {Array.from({ length: pages }, (_, i) => <option key={i} value={i}>{i + 1}</option>)}
+            </select>
+          </label>
+        ) : null}
+        <span>{pages !== undefined ? `of ${pages} page${pages === 1 ? '' : 's'}` : `page ${page + 1}`}</span>
+        <button type="button" aria-label="Previous page" disabled={busy || page === 0} onClick={() => onPage(page - 1)}>‹</button>
+        <button type="button" aria-label="Next page" disabled={busy || !hasNext} onClick={() => onPage(page + 1)}>›</button>
+      </span>
+    </nav>
   );
 }
 
@@ -415,19 +457,19 @@ function Metric({ label, value, detail }: { label: string; value: number; detail
   );
 }
 
-type BreakdownRow = P2JourneyBreakdownRow & { key: string; label: string; secondary?: string };
+export type BreakdownRow = P2JourneyBreakdownRow & { key: string; label: string; secondary?: string };
 
 /** Dealership-wise / Outlet-wise / PC-wise: every journey, split Booking / Delivery / Closed; a
  * click filters the list below (the TL overview's own panels). */
-function BreakdownPanel({ title, rows, selectedKey, onSelect }: {
-  title: string; rows: BreakdownRow[]; selectedKey: string; onSelect: (key: string) => void;
+export function BreakdownPanel({ title, rows, selectedKey, onSelect, hint = 'Click a row to see its complete list below.' }: {
+  title: string; rows: BreakdownRow[]; selectedKey: string; onSelect: (key: string) => void; hint?: string;
 }) {
   return (
     <section className="uc03-tl-panel">
       <header className="uc03-tl-panel__header">
         <div>
           <h2>{title}</h2>
-          <p>Click a row to see its complete list below.</p>
+          <p>{hint}</p>
         </div>
         {selectedKey && <button type="button" onClick={() => onSelect('')}>Clear</button>}
       </header>

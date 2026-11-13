@@ -4,7 +4,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { getPerformanceSettings, setPerformanceSettings } from '../../../services/audit-core/uc03Performance';
 
 const GROUPS: Array<{ key: string; label: string }> = [
-  { key: 'SECTION', label: 'Section' },
+  { key: 'DASHBOARD', label: 'Dashboard block' },
+  { key: 'SECTION', label: 'Detail tab' },
   { key: 'OUTPUT', label: 'Figure: output' },
   { key: 'QUALITY', label: 'Figure: quality' },
   { key: 'UTILISATION', label: 'Figure: utilisation' },
@@ -60,7 +61,10 @@ export default function PerformanceSettings({ accessToken }: { accessToken?: str
           </tbody>
         </table>
       </div>
-      <p className="p2w-muted">Ticked means that role sees it. Applies to every Project. A PC or Reviewer only ever sees their own figures.</p>
+      <p className="p2w-muted">
+        Ticked means that role sees it. Applies to every Project. A PC or Reviewer only ever sees their own figures. A dashboard block
+        that is unticked is not sent to that role; a figure that is unticked also leaves its tile and its scorecard column out.
+      </p>
     </div>
   );
 }

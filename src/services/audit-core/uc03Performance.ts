@@ -39,6 +39,8 @@ export type PeerFigures = {
 export type DutySchedule = { scheduleId: string; title: string; frequency: string; status: string; assignedRole: string | null };
 export type Performance = {
   date: string; first: string; days: string[]; timezone: string; current: boolean; asOfUtc: string; own: boolean;
+  /** The dashboard of the reader's role (section "dashboard": nothing else is sent with it). */
+  dashboard?: Dashboard; role?: string | null;
   measures: Measure[]; schedules: DutySchedule[]; plannedDuties: Array<{ title: string; frequency: string }>;
   peers: Record<string, PeerFigures>; people: PerformancePerson[]; notes: string[];
   /** What a SuperAdmin has left on (absent from an older Audit Core: everything shown). */
@@ -84,8 +86,72 @@ export type DelinquencyLine = DutyFigures & {
   actorId: string; name: string | null; role: string; scheduleId: string; missedDates: string[]; lateDates: string[];
 };
 
+// ---------------------------------------------------------------- the dashboard of each role (2026-11-13)
+
+export type Tone = 'good' | 'warn' | 'bad' | null;
+export type DashTile = { key: string; label: string; value: number | string; hint: string; tone: Tone };
+/** within: a kind counted inside another (overdue tasks inside open tasks), shown under it. */
+export type DashPendingKind = { key: string; label: string; total: number; buckets: number[]; within: string | null };
+export type DashSeries = { name: string; data: number[]; kind?: 'line' };
+export type DashColumnKind = 'bar' | 'num' | 'alert' | 'warn' | 'pct';
+export type DashColumn = { key: string; label: string; kind: DashColumnKind };
+export type DashRow = { id: string; name: string; sub: string; spark?: number[]; values: Record<string, number | null> };
+export type DashCard = { key: string; title: string; sort: string; spark?: string; columns: DashColumn[]; rows: DashRow[] };
+export type DashDutyDay = { date: string; due: number; onTime?: number; late?: number; notDone?: number; pending?: number };
+export type DashDuty = DutyFigures & {
+  title: string; frequency: string; days: DashDutyDay[]; missedBy: Array<{ name: string; dates: string[] }>;
+};
+export type DashQuality = {
+  pagesUploaded: number; rejected: number; rightFirstTime: number | null;
+  reasons: Array<{ key: string; label: string; value: number }>; duplicatePages: number; duplicateFiles: number;
+};
+export type Dashboard = {
+  view: 'PC' | 'REVIEWER' | 'TEAM'; title: string; period: string; days: string[]; widgets: string[];
+  kpis?: { title: string; tiles: DashTile[] };
+  pending?: { title: string; buckets: string[]; kinds: DashPendingKind[] };
+  attention?: { total: number; lines: Array<{ tone: 'bad' | 'warn'; who: string; text: string }> };
+  trend?: { title: string; series: DashSeries[] };
+  tasks?: { raised: number[]; closed: number[]; open: number; overdue: number };
+  scorecards?: DashCard[];
+  peers?: { title: string; people: number; rows: Array<{ key: string; label: string; me: number | null; peers: number }> };
+  duties?: { rows: DashDuty[]; planned: Array<{ title: string }> };
+  quality?: DashQuality;
+  channels?: { direct: number; bulk: number; drive: number };
+};
+
+/** The rows of a scorecard ordered by a column (the name when ``key`` is "name"). */
+export function sortRows(rows: DashRow[], key: string, descending: boolean): DashRow[] {
+  const sign = descending ? -1 : 1;
+  return [...rows].sort((a, b) => {
+    if (key === 'name') return sign * a.name.localeCompare(b.name);
+    const x = a.values[key], y = b.values[key];
+    if (x == null || y == null) return x == null && y == null ? a.name.localeCompare(b.name) : x == null ? 1 : -1;
+    return sign * (x - y) || a.name.localeCompare(b.name);
+  });
+}
+
+/** The total of each countable column of a scorecard (a share has no total). */
+export function cardTotals(card: DashCard): Record<string, number | null> {
+  const out: Record<string, number | null> = {};
+  for (const column of card.columns) {
+    out[column.key] = column.kind === 'pct' ? null
+      : Math.round(card.rows.reduce((n, r) => n + (r.values[column.key] ?? 0), 0) * 10) / 10;
+  }
+  return out;
+}
+
+export type DutyState = 'none' | 'done' | 'late' | 'missed' | 'pending';
+/** What a day of a duty came to: anything missed marks the day missed, then late, then still open. */
+export function dutyDayState(day: DashDutyDay): DutyState {
+  if (!day.due) return 'none';
+  if (day.notDone) return 'missed';
+  if (day.late) return 'late';
+  if (day.pending) return 'pending';
+  return 'done';
+}
+
 /** One section (the tab that is open) of a date range: nothing else is read or sent. */
-export function getPerformance(tenantId: string, from: string, to: string, section: SectionKey, accessToken?: string) {
+export function getPerformance(tenantId: string, from: string, to: string, section: SectionKey | 'dashboard', accessToken?: string) {
   const params = new URLSearchParams({ from, date: to, section });
   return auditCoreRequest<Performance>(
     `/p2/v1/tenants/${encodeURIComponent(tenantId)}/reports/performance?${params.toString()}`,

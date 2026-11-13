@@ -46,7 +46,7 @@ const base: Performance = {
 };
 
 type TabKey = NonNullable<Parameters<typeof PerformanceView>[0]['initialTab']>;
-const SECTION: Record<TabKey, string> = { backlog: 'pending', bookings: 'flow', deliveries: 'flow', uploads: 'uploads', quality: 'quality', tasks: 'tasks', trend: 'trend',
+const SECTION: Record<TabKey, string> = { dashboard: 'dashboard', backlog: 'pending', bookings: 'flow', deliveries: 'flow', uploads: 'uploads', quality: 'quality', tasks: 'tasks', trend: 'trend',
   efficiency: 'efficiency', duties: 'duties' };
 
 function render(data: Performance, tab: TabKey): string {

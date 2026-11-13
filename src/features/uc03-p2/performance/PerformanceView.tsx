@@ -2,6 +2,7 @@ import { useMemo, useState, type ReactNode } from 'react';
 import { useQuery } from '@tanstack/react-query';
 
 import SectionCard from '../../../components/SectionCard';
+import Dashboard from './Dashboard';
 import { Segment } from '../my-work/MyWorkParts';
 import {
   addDays,
@@ -34,8 +35,9 @@ const MODES: Array<{ key: Mode; label: string }> = [
   { key: 'WEEKLY', label: 'Week by week' },
 ];
 /** One tab at a time (product owner 2026-11-13: "I don't want all to be shown in one"): each reads its own section. */
-export type Tab = 'backlog' | 'bookings' | 'deliveries' | 'uploads' | 'quality' | 'tasks' | 'trend' | 'efficiency' | 'duties';
-const TABS: Array<{ key: Tab; label: string; section: SectionKey }> = [
+export type Tab = 'dashboard' | 'backlog' | 'bookings' | 'deliveries' | 'uploads' | 'quality' | 'tasks' | 'trend' | 'efficiency' | 'duties';
+const TABS: Array<{ key: Tab; label: string; section: SectionKey | 'dashboard' }> = [
+  { key: 'dashboard', label: 'Dashboard', section: 'dashboard' },
   { key: 'backlog', label: 'Backlog', section: 'pending' },
   { key: 'bookings', label: 'Bookings', section: 'flow' },
   { key: 'deliveries', label: 'Deliveries', section: 'flow' },
@@ -627,13 +629,14 @@ function Delinquency({ data }: { data: Performance }) {
 const shortDate = (iso: string) => new Date(`${iso}T00:00:00Z`).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', timeZone: 'UTC' });
 
 /**
- * Performance (product owner 2026-11-13): what a lead manages by, one tab at a time over a date
+ * Performance (product owner 2026-11-13): the dashboard of the reader's role first, then the
+ * detail behind it -- what a lead manages by, one tab at a time over a date
  * range -- the backlog; bookings; deliveries against the gate register; tasks new, closed and
  * open; each person day to day or week to week; PC efficiency; and delinquencies in daily and
  * weekly duties. A PC or Reviewer sees their own. A SuperAdmin chooses the
  * tabs each role sees. Only the open tab is read from the server.
  */
-export default function PerformanceView({ tenantId, accessToken, today, initialTab = 'backlog' }: {
+export default function PerformanceView({ tenantId, accessToken, today, initialTab = 'dashboard' }: {
   tenantId: string; accessToken: string | undefined; today: string; initialTab?: Tab;
 }) {
   const [from, setFrom] = useState(addDays(today, -6));
@@ -654,7 +657,11 @@ export default function PerformanceView({ tenantId, accessToken, today, initialT
   });
   const data = query.data;
   const periods = useMemo(() => (data ? periodsOf(data.days, mode) : []), [data, mode]);
-  const allowed = data?.sections ? TABS.filter((t) => data.sections!.some((s) => s.key === t.section) && (!data.own || t.section !== 'flow')) : TABS;
+  // The dashboard is a tab while any of its widgets is on for the role; the rest follow the sections.
+  const allowed = data?.sections
+    ? TABS.filter((t) => (t.section === 'dashboard' ? !data.dashboard || data.dashboard.widgets.length > 0
+      : data.sections!.some((s) => s.key === t.section) && (!data.own || t.section !== 'flow')))
+    : TABS;
   const shown = allowed.some((t) => t.key === current.key);
   const range = from === to ? shortDate(from) : `${shortDate(from)} to ${shortDate(to)}`;
   const pick = (f: string, t: string) => { setFrom(f); setTo(t); setModePicked(null); };
@@ -692,14 +699,18 @@ export default function PerformanceView({ tenantId, accessToken, today, initialT
 
       {data && shown ? (
         <>
-          {data.own && !data.people.length ? <SectionCard><p className="p2w-muted">No outlet is mapped to you in this Project.</p></SectionCard> : null}
+          {tab === 'dashboard' && data.dashboard ? (
+            <Dashboard board={data.dashboard} periods={periods} asOf={data.asOfUtc} open={setTab}
+              can={(t) => allowed.some((a) => a.key === t)} />
+          ) : null}
+          {tab !== 'dashboard' && data.own && data.people && !data.people.length ? <SectionCard><p className="p2w-muted">No outlet is mapped to you in this Project.</p></SectionCard> : null}
           {tab === 'backlog' && data.pending ? <Pending data={data} own={data.own} /> : null}
           {tab === 'bookings' && data.flow?.outlets.length ? <Bookings data={data} periods={periods} /> : null}
           {tab === 'deliveries' && data.flow?.outlets.length ? <Deliveries data={data} periods={periods} /> : null}
           {tab === 'uploads' && data.uploads ? <Uploads data={data} periods={periods} /> : null}
           {tab === 'quality' && data.quality ? <Quality data={data} range={range} /> : null}
           {tab === 'tasks' && data.tasks ? <Tasks data={data} periods={periods} /> : null}
-          {tab === 'trend' && data.people.length ? <Trend data={data} periods={periods} mode={mode} /> : null}
+          {tab === 'trend' && data.people?.length ? <Trend data={data} periods={periods} mode={mode} /> : null}
           {tab === 'efficiency' && data.efficiency ? <Efficiency data={data} range={range} /> : null}
           {tab === 'duties' && data.delinquency ? <Delinquency data={data} /> : null}
         </>

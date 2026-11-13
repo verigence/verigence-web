@@ -54,12 +54,32 @@ export type Performance = {
   flow?: { outlets: Array<Place & { days: Record<string, FlowDay> }> };
   efficiency?: { people: EfficiencyRow[] };
   delinquency?: { lines: DelinquencyLine[] };
+  tasks?: { outlets: Array<Place & TaskRow>; people: Array<{ actorId: string; name: string | null; role: string } & TaskRow> };
+  report?: { people: ReportPerson[] };
+  uploads?: { outlets: Array<Place & ChannelRow>; people: Array<Who & ChannelRow> };
+  quality?: { outlets: Array<Place & QualityRow>; people: Array<Who & QualityRow> };
 };
-export type SectionKey = 'pending' | 'flow' | 'trend' | 'efficiency' | 'duties';
+export type Who = { actorId: string; name: string | null; role: string };
+/** Files per day by how they came in: on their own, in a bulk (folder) upload, or through Google Drive. */
+export type ChannelRow = { direct: number[]; bulk: number[]; drive: number[] };
+export type QualityRow = {
+  pagesUploaded: number; blurred?: number; faded?: number; tooSmall?: number; otherQuality?: number; duplicatePages?: number;
+  duplicateFiles?: number;
+};
+export type SectionKey = 'pending' | 'flow' | 'uploads' | 'quality' | 'tasks' | 'trend' | 'efficiency' | 'duties' | 'report';
 export type Place = { outletId: string; outletName: string; dealerId: string; dealerName: string };
 /** Per kind of pending work: how many, by age (today, 1-3 days, 4-7 days, older). */
 export type PendingCounts = Record<string, number[]>;
-export type FlowDay = { bookings: number; deliveries: number; onRegister: number; inTool: number; notNotified: number; registerMissing: number };
+export type FlowDay = {
+  bookings: number; deliveries: number; onRegister: number; inTool: number; notNotified: number; notUploaded: number;
+  registerMissing: number;
+};
+export type TaskRow = { raised: number[]; closed: number[]; open: number; overdue: number };
+export type ReportPerson = {
+  actorId: string; name: string | null; role: string; bookingFiles: number; deliveryFiles: number; filesReviewed: number;
+  journeysClosed: number; sentBack: number; breach: number; noBreach: number; paymentsVerified: number; tasksClosed: number;
+  duties: Array<{ scheduleId: string; due: number; done: number; missed: number }>; other: string[];
+};
 export type EfficiencyRow = {
   actorId: string; name: string | null; daysWorked: number; deliveryStarted: number; deliveryClosed: number;
   closedShare: number | null; daysToClose: number | null; pagesUploaded: number; pagesRejected: number;
@@ -70,8 +90,9 @@ export type DelinquencyLine = DutyFigures & {
   actorId: string; name: string | null; role: string; scheduleId: string; missedDates: string[]; lateDates: string[];
 };
 
-export function getPerformance(tenantId: string, date: string, days: number, accessToken?: string) {
-  const params = new URLSearchParams({ date, days: String(days) });
+/** One section (the tab that is open) of a date range: nothing else is read or sent. */
+export function getPerformance(tenantId: string, from: string, to: string, section: SectionKey, accessToken?: string) {
+  const params = new URLSearchParams({ from, date: to, section });
   return auditCoreRequest<Performance>(
     `/p2/v1/tenants/${encodeURIComponent(tenantId)}/reports/performance?${params.toString()}`,
     { accessToken, timeoutMs: 60_000 });
@@ -156,8 +177,16 @@ const utc = (iso: string) => new Date(`${iso}T00:00:00Z`);
 const shortDay = (iso: string) => `${utc(iso).getUTCDate()} ${MONTH_NAMES[utc(iso).getUTCMonth()]}`;
 
 export type Mode = 'DAILY' | 'WEEKLY';
-/** How many days to ask for: the last 7 days, or the last six whole weeks. */
-export const MODE_DAYS: Record<Mode, number> = { DAILY: 7, WEEKLY: 42 };
+/** A range of more than a fortnight reads better week by week. */
+export const defaultMode = (days: number): Mode => (days > 14 ? 'WEEKLY' : 'DAILY');
+
+/** The day ``n`` days before (or after) an ISO day. */
+export function addDays(iso: string, n: number): string {
+  const d = utc(iso);
+  d.setUTCDate(d.getUTCDate() + n);
+  return d.toISOString().slice(0, 10);
+}
+export const daysBetween = (from: string, to: string) => Math.round((utc(to).getTime() - utc(from).getTime()) / 86_400_000) + 1;
 /** off: a Sunday (the off day): nothing is expected, so nothing is marked. */
 export type Period = { key: string; label: string; indexes: number[]; off?: boolean };
 
@@ -176,9 +205,7 @@ export function periodsOf(days: string[], mode: Mode): Period[] {
     if (last && last.key === key) last.indexes.push(i);
     else weeks.push({ key, label: `Week of ${shortDay(key)}`, indexes: [i] });
   });
-  // Forty-two days rarely start on a Monday: the part-week at the start is left out, so six whole
-  // weeks (the last one up to the day asked) are compared like with like.
-  return weeks.length > 1 && weeks[0].indexes.length < 7 ? weeks.slice(1) : weeks;
+  return weeks;
 }
 
 export const sumAt = (series: number[] | undefined, indexes: number[]) => indexes.reduce((n, i) => n + (series?.[i] ?? 0), 0);
@@ -201,7 +228,7 @@ export function addPending(all: Array<PendingCounts | undefined>): PendingCounts
   return out;
 }
 
-const NO_FLOW: FlowDay = { bookings: 0, deliveries: 0, onRegister: 0, inTool: 0, notNotified: 0, registerMissing: 0 };
+const NO_FLOW: FlowDay = { bookings: 0, deliveries: 0, onRegister: 0, inTool: 0, notNotified: 0, notUploaded: 0, registerMissing: 0 };
 
 /** The bookings, deliveries and gate register of some outlets over some days, added together. */
 export function flowOf(outlets: Array<{ days: Record<string, FlowDay> }>, days: string[]): FlowDay {

@@ -4,29 +4,49 @@ import { useQuery } from '@tanstack/react-query';
 import SectionCard from '../../../components/SectionCard';
 import { Segment } from '../my-work/MyWorkParts';
 import {
+  addDays,
   addPending,
   datesText,
+  daysBetween,
+  defaultMode,
   flowOf,
   getPerformance,
   measuresFor,
-  MODE_DAYS,
   pendingOf,
   periodsOf,
   sumAt,
   valueText,
   type Measure,
   type Mode,
+  type ChannelRow,
   type PendingCounts,
   type Performance,
   type Period,
+  type Place,
+  type QualityRow,
+  type ReportPerson,
   type SectionKey,
+  type TaskRow,
 } from '../../../services/audit-core/uc03Performance';
-import { hasNextPeriod, shiftPeriod, trackerLabel } from '../../../services/audit-core/uc03ProjectTracker';
 import '../../../styles/uc03-p2-performance.css';
 
 const MODES: Array<{ key: Mode; label: string }> = [
-  { key: 'DAILY', label: 'Day by day (7 days)' },
-  { key: 'WEEKLY', label: 'Week by week (6 weeks)' },
+  { key: 'DAILY', label: 'Day by day' },
+  { key: 'WEEKLY', label: 'Week by week' },
+];
+/** One tab at a time (product owner 2026-11-13: "I don't want all to be shown in one"): each reads its own section. */
+export type Tab = 'backlog' | 'bookings' | 'deliveries' | 'uploads' | 'quality' | 'tasks' | 'trend' | 'efficiency' | 'duties' | 'report';
+const TABS: Array<{ key: Tab; label: string; section: SectionKey }> = [
+  { key: 'backlog', label: 'Backlog', section: 'pending' },
+  { key: 'bookings', label: 'Bookings', section: 'flow' },
+  { key: 'deliveries', label: 'Deliveries', section: 'flow' },
+  { key: 'uploads', label: 'Uploads', section: 'uploads' },
+  { key: 'quality', label: 'Duplicates & quality', section: 'quality' },
+  { key: 'tasks', label: 'Tasks', section: 'tasks' },
+  { key: 'trend', label: 'Day to day', section: 'trend' },
+  { key: 'efficiency', label: 'PC efficiency', section: 'efficiency' },
+  { key: 'duties', label: 'Delinquencies', section: 'duties' },
+  { key: 'report', label: 'Daily report', section: 'report' },
 ];
 type Level = 'dealer' | 'outlet' | 'person';
 const ROLE_TABS: Array<{ key: string; label: string }> = [
@@ -90,7 +110,7 @@ function Pending({ data, own }: { data: Performance; own: boolean }) {
   const sorted = [...rows].filter((r) => own || weight(r) > 0).sort((a, b) => weight(b) - weight(a) || a.name.localeCompare(b.name));
   const total = addPending((pending.outlets.length ? pending.outlets : pending.people).map((x) => x.counts));
   return (
-    <Section title="Pending work" about="What is waiting right now, and how much of it has waited more than three days."
+    <Section title="Backlog" about="What is waiting right now (whatever the dates above), and how much of it has waited more than three days."
       controls={levels.length > 1 ? <Segment label="Pending by" value={level} options={levels} onChange={setLevel} /> : undefined}>
       <div className="p2mw-tiles">
         {pending.kinds.map((k) => {
@@ -118,76 +138,389 @@ function Pending({ data, own }: { data: Performance; own: boolean }) {
             </tbody>
           </table>
         </div>
-      ) : <p className="p2pf-allgood">Nothing is pending.</p>}
+      ) : <p className="p2pf-allgood">No backlog.</p>}
     </Section>
   );
 }
 
-// ---------------------------------------------------------------- 2. bookings and deliveries
+// ---------------------------------------------------------------- 2. bookings, 3. deliveries
 
-function Flow({ data, periods }: { data: Performance; periods: Period[] }) {
+type FlowOutlet = NonNullable<Performance['flow']>['outlets'][number];
+type Group<T> = { id: string; name: string; sub?: string; items: T[] };
+
+/** Outlets as they are, or added up into their dealerships. */
+function grouped<T extends Place>(outlets: T[], level: 'dealer' | 'outlet'): Array<Group<T>> {
+  if (level === 'outlet') return outlets.map((o) => ({ id: o.outletId, name: o.outletName, sub: o.dealerName, items: [o] }));
+  const map = new Map<string, Group<T>>();
+  for (const o of outlets) {
+    const g = map.get(o.dealerId) ?? { id: o.dealerId, name: o.dealerName, items: [] };
+    g.items.push(o);
+    map.set(o.dealerId, g);
+  }
+  return [...map.values()];
+}
+
+const UNIT_LEVELS: Array<{ key: 'dealer' | 'outlet'; label: string }> = [{ key: 'dealer', label: 'Dealership' }, { key: 'outlet', label: 'Outlet' }];
+
+function Bookings({ data, periods }: { data: Performance; periods: Period[] }) {
   const outlets = data.flow!.outlets;
   const manyDealers = new Set(outlets.map((o) => o.dealerId)).size > 1;
   const [level, setLevel] = useState<'dealer' | 'outlet'>(manyDealers ? 'dealer' : 'outlet');
-  const groups = useMemo(() => {
-    if (level === 'outlet') return outlets.map((o) => ({ id: o.outletId, name: o.outletName, sub: o.dealerName, outlets: [o] }));
-    const map = new Map<string, { id: string; name: string; sub?: string; outlets: typeof outlets }>();
-    for (const o of outlets) {
-      const g = map.get(o.dealerId) ?? { id: o.dealerId, name: o.dealerName, outlets: [] };
-      g.outlets.push(o);
-      map.set(o.dealerId, g);
-    }
-    return [...map.values()];
-  }, [outlets, level]);
   const daysOf = (p: Period) => p.indexes.map((i) => data.days[i]);
-  const shown = periods.flatMap(daysOf);
-  const rows = groups.map((g) => ({ ...g, total: flowOf(g.outlets, shown) }))
-    .sort((a, b) => (b.total.bookings + b.total.deliveries) - (a.total.bookings + a.total.deliveries) || a.name.localeCompare(b.name));
-  const all = flowOf(outlets, shown);
+  const rows = grouped(outlets, level).map((g) => ({ ...g, total: flowOf(g.items, data.days).bookings }))
+    .sort((a, b) => b.total - a.total || a.name.localeCompare(b.name));
   return (
-    <Section title="Bookings and deliveries" about="Journeys uploaded as bookings (B) and as deliveries (D), and the deliveries on the gate register against those in Verigence."
-      controls={manyDealers ? <Segment label="By" value={level} options={[{ key: 'dealer', label: 'Dealership' }, { key: 'outlet', label: 'Outlet' }]} onChange={setLevel} /> : undefined}>
+    <Section title="Bookings" about="Journeys uploaded as bookings (no delivery page in that day's uploads), per day or week."
+      controls={manyDealers ? <Segment label="By" value={level} options={UNIT_LEVELS} onChange={setLevel} /> : undefined}>
       <div className="p2pt-scroll">
-        <table className="p2w-table p2mw-table p2pf-table" aria-label="Bookings and deliveries">
-          <thead>
-            <tr>
-              <th scope="col" rowSpan={2}>{level === 'dealer' ? 'Dealership' : 'Outlet'}</th>
-              {periods.map((p) => <th key={p.key} scope="col" rowSpan={2}>{p.label}</th>)}
-              <th scope="col" rowSpan={2}>Total</th>
-              <th scope="colgroup" colSpan={4} className="p2pf-group">Gate register</th>
-            </tr>
-            <tr><th scope="col">On register</th><th scope="col">In Verigence</th><th scope="col">Not uploaded</th><th scope="col">Registers missed</th></tr>
-          </thead>
+        <table className="p2w-table p2mw-table p2pf-table" aria-label="Bookings uploaded">
+          <thead><tr><th scope="col">{level === 'dealer' ? 'Dealership' : 'Outlet'}</th>{periods.map((p) => <th key={p.key} scope="col">{p.label}</th>)}<th scope="col">Total</th></tr></thead>
           <tbody>
-            {rows.map((g) => {
-              const gap = g.total.onRegister - g.total.inTool;
-              return (
-                <tr key={g.id}>
-                  <th scope="row">{g.name}{g.sub ? <div className="p2w-muted p2pf-sub">{g.sub}</div> : null}</th>
-                  {periods.map((p) => {
-                    const f = flowOf(g.outlets, daysOf(p));
-                    return f.bookings + f.deliveries ? <td key={p.key}><span className="p2pf-b">B {f.bookings}</span> <span className="p2pf-d">D {f.deliveries}</span></td>
-                      : <td key={p.key} className="p2pf-zero">—</td>;
-                  })}
-                  <td><strong>B {g.total.bookings} · D {g.total.deliveries}</strong></td>
-                  <td>{g.total.onRegister}</td>
-                  <td>{g.total.inTool}</td>
-                  <td className={gap > 0 ? 'p2mw-attn' : undefined}>{Math.max(0, gap)}{g.total.notNotified ? <span className="p2w-muted p2pf-sub"> ({g.total.notNotified} not notified to PC)</span> : null}</td>
-                  <td className={g.total.registerMissing ? 'p2mw-attn' : undefined}>{g.total.registerMissing}</td>
-                </tr>
-              );
-            })}
+            {rows.map((g) => (
+              <tr key={g.id}>
+                <th scope="row">{g.name}{g.sub ? <div className="p2w-muted p2pf-sub">{g.sub}</div> : null}</th>
+                {periods.map((p) => { const n = flowOf(g.items, daysOf(p)).bookings; return <td key={p.key} className={n ? undefined : 'p2pf-zero'}>{n || '—'}</td>; })}
+                <td><strong>{g.total}</strong></td>
+              </tr>
+            ))}
           </tbody>
           <tfoot>
             <tr>
               <th scope="row">Total</th>
-              {periods.map((p) => { const f = flowOf(outlets, daysOf(p)); return <td key={p.key}>{f.bookings + f.deliveries ? `B ${f.bookings} D ${f.deliveries}` : '—'}</td>; })}
-              <td><strong>B {all.bookings} · D {all.deliveries}</strong></td>
-              <td>{all.onRegister}</td><td>{all.inTool}</td><td>{Math.max(0, all.onRegister - all.inTool)}</td><td>{all.registerMissing}</td>
+              {periods.map((p) => <td key={p.key}>{flowOf(outlets, daysOf(p)).bookings || '—'}</td>)}
+              <td><strong>{flowOf(outlets, data.days).bookings}</strong></td>
             </tr>
           </tfoot>
         </table>
       </div>
+    </Section>
+  );
+}
+
+function DeliveryCells({ f }: { f: ReturnType<typeof flowOf> }) {
+  return (
+    <>
+      <td className={f.deliveries ? undefined : 'p2pf-zero'}><strong>{f.deliveries}</strong></td>
+      <td className={f.onRegister ? undefined : 'p2pf-zero'}>{f.onRegister}</td>
+      <td className={f.notNotified ? 'p2mw-attn' : 'p2pf-zero'}>{f.notNotified}</td>
+      <td className={f.notUploaded ? 'p2pf-low' : 'p2pf-zero'}>{f.notUploaded}</td>
+      <td className={f.registerMissing ? 'p2pf-low' : 'p2pf-zero'}>{f.registerMissing}</td>
+    </>
+  );
+}
+const DELIVERY_HEADS = (
+  <>
+    <th scope="col" title="Journeys uploaded with a delivery page">Deliveries uploaded</th>
+    <th scope="col" title="Deliveries on the gate register">On register</th>
+    <th scope="col" title="On the register, not intimated to the PC by the dealership">Not intimated</th>
+    <th scope="col" title="Intimated to the PC and not in Verigence">Not uploaded</th>
+    <th scope="col" title="Gate register not uploaded by its due time">Registers missed</th>
+  </>
+);
+
+function Deliveries({ data, periods }: { data: Performance; periods: Period[] }) {
+  const outlets = data.flow!.outlets;
+  const manyDealers = new Set(outlets.map((o) => o.dealerId)).size > 1;
+  const [level, setLevel] = useState<'dealer' | 'outlet'>(manyDealers ? 'dealer' : 'outlet');
+  const [scope, setScope] = useState('');
+  const groups = grouped<FlowOutlet>(outlets, level);
+  const picked = groups.find((g) => g.id === scope);
+  const within = picked ? picked.items : outlets;
+  const rows = groups.map((g) => ({ ...g, total: flowOf(g.items, data.days) }))
+    .sort((a, b) => b.total.notUploaded - a.total.notUploaded || b.total.deliveries - a.total.deliveries || a.name.localeCompare(b.name));
+  return (
+    <>
+      <Section title={`Deliveries per ${periods[0]?.indexes.length === 1 ? 'day' : 'week'}${picked ? `: ${picked.name}` : ''}`}
+        about="Deliveries uploaded against the gate register: on the register, not intimated to the PC, and intimated but not uploaded."
+        controls={(
+          <label className="p2pf-pick">Show{' '}
+            <select value={scope} onChange={(e) => setScope(e.target.value)}>
+              <option value="">Everything</option>
+              {groups.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
+            </select>
+          </label>
+        )}>
+        <div className="p2pt-scroll">
+          <table className="p2w-table p2mw-table p2pf-table" aria-label="Deliveries per period">
+            <thead><tr><th scope="col">{periods[0]?.indexes.length === 1 ? 'Day' : 'Week'}</th>{DELIVERY_HEADS}</tr></thead>
+            <tbody>
+              {periods.map((p) => (
+                <tr key={p.key} className={p.off ? 'p2pf-off' : undefined}>
+                  <th scope="row">{p.label}</th>
+                  <DeliveryCells f={flowOf(within, p.indexes.map((i) => data.days[i]))} />
+                </tr>
+              ))}
+            </tbody>
+            <tfoot><tr><th scope="row">Total</th><DeliveryCells f={flowOf(within, data.days)} /></tr></tfoot>
+          </table>
+        </div>
+      </Section>
+      <Section title={`Deliveries by ${level === 'dealer' ? 'dealership' : 'outlet'}`} about="The same figures for the whole period. Most not uploaded first."
+        controls={manyDealers ? <Segment label="By" value={level} options={UNIT_LEVELS} onChange={(l) => { setLevel(l); setScope(''); }} /> : undefined}>
+        <div className="p2pt-scroll">
+          <table className="p2w-table p2mw-table p2pf-table" aria-label="Deliveries by dealership or outlet">
+            <thead><tr><th scope="col">{level === 'dealer' ? 'Dealership' : 'Outlet'}</th>{DELIVERY_HEADS}</tr></thead>
+            <tbody>
+              {rows.map((g) => (
+                <tr key={g.id}>
+                  <th scope="row">{g.name}{g.sub ? <div className="p2w-muted p2pf-sub">{g.sub}</div> : null}</th>
+                  <DeliveryCells f={g.total} />
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Section>
+    </>
+  );
+}
+
+// ---------------------------------------------------------------- uploads by channel; duplicates and quality
+
+const sum = (xs: number[]) => xs.reduce((a, b) => a + b, 0);
+const pct = (n: number, of: number) => (of ? `${Math.round((100 * n) / of)}%` : '—');
+
+function useLevels(hasOutlets: boolean, manyDealers: boolean) {
+  const [level, setLevel] = useState<Level>(hasOutlets ? 'outlet' : 'person');
+  const levels: Array<{ key: Level; label: string }> = [
+    ...(manyDealers ? [{ key: 'dealer' as Level, label: 'Dealership' }] : []),
+    ...(hasOutlets ? [{ key: 'outlet' as Level, label: 'Outlet' }] : []),
+    { key: 'person', label: 'PC' },
+  ];
+  return { level, setLevel, levels };
+}
+
+function Uploads({ data, periods }: { data: Performance; periods: Period[] }) {
+  const up = data.uploads!;
+  const { level, setLevel, levels } = useLevels(up.outlets.length > 0, new Set(up.outlets.map((o) => o.dealerId)).size > 1);
+  const add = (items: ChannelRow[]): ChannelRow => ({
+    direct: data.days.map((_, i) => items.reduce((n, x) => n + (x.direct[i] ?? 0), 0)),
+    bulk: data.days.map((_, i) => items.reduce((n, x) => n + (x.bulk[i] ?? 0), 0)),
+    drive: data.days.map((_, i) => items.reduce((n, x) => n + (x.drive[i] ?? 0), 0)),
+  });
+  const rows = (level === 'person'
+    ? up.people.map((p) => ({ id: p.actorId, name: p.name || 'Name not recorded', sub: undefined as string | undefined, row: p as ChannelRow }))
+    : grouped(up.outlets, level === 'dealer' ? 'dealer' : 'outlet').map((g) => ({ id: g.id, name: g.name, sub: g.sub, row: add(g.items) })))
+    .map((r) => ({ ...r, d: sum(r.row.direct), b: sum(r.row.bulk), g: sum(r.row.drive) }))
+    .sort((a, b) => (b.d + b.b + b.g) - (a.d + a.b + a.g) || a.name.localeCompare(b.name));
+  const all = add(up.outlets.length ? up.outlets : up.people);
+  const total = sum(all.direct) + sum(all.bulk) + sum(all.drive);
+  return (
+    <>
+      <Section title="How files are uploaded" about="Files uploaded one by one (app or web), in a bulk folder upload, and through Google Drive."
+        controls={levels.length > 1 ? <Segment label="By" value={level} options={levels} onChange={setLevel} /> : undefined}>
+        <div className="p2mw-tiles">
+          {([['Direct', all.direct], ['Bulk upload', all.bulk], ['Google Drive', all.drive]] as Array<[string, number[]]>).map(([label, xs]) => (
+            <div key={label} className="p2mw-tile">
+              <span className="p2mw-tile__label">{label}</span>
+              <strong className="p2mw-tile__value">{sum(xs)}</strong>
+              <span className="p2mw-tile__hint">{pct(sum(xs), total)} of {total} files</span>
+            </div>
+          ))}
+        </div>
+        <div className="p2pt-scroll">
+          <table className="p2w-table p2mw-table p2pf-table" aria-label="Files by how they were uploaded">
+            <thead><tr><th scope="col">{levels.find((l) => l.key === level)?.label}</th><th scope="col">Direct</th><th scope="col">Bulk upload</th><th scope="col">Google Drive</th><th scope="col">Total</th><th scope="col">Share not direct</th></tr></thead>
+            <tbody>
+              {rows.map((r) => (
+                <tr key={r.id}>
+                  <th scope="row">{r.name}{r.sub ? <div className="p2w-muted p2pf-sub">{r.sub}</div> : null}</th>
+                  <td className={r.d ? undefined : 'p2pf-zero'}>{r.d}</td><td className={r.b ? undefined : 'p2pf-zero'}>{r.b}</td>
+                  <td className={r.g ? undefined : 'p2pf-zero'}>{r.g}</td><td><strong>{r.d + r.b + r.g}</strong></td>
+                  <td>{pct(r.b + r.g, r.d + r.b + r.g)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Section>
+      <Section title={`Per ${periods[0]?.indexes.length === 1 ? 'day' : 'week'}`} about="All the people and outlets you read, together.">
+        <div className="p2pt-scroll">
+          <table className="p2w-table p2mw-table p2pf-table" aria-label="Files by channel per period">
+            <thead><tr><th scope="col" />{periods.map((p) => <th key={p.key} scope="col">{p.label}</th>)}<th scope="col">Total</th></tr></thead>
+            <tbody>
+              {([['Direct', all.direct], ['Bulk upload', all.bulk], ['Google Drive', all.drive]] as Array<[string, number[]]>).map(([label, xs]) => (
+                <tr key={label}><th scope="row">{label}</th>{periods.map((p) => <td key={p.key}>{sumAt(xs, p.indexes) || '—'}</td>)}<td><strong>{sum(xs)}</strong></td></tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Section>
+    </>
+  );
+}
+
+const QUALITY_COLUMNS: Array<{ key: keyof QualityRow; label: string; title: string }> = [
+  { key: 'blurred', label: 'Blurred', title: 'Pages rejected as blurred' },
+  { key: 'faded', label: 'Faded', title: 'Pages rejected as too faded' },
+  { key: 'tooSmall', label: 'Too small', title: 'Pages rejected because the image is too small' },
+  { key: 'otherQuality', label: 'Other quality', title: 'Pages rejected for another quality reason' },
+  { key: 'duplicatePages', label: 'Duplicate pages', title: 'Pages already uploaded: not sent for reading again' },
+  { key: 'duplicateFiles', label: 'Duplicate files', title: 'Uploads deleted as the same file uploaded again' },
+];
+
+function Quality({ data, range }: { data: Performance; range: string }) {
+  const q = data.quality!;
+  const { level, setLevel, levels } = useLevels(q.outlets.length > 0, new Set(q.outlets.map((o) => o.dealerId)).size > 1);
+  const add = (items: QualityRow[]): QualityRow => {
+    const out: QualityRow = { pagesUploaded: 0 };
+    for (const x of items) {
+      out.pagesUploaded += x.pagesUploaded;
+      for (const c of QUALITY_COLUMNS) (out[c.key] as number) = ((out[c.key] as number | undefined) ?? 0) + ((x[c.key] as number | undefined) ?? 0);
+    }
+    return out;
+  };
+  const rejected = (r: QualityRow) => (r.blurred ?? 0) + (r.faded ?? 0) + (r.tooSmall ?? 0) + (r.otherQuality ?? 0);
+  const rows = (level === 'person'
+    ? q.people.map((p) => ({ id: p.actorId, name: p.name || 'Name not recorded', sub: undefined as string | undefined, row: p as QualityRow }))
+    : grouped(q.outlets, level === 'dealer' ? 'dealer' : 'outlet').map((g) => ({ id: g.id, name: g.name, sub: g.sub, row: add(g.items) })))
+    .filter((r) => r.row.pagesUploaded > 0 || (r.row.duplicateFiles ?? 0) > 0)
+    .sort((a, b) => rejected(b.row) - rejected(a.row) || a.name.localeCompare(b.name));
+  const all = add(q.outlets.length ? q.outlets : q.people);
+  return (
+    <Section title="Duplicates and quality issues" about={`Of the files uploaded ${range}: pages rejected on image quality, pages and files uploaded twice. Most rejected first.`}
+      controls={levels.length > 1 ? <Segment label="By" value={level} options={levels} onChange={setLevel} /> : undefined}>
+      <div className="p2mw-tiles">
+        <div className="p2mw-tile"><span className="p2mw-tile__label">Pages uploaded</span><strong className="p2mw-tile__value">{all.pagesUploaded}</strong></div>
+        <div className={`p2mw-tile${rejected(all) ? ' p2mw-tile--warn' : ''}`}><span className="p2mw-tile__label">Rejected on quality</span><strong className="p2mw-tile__value">{rejected(all)}</strong><span className="p2mw-tile__hint">{pct(rejected(all), all.pagesUploaded)} of pages</span></div>
+        <div className="p2mw-tile"><span className="p2mw-tile__label">Duplicate pages</span><strong className="p2mw-tile__value">{all.duplicatePages ?? 0}</strong></div>
+        <div className={`p2mw-tile${all.duplicateFiles ? ' p2mw-tile--warn' : ''}`}><span className="p2mw-tile__label">Duplicate files</span><strong className="p2mw-tile__value">{all.duplicateFiles ?? 0}</strong></div>
+      </div>
+      <div className="p2pt-scroll">
+        <table className="p2w-table p2mw-table p2pf-table" aria-label="Duplicates and quality issues">
+          <thead>
+            <tr>
+              <th scope="col">{levels.find((l) => l.key === level)?.label}</th><th scope="col">Pages uploaded</th>
+              {QUALITY_COLUMNS.map((c) => <th key={c.key} scope="col" title={c.title}>{c.label}</th>)}
+              <th scope="col" title="Pages rejected on quality, of pages uploaded">Rejected share</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r) => {
+              const share = r.row.pagesUploaded ? rejected(r.row) / r.row.pagesUploaded : 0;
+              return (
+                <tr key={r.id}>
+                  <th scope="row">{r.name}{r.sub ? <div className="p2w-muted p2pf-sub">{r.sub}</div> : null}</th>
+                  <td>{r.row.pagesUploaded}</td>
+                  {QUALITY_COLUMNS.map((c) => { const n = (r.row[c.key] as number | undefined) ?? 0; return <td key={c.key} className={n ? undefined : 'p2pf-zero'}>{n}</td>; })}
+                  <td className={share > 0.1 ? 'p2pf-low' : undefined}>{pct(rejected(r.row), r.row.pagesUploaded)}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </Section>
+  );
+}
+
+// ---------------------------------------------------------------- 4. tasks
+
+function Tasks({ data, periods }: { data: Performance; periods: Period[] }) {
+  const tasks = data.tasks!;
+  const manyDealers = new Set(tasks.outlets.map((o) => o.dealerId)).size > 1;
+  const [level, setLevel] = useState<Level>(tasks.outlets.length ? 'outlet' : 'person');
+  const levels: Array<{ key: Level; label: string }> = [
+    ...(manyDealers ? [{ key: 'dealer' as Level, label: 'Dealership' }] : []),
+    ...(tasks.outlets.length ? [{ key: 'outlet' as Level, label: 'Outlet' }] : []),
+    { key: 'person', label: 'Person' },
+  ];
+  const add = (items: TaskRow[]): TaskRow => ({
+    raised: data.days.map((_, i) => items.reduce((n, x) => n + (x.raised[i] ?? 0), 0)),
+    closed: data.days.map((_, i) => items.reduce((n, x) => n + (x.closed[i] ?? 0), 0)),
+    open: items.reduce((n, x) => n + x.open, 0), overdue: items.reduce((n, x) => n + x.overdue, 0),
+  });
+  const rows = (level === 'person'
+    ? tasks.people.map((p) => ({ id: p.actorId, name: p.name || 'Name not recorded', sub: p.role === 'PC' ? undefined : p.role, row: p as TaskRow }))
+    : grouped(tasks.outlets, level === 'dealer' ? 'dealer' : 'outlet').map((g) => ({ id: g.id, name: g.name, sub: g.sub, row: add(g.items) })))
+    .filter((r) => sum(r.row.raised) + sum(r.row.closed) + r.row.open > 0)
+    .sort((a, b) => b.row.open - a.row.open || a.name.localeCompare(b.name));
+  const all = add(tasks.outlets.length ? tasks.outlets : tasks.people);
+  return (
+    <>
+      <Section title="Tasks" about="New tasks and tasks closed in the period, and what is open and overdue right now."
+        controls={levels.length > 1 ? <Segment label="Tasks by" value={level} options={levels} onChange={setLevel} /> : undefined}>
+        <div className="p2mw-tiles">
+          <div className="p2mw-tile"><span className="p2mw-tile__label">New in the period</span><strong className="p2mw-tile__value">{sum(all.raised)}</strong></div>
+          <div className="p2mw-tile"><span className="p2mw-tile__label">Closed in the period</span><strong className="p2mw-tile__value">{sum(all.closed)}</strong></div>
+          <div className={`p2mw-tile${all.open ? ' p2mw-tile--warn' : ''}`}><span className="p2mw-tile__label">Open now (PC tasks)</span><strong className="p2mw-tile__value">{all.open}</strong></div>
+          <div className={`p2mw-tile${all.overdue ? ' p2mw-tile--bad' : ''}`}><span className="p2mw-tile__label">Overdue now</span><strong className="p2mw-tile__value">{all.overdue}</strong></div>
+        </div>
+        <div className="p2pt-scroll">
+          <table className="p2w-table p2mw-table p2pf-table" aria-label="Tasks">
+            <thead><tr><th scope="col">{levels.find((l) => l.key === level)?.label}</th><th scope="col">New</th><th scope="col">Closed</th><th scope="col">Open now</th><th scope="col">Overdue now</th></tr></thead>
+            <tbody>
+              {rows.map((r) => (
+                <tr key={r.id}>
+                  <th scope="row">{r.name}{r.sub ? <div className="p2w-muted p2pf-sub">{r.sub}</div> : null}</th>
+                  <td>{sum(r.row.raised)}</td><td>{sum(r.row.closed)}</td>
+                  <td className={r.row.open ? undefined : 'p2pf-zero'}><strong>{r.row.open}</strong></td>
+                  <td className={r.row.overdue ? 'p2pf-low' : 'p2pf-zero'}>{r.row.overdue}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Section>
+      <Section title={`New and closed per ${periods[0]?.indexes.length === 1 ? 'day' : 'week'}`} about="More new than closed means the backlog grew.">
+        <div className="p2pt-scroll">
+          <table className="p2w-table p2mw-table p2pf-table" aria-label="New and closed tasks per period">
+            <thead><tr><th scope="col" />{periods.map((p) => <th key={p.key} scope="col">{p.label}</th>)}<th scope="col">Total</th></tr></thead>
+            <tbody>
+              <tr><th scope="row">New</th>{periods.map((p) => <td key={p.key}>{sumAt(all.raised, p.indexes) || '—'}</td>)}<td><strong>{sum(all.raised)}</strong></td></tr>
+              <tr><th scope="row">Closed</th>{periods.map((p) => <td key={p.key}>{sumAt(all.closed, p.indexes) || '—'}</td>)}<td><strong>{sum(all.closed)}</strong></td></tr>
+              <tr>
+                <th scope="row">Backlog change</th>
+                {periods.map((p) => { const n = sumAt(all.raised, p.indexes) - sumAt(all.closed, p.indexes); return <td key={p.key} className={n > 0 ? 'p2mw-attn' : undefined}>{n > 0 ? `+${n}` : n}</td>; })}
+                <td><strong>{sum(all.raised) - sum(all.closed) > 0 ? '+' : ''}{sum(all.raised) - sum(all.closed)}</strong></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </Section>
+    </>
+  );
+}
+
+// ---------------------------------------------------------------- 8. daily report
+
+/** The lines of a person's report, as a Team Lead writes their own daily report (2026-11-13). */
+function reportLines(p: ReportPerson, duty: (id: string) => string): Array<{ label: string; value: string }> {
+  const lines: Array<{ label: string; value: string }> = [];
+  const add = (label: string, n: number, always = false) => { if (n || always) lines.push({ label, value: String(n) }); };
+  const pc = p.role === 'PC';
+  add('Booking files updated', p.bookingFiles, pc);
+  add('Delivery files updated', p.deliveryFiles, pc);
+  add('Files reviewed', p.filesReviewed, !pc);
+  add('Journeys closed', p.journeysClosed, true);
+  add('Sent back', p.sentBack, !pc);
+  add('Breach', p.breach, !pc);
+  add('No breach', p.noBreach, !pc);
+  add('Payments verified', p.paymentsVerified);
+  add('Tasks closed', p.tasksClosed, true);
+  for (const d of p.duties) lines.push({ label: duty(d.scheduleId), value: `${d.done} of ${d.due} done${d.missed ? `, ${d.missed} missed` : ''}` });
+  return lines;
+}
+
+function DailyReport({ data, range }: { data: Performance; range: string }) {
+  const people = data.report!.people;
+  const [who, setWho] = useState('');
+  const person = people.find((p) => p.actorId === who) ?? people[0];
+  const titles = new Map(data.schedules.map((s) => [s.scheduleId, s.title]));
+  if (!person) return <SectionCard><p className="p2w-muted">Nobody to report on.</p></SectionCard>;
+  return (
+    <Section title={`Report: ${person.name || 'Name not recorded'}`} about={`What Verigence recorded for ${range}. Work done outside Verigence (meetings, trackers) is not in it unless it was a Task Manager task.`}
+      controls={people.length > 1 ? (
+        <label className="p2pf-pick">Person{' '}
+          <select value={person.actorId} onChange={(e) => setWho(e.target.value)}>
+            {people.map((p) => <option key={p.actorId} value={p.actorId}>{p.name || 'Name not recorded'} ({p.role})</option>)}
+          </select>
+        </label>
+      ) : undefined}>
+      <ol className="p2pf-report">
+        {reportLines(person, (id) => titles.get(id) ?? 'Duty').map((l) => <li key={l.label}>{l.label} – <strong>{l.value}</strong></li>)}
+        <li>Other (Task Manager tasks completed) – {person.other.length ? person.other.join('; ') : <span className="p2w-muted">none</span>}</li>
+      </ol>
     </Section>
   );
 }
@@ -256,11 +589,11 @@ function Trend({ data, periods, mode }: { data: Performance; periods: Period[]; 
 
 const share = (v: number | null) => (v == null ? '—' : `${v}%`);
 
-function Efficiency({ data, mode }: { data: Performance; mode: Mode }) {
+function Efficiency({ data, range }: { data: Performance; range: string }) {
   const rows = [...data.efficiency!.people].sort((a, b) => (b.closedShare ?? -1) - (a.closedShare ?? -1) || (a.name ?? '').localeCompare(b.name ?? ''));
   if (!rows.length) return null;
   return (
-    <Section title="PC efficiency" about={`Over the last ${mode === 'DAILY' ? '7 days' : '6 weeks'}: how much of what a PC starts gets finished, how fast, and how clean.`}>
+    <Section title="PC efficiency" about={`For ${range}: how much of what a PC starts gets finished, how fast, and how clean.`}>
       <div className="p2pt-scroll">
         <table className="p2w-table p2mw-table p2pf-table" aria-label="PC efficiency">
           <thead>
@@ -336,42 +669,60 @@ function Delinquency({ data }: { data: Performance }) {
   );
 }
 
+const shortDate = (iso: string) => new Date(`${iso}T00:00:00Z`).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', timeZone: 'UTC' });
+
 /**
- * Performance (product owner 2026-11-13), the five things a lead manages by: how much work is
- * pending; bookings and deliveries per dealership and outlet; how each PC, Reviewer and Team Lead
- * did day to day or week to week; the efficiency of each PC; and the delinquencies in daily and
- * weekly duties. A PC or Reviewer sees their own. A SuperAdmin chooses the sections each role sees.
+ * Performance (product owner 2026-11-13): what a lead manages by, one tab at a time over a date
+ * range -- the backlog; bookings; deliveries against the gate register; tasks new, closed and
+ * open; each person day to day or week to week; PC efficiency; delinquencies in daily and weekly
+ * duties; and a person's daily report. A PC or Reviewer sees their own. A SuperAdmin chooses the
+ * tabs each role sees. Only the open tab is read from the server.
  */
-export default function PerformanceView({ tenantId, accessToken, today, initialMode = 'DAILY' }: {
-  tenantId: string; accessToken: string | undefined; today: string; initialMode?: Mode;
+export default function PerformanceView({ tenantId, accessToken, today, initialTab = 'backlog' }: {
+  tenantId: string; accessToken: string | undefined; today: string; initialTab?: Tab;
 }) {
-  const [date, setDate] = useState(today);
-  const [mode, setMode] = useState<Mode>(initialMode);
+  const [from, setFrom] = useState(addDays(today, -6));
+  const [to, setTo] = useState(today);
+  const [modePicked, setModePicked] = useState<Mode | null>(null);
+  const [tab, setTab] = useState<Tab>(initialTab);
+  const span = daysBetween(from, to);
+  const valid = from <= to && to <= today && span <= 92;
+  const mode = modePicked ?? defaultMode(span);
+  const current = TABS.find((t) => t.key === tab) ?? TABS[0];
   const query = useQuery({
-    queryKey: ['p2-performance', tenantId, date, String(MODE_DAYS[mode])],
-    queryFn: () => getPerformance(tenantId, date, MODE_DAYS[mode], accessToken),
-    enabled: Boolean(tenantId && accessToken),
+    queryKey: ['p2-performance', tenantId, from, to, current.section],
+    queryFn: () => getPerformance(tenantId, from, to, current.section, accessToken),
+    enabled: Boolean(tenantId && accessToken && valid),
     // The server keeps the figures two minutes; asking more often gains nothing.
     staleTime: 120_000,
     refetchOnWindowFocus: false,
   });
   const data = query.data;
   const periods = useMemo(() => (data ? periodsOf(data.days, mode) : []), [data, mode]);
-  const shows = (key: SectionKey) => Boolean(data?.sections?.some((s) => s.key === key));
+  const allowed = data?.sections ? TABS.filter((t) => data.sections!.some((s) => s.key === t.section) && (!data.own || t.section !== 'flow')) : TABS;
+  const shown = allowed.some((t) => t.key === current.key);
+  const range = from === to ? shortDate(from) : `${shortDate(from)} to ${shortDate(to)}`;
+  const pick = (f: string, t: string) => { setFrom(f); setTo(t); setModePicked(null); };
 
   return (
     <>
       <div className="p2mw-controls">
         <span className="p2mw-range">
-          <button type="button" className="p2w-button p2w-button--ghost" aria-label="Previous day"
-            onClick={() => setDate(shiftPeriod('DAY', date, -1))}>‹</button>
-          <label>Up to <input type="date" value={date} max={today} onChange={(e) => e.target.value && setDate(e.target.value)} /></label>
-          <button type="button" className="p2w-button p2w-button--ghost" aria-label="Next day"
-            disabled={!hasNextPeriod('DAY', date, today)} onClick={() => setDate(shiftPeriod('DAY', date, 1))}>›</button>
-          <strong>{trackerLabel('DAY', date)}</strong>
-          {date !== today ? <button type="button" className="p2w-button p2w-button--secondary" onClick={() => setDate(today)}>Today</button> : null}
+          <label>From <input type="date" value={from} max={to} onChange={(e) => e.target.value && setFrom(e.target.value)} /></label>
+          <label>To <input type="date" value={to} min={from} max={today} onChange={(e) => e.target.value && setTo(e.target.value)} /></label>
+          <button type="button" className="p2w-button p2w-button--ghost" onClick={() => pick(today, today)}>Today</button>
+          <button type="button" className="p2w-button p2w-button--ghost" onClick={() => pick(addDays(today, -6), today)}>Last 7 days</button>
+          <button type="button" className="p2w-button p2w-button--ghost" onClick={() => pick(`${today.slice(0, 8)}01`, today)}>This month</button>
         </span>
-        <Segment label="Period" value={mode} options={MODES} onChange={setMode} />
+        <Segment label="Shown" value={mode} options={MODES} onChange={(m) => setModePicked(m)} />
+      </div>
+      {valid ? null : <div className="p2w-alert p2w-alert--error" role="alert">Choose a range of up to 92 days, ending today or earlier.</div>}
+
+      <div className="p2pt-tabs" role="tablist" aria-label="Performance">
+        {allowed.map((t) => (
+          <button key={t.key} type="button" role="tab" aria-selected={current.key === t.key}
+            className={current.key === t.key ? 'is-active' : undefined} onClick={() => setTab(t.key)}>{t.label}</button>
+        ))}
       </div>
 
       {query.isLoading ? <SectionCard><p className="p2w-muted">Counting…</p></SectionCard> : null}
@@ -384,16 +735,27 @@ export default function PerformanceView({ tenantId, accessToken, today, initialM
         </SectionCard>
       ) : null}
 
-      {data ? (
+      {data && shown ? (
         <>
           {data.own && !data.people.length ? <SectionCard><p className="p2w-muted">No outlet is mapped to you in this Project.</p></SectionCard> : null}
-          {shows('pending') && data.pending ? <Pending data={data} own={data.own} /> : null}
-          {shows('flow') && data.flow?.outlets.length ? <Flow data={data} periods={periods} /> : null}
-          {shows('trend') && data.people.length ? <Trend data={data} periods={periods} mode={mode} /> : null}
-          {shows('efficiency') && data.efficiency ? <Efficiency data={data} mode={mode} /> : null}
-          {shows('duties') && data.delinquency ? <Delinquency data={data} /> : null}
-          {data.sections && !data.sections.length ? <SectionCard><p className="p2w-muted">Nothing is switched on for your role here.</p></SectionCard> : null}
+          {tab === 'backlog' && data.pending ? <Pending data={data} own={data.own} /> : null}
+          {tab === 'bookings' && data.flow?.outlets.length ? <Bookings data={data} periods={periods} /> : null}
+          {tab === 'deliveries' && data.flow?.outlets.length ? <Deliveries data={data} periods={periods} /> : null}
+          {tab === 'uploads' && data.uploads ? <Uploads data={data} periods={periods} /> : null}
+          {tab === 'quality' && data.quality ? <Quality data={data} range={range} /> : null}
+          {tab === 'tasks' && data.tasks ? <Tasks data={data} periods={periods} /> : null}
+          {tab === 'trend' && data.people.length ? <Trend data={data} periods={periods} mode={mode} /> : null}
+          {tab === 'efficiency' && data.efficiency ? <Efficiency data={data} range={range} /> : null}
+          {tab === 'duties' && data.delinquency ? <Delinquency data={data} /> : null}
+          {tab === 'report' && data.report ? <DailyReport data={data} range={range} /> : null}
         </>
+      ) : null}
+      {data && !shown ? (
+        <SectionCard>
+          <p className="p2w-muted">
+            {allowed.length ? 'This tab is not switched on for your role. Choose another.' : 'Nothing is switched on for your role here.'}
+          </p>
+        </SectionCard>
       ) : null}
     </>
   );

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
-  addPending, datesText, dutySummary, flowOf, measuresFor, minutesText, pendingOf, periodsOf, sparkPoints, sumAt, trend, valueText,
+  addDays, addPending, datesText, daysBetween, defaultMode, dutySummary, flowOf, measuresFor, minutesText, pendingOf, periodsOf, sparkPoints, sumAt, trend, valueText,
   type Measure,
 } from './uc03Performance';
 
@@ -46,11 +46,14 @@ describe('periods, pending work and bookings / deliveries', () => {
   it('makes a column per day, or per Monday-to-Sunday week', () => {
     expect(periodsOf(days, 'DAILY').map((p) => p.label)).toEqual(['Sat 7', 'Sun 8', 'Mon 9', 'Tue 10']);
     expect(periodsOf(days, 'DAILY').map((p) => Boolean(p.off))).toEqual([false, true, false, false]);   // Sunday is off
-    // The part-week at the start is left out.
     const weeks = periodsOf(days, 'WEEKLY');
-    expect(weeks.map((p) => p.label)).toEqual(['Week of 9 Nov']);
-    expect(weeks.map((p) => p.indexes)).toEqual([[2, 3]]);
-    expect(sumAt([1, 2, 3, 4], weeks[0].indexes)).toBe(7);
+    expect(weeks.map((p) => p.label)).toEqual(['Week of 2 Nov', 'Week of 9 Nov']);
+    expect(weeks.map((p) => p.indexes)).toEqual([[0, 1], [2, 3]]);
+    expect(sumAt([1, 2, 3, 4], weeks[1].indexes)).toBe(7);
+    expect(addDays('2026-11-01', -1)).toBe('2026-10-31');
+    expect(daysBetween('2026-11-07', '2026-11-10')).toBe(4);
+    expect(defaultMode(7)).toBe('DAILY');
+    expect(defaultMode(30)).toBe('WEEKLY');
   });
 
   it('reads pending work: the total and what is older than three days', () => {
@@ -62,7 +65,7 @@ describe('periods, pending work and bookings / deliveries', () => {
   });
 
   it('adds bookings and deliveries over outlets and days', () => {
-    const day = { bookings: 2, deliveries: 1, onRegister: 3, inTool: 1, notNotified: 1, registerMissing: 0 };
+    const day = { bookings: 2, deliveries: 1, onRegister: 3, inTool: 1, notNotified: 1, notUploaded: 1, registerMissing: 0 };
     const total = flowOf([{ days: { '2026-11-09': day } }, { days: { '2026-11-09': day, '2026-11-10': day } }], ['2026-11-09']);
     expect(total.bookings).toBe(4);
     expect(total.onRegister - total.inTool).toBe(4);

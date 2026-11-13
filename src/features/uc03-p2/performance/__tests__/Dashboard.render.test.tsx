@@ -24,7 +24,12 @@ const team: Board = {
   pending: { title: 'Pending now', buckets: ['Today', '1-3 days', '4-7 days', 'Older'], kinds: [
     { key: 'tasksOpen', label: 'Open tasks (PC)', total: 9, buckets: [3, 2, 3, 1], within: null },
     { key: 'tasksOverdue', label: 'Overdue tasks', total: 4, buckets: [0, 2, 2, 0], within: 'tasksOpen' },
-    { key: 'awaitingDecision', label: 'Awaiting TL / PM', total: 0, buckets: [0, 0, 0, 0], within: null }] },
+    { key: 'awaitingDecision', label: 'Awaiting TL / PM', total: 0, buckets: [0, 0, 0, 0], within: null }],
+  cards: [{ key: 'pcs', title: 'PCs', sort: 'old', columns: [{ key: 'tasksOpen', label: 'Open tasks (PC)', kind: 'num' }, { key: 'old', label: 'Waiting over 3 days', kind: 'alert' }],
+    rows: [{ id: 'a', name: 'Ravi', sub: 'Rasulgarh', values: { tasksOpen: 6, old: 1 } }, { id: 'b', name: 'Asha', sub: 'Patia', values: { tasksOpen: 3, old: 3 } }] }] },
+  efficiency: { note: 'Efficiency is the plain average of four shares.', card: { key: 'efficiency', title: 'PCs', sort: 'score',
+    columns: [{ key: 'score', label: 'Efficiency', kind: 'score' }, { key: 'firstTime', label: 'Pages right first time', kind: 'pct' }],
+    rows: [{ id: 'a', name: 'Ravi', sub: 'Rasulgarh', values: { score: 81, firstTime: 96 } }, { id: 'b', name: 'Asha', sub: 'Patia', values: { score: 44, firstTime: 70 } }] } },
   attention: { total: 3, lines: [{ tone: 'bad', who: 'Patia', text: 'Gate register not uploaded on 2 days' }] },
   trend: { title: 'Bookings and deliveries', series: [{ name: 'Bookings uploaded', data: [5, 6, 7, 8, 9] },
     { name: 'Deliveries on gate register', kind: 'line', data: [4, 4, 4, 4, 4] }] },
@@ -37,7 +42,7 @@ const team: Board = {
   channels: { direct: 60, bulk: 30, drive: 10 },
 };
 const periods = periodsOf(days, 'DAILY');
-const VIEWS: View[] = ['overview', 'pending', 'team', 'uploads', 'tasks', 'duties'];
+const VIEWS: View[] = ['overview', 'pending', 'team', 'efficiency', 'uploads', 'tasks', 'duties'];
 const tab = (board: Board, view: View) => renderToString(
   <Dashboard board={board} view={view} periods={periods} asOf="2026-11-13T09:00:00Z" />,
 ).replaceAll('<!-- -->', '');
@@ -75,7 +80,13 @@ describe('The dashboard of each role', () => {
     expect(tab(team, 'uploads')).toContain('How files come in');
     expect(tab(team, 'uploads')).not.toContain('Needs attention');
     expect(tab(team, 'pending')).toContain('Pending now');
-    expect(VIEWS.map((v) => viewLabel(v, team))).toEqual(['Overview', 'Pending', 'Team and outlets', 'Uploads, failures and duplicates', 'Tasks', 'Duties']);
+    expect(VIEWS.map((v) => viewLabel(v, team))).toEqual(['Overview', 'Pending', 'Team and outlets', 'PC efficiency', 'Uploads, failures and duplicates', 'Tasks', 'Duties']);
+    // The backlog of each PC under the pending work, most waiting over three days first.
+    expect(tab(team, 'pending')).toMatch(/Backlog of each[\s\S]*Asha[\s\S]*Ravi/);
+    // Each PC's efficiency, the best first, with how it is calculated.
+    const efficiency = tab(team, 'efficiency');
+    expect(efficiency).toMatch(/Ravi[\s\S]*81%[\s\S]*Asha[\s\S]*44%/);
+    expect(efficiency).toContain('Efficiency is the plain average of four shares.');
     expect(viewLabel('pending', { ...team, view: 'PC' })).toBe('Waiting for me');
     expect(viewLabel('overview', { ...team, view: 'REVIEWER' })).toBe('What I did');
   });
@@ -87,7 +98,7 @@ describe('The dashboard of each role', () => {
     expect(html).not.toContain('Who is doing what');
     expect(html).not.toContain('Needs attention');
     expect(html).toContain('Bookings and deliveries');
-    expect(VIEWS.filter((v) => viewHas({ ...rest, widgets: ['kpis', 'trend'] }, v))).toEqual(['overview', 'uploads', 'tasks', 'duties']);
+    expect(VIEWS.filter((v) => viewHas({ ...rest, widgets: ['kpis', 'trend'] }, v))).toEqual(['overview', 'efficiency', 'uploads', 'tasks', 'duties']);
     expect(VIEWS.some((v) => viewHas({ view: 'TEAM', title: 'Team dashboard', period: '13 Nov', days, widgets: [] }, v))).toBe(false);
   });
 
@@ -100,7 +111,14 @@ describe('The dashboard of each role', () => {
       duties: { rows: [{ title: 'Daily gate register', frequency: 'DAILY', due: 5, onTime: 4, late: 0, notDone: 1, pending: 0,
         days: days.map((date, i) => ({ date, due: 1, onTime: i === 2 ? 0 : 1, late: 0, notDone: i === 2 ? 1 : 0, pending: 0 })), missedBy: [] }], planned: [] },
       peers: { title: 'Me and my peers, a working day', people: 12, rows: [{ key: 'pagesRejected', label: 'Pages rejected', me: 8, peers: 3 }] },
+      efficiency: { note: 'Efficiency is the plain average of four shares.', mine: { score: 72, peers: 80, daysToClose: 2.5, perDay: 6.4, daysWorked: 5,
+        parts: [{ key: 'firstTime', label: 'Pages right first time', value: 88, detail: '12 of 100 pages rejected' },
+          { key: 'inTime', label: 'Tasks closed in time', value: null, detail: '0 of 0 tasks with a due time' }] } },
     });
+    expect(html).toContain('My efficiency');
+    expect(html).toContain('72%');
+    expect(html).toContain('the middle of my peers is 80%');
+    expect(html).toContain('12 of 100 pages rejected');
     expect(html).toContain('My dashboard');
     expect(html).toContain('Nothing is waiting.');
     expect(html).toContain('My duties');

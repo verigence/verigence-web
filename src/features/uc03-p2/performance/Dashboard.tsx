@@ -24,13 +24,14 @@ const FREQUENCY: Record<string, string> = { DAILY: 'Daily', WEEKLY: 'Weekly', MO
 const TONE_WORD: Record<string, string> = { good: 'Good', warn: 'Watch', bad: 'Act' };
 const shortDate = (iso: string) => new Date(`${iso}T00:00:00Z`).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', timeZone: 'UTC' });
 /** The tabs of a dashboard (product owner 2026-11-13: "make tabs to it instead of showing in one page all"). */
-export type View = 'overview' | 'pending' | 'team' | 'uploads' | 'tasks' | 'duties';
+export type View = 'overview' | 'pending' | 'team' | 'efficiency' | 'uploads' | 'tasks' | 'duties';
 
 /** Whether the server sent anything for a tab (a SuperAdmin may have hidden its blocks for the role). */
 export function viewHas(board: Board, view: View): boolean {
   if (view === 'overview') return Boolean(board.kpis?.tiles.length || board.attention || board.trend || board.peers);
   if (view === 'pending') return Boolean(board.pending);
   if (view === 'team') return Boolean(board.scorecards?.length);
+  if (view === 'efficiency') return Boolean(board.efficiency?.card?.rows.length || board.efficiency?.mine);
   if (view === 'uploads') return Boolean(board.channels || board.quality);
   if (view === 'tasks') return Boolean(board.tasks);
   return Boolean(board.duties && (board.duties.rows.length || board.duties.planned.length));
@@ -41,6 +42,7 @@ export function viewLabel(view: View, board?: Board): string {
   if (view === 'overview') return own ? 'What I did' : 'Overview';
   if (view === 'pending') return board?.view === 'PC' ? 'Waiting for me' : board?.view === 'REVIEWER' ? 'Waiting for review' : 'Pending';
   if (view === 'team') return own ? 'My outlets' : 'Team and outlets';
+  if (view === 'efficiency') return own ? 'My efficiency' : 'PC efficiency';
   if (view === 'uploads') return 'Uploads, failures and duplicates';
   if (view === 'tasks') return 'Tasks';
   return own ? 'My duties' : 'Duties';
@@ -160,6 +162,16 @@ function Tasks({ board, periods }: { board: Board; periods: Period[] }) {
 
 function Cell({ column, value, max }: { column: DashColumn; value: number | null | undefined; max: number }) {
   if (value == null) return <td className="p2db-zero">—</td>;
+  if (column.kind === 'score') {
+    return (
+      <td>
+        <span className="p2db-barcell">
+          <span className={`p2db-barcell__n${value < 50 ? ' p2db-cell--bad' : value < 75 ? ' p2db-cell--warn' : ''}`}>{value}%</span>
+          <span className="p2db-barcell__track p2db-barcell__track--wide"><span style={{ width: `${Math.min(100, value)}%` }} /></span>
+        </span>
+      </td>
+    );
+  }
   if (column.kind === 'pct') {
     return <td className={value < 70 ? 'p2db-cell--bad' : value < 90 ? 'p2db-cell--warn' : undefined}>{value}%</td>;
   }
@@ -241,16 +253,44 @@ function Scorecard({ card }: { card: DashCard }) {
   );
 }
 
-function Scorecards({ board }: { board: Board }) {
-  const cards = board.scorecards!;
+function Scorecards({ cards, title, about, children }: { cards: DashCard[]; title?: string; about?: string; children?: ReactNode }) {
   const [picked, setPicked] = useState(cards[0].key);
   const card = cards.find((c) => c.key === picked) ?? cards[0];
   return (
-    <Panel title={board.view === 'TEAM' ? 'Who is doing what' : card.title}
-      about={board.view === 'TEAM' ? `${board.period}. Work done in the period beside what is waiting now. Click a heading to sort.` : undefined}
+    <Panel title={title ?? card.title} about={about}
       action={cards.length > 1 ? <Segment label="Scorecard of" value={card.key} options={cards.map((c) => ({ key: c.key, label: c.title }))} onChange={setPicked} /> : undefined}>
       <Scorecard key={card.key} card={card} />
+      {children}
     </Panel>
+  );
+}
+
+/** A PC's own efficiency: the score, the four shares it is the average of, and the peers' middle. */
+function MyEfficiency({ board }: { board: Board }) {
+  const mine = board.efficiency!.mine!;
+  return (
+    <>
+      <p className="p2db-headline">
+        <strong className={mine.score != null && mine.score < 50 ? 'p2db-cell--bad' : mine.score != null && mine.score < 75 ? 'p2db-cell--warn' : undefined}>
+          {mine.score == null ? '—' : `${mine.score}%`}
+        </strong>
+        <span>my efficiency, {board.period}{mine.peers != null ? <><br />the middle of my peers is {mine.peers}% (nobody is named)</> : null}</span>
+      </p>
+      <ul className="p2db-bars p2db-bars--wide">
+        {mine.parts.map((part) => (
+          <li key={part.key}>
+            <span>{part.label}<em>{part.detail}</em></span>
+            <span className="p2db-bars__track"><span style={{ width: `${part.value ?? 0}%` }} /></span>
+            <b>{part.value == null ? '—' : `${part.value}%`}</b>
+          </li>
+        ))}
+      </ul>
+      <dl className="p2db-facts p2db-facts--three">
+        <div><dt>Days to close a delivery file</dt><dd>{mine.daysToClose ?? '—'}</dd></div>
+        <div><dt>Journeys a working day</dt><dd>{mine.perDay ?? '—'}</dd></div>
+        <div><dt>Days worked</dt><dd>{mine.daysWorked}</dd></div>
+      </dl>
+    </>
   );
 }
 
@@ -421,12 +461,35 @@ export default function Dashboard({ board, view, periods, asOf }: { board: Board
     );
   } else if (view === 'pending' && board.pending) {
     body = (
-      <div className="p2db-row">
-        <Panel title={board.pending.title} about="Whatever the dates above: what is waiting right now, and how long it has waited."><Pending board={board} /></Panel>
-      </div>
+      <>
+        <div className="p2db-row">
+          <Panel title={board.pending.title} about="Whatever the dates above: what is waiting right now, and how long it has waited."><Pending board={board} /></Panel>
+        </div>
+        {board.pending.cards?.length ? (
+          <div className="p2db-row">
+            <Scorecards cards={board.pending.cards} title="Backlog of each" about="What is waiting right now. Click a heading to sort." />
+          </div>
+        ) : null}
+      </>
     );
   } else if (view === 'team' && board.scorecards?.length) {
-    body = <div className="p2db-row"><Scorecards board={board} /></div>;
+    body = (
+      <div className="p2db-row">
+        <Scorecards cards={board.scorecards} title={own ? undefined : 'Who is doing what'}
+          about={own ? undefined : `${board.period}. Work done in the period beside what is waiting now. Click a heading to sort.`} />
+      </div>
+    );
+  } else if (view === 'efficiency' && board.efficiency) {
+    body = (
+      <div className="p2db-row">
+        {board.efficiency.card?.rows.length ? (
+          <Scorecards cards={[board.efficiency.card]} title="Efficiency of each PC" about={`${board.period}. Click a heading to sort.`}>
+            <p className="p2db-note">{board.efficiency.note}</p>
+          </Scorecards>
+        ) : null}
+        {board.efficiency.mine ? <Panel title="My efficiency" about={board.efficiency.note}><MyEfficiency board={board} /></Panel> : null}
+      </div>
+    );
   } else if (view === 'uploads') {
     body = (
       <div className="p2db-row">

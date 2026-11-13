@@ -39,22 +39,23 @@ const MODES: Array<{ key: Mode; label: string }> = [
 export type Tab = 'backlog' | 'bookings' | 'deliveries' | 'uploads' | 'quality' | 'tasks' | 'trend' | 'efficiency' | 'duties';
 /** mine: what the button reads for a PC or Reviewer, whose detail is their own row. */
 const TABS: Array<{ key: Tab; label: string; mine?: string; section: SectionKey }> = [
-  { key: 'backlog', label: 'By outlet and person', mine: 'As a table', section: 'pending' },
+  { key: 'backlog', label: 'Each kind with what is over 3 days', mine: 'As a table', section: 'pending' },
   { key: 'bookings', label: 'Bookings by outlet', section: 'flow' },
   { key: 'deliveries', label: 'Deliveries by outlet', section: 'flow' },
   { key: 'uploads', label: 'Uploads by person and day', mine: 'My uploads, day by day', section: 'uploads' },
   { key: 'quality', label: 'Failures and duplicates by person', mine: 'As a table', section: 'quality' },
   { key: 'tasks', label: 'Tasks by outlet and person', mine: 'My tasks, day by day', section: 'tasks' },
   { key: 'trend', label: 'Each person, day by day', mine: 'My figures, day by day', section: 'trend' },
-  { key: 'efficiency', label: 'PC efficiency', mine: 'My efficiency', section: 'efficiency' },
+  { key: 'efficiency', label: 'The counts behind it', mine: 'The counts behind it', section: 'efficiency' },
   { key: 'duties', label: 'Duties by person', mine: 'As a table', section: 'duties' },
 ];
 /** The dashboard, a tab at a time (product owner 2026-11-13: "can you make tabs to it instead of
  *  showing in one page all"), and the detail each tab can open. */
 const VIEWS: Array<{ key: View; details: Tab[] }> = [
-  { key: 'overview', details: ['bookings', 'deliveries', 'trend', 'efficiency'] },
+  { key: 'overview', details: ['bookings', 'deliveries', 'trend'] },
   { key: 'pending', details: ['backlog'] },
   { key: 'team', details: [] },
+  { key: 'efficiency', details: ['efficiency'] },
   { key: 'uploads', details: ['uploads', 'quality'] },
   { key: 'tasks', details: ['tasks'] },
   { key: 'duties', details: ['duties'] },

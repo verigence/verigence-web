@@ -93,7 +93,8 @@ export type DashTile = { key: string; label: string; value: number | string; hin
 /** within: a kind counted inside another (overdue tasks inside open tasks), shown under it. */
 export type DashPendingKind = { key: string; label: string; total: number; buckets: number[]; within: string | null };
 export type DashSeries = { name: string; data: number[]; kind?: 'line' };
-export type DashColumnKind = 'bar' | 'num' | 'alert' | 'warn' | 'pct';
+/** score: a share out of 100 drawn with its bar (a PC's efficiency). */
+export type DashColumnKind = 'bar' | 'num' | 'alert' | 'warn' | 'pct' | 'score';
 export type DashColumn = { key: string; label: string; kind: DashColumnKind };
 export type DashRow = { id: string; name: string; sub: string; spark?: number[]; values: Record<string, number | null> };
 export type DashCard = { key: string; title: string; sort: string; spark?: string; columns: DashColumn[]; rows: DashRow[] };
@@ -110,7 +111,16 @@ export type DashQuality = {
 export type Dashboard = {
   view: 'PC' | 'REVIEWER' | 'TEAM'; title: string; period: string; days: string[]; widgets: string[];
   kpis?: { title: string; tiles: DashTile[] };
-  pending?: { title: string; buckets: string[]; kinds: DashPendingKind[] };
+  /** cards: the backlog of each PC, outlet and dealership (a lead's view). */
+  pending?: { title: string; buckets: string[]; kinds: DashPendingKind[]; cards?: DashCard[] };
+  /** A PC's efficiency: the plain average of the shares there is something to measure for. */
+  efficiency?: {
+    note: string; card?: DashCard;
+    mine?: {
+      score: number | null; peers: number | null; daysToClose: number | null; perDay: number | null; daysWorked: number;
+      parts: Array<{ key: string; label: string; value: number | null; detail: string }>;
+    };
+  };
   attention?: { total: number; lines: Array<{ tone: 'bad' | 'warn'; who: string; text: string }> };
   trend?: { title: string; series: DashSeries[] };
   tasks?: { raised: number[]; closed: number[]; open: number; overdue: number };
@@ -136,7 +146,7 @@ export function sortRows(rows: DashRow[], key: string, descending: boolean): Das
 export function cardTotals(card: DashCard): Record<string, number | null> {
   const out: Record<string, number | null> = {};
   for (const column of card.columns) {
-    out[column.key] = column.kind === 'pct' ? null
+    out[column.key] = column.kind === 'pct' || column.kind === 'score' ? null
       : Math.round(card.rows.reduce((n, r) => n + (r.values[column.key] ?? 0), 0) * 10) / 10;
   }
   return out;

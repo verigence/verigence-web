@@ -50,7 +50,7 @@ type ViewKey = NonNullable<Parameters<typeof PerformanceView>[0]['initialView']>
 const SECTION: Record<TabKey, string> = { backlog: 'pending', bookings: 'flow', deliveries: 'flow', uploads: 'uploads', quality: 'quality', tasks: 'tasks', trend: 'trend',
   efficiency: 'efficiency', duties: 'duties' };
 const VIEW: Record<TabKey, ViewKey> = { backlog: 'pending', bookings: 'overview', deliveries: 'overview', uploads: 'uploads', quality: 'uploads', tasks: 'tasks', trend: 'overview',
-  efficiency: 'overview', duties: 'duties' };
+  efficiency: 'efficiency', duties: 'duties' };
 
 /** The detail under a dashboard tab, opened. */
 function render(data: Performance, tab: TabKey, dashboard?: Performance): string {
@@ -70,10 +70,10 @@ describe('Performance view', () => {
     expect(html).toContain('value="2026-11-07"');
     expect(html).toContain('value="2026-11-13"');
     // The dashboard a tab at a time; the detail of the open tab is a button under it.
-    for (const tab of ['Overview', 'Pending', 'Uploads, failures and duplicates', 'Tasks', 'Duties']) {
+    for (const tab of ['Overview', 'Pending', 'PC efficiency', 'Uploads, failures and duplicates', 'Tasks', 'Duties']) {
       expect(html).toMatch(new RegExp(`role="tab"[^>]*>${tab}<`));
     }
-    expect(html).toMatch(/aria-pressed="true"[^>]*>By outlet and person</);
+    expect(html).toMatch(/aria-pressed="true"[^>]*>Each kind with what is over 3 days</);
     expect(html).not.toContain('Bookings by outlet');
     // The backlog, with what is older than three days; nothing of the other tabs.
     expect(html).toContain('Deliveries not uploaded');
@@ -126,7 +126,7 @@ describe('Performance view', () => {
     expect(html).toMatch(/role="tab"[^>]*>Overview</);
     expect(html).toMatch(/aria-pressed="true"[^>]*>Each person, day by day</);
     expect(html).not.toMatch(/role="tab"[^>]*>Pending</);
-    expect(html).not.toContain('PC efficiency');
+    expect(html).not.toMatch(/role="tab"[^>]*>PC efficiency</);
   });
 
   it('opens on the dashboard of the role, a tab at a time, and reads no detail until asked', () => {

@@ -224,9 +224,11 @@ export function monthLabel(month: string): string {
 
 /** The Project Tracker is the one place for a Team Lead, PM or Executive: the tracker itself,
  *  the Daily processing report and the supervisor's Daily gate pass. */
-export type TrackerTab = 'tracker' | 'daily-processing' | 'gate-pass';
+export type TrackerTab = 'tracker' | 'performance' | 'daily-processing' | 'gate-pass';
 export const TRACKER_TABS: Array<{ key: TrackerTab; label: string }> = [
   { key: 'tracker', label: 'Project tracker' },
+  // How the team and each person is doing against their usual and their peers (2026-11-13).
+  { key: 'performance', label: 'Performance' },
   { key: 'daily-processing', label: 'Daily processing' },
   { key: 'gate-pass', label: 'Daily gate pass' },
 ];

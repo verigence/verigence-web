@@ -11,6 +11,7 @@ import '../styles/uc03-p2-gate-pass.css';
 import PageHeader from '../components/PageHeader';
 import SectionCard from '../components/SectionCard';
 import SupervisorGatePass from '../features/uc03-p2/gatepass/SupervisorGatePass';
+import PerformanceView from '../features/uc03-p2/performance/PerformanceView';
 import { Segment, Tile } from '../features/uc03-p2/my-work/MyWorkParts';
 import { DailyProcessingReport } from './P2DailyProcessingReportPage';
 import { istDate } from '../services/audit-core/uc03MyWork';
@@ -715,6 +716,7 @@ export default function P2ProjectTrackerPage() {
       ) : (
         <div role="tabpanel" id={`p2pt-panel-${tab}`} aria-labelledby={`p2pt-tab-${tab}`} className="screen-stack">
           {tab === 'tracker' ? <TrackerView tenantId={tenantId} accessToken={accessToken} role={role} today={today} /> : null}
+          {tab === 'performance' ? <PerformanceView tenantId={tenantId} accessToken={accessToken} today={today} /> : null}
           {tab === 'daily-processing' ? <DailyProcessingTab today={today} /> : null}
           {tab === 'gate-pass' ? <SupervisorGatePass tenantId={tenantId} accessToken={accessToken} /> : null}
         </div>

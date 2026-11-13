@@ -1,20 +1,45 @@
-/* Performance (2026-11-13): a person's day against their usual and their peers. */
-.p2pf-table td { vertical-align: top; min-width: 150px; }
-.p2pf-value { display: flex; align-items: center; gap: 8px; }
-.p2pf-value strong { font-size: 18px; line-height: 1.2; }
-.p2pf-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 4px; font-size: 12px; }
+/* Performance (2026-11-13): cards for a dealership, an outlet or a person -- the day as a bar,
+   the usual as a tick on it, and a tag against peers. Carbon tiles and tags. */
+.p2pf-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 16px; }
+.p2pf-grid--one { grid-template-columns: minmax(0, 520px); }
+.p2pf-unit {
+  display: grid; gap: 10px; align-content: start; padding: 16px; background: #fff;
+  border: 1px solid var(--p2w-line, #dde3ea); border-top: 3px solid var(--p2mw-navy, #003a82);
+}
+.p2pf-unit--idle { border-top-color: #c6c6c6; background: #fafafa; }
+.p2pf-unit__head { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+.p2pf-unit__head h4 { margin: 0; font-size: 16px; line-height: 1.3; }
 .p2pf-sub { font-size: 12px; }
-.p2pf-spark { flex: 0 0 auto; width: 72px; height: 20px; color: var(--p2mw-navy, #003a82); }
-.p2pf-spark--empty { display: inline-block; border-bottom: 1px dashed var(--p2w-line, #c6c6c6); height: 10px; }
-.p2pf-trend { white-space: nowrap; color: var(--p2w-muted, #525252); }
+.p2pf-line {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "label value" "bar bar" "trend trend";
+  column-gap: 8px; row-gap: 3px; align-items: baseline;
+}
+.p2pf-line__label { grid-area: label; font-size: 13px; color: var(--p2w-muted, #525252); }
+.p2pf-line__value { grid-area: value; font-size: 18px; line-height: 1.1; }
+.p2pf-bar { grid-area: bar; position: relative; height: 8px; background: #e8edf3; }
+.p2pf-bar__fill { position: absolute; inset: 0 auto 0 0; background: var(--p2mw-navy, #003a82); }
+.p2pf-bar--quality .p2pf-bar__fill { background: #b28600; }
+.p2pf-bar__usual { position: absolute; top: -3px; bottom: -3px; width: 2px; margin-left: -1px; background: #161616; }
+.p2pf-trend { grid-area: trend; font-size: 12px; color: var(--p2w-muted, #525252); min-height: 14px; }
 .p2pf-trend--good { color: #0e6027; }
 .p2pf-trend--poor { color: #a2191f; }
-.p2pf-idle th, .p2pf-idle td { color: var(--p2w-muted, #6f6f6f); }
-.p2pf-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px; }
-.p2pf-card {
-  display: grid; gap: 6px; padding: 12px 14px; border: 1px solid var(--p2w-line, #dde3ea);
-  border-top: 3px solid var(--p2mw-navy, #003a82); background: #fff;
+.p2pf-unit__foot {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap;
+  padding-top: 8px; border-top: 1px solid var(--p2w-line, #e0e0e0); font-size: 12px;
 }
+.p2pf-spark { flex: 0 0 auto; width: 72px; height: 20px; color: var(--p2mw-navy, #003a82); }
+.p2pf-drill { min-height: 32px; padding: 0 8px; font-weight: 600; }
+.p2pf-filter { margin: 0; font-size: 14px; }
+.p2pf-attention { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.p2pf-attention__item { padding: 8px 12px; border-left: 3px solid #f1c21b; background: #fcf4d6; font-size: 14px; }
+.p2pf-attention__item--bad { border-left-color: #da1e28; background: #fff1f1; }
+.p2pf-allgood { margin: 0; padding: 8px 12px; border-left: 3px solid #24a148; background: #defbe6; font-size: 14px; }
+.p2pf-duties { display: grid; gap: 8px; }
+.p2pf-duty {
+  display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 16px; padding: 10px 12px;
+  border: 1px solid var(--p2w-line, #dde3ea); background: #fff; font-size: 14px;
+}
+.p2pf-duty--planned { background: #fafafa; border-style: dashed; }
 @media (max-width: 640px) {
-  .p2pf-table td { min-width: 130px; }
+  .p2pf-grid { grid-template-columns: minmax(0, 1fr); }
 }

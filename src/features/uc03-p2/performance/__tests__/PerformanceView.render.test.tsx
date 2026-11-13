@@ -48,7 +48,8 @@ describe('Performance view', () => {
     expect(html).toContain('Above peers');
     expect(html).toContain('Below peers');
     expect(html).toContain('3h 20m');
-    expect(html).toContain('Peers&#x27; median');
+    expect(html).toContain('Needs attention');
+    expect(html).toContain('1 duty not done in the period');
     expect(html).toContain('Daily gate pass');
     expect(html).toContain('Cash register');
     expect(html).toContain('Not set up yet');
@@ -59,7 +60,7 @@ describe('Performance view', () => {
     expect(html).toContain('My day');
     expect(html).toContain('Nobody else is named.');
     expect(html).toContain('Below peers');
+    expect(html).toContain('Asha');
     expect(html).not.toContain('Ravi');
-    expect(html).not.toContain('Asha');
   });
 });

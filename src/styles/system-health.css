@@ -177,3 +177,11 @@
 .sh-archive-facts span { font-size: .78rem; color: var(--p2w-muted, #64748b); }
 .sh-archive-table tr.sh-archive-night td { border-top: 2px solid var(--p2w-line, #d8dee8); }
 .sh-archive-error { max-width: 360px; white-space: normal; font-size: .8rem; color: var(--p2w-danger, #b42318); }
+
+/* Jobs tab (product owner 2026-11-13): every job on a clock, the daily ones with a time to set. */
+.sh-jobs-table td { vertical-align: top; white-space: normal; }
+.sh-jobs-table td small { display: block; color: var(--p2w-muted, #5b6676); font-size: .8rem; max-width: 520px; }
+.sh-jobs-time { display: inline-flex; gap: 8px; align-items: center; }
+.sh-jobs-time input[type="time"] { min-height: 32px; padding: 2px 8px; border: 1px solid var(--p2w-line, #d8dee8); border-radius: 4px; font: inherit; }
+.sh-jobs-flag { display: inline-flex; gap: 6px; align-items: center; white-space: nowrap; }
+.sh-jobs-flag--warn { color: #8a5a00; }

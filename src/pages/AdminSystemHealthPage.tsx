@@ -10,6 +10,7 @@ import PageHeader from '../components/PageHeader';
 import SectionCard from '../components/SectionCard';
 import DailyTrendTab from '../features/admin/systemHealth/DailyTrendTab';
 import DataArchiveTab from '../features/admin/systemHealth/DataArchiveTab';
+import JobsTab from '../features/admin/systemHealth/JobsTab';
 import FailedRequestsTab from '../features/admin/systemHealth/FailedRequestsTab';
 import InfrastructureTab from '../features/admin/systemHealth/InfrastructureTab';
 import UploadPauseControl from '../features/admin/systemHealth/UploadPauseControl';
@@ -32,12 +33,14 @@ import { useSessionStore } from '../store/sessionStore';
  * the server enforces it.
  */
 
-type HealthTab = 'overview' | 'errors' | 'infra' | 'daily' | 'archive';
+type HealthTab = 'overview' | 'errors' | 'infra' | 'daily' | 'archive' | 'jobs';
 const TABS: Array<{ key: HealthTab; label: string }> = [
   { key: 'overview', label: 'Overview' }, { key: 'errors', label: 'Failed requests' },
   { key: 'infra', label: 'Cloudflare & Neon' }, { key: 'daily', label: 'Daily trend' },
   // The nightly data archive (product owner 2026-11-09).
   { key: 'archive', label: 'Data archive' },
+  // Every job on a clock, and the time of the daily ones (product owner 2026-11-13).
+  { key: 'jobs', label: 'Jobs' },
 ];
 
 const WINDOWS: Array<{ hours: number; label: string }> = [
@@ -280,8 +283,9 @@ export default function AdminSystemHealthPage() {
 
       {tab === 'daily' && accessToken ? <DailyTrendTab accessToken={accessToken} /> : null}
       {tab === 'archive' && accessToken ? <DataArchiveTab accessToken={accessToken} /> : null}
+      {tab === 'jobs' && accessToken ? <JobsTab accessToken={accessToken} /> : null}
 
-      {tab !== 'daily' && tab !== 'archive' ? (
+      {tab !== 'daily' && tab !== 'archive' && tab !== 'jobs' ? (
       <div className="p2w-listbar">
         <div className="p2w-segment" role="tablist" aria-label="Window">
           {WINDOWS.map((w) => (

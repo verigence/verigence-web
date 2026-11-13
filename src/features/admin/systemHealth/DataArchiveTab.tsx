@@ -67,7 +67,7 @@ export default function DataArchiveTab({ accessToken }: { accessToken: string })
           <SectionCard>
             <div className="p2w-card__title">
               <h3>Runs by night</h3>
-              <p className="p2w-muted">One row per Project and table each night (03:00 India time). Failed runs keep every row they had not archived.</p>
+              <p className="p2w-muted">One row per Project and table each night (at the Data archive job&apos;s time; see the Jobs tab). Failed runs keep every row they had not archived.</p>
             </div>
             {data.nights.length === 0 ? <p className="p2w-muted">No archive run in these nights.</p> : (
               <div className="p2dr-scroll">

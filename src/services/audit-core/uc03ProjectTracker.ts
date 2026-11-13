@@ -226,14 +226,23 @@ export function monthLabel(month: string): string {
  *  duplicates (2026-11-13: "Project Tracker has so much of duplicate information"): Performance, then
  *  the two pieces the product owner keeps -- work done on tasks with the delivery files closed, and
  *  deliveries against delivery files. The old tracker figures and the rest of the Daily processing and
- *  Daily gate pass tabs repeated Performance. The keys stay, so old addresses still open their tab. */
-export type TrackerTab = 'performance' | 'daily-processing' | 'gate-pass';
-export const TRACKER_TABS: Array<{ key: TrackerTab; label: string }> = [
+ *  Daily gate pass tabs repeated Performance. The keys stay, so old addresses still open their tab.
+ *  Journeys: the Dealership-wise / Outlet-wise / PC-wise panels moved off the TL's landing page; DMS
+ *  dumps: the dealers' daily dumps like the gate register, the Team Lead's only (both 2026-11-13). */
+export type TrackerTab = 'performance' | 'journeys' | 'daily-processing' | 'gate-pass' | 'dms-dumps';
+export const TRACKER_TABS: Array<{ key: TrackerTab; label: string; roles?: string[] }> = [
   // How the team and each person is doing against their usual and their peers (2026-11-13).
   { key: 'performance', label: 'Performance' },
+  { key: 'journeys', label: 'Journeys' },
   { key: 'daily-processing', label: 'Work done and files closed' },
   { key: 'gate-pass', label: 'Deliveries and delivery files' },
+  { key: 'dms-dumps', label: 'DMS dumps', roles: ['TL'] },
 ];
+
+/** The tabs a role sees. */
+export function trackerTabsFor(role: string | null | undefined): typeof TRACKER_TABS {
+  return TRACKER_TABS.filter((t) => !t.roles || t.roles.includes(String(role ?? '')));
+}
 
 export const PROJECT_TRACKER_PATH = '/p2/project-tracker';
 

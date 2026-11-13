@@ -14,6 +14,7 @@ import {
   trackerTabFromSearch,
   trackerTabHref,
   TRACKER_TABS,
+  trackerTabsFor,
 } from './uc03ProjectTracker';
 
 describe('Project Tracker periods', () => {
@@ -98,8 +99,14 @@ describe('Project Tracker tabs', () => {
     expect(dailyProcessingDay(new URLSearchParams('day=bad'), today)).toBe(today);
   });
 
-  it('keeps only Performance and the two pieces the product owner keeps (2026-11-13)', () => {
-    expect(TRACKER_TABS.map((t) => t.label)).toEqual(['Performance', 'Work done and files closed', 'Deliveries and delivery files']);
+  it('keeps Performance and the two pieces the product owner keeps, with Journeys and the DMS dumps (2026-11-13)', () => {
+    // Journeys: the Dealership / Outlet / PC-wise panels moved off the TL landing page; DMS dumps:
+    // the daily dumps like the gate register, the Team Lead's only.
+    expect(TRACKER_TABS.map((t) => t.label)).toEqual(['Performance', 'Journeys', 'Work done and files closed',
+      'Deliveries and delivery files', 'DMS dumps']);
+    expect(trackerTabsFor('TL').map((t) => t.key)).toContain('dms-dumps');
+    expect(trackerTabsFor('PM').map((t) => t.key)).not.toContain('dms-dumps');
+    expect(trackerTabsFor('EXECUTIVE').map((t) => t.key)).not.toContain('dms-dumps');
   });
 
   it('old addresses open the matching tab', () => {

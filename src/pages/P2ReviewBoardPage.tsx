@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { PAGE_SIZE, Pager } from '../features/uc03-p2/bookings/JourneyListTabs';
+import { istMonth, monthsUpTo } from '../services/audit-core/uc03ProjectTracker';
 import { Link } from 'react-router-dom';
 import '../styles/uc03-p2.css';
 import '../styles/uc03-p2-workspace.css';
@@ -224,6 +226,13 @@ function OutletBlock({
 
 type GroupBy = 'DAY' | 'PC';
 
+/** The first and last day of a month (YYYY-MM). */
+function monthRange(month: string): [string, string] {
+  const [y, m] = month.split('-').map(Number);
+  const last = new Date(Date.UTC(y, m, 0)).getUTCDate();
+  return [`${month}-01`, `${month}-${String(last).padStart(2, '0')}`];
+}
+
 /**
  * The Reviewer's board: every journey in the outlets they are mapped to,
  * split by dealership and outlet, then by upload day or by PC.
@@ -243,8 +252,20 @@ export default function P2ReviewBoardPage() {
   // Outlet and upload-date pickers: a Reviewer works one outlet and one day (or
   // a range of days) at a time, oldest first (product owner 2026-10-23).
   const [outletId, setOutletId] = useState('');
-  const [dateFrom, setDateFrom] = useState('');
-  const [dateTo, setDateTo] = useState('');
+  // The current month by default, with a month picker (product owner 2026-11-13: "show max 50
+  // records then do pagination and show for the current month, give month as filter").
+  const currentMonth = useMemo(() => istMonth(), []);
+  const months = useMemo(() => monthsUpTo(currentMonth), [currentMonth]);
+  const [month, setMonth] = useState(currentMonth);
+  const [dateFrom, setDateFrom] = useState(() => monthRange(currentMonth)[0]);
+  const [dateTo, setDateTo] = useState(() => monthRange(currentMonth)[1]);
+  const [page, setPage] = useState(0);
+  const chooseMonth = (value: string) => {
+    setMonth(value);
+    const [from, to] = value ? monthRange(value) : ['', ''];
+    setDateFrom(from);
+    setDateTo(to);
+  };
   // Dealership and PC narrow what was read (product owner 2026-10-23: by
   // dealership, outlet, date and PC). Both apply to the rows the board returned;
   // the outlet and date pickers are the ones sent to the server.
@@ -266,7 +287,7 @@ export default function P2ReviewBoardPage() {
   const searching = search.length > 0;
   const boardState: ReviewerBoardState = searching ? 'all' : state;
   const rangeReversed = Boolean(dateFrom && dateTo && dateFrom > dateTo);
-  const filtered = Boolean(outletId || dateFrom || dateTo || dealerId || pcName !== null || searching);
+  const filtered = Boolean(outletId || month !== currentMonth || dealerId || pcName !== null || searching);
 
   const query = useQuery({
     queryKey: ['p2-reviewer-board', tenantId, boardState, outletId, dateFrom, dateTo, search],
@@ -325,6 +346,28 @@ export default function P2ReviewBoardPage() {
     return sections;
   }, [outlets]);
   const shownJourneys = outlets.reduce((sum, group) => sum + group.journeys.length, 0);
+  // 50 journeys a page, in board order (dealership, outlet, then the board's own order).
+  const pages = Math.max(1, Math.ceil(shownJourneys / PAGE_SIZE));
+  const listKey = JSON.stringify([boardState, outletId, dateFrom, dateTo, search, dealerId, pcName]);
+  useEffect(() => { setPage(0); }, [listKey]);
+  const pageSections = useMemo(() => {
+    let skip = page * PAGE_SIZE;
+    let take = PAGE_SIZE;
+    const out: typeof dealerSections = [];
+    for (const section of dealerSections) {
+      const kept: ReviewerOutletGroup[] = [];
+      for (const group of section.outlets) {
+        if (take <= 0) break;
+        if (skip >= group.journeys.length) { skip -= group.journeys.length; continue; }
+        const journeys = group.journeys.slice(skip, skip + take);
+        skip = 0;
+        take -= journeys.length;
+        kept.push({ ...group, journeys });
+      }
+      if (kept.length) out.push({ ...section, outlets: kept });
+    }
+    return out;
+  }, [dealerSections, page]);
 
   return (
     <div className="screen-stack p2w">
@@ -422,12 +465,20 @@ export default function P2ReviewBoardPage() {
             </select>
           </label>
           <label>
+            <span className="p2w-muted">Month </span>
+            <select value={month} onChange={(event) => chooseMonth(event.target.value)}>
+              {months.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
+              <option value="">All months</option>
+              {month === 'custom' ? <option value="custom">Dates below</option> : null}
+            </select>
+          </label>
+          <label>
             <span className="p2w-muted">Uploaded from </span>
-            <input type="date" value={dateFrom} max={dateTo || undefined} onChange={(event) => setDateFrom(event.target.value)} />
+            <input type="date" value={dateFrom} max={dateTo || undefined} onChange={(event) => { setDateFrom(event.target.value); setMonth('custom'); }} />
           </label>
           <label>
             <span className="p2w-muted">to </span>
-            <input type="date" value={dateTo} min={dateFrom || undefined} onChange={(event) => setDateTo(event.target.value)} />
+            <input type="date" value={dateTo} min={dateFrom || undefined} onChange={(event) => { setDateTo(event.target.value); setMonth('custom'); }} />
           </label>
           <label>
             <span className="p2w-muted">PC </span>
@@ -455,7 +506,7 @@ export default function P2ReviewBoardPage() {
               type="button"
               className="text-link"
               onClick={() => {
-                setOutletId(''); setDateFrom(''); setDateTo(''); setDealerId(''); setPcName(null);
+                setOutletId(''); chooseMonth(currentMonth); setDealerId(''); setPcName(null);
                 setSearchText(''); setSearch('');
               }}
             >
@@ -499,7 +550,7 @@ export default function P2ReviewBoardPage() {
         </SectionCard>
       )}
 
-      {dealerSections.map((section) => (
+      {pageSections.map((section) => (
         <div key={section.dealerId} className="screen-stack">
           {dealerSections.length > 1 && (
             <h2 className="p2w-section-title" style={{ margin: '8px 0 0' }}>
@@ -530,6 +581,11 @@ export default function P2ReviewBoardPage() {
           ))}
         </div>
       ))}
+      {shownJourneys > 0 ? (
+        <Pager page={page} pages={pages} total={shownJourneys}
+          shown={Math.min(PAGE_SIZE, shownJourneys - page * PAGE_SIZE)} hasNext={page + 1 < pages}
+          onPage={(next) => { setPage(next); window.scrollTo({ top: 0, behavior: 'smooth' }); }} />
+      ) : null}
     </div>
   );
 }

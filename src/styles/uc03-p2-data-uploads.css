@@ -1,0 +1,149 @@
+/* Data uploads (DMS dumps) and the Drive uploads status view (product owner 2026-11-13).
+   IBM Carbon patterns: tiles for the figures, a content switcher for the views, data tables
+   with a toolbar, tags for status. Mobile rules are inside the max-width query only, so the
+   desktop screens are unchanged by them. */
+
+.p2du-tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 1px;
+  background: var(--p2w-line);
+  border: 1px solid var(--p2w-line);
+}
+.p2du-tile { background: #fff; padding: 14px 16px; min-height: 92px; display: flex; flex-direction: column; gap: 4px; }
+.p2du-tile span { font-size: .75rem; letter-spacing: .02em; color: var(--p2w-muted); }
+.p2du-tile strong { font-size: 1.75rem; font-weight: 400; line-height: 1.2; color: var(--p2w-ink); }
+.p2du-tile small { font-size: .78rem; color: var(--p2w-muted); }
+.p2du-tile--bad strong { color: var(--p2w-danger); }
+.p2du-tile--warn strong { color: #8a5300; }
+.p2du-tile--ok strong { color: var(--p2w-success); }
+
+/* Carbon content switcher */
+.p2du-switcher { display: inline-flex; border: 1px solid #8d8d8d; border-radius: 4px; overflow: hidden; }
+.p2du-switcher button {
+  min-height: 40px; padding: 0 16px; border: 0; border-right: 1px solid #8d8d8d; background: #fff;
+  color: #161616; font: inherit; font-size: .875rem; cursor: pointer;
+}
+.p2du-switcher button:last-child { border-right: 0; }
+.p2du-switcher button[aria-selected='true'] { background: #161616; color: #fff; }
+.p2du-switcher button b { margin-left: 6px; font-weight: 600; }
+
+/* Carbon data table toolbar */
+.p2du-toolbar {
+  display: flex; flex-wrap: wrap; align-items: end; gap: 12px; padding: 12px 0;
+}
+.p2du-toolbar label { display: flex; flex-direction: column; gap: 4px; font-size: .75rem; color: var(--p2w-muted); }
+.p2du-toolbar select, .p2du-toolbar input[type='date'], .p2du-toolbar input[type='month'] {
+  min-height: 40px; padding: 0 12px; border: 0; border-bottom: 1px solid #8d8d8d; background: #f4f4f4;
+  font: inherit; font-size: .875rem; color: #161616;
+}
+.p2du-toolbar__end { margin-left: auto; display: flex; gap: 8px; }
+
+.p2du-table { width: 100%; border-collapse: collapse; font-size: .875rem; }
+.p2du-table th {
+  text-align: left; padding: 0 12px; height: 40px; background: #e0e0e0; color: #161616; font-weight: 600;
+  white-space: nowrap;
+}
+.p2du-table td { padding: 10px 12px; border-bottom: 1px solid #e0e0e0; vertical-align: top; }
+.p2du-table tbody tr { background: #fff; }
+.p2du-table tbody tr:hover { background: #e8e8e8; }
+.p2du-table tbody tr.is-selected { background: #e0e0e0; }
+.p2du-table td.num, .p2du-table th.num { text-align: right; font-variant-numeric: tabular-nums; }
+.p2du-table tr.is-clickable { cursor: pointer; }
+.p2du-table tr.is-superseded td { color: var(--p2w-muted); }
+
+/* Carbon tags */
+.p2du-tag {
+  display: inline-flex; align-items: center; min-height: 24px; padding: 0 8px; border-radius: 12px;
+  font-size: .75rem; white-space: nowrap; background: #e0e0e0; color: #161616;
+}
+.p2du-tag--ok { background: #a7f0ba; color: #0e6027; }
+.p2du-tag--warn { background: #fcf4d6; color: #8e6a00; }
+.p2du-tag--bad { background: #ffd7d9; color: #a2191f; }
+.p2du-tag--open { background: #d0e2ff; color: #0043ce; }
+.p2du-tag--busy { background: #d0e2ff; color: #0043ce; }
+
+/* The drop zone (Carbon file uploader) */
+.p2du-drop {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 6px; padding: 16px;
+  border: 1px dashed #8d8d8d; background: #fff; cursor: pointer;
+}
+.p2du-drop.is-over { border: 2px solid #0f62fe; background: #edf5ff; }
+.p2du-drop strong { color: #0f62fe; font-weight: 400; }
+.p2du-files { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
+.p2du-file {
+  display: grid; grid-template-columns: minmax(180px, 2fr) repeat(3, minmax(120px, 1fr)) auto; gap: 8px;
+  align-items: center; padding: 8px 12px; background: #f4f4f4;
+}
+.p2du-file select, .p2du-file input { min-height: 32px; border: 0; border-bottom: 1px solid #8d8d8d; background: #fff; font: inherit; font-size: .8rem; }
+.p2du-file__name { font-size: .85rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.p2du-file__state { font-size: .78rem; color: var(--p2w-muted); }
+
+.p2du-panel { border-top: 1px solid var(--p2w-line); margin-top: 16px; padding-top: 12px; }
+.p2du-panel header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+.p2du-scroll { overflow-x: auto; }
+.p2du-types { display: flex; flex-wrap: wrap; gap: 8px; }
+.p2du-type { padding: 8px 12px; background: #f4f4f4; border-left: 3px solid #0f62fe; font-size: .85rem; }
+.p2du-type small { display: block; color: var(--p2w-muted); }
+
+/* The tracker's dump calendar: dealers x days, like the gate register */
+.p2du-cal { border-collapse: collapse; font-size: .78rem; }
+.p2du-cal th, .p2du-cal td { border: 1px solid #e0e0e0; padding: 4px; text-align: center; min-width: 34px; }
+.p2du-cal th:first-child, .p2du-cal td:first-child { text-align: left; min-width: 140px; position: sticky; left: 0; background: #fff; }
+.p2du-cal .dot { display: block; width: 100%; min-height: 14px; border-radius: 2px; margin: 1px 0; font-size: .65rem; line-height: 14px; }
+.p2du-cal .dot--UPLOADED { background: #a7f0ba; color: #0e6027; }
+.p2du-cal .dot--MISSED { background: #ffd7d9; color: #a2191f; }
+.p2du-cal .dot--DUE { background: #fcf4d6; color: #8e6a00; }
+.p2du-cal .dot--AHEAD { background: #f4f4f4; color: #a8a8a8; }
+.p2du-legend { display: flex; flex-wrap: wrap; gap: 12px; font-size: .78rem; color: var(--p2w-muted); margin: 8px 0; }
+.p2du-legend i { display: inline-block; width: 12px; height: 12px; margin-right: 4px; vertical-align: -2px; border-radius: 2px; }
+
+/* The left pane's grouped sections: a tab strip across the top of each grouped screen */
+.p2du-hubtabs {
+  display: flex; gap: 0; border-bottom: 1px solid #e0e0e0; margin: 0 0 16px; overflow-x: auto;
+}
+.p2du-hubtabs a {
+  padding: 12px 16px; color: #525252; text-decoration: none; font-size: .875rem; white-space: nowrap;
+  border-bottom: 2px solid transparent;
+}
+.p2du-hubtabs a:hover { color: #161616; background: #e8e8e8; }
+.p2du-hubtabs a.is-active { color: #161616; font-weight: 600; border-bottom-color: #0f62fe; }
+.p2du-hubtabs a .enterprise-nav__badge { position: static; margin-left: 6px; }
+
+/* Pagination (Carbon) */
+.p2du-pager {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px;
+  border-top: 1px solid #e0e0e0; padding: 8px 0; font-size: .85rem; color: #525252;
+}
+.p2du-pager__nav { display: flex; align-items: center; gap: 8px; }
+.p2du-pager__nav button {
+  min-width: 40px; min-height: 40px; border: 0; background: transparent; font-size: 1rem; cursor: pointer; color: #161616;
+}
+.p2du-pager__nav button:disabled { color: #c6c6c6; cursor: not-allowed; }
+.p2du-pager__nav button:not(:disabled):hover { background: #e8e8e8; }
+
+/* Drive uploads: an opened run's customers, the check box in the toolbar */
+.p2du-run-detail > td { background: #f4f4f4; padding: 12px 16px; }
+.p2du-customer { margin-top: 12px; }
+.p2du-customer .p2w-table { background: #fff; }
+.p2du-check { justify-content: flex-end; min-height: 40px; }
+.p2du-check span { display: inline-flex; align-items: center; gap: 6px; min-height: 40px; color: #161616; font-size: .875rem; }
+.p2du-tile small strong { font-weight: 600; }
+
+@media (max-width: 767px) {
+  /* The runs table reads as one card per run on a phone. */
+  .p2du-table--stack thead { display: none; }
+  .p2du-table--stack tbody tr:not(.p2du-run-detail) { display: grid; grid-template-columns: repeat(3, 1fr); border-bottom: 1px solid #e0e0e0; }
+  .p2du-table--stack tbody tr:not(.p2du-run-detail) td { border: 0; padding: 6px 8px; }
+  .p2du-table--stack tbody tr:not(.p2du-run-detail) td:first-child { grid-column: 1 / -1; }
+  .p2du-table--stack td[data-label]:not(:first-child)::before { content: attr(data-label); display: block; font-size: .7rem; color: var(--p2w-muted); text-align: left; }
+  .p2du-table--stack .p2du-run-detail { display: block; }
+  .p2du-table--stack .p2du-run-detail > td { display: block; }
+  .p2du-tiles { grid-template-columns: repeat(2, 1fr); }
+  .p2du-tile strong { font-size: 1.35rem; }
+  .p2du-file { grid-template-columns: 1fr 1fr; }
+  .p2du-file__name { grid-column: 1 / -1; }
+  .p2du-toolbar__end { margin-left: 0; width: 100%; }
+  .p2du-switcher { display: flex; width: 100%; }
+  .p2du-switcher button { flex: 1; padding: 0 8px; }
+}

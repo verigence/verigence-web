@@ -208,7 +208,10 @@ export default function SupervisoryDashboardPage() {
           month by default (product owner 2026-11-07): bookings by booking
           date, deliveries by delivery date, other months on the picker. */}
       <section className="p2w uc03-tl-journeys" aria-label="Journeys">
-        <JourneyListTabs tenantId={project.tenantId} accessToken={accessToken} role={role} calendarMonth />
+        {/* The Dealership-wise / Outlet-wise / PC-wise panels are in the Project Tracker's Journeys
+            tab for a Team Lead (product owner 2026-11-13). */}
+        <JourneyListTabs tenantId={project.tenantId} accessToken={accessToken} role={role} calendarMonth
+          showBreakdown={role !== 'TL'} />
       </section>
     </div>
   );

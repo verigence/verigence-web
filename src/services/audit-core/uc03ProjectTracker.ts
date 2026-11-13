@@ -40,6 +40,23 @@ export type TaskFigures = {
   byRole: Record<string, RoleTasks>;
   worked: { total: number; byPc: number; byLead: number; byReviewer: number; byOther: number };
 };
+/** How the files came in (product owner 2026-11-13): on their own (app or web), in a bulk (folder)
+ *  upload, or through Google Drive. */
+export type ChannelFigures = {
+  directFiles: number; directPages: number; bulkFiles: number; bulkPages: number; driveFiles: number; drivePages: number;
+};
+/** The Booking / Delivery documents-reviewed marks (by Reviewer, TL or PM) and the stages still
+ *  awaiting one; a Reviewer's closure of a Journey and the TL's or PM's decision on it. */
+export type ReviewFigures = {
+  stagesReviewedByReviewer: number; stagesReviewedByLead: number; stagesReviewedByOther: number;
+  stagesAwaitingReview: number;
+  closedByReviewer: number; closedByLead: number; closedByOther: number; accepted: number; rejected: number;
+  autoAccepted: number; awaitingDecision: number; awaitingReview: number;
+};
+/** Files uploaded in the period whose pages failed for good, by why. */
+export type FailureFigures = {
+  files: number; pages: number; quality: number; notRead: number; readFailed: number; notUploaded: number;
+};
 export type RecurringFigures = {
   due: number; onTime: number; late: number; incomplete: number; overdue: number; pending: number;
 };
@@ -48,6 +65,10 @@ export type TrackerFigures = {
   recurring: Record<string, RecurringFigures>;
   /** Absent from an Audit Core that does not have the Drive intake yet. */
   drive?: DriveFigures;
+  /** Absent from an Audit Core before 13 Nov 2026. */
+  channels?: ChannelFigures;
+  reviews?: ReviewFigures;
+  failures?: FailureFigures;
 };
 export type TrackerPerson = TrackerFigures & { actorId: string | null; name: string | null; role: string | null };
 export type TrackerOutlet = TrackerFigures & {
@@ -63,7 +84,8 @@ export type ProjectTracker = {
     kind: TrackerPeriod; date: string; first: string; last: string; label: string; timezone: string;
     startUtc: string; endUtc: string; asOfUtc: string; current: boolean;
   };
-  scope: { projectWide: boolean; outlets: number; dealers: number };
+  /** own: a PC's or Reviewer's own view -- only their own row is counted (2026-11-13). */
+  scope: { projectWide: boolean; outlets: number; dealers: number; own?: boolean };
   schedules: TrackerSchedule[];
   totals: TrackerFigures;
   dealers: TrackerDealer[];
@@ -75,6 +97,30 @@ const base = (tenantId: string) => `/p2/v1/tenants/${encodeURIComponent(tenantId
 export function getProjectTracker(tenantId: string, period: TrackerPeriod, date: string, accessToken?: string) {
   const params = new URLSearchParams({ period, date });
   return auditCoreRequest<ProjectTracker>(`${base(tenantId)}/reports/project-tracker?${params.toString()}`,
+    { accessToken, timeoutMs: 60_000 });
+}
+
+export type FailureWhy = 'quality' | 'notRead' | 'readFailed' | 'notUploaded';
+export const FAILURE_WHY: Record<FailureWhy, { label: string; hint: string }> = {
+  quality: { label: 'Page not clear', hint: 'Blurred, faded, too small or unreadable: scan it again.' },
+  notRead: { label: 'Not read in time', hint: 'Verigence or the reading service was too slow; upload the page again.' },
+  readFailed: { label: 'Reading failed', hint: 'Reading failed after every retry; upload the page again.' },
+  notUploaded: { label: 'File not received', hint: 'The file never finished uploading or was never split into pages.' },
+};
+
+export type FailedRow = {
+  kind: 'PAGE' | 'FILE'; journeyId: string; journeyReference: string | null; customerName: string | null;
+  dealerName: string | null; outletName: string | null; filename: string | null; uploadedBy: string | null;
+  uploadedByName?: string | null; uploadedAtUtc: string | null; failedAtUtc: string | null; pageNumbers: number[];
+  attempts: number | null; reason: string; code: string | null; why?: FailureWhy; clearedFromJourney: boolean;
+  openUrl: string | null;
+};
+export type FailedPages = { from: string; to: string; rows: FailedRow[]; truncated: boolean };
+
+/** The failed pages and files of the files uploaded between two days (a TL's team, a PC's own). */
+export function getFailedUploads(tenantId: string, from: string, to: string, accessToken?: string) {
+  const params = new URLSearchParams({ from, to, by: 'uploaded' });
+  return auditCoreRequest<FailedPages>(`${base(tenantId)}/reports/failed-pages?${params.toString()}`,
     { accessToken, timeoutMs: 60_000 });
 }
 

@@ -1,20 +1,20 @@
-/* Performance (2026-11-13): a person's day against their usual and their peers. */
-.p2pf-table td { vertical-align: top; min-width: 150px; }
-.p2pf-value { display: flex; align-items: center; gap: 8px; }
-.p2pf-value strong { font-size: 18px; line-height: 1.2; }
-.p2pf-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 4px; font-size: 12px; }
-.p2pf-sub { font-size: 12px; }
-.p2pf-spark { flex: 0 0 auto; width: 72px; height: 20px; color: var(--p2mw-navy, #003a82); }
-.p2pf-spark--empty { display: inline-block; border-bottom: 1px dashed var(--p2w-line, #c6c6c6); height: 10px; }
-.p2pf-trend { white-space: nowrap; color: var(--p2w-muted, #525252); }
-.p2pf-trend--good { color: #0e6027; }
-.p2pf-trend--poor { color: #a2191f; }
-.p2pf-idle th, .p2pf-idle td { color: var(--p2w-muted, #6f6f6f); }
-.p2pf-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px; }
-.p2pf-card {
-  display: grid; gap: 6px; padding: 12px 14px; border: 1px solid var(--p2w-line, #dde3ea);
-  border-top: 3px solid var(--p2mw-navy, #003a82); background: #fff;
-}
+/* Performance (2026-11-13): five sections of plain tables -- pending work, bookings and
+   deliveries, day to day / week to week, PC efficiency, delinquencies. Carbon data tables. */
+.p2pf-table th[scope="row"] { min-width: 180px; text-align: left; font-weight: 600; }
+.p2pf-table td { white-space: nowrap; }
+.p2pf-table thead th { vertical-align: bottom; }
+.p2pf-group { text-align: center; border-bottom: 1px solid var(--p2w-line, #c6c6c6); }
+.p2pf-sub { font-size: 12px; font-weight: 400; }
+.p2pf-zero { color: #a8a8a8; }
+.p2pf-old { font-size: 12px; font-weight: 600; color: #8a5300; }
+.p2pf-low { background: #fff1f1; color: #a2191f; font-weight: 600; }
+.p2pf-b { color: var(--p2mw-navy, #003a82); font-weight: 600; }
+.p2pf-d { color: #0e6027; font-weight: 600; margin-left: 6px; }
+.p2pf-allgood { margin: 0; padding: 8px 12px; border-left: 3px solid #24a148; background: #defbe6; font-size: 14px; }
+.p2pf-planned { margin: 8px 0 0; font-size: 13px; }
 @media (max-width: 640px) {
-  .p2pf-table td { min-width: 130px; }
+  .p2pf-table th[scope="row"] { min-width: 130px; }
 }
+.p2pf-off th, .p2pf-off td { color: #a8a8a8; }
+.p2pf-pick { font-size: 14px; display: inline-flex; align-items: center; gap: 6px; }
+.p2pf-pick select { min-height: 36px; padding: 0 8px; border: 1px solid var(--p2w-line, #8d8d8d); background: #fff; font: inherit; }

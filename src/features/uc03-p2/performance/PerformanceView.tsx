@@ -1,340 +1,760 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import { useQuery } from '@tanstack/react-query';
 
 import SectionCard from '../../../components/SectionCard';
-import { Segment, Tile } from '../my-work/MyWorkParts';
+import Dashboard, { viewHas, viewLabel, type View } from './Dashboard';
+import { Segment } from '../my-work/MyWorkParts';
 import {
-  dutySummary,
+  addDays,
+  addPending,
+  datesText,
+  daysBetween,
+  defaultMode,
+  flowOf,
   getPerformance,
   measuresFor,
-  ROLE_GROUPS,
-  sparkPoints,
-  STANDING_LABEL,
-  trend,
+  pendingOf,
+  periodsOf,
+  sumAt,
   valueText,
   type Measure,
+  type Mode,
+  type ChannelRow,
+  type PendingCounts,
   type Performance,
-  type PerformancePerson,
-  type RoleGroup,
-  type Standing,
+  type Period,
+  type Place,
+  type QualityRow,
+  type SectionKey,
+  type TaskRow,
 } from '../../../services/audit-core/uc03Performance';
-import { hasNextPeriod, shiftPeriod, trackerLabel } from '../../../services/audit-core/uc03ProjectTracker';
 import '../../../styles/uc03-p2-performance.css';
 
-const WINDOWS: Array<{ key: '7' | '14' | '30'; label: string }> = [
-  { key: '7', label: '7 days' }, { key: '14', label: '14 days' }, { key: '30', label: '30 days' },
+const MODES: Array<{ key: Mode; label: string }> = [
+  { key: 'DAILY', label: 'Day by day' },
+  { key: 'WEEKLY', label: 'Week by week' },
 ];
-const ROLE_LABEL: Record<string, string> = { PC: 'PC', REVIEWER: 'Reviewer', TL: 'TL', PM: 'PM', EXECUTIVE: 'Executive', CRM: 'CRM' };
+/** The detail behind a dashboard tab: read only when it is opened (product owner 2026-11-13: "I
+ *  don't want all to be shown in one"). */
+export type Tab = 'backlog' | 'bookings' | 'deliveries' | 'uploads' | 'quality' | 'tasks' | 'trend' | 'efficiency' | 'duties';
+/** mine: what the button reads for a PC or Reviewer, whose detail is their own row. */
+const TABS: Array<{ key: Tab; label: string; mine?: string; section: SectionKey }> = [
+  { key: 'backlog', label: 'Each kind with what is over 3 days', mine: 'As a table', section: 'pending' },
+  { key: 'bookings', label: 'Bookings by outlet', section: 'flow' },
+  { key: 'deliveries', label: 'Deliveries by outlet', section: 'flow' },
+  { key: 'uploads', label: 'Uploads by person and day', mine: 'My uploads, day by day', section: 'uploads' },
+  { key: 'quality', label: 'Failures and duplicates by person', mine: 'As a table', section: 'quality' },
+  { key: 'tasks', label: 'Tasks by outlet and person', mine: 'My tasks, day by day', section: 'tasks' },
+  { key: 'trend', label: 'Each person, day by day', mine: 'My figures, day by day', section: 'trend' },
+  { key: 'efficiency', label: 'The counts behind it', mine: 'The counts behind it', section: 'efficiency' },
+  { key: 'duties', label: 'Duties by person', mine: 'As a table', section: 'duties' },
+];
+/** The dashboard, a tab at a time (product owner 2026-11-13: "can you make tabs to it instead of
+ *  showing in one page all"), and the detail each tab can open. */
+const VIEWS: Array<{ key: View; details: Tab[] }> = [
+  { key: 'overview', details: ['bookings', 'deliveries', 'trend'] },
+  { key: 'pending', details: ['backlog'] },
+  { key: 'team', details: [] },
+  { key: 'efficiency', details: ['efficiency'] },
+  { key: 'uploads', details: ['uploads', 'quality'] },
+  { key: 'tasks', details: ['tasks'] },
+  { key: 'duties', details: ['duties'] },
+];
+type Level = 'dealer' | 'outlet' | 'person';
+const ROLE_TABS: Array<{ key: string; label: string }> = [
+  { key: 'PC', label: 'PCs' }, { key: 'REVIEWER', label: 'Reviewers' }, { key: 'TL', label: 'Team Leads' }, { key: 'PM', label: 'PMs' },
+];
 const FREQUENCY: Record<string, string> = { DAILY: 'Daily', WEEKLY: 'Weekly', MONTHLY: 'Monthly' };
 
-function Spark({ series, label }: { series: number[]; label: string }) {
-  if (series.every((v) => v === 0)) return <span className="p2pf-spark p2pf-spark--empty" aria-hidden="true" />;
+function Section({ title, about, controls, children }: { title: string; about: string; controls?: ReactNode; children: ReactNode }) {
   return (
-    <svg className="p2pf-spark" viewBox="0 0 72 20" width="72" height="20" role="img" aria-label={label}>
-      <polyline points={sparkPoints(series)} fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" strokeLinecap="round" />
-    </svg>
+    <SectionCard>
+      <div className="p2w-card__title p2mw-title-row">
+        <div><h3>{title}</h3><p className="p2w-muted">{about}</p></div>
+        {controls}
+      </div>
+      {children}
+    </SectionCard>
   );
 }
 
-function StandingChip({ standing }: { standing: Standing }) {
-  if (!standing) return null;
-  const tone = standing === 'above' ? 'ok' : standing === 'below' ? 'bad' : 'open';
-  return <span className={`p2mw-chip p2mw-chip--${tone}`}>{STANDING_LABEL[standing]}</span>;
-}
+// ---------------------------------------------------------------- 1. pending work
 
-function Trend({ measure, today, usual }: { measure: Measure; today: number; usual: number | null }) {
-  const t = trend(measure, today, usual);
-  if (!t) return null;
-  const arrow = t.dir === 'up' ? '▲' : t.dir === 'down' ? '▼' : '=';
-  const tone = t.good == null ? 'level' : t.good ? 'good' : 'poor';
+type PendingRow = { id: string; name: string; sub?: string; counts: PendingCounts };
+
+function PendingCell({ counts, kind }: { counts: PendingCounts; kind: string }) {
+  const { total, old } = pendingOf(counts, kind);
+  if (!total) return <td className="p2pf-zero">0</td>;
   return (
-    <span className={`p2pf-trend p2pf-trend--${tone}`} title={`Usual: ${valueText(measure, usual)}`}>
-      <span aria-hidden="true">{arrow}</span> usual {valueText(measure, usual)}
-    </span>
+    <td>
+      <strong>{total}</strong>
+      {old ? <span className="p2pf-old" title="Older than 3 days"> {old} older than 3 days</span> : null}
+    </td>
   );
 }
 
-function DutyCell({ person }: { person: PerformancePerson }) {
-  const today = dutySummary(person.dutiesToday);
-  const all = dutySummary(person.dutiesWindow);
-  if (!all.due) return <span className="p2w-muted">—</span>;
-  const done = today.onTime + today.late;
+function Pending({ data, own }: { data: Performance; own: boolean }) {
+  const pending = data.pending!;
+  const [level, setLevel] = useState<Level>(pending.outlets.length ? 'outlet' : 'person');
+  const levels: Array<{ key: Level; label: string }> = [
+    ...(new Set(pending.outlets.map((o) => o.dealerId)).size > 1 ? [{ key: 'dealer' as Level, label: 'Dealership' }] : []),
+    ...(pending.outlets.length ? [{ key: 'outlet' as Level, label: 'Outlet' }] : []),
+    { key: 'person', label: 'Person' },
+  ];
+  const rows: PendingRow[] = useMemo(() => {
+    if (level === 'person') {
+      return pending.people.map((p) => ({ id: p.actorId, name: p.name || 'Name not recorded', sub: p.role === 'PC' ? undefined : p.role, counts: p.counts }));
+    }
+    if (level === 'outlet') {
+      return pending.outlets.map((o) => ({ id: o.outletId, name: o.outletName, sub: o.dealerName, counts: o.counts }));
+    }
+    const dealers = new Map<string, { name: string; all: PendingCounts[] }>();
+    for (const o of pending.outlets) {
+      const d = dealers.get(o.dealerId) ?? { name: o.dealerName, all: [] };
+      d.all.push(o.counts);
+      dealers.set(o.dealerId, d);
+    }
+    return [...dealers.entries()].map(([id, d]) => ({ id, name: d.name, counts: addPending(d.all) }));
+  }, [pending, level]);
+  // People carry only their own work, so the person view leaves out what belongs to an outlet.
+  const kinds = pending.kinds.filter((k) => level !== 'person' || k.key !== 'awaitingReview');
+  const weight = (r: PendingRow) => kinds.reduce((n, k) => n + pendingOf(r.counts, k.key).total, 0);
+  const sorted = [...rows].filter((r) => own || weight(r) > 0).sort((a, b) => weight(b) - weight(a) || a.name.localeCompare(b.name));
+  const total = addPending((pending.outlets.length ? pending.outlets : pending.people).map((x) => x.counts));
+  return (
+    <Section title="Backlog" about="What is waiting right now (whatever the dates above), and how much of it has waited more than three days."
+      controls={levels.length > 1 ? <Segment label="Pending by" value={level} options={levels} onChange={setLevel} /> : undefined}>
+      <div className="p2mw-tiles">
+        {pending.kinds.map((k) => {
+          const t = pendingOf(total, k.key);
+          return (
+            <div key={k.key} className={`p2mw-tile${t.old ? ' p2mw-tile--warn' : ''}`}>
+              <span className="p2mw-tile__label">{k.label}</span>
+              <strong className="p2mw-tile__value">{t.total}</strong>
+              <span className="p2mw-tile__hint">{t.old ? `${t.old} older than 3 days` : 'none older than 3 days'}</span>
+            </div>
+          );
+        })}
+      </div>
+      {sorted.length ? (
+        <div className="p2pt-scroll">
+          <table className="p2w-table p2mw-table p2pf-table" aria-label="Pending work">
+            <thead><tr><th scope="col">{levels.find((l) => l.key === level)?.label}</th>{kinds.map((k) => <th key={k.key} scope="col">{k.label}</th>)}</tr></thead>
+            <tbody>
+              {sorted.map((r) => (
+                <tr key={r.id}>
+                  <th scope="row">{r.name}{r.sub ? <div className="p2w-muted p2pf-sub">{r.sub}</div> : null}</th>
+                  {kinds.map((k) => <PendingCell key={k.key} counts={r.counts} kind={k.key} />)}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : <p className="p2pf-allgood">No backlog.</p>}
+    </Section>
+  );
+}
+
+// ---------------------------------------------------------------- 2. bookings, 3. deliveries
+
+type FlowOutlet = NonNullable<Performance['flow']>['outlets'][number];
+type Group<T> = { id: string; name: string; sub?: string; items: T[] };
+
+/** Outlets as they are, or added up into their dealerships. */
+function grouped<T extends Place>(outlets: T[], level: 'dealer' | 'outlet'): Array<Group<T>> {
+  if (level === 'outlet') return outlets.map((o) => ({ id: o.outletId, name: o.outletName, sub: o.dealerName, items: [o] }));
+  const map = new Map<string, Group<T>>();
+  for (const o of outlets) {
+    const g = map.get(o.dealerId) ?? { id: o.dealerId, name: o.dealerName, items: [] };
+    g.items.push(o);
+    map.set(o.dealerId, g);
+  }
+  return [...map.values()];
+}
+
+const UNIT_LEVELS: Array<{ key: 'dealer' | 'outlet'; label: string }> = [{ key: 'dealer', label: 'Dealership' }, { key: 'outlet', label: 'Outlet' }];
+
+function Bookings({ data, periods }: { data: Performance; periods: Period[] }) {
+  const outlets = data.flow!.outlets;
+  const manyDealers = new Set(outlets.map((o) => o.dealerId)).size > 1;
+  const [level, setLevel] = useState<'dealer' | 'outlet'>(manyDealers ? 'dealer' : 'outlet');
+  const daysOf = (p: Period) => p.indexes.map((i) => data.days[i]);
+  const rows = grouped(outlets, level).map((g) => ({ ...g, total: flowOf(g.items, data.days).bookings }))
+    .sort((a, b) => b.total - a.total || a.name.localeCompare(b.name));
+  return (
+    <Section title="Bookings" about="Journeys uploaded as bookings (no delivery page in that day's uploads), per day or week."
+      controls={manyDealers ? <Segment label="By" value={level} options={UNIT_LEVELS} onChange={setLevel} /> : undefined}>
+      <div className="p2pt-scroll">
+        <table className="p2w-table p2mw-table p2pf-table" aria-label="Bookings uploaded">
+          <thead><tr><th scope="col">{level === 'dealer' ? 'Dealership' : 'Outlet'}</th>{periods.map((p) => <th key={p.key} scope="col">{p.label}</th>)}<th scope="col">Total</th></tr></thead>
+          <tbody>
+            {rows.map((g) => (
+              <tr key={g.id}>
+                <th scope="row">{g.name}{g.sub ? <div className="p2w-muted p2pf-sub">{g.sub}</div> : null}</th>
+                {periods.map((p) => { const n = flowOf(g.items, daysOf(p)).bookings; return <td key={p.key} className={n ? undefined : 'p2pf-zero'}>{n || '—'}</td>; })}
+                <td><strong>{g.total}</strong></td>
+              </tr>
+            ))}
+          </tbody>
+          <tfoot>
+            <tr>
+              <th scope="row">Total</th>
+              {periods.map((p) => <td key={p.key}>{flowOf(outlets, daysOf(p)).bookings || '—'}</td>)}
+              <td><strong>{flowOf(outlets, data.days).bookings}</strong></td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </Section>
+  );
+}
+
+function DeliveryCells({ f }: { f: ReturnType<typeof flowOf> }) {
   return (
     <>
-      <strong className={today.notDone ? 'p2mw-attn' : undefined}>{today.due ? `${done} / ${today.due}` : '—'}</strong>
-      <div className="p2w-muted p2pf-sub">
-        {all.onTime + all.late} of {all.due} in the period{all.late ? ` · ${all.late} late` : ''}{all.notDone ? ` · ${all.notDone} not done` : ''}
-      </div>
+      <td className={f.deliveries ? undefined : 'p2pf-zero'}><strong>{f.deliveries}</strong></td>
+      <td className={f.onRegister ? undefined : 'p2pf-zero'}>{f.onRegister}</td>
+      <td className={f.notNotified ? 'p2mw-attn' : 'p2pf-zero'}>{f.notNotified}</td>
+      <td className={f.notUploaded ? 'p2pf-low' : 'p2pf-zero'}>{f.notUploaded}</td>
+      <td className={f.registerMissing ? 'p2pf-low' : 'p2pf-zero'}>{f.registerMissing}</td>
+    </>
+  );
+}
+const DELIVERY_HEADS = (
+  <>
+    <th scope="col" title="Journeys uploaded with a delivery page">Deliveries uploaded</th>
+    <th scope="col" title="Deliveries on the gate register">On register</th>
+    <th scope="col" title="On the register, not intimated to the PC by the dealership">Not intimated</th>
+    <th scope="col" title="Intimated to the PC and not in Verigence">Not uploaded</th>
+    <th scope="col" title="Gate register not uploaded by its due time">Registers missed</th>
+  </>
+);
+
+function Deliveries({ data, periods }: { data: Performance; periods: Period[] }) {
+  const outlets = data.flow!.outlets;
+  const manyDealers = new Set(outlets.map((o) => o.dealerId)).size > 1;
+  const [level, setLevel] = useState<'dealer' | 'outlet'>(manyDealers ? 'dealer' : 'outlet');
+  const [scope, setScope] = useState('');
+  const groups = grouped<FlowOutlet>(outlets, level);
+  const picked = groups.find((g) => g.id === scope);
+  const within = picked ? picked.items : outlets;
+  const rows = groups.map((g) => ({ ...g, total: flowOf(g.items, data.days) }))
+    .sort((a, b) => b.total.notUploaded - a.total.notUploaded || b.total.deliveries - a.total.deliveries || a.name.localeCompare(b.name));
+  return (
+    <>
+      <Section title={`Deliveries per ${periods[0]?.indexes.length === 1 ? 'day' : 'week'}${picked ? `: ${picked.name}` : ''}`}
+        about="Deliveries uploaded against the gate register: on the register, not intimated to the PC, and intimated but not uploaded."
+        controls={(
+          <label className="p2pf-pick">Show{' '}
+            <select value={scope} onChange={(e) => setScope(e.target.value)}>
+              <option value="">Everything</option>
+              {groups.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
+            </select>
+          </label>
+        )}>
+        <div className="p2pt-scroll">
+          <table className="p2w-table p2mw-table p2pf-table" aria-label="Deliveries per period">
+            <thead><tr><th scope="col">{periods[0]?.indexes.length === 1 ? 'Day' : 'Week'}</th>{DELIVERY_HEADS}</tr></thead>
+            <tbody>
+              {periods.map((p) => (
+                <tr key={p.key} className={p.off ? 'p2pf-off' : undefined}>
+                  <th scope="row">{p.label}</th>
+                  <DeliveryCells f={flowOf(within, p.indexes.map((i) => data.days[i]))} />
+                </tr>
+              ))}
+            </tbody>
+            <tfoot><tr><th scope="row">Total</th><DeliveryCells f={flowOf(within, data.days)} /></tr></tfoot>
+          </table>
+        </div>
+      </Section>
+      <Section title={`Deliveries by ${level === 'dealer' ? 'dealership' : 'outlet'}`} about="The same figures for the whole period. Most not uploaded first."
+        controls={manyDealers ? <Segment label="By" value={level} options={UNIT_LEVELS} onChange={(l) => { setLevel(l); setScope(''); }} /> : undefined}>
+        <div className="p2pt-scroll">
+          <table className="p2w-table p2mw-table p2pf-table" aria-label="Deliveries by dealership or outlet">
+            <thead><tr><th scope="col">{level === 'dealer' ? 'Dealership' : 'Outlet'}</th>{DELIVERY_HEADS}</tr></thead>
+            <tbody>
+              {rows.map((g) => (
+                <tr key={g.id}>
+                  <th scope="row">{g.name}{g.sub ? <div className="p2w-muted p2pf-sub">{g.sub}</div> : null}</th>
+                  <DeliveryCells f={g.total} />
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Section>
     </>
   );
 }
 
-type Sort = { key: string; dir: 1 | -1 } | null;
+// ---------------------------------------------------------------- uploads by channel; duplicates and quality
 
-function TeamTable({ data, people, measures, peerRole }: {
-  data: Performance; people: PerformancePerson[]; measures: Measure[]; peerRole: string | null;
-}) {
-  const showDuties = data.shows?.duties !== false;
-  const [sort, setSort] = useState<Sort>(null);
-  const rows = useMemo(() => {
-    const copy = [...people];
-    if (sort) copy.sort((a, b) => ((a.today[sort.key as Measure['key']] ?? 0) - (b.today[sort.key as Measure['key']] ?? 0)) * sort.dir);
-    return copy;
-  }, [people, sort]);
-  const peer = peerRole ? data.peers[peerRole] : undefined;
+const sum = (xs: number[]) => xs.reduce((a, b) => a + b, 0);
+const pct = (n: number, of: number) => (of ? `${Math.round((100 * n) / of)}%` : '—');
+
+function useLevels(hasOutlets: boolean, manyDealers: boolean) {
+  const [level, setLevel] = useState<Level>(hasOutlets ? 'outlet' : 'person');
+  const levels: Array<{ key: Level; label: string }> = [
+    ...(manyDealers ? [{ key: 'dealer' as Level, label: 'Dealership' }] : []),
+    ...(hasOutlets ? [{ key: 'outlet' as Level, label: 'Outlet' }] : []),
+    { key: 'person', label: 'PC' },
+  ];
+  return { level, setLevel, levels };
+}
+
+function Uploads({ data, periods }: { data: Performance; periods: Period[] }) {
+  const up = data.uploads!;
+  const { level, setLevel, levels } = useLevels(up.outlets.length > 0, new Set(up.outlets.map((o) => o.dealerId)).size > 1);
+  const add = (items: ChannelRow[]): ChannelRow => ({
+    direct: data.days.map((_, i) => items.reduce((n, x) => n + (x.direct[i] ?? 0), 0)),
+    bulk: data.days.map((_, i) => items.reduce((n, x) => n + (x.bulk[i] ?? 0), 0)),
+    drive: data.days.map((_, i) => items.reduce((n, x) => n + (x.drive[i] ?? 0), 0)),
+  });
+  const rows = (level === 'person'
+    ? up.people.map((p) => ({ id: p.actorId, name: p.name || 'Name not recorded', sub: undefined as string | undefined, row: p as ChannelRow }))
+    : grouped(up.outlets, level === 'dealer' ? 'dealer' : 'outlet').map((g) => ({ id: g.id, name: g.name, sub: g.sub, row: add(g.items) })))
+    .map((r) => ({ ...r, d: sum(r.row.direct), b: sum(r.row.bulk), g: sum(r.row.drive) }))
+    .sort((a, b) => (b.d + b.b + b.g) - (a.d + a.b + a.g) || a.name.localeCompare(b.name));
+  const all = add(up.outlets.length ? up.outlets : up.people);
+  const total = sum(all.direct) + sum(all.bulk) + sum(all.drive);
   return (
-    <div className="p2pt-scroll">
-      <table className="p2w-table p2mw-table p2pf-table" aria-label="Performance by person">
-        <thead>
-          <tr>
-            <th scope="col" className="p2pt-name">Person</th>
-            {measures.map((m) => (
-              <th key={m.key} scope="col" aria-sort={sort?.key === m.key ? (sort.dir === 1 ? 'ascending' : 'descending') : 'none'}>
-                <button type="button" className="p2pt-sort"
-                  onClick={() => setSort((s) => (s?.key === m.key ? (s.dir === -1 ? { key: m.key, dir: 1 } : null) : { key: m.key, dir: -1 }))}>
-                  {m.label}{m.lowerIsBetter ? ' (fewer is better)' : ''}
-                  <span aria-hidden="true">{sort?.key === m.key ? (sort.dir === 1 ? ' ▲' : ' ▼') : ''}</span>
-                </button>
-              </th>
-            ))}
-            {showDuties ? <th scope="col">Duties today</th> : null}
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((p) => (
-            <tr key={p.actorId} className={p.activeToday ? undefined : 'p2pf-idle'}>
-              <th scope="row" className="p2pt-name">
-                {p.name || 'Name not recorded'}
-                {peerRole ? null : <span className="p2pt-role">{ROLE_LABEL[p.role] ?? p.role}</span>}
-                {p.activeToday ? null : <div className="p2w-muted p2pf-sub">Nothing recorded this day</div>}
-              </th>
-              {measures.map((m) => (
-                <td key={m.key}>
-                  {m.roles.includes(p.role) ? (
-                    <>
-                      <div className="p2pf-value">
-                        <strong>{valueText(m, p.today[m.key])}</strong>
-                        <Spark series={p.series[m.key]} label={`${m.label} over the period`} />
-                      </div>
-                      <div className="p2pf-meta">
-                        <Trend measure={m} today={p.today[m.key]} usual={p.usual[m.key]} />
-                        <StandingChip standing={p.standing[m.key]} />
-                      </div>
-                    </>
-                  ) : <span className="p2w-muted">—</span>}
-                </td>
-              ))}
-              {showDuties ? <td><DutyCell person={p} /></td> : null}
-            </tr>
+    <>
+      <Section title="How files are uploaded" about="Files uploaded one by one (app or web), in a bulk folder upload, and through Google Drive."
+        controls={levels.length > 1 ? <Segment label="By" value={level} options={levels} onChange={setLevel} /> : undefined}>
+        <div className="p2mw-tiles">
+          {([['Direct', all.direct], ['Bulk upload', all.bulk], ['Google Drive', all.drive]] as Array<[string, number[]]>).map(([label, xs]) => (
+            <div key={label} className="p2mw-tile">
+              <span className="p2mw-tile__label">{label}</span>
+              <strong className="p2mw-tile__value">{sum(xs)}</strong>
+              <span className="p2mw-tile__hint">{pct(sum(xs), total)} of {total} files</span>
+            </div>
           ))}
-        </tbody>
-        {peer ? (
-          <tfoot>
-            <tr>
-              <th scope="row" className="p2pt-name">Peers' median <span className="p2w-muted">({peer.activeToday} of {peer.people} active)</span></th>
-              {measures.map((m) => (
-                <td key={m.key}>
-                  <strong>{valueText(m, peer.median[m.key])}</strong>
-                  <div className="p2w-muted p2pf-sub">usual {valueText(m, peer.usualMedian[m.key])}</div>
-                </td>
-              ))}
-              {showDuties ? <td /> : null}
-            </tr>
-          </tfoot>
-        ) : null}
-      </table>
-    </div>
-  );
-}
-
-function TeamTiles({ data, people, measures }: { data: Performance; people: PerformancePerson[]; measures: Measure[] }) {
-  const active = people.filter((p) => p.activeToday).length;
-  const duties = people.reduce((acc, p) => {
-    const d = dutySummary(p.dutiesToday);
-    return { due: acc.due + d.due, done: acc.done + d.onTime + d.late, notDone: acc.notDone + d.notDone };
-  }, { due: 0, done: 0, notDone: 0 });
-  return (
-    <div className="p2mw-tiles">
-      <Tile label="Active this day" value={`${active} / ${people.length}`} hint="people with anything recorded"
-        tone={people.length && active < people.length / 2 ? 'warn' : undefined} />
-      {measures.map((m) => {
-        const total = people.reduce((sum, p) => sum + (m.roles.includes(p.role) ? p.today[m.key] : 0), 0);
-        const usual = people.reduce((sum, p) => sum + (m.roles.includes(p.role) ? p.usual[m.key] ?? 0 : 0), 0);
-        const t = trend(m, total, data.days.length > 1 ? usual : null);
-        const shown = m.unit === 'MINUTES' && active ? total / active : total;
-        return (
-          <Tile key={m.key} label={m.unit === 'MINUTES' ? `${m.label} (average)` : m.label} value={valueText(m, shown)}
-            hint={`team's usual ${valueText(m, m.unit === 'MINUTES' && people.length ? usual / people.length : usual)}${t && t.dir !== 'level' ? (t.dir === 'up' ? ' ▲' : ' ▼') : ''}`}
-            tone={t && t.good === false ? 'warn' : undefined} />
-        );
-      })}
-      {data.shows?.duties === false ? null : <Tile label="Duties done" value={duties.due ? `${duties.done} / ${duties.due}` : '—'}
-        hint={duties.notDone ? `${duties.notDone} not done` : 'daily and weekly duties due this day'}
-        tone={duties.notDone ? 'bad' : undefined} />}
-    </div>
-  );
-}
-
-function OwnCards({ data, me }: { data: Performance; me: PerformancePerson }) {
-  const measures = measuresFor(data.measures, [me.role]);
-  const peer = data.peers[me.role];
-  return (
-    <div className="p2pf-cards">
-      {measures.map((m) => (
-        <div key={m.key} className="p2pf-card">
-          <span className="p2mw-tile__label">{m.label}{m.lowerIsBetter ? ' (fewer is better)' : ''}</span>
-          <div className="p2pf-value">
-            <strong className="p2mw-tile__value">{valueText(m, me.today[m.key])}</strong>
-            <Spark series={me.series[m.key]} label={`${m.label} over the period`} />
-          </div>
-          <div className="p2pf-meta">
-            <Trend measure={m} today={me.today[m.key]} usual={me.usual[m.key]} />
-            <StandingChip standing={me.standing[m.key]} />
-          </div>
-          {peer ? <span className="p2w-muted p2pf-sub">Peers' median {valueText(m, peer.median[m.key])}</span> : null}
         </div>
-      ))}
-    </div>
+        <div className="p2pt-scroll">
+          <table className="p2w-table p2mw-table p2pf-table" aria-label="Files by how they were uploaded">
+            <thead><tr><th scope="col">{levels.find((l) => l.key === level)?.label}</th><th scope="col">Direct</th><th scope="col">Bulk upload</th><th scope="col">Google Drive</th><th scope="col">Total</th><th scope="col">Share not direct</th></tr></thead>
+            <tbody>
+              {rows.map((r) => (
+                <tr key={r.id}>
+                  <th scope="row">{r.name}{r.sub ? <div className="p2w-muted p2pf-sub">{r.sub}</div> : null}</th>
+                  <td className={r.d ? undefined : 'p2pf-zero'}>{r.d}</td><td className={r.b ? undefined : 'p2pf-zero'}>{r.b}</td>
+                  <td className={r.g ? undefined : 'p2pf-zero'}>{r.g}</td><td><strong>{r.d + r.b + r.g}</strong></td>
+                  <td>{pct(r.b + r.g, r.d + r.b + r.g)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Section>
+      <Section title={`Per ${periods[0]?.indexes.length === 1 ? 'day' : 'week'}`} about="All the people and outlets you read, together.">
+        <div className="p2pt-scroll">
+          <table className="p2w-table p2mw-table p2pf-table" aria-label="Files by channel per period">
+            <thead><tr><th scope="col" />{periods.map((p) => <th key={p.key} scope="col">{p.label}</th>)}<th scope="col">Total</th></tr></thead>
+            <tbody>
+              {([['Direct', all.direct], ['Bulk upload', all.bulk], ['Google Drive', all.drive]] as Array<[string, number[]]>).map(([label, xs]) => (
+                <tr key={label}><th scope="row">{label}</th>{periods.map((p) => <td key={p.key}>{sumAt(xs, p.indexes) || '—'}</td>)}<td><strong>{sum(xs)}</strong></td></tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Section>
+    </>
   );
 }
 
-function Duties({ data, people }: { data: Performance; people: PerformancePerson[] }) {
-  if (!data.schedules.length && !data.plannedDuties.length) return null;
+const QUALITY_COLUMNS: Array<{ key: keyof QualityRow; label: string; title: string }> = [
+  { key: 'blurred', label: 'Blurred', title: 'Pages rejected as blurred' },
+  { key: 'faded', label: 'Faded', title: 'Pages rejected as too faded' },
+  { key: 'tooSmall', label: 'Too small', title: 'Pages rejected because the image is too small' },
+  { key: 'otherQuality', label: 'Other quality', title: 'Pages rejected for another quality reason' },
+  { key: 'duplicatePages', label: 'Duplicate pages', title: 'Pages already uploaded: not sent for reading again' },
+  { key: 'duplicateFiles', label: 'Duplicate files', title: 'Uploads deleted as the same file uploaded again' },
+];
+
+function Quality({ data, range }: { data: Performance; range: string }) {
+  const q = data.quality!;
+  const { level, setLevel, levels } = useLevels(q.outlets.length > 0, new Set(q.outlets.map((o) => o.dealerId)).size > 1);
+  const add = (items: QualityRow[]): QualityRow => {
+    const out: QualityRow = { pagesUploaded: 0 };
+    for (const x of items) {
+      out.pagesUploaded += x.pagesUploaded;
+      for (const c of QUALITY_COLUMNS) (out[c.key] as number) = ((out[c.key] as number | undefined) ?? 0) + ((x[c.key] as number | undefined) ?? 0);
+    }
+    return out;
+  };
+  const rejected = (r: QualityRow) => (r.blurred ?? 0) + (r.faded ?? 0) + (r.tooSmall ?? 0) + (r.otherQuality ?? 0);
+  const rows = (level === 'person'
+    ? q.people.map((p) => ({ id: p.actorId, name: p.name || 'Name not recorded', sub: undefined as string | undefined, row: p as QualityRow }))
+    : grouped(q.outlets, level === 'dealer' ? 'dealer' : 'outlet').map((g) => ({ id: g.id, name: g.name, sub: g.sub, row: add(g.items) })))
+    .filter((r) => r.row.pagesUploaded > 0 || (r.row.duplicateFiles ?? 0) > 0)
+    .sort((a, b) => rejected(b.row) - rejected(a.row) || a.name.localeCompare(b.name));
+  const all = add(q.outlets.length ? q.outlets : q.people);
   return (
-    <SectionCard>
-      <div className="p2w-card__title">
-        <h3>Daily and weekly duties</h3>
-        <p className="p2w-muted">Every recurring task of the Task Manager. A new duty appears here once its schedule is created.</p>
+    <Section title="Duplicates and quality issues" about={`Of the files uploaded ${range}: pages rejected on image quality, pages and files uploaded twice. Most rejected first.`}
+      controls={levels.length > 1 ? <Segment label="By" value={level} options={levels} onChange={setLevel} /> : undefined}>
+      <div className="p2mw-tiles">
+        <div className="p2mw-tile"><span className="p2mw-tile__label">Pages uploaded</span><strong className="p2mw-tile__value">{all.pagesUploaded}</strong></div>
+        <div className={`p2mw-tile${rejected(all) ? ' p2mw-tile--warn' : ''}`}><span className="p2mw-tile__label">Rejected on quality</span><strong className="p2mw-tile__value">{rejected(all)}</strong><span className="p2mw-tile__hint">{pct(rejected(all), all.pagesUploaded)} of pages</span></div>
+        <div className="p2mw-tile"><span className="p2mw-tile__label">Duplicate pages</span><strong className="p2mw-tile__value">{all.duplicatePages ?? 0}</strong></div>
+        <div className={`p2mw-tile${all.duplicateFiles ? ' p2mw-tile--warn' : ''}`}><span className="p2mw-tile__label">Duplicate files</span><strong className="p2mw-tile__value">{all.duplicateFiles ?? 0}</strong></div>
       </div>
       <div className="p2pt-scroll">
-        <table className="p2w-table p2mw-table" aria-label="Duties">
-          <thead><tr><th>Duty</th><th>How often</th><th>This day</th><th>In the period</th><th>Late</th><th>Not done</th></tr></thead>
+        <table className="p2w-table p2mw-table p2pf-table" aria-label="Duplicates and quality issues">
+          <thead>
+            <tr>
+              <th scope="col">{levels.find((l) => l.key === level)?.label}</th><th scope="col">Pages uploaded</th>
+              {QUALITY_COLUMNS.map((c) => <th key={c.key} scope="col" title={c.title}>{c.label}</th>)}
+              <th scope="col" title="Pages rejected on quality, of pages uploaded">Rejected share</th>
+            </tr>
+          </thead>
           <tbody>
-            {data.schedules.map((s) => {
-              const sum = (pick: 'dutiesToday' | 'dutiesWindow') => people.reduce((acc, p) => {
-                const d = p[pick][s.scheduleId];
-                return d ? { due: acc.due + d.due, done: acc.done + d.onTime + d.late, late: acc.late + d.late, notDone: acc.notDone + d.notDone } : acc;
-              }, { due: 0, done: 0, late: 0, notDone: 0 });
-              const today = sum('dutiesToday');
-              const all = sum('dutiesWindow');
+            {rows.map((r) => {
+              const share = r.row.pagesUploaded ? rejected(r.row) / r.row.pagesUploaded : 0;
               return (
-                <tr key={s.scheduleId}>
-                  <td>{s.title}{s.status === 'PAUSED' ? <span className="p2w-muted"> · paused</span> : null}</td>
-                  <td>{FREQUENCY[s.frequency] ?? s.frequency}</td>
-                  <td>{today.due ? `${today.done} / ${today.due}` : '—'}</td>
-                  <td>{all.due ? `${all.done} / ${all.due}` : '—'}</td>
-                  <td>{all.late}</td>
-                  <td className={all.notDone ? 'p2mw-attn' : undefined}>{all.notDone}</td>
+                <tr key={r.id}>
+                  <th scope="row">{r.name}{r.sub ? <div className="p2w-muted p2pf-sub">{r.sub}</div> : null}</th>
+                  <td>{r.row.pagesUploaded}</td>
+                  {QUALITY_COLUMNS.map((c) => { const n = (r.row[c.key] as number | undefined) ?? 0; return <td key={c.key} className={n ? undefined : 'p2pf-zero'}>{n}</td>; })}
+                  <td className={share > 0.1 ? 'p2pf-low' : undefined}>{pct(rejected(r.row), r.row.pagesUploaded)}</td>
                 </tr>
               );
             })}
-            {data.plannedDuties.map((d) => (
-              <tr key={d.title} className="p2pf-idle">
-                <td>{d.title}</td><td>{FREQUENCY[d.frequency] ?? d.frequency}</td>
-                <td colSpan={4}><span className="p2w-muted">Not set up yet</span></td>
+          </tbody>
+        </table>
+      </div>
+    </Section>
+  );
+}
+
+// ---------------------------------------------------------------- 4. tasks
+
+function Tasks({ data, periods }: { data: Performance; periods: Period[] }) {
+  const tasks = data.tasks!;
+  const manyDealers = new Set(tasks.outlets.map((o) => o.dealerId)).size > 1;
+  const [level, setLevel] = useState<Level>(tasks.outlets.length ? 'outlet' : 'person');
+  const levels: Array<{ key: Level; label: string }> = [
+    ...(manyDealers ? [{ key: 'dealer' as Level, label: 'Dealership' }] : []),
+    ...(tasks.outlets.length ? [{ key: 'outlet' as Level, label: 'Outlet' }] : []),
+    { key: 'person', label: 'Person' },
+  ];
+  const add = (items: TaskRow[]): TaskRow => ({
+    raised: data.days.map((_, i) => items.reduce((n, x) => n + (x.raised[i] ?? 0), 0)),
+    closed: data.days.map((_, i) => items.reduce((n, x) => n + (x.closed[i] ?? 0), 0)),
+    open: items.reduce((n, x) => n + x.open, 0), overdue: items.reduce((n, x) => n + x.overdue, 0),
+  });
+  const rows = (level === 'person'
+    ? tasks.people.map((p) => ({ id: p.actorId, name: p.name || 'Name not recorded', sub: p.role === 'PC' ? undefined : p.role, row: p as TaskRow }))
+    : grouped(tasks.outlets, level === 'dealer' ? 'dealer' : 'outlet').map((g) => ({ id: g.id, name: g.name, sub: g.sub, row: add(g.items) })))
+    .filter((r) => sum(r.row.raised) + sum(r.row.closed) + r.row.open > 0)
+    .sort((a, b) => b.row.open - a.row.open || a.name.localeCompare(b.name));
+  const all = add(tasks.outlets.length ? tasks.outlets : tasks.people);
+  return (
+    <>
+      <Section title="Tasks" about="New tasks and tasks closed in the period, and what is open and overdue right now."
+        controls={levels.length > 1 ? <Segment label="Tasks by" value={level} options={levels} onChange={setLevel} /> : undefined}>
+        <div className="p2mw-tiles">
+          <div className="p2mw-tile"><span className="p2mw-tile__label">New in the period</span><strong className="p2mw-tile__value">{sum(all.raised)}</strong></div>
+          <div className="p2mw-tile"><span className="p2mw-tile__label">Closed in the period</span><strong className="p2mw-tile__value">{sum(all.closed)}</strong></div>
+          <div className={`p2mw-tile${all.open ? ' p2mw-tile--warn' : ''}`}><span className="p2mw-tile__label">Open now (PC tasks)</span><strong className="p2mw-tile__value">{all.open}</strong></div>
+          <div className={`p2mw-tile${all.overdue ? ' p2mw-tile--bad' : ''}`}><span className="p2mw-tile__label">Overdue now</span><strong className="p2mw-tile__value">{all.overdue}</strong></div>
+        </div>
+        <div className="p2pt-scroll">
+          <table className="p2w-table p2mw-table p2pf-table" aria-label="Tasks">
+            <thead><tr><th scope="col">{levels.find((l) => l.key === level)?.label}</th><th scope="col">New</th><th scope="col">Closed</th><th scope="col">Open now</th><th scope="col">Overdue now</th></tr></thead>
+            <tbody>
+              {rows.map((r) => (
+                <tr key={r.id}>
+                  <th scope="row">{r.name}{r.sub ? <div className="p2w-muted p2pf-sub">{r.sub}</div> : null}</th>
+                  <td>{sum(r.row.raised)}</td><td>{sum(r.row.closed)}</td>
+                  <td className={r.row.open ? undefined : 'p2pf-zero'}><strong>{r.row.open}</strong></td>
+                  <td className={r.row.overdue ? 'p2pf-low' : 'p2pf-zero'}>{r.row.overdue}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Section>
+      <Section title={`New and closed per ${periods[0]?.indexes.length === 1 ? 'day' : 'week'}`} about="More new than closed means the backlog grew.">
+        <div className="p2pt-scroll">
+          <table className="p2w-table p2mw-table p2pf-table" aria-label="New and closed tasks per period">
+            <thead><tr><th scope="col" />{periods.map((p) => <th key={p.key} scope="col">{p.label}</th>)}<th scope="col">Total</th></tr></thead>
+            <tbody>
+              <tr><th scope="row">New</th>{periods.map((p) => <td key={p.key}>{sumAt(all.raised, p.indexes) || '—'}</td>)}<td><strong>{sum(all.raised)}</strong></td></tr>
+              <tr><th scope="row">Closed</th>{periods.map((p) => <td key={p.key}>{sumAt(all.closed, p.indexes) || '—'}</td>)}<td><strong>{sum(all.closed)}</strong></td></tr>
+              <tr>
+                <th scope="row">Backlog change</th>
+                {periods.map((p) => { const n = sumAt(all.raised, p.indexes) - sumAt(all.closed, p.indexes); return <td key={p.key} className={n > 0 ? 'p2mw-attn' : undefined}>{n > 0 ? `+${n}` : n}</td>; })}
+                <td><strong>{sum(all.raised) - sum(all.closed) > 0 ? '+' : ''}{sum(all.raised) - sum(all.closed)}</strong></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </Section>
+    </>
+  );
+}
+
+// ---------------------------------------------------------------- 3. day to day, week to week
+
+function Trend({ data, periods, mode }: { data: Performance; periods: Period[]; mode: Mode }) {
+  const roles = ROLE_TABS.filter((r) => data.people.some((p) => p.role === r.key));
+  const [role, setRole] = useState(roles[0]?.key ?? 'PC');
+  const current = roles.find((r) => r.key === role) ?? roles[0];
+  const measures = current ? measuresFor(data.measures, [current.key]) : [];
+  const [measureKey, setMeasureKey] = useState<string>('');
+  const measure: Measure | undefined = measures.find((m) => m.key === measureKey) ?? measures[0];
+  if (!current || !measure) return null;
+  const people = data.people.filter((p) => p.role === current.key);
+  const rows = people.map((p) => {
+    const cells = periods.map((per) => sumAt(p.series[measure.key], per.indexes));
+    const total = cells.reduce((a, b) => a + b, 0);
+    return { p, cells, total, average: periods.length ? total / periods.length : 0 };
+  }).sort((a, b) => (measure.lowerIsBetter ? a.total - b.total : b.total - a.total) || (a.p.name ?? '').localeCompare(b.p.name ?? ''));
+  const column = periods.map((_, i) => rows.reduce((n, r) => n + r.cells[i], 0));
+  return (
+    <Section title={mode === 'DAILY' ? 'Day to day' : 'Week to week'}
+      about={`Each person's ${measure.label.toLowerCase()} per ${mode === 'DAILY' ? 'day' : 'week'}. A figure under half of the person's own average is marked.`}
+      controls={roles.length > 1 ? <Segment label="Role" value={current.key} options={roles} onChange={setRole} /> : undefined}>
+      <Segment label="Figure" value={measure.key} options={measures.map((m) => ({ key: m.key, label: m.label }))} onChange={setMeasureKey} />
+      <div className="p2pt-scroll">
+        <table className="p2w-table p2mw-table p2pf-table" aria-label={`${measure.label} per ${mode === 'DAILY' ? 'day' : 'week'}`}>
+          <thead>
+            <tr>
+              <th scope="col">{current.label}</th>
+              {periods.map((p) => <th key={p.key} scope="col">{p.label}</th>)}
+              <th scope="col">Total</th><th scope="col">Average</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map(({ p, cells, total, average }) => (
+              <tr key={p.actorId}>
+                <th scope="row">{p.name || 'Name not recorded'}</th>
+                {cells.map((v, i) => {
+                  const low = !measure.lowerIsBetter && !periods[i].off && average >= 2 && v < average / 2;
+                  const high = Boolean(measure.lowerIsBetter) && v >= 3 && v > average * 2;
+                  return <td key={periods[i].key} className={low || high ? 'p2pf-low' : v === 0 ? 'p2pf-zero' : undefined}>{v === 0 ? '—' : valueText(measure, v)}</td>;
+                })}
+                <td><strong>{valueText(measure, total)}</strong></td>
+                <td>{valueText(measure, Math.round(average * 10) / 10)}</td>
+              </tr>
+            ))}
+          </tbody>
+          {measure.unit === 'MINUTES' ? null : (
+            <tfoot>
+              <tr>
+                <th scope="row">Total</th>
+                {column.map((v, i) => <td key={periods[i].key}>{valueText(measure, v)}</td>)}
+                <td><strong>{valueText(measure, column.reduce((a, b) => a + b, 0))}</strong></td><td />
+              </tr>
+            </tfoot>
+          )}
+        </table>
+      </div>
+    </Section>
+  );
+}
+
+// ---------------------------------------------------------------- 4. PC efficiency
+
+const share = (v: number | null) => (v == null ? '—' : `${v}%`);
+
+function Efficiency({ data, range }: { data: Performance; range: string }) {
+  const rows = [...data.efficiency!.people].sort((a, b) => (b.closedShare ?? -1) - (a.closedShare ?? -1) || (a.name ?? '').localeCompare(b.name ?? ''));
+  if (!rows.length) return null;
+  return (
+    <Section title="PC efficiency" about={`For ${range}: how much of what a PC starts gets finished, how fast, and how clean.`}>
+      <div className="p2pt-scroll">
+        <table className="p2w-table p2mw-table p2pf-table" aria-label="PC efficiency">
+          <thead>
+            <tr>
+              <th scope="col">PC</th>
+              <th scope="col" title="Delivery files closed in the period, of the delivery files first uploaded in it">Delivery files closed</th>
+              <th scope="col" title="From the first delivery upload to the file closing">Days to close</th>
+              <th scope="col" title="Pages not rejected on image quality">Pages right first time</th>
+              <th scope="col" title="Tasks with a due time closed by it">Tasks closed in time</th>
+              <th scope="col">Journeys a working day</th>
+              <th scope="col">Days worked</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r) => (
+              <tr key={r.actorId}>
+                <th scope="row">{r.name || 'Name not recorded'}</th>
+                <td className={r.closedShare != null && r.closedShare < 50 ? 'p2pf-low' : undefined}>
+                  <strong>{share(r.closedShare)}</strong><span className="p2w-muted p2pf-sub"> {r.deliveryClosed} of {r.deliveryStarted}</span>
+                </td>
+                <td className={r.daysToClose != null && r.daysToClose > 3 ? 'p2pf-low' : undefined}>{r.daysToClose == null ? '—' : r.daysToClose.toFixed(1)}</td>
+                <td className={r.firstTimeRight != null && r.firstTimeRight < 90 ? 'p2pf-low' : undefined}>
+                  <strong>{share(r.firstTimeRight)}</strong><span className="p2w-muted p2pf-sub"> {r.pagesRejected} of {r.pagesUploaded} rejected</span>
+                </td>
+                <td className={r.tasksInTimeShare != null && r.tasksInTimeShare < 70 ? 'p2pf-low' : undefined}>
+                  <strong>{share(r.tasksInTimeShare)}</strong><span className="p2w-muted p2pf-sub"> {r.tasksInTime} of {r.tasksWithDue}</span>
+                </td>
+                <td>{r.journeysPerDay ?? '—'}</td>
+                <td>{r.daysWorked}</td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
-    </SectionCard>
+    </Section>
   );
 }
 
+// ---------------------------------------------------------------- 5. delinquencies
+
+function Delinquency({ data }: { data: Performance }) {
+  const titles = new Map(data.schedules.map((s) => [s.scheduleId, s]));
+  const lines = [...data.delinquency!.lines].sort((a, b) => b.notDone - a.notDone || b.late - a.late || (a.name ?? '').localeCompare(b.name ?? ''));
+  return (
+    <Section title="Delinquencies" about="Daily and weekly duties per person: due, done on time, done late and missed, with the dates missed.">
+      {lines.length ? (
+        <div className="p2pt-scroll">
+          <table className="p2w-table p2mw-table p2pf-table" aria-label="Delinquencies">
+            <thead><tr><th scope="col">Person</th><th scope="col">Duty</th><th scope="col">Due</th><th scope="col">On time</th><th scope="col">Late</th><th scope="col">Missed</th><th scope="col">Dates missed</th></tr></thead>
+            <tbody>
+              {lines.map((l) => {
+                const s = titles.get(l.scheduleId);
+                return (
+                  <tr key={`${l.actorId}-${l.scheduleId}`}>
+                    <th scope="row">{l.name || 'Name not recorded'}</th>
+                    <td>{s?.title ?? 'Duty'}<span className="p2w-muted p2pf-sub"> {s ? FREQUENCY[s.frequency] ?? s.frequency : ''}</span></td>
+                    <td>{l.due}</td>
+                    <td>{l.onTime}</td>
+                    <td className={l.late ? 'p2mw-attn' : 'p2pf-zero'}>{l.late}</td>
+                    <td className={l.notDone ? 'p2pf-low' : 'p2pf-zero'}>{l.notDone}</td>
+                    <td>{l.missedDates.length ? datesText(l.missedDates) : <span className="p2w-muted">—</span>}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      ) : <p className="p2w-muted">No duty fell due in this period.</p>}
+      {data.plannedDuties.length ? (
+        <p className="p2w-muted p2pf-planned">Not set up yet: {data.plannedDuties.map((d) => `${d.title} (${(FREQUENCY[d.frequency] ?? d.frequency).toLowerCase()})`).join(', ')}.</p>
+      ) : null}
+    </Section>
+  );
+}
+
+const detailLabel = (key: Tab, own: boolean) => { const t = TABS.find((x) => x.key === key)!; return own ? t.mine ?? t.label : t.label; };
+const shortDate = (iso: string) => new Date(`${iso}T00:00:00Z`).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', timeZone: 'UTC' });
+
 /**
- * Performance (product owner 2026-11-13): how the team and each person is doing on a day --
- * against the person's own usual and against peers of the same role -- and the daily and weekly
- * duties. A Team Lead, PM or Executive sees their people by name; a PC or Reviewer their own
- * figures and the unnamed peer median.
+ * Performance (product owner 2026-11-13): the dashboard of the reader's role over a date range, a
+ * tab at a time -- overview, pending, the team, uploads and quality, tasks, duties -- and under
+ * each tab the detail by outlet and person, read only when it is opened. A PC or Reviewer sees
+ * their own. A SuperAdmin chooses the blocks and the detail each role sees.
  */
-export default function PerformanceView({ tenantId, accessToken, today }: {
-  tenantId: string; accessToken: string | undefined; today: string;
+export default function PerformanceView({ tenantId, accessToken, today, initialView = 'overview', initialDetail = null }: {
+  tenantId: string; accessToken: string | undefined; today: string; initialView?: View; initialDetail?: Tab | null;
 }) {
-  const [date, setDate] = useState(today);
-  const [windowDays, setWindowDays] = useState<'7' | '14' | '30'>('14');
-  const [group, setGroup] = useState<RoleGroup>('PC');
-  const query = useQuery({
-    queryKey: ['p2-performance', tenantId, date, windowDays],
-    queryFn: () => getPerformance(tenantId, date, Number(windowDays), accessToken),
-    enabled: Boolean(tenantId && accessToken),
-    // The server keeps the figures two minutes; asking more often gains nothing.
-    staleTime: 120_000,
-    refetchOnWindowFocus: false,
+  const [from, setFrom] = useState(addDays(today, -6));
+  const [to, setTo] = useState(today);
+  const [modePicked, setModePicked] = useState<Mode | null>(null);
+  const [view, setView] = useState<View>(initialView);
+  const [detail, setDetail] = useState<Tab | null>(initialDetail);
+  const span = daysBetween(from, to);
+  const valid = from <= to && to <= today && span <= 92;
+  const mode = modePicked ?? defaultMode(span);
+  const enabled = Boolean(tenantId && accessToken && valid);
+  // The server keeps the figures two minutes; asking more often gains nothing.
+  const dashboard = useQuery({
+    queryKey: ['p2-performance', tenantId, from, to, 'dashboard'],
+    queryFn: () => getPerformance(tenantId, from, to, 'dashboard', accessToken),
+    enabled, staleTime: 120_000, refetchOnWindowFocus: false,
   });
+  const open = detail ? TABS.find((t) => t.key === detail) ?? null : null;
+  const query = useQuery({
+    queryKey: ['p2-performance', tenantId, from, to, open?.section],
+    queryFn: () => getPerformance(tenantId, from, to, open!.section, accessToken),
+    enabled: enabled && Boolean(open), staleTime: 120_000, refetchOnWindowFocus: false,
+  });
+  const board = dashboard.data?.dashboard;
   const data = query.data;
-  const groups = data ? ROLE_GROUPS.filter((g) => data.people.some((p) => g.roles.includes(p.role))) : [];
-  const current = groups.find((g) => g.key === group) ?? groups[0];
-  const people = data && current ? data.people.filter((p) => current.roles.includes(p.role)) : [];
-  const measures = data && current ? measuresFor(data.measures, current.roles) : [];
-  const me = data?.own ? data.people[0] : undefined;
+  const days = dashboard.data?.days ?? data?.days;
+  const periods = useMemo(() => (days ? periodsOf(days, mode) : []), [days, mode]);
+  const sections = dashboard.data?.sections ?? data?.sections;
+  const own = dashboard.data?.own ?? data?.own ?? false;
+  const allowed = (t: Tab) => {
+    const section = TABS.find((x) => x.key === t)!.section;
+    return !sections || (sections.some((x) => x.key === section) && (!own || section !== 'flow'));
+  };
+  // A tab is there while it has a block of the dashboard or a detail switched on for the role.
+  const views = VIEWS.filter((v) => (!dashboard.data && !data) || (board ? viewHas(board, v.key) : false) || v.details.some(allowed));
+  const current = views.find((v) => v.key === view) ?? views[0];
+  const details = current ? current.details.filter(allowed) : [];
+  const range = from === to ? shortDate(from) : `${shortDate(from)} to ${shortDate(to)}`;
+  const pick = (f: string, t: string) => { setFrom(f); setTo(t); setModePicked(null); };
+  const shown = open && data && details.includes(open.key) ? open.key : null;
 
   return (
     <>
       <div className="p2mw-controls">
         <span className="p2mw-range">
-          <button type="button" className="p2w-button p2w-button--ghost" aria-label="Previous day"
-            onClick={() => setDate(shiftPeriod('DAY', date, -1))}>‹</button>
-          <label>Day <input type="date" value={date} max={today} onChange={(e) => e.target.value && setDate(e.target.value)} /></label>
-          <button type="button" className="p2w-button p2w-button--ghost" aria-label="Next day"
-            disabled={!hasNextPeriod('DAY', date, today)} onClick={() => setDate(shiftPeriod('DAY', date, 1))}>›</button>
-          <strong>{trackerLabel('DAY', date)}</strong>
-          {date !== today ? <button type="button" className="p2w-button p2w-button--secondary" onClick={() => setDate(today)}>Today</button> : null}
+          <label>From <input type="date" value={from} max={to} onChange={(e) => e.target.value && setFrom(e.target.value)} /></label>
+          <label>To <input type="date" value={to} min={from} max={today} onChange={(e) => e.target.value && setTo(e.target.value)} /></label>
+          <button type="button" className="p2w-button p2w-button--ghost" onClick={() => pick(today, today)}>Today</button>
+          <button type="button" className="p2w-button p2w-button--ghost" onClick={() => pick(addDays(today, -6), today)}>Last 7 days</button>
+          <button type="button" className="p2w-button p2w-button--ghost" onClick={() => pick(`${today.slice(0, 8)}01`, today)}>This month</button>
         </span>
-        <Segment label="Compared over" value={windowDays} options={WINDOWS} onChange={setWindowDays} />
+        <Segment label="Shown" value={mode} options={MODES} onChange={(m) => setModePicked(m)} />
+      </div>
+      {valid ? null : <div className="p2w-alert p2w-alert--error" role="alert">Choose a range of up to 92 days, ending today or earlier.</div>}
+
+      <div className="p2pt-tabs" role="tablist" aria-label="Performance">
+        {views.map((v) => (
+          <button key={v.key} type="button" role="tab" aria-selected={current?.key === v.key}
+            className={current?.key === v.key ? 'is-active' : undefined}
+            // A tab with no block of the dashboard for this role opens straight on its detail.
+            onClick={() => { setView(v.key); setDetail(board && !viewHas(board, v.key) ? v.details.find(allowed) ?? null : null); }}>{viewLabel(v.key, board)}</button>
+        ))}
       </div>
 
-      {query.isLoading ? <SectionCard><p className="p2w-muted">Counting…</p></SectionCard> : null}
-      {query.isError ? (
+      {dashboard.isLoading ? <SectionCard><p className="p2w-muted">Counting…</p></SectionCard> : null}
+      {dashboard.isError ? (
         <SectionCard>
           <div className="p2w-alert p2w-alert--error" role="alert">
-            The performance figures could not be loaded.{' '}
+            The dashboard could not be loaded.{' '}
+            <button type="button" className="p2w-button p2w-button--ghost" onClick={() => dashboard.refetch()}>Try again</button>
+          </div>
+        </SectionCard>
+      ) : null}
+      {dashboard.data && !views.length ? <SectionCard><p className="p2w-muted">Nothing is switched on for your role here.</p></SectionCard> : null}
+      {board && current ? <Dashboard board={board} view={current.key} periods={periods} asOf={dashboard.data!.asOfUtc} /> : null}
+
+      {details.length ? (
+        <div className="p2db-details" role="group" aria-label="More detail">
+          <span>More detail</span>
+          {details.map((key) => (
+            <button key={key} type="button" aria-pressed={detail === key} className={`p2w-button p2w-button--ghost${detail === key ? ' is-on' : ''}`}
+              onClick={() => setDetail(detail === key ? null : key)}>{detailLabel(key, own)}</button>
+          ))}
+        </div>
+      ) : null}
+      {open && details.includes(open.key) && query.isLoading ? <SectionCard><p className="p2w-muted">Counting…</p></SectionCard> : null}
+      {open && details.includes(open.key) && query.isError ? (
+        <SectionCard>
+          <div className="p2w-alert p2w-alert--error" role="alert">
+            The figures could not be loaded.{' '}
             <button type="button" className="p2w-button p2w-button--ghost" onClick={() => query.refetch()}>Try again</button>
           </div>
         </SectionCard>
       ) : null}
-
-      {data && data.own ? (
-        me ? (
-          <>
-            <SectionCard>
-              <div className="p2w-card__title">
-                <h3>My day</h3>
-                <p className="p2w-muted">Your figures for the day, against your own usual over the last {data.days.length} days{data.shows?.peers === false ? '' : ' and against the middle of your peers'}. Nobody else is named.</p>
-              </div>
-              <OwnCards data={data} me={me} />
-            </SectionCard>
-            <Duties data={data} people={[me]} />
-          </>
-        ) : <SectionCard><p className="p2w-muted">No outlet is mapped to you in this Project.</p></SectionCard>
-      ) : null}
-
-      {data && !data.own ? (
+      {shown && data ? (
         <>
-          {groups.length > 1 ? <Segment label="Team" value={current?.key ?? 'PC'} options={groups} onChange={setGroup} /> : null}
-          {current ? <TeamTiles data={data} people={people} measures={measures} /> : null}
-          <SectionCard>
-            <div className="p2w-card__title">
-              <h3>{current ? current.label : 'People'}</h3>
-              <p className="p2w-muted">
-                Each figure is the day's; the line is the last {data.days.length} days; ▲ ▼ compare with the person's own usual
-                {data.shows?.peers === false ? '' : '; the tag compares with peers of the same role'}. Click a column to sort.
-              </p>
-            </div>
-            {people.length ? (
-              <TeamTable data={data} people={people} measures={measures} peerRole={current && current.roles.length === 1 ? current.roles[0] : null} />
-            ) : <p className="p2w-muted">Nobody is mapped to your outlets in this Project.</p>}
-          </SectionCard>
-          <Duties data={data} people={data.people} />
+          {data.own && data.people && !data.people.length ? <SectionCard><p className="p2w-muted">No outlet is mapped to you in this Project.</p></SectionCard> : null}
+          {shown === 'backlog' && data.pending ? <Pending data={data} own={data.own} /> : null}
+          {shown === 'bookings' && data.flow?.outlets.length ? <Bookings data={data} periods={periods} /> : null}
+          {shown === 'deliveries' && data.flow?.outlets.length ? <Deliveries data={data} periods={periods} /> : null}
+          {shown === 'uploads' && data.uploads ? <Uploads data={data} periods={periods} /> : null}
+          {shown === 'quality' && data.quality ? <Quality data={data} range={range} /> : null}
+          {shown === 'tasks' && data.tasks ? <Tasks data={data} periods={periods} /> : null}
+          {shown === 'trend' && data.people?.length ? <Trend data={data} periods={periods} mode={mode} /> : null}
+          {shown === 'efficiency' && data.efficiency ? <Efficiency data={data} range={range} /> : null}
+          {shown === 'duties' && data.delinquency ? <Delinquency data={data} /> : null}
         </>
-      ) : null}
-
-      {data ? (
-        <SectionCard>
-          <details>
-            <summary><strong>How each figure is counted</strong></summary>
-            <ul className="p2pt-notes">{data.notes.map((note) => <li key={note}>{note}</li>)}</ul>
-          </details>
-        </SectionCard>
       ) : null}
     </>
   );

@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 
-import { dutySummary, measuresFor, minutesText, sparkPoints, trend, valueText, type Measure } from './uc03Performance';
+import {
+  addDays, addPending, datesText, daysBetween, defaultMode, dutySummary, flowOf, measuresFor, minutesText, pendingOf, periodsOf, sparkPoints, sumAt, trend, valueText,
+  type Measure,
+} from './uc03Performance';
 
 const files: Measure = { key: 'filesUploaded', label: 'Files uploaded', group: 'OUTPUT', roles: ['PC'] };
 const rejected: Measure = { key: 'pagesRejected', label: 'Pages rejected', group: 'QUALITY', roles: ['PC'], lowerIsBetter: true };
@@ -33,5 +36,43 @@ describe('performance figures', () => {
       .toEqual({ due: 3, onTime: 1, late: 1, notDone: 1, pending: 0 });
     expect(sparkPoints([0, 5, 10], 10, 10)).toBe('0.0,9.0 5.0,5.0 10.0,1.0');
     expect(sparkPoints([])).toBe('');
+  });
+});
+
+
+describe('periods, pending work and bookings / deliveries', () => {
+  const days = ['2026-11-07', '2026-11-08', '2026-11-09', '2026-11-10'];   // Sat, Sun, Mon, Tue
+
+  it('makes a column per day, or per Monday-to-Sunday week', () => {
+    expect(periodsOf(days, 'DAILY').map((p) => p.label)).toEqual(['Sat 7', 'Sun 8', 'Mon 9', 'Tue 10']);
+    expect(periodsOf(days, 'DAILY').map((p) => Boolean(p.off))).toEqual([false, true, false, false]);   // Sunday is off
+    const weeks = periodsOf(days, 'WEEKLY');
+    expect(weeks.map((p) => p.label)).toEqual(['Week of 2 Nov', 'Week of 9 Nov']);
+    expect(weeks.map((p) => p.indexes)).toEqual([[0, 1], [2, 3]]);
+    expect(sumAt([1, 2, 3, 4], weeks[1].indexes)).toBe(7);
+    expect(addDays('2026-11-01', -1)).toBe('2026-10-31');
+    expect(daysBetween('2026-11-07', '2026-11-10')).toBe(4);
+    expect(defaultMode(7)).toBe('DAILY');
+    expect(defaultMode(30)).toBe('WEEKLY');
+  });
+
+  it('reads pending work: the total and what is older than three days', () => {
+    const counts = { tasksOpen: [2, 3, 4, 1] };
+    expect(pendingOf(counts, 'tasksOpen')).toEqual({ total: 10, old: 5 });
+    expect(pendingOf(counts, 'nothing')).toEqual({ total: 0, old: 0 });
+    expect(addPending([counts, { tasksOpen: [1, 0, 0, 0], other: [0, 0, 0, 2] }, undefined]))
+      .toEqual({ tasksOpen: [3, 3, 4, 1], other: [0, 0, 0, 2] });
+  });
+
+  it('adds bookings and deliveries over outlets and days', () => {
+    const day = { bookings: 2, deliveries: 1, onRegister: 3, inTool: 1, notNotified: 1, notUploaded: 1, registerMissing: 0 };
+    const total = flowOf([{ days: { '2026-11-09': day } }, { days: { '2026-11-09': day, '2026-11-10': day } }], ['2026-11-09']);
+    expect(total.bookings).toBe(4);
+    expect(total.onRegister - total.inTool).toBe(4);
+  });
+
+  it('names the dates a duty was missed', () => {
+    expect(datesText(['2026-11-09', '2026-11-10'])).toBe('9 Nov, 10 Nov');
+    expect(datesText(['2026-11-01', '2026-11-02', '2026-11-03'], 2)).toBe('2 Nov, 3 Nov +1 more');
   });
 });

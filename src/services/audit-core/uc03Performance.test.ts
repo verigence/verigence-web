@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
 import {
-  attention, dutySummary, liveMeasures, measuresFor, minutesText, overall, sparkPoints, trend, valueText, type Card, type Measure,
+  addPending, datesText, dutySummary, flowOf, measuresFor, minutesText, pendingOf, periodsOf, sparkPoints, sumAt, trend, valueText,
+  type Measure,
 } from './uc03Performance';
 
 const files: Measure = { key: 'filesUploaded', label: 'Files uploaded', group: 'OUTPUT', roles: ['PC'] };
@@ -39,35 +40,36 @@ describe('performance figures', () => {
 });
 
 
-const card = (over: Partial<Card>): Card => ({
-  id: 'a', name: 'Outlet A', activeToday: true, today: { filesUploaded: 10, pagesRejected: 0 }, usual: { filesUploaded: 9, pagesRejected: 1 },
-  series: {}, standing: { filesUploaded: 'with' }, dutiesToday: null, dutiesWindow: null, ...over,
-});
-const cardMeasures = [{ key: 'filesUploaded', label: 'Files uploaded' }, { key: 'pagesRejected', label: 'Pages rejected', lowerIsBetter: true },
-  { key: 'reviews', label: 'Reviews' }];
+describe('periods, pending work and bookings / deliveries', () => {
+  const days = ['2026-11-07', '2026-11-08', '2026-11-09', '2026-11-10'];   // Sat, Sun, Mon, Tue
 
-describe('performance cards', () => {
-  it('drops a measure nobody has a figure for', () => {
-    expect(liveMeasures(cardMeasures, [card({})]).map((m) => m.key)).toEqual(['filesUploaded', 'pagesRejected']);
+  it('makes a column per day, or per Monday-to-Sunday week', () => {
+    expect(periodsOf(days, 'DAILY').map((p) => p.label)).toEqual(['Sat 7', 'Sun 8', 'Mon 9', 'Tue 10']);
+    expect(periodsOf(days, 'DAILY').map((p) => Boolean(p.off))).toEqual([false, true, false, false]);   // Sunday is off
+    // The part-week at the start is left out.
+    const weeks = periodsOf(days, 'WEEKLY');
+    expect(weeks.map((p) => p.label)).toEqual(['Week of 9 Nov']);
+    expect(weeks.map((p) => p.indexes)).toEqual([[2, 3]]);
+    expect(sumAt([1, 2, 3, 4], weeks[0].indexes)).toBe(7);
   });
 
-  it('says where a card stands, and that an idle one has nothing recorded', () => {
-    expect(overall(card({}), cardMeasures)).toBe('with');
-    expect(overall(card({ activeToday: false }), cardMeasures)).toBe('idle');
+  it('reads pending work: the total and what is older than three days', () => {
+    const counts = { tasksOpen: [2, 3, 4, 1] };
+    expect(pendingOf(counts, 'tasksOpen')).toEqual({ total: 10, old: 5 });
+    expect(pendingOf(counts, 'nothing')).toEqual({ total: 0, old: 0 });
+    expect(addPending([counts, { tasksOpen: [1, 0, 0, 0], other: [0, 0, 0, 2] }, undefined]))
+      .toEqual({ tasksOpen: [3, 3, 4, 1], other: [0, 0, 0, 2] });
   });
 
-  it('lists what needs attention in words, duties first', () => {
-    const lines = attention([
-      card({}),
-      card({ id: 'b', name: 'Outlet B', activeToday: false }),
-      card({ id: 'c', name: 'Outlet C', today: { filesUploaded: 2, pagesRejected: 6 }, usual: { filesUploaded: 9, pagesRejected: 1 }, standing: { filesUploaded: 'below' },
-        dutiesWindow: { due: 5, onTime: 3, late: 0, notDone: 2, pending: 0 } }),
-    ], cardMeasures);
-    expect(lines.map((l) => `${l.name}: ${l.why}`)).toEqual([
-      'Outlet C: 2 duties not done in the period',
-      'Outlet B: nothing recorded this day',
-      'Outlet C: 6 pages rejected (usual 1)',
-      'Outlet C: files uploaded 2, usual 9 and below peers',
-    ]);
+  it('adds bookings and deliveries over outlets and days', () => {
+    const day = { bookings: 2, deliveries: 1, onRegister: 3, inTool: 1, notNotified: 1, registerMissing: 0 };
+    const total = flowOf([{ days: { '2026-11-09': day } }, { days: { '2026-11-09': day, '2026-11-10': day } }], ['2026-11-09']);
+    expect(total.bookings).toBe(4);
+    expect(total.onRegister - total.inTool).toBe(4);
+  });
+
+  it('names the dates a duty was missed', () => {
+    expect(datesText(['2026-11-09', '2026-11-10'])).toBe('9 Nov, 10 Nov');
+    expect(datesText(['2026-11-01', '2026-11-02', '2026-11-03'], 2)).toBe('2 Nov, 3 Nov +1 more');
   });
 });

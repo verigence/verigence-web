@@ -55,7 +55,7 @@ const REPORTS = [
     key: 'performance',
     title: 'Performance view',
     description:
-      'What the Performance tab of the Project Tracker and My Tracker shows: each measure (files, journeys uploaded and closed, reviews, tasks, pages rejected, active time), the daily and weekly duties, and the comparison with peers. For every Project.',
+      'What each role (PC, Reviewer, Team Lead, PM, Executive) sees in the Performance tab: the sections (pending work, bookings and deliveries, day to day, PC efficiency, delinquencies) and each figure. For every Project.',
   },
   {
     key: 'journey-review',

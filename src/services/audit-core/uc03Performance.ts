@@ -44,6 +44,30 @@ export type Performance = {
   /** What a SuperAdmin has left on (absent from an older Audit Core: everything shown). */
   shows?: { duties: boolean; peers: boolean };
   unitMeasures?: UnitMeasure[]; outlets?: PerformanceOutlet[]; dealers?: PerformanceDealer[];
+  /** The sections the reader's role may see, and their figures (product owner 2026-11-13). */
+  sections?: Array<{ key: SectionKey; label: string }>;
+  pending?: {
+    kinds: Array<{ key: string; label: string }>; buckets: string[];
+    outlets: Array<Place & { counts: PendingCounts }>;
+    people: Array<{ actorId: string; name: string | null; role: string; counts: PendingCounts }>;
+  };
+  flow?: { outlets: Array<Place & { days: Record<string, FlowDay> }> };
+  efficiency?: { people: EfficiencyRow[] };
+  delinquency?: { lines: DelinquencyLine[] };
+};
+export type SectionKey = 'pending' | 'flow' | 'trend' | 'efficiency' | 'duties';
+export type Place = { outletId: string; outletName: string; dealerId: string; dealerName: string };
+/** Per kind of pending work: how many, by age (today, 1-3 days, 4-7 days, older). */
+export type PendingCounts = Record<string, number[]>;
+export type FlowDay = { bookings: number; deliveries: number; onRegister: number; inTool: number; notNotified: number; registerMissing: number };
+export type EfficiencyRow = {
+  actorId: string; name: string | null; daysWorked: number; deliveryStarted: number; deliveryClosed: number;
+  closedShare: number | null; daysToClose: number | null; pagesUploaded: number; pagesRejected: number;
+  firstTimeRight: number | null; tasksWithDue: number; tasksInTime: number; tasksInTimeShare: number | null;
+  journeysPerDay: number | null;
+};
+export type DelinquencyLine = DutyFigures & {
+  actorId: string; name: string | null; role: string; scheduleId: string; missedDates: string[]; lateDates: string[];
 };
 
 export function getPerformance(tenantId: string, date: string, days: number, accessToken?: string) {
@@ -55,8 +79,9 @@ export function getPerformance(tenantId: string, date: string, days: number, acc
 
 // ---------------------------------------------------------------- SuperAdmin settings (2026-11-13)
 
-export type PerformanceSettingItem = { key: string; label: string; group: string; shown: boolean; updatedAtUtc: string | null };
-export type PerformanceSettings = { items: PerformanceSettingItem[] };
+export type PerformanceSettingItem = { key: string; label: string; group: string; shown: Record<string, boolean> };
+/** Each item is switched per role (2026-11-13: what a TL sees, what a PM sees). */
+export type PerformanceSettings = { roles: string[]; items: PerformanceSettingItem[] };
 
 export function getPerformanceSettings(accessToken?: string) {
   return auditCoreRequest<PerformanceSettings>('/v1/admin/performance-settings', { accessToken });
@@ -123,64 +148,76 @@ export function sparkPoints(series: number[], width = 72, height = 20): string {
   return series.map((v, i) => `${(i * step).toFixed(1)},${(height - (v / max) * (height - 2) - 1).toFixed(1)}`).join(' ');
 }
 
-// ---------------------------------------------------------------- cards (dealership, outlet, person)
+// ---------------------------------------------------------------- periods, pending and flow (2026-11-13)
 
-/** One card of the Performance view: a dealership, an outlet or a person, with the same shape. */
-export type Card = {
-  id: string; name: string; sub?: string; activeToday: boolean;
-  today: Record<string, number>; usual: Record<string, number | null>; series: Record<string, number[]>;
-  standing: Record<string, Standing>; dutiesToday: DutyFigures | null; dutiesWindow: DutyFigures | null;
-};
-export type CardMeasure = { key: string; label: string; lowerIsBetter?: boolean; unit?: 'MINUTES' };
+const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const utc = (iso: string) => new Date(`${iso}T00:00:00Z`);
+const shortDay = (iso: string) => `${utc(iso).getUTCDate()} ${MONTH_NAMES[utc(iso).getUTCMonth()]}`;
 
-/** The measures worth a line: those where some card has a figure today or usually. */
-export function liveMeasures(measures: CardMeasure[], cards: Card[]): CardMeasure[] {
-  return measures.filter((m) => cards.some((c) => (c.today[m.key] ?? 0) > 0 || (c.usual[m.key] ?? 0) > 0));
+export type Mode = 'DAILY' | 'WEEKLY';
+/** How many days to ask for: the last 7 days, or the last six whole weeks. */
+export const MODE_DAYS: Record<Mode, number> = { DAILY: 7, WEEKLY: 42 };
+/** off: a Sunday (the off day): nothing is expected, so nothing is marked. */
+export type Period = { key: string; label: string; indexes: number[]; off?: boolean };
+
+/** The columns of a grid: each day, or each Monday-to-Sunday week, of the days returned. */
+export function periodsOf(days: string[], mode: Mode): Period[] {
+  if (mode === 'DAILY') {
+    return days.map((d, i) => ({ key: d, label: `${DAY_NAMES[utc(d).getUTCDay()]} ${utc(d).getUTCDate()}`, indexes: [i],
+      off: utc(d).getUTCDay() === 0 }));
+  }
+  const weeks: Period[] = [];
+  days.forEach((d, i) => {
+    const monday = new Date(utc(d));
+    monday.setUTCDate(monday.getUTCDate() - ((monday.getUTCDay() + 6) % 7));
+    const key = monday.toISOString().slice(0, 10);
+    const last = weeks[weeks.length - 1];
+    if (last && last.key === key) last.indexes.push(i);
+    else weeks.push({ key, label: `Week of ${shortDay(key)}`, indexes: [i] });
+  });
+  // Forty-two days rarely start on a Monday: the part-week at the start is left out, so six whole
+  // weeks (the last one up to the day asked) are compared like with like.
+  return weeks.length > 1 && weeks[0].indexes.length < 7 ? weeks.slice(1) : weeks;
 }
 
-/** Where a card stands overall: by its first measure with a standing; "idle" with nothing recorded. */
-export function overall(card: Card, measures: CardMeasure[]): Exclude<Standing, null> | 'idle' | null {
-  if (!card.activeToday) return 'idle';
-  for (const m of measures) if (card.standing[m.key]) return card.standing[m.key];
-  return null;
+export const sumAt = (series: number[] | undefined, indexes: number[]) => indexes.reduce((n, i) => n + (series?.[i] ?? 0), 0);
+
+/** A person's or outlet's pending work of one kind: the total and how much is older than three days. */
+export function pendingOf(counts: PendingCounts | undefined, kind: string): { total: number; old: number } {
+  const c = counts?.[kind] ?? [0, 0, 0, 0];
+  return { total: c.reduce((a, b) => a + b, 0), old: (c[2] ?? 0) + (c[3] ?? 0) };
 }
 
-/**
- * What needs a look, in words, worst first: nothing recorded, duties not done, a figure well below
- * peers, many pages rejected. At most ``limit`` lines.
- */
-export function attention(cards: Card[], measures: CardMeasure[], limit = 8): Array<{ id: string; name: string; why: string; tone: 'bad' | 'warn' }> {
-  const out: Array<{ id: string; name: string; why: string; tone: 'bad' | 'warn'; rank: number }> = [];
-  for (const c of cards) {
-    const notDone = c.dutiesWindow?.notDone ?? 0;
-    if (notDone) out.push({ id: c.id, name: c.name, why: `${notDone} ${notDone === 1 ? 'duty' : 'duties'} not done in the period`, tone: 'bad', rank: 0 });
-    if (!c.activeToday) { out.push({ id: c.id, name: c.name, why: 'nothing recorded this day', tone: 'warn', rank: 1 }); continue; }
-    let low = false;
-    for (const m of measures) {
-      const today = c.today[m.key] ?? 0;
-      const usual = c.usual[m.key];
-      if (m.lowerIsBetter) {
-        if (today >= 3 && usual != null && today > 2 * usual) {
-          out.push({ id: c.id, name: c.name, why: `${valueText(m, today)} ${m.label.toLowerCase()} (usual ${valueText(m, usual)})`, tone: 'warn', rank: 2 });
-        }
-      } else if (!low && c.standing[m.key] === 'below' && usual != null && today < usual * 0.5) {
-        // One line for the first figure well below: the others usually follow it.
-        low = true;
-        out.push({ id: c.id, name: c.name, why: `${m.label.toLowerCase()} ${valueText(m, today)}, usual ${valueText(m, usual)} and below peers`, tone: 'warn', rank: 3 });
-      }
+/** Pending counts added together (the outlets of a dealership, or a whole column). */
+export function addPending(all: Array<PendingCounts | undefined>): PendingCounts {
+  const out: PendingCounts = {};
+  for (const counts of all) {
+    for (const [kind, c] of Object.entries(counts ?? {})) {
+      const into = (out[kind] ??= [0, 0, 0, 0]);
+      c.forEach((n, i) => { into[i] += n; });
     }
   }
-  return out.sort((a, b) => a.rank - b.rank).slice(0, limit).map(({ rank: _rank, ...line }) => line);
+  return out;
 }
 
-export function unitCard(unit: PerformanceUnit, id: string, name: string, sub?: string): Card {
-  return { id, name, sub, activeToday: unit.activeToday, today: unit.today, usual: unit.usual, series: unit.series,
-    standing: unit.standing, dutiesToday: unit.dutiesToday, dutiesWindow: unit.dutiesWindow };
+const NO_FLOW: FlowDay = { bookings: 0, deliveries: 0, onRegister: 0, inTool: 0, notNotified: 0, registerMissing: 0 };
+
+/** The bookings, deliveries and gate register of some outlets over some days, added together. */
+export function flowOf(outlets: Array<{ days: Record<string, FlowDay> }>, days: string[]): FlowDay {
+  const out = { ...NO_FLOW };
+  for (const o of outlets) {
+    for (const d of days) {
+      const cell = o.days[d];
+      if (!cell) continue;
+      (Object.keys(out) as Array<keyof FlowDay>).forEach((k) => { out[k] += cell[k] ?? 0; });
+    }
+  }
+  return out;
 }
 
-export function personCard(p: PerformancePerson, sub?: string): Card {
-  const today = dutySummary(p.dutiesToday);
-  const all = dutySummary(p.dutiesWindow);
-  return { id: p.actorId, name: p.name || 'Name not recorded', sub, activeToday: p.activeToday, today: p.today, usual: p.usual,
-    series: p.series, standing: p.standing, dutiesToday: today.due ? today : null, dutiesWindow: all.due ? all : null };
+/** "12 Nov, 13 Nov" for the dates a duty was missed (at most ``limit``, then "+n more"). */
+export function datesText(dates: string[], limit = 6): string {
+  const shown = dates.slice(-limit).map(shortDay).join(', ');
+  return dates.length > limit ? `${shown} +${dates.length - limit} more` : shown;
 }

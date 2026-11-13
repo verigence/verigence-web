@@ -705,7 +705,9 @@ export default function PerformanceView({ tenantId, accessToken, today, initialV
       <div className="p2pt-tabs" role="tablist" aria-label="Performance">
         {views.map((v) => (
           <button key={v.key} type="button" role="tab" aria-selected={current?.key === v.key}
-            className={current?.key === v.key ? 'is-active' : undefined} onClick={() => { setView(v.key); setDetail(null); }}>{viewLabel(v.key, board)}</button>
+            className={current?.key === v.key ? 'is-active' : undefined}
+            // A tab with no block of the dashboard for this role opens straight on its detail.
+            onClick={() => { setView(v.key); setDetail(board && !viewHas(board, v.key) ? v.details.find(allowed) ?? null : null); }}>{viewLabel(v.key, board)}</button>
         ))}
       </div>
 

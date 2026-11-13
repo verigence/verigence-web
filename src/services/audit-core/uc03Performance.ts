@@ -6,7 +6,7 @@ import { auditCoreRequest } from './client';
  * A Team Lead, PM or Executive reads their people by name; a PC or Reviewer their own row and
  * the unnamed peer median.
  */
-export type MeasureKey = 'filesUploaded' | 'journeysUploaded' | 'reviews' | 'tasksClosed' | 'pagesRejected' | 'activeMinutes';
+export type MeasureKey = 'filesUploaded' | 'journeysUploaded' | 'journeysClosed' | 'reviews' | 'tasksClosed' | 'pagesRejected' | 'activeMinutes';
 export type Measure = {
   key: MeasureKey; label: string; group: 'OUTPUT' | 'QUALITY' | 'UTILISATION'; roles: string[];
   unit?: 'MINUTES'; lowerIsBetter?: boolean;
@@ -28,6 +28,8 @@ export type Performance = {
   date: string; first: string; days: string[]; timezone: string; current: boolean; asOfUtc: string; own: boolean;
   measures: Measure[]; schedules: DutySchedule[]; plannedDuties: Array<{ title: string; frequency: string }>;
   peers: Record<string, PeerFigures>; people: PerformancePerson[]; notes: string[];
+  /** What a SuperAdmin has left on (absent from an older Audit Core: everything shown). */
+  shows?: { duties: boolean; peers: boolean };
 };
 
 export function getPerformance(tenantId: string, date: string, days: number, accessToken?: string) {
@@ -35,6 +37,20 @@ export function getPerformance(tenantId: string, date: string, days: number, acc
   return auditCoreRequest<Performance>(
     `/p2/v1/tenants/${encodeURIComponent(tenantId)}/reports/performance?${params.toString()}`,
     { accessToken, timeoutMs: 60_000 });
+}
+
+// ---------------------------------------------------------------- SuperAdmin settings (2026-11-13)
+
+export type PerformanceSettingItem = { key: string; label: string; group: string; shown: boolean; updatedAtUtc: string | null };
+export type PerformanceSettings = { items: PerformanceSettingItem[] };
+
+export function getPerformanceSettings(accessToken?: string) {
+  return auditCoreRequest<PerformanceSettings>('/v1/admin/performance-settings', { accessToken });
+}
+
+export function setPerformanceSettings(shown: Record<string, boolean>, accessToken?: string) {
+  return auditCoreRequest<PerformanceSettings>('/v1/admin/performance-settings',
+    { accessToken, method: 'PUT', body: JSON.stringify({ shown }) });
 }
 
 // ---------------------------------------------------------------- reading the figures

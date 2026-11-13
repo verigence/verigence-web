@@ -74,6 +74,7 @@ type Sort = { key: string; dir: 1 | -1 } | null;
 function TeamTable({ data, people, measures, peerRole }: {
   data: Performance; people: PerformancePerson[]; measures: Measure[]; peerRole: string | null;
 }) {
+  const showDuties = data.shows?.duties !== false;
   const [sort, setSort] = useState<Sort>(null);
   const rows = useMemo(() => {
     const copy = [...people];
@@ -96,7 +97,7 @@ function TeamTable({ data, people, measures, peerRole }: {
                 </button>
               </th>
             ))}
-            <th scope="col">Duties today</th>
+            {showDuties ? <th scope="col">Duties today</th> : null}
           </tr>
         </thead>
         <tbody>
@@ -123,7 +124,7 @@ function TeamTable({ data, people, measures, peerRole }: {
                   ) : <span className="p2w-muted">—</span>}
                 </td>
               ))}
-              <td><DutyCell person={p} /></td>
+              {showDuties ? <td><DutyCell person={p} /></td> : null}
             </tr>
           ))}
         </tbody>
@@ -137,7 +138,7 @@ function TeamTable({ data, people, measures, peerRole }: {
                   <div className="p2w-muted p2pf-sub">usual {valueText(m, peer.usualMedian[m.key])}</div>
                 </td>
               ))}
-              <td />
+              {showDuties ? <td /> : null}
             </tr>
           </tfoot>
         ) : null}
@@ -167,9 +168,9 @@ function TeamTiles({ data, people, measures }: { data: Performance; people: Perf
             tone={t && t.good === false ? 'warn' : undefined} />
         );
       })}
-      <Tile label="Duties done" value={duties.due ? `${duties.done} / ${duties.due}` : '—'}
+      {data.shows?.duties === false ? null : <Tile label="Duties done" value={duties.due ? `${duties.done} / ${duties.due}` : '—'}
         hint={duties.notDone ? `${duties.notDone} not done` : 'daily and weekly duties due this day'}
-        tone={duties.notDone ? 'bad' : undefined} />
+        tone={duties.notDone ? 'bad' : undefined} />}
     </div>
   );
 }
@@ -190,7 +191,7 @@ function OwnCards({ data, me }: { data: Performance; me: PerformancePerson }) {
             <Trend measure={m} today={me.today[m.key]} usual={me.usual[m.key]} />
             <StandingChip standing={me.standing[m.key]} />
           </div>
-          <span className="p2w-muted p2pf-sub">Peers' median {valueText(m, peer?.median[m.key])}</span>
+          {peer ? <span className="p2w-muted p2pf-sub">Peers' median {valueText(m, peer.median[m.key])}</span> : null}
         </div>
       ))}
     </div>
@@ -298,7 +299,7 @@ export default function PerformanceView({ tenantId, accessToken, today }: {
             <SectionCard>
               <div className="p2w-card__title">
                 <h3>My day</h3>
-                <p className="p2w-muted">Your figures for the day, against your own usual over the last {data.days.length} days and against the middle of your peers. Nobody else is named.</p>
+                <p className="p2w-muted">Your figures for the day, against your own usual over the last {data.days.length} days{data.shows?.peers === false ? '' : ' and against the middle of your peers'}. Nobody else is named.</p>
               </div>
               <OwnCards data={data} me={me} />
             </SectionCard>
@@ -315,8 +316,8 @@ export default function PerformanceView({ tenantId, accessToken, today }: {
             <div className="p2w-card__title">
               <h3>{current ? current.label : 'People'}</h3>
               <p className="p2w-muted">
-                Each figure is the day's; the line is the last {data.days.length} days; ▲ ▼ compare with the person's own usual;
-                the tag compares with peers of the same role. Click a column to sort.
+                Each figure is the day's; the line is the last {data.days.length} days; ▲ ▼ compare with the person's own usual
+                {data.shows?.peers === false ? '' : '; the tag compares with peers of the same role'}. Click a column to sort.
               </p>
             </div>
             {people.length ? (

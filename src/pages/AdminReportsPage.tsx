@@ -11,6 +11,7 @@ import PageHeader from '../components/PageHeader';
 import { getJourneyReview } from '../services/audit-core/adminReports';
 import AppInstalls from '../features/admin/reports/AppInstalls';
 import JourneyReview from '../features/admin/reports/JourneyReview';
+import PerformanceSettings from '../features/admin/reports/PerformanceSettings';
 import DiDashboard from '../features/task-manager/DiDashboard';
 import AccessLocationsSummary from '../features/dealguard-presence/AccessLocationsSummary';
 import LocationAwayReport from '../features/dealguard-presence/LocationAwayReport';
@@ -49,6 +50,12 @@ const REPORTS = [
     title: 'App',
     description:
       'Who has the Verigence Android app and which version: every download with the version it handed out, and the version each person\'s app reports when it signs in. Everyone, not one Project.',
+  },
+  {
+    key: 'performance',
+    title: 'Performance view',
+    description:
+      'What the Performance tab of the Project Tracker and My Tracker shows: each measure (files, journeys uploaded and closed, reviews, tasks, pages rejected, active time), the daily and weekly duties, and the comparison with peers. For every Project.',
   },
   {
     key: 'journey-review',
@@ -122,7 +129,7 @@ export default function AdminReportsPage() {
           </div>
           <p>{report.description}</p>
           {/* The App report is Security's, for everyone: no Project to pick. */}
-          <label className="uc03-booking-field" hidden={reportKey === 'app'}>
+          <label className="uc03-booking-field" hidden={reportKey === 'app' || reportKey === 'performance'}>
             <span>Project / Tenant</span>
             <select value={tenantId} disabled={projectsQuery.isPending} onChange={(e) => setTenantId(e.target.value)}>
               <option value="">Select Project</option>
@@ -131,7 +138,7 @@ export default function AdminReportsPage() {
               ))}
             </select>
           </label>
-          {projectsQuery.isError && reportKey !== 'app' ? <div className="uc01-admin-message uc01-admin-message--error">Projects could not be loaded.</div> : null}
+          {projectsQuery.isError && reportKey !== 'app' && reportKey !== 'performance' ? <div className="uc01-admin-message uc01-admin-message--error">Projects could not be loaded.</div> : null}
         </article>
       </div>
 
@@ -139,6 +146,13 @@ export default function AdminReportsPage() {
         <article className="uc01-admin-config-card">
           <span className="eyebrow">Who has the app</span>
           <AppInstalls accessToken={accessToken} />
+        </article>
+      ) : null}
+
+      {reportKey === 'performance' ? (
+        <article className="uc01-admin-config-card">
+          <span className="eyebrow">What the Performance view shows</span>
+          <PerformanceSettings accessToken={accessToken} />
         </article>
       ) : null}
 
@@ -160,7 +174,7 @@ export default function AdminReportsPage() {
         </div>
       ) : null}
 
-      {tenantId && reportKey !== 'journey-review' && reportKey !== 'app' && reportKey !== 'location' && reportKey !== 'sign-ins' ? (
+      {tenantId && reportKey !== 'journey-review' && reportKey !== 'app' && reportKey !== 'location' && reportKey !== 'sign-ins' && reportKey !== 'performance' ? (
         <div className="p2-screen p2w">
           {reportKey === 'engagement' ? (
             <EngagementDashboard key={tenantId} mode="admin" tenantId={tenantId} accessToken={accessToken}

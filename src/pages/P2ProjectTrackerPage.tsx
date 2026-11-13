@@ -16,6 +16,8 @@ import { DailyProcessingReport } from './P2DailyProcessingReportPage';
 import { istDate } from '../services/audit-core/uc03MyWork';
 import {
   dailyProcessingDay,
+  FAILURE_WHY,
+  getFailedUploads,
   getProjectTracker,
   hasNextPeriod,
   shiftPeriod,
@@ -27,6 +29,7 @@ import {
   trackerTabHref,
   TRACKER_TABS,
   type ProjectTracker,
+  type FailedRow,
   type TaskSection,
   type TrackerFigures,
   type TrackerPeriod,
@@ -36,7 +39,7 @@ import {
 import { useProjectContextStore } from '../store/projectContextStore';
 import { useSessionStore } from '../store/sessionStore';
 
-type View = 'overview' | 'gatePass' | 'files' | 'drive' | 'tasks' | 'recurring';
+type View = 'overview' | 'gatePass' | 'files' | 'drive' | 'reviews' | 'failures' | 'tasks' | 'recurring';
 type TaskScope = 'all' | 'journey' | 'taskManager';
 
 const PERIOD_OPTIONS: Array<{ key: TrackerPeriod; label: string }> = [
@@ -49,6 +52,8 @@ const VIEW_OPTIONS: Array<{ key: View; label: string }> = [
   { key: 'gatePass', label: 'Gate pass' },
   { key: 'files', label: 'Files' },
   { key: 'drive', label: 'Drive uploads' },
+  { key: 'reviews', label: 'Reviews' },
+  { key: 'failures', label: 'Failed uploads' },
   { key: 'tasks', label: 'Tasks' },
   { key: 'recurring', label: 'Recurring tasks' },
 ];
@@ -60,6 +65,15 @@ const TASK_SCOPES: Array<{ key: TaskScope; label: string }> = [
 const ROLE_LABELS: Record<string, string> = {
   PC: 'PC', TL: 'TL', PM: 'PM', EXECUTIVE: 'Executive', REVIEWER: 'Reviewer', CRM: 'CRM', OTHER: 'Other',
 };
+
+const NO_CHANNELS = { directFiles: 0, directPages: 0, bulkFiles: 0, bulkPages: 0, driveFiles: 0, drivePages: 0 };
+const NO_REVIEWS = { stagesReviewedByReviewer: 0, stagesReviewedByLead: 0, stagesReviewedByOther: 0, stagesAwaitingReview: 0,
+  closedByReviewer: 0, closedByLead: 0, closedByOther: 0, accepted: 0, rejected: 0, autoAccepted: 0,
+  awaitingDecision: 0, awaitingReview: 0 };
+const NO_FAILURES = { files: 0, pages: 0, quality: 0, notRead: 0, readFailed: 0, notUploaded: 0 };
+const ch = (f: TrackerFigures) => f.channels ?? NO_CHANNELS;
+const rv = (f: TrackerFigures) => f.reviews ?? NO_REVIEWS;
+const fl = (f: TrackerFigures) => f.failures ?? NO_FAILURES;
 
 type Column = {
   key: string;
@@ -134,6 +148,10 @@ function columnsFor(view: View, scope: TaskScope, data: ProjectTracker, links: L
   if (view === 'files') {
     const b = links.bookings;
     return [
+      // How the files came in (product owner 2026-11-13).
+      { key: 'f-direct', label: 'Direct', value: (f) => ch(f).directFiles, title: 'Files uploaded on their own, from the app or the web' },
+      { key: 'f-bulk', label: 'Bulk upload', value: (f) => ch(f).bulkFiles, title: 'Files of a bulk (folder) upload' },
+      { key: 'f-drive', label: 'Google Drive', value: (f) => ch(f).driveFiles, title: 'Files taken from the Project\'s Google Drive' },
       { key: 'f-new', label: 'New journeys', value: (f) => f.uploads.newJourneys, to: b },
       { key: 'f-j', label: 'Journeys uploaded', value: (f) => f.uploads.journeys, to: b },
       { key: 'f-b', label: 'Bookings', value: (f) => f.uploads.bookings, to: b },
@@ -164,22 +182,62 @@ function columnsFor(view: View, scope: TaskScope, data: ProjectTracker, links: L
       { key: 'd-mv', label: 'Manual verification tasks', value: (f) => f.drive?.manualVerificationTasks ?? 0 },
     ];
   }
+  if (view === 'reviews') {
+    return [
+      { key: 'r-sr', label: 'Reviewed by Reviewer', value: (f) => rv(f).stagesReviewedByReviewer,
+        title: 'Booking or Delivery documents marked reviewed by a Reviewer, on the Reviewer\'s row' },
+      { key: 'r-sl', label: 'Reviewed by TL / PM', value: (f) => rv(f).stagesReviewedByLead + rv(f).stagesReviewedByOther,
+        title: 'Booking or Delivery documents marked reviewed by a TL, PM or Executive' },
+      { key: 'r-sa', label: 'Awaiting review', value: (f) => rv(f).stagesAwaitingReview, attention: true,
+        title: 'Booking or Delivery stages with documents and no reviewed mark yet (on the Journey\'s PC\'s row)' },
+      { key: 'r-rev', label: 'Journeys closed by Reviewer', value: (f) => rv(f).closedByReviewer,
+        title: 'Journeys a Reviewer closed in the period, on the Reviewer\'s row' },
+      { key: 'r-lead', label: 'Closed by TL / PM', value: (f) => rv(f).closedByLead + rv(f).closedByOther,
+        title: 'Journeys a TL, PM or Executive closed themselves' },
+      { key: 'r-acc', label: 'Accepted by TL / PM', value: (f) => rv(f).accepted, title: 'On the row of the TL or PM who decided' },
+      { key: 'r-auto', label: 'Auto-accepted', value: (f) => rv(f).autoAccepted, title: 'Not decided within 96 hours' },
+      { key: 'r-rej', label: 'Rejected', value: (f) => rv(f).rejected, attention: true },
+      { key: 'r-dec', label: 'Awaiting TL / PM', value: (f) => rv(f).awaitingDecision, attention: true,
+        title: 'Closed by the Reviewer, not yet accepted or rejected' },
+      { key: 'r-open', label: 'Ready to close', value: (f) => rv(f).awaitingReview, attention: true,
+        title: 'Delivery files closed by the PC that no Reviewer has closed yet (on the Journey\'s PC\'s row)' },
+      { key: 'r-closed', label: 'Delivery files closed', value: (f) => f.closed.deliveryFiles },
+    ];
+  }
+  if (view === 'failures') {
+    return [
+      { key: 'x-files', label: 'Files failed', value: (f) => fl(f).files, attention: true,
+        title: 'Files uploaded in the period with a page that failed for good' },
+      { key: 'x-pages', label: 'Pages failed', value: (f) => fl(f).pages },
+      { key: 'x-q', label: FAILURE_WHY.quality.label, value: (f) => fl(f).quality, title: FAILURE_WHY.quality.hint },
+      { key: 'x-nr', label: FAILURE_WHY.notRead.label, value: (f) => fl(f).notRead, attention: true, title: FAILURE_WHY.notRead.hint },
+      { key: 'x-rf', label: FAILURE_WHY.readFailed.label, value: (f) => fl(f).readFailed, attention: true, title: FAILURE_WHY.readFailed.hint },
+      { key: 'x-nu', label: FAILURE_WHY.notUploaded.label, value: (f) => fl(f).notUploaded, attention: true, title: FAILURE_WHY.notUploaded.hint },
+    ];
+  }
   if (view === 'tasks') return taskColumns(scope, links);
   if (view === 'recurring') return recurringColumns(data.schedules, links);
+  // The day of each person (product owner 2026-11-13): gate register, files by how they came in,
+  // journeys closed, reviews, tasks and failed uploads.
   return [
-    { key: 'o-gp', label: 'Gate pass', value: (f) => f.gatePass.onTime + f.gatePass.late,
+    { key: 'o-gp', label: 'Gate register', value: (f) => f.gatePass.onTime + f.gatePass.late,
       show: (f) => (f.gatePass.due ? `${f.gatePass.onTime + f.gatePass.late} / ${f.gatePass.due}` : '—'), to: gp,
       title: 'Registers uploaded of the registers due' },
     { key: 'o-gpm', label: 'Missing', value: (f) => f.gatePass.missing, attention: true, to: gp },
+    { key: 'o-direct', label: 'Direct', value: (f) => ch(f).directFiles, title: 'Files uploaded on their own, from the app or the web' },
+    { key: 'o-bulk', label: 'Bulk upload', value: (f) => ch(f).bulkFiles, title: 'Files of a bulk (folder) upload' },
+    { key: 'o-drive', label: 'Drive', value: (f) => ch(f).driveFiles, title: 'Files taken from the Project\'s Google Drive' },
     { key: 'o-j', label: 'Journeys uploaded', value: (f) => f.uploads.journeys, to: links.bookings },
-    { key: 'o-b', label: 'Bookings', value: (f) => f.uploads.bookings },
-    { key: 'o-d', label: 'Deliveries', value: (f) => f.uploads.deliveries },
-    { key: 'o-dup', label: 'Duplicates deleted', value: (f) => f.uploads.duplicatesDeleted ?? 0, attention: true,
-      to: '/p2/duplicate-bookings', title: 'Uploads the system deleted as the same file uploaded again (from 12 Nov 2026)' },
     { key: 'o-closed', label: 'Delivery files closed', value: (f) => f.closed.deliveryFiles },
+    { key: 'o-jc', label: 'Journeys closed', value: (f) => f.closed.reviewer, title: 'Journeys a Reviewer closed' },
+    { key: 'o-rv', label: 'Reviews closed', value: (f) => rv(f).stagesReviewedByReviewer + rv(f).stagesReviewedByLead + rv(f).stagesReviewedByOther,
+      title: 'Booking or Delivery documents marked reviewed by a Reviewer, TL or PM, on the row of who marked them; see Reviews for who' },
+    { key: 'o-ro', label: 'Reviews open', value: (f) => rv(f).stagesAwaitingReview, attention: true,
+      title: 'Booking or Delivery stages with documents and no reviewed mark yet' },
     { key: 'o-tc', label: 'Tasks closed', value: (f) => f.tasks.all.closed, to: links.tasks },
     { key: 'o-to', label: 'Tasks open', value: (f) => f.tasks.all.open, to: links.tasks },
-    { key: 'o-tov', label: 'Overdue', value: (f) => f.tasks.all.overdue, attention: true, to: links.tasks },
+    { key: 'o-fail', label: 'Failed uploads', value: (f) => fl(f).files, attention: true,
+      title: 'Files uploaded with a page that failed for good: see Failed uploads for why' },
   ];
 }
 
@@ -333,13 +391,21 @@ function Tiles({ data }: { data: ProjectTracker }) {
     <Tile key="gp" label="Gate pass" value={t.gatePass.due ? `${gpDone}/${t.gatePass.due}` : '—'}
       hint={`${t.gatePass.late} late · ${t.gatePass.missing} missing · ${t.gatePass.notYetDue} not yet due`}
       tone={t.gatePass.missing ? 'bad' : t.gatePass.late ? 'warn' : undefined} />,
+    <Tile key="files" label="Files uploaded" value={ch(t).directFiles + ch(t).bulkFiles + ch(t).driveFiles}
+      hint={`${ch(t).directFiles} direct · ${ch(t).bulkFiles} bulk upload · ${ch(t).driveFiles} Drive`} />,
     <Tile key="up" label="Journeys uploaded" value={t.uploads.journeys}
       hint={`${t.uploads.bookings} bookings · ${t.uploads.deliveries} deliveries · ${t.uploads.duplicatesDeleted ?? 0} duplicates deleted`} />,
-    <Tile key="cl" label="Delivery files closed" value={t.closed.deliveryFiles} hint={`${t.closed.reviewer} closed by Reviewer`} />,
+    <Tile key="cl" label="Journeys closed" value={t.closed.reviewer} hint={`${t.closed.deliveryFiles} delivery files closed by the PC`} />,
+    <Tile key="rv" label="Reviews closed" value={rv(t).stagesReviewedByReviewer + rv(t).stagesReviewedByLead + rv(t).stagesReviewedByOther}
+      hint={`Reviewer ${rv(t).stagesReviewedByReviewer} · TL/PM ${rv(t).stagesReviewedByLead + rv(t).stagesReviewedByOther} · ${rv(t).stagesAwaitingReview} still open`}
+      tone={rv(t).stagesAwaitingReview ? 'warn' : undefined} />,
     <Tile key="tc" label="Tasks closed" value={t.tasks.all.closed}
       hint={`PC ${t.tasks.all.closedByPc} · TL/PM/Exec ${t.tasks.all.closedByLead} · system ${t.tasks.all.closedBySystem}`} />,
     <Tile key="to" label="Tasks open" value={t.tasks.all.open} hint={`${t.tasks.all.overdue} overdue`}
       tone={t.tasks.all.overdue ? 'warn' : undefined} />,
+    <Tile key="fail" label="Failed uploads" value={fl(t).files}
+      hint={`${fl(t).quality} not clear · ${fl(t).notRead} not read in time · ${fl(t).readFailed} reading failed · ${fl(t).notUploaded} not received`}
+      tone={fl(t).notRead + fl(t).readFailed + fl(t).notUploaded ? 'bad' : fl(t).files ? 'warn' : undefined} />,
   ];
   for (const s of data.schedules) {
     const r = t.recurring[s.scheduleId];
@@ -353,13 +419,79 @@ function Tiles({ data }: { data: ProjectTracker }) {
   return <div className="p2mw-tiles">{tiles}</div>;
 }
 
+function failedWhen(at: string | null): string {
+  return at ? new Date(at).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit',
+    timeZone: 'Asia/Kolkata' }) : '—';
+}
+
+/**
+ * Why each failed upload of the period failed (product owner 2026-11-13: "if some files are failed
+ * to be uploaded and all their retries are exhausted can we have information why that happened"):
+ * the files uploaded in the period, page by page, with the reason, the attempts and a link to the page.
+ */
+function FailedList({ tenantId, accessToken, first, last }: {
+  tenantId: string; accessToken: string | undefined; first: string; last: string;
+}) {
+  const query = useQuery({
+    queryKey: ['p2-failed-uploads', tenantId, first, last],
+    queryFn: () => getFailedUploads(tenantId, first, last, accessToken),
+    enabled: Boolean(tenantId && accessToken),
+    staleTime: 30_000,
+  });
+  if (query.isLoading) return <p className="p2w-muted">Loading the failed uploads…</p>;
+  if (query.isError) {
+    return (
+      <div className="p2w-alert p2w-alert--error" role="alert">
+        The failed uploads could not be loaded.{' '}
+        <button type="button" className="p2w-button p2w-button--ghost" onClick={() => query.refetch()}>Try again</button>
+      </div>
+    );
+  }
+  const rows: FailedRow[] = query.data?.rows ?? [];
+  if (!rows.length) return <p className="p2w-muted">No upload of this period failed.</p>;
+  return (
+    <>
+      <div className="p2pt-scroll">
+        <table className="p2w-table p2mw-table" aria-label="Failed uploads and why">
+          <thead>
+            <tr><th>Uploaded</th><th>PC</th><th>Customer / file</th><th>Pages</th><th>Why</th><th>Reason</th><th>Tries</th><th /></tr>
+          </thead>
+          <tbody>
+            {rows.map((row) => {
+              const why = row.why ? FAILURE_WHY[row.why] : undefined;
+              return (
+                <tr key={`${row.kind}-${row.journeyId}-${row.filename}-${row.pageNumbers.join(',')}-${row.failedAtUtc}`}>
+                  <td>{failedWhen(row.uploadedAtUtc)}</td>
+                  <td>{row.uploadedByName || '—'}</td>
+                  <td>
+                    <Link to={`/p2/journeys/${row.journeyId}/documents`}>{row.customerName || row.journeyReference || 'Journey'}</Link>
+                    <div className="p2w-muted">{row.filename}{row.outletName ? ` · ${row.outletName}` : ''}</div>
+                  </td>
+                  <td>{row.kind === 'FILE' ? 'Whole file' : row.pageNumbers.join(', ')}</td>
+                  <td title={why?.hint}>{why?.label ?? '—'}</td>
+                  <td>{row.reason}{row.clearedFromJourney ? <div className="p2w-muted">Cleared from the Journey until it is sent again.</div> : null}</td>
+                  <td>{row.attempts ?? '—'}</td>
+                  <td>{row.openUrl ? <a href={row.openUrl} target="_blank" rel="noreferrer">Open</a> : null}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      {query.data?.truncated ? <p className="p2w-muted">Showing the latest {rows.length}; choose a shorter period for the rest.</p> : null}
+    </>
+  );
+}
+
 /**
  * Project Tracker (product owner 2026-11-07): the situation of the whole Project -- gate pass,
  * files uploaded, files closed, tasks worked and recurring tasks -- for a day, a week or a calendar
  * month, dealership wise, outlet wise and PC wise. Team Lead, PM and Executive.
  */
-function TrackerView({ tenantId, accessToken, role, today }: {
+export function TrackerView({ tenantId, accessToken, role, today, keep }: {
   tenantId: string; accessToken: string | undefined; role: string | undefined; today: string;
+  /** Address parameters of the page it sits in, kept when the period or figures change (My Tracker's tab). */
+  keep?: Record<string, string>;
 }) {
   const [searchParams, setSearchParams] = useSearchParams();
   const { period, date } = trackerFromSearch(searchParams, today);
@@ -374,6 +506,7 @@ function TrackerView({ tenantId, accessToken, role, today }: {
     const params = new URLSearchParams(trackerSearch(p, d, today));
     const v = next.view ?? view;
     if (v !== 'overview') params.set('view', v);
+    for (const [key, value] of Object.entries(keep ?? {})) params.set(key, value);
     setSearchParams(params);
   };
 
@@ -393,6 +526,8 @@ function TrackerView({ tenantId, accessToken, role, today }: {
     bookings: role === 'TL' ? '/dashboard' : role === 'PM' ? '/p2/bookings' : undefined,
   }), [role]);
   const columns = data ? columnsFor(view, taskScope, data, links) : [];
+  // A PC's or Reviewer's own view (2026-11-13): only their own row is counted.
+  const own = Boolean(data?.scope.own);
 
   return (
     <>
@@ -437,10 +572,10 @@ function TrackerView({ tenantId, accessToken, role, today }: {
           <SectionCard>
             <div className="p2w-card__title p2mw-title-row">
               <div>
-                <h3>By dealership, outlet and PC</h3>
+                <h3>{own ? 'My figures by outlet' : 'By dealership, outlet and PC'}</h3>
                 <p className="p2w-muted">
                   {data.period.current ? `So far, as of ${new Date(data.period.asOfUtc).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata' })} India time. ` : ''}
-                  Open a dealership or outlet for its outlets and PCs; click a column to sort.
+                  {own ? 'Only your own work is counted here.' : 'Open a dealership or outlet for its outlets and PCs; click a column to sort.'}
                 </p>
               </div>
               <Segment label="Figures" value={view} options={VIEW_OPTIONS} onChange={(next) => navigate({ view: next })} />
@@ -451,7 +586,7 @@ function TrackerView({ tenantId, accessToken, role, today }: {
             ) : (
               <TrackerTable key={`${view}-${taskScope}`} data={data} columns={columns} links />
             )}
-            <div className="p2mw-actions p2pt-links">
+            {own ? null : <div className="p2mw-actions p2pt-links">
               <Link className="p2w-button p2w-button--secondary" to={trackerTabHref('gate-pass')}>Daily gate pass</Link>
               <Link className="p2w-button p2w-button--secondary" to={trackerTabHref('daily-processing', date)}>
                 {period === 'DAY' ? 'Daily processing of this day' : 'Daily processing'}
@@ -459,9 +594,18 @@ function TrackerView({ tenantId, accessToken, role, today }: {
               {links.tasks ? <Link className="p2w-button p2w-button--secondary" to={links.tasks}>Task Queue</Link> : null}
               <Link className="p2w-button p2w-button--secondary" to={links.taskManager}>Task Manager</Link>
               {links.bookings ? <Link className="p2w-button p2w-button--secondary" to={links.bookings}>Bookings &amp; Deliveries</Link> : null}
-            </div>
+            </div>}
           </SectionCard>
-          {view === 'tasks' ? (
+          {view === 'failures' ? (
+            <SectionCard>
+              <div className="p2w-card__title">
+                <h3>Why each upload failed</h3>
+                <p className="p2w-muted">Files uploaded in {trackerLabel(period, date)} with a page that failed after every retry or was rejected on image quality.</p>
+              </div>
+              <FailedList tenantId={tenantId} accessToken={accessToken} first={range.first} last={range.last} />
+            </SectionCard>
+          ) : null}
+          {view === 'tasks' && !own ? (
             <SectionCard>
               <div className="p2w-card__title"><h3>Tasks by assigned role</h3><p className="p2w-muted">Journey tasks and Task Manager tasks together.</p></div>
               <RoleTable data={data} />
@@ -518,10 +662,13 @@ export default function P2ProjectTrackerPage() {
   const accessToken = useSessionStore((s) => s.accessToken);
   const tenantId = project?.tenantId;
   const role = project?.operatingRole;
-  const allowed = role === 'TL' || role === 'PM' || role === 'EXECUTIVE';
+  const team = role === 'TL' || role === 'PM' || role === 'EXECUTIVE';
+  // A PC or Reviewer sees their own row (product owner 2026-11-13: "for each team member his own view").
+  const member = role === 'PC' || role === 'REVIEWER';
+  const allowed = team || member;
   const [searchParams, setSearchParams] = useSearchParams();
   const today = istDate();
-  const tab = trackerTabFromSearch(searchParams);
+  const tab = team ? trackerTabFromSearch(searchParams) : 'tracker';
   const selectTab = (next: TrackerTab) => {
     if (next === tab) return;
     // The day carries over: the tracker's date opens that day's Daily processing, and back.
@@ -538,10 +685,12 @@ export default function P2ProjectTrackerPage() {
     <div className="screen-stack p2-screen p2w p2mw p2pt">
       <PageHeader
         eyebrow="DealGuard"
-        title="Project Tracker"
-        description="The whole Project in one place: gate pass, files uploaded and closed, tasks and recurring tasks by dealership, outlet and PC; the day's processing; and the daily gate pass."
+        title={team ? 'Project Tracker' : 'My figures'}
+        description={team
+          ? 'The whole team in one place: gate register, files uploaded (direct, bulk upload, Drive), journeys and reviews closed, tasks and failed uploads by dealership, outlet and person; the day\'s processing; and the daily gate pass.'
+          : 'Your own day, week or month: gate register, files uploaded (direct, bulk upload, Drive), journeys and reviews closed, tasks and failed uploads with why.'}
       />
-      <div className="p2pt-tabs" role="tablist" aria-label="Project Tracker">
+      {team ? <div className="p2pt-tabs" role="tablist" aria-label="Project Tracker">
         {TRACKER_TABS.map((t) => (
           <button key={t.key} type="button" role="tab" id={`p2pt-tab-${t.key}`} aria-controls={`p2pt-panel-${t.key}`}
             aria-selected={tab === t.key} tabIndex={tab === t.key ? 0 : -1}
@@ -557,10 +706,10 @@ export default function P2ProjectTrackerPage() {
             {t.label}
           </button>
         ))}
-      </div>
+      </div> : null}
 
       {!allowed ? (
-        <SectionCard><p className="p2w-muted">The Project Tracker is for a Team Lead, PM or Executive.</p></SectionCard>
+        <SectionCard><p className="p2w-muted">The Project Tracker is for a Team Lead, PM, Executive, PC or Reviewer.</p></SectionCard>
       ) : !tenantId || !accessToken ? (
         <div className="p2w-alert p2w-alert--error" role="alert">Select a project to continue.</div>
       ) : (

@@ -8,6 +8,7 @@ import '../styles/uc03-p2-my-work.css';
 import PageHeader from '../components/PageHeader';
 import SectionCard from '../components/SectionCard';
 import MissingDocumentsPanel from '../features/uc03-p2/missing/MissingDocumentsPanel';
+import PerformanceView from '../features/uc03-p2/performance/PerformanceView';
 import { TrackerView } from './P2ProjectTrackerPage';
 import { GateRegisterTable, PERIODS, PcTracker, STATUS, Segment, Tile } from '../features/uc03-p2/my-work/MyWorkParts';
 import {
@@ -31,7 +32,7 @@ import { useProjectContextStore } from '../store/projectContextStore';
 import { useSessionStore } from '../store/sessionStore';
 
 type Preset = MyWorkPeriod | 'day' | 'custom';
-type Tab = 'updates' | 'figures' | 'register' | 'missing';
+type Tab = 'updates' | 'figures' | 'performance' | 'register' | 'missing';
 
 const PRESETS: Array<{ key: Preset; label: string }> = [
   ...PERIODS, { key: 'day', label: 'A day' }, { key: 'custom', label: 'Date range' },
@@ -46,6 +47,8 @@ const TABS: Array<{ key: Tab; label: string }> = [
   // The Project Tracker's figures of their own row (product owner 2026-11-13: "for each team member
   // his own view"): files by how they came in, reviews, journeys closed, tasks and failed uploads with why.
   { key: 'figures', label: 'My figures' },
+  // Their day against their own usual and the unnamed middle of their peers (2026-11-13).
+  { key: 'performance', label: 'My performance' },
   { key: 'register', label: 'Gate register' },
   { key: 'missing', label: 'Missing documents' },
 ];
@@ -223,7 +226,7 @@ export default function P2MyTrackerPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const asked = searchParams.get('tab');
   // A Reviewer has no gate register of their own.
-  const tab: Tab = asked === 'missing' ? 'missing' : asked === 'figures' ? 'figures'
+  const tab: Tab = asked === 'missing' ? 'missing' : asked === 'figures' ? 'figures' : asked === 'performance' ? 'performance'
     : asked === 'register' && role === 'PC' ? 'register' : 'updates';
   const [preset, setPreset] = useState<Preset>('week');
   const today = istDate();
@@ -241,7 +244,7 @@ export default function P2MyTrackerPage() {
   const query = useQuery({
     queryKey: ['p2-my-work', tenantId, range.from, range.to, by],
     queryFn: () => getMyWork(tenantId!, range, accessToken ?? undefined, by),
-    enabled: Boolean(tenantId && accessToken && (role === 'PC' || role === 'REVIEWER') && tab !== 'missing' && tab !== 'figures' && !rangeError),
+    enabled: Boolean(tenantId && accessToken && (role === 'PC' || role === 'REVIEWER') && tab !== 'missing' && tab !== 'figures' && tab !== 'performance' && !rangeError),
     staleTime: 30_000,
     refetchOnWindowFocus: true,
   });
@@ -263,7 +266,10 @@ export default function P2MyTrackerPage() {
         <TrackerView tenantId={tenantId} accessToken={accessToken ?? undefined} role={role} today={today}
           keep={{ tab: 'figures' }} />
       ) : null}
-      {tab === 'figures' ? null : <div className="p2mw-controls">
+      {tab === 'performance' && tenantId && (role === 'PC' || role === 'REVIEWER') ? (
+        <PerformanceView tenantId={tenantId} accessToken={accessToken ?? undefined} today={today} />
+      ) : null}
+      {tab === 'figures' || tab === 'performance' ? null : <div className="p2mw-controls">
         <Segment label="Period" value={preset} options={PRESETS} onChange={setPreset} />
         {preset === 'day' ? (
           <span className="p2mw-range">
@@ -282,7 +288,7 @@ export default function P2MyTrackerPage() {
         )}
         {tab === 'updates' && days > 1 ? <Segment label="View" value={grouping} options={GROUPINGS} onChange={setGrouping} /> : null}
       </div>}
-      {rangeError && tab !== 'figures' ? <div className="p2w-alert p2w-alert--error" role="alert">{rangeError}</div> : null}
+      {rangeError && tab !== 'figures' && tab !== 'performance' ? <div className="p2w-alert p2w-alert--error" role="alert">{rangeError}</div> : null}
 
       {role !== 'PC' && role !== 'REVIEWER' ? (
         <SectionCard><p className="p2w-muted">My Tracker is for a PC or a Reviewer.</p></SectionCard>

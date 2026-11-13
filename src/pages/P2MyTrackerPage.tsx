@@ -9,7 +9,7 @@ import PageHeader from '../components/PageHeader';
 import SectionCard from '../components/SectionCard';
 import MissingDocumentsPanel from '../features/uc03-p2/missing/MissingDocumentsPanel';
 import PerformanceView from '../features/uc03-p2/performance/PerformanceView';
-import { TrackerView } from './P2ProjectTrackerPage';
+import { TrackerView } from '../features/uc03-p2/tracker/TrackerView';
 import { GateRegisterTable, PERIODS, PcTracker, STATUS, Segment, Tile } from '../features/uc03-p2/my-work/MyWorkParts';
 import {
   getMyWork,

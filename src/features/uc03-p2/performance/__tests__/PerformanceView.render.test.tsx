@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { renderToString } from 'react-dom/server';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { MemoryRouter } from 'react-router-dom';
 
 import PerformanceView from '../PerformanceView';
 import type { Performance, PerformancePerson } from '../../../../services/audit-core/uc03Performance';
@@ -47,9 +48,9 @@ const base: Performance = {
 
 type TabKey = NonNullable<Parameters<typeof PerformanceView>[0]['initialDetail']>;
 type ViewKey = NonNullable<Parameters<typeof PerformanceView>[0]['initialView']>;
-const SECTION: Record<TabKey, string> = { backlog: 'pending', bookings: 'flow', deliveries: 'flow', uploads: 'uploads', quality: 'quality', tasks: 'tasks', trend: 'trend',
+const SECTION: Record<TabKey, string> = { backlog: 'pending', bookings: 'flow', deliveries: 'flow', uploads: 'uploads', quality: 'quality', failed: 'quality', tasks: 'tasks', trend: 'trend',
   efficiency: 'efficiency', duties: 'duties' };
-const VIEW: Record<TabKey, ViewKey> = { backlog: 'pending', bookings: 'overview', deliveries: 'overview', uploads: 'uploads', quality: 'uploads', tasks: 'tasks', trend: 'overview',
+const VIEW: Record<TabKey, ViewKey> = { backlog: 'pending', bookings: 'overview', deliveries: 'overview', uploads: 'uploads', quality: 'uploads', failed: 'uploads', tasks: 'tasks', trend: 'overview',
   efficiency: 'efficiency', duties: 'duties' };
 
 /** The detail under a dashboard tab, opened. */
@@ -99,6 +100,30 @@ describe('Performance view', () => {
     const quality = render(base, 'quality');
     expect(quality).toContain('Duplicate files');
     expect(quality).toMatch(/<td class="p2pf-low">13%<\/td>/);   // 25 of 200 pages rejected
+  });
+
+  it('lists why each upload failed under uploads, read from the failed-uploads report only', () => {
+    const client = new QueryClient();
+    client.setQueryData(['p2-failed-uploads', 't1', '2026-11-07', '2026-11-13'], {
+      from: '2026-11-07', to: '2026-11-13', truncated: false,
+      rows: [{ kind: 'PAGE', journeyId: 'j1', journeyReference: 'OTF-1', customerName: 'Ravi Kumar', dealerName: 'Adishakti',
+        outletName: 'Rasulgarh', filename: 'delivery.pdf', uploadedBy: 'a', uploadedByName: 'Ravi', uploadedAtUtc: '2026-11-12T05:00:00Z',
+        failedAtUtc: '2026-11-12T05:30:00Z', pageNumbers: [3], attempts: 5, reason: 'Reading failed after 5 tries', code: 'DI_TIMEOUT',
+        why: 'readFailed', clearedFromJourney: false, openUrl: null }],
+    });
+    const html = renderToString(
+      <QueryClientProvider client={client}>
+        <MemoryRouter>
+          <PerformanceView tenantId="t1" accessToken="token" today="2026-11-13" initialView="uploads" initialDetail="failed" />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    ).replaceAll('<!-- -->', '');
+    expect(html).toMatch(/aria-pressed="true"[^>]*>Why each upload failed</);
+    expect(html).toContain('Reading failed after 5 tries');
+    expect(html).toContain('Ravi Kumar');
+    // No Performance section is read for it: the quality query stays disabled.
+    expect(client.getQueryState(['p2-performance', 't1', '2026-11-07', '2026-11-13', 'quality'])?.fetchStatus ?? 'idle').toBe('idle');
+    expect(client.getQueryData(['p2-performance', 't1', '2026-11-07', '2026-11-13', 'quality'])).toBeUndefined();
   });
 
   it('shows tasks new, closed, open and overdue, and whether the backlog grew', () => {

@@ -13,6 +13,7 @@ import {
   trackerSearch,
   trackerTabFromSearch,
   trackerTabHref,
+  TRACKER_TABS,
 } from './uc03ProjectTracker';
 
 describe('Project Tracker periods', () => {
@@ -80,11 +81,13 @@ describe('Team Lead dashboard calendar month', () => {
 });
 
 describe('Project Tracker tabs', () => {
-  it('reads the tab from the address, the tracker by default', () => {
-    expect(trackerTabFromSearch(new URLSearchParams(''))).toBe('tracker');
+  it('reads the tab from the address, Performance by default (old tracker addresses too)', () => {
+    expect(trackerTabFromSearch(new URLSearchParams(''))).toBe('performance');
+    expect(trackerTabFromSearch(new URLSearchParams('tab=tracker'))).toBe('performance');
+    expect(trackerTabFromSearch(new URLSearchParams('period=week&view=files'))).toBe('performance');
     expect(trackerTabFromSearch(new URLSearchParams('tab=daily-processing'))).toBe('daily-processing');
     expect(trackerTabFromSearch(new URLSearchParams('tab=gate-pass'))).toBe('gate-pass');
-    expect(trackerTabFromSearch(new URLSearchParams('tab=nonsense'))).toBe('tracker');
+    expect(trackerTabFromSearch(new URLSearchParams('tab=nonsense'))).toBe('performance');
   });
 
   it('the Daily processing day comes from ?day=, then the tracker date, never the future', () => {
@@ -95,10 +98,14 @@ describe('Project Tracker tabs', () => {
     expect(dailyProcessingDay(new URLSearchParams('day=bad'), today)).toBe(today);
   });
 
+  it('keeps only Performance and the two pieces the product owner keeps (2026-11-13)', () => {
+    expect(TRACKER_TABS.map((t) => t.label)).toEqual(['Performance', 'Work done and files closed', 'Deliveries and delivery files']);
+  });
+
   it('old addresses open the matching tab', () => {
     expect(trackerTabHref('daily-processing', '2026-11-08')).toBe('/p2/project-tracker?tab=daily-processing&day=2026-11-08');
     expect(trackerTabHref('daily-processing')).toBe('/p2/project-tracker?tab=daily-processing');
     expect(trackerTabHref('gate-pass')).toBe('/p2/project-tracker?tab=gate-pass');
-    expect(trackerTabHref('tracker')).toBe('/p2/project-tracker');
+    expect(trackerTabHref('performance')).toBe('/p2/project-tracker');
   });
 });

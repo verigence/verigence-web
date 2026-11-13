@@ -2160,10 +2160,12 @@ export type P2DailyProcessingReport = {
   notes: string[];
 };
 
-/** GET /p2/v1/tenants/{t}/reports/daily-processing?day=YYYY-MM-DD (TL, PM, Executive). */
-export function getP2DailyProcessingReport(tenantId: string, day: string, accessToken?: string) {
+/** GET /p2/v1/tenants/{t}/reports/daily-processing?day=YYYY-MM-DD (TL, PM, Executive).
+ *  part 'work': only the work done on tasks and the delivery files closed (the Project Tracker's tab,
+ *  2026-11-13), without the uploads, files, task status and trend the full report reads. */
+export function getP2DailyProcessingReport(tenantId: string, day: string, accessToken?: string, part?: 'work') {
   return auditCoreRequest<P2DailyProcessingReport>(
-    `${path(tenantId, '/reports/daily-processing')}?day=${encodeURIComponent(day)}`,
+    `${path(tenantId, '/reports/daily-processing')}?day=${encodeURIComponent(day)}${part ? `&part=${part}` : ''}`,
     { accessToken, timeoutMs: LIST_READ_TIMEOUT_MS },
   );
 }

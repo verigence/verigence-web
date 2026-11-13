@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 
 import SectionCard from '../../../components/SectionCard';
 import Dashboard, { viewHas, viewLabel, type View } from './Dashboard';
+import FailedUploads from './FailedUploads';
 import { Segment } from '../my-work/MyWorkParts';
 import {
   addDays,
@@ -36,14 +37,18 @@ const MODES: Array<{ key: Mode; label: string }> = [
 ];
 /** The detail behind a dashboard tab: read only when it is opened (product owner 2026-11-13: "I
  *  don't want all to be shown in one"). */
-export type Tab = 'backlog' | 'bookings' | 'deliveries' | 'uploads' | 'quality' | 'tasks' | 'trend' | 'efficiency' | 'duties';
-/** mine: what the button reads for a PC or Reviewer, whose detail is their own row. */
-const TABS: Array<{ key: Tab; label: string; mine?: string; section: SectionKey }> = [
+export type Tab = 'backlog' | 'bookings' | 'deliveries' | 'uploads' | 'quality' | 'failed' | 'tasks' | 'trend' | 'efficiency' | 'duties';
+/** mine: what the button reads for a PC or Reviewer, whose detail is their own row. own: read from
+ *  its own report, not from a Performance section (the section only says whether the role sees it). */
+const TABS: Array<{ key: Tab; label: string; mine?: string; section: SectionKey; own?: true }> = [
   { key: 'backlog', label: 'Each kind with what is over 3 days', mine: 'As a table', section: 'pending' },
   { key: 'bookings', label: 'Bookings by outlet', section: 'flow' },
   { key: 'deliveries', label: 'Deliveries by outlet', section: 'flow' },
   { key: 'uploads', label: 'Uploads by person and day', mine: 'My uploads, day by day', section: 'uploads' },
   { key: 'quality', label: 'Failures and duplicates by person', mine: 'As a table', section: 'quality' },
+  // Each failed upload and why (product owner 2026-11-13), from the Project Tracker, which repeated
+  // the rest of Performance: what failed after every retry, was not read in time, or never arrived.
+  { key: 'failed', label: 'Why each upload failed', mine: 'Why my uploads failed', section: 'quality', own: true },
   { key: 'tasks', label: 'Tasks by outlet and person', mine: 'My tasks, day by day', section: 'tasks' },
   { key: 'trend', label: 'Each person, day by day', mine: 'My figures, day by day', section: 'trend' },
   { key: 'efficiency', label: 'The counts behind it', mine: 'The counts behind it', section: 'efficiency' },
@@ -56,7 +61,7 @@ const VIEWS: Array<{ key: View; details: Tab[] }> = [
   { key: 'pending', details: ['backlog'] },
   { key: 'team', details: [] },
   { key: 'efficiency', details: ['efficiency'] },
-  { key: 'uploads', details: ['uploads', 'quality'] },
+  { key: 'uploads', details: ['uploads', 'quality', 'failed'] },
   { key: 'tasks', details: ['tasks'] },
   { key: 'duties', details: ['duties'] },
 ];
@@ -669,7 +674,7 @@ export default function PerformanceView({ tenantId, accessToken, today, initialV
   const query = useQuery({
     queryKey: ['p2-performance', tenantId, from, to, open?.section],
     queryFn: () => getPerformance(tenantId, from, to, open!.section, accessToken),
-    enabled: enabled && Boolean(open), staleTime: 120_000, refetchOnWindowFocus: false,
+    enabled: enabled && Boolean(open) && !open?.own, staleTime: 120_000, refetchOnWindowFocus: false,
   });
   const board = dashboard.data?.dashboard;
   const data = query.data;
@@ -733,8 +738,17 @@ export default function PerformanceView({ tenantId, accessToken, today, initialV
           ))}
         </div>
       ) : null}
-      {open && details.includes(open.key) && query.isLoading ? <SectionCard><p className="p2w-muted">Counting…</p></SectionCard> : null}
-      {open && details.includes(open.key) && query.isError ? (
+      {open?.key === 'failed' && details.includes('failed') && valid ? (
+        <SectionCard>
+          <div className="p2w-card__title">
+            <h3>Why each upload failed</h3>
+            <p className="p2w-muted">Files uploaded {range} with a page that failed after every retry, was not read in time, never arrived, or was rejected on image quality.</p>
+          </div>
+          <FailedUploads tenantId={tenantId} accessToken={accessToken} first={from} last={to} />
+        </SectionCard>
+      ) : null}
+      {open && !open.own && details.includes(open.key) && query.isLoading ? <SectionCard><p className="p2w-muted">Counting…</p></SectionCard> : null}
+      {open && !open.own && details.includes(open.key) && query.isError ? (
         <SectionCard>
           <div className="p2w-alert p2w-alert--error" role="alert">
             The figures could not be loaded.{' '}

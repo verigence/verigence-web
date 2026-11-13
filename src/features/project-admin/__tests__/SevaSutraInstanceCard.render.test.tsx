@@ -56,4 +56,13 @@ describe('SevaSutra instance card', () => {
     expect(html).toContain('Change address and try again');
     expect(html).not.toContain('Open SevaSutra');
   });
+
+  it('gives a Super Admin a Sync with SevaSutra button, and nobody else', () => {
+    const admin = render(live, true);
+    expect(admin).toContain('Sync with SevaSutra');
+    expect(admin).toContain('once a day (8:10 am India time)');
+    expect(render(live, false)).not.toContain('>Sync with SevaSutra<');
+    // Nothing to sync before the instance exists.
+    expect(render(null, true)).not.toContain('>Sync with SevaSutra<');
+  });
 });

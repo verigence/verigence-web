@@ -300,6 +300,17 @@ export function putSevaSutraInstance(
   });
 }
 
+/**
+ * Asks SevaSutra to read Project Administration now (product owner 2026-11-13). SevaSutra reads it once a
+ * day; after this it reads within a minute. Super Admin only.
+ */
+export function requestSevaSutraSync(accessToken?: string) {
+  return auditCoreRequest<{ requestedAtUtc: string | null; requestedBy: string | null }>('/v1/sevasutra/sync-request', {
+    method: 'POST',
+    ...auth(accessToken),
+  });
+}
+
 export function listDealersAdmin(tenantId: string, accessToken?: string) {
   return auditCoreRequest<DealerAdmin[]>(`/v1/tenants/${tenantId}/dealers`, auth(accessToken));
 }

@@ -7,6 +7,7 @@ import {
   getSevaSutraInstance,
   listSevaSutraFreeDealerships,
   putSevaSutraInstance,
+  requestSevaSutraSync,
   type SevaSutraInstance,
 } from '../../services/audit-core/uc02Admin';
 
@@ -15,7 +16,7 @@ const SHARED_URL = `https://${DOMAIN}`;
 const SUBDOMAIN = /^[a-z0-9]([a-z0-9-]{0,38}[a-z0-9])?$/;
 
 const STATUS_TEXT: Record<SevaSutraInstance['status'], string> = {
-  REQUESTED: 'Requested — SevaSutra picks it up within a few minutes.',
+  REQUESTED: 'Requested — SevaSutra picks it up within a minute or two.',
   CREATED: 'Created in SevaSutra — its address goes live with the next deployment (within about 15 minutes).',
   LIVE: 'Live.',
   FAILED: 'The address could not be put live.',
@@ -70,6 +71,10 @@ export default function SevaSutraInstanceCard({
   const [address, setAddress] = useState(() => (instance ? instance.subdomain ?? '' : suggestAddress(projectName)));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  // "Sync with SevaSutra" (product owner 2026-11-13): SevaSutra reads Project Administration once a day,
+  // and within a minute of this button.
+  const [syncing, setSyncing] = useState(false);
+  const [syncNote, setSyncNote] = useState<{ ok: boolean; text: string } | null>(null);
   // A new dealership, or one SevaSutra already holds that no Project owns (the demo, for one).
   const [source, setSource] = useState<'new' | 'existing'>('new');
   const [existing, setExisting] = useState('');
@@ -110,6 +115,21 @@ export default function SevaSutraInstanceCard({
     }
   }
 
+  async function sync() {
+    setSyncNote(null);
+    setSyncing(true);
+    try {
+      await requestSevaSutraSync(accessToken);
+      setSyncNote({ ok: true, text: 'Asked. SevaSutra reads this Project\u2019s dealers, outlets and people within a minute.' });
+      // Its report comes back after it has read: show the new "Last report" without a reload.
+      window.setTimeout(() => { void queryClient.invalidateQueries({ queryKey: key }); }, 90_000);
+    } catch (failure) {
+      setSyncNote({ ok: false, text: auditCoreErrorMessage(failure) });
+    } finally {
+      setSyncing(false);
+    }
+  }
+
   const liveUrl = instance?.status === 'LIVE' ? `https://${instance.liveHostname || DOMAIN}` : null;
   const showForm = canManage && (editing || (!instance && !lookup.isLoading && !lookup.isError));
 
@@ -120,7 +140,9 @@ export default function SevaSutraInstanceCard({
           <h3>SevaSutra instance</h3>
           <p>
             This service-audit Project runs in SevaSutra (workshop audit).{' '}
-            {instance ? 'Its dealership follows this Project within a few minutes.' : 'Create its instance to open it in SevaSutra.'}
+            {instance
+              ? 'Its dealership follows this Project once a day (8:10 am India time), when someone signs in to SevaSutra, and when a Super Admin presses Sync with SevaSutra.'
+              : 'Create its instance to open it in SevaSutra.'}
           </p>
         </div>
         {liveUrl && (
@@ -169,8 +191,12 @@ export default function SevaSutraInstanceCard({
           <button className="uc02-button" type="button" onClick={() => setEditing(true)}>
             {instance.status === 'FAILED' ? 'Change address and try again' : 'Change name or address'}
           </button>
+          <button className="uc02-button" type="button" disabled={syncing} onClick={() => void sync()}>
+            {syncing ? 'Asking SevaSutra…' : 'Sync with SevaSutra'}
+          </button>
         </div>
       )}
+      {syncNote && <div className="uc02-note" role={syncNote.ok ? 'status' : 'alert'}>{syncNote.text}</div>}
 
       {!instance && !canManage && !lookup.isLoading && !lookup.isError && (
         <div className="uc02-empty">No SevaSutra instance yet. A Super Admin creates it here.</div>

@@ -18,4 +18,3 @@
 .p2pf-off th, .p2pf-off td { color: #a8a8a8; }
 .p2pf-pick { font-size: 14px; display: inline-flex; align-items: center; gap: 6px; }
 .p2pf-pick select { min-height: 36px; padding: 0 8px; border: 1px solid var(--p2w-line, #8d8d8d); background: #fff; font: inherit; }
-.p2pf-report { margin: 0; padding-left: 22px; display: grid; gap: 6px; font-size: 15px; }

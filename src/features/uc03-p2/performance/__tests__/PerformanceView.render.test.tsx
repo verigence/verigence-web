@@ -22,7 +22,7 @@ const base: Performance = {
   plannedDuties: [{ title: 'Cash register', frequency: 'DAILY' }], peers: {}, notes: [],
   people: [person('a', 'Ravi', [10, 0, 12, 11, 9, 2, 10]), person('b', 'Asha', [4, 0, 5, 6, 5, 4, 5])],
   sections: [{ key: 'pending', label: '' }, { key: 'flow', label: '' }, { key: 'uploads', label: '' }, { key: 'quality', label: '' }, { key: 'tasks', label: '' }, { key: 'trend', label: '' },
-    { key: 'efficiency', label: '' }, { key: 'duties', label: '' }, { key: 'report', label: '' }],
+    { key: 'efficiency', label: '' }, { key: 'duties', label: '' }],
   pending: {
     kinds: [{ key: 'deliveriesNotUploaded', label: 'Deliveries not uploaded' }, { key: 'deliveryFilesOpen', label: 'Delivery files not closed' },
       { key: 'paymentsNotReconciled', label: 'Payments not reconciled' }],
@@ -43,13 +43,11 @@ const base: Performance = {
     people: [{ actorId: 'a', name: 'Ravi', role: 'PC', direct: [0, 0, 5, 5, 5, 5, 10], bulk: [0, 0, 0, 0, 0, 5, 5], drive: [0, 0, 0, 0, 0, 0, 10] }] },
   quality: { outlets: [{ ...place, pagesUploaded: 200, blurred: 12, faded: 10, tooSmall: 3, otherQuality: 0, duplicatePages: 7, duplicateFiles: 2 }],
     people: [{ actorId: 'a', name: 'Ravi', role: 'PC', pagesUploaded: 200, blurred: 12, faded: 10, tooSmall: 3, otherQuality: 0, duplicatePages: 7, duplicateFiles: 2 }] },
-  report: { people: [{ actorId: 't', name: 'Meera', role: 'TL', bookingFiles: 1, deliveryFiles: 2, filesReviewed: 61, journeysClosed: 5, sentBack: 2,
-    breach: 9, noBreach: 48, paymentsVerified: 2, tasksClosed: 7, duties: [], other: ['Cash tracker updated'] }] },
 };
 
 type TabKey = NonNullable<Parameters<typeof PerformanceView>[0]['initialTab']>;
 const SECTION: Record<TabKey, string> = { backlog: 'pending', bookings: 'flow', deliveries: 'flow', uploads: 'uploads', quality: 'quality', tasks: 'tasks', trend: 'trend',
-  efficiency: 'efficiency', duties: 'duties', report: 'report' };
+  efficiency: 'efficiency', duties: 'duties' };
 
 function render(data: Performance, tab: TabKey): string {
   const client = new QueryClient();
@@ -64,7 +62,7 @@ describe('Performance view', () => {
     const html = render(base, 'backlog');
     expect(html).toContain('value="2026-11-07"');
     expect(html).toContain('value="2026-11-13"');
-    for (const tab of ['Backlog', 'Bookings', 'Deliveries', 'Uploads', 'Duplicates &amp; quality', 'Tasks', 'Day to day', 'PC efficiency', 'Delinquencies', 'Daily report']) {
+    for (const tab of ['Backlog', 'Bookings', 'Deliveries', 'Uploads', 'Duplicates &amp; quality', 'Tasks', 'Day to day', 'PC efficiency', 'Delinquencies']) {
       expect(html).toMatch(new RegExp(`role="tab"[^>]*>${tab}<`));
     }
     // The backlog, with what is older than three days; nothing of the other tabs.
@@ -106,16 +104,11 @@ describe('Performance view', () => {
     expect(html).not.toMatch(/<td class="p2pf-low">—<\/td>/);
   });
 
-  it('shows PC efficiency, delinquencies with the dates, and a person\'s daily report', () => {
+  it('shows PC efficiency and delinquencies with the dates', () => {
     expect(render(base, 'efficiency')).toContain('4 of 10');
     const duties = render(base, 'duties');
     expect(duties).toContain('12 Nov');
     expect(duties).toContain('Not set up yet: Cash register (daily).');
-    const report = render(base, 'report');
-    expect(report).toContain('Report: Meera');
-    expect(report).toContain('Files reviewed – <strong>61</strong>');
-    expect(report).toContain('No breach – <strong>48</strong>');
-    expect(report).toContain('Cash tracker updated');
   });
 
   it('leaves out the tabs a SuperAdmin has switched off for the role', () => {

@@ -55,7 +55,6 @@ export type Performance = {
   efficiency?: { people: EfficiencyRow[] };
   delinquency?: { lines: DelinquencyLine[] };
   tasks?: { outlets: Array<Place & TaskRow>; people: Array<{ actorId: string; name: string | null; role: string } & TaskRow> };
-  report?: { people: ReportPerson[] };
   uploads?: { outlets: Array<Place & ChannelRow>; people: Array<Who & ChannelRow> };
   quality?: { outlets: Array<Place & QualityRow>; people: Array<Who & QualityRow> };
 };
@@ -66,7 +65,7 @@ export type QualityRow = {
   pagesUploaded: number; blurred?: number; faded?: number; tooSmall?: number; otherQuality?: number; duplicatePages?: number;
   duplicateFiles?: number;
 };
-export type SectionKey = 'pending' | 'flow' | 'uploads' | 'quality' | 'tasks' | 'trend' | 'efficiency' | 'duties' | 'report';
+export type SectionKey = 'pending' | 'flow' | 'uploads' | 'quality' | 'tasks' | 'trend' | 'efficiency' | 'duties';
 export type Place = { outletId: string; outletName: string; dealerId: string; dealerName: string };
 /** Per kind of pending work: how many, by age (today, 1-3 days, 4-7 days, older). */
 export type PendingCounts = Record<string, number[]>;
@@ -75,11 +74,6 @@ export type FlowDay = {
   registerMissing: number;
 };
 export type TaskRow = { raised: number[]; closed: number[]; open: number; overdue: number };
-export type ReportPerson = {
-  actorId: string; name: string | null; role: string; bookingFiles: number; deliveryFiles: number; filesReviewed: number;
-  journeysClosed: number; sentBack: number; breach: number; noBreach: number; paymentsVerified: number; tasksClosed: number;
-  duties: Array<{ scheduleId: string; due: number; done: number; missed: number }>; other: string[];
-};
 export type EfficiencyRow = {
   actorId: string; name: string | null; daysWorked: number; deliveryStarted: number; deliveryClosed: number;
   closedShare: number | null; daysToClose: number | null; pagesUploaded: number; pagesRejected: number;

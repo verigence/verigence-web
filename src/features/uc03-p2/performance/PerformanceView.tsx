@@ -24,7 +24,6 @@ import {
   type Period,
   type Place,
   type QualityRow,
-  type ReportPerson,
   type SectionKey,
   type TaskRow,
 } from '../../../services/audit-core/uc03Performance';
@@ -35,7 +34,7 @@ const MODES: Array<{ key: Mode; label: string }> = [
   { key: 'WEEKLY', label: 'Week by week' },
 ];
 /** One tab at a time (product owner 2026-11-13: "I don't want all to be shown in one"): each reads its own section. */
-export type Tab = 'backlog' | 'bookings' | 'deliveries' | 'uploads' | 'quality' | 'tasks' | 'trend' | 'efficiency' | 'duties' | 'report';
+export type Tab = 'backlog' | 'bookings' | 'deliveries' | 'uploads' | 'quality' | 'tasks' | 'trend' | 'efficiency' | 'duties';
 const TABS: Array<{ key: Tab; label: string; section: SectionKey }> = [
   { key: 'backlog', label: 'Backlog', section: 'pending' },
   { key: 'bookings', label: 'Bookings', section: 'flow' },
@@ -46,7 +45,6 @@ const TABS: Array<{ key: Tab; label: string; section: SectionKey }> = [
   { key: 'trend', label: 'Day to day', section: 'trend' },
   { key: 'efficiency', label: 'PC efficiency', section: 'efficiency' },
   { key: 'duties', label: 'Delinquencies', section: 'duties' },
-  { key: 'report', label: 'Daily report', section: 'report' },
 ];
 type Level = 'dealer' | 'outlet' | 'person';
 const ROLE_TABS: Array<{ key: string; label: string }> = [
@@ -482,49 +480,6 @@ function Tasks({ data, periods }: { data: Performance; periods: Period[] }) {
   );
 }
 
-// ---------------------------------------------------------------- 8. daily report
-
-/** The lines of a person's report, as a Team Lead writes their own daily report (2026-11-13). */
-function reportLines(p: ReportPerson, duty: (id: string) => string): Array<{ label: string; value: string }> {
-  const lines: Array<{ label: string; value: string }> = [];
-  const add = (label: string, n: number, always = false) => { if (n || always) lines.push({ label, value: String(n) }); };
-  const pc = p.role === 'PC';
-  add('Booking files updated', p.bookingFiles, pc);
-  add('Delivery files updated', p.deliveryFiles, pc);
-  add('Files reviewed', p.filesReviewed, !pc);
-  add('Journeys closed', p.journeysClosed, true);
-  add('Sent back', p.sentBack, !pc);
-  add('Breach', p.breach, !pc);
-  add('No breach', p.noBreach, !pc);
-  add('Payments verified', p.paymentsVerified);
-  add('Tasks closed', p.tasksClosed, true);
-  for (const d of p.duties) lines.push({ label: duty(d.scheduleId), value: `${d.done} of ${d.due} done${d.missed ? `, ${d.missed} missed` : ''}` });
-  return lines;
-}
-
-function DailyReport({ data, range }: { data: Performance; range: string }) {
-  const people = data.report!.people;
-  const [who, setWho] = useState('');
-  const person = people.find((p) => p.actorId === who) ?? people[0];
-  const titles = new Map(data.schedules.map((s) => [s.scheduleId, s.title]));
-  if (!person) return <SectionCard><p className="p2w-muted">Nobody to report on.</p></SectionCard>;
-  return (
-    <Section title={`Report: ${person.name || 'Name not recorded'}`} about={`What Verigence recorded for ${range}. Work done outside Verigence (meetings, trackers) is not in it unless it was a Task Manager task.`}
-      controls={people.length > 1 ? (
-        <label className="p2pf-pick">Person{' '}
-          <select value={person.actorId} onChange={(e) => setWho(e.target.value)}>
-            {people.map((p) => <option key={p.actorId} value={p.actorId}>{p.name || 'Name not recorded'} ({p.role})</option>)}
-          </select>
-        </label>
-      ) : undefined}>
-      <ol className="p2pf-report">
-        {reportLines(person, (id) => titles.get(id) ?? 'Duty').map((l) => <li key={l.label}>{l.label} – <strong>{l.value}</strong></li>)}
-        <li>Other (Task Manager tasks completed) – {person.other.length ? person.other.join('; ') : <span className="p2w-muted">none</span>}</li>
-      </ol>
-    </Section>
-  );
-}
-
 // ---------------------------------------------------------------- 3. day to day, week to week
 
 function Trend({ data, periods, mode }: { data: Performance; periods: Period[]; mode: Mode }) {
@@ -674,8 +629,8 @@ const shortDate = (iso: string) => new Date(`${iso}T00:00:00Z`).toLocaleDateStri
 /**
  * Performance (product owner 2026-11-13): what a lead manages by, one tab at a time over a date
  * range -- the backlog; bookings; deliveries against the gate register; tasks new, closed and
- * open; each person day to day or week to week; PC efficiency; delinquencies in daily and weekly
- * duties; and a person's daily report. A PC or Reviewer sees their own. A SuperAdmin chooses the
+ * open; each person day to day or week to week; PC efficiency; and delinquencies in daily and
+ * weekly duties. A PC or Reviewer sees their own. A SuperAdmin chooses the
  * tabs each role sees. Only the open tab is read from the server.
  */
 export default function PerformanceView({ tenantId, accessToken, today, initialTab = 'backlog' }: {
@@ -747,7 +702,6 @@ export default function PerformanceView({ tenantId, accessToken, today, initialT
           {tab === 'trend' && data.people.length ? <Trend data={data} periods={periods} mode={mode} /> : null}
           {tab === 'efficiency' && data.efficiency ? <Efficiency data={data} range={range} /> : null}
           {tab === 'duties' && data.delinquency ? <Delinquency data={data} /> : null}
-          {tab === 'report' && data.report ? <DailyReport data={data} range={range} /> : null}
         </>
       ) : null}
       {data && !shown ? (

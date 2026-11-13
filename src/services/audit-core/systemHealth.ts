@@ -400,3 +400,49 @@ export function getSystemHealthArchive(nights: number, accessToken: string) {
     timeoutMs: 20_000,
   });
 }
+
+/**
+ * Every job the platform runs on a clock (product owner 2026-11-13: "create dashboard of all
+ * jobs which get executed for Superadmin and allow him to change the time"). Times are India
+ * time, HH:MM. Audit Core's GET /v1/admin/jobs; SuperAdmin only.
+ */
+export interface DailyJob {
+  key: string; name: string; what: string; service: string;
+  timeIst: string; defaultTimeIst: string; enabled: boolean; editable: boolean; insideSleepWindow: boolean;
+  changedBy: string | null; changedAtUtc: string | null;
+  lastRunAtUtc: string | null; projectsRunLast: number; projects: number;
+}
+
+export interface DriveRunJob {
+  tenantId: string; projectName: string; timeIst: string; enabled: boolean;
+  lastRunAtUtc: string | null; insideSleepWindow: boolean;
+}
+
+export interface JobsOverview {
+  timezone: string;
+  sleepWindow: { enabled: boolean; startIst: string | null; endIst: string | null };
+  daily: DailyJob[];
+  driveRuns: DriveRunJob[];
+  recurring: Array<{ name: string; every: string; service: string; what: string; pausedAsleep: boolean }>;
+  external: Array<{ name: string; service: string; when: string; what: string; note: string }>;
+  changes: Array<{
+    job: string; jobKey: string; oldTimeIst: string | null; newTimeIst: string | null;
+    changedBy: string | null; changedAtUtc: string | null;
+  }>;
+}
+
+export function getJobs(accessToken: string) {
+  return auditCoreRequest<JobsOverview>('/v1/admin/jobs', { accessToken, timeoutMs: 20_000 });
+}
+
+export function setDailyJobTime(jobKey: string, timeIst: string, accessToken: string) {
+  return auditCoreRequest<JobsOverview>(`/v1/admin/jobs/${encodeURIComponent(jobKey)}`, {
+    method: 'PUT', accessToken, body: JSON.stringify({ timeIst }),
+  });
+}
+
+export function setDriveRunTime(tenantId: string, timeIst: string, accessToken: string) {
+  return auditCoreRequest<JobsOverview>(`/v1/admin/jobs/drive-runs/${encodeURIComponent(tenantId)}`, {
+    method: 'PUT', accessToken, body: JSON.stringify({ timeIst }),
+  });
+}

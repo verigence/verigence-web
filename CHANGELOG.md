@@ -12,6 +12,9 @@ The app's build number is added by the release workflow and is not written here.
 
 ## [Unreleased]
 
+### Added
+- **System health – Jobs** (new tab, SuperAdmin only): every job the system runs on a clock in one list. The daily jobs (day-end clean-up, nightly review, data archive) and each Project's Google Drive run show the time they run at, when they last ran, and a time box with **Save** to change it; the page also says which jobs run all day, which other modules run their own, when the system sleeps at night, and who changed a time.
+
 ## [1.7.0] - 2026-11-12
 
 ### Added

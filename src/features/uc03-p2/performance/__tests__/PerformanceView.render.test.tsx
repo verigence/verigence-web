@@ -6,7 +6,7 @@ import PerformanceView from '../PerformanceView';
 import type { Performance, PerformancePerson } from '../../../../services/audit-core/uc03Performance';
 
 const days = ['2026-11-11', '2026-11-12', '2026-11-13'];
-const zero = { filesUploaded: 0, journeysUploaded: 0, reviews: 0, tasksClosed: 0, pagesRejected: 0, activeMinutes: 0 };
+const zero = { filesUploaded: 0, journeysUploaded: 0, journeysClosed: 0, reviews: 0, tasksClosed: 0, pagesRejected: 0, activeMinutes: 0 };
 function person(actorId: string, name: string, role: string, files: number, standing: 'above' | 'below'): PerformancePerson {
   return {
     actorId, name, role, activeToday: true,

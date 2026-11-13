@@ -6,7 +6,7 @@ import { auditCoreRequest } from './client';
  * A Team Lead, PM or Executive reads their people by name; a PC or Reviewer their own row and
  * the unnamed peer median.
  */
-export type MeasureKey = 'filesUploaded' | 'journeysUploaded' | 'reviews' | 'tasksClosed' | 'pagesRejected' | 'activeMinutes';
+export type MeasureKey = 'filesUploaded' | 'journeysUploaded' | 'journeysClosed' | 'reviews' | 'tasksClosed' | 'pagesRejected' | 'activeMinutes';
 export type Measure = {
   key: MeasureKey; label: string; group: 'OUTPUT' | 'QUALITY' | 'UTILISATION'; roles: string[];
   unit?: 'MINUTES'; lowerIsBetter?: boolean;

@@ -55,7 +55,7 @@ const REPORTS = [
     key: 'performance',
     title: 'Performance view',
     description:
-      'What the Performance tab of the Project Tracker and My Tracker shows: each measure (files, journeys, reviews, tasks, pages rejected, active time), the daily and weekly duties, and the comparison with peers. For every Project.',
+      'What the Performance tab of the Project Tracker and My Tracker shows: each measure (files, journeys uploaded and closed, reviews, tasks, pages rejected, active time), the daily and weekly duties, and the comparison with peers. For every Project.',
   },
   {
     key: 'journey-review',

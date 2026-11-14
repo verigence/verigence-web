@@ -1,12 +1,13 @@
 import { useMemo, useRef, useState, type DragEvent } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import '../styles/uc03-p2.css';
 import '../styles/uc03-p2-workspace.css';
 import '../styles/uc03-p2-data-uploads.css';
 
 import PageHeader from '../components/PageHeader';
 import SectionCard from '../components/SectionCard';
+import BankStatementsSection from '../features/uc03-p2/data-uploads/BankStatementsSection';
 import {
   DMS_MATCH_BASIS,
   DMS_OUTCOME_LABELS,
@@ -70,6 +71,15 @@ export default function P2DataUploadsPage() {
   const [selected, setSelected] = useState<string | null>(null);
   const [outcome, setOutcome] = useState<DmsRowOutcome | ''>('MISSING');
   const [error, setError] = useState<string | null>(null);
+  // Bank statements sit beside the DMS dumps (product owner 14 Nov 2026): ?type=bank links there.
+  const [params, setParams] = useSearchParams();
+  const section: 'dms' | 'bank' = params.get('type') === 'bank' ? 'bank' : 'dms';
+  const showSection = (next: 'dms' | 'bank') => {
+    const updated = new URLSearchParams(params);
+    if (next === 'bank') updated.set('type', 'bank'); else updated.delete('type');
+    setParams(updated, { replace: true });
+    setError(null);
+  };
   const [busy, setBusy] = useState(false);
   const input = useRef<HTMLInputElement>(null);
   const enabled = Boolean(tenantId && accessToken);
@@ -169,14 +179,43 @@ export default function P2DataUploadsPage() {
       <PageHeader
         eyebrow="Booking & Delivery"
         title="Data uploads"
-        description="The dealers' daily DMS booking and delivery reports, matched against the journeys on file. What is not found is listed here and in Export to Excel; the journeys found are marked synced."
-        actions={(
+        description={section === 'bank'
+          ? "The dealerships' own bank account statements (any bank, PDF or Excel), checked against the payment receipts on file: what is found in the bank, what is not, and per journey what is verified and what is left."
+          : "The dealers' daily DMS booking and delivery reports, matched against the journeys on file. What is not found is listed here and in Export to Excel; the journeys found are marked synced."}
+        actions={section === 'dms' ? (
           <button type="button" className="p2w-button p2w-button--secondary" disabled={!enabled} onClick={() => void exportExcel()}>
             Export to Excel
           </button>
-        )}
+        ) : undefined}
       />
+      <div className="p2du-switcher" role="tablist" aria-label="Upload type">
+        <button type="button" role="tab" aria-selected={section === 'dms'} onClick={() => showSection('dms')}>DMS dumps</button>
+        <button type="button" role="tab" aria-selected={section === 'bank'} onClick={() => showSection('bank')}>Bank statements</button>
+      </div>
       {error ? <div className="p2w-alert p2w-alert--error" role="alert">{error}</div> : null}
+      {section === 'bank' ? (
+        <>
+          <SectionCard>
+            <div className="p2du-toolbar">
+              <label>Month
+                <select value={month} onChange={(e) => setMonth(e.target.value)}>
+                  {months.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
+                </select>
+              </label>
+              {dealers.length > 1 ? (
+                <label>Dealership
+                  <select value={dealerId} onChange={(e) => setDealerId(e.target.value)}>
+                    <option value="">All dealerships</option>
+                    {dealers.map((d) => <option key={d.dealerId} value={d.dealerId}>{d.dealerName}</option>)}
+                  </select>
+                </label>
+              ) : null}
+            </div>
+          </SectionCard>
+          <BankStatementsSection tenantId={tenantId} accessToken={accessToken} month={month} dealerId={dealerId} onError={setError} />
+        </>
+      ) : null}
+      {section === 'dms' ? (<>
       {setup.isError ? <div className="p2w-alert p2w-alert--error" role="alert">{setup.error instanceof Error ? setup.error.message : 'Not available.'}</div> : null}
 
       <SectionCard>
@@ -376,6 +415,7 @@ export default function P2DataUploadsPage() {
           </div>
         ) : selected && detail.isLoading ? <p className="p2w-muted">Loading…</p> : null}
       </SectionCard>
+      </>) : null}
     </div>
   );
 }

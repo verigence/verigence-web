@@ -9,7 +9,6 @@ import PageHeader from '../components/PageHeader';
 import SectionCard from '../components/SectionCard';
 import MissingDocumentsPanel from '../features/uc03-p2/missing/MissingDocumentsPanel';
 import PerformanceView from '../features/uc03-p2/performance/PerformanceView';
-import { TrackerView } from '../features/uc03-p2/tracker/TrackerView';
 import { GateRegisterTable, PERIODS, PcTracker, STATUS, Segment, Tile } from '../features/uc03-p2/my-work/MyWorkParts';
 import {
   getMyWork,
@@ -32,7 +31,7 @@ import { useProjectContextStore } from '../store/projectContextStore';
 import { useSessionStore } from '../store/sessionStore';
 
 type Preset = MyWorkPeriod | 'day' | 'custom';
-type Tab = 'updates' | 'figures' | 'performance' | 'register' | 'missing';
+type Tab = 'updates' | 'performance' | 'register' | 'missing';
 
 const PRESETS: Array<{ key: Preset; label: string }> = [
   ...PERIODS, { key: 'day', label: 'A day' }, { key: 'custom', label: 'Date range' },
@@ -44,10 +43,9 @@ const GROUPINGS: Array<{ key: MyWorkGrouping; label: string }> = [
 ];
 const TABS: Array<{ key: Tab; label: string }> = [
   { key: 'updates', label: 'Daily updates' },
-  // The Project Tracker's figures of their own row (product owner 2026-11-13: "for each team member
-  // his own view"): files by how they came in, reviews, journeys closed, tasks and failed uploads with why.
-  { key: 'figures', label: 'My figures' },
-  // Their day against their own usual and the unnamed middle of their peers (2026-11-13).
+  // Their day against their own usual and the unnamed middle of their peers (2026-11-13). It replaced
+  // "My figures" (product owner 2026-11-14: duplicate): files by how they came in, reviews, journeys
+  // closed and tasks are its figures, and why an upload failed is its "Why my uploads failed".
   { key: 'performance', label: 'My performance' },
   { key: 'register', label: 'Gate register' },
   { key: 'missing', label: 'Missing documents' },
@@ -225,8 +223,8 @@ export default function P2MyTrackerPage() {
   const role = project?.operatingRole;
   const [searchParams, setSearchParams] = useSearchParams();
   const asked = searchParams.get('tab');
-  // A Reviewer has no gate register of their own.
-  const tab: Tab = asked === 'missing' ? 'missing' : asked === 'figures' ? 'figures' : asked === 'performance' ? 'performance'
+  // A Reviewer has no gate register of their own. The old ?tab=figures opens My performance.
+  const tab: Tab = asked === 'missing' ? 'missing' : asked === 'performance' || asked === 'figures' ? 'performance'
     : asked === 'register' && role === 'PC' ? 'register' : 'updates';
   const [preset, setPreset] = useState<Preset>('week');
   const today = istDate();
@@ -244,7 +242,7 @@ export default function P2MyTrackerPage() {
   const query = useQuery({
     queryKey: ['p2-my-work', tenantId, range.from, range.to, by],
     queryFn: () => getMyWork(tenantId!, range, accessToken ?? undefined, by),
-    enabled: Boolean(tenantId && accessToken && (role === 'PC' || role === 'REVIEWER') && tab !== 'missing' && tab !== 'figures' && tab !== 'performance' && !rangeError),
+    enabled: Boolean(tenantId && accessToken && (role === 'PC' || role === 'REVIEWER') && tab !== 'missing' && tab !== 'performance' && !rangeError),
     staleTime: 30_000,
     refetchOnWindowFocus: true,
   });
@@ -262,14 +260,10 @@ export default function P2MyTrackerPage() {
       />
       <Segment label="My Tracker" value={tab} options={role === 'PC' ? TABS : TABS.filter((t) => t.key !== 'register')}
         onChange={(next) => setSearchParams(next === 'updates' ? {} : { tab: next }, { replace: true })} />
-      {tab === 'figures' && tenantId && (role === 'PC' || role === 'REVIEWER') ? (
-        <TrackerView tenantId={tenantId} accessToken={accessToken ?? undefined} role={role} today={today}
-          keep={{ tab: 'figures' }} />
-      ) : null}
       {tab === 'performance' && tenantId && (role === 'PC' || role === 'REVIEWER') ? (
         <PerformanceView tenantId={tenantId} accessToken={accessToken ?? undefined} today={today} />
       ) : null}
-      {tab === 'figures' || tab === 'performance' ? null : <div className="p2mw-controls">
+      {tab === 'performance' ? null : <div className="p2mw-controls">
         <Segment label="Period" value={preset} options={PRESETS} onChange={setPreset} />
         {preset === 'day' ? (
           <span className="p2mw-range">
@@ -288,7 +282,7 @@ export default function P2MyTrackerPage() {
         )}
         {tab === 'updates' && days > 1 ? <Segment label="View" value={grouping} options={GROUPINGS} onChange={setGrouping} /> : null}
       </div>}
-      {rangeError && tab !== 'figures' && tab !== 'performance' ? <div className="p2w-alert p2w-alert--error" role="alert">{rangeError}</div> : null}
+      {rangeError && tab !== 'performance' ? <div className="p2w-alert p2w-alert--error" role="alert">{rangeError}</div> : null}
 
       {role !== 'PC' && role !== 'REVIEWER' ? (
         <SectionCard><p className="p2w-muted">My Tracker is for a PC or a Reviewer.</p></SectionCard>

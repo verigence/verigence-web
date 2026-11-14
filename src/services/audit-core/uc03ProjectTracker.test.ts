@@ -103,7 +103,7 @@ describe('Project Tracker tabs', () => {
     // Journeys: the Dealership / Outlet / PC-wise panels moved off the TL landing page; DMS dumps:
     // the daily dumps like the gate register, the Team Lead's only.
     expect(TRACKER_TABS.map((t) => t.label)).toEqual(['Performance', 'Journeys', 'Work done and files closed',
-      'Deliveries and delivery files', 'DMS dumps']);
+      'Gate Register', 'DMS dumps']);
     expect(trackerTabsFor('TL').map((t) => t.key)).toContain('dms-dumps');
     expect(trackerTabsFor('PM').map((t) => t.key)).not.toContain('dms-dumps');
     expect(trackerTabsFor('EXECUTIVE').map((t) => t.key)).not.toContain('dms-dumps');
@@ -114,5 +114,13 @@ describe('Project Tracker tabs', () => {
     expect(trackerTabHref('daily-processing')).toBe('/p2/project-tracker?tab=daily-processing');
     expect(trackerTabHref('gate-pass')).toBe('/p2/project-tracker?tab=gate-pass');
     expect(trackerTabHref('performance')).toBe('/p2/project-tracker');
+  });
+});
+
+describe('journey filters: a date range (2026-11-14)', () => {
+  it('sends from and to, only both together', async () => {
+    const { journeyFilterParams } = await import('./uc03P2');
+    expect(journeyFilterParams({ dateFrom: '2026-11-01', dateTo: '2026-11-14' }).toString()).toBe('from=2026-11-01&to=2026-11-14');
+    expect(journeyFilterParams({ dateFrom: '2026-11-01' }).toString()).toBe('');
   });
 });

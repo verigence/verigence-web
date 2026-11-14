@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from 'react';
+import { Fragment, useMemo, useState, type ReactNode } from 'react';
 import { useQuery } from '@tanstack/react-query';
 
 import SectionCard from '../../../components/SectionCard';
@@ -20,6 +20,7 @@ import {
   valueText,
   type Measure,
   type Mode,
+  type Channel,
   type ChannelRow,
   type PendingCounts,
   type Performance,
@@ -190,7 +191,7 @@ function Bookings({ data, periods }: { data: Performance; periods: Period[] }) {
     <Section title="Bookings" about="Journeys uploaded as bookings (no delivery page in that day's uploads), per day or week."
       controls={manyDealers ? <Segment label="By" value={level} options={UNIT_LEVELS} onChange={setLevel} /> : undefined}>
       <div className="p2pt-scroll">
-        <table className="p2w-table p2mw-table p2pf-table" aria-label="Bookings uploaded">
+        <table className="p2w-table p2mw-table p2pf-table p2pf-table--num" aria-label="Bookings uploaded">
           <thead><tr><th scope="col">{level === 'dealer' ? 'Dealership' : 'Outlet'}</th>{periods.map((p) => <th key={p.key} scope="col">{p.label}</th>)}<th scope="col">Total</th></tr></thead>
           <tbody>
             {rows.map((g) => (
@@ -258,7 +259,7 @@ function Deliveries({ data, periods }: { data: Performance; periods: Period[] })
           </label>
         )}>
         <div className="p2pt-scroll">
-          <table className="p2w-table p2mw-table p2pf-table" aria-label="Deliveries per period">
+          <table className="p2w-table p2mw-table p2pf-table p2pf-table--num" aria-label="Deliveries per period">
             <thead><tr><th scope="col">{periods[0]?.indexes.length === 1 ? 'Day' : 'Week'}</th>{DELIVERY_HEADS}</tr></thead>
             <tbody>
               {periods.map((p) => (
@@ -275,7 +276,7 @@ function Deliveries({ data, periods }: { data: Performance; periods: Period[] })
       <Section title={`Deliveries by ${level === 'dealer' ? 'dealership' : 'outlet'}`} about="The same figures for the whole period. Most not uploaded first."
         controls={manyDealers ? <Segment label="By" value={level} options={UNIT_LEVELS} onChange={(l) => { setLevel(l); setScope(''); }} /> : undefined}>
         <div className="p2pt-scroll">
-          <table className="p2w-table p2mw-table p2pf-table" aria-label="Deliveries by dealership or outlet">
+          <table className="p2w-table p2mw-table p2pf-table p2pf-table--num" aria-label="Deliveries by dealership or outlet">
             <thead><tr><th scope="col">{level === 'dealer' ? 'Dealership' : 'Outlet'}</th>{DELIVERY_HEADS}</tr></thead>
             <tbody>
               {rows.map((g) => (
@@ -307,6 +308,16 @@ function useLevels(hasOutlets: boolean, manyDealers: boolean) {
   return { level, setLevel, levels };
 }
 
+const CHANNELS: Array<{ key: Channel; label: string }> = [
+  { key: 'direct', label: 'Direct' }, { key: 'bulk', label: 'Bulk upload' }, { key: 'drive', label: 'Google Drive' },
+];
+
+function sumIssues(all: Array<Record<Channel, number> | undefined>): Record<Channel, number> {
+  const out: Record<Channel, number> = { direct: 0, bulk: 0, drive: 0 };
+  for (const x of all) for (const c of CHANNELS) out[c.key] += x?.[c.key] ?? 0;
+  return out;
+}
+
 function Uploads({ data, periods }: { data: Performance; periods: Period[] }) {
   const up = data.uploads!;
   const { level, setLevel, levels } = useLevels(up.outlets.length > 0, new Set(up.outlets.map((o) => o.dealerId)).size > 1);
@@ -314,6 +325,8 @@ function Uploads({ data, periods }: { data: Performance; periods: Period[] }) {
     direct: data.days.map((_, i) => items.reduce((n, x) => n + (x.direct[i] ?? 0), 0)),
     bulk: data.days.map((_, i) => items.reduce((n, x) => n + (x.bulk[i] ?? 0), 0)),
     drive: data.days.map((_, i) => items.reduce((n, x) => n + (x.drive[i] ?? 0), 0)),
+    duplicates: sumIssues(items.map((x) => x.duplicates)),
+    errors: sumIssues(items.map((x) => x.errors)),
   });
   const rows = (level === 'person'
     ? up.people.map((p) => ({ id: p.actorId, name: p.name || 'Name not recorded', sub: undefined as string | undefined, row: p as ChannelRow }))
@@ -324,7 +337,7 @@ function Uploads({ data, periods }: { data: Performance; periods: Period[] }) {
   const total = sum(all.direct) + sum(all.bulk) + sum(all.drive);
   return (
     <>
-      <Section title="How files are uploaded" about="Files uploaded one by one (app or web), in a bulk folder upload, and through Google Drive."
+      <Section title="How files are uploaded" about="Files uploaded one by one (app or web), in a bulk folder upload, and through Google Drive; for each, the duplicates found and the files with errors."
         controls={levels.length > 1 ? <Segment label="By" value={level} options={levels} onChange={setLevel} /> : undefined}>
         <div className="p2mw-tiles">
           {([['Direct', all.direct], ['Bulk upload', all.bulk], ['Google Drive', all.drive]] as Array<[string, number[]]>).map(([label, xs]) => (
@@ -336,24 +349,54 @@ function Uploads({ data, periods }: { data: Performance; periods: Period[] }) {
           ))}
         </div>
         <div className="p2pt-scroll">
-          <table className="p2w-table p2mw-table p2pf-table" aria-label="Files by how they were uploaded">
-            <thead><tr><th scope="col">{levels.find((l) => l.key === level)?.label}</th><th scope="col">Direct</th><th scope="col">Bulk upload</th><th scope="col">Google Drive</th><th scope="col">Total</th><th scope="col">Share not direct</th></tr></thead>
+          <table className="p2w-table p2mw-table p2pf-table p2pf-table--num" aria-label="Files by how they were uploaded, with duplicates and errors">
+            <thead>
+              <tr>
+                <th scope="col" rowSpan={2}>{levels.find((l) => l.key === level)?.label}</th>
+                {CHANNELS.map((c) => <th key={c.key} scope="colgroup" colSpan={3} className="p2pf-group">{c.label}</th>)}
+                <th scope="col" rowSpan={2}>Total files</th>
+                <th scope="col" rowSpan={2} title="Duplicates and files with errors, of all files plus duplicates">Issue share</th>
+              </tr>
+              <tr>
+                {CHANNELS.map((c) => (
+                  <Fragment key={c.key}>
+                    <th scope="col">Files</th>
+                    <th scope="col" title="Files found to be a copy: set aside, or deleted as the same booking uploaded again">Duplicates</th>
+                    <th scope="col" title="Files with a page that failed, was not read in time or was rejected on quality, or whose upload failed">Errors</th>
+                  </Fragment>
+                ))}
+              </tr>
+            </thead>
             <tbody>
-              {rows.map((r) => (
-                <tr key={r.id}>
-                  <th scope="row">{r.name}{r.sub ? <div className="p2w-muted p2pf-sub">{r.sub}</div> : null}</th>
-                  <td className={r.d ? undefined : 'p2pf-zero'}>{r.d}</td><td className={r.b ? undefined : 'p2pf-zero'}>{r.b}</td>
-                  <td className={r.g ? undefined : 'p2pf-zero'}>{r.g}</td><td><strong>{r.d + r.b + r.g}</strong></td>
-                  <td>{pct(r.b + r.g, r.d + r.b + r.g)}</td>
-                </tr>
-              ))}
+              {rows.map((r) => {
+                const files = { direct: r.d, bulk: r.b, drive: r.g };
+                const issues = CHANNELS.reduce((n, c) => n + (r.row.duplicates?.[c.key] ?? 0) + (r.row.errors?.[c.key] ?? 0), 0);
+                return (
+                  <tr key={r.id}>
+                    <th scope="row">{r.name}{r.sub ? <div className="p2w-muted p2pf-sub">{r.sub}</div> : null}</th>
+                    {CHANNELS.map((c) => {
+                      const dup = r.row.duplicates?.[c.key] ?? 0;
+                      const err = r.row.errors?.[c.key] ?? 0;
+                      return (
+                        <Fragment key={c.key}>
+                          <td className={files[c.key] ? undefined : 'p2pf-zero'}>{files[c.key]}</td>
+                          <td className={dup ? 'p2pf-warn' : 'p2pf-zero'}>{dup}</td>
+                          <td className={err ? 'p2pf-low' : 'p2pf-zero'}>{err}</td>
+                        </Fragment>
+                      );
+                    })}
+                    <td><strong>{r.d + r.b + r.g}</strong></td>
+                    <td>{pct(issues, r.d + r.b + r.g + CHANNELS.reduce((n, c) => n + (r.row.duplicates?.[c.key] ?? 0), 0))}</td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
       </Section>
       <Section title={`Per ${periods[0]?.indexes.length === 1 ? 'day' : 'week'}`} about="All the people and outlets you read, together.">
         <div className="p2pt-scroll">
-          <table className="p2w-table p2mw-table p2pf-table" aria-label="Files by channel per period">
+          <table className="p2w-table p2mw-table p2pf-table p2pf-table--num" aria-label="Files by channel per period">
             <thead><tr><th scope="col" />{periods.map((p) => <th key={p.key} scope="col">{p.label}</th>)}<th scope="col">Total</th></tr></thead>
             <tbody>
               {([['Direct', all.direct], ['Bulk upload', all.bulk], ['Google Drive', all.drive]] as Array<[string, number[]]>).map(([label, xs]) => (
@@ -404,7 +447,7 @@ function Quality({ data, range }: { data: Performance; range: string }) {
         <div className={`p2mw-tile${all.duplicateFiles ? ' p2mw-tile--warn' : ''}`}><span className="p2mw-tile__label">Duplicate files</span><strong className="p2mw-tile__value">{all.duplicateFiles ?? 0}</strong></div>
       </div>
       <div className="p2pt-scroll">
-        <table className="p2w-table p2mw-table p2pf-table" aria-label="Duplicates and quality issues">
+        <table className="p2w-table p2mw-table p2pf-table p2pf-table--num" aria-label="Duplicates and quality issues">
           <thead>
             <tr>
               <th scope="col">{levels.find((l) => l.key === level)?.label}</th><th scope="col">Pages uploaded</th>
@@ -464,7 +507,7 @@ function Tasks({ data, periods }: { data: Performance; periods: Period[] }) {
           <div className={`p2mw-tile${all.overdue ? ' p2mw-tile--bad' : ''}`}><span className="p2mw-tile__label">Overdue now</span><strong className="p2mw-tile__value">{all.overdue}</strong></div>
         </div>
         <div className="p2pt-scroll">
-          <table className="p2w-table p2mw-table p2pf-table" aria-label="Tasks">
+          <table className="p2w-table p2mw-table p2pf-table p2pf-table--num" aria-label="Tasks">
             <thead><tr><th scope="col">{levels.find((l) => l.key === level)?.label}</th><th scope="col">New</th><th scope="col">Closed</th><th scope="col">Open now</th><th scope="col">Overdue now</th></tr></thead>
             <tbody>
               {rows.map((r) => (
@@ -481,7 +524,7 @@ function Tasks({ data, periods }: { data: Performance; periods: Period[] }) {
       </Section>
       <Section title={`New and closed per ${periods[0]?.indexes.length === 1 ? 'day' : 'week'}`} about="More new than closed means the backlog grew.">
         <div className="p2pt-scroll">
-          <table className="p2w-table p2mw-table p2pf-table" aria-label="New and closed tasks per period">
+          <table className="p2w-table p2mw-table p2pf-table p2pf-table--num" aria-label="New and closed tasks per period">
             <thead><tr><th scope="col" />{periods.map((p) => <th key={p.key} scope="col">{p.label}</th>)}<th scope="col">Total</th></tr></thead>
             <tbody>
               <tr><th scope="row">New</th>{periods.map((p) => <td key={p.key}>{sumAt(all.raised, p.indexes) || '—'}</td>)}<td><strong>{sum(all.raised)}</strong></td></tr>
@@ -501,7 +544,7 @@ function Tasks({ data, periods }: { data: Performance; periods: Period[] }) {
 
 // ---------------------------------------------------------------- 3. day to day, week to week
 
-function Trend({ data, periods, mode }: { data: Performance; periods: Period[]; mode: Mode }) {
+function Trend({ data, periods, mode, range, today }: { data: Performance; periods: Period[]; mode: Mode; range: string; today: string }) {
   const roles = ROLE_TABS.filter((r) => data.people.some((p) => p.role === r.key));
   const [role, setRole] = useState(roles[0]?.key ?? 'PC');
   const current = roles.find((r) => r.key === role) ?? roles[0];
@@ -510,24 +553,29 @@ function Trend({ data, periods, mode }: { data: Performance; periods: Period[]; 
   const measure: Measure | undefined = measures.find((m) => m.key === measureKey) ?? measures[0];
   if (!current || !measure) return null;
   const people = data.people.filter((p) => p.role === current.key);
+  // Today (or this week) is still going on: never marked, and not in the average until it has work
+  // (2026-11-14, a Saturday morning showed every PC marked red).
+  const inProgress = periods.map((per) => per.indexes.some((i) => (data.days[i] ?? '') >= today));
   const rows = people.map((p) => {
     const cells = periods.map((per) => sumAt(p.series[measure.key], per.indexes));
     const total = cells.reduce((a, b) => a + b, 0);
-    return { p, cells, total, average: periods.length ? total / periods.length : 0 };
+    // The average of the days worked: weekly offs and today count only when they have work.
+    const counted = cells.filter((v, i) => v > 0 || (!periods[i].off && !inProgress[i])).length;
+    return { p, cells, total, average: counted ? total / counted : 0 };
   }).sort((a, b) => (measure.lowerIsBetter ? a.total - b.total : b.total - a.total) || (a.p.name ?? '').localeCompare(b.p.name ?? ''));
   const column = periods.map((_, i) => rows.reduce((n, r) => n + r.cells[i], 0));
   return (
-    <Section title={mode === 'DAILY' ? 'Day to day' : 'Week to week'}
-      about={`Each person's ${measure.label.toLowerCase()} per ${mode === 'DAILY' ? 'day' : 'week'}. A figure under half of the person's own average is marked.`}
+    <Section title={`${mode === 'DAILY' ? 'Day to day' : 'Week to week'} · ${range}`}
+      about={`Each person's ${measure.label.toLowerCase()} per ${mode === 'DAILY' ? 'day' : 'week'}, for the dates chosen at the top. A figure under half of the person's own average is marked; today is not, while it is still going on.`}
       controls={roles.length > 1 ? <Segment label="Role" value={current.key} options={roles} onChange={setRole} /> : undefined}>
       <Segment label="Figure" value={measure.key} options={measures.map((m) => ({ key: m.key, label: m.label }))} onChange={setMeasureKey} />
       <div className="p2pt-scroll">
-        <table className="p2w-table p2mw-table p2pf-table" aria-label={`${measure.label} per ${mode === 'DAILY' ? 'day' : 'week'}`}>
+        <table className="p2w-table p2mw-table p2pf-table p2pf-table--num" aria-label={`${measure.label} per ${mode === 'DAILY' ? 'day' : 'week'}`}>
           <thead>
             <tr>
               <th scope="col">{current.label}</th>
               {periods.map((p) => <th key={p.key} scope="col">{p.label}</th>)}
-              <th scope="col">Total</th><th scope="col">Average</th>
+              <th scope="col">Total</th><th scope="col" title="Per day worked: weekly offs and today count only when they have work">Average</th>
             </tr>
           </thead>
           <tbody>
@@ -535,8 +583,8 @@ function Trend({ data, periods, mode }: { data: Performance; periods: Period[]; 
               <tr key={p.actorId}>
                 <th scope="row">{p.name || 'Name not recorded'}</th>
                 {cells.map((v, i) => {
-                  const low = !measure.lowerIsBetter && !periods[i].off && average >= 2 && v < average / 2;
-                  const high = Boolean(measure.lowerIsBetter) && v >= 3 && v > average * 2;
+                  const low = !measure.lowerIsBetter && !periods[i].off && !inProgress[i] && average >= 2 && v < average / 2;
+                  const high = Boolean(measure.lowerIsBetter) && !inProgress[i] && v >= 3 && v > average * 2;
                   return <td key={periods[i].key} className={low || high ? 'p2pf-low' : v === 0 ? 'p2pf-zero' : undefined}>{v === 0 ? '—' : valueText(measure, v)}</td>;
                 })}
                 <td><strong>{valueText(measure, total)}</strong></td>
@@ -569,7 +617,7 @@ function Efficiency({ data, range }: { data: Performance; range: string }) {
   return (
     <Section title="PC efficiency" about={`For ${range}: how much of what a PC starts gets finished, how fast, and how clean.`}>
       <div className="p2pt-scroll">
-        <table className="p2w-table p2mw-table p2pf-table" aria-label="PC efficiency">
+        <table className="p2w-table p2mw-table p2pf-table p2pf-table--num" aria-label="PC efficiency">
           <thead>
             <tr>
               <th scope="col">PC</th>
@@ -765,7 +813,7 @@ export default function PerformanceView({ tenantId, accessToken, today, initialV
           {shown === 'uploads' && data.uploads ? <Uploads data={data} periods={periods} /> : null}
           {shown === 'quality' && data.quality ? <Quality data={data} range={range} /> : null}
           {shown === 'tasks' && data.tasks ? <Tasks data={data} periods={periods} /> : null}
-          {shown === 'trend' && data.people?.length ? <Trend data={data} periods={periods} mode={mode} /> : null}
+          {shown === 'trend' && data.people?.length ? <Trend data={data} periods={periods} mode={mode} range={range} today={today} /> : null}
           {shown === 'efficiency' && data.efficiency ? <Efficiency data={data} range={range} /> : null}
           {shown === 'duties' && data.delinquency ? <Delinquency data={data} /> : null}
         </>

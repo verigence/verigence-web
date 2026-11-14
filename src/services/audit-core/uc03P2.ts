@@ -115,6 +115,10 @@ export type P2JourneyFilters = {
   /** 'business': the month is the booking date's (bookings) or the delivery date's (deliveries) --
    *  the Team Lead dashboard's calendar month (2026-11-07); otherwise the month the journey started. */
   monthBasis?: 'business';
+  /** A date range (product owner 2026-11-14), YYYY-MM-DD: a journey whose booking date or delivery
+   *  date is in it; takes the place of the month. */
+  dateFrom?: string;
+  dateTo?: string;
 };
 
 export type P2JourneyKind = 'booking' | 'delivery';
@@ -702,6 +706,7 @@ export function journeyFilterParams(filters: P2JourneyFilters): URLSearchParams 
   if (filters.kind) params.set('kind', filters.kind);
   if (filters.outletId) params.set('outlet_id', filters.outletId);
   if (filters.pcActorId) params.set('pc_actor_id', filters.pcActorId);
+  if (filters.dateFrom && filters.dateTo) { params.set('from', filters.dateFrom); params.set('to', filters.dateTo); }
   return params;
 }
 

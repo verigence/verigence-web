@@ -107,6 +107,13 @@ export default function JourneyListTabs({ tenantId, accessToken, role, onCounts,
     if (asked !== null && (asked === '' || /^\d{4}-\d{2}$/.test(asked))) return asked;
     return calendarMonth ? currentMonth : '';
   });
+  // A date range from the Project Tracker's Journeys tab (?from=&to=, 2026-11-14): booking or
+  // delivery date in it, in place of the month.
+  const [dates, setDates] = useState(() => {
+    const from = params.get('from') ?? '';
+    const to = params.get('to') ?? '';
+    return /^\d{4}-\d{2}-\d{2}$/.test(from) && /^\d{4}-\d{2}-\d{2}$/.test(to) && from <= to ? { from, to } : null;
+  });
   const [dealerId, setDealerId] = useState(() => params.get('dealer') ?? '');
   const [outletId, setOutletId] = useState(() => params.get('outlet') ?? '');
   const [pcActorId, setPcActorId] = useState(() => params.get('pc') ?? '');
@@ -120,12 +127,13 @@ export default function JourneyListTabs({ tenantId, accessToken, role, onCounts,
   const monthApplies = calendarMonth || view === 'closed' || view === 'all';
   const filters: P2JourneyFilters = {
     search: deferredSearch,
-    month: monthApplies ? month : '',
+    month: monthApplies && !dates ? month : '',
     dealerId,
     outletId,
     pcActorId,
     kind,
     ...(calendarMonth ? { monthBasis: 'business' as const } : {}),
+    ...(dates ? { dateFrom: dates.from, dateTo: dates.to } : {}),
   };
   const overviewMonth = calendarMonth ? month : '';
   const enabled = Boolean(tenantId && accessToken);
@@ -169,7 +177,7 @@ export default function JourneyListTabs({ tenantId, accessToken, role, onCounts,
   const hasNext = list.data?.nextOffset != null;
   const all = overview.data?.counts;
   const tab = tabs.find((t) => t.view === view) ?? tabs[0];
-  const filtered = Boolean(search.trim() || (monthApplies && month && !calendarMonth) || dealerId || outletId || pcActorId || kind);
+  const filtered = Boolean(search.trim() || (monthApplies && month && !calendarMonth) || dates || dealerId || outletId || pcActorId || kind);
   // The Dealership filter and panel only when the Project has more than one Dealership.
   const dealers = overview.data?.byDealer ?? [];
   const manyDealers = supervisor && dealers.length > 1;
@@ -188,7 +196,7 @@ export default function JourneyListTabs({ tenantId, accessToken, role, onCounts,
   }, []);
 
   const clear = () => {
-    setSearch(''); setDraft(''); setMonth(calendarMonth ? currentMonth : ''); setDealerId(''); setOutletId('');
+    setSearch(''); setDraft(''); setMonth(calendarMonth ? currentMonth : ''); setDates(null); setDealerId(''); setOutletId('');
     setPcActorId(''); setKind('');
   };
   const chooseDealer = (key: string) => {
@@ -275,6 +283,12 @@ export default function JourneyListTabs({ tenantId, accessToken, role, onCounts,
         </div>
       ) : null}
 
+      {dates ? (
+        <p className="p2w-muted" role="status">
+          Booking or delivery date {dates.from} to {dates.to}.{' '}
+          <button type="button" className="p2w-link" onClick={() => setDates(null)}>Clear dates</button>
+        </p>
+      ) : null}
       <div className="p2w-jtabs__bar" role="tablist" aria-label="Journeys">
         {tabs.map((t) => (
           <button

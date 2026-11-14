@@ -84,7 +84,7 @@ export default function GatePassCalendar({ tenantId, accessToken, refreshKey }: 
   return (
     <SectionCard>
       <div className="p2w-card__title">
-        <h3>Deliveries and delivery files</h3>
+        <h3>Calendar: deliveries and delivery files</h3>
         <p className="p2w-muted">
           For each day: deliveries reported on the gate pass, deliveries in the system with that day's
           vehicle gate pass, deliveries the dealership did not intimate to the PC, and the rest, whose

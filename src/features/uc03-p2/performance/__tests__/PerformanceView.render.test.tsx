@@ -84,6 +84,24 @@ describe('Performance view', () => {
     expect(html).not.toContain('Pages right first time');
   });
 
+  it('shows each PC\'s files per channel with that channel\'s duplicates and errors (2026-11-14)', () => {
+    const issues = { duplicates: { direct: 2, bulk: 1, drive: 0 }, errors: { direct: 3, bulk: 0, drive: 4 } };
+    const data: Performance = { ...base, uploads: { outlets: [{ ...base.uploads!.outlets[0], ...issues }],
+      people: [{ ...base.uploads!.people[0], ...issues }] } };
+    const html = render(data, 'uploads');
+    for (const head of ['Direct', 'Bulk upload', 'Google Drive', 'Files', 'Duplicates', 'Errors']) expect(html).toContain(`>${head}</th>`);
+    // Rasulgarh (outlet first): direct 30 files, 2 duplicates, 3 errors; bulk 10, 1, 0; Drive 10, 0, 4.
+    expect(html).toMatch(/Adishakti<\/div><\/th><td>30<\/td><td class="p2pf-warn">2<\/td><td class="p2pf-low">3<\/td><td>10<\/td><td class="p2pf-warn">1<\/td><td class="p2pf-zero">0<\/td><td>10<\/td><td class="p2pf-zero">0<\/td><td class="p2pf-low">4<\/td><td><strong>50<\/strong><\/td>/);
+  });
+
+  it('does not mark today while it is still going on, and names the dates (2026-11-14)', () => {
+    const data: Performance = { ...base, people: [person('a', 'Ravi', [10, 0, 12, 11, 9, 2, 1])] };
+    const html = render(data, 'trend');
+    expect(html).toContain('Day to day · 7 Nov to 13 Nov');
+    // Thu 12 (2, under half the usual) is marked; Fri 13, today (1 so far), is not.
+    expect(html).toMatch(/<td class="p2pf-low">2<\/td><td>1<\/td>/);
+  });
+
   it('keeps bookings and deliveries apart, the deliveries against the gate register day by day', () => {
     const bookings = render(base, 'bookings');
     expect(bookings).toContain('Bookings uploaded');

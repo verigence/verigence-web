@@ -45,6 +45,11 @@
 .user-menu-button { min-height: 32px; padding: 0 10px; border: 1px solid #d4e0e8; border-radius: 8px; background: #fff; color: var(--v-slate); font-size: 10px; font-weight: 700; cursor: pointer; }
 .enterprise-content { padding: 28px; }
 .screen-stack { max-width: 1500px; margin: 0 auto; display: grid; gap: 20px; }
+/* A stack inside a stack (a tab's body inside a page) takes the full width of its column: with the
+   centring margin it shrank to its content and squeezed the Gate Register into a narrow column of
+   vertical text (product owner 2026-11-14). min-width: 0 lets a wide table scroll inside its own box. */
+.screen-stack > * { min-width: 0; }
+.screen-stack .screen-stack { max-width: none; width: 100%; margin: 0; }
 .page-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; }
 .page-header__copy { max-width: 900px; }
 .page-header__title-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }

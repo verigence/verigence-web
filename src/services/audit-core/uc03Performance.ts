@@ -120,9 +120,10 @@ export type Dashboard = {
   kpis?: { title: string; tiles: DashTile[] };
   /** cards: the backlog of each PC, outlet and dealership (a lead's view). */
   pending?: { title: string; buckets: string[]; kinds: DashPendingKind[]; cards?: DashCard[] };
-  /** A PC's efficiency: the plain average of the shares there is something to measure for. */
+  /** Efficiency: the plain average of the shares there is something to measure for. cards: the PCs
+   *  and the Reviewers (a lead's view); card: the first of them (older answers carry only card). */
   efficiency?: {
-    note: string; card?: DashCard;
+    note: string; card?: DashCard; cards?: DashCard[];
     mine?: {
       score: number | null; peers: number | null; daysToClose: number | null; perDay: number | null; daysWorked: number;
       parts: Array<{ key: string; label: string; value: number | null; detail: string }>;

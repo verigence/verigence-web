@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import type { DiscountVarianceItem } from '../../../services/audit-core/uc03DiscountVariance';
 import {
-  applyFilters, breakdown, EMPTY_FILTERS, excessOf, excessOnly, inView, viewFromParams, filtersFromParams, paramsFromFilters, quickRange, sortItems, toCsv, totals,
+  applyFilters, breakdown, EMPTY_FILTERS, excessOf, excessOnly, inView, offerLine, readingsLine, viewFromParams, filtersFromParams, paramsFromFilters, quickRange, sortItems, toCsv, totals,
 } from './excessDiscount';
 
 const row = (over: Partial<DiscountVarianceItem>): DiscountVarianceItem => ({
@@ -80,5 +80,27 @@ describe('the three lists (product owner 2026-11-06)', () => {
   it('reads the list from the URL, excess by default', () => {
     expect(viewFromParams(new URLSearchParams('view=kit'))).toBe('kit');
     expect(viewFromParams(new URLSearchParams(''))).toBe('over');
+  });
+});
+
+describe('documents disagree, readings and offer (2026-11-14)', () => {
+  const item = {
+    journeyId: 'j9', journeyReference: 'UTK-SB-261114-012', customer: null, pc: null, outlet: null, model: null, variant: null,
+    discountKey: 'ADDITIONAL_DISCOUNT', discount: 'Dealer discount', status: 'FIGURES_DISAGREE', entitled: '7000',
+    invoice: '71000', variance: '64000', givenFrom: 'billed', ledger: '7000',
+    readings: [{ document: 'NDC (Account Statement)', amount: '71000' }, { document: 'Customer ledger (Tally)', amount: '7000' }],
+    offer: { source: 'Dealer discount grid', tier: 'WITH_INSURANCE', tiers: { BASE: '5000', WITH_INSURANCE: '7000' } },
+  } as const;
+
+  it('lists a disagreement apart, never as excess', () => {
+    const items = [item as never];
+    expect(inView(items, 'disagree')).toHaveLength(1);
+    expect(inView(items, 'over')).toHaveLength(0);
+    expect(viewFromParams(new URLSearchParams('view=disagree'))).toBe('disagree');
+  });
+
+  it('says what each document read and what the master offers', () => {
+    expect(readingsLine(item as never)).toBe('NDC (Account Statement) ₹71,000 · Customer ledger (Tally) ₹7,000');
+    expect(offerLine(item as never)).toBe('Grid: base ₹5,000 · with insurance ₹7,000 (judged at with insurance)');
   });
 });

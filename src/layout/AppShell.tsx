@@ -493,7 +493,7 @@ export default function AppShell({ children }: PropsWithChildren) {
     refetchInterval: 120_000,
     staleTime: 60_000,
   });
-  const p2TaskCount = p2TaskSummary.data?.counts?.ALL ?? p2TaskSummary.data?.items.length ?? 0;
+  const p2TaskCount = p2TaskSummary.data?.total?.open ?? p2TaskSummary.data?.counts?.ALL ?? p2TaskSummary.data?.items.length ?? 0;
   // Task Manager badge: my open tasks plus what waits for my review.
   const tmSummary = useQuery({
     queryKey: ['tm-badge', selectedProject?.tenantId, role],
@@ -741,9 +741,13 @@ export default function AppShell({ children }: PropsWithChildren) {
     setMobileMenuOpen(false);
     navigate('/dashboard', { replace: true });
   };
+  // A Team Lead's and a PM's landing page (the Dealer Operations Overview) carries the journey list's
+  // own search -- suggestions as you type, within the month and filters picked -- so a second bar
+  // above it only repeated it (product owner 2026-11-14: "there are two search bars on TL dealership
+  // overview"). The shell's bar stays only where the page has no search of its own.
   const showLandingSearch = (location.pathname === '/dashboard' || location.pathname === '/work-queue')
     && !createBookingMode
-    && (role === 'PC' || role === 'TL' || role === 'PM');
+    && role === 'PC';
   const handleLandingSearch = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const formData = new FormData(event.currentTarget);

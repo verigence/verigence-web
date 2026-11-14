@@ -1405,8 +1405,10 @@ export type P2Documents360 = {
 /** How a receipt meets the bank statement. */
 type P2BankMatch = {
   status: 'MATCHED' | 'UNMATCHED' | 'AMBIGUOUS' | 'NOT_APPLICABLE' | 'NO_STATEMENT';
-  method?: 'REFERENCE' | 'UTR' | 'AMOUNT_DATE' | null;
+  method?: 'REFERENCE' | 'UTR' | 'AMOUNT_DATE' | 'DEALER_STATEMENT' | null;
   documentId?: string | null; date?: string | null; reference?: string | null;
+  /** Found on the dealership's own bank statement (Data uploads, 2026-11-14): which account. */
+  dealerStatement?: boolean; account?: string | null;
   /** True when the reconciliation had already recorded this match. */
   recorded: boolean;
 };
@@ -1462,6 +1464,11 @@ export type P2Payments360 = {
   /** Only when the bank letter's sanction is the loan counted. */
   loanWithoutReceipt?: P2LoanWithoutReceipt | null;
   duplicates?: number;
+  /** The journey's bank verification against the dealership's bank statements (2026-11-14). */
+  bankVerification?: {
+    status: 'BANK_VERIFIED' | 'PARTIAL' | 'NOT_VERIFIED' | 'CASH_ONLY'; bankVerified: boolean;
+    bankReceipts: string; verified: string; left: string; cash: string; bankVerifiedAtUtc: string | null;
+  } | null;
   bankStatement?: {
     lines: P2BankLine[]; creditsTotal: string; matchedTotal: string;
     matched: number; unmatchedCredits: number; receiptsWithoutCredit: number;

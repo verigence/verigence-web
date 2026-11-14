@@ -327,7 +327,7 @@ export default function BankStatementsSection({ tenantId, accessToken, month, de
                 </div>
                 <div className="p2du-scroll">
                   <table className="p2du-table p2du-table--stack">
-                    <thead><tr><th>Journey</th><th>Customer</th><th>Outlet</th><th>Status</th><th className="num">Bank receipts</th><th className="num">Verified</th><th className="num">Left</th><th className="num">Cash</th></tr></thead>
+                    <thead><tr><th>Journey</th><th>Customer</th><th>Outlet</th><th>In this range</th><th className="num">Bank receipts</th><th className="num">Verified</th><th className="num">Left</th><th className="num">Cash</th><th>Journey</th></tr></thead>
                     <tbody>
                       {d.journeys.filter((j) => !journeyStatus || j.status === journeyStatus).map((j) => (
                         <tr key={j.journeyId}>
@@ -339,6 +339,8 @@ export default function BankStatementsSection({ tenantId, accessToken, month, de
                           <td data-label="Verified" className="num">{rupees(j.verified)}</td>
                           <td data-label="Left" className="num">{Number(j.left) > 0 ? <strong>{rupees(j.left)}</strong> : rupees(0)}</td>
                           <td data-label="Cash" className="num">{Number(j.cash) ? rupees(j.cash) : '—'}</td>
+                          <td data-label="Journey">{j.bankVerified ? <span className="p2du-tag p2du-tag--ok">Bank verified</span>
+                            : j.journeyLeft && Number(j.journeyLeft) > 0 ? <small className="p2w-muted">{rupees(j.journeyLeft)} left overall</small> : '—'}</td>
                         </tr>
                       ))}
                     </tbody>

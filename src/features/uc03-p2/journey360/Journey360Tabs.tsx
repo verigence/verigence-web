@@ -179,7 +179,8 @@ function BankCell({ item }: { item: P2PaymentItem }) {
       <span className={`p2w-chip p2w-chip--${status.tone}`}>{status.label}</span>
       {match.status === 'MATCHED' ? (
         <small className="j360-bank__ref">
-          {[match.date && recordField('transaction_date', match.date), match.reference, match.method && BANK_METHOD[match.method]].filter(Boolean).join(' · ')}
+          {[match.date && recordField('transaction_date', match.date), match.dealerStatement ? match.account : null, match.reference,
+            match.method && (match.method === 'DEALER_STATEMENT' ? "dealership's statement" : BANK_METHOD[match.method])].filter(Boolean).join(' · ')}
         </small>
       ) : null}
     </span>
@@ -232,6 +233,15 @@ export function PaymentsTab({ payments, journeyId }: { payments: P2Payments360; 
         ))}
         {payments.duplicates ? <div className="is-due"><dt>Duplicate receipts</dt><dd>{payments.duplicates} not counted</dd></div> : null}
         {credits.length ? <div className={bank && bank.matched === credits.length ? 'is-clear' : ''}><dt>Bank credits matched</dt><dd>{bank?.matched ?? 0} of {credits.length}</dd></div> : null}
+        {/* The dealership's bank statements (Data uploads, 2026-11-14): Bank verified once every bank receipt is found. */}
+        {payments.bankVerification ? (
+          <div className={payments.bankVerification.bankVerified ? 'is-clear' : payments.bankVerification.status === 'CASH_ONLY' ? '' : 'is-due'}>
+            <dt>Bank verification</dt>
+            <dd>{{ BANK_VERIFIED: 'Bank verified', PARTIAL: 'Partly verified', NOT_VERIFIED: 'Not verified', CASH_ONLY: 'Cash only' }[payments.bankVerification.status]}
+              <small className="p2w-muted">{money(payments.bankVerification.verified)} of {money(payments.bankVerification.bankReceipts)} found
+                {Number(payments.bankVerification.left) > 0 ? ` · ${money(payments.bankVerification.left)} left` : ''}</small></dd>
+          </div>
+        ) : null}
       </dl>
       {payments.items.length || letterLoan ? (
         <div className="j360-card j360-table-wrap">

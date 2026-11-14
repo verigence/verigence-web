@@ -97,6 +97,10 @@ export type BankJourney = {
   card: string;
   status: JourneyStatus;
   statusLabel: string;
+  /** The journey as a whole (every receipt, any date): Bank verified once each bank receipt is found. */
+  bankVerified: boolean;
+  journeyBankStatus: 'BANK_VERIFIED' | 'PARTIAL' | 'NOT_VERIFIED' | 'CASH_ONLY' | null;
+  journeyLeft: string | null;
 };
 
 export type BankTransaction = {

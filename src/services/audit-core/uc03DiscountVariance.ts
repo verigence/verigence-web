@@ -5,7 +5,22 @@ import { auditCoreRequest } from './client';
 /** OVER_UNLESS_INHOUSE (2026-11-14): a dealer discount above the grid tier it was judged at but within a
  *  higher tier (in-house insurance / EW) -- over only if those were not in-house, never counted as excess. */
 export type DiscountVarianceStatus =
-  'OVER_ENTITLEMENT' | 'UNDER_ENTITLEMENT' | 'ENTITLEMENT_UNKNOWN' | 'KIT_AS_CASH' | 'OVER_UNLESS_INHOUSE';
+  'OVER_ENTITLEMENT' | 'UNDER_ENTITLEMENT' | 'ENTITLEMENT_UNKNOWN' | 'KIT_AS_CASH' | 'OVER_UNLESS_INHOUSE'
+  /** FIGURES_DISAGREE (2026-11-14): the statement's figure is contradicted by the Tally ledger -- listed apart, never excess. */
+  | 'FIGURES_DISAGREE';
+
+/** What one document gives for the benefit. */
+export interface DiscountReading { document: string | null; amount: string | null }
+
+/** What the master offers: the dealer grid's tiers, or the consumer scheme. */
+export interface DiscountOffer {
+  source: string | null;
+  tier?: string | null;
+  tiers?: Record<string, string | null> | null;
+  code?: string | null;
+  eligibility?: string | null;
+  kit?: string | null;
+}
 
 export interface DiscountVarianceItem {
   journeyId: string;
@@ -38,11 +53,16 @@ export interface DiscountVarianceItem {
   reason?: string | null;
   /** OVER_UNLESS_INHOUSE: what the grid allows with in-house insurance / EW. */
   ifInhouse?: string | null;
+  /** FIGURES_DISAGREE: the Tally ledger's amount. */
+  ledger?: string | null;
+  /** What each document read for this benefit (2026-11-14: "check what is read, what is the offer"). */
+  readings?: DiscountReading[];
+  offer?: DiscountOffer | null;
 }
 
 export interface DiscountVarianceResponse {
   items: DiscountVarianceItem[];
-  counts: { total: number; over: number; under: number; unknown: number; kitAsCash?: number; unlessInhouse?: number; journeys: number };
+  counts: { total: number; over: number; under: number; unknown: number; kitAsCash?: number; unlessInhouse?: number; figuresDisagree?: number; journeys: number };
   notYetCalculated: number;
   toleranceRupees: number;
 }

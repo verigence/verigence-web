@@ -45,10 +45,34 @@ export const excessOf = (i: DiscountVarianceItem) => Number(
 
 /** The lists (product owner 2026-11-06): excess, accessories kit given as cash, and no master to compare with;
  *  2026-11-14: a dealer discount over only if the insurance / EW were not in-house, listed apart. */
-export type View = 'over' | 'kit' | 'inhouse' | 'unknown';
+export type View = 'over' | 'kit' | 'inhouse' | 'disagree' | 'unknown';
 export const VIEW_STATUS = {
-  over: 'OVER_ENTITLEMENT', kit: 'KIT_AS_CASH', inhouse: 'OVER_UNLESS_INHOUSE', unknown: 'ENTITLEMENT_UNKNOWN',
+  over: 'OVER_ENTITLEMENT', kit: 'KIT_AS_CASH', inhouse: 'OVER_UNLESS_INHOUSE', disagree: 'FIGURES_DISAGREE',
+  unknown: 'ENTITLEMENT_UNKNOWN',
 } as const;
+
+const TIER_WORDS: Record<string, string> = { BASE: 'base', WITH_INSURANCE: 'with insurance', WITH_EW_INSURANCE: 'with insurance + EW' };
+const inr = (v: string | number | null | undefined) =>
+  v === null || v === undefined || v === '' || Number.isNaN(Number(v)) ? '—' : `₹${Number(v).toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
+
+/** What each document read, in one line: "NDC (Account Statement) ₹71,000 · Customer ledger (Tally) ₹7,000". */
+export function readingsLine(i: DiscountVarianceItem): string | null {
+  const parts = (i.readings ?? []).filter((r) => r.amount !== null).map((r) => `${r.document ?? 'Document'} ${inr(r.amount)}`);
+  return parts.length ? parts.join(' · ') : null;
+}
+
+/** What the master offers, in one line: "Grid: base ₹5,000 · with insurance ₹7,000" or the scheme's name. */
+export function offerLine(i: DiscountVarianceItem): string | null {
+  const o = i.offer;
+  if (!o) return null;
+  if (o.tiers && Object.keys(o.tiers).length) {
+    return `Grid: ${Object.entries(o.tiers).map(([k, v]) => `${TIER_WORDS[k] ?? k} ${inr(v)}`).join(' · ')}`
+      + (o.tier ? ` (judged at ${TIER_WORDS[o.tier] ?? o.tier})` : '');
+  }
+  if (o.source === 'Dealer discount grid') return 'Grid: one amount for this model';
+  return [o.source, o.kit ? `kit ${inr(o.kit)}` : null, o.eligibility === 'NOT_ELIGIBLE' ? 'not eligible' : null]
+    .filter(Boolean).join(' · ') || null;
+}
 
 export function inView(items: DiscountVarianceItem[], view: View): DiscountVarianceItem[] {
   if (view === 'over') return excessOnly(items);
@@ -161,7 +185,7 @@ export function toCsv(items: DiscountVarianceItem[], basis: DateBasis): string {
 
 export function viewFromParams(params: URLSearchParams): View {
   const view = params.get('view');
-  return view === 'kit' || view === 'inhouse' || view === 'unknown' ? view : 'over';
+  return view === 'kit' || view === 'inhouse' || view === 'disagree' || view === 'unknown' ? view : 'over';
 }
 
 export function filtersFromParams(params: URLSearchParams): ExcessFilters {

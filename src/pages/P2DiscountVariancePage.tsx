@@ -6,7 +6,7 @@ import '../styles/uc03-p2-excess-discount.css';
 
 import PageHeader from '../components/PageHeader';
 import {
-  applyFilters, breakdown, dateOf, dealerOf, discountOf, EMPTY_FILTERS, excessOf, filtersFromParams, inView,
+  applyFilters, breakdown, dateOf, offerLine, readingsLine, dealerOf, discountOf, EMPTY_FILTERS, excessOf, filtersFromParams, inView,
   options, outletOf, paramsFromFilters, pcOf, quickRange, sortItems, sourceOf, toCsv, totals,
   viewFromParams, type Bucket, type ExcessFilters, type SortKey, type View,
 } from '../features/uc03-p2/excessDiscount/excessDiscount';
@@ -25,6 +25,9 @@ const VIEWS: { view: View; label: string; amount: string; count: string; empty: 
   { view: 'inhouse', label: 'Over unless in-house', amount: 'Over if insurance / EW not in-house',
     count: 'Dealer discounts within a higher grid tier',
     empty: 'No dealer discount here depends on in-house insurance or EW.' },
+  { view: 'disagree', label: 'Documents disagree', amount: 'Over, if the statement is right',
+    count: 'Statement and Tally disagree',
+    empty: 'No discount here has the statement and the Tally ledger disagreeing.' },
   { view: 'unknown', label: 'Entitlement unknown', amount: 'Given, nothing to compare with', count: 'Discounts with no master',
     empty: 'Every discount here has a master to compare with.' },
 ];
@@ -278,7 +281,7 @@ export default function P2DiscountVariancePage() {
                       {header('discount', 'Discount type')}
                       {view === 'unknown' ? <th scope="col">Why there is nothing to compare with</th> : header('entitled', 'Entitled', true)}
                       {header('given', 'Given', true)}
-                      {view === 'unknown' ? null : header('excess', view === 'kit' ? 'Kit as cash' : view === 'inhouse' ? 'Over if not in-house' : 'Excess', true)}
+                      {view === 'unknown' ? null : header('excess', view === 'kit' ? 'Kit as cash' : view === 'inhouse' ? 'Over if not in-house' : view === 'disagree' ? 'Over if statement right' : 'Excess', true)}
                       <th scope="col" aria-label="Open" />
                     </tr>
                   </thead>
@@ -302,16 +305,23 @@ export default function P2DiscountVariancePage() {
                         <td data-label="Discount type"><span className="xd-type">{discountOf(item)}</span></td>
                         {view === 'unknown'
                           ? <td data-label="Why unknown" className="xd-reason">{item.reason ?? 'The entitlement is not known.'}</td>
-                          : <td data-label="Entitled" className="is-num">{rupees(item.entitled, 2)}</td>}
+                          : (
+                            <td data-label="Entitled" className="is-num">
+                              {rupees(item.entitled, 2)}
+                              {offerLine(item) ? <span className="xd-secondary">{offerLine(item)}</span> : null}
+                            </td>
+                          )}
                         <td data-label="Given" className="is-num">
                           {rupees(item.invoice, 2)}
-                          {item.givenDocument ? <span className="xd-secondary">{item.givenDocument}</span> : null}
+                          {readingsLine(item)
+                            ? <span className="xd-secondary">{readingsLine(item)}</span>
+                            : item.givenDocument ? <span className="xd-secondary">{item.givenDocument}</span> : null}
                         </td>
                         {view === 'unknown' ? null : (
-                          <td data-label={view === 'kit' ? 'Kit as cash' : view === 'inhouse' ? 'Over if not in-house' : 'Excess'}
-                              className={`is-num ${view === 'kit' || view === 'inhouse' ? 'xd-kit' : 'xd-excess'}`}>
+                          <td data-label={view === 'kit' ? 'Kit as cash' : view === 'inhouse' ? 'Over if not in-house' : view === 'disagree' ? 'Over if statement right' : 'Excess'}
+                              className={`is-num ${view === 'kit' || view === 'inhouse' || view === 'disagree' ? 'xd-kit' : 'xd-excess'}`}>
                             {rupees(excessOf(item), 2)}
-                            {view === 'inhouse' && item.reason ? <span className="xd-secondary">{item.reason}</span> : null}
+                            {(view === 'inhouse' || view === 'disagree') && item.reason ? <span className="xd-secondary">{item.reason}</span> : null}
                           </td>
                         )}
                         <td className="xd-actions">

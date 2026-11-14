@@ -109,9 +109,12 @@ export default function SupervisoryDashboardPage() {
   if (!project || !role) return null;
 
   const taskData = taskQuery.data;
-  const queueTotal = taskData?.counts?.ALL ?? taskData?.items.length ?? 0;
+  // The queue's true size and overdue count (the list itself is capped at 500: "500 / 500 overdue"
+  // was its length, 2026-11-14); the list's own figures only when an older API answers.
   const now = Date.now();
-  const queueOverdue = (taskData?.items ?? []).filter((t) => t.due_at_utc && Date.parse(t.due_at_utc) < now).length;
+  const queueTotal = taskData?.total?.open ?? taskData?.counts?.ALL ?? taskData?.items.length ?? 0;
+  const queueOverdue = taskData?.total?.overdue
+    ?? (taskData?.items ?? []).filter((t) => t.due_at_utc && Date.parse(t.due_at_utc) < now).length;
   const dailyOpsOpen = dailyOpsSummaryQuery.data?.total ?? 0;
   const tracker = trackerQuery.data?.totals;
   const tmAction = taskManagerQuery.data?.counts?.ACTION ?? 0;

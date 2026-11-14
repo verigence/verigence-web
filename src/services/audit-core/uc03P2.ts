@@ -534,6 +534,8 @@ export type P2DocumentCounts = Record<'TOTAL' | P2DocumentCategory, number>;
 export type P2TasksResponse = {
   items: P2Task[];
   counts?: Record<P2TaskTab, number>;
+  /** The whole queue before the list's cap of 500 (2026-11-14); the list's own length is not the queue. */
+  total?: { open: number; overdue: number; listed: number };
   /** Document tasks per category across the queue, and per journey. */
   documentCounts?: P2DocumentCounts;
   documentCountsByJourney?: Record<string, P2DocumentCounts>;

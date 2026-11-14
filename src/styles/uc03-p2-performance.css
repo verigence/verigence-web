@@ -1,6 +1,20 @@
 /* Performance (2026-11-13): five sections of plain tables -- pending work, bookings and
    deliveries, day to day / week to week, PC efficiency, delinquencies. Carbon data tables. */
 .p2pf-table th[scope="row"] { min-width: 180px; text-align: left; font-weight: 600; }
+/* Alignment (product owner 2026-11-14, "what is the alignment here"): a person's or an outlet's name
+   is a row label, not a column header -- normal case, the body's size and colour; figures right
+   aligned in equal-width digits under right-aligned headers (Carbon data table); the last row and the
+   total row ruled across every column, not under the name only. */
+.p2w .p2pf-table th[scope="row"] {
+  text-transform: none; letter-spacing: normal; font-size: .9rem; color: inherit; vertical-align: top;
+}
+.p2w .p2pf-table--num td,
+.p2w .p2pf-table--num thead th:not(:first-child):not(.p2pf-group),
+.p2w .p2pf-table--num tfoot td,
+.p2w .p2pf-table--num thead tr + tr th { text-align: right; font-variant-numeric: tabular-nums; }
+.p2w .p2pf-table tbody tr:last-child th { border-bottom: 0; }
+.p2w .p2pf-table tfoot th, .p2w .p2pf-table tfoot td { border-top: 2px solid var(--p2w-line); font-weight: 600; }
+.p2pf-warn { color: #8a5300; font-weight: 600; }
 .p2pf-table td { white-space: nowrap; }
 .p2pf-table thead th { vertical-align: bottom; }
 .p2pf-group { text-align: center; border-bottom: 1px solid var(--p2w-line, #c6c6c6); }

@@ -62,7 +62,14 @@ export type Performance = {
 };
 export type Who = { actorId: string; name: string | null; role: string };
 /** Files per day by how they came in: on their own, in a bulk (folder) upload, or through Google Drive. */
-export type ChannelRow = { direct: number[]; bulk: number[]; drive: number[] };
+export type Channel = 'direct' | 'bulk' | 'drive';
+/** Files per day by channel; and, for the period, each channel's duplicates and files with errors
+ *  (product owner 2026-11-14: "for each PC ... file upload channel wise and corresponding duplicacy
+ *  and errors"). */
+export type ChannelRow = {
+  direct: number[]; bulk: number[]; drive: number[];
+  duplicates?: Record<Channel, number>; errors?: Record<Channel, number>;
+};
 export type QualityRow = {
   pagesUploaded: number; blurred?: number; faded?: number; tooSmall?: number; otherQuality?: number; duplicatePages?: number;
   duplicateFiles?: number;

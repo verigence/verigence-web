@@ -58,7 +58,7 @@ function DailyWorkTab({ tenantId, accessToken, today, timezone }: {
  * - Performance, as it is: pending work, the team and outlets, efficiency, uploads with failures
  *   and duplicates, tasks and duties, over a date range;
  * - Work done and files closed: the "Work done on tasks" and "Delivery files closed" of a day;
- * - Deliveries and delivery files: the gate register calendar and the tasks raised from it.
+ * - Gate Register: outlet-wise daily status or the calendar, and the tasks raised from it (2026-11-14).
  * Dropped as repeats of Performance: the tracker's figures (gate pass, files, Drive, reviews, failed
  * uploads, tasks, recurring tasks), the Daily processing task status and uploads by PC, and the
  * all-outlets gate pass table. The tab is in the address; old addresses (?tab=daily-processing&day=,

@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 
 import { BreakdownPanel } from '../bookings/JourneyListTabs';
 import { getP2JourneyCounts } from '../../../services/audit-core/uc03P2';
-import { istMonth, monthLabel, monthsUpTo } from '../../../services/audit-core/uc03ProjectTracker';
+import { istDate } from '../../../services/audit-core/uc03MyWork';
 import SectionCard from '../../../components/SectionCard';
 
 /**
@@ -12,26 +12,36 @@ import SectionCard from '../../../components/SectionCard';
  * be in the project tracker, so lets remove it from TL view"). The same counts the Team Lead's
  * dashboard showed -- bookings open, deliveries open, closed, overdue -- of a calendar month
  * (bookings by booking date, deliveries by delivery date). A row opens the journey list already
- * narrowed to it.
+ * narrowed to it. Over a date range (product owner 2026-11-14: "Journeys should have date range"),
+ * this month by default: a journey whose booking date or delivery date is in it.
  */
 export default function JourneyBreakdownTab({ tenantId, accessToken, listPath }: {
   tenantId: string; accessToken: string; listPath: string;
 }) {
   const navigate = useNavigate();
-  const current = useMemo(() => istMonth(), []);
-  const months = useMemo(() => monthsUpTo(current), [current]);
-  const [month, setMonth] = useState(current);
+  const today = useMemo(() => istDate(), []);
+  const firstOfMonth = `${today.slice(0, 8)}01`;
+  const [from, setFrom] = useState(firstOfMonth);
+  const [to, setTo] = useState(today);
+  const valid = from <= to && to <= today;
   const counts = useQuery({
-    queryKey: ['p2-journey-counts', tenantId, 'overview', true, month],
+    queryKey: ['p2-journey-counts', tenantId, 'overview', true, from, to],
     queryFn: () => getP2JourneyCounts(tenantId, accessToken, {
-      search: '', month, dealerId: '', outletId: '', pcActorId: '', ...(month ? { monthBasis: 'business' as const } : {}),
+      search: '', month: '', dealerId: '', outletId: '', pcActorId: '', dateFrom: from, dateTo: to,
     }, true),
+    enabled: valid,
     staleTime: 15_000,
   });
   const open = (key: 'dealer' | 'outlet' | 'pc', value: string) => {
     if (!value) return;
-    const params = new URLSearchParams({ [key]: value, month });
+    const params = new URLSearchParams({ [key]: value, from, to });
     navigate(`${listPath}?${params.toString()}`);
+  };
+  const pick = (f: string, t: string) => { setFrom(f); setTo(t); };
+  const shift = (iso: string, days: number) => {
+    const d = new Date(`${iso}T00:00:00Z`);
+    d.setUTCDate(d.getUTCDate() + days);
+    return d.toISOString().slice(0, 10);
   };
   const data = counts.data;
   const dealers = data?.byDealer ?? [];
@@ -39,19 +49,20 @@ export default function JourneyBreakdownTab({ tenantId, accessToken, listPath }:
   return (
     <div className="screen-stack">
       <SectionCard>
-        <div className="p2du-toolbar">
-          <label>Month
-            <select value={month} onChange={(e) => setMonth(e.target.value)}>
-              {months.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
-              <option value="">All months</option>
-            </select>
-          </label>
-          <span className="p2w-muted">
-            {month ? `${monthLabel(month)}: bookings by their booking date, deliveries by their delivery date (India time).`
-              : 'Every journey, whatever its month.'}
-            {' '}B = bookings open · D = deliveries open · ✓ = closed · ! = overdue.
+        <div className="p2mw-controls">
+          <span className="p2mw-range">
+            <label>From <input type="date" value={from} max={to} onChange={(e) => e.target.value && setFrom(e.target.value)} /></label>
+            <label>To <input type="date" value={to} min={from} max={today} onChange={(e) => e.target.value && setTo(e.target.value)} /></label>
+            <button type="button" className="p2w-button p2w-button--ghost" onClick={() => pick(today, today)}>Today</button>
+            <button type="button" className="p2w-button p2w-button--ghost" onClick={() => pick(shift(today, -6), today)}>Last 7 days</button>
+            <button type="button" className="p2w-button p2w-button--ghost" onClick={() => pick(firstOfMonth, today)}>This month</button>
           </span>
         </div>
+        <p className="p2w-muted">
+          Journeys whose booking date or delivery date is in the range (India time).
+          {' '}B = bookings open · D = deliveries open · ✓ = closed · ! = overdue.
+        </p>
+        {valid ? null : <div className="p2w-alert p2w-alert--error" role="alert">Choose a range ending today or earlier.</div>}
         {counts.isLoading ? <p className="p2w-muted">Loading…</p> : null}
         {counts.isError ? <div className="p2w-alert p2w-alert--error" role="alert">The journeys could not be counted.</div> : null}
       </SectionCard>

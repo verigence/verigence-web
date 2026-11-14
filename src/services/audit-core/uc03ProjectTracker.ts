@@ -225,8 +225,8 @@ export function monthLabel(month: string): string {
 /** The Project Tracker is the one place for a Team Lead, PM or Executive (2026-11-09). Without the
  *  duplicates (2026-11-13: "Project Tracker has so much of duplicate information"): Performance, then
  *  the two pieces the product owner keeps -- work done on tasks with the delivery files closed, and
- *  deliveries against delivery files. The old tracker figures and the rest of the Daily processing and
- *  Daily gate pass tabs repeated Performance. The keys stay, so old addresses still open their tab.
+ *  the Gate Register (2026-11-14: its outlet-wise daily status merged back with the calendar). The old
+ *  tracker figures and the rest of the Daily processing tab repeated Performance. The keys stay, so old addresses still open their tab.
  *  Journeys: the Dealership-wise / Outlet-wise / PC-wise panels moved off the TL's landing page; DMS
  *  dumps: the dealers' daily dumps like the gate register, the Team Lead's only (both 2026-11-13). */
 export type TrackerTab = 'performance' | 'journeys' | 'daily-processing' | 'gate-pass' | 'dms-dumps';
@@ -235,7 +235,7 @@ export const TRACKER_TABS: Array<{ key: TrackerTab; label: string; roles?: strin
   { key: 'performance', label: 'Performance' },
   { key: 'journeys', label: 'Journeys' },
   { key: 'daily-processing', label: 'Work done and files closed' },
-  { key: 'gate-pass', label: 'Deliveries and delivery files' },
+  { key: 'gate-pass', label: 'Gate Register' },
   { key: 'dms-dumps', label: 'DMS dumps', roles: ['TL'] },
 ];
 

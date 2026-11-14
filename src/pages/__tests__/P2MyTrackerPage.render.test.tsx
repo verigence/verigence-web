@@ -5,8 +5,7 @@ import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 import P2MyTrackerPage from '../P2MyTrackerPage';
-import { istDate, periodRange, type MyWork } from '../../services/audit-core/uc03MyWork';
-import type { ProjectTracker, TrackerFigures } from '../../services/audit-core/uc03ProjectTracker';
+import { periodRange, type MyWork } from '../../services/audit-core/uc03MyWork';
 import type { MissingDocumentsReport } from '../../services/audit-core/uc03MissingDocuments';
 
 vi.mock('../../store/projectContextStore', () => {
@@ -57,35 +56,9 @@ const missing = {
     requirementKeys: ['rsa_invoice'], otherOpenTasks: 0, deliveryDate: week.to, deliveryLabel: 'Tue 3 Nov' }] },
 } as unknown as MissingDocumentsReport;
 
-const zeroTasks = { raised: 0, closed: 0, closedByPc: 0, closedByLead: 0, closedByReviewer: 0, closedByOther: 0,
-  closedBySystem: 0, open: 0, overdue: 0 };
-const mine: TrackerFigures = {
-  gatePass: { due: 1, onTime: 1, late: 0, missing: 0, notYetDue: 0, countsPending: 0, onRegister: 5, intimated: 3,
-    notNotified: 2, uploadedInTool: 2, pendingWithPc: 1, stockTransfers: 0 },
-  uploads: { files: 9, pages: 40, documents: 30, journeys: 6, bookings: 2, deliveries: 4, newJourneys: 2 },
-  closed: { deliveryFiles: 3, reviewer: 1 },
-  tasks: { journey: { ...zeroTasks, closed: 7, open: 2 }, taskManager: zeroTasks, all: { ...zeroTasks, closed: 7, open: 2 },
-    byRole: {}, worked: { total: 7, byPc: 7, byLead: 0, byReviewer: 0, byOther: 0 } },
-  recurring: {},
-  channels: { directFiles: 5, directPages: 20, bulkFiles: 3, bulkPages: 15, driveFiles: 1, drivePages: 5 },
-  reviews: { stagesReviewedByReviewer: 0, stagesReviewedByLead: 0, stagesReviewedByOther: 0, stagesAwaitingReview: 4,
-    closedByReviewer: 0, closedByLead: 0, closedByOther: 0, accepted: 0, rejected: 0, autoAccepted: 0,
-    awaitingDecision: 0, awaitingReview: 1 },
-  failures: { files: 2, pages: 3, quality: 1, notRead: 2, readFailed: 0, notUploaded: 0 },
-};
-const today = istDate();
-const tracker = {
-  period: { kind: 'DAY', date: today, first: today, last: today, label: 'Today', timezone: 'Asia/Kolkata',
-    startUtc: '', endUtc: '', asOfUtc: new Date().toISOString(), current: true },
-  scope: { projectWide: false, outlets: 1, dealers: 1, own: true },
-  schedules: [], totals: mine, notes: [],
-  dealers: [{ ...mine, dealerId: 'd1', dealerName: 'Adishakti', outlets: [{ ...mine, outletId: 'o1',
-    outletName: 'Rasulgarh', classification: 'ONSITE', people: [{ ...mine, actorId: 'pc1', name: 'Ravi', role: 'PC' }] }] }],
-} as unknown as ProjectTracker;
 
 function render(path: string): string {
   const client = new QueryClient();
-  client.setQueryData(['p2-project-tracker', 't1', 'DAY', today], tracker);
   const by = week.from === week.to ? 'day' : 'day';
   client.setQueryData(['p2-my-work', 't1', week.from, week.to, by], work);
   client.setQueryData(['p2-missing-documents', 't1', week.from, week.to, '', week.from === week.to ? 20 : 30], missing);
@@ -128,15 +101,9 @@ describe('My Tracker', () => {
     expect(html).toContain('href="/p2/journeys/j1/documents"');
   });
 
-  it('shows the PC their own figures: files direct, bulk and Drive, reviews, journeys closed and failed uploads', () => {
+  it('has no My figures: the old address opens My performance (product owner 2026-11-14)', () => {
     const html = render('/p2/tracker?tab=figures');
-    expect(html).toMatch(/<button[^>]*aria-selected="true"[^>]*>My figures/);
-    expect(html).toContain('My figures by outlet');
-    expect(html).toContain('Only your own work is counted here.');
-    expect(html).toContain('5 direct · 3 bulk upload · 1 Drive');
-    expect(html).toContain('Failed uploads');
-    expect(html).toContain('1 not clear · 2 not read in time');
-    // The team's links are not shown in a team member's own view.
-    expect(html).not.toContain('Daily processing of this day');
+    expect(html).toMatch(/<button[^>]*aria-selected="true"[^>]*>My performance/);
+    expect(html).not.toContain('My figures');
   });
 });

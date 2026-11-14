@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { Fragment, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useSearchParams } from 'react-router-dom';
 import '../styles/uc03-p2.css';
@@ -26,6 +26,7 @@ import {
   type DriveAccess,
   type DriveConnection,
   type DrivePerson,
+  type DriveCustomer,
   type DriveFile,
   type DriveListedFile,
   type DriveRun,
@@ -64,24 +65,93 @@ function totalsLine(t: DriveTotals): string {
   return parts.join(' · ');
 }
 
-function FileRow({ file }: { file: DriveFile }) {
-  const state = DRIVE_STATE_LABELS[file.state] ?? DRIVE_STATE_LABELS.WAITING;
+
+const ATTENTION_STATES = new Set<DriveFile['state']>(['DUPLICATE', 'KEPT_FOR_REVIEW', 'SET_ASIDE', 'FAILED']);
+const fileNeedsAttention = (f: DriveFile) => ATTENTION_STATES.has(f.state) || f.rescan.length > 0;
+
+type RunFilter = 'attention' | 'new' | 'added' | 'all';
+
+/**
+ * An opened run (product owner 2026-11-14: "this view i asked you to make better..its still same"):
+ * one table for the whole run -- a slim row per customer folder (its booking, outlet and tasks),
+ * that customer's files under it -- in place of a table with its own header per customer. Opens on
+ * what needs attention (pages to scan again, not taken, failed, kept for review) when there is any;
+ * a file's explanation is shown only where something needs doing.
+ */
+export function RunReportTable({ customers }: { customers: DriveCustomer[] }) {
+  const counts = {
+    attention: customers.filter((c) => c.manualVerificationTasks > 0 || c.files.some(fileNeedsAttention)).length,
+    new: customers.filter((c) => c.files.some((f) => f.state === 'NEW_BOOKING')).length,
+    added: customers.filter((c) => c.files.some((f) => f.state === 'ADDED_TO_BOOKING' || f.state === 'TAKEN')).length,
+    all: customers.length,
+  };
+  const [filter, setFilter] = useState<RunFilter>(counts.attention ? 'attention' : 'all');
+  const shown = customers.filter((c) => (filter === 'all' ? true
+    : filter === 'attention' ? c.manualVerificationTasks > 0 || c.files.some(fileNeedsAttention)
+      : filter === 'new' ? c.files.some((f) => f.state === 'NEW_BOOKING')
+        : c.files.some((f) => f.state === 'ADDED_TO_BOOKING' || f.state === 'TAKEN')));
+  const labels: Record<RunFilter, string> = {
+    attention: 'Needs attention', new: 'New bookings', added: 'Added to bookings', all: 'All customers',
+  };
   return (
-    <tr>
-      <td data-label="File">{file.filename}{file.kind === 'PHOTO' ? <span className="p2w-muted"> · photo</span> : null}</td>
-      <td data-label="Result">
-        <span className={`p2bu-chip p2bu-chip--${state.tone}`}>{state.label}</span>
-        {file.detail ? <span className="p2w-muted p2bu-sub">{file.detail}</span> : null}
-      </td>
-      <td data-label="Pages">{file.pages ? `${file.pagesRead} of ${file.pages} read` : '—'}</td>
-      <td data-label="Scan again">
-        {file.rescan.length
-          ? file.rescan.map((r, i) => (
-            <span key={i} className="p2bu-sub"><strong>{rescanPages(r)}</strong>: {r.reason}</span>
-          ))
-          : '—'}
-      </td>
-    </tr>
+    <>
+      <div className="p2du-switcher p2du-switcher--sm" role="tablist" aria-label="Customers in this run">
+        {(['attention', 'new', 'added', 'all'] as RunFilter[]).map((key) => (
+          <button key={key} type="button" role="tab" aria-selected={filter === key}
+            onClick={(event) => { event.stopPropagation(); setFilter(key); }}>
+            {labels[key]}<b>{counts[key]}</b>
+          </button>
+        ))}
+      </div>
+      {!shown.length ? <p className="p2w-muted">Nothing here.</p> : (
+        <table className="p2du-table p2du-runfiles">
+          <thead>
+            <tr><th>File</th><th>Result</th><th className="num">Pages read</th><th>Scan again</th></tr>
+          </thead>
+          <tbody>
+            {shown.map((c, i) => (
+              <Fragment key={`${c.outletId}:${c.customerFolder}:${i}`}>
+                <tr className="p2du-group">
+                  <td colSpan={4}>
+                    <strong>{c.customerFolder ?? 'Files in no customer folder'}</strong>
+                    <span className="p2w-muted"> · {c.outletName}</span>
+                    {c.journeyId ? (
+                      <> · <Link className="p2w-link" to={`/p2/journeys/${c.journeyId}/documents`}
+                        onClick={(event) => event.stopPropagation()}>{c.journeyReference || 'Open booking'}</Link></>
+                    ) : null}
+                    {c.manualVerificationTasks ? (
+                      <span className="p2du-tag p2du-tag--warn p2du-group__tag">{plural(c.manualVerificationTasks, 'manual verification task')}</span>
+                    ) : null}
+                  </td>
+                </tr>
+                {c.files.filter((f) => filter !== 'attention' || fileNeedsAttention(f) || !c.files.some(fileNeedsAttention))
+                  .map((f, n) => {
+                    const state = DRIVE_STATE_LABELS[f.state] ?? DRIVE_STATE_LABELS.WAITING;
+                    const attention = fileNeedsAttention(f);
+                    return (
+                      <tr key={`${f.filename}:${n}`} className="p2du-file-row">
+                        <td data-label="File">{f.filename}{f.kind === 'PHOTO' ? <span className="p2w-muted"> · photo</span> : null}</td>
+                        <td data-label="Result">
+                          <span className={`p2du-tag p2du-tag--${state.tone}`} title={f.detail ?? undefined}>{state.label}</span>
+                          {attention && f.detail ? <small className="p2w-muted p2du-why">{f.detail}</small> : null}
+                        </td>
+                        <td className="num" data-label="Pages read">
+                          {f.pages ? <>{f.pagesRead}/{f.pages}{f.pagesRead === f.pages ? <span className="p2du-ok" aria-label="all read"> ✓</span> : null}</> : '—'}
+                        </td>
+                        <td data-label="Scan again">
+                          {f.rescan.length
+                            ? f.rescan.map((r, k) => <div key={k}><strong>{rescanPages(r)}</strong> <span className="p2w-muted">{r.reason}</span></div>)
+                            : <span className="p2w-muted">—</span>}
+                        </td>
+                      </tr>
+                    );
+                  })}
+              </Fragment>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </>
   );
 }
 
@@ -135,22 +205,7 @@ function RunRow({ run, tenantId, accessToken, open, onToggle }: {
             {totals ? <p className="p2w-muted">{totalsLine(totals)}</p> : null}
             {report.isLoading ? <p className="p2w-muted">Loading…</p> : null}
             {report.data && !report.data.customers.length ? <p className="p2w-muted">No file was waiting for this run.</p> : null}
-            {report.data?.customers.map((c, i) => (
-              <div key={`${c.outletId}:${c.customerFolder}:${i}`} className="p2du-scroll p2du-customer">
-                <p>
-                  <strong>{c.customerFolder ?? 'Files in no customer folder'}</strong>
-                  <span className="p2w-muted"> · {c.outletName}</span>
-                  {c.journeyId ? (
-                    <> · <Link className="p2w-link" to={`/p2/journeys/${c.journeyId}/documents`}>{c.journeyReference || 'Open booking'}</Link></>
-                  ) : null}
-                  {c.manualVerificationTasks ? <span className="p2w-muted"> · {plural(c.manualVerificationTasks, 'manual verification task')}</span> : null}
-                </p>
-                <table className="p2w-table">
-                  <thead><tr><th>File</th><th>Result</th><th>Pages</th><th>Scan again</th></tr></thead>
-                  <tbody>{c.files.map((f, n) => <FileRow key={`${f.filename}:${n}`} file={f} />)}</tbody>
-                </table>
-              </div>
-            ))}
+            {report.data?.customers.length ? <RunReportTable customers={report.data.customers} /> : null}
           </td>
         </tr>
       ) : null}

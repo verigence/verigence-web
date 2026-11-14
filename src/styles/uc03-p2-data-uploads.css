@@ -76,6 +76,7 @@
   align-items: center; padding: 8px 12px; background: #f4f4f4;
 }
 .p2du-file select, .p2du-file input { min-height: 32px; border: 0; border-bottom: 1px solid #8d8d8d; background: #fff; font: inherit; font-size: .8rem; }
+.p2bs-file { grid-template-columns: minmax(180px, 2fr) repeat(2, minmax(140px, 1fr)) auto; }
 .p2du-file__name { font-size: .85rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .p2du-file__state { font-size: .78rem; color: var(--p2w-muted); }
 
@@ -157,7 +158,7 @@
   .p2du-table--stack .p2du-run-detail > td { display: block; }
   .p2du-tiles { grid-template-columns: repeat(2, 1fr); }
   .p2du-tile strong { font-size: 1.35rem; }
-  .p2du-file { grid-template-columns: 1fr 1fr; }
+  .p2du-file, .p2bs-file { grid-template-columns: 1fr 1fr; }
   .p2du-file__name { grid-column: 1 / -1; }
   .p2du-toolbar__end { margin-left: 0; width: 100%; }
   .p2du-switcher { display: flex; width: 100%; }

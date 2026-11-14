@@ -26,12 +26,19 @@ const shortDate = (iso: string) => new Date(`${iso}T00:00:00Z`).toLocaleDateStri
 /** The tabs of a dashboard (product owner 2026-11-13: "make tabs to it instead of showing in one page all"). */
 export type View = 'overview' | 'pending' | 'team' | 'efficiency' | 'uploads' | 'tasks' | 'duties';
 
+/** The efficiency scorecards with rows: the PCs and the Reviewers (product owner 2026-11-14: "why no
+ *  reviewer is being shown in reports to TL"). */
+export function efficiencyCards(board: Board): DashCard[] {
+  const cards = board.efficiency?.cards ?? (board.efficiency?.card ? [board.efficiency.card] : []);
+  return cards.filter((c) => c.rows.length);
+}
+
 /** Whether the server sent anything for a tab (a SuperAdmin may have hidden its blocks for the role). */
 export function viewHas(board: Board, view: View): boolean {
   if (view === 'overview') return Boolean(board.kpis?.tiles.length || board.attention || board.trend || board.peers);
   if (view === 'pending') return Boolean(board.pending);
   if (view === 'team') return Boolean(board.scorecards?.length);
-  if (view === 'efficiency') return Boolean(board.efficiency?.card?.rows.length || board.efficiency?.mine);
+  if (view === 'efficiency') return Boolean(efficiencyCards(board).length || board.efficiency?.mine);
   if (view === 'uploads') return Boolean(board.channels || board.quality);
   if (view === 'tasks') return Boolean(board.tasks);
   return Boolean(board.duties && (board.duties.rows.length || board.duties.planned.length));
@@ -42,7 +49,7 @@ export function viewLabel(view: View, board?: Board): string {
   if (view === 'overview') return own ? 'What I did' : 'Overview';
   if (view === 'pending') return board?.view === 'PC' ? 'Waiting for me' : board?.view === 'REVIEWER' ? 'Waiting for review' : 'Pending';
   if (view === 'team') return own ? 'My outlets' : 'Team and outlets';
-  if (view === 'efficiency') return own ? 'My efficiency' : 'PC efficiency';
+  if (view === 'efficiency') return own ? 'My efficiency' : 'Efficiency';
   if (view === 'uploads') return 'Uploads, failures and duplicates';
   if (view === 'tasks') return 'Tasks';
   return own ? 'My duties' : 'Duties';
@@ -482,8 +489,8 @@ export default function Dashboard({ board, view, periods, asOf }: { board: Board
   } else if (view === 'efficiency' && board.efficiency) {
     body = (
       <div className="p2db-row">
-        {board.efficiency.card?.rows.length ? (
-          <Scorecards cards={[board.efficiency.card]} title="Efficiency of each PC" about={`${board.period}. Click a heading to sort.`}>
+        {efficiencyCards(board).length ? (
+          <Scorecards cards={efficiencyCards(board)} title="Efficiency of each person" about={`${board.period}. Click a heading to sort.`}>
             <p className="p2db-note">{board.efficiency.note}</p>
           </Scorecards>
         ) : null}

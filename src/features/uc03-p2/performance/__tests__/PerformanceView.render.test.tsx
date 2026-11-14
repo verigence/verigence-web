@@ -71,7 +71,7 @@ describe('Performance view', () => {
     expect(html).toContain('value="2026-11-07"');
     expect(html).toContain('value="2026-11-13"');
     // The dashboard a tab at a time; the detail of the open tab is a button under it.
-    for (const tab of ['Overview', 'Pending', 'PC efficiency', 'Uploads, failures and duplicates', 'Tasks', 'Duties']) {
+    for (const tab of ['Overview', 'Pending', 'Efficiency', 'Uploads, failures and duplicates', 'Tasks', 'Duties']) {
       expect(html).toMatch(new RegExp(`role="tab"[^>]*>${tab}<`));
     }
     expect(html).toMatch(/aria-pressed="true"[^>]*>Each kind with what is over 3 days</);
@@ -90,8 +90,9 @@ describe('Performance view', () => {
       people: [{ ...base.uploads!.people[0], ...issues }] } };
     const html = render(data, 'uploads');
     for (const head of ['Direct', 'Bulk upload', 'Google Drive', 'Files', 'Duplicates', 'Errors']) expect(html).toContain(`>${head}</th>`);
-    // Rasulgarh (outlet first): direct 30 files, 2 duplicates, 3 errors; bulk 10, 1, 0; Drive 10, 0, 4.
-    expect(html).toMatch(/Adishakti<\/div><\/th><td>30<\/td><td class="p2pf-warn">2<\/td><td class="p2pf-low">3<\/td><td>10<\/td><td class="p2pf-warn">1<\/td><td class="p2pf-zero">0<\/td><td>10<\/td><td class="p2pf-zero">0<\/td><td class="p2pf-low">4<\/td><td><strong>50<\/strong><\/td>/);
+    // Each PC first (2026-11-14: "no where ... the number of duplicate files uploaded by PC"):
+    // Ravi, direct 30 files, 2 duplicates, 3 errors; bulk 10, 1, 0; Drive 10, 0, 4.
+    expect(html).toMatch(/Ravi<\/th><td>30<\/td><td class="p2pf-warn">2<\/td><td class="p2pf-low">3<\/td><td>10<\/td><td class="p2pf-warn">1<\/td><td class="p2pf-zero">0<\/td><td>10<\/td><td class="p2pf-zero">0<\/td><td class="p2pf-low">4<\/td><td><strong>50<\/strong><\/td>/);
   });
 
   it('does not mark today while it is still going on, and names the dates (2026-11-14)', () => {
@@ -169,7 +170,7 @@ describe('Performance view', () => {
     expect(html).toMatch(/role="tab"[^>]*>Overview</);
     expect(html).toMatch(/aria-pressed="true"[^>]*>Each person, day by day</);
     expect(html).not.toMatch(/role="tab"[^>]*>Pending</);
-    expect(html).not.toMatch(/role="tab"[^>]*>PC efficiency</);
+    expect(html).not.toMatch(/role="tab"[^>]*>Efficiency</);
   });
 
   it('opens on the dashboard of the role, a tab at a time, and reads no detail until asked', () => {

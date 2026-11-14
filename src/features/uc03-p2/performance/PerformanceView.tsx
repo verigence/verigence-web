@@ -57,12 +57,14 @@ const TABS: Array<{ key: Tab; label: string; mine?: string; section: SectionKey;
 ];
 /** The dashboard, a tab at a time (product owner 2026-11-13: "can you make tabs to it instead of
  *  showing in one page all"), and the detail each tab can open. */
-const VIEWS: Array<{ key: View; details: Tab[] }> = [
+/** open: the detail that opens with the tab (product owner 2026-11-14: "no where in the project
+ *  tracker i see the number of duplicate files uploaded by PC, usage of different channel"). */
+const VIEWS: Array<{ key: View; details: Tab[]; open?: Tab }> = [
   { key: 'overview', details: ['bookings', 'deliveries', 'trend'] },
   { key: 'pending', details: ['backlog'] },
   { key: 'team', details: [] },
   { key: 'efficiency', details: ['efficiency'] },
-  { key: 'uploads', details: ['uploads', 'quality', 'failed'] },
+  { key: 'uploads', details: ['uploads', 'quality', 'failed'], open: 'uploads' },
   { key: 'tasks', details: ['tasks'] },
   { key: 'duties', details: ['duties'] },
 ];
@@ -298,8 +300,8 @@ function Deliveries({ data, periods }: { data: Performance; periods: Period[] })
 const sum = (xs: number[]) => xs.reduce((a, b) => a + b, 0);
 const pct = (n: number, of: number) => (of ? `${Math.round((100 * n) / of)}%` : '—');
 
-function useLevels(hasOutlets: boolean, manyDealers: boolean) {
-  const [level, setLevel] = useState<Level>(hasOutlets ? 'outlet' : 'person');
+function useLevels(hasOutlets: boolean, manyDealers: boolean, first?: Level) {
+  const [level, setLevel] = useState<Level>(first ?? (hasOutlets ? 'outlet' : 'person'));
   const levels: Array<{ key: Level; label: string }> = [
     ...(manyDealers ? [{ key: 'dealer' as Level, label: 'Dealership' }] : []),
     ...(hasOutlets ? [{ key: 'outlet' as Level, label: 'Outlet' }] : []),
@@ -320,7 +322,8 @@ function sumIssues(all: Array<Record<Channel, number> | undefined>): Record<Chan
 
 function Uploads({ data, periods }: { data: Performance; periods: Period[] }) {
   const up = data.uploads!;
-  const { level, setLevel, levels } = useLevels(up.outlets.length > 0, new Set(up.outlets.map((o) => o.dealerId)).size > 1);
+  // Each PC first: their files by channel, with the duplicates and errors of each.
+  const { level, setLevel, levels } = useLevels(up.outlets.length > 0, new Set(up.outlets.map((o) => o.dealerId)).size > 1, 'person');
   const add = (items: ChannelRow[]): ChannelRow => ({
     direct: data.days.map((_, i) => items.reduce((n, x) => n + (x.direct[i] ?? 0), 0)),
     bulk: data.days.map((_, i) => items.reduce((n, x) => n + (x.bulk[i] ?? 0), 0)),
@@ -707,7 +710,7 @@ export default function PerformanceView({ tenantId, accessToken, today, initialV
   const [to, setTo] = useState(today);
   const [modePicked, setModePicked] = useState<Mode | null>(null);
   const [view, setView] = useState<View>(initialView);
-  const [detail, setDetail] = useState<Tab | null>(initialDetail);
+  const [detail, setDetail] = useState<Tab | null>(initialDetail ?? VIEWS.find((v) => v.key === initialView)?.open ?? null);
   const span = daysBetween(from, to);
   const valid = from <= to && to <= today && span <= 92;
   const mode = modePicked ?? defaultMode(span);
@@ -761,7 +764,10 @@ export default function PerformanceView({ tenantId, accessToken, today, initialV
           <button key={v.key} type="button" role="tab" aria-selected={current?.key === v.key}
             className={current?.key === v.key ? 'is-active' : undefined}
             // A tab with no block of the dashboard for this role opens straight on its detail.
-            onClick={() => { setView(v.key); setDetail(board && !viewHas(board, v.key) ? v.details.find(allowed) ?? null : null); }}>{viewLabel(v.key, board)}</button>
+            onClick={() => {
+              setView(v.key);
+              setDetail(v.open && allowed(v.open) ? v.open : board && !viewHas(board, v.key) ? v.details.find(allowed) ?? null : null);
+            }}>{viewLabel(v.key, board)}</button>
         ))}
       </div>
 

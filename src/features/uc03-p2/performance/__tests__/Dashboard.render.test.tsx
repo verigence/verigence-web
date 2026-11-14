@@ -80,13 +80,21 @@ describe('The dashboard of each role', () => {
     expect(tab(team, 'uploads')).toContain('How files come in');
     expect(tab(team, 'uploads')).not.toContain('Needs attention');
     expect(tab(team, 'pending')).toContain('Pending now');
-    expect(VIEWS.map((v) => viewLabel(v, team))).toEqual(['Overview', 'Pending', 'Team and outlets', 'PC efficiency', 'Uploads, failures and duplicates', 'Tasks', 'Duties']);
+    expect(VIEWS.map((v) => viewLabel(v, team))).toEqual(['Overview', 'Pending', 'Team and outlets', 'Efficiency', 'Uploads, failures and duplicates', 'Tasks', 'Duties']);
     // The backlog of each PC under the pending work, most waiting over three days first.
     expect(tab(team, 'pending')).toMatch(/Backlog of each[\s\S]*Asha[\s\S]*Ravi/);
     // Each PC's efficiency, the best first, with how it is calculated.
     const efficiency = tab(team, 'efficiency');
     expect(efficiency).toMatch(/Ravi[\s\S]*81%[\s\S]*Asha[\s\S]*44%/);
     expect(efficiency).toContain('Efficiency is the plain average of four shares.');
+    // The Reviewers beside the PCs (2026-11-14: "why no reviewer is being shown in reports to TL").
+    const pcs = team.efficiency!.card!;
+    const reviewers: DashCard = { key: 'reviewers', title: 'Reviewers', sort: 'score', columns: pcs.columns,
+      rows: [{ id: 'r', name: 'Priyanka', sub: 'All outlets', values: { score: 26, firstTime: null } }] };
+    const both = tab({ ...team, efficiency: { ...team.efficiency!, cards: [pcs, reviewers] } }, 'efficiency');
+    expect(both).toContain('Efficiency of each person');
+    expect(both).toMatch(/>Reviewers</);
+    expect(viewHas({ ...team, efficiency: { note: '', cards: [{ ...pcs, rows: [] }, reviewers] } }, 'efficiency')).toBe(true);
     expect(viewLabel('pending', { ...team, view: 'PC' })).toBe('Waiting for me');
     expect(viewLabel('overview', { ...team, view: 'REVIEWER' })).toBe('What I did');
   });

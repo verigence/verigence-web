@@ -43,9 +43,12 @@ export const excessOf = (i: DiscountVarianceItem) => Number(
   i.status === 'ENTITLEMENT_UNKNOWN' ? i.invoice ?? 0 : i.status === 'KIT_AS_CASH' ? i.kit ?? i.variance ?? 0 : i.variance ?? 0,
 );
 
-/** The three lists (product owner 2026-11-06): excess, accessories kit given as cash, and no master to compare with. */
-export type View = 'over' | 'kit' | 'unknown';
-export const VIEW_STATUS = { over: 'OVER_ENTITLEMENT', kit: 'KIT_AS_CASH', unknown: 'ENTITLEMENT_UNKNOWN' } as const;
+/** The lists (product owner 2026-11-06): excess, accessories kit given as cash, and no master to compare with;
+ *  2026-11-14: a dealer discount over only if the insurance / EW were not in-house, listed apart. */
+export type View = 'over' | 'kit' | 'inhouse' | 'unknown';
+export const VIEW_STATUS = {
+  over: 'OVER_ENTITLEMENT', kit: 'KIT_AS_CASH', inhouse: 'OVER_UNLESS_INHOUSE', unknown: 'ENTITLEMENT_UNKNOWN',
+} as const;
 
 export function inView(items: DiscountVarianceItem[], view: View): DiscountVarianceItem[] {
   if (view === 'over') return excessOnly(items);
@@ -144,20 +147,21 @@ export function quickRange(kind: 'this-month' | 'last-month' | 'last-30', today 
 /** The filtered rows as CSV, for Export. */
 export function toCsv(items: DiscountVarianceItem[], basis: DateBasis): string {
   const head = [basis === 'delivery' ? 'Delivery date' : 'Booking date', 'Journey', 'Customer', 'Dealership', 'Outlet', 'PC',
-    'Model', 'Variant', 'Discount type', 'Status', 'Entitled', 'Given', 'Excess', 'Kit as cash', 'Why unknown', 'Given per'];
+    'Model', 'Variant', 'Discount type', 'Status', 'Entitled', 'Given', 'Excess', 'Kit as cash', 'Why', 'Allowed if in-house',
+    'Given per'];
   const cell = (v: unknown) => {
     const text = v === null || v === undefined ? '' : String(v);
     return /[",\n]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text;
   };
   const rows = items.map((i) => [dateOf(i, basis), i.journeyReference, i.customer, i.dealer, i.outlet, i.pc, i.model,
     i.variant, discountOf(i), i.status, i.entitled, i.invoice, i.status === 'KIT_AS_CASH' ? null : i.variance, i.kit, i.reason,
-    i.givenDocument].map(cell).join(','));
+    i.ifInhouse, i.givenDocument].map(cell).join(','));
   return [head.join(','), ...rows].join('\n');
 }
 
 export function viewFromParams(params: URLSearchParams): View {
   const view = params.get('view');
-  return view === 'kit' || view === 'unknown' ? view : 'over';
+  return view === 'kit' || view === 'inhouse' || view === 'unknown' ? view : 'over';
 }
 
 export function filtersFromParams(params: URLSearchParams): ExcessFilters {

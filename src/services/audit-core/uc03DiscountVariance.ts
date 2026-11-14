@@ -2,7 +2,10 @@ import { auditCoreRequest } from './client';
 
 /** Why a discount is on the list. Invoice figures only, never the booking. */
 /** KIT_AS_CASH (2026-11-06): the part of a consumer offer the unused accessories kit covers, a breach listed apart. */
-export type DiscountVarianceStatus = 'OVER_ENTITLEMENT' | 'UNDER_ENTITLEMENT' | 'ENTITLEMENT_UNKNOWN' | 'KIT_AS_CASH';
+/** OVER_UNLESS_INHOUSE (2026-11-14): a dealer discount above the grid tier it was judged at but within a
+ *  higher tier (in-house insurance / EW) -- over only if those were not in-house, never counted as excess. */
+export type DiscountVarianceStatus =
+  'OVER_ENTITLEMENT' | 'UNDER_ENTITLEMENT' | 'ENTITLEMENT_UNKNOWN' | 'KIT_AS_CASH' | 'OVER_UNLESS_INHOUSE';
 
 export interface DiscountVarianceItem {
   journeyId: string;
@@ -31,13 +34,15 @@ export interface DiscountVarianceItem {
   givenDocument?: string | null;
   /** KIT_AS_CASH: the kit amount given as cash. */
   kit?: string | null;
-  /** ENTITLEMENT_UNKNOWN: why there is no entitlement to compare with. */
+  /** ENTITLEMENT_UNKNOWN: why there is no entitlement to compare with; OVER_UNLESS_INHOUSE: what would cover it. */
   reason?: string | null;
+  /** OVER_UNLESS_INHOUSE: what the grid allows with in-house insurance / EW. */
+  ifInhouse?: string | null;
 }
 
 export interface DiscountVarianceResponse {
   items: DiscountVarianceItem[];
-  counts: { total: number; over: number; under: number; unknown: number; kitAsCash?: number; journeys: number };
+  counts: { total: number; over: number; under: number; unknown: number; kitAsCash?: number; unlessInhouse?: number; journeys: number };
   notYetCalculated: number;
   toleranceRupees: number;
 }

@@ -16,12 +16,15 @@ import { useSessionStore } from '../store/sessionStore';
 
 const PAGE_SIZES = [25, 50, 100];
 
-/** The three lists (product owner 2026-11-06). */
+/** The lists (product owner 2026-11-06; "Over unless in-house" 2026-11-14). */
 const VIEWS: { view: View; label: string; amount: string; count: string; empty: string }[] = [
   { view: 'over', label: 'Over entitlement', amount: 'Excess given', count: 'Discounts over entitlement',
     empty: 'No discount given above its entitlement matches these filters.' },
   { view: 'kit', label: 'Kit given as cash', amount: 'Kit given as cash', count: 'Discounts with the kit as cash',
     empty: 'No accessories kit given as cash matches these filters.' },
+  { view: 'inhouse', label: 'Over unless in-house', amount: 'Over if insurance / EW not in-house',
+    count: 'Dealer discounts within a higher grid tier',
+    empty: 'No dealer discount here depends on in-house insurance or EW.' },
   { view: 'unknown', label: 'Entitlement unknown', amount: 'Given, nothing to compare with', count: 'Discounts with no master',
     empty: 'Every discount here has a master to compare with.' },
 ];
@@ -275,7 +278,7 @@ export default function P2DiscountVariancePage() {
                       {header('discount', 'Discount type')}
                       {view === 'unknown' ? <th scope="col">Why there is nothing to compare with</th> : header('entitled', 'Entitled', true)}
                       {header('given', 'Given', true)}
-                      {view === 'unknown' ? null : header('excess', view === 'kit' ? 'Kit as cash' : 'Excess', true)}
+                      {view === 'unknown' ? null : header('excess', view === 'kit' ? 'Kit as cash' : view === 'inhouse' ? 'Over if not in-house' : 'Excess', true)}
                       <th scope="col" aria-label="Open" />
                     </tr>
                   </thead>
@@ -305,8 +308,10 @@ export default function P2DiscountVariancePage() {
                           {item.givenDocument ? <span className="xd-secondary">{item.givenDocument}</span> : null}
                         </td>
                         {view === 'unknown' ? null : (
-                          <td data-label={view === 'kit' ? 'Kit as cash' : 'Excess'} className={`is-num ${view === 'kit' ? 'xd-kit' : 'xd-excess'}`}>
+                          <td data-label={view === 'kit' ? 'Kit as cash' : view === 'inhouse' ? 'Over if not in-house' : 'Excess'}
+                              className={`is-num ${view === 'kit' || view === 'inhouse' ? 'xd-kit' : 'xd-excess'}`}>
                             {rupees(excessOf(item), 2)}
+                            {view === 'inhouse' && item.reason ? <span className="xd-secondary">{item.reason}</span> : null}
                           </td>
                         )}
                         <td className="xd-actions">

@@ -65,11 +65,17 @@ describe('the three lists (product owner 2026-11-06)', () => {
     row({ journeyId: 'k', status: 'KIT_AS_CASH', variance: '30000', kit: '30000', invoice: '50000', entitled: '20000' }),
     row({ journeyId: 'u', status: 'ENTITLEMENT_UNKNOWN', entitled: null, variance: null, invoice: '35000',
       reason: 'no scheme master stands behind "Other scheme"' }),
+    row({ journeyId: 'h', status: 'OVER_UNLESS_INHOUSE', entitled: '5000', invoice: '7000', variance: '2000',
+      ifInhouse: '7000', reason: 'within the grid\'s Rs 7,000 if the insurance was in-house' }),
   ];
   it('splits excess, kit given as cash and entitlement unknown, each with its own amount', () => {
     expect(inView(mixed, 'over').map((i) => i.journeyId)).toEqual(['j1']);
     expect(inView(mixed, 'kit').map((i) => excessOf(i))).toEqual([30000]);
     expect(inView(mixed, 'unknown').map((i) => excessOf(i))).toEqual([35000]);
+  });
+  it('lists a dealer discount over only unless in-house apart, never as excess (2026-11-14)', () => {
+    expect(inView(mixed, 'inhouse').map((i) => [i.journeyId, excessOf(i)])).toEqual([['h', 2000]]);
+    expect(viewFromParams(new URLSearchParams('view=inhouse'))).toBe('inhouse');
   });
   it('reads the list from the URL, excess by default', () => {
     expect(viewFromParams(new URLSearchParams('view=kit'))).toBe('kit');

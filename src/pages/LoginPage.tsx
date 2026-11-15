@@ -64,7 +64,7 @@ export default function LoginPage() {
 
   // Only known first-party destinations may be restored after login. Do not accept
   // an arbitrary URL/query value here, otherwise the login page becomes an open redirect.
-  const returnTo = searchParams.get('returnTo') === '/apps' ? '/apps' : undefined;
+  const returnTo = (['/apps', '/app-sign-in'] as const).find((path) => path === searchParams.get('returnTo'));
 
   const requireLocation = async () => {
     if (!locationRequest.current) {

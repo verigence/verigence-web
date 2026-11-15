@@ -55,6 +55,27 @@ export default function AndroidNativeBridge() {
     };
   }, [location.pathname, navigate]);
 
+  // Another Verigence app on the phone (SevaSutra) asks to sign the person in: verigence://sso?…, on a cold
+  // start or while the app is open.
+  useEffect(() => {
+    if (Capacitor.getPlatform() !== 'android') return undefined;
+    const open = (url: string | undefined) => {
+      if (!url || !url.startsWith('verigence://sso')) return;
+      const query = url.includes('?') ? url.slice(url.indexOf('?')) : '';
+      navigate(`/app-sign-in${query}`, { replace: false });
+    };
+    let handle: PluginListenerHandle | undefined;
+    let aborted = false;
+    void CapacitorApp.getLaunchUrl().then((launch) => open(launch?.url)).catch(() => undefined);
+    void CapacitorApp.addListener('appUrlOpen', ({ url }) => open(url))
+      .then((h) => (aborted ? void h.remove() : (handle = h)))
+      .catch(() => undefined);
+    return () => {
+      aborted = true;
+      void handle?.remove();
+    };
+  }, [navigate]);
+
   return (
     <>
       <MobileCaptureBackInterceptor />

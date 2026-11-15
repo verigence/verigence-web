@@ -134,7 +134,7 @@ function journey360Tab(ruleKey: string | null | undefined, category: string | nu
   if (stem === 'DEAL_UNDERCHARGED' || stem === 'EXCESS_DISCOUNT' || type === 'COMMERCIAL_EXCEPTION') return 'deal';
   if (type === 'INVOICE_SKU_MISMATCH' || stem === 'MODEL_NOT_IDENTIFIED' || stem.startsWith('SKU_')
       || type === 'MODEL_CHANGED_BY_INVOICE') return 'vehicle';
-  if (type === 'INVOICE_DISCREPANCY' || stem.startsWith('INVOICE')) return 'invoices';
+  if (type === 'INVOICE_DISCREPANCY' || stem.startsWith('INVOICE')) return 'payments';
   if (stem.startsWith('ACCESSOR')) return 'addons';
   if (stem.startsWith('TRADE_IN')) return 'tradein';
   if (stem === 'DUPLICATE_BOOKING' || type === 'DUPLICATE_BOOKING') return 'customer';

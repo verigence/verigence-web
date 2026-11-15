@@ -617,3 +617,10 @@
 .j360 .j360-appendix > summary { cursor: pointer; list-style: revert; }
 .j360 .j360-appendix[open] > summary { margin-bottom: 12px; }
 .j360 .j360-appendix > .j360-card { box-shadow: none; }
+
+/* System remarks (2026-11-15) and the invoices under Payments */
+.j360 .j360-section { display: grid; gap: 10px; }
+.j360 .j360-section__title { margin: 6px 0 0; color: var(--p2w-navy); font-size: 1.05rem; font-weight: 800; }
+.j360 .j360-remarks { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; }
+.j360 .j360-remark { border-left: 4px solid var(--p2w-action-line); }
+.j360 .j360-remark__text { margin: 0; line-height: 1.5; }

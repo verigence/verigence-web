@@ -58,3 +58,31 @@ describe('not mandatory is the PC\'s claim, for the Reviewer (product owner 2026
     expect(taskPlan(waiting, 'PC').waiting).toMatch(/Waiting for the Reviewer/);
   });
 });
+
+describe('registration and EW / RSA invoice closures (product owner 2026-11-15)', () => {
+  const forDocument = (requirementKey: string): P2Task => ({ ...missing(), reference: { requirementKey } } as P2Task);
+  const labels = (task: P2Task, role: string) => taskPlan(task, role).secondary.map((a) => a.label);
+
+  it('offers the PC "Dealer not provided" on the EW and RSA invoice tasks only', () => {
+    expect(labels(forDocument('rsa_invoice'), 'PC')).toContain('Dealer not provided');
+    expect(labels(forDocument('ew_invoice'), 'PC')).toContain('Dealer not provided');
+    expect(labels(forDocument('rto_challan'), 'PC')).not.toContain('Dealer not provided');
+  });
+
+  it('offers "Temporary registration" on the RTO challan task to a Team Lead or Reviewer, with a comment', () => {
+    expect(labels(forDocument('rto_challan'), 'PC')).not.toContain('Temporary registration');
+    for (const role of ['TL', 'REVIEWER']) {
+      const temp = taskPlan(forDocument('rto_challan'), role).secondary.find((a) => a.label === 'Temporary registration');
+      expect(temp?.requiresComment).toBe(true);
+      expect(temp?.details).toEqual({ choice: 'Temporary registration' });
+    }
+  });
+
+  it('answers the BH question with one of two buttons', () => {
+    const bh = { ...missing(), task_type: 'REGISTRATION_BH_CONFIRM', source_code: 'REGISTRATION_BH_CONFIRM',
+      allowed_actions: ['REVIEW_DOCUMENT', 'CLOSE_TASK', 'ADD_COMMENT'] } as unknown as P2Task;
+    const plan = taskPlan(bh, 'PC');
+    expect(plan.secondary.filter((a) => a.action === 'CLOSE_TASK').map((a) => a.label))
+      .toEqual(['BH registration', 'Not a BH registration']);
+  });
+});

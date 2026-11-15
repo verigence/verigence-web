@@ -155,6 +155,7 @@ function TaskDetail({ task, tenantId, accessToken, operatingRole, onDone }: {
           ? 'Write in the comment box why this document is not mandatory for this journey.'
         : action.action === 'CLOSE_TASK' && action.details?.choice === TEMPORARY_REGISTRATION_CHOICE
           ? 'Write the temporary registration number in the comment box first.'
+        : action.action === 'ESCALATE_TO_TL' ? 'Write in the comment box why it is right as it is (at least 10 characters).'
         : action.action === 'CLOSE_TASK' ? 'Write a comment in the comment box to close this task.'
         : task.task_type === 'INSURANCE_SOURCE_CONFIRM' ? 'Write the Agent code / MISP code in the comment box first.'
         : 'Add a short reason in the comment box first.');

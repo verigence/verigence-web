@@ -55,6 +55,16 @@ export const NOT_REQUIRED_CHOICE = 'Document not required to be uploaded';
  * closed by a Team Lead or Reviewer with the temporary number in the comment;
  * the PC answers whether a low registration is a BH registration. */
 export const DEALER_NOT_PROVIDED_CHOICE = 'Dealer not provided';
+/** Audit Core uc03_task_closure (2026-11-15). */
+export const ESCALATE_ACTION = 'ESCALATE_TO_TL';
+const NAME_TASK_SOURCES = new Set(['WRONG_CUSTOMER_NAME', 'WRONG_DEALER_NAME']);
+
+export function canEscalate(task: P2Task, operatingRole?: string | null): boolean {
+  const role = String(operatingRole ?? '').toUpperCase();
+  if (String(task.assigned_role_code ?? '').toUpperCase() !== 'PC' || (role !== 'PC' && role !== 'REVIEWER')) return false;
+  if (!['READY', 'IN_PROGRESS', 'RETURNED'].includes(task.task_status)) return false;
+  return task.task_status === 'RETURNED' || NAME_TASK_SOURCES.has(String(task.source_code ?? ''));
+}
 export const TEMPORARY_REGISTRATION_CHOICE = 'Temporary registration';
 export const BH_CHOICES = ['BH registration', 'Not a BH registration'] as const;
 const DEALER_NOT_PROVIDED_DOCUMENTS = new Set(['ew_invoice', 'rsa_invoice']);
@@ -340,6 +350,11 @@ export function taskPlan(task: P2Task, operatingRole?: string | null): TaskPlan 
       secondary.push({ label: TEMPORARY_REGISTRATION_CHOICE, action: 'CLOSE_TASK', comment: TEMPORARY_REGISTRATION_CHOICE,
         details: { choice: TEMPORARY_REGISTRATION_CHOICE }, requiresComment: true, tone: 'secondary' });
     }
+  }
+  if (canEscalate(task, operatingRole)) {
+    // Product owner 2026-11-15: a task the re-check returned (or a wrong-name
+    // task, which no upload can fix) goes to the Team Lead with the PC's reason.
+    secondary.push({ label: 'Explain and send to Team Lead', action: ESCALATE_ACTION, requiresComment: true, tone: 'secondary' });
   }
   if (allowed.has('PROVIDE_FEEDBACK')) secondary.push({ label: 'Give feedback', action: 'PROVIDE_FEEDBACK', requiresComment: true, tone: 'ghost' });
   if (supervisor && allowed.has('ACCEPT_EXCEPTION')) {

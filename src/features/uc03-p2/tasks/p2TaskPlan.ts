@@ -92,6 +92,38 @@ export function canDecideClaim(operatingRole?: string | null): boolean {
   return operatingRole === 'REVIEWER' || operatingRole === 'TL' || operatingRole === 'PM';
 }
 
+/** One document of a journey's missing-documents task (Audit Core 2026-11-15:
+ * "missing docs should be one task not one for each"). */
+export type DocumentLine = { key: string; label: string; reason?: string; stage?: string; actions: TaskAction[] };
+
+type ReferenceItem = { key?: unknown; label?: unknown; reason?: unknown; stage?: unknown; notRequiredAllowed?: unknown };
+
+/** The documents the journey's one missing-documents task still asks for, each with
+ * its own answers; undefined for any other task. An answer names its document
+ * (details.requirementKey) and takes it off the task. */
+export function documentLines(task: P2Task, operatingRole?: string | null): DocumentLine[] | undefined {
+  const items = (task.reference ?? {}).items;
+  if (!closesMissingDocument(task) || !Array.isArray(items)) return undefined;
+  if (DONE.has(task.task_status)) return [];
+  const temporaryRegistrationRole = TEMPORARY_REGISTRATION_ROLES.has(String(operatingRole ?? '').toUpperCase());
+  return (items as ReferenceItem[]).filter((item) => typeof item?.key === 'string').map((item) => {
+    const key = String(item.key);
+    const answer = (choice: string, requiresComment = false): TaskAction => ({
+      label: choice, action: 'CLOSE_TASK', comment: choice, details: { choice, requirementKey: key },
+      requiresComment, tone: 'secondary',
+    });
+    const actions = [answer(MISSING_DOCUMENT_CLOSE_CHOICES[0])];
+    if (item.notRequiredAllowed !== false && !ALWAYS_REQUIRED_DOCUMENTS.has(key)) actions.push(answer(NOT_REQUIRED_CHOICE, true));
+    if (DEALER_NOT_PROVIDED_DOCUMENTS.has(key)) actions.push(answer(DEALER_NOT_PROVIDED_CHOICE));
+    if (TEMPORARY_REGISTRATION_DOCUMENTS.has(key) && temporaryRegistrationRole) actions.push(answer(TEMPORARY_REGISTRATION_CHOICE, true));
+    return {
+      key, label: typeof item.label === 'string' ? item.label : key,
+      reason: typeof item.reason === 'string' ? item.reason : undefined,
+      stage: typeof item.stage === 'string' ? item.stage : undefined, actions,
+    };
+  });
+}
+
 function closesMissingDocument(task: P2Task): boolean {
   return task.task_type === 'DOCUMENT_MISSING' && MISSING_DOCUMENT_CLOSE_SOURCES.has(String(task.source_code ?? ''));
 }
@@ -328,7 +360,8 @@ export function taskPlan(task: P2Task, operatingRole?: string | null): TaskPlan 
     // ("Document Uploaded", "Document Not required to be uploaded for
     // Extraction", or his own words). The server refuses a blank comment too.
     secondary.push({ label: 'Close task', action: 'CLOSE_TASK', requiresComment: true, tone: 'secondary' });
-  } else if (closesMissingDocument(task)) {
+  } else if (closesMissingDocument(task) && !Array.isArray((task.reference ?? {}).items)) {
+    // (The one missing-documents task answers on each document's line: documentLines.)
     // A missing document: the PC closes it with one of two choices, which is
     // the task's comment (a typed note is added after it).
     // "Not required" is the PC's claim, decided by the Reviewer (product owner

@@ -756,6 +756,11 @@
 .p2w-task__comment { display: grid; gap: 4px; font-size: .8rem; font-weight: 700; color: var(--p2w-muted); }
 .p2w-task__comment textarea { padding: 8px 10px; border: 1px solid #cfe0ea; border-radius: 8px; font-size: 1rem; }
 .p2w-task__actions { display: flex; gap: 8px; flex-wrap: wrap; }
+/* The one missing-documents task: a line per document, each with its own answers (2026-11-15). */
+.p2w-task-lines { display: grid; gap: 0; margin: 0 0 12px; padding: 0; list-style: none; border-top: 1px solid var(--p2w-line); }
+.p2w-task-lines li { display: grid; gap: 8px; padding: 12px 0; border-bottom: 1px solid var(--p2w-line); }
+.p2w-task-lines p { margin: 4px 0 0; font-size: .86rem; }
+.p2w-task-lines .p2w-task__actions { margin: 0; }
 .p2w-history { display: grid; gap: 6px; margin: 0; padding-left: 18px; font-size: .86rem; }
 .p2w-history li { display: grid; gap: 2px; }
 @media (max-width: 560px) {

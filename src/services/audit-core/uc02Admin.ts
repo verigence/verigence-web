@@ -114,7 +114,7 @@ export interface RoleMappingCandidate {
  */
 // ANALYST and CLIENT are SevaSutra's (workshop audit) roles, used on service-audit Projects: an Analyst is
 // Outlet-scoped like a PC; a Client (not a JBR employee) sees SevaSutra's analytics only, Project-wide.
-export type OperatingRole = 'PC' | 'TL' | 'PM' | 'CRM' | 'Executive' | 'REVIEWER' | 'ANALYST' | 'CLIENT';
+export type OperatingRole = 'PC' | 'TL' | 'PM' | 'CRM' | 'Executive' | 'REVIEWER' | 'ANALYST' | 'CLIENT' | 'UPLOADER';
 
 export interface RoleMapping {
   userId: string;

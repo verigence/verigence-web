@@ -643,7 +643,7 @@ export default function DealTab({ deal, journeyId, tenantId, accessToken }: {
         <section className="j360-card" aria-label="Invoices in this sheet">
           <div className="j360-card__head">
             <h3 className="j360-h3">Invoices consolidated in this sheet</h3>
-            <Link className="p2w-link" to={`/p2/journeys/${journeyId}/overview?tab=invoices`}>See every line item</Link>
+            <Link className="p2w-link" to={`/p2/journeys/${journeyId}/overview?tab=payments`}>See every line item</Link>
           </div>
           <ul className="j360-invoices">
             {billingInvoices.map((invoice) => (

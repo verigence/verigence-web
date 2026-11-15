@@ -49,6 +49,17 @@ const DONE = new Set(['VERIFIED_COMPLETE', 'CANCELLED']);
 const MISSING_DOCUMENT_CLOSE_SOURCES = new Set(['DOCUMENT_MISSING', 'BOOKING_FORM_MISSING']);
 export const MISSING_DOCUMENT_CLOSE_CHOICES = ['Document uploaded', 'Document not required to be uploaded'] as const;
 export const NOT_REQUIRED_CHOICE = 'Document not required to be uploaded';
+/** Product owner 2026-11-15 (Audit Core uc03_registration_closures): the EW /
+ * RSA invoice a dealership does not issue is closed by the PC as "Dealer not
+ * provided"; a delivery on temporary registration has its RTO challan task
+ * closed by a Team Lead or Reviewer with the temporary number in the comment;
+ * the PC answers whether a low registration is a BH registration. */
+export const DEALER_NOT_PROVIDED_CHOICE = 'Dealer not provided';
+export const TEMPORARY_REGISTRATION_CHOICE = 'Temporary registration';
+export const BH_CHOICES = ['BH registration', 'Not a BH registration'] as const;
+const DEALER_NOT_PROVIDED_DOCUMENTS = new Set(['ew_invoice', 'rsa_invoice']);
+const TEMPORARY_REGISTRATION_DOCUMENTS = new Set(['rto_challan']);
+const TEMPORARY_REGISTRATION_ROLES = new Set(['TL', 'PM', 'REVIEWER']);
 /** Documents that are never "not required" (product owner 2026-11-11: "NDC has
  * to come and there is no escape route for it"): the NDC / cost sheet. The
  * server refuses the claim too (Audit Core ALWAYS_ASKED_REQUIREMENTS). */
@@ -297,7 +308,12 @@ export function taskPlan(task: P2Task, operatingRole?: string | null): TaskPlan 
     };
     if (primary) secondary.push(done); else primary = done;
   }
-  if (allowed.has('CLOSE_TASK')) {
+  if (task.task_type === 'REGISTRATION_BH_CONFIRM' && allowed.has('CLOSE_TASK')) {
+    // One button per answer; no comment needed (2026-11-15).
+    for (const choice of BH_CHOICES) {
+      secondary.push({ label: choice, action: 'CLOSE_TASK', comment: choice, details: { choice }, tone: 'secondary' });
+    }
+  } else if (allowed.has('CLOSE_TASK')) {
     // The image-quality task: closed by the PC with a comment, every time
     // ("Document Uploaded", "Document Not required to be uploaded for
     // Extraction", or his own words). The server refuses a blank comment too.
@@ -307,10 +323,22 @@ export function taskPlan(task: P2Task, operatingRole?: string | null): TaskPlan 
     // the task's comment (a typed note is added after it).
     // "Not required" is the PC's claim, decided by the Reviewer (product owner
     // 2026-11-04): it needs the PC's own reason, typed in the comment box.
+    const requirement = String((task.reference ?? {}).requirementKey ?? '');
+    const temporaryRegistrationCloser = TEMPORARY_REGISTRATION_DOCUMENTS.has(requirement)
+      && TEMPORARY_REGISTRATION_ROLES.has(String(operatingRole ?? '').toUpperCase());
     for (const choice of MISSING_DOCUMENT_CLOSE_CHOICES) {
       if (choice === NOT_REQUIRED_CHOICE && alwaysRequired(task)) continue;
       secondary.push({ label: choice, action: 'CLOSE_TASK', comment: choice, details: { choice },
         requiresComment: choice === NOT_REQUIRED_CHOICE, tone: 'secondary' });
+    }
+    if (DEALER_NOT_PROVIDED_DOCUMENTS.has(requirement)) {
+      secondary.push({ label: DEALER_NOT_PROVIDED_CHOICE, action: 'CLOSE_TASK', comment: DEALER_NOT_PROVIDED_CHOICE,
+        details: { choice: DEALER_NOT_PROVIDED_CHOICE }, tone: 'secondary' });
+    }
+    if (temporaryRegistrationCloser) {
+      // The temporary registration number goes in the comment; Audit Core refuses one without it.
+      secondary.push({ label: TEMPORARY_REGISTRATION_CHOICE, action: 'CLOSE_TASK', comment: TEMPORARY_REGISTRATION_CHOICE,
+        details: { choice: TEMPORARY_REGISTRATION_CHOICE }, requiresComment: true, tone: 'secondary' });
     }
   }
   if (allowed.has('PROVIDE_FEEDBACK')) secondary.push({ label: 'Give feedback', action: 'PROVIDE_FEEDBACK', requiresComment: true, tone: 'ghost' });

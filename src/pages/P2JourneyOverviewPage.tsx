@@ -10,6 +10,7 @@ import PageHeader from '../components/PageHeader';
 import AuditSummaryTab from '../features/uc03-p2/journey360/AuditSummaryTab';
 import DealTab from '../features/uc03-p2/journey360/DealTab';
 import JourneyClassification from '../features/uc03-p2/journey360/JourneyClassification';
+import SystemRemarksTab from '../features/uc03-p2/journey360/SystemRemarksTab';
 import UploadedFilesTab from '../features/uc03-p2/journey360/UploadedFilesTab';
 import DeleteJourneyDialog from '../features/uc03-p2/workspace/DeleteJourneyDialog';
 import { canDeleteJourney } from '../features/uc03-p2/workspace/deleteJourney';
@@ -40,9 +41,11 @@ import JourneyClosedBadge from '../features/uc03-p2/workspace/JourneyClosedBadge
 
 const TABS = [
   { key: 'deal', label: 'Deal' },
-  { key: 'invoices', label: 'Invoices' },
+  // What the system noted instead of raising a task (product owner 2026-11-15);
+  // it takes the Invoices tab's place, the invoices now under Payments.
+  { key: 'remarks', label: 'System remarks' },
   { key: 'addons', label: 'Add-ons' },
-  { key: 'payments', label: 'Payments' },
+  { key: 'payments', label: 'Payments & invoices' },
   { key: 'documents', label: 'Documents' },
   // The files as the PC uploaded them, to download (2026-11-06).
   { key: 'files', label: 'Uploaded files' },
@@ -57,6 +60,8 @@ const TABS = [
 ] as const;
 
 type TabKey = (typeof TABS)[number]['key'];
+// Links made before 2026-11-15 open the invoices where they now are.
+const TAB_ALIASES: Record<string, TabKey> = { invoices: 'payments' };
 
 const STAGE_LABEL: Record<string, string> = {
   BOOKING_DOCUMENT_UPLOAD: 'Booking · documents',
@@ -88,7 +93,8 @@ export default function P2JourneyOverviewPage() {
   const tenantId = useProjectContextStore((s) => s.selectedProject?.tenantId);
   const operatingRole = useProjectContextStore((s) => s.selectedProject?.operatingRole);
   const accessToken = useSessionStore((s) => s.accessToken);
-  const requested = search.get('tab') as TabKey | null;
+  const asked = search.get('tab');
+  const requested = (asked && TAB_ALIASES[asked]) || (asked as TabKey | null);
   const requestedTab: TabKey = TABS.some((t) => t.key === requested) ? requested! : 'deal';
 
   const summary = useQuery({
@@ -105,7 +111,8 @@ export default function P2JourneyOverviewPage() {
   const tab: TabKey = requestedTab === 'audit-summary' && !auditReady ? 'deal' : requestedTab;
   const duplicates = useSection('duplicates', tenantId, journeyId, accessToken);
   const deal = useSection('deal', tenantId, journeyId, accessToken, tab === 'deal');
-  const invoices = useSection('invoices', tenantId, journeyId, accessToken, tab === 'invoices');
+  const remarks = useSection('remarks', tenantId, journeyId, accessToken, tab === 'remarks');
+  const invoices = useSection('invoices', tenantId, journeyId, accessToken, tab === 'payments');
   const addons = useSection('addons', tenantId, journeyId, accessToken, tab === 'addons');
   const payments = useSection('payments', tenantId, journeyId, accessToken, tab === 'payments');
   const documents = useSection('documents', tenantId, journeyId, accessToken, tab === 'documents');
@@ -134,7 +141,7 @@ export default function P2JourneyOverviewPage() {
     setSearch(params, { replace: true });
   };
 
-  const active = tab === 'files' ? undefined : { deal, invoices, addons, payments, documents, vehicle, tradein, customer,
+  const active = tab === 'files' ? undefined : { deal, remarks, addons, payments, documents, vehicle, tradein, customer,
     registration, compliance, audit, 'audit-summary': auditSummary }[tab];
   let body: React.ReactNode = null;
   if (tab === 'files') {
@@ -151,10 +158,26 @@ export default function P2JourneyOverviewPage() {
   } else if (journeyId && tenantId) {
     if (tab === 'deal' && deal.data) body = <DealTab deal={deal.data} journeyId={journeyId} tenantId={tenantId} accessToken={accessToken} />;
     if (tab === 'addons' && addons.data) body = <AddonsTab addons={addons.data} journeyId={journeyId} tenantId={tenantId} accessToken={accessToken} />;
-    if (tab === 'payments' && payments.data) body = <PaymentsTab payments={payments.data} journeyId={journeyId} />;
+    if (tab === 'remarks' && remarks.data) body = <SystemRemarksTab data={remarks.data} />;
+    if (tab === 'payments' && payments.data) {
+      body = (
+        <div className="j360-stack">
+          <PaymentsTab payments={payments.data} journeyId={journeyId} />
+          <section className="j360-section" aria-label="Invoices">
+            <h2 className="j360-section__title">Invoices</h2>
+            {invoices.isLoading ? <div className="p2w-skeleton" aria-busy="true">Loading the invoices…</div>
+              : invoices.isError ? (
+                <div className="p2w-alert p2w-alert--error" role="alert">
+                  The invoices could not be loaded. {errorText(invoices.error)}
+                  <button type="button" className="p2w-link" onClick={() => void invoices.refetch()}>Try again</button>
+                </div>
+              ) : invoices.data ? <InvoicesTab data={invoices.data} journeyId={journeyId} /> : null}
+          </section>
+        </div>
+      );
+    }
     if (tab === 'documents' && documents.data) body = <DocumentsTab data={documents.data} journeyId={journeyId} />;
     if (tab === 'vehicle' && vehicle.data) body = <VehicleTab data={vehicle.data} tenantId={tenantId} journeyId={journeyId} accessToken={accessToken} />;
-    if (tab === 'invoices' && invoices.data) body = <InvoicesTab data={invoices.data} journeyId={journeyId} />;
     if (tab === 'tradein' && tradein.data) body = <TradeInTab data={tradein.data} />;
     if (tab === 'customer' && customer.data) body = <CustomerTab data={customer.data} />;
     if (tab === 'registration' && registration.data) body = <RegistrationTab data={registration.data} journeyId={journeyId} />;

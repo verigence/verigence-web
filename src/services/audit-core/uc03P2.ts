@@ -1583,6 +1583,17 @@ export type P2AuditSummary = {
     impact: 'CUSTOMER' | 'COMPANY' | null; dealerArithmetic: boolean })[];
 };
 
+/** A System remark (Audit Core uc03_system_remarks, 2026-11-15): noted on the journey instead of a task. */
+export type P2SystemRemark = {
+  code: 'SCRAPPAGE_CONCESSION' | 'NOT_TAKEN' | 'BH_REGISTRATION' | 'DEALER_NOT_PROVIDED' | 'TEMPORARY_REGISTRATION' | string;
+  title: string;
+  text: string;
+  /** Where it comes from: the Deal, the Registration, or a closed task. */
+  source: string;
+  at: string | null;
+  by: string | null;
+};
+
 export type P2SectionMap = {
   deal: P2Deal;
   'audit-summary': P2AuditSummary;
@@ -1591,6 +1602,7 @@ export type P2SectionMap = {
   payments: P2Payments360;
   vehicle: P2Vehicle360;
   invoices: { documents: P2Invoice360[]; count: number };
+  remarks: { remarks: P2SystemRemark[]; count: number };
   tradein: P2TradeIn360;
   customer: P2Customer360;
   registration: { records: P2Record[]; charges?: P2DealCategory | null };

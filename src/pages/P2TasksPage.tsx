@@ -11,7 +11,7 @@ import SetDealTypeDialog from '../features/uc03-p2/tasks/SetDealTypeDialog';
 import NotMandatoryClaimsPanel from '../features/uc03-p2/tasks/NotMandatoryClaimsPanel';
 import ClosureDecisionPanel from '../features/uc03-p2/review/ClosureDecisionPanel';
 import type { ClosureItem } from '../services/audit-core/reviewerClosure';
-import { canDecideClaim, claimState, NOT_REQUIRED_CHOICE } from '../features/uc03-p2/tasks/p2TaskPlan';
+import { canDecideClaim, claimState, NOT_REQUIRED_CHOICE, TEMPORARY_REGISTRATION_CHOICE } from '../features/uc03-p2/tasks/p2TaskPlan';
 import TaskManagerPanel from '../features/task-manager/TaskManagerPanel';
 import RemovePageDialog, { removablePages, removalPagesText, removeOptions, type RemovablePage } from '../features/uc03-p2/workspace/RemovePageDialog';
 import DocumentTypePicker, { documentTypeOptions, OTHER_DOCUMENT_TEMPLATE } from '../features/uc03-p2/workspace/DocumentTypePicker';
@@ -153,6 +153,8 @@ function TaskDetail({ task, tenantId, accessToken, operatingRole, onDone }: {
       setError(action.action === 'ADD_COMMENT' ? 'Write a comment first.'
         : action.action === 'CLOSE_TASK' && action.details?.choice === NOT_REQUIRED_CHOICE
           ? 'Write in the comment box why this document is not mandatory for this journey.'
+        : action.action === 'CLOSE_TASK' && action.details?.choice === TEMPORARY_REGISTRATION_CHOICE
+          ? 'Write the temporary registration number in the comment box first.'
         : action.action === 'CLOSE_TASK' ? 'Write a comment in the comment box to close this task.'
         : task.task_type === 'INSURANCE_SOURCE_CONFIRM' ? 'Write the Agent code / MISP code in the comment box first.'
         : 'Add a short reason in the comment box first.');

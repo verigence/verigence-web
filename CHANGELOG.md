@@ -12,6 +12,8 @@ The app's build number is added by the release workflow and is not written here.
 
 ## [Unreleased]
 
+## [1.8.0] - 2026-11-15
+
 ### Added
 - **Sign in to SevaSutra from the Verigence app**: on a phone with both apps, SevaSutra's sign-in page has **Sign in with the Verigence app**. The Verigence app opens and asks "Sign in to SevaSutra as …?"; press **Continue to SevaSutra** and SevaSutra opens signed in, with no password typed. If you are not signed in to the Verigence app, you sign in there first. Your password is never passed to SevaSutra.
 - **Project Administration – Sync with SevaSutra** (Super Admin): SevaSutra now reads a service-audit Project's dealers, outlets and people from Verigence once a day (8:10 am) instead of every five minutes. After a change, press **Sync with SevaSutra** on the Project's SevaSutra instance and it reads within a minute.

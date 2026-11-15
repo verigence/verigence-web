@@ -30,6 +30,7 @@ const loadDashboardPage = () => import('./pages/DashboardPage');
 const loadAuditReviewPage = () => import('./pages/AuditReviewPage');
 
 const LoginPage = lazy(() => import('./pages/LoginPage'));
+const AppSignInPage = lazy(() => import('./pages/AppSignInPage'));
 const SignupPage = lazy(() => import('./pages/SignupPage'));
 const ForgotPasswordPage = lazy(() => import('./pages/ForgotPasswordPage'));
 const TermsPage = lazy(() => import('./pages/TermsPage'));
@@ -344,6 +345,7 @@ export default function App() {
           <Suspense fallback={<Loading />}>
             <Routes>
               <Route path="/login" element={<LoginPage />} />
+              <Route path="/app-sign-in" element={<AppSignInPage />} />
               <Route path="/signup" element={<SignupPage />} />
               <Route path="/forgot-password" element={<ForgotPasswordPage />} />
               <Route path="/terms" element={<TermsPage />} />

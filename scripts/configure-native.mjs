@@ -31,6 +31,19 @@ function setApplicationAttribute(source, name, value) {
   });
 }
 
+// Another Verigence app on the phone (SevaSutra) opens this one to sign the person in: verigence://sso?…
+const appSignInFilter = `<intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="verigence" android:host="sso" />
+            </intent-filter>`;
+if (!xml.includes('android:scheme="verigence"')) {
+  const mainActivity = /<activity\b[^>]*android:name="\.MainActivity"[\s\S]*?<\/intent-filter>/;
+  if (!mainActivity.test(xml)) throw new Error('MainActivity launcher intent-filter not found in the Android manifest');
+  xml = xml.replace(mainActivity, (block) => `${block}\n\n            ${appSignInFilter}`);
+}
+
 xml = setApplicationAttribute(xml, 'usesCleartextTraffic', 'false');
 xml = setApplicationAttribute(xml, 'icon', '@mipmap/ic_launcher');
 xml = setApplicationAttribute(xml, 'roundIcon', '@mipmap/ic_launcher_round');

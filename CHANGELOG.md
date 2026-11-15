@@ -13,6 +13,7 @@ The app's build number is added by the release workflow and is not written here.
 ## [Unreleased]
 
 ### Added
+- **Sign in to SevaSutra from the Verigence app**: on a phone with both apps, SevaSutra's sign-in page has **Sign in with the Verigence app**. The Verigence app opens and asks "Sign in to SevaSutra as …?"; press **Continue to SevaSutra** and SevaSutra opens signed in, with no password typed. If you are not signed in to the Verigence app, you sign in there first. Your password is never passed to SevaSutra.
 - **Project Administration – Sync with SevaSutra** (Super Admin): SevaSutra now reads a service-audit Project's dealers, outlets and people from Verigence once a day (8:10 am) instead of every five minutes. After a change, press **Sync with SevaSutra** on the Project's SevaSutra instance and it reads within a minute.
 - **System health – Jobs** (new tab, SuperAdmin only): every job the system runs on a clock in one list. The daily jobs (day-end clean-up, nightly review, data archive) and each Project's Google Drive run show the time they run at, when they last ran, and a time box with **Save** to change it; the page also says which jobs run all day, which other modules run their own, when the system sleeps at night, and who changed a time.
 

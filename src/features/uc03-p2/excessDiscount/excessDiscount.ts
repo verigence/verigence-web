@@ -45,10 +45,9 @@ export const excessOf = (i: DiscountVarianceItem) => Number(
 
 /** The lists (product owner 2026-11-06): excess, accessories kit given as cash, and no master to compare with;
  *  2026-11-14: a dealer discount over only if the insurance / EW were not in-house, listed apart. */
-export type View = 'over' | 'kit' | 'inhouse' | 'disagree' | 'unknown';
+export type View = 'over' | 'kit' | 'inhouse' | 'unknown';
 export const VIEW_STATUS = {
-  over: 'OVER_ENTITLEMENT', kit: 'KIT_AS_CASH', inhouse: 'OVER_UNLESS_INHOUSE', disagree: 'FIGURES_DISAGREE',
-  unknown: 'ENTITLEMENT_UNKNOWN',
+  over: 'OVER_ENTITLEMENT', kit: 'KIT_AS_CASH', inhouse: 'OVER_UNLESS_INHOUSE', unknown: 'ENTITLEMENT_UNKNOWN',
 } as const;
 
 const TIER_WORDS: Record<string, string> = { BASE: 'base', WITH_INSURANCE: 'with insurance', WITH_EW_INSURANCE: 'with insurance + EW' };
@@ -185,7 +184,7 @@ export function toCsv(items: DiscountVarianceItem[], basis: DateBasis): string {
 
 export function viewFromParams(params: URLSearchParams): View {
   const view = params.get('view');
-  return view === 'kit' || view === 'inhouse' || view === 'disagree' || view === 'unknown' ? view : 'over';
+  return view === 'kit' || view === 'inhouse' || view === 'unknown' ? view : 'over';
 }
 
 export function filtersFromParams(params: URLSearchParams): ExcessFilters {

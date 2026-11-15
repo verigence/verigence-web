@@ -83,7 +83,7 @@ describe('the three lists (product owner 2026-11-06)', () => {
   });
 });
 
-describe('documents disagree, readings and offer (2026-11-14)', () => {
+describe('readings and offer (2026-11-14); the NDC decides (2026-11-15)', () => {
   const item = {
     journeyId: 'j9', journeyReference: 'UTK-SB-261114-012', customer: null, pc: null, outlet: null, model: null, variant: null,
     discountKey: 'ADDITIONAL_DISCOUNT', discount: 'Dealer discount', status: 'FIGURES_DISAGREE', entitled: '7000',
@@ -92,11 +92,10 @@ describe('documents disagree, readings and offer (2026-11-14)', () => {
     offer: { source: 'Dealer discount grid', tier: 'WITH_INSURANCE', tiers: { BASE: '5000', WITH_INSURANCE: '7000' } },
   } as const;
 
-  it('lists a disagreement apart, never as excess', () => {
-    const items = [item as never];
-    expect(inView(items, 'disagree')).toHaveLength(1);
-    expect(inView(items, 'over')).toHaveLength(0);
-    expect(viewFromParams(new URLSearchParams('view=disagree'))).toBe('disagree');
+  it('judges on the NDC: a row the Tally ledger contradicts stays in the excess list', () => {
+    const items = [{ ...item, status: 'OVER_ENTITLEMENT' } as never];
+    expect(inView(items, 'over')).toHaveLength(1);
+    expect(viewFromParams(new URLSearchParams('view=disagree'))).toBe('over');
   });
 
   it('says what each document read and what the master offers', () => {

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import type { P2Task } from '../../../services/audit-core/uc03P2';
-import { canDecideClaim, claimState, NOT_REQUIRED_CHOICE, taskPlan } from './p2TaskPlan';
+import { canDecideClaim, claimState, documentLines, NOT_REQUIRED_CHOICE, taskPlan } from './p2TaskPlan';
 
 const finding = (assigned: string): P2Task => ({
   task_id: 't1', journey_id: 'j1', task_type: 'FINDING_REVIEW', task_status: 'READY', severity: 'MEDIUM', title: 'Finding',
@@ -98,5 +98,35 @@ describe('a task the PC cannot fix goes to the Team Lead (product owner 2026-11-
     expect(actions(name, 'PC')).toContain('ESCALATE_TO_TL');
     expect(actions(missing(), 'PC')).not.toContain('ESCALATE_TO_TL');
     expect(actions(returned, 'TL')).not.toContain('ESCALATE_TO_TL');
+  });
+});
+
+describe('one missing-documents task per journey, answered per document (product owner 2026-11-15)', () => {
+  const items = [
+    { key: 'DEALER_STATEMENT', label: 'Dealer statement (NDC / cost sheet)', reason: 'Mandatory for every delivery.', notRequiredAllowed: false },
+    { key: 'rto_challan', label: 'RTO Challan', reason: 'Mandatory for every delivery.', notRequiredAllowed: true },
+    { key: 'rsa_invoice', label: 'RSA Invoice', notRequiredAllowed: true },
+  ];
+  const one = { ...missing(), reference: { items } } as P2Task;
+
+  it('lists each document with its own answers, naming the document', () => {
+    const lines = documentLines(one, 'PC')!;
+    expect(lines.map((l) => l.key)).toEqual(['DEALER_STATEMENT', 'rto_challan', 'rsa_invoice']);
+    expect(lines[0].actions.map((a) => a.label)).toEqual(['Document uploaded']);
+    expect(lines[1].actions.map((a) => a.label)).toEqual(['Document uploaded', NOT_REQUIRED_CHOICE]);
+    expect(lines[2].actions.map((a) => a.label)).toEqual(['Document uploaded', NOT_REQUIRED_CHOICE, 'Dealer not provided']);
+    expect(lines[1].actions[1]).toMatchObject({ requiresComment: true, details: { choice: NOT_REQUIRED_CHOICE, requirementKey: 'rto_challan' } });
+  });
+
+  it('offers temporary registration on the RTO challan to a Team Lead or Reviewer only', () => {
+    expect(documentLines(one, 'TL')![1].actions.map((a) => a.label)).toContain('Temporary registration');
+    expect(documentLines(one, 'REVIEWER')![1].actions.map((a) => a.label)).toContain('Temporary registration');
+    expect(documentLines(one, 'PC')![1].actions.map((a) => a.label)).not.toContain('Temporary registration');
+  });
+
+  it('puts no whole-task close on it, and nothing on another task', () => {
+    expect(taskPlan(one, 'PC').secondary.some((a) => a.action === 'CLOSE_TASK')).toBe(false);
+    expect(documentLines({ ...missing(), reference: { requirementKey: 'rto_challan' } } as P2Task, 'PC')).toBeUndefined();
+    expect(documentLines({ ...one, task_status: 'VERIFIED_COMPLETE' }, 'PC')).toEqual([]);
   });
 });

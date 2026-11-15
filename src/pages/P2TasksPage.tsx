@@ -22,7 +22,7 @@ import {
 } from '../features/uc03-p2/tasks/documentGroups';
 import { taskKind } from '../features/uc03-p2/tasks/taskKind';
 import {
-  closeComment, groupByJourney, taskPlan, vehicleIdentityError, type TaskAction, type VehicleIdentity,
+  closeComment, documentLines, groupByJourney, taskPlan, vehicleIdentityError, type TaskAction, type VehicleIdentity,
 } from '../features/uc03-p2/tasks/p2TaskPlan';
 import {
   bundleDue, bundleSeverity, bundleTasks, entryCount, isBundle, type TaskBundle,
@@ -112,6 +112,7 @@ function TaskDetail({ task, tenantId, accessToken, operatingRole, onDone }: {
     staleTime: 5_000,
   });
   const plan = taskPlan(task, operatingRole);
+  const lines = documentLines(task, operatingRole);
   const run = useMutation({
     mutationFn: (action: TaskAction & { details?: Record<string, unknown> }) =>
       submitP2TaskAction(tenantId, task.task_id, action.action!, accessToken, closeComment(action, comment), action.details),
@@ -128,7 +129,11 @@ function TaskDetail({ task, tenantId, accessToken, operatingRole, onDone }: {
       onDone(action.action === 'ADD_COMMENT'
         ? 'Note added. The task is still open: a note does not close it -- do what the task asks (upload, correct, answer) and it closes itself.'
         : action.action === 'CLOSE_TASK' && action.details?.choice === NOT_REQUIRED_CHOICE
-          ? 'Sent to the Reviewer with your reason. The task closes if they accept; if not, it comes back to you.'
+          ? (action.details?.requirementKey
+            ? 'Sent to the Reviewer with your reason. The document comes off this task; if they do not accept, it is asked for again.'
+            : 'Sent to the Reviewer with your reason. The task closes if they accept; if not, it comes back to you.')
+        : action.action === 'CLOSE_TASK' && action.details?.requirementKey
+          ? 'Answer recorded. The task now lists only what is still missing, and closes itself when nothing is.'
         : action.action === 'CLOSE_TASK' ? 'Task closed.'
         : task.task_type === 'SKU_CLOSEST_MATCH_CONFIRM' ? 'Vehicle confirmed. The deal is now checked against its price.'
         : task.task_type === 'SKU_OTHER_MONTH_PRICE_LIST' && action.action === 'ACCEPT' ? 'Approved. The journey is now priced on that list and its SKU resolved there.'
@@ -308,6 +313,27 @@ function TaskDetail({ task, tenantId, accessToken, operatingRole, onDone }: {
           proposedAmount={typeof ref.proposedAmount === 'string' ? ref.proposedAmount : undefined}
           proposedReason={typeof ref.reason === 'string' ? ref.reason : undefined}
           onSubmit={(values) => run.mutate({ label: 'Enable MR', action: 'COMPLETE_ACTION', tone: 'confirm', details: values })} />
+      ) : null}
+      {lines?.length ? (
+        <ul className="p2w-task-lines" aria-label="Documents still missing">
+          {lines.map((line) => (
+            <li key={line.key}>
+              <div>
+                <strong>{line.label}</strong>
+                {line.reason ? <p className="p2w-muted">{line.reason}</p> : null}
+              </div>
+              <div className="p2w-task__actions">
+                {line.actions.map((action) => (
+                  <button key={action.label} type="button" className="p2w-button p2w-button--ghost"
+                    disabled={run.isPending} onClick={() => trigger(action)}>
+                    {run.isPending && run.variables?.label === action.label
+                      && run.variables?.details?.requirementKey === line.key ? 'Working…' : action.label}
+                  </button>
+                ))}
+              </div>
+            </li>
+          ))}
+        </ul>
       ) : null}
       {task.source_system !== 'LEGACY' ? (
         <label className="p2w-task__comment">

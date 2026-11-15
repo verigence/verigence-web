@@ -86,3 +86,17 @@ describe('registration and EW / RSA invoice closures (product owner 2026-11-15)'
       .toEqual(['BH registration', 'Not a BH registration']);
   });
 });
+
+describe('a task the PC cannot fix goes to the Team Lead (product owner 2026-11-15)', () => {
+  const returned = { ...missing('RETURNED'), allowed_actions: ['UPLOAD_DOCUMENT', 'ADD_COMMENT'] } as P2Task;
+  it('offers "Explain and send to Team Lead" on a task the re-check returned, with a comment', () => {
+    const send = taskPlan(returned, 'PC').secondary.find((a) => a.action === 'ESCALATE_TO_TL');
+    expect(send?.requiresComment).toBe(true);
+  });
+  it('and on a wrong-name task at once, but not on a fresh task', () => {
+    const name = { ...missing(), source_code: 'WRONG_CUSTOMER_NAME' } as P2Task;
+    expect(actions(name, 'PC')).toContain('ESCALATE_TO_TL');
+    expect(actions(missing(), 'PC')).not.toContain('ESCALATE_TO_TL');
+    expect(actions(returned, 'TL')).not.toContain('ESCALATE_TO_TL');
+  });
+});

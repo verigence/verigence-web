@@ -103,6 +103,8 @@
 i.tm-block { min-width: 12px; height: 12px; padding: 0; vertical-align: middle; }
 .tm-block--working { background: #2e7d32; color: #fff; }
 .tm-block--active_no_output { background: #f9a825; color: #222; }
+/* No output and many screen changes (2026-11-16). */
+.tm-block--clicking_around { background: #da1e28; color: #fff; }
 .tm-block--idle { background: #cfd8dc; color: #222; }
 .tm-block--away { background: #eceff1; color: #78909c; }
 .tm-blocks__legend { display: flex; flex-wrap: wrap; gap: 12px; font-size: 12px; }

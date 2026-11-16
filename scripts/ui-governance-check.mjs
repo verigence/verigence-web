@@ -247,6 +247,9 @@ const projectNameViews = new Set([
   // SuperAdmin System Health's reading-window control (2026-11-09): which Project a value applies to.
   // Rendered only by src/pages/AdminSystemHealthPage.tsx (an Admin page, SuperAdmin only).
   'src/features/admin/systemHealth/ActivityWindowControl.tsx',
+  // SuperAdmin System Health's engagement settings (2026-11-16): which Project the output window and
+  // the clicking-around number apply to. Rendered only by src/pages/AdminSystemHealthPage.tsx (SuperAdmin).
+  'src/features/admin/systemHealth/EngagementSettingsControl.tsx',
   // SuperAdmin System Health's Jobs tab (2026-11-13): which Project each Google Drive run belongs to.
   // Rendered only by src/pages/AdminSystemHealthPage.tsx (an Admin page, SuperAdmin only).
   'src/features/admin/systemHealth/JobsTab.tsx',

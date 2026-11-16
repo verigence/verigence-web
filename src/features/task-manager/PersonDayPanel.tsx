@@ -13,6 +13,7 @@ import { minutesText, personName, roleLabel } from './tmFormat';
  */
 export const BLOCK_LABELS: Record<BlockState, string> = {
   WORKING: 'Working',
+  CLICKING_AROUND: 'Clicking around',
   ACTIVE_NO_OUTPUT: 'Active, no output',
   IDLE: 'Idle',
   AWAY: 'Away',
@@ -41,6 +42,13 @@ export default function PersonDayPanel({ mode, tenantId, accessToken, actorId, d
         <>
           <dl className="tm-tiles">
             <div><dt>Active</dt><dd>{minutesText(data.activeMinutes)}</dd><span>idle {minutesText(data.idleMinutes)} · hidden {minutesText(data.hiddenMinutes)}</span></div>
+            {a?.productiveMinutes !== undefined ? (
+              <div>
+                <dt>Productive</dt>
+                <dd>{minutesText(a.productiveMinutes)}</dd>
+                <span>{minutesText(a.activeNoOutputMinutes ?? 0)} active with no output (no output within {data.outputWindowMinutes ?? 20} min)</span>
+              </div>
+            ) : null}
             <div><dt>Output</dt><dd>{data.outputCount}</dd><span>{data.journeysTouched} journeys touched</span></div>
             {data.role === 'REVIEWER' ? (
               <div><dt>Reviewed</dt><dd>{data.journeysReviewed}</dd><span>{data.documentsOpened} documents opened</span></div>
@@ -53,8 +61,11 @@ export default function PersonDayPanel({ mode, tenantId, accessToken, actorId, d
             {a ? (
               <div>
                 <dt>20-minute blocks</dt>
-                <dd>{a.blockCounts.WORKING}<span> working</span></dd>
-                <span>{a.blockCounts.ACTIVE_NO_OUTPUT} active with no output · {a.blockCounts.IDLE} idle · {a.blockCounts.AWAY} away</span>
+                <dd>{a.blockCounts.WORKING ?? 0}<span> working</span></dd>
+                <span>
+                  {a.blockCounts.CLICKING_AROUND ? <strong className="tm-warn">{a.blockCounts.CLICKING_AROUND} clicking around · </strong> : null}
+                  {a.blockCounts.ACTIVE_NO_OUTPUT ?? 0} active with no output · {a.blockCounts.IDLE ?? 0} idle · {a.blockCounts.AWAY ?? 0} away
+                </span>
               </div>
             ) : null}
           </dl>
@@ -68,7 +79,7 @@ export default function PersonDayPanel({ mode, tenantId, accessToken, actorId, d
               <div className="tm-blocks" role="list">
                 {a.blocks.map((b) => (
                   <span key={b.from} role="listitem" className={`tm-block tm-block--${b.state.toLowerCase()}`}
-                    title={`${b.from}–${b.to}: ${BLOCK_LABELS[b.state]} · ${b.outputs} output · ${b.activeMinutes} min active · ${b.idleMinutes} min idle · ${b.hiddenMinutes} min hidden`}>
+                    title={`${b.from}–${b.to}: ${BLOCK_LABELS[b.state]} · ${b.outputs} output · ${b.activeMinutes} min active · ${b.idleMinutes} min idle · ${b.hiddenMinutes} min hidden${b.screenChanges !== undefined ? ` · ${b.screenChanges} screen changes` : ''}`}>
                     {b.from}
                   </span>
                 ))}

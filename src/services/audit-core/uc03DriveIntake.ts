@@ -117,6 +117,7 @@ export type DriveCustomer = {
 export type DriveRunReport = { run: DriveRun; totals: DriveTotals; customers: DriveCustomer[] };
 export type DriveRunList = { items: DriveRun[]; inProgress: number };
 export type DriveFileList = { date: string; totals: DriveTotals; files: DriveListedFile[] };
+export type DriveSearchResult = { query: string; customers: DriveCustomer[]; truncated: boolean };
 
 const base = (tenantId: string) => `/p2/v1/tenants/${encodeURIComponent(tenantId)}`;
 
@@ -162,6 +163,12 @@ export function listDriveRuns(tenantId: string, accessToken?: string, limit = 20
 
 export function getDriveRun(tenantId: string, runId: string, accessToken?: string) {
   return auditCoreRequest<DriveRunReport>(`${base(tenantId)}/drive/runs/${encodeURIComponent(runId)}`,
+    { accessToken, cache: 'no-store' });
+}
+
+/** Customer folders by customer name or OTF number, over every day and run (2026-11-16). */
+export function searchDrive(tenantId: string, query: string, accessToken?: string) {
+  return auditCoreRequest<DriveSearchResult>(`${base(tenantId)}/drive/search?q=${encodeURIComponent(query)}`,
     { accessToken, cache: 'no-store' });
 }
 

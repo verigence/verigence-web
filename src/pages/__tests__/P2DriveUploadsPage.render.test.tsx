@@ -3,7 +3,7 @@ import { renderToString } from 'react-dom/server';
 import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
-import P2DriveUploadsPage from '../P2DriveUploadsPage';
+import P2DriveUploadsPage, { RunReportTable } from '../P2DriveUploadsPage';
 import {
   clockTime,
   rescanPages,
@@ -99,6 +99,24 @@ describe('Drive uploads page', () => {
     const waitingView = render(connection, '/p2/drive-uploads?view=waiting');
     expect(waitingView).toContain('Akansh-456909');
     expect(waitingView).not.toContain('other outlet.pdf');
+  });
+
+  it('offers a search by customer name or OTF number, its results every customer found', () => {
+    role.value = 'PC';
+    expect(render()).toContain('placeholder="Search by customer name or OTF number"');
+    const customers = [
+      { outletId: 'o1', outletName: 'Cuttack', dealerName: 'Aditya Motors', customerFolder: 'Prabodh Kumar Dash-456909',
+        bookingNumber: '456909', journeyId: 'j1', journeyReference: 'ADI-CT-261101-004', pages: 2, pagesRead: 2,
+        pagesToRescan: 0, manualVerificationTasks: 0,
+        files: [{ filename: 'docket.pdf', kind: 'DOCUMENT' as const, state: 'ADDED_TO_BOOKING' as const, detail: null,
+          uploadDate: '2026-11-03', seenAtUtc: null, pages: 2, pagesRead: 2, rescan: [] }] },
+    ];
+    const html = renderToString(
+      <MemoryRouter><RunReportTable customers={customers} initialFilter="all" /></MemoryRouter>,
+    ).replaceAll('<!-- -->', '');
+    expect(html).toContain('Prabodh Kumar Dash-456909');
+    expect(html).toContain('ADI-CT-261101-004');
+    expect(html).toContain('docket.pdf');
   });
 
   it('lets a Team Lead take a day’s files for an outlet or all of theirs', () => {

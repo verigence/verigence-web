@@ -28,6 +28,17 @@ describe('task bundles (product owner 2026-10-28: fewer tasks for the PC)', () =
     expect(questions && isBundle(questions) ? bundleSeverity(questions.tasks) : null).toBe('HIGH');
   });
 
+  it("shows a Team Lead's findings on one booking as one entry", () => {
+    const tasks = [
+      task('tcs', { task_type: 'FINDING_REVIEW', severity: 'HIGH' }),
+      task('deal', { task_type: 'FINDING_REVIEW' }),
+      task('excess', { task_type: 'FINDING_REVIEW' }),
+    ];
+    const entries = bundleTasks('j1', tasks);
+    expect(entries.map((e) => (isBundle(e) ? e.title : e.task_id))).toEqual(['Findings to decide (3)']);
+    expect(entryCount(tasks)).toBe(1);
+  });
+
   it('groups unrecognised pages per file', () => {
     const page = (id: string, file: string) => task(id, { task_type: 'PC_VERIFY_UNRECOGNIZED_DOCUMENT',
       document: { file, pages: [1], reason: null, documentId: null } as P2Task['document'] });

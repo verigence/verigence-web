@@ -19,7 +19,7 @@ export type TaskBundle = {
 
 export type TaskEntry = P2Task | TaskBundle;
 
-type BundleKind = 'names' | 'missing' | 'verify' | 'questions' | 'unread';
+type BundleKind = 'names' | 'missing' | 'verify' | 'questions' | 'unread' | 'findings';
 
 const WRONG_NAME = /^WRONG_[A-Z]+_NAME$/;
 const QUESTIONS = new Set(['PC_CONFIRMATION', 'INSURANCE_SOURCE_CONFIRM']);
@@ -30,6 +30,7 @@ const LABELS: Record<BundleKind, string> = {
   verify: 'Values to check',
   questions: 'Questions to answer',
   unread: 'Not understood',
+  findings: 'Findings to decide',
 };
 
 /** Which kind of bundle a task belongs to, and the key it shares with the
@@ -41,6 +42,9 @@ export function bundleOf(task: P2Task): { kind: BundleKind; key: string } | unde
     return { kind: 'names', key: 'names' };
   }
   if (QUESTIONS.has(task.task_type)) return { kind: 'questions', key: 'questions' };
+  // A Team Lead's findings on one booking are one entry (closing list item 8,
+  // 2026-11-16: one task per journey per issue group); each keeps its own verdict.
+  if (task.task_type === 'FINDING_REVIEW') return { kind: 'findings', key: 'findings' };
   if (task.task_type === 'PC_VERIFY_UNRECOGNIZED_DOCUMENT') {
     return { kind: 'unread', key: `unread:${task.document?.file ?? ''}` };
   }

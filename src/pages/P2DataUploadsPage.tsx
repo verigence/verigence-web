@@ -8,6 +8,7 @@ import '../styles/uc03-p2-data-uploads.css';
 import PageHeader from '../components/PageHeader';
 import SectionCard from '../components/SectionCard';
 import BankStatementsSection from '../features/uc03-p2/data-uploads/BankStatementsSection';
+import DmsOutletReportSection from '../features/uc03-p2/data-uploads/DmsOutletReportSection';
 import {
   DMS_MATCH_BASIS,
   DMS_OUTCOME_LABELS,
@@ -73,10 +74,12 @@ export default function P2DataUploadsPage() {
   const [error, setError] = useState<string | null>(null);
   // Bank statements sit beside the DMS dumps (product owner 14 Nov 2026): ?type=bank links there.
   const [params, setParams] = useSearchParams();
-  const section: 'dms' | 'bank' = params.get('type') === 'bank' ? 'bank' : 'dms';
-  const showSection = (next: 'dms' | 'bank') => {
+  // The outlet-wise report of the DMS dumps (product owner 16 Nov 2026): ?type=outlets.
+  const typeParam = params.get('type');
+  const section: 'dms' | 'outlets' | 'bank' = typeParam === 'bank' ? 'bank' : typeParam === 'outlets' ? 'outlets' : 'dms';
+  const showSection = (next: 'dms' | 'outlets' | 'bank') => {
     const updated = new URLSearchParams(params);
-    if (next === 'bank') updated.set('type', 'bank'); else updated.delete('type');
+    if (next === 'dms') updated.delete('type'); else updated.set('type', next);
     setParams(updated, { replace: true });
     setError(null);
   };
@@ -181,7 +184,9 @@ export default function P2DataUploadsPage() {
         title="Data uploads"
         description={section === 'bank'
           ? "The dealerships' own bank account statements (any bank, PDF or Excel), checked against the payment receipts on file: what is found in the bank, what is not, and per journey what is verified and what is left."
-          : "The dealers' daily DMS booking and delivery reports, matched against the journeys on file. What is not found is listed here and in Export to Excel; the journeys found are marked synced."}
+          : section === 'outlets'
+            ? "The DMS dumps outlet wise, as at a day: the DMS against Verigence and the PCs' gate register, with the DMS's own grouping of outlets."
+            : "The dealers' daily DMS booking and delivery reports, matched against the journeys on file. What is not found is listed here and in Export to Excel; the journeys found are marked synced."}
         actions={section === 'dms' ? (
           <button type="button" className="p2w-button p2w-button--secondary" disabled={!enabled} onClick={() => void exportExcel()}>
             Export to Excel
@@ -190,6 +195,7 @@ export default function P2DataUploadsPage() {
       />
       <div className="p2du-switcher" role="tablist" aria-label="Upload type">
         <button type="button" role="tab" aria-selected={section === 'dms'} onClick={() => showSection('dms')}>DMS dumps</button>
+        <button type="button" role="tab" aria-selected={section === 'outlets'} onClick={() => showSection('outlets')}>Outlet report</button>
         <button type="button" role="tab" aria-selected={section === 'bank'} onClick={() => showSection('bank')}>Bank statements</button>
       </div>
       {error ? <div className="p2w-alert p2w-alert--error" role="alert">{error}</div> : null}
@@ -214,6 +220,9 @@ export default function P2DataUploadsPage() {
           </SectionCard>
           <BankStatementsSection tenantId={tenantId} accessToken={accessToken} month={month} dealerId={dealerId} onError={setError} />
         </>
+      ) : null}
+      {section === 'outlets' ? (
+        <DmsOutletReportSection tenantId={tenantId} accessToken={accessToken} today={today} onError={setError} />
       ) : null}
       {section === 'dms' ? (<>
       {setup.isError ? <div className="p2w-alert p2w-alert--error" role="alert">{setup.error instanceof Error ? setup.error.message : 'Not available.'}</div> : null}

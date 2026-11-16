@@ -155,3 +155,74 @@ export function kindFromFileName(name: string): DmsDumpKind | undefined {
   if (lower.includes('booking')) return 'BOOKING';
   return undefined;
 }
+
+/**
+ * The DMS dumps outlet wise (product owner 16 Nov 2026), month to date as at a day, against
+ * Verigence and the gate register. The DMS keeps some outlets under another's location (Utkal's
+ * ANANDAPUR under KEONJHAR; every Aditya outlet but JAJPUR under CUTTACK): those outlets carry
+ * their own Verigence figures and the location's row compares the DMS with their total.
+ * Audit Core /p2/v1/tenants/{t}/dms-dumps/outlet-report and /outlet-map.
+ */
+export type DmsOutletFigures = Partial<Record<
+  | 'bookingDms' | 'bookingSynced' | 'bookingNotInVerigence' | 'bookingCancelled'
+  | 'deliveryDump' | 'deliverySynced' | 'deliveryNotUploaded' | 'deliveryNotInVerigence'
+  | 'bookingInVerigence' | 'bookingDatedByUpload' | 'deliveryInVerigence' | 'inscope' | 'outscope' | 'otherDealType'
+  | 'dealTypePending' | 'gateRegister' | 'notIntimated' | 'pendingWithPc' | 'registersMissed' | 'countsPending'
+  | 'bookingGap' | 'deliveryGap', number>>;
+
+export type DmsOutletLocation = {
+  dmsOutletId: string;
+  name: string;
+  outlets: { outletId: string; outletName: string; figures: DmsOutletFigures }[];
+  figures: DmsOutletFigures;
+};
+
+export type DmsOutletReport = {
+  date: string;
+  month: string;
+  today: string;
+  figures: DmsOutletFigures;
+  dealers: {
+    dealerId: string;
+    dealerName: string;
+    bookingDumpDate: string | null;
+    deliveryDumpDate: string | null;
+    bookingsTo: string;
+    deliveriesTo: string;
+    locations: DmsOutletLocation[];
+    unmapped: { label: string; figures: DmsOutletFigures }[];
+    figures: DmsOutletFigures;
+  }[];
+};
+
+export type DmsOutletMap = {
+  canEdit: boolean;
+  dealers: {
+    dealerId: string;
+    dealerName: string;
+    outlets: { outletId: string; outletName: string; dmsOutletId: string; labels: string[]; catchAll: boolean }[];
+    labelsSeen: { label: string; rows: number; outletName: string | null; dmsLocation: string | null }[];
+  }[];
+};
+
+export function getDmsOutletReport(tenantId: string, date: string, accessToken?: string) {
+  return auditCoreRequest<DmsOutletReport>(`${base(tenantId)}/dms-dumps/outlet-report?date=${encodeURIComponent(date)}`,
+    { accessToken, cache: 'no-store' });
+}
+
+export async function downloadDmsOutletReport(tenantId: string, date: string, accessToken?: string): Promise<Blob> {
+  const response = await auditCoreRawRequest(`${base(tenantId)}/dms-dumps/outlet-report/file?date=${encodeURIComponent(date)}`,
+    { accessToken });
+  return response.blob();
+}
+
+export function getDmsOutletMap(tenantId: string, accessToken?: string) {
+  return auditCoreRequest<DmsOutletMap>(`${base(tenantId)}/dms-dumps/outlet-map`, { accessToken, cache: 'no-store' });
+}
+
+export function saveDmsOutletMap(tenantId: string, outletId: string,
+  input: { dmsOutletId: string; labels: string[]; catchAll: boolean }, accessToken?: string) {
+  return auditCoreRequest<{ outletId: string; dmsOutletId: string; labels: string[]; catchAll: boolean }>(
+    `${base(tenantId)}/dms-dumps/outlet-map/${encodeURIComponent(outletId)}`,
+    { method: 'PUT', body: JSON.stringify(input), accessToken });
+}

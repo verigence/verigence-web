@@ -143,6 +143,30 @@
 .p2du-why { display: block; margin-top: 2px; font-size: .75rem; }
 .p2du-ok { color: var(--p2w-success); }
 
+/* Outlet report (DMS against Verigence and the gate register, 16 Nov 2026) */
+.p2or-table { font-size: .8rem; }
+.p2or-table th, .p2or-table td { padding: 6px 8px; white-space: nowrap; }
+.p2or-table thead th { vertical-align: bottom; white-space: normal; min-width: 72px; }
+.p2or-table th.p2or-group { text-align: center; border-bottom: 2px solid #0f62fe; background: #e0e0e0; }
+.p2or-table th.p2or-dmshead { background: #edf5ff; }
+.p2or-table .p2or-sticky { position: sticky; left: 0; background: #fff; z-index: 1; min-width: 200px; white-space: normal; }
+.p2or-table thead .p2or-sticky { background: #e0e0e0; z-index: 2; }
+.p2or-table tr.p2or-member td { color: #525252; }
+.p2or-table tr.p2or-member td.p2or-sticky { padding-left: 20px; }
+.p2or-table tr.p2or-location td { background: #f4f4f4; font-weight: 600; }
+.p2or-table tr.p2or-total td { background: #e8daff; font-weight: 600; border-bottom: 2px solid #8d8d8d; }
+.p2or-table tr.p2or-grand td { background: #d0e2ff; font-weight: 600; }
+.p2or-table td.p2or-none { color: #c6c6c6; }
+.p2or-table td.p2or-bad { color: var(--p2w-danger); font-weight: 600; }
+.p2or-table td.p2or-warn { color: #8a5300; font-weight: 600; }
+.p2or-note { display: block; font-weight: 400; font-size: .72rem; color: var(--p2w-muted); }
+.p2or-foot { font-size: .78rem; margin-top: 8px; }
+.p2or-map + .p2or-map { margin-top: 20px; }
+.p2or-map h4 { margin: 0 0 8px; font-size: .9rem; font-weight: 600; }
+.p2or-map input:not([type='checkbox']), .p2or-map select { min-height: 32px; border: 0; border-bottom: 1px solid #8d8d8d; background: #f4f4f4; font: inherit; font-size: .8rem; min-width: 180px; }
+.p2or-actions { display: flex; gap: 8px; align-items: center; }
+.p2or-seen { font-size: .78rem; margin-top: 8px; }
+
 @media (max-width: 767px) {
   .p2du-runfiles thead { display: none; }
   .p2du-runfiles tr.p2du-file-row { display: grid; grid-template-columns: 1fr 1fr; }
@@ -163,4 +187,5 @@
   .p2du-toolbar__end { margin-left: 0; width: 100%; }
   .p2du-switcher { display: flex; width: 100%; }
   .p2du-switcher button { flex: 1; padding: 0 8px; }
+  .p2or-table .p2or-sticky { min-width: 130px; max-width: 150px; }
 }

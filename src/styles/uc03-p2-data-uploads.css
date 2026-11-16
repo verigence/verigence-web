@@ -20,6 +20,9 @@
 
 /* Carbon content switcher */
 .p2du-switcher { display: inline-flex; border: 1px solid #8d8d8d; border-radius: 4px; overflow: hidden; }
+/* Drive uploads search (2026-11-16): one full-width box above the views; its results replace them. */
+.p2du-search { display: block; margin-bottom: 12px; }
+.p2du-search-results { display: grid; gap: 8px; }
 .p2du-switcher button {
   min-height: 40px; padding: 0 16px; border: 0; border-right: 1px solid #8d8d8d; background: #fff;
   color: #161616; font: inherit; font-size: .875rem; cursor: pointer;

@@ -1,4 +1,4 @@
-import { Fragment, useState } from 'react';
+import { Fragment, useDeferredValue, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useSearchParams } from 'react-router-dom';
 import '../styles/uc03-p2.css';
@@ -19,6 +19,7 @@ import {
   listDriveRuns,
   listWaitingDriveFiles,
   rescanPages,
+  searchDrive,
   askDriveAccess,
   clockTime,
   setDriveSettings,
@@ -78,14 +79,14 @@ type RunFilter = 'attention' | 'new' | 'added' | 'all';
  * what needs attention (pages to scan again, not taken, failed, kept for review) when there is any;
  * a file's explanation is shown only where something needs doing.
  */
-export function RunReportTable({ customers }: { customers: DriveCustomer[] }) {
+export function RunReportTable({ customers, initialFilter }: { customers: DriveCustomer[]; initialFilter?: RunFilter }) {
   const counts = {
     attention: customers.filter((c) => c.manualVerificationTasks > 0 || c.files.some(fileNeedsAttention)).length,
     new: customers.filter((c) => c.files.some((f) => f.state === 'NEW_BOOKING')).length,
     added: customers.filter((c) => c.files.some((f) => f.state === 'ADDED_TO_BOOKING' || f.state === 'TAKEN')).length,
     all: customers.length,
   };
-  const [filter, setFilter] = useState<RunFilter>(counts.attention ? 'attention' : 'all');
+  const [filter, setFilter] = useState<RunFilter>(initialFilter ?? (counts.attention ? 'attention' : 'all'));
   const shown = customers.filter((c) => (filter === 'all' ? true
     : filter === 'attention' ? c.manualVerificationTasks > 0 || c.files.some(fileNeedsAttention)
       : filter === 'new' ? c.files.some((f) => f.state === 'NEW_BOOKING')
@@ -424,6 +425,9 @@ export default function P2DriveUploadsPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  // Search by customer or OTF number, over every day and run (product owner 2026-11-16).
+  const [search, setSearch] = useState('');
+  const searchTerm = useDeferredValue(search.trim());
 
   const enabled = Boolean(tenantId && accessToken);
   const connection = useQuery({
@@ -437,6 +441,11 @@ export default function P2DriveUploadsPage() {
     queryFn: () => listDriveRuns(tenantId!, accessToken),
     enabled: enabled && connected,
     refetchInterval: (query) => (query.state.data?.inProgress ? 15_000 : 60_000),
+  });
+  const found = useQuery({
+    queryKey: ['p2-drive-search', tenantId, searchTerm],
+    queryFn: () => searchDrive(tenantId!, searchTerm, accessToken),
+    enabled: enabled && connected && searchTerm.length >= 2,
   });
   const waiting = useQuery({
     queryKey: ['p2-drive-waiting', tenantId],
@@ -618,6 +627,30 @@ export default function P2DriveUploadsPage() {
           </section>
 
           <SectionCard>
+            <label className="p2w-search p2du-search">
+              <span className="p2w-visually-hidden">Search by customer or OTF number</span>
+              <input type="search" value={search} onChange={(event) => setSearch(event.target.value)}
+                placeholder="Search by customer name or OTF number" autoComplete="off" />
+            </label>
+            {searchTerm.length >= 2 ? (
+              <div className="p2du-search-results" aria-live="polite">
+                {found.isLoading ? <p className="p2w-muted">Searching…</p> : null}
+                {found.isError ? <div className="p2w-alert p2w-alert--error" role="alert">The search could not be run. Try again.</div> : null}
+                {found.data && !found.data.customers.length ? (
+                  <p className="p2w-empty">No customer folder matches “{searchTerm}”.</p>
+                ) : null}
+                {found.data?.customers.length ? (
+                  <>
+                    <p className="p2w-muted">
+                      {plural(found.data.customers.length, 'customer folder')} match “{searchTerm}”
+                      {found.data.truncated ? ' (the first 50; type more to narrow it)' : ''}.
+                    </p>
+                    <div className="p2du-scroll"><RunReportTable key={searchTerm} customers={found.data.customers} initialFilter="all" /></div>
+                  </>
+                ) : null}
+              </div>
+            ) : null}
+            {searchTerm.length >= 2 ? null : (<>
             <div className="p2du-switcher" role="tablist" aria-label="Drive uploads">
               {DRIVE_VIEWS.map((v) => (
                 <button key={v.key} type="button" role="tab" aria-selected={view === v.key} onClick={() => setView(v.key)}>
@@ -677,6 +710,7 @@ export default function P2DriveUploadsPage() {
                 ) : null}
               </div>
             ) : null}
+            </>)}
           </SectionCard>
         </>
       ) : null}

@@ -21,7 +21,7 @@ import CancelLeaveDialog from '../../features/hr/leave/CancelLeaveDialog';
 import EarningSummary from '../../features/hr/leave/EarningSummary';
 import LeaveRequestList from '../../features/hr/leave/LeaveRequestList';
 import { formatDate } from '../../features/hr/hrLabels';
-import { formatDays, istToday, leaveErrorMessage, leaveTypeLabels, waitingFor } from '../../features/hr/leave/leaveLogic';
+import { availableByType, formatDays, istToday, leaveErrorMessage, leaveTypeLabels, waitingFor } from '../../features/hr/leave/leaveLogic';
 import { leaveKeys, yearChoices } from '../../features/hr/leave/leaveQueries';
 import '../../styles/hr-leave.css';
 
@@ -212,6 +212,7 @@ export default function HrLeavePage() {
             <ApplyLeaveForm
               prefill={prefill}
               earning={earning.data}
+              available={availableByType(balance.data)}
               busy={apply.isPending}
               serverError={applyError}
               onEdit={() => { if (applyError) setApplyError(''); }}

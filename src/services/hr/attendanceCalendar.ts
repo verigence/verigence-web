@@ -28,7 +28,9 @@ export type CalendarStatus =
   | 'LEFT';
 
 // CHECK_OUT: a missed check-out, recorded at the time asked once approved (2026-11-10).
-export type CorrectionKind = 'FULL_DAY' | 'HALF_DAY' | 'CHECK_OUT';
+// ADJUST: the check-in earlier, the check-out later (or recorded), and/or a location counted as at
+// the outlet; written to the day once approved (2026-11-16).
+export type CorrectionKind = 'FULL_DAY' | 'HALF_DAY' | 'CHECK_OUT' | 'ADJUST';
 export type CorrectionStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'CANCELLED';
 
 export interface CalendarLeave {
@@ -43,6 +45,32 @@ export interface CalendarCorrection {
   requested: CorrectionKind;
   reason: string;
   status: 'PENDING' | 'APPROVED';
+  checkInAt?: string | null;
+  checkOutAt?: string | null;
+  locationCheckIn?: boolean;
+  locationCheckOut?: boolean;
+}
+
+/**
+ * A person's month so far (2026-11-16): late check-ins and how late (from the standard check-in),
+ * early check-outs and how early (to the standard check-out), and the average hours a day. Past
+ * either limit, that month's attendance requests go to a Project Manager or Executive; `note` says why.
+ */
+export interface MonthStats {
+  month: string;
+  countedTo: string;
+  lateCheckIns: number;
+  lateMinutes: number;
+  earlyCheckOuts: number;
+  earlyMinutes: number;
+  lateEarlyMinutes: number;
+  daysClocked: number;
+  averageMinutes: number | null;
+  expectedHours: number;
+  limits: { lateEarlyHours: number; averageHoursBelow: number };
+  escalated: boolean;
+  reasons: Array<'LATE_EARLY_HOURS' | 'LOW_AVERAGE'>;
+  note: string | null;
 }
 
 export interface CalendarDay {
@@ -64,7 +92,8 @@ export interface CalendarDay {
   runningMinutes: number | null;
   leave: CalendarLeave | null;
   correction: CalendarCorrection | null;
-  exceptions: Array<{ kind: string; status: 'PENDING' | 'APPROVED' | 'REJECTED' }>;
+  /** RESOLVED: answered by an approved time or location correction (2026-11-16). */
+  exceptions: Array<{ kind: string; status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'RESOLVED'; event?: 'CHECK_IN' | 'CHECK_OUT' }>;
   /** Absent because there was no check-in by 17:00. */
   markedBySystem: boolean;
   /** Only in a month calendar: false for the days of the weeks that spill into the next/previous month. */
@@ -85,6 +114,8 @@ export interface AttendanceCalendar {
   absentAfter: string;
   minimumHours: number;
   totals: { minutes: number; daysWorked: number; statusCounts: Partial<Record<CalendarStatus, number>> };
+  /** Absent from services before 16 Nov 2026. */
+  monthStats?: MonthStats;
   weeks: CalendarWeek[];
   employeeId?: string;
   employeeCode?: string;
@@ -220,13 +251,22 @@ export interface Correction {
   correctionId: string;
   workDate: string;
   requested: CorrectionKind;
-  /** CHECK_OUT only: the time the person left. */
+  /** CHECK_OUT and ADJUST: the time the person left. */
   checkOutAt?: string | null;
+  /** ADJUST: the time the person arrived, and which locations count as at the outlet. */
+  checkInAt?: string | null;
+  locationCheckIn?: boolean;
+  locationCheckOut?: boolean;
+  /** An approved ADJUST: what the day had before it was written. */
+  previousCheckInAt?: string | null;
+  previousCheckOutAt?: string | null;
   reason: string;
   status: CorrectionStatus;
   decisionNote: string | null;
   decidedAt: string | null;
   createdAt: string;
+  /** A waiting request that only a Project Manager or Executive can approve, and why. */
+  approvalNote?: string | null;
 }
 
 export interface CorrectionApproval extends Correction {
@@ -236,8 +276,13 @@ export interface CorrectionApproval extends Correction {
   day: {
     checkInAt: string | null;
     checkOutAt: string | null;
-    exceptions: Array<{ kind: string; status: string }>;
+    checkInDistanceM?: number | null;
+    checkOutDistanceM?: number | null;
+    checkInOutletName?: string | null;
+    checkOutOutletName?: string | null;
+    exceptions: Array<{ kind: string; status: string; event?: string }>;
   };
+  monthStats?: MonthStats;
   /** Pending requests only (12 Nov 2026): leave taken in the 4 weeks before the day asked about. */
   recentLeave?: RecentLeave;
   /** Pending requests only (12 Nov 2026): average hours a week over the 6 weeks before. */
@@ -272,7 +317,15 @@ export const getTeamWeekly = (token: string, date?: string, projectCode?: string
 
 export const raiseCorrection = (
   token: string,
-  body: { workDate: string; requested: CorrectionKind; reason: string; checkOutTime?: string },
+  body: {
+    workDate: string;
+    requested: CorrectionKind;
+    reason: string;
+    checkOutTime?: string;
+    checkInTime?: string;
+    locationCheckIn?: boolean;
+    locationCheckOut?: boolean;
+  },
 ) =>
   hrRequest<Correction>(`${base}/attendance/corrections`, { accessToken: token, method: 'POST', body });
 

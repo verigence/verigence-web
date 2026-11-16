@@ -39,6 +39,8 @@ const flagLabels: Record<string, string> = {
   OFF_DAY: 'Worked on a day off',
   OFF_HALF: 'Worked the off half of a half-day holiday',
   MISSING_CHECK_OUT: 'Missing check-out',
+  APPROVED_CORRECTION: 'Time corrected (approved request)',
+  LOCATION_CORRECTED: 'Location corrected (approved request)',
 };
 
 const exceptionLabels: Record<ExceptionKind, string> = {
@@ -62,12 +64,14 @@ export const exceptionStatusLabels: Record<ExceptionStatus, string> = {
   PENDING: 'Waiting for a decision',
   APPROVED: 'Approved',
   REJECTED: 'Rejected',
+  RESOLVED: 'Corrected (approved correction)',
 };
 
 export const exceptionStatusTone: Record<ExceptionStatus, string> = {
   PENDING: 'pending',
   APPROVED: 'active',
   REJECTED: 'suspended',
+  RESOLVED: 'active',
 };
 
 export function flagLabel(flag: string): string {

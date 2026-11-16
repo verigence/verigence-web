@@ -4,6 +4,7 @@ import type { CalendarDay } from '../../../../services/hr/attendanceCalendar';
 import {
   absentAfterFor,
   canRequestCorrection,
+  correctionAskFor,
   dayHolidaysText,
   halfDayHolidayText,
   dayLabel,
@@ -65,7 +66,7 @@ describe('day words', () => {
 });
 
 describe('corrections', () => {
-  it('offers a correction only for a past working day that does not count in full', () => {
+  it('offers a correction for an absent past working day, or any day with a check-in', () => {
     expect(canRequestCorrection(day({}), '2026-10-09', false)).toBe(true);
     // A day of the previous calendar month cannot be raised (product owner, 7 Nov 2026).
     expect(canRequestCorrection(day({ date: '2026-09-30' }), '2026-10-09', false)).toBe(false);
@@ -76,6 +77,36 @@ describe('corrections', () => {
     expect(
       canRequestCorrection(day({ correction: { correctionId: 'c', requested: 'FULL_DAY', reason: 'x', status: 'PENDING' } }), '2026-10-09', false),
     ).toBe(false);
+    // A present day can have its times or location corrected (16 Nov 2026), and again after an
+    // approved time correction, but not while one waits or once a full day is approved.
+    const present = day({ status: 'PRESENT', checkInAt: '2026-10-07T06:10:00Z', checkOutAt: '2026-10-07T13:30:00Z' });
+    expect(canRequestCorrection(present, '2026-10-09', false)).toBe(true);
+    const adjusted = { correctionId: 'c', requested: 'ADJUST' as const, reason: 'x', status: 'APPROVED' as const };
+    expect(canRequestCorrection({ ...present, correction: adjusted }, '2026-10-09', false)).toBe(true);
+    expect(canRequestCorrection({ ...present, correction: { ...adjusted, status: 'PENDING' } }, '2026-10-09', false)).toBe(false);
+    expect(canRequestCorrection({ ...present, correction: { ...adjusted, requested: 'FULL_DAY' } }, '2026-10-09', false)).toBe(false);
+  });
+
+  it('says what a day had for the dialog', () => {
+    const late = day({
+      status: 'HALF_DAY',
+      checkInAt: '2026-10-07T06:10:00Z',
+      checkOutAt: '2026-10-07T13:30:00Z',
+      exceptions: [
+        { kind: 'LATE_CHECK_IN', status: 'REJECTED', event: 'CHECK_IN' },
+        { kind: 'OUT_OF_FENCE', status: 'PENDING', event: 'CHECK_OUT' },
+      ],
+    });
+    expect(correctionAskFor(late, '2026-10-09')).toEqual({
+      date: late.date,
+      missesCheckOut: false,
+      checkInAt: '2026-10-07T06:10:00Z',
+      checkOutAt: '2026-10-07T13:30:00Z',
+      outOfFenceIn: false,
+      outOfFenceOut: true,
+      canCountDay: true,
+    });
+    expect(correctionAskFor({ ...late, status: 'PRESENT' }, '2026-10-09').canCountDay).toBe(false);
   });
 
   it('offers recording a missed check-out, today as well (10 Nov 2026)', () => {

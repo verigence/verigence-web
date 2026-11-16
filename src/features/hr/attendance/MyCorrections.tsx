@@ -5,7 +5,8 @@ import { hrErrorMessage } from '../../../services/hr/client';
 import { useSessionStore } from '../../../store/sessionStore';
 import { attendanceKeys } from './attendanceQueries';
 import { formatTimeIst, formatWorkDate } from './attendanceFormat';
-import { correctionKindLabels, correctionLabels } from './calendarFormat';
+import { correctionLabels } from './calendarFormat';
+import { correctionAskedText } from './requestFormat';
 
 const tone: Record<string, string> = { PENDING: 'warm-gray', APPROVED: 'green', REJECTED: 'red', CANCELLED: 'cool-gray' };
 
@@ -39,7 +40,7 @@ export default function MyCorrections() {
   }
   const items = list.data ?? [];
   if (items.length === 0) {
-    return <p className="hr-att-hint">No correction requests. Pick a day on the calendar to ask for one.</p>;
+    return <p className="hr-att-hint">No attendance correction requests yet.</p>;
   }
   return (
     <>
@@ -49,10 +50,10 @@ export default function MyCorrections() {
           <li key={c.correctionId}>
             <div>
               <strong>{formatWorkDate(c.workDate)}</strong>
-              <small>
-                {correctionKindLabels[c.requested]}
-                {c.requested === 'CHECK_OUT' && c.checkOutAt ? ` at ${formatTimeIst(c.checkOutAt)}` : ''} · {c.reason}
-              </small>
+              <small>{correctionAskedText(c)} · {c.reason}</small>
+              {c.status === 'APPROVED' && c.previousCheckInAt && <small>Recorded before: check-in {formatTimeIst(c.previousCheckInAt)}</small>}
+              {c.status === 'APPROVED' && c.previousCheckOutAt && <small>Recorded before: check-out {formatTimeIst(c.previousCheckOutAt)}</small>}
+              {c.approvalNote && <small className="hr-cal-requests__note">{c.approvalNote}</small>}
               {c.decisionNote && <small>Note: {c.decisionNote}</small>}
             </div>
             <span className={`hr-tag hr-tag--${tone[c.status]}`}>{correctionLabels[c.status]}</span>

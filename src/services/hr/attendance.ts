@@ -26,7 +26,8 @@ export type AttendanceEvent = 'CHECK_IN' | 'CHECK_OUT';
 export type AttendanceDayStatus = 'ABSENT' | 'PENDING_APPROVAL' | 'EXCEPTION_REJECTED' | 'CHECKED_IN' | 'COMPLETE';
 type AttendanceDayKind = 'WORKING' | 'SUNDAY' | 'HOLIDAY';
 export type ExceptionKind = 'OUT_OF_FENCE' | 'NO_OUTLET_LOCATION' | 'LATE_CHECK_IN' | 'EARLY_CHECK_OUT' | 'OFF_DAY_WORK' | 'SHORT_DAY';
-export type ExceptionStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
+// RESOLVED: answered by an approved time or location correction (2026-11-16).
+export type ExceptionStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'RESOLVED';
 
 export interface CaptureToken {
   token: string;

@@ -196,3 +196,9 @@
 @media (max-width: 760px) {
   .uc01-admin-button.hr-sort-phone { display: inline-flex; align-self: flex-start; margin: 0 0 8px; }
 }
+/* The month's late, early and average hours (2026-11-16). */
+.hr-month-stats { margin: 0 0 16px; }
+.hr-month-stats .hr-cal-tiles { margin-bottom: 8px; }
+.hr-month-stats .uc01-admin-message { margin: 0 0 8px; }
+.hr-cal-requests__note { color: #da1e28; }
+.hr-req-kind { margin: 0 0 16px; }

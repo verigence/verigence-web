@@ -341,3 +341,11 @@ export function dayPartWords(dayPart: NoteHoliday['dayPart']): string {
   if (dayPart === 'AFTERNOON') return 'afternoon off';
   return '';
 }
+
+/** Days available per type from a loaded balance, for the apply form (nothing while it loads). */
+export function availableByType(balance: { types: Array<{ leaveType: string; available: number }> } | undefined): Partial<Record<ApplyLeaveType, number>> | undefined {
+  if (!balance) return undefined;
+  const out: Partial<Record<ApplyLeaveType, number>> = {};
+  for (const t of balance.types) out[t.leaveType as ApplyLeaveType] = t.available;
+  return out;
+}

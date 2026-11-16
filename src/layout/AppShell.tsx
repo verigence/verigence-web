@@ -381,7 +381,7 @@ const routeLabels: Record<string, string> = {
   '/admin/users/pending': 'Pending Approvals',
   '/admin/oem-masters': 'OEM Masters', '/admin/reports': 'Reports', '/admin/project': 'Project Administration', '/profile': 'Profile',
   '/hr/employees': 'Employees', '/hr/employees/new': 'Add Employee', '/hr/employees/import': 'Import Employees', '/hr/employees/designation-salary-import': 'Import Designation and Salary', '/hr/me': 'My Employee Profile',
-  '/p2/home': 'Home', '/p2/tracker': 'My Tracker', '/p2/bulk-upload': 'Bulk upload', '/p2/drive-uploads': 'Drive uploads', '/hr/attendance': 'Attendance', '/hr/attendance/team': 'Team Attendance', '/hr/attendance/daily': 'Daily Attendance', '/hr/attendance/overview': 'Attendance Overview', '/hr/assignments': 'Project Assignments', '/hr/leave': 'Leave', '/hr/leave/overview': 'Leave Overview', '/hr/oversight': 'Team Lead Approvals',
+  '/p2/home': 'Home', '/p2/tracker': 'My Tracker', '/p2/bulk-upload': 'Bulk upload', '/p2/drive-uploads': 'Drive uploads', '/hr/attendance': 'Attendance', '/hr/attendance/team': 'Team Attendance', '/hr/attendance/daily': 'Daily Attendance', '/hr/attendance/overview': 'Attendance Overview', '/hr/assignments': 'Project Assignments', '/hr/leave': 'Leave', '/hr/requests': 'My Requests', '/hr/leave/overview': 'Leave Overview', '/hr/oversight': 'Team Lead Approvals',
   '/hr/claims': 'Reimbursements', '/hr/claims/new': 'New Claim', '/hr/claims/all': 'All Claims', '/hr/approvals': 'Approvals',
   '/hr/payslips': 'Payslips', '/hr/salary': 'My Salary', '/hr/messages': 'Employee Messages', '/hr/payroll': 'Payroll', '/hr/payroll/salaries': 'Salaries', '/hr/payroll/settings': 'Payroll Settings', '/hr/settings': 'HR Settings',
 };
@@ -624,6 +624,7 @@ export default function AppShell({ children }: PropsWithChildren) {
     const anyOf = (...keys: string[]) => keys.some((key) => can(key));
     if (hrAccess.isEmployee) {
       items.push({ to: '/hr/attendance', label: 'Attendance', mark: 'HA' });
+      items.push({ to: '/hr/requests', label: 'My Requests', mark: 'CR' });
       items.push({ to: '/hr/leave', label: 'Leave', mark: 'HL' });
       items.push({ to: '/hr/claims', label: 'Reimbursements', mark: 'HR' });
       items.push({ to: '/hr/approvals', label: 'Approvals', mark: 'HV' });

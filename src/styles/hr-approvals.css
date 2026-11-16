@@ -125,3 +125,5 @@
 }
 .hr-appr-grace--over { color: #b54708; font-weight: 600; }
 .hr-appr-table td > small.hr-appr-recent { color: #393939; overflow-wrap: anywhere; }
+/* Only a Project Manager or Executive can approve it (2026-11-16). */
+.hr-appr-table td > small.hr-appr-escalated { color: #da1e28; font-weight: 600; }

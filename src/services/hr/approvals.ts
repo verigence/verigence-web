@@ -1,4 +1,5 @@
 import { hrRawRequest, hrRequest } from './client';
+import type { MonthStats } from './attendanceCalendar';
 import type { RecentLeave, WeeklyHours } from './leave';
 
 /**
@@ -61,6 +62,10 @@ export interface AttendanceApproval {
   outletName: string | null;
   /** Late check-ins and early check-outs together this month against the grace allowed (late/early only). */
   grace?: AttendanceGrace | null;
+  /** The person's month so far (2026-11-16). */
+  monthStats?: MonthStats;
+  /** Set when only a Project Manager or Executive can approve it, saying why. */
+  approvalNote?: string | null;
 }
 
 export interface AttendanceGrace {

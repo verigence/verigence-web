@@ -148,7 +148,15 @@ export default function HrAttendancePage() {
           <TodayCard
             today={data}
             onStart={(event) => void start(event)}
-            onAskCheckOut={() => setCorrecting({ date: data.workDate, missesCheckOut: true })}
+            onAskCheckOut={() => setCorrecting({
+              date: data.workDate,
+              missesCheckOut: true,
+              checkInAt: data.day?.checkIn?.at ?? null,
+              checkOutAt: null,
+              outOfFenceIn: Boolean(data.day?.checkIn?.flags.includes('OUT_OF_FENCE')),
+              outOfFenceOut: false,
+              canCountDay: false,
+            })}
             disabled={capturing !== null || today.isFetching || checkingOut}
           />
         )}
@@ -170,8 +178,9 @@ export default function HrAttendancePage() {
       </SectionCard>
 
       <SectionCard
-        title="My correction requests"
-        description="Ask for a day to count as a full day or a half day. Your Team Lead or Project Manager decides."
+        title="My Requests"
+        description="Your attendance correction requests. Tap a day on the calendar to raise one; leave and attendance requests can both be raised from My Requests."
+        action={<Link className="uc01-admin-button" to="/hr/requests">Open My Requests</Link>}
       >
         <MyCorrections />
       </SectionCard>
@@ -197,6 +206,7 @@ export default function HrAttendancePage() {
           workDate={correcting.date}
           missesCheckOut={correcting.missesCheckOut}
           isToday={correcting.date === data?.workDate}
+          ask={correcting}
           onClose={() => setCorrecting(null)}
           onDone={(message) => { setCorrecting(null); setNotice(message); }}
         />

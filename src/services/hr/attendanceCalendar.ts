@@ -53,8 +53,9 @@ export interface CalendarCorrection {
 
 /**
  * A person's month so far (2026-11-16): late check-ins and how late (from the standard check-in),
- * early check-outs and how early (to the standard check-out), and the average hours a day. Past
- * either limit, that month's attendance requests go to a Project Manager or Executive; `note` says why.
+ * early check-outs and how early (to the standard check-out), and the average hours a day (shown,
+ * not enforced). Past the late/early limit, that month's attendance requests go to a Project Manager
+ * or Executive; `note` says why.
  */
 export interface MonthStats {
   month: string;
@@ -67,9 +68,9 @@ export interface MonthStats {
   daysClocked: number;
   averageMinutes: number | null;
   expectedHours: number;
-  limits: { lateEarlyHours: number; averageHoursBelow: number };
+  limits: { lateEarlyHours: number };
   escalated: boolean;
-  reasons: Array<'LATE_EARLY_HOURS' | 'LOW_AVERAGE'>;
+  reasons: Array<'LATE_EARLY_HOURS'>;
   note: string | null;
 }
 

@@ -16,7 +16,8 @@ The app's build number is added by the release workflow and is not written here.
 - **My HR – My Requests** (new page): raise a leave request or an attendance correction from one place, and see where every leave and attendance request stands. Attendance has a **My Requests** section with a link to it.
 - **Attendance correction – time or location**: for a day you checked in, ask for the check-in time to be earlier, the check-out time to be later (or recorded if you forgot), or for your check-in or check-out location to count as at your outlet when it was shown outside. Once approved the day is updated; the times first recorded are kept with the request.
 - **Attendance – this month**: your late check-ins and how late in all, early check-outs and how early, and your average hours a day against the 9 expected. Approvers see the same with every attendance request.
-- **Approvals by a Project Manager or Executive**: when someone's late check-ins and early check-outs add up to more than 10 hours in a month, or their average falls below 7 hours a day, their attendance requests for that month go to their Project Manager or Executive instead of the Team Lead. The request says why, and the employee is told by email and on the Attendance page.
+- **Approvals by a Project Manager or Executive**: when someone's late check-ins and early check-outs add up to more than 10 hours in a month, their attendance requests for that month go to their Project Manager or Executive instead of the Team Lead. The request says why, and the employee is told by email and on the Attendance page. The average hours a day are shown for information only.
+- **A Team Lead's own attendance requests** (late, early, location, short day and corrections) go to the Project Manager or Executive, never to another Team Lead.
 
 ### Changed
 - **Apply for leave**: paid leave and comp-off cannot be chosen when none is available; the form shows how many days are available.

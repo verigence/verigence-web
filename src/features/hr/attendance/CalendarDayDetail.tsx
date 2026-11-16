@@ -1,6 +1,7 @@
 import type { CalendarDay } from '../../../services/hr/attendanceCalendar';
 import { exceptionLabel, exceptionStatusLabels, formatTimeIst, formatWorkDate } from './attendanceFormat';
-import { absentAfterFor, calendarTag, correctionKindLabels, dayLabel, formatMinutes, halfDayHolidayText } from './calendarFormat';
+import { absentAfterFor, calendarTag, dayLabel, formatMinutes, halfDayHolidayText } from './calendarFormat';
+import { correctionAskedText } from './requestFormat';
 
 interface Props {
   day: CalendarDay;
@@ -48,7 +49,7 @@ export default function CalendarDayDetail({ day, absentAfter, onRequestCorrectio
       )}
       {day.correction && (
         <p className="hr-cal-detail__note">
-          Correction to a {correctionKindLabels[day.correction.requested].toLowerCase()}:{' '}
+          Correction asked ({correctionAskedText(day.correction).toLowerCase()}):{' '}
           {day.correction.status === 'APPROVED' ? 'approved' : 'waiting for a decision'}. Reason: {day.correction.reason}
         </p>
       )}

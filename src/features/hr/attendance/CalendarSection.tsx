@@ -6,7 +6,8 @@ import { hrErrorMessage } from '../../../services/hr/client';
 import AttendanceCalendar from './AttendanceCalendar';
 import CalendarDayDetail from './CalendarDayDetail';
 import { hhmmIst, todayIst } from './attendanceFormat';
-import { calendarTag, canRequestCorrection, formatMinutes, missesCheckOut, type CorrectionAsk } from './calendarFormat';
+import { calendarTag, canRequestCorrection, correctionAskFor, formatMinutes, type CorrectionAsk } from './calendarFormat';
+import MonthStatsPanel from './MonthStatsPanel';
 
 interface Props {
   query: UseQueryResult<CalendarData>;
@@ -55,6 +56,7 @@ export default function CalendarSection({ query, onRequestCorrection }: Props) {
         <div><span>Leave applied</span><strong>{counts.LEAVE_APPLIED ?? 0}</strong><small>not yet approved</small></div>
         <div><span>Waiting</span><strong>{counts.PENDING_APPROVAL ?? 0}</strong></div>
       </div>
+      {data.monthStats && <MonthStatsPanel stats={data.monthStats} own={Boolean(onRequestCorrection)} />}
       <ul className="hr-cal-legend" aria-label="Legend">
         {LEGEND.map(([status, text]) => (
           <li key={status}><span className={`hr-cal-swatch hr-cal-swatch--${calendarTag[status]}`} aria-hidden="true" />{text}</li>
@@ -71,7 +73,7 @@ export default function CalendarSection({ query, onRequestCorrection }: Props) {
           absentAfter={data.absentAfter}
           onRequestCorrection={
             onRequestCorrection && canRequestCorrection(current, today, closed)
-              ? () => onRequestCorrection({ date: current.date, missesCheckOut: missesCheckOut(current) })
+              ? () => onRequestCorrection(correctionAskFor(current, today))
               : undefined
           }
         />

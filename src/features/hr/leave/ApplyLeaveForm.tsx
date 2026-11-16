@@ -27,9 +27,17 @@ interface Props {
   prefill?: { fromDate: string; toDate: string };
   /** The earning settings, when loaded, so the paid leave hint shows the real numbers. */
   earning?: { attendanceDaysNeeded: number; paidDaysEarned: number };
+  /**
+   * Days available (balance less waiting requests) per type, when the balance is loaded. Paid leave
+   * and comp-off with nothing available cannot be chosen (product owner, 12 and 16 Nov 2026); the
+   * server refuses them anyway.
+   */
+  available?: Partial<Record<ApplyLeaveType, number>>;
 }
 
 const TYPES: ApplyLeaveType[] = ['PAID', 'SPECIAL', 'COMP_OFF', 'UNPAID'];
+/** The types whose balance is known up front; birthday leave depends on the dates chosen. */
+const BALANCE_CHECKED: ApplyLeaveType[] = ['PAID', 'COMP_OFF'];
 
 const empty: ApplyForm = { leaveType: '', fromDate: '', toDate: '', halfDay: false, reason: '' };
 
@@ -39,12 +47,15 @@ function paidHint(earning: Props['earning']): string {
   return `Paid leave is earned: ${dayWord(earned)} for every ${needed} days of attendance (see 'How you earn paid leave' above).`;
 }
 
-export default function ApplyLeaveForm({ busy, serverError, onSubmit, onEdit, prefill, earning }: Props) {
+export default function ApplyLeaveForm({ busy, serverError, onSubmit, onEdit, prefill, earning, available }: Props) {
   const [form, setForm] = useState<ApplyForm>(() => (prefill ? { ...empty, ...prefill } : empty));
   const [errors, setErrors] = useState<ApplyErrors>({});
   const [summary, setSummary] = useState('');
   const today = istToday();
   const singleDay = Boolean(form.fromDate) && form.fromDate === form.toDate;
+  /** Nothing of this type left to apply for. */
+  const noneLeft = (t: ApplyLeaveType) => BALANCE_CHECKED.includes(t) && available?.[t] !== undefined && (available[t] ?? 0) <= 0;
+  const chosenLeft = form.leaveType && BALANCE_CHECKED.includes(form.leaveType) ? available?.[form.leaveType] : undefined;
 
   // A date chosen elsewhere on the page replaces the dates here; the type and reason are kept.
   // Each choice is a new object, so choosing the same date again also puts it back.
@@ -84,6 +95,11 @@ export default function ApplyLeaveForm({ busy, serverError, onSubmit, onEdit, pr
     event.preventDefault();
     if (busy) return;
     const found = validateApply(form, today);
+    if (form.leaveType && noneLeft(form.leaveType)) {
+      found.leaveType = `You have no ${leaveTypeLabels[form.leaveType].toLowerCase()} available. Apply for unpaid leave instead.`;
+    } else if (chosenLeft !== undefined && chosenLeft < 1 && !form.halfDay && form.fromDate && form.fromDate === form.toDate) {
+      found.halfDay = `Only ${chosenLeft} day of ${leaveTypeLabels[form.leaveType as ApplyLeaveType].toLowerCase()} is available: apply for a half day.`;
+    }
     setErrors(found);
     if (Object.keys(found).length > 0) {
       setSummary('Some details need attention. They are marked below.');
@@ -107,10 +123,15 @@ export default function ApplyLeaveForm({ busy, serverError, onSubmit, onEdit, pr
             onChange={(e) => change({ leaveType: e.target.value as ApplyLeaveType | '' })}
           >
             <option value="">Choose…</option>
-            {TYPES.map((t) => <option key={t} value={t}>{leaveTypeLabels[t]}</option>)}
+            {TYPES.map((t) => (
+              <option key={t} value={t} disabled={noneLeft(t)}>
+                {leaveTypeLabels[t]}{noneLeft(t) ? ' (none available)' : ''}
+              </option>
+            ))}
           </select>
           {errors.leaveType && <span className="hr-field__error">{errors.leaveType}</span>}
           {form.leaveType === 'PAID' && <span className="hr-field__hint">{paidHint(earning)}</span>}
+          {chosenLeft !== undefined && <span className="hr-field__hint">Available now: {chosenLeft} {chosenLeft === 1 ? 'day' : 'days'}.</span>}
           {form.leaveType === 'COMP_OFF' && <span className="hr-field__hint">Earned by approved work on a Sunday or holiday.</span>}
           {form.leaveType === 'UNPAID' && <span className="hr-field__hint">Unpaid leave does not use any balance. HR decides it.</span>}
           {form.leaveType === 'SPECIAL' && (

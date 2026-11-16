@@ -3,6 +3,8 @@ import { useQuery } from '@tanstack/react-query';
 import { decideCorrection, listCorrectionApprovals, type CorrectionApproval } from '../../../services/hr/attendanceCalendar';
 import { useSessionStore } from '../../../store/sessionStore';
 import { recentLeaveText, weeklyHoursText } from '../leave/leaveLogic';
+import { correctionAskedText } from '../attendance/requestFormat';
+import MonthStatsLine from './MonthStatsLine';
 import ApprovalListFrame from './ApprovalListFrame';
 import ApprovalPerson from './ApprovalPerson';
 import { attendanceKindLabels, dateAgeLabel, daysSinceDate, formatDate, formatTimeIst, isOldDays, label } from './approvalFormat';
@@ -10,11 +12,8 @@ import { approvalKeys } from './approvalKeys';
 import DecisionButtons from './DecisionButtons';
 import { useDecisionFlow } from './useDecisionFlow';
 
-const kindText = { FULL_DAY: 'Full day', HALF_DAY: 'Half day', CHECK_OUT: 'Check-out' } as const;
-
-/** "Full day", or "Check-out at 18:40" for a missed check-out (2026-11-10). */
-const askedFor = (x: CorrectionApproval) =>
-  x.requested === 'CHECK_OUT' && x.checkOutAt ? `Check-out at ${formatTimeIst(x.checkOutAt)}` : kindText[x.requested];
+/** "Full day", "Check-out at 6:40 pm", or the times and locations of a time correction (2026-11-16). */
+const askedFor = (x: CorrectionApproval) => correctionAskedText(x);
 
 export function useCorrectionApprovals() {
   const accessToken = useSessionStore((state) => state.accessToken);
@@ -27,9 +26,9 @@ export function useCorrectionApprovals() {
   });
 }
 
-const subjectOf = (x: CorrectionApproval) => x.requested === 'CHECK_OUT'
-  ? `${x.employeeName}, ${askedFor(x).toLowerCase()} on ${formatDate(x.workDate)}`
-  : `${x.employeeName}, correction to a ${kindText[x.requested].toLowerCase()} on ${formatDate(x.workDate)}`;
+const subjectOf = (x: CorrectionApproval) => x.requested === 'FULL_DAY' || x.requested === 'HALF_DAY'
+  ? `${x.employeeName}, correction to a ${askedFor(x).toLowerCase()} on ${formatDate(x.workDate)}`
+  : `${x.employeeName}, ${askedFor(x).toLowerCase()} on ${formatDate(x.workDate)}`;
 
 /** Attendance correction requests from the team: what was asked, why, and what was recorded that day. */
 export default function CorrectionsPanel({ query }: { query: ReturnType<typeof useCorrectionApprovals> }) {
@@ -47,7 +46,7 @@ export default function CorrectionsPanel({ query }: { query: ReturnType<typeof u
       noun="correction requests"
       query={query}
       flow={flow}
-      emptyText="Requests from your team to count a day as a full or half day, or to record a missed check-out, will appear here."
+      emptyText="Requests from your team to count a day as a full or half day, or to correct a check-in, check-out or location, will appear here."
       summaryOf={(x) => `${askedFor(x)} on ${formatDate(x.workDate)}, for ${x.employeeName}.`}
     >
       {(items) => (
@@ -73,12 +72,19 @@ export default function CorrectionsPanel({ query }: { query: ReturnType<typeof u
                     <small>{formatDate(x.workDate)}</small>
                     {x.recentLeave && <small className="hr-appr-recent">{recentLeaveText(x.recentLeave)}</small>}
                     {x.weeklyHours && <small className="hr-appr-recent">{weeklyHoursText(x.weeklyHours)}</small>}
+                    {x.monthStats && <MonthStatsLine stats={x.monthStats} />}
                   </td>
                   <td data-label="Recorded that day">
                     <small>
                       {x.day.checkInAt ? `In ${formatTimeIst(x.day.checkInAt)}` : 'No check-in'}
                       {x.day.checkInAt ? (x.day.checkOutAt ? `, out ${formatTimeIst(x.day.checkOutAt)}` : ', no check-out') : ''}
                     </small>
+                    {x.day.checkInDistanceM != null && x.day.checkInDistanceM > 0 && (
+                      <small>Check-in {Math.round(x.day.checkInDistanceM)} m from {x.day.checkInOutletName ?? 'the outlet'}</small>
+                    )}
+                    {x.day.checkOutDistanceM != null && x.day.checkOutDistanceM > 0 && (
+                      <small>Check-out {Math.round(x.day.checkOutDistanceM)} m from {x.day.checkOutOutletName ?? 'the outlet'}</small>
+                    )}
                     {x.day.exceptions.map((e, i) => (
                       <small key={`${e.kind}-${i}`}>{label(attendanceKindLabels, e.kind)}: {e.status.toLowerCase()}</small>
                     ))}

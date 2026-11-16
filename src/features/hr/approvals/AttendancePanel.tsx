@@ -19,6 +19,7 @@ import {
 } from './approvalFormat';
 import { approvalKeys } from './approvalKeys';
 import DecisionButtons from './DecisionButtons';
+import MonthStatsLine from './MonthStatsLine';
 import { useDecisionFlow } from './useDecisionFlow';
 
 export function useAttendanceApprovals() {
@@ -81,6 +82,7 @@ export default function AttendancePanel({ query }: { query: ReturnType<typeof us
                           {graceText(x.grace)}
                         </small>
                       )}
+                      {x.monthStats && x.kind !== 'NO_OUTLET_LOCATION' && <MonthStatsLine stats={x.monthStats} />}
                     </td>
                     <td data-label="Reason given">
                       {x.reason ? <span className="hr-appr-text">{x.reason}</span> : <span className="hr-muted">No reason given</span>}

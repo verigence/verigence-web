@@ -71,7 +71,12 @@ export const correctionLabels: Record<CorrectionStatus, string> = {
   CANCELLED: 'Withdrawn',
 };
 
-export const correctionKindLabels = { FULL_DAY: 'Full day', HALF_DAY: 'Half day', CHECK_OUT: 'Check-out' } as const;
+export const correctionKindLabels = {
+  FULL_DAY: 'Full day',
+  HALF_DAY: 'Half day',
+  CHECK_OUT: 'Check-out',
+  ADJUST: 'Time or location',
+} as const;
 
 /** 510 -> "8 h 30 m"; 0 -> "0 h". */
 export function formatMinutes(minutes: number | null | undefined): string {
@@ -108,22 +113,61 @@ export function dayLabel(day: CalendarDay): string {
   return calendarLabels[day.status] || '';
 }
 
-/** Whether the employee may ask for this day to be corrected (the server has the final say). */
+/** The day already has a waiting correction, or an approved full or half day: nothing more to ask. */
+function settled(day: CalendarDay): boolean {
+  const c = day.correction;
+  if (!c) return false;
+  return c.status === 'PENDING' || c.requested === 'FULL_DAY' || c.requested === 'HALF_DAY';
+}
+
+/** Statuses for which the day can be asked to count as a full or half day. */
+const DAY_COUNT_STATUSES: CalendarStatus[] = ['ABSENT', 'MISSING_CHECK_OUT', 'HALF_DAY'];
+
+/**
+ * Whether the employee may ask for this day to be corrected (the server has the final say). A day
+ * with a check-in can always have its times or location corrected (2026-11-16); an absent, half or
+ * no-check-out day can also be asked to count as a full or half day.
+ */
 export function canRequestCorrection(day: CalendarDay, today: string, absentAfterPassed: boolean): boolean {
-  if (day.dayKind !== 'WORKING' || day.correction) return false;
+  if (day.dayKind !== 'WORKING' || settled(day)) return false;
   if (day.date > today) return false;
   // Product owner (7 Nov 2026): only a day of the current calendar month can be raised.
   if (day.date.slice(0, 7) !== today.slice(0, 7)) return false;
-  // Today: absent once the day has closed, or checked in and not out (a missed check-out can be
-  // asked for at once, 2026-11-10).
-  if (day.date === today) return (absentAfterPassed && day.status === 'ABSENT') || day.status === 'CHECKED_IN';
-  return ['ABSENT', 'MISSING_CHECK_OUT', 'HALF_DAY'].includes(day.status);
+  if (day.checkInAt) return true;
+  // Today without a check-in: only once the day has closed and it is absent.
+  if (day.date === today) return absentAfterPassed && day.status === 'ABSENT';
+  return day.status === 'ABSENT';
 }
 
-/** What the correction dialog opens with: the day, and whether its check-out is missing. */
+/** What the correction dialog opens with: the day and what was recorded on it. */
 export interface CorrectionAsk {
   date: string;
+  /** The day has a check-in and no check-out. */
   missesCheckOut: boolean;
+  checkInAt?: string | null;
+  checkOutAt?: string | null;
+  /** The check-in / check-out location was outside the outlet and not yet corrected. */
+  outOfFenceIn?: boolean;
+  outOfFenceOut?: boolean;
+  /** The day can be asked to count as a full or half day. */
+  canCountDay?: boolean;
+}
+
+function outOfFence(day: CalendarDay, event: 'CHECK_IN' | 'CHECK_OUT'): boolean {
+  return day.exceptions.some((e) => e.kind === 'OUT_OF_FENCE' && e.event === event && e.status !== 'RESOLVED' && e.status !== 'APPROVED');
+}
+
+/** The dialog's starting point for a calendar day. */
+export function correctionAskFor(day: CalendarDay, today: string): CorrectionAsk {
+  return {
+    date: day.date,
+    missesCheckOut: missesCheckOut(day),
+    checkInAt: day.checkInAt,
+    checkOutAt: day.checkOutAt,
+    outOfFenceIn: outOfFence(day, 'CHECK_IN'),
+    outOfFenceOut: outOfFence(day, 'CHECK_OUT'),
+    canCountDay: DAY_COUNT_STATUSES.includes(day.status) && !(day.date === today && day.checkInAt),
+  };
 }
 
 /** A day with a check-in and no check-out: the check-out itself can be asked for. */

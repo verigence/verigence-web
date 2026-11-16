@@ -1,0 +1,221 @@
+/* The notification bell and its panel (2026-11-16): the Carbon header notification panel pattern --
+   an icon button in the top bar, a panel below it with the person's document status and messages. */
+.vg-notify {
+  position: relative;
+  display: inline-flex;
+}
+
+.vg-notify__button {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: #0f2a52;
+  cursor: pointer;
+}
+
+.vg-notify__button:hover,
+.vg-notify__button.is-open {
+  background: #eef3f9;
+  border-color: var(--vg-line, #d8e2ee);
+}
+
+.vg-notify__button:focus-visible {
+  outline: 2px solid #0f62fe;
+  outline-offset: 1px;
+}
+
+.vg-notify__badge {
+  position: absolute;
+  top: 2px;
+  right: 1px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
+  background: #da1e28;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 18px;
+  text-align: center;
+}
+
+.vg-notify__panel {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 1000;
+  width: 400px;
+  max-height: min(640px, calc(100dvh - 96px));
+  overflow-y: auto;
+  border: 1px solid var(--vg-line, #d8e2ee);
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 0 12px 32px rgba(16, 24, 40, .18);
+  color: #161616;
+  text-align: left;
+}
+
+.vg-notify__head {
+  position: sticky;
+  top: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--vg-line, #d8e2ee);
+  background: #fff;
+}
+
+.vg-notify__head h2 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.vg-notify__close {
+  border: 0;
+  background: transparent;
+  font-size: 22px;
+  line-height: 1;
+  color: #525252;
+  cursor: pointer;
+}
+
+.vg-notify__section {
+  padding: 12px 16px;
+  border-bottom: 1px solid #eef1f5;
+}
+
+.vg-notify__section h3 {
+  margin: 0 0 8px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: .32px;
+  text-transform: uppercase;
+  color: #525252;
+}
+
+.vg-notify__tiles {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+  margin: 0 0 10px;
+}
+
+.vg-notify__tiles div {
+  padding: 8px;
+  border-radius: 6px;
+  background: #f4f4f4;
+}
+
+.vg-notify__tiles dt {
+  font-size: 11px;
+  color: #525252;
+}
+
+.vg-notify__tiles dd {
+  margin: 2px 0 0;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.vg-notify__tiles .is-danger {
+  background: #fff1f1;
+  color: #a2191f;
+}
+
+.vg-notify__tiles .is-warning {
+  background: #fcf4d6;
+  color: #8e6a00;
+}
+
+.vg-notify__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.vg-notify__list li + li {
+  border-top: 1px solid #f0f2f5;
+}
+
+.vg-notify__list a,
+.vg-notify__list li > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 4px;
+  color: inherit;
+  text-decoration: none;
+}
+
+.vg-notify__list a:hover {
+  background: #f4f7fb;
+}
+
+.vg-notify__list strong {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.vg-notify__list span {
+  font-size: 13px;
+  color: #393939;
+}
+
+.vg-notify__list small {
+  font-size: 12px;
+  color: #6f6f6f;
+  overflow-wrap: anywhere;
+}
+
+.vg-notify__list .is-new {
+  background: #edf5ff;
+}
+
+.vg-notify__dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-right: 6px;
+  border-radius: 50%;
+  background: #0f62fe;
+  vertical-align: middle;
+}
+
+.vg-notify__more,
+.vg-notify__empty {
+  margin: 0;
+  padding: 6px 4px;
+  font-size: 13px;
+  color: #6f6f6f;
+}
+
+/* Phones only: the panel takes the width of the screen under the top bar. */
+@media (max-width: 899px) {
+  .vg-notify__button {
+    width: 36px;
+    height: 36px;
+  }
+
+  .vg-notify__panel {
+    position: fixed;
+    top: 64px;
+    left: 0;
+    right: 0;
+    width: auto;
+    max-height: calc(100dvh - 64px);
+    border-radius: 0 0 10px 10px;
+  }
+
+  .vg-notify__tiles {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

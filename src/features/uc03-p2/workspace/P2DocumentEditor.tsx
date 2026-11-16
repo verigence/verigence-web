@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
+import { AuditCoreHttpError } from '../../../services/audit-core/client';
 
 import {
   changeP2LineItem,
@@ -91,6 +92,14 @@ export function buildFieldViews(fields: P2DocumentReviewField[], template?: P2Te
     || a.label.localeCompare(b.label));
 }
 
+/** The copy in use when Audit Core answered that the asked-for copy was
+ * replaced (VAC-NF-034, 2026-11-16); undefined for any other outcome. */
+export function replacedCopyOf(error: unknown): string | undefined {
+  if (!(error instanceof AuditCoreHttpError) || error.status !== 404) return undefined;
+  const current = error.problem?.currentDocumentId;
+  return typeof current === 'string' && current ? current : undefined;
+}
+
 export default function P2DocumentEditor({
   tenantId,
   journeyId,
@@ -101,6 +110,7 @@ export default function P2DocumentEditor({
   onClose,
   onReplace,
   onRemove,
+  onReplaced,
   replaceDisabled,
 }: {
   tenantId: string;
@@ -112,6 +122,8 @@ export default function P2DocumentEditor({
   onClose: () => void;
   onReplace: (documentId: string) => void;
   onRemove: (documentId: string) => void;
+  /** The link named a copy that was replaced (pages read again as one document): open the copy in use. */
+  onReplaced?: (currentDocumentId: string) => void;
   /** Uploads are paused for maintenance: a new scan cannot be sent. */
   replaceDisabled?: boolean;
 }) {
@@ -131,6 +143,16 @@ export default function P2DocumentEditor({
     queryFn: () => getP2DocumentReview(tenantId, journeyId, documentId, accessToken),
     staleTime: 5_000,
   });
+  // A task or bookmark naming a page copy that was later read again with the
+  // pages around it: Audit Core answers VAC-NF-034 with the copy in use, and
+  // that copy opens instead of "Document was not found" (2026-11-16).
+  const replacedBy = replacedCopyOf(review.error);
+  const followed = useRef(false);
+  useEffect(() => {
+    if (!replacedBy || replacedBy === documentId || !onReplaced || followed.current) return;
+    followed.current = true;
+    onReplaced(replacedBy);
+  }, [documentId, onReplaced, replacedBy]);
   const content = useQuery({
     queryKey: ['p2-document-content', tenantId, journeyId, documentId],
     queryFn: () => getP2DocumentContent(tenantId, journeyId, documentId, accessToken),
@@ -275,7 +297,8 @@ export default function P2DocumentEditor({
         </div>
       </header>
 
-      {review.isError ? <div className="p2w-alert p2w-alert--error">This document could not be loaded. {review.error instanceof Error ? review.error.message : ''}</div> : null}
+      {review.isError && replacedBy && onReplaced ? <div className="p2w-alert" role="status">This copy was replaced by a newer reading of the same document. Opening the current copy…</div> : null}
+      {review.isError && !(replacedBy && onReplaced) ? <div className="p2w-alert p2w-alert--error">This document could not be loaded. {review.error instanceof Error ? review.error.message : ''}</div> : null}
       {document?.diReadError ? <div className="p2w-alert">Field locations are temporarily unavailable; values can still be reviewed.</div> : null}
       {notice ? <div className={`p2w-alert p2w-alert--${notice.tone}`} role="status">{notice.text}</div> : null}
 

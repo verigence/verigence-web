@@ -221,3 +221,22 @@ export async function hardDeleteGlobalUser(
   );
   return readResponse<UserHardDeleteResponse>(response);
 }
+
+/** Change a user's name (SuperAdmin, 2026-11-16): Security's record, then the Clerk profile. */
+export async function renameGlobalUser(
+  accessToken: string,
+  userId: string,
+  firstName: string,
+  lastName: string,
+  reason?: string,
+): Promise<GlobalUserDirectoryItem & { clerkSynced?: boolean | null }> {
+  const response = await fetch(
+    endpoint(`/security/v1/platform/users/${encodeURIComponent(userId)}/name`),
+    {
+      method: 'PATCH',
+      headers: authHeaders(accessToken, true),
+      body: JSON.stringify({ firstName: firstName.trim(), lastName: lastName.trim(), reason: reason?.trim() || undefined }),
+    },
+  );
+  return readResponse<GlobalUserDirectoryItem & { clerkSynced?: boolean | null }>(response);
+}

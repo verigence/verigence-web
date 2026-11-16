@@ -17,6 +17,8 @@ export interface AuditCoreProblem {
   detail?: string;
   status?: number;
   correlationId?: string;
+  /** VAC-NF-034: the link named a replaced copy of a document; this is the copy in use. */
+  currentDocumentId?: string;
 }
 
 function supportMessage(message: string, errorCode: string, correlationId?: string): string {

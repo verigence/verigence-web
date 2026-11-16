@@ -786,6 +786,7 @@ function WorkspaceScreen({ carry, onCreated, onStartNext, onCarryTaken }: Worksp
               onClose={closeDocument}
               onReplace={(id) => { if (uploadsPaused) return; setReplaceTarget(id); replaceInput.current?.click(); }}
               onRemove={(id) => setRemoveTarget(id)}
+              onReplaced={(id) => navigate(`/p2/journeys/${journeyId}/documents/${id}${search.toString() ? `?${search.toString()}` : ''}`, { replace: true })}
               replaceDisabled={uploadsPaused}
             />
           ) : (

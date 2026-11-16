@@ -11,6 +11,7 @@ import type { OperationalOutletScope } from '../services/audit-core/uc03';
 import { getP2Tasks } from '../services/audit-core/uc03P2';
 import { getTmTasks } from '../services/audit-core/taskManager';
 import ActivityTracker from '../features/task-manager/ActivityTracker';
+import AttendanceTrackingSync from '../features/location-tracking/AttendanceTrackingSync';
 import TenantAlertBanner from '../features/tenant-alerts/TenantAlertBanner';
 import NotificationBell from '../features/notifications/NotificationBell';
 import BulkUploadBanner from '../features/uc03-p2/bulk/BulkUploadBanner';
@@ -850,6 +851,8 @@ export default function AppShell({ children }: PropsWithChildren) {
     <div className={`enterprise-shell enterprise-shell--approved-nav${mobileMenuOpen ? ' enterprise-shell--menu-open' : ''}`}>
       <button type="button" className="enterprise-mobile-backdrop" aria-label="Close navigation" onClick={() => setMobileMenuOpen(false)} />
       <ActivityTracker />
+      {/* The phone's location from check-in to check-out (Android app, 2026-11-16). */}
+      <AttendanceTrackingSync />
       {/* Project-wide alerts for every role (2026-10-31): the same file uploaded again. */}
       <TenantAlertBanner />
       <BulkUploadBanner />

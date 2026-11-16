@@ -147,6 +147,34 @@
   overflow-wrap: anywhere;
 }
 
+/* A PC with no usable check on the day, and why (2026-11-16). */
+.lc-person--issue {
+  border-left: 4px solid var(--vg-text-muted, #6e879b);
+}
+
+.lc-person--away.lc-person--issue {
+  border-left-color: var(--vg-warning, #93370d);
+}
+
+.lc-person__head:disabled {
+  cursor: default;
+}
+
+.lc-person__coverage,
+.lc-person__issue {
+  grid-column: 1 / -1;
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.lc-person__coverage {
+  color: var(--vg-text-muted, #6e879b);
+}
+
+.lc-person__issue {
+  color: var(--vg-warning, #93370d);
+}
+
 .lc-items {
   margin: 0;
   padding: 0 14px 12px;

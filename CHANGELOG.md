@@ -13,6 +13,9 @@ The app's build number is added by the release workflow and is not written here.
 ## [Unreleased]
 
 ### Added
+- **Location recorded from check-in to check-out (Android app)**: after you check in on the phone, Verigence records your location every 20 minutes until you check out (at the latest 19:30), even when the app is in the background or closed. Android shows a notification while it runs. With no network the readings are kept on the phone and sent later. My attendance shows whether recording is on, and asks for "Allow all the time" and to keep Verigence running on battery saver.
+- **Location checks – every PC listed**: the day's location log lists every PC of the Project, checked or not. One with no usable check says why: not on DealGuard, no check came in, a computer without GPS, location switched off, or a gap in the phone's recording. The away report lists people whose checks cannot place them.
+- **Location checks – missed and offline checks**: a check missed while DealGuard was hidden is taken when DealGuard is next open in that hour, and a check made with no network is sent later with the time it was taken.
 - **My HR – My Requests** (new page): raise a leave request or an attendance correction from one place, and see where every leave and attendance request stands. Attendance has a **My Requests** section with a link to it.
 - **Attendance correction – time or location**: for a day you checked in, ask for the check-in time to be earlier, the check-out time to be later (or recorded if you forgot), or for your check-in or check-out location to count as at your outlet when it was shown outside. Once approved the day is updated; the times first recorded are kept with the request.
 - **Attendance – this month**: your late check-ins and how late in all, early check-outs and how early, and your average hours a day against the 9 expected. Approvers see the same with every attendance request.

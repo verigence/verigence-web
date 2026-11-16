@@ -4,6 +4,7 @@ import { formatDistance, locationChecksPath } from '../../services/audit-core/lo
 import {
   awayMessage,
   currentPlan,
+  missedSlots,
   hourKey,
   inCheckWindow,
   istHourStart,
@@ -67,10 +68,12 @@ describe('random plan for an hour', () => {
     expect(planHour(ist(20, 15)).slots).toEqual([]);
   });
 
-  it('skips moments already past when the plan is made, and reuses the stored plan in the hour', () => {
-    // 3 moments at 11:06, 11:30 and 11:54; opened at 11:40.
+  it('keeps moments already past when the plan is made, as missed, and reuses the stored plan in the hour', () => {
+    // 3 moments at 11:06, 11:30 and 11:54; opened at 11:40: 11:06 and 11:30 are missed.
     const fresh = currentPlan(null, ist(11, 40), sequence(0.99, 0.1, 0.5, 0.9));
-    expect(fresh.slots).toEqual([ist(11, 54)]);
+    expect(fresh.slots).toEqual([ist(11, 6), ist(11, 30), ist(11, 54)]);
+    expect(missedSlots(fresh, ist(11, 40))).toEqual([ist(11, 6), ist(11, 30)]);
+    expect(nextSlot(fresh, ist(11, 40))).toBe(ist(11, 54));
     const stored = { hour: '2026-11-05T11', slots: [ist(11, 50)], done: [] };
     expect(currentPlan(stored, ist(11, 45))).toBe(stored);
     expect(currentPlan(stored, ist(12, 1)).hour).toBe('2026-11-05T12');
@@ -81,8 +84,18 @@ describe('random plan for an hour', () => {
     expect(nextSlot(plan, ist(11, 5))).toBe(ist(11, 40));
     expect(slotIsDue(plan, ist(11, 10), ist(11, 10))).toBe(false); // already done in another tab
     expect(slotIsDue(plan, ist(11, 40), ist(11, 40, 5))).toBe(true);
-    expect(slotIsDue(plan, ist(11, 40), ist(11, 45))).toBe(false); // woke too late: skipped
+    // Woke late (the screen was off): still this hour, so caught up.
+    expect(slotIsDue(plan, ist(11, 40), ist(11, 55))).toBe(true);
+    // The next hour: that moment is gone.
+    expect(slotIsDue(plan, ist(11, 40), ist(12, 2))).toBe(false);
     expect(nextWake(plan, ist(11, 41, 30))).toBe(ist(12));
+  });
+
+  it('catches up only moments of this hour inside the window', () => {
+    const plan = { hour: '2026-11-05T19', slots: [ist(19, 10), ist(19, 25)], done: [ist(19, 10)] };
+    expect(missedSlots(plan, ist(19, 50))).toEqual([ist(19, 25)]);
+    expect(missedSlots(plan, ist(19, 20))).toEqual([]);
+    expect(missedSlots({ ...plan, done: [ist(19, 10), ist(19, 25)] }, ist(19, 50))).toEqual([]);
   });
 
   it('reads stored plans defensively', () => {

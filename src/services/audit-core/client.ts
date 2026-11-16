@@ -79,6 +79,13 @@ class AuditCoreNetworkError extends Error {
   }
 }
 
+/** Where Audit Core is reached from this app (the proxy in the native app), without a trailing slash. */
+export function auditCoreBaseUrl(): string {
+  const selectedBaseUrl = configuredProxyBaseUrl || configuredBaseUrl;
+  if (!selectedBaseUrl) throw new Error('Audit Core base URL is not configured.');
+  return selectedBaseUrl.replace(/\/$/, '');
+}
+
 function requestUrl(path: string): string {
   const selectedBaseUrl = configuredProxyBaseUrl || configuredBaseUrl;
   if (!selectedBaseUrl) {

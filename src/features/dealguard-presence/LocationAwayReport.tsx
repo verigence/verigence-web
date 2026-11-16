@@ -7,6 +7,7 @@ import SectionCard from '../../components/SectionCard';
 import {
   formatDistance,
   getLocationAway,
+  ISSUE_LABELS,
   type AwayInstance,
   type AwayReport,
 } from '../../services/audit-core/locationChecks';
@@ -171,6 +172,33 @@ export default function LocationAwayReport({ mode, tenantId, accessToken }: {
                       {dateLabel(p.last.date)}, {p.last.time}
                       <small>{roughKm(p.last.distanceKm)} from {p.last.outletName || 'the nearest outlet'}</small>
                     </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </SectionCard>
+      ) : null}
+
+      {data?.unplaced?.length ? (
+        <SectionCard>
+          <h3 className="la-heading">Can&apos;t be placed</h3>
+          <p className="p2w-muted">
+            Most of these people&apos;s checks could not place them, so they can never show as away whatever their real
+            position. Ask them to switch location on, or to use the phone app.
+          </p>
+          <div className="uc01-admin-table-wrap">
+            <table className="uc01-admin-table la-table">
+              <thead>
+                <tr><th scope="col">Person</th><th scope="col" className="la-num">Checks</th><th scope="col" className="la-num">Unusable</th><th scope="col">Why</th></tr>
+              </thead>
+              <tbody>
+                {data.unplaced.map((p) => (
+                  <tr key={p.actorId}>
+                    <td data-label="Person"><strong>{p.name || p.actorId}</strong></td>
+                    <td data-label="Checks" className="la-num">{p.checks}</td>
+                    <td data-label="Unusable" className="la-num">{p.unclear + p.noLocation}</td>
+                    <td data-label="Why">{ISSUE_LABELS[p.issue] ?? p.issue}</td>
                   </tr>
                 ))}
               </tbody>

@@ -9,7 +9,9 @@ import {
   type AttendanceToday,
 } from '../../../services/hr/attendance';
 import { hrErrorMessage } from '../../../services/hr/client';
+import { useProjectContextStore } from '../../../store/projectContextStore';
 import { useSessionStore } from '../../../store/sessionStore';
+import { beginTracking, endTracking } from '../../location-tracking/attendanceTracking';
 import DialogShell from './DialogShell';
 import { attendanceKeys, useObjectUrl } from './attendanceQueries';
 import {
@@ -216,6 +218,9 @@ export default function CaptureDialog({ event, today, clockSkewMs, onClose }: Pr
         reason: reason.trim() || undefined,
       });
       refresh.current = true; // today and the month are re-read once, when this window closes
+      // The phone records the location from check-in to check-out (Android app, 2026-11-16).
+      if (event === 'CHECK_IN') void beginTracking(accessToken, useProjectContextStore.getState().selectedProject?.tenantId);
+      else void endTracking(accessToken);
       if (alive.current) {
         setResult(saved);
         setStep('done');

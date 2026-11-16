@@ -28,12 +28,18 @@ export type LocationCheckCommand = {
   source: 'NATIVE' | 'BROWSER';
   deviceType?: LocationDeviceType;
   detail?: string;
+  /** The device's own id for the reading: a resend is logged once (2026-11-16). */
+  clientCheckId?: string;
+  /** Kept on the device with no network and sent later: judged at capturedAt. */
+  queued?: boolean;
 };
 
 export type LocationCheckResult = {
   recorded: boolean;
-  /** Why nothing was recorded: OUTSIDE_HOURS or HOURLY_LIMIT. */
+  /** Why nothing was recorded: OUTSIDE_HOURS, HOURLY_LIMIT or TOO_OLD. */
   reason?: string | null;
+  /** The same reading was logged before. */
+  duplicate?: boolean;
   checkId?: string | null;
   status?: LocationCheckStatus | null;
   distanceM?: number | null;
@@ -57,7 +63,15 @@ export type LocationCheckItem = {
   outletName?: string | null;
   source: 'NATIVE' | 'BROWSER';
   deviceType?: LocationDeviceType | null;
+  /** BACKGROUND: the phone's recording between check-in and check-out (2026-11-16). Absent from older services. */
+  trigger?: 'FOREGROUND' | 'BACKGROUND';
+  /** Kept on the device with no network and sent later. */
+  queued?: boolean;
+  receivedAtUtc?: string | null;
 };
+
+/** Why a person has no usable check on the day (2026-11-16). */
+export type LocationIssue = 'NOT_ON_DEALGUARD' | 'NO_CHECK_RECEIVED' | 'DESKTOP_NO_GPS' | 'LOCATION_OFF' | 'TRACKING_GAP';
 
 export type LocationCheckPerson = {
   actorId: string;
@@ -65,8 +79,19 @@ export type LocationCheckPerson = {
   checks: number;
   away: number;
   counts: Record<LocationCheckStatus, number>;
-  last: LocationCheckItem;
+  /** Null for a PC with no check on the day. */
+  last: LocationCheckItem | null;
   items: LocationCheckItem[];
+  isPc?: boolean;
+  /** Clock hours with a check, and hours (10:00–19:30) the person used DealGuard. */
+  hoursChecked?: number;
+  hoursOnDealGuard?: number;
+  hoursMissed?: number;
+  /** The phone recorded the location in the background. */
+  background?: boolean;
+  lastBackgroundAtUtc?: string | null;
+  longestGapMinutes?: number | null;
+  issue?: LocationIssue | null;
 };
 
 export type LocationCheckLog = {
@@ -76,8 +101,35 @@ export type LocationCheckLog = {
   radiusM: number;
   accuracyLimitM: number;
   window: { from: string; to: string };
-  totals: { pcs: number; checks: number } & Record<LocationCheckStatus, number>;
+  totals: { pcs: number; checks: number } & Record<LocationCheckStatus, number> & {
+    pcsInProject?: number;
+    pcsChecked?: number;
+    notChecked?: number;
+    withIssue?: number;
+    background?: number;
+    queued?: number;
+  };
+  trackingIntervalMinutes?: number;
   people: LocationCheckPerson[];
+};
+
+/** Why a person shows no usable check, in words (2026-11-16). */
+export const ISSUE_LABELS: Record<LocationIssue, string> = {
+  NOT_ON_DEALGUARD: 'Not on DealGuard 10:00–19:30, and no phone recording',
+  NO_CHECK_RECEIVED: 'On DealGuard, but no check came in (an older app, or the screen was hidden at every check)',
+  DESKTOP_NO_GPS: 'Most readings could not place them: a computer without GPS',
+  LOCATION_OFF: 'Most checks came back with no location: location permission off or switched off',
+  TRACKING_GAP: 'The phone recording went quiet for an hour or more',
+};
+
+/** Someone whose checks mostly could not place them over the range: never shown as away. */
+export type UnplacedPerson = {
+  actorId: string;
+  name?: string | null;
+  checks: number;
+  issue: 'DESKTOP_NO_GPS' | 'LOCATION_OFF';
+  unclear: number;
+  noLocation: number;
 };
 
 export function postLocationCheck(tenantId: string, command: LocationCheckCommand, accessToken?: string) {
@@ -149,6 +201,8 @@ export type AwayReport = {
   instances: AwayInstance[];
   /** More instances than the list carries (the summaries still count them all). */
   truncated: boolean;
+  /** Absent from services before 16 Nov 2026. */
+  unplaced?: UnplacedPerson[];
 };
 
 export function locationAwayPath(

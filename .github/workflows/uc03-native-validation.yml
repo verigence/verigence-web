@@ -11,6 +11,7 @@ on:
       - 'capacitor.config.ts'
       - 'package.json'
       - 'scripts/configure-native.mjs'
+      - 'native/**'
       - 'scripts/finalize-native-branding.mjs'
       - 'scripts/stabilize-native-branding.mjs'
       - 'src/**'

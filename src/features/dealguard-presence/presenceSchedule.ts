@@ -4,9 +4,13 @@
  * rules can be tested without timers or a device.
  *
  * - Checks: 1 to 3 random moments in each clock hour, only between 10:00 and
- *   19:30 IST. A moment already past when the hour's plan is made is skipped.
- *   The plan for an hour is kept in this browser's storage, so every open tab
- *   of DealGuard shares it and a moment is checked once.
+ *   19:30 IST. The plan for an hour is kept in this browser's storage, so every
+ *   open tab of DealGuard shares it and a moment is checked once.
+ * - Catch-up (product owner, 2026-11-16: "why i didnt see the location check for
+ *   all the PC"): a moment that passed while DealGuard was hidden (another tab,
+ *   the phone screen off) is checked as soon as DealGuard is visible again in
+ *   the same hour. Several missed moments make one check, so anyone who uses
+ *   DealGuard in an hour of the window is checked at least once in it.
  * - Late note: a PC opening DealGuard after 21:00 IST is told, once an evening
  *   on this device, that it is getting late.
  */
@@ -18,8 +22,8 @@ export const CHECK_WINDOW_START_MINUTE = 10 * 60; // 10:00 IST
 export const CHECK_WINDOW_END_MINUTE = 19 * 60 + 30; // 19:30 IST
 export const MIN_CHECKS_PER_HOUR = 1;
 export const MAX_CHECKS_PER_HOUR = 3;
-/** A timer that wakes this much after its moment (a sleeping phone) no longer counts as that moment. */
-export const LATE_FIRE_TOLERANCE_MS = 60_000;
+/** Wait this long after DealGuard becomes visible before a catch-up check, so the screen has settled. */
+export const CATCH_UP_DELAY_MS = 3_000;
 
 export const LATE_EVENING_START_MINUTE = 21 * 60; // 21:00 IST
 /** After midnight is still the same late evening, until 05:00. */
@@ -89,22 +93,31 @@ export function parsePlan(raw: string | null | undefined): HourPlan | null {
   }
 }
 
-/** The stored plan when it is this hour's, else a new one for this hour without the moments already past. */
+/**
+ * The stored plan when it is this hour's, else a new one for this hour. Moments of
+ * the new plan already past are kept: they are missed, and the first look at
+ * DealGuard catches them up with one check.
+ */
 export function currentPlan(stored: HourPlan | null, now: number, random: () => number = Math.random): HourPlan {
   if (stored && stored.hour === hourKey(now)) return stored;
-  const plan = planHour(now, random);
-  return { ...plan, slots: plan.slots.filter((slot) => slot > now) };
+  return planHour(now, random);
 }
 
-/** The next moment still to be checked (not done, not already past), or undefined. */
+/** The next moment still ahead, not yet checked, or undefined. */
 export function nextSlot(plan: HourPlan, now: number): number | undefined {
-  return plan.slots.find((slot) => !plan.done.includes(slot) && slot + LATE_FIRE_TOLERANCE_MS > now);
+  return plan.slots.find((slot) => !plan.done.includes(slot) && slot > now);
 }
 
-/** Whether ``slot`` is to be checked now: it is due and no tab has checked it. */
+/** Moments of this hour already past and not checked by any tab (in the window). */
+export function missedSlots(plan: HourPlan, now: number): number[] {
+  const hourStart = istHourStart(now);
+  return plan.slots.filter((slot) => !plan.done.includes(slot) && slot <= now && slot >= hourStart
+    && inCheckWindow(slot));
+}
+
+/** Whether ``slot`` is to be checked now: it has come, it is in this hour, and no tab has checked it. */
 export function slotIsDue(plan: HourPlan, slot: number, now: number): boolean {
-  return plan.slots.includes(slot) && !plan.done.includes(slot)
-    && now >= slot && now - slot <= LATE_FIRE_TOLERANCE_MS && inCheckWindow(slot);
+  return plan.slots.includes(slot) && missedSlots(plan, now).includes(slot);
 }
 
 /** When to wake next: the next moment of this hour, else the start of the next hour. */

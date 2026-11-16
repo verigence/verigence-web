@@ -3,18 +3,23 @@ import { Capacitor } from '@capacitor/core';
 
 import '../../styles/dealguard-presence.css';
 import { getCurrentLocation } from '../../services/device/location';
+import { AuditCoreHttpError } from '../../services/audit-core/client';
 import {
   formatDistance,
   postLocationCheck,
   type LocationCheckCommand,
 } from '../../services/audit-core/locationChecks';
+import { trackerStatus } from '../../services/device/backgroundLocation';
 import { useProjectContextStore } from '../../store/projectContextStore';
 import { useSessionStore } from '../../store/sessionStore';
 import { activitySource } from '../task-manager/activityTally';
+import { QUEUE_KEY, addToQueue, newClientCheckId, parseQueue, pruneQueue, type QueuedCheck } from './offlineQueue';
 import {
+  CATCH_UP_DELAY_MS,
   awayMessage,
   currentPlan,
   lateEveningOf,
+  missedSlots,
   nextWake,
   parsePlan,
   shouldShowLateNotice,
@@ -54,7 +59,7 @@ function deviceType(): LocationCheckCommand['deviceType'] {
 /** Read the device's location (native app or browser) and say what happened, ready to send. */
 export async function readLocation(): Promise<LocationCheckCommand> {
   const source: LocationCheckCommand['source'] = Capacitor.isNativePlatform() ? 'NATIVE' : 'BROWSER';
-  const base = { source, deviceType: deviceType(), capturedAt: new Date().toISOString() };
+  const base = { source, deviceType: deviceType(), capturedAt: new Date().toISOString(), clientCheckId: newClientCheckId() };
   let timer: number | undefined;
   try {
     const location = await Promise.race([
@@ -92,6 +97,10 @@ export async function readLocation(): Promise<LocationCheckCommand> {
  *   the screen is visible, the device's location is sent to Audit Core, which
  *   decides whether the PC is at an assigned outlet. When it says AWAY a
  *   friendly note is shown; nothing is asked and work carries on.
+ * - A moment missed while the screen was hidden is checked when DealGuard is
+ *   next visible in that hour; a check that cannot be sent (no network) is kept
+ *   and sent later (2026-11-16). On an Android phone recording the location for
+ *   attendance, the phone's own service does the checks instead.
  * - After 21:00 IST a gentle "It's getting late" note, once an evening on this device.
  */
 export default function DealGuardPresence() {
@@ -119,17 +128,60 @@ export default function DealGuardPresence() {
     let timer: number | undefined;
     let cancelled = false;
 
+    // Checks that could not be sent (no network) go out when it is back (2026-11-16).
+    const readQueue = () => pruneQueue(parseQueue(readStorage(QUEUE_KEY)), Date.now());
+    let flushing = false;
+    const flush = async () => {
+      if (flushing || cancelled) return;
+      flushing = true;
+      try {
+        for (const item of readQueue()) {
+          const { tenantId: itemTenant, ...command } = item;
+          try {
+            await postLocationCheck(itemTenant, { ...command, queued: true }, accessToken);
+          } catch (error) {
+            // Refused for good (no longer a PC, a bad reading): drop it. Unreachable: try later.
+            if (!(error instanceof AuditCoreHttpError) || error.status === 401 || error.status >= 500) return;
+          }
+          writeStorage(QUEUE_KEY, JSON.stringify(readQueue().filter((q) => q.clientCheckId !== item.clientCheckId)));
+        }
+      } finally {
+        flushing = false;
+      }
+    };
+
     const check = async () => {
+      // On a phone recording the location for attendance, its own service does the checks.
+      if ((await trackerStatus()).active) return;
       const command = await readLocation();
       if (cancelled) return;
+      void flush();
       try {
         const result = await postLocationCheck(tenantId, command, accessToken);
         if (!cancelled && result.recorded && result.status === 'AWAY') {
           setAwayNote(awayMessage(formatDistance(result.distanceM), result.outletName));
         }
-      } catch {
-        // A check that could not be sent is simply missed; the PC is never interrupted for it.
+      } catch (error) {
+        // Not sent (no network, a timeout): kept on the device and sent later at the moment it was read.
+        // A check the server answered is never kept; the PC is never interrupted for either.
+        if (!(error instanceof AuditCoreHttpError) && command.capturedAt && command.clientCheckId) {
+          const item: QueuedCheck = { ...command, tenantId, clientCheckId: command.clientCheckId, capturedAt: command.capturedAt };
+          writeStorage(QUEUE_KEY, JSON.stringify(addToQueue(readQueue(), item, Date.now())));
+        }
       }
+    };
+
+    // Every moment of this hour that passed unchecked (the screen was hidden): one check now.
+    const catchUp = () => {
+      const now = Date.now();
+      const plan = loadPlan(now);
+      const missed = missedSlots(plan, now);
+      if (document.visibilityState !== 'visible' || !missed.length) return false;
+      const taken = { ...plan, done: [...plan.done, ...missed] };
+      memoryPlan.current = taken;
+      writeStorage(planKey, JSON.stringify(taken));
+      void check();
+      return true;
     };
 
     const schedule = () => {
@@ -138,6 +190,10 @@ export default function DealGuardPresence() {
       if (cancelled || document.visibilityState !== 'visible') return;
       const now = Date.now();
       const plan = loadPlan(now);
+      if (missedSlots(plan, now).length) {
+        timer = window.setTimeout(() => { catchUp(); schedule(); }, CATCH_UP_DELAY_MS);
+        return;
+      }
       const wake = nextWake(plan, now);
       timer = window.setTimeout(() => fire(wake), Math.min(Math.max(wake - now, 0), MAX_TIMER_MS));
     };
@@ -146,15 +202,13 @@ export default function DealGuardPresence() {
       const now = Date.now();
       // Another tab may have taken this moment: the plan in storage says so.
       const plan = loadPlan(now);
-      if (document.visibilityState === 'visible' && slotIsDue(plan, slot, now)) {
-        const taken = { ...plan, done: [...plan.done, slot] };
-        memoryPlan.current = taken;
-        writeStorage(planKey, JSON.stringify(taken));
-        void check();
-      }
+      if (document.visibilityState === 'visible' && slotIsDue(plan, slot, now)) catchUp();
       schedule();
     };
 
+    const onOnline = () => void flush();
+    window.addEventListener('online', onOnline);
+    void flush();
     const onVisibility = () => schedule();
     document.addEventListener('visibilitychange', onVisibility);
     schedule();
@@ -162,6 +216,7 @@ export default function DealGuardPresence() {
       cancelled = true;
       if (timer !== undefined) window.clearTimeout(timer);
       document.removeEventListener('visibilitychange', onVisibility);
+      window.removeEventListener('online', onOnline);
     };
   }, [isPc, tenantId, accessToken, email]);
 

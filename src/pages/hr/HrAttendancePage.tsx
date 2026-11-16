@@ -21,6 +21,7 @@ import { getMyCalendar } from '../../services/hr/attendanceCalendar';
 import MonthPanel from '../../features/hr/attendance/MonthPanel';
 import MonthSwitcher from '../../features/hr/attendance/MonthSwitcher';
 import TodayCard from '../../features/hr/attendance/TodayCard';
+import TrackingPanel from '../../features/location-tracking/TrackingPanel';
 import { attendanceKeys } from '../../features/hr/attendance/attendanceQueries';
 import { currentMonthIst } from '../../features/hr/attendance/attendanceFormat';
 import { hrKeys, useHrAccess, useLeadsAProject } from '../../features/hr/hrQueries';
@@ -160,6 +161,7 @@ export default function HrAttendancePage() {
             disabled={capturing !== null || today.isFetching || checkingOut}
           />
         )}
+        {data && <TrackingPanel today={data} />}
       </SectionCard>
 
       {notice && (

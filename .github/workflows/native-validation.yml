@@ -10,6 +10,7 @@ on:
       - 'capacitor.config.ts'
       - 'package.json'
       - 'scripts/configure-native.mjs'
+      - 'native/**'
       - 'scripts/finalize-native-branding.mjs'
       - 'src/**'
   workflow_dispatch:

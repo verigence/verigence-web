@@ -15,6 +15,17 @@ const entries = [
   '<uses-permission android:name="android.permission.CAMERA" />',
   '<uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />',
   '<uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />',
+  // The phone's location from check-in to check-out (product owner, 2026-11-16):
+  // a foreground location service that keeps running in the background and after
+  // the app is swiped away, restarted after a reboot; see native/android/.
+  '<uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />',
+  '<uses-permission android:name="android.permission.FOREGROUND_SERVICE" />',
+  '<uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />',
+  '<uses-permission android:name="android.permission.POST_NOTIFICATIONS" />',
+  '<uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />',
+  '<uses-permission android:name="android.permission.WAKE_LOCK" />',
+  '<uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />',
+  '<uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />',
   '<uses-feature android:name="android.hardware.camera" android:required="false" />',
 ];
 
@@ -42,6 +53,26 @@ if (!xml.includes('android:scheme="verigence"')) {
   const mainActivity = /<activity\b[^>]*android:name="\.MainActivity"[\s\S]*?<\/intent-filter>/;
   if (!mainActivity.test(xml)) throw new Error('MainActivity launcher intent-filter not found in the Android manifest');
   xml = xml.replace(mainActivity, (block) => `${block}\n\n            ${appSignInFilter}`);
+}
+
+// The location tracking service and its restart after a reboot (native/android/).
+const trackerComponents = `<service
+            android:name=".LocationTrackerService"
+            android:exported="false"
+            android:foregroundServiceType="location" />
+
+        <receiver
+            android:name=".LocationTrackerBootReceiver"
+            android:exported="true"
+            android:permission="android.permission.RECEIVE_BOOT_COMPLETED">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>`;
+if (!xml.includes('.LocationTrackerService')) {
+  if (!xml.includes('</application>')) throw new Error('</application> not found in the Android manifest');
+  xml = xml.replace('</application>', `    ${trackerComponents}\n    </application>`);
 }
 
 xml = setApplicationAttribute(xml, 'usesCleartextTraffic', 'false');
@@ -292,11 +323,25 @@ public class MainActivity extends BridgeActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         SplashScreen.installSplashScreen(this);
+        // The phone's location tracking (native/android/LocationTrackerPlugin.java).
+        registerPlugin(LocationTrackerPlugin.class);
         super.onCreate(savedInstanceState);
     }
 }
 `;
 fs.writeFileSync(mainActivityPath, patchedMainActivity);
+
+// The location tracking sources live in native/android/ with a package placeholder;
+// they go next to MainActivity in the generated project.
+const nativeSourceDir = path.resolve('native/android');
+const trackerSources = fs.readdirSync(nativeSourceDir).filter((name) => name.endsWith('.java'));
+if (!trackerSources.includes('LocationTrackerPlugin.java')) {
+  throw new Error('native/android/LocationTrackerPlugin.java not found');
+}
+for (const name of trackerSources) {
+  const source = fs.readFileSync(path.join(nativeSourceDir, name), 'utf8').replaceAll('__PACKAGE__', packageMatch[1]);
+  fs.writeFileSync(path.join(path.dirname(mainActivityPath), name), source);
+}
 
 console.log('ANDROID_NATIVE_CONFIGURATION=PASS');
 console.log('ANDROID_BRANDED_LAUNCHER_ICON=PASS');
@@ -304,3 +349,4 @@ console.log('ANDROID_WHITE_LAUNCHER_BACKGROUND=PASS');
 console.log('ANDROID_BRANDED_SPLASH=PASS');
 console.log('ANDROID_WHITE_SYSTEM_SPLASH_BACKGROUND=PASS');
 console.log('ANDROID_SPLASH_SCREEN_INSTALLED=PASS');
+console.log(`ANDROID_LOCATION_TRACKER_INSTALLED=PASS (${trackerSources.length} sources)`);

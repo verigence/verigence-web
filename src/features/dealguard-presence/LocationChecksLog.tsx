@@ -6,6 +6,7 @@ import SectionCard from '../../components/SectionCard';
 import {
   formatDistance,
   getLocationChecks,
+  ISSUE_LABELS,
   STATUS_LABELS,
   type LocationCheckItem,
   type LocationCheckPerson,
@@ -36,23 +37,42 @@ function ItemLine({ item }: { item: LocationCheckItem }) {
       <span className={`lc-status lc-status--${item.status}`}>{STATUS_LABELS[item.status] ?? item.status}</span>
       {where(item) ? <span>{where(item)}</span> : null}
       {item.accuracyM !== null && item.accuracyM !== undefined ? <span>accuracy {formatDistance(item.accuracyM)}</span> : null}
-      <span>{device}</span>
+      <span>{device}{item.trigger === 'BACKGROUND' ? ' · phone recording' : ''}</span>
+      {item.queued ? <span title={item.receivedAtUtc ? `Received ${istTime(item.receivedAtUtc)}` : undefined}>sent later (offline)</span> : null}
     </li>
   );
+}
+
+/** "checked in 4 of 6 hours on DealGuard" and the phone recording, when the service says. */
+export function coverageText(person: LocationCheckPerson): string {
+  const parts: string[] = [];
+  if (person.hoursOnDealGuard !== undefined && person.hoursChecked !== undefined && person.hoursOnDealGuard > 0) {
+    parts.push(`checked in ${Math.min(person.hoursChecked, person.hoursOnDealGuard)} of ${person.hoursOnDealGuard} hour${person.hoursOnDealGuard === 1 ? '' : 's'} on DealGuard`);
+  }
+  if (person.background) {
+    parts.push(person.longestGapMinutes ? `phone recording, longest gap ${person.longestGapMinutes} min` : 'phone recording');
+  }
+  return parts.join(' · ');
 }
 
 function PersonRow({ person }: { person: LocationCheckPerson }) {
   const [open, setOpen] = useState(false);
   const last = person.last;
+  const coverage = coverageText(person);
   return (
-    <li className={`lc-person${person.away ? ' lc-person--away' : ''}`}>
-      <button type="button" className="lc-person__head" aria-expanded={open} onClick={() => setOpen((v) => !v)}>
+    <li className={`lc-person${person.away ? ' lc-person--away' : ''}${person.issue ? ' lc-person--issue' : ''}`}>
+      <button type="button" className="lc-person__head" aria-expanded={open} onClick={() => setOpen((v) => !v)}
+        disabled={!person.checks}>
         <span className="lc-person__name">{person.name || person.actorId}</span>
         <span className="lc-person__counts">{person.checks} check{person.checks === 1 ? '' : 's'} · {person.away} away</span>
-        <span className="lc-person__last">
-          Last: {istTime(last.checkedAtUtc)} · {STATUS_LABELS[last.status] ?? last.status}
-          {where(last) ? ` · ${where(last)}` : ''}
-        </span>
+        {last ? (
+          <span className="lc-person__last">
+            Last: {istTime(last.checkedAtUtc)} · {STATUS_LABELS[last.status] ?? last.status}
+            {where(last) ? ` · ${where(last)}` : ''}
+          </span>
+        ) : null}
+        {coverage ? <span className="lc-person__coverage">{coverage}</span> : null}
+        {person.issue ? <span className="lc-person__issue">{ISSUE_LABELS[person.issue] ?? person.issue}</span> : null}
       </button>
       {open ? (
         person.items.length
@@ -96,19 +116,27 @@ export default function LocationChecksLog({ mode, tenantId, accessToken }: {
         </div>
         {data ? (
           <p className="lc-summary">
-            <span><strong>{data.totals.pcs}</strong> PCs checked</span>
+            {data.totals.pcsInProject !== undefined ? (
+              <span><strong>{data.totals.pcsChecked ?? data.totals.pcs}</strong> of {data.totals.pcsInProject} PCs checked</span>
+            ) : (
+              <span><strong>{data.totals.pcs}</strong> PCs checked</span>
+            )}
             <span><strong>{data.totals.checks}</strong> checks</span>
             <span><strong>{data.totals.AWAY}</strong> away</span>
             <span><strong>{data.totals.AT_OUTLET}</strong> at outlet</span>
             <span><strong>{data.totals.UNCLEAR}</strong> unclear</span>
             <span><strong>{data.totals.DENIED + data.totals.UNAVAILABLE}</strong> no location</span>
+            {data.totals.background ? <span><strong>{data.totals.background}</strong> recorded by phone</span> : null}
+            {data.totals.queued ? <span><strong>{data.totals.queued}</strong> sent later (offline)</span> : null}
           </p>
         ) : null}
         {data ? (
           <p className="p2w-muted">
-            Checked at random 1–3 times an hour, {data.window.from}–{data.window.to} IST, while a PC uses DealGuard.
+            Checked at random 1–3 times an hour, {data.window.from}–{data.window.to} IST, while a PC uses DealGuard,
+            and every {data.trackingIntervalMinutes ?? 20} minutes by the Android app between check-in and check-out.
             Away means more than {formatDistance(data.radiusM)} from their nearest outlet; a reading less accurate
-            than {formatDistance(data.accuracyLimitM)} (usually a computer) is unclear, not away.
+            than {formatDistance(data.accuracyLimitM)} (usually a computer) is unclear, not away. Every PC of the
+            Project is listed; one with no usable check says why.
           </p>
         ) : null}
       </SectionCard>
